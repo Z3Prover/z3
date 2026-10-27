@@ -30,6 +30,13 @@ let q = atom "q"
 let r = atom "r"
 let disj = App or_decl [p; q]
 let np = mk_not_expr p
+let repeated_disj =
+  App { or_decl with domain = [bool_sort; bool_sort; bool_sort] } [p; p; q]
+let repeated_negated_disj =
+  App { or_decl with domain = [bool_sort; bool_sort; bool_sort] } [np; q; np]
+let repeated_false_disj =
+  App { or_decl with domain = [bool_sort; bool_sort; bool_sort; bool_sort] }
+    [false_expr; p; false_expr; mk_not_expr true_expr]
 
 let lemma_unit_literal_consequence ()
   : Lemma (rfact (RUnitRes q (Trusted "clause" disj)
@@ -84,6 +91,24 @@ let lemma_true_axiom_checked ()
       not (checked_consequence "true-axiom" false_expr []) /\
       not (checked_consequence "true-axiom" p []) /\
       not (checked_consequence "true-axiom" true_expr [p]))
+
+let lemma_unit_repeated_complements ()
+  : Lemma (
+      checked_consequence "unit-resolution" q [repeated_disj; np] /\
+      checked_consequence "unit-resolution" q [repeated_negated_disj; p] /\
+      checked_consequence "unit-resolution" p [repeated_false_disj; true_expr] /\
+      checked_consequence "unit-resolution" false_expr [App or_decl [p; p]; np] /\
+      not (checked_consequence "unit-resolution" false_expr [repeated_disj; np]) /\
+      not (checked_consequence "unit-resolution" r [repeated_disj; np]) /\
+      not (checked_consequence "unit-resolution" q [repeated_disj; p]))
+  = assert_norm (
+      checked_consequence "unit-resolution" q [repeated_disj; np] /\
+      checked_consequence "unit-resolution" q [repeated_negated_disj; p] /\
+      checked_consequence "unit-resolution" p [repeated_false_disj; true_expr] /\
+      checked_consequence "unit-resolution" false_expr [App or_decl [p; p]; np] /\
+      not (checked_consequence "unit-resolution" false_expr [repeated_disj; np]) /\
+      not (checked_consequence "unit-resolution" r [repeated_disj; np]) /\
+      not (checked_consequence "unit-resolution" q [repeated_disj; p]))
 
 let lemma_not_or_elimination_preserves_literal_polarity ()
   : Lemma (checked_consequence "not-or-elim" p [mk_not_expr (App or_decl [np; q])] /\

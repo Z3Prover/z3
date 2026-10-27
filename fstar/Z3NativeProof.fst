@@ -44,6 +44,10 @@ let empty_state () : state = {
 let require_some (#a:Type) (message:string) (x:option a) : ML a =
   match x with Some v -> v | None -> N.fail message
 
+let map_prepend (#a:Type) (#b:Type) (f:a -> Tot b) (xs:list a) (tail:list b)
+  : Tot (list b) =
+  L.fold_left (fun acc x -> f x :: acc) tail (L.rev xs)
+
 let rec marshal_sort (st:state) (s:N.native_sort) : ML (sort & state) =
   let id = N.sort_id s in
   match index_get st.sorts id with
@@ -115,7 +119,7 @@ let marshal_declaration (st:state) (d:N.declaration) (args:list expr)
   | Some value -> value, st
   | None ->
     let range, st = marshal_sort st d.range in
-    let dom = L.map get_sort args in
+    let dom = map_prepend get_sort args [] in
     let parameters =
       match d.op, d.numeral with
       | N.Rational, Some (n, den) -> if den > 0 then Some [n; den] else None
@@ -139,13 +143,15 @@ let cached_expression (st:state) (e:N.ast) : ML expr =
   let id = N.ast_id e in
   require_some "Native expression dependency was not marshaled" (index_get st.expressions id)
 
-let rec cached_expressions (st:state) (es:list N.ast) : ML (list expr) =
+let rec cached_expressions_rev (st:state) (es:list N.ast) (acc:list expr) : ML (list expr) =
   match es with
-  | [] -> []
+  | [] -> acc
   | e :: rest ->
     let value = cached_expression st e in
-    let values = cached_expressions st rest in
-    value :: values
+    cached_expressions_rev st rest (value :: acc)
+
+let cached_expressions (st:state) (es:list N.ast) : ML (list expr) =
+  L.rev (cached_expressions_rev st es [])
 
 noeq
 type expression_job =
@@ -167,8 +173,9 @@ let rec marshal_expression_jobs (st:state) (jobs:list expression_job) : ML state
      | Some _ -> marshal_expression_jobs st rest
      | None ->
        let view = N.view_expression e in
-       let children = L.map (fun e -> VisitExpression e) (expression_children view) in
-       marshal_expression_jobs st (children @ (BuildExpression e view :: rest)))
+       let jobs = map_prepend (fun e -> VisitExpression e) (expression_children view)
+                    (BuildExpression e view :: rest) in
+       marshal_expression_jobs st jobs)
   | BuildExpression e view :: rest ->
     let value, st =
       match view with
@@ -191,7 +198,7 @@ let rec marshal_expression_jobs (st:state) (jobs:list expression_job) : ML state
     marshal_expression_jobs st rest
 
 let marshal_expressions (st:state) (es:list N.ast) : ML state =
-  marshal_expression_jobs st (L.map (fun e -> VisitExpression e) es)
+  marshal_expression_jobs st (map_prepend (fun e -> VisitExpression e) es [])
 
 let rec parameter_expressions (ps:list N.parameter_view) : Tot (list N.ast) (decreases ps) =
   match ps with
@@ -285,8 +292,8 @@ let rec marshal_binder_jobs (st:state) (cache:index_tree nat)
      | None ->
        let view = N.view_proof p in
        let children, sorts = binder_dependencies view in
-       let jobs = L.map (fun p -> VisitBinder p) children @
-                  (BuildBinder p view children sorts :: rest) in
+       let jobs = map_prepend (fun p -> VisitBinder p) children
+                    (BuildBinder p view children sorts :: rest) in
        marshal_binder_jobs st cache entries next jobs)
   | BuildBinder p view children sorts :: rest ->
     let st = marshal_expressions st [view.conclusion] in
@@ -394,9 +401,10 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
           marshal_proof_jobs st (VisitClauseTrail p entries conclusion db :: rest)
         | None ->
           let view = N.view_proof p in
-          let children = if binder_rule view.proof_name then []
-                         else L.map (fun p -> VisitProof p) view.premises in
-          marshal_proof_jobs st (children @ (BuildProof p view :: rest))))
+          let jobs = if binder_rule view.proof_name then BuildProof p view :: rest
+                     else map_prepend (fun p -> VisitProof p) view.premises
+                            (BuildProof p view :: rest) in
+          marshal_proof_jobs st jobs))
   | VisitClauseTrail root [] conclusion db :: rest ->
     let st = marshal_expressions st [conclusion] in
     if cached_expression st conclusion <> R.false_expr then

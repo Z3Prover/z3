@@ -205,34 +205,51 @@ let rec lemma_clause_shrink (i:interpretation value) (rho:env value) (c:clause) 
            (fun _ -> ())
            (fun _ -> lemma_clause_shrink i rho c' l))
 
-let rec find_complement (c:clause) (f:literal) : Tot (option literal) (decreases c) =
+let rec remove_complements (c:clause) (f:literal) : Tot clause (decreases c) =
   match c with
-  | [] -> None
-  | l0 :: c' -> if complementary l0 f then Some l0 else find_complement c' f
+  | [] -> []
+  | l0 :: c' ->
+    if complementary l0 f then remove_complements c' f
+    else l0 :: remove_complements c' f
 
 (* Both negation and constant-complement cases are symmetric. *)
 let lemma_complementary_sym (l1 l2:literal)
   : Lemma (complementary l1 l2 == complementary l2 l1)
   = ()
 
-let rec lemma_find_complement_mem (c:clause) (f:literal)
-  : Lemma (requires Some? (find_complement c f))
-          (ensures List.Tot.memP (Some?.v (find_complement c f)) c /\
-                   complementary f (Some?.v (find_complement c f)))
+let rec lemma_remove_complements_wf (i:interpretation value) (rho:env value)
+                                    (c:clause) (f:literal)
+  : Lemma (requires wf_clause i rho c)
+          (ensures wf_clause i rho (remove_complements c f))
+          (decreases c)
+  = match c with
+    | [] -> ()
+    | _ :: c' -> lemma_remove_complements_wf i rho c' f
+
+let rec lemma_remove_complements_sound (i:interpretation value) (rho:env value)
+                                       (c:clause) (f:literal)
+  : Lemma (requires clause_holds i rho c /\ not_sound i /\ true_sound i /\ false_sound i /\
+                    wf_clause i rho c /\ lit_true i rho f)
+          (ensures clause_holds i rho (remove_complements c f))
           (decreases c)
   = match c with
     | [] -> ()
     | l0 :: c' ->
-      if complementary l0 f then lemma_complementary_sym l0 f
-      else lemma_find_complement_mem c' f
+      if complementary l0 f then (
+        lemma_complementary_sym l0 f;
+        lemma_complementary_sound i rho f l0;
+        lemma_remove_complements_sound i rho c' f)
+      else (
+        FStar.Classical.excluded_middle (lit_true i rho l0);
+        FStar.Classical.or_elim #(lit_true i rho l0) #(~ (lit_true i rho l0))
+          #(fun () -> clause_holds i rho (remove_complements c f))
+          (fun _ -> ())
+          (fun _ -> lemma_remove_complements_sound i rho c' f))
 
 let rec unit_resolve (c:clause) (fmls:list literal) : Tot clause (decreases fmls) =
   match fmls with
   | [] -> c
-  | f :: fmls' ->
-    (match find_complement c f with
-     | Some l0 -> unit_resolve (remove_first c l0) fmls'
-     | None -> unit_resolve c fmls')
+  | f :: fmls' -> unit_resolve (remove_complements c f) fmls'
 
 let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
   : Lemma (requires clause_holds i rho c /\ not_sound i /\ true_sound i /\ false_sound i /\
@@ -243,14 +260,9 @@ let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:cla
   = match fmls with
     | [] -> ()
     | f :: fmls' ->
-      (match find_complement c f with
-       | Some l0 ->
-         lemma_find_complement_mem c f;
-         lemma_complementary_sound i rho f l0;
-         lemma_clause_shrink i rho c l0;
-         lemma_remove_first_wf i rho c l0;
-         lemma_unit_resolve_sound i rho (remove_first c l0) fmls'
-       | None -> lemma_unit_resolve_sound i rho c fmls')
+      lemma_remove_complements_sound i rho c f;
+      lemma_remove_complements_wf i rho c f;
+      lemma_unit_resolve_sound i rho (remove_complements c f) fmls'
 
 (* The full `PR_UNIT_RESOLUTION` soundness statement: a true clause,
    resolved against a list of proven-true resolvent facts, remains a

@@ -966,8 +966,27 @@ require the standard forall-elimination law: a true universal closure has
 a true body at every correctly sorted bound-value tuple. This law
 constrains the supplied quantifier operator, not a certificate's validity;
 it is an explicit premise of the document soundness theorem, not an
-additional axiom. Documents without instantiation entries retain their
-quantifier-oracle-independent theorem.
+additional axiom.
+
+Universal block flattening also has a sort-indexed bridge. A premise-free
+`pull-quant` equality may merge two adjacent `forall` blocks with a
+quantifier-free Boolean body. Both sides must be closed and well-sorted,
+the combined declaration-order sorts must be exactly `outer @ inner`,
+and the bodies must be identical, including all de Bruijn indices.
+Either orientation of the equality is supported; permuting binders,
+changing bodies or quantifier kinds, escaping variables, and equality
+lookalikes do not pass this check. The proof splits/combines typed value
+tuples in the reversed scope order and proves pointwise equality of the
+extended environments; it does not rename variables or trust a rule tag.
+Documents containing `PullQuantifier` entries now require `forall_model`,
+the standard equivalence between universal truth and truth at every
+sort-indexed assignment. Introduction is needed here; elimination alone
+does not justify flattening for an arbitrary quantifier oracle. This is
+an explicit semantic premise, not an axiom or an assumed flattening law.
+Documents containing neither instantiation nor pulling entries retain
+their quantifier-oracle-independent theorem. Existential flattening and
+flattening bodies containing further binders remain unsupported by this
+bridge.
 
 The native CLI selects this kernel whenever marshaling finds datatype
 metadata. It never falls back to the legacy checker on this path.
@@ -1108,6 +1127,84 @@ normalization budgets. The abstract quantifier
 semantics still ranges over arity-correct value lists rather than verified
 sort-indexed SMT-LIB domains. NLSAT and other previously unsupported theory
 rules remain partial.
+
+#### Quantifier pushing through normalized Boolean bodies (2026-10-26)
+
+`Z3QuantifierReduce.push_check` retains its forward recognizer and additionally
+reconstructs a pre-push candidate from a conjunction of universal quantifiers
+or a disjunction of existential quantifiers. An exact `push` round trip checks
+the connective, quantifier kinds, binder lists, and sorts; the existing bounded
+equivalence checker then compares the source with this candidate. This covers
+De Morgan bodies and reordered conjuncts/disjuncts without adding semantic
+assumptions or increasing normalization budgets. The existing push and
+equivalence lemmas prove the extended recognizer's unchanged soundness contract.
+
+Native regressions cover both quantifier kinds and reject mixed kinds, changed
+binders or sorts, dropped bodies, and wrong connectives. An interactive
+quantified-arithmetic regression requires certification after explicit `bv`,
+explicit `smt`, and default solving.
+
+#### Quantifier-equivalence proof compilation
+
+The soundness proof for `equivalent` separates Boolean base cases,
+argument-list induction, and a single fuel-induction step. The step receives
+the recursively proved semantic hypothesis; it is not a new model assumption.
+The public soundness statements and executable recognizers are unchanged.
+All helpers are erased lemmas, and verification budgets remain unchanged.
+Fresh-module timing comparisons include the helper proofs, not just the
+smaller recursive wrapper.
+
+#### Unsigned bit-vector self-comparisons
+
+`Z3BvOrder` reduces unsigned strict self-comparisons to false and non-strict
+self-comparisons to true. The existing validated comparison recognizer checks
+operator identity, arity, Boolean result, matching operand/domain sorts, and
+widths from 1 through 4096 before comparing the operands structurally. The
+soundness proof derives reflexivity from the existing unsigned integer
+projection semantics; model assumptions and verification budgets are unchanged.
+Signed division and its internal producer aliases are not covered by this rule.
+
+Native regressions include width boundaries, compound operands, previous
+comparison encodings, wrong targets, distinct operands, and malformed metadata.
+CLI regressions require full certification in batch and interactive modes.
+
+#### Bit-vector concatenation proof compilation
+
+The binary and ternary concatenation model-extension proofs separate
+model-independent retraction of validated AST shapes from semantic transport.
+The shape helpers preserve the recognizer result and closedness; the existing
+value lemmas then prove concatenation under the extended interpretation.
+Public contracts, executable definitions, model assumptions, and verification
+budgets are unchanged. Fresh-module timing comparisons include both erased
+shape helpers as well as the two replacement semantic proofs.
+
+#### Boolean model-extension proof compilation
+
+The Boolean model-extension proof separates literals and negation, n-ary
+connectives, binary connectives, Boolean conditionals, and exclusive-or.
+A model-independent shape lemma preserves Boolean argument typing under
+retraction. The original model-extension contract is unchanged; all new
+helpers are erased proofs, with unchanged executable definitions, model
+assumptions, and verification budgets.
+
+Three fresh-module checks reduced median affected proof work from 4651 ms
+to 4117 ms, including all six helpers and the assembly wrapper. The largest
+replacement declaration took 1382 ms. These are local proof-compilation
+measurements, not whole-build or checker-runtime speedups.
+
+#### Scoped-context proof compilation
+
+Matched reconstruction equations are discharged by a separate reusable
+lemma requiring only matching, value equalities, and reflexive equality in
+the current interpretation. Scoped model-extension assembly uses its
+already-proved reflexivity without unfolding original/extended model
+fields. The original theorem contract, executable definitions, model
+assumptions, and verification options are unchanged.
+
+Three fresh-module checks reduced median affected proof work from 2319 ms
+to 519 ms, including the erased helper and the replacement wrapper. The
+largest replacement declaration took 356 ms. These are local
+proof-compilation measurements, not whole-build or runtime speedups.
 
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
@@ -1722,9 +1819,14 @@ marshaling/checking or guarantee a process-wide memory/time limit.
 declaration, and proof-node counts to stderr, without proof artifacts.
 `checker --version` reports the linked producer version.
 
-`--diagnostics` adds an optional second checking pass and writes typed
-unmet obligations to stderr, without changing stdout, exit status, or the
-default fast path. Each `obligation` TSV row contains the rule, count, first
+The OCaml checker's `--diagnostics` collects typed unmet obligations in the
+checking traversal and writes them to stderr, without changing stdout,
+exit status, or the default fast path. F* proves that the paired result
+equals the ordinary checker's result in both legacy and sorted modes.
+Result agreement and obligation-count checks remain enabled.
+With diagnostics, `check_ms` includes collection and `diagnose_ms` measures
+formatting, rather than a second checking pass.
+Each `obligation` TSV row contains the rule, count, first
 proof-node index, and a bounded sort-aware expression fingerprint; a
 `diagnostic` row records the pending total or the rejection stage. Fingerprint
 keys preserve operator structure, operand sorts, and small exact rationals,

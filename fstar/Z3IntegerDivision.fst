@@ -325,6 +325,21 @@ let lemma_lower_bound (guard body:expr) (i:interpretation value)
     (match eval i a rho, eval i b rho with VInt x, VInt y -> () | _, _ -> ())
   | _ -> ()
 
+(* Finish comparisons only after evaluating their integer operands.  Keeping
+   this bridge separate avoids mixing real-order reasoning with decoding the
+   division checker and evaluating nested arithmetic applications. *)
+let lemma_int_inequality (body a b:expr) (r:A.relation) (x y:int)
+                         (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_operators i nu /\ A.comparison body == Some (r, a, b) /\
+                    eval i a rho == VInt x /\ eval i b rho == VInt y /\
+                    ((r == A.Le /\ x <= y) \/ (r == A.Ge /\ y <= x)))
+          (ensures lit_true i rho body) =
+  assert (nu (VInt x) == of_int x /\ nu (VInt y) == of_int y);
+  if r = A.Le then assert (of_int x <=. of_int y)
+  else assert (of_int y <=. of_int x);
+  Z3LpGomory.lemma_inequality i nu rho body a b r
+
+#push-options "--fuel 2"
 let lemma_upper_bound (guard body:expr) (i:interpretation value)
                       (nu:value -> real) (rho:env value)
   : Lemma (requires E.numeric_model i nu /\ division_model i /\ false_sound i /\
@@ -332,18 +347,25 @@ let lemma_upper_bound (guard body:expr) (i:interpretation value)
           (ensures lit_true i rho body) =
   match A.comparison body with
   | Some (A.Le, r, z) ->
-    Z3LpGomory.lemma_inequality i nu rho body r z A.Le;
     (match parts r true, A.numeral z with
      | Some (a, b), Some (n, d) ->
+       assert (d == 1 /\ A.numeral b == Some (n + 1, 1) /\ positive_guard guard b);
        lemma_positive_guard guard b i nu rho;
        lemma_parts r true a b i rho;
        lemma_numeral z n i nu rho;
        lemma_numeral b (n + 1) i nu rho;
-       (match eval i a rho with VInt x -> () | _ -> ())
+       (match eval i a rho with
+        | VInt x ->
+          assert (eval i b rho == VInt (n + 1));
+          assert (eval i r rho == VInt (x % (n + 1)));
+          assert (x % (n + 1) <= n);
+          lemma_int_inequality body r z A.Le (x % (n + 1)) n i nu rho
+        | _ -> ())
      | _, _ ->
        match r with
        | App add [m; App mul [minus; b]] ->
          let a, _ = Some?.v (parts m true) in
+         assert (parts m true == Some (a, b) /\ positive_guard guard b);
          lemma_positive_guard guard b i nu rho;
          lemma_parts m true a b i rho;
          lemma_numeral minus (-1) i nu rho;
@@ -356,7 +378,8 @@ let lemma_upper_bound (guard body:expr) (i:interpretation value)
          assert (eval i minus rho == VInt (-1));
          lemma_int_binary mul minus b (-1) y true i nu rho;
          lemma_int_binary add m (App mul [minus; b]) (x % y) (-y) false i nu rho;
-         (match eval i a rho, eval i b rho with VInt _, VInt _ -> () | _, _ -> ())
+         assert (eval i r rho == VInt (x % y - y));
+         lemma_int_inequality body r z A.Le (x % y - y) (-1) i nu rho
        | _ -> ())
   | _ -> ()
 
@@ -371,8 +394,6 @@ let lemma_residual_bound (guard body:expr) (i:interpretation value)
     lemma_parts q false a b i rho;
     lemma_numeral minus (-1) i nu rho;
     lemma_numeral z 0 i nu rho;
-    Z3LpGomory.lemma_inequality i nu rho body
-      (App add [a; App mul [minus; App product [b; q]]]) z A.Ge;
     let x = E.integer_value (eval i a rho) in
     let y = E.integer_value (eval i b rho) in
     assert (eval i a rho == VInt x /\ eval i b rho == VInt y);
@@ -383,13 +404,15 @@ let lemma_residual_bound (guard body:expr) (i:interpretation value)
     lemma_int_binary mul minus (App product [b; q]) (-1) (y * (x / y)) true i nu rho;
     lemma_int_binary add a (App mul [minus; App product [b; q]])
       x (-1 * (y * (x / y))) false i nu rho;
-    assert (nu (VInt (x % y)) == of_int (x % y))
+    assert (x - y * (x / y) == x % y /\ 0 <= x % y);
+    assert (eval i (App add [a; App mul [minus; App product [b; q]]]) rho == VInt (x % y));
+    lemma_int_inequality body (App add [a; App mul [minus; App product [b; q]]])
+      z A.Ge (x % y) 0 i nu rho
   | Some (A.Ge, App add [a; App mul [minus; b; q]], z) ->
     lemma_nonzero_guard guard b i nu rho;
     lemma_parts q false a b i rho;
     lemma_numeral minus (-1) i nu rho;
     lemma_numeral z 0 i nu rho;
-    Z3LpGomory.lemma_inequality i nu rho body (App add [a; App mul [minus; b; q]]) z A.Ge;
     let x = E.integer_value (eval i a rho) in
     let y = E.integer_value (eval i b rho) in
     assert (eval i a rho == VInt x /\ eval i b rho == VInt y);
@@ -398,8 +421,12 @@ let lemma_residual_bound (guard body:expr) (i:interpretation value)
     assert (eval i minus rho == VInt (-1));
     lemma_int_product3 mul minus b q (-1) y (x / y) i nu rho;
     lemma_int_binary add a (App mul [minus; b; q]) x (-1 * (y * (x / y))) false i nu rho;
-    assert (nu (VInt (x % y)) == of_int (x % y))
+    assert (x - y * (x / y) == x % y /\ 0 <= x % y);
+    assert (eval i (App add [a; App mul [minus; b; q]]) rho == VInt (x % y));
+    lemma_int_inequality body (App add [a; App mul [minus; b; q]])
+      z A.Ge (x % y) 0 i nu rho
   | _ -> ()
+#pop-options
 
 let lemma_check (e:expr) (i:interpretation value) (rho:env value)
   : Lemma (requires (exists (nu:value -> real). E.numeric_model i nu) /\

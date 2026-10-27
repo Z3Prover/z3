@@ -715,6 +715,10 @@ let quantifier_instantiation (node:U.proof_node) : bool =
     node.premises = [] && Q.check args formula
   | _, _ -> false
 
+let quantifier_flattening (node:U.proof_node) : bool =
+  node.kind = U.PullQuantifier && node.premises = [] &&
+  Q.check_flatten (proposition node.conclusion)
+
 let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : option (U.checked_fact & nat) =
   let conclusion = proposition node.conclusion in
@@ -737,7 +741,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
-      quantifier_instantiation node || lemma_step node ||
+      quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) in
     Some (fact, (if checked then 0 else 1))
@@ -768,6 +772,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
   : Lemma (requires T.truths s bc eq other assertions /\ facts_hold s bc eq other node.premises /\
                     facts_valid s node.premises /\
                     (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
+                    (quantifier_flattening node ==> Q.forall_model s bc other) /\
                     check_node_cached s assertions node == Some (fact, 0))
           (ensures fact_holds s bc eq other fact) =
   lemma_check_node_context s assertions node fact 0;
@@ -781,6 +786,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       | U.QuantifierInstantiation args, U.Holds formula ->
         Q.lemma_check s bc eq other args formula
       | _, _ -> ())
+    else if quantifier_flattening node then
+      Q.lemma_check_flatten s bc eq other conclusion
     else if lemma_step node then (
       match node.premises with
       | [p] ->
@@ -883,12 +890,19 @@ let rec needs_forall_semantics (entries:list P.entry) : Tot bool (decreases entr
   | e :: rest ->
     (match e.P.rule with U.QuantifierInstantiation _ -> true | _ -> needs_forall_semantics rest)
 
+let rec needs_forall_truth (entries:list P.entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> false
+  | e :: rest ->
+    e.P.rule = U.PullQuantifier || needs_forall_truth rest
+
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
                       (assertions:list expr) (cache:I.index_tree U.checked_fact)
                       (next pending:nat) (entries:list P.entry) (result:I.index_tree U.checked_fact)
   : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
                     (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
+                    (needs_forall_truth entries ==> Q.forall_model s bc other) /\
                     check_entries s assertions cache next pending entries == Some (result, 0))
           (ensures cache_sound s bc eq other result)
           (decreases entries) =
@@ -909,7 +923,8 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
                          (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
                          (doc:P.document)
   : Lemma (requires check_document s doc == Some 0 /\
-                    (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other))
+                    (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other) /\
+                    (needs_forall_truth doc.entries ==> Q.forall_model s bc other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let cache, _ = Some?.v (check_entries s doc.assertions I.Empty 0 0 doc.entries) in
@@ -1005,3 +1020,11 @@ let lemma_diagnose_document (schema:S.schema) (doc:P.document)
       (match reason with P.DocumentRejected _ _ _ | P.DocumentChecked _ _ -> ())
     | P.EntriesChecked cache _ _ ->
       (match I.index_find cache doc.root with None -> () | Some _ -> ()))
+
+let check_document_diagnosed (schema:S.schema) (doc:P.document)
+  : result:(option nat & P.document_diagnostic){
+     fst result == check_document schema doc /\
+     diagnostic_result (snd result) == fst result} =
+  lemma_diagnose_document schema doc;
+  let diagnostic = diagnose_document schema doc in
+  diagnostic_result diagnostic, diagnostic

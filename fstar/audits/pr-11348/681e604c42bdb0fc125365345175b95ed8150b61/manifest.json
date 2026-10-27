@@ -1,0 +1,22 @@
+{
+  "pull_request": 11348,
+  "head_sha": "681e604c42bdb0fc125365345175b95ed8150b61",
+  "base_sha": "aa71a62fdffbfede37f7558b52da4d52841e04ea",
+  "path_prefix": "fstar/audits/pr-11348/681e604c42bdb0fc125365345175b95ed8150b61/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40480884127",
+  "files": [
+    {
+      "name": "Z3RlimitAutoCancel.fst",
+      "sha256": "373d75a96d48eec60c8346dd364f357aec24a6dadbed161a3845a38219731d28"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "117baaa160ea74a0d0b1e5e317a1c4bfca8683bd89f3fa3c5721ef2a9c1dd98e"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "888761afe31a7f728c3e022aa42eda814e7e276db105ef09bdd44362af924358"
+    }
+  ]
+}

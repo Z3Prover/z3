@@ -1,6 +1,7 @@
 #include "native.h"
 
 #include <iostream>
+#include <vector>
 
 int main() {
     custard_init_globals();
@@ -19,6 +20,19 @@ int main() {
         return 1;
     auto proof = solver.proof();
     checker::NativeSession session(context);
+    {
+        std::vector<Z3_ast> assertions(100000, falsehood);
+        auto inputs = checker::list<Prims_list__ast_Cons_s>(assertions);
+        auto document = Z3Cherry_marshal(inputs, proof);
+        checker_drop_asts(inputs);
+        bool complete = checker::length<Prims_list__expr_Cons_s>(
+            document.document.assertions) == assertions.size();
+        checker_drop_marshaled(document);
+        if (!complete) {
+            std::cerr << "Cherry wide native assertion marshalling regression failed\n";
+            return 1;
+        }
+    }
     for (auto assertion : {falsehood, truth}) {
         auto inputs = checker::list<Prims_list__ast_Cons_s>({assertion});
         auto document = Z3Cherry_marshal(inputs, proof);

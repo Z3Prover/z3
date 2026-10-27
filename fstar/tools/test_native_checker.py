@@ -229,6 +229,24 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertRegex(result.stderr, r"marshal_ms=\d+\.\d+")
                 self.assertRegex(result.stderr, r"expressions=\d+")
 
+    def test_unsigned_bv_reflexivity_in_both_modes(self):
+        for comparison, negated in (("bvule", True), ("bvuge", True),
+                                    ("bvult", False)):
+            term = f"({comparison} x x)"
+            if negated:
+                term = f"(not {term})"
+            source = f"(declare-const x (_ BitVec 27))(assert {term})"
+            for interactive in (False, True):
+                with self.subTest(comparison=comparison, interactive=interactive):
+                    result = self.run_checker(
+                        source + ("(check-sat)" if interactive else ""),
+                        *(["--interactive"] if interactive else []))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+
     def test_uf_allows_a_user_sort_named_set_in_both_modes(self):
         source = ("(set-logic UF)(declare-sort Set 0)(declare-const x Set)"
                   "(declare-fun p (Set) Bool)(assert (p x))(assert (not (p x)))")
@@ -245,6 +263,30 @@ class DirectCheckerTests(unittest.TestCase):
             "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
+
+    def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
+        source = (
+            "(declare-fun a () Real)"
+            "(assert (< (/ 1 0 a) 1))"
+            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))"
+            "(assert (forall ((c Real)) (forall ((d Real)) (forall ((e Real))"
+            "  (>= (* e c) 2 (* d (/ 1 c) (/ 0 c)))))))")
+        for solver in (2, 6):
+            for interactive in (False, True):
+                with self.subTest(solver=solver, interactive=interactive):
+                    text = f"(set-option :smt.arith.solver {solver})" + source
+                    args = ["--diagnostics", "--timeout-ms", "10000"]
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertRegex(result.stdout,
+                                         r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
+                    else:
+                        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+                    self.assertNotIn("stage=open-root", result.stderr)
 
     def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
         for source in (
@@ -351,6 +393,33 @@ class DirectCheckerTests(unittest.TestCase):
                 if source.startswith("(assert (not (forall"):
                     self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
 
+    def test_quantified_arithmetic_avoids_asserted_false_proofs(self):
+        source = ("(assert (forall ((a Real)) (exists ((b Real))"
+                  " (and (>= (+ a b) 0.0) (<= b 0.0)))))")
+        direct = self.run_checker(source, "--diagnostics")
+        self.assertIn(direct.returncode, (0, 3), direct.stdout + direct.stderr)
+        self.assertRegex(direct.stdout.strip(), r"^(ACCEPT|PARTIAL [1-9][0-9]*)$")
+        self.assertIn("diagnostic\tchecked\tpending=", direct.stderr)
+        interactive = self.run_checker(
+            source + "(check-sat-using smt)(check-sat)", "--interactive", "--diagnostics")
+        self.assertIn(interactive.returncode, (0, 3), interactive.stdout + interactive.stderr)
+        self.assertEqual(interactive.stdout.splitlines().count("unsat"), 2)
+        self.assertEqual(interactive.stdout.count("; proof-check "), 2)
+        self.assertIn("; proof-check ACCEPT", interactive.stdout)
+        self.assertNotIn("; proof-check REJECT", interactive.stdout)
+
+    def test_qsat_refuses_unsupported_proof_production(self):
+        result = self.run_checker(
+            "(assert (forall ((a Real)) (exists ((b Real))"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))"
+            "(check-sat-using qsat)(get-info :reason-unknown)",
+            "--interactive")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.splitlines()[0], "unknown")
+        self.assertIn("qsat does not support proof production", result.stdout + result.stderr)
+        self.assertNotIn("; proof-check ", result.stdout)
+        self.assertNotIn("unsat", result.stdout.splitlines())
+
     def test_uncertified_nonlinear_arithmetic_remains_partial(self):
         result = self.run_checker(
             "(declare-const x Real)"
@@ -380,6 +449,17 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(interactive.returncode, 0,
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+
+    def test_quantifier_push_through_demorgan_body(self):
+        result = self.run_checker(
+            "(assert (forall ((a Real)) (exists ((b Real))"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))"
+            "(check-sat-using bv)(check-sat-using smt)(check-sat)",
+            "--interactive", "--diagnostics")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.splitlines().count("unsat"), 3)
+        self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 3)
+        self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
@@ -566,6 +646,32 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 2)
         self.assertIn("(A B)", result.stdout)
+
+    def test_interactive_redundant_global_declarations_options(self):
+        for option in ("global-decls", "global-declarations"):
+            with self.subTest(option=option):
+                result = self.run_checker(
+                    f"(set-option :{option} false)"
+                    "(declare-const p Bool)"
+                    f"(set-option :{option} false)"
+                    "(assert p)(assert (not p))(check-sat)(reset)"
+                    f"(set-option :{option} false)"
+                    "(assert false)(check-sat)",
+                    "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 2)
+                self.assertNotIn("(error", result.stdout)
+
+    def test_interactive_global_declarations_changes_preserve_scope(self):
+        result = self.run_checker(
+            "(declare-const p Bool)(set-option :global-decls true)"
+            "(push)(declare-const q Bool)(pop)(assert q)"
+            "(assert false)(check-sat)",
+            "--interactive")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("cannot be modified after initialization", result.stdout)
+        self.assertIn("unknown constant q", result.stdout)
+        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
 
     def test_interactive_partial_is_not_a_certificate(self):
         result = self.run_checker(

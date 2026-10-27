@@ -207,6 +207,17 @@ let view_datatypes roots =
         nested_datatype (Z3native.get_array_sort_range c s)
     | _ -> false
   in
+  let rec check_field s =
+    let c = ctx s in
+    match Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) with
+    | Z3enums.SEQ_SORT ->
+        if nested_datatype s then fail "Nested datatype sequence fields are not supported"
+    | Z3enums.ARRAY_SORT ->
+        List.iter (fun index -> check_field (Z3native.get_array_sort_domain_n c s index))
+          (List.init (Z3native.get_array_arity c s) Fun.id);
+        check_field (Z3native.get_array_sort_range c s)
+    | _ -> ()
+  in
   let rec visit sorts cases = function
     | [] -> { S.sorts = List.rev sorts; cases = List.rev cases }
     | s :: rest when Hashtbl.mem seen (sort_id s) -> visit sorts cases rest
@@ -226,6 +237,7 @@ let view_datatypes roots =
                     declaration c (Z3native.get_datatype_sort_constructor_accessor c s index field)) },
                 List.init arity (Z3native.get_domain c constructor))
                 |> List.split in
+            List.iter (List.iter check_field) fields;
             visit (logical_sort s :: sorts) (List.rev_append cases' cases)
               (List.concat fields @ rest)
         | Z3enums.ARRAY_SORT ->
@@ -233,8 +245,7 @@ let view_datatypes roots =
                 (Z3native.get_array_sort_domain_n c s) in
             visit sorts cases (domains @ (Z3native.get_array_sort_range c s :: rest))
         | Z3enums.SEQ_SORT ->
-            if nested_datatype s then fail "Nested datatype sequence fields are not supported";
-            visit sorts cases rest
+            visit sorts cases (Z3native.get_seq_sort_basis c s :: rest)
         | _ -> visit sorts cases rest
   in
   visit [] [] roots

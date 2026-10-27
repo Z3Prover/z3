@@ -206,6 +206,17 @@ let lemma_extract (r:F.reconstruction) (i:interpretation value)
     assert (BV.extract_parts (retract symbols n e) == Some rs);
     BV.lemma_extract_parts i rho project (retract symbols n e) rs
 
+let lemma_retract_concat_shape (symbols:list func_decl) (n:nat) (e:expr) (c:BV.concatenation)
+  : Lemma (requires F.valid_symbols symbols /\ D.scoped [] e /\ BV.concat_parts e == Some c)
+          (ensures D.scoped [] (retract symbols n e) /\
+                   BV.concat_parts (retract symbols n e) ==
+                     Some { c with BV.left = retract symbols n c.BV.left;
+                                   BV.right = retract symbols n c.BV.right })
+  = lemma_retract_shape symbols n [] e;
+    lemma_retract_shape symbols n [] c.BV.left;
+    lemma_retract_shape symbols n [] c.BV.right;
+    match e with App f args -> lemma_retract_app symbols n f args | _ -> ()
+
 let lemma_concat (r:F.reconstruction) (i:interpretation value)
                   (project:pos -> value -> int) (rho:env value) (e:expr) (c:BV.concatenation)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
@@ -217,15 +228,11 @@ let lemma_concat (r:F.reconstruction) (i:interpretation value)
                       project c.BV.right_width (eval j c.BV.right rho)))
   = let symbols = r.F.symbols in
     let n = F.number r i project in
-    lemma_retract_shape symbols n [] e;
-    lemma_retract_shape symbols n [] c.BV.left;
-    lemma_retract_shape symbols n [] c.BV.right;
+    lemma_retract_concat_shape symbols n e c;
     lemma_eval_retract r i project rho e;
     lemma_eval_retract r i project rho c.BV.left;
     lemma_eval_retract r i project rho c.BV.right;
     let rc = { c with BV.left = retract symbols n c.BV.left; BV.right = retract symbols n c.BV.right } in
-    (match e with App f args -> lemma_retract_app symbols n f args | _ -> ());
-    assert (BV.concat_parts (retract symbols n e) == Some rc);
     BV.lemma_concat_parts i rho project (retract symbols n e) rc
 
 let lemma_unsigned (r:F.reconstruction) (i:interpretation value)
@@ -258,6 +265,19 @@ let lemma_concat3_value (i:interpretation value) (project:pos -> value -> int)
                      project c.BV.width3 (eval i c.BV.third rho))
   = match e with App _ [_; _; _] -> () | _ -> ()
 
+let lemma_retract_concat3_shape (symbols:list func_decl) (n:nat) (e:expr) (c:BV.concatenation3)
+  : Lemma (requires F.valid_symbols symbols /\ D.scoped [] e /\ BV.concat3_parts e == Some c)
+          (ensures D.scoped [] (retract symbols n e) /\
+                   BV.concat3_parts (retract symbols n e) ==
+                     Some { c with BV.first = retract symbols n c.BV.first;
+                                   BV.second = retract symbols n c.BV.second;
+                                   BV.third = retract symbols n c.BV.third })
+  = lemma_retract_shape symbols n [] e;
+    lemma_retract_shape symbols n [] c.BV.first;
+    lemma_retract_shape symbols n [] c.BV.second;
+    lemma_retract_shape symbols n [] c.BV.third;
+    match e with App f args -> lemma_retract_app symbols n f args | _ -> ()
+
 let lemma_concat3 (r:F.reconstruction) (i:interpretation value)
                    (project:pos -> value -> int) (rho:env value) (e:expr) (c:BV.concatenation3)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
@@ -270,18 +290,13 @@ let lemma_concat3 (r:F.reconstruction) (i:interpretation value)
                       project c.BV.width3 (eval j c.BV.third rho)))
   = let symbols = r.F.symbols in
     let n = F.number r i project in
-    lemma_retract_shape symbols n [] e;
-    lemma_retract_shape symbols n [] c.BV.first;
-    lemma_retract_shape symbols n [] c.BV.second;
-    lemma_retract_shape symbols n [] c.BV.third;
+    lemma_retract_concat3_shape symbols n e c;
     lemma_eval_retract r i project rho e;
     lemma_eval_retract r i project rho c.BV.first;
     lemma_eval_retract r i project rho c.BV.second;
     lemma_eval_retract r i project rho c.BV.third;
     let rc = { c with BV.first = retract symbols n c.BV.first;
                      BV.second = retract symbols n c.BV.second; BV.third = retract symbols n c.BV.third } in
-    (match e with App f args -> lemma_retract_app symbols n f args | _ -> ());
-    assert (BV.concat3_parts (retract symbols n e) == Some rc);
     lemma_concat3_value i project rho (retract symbols n e) rc;
     let j = F.extend r i project in
     assert (eval j c.BV.first rho == eval i rc.BV.first rho);
@@ -469,10 +484,21 @@ let rec lemma_connectives (r:F.reconstruction) (i:interpretation value)
       lemma_eval_retract r i project rho a;
       lemma_connectives r i project rho rest
 
-let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+let rec lemma_retract_boolean_args (symbols:list func_decl) (n:nat) (args:list expr)
+  : Lemma (requires F.valid_symbols symbols)
+          (ensures B.boolean_args (retract_args symbols n args) == B.boolean_args args)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_retract_sort symbols n a;
+      lemma_retract_boolean_args symbols n rest
+
+let lemma_boolean_base (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
   : Lemma (requires F.valid r /\ safe_symbols r.F.symbols /\
                     B.boolean_rewrite_model i /\ quant_extensional i)
-          (ensures B.boolean_rewrite_model (F.extend r i project))
+          (ensures (let j = F.extend r i project in
+                    Z3ObservationalEquality.boolean_model j /\ not_sound j /\ true_sound j /\ false_sound j))
   = let j = F.extend r i project in
     let symbols = r.F.symbols in
     let n = F.number r i project in
@@ -487,7 +513,15 @@ let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:p
                 ((eval j (App f [a]) rho == VBool true) == (eval j a rho == VBool false)))
       = lemma_eval_retract r i project rho (App f [a]);
         lemma_eval_retract r i project rho a in
-    FStar.Classical.forall_intro_3 negation;
+    FStar.Classical.forall_intro_3 negation
+
+let lemma_boolean_connectives (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ safe_symbols r.F.symbols /\
+                    B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures and_sound (F.extend r i project) /\ or_sound (F.extend r i project))
+  = let j = F.extend r i project in
+    let symbols = r.F.symbols in
+    let n = F.number r i project in
     let connectives (f:func_decl) (args:list expr) (rho:env value)
       : Lemma ((f.decl_name == "and" ==>
                  (eval j (App f args) rho == VBool true <==> conj_holds j rho args)) /\
@@ -497,7 +531,12 @@ let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:p
           lemma_retract_named symbols n f args;
           lemma_eval_retract r i project rho (App f args);
           lemma_connectives r i project rho args) in
-    FStar.Classical.forall_intro_3 connectives;
+    FStar.Classical.forall_intro_3 connectives
+
+let lemma_boolean_binary (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures implies_sound (F.extend r i project) /\ eq_sound (F.extend r i project))
+  = let j = F.extend r i project in
     let binary (f:func_decl) (a b:expr) (rho:env value)
       : Lemma (
           ((f.decl_name == "implies" \/ f.decl_name == "=>") ==>
@@ -507,30 +546,50 @@ let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:p
       = lemma_eval_retract r i project rho (App f [a; b]);
         lemma_eval_retract r i project rho a;
         lemma_eval_retract r i project rho b in
-    FStar.Classical.forall_intro_4 binary;
+    FStar.Classical.forall_intro_4 binary
+
+let lemma_boolean_ite (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures B.ite_sound (F.extend r i project))
+  = let j = F.extend r i project in
+    let symbols = r.F.symbols in
+    let n = F.number r i project in
     let ite (c t e:expr) (rho:env value)
       : Lemma (B.boolean_args [c; t; e] ==>
           eval j (App B.boolean_ite_decl [c; t; e]) rho ==
             (if B.bool_value (eval j c rho) then eval j t rho else eval j e rho))
-      = lemma_retract_sort symbols n c;
-        lemma_retract_sort symbols n t;
-        lemma_retract_sort symbols n e;
+      = lemma_retract_boolean_args symbols n [c; t; e];
         lemma_eval_retract r i project rho (App B.boolean_ite_decl [c; t; e]);
         lemma_eval_retract r i project rho c;
         lemma_eval_retract r i project rho t;
         lemma_eval_retract r i project rho e in
-    FStar.Classical.forall_intro_4 ite;
+    FStar.Classical.forall_intro_4 ite
+
+let lemma_boolean_xor (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures B.xor_sound (F.extend r i project))
+  = let j = F.extend r i project in
+    let symbols = r.F.symbols in
+    let n = F.number r i project in
     let xor (a b:expr) (rho:env value)
       : Lemma (B.boolean_args [a; b] ==>
           eval j (App B.boolean_xor_decl [a; b]) rho ==
             VBool (B.bool_value (eval j a rho) <> B.bool_value (eval j b rho)))
-      = lemma_retract_sort symbols n a;
-        lemma_retract_sort symbols n b;
+      = lemma_retract_boolean_args symbols n [a; b];
         lemma_eval_retract r i project rho (App B.boolean_xor_decl [a; b]);
         lemma_eval_retract r i project rho a;
         lemma_eval_retract r i project rho b in
-    FStar.Classical.forall_intro_3 xor;
-    assert (B.boolean_rewrite_model j)
+    FStar.Classical.forall_intro_3 xor
+
+let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ safe_symbols r.F.symbols /\
+                    B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures B.boolean_rewrite_model (F.extend r i project))
+  = lemma_boolean_base r i project;
+    lemma_boolean_connectives r i project;
+    lemma_boolean_binary r i project;
+    lemma_boolean_ite r i project;
+    lemma_boolean_xor r i project
 
 let lemma_official_literals (r:F.reconstruction) (i:interpretation value)
                             (project:pos -> value -> int)
@@ -589,6 +648,20 @@ let rec lemma_scoped_context_models (rs:list F.reconstruction) (i:interpretation
       lemma_scoped_model r older project;
       SK.lemma_quantifier_fields older j
 
+let rec lemma_matched_context (rs:list F.reconstruction) (es:list expr)
+                             (j:interpretation value) (rho:env value)
+  : Lemma (requires F.matches rs es /\ SM.reflexive_equality j /\
+                    (forall r. L.mem r rs ==> eval j (F.word r) rho == eval j (F.source r) rho))
+          (ensures conj_holds j rho es)
+          (decreases rs)
+  = match rs, es with
+    | r :: rest, _ :: tail ->
+      lemma_matched_context rest tail j rho;
+      assert (eval j (F.word r) rho == eval j (F.source r) rho);
+      let v = eval j (F.source r) rho in
+      assert (j.interp_app (eq_decl (get_sort (F.source r))) [v; v] == VBool true)
+    | _, _ -> ()
+
 let lemma_scoped_context_extension (inputs es:list expr) (rs:list F.reconstruction)
                                    (i:interpretation value) (project:pos -> value -> int) (rho:env value)
   : Lemma (requires F.check_context inputs es == Some rs /\ quant_extensional i /\
@@ -599,25 +672,12 @@ let lemma_scoped_context_extension (inputs es:list expr) (rs:list F.reconstructi
                     eval_args j inputs rho == eval_args i inputs rho /\ conj_holds j rho es))
   = lemma_scoped_context_models rs i project;
     F.lemma_context_inputs rs inputs i project rho;
-    F.lemma_context_fields rs i project;
     let j = F.extend_context rs i project in
     let values (r:F.reconstruction)
       : Lemma (L.mem r rs ==> eval j (F.word r) rho == eval j (F.source r) rho)
       = if L.mem r rs then F.lemma_context_value rs r i project rho in
     FStar.Classical.forall_intro values;
-    let rec matched (rs:list F.reconstruction) (es:list expr)
-      : Lemma (requires F.valid_context rs /\ F.matches rs es /\
-                        (forall r. L.mem r rs ==> eval j (F.word r) rho == eval j (F.source r) rho))
-              (ensures conj_holds j rho es)
-              (decreases rs)
-      = match rs, es with
-        | r :: rest, e :: tail ->
-          matched rest tail;
-          assert (eval j (F.word r) rho == eval j (F.source r) rho);
-          let v = eval j (F.source r) rho in
-          assert (i.interp_app (eq_decl (get_sort (F.source r))) [v; v] == VBool true)
-        | _, _ -> () in
-    matched rs es
+    lemma_matched_context rs es j rho
 
 let rec lemma_context_models (rs:list F.reconstruction) (i:interpretation value)
                              (project:pos -> value -> int)

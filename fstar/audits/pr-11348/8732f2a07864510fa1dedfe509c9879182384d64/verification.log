@@ -1,0 +1,12 @@
+F* 2026.09.27
+platform=Linux_x86_64
+system=Unix
+compiler=OCaml 5.3.0
+date=2026-09-27 16:52:08 +0000
+commit=7deb38a27c86990664c6b41e4b6093597acdebd4
+Z3 version 4.13.3 - 64 bit
++ timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out GlobalDeclsFixedHead.fst
+Verified module: GlobalDeclsFixedHead
+All verification conditions discharged successfully
++ echo exit=0
+exit=0
