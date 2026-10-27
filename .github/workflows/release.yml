@@ -842,6 +842,13 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R tmp
       
+      - name: Create source archive
+        run: |
+          git archive --format=tar.gz \
+            --prefix="z3-z3-${RELEASE_VERSION}/" \
+            --output="tmp/z3-${RELEASE_VERSION}-source.tar.gz" \
+            "$GITHUB_SHA"
+
       - name: Create Release
         env:
           GH_TOKEN: ${{ github.token }}
