@@ -3484,41 +3484,124 @@ let arithmetic_rewrites () =
       (U.Equal (A.App (malformed, [x; x]), Z3ResolutionProofTheory.true_expr)) []))
     "uninterpreted comparison was treated as arithmetic"
 
-(* arith_rewriter::factor_le_ge_eq: p REL 0 with a common factor f of p and g = p / f. *)
+(* arith_rewriter::factor_le_ge_eq: p REL 0 with a common factor f of p and g = p / f.
+
+   The kernel does not REJECT a `rewrite` step because no rule certifies it. For a well-formed,
+   premise-free equation, the RewriteRule case of Z3UnifiedProof.check_node_with_membership
+   returns Some (_, 0) when check_step succeeds and Some (_, 1), a pending obligation, when it
+   fails; None (REJECT) is only for a structurally malformed node. An invalid step and a valid
+   step outside this rule's shape are therefore both left uncertified (PARTIAL), never
+   accepted. `pending` asserts that per node and `outcome` per refutation document, with the
+   verdict text of the checker CLI (Z3NativeMain.result_text: None prints REJECT, Some 0
+   ACCEPT, Some n PARTIAL n). *)
 let arithmetic_factor_rewrites () =
   let module F = Z3ArithmeticFactor in
+  let module LA = Z3LinearArithmeticAst in
   let c = context () in
-  let step declarations left right =
-    let source = Printf.sprintf "%s(assert (= %s %s))" declarations left right in
+  let accepted = ref 0 and invalid = ref 0 and unsupported = ref 0 in
+  let terms_accepted = ref 0 and terms_invalid = ref 0 in
+  (* The marshalled equation (= left right) as its declaration and both sides. With [binders]
+     it is the body of (forall binders (= left right)), so its atoms are de Bruijn variables. *)
+  let equation ?(binders = "") declarations left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
     let inputs = parse c source in
     let st = B.marshal_expressions (B.empty_state ()) inputs in
     match B.cached_expression st (List.hd inputs) with
-    | A.App (_, [a; b]) as formula ->
-        (match U.classify_fact formula with
-         | Some conclusion -> conclusion, a, b
-         | None -> failwith "expected a typed factor rewrite conclusion")
+    | A.App (d, [a; b]) when binders = "" -> d, a, b
+    | A.Quantifier (_, _, _, A.App (d, [a; b])) when binders <> "" -> d, a, b
     | _ -> failwith "expected a factor rewrite equation" in
-  (* Accepted: the factor rule decides the step and the rewrite kernel certifies it. *)
-  let accept declarations left right =
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed factor rewrite conclusion" in
+  let step ?binders declarations left right =
+    let d, a, b = equation ?binders declarations left right in
+    conclusion_of d a b, a, b in
+  (* The kernel's verdict on the step as a node: its pending obligations, or None for REJECT. *)
+  let pending conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  (* The CLI verdict on a refutation whose only rewrite is the step: unit resolution of
+     (not (= left right)) with (= left right) derives false. *)
+  let outcome declarations left right =
+    let inputs = parse c (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                            declarations left right left right) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  (* Accepted: the factor rule decides the step, the rewrite kernel certifies it without an
+     obligation, and a refutation using it is ACCEPTed. *)
+  let accept ?binders declarations left right =
+    incr accepted;
     let name = left ^ " -> " ^ right in
-    let conclusion, a, b = step declarations left right in
+    let conclusion, a, b = step ?binders declarations left right in
     require (F.check a b) ("factor rewrite rejected: " ^ name);
     require (U.check_step U.RewriteRule conclusion []) ("factor rewrite not certified: " ^ name);
     require (not (U.check_step U.RewriteRule conclusion [conclusion]))
       ("factor rewrite ignored an unexpected premise: " ^ name);
     require (not (U.check_step U.Commutativity conclusion []))
-      ("factor rewrite accepted under another rule: " ^ name) in
-  (* Invalid steps: no rule may certify them. *)
-  let reject declarations left right =
+      ("factor rewrite accepted under another rule: " ^ name);
+    require (pending conclusion = Some Z.zero) ("factor rewrite left an obligation: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "ACCEPT")
+        ("factor rewrite refutation was not ACCEPT: " ^ name) in
+  (* Not accepted: no rule certifies the step, the kernel leaves it as one pending obligation
+     (not REJECT), and a refutation using it is PARTIAL 1. *)
+  let uncertified ?binders what declarations left right =
     let name = left ^ " -> " ^ right in
-    let conclusion, a, b = step declarations left right in
-    require (not (F.check a b)) ("invalid factor rewrite accepted: " ^ name);
-    require (not (U.check_step U.RewriteRule conclusion [])) ("invalid rewrite certified: " ^ name) in
-  (* Valid steps outside the rule's exact shape stay with the other rules. *)
-  let outside declarations left right =
-    let conclusion, a, b = step declarations left right in
-    ignore conclusion;
-    require (not (F.check a b)) ("unsupported factor shape accepted: " ^ left ^ " -> " ^ right) in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (not (F.check a b)) (what ^ " accepted by the factor rule: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) (what ^ " certified: " ^ name);
+    require (pending conclusion = Some Z.one) (what ^ " was not left pending: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "PARTIAL 1")
+        (what ^ " did not give a PARTIAL 1 refutation: " ^ name) in
+  (* Invalid steps: no rule may certify them. *)
+  let reject ?binders declarations left right =
+    incr invalid;
+    uncertified ?binders "invalid factor rewrite" declarations left right in
+  (* Valid steps outside the rule's exact shape: not accepted by this rule either. *)
+  let outside ?binders declarations left right =
+    incr unsupported;
+    uncertified ?binders "unsupported factor shape" declarations left right in
+  (* The same decisions for marshalled terms that are rebuilt with a changed atom or numeral. *)
+  let accept_terms what d a b =
+    incr terms_accepted;
+    let conclusion = conclusion_of d a b in
+    require (F.check a b) ("factor rewrite rejected: " ^ what);
+    require (U.check_step U.RewriteRule conclusion []) ("factor rewrite not certified: " ^ what);
+    require (pending conclusion = Some Z.zero) ("factor rewrite left an obligation: " ^ what) in
+  let reject_terms what d a b =
+    incr terms_invalid;
+    let conclusion = conclusion_of d a b in
+    require (not (F.check a b)) ("invalid factor terms accepted: " ^ what);
+    require (not (U.check_step U.RewriteRule conclusion [])) ("invalid factor terms certified: " ^ what);
+    require (pending conclusion <> Some Z.zero) ("invalid factor terms left no obligation: " ^ what) in
+  let rec map_term f e =
+    match f e with
+    | Some replacement -> replacement
+    | None ->
+        (match e with
+         | A.App (decl, args) -> A.App (decl, List.map (map_term f) args)
+         | A.Quantifier (kind, sorts, sort, body) -> A.Quantifier (kind, sorts, sort, map_term f body)
+         | A.Var _ -> e) in
+  (* The kernel REJECTs (None) only a malformed node, such as a rewrite with a premise; a
+     well-formed step that no rule certifies stays pending. *)
+  (let conclusion, _, _ = step "(declare-const p Bool)" "p" "p" in
+   require (pending conclusion = Some Z.zero) "a reflexive rewrite was not certified";
+   require (U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion;
+                              premises = [{ U.conclusion = conclusion; hypotheses = [] }] } = None)
+     "a rewrite with a premise was not rejected");
   List.iter (fun (s, zero, one, two, minus) ->
     let d = Printf.sprintf
       "(declare-const x %s)(declare-const y %s)(declare-const z %s)(declare-fun h (%s) %s)"
@@ -3576,7 +3659,78 @@ let arithmetic_factor_rewrites () =
       (f "(or (= (> x %s) (> %s %s)) (or (= x %s) (= %s %s)))"
          zero ge_cofactor zero zero ge_cofactor zero);
     outside d (f "(= (+ (* %s x) (* %s y)) %s)" two two zero)
-      (f "(or (= %s %s) (= (+ x y) %s))" two zero zero))
+      (f "(or (= %s %s) (= (+ x y) %s))" two zero zero);
+    (* Atoms that are de Bruijn variables of an enclosing quantifier, so the rewrite is an open
+       term. The same variable on both sides is accepted; another variable is another atom. *)
+    let uf = f "(declare-fun h (%s) %s)" s s in
+    let binders = f "(x %s) (y %s) (z %s)" s s s in
+    let le_by fx g = f "(or (not (= (>= %s %s) (>= %s %s))) (or (= %s %s) (= %s %s)))"
+        fx zero g zero fx zero g zero in
+    accept ~binders uf le_source (le_target one_x one_x);
+    accept ~binders uf eq_source (f "(or (= x %s) (= %s %s))" zero eq_cofactor zero);
+    accept ~binders uf (f "(>= (+ (* (h x) y) (h x)) %s)" zero)
+      (ge_target "(h x)" (f "(+ y %s)" one));
+    reject ~binders uf le_source (le_by "y" one_x);
+    reject ~binders uf le_source (le_by "z" (f "(+ %s y)" one));
+    reject ~binders uf eq_source (f "(or (= y %s) (= %s %s))" zero eq_cofactor zero);
+    reject ~binders uf (f "(>= (+ (* (h x) y) (h x)) %s)" zero)
+      (ge_target "(h z)" (f "(+ y %s)" one));
+    (* Shifting every bound-variable index on both sides keeps the rewrite accepted; shifting
+       it on one side does not. *)
+    let open_d, open_a, open_b = equation ~binders uf le_source (le_target one_x one_x) in
+    let shift = map_term (function
+        | A.Var (index, sort) -> Some (A.Var (Z.succ index, sort))
+        | _ -> None) in
+    require (shift open_a <> open_a && shift open_b <> open_b)
+      "the factor rewrite body has no bound variables";
+    accept_terms (f "%s: bound variables shifted on both sides" s) open_d (shift open_a) (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the target" s) open_d open_a (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the source" s) open_d (shift open_a) open_b;
+    (* Right-hand zeros whose numeral metadata is not the canonical zero of this sort. Each one,
+       put in place of each zero of an accepted step, leaves the step uncertified. *)
+    let sort = A.BaseSort s in
+    let other = A.BaseSort (if s = "Int" then "Real" else "Int") in
+    let is_zero e = LA.numeral e = Some (Z.zero, Z.one) in
+    List.iter (fun (relation, source, target) ->
+      let zd, a, b = equation d source target in
+      require (F.check a b) ("step with canonical zeros rejected: " ^ source);
+      let zero_decl = match a with
+        | A.App (_, [_; A.App (numeral, [])]) -> numeral
+        | _ -> failwith "expected a zero numeral" in
+      let zeros = ref 0 in
+      ignore (map_term (fun e -> if is_zero e then (incr zeros; Some e) else None)
+                (A.App (zd, [a; b])));
+      List.iter (fun (kind, bad) ->
+        for index = 0 to !zeros - 1 do
+          let seen = ref (-1) in
+          let replace = map_term (fun e ->
+              if is_zero e then begin
+                incr seen;
+                Some (if !seen = index then A.App (bad, []) else e)
+              end else None) in
+          let a' = replace a in
+          let b' = replace b in
+          require (a' <> a || b' <> b) "the zero was not replaced";
+          reject_terms (f "%s %s: %s at zero %d" s relation kind index) zd a' b'
+        done)
+        [ "zero of the other sort", { zero_decl with A.range = other };
+          "0/2", { zero_decl with A.int_params = [Z.zero; Z.of_int 2] };
+          "zero without a denominator", { zero_decl with A.int_params = [Z.zero] };
+          "zero with an extra parameter", { zero_decl with A.int_params = [Z.zero; Z.one; Z.of_int 7] };
+          "uninterpreted zero with numeral parameters", { zero_decl with A.interp = None };
+          "zero with another declaration kind",
+            { zero_decl with A.interp = Some Z3ValueTheory.op_to_real };
+          "zero with a domain", { zero_decl with A.domain = [sort] };
+          "uninterpreted constant 0",
+            { A.decl_name = "0"; domain = []; range = sort; interp = None; int_params = [] } ])
+      ["<=", le_source, le_target one_x one_x;
+       "=", eq_source, f "(or (= x %s) (= %s %s))" zero eq_cofactor zero];
+    (* A declared constant named 0 is not the numeral. *)
+    let named = f "%s(declare-const |0| %s)" d s in
+    reject named (f "(<= (+ (* x z) z) |0|)") (le_target one_x one_x);
+    reject named le_source
+      (f "(or (not (= (>= z |0|) (>= %s |0|))) (or (= z |0|) (= %s |0|)))" one_x one_x);
+    reject named eq_source (f "(or (= x |0|) (= %s |0|))" eq_cofactor))
     ["Int", "0", "1", "2", "(- 1)"; "Real", "0.0", "1.0", "2.0", "(- 1.0)"];
   let ints = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
   outside ints "(= (+ (* y x) (* (- 1) (* z x))) 0)"
@@ -3589,7 +3743,142 @@ let arithmetic_factor_rewrites () =
   (* (x / y) * y is not x: that would need a field law and y <> 0. *)
   reject reals "(= x 0.0)" "(or (= (/ x y) 0.0) (= y 0.0))";
   reject reals "(>= x 0.0)"
-    "(or (= (>= (/ x y) 0.0) (>= y 0.0)) (or (= (/ x y) 0.0) (= y 0.0)))"
+    "(or (= (>= (/ x y) 0.0) (>= y 0.0)) (or (= (/ x y) 0.0) (= y 0.0)))";
+  (* The sort guard: to_real is opaque, so no identity of Int terms is pushed through it, and
+     every comparison of the rewrite has the sort of p. *)
+  let mixed =
+    "(declare-const x Int)(declare-const z Int)(declare-const n Int)(declare-const t Real)" in
+  let real_le fx g = Printf.sprintf
+      "(or (not (= (>= %s 0.0) (>= %s 0.0))) (or (= %s 0.0) (= %s 0.0)))" fx g fx g in
+  let int_le fx g = Printf.sprintf
+      "(or (not (= (>= %s 0) (>= %s 0))) (or (= %s 0) (= %s 0)))" fx g fx g in
+  (* A Real comparison of the Int p under to_real is one opaque atom, not x * z + z. *)
+  outside mixed "(<= (to_real (+ (* x z) z)) 0.0)" (real_le "(to_real z)" "(to_real (+ 1 x))");
+  (* A Real p whose cofactor has an Int term under to_real: to_real n and to_real (n + 1) are
+     unrelated atoms, so only the spelling that uses to_real n is accepted. *)
+  let real_p = "(<= (+ (* t (to_real n)) t) 0.0)" in
+  accept mixed real_p (real_le "t" "(+ (to_real n) 1.0)");
+  outside mixed real_p (real_le "t" "(to_real (+ n 1))");
+  reject mixed real_p (real_le "t" "(+ (to_real n) 2.0)");
+  reject mixed real_p (real_le "t" "(to_real (+ n 2))");
+  (* An Int source with Real comparisons, a Real source with Int comparisons, and one Real
+     comparison among Int ones. *)
+  outside mixed "(<= (+ (* x z) z) 0)" (real_le "(to_real z)" "(to_real (+ 1 x))");
+  outside mixed "(<= (+ (* (to_real x) (to_real z)) (to_real z)) 0.0)" (int_le "z" "(+ 1 x)");
+  outside mixed "(<= (+ (* x z) z) 0)"
+    "(or (not (= (>= z 0) (>= (+ 1 x) 0))) (or (= (to_real z) 0.0) (= (+ 1 x) 0)))";
+  (* Atoms are compared with their whole declaration: a Real and an Int function with the same
+     name and arguments are different atoms. The native view gives each declaration a unique
+     name (decl!<id>:<name>), so the two functions are renamed to one name to collide. *)
+  let overloaded =
+    "(declare-fun hr (Int) Real)(declare-fun hi (Int) Int)(declare-const x Int)\
+     (declare-const y Real)(declare-const k Int)" in
+  let named_like suffix decl = String.ends_with ~suffix decl.A.decl_name in
+  let rename = map_term (function
+      | A.App (decl, args) when named_like ":hr" decl || named_like ":hi" decl ->
+          Some (A.App ({ decl with A.decl_name = "h" }, args))
+      | _ -> None) in
+  let named_step left right =
+    let d, a, b = equation overloaded left right in
+    d, rename a, rename b in
+  (match named_step "(= (hr x) (to_real (hi x)))" "true" with
+   | _, A.App (_, [A.App (real_h, args); A.App (_, [A.App (int_h, args')])]), _ ->
+       require (real_h.A.decl_name = int_h.A.decl_name && args = args' && real_h <> int_h)
+         "the overloaded functions do not share a name and arguments"
+   | _ -> failwith "expected the overloaded function applications");
+  let retyped sort = map_term (function
+      | A.App (decl, args) when decl.A.decl_name = "h" ->
+          Some (A.App ({ decl with A.range = sort }, args))
+      | _ -> None) in
+  let ge_real fx g = Printf.sprintf
+      "(or (= (>= %s 0.0) (>= %s 0.0)) (or (= %s 0.0) (= %s 0.0)))" fx g fx g in
+  let ge_int fx g = Printf.sprintf
+      "(or (= (>= %s 0) (>= %s 0)) (or (= %s 0) (= %s 0)))" fx g fx g in
+  let real_atom = "(>= (+ (* (hr x) y) (hr x)) 0.0)" in
+  let d, a, b = named_step real_atom (ge_real "(hr x)" "(+ y 1.0)") in
+  accept_terms "Real function atom" d a b;
+  reject_terms "Real function atom in place of the Int one"
+    d a (retyped (A.BaseSort "Int") b);
+  let d, a, b = named_step real_atom (ge_real "(to_real (hi x))" "(+ y 1.0)") in
+  reject_terms "Int function atom under to_real for the Real one" d a b;
+  let int_atom = "(>= (+ (* (hi x) k) (hi x)) 0)" in
+  let d, a, b = named_step int_atom (ge_int "(hi x)" "(+ k 1)") in
+  accept_terms "Int function atom" d a b;
+  reject_terms "Int function atom in place of the Real one"
+    d a (retyped (A.BaseSort "Real") b);
+  let d, a, b = named_step int_atom (ge_int "(to_int (hr x))" "(+ k 1)") in
+  reject_terms "Real function atom under to_int for the Int one" d a b;
+  (* A declaration that differs only in its parameters is another atom, though its name and
+     arguments are the same. *)
+  let parameterized = map_term (function
+      | A.App (decl, args) when decl.A.decl_name = "h" ->
+          Some (A.App ({ decl with A.int_params = [Z.one] }, args))
+      | _ -> None) in
+  let d, a, b = named_step int_atom (ge_int "(hi x)" "(+ k 1)") in
+  reject_terms "Int function atom with another declaration parameter" d a (parameterized b);
+  let d, a, b = named_step real_atom (ge_real "(hr x)" "(+ y 1.0)") in
+  reject_terms "Real function atom with another declaration parameter" d a (parameterized b);
+  (* The expansion bound. Z3ArithmeticFactor.times compares the product of the operand sizes
+     with max_terms (4096) before it calls Z3NlaLemma.multiply, and product multiplies one
+     factor at a time through times, so every intermediate product is bounded too. A valid
+     rewrite whose expansion is too large is not accepted by F.check, which decides it without
+     expanding it. *)
+  let sum prefix n =
+    "(+ " ^ String.concat " " (List.init n (fun i -> Printf.sprintf "%s%d" prefix (i + 1))) ^ ")" in
+  let wide = String.concat "" (List.concat_map (fun (prefix, count) ->
+      List.init count (fun i -> Printf.sprintf "(declare-const %s%d Int)" prefix (i + 1)))
+      ["x", 65; "y", 240; "w", 65]) in
+  let sign_factors f g = Printf.sprintf
+      "(or (not (= (>= %s 0) (>= %s 0))) (or (= %s 0) (= %s 0)))" f g f g in
+  let decided what left right =
+    let _, a, b = step wide left right in
+    let start = Unix.gettimeofday () in
+    let result = F.check a b in
+    let elapsed = Unix.gettimeofday () -. start in
+    Printf.printf "  %s: F.check %b in %.3fs\n%!" what result elapsed;
+    result, elapsed in
+  (* Products of sums with 65 * 65 = 4225 monomials, and of three sums whose second
+     multiplication has 17 * 17 * 17 = 4913. The arithmetic rewriter's product rule still
+     certifies these steps without expanding, so only F.check is asserted. *)
+  List.iter (fun (what, left, right) ->
+      let result, elapsed = decided what left right in
+      require (not result) ("product beyond the expansion bound accepted: " ^ what);
+      require (elapsed < 10.0) ("expansion bound did not stop the check: " ^ what))
+    ["65 x 65 product",
+       Printf.sprintf "(= (* %s %s) 0)" (sum "x" 65) (sum "y" 65),
+       Printf.sprintf "(or (= %s 0) (= %s 0))" (sum "x" 65) (sum "y" 65);
+     "65 x 65 product (<=)",
+       Printf.sprintf "(<= (* %s %s) 0)" (sum "x" 65) (sum "y" 65),
+       sign_factors (sum "x" 65) (sum "y" 65);
+     "17 x 17 x 17 product",
+       Printf.sprintf "(= (* %s %s %s) 0)" (sum "x" 17) (sum "y" 17) (sum "w" 17),
+       Printf.sprintf "(or (= %s 0) (= (* %s %s) 0))" (sum "x" 17) (sum "y" 17) (sum "w" 17)];
+  (* With an extra term, no other rule factors the step, so the bound decides it:
+     X * Y + X * w1 = X * (Y + w1), where X * Y and X * (Y + w1) are expanded. The step is
+     accepted when the largest expansion has 4096 monomials and stays pending at 4097. *)
+  let extended m n =
+    Printf.sprintf "(= (+ (* %s %s) (* %s w1)) 0)" (sum "x" m) (sum "y" n) (sum "x" m),
+    Printf.sprintf "(or (= %s 0) (= (+ %s w1) 0))" (sum "x" m) (sum "y" n) in
+  let extended_le m n =
+    Printf.sprintf "(<= (+ (* %s %s) (* %s w1)) 0)" (sum "x" m) (sum "y" n) (sum "x" m),
+    sign_factors (sum "x" m) (Printf.sprintf "(+ %s w1)" (sum "y" n)) in
+  let extended3 n =
+    Printf.sprintf "(= (+ (* %s %s %s) (* %s w1)) 0)" (sum "x" n) (sum "y" n) (sum "w" n) (sum "x" n),
+    Printf.sprintf "(or (= %s 0) (= (+ (* %s %s) w1) 0))" (sum "x" n) (sum "y" n) (sum "w" n) in
+  List.iter (fun (what, (left, right), within_bound) ->
+      let result, elapsed = decided what left right in
+      require (result = within_bound) ("wrong decision at the expansion bound: " ^ what);
+      require (within_bound || elapsed < 10.0) ("expansion bound did not stop the check: " ^ what);
+      if within_bound then accept wide left right else outside wide left right)
+    ["64 x 63 + 64 x 1, f * g = 64 * 64 = 4096", extended 64 63, true;
+     "17 x 240 + 17 x 1, f * g = 17 * 241 = 4097", extended 17 240, false;
+     "65 x 65 + 65 x 1, X * Y = 4225", extended 65 65, false;
+     "65 x 65 + 65 x 1 (<=), X * Y = 4225", extended_le 65 65, false;
+     "15 x 15 x 15 + 15 x 1, f * g = 15 * 226 = 3390", extended3 15, true;
+     "17 x 17 x 17 + 17 x 1, 17 * (17 * 17) = 4913", extended3 17, false];
+  Printf.printf "  factor rewrites: %d accepted, %d invalid, %d outside the shape; \
+                 rebuilt terms: %d accepted, %d invalid\n%!"
+    !accepted !invalid !unsupported !terms_accepted !terms_invalid
 
 let arithmetic_triangle_clauses () =
   let c = context () in

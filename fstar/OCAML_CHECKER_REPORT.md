@@ -2052,17 +2052,28 @@ without premises, in the legacy kernel only.
 `Z3ArithmeticFactorTests.fst` decides six accepted and nine rejected closed
 instances by normalization, including right-hand zeros that are an Int
 numeral in a Real comparison, an uninterpreted constant, or the rational
-`0/2`. The native regression accepts twelve SMT-LIB steps, including
-uninterpreted, `div`, and real-division factors as atoms, and the variant
-where the two cofactor occurrences are spelled differently. It rejects
-thirty-two invalid steps over Int and Real: swapped polarity, a missing
-negation, a strict source, wrong or inconsistent cofactors, a missing or
-extra source term, nonzero comparands on either side, a wrong or zero
-factor, `and` in place of `or`, false product rewrites, and factorizations
-that would need `(x / y) * y = x`. No rule certifies these. Valid steps
-outside the shape (flattened or reordered disjunctions, strict sign atoms,
-a numeral factor, mixed Int/Real comparisons) are not accepted by this
-rule. CLI tests certify four interactive refutations from `nl12`, `nl49`,
+`0/2`. The native regression accepts twenty-one SMT-LIB steps, including
+uninterpreted, `div`, and real-division factors as atoms, the variant
+where the two cofactor occurrences are spelled differently, atoms that are
+bound variables of an enclosing quantifier, and products expanding to
+exactly 4096 monomials. It rejects forty-eight invalid steps over Int and
+Real: swapped polarity, a missing negation, a strict source, wrong or
+inconsistent cofactors (including another bound variable), a missing or
+extra source term, nonzero comparands on either side (including constants
+named like zero), a wrong or zero factor, `and` in place of `or`, false
+product rewrites, `to_real` cofactors that are not the source's, and
+factorizations that would need `(x / y) * y = x`. No rule certifies these.
+Eighteen valid steps outside the shape (flattened or reordered
+disjunctions, strict sign atoms, a numeral factor, mixed Int/Real
+comparisons, `to_real` of an Int product, and products of 4097 or more
+monomials) are not accepted by this rule. The kernel leaves an invalid or
+out-of-shape `rewrite` as one pending obligation, so a refutation using it
+is `PARTIAL 1`: it is never `ACCEPT`, and `REJECT` is reserved for a
+malformed node. A further 138 rebuilt terms (shifted bound-variable
+indices, ill-sorted or differently parameterized atoms with a shared name,
+and eight kinds of non-canonical zero numeral at every zero position) are
+neither accepted nor certified. CLI tests certify four interactive
+refutations from `nl12`, `nl49`,
 `nl33`, and `nl57` with no obligation, and check that a satisfiable variant
 is reported `sat`.
 
