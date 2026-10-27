@@ -15,9 +15,12 @@ Abstract:
 --*/
 #include "api/z3.h"
 #include "ast/reg_decl_plugins.h"
+#include "cmd_context/cmd_context.h"
+#include "opt/opt_cmds.h"
 #include "opt/opt_context.h"
 #include "opt/opt_geometric.h"
 #include "opt/opt_search.h"
+#include "parsers/smt2/smt2parser.h"
 #include "smt/smt_context.h"
 #include "util/common_msgs.h"
 #include "util/debug.h"
@@ -25,6 +28,7 @@ Abstract:
 #include <cstring>
 #include <initializer_list>
 #include <iostream>
+#include <sstream>
 
 namespace {
 
@@ -996,6 +1000,38 @@ static void tst_multiobjective(bool box) {
 // Box optimization instead gives max(x) = max(y) = 5 in different models.
 // Call optsmt directly: the public context also fixes earlier objectives,
 // which could hide a missing constraint in optsmt::lex itself.
+static void tst_labels_after_maximize() {
+    // The search cannot improve on the model of the initial check here, so
+    // the reported model is that base model. Its labels must come with it:
+    // optsmt used to return the base model with an empty label list, which
+    // replaced the labels the context had recorded for it.
+    char const* input =
+        "(set-option :auto_config false)\n"
+        "(declare-fun x () Int)\n"
+        "(declare-fun f (Int) Bool)\n"
+        "(declare-fun l1 () Bool)\n"
+        "(declare-fun l2 () Bool)\n"
+        "(declare-fun l3 () Bool)\n"
+        "(declare-fun l4 () Bool)\n"
+        "(assert (not\n"
+        "  (let ((ok (=> (! (and l1 true) :lblpos L1) (! (or l2 (f x)) :lblneg L2))))\n"
+        "    (=> (! (and l3 true) :lblpos L3)\n"
+        "        (and (=> (= x 2) ok) (=> (= x 1) (=> (! (and l4 true) :lblpos L4) ok)))))))\n"
+        "(maximize x)\n"
+        "(check-sat)\n";
+    cmd_context cmd(false);
+    install_opt_cmds(cmd);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    check_sat_result* result = cmd.get_check_sat_result();
+    ENSURE(result && result->status() == l_true);
+    svector<symbol> labels;
+    result->get_labels(labels);
+    for (char const* name : {"L1", "L2", "L3"})
+        ENSURE(labels.contains(symbol(name)));
+    ENSURE(!labels.contains(symbol("L4")));
+}
+
 static void tst_lex_box_search() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1951,6 +1987,8 @@ void tst_opt_bounds() {
     tst_multiobjective(false);
     tst_multiobjective(true);
     tst_lex_box_search();
+    std::cout << "opt_bounds: labels of the reported model\n";
+    tst_labels_after_maximize();
     std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
     tst_lex_after_unbounded();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";

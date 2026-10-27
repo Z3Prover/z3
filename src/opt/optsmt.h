@@ -90,6 +90,8 @@ namespace opt {
 
         enum class nlsat_outcome { no_result, certified, incomplete };
 
+        void get_base_model();
+
         inf_eps const& lower(unsigned index) const { return m_lower[index].rational_bound(); }
         inf_eps const& upper(unsigned index) const { return m_upper[index].rational_bound(); }
 
