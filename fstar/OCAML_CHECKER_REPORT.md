@@ -2077,6 +2077,54 @@ refutations from `nl12`, `nl49`,
 `nl33`, and `nl57` with no obligation, and check that a satisfiable variant
 is reported `sat`.
 
+### Conditionals lifted out of numeric comparisons (2026-10-27)
+
+Z3's `arith_rewriter::mk_le_ge_eq_core` rewrites `(ite c t e) REL k`, with
+a numeral branch `t` and a numeral `k`, to `c or (e REL k)` when `t REL k`
+holds and to `(not c) and (e REL k)` when it does not, with `c` and `not c`
+swapped for a numeral else branch. After `cancel_monomials` has moved a
+numeral addend, `1 + (ite c t e) >= k` is rewritten the same way against
+`k - 1` in one step. The comparison on the right is not simplified, so
+steps such as `(>= (ite g 0 -1) 0) = (or g (>= -1 0))` occur. These were
+unchecked `rewrite` obligations: the only one of z3test `z3.12`, 64 of the
+182 of `issue-963`, and 3 of the 13 of `string6`, on both backends of the
+`811f70ac4` checkers.
+
+`Z3ConditionalRewrite` already checked such steps by replacing the first
+guard with `true` and `false` on both sides outside binders and folding
+the result, but its fold decided only conditionals with a literal guard
+and constant equations. It now also folds a comparison whose linear normal
+form is a constant, such as a comparison of two numerals, to `true` or
+`false` with `Z3ArithmeticRewrite.boolean_equivalent`, and drops literal
+arguments of `and` and `or` (an absorbing literal replaces the
+application). The second fold is kept only when
+`Z3BooleanRewrite.boolean_equiv` proves it equivalent. Both reuse existing
+lemmas, `lemma_equivalent_with_numeric_model` and
+`lemma_boolean_equiv_sound`, whose hypotheses are part of
+`Z3ConditionalRewrite.rewrite_model`, so the kernel call site and its model
+contracts are unchanged. No numeral is trusted by name: an Int numeral
+needs denominator 1, a comparison needs both sides of one numeric sort,
+and a division by zero stays an opaque atom.
+
+The native regression accepts forty-three steps over Int and Real: then
+and else numeral branches, `>=`, `<=`, `<`, `>`, and `=`, negative
+numerals, the conditional on the right, a negated comparison, the `z3.12`,
+`issue-963`, and `string6` shapes, both shifted forms, nested conditional
+tails, the split guard inside the `and`/`or` guard of a nested conditional,
+and guards that are bound variables of an enclosing quantifier. It
+leaves fifty invalid steps pending: wrong guard polarity, reversed
+branches, `and` for `or` and the reverse, a ground comparison of the wrong
+truth value, another rest argument or bound, off-by-one shifts, another or
+strict relation, a branch that is not a numeral, an extra disjunct, a
+dropped guard or comparison, and division by zero. Two valid steps whose
+guard is under a binder of the rewritten terms also stay pending. Forty
+rebuilt terms are not certified: bound-variable indices shifted on one
+side, and each numeral of an accepted step replaced by the next numeral, a
+numeral of the other sort, a malformed numeral, or an uninterpreted
+constant. CLI tests certify eight interactive refutations, including
+`z3.12`, with no obligation, and check that a satisfiable variant is
+reported `sat`.
+
 ### Warning-free verification and extraction (2026-10-17)
 
 The build treats F* warnings and enabled OCaml compiler warnings as errors.

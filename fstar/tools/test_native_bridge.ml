@@ -3880,6 +3880,251 @@ let arithmetic_factor_rewrites () =
                  rebuilt terms: %d accepted, %d invalid\n%!"
     !accepted !invalid !unsupported !terms_accepted !terms_invalid
 
+(* arith_rewriter::mk_le_ge_eq_core lifts a conditional with a numeral branch out of a
+   comparison with a numeral: (ite c t e) REL k becomes (or c (e REL k)) when t REL k holds and
+   (and (not c) (e REL k)) when it does not, with (not c) and c for a numeral else branch. After
+   cancel_monomials moved numeral addends, 1 + (ite c t e) >= k is rewritten through
+   (ite c t e) >= k - 1 in the same step. Z3ConditionalRewrite splits on the guard and folds
+   each branch: comparisons whose linear normal form is a constant become true or false, and
+   and/or drop their literal arguments. Pending and outcome are asserted as for the factor
+   rewrites above: an invalid step, and a valid step that is not in the checked shape, stays one
+   pending obligation (PARTIAL), never ACCEPT and never REJECT. *)
+let conditional_comparison_rewrites () =
+  let module CR = Z3ConditionalRewrite in
+  let module LA = Z3LinearArithmeticAst in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and unsupported = ref 0 in
+  let terms_accepted = ref 0 and terms_invalid = ref 0 in
+  let equation ?(binders = "") declarations left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (d, [a; b]) when binders = "" -> d, a, b
+    | A.Quantifier (_, _, _, A.App (d, [a; b])) when binders <> "" -> d, a, b
+    | _ -> failwith "expected a conditional comparison rewrite equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed conditional comparison rewrite conclusion" in
+  let step ?binders declarations left right =
+    let d, a, b = equation ?binders declarations left right in
+    conclusion_of d a b, a, b in
+  let pending conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  let outcome declarations left right =
+    let inputs = parse c (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                            declarations left right left right) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  let accept ?binders declarations left right =
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (CR.equivalent a b) ("conditional comparison rewrite rejected: " ^ name);
+    require (U.check_step U.RewriteRule conclusion [])
+      ("conditional comparison rewrite not certified: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [conclusion]))
+      ("conditional comparison rewrite ignored an unexpected premise: " ^ name);
+    require (pending conclusion = Some Z.zero)
+      ("conditional comparison rewrite left an obligation: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "ACCEPT")
+        ("conditional comparison refutation was not ACCEPT: " ^ name) in
+  let uncertified ?binders what declarations left right =
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (not (CR.equivalent a b)) (what ^ " accepted by the conditional rule: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) (what ^ " certified: " ^ name);
+    require (pending conclusion = Some Z.one) (what ^ " was not left pending: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "PARTIAL 1")
+        (what ^ " did not give a PARTIAL 1 refutation: " ^ name) in
+  let reject ?binders declarations left right =
+    incr invalid;
+    uncertified ?binders "invalid conditional comparison rewrite" declarations left right in
+  let outside ?binders declarations left right =
+    incr unsupported;
+    uncertified ?binders "unsupported conditional comparison shape" declarations left right in
+  let accept_terms what d a b =
+    incr terms_accepted;
+    let conclusion = conclusion_of d a b in
+    require (CR.equivalent a b) ("conditional comparison terms rejected: " ^ what);
+    require (U.check_step U.RewriteRule conclusion []) ("conditional comparison terms not certified: " ^ what);
+    require (pending conclusion = Some Z.zero) ("conditional comparison terms left an obligation: " ^ what) in
+  let reject_terms what d a b =
+    incr terms_invalid;
+    let conclusion = conclusion_of d a b in
+    require (not (CR.equivalent a b)) ("invalid conditional comparison terms accepted: " ^ what);
+    require (not (U.check_step U.RewriteRule conclusion []))
+      ("invalid conditional comparison terms certified: " ^ what);
+    require (pending conclusion <> Some Z.zero)
+      ("invalid conditional comparison terms left no obligation: " ^ what) in
+  let rec map_term f e =
+    match f e with
+    | Some replacement -> replacement
+    | None ->
+        (match e with
+         | A.App (decl, args) -> A.App (decl, List.map (map_term f) args)
+         | A.Quantifier (kind, sorts, sort, body) -> A.Quantifier (kind, sorts, sort, map_term f body)
+         | A.Var _ -> e) in
+  List.iter (fun (s, zero, one, two, three, minus_one, minus_two) ->
+    let f fmt = Printf.sprintf fmt in
+    let d = f "(declare-const p Bool)(declare-const q Bool)(declare-const x %s)\
+               (declare-const y %s)(declare-fun h (%s) %s)" s s s s in
+    (* A then-branch numeral whose comparison is false gives (and (not c) ...), one whose
+       comparison is true gives (or c ...), for >=, <=, <, > and =. *)
+    let source = f "(>= (ite p %s x) %s)" zero one in
+    let target = f "(and (not p) (>= x %s))" one in
+    accept d source target;
+    accept d (f "(>= (ite p %s x) %s)" three one) (f "(or p (>= x %s))" one);
+    accept d (f "(<= (ite p %s x) %s)" one two) (f "(or p (<= x %s))" two);
+    accept d (f "(<= (ite p %s x) %s)" three one) (f "(and (not p) (<= x %s))" one);
+    accept d (f "(< (ite p %s x) %s)" zero one) (f "(or p (< x %s))" one);
+    accept d (f "(> (ite p %s x) %s)" zero one) (f "(and (not p) (> x %s))" one);
+    accept d (f "(= (ite p %s x) %s)" three one) (f "(and (not p) (= x %s))" one);
+    (* A numeral else branch: the guard's polarity is swapped. *)
+    accept d (f "(>= (ite p x %s) %s)" zero one) (f "(and p (>= x %s))" one);
+    accept d (f "(>= (ite p x %s) %s)" three one) (f "(or (not p) (>= x %s))" one);
+    (* Negative numerals, the conditional on the right, and a negated comparison. *)
+    accept d (f "(>= (ite p %s x) %s)" minus_two minus_one) (f "(and (not p) (>= x %s))" minus_one);
+    accept d (f "(<= %s (ite p %s x))" one zero) (f "(and (not p) (<= %s x))" one);
+    accept d (f "(not (>= (ite p %s x) %s))" zero one) (f "(or p (not (>= x %s)))" one);
+    (* z3test issue-963: both branches numerals under a compound guard, with the raw comparison
+       of the else branch on the right; and the shifted form 1 + (ite ...) >= -1. *)
+    let guard = f "(and (= %s %s) (= x y))" zero zero in
+    accept d (f "(>= (ite %s %s %s) %s)" guard zero minus_one zero)
+      (f "(or %s (>= %s %s))" guard minus_one zero);
+    accept d (f "(>= (+ %s (ite %s %s %s)) %s)" one guard zero minus_one minus_one)
+      (f "(or %s (>= %s %s))" guard minus_one minus_two);
+    (* The shifted form with an opaque else branch: (or false (>= x -1)) and (>= (+ 1 x) 0)
+       are compared after the literal false is dropped. *)
+    accept d (f "(>= (+ %s (ite p %s x)) %s)" one zero zero) (f "(or p (>= x %s))" minus_one);
+    (* z3test string6: a conditional else branch stays inside the comparison. *)
+    accept d (f "(>= (ite p %s (ite q %s %s)) %s)" zero one minus_one zero)
+      (f "(or p (>= (ite q %s %s) %s))" one minus_one zero);
+    accept d (f "(>= (ite p %s (ite q %s x)) %s)" zero three one)
+      (f "(and (not p) (or q (>= x %s)))" one);
+    (* The split guard inside the compound guard of a nested conditional: its absorbing
+       literal decides that guard. *)
+    accept d (f "(>= (ite p %s (ite (and p q) %s x)) %s)" zero three one) target;
+    accept d (f "(>= (ite p (ite (or p q) %s %s) x) %s)" zero three one) target;
+    (* Wrong guard polarity, reversed branches, or and and against the ground comparison, and a
+       true ground comparison taken as false. *)
+    reject d source (f "(and p (>= x %s))" one);
+    reject d (f "(>= (ite p x %s) %s)" zero one) target;
+    reject d source (f "(or p (>= x %s))" one);
+    reject d source (f "(or (not p) (>= x %s))" one);
+    reject d (f "(>= (ite p %s x) %s)" three one) (f "(and (not p) (>= x %s))" one);
+    reject d (f "(<= (ite p %s x) %s)" one two) (f "(and (not p) (<= x %s))" two);
+    (* Another rest argument or bound, both mutated, and an off-by-one shift. *)
+    reject d source (f "(and (not p) (>= y %s))" one);
+    reject d source (f "(and (not p) (>= x %s))" two);
+    reject d source (f "(or p (>= y %s))" one);
+    reject d (f "(>= (+ %s (ite p %s x)) %s)" one zero zero) (f "(or p (>= x %s))" zero);
+    reject d (f "(>= (+ %s (ite %s %s %s)) %s)" one guard zero minus_one one)
+      (f "(or %s (>= %s %s))" guard minus_one minus_two);
+    (* Another relation, strict for non-strict, and a strict source. *)
+    reject d source (f "(and (not p) (<= x %s))" one);
+    reject d source (f "(and (not p) (> x %s))" one);
+    reject d (f "(> (ite p %s x) %s)" zero one) target;
+    reject d (f "(= (ite p %s x) %s)" zero one) (f "(and (not p) (>= x %s))" one);
+    (* A branch that is not a numeral has no ground comparison. *)
+    reject d (f "(>= (ite p y x) %s)" one) target;
+    reject d (f "(>= (ite p (h x) x) %s)" one) target;
+    let named = f "%s(declare-const |%s| %s)" d zero s in
+    reject named (f "(>= (ite p |%s| x) %s)" zero one) target;
+    (* Wrong conclusions: an extra disjunct, a dropped guard, a dropped comparison, false. *)
+    reject d (f "(>= (ite p %s x) %s)" three one) (f "(or p (>= x %s) q)" one);
+    reject d source (f "(>= x %s)" one);
+    reject d source "(not p)";
+    reject d source "false";
+    (* Atoms and guards that are bound variables of an enclosing quantifier: the same variables
+       on both sides are accepted; another variable is another atom or guard. *)
+    let binders = f "(x %s) (y %s)" s s in
+    let bound_source = f "(>= (ite (> y %s) %s x) %s)" two zero one in
+    let bound_target = f "(and (not (> y %s)) (>= x %s))" two one in
+    accept ~binders d bound_source bound_target;
+    reject ~binders d bound_source (f "(and (not (> x %s)) (>= x %s))" two one);
+    reject ~binders d bound_source (f "(and (not (> y %s)) (>= y %s))" two one);
+    let open_d, open_a, open_b = equation ~binders d bound_source bound_target in
+    let shift = map_term (function
+        | A.Var (index, sort) -> Some (A.Var (Z.succ index, sort))
+        | _ -> None) in
+    require (shift open_a <> open_a && shift open_b <> open_b)
+      "the conditional comparison body has no bound variables";
+    accept_terms (f "%s: bound variables shifted on both sides" s) open_d (shift open_a) (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the target" s) open_d open_a (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the source" s) open_d (shift open_a) open_b;
+    (* A guard under a binder of the rewritten terms is not replaced, so this valid step stays
+       pending. *)
+    outside d (f "(forall ((z %s)) (>= (ite (> z %s) %s x) %s))" s two zero one)
+      (f "(forall ((z %s)) (and (not (> z %s)) (>= x %s)))" s two one);
+    (* Each numeral of an accepted step, replaced by a numeral of another value or sort, a
+       malformed numeral, or an uninterpreted constant, leaves the step uncertified. *)
+    let sort = A.BaseSort s in
+    let other = A.BaseSort (if s = "Int" then "Real" else "Int") in
+    let is_numeral e = LA.numeral e <> None in
+    let zd, a, b = equation d source target in
+    require (CR.equivalent a b) ("step with canonical numerals rejected: " ^ source);
+    let numerals = ref [] in
+    ignore (map_term (fun e -> if is_numeral e then (numerals := e :: !numerals; Some e) else None)
+              (A.App (zd, [a; b])));
+    let numerals = List.rev !numerals in
+    require (List.length numerals = 3) "expected three numerals in the step";
+    List.iteri (fun index numeral ->
+        let decl, n, denominator = match numeral with
+          | A.App (decl, []) ->
+              (match decl.A.int_params with
+               | [n; denominator] -> decl, n, denominator
+               | _ -> failwith "expected numeral parameters")
+          | _ -> failwith "expected a numeral" in
+        List.iter (fun (kind, bad) ->
+            let seen = ref (-1) in
+            let replace = map_term (fun e ->
+                if is_numeral e then begin
+                  incr seen;
+                  Some (if !seen = index then A.App (bad, []) else e)
+                end else None) in
+            let a' = replace a in
+            let b' = replace b in
+            require (a' <> a || b' <> b) "the numeral was not replaced";
+            reject_terms (f "%s: %s at numeral %d" s kind index) zd a' b')
+          [ "the next numeral", { decl with A.int_params = [Z.succ n; denominator] };
+            "a numeral of the other sort", { decl with A.range = other };
+            "an uninterpreted numeral", { decl with A.interp = None };
+            "a numeral without a denominator", { decl with A.int_params = [n] };
+            "a numeral with a domain", { decl with A.domain = [sort] };
+            "an uninterpreted constant with the numeral's name",
+              { A.decl_name = decl.A.decl_name; domain = []; range = sort; interp = None;
+                int_params = [] } ])
+      numerals)
+    ["Int", "0", "1", "2", "3", "(- 1)", "(- 2)";
+     "Real", "0.0", "1.0", "2.0", "3.0", "(- 1.0)", "(- 2.0)"];
+  (* z3test z3.12: a guarded division, and Real fractions decided exactly. *)
+  let reals = "(declare-const a Real)(declare-const b Real)" in
+  accept reals "(>= (ite (= b 0.0) 0.0 (/ a b)) 1.0)" "(and (not (= b 0.0)) (>= (/ a b) 1.0))";
+  accept reals "(<= (ite (= b 0.0) 0.5 a) 0.25)" "(and (not (= b 0.0)) (<= a 0.25))";
+  accept reals "(<= (ite (= b 0.0) (/ 1.0 4.0) a) 0.25)" "(or (= b 0.0) (<= a 0.25))";
+  reject reals "(<= (ite (= b 0.0) 0.5 a) 0.25)" "(or (= b 0.0) (<= a 0.25))";
+  (* A division by zero is not a numeral. *)
+  reject reals "(>= (ite (= b 0.0) (/ 1.0 0.0) a) 1.0)" "(and (not (= b 0.0)) (>= a 1.0))";
+  Printf.printf "  conditional comparison rewrites: %d accepted, %d invalid, %d outside the shape; \
+                 rebuilt terms: %d accepted, %d invalid\n%!"
+    !accepted !invalid !unsupported !terms_accepted !terms_invalid
+
 let arithmetic_triangle_clauses () =
   let c = context () in
   let check expected clause =
@@ -4431,6 +4676,7 @@ let () =
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
      "checked-arithmetic-factor-rewrites", arithmetic_factor_rewrites;
+     "checked-conditional-comparison-rewrites", conditional_comparison_rewrites;
      "checked-array-unequal-defaults", array_unequal_defaults;
      "checked-bit-vector-rewrites", bv_rewrites;
      "checked-fresh-bit-model-extension", fresh_bit_model_extension;
