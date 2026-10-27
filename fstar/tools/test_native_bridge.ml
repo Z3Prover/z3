@@ -3291,6 +3291,83 @@ let ff_rewrites () =
   check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(= b (as ff1 F3))";
   check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) true)"
 
+(* Finite-field theory lemmas (the `th-lemma` steps of the QF_FF certificates) are decided by
+   evaluating the clause under every assignment of residues to its leaves, at most 4096 of
+   them; the producer's certificate parameters are not read. *)
+let ff_theory_lemmas () =
+  let c = context () in
+  let bits = List.init 13 (Printf.sprintf "x%d") in
+  let declarations =
+    "(set-logic QF_FF)(define-sort F2 () (_ FiniteField 2))(define-sort F3 () (_ FiniteField 3))\
+     (define-sort F17 () (_ FiniteField 17))(define-sort F4099 () (_ FiniteField 4099))\
+     (declare-const x F17)(declare-const y F17)(declare-const a F3)(declare-const b F3)\
+     (declare-const t F4099)(declare-fun g (F3) F3)" ^
+    String.concat "" (List.map (Printf.sprintf "(declare-const %s F2)") bits) in
+  let check ?(premises = []) expected clause =
+    let inputs = parse c (declarations ^
+      String.concat "" (List.map (fun e -> "(assert " ^ e ^ ")") (premises @ [clause]))) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let judgments = List.map (fun e ->
+        Option.get (U.classify_fact (B.cached_expression st e))) inputs in
+    let conclusion = List.hd (List.rev judgments) in
+    let facts = List.rev (List.tl (List.rev judgments)) in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
+      ("incorrect finite-field theory lemma: " ^ clause);
+    let premises = List.map (fun conclusion1 ->
+        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    require (match U.check_node [] {
+        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
+        | None -> false)
+      ("finite-field theory lemma lost its obligation: " ^ clause)
+  in
+  let ors lits = "(or " ^ String.concat " " lits ^ ")" in
+  (* field-3/case-04: a conditional term selected by (= b a). *)
+  let sel = "(ite (= b a) (as ff2 F3) (as ff1 F3))" in
+  let lit_sel = "(not (= " ^ sel ^ " (as ff1 F3)))" in
+  let lit_prod = "(not (= (ff.mul a b " ^ sel ^ ") (ff.add (as ff2 F3) a)))" in
+  let lit_bits k =
+    Printf.sprintf "(not (= (ff.bitsum (as ff0 F3) a) (ff.add (as ff%d F3) (ff.mul a b))))" k in
+  (* field-17/case-03: 17^2 assignments. *)
+  let sel17 = "(ite (= x y) y x)" in
+  let lits17 =
+    ["(not (= y " ^ sel17 ^ "))"; "(not (= x " ^ sel17 ^ "))";
+     "(not (= (ff.bitsum (ff.mul (as ff16 F17) y) (ff.mul (as ff2 F17) x)) (as ff11 F17)))";
+     "(not (= (ff.bitsum " ^ sel17 ^ " (as ff16 F17)) (ff.mul (ff.add (as ff6 F17) x) (ff.add y x))))"] in
+  let quadratic17 k =
+    Printf.sprintf "(or (not (= (ff.mul y (ff.add (as ff12 F17) y)) (as ff%d F17))))" k in
+  (* In F_2 a product of bits is 1 only if each bit is 1: 2^12 assignments are at the bound. *)
+  let product vars =
+    "(or (not (= (ff.mul " ^ String.concat " " vars ^ ") (as ff1 F2))) (= x0 (as ff1 F2)))" in
+  check true (ors [lit_sel; lit_prod; lit_bits 1]);
+  check true (ors lits17);
+  check true (quadratic17 12);
+  check true (product (List.filteri (fun i _ -> i < 12) bits));
+  check true "(or (= (g a) (as ff0 F3)) (= (g a) (as ff1 F3)) (= (g a) (as ff2 F3)))";
+  (* A mutated numeral or a dropped literal makes the clause false. *)
+  check false (ors [lit_sel; lit_prod; lit_bits 2]);
+  check false (ors [lit_sel; lit_bits 1]);
+  check false (quadratic17 13);
+  check false (ors (List.filteri (fun i _ -> i < 3) lits17));
+  (* The then branch is taken when the condition holds. *)
+  check false "(or (not (= x y)) (= (ite (= x y) (as ff0 F17) x) y))";
+  check true "(or (not (= x y)) (= (ite (= x y) x (as ff0 F17)) y))";
+  (* Another field: the field-3 clause is false over F_17, and mixed moduli are not evaluated. *)
+  check false (ors [
+      "(not (= (ite (= y x) (as ff2 F17) (as ff1 F17)) (as ff1 F17)))";
+      "(not (= (ff.mul x y (ite (= y x) (as ff2 F17) (as ff1 F17))) (ff.add (as ff2 F17) x)))";
+      "(not (= (ff.bitsum (as ff0 F17) x) (ff.add (as ff1 F17) (ff.mul x y))))"]);
+  check false "(or (= x0 (as ff0 F2)) (= x0 (as ff1 F2)) (= a (as ff0 F3)))";
+  (* Over the bound: 2^13 assignments, or a single leaf over F_4099. *)
+  check false (product bits);
+  check false "(or (not (= (ff.mul t t) (as ff1 F4099))) (= t (as ff1 F4099)) (= t (as ff4098 F4099)))";
+  (* An unsupported connective is not evaluated. *)
+  check false "(=> (= a (as ff0 F3)) (= (ff.mul a b) (as ff0 F3)))";
+  (* Premises are not used: a clause that holds only under its premise stays unmet, and the
+     rule does not apply to a step with premises. *)
+  check ~premises:["(= (ff.mul a a) (as ff1 F3))"] false "(or (= a (as ff1 F3)) (= a (as ff2 F3)))";
+  check ~premises:["(= a b)"] false (ors [lit_sel; lit_prod; lit_bits 1])
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
@@ -3348,4 +3425,5 @@ let () =
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;
      "proof-callback-ownership", proof_callback_ownership;
-     "checked-finite-field-rewrites", ff_rewrites]
+     "checked-finite-field-rewrites", ff_rewrites;
+     "checked-finite-field-theory-lemmas", ff_theory_lemmas]

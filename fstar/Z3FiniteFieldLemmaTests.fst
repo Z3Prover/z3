@@ -3,7 +3,8 @@
    and 17 cases), which the checker previously reported as unmet obligations
    because `FF<p>` terms were opaque. The negative cases show that a step which
    is not a ring identity modulo p, mixes moduli, uses a non-canonical numeral,
-   or needs a unit that does not exist is still rejected. *)
+   or needs a unit that does not exist is still rejected. The last section
+   covers finite-field theory lemmas decided by exhaustive evaluation. *)
 module Z3FiniteFieldLemmaTests
 
 open Z3AstTheory
@@ -11,6 +12,7 @@ open Z3ValueTheory
 open Z3ResolutionProofTheory
 module FF = Z3FiniteFieldLemma
 module TN = Z3TheoryNormalize
+module U = Z3UnifiedProof
 module L = FStar.List.Tot
 
 let num (p n:int) : expr =
@@ -550,3 +552,199 @@ let test_ite_equal_numeral_uses_no_unit () : Lemma (
      let a = eq (ite_term 4 c (num 4 2) (mul 4 [num 4 2; y])) (num 4 0) in
      FF.equivalent a (conj (eq (mul 4 [num 4 2; y]) (num 4 0)) (mk_not_expr c)) /\
      not (FF.equivalent a (conj (eq y (num 4 0)) (mk_not_expr c)))))
+
+(* ------------------------------------------------------------------ *)
+(* Theory lemmas decided by exhaustive evaluation over Z/pZ            *)
+(* ------------------------------------------------------------------ *)
+
+let disj (args:list expr) : expr =
+  App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction args) args
+
+let conj_n (args:list expr) : expr =
+  App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Conjunction args) args
+
+let x2 = const 2 "x"
+let y2 = const 2 "y"
+
+(* field-2/case-03: F_2 has no zero divisors. *)
+let zero_product (p:int) (zero:expr) : expr =
+  let x = const p "x" in
+  let y = const p "y" in
+  disj [mk_not_expr (eq zero (mul p [x; bitsum p [x; y]]));
+        eq x zero; eq (bitsum p [x; y]) zero]
+
+(* field-2/case-04 *)
+let square2 : expr = disj [mk_not_expr (eq x2 (num 2 0)); mk_not_expr (eq (mul 2 [x2; x2]) (num 2 1))]
+
+(* field-3/case-04, second lemma: a conditional term selected by (= y x). *)
+let sel3 : expr = ite_term 3 (eq y3 x3) (num 3 2) (num 3 1)
+let lit_sel3 : expr = mk_not_expr (eq sel3 (num 3 1))
+let lit_prod3 : expr = mk_not_expr (eq (mul 3 [x3; y3; sel3]) (add 3 [num 3 2; x3]))
+let lit_bits3 (k:int) : expr =
+  mk_not_expr (eq (bitsum 3 [num 3 0; x3]) (add 3 [num 3 k; mul 3 [x3; y3]]))
+let lemma3 : expr = disj [lit_sel3; lit_prod3; lit_bits3 1]
+
+(* Modulo 4, 2*x = 0 has the two roots 0 and 2. *)
+let double4 (roots:list int) : expr =
+  let x = const 4 "x" in
+  disj (mk_not_expr (eq (mul 4 [num 4 2; x]) (num 4 0)) :: L.map (fun r -> eq x (num 4 r)) roots)
+
+(* The value of a conditional term follows its condition. *)
+let ite_select (c:expr) (t e:expr) : expr =
+  disj [mk_not_expr (eq x3 y3); eq (ite_term 3 c t e) y3]
+
+(* Boolean equality and conjunction. *)
+let iff_lemma (p:int) : expr =
+  let x = const p "x" in
+  disj [mk_iff_expr (eq x (num p 0)) (mk_not_expr (eq x (num p 1)))]
+
+let and_lemma (k:int) : expr =
+  disj [mk_not_expr (conj_n [eq x3 (num 3 1); eq y3 (num 3 1)]); eq (mul 3 [x3; y3]) (num 3 k)]
+
+(* Commutativity with three leaves: 3^3 = 27 assignments, 17^3 = 4913 over the bound. *)
+let commutes3 (p:int) : expr =
+  let x = const p "x" in
+  let y = const p "y" in
+  let z = const p "z" in
+  disj [mk_not_expr (eq (add p [x; y]) z); eq (add p [y; x]) z]
+
+let test_theory_lemmas_from_the_corpus () : Lemma (
+  FF.exhaustive_clause (zero_product 2 (num 2 0)) /\
+  FF.exhaustive_clause square2 /\
+  FF.exhaustive_clause lemma3) =
+  assert_norm (
+    FF.exhaustive_clause (zero_product 2 (num 2 0)) /\
+    FF.exhaustive_clause square2 /\
+    FF.exhaustive_clause lemma3)
+
+(* The rule is the theory-lemma check of the unified kernel. *)
+let test_theory_lemma_is_checked_by_the_kernel () : Lemma (
+  U.checked_theory_lemma (U.Unverified "th-lemma") (U.Holds square2) []) =
+  assert_norm (U.checked_theory_lemma (U.Unverified "th-lemma") (U.Holds square2) [])
+
+let test_theory_lemma_connectives () : Lemma (
+  FF.exhaustive_clause (ite_select (eq x3 y3) x3 (num 3 0)) /\
+  FF.exhaustive_clause (iff_lemma 2) /\
+  FF.exhaustive_clause (and_lemma 1) /\
+  FF.exhaustive_clause (commutes3 3)) =
+  assert_norm (
+    FF.exhaustive_clause (ite_select (eq x3 y3) x3 (num 3 0)) /\
+    FF.exhaustive_clause (iff_lemma 2) /\
+    FF.exhaustive_clause (and_lemma 1) /\
+    FF.exhaustive_clause (commutes3 3))
+
+(* Only ring evaluation is used: modulo 4 the clause naming both roots of 2*x = 0
+   holds, the one naming only 0 does not, and neither does the zero-product clause. *)
+let test_theory_lemma_composite_modulus () : Lemma (
+  FF.exhaustive_clause (double4 [0; 2]) /\
+  not (FF.exhaustive_clause (double4 [0])) /\
+  not (FF.exhaustive_clause (zero_product 4 (num 4 0)))) =
+  assert_norm (
+    FF.exhaustive_clause (double4 [0; 2]) /\
+    not (FF.exhaustive_clause (double4 [0])) /\
+    not (FF.exhaustive_clause (zero_product 4 (num 4 0))))
+
+(* False clauses: a mutated numeral, a dropped literal, the wrong field. *)
+let test_theory_lemma_false_clauses_are_rejected () : Lemma (
+  not (FF.exhaustive_clause (disj [lit_sel3; lit_prod3; lit_bits3 2])) /\
+  not (FF.exhaustive_clause (disj [lit_sel3; lit_bits3 1])) /\
+  not (FF.exhaustive_clause (disj [lit_sel3; lit_prod3])) /\
+  not (FF.exhaustive_clause (disj [mk_not_expr (eq x2 (num 2 0)); mk_not_expr (eq (mul 2 [x2; x2]) (num 2 0))])) /\
+  not (FF.exhaustive_clause (iff_lemma 3)) /\
+  not (FF.exhaustive_clause (and_lemma 2))) =
+  assert_norm (
+    not (FF.exhaustive_clause (disj [lit_sel3; lit_prod3; lit_bits3 2])) /\
+    not (FF.exhaustive_clause (disj [lit_sel3; lit_bits3 1])) /\
+    not (FF.exhaustive_clause (disj [lit_sel3; lit_prod3])) /\
+    not (FF.exhaustive_clause (disj [mk_not_expr (eq x2 (num 2 0)); mk_not_expr (eq (mul 2 [x2; x2]) (num 2 0))])) /\
+    not (FF.exhaustive_clause (iff_lemma 3)) /\
+    not (FF.exhaustive_clause (and_lemma 2)))
+
+(* The then branch is taken exactly when the condition holds. *)
+let test_theory_lemma_ite_polarity () : Lemma (
+  not (FF.exhaustive_clause (ite_select (eq x3 y3) (num 3 0) x3)) /\
+  not (FF.exhaustive_clause (ite_select (mk_not_expr (eq x3 y3)) x3 (num 3 0)))) =
+  assert_norm (
+    not (FF.exhaustive_clause (ite_select (eq x3 y3) (num 3 0) x3)) /\
+    not (FF.exhaustive_clause (ite_select (mk_not_expr (eq x3 y3)) x3 (num 3 0))))
+
+(* Wrong field: a numeral or an operation whose parameters name another modulus is
+   opaque, an equality over another field is not evaluated (even in a clause that is
+   valid), and a numeral of another modulus is ill-sorted. *)
+let numeral_naming (p q n:int) : expr =
+  App { decl_name = "ff"; domain = []; range = FF.ff_sort p;
+        interp = Some FF.op_ff_num; int_params = [q; n] } []
+let mul_naming (p q:int) (args:list expr) : expr =
+  App { decl_name = "ff.mul"; domain = FF.ff_domain p args; range = FF.ff_sort p;
+        interp = Some FF.op_ff_mul; int_params = [q] } args
+
+let test_theory_lemma_wrong_field_is_rejected () : Lemma (
+  FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (num 2 1)]) /\
+  not (FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (numeral_naming 2 3 1)])) /\
+  not (FF.exhaustive_clause (disj [mk_not_expr (eq x2 (num 2 0));
+                                   mk_not_expr (eq (mul_naming 2 3 [x2; x2]) (num 2 1))])) /\
+  not (FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (num 2 1); eq x3 (num 3 0)])) /\
+  not (FF.exhaustive_clause (zero_product 2 (num 3 0))) /\
+  not (FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (num 2 1); eq x2 wrong_sort_numeral]))) =
+  assert_norm (
+    FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (num 2 1)]) /\
+    not (FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (numeral_naming 2 3 1)])) /\
+    not (FF.exhaustive_clause (disj [mk_not_expr (eq x2 (num 2 0));
+                                     mk_not_expr (eq (mul_naming 2 3 [x2; x2]) (num 2 1))])) /\
+    not (FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (num 2 1); eq x3 (num 3 0)])) /\
+    not (FF.exhaustive_clause (zero_product 2 (num 3 0))) /\
+    not (FF.exhaustive_clause (disj [eq x2 (num 2 0); eq x2 (num 2 1); eq x2 wrong_sort_numeral])))
+
+(* A numeral outside [0, p) is not interpreted: it is an opaque term. *)
+let test_theory_lemma_out_of_range_numeral_is_opaque () : Lemma (
+  not (FF.exhaustive_clause (disj [eq (num 2 2) (num 2 0)])) /\
+  not (FF.exhaustive_clause (disj [eq (num 3 (-1)) (num 3 2)])) /\
+  FF.exhaustive_clause (disj [eq (num 2 0) (num 2 0)])) =
+  assert_norm (
+    not (FF.exhaustive_clause (disj [eq (num 2 2) (num 2 0)])) /\
+    not (FF.exhaustive_clause (disj [eq (num 3 (-1)) (num 3 2)])) /\
+    FF.exhaustive_clause (disj [eq (num 2 0) (num 2 0)]))
+
+(* Unknown operators are opaque, unsupported connectives and predicates are not
+   evaluated, and a clause must be a closed Boolean term with a modulus. *)
+let unknown_op (a b:expr) : expr =
+  App { decl_name = "ff.sub"; domain = [FF.ff_sort 3; FF.ff_sort 3]; range = FF.ff_sort 3;
+        interp = Some 305; int_params = [3] } [a; b]
+let pred (a:expr) : expr =
+  App { decl_name = "q"; domain = [FF.ff_sort 3]; range = bool_sort; interp = None; int_params = [] } [a]
+let implies (a b:expr) : expr =
+  App { decl_name = "=>"; domain = [bool_sort; bool_sort]; range = bool_sort;
+        interp = Some op_implies; int_params = [] } [a; b]
+let bound3 : expr = Var 0 (FF.ff_sort 3)
+
+let test_theory_lemma_outside_the_fragment_is_rejected () : Lemma (
+  not (FF.exhaustive_clause (disj [eq (unknown_op x3 x3) (num 3 0)])) /\
+  not (FF.exhaustive_clause (disj [pred x3; mk_not_expr (pred x3); eq x3 (num 3 0)])) /\
+  not (FF.exhaustive_clause (disj [implies (eq x3 (num 3 1)) (eq x3 (num 3 1))])) /\
+  not (FF.exhaustive_clause (disj [eq bound3 (num 3 0); mk_not_expr (eq bound3 (num 3 0))])) /\
+  not (FF.exhaustive_clause (add 3 [x3; num 3 0])) /\
+  not (FF.exhaustive_clause (disj [mk_not_expr (eq x3 y3); eq y3 x3]))) =
+  assert_norm (
+    not (FF.exhaustive_clause (disj [eq (unknown_op x3 x3) (num 3 0)])) /\
+    not (FF.exhaustive_clause (disj [pred x3; mk_not_expr (pred x3); eq x3 (num 3 0)])) /\
+    not (FF.exhaustive_clause (disj [implies (eq x3 (num 3 1)) (eq x3 (num 3 1))])) /\
+    not (FF.exhaustive_clause (disj [eq bound3 (num 3 0); mk_not_expr (eq bound3 (num 3 0))])) /\
+    not (FF.exhaustive_clause (add 3 [x3; num 3 0])) /\
+    not (FF.exhaustive_clause (disj [mk_not_expr (eq x3 y3); eq y3 x3])))
+
+(* The bound p^n <= 4096 is checked before enumerating: exactly at the bound is
+   allowed, one factor more is not, and a valid clause over the bound is left unchecked. *)
+let test_theory_lemma_bound () : Lemma (
+  FF.max_assignments == 4096 /\
+  FF.within_budget 4096 1 1 /\ not (FF.within_budget 4097 1 1) /\
+  FF.within_budget 2 12 1 /\ not (FF.within_budget 2 13 1) /\
+  FF.within_budget 16 3 1 /\ not (FF.within_budget 17 3 1) /\
+  not (FF.within_budget 115792089237316195423570985008687907853269984665640564039457584007908834671663 1 1) /\
+  not (FF.exhaustive_clause (commutes3 17))) =
+  assert_norm (
+    FF.max_assignments == 4096 /\
+    FF.within_budget 4096 1 1 /\ not (FF.within_budget 4097 1 1) /\
+    FF.within_budget 2 12 1 /\ not (FF.within_budget 2 13 1) /\
+    FF.within_budget 16 3 1 /\ not (FF.within_budget 17 3 1) /\
+    not (FF.within_budget 115792089237316195423570985008687907853269984665640564039457584007908834671663 1 1) /\
+    not (FF.exhaustive_clause (commutes3 17)))

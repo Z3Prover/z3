@@ -123,6 +123,53 @@ FINITE_FIELD_CASES = (
 )
 RULE_EXTENSION_CASES += FINITE_FIELD_CASES
 
+# The remaining Pulse QF_FF certificates, verbatim: their `th-lemma` steps are decided by
+# evaluating the clause under every assignment of residues to its leaves (at most 4096).
+FINITE_FIELD_THEORY_LEMMA_CASES = (
+    ("ff-17-case-02", finite_field(17,
+     "(and (= (ff.add (ff.bitsum x (as ff19 F)) (as ff-26 F)) (ff.add (ff.mul (as ff-11 F) x) y))"
+     " (= (ite (= x y) (ff.mul x y) (ff.bitsum y y)) (ff.mul x (ite (= x y) (as ff-6 F) x))))")),
+    ("ff-17-case-03", finite_field(17,
+     "(and (= (as ff-23 F) (ff.bitsum (ff.neg y) (ff.add x x)))"
+     " (= (ff.bitsum (ite (= x y) y x) (ff.neg (as ff-16 F))) (ff.mul (ff.add x (as ff6 F)) (ff.add x y))))")),
+    ("ff-17-case-05", finite_field(17,
+     "(and (= x (as ff29 F)) (= (ff.mul (ff.add y x) (ff.mul y x)) (as ff25 F)))")),
+    ("ff-2-case-02", finite_field(2,
+     "(and (not (= y (ff.mul (ff.add (as ff0 F) x) (ff.bitsum y x))))"
+     " (= (ff.bitsum (ff.mul x y) (ff.bitsum y y)) y))")),
+    ("ff-2-case-03", finite_field(2,
+     "(and (not (= (ff.mul (ff.mul x x) (as ff-3 F)) (ff.neg (as ff2 F))))"
+     " (= (ff.mul x (ff.bitsum x y)) (ff.mul y (ff.mul y (as ff-4 F)))))")),
+    ("ff-2-case-04", finite_field(2,
+     "(and (= (ite (= x y) (as ff3 F) (ff.mul x y)) (ff.neg (ff.mul x x)))"
+     " (= y (ff.mul (as ff3 F) (as ff2 F))))")),
+    ("ff-2-case-05", finite_field(2,
+     "(and (= (ff.add (ff.mul x (as ff2 F)) (ff.add y (as ff2 F))) (ff.bitsum (ff.add y y) (ff.bitsum y (as ff2 F))))"
+     " (not (= (ff.mul x x) (ff.bitsum (ff.bitsum x y) (ff.add y x)))))")),
+    ("ff-3-case-03", finite_field(3,
+     "(and (= x (ite (= x y) (ff.neg y) y)) (= (ff.neg (ff.bitsum x (as ff2 F))) (as ff1 F)))")),
+    ("ff-3-case-04", finite_field(3,
+     "(and (= (ff.mul (ite (= x y) (as ff5 F) (as ff1 F)) (ff.mul x y)) (ff.add x (ff.neg (as ff-5 F))))"
+     " (= (ff.bitsum (ff.neg (as ff3 F)) x) (ff.add (ff.add (as ff-4 F) (as ff5 F)) (ff.mul x y))))")),
+    ("ff-3-case-05", finite_field(3,
+     "(and (= (ff.add (ff.bitsum x y) (ff.mul y y)) y)"
+     " (= (ff.mul (ff.bitsum (as ff-1 F) x) (ff.bitsum (as ff4 F) (as ff-4 F)))"
+     " (ff.add (ite (= x y) y (as ff3 F)) (ff.add x x))))")),
+    ("ff-5-case-04", finite_field(5,
+     "(and (= (as ff8 F) (ff.mul (ff.mul x x) (ff.neg x)))"
+     " (= (ff.add (as ff3 F) y) (ff.add (as ff-9 F) (ite (= x y) (as ff-8 F) y))))")),
+    ("ff-7-case-02", finite_field(7,
+     "(and (= (ff.add (ff.add (as ff-8 F) (as ff-9 F)) (ff.neg x)) (ite (= x y) (ff.neg (as ff-8 F)) x))"
+     " (= (ff.add (ff.neg (as ff-7 F)) (ff.bitsum y y)) (ff.bitsum (ff.mul x x) (as ff-6 F))))")),
+)
+RULE_EXTENSION_CASES += FINITE_FIELD_THEORY_LEMMA_CASES
+
+
+# x*y = 1 and x*(y+1) = x+2 have no common root; Z3 refutes them with a `th-lemma`.
+def unit_ideal(prime):
+    return finite_field(prime,
+        "(and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F))))")
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -236,12 +283,12 @@ class DirectCheckerTests(unittest.TestCase):
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
 
-    def test_finite_field_theory_lemmas_remain_uncertified(self):
-        source = finite_field(17,
-            "(and (= (ff.add (ff.bitsum x (as ff19 F)) (as ff-26 F))"
-            " (ff.add (ff.mul (as ff-11 F) x) y))"
-            " (= (ite (= x y) (ff.mul x y) (ff.bitsum y y))"
-            " (ff.mul x (ite (= x y) (as ff-6 F) x))))")
+    def test_finite_field_theory_lemmas_are_checked_within_the_bound(self):
+        # 17^2 assignments are evaluated; over a 31-bit prime the same refutation has more
+        # than 4096, so its `th-lemma` step stays an unmet obligation.
+        result = self.run_checker(unit_ideal(17), "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
+        source = unit_ideal(2147483647)
         result = self.run_checker(source, "--diagnostics")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")

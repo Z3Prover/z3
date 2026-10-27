@@ -7,6 +7,10 @@
    laws are used, so nothing here assumes that `p` is prime: if `p` is
    composite the same identities still hold in Z/pZ. Rewrites that need the
    field equation `x^p = x` or inverses are not decided; they stay unmet.
+   Theory lemmas (`th-lemma` clauses) are decided by evaluating the clause
+   under every assignment of residues to its leaves, at most
+   `max_assignments` of them (see the last section); this also uses only
+   arithmetic modulo p.
 
    Trust statement. `ff_model i project` is the semantic contract of the
    interpretation `i` for finite-field sorts, in the same position and with
@@ -942,3 +946,449 @@ let lemma_equivalent (i:interpretation value) (rho:env value) (project:int -> va
     else if eq_truth_equivalent a b then lemma_eq_truth_equivalent i rho project a b
     else if eq_truth_equivalent b a then lemma_eq_truth_equivalent i rho project b a
     else lemma_ite_eq_equivalent i rho project a b
+
+(* ----------------------------------------------------------------- *)
+(* Theory lemmas: exhaustive evaluation over the residues of Z/pZ      *)
+(* ----------------------------------------------------------------- *)
+
+(* A finite-field `th-lemma` is a clause whose literals compare `FF<p>` terms.
+   It is checked by evaluating it under every assignment of residues in
+   [0, p) to its leaves, the closed `FF<p>` subterms that are not numerals,
+   field operations or conditional terms. Under `ff_model` the leaves of any
+   model take residues in [0, p) and every field operation is the matching
+   operation modulo p, so the enumeration covers every model: a clause that
+   evaluates to true under every assignment holds. Only evaluation in the
+   ring Z/pZ is used, so `p` need not be prime, and the producer's
+   certificate parameters are not read. The number p^n of assignments is
+   bounded by `max_assignments` before anything is enumerated; a larger
+   clause, or one with a connective or term outside this fragment, stays
+   unchecked. *)
+
+let max_assignments : nat = 4096
+
+let leaf (p:pos) (tbl:list expr) (v:nat -> int) (e:expr) : option int =
+  if get_sort e = ff_sort p
+  then (match index_of e tbl with Some k -> Some (v k) | None -> None)
+  else None
+
+(* The residue of an `FF<p>` term and the truth value of a Boolean term when
+   the k-th leaf of `tbl` has residue `v k`; `None` outside the fragment. *)
+let rec eval_ff (p:pos) (tbl:list expr) (v:nat -> int) (e:expr) : Tot (option int) (decreases e) =
+  match numeral e with
+  | Some (q, n) -> if q = p then Some n else None
+  | None ->
+    (match e with
+     | App f args ->
+       (match operation f args with
+        | Some (q, op) ->
+          if q <> p then None
+          else (match eval_ffs p tbl v args with
+                | Some xs -> Some (calculate p op xs)
+                | None -> None)
+        | None ->
+          (match args with
+           | [c; t; u] ->
+             if f = Z3ArrayRewrite.term_ite_decl (ff_sort p) && get_sort c = bool_sort &&
+                get_sort t = ff_sort p && get_sort u = ff_sort p
+             then (match eval_bool p tbl v c with
+                   | Some true -> eval_ff p tbl v t
+                   | Some false -> eval_ff p tbl v u
+                   | None -> None)
+             else leaf p tbl v e
+           | _ -> leaf p tbl v e))
+     | _ -> leaf p tbl v e)
+
+and eval_ffs (p:pos) (tbl:list expr) (v:nat -> int) (args:list expr)
+  : Tot (option (list int)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match eval_ff p tbl v a, eval_ffs p tbl v rest with
+     | Some x, Some xs -> Some (x :: xs)
+     | _, _ -> None)
+
+and eval_bool (p:pos) (tbl:list expr) (v:nat -> int) (e:expr) : Tot (option bool) (decreases e) =
+  match e with
+  | App f args ->
+    if get_sort e <> bool_sort then None
+    else if f.decl_name = "true" && args = [] then Some true
+    else if f.decl_name = "false" && args = [] then Some false
+    else if f.decl_name = "not" then
+      (match args with
+       | [a] -> (match eval_bool p tbl v a with Some b -> Some (not b) | None -> None)
+       | _ -> None)
+    else if f.decl_name = "or" then eval_or p tbl v args
+    else if f.decl_name = "and" then eval_and p tbl v args
+    else if f.decl_name = "=" then
+      (match args with
+       | [a; b] ->
+         if get_sort a = ff_sort p && get_sort b = ff_sort p then
+           (match eval_ff p tbl v a, eval_ff p tbl v b with
+            | Some x, Some y -> Some (x = y)
+            | _, _ -> None)
+         else if get_sort a = bool_sort && get_sort b = bool_sort then
+           (match eval_bool p tbl v a, eval_bool p tbl v b with
+            | Some x, Some y -> Some (x = y)
+            | _, _ -> None)
+         else None
+       | _ -> None)
+    else None
+  | _ -> None
+
+and eval_or (p:pos) (tbl:list expr) (v:nat -> int) (args:list expr)
+  : Tot (option bool) (decreases args) =
+  match args with
+  | [] -> Some false
+  | a :: rest ->
+    (match eval_bool p tbl v a, eval_or p tbl v rest with
+     | Some x, Some y -> Some (x || y)
+     | _, _ -> None)
+
+and eval_and (p:pos) (tbl:list expr) (v:nat -> int) (args:list expr)
+  : Tot (option bool) (decreases args) =
+  match args with
+  | [] -> Some true
+  | a :: rest ->
+    (match eval_bool p tbl v a, eval_and p tbl v rest with
+     | Some x, Some y -> Some (x && y)
+     | _, _ -> None)
+
+(* Untrusted search for the leaves and the modulus; a missing leaf or a wrong
+   modulus only makes the evaluation fail. Leaves are identified by structural
+   equality and each is recorded once (`lemma_leaves_unique`). *)
+let add_leaf (tbl:list expr) (e:expr) : list expr =
+  if L.mem e tbl then tbl else L.append tbl [e]
+
+let rec leaves (p:int) (tbl:list expr) (e:expr) : Tot (list expr) (decreases e) =
+  match numeral e with
+  | Some _ -> tbl
+  | None ->
+    (match e with
+     | App f args ->
+       if Some? (operation f args) || get_sort e <> ff_sort p || Some? (Z3ArrayRewrite.ite_parts e)
+       then leaves_args p tbl args
+       else add_leaf tbl e
+     | _ -> if get_sort e = ff_sort p then add_leaf tbl e else tbl)
+
+and leaves_args (p:int) (tbl:list expr) (args:list expr) : Tot (list expr) (decreases args) =
+  match args with
+  | [] -> tbl
+  | a :: rest -> leaves_args p (leaves p tbl a) rest
+
+let rec find_modulus (e:expr) : Tot (option int) (decreases e) =
+  match modulus_of e with
+  | Some p -> Some p
+  | None -> (match e with App _ args -> find_modulus_args args | _ -> None)
+
+and find_modulus_args (args:list expr) : Tot (option int) (decreases args) =
+  match args with
+  | [] -> None
+  | a :: rest -> (match find_modulus a with Some p -> Some p | None -> find_modulus_args rest)
+
+(* `within_budget p n 1` decides p^n <= max_assignments by multiplying one
+   factor at a time and stopping as soon as the product exceeds the bound, so
+   p^n is never formed for a large modulus or many leaves. *)
+let rec within_budget (p:int) (n:nat) (acc:int) : Tot bool (decreases n) =
+  if acc > max_assignments then false
+  else if n = 0 then true
+  else within_budget p (n - 1) (acc * p)
+
+(* `for_all_vectors p n f` evaluates `f` on every list of n residues in [0, p). *)
+let with_head (f:list int -> bool) (x:int) (r:list int) : bool = f (x :: r)
+
+let rec for_all_vectors (p:nat) (n:nat) (f:list int -> bool) : Tot bool (decreases %[n; 0; 0]) =
+  if n = 0 then f [] else for_all_heads p p (n - 1) f
+
+and for_all_heads (p:nat) (k:nat) (n:nat) (f:list int -> bool) : Tot bool (decreases %[n; 1; k]) =
+  if k = 0 then true
+  else for_all_vectors p n (with_head f (k - 1)) && for_all_heads p (k - 1) n f
+
+let vector_value (r:list int) : nat -> int =
+  fun k -> if k < L.length r then L.index r k else 0
+
+let clause_true (p:pos) (tbl:list expr) (e:expr) (r:list int) : bool =
+  eval_bool p tbl (vector_value r) e = Some true
+
+(* The side conditions are tested in order and each guards the next, so no
+   assignment is enumerated unless the clause is closed, Boolean, over a
+   single modulus p >= 2 and within the bound. *)
+let exhaustive_clause (e:expr) : bool =
+  match find_modulus e with
+  | None -> false
+  | Some p ->
+    if p >= 2 && D.scoped [] e && get_sort e = bool_sort then
+      let tbl = leaves p [] e in
+      if within_budget p (L.length tbl) 1 && L.for_all (closed_ff p) tbl
+      then for_all_vectors p (L.length tbl) (clause_true p tbl e)
+      else false
+    else false
+
+(* --- The leaf table and the bound ----------------------------------- *)
+
+let rec lemma_append_fresh (tbl:list expr) (e:expr)
+  : Lemma (requires L.noRepeats tbl /\ not (L.mem e tbl))
+          (ensures L.noRepeats (L.append tbl [e]))
+          (decreases tbl)
+  = match tbl with
+    | [] -> ()
+    | x :: rest ->
+      FStar.List.Tot.Properties.append_mem rest [e] x;
+      assert_norm (L.mem x [e] == (x = e));
+      lemma_append_fresh rest e
+
+let lemma_add_leaf_unique (tbl:list expr) (e:expr)
+  : Lemma (requires L.noRepeats tbl) (ensures L.noRepeats (add_leaf tbl e))
+  = if L.mem e tbl then () else lemma_append_fresh tbl e
+
+let rec lemma_leaves_unique (p:int) (tbl:list expr) (e:expr)
+  : Lemma (requires L.noRepeats tbl) (ensures L.noRepeats (leaves p tbl e)) (decreases e)
+  = match numeral e with
+    | Some _ -> ()
+    | None ->
+      (match e with
+       | App f args ->
+         if Some? (operation f args) || get_sort e <> ff_sort p || Some? (Z3ArrayRewrite.ite_parts e)
+         then lemma_leaves_args_unique p tbl args
+         else lemma_add_leaf_unique tbl e
+       | _ -> if get_sort e = ff_sort p then lemma_add_leaf_unique tbl e else ())
+
+and lemma_leaves_args_unique (p:int) (tbl:list expr) (args:list expr)
+  : Lemma (requires L.noRepeats tbl) (ensures L.noRepeats (leaves_args p tbl args)) (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_leaves_unique p tbl a;
+      lemma_leaves_args_unique p (leaves p tbl a) rest
+
+let rec power (p:int) (n:nat) : Tot int (decreases n) =
+  if n = 0 then 1 else p * power p (n - 1)
+
+(* The enumeration is entered only when p^n <= max_assignments. *)
+let rec lemma_within_budget (p:pos) (n:nat) (acc:pos)
+  : Lemma (requires within_budget p n acc) (ensures acc * power p n <= max_assignments) (decreases n)
+  = if n = 0 then ()
+    else (
+      lemma_within_budget p (n - 1) (acc * p);
+      M.paren_mul_right acc p (power p (n - 1)))
+
+let lemma_exhaustive_clause_bound (e:expr)
+  : Lemma (requires exhaustive_clause e)
+          (ensures (let p = Some?.v (find_modulus e) in
+                    p >= 2 /\ L.noRepeats (leaves p [] e) /\
+                    power p (L.length (leaves p [] e)) <= max_assignments))
+  = let p = Some?.v (find_modulus e) in
+    lemma_leaves_unique p [] e;
+    lemma_within_budget p (L.length (leaves p [] e)) 1
+
+(* --- Soundness ------------------------------------------------------ *)
+
+let rec in_range (p:int) (r:list int) : Tot bool (decreases r) =
+  match r with
+  | [] -> true
+  | x :: rest -> 0 <= x && x < p && in_range p rest
+
+(* Coverage: every vector of n residues in [0, p) is enumerated. *)
+let rec lemma_for_all_vectors (p:nat) (n:nat) (f:list int -> bool) (r:list int)
+  : Lemma (requires for_all_vectors p n f /\ L.length r == n /\ in_range p r)
+          (ensures f r)
+          (decreases %[n; 0; 0])
+  = match r with
+    | [] -> ()
+    | x :: rest -> lemma_for_all_heads p p (n - 1) f x rest
+
+and lemma_for_all_heads (p:nat) (k:nat) (n:nat) (f:list int -> bool) (x:int) (rest:list int)
+  : Lemma (requires for_all_heads p k n f /\ 0 <= x /\ x < k /\ L.length rest == n /\ in_range p rest)
+          (ensures f (x :: rest))
+          (decreases %[n; 1; k])
+  = if x = k - 1 then lemma_for_all_vectors p n (with_head f (k - 1)) rest
+    else lemma_for_all_heads p (k - 1) n f x rest
+
+(* The assignment `v` gives every leaf its residue in the model. *)
+let agrees (i:interpretation value) (rho:env value) (project:int -> value -> int)
+           (p:int) (tbl:list expr) (v:nat -> int) : prop =
+  forall (k:nat). k < L.length tbl ==> v k == project p (eval i (L.index tbl k) rho)
+
+let eval_model (i:interpretation value) (project:int -> value -> int) : prop =
+  ff_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\ Z3ArrayRewrite.term_ite_sound i
+
+let lemma_scoped_app (f:func_decl) (args:list expr)
+  : Lemma (requires D.scoped [] (App f args)) (ensures D.scoped_args [] args)
+  = ()
+
+let lemma_scoped_cons (a:expr) (rest:list expr)
+  : Lemma (requires D.scoped_args [] (a :: rest)) (ensures D.scoped [] a /\ D.scoped_args [] rest)
+  = ()
+
+let lemma_leaf (i:interpretation value) (rho:env value) (project:int -> value -> int)
+               (p:pos) (tbl:list expr) (v:nat -> int) (e:expr)
+  : Lemma (requires agrees i rho project p tbl v /\ Some? (leaf p tbl v e))
+          (ensures project p (eval i e rho) == Some?.v (leaf p tbl v e))
+  = let k = Some?.v (index_of e tbl) in
+    lemma_index_of e tbl k
+
+let lemma_bool_value (i:interpretation value) (rho:env value) (e:expr)
+  : Lemma (requires Z3BooleanRewrite.boolean_rewrite_model i /\ get_sort e == bool_sort)
+          (ensures VBool? (eval i e rho))
+  = ()
+
+let rec lemma_eval_ff (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                      (p:pos) (tbl:list expr) (v:nat -> int) (e:expr)
+  : Lemma (requires eval_model i project /\ p >= 2 /\ D.scoped [] e /\
+                    agrees i rho project p tbl v /\ Some? (eval_ff p tbl v e))
+          (ensures project p (eval i e rho) == Some?.v (eval_ff p tbl v e))
+          (decreases e)
+  = match numeral e with
+    | Some (q, n) -> assert (project q (eval i e rho) == n)
+    | None ->
+      (match e with
+       | App f args ->
+         (match operation f args with
+          | Some (q, op) ->
+            lemma_scoped_app f args;
+            lemma_eval_ffs i rho project p tbl v args;
+            assert (project p (eval i e rho) == calculate p op (projections i rho project p args))
+          | None ->
+            (match args with
+             | [c; t; u] ->
+               if f = Z3ArrayRewrite.term_ite_decl (ff_sort p) && get_sort c = bool_sort &&
+                  get_sort t = ff_sort p && get_sort u = ff_sort p
+               then (
+                 lemma_scoped_app f args;
+                 lemma_scoped_cons c [t; u];
+                 lemma_scoped_cons t [u];
+                 lemma_scoped_cons u [];
+                 lemma_eval_bool i rho project p tbl v c;
+                 Z3ArrayRewrite.lemma_ite_parts i rho e c t u;
+                 match eval_bool p tbl v c with
+                 | Some true -> lemma_eval_ff i rho project p tbl v t
+                 | Some false -> lemma_eval_ff i rho project p tbl v u)
+               else lemma_leaf i rho project p tbl v e
+             | _ -> lemma_leaf i rho project p tbl v e))
+       | _ -> lemma_leaf i rho project p tbl v e)
+
+and lemma_eval_ffs (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                   (p:pos) (tbl:list expr) (v:nat -> int) (args:list expr)
+  : Lemma (requires eval_model i project /\ p >= 2 /\ D.scoped_args [] args /\
+                    agrees i rho project p tbl v /\ Some? (eval_ffs p tbl v args))
+          (ensures Some?.v (eval_ffs p tbl v args) == projections i rho project p args)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_scoped_cons a rest;
+      lemma_eval_ff i rho project p tbl v a;
+      lemma_eval_ffs i rho project p tbl v rest
+
+and lemma_eval_bool (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                    (p:pos) (tbl:list expr) (v:nat -> int) (e:expr)
+  : Lemma (requires eval_model i project /\ p >= 2 /\ D.scoped [] e /\
+                    agrees i rho project p tbl v /\ Some? (eval_bool p tbl v e))
+          (ensures eval i e rho == VBool (Some?.v (eval_bool p tbl v e)))
+          (decreases e)
+  = match e with
+    | App f args ->
+      lemma_bool_value i rho e;
+      lemma_scoped_app f args;
+      if f.decl_name = "true" && args = [] then ()
+      else if f.decl_name = "false" && args = [] then ()
+      else if f.decl_name = "not" then
+        (match args with
+         | [a] ->
+           lemma_scoped_cons a [];
+           lemma_eval_bool i rho project p tbl v a)
+      else if f.decl_name = "or" then lemma_eval_or i rho project p tbl v args
+      else if f.decl_name = "and" then lemma_eval_and i rho project p tbl v args
+      else
+        (match args with
+         | [a; b] ->
+           lemma_scoped_cons a [b];
+           lemma_scoped_cons b [];
+           if get_sort a = ff_sort p && get_sort b = ff_sort p then (
+             lemma_eval_ff i rho project p tbl v a;
+             lemma_eval_ff i rho project p tbl v b;
+             assert (eval i a rho == eval i b rho <==>
+                     project p (eval i a rho) == project p (eval i b rho)))
+           else (
+             lemma_eval_bool i rho project p tbl v a;
+             lemma_eval_bool i rho project p tbl v b))
+
+and lemma_eval_or (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                  (p:pos) (tbl:list expr) (v:nat -> int) (args:list expr)
+  : Lemma (requires eval_model i project /\ p >= 2 /\ D.scoped_args [] args /\
+                    agrees i rho project p tbl v /\ Some? (eval_or p tbl v args))
+          (ensures Some?.v (eval_or p tbl v args) == true <==> clause_holds i rho args)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_scoped_cons a rest;
+      lemma_eval_bool i rho project p tbl v a;
+      lemma_eval_or i rho project p tbl v rest
+
+and lemma_eval_and (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                   (p:pos) (tbl:list expr) (v:nat -> int) (args:list expr)
+  : Lemma (requires eval_model i project /\ p >= 2 /\ D.scoped_args [] args /\
+                    agrees i rho project p tbl v /\ Some? (eval_and p tbl v args))
+          (ensures Some?.v (eval_and p tbl v args) == true <==> conj_holds i rho args)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_scoped_cons a rest;
+      lemma_eval_bool i rho project p tbl v a;
+      lemma_eval_and i rho project p tbl v rest
+
+(* The residues of the leaves in the model form one of the enumerated vectors. *)
+let rec lemma_projections_index (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                                (p:int) (tbl:list expr) (k:nat)
+  : Lemma (requires k < L.length tbl)
+          (ensures L.length (projections i rho project p tbl) == L.length tbl /\
+                   L.index (projections i rho project p tbl) k == project p (eval i (L.index tbl k) rho))
+          (decreases tbl)
+  = match tbl with
+    | _ :: rest -> if k = 0 then () else lemma_projections_index i rho project p rest (k - 1)
+
+let rec lemma_projections_range (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                                (p:int) (tbl:list expr)
+  : Lemma (requires ff_model i project /\ p >= 2 /\ L.for_all (closed_ff p) tbl)
+          (ensures L.length (projections i rho project p tbl) == L.length tbl /\
+                   in_range p (projections i rho project p tbl))
+          (decreases tbl)
+  = match tbl with
+    | [] -> ()
+    | a :: rest ->
+      lemma_range i rho project p a;
+      lemma_projections_range i rho project p rest
+
+let lemma_projections_agree (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                            (p:int) (tbl:list expr)
+  : Lemma (agrees i rho project p tbl (vector_value (projections i rho project p tbl)))
+  = let aux (k:nat)
+      : Lemma (k < L.length tbl ==>
+               vector_value (projections i rho project p tbl) k ==
+               project p (eval i (L.index tbl k) rho))
+      = if k < L.length tbl then lemma_projections_index i rho project p tbl k in
+    FStar.Classical.forall_intro aux
+
+let lemma_exhaustive_clause (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                            (e:expr)
+  : Lemma (requires eval_model i project /\ exhaustive_clause e)
+          (ensures lit_true i rho e)
+  = let p : pos = Some?.v (find_modulus e) in
+    let tbl = leaves p [] e in
+    let r = projections i rho project p tbl in
+    lemma_projections_range i rho project p tbl;
+    lemma_for_all_vectors p (L.length tbl) (clause_true p tbl e) r;
+    lemma_projections_agree i rho project p tbl;
+    lemma_eval_bool i rho project p tbl (vector_value r) e
+
+let lemma_exhaustive_clause_sound (i:interpretation value) (rho:env value) (e:expr)
+  : Lemma (requires (exists (project:int -> value -> int). ff_model i project) /\
+                    Z3BooleanRewrite.boolean_rewrite_model i /\ Z3ArrayRewrite.term_ite_sound i /\
+                    exhaustive_clause e)
+          (ensures lit_true i rho e)
+  = let aux (project:int -> value -> int)
+      : Lemma (requires ff_model i project) (ensures lit_true i rho e)
+      = lemma_exhaustive_clause i rho project e in
+    FStar.Classical.exists_elim (lit_true i rho e)
+      #(int -> value -> int) #(fun project -> ff_model i project) () (fun project -> aux project)

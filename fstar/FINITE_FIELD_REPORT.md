@@ -257,10 +257,79 @@ modulus. It never assumes the condition: the result must contain `c` or
 `Z3TheoryNormalize.normalization_model` through `A.rewrite_model`; the trust
 statement is otherwise unchanged and no `assume`, axiom or admit is added.
 
-Th-lemma obligations that mention finite-field terms are still unmet, so a
-proof that contains one remains PARTIAL. On the 25 hashed Pulse QF_FF
-certificates the 21 finite-field `th-lemma` obligations are unchanged; they
-keep 12 of the proofs PARTIAL.
+## Native checker: finite-field theory lemmas
+
+Z3's finite-field solver records its conflicts as `th-lemma` steps,
+`((_ th-lemma ff pac (ff-pac ...)) C)`, whose conclusion `C` is a clause
+over equalities of `FF<p>` terms. `Z3FiniteFieldLemma.exhaustive_clause`
+decides such a step from `C` alone by evaluating it under every assignment
+of residues in `[0, p)` to its leaves. The rule name and the producer's
+`ff-pac` certificate are not read, so neither is trusted.
+
+* Fragment. `eval_ff` and `eval_bool` interpret canonical numerals of
+  modulus `p`; `ff.add`, `ff.mul`, `ff.neg` and `ff.bitsum` over `FF<p>`;
+  `ite` over `FF<p>` with a Boolean condition (the then branch exactly when
+  the condition holds); `=` between two `FF<p>` terms (equal residues) or two
+  Boolean terms; `not`, n-ary `and` and `or`; `true` and `false`.
+* Leaves. Every other closed `FF<p>` subterm is a leaf: constants,
+  uninterpreted applications, numerals outside `[0, p)`, and numerals or
+  operations whose parameters name another modulus or that have an unknown
+  kind or a wrong arity. A leaf is opaque, so a clause that needs its value
+  is not accepted. Leaves are identified by structural equality and the
+  table records each once (`lemma_leaves_unique`).
+* Not decided. A clause is left unmet when it is open (a bound variable),
+  not Boolean, or contains a literal outside the fragment: an equality over
+  another field or sort (so mixed moduli are rejected), `=>`, `xor`, a
+  predicate, a quantifier. The modulus is that of the first numeral or field
+  operation; a clause with neither is not decided.
+* Bound. The number of assignments `p^n` (n leaves) must be at most
+  `max_assignments = 4096`. `within_budget` checks this before anything is
+  enumerated, multiplying one factor at a time and stopping as soon as the
+  product exceeds the bound, so `p^n` is never formed for a large modulus;
+  `lemma_within_budget` proves the bound. Exactly 4096 assignments are
+  evaluated; one more factor leaves the step unmet.
+* Premises. The rule applies only to a step without premises (the `es = []`
+  branch of `Z3UnifiedProof.checked_theory_lemma`); it never assumes them.
+
+Soundness is `lemma_exhaustive_clause_sound`: under `ff_model` (as an
+existential, taken from `Z3TheoryNormalize.normalization_model`),
+`boolean_rewrite_model` and `Z3ArrayRewrite.term_ite_sound`, all already
+part of `Z3UnifiedProof.model_sound`, an accepted clause holds. The proof
+shows that the evaluation of a closed term equals the residue (or truth
+value) of its denotation when each leaf is given its own residue
+(`lemma_eval_ff`, `lemma_eval_bool`); that the residues of the leaves in
+any model lie in `[0, p)` (`lemma_projections_range`, from the range clause
+of `ff_model`); and that `for_all_vectors` evaluates every vector of `n`
+residues in `[0, p)` (`lemma_for_all_vectors`). Only evaluation in the ring
+Z/pZ is used, so the rule never assumes that `p` is prime: the zero-product
+clause of field-2/case-03 is accepted because it holds for all four
+assignments over F_2, not by a field law, and the same clause modulo 4 is
+rejected. No hypothesis, `assume`, axiom or admit is added and the trust
+statement above is unchanged.
+
+Tests: `Z3FiniteFieldLemmaTests` (normalized F* assertions: corpus clauses,
+the kernel entry point, connectives, ite polarity, a composite modulus, a
+mutated numeral, a dropped literal, the wrong field and mixed moduli,
+out-of-range numerals, unknown operators, unsupported connectives and
+predicates, open and non-Boolean terms, and the bound at 4096 and one factor
+over); the native bridge group `checked-finite-field-theory-lemmas`
+(`checked_theory_lemma` and `check_node` on parsed clauses, including 2^12
+assignments at the bound, 2^13 and F_4099 over it, and steps with premises);
+and the CLI cases for the twelve corpus certificates and a refutation over a
+31-bit prime whose `th-lemma` stays unmet.
+
+On the 25 hashed Pulse QF_FF certificates (pulse-run-40244844124-1, manifest
+sha256 `d2c1b338...f9380`) every one of the 21 finite-field `th-lemma`
+obligations is a premise-free clause over F_2, F_3, F_5, F_7 or F_17 with
+one or two leaves (at most 17^2 = 289 assignments), and all 21 are decided:
+the OCaml and Cherry checkers go from 13 ACCEPT / 12 PARTIAL / 0 REJECT to
+25 ACCEPT / 0 PARTIAL / 0 REJECT with no pending obligation.
+
+Deferred. Fields and clauses beyond the bound stay PARTIAL. Replaying the
+recorded `ff-pac` certificate (an ideal combination of `ff-input` premises,
+with `ff-support` naming the variables whose field polynomials are used)
+would scale to large primes, but needs the producer's input-polynomial table
+and is not part of this change.
 
 ## Mechanical verification
 
