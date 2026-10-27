@@ -195,6 +195,142 @@ Second-stage F* coverage:
   whether an already-valid field clause is attempted; exhausting that local
   allowance emits no clause and has no semantic effect.
 
+## Native checker: finite-field rewrite steps
+
+`Z3FiniteFieldLemma.fst` lets the native F* checker decide the `rewrite`
+steps that Z3's `ff_rewriter` records in QF_FF proofs. The native bridge
+(`Z3Native.ml`, `cherry_runtime/native.cpp`) marshals `FiniteField p` sorts
+as `FF<p>` and `ff` numerals, `ff.add`, `ff.mul`, `ff.neg`, and `ff.bitsum`
+as interpreted declarations (`decl_kind` 300-304) whose `int_params` hold the
+modulus (and, for numerals, the canonical residue). Before this change they
+were opaque, so every FF rewrite was reported as an unmet obligation.
+
+Both sides of a rewrite are translated to sparse polynomials over Z/pZ whose
+variables are the maximal non-field subterms (variables, `ite` terms, array
+reads, and so on). A step is accepted when
+
+* the two terms have the same polynomial (constant folding of numerals,
+  `ff.neg y = (p-1)*y`, `x + x = 2*x`, AC reordering and flattening,
+  distribution, neutral and absorbing numerals);
+* an equality `(= s t)` has a nonzero constant difference `s - t` (so it is
+  `false`) or a difference that is `0` (so it is `true`); or
+* two equalities have difference polynomials that are multiples of each other
+  by factors `k`, `w`, checked as polynomial identities modulo `p`
+  (isolating a variable or dividing by a leading coefficient); or
+* a conditional term is compared with a numeral: `(= (ite c t u) k)` becomes
+  `(and x (not c))` when `(= t k)` has a nonzero constant difference (so the
+  then branch cannot be `k`) and `x` is the equality `(= u k)`, or any
+  equality or constant already accepted as equivalent to it; symmetrically
+  `(and x c)` when `(= u k)` has a nonzero constant difference and `x` is
+  `(= t k)`. This is the shape of the rewrites in QF_FF field-3/case-02
+  (`x` is `(= (ff.bitsum y y) 1)`) and field-7/case-01 (both branches differ
+  from `k`, so `x` is `false`). The condition `c` must be the same term, the
+  conjunction must have exactly two arguments, and `t`, `u`, `k` must be
+  closed terms over the same `FF<p>`; a branch equal to `k`, a symbolic
+  branch, or a numeral or branch of another modulus is not dropped.
+
+The checker uses only the commutative-ring laws, so it never assumes that
+`p` is prime. The factors `k`, `w` come from an untrusted modular-inverse
+search and are re-checked, so over a composite modulus `2*x = 0` is not
+rewritten to `x = 0`. The field equation `x^p = x` is not derived: `x*x = x`
+in `F_2` stays unmet. Numerals outside `[0, p)`, a modulus below 2, operands
+or declarations naming different moduli, and operations with the wrong arity
+are left opaque.
+
+Trust statement. `ff_model i project` is a hypothesis on the interpretation
+`i`, conjoined into `Z3TheoryNormalize.normalization_model` exactly like
+`bv_model`. It says: closed terms of sort `FF<p>` have a residue
+`project p v` in `[0, p)` and equal values have equal residues; a numeral with
+parameters `[p; n]` denotes `n`; and `ff.add`, `ff.mul`, `ff.neg`, `ff.bitsum`
+over `FF<p>` denote the matching operation modulo `p` (`bitsum(a0, ..., an)
+= sum 2^i * ai`). It is satisfied by the standard model in which `FF<p>`
+values are residues. There is no `assume`, axiom, or admit, and the legacy
+unified kernel is the only consumer; the sorted-semantics kernel does not use
+`TN.equivalent`.
+
+Dropping a branch in the conditional-term rule needs no inverse, only the
+nonzero-constant test above, and the surviving equality is matched by itself
+or by the checked rescaling above, so the rule is also valid over a composite
+modulus. It never assumes the condition: the result must contain `c` or
+`(not c)` as its second conjunct. The rule additionally uses
+`Z3ArrayRewrite.term_ite_sound`, which is already part of
+`Z3TheoryNormalize.normalization_model` through `A.rewrite_model`; the trust
+statement is otherwise unchanged and no `assume`, axiom or admit is added.
+
+## Native checker: finite-field theory lemmas
+
+Z3's finite-field solver records its conflicts as `th-lemma` steps,
+`((_ th-lemma ff pac (ff-pac ...)) C)`, whose conclusion `C` is a clause
+over equalities of `FF<p>` terms. `Z3FiniteFieldLemma.exhaustive_clause`
+decides such a step from `C` alone by evaluating it under every assignment
+of residues in `[0, p)` to its leaves. The rule name and the producer's
+`ff-pac` certificate are not read, so neither is trusted.
+
+* Fragment. `eval_ff` and `eval_bool` interpret canonical numerals of
+  modulus `p`; `ff.add`, `ff.mul`, `ff.neg` and `ff.bitsum` over `FF<p>`;
+  `ite` over `FF<p>` with a Boolean condition (the then branch exactly when
+  the condition holds); `=` between two `FF<p>` terms (equal residues) or two
+  Boolean terms; `not`, n-ary `and` and `or`; `true` and `false`.
+* Leaves. Every other closed `FF<p>` subterm is a leaf: constants,
+  uninterpreted applications, numerals outside `[0, p)`, and numerals or
+  operations whose parameters name another modulus or that have an unknown
+  kind or a wrong arity. A leaf is opaque, so a clause that needs its value
+  is not accepted. Leaves are identified by structural equality and the
+  table records each once (`lemma_leaves_unique`).
+* Not decided. A clause is left unmet when it is open (a bound variable),
+  not Boolean, or contains a literal outside the fragment: an equality over
+  another field or sort (so mixed moduli are rejected), `=>`, `xor`, a
+  predicate, a quantifier. The modulus is that of the first numeral or field
+  operation; a clause with neither is not decided.
+* Bound. The number of assignments `p^n` (n leaves) must be at most
+  `max_assignments = 4096`. `within_budget` checks this before anything is
+  enumerated, multiplying one factor at a time and stopping as soon as the
+  product exceeds the bound, so `p^n` is never formed for a large modulus;
+  `lemma_within_budget` proves the bound. Exactly 4096 assignments are
+  evaluated; one more factor leaves the step unmet.
+* Premises. The rule applies only to a step without premises (the `es = []`
+  branch of `Z3UnifiedProof.checked_theory_lemma`); it never assumes them.
+
+Soundness is `lemma_exhaustive_clause_sound`: under `ff_model` (as an
+existential, taken from `Z3TheoryNormalize.normalization_model`),
+`boolean_rewrite_model` and `Z3ArrayRewrite.term_ite_sound`, all already
+part of `Z3UnifiedProof.model_sound`, an accepted clause holds. The proof
+shows that the evaluation of a closed term equals the residue (or truth
+value) of its denotation when each leaf is given its own residue
+(`lemma_eval_ff`, `lemma_eval_bool`); that the residues of the leaves in
+any model lie in `[0, p)` (`lemma_projections_range`, from the range clause
+of `ff_model`); and that `for_all_vectors` evaluates every vector of `n`
+residues in `[0, p)` (`lemma_for_all_vectors`). Only evaluation in the ring
+Z/pZ is used, so the rule never assumes that `p` is prime: the zero-product
+clause of field-2/case-03 is accepted because it holds for all four
+assignments over F_2, not by a field law, and the same clause modulo 4 is
+rejected. No hypothesis, `assume`, axiom or admit is added and the trust
+statement above is unchanged.
+
+Tests: `Z3FiniteFieldLemmaTests` (normalized F* assertions: corpus clauses,
+the kernel entry point, connectives, ite polarity, a composite modulus, a
+mutated numeral, a dropped literal, the wrong field and mixed moduli,
+out-of-range numerals, unknown operators, unsupported connectives and
+predicates, open and non-Boolean terms, and the bound at 4096 and one factor
+over); the native bridge group `checked-finite-field-theory-lemmas`
+(`checked_theory_lemma` and `check_node` on parsed clauses, including 2^12
+assignments at the bound, 2^13 and F_4099 over it, and steps with premises);
+and the CLI cases for the twelve corpus certificates and a refutation over a
+31-bit prime whose `th-lemma` stays unmet.
+
+On the 25 hashed Pulse QF_FF certificates (pulse-run-40244844124-1, manifest
+sha256 `d2c1b338...f9380`) every one of the 21 finite-field `th-lemma`
+obligations is a premise-free clause over F_2, F_3, F_5, F_7 or F_17 with
+one or two leaves (at most 17^2 = 289 assignments), and all 21 are decided:
+the OCaml and Cherry checkers go from 13 ACCEPT / 12 PARTIAL / 0 REJECT to
+25 ACCEPT / 0 PARTIAL / 0 REJECT with no pending obligation.
+
+Deferred. Fields and clauses beyond the bound stay PARTIAL. Replaying the
+recorded `ff-pac` certificate (an ideal combination of `ff-input` premises,
+with `ff-support` naming the variables whose field polynomials are used)
+would scale to large primes, but needs the producer's input-polynomial table
+and is not part of this change.
+
 ## Mechanical verification
 
 The audit files contain no `admit`, `assume`, or declared axiom. They were

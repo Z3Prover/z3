@@ -18,6 +18,7 @@ module BW = Z3BvWord
 module BO = Z3BvOrder
 module DT = Z3DatatypeLemma
 module L = FStar.List.Tot
+module FF = Z3FiniteFieldLemma
 
 type datatype_view = (value -> (int & int)) & (value -> list value)
 
@@ -26,6 +27,7 @@ let normalization_model (i:interpretation value) : prop =
   quant_extensional i /\ QN.quantifier_model i /\ LR.lambda_model i /\
   (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu) /\
   (exists (project:pos -> value -> int). BV.bv_model i project) /\
+  (exists (project:int -> value -> int). FF.ff_model i project) /\
   (exists (view:datatype_view). DT.datatype_model i (fst view) (snd view))
 
 let root (e:expr) : option expr =
@@ -187,7 +189,7 @@ let equivalent (a b:expr) : bool =
   else match normalize 64 a, normalize 64 b with
   | Some x, Some y ->
     QR.equivalent 64 x y || AR.equivalent x y || BV.equivalent x y ||
-    BW.equivalent x y || A.equivalent 64 x y
+    BW.equivalent x y || FF.equivalent x y || A.equivalent 64 x y
   | _, _ -> false
 
 let lemma_equivalent (i:interpretation value) (rho:env value) (a b:expr)
@@ -210,6 +212,12 @@ let lemma_equivalent (i:interpretation value) (rho:env value) (a b:expr)
         = BW.lemma_equivalent i rho project x y in
       FStar.Classical.exists_elim (eval i x rho == eval i y rho)
         #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project))
+    else if FF.equivalent x y then (
+      let aux (project:int -> value -> int)
+        : Lemma (requires FF.ff_model i project) (ensures eval i x rho == eval i y rho)
+        = FF.lemma_equivalent i rho project x y in
+      FStar.Classical.exists_elim (eval i x rho == eval i y rho)
+        #(int -> value -> int) #(fun project -> FF.ff_model i project) () (fun project -> aux project))
     else A.lemma_equivalent_sound 64 i rho x y
 
 let unit_coefficients (conclusion:expr) (facts:list expr) : list LA.coefficient =
