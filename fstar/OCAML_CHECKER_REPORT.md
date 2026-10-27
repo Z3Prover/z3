@@ -2018,6 +2018,54 @@ particular rewrite, certificate, or proof is valid. The existing untyped
 environment/inhabitance gap described above remains unresolved. No
 unconditional end-to-end SMT-LIB soundness claim is made.
 
+### Factored sign rewrites (2026-10-27)
+
+Z3's `arith_rewriter::factor_le_ge_eq` rewrites `p REL 0` when a
+non-numeral term `f` divides every monomial of `p`. With `g = p / f` it
+produces `f = 0 or g = 0` for `=`, `((f >= 0) = (g >= 0)) or (f = 0 or g = 0)`
+for `>=`, and the same with the first disjunct negated for `<=`. These steps
+were unchecked `rewrite` obligations; in the 951-file interactive z3test
+sweep of the `48a710a9c` checkers they were the only obligations of `nl12`,
+`nl33`-`nl36`, `nl39`, `nl49`, and `nl57` on both backends.
+
+`Z3ArithmeticFactor.check` accepts a rewrite only in these exact shapes,
+with the source relation matching the target (polarity included), every
+comparison of the sort of `p`, and a zero numeral on every right-hand side.
+It expands `p`, both occurrences of `f`, both occurrences of `g`, and
+`f * g` into integer-coefficient polynomials over an atom table, using the
+multiplication of `Z3NlaLemma`. It requires `p` and `f * g` to have the same
+normal form, the two occurrences of each factor to normalize alike, and
+both factors to be non-constant. Only `+`, `*`, `-`, and integer numerals
+are interpreted. Division, `div`, `to_real`, rational numerals, and
+uninterpreted terms are opaque atoms, so no field law and no division
+semantics are used. Products whose expansion would exceed 4096 monomials
+stay unchecked.
+
+`lemma_check_sound` has the hypotheses the unified kernel already
+supplies for `Z3ArithmeticRewrite`: some `numeric_model`, the Boolean
+model, and `not`, `=`, and `or` soundness. It needs no new semantic
+premise. Over the reals, `x * y = 0` iff `x = 0` or `y = 0`, and the sign
+cases of `x * y` are those of `lemma_product_sign_numbers`. The rule is
+tried directly after `Z3ArithmeticRewrite.equivalent` for `rewrite` steps
+without premises, in the legacy kernel only.
+
+`Z3ArithmeticFactorTests.fst` decides six accepted and nine rejected closed
+instances by normalization, including right-hand zeros that are an Int
+numeral in a Real comparison, an uninterpreted constant, or the rational
+`0/2`. The native regression accepts twelve SMT-LIB steps, including
+uninterpreted, `div`, and real-division factors as atoms, and the variant
+where the two cofactor occurrences are spelled differently. It rejects
+thirty-two invalid steps over Int and Real: swapped polarity, a missing
+negation, a strict source, wrong or inconsistent cofactors, a missing or
+extra source term, nonzero comparands on either side, a wrong or zero
+factor, `and` in place of `or`, false product rewrites, and factorizations
+that would need `(x / y) * y = x`. No rule certifies these. Valid steps
+outside the shape (flattened or reordered disjunctions, strict sign atoms,
+a numeral factor, mixed Int/Real comparisons) are not accepted by this
+rule. CLI tests certify four interactive refutations from `nl12`, `nl49`,
+`nl33`, and `nl57` with no obligation, and check that a satisfiable variant
+is reported `sat`.
+
 ### Warning-free verification and extraction (2026-10-17)
 
 The build treats F* warnings and enabled OCaml compiler warnings as errors.

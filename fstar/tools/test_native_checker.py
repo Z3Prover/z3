@@ -50,6 +50,20 @@ UNUSED_SKOLEM_CASES = (
      "(check-sat-using (then nnf smt))"),
 )
 
+# The arithmetic rewriter factors p REL 0 when a term divides every monomial of p
+# (factor_le_ge_eq). These are the first queries of z3test nl12, nl49, nl33, and nl57.
+FACTOR_SIGN_CASES = (
+    ("int-le", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
+     "(assert (and (> (+ (* x1 x2) x3) 0) (<= x1 (- 1)) (>= x1 (- 1)) (= x2 x3)))"),
+    ("int-eq", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
+     "(declare-const x4 Int)(declare-const x5 Int)"
+     "(assert (and (<= x4 x5) (<= x5 x4) (= x2 (+ x3 x5))"
+     " (not (= (* x1 x2) (+ (* x1 x3) (* x1 x4))))))"),
+    ("real-ge", "(declare-const x Real)(assert (and (< 1.0 x) (not (< x (* x x)))))"),
+    ("real-lt", "(declare-const x Real)(declare-const y Real)"
+     "(assert (and (<= 0.0 x) (<= (- 1.0) y) (< (+ (* x y) x) 0.0)))"),
+)
+
 PULL_QUANT_CASES = (
     ("nested-exists", "(declare-fun p (Int Int) Bool)"
      "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
@@ -505,6 +519,20 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertNotIn("obligation\t", interactive.stderr)
                 if name == "under-binder":
                     self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
+
+    def test_factored_sign_rewrites_are_certified(self):
+        for name, source in FACTOR_SIGN_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        satisfiable = self.run_checker(
+            "(declare-const x Real)(assert (and (< 1.0 x) (< x (* x x))))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")

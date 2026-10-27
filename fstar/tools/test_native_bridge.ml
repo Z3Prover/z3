@@ -3484,6 +3484,113 @@ let arithmetic_rewrites () =
       (U.Equal (A.App (malformed, [x; x]), Z3ResolutionProofTheory.true_expr)) []))
     "uninterpreted comparison was treated as arithmetic"
 
+(* arith_rewriter::factor_le_ge_eq: p REL 0 with a common factor f of p and g = p / f. *)
+let arithmetic_factor_rewrites () =
+  let module F = Z3ArithmeticFactor in
+  let c = context () in
+  let step declarations left right =
+    let source = Printf.sprintf "%s(assert (= %s %s))" declarations left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (_, [a; b]) as formula ->
+        (match U.classify_fact formula with
+         | Some conclusion -> conclusion, a, b
+         | None -> failwith "expected a typed factor rewrite conclusion")
+    | _ -> failwith "expected a factor rewrite equation" in
+  (* Accepted: the factor rule decides the step and the rewrite kernel certifies it. *)
+  let accept declarations left right =
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step declarations left right in
+    require (F.check a b) ("factor rewrite rejected: " ^ name);
+    require (U.check_step U.RewriteRule conclusion []) ("factor rewrite not certified: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [conclusion]))
+      ("factor rewrite ignored an unexpected premise: " ^ name);
+    require (not (U.check_step U.Commutativity conclusion []))
+      ("factor rewrite accepted under another rule: " ^ name) in
+  (* Invalid steps: no rule may certify them. *)
+  let reject declarations left right =
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step declarations left right in
+    require (not (F.check a b)) ("invalid factor rewrite accepted: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) ("invalid rewrite certified: " ^ name) in
+  (* Valid steps outside the rule's exact shape stay with the other rules. *)
+  let outside declarations left right =
+    let conclusion, a, b = step declarations left right in
+    ignore conclusion;
+    require (not (F.check a b)) ("unsupported factor shape accepted: " ^ left ^ " -> " ^ right) in
+  List.iter (fun (s, zero, one, two, minus) ->
+    let d = Printf.sprintf
+      "(declare-const x %s)(declare-const y %s)(declare-const z %s)(declare-fun h (%s) %s)"
+      s s s s s in
+    let f fmt = Printf.sprintf fmt in
+    (* z3test nl12: x*z + z <= 0, factor z, cofactor 1 + x. *)
+    let le_target g g' = f "(or (not (= (>= z %s) (>= %s %s))) (or (= z %s) (= %s %s)))"
+        zero g zero zero g' zero in
+    let le_source = f "(<= (+ (* x z) z) %s)" zero in
+    let one_x = f "(+ %s x)" one in
+    accept d le_source (le_target one_x one_x);
+    (* The two occurrences of the cofactor need only normalize alike. *)
+    accept d le_source (le_target (f "(+ x %s)" one) one_x);
+    (* z3test nl49: y*x - z*x = 0, factor x, cofactor z*(-1) + y. *)
+    let eq_source = f "(= (+ (* y x) (* %s (* z x))) %s)" minus zero in
+    let eq_cofactor = f "(+ (* z %s) y)" minus in
+    accept d eq_source (f "(or (= x %s) (= %s %s))" zero eq_cofactor zero);
+    (* z3test nl33: x - x*x >= 0, factor x, cofactor x*(-1) + 1. *)
+    let ge_target fx g = f "(or (= (>= %s %s) (>= %s %s)) (or (= %s %s) (= %s %s)))"
+        fx zero g zero fx zero g zero in
+    let ge_cofactor = f "(+ (* x %s) %s)" minus one in
+    accept d (f "(>= (+ x (* %s (* x x))) %s)" minus zero) (ge_target "x" ge_cofactor);
+    (* An uninterpreted factor is an opaque atom. *)
+    accept d (f "(>= (+ (* (h x) y) (h x)) %s)" zero) (ge_target "(h x)" (f "(+ y %s)" one));
+    (* Wrong polarity: a >= source with the <= target, and a <= source without the negation. *)
+    reject d (f "(>= (+ (* x z) z) %s)" zero) (le_target one_x one_x);
+    reject d le_source (ge_target "z" one_x);
+    (* Wrong cofactor, inconsistent cofactor occurrences, or an off-by-one source. *)
+    let two_x = f "(+ (+ %s %s) x)" one one in
+    reject d le_source (le_target two_x two_x);
+    reject d le_source (le_target two_x one_x);
+    reject d (f "(<= (+ (* x z) z %s) %s)" one zero) (le_target one_x one_x);
+    (* Nonzero comparands on either side. *)
+    reject d (f "(<= (+ (* x z) z) %s)" one) (le_target one_x one_x);
+    reject d eq_source (f "(or (= x %s) (= %s %s))" one eq_cofactor zero);
+    (* Wrong factor, and a false product rewrite that would refute a satisfiable formula. *)
+    reject d eq_source (f "(or (= z %s) (= %s %s))" zero eq_cofactor zero);
+    reject d (f "(>= (* x y) %s)" zero) (f "(or (= x %s) (= y %s))" zero zero);
+    reject d (f "(= (+ (* x z) z) %s)" zero) (f "(or (= z %s) (= x %s))" zero zero);
+    (* A missing source term, a zero factor, and a strict source relation. *)
+    reject d (f "(<= (* x z) %s)" zero) (le_target one_x one_x);
+    reject d eq_source (f "(or (= %s %s) (= %s %s))" zero zero eq_cofactor zero);
+    reject d (f "(< (+ (* x z) z) %s)" zero) (le_target one_x one_x);
+    (* Wrong Boolean connectives. *)
+    reject d le_source (f "(and (not (= (>= z %s) (>= %s %s))) (or (= z %s) (= %s %s)))"
+                          zero one_x zero zero one_x zero);
+    reject d eq_source (f "(and (= x %s) (= %s %s))" zero eq_cofactor zero);
+    (* Valid but outside the rule: flattened or reordered disjunctions, strict sign atoms,
+       and a numeral factor. *)
+    outside d le_source (f "(or (not (= (>= z %s) (>= %s %s))) (= z %s) (= %s %s))"
+                           zero one_x zero zero one_x zero);
+    outside d le_source (f "(or (or (= z %s) (= %s %s)) (not (= (>= z %s) (>= %s %s))))"
+                           zero one_x zero zero one_x zero);
+    outside d (f "(>= (+ x (* %s (* x x))) %s)" minus zero)
+      (f "(or (= (> x %s) (> %s %s)) (or (= x %s) (= %s %s)))"
+         zero ge_cofactor zero zero ge_cofactor zero);
+    outside d (f "(= (+ (* %s x) (* %s y)) %s)" two two zero)
+      (f "(or (= %s %s) (= (+ x y) %s))" two zero zero))
+    ["Int", "0", "1", "2", "(- 1)"; "Real", "0.0", "1.0", "2.0", "(- 1.0)"];
+  let ints = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  outside ints "(= (+ (* y x) (* (- 1) (* z x))) 0)"
+    "(or (= (to_real x) 0.0) (= (to_real (+ (* z (- 1)) y)) 0.0))";
+  (* Integer division is an opaque atom, so the factorization is a ring identity. *)
+  accept ints "(= (+ (* (div x 2) y) (div x 2)) 0)" "(or (= (div x 2) 0) (= (+ y 1) 0))";
+  let reals = "(declare-const x Real)(declare-const y Real)" in
+  accept reals "(>= (+ (* (/ x y) y) (/ x y)) 0.0)"
+    "(or (= (>= (/ x y) 0.0) (>= (+ y 1.0) 0.0)) (or (= (/ x y) 0.0) (= (+ y 1.0) 0.0)))";
+  (* (x / y) * y is not x: that would need a field law and y <> 0. *)
+  reject reals "(= x 0.0)" "(or (= (/ x y) 0.0) (= y 0.0))";
+  reject reals "(>= x 0.0)"
+    "(or (= (>= (/ x y) 0.0) (>= y 0.0)) (or (= (/ x y) 0.0) (= y 0.0)))"
+
 let arithmetic_triangle_clauses () =
   let c = context () in
   let check expected clause =
@@ -4034,6 +4141,7 @@ let () =
      "checked-integer-division-axioms", integer_division_axioms;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
+     "checked-arithmetic-factor-rewrites", arithmetic_factor_rewrites;
      "checked-array-unequal-defaults", array_unequal_defaults;
      "checked-bit-vector-rewrites", bv_rewrites;
      "checked-fresh-bit-model-extension", fresh_bit_model_extension;
