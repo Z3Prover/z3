@@ -1347,6 +1347,44 @@ inconsistent occurrences, aliased components, input freshness,
 self-reference, conflicting definitions, cycles, acyclic reordering,
 wrong polarity, and attempted conversion to ordinary equality.
 
+#### Unused Skolem blocks
+
+A binding block none of whose variables occurs in its body introduces no
+Skolem symbol and needs no choice tuple. `Z3Skolemization.vacuous` accepts
+the `sk` conclusion `exists xs. P ~ P'`, or `not (forall xs. P) ~ negate P'`,
+when `substitute` with no witnesses succeeds on `P`: that fails exactly when
+a variable of the block occurs in `P` and otherwise only lowers the ambient
+de Bruijn indices, so `P'` must be that lowered body. The check shares
+`block_parts`, the shape test of `definition_of`, so polarity, double-negation
+normalization, and Boolean sorts agree with the choice-based path. Nothing is
+collected from the proof and no choice context is consulted, so the
+`skolem-collection`, `skolem-cycle`, and `skolem-freshness` stages are
+unchanged. The judgment stays observational, is accepted only under the `sk`
+label without premises, and a partly used block still needs its
+`definition_of` choice definition.
+
+`lemma_vacuous_sound` has the hypotheses of `lemma_check_sound` and adds no
+semantic assumption. It uses `Z3QuantifierNnf.quantifier_model`, which
+quantifies over every assignment of the block's length, and the inhabitant
+`Z3QuantifierPull.sample_values`, exactly as `Z3BinderSubstitution.lemma_eliminate`
+does for unused-variable elimination. Both polarities need that inhabitant
+(`exists x. true ~ true` included), so the rule carries the same legacy-model
+inhabitance gap documented above. Instances that Z3 constant-folded, such as
+`not (forall x. true) ~ false`, do not match the shape and remain obligations.
+
+Native regressions accept eight SMT-LIB shapes (multi-binder, mixed sorts,
+nested and shadowed binders, three negative-universal forms) and reject
+fourteen: body mutation, a kept or partly removed block, a used variable
+dropped or left unlowered, a partly used block, positive-universal and
+negated-existential polarity, wrong negative targets, and a non-quantifier.
+Accepted shapes are also rejected as ordinary equality, with an unexpected
+premise, or under another rule name, and direct de Bruijn terms cover lowered,
+open, unlowered, and non-Boolean forms. CLI tests certify seven `nnf`
+refutations in the interactive OCaml and Cherry checkers: six with free
+constants, including `(assert (exists ((a Int)) false))`, and one whose
+block sits under an ambient `forall` bound variable (a hidden binder
+certificate).
+
 #### Negative NNF checking and evaluation
 
 `Z3QuantifierNnf.fst` defines universal truth and classical existential

@@ -1330,6 +1330,85 @@ let checked_skolemization () =
   require (SK.order_context (Z.of_int 2) [independent; first] <> None)
     "acyclic Skolem definitions could not be reordered"
 
+let checked_vacuous_skolemization () =
+  let module SK = Z3Skolemization in
+  let declarations = "(declare-fun p (Int Int) Bool)" in
+  let relation left right =
+    let c = context () in
+    let inputs = parse c (declarations ^
+        "(assert (forall ((z Int) (w Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.Quantifier (_, _, _, A.App (_, [left; right])) -> left, right
+    | _ -> failwith "missing vacuous Skolem ambient binder" in
+  (* A block none of whose variables occurs in its body needs no choice context: the
+     instance is the body with the block removed and the ambient indices lowered. *)
+  let cases = [
+    "unused-existential", "(exists ((x Int)) (p z w))", "(p z w)", true;
+    "unused-multi-binder", "(exists ((x Int) (y Int)) (p z w))", "(p z w)", true;
+    "unused-mixed-sorts", "(exists ((x Int) (r Real) (b Bool)) (p z w))", "(p z w)", true;
+    "unused-nested-binder", "(exists ((x Int)) (forall ((y Int)) (p y z)))",
+      "(forall ((y Int)) (p y z))", true;
+    "unused-shadowed-binder", "(exists ((x Int)) (forall ((x Int)) (p x z)))",
+      "(forall ((x Int)) (p x z))", true;
+    "unused-negative-universal", "(not (forall ((x Int)) (p z w)))", "(not (p z w))", true;
+    "unused-negative-double-negation", "(not (forall ((x Int)) (not (p z w))))", "(p z w)", true;
+    "unused-negative-multi-binder", "(not (forall ((x Int) (r Real)) (p z w)))",
+      "(not (p z w))", true;
+    "body-mutation", "(exists ((x Int)) (p z w))", "(p w z)", false;
+    "body-extension", "(exists ((x Int)) (p z w))", "(and (p z w) true)", false;
+    "block-kept", "(exists ((x Int)) (p z w))", "(exists ((x Int)) (p z w))", false;
+    "partial-removal", "(exists ((x Int) (y Int)) (p z w))", "(exists ((x Int)) (p z w))", false;
+    "used-variable-dropped", "(exists ((x Int)) (p x w))", "(p z w)", false;
+    "used-variable-unlowered", "(exists ((x Int)) (p x w))", "(p w w)", false;
+    "partly-used-block", "(exists ((x Int) (y Int)) (p x w))", "(p z w)", false;
+    "used-under-nested-binder", "(exists ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((y Int)) (p z y))", false;
+    "positive-universal", "(forall ((x Int)) (p z w))", "(p z w)", false;
+    "negated-existential", "(not (exists ((x Int)) (p z w)))", "(not (p z w))", false;
+    "wrong-negative-target", "(not (forall ((x Int)) (p z w)))", "(p z w)", false;
+    "negative-body-mutation", "(not (forall ((x Int)) (p z w)))", "(not (p w z))", false;
+    "negative-used-variable", "(not (forall ((x Int)) (p x w)))", "(not (p w w))", false;
+    "no-quantifier", "(p z w)", "(p z w)", false
+  ] in
+  List.iter (fun (name, left, right, expected) ->
+      let left, right = relation left right in
+      let conclusion = U.Observational (left, right) in
+      require (U.skolem_step [] conclusion [] = expected)
+        ("incorrect vacuous Skolem decision: " ^ name);
+      if expected then (
+        require (Option.is_none (SK.definition_of left right))
+          ("an unused block received a choice definition: " ^ name);
+        require (SK.check [] left right) ("empty choice context rejected an unused block: " ^ name);
+        require (not (U.skolem_step [] (U.Equal (left, right)) []))
+          "an unused block was treated as ordinary equality";
+        require (not (U.skolem_step [] conclusion [conclusion]))
+          "an unused block ignored an unexpected premise";
+        let leaf = { U.binder_name = "sk";
+          binder_formula = Z3ObservationalEquality.mk_oeq_expr left right;
+          binder_premises = []; binder_sorts = None } in
+        require (U.binder_step_with_context [] [] leaf conclusion [])
+          ("an unused block was not available inside a binder: " ^ name);
+        let leaf = { leaf with U.binder_name = "refl" } in
+        require (not (U.binder_step_with_context [] [] leaf conclusion []))
+          ("an unused block was accepted under another rule name: " ^ name)))
+    cases;
+  (* Open and mis-lowered de Bruijn forms that SMT-LIB text cannot spell. *)
+  let integer = A.BaseSort "Int" in
+  let var n = A.Var (Z.of_int n, A.bool_sort) in
+  let exists sorts body = A.Quantifier (A.Exists_k, sorts, A.bool_sort, body) in
+  List.iter (fun (name, source, target, expected) ->
+      require (U.skolem_step [] (U.Observational (source, target)) [] = expected)
+        ("incorrect de Bruijn handling of an unused block: " ^ name))
+    ["ambient-index-lowered", exists [integer] (var 1), var 0, true;
+     "two-variable-block-lowered", exists [integer; integer] (var 2), var 0, true;
+     "open-index-lowered", exists [integer] (var 5), var 4, true;
+     "ambient-index-kept", exists [integer] (var 1), var 1, false;
+     "open-index-kept", exists [integer] (var 5), var 5, false;
+     "bound-variable-used", exists [integer] (var 0), var 0, false;
+     "second-variable-used", exists [integer; integer] (var 1), var 0, false;
+     "non-Boolean-body", exists [integer] (A.Var (Z.one, integer)), A.Var (Z.zero, integer), false]
+
 let checked_quantifier_pulling () =
   let declarations =
     "(declare-fun p (Int Int) Bool)(declare-fun q (Real) Bool)\
@@ -3705,6 +3784,7 @@ let () =
      "certified-quantifier-pulling", checked_quantifier_pulling;
      "certified-destructive-equality-resolution", checked_der_rules;
      "certified-Hilbert-choice-Skolemization", checked_skolemization;
+     "certified-unused-block-Skolemization", checked_vacuous_skolemization;
      "certified-quantifier-reductions-and-lambdas", checked_quantifier_reductions;
      "certified-nested-NNF-replacement", checked_nested_nnf_replacement;
      "certified-theory-lemmas-and-definition-axioms", checked_theory_extensions;
