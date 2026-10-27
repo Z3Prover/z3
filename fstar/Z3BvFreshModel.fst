@@ -622,6 +622,20 @@ let rec lemma_scoped_context_models (rs:list F.reconstruction) (i:interpretation
       lemma_scoped_model r older project;
       SK.lemma_quantifier_fields older j
 
+let rec lemma_matched_context (rs:list F.reconstruction) (es:list expr)
+                             (j:interpretation value) (rho:env value)
+  : Lemma (requires F.matches rs es /\ SM.reflexive_equality j /\
+                    (forall r. L.mem r rs ==> eval j (F.word r) rho == eval j (F.source r) rho))
+          (ensures conj_holds j rho es)
+          (decreases rs)
+  = match rs, es with
+    | r :: rest, _ :: tail ->
+      lemma_matched_context rest tail j rho;
+      assert (eval j (F.word r) rho == eval j (F.source r) rho);
+      let v = eval j (F.source r) rho in
+      assert (j.interp_app (eq_decl (get_sort (F.source r))) [v; v] == VBool true)
+    | _, _ -> ()
+
 let lemma_scoped_context_extension (inputs es:list expr) (rs:list F.reconstruction)
                                    (i:interpretation value) (project:pos -> value -> int) (rho:env value)
   : Lemma (requires F.check_context inputs es == Some rs /\ quant_extensional i /\
@@ -632,25 +646,12 @@ let lemma_scoped_context_extension (inputs es:list expr) (rs:list F.reconstructi
                     eval_args j inputs rho == eval_args i inputs rho /\ conj_holds j rho es))
   = lemma_scoped_context_models rs i project;
     F.lemma_context_inputs rs inputs i project rho;
-    F.lemma_context_fields rs i project;
     let j = F.extend_context rs i project in
     let values (r:F.reconstruction)
       : Lemma (L.mem r rs ==> eval j (F.word r) rho == eval j (F.source r) rho)
       = if L.mem r rs then F.lemma_context_value rs r i project rho in
     FStar.Classical.forall_intro values;
-    let rec matched (rs:list F.reconstruction) (es:list expr)
-      : Lemma (requires F.valid_context rs /\ F.matches rs es /\
-                        (forall r. L.mem r rs ==> eval j (F.word r) rho == eval j (F.source r) rho))
-              (ensures conj_holds j rho es)
-              (decreases rs)
-      = match rs, es with
-        | r :: rest, e :: tail ->
-          matched rest tail;
-          assert (eval j (F.word r) rho == eval j (F.source r) rho);
-          let v = eval j (F.source r) rho in
-          assert (i.interp_app (eq_decl (get_sort (F.source r))) [v; v] == VBool true)
-        | _, _ -> () in
-    matched rs es
+    lemma_matched_context rs es j rho
 
 let rec lemma_context_models (rs:list F.reconstruction) (i:interpretation value)
                              (project:pos -> value -> int)

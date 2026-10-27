@@ -1192,6 +1192,20 @@ to 4117 ms, including all six helpers and the assembly wrapper. The largest
 replacement declaration took 1382 ms. These are local proof-compilation
 measurements, not whole-build or checker-runtime speedups.
 
+#### Scoped-context proof compilation
+
+Matched reconstruction equations are discharged by a separate reusable
+lemma requiring only matching, value equalities, and reflexive equality in
+the current interpretation. Scoped model-extension assembly uses its
+already-proved reflexivity without unfolding original/extended model
+fields. The original theorem contract, executable definitions, model
+assumptions, and verification options are unchanged.
+
+Three fresh-module checks reduced median affected proof work from 2319 ms
+to 519 ms, including the erased helper and the replacement wrapper. The
+largest replacement declaration took 356 ms. These are local
+proof-compilation measurements, not whole-build or runtime speedups.
+
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
 `Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,
