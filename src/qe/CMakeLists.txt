@@ -19,6 +19,7 @@ z3_add_component(qe
     nlsat_tactic
     nlsat
     smt
+    smt_tactic
     tactic
     mbp
     qe_lite

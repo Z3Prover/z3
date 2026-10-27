@@ -642,6 +642,59 @@ static void check_special_relation_logic() {
     }
 }
 
+static void check_qsat_proofs() {
+    struct {
+        char const* input;
+        lbool expected;
+        bool quantified = false;
+    } cases[] = {
+        {"(declare-fun a () (Array Int (Array Int Int)))\n"
+         "(assert (= a (store a 0 (store (select a 0) 0 0))))\n", l_true},
+        {"(declare-const x Int)\n"
+         "(assert (> x 0))\n"
+         "(assert (< x 0))\n", l_false},
+        {"(assert (forall ((a Real)) (exists ((b Real))\n"
+         " (and (>= (+ a b) 0.0) (<= b 0.0)))))\n", l_false, true}
+    };
+    for (bool proofs : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(test.input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            tactic_ref t = mk_qsat_tactic(m, params_ref());
+            goal_ref g = alloc(goal, m, proofs, true, false);
+            for (expr* a : cmd.assertions())
+                g->assert_expr(a);
+            model_ref md;
+            labels_vec labels;
+            proof_ref pr(m);
+            expr_dependency_ref core(m);
+            std::string reason_unknown;
+            lbool expected = proofs && test.quantified ? l_undef : test.expected;
+            VERIFY(expected == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+            if (expected == l_undef) {
+                VERIFY(reason_unknown == "qsat does not support proof production");
+                VERIFY(!pr);
+            }
+            else if (expected == l_true) {
+                VERIFY(md);
+                for (expr* a : cmd.assertions()) {
+                    expr_ref value(m);
+                    VERIFY(md->eval_expr(a, value) && m.is_true(value));
+                }
+            }
+            else if (proofs) {
+                VERIFY(pr && m.is_false(m.get_fact(pr)));
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(checker.check(pr, side_conditions));
+            }
+        }
+    }
+}
+
 static void check_qe_rec_proofs() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -695,6 +748,7 @@ static void check_qe_rec_proofs() {
 
 void tst_smt_context()
 {
+    check_qsat_proofs();
     check_qe_rec_proofs();
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();

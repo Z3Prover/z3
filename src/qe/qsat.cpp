@@ -33,6 +33,7 @@ Notes:
 #include "model/model_evaluator_params.hpp"
 #include "smt/smt_kernel.h"
 #include "smt/smt_solver.h"
+#include "smt/tactic/smt_tactic_core.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
 #include "qe/qsat.h"
@@ -1508,7 +1509,9 @@ namespace qe {
 }
 
 tactic * mk_qsat_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(qe::qsat, m, p, qe::qsat_sat);
+    return cond(mk_and(mk_produce_proofs_probe(), mk_not(mk_has_quantifier_probe())),
+                mk_smt_tactic_core(m, p),
+                alloc(qe::qsat, m, p, qe::qsat_sat));
 }
 
 tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {   
@@ -1520,5 +1523,4 @@ tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {
     return cond(mk_produce_proofs_probe(),
                 and_then(mk_simplify_tactic(m, p), t.get()), t.get());
 }
-
 
