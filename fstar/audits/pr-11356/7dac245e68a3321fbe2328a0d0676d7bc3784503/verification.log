@@ -1,7 +1,0 @@
-Tools: F* 2026.09.27; Z3 4.13.3 (pinned release backend).
-Command: timeout 120 fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache --odir out Z3SeqEagerBudgetPR11356.fst
-stdout:
-Verified module: Z3SeqEagerBudgetPR11356
-All verification conditions discharged successfully
-stderr: (empty)
-exit code: 0 (fresh cache; an earlier run failed on a syntax error in tuple type, fixed)

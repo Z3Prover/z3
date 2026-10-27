@@ -1,8 +1,0 @@
-head Z3FiniteFieldLemma.fst: fstar.exe --smt .../z3 --z3version 4.13.3 --include fstar --cache_dir cache1 --odir out1 --z3rlimit 10 Z3FiniteFieldLemma.fst
-stdout: Verified module: Z3FiniteFieldLemma / All verification conditions discharged successfully
-exit 0
-audit Z3PR11358FfAudit.fst: same flags, cache2/out2 (fresh)
-stdout: Verified module: Z3PR11358FfAudit / All verification conditions discharged successfully
-exit 0 (stderr empty)
-Versions: F* 2026.09.27; Z3 4.13.3
-First attempt failed on a spurious 'open FStar.Mul'; removed and rerun.

@@ -1,7 +1,0 @@
-Tool versions: F* 2026.09.27 (Linux_x86_64); Z3 4.13.3 - 64 bit (pinned release).
-Command (cwd /tmp/gh-aw/agent/fstar-audit, fresh c/ and o/): timeout 120 fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --cache_dir c --odir o --z3rlimit 10 Z3Pr11331SeqCancel.fst
-stdout: Verified module: Z3Pr11331SeqCancel
-All verification conditions discharged successfully
-stderr: (empty)
-exit code: 0
-(Earlier iterations had type/proof errors that were fixed in the source; final run is a fresh-cache run.)
