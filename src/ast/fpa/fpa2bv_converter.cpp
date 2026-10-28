@@ -3005,11 +3005,9 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr_ref sgn(m), sig(m), exp(m);
         sgn = mk_fresh_const("fpa2bv_to_fp_real_sgn", 1);
-        sig = mk_fresh_const("fpa2bv_to_fp_real_sig", sbits + 4);
-        exp = mk_fresh_const("fpa2bv_to_fp_real_exp", ebits + 2);
-
-        expr_ref rme(bv_rm, m);
-        round(s, rme, sgn, sig, exp, result);
+        sig = mk_fresh_const("fpa2bv_to_fp_real_sig", sbits - 1);
+        exp = mk_fresh_const("fpa2bv_to_fp_real_exp", ebits);
+        result = m_util.mk_fp(sgn, exp, sig);
 
         expr_ref r_is_nan(m);
         mk_is_nan(result, r_is_nan);
@@ -3051,21 +3049,6 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             expr_ref r_sgn(m), r_exp(m), r_sig(m);
             split_fp(result, r_sgn, r_exp, r_sig);
 
-            // integer value of the significand field, as a real expression
-            expr_ref sig_field(m);
-            sig_field = zero;
-            rational w(1);
-            for (unsigned i = 0; i < sbits - 1; i++) {
-                expr_ref bit(m);
-                bit = bu.mk_extract(i, i, r_sig);
-                {
-                    expr_ref condition(m.mk_eq(bit, bv1), m);
-                    expr_ref then_value(au.mk_numeral(w, false), m);
-                    sig_field = au.mk_add(sig_field, m.mk_ite(condition, then_value, zero));
-                }
-                w *= rational(2);
-            }
-
             expr_ref exp_is_zero(m), exp_is_one(m), sig_is_zero(m), sig_is_even(m);
             exp_is_zero = m.mk_eq(r_exp, bu.mk_numeral(0, ebits));
             exp_is_one = m.mk_eq(r_exp, bu.mk_numeral(1, ebits));
@@ -3076,17 +3059,43 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             rational min_subnormal = rational(1) /
                 (rational(m_mpf_manager.m_powers2(max_exp)) * rational(m_mpf_manager.m_powers2(sbits - 2)));
 
-            // significand value including the hidden bit (normal case)
-            expr_ref sig_value(m);
-            sig_value = au.mk_add(au.mk_numeral(rational(m_mpf_manager.m_powers2(sbits - 1)), false), sig_field);
-
-            expr_ref r_real(m), abs_r(m), abs_x(m);
-            r_real = m_util.mk_to_real(result);
-            {
-                expr_ref condition(au.mk_lt(r_real, zero), m);
-                expr_ref then_value(au.mk_uminus(r_real), m);
-                abs_r = m.mk_ite(condition, then_value, r_real);
+            // Normal ULP = min_subnormal * 2^(biased_exponent - 1).
+            // Bit-conditioned constant scaling keeps the exponent encoding linear.
+            expr_ref e_min_subnormal(au.mk_numeral(min_subnormal, false), m);
+            expr_ref gap_up(au.mk_numeral(min_subnormal / rational(2), false), m);
+            expr_ref min_gap(gap_up, m);
+            rational scale(2);
+            for (unsigned i = 0; i < ebits; ++i) {
+                expr_ref bit(bu.mk_extract(i, i, r_exp), m);
+                expr_ref condition(m.mk_eq(bit, bv1), m);
+                expr_ref factor(au.mk_numeral(scale, false), m);
+                expr_ref scaled(au.mk_mul(factor, gap_up), m);
+                gap_up = m.mk_ite(condition, scaled, gap_up);
+                m_extra_assertions.push_back(au.mk_ge(gap_up, min_gap));
+                scale *= scale;
             }
+            gap_up = m.mk_ite(exp_is_zero, e_min_subnormal, gap_up);
+
+            expr_ref hidden(au.mk_numeral(rational(m_mpf_manager.m_powers2(sbits - 1)), false), m);
+            expr_ref normal_base(au.mk_mul(hidden, gap_up), m);
+            expr_ref base(m.mk_ite(exp_is_zero, zero, normal_base), m);
+            expr_ref abs_r(base, m), abs_x(m);
+            rational weight(1);
+            for (unsigned i = 0; i < sbits - 1; ++i) {
+                expr_ref bit(bu.mk_extract(i, i, r_sig), m);
+                expr_ref condition(m.mk_eq(bit, bv1), m);
+                expr_ref coefficient(au.mk_numeral(weight, false), m);
+                expr_ref contribution(au.mk_mul(coefficient, gap_up), m);
+                contribution = m.mk_ite(condition, contribution, zero);
+                abs_r = au.mk_add(abs_r, contribution);
+                weight *= rational(2);
+            }
+            // Expose range bounds without enumerating the fraction-bit assignments.
+            m_extra_assertions.push_back(au.mk_ge(abs_r, base));
+            expr_ref max_coefficient(au.mk_numeral(weight - rational(1), false), m);
+            expr_ref max_fraction(au.mk_mul(max_coefficient, gap_up), m);
+            expr_ref max_magnitude(au.mk_add(base, max_fraction), m);
+            m_extra_assertions.push_back(au.mk_le(abs_r, max_magnitude));
             {
                 expr_ref condition(au.mk_lt(x, zero), m);
                 expr_ref then_value(au.mk_uminus(x), m);
@@ -3094,9 +3103,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             }
 
             // gap to the next float of larger magnitude and to the next float of smaller magnitude
-            expr_ref e_min_subnormal(m), gap_up(m), gap_down(m);
-            e_min_subnormal = au.mk_numeral(min_subnormal, false);
-            gap_up = m.mk_ite(exp_is_zero, e_min_subnormal, au.mk_div(abs_r, sig_value));
+            expr_ref gap_down(m);
             // The gap below a power of two is half the gap above it, except for the smallest
             // normal number, whose predecessor is the largest subnormal at the same distance.
             {
@@ -3104,6 +3111,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
                 expr_ref else_value(au.mk_div(gap_up, two), m);
                 gap_down = m.mk_ite(condition, gap_up, else_value);
             }
+            m_extra_assertions.push_back(au.mk_le(gap_down, gap_up));
 
             expr_ref lower_mid(m), upper_mid(m), in_nearest_range(m), tie_lo(m), tie_hi(m);
             lower_mid = au.mk_sub(abs_r, au.mk_div(gap_down, two));
