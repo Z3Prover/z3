@@ -725,9 +725,9 @@ namespace smt {
                 }
                 expr* condition = nullptr, *yes = nullptr, *no = nullptr;
                 if (m.is_ite(body, condition, yes, no) && m.is_bool(body)) {
-                    self(self, condition, inner, false);
                     self(self, yes, inner, negated);
                     self(self, no, inner, negated);
+                    self(self, condition, inner, false);
                     return;
                 }
                 if (is_forall(body) && !negated) {
@@ -917,6 +917,66 @@ namespace smt {
             }
         }
 
+        unsigned arith_project_nested(expr_ref& polynomial, vector<arith_bound> const& bounds,
+                                      arith_util& a, th_rewriter& rw) {
+            ast_manager& m = a.get_manager();
+            unsigned projected = 0;
+            // Zero outer parameters suggest centers for shared witnesses, not unconditional equalities.
+            for (unsigned step = 0; step < 8; ++step) {
+                unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
+                if (size > 32)
+                    break;
+                bool changed = false;
+                for (unsigned i = 0; i < size && !changed; ++i) {
+                    expr* term = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial.get();
+                    rational k;
+                    expr* atom = arith_atom(a, term, k);
+                    if (!is_uninterp(atom))
+                        continue;
+                    for (auto const& rule : bounds) {
+                        if (!rule.inner_decls || rule.head->get_decl() != to_app(atom)->get_decl() ||
+                            rule.head->get_num_args() != rule.inner_decls)
+                            continue;
+                        expr_ref_vector substitution(m);
+                        svector<bool> assigned(rule.inner_decls, false);
+                        for (unsigned j = 0; j < rule.num_decls; ++j)
+                            substitution.push_back(a.mk_real(0));
+                        bool match = true;
+                        for (unsigned j = 0; j < rule.head->get_num_args(); ++j) {
+                            expr* x = rule.head->get_arg(j);
+                            if (!is_var(x) || to_var(x)->get_idx() >= rule.inner_decls ||
+                                assigned[to_var(x)->get_idx()]) {
+                                match = false;
+                                break;
+                            }
+                            unsigned index = to_var(x)->get_idx();
+                            assigned[index] = true;
+                            substitution.set(index, to_app(atom)->get_arg(j));
+                        }
+                        if (!match)
+                            continue;
+                        expr_ref rest(m);
+                        if (!arith_coefficient(a, polynomial, atom, k, rest))
+                            continue;
+                        var_subst subst(m, false);
+                        expr_ref replacement = subst(rule.rest, substitution);
+                        replacement = a.mk_mul(a.mk_real(-k / rule.coefficient), replacement);
+                        expr_ref next(a.mk_add(rest, replacement), m);
+                        rw(next);
+                        if (next == polynomial)
+                            continue;
+                        polynomial = next;
+                        ++projected;
+                        changed = true;
+                        break;
+                    }
+                }
+                if (!changed)
+                    break;
+            }
+            return projected;
+        }
+
         bool add_arith_instance(quantifier* q, expr_ref_vector const& terms) {
             ptr_buffer<enode> bindings;
             unsigned generation = 0;
@@ -965,6 +1025,7 @@ namespace smt {
             expr_ref difference(a.mk_sub(source_rest, target_rest), m);
             rw(difference);
             arith_eliminate(difference, bounds, source.coefficient.is_pos(), a, rw);
+            unsigned projected = source.inner_decls ? arith_project_nested(difference, bounds, a, rw) : 0;
             unsigned pivot = bindings.size();
             expr_ref remainder(m);
             rational coefficient;
@@ -1002,10 +1063,14 @@ namespace smt {
                     ground.insert(variables.get(i), anchor);
             ground(remainder);
             expr_ref boundary(a.mk_mul(a.mk_real(-rational(1) / coefficient), remainder), m);
+            if (projected)
+                boundary = a.mk_mul(a.mk_real(rational(1) / rational(projected + 1)), boundary);
             rw(boundary);
             bool added = false;
             // These are candidate bindings, including for disjunctive bounds, not asserted arithmetic lemmas.
             for (int offset : {0, 1, -1}) {
+                if (projected && offset != 0)
+                    break;
                 if (budget < 2)
                     break;
                 budget -= 2;

@@ -306,7 +306,7 @@ static void check_sat_array_lambdas() {
                 VERIFY(l_true != slv->check_sat(0, nullptr));
                 slv->pop(1);
                 VERIFY(l_true == slv->check_sat(0, nullptr));
-            }
+              }
         }
     }
 }
@@ -869,8 +869,22 @@ static void check_arithmetic_quantifier_instances() {
 }
 
 static void check_arithmetic_nested_witnesses() {
+    struct {
+        char const* coefficient;
+        unsigned functions;
+    } cases[] = {
+        {"(/ 96.0 82.0)", 1}, {"(- (/ 5.0 3.0))", 1},
+        {"(/ 96.0 82.0)", 2}, {"(- (/ 5.0 3.0))", 2},
+        {"(- (/ 5.0 3.0))", 4}
+    };
+    auto limit = [](std::string const& term, std::string const& value) {
+        return "(forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
+               " (exists ((delta Real)) (and (> delta 0.0)\n"
+               "  (forall ((x Real)) (=> (and (not (= x a)) (< (absolute (- x a)) delta))\n"
+               "   (< (absolute (- " + term + " " + value + ")) epsilon)))))))";
+    };
     for (bool proofs : {false, true}) {
-        for (char const* coefficient : {"(/ 96.0 82.0)", "(- (/ 5.0 3.0))"}) {
+        for (auto const& test : cases) {
             ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
             reg_decl_plugins(m);
             cmd_context cmd(false, &m);
@@ -879,19 +893,24 @@ static void check_arithmetic_nested_witnesses() {
                 "(declare-fun f (Real) Real)\n"
                 "(declare-const a Real)\n"
                 "(declare-const l Real)\n"
-                "(define-fun coefficient () Real " + std::string(coefficient) + ")\n"
-                "(assert (forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
-                " (exists ((delta Real)) (and (> delta 0.0)\n"
-                "  (forall ((x Real)) (=> (and (not (= x a)) (< (absolute (- x a)) delta))\n"
-                "                       (< (absolute (- (f x) l)) epsilon))))))))\n"
-                "(assert (not (forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
-                " (exists ((delta Real)) (and (> delta 0.0)\n"
-                "  (forall ((x Real)) (=> (and (not (= x a)) (< (absolute (- x a)) delta))\n"
-                "   (< (absolute (- (* coefficient (f x)) (* coefficient l))) epsilon)))))))))\n";
+                "(define-fun coefficient () Real " + std::string(test.coefficient) + ")\n";
+            formula += "(assert " + limit("(f x)", "l") + ")\n";
+            std::string term = "(* coefficient (f x))", value = "(* coefficient l)";
+            for (unsigned i = 1; i < test.functions; ++i) {
+                std::string f = "g" + std::to_string(i), l = "k" + std::to_string(i);
+                formula += "(declare-fun " + f + " (Real) Real)\n";
+                formula += "(declare-const " + l + " Real)\n";
+                formula += "(assert " + limit("(" + f + " x)", l) + ")\n";
+                std::string weight = std::to_string(i + 2) + ".0";
+                term = "(+ " + term + " (* " + weight + " (" + f + " x)))";
+                value = "(+ " + value + " (* " + weight + " " + l + "))";
+            }
+            formula += "(assert (not " + limit(term, value) + "))\n";
             std::istringstream input(formula);
             VERIFY(parse_smt2_commands(cmd, input));
             params_ref p;
             p.set_bool("mbqi", false);
+            p.set_uint("rlimit", 1000000);
             // Scoped existential goals still need the tactic's NNF/Skolem preprocessing.
             ref<solver> slv = mk_tactic2solver(m, mk_smt_tactic(m, p), p, proofs);
             for (unsigned repeat = 0; repeat < 2; ++repeat) {
@@ -908,7 +927,7 @@ static void check_arithmetic_nested_witnesses() {
                 }
                 slv->pop(1);
                 VERIFY(l_true == slv->check_sat(0, nullptr));
-            }
+          }
         }
     }
 }
