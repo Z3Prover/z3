@@ -117,29 +117,30 @@ lbool monadic::product_nonempty(expr* var, seq::view_vector const& comps, expr_r
 }
 
 bool monadic::parse_term(expr* t, vector<atom>& atoms) {
-    if (u().str.is_concat(t))
-        return all_of(*to_app(t), [&](expr* arg) { return parse_term(arg, atoms); });
-    if (u().str.is_empty(t))
-        return true;                              // epsilon: contributes nothing
-    zstring s;
-    if (u().str.is_string(t, s)) {
-        for (unsigned i = 0; i < s.length(); ++i) {
-            expr* elem = u().str.mk_char(s, i);
-            atoms.push_back(atom(m, false, nullptr, elem));
+    ptr_vector<expr> terms;
+    u().str.get_concat(t, terms);
+    for (expr* term : terms) {
+        zstring s;
+        if (u().str.is_string(term, s)) {
+            for (unsigned i = 0; i < s.length(); ++i) {
+                expr* elem = u().str.mk_char(s, i);
+                atoms.push_back(atom(m, false, nullptr, elem));
+            }
+            continue;
         }
-        return true;
+        expr *elem = nullptr;
+        if (u().str.is_unit(term, elem) && m.is_value(elem)) {              // seq.unit of a constant element
+            atoms.push_back(atom(m, false, nullptr, elem));
+            continue;
+        }
+        // uninterpreted constant of sequence sort => a sequence variable
+        if (is_var(term)) {
+            atoms.push_back(atom(m, true, term, nullptr));
+            continue;
+        }
+        return false;
     }
-    expr *elem = nullptr;
-    if (u().str.is_unit(t, elem) && m.is_value(elem)) {                     // seq.unit of a constant element
-        atoms.push_back(atom(m, false, nullptr, elem));
-        return true;
-    }
-    // uninterpreted constant of sequence sort => a sequence variable
-    if (is_var(t)) {
-        atoms.push_back(atom(m, true, t, nullptr));
-        return true;
-    }
-    return false;
+    return true;
 }
 
 unsigned monadic::var_index(expr* v) {
