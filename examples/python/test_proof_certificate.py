@@ -2971,6 +2971,18 @@ class TestClauseLogDependencies(unittest.TestCase):
         with patch.object(proof_clause_log.subprocess, "run", side_effect=AssertionError("native trimming")):
             self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
 
+    def test_logs_of_a_few_kilobytes_are_trimmed(self):
+        # Trimming used to start at 1 MB; a 32 KB QF_UF log then certified
+        # the whole search, 2,254 nodes against 389 trimmed.
+        log = _LRA_LOG + "; padding\n" * (proof_clause_log._TRIM_THRESHOLD // 10)
+        self.assertLessEqual(proof_clause_log._TRIM_THRESHOLD, len(log))
+        self.assertLess(len(log), 16384)
+        trimmed = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG, "")
+        with patch.object(proof_clause_log.subprocess, "run", return_value=trimmed) as run:
+            core = proof_clause_log.trim_clause_log("unused", log)
+        self.assertEqual(run.call_count, 1)
+        self.assertIn("(deps 5 3)", core)
+
     def test_trimming_failures_fall_back_to_the_untrimmed_log_with_a_warning(self):
         # Trimming only shortens the replay; a trimmer error (an inference it
         # cannot derive) or an unusable dependency graph leaves the untrimmed
@@ -2978,13 +2990,13 @@ class TestClauseLogDependencies(unittest.TestCase):
         with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
             failed = subprocess.CompletedProcess([], 1, "", "trimmer failed")
             with patch.object(proof_clause_log.subprocess, "run", return_value=failed):
-                with self.assertWarnsRegex(RuntimeWarning, "trimming failed.*trimmer failed"):
+                with self.assertWarnsRegex(RuntimeWarning, "trimming exited with status 1.*trimmer failed"):
                     self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
             rejected = subprocess.CompletedProcess(
                 [], 0, '(error "line 3 column 10: proof trimming: the inferred clause 5 is not derivable by '
                        'unit propagation from the preceding clauses")\n', "")
             with patch.object(proof_clause_log.subprocess, "run", return_value=rejected):
-                with self.assertWarnsRegex(RuntimeWarning, "not derivable by unit propagation"):
+                with self.assertWarnsRegex(RuntimeWarning, "trimming reported an error.*not derivable by unit propagation"):
                     self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
             cyclic = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 4 3)"), "")
             with patch.object(proof_clause_log.subprocess, "run", return_value=cyclic):

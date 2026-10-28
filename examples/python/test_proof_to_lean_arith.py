@@ -828,9 +828,10 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         # The first random ite instance above the threshold is outlined without
         # any override: chunk cuts fall inside Farkas and Rat-valued ite
         # subproofs, and the classical witnesses stay local to each lemma.
+        # Trimmed logs of the 6-variable instances stay below the threshold.
         from test_proof_to_lean_uf import outlined_lemma_sizes, _proof_steps
         for seed in range(1, 200):
-            source = random_instance(seed, 6, 14, ite=True)
+            source = random_instance(seed, 10, 30, ite=True)
             if "(ite " not in source:
                 continue
             context = z3.Context()

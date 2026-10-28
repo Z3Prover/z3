@@ -1699,7 +1699,7 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             return certificate, " ".join(result.stdout.split())
 
     def test_trimmed_logs_over_a_declared_sort_verify(self):
-        # Logs from 1 MB up are trimmed natively; the trimmer prints the
+        # Logs from 4 KB up are trimmed natively; the trimmer prints the
         # input's (declare-sort U 0), which the dependency core rejected, so
         # every large QF_UF log fell back to the untrimmed replay (z3test's
         # NEQ004_size4: 47,038 resolution steps instead of 16,643, twice the
@@ -1721,6 +1721,32 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertIn("(deps ", trimmed[0])
         self.assertIn("th-lemma", certificate["rule_counts"])
         self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_moderate_logs_are_trimmed_by_default(self):
+        # SMT-LIB QF_UF 2018-Goel-hwbench/QF_UF_train-gate.6.prop1_ab_reg_max:
+        # a 32 KB clause log, below the former 1 MB trimming threshold, whose
+        # replay certified the whole search (2,254 nodes, 711 KB of Lean)
+        # where the final conflict needs a sixth of it. The default export
+        # trims it now; warnings are errors, so a fallback would fail.
+        source = (_EXAMPLES / "data" / "QF_UF_train-gate.6.prop1_ab_reg_max.smt2").read_text()
+        logs, original = [], proof_clause_log.trim_clause_log
+
+        def trim(z3_executable, text, timeout=None):
+            logs.append((text, original(z3_executable, text, timeout)))
+            return logs[-1][1]
+
+        with patch.object(proof_clause_log, "trim_clause_log", trim), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            certificate, report = self.check(source)
+        self.assertEqual(len(logs), 1)
+        log, core = logs[0]
+        self.assertTrue(proof_clause_log._TRIM_THRESHOLD <= len(log) < 1_000_000, len(log))
+        self.assertIn("(deps ", core)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf")):
+            untrimmed = proof_certificate.export_clause_log_certificate(source)
+        self.assertLess(3 * len(certificate["nodes"]), len(untrimmed["nodes"]))
+        self.assertLess(certificate["rule_counts"]["th-lemma"], untrimmed["rule_counts"]["th-lemma"])
 
     def test_documented_uf_inputs_verify_under_the_standard_axioms(self):
         for name, source in UF_INPUTS.items():
