@@ -75,6 +75,11 @@ let bounded_conditional_rewrite () : bool =
   not (Z3TheoryNormalize.equivalent shared R.true_expr) &&
   CR.equivalent (ite guard R.true_expr R.false_expr) guard
 
+(* The verdict of a diagnosed document is the verdict of its check (Z3Cherry.lemma_diagnose_is_check),
+   for accepted, pending and rejected documents. *)
+let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
+  P.diagnostic_result (C.diagnose force_sorted m) = C.check force_sorted m
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -88,6 +93,11 @@ let run () : bool =
   C.check false bad_rule = None &&
   C.check false pending = Some 1 &&
   C.check true pending = Some 1 &&
+  diagnosis_is_check false good && diagnosis_is_check true good &&
+  diagnosis_is_check false bad_root && diagnosis_is_check true bad_root &&
+  diagnosis_is_check false missing_input && diagnosis_is_check true missing_input &&
+  diagnosis_is_check false bad_rule && diagnosis_is_check true bad_rule &&
+  diagnosis_is_check false pending && diagnosis_is_check true pending &&
   large_axiom_scan () &&
   large_documents () &&
   bounded_conditional_rewrite ()

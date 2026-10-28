@@ -1920,7 +1920,8 @@ exit status, or the default fast path. F* proves that the paired result
 equals the ordinary checker's result in both legacy and sorted modes.
 Result agreement and obligation-count checks remain enabled.
 With diagnostics, `check_ms` includes collection and `diagnose_ms` measures
-formatting, rather than a second checking pass.
+formatting, rather than a second checking pass (in the Cherry checker too,
+since 2026-10-28).
 Each `obligation` TSV row contains the rule, count, first
 proof-node index, and a bounded sort-aware expression fingerprint; a
 `diagnostic` row records the pending total or the rejection stage. Fingerprint
@@ -2124,6 +2125,183 @@ numeral of the other sort, a malformed numeral, or an uninterpreted
 constant. CLI tests certify eight interactive refutations, including
 `z3.12`, with no obligation, and check that a satisfiable variant is
 reported `sat`.
+
+### Extractions moved into sums, products, and conditionals (2026-10-28)
+
+Z3's `bv_rewriter::mk_extract` moves an extraction into its argument:
+
+    ((_ extract h 0) (bvadd x1 ... xn))  ~>  (bvadd ((_ extract h 0) x1) ... ((_ extract h 0) xn))
+    ((_ extract h 0) (bvmul x1 ... xn))  ~>  (bvmul ((_ extract h 0) x1) ... ((_ extract h 0) xn))
+    ((_ extract h l) (ite c t e))        ~>  (ite c ((_ extract h l) t) ((_ extract h l) e))
+
+The inner extractions are built by `mk_extract_proc`, which composes an
+extraction of an extraction: an argument `((_ extract h2 l2) z)` becomes
+`((_ extract (h + l2) (l + l2)) z)`. These steps were unchecked `rewrite`
+obligations. In z3test `6079-8`, an `fp`/`to_fp` refutation over 66-bit
+words, they were 462 of the 585 obligations of the interactive OCaml check
+(236 sums and products, 226 conditionals); the Cherry check of that file
+exceeds the 60 s limit.
+
+`Z3BvExtract.check` accepts exactly these steps. Sums and products are
+distributed only over the low bits (`l = 0`): the other bits depend on
+carries out of the discarded bits, so `((_ extract 1 1) (bvadd #b01 #b01))`
+is `#b1` while the distributed sum is `#b0`. The target must be the same
+operation, binary or n-ary, with as many arguments, of width `h + 1`. A
+conditional keeps the same guard term, which is not interpreted. Every
+width and index comes from the native declarations, which
+`Z3BvLemma.extract_parts` and `Z3BvLemma.operation` check against the
+sorts and the 4096-bit bound, and is compared as an integer with the
+corresponding width on the other side. Both sides must be closed terms;
+steps under binders stay pending. The check only compares subterms, so it
+allocates nothing.
+
+`lemma_check_sound` uses only `Z3BvLemma.bv_model`, which already gives
+the value of an extraction as `(x / 2^l) mod 2^(h-l+1)` and of `bvadd` and
+`bvmul` as sums and products modulo `2^w`, and
+`Z3ArrayRewrite.term_ite_sound`. Both are part of the unified kernel's
+`model_sound`, so no model hypothesis is added. The proof reduces
+`(a + b) mod 2^w mod 2^k` and `(a * b) mod 2^w mod 2^k` to the
+corresponding operations on `a mod 2^k` and `b mod 2^k` for `k <= w`, by
+induction over n-ary arguments, and composes nested extractions with
+`FStar.Math.Lemmas`. The rule is tried after `Z3ArithmeticFactor.check`
+for `rewrite` steps without premises, in the legacy kernel only.
+
+The native regression accepts seventeen steps: binary and ternary sums
+and products, the lowest bit, the full width, 4096-bit operands, the
+`6079-8` shapes at widths 7 and 66, composed inner extractions, and
+conditionals with atomic, opaque, comparison and nested guards. It
+leaves eighteen invalid steps pending: high slices of sums and products,
+including `((_ extract 1 1) (bvadd #b01 #b01))` and the `6079-8` shape
+with `l = 1`, another slice or argument, another operation, a dropped or
+extra argument, division, a negated, swapped or other guard, another
+branch, and composed extractions without their offset. No rule certifies
+these, and a refutation using one is `PARTIAL 1`. Six valid steps outside
+the shape (bitwise `or`, subtraction, reordered or evaluated arguments,
+two steps at once, bound variables) are not accepted by this rule.
+Thirty-two rebuilt terms are not certified: extraction parameters of
+width 0, with the high bit at or beyond the width, the low bit above the
+high bit, or another source width; declarations with another domain,
+width, operation, parameter list or number of arguments, or without
+interpretation; and the constant `x` replaced by a bound variable on both
+sides, or with different de Bruijn indices on the two sides. Mutants of
+the extracted rule that accept any operation, any guard, any operand,
+another operation in the target, composed extractions without offsets,
+open terms, or high slices of single bits fail the regression. Dropping
+only the `l = 0` test does not, since the target width `h + 1` already
+forces `l = 0`. CLI tests certify seven interactive refutations with no
+obligation and check that a high-slice variant is reported `sat`.
+
+### Boolean normalization is computed once per rewrite step (2026-10-28)
+
+This changes how long a step takes, not which steps are accepted. In
+`6079-8` three pending Boolean `rewrite` steps over terms of 1.5 to 3
+million nodes (as trees) account for 31 of the 37 seconds of OCaml checking
+time. Each of them computed the full Boolean normal form of the same pair
+`(a, b)` three times: as the separate alternative `boolean_equiv 8 10 a b`
+of `relational_step`, and twice more inside `Z3QuantifierReduce.equivalent
+64 a b`, whose first test is that same call and whose second test repeats
+it on the normalized pair, which for a quantifier-free step is the pair
+itself. Two edits remove the repetition:
+
+- `Z3QuantifierReduce.equivalent` skips `boolean_equiv 8 10 x y` when the
+  normalized pair `(x, y)` equals `(a, b)`, since that test has just failed.
+  `lemma_equivalent_unchanged` proves, for every fuel and every pair of
+  terms, that the new `equivalent` equals `equivalent_reference`, the
+  previous definition (kept as a non-extracted function for this statement
+  only).
+- `relational_step` no longer lists `boolean_equiv 8 10 a b` before
+  `Z3QuantifierReduce.equivalent 64 a b`. `lemma_boolean_equiv_subsumed`
+  proves that the test implies `equivalent 64 a b`, so the same pairs are
+  accepted. `lemma_relational_step_sound` loses one branch and keeps its
+  statement.
+
+The bridge group `unused-quantifier-rewrites` now fixes the comparison of
+the Boolean bodies after an unused binder is removed, which only
+`ElimUnused` steps reach without another alternative also accepting them.
+
+With `--diagnostics` the Cherry checker checked every document twice, once
+for the verdict and once to collect obligations, as the OCaml checker never
+did. It now diagnoses once: `Z3Cherry.lemma_diagnose_is_check` proves that
+the result recorded by the diagnosis equals `Z3Cherry.check` for the same
+document and sorted mode (in the legacy path through
+`Z3ProofDocument.lemma_diagnose_document_indexed`, in the sorted path
+through `Z3SortedProof.lemma_diagnose_document`), and the native wrapper
+reads the verdict from the diagnosis. The agreement test between two passes
+is replaced by that theorem; the count of the grouped obligations against
+the pending total is still checked natively. Under `--diagnostics`,
+`check_ms` is therefore the single pass including collection, and
+`diagnose_ms` is the formatting of the report, as for the OCaml checker;
+`Z3CherryTests` checks the agreement on accepted, pending and rejected
+documents in both sorted modes. Without `--diagnostics` nothing changes.
+
+On `6079-8`, with the harness flags and limits, one development run each
+took the OCaml checker from `check_ms` 36.4 s to 20.4 s and the Cherry
+checker from a timeout at 60 s (108 s without the limit, 53.7 s of it
+`check_ms`) to `PARTIAL 123` in 30.5 s. The pending obligations are the
+same 123.
+
+### Extractions of concatenations (2026-10-28)
+
+`bv_rewriter::mk_extract` also splits an extraction of a concatenation.
+For a binary concatenation of `x` (width `m`, the high bits) and `y`
+(width `n`, the low bits), the bits `[h:l]` are
+
+    the bits [h:l] of y                              if h < n
+    the bits [h-n:l-n] of x                          if n <= l
+    (concat (the bits [h-n:0] of x) (the bits [n-1:l] of y))   otherwise
+
+where the bits of an argument are the argument itself when they are all of
+its bits, and otherwise an extraction built by `mk_extract_proc`, which
+composes an extraction of an extraction argument. In `6079-8` these were 13
+of the 123 remaining obligations (9 fingerprint lines), all over binary
+concatenations: three keep the low argument, three the high argument, four
+extract from the high argument (three of them composed), and three cross
+the boundary. The arguments that are kept whole are already handled by
+`Z3BvLemma.extract_rewrite`, but the theory normalizer does not reach these
+steps because their terms exceed its 4096-node budget.
+
+`Z3BvExtract.concatenated` accepts exactly these steps. The concatenation
+must be the interpreted bit-vector `concat` of two arguments
+(`Z3BvLemma.concat_parts`, which checks its parameters `[m; n]` against
+the domain, the range, the argument sorts and the 4096-bit bound), and
+the source width of the extraction must be `m + n`. Across the boundary
+the target must be such a concatenation with widths exactly `h - n + 1`
+and `n - l`. Every index is compared as an integer; the arguments must be
+the same terms in the same order; both sides must be closed. A
+concatenation of three or more arguments on either side is not handled.
+The rule needs no normalization and no expression budget: it compares the
+root shapes and subterms.
+
+The proof uses the existing `bv_model` value of a concatenation,
+`x * 2^n + y`, and of an extraction, and proves with `FStar.Math.Lemmas`
+that the bits `[h:l]` of `x * 2^n + y` are those of `y` for `h < n`, those
+of `x` shifted by `n` for `n <= l`, and otherwise
+`(x mod 2^(h-n+1)) * 2^(n-l) + y / 2^l`. No model hypothesis, option push
+or rlimit change is added.
+
+The bridge group now accepts 21 more steps: within the low argument,
+within the high argument and across the boundary, a single bit at each
+side of the boundary, the full width, arguments kept whole, composed
+extractions, 4096-bit concatenations, and the `6079-8` shapes (a bit
+below a composed extraction, a numeral bit above a conditional). Fifteen
+more invalid steps stay one pending obligation: the bits of the other
+argument, an offset off by one, the parts in the other order or of the
+other arguments, another split, a wrong low part across the boundary, a
+dropped argument, an extra argument, another constant, and a composed
+extraction without its offset. Three valid steps outside the shape (a
+concatenation of three arguments on either side, bound variables) are not
+accepted by this rule, and 25 more rebuilt terms are not certified:
+concatenations with other or zero widths, one parameter, another domain,
+no interpretation, another operation, or another number of arguments;
+extractions from another width, with the high bit at or beyond the width,
+or the low bit above the high bit; an argument kept whole for an
+extraction declared with fewer bits; and the constant `x` replaced by a
+bound variable. CLI tests certify six
+interactive refutations, including the three `6079-8` shapes, with no
+obligation, and check that variants with an offset off by one or with the
+parts reordered are reported `sat`. In a development build, `6079-8` went
+from `PARTIAL 123` to `PARTIAL 110` on both checkers; exactly the 13
+extraction-of-concatenation obligations were removed.
 
 ### Warning-free verification and extraction (2026-10-17)
 

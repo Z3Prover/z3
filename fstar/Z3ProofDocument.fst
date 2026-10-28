@@ -737,6 +737,11 @@ let lemma_diagnose_document_using (transform:D.expander) (lookup:input_lookup) (
     | Some defs -> lemma_diagnose_document_definitions_using transform lookup doc bound defs)
 #pop-options
 
+let lemma_diagnose_document_indexed (hash:judgment -> nat) (doc:document)
+  : Lemma (diagnostic_result (diagnose_document_indexed hash doc) == check_document_indexed hash doc)
+  = lemma_diagnose_document_using (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+      (document_lookup hash doc) doc
+
 let check_document_diagnosed_indexed (hash:judgment -> nat) (doc:document)
   : result:(option nat & document_diagnostic){
       fst result == check_document_indexed hash doc /\
