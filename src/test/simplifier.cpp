@@ -783,8 +783,50 @@ static void test_quantified_bool_literals() {
     }
 }
 
+static void test_nested_symbolic_rotations() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    for (unsigned width : { 3u, 4u, 24u }) {
+        unsigned mask = (1u << width) - 1;
+        Z3_sort sort = Z3_mk_bv_sort(ctx, width);
+        Z3_ast vars[] = {
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), sort),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), sort),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "z"), sort)
+        };
+        auto rotate = [&](unsigned value, unsigned amount, bool left) {
+            unsigned shift = amount % width;
+            if (!left)
+                shift = (width - shift) % width;
+            return ((value << shift) | (value >> (width - shift))) & mask;
+        };
+        for (bool inner_left : { false, true }) {
+            Z3_ast inner = inner_left ? Z3_mk_ext_rotate_left(ctx, vars[0], vars[1]) :
+                                       Z3_mk_ext_rotate_right(ctx, vars[0], vars[1]);
+            for (bool outer_left : { false, true }) {
+                Z3_ast nested = outer_left ? Z3_mk_ext_rotate_left(ctx, inner, vars[2]) :
+                                            Z3_mk_ext_rotate_right(ctx, inner, vars[2]);
+                Z3_ast simplified = Z3_simplify(ctx, nested);
+                for (unsigned amount : { 0u, mask }) {
+                    Z3_ast values[] = {
+                        Z3_mk_unsigned_int(ctx, 1, sort),
+                        Z3_mk_unsigned_int(ctx, amount, sort),
+                        Z3_mk_unsigned_int(ctx, 1, sort)
+                    };
+                    unsigned expected = rotate(rotate(1, amount, inner_left), 1, outer_left);
+                    Z3_ast actual = Z3_substitute(ctx, simplified, 3, vars, values);
+                    expect_simplifies_to(ctx, actual, Z3_mk_unsigned_int(ctx, expected, sort));
+                }
+            }
+        }
+    }
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
+    test_nested_symbolic_rotations();
     test_quantified_bool_literals();
     test_array();
     test_const_array_lambda();
