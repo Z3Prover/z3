@@ -257,3 +257,14 @@ and efforts to address them takes time away from such activities.
 With rapidly increasing quality of coding agents for diagnostics and fixes 
 it is now a reasonable ask that fuzz bug reports make a solid effort on diagnostics and fix. 
 To help focus efforts on what matters, fuzz bugs without further analysis than a repro may be closed without further consideration. 
+
+Reports are prioritized by demonstrated impact on Z3 users, not by whether they were found manually,
+by a fuzzer, or by an LLM-based tool. Wrong answers on ordinary supported formulas and crashes in
+common configurations take priority. Include a minimized reproducer, the tested version and options,
+an independently checked expected result, and diagnostic or fix work where possible.
+
+Output-only differences that preserve semantics, invalid-input diagnostics, and failures confined to
+unusual configurations may be closed as **not planned** when no substantial user impact is demonstrated.
+This is a prioritization decision, not a claim that the behavior is correct or that unusual configurations
+are invalid. Explain the reason when closing a report, and reconsider it when concrete impact or a focused,
+validated fix becomes available. Closing an issue does not by itself reject an existing fix PR.
