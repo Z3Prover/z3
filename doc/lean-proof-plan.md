@@ -1589,6 +1589,31 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Trimmer: negated Boolean arguments (2026-10-28)
+
+A Boolean term under an uninterpreted function, x = `(not q)` in
+`(pb (not q))`, is a solver variable of its own, and the clause log prints
+its literals as `(not q)` and `(not (not q))`, the same text as q negated
+and q. The native trimmer (`proof_trim::add_literal` in `proof_cmds.cpp`)
+stripped one negation per literal, so `(not (not q))` became a variable
+unrelated to q: a conflict through it was missed, and the trimmer rejected
+the log ("the empty clause is not derivable", or "the inferred clause ...
+is not derivable" for a `rup` step through it), so the export replayed the
+untrimmed log. Over seeds 1..2500 of `random_bool_argument_instance` and
+1..300 of `random_boolean_predicate_instance` (615 unsat logs), 9 fell back,
+three of them in the Lean suite; now none does. The trimmer strips every
+negation, as the Python replay (`_strip`) always did; it only selects steps,
+and the replay checks every retained one. Tests: `tst_trim_double_negation`
+in `src/test/proof_replay.cpp`, `test_native_trimming_strips_every_negation`
+in `test_proof_certificate.py` (both fail on the previous build), and in
+`test_proof_to_lean_uf.py` the Boolean-argument and Boolean-predicate Lean
+tests run with warnings as errors, so they check trimmed certificates, plus
+an export-only test over the other six seeds. A clause can now repeat a
+literal, `(not (not q)) q a` is q q a; `sat::proof_trim` stored it without
+the repeat but looked up its deletion with it, so the deletion was ignored.
+Deletions are normalized like additions now
+(`tst_trim_deletes_clauses_with_repeated_literals`).
+
 ### Clause logs trimmed from 4 KB; Lean memory capped (2026-10-27)
 
 Clause logs were trimmed natively only from 1 MB up, so most real inputs
@@ -1883,7 +1908,8 @@ conjunction test checks the trimmed default in Lean as well. Three
 fallbacks remain in the Lean suite, now as explicit errors: the "inferred
 clause ... not derivable" of a Boolean-predicate input, and two
 `random_bool_argument_instance` seeds whose final empty clause is not
-derivable over the clauses the trimmer assumes.
+derivable over the clauses the trimmer assumes. All three are fixed: see
+"Trimmer: negated Boolean arguments (2026-10-28)".
 
 ### Trimmer: deletions of clauses it never added (2026-10-23)
 

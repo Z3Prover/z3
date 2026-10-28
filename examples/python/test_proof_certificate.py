@@ -3208,6 +3208,53 @@ class TestClauseLogDependencies(unittest.TestCase):
         self.assertEqual(certificate["fragment"], "qf_lia")
         self.assertEqual(len(certificate["assertions"]), 2)
 
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimming_strips_every_negation(self):
+        # The Boolean argument (not q) of (pb (not q)) is a solver variable of
+        # its own, and the log prints its literals as (not q), here $6 of the
+        # tseitin step, and (not (not q)), (not $6) of the euf lemma: the same
+        # text as q negated and q. The trimmer stripped one negation per
+        # literal, so (not $6) became a variable unrelated to q, the final
+        # conflict was missed, and the export replayed the untrimmed log
+        # ("the empty clause is not derivable": random_bool_argument_instance
+        # seeds 347 and 2088 of test_proof_to_lean_uf.py, iter-041).
+        source = ("(declare-fun pb (Bool) Bool)(declare-const q Bool)"
+                  "(assert (not q))(assert (pb true))(assert (not (pb (not q))))")
+        log = """\
+(declare-fun q () Bool)
+(assume (not q))
+(assume true)
+(declare-fun pb (Bool) Bool)
+(define-const $7 Bool (pb true))
+(assume $7)
+(define-const $6 Bool (not q))
+(declare-fun tseitin (Bool Bool) Proof)
+(define-const $10 Proof (tseitin q $6))
+(infer $6 $10)
+(define-const $8 Bool (pb $6))
+(assume (not $8))
+(declare-fun euf (Bool Bool Bool Proof) Proof)
+(declare-fun cc (Bool) Proof)
+(define-const $11 Bool (= $7 $8))
+(define-const $12 Proof (cc $11))
+(define-const $9 Bool (not $8))
+(define-const $13 Proof (euf $7 $9 $6 $12))
+(infer (not $7) $8 (not $6) $13)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")  # a fallback to the untrimmed log would hide the defect
+                trimmed = proof_clause_log.trim_clause_log(proof_certificate.default_z3_executable(), log)
+        self.assertIn("(deps 6 ", trimmed)
+        self.assertNotIn("(assume true", trimmed)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertIn("th-lemma", certificate["rule_counts"])
+
 
 # Z3's clause log of the division input of
 # test_native_trimming_accepts_hints_without_a_checker.
