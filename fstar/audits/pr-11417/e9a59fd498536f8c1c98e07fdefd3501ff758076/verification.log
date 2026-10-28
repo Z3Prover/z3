@@ -1,0 +1,8 @@
+Command: timeout 120 fstar.exe --smt z3-4.13.3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir c2 --odir o2 Z3PR11417Audit.fst (fresh cache)
+F* 2026.09.27, Z3 4.13.3
+exit=0
+stdout:
+Verified module: Z3PR11417Audit
+All verification conditions discharged successfully
+
+stderr:
