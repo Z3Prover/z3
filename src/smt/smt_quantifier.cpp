@@ -19,6 +19,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/macros/macro_util.h"
 #include "ast/occurs.h"
 #include "ast/quantifier_stat.h"
 #include "ast/euf/ho_matcher.h"
@@ -700,7 +701,52 @@ namespace smt {
             return true;
         }
 
-        void get_arith_bounds(quantifier* q, arith_util& a, th_rewriter& rw, vector<arith_bound>& bounds) {
+        using arith_definitions = vector<std::pair<func_decl*, expr_ref_vector>>;
+
+        void get_arith_definitions(quantifier* q, arith_util& a, arith_definitions& definitions) {
+            ast_manager& m = a.get_manager();
+            if (!is_forall(q) || q->get_num_decls() != 1 || !a.is_real(q->get_decl_sort(0)) ||
+                !m.is_or(q->get_expr()) || to_app(q->get_expr())->get_num_args() > 4)
+                return;
+            // Guarded branches guide bindings; they never replace asserted definitions.
+            macro_util util(m);
+            macro_util::macro_candidates candidates(m);
+            util.collect_macro_candidates(q, candidates);
+            for (unsigned index = 0; index < candidates.size(); ++index) {
+                func_decl* f = candidates.get_f(index);
+                if (candidates.ineq(index) || f->get_arity() != 1 || !a.is_real(f->get_range()))
+                    continue;
+                expr* rhs = candidates.get_def(index);
+                unsigned size = a.is_add(rhs) ? to_app(rhs)->get_num_args() : 1;
+                bool affine = size <= 4;
+                for (unsigned i = 0; i < size && affine; ++i) {
+                    expr* term = a.is_add(rhs) ? to_app(rhs)->get_arg(i) : rhs;
+                    rational k, value;
+                    expr* atom = arith_atom(a, term, k);
+                    affine = (is_var(atom) && to_var(atom)->get_idx() == 0) || a.is_numeral(atom, value);
+                }
+                if (!affine)
+                    continue;
+                for (auto& [previous, branches] : definitions)
+                    if (previous == f) {
+                        for (expr* branch : branches)
+                            if (branch == rhs)
+                                return;
+                        if (branches.size() < 2)
+                            branches.push_back(rhs);
+                        return;
+                    }
+                if (definitions.size() < 4) {
+                    expr_ref_vector branches(m);
+                    branches.push_back(rhs);
+                    definitions.push_back({f, branches});
+                }
+                return;
+            }
+        }
+
+        void get_arith_bounds(quantifier* q, arith_util& a, th_rewriter& rw, vector<arith_bound>& bounds,
+                              arith_definitions const& definitions) {
             if (!is_forall(q) || q->get_num_decls() > 4)
                 return;
             for (unsigned i = 0; i < q->get_num_decls(); ++i)
@@ -751,20 +797,42 @@ namespace smt {
                     return;
                 if (!a.is_real(lhs))
                     return;
-                ptr_buffer<expr> left, right;
-                expr* c = nullptr, *t = nullptr, *e = nullptr;
-                if (m.is_ite(lhs, c, t, e)) {
-                    left.push_back(t);
-                    left.push_back(e);
-                }
-                else
-                    left.push_back(lhs);
-                if (m.is_ite(rhs, c, t, e)) {
-                    right.push_back(t);
-                    right.push_back(e);
-                }
-                else
-                    right.push_back(rhs);
+                expr_ref_vector left(m), right(m);
+                auto expand = [&](expr* side, expr_ref_vector& terms) {
+                    expr* c = nullptr, *t = nullptr, *e = nullptr;
+                    if (m.is_ite(side, c, t, e)) {
+                        terms.push_back(t);
+                        terms.push_back(e);
+                        return;
+                    }
+                    unsigned size = a.is_add(side) ? to_app(side)->get_num_args() : 1;
+                    for (unsigned i = 0; i < size && i < 32; ++i) {
+                        expr* term = a.is_add(side) ? to_app(side)->get_arg(i) : side;
+                        rational k;
+                        expr* atom = arith_atom(a, term, k);
+                        if (!is_uninterp(atom) || to_app(atom)->get_num_args() != 1)
+                            continue;
+                        for (auto const& [f, branches] : definitions)
+                            if (f == to_app(atom)->get_decl()) {
+                                expr_ref_vector arguments(m);
+                                arguments.push_back(to_app(atom)->get_arg(0));
+                                var_subst subst(m, false);
+                                for (expr* branch : branches) {
+                                    expr_ref value = subst(branch, arguments);
+                                    expr_safe_replace replace(m);
+                                    replace.insert(atom, value);
+                                    expr_ref expanded(side, m);
+                                    replace(expanded);
+                                    rw(expanded);
+                                    terms.push_back(expanded);
+                                }
+                                return;
+                            }
+                    }
+                    terms.push_back(side);
+                };
+                expand(lhs, left);
+                expand(rhs, right);
                 for (expr* x : left)
                     for (expr* y : right) {
                         expr_ref polynomial(reverse ? a.mk_sub(y, x) : a.mk_sub(x, y), m);
@@ -1012,7 +1080,8 @@ namespace smt {
                          vector<arith_bound> const& bounds, expr_ref_vector const& variables,
                          vector<std::pair<quantifier*, expr_ref_vector>>& instances,
                          vector<std::pair<quantifier*, expr_ref_vector>>& witnesses,
-                         arith_util& a, th_rewriter& rw, unsigned& budget, unsigned& witness_budget) {
+                         arith_util& a, th_rewriter& rw, unsigned& budget, unsigned& witness_budget,
+                         unsigned& chain_budget, unsigned depth) {
             if (source.head->get_decl() != target.head->get_decl() || source.head->get_num_args() > 4 ||
                 (!source.inner_decls && target.inner_decls) ||
                 (source.q == target.q && (source.inner_decls || target.inner_decls)) ||
@@ -1109,6 +1178,63 @@ namespace smt {
                         target_terms.push_back(term);
                 }
                 added = add_arith_instance(source.q, source_terms, instances, budget) || added;
+                if (offset == 0 && source.inner_decls && !target.inner_decls &&
+                    pivot < ns && depth < 4 && chain_budget) {
+                    expr_safe_replace transfer(m);
+                    for (unsigned i = 0; i < nt; ++i) {
+                        expr_ref variable(m.mk_var(i, a.mk_real()), m);
+                        transfer.insert(variables.get(ns + i), variable);
+                    }
+                    for (unsigned i = 0; i < ns; ++i)
+                        if (i == pivot)
+                            transfer.insert(variables.get(i), value);
+                        else if (bindings.get(i) == variables.get(i))
+                            transfer.insert(variables.get(i), anchor);
+                    expr_ref_vector substitution(m);
+                    for (unsigned i = 0; i < ns; ++i) {
+                        expr_ref term(bindings.get(i), m);
+                        transfer(term);
+                        rw(term);
+                        substitution.push_back(term);
+                    }
+                    for (auto const& guard : bounds) {
+                        if (!chain_budget || !budget)
+                            break;
+                        if (guard.q != source.q || guard.inner_decls != source.inner_decls ||
+                            guard.head->get_decl() == source.head->get_decl())
+                            continue;
+                        expr_ref polynomial(a.mk_mul(a.mk_real(guard.coefficient), guard.head), m);
+                        polynomial = a.mk_add(polynomial, guard.rest);
+                        polynomial = subst(polynomial, substitution);
+                        rw(polynomial);
+                        unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
+                        if (size > 32)
+                            continue;
+                        for (unsigned i = 0; i < size && chain_budget && budget; ++i) {
+                            expr* term = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial.get();
+                            rational k;
+                            expr* atom = arith_atom(a, term, k);
+                            if (!is_uninterp(atom) || !has_free_vars(atom) || !a.is_real(atom))
+                                continue;
+                            arith_bound next_target(m);
+                            next_target.q = target.q;
+                            next_target.num_decls = nt;
+                            next_target.head = to_app(atom);
+                            if (!arith_coefficient(a, polynomial, atom, next_target.coefficient, next_target.rest))
+                                continue;
+                            for (auto const& next_source : bounds) {
+                                if (!chain_budget || !budget)
+                                    break;
+                                if (!next_source.inner_decls || next_source.head->get_decl() != to_app(atom)->get_decl())
+                                    continue;
+                                --chain_budget;
+                                added = arith_match(next_source, next_target, bounds, variables, instances,
+                                                    witnesses, a, rw, budget, witness_budget, chain_budget,
+                                                    depth + 1) || added;
+                            }
+                        }
+                    }
+                }
                 if (offset != 0 || !source.inner_decls) {
                     added = add_arith_instance(target.q, target_terms, instances, budget) || added;
                     continue;
@@ -1185,6 +1311,14 @@ namespace smt {
             arith_util a(m);
             th_rewriter rw(m);
             vector<arith_bound> bounds;
+            arith_definitions definitions;
+            unsigned scanned = 0;
+            for (auto it = m_qm->begin_quantifiers(); it != m_qm->end_quantifiers() && scanned < 64; ++it, ++scanned) {
+                quantifier* q = *it;
+                if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true &&
+                    m_qm->get_generation(q) == 0)
+                    get_arith_definitions(q, a, definitions);
+            }
             unsigned inspected = 0;
             for (auto it = m_qm->begin_quantifiers(); it != m_qm->end_quantifiers(); ++it) {
                 quantifier* q = *it;
@@ -1193,7 +1327,7 @@ namespace smt {
                 if (!m_context->is_relevant(q) || m_context->get_assignment(q) != l_true ||
                     m_qm->get_generation(q) != 0)
                     continue;
-                get_arith_bounds(q, a, rw, bounds);
+                get_arith_bounds(q, a, rw, bounds, definitions);
             }
             if (bounds.size() < 2)
                 return false;
@@ -1205,12 +1339,13 @@ namespace smt {
             vector<std::pair<quantifier*, expr_ref_vector>> instances;
             vector<std::pair<quantifier*, expr_ref_vector>> witnesses;
             unsigned witness_budget = 32;
+            unsigned chain_budget = 32;
             for (auto const& source : bounds)
                 for (auto const& target : bounds) {
                     if (!budget)
                         break;
                     added = arith_match(source, target, bounds, variables, instances, witnesses, a, rw,
-                                        budget, witness_budget) || added;
+                                        budget, witness_budget, chain_budget, 0) || added;
                 }
             for (auto const& [q, values] : witnesses) {
                 expr_ref value(values.get(0), m);

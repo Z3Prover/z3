@@ -872,10 +872,12 @@ static void check_arithmetic_nested_witnesses() {
     struct {
         char const* coefficient;
         unsigned functions;
+        bool conditional = false;
     } cases[] = {
         {"(/ 96.0 82.0)", 1}, {"(- (/ 5.0 3.0))", 1},
         {"(/ 96.0 82.0)", 2}, {"(- (/ 5.0 3.0))", 2},
-        {"(- (/ 5.0 3.0))", 4}, {"(- (/ 5.0 3.0))", 8}
+        {"(- (/ 5.0 3.0))", 4}, {"(- (/ 5.0 3.0))", 8},
+        {"(- (/ 5.0 3.0))", 2, true}
     };
     auto limit = [](std::string const& term, std::string const& value) {
         return "(forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
@@ -888,8 +890,12 @@ static void check_arithmetic_nested_witnesses() {
             ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
             reg_decl_plugins(m);
             cmd_context cmd(false, &m);
-            std::string formula =
-                "(define-fun absolute ((x Real)) Real (ite (>= x 0.0) x (- x)))\n"
+            std::string formula = test.conditional ?
+                "(declare-fun absolute (Real) Real)\n"
+                "(assert (forall ((x Real)) (=> (< x 0.0) (= (absolute x) (- x)))))\n"
+                "(assert (forall ((x Real)) (=> (>= x 0.0) (= (absolute x) x))))\n" :
+                "(define-fun absolute ((x Real)) Real (ite (>= x 0.0) x (- x)))\n";
+            formula +=
                 "(declare-fun f (Real) Real)\n"
                 "(declare-const a Real)\n"
                 "(declare-const l Real)\n"
@@ -930,6 +936,88 @@ static void check_arithmetic_nested_witnesses() {
             }
         }
     }
+}
+
+static void check_arithmetic_composition_witnesses() {
+    auto limit = [](std::string const& term, std::string const& point, std::string const& value) {
+        return "(forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
+               " (exists ((delta Real)) (and (> delta 0.0)\n"
+               "  (forall ((x Real)) (=> (and (not (= x " + point + "))\n"
+               "   (< (absolute (- x " + point + ")) delta))\n"
+               "   (< (absolute (- " + term + " " + value + ")) epsilon)))))))";
+    };
+    for (bool proofs : {false, true}) {
+        for (unsigned functions : {2u, 3u}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::string formula = functions == 2 ?
+                "(declare-fun absolute (Real) Real)\n"
+                "(assert (forall ((x Real)) (=> (< x 0.0) (= (absolute x) (- x)))))\n"
+                "(assert (forall ((x Real)) (=> (>= x 0.0) (= (absolute x) x))))\n" :
+                "(define-fun absolute ((x Real)) Real (ite (>= x 0.0) x (- x)))\n";
+            formula += "(declare-const a Real)\n";
+            for (unsigned i = 0; i < functions; ++i)
+                formula += "(declare-fun c" + std::to_string(i) + " (Real) Real)\n";
+            for (unsigned i = 0; i < functions; ++i) {
+                std::string point = "a", f = "c" + std::to_string(i);
+                for (unsigned j = functions; j-- > i + 1;)
+                    point = "(c" + std::to_string(j) + " " + point + ")";
+                formula += "(assert " + limit("(" + f + " x)", point, "(" + f + " " + point + ")") + ")\n";
+            }
+            std::string term = "x", value = "a";
+            for (unsigned i = functions; i-- > 0;) {
+                std::string f = "c" + std::to_string(i);
+                term = "(" + f + " " + term + ")";
+                value = "(" + f + " " + value + ")";
+            }
+            formula += "(assert (not " + limit(term, "a", value) + "))\n";
+            std::istringstream input(formula);
+            VERIFY(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_bool("mbqi", false);
+            p.set_uint("rlimit", 1000000);
+            ref<solver> slv = mk_tactic2solver(m, mk_smt_tactic(m, p), p, proofs);
+            for (unsigned repeat = 0; repeat < 2; ++repeat) {
+                slv->push();
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                VERIFY(l_false == slv->check_sat(0, nullptr));
+                if (proofs) {
+                    proof_ref pr(slv->get_proof(), m);
+                    VERIFY(pr && m.is_false(m.get_fact(pr)));
+                    proof_checker checker(m);
+                    expr_ref_vector side_conditions(m);
+                    VERIFY(checker.check(pr, side_conditions));
+                }
+                slv->pop(1);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream input(
+        "(declare-fun w (Real) Real)\n"
+        "(declare-fun f (Real Real) Real)\n"
+        "(declare-const a Real)\n"
+        "(assert (forall ((x Real)) (=> (>= x 2.0) (= (w x) x))))\n"
+        "(assert (forall ((x Real)) (=> (<= x (- 2.0)) (= (w x) (- x)))))\n"
+        "(assert (= (w 0.0) 1.0))\n"
+        "(assert (= (w (- 1.0)) 0.0))\n"
+        "(assert (forall ((x Real) (y Real)) (= (f x y) (- 1.0))))\n"
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (w (f x y)) (+ x y)) (<= (f x y) 0.0))))\n"
+        "(assert (forall ((z Real)) (<= (w (f a z)) 0.0)))\n");
+    VERIFY(parse_smt2_commands(cmd, input));
+    params_ref p;
+    p.set_uint("rlimit", 1000000);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* assertion : cmd.assertions())
+        slv->assert_expr(assertion);
+    VERIFY(l_true == slv->check_sat(0, nullptr));
 }
 
 static void check_uflra_macro_qe() {
@@ -983,6 +1071,7 @@ void tst_smt_context()
 {
     check_arithmetic_quantifier_instances();
     check_arithmetic_nested_witnesses();
+    check_arithmetic_composition_witnesses();
     check_uflra_macro_qe();
     check_qsat_proofs();
     check_qe_rec_proofs();
