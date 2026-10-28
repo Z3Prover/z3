@@ -17,6 +17,7 @@
 --*/
 
 #include "sat/sat_proof_trim.h"
+#include <algorithm>
 #include <sstream>
 
 namespace sat {
@@ -37,6 +38,13 @@ namespace sat {
 
         auto const& [id, cl, clp, is_add, is_initial] = m_trail.back();
         SASSERT(cl.empty());
+        if (!m_has_conflict)
+            throw default_exception("proof trimming: the empty clause is not derivable by unit propagation from the preceding clauses");
+        // An empty clause that is the first conflict and is itself assumed
+        // (a theory axiom whose hint gives no clause to propagate) has no
+        // premises the trimmer can find: its core would be itself.
+        if (is_initial && m_conflict.empty() && m_clauses.find(cl).m_id == id)
+            throw default_exception("proof trimming: the empty clause is a theory axiom whose premises are unknown");
         m_result.push_back({id, unsigned_vector()});
         conflict_analysis_core(m_conflict, m_conflict_clause);
         m_trail.pop_back();
@@ -418,16 +426,46 @@ namespace sat {
                prev = m_clause[j++] = m_clause[i];        
         m_clause.shrink(j);
         if (unit_or_binary_occurs())
-            return;        
-        if (!m_conflict.empty() && m_clause.empty()) {
-            m_clauses.insert(m_clause, { {}, id, m_clause.empty() });
-            m_trail.push_back({ id , m_clause, nullptr, true, is_initial });
+            return;
+        if (!m_has_conflict && m_clause.empty()) {
+            // An assumed empty clause (the input asserts false) is the
+            // conflict itself. Otherwise propagation below finds the conflict
+            // as soon as the clauses are inconsistent. Should it have missed
+            // one, propagate the whole trail again; without a conflict the
+            // empty clause is not derivable, and trim() rejects the log
+            // instead of letting the empty clause depend on itself.
+            if (is_initial)
+                s.set_conflict();
+            else {
+                s.m_qhead = 0;
+                s.propagate(false);
+            }
+            if (s.inconsistent())
+                set_conflict(m_clause, nullptr);
         }
-        if (!m_conflict.empty())
-            return;        
+        if (m_clause.empty()) {
+            // The first empty clause stands for all: the core of an inferred
+            // empty clause after an assumed one depends on the assumed one.
+            // Like any clause, it is in the core only if the conflict uses it.
+            m_clauses.insert_if_not_there(m_clause, { {}, id, false });
+            m_trail.push_back({ id , m_clause, nullptr, true, is_initial });
+            return;
+        }
+        if (m_has_conflict)
+            return;
 
         IF_VERBOSE(3, verbose_stream() << (is_initial?"assume ":"rup ") << m_clause << "\n");
-        auto* cl = s.mk_clause(m_clause, status::redundant());
+        // At base level the solver watches the first two literals of a
+        // clause as given, and a watch on a literal that is already false
+        // is never visited again. A clause watched on two false literals
+        // then neither propagates nor reports its conflict when its other
+        // literals become false, the conflict goes unnoticed, and the empty
+        // clause at the end had nothing to depend on but itself. Watch the
+        // literals that are not false.
+        m_watched.reset();
+        m_watched.append(m_clause);
+        std::stable_partition(m_watched.begin(), m_watched.end(), [&](sat::literal lit) { return s.value(lit) != l_false; });
+        auto* cl = s.mk_clause(m_watched, status::redundant());
         auto& [clauses, id2, in_core] = m_clauses.insert_if_not_there(m_clause, { {}, id, m_clause.empty() });
         if (cl)
             clauses.push_back(cl);
@@ -494,7 +532,7 @@ namespace sat {
         // The proof ends at the conflict; the clauses the solver went on to
         // add were ignored, and what it deleted afterwards does not change
         // the state the conflict was derived in.
-        if (!m_conflict.empty())
+        if (m_has_conflict)
             return;
         std::sort(m_clause.begin(), m_clause.end());
         clause* cp = nullptr;

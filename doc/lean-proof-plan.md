@@ -1621,7 +1621,9 @@ ending in `(infer $137 $139)` with `$137 = (= (+ (* (- 3) (div x2 (- 3)))
 `(deps 172 172)`, likely `add_core(null, NONE)` in `proof_trim::trim`
 finding the empty clause's own entry; (3) the log of one input of the Lean suite is rejected
 ("the inferred clause 47 -59 is not derivable by unit propagation"). All three need C++ fixes in
-`src/sat/sat_proof_trim.cpp`, each with a `src/test` regression.
+`src/sat/sat_proof_trim.cpp`, each with a `src/test` regression. (1) and (2)
+are fixed, see "Trimmer: watches over false literals, empty assumptions,
+hints without a checker (2026-10-27)"; (3) is still open.
 
 ### Trimmed QF_UF logs; assumption search by shared symbols (2026-10-27)
 
@@ -1830,6 +1832,58 @@ regressions cover these malformed hints over Real and Int, and preserve
 valid equality propagation with positive or negative nonzero conclusion
 coefficients. This changes native checker acceptance, not solver search
 or Lean's independent verification of the implied equality.
+
+### Trimmer: watches over false literals, empty assumptions, hints without a checker (2026-10-27)
+
+Since trimming starts at 4 KB, three trimmer bugs sent many logs back to the
+untrimmed replay. Over 40 seeds of each random generator of the Lean suites
+(clause log of each instance, then `trim_clause_log`), 43 of 133 logs
+above 4 KB fell back; after the fixes none does.
+(1) At base level the SAT solver watches a clause's first two literals as
+given, and `proof_trim::assume` passed them in sorted order. A clause whose
+first two literals were already false never propagated, so the trimmer missed
+the conflict. The empty clause then went in as a fresh conflict, with no
+clause behind it, and its core was the empty clause depending on itself
+(`(deps 172 172)`, rejected as "cyclic clause dependencies"; 12 QF_LRA and
+QF_LIA logs). The trimmer now watches the clause's non-false literals.
+(2) An assertion that preprocessing reduces to false is logged as an empty
+assumption, `(assume)`. The trimmer kept "no conflict yet" as an empty
+conflict clause, so it took this conflict for none, went on adding clauses to
+an inconsistent solver, and again wrote a self-dependent empty clause (12
+QF_UF and QF_UFLIA logs with `ite`, and 8 QF_LIA division logs once (3) was
+fixed). The conflict is a flag now, and an assumed empty clause sets it; the
+inferred empty clause depends on the assumed one. An inferred empty clause
+that arrives without a conflict is checked by propagating the whole trail
+again; if that finds none either, `trim()` rejects the log ("the empty
+clause is not derivable by unit propagation") instead of writing a cycle.
+An empty clause inferred under a theory hint is assumed like any theory
+axiom; when it is the first conflict, the trimmer cannot know its premises,
+and `trim()` rejects the log ("the empty clause is a theory axiom whose
+premises are unknown") rather than make it depend on itself. An assumed
+empty clause after the conflict is left out of the core.
+(3) Z3 logs div/mod axioms under a bare `arith` hint, for which
+`euf::theory_checker` has no plugin. The trimmer (`proof_cmds.cpp`) looked up
+the hint's clause anyway, read through a missing map entry, and crashed with
+SIGBUS or SIGSEGV and no output (19 of 19 division logs). A hint without a
+plugin (`theory_checker::has_rule`) is now treated as a theory axiom over its
+logged clause, like any other.
+The trust boundary is unchanged: the replay checks every retained step.
+Tests: `src/test/proof_replay.cpp` (`tst_trim_watches_literals_that_are_not_false`:
+the missed conflict, the rejected underivable empty clause, the assumed empty
+clause; `tst_trim_assumed_empty_clauses`: the rejected theory-axiom empty
+clause, the assumed empty clause after a conflict) and `test_proof_certificate.py` (one test per bug through the z3
+executable's trimmer with warnings as errors, then the core replayed; all
+three fail on the previous build). Four Lean-suite tests had been checking
+untrimmed certificates through these fallbacks: the wide division seeds of
+`test_proof_to_lean_lia.py` and `test_proof_to_lean_uflia.py` (their trimmed
+cores leave out the Farkas lemmas the tests are about) and the wide
+conjunction of `test_proof_to_lean_wide.py` (trimmed, its core is the
+assumed empty clause). They now export the untrimmed log explicitly; the
+conjunction test checks the trimmed default in Lean as well. Three
+fallbacks remain in the Lean suite, now as explicit errors: the "inferred
+clause ... not derivable" of a Boolean-predicate input, and two
+`random_bool_argument_instance` seeds whose final empty clause is not
+derivable over the clauses the trimmer assumes.
 
 ### Trimmer: deletions of clauses it never added (2026-10-23)
 

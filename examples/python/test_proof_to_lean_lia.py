@@ -389,6 +389,17 @@ DIVISION_SEEDS = (19, 23, 27)
 WIDE_DIVISION_SEED = 67
 
 
+def untrimmed_log():
+    """Export the whole clause log instead of the native trimmer's core.
+
+    The tests of the wide division seeds are about particular lemmas of
+    their full refutations, which the trimmer, crashing on every division
+    log until 2026-10-27, left untrimmed. The trimmed cores leave them out
+    (WIDE_DIVISION_SEED's keeps cuts and bounds but no Farkas step).
+    """
+    return patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf"))
+
+
 def _z3_available():
     try:
         return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
@@ -498,7 +509,8 @@ class TestIntegerValidation(unittest.TestCase):
         generalized = {}
         for name, source in [(name, LIA_INPUTS[name]) for name in ("lia_div", "lia_mod_sum", "lia_abs", "lia_gcd")] + [
                 ("wide", random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18))]:
-            certificate = proof_certificate.export_clause_log_certificate(source)
+            with untrimmed_log():
+                certificate = proof_certificate.export_clause_log_certificate(source)
             graph = proof_to_lean._validate_graph(source, certificate)
             text = proof_to_lean.reconstruct(source, certificate)
             generalized[name] = set()
@@ -1123,7 +1135,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         source = random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18)
         self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % WIDE_DIVISION_SEED)
         self.assertIn("(mod x4 -3)", source)
-        certificate = self.check(source)
+        with untrimmed_log():
+            certificate = self.check(source)
         self.assertLessEqual({"farkas", "bound", "cut"}, _hints(certificate))
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("rw [Int.emod_neg]; exact Int.emod_lt_of_pos _ (by decide)", text)

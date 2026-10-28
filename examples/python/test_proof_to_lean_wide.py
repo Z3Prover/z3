@@ -21,6 +21,7 @@ from unittest.mock import patch
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_clause_log
 import proof_to_lean
 from test_proof_to_lean_uf import _z3_available
 
@@ -145,9 +146,16 @@ class TestWidePropositionalClauseLog(_WideLeanIntegration):
         # The core splits the conjunction into its conjuncts, and the replay ties
         # them to the assertion by and-elim steps and a th-lemma over the whole
         # conjunction; grind fails on that lemma today.
-        certificate, axioms = self.check(wide_conjunction(CLAUSE_LOG_CONJUNCTION_WIDTH), "clause-log",
-                                         "propositional", CLAUSE_LOG_CONJUNCTION_WIDTH)
+        source = wide_conjunction(CLAUSE_LOG_CONJUNCTION_WIDTH)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf")):
+            certificate, axioms = self.check(source, "clause-log", "propositional", CLAUSE_LOG_CONJUNCTION_WIDTH)
         self.assertEqual(certificate["rule_counts"]["and-elim"], CLAUSE_LOG_CONJUNCTION_WIDTH - 1)
+        self.assertLessEqual(axioms, _STANDARD_AXIOMS)
+        # Trimmed, the default since 2026-10-27, the core is the empty clause
+        # Z3 assumes once preprocessing reduces the conjunction against the
+        # unit to false (until then the trimmer wrote a cyclic core for it).
+        certificate, axioms = self.check(source, "clause-log", "propositional", CLAUSE_LOG_CONJUNCTION_WIDTH)
+        self.assertNotIn("and-elim", certificate["rule_counts"])
         self.assertLessEqual(axioms, _STANDARD_AXIOMS)
 
     def test_wide_disjunction_is_checked(self):
