@@ -1,0 +1,22 @@
+{
+  "pull_request": 11415,
+  "head_sha": "3082d1f9477924706c44fc1adde02cf6ec24f7a8",
+  "base_sha": "c698bae880c654763b09d29b634b38562eafea11",
+  "path_prefix": "fstar/audits/pr-11415/3082d1f9477924706c44fc1adde02cf6ec24f7a8/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40693420730",
+  "files": [
+    {
+      "name": "ArithScaledAudit.fst",
+      "sha256": "6ca8ea7ccad8e1a18615d9a0f85616c761b106522980542d2fed5e877a47ac00"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "dac8d2f697c00aa8c8ac46b36871fd65c350ac3802dc2b2eb302a8db12491d0f"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "53672756b4e4768e511f4fd53c78029ca6689a494da5aa7b2468b4aa03cdb256"
+    }
+  ]
+}
