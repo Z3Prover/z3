@@ -228,7 +228,96 @@ static void test_array_field_cardinality() {
     }
 }
 
+static void check_datatype_commands(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string actual = Z3_eval_smtlib2_string(ctx, input);
+    if (actual != expected)
+        std::cout << input << "\n" << actual;
+    ENSURE(actual == expected);
+    Z3_del_context(ctx);
+}
+
+static void test_inferred_match_constructor() {
+    check_datatype_commands(
+        "(declare-datatype O (par (X) ((none) (some (val X)))))\n"
+        "(assert (= 1 (match (some 3) ((none 0) (z 1)))))\n"
+        "(check-sat)\n", "sat\n");
+    check_datatype_commands(
+        "(declare-datatype O (par (X) ((none) (some (val X)))))\n"
+        "(assert (forall ((x Int)) (= 1 (match (some x) ((none 0) (z 1))))))\n"
+        "(check-sat)\n", "sat\n");
+    check_datatype_commands(
+        "(declare-datatype O (par (X) ((none) (some (val X)))))\n"
+        "(declare-const b (O Bool))\n"
+        "(assert (= 0 (match (some 3) ((none 0) ((some x) 1)))))\n"
+        "(check-sat)\n", "unsat\n");
+}
+
+static void test_sequence_field_occurs_check() {
+    char const* prelude =
+        "(declare-datatype R ((rl) (rn (rc (Seq R)))))\n"
+        "(declare-const x R)\n"
+        "(declare-const s (Seq R))\n"
+        "(declare-const t (Seq R))\n";
+    for (char const* cycle : {
+            "(assert (= x (rn (seq.++ (seq.unit x) t))))\n",
+            "(assert (= x (rn s)))\n(assert (> (seq.len s) 0))\n"
+            "(assert (= (seq.nth s 0) x))\n",
+            "(assert (= s (seq.unit x)))\n"
+            "(assert (= x (rn (seq.++ s t))))\n"}) {
+        std::string input = std::string(prelude) + cycle + "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+    }
+    std::string input = std::string(prelude) +
+        "(assert (= x (rn s)))\n"
+        "(push)\n"
+        "(assert (> (seq.len s) 0))\n"
+        "(assert (= (seq.nth s 0) x))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(assert (= (seq.len s) 0))\n"
+        "(assert (= (seq.nth s 0) x))\n"
+        "(check-sat)\n";
+    check_datatype_commands(input.c_str(), "unsat\nsat\n");
+}
+
+static void test_subterm_recursive_polarity() {
+    char const* declarations =
+        "(declare-datatype L ((nil) (cons (hd Int) (tl L))) :subterm sub)\n"
+        "(declare-const x L)\n"
+        "(declare-const y L)\n";
+    for (unsigned relevancy : {0, 2}) {
+        std::string prelude = "(set-option :smt.relevancy " + std::to_string(relevancy) + ")\n" + declarations;
+        std::string input = prelude +
+            "(assert (sub x y))\n(assert (sub y x))\n(assert (distinct x y))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+        input = prelude +
+            "(assert (= y (cons 1 (cons 2 nil))))\n"
+            "(assert ((_ is cons) x))\n(assert (= (hd x) 3))\n"
+            "(assert (sub x y))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+        input = prelude +
+            "(assert (= y (cons 1 (cons 2 nil))))\n"
+            "(assert (= x (cons 2 nil)))\n(assert (sub x y))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "sat\n");
+        input = prelude +
+            "(assert (= x (cons 2 nil)))\n(assert (sub x y))\n"
+            "(push)\n(assert (= y nil))\n(check-sat)\n(pop)\n"
+            "(assert (= y (cons 1 x)))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n");
+        input = prelude +
+            "(assert (= x (cons 2 nil)))\n(assert (= y (cons 1 nil)))\n"
+            "(assert (not (sub x y)))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "sat\n");
+    }
+}
+
 void tst_parametric_datatype() {
+    test_inferred_match_constructor();
+    test_sequence_field_occurs_check();
+    test_subterm_recursive_polarity();
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
     test_smt2_parametric_datatype_is_constructor();
