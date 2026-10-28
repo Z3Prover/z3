@@ -435,6 +435,82 @@ static void test_error_handler() {
     Z3_del_context(ctx);
 }
 
+static void test_apply_result_subgoal_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "skip");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    unsigned size = Z3_apply_result_get_num_subgoals(ctx, result);
+    ENSURE(size == 1);
+    for (unsigned i : { size, size + 1 }) {
+        ENSURE(!Z3_apply_result_get_subgoal(ctx, result, i));
+        ENSURE(Z3_get_error_code(ctx) == Z3_IOB);
+    }
+    Z3_goal subgoal = Z3_apply_result_get_subgoal(ctx, result, 0);
+    ENSURE(subgoal);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_goal_inc_ref(ctx, subgoal);
+    ENSURE(Z3_goal_size(ctx, subgoal) == 0);
+    Z3_goal_dec_ref(ctx, subgoal);
+
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_del_context(ctx);
+}
+
+static void test_query_constructor_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_symbol field_names[] = {
+        Z3_mk_string_symbol(ctx, "fst"), Z3_mk_string_symbol(ctx, "snd")
+    };
+    Z3_sort field_sorts[] = { Z3_mk_int_sort(ctx), Z3_mk_int_sort(ctx) };
+    unsigned sort_refs[] = { 0, 0 };
+    for (unsigned arity : { 0u, 1u, 2u }) {
+        Z3_constructor ctor = Z3_mk_constructor(
+            ctx, Z3_mk_string_symbol(ctx, "mk"), Z3_mk_string_symbol(ctx, "is_mk"),
+            arity, field_names, field_sorts, sort_refs);
+        ENSURE(Z3_mk_datatype(ctx, Z3_mk_string_symbol(ctx, "P"), 1, &ctor));
+        Z3_func_decl constructor = nullptr, tester = nullptr;
+        Z3_func_decl accessors[3] = {};
+        Z3_query_constructor(ctx, ctor, arity + 1, &constructor, &tester, accessors);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!constructor && !tester);
+        for (auto accessor : accessors)
+            ENSURE(!accessor);
+
+        Z3_query_constructor(ctx, ctor, arity, &constructor, &tester, accessors);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(constructor && tester);
+        ENSURE(Z3_get_arity(ctx, constructor) == arity);
+        for (unsigned i = 0; i < arity; ++i)
+            ENSURE(accessors[i]);
+        ENSURE(!accessors[arity]);
+
+        for (unsigned count = 0; count < arity; ++count) {
+            Z3_func_decl partial[2] = {};
+            Z3_query_constructor(ctx, ctor, count, nullptr, nullptr, partial);
+            ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+            for (unsigned i = 0; i < count; ++i)
+                ENSURE(partial[i] == accessors[i]);
+            ENSURE(!partial[count]);
+        }
+        Z3_del_constructor(ctx, ctor);
+    }
+    Z3_del_context(ctx);
+}
+
 struct proof_callback_state {
     Z3_context context = nullptr;
     std::vector<std::vector<std::string>> inputs;
@@ -630,6 +706,8 @@ void tst_api() {
     test_strict_real_maximize();
     test_strict_real_maximize_disjunction();
     test_error_handler();
+    test_apply_result_subgoal_bounds();
+    test_query_constructor_bounds();
     test_command_proof_check_callback();
     test_apply_result_subgoal_bounds();
     test_query_constructor_num_fields();
