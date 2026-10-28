@@ -35,32 +35,6 @@ namespace {
         return false;
     }
 
-    expr_ref guard_recursion(ast_manager& m, expr* e, obj_hashtable<func_decl> const& syms) {
-        expr_ref r(e, m);
-        if (!contains_sym(m, e, syms))
-            return r;
-        if (m.is_ite(e)) {
-            app* a = to_app(e);
-            expr_ref t = guard_recursion(m, a->get_arg(1), syms);
-            expr_ref el = guard_recursion(m, a->get_arg(2), syms);
-            return expr_ref(m.mk_ite(a->get_arg(0), t, el), m);
-        }
-        if (m.is_not(e))
-            return expr_ref(m.mk_not(guard_recursion(m, to_app(e)->get_arg(0), syms)), m);
-        if (m.is_or(e) || m.is_and(e)) {
-            bool is_or = m.is_or(e);
-            expr_ref_vector guards(m), recs(m);
-            for (expr* arg : *to_app(e))
-                (contains_sym(m, arg, syms) ? recs : guards).push_back(guard_recursion(m, arg, syms));
-            if (guards.empty())
-                return r;
-            expr_ref g = is_or ? mk_or(guards) : mk_and(guards);
-            expr_ref rest = is_or ? mk_or(recs) : mk_and(recs);
-            return expr_ref(is_or ? m.mk_ite(g, m.mk_true(), rest) : m.mk_ite(g, rest, m.mk_false()), m);
-        }
-        return r;
-    }
-
     // A recursive call is guarded when it occurs in a branch of an ite whose
     // condition is free of recursive calls: this is the notion of case split
     // used by recfun::def::compute_cases. A call inside the condition of an ite,
@@ -95,6 +69,35 @@ namespace {
                 todo.push_back(arg);
         }
         return true;
+    }
+
+    // Turn a definition whose recursive calls are not all under an ite with a
+    // recursion-free test into one where they are, by moving the recursion-free
+    // conjuncts (disjuncts) of an and (or) into the test of an ite:
+    //     (and c r)  ~>  (ite c r false)       (or c r)  ~>  (ite c true r)
+    // Bodies that are already guarded are left unchanged: moving sibling conjuncts
+    // of an already guarded call into the test would make them case guards of the
+    // recursive definition, which the recfun solver decides eagerly for every
+    // unfolding, instead of parts of a body that is only asserted when its case applies.
+    expr_ref guard_recursion(ast_manager& m, expr* e, obj_hashtable<func_decl> const& syms) {
+        expr_ref r(e, m);
+        if (!contains_sym(m, e, syms) || recursion_guarded(m, e, syms))
+            return r;
+        if (m.is_not(e))
+            return expr_ref(m.mk_not(guard_recursion(m, to_app(e)->get_arg(0), syms)), m);
+        if (m.is_or(e) || m.is_and(e)) {
+            bool is_or = m.is_or(e);
+            expr_ref_vector guards(m), recs(m);
+            for (expr* arg : *to_app(e))
+                (contains_sym(m, arg, syms) ? recs : guards).push_back(arg);
+            if (guards.empty())
+                return r;
+            // the recursive arguments end up under the new ite and are guarded by it
+            expr_ref g = is_or ? mk_or(guards) : mk_and(guards);
+            expr_ref rest = is_or ? mk_or(recs) : mk_and(recs);
+            return expr_ref(is_or ? m.mk_ite(g, m.mk_true(), rest) : m.mk_ite(g, rest, m.mk_false()), m);
+        }
+        return r;
     }
 
 }
