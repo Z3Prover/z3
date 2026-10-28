@@ -703,6 +703,89 @@ namespace smt {
 
         using arith_definitions = vector<std::pair<func_decl*, expr_ref_vector>>;
 
+        bool arith_scaled_polynomial(expr* polynomial, expr* term, app_ref& head, expr_ref& normalized,
+                                     arith_util& a, th_rewriter& rw) {
+            if (!a.is_mul(term))
+                return false;
+            ast_manager& m = a.get_manager();
+            auto flatten = [&](expr* monomial, ptr_buffer<expr>& factors) {
+                ptr_buffer<expr> todo;
+                todo.push_back(monomial);
+                for (unsigned inspected = 0; !todo.empty() && inspected < 8; ++inspected) {
+                    expr* factor = todo.back();
+                    todo.pop_back();
+                    if (a.is_mul(factor)) {
+                        if (todo.size() + factors.size() + to_app(factor)->get_num_args() > 4)
+                            return false;
+                        for (expr* arg : *to_app(factor))
+                            todo.push_back(arg);
+                    }
+                    else
+                        factors.push_back(factor);
+                }
+                return todo.empty();
+            };
+            ptr_buffer<expr> head_factors;
+            if (!flatten(term, head_factors))
+                return false;
+            expr_ref_vector scales(m);
+            for (expr* factor : head_factors) {
+                if (has_free_vars(factor)) {
+                    if (head || !is_uninterp(factor) || !a.is_real(factor))
+                        return false;
+                    head = to_app(factor);
+                }
+                else {
+                    rational value;
+                    if (!a.is_numeral(factor, value))
+                        scales.push_back(factor);
+                }
+            }
+            if (!head || scales.empty())
+                return false;
+            expr_ref scale(scales.size() == 1 ? scales.get(0) : a.mk_mul(scales.size(), scales.data()), m);
+            expr_ref negative(a.mk_uminus(scale), m);
+            expr_ref nonnegative(a.mk_ge(scale, a.mk_real(0)), m);
+            expr_ref magnitude(m.mk_ite(nonnegative, scale, negative), m);
+            expr_ref denominator(a.mk_add(a.mk_real(1), magnitude), m);
+            expr_ref_vector terms(m);
+            unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
+            if (size > 32)
+                return false;
+            // These are hints, not division identities for possibly zero symbolic factors.
+            for (unsigned i = 0; i < size; ++i) {
+                expr* monomial = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial;
+                ptr_buffer<expr> factors;
+                if (!flatten(monomial, factors))
+                    return false;
+                svector<bool> removed(factors.size(), false);
+                bool shared = true;
+                for (expr* factor : scales) {
+                    unsigned j = 0;
+                    for (; j < factors.size(); ++j)
+                        if (!removed[j] && factors[j] == factor) {
+                            removed[j] = true;
+                            break;
+                        }
+                    shared &= j < factors.size();
+                }
+                if (!shared) {
+                    terms.push_back(a.mk_div(monomial, denominator));
+                    continue;
+                }
+                expr_ref_vector remaining(m);
+                for (unsigned j = 0; j < factors.size(); ++j)
+                    if (!removed[j])
+                        remaining.push_back(factors[j]);
+                terms.push_back(remaining.empty() ? a.mk_real(1) :
+                                remaining.size() == 1 ? remaining.get(0) :
+                                a.mk_mul(remaining.size(), remaining.data()));
+            }
+            normalized = terms.size() == 1 ? terms.get(0) : a.mk_add(terms.size(), terms.data());
+            rw(normalized);
+            return true;
+        }
+
         void get_arith_definitions(quantifier* q, arith_util& a, arith_definitions& definitions) {
             ast_manager& m = a.get_manager();
             if (!is_forall(q) || q->get_num_decls() != 1 || !a.is_real(q->get_decl_sort(0)) ||
@@ -846,14 +929,16 @@ namespace smt {
                             expr* term = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial.get();
                             rational k;
                             expr* atom = arith_atom(a, term, k);
-                            if (!is_uninterp(atom) || !has_free_vars(atom) || !a.is_real(atom))
-                                continue;
                             arith_bound bound(m);
+                            expr_ref normalized(polynomial);
+                            if (is_uninterp(atom) && has_free_vars(atom) && a.is_real(atom))
+                                bound.head = to_app(atom);
+                            else if (!arith_scaled_polynomial(polynomial, term, bound.head, normalized, a, rw))
+                                continue;
                             bound.q = q;
                             bound.inner_decls = inner;
                             bound.num_decls = q->get_num_decls() + inner;
-                            bound.head = to_app(atom);
-                            if (arith_coefficient(a, polynomial, atom, bound.coefficient, bound.rest))
+                            if (arith_coefficient(a, normalized, bound.head, bound.coefficient, bound.rest))
                                 bounds.push_back(bound);
                         }
                     }

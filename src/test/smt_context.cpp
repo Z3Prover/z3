@@ -866,6 +866,22 @@ static void check_arithmetic_quantifier_instances() {
     for (expr* assertion : disjunction.assertions())
         sat->assert_expr(assertion);
     VERIFY(l_true == sat->check_sat(0, nullptr));
+
+    cmd_context zero_scale(false, &m);
+    std::istringstream scaled(
+        "(declare-fun f (Real) Real)\n"
+        "(declare-const k Real)\n"
+        "(assert (= (* k k) 0.0))\n"
+        "(assert (= (f 0.0) 1.0))\n"
+        "(assert (forall ((x Real)) (<= (* k (f x)) 0.0)))\n"
+        "(assert (forall ((x Real) (y Real)) (or (>= (f x) y) (> y 0.0))))\n");
+    VERIFY(parse_smt2_commands(zero_scale, scaled));
+    params_ref bounded;
+    bounded.set_uint("rlimit", 1000000);
+    ref<solver> zero = mk_smt2_solver(m, bounded, symbol::null);
+    for (expr* assertion : zero_scale.assertions())
+        zero->assert_expr(assertion);
+    VERIFY(l_true == zero->check_sat(0, nullptr));
 }
 
 static void check_arithmetic_nested_witnesses() {
@@ -873,11 +889,14 @@ static void check_arithmetic_nested_witnesses() {
         char const* coefficient;
         unsigned functions;
         bool conditional = false;
+        bool symbolic = false;
     } cases[] = {
         {"(/ 96.0 82.0)", 1}, {"(- (/ 5.0 3.0))", 1},
         {"(/ 96.0 82.0)", 2}, {"(- (/ 5.0 3.0))", 2},
         {"(- (/ 5.0 3.0))", 4}, {"(- (/ 5.0 3.0))", 8},
-        {"(- (/ 5.0 3.0))", 2, true}
+        {"(- (/ 5.0 3.0))", 2, true},
+        {"k", 1, false, true}, {"k", 2, false, true}, {"(* k k)", 1, false, true},
+        {"(* (- (/ 5.0 3.0)) k r)", 1, true, true}
     };
     auto limit = [](std::string const& term, std::string const& value) {
         return "(forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
@@ -895,6 +914,8 @@ static void check_arithmetic_nested_witnesses() {
                 "(assert (forall ((x Real)) (=> (< x 0.0) (= (absolute x) (- x)))))\n"
                 "(assert (forall ((x Real)) (=> (>= x 0.0) (= (absolute x) x))))\n" :
                 "(define-fun absolute ((x Real)) Real (ite (>= x 0.0) x (- x)))\n";
+            if (test.symbolic)
+                formula += "(declare-const k Real)\n(declare-const r Real)\n";
             formula +=
                 "(declare-fun f (Real) Real)\n"
                 "(declare-const a Real)\n"
@@ -908,6 +929,8 @@ static void check_arithmetic_nested_witnesses() {
                 formula += "(declare-const " + l + " Real)\n";
                 formula += "(assert " + limit("(" + f + " x)", l) + ")\n";
                 std::string weight = std::to_string(i + 2) + ".0";
+                if (test.symbolic)
+                    weight = "(* coefficient " + weight + ")";
                 term = "(+ " + term + " (* " + weight + " (" + f + " x)))";
                 value = "(+ " + value + " (* " + weight + " " + l + "))";
             }
