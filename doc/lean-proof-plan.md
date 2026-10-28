@@ -446,7 +446,7 @@ supported. Two resource cliffs remain, both on the Lean side:
   outlined proof steps (more than 500 proof nodes) exceed the heartbeat limit
   on a step with a hundred quadratic `_inputs` projections, and
   `NEQ004_size4` itself fails at export (the clause-log trimming step rejects
-  `declare-sort`).
+  `declare-sort`; fixed 2026-10-27, see "Trimmed QF_UF logs" below).
 
 The z3test corpus has almost no single-query propositional files, so generated
 families are the benchmark for this fragment.
@@ -1479,6 +1479,88 @@ applications through the normalized path; a wide rewrite deciding a
 `mod`-bound atom and a rewrite inside an application's argument stay
 with `grind`, all through Lean).
 
+**Normalized rewrites proved by propagation; let-named structures
+(2026-10-27).** z3test's `smtlib-sample` QF_LRA
+`clock_synchro/clocksynchro_3clocks.main_invar.base.smt2` (the last QF_LRA
+Lean failure of the iter-032 scan) failed on one lemma: the propositional
+part of a normalized rewrite relating a 74-way left-nested disjunction over
+85 atoms (three symmetric groups of conjunctions sharing atoms, 15 copies of
+one literal, three conjuncts false by a constant atom, a re-nested
+conjunction) to Z3's flattened 48-way form. The projection-only search
+(`_propositional_implication`) found no term, since it knew nothing of the
+constant atoms, and `grind (splits := 64)` failed on the whole equivalence.
+`_normalized_rewrite` now builds the two sides as `_boolean_structure`
+structures (a leaf per normalized atom name, a constant for a constant atom)
+and proves the lemma with `_PropositionalProver` in classical mode, `grind`
+staying as the `first` fallback; `_propositional_implication` is gone. Two
+changes to the prover made that term fit: (1) it names every and, or, implies
+and iff structure by a `let` inside the term (`_bind`, children first) and
+states propositions over the names, with the steps through conjunctions and
+disjunctions written so that Lean infers their types (projections,
+`And.intro`, `mt` over `And.left`/`And.right`/`Or.inl`/`Or.inr` with the
+other operand named, `not_or.mpr`, `Or.elim` over the disjunction's proof),
+where a `have` stating its proposition at every level was quadratic in a
+nested gate and exhausted the character budget after a thousand steps; (2)
+before splitting on an atom it does case analysis on a true disjunction with
+two or more undetermined disjuncts (`_case_split`, `Or.elim`), where
+splitting on the atoms the 74 disjuncts share branched on every atom before
+a case closed and exhausted the step budget. The same term shape serves the
+propositional rewrites and the cnf bridges: the parity rewrite over eight
+atoms is a 380 KB direct term Lean checks in 3 s (it rendered ten megabytes
+and fell back to the truth table), and the clocksynchro cnf lemmas shrink
+from 4.8 MB to 2.2 MB. Nothing is trusted: the term is checked by Lean, and
+the fallbacks (grind, the truth table) are unchanged. The clocksynchro file
+verifies in 23 s of Lean (was `grind` failed after 97 s); a generated input
+with its exact Boolean skeleton over fresh bounds fails under the previous
+reconstructor and verifies in 9 s now. Tests: `test_proof_to_lean_arith.py`
+(`flattening_rewrite_instance`: the direct term with `(Not True)` and the
+forced grind fallback, both through Lean; `clock_shaped_rewrite_instance`
+through Lean), `test_proof_to_lean.py` (let-named classical prover,
+disjunction cases without excluded middle, atom splits where no disjunction
+is assumed, parity thresholds), `test_proof_to_lean_uflia.py` (cnf lemma
+shape).
+
+**Propagation proofs as tactic scripts over named gates (2026-10-27).**
+The iter-032 scan's one QF_IDL Lean failure, z3test's `smtlib-sample`
+`Averest/buble_sort/BubbleSort_safe_bgmc007.smt2` (one assertion, a
+13,000-node bounded model checking circuit of and, or, not and iff over
+Boolean variables with a few difference bounds; 890 steps, one `cnf` lemma),
+exhausted its heartbeats three times over. The lemma's head unfolded the
+13,000 definitions outside the leaves (`unfold` rewrites the whole goal once
+per name: quadratic, the "timeout at `transform`"); without the unfold, the
+1.6 MB propagation term of 9,500 `have` steps under 11,000 `let` names timed
+out at `whnf` after 400 s, because Lean elaborates a term of nested binders
+in time quadratic in their number (every binder abstracts the rest of the
+term: a synthetic chain of 1,000 type-free `have`s took nine minutes as one
+term and five seconds as tactic lines); and the export itself spent 134 s in
+`_Normalizer._compute_key`, sorting nested keys by `repr`. Three changes,
+none touching the trust boundary: (1) `_PropositionalProver` emits a tactic
+script (`have` lines, `refine` over `Or.elim`/`Iff.intro` with one hole per
+case and a bullet each, `exact`; `equivalence`, `implication` and
+`refutation` return lines), (2) the cnf lemmas and the propositional rewrites
+name the gates by the nodes' own definitions (`names=_structure_names`), so
+the proof binds no `let` and the lemma unfolds nothing before the attempt
+(Lean unfolds a definition when a step unifies with it, one level per step),
+and the steps through conjunctions and disjunctions leave their operands to
+unification (`mt (@And.left _ _)`, `Or.inr`, ...) under a `have` typed by
+the gate's name, where writing the operands out was O(n) characters per step
+through an n-ary gate; the normalized rewrites keep tactic `let`s for their
+structures over the abstracted atoms, (3) the replay's assumption keys are
+interned forms over child keys (`_Normalizer.ids`/`forms`), linear in the
+DAG. The BubbleSort file now exports in 10 s and verifies in about a minute
+of Lean (standard axioms); the lemma is a 1.1 MB script of 9,841 steps.
+Tests: `test_proof_to_lean_lia.py`
+(`test_bounded_model_checking_circuit_verifies_through_one_cnf_lemma`, the
+file itself under `examples/python/data`, through Lean),
+`test_proof_certificate.py` (interned keys), and the shape tests of
+`test_proof_to_lean.py`, `test_proof_to_lean_uf.py`,
+`test_proof_to_lean_uflia.py`, `test_proof_to_lean_arith.py` updated to the
+script form. Still open: a tactic `let` per structure is itself about 3 ms
+in a chain of thousands (8,000 lets and 8,000 steps: 25 s against 9.5 s
+without the lets), so a normalized rewrite over thousands of gates would
+want definitions too; and the `unfold` of the grind fallback is still one
+pass per name (`delta` is one pass for all, tested on the same file).
+
 **Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
 `theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
 of `farkas` with coefficients when its own `check_farkas_conflict` fails or
@@ -1506,6 +1588,76 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 `test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
 
 ## Boolean and EUF proof infrastructure
+
+### Clause logs trimmed from 4 KB; Lean memory capped (2026-10-27)
+
+Clause logs were trimmed natively only from 1 MB up, so most real inputs
+replayed their whole search. Measured on z3test's `smtlib-sample`, trimming
+shrinks every log tried, whatever its size: `QF_UF_cambridge.3.prop1_ab_reg_max`
+(695 KB log) goes from 20,656 reachable proof steps, a 17 MB Lean file, and
+68 s of export plus Lean to 458 steps, 1.9 MB, and 6.4 s;
+`QF_UF_train-gate.6.prop1_ab_reg_max` (32 KB) from 711 KB of Lean to 120 KB;
+the QF_LIA `ring_2exp4_5vars_0ite_unsat` (13 KB) from a 4.7 s export to
+0.2 s; QF_LRA `Carpark2-t1-2` and `current_frame.base` export two to four
+times faster. `_TRIM_THRESHOLD` is now 4,096 characters, below which a log holds a
+few dozen commands. The trust boundary is unchanged: the trimmer only selects
+steps, the replay checks each retained one, and a failed or unusable trim
+still falls back to the untrimmed log with a warning. Every `lean` process of
+`scripts/check_lean.sh` and of the library build now runs with
+`--memory=8192`, so a runaway proof fails with "excessive memory consumption
+detected" instead of exhausting the machine. Tests: `test_proof_certificate.py`
+(`test_logs_of_a_few_kilobytes_are_trimmed`), `test_proof_to_lean_uf.py`
+(`test_moderate_logs_are_trimmed_by_default`, on the train-gate benchmark in
+`examples/python/data`), `scripts/tests/test_check_lean.py`.
+
+More logs now reach the trimmer, and with them three open trimmer bugs, each
+handled by the untrimmed fallback (a `RuntimeWarning`, one wasted run):
+(1) it crashes (SIGSEGV or SIGBUS, never any output) on any `arith`-hinted
+inference over `div`/`mod` by a constant; the minimal input is the first ten
+lines of the log of `test_proof_to_lean_lia.random_division_instance(24)`,
+ending in `(infer $137 $139)` with `$137 = (= (+ (* (- 3) (div x2 (- 3)))
+(mod x2 (- 3))) x2)`, and 58 of the seeds 1 to 59 crash; (2) for
+`random_instance(1, 10, 30, ite=True)` it prints only the empty clause, as
+`(deps 172 172)`, likely `add_core(null, NONE)` in `proof_trim::trim`
+finding the empty clause's own entry; (3) the log of one input of the Lean suite is rejected
+("the inferred clause 47 -59 is not derivable by unit propagation"). All three need C++ fixes in
+`src/sat/sat_proof_trim.cpp`, each with a `src/test` regression. (1) and (2)
+are fixed, see "Trimmer: watches over false literals, empty assumptions,
+hints without a checker (2026-10-27)"; (3) is still open.
+
+### Trimmed QF_UF logs; assumption search by shared symbols (2026-10-27)
+
+A first end-to-end pass over z3test's `smtlib-sample` QF_UF files found two
+export costs on inputs that verify. (1) The native trimmer prints the input's
+`(declare-sort U 0)` ahead of the declarations, and the dependency core
+(`_dependency_core`) accepted only `declare-fun`, so every trimmed QF_UF log
+was "unusable" and the replay fell back to the untrimmed log (the open
+`NEQ004_size4` item of the scaling survey). The core now keeps sort
+declarations: `NEQ004_size4` exports in 3.6 s instead of 19.7 s (16,643
+resolution steps instead of 47,038) and checks in 40 s of Lean instead of
+81 s. (2) An assumed clause that matches no assertion by canonical key was
+compared with every conjunct of every assertion, one solver per check, for
+equivalence and then for implication; `QF_UF_cambridge.3.prop1_ab_reg_max`
+with its log trimmed (1,876 assertions, 90 assumed clauses each implied by
+one of them) ran 274,092 checks and spent 90 s building a 460-step
+certificate. The search now checks only the conjuncts that share an
+uninterpreted symbol with the clause, plus the symbol-free ones
+(`_candidate_sources`); a satisfiable conjunct and a non-valid clause without
+a shared symbol cannot be related, and anything the search misses still
+reaches the unsat-core fallback. Inputs with at most 64 conjuncts
+(`_SEARCH_ALL_SOURCES`) are still searched whole, since indexing traverses
+every assertion (a second on the BubbleSort circuit, whose 27 conjuncts all
+share symbols with its one clause). The index keeps one symbol set per
+conjunct, computed by one DAG traversal, not one per subterm: per-subterm
+sets are quadratic on a deep ite chain over distinct atoms (5.5 GB at depth
+16,000, now 194 MB). The cambridge build takes 1 s (941 checks) with the
+same certificate. Nothing is trusted either way: the replay checks each step
+and Lean each lemma. Tests: `test_proof_certificate.py`
+(`test_dependency_core_keeps_sort_declarations`,
+`test_assumption_search_checks_only_conjuncts_sharing_a_symbol`,
+`test_assumption_search_index_is_linear_on_deep_terms`),
+`test_proof_to_lean_uf.py` (`test_trimmed_logs_over_a_declared_sort_verify`:
+a trimmed diamond through Lean with warnings as errors).
 
 ### SMT fallback proves the logged clause (2026-10-20)
 
@@ -1680,6 +1832,58 @@ regressions cover these malformed hints over Real and Int, and preserve
 valid equality propagation with positive or negative nonzero conclusion
 coefficients. This changes native checker acceptance, not solver search
 or Lean's independent verification of the implied equality.
+
+### Trimmer: watches over false literals, empty assumptions, hints without a checker (2026-10-27)
+
+Since trimming starts at 4 KB, three trimmer bugs sent many logs back to the
+untrimmed replay. Over 40 seeds of each random generator of the Lean suites
+(clause log of each instance, then `trim_clause_log`), 43 of 133 logs
+above 4 KB fell back; after the fixes none does.
+(1) At base level the SAT solver watches a clause's first two literals as
+given, and `proof_trim::assume` passed them in sorted order. A clause whose
+first two literals were already false never propagated, so the trimmer missed
+the conflict. The empty clause then went in as a fresh conflict, with no
+clause behind it, and its core was the empty clause depending on itself
+(`(deps 172 172)`, rejected as "cyclic clause dependencies"; 12 QF_LRA and
+QF_LIA logs). The trimmer now watches the clause's non-false literals.
+(2) An assertion that preprocessing reduces to false is logged as an empty
+assumption, `(assume)`. The trimmer kept "no conflict yet" as an empty
+conflict clause, so it took this conflict for none, went on adding clauses to
+an inconsistent solver, and again wrote a self-dependent empty clause (12
+QF_UF and QF_UFLIA logs with `ite`, and 8 QF_LIA division logs once (3) was
+fixed). The conflict is a flag now, and an assumed empty clause sets it; the
+inferred empty clause depends on the assumed one. An inferred empty clause
+that arrives without a conflict is checked by propagating the whole trail
+again; if that finds none either, `trim()` rejects the log ("the empty
+clause is not derivable by unit propagation") instead of writing a cycle.
+An empty clause inferred under a theory hint is assumed like any theory
+axiom; when it is the first conflict, the trimmer cannot know its premises,
+and `trim()` rejects the log ("the empty clause is a theory axiom whose
+premises are unknown") rather than make it depend on itself. An assumed
+empty clause after the conflict is left out of the core.
+(3) Z3 logs div/mod axioms under a bare `arith` hint, for which
+`euf::theory_checker` has no plugin. The trimmer (`proof_cmds.cpp`) looked up
+the hint's clause anyway, read through a missing map entry, and crashed with
+SIGBUS or SIGSEGV and no output (19 of 19 division logs). A hint without a
+plugin (`theory_checker::has_rule`) is now treated as a theory axiom over its
+logged clause, like any other.
+The trust boundary is unchanged: the replay checks every retained step.
+Tests: `src/test/proof_replay.cpp` (`tst_trim_watches_literals_that_are_not_false`:
+the missed conflict, the rejected underivable empty clause, the assumed empty
+clause; `tst_trim_assumed_empty_clauses`: the rejected theory-axiom empty
+clause, the assumed empty clause after a conflict) and `test_proof_certificate.py` (one test per bug through the z3
+executable's trimmer with warnings as errors, then the core replayed; all
+three fail on the previous build). Four Lean-suite tests had been checking
+untrimmed certificates through these fallbacks: the wide division seeds of
+`test_proof_to_lean_lia.py` and `test_proof_to_lean_uflia.py` (their trimmed
+cores leave out the Farkas lemmas the tests are about) and the wide
+conjunction of `test_proof_to_lean_wide.py` (trimmed, its core is the
+assumed empty clause). They now export the untrimmed log explicitly; the
+conjunction test checks the trimmed default in Lean as well. Three
+fallbacks remain in the Lean suite, now as explicit errors: the "inferred
+clause ... not derivable" of a Boolean-predicate input, and two
+`random_bool_argument_instance` seeds whose final empty clause is not
+derivable over the clauses the trimmer assumes.
 
 ### Trimmer: deletions of clauses it never added (2026-10-23)
 

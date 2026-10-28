@@ -50,6 +50,7 @@
     X(region) \
     X(symbol) \
     X(heap) \
+    X(min_cut) \
     X(hashtable) \
     X(rational) \
     X(inf_rational) \

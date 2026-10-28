@@ -1,0 +1,10 @@
+exit code 0
+stdout:
+Verified module: NlsatRefineApp
+All verification conditions discharged successfully
+
+stderr:
+
+real	0m0.224s
+user	0m0.176s
+sys	0m0.050s

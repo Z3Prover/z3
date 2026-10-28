@@ -296,7 +296,97 @@ static void test_nan_datatype_congruence() {
     Z3_del_context(ctx);
 }
 
+static void test_to_fp_real_without_rounding_mode() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // (_ to_fp eb sb) applied to a single Real is not a supported form; it is
+    // rejected with the list of supported forms (it used to read domain[1]).
+    char const* no_rm_spec =
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) r)))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, no_rm_spec);
+    ENSURE(response.find("Unexpected argument combination") != std::string::npos);
+    ENSURE(response.find("sort mismatch") == std::string::npos);
+
+    char const* rm_spec =
+        "(reset)\n"
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) RNE r)))\n"
+        "(check-sat)\n";
+    response = Z3_eval_smtlib2_string(ctx, rm_spec);
+    ENSURE(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
+static void check_fp_commands(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != expected)
+        std::cout << input << "\n" << response;
+    ENSURE(response == expected);
+    Z3_del_context(ctx);
+}
+
+static void test_raw_nan_congruence() {
+    char const* prelude =
+        "(set-logic ALL)\n"
+        "(declare-const b (_ BitVec 16))\n"
+        "(declare-const c (_ BitVec 16))\n"
+        "(declare-fun f ((_ FloatingPoint 5 11)) (_ BitVec 8))\n"
+        "(declare-const a (Array (_ FloatingPoint 5 11) Int))\n";
+    for (char const* mismatch : {
+            "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n",
+            "(assert (distinct (select a ((_ to_fp 5 11) b)) (select a (_ NaN 5 11))))\n",
+            "(assert (distinct (f (fp ((_ extract 15 15) b) ((_ extract 14 10) b) ((_ extract 9 0) b)))"
+            " (f (_ NaN 5 11))))\n"}) {
+        std::string input = std::string(prelude) +
+            "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+            "(assert (fp.isNaN ((_ to_fp 5 11) c)))\n" + mismatch + "(check-sat)\n";
+        check_fp_commands(input.c_str(), "unsat\n");
+    }
+    std::string input = std::string(prelude) +
+        "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+        "(assert (= (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n"
+        "(push)\n(assert (= b #xffff))\n(assert (= c #x7e02))\n(check-sat)\n(pop)\n"
+        "(push)\n(assert (= b #x7c01))\n(assert (= c #xfe00))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\nsat\n");
+    input = std::string(prelude) +
+        "(assert (= b #x3c00))\n(assert (= c #x4000))\n"
+        "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\n");
+}
+
+static void test_null_fp_arguments() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // NULL arguments are rejected with Z3_INVALID_ARG instead of dereferenced
+    Z3_sort fp_sort = Z3_mk_fpa_sort_32(ctx);
+    Z3_ast f = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "f"), fp_sort);
+    ENSURE(!Z3_fpa_is_numeral_nan(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_fpa_is_numeral_inf(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, nullptr, f, f) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, nullptr) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, f) != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
+    test_raw_nan_congruence();
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
@@ -306,4 +396,6 @@ void tst_fpa() {
     test_mbqi_nan_arrays();
     test_wrapped_rounding_mode_uf();
     test_nan_datatype_congruence();
+    test_to_fp_real_without_rounding_mode();
+    test_null_fp_arguments();
 }

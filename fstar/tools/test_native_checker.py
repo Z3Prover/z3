@@ -50,6 +50,45 @@ UNUSED_SKOLEM_CASES = (
      "(check-sat-using (then nnf smt))"),
 )
 
+# The arithmetic rewriter factors p REL 0 when a term divides every monomial of p
+# (factor_le_ge_eq). These are the first queries of z3test nl12, nl49, nl33, and nl57.
+FACTOR_SIGN_CASES = (
+    ("int-le", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
+     "(assert (and (> (+ (* x1 x2) x3) 0) (<= x1 (- 1)) (>= x1 (- 1)) (= x2 x3)))"),
+    ("int-eq", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
+     "(declare-const x4 Int)(declare-const x5 Int)"
+     "(assert (and (<= x4 x5) (<= x5 x4) (= x2 (+ x3 x5))"
+     " (not (= (* x1 x2) (+ (* x1 x3) (* x1 x4))))))"),
+    ("real-ge", "(declare-const x Real)(assert (and (< 1.0 x) (not (< x (* x x)))))"),
+    ("real-lt", "(declare-const x Real)(declare-const y Real)"
+     "(assert (and (<= 0.0 x) (<= (- 1.0) y) (< (+ (* x y) x) 0.0)))"),
+)
+
+# The arithmetic rewriter lifts a conditional with a numeral branch out of a comparison
+# with a numeral (mk_le_ge_eq_core), also after moving a numeral addend across
+# (1 + (ite c 0 -1) >= 1). real-guarded-division is z3test z3.12; the shapes of
+# both-numerals and shifted-numerals occur in z3test issue-963 and string6.
+ITE_COMPARISON_CASES = (
+    ("real-guarded-division",
+     "(define-fun mydiv ((x Real) (y Real)) Real (if (not (= y 0.0)) (/ x y) 0.0))"
+     "(declare-const a Real)(declare-const b Real)"
+     "(assert (>= (mydiv a b) 1.0))(assert (= b 0.0))"),
+    ("int-then-false", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (>= (ite c 0 x) 1))(assert c)"),
+    ("int-else-false", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (>= (ite c x 0) 1))(assert (not c))"),
+    ("int-le-then-true", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (<= (ite c 1 x) 2))(assert (not (<= x 2)))(assert (not c))"),
+    ("real-le-then-true", "(declare-const c Bool)(declare-const x Real)"
+     "(assert (<= (ite c 1.0 x) 2.0))(assert (not c))(assert (> x 2.0))"),
+    ("int-shifted", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (>= (+ 1 (ite c 0 x)) 0))(assert (not c))(assert (< x (- 1)))"),
+    ("both-numerals", "(declare-sort U 0)(declare-const u U)(declare-const v U)"
+     "(assert (>= (ite (= u v) 1 (- 1)) 0))(assert (not (= u v)))"),
+    ("shifted-numerals", "(declare-sort U 0)(declare-const u U)(declare-const v U)"
+     "(assert (>= (+ 1 (ite (= u v) 0 (- 1))) 1))(assert (not (= u v)))"),
+)
+
 PULL_QUANT_CASES = (
     ("nested-exists", "(declare-fun p (Int Int) Bool)"
      "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
@@ -505,6 +544,35 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertNotIn("obligation\t", interactive.stderr)
                 if name == "under-binder":
                     self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
+
+    def test_factored_sign_rewrites_are_certified(self):
+        for name, source in FACTOR_SIGN_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        satisfiable = self.run_checker(
+            "(declare-const x Real)(assert (and (< 1.0 x) (< x (* x x))))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_conditional_comparison_rewrites_are_certified(self):
+        for name, source in ITE_COMPARISON_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        satisfiable = self.run_checker(
+            "(declare-const c Bool)(declare-const x Int)"
+            "(assert (>= (ite c 0 x) 1))(assert (not c))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
