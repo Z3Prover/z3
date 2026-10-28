@@ -2018,6 +2018,113 @@ particular rewrite, certificate, or proof is valid. The existing untyped
 environment/inhabitance gap described above remains unresolved. No
 unconditional end-to-end SMT-LIB soundness claim is made.
 
+### Factored sign rewrites (2026-10-27)
+
+Z3's `arith_rewriter::factor_le_ge_eq` rewrites `p REL 0` when a
+non-numeral term `f` divides every monomial of `p`. With `g = p / f` it
+produces `f = 0 or g = 0` for `=`, `((f >= 0) = (g >= 0)) or (f = 0 or g = 0)`
+for `>=`, and the same with the first disjunct negated for `<=`. These steps
+were unchecked `rewrite` obligations; in the 951-file interactive z3test
+sweep of the `48a710a9c` checkers they were the only obligations of `nl12`,
+`nl33`-`nl36`, `nl39`, `nl49`, and `nl57` on both backends.
+
+`Z3ArithmeticFactor.check` accepts a rewrite only in these exact shapes,
+with the source relation matching the target (polarity included), every
+comparison of the sort of `p`, and a zero numeral on every right-hand side.
+It expands `p`, both occurrences of `f`, both occurrences of `g`, and
+`f * g` into integer-coefficient polynomials over an atom table, using the
+multiplication of `Z3NlaLemma`. It requires `p` and `f * g` to have the same
+normal form, the two occurrences of each factor to normalize alike, and
+both factors to be non-constant. Only `+`, `*`, `-`, and integer numerals
+are interpreted. Division, `div`, `to_real`, rational numerals, and
+uninterpreted terms are opaque atoms, so no field law and no division
+semantics are used. Products whose expansion would exceed 4096 monomials
+stay unchecked.
+
+`lemma_check_sound` has the hypotheses the unified kernel already
+supplies for `Z3ArithmeticRewrite`: some `numeric_model`, the Boolean
+model, and `not`, `=`, and `or` soundness. It needs no new semantic
+premise. Over the reals, `x * y = 0` iff `x = 0` or `y = 0`, and the sign
+cases of `x * y` are those of `lemma_product_sign_numbers`. The rule is
+tried directly after `Z3ArithmeticRewrite.equivalent` for `rewrite` steps
+without premises, in the legacy kernel only.
+
+`Z3ArithmeticFactorTests.fst` decides six accepted and nine rejected closed
+instances by normalization, including right-hand zeros that are an Int
+numeral in a Real comparison, an uninterpreted constant, or the rational
+`0/2`. The native regression accepts twenty-one SMT-LIB steps, including
+uninterpreted, `div`, and real-division factors as atoms, the variant
+where the two cofactor occurrences are spelled differently, atoms that are
+bound variables of an enclosing quantifier, and products expanding to
+exactly 4096 monomials. It rejects forty-eight invalid steps over Int and
+Real: swapped polarity, a missing negation, a strict source, wrong or
+inconsistent cofactors (including another bound variable), a missing or
+extra source term, nonzero comparands on either side (including constants
+named like zero), a wrong or zero factor, `and` in place of `or`, false
+product rewrites, `to_real` cofactors that are not the source's, and
+factorizations that would need `(x / y) * y = x`. No rule certifies these.
+Eighteen valid steps outside the shape (flattened or reordered
+disjunctions, strict sign atoms, a numeral factor, mixed Int/Real
+comparisons, `to_real` of an Int product, and products of 4097 or more
+monomials) are not accepted by this rule. The kernel leaves an invalid or
+out-of-shape `rewrite` as one pending obligation, so a refutation using it
+is `PARTIAL 1`: it is never `ACCEPT`, and `REJECT` is reserved for a
+malformed node. A further 138 rebuilt terms (shifted bound-variable
+indices, ill-sorted or differently parameterized atoms with a shared name,
+and eight kinds of non-canonical zero numeral at every zero position) are
+neither accepted nor certified. CLI tests certify four interactive
+refutations from `nl12`, `nl49`,
+`nl33`, and `nl57` with no obligation, and check that a satisfiable variant
+is reported `sat`.
+
+### Conditionals lifted out of numeric comparisons (2026-10-27)
+
+Z3's `arith_rewriter::mk_le_ge_eq_core` rewrites `(ite c t e) REL k`, with
+a numeral branch `t` and a numeral `k`, to `c or (e REL k)` when `t REL k`
+holds and to `(not c) and (e REL k)` when it does not, with `c` and `not c`
+swapped for a numeral else branch. After `cancel_monomials` has moved a
+numeral addend, `1 + (ite c t e) >= k` is rewritten the same way against
+`k - 1` in one step. The comparison on the right is not simplified, so
+steps such as `(>= (ite g 0 -1) 0) = (or g (>= -1 0))` occur. These were
+unchecked `rewrite` obligations: the only one of z3test `z3.12`, 64 of the
+182 of `issue-963`, and 3 of the 13 of `string6`, on both backends of the
+`811f70ac4` checkers.
+
+`Z3ConditionalRewrite` already checked such steps by replacing the first
+guard with `true` and `false` on both sides outside binders and folding
+the result, but its fold decided only conditionals with a literal guard
+and constant equations. It now also folds a comparison whose linear normal
+form is a constant, such as a comparison of two numerals, to `true` or
+`false` with `Z3ArithmeticRewrite.boolean_equivalent`, and drops literal
+arguments of `and` and `or` (an absorbing literal replaces the
+application). The second fold is kept only when
+`Z3BooleanRewrite.boolean_equiv` proves it equivalent. Both reuse existing
+lemmas, `lemma_equivalent_with_numeric_model` and
+`lemma_boolean_equiv_sound`, whose hypotheses are part of
+`Z3ConditionalRewrite.rewrite_model`, so the kernel call site and its model
+contracts are unchanged. No numeral is trusted by name: an Int numeral
+needs denominator 1, a comparison needs both sides of one numeric sort,
+and a division by zero stays an opaque atom.
+
+The native regression accepts forty-three steps over Int and Real: then
+and else numeral branches, `>=`, `<=`, `<`, `>`, and `=`, negative
+numerals, the conditional on the right, a negated comparison, the `z3.12`,
+`issue-963`, and `string6` shapes, both shifted forms, nested conditional
+tails, the split guard inside the `and`/`or` guard of a nested conditional,
+and guards that are bound variables of an enclosing quantifier. It
+leaves fifty invalid steps pending: wrong guard polarity, reversed
+branches, `and` for `or` and the reverse, a ground comparison of the wrong
+truth value, another rest argument or bound, off-by-one shifts, another or
+strict relation, a branch that is not a numeral, an extra disjunct, a
+dropped guard or comparison, and division by zero. Two valid steps whose
+guard is under a binder of the rewritten terms also stay pending. Forty
+rebuilt terms are not certified: bound-variable indices shifted on one
+side, and each numeral of an accepted step replaced by the next numeral, a
+numeral of the other sort, a malformed numeral, or an uninterpreted
+constant. CLI tests certify eight interactive refutations, including
+`z3.12`, with no obligation, and check that a satisfiable variant is
+reported `sat`.
+
 ### Warning-free verification and extraction (2026-10-17)
 
 The build treats F* warnings and enabled OCaml compiler warnings as errors.

@@ -7,6 +7,8 @@
 #include "ast/for_each_expr.h"
 #include "sat/smt/sls_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "api/z3.h"
+#include <string>
 
 namespace bv {
 
@@ -325,10 +327,49 @@ static void test_best_phase() {
     }
 }
 
+// sls.restart_base=0 used to crash with SIGFPE (modulo by the restart interval)
+static void test_restart_base_zero() {
+    char const* bv =
+        "(set-option :sls.restart_base 0)\n"
+        "(set-option :timeout 10000)\n"
+        "(declare-const a (_ BitVec 8))\n"
+        "(declare-const b (_ BitVec 8))\n"
+        "(assert (= (bvmul a b) #x0f))\n"
+        "(assert (bvugt a #x01))\n";
+    char const* nia =
+        "(set-option :sls.restart_base 0)\n"
+        "(set-option :timeout 10000)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(assert (= (* x y) 391))\n"
+        "(assert (> x 1))\n"
+        "(assert (> y 1))\n";
+    std::pair<char const*, char const*> cases[] = {
+        { bv, "(check-sat-using qfbv-sls)\n" },
+        { bv, "(check-sat-using sls-smt)\n" },
+        { nia, "(check-sat-using sls-smt)\n" },
+    };
+    for (auto const& [decls, check] : cases) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = std::string(decls) + check;
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        // qfbv-sls prints its statistics before the result
+        bool ok = response.find("error") == std::string::npos &&
+                  (response.find("sat\n") != std::string::npos || response.find("unknown\n") != std::string::npos);
+        if (!ok)
+            std::cout << check << response << "\n";
+        ENSURE(ok);
+        Z3_del_context(ctx);
+    }
+}
+
 void tst_sls_test() {
 #ifndef SINGLE_THREAD
     test_best_phase();
 #endif
+    test_restart_base_zero();
     //test_eval1();
     //test_repair1();
 

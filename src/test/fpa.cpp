@@ -365,6 +365,32 @@ static void test_null_ast_arguments() {
     Z3_del_context(ctx);
 }
 
+static void test_to_fp_real_without_rounding_mode() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // (_ to_fp eb sb) applied to a single Real is not a supported form; it is
+    // rejected with the list of supported forms (it used to read domain[1]).
+    char const* no_rm_spec =
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) r)))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, no_rm_spec);
+    ENSURE(response.find("Unexpected argument combination") != std::string::npos);
+    ENSURE(response.find("sort mismatch") == std::string::npos);
+
+    char const* rm_spec =
+        "(reset)\n"
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) RNE r)))\n"
+        "(check-sat)\n";
+    response = Z3_eval_smtlib2_string(ctx, rm_spec);
+    ENSURE(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_null_ast_arguments();
     test_rem_subnormal_divisor();
@@ -376,4 +402,5 @@ void tst_fpa() {
     test_mbqi_nan_arrays();
     test_wrapped_rounding_mode_uf();
     test_nan_datatype_congruence();
+    test_to_fp_real_without_rounding_mode();
 }

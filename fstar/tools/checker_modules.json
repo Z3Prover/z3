@@ -9,7 +9,7 @@
     "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3ScopedModel.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
-    "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3IntegerDivision.fst", "Z3FiniteFieldLemma.fst", "Z3FiniteFieldPac.fst",
+    "Z3NlaLemma.fst", "Z3ArithmeticFactor.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3IntegerDivision.fst", "Z3FiniteFieldLemma.fst", "Z3FiniteFieldPac.fst",
     "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPull.fst", "Z3BinderSubstitution.fst",
     "Z3QuantifierInstantiation.fst", "Z3QuantifierReduce.fst", "Z3DestructiveEquality.fst",
     "Z3QuantifierDer.fst", "Z3Skolemization.fst",
@@ -20,7 +20,7 @@
     "Z3Native.fsti", "Z3NativeProof.fst"
   ],
   "tests": [
-    "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst",
+    "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst", "Z3ArithmeticFactorTests.fst",
     "Z3DatatypeValueTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst", "Z3ArrayEqualityTests.fst",
     "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst", "Z3PulseJustificationChecker.fst",
     "Z3LraFarkasTheory.fst", "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst",
