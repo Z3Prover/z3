@@ -312,7 +312,7 @@ namespace sls {
         m_config.paws_sp = p.paws_sp();
         m_config.paws = m_config.paws_sp < 1024;
         m_config.wp = p.wp();
-        m_config.restart_base = p.restart_base();
+        m_config.restart_base = std::max(1u, p.restart_base());
         m_config.restart_next = m_config.restart_base;
         m_config.restart_init = p.restart_init();
         m_config.early_prune = p.early_prune();
