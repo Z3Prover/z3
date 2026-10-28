@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3_private.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include <climits>
 #include <iostream>
 #include "util/util.h"
 #include "util/trace.h"
@@ -74,6 +75,29 @@ void test_apps() {
     std::cout << r << "\n";
     Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
+    Z3_del_context(ctx);
+}
+
+static void test_int2bv_size() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), int_sort);
+    for (unsigned i = 0; i < 2; ++i) {
+        for (unsigned width : { 0u, UINT_MAX }) {
+            ENSURE(!Z3_mk_int2bv(ctx, width, x));
+            ENSURE(Z3_get_error_code(ctx) != Z3_OK);
+        }
+        for (unsigned width : { 1u, 8u, 32u }) {
+            Z3_ast bv = Z3_mk_int2bv(ctx, width, x);
+            ENSURE(bv);
+            ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+            ENSURE(Z3_get_bv_sort_size(ctx, Z3_get_sort(ctx, bv)) == width);
+        }
+    }
     Z3_del_context(ctx);
 }
 
@@ -561,6 +585,7 @@ static void test_command_proof_check_callback() {
 void tst_api() {
     test_solver_model_completion();
     test_apps();
+    test_int2bv_size();
     test_mk_app_polymorphic_arity();
     test_mk_quantifier_const_loose_bound_variables();
     test_bvneg();

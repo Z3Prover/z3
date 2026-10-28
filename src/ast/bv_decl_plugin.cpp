@@ -226,6 +226,9 @@ func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters,
     if (bv_size == 0) {
         m_manager->raise_exception("bit-vector size must be greater than zero");
     }
+    if (bv_size + 1 == 0) {
+        m_manager->raise_exception("bit-vector of size 2^32-1 are not supported");
+    }
 
     force_ptr_array_size(m_int2bv, bv_size + 1);
 
