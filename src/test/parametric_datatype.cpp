@@ -190,6 +190,43 @@ static void test_smt2_parametric_datatype_is_constructor() {
     ENSURE(l_true == smt_ctx.check());
 }
 
+static void test_subterm_declarations() {
+    char const* prelude =
+        "(declare-datatypes ((Lst 1)) ((par (X) ((lnil) (lcons (lh X) (lt (Lst X)))))))\n";
+    for (char const* field : {"(Lst T)", "(Lst (Lst T))", "(Array Int T)", "(Seq T)"}) {
+        cmd_context ctx;
+        std::ostringstream out;
+        ctx.set_regular_stream(out);
+        std::istringstream input(std::string(prelude) +
+            "(declare-datatype T ((leaf) (node (ch " + field + "))) :subterm sub)\n");
+        ENSURE(!parse_smt2_commands(ctx, input));
+        ENSURE(out.str().find("subterm predicates are not supported for nested or mutually recursive datatypes") != std::string::npos);
+    }
+
+    char const* controls[] = {
+        "(declare-datatype T ((leaf) (node (ch T))) :subterm sub)\n"
+        "(assert (sub leaf (node leaf)))",
+        "(declare-datatype T ((leaf) (node (ch T) (data (Lst Int)))) :subterm sub)\n"
+        "(assert (sub leaf (node leaf lnil)))",
+        "(declare-datatype T (par (X) ((leaf) (node (ch (T X))))) :subterm sub)\n"
+        "(declare-const t (T Int))\n"
+        "(assert (sub (as leaf (T Int)) (node (as leaf (T Int)))))",
+        "(declare-datatype T ((leaf) (node (ch (Lst T)))))\n"
+        "(declare-const t T)\n"
+        "(assert (= t (node (lcons leaf lnil))))"
+    };
+    for (char const* control : controls) {
+        cmd_context ctx;
+        std::istringstream input(std::string(prelude) + control);
+        ENSURE(parse_smt2_commands(ctx, input));
+        smt_params params;
+        smt::context smt_ctx(ctx.m(), params);
+        for (expr* a : ctx.assertions())
+            smt_ctx.assert_expr(a);
+        ENSURE(l_true == smt_ctx.check());
+    }
+}
+
 static void test_array_field_cardinality() {
     struct test_case {
         char const* domain;
@@ -321,5 +358,6 @@ void tst_parametric_datatype() {
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
     test_smt2_parametric_datatype_is_constructor();
+    test_subterm_declarations();
     test_array_field_cardinality();
 }
