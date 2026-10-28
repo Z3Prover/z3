@@ -746,8 +746,49 @@ static void check_qe_rec_proofs() {
     }
 }
 
+static void check_intblast_signed_mod() {
+    for (int x = 0; x < 8; ++x) {
+        for (int y = 0; y < 8; ++y) {
+            int sx = x < 4 ? x : x - 8;
+            int sy = y < 4 ? y : y - 8;
+            int expected = sx;
+            if (sy != 0) {
+                expected = sx % sy;
+                if (expected != 0 && (expected < 0) != (sy < 0))
+                    expected += sy;
+            }
+            expected = (expected + 8) % 8;
+            std::ostringstream spec;
+            spec << "(declare-const x (_ BitVec 3))\n"
+                 << "(declare-const y (_ BitVec 3))\n"
+                 << "(assert (bvule (_ bv" << x << " 3) x))\n"
+                 << "(assert (bvule x (_ bv" << x << " 3)))\n"
+                 << "(assert (bvule (_ bv" << y << " 3) y))\n"
+                 << "(assert (bvule y (_ bv" << y << " 3)))\n"
+                 << "(assert (= (ubv_to_int (bvsmod x y)) " << expected << "))\n";
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(spec.str());
+            ENSURE(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_uint("bv.solver", 2);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i + 1 < cmd.assertions().size(); ++i)
+                slv->assert_expr(cmd.assertions()[i]);
+            slv->push();
+            slv->assert_expr(m.mk_not(cmd.assertions().back()));
+            ENSURE(l_false == slv->check_sat(0, nullptr));
+            slv->pop(1);
+            slv->assert_expr(cmd.assertions().back());
+            ENSURE(l_true == slv->check_sat(0, nullptr));
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_intblast_signed_mod();
     check_qsat_proofs();
     check_qe_rec_proofs();
     check_arithmetic_propagation_cancellation();
