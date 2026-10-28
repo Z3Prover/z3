@@ -322,6 +322,46 @@ static void test_to_fp_real_without_rounding_mode() {
     Z3_del_context(ctx);
 }
 
+static void check_fp_commands(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != expected)
+        std::cout << input << "\n" << response;
+    ENSURE(response == expected);
+    Z3_del_context(ctx);
+}
+
+static void test_raw_nan_congruence() {
+    char const* prelude =
+        "(set-logic ALL)\n"
+        "(declare-const b (_ BitVec 16))\n"
+        "(declare-const c (_ BitVec 16))\n"
+        "(declare-fun f ((_ FloatingPoint 5 11)) (_ BitVec 8))\n"
+        "(declare-const a (Array (_ FloatingPoint 5 11) Int))\n";
+    for (char const* mismatch : {
+            "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n",
+            "(assert (distinct (select a ((_ to_fp 5 11) b)) (select a (_ NaN 5 11))))\n",
+            "(assert (distinct (f (fp ((_ extract 15 15) b) ((_ extract 14 10) b) ((_ extract 9 0) b)))"
+            " (f (_ NaN 5 11))))\n"}) {
+        std::string input = std::string(prelude) +
+            "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+            "(assert (fp.isNaN ((_ to_fp 5 11) c)))\n" + mismatch + "(check-sat)\n";
+        check_fp_commands(input.c_str(), "unsat\n");
+    }
+    std::string input = std::string(prelude) +
+        "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+        "(assert (= (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n"
+        "(push)\n(assert (= b #xffff))\n(assert (= c #x7e02))\n(check-sat)\n(pop)\n"
+        "(push)\n(assert (= b #x7c01))\n(assert (= c #xfe00))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\nsat\n");
+    input = std::string(prelude) +
+        "(assert (= b #x3c00))\n(assert (= c #x4000))\n"
+        "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\n");
+}
+
 static void test_null_fp_arguments() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -346,6 +386,7 @@ static void test_null_fp_arguments() {
 }
 
 void tst_fpa() {
+    test_raw_nan_congruence();
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
