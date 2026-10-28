@@ -289,6 +289,10 @@ extern "C" {
         }
 
         ptr_vector<func_decl> const& accs = *data_util.get_constructor_accessors(f);
+        if (num_fields > accs.size()) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "num_fields exceeds the number of constructor fields");
+            return;
+        }
         for (unsigned i = 0; i < num_fields; ++i) {
             func_decl* f2 = (accs)[i];
             mk_c(c)->save_multiple_ast_trail(f2);

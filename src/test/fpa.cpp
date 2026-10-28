@@ -362,6 +362,29 @@ static void test_raw_nan_congruence() {
     check_fp_commands(input.c_str(), "sat\n");
 }
 
+static void test_null_fp_arguments() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // NULL arguments are rejected with Z3_INVALID_ARG instead of dereferenced
+    Z3_sort fp_sort = Z3_mk_fpa_sort_32(ctx);
+    Z3_ast f = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "f"), fp_sort);
+    ENSURE(!Z3_fpa_is_numeral_nan(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_fpa_is_numeral_inf(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, nullptr, f, f) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, nullptr) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, f) != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_raw_nan_congruence();
     test_rem_subnormal_divisor();
@@ -374,4 +397,5 @@ void tst_fpa() {
     test_wrapped_rounding_mode_uf();
     test_nan_datatype_congruence();
     test_to_fp_real_without_rounding_mode();
+    test_null_fp_arguments();
 }
