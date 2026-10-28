@@ -35,6 +35,9 @@ _RESULTS = ("sat", "unsat", "unknown")
 _TRIM_THRESHOLD = 1_000_000
 # Resource limit of the bounded solver calls that tie assumed clauses to assertions.
 _RLIMIT = 200000
+# Up to this many assertion conjuncts, an assumed clause is checked against all
+# of them; above it, only against those sharing a symbol (_candidate_sources).
+_SEARCH_ALL_SOURCES = 64
 
 
 def run_clause_log(z3_executable, assertion_text, timeout=None):
@@ -119,7 +122,7 @@ def _dependency_core(text):
                 raise ProofExportError("duplicate clause dependency identifier")
             entries[ident] = command, dependencies
             last = ident
-        elif command[0] != "declare-fun":
+        elif command[0] not in ("declare-sort", "declare-fun"):
             raise ProofExportError("unsupported trimmed-log command: %s" % command[0])
     if last is None or entries[last][0][0] != "infer" or len(entries[last][0]) != 3:
         raise ProofExportError("trimmed clause log has no final empty clause")
@@ -152,7 +155,7 @@ def _dependency_core(text):
 
     result = []
     for command in commands:
-        if command[0] == "declare-fun":
+        if command[0] in ("declare-sort", "declare-fun"):
             result.append(render(command))
         elif command[0] == "define-const" and command[1] in required:
             result.append(render(command))
@@ -713,6 +716,24 @@ def _conjuncts(expr, path=()):
             yield from _conjuncts(child, path + (child,))
 
 
+def _symbols(expr):
+    """Return the identifiers of the uninterpreted declarations occurring in expr.
+
+    One traversal of the DAG with its own visited set: nothing is kept per
+    subterm, so memory stays linear on deep terms such as ite chains.
+    """
+    symbols, seen, pending = set(), set(), [expr]
+    while pending:
+        node = pending.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if node.decl().kind() == z3.Z3_OP_UNINTERPRETED:
+            symbols.add(node.decl().get_id())
+        pending.extend(node.children())
+    return symbols
+
+
 class _Replay:
     def __init__(self, source, fragment, assertions, context):
         self.source, self.fragment, self.context = source, fragment, context
@@ -724,6 +745,7 @@ class _Replay:
         self.assumption_sources = [(assertion, conjunct, path) for assertion in self.assertions
                                    for conjunct, path in _conjuncts(assertion)]
         self.assumptions_by_key = None
+        self.sources_by_symbol = None  # declaration id (None: no symbol) -> source positions
         self.clauses = {}        # entry id -> (proof node, literal expressions)
         self.clause_keys = {}    # entry id -> precomputed literal keys for propagation
         self.literal_keys = {}   # AST id -> (literal kept alive, key)
@@ -881,10 +903,11 @@ class _Replay:
         if source is not None:
             assertion, conjunct, path = source
             return self._derive_assumption(assertion, path, conjunct, formula)
-        for assertion, conjunct, path in self.assumption_sources:
+        candidates = self._candidate_sources(formula)
+        for assertion, conjunct, path in candidates:
             if self._valid(conjunct == formula):
                 return self._derive_assumption(assertion, path, conjunct, formula)
-        for assertion, conjunct, path in self.assumption_sources:
+        for assertion, conjunct, path in candidates:
             if self._valid(z3.Implies(conjunct, formula)):
                 source = self._derive_assumption(assertion, path, conjunct, conjunct)
                 return self._cnf_lemma([(source, conjunct)], literals)
@@ -895,6 +918,43 @@ class _Replay:
         if sources is not None:
             return self._cnf_lemma(sources, literals)
         raise ProofExportError("assumed clause does not match any original assertion: %s" % formula)
+
+    def _candidate_sources(self, formula):
+        """Return the assumption sources that can be equivalent to formula or imply it.
+
+        A satisfiable conjunct implies a non-valid clause only if the two share
+        an uninterpreted symbol (an interpolant over no shared symbol is true
+        or false), so the per-source solver checks skip the other conjuncts;
+        a source or clause without symbols is always a candidate. The order
+        of the sources is kept. Nothing is trusted by skipping: a clause no
+        candidate ties to an assertion goes to the unsat-core fallback. A
+        few sources are all searched: indexing them traverses every
+        assertion, which costs more than the checks it saves.
+        """
+        if len(self.assumption_sources) <= _SEARCH_ALL_SOURCES:
+            return self.assumption_sources
+        if self.sources_by_symbol is None:
+            self.sources_by_symbol = {}
+            # Sources list an and before its conjuncts, so in reverse an and
+            # takes the union of its conjuncts' sets instead of a traversal.
+            # The sets are dropped once the index is built.
+            symbols_of = {}
+            for position in reversed(range(len(self.assumption_sources))):
+                conjunct = self.assumption_sources[position][1]
+                if conjunct.decl().kind() == z3.Z3_OP_AND:
+                    symbols = set().union(*(symbols_of[child.get_id()] for child in conjunct.children()))
+                else:
+                    symbols = _symbols(conjunct)
+                symbols_of[conjunct.get_id()] = symbols
+                for symbol in symbols or (None,):
+                    self.sources_by_symbol.setdefault(symbol, []).append(position)
+        symbols = _symbols(formula)
+        if not symbols:
+            return self.assumption_sources
+        positions = set(self.sources_by_symbol.get(None, ()))
+        for symbol in symbols:
+            positions.update(self.sources_by_symbol.get(symbol, ()))
+        return [self.assumption_sources[position] for position in sorted(positions)]
 
     def _implying_assertions(self, formula):
         """Return (asserted node, assertion) pairs for an unsat core of assertions implying formula, or None.

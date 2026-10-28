@@ -16,6 +16,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import warnings
 
 import z3
 
@@ -1696,6 +1697,30 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                                     text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             return certificate, " ".join(result.stdout.split())
+
+    def test_trimmed_logs_over_a_declared_sort_verify(self):
+        # Logs from 1 MB up are trimmed natively; the trimmer prints the
+        # input's (declare-sort U 0), which the dependency core rejected, so
+        # every large QF_UF log fell back to the untrimmed replay (z3test's
+        # NEQ004_size4: 47,038 resolution steps instead of 16,643, twice the
+        # Lean time). The threshold is lowered so a small input is trimmed;
+        # warnings are errors, so a fallback would fail the test.
+        trimmed = []
+        original = proof_clause_log.trim_clause_log
+
+        def trim(*args, **kwargs):
+            trimmed.append(original(*args, **kwargs))
+            return trimmed[-1]
+
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), \
+                patch.object(proof_clause_log, "trim_clause_log", trim), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            certificate, report = self.check(equality_diamond(3))
+        self.assertEqual(len(trimmed), 1)
+        self.assertTrue(trimmed[0].startswith("(declare-sort U 0)\n"))
+        self.assertIn("(deps ", trimmed[0])
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
 
     def test_documented_uf_inputs_verify_under_the_standard_axioms(self):
         for name, source in UF_INPUTS.items():

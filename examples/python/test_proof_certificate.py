@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tracemalloc
 import unittest
 from unittest.mock import patch
 import warnings
@@ -2167,6 +2168,80 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertIs(replay.assumptions_by_key, index)
         self.assertEqual(len(replay.normalizer.cache), cache_size)
 
+    def test_assumption_search_checks_only_conjuncts_sharing_a_symbol(self):
+        # The solver search for an equivalent or implying conjunct used to
+        # check every conjunct of every assertion, one solver per check: on
+        # z3test's QF_UF cambridge (1,876 assertions, 90 assumed clauses each
+        # implied by one of them) that was 274,092 checks and 90 s.
+        # Only conjuncts sharing an uninterpreted symbol with the clause can
+        # tie it, plus conjuncts without symbols; a clause without symbols,
+        # or an input with few conjuncts, still searches everything.
+        def replay_of(count):
+            source = ("(declare-sort U 0)(declare-fun f (U) U)(declare-fun a () U)(declare-fun b () U)"
+                      "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+                      + "".join("(declare-const x%d Bool)(declare-const y%d Bool)" % (i, i) for i in range(count))
+                      + "".join("(assert (or x%d y%d))" % (i, i) for i in range(count))
+                      + "(assert (and (or p q) r))(assert (not false))(assert (or p (= (f a) b)))")
+            assertions, fragment = proof_certificate.parse_assertions(source, context)
+            return proof_clause_log._Replay(source, fragment, assertions, context)
+
+        context = z3.Context()
+        small = replay_of(10)
+        self.assertLessEqual(len(small.assumption_sources), proof_clause_log._SEARCH_ALL_SOURCES)
+        self.assertIs(small._candidate_sources(z3.Bool("p", context)), small.assumption_sources)
+        replay = replay_of(proof_clause_log._SEARCH_ALL_SOURCES)
+        self.assertGreater(len(replay.assumption_sources), proof_clause_log._SEARCH_ALL_SOURCES)
+        p, q, r = z3.Bools("p q r", context)
+        U = z3.DeclareSort("U", context)
+        a = z3.Const("a", U)
+        f = z3.Function("f", U, U)
+        conjuncts = lambda formula: [str(source[1]) for source in replay._candidate_sources(formula)]  # noqa: E731
+        self.assertEqual(conjuncts(z3.Or(q, r)), ["And(Or(p, q), r)", "Or(p, q)", "r", "Not(False)"])
+        self.assertEqual(conjuncts(f(a) == a), ["Not(False)", "Or(p, f(a) == b)"])
+        self.assertEqual(len(replay._candidate_sources(z3.BoolVal(False, context))), len(replay.assumption_sources))
+        checked = []
+        original = proof_clause_log._Replay._valid
+
+        def valid(replay, claim):
+            checked.append(str(claim))
+            return original(replay, claim)
+
+        with patch.object(proof_clause_log._Replay, "_valid", valid):
+            node = replay.assume([p, q, r])
+        self.assertTrue(checked and not any("x" in claim for claim in checked), checked)
+        self.assertEqual(len(checked), 6)  # five equivalences, then the whole assertion implies the clause
+        self.assertEqual(replay.dag.rule_counts["th-lemma"], 1)  # the cnf lemma from the assertion
+        self.assertEqual(replay.dag.rule_counts["asserted"], 1)
+        self.assertIsNotNone(node)
+
+    def test_assumption_search_index_is_linear_on_deep_terms(self):
+        # The index first kept the symbol set of every subterm, quadratic on
+        # a right-nested ite chain over distinct atoms (5.5 GB at depth
+        # 16,000). Sets are now computed per conjunct, by one traversal.
+        depth, count = 3000, proof_clause_log._SEARCH_ALL_SOURCES
+        chain = "q"
+        for i in range(depth):
+            chain = "(ite v%d p %s)" % (i, chain)
+        source = ("(declare-const p Bool)(declare-const q Bool)"
+                  + "".join("(declare-const v%d Bool)" % i for i in range(depth))
+                  + "".join("(declare-const x%d Bool)" % i for i in range(count))
+                  + "".join("(assert x%d)" % i for i in range(count))
+                  + "(assert %s)(assert (or p q))" % chain)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        replay = proof_clause_log._Replay(source, fragment, assertions, context)
+        p, q = z3.Bools("p q", context)
+        tracemalloc.start()
+        try:
+            candidates = replay._candidate_sources(z3.Or(p, q))
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertEqual(len(candidates), 2)  # the chain and (or p q)
+        self.assertEqual(sum(len(positions) for positions in replay.sources_by_symbol.values()),
+                         count + (depth + 2) + 2)
+        self.assertLess(peak, 16 * 2 ** 20)
+
     def test_assumption_keys_are_interned_forms_over_child_keys(self):
         # A key names an interned canonical form; forms refer to their
         # children by key, so a deep circuit is keyed in time linear in its
@@ -2853,6 +2928,23 @@ class TestClauseLogDependencies(unittest.TestCase):
                 reachable.add(node)
                 pending.extend(certificate["nodes"][node]["arguments"])
         self.assertEqual(len(reachable), len(certificate["nodes"]))
+
+    def test_dependency_core_keeps_sort_declarations(self):
+        # The trimmer prints (declare-sort U 0) before the declarations over
+        # U; the core used to reject it, and every trimmed QF_UF log fell back
+        # to the untrimmed replay (z3test smtlib-sample NEQ004_size4).
+        log = ("(declare-sort U 0)\n(declare-fun a () U)\n(declare-fun b () U)\n(declare-fun rup () Proof)\n"
+               "(define-const d0 Proof (deps 0))\n(define-const d1 Proof (deps 1))\n"
+               "(define-const d2 Proof (deps 2 0 1))\n"
+               "(assume (= a b) d0)\n(assume (not (= a b)) d1)\n(infer rup d2)\n")
+        core = proof_clause_log._dependency_core(log)
+        self.assertTrue(core.startswith("(declare-sort U 0)\n(declare-fun a () U)\n"))
+        source = "(declare-sort U 0)(declare-fun a () U)(declare-fun b () U)(assert (= a b))(assert (not (= a b)))"
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, core, context)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertEqual(len(certificate["assertions"]), 2)
 
     def test_invalid_dependency_graphs_are_rejected(self):
         for bad, message in [

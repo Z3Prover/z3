@@ -446,7 +446,7 @@ supported. Two resource cliffs remain, both on the Lean side:
   outlined proof steps (more than 500 proof nodes) exceed the heartbeat limit
   on a step with a hundred quadratic `_inputs` projections, and
   `NEQ004_size4` itself fails at export (the clause-log trimming step rejects
-  `declare-sort`).
+  `declare-sort`; fixed 2026-10-27, see "Trimmed QF_UF logs" below).
 
 The z3test corpus has almost no single-query propositional files, so generated
 families are the benchmark for this fragment.
@@ -1588,6 +1588,40 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 `test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
 
 ## Boolean and EUF proof infrastructure
+
+### Trimmed QF_UF logs; assumption search by shared symbols (2026-10-27)
+
+A first end-to-end pass over z3test's `smtlib-sample` QF_UF files found two
+export costs on inputs that verify. (1) The native trimmer prints the input's
+`(declare-sort U 0)` ahead of the declarations, and the dependency core
+(`_dependency_core`) accepted only `declare-fun`, so every trimmed QF_UF log
+was "unusable" and the replay fell back to the untrimmed log (the open
+`NEQ004_size4` item of the scaling survey). The core now keeps sort
+declarations: `NEQ004_size4` exports in 3.6 s instead of 19.7 s (16,643
+resolution steps instead of 47,038) and checks in 40 s of Lean instead of
+81 s. (2) An assumed clause that matches no assertion by canonical key was
+compared with every conjunct of every assertion, one solver per check, for
+equivalence and then for implication; `QF_UF_cambridge.3.prop1_ab_reg_max`
+with its log trimmed (1,876 assertions, 90 assumed clauses each implied by
+one of them) ran 274,092 checks and spent 90 s building a 460-step
+certificate. The search now checks only the conjuncts that share an
+uninterpreted symbol with the clause, plus the symbol-free ones
+(`_candidate_sources`); a satisfiable conjunct and a non-valid clause without
+a shared symbol cannot be related, and anything the search misses still
+reaches the unsat-core fallback. Inputs with at most 64 conjuncts
+(`_SEARCH_ALL_SOURCES`) are still searched whole, since indexing traverses
+every assertion (a second on the BubbleSort circuit, whose 27 conjuncts all
+share symbols with its one clause). The index keeps one symbol set per
+conjunct, computed by one DAG traversal, not one per subterm: per-subterm
+sets are quadratic on a deep ite chain over distinct atoms (5.5 GB at depth
+16,000, now 194 MB). The cambridge build takes 1 s (941 checks) with the
+same certificate. Nothing is trusted either way: the replay checks each step
+and Lean each lemma. Tests: `test_proof_certificate.py`
+(`test_dependency_core_keeps_sort_declarations`,
+`test_assumption_search_checks_only_conjuncts_sharing_a_symbol`,
+`test_assumption_search_index_is_linear_on_deep_terms`),
+`test_proof_to_lean_uf.py` (`test_trimmed_logs_over_a_declared_sort_verify`:
+a trimmed diamond through Lean with warnings as errors).
 
 ### SMT fallback proves the logged clause (2026-10-20)
 
