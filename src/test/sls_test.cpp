@@ -7,6 +7,7 @@
 #include "ast/for_each_expr.h"
 #include "sat/smt/sls_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "tactic/sls/sls_tactic.h"
 
 namespace bv {
 
@@ -325,7 +326,42 @@ static void test_best_phase() {
     }
 }
 
+static void test_restart_base(unsigned restart_base, bool use_smt, bool use_arith) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p;
+    p.set_uint("restart_base", restart_base);
+    goal_ref g = alloc(goal, m, true, false, false);
+    if (use_arith) {
+        arith_util arith(m);
+        expr_ref x(m.mk_const("x", arith.mk_int()), m);
+        expr_ref y(m.mk_const("y", arith.mk_int()), m);
+        expr_ref product(arith.mk_mul(x, y), m);
+        g->assert_expr(m.mk_eq(product, arith.mk_int(391)));
+        g->assert_expr(arith.mk_gt(x, arith.mk_int(1)));
+        g->assert_expr(arith.mk_gt(y, arith.mk_int(1)));
+    }
+    else {
+        bv_util bv(m);
+        expr_ref a(m.mk_const("a", bv.mk_sort(8)), m);
+        expr_ref b(m.mk_const("b", bv.mk_sort(8)), m);
+        expr_ref product(bv.mk_bv_mul(a, b), m);
+        g->assert_expr(m.mk_eq(product, bv.mk_numeral(rational(15), 8)));
+        g->assert_expr(bv.mk_ugt(a, bv.mk_numeral(rational(1), 8)));
+    }
+    tactic_ref t = use_smt ? mk_sls_smt_tactic(m, p) : mk_qfbv_sls_tactic(m, p);
+    goal_ref_buffer result;
+    (*t)(g, result);
+    ENSURE(result.size() == 1);
+    ENSURE(result[0]->is_decided_sat());
+}
+
 void tst_sls_test() {
+    for (unsigned restart_base : { 0u, 1u, 100u }) {
+        test_restart_base(restart_base, false, false);
+        test_restart_base(restart_base, true, false);
+        test_restart_base(restart_base, true, true);
+    }
 #ifndef SINGLE_THREAD
     test_best_phase();
 #endif

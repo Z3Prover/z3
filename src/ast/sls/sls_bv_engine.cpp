@@ -61,7 +61,7 @@ void sls_engine::updt_params(params_ref const & _p) {
     m_vns_mc = p.vns_mc();
     m_vns_repick = p.vns_repick();
 
-    m_restart_base = p.restart_base();
+    m_restart_base = std::max(1u, p.restart_base());
     m_restart_next = m_restart_base;
     m_restart_init = p.restart_init();
 

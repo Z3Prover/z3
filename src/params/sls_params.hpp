@@ -32,7 +32,7 @@ Abstract:
   UINT_(wp,                          "wp",                          100,      "random walk with probability wp / 1024")            \
   UINT_(vns_mc,                      "vns_mc",                      0,        "in local minima, try Monte Carlo sampling vns_mc many 2-bit-flips per bit") \
   BOOL_(vns_repick,                  "vns_repick",                  false,    "in local minima, try picking a different assertion (only for walksat)") \
-  UINT_(restart_base,                "restart_base",                100,      "base restart interval given by moves per run")      \
+  UINT_(restart_base,                "restart_base",                100,      "base restart interval given by moves per run (minimum 1)") \
   BOOL_(restart_init,                "restart_init",                false,    "initialize to 0 or random value (= 1) after restart") \
   BOOL_(early_prune,                 "early_prune",                 true,     "use early pruning for score prediction")            \
   BOOL_(random_offset,               "random_offset",               true,     "use random offset for candidate evaluation")        \
