@@ -18,6 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
+#include "ast/occurs.h"
 #include "ast/simplifiers/solve_eqs.h"
 #include "ast/simplifiers/lambda_simplifier.h"
 #include "ast/array_decl_plugin.h"
@@ -427,6 +428,55 @@ static void test_recfun_finder() {
     ENSURE(!ru.has_defs());
 }
 
+// A definition whose recursive call already sits under an ite with a
+// recursion-free test is registered as is: the sibling conjunct p(x) of the
+// recursive call stays in the body of the case instead of becoming a case guard.
+static void test_recfun_finder_guarded_body() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* int_sort = a.mk_int();
+    sort* domain[1] = { int_sort };
+    func_decl_ref f(m.mk_func_decl(symbol("f"), 1, domain, m.mk_bool_sort()), m);
+    func_decl_ref p(m.mk_func_decl(symbol("p"), 1, domain, m.mk_bool_sort()), m);
+    var_ref x(m.mk_var(0, int_sort), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref fx(m.mk_app(f, x.get()), m);
+    expr_ref px(m.mk_app(p, x.get()), m);
+    expr_ref xm1(a.mk_sub(x, one), m);
+    expr_ref rec(m.mk_app(f, xm1.get()), m);
+    expr_ref condition(m.mk_eq(x, zero), m);
+    expr_ref else_value(m.mk_and(rec, px), m);
+    expr_ref body(m.mk_ite(condition, m.mk_true(), else_value), m);
+    expr_ref eq(m.mk_eq(fx, body), m);
+    symbol x_name("x");
+    quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
+    base_dependent_expr_state st(m);
+    st.push();
+    st.add(dependent_expr(m, q, nullptr, nullptr));
+    expr_ref three(a.mk_int(3), m);
+    expr_ref f3(m.mk_app(f, three.get()), m);
+    st.add(dependent_expr(m, f3, nullptr, nullptr));
+    recfun_finder rf(m, params_ref(), st);
+    rf.push();
+    rf.reduce();
+    st.flatten_suffix();
+    recfun::util ru(m);
+    ENSURE(ru.has_defs());
+    recfun::def* d = nullptr;
+    for (func_decl* g : ru.get_rec_funs())
+        if (g->get_name() == symbol("f"))
+            d = &ru.get_def(g);
+    ENSURE(d);
+    ENSURE(d->get_cases().size() == 2);
+    for (recfun::case_def const& c : d->get_cases())
+        for (expr* g : c.get_guards())
+            ENSURE(!occurs(p, g));
+    st.pop(1);
+    rf.pop(1);
+}
+
 static void test_incremental_demodulator() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -783,8 +833,50 @@ static void test_quantified_bool_literals() {
     }
 }
 
+static void test_nested_symbolic_rotations() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    for (unsigned width : { 3u, 4u, 24u }) {
+        unsigned mask = (1u << width) - 1;
+        Z3_sort sort = Z3_mk_bv_sort(ctx, width);
+        Z3_ast vars[] = {
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), sort),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), sort),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "z"), sort)
+        };
+        auto rotate = [&](unsigned value, unsigned amount, bool left) {
+            unsigned shift = amount % width;
+            if (!left)
+                shift = (width - shift) % width;
+            return ((value << shift) | (value >> (width - shift))) & mask;
+        };
+        for (bool inner_left : { false, true }) {
+            Z3_ast inner = inner_left ? Z3_mk_ext_rotate_left(ctx, vars[0], vars[1]) :
+                                       Z3_mk_ext_rotate_right(ctx, vars[0], vars[1]);
+            for (bool outer_left : { false, true }) {
+                Z3_ast nested = outer_left ? Z3_mk_ext_rotate_left(ctx, inner, vars[2]) :
+                                            Z3_mk_ext_rotate_right(ctx, inner, vars[2]);
+                Z3_ast simplified = Z3_simplify(ctx, nested);
+                for (unsigned amount : { 0u, mask }) {
+                    Z3_ast values[] = {
+                        Z3_mk_unsigned_int(ctx, 1, sort),
+                        Z3_mk_unsigned_int(ctx, amount, sort),
+                        Z3_mk_unsigned_int(ctx, 1, sort)
+                    };
+                    unsigned expected = rotate(rotate(1, amount, inner_left), 1, outer_left);
+                    Z3_ast actual = Z3_substitute(ctx, simplified, 3, vars, values);
+                    expect_simplifies_to(ctx, actual, Z3_mk_unsigned_int(ctx, expected, sort));
+                }
+            }
+        }
+    }
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
+    test_nested_symbolic_rotations();
     test_quantified_bool_literals();
     test_array();
     test_const_array_lambda();
@@ -794,6 +886,7 @@ void tst_simplifier() {
     test_fpa();
     test_incremental_demodulator();
     test_recfun_finder();
+    test_recfun_finder_guarded_body();
     test_solve_eqs_proofs();
     test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();

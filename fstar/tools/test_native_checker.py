@@ -89,6 +89,57 @@ ITE_COMPARISON_CASES = (
      "(assert (>= (+ 1 (ite (= u v) 0 (- 1))) 1))(assert (not (= u v)))"),
 )
 
+# The bit-vector rewriter moves an extraction into a sum or product of the low bits and into
+# both branches of a conditional (mk_extract), composing an extraction of an extraction. The
+# sum of a numeral and a conditional is the shape of z3test 6079-8.
+BV_EXTRACT_CASES = (
+    ("add-low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 3 0) (bvadd x y))"
+     " (bvadd ((_ extract 3 0) x) ((_ extract 3 0) y)))))"),
+    ("mul-low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 3 0) (bvmul x y))"
+     " (bvmul ((_ extract 3 0) x) ((_ extract 3 0) y)))))"),
+    ("add-ternary", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(declare-const z (_ BitVec 8))(assert (not (= ((_ extract 2 0) (bvadd x y z))"
+     " (bvadd ((_ extract 2 0) x) ((_ extract 2 0) y) ((_ extract 2 0) z)))))"),
+    ("add-numeral-ite", "(declare-const c Bool)(declare-const k (_ BitVec 7))"
+     "(assert (not (= ((_ extract 4 0) (bvadd #b0000001 (ite c k #b0000000)))"
+     " (bvadd #b00001 (ite c ((_ extract 4 0) k) #b00000)))))"),
+    ("mul-composed", "(declare-const u (_ BitVec 16))(declare-const x (_ BitVec 8))"
+     "(assert (not (= ((_ extract 3 0) (bvmul ((_ extract 11 4) u) x))"
+     " (bvmul ((_ extract 7 4) u) ((_ extract 3 0) x)))))"),
+    ("ite-composed", "(declare-const p Bool)(declare-const u (_ BitVec 16))"
+     "(declare-const x (_ BitVec 8))"
+     "(assert (not (= ((_ extract 1 1) (ite p ((_ extract 9 2) u) x))"
+     " (ite p ((_ extract 3 3) u) ((_ extract 1 1) x)))))"),
+    ("ite-composed-66", "(declare-const m (_ BitVec 66))(declare-const n (_ BitVec 66))"
+     "(declare-const w (_ BitVec 80))"
+     "(assert (not (= ((_ extract 6 0) (ite (= m n) ((_ extract 65 0) w) m))"
+     " (ite (= m n) ((_ extract 6 0) w) ((_ extract 6 0) m)))))"),
+)
+
+# An extraction of a concatenation (mk_extract) is the bits of the low argument, of the high
+# argument, or a concatenation of the bits of both, with extractions of extractions composed.
+# The last three are the shapes of z3test 6079-8.
+BV_EXTRACT_CONCAT_CASES = (
+    ("low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 5 2) (concat x y)) ((_ extract 5 2) y))))"),
+    ("high", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 14 9) (concat x y)) ((_ extract 6 1) x))))"),
+    ("across", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 9 4) (concat x y))"
+     " (concat ((_ extract 1 0) x) ((_ extract 7 4) y)))))"),
+    ("high-composed", "(declare-const u (_ BitVec 16))(declare-const b (_ BitVec 1))"
+     "(assert (not (= ((_ extract 14 14) (concat ((_ extract 15 2) u) b)) ((_ extract 15 15) u))))"),
+    ("across-composed", "(declare-const u (_ BitVec 16))(declare-const b (_ BitVec 1))"
+     "(assert (not (= ((_ extract 2 0) (concat ((_ extract 7 2) u) b))"
+     " (concat ((_ extract 3 2) u) b))))"),
+    ("across-numeral-ite", "(declare-const p Bool)(declare-const x (_ BitVec 8))"
+     "(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 8 1) (concat #b0 (ite p x y)))"
+     " (concat #b0 ((_ extract 7 1) (ite p x y))))))"),
+)
+
 PULL_QUANT_CASES = (
     ("nested-exists", "(declare-fun p (Int Int) Bool)"
      "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
@@ -573,6 +624,44 @@ class DirectCheckerTests(unittest.TestCase):
             "--interactive")
         self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
         self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_bv_extract_rewrites_are_certified(self):
+        for name, source in BV_EXTRACT_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        # Bits above the lowest are not a sum of the extracted bits (carries).
+        satisfiable = self.run_checker(
+            "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+            "(assert (not (= ((_ extract 4 1) (bvadd x y))"
+            " (bvadd ((_ extract 4 1) x) ((_ extract 4 1) y)))))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_bv_extract_concat_rewrites_are_certified(self):
+        for name, source in BV_EXTRACT_CONCAT_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        # Bits of x offset by one, and the two parts in the other order, are other bits.
+        for name, source in (
+                ("offset", "(assert (not (= ((_ extract 14 9) (concat x y)) ((_ extract 7 2) x))))"),
+                ("order", "(assert (not (= ((_ extract 9 4) (concat x y))"
+                          " (concat ((_ extract 7 4) y) ((_ extract 1 0) x)))))")):
+            with self.subTest(case=name):
+                satisfiable = self.run_checker(
+                    "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+                    + source + "(check-sat)", "--interactive")
+                self.assertEqual(satisfiable.returncode, 0,
+                                 satisfiable.stdout + satisfiable.stderr)
+                self.assertEqual(satisfiable.stdout.strip(), "sat")
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")

@@ -2405,6 +2405,9 @@ br_status bv_rewriter::mk_bv_ext_rotate_left(expr * arg1, expr * arg2, expr_ref 
         result = x;
         return BR_DONE;
     }
+    // BV addition/subtraction preserves rotation amounts only when width divides 2^width.
+    if (!is_power_of_two(get_bv_size(arg1)))
+        return BR_FAILED;
     if (m_util.is_ext_rotate_left(arg1, x, y)) {
         result = m_util.mk_bv_rotate_left(x, m_util.mk_bv_add(y, arg2));
         return BR_REWRITE2;
@@ -2429,6 +2432,8 @@ br_status bv_rewriter::mk_bv_ext_rotate_right(expr * arg1, expr * arg2, expr_ref
         result = x;
         return BR_DONE;
     }
+    if (!is_power_of_two(get_bv_size(arg1)))
+        return BR_FAILED;
     if (m_util.is_ext_rotate_right(arg1, x, y)) {
         result = m_util.mk_bv_rotate_right(x, m_util.mk_bv_add(y, arg2));
         return BR_REWRITE2;

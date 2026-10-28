@@ -474,7 +474,9 @@ void bv2int_translator::translate_bv(app* e) {
         rational N = bv_size(e);
         expr* signx = a.mk_ge(x, a.mk_int(N / 2));
         expr* signy = a.mk_ge(y, a.mk_int(N / 2));
-        expr* u = a.mk_mod(x, y);
+        expr_ref absx(m.mk_ite(signx, a.mk_sub(a.mk_int(N), x), x), m);
+        expr_ref absy(m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y), m);
+        expr* u = a.mk_mod(absx, absy);
         // u = 0 ->  0
         // y = 0 ->  x
         // x < 0, y < 0 ->  -u

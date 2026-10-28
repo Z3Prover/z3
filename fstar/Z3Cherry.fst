@@ -63,3 +63,15 @@ let diagnose (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marsha
   : P.document_diagnostic =
   if sorted force_sorted m then Z3SortedProof.diagnose_document m.schema m.document
   else P.diagnose_document_indexed assertion_hash m.document
+
+(* A diagnosed document needs no second check: the result recorded by its diagnosis is its verdict, in
+   the sorted path (Z3SortedProof.lemma_diagnose_document) and in the legacy path
+   (Z3ProofDocument.lemma_diagnose_document_indexed). *)
+let lemma_diagnose_is_check (force_sorted:bool) (m:marshaled)
+  : Lemma (P.diagnostic_result (diagnose force_sorted m) == check force_sorted m) =
+  if sorted force_sorted m then (
+    Z3SortedProof.lemma_diagnose_document m.schema m.document;
+    match Z3SortedProof.diagnose_document m.schema m.document with
+    | P.DocumentChecked _ _ | P.DocumentRejected _ _ _ -> ())
+  else
+    P.lemma_diagnose_document_indexed assertion_hash m.document

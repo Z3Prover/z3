@@ -91,9 +91,12 @@ let rec equivalent (fuel:nat) (a b:expr) : Tot bool (decreases %[fuel; a]) =
   else let next:nat = fuel - 1 in
   if a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b then true
   else
+  (* When normalization leaves both sides unchanged, boolean_equiv 8 10 x y is
+     the test that has just failed on a and b, so it is not computed again. *)
   match normalize_root a, normalize_root b with
   | Some x, Some y ->
-    x = y || symmetric_equality x y || B.boolean_equiv 8 10 x y ||
+    x = y || symmetric_equality x y ||
+    ((x <> a || y <> b) && B.boolean_equiv 8 10 x y) ||
     (match x, y with
      | Quantifier k bs s body, Quantifier k' bs' s' body' ->
        k = k' && bs = bs' && s = s' && equivalent next body body'
@@ -107,6 +110,70 @@ and equivalent_args (fuel:nat) (xs ys:list expr)
   | [], [] -> true
   | x :: rest, y :: remaining -> equivalent fuel x y && equivalent_args fuel rest remaining
   | _, _ -> false
+
+(* The definition of equivalent before the repeated test boolean_equiv 8 10 x y was skipped, kept (not
+   extracted) only to state that skipping it changes no decision. *)
+noextract
+let rec equivalent_reference (fuel:nat) (a b:expr) : Tot bool (decreases %[fuel; a]) =
+  if fuel = 0 then false
+  else let next:nat = fuel - 1 in
+  if a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b then true
+  else
+  match normalize_root a, normalize_root b with
+  | Some x, Some y ->
+    x = y || symmetric_equality x y || B.boolean_equiv 8 10 x y ||
+    (match x, y with
+     | Quantifier k bs s body, Quantifier k' bs' s' body' ->
+       k = k' && bs = bs' && s = s' && equivalent_reference next body body'
+     | App f args, App f' args' -> f = f' && equivalent_args_reference next args args'
+     | _, _ -> false)
+  | _, _ -> false
+
+and equivalent_args_reference (fuel:nat) (xs ys:list expr)
+  : Tot bool (decreases %[fuel; xs]) =
+  match xs, ys with
+  | [], [] -> true
+  | x :: rest, y :: remaining -> equivalent_reference fuel x y && equivalent_args_reference fuel rest remaining
+  | _, _ -> false
+
+(* The skipped test is the one that has just failed on a and b. *)
+let lemma_skipped_test (a b x y:expr)
+  : Lemma (requires not (B.boolean_equiv 8 10 a b))
+          (ensures ((x <> a || y <> b) && B.boolean_equiv 8 10 x y) == B.boolean_equiv 8 10 x y)
+  = ()
+
+(* Pointwise decision parity: for every fuel and every pair of terms, equivalent accepts exactly the
+   pairs that the definition before the skip accepted. *)
+let rec lemma_equivalent_unchanged (fuel:nat) (a b:expr)
+  : Lemma (ensures equivalent fuel a b == equivalent_reference fuel a b)
+          (decreases %[fuel; a]) =
+  if fuel = 0 then ()
+  else let next:nat = fuel - 1 in
+    if a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b then ()
+    else
+      match normalize_root a, normalize_root b with
+      | Some x, Some y ->
+        lemma_skipped_test a b x y;
+        if x = y || symmetric_equality x y || B.boolean_equiv 8 10 x y then ()
+        else
+          (match x, y with
+           | Quantifier _ _ _ body, Quantifier _ _ _ body' -> lemma_equivalent_unchanged next body body'
+           | App _ args, App _ args' -> lemma_equivalent_args_unchanged next args args'
+           | _, _ -> ())
+      | _, _ -> ()
+
+and lemma_equivalent_args_unchanged (fuel:nat) (xs ys:list expr)
+  : Lemma (ensures equivalent_args fuel xs ys == equivalent_args_reference fuel xs ys)
+          (decreases %[fuel; xs]) =
+  match xs, ys with
+  | x :: rest, y :: remaining ->
+    lemma_equivalent_unchanged fuel x y;
+    lemma_equivalent_args_unchanged fuel rest remaining
+  | _, _ -> ()
+
+(* relational_step does not repeat boolean_equiv 8 10 a b before equivalent 64 a b, which begins with it. *)
+let lemma_boolean_equiv_subsumed (a b:expr)
+  : Lemma (requires B.boolean_equiv 8 10 a b) (ensures equivalent 64 a b) = ()
 
 let lemma_quantifier_congruence (i:interpretation value) (rho:env value)
                                (k:quantifier_kind) (bs:list sort) (s:sort) (a b:expr)
@@ -152,7 +219,7 @@ let lemma_equivalent_step (fuel:nat) (i:interpretation value) (rho:env value) (a
     | Some x, Some y ->
       lemma_normalize_root i rho a x;
       lemma_normalize_root i rho b y;
-      if x = y || symmetric_equality x y || B.boolean_equiv 8 10 x y
+      if x = y || symmetric_equality x y || ((x <> a || y <> b) && B.boolean_equiv 8 10 x y)
       then lemma_simple_equivalent i rho x y
       else (match x, y with
             | Quantifier k bs s source, Quantifier _ _ _ target ->
