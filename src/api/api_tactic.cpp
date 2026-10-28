@@ -516,7 +516,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_apply_result_get_subgoal(c, r, i);
         RESET_ERROR_CODE();
-        if (i > to_apply_result(r)->m_subgoals.size()) {
+        if (i >= to_apply_result(r)->m_subgoals.size()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
