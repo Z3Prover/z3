@@ -70,11 +70,13 @@ Notes:
 #include "opt/opt_context.h"
 #include "opt/opt_params.hpp"
 #include "opt/opt_lns.h"
+#include "opt/opt_lp_relaxation.h"
 #include "opt/opt_cores.h"
 #include "opt/maxsmt.h"
 #include "opt/maxcore.h"
 #include "opt/totalizer.h"
 #include <iostream>
+#include <iomanip>
 #include <tuple>
 
 using namespace opt;
@@ -132,6 +134,10 @@ private:
     bool             m_wmax = false;                   // Block upper bound using wmax
                                                        // this option is disabled if SAT core is used.
     bool             m_pivot_on_cs = true;             // prefer smaller correction set to core.
+    bool             m_lp_relaxation = true;           // bound the cost from below by the linear relaxation
+    unsigned         m_lp_relaxation_rlimit = 1000000;
+    rational         m_relaxation_lower;               // cost bound certified by the linear relaxation
+    bool             m_relaxation_closed = false;      // the relaxation bound ended the search
     bool             m_dump_benchmarks;                // display benchmarks (into wcnf format)
     bool             m_enable_lns = false;             // enable LNS improvements
     unsigned         m_lns_conflicts = 1000;           // number of conflicts used for LNS improvement
@@ -235,9 +241,10 @@ public:
         if (!init()) return l_undef;
         is_sat = init_local();
         trace();
+        relaxation_bounds();
         improve_model();
         if (is_sat != l_true) return is_sat;
-        while (m_lower < m_upper) {
+        while (!bounds_meet()) {
             TRACE(opt_verbose,
                   s().display(tout << m_asms << "\n") << "\n";
                   display(tout););
@@ -267,9 +274,12 @@ public:
                 return l_undef;
             }
             // LNS can replace assumptions, so run it only after consuming the core.
-            if (m_lower < m_upper)
+            if (!bounds_meet())
                 improve_model(m_model);
         }
+        // Before the cores relax every soft constraint, the assumptions do
+        // not describe the optimum; commit_assignment then adds the cost bound.
+        m_relaxation_closed = m_lower < m_upper;
         found_optimum();
         trace();
         return l_true;
@@ -279,9 +289,10 @@ public:
         if (!init()) return l_undef;
         lbool is_sat = init_local();
         trace();
+        relaxation_bounds();
         exprs cs;
         if (is_sat != l_true) return is_sat;
-        while (m_lower < m_upper) {
+        while (!bounds_meet()) {
             is_sat = check_sat_hill_climb(m_asms);
             if (!m.inc()) {
                 return l_undef;
@@ -309,12 +320,53 @@ public:
             case l_undef:
                 return l_undef;
             }
-            if (m_lower < m_upper)
+            if (!bounds_meet())
                 improve_model(m_model);
         }
+        m_relaxation_closed = m_lower < m_upper;
         m_lower = m_upper;
         trace();
         return l_true;
+    }
+
+    rational get_lower() const override {
+        return m_lower > m_relaxation_lower ? m_lower : m_relaxation_lower;
+    }
+
+    // The core bound reaches the upper bound, or the relaxation bound does
+    // and the current model attains the upper bound.
+    bool bounds_meet() const {
+        return m_lower >= m_upper || (m_model && m_relaxation_lower >= m_upper);
+    }
+
+    // Lower bound from the linear relaxation of the hard constraints, and a
+    // first assignment from the soft literals the relaxation sets to 0 or 1.
+    void relaxation_bounds() {
+        if (!m_lp_relaxation || !m.inc())
+            return;
+        stopwatch watch;
+        watch.start();
+        lp_relaxation relaxation(m, m_c.fm(), m_params);
+        unsigned num_assertions = s().get_num_assertions();
+        for (unsigned i = 0; i < num_assertions; ++i) {
+            expr* f = s().get_assertion(i);
+            if (!relaxation.add_hard(f))
+                IF_VERBOSE(10, verbose_stream() << "(opt." << m_trace_id << " relaxation-dropped " << mk_pp(f, m) << ")\n";);
+        }
+        auto res = relaxation.minimize_cost(m_soft, m_lp_relaxation_rlimit);
+        IF_VERBOSE(2, verbose_stream() << "(opt." << m_trace_id << " relaxation :status " << res.status
+                   << " :lower " << res.lower << " :dropped-constraints " << relaxation.num_dropped()
+                   << " :time " << std::fixed << std::setprecision(2) << watch.get_seconds() << ")\n";);
+        if (res.status != l_true)
+            return;
+        m_relaxation_lower = res.lower;
+        expr_ref_vector asms(m);
+        for (auto const& [i, value] : res.rounding)
+            if (value)
+                asms.push_back(m_soft[i].s);
+        if (!asms.empty())
+            check_sat(asms.size(), asms.data());
+        trace();
     }
 
     lbool check_sat_hill_climb(expr_ref_vector& asms1) {
@@ -1201,6 +1253,8 @@ public:
         m_maximize_assignment =     p.maxres_maximize_assignment();
         m_max_correction_set_size = p.maxres_max_correction_set_size();
         m_pivot_on_cs =             p.maxres_pivot_on_correction_set();
+        m_lp_relaxation =           p.maxres_lp_relaxation();
+        m_lp_relaxation_rlimit =    p.maxres_lp_relaxation_rlimit();
         m_wmax =                    p.maxres_wmax();
         m_dump_benchmarks =         p.dump_benchmarks();
         m_enable_lns =              p.enable_lns();
@@ -1229,6 +1283,10 @@ public:
     }
 
     void commit_assignment() override {
+        if (m_relaxation_closed) {
+            maxsmt_solver_base::commit_assignment();
+            return;
+        }
         if (m_found_feasible_optimum) {
             add(m_defs);
             add(m_asms);

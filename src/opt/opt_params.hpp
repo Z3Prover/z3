@@ -52,6 +52,8 @@ Abstract:
   BOOL_  (maxres_maximize_assignment,      "maxres.maximize_assignment",      false,     "find an MSS/MCS to improve current assignment") \
   UINT_  (maxres_max_correction_set_size,  "maxres.max_correction_set_size",  3,         "allow generating correction set constraints up to maximal size") \
   BOOL_  (maxres_wmax,                     "maxres.wmax",                     false,     "use weighted theory solver to constrain upper bounds") \
+  BOOL_  (maxres_lp_relaxation,            "maxres.lp_relaxation",            true,      "bound the cost of core-guided MaxSMT from below by the linear relaxation of the hard constraints over the soft literals, and try the relaxation's integral soft literals as the first assignment") \
+  UINT_  (maxres_lp_relaxation_rlimit,     "maxres.lp_relaxation_rlimit",     1000000,   "resource limit for solving the linear relaxation (0 disables the limit)") \
   BOOL_  (maxres_pivot_on_correction_set,  "maxres.pivot_on_correction_set",  true,      "reduce soft constraints if the current correction set is smaller than current core")
 
 Z3_DEFINE_MODULE_PARAMS(opt_params, "opt", OPT_PARAMS_LIST, "optimization parameters");
