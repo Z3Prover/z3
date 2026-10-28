@@ -196,8 +196,11 @@ independently of your default toolchain.
 
 Checks use `--trust=0` to recheck imported modules and
 `-DwarningAsError=true` to treat warnings, including ordinary `sorry`/`admit`
-placeholders, as errors. A successful run prints `Lean checks passed.` and exits
-with status 0; build or checking failures return a nonzero status.
+placeholders, as errors. Every `lean` process, including the library build, runs
+with `--memory=8192`, so a proof that needs more than 8 GB fails with
+`excessive memory consumption detected` instead of exhausting the machine. A
+successful run prints `Lean checks passed.` and exits with status 0; build or
+checking failures return a nonzero status.
 
 This is a Lean source checker, not an audit of explicit axioms or other trusted
 features, and not a sandbox for executing untrusted Lean code.

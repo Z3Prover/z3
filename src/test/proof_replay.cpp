@@ -849,8 +849,109 @@ static void tst_trim_ignores_deletions_of_clauses_never_added() {
     }
 }
 
+// At base level the solver watches a clause's first two literals as given.
+// The trimmer added {~a, ~b, c, d} in that (sorted) order after a and b, so
+// both watches were false, ~c and ~d never woke the clause, and the conflict
+// went unnoticed: the core of the empty clause was the empty clause alone,
+// depending on itself (random_instance(1, 10, 30, ite=True) of
+// test_proof_to_lean_arith.py, iter-040). An empty clause that propagation
+// cannot derive is an error, and an assumed empty clause is a conflict.
+static void tst_trim_watches_literals_that_are_not_false() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false), c(trim.mk_var(), false),
+        d(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({a}); trim.assume(0);
+    clause({b}); trim.assume(1);
+    clause({~a, ~b, c, d}); trim.assume(2);
+    clause({~c}); trim.assume(3);
+    clause({~d}); trim.assume(4);
+    clause({}); trim.infer(5);
+    auto core = trim.trim();
+    ENSURE(core.size() == 6);
+    for (unsigned i = 0; i < core.size(); ++i) {
+        ENSURE(core[i].first == i);
+        for (unsigned dep : core[i].second)
+            ENSURE(dep < i);
+    }
+    ENSURE(core[5].second.size() == 5);
+
+    sat::proof_trim trim2(params, limit);
+    sat::literal p(trim2.mk_var(), false), q(trim2.mk_var(), false);
+    auto clause2 = [&](std::initializer_list<sat::literal> literals) {
+        trim2.init_clause();
+        for (auto literal : literals)
+            trim2.add_literal(literal.var(), literal.sign());
+    };
+    clause2({p}); trim2.assume(0);
+    clause2({~p, q}); trim2.assume(1);
+    clause2({}); trim2.infer(2);           // not derivable: p and q hold
+    bool rejected = false;
+    try {
+        trim2.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("empty clause is not derivable") != std::string::npos;
+    }
+    ENSURE(rejected);
+
+    // An input that asserts false is logged as an assumed empty clause; it
+    // is the conflict itself, and the inferred empty clause depends on it.
+    sat::proof_trim trim3(params, limit);
+    sat::literal r(trim3.mk_var(), false);
+    trim3.init_clause(); trim3.add_literal(r.var(), r.sign()); trim3.assume(0);
+    trim3.init_clause(); trim3.assume(1);
+    trim3.init_clause(); trim3.infer(2);
+    auto core3 = trim3.trim();
+    ENSURE(core3.size() == 2);
+    ENSURE(core3[0].first == 1 && core3[0].second.empty());
+    ENSURE(core3[1].first == 2 && core3[1].second.size() == 1 && core3[1].second[0] == 1);
+}
+
+// An empty clause inferred under a theory hint is assumed (proof_cmds treats
+// theory axioms as assumptions). When nothing before it conflicts, its core
+// would be itself; trim() rejects it. An assumed empty clause that follows a
+// conflict is not part of the core.
+static void tst_trim_assumed_empty_clauses() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal x(trim.mk_var(), false), y(trim.mk_var(), false);
+    trim.init_clause(); trim.add_literal(x.var(), x.sign()); trim.assume(0);
+    trim.init_clause(); trim.add_literal(y.var(), y.sign()); trim.assume(1);
+    trim.init_clause(); trim.assume(2);    // (infer (arith ...)) of the empty clause
+    bool rejected = false;
+    try {
+        trim.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("theory axiom whose premises are unknown") != std::string::npos;
+    }
+    ENSURE(rejected);
+
+    sat::proof_trim trim2(params, limit);
+    sat::literal a(trim2.mk_var(), false), b(trim2.mk_var(), false);
+    trim2.init_clause(); trim2.add_literal(a.var(), a.sign()); trim2.assume(0);
+    trim2.init_clause(); trim2.add_literal(a.var(), !a.sign()); trim2.assume(1);
+    trim2.init_clause(); trim2.assume(2);
+    trim2.init_clause(); trim2.add_literal(b.var(), b.sign()); trim2.assume(3);
+    trim2.init_clause(); trim2.infer(4);
+    auto core = trim2.trim();
+    ENSURE(core.size() == 3);
+    ENSURE(core[0].first == 0 && core[1].first == 1 && core[2].first == 4);
+    ENSURE(core[2].second.size() == 2);
+}
+
 void tst_proof_replay() {
     tst_trim_satisfied_clause();
+    tst_trim_watches_literals_that_are_not_false();
+    tst_trim_assumed_empty_clauses();
     tst_trim_duplicate_binary_keeps_implied_literal();
     tst_trim_rejects_underivable_inference();
     tst_trim_ignores_deletions_of_clauses_never_added();

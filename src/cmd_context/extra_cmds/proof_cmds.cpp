@@ -127,7 +127,10 @@ public:
         if (m_empty)
             return;
 
-        if (hint && !is_rup(hint)) {
+        // A hint without a checker plugin (the bare arith hint of a div/mod
+        // axiom, unsupported) has no clause of its own: the logged clause is
+        // assumed, as for any theory axiom.
+        if (hint && !is_rup(hint) && m_checker.has_rule(hint)) {
             auto clause1 = m_checker.clause(hint);
             if (clause1.size() != clause.size()) {
                 mk_clause(clause1);

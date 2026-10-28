@@ -350,8 +350,12 @@ namespace euf {
         return e && is_app(e) && m_map.find(to_app(e)->get_name(), p) && p->requires_check();
     }
 
+    bool theory_checker::has_rule(expr* e) const {
+        return e && is_app(e) && m_map.contains(to_app(e)->get_name());
+    }
+
     expr_ref_vector theory_checker::clause(expr* e) {
-        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
+        SASSERT(has_rule(e));
         expr_ref_vector r = m_map[to_app(e)->get_name()]->clause(to_app(e));
         return r;
     }
