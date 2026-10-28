@@ -1877,6 +1877,61 @@ static void tst_lex_after_unbounded() {
     }
 }
 
+static void set_lp_relaxation(opt_fixture& f, bool relax) {
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_bool(f.ctx, p, f.symbol("maxres.lp_relaxation"), relax);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+}
+
+// A cardinality constraint over the soft literals has an integral linear
+// relaxation, so the relaxation bound n - k meets the first rounded
+// assignment. A vertex cover of K4 has relaxation bound 2 and optimum 3, so
+// the cores still decide it. Both answers are the same without the relaxation.
+static void tst_maxsmt_lp_relaxation() {
+    for (bool relax : {true, false}) {
+        {
+            opt_fixture f;
+            set_lp_relaxation(f, relax);
+            unsigned const n = 12, k = 5;
+            Z3_ast xs[n];
+            for (unsigned i = 0; i < n; ++i) {
+                std::string name = "x" + std::to_string(i);
+                xs[i] = Z3_mk_const(f.ctx, f.symbol(name.c_str()), Z3_mk_bool_sort(f.ctx));
+            }
+            f.add(Z3_mk_atmost(f.ctx, n, xs, k));
+            unsigned cost = 0;
+            for (unsigned i = 0; i < n; ++i)
+                cost = Z3_optimize_assert_soft(f.ctx, f.opt, xs[i], "1", f.symbol("cost"));
+            ENSURE(cost == 0);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_finite_bounds(f, cost, f.num(n - k), Z3_INT_SORT);
+        }
+        {
+            opt_fixture f;
+            set_lp_relaxation(f, relax);
+            Z3_ast xs[4];
+            for (unsigned i = 0; i < 4; ++i) {
+                std::string name = "v" + std::to_string(i);
+                xs[i] = Z3_mk_const(f.ctx, f.symbol(name.c_str()), Z3_mk_bool_sort(f.ctx));
+            }
+            for (unsigned i = 0; i < 4; ++i)
+                for (unsigned j = i + 1; j < 4; ++j) {
+                    Z3_ast edge[] = {xs[i], xs[j]};
+                    f.add(Z3_mk_or(f.ctx, 2, edge));
+                }
+            unsigned cost = 0;
+            for (unsigned i = 0; i < 4; ++i)
+                cost = Z3_optimize_assert_soft(f.ctx, f.opt, Z3_mk_not(f.ctx, xs[i]), "1", f.symbol("cost"));
+            ENSURE(cost == 0);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_finite_bounds(f, cost, f.num(3), Z3_INT_SORT);
+        }
+    }
+}
+
 static void tst_symba_bounds() {
     // An integer slack selects theory_inf_arith instead of the pure-LRA
     // shortcut, so these cases exercise SYMBA's vector-bound updates.
@@ -1953,6 +2008,8 @@ void tst_opt_bounds() {
     tst_lex_box_search();
     std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
     tst_lex_after_unbounded();
+    std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
+    tst_maxsmt_lp_relaxation();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
     tst_open_bounds();
     tst_open_polynomial_objectives();
