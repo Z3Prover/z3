@@ -55,6 +55,8 @@ namespace euf {
         void register_plugin(symbol const& rule, theory_checker_plugin*);
         bool check(expr* jst);
         bool requires_check(expr* jst);
+        // A plugin is registered for the hint's rule; clause and vc need one.
+        bool has_rule(expr* jst) const;
         expr_ref_vector clause(expr* jst);
         bool vc(expr* jst, expr_ref_vector const& clause, expr_ref_vector& v);
         // Every literal of clause occurs in hint_clause; units receives the

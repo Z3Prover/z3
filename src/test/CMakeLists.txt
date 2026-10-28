@@ -86,6 +86,7 @@ add_executable(test-z3
   map.cpp
   matcher.cpp
   memory.cpp
+  min_cut.cpp
   model2expr.cpp
   model_based_opt.cpp
   mod_factor.cpp

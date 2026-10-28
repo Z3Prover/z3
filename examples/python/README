@@ -306,7 +306,8 @@ step:
     is rejected as a fresh symbol, as is any other symbol absent from the
     input.
 
-Logs of at least 1 MB are reduced with Z3's native proof trimmer before replay.
+Logs of at least 4,096 characters are reduced with Z3's native proof trimmer
+before replay.
 The exporter follows the final empty clause's dependency graph, checks it for
 missing references and cycles, and replays every retained inference using the
 listed premises and independently proved Boolean gate clauses. These
