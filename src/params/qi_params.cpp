@@ -32,6 +32,7 @@ void qi_params::updt_params(params_ref const & _p) {
     m_qi_profile = p.qi_profile();
     m_qi_profile_freq = p.qi_profile_freq();
     m_qi_max_instances = p.qi_max_instances();
+    m_qi_arith = p.qi_arith();
     m_qi_persist_instances = p.qi_persist_instances();
     m_qi_max_persistent_instances = p.qi_max_persistent_instances();
     m_qi_eager_threshold = p.qi_eager_threshold();
@@ -46,6 +47,7 @@ void qi_params::updt_params(params_ref const & _p) {
 
 void qi_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_qi_cost);
+    DISPLAY_PARAM(m_qi_arith);
     DISPLAY_PARAM(m_qi_new_gen);
     DISPLAY_PARAM(m_qi_eager_threshold);
     DISPLAY_PARAM(m_qi_lazy_threshold);

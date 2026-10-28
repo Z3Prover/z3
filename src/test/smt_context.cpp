@@ -14,6 +14,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "solver/tactic2solver.h"
 #include "model/model.h"
 #include "qe/qsat.h"
 #include "tactic/goal.h"
@@ -746,8 +747,224 @@ static void check_qe_rec_proofs() {
     }
 }
 
+static void check_arithmetic_quantifier_instances() {
+    char const* cases[] = {
+        "(assert (forall ((x Real) (y Real)) (> (f x y) (+ x y))))\n"
+        "(assert (forall ((z Real)) (<= (f a z) b)))\n",
+        "(assert (forall ((x Real) (y Real)) (> (* 3.0 (f y x)) (+ (* 5.0 x) (* 2.0 y)))))\n"
+        "(assert (forall ((z Real)) (<= (* 2.0 (f z a)) b)))\n",
+        "(assert (forall ((x Real) (y Real)) (>= (f x y) (+ x y))))\n"
+        "(assert (forall ((z Real)) (<= (f a z) b)))\n",
+        "(assert (forall ((x Real) (y Real)) (< (f x y) (- x y))))\n"
+        "(assert (forall ((z Real)) (>= (f a z) b)))\n",
+        "(declare-fun g (Real) Real)\n"
+        "(assert (forall ((x Real)) (> (g x) x)))\n"
+        "(assert (forall ((z Real)) (<= (g z) b)))\n",
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (>= (f x y) (+ (* 2.0 x) y)) (>= (f x y) (+ x (* 2.0 y))))))\n"
+        "(assert (forall ((z Real)) (<= (f a z) b)))\n",
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (f (* 2.0 x) y) (+ (* 2.0 x) y))\n"
+        "     (> (f (+ x 1.0) y) (+ x (* 2.0 y))))))\n"
+        "(assert (forall ((z Real)) (<= (f 2.0 z) b)))\n",
+        "(declare-fun g (Real Real) Real)\n"
+        "(assert (forall ((x Real) (y Real)) (> (g x y) (+ (* 2.0 x) y))))\n"
+        "(assert (forall ((x Real) (y Real)) (> (f x y) (+ 7.0 (g x y)))))\n"
+        "(assert (forall ((z Real)) (<= (f a z) b)))\n",
+        "(declare-fun g (Real) Real)\n"
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (f (* 2.0 x) y) (+ (* 2.0 x) y))\n"
+        "     (> (f (+ x 1.0) y) (+ x (* 2.0 y))))))\n"
+        "(assert (forall ((k Real) (z Real)) (<= (f k z) (g k))))\n",
+        "(declare-fun g (Real) Real)\n"
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (f (- (g (* 3.0 x)) (g (+ x 84.0))) y) (+ (* 2.0 x) y))\n"
+        "     (> (f (- x 42.0) y) (+ x (* 2.0 y))))))\n"
+        "(assert (forall ((z Real)) (<= (f 0.0 z) b)))\n",
+        "(declare-fun g (Real) Real)\n"
+        "(declare-fun h (Real) Real)\n"
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (f (+ (g x) (g a)) y) (+ (* 2.0 x) y))\n"
+        "     (> (f (* 2.0 (g x)) y) (+ x (* 2.0 y))))))\n"
+        "(assert (forall ((k Real) (z Real)) (<= (f (* 2.0 (g k)) z) (h k))))\n"
+    };
+    for (bool proofs : {false, true}) {
+        for (char const* test : cases) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(std::string(
+                "(declare-fun f (Real Real) Real)\n"
+                "(declare-const a Real)\n"
+                "(declare-const b Real)\n") + test);
+            VERIFY(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_bool("mbqi", false);
+            if (!proofs && test == cases[0]) {
+                params_ref disabled(p);
+                disabled.set_bool("qi.arith", false);
+                ref<solver> control = mk_smt2_solver(m, disabled, symbol::null);
+                for (expr* assertion : cmd.assertions())
+                    control->assert_expr(assertion);
+                VERIFY(l_undef == control->check_sat(0, nullptr));
+            }
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            slv->push();
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            VERIFY(l_false == slv->check_sat(0, nullptr));
+            if (proofs) {
+                proof_ref pr(slv->get_proof(), m);
+                VERIFY(pr && m.is_false(m.get_fact(pr)));
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(checker.check(pr, side_conditions));
+            }
+            slv->pop(1);
+            VERIFY(l_true == slv->check_sat(0, nullptr));
+            slv->push();
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            VERIFY(l_false == slv->check_sat(0, nullptr));
+            slv->pop(1);
+        }
+    }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream input(
+        "(declare-fun f (Real Real) Real)\n"
+        "(declare-const a Real)\n"
+        "(declare-const b Real)\n"
+        "(declare-const p Bool)\n"
+        "(assert (or p (forall ((x Real) (y Real)) (> (f x y) (+ x y)))))\n"
+        "(assert (forall ((z Real)) (<= (f a z) b)))\n"
+        "(assert p)\n");
+    VERIFY(parse_smt2_commands(cmd, input));
+    params_ref p;
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* assertion : cmd.assertions())
+        slv->assert_expr(assertion);
+    VERIFY(l_true == slv->check_sat(0, nullptr));
+
+    cmd_context disjunction(false, &m);
+    std::istringstream alternatives(
+        "(declare-fun f (Real Real) Real)\n"
+        "(declare-const a Real)\n"
+        "(declare-const b Real)\n"
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (f x y) (+ x y)) (<= (f x y) 0.0))))\n"
+        "(assert (forall ((z Real)) (<= (f a z) b)))\n"
+        "(assert (= b 0.0))\n"
+        "(declare-fun h (Bool Real) Real)\n"
+        "(assert (forall ((x Real) (y Real))\n"
+        " (or (> (h (> x 0.0) y) y) (<= (h (> x 0.0) y) 0.0))))\n"
+        "(assert (forall ((z Real)) (<= (h true z) 0.0)))\n");
+    VERIFY(parse_smt2_commands(disjunction, alternatives));
+    ref<solver> sat = mk_smt2_solver(m, p, symbol::null);
+    for (expr* assertion : disjunction.assertions())
+        sat->assert_expr(assertion);
+    VERIFY(l_true == sat->check_sat(0, nullptr));
+}
+
+static void check_arithmetic_nested_witnesses() {
+    for (bool proofs : {false, true}) {
+        for (char const* coefficient : {"(/ 96.0 82.0)", "(- (/ 5.0 3.0))"}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::string formula =
+                "(define-fun absolute ((x Real)) Real (ite (>= x 0.0) x (- x)))\n"
+                "(declare-fun f (Real) Real)\n"
+                "(declare-const a Real)\n"
+                "(declare-const l Real)\n"
+                "(define-fun coefficient () Real " + std::string(coefficient) + ")\n"
+                "(assert (forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
+                " (exists ((delta Real)) (and (> delta 0.0)\n"
+                "  (forall ((x Real)) (=> (and (not (= x a)) (< (absolute (- x a)) delta))\n"
+                "                       (< (absolute (- (f x) l)) epsilon))))))))\n"
+                "(assert (not (forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
+                " (exists ((delta Real)) (and (> delta 0.0)\n"
+                "  (forall ((x Real)) (=> (and (not (= x a)) (< (absolute (- x a)) delta))\n"
+                "   (< (absolute (- (* coefficient (f x)) (* coefficient l))) epsilon)))))))))\n";
+            std::istringstream input(formula);
+            VERIFY(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_bool("mbqi", false);
+            // Scoped existential goals still need the tactic's NNF/Skolem preprocessing.
+            ref<solver> slv = mk_tactic2solver(m, mk_smt_tactic(m, p), p, proofs);
+            for (unsigned repeat = 0; repeat < 2; ++repeat) {
+                slv->push();
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                VERIFY(l_false == slv->check_sat(0, nullptr));
+                if (proofs) {
+                    proof_ref pr(slv->get_proof(), m);
+                    VERIFY(pr && m.is_false(m.get_fact(pr)));
+                    proof_checker checker(m);
+                    expr_ref_vector side_conditions(m);
+                    VERIFY(checker.check(pr, side_conditions));
+                }
+                slv->pop(1);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+}
+
+static void check_uflra_macro_qe() {
+    struct {
+        char const* input;
+        lbool expected;
+        bool proofs;
+    } cases[] = {
+        {"(declare-const a Real)\n"
+         "(assert (not (forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
+         " (exists ((delta Real)) (and (> delta 0.0)\n"
+         "  (forall ((x Real)) (=> (and (not (= x a)) (< (absolute (- x a)) delta))\n"
+         "                       (< (absolute (- x a)) epsilon)))))))))\n",
+         l_false, false},
+        {"(assert (forall ((x Real)) (exists ((y Real)) (> y (absolute x)))))\n"
+         "(assert (= (absolute (- 2.0)) 2.0))\n", l_true, false},
+        {"(assert (forall ((x Real)) (< (absolute x) 0.0)))\n", l_false, true}
+    };
+    for (auto const& test : cases) {
+        ast_manager m(test.proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream input(std::string(
+            "(declare-fun absolute (Real) Real)\n"
+            "(assert (forall ((x Real)) (= (absolute x) (ite (>= x 0.0) x (- x)))))\n") + test.input);
+        VERIFY(parse_smt2_commands(cmd, input));
+        tactic_ref t = try_for(mk_uflra_tactic(m, params_ref()), 2000);
+        goal_ref g = alloc(goal, m, test.proofs, true, false);
+        for (expr* assertion : cmd.assertions())
+            g->assert_expr(assertion);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        VERIFY(test.expected == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+        if (test.proofs) {
+            VERIFY(pr && m.is_false(m.get_fact(pr)));
+            proof_checker checker(m);
+            expr_ref_vector side_conditions(m);
+            VERIFY(checker.check(pr, side_conditions));
+        }
+        if (test.expected == l_true) {
+            expr_ref value(m);
+            VERIFY(md && md->eval_expr(cmd.assertions().back(), value) && m.is_true(value));
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_arithmetic_quantifier_instances();
+    check_arithmetic_nested_witnesses();
+    check_uflra_macro_qe();
     check_qsat_proofs();
     check_qe_rec_proofs();
     check_arithmetic_propagation_cancellation();

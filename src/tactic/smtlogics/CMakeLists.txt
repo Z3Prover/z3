@@ -25,4 +25,5 @@ z3_add_component(smtlogic_tactics
     qe
     sat_solver
     smt_tactic
+    ufbv_tactic
 )

@@ -18,9 +18,13 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/occurs.h"
 #include "ast/quantifier_stat.h"
 #include "ast/euf/ho_matcher.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/well_sorted.h"
 #include "ast/has_free_vars.h"
 #include "smt/smt_quantifier.h"
@@ -649,6 +653,453 @@ namespace smt {
         ho_match_state m_ho_state;
         unsigned       m_stat_ho_refine = 0;    // number of times ho-matching refinement is invoked
         unsigned       m_stat_ho_instances = 0; // number of instances added via ho-matching
+        unsigned       m_stat_arith_instances = 0;
+        bool           m_arith_matching_done = false;
+
+        struct arith_bound {
+            quantifier* q = nullptr;
+            // Nested declarations guide matching, but only q's declarations receive emitted bindings.
+            unsigned inner_decls = 0;
+            unsigned num_decls = 0;
+            app_ref head;
+            expr_ref rest;
+            rational coefficient;
+
+            arith_bound(ast_manager& m): head(m), rest(m) {}
+        };
+
+        static expr* arith_atom(arith_util& a, expr* t, rational& coefficient) {
+            expr* n = nullptr, *atom = nullptr;
+            coefficient = rational(1);
+            if (a.is_mul(t, n, atom) && a.is_numeral(n, coefficient))
+                return atom;
+            coefficient = rational(1);
+            return t;
+        }
+
+        static bool arith_coefficient(arith_util& a, expr* polynomial, expr* atom,
+                                      rational& coefficient, expr_ref& rest) {
+            expr_ref_vector terms(rest.get_manager());
+            coefficient = rational(0);
+            unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
+            if (size > 32)
+                return false;
+            for (unsigned i = 0; i < size; ++i) {
+                expr* t = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial;
+                rational k;
+                if (arith_atom(a, t, k) == atom)
+                    coefficient += k;
+                else
+                    terms.push_back(t);
+            }
+            if (coefficient.is_zero())
+                return false;
+            rest = terms.empty() ? a.mk_real(0) :
+                   terms.size() == 1 ? terms.get(0) : a.mk_add(terms.size(), terms.data());
+            return true;
+        }
+
+        void get_arith_bounds(quantifier* q, arith_util& a, th_rewriter& rw, vector<arith_bound>& bounds) {
+            if (!is_forall(q) || q->get_num_decls() > 4)
+                return;
+            for (unsigned i = 0; i < q->get_num_decls(); ++i)
+                if (!a.is_real(q->get_decl_sort(i)))
+                    return;
+            ast_manager& m = a.get_manager();
+            unsigned inspected = 0;
+            auto collect = [&](auto&& self, expr* body, unsigned inner, bool negated) -> void {
+                if (++inspected > 128 || bounds.size() == 32)
+                    return;
+                expr* arg = nullptr;
+                if (m.is_not(body, arg)) {
+                    self(self, arg, inner, !negated);
+                    return;
+                }
+                if (m.is_and(body) || m.is_or(body)) {
+                    for (expr* child : *to_app(body)) {
+                        if (inspected >= 128 || bounds.size() == 32)
+                            break;
+                        self(self, child, inner, negated);
+                    }
+                    return;
+                }
+                expr* condition = nullptr, *yes = nullptr, *no = nullptr;
+                if (m.is_ite(body, condition, yes, no) && m.is_bool(body)) {
+                    self(self, condition, inner, false);
+                    self(self, yes, inner, negated);
+                    self(self, no, inner, negated);
+                    return;
+                }
+                if (is_forall(body) && !negated) {
+                    quantifier* nested = to_quantifier(body);
+                    if (inner + nested->get_num_decls() + q->get_num_decls() > 4)
+                        return;
+                    for (unsigned i = 0; i < nested->get_num_decls(); ++i)
+                        if (!a.is_real(nested->get_decl_sort(i)))
+                            return;
+                    self(self, nested->get_expr(), inner + nested->get_num_decls(), negated);
+                    return;
+                }
+                expr* lhs = nullptr, *rhs = nullptr;
+                bool reverse;
+                if (a.is_le(body, lhs, rhs) || a.is_lt(body, lhs, rhs))
+                    reverse = true;
+                else if (a.is_ge(body, lhs, rhs) || a.is_gt(body, lhs, rhs))
+                    reverse = false;
+                else
+                    return;
+                if (!a.is_real(lhs))
+                    return;
+                ptr_buffer<expr> left, right;
+                expr* c = nullptr, *t = nullptr, *e = nullptr;
+                if (m.is_ite(lhs, c, t, e)) {
+                    left.push_back(t);
+                    left.push_back(e);
+                }
+                else
+                    left.push_back(lhs);
+                if (m.is_ite(rhs, c, t, e)) {
+                    right.push_back(t);
+                    right.push_back(e);
+                }
+                else
+                    right.push_back(rhs);
+                for (expr* x : left)
+                    for (expr* y : right) {
+                        expr_ref polynomial(reverse ? a.mk_sub(y, x) : a.mk_sub(x, y), m);
+                        if (negated)
+                            polynomial = a.mk_uminus(polynomial);
+                        rw(polynomial);
+                        unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
+                        if (size > 32)
+                            continue;
+                        for (unsigned i = 0; i < size && bounds.size() < 32; ++i) {
+                            expr* term = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial.get();
+                            rational k;
+                            expr* atom = arith_atom(a, term, k);
+                            if (!is_uninterp(atom) || !has_free_vars(atom) || !a.is_real(atom))
+                                continue;
+                            arith_bound bound(m);
+                            bound.q = q;
+                            bound.inner_decls = inner;
+                            bound.num_decls = q->get_num_decls() + inner;
+                            bound.head = to_app(atom);
+                            if (arith_coefficient(a, polynomial, atom, bound.coefficient, bound.rest))
+                                bounds.push_back(bound);
+                        }
+                    }
+            };
+            collect(collect, q->get_expr(), 0, false);
+        }
+
+        bool arith_unify(app* source, app* target, unsigned source_vars,
+                         expr_ref_vector const& variables, expr_ref_vector& bindings,
+                         arith_util& a, th_rewriter& rw) {
+            ast_manager& m = a.get_manager();
+            expr_ref_vector equations(m);
+            svector<bool> expanded;
+            for (unsigned i = 0; i < source->get_num_args(); ++i) {
+                if (!a.is_real(source->get_arg(i)))
+                    return false;
+                equations.push_back(a.mk_sub(source->get_arg(i), target->get_arg(i)));
+                expanded.push_back(false);
+            }
+            for (unsigned round = 0; round <= bindings.size(); ++round) {
+                bool progress = false, solved = true;
+                for (unsigned i = 0; i < equations.size(); ++i) {
+                    expr_ref equation(equations.get(i), m);
+                    rw(equation);
+                    equations.set(i, equation);
+                    if (a.is_zero(equation))
+                        continue;
+                    solved = false;
+                    bool bound = false;
+                    for (unsigned j = 0; j < bindings.size(); ++j) {
+                        // Prefer binding target variables, leaving source arguments as common anchors.
+                        unsigned index = (j + source_vars) % bindings.size();
+                        expr* variable = variables.get(index);
+                        if (bindings.get(index) != variable)
+                            continue;
+                        rational coefficient;
+                        expr_ref rest(m);
+                        if (!arith_coefficient(a, equation, variable, coefficient, rest) || occurs(variable, rest))
+                            continue;
+                        expr_ref value(a.mk_mul(a.mk_real(-rational(1) / coefficient), rest), m);
+                        rw(value);
+                        expr_safe_replace replace(m);
+                        replace.insert(variable, value);
+                        replace(bindings);
+                        replace(equations);
+                        bound = progress = true;
+                        break;
+                    }
+                    if (bound || expanded[i] || !a.is_add(equation) || to_app(equation)->get_num_args() > 4)
+                        continue;
+                    rational sum;
+                    ptr_buffer<app> applications;
+                    for (expr* term : *to_app(equation)) {
+                        rational k;
+                        expr* atom = arith_atom(a, term, k);
+                        if (!is_uninterp(atom) ||
+                            (!applications.empty() && applications[0]->get_decl() != to_app(atom)->get_decl()))
+                            break;
+                        sum += k;
+                        applications.push_back(to_app(atom));
+                    }
+                    if (applications.size() != to_app(equation)->get_num_args() || !sum.is_zero() ||
+                        equations.size() + (applications.size() - 1) * applications[0]->get_num_args() > 16)
+                        continue;
+                    expanded[i] = true;
+                    for (unsigned j = 1; j < applications.size(); ++j)
+                        for (unsigned k = 0; k < applications[0]->get_num_args(); ++k) {
+                            if (!a.is_real(applications[0]->get_arg(k)))
+                                return false;
+                            equations.push_back(a.mk_sub(applications[0]->get_arg(k), applications[j]->get_arg(k)));
+                            expanded.push_back(false);
+                        }
+                    progress = true;
+                }
+                if (solved)
+                    return true;
+                if (!progress)
+                    return false;
+            }
+            return false;
+        }
+
+        void arith_eliminate(expr_ref& polynomial, vector<arith_bound> const& bounds,
+                             bool positive, arith_util& a, th_rewriter& rw) {
+            ast_manager& m = a.get_manager();
+            for (unsigned step = 0; step < 4; ++step) {
+                unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
+                if (size > 32)
+                    return;
+                bool changed = false;
+                for (unsigned i = 0; i < size && !changed; ++i) {
+                    expr* term = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial.get();
+                    rational k;
+                    expr* atom = arith_atom(a, term, k);
+                    if (!is_uninterp(atom))
+                        continue;
+                    for (auto const& rule : bounds) {
+                        if (m.is_or(rule.q->get_expr()) || rule.head->get_decl() != to_app(atom)->get_decl() ||
+                            rule.head->get_num_args() != rule.num_decls ||
+                            (k.is_pos() == positive) == rule.coefficient.is_pos())
+                            continue;
+                        expr_ref_vector substitution(m);
+                        substitution.resize(rule.num_decls);
+                        bool match = true;
+                        for (unsigned j = 0; j < rule.head->get_num_args(); ++j) {
+                            expr* x = rule.head->get_arg(j);
+                            if (!is_var(x) || to_var(x)->get_idx() >= substitution.size() ||
+                                substitution.get(to_var(x)->get_idx())) {
+                                match = false;
+                                break;
+                            }
+                            substitution.set(to_var(x)->get_idx(), to_app(atom)->get_arg(j));
+                        }
+                        if (!match)
+                            continue;
+                        expr_ref rest(m);
+                        if (!arith_coefficient(a, polynomial, atom, k, rest))
+                            continue;
+                        var_subst subst(m, false);
+                        expr_ref replacement = subst(rule.rest, substitution);
+                        replacement = a.mk_mul(a.mk_real(-k / rule.coefficient), replacement);
+                        polynomial = a.mk_add(rest, replacement);
+                        rw(polynomial);
+                        changed = true;
+                        break;
+                    }
+                }
+                if (!changed)
+                    return;
+            }
+        }
+
+        bool add_arith_instance(quantifier* q, expr_ref_vector const& terms) {
+            ptr_buffer<enode> bindings;
+            unsigned generation = 0;
+            for (expr* term : terms) {
+                if (!m_context->e_internalized(term))
+                    m_context->internalize(term, false);
+                enode* n = m_context->get_enode(term);
+                generation = std::max(generation, m_context->get_generation(n));
+                bindings.push_back(n);
+            }
+            bool added = m_qm->add_instance(q, bindings.size(), bindings.data(), generation);
+            if (added)
+                ++m_stat_arith_instances;
+            return added;
+        }
+
+        bool arith_match(arith_bound const& source, arith_bound const& target,
+                         vector<arith_bound> const& bounds, expr_ref_vector const& variables,
+                         arith_util& a, th_rewriter& rw, unsigned& budget) {
+            if (source.head->get_decl() != target.head->get_decl() || source.head->get_num_args() > 4 ||
+                (source.q == target.q && (source.inner_decls || target.inner_decls)) ||
+                source.coefficient.is_pos() == target.coefficient.is_pos())
+                return false;
+            ast_manager& m = a.get_manager();
+            unsigned ns = source.num_decls, nt = target.num_decls;
+            expr_ref_vector bindings(m), source_substitution(m), target_substitution(m);
+            for (unsigned i = 0; i < ns + nt; ++i)
+                bindings.push_back(variables.get(i));
+            for (unsigned i = 0; i < ns; ++i)
+                source_substitution.push_back(bindings.get(i));
+            for (unsigned i = 0; i < nt; ++i)
+                target_substitution.push_back(bindings.get(ns + i));
+            var_subst subst(m, false);
+            expr_ref source_head = subst(source.head, source_substitution);
+            expr_ref target_head = subst(target.head, target_substitution);
+            if (!arith_unify(to_app(source_head), to_app(target_head), ns, variables, bindings, a, rw))
+                return false;
+            for (unsigned i = 0; i < ns; ++i)
+                source_substitution.set(i, bindings.get(i));
+            for (unsigned i = 0; i < nt; ++i)
+                target_substitution.set(i, bindings.get(ns + i));
+            expr_ref source_rest = subst(source.rest, source_substitution);
+            expr_ref target_rest = subst(target.rest, target_substitution);
+            source_rest = a.mk_mul(a.mk_real(rational(1) / source.coefficient), source_rest);
+            target_rest = a.mk_mul(a.mk_real(rational(1) / target.coefficient), target_rest);
+            expr_ref difference(a.mk_sub(source_rest, target_rest), m);
+            rw(difference);
+            arith_eliminate(difference, bounds, source.coefficient.is_pos(), a, rw);
+            unsigned pivot = bindings.size();
+            expr_ref remainder(m);
+            rational coefficient;
+            for (unsigned i = 0; i < bindings.size(); ++i)
+                if ((i < ns ? i >= source.inner_decls : i - ns >= target.inner_decls) &&
+                    bindings.get(i) == variables.get(i) &&
+                    arith_coefficient(a, difference, variables.get(i), coefficient, remainder) &&
+                    !occurs(variables.get(i), remainder)) {
+                    pivot = i;
+                    break;
+                }
+            if (pivot == bindings.size())
+                return false;
+            expr_safe_replace ground(m);
+            expr_ref anchor(a.mk_real(0), m);
+            ptr_buffer<expr> todo;
+            expr_mark visited;
+            todo.push_back(source.q->get_expr());
+            for (unsigned inspected = 0; !todo.empty() && inspected < 64; ++inspected) {
+                expr* e = todo.back();
+                todo.pop_back();
+                if (visited.is_marked(e))
+                    continue;
+                visited.mark(e);
+                if (is_uninterp(e) && to_app(e)->get_num_args() == 0 && a.is_real(e)) {
+                    anchor = e;
+                    break;
+                }
+                if (is_app(e))
+                    for (expr* arg : *to_app(e))
+                        todo.push_back(arg);
+            }
+            for (unsigned i = 0; i < bindings.size(); ++i)
+                if (i != pivot && bindings.get(i) == variables.get(i))
+                    ground.insert(variables.get(i), anchor);
+            ground(remainder);
+            expr_ref boundary(a.mk_mul(a.mk_real(-rational(1) / coefficient), remainder), m);
+            rw(boundary);
+            bool added = false;
+            // These are candidate bindings, including for disjunctive bounds, not asserted arithmetic lemmas.
+            for (int offset : {0, 1, -1}) {
+                if (budget < 2)
+                    break;
+                budget -= 2;
+                expr_ref value(a.mk_add(boundary, a.mk_real(offset)), m);
+                rw(value);
+                expr_safe_replace instantiate(m);
+                instantiate.insert(variables.get(pivot), value);
+                expr_ref_vector source_terms(m), target_terms(m);
+                for (unsigned i = ns + nt; i-- > 0;) {
+                    expr_ref term(bindings.get(i), m);
+                    ground(term);
+                    instantiate(term);
+                    rw(term);
+                    if (i < ns && i >= source.inner_decls)
+                        source_terms.push_back(term);
+                    else if (i >= ns && i - ns >= target.inner_decls)
+                        target_terms.push_back(term);
+                }
+                added = add_arith_instance(source.q, source_terms) || added;
+                added = add_arith_instance(target.q, target_terms) || added;
+                if (offset != 0 || !source.inner_decls)
+                    continue;
+                expr_ref_vector guard_values(m);
+                for (auto const& guard : bounds) {
+                    if (budget == 0 || guard_values.size() == 2)
+                        break;
+                    if (guard.q != source.q || guard.head->get_decl() == source.head->get_decl())
+                        continue;
+                    bool closed = true;
+                    for (unsigned i = 0; i < guard.inner_decls; ++i) {
+                        expr_ref variable(m.mk_var(i, a.mk_real()), m);
+                        if (occurs(variable, guard.head))
+                            closed = false;
+                    }
+                    if (!closed)
+                        continue;
+                    expr_ref_vector substitution(m);
+                    for (unsigned i = 0; i < guard.inner_decls; ++i)
+                        substitution.push_back(anchor);
+                    for (unsigned i = 0; i < source_terms.size(); ++i)
+                        substitution.push_back(source_terms.get(source_terms.size() - i - 1));
+                    expr_ref candidate = subst(guard.head, substitution);
+                    rw(candidate);
+                    bool duplicate = false;
+                    for (expr* previous : guard_values)
+                        duplicate |= previous == candidate;
+                    if (duplicate || has_free_vars(candidate))
+                        continue;
+                    guard_values.push_back(candidate);
+                    for (unsigned i = target.inner_decls; i < nt && budget > 0; ++i)
+                        if (bindings.get(ns + i) == variables.get(ns + i)) {
+                            expr_ref_vector guarded_terms(target_terms);
+                            guarded_terms.set(nt - i - 1, candidate);
+                            --budget;
+                            added = add_arith_instance(target.q, guarded_terms) || added;
+                        }
+                }
+            }
+            return added;
+        }
+
+        bool arith_match() {
+            if (m_arith_matching_done || !m_fparams->m_qi_arith || !use_ematching())
+                return false;
+            m_arith_matching_done = true;
+            ast_manager& m = m_context->get_manager();
+            arith_util a(m);
+            th_rewriter rw(m);
+            vector<arith_bound> bounds;
+            unsigned inspected = 0;
+            for (auto it = m_qm->begin_quantifiers(); it != m_qm->end_quantifiers(); ++it) {
+                quantifier* q = *it;
+                if (++inspected > 64 || bounds.size() == 32)
+                    break;
+                if (!m_context->is_relevant(q) || m_context->get_assignment(q) != l_true ||
+                    m_qm->get_generation(q) != 0)
+                    continue;
+                get_arith_bounds(q, a, rw, bounds);
+            }
+            if (bounds.size() < 2)
+                return false;
+            expr_ref_vector variables(m);
+            for (unsigned i = 0; i < 8; ++i)
+                variables.push_back(m.mk_fresh_const("arith", a.mk_real()));
+            bool added = false;
+            unsigned budget = 32;
+            for (auto const& source : bounds)
+                for (auto const& target : bounds) {
+                    if (budget < 2)
+                        return added;
+                    added = arith_match(source, target, bounds, variables, a, rw, budget) || added;
+                }
+            return added;
+        }
     public:
         default_qm_plugin():
             m_qm(nullptr),
@@ -777,6 +1228,7 @@ namespace smt {
             }
             if (m_model_finder)
                 m_model_finder->collect_statistics(st);
+            st.update("arith-quantifier-instances", m_stat_arith_instances);
         }
 
         bool mbqi_enabled(quantifier *q) const override {
@@ -815,6 +1267,7 @@ namespace smt {
 
         void init_search_eh() override {
             m_lazy_matching_idx = 0;
+            m_arith_matching_done = false;
             m_model_finder->init_search_eh();
             m_model_checker->init_search_eh();            
         }
@@ -963,6 +1416,8 @@ namespace smt {
            \brief Final check related with quantifiers...
         */
         final_check_status final_check_quant() {
+            if (arith_match())
+                return FC_CONTINUE;
             if (use_ematching()) {
                 if (m_lazy_matching_idx < m_fparams->m_qi_max_lazy_multipattern_matching) {
                     m_lazy_mam->rematch();

@@ -40,6 +40,7 @@ struct qi_params {
     bool               m_qi_lazy_quick_checker = true;
     bool               m_qi_promote_unsat = true;
     unsigned           m_qi_max_instances = UINT_MAX;
+    bool               m_qi_arith = true;
     bool               m_qi_persist_instances = false;        // re-assert MBQI instances at base level on a re-search
     unsigned           m_qi_max_persistent_instances = 1000; // pattern-based instances re-asserted alongside
     bool               m_qi_lazy_instantiation = false;
@@ -92,5 +93,4 @@ struct qi_params {
 
     void display(std::ostream & out) const;
 };
-
 

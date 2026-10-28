@@ -25,6 +25,7 @@ Revision History:
 #include "qe/qsat.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/core/elim_term_ite_tactic.h"
+#include "tactic/ufbv/macro_finder_tactic.h"
 #include "tactic/arith/probe_arith.h"
 #include "tactic/smtlogics/smt_tactic.h"
 
@@ -70,7 +71,12 @@ tactic * mk_ufnia_tactic(ast_manager & m, params_ref const & p) {
 
 tactic * mk_uflra_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = and_then(mk_quant_preprocessor(m),
-                           mk_smt_tactic(m));
+                           when(mk_and(mk_has_quantifier_probe(), mk_not(mk_has_pattern_probe())),
+                                and_then(mk_macro_finder_tactic(m, p),
+                                         mk_simplify_tactic(m))),
+                           cond(mk_and(mk_has_quantifier_probe(), mk_is_lira_probe()),
+                                or_else(mk_qsat_tactic(m, p), mk_smt_tactic(m)),
+                                mk_smt_tactic(m)));
     st->updt_params(p);
     return st;
 }
@@ -121,4 +127,3 @@ tactic * mk_lia_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_lira_tactic(ast_manager & m, params_ref const & p) {
     return mk_lra_tactic(m, p);
 }
-
