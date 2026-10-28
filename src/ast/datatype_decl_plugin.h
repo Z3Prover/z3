@@ -354,7 +354,7 @@ namespace datatype {
              *  \brief declares a subterm predicate 
              * 
              *  Subterms have the signature `sort -> sort -> bool` and are only
-             *  supported for non-mutually recursive datatypes
+             *  supported for datatypes without nested or mutual recursion.
             */
             func_decl * mk_subterm(
                 unsigned num_parameters, parameter const * parameters, 

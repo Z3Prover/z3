@@ -468,6 +468,31 @@ namespace datatype {
             ast_manager& m = *m_manager;
             VALIDATE_PARAM(num_parameters == 1 && parameters[0].is_symbol());
             VALIDATE_PARAM(arity == 2 && u().is_datatype(domain[0]) && domain[0] == domain[1] && m.is_bool(range));
+            ptr_vector<sort> todo;
+            ast_mark visited;
+            for (func_decl* c : *u().get_datatype_constructors(domain[0]))
+                for (func_decl* a : *u().get_constructor_accessors(c))
+                    if (a->get_range() != domain[0])
+                        todo.push_back(a->get_range());
+            while (!todo.empty()) {
+                sort* s = todo.back();
+                todo.pop_back();
+                if (visited.is_marked(s))
+                    continue;
+                visited.mark(s, true);
+                if (u().is_datatype(s)) {
+                    if (datatype_name(s) == datatype_name(domain[0]))
+                        m.raise_exception("subterm predicates are not supported for nested or mutually recursive datatypes");
+                    if (!is_declared(s))
+                        m.raise_exception("datatype constructors have not been created");
+                    for (constructor* c : get_def(s))
+                        for (accessor* a : *c)
+                            todo.push_back(a->range());
+                }
+                for (parameter const& p : s->parameters())
+                    if (p.is_ast() && is_sort(p.get_ast()))
+                        todo.push_back(to_sort(p.get_ast()));
+            }
             func_decl_info info(m_family_id, OP_DT_SUBTERM, num_parameters, parameters);
             info.m_private_parameters = true;
             symbol name = parameters[0].get_symbol();
