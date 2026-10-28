@@ -4584,6 +4584,67 @@ let arithmetic_inferred_splits () =
   check "Int" ["(>= (- (* 10 x) (* 10 y)) 1)";
                "(<= (- (* 10 x) (* 10 y)) 10)"] "false" false
 
+(* Integer rounding (Chvatal-Gomory) cuts. Each accepted refutation holds over the integers but its rational
+   relaxation is satisfiable, so no Farkas vector exists; each rejected case is satisfiable (a wrong rounding
+   direction, constant or premise set would "refute" it) or needs reasoning beyond one rounding step. The expected
+   value is the kernel's decision on the actual premise ASTs. *)
+let arithmetic_integer_rounding () =
+  let ints = "(declare-const a Int)(declare-const b Int)(declare-const t Int)(declare-const s Int)\
+              (declare-const v Int)(declare-const w Int)(declare-const z Int)" in
+  let reals = "(declare-const a Real)(declare-const b Real)(declare-const t Real)(declare-const s Real)\
+               (declare-const v Real)(declare-const w Real)(declare-const z Real)" in
+  let mixed = "(declare-const a Int)(declare-const r Real)" in
+  let check source premises expected = arithmetic_implication source premises "false" expected in
+  (* The shape of the QF_LIA ring benchmarks: z is fixed to 0, v >= 0, and the carry term 256 t + 256 s + z is
+     positive but every variable coefficient of it is a multiple of 256, so it is at least 256 and
+     v + 256 t + 256 s exceeds 255. No row has two atoms, so the continued-fraction splits of Z3LpGomory
+     do not apply. *)
+  let ring = ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] in
+  check ints ring true;
+  check ints ["(not (>= (+ v (* 256 t) (* 256 s)) 256))"; "(>= v 0)"; "(not (<= (+ (* 256 t) (* 256 s) z) 0))";
+              "(<= z 0)"; "(>= z 0)"] true;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(= z 0)"] true;
+  check ints ["(= w t)"; "(<= (+ v (* 256 w) (* 256 s)) 255)"; "(>= v 0)"; "(>= (* 256 (+ t s)) 1)"] true;
+  (* A fractional two-sided bound on a multiple of a coefficient gcd. *)
+  check ints ["(>= (* 256 a) 1)"; "(<= (* 256 a) 255)"] true;
+  check ints ["(>= (- (* 6 a) (* 9 b)) 1)"; "(<= (- (* 6 a) (* 9 b)) 2)"] true;
+  check ints ["(>= (* 3 a) (- 1))"; "(<= (* 3 a) (- 1))"] true;
+  (* The premises may come in any order. *)
+  check ints ["(<= z 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(>= z 0)"; "(>= v 0)";
+              "(<= (+ v (* 256 t) (* 256 s)) 255)"] true;
+  check ints ["(>= v 0)"; "(<= z 0)"; "(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= z 0)";
+              "(>= (+ (* 256 t) (* 256 s) z) 1)"] true;
+  (* Over the reals the same systems have a model; real-valued refutations are still accepted. *)
+  check reals ["(>= (* 256 a) 1)"; "(<= (* 256 a) 255)"] false;
+  check reals ring false;
+  check reals ["(>= a 1)"; "(<= a 0)"] true;
+  check reals ["(< a 0)"; "(> a 0)"] true;
+  check reals ["(>= (* 2 a) 1)"; "(<= (+ a b) 0)"; "(>= b 0)"] true;
+  (* Satisfiable near misses: a wrong rounding direction or constant would refute them. *)
+  check ints ["(>= (* 3 a) (- 3))"; "(<= (* 3 a) (- 3))"] false;
+  check ints ["(>= (* 3 a) 1)"; "(<= a 1)"] false;
+  check ints ["(>= (* 256 a) 0)"; "(<= (* 256 a) 255)"] false;
+  check ints ["(>= (* 256 a) 1)"; "(<= (* 256 a) 256)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 256)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] false;
+  (* Dropped, swapped or weakened premises of the accepted ring refutation. *)
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= w 0)"; "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(<= z 0)";
+              "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 255 t) (* 255 s)) 255)"; "(>= v 0)"; "(>= (+ (* 255 t) (* 255 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] false;
+  (* A Real atom in the row: integer rounding is not available. *)
+  check mixed ["(>= (+ (* 2 a) (* 2 r)) 1)"; "(<= (+ a r) (/ 3 4))"] false;
+  (* Integer-unsatisfiable systems that need more than one rounding step stay pending. The two-variable
+     case 5a + 7b = 1 is decided by the existing continued-fraction split of Z3LpGomory; with three
+     variables no row has a common factor and no split applies. *)
+  check ints ["(= (+ (* 5 a) (* 7 b)) 1)"; "(>= a 0)"; "(>= b 0)"] true;
+  check ints ["(= (+ (* 5 a) (* 7 b) (* 11 t)) 1)"; "(>= a 0)"; "(>= b 0)"; "(>= t 0)"] false
+
 let erased_refinement_guards () =
   require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
     "constructor projector changed on its valid domain";
@@ -5061,6 +5122,7 @@ let () =
      "checked-implied-arithmetic-equalities", arithmetic_implied_equalities;
      "checked-implied-arithmetic-bounds", arithmetic_implied_bounds;
      "checked-inferred-integer-splits", arithmetic_inferred_splits;
+     "checked-integer-rounding-cuts", arithmetic_integer_rounding;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;

@@ -833,6 +833,38 @@ ones being `th-lemma`. The unchanged 710-input replay retains all
 counts and no other changed pending counts. Frozen evidence is under
 `C:\smtlib-benchmarks\proof_gomory_20261018\final`.
 
+### Integer rounding cuts for `th-lemma arith unsupported` (2026-10-28)
+
+Z3 exports an LP derivation for a linear conflict when it can; when part of
+the derivation lacks a recipe, `theory_lra.cpp` labels the `false` lemma
+`th-lemma arith unsupported` and records no certificate. The two QF_LIA
+ring benchmarks of the SMT-LIB 2025 sample (`ring_2exp4_6vars_3ite_unsat`,
+`ring_2exp8_6vars_2ite_unsat`, kept verbatim in `benchmarks/repair`) left
+18 and 19 such steps pending. Every one has a satisfiable rational
+relaxation, so no Farkas vector exists, but is integer-infeasible after
+one rounding: variables fixed to constants are substituted, a row whose
+Int coefficients share a factor `g >= 2` that does not divide its constant
+is rounded (`g*L + c <= 0` gives `L <= floor(-c/g)`), and the remaining
+system has a Farkas refutation.
+
+`Z3LpIntegerCut.fst` checks exactly that shape. Its certificate lists the
+rounded bounds and the final weights; every bound and the refutation are
+replayed with `Z3LinearArithmeticAst.check` against the actual premises
+and earlier bounds, so premise binding, signs, denominators, strictness,
+and the Int-only rounding are enforced by the existing proved kernel. The
+soundness lemma needs the same hypotheses as `Z3LpGomory.lemma_check_sound`
+and the kernel call site discharges them from the unchanged
+`model_sound`. The module sets only the repository-standard
+`--smtencoding.elim_box true --smtencoding.nl_arith_repr native`; no
+rlimit, fuel, or admit is changed. The candidate search is untrusted and
+bounded (32 premises, 8 bounds of at most 64 terms, 128 rows, 64
+eliminations, 4096 row pairs overall, magnitudes at most 2^128), and every
+cap leaves the step pending, never rejected.
+
+Out of scope and still pending: lemmas that need a genuine Gomory or
+branching cut (the two `cut_lemma_01_011` steps), more than one rounding
+step, conclusions other than `false`, and rows with Real atoms.
+
 ### QF_DT benchmark coverage (2026-10-18)
 
 A fixed 100-input QF_DT sample comes from the SMT-LIB 2025 archive

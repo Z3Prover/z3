@@ -23,6 +23,7 @@ module ID = Z3IntegerDivision
 module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
 module G = Z3LpGomory
+module IC = Z3LpIntegerCut
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
 module QV = Z3QuantifierVacuity
@@ -594,7 +595,7 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
                  pac_lemma kind e)) ||
     TN.consequence es e || LP.implied_equality e es ||
     (Some? (LA.comparison e) && LP.inferred_bound e es) ||
-    G.inferred_split e es
+    G.inferred_split e es || IC.inferred e es
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
@@ -1444,7 +1445,8 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                  else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
                  else if Some? (LA.comparison e) && LP.inferred_bound e es
                  then LP.lemma_inferred_bound e es i rho
-                 else G.lemma_inferred_split_sound e es i rho)
+                 else if G.inferred_split e es then G.lemma_inferred_split_sound e es i rho
+                 else IC.lemma_inferred_sound e es i rho)
           | None -> ())
       | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
       | DestructiveEqualityResolution | QuantifierInstantiation _ ->

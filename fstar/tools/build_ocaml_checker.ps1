@@ -196,7 +196,7 @@ try {
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
     "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
     "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
-    "Z3NlaLemma.ml", "Z3ArithmeticFactor.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3IntegerDivision.ml", "Z3FiniteFieldLemma.ml", "Z3FiniteFieldPac.ml",
+    "Z3NlaLemma.ml", "Z3ArithmeticFactor.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3LpIntegerCut.ml", "Z3IntegerDivision.ml", "Z3FiniteFieldLemma.ml", "Z3FiniteFieldPac.ml",
     "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
     "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",

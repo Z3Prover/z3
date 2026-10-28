@@ -373,6 +373,24 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
 
+    def test_integer_rounding_certifies_qf_lia_ring_benchmarks(self):
+        # SMT-LIB 2025 QF_LIA ring benchmarks (Alberto Griggio), verbatim. Their carry lemmas hold over
+        # the integers but not over the rationals, and z3 labels them `arith unsupported`: each lemma
+        # needs rounding a row whose coefficients share a factor (after fixed variables are
+        # substituted), then a Farkas refutation.
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        for name in ("ring_2exp4_6vars_3ite_unsat.smt2", "ring_2exp8_6vars_2ite_unsat.smt2"):
+            source = (repair / name).read_text()
+            with self.subTest(name=name, interactive=False):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stdout + result.stderr)
+                self.assertNotIn("obligation\t", result.stderr)
+            with self.subTest(name=name, interactive=True):
+                result = self.run_checker(source, "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+
     def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
         source = (
             "(declare-fun a () Real)"
