@@ -2125,6 +2125,71 @@ constant. CLI tests certify eight interactive refutations, including
 `z3.12`, with no obligation, and check that a satisfiable variant is
 reported `sat`.
 
+### Extractions moved into sums, products, and conditionals (2026-10-28)
+
+Z3's `bv_rewriter::mk_extract` moves an extraction into its argument:
+
+    ((_ extract h 0) (bvadd x1 ... xn))  ~>  (bvadd ((_ extract h 0) x1) ... ((_ extract h 0) xn))
+    ((_ extract h 0) (bvmul x1 ... xn))  ~>  (bvmul ((_ extract h 0) x1) ... ((_ extract h 0) xn))
+    ((_ extract h l) (ite c t e))        ~>  (ite c ((_ extract h l) t) ((_ extract h l) e))
+
+The inner extractions are built by `mk_extract_proc`, which composes an
+extraction of an extraction: an argument `((_ extract h2 l2) z)` becomes
+`((_ extract (h + l2) (l + l2)) z)`. These steps were unchecked `rewrite`
+obligations. In z3test `6079-8`, an `fp`/`to_fp` refutation over 66-bit
+words, they were 462 of the 585 obligations of the interactive OCaml check
+(236 sums and products, 226 conditionals); the Cherry check of that file
+exceeds the 60 s limit.
+
+`Z3BvExtract.check` accepts exactly these steps. Sums and products are
+distributed only over the low bits (`l = 0`): the other bits depend on
+carries out of the discarded bits, so `((_ extract 1 1) (bvadd #b01 #b01))`
+is `#b1` while the distributed sum is `#b0`. The target must be the same
+operation, binary or n-ary, with as many arguments, of width `h + 1`. A
+conditional keeps the same guard term, which is not interpreted. Every
+width and index comes from the native declarations, which
+`Z3BvLemma.extract_parts` and `Z3BvLemma.operation` check against the
+sorts and the 4096-bit bound, and is compared as an integer with the
+corresponding width on the other side. Both sides must be closed terms;
+steps under binders stay pending. The check only compares subterms, so it
+allocates nothing.
+
+`lemma_check_sound` uses only `Z3BvLemma.bv_model`, which already gives
+the value of an extraction as `(x / 2^l) mod 2^(h-l+1)` and of `bvadd` and
+`bvmul` as sums and products modulo `2^w`, and
+`Z3ArrayRewrite.term_ite_sound`. Both are part of the unified kernel's
+`model_sound`, so no model hypothesis is added. The proof reduces
+`(a + b) mod 2^w mod 2^k` and `(a * b) mod 2^w mod 2^k` to the
+corresponding operations on `a mod 2^k` and `b mod 2^k` for `k <= w`, by
+induction over n-ary arguments, and composes nested extractions with
+`FStar.Math.Lemmas`. The rule is tried after `Z3ArithmeticFactor.check`
+for `rewrite` steps without premises, in the legacy kernel only.
+
+The native regression accepts seventeen steps: binary and ternary sums
+and products, the lowest bit, the full width, 4096-bit operands, the
+`6079-8` shapes at widths 7 and 66, composed inner extractions, and
+conditionals with atomic, opaque, comparison and nested guards. It
+leaves eighteen invalid steps pending: high slices of sums and products,
+including `((_ extract 1 1) (bvadd #b01 #b01))` and the `6079-8` shape
+with `l = 1`, another slice or argument, another operation, a dropped or
+extra argument, division, a negated, swapped or other guard, another
+branch, and composed extractions without their offset. No rule certifies
+these, and a refutation using one is `PARTIAL 1`. Six valid steps outside
+the shape (bitwise `or`, subtraction, reordered or evaluated arguments,
+two steps at once, bound variables) are not accepted by this rule.
+Thirty-two rebuilt terms are not certified: extraction parameters of
+width 0, with the high bit at or beyond the width, the low bit above the
+high bit, or another source width; declarations with another domain,
+width, operation, parameter list or number of arguments, or without
+interpretation; and the constant `x` replaced by a bound variable on both
+sides, or with different de Bruijn indices on the two sides. Mutants of
+the extracted rule that accept any operation, any guard, any operand,
+another operation in the target, composed extractions without offsets,
+open terms, or high slices of single bits fail the regression. Dropping
+only the `l = 0` test does not, since the target width `h + 1` already
+forces `l = 0`. CLI tests certify seven interactive refutations with no
+obligation and check that a high-slice variant is reported `sat`.
+
 ### Warning-free verification and extraction (2026-10-17)
 
 The build treats F* warnings and enabled OCaml compiler warnings as errors.

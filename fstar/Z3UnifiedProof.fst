@@ -17,6 +17,7 @@ module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
 module AR = Z3ArithmeticRewrite
 module AF = Z3ArithmeticFactor
+module BX = Z3BvExtract
 module IR = Z3IntegerRewrite
 module ID = Z3IntegerDivision
 module CR = Z3ConditionalRewrite
@@ -282,7 +283,7 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
                       Z3DistinctEmbed.expansion_rewrite a b ||
                       constant_quantifier_rewrite a b ||
                       boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
-                      AF.check a b ||
+                      AF.check a b || BX.check a b ||
                       QR.equivalent 64 a b || LR.rewrite a b ||
                       CR.equivalent a b || IR.equivalent a b || ID.equivalent a b ||
                       ID.equivalent b a || QV.equivalent 64 a b ||
@@ -853,6 +854,7 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
          else if AR.equivalent a b then AR.lemma_equivalent_with_numeric_model a b i rho
          else if AF.check a b then AF.lemma_check_sound a b i rho
+         else if BX.check a b then BX.lemma_check_sound a b i rho
          else if QR.equivalent 64 a b then QR.lemma_equivalent 64 i rho a b
          else if LR.rewrite a b then LR.lemma_rewrite i rho a b
          else if CR.equivalent a b then CR.lemma_equivalent_sound i rho a b

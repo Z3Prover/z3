@@ -4125,6 +4125,247 @@ let conditional_comparison_rewrites () =
                  rebuilt terms: %d accepted, %d invalid\n%!"
     !accepted !invalid !unsupported !terms_accepted !terms_invalid
 
+let bv_extract_rewrites () =
+  let module BX = Z3BvExtract in
+  let module BV = Z3BvLemma in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and unsupported = ref 0 and terms_invalid = ref 0 in
+  let declarations =
+    "(declare-const p Bool)(declare-const q Bool)(declare-fun f ((_ BitVec 8)) Bool)\
+     (declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))(declare-const z (_ BitVec 8))\
+     (declare-const u (_ BitVec 16))(declare-const k (_ BitVec 7))\
+     (declare-const m (_ BitVec 66))(declare-const n (_ BitVec 66))\
+     (declare-const big (_ BitVec 4096))(declare-const big2 (_ BitVec 4096))" in
+  let equation ?(binders = "") left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (d, [a; b]) when binders = "" -> d, a, b
+    | A.Quantifier (_, _, _, A.App (d, [a; b])) when binders <> "" -> d, a, b
+    | _ -> failwith "expected a bit-vector extraction rewrite equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed bit-vector extraction rewrite conclusion" in
+  let pending conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  let outcome left right =
+    let inputs = parse c (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                            declarations left right left right) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  let accept left right =
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation left right in
+    let conclusion = conclusion_of d a b in
+    require (BX.check a b) ("extraction rewrite rejected: " ^ name);
+    require (U.check_step U.RewriteRule conclusion []) ("extraction rewrite not certified: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [conclusion]))
+      ("extraction rewrite ignored an unexpected premise: " ^ name);
+    require (pending conclusion = Some Z.zero) ("extraction rewrite left an obligation: " ^ name);
+    require (outcome left right = "ACCEPT") ("extraction refutation was not ACCEPT: " ^ name) in
+  let uncertified ?binders what left right =
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation ?binders left right in
+    let conclusion = conclusion_of d a b in
+    require (not (BX.check a b)) (what ^ " accepted by the extraction rule: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) (what ^ " certified: " ^ name);
+    require (pending conclusion = Some Z.one) (what ^ " was not left pending: " ^ name);
+    if binders = None then
+      require (outcome left right = "PARTIAL 1")
+        (what ^ " did not give a PARTIAL 1 refutation: " ^ name) in
+  let reject left right =
+    incr invalid;
+    uncertified "invalid extraction rewrite" left right in
+  let outside ?binders left right =
+    incr unsupported;
+    uncertified ?binders "unsupported extraction shape" left right in
+  let reject_terms what d a b =
+    incr terms_invalid;
+    let conclusion = conclusion_of d a b in
+    require (not (BX.check a b)) ("invalid extraction terms accepted: " ^ what);
+    require (not (U.check_step U.RewriteRule conclusion []))
+      ("invalid extraction terms certified: " ^ what);
+    require (pending conclusion <> Some Z.zero)
+      ("invalid extraction terms left no obligation: " ^ what) in
+  (* Low bits of sums and products, binary and n-ary, up to the full width and at 4096 bits. *)
+  accept "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  accept "((_ extract 3 0) (bvmul x y))" "(bvmul ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  accept "((_ extract 3 0) (bvadd x y z))"
+    "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y) ((_ extract 3 0) z))";
+  accept "((_ extract 5 0) (bvmul x y z))"
+    "(bvmul ((_ extract 5 0) x) ((_ extract 5 0) y) ((_ extract 5 0) z))";
+  accept "((_ extract 0 0) (bvadd x y))" "(bvadd ((_ extract 0 0) x) ((_ extract 0 0) y))";
+  accept "((_ extract 7 0) (bvadd x y))" "(bvadd ((_ extract 7 0) x) ((_ extract 7 0) y))";
+  accept "((_ extract 0 0) (bvadd big big2))"
+    "(bvadd ((_ extract 0 0) big) ((_ extract 0 0) big2))";
+  (* The shapes of z3test 6079-8: a numeral plus a conditional, at widths 7 and 66. *)
+  accept "((_ extract 4 0) (bvadd (_ bv1 7) (ite (= k (_ bv0 7)) k (_ bv0 7))))"
+    "(bvadd ((_ extract 4 0) (_ bv1 7)) ((_ extract 4 0) (ite (= k (_ bv0 7)) k (_ bv0 7))))";
+  accept "((_ extract 6 0) (bvadd (_ bv2 66) (ite (= m n) m (_ bv0 66))))"
+    "(bvadd ((_ extract 6 0) (_ bv2 66)) ((_ extract 6 0) (ite (= m n) m (_ bv0 66))))";
+  (* An argument that is itself an extraction is extracted from its operand, as by
+     mk_extract_proc. *)
+  accept "((_ extract 3 0) (bvmul ((_ extract 11 4) u) x))"
+    "(bvmul ((_ extract 7 4) u) ((_ extract 3 0) x))";
+  accept "((_ extract 2 0) (bvadd ((_ extract 15 8) u) ((_ extract 7 0) u)))"
+    "(bvadd ((_ extract 10 8) u) ((_ extract 2 0) u))";
+  (* Any slice of a conditional, with the same guard. *)
+  accept "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  accept "((_ extract 3 0) (ite (f x) (ite q x y) z))"
+    "(ite (f x) ((_ extract 3 0) (ite q x y)) ((_ extract 3 0) z))";
+  accept "((_ extract 1 1) (ite p ((_ extract 9 2) u) x))"
+    "(ite p ((_ extract 3 3) u) ((_ extract 1 1) x))";
+  accept "((_ extract 7 7) (ite (bvule x y) x y))"
+    "(ite (bvule x y) ((_ extract 7 7) x) ((_ extract 7 7) y))";
+  accept "((_ extract 6 0) (ite (= m n) (_ bv1 66) (_ bv0 66)))"
+    "(ite (= m n) ((_ extract 6 0) (_ bv1 66)) ((_ extract 6 0) (_ bv0 66)))";
+  accept "((_ extract 4095 4094) (ite p big big2))"
+    "(ite p ((_ extract 4095 4094) big) ((_ extract 4095 4094) big2))";
+  (* Bits above the lowest depend on the carries out of the discarded bits:
+     ((_ extract 1 1) (bvadd #b01 #b01)) is #b1, the distributed sum is #b0. *)
+  reject "((_ extract 1 1) (bvadd x y))" "(bvadd ((_ extract 1 1) x) ((_ extract 1 1) y))";
+  reject "((_ extract 1 1) (bvadd #b01 #b01))"
+    "(bvadd ((_ extract 1 1) #b01) ((_ extract 1 1) #b01))";
+  reject "((_ extract 3 2) (bvmul x y))" "(bvmul ((_ extract 3 2) x) ((_ extract 3 2) y))";
+  reject "((_ extract 7 4) (bvadd x y z))"
+    "(bvadd ((_ extract 7 4) x) ((_ extract 7 4) y) ((_ extract 7 4) z))";
+  reject "((_ extract 5 1) (bvadd (_ bv1 7) (ite (= k (_ bv0 7)) k (_ bv0 7))))"
+    "(bvadd ((_ extract 5 1) (_ bv1 7)) ((_ extract 5 1) (ite (= k (_ bv0 7)) k (_ bv0 7))))";
+  (* Another slice, argument, operation or arity, division, and a composed extraction
+     without its offset. *)
+  reject "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) x) ((_ extract 4 1) y))";
+  reject "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) z))";
+  reject "((_ extract 3 0) (bvadd x y))" "(bvmul ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  reject "((_ extract 3 0) (bvadd x y z))" "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  reject "((_ extract 3 0) (bvadd x y))"
+    "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y) ((_ extract 3 0) z))";
+  reject "((_ extract 3 0) (bvudiv x y))" "(bvudiv ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  reject "((_ extract 3 0) (bvmul ((_ extract 11 4) u) x))"
+    "(bvmul ((_ extract 3 0) u) ((_ extract 3 0) x))";
+  (* A negated, swapped or other guard, another slice or term in a branch, and a composed
+     extraction without its offset. *)
+  reject "((_ extract 5 2) (ite p x y))" "(ite (not p) ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) y) ((_ extract 5 2) x))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite q ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) x) ((_ extract 6 3) y))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) x) ((_ extract 5 2) z))";
+  reject "((_ extract 1 1) (ite p ((_ extract 9 2) u) x))"
+    "(ite p ((_ extract 1 1) u) ((_ extract 1 1) x))";
+  (* Valid steps outside the shape stay pending: bitwise or, subtraction, reordered or
+     evaluated arguments, two steps at once, and terms with variables bound outside them
+     (Z3BvExtract checks closed terms only). *)
+  outside "((_ extract 5 2) (bvor x y))" "(bvor ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  outside "((_ extract 3 0) (bvsub x y))" "(bvsub ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  outside "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) y) ((_ extract 3 0) x))";
+  outside "((_ extract 4 0) (bvadd (_ bv1 7) k))" "(bvadd #b00001 ((_ extract 4 0) k))";
+  outside "((_ extract 3 0) (bvadd x (ite p y z)))"
+    "(bvadd ((_ extract 3 0) x) (ite p ((_ extract 3 0) y) ((_ extract 3 0) z)))";
+  outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
+    "((_ extract 3 0) (bvadd a b))" "(bvadd ((_ extract 3 0) a) ((_ extract 3 0) b))";
+  (* Declarations of an accepted step replaced by malformed or other ones. *)
+  let with_decl e g = match e with
+    | A.App (decl, args) -> A.App (g decl, args)
+    | _ -> failwith "expected an application" in
+  let first_argument e g = match e with
+    | A.App (decl, arg :: rest) -> A.App (decl, with_decl arg g :: rest)
+    | _ -> failwith "expected an application with arguments" in
+  let params ps decl = { decl with A.int_params = List.map Z.of_int ps } in
+  let interp op decl = { decl with A.interp = op } in
+  let domain s decl = { decl with A.domain = [A.BaseSort s] } in
+  let d, a, b = equation "((_ extract 3 0) (bvadd x y))"
+                  "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))" in
+  require (BX.check a b) "the unmodified sum step was rejected";
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "source extraction of bits 3..1", with_decl a (params [8; 3; 1]), b;
+      "source extraction from width 9", with_decl a (params [9; 3; 0]), b;
+      "source extraction from width 0", with_decl a (params [0; 3; 0]), b;
+      "source extraction of bits 8..5 of width 8", with_decl a (params [8; 8; 5]), b;
+      "source extraction with low bit 4 above high bit 3", with_decl a (params [8; 3; 4]), b;
+      "source extraction with two parameters", with_decl a (params [8; 3]), b;
+      "source extraction with domain BV9", with_decl a (domain "BV9"), b;
+      "uninterpreted source extraction", with_decl a (interp None), b;
+      "source extraction of two arguments",
+        (match a with A.App (e, [s]) -> A.App (e, [s; s]) | _ -> failwith "expected an extraction"), b;
+      "source subtraction named bvadd", first_argument a (interp (Some BV.op_sub)), b;
+      "uninterpreted source sum", first_argument a (interp None), b;
+      "binary source sum of three arguments",
+        (match a with
+         | A.App (e, [A.App (g, [x1; x2])]) -> A.App (e, [A.App (g, [x1; x2; x2])])
+         | _ -> failwith "expected an extracted sum"), b;
+      "target sum of width 5", a, with_decl b (params [5]);
+      "target sum of width 0", a, with_decl b (params [0]);
+      "target product", a, with_decl b (interp (Some BV.op_mul));
+      "uninterpreted target sum", a, with_decl b (interp None);
+      "binary target sum of three arguments", a,
+        (match b with A.App (g, [y1; y2]) -> A.App (g, [y1; y2; y2]) | _ -> failwith "expected a sum");
+      "target extraction of bits 4..1", a, first_argument b (params [8; 4; 1]);
+      "target extraction from width 9", a, first_argument b (params [9; 3; 0]);
+      "target extraction of bits 8..5 of width 8", a, first_argument b (params [8; 8; 5]);
+      "target extraction with low bit 4 above high bit 3", a, first_argument b (params [8; 3; 4]);
+      "uninterpreted target extraction", a, first_argument b (interp None);
+      "target extraction of no argument", a,
+        (match b with
+         | A.App (g, A.App (e, [_]) :: rest) -> A.App (g, A.App (e, []) :: rest)
+         | _ -> failwith "expected a sum of extractions") ];
+  (* The same step with x a bound variable (de Bruijn index 0) is outside the closed-term
+     rule, and with index 0 in the source but 1 in the target it is invalid. *)
+  let rec map_term g e =
+    match g e with
+    | Some replacement -> replacement
+    | None ->
+        (match e with
+         | A.App (decl, args) -> A.App (decl, List.map (map_term g) args)
+         | A.Quantifier (kind, sorts, sort, body) -> A.Quantifier (kind, sorts, sort, map_term g body)
+         | A.Var _ -> e) in
+  let x = match b with
+    | A.App (_, A.App (_, [x]) :: _) -> x
+    | _ -> failwith "expected a sum of extractions" in
+  let bind index = map_term (fun e ->
+      if e = x then Some (A.Var (Z.of_int index, A.BaseSort "BV8")) else None) in
+  require (bind 0 a <> a && bind 0 b <> b) "x was not replaced by a bound variable";
+  List.iter (fun (what, a', b') -> reject_terms what d a' b')
+    [ "x bound on both sides", bind 0 a, bind 0 b;
+      "x bound with index 0 in the source and 1 in the target", bind 0 a, bind 1 b ];
+  let d, a, b = equation "((_ extract 5 2) (ite p x y))"
+                  "(ite p ((_ extract 5 2) x) ((_ extract 5 2) y))" in
+  require (BX.check a b) "the unmodified conditional step was rejected";
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "uninterpreted source conditional", first_argument a (interp None), b;
+      "uninterpreted target conditional", a, with_decl b (interp None);
+      "target conditional with a parameter", a, with_decl b (params [8]);
+      "source extraction of bits 5..3", with_decl a (params [8; 5; 3]), b;
+      "target branch extraction of bits 6..3", a, (match b with
+        | A.App (g, [guard; t; e]) -> A.App (g, [guard; with_decl t (params [8; 6; 3]); e])
+        | _ -> failwith "expected a conditional");
+      "target conditional of two arguments", a, (match b with
+        | A.App (g, [guard; t; _]) -> A.App (g, [guard; t])
+        | _ -> failwith "expected a conditional");
+      "source conditional of four arguments", (match a with
+        | A.App (e, [A.App (g, [guard; t; u])]) -> A.App (e, [A.App (g, [guard; t; u; u])])
+        | _ -> failwith "expected an extracted conditional"), b ];
+  Printf.printf "  bit-vector extraction rewrites: %d accepted, %d invalid, %d outside the shape; \
+                 %d malformed or open rebuilt terms\n%!"
+    !accepted !invalid !unsupported !terms_invalid
+
 let arithmetic_triangle_clauses () =
   let c = context () in
   let check expected clause =
@@ -4679,6 +4920,7 @@ let () =
      "checked-conditional-comparison-rewrites", conditional_comparison_rewrites;
      "checked-array-unequal-defaults", array_unequal_defaults;
      "checked-bit-vector-rewrites", bv_rewrites;
+     "checked-bit-vector-extraction-rewrites", bv_extract_rewrites;
      "checked-fresh-bit-model-extension", fresh_bit_model_extension;
      "checked-fresh-bit-context-extension", fresh_bit_context_extension;
      "fresh-bit-document-projections", fresh_bit_document_projections;
