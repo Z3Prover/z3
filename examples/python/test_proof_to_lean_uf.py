@@ -1808,7 +1808,10 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
         for seed in TestLegacyUninterpretedLeanIntegration.BOOLEAN_PREDICATE_SEEDS:
             source = random_boolean_predicate_instance(seed)
-            with self.subTest(seed=seed):
+            # Warnings are errors: seed 116 fell back to the untrimmed log
+            # over a negated Boolean argument until iter-042.
+            with self.subTest(seed=seed), warnings.catch_warnings():
+                warnings.simplefilter("error")
                 certificate, report = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
@@ -1864,13 +1867,45 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
     BOOL_ARGUMENT_SEEDS = (4, 98, 347, 1639, 2088)
 
     def test_random_instances_with_boolean_arguments(self):
+        # Warnings are errors: the trimmer once read the negated Boolean
+        # argument (not (not q)) as a variable unrelated to q and fell back to
+        # the untrimmed log on seeds 347 and 2088 (iter-041).
         for seed in self.BOOL_ARGUMENT_SEEDS:
             source = random_bool_argument_instance(seed)
-            with self.subTest(seed=seed):
+            with self.subTest(seed=seed), warnings.catch_warnings():
+                warnings.simplefilter("error")
                 self.assertGreaterEqual(_unsat_core_size(source), 4, "re-pick seed %d" % seed)
                 certificate, _ = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 self.assertIn("(_bool (formula_", proof_to_lean.reconstruct(source, certificate))
+
+    # Every seed in 1..2500 of random_bool_argument_instance and 1..300 of
+    # random_boolean_predicate_instance whose log the trimmer rejected
+    # before iter-042, other than the pinned ones above (615 unsat logs, 9
+    # fallbacks, now none). Exported without Lean: the trimmed core must
+    # replay with warnings as errors.
+    NEGATED_ARGUMENT_TRIM_SEEDS = {"bool_argument": (1080, 1387, 1811, 2158, 2175), "boolean_predicate": (272,)}
+
+    def test_negated_boolean_arguments_do_not_defeat_trimming(self):
+        generators = {"bool_argument": random_bool_argument_instance,
+                      "boolean_predicate": random_boolean_predicate_instance}
+        cores, original = [], proof_clause_log.trim_clause_log
+
+        def trim(*args, **kwargs):
+            cores.append(original(*args, **kwargs))
+            return cores[-1]
+
+        for generator, seeds in self.NEGATED_ARGUMENT_TRIM_SEEDS.items():
+            for seed in seeds:
+                source = generators[generator](seed)
+                del cores[:]
+                with self.subTest(generator=generator, seed=seed), \
+                        patch.object(proof_clause_log, "trim_clause_log", trim), warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    certificate = proof_certificate.export_clause_log_certificate(source)
+                    self.assertEqual(len(cores), 1)
+                    self.assertIn("(deps ", cores[0])
+                    self.assertIn("th-lemma", certificate["rule_counts"])
 
     def test_long_refutations_are_outlined_into_bounded_lemmas(self):
         # Seven levels give about 1,600 proof steps; as one nested term the main
