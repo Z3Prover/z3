@@ -1,0 +1,6 @@
+Command: fstar.exe --smt z3 --z3version 4.13.3 --cache_dir cache --odir out --z3rlimit 10 SubtermNested.fst (fresh cache, timeout 120)
+F* 2026.09.27, Z3 4.13.3
+stdout/exit:
+Verified module: SubtermNested
+All verification conditions discharged successfully
+exit 0
