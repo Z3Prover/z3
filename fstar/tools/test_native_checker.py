@@ -118,6 +118,28 @@ BV_EXTRACT_CASES = (
      " (ite (= m n) ((_ extract 6 0) w) ((_ extract 6 0) m)))))"),
 )
 
+# An extraction of a concatenation (mk_extract) is the bits of the low argument, of the high
+# argument, or a concatenation of the bits of both, with extractions of extractions composed.
+# The last three are the shapes of z3test 6079-8.
+BV_EXTRACT_CONCAT_CASES = (
+    ("low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 5 2) (concat x y)) ((_ extract 5 2) y))))"),
+    ("high", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 14 9) (concat x y)) ((_ extract 6 1) x))))"),
+    ("across", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 9 4) (concat x y))"
+     " (concat ((_ extract 1 0) x) ((_ extract 7 4) y)))))"),
+    ("high-composed", "(declare-const u (_ BitVec 16))(declare-const b (_ BitVec 1))"
+     "(assert (not (= ((_ extract 14 14) (concat ((_ extract 15 2) u) b)) ((_ extract 15 15) u))))"),
+    ("across-composed", "(declare-const u (_ BitVec 16))(declare-const b (_ BitVec 1))"
+     "(assert (not (= ((_ extract 2 0) (concat ((_ extract 7 2) u) b))"
+     " (concat ((_ extract 3 2) u) b))))"),
+    ("across-numeral-ite", "(declare-const p Bool)(declare-const x (_ BitVec 8))"
+     "(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 8 1) (concat #b0 (ite p x y)))"
+     " (concat #b0 ((_ extract 7 1) (ite p x y))))))"),
+)
+
 PULL_QUANT_CASES = (
     ("nested-exists", "(declare-fun p (Int Int) Bool)"
      "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
@@ -619,6 +641,27 @@ class DirectCheckerTests(unittest.TestCase):
             "--interactive")
         self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
         self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_bv_extract_concat_rewrites_are_certified(self):
+        for name, source in BV_EXTRACT_CONCAT_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        # Bits of x offset by one, and the two parts in the other order, are other bits.
+        for name, source in (
+                ("offset", "(assert (not (= ((_ extract 14 9) (concat x y)) ((_ extract 7 2) x))))"),
+                ("order", "(assert (not (= ((_ extract 9 4) (concat x y))"
+                          " (concat ((_ extract 7 4) y) ((_ extract 1 0) x)))))")):
+            with self.subTest(case=name):
+                satisfiable = self.run_checker(
+                    "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+                    + source + "(check-sat)", "--interactive")
+                self.assertEqual(satisfiable.returncode, 0,
+                                 satisfiable.stdout + satisfiable.stderr)
+                self.assertEqual(satisfiable.stdout.strip(), "sat")
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")

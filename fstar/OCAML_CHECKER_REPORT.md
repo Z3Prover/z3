@@ -2240,6 +2240,69 @@ checker from a timeout at 60 s (108 s without the limit, 53.7 s of it
 `check_ms`) to `PARTIAL 123` in 30.5 s. The pending obligations are the
 same 123.
 
+### Extractions of concatenations (2026-10-28)
+
+`bv_rewriter::mk_extract` also splits an extraction of a concatenation.
+For a binary concatenation of `x` (width `m`, the high bits) and `y`
+(width `n`, the low bits), the bits `[h:l]` are
+
+    the bits [h:l] of y                              if h < n
+    the bits [h-n:l-n] of x                          if n <= l
+    (concat (the bits [h-n:0] of x) (the bits [n-1:l] of y))   otherwise
+
+where the bits of an argument are the argument itself when they are all of
+its bits, and otherwise an extraction built by `mk_extract_proc`, which
+composes an extraction of an extraction argument. In `6079-8` these were 13
+of the 123 remaining obligations (9 fingerprint lines), all over binary
+concatenations: three keep the low argument, three the high argument, four
+extract from the high argument (three of them composed), and three cross
+the boundary. The arguments that are kept whole are already handled by
+`Z3BvLemma.extract_rewrite`, but the theory normalizer does not reach these
+steps because their terms exceed its 4096-node budget.
+
+`Z3BvExtract.concatenated` accepts exactly these steps. The concatenation
+must be the interpreted bit-vector `concat` of two arguments
+(`Z3BvLemma.concat_parts`, which checks its parameters `[m; n]` against
+the domain, the range, the argument sorts and the 4096-bit bound), and
+the source width of the extraction must be `m + n`. Across the boundary
+the target must be such a concatenation with widths exactly `h - n + 1`
+and `n - l`. Every index is compared as an integer; the arguments must be
+the same terms in the same order; both sides must be closed. A
+concatenation of three or more arguments on either side is not handled.
+The rule needs no normalization and no expression budget: it compares the
+root shapes and subterms.
+
+The proof uses the existing `bv_model` value of a concatenation,
+`x * 2^n + y`, and of an extraction, and proves with `FStar.Math.Lemmas`
+that the bits `[h:l]` of `x * 2^n + y` are those of `y` for `h < n`, those
+of `x` shifted by `n` for `n <= l`, and otherwise
+`(x mod 2^(h-n+1)) * 2^(n-l) + y / 2^l`. No model hypothesis, option push
+or rlimit change is added.
+
+The bridge group now accepts 21 more steps: within the low argument,
+within the high argument and across the boundary, a single bit at each
+side of the boundary, the full width, arguments kept whole, composed
+extractions, 4096-bit concatenations, and the `6079-8` shapes (a bit
+below a composed extraction, a numeral bit above a conditional). Fifteen
+more invalid steps stay one pending obligation: the bits of the other
+argument, an offset off by one, the parts in the other order or of the
+other arguments, another split, a wrong low part across the boundary, a
+dropped argument, an extra argument, another constant, and a composed
+extraction without its offset. Three valid steps outside the shape (a
+concatenation of three arguments on either side, bound variables) are not
+accepted by this rule, and 25 more rebuilt terms are not certified:
+concatenations with other or zero widths, one parameter, another domain,
+no interpretation, another operation, or another number of arguments;
+extractions from another width, with the high bit at or beyond the width,
+or the low bit above the high bit; an argument kept whole for an
+extraction declared with fewer bits; and the constant `x` replaced by a
+bound variable. CLI tests certify six
+interactive refutations, including the three `6079-8` shapes, with no
+obligation, and check that variants with an offset off by one or with the
+parts reordered are reported `sat`. In a development build, `6079-8` went
+from `PARTIAL 123` to `PARTIAL 110` on both checkers; exactly the 13
+extraction-of-concatenation obligations were removed.
+
 ### Warning-free verification and extraction (2026-10-17)
 
 The build treats F* warnings and enabled OCaml compiler warnings as errors.

@@ -4148,7 +4148,7 @@ let bv_extract_rewrites () =
   let declarations =
     "(declare-const p Bool)(declare-const q Bool)(declare-fun f ((_ BitVec 8)) Bool)\
      (declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))(declare-const z (_ BitVec 8))\
-     (declare-const u (_ BitVec 16))(declare-const k (_ BitVec 7))\
+     (declare-const u (_ BitVec 16))(declare-const k (_ BitVec 7))(declare-const bit (_ BitVec 1))\
      (declare-const m (_ BitVec 66))(declare-const n (_ BitVec 66))\
      (declare-const big (_ BitVec 4096))(declare-const big2 (_ BitVec 4096))" in
   let equation ?(binders = "") left right =
@@ -4292,6 +4292,59 @@ let bv_extract_rewrites () =
     "(bvadd ((_ extract 3 0) x) (ite p ((_ extract 3 0) y) ((_ extract 3 0) z)))";
   outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
     "((_ extract 3 0) (bvadd a b))" "(bvadd ((_ extract 3 0) a) ((_ extract 3 0) b))";
+  (* Bits of a binary concatenation of x (the high bits) and y (the low bits), as mk_extract
+     splits it: within y, within x, or a concatenation of low bits of x and high bits of y,
+     keeping an argument whose bits are all taken; at the boundary (bit 7 of y, bit 0 of x),
+     for the full width, and at 4096 bits. *)
+  accept "((_ extract 7 0) (concat x y))" "y";
+  accept "((_ extract 5 2) (concat x y))" "((_ extract 5 2) y)";
+  accept "((_ extract 7 7) (concat x y))" "((_ extract 7 7) y)";
+  accept "((_ extract 15 8) (concat x y))" "x";
+  accept "((_ extract 8 8) (concat x y))" "((_ extract 0 0) x)";
+  accept "((_ extract 14 9) (concat x y))" "((_ extract 6 1) x)";
+  accept "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) x) ((_ extract 7 4) y))";
+  accept "((_ extract 8 7) (concat x y))" "(concat ((_ extract 0 0) x) ((_ extract 7 7) y))";
+  accept "((_ extract 15 4) (concat x y))" "(concat x ((_ extract 7 4) y))";
+  accept "((_ extract 9 0) (concat x y))" "(concat ((_ extract 1 0) x) y)";
+  accept "((_ extract 15 0) (concat x y))" "(concat x y)";
+  accept "((_ extract 3 1) (concat x ((_ extract 11 4) u)))" "((_ extract 7 5) u)";
+  accept "((_ extract 4095 4095) (concat bit ((_ extract 4094 0) big)))" "bit";
+  accept "((_ extract 4095 1) (concat bit ((_ extract 4094 0) big)))"
+    "(concat bit ((_ extract 4094 1) big))";
+  (* The shapes of z3test 6079-8: a bit below an extraction, and a numeral bit above a
+     conditional. *)
+  accept "((_ extract 14 14) (concat ((_ extract 15 2) u) bit))" "((_ extract 15 15) u)";
+  accept "((_ extract 6 3) (concat ((_ extract 15 10) u) bit))" "((_ extract 15 12) u)";
+  accept "((_ extract 2 0) (concat ((_ extract 7 2) u) bit))" "(concat ((_ extract 3 2) u) bit)";
+  accept "((_ extract 0 0) (concat ((_ extract 7 2) u) bit))" "bit";
+  accept "((_ extract 8 8) (concat #b0 (ite p x y)))" "#b0";
+  accept "((_ extract 7 0) (concat #b0 (ite p x y)))" "(ite p x y)";
+  accept "((_ extract 8 1) (concat #b0 (ite p x y)))" "(concat #b0 ((_ extract 7 1) (ite p x y)))";
+  (* Another argument, offset, order or split, a dropped or an extra argument, another
+     constant, and a composed extraction without its offset. *)
+  reject "((_ extract 3 0) (concat x y))" "((_ extract 3 0) x)";
+  reject "((_ extract 11 8) (concat x y))" "((_ extract 3 0) y)";
+  reject "((_ extract 14 9) (concat x y))" "((_ extract 7 2) x)";
+  reject "((_ extract 14 9) (concat x y))" "((_ extract 6 1) y)";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 7 4) y) ((_ extract 1 0) x))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) y) ((_ extract 7 4) x))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 2 0) x) ((_ extract 7 5) y))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 2 1) x) ((_ extract 7 4) y))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) x) ((_ extract 6 3) y))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) x) ((_ extract 7 4) z))";
+  reject "((_ extract 11 4) (concat x y))" "x";
+  reject "((_ extract 11 4) (concat x y))"
+    "(concat ((_ extract 3 0) x) ((_ extract 7 6) y) ((_ extract 5 4) z))";
+  reject "((_ extract 15 0) (concat x y))" "(concat y x)";
+  reject "((_ extract 8 1) (concat #b0 (ite p x y)))" "(concat #b1 ((_ extract 7 1) (ite p x y)))";
+  reject "((_ extract 14 14) (concat ((_ extract 15 2) u) bit))" "((_ extract 13 13) u)";
+  (* Valid steps outside the shape stay pending: a concatenation of three arguments on either
+     side, and terms with variables bound outside them. *)
+  outside "((_ extract 11 4) (concat x y))"
+    "(concat ((_ extract 3 0) x) ((_ extract 7 6) y) ((_ extract 5 4) y))";
+  outside "((_ extract 11 4) (concat x y z))" "(concat ((_ extract 3 0) y) ((_ extract 7 4) z))";
+  outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
+    "((_ extract 9 4) (concat a b))" "(concat ((_ extract 1 0) a) ((_ extract 7 4) b))";
   (* Declarations of an accepted step replaced by malformed or other ones. *)
   let with_decl e g = match e with
     | A.App (decl, args) -> A.App (g decl, args)
@@ -4377,6 +4430,68 @@ let bv_extract_rewrites () =
       "source conditional of four arguments", (match a with
         | A.App (e, [A.App (g, [guard; t; u])]) -> A.App (e, [A.App (g, [guard; t; u; u])])
         | _ -> failwith "expected an extracted conditional"), b ];
+  (* A concatenation step with malformed or other declarations, and with x bound. *)
+  let d, a, b = equation "((_ extract 9 4) (concat x y))"
+                  "(concat ((_ extract 1 0) x) ((_ extract 7 4) y))" in
+  require (BX.check a b) "the unmodified concatenation step was rejected";
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "source concatenation of widths 8 and 9", first_argument a (params [8; 9]), b;
+      "source concatenation of widths 9 and 7", first_argument a (params [9; 7]), b;
+      "source concatenation of widths 0 and 8", first_argument a (params [0; 8]), b;
+      "source concatenation with one parameter", first_argument a (params [16]), b;
+      "source concatenation with domain BV8", first_argument a (domain "BV8"), b;
+      "uninterpreted source concatenation", first_argument a (interp None), b;
+      "source bitwise or named concat", first_argument a (interp (Some BV.op_or)), b;
+      "source concatenation of three arguments",
+        (match a with
+         | A.App (e, [A.App (g, [x1; x2])]) -> A.App (e, [A.App (g, [x1; x2; x2])])
+         | _ -> failwith "expected an extracted concatenation"), b;
+      "source extraction of bits 10..4", with_decl a (params [16; 10; 4]), b;
+      "source extraction from width 17", with_decl a (params [17; 9; 4]), b;
+      "source extraction of bits 16..11 of width 16", with_decl a (params [16; 16; 11]), b;
+      "source extraction with low bit 10 above high bit 9", with_decl a (params [16; 9; 10]), b;
+      "target concatenation of widths 3 and 3", a, with_decl b (params [3; 3]);
+      "target concatenation of widths 0 and 6", a, with_decl b (params [0; 6]);
+      "uninterpreted target concatenation", a, with_decl b (interp None);
+      "target concatenation of three arguments", a,
+        (match b with A.App (g, [y1; y2]) -> A.App (g, [y1; y2; y2])
+         | _ -> failwith "expected a concatenation");
+      "target concatenation of one argument", a,
+        (match b with A.App (g, [y1; _]) -> A.App (g, [y1])
+         | _ -> failwith "expected a concatenation");
+      "target extraction of bits 2..1", a, first_argument b (params [8; 2; 1]);
+      "target extraction of bits 8..7 of width 8", a, first_argument b (params [8; 8; 7]);
+      "target extraction with low bit 2 above high bit 1", a, first_argument b (params [8; 1; 2]);
+      "uninterpreted target extraction", a, first_argument b (interp None) ];
+  let x = match a with
+    | A.App (_, [A.App (_, [x; _])]) -> x
+    | _ -> failwith "expected an extracted concatenation" in
+  let bind index = map_term (fun e ->
+      if e = x then Some (A.Var (Z.of_int index, A.BaseSort "BV8")) else None) in
+  require (bind 0 a <> a && bind 0 b <> b) "x was not replaced by a bound variable";
+  List.iter (fun (what, a', b') -> reject_terms what d a' b')
+    [ "x bound on both sides of a concatenation step", bind 0 a, bind 0 b;
+      "x bound with index 0 in the concatenation and 1 in the target", bind 0 a, bind 1 b ];
+  (* An argument kept whole for an extraction of fewer bits: the source extraction declared
+     with the parameters and range of bits 3..0 (or 15..9) of the concatenation. The rule
+     rejects the terms, and the kernel does not classify an equation of a 4-bit (7-bit) and
+     an 8-bit term. *)
+  let range s decl = { decl with A.range = A.BaseSort s } in
+  let narrower what d a' b =
+    incr terms_invalid;
+    require (not (BX.check a' b)) ("invalid extraction terms accepted: " ^ what);
+    require (U.classify_fact (A.App (d, [a'; b])) = None)
+      ("an equation of terms of different widths was classified: " ^ what) in
+  let d, a, b = equation "((_ extract 7 0) (concat x y))" "y" in
+  require (BX.check a b) "the unmodified low-argument step was rejected";
+  narrower "y as the bits 3..0 of the concatenation" d
+    (with_decl a (fun e -> range "BV4" (params [16; 3; 0] e))) b;
+  let d, a, b = equation "((_ extract 15 8) (concat x y))" "x" in
+  require (BX.check a b) "the unmodified high-argument step was rejected";
+  narrower "x as the bits 15..9 of the concatenation" d
+    (with_decl a (fun e -> range "BV7" (params [16; 15; 9] e))) b;
   Printf.printf "  bit-vector extraction rewrites: %d accepted, %d invalid, %d outside the shape; \
                  %d malformed or open rebuilt terms\n%!"
     !accepted !invalid !unsupported !terms_invalid
