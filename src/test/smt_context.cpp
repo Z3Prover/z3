@@ -875,7 +875,7 @@ static void check_arithmetic_nested_witnesses() {
     } cases[] = {
         {"(/ 96.0 82.0)", 1}, {"(- (/ 5.0 3.0))", 1},
         {"(/ 96.0 82.0)", 2}, {"(- (/ 5.0 3.0))", 2},
-        {"(- (/ 5.0 3.0))", 4}
+        {"(- (/ 5.0 3.0))", 4}, {"(- (/ 5.0 3.0))", 8}
     };
     auto limit = [](std::string const& term, std::string const& value) {
         return "(forall ((epsilon Real)) (=> (> epsilon 0.0)\n"
@@ -910,7 +910,7 @@ static void check_arithmetic_nested_witnesses() {
             VERIFY(parse_smt2_commands(cmd, input));
             params_ref p;
             p.set_bool("mbqi", false);
-            p.set_uint("rlimit", 1000000);
+            p.set_uint("rlimit", test.functions == 8 ? 10000000 : 1000000);
             // Scoped existential goals still need the tactic's NNF/Skolem preprocessing.
             ref<solver> slv = mk_tactic2solver(m, mk_smt_tactic(m, p), p, proofs);
             for (unsigned repeat = 0; repeat < 2; ++repeat) {
@@ -927,7 +927,7 @@ static void check_arithmetic_nested_witnesses() {
                 }
                 slv->pop(1);
                 VERIFY(l_true == slv->check_sat(0, nullptr));
-          }
+            }
         }
     }
 }

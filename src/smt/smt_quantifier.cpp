@@ -655,6 +655,7 @@ namespace smt {
         unsigned       m_stat_ho_instances = 0; // number of instances added via ho-matching
         unsigned       m_stat_arith_instances = 0;
         bool           m_arith_matching_done = false;
+        static constexpr unsigned arith_max_bounds = 64;
 
         struct arith_bound {
             quantifier* q = nullptr;
@@ -708,7 +709,7 @@ namespace smt {
             ast_manager& m = a.get_manager();
             unsigned inspected = 0;
             auto collect = [&](auto&& self, expr* body, unsigned inner, bool negated) -> void {
-                if (++inspected > 128 || bounds.size() == 32)
+                if (++inspected > 128 || bounds.size() == arith_max_bounds)
                     return;
                 expr* arg = nullptr;
                 if (m.is_not(body, arg)) {
@@ -717,7 +718,7 @@ namespace smt {
                 }
                 if (m.is_and(body) || m.is_or(body)) {
                     for (expr* child : *to_app(body)) {
-                        if (inspected >= 128 || bounds.size() == 32)
+                        if (inspected >= 128 || bounds.size() == arith_max_bounds)
                             break;
                         self(self, child, inner, negated);
                     }
@@ -773,7 +774,7 @@ namespace smt {
                         unsigned size = a.is_add(polynomial) ? to_app(polynomial)->get_num_args() : 1;
                         if (size > 32)
                             continue;
-                        for (unsigned i = 0; i < size && bounds.size() < 32; ++i) {
+                        for (unsigned i = 0; i < size && bounds.size() < arith_max_bounds; ++i) {
                             expr* term = a.is_add(polynomial) ? to_app(polynomial)->get_arg(i) : polynomial.get();
                             rational k;
                             expr* atom = arith_atom(a, term, k);
@@ -977,7 +978,21 @@ namespace smt {
             return projected;
         }
 
-        bool add_arith_instance(quantifier* q, expr_ref_vector const& terms) {
+        bool add_arith_instance(quantifier* q, expr_ref_vector const& terms,
+                                vector<std::pair<quantifier*, expr_ref_vector>>& instances, unsigned& budget) {
+            for (auto const& [previous, values] : instances) {
+                if (previous != q || values.size() != terms.size())
+                    continue;
+                bool duplicate = true;
+                for (unsigned i = 0; i < terms.size(); ++i)
+                    duplicate &= terms.get(i) == values.get(i);
+                if (duplicate)
+                    return false;
+            }
+            if (!budget)
+                return false;
+            --budget;
+            instances.push_back({q, terms});
             ptr_buffer<enode> bindings;
             unsigned generation = 0;
             for (expr* term : terms) {
@@ -995,8 +1010,11 @@ namespace smt {
 
         bool arith_match(arith_bound const& source, arith_bound const& target,
                          vector<arith_bound> const& bounds, expr_ref_vector const& variables,
-                         arith_util& a, th_rewriter& rw, unsigned& budget) {
+                         vector<std::pair<quantifier*, expr_ref_vector>>& instances,
+                         vector<std::pair<quantifier*, expr_ref_vector>>& witnesses,
+                         arith_util& a, th_rewriter& rw, unsigned& budget, unsigned& witness_budget) {
             if (source.head->get_decl() != target.head->get_decl() || source.head->get_num_args() > 4 ||
+                (!source.inner_decls && target.inner_decls) ||
                 (source.q == target.q && (source.inner_decls || target.inner_decls)) ||
                 source.coefficient.is_pos() == target.coefficient.is_pos())
                 return false;
@@ -1066,14 +1084,15 @@ namespace smt {
             if (projected)
                 boundary = a.mk_mul(a.mk_real(rational(1) / rational(projected + 1)), boundary);
             rw(boundary);
+            if (projected && a.is_zero(boundary))
+                return false;
             bool added = false;
             // These are candidate bindings, including for disjunctive bounds, not asserted arithmetic lemmas.
             for (int offset : {0, 1, -1}) {
                 if (projected && offset != 0)
                     break;
-                if (budget < 2)
+                if (!budget)
                     break;
-                budget -= 2;
                 expr_ref value(a.mk_add(boundary, a.mk_real(offset)), m);
                 rw(value);
                 expr_safe_replace instantiate(m);
@@ -1089,11 +1108,13 @@ namespace smt {
                     else if (i >= ns && i - ns >= target.inner_decls)
                         target_terms.push_back(term);
                 }
-                added = add_arith_instance(source.q, source_terms) || added;
-                added = add_arith_instance(target.q, target_terms) || added;
-                if (offset != 0 || !source.inner_decls)
+                added = add_arith_instance(source.q, source_terms, instances, budget) || added;
+                if (offset != 0 || !source.inner_decls) {
+                    added = add_arith_instance(target.q, target_terms, instances, budget) || added;
                     continue;
+                }
                 expr_ref_vector guard_values(m);
+                bool guarded = false;
                 for (auto const& guard : bounds) {
                     if (budget == 0 || guard_values.size() == 2)
                         break;
@@ -1124,10 +1145,34 @@ namespace smt {
                         if (bindings.get(ns + i) == variables.get(ns + i)) {
                             expr_ref_vector guarded_terms(target_terms);
                             guarded_terms.set(nt - i - 1, candidate);
-                            --budget;
-                            added = add_arith_instance(target.q, guarded_terms) || added;
+                            guarded = true;
+                            bool deferred = false;
+                            if (projected && guarded_terms.size() == 1) {
+                                bool found = false;
+                                for (auto& [q, values] : witnesses)
+                                    if (q == target.q) {
+                                        found = true;
+                                        for (expr* value : values)
+                                            deferred |= value == candidate;
+                                        if (!deferred && witness_budget) {
+                                            values.push_back(candidate);
+                                            --witness_budget;
+                                            deferred = true;
+                                        }
+                                        break;
+                                    }
+                                if (!found && witness_budget) {
+                                    witnesses.push_back({target.q, guarded_terms});
+                                    --witness_budget;
+                                    deferred = true;
+                                }
+                            }
+                            if (!deferred)
+                                added = add_arith_instance(target.q, guarded_terms, instances, budget) || added;
                         }
                 }
+                if (!guarded)
+                    added = add_arith_instance(target.q, target_terms, instances, budget) || added;
             }
             return added;
         }
@@ -1143,7 +1188,7 @@ namespace smt {
             unsigned inspected = 0;
             for (auto it = m_qm->begin_quantifiers(); it != m_qm->end_quantifiers(); ++it) {
                 quantifier* q = *it;
-                if (++inspected > 64 || bounds.size() == 32)
+                if (++inspected > 64 || bounds.size() == arith_max_bounds)
                     break;
                 if (!m_context->is_relevant(q) || m_context->get_assignment(q) != l_true ||
                     m_qm->get_generation(q) != 0)
@@ -1157,12 +1202,26 @@ namespace smt {
                 variables.push_back(m.mk_fresh_const("arith", a.mk_real()));
             bool added = false;
             unsigned budget = 32;
+            vector<std::pair<quantifier*, expr_ref_vector>> instances;
+            vector<std::pair<quantifier*, expr_ref_vector>> witnesses;
+            unsigned witness_budget = 32;
             for (auto const& source : bounds)
                 for (auto const& target : bounds) {
-                    if (budget < 2)
-                        return added;
-                    added = arith_match(source, target, bounds, variables, a, rw, budget) || added;
+                    if (!budget)
+                        break;
+                    added = arith_match(source, target, bounds, variables, instances, witnesses, a, rw,
+                                        budget, witness_budget) || added;
                 }
+            for (auto const& [q, values] : witnesses) {
+                expr_ref value(values.get(0), m);
+                for (unsigned i = 1; i < values.size(); ++i) {
+                    expr_ref condition(a.mk_le(value, values.get(i)), m);
+                    value = m.mk_ite(condition, value, values.get(i));
+                }
+                expr_ref_vector terms(m);
+                terms.push_back(value);
+                added = add_arith_instance(q, terms, instances, budget) || added;
+            }
             return added;
         }
     public:
