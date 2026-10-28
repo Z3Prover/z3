@@ -278,5 +278,25 @@ void tst_api_algebraic() {
         ENSURE(sign2 == 0);
     }
 
+    // NULL ASTs must be rejected even when the error handler is disabled.
+    {
+        Z3_set_error_handler(ctx, nullptr);
+        Z3_ast one = Z3_mk_real(ctx, 1, 1);
+        ENSURE(!Z3_algebraic_is_value(ctx, nullptr));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!Z3_algebraic_add(ctx, nullptr, one));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!Z3_algebraic_add(ctx, one, nullptr));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!Z3_algebraic_lt(ctx, one, nullptr));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(Z3_algebraic_sign(ctx, nullptr) == 0);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!Z3_algebraic_root(ctx, nullptr, 2));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(Z3_algebraic_is_value(ctx, one));
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    }
+
     Z3_del_context(ctx);
 }

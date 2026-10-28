@@ -74,6 +74,7 @@ extern "C" {
     bool Z3_algebraic_is_value_core(Z3_context c, Z3_ast a) {
         api::context * _c = mk_c(c);
         return
+            a != nullptr &&
             is_expr(a) &&
             (_c->autil().is_numeral(to_expr(a)) ||
              _c->autil().is_irrational_algebraic_numeral(to_expr(a)));
@@ -83,6 +84,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_is_value(c, a);
         RESET_ERROR_CODE();
+        CHECK_NON_NULL(a, false);
         return Z3_algebraic_is_value_core(c, a);
         Z3_CATCH_RETURN(false);
     }

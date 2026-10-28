@@ -296,7 +296,77 @@ static void test_nan_datatype_congruence() {
     Z3_del_context(ctx);
 }
 
+static void test_null_ast_arguments() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_sort fp_sort = Z3_mk_fpa_sort_32(ctx);
+    Z3_ast fp = Z3_mk_fpa_nan(ctx, fp_sort);
+    Z3_ast rm = Z3_mk_fpa_rne(ctx);
+    Z3_ast integer = Z3_mk_int(ctx, 1, Z3_mk_int_sort(ctx));
+    Z3_ast real = Z3_mk_real(ctx, 1, 1);
+    Z3_ast bv = Z3_mk_unsigned_int(ctx, 1, Z3_mk_bv_sort(ctx, 32));
+    Z3_ast sort_ast = Z3_sort_to_ast(ctx, fp_sort);
+
+    auto invalid = [&](Z3_ast result) {
+        ENSURE(!result);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    };
+    for (Z3_ast bad : { static_cast<Z3_ast>(nullptr), integer, sort_ast }) {
+        invalid(Z3_mk_fpa_add(ctx, bad, fp, fp));
+        invalid(Z3_mk_fpa_add(ctx, rm, bad, fp));
+        invalid(Z3_mk_fpa_add(ctx, rm, fp, bad));
+        invalid(Z3_mk_fpa_fma(ctx, rm, fp, fp, bad));
+        invalid(Z3_mk_fpa_fp(ctx, bad, bv, bv));
+    }
+
+    using conversion = Z3_ast (*)(Z3_context, Z3_ast, Z3_ast, Z3_sort);
+    conversion conversions[] = {
+        Z3_mk_fpa_to_fp_float, Z3_mk_fpa_to_fp_real,
+        Z3_mk_fpa_to_fp_signed, Z3_mk_fpa_to_fp_unsigned
+    };
+    Z3_ast values[] = { fp, real, bv, bv };
+    for (unsigned i = 0; i < 4; ++i) {
+        invalid(conversions[i](ctx, nullptr, values[i], fp_sort));
+        invalid(conversions[i](ctx, rm, nullptr, fp_sort));
+        ENSURE(conversions[i](ctx, rm, values[i], fp_sort));
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    }
+    invalid(Z3_mk_fpa_to_fp_int_real(ctx, nullptr, integer, real, fp_sort));
+    invalid(Z3_mk_fpa_to_fp_int_real(ctx, rm, nullptr, real, fp_sort));
+    invalid(Z3_mk_fpa_to_fp_int_real(ctx, rm, integer, nullptr, fp_sort));
+    ENSURE(Z3_mk_fpa_to_fp_int_real(ctx, rm, integer, real, fp_sort));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    using predicate = bool (*)(Z3_context, Z3_ast);
+    predicate predicates[] = {
+        Z3_fpa_is_numeral, Z3_fpa_is_numeral_nan, Z3_fpa_is_numeral_inf,
+        Z3_fpa_is_numeral_zero, Z3_fpa_is_numeral_normal,
+        Z3_fpa_is_numeral_subnormal, Z3_fpa_is_numeral_positive,
+        Z3_fpa_is_numeral_negative
+    };
+    for (auto pred : predicates) {
+        ENSURE(!pred(ctx, nullptr));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!pred(ctx, sort_ast));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        pred(ctx, fp);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    }
+    ENSURE(!Z3_fpa_is_numeral_nan(ctx, integer));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_fpa_is_numeral(ctx, integer));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(Z3_fpa_is_numeral_nan(ctx, fp));
+    ENSURE(Z3_mk_fpa_add(ctx, rm, fp, fp));
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
+    test_null_ast_arguments();
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
