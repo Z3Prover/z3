@@ -634,36 +634,6 @@ static void test_command_proof_check_callback() {
 // process-global allocated memory, so the work reaching the factorizer depends
 // on machine load and on whatever ran earlier in the same process.
 
-static void test_apply_result_subgoal_bounds() {
-    Z3_config cfg = Z3_mk_config();
-    Z3_context ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
-
-    Z3_sort int_sort = Z3_mk_int_sort(ctx);
-    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), int_sort);
-    Z3_goal g = Z3_mk_goal(ctx, true, false, false);
-    Z3_goal_inc_ref(ctx, g);
-    Z3_goal_assert(ctx, g, Z3_mk_gt(ctx, x, Z3_mk_int(ctx, 1, int_sort)));
-    Z3_tactic t = Z3_mk_tactic(ctx, "skip");
-    Z3_tactic_inc_ref(ctx, t);
-    Z3_apply_result r = Z3_tactic_apply(ctx, t, g);
-    Z3_apply_result_inc_ref(ctx, r);
-
-    unsigned n = Z3_apply_result_get_num_subgoals(ctx, r);
-    ENSURE(n == 1);
-    ENSURE(Z3_apply_result_get_subgoal(ctx, r, n - 1) != nullptr);
-    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
-    // the valid indices are 0 .. n-1
-    ENSURE(Z3_apply_result_get_subgoal(ctx, r, n) == nullptr);
-    ENSURE(Z3_get_error_code(ctx) == Z3_IOB);
-
-    Z3_apply_result_dec_ref(ctx, r);
-    Z3_tactic_dec_ref(ctx, t);
-    Z3_goal_dec_ref(ctx, g);
-    Z3_del_context(ctx);
-}
-
 static void test_query_constructor_num_fields() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -709,7 +679,6 @@ void tst_api() {
     test_apply_result_subgoal_bounds();
     test_query_constructor_bounds();
     test_command_proof_check_callback();
-    test_apply_result_subgoal_bounds();
     test_query_constructor_num_fields();
 }
 
