@@ -2553,6 +2553,21 @@ let unused_quantifier_rewrites () =
     "(not (exists ((n Int)) (> n 0)))";
   check true "(declare-fun P (Int) Bool)"
     "(forall ((x Int)) (exists ((y Int)) (P x)))" "(forall ((x Int)) (P x))";
+  (* The unused binder is removed first; the remaining Boolean bodies are then compared. Only the
+     quantifier reduction decides an elimination step, so this fixes that comparison. *)
+  let eliminate expected left right =
+    let declarations = "(declare-const p Bool)(declare-const q Bool)" in
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.ElimUnused conclusion [] = expected)
+      ("incorrect unused-binder elimination: " ^ left ^ " -> " ^ right)
+  in
+  eliminate true "(forall ((x Int)) (or q p))" "(or p q)";
+  eliminate true "(or p q)" "(exists ((x Int)) (or q p))";
+  eliminate true "(forall ((x Int)) (or q p))" "(or q p)";
+  eliminate false "(forall ((x Int)) (or q p))" "(and p q)";
+  eliminate false "(or p q)" "(exists ((x Int)) (and q p))";
   check false "(declare-fun P (Int Int) Bool)"
     "(forall ((x Int) (y Int)) (P x y))" "(forall ((x Int)) (P x x))";
   check false "(declare-fun P (Int) Bool)"

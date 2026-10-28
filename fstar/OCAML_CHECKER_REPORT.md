@@ -1920,7 +1920,8 @@ exit status, or the default fast path. F* proves that the paired result
 equals the ordinary checker's result in both legacy and sorted modes.
 Result agreement and obligation-count checks remain enabled.
 With diagnostics, `check_ms` includes collection and `diagnose_ms` measures
-formatting, rather than a second checking pass.
+formatting, rather than a second checking pass (in the Cherry checker too,
+since 2026-10-28).
 Each `obligation` TSV row contains the rule, count, first
 proof-node index, and a bounded sort-aware expression fingerprint; a
 `diagnostic` row records the pending total or the rejection stage. Fingerprint
@@ -2189,6 +2190,55 @@ open terms, or high slices of single bits fail the regression. Dropping
 only the `l = 0` test does not, since the target width `h + 1` already
 forces `l = 0`. CLI tests certify seven interactive refutations with no
 obligation and check that a high-slice variant is reported `sat`.
+
+### Boolean normalization is computed once per rewrite step (2026-10-28)
+
+This changes how long a step takes, not which steps are accepted. In
+`6079-8` three pending Boolean `rewrite` steps over terms of 1.5 to 3
+million nodes (as trees) account for 31 of the 37 seconds of OCaml checking
+time. Each of them computed the full Boolean normal form of the same pair
+`(a, b)` three times: as the separate alternative `boolean_equiv 8 10 a b`
+of `relational_step`, and twice more inside `Z3QuantifierReduce.equivalent
+64 a b`, whose first test is that same call and whose second test repeats
+it on the normalized pair, which for a quantifier-free step is the pair
+itself. Two edits remove the repetition:
+
+- `Z3QuantifierReduce.equivalent` skips `boolean_equiv 8 10 x y` when the
+  normalized pair `(x, y)` equals `(a, b)`, since that test has just failed.
+  `lemma_equivalent_unchanged` proves, for every fuel and every pair of
+  terms, that the new `equivalent` equals `equivalent_reference`, the
+  previous definition (kept as a non-extracted function for this statement
+  only).
+- `relational_step` no longer lists `boolean_equiv 8 10 a b` before
+  `Z3QuantifierReduce.equivalent 64 a b`. `lemma_boolean_equiv_subsumed`
+  proves that the test implies `equivalent 64 a b`, so the same pairs are
+  accepted. `lemma_relational_step_sound` loses one branch and keeps its
+  statement.
+
+The bridge group `unused-quantifier-rewrites` now fixes the comparison of
+the Boolean bodies after an unused binder is removed, which only
+`ElimUnused` steps reach without another alternative also accepting them.
+
+With `--diagnostics` the Cherry checker checked every document twice, once
+for the verdict and once to collect obligations, as the OCaml checker never
+did. It now diagnoses once: `Z3Cherry.lemma_diagnose_is_check` proves that
+the result recorded by the diagnosis equals `Z3Cherry.check` for the same
+document and sorted mode (in the legacy path through
+`Z3ProofDocument.lemma_diagnose_document_indexed`, in the sorted path
+through `Z3SortedProof.lemma_diagnose_document`), and the native wrapper
+reads the verdict from the diagnosis. The agreement test between two passes
+is replaced by that theorem; the count of the grouped obligations against
+the pending total is still checked natively. Under `--diagnostics`,
+`check_ms` is therefore the single pass including collection, and
+`diagnose_ms` is the formatting of the report, as for the OCaml checker;
+`Z3CherryTests` checks the agreement on accepted, pending and rejected
+documents in both sorted modes. Without `--diagnostics` nothing changes.
+
+On `6079-8`, with the harness flags and limits, one development run each
+took the OCaml checker from `check_ms` 36.4 s to 20.4 s and the Cherry
+checker from a timeout at 60 s (108 s without the limit, 53.7 s of it
+`check_ms`) to `PARTIAL 123` in 30.5 s. The pending obligations are the
+same 123.
 
 ### Warning-free verification and extraction (2026-10-17)
 

@@ -277,12 +277,16 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
      | DestructiveEquality | DestructiveEqualityResolution ->
        facts = [] && (QD.equivalent 64 a b || DE.check a b)
      | RewriteRule | ApplyDefinition ->
+       (* The Boolean equivalence test boolean_equiv 8 10 a b is the first test of
+          QR.equivalent 64 a b, so it is not repeated as a separate alternative:
+          the alternatives accept the same pairs, and the full Boolean normal
+          form of a large step is computed once rather than once per alternative. *)
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
                       Z3DistinctAst.duplicate_rewrite a b ||
                       Z3DistinctEmbed.expansion_rewrite a b ||
                       constant_quantifier_rewrite a b ||
-                      boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
+                     A.equivalent 64 a b || AR.equivalent a b ||
                       AF.check a b || BX.check a b ||
                       QR.equivalent 64 a b || LR.rewrite a b ||
                       CR.equivalent a b || IR.equivalent a b || ID.equivalent a b ||
@@ -850,7 +854,6 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if Z3DistinctEmbed.expansion_rewrite a b then
            Z3DistinctEmbed.lemma_expansion_rewrite_sound i rho a b
          else if constant_quantifier_rewrite a b then lemma_constant_quantifier_sound i rho a b
-         else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
          else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
          else if AR.equivalent a b then AR.lemma_equivalent_with_numeric_model a b i rho
          else if AF.check a b then AF.lemma_check_sound a b i rho
