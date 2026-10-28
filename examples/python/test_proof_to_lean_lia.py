@@ -389,6 +389,17 @@ DIVISION_SEEDS = (19, 23, 27)
 WIDE_DIVISION_SEED = 67
 
 
+def untrimmed_log():
+    """Export the whole clause log instead of the native trimmer's core.
+
+    The tests of the wide division seeds are about particular lemmas of
+    their full refutations, which the trimmer, crashing on every division
+    log until 2026-10-27, left untrimmed. The trimmed cores leave them out
+    (WIDE_DIVISION_SEED's keeps cuts and bounds but no Farkas step).
+    """
+    return patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf"))
+
+
 def _z3_available():
     try:
         return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
@@ -498,7 +509,8 @@ class TestIntegerValidation(unittest.TestCase):
         generalized = {}
         for name, source in [(name, LIA_INPUTS[name]) for name in ("lia_div", "lia_mod_sum", "lia_abs", "lia_gcd")] + [
                 ("wide", random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18))]:
-            certificate = proof_certificate.export_clause_log_certificate(source)
+            with untrimmed_log():
+                certificate = proof_certificate.export_clause_log_certificate(source)
             graph = proof_to_lean._validate_graph(source, certificate)
             text = proof_to_lean.reconstruct(source, certificate)
             generalized[name] = set()
@@ -1056,6 +1068,11 @@ class TestIntegerLeanIntegration(unittest.TestCase):
             certificate = proof_certificate.export_clause_log_certificate(source)
         else:
             certificate = proof_certificate.export_certificate(source)
+        self.checked_text(source, certificate, core)
+        return certificate
+
+    def checked_text(self, source, certificate, core="clause-log"):
+        """Check the certificate's Lean file under the standard axioms and return its text."""
         self.assertEqual(certificate["fragment"], "qf_lia")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"
@@ -1077,7 +1094,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                 # A legacy refutation by rewriting and resolution alone may
                 # need no axiom; otherwise the standard ones.
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
-            return certificate
+        return text
 
     def test_documented_lia_inputs_verify_under_the_standard_axioms(self):
         hints = set()
@@ -1118,7 +1135,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         source = random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18)
         self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % WIDE_DIVISION_SEED)
         self.assertIn("(mod x4 -3)", source)
-        certificate = self.check(source)
+        with untrimmed_log():
+            certificate = self.check(source)
         self.assertLessEqual({"farkas", "bound", "cut"}, _hints(certificate))
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("rw [Int.emod_neg]; exact Int.emod_lt_of_pos _ (by decide)", text)
@@ -1161,6 +1179,38 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # The legacy core rewrites each abs term to its ite on its own.
         self.assertEqual(text.count("revert _e"), 12)
         self.assertRegex(text, r"private theorem rewrite_\d+ .*\n.*\n.*\n  first\n    \| \(have _e")
+
+    def test_bounded_model_checking_circuit_verifies_through_one_cnf_lemma(self):
+        # SMT-LIB QF_IDL Averest/buble_sort/BubbleSort_safe_bgmc007: one
+        # assertion, a 13,000-node Boolean circuit (and, or, not, iff over
+        # Boolean variables and a few difference bounds) that Z3 simplifies
+        # before logging, so the whole refutation rests on one cnf lemma
+        # tying an assumed clause to the assertion. Its propagation proof
+        # has about ten thousand steps: as one nested term it exhausted the
+        # heartbeats (first in the unfold of the 13,000 definitions, then in
+        # the term itself, which Lean elaborates in time quadratic in the
+        # nesting), and the export spent two minutes sorting nested keys.
+        # Now the proof is a tactic script naming the gates by their
+        # definitions, with nothing unfolded, and the whole file verifies
+        # (about a minute of Lean at a peak of about 4.5 GB resident: mind
+        # the runner's memory before adding a larger input).
+        source = (_EXAMPLES / "data" / "BubbleSort_safe_bgmc007.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = self.checked_text(source, certificate)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertEqual(len(cnf), 1)
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1)
+        self.assertGreater(len(graph.nodes), 13000)
+        lemma = text.split("private theorem th_lemma_%d " % cnf[0], 1)[1].split("\n\n", 1)[0]
+        head, _, attempts = lemma.partition("\n  first\n")
+        self.assertNotIn("unfold", head)
+        structural, fallback = attempts.split("\n    | (")
+        self.assertIn("refine Classical.byContradiction ?_\n       refine (fun (_f", structural)
+        self.assertGreater(structural.count("\n       have _f"), 5000)
+        self.assertNotIn("let _s", structural)
+        self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+        self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
 
     def test_arith_lemmas_over_real_atoms_verify(self):
         # The arith hint is accepted in Real certificates too, where grind
@@ -1374,6 +1424,7 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
     """End-to-end through the smt core's proof object: certificate, Lean reconstruction, kernel check."""
 
     check = TestIntegerLeanIntegration.check
+    checked_text = TestIntegerLeanIntegration.checked_text
 
     def test_documented_lia_inputs_verify_through_the_legacy_core(self):
         hints = set()
