@@ -634,7 +634,7 @@ static void test_command_proof_check_callback() {
 // process-global allocated memory, so the work reaching the factorizer depends
 // on machine load and on whatever ran earlier in the same process.
 
-static void test_apply_result_subgoal_bounds() {
+static void test_apply_result_nonempty_subgoal_bounds() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
@@ -709,7 +709,7 @@ void tst_api() {
     test_apply_result_subgoal_bounds();
     test_query_constructor_bounds();
     test_command_proof_check_callback();
-    test_apply_result_subgoal_bounds();
+    test_apply_result_nonempty_subgoal_bounds();
     test_query_constructor_num_fields();
 }
 
