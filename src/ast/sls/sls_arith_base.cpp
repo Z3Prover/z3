@@ -2756,8 +2756,8 @@ namespace sls {
         //m_config.ucb_noise = p.ucb_noise();
         //m_config.ucb_forget = p.ucb_forget();
         m_config.wp = p.wp();
-        m_config.restart_base = p.restart_base();
-        m_config.restart_next = p.restart_base();
+        m_config.restart_base = std::max(1u, p.restart_base());
+        m_config.restart_next = m_config.restart_base;
         //m_config.max_moves_base = p.max_moves_base();
         //m_config.max_moves = p.max_moves();
         m_config.use_lookahead = p.arith_use_lookahead();
