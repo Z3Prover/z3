@@ -1,0 +1,7 @@
+$ timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache --odir out ArithQiAudit.fst
+F* 2026.09.27 (Linux_x86_64); Z3 version 4.13.3 - 64 bit
+stdout: Verified module: ArithQiAudit
+All verification conditions discharged successfully
+stderr: (empty)
+exit code: 0
+(An earlier attempt failed only due to `open FStar.Mul` not existing in this F* version; removed.)

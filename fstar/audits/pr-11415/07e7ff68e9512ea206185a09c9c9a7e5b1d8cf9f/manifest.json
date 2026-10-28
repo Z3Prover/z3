@@ -1,0 +1,22 @@
+{
+  "pull_request": 11415,
+  "head_sha": "07e7ff68e9512ea206185a09c9c9a7e5b1d8cf9f",
+  "base_sha": "c698bae880c654763b09d29b634b38562eafea11",
+  "path_prefix": "fstar/audits/pr-11415/07e7ff68e9512ea206185a09c9c9a7e5b1d8cf9f/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40656396501",
+  "files": [
+    {
+      "name": "ArithQiAudit.fst",
+      "sha256": "7bd463deaf8a0584dc4ea0056c2c3e3f2f87e7bbf6777ccea5eebe5ec7331cda"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "507f46ae8f7f71ae65714d2f10f0f674cae35a84c056509276e42428827fc693"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "20ab9ceb316f7eb91d2e7a6836470031420dce0df6d20a1a71297911ecf0d658"
+    }
+  ]
+}
