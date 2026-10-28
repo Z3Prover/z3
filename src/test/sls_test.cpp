@@ -347,7 +347,7 @@ static void test_restart_base(unsigned restart_base, bool use_smt, bool use_arit
         expr_ref b(m.mk_const("b", bv.mk_sort(8)), m);
         expr_ref product(bv.mk_bv_mul(a, b), m);
         g->assert_expr(m.mk_eq(product, bv.mk_numeral(rational(15), 8)));
-        g->assert_expr(bv.mk_ugt(a, bv.mk_numeral(rational(1), 8)));
+        g->assert_expr(bv.mk_ult(bv.mk_numeral(rational(1), 8), a));
     }
     tactic_ref t = use_smt ? mk_sls_smt_tactic(m, p) : mk_qfbv_sls_tactic(m, p);
     goal_ref_buffer result;
