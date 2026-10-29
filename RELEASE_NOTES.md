@@ -1,5 +1,135 @@
 RELEASE NOTES
 
+Version 5.3.3
+==============
+
+- **Java release packages:** add API-only, platform-specific, and universal
+  JARs to GitHub release artifacts. Bundled-native packages cover Linux x64,
+  Windows x64, and macOS arm64; the universal JAR contains all three.
+  Fall back to extracting and loading the bundled Z3 and JNI libraries when
+  conventional native-library loading fails. Preserve `z3.skipLibraryLoad`
+  and Java 8 compatibility. Gate release publication on source/version
+  consistency, checksums, and native smoke tests; include provenance and
+  validation reports. This does not add Maven publishing.
+  https://github.com/Z3Prover/z3/pull/11434, https://github.com/Z3Prover/z3/pull/11441
+- **MaxSMT performance:** bound core-guided optimization using the linear
+  relaxation of hard constraints, and try integral soft-literal assignments
+  from the relaxation before extracting cores. This improves problems with
+  cardinality, pseudo-Boolean, and linear arithmetic constraints.
+  Enable by default with `opt.maxres.lp_relaxation`, with a separate
+  `opt.maxres.lp_relaxation_rlimit` budget. Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/11428
+- Simplify modular inverse equalities over compound arithmetic expressions,
+  including distributed sums and constant offsets, using bounded,
+  coefficient-reducing rewrites.
+  https://github.com/Z3Prover/z3/pull/11365
+- Fix incorrect transcendental results by validating actual witness
+  intervals before widening enclosures and linking transcendental variables
+  to their expanded polynomial definitions. Guard inverse-trigonometric
+  and inverse-hyperbolic cancellation rewrites by their valid domains.
+  https://github.com/Z3Prover/z3/pull/11364, https://github.com/Z3Prover/z3/pull/11438
+- Fix incremental symbolic Real-to-floating-point rounding using a direct
+  linear-real encoding that preserves all five rounding modes, signed zero,
+  subnormals, ties, and overflow. Preserve NaN congruence across raw-bit
+  constructors, uninterpreted functions, and array boundaries without
+  restricting legal NaN signs or payloads.
+  https://github.com/Z3Prover/z3/pull/11421, https://github.com/Z3Prover/z3/pull/11419
+- Correct signed bit-vector modulus in integer blasting and avoid unsound
+  folding of nested symbolic rotations at non-power-of-two widths.
+  https://github.com/Z3Prover/z3/pull/11417
+- Resolve datatype match constructors using the scrutinee's instantiated
+  sort. Detect recursive datatype cycles through sequence concatenations
+  and equivalence classes, and correct subterm polarity, conflict
+  dependencies, relevance, and antisymmetry. Reject unsupported nested
+  recursion in `:subterm` declarations instead of producing incorrect results.
+  https://github.com/Z3Prover/z3/pull/11418, https://github.com/Z3Prover/z3/pull/11411
+- Preserve singleton cardinalities for datatype array fields with singleton
+  ranges, including arrays over infinite index domains. Thanks to Roberto
+  Pettinau.
+  https://github.com/Z3Prover/z3/pull/11330
+- Keep finite-set cardinality completion state consistent with its Boolean
+  subsolver across backtracking, preventing spurious zero-cardinality
+  equations and incorrect `unsat` results.
+  https://github.com/Z3Prover/z3/pull/11440
+- Leave injectivity axioms unrefined when a passive bound variable repeats,
+  avoiding a stronger, unsound axiom.
+  https://github.com/Z3Prover/z3/pull/11439
+- Preserve already guarded recursive-function bodies instead of moving
+  sibling conjuncts into case guards, avoiding unnecessary eager
+  internalization and sequence-solving regressions.
+  https://github.com/Z3Prover/z3/pull/11423
+- Correct `last_indexof` positions in concatenated sequences, including
+  symbolic-length prefixes and overlapping matches. Fully simplify
+  `str.indexof` with empty patterns and large offsets.
+  https://github.com/Z3Prover/z3/pull/11328, https://github.com/Z3Prover/z3/pull/11412
+- Honor sequence-theory timeouts and resource limits during equation
+  normalization, axiom processing, and fixed-length construction.
+  Bound eager normalization during cancellation-suspended callbacks and
+  retain unfinished work for interruptible propagation.
+  https://github.com/Z3Prover/z3/pull/11331, https://github.com/Z3Prover/z3/pull/11356
+- Avoid stack overflow when processing deeply nested sequence
+  concatenations in quantified String/Regex problems.
+  https://github.com/Z3Prover/z3/pull/11410
+- Avoid distributing shared conjunctions repeatedly during clause
+  flattening, including conjunctions already encoded by an earlier
+  incremental check.
+  https://github.com/Z3Prover/z3/pull/11308, https://github.com/Z3Prover/z3/pull/11334
+- Clear polling-timer deadlines when the last timer ends, so later
+  checks in the same context are not spuriously cancelled.
+  https://github.com/Z3Prover/z3/pull/11350
+- Harden C API validation for out-of-range subgoal indices, excessive
+  constructor accessor counts, and null algebraic or floating-point
+  arguments. Reject overflowing `int2bv` widths, negative `bit2bool`
+  indices, and unsupported one-argument Real-to-FP conversions without
+  out-of-bounds accesses.
+  https://github.com/Z3Prover/z3/pull/11399, https://github.com/Z3Prover/z3/pull/11406,
+  https://github.com/Z3Prover/z3/pull/11397, https://github.com/Z3Prover/z3/pull/11398
+- Treat zero values for `sls.restart_base`, `smt.qi.profile_freq`,
+  `smt.arith.branch_cut_ratio`, and `smt.arith.nl.horner_frequency` as one,
+  avoiding division-by-zero crashes.
+  https://github.com/Z3Prover/z3/pull/11400, https://github.com/Z3Prover/z3/pull/11432
+- Preserve negated bounds in Spacer's bound-expansion generalizer.
+  Correct residual reverse arcs in its min-cut support, fixing
+  nontermination and incorrect cuts with `spacer.iuc=2`.
+  https://github.com/Z3Prover/z3/pull/11404, https://github.com/Z3Prover/z3/pull/11401
+- Extend F*/Pulse checking of finite-field rewrites and bounded exhaustive
+  theory lemmas, and replay polynomial-ideal certificates built from
+  definition equations and positive premises.
+  https://github.com/Z3Prover/z3/pull/11358, https://github.com/Z3Prover/z3/pull/11368
+- Expand F*/Pulse bit-vector checking with scoped fresh-bit projections,
+  extraction over arithmetic, conditionals, and binary concatenations,
+  bounded evaluation, and symbolic addition normalization. Add checked
+  nonlinear factor-sign rewrites and integer rounding cuts.
+  https://github.com/Z3Prover/z3/pull/11367, https://github.com/Z3Prover/z3/pull/11416,
+  https://github.com/Z3Prover/z3/pull/11371, https://github.com/Z3Prover/z3/pull/11430
+- Extend F*/Pulse checking of universal-block flattening, unused Skolem
+  blocks, and integer-indexed array-store disequalities. Make proof
+  traversal and native marshaling stack-safe, and bound shared-expression
+  expansion to prevent Cherry stack and allocation crashes.
+  Unsupported and over-budget proof steps remain explicit unverified
+  obligations.
+  https://github.com/Z3Prover/z3/pull/11348, https://github.com/Z3Prover/z3/pull/11359,
+  https://github.com/Z3Prover/z3/pull/11366,
+  https://github.com/Z3Prover/z3/commit/e9bfb315f
+- Improve Lean reconstruction of clausal certificates with propositional
+  CNF bridge proofs and tactic-based propagation lemmas. Trim clause logs
+  from 4 KB, and fix native proof-trimmer handling of never-added clauses,
+  conflicts, repeated literals, and nested negations in Boolean arguments.
+  https://github.com/Z3Prover/z3/pull/11355, https://github.com/Z3Prover/z3/pull/11424,
+  https://github.com/Z3Prover/z3/pull/11429
+- Retain all built-in tactic, probe, and simplifier registrations in
+  JavaScript/WebAssembly static builds without whole-archive linking.
+  https://github.com/Z3Prover/z3/pull/11353
+- Publish stable source tarballs as explicit GitHub release assets.
+  Derive Bazel shared-library names from the Z3 version and correct
+  Windows executable and static-library names.
+  https://github.com/Z3Prover/z3/pull/11370, https://github.com/Z3Prover/z3/pull/11414
+- Remove duplicate OCaml native-link inputs, normalize Python install
+  paths, and fix compiler warnings, standalone CMake compatibility, and
+  tagless Git version descriptions.
+  https://github.com/Z3Prover/z3/commit/7d4758a82
+
+
 Version 5.3.2
 ==============
 
