@@ -11,9 +11,12 @@ import tempfile
 import unittest
 import warnings
 import zipfile
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import mk_java_package as package
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'java'))
+import workflow_inputs
 
 
 def archive(entries):
@@ -130,6 +133,42 @@ class JavaPackagingTests(unittest.TestCase):
     def test_duplicate_platform(self):
         with self.assertRaisesRegex(ValueError, 'duplicates'):
             self.build(platforms=['win-x64', 'win-x64'])
+
+    def test_workflow_run_identity(self):
+        expected = {'repository': 'example/z3', 'run_id': '123', 'run_attempt': '1',
+                    'source_commit': 'a' * 40}
+        self.lock['input_kind'] = 'workflow-artifact'
+        self.preparation['workflow'] = expected
+        asset = self.lock['platforms']['win-x64']
+        asset['workflow'] = dict(expected)
+        asset['url'] = 'https://github.com/example/z3/actions/runs/123'
+        self.build('matching-run')
+        for key, wrong in (('run_id', '456'), ('run_attempt', '2'), ('source_commit', 'b' * 40)):
+            with self.subTest(key=key):
+                asset['workflow'] = {**expected, key: wrong}
+                with self.assertRaisesRegex(ValueError, 'Mixed workflow'):
+                    self.build('mixed-run')
+
+    def test_collect_rejects_mixed_receipts(self):
+        expected = {'repository': 'example/z3', 'run_id': '123', 'run_attempt': '1',
+                    'source_commit': 'a' * 40}
+        receipt = {'classifier': 'win-x64', 'workflow': expected, 'version': '5.3.2',
+                   'runtime_version': '5.3.2.0', 'name': self.name,
+                   'sha256': self.lock['platforms']['win-x64']['sha256']}
+        directory = self.root / 'downloaded/java-native-win-x64'
+        directory.mkdir(parents=True)
+        (directory / self.name).write_bytes((self.root / self.name).read_bytes())
+        metadata = directory / 'receipt-win-x64.json'
+        metadata.write_bytes(package.json_bytes(receipt))
+        with mock.patch.object(workflow_inputs, 'source_version', return_value=('5.3.2', '5.3.2.0')):
+            workflow_inputs.collect(directory.parent, self.root / 'collected', ['win-x64'], expected)
+            for change in ({'workflow': {**expected, 'run_id': 'other'}},
+                           {'workflow': {**expected, 'run_attempt': '2'}},
+                           {'workflow': {**expected, 'source_commit': 'b' * 40}},
+                           {'version': '5.0.0'}, {'classifier': 'linux-x64'}):
+                metadata.write_bytes(package.json_bytes({**receipt, **change}))
+                with self.subTest(change=change), self.assertRaisesRegex(ValueError, 'Mixed run'):
+                    workflow_inputs.collect(directory.parent, self.root / 'rejected', ['win-x64'], expected)
 
     def test_stale_output_directory(self):
         self.build()

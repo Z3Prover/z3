@@ -125,7 +125,14 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
     for classifier in platforms:
         asset = lock['platforms'][classifier]
         name = asset['name']
-        if asset['url'] != 'https://github.com/Z3Prover/z3/releases/download/' + lock['tag'] + '/' + name:
+        if lock.get('input_kind') == 'workflow-artifact':
+            context = preparation['workflow']
+            if (asset.get('workflow') != context or context['source_commit'] != lock['commit']):
+                raise ValueError('Mixed workflow run/attempt/source commit: ' + name)
+            expected_url = 'https://github.com/' + context['repository'] + '/actions/runs/' + context['run_id']
+        else:
+            expected_url = 'https://github.com/Z3Prover/z3/releases/download/' + lock['tag'] + '/' + name
+        if asset['url'] != expected_url:
             raise ValueError('Unexpected release asset URL: ' + asset['url'])
         if not name.startswith('z3-' + lock['version'] + '-'):
             raise ValueError('Release version mismatch: ' + name)
@@ -156,7 +163,8 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
         raise ValueError('Output directory must be empty to exclude stale artifacts: ' + str(out_dir))
     out_dir.mkdir(parents=True, exist_ok=True)
     base = artifact_id + '-' + version
-    write_jar(out_dir / (base + '.jar'), {**api, 'META-INF/z3/provenance.json': json_bytes(provenance)})
+    write_jar(out_dir / (base + '.jar'), {**api, 'META-INF/z3/LICENSE.txt': license_text,
+                                       'META-INF/z3/provenance.json': json_bytes(provenance)})
     for classifier, content in packages.items():
         write_jar(out_dir / (base + '-' + classifier + '.jar'), content)
     # These explicit test coordinates are not an assertion of an official namespace.
