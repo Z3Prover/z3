@@ -865,6 +865,44 @@ Out of scope and still pending: lemmas that need a genuine Gomory or
 branching cut (the two `cut_lemma_01_011` steps), more than one rounding
 step, conclusions other than `false`, and rows with Real atoms.
 
+### Bounded bit-vector evaluation for QF_ABV `th-lemma` and `rewrite` steps (2026-10-29)
+
+In the QF_ABV PARTIAL inputs of the pulse checker reports, the smallest
+`egt` benchmarks leave `rewrite` steps and bit-vector `th-lemma` steps over
+a single 8-bit array read pending: the bound split
+`bvule(t, 547) = (extract[31:10](t) = 0 and bvule(extract[9:0](t), 547))`,
+the range lemmas `extract[31:10](242 + concat(0, x)) = 0` and
+`bvule(242 + concat(0, x), 547)` over 10 bits, and the constant
+re-association `bvadd(bvadd(2, t), 1) = bvadd(3, t)`, with
+`x = (select packet #x000000f1)` and `t = concat(0_24, x)`. Each is valid
+for every value of `x`.
+
+`Z3BvExhaustive.fst` decides such premise-free steps by evaluating the
+conclusion under every assignment of its leaves. The evaluated operators
+(Boolean connectives, `=`, `bvult`/`bvule`/`bvuge`, numerals, binary
+`concat`, `extract`, `zero_extend`, binary `bvadd`) are recognized by
+declaration kind and parameters and evaluated exactly as the corresponding
+`bv_model` conjuncts state; a leaf is a closed bit-vector term outside that
+set, identified by structure and width and enumerated over `[0, 2^w)`,
+which the first `bv_model` conjunct shows covers every model. No array
+read, uninterpreted constant or opaque operator is ever given a value, and
+the signed comparisons and `bit2bool`, which the native bridge leaves
+opaque, are not evaluated, so `egt-6871` (and the matching lemma of
+`egt-7033` and `egt-6792`) stays pending. The soundness lemmas need only
+`bv_model` (through `normalization_model`) and the Boolean connective
+contracts, and the kernel call sites discharge them from the unchanged
+`model_sound`. Before anything is enumerated the conclusion must have at
+most 512 occurrences counted on the tree, no variable or binder, and leaves
+of at most 12 bits in total (at most 4096 assignments); these guards are
+conditionals, so the order holds under normalization too. Every bound
+leaves the step pending, never rejected.
+
+`egt-0160` (bench report) and `egt-0218` and `egt-4297` (z3 report), kept
+verbatim in `benchmarks/repair`, certify. Out of scope and still pending:
+steps over more than 12 leaf bits (for example the same re-association
+over a 32-bit leaf, and the two-read sums of `egt-1341` and `egt-1513`),
+steps with premises, and every operator outside the evaluated set.
+
 ### QF_DT benchmark coverage (2026-10-18)
 
 A fixed 100-input QF_DT sample comes from the SMT-LIB 2025 archive

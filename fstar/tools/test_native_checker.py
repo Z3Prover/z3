@@ -391,6 +391,35 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
 
+    def test_bounded_bv_evaluation_certifies_qf_abv_egt_benchmarks(self):
+        # SMT-LIB QF_ABV/egt/egt-0160.smt2, egt-0218.smt2 and egt-4297.smt2 (Vijay Ganesh, Clark Barrett),
+        # verbatim. Their pending rewrites and bit-vector theory lemmas range over one 8-bit leaf
+        # (select packet #x000000f1) and are decided by evaluating them under all 256 values of the leaf.
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        for name in ("egt-0160.smt2", "egt-0218.smt2", "egt-4297.smt2"):
+            source = (repair / name).read_text()
+            with self.subTest(name=name, interactive=False):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stdout + result.stderr)
+                self.assertNotIn("obligation\t", result.stderr)
+            with self.subTest(name=name, interactive=True):
+                result = self.run_checker(source, "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+        source = (repair / "egt-0160.smt2").read_text()
+        # A satisfiable variant (bound 400 instead of 547) has no proof to certify.
+        satisfiable = source.replace("(bvule ?v_0 (_ bv547 32))", "(bvule ?v_0 (_ bv400 32))")
+        self.assertNotEqual(satisfiable, source)
+        result = self.run_checker(satisfiable, "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
+        # egt-6871's only lemma needs signed `bvsle` and `bit2bool`, which the native bridge leaves opaque.
+        source = (repair / "egt-6871.smt2").read_text()
+        result = self.run_checker(source, "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"),
+                         result.stdout + result.stderr)
+        self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
+
     def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
         source = (
             "(declare-fun a () Real)"

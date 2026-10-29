@@ -4283,11 +4283,14 @@ let bv_extract_rewrites () =
     "(ite p ((_ extract 1 1) u) ((_ extract 1 1) x))";
   (* Valid steps outside the shape stay pending: bitwise or, subtraction, reordered or
      evaluated arguments, two steps at once, and terms with variables bound outside them
-     (Z3BvExtract checks closed terms only). *)
+     (Z3BvExtract checks closed terms only). The bounded evaluation of Z3BvExhaustive does not
+     decide them either: bvor, bvsub and ite terms are opaque leaves, and the other leaves have
+     more than 12 bits; the evaluated-numeral step over a 7-bit leaf is certified by that
+     evaluation (checked-bounded-bit-vector-evaluation), so it is tested here at 66 bits. *)
   outside "((_ extract 5 2) (bvor x y))" "(bvor ((_ extract 5 2) x) ((_ extract 5 2) y))";
   outside "((_ extract 3 0) (bvsub x y))" "(bvsub ((_ extract 3 0) x) ((_ extract 3 0) y))";
   outside "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) y) ((_ extract 3 0) x))";
-  outside "((_ extract 4 0) (bvadd (_ bv1 7) k))" "(bvadd #b00001 ((_ extract 4 0) k))";
+  outside "((_ extract 4 0) (bvadd (_ bv1 66) m))" "(bvadd #b00001 ((_ extract 4 0) m))";
   outside "((_ extract 3 0) (bvadd x (ite p y z)))"
     "(bvadd ((_ extract 3 0) x) (ite p ((_ extract 3 0) y) ((_ extract 3 0) z)))";
   outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
@@ -4644,6 +4647,105 @@ let arithmetic_integer_rounding () =
      variables no row has a common factor and no split applies. *)
   check ints ["(= (+ (* 5 a) (* 7 b)) 1)"; "(>= a 0)"; "(>= b 0)"] true;
   check ints ["(= (+ (* 5 a) (* 7 b) (* 11 t)) 1)"; "(>= a 0)"; "(>= b 0)"; "(>= t 0)"] false
+
+(* Bounded exhaustive evaluation of premise-free bit-vector theory lemmas and rewrites over opaque leaves
+   (Z3BvExhaustive). The accepted cases are valid for every value of their leaves, with at most 12 leaf bits in
+   total; the rejected ones are false for some value of a leaf, or valid but outside the evaluated fragment or
+   bounds (and decided by no other kernel rule). The expected value is the kernel's decision on the marshaled
+   ASTs. The first cases are the three obligations of SMT-LIB QF_ABV/egt/egt-0160. *)
+let bv_bounded_evaluation () =
+  let c = context () in
+  let declarations =
+    "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const x (_ BitVec 8))\
+     (declare-const y (_ BitVec 4))(declare-const y5 (_ BitVec 5))(declare-const z (_ BitVec 12))\
+     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)\
+     (declare-fun f ((_ BitVec 8)) (_ BitVec 8))" in
+  let judgment formula =
+    let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [input] in
+    Option.get (U.classify_fact (B.cached_expression st input)) in
+  let pending kind j premises =
+    match U.check_node [] { U.kind = kind; conclusion1 = j; premises } with
+    | Some (_, pending) -> Some pending
+    | None -> None in
+  let premise = { U.conclusion = judgment "p"; hypotheses = [] } in
+  let lemma expected formula =
+    let j = judgment formula in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") j [] = expected)
+      ("incorrect bounded bit-vector theory lemma: " ^ formula);
+    require (pending (U.Unverified "th-lemma") j [] = Some (if expected then Z.zero else Z.one))
+      ("bounded bit-vector theory lemma lost its obligation: " ^ formula);
+    (* Only premise-free `th-lemma` steps are evaluated. *)
+    require (not (U.checked_theory_lemma (U.Unverified "th-lemma") j [premise.U.conclusion]))
+      ("bounded evaluation ignored a premise: " ^ formula);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") j []))
+      ("bounded evaluation accepted an assumed origin: " ^ formula) in
+  let rewrite expected left right =
+    let name = left ^ " -> " ^ right in
+    let j = judgment ("(= " ^ left ^ " " ^ right ^ ")") in
+    require (U.check_step U.RewriteRule j [] = expected) ("incorrect bounded bit-vector rewrite: " ^ name);
+    require (pending U.RewriteRule j [] = Some (if expected then Z.zero else Z.one))
+      ("bounded bit-vector rewrite lost its obligation: " ^ name);
+    (match j with
+     | U.Equal (a, b) ->
+       require (U.check_step U.RewriteRule (U.Observational (a, b)) [] = expected)
+         ("incorrect observational bounded bit-vector rewrite: " ^ name);
+       require (not (U.check_step U.ApplyDefinition j [])) ("bounded evaluation decided a definition step: " ^ name)
+     | _ -> failwith ("expected an equation: " ^ name));
+    require (not (U.check_step U.RewriteRule j [premise.U.conclusion]))
+      ("bounded rewrite accepted a premise: " ^ name);
+    require (pending U.RewriteRule j [premise] = None) ("rewrite with a premise was not rejected: " ^ name);
+    require (not (U.check_step U.Commutativity j [])) ("bounded evaluation decided a commutativity step: " ^ name) in
+  let sel = "(select packet #x000000f1)" and other = "(select packet #x000000f2)" in
+  let t = "(concat #x000000 " ^ sel ^ ")" in
+  let s = "(bvadd #x000000f2 " ^ t ^ ")" in
+  (* egt-0160: the bound split rewrite and the two range lemmas. *)
+  rewrite true ("(bvule " ^ s ^ " #x00000223)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x00000223)))");
+  lemma true ("(= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22))");
+  lemma true ("(or (bvule (bvadd (_ bv242 10) (concat #b00 " ^ sel ^ ")) (_ bv547 10)) false)");
+  (* egt-7033: constant re-association with a 32-bit zero-extended 8-bit leaf. *)
+  rewrite true ("(bvadd (bvadd #x00000002 " ^ t ^ ") #x00000001)") ("(bvadd #x00000003 " ^ t ^ ")");
+  (* The bound split holds for every constant below 2^10; mutated numerals and a wrong extract range make the
+     claims false for some leaf value. *)
+  rewrite true ("(bvule " ^ s ^ " #x000001f0)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x000001f0)))");
+  rewrite false ("(bvule " ^ s ^ " #x00000423)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x00000423)))");
+  rewrite false ("(bvadd (bvadd #x00000002 " ^ t ^ ") #x00000001)") ("(bvadd #x00000004 " ^ t ^ ")");
+  lemma false ("(= ((_ extract 31 10) (bvadd #x000003f2 " ^ t ^ ")) (_ bv0 22))");
+  lemma false ("(or (bvule (bvadd (_ bv242 10) (concat #b00 " ^ sel ^ ")) (_ bv496 10)) false)");
+  lemma false ("(= ((_ extract 31 8) " ^ s ^ ") (_ bv0 24))");
+  lemma false "false";
+  (* Carry: x + 1 wraps at 255 in 8 bits but not after zero extension to 9 bits. *)
+  lemma false "(bvule x (bvadd x #x01))";
+  lemma true "(bvule ((_ zero_extend 1) x) (bvadd ((_ zero_extend 1) x) #b000000001))";
+  lemma true "(or (not (bvult x #x10)) (bvule x #x0f))";
+  lemma false "(or (not (bvult x #x11)) (bvule x #x0f))";
+  (* Unsigned comparisons on values with the top bit set. *)
+  lemma true "(or (not (bvuge x #x80)) (bvult #x7f x))";
+  lemma false "(bvule #x80 x)";
+  (* A repeated leaf takes one value; distinct leaves are independent and never alias. *)
+  lemma true "(= (bvadd x x) (concat ((_ extract 6 0) x) #b0))";
+  lemma true ("(bvule ((_ zero_extend 4) ((_ extract 3 0) " ^ sel ^ ")) " ^ sel ^ ")");
+  lemma false ("(= " ^ sel ^ " " ^ other ^ ")");
+  lemma false ("(bvule " ^ sel ^ " " ^ other ^ ")");
+  lemma false "(= (f x) (f #x00))";
+  (* A closed uninterpreted constant is a leaf, never a fixed value. *)
+  lemma false "(= x #x05)";
+  (* The leaf-width bound: 4 + 8 = 12 bits are enumerated, 5 + 8 = 13 bits are not. *)
+  lemma true "(= (concat y x) (bvadd (concat y #x00) (concat #x0 x)))";
+  lemma true "(bvule ((_ zero_extend 4) z) #x0fff)";
+  lemma false "(= (concat y5 x) (bvadd (concat y5 #x00) (concat #b00000 x)))";
+  rewrite false "(bvadd (bvadd #x00000002 v) #x00000001)" "(bvadd #x00000003 v)";
+  (* An extraction step outside the shapes of Z3BvExtract (the numeral is evaluated) over a 7-bit leaf. *)
+  rewrite true "((_ extract 4 0) (bvadd (_ bv1 7) k))" "(bvadd #b00001 ((_ extract 4 0) k))";
+  (* Operators outside the evaluated fragment: bvmul and bvudiv terms are opaque leaves, and Boolean terms such
+     as the signed comparison bvsle (opaque in the native bridge) or a Boolean constant are not evaluated. *)
+  lemma false "(= (bvmul #x02 x) (bvadd x x))";
+  lemma false "(= (bvudiv x #x02) ((_ zero_extend 1) ((_ extract 7 1) x)))";
+  lemma false "(or (bvsle x x) (bvult x #x00))";
+  lemma false "(or p (bvult x #x00))"
 
 let erased_refinement_guards () =
   require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
@@ -5123,6 +5225,7 @@ let () =
      "checked-implied-arithmetic-bounds", arithmetic_implied_bounds;
      "checked-inferred-integer-splits", arithmetic_inferred_splits;
      "checked-integer-rounding-cuts", arithmetic_integer_rounding;
+     "checked-bounded-bit-vector-evaluation", bv_bounded_evaluation;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;
