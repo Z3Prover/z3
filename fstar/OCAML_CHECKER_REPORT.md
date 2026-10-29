@@ -895,18 +895,19 @@ evaluated, so `egt-6871` (and the matching lemma of `egt-7033` and
 `or`, `not`, `=>`, `true` or `false` (the native bridge keeps the user's
 name and the datatype kind tag) is never evaluated as a connective.
 
-The soundness lemmas are proved from `ground_model`, the ground Boolean and
-bit-vector contracts on closed ground terms (the projection contract up to
-width 4096), and `ground_model` has models: every standard interpretation
-`Z3StandardModel.standard leaf`, with bit-vectors as width/residue values
-and every other head an arbitrary function of its argument values,
-satisfies it, so an accepted clause is true in each of them
-(`lemma_valid_standard`). The kernel call sites still discharge the
-hypotheses from the unchanged `model_sound`, which has no model (see
-"Removing impossible environment assumptions" above), so the kernel-level theorem
-stays vacuous until the global contracts are repaired; the ground model
-gives arrays, arithmetic, datatypes, finite fields and quantifiers no
-theory meaning. Before anything is enumerated the conclusion must have at
+The evaluator's decision functions are proved sound from `ground_model`,
+the ground Boolean and bit-vector contracts on closed ground terms (the
+projection contract up to width 4096). These contracts have models:
+`Z3StandardModel.lemma_standard_model` constructs `standard leaf` for every
+leaf function. The witness computes canonical connectives and BV-tagged
+heads with matching parameters, coercing results to their range sorts;
+remaining heads use the leaf function on their argument values. The
+direct `lemma_valid_standard` proves accepted evaluator clauses true in
+each such model. This does not establish kernel or document acceptance
+soundness: the kernel still uses the uninhabited `model_sound` contract
+(see "Removing impossible environment assumptions" above). Arrays,
+arithmetic, datatypes, finite fields and quantifiers have no theory
+semantics in this ground model. Before anything is enumerated the conclusion must have at
 most 512 occurrences counted on the tree, no variable or binder, and leaves
 of at most 12 bits in total (at most 4096 assignments); these guards are
 conditionals, so the order holds under normalization too. Every bound

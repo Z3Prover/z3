@@ -4,13 +4,13 @@
    A standard model of the ground Boolean and bit-vector contracts, and
    the contracts themselves.
 
-   The global hypothesis `Z3UnifiedProof.model_sound` has no model (see
-   the reproducers kept with the repair evidence). Some of its contracts
-   constrain open terms under every environment. The Boolean ones are keyed
-   by the name of a declaration alone, so they clash with the kind-tag-keyed
-   bit-vector and datatype contracts. A theorem whose hypothesis has no
-   model says nothing. This module therefore states a smaller set of
-   contracts, `ground_model`, and proves that it has models.
+   The global hypothesis `Z3UnifiedProof.model_sound` has no model.
+   `Z3ScopedModelTests` proves the impossible open-environment typing
+   assumptions; the separate repair evidence also records the name/tag
+   clashes. Some contracts constrain open terms under every environment,
+   and name-keyed Boolean clauses overlap with bit-vector and datatype
+   kind tags. This module states smaller contracts, `ground_model`, and
+   proves that they have models. It does not repair the global hypothesis.
 
    * The terms are closed ground terms: applications only, with no
      variable and no binder, whose arguments match their declarations'
@@ -28,22 +28,20 @@
    `standard leaf` is an interpretation for every function `leaf`. A
    bit-vector of width `w` and residue `r` is the value `VSeq [w; r]`, so
    values of different widths are distinct. Booleans are `VBool`.
-   Equality is decided on values. The canonical connectives and the
-   bit-vector operators get their standard meaning. Every other head,
-   whether an uninterpreted symbol or an operator of another theory such
-   as `select`, an arithmetic operator, a datatype accessor or `bvmul`
-   outside its recognizer, is an opaque leaf. Its value is
-   `leaf f (argument values)`, reduced to the shape of the declaration's
-   range sort. `lemma_standard_model` proves
-   `ground_model (standard leaf) project` for every `leaf`, so the
-   contracts have models in which the opaque leaves take every value
-   (`lemma_opaque_constant`).
+   Equality is decided on values. The witness computes canonical
+   connectives and BV-tagged heads when their parameter shapes match.
+   This includes BV-tagged heads outside the checker's recognizers;
+   malformed results are coerced to the declaration's range sort.
+   Heads outside those cases use `leaf f (argument values)`, also coerced
+   to their range sort. `lemma_standard_model` proves
+   `ground_model (standard leaf) std_project` for every `leaf`.
+   `lemma_opaque_constant` shows that one nullary uninterpreted BV
+   constant can take any residue of its bounded width. It is not a
+   general independence theorem for arbitrary opaque applications.
 
    This is NOT a model of `model_sound`. Quantifiers, arrays, arithmetic,
-   datatypes, finite fields and open terms are outside the fragment: the
-   standard interpretation gives their heads opaque values of the right
-   sort, not their theory's meaning, and the ground contracts say nothing
-   about them.
+   datatypes, finite fields and open terms are outside the fragment.
+   Their theory laws are not asserted by the ground contracts.
 
    The checker uses only `ground`, `closed_ground` and `max_width` from
    here. The interpretation is a proof object and is not extracted

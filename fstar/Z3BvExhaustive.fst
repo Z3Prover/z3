@@ -684,10 +684,11 @@ let lemma_equivalent_standard (a b:expr) (leaf:func_decl -> list value -> int) (
   = SM.lemma_standard_model leaf;
     lemma_equivalent_ground a b (SM.standard leaf) SM.std_project rho
 
-(* The kernel's entry points. The hypotheses are conjuncts of
-   `Z3UnifiedProof.model_sound` (the bit-vector one through
-   `Z3TheoryNormalize.normalization_model`); they imply the ground
-   contracts (`Z3StandardModel.lemma_ground_of_global`). *)
+(* Legacy kernel entry points. Their hypotheses are conjuncts of
+   `Z3UnifiedProof.model_sound`, which is uninhabited. The implication to
+   the ground contracts is therefore vacuous and does not restore kernel
+   soundness. The direct ground and standard lemmas above are the
+   non-vacuous claims for this evaluator. *)
 let lemma_valid_sound (e:expr) (i:interpretation value) (rho:env value)
   : Lemma (requires (exists (project:pos -> value -> int). BV.bv_model i project) /\
                     boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
