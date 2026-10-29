@@ -202,9 +202,12 @@ public:
 
     smt_params_helper const & params() const { return m_params; }
 
+    // arith.nl.horner_frequency=0 is treated as 1
+    unsigned horner_frequency() const { return std::max(1u, params().arith_nl_horner_frequency()); }
+
     // returns true if the combination of the Horner's schema and Grobner Basis should be called
     bool need_run_horner() const { 
-        return params().arith_nl_horner() && lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0; 
+        return params().arith_nl_horner() && lp_settings().stats().m_nla_calls % horner_frequency() == 0; 
     }
 
     bool need_run_grobner() const {
