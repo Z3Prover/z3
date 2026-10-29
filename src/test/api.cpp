@@ -664,6 +664,60 @@ static void test_query_constructor_num_fields() {
     Z3_del_context(ctx);
 }
 
+// A zero value for these "every N" parameters used to crash with a modulo
+// by zero: smt.qi.profile_freq, smt.arith.branch_cut_ratio (old arithmetic
+// solver) and smt.arith.nl.horner_frequency.
+static void test_zero_frequency_params() {
+    char const* specs[] = {
+        "(set-option :smt.qi.profile true)\n"
+        "(set-option :smt.qi.profile_freq 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const a Int)\n"
+        "(assert (forall ((x Int)) (! (> (f x) x) :pattern ((f x)))))\n"
+        "(assert (> (f a) (f (+ a 1))))\n"
+        "(assert (> (f (f a)) 0))\n"
+        "(check-sat)\n",
+
+        "(set-option :smt.arith.solver 2)\n"
+        "(set-option :smt.arith.branch_cut_ratio 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-const z Int)\n"
+        "(assert (= (f x) (+ (* 13 x) (* 17 y) (* 19 z))))\n"
+        "(assert (= (f x) 1001))\n"
+        "(assert (and (>= x 0) (>= y 0) (>= z 0) (<= x 100) (<= y 100) (<= z 100)))\n"
+        "(assert (> (* 2 x) (+ y 5)))\n"
+        "(assert (< (* 3 z) (+ x 7)))\n"
+        "(check-sat)\n",
+
+        "(set-option :smt.arith.nl.horner_frequency 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-const z Int)\n"
+        "(assert (= (* x y z) 1000003))\n"
+        "(assert (> x 1))\n"
+        "(assert (> y 1))\n"
+        "(assert (> z 1))\n"
+        "(check-sat)\n",
+    };
+    for (char const* spec : specs) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx, spec);
+        bool ok = response.find("error") == std::string::npos &&
+                  (response.find("sat\n") != std::string::npos || response.find("unknown\n") != std::string::npos);
+        if (!ok)
+            std::cout << spec << response << "\n";
+        ENSURE(ok);
+        Z3_del_context(ctx);
+    }
+}
+
 void tst_api() {
     test_solver_model_completion();
     test_apps();
@@ -680,6 +734,7 @@ void tst_api() {
     test_query_constructor_bounds();
     test_command_proof_check_callback();
     test_query_constructor_num_fields();
+    test_zero_frequency_params();
 }
 
 void test_max_rev() {
