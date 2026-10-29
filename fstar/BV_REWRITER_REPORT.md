@@ -45,11 +45,11 @@ are defined from first principles as plain `nat`/`int` arithmetic:
 | Operation | Definition | Rationale |
 |---|---|---|
 | `bvudiv`/`bvurem` | SMT-LIB2 total convention (div-by-zero → all-ones / dividend) | matches `mk_bv_udiv_i`/`mk_bv_urem_i` |
-| `bvashr` | `NOT(logical-shift-right(NOT a, s))` | standard sign-replication identity |
+| `bvashr` | logical shift for nonnegative inputs; `NOT(logical-shift-right(NOT a, s))` for negative inputs | replicate the actual sign bit |
 | `to_int_signed`/`msb` | two's-complement interpretation | needed for `slt`/`sle`/`sdiv`/... |
 | `bv_extract hi lo a` | `(a / 2^lo) % 2^(hi-lo+1)` | matches `mk_extract`/`OP_EXTRACT` |
 | `bv_concat a b` | `a * 2^m + b` | matches `OP_CONCAT` (`a` in high bits) |
-| `bv_zero_extend`/`bv_sign_extend` | reuse `FStar.UInt.zero_extends`; sign-extend via double-complement | matches `mk_zero_extend`/`mk_sign_extend` |
+| `bv_zero_extend`/`bv_sign_extend` | reuse `FStar.UInt.zero_extends`; sign-extend negatives via double-complement, nonnegatives via zero-extension | matches `mk_zero_extend`/`mk_sign_extend` |
 | `bv_ult`/`bv_ule`/`bv_slt`/`bv_sle` | nat / signed-int comparison | matches `mk_ule`/`mk_sle` family |
 | `bv_redor`/`bv_redand`/`bv_comp` | definitional | matches `OP_BREDOR`/`OP_BREDAND`/`OP_BCOMP` |
 

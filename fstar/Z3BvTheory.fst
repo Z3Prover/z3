@@ -91,12 +91,10 @@ let bvlshr (#n:pos) (a:bv n) (s:nat) : bv n = FStar.UInt.shift_right a s
 let bv_rotate_left  (#n:pos) (a:bv n) (s:nat) : bv n = FStar.UInt.rotate_left a s
 let bv_rotate_right (#n:pos) (a:bv n) (s:nat) : bv n = FStar.UInt.rotate_right a s
 
-(* Arithmetic shift right via the standard "sign replicate" identity:
-   ashr(a,s) = NOT(logical-shift-right(NOT a, s)). Negating twice
-   restores the value while the logical shift fills the vacated high bits
-   with the (replicated) complement of the sign bit, i.e. with the sign
-   bit itself -- exactly bv_rewriter.cpp's `mk_bv_ashr` semantics. *)
-let bvashr (#n:pos) (a:bv n) (s:nat) : bv n = bvnot (bvlshr (bvnot a) s)
+(* Complementing the logical shift replicates ones only for negative inputs. *)
+let bvashr (#n:pos) (a:bv n) (s:nat) : bv n =
+  if a < pow2 (n - 1) then bvlshr a s
+  else bvnot (bvlshr (bvnot a) s)
 
 (* ----------------------------------------------------------------- *)
 (* Sign interpretation (two's complement)                             *)
@@ -130,14 +128,11 @@ let bv_concat (#n:pos) (#m:pos) (a:bv n) (b:bv m) : bv (n + m) =
 let bv_zero_extend (#n:pos) (k:nat) (a:bv n) : bv (n + k) =
   if k = 0 then a else FStar.UInt.zero_extends k a
 
-/// Sign-extend by `k` bits via the classic "double complement" identity:
-/// sign_extend(a) = NOT(zero_extend(NOT a)). If `a`'s sign bit is 1
-/// (negative), `NOT a` has sign bit 0, so zero-extending pads with 0s that
-/// become 1s after the final NOT (replicating the sign); if `a`'s sign bit
-/// is 0 the padded bits stay 0 after the final NOT. Matches bv_rewriter.cpp's
-/// `mk_sign_extend` semantics (replicate the sign bit into the new bits).
+/// Replicate the sign bit; double complementation applies only to negatives.
 let bv_sign_extend (#n:pos) (k:nat) (a:bv n) : bv (n + k) =
-  if k = 0 then a else bvnot (bv_zero_extend k (bvnot a))
+  if k = 0 then a
+  else if msb a then bvnot (bv_zero_extend k (bvnot a))
+  else bv_zero_extend k a
 
 (* ----------------------------------------------------------------- *)
 (* Comparisons                                                        *)

@@ -120,6 +120,7 @@ let lemma_bvlshr_zero (#n:pos) (a:bv n) : Lemma (bvlshr a 0 == a) =
   FStar.UInt.shift_right_value_lemma a 0
 
 let lemma_bvashr_zero (#n:pos) (a:bv n) : Lemma (bvashr a 0 == a) =
+  lemma_bvlshr_zero a;
   lemma_bvlshr_zero (bvnot a);
   FStar.UInt.lognot_self a
 

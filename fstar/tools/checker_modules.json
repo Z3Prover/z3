@@ -24,6 +24,12 @@
     "Z3DatatypeValueTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst", "Z3ArrayEqualityTests.fst",
     "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst", "Z3PulseJustificationChecker.fst",
     "Z3LraFarkasTheory.fst", "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst",
-    "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst"
+    "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst",
+    "Z3BvRewriter.fst", "Z3BvInvertibility.fst", "Z3BvInvertibilityConditions.fst",
+    "Z3BvInvertibilityProofs.fst", "Z3BvInvertibilityBits.fst", "Z3BvInvertibilitySigned.fst",
+    "Z3BvInvertibilityArithmetic.fst", "Z3BvInvertibilityDivision.fst", "Z3BvInvertibilityDividend.fst",
+    "Z3BvInvertibilityShifts.fst", "Z3BvInvertibilityRemainder.fst", "Z3BvInvertibilityLogical.fst",
+    "Z3BvInvertibilityCarry.fst", "Z3BvInvertibilityFactors.fst", "Z3BvInvertibilityMultiply.fst",
+    "Z3BvInvertibilityFinal.fst", "Z3BvInvertibilityComplete.fst"
   ]
 }

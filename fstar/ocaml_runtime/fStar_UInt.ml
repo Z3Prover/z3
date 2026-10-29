@@ -10,6 +10,8 @@ let to_uint_t (n : Prims.int) (v : Prims.int) : Prims.int =
 
 let ones (n : Prims.int) : Prims.int = mask n
 
+let pow2_n (_n : Prims.int) (p : Prims.int) : Prims.int = Prims.pow2 p
+
 let logand (_n : Prims.int) (a : Prims.int) (b : Prims.int) : Prims.int =
   Z.logand a b
 
