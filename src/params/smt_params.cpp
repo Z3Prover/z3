@@ -323,6 +323,7 @@ void smt_params::setup_QF_UFLRA() {
     m_relevancy_lvl       = 0;
     m_arith_reflect       = false; 
     m_nnf_cnf             = false;
+    m_phase_selection     = PS_THEORY;
 }
 
 void smt_params::setup_QF_BV() {
