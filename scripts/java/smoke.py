@@ -11,16 +11,32 @@ import sys
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
-from mk_java_package import LIBRARIES, RESOURCE_PREFIX, checked_zip, sha256
+from mk_java_package import (LIBRARIES, RESOURCE_PREFIX, checked_zip, metadata_names,
+                             package_basename, sha256)
+
+
+def read_provenance(packages):
+    candidates = list(packages.glob('*-java-provenance.json'))
+    if (packages / 'provenance.json').exists():
+        candidates.append(packages / 'provenance.json')
+    if len(candidates) != 1:
+        raise ValueError('Expected exactly one package provenance manifest')
+    provenance = json.loads(candidates[0].read_text(encoding='utf-8'))
+    if candidates[0].name != metadata_names(provenance)[0]:
+        raise ValueError('Unexpected package provenance filename')
+    return provenance
 
 
 def verify_jar(packages, provenance, classifier):
-    base = provenance['maven']['artifactId'] + '-' + provenance['maven']['version']
+    base = package_basename(provenance)
     jar = packages / (base + '-' + classifier + '.jar')
     entries = checked_zip(jar.read_bytes())
     embedded = json.loads(entries['META-INF/z3/provenance.json'])
     if (embedded['classifier'] != classifier or any(
-            embedded[key] != provenance[key] for key in ('maven', 'api_sha256', 'release_commit', 'release_version'))):
+            embedded.get(key) != provenance.get(key) for key in (
+                'distribution', 'maven', 'prototype', 'workflow', 'source_commit', 'generator_sha256',
+                'loader_sha256', 'api_sha256', 'release_commit', 'release_version', 'release_tag',
+                'release_runtime_version'))):
         raise ValueError('Artifact provenance mismatch')
     if classifier == 'all':
         platforms = embedded['platforms']
@@ -52,14 +68,14 @@ def verify_jar(packages, provenance, classifier):
 
 def smoke(packages, platform, work, jar_kind='both'):
     packages = packages.resolve()
-    for line in (packages / 'SHA256SUMS').read_text(encoding='ascii').splitlines():
+    provenance = read_provenance(packages)
+    for line in (packages / metadata_names(provenance)[1]).read_text(encoding='ascii').splitlines():
         digest, name = line.split('  ', 1)
         if Path(name).name != name or sha256((packages / name).read_bytes()) != digest:
             raise ValueError('Artifact checksum mismatch: ' + name)
-    provenance = json.loads((packages / 'provenance.json').read_text(encoding='utf-8'))
     if platform not in provenance['platforms']:
         raise ValueError('Runner platform not included in package manifest: ' + platform)
-    base = provenance['maven']['artifactId'] + '-' + provenance['maven']['version']
+    base = package_basename(provenance)
     version = provenance['release_runtime_version']
     base_jar = packages / (base + '.jar')
     classifiers = [platform, 'all'] if jar_kind == 'both' else [platform if jar_kind == 'platform' else 'all']

@@ -131,3 +131,37 @@ binaries.
 Official coordinates, sources/Javadoc companions, signing, a Central publishing
 owner and an authorized release gate remain future work. Nothing here publishes
 to GitHub Releases, GitHub Packages, Maven Central, NuGet or PyPI.
+
+## Release attachment integration (PR #11441)
+
+Implementation commit: `95f7ee180d517949d8c37d0cfd50212b34338c8a`, based on
+upstream `e1715501f71ec2fe659087b7af0c0cc3cc6bc6d9`. The subsequent
+`441a9d9` correction adds `.github/workflows` to fast CI's sparse checkout for
+the attachment-selection test and makes Windows Bash discovery portable.
+
+Local Windows checks passed:
+
+- 32 packaging/release tests, including exact stable version checks,
+  rejection of mixed test inputs, cross-platform API class equality,
+  missing/stale/incomplete smoke receipt rejection, output checksum coverage,
+  and execution of the actual publisher's attachment-selection shell logic.
+- Three existing generator tests.
+- actionlint 1.7.12 on `java-packaging.yml`, `java-full-flow.yml`,
+  `java-package-artifacts.yml` and `release.yml`, with ShellCheck disabled.
+- The updated smoke tool ran both existing Windows platform and universal
+  artifacts through seven JVM modes and nine platform aliases. This is
+  compatibility evidence for the tool, not a current-source release build.
+
+Hosted validation is tracked at
+[Packaging Test](https://github.com/nieyuanhong/z3/actions/runs/40857766755)
+and [Java Full Flow](https://github.com/nieyuanhong/z3/actions/runs/40857306477).
+At this checkpoint, validation is pending; neither run is recorded as passing.
+The first fast run exposed the missing workflow in the sparse checkout, which
+was corrected before the linked fast run. Full Flow uses the shared release
+assembly/native smoke/receipt gate and cannot publish.
+
+The full multi-language Release Build and actual GitHub publication have not
+been exercised. Maven publication, signing, official coordinates, additional
+architectures and clean Windows CRT availability remain outside this PR's
+validation. See [RELEASE.md](RELEASE.md) for the release artifacts and rehearsal
+procedure. PR #11441 remains a draft until its hosted checks can be assessed.

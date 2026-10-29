@@ -4,19 +4,23 @@ on:
   pull_request:
     paths:
       - '.github/workflows/java-packaging.yml'
+      - '.github/workflows/java-package-artifacts.yml'
+      - '.github/workflows/release.yml'
       - 'scripts/update_api.py'
       - 'scripts/mk_java_package.py'
       - 'scripts/java/**'
-      - 'scripts/tests/test_java_package.py'
+      - 'scripts/tests/test_java*.py'
       - 'src/api/java/**'
   push:
-    branches: [feat/java-fatjar]
+    branches: ['feat/java-*']
     paths:
       - '.github/workflows/java-packaging.yml'
+      - '.github/workflows/java-package-artifacts.yml'
+      - '.github/workflows/release.yml'
       - 'scripts/update_api.py'
       - 'scripts/mk_java_package.py'
       - 'scripts/java/**'
-      - 'scripts/tests/test_java_package.py'
+      - 'scripts/tests/test_java*.py'
       - 'src/api/java/**'
   workflow_dispatch:
 
@@ -35,6 +39,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: |
+            .github/workflows
             scripts
             src/api/java
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -45,7 +50,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Packaging regression tests
-        run: python -m unittest discover -s scripts/tests -p test_java_package.py -v
+        run: python -m unittest discover -s scripts/tests -p 'test_java*.py' -v
       - name: Prepare current-branch classes with pinned release JNI inputs
         run: >-
           python scripts/java/prepare.py --work-dir build/java-test
