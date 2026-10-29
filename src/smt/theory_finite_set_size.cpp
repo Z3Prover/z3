@@ -39,6 +39,7 @@ namespace smt {
             clear_solver(theory_finite_set_size &s) : s(s) {}
             void undo() override {
                 s.m_solver = nullptr;
+                s.m_solver_ran = false;
                 s.n2b.reset();
                 s.m_assumptions.reset();
                 s.bs.reset();
@@ -359,7 +360,6 @@ namespace smt {
                         ctx.mk_th_axiom(th.get_id(), lemma);
                     }
                 }
-                ctx.push_trail(value_trail(m_solver_ran));
                 TRACE(finite_set, ctx.display(tout << "Core " << core << "\n"));
                 m_solver_ran = true;
                 return l_false;

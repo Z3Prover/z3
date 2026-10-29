@@ -274,6 +274,31 @@ void test_sin_polynomial_arguments() {
     }
 }
 
+void test_finite_set_cardinality_with_transcendentals() {
+    for (char const* options : {
+             "",
+             "(set-option :model_validate true)\n"}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = options;
+        spec +=
+            "(set-logic ALL)\n"
+            "(declare-const x Real)\n"
+            "(declare-const y Real)\n"
+            "(declare-const S (FiniteSet Real))\n"
+            "(assert (>= (+ (sin x) (exp x)) 4.0))\n"
+            "(assert (>= (+ (sin y) (exp y)) 4.0))\n"
+            "(assert (= (set.size S) 1))\n"
+            "(check-sat)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != "sat\n")
+            std::cout << response << "\n";
+        VERIFY(response == "sat\n");
+        Z3_del_context(ctx);
+    }
+}
+
 void test_transcendental_enclosures_do_not_certify_sat() {
     char const* assertions[] = {
         "(= (exp (- 20.0)) 0.1)",
@@ -335,6 +360,7 @@ void test_nla_transcendentals() {
     test_exp_negative_twenty();
     test_sin_negative_interval();
     test_sin_polynomial_arguments();
+    test_finite_set_cardinality_with_transcendentals();
     test_transcendental_enclosures_do_not_certify_sat();
     test_pi_positive_sat();
     test_atan2_unsat_regression();
