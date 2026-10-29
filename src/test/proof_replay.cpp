@@ -20,6 +20,7 @@ Abstract:
 #include "sat/sat_proof_trim.h"
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
+#include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
 #include "util/gparams.h"
 #include "util/z3_exception.h"
@@ -422,6 +423,95 @@ static void tst_replay_tseitin_xor() {
         "(infer (not a) b $1 (tseitin $1 (not a) b))"
         "(assume p $1)(assume (not p))(assume a)(assume b)"
         "(declare-fun rup () Proof)(infer $1 rup)(infer rup)"), "tseitin 4");
+}
+
+// Constants in a gate clause have their value under every assignment: Z3 logs
+// a gate over true with a separate false literal standing for (not true), and
+// a clause with a literal that is constantly true, or with a literal and its
+// negation, is a tautology whatever its gate.
+static void tst_checker_tseitin_constants() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls =
+        "(declare-sort U 0)(declare-const a U)(declare-const b U)"
+        "(declare-const p Bool)(declare-const q Bool)(declare-fun r (Bool) Bool)";
+    auto check = [&](char const* clause) {
+        return check_tseitin(m, (std::string(decls) + clause).c_str());
+    };
+    ENSURE(check("(assert true)(assert false)(assert false)"));
+    ENSURE(check("(assert false)(assert (not (not true)))"));
+    ENSURE(check("(assert (not (r p)))(assert (not p))(assert p)"));
+    ENSURE(check("(assert (not (r true)))(assert (not (ite p q true)))(assert (r true))"));
+    ENSURE(check("(assert false)(assert (or (= a b) true))"));
+    ENSURE(check("(assert (not (= true q)))(assert q)(assert false)"));
+    ENSURE(check("(assert (= true q))(assert (not q))(assert false)"));
+    ENSURE(check("(assert (ite p q true))(assert p)(assert false)"));
+    ENSURE(check("(assert (not (ite (not q) (not true) (r q))))(assert q)(assert false)"));
+    ENSURE(check("(assert (= (ite p a a) a))"));
+    // The same shapes with the constant on the wrong side are falsifiable.
+    ENSURE(!check("(assert false)"));
+    ENSURE(!check("(assert (not true))(assert false)"));
+    ENSURE(!check("(assert (or (= a b) false))(assert false)"));
+    ENSURE(!check("(assert (not (= true q)))(assert (not q))(assert false)"));
+    ENSURE(!check("(assert (= true q))(assert q)(assert false)"));
+    ENSURE(!check("(assert (ite p q true))(assert (not p))(assert false)"));
+    ENSURE(!check("(assert (not (ite (not q) (not true) (r q))))(assert (not q))(assert false)"));
+    ENSURE(!check("(assert (= (ite p a b) a))"));
+    ENSURE(!check("(assert (= (ite p a a) b))"));
+}
+
+// An euf hint lists the negated clause literals, then the congruence steps.
+static bool check_euf(ast_manager& m, std::string const& decls, char const* lits, char const* congruences) {
+    expr_ref_vector args = parse_lits(m, (decls + lits).c_str());
+    expr_ref_vector eqs = parse_lits(m, (decls + congruences).c_str());
+    for (expr* eq : eqs)
+        args.push_back(m.mk_app(symbol("cc"), 1, &eq, m.mk_proof_sort()));
+    app_ref hint(m.mk_app(symbol("euf"), args.size(), args.data(), m.mk_proof_sort()), m);
+    euf::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// A Boolean term under a function, (pb (not q)), is congruent to (pb true)
+// when the literals fix q to false; (not q) itself need not be a literal.
+static void tst_checker_euf_negated_arguments() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    std::string decls = "(declare-const q Bool)(declare-const s Bool)(declare-fun pb (Bool) Bool)";
+    ENSURE(check_euf(m, decls, "(assert (not q))(assert (pb true))(assert (not (pb (not q))))",
+                     "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(check_euf(m, decls, "(assert s)(assert (pb (not s)))(assert (not (pb false)))",
+                     "(assert (= (pb (not s)) (pb false)))"));
+    ENSURE(check_euf(m, decls, "(assert q)(assert (pb (not (not q))))(assert (not (pb true)))",
+                     "(assert (= (pb (not (not q))) (pb true)))"));
+    ENSURE(check_euf(m, decls, "(assert (not q))(assert (pb (not q)))(assert (not (pb (not s))))(assert (not s))",
+                     "(assert (= (pb (not q)) (pb (not s))))"));
+    // q true, or q unconstrained, does not make (not q) true.
+    ENSURE(!check_euf(m, decls, "(assert q)(assert (pb true))(assert (not (pb (not q))))",
+                      "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(!check_euf(m, decls, "(assert (pb true))(assert (not (pb (not q))))",
+                      "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(!check_euf(m, decls, "(assert (not q))(assert (pb (not q)))(assert (not (pb (not s))))(assert s)",
+                      "(assert (= (pb (not q)) (pb (not s))))"));
+    // The congruence step is still required.
+    ENSURE(!check_euf(m, decls, "(assert (not q))(assert (pb true))(assert (not (pb (not q))))", ""));
+}
+
+// Z3's logs for such clauses verify natively, without the SMT fallback.
+static void tst_replay_boolean_constants_and_arguments() {
+    check_verified_natively(replay(
+        "(declare-fun s () Bool)(declare-fun pb (Bool) Bool)"
+        "(define-const $1 Bool (not s))(define-const $2 Bool (pb $1))(define-const $3 Bool (pb false))"
+        "(assume s)(assume $2)(assume (not $3))"
+        "(declare-fun cc (Bool) Proof)(declare-fun euf (Bool Bool Bool Proof) Proof)"
+        "(infer $1 $3 (not $2) (euf $2 s (not $3) (cc (= $2 $3))))"
+        "(declare-fun rup () Proof)(infer rup)"), "euf 1");
+    check_verified_natively(replay(
+        "(declare-sort U 0)(declare-fun a () U)(declare-fun p () Bool)(declare-fun q () Bool)"
+        "(define-const $1 Bool (= (ite p a a) a))(define-const $2 Bool (= true q))"
+        "(declare-fun tseitin (Bool) Proof)(infer $1 (tseitin $1))"
+        "(declare-fun tseitin (Bool Bool Bool) Proof)(infer (not $2) q false (tseitin (not $2) q false))"
+        "(assume (not $1) $2)(assume (not q))(assume (not false))"
+        "(declare-fun rup () Proof)(infer rup)"), "tseitin 2");
 }
 
 // An alldiff hint lists the clause itself.
@@ -1033,6 +1123,9 @@ void tst_proof_replay() {
     tst_replay_implied_eq_constant_row();
     tst_checker_tseitin_xor();
     tst_replay_tseitin_xor();
+    tst_checker_tseitin_constants();
+    tst_checker_euf_negated_arguments();
+    tst_replay_boolean_constants_and_arguments();
     tst_checker_alldiff();
     tst_replay_alldiff_gates();
     tst_fallback_proves_logged_clause();

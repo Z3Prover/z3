@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 env:
-  RELEASE_VERSION: '5.3.3'
+  RELEASE_VERSION: '5.3.4'
 
 jobs:
   # ============================================================================
@@ -89,6 +89,13 @@ jobs:
         with:
           python-version: '3.x'
       
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: aarch64
+
       - name: Build
         run: python scripts/mk_unix_dist.py --assembly-version=${{ env.RELEASE_VERSION }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64 --os=osx-13.3
       
@@ -108,11 +115,19 @@ jobs:
       - name: Clone z3test
         run: git clone https://github.com/z3prover/z3test z3test
       
+      - name: Record Java input identity
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform osx-arm64 --source-commit ${{ github.sha }} --release-version ${{ env.RELEASE_VERSION }}
+          --repository ${{ github.repository }} --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: MacArm64
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-osx-arm64.json
           retention-days: 7
 
   # ============================================================================
@@ -250,6 +265,13 @@ jobs:
         with:
           python-version: '3.x'
       
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
+
       - name: Build
         run: python scripts/mk_unix_dist.py --assembly-version=${{ env.RELEASE_VERSION }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
       
@@ -259,11 +281,19 @@ jobs:
       - name: Test
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
       
+      - name: Record Java input identity
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform linux-x64 --source-commit ${{ github.sha }} --release-version ${{ env.RELEASE_VERSION }}
+          --repository ${{ github.repository }} --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UbuntuBuild
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-linux-x64.json
           retention-days: 7
 
   ubuntu-arm64:
@@ -521,6 +551,13 @@ jobs:
         with:
           python-version: '3.x'
       
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
+
       - name: Build
         shell: cmd
         run: |
@@ -528,11 +565,19 @@ jobs:
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.RELEASE_VERSION }} --zip
       
+      - name: Record Java input identity
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist/x64 --out-dir dist/x64
+          --platform win-x64 --source-commit ${{ github.sha }} --release-version ${{ env.RELEASE_VERSION }}
+          --repository ${{ github.repository }} --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: WindowsBuild-x64
-          path: dist/x64/*.zip
+          path: |
+            dist/x64/*.zip
+            dist/x64/receipt-win-x64.json
           retention-days: 7
 
   windows-build-x86:
@@ -592,6 +637,17 @@ jobs:
   # ============================================================================
   # PACKAGE STAGE
   # ============================================================================
+
+  java-package:
+    name: "Package and validate Java release artifacts"
+    needs: [ubuntu-build, windows-build-x64, mac-build-arm64]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/java-package-artifacts.yml
+    with:
+      linux-artifact: UbuntuBuild
+      windows-artifact: WindowsBuild-x64
+      macos-artifact: MacArm64
   
   nuget-package-x64:
     name: "NuGet 64 packaging"
@@ -827,7 +883,8 @@ jobs:
       nuget-package-x64,
       nuget-package-x86,
       validate-macos-headerpad-x64,
-      validate-macos-headerpad-arm64
+      validate-macos-headerpad-arm64,
+      java-package
     ]
     runs-on: ubuntu-latest
     steps:
@@ -856,6 +913,10 @@ jobs:
 
           ls
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+
+          # Only the final Java artifact has passed every native smoke job.
+          # Do not publish the intermediate java-assembled-packages artifact.
+          find tmp/java-release-packages -maxdepth 1 -type f \( -name "*.jar" -o -name "z3-*-java-*.json" -o -name "z3-*-java-SHA256SUMS" \) -print0 >> release_files.txt
           
           # Deduplicate files - keep only first occurrence of each basename
           # Use NUL-delimited input/output to handle spaces in filenames safely
@@ -867,7 +928,7 @@ jobs:
             basename="${filepath##*/}"
             
             # Keep only first occurrence of each basename
-            if [ -z "${seen_basenames[$basename]}" ]; then
+            if [ -z "${seen_basenames[$basename]+present}" ]; then
               seen_basenames[$basename]=1
               unique_files+=("$filepath")
             fi

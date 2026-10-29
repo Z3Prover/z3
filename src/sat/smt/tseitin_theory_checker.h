@@ -33,8 +33,16 @@ namespace tseitin {
         bool equiv(expr* a, expr* b);
         bool xor_holds(app* x, bool expected);
         
+        // A marked term is false under the assignment that falsifies every
+        // clause literal; the constants false and (not true) are false under
+        // any assignment, so a gate over a constant needs no clause literal
+        // for it.
+        bool is_false_value(expr* a) {
+            return m.is_false(a) || (m.is_not(a, a) && m.is_true(a));
+        }
+
         void mark(expr* a) { m_mark.mark(a); }
-        bool is_marked(expr* a) { return m_mark.is_marked(a); }
+        bool is_marked(expr* a) { return m_mark.is_marked(a) || is_false_value(a); }
 
         void nmark(expr* a) { m_nmark.mark(a); }
         bool is_nmarked(expr* a) { return m_nmark.is_marked(a); }
@@ -45,11 +53,12 @@ namespace tseitin {
                 m_nmark.mark(a);
         }
 
+        // a is true under that assignment.
         bool is_complement(expr* a) {
             if (m.is_not(a, a))
                 return is_marked(a);
             else
-                return is_nmarked(a);
+                return is_nmarked(a) || m.is_true(a);
         }
 
         struct scoped_mark {

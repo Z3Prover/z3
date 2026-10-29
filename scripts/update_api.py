@@ -627,22 +627,7 @@ def mk_java(java_src, java_dir, package_name):
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
 
     java_native.write('  static {\n')
-    java_native.write('    if (!Boolean.parseBoolean(System.getProperty("z3.skipLibraryLoad"))) {\n')
-    java_native.write('      try {\n')
-    java_native.write('        System.loadLibrary("z3java");\n')
-    java_native.write('      } catch (UnsatisfiedLinkError ex) {\n')
-    java_native.write('        try {\n')
-    java_native.write('          System.loadLibrary("libz3java");\n')
-    java_native.write('        } catch (UnsatisfiedLinkError ex2) {\n')
-    java_native.write('          throw new UnsatisfiedLinkError(\n')
-    java_native.write('            "Failed to load z3java native library. "\n')
-    java_native.write('            + "Tried z3java: " + ex.getMessage() + "; "\n')
-    java_native.write('            + "Tried libz3java: " + ex2.getMessage() + ". "\n')
-    java_native.write('            + "Make sure both the JNI library and libz3 are in java.library.path "\n')
-    java_native.write('            + "or set DYLD_LIBRARY_PATH (macOS) / LD_LIBRARY_PATH (Linux).");\n')
-    java_native.write('        }\n')
-    java_native.write('      }\n')
-    java_native.write('    }\n')
+    java_native.write('    NativeLibraryLoader.load();\n')
     java_native.write('  }\n')
     java_native.write("""
   public static native long propagateInit(Object o, long ctx, long solver);

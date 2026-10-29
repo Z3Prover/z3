@@ -43,6 +43,17 @@ namespace tseitin {
         unsigned max_depth = 0;
         expr* a, * x, * y, * z, * u, * v;
 
+        // (or a (not a) ...), (or true ...), (or (not false) ...): no
+        // assignment falsifies every literal.
+        {
+            scoped_mark sm(*this);
+            for (expr* arg : *jst)
+                complement_mark(arg);
+            for (expr* arg : *jst)
+                if (is_complement(arg))
+                    return true;
+        }
+
         for (expr* arg : *jst) {
             unsigned arg_depth = get_depth(arg);
             if (arg_depth > max_depth) {
@@ -79,6 +90,7 @@ namespace tseitin {
         }
 
         // (or (or a b) (not a))
+        // (or (or a true))
         if (m.is_or(main_expr)) {            
             scoped_mark sm(*this);
             for (expr* arg : *jst)
@@ -101,7 +113,12 @@ namespace tseitin {
                 return true;
         }
 
+        // (or (= (if a b c) b) (not a))
+        // (or (= (if a b c) c) a)
+        // (or (= (if a b b) b))
         if (m.is_eq(main_expr, x, y) && m.is_ite(x, z, u, v)) {
+            if (equiv(y, u) && equiv(y, v))
+                return true;
             scoped_mark sm(*this);
             for (expr* arg : *jst)
                 complement_mark(arg);
