@@ -164,7 +164,13 @@ class JavaReleaseWorkflowTests(unittest.TestCase):
         script = publisher.split('          find tmp -type f ', 1)[1].split('          # Create release', 1)[0]
         script = 'find tmp -type f ' + textwrap.dedent(script)
         script += '\nprintf "%s\\0" "${unique_files[@]}" > selected.bin\n'
-        bash = r'D:\TOOLS\Git\bin\bash.exe' if os.name == 'nt' else shutil.which('bash')
+        if os.name == 'nt':
+            git = shutil.which('git')
+            candidates = [] if not git else [parent / 'bin/bash.exe'
+                                             for parent in Path(git).resolve().parents[:3]]
+            bash = next((str(path) for path in candidates if path.is_file()), None)
+        else:
+            bash = shutil.which('bash')
         if not bash or not Path(bash).is_file():
             self.skipTest('Bash is required to exercise the release collector')
         with tempfile.TemporaryDirectory() as temporary:
