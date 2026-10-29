@@ -1877,6 +1877,112 @@ static void tst_lex_after_unbounded() {
     }
 }
 
+static void set_unbounded_curve(opt_fixture& f, bool enabled) {
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_bool(f.ctx, p, f.symbol("optsmt_unbounded_curve"), enabled);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+}
+
+// Integer and mixed objectives cannot use the nlsat projection. A polynomial
+// curve through the recent models certifies unboundedness instead: a ray,
+// a quadratic, a cubic, or a unit direction of an objective variable.
+static void tst_unbounded_curve() {
+    {
+        // x*y >= 1, y >= 1: the ray through the last two models
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 1, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    for (unsigned degree : {2u, 3u}) {
+        // x = y^2 and x = y^3 with y >= 0: curves through three or four models
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast ys[] = {y, y, y};
+        f.add(Z3_mk_eq(f.ctx, x, Z3_mk_mul(f.ctx, degree, ys)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 0, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    {
+        // minimize x = -y^2: unbounded below
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        f.add(Z3_mk_eq(f.ctx, x, Z3_mk_unary_minus(f.ctx, f.square(y))));
+        unsigned h = f.objective(x, false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, -1, 0, 0);
+    }
+    {
+        // mixed sorts: integer x, real y with x*y >= 1, y >= 1
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = f.real("y");
+        Z3_ast xy[] = {Z3_mk_int2real(f.ctx, x), y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), f.num(1)));
+        f.add(Z3_mk_ge(f.ctx, y, f.num(1)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    {
+        // bounded control: x*y <= 12 with x, y >= 1 has the maximum 12
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_le(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 12, integer)));
+        f.add(Z3_mk_ge(f.ctx, x, Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 1, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, Z3_mk_int(f.ctx, 12, integer), Z3_INT_SORT);
+    }
+    {
+        // lexicographic: after the unbounded x, y takes its limit 10
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_le(f.ctx, y, Z3_mk_int(f.ctx, 10, integer)));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, Z3_mk_int(f.ctx, 10, integer), Z3_INT_SORT);
+    }
+    for (bool curve : {true, false}) {
+        // a real objective keeps the nlsat projection when the curve is disabled
+        opt_fixture f;
+        set_unbounded_curve(f, curve);
+        Z3_ast x = f.real("x"), y = f.real("y");
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), f.num(1)));
+        f.add(Z3_mk_ge(f.ctx, y, f.num(1)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+}
+
 static void set_lp_relaxation(opt_fixture& f, bool relax) {
     Z3_params p = Z3_mk_params(f.ctx);
     Z3_params_inc_ref(f.ctx, p);
@@ -2008,6 +2114,8 @@ void tst_opt_bounds() {
     tst_lex_box_search();
     std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
     tst_lex_after_unbounded();
+    std::cout << "opt_bounds: unbounded integer objectives along polynomial curves\n";
+    tst_unbounded_curve();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
