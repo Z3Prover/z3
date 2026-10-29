@@ -32,12 +32,18 @@ let lemma_divisor_signed_bounds (#n:pos) (s x:bv n)
     (let y = apply Divisor s x in
      (if msb s then to_int_signed s else -1) <= to_int_signed y /\
      to_int_signed y <= to_int_signed (divisor_signed_upper s)) =
-  P.lemma_division_endpoints s;
-  U.lognot_lemma_1 #n;
-  M.pow2_double_mult (n - 1);
-  U.shift_right_value_lemma s 1;
-  if x >= 2 then lemma_divisor_proper s x
-  else if x > 0 then assert (x == 1)
+  if x >= 2 then (
+    lemma_divisor_proper s x;
+    M.pow2_double_mult (n - 1);
+    U.shift_right_value_lemma s 1
+  )
+  else (
+    assert (x == 0 \/ x == 1);
+    P.lemma_division_endpoints s;
+    U.lognot_lemma_1 #n;
+    M.pow2_double_mult (n - 1);
+    U.shift_right_value_lemma s 1
+  )
 
 let lemma_divisor_signed_upper_attained (#n:pos) (s:bv n)
   : Lemma
