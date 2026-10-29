@@ -1,0 +1,87 @@
+{
+  "version": "5.3.2",
+  "runtime_version": "5.3.2.0",
+  "tag": "z3-5.3.2",
+  "commit": "b411c90217766c924e6ea3d0b51f452a89fd8fc2",
+  "published_at": "2026-10-25T13:52:23Z",
+  "platforms": {
+    "win-x64": {
+      "name": "z3-5.3.2-x64-win.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-x64-win.zip",
+      "sha256": "a75aa2b0383a8ee355387a54daad796911d6a965076751eea18d21a27f38e983"
+    },
+    "win-x86": {
+      "name": "z3-5.3.2-x86-win.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-x86-win.zip",
+      "sha256": "55474d2a6ecf8d3f026a70d5ea785b60d363ad78d97a275a987eee1d4a90319e"
+    },
+    "win-arm64": {
+      "name": "z3-5.3.2-arm64-win.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-arm64-win.zip",
+      "sha256": "d5efd4a0dfe4bb5c4aef853452039e5a153d4ede21a93514126c2d8747b647d1"
+    },
+    "linux-x64": {
+      "name": "z3-5.3.2-x64-glibc-2.39.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-x64-glibc-2.39.zip",
+      "sha256": "26d463cddad3901cbf86e3868c784914539f4e3f9b4de1a0b8dc2969806d60e2"
+    },
+    "linux-arm64": {
+      "name": "z3-5.3.2-arm64-glibc-2.38.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-arm64-glibc-2.38.zip",
+      "sha256": "30b6a718a6cfe1b2db056038cc32eda5410f6d02e5937622b5238645347f59d5"
+    },
+    "osx-x64": {
+      "name": "z3-5.3.2-x64-osx-13.3.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-x64-osx-13.3.zip",
+      "sha256": "b911dc193f7447a14fba001e8e8a0c2866a544274bb003e76a9e864f03b4d557"
+    },
+    "osx-arm64": {
+      "name": "z3-5.3.2-arm64-osx-13.3.zip",
+      "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/z3-5.3.2-arm64-osx-13.3.zip",
+      "sha256": "524290057c943a044ec3d1372db65a9c93f333d9817d58191154c4719ff7f8ad"
+    }
+  },
+  "sources": {
+    "src/api/z3_api.h": {
+      "sha256": "24a8543acc70e7d802c6c5ac17317fb9dbea9571d89671be8c3d6e8fa7c29f77"
+    },
+    "src/api/z3_ast_containers.h": {
+      "sha256": "6687f3ec9483f3774b8951be0f9944ab47f61bedbd42193d075dd88c612fb248"
+    },
+    "src/api/z3_algebraic.h": {
+      "sha256": "0ee0722e3147450c0dbacc81c2d41e192313e7f25564262daad41e732fa4dce8"
+    },
+    "src/api/z3_polynomial.h": {
+      "sha256": "e1894c40edb37115cf221a8ef2f7e5557c7360c3c0583f05582f849ebdd78c36"
+    },
+    "src/api/z3_rcf.h": {
+      "sha256": "0cf1d77e67e49df12dd20aac8bf3bf3f46973ebf828ca8f7d14228d6d2cb86ca"
+    },
+    "src/api/z3_fixedpoint.h": {
+      "sha256": "cc8a424163dd6a92a1bfe07dea68edb8fc8dabb58f612b1e85a033a21178dedc"
+    },
+    "src/api/z3_optimization.h": {
+      "sha256": "7f32a20bb5833258d707230b1922efbf2578af4dfd0b18534ff2689c7fae869f"
+    },
+    "src/api/z3_fpa.h": {
+      "sha256": "5ebe1a61d128c579f53be2f1f2b4d45e76b7e04081de89a11542719c5976396c"
+    },
+    "src/api/z3_spacer.h": {
+      "sha256": "dd23be86e4fc74cd0adf6ca944834d165b93f6a6f3af81923116db97a7ee1ddd"
+    },
+    "src/api/java/NativeStatic.txt": {
+      "sha256": "e92359ed497dedd093f6aa4a3f7634d668c0c41efc9d3a8ea2d9c8cb692b6fa8"
+    }
+  },
+  "headers": [
+    "z3_api.h",
+    "z3_ast_containers.h",
+    "z3_algebraic.h",
+    "z3_polynomial.h",
+    "z3_rcf.h",
+    "z3_fixedpoint.h",
+    "z3_optimization.h",
+    "z3_fpa.h",
+    "z3_spacer.h"
+  ]
+}
