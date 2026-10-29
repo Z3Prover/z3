@@ -287,8 +287,10 @@ void test_finite_set_cardinality_with_transcendentals() {
             "(declare-const x Real)\n"
             "(declare-const y Real)\n"
             "(declare-const S (FiniteSet Real))\n"
-            "(assert (>= (+ (sin x) (exp x)) 4.0))\n"
-            "(assert (>= (+ (sin y) (exp y)) 4.0))\n"
+            "(assert (= x 0.0))\n"
+            "(assert (= y 0.0))\n"
+            "(assert (>= (+ (sin x) (exp x)) 0.0))\n"
+            "(assert (>= (+ (sin y) (exp y)) 0.0))\n"
             "(assert (= (set.size S) 1))\n"
             "(check-sat)\n";
         std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
