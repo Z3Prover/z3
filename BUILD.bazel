@@ -18,7 +18,7 @@ filegroup(
 
 # The full version that CMake reads from scripts/VERSION.txt.
 # Kept in sync by scripts/update_version.py; do not edit by hand.
-_Z3_VERSION = "5.3.3.0"
+_Z3_VERSION = "5.3.4.0"
 
 # Matches SOVERSION in src/CMakeLists.txt (major.minor).
 _Z3_SOVERSION = ".".join(_Z3_VERSION.split(".")[:2])
