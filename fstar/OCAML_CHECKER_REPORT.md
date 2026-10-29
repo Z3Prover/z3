@@ -903,6 +903,59 @@ steps over more than 12 leaf bits (for example the same re-association
 over a 32-bit leaf, and the two-read sums of `egt-1341` and `egt-1513`),
 steps with premises, and every operator outside the evaluated set.
 
+### Modular normalization of bit-vector sums for QF_ABV `rewrite` steps (2026-10-29)
+
+The largest `rewrite` family left pending in the QF_ABV PARTIAL inputs of the
+pulse checker reports is the constant re-association of the bit-vector
+rewriter, `bvadd(bvadd(c1, t), c2) = bvadd(c3, t)` with `c3 = c1 + c2` modulo
+`2^32` and `t` an uninterpreted 32-bit constant or other wide term (the `dwp`
+inputs of the two reports; a numeral total of 0 gives the bare `t`), together
+with the n-ary forms `bvadd(bvadd(c1, t0, t1), c2) = bvadd(c3, t0, t1)`,
+`bvadd(bvadd(c1, t0), bvadd(c2, t1)) = bvadd(c3, t0, t1)` and
+`bvadd(c1, bvadd(c2, t0, t1)) = bvadd(c3, t0, t1)` of `egt-1341`, `egt-1513`
+and `egt-4119`. The terms `t` are far beyond the 12 leaf bits of the bounded
+evaluation, and the identity holds for every `t`.
+
+`Z3BvAddNormalize.fst` reads both sides of a premise-free rewrite `a = b`
+as sums of sort `BV<w>`. A summand is a numeral, a nested `bvadd` (binary, or
+n-ary as the `bv_model` conjunct for `nary_operation` states it, recognized
+by `Z3BvExtract.arith` from the declaration kind, its width parameter and
+its argument sorts), or any other closed term of sort `BV<w>`, which is an
+opaque atom. A side is the sum of its numerals, taken modulo `2^w`, and the
+sequence of its atoms in the order in which they occur; the step is accepted
+when both sides have the same numeral total modulo `2^w` and the same atoms
+in the same order. Atoms are identified by their whole declaration and
+arguments, never given a value (equal atoms have equal values whatever the
+value is), and never reordered or merged: the step `bvadd(bvadd(2, t), t) =
+bvadd(2, bvmul(2, t))` and a swap of two atoms stay pending. A numeral or
+`bvadd` declaration that fails its recognizer (a numeral outside `[0, 2^w)`,
+a negative one, a wrong width or sort, a sum of one argument, a width above
+4096) is neither read nor an atom. The soundness lemma `lemma_summands` shows
+by induction on the term that the value of a side in the model is
+`(n + sum of the atom values) % 2^w`, from the `bv_model` conjuncts for
+numerals, `operation` and `nary_operation` and the range conjunct of
+`lemma_word`; the kernel call site discharges the one hypothesis,
+`exists project. bv_model i project`, from the unchanged `model_sound`. No
+model contract, assume, admit or lax mode is added, the module sets only the
+repository-standard options, and no budget changes: the tree has at most 512
+occurrences, counted on the tree so that a shared DAG cannot hide its size,
+and both sides must be closed (`D.scoped []`), before anything is read.
+Everything outside the shape leaves the step pending, never rejected.
+
+Scope: the rule is one more alternative of the `rewrite` step (not of
+`ApplyDefinition`) and decides no `th-lemma`; only acceptance grows. It does
+not touch the `bvadd` steps that merge equal summands (`t + t` into
+`bvmul(2, t)`, `egt-3244`), the `th-lemma` expansions of the `csplit` inputs
+or the signed comparison lemmas, and it does not close any QF_ABV input by
+itself. On the merged baseline (OCaml checker, `--stats --timeout-ms 10000`)
+105 pending steps of eight inputs are decided: `PARTIAL 295` to `264`
+(bench `try5` `fse-bfs`), `264` to `247` (bench `try4`
+`get_type_indicator`), `54` to `39` (z3 `hash_pjw`), `168` to `135` (z3
+`xstrcoll_atime`), `egt-1341` `8` to `4`, `egt-1513` `5` to `4`, `egt-3244`
+`4` to `3` and `egt-4119` `6` to `3`. The `dwp` inputs keep hundreds of other
+pending steps, and the `egt` inputs keep their `th-lemma` obligations (and
+the `t + t` step of `egt-3244`).
+
 ### QF_DT benchmark coverage (2026-10-18)
 
 A fixed 100-input QF_DT sample comes from the SMT-LIB 2025 archive

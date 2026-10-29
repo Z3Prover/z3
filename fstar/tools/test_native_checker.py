@@ -420,6 +420,37 @@ class DirectCheckerTests(unittest.TestCase):
                          result.stdout + result.stderr)
         self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
 
+    def test_bv_sum_normalization_removes_pending_qf_abv_rewrites(self):
+        # SMT-LIB QF_ABV benchmarks of the pulse reports, verbatim: egt-1341, egt-1513 and egt-4119
+        # (Vijay Ganesh, Clark Barrett; bench run 40723098000) and try4_difret_functions_disjunctions_mv.hash_pjw
+        # (Ivan Jager; z3 run 40718873785). Their rewrite steps bvadd(bvadd(c1, t), c2) = bvadd(c3, t) (c3 =
+        # c1 + c2 modulo 2^32, over an uninterpreted constant or an 8-bit read zero-extended to 32 bits), the
+        # same with a bare t when the numerals cancel, and the n-ary forms bvadd(bvadd(c1, t0, t1), c2) =
+        # bvadd(c3, t0, t1), bvadd(bvadd(c1, t0), bvadd(c2, t1)) = bvadd(c3, t0, t1) and bvadd(c1, bvadd(c2, t0,
+        # t1)) = bvadd(c3, t0, t1) are decided by the modular normalization of Z3BvAddNormalize. None of the four
+        # is a full ACCEPT: the other rewrites and the bit-vector theory lemmas stay pending, so the checks are the
+        # exact number of pending steps and the absence of the re-association fingerprints.
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        reassociation = "eq(bvadd:U(bvadd:U("
+        for name, pending, families in (
+                ("egt-1513.smt2", 4, 4),
+                ("egt-4119.smt2", 3, 3),
+                ("egt-1341.smt2", 4, 4),
+                ("try4_difret_functions_disjunctions_mv.hash_pjw.il.disjunctions_0.smt2", 39, 20)):
+            with self.subTest(name=name):
+                source = (repair / name).read_text()
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (3, f"PARTIAL {pending}"),
+                                 result.stdout + result.stderr)
+                self.assertIn(f"diagnostic\tchecked\tpending={pending}\tfamilies={families}\n", result.stderr)
+                self.assertNotIn(reassociation, result.stderr)
+        # The bound 300 instead of 547 makes egt-1513 satisfiable: there is no proof to certify.
+        source = (repair / "egt-1513.smt2").read_text()
+        satisfiable = source.replace("(_ bv547 32)", "(_ bv300 32)")
+        self.assertNotEqual(satisfiable, source)
+        result = self.run_checker(satisfiable, "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
+
     def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
         source = (
             "(declare-fun a () Real)"

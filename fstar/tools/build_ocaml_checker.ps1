@@ -200,7 +200,7 @@ try {
     "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
     "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",
-    "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
+    "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedSemantics.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",

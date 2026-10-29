@@ -37,6 +37,7 @@ module TN = Z3TheoryNormalize
 module FF = Z3FiniteFieldLemma
 module FP = Z3FiniteFieldPac
 module BE = Z3BvExhaustive
+module BN = Z3BvAddNormalize
 module L = FStar.List.Tot
 
 type judgment =
@@ -295,7 +296,7 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
                       ID.equivalent b a || QV.equivalent 64 a b ||
                       TN.equivalent a b ||
                       boolean_search a b ||
-                      (kind = RewriteRule && BE.equivalent a b))
+                      (kind = RewriteRule && (BE.equivalent a b || BN.equivalent a b)))
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -870,7 +871,8 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
          else if TN.equivalent a b then TN.lemma_equivalent i rho a b
          else if boolean_search a b then lemma_boolean_search_sound i rho a b
-         else BE.lemma_equivalent_sound a b i rho);
+         else if BE.equivalent a b then BE.lemma_equivalent_sound a b i rho
+         else BN.lemma_equivalent_sound a b i rho);
          lemma_relational_value_sound i rho concl r a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
