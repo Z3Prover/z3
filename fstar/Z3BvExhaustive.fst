@@ -35,10 +35,11 @@ module SM = Z3StandardModel
    interpretation `Z3StandardModel.standard leaf` satisfies them, so that
    theorem has models, and an accepted clause is true in each of them
    (`lemma_valid_standard`). The kernel's hypotheses imply `ground_model`
-   (`Z3StandardModel.lemma_ground_of_global`), but the kernel's theorem is
-   still stated over `Z3UnifiedProof.model_sound`, which has no model, so the
-   kernel-level statement remains vacuous until the global contracts are
-   repaired.
+   (`Z3StandardModel.lemma_ground_of_global`), but the legacy kernel theorem
+   is stated over `Z3UnifiedProof.model_sound`, which has no model, so that
+   statement is vacuous. `Z3CoreKernel` proves accepted theory-lemma and
+   rewrite nodes decided here sound from the inhabited
+   `Z3CoreModel.core_model` instead.
 
    A leaf is a closed bit-vector term of a known width `w` whose head is not
    one of those operators, such as `(select a i)`, an uninterpreted constant,

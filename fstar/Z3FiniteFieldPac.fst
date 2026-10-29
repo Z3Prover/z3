@@ -56,6 +56,7 @@ module L = FStar.List.Tot
 module M = FStar.Math.Lemmas
 module O = Z3ObservationalEquality
 module PT = Z3ProofTheory
+module C = Z3CanonicalOps
 
 (* ----------------------------------------------------------------- *)
 (* Certificates                                                        *)
@@ -218,7 +219,7 @@ let rec index_equations (tree:index_tree equation) (k:int) (es:list equation)
 
 let clause_literals (e:expr) : list expr =
   match e with
-  | App f args -> if f.decl_name = "or" then args else [e]
+  | App f args -> if C.canonical_or f then args else [e]
   | _ -> [e]
 
 let rec negated_in (l:expr) (lits:list expr) : Tot bool (decreases lits) =
@@ -727,7 +728,7 @@ let lemma_clause_literals (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires or_sound i /\ ~(lit_true i rho e))
           (ensures none_true i rho (clause_literals e))
   = match e with
-    | App f args -> if f.decl_name = "or" then lemma_clause_holds i rho args else ()
+    | App f args -> if C.canonical_or f then lemma_clause_holds i rho args else ()
     | _ -> ()
 #pop-options
 

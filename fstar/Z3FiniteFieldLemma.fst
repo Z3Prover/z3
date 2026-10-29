@@ -33,6 +33,7 @@ open Z3ResolutionProofTheory
 module D = Z3Definitions
 module L = FStar.List.Tot
 module M = FStar.Math.Lemmas
+module C = Z3CanonicalOps
 
 let op_ff_num : decl_kind = 300
 let op_ff_add : decl_kind = 301
@@ -1011,15 +1012,15 @@ and eval_bool (p:pos) (tbl:list expr) (v:nat -> int) (e:expr) : Tot (option bool
   match e with
   | App f args ->
     if get_sort e <> bool_sort then None
-    else if f.decl_name = "true" && args = [] then Some true
-    else if f.decl_name = "false" && args = [] then Some false
-    else if f.decl_name = "not" then
+    else if C.canonical_true f && args = [] then Some true
+    else if C.canonical_false f && args = [] then Some false
+    else if C.canonical_not f then
       (match args with
        | [a] -> (match eval_bool p tbl v a with Some b -> Some (not b) | None -> None)
        | _ -> None)
-    else if f.decl_name = "or" then eval_or p tbl v args
-    else if f.decl_name = "and" then eval_and p tbl v args
-    else if f.decl_name = "=" then
+    else if C.canonical_or f then eval_or p tbl v args
+    else if C.canonical_and f then eval_and p tbl v args
+    else if C.canonical_eq f then
       (match args with
        | [a; b] ->
          if get_sort a = ff_sort p && get_sort b = ff_sort p then
@@ -1289,15 +1290,15 @@ and lemma_eval_bool (i:interpretation value) (rho:env value) (project:int -> val
     | App f args ->
       lemma_bool_value i rho e;
       lemma_scoped_app f args;
-      if f.decl_name = "true" && args = [] then ()
-      else if f.decl_name = "false" && args = [] then ()
-      else if f.decl_name = "not" then
+      if C.canonical_true f && args = [] then ()
+      else if C.canonical_false f && args = [] then ()
+      else if C.canonical_not f then
         (match args with
          | [a] ->
            lemma_scoped_cons a [];
            lemma_eval_bool i rho project p tbl v a)
-      else if f.decl_name = "or" then lemma_eval_or i rho project p tbl v args
-      else if f.decl_name = "and" then lemma_eval_and i rho project p tbl v args
+      else if C.canonical_or f then lemma_eval_or i rho project p tbl v args
+      else if C.canonical_and f then lemma_eval_and i rho project p tbl v args
       else
         (match args with
          | [a; b] ->

@@ -8,13 +8,14 @@ open FStar.List.Tot
 module D = Z3Definitions
 module S = Z3BinderSubstitution
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
 let substitute (args:list expr) (body:expr) : option expr = S.substitute args body
 
 let check (args:list expr) (formula:expr) : bool =
   match formula with
   | App f [App n [Quantifier Forall_k bs s body]; inst] ->
-    f.decl_name = "or" && n.decl_name = "not" && s = bool_sort &&
+    C.canonical_or f && C.canonical_not n && s = bool_sort &&
     get_sort body = bool_sort && get_sort inst = bool_sort &&
     sorts_match args bs && D.scoped_args [] args &&
     D.scoped [] (Quantifier Forall_k bs s body) &&

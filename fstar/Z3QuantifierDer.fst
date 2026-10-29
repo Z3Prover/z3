@@ -12,6 +12,7 @@ module V = Z3QuantifierVacuity
 module P = Z3QuantifierPull
 module R = Z3QuantifierReduce
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
 let rec substitute (n:nat) (term body:expr) : Tot expr (decreases body) =
   match body with
@@ -169,7 +170,7 @@ let rec candidates (e:expr) : Tot (list (nat & expr)) (decreases e) =
   | Var n s -> if s = bool_sort then [(n, true_expr); (n, false_expr)] else []
   | App f args ->
     let here = match args with
-      | [a; b] -> if f.decl_name = "=" then endpoint a b @ endpoint b a else []
+      | [a; b] -> if C.canonical_eq f then endpoint a b @ endpoint b a else []
       | _ -> [] in
     here @ candidates_args args
   | Quantifier _ _ _ _ -> []

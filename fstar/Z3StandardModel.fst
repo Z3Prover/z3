@@ -383,10 +383,14 @@ noextract let std_app (leaf:func_decl -> list value -> int) (f:func_decl) (vs:li
      | Some v -> coerce f.range v
      | None -> shape f.range (leaf f vs))
 
+(* Quantifiers are outside the ground fragment. `forall`/`exists` get the
+   constant `VBool true` and a lambda the opaque `VInt 0`, so every
+   binder takes a value of its sort (`Z3CoreModel.lemma_witness`); no
+   quantifier or lambda law is claimed for them. *)
 noextract let standard (leaf:func_decl -> list value -> int) : interpretation value =
   { interp_app = (fun f vs -> std_app leaf f vs);
     uninterp_app = (fun f vs -> shape f.range (leaf f vs));
-    interp_quant = (fun _ _ _ -> VBool true) }
+    interp_quant = (fun k _ _ -> if k = Lambda_k then VInt 0 else VBool true) }
 
 (* --- Basic facts about the standard interpretation --------------------- *)
 
