@@ -94,9 +94,12 @@ dependency analysis or its broader platform behavior.
    load the core before the JNI bridge using absolute paths. Preserve all three
    errors and identify the platform/resource/loading stage.
 2. Assemble a base API JAR and **self-contained platform classifier JARs**,
-   as in #10529. A consumer selects one classifier. Each classifier includes
-   the same API classes, so consumers should not add both base and classifier
-   JARs. A universal JAR and native-only companion dependencies are deferred.
+   as in #10529, plus an **`all` universal JAR**. Each bundled form contains
+   one copy of the same API classes. The universal JAR contains the exact union
+   of the selected platform resources, with a platform manifest, per-library
+   hashes and each input's license. Consumers select either `all` or one platform
+   classifier; do not add the base or another bundled form alongside it.
+   Native-only companion dependencies are deferred.
 3. Python owns assembly, validation and provenance. It must reject duplicate
    entries, incomplete inputs, version drift, unexpected classes/resources and
    binary architecture mismatch. Stable ZIP entry order and timestamps allow
@@ -119,7 +122,11 @@ Packaging Test CI runs on relevant PRs, with read-only permissions and no
 publishing credentials. A single Linux job prepares the selected platform JARs;
 native runner jobs consume those exact files, verify hashes and exercise
 Context/version/SAT/UNSAT, concurrent initialization, system loading and failure
-diagnostics. Linux/Windows initially test Java 8 and 17; macOS arm64 tests Java
+diagnostics against both their platform JAR and the **same universal JAR bytes**.
+The extraction check requires exactly the current platform's two libraries;
+foreign-platform resources remain in the JAR. Both bundled forms also exercise
+system-first loading in the presence of embedded resources. Linux/Windows
+initially test Java 8 and 17; macOS arm64 tests Java
 17 and 21, avoiding an assumption that Temurin 8 has a native macOS arm64 build.
 It never calls CMake or a native distribution build script.
 
@@ -130,7 +137,7 @@ release workflow or its publishing jobs. `workflow_inputs.py` records and checks
 commit/version/OS/architecture, run ID, run attempt and ZIP hash. A separate
 packaging job accepts only those same-run artifacts, with no native recompilation
 or substitution of downloaded release binaries; Java 17 smoke jobs consume its
-final JARs. It can be dispatched manually after reaching a default branch. On
+final platform and universal JARs. It can be dispatched manually after reaching a default branch. On
 the initial fork branch, only a commit explicitly marked `[java-full-flow]`
 starts the expensive native jobs, which permits initial validation without
 altering the fork's default branch.
@@ -181,6 +188,21 @@ uploads to GitHub Packages. Neither publication path is enabled in this prototyp
 
 ## Running the prototype
 
+Every assembly emits `z3-VERSION.jar` (API only),
+`z3-VERSION-PLATFORM.jar` for each selected platform, and
+`z3-VERSION-all.jar` (API plus all selected platforms). The `--platform` list
+defines that assembly's exact platform set; `all` does not silently include
+unselected entries from the release inventory. CI selects Linux x64, Windows
+x64 and macOS arm64, the current tested scope. A one-platform local assembly
+therefore has a one-platform `all` JAR; use the full CI selection for the
+cross-platform distribution.
+
+For Maven consumers, choose `<classifier>all</classifier>` for the shared
+cross-platform JAR, or e.g. `<classifier>win-x64</classifier>` for the smaller
+platform JAR. Coordinates are still test-only; none of these files has been
+published to a Maven registry. The default artifact remains API-only for
+compatibility with external native installations.
+
 Use Python 3.10+ and JDK 17+ for preparation (JDK 8+ for smoke tests). From the
 repository root, use fresh output directories; downloads may be reused after
 hash verification. Example for Windows x64:
@@ -194,7 +216,10 @@ python scripts/java/smoke.py --packages build/java-packages --platform win-x64 -
 
 The conventional system-library test configures the OS dependency search path
 as well as `java.library.path`. The embedded test sets an empty JNI search
-directory and checks that both resources were actually extracted. Each mode
-uses a fresh JVM. Native JVM diagnostics are retained, including Java 25's
+directory and checks that only the current platform's two resources were
+extracted. `smoke.py` defaults to testing both forms; `--jar-kind all` and
+`--jar-kind platform` select one form. Each mode uses a fresh JVM. Receipts
+record each tested JAR's name, hash and modes separately. Native JVM
+diagnostics are retained, including Java 25's
 restricted-native-access warnings; this prototype does not claim future JDK
 native-access defaults are covered by Java 8/17/21 tests.

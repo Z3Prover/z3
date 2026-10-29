@@ -1,6 +1,6 @@
 ############################################
 # Copyright (c) 2026 Microsoft Corporation
-# Assemble classifier JARs without compiling native code or rewriting binaries.
+# Assemble platform and universal JARs without compiling or rewriting native code.
 ############################################
 import argparse
 import hashlib
@@ -107,6 +107,9 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
              group_id, artifact_id, version):
     if not platforms or len(set(platforms)) != len(platforms):
         raise ValueError('Select at least one platform, without duplicates')
+    platforms = sorted(platforms)
+    if any(platform not in lock['platforms'] for platform in platforms):
+        raise ValueError('Unknown platform selection')
     for value in (group_id, artifact_id, version):
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', value):
             raise ValueError('Invalid Maven coordinate: ' + value)
@@ -119,6 +122,9 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
     api = checked_zip(api_jar)
     validate_api(api)
     packages = {}
+    platform_provenance = {}
+    universal_resources = {}
+    licenses = {}
     provenance = {**preparation, 'prototype': True, 'maven': {
         'groupId': group_id, 'artifactId': artifact_id, 'version': version}}
     # Validate every selected input before creating outputs.
@@ -154,10 +160,21 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
         package_provenance = {**provenance, 'classifier': classifier, 'release_asset': asset,
                               'platform_api_sha256': sha256(release_api),
                               'libraries': {k: sha256(v) for k, v in libraries.items()}}
+        platform_provenance[classifier] = package_provenance
+        licenses['META-INF/z3/licenses/' + classifier + '.txt'] = license_text
         content = {**api, 'META-INF/z3/LICENSE.txt': license_text,
                    'META-INF/z3/provenance.json': json_bytes(package_provenance)}
-        content.update({RESOURCE_PREFIX + classifier + '/' + k: v for k, v in libraries.items()})
+        resources = {RESOURCE_PREFIX + classifier + '/' + k: v for k, v in libraries.items()}
+        content.update(resources)
+        universal_resources.update(resources)
         packages[classifier] = content
+    # One copy of the API, and the exact union of the selected platform resources.
+    # Preserve each input license, including platform-specific line endings.
+    license_text = licenses['META-INF/z3/licenses/' + platforms[0] + '.txt']
+    universal = {**api, **universal_resources, **licenses,
+                 'META-INF/z3/LICENSE.txt': license_text,
+                 'META-INF/z3/provenance.json': json_bytes({
+                     **provenance, 'classifier': 'all', 'platforms': platform_provenance})}
     out_dir = Path(out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise ValueError('Output directory must be empty to exclude stale artifacts: ' + str(out_dir))
@@ -167,6 +184,7 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
                                        'META-INF/z3/provenance.json': json_bytes(provenance)})
     for classifier, content in packages.items():
         write_jar(out_dir / (base + '-' + classifier + '.jar'), content)
+    write_jar(out_dir / (base + '-all.jar'), universal)
     # These explicit test coordinates are not an assertion of an official namespace.
     pom = '''<project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>

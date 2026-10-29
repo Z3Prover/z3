@@ -77,17 +77,15 @@ public final class Smoke {
             System.out.println("Context/version/SAT/UNSAT/concurrent initialization: " + version);
             if (mode.equals("bundled")) {
                 java.io.File[] directories = new java.io.File(System.getProperty("java.io.tmpdir")).listFiles();
-                boolean extracted = false;
-                if (directories != null) {
-                    for (java.io.File directory : directories) {
-                        if (directory.getName().startsWith("z3-native-") && directory.isDirectory()
-                                && directory.list().length == 2) {
-                            extracted = true;
-                        }
-                    }
+                if (directories == null || directories.length != 1
+                        || !directories[0].getName().startsWith("z3-native-") || !directories[0].isDirectory()) {
+                    throw new AssertionError("Expected one private extraction directory");
                 }
-                if (!extracted) {
-                    throw new AssertionError("Embedded fallback did not extract both libraries");
+                java.util.Set<String> expected = new java.util.HashSet<String>(java.util.Arrays.asList(args[2].split(",")));
+                String[] extracted = directories[0].list();
+                if (extracted == null || extracted.length != expected.size()
+                        || !new java.util.HashSet<String>(java.util.Arrays.asList(extracted)).equals(expected)) {
+                    throw new AssertionError("Expected only the current platform's two libraries");
                 }
             }
         }

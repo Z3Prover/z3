@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import mk_java_package as package
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'java'))
 import workflow_inputs
+import smoke as java_smoke
 
 
 def archive(entries):
@@ -66,8 +67,102 @@ class JavaPackagingTests(unittest.TestCase):
 
     def build(self, directory='out', platforms=None):
         return package.assemble(self.lock, self.root, self.api, self.preparation,
-                                self.root / directory, platforms or ['win-x64'],
+                                self.root / directory, ['win-x64'] if platforms is None else platforms,
                                 'invalid.z3.prototype', 'z3', '5.3.2-packaging-SNAPSHOT')
+
+    def add_unix_platform(self, classifier):
+        if classifier == 'linux-x64':
+            data = bytearray(64)
+            data[:6] = b'\x7fELF\x02\x01'
+            struct.pack_into('<H', data, 18, 62)
+            binary = bytes(data)
+        else:
+            binary = b'\xcf\xfa\xed\xfe' + struct.pack('<I', 0x100000c) + bytes(24)
+        name = 'z3-5.3.2-' + classifier + '.zip'
+        prefix = name[:-4] + '/'
+        entries = {prefix + 'java/com.microsoft.z3.jar': self.api,
+                   prefix + 'LICENSE.txt': ('Synthetic MIT fixture for ' + classifier).encode('ascii')}
+        entries.update({prefix + 'bin/' + library: binary for library in
+                        package.LIBRARIES[classifier.split('-')[0]]})
+        data = archive(entries)
+        (self.root / name).write_bytes(data)
+        self.lock['platforms'][classifier] = {
+            'name': name, 'sha256': package.sha256(data),
+            'url': 'https://github.com/Z3Prover/z3/releases/download/z3-5.3.2/' + name}
+        return entries
+
+    def test_universal_contains_exact_platform_union_and_one_api(self):
+        sources = {'win-x64': self.entries,
+                   'linux-x64': self.add_unix_platform('linux-x64'),
+                   'osx-arm64': self.add_unix_platform('osx-arm64')}
+        out = self.build(platforms=list(sources))
+        provenance = json.loads((out / 'provenance.json').read_bytes())
+        jar, universal = java_smoke.verify_jar(out, provenance, 'all')
+        union = {}
+        for classifier in sources:
+            _, platform = java_smoke.verify_jar(out, provenance, classifier)
+            union.update({k: v for k, v in platform.items() if k.startswith(package.RESOURCE_PREFIX)})
+            license_text = next(v for k, v in sources[classifier].items() if k.endswith('/LICENSE.txt'))
+            self.assertEqual(universal['META-INF/z3/licenses/' + classifier + '.txt'], license_text)
+        self.assertEqual({k: v for k, v in universal.items() if k.startswith(package.RESOURCE_PREFIX)}, union)
+        self.assertEqual(len(union), 6)
+        self.assertEqual({k: v for k, v in universal.items() if k.endswith('.class')}, self.api_entries)
+        embedded = json.loads(universal['META-INF/z3/provenance.json'])
+        self.assertEqual(set(embedded['platforms']), set(sources))
+        self.assertEqual(provenance['platforms'], sorted(sources))
+        self.assertIn(package.sha256(jar.read_bytes()) + '  ' + jar.name,
+                      (out / 'SHA256SUMS').read_text(encoding='ascii'))
+
+    def test_universal_deterministic_when_platform_selection_is_reordered(self):
+        self.add_unix_platform('linux-x64')
+        first = self.build('one', ['win-x64', 'linux-x64'])
+        second = self.build('two', ['linux-x64', 'win-x64'])
+        self.assertEqual({p.name: p.read_bytes() for p in first.iterdir()},
+                         {p.name: p.read_bytes() for p in second.iterdir()})
+
+    def test_universal_requires_every_selected_platform_before_writing(self):
+        self.add_unix_platform('linux-x64')
+        for change in ('missing', 'wrong-cpu'):
+            with self.subTest(change=change):
+                if change == 'missing':
+                    del self.entries[self.prefix + 'bin/z3java.dll']
+                else:
+                    self.entries[self.prefix + 'bin/z3java.dll'] = pe(0xaa64)
+                self.write_release()
+                with self.assertRaises(ValueError):
+                    self.build(platforms=['linux-x64', 'win-x64'])
+                self.assertFalse((self.root / 'out').exists())
+
+    def test_universal_rejects_modified_resources_manifests_and_classes(self):
+        self.add_unix_platform('linux-x64')
+        out = self.build(platforms=['linux-x64', 'win-x64'])
+        provenance = json.loads((out / 'provenance.json').read_bytes())
+        jar, original = java_smoke.verify_jar(out, provenance, 'all')
+        resource = package.RESOURCE_PREFIX + 'win-x64/z3java.dll'
+        for change in ('missing-resource', 'wrong-binary', 'extra-resource', 'missing-platform', 'extra-platform', 'wrong-api'):
+            entries = dict(original)
+            manifest = json.loads(entries['META-INF/z3/provenance.json'])
+            if change == 'missing-resource':
+                del entries[resource]
+            elif change == 'wrong-binary':
+                entries[resource] = b'not the original native library'
+            elif change == 'extra-resource':
+                entries[package.RESOURCE_PREFIX + 'osx-arm64/libz3.dylib'] = b'not selected'
+            elif change == 'missing-platform':
+                del manifest['platforms']['win-x64']
+            elif change == 'extra-platform':
+                manifest['platforms']['osx-arm64'] = manifest['platforms']['win-x64']
+            elif change == 'wrong-api':
+                entries[package.NATIVE_CLASS + '.class'] += b'different'
+            entries['META-INF/z3/provenance.json'] = package.json_bytes(manifest)
+            jar.write_bytes(archive(entries))
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                java_smoke.verify_jar(out, provenance, 'all')
+
+    def test_empty_and_unknown_platform_selection(self):
+        for platforms in ([], ['all'], ['linux-unknown']):
+            with self.subTest(platforms=platforms), self.assertRaises(ValueError):
+                self.build(platforms=platforms)
 
     def test_deterministic_outputs_and_exact_resource_set(self):
         first, second = self.build('one'), self.build('two')

@@ -103,10 +103,10 @@ jobs:
         with:
           name: java-packages
           path: packages
-      - name: Verify exact artifact and native behavior
+      - name: Verify platform and shared universal JARs on this native runner
         run: >-
           python scripts/java/smoke.py --packages packages
-          --platform ${{ matrix.platform }} --work-dir smoke-result
+          --platform ${{ matrix.platform }} --jar-kind both --work-dir smoke-result
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
