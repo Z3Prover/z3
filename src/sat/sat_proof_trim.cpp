@@ -417,14 +417,24 @@ namespace sat {
         s.set_trim();
     }
 
-    void proof_trim::assume(unsigned id, bool is_initial) {
-        std::sort(m_clause.begin(), m_clause.end()); 
+    /**
+     * Sort m_clause and remove duplicate literals. Clauses are stored under
+     * this form, so a deletion must use it too: a logged clause such as
+     * (not (not q)) q a, where the Boolean argument (not q) is mapped to the
+     * variable of q, is stored as q a.
+     */
+    void proof_trim::normalize_clause() {
+        std::sort(m_clause.begin(), m_clause.end());
         unsigned j = 0;
         sat::literal prev = null_literal;
-        for (unsigned i = 0; i < m_clause.size(); ++i) 
+        for (unsigned i = 0; i < m_clause.size(); ++i)
             if (m_clause[i] != prev)
-               prev = m_clause[j++] = m_clause[i];        
+               prev = m_clause[j++] = m_clause[i];
         m_clause.shrink(j);
+    }
+
+    void proof_trim::assume(unsigned id, bool is_initial) {
+        normalize_clause();
         if (unit_or_binary_occurs())
             return;
         if (!m_has_conflict && m_clause.empty()) {
@@ -534,7 +544,7 @@ namespace sat {
         // the state the conflict was derived in.
         if (m_has_conflict)
             return;
-        std::sort(m_clause.begin(), m_clause.end());
+        normalize_clause();
         clause* cp = nullptr;
         if (detach(m_clause, cp))
             m_trail.push_back({ 0, m_clause, cp, false, true });

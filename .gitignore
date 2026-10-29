@@ -138,6 +138,8 @@ tptp_benchmarks/
 /output/pdf/
 /tmp/pdfs/
 /tmp-bibtex.log
+# Written by inputs that set :trace true when run from the repository root
+/z3.log
 /doc/qf-ff-round6-performance.svg
 /doc/qf-ff-round7-performance.svg
 

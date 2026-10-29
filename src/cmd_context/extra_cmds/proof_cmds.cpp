@@ -79,8 +79,18 @@ class proof_trim {
         return arg->get_id();
     }
         
+    /**
+     * A Boolean term under an uninterpreted function, such as (not q) in
+     * (pb (not q)), is its own variable in the solver, but the log prints
+     * its positive literal as the term itself. The literal (not q) is then
+     * printed the same whether it is that variable or q negated, and its
+     * negation as (not (not q)). Strip every negation, so both readings
+     * land on the variable of q.
+     */
     void add_literal(expr* arg) {
-        bool sign = m.is_not(arg, arg);
+        bool sign = false;
+        while (m.is_not(arg, arg))
+            sign = !sign;
         trim.add_literal(mk_var(arg), sign);
     }
 

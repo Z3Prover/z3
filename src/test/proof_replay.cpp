@@ -21,6 +21,7 @@ Abstract:
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
+#include "util/gparams.h"
 #include "util/z3_exception.h"
 #include <cstdlib>
 #include <iostream>
@@ -70,6 +71,13 @@ static std::string replay(char const* log) {
     VERIFY(ok);
     return captured.str();
 }
+
+// Turn on native proof trimming for the replay and restore the previous value.
+struct scoped_trim {
+    std::string saved = gparams::get_value("solver.proof.trim");
+    scoped_trim() { gparams::set("solver.proof.trim", "true"); }
+    ~scoped_trim() { gparams::set("solver.proof.trim", saved.c_str()); }
+};
 
 static void check_verified_natively(std::string const& out, char const* hint) {
     std::cout << out;
@@ -948,7 +956,67 @@ static void tst_trim_assumed_empty_clauses() {
     ENSURE(core[2].second.size() == 2);
 }
 
+// A Boolean term under an uninterpreted function, x = (not q) in (pb (not q)),
+// is a solver variable of its own, and the log prints its literals as (not q)
+// and (not (not q)), the same text as q negated and q. The trimmer stripped
+// one negation per literal, so (not (not q)) became a variable unrelated to
+// q, the final conflict over it was not found, and the export replayed the
+// untrimmed log (random_bool_argument_instance seeds 347 and 2088 of
+// test_proof_to_lean_uf.py, iter-041). Every negation is stripped now.
+static void tst_trim_double_negation() {
+    char const* log =
+        "(declare-fun q () Bool)\n"
+        "(declare-fun pb (Bool) Bool)\n"
+        "(assume (not q))\n"
+        "(assume (not (not q)) (pb true))\n"
+        "(assume (not (pb true)))\n"
+        "(declare-fun rup () Proof)\n"
+        "(infer rup)\n";
+    std::string out;
+    {
+        scoped_trim trim;
+        out = replay(log);
+    }
+    std::cout << out;
+    ENSURE(out.find("not derivable") == std::string::npos);
+    // The empty clause depends on all three assumptions.
+    for (char const* deps : {"(deps 0)", "(deps 1)", "(deps 2)", "(deps 3 "})
+        ENSURE(out.find(deps) != std::string::npos);
+}
+
+// A logged clause can repeat a literal: (not $6) q a with $6 = (not q) is
+// q q a to the trimmer, which stores it as q a. Its deletion must remove it
+// too; it was ignored, so the empty clause below got a core over the deleted
+// clause. Without it the empty clause is not derivable from (not q) and
+// (not a), and the trimmer rejects the log.
+static void tst_trim_deletes_clauses_with_repeated_literals() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal q(trim.mk_var(), false), a(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({q, q, a}); trim.assume(0);
+    clause({q, q, a}); trim.del();
+    clause({~q}); trim.assume(1);
+    clause({~a}); trim.assume(2);
+    clause({}); trim.infer(3);
+    bool rejected = false;
+    try {
+        trim.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("empty clause is not derivable") != std::string::npos;
+    }
+    ENSURE(rejected);
+}
+
 void tst_proof_replay() {
+    tst_trim_double_negation();
+    tst_trim_deletes_clauses_with_repeated_literals();
     tst_trim_satisfied_clause();
     tst_trim_watches_literals_that_are_not_false();
     tst_trim_assumed_empty_clauses();
