@@ -4283,11 +4283,14 @@ let bv_extract_rewrites () =
     "(ite p ((_ extract 1 1) u) ((_ extract 1 1) x))";
   (* Valid steps outside the shape stay pending: bitwise or, subtraction, reordered or
      evaluated arguments, two steps at once, and terms with variables bound outside them
-     (Z3BvExtract checks closed terms only). *)
+     (Z3BvExtract checks closed terms only). The bounded evaluation of Z3BvExhaustive does not
+     decide them either: bvor, bvsub and ite terms are opaque leaves, and the other leaves have
+     more than 12 bits; the evaluated-numeral step over a 7-bit leaf is certified by that
+     evaluation (checked-bounded-bit-vector-evaluation), so it is tested here at 66 bits. *)
   outside "((_ extract 5 2) (bvor x y))" "(bvor ((_ extract 5 2) x) ((_ extract 5 2) y))";
   outside "((_ extract 3 0) (bvsub x y))" "(bvsub ((_ extract 3 0) x) ((_ extract 3 0) y))";
   outside "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) y) ((_ extract 3 0) x))";
-  outside "((_ extract 4 0) (bvadd (_ bv1 7) k))" "(bvadd #b00001 ((_ extract 4 0) k))";
+  outside "((_ extract 4 0) (bvadd (_ bv1 66) m))" "(bvadd #b00001 ((_ extract 4 0) m))";
   outside "((_ extract 3 0) (bvadd x (ite p y z)))"
     "(bvadd ((_ extract 3 0) x) (ite p ((_ extract 3 0) y) ((_ extract 3 0) z)))";
   outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
@@ -4583,6 +4586,491 @@ let arithmetic_inferred_splits () =
                 "(<= (- (* 10 x) (* 10 y)) 9)"] "false" false;
   check "Int" ["(>= (- (* 10 x) (* 10 y)) 1)";
                "(<= (- (* 10 x) (* 10 y)) 10)"] "false" false
+
+(* Integer rounding (Chvatal-Gomory) cuts. Each accepted refutation holds over the integers but its rational
+   relaxation is satisfiable, so no Farkas vector exists; each rejected case is satisfiable (a wrong rounding
+   direction, constant or premise set would "refute" it) or needs reasoning beyond one rounding step. The expected
+   value is the kernel's decision on the actual premise ASTs. *)
+let arithmetic_integer_rounding () =
+  let ints = "(declare-const a Int)(declare-const b Int)(declare-const t Int)(declare-const s Int)\
+              (declare-const v Int)(declare-const w Int)(declare-const z Int)" in
+  let reals = "(declare-const a Real)(declare-const b Real)(declare-const t Real)(declare-const s Real)\
+               (declare-const v Real)(declare-const w Real)(declare-const z Real)" in
+  let mixed = "(declare-const a Int)(declare-const r Real)" in
+  let check source premises expected = arithmetic_implication source premises "false" expected in
+  (* The shape of the QF_LIA ring benchmarks: z is fixed to 0, v >= 0, and the carry term 256 t + 256 s + z is
+     positive but every variable coefficient of it is a multiple of 256, so it is at least 256 and
+     v + 256 t + 256 s exceeds 255. No row has two atoms, so the continued-fraction splits of Z3LpGomory
+     do not apply. *)
+  let ring = ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] in
+  check ints ring true;
+  check ints ["(not (>= (+ v (* 256 t) (* 256 s)) 256))"; "(>= v 0)"; "(not (<= (+ (* 256 t) (* 256 s) z) 0))";
+              "(<= z 0)"; "(>= z 0)"] true;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(= z 0)"] true;
+  check ints ["(= w t)"; "(<= (+ v (* 256 w) (* 256 s)) 255)"; "(>= v 0)"; "(>= (* 256 (+ t s)) 1)"] true;
+  (* A fractional two-sided bound on a multiple of a coefficient gcd. *)
+  check ints ["(>= (* 256 a) 1)"; "(<= (* 256 a) 255)"] true;
+  check ints ["(>= (- (* 6 a) (* 9 b)) 1)"; "(<= (- (* 6 a) (* 9 b)) 2)"] true;
+  check ints ["(>= (* 3 a) (- 1))"; "(<= (* 3 a) (- 1))"] true;
+  (* The premises may come in any order. *)
+  check ints ["(<= z 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(>= z 0)"; "(>= v 0)";
+              "(<= (+ v (* 256 t) (* 256 s)) 255)"] true;
+  check ints ["(>= v 0)"; "(<= z 0)"; "(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= z 0)";
+              "(>= (+ (* 256 t) (* 256 s) z) 1)"] true;
+  (* Over the reals the same systems have a model; real-valued refutations are still accepted. *)
+  check reals ["(>= (* 256 a) 1)"; "(<= (* 256 a) 255)"] false;
+  check reals ring false;
+  check reals ["(>= a 1)"; "(<= a 0)"] true;
+  check reals ["(< a 0)"; "(> a 0)"] true;
+  check reals ["(>= (* 2 a) 1)"; "(<= (+ a b) 0)"; "(>= b 0)"] true;
+  (* Satisfiable near misses: a wrong rounding direction or constant would refute them. *)
+  check ints ["(>= (* 3 a) (- 3))"; "(<= (* 3 a) (- 3))"] false;
+  check ints ["(>= (* 3 a) 1)"; "(<= a 1)"] false;
+  check ints ["(>= (* 256 a) 0)"; "(<= (* 256 a) 255)"] false;
+  check ints ["(>= (* 256 a) 1)"; "(<= (* 256 a) 256)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 256)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] false;
+  (* Dropped, swapped or weakened premises of the accepted ring refutation. *)
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= w 0)"; "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(<= z 0)";
+              "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 255 t) (* 255 s)) 255)"; "(>= v 0)"; "(>= (+ (* 255 t) (* 255 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] false;
+  (* A Real atom in the row: integer rounding is not available. *)
+  check mixed ["(>= (+ (* 2 a) (* 2 r)) 1)"; "(<= (+ a r) (/ 3 4))"] false;
+  (* Integer-unsatisfiable systems that need more than one rounding step stay pending. The two-variable
+     case 5a + 7b = 1 is decided by the existing continued-fraction split of Z3LpGomory; with three
+     variables no row has a common factor and no split applies. *)
+  check ints ["(= (+ (* 5 a) (* 7 b)) 1)"; "(>= a 0)"; "(>= b 0)"] true;
+  check ints ["(= (+ (* 5 a) (* 7 b) (* 11 t)) 1)"; "(>= a 0)"; "(>= b 0)"; "(>= t 0)"] false
+
+(* Bounded exhaustive evaluation of premise-free bit-vector theory lemmas and rewrites over opaque leaves
+   (Z3BvExhaustive). The accepted cases are valid for every value of their leaves, with at most 12 leaf bits in
+   total; the rejected ones are false for some value of a leaf, or valid but outside the evaluated fragment or
+   bounds (and decided by no other kernel rule). The expected value is the kernel's decision on the marshaled
+   ASTs. The first cases are the three obligations of SMT-LIB QF_ABV/egt/egt-0160. *)
+let bv_bounded_evaluation () =
+  let c = context () in
+  let declarations =
+    "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const x (_ BitVec 8))\
+     (declare-const y (_ BitVec 4))(declare-const y5 (_ BitVec 5))(declare-const z (_ BitVec 12))\
+     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)\
+     (declare-fun f ((_ BitVec 8)) (_ BitVec 8))" in
+  let judgment formula =
+    let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [input] in
+    Option.get (U.classify_fact (B.cached_expression st input)) in
+  let pending kind j premises =
+    match U.check_node [] { U.kind = kind; conclusion1 = j; premises } with
+    | Some (_, pending) -> Some pending
+    | None -> None in
+  let premise = { U.conclusion = judgment "p"; hypotheses = [] } in
+  let lemma expected formula =
+    let j = judgment formula in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") j [] = expected)
+      ("incorrect bounded bit-vector theory lemma: " ^ formula);
+    require (pending (U.Unverified "th-lemma") j [] = Some (if expected then Z.zero else Z.one))
+      ("bounded bit-vector theory lemma lost its obligation: " ^ formula);
+    (* Only premise-free `th-lemma` steps are evaluated. *)
+    require (not (U.checked_theory_lemma (U.Unverified "th-lemma") j [premise.U.conclusion]))
+      ("bounded evaluation ignored a premise: " ^ formula);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") j []))
+      ("bounded evaluation accepted an assumed origin: " ^ formula) in
+  let rewrite expected left right =
+    let name = left ^ " -> " ^ right in
+    let j = judgment ("(= " ^ left ^ " " ^ right ^ ")") in
+    require (U.check_step U.RewriteRule j [] = expected) ("incorrect bounded bit-vector rewrite: " ^ name);
+    require (pending U.RewriteRule j [] = Some (if expected then Z.zero else Z.one))
+      ("bounded bit-vector rewrite lost its obligation: " ^ name);
+    (match j with
+     | U.Equal (a, b) ->
+       require (U.check_step U.RewriteRule (U.Observational (a, b)) [] = expected)
+         ("incorrect observational bounded bit-vector rewrite: " ^ name);
+       require (not (U.check_step U.ApplyDefinition j [])) ("bounded evaluation decided a definition step: " ^ name)
+     | _ -> failwith ("expected an equation: " ^ name));
+    require (not (U.check_step U.RewriteRule j [premise.U.conclusion]))
+      ("bounded rewrite accepted a premise: " ^ name);
+    require (pending U.RewriteRule j [premise] = None) ("rewrite with a premise was not rejected: " ^ name);
+    require (not (U.check_step U.Commutativity j [])) ("bounded evaluation decided a commutativity step: " ^ name) in
+  let sel = "(select packet #x000000f1)" and other = "(select packet #x000000f2)" in
+  let t = "(concat #x000000 " ^ sel ^ ")" in
+  let s = "(bvadd #x000000f2 " ^ t ^ ")" in
+  (* egt-0160: the bound split rewrite and the two range lemmas. *)
+  rewrite true ("(bvule " ^ s ^ " #x00000223)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x00000223)))");
+  lemma true ("(= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22))");
+  lemma true ("(or (bvule (bvadd (_ bv242 10) (concat #b00 " ^ sel ^ ")) (_ bv547 10)) false)");
+  (* egt-7033: constant re-association with a 32-bit zero-extended 8-bit leaf. *)
+  rewrite true ("(bvadd (bvadd #x00000002 " ^ t ^ ") #x00000001)") ("(bvadd #x00000003 " ^ t ^ ")");
+  (* The bound split holds for every constant below 2^10; mutated numerals and a wrong extract range make the
+     claims false for some leaf value. *)
+  rewrite true ("(bvule " ^ s ^ " #x000001f0)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x000001f0)))");
+  rewrite false ("(bvule " ^ s ^ " #x00000423)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x00000423)))");
+  rewrite false ("(bvadd (bvadd #x00000002 " ^ t ^ ") #x00000001)") ("(bvadd #x00000004 " ^ t ^ ")");
+  lemma false ("(= ((_ extract 31 10) (bvadd #x000003f2 " ^ t ^ ")) (_ bv0 22))");
+  lemma false ("(or (bvule (bvadd (_ bv242 10) (concat #b00 " ^ sel ^ ")) (_ bv496 10)) false)");
+  lemma false ("(= ((_ extract 31 8) " ^ s ^ ") (_ bv0 24))");
+  lemma false "false";
+  (* Carry: x + 1 wraps at 255 in 8 bits but not after zero extension to 9 bits. *)
+  lemma false "(bvule x (bvadd x #x01))";
+  lemma true "(bvule ((_ zero_extend 1) x) (bvadd ((_ zero_extend 1) x) #b000000001))";
+  lemma true "(or (not (bvult x #x10)) (bvule x #x0f))";
+  lemma false "(or (not (bvult x #x11)) (bvule x #x0f))";
+  (* Unsigned comparisons on values with the top bit set. *)
+  lemma true "(or (not (bvuge x #x80)) (bvult #x7f x))";
+  lemma false "(bvule #x80 x)";
+  (* A repeated leaf takes one value; distinct leaves are independent and never alias. *)
+  lemma true "(= (bvadd x x) (concat ((_ extract 6 0) x) #b0))";
+  lemma true ("(bvule ((_ zero_extend 4) ((_ extract 3 0) " ^ sel ^ ")) " ^ sel ^ ")");
+  lemma false ("(= " ^ sel ^ " " ^ other ^ ")");
+  lemma false ("(bvule " ^ sel ^ " " ^ other ^ ")");
+  lemma false "(= (f x) (f #x00))";
+  (* A closed uninterpreted constant is a leaf, never a fixed value. *)
+  lemma false "(= x #x05)";
+  (* The leaf-width bound: 4 + 8 = 12 bits are enumerated, 5 + 8 = 13 bits are not. *)
+  lemma true "(= (concat y x) (bvadd (concat y #x00) (concat #x0 x)))";
+  lemma true "(bvule ((_ zero_extend 4) z) #x0fff)";
+  lemma false "(= (concat y5 x) (bvadd (concat y5 #x00) (concat #b00000 x)))";
+  (* A valid step over a 32-bit leaf is beyond the bound: the bound split holds for every v. (The
+     re-association (bvadd (bvadd #x00000002 v) #x00000001) -> (bvadd #x00000003 v) used to be the
+     example here; Z3BvAddNormalize now certifies it, see checked-bit-vector-sum-normalization.) *)
+  rewrite false "(bvule v #x00000223)"
+    "(and (= ((_ extract 31 10) v) (_ bv0 22)) (bvule ((_ extract 9 0) v) ((_ extract 9 0) #x00000223)))";
+  (* An extraction step outside the shapes of Z3BvExtract (the numeral is evaluated) over a 7-bit leaf. *)
+  rewrite true "((_ extract 4 0) (bvadd (_ bv1 7) k))" "(bvadd #b00001 ((_ extract 4 0) k))";
+  (* Operators outside the evaluated fragment: bvmul and bvudiv terms are opaque leaves, and Boolean terms such
+     as the signed comparison bvsle (opaque in the native bridge) or a Boolean constant are not evaluated. *)
+  lemma false "(= (bvmul #x02 x) (bvadd x x))";
+  lemma false "(= (bvudiv x #x02) ((_ zero_extend 1) ((_ extract 7 1) x)))";
+  lemma false "(or (bvsle x x) (bvult x #x00))";
+  lemma false "(or p (bvult x #x00))"
+
+(* Modular normalization of bit-vector sums over opaque summands (Z3BvAddNormalize): the constant
+   re-association rewrites of the QF_ABV pulse reports, bvadd(bvadd(c1, t), c2) = bvadd(c3, t) with
+   c3 = c1 + c2 modulo 2^w over any term t, and the n-ary forms of the same flattening. The accepted cases
+   have, on both sides, the same sequence of non-numeral summands (any closed term of the sum's sort, taken
+   as an opaque atom) and numerals with the same total modulo 2^w. The rejected ones differ in a numeral, an
+   atom, the sort or the width, or are valid but outside the normal form (reordered atoms, equal atoms
+   merged into a product), or have a malformed declaration of a numeral or a sum; none of them is decided
+   by another rule. The expected value is the kernel's decision on the marshaled ASTs. *)
+let bv_sum_normalization () =
+  let module BN = Z3BvAddNormalize in
+  let module BV = Z3BvLemma in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and outside = ref 0 and terms_invalid = ref 0 in
+  (* Every case is run and all failures are reported together. *)
+  let failures = ref [] in
+  let guard f = try f () with exn -> failures := Printexc.to_string exn :: !failures in
+  let declarations =
+    "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const t (_ BitVec 32))\
+     (declare-const u (_ BitVec 32))(declare-const v (_ BitVec 32))(declare-const x (_ BitVec 8))\
+     (declare-const y (_ BitVec 8))(declare-const b (_ BitVec 1))(declare-const m (_ BitVec 66))\
+     (declare-const big (_ BitVec 4096))(declare-const p Bool)(declare-const k (_ BitVec 7))\
+     (declare-fun f ((_ BitVec 32)) (_ BitVec 32))(declare-fun g ((_ BitVec 8)) (_ BitVec 32))\
+     (declare-fun g ((_ BitVec 32)) (_ BitVec 32))" in
+  let marshal text =
+    let inputs = parse c text in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    List.map (B.cached_expression st) inputs in
+  let equation ?(binders = "") left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    match marshal source with
+    | [A.App (d, [a; b])] when binders = "" -> d, a, b
+    | [A.Quantifier (_, _, _, A.App (d, [a; b]))] when binders <> "" -> d, a, b
+    | _ -> failwith "expected a bit-vector sum equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed bit-vector sum conclusion" in
+  let pending ?(premises = []) conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  let outcome left right =
+    match marshal (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                     declarations left right left right) with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  let premise =
+    match marshal (declarations ^ "(assert p)") with
+    | [e] -> { U.conclusion = Option.get (U.classify_fact e); hypotheses = [] }
+    | _ -> failwith "expected a Boolean premise" in
+  (* A step is certified by the rewrite rule only, without premises: not with a premise, under another rule
+     label, or as a theory lemma. *)
+  let only_as_rewrite ?(narrow = false) name j =
+    require (not (U.check_step U.RewriteRule j [premise.U.conclusion]))
+      ("sum normalization accepted a premise: " ^ name);
+    require (pending ~premises:[premise] j = None) ("a rewrite with a premise was not rejected: " ^ name);
+    require (not (U.check_step U.ApplyDefinition j []))
+      ("sum normalization decided a definition step: " ^ name);
+    require (not (U.check_step U.Commutativity j []))
+      ("sum normalization decided a commutativity step: " ^ name);
+    (* The bounded evaluation of Z3BvExhaustive decides a theory lemma over at most 12 leaf bits by itself;
+       the sum normalization decides none. *)
+    if not narrow then
+      require (not (U.checked_theory_lemma (U.Unverified "th-lemma") j []))
+        ("sum normalization decided a theory lemma: " ^ name) in
+  let accept ?(narrow = false) left right = guard @@ fun () ->
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation left right in
+    let j = conclusion_of d a b in
+    require (U.check_step U.RewriteRule j []) ("sum normalization did not certify: " ^ name);
+    require (pending j = Some Z.zero) ("sum normalization left an obligation: " ^ name);
+    require (U.check_step U.RewriteRule (U.Observational (a, b)) [])
+      ("sum normalization did not certify the observational rewrite: " ^ name);
+    only_as_rewrite ~narrow name j;
+    require (outcome left right = "ACCEPT") ("sum normalization refutation was not ACCEPT: " ^ name);
+    require (BN.equivalent a b) ("sum normalization rejected: " ^ name) in
+  let uncertified what left right = guard @@ fun () ->
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation left right in
+    let j = conclusion_of d a b in
+    require (not (U.check_step U.RewriteRule j [])) (what ^ " certified: " ^ name);
+    require (not (U.check_step U.RewriteRule (U.Observational (a, b)) []))
+      (what ^ " certified as an observational rewrite: " ^ name);
+    require (pending j = Some Z.one) (what ^ " was not left pending: " ^ name);
+    only_as_rewrite name j;
+    require (outcome left right = "PARTIAL 1") (what ^ " did not give a PARTIAL 1 refutation: " ^ name);
+    require (not (BN.equivalent a b)) (what ^ " accepted by sum normalization: " ^ name) in
+  let reject left right = incr invalid; uncertified "invalid sum" left right in
+  let beyond left right = incr outside; uncertified "sum outside the normal form" left right in
+  let reject_terms what d a b = guard @@ fun () ->
+    incr terms_invalid;
+    (* A conclusion that is not a typed judgment (the sides disagree in sort) is no step at all. *)
+    (match U.classify_fact (A.App (d, [a; b])) with
+     | Some j ->
+         require (not (U.check_step U.RewriteRule j [])) ("malformed sum terms certified: " ^ what);
+         require (pending j <> Some Z.zero) ("malformed sum terms left no obligation: " ^ what)
+     | None -> ());
+    require (not (BN.equivalent a b)) ("malformed sum terms accepted: " ^ what) in
+  (* The report family at 32 bits: the numerals fold modulo 2^32 (4294967292 is -4), t is an
+     uninterpreted constant. *)
+  accept "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000003 t)";
+  accept "(bvadd (bvadd #xfffffffc t) #xfffffffc)" "(bvadd #xfffffff8 t)";
+  accept "(bvadd (bvadd #xfffffff8 t) #x00000003)" "(bvadd #xfffffffb t)";
+  accept "(bvadd (bvadd #xffffffff t) #x00000002)" "(bvadd #x00000001 t)";
+  (* The numerals cancel: the other side is the bare atom, either way round, or a zero addend. *)
+  accept "(bvadd (bvadd #xfffffffc t) #x00000004)" "t";
+  accept "t" "(bvadd (bvadd #x00000004 t) #xfffffffc)";
+  (* The n-ary forms of the reports: a ternary inner sum; two inner sums into a ternary sum; a numeral to
+     the left of an outer sum with a ternary inner sum; several numerals among the atoms. *)
+  accept "(bvadd (bvadd #x00000007 t u) #x00000009)" "(bvadd #x00000010 t u)";
+  accept "(bvadd (bvadd #x00000001 t) (bvadd #x00000002 u))" "(bvadd #x00000003 t u)";
+  accept "(bvadd #x00000004 (bvadd #x00000005 t u))" "(bvadd #x00000009 t u)";
+  accept "(bvadd #x00000001 t #x00000002 u #x00000003)" "(bvadd #x00000006 (bvadd t u))";
+  accept "(bvadd (bvadd #xfffffffe t u v) #x00000003)" "(bvadd #x00000001 t u v)";
+  (* Other widths, each with an atom of that width. At 8, 1 and 7 bits the atom has at most 12 bits, which the
+     bounded evaluation of Z3BvExhaustive decides as well. *)
+  accept ~narrow:true "(bvadd (bvadd #x02 x) #x01)" "(bvadd #x03 x)";
+  accept ~narrow:true "(bvadd (bvadd #xff x) #x01)" "x";
+  accept ~narrow:true "(bvadd (bvadd #b1 b) #b1)" "b";
+  accept ~narrow:true "(bvadd (bvadd (_ bv1 7) k) (_ bv1 7))" "(bvadd (_ bv2 7) k)";
+  accept "(bvadd (bvadd (_ bv5 66) m) (_ bv7 66))" "(bvadd (_ bv12 66) m)";
+  let two_pow n = Z.shift_left Z.one n in
+  let numeral width n = Printf.sprintf "(_ bv%s %d)" (Z.to_string n) width in
+  let top66 = numeral 66 (Z.pred (two_pow 66)) in
+  accept (Printf.sprintf "(bvadd (bvadd %s m) %s)" top66 top66)
+    (Printf.sprintf "(bvadd %s m)" (numeral 66 (Z.sub (two_pow 66) (Z.of_int 2))));
+  accept (Printf.sprintf "(bvadd (bvadd %s m) (_ bv1 66))" top66) "m";
+  accept "(bvadd (bvadd (_ bv5 4096) big) (_ bv7 4096))" "(bvadd (_ bv12 4096) big)";
+  let top4096 = numeral 4096 (Z.pred (two_pow 4096)) in
+  accept (Printf.sprintf "(bvadd (bvadd %s big) %s)" top4096 top4096)
+    (Printf.sprintf "(bvadd %s big)" (numeral 4096 (Z.sub (two_pow 4096) (Z.of_int 2))));
+  accept (Printf.sprintf "(bvadd (bvadd %s big) (_ bv1 4096))" top4096) "big";
+  (* An atom is any closed term of the sort of the sum: an array read, a product (egt-3244), a
+     concatenation of reads (xstrcoll), a difference, an application, a conditional. The same atom
+     occurring twice is one atom. *)
+  let sel n = Printf.sprintf "(select packet #x%08x)" n in
+  let product = Printf.sprintf "(bvmul #x00000002 (concat #x000000 %s))" (sel 241) in
+  accept (Printf.sprintf "(bvadd (bvadd #x00000004 %s) #x00000001)" product)
+    (Printf.sprintf "(bvadd #x00000005 %s)" product);
+  let reads = Printf.sprintf "(concat %s %s %s %s)" (sel 241) (sel 242) (sel 243) (sel 244) in
+  accept (Printf.sprintf "(bvadd (bvadd #xfffffffc %s) #xfffffffc)" reads)
+    (Printf.sprintf "(bvadd #xfffffff8 %s)" reads);
+  accept "(bvadd (bvadd #x00000001 (bvsub t u)) #x00000002)" "(bvadd #x00000003 (bvsub t u))";
+  accept "(bvadd (bvadd #x00000001 (f t)) #x00000002)" "(bvadd #x00000003 (f t))";
+  accept "(bvadd (bvadd #x00000001 (ite p t u)) #x00000002)" "(bvadd #x00000003 (ite p t u))";
+  accept "(bvadd (bvadd #x00000001 (bvadd (bvmul #x00000003 t) u)) #x00000002)"
+    "(bvadd #x00000003 (bvmul #x00000003 t) u)";
+  accept "(bvadd (bvadd #x00000001 t) t)" "(bvadd #x00000001 t t)";
+  (* A wrong numeral total, modulo 2^w and not as integers; a dropped, extra or replaced atom; a numeral
+     total on a side without atoms. *)
+  reject "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000004 t)";
+  reject "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000002 t)";
+  reject "(bvadd (bvadd #xfffffffc t) #xfffffffc)" "(bvadd #xfffffff9 t)";
+  reject "(bvadd (bvadd #xfffffffc t) #xfffffffc)" "(bvadd #x00000008 t)";
+  reject "(bvadd (bvadd #xfffffffc t) #x00000003)" "t";
+  reject "(bvadd (bvadd #xff x) #x01)" "(bvadd #x01 x)";
+  reject "(bvadd (bvadd #b1 b) #b1)" "(bvadd #b1 b)";
+  reject "(bvadd (bvadd (_ bv5 66) m) (_ bv7 66))" "(bvadd (_ bv13 66) m)";
+  reject (Printf.sprintf "(bvadd (bvadd %s m) %s)" top66 top66)
+    (Printf.sprintf "(bvadd %s m)" (numeral 66 (Z.sub (two_pow 66) (Z.of_int 3))));
+  reject "(bvadd (bvadd (_ bv5 4096) big) (_ bv7 4096))" "(bvadd (_ bv13 4096) big)";
+  reject (Printf.sprintf "(bvadd (bvadd %s big) %s)" top4096 top4096)
+    (Printf.sprintf "(bvadd %s big)" (numeral 4096 (Z.sub (two_pow 4096) (Z.of_int 3))));
+  reject (Printf.sprintf "(bvadd (bvadd %s big) (_ bv1 4096))" top4096) "(bvadd (_ bv1 4096) big)";
+  reject "(bvadd (bvadd #x00000001 t) #x00000002)" "#x00000003";
+  reject "(bvadd #x00000003 #x00000001)" "(bvadd #x00000003 t)";
+  reject "(bvadd (bvadd #x00000001 t) u)" "(bvadd #x00000001 t)";
+  reject "(bvadd (bvadd #x00000001 t) #x00000002)" "(bvadd #x00000003 t u)";
+  reject "(bvadd (bvadd #x00000001 t) #x00000002)" "(bvadd #x00000003 u)";
+  reject "(bvadd (bvadd #x00000001 t) u)" "(bvadd #x00000001 t t)";
+  reject "(bvadd (bvadd #x00000007 t u) #x00000009)" "(bvadd #x00000011 t u)";
+  reject "(bvadd (bvadd #x00000007 t u) #x00000009)" "(bvadd #x00000010 t u v)";
+  reject "(bvadd (bvadd #x00000001 t) (bvadd #x00000002 u))" "(bvadd #x00000003 t)";
+  reject "(bvadd #x00000004 (bvadd #x00000005 t u))" "(bvadd #x00000009 t t)";
+  (* Distinct atoms stay distinct: other reads of one array, other applications, a constant and an
+     application, overloaded functions of one name, other operands of a difference or a product. *)
+  let read32 n = Printf.sprintf "(concat #x000000 %s)" (sel n) in
+  reject (Printf.sprintf "(bvadd (bvadd #x00000002 %s) #x00000001)" (read32 241))
+    (Printf.sprintf "(bvadd #x00000003 %s)" (read32 242));
+  reject "(bvadd (bvadd #x00000002 (f t)) #x00000001)" "(bvadd #x00000003 (f u))";
+  reject "(bvadd (bvadd #x00000002 (f t)) #x00000001)" "(bvadd #x00000003 t)";
+  reject "(bvadd (bvadd #x00000002 (g t)) #x00000001)" "(bvadd #x00000003 (g ((_ extract 7 0) t)))";
+  reject "(bvadd (bvadd #x00000002 (ite p t u)) #x00000001)" "(bvadd #x00000003 (ite p u t))";
+  reject "(bvadd (bvadd #x00000002 (bvsub t u)) #x00000001)" "(bvadd #x00000003 (bvsub u t))";
+  reject "(bvadd (bvadd #x00000002 (bvmul #x00000002 t)) #x00000001)"
+    "(bvadd #x00000003 (bvmul #x00000003 t))";
+  (* Valid steps outside the normal form stay pending: the order of the atoms is kept (the reports never
+     reorder them), equal atoms are not merged into a product, a product is not distributed. Invalid:
+     a high slice of a sum, whose carries differ from the sum of the slices. *)
+  beyond "(bvadd (bvadd #x00000001 t) u)" "(bvadd #x00000001 u t)";
+  beyond "(bvadd (bvadd #x00000002 t) t)" "(bvadd #x00000002 (bvmul #x00000002 t))";
+  beyond "(bvadd #x00000001 (bvadd t t))" "(bvadd #x00000001 (bvmul #x00000002 t))";
+  beyond "(bvadd #x00000001 (bvsub t #x00000001))" "t";
+  reject "((_ extract 3 2) (bvadd x y))" "(bvadd ((_ extract 3 2) x) ((_ extract 3 2) y))";
+  reject "((_ extract 1 1) (bvadd #b01 #b01))" "(bvadd ((_ extract 1 1) #b01) ((_ extract 1 1) #b01))";
+  (* Steps under a binder are not decided (closed terms only). *)
+  (let d, a, b = equation ~binders:"(a (_ BitVec 32))" "(bvadd (bvadd #x00000002 a) #x00000001)" "(bvadd #x00000003 a)" in
+   incr outside;
+   require (not (BN.equivalent a b)) "sum normalization accepted a bound variable";
+   require (not (U.check_step U.RewriteRule (conclusion_of d a b) []))
+     "sum normalization certified a bound variable");
+  (* The size bound is tested first: a chain of 200 sums (401 occurrences) is certified, a chain of 300 (601
+     occurrences) stays pending. Shared subterms count on the tree: a let-chain of depth 40 has 2^40
+     occurrences and is refused without being traversed. *)
+  let chain n = String.concat "" (List.init n (fun _ -> "(bvadd #x00000001 ")) ^ "t" ^ String.make n ')' in
+  let count n = Printf.sprintf "#x%08x" n in
+  accept (chain 200) (Printf.sprintf "(bvadd %s t)" (count 200));
+  beyond (chain 300) (Printf.sprintf "(bvadd %s t)" (count 300));
+  (let shared =
+     "(let ((s0 (bvadd t u)))" ^
+     String.concat "" (List.init 40 (fun i -> Printf.sprintf "(let ((s%d (bvadd s%d s%d)))" (i + 1) i i)) ^
+     "s40" ^ String.make 41 ')' in
+   let _, a, b = equation shared shared in
+   incr outside;
+   require (not (BN.equivalent a b)) "sum normalization traversed a shared tree of 2^40 occurrences");
+  (* Declarations of an accepted step replaced by malformed or other ones: an out-of-range or negative
+     numeral that is correct modulo 2^32 if it were reduced, a numeral of another width or sort, a width
+     above 4096 or above 2^32, sums of another width, arity or kind. *)
+  let with_decl e g = match e with
+    | A.App (decl, args) -> A.App (g decl, args)
+    | _ -> failwith "expected an application" in
+  let nth_argument e n g = match e with
+    | A.App (decl, args) -> A.App (decl, List.mapi (fun i x -> if i = n then with_decl x g else x) args)
+    | _ -> failwith "expected an application with arguments" in
+  let params ps decl = { decl with A.int_params = ps } in
+  let ints ps = params (List.map Z.of_int ps) in
+  let interp op decl = { decl with A.interp = op } in
+  let range s decl = { decl with A.range = A.BaseSort s } in
+  let domain ss decl = { decl with A.domain = List.map (fun s -> A.BaseSort s) ss } in
+  let d, a, b = equation "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000003 t)" in
+  guard (fun () ->
+      require (U.check_step U.RewriteRule (conclusion_of d a b) []) "the unmodified sum step was not certified");
+  (* a = (bvadd (bvadd c1 t) c2) and b = (bvadd c3 t); the numerals have the parameters [width; value]. *)
+  let in_inner g e = match e with
+    | A.App (decl, [i; c2]) -> A.App (decl, [g i; c2])
+    | _ -> failwith "expected a sum" in
+  let first_numeral g e = in_inner (fun i -> nth_argument i 0 g) e in
+  let modulus = two_pow 32 in
+  let w32 = Z.of_int 32 in
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "source numeral 2 + 2^32 (not below 2^32)", first_numeral (params [w32; Z.add (Z.of_int 2) modulus]) a, b;
+      "source numeral 2 - 2^32 (negative)", first_numeral (params [w32; Z.sub (Z.of_int 2) modulus]) a, b;
+      "source numeral -2 where the step needs 2^32 - 2", first_numeral (params [w32; Z.of_int (-2)]) a, b;
+      "source numeral of width 33 in a BV32 sum", first_numeral (ints [33; 2]) a, b;
+      "source numeral of width 0", first_numeral (ints [0; 2]) a, b;
+      "source numeral of width 2^32", first_numeral (params [two_pow 32; Z.of_int 2]) a, b;
+      "source numeral of width 2^40", first_numeral (params [two_pow 40; Z.of_int 2]) a, b;
+      "source numeral of width 4097", first_numeral (ints [4097; 2]) a, b;
+      "source numeral with one parameter", first_numeral (ints [2]) a, b;
+      "source numeral with three parameters", first_numeral (ints [32; 2; 0]) a, b;
+      "source numeral with range BV33", first_numeral (range "BV33") a, b;
+      "source numeral with a domain", first_numeral (domain ["BV32"]) a, b;
+      "uninterpreted source numeral", first_numeral (interp None) a, b;
+      "source numeral c2 of 2^32 + 1", (match a with
+         | A.App (g, [i; c2]) -> A.App (g, [i; with_decl c2 (params [w32; Z.succ modulus])])
+         | _ -> failwith "expected a sum"), b;
+      "target numeral 3 + 2^32", a, nth_argument b 0 (params [w32; Z.add (Z.of_int 3) modulus]);
+      "target numeral 3 - 2^32", a, nth_argument b 0 (params [w32; Z.sub (Z.of_int 3) modulus]);
+      "target numeral of width 2^40", a, nth_argument b 0 (params [two_pow 40; Z.of_int 3]);
+      "source outer sum of width 31", with_decl a (ints [31]), b;
+      "source outer sum of width 0", with_decl a (ints [0]), b;
+      "source outer sum of width 33", with_decl a (ints [33]), b;
+      "source outer sum of width 2^32", with_decl a (params [two_pow 32]), b;
+      "source outer sum of width 4097", with_decl a (ints [4097]), b;
+      "source outer sum without width", with_decl a (ints []), b;
+      "source outer sum with two parameters", with_decl a (ints [32; 32]), b;
+      "source outer sum with range BV31", with_decl a (range "BV31"), b;
+      "source outer sum with domain BV32 and BV31", with_decl a (domain ["BV32"; "BV31"]), b;
+      "uninterpreted source outer sum", with_decl a (interp None), b;
+      "source outer subtraction named bvadd", with_decl a (interp (Some BV.op_sub)), b;
+      "source outer product named bvadd", with_decl a (interp (Some BV.op_mul)), b;
+      "source outer sum of one argument", (match a with
+         | A.App (g, [i; _]) -> A.App (g, [i])
+         | _ -> failwith "expected a sum"), b;
+      "source outer sum of no argument", (match a with
+         | A.App (g, _) -> A.App (g, [])
+         | _ -> failwith "expected a sum"), b;
+      "source inner sum of width 31", in_inner (fun i -> with_decl i (ints [31])) a, b;
+      "source inner sum of width 2^32", in_inner (fun i -> with_decl i (params [two_pow 32])) a, b;
+      "source inner sum of width 4097", in_inner (fun i -> with_decl i (ints [4097])) a, b;
+      "uninterpreted source inner sum", in_inner (fun i -> with_decl i (interp None)) a, b;
+      "source inner subtraction named bvadd", in_inner (fun i -> with_decl i (interp (Some BV.op_sub))) a, b;
+      "source inner sum of one argument", in_inner (fun i -> match i with
+         | A.App (g, [c1; _]) -> A.App (g, [c1])
+         | _ -> failwith "expected a sum") a, b;
+      "target sum of width 31", a, with_decl b (ints [31]);
+      "target sum of width 8", a, with_decl b (ints [8]);
+      "target sum of width 2^40", a, with_decl b (params [two_pow 40]);
+      "target sum of width 4097", a, with_decl b (ints [4097]);
+      "target sum without width", a, with_decl b (ints []);
+      "uninterpreted target sum", a, with_decl b (interp None);
+      "target product named bvadd", a, with_decl b (interp (Some BV.op_mul));
+      "target sum of one argument", a, (match b with
+         | A.App (g, [_; y]) -> A.App (g, [y])
+         | _ -> failwith "expected a sum");
+      "target sum with range BV31", a, with_decl b (range "BV31") ];
+  (* An atom of another sort in a sum: the Int constant n for t. *)
+  let n_decl = { A.decl_name = "n"; domain = []; range = A.BaseSort "Int"; interp = None; int_params = [] } in
+  let t_atom = match b with A.App (_, [_; t]) -> t | _ -> failwith "expected a sum" in
+  let rec replace e = if e = t_atom then A.App (n_decl, [])
+    else match e with
+      | A.App (decl, args) -> A.App (decl, List.map replace args)
+      | _ -> e in
+  require (replace a <> a && replace b <> b) "t was not replaced by an Int constant";
+  reject_terms "an Int constant as the atom on both sides" d (replace a) (replace b);
+  reject_terms "an Int constant as the atom on the source side" d (replace a) b;
+  Printf.printf "  bit-vector sum normalization: %d accepted, %d invalid, %d outside the normal form; \
+                 rebuilt terms: %d invalid\n%!" !accepted !invalid !outside !terms_invalid;
+  if !failures <> [] then failwith (String.concat "\n  " (List.rev !failures))
 
 let erased_refinement_guards () =
   require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
@@ -5061,6 +5549,9 @@ let () =
      "checked-implied-arithmetic-equalities", arithmetic_implied_equalities;
      "checked-implied-arithmetic-bounds", arithmetic_implied_bounds;
      "checked-inferred-integer-splits", arithmetic_inferred_splits;
+     "checked-integer-rounding-cuts", arithmetic_integer_rounding;
+     "checked-bounded-bit-vector-evaluation", bv_bounded_evaluation;
+     "checked-bit-vector-sum-normalization", bv_sum_normalization;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;

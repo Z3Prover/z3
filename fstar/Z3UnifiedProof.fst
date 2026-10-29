@@ -23,6 +23,7 @@ module ID = Z3IntegerDivision
 module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
 module G = Z3LpGomory
+module IC = Z3LpIntegerCut
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
 module QV = Z3QuantifierVacuity
@@ -35,6 +36,8 @@ module LR = Z3LambdaRewrite
 module TN = Z3TheoryNormalize
 module FF = Z3FiniteFieldLemma
 module FP = Z3FiniteFieldPac
+module BE = Z3BvExhaustive
+module BN = Z3BvAddNormalize
 module L = FStar.List.Tot
 
 type judgment =
@@ -292,7 +295,8 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
                       CR.equivalent a b || IR.equivalent a b || ID.equivalent a b ||
                       ID.equivalent b a || QV.equivalent 64 a b ||
                       TN.equivalent a b ||
-                      boolean_search a b)
+                      boolean_search a b ||
+                      (kind = RewriteRule && (BE.equivalent a b || BN.equivalent a b)))
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -594,7 +598,7 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
                  pac_lemma kind e)) ||
     TN.consequence es e || LP.implied_equality e es ||
     (Some? (LA.comparison e) && LP.inferred_bound e es) ||
-    G.inferred_split e es
+    G.inferred_split e es || IC.inferred e es || (es = [] && BE.valid e)
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
@@ -866,7 +870,9 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if ID.equivalent b a then ID.lemma_equivalent b a i rho
          else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
          else if TN.equivalent a b then TN.lemma_equivalent i rho a b
-         else lemma_boolean_search_sound i rho a b);
+         else if boolean_search a b then lemma_boolean_search_sound i rho a b
+         else if BE.equivalent a b then BE.lemma_equivalent_sound a b i rho
+         else BN.lemma_equivalent_sound a b i rho);
          lemma_relational_value_sound i rho concl r a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
@@ -1444,7 +1450,9 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                  else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
                  else if Some? (LA.comparison e) && LP.inferred_bound e es
                  then LP.lemma_inferred_bound e es i rho
-                 else G.lemma_inferred_split_sound e es i rho)
+                 else if G.inferred_split e es then G.lemma_inferred_split_sound e es i rho
+                 else if IC.inferred e es then IC.lemma_inferred_sound e es i rho
+                 else BE.lemma_valid_sound e i rho)
           | None -> ())
       | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
       | DestructiveEqualityResolution | QuantifierInstantiation _ ->

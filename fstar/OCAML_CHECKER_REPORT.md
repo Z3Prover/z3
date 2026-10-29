@@ -833,6 +833,129 @@ ones being `th-lemma`. The unchanged 710-input replay retains all
 counts and no other changed pending counts. Frozen evidence is under
 `C:\smtlib-benchmarks\proof_gomory_20261018\final`.
 
+### Integer rounding cuts for `th-lemma arith unsupported` (2026-10-28)
+
+Z3 exports an LP derivation for a linear conflict when it can; when part of
+the derivation lacks a recipe, `theory_lra.cpp` labels the `false` lemma
+`th-lemma arith unsupported` and records no certificate. The two QF_LIA
+ring benchmarks of the SMT-LIB 2025 sample (`ring_2exp4_6vars_3ite_unsat`,
+`ring_2exp8_6vars_2ite_unsat`, kept verbatim in `benchmarks/repair`) left
+18 and 19 such steps pending. Every one has a satisfiable rational
+relaxation, so no Farkas vector exists, but is integer-infeasible after
+one rounding: variables fixed to constants are substituted, a row whose
+Int coefficients share a factor `g >= 2` that does not divide its constant
+is rounded (`g*L + c <= 0` gives `L <= floor(-c/g)`), and the remaining
+system has a Farkas refutation.
+
+`Z3LpIntegerCut.fst` checks exactly that shape. Its certificate lists the
+rounded bounds and the final weights; every bound and the refutation are
+replayed with `Z3LinearArithmeticAst.check` against the actual premises
+and earlier bounds, so premise binding, signs, denominators, strictness,
+and the Int-only rounding are enforced by the existing proved kernel. The
+soundness lemma needs the same hypotheses as `Z3LpGomory.lemma_check_sound`
+and the kernel call site discharges them from the unchanged
+`model_sound`. The module sets only the repository-standard
+`--smtencoding.elim_box true --smtencoding.nl_arith_repr native`; no
+rlimit, fuel, or admit is changed. The candidate search is untrusted and
+bounded (32 premises, 8 bounds of at most 64 terms, 128 rows, 64
+eliminations, 4096 row pairs overall, magnitudes at most 2^128), and every
+cap leaves the step pending, never rejected.
+
+Out of scope and still pending: lemmas that need a genuine Gomory or
+branching cut (the two `cut_lemma_01_011` steps), more than one rounding
+step, conclusions other than `false`, and rows with Real atoms.
+
+### Bounded bit-vector evaluation for QF_ABV `th-lemma` and `rewrite` steps (2026-10-29)
+
+In the QF_ABV PARTIAL inputs of the pulse checker reports, the smallest
+`egt` benchmarks leave `rewrite` steps and bit-vector `th-lemma` steps over
+a single 8-bit array read pending: the bound split
+`bvule(t, 547) = (extract[31:10](t) = 0 and bvule(extract[9:0](t), 547))`,
+the range lemmas `extract[31:10](242 + concat(0, x)) = 0` and
+`bvule(242 + concat(0, x), 547)` over 10 bits, and the constant
+re-association `bvadd(bvadd(2, t), 1) = bvadd(3, t)`, with
+`x = (select packet #x000000f1)` and `t = concat(0_24, x)`. Each is valid
+for every value of `x`.
+
+`Z3BvExhaustive.fst` decides such premise-free steps by evaluating the
+conclusion under every assignment of its leaves. The evaluated operators
+(Boolean connectives, `=`, `bvult`/`bvule`/`bvuge`, numerals, binary
+`concat`, `extract`, `zero_extend`, binary `bvadd`) are recognized by
+declaration kind and parameters and evaluated exactly as the corresponding
+`bv_model` conjuncts state; a leaf is a closed bit-vector term outside that
+set, identified by structure and width and enumerated over `[0, 2^w)`,
+which the first `bv_model` conjunct shows covers every model. No array
+read, uninterpreted constant or opaque operator is ever given a value, and
+the signed comparisons and `bit2bool`, which the native bridge leaves
+opaque, are not evaluated, so `egt-6871` (and the matching lemma of
+`egt-7033` and `egt-6792`) stays pending. The soundness lemmas need only
+`bv_model` (through `normalization_model`) and the Boolean connective
+contracts, and the kernel call sites discharge them from the unchanged
+`model_sound`. Before anything is enumerated the conclusion must have at
+most 512 occurrences counted on the tree, no variable or binder, and leaves
+of at most 12 bits in total (at most 4096 assignments); these guards are
+conditionals, so the order holds under normalization too. Every bound
+leaves the step pending, never rejected.
+
+`egt-0160` (bench report) and `egt-0218` and `egt-4297` (z3 report), kept
+verbatim in `benchmarks/repair`, certify. Out of scope and still pending:
+steps over more than 12 leaf bits (for example the same re-association
+over a 32-bit leaf, and the two-read sums of `egt-1341` and `egt-1513`),
+steps with premises, and every operator outside the evaluated set.
+
+### Modular normalization of bit-vector sums for QF_ABV `rewrite` steps (2026-10-29)
+
+The largest `rewrite` family left pending in the QF_ABV PARTIAL inputs of the
+pulse checker reports is the constant re-association of the bit-vector
+rewriter, `bvadd(bvadd(c1, t), c2) = bvadd(c3, t)` with `c3 = c1 + c2` modulo
+`2^32` and `t` an uninterpreted 32-bit constant or other wide term (the `dwp`
+inputs of the two reports; a numeral total of 0 gives the bare `t`), together
+with the n-ary forms `bvadd(bvadd(c1, t0, t1), c2) = bvadd(c3, t0, t1)`,
+`bvadd(bvadd(c1, t0), bvadd(c2, t1)) = bvadd(c3, t0, t1)` and
+`bvadd(c1, bvadd(c2, t0, t1)) = bvadd(c3, t0, t1)` of `egt-1341`, `egt-1513`
+and `egt-4119`. The terms `t` are far beyond the 12 leaf bits of the bounded
+evaluation, and the identity holds for every `t`.
+
+`Z3BvAddNormalize.fst` reads both sides of a premise-free rewrite `a = b`
+as sums of sort `BV<w>`. A summand is a numeral, a nested `bvadd` (binary, or
+n-ary as the `bv_model` conjunct for `nary_operation` states it, recognized
+by `Z3BvExtract.arith` from the declaration kind, its width parameter and
+its argument sorts), or any other closed term of sort `BV<w>`, which is an
+opaque atom. A side is the sum of its numerals, taken modulo `2^w`, and the
+sequence of its atoms in the order in which they occur; the step is accepted
+when both sides have the same numeral total modulo `2^w` and the same atoms
+in the same order. Atoms are identified by their whole declaration and
+arguments, never given a value (equal atoms have equal values whatever the
+value is), and never reordered or merged: the step `bvadd(bvadd(2, t), t) =
+bvadd(2, bvmul(2, t))` and a swap of two atoms stay pending. A numeral or
+`bvadd` declaration that fails its recognizer (a numeral outside `[0, 2^w)`,
+a negative one, a wrong width or sort, a sum of one argument, a width above
+4096) is neither read nor an atom. The soundness lemma `lemma_summands` shows
+by induction on the term that the value of a side in the model is
+`(n + sum of the atom values) % 2^w`, from the `bv_model` conjuncts for
+numerals, `operation` and `nary_operation` and the range conjunct of
+`lemma_word`; the kernel call site discharges the one hypothesis,
+`exists project. bv_model i project`, from the unchanged `model_sound`. No
+model contract, assume, admit or lax mode is added, the module sets only the
+repository-standard options, and no budget changes: the tree has at most 512
+occurrences, counted on the tree so that a shared DAG cannot hide its size,
+and both sides must be closed (`D.scoped []`), before anything is read.
+Everything outside the shape leaves the step pending, never rejected.
+
+Scope: the rule is one more alternative of the `rewrite` step (not of
+`ApplyDefinition`) and decides no `th-lemma`; only acceptance grows. It does
+not touch the `bvadd` steps that merge equal summands (`t + t` into
+`bvmul(2, t)`, `egt-3244`), the `th-lemma` expansions of the `csplit` inputs
+or the signed comparison lemmas, and it does not close any QF_ABV input by
+itself. On the merged baseline (OCaml checker, `--stats --timeout-ms 10000`)
+105 pending steps of eight inputs are decided: `PARTIAL 295` to `264`
+(bench `try5` `fse-bfs`), `264` to `247` (bench `try4`
+`get_type_indicator`), `54` to `39` (z3 `hash_pjw`), `168` to `135` (z3
+`xstrcoll_atime`), `egt-1341` `8` to `4`, `egt-1513` `5` to `4`, `egt-3244`
+`4` to `3` and `egt-4119` `6` to `3`. The `dwp` inputs keep hundreds of other
+pending steps, and the `egt` inputs keep their `th-lemma` obligations (and
+the `t + t` step of `egt-3244`).
+
 ### QF_DT benchmark coverage (2026-10-18)
 
 A fixed 100-input QF_DT sample comes from the SMT-LIB 2025 archive
