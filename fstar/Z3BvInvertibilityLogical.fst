@@ -164,6 +164,19 @@ let lemma_right_signed_bounds (#n:pos) (s x:bv n)
   )
   else S.lemma_right_endpoints x
 
+#push-options "--fuel 0 --ifuel 0"
+let lemma_power_mask_remainder (a b:nat)
+  : Lemma ((pow2 (a + b) - 1) % pow2 a == pow2 a - 1) =
+  M.pow2_plus a b;
+  M.swap_mul (pow2 a) (pow2 b);
+  M.distributivity_sub_left (pow2 b) 1 (pow2 a);
+  M.swap_mul (pow2 b - 1) (pow2 a);
+  assert (pow2 (a + b) - 1 ==
+    pow2 a - 1 + pow2 a * (pow2 b - 1));
+  M.modulo_addition_lemma (pow2 a - 1) (pow2 a) (pow2 b - 1);
+  M.modulo_lemma (pow2 a - 1) (pow2 a)
+#pop-options
+
 #push-options "--fuel 1 --ifuel 1"
 let lemma_right_upper_attained (#n:pos) (s:bv n)
   : Lemma
@@ -174,11 +187,7 @@ let lemma_right_upper_attained (#n:pos) (s:bv n)
   lemma_maxima s;
   M.pow2_double_mult (n - 1);
   if s > 0 && s < n then (
-    M.pow2_plus (n - s) (s - 1);
-    M.swap_mul (pow2 (n - s)) (pow2 (s - 1));
-    M.distributivity_sub_left (pow2 (s - 1)) 1 (pow2 (n - s));
-    M.modulo_addition_lemma (pow2 (n - s) - 1) (pow2 (n - s)) (pow2 (s - 1) - 1);
-    M.modulo_lemma (pow2 (n - s) - 1) (pow2 (n - s))
+    lemma_power_mask_remainder (n - s) (s - 1)
   )
   else if s = 0 then S.lemma_right_endpoints (signed_max n)
 #pop-options
