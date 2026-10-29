@@ -1,5 +1,11 @@
 # Java release packaging prototype
 
+The loader and layered CI were merged in
+[PR #11434](https://github.com/Z3Prover/z3/pull/11434).
+For the subsequent source-matched release attachment flow, see
+[RELEASE.md](RELEASE.md). The investigation below records the earlier baseline;
+it is not a statement of the current published release or Maven availability.
+
 Investigation date: 2026-10-29. Source baseline:
 `c95b61cb03b22e258dfbc5941262c9273e6650bd` (upstream master).
 This is a contribution prototype, not an official Maven distribution.

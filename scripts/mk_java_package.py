@@ -103,17 +103,46 @@ def validate_api(entries):
             raise ValueError('Class requires newer than Java 8: ' + name)
 
 
+def package_basename(provenance):
+    identity = provenance.get('distribution', provenance.get('maven'))
+    return identity['artifactId'] + '-' + identity['version']
+
+
+def metadata_names(provenance):
+    if provenance['prototype']:
+        return 'provenance.json', 'SHA256SUMS'
+    base = package_basename(provenance) + '-java'
+    return base + '-provenance.json', base + '-SHA256SUMS'
+
+
+def write_checksums(directory, name):
+    sums = ''.join(sha256(p.read_bytes()) + '  ' + p.name + '\n'
+                   for p in sorted(directory.iterdir()) if p.is_file() and p.name != name)
+    (directory / name).write_text(sums, encoding='ascii', newline='\n')
+
+
 def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
-             group_id, artifact_id, version):
+             group_id, artifact_id, version, release=False):
     if not platforms or len(set(platforms)) != len(platforms):
         raise ValueError('Select at least one platform, without duplicates')
     platforms = sorted(platforms)
     if any(platform not in lock['platforms'] for platform in platforms):
         raise ValueError('Unknown platform selection')
-    for value in (group_id, artifact_id, version):
+    for value in (artifact_id, version) + (() if group_id is None else (group_id,)):
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', value):
             raise ValueError('Invalid Maven coordinate: ' + value)
-    if not version.startswith(lock['version'] + '-'):
+    if release:
+        if group_id is not None:
+            raise ValueError('Release attachments do not claim Maven coordinates; omit --group-id')
+        if version != lock['version'] or not re.fullmatch(r'\d+\.\d+\.\d+', version):
+            raise ValueError('Release version must exactly match the source version')
+        if (lock.get('input_kind') != 'workflow-artifact'
+                or preparation.get('input_kind') != 'workflow-artifact'
+                or preparation.get('source_commit') != lock['commit']
+                or preparation.get('release_runtime_version') != lock.get('runtime_version')
+                or not lock['runtime_version'].startswith(version + '.')):
+            raise ValueError('Release requires unmodified API and native artifacts from the same source run')
+    elif not group_id or not version.startswith(lock['version'] + '-'):
         raise ValueError('Prototype version must derive from release version with a test suffix')
     if (preparation['release_commit'] != lock['commit'] or
             preparation['release_version'] != lock['version'] or
@@ -121,12 +150,17 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
         raise ValueError('Prepared API does not match release/provenance')
     api = checked_zip(api_jar)
     validate_api(api)
+    api_classes = {name: data for name, data in api.items() if name.endswith('.class')}
     packages = {}
     platform_provenance = {}
     universal_resources = {}
     licenses = {}
-    provenance = {**preparation, 'prototype': True, 'maven': {
-        'groupId': group_id, 'artifactId': artifact_id, 'version': version}}
+    provenance = {**preparation, 'prototype': not release,
+                  'distribution': {'artifactId': artifact_id, 'version': version}}
+    if not release:
+        provenance['maven'] = {'groupId': group_id, 'artifactId': artifact_id, 'version': version}
+    else:
+        provenance['release_tag'] = 'z3-' + version
     # Validate every selected input before creating outputs.
     for classifier in platforms:
         asset = lock['platforms'][classifier]
@@ -150,7 +184,12 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
         wanted += [root + '/bin/' + library for library in LIBRARIES[classifier.split('-')[0]]]
         entries = checked_zip(data, wanted)
         release_api = require_entry(entries, root + '/java/com.microsoft.z3.jar')
-        checked_zip(release_api)
+        platform_api = checked_zip(release_api)
+        if release:
+            validate_api(platform_api)
+            platform_classes = {name: data for name, data in platform_api.items() if name.endswith('.class')}
+            if platform_classes != api_classes:
+                raise ValueError('Release API classes differ between native builds: ' + classifier)
         license_text = require_entry(entries, root + '/LICENSE.txt')
         libraries = {}
         for library in LIBRARIES[classifier.split('-')[0]]:
@@ -186,7 +225,8 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
         write_jar(out_dir / (base + '-' + classifier + '.jar'), content)
     write_jar(out_dir / (base + '-all.jar'), universal)
     # These explicit test coordinates are not an assertion of an official namespace.
-    pom = '''<project xmlns="http://maven.apache.org/POM/4.0.0">
+    if not release:
+        pom = '''<project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
   <groupId>{}</groupId><artifactId>{}</artifactId><version>{}</version>
   <name>Z3 Java packaging prototype</name>
@@ -195,11 +235,10 @@ def assemble(lock, artifacts_dir, api_jar, preparation, out_dir, platforms,
   <licenses><license><name>MIT License</name><url>https://github.com/Z3Prover/z3/blob/master/LICENSE.txt</url></license></licenses>
 </project>
 '''.format(escape(group_id), escape(artifact_id), escape(version))
-    (out_dir / (base + '.pom')).write_text(pom, encoding='utf-8', newline='\n')
-    (out_dir / 'provenance.json').write_bytes(json_bytes({**provenance, 'platforms': platforms}))
-    sums = ''.join(sha256(p.read_bytes()) + '  ' + p.name + '\n'
-                   for p in sorted(out_dir.iterdir()) if p.is_file())
-    (out_dir / 'SHA256SUMS').write_text(sums, encoding='ascii', newline='\n')
+        (out_dir / (base + '.pom')).write_text(pom, encoding='utf-8', newline='\n')
+    provenance_name, sums_name = metadata_names(provenance)
+    (out_dir / provenance_name).write_bytes(json_bytes({**provenance, 'platforms': platforms}))
+    write_checksums(out_dir, sums_name)
     return out_dir
 
 
@@ -211,7 +250,9 @@ def main():
     parser.add_argument('--preparation', type=Path, required=True)
     parser.add_argument('--out-dir', type=Path, required=True)
     parser.add_argument('--platform', action='append', required=True)
-    parser.add_argument('--group-id', required=True)
+    parser.add_argument('--group-id')
+    parser.add_argument('--release', action='store_true',
+                        help='Assemble source-matched release attachments without Maven coordinates')
     parser.add_argument('--artifact-id', required=True)
     parser.add_argument('--version', required=True)
     args = parser.parse_args()
@@ -219,7 +260,7 @@ def main():
         out = assemble(json.loads(args.release_lock.read_text(encoding='utf-8')),
                        args.artifacts_dir, args.api_jar.read_bytes(),
                        json.loads(args.preparation.read_text(encoding='utf-8')),
-                       args.out_dir, args.platform, args.group_id, args.artifact_id, args.version)
+                       args.out_dir, args.platform, args.group_id, args.artifact_id, args.version, args.release)
     except (ValueError, KeyError, OSError, zipfile.BadZipFile) as ex:
         parser.exit(1, 'Java packaging failed: ' + str(ex) + '\n')
     print('Java packaging complete:', out)

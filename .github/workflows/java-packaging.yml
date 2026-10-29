@@ -4,19 +4,23 @@ on:
   pull_request:
     paths:
       - '.github/workflows/java-packaging.yml'
+      - '.github/workflows/java-package-artifacts.yml'
+      - '.github/workflows/release.yml'
       - 'scripts/update_api.py'
       - 'scripts/mk_java_package.py'
       - 'scripts/java/**'
-      - 'scripts/tests/test_java_package.py'
+      - 'scripts/tests/test_java*.py'
       - 'src/api/java/**'
   push:
-    branches: [feat/java-fatjar]
+    branches: [feat/java-fatjar, feat/java-release-packaging]
     paths:
       - '.github/workflows/java-packaging.yml'
+      - '.github/workflows/java-package-artifacts.yml'
+      - '.github/workflows/release.yml'
       - 'scripts/update_api.py'
       - 'scripts/mk_java_package.py'
       - 'scripts/java/**'
-      - 'scripts/tests/test_java_package.py'
+      - 'scripts/tests/test_java*.py'
       - 'src/api/java/**'
   workflow_dispatch:
 
@@ -45,7 +49,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Packaging regression tests
-        run: python -m unittest discover -s scripts/tests -p test_java_package.py -v
+        run: python -m unittest discover -s scripts/tests -p 'test_java*.py' -v
       - name: Prepare current-branch classes with pinned release JNI inputs
         run: >-
           python scripts/java/prepare.py --work-dir build/java-test

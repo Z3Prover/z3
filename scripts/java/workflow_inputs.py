@@ -27,6 +27,8 @@ def context(args):
     actual = subprocess.check_output(['git', '-C', ROOT, 'rev-parse', 'HEAD'], text=True).strip()
     if actual != args.source_commit:
         raise ValueError('Checkout does not match expected source commit')
+    if args.release_version and source_version()[0] != args.release_version:
+        raise ValueError('Release workflow version does not match scripts/VERSION.txt')
     return {'repository': args.repository, 'run_id': args.run_id,
             'run_attempt': args.run_attempt, 'source_commit': actual}
 
@@ -109,6 +111,7 @@ def main():
     parser.add_argument('--repository', required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--run-attempt', required=True)
+    parser.add_argument('--release-version', help='Require the release workflow and source versions to agree')
     parser.add_argument('--platform', action='append', required=True)
     parser.add_argument('--input-dir', type=Path, required=True)
     parser.add_argument('--out-dir', type=Path, required=True)
