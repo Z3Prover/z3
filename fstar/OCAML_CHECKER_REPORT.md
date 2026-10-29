@@ -881,17 +881,32 @@ for every value of `x`.
 conclusion under every assignment of its leaves. The evaluated operators
 (Boolean connectives, `=`, `bvult`/`bvule`/`bvuge`, numerals, binary
 `concat`, `extract`, `zero_extend`, binary `bvadd`) are recognized by
-declaration kind and parameters and evaluated exactly as the corresponding
-`bv_model` conjuncts state; a leaf is a closed bit-vector term outside that
-set, identified by structure and width and enumerated over `[0, 2^w)`,
-which the first `bv_model` conjunct shows covers every model. No array
-read, uninterpreted constant or opaque operator is ever given a value, and
-the signed comparisons and `bit2bool`, which the native bridge leaves
-opaque, are not evaluated, so `egt-6871` (and the matching lemma of
-`egt-7033` and `egt-6792`) stays pending. The soundness lemmas need only
-`bv_model` (through `normalization_model`) and the Boolean connective
-contracts, and the kernel call sites discharge them from the unchanged
-`model_sound`. Before anything is enumerated the conclusion must have at
+declaration kind and parameters (the connectives by the typed canonical
+predicates of `Z3CanonicalOps.fst`: name, kind tag, domain, range and
+parameters, never the name alone) and evaluated exactly as the
+corresponding contracts of `Z3StandardModel.ground_model` state; a leaf is
+a closed bit-vector term outside that set, identified by structure and
+width and enumerated over `[0, 2^w)`, which the first `ground_model`
+bit-vector contract shows covers every model. No array read, uninterpreted
+constant or opaque operator is ever given a value, and the signed
+comparisons and `bit2bool`, which the native bridge leaves opaque, are not
+evaluated, so `egt-6871` (and the matching lemma of `egt-7033` and
+`egt-6792`) stays pending. A datatype accessor or constructor named `and`,
+`or`, `not`, `=>`, `true` or `false` (the native bridge keeps the user's
+name and the datatype kind tag) is never evaluated as a connective.
+
+The soundness lemmas are proved from `ground_model`, the ground Boolean and
+bit-vector contracts on closed ground terms (the projection contract up to
+width 4096), and `ground_model` has models: every standard interpretation
+`Z3StandardModel.standard leaf`, with bit-vectors as width/residue values
+and every other head an arbitrary function of its argument values,
+satisfies it, so an accepted clause is true in each of them
+(`lemma_valid_standard`). The kernel call sites still discharge the
+hypotheses from the unchanged `model_sound`, which has no model (see
+"Removing impossible environment assumptions" above), so the kernel-level theorem
+stays vacuous until the global contracts are repaired; the ground model
+gives arrays, arithmetic, datatypes, finite fields and quantifiers no
+theory meaning. Before anything is enumerated the conclusion must have at
 most 512 occurrences counted on the tree, no variable or binder, and leaves
 of at most 12 bits in total (at most 4096 assignments); these guards are
 conditionals, so the order holds under normalization too. Every bound

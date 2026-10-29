@@ -188,7 +188,7 @@ try {
   $order = @(
     "prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
-    "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml",
+    "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
     "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3ProofSet.ml",
     "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
@@ -200,7 +200,7 @@ try {
     "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
     "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",
-    "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
+    "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3StandardModel.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedSemantics.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",
