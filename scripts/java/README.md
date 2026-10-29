@@ -16,6 +16,10 @@ This is a contribution prototype, not an official Maven distribution.
   base and classifier JARs, generated-loader fallback, fixture tests and an
   optional GitHub Packages upload. Public issue comments, PR reviews and inline
   review comments are empty. Its closure event has no explanatory body.
+  The historical head has 38 check runs (36 success and two failed instances
+  of the legacy Python-MT build). No public evidence links those failures to
+  the closure. Its new tests were ZIP fixtures; the proposed release job was
+  manual, so passing unrelated build checks would not prove bundled loading.
 - The final [maintainer comment on #182](https://github.com/Z3Prover/z3/issues/182#issuecomment-5303682704)
   invites a new PR along those lines if there is user demand. This supports
   another upstream contribution; it does not establish why #10529 was closed.
@@ -67,6 +71,21 @@ proposal author's explanation, not an independently established platform rule.
 | Many JVM vendors, Node/Prettier, PMD, SpotBugs, task-tree/version plugins | Omit from initial contribution | They serve turnkey's broader project policy; they are not needed for this loader experiment. Java 8/17 coverage is retained. |
 | Source/Javadoc, Maven metadata and signing | Retain for a future official release | Existing turnkey Gradle configuration uses a Central plugin and signing; its checked-in CI has build/test/dependency jobs but no explicit publish step. |
 
+The external dependencies were also inspected at their pinned 1.0.0 releases:
+[`turnkey-support`](https://github.com/tudo-aqua/turnkey-support/tree/8b3965afe55204cccb532b89a494a64d6b3bc38b)
+and [`turnkey-gradle-plugin`](https://github.com/tudo-aqua/turnkey-gradle-plugin/tree/ea7629e62fbbe2978bc20f90f3563e42934db560).
+The plugin builds a dependency graph, prunes it to JNI's transitive dependencies,
+and writes `turnkey.xml` with bundled libraries, system libraries and load order.
+The support runtime identifies OS/CPU, reads that XML, extracts the selected
+files and executes the listed absolute-path loads. ELF processing uses
+`patchelf` to alter RPATH, SONAME and needed-library names; Mach-O processing
+uses `otool`/`install_name_tool` to alter IDs and dependencies. **The COFF task
+does not rewrite DLLs**: it analyzes imports with `readobj` and generates an
+explicit dependency load order. Its dependency handling serves a real purpose.
+The proposed two-library loading policy replaces this machinery only for the
+tested upstream binaries; it is not a general replacement for TurnKey's native
+dependency analysis or its broader platform behavior.
+
 ## Recommended first change
 
 1. Add a package-private Java loader called from generated `Native` initialization.
@@ -104,11 +123,19 @@ diagnostics. Linux/Windows initially test Java 8 and 17; macOS arm64 tests Java
 17 and 21, avoiding an assumption that Temurin 8 has a native macOS arm64 build.
 It never calls CMake or a native distribution build script.
 
-After this matrix passes, add a manually controlled Full-Flow CI using existing
-release build producers (prefer factoring reusable jobs over a copied release
-workflow). Each producer records commit/version/OS/architecture and run ID.
-A separate packaging job accepts only artifacts from that same run and commit,
-with no native recompilation or substitution of downloaded release binaries.
+`.github/workflows/java-full-flow.yml` is the controlled Full-Flow CI. Its
+three native jobs invoke the existing `mk_unix_dist.py`/`mk_win_dist.py`
+producers, with unrelated language bindings disabled. It does not copy the
+release workflow or its publishing jobs. `workflow_inputs.py` records and checks
+commit/version/OS/architecture, run ID, run attempt and ZIP hash. A separate
+packaging job accepts only those same-run artifacts, with no native recompilation
+or substitution of downloaded release binaries; Java 17 smoke jobs consume its
+final JARs. It can be dispatched manually after reaching a default branch. On
+the initial fork branch, only a commit explicitly marked `[java-full-flow]`
+starts the expensive native jobs, which permits initial validation without
+altering the fork's default branch.
+Rerun all jobs when retrying Full Flow: successful producers from an earlier
+run attempt are intentionally rejected instead of being silently mixed.
 The existing release workflow defaults `publish_github=true`; do not invoke it
 as a test without explicitly disabling publication.
 
@@ -154,7 +181,7 @@ uploads to GitHub Packages. Neither publication path is enabled in this prototyp
 
 ## Running the prototype
 
-Use Python 3.9+ and JDK 17+ for preparation (JDK 8+ for smoke tests). From the
+Use Python 3.10+ and JDK 17+ for preparation (JDK 8+ for smoke tests). From the
 repository root, use fresh output directories; downloads may be reused after
 hash verification. Example for Windows x64:
 
