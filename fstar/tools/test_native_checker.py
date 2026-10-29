@@ -1,6 +1,7 @@
 """End-to-end direct SMT-LIB tests; no Python Z3 binding or proof transport."""
 import os
 from pathlib import Path
+import re
 import subprocess
 import queue
 import tempfile
@@ -290,6 +291,98 @@ class DirectCheckerTests(unittest.TestCase):
         command = ([*wsl, "-e", "bash", "-c", checker + ' "$@"', "checker", *args]
                    if os.name == "nt" else [os.path.expanduser(checker), *args])
         return subprocess.run(command, input=source, text=True, capture_output=True, timeout=30)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_tstp_export_and_unsupported_proofs(self):
+        source = ("(declare-sort U 0)(declare-const a U)"
+                  "(declare-fun p (U) Bool)(declare-fun q (U) Bool)"
+                  "(assert (p a))(assert (or (not (p a)) (q a)))(assert (not (q a)))")
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "proof.tstp"
+            result = self.run_checker(source, "--tstp-out", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), "ACCEPT")
+            proof = path.read_text(encoding="utf-8")
+            self.assertIn("cnf(a0,axiom,", proof)
+            self.assertIn("inference(resolution,[status(thm)]", proof)
+            self.assertIn("$false", proof.splitlines()[-1])
+
+            for source in (
+                    "(declare-const p Bool)(declare-const q Bool)"
+                    "(assert (or p q))(assert (not p))(assert (not q))",
+                    "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+                    "(assert p)(assert q)(assert (or (not p) (not q) r))(assert (not r))",
+                    "(declare-const x Real)(assert (> x 0))(assert (< x 0))",
+                    "(declare-sort U 0)(declare-const a U)(declare-fun p (U) Bool)"
+                    "(assert (exists ((x U)) (p x)))"
+                    "(assert (forall ((x U)) (not (p x))))",
+                    "(declare-sort U 0)(declare-const a U)"
+                    "(declare-fun p (U) Bool)(declare-fun q (U) Bool)"
+                    "(assert (forall ((x U)) (or (p x) (q x))))"
+                    "(assert (not (p a)))(assert (not (q a)))",
+                    "(assert (forall ((x Bool)) x))"):
+                with self.subTest(source=source):
+                    path.write_text("existing output", encoding="ascii")
+                    result = self.run_checker(source, "--tstp-out", str(path))
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn("ERROR", result.stderr)
+                    self.assertEqual(path.read_text(), "existing output")
+
+            for args in (("--interactive",), ("--clause-proofs",)):
+                with self.subTest(args=args):
+                    result = self.run_checker("", "--tstp-out", str(path), *args)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn("requires batch mode", result.stderr)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_tstp_ground_equality_inferences(self):
+        declarations = ("(declare-sort U 0)(declare-const a U)(declare-const b U)"
+                        "(declare-const c U)(declare-fun f (U) U)"
+                        "(declare-fun p (U) Bool)")
+        cases = (
+            ("(assert (= a b))(assert (= c b))(assert (not (= a c)))",
+             ("symmetry", "superposition", "forward_demodulation")),
+            ("(assert (= a b))(assert (= b c))"
+             "(assert (p (f a)))(assert (not (p (f c))))",
+             ("reflexivity", "rewriting", "forward_demodulation")),
+            ("(assert (not (= a a)))", ("equality_resolution",)),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "proof.tstp"
+            for assertions, rules in cases:
+                with self.subTest(assertions=assertions):
+                    result = self.run_checker(declarations + assertions, "--tstp-out", str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout.strip(), "ACCEPT")
+                    proof = path.read_text(encoding="utf-8")
+                    self.assertEqual(proof.count(",axiom,"), assertions.count("(assert"))
+                    for rule in rules:
+                        self.assertIn(f"inference({rule},", proof)
+                    self.assertIn("$false", proof.splitlines()[-1])
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_tstp_quantified_horn_preserves_binding_and_sorts(self):
+        source = ("(declare-sort U 0)(declare-sort V 0)"
+                  "(declare-const a U)(declare-const b V)"
+                  "(declare-fun p (U V) Bool)(declare-fun q (V U) Bool)"
+                  "(assert (forall ((x U) (y V)) (=> (p x y) (q y x))))"
+                  "(assert (p a b))(assert (not (q b a)))")
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "proof.tstp"
+            result = self.run_checker(source, "--tstp-out", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), "ACCEPT")
+            proof = path.read_text(encoding="utf-8")
+            self.assertIn(":$tType", proof)
+            scope = re.search(r"!\[X0:(s\d+),X1:(s\d+)\]", proof)
+            self.assertIsNotNone(scope, proof)
+            self.assertNotEqual(scope.group(1), scope.group(2))
+            self.assertRegex(proof, r"d\d+\(X0,X1\)")
+            self.assertRegex(proof, r"d\d+\(X1,X0\)")
+            self.assertIn("inference(instantiate,", proof)
+            self.assertEqual(proof.count(",axiom,"), 3)
+            self.assertNotIn("cnf(", proof)
+            self.assertIn("$false", proof.splitlines()[-1])
 
     def test_zero_extension_refutations_and_counterexamples(self):
         for width, extra in ((1, 0), (1, 1), (8, 24), (65, 65), (1, 4095)):

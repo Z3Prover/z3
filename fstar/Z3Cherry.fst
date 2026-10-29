@@ -64,6 +64,9 @@ let diagnose (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marsha
   if sorted force_sorted m then Z3SortedProof.diagnose_document m.schema m.document
   else P.diagnose_document_indexed assertion_hash m.document
 
+let tstp ([@@@FStar.Attributes.cherry_borrowed] m:marshaled) : ML string =
+  Z3Tptp.export m.document
+
 (* A diagnosed document needs no second check: the result recorded by its diagnosis is its verdict, in
    the sorted path (Z3SortedProof.lemma_diagnose_document) and in the legacy path
    (Z3ProofDocument.lemma_diagnose_document_indexed). *)

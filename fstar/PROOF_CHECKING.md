@@ -64,6 +64,72 @@ of all imports.
 | Typed proof documents | [`Z3ProofDocument.fst`](Z3ProofDocument.fst) performs transport-independent definition, scope, input, and topological validation; [`Z3ProofIndex.fst`](Z3ProofIndex.fst) supplies persistent caches. |
 | Native Z3 integration | [`Z3Native.fsti`](Z3Native.fsti) and [`ocaml_runtime/Z3Native.ml`](ocaml_runtime/Z3Native.ml) expose foreign API views; [`Z3NativeProof.fst`](Z3NativeProof.fst) marshals expressions and proof DAGs directly into checker datatypes. |
 
+## Taelja TPTP conversion
+
+Both native frontends accept `--tstp-out FILE` in batch mode. After the
+existing kernel returns `ACCEPT`, [`Z3Tptp.fst`](Z3Tptp.fst) exports a TSTP
+refutation for [Taelja](https://github.com/kondylidou/Taelja). Conversion is
+opt-in and does not add rules to the checker or discharge pending obligations.
+`PARTIAL` and `REJECT` cannot be exported.
+
+The bridge supports **ground and universally quantified Horn clauses over
+uninterpreted predicates and non-Boolean terms**, including ground equality reasoning.
+It translates asserted clauses and unit-resolution DAGs, equality reflexivity,
+symmetry, binary transitivity, and congruence. Equality proofs become
+superposition or rewriting steps; congruence starts from a reflexivity theorem,
+not an additional input axiom. Boolean congruence and transitivity proofs are
+traversed to collect the term equalities that rewrite predicates and clauses.
+Reflexive disequalities are eliminated by equality resolution.
+
+Modus-ponens steps that only change the presentation of the same clause are
+removed, including `p => q` versus `not p or q`, and reversed term equalities.
+Each clause has at most one positive literal.
+Declaration names are renamed injectively. Ground-only problems use CNF.
+Problems with universal assertions use typed TPTP (TFF): sort declarations,
+function/predicate signatures, and typed universal binders preserve the
+original many-sorted vocabulary. Nested universal prefixes, unused binders,
+and shadowed source names are handled using de Bruijn indices, not textual
+variable substitution.
+
+At a checked unit-resolution step, the bridge recognizes the instantiation
+tautology and its universal premise. It emits the instantiated clause citing
+that premise, then resolves the remaining unit premises. Instances are derived
+steps, never additional axioms. Clause-equivalent quantified preprocessing is
+removed using the existing quantifier-normalization checks.
+
+Existential/Skolemization proofs, quantifiers inside clause literals,
+Boolean binders or Boolean-valued term arguments, interpreted
+theory operations, other preprocessing or equality rules outside this bridge, and
+`--interactive`/`--clause-proofs` exports are unsupported and fail explicitly.
+Taelja can impose further restrictions, including refutations reduced entirely
+to truth constants; converter failures are reported, not treated as proofs.
+
+Build Taelja separately with GHC 9.6--9.12 and Cabal 3, following its README
+(`cabal build exe:taelja`, then `cabal --project-file=cabal.project list-bin taelja`). The integration
+is tested against Taelja 0.2.0.1, commit
+`937074d3cc822edb12d58168e9b4711ad448847d`.
+On Linux, including inside WSL, run:
+
+```sh
+python3 fstar/tools/convert_taelja.py input.smt2 \
+  --checker /path/to/checker --taelja /path/to/taelja --output proof.p
+```
+
+The standard-library-only driver obtains the native checker's TSTP export
+and invokes `taelja --tptp`. Both processes have a wall-clock timeout
+(`--timeout`, default 60 seconds each). The destination is replaced only after
+both succeed and Taelja produces nonempty output. It is not replaced on
+unsupported input, failed checking, timeout, or translation failure.
+For manual inspection, run `checker --tstp-out proof.tstp input.smt2` followed
+by `taelja --tptp proof.tstp`.
+
+The export bridge and Taelja are **presentation/conversion tools**, not additions
+to the trusted F* kernel. An `ACCEPT` certifies the original assertions under
+the checker's documented semantic contracts, not correctness of the exported
+text. Independently validate the TPTP derivation before relying on its
+translation. The ordinary single-executable checking workflow is unchanged
+and needs neither Python nor Taelja.
+
 ## Reports
 
 | Topic | Report |

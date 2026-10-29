@@ -47,6 +47,7 @@ struct Options {
     bool interactive = false;
     uint32_t timeout = 0;
     std::string path;
+    std::string tstp_out;
 };
 
 static std::string sort_shape(Z3AstTheory_sort sort, unsigned depth) {
@@ -338,6 +339,19 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
             std::cerr << std::fixed << std::setprecision(3)
                       << "diagnose_ms=" << milliseconds(Clock::now(), check_end) << '\n';
     }
+    if (!options.tstp_out.empty()) {
+        if (result.tag != FSTAR_PERVASIVES_NATIVE_SOME__INT ||
+            !cherry_int_eq(result.val.Some, CHERRY_INT_SMALL(0)))
+            throw NativeError("TSTP export requires a fully accepted proof");
+        auto derivation = Z3Cherry_tstp(marshaled.value);
+        std::string output = text(derivation);
+        cherry_dec(derivation);
+        std::ofstream file(options.tstp_out, std::ios::binary);
+        file << output;
+        file.close();
+        if (!file)
+            throw NativeError("cannot write TSTP output: " + options.tstp_out);
+    }
     size_t edges = 0, binder_nodes = 0, binder_edges = 0;
     each<Prims_list__entry_Cons_s>(doc.entries, [&](auto const& entry) {
         edges += length<Prims_list__int_Cons_s>(entry.premise_ids);
@@ -542,12 +556,13 @@ static int interactive(z3::context& context, Options const& options) {
 
 static char const* usage =
     "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] "
-    "[--sorted-core] [--timeout-ms N] [input.smt2]\n"
+    "[--sorted-core] [--tstp-out FILE] [--timeout-ms N] [input.smt2]\n"
     "  --interactive    Evaluate stdin commands and certify each UNSAT proof\n"
     "  --clause-proofs  Certify clausal SMT search proofs\n"
     "  --stats          Report phase timings and marshaled node counts\n"
     "  --diagnostics    Report typed unmet-obligation fingerprints\n"
     "  --sorted-core    Use sort-indexed checking without legacy fallback\n"
+    "  --tstp-out FILE  Export a fully accepted Horn proof for Taelja\n"
     "  --version        Report the embedded Z3 version\n"
     "  --timeout-ms N   Solver timeout, 0..4294967295 milliseconds (0 is unlimited)\n";
 
@@ -573,6 +588,11 @@ static int run(int argc, char** argv) {
         else if (!anonymous && argument == "--diagnostics") options.diagnostics = true;
         else if (!anonymous && argument == "--sorted-core") options.sorted_core = true;
         else if (!anonymous && argument == "--clause-proofs") options.clause_proofs = true;
+        else if (!anonymous && argument == "--tstp-out") {
+            if (++i == argc || !*argv[i])
+                throw NativeError("missing --tstp-out path");
+            options.tstp_out = argv[i];
+        }
         else if (!anonymous && (argument == "--timeout-ms" || argument.starts_with("--timeout-ms="))) {
             std::string value;
             if (argument == "--timeout-ms") {
@@ -597,6 +617,8 @@ static int run(int argc, char** argv) {
     }
     if (options.interactive && has_path && options.path != "-")
         throw NativeError("--interactive reads commands from stdin, not an input file");
+    if (!options.tstp_out.empty() && (options.interactive || options.clause_proofs))
+        throw NativeError("--tstp-out requires batch mode without --clause-proofs");
     z3::config config;
     config.set("proof", true);
     config.set("timeout", std::to_string(options.timeout).c_str());

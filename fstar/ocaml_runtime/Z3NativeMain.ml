@@ -153,7 +153,7 @@ let report_diagnostics diagnostic expected =
         (match source with None -> "" | Some e -> "\t" ^ fingerprint (Z3UnifiedProof.Holds e))
   | _ -> Z3Native.fail "Diagnostic result disagrees with document checker"
 
-let check_proof statistics diagnostics sorted_core start solved assertions proof =
+let check_proof ?tstp_out statistics diagnostics sorted_core start solved assertions proof =
   let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
@@ -183,6 +183,16 @@ let check_proof statistics diagnostics sorted_core start solved assertions proof
        report_diagnostics diagnostic result;
        if statistics then
          Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
+  (match tstp_out with
+   | None -> ()
+   | Some path ->
+       (match result with
+        | Some n when Z.equal n Z.zero -> ()
+        | _ -> Z3Native.fail "TSTP export requires a fully accepted proof");
+       let derivation = Z3Tptp.export doc in
+       let channel = open_out_bin path in
+       Fun.protect ~finally:(fun () -> close_out_noerr channel)
+         (fun () -> output_string channel derivation; flush channel));
   let edges = List.fold_left (fun count entry ->
     count + List.length entry.Z3ProofDocument.premise_ids) 0 doc.entries in
   let binder_nodes, binder_edges = List.fold_left (fun (nodes, edges) entry ->
@@ -323,7 +333,7 @@ let interactive statistics diagnostics sorted_core clause_proofs timeout =
 let run args =
   let statistics = ref false and diagnostics = ref false and sorted_core = ref false
   and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
-  and clause_proofs = ref false in
+  and clause_proofs = ref false and tstp_out = ref None in
   let options = [
     "--interactive", Arg.Set interactive_mode,
       " Evaluate stdin commands incrementally and certify each UNSAT proof";
@@ -333,6 +343,10 @@ let run args =
     "--diagnostics", Arg.Set diagnostics, " Report typed unmet-obligation fingerprints on stderr";
     "--sorted-core", Arg.Set sorted_core,
       " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
+    "--tstp-out", Arg.String (fun value ->
+        if value = "" then raise (Arg.Bad "empty --tstp-out path");
+        tstp_out := Some value),
+      "FILE Export a fully accepted Horn proof for Taelja";
     "--timeout-ms", Arg.String (fun value ->
         try
           let n = Z.of_string value in
@@ -349,7 +363,9 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args))
-      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--sorted-core] [--timeout-ms N] [input.smt2]";
+      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--sorted-core] [--tstp-out FILE] [--timeout-ms N] [input.smt2]";
+    if !tstp_out <> None && (!interactive_mode || !clause_proofs) then
+      raise (Arg.Bad "--tstp-out requires batch mode without --clause-proofs");
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
@@ -369,7 +385,8 @@ let run args =
         Printf.printf "UNKNOWN %s\n" reason; exit 5
     | Z3Native.Unsat (assertions, proof) ->
         let solved = Unix.gettimeofday () in
-        let result, _ = check_proof !statistics !diagnostics !sorted_core start solved assertions proof in
+        let result, _ = check_proof ?tstp_out:!tstp_out
+            !statistics !diagnostics !sorted_core start solved assertions proof in
         (match result with
          | None -> print_endline "REJECT"; exit 1
          | Some n when Z.equal n Z.zero -> print_endline "ACCEPT"; exit 0
