@@ -2409,12 +2409,13 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
 
 br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
     expr * m, *x;
-    if (m_util.is_asin(arg, x)) {
-        // sin(asin(x)) == x
+    rational k;
+    if (m_util.is_asin(arg, x) && is_numeral(x, k) && k >= rational(-1) && k <= rational(1)) {
+        // sin(asin(x)) == x for -1 <= x <= 1
         result = x;
         return BR_DONE;
     }
-    if (m_util.is_acos(arg, x)) {
+    if (m_util.is_acos(arg, x) && is_numeral(x, k) && k >= rational(-1) && k <= rational(1)) {
         {
             auto _seq2265_0 = m_util.mk_real(1);
             auto _seq2265_1 = m_util.mk_mul(x, x);
@@ -2424,7 +2425,6 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
         }
         return BR_REWRITE_FULL;
     }
-    rational k;
     if (is_numeral(arg, k) && k.is_zero()) {
         // sin(0) == 0
         result = arg;
@@ -2473,8 +2473,9 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
 
 br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
     expr* x;
-    if (m_util.is_acos(arg, x)) {
-        // cos(acos(x)) == x
+    rational k;
+    if (m_util.is_acos(arg, x) && is_numeral(x, k) && k >= rational(-1) && k <= rational(1)) {
+        // cos(acos(x)) == x for -1 <= x <= 1
         result = x;
         return BR_DONE;
     }
@@ -2482,7 +2483,6 @@ br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
         // cos(asin(x)) == ...
     }
 
-    rational k;
     if (is_numeral(arg, k) && k.is_zero()) {
         // cos(0) == 1
         result = m_util.mk_numeral(rational(1), false);
@@ -2755,8 +2755,9 @@ br_status arith_rewriter::mk_sinh_core(expr * arg, expr_ref & result) {
 
 br_status arith_rewriter::mk_cosh_core(expr * arg, expr_ref & result) {
     expr* t;
-    if (m_util.is_acosh(arg, t)) {
-        // cosh(acosh(t)) == t
+    rational k;
+    if (m_util.is_acosh(arg, t) && is_numeral(t, k) && k >= rational(1)) {
+        // cosh(acosh(t)) == t for t >= 1
         result = t;
         return BR_DONE;
     }
@@ -2770,8 +2771,9 @@ br_status arith_rewriter::mk_cosh_core(expr * arg, expr_ref & result) {
 
 br_status arith_rewriter::mk_tanh_core(expr * arg, expr_ref & result) {
     expr * t;
-    if (m_util.is_atanh(arg, t)) {
-        // tanh(atanh(t)) == t
+    rational k;
+    if (m_util.is_atanh(arg, t) && is_numeral(t, k) && k > rational(-1) && k < rational(1)) {
+        // tanh(atanh(t)) == t for -1 < t < 1
         result = t;
         return BR_DONE;
     }
