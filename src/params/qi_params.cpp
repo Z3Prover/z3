@@ -30,7 +30,7 @@ void qi_params::updt_params(params_ref const & _p) {
     m_mbqi_id = p.mbqi_id();
     m_qe_lite = p.q_lite();
     m_qi_profile = p.qi_profile();
-    m_qi_profile_freq = p.qi_profile_freq();
+    m_qi_profile_freq = std::max(1u, p.qi_profile_freq());
     m_qi_max_instances = p.qi_max_instances();
     m_qi_persist_instances = p.qi_persist_instances();
     m_qi_max_persistent_instances = p.qi_max_persistent_instances();

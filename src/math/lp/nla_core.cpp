@@ -1009,7 +1009,7 @@ lbool core::check(unsigned level) {
 
     // Squeeze monomial bounds eagerly while it helps, otherwise on the horner
     // cadence; disable after too many fruitless calls.
-    bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
+    bool squeeze_cadence = lp_settings().stats().m_nla_calls % horner_frequency() == 0;
     if (no_effect() && m_squeeze_schedule.enabled() && (run_horner || run_grobner) && (m_squeeze_schedule.eager() || squeeze_cadence)) {
         m_squeeze_schedule.on_squeeze(m_monomial_bounds.optimize_nl_bounds());
         if (m_to_refine.empty())
