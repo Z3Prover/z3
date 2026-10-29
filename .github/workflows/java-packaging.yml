@@ -12,7 +12,7 @@ on:
       - 'scripts/tests/test_java*.py'
       - 'src/api/java/**'
   push:
-    branches: [feat/java-fatjar, feat/java-release-packaging]
+    branches: ['feat/java-*']
     paths:
       - '.github/workflows/java-packaging.yml'
       - '.github/workflows/java-package-artifacts.yml'

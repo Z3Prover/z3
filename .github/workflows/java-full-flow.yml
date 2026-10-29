@@ -4,7 +4,7 @@ name: Java Full Flow
 on:
   workflow_dispatch:
   push:
-    branches: [feat/java-fatjar, feat/java-release-packaging]
+    branches: ['feat/java-*']
     paths:
       - '.github/workflows/java-full-flow.yml'
       - '.github/workflows/java-package-artifacts.yml'
