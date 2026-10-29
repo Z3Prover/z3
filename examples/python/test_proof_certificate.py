@@ -2644,6 +2644,45 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertNotIn("th-lemma", certificate["rule_counts"])
         self.assertGreaterEqual(certificate["rule_counts"]["def-axiom"], 2)
 
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_native_checker_verifies_boolean_arguments_and_constant_gates(self):
+        # Until 2026-10-28 Z3's own replay sent these euf and tseitin steps to
+        # its SMT fallback ("verified-smt"): congruence through (pb (not q))
+        # when only q is a literal, and gate clauses over the constants true
+        # and false, with complementary literals, or over (ite c a a). The
+        # export below checks every step itself either way.
+        z3_executable = proof_certificate.default_z3_executable()
+        boolean = "(declare-const q Bool)(declare-fun pb (Bool) Bool)"
+        predicates = ("(declare-fun r (Bool) Bool)(declare-fun s (Bool Bool) Bool)"
+                      "(declare-const b0 Bool)(declare-const b1 Bool)(declare-const b2 Bool)")
+        inputs = [
+            boolean + "(assert (not q))(assert (pb true))(assert (not (pb (not q))))",
+            boolean + "(assert q)(assert (pb (not q)))(assert (not (pb false)))",
+            # random_boolean_predicate_instance seeds 68 and 52
+            predicates + "(assert (not (ite (s b0 b1) (r b2) (r b1))))(assert (not true))"
+            "(assert (or false (not true)))(assert (=> (not false) (s (s b2 b0) true)))"
+            "(assert (= b1 (r b2)))(assert (= true b1))(assert (s (not b2) (= false true)))"
+            "(assert (not (r (r b2))))(assert (or (not (r b1)) (not b1)))(assert (=> (r b0) (not b1)))",
+            predicates + "(assert false)(assert (r (= true b2)))(assert (or (r (r b1)) b2))"
+            "(assert (=> (not b0) (not (= (ite b2 b1 false) (s b2 true)))))"
+            "(assert (= (r b0) (s (r b0) (not false))))"
+            "(assert (or (not (s b1 (s b1 b1))) (r (ite b1 true b1))))(assert (= (not false) (r b0)))"
+            "(assert false)(assert b2)(assert (or (r (not b1)) b2))",
+        ]
+        for source in inputs:
+            with self.subTest(source=source):
+                log = proof_clause_log.run_clause_log(z3_executable, source)
+                self.assertRegex(log, r"\((euf|tseitin) ")
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "proof.log"
+                    path.write_text(log, encoding="utf-8")
+                    replay = subprocess.run([z3_executable, "-smt2", str(path)], capture_output=True, text=True)
+                totals = [line for line in replay.stdout.splitlines() if line.startswith("(proofs")]
+                self.assertTrue(totals, replay.stdout)
+                self.assertNotIn("(verified-smt", replay.stdout)
+                self.assertNotRegex(totals[-1], r" -\w", totals[-1])
+                self.replay(source, log)
+
     def test_one_argument_xor_is_built_with_its_gate_clauses(self):
         context = z3.Context()
         p = z3.Bool("p", ctx=context)

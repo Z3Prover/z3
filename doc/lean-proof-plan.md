@@ -1589,6 +1589,29 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Native euf and tseitin checks over Boolean constants and arguments (2026-10-28)
+
+Z3's own replay (`z3 -smt2 log`, the `smt-clause-log` matrix cells) sent
+two kinds of steps to its SMT fallback (`verified-smt`). The euf checker
+(`eq_theory_checker`) merges the atom of a literal `(not q)` with false but
+gives the term `(not q)` no class, so congruence `(pb (not q)) = (pb true)`
+was "not congruent"; congruence now also equates Boolean arguments whose
+truth values are known, reading `not` through. The tseitin checker matched
+gate clauses literal by literal, so a gate over a constant (Z3 writes
+`(not (= true b))`, b, false, with false standing for `(not true)`), an
+`or` gate with a `true` disjunct, `(= (ite c a a) a)`, and clauses with
+complementary literals or a constantly true literal were missed; the checker
+now gives the constants their fixed values and accepts those tautologies.
+Over 692 unsat logs of the UF-family random generators (seeds 1..300 of
+eight generators of the Lean suites) the native replay went from 28 euf and
+700 tseitin fallbacks (165 logs) to none; the remaining fallbacks there are
+arithmetic (`cut`, `arith`). The Python replay and Lean checked these steps
+already, so certificates are unchanged. Tests: `tst_checker_tseitin_constants`,
+`tst_checker_euf_negated_arguments`, `tst_replay_boolean_constants_and_arguments`
+in `src/test/proof_replay.cpp`, and
+`test_native_checker_verifies_boolean_arguments_and_constant_gates` in
+`test_proof_certificate.py` (real Z3 logs, all fail on the previous build).
+
 ### Trimmer: negated Boolean arguments (2026-10-28)
 
 A Boolean term under an uninterpreted function, x = `(not q)` in
