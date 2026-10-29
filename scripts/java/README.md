@@ -166,8 +166,9 @@ uploads to GitHub Packages. Neither publication path is enabled in this prototyp
 
 ## Open questions and boundaries
 
-- Real Linux/macOS linking without rewriting, versioned SONAME/install names,
-  minimum glibc/macOS versions and Windows CRT dependencies need measured tests.
+- The pinned 5.3.2 inputs link without rewriting on the three tested runner
+  platforms. Additional CPU/OS combinations, versioned SONAME/install-name
+  behavior and minimum glibc/macOS versions need their own measured tests.
   The 5.3.2 Windows x64 core imports MSVCP140, VCRUNTIME140 and VCRUNTIME140_1;
   the official ZIP ships these. This prototype currently treats the supported
   VC++ runtime as a prerequisite and bundles only Z3/JNI. Success on developer

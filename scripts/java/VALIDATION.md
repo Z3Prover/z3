@@ -3,7 +3,7 @@
 This records experiments for an upstream contribution. It does not establish an
 official Maven release or platform coverage beyond the rows below.
 
-## Packaging Test CI
+## Initial classifier Packaging Test CI
 
 - [First successful run](https://github.com/nieyuanhong/z3/actions/runs/40814341795)
   at `79db3b2e4e2adf09297f07418e872980b9389829`.
@@ -47,7 +47,7 @@ old glibc/macOS versions, clean Windows CRT availability, or multiple independen
 classloaders. Classifier entries in `release.json` for other platforms are an
 inventory, not an assertion of tested support.
 
-## Local checks
+## Initial local checks
 
 Windows x64 / OpenJDK 25.0.3 / Python 3.14.4:
 
@@ -65,7 +65,7 @@ JVM diagnostics; future native-access defaults require separate compatibility
 work. Developer/hosted-runner success does not establish a clean Windows CRT
 installation requirement is unnecessary.
 
-## Full Flow
+## Initial classifier Full Flow
 
 [Current-source run](https://github.com/nieyuanhong/z3/actions/runs/40814912126)
 passed at `72bf314c711acb75e0796195a1bce2b64c914f6f`: all three native build
@@ -74,7 +74,59 @@ Linux x64, Windows x64 and macOS arm64 built the current 5.3.3 source; their
 packaged native version was checked as `5.3.3.0` on Java 17. The package job
 downloaded only these same-run artifacts, verified their identities and hashes,
 and assembled the final JARs without native compilation or external binary
-downloads. Follow-up documentation commits do not change the tested code.
+downloads. This run predates the universal-JAR change; it is evidence for the
+initial classifier implementation only.
+
+## Universal and platform packaging
+
+Implementation commit: `07aabfcfd8c8e13ad29db264604a3b344764df7c`.
+
+[Packaging Test CI](https://github.com/nieyuanhong/z3/actions/runs/40835923119)
+passed the package job and all six native runner jobs. Every runner tested both
+its platform JAR and `z3-5.3.2-packaging-SNAPSHOT-all.jar`. Downloaded receipts
+confirm the **same universal JAR** on Linux x64 (Java 8/17), Windows x64
+(Java 8/17) and macOS arm64 (Java 17/21):
+
+```text
+SHA-256 227b0e7042f1641eced35cd066c9b46749f40b5d6d656bb55fef2da52f1e8172
+```
+
+Each form passed seven fresh-JVM modes: embedded loading, conventional system
+loading with embedded resources present, API-only system loading, missing
+resources, unsupported CPU, skipped loading and temporary-directory failure.
+Embedded mode requires exactly the current platform's two library filenames in
+one private directory, including when foreign-platform resources are present in
+the universal JAR. Context/version/SAT/UNSAT and four-thread initialization run
+in both embedded and system modes. Nine OS/CPU alias cases pass for each form.
+
+The 21 Python regression tests passed locally and in Packaging Test CI. New
+cases check the universal resource union against all platform JARs, identical
+API classes, per-platform license preservation, deterministic outputs under
+reordered platform selection, rejection of incomplete or wrong-CPU selected
+inputs before output creation, and detection of changed/missing/extra resources,
+platforms or API classes. Three existing generator tests also passed locally.
+Windows x64 / OpenJDK 25.0.3 additionally passed all seven modes for both forms.
+
+[Full Flow](https://github.com/nieyuanhong/z3/actions/runs/40835923208) also
+passed at that implementation commit: three current-source native builds, one
+separate package job and three Java 17 smoke jobs. The package job reused only
+the same run/attempt's Linux x64, Windows x64 and macOS arm64 distributions;
+it neither rebuilt nor downloaded replacement native libraries. Both JAR forms
+passed all seven modes with native version `5.3.3.0`. All three downloaded
+receipts report one identical source-built universal JAR:
+
+```text
+SHA-256 4919db57d50df2442d66a18eb500236b37474667846489e46c14c59d73d5d057
+```
+
+The two universal hashes differ because fast CI packages 5.3.2 release natives
+and Full Flow packages the current 5.3.3 source. Equality is required across
+native runners within each run, not between these different inputs.
+
+The universal JAR contains the selected three-platform set. Other release
+inventory entries and clean Windows CRT availability remain outside these
+results. It uses the existing loader unchanged and does not rewrite native
+binaries.
 
 Official coordinates, sources/Javadoc companions, signing, a Central publishing
 owner and an authorized release gate remain future work. Nothing here publishes
