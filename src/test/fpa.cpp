@@ -322,6 +322,52 @@ static void test_to_fp_real_without_rounding_mode() {
     Z3_del_context(ctx);
 }
 
+static void test_incremental_symbolic_to_fp_real() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* input =
+        "(set-option :timeout 30000)\n"
+        "(set-logic QF_FPLRA)\n"
+        "(declare-const rm RoundingMode)\n"
+        "(declare-const q Real)\n"
+        "(declare-const r Float32)\n"
+        "(assert (= r ((_ to_fp 8 24) rm q)))\n"
+        "(push)\n(assert (= rm RNE))\n(assert (= q 1.0))\n"
+        "(assert (fp.gt r ((_ to_fp 8 24) RNE 2.0)))\n"
+        "(check-sat)\n(pop)\n"
+        "(check-sat-assuming ((= rm RNE) (= q 1.0)"
+        " (not (fp.eq r ((_ to_fp 8 24) RNE 1.0)))))\n"
+        "(push)\n(assert (= rm RTZ))\n(assert (= q (/ 1.0 3.0)))\n"
+        "(assert (= r ((_ to_fp 8 24) RTZ (/ 1.0 3.0))))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != "unsat\nunsat\nsat\n")
+        std::cout << input << "\n" << response;
+    ENSURE(response == "unsat\nunsat\nsat\n");
+    for (char const* mode : {"RNE", "RNA", "RTP", "RTN", "RTZ"}) {
+        std::string spec =
+            "(reset)\n(set-option :timeout 30000)\n(set-logic QF_FPLRA)\n"
+            "(declare-const rm RoundingMode)\n(declare-const q Real)\n"
+            "(declare-const r (_ FloatingPoint 3 4))\n"
+            "(assert (= r ((_ to_fp 3 4) rm q)))\n";
+        std::string expected;
+        for (char const* value : {"0.0", "(/ 1.0 64.0)", "(- (/ 1.0 128.0))",
+                                 "(/ 15.0 64.0)", "(/ 31.0 32.0)", "(/ 17.0 16.0)",
+                                 "(/ 31.0 2.0)", "(- 1000.0)"}) {
+            std::string rounded = std::string("((_ to_fp 3 4) ") + mode + " " + value + ")";
+            spec += std::string("(push)\n(assert (= rm ") + mode + "))\n(assert (= q " + value + "))\n"
+                "(push)\n(assert (distinct r " + rounded + "))\n(check-sat)\n(pop)\n"
+                "(assert (= r " + rounded + "))\n(check-sat)\n(pop)\n";
+            expected += "unsat\nsat\n";
+        }
+        response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != expected)
+            std::cout << spec << "\n" << response;
+        ENSURE(response == expected);
+    }
+}
+
 static void check_fp_commands(char const* input, char const* expected) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -386,6 +432,7 @@ static void test_null_fp_arguments() {
 }
 
 void tst_fpa() {
+    test_incremental_symbolic_to_fp_real();
     test_raw_nan_congruence();
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
