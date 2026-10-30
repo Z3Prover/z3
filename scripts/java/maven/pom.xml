@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>@GROUP@</groupId>
+  <artifactId>@ARTIFACT@</artifactId>
+  <version>@VERSION@</version>
+  <packaging>jar</packaging>
+  <name>Z3 Java bindings</name>
+  <description>Java bindings for the Z3 theorem prover. Unpublished Maven preparation test.</description>
+  <url>https://github.com/Z3Prover/z3</url>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/license/mit</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Z3 contributors</name>
+      <url>https://github.com/Z3Prover/z3/graphs/contributors</url>
+      <organization>Z3Prover</organization>
+      <organizationUrl>https://github.com/Z3Prover</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:https://github.com/Z3Prover/z3.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/Z3Prover/z3.git</developerConnection>
+    <url>https://github.com/Z3Prover/z3</url>
+    <tag>@COMMIT@</tag>
+  </scm>
+</project>

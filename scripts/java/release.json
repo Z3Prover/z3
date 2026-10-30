@@ -71,6 +71,246 @@
     },
     "src/api/java/NativeStatic.txt": {
       "sha256": "e92359ed497dedd093f6aa4a3f7634d668c0c41efc9d3a8ea2d9c8cb692b6fa8"
+    },
+    "src/api/java/AST.java": {
+      "sha256": "2b95075ba807dbc15d5163c1ebf57533542ebc722e8e4dbd1bd6058e256f72a5"
+    },
+    "src/api/java/ASTMap.java": {
+      "sha256": "a81cc1458fb759386bfe032bd57f9a05623574c1acc4cb97ad0c00ee16b5536c"
+    },
+    "src/api/java/ASTVector.java": {
+      "sha256": "502e91cbed93c41c40e204a66a4338ea85bb7ca21b6d8245d6d81ca4d0f5e386"
+    },
+    "src/api/java/AlgebraicNum.java": {
+      "sha256": "ca6d944ef47e4446662abf9e768b4e0285ccaabbcb7fa89fedacf4a8837e3169"
+    },
+    "src/api/java/ApplyResult.java": {
+      "sha256": "d6fe962fb1da5e6fc4e2ba3742cb466292c555f8c0545cdcd7b70e698e354e2a"
+    },
+    "src/api/java/ArithExpr.java": {
+      "sha256": "916578ae690ac89d8b418d5dbfe7109252b8ebd4abd2bfaa2b4b5ed5e587c7fe"
+    },
+    "src/api/java/ArithSort.java": {
+      "sha256": "458b59f2cac85ad06b9bdf0d671c51032ff17d2655eb01f53df841db999cdac3"
+    },
+    "src/api/java/ArrayExpr.java": {
+      "sha256": "cca5459bc799971a99b8966a6376eb354c03ea0bd1088f981ab7e4bc08b76f12"
+    },
+    "src/api/java/ArraySort.java": {
+      "sha256": "8e0af19eb2293339fbefe9831bc1f2ac7d692cd6e06dd4402e3283d81e8e26ba"
+    },
+    "src/api/java/BitVecExpr.java": {
+      "sha256": "fb5fc209b0c4e78766c33122d105f32684ea794311442b296bc6f4f8e977df35"
+    },
+    "src/api/java/BitVecNum.java": {
+      "sha256": "8085b6edbb9b0953d7aba58f35c423b6cf180caf707723813632c0bc19f5c83e"
+    },
+    "src/api/java/BitVecSort.java": {
+      "sha256": "26b0aabfb165f782214d602b2b5cfc47970f4bba5e739370f1d2e29368b08ff1"
+    },
+    "src/api/java/BoolExpr.java": {
+      "sha256": "0e9a760c2aa56787f23e831474df67cce1fbc6e9ecab4e384f2323b404ef1dcd"
+    },
+    "src/api/java/BoolSort.java": {
+      "sha256": "451d67855f42049b0af3ebc00d7a6f93721e3bacdd99820c3eef2d57e772db02"
+    },
+    "src/api/java/CharSort.java": {
+      "sha256": "d97149d6ed737e5f9510cda1807ea121088fa4e580c5418b7638841d89d9a1ab"
+    },
+    "src/api/java/ComplexExpr.java": {
+      "sha256": "360852c4c8f10d1fdddca1df5cfba6389fa41446dd8ef7323bbbae7c656d6c6d"
+    },
+    "src/api/java/ComplexSort.java": {
+      "sha256": "3592a2a37ca3c42705480b29c82257706956fc763a7fb9b5a4be6a8b7d905e64"
+    },
+    "src/api/java/Constructor.java": {
+      "sha256": "f072fc95db7f5351eeccd9fdfe1737cb277ce69a1c970d812eacc886eb601d1f"
+    },
+    "src/api/java/ConstructorList.java": {
+      "sha256": "578413c40137baa16098a1a2e3df8fced0aeed901e1306f6b044ceb787c71b4b"
+    },
+    "src/api/java/Context.java": {
+      "sha256": "e8d65a38b99cf7013c42022a57912d93250607ef2e4bd5c1aa31f32854d3e3e1"
+    },
+    "src/api/java/DatatypeExpr.java": {
+      "sha256": "09e2f3f62745f81a04b61862a2ff63e72bf64a0c463ffe4628f8ed76f342e05f"
+    },
+    "src/api/java/DatatypeSort.java": {
+      "sha256": "f084acd19e56ffd50a4eb48b6085122053e517f85b9a84df7086f1d9bce3047c"
+    },
+    "src/api/java/EnumSort.java": {
+      "sha256": "6c1f6bd467f6acde28864b2220319a6d9b43e010194e93151c5eacd6e130d3ed"
+    },
+    "src/api/java/Expr.java": {
+      "sha256": "8efac9ce4cbc626c12f2a0af249246364de16826540b9ed6e1249c143e8a2ad2"
+    },
+    "src/api/java/FPExpr.java": {
+      "sha256": "1265d81122ebdde3077da009971486102cc0b608b58b6dd3492a6e757a0865a8"
+    },
+    "src/api/java/FPNum.java": {
+      "sha256": "2d452206e24fbe9af77610e2ae816cd092c5d9c968a236cc4b62c0d4a68c9d66"
+    },
+    "src/api/java/FPRMExpr.java": {
+      "sha256": "c6a889c287fba25e98f91d97305fd82e64dd30b99bb35176e3cecadbb2772f2a"
+    },
+    "src/api/java/FPRMNum.java": {
+      "sha256": "6131730649414c5417ccf4cbd2096e816c6b8246caf6149b5b329a86916e5f94"
+    },
+    "src/api/java/FPRMSort.java": {
+      "sha256": "025f2125b5ac45e2e4b230c29f2854e6cd98606deccb6efebe37ea6e84439eef"
+    },
+    "src/api/java/FPSort.java": {
+      "sha256": "18153e7d76265401f6fe2e426b594a40f5bd95479da1b0f145c8da952b370206"
+    },
+    "src/api/java/FiniteDomainExpr.java": {
+      "sha256": "da5350d2e72e7a6dc098b4eca94789c8c7c9ff0ce2dba4613cf6ccda9a112edc"
+    },
+    "src/api/java/FiniteDomainNum.java": {
+      "sha256": "87bb61d858d4e7061ce3615b4a55ec0b79c22dd9d040f4be51a481a7d9609766"
+    },
+    "src/api/java/FiniteDomainSort.java": {
+      "sha256": "e385178e71ba133984c4475a27fb9a9687f8d5f5d9aee91228cabf732606a548"
+    },
+    "src/api/java/FiniteSetSort.java": {
+      "sha256": "78fdd66a1fd2798890e9959b24610359a2511f8a35843119d59b8e66610f3982"
+    },
+    "src/api/java/Fixedpoint.java": {
+      "sha256": "447e57c3642198977340af3f64fa23fc48989bfd576526e4346c80980fc2d886"
+    },
+    "src/api/java/FuncDecl.java": {
+      "sha256": "44c6b53c43b220e9256f90a32f7f93c0755fc7581410184c25e57ef87a6deed3"
+    },
+    "src/api/java/FuncInterp.java": {
+      "sha256": "8cd5156b916e466ec54258a2209d9c03c2f82491406a45b8792595c50c6036dd"
+    },
+    "src/api/java/Global.java": {
+      "sha256": "d55ea6db10c7c8e3c3c91fc241acb21458986554d65216c92c9678522a508c6c"
+    },
+    "src/api/java/Goal.java": {
+      "sha256": "84304be95d22cffb5a37503b4ad2116ff75a3b5cc765fa6a5ef0e28c7fc13c6c"
+    },
+    "src/api/java/IntExpr.java": {
+      "sha256": "df70673696871200d1485e0ff4ba82384fb9451a5da281bc9d311a4c581155d0"
+    },
+    "src/api/java/IntNum.java": {
+      "sha256": "f1ec4ad45729e382c8cca5e271f7ebec0b0e737b42107c39ba5f69e645e80be5"
+    },
+    "src/api/java/IntSort.java": {
+      "sha256": "0aec9f9e695664016624d986d772efb85d3dc231937194ee1ef46086e32a13b1"
+    },
+    "src/api/java/IntSymbol.java": {
+      "sha256": "aab265836197ae883b8a2ddeb7b19b64467db5adc98bfec4dd9c4f3c69a52449"
+    },
+    "src/api/java/Lambda.java": {
+      "sha256": "acdd36b670e14d163c1755eab9f6b25645e8d4ea8abf2bf0623f607fbde13276"
+    },
+    "src/api/java/ListSort.java": {
+      "sha256": "8613844ce2735d62a995f31d05b8c2a44e54fd5e1fbd10d6531e036eada6cebf"
+    },
+    "src/api/java/Log.java": {
+      "sha256": "72d50d15854a151527ae540a2c4ed576cb4ea78be6d5c7d8e9abe7c6ad25db9e"
+    },
+    "src/api/java/Model.java": {
+      "sha256": "ea39b6d74333bec5c9083bb462ac50bfa8f56a542f80b202dd3b19115cafe845"
+    },
+    "src/api/java/OnClause.java": {
+      "sha256": "0ffc9d38f2abf60b653760312a5ac7971d53ad114e612fd36017d08847de87bf"
+    },
+    "src/api/java/Optimize.java": {
+      "sha256": "948f41c6ec08fc0575a5ccd038437a372e2823a45271d3781165264d95b1b8fe"
+    },
+    "src/api/java/ParamDescrs.java": {
+      "sha256": "3769b14f12bfe06a8460b38dd2e3fbc48a422c756ffbd8ec5b05e8210ae6eaec"
+    },
+    "src/api/java/Params.java": {
+      "sha256": "a9c6e2be0b29dacc93c2186385f55b68d23f9a05d402f6ad02a44ed992fdb327"
+    },
+    "src/api/java/Pattern.java": {
+      "sha256": "433afb818c56d6d1152ca8b3ca1e60a76609a3d7e8978b6ccd708a7d6106a114"
+    },
+    "src/api/java/Probe.java": {
+      "sha256": "f0f93f2d1d99d06e86092281307576cd1d2c54378d801228b7b8fd97141eb04c"
+    },
+    "src/api/java/Quantifier.java": {
+      "sha256": "8213a23872299e53100da6361c7df0cac25d3ee262b2e2c12bfb98db17ac0083"
+    },
+    "src/api/java/RCFNum.java": {
+      "sha256": "354d8d174ad7939efe67023ae32a7aed8fae64d39d5fb503879960a3bfd2f00b"
+    },
+    "src/api/java/RatNum.java": {
+      "sha256": "9fbca4976de9b6f45b6953b832be375804610a375fcab08f0341af9189e0d80d"
+    },
+    "src/api/java/ReExpr.java": {
+      "sha256": "c449a5af6c7d8f3e83b13ac71cbe1aa3bc17a087f54d02d3fa33f84c6e098c42"
+    },
+    "src/api/java/ReSort.java": {
+      "sha256": "eb52bddd0712b1868a1db44cfebba0b63a86655c8e0663e4cfcf5043f6701110"
+    },
+    "src/api/java/RealExpr.java": {
+      "sha256": "c16b92a4768aedfd93830fd200645ddc2912b9469aeec2e1cefeb5f1c657d17f"
+    },
+    "src/api/java/RealSort.java": {
+      "sha256": "64fed45e102531d58b5f4170eaafcb32cd7ac2c18d2758d6a206381bb066af1f"
+    },
+    "src/api/java/RelationSort.java": {
+      "sha256": "5eec937c8c5bf0060902a1ac75156f07674626b02f7044ed12e50851d13ed708"
+    },
+    "src/api/java/SeqExpr.java": {
+      "sha256": "49ed31cb6c5c86e0a72b4e812886c4ba95b8c603bad8bd8d8340f3e19d6a71e8"
+    },
+    "src/api/java/SeqSort.java": {
+      "sha256": "5c7ba3b8e3ea6839af605d6ed34d98291be7ba3d8561744a5a140250d40aa29e"
+    },
+    "src/api/java/SetSort.java": {
+      "sha256": "3bead49ee87e4464ba7d9070f7bad58e29970388152a16f86990ad3024ba1c86"
+    },
+    "src/api/java/Simplifier.java": {
+      "sha256": "29791a379b853a00bf42bb334c050e45e192769f0421ba2fbeedd3678ad59d90"
+    },
+    "src/api/java/Solver.java": {
+      "sha256": "c9e0ff7ad07881d59480e06f482c28d3fd16f5310343b05369b00e739e77bd57"
+    },
+    "src/api/java/Sort.java": {
+      "sha256": "496fd3af1e193ca5e9cf9758098cecedf2776493fe01a99f3990acb6b7c53924"
+    },
+    "src/api/java/Statistics.java": {
+      "sha256": "bd5e26b848e94868d63679743425e050dfbbe6ab4eb7d1315864d6fce97a3ff5"
+    },
+    "src/api/java/Status.java": {
+      "sha256": "3d15e01832282b6ebaa015f5dc1cfea3d6057bdfbca162dca4e59ec18b16b1b1"
+    },
+    "src/api/java/StringSymbol.java": {
+      "sha256": "61db8860de9ca1e15f3026caa59c74f1d203f195d944d662fdc2322c0580beb6"
+    },
+    "src/api/java/Symbol.java": {
+      "sha256": "0150b456ed843a34d695de1f0653c3f59ce14055d8eb00b2a77ab1e0ad30b69e"
+    },
+    "src/api/java/Tactic.java": {
+      "sha256": "0b942fd01933dc1f6cdc72b1b4b00a70264f75f1b229b6d0e3750611cf27746f"
+    },
+    "src/api/java/TupleSort.java": {
+      "sha256": "2b6b69217537e1ad8dcc8b3370ca1c9e31c5dbd4b4dbc08613acbd8aa2496bce"
+    },
+    "src/api/java/TypeVarSort.java": {
+      "sha256": "7a8a30a8de7168e57ba63617dd57a45ea86a2340ccfc551b9847cb56ec1bfe05"
+    },
+    "src/api/java/UninterpretedSort.java": {
+      "sha256": "6b7d0f56431eaab30d4f0e166063f26224dd384b5b2b62bffce3c7140dce8bfb"
+    },
+    "src/api/java/UserPropagatorBase.java": {
+      "sha256": "7bff377544a952b24cf5c123dfe4144cd0be7db31be990a128ab19b6be24f40e"
+    },
+    "src/api/java/Version.java": {
+      "sha256": "9e4fde5e91ae36d845155374e33b5ede3df0be34dc3747eb28ab376ec3f55ebe"
+    },
+    "src/api/java/Z3Exception.java": {
+      "sha256": "6e23b8c63fb79f7807901a499a8439ca6851c69058d715728001ba4ab8b3afef"
+    },
+    "src/api/java/Z3Object.java": {
+      "sha256": "81c7d694facc6acb4b624d0d1bfbbaa10b632fff1d4884d09d850f4d43fb74b5"
+    },
+    "src/api/java/Z3ReferenceQueue.java": {
+      "sha256": "1be911005390f9b6f1bd091108c6520db2eda07e74e873ab2ef47569e3167f00"
     }
   },
   "headers": [
