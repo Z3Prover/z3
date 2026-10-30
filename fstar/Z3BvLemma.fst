@@ -955,9 +955,15 @@ let lemma_left_identity (i:interpretation value) (rho:env value)
 let lemma_subtraction_words (width:pos) (a b:U.uint_t width)
   : Lemma (U.sub_mod a b == U.add_mod a (U.mul_mod (U.ones width) b))
   = let p = pow2 width in
-    FStar.Math.Lemmas.lemma_mod_add_distr a ((p - 1) * b) p;
-    FStar.Math.Lemmas.lemma_mod_plus (a - b) b p;
-    assert (a + (p - 1) * b == a - b + b * p)
+    let c = (p - 1) * b in
+    assert (U.mul_mod (U.ones width) b == c % p);
+    assert (U.add_mod a (U.mul_mod (U.ones width) b) == (a + c % p) % p);
+    assert (U.sub_mod a b == (a - b) % p);
+    FStar.Math.Lemmas.lemma_mod_add_distr a c p;
+    FStar.Math.Lemmas.distributivity_sub_left p 1 b;
+    FStar.Math.Lemmas.swap_mul p b;
+    assert (a + c == a - b + b * p);
+    FStar.Math.Lemmas.lemma_mod_plus (a - b) b p
 
 let lemma_subtraction_rewrite (i:interpretation value) (rho:env value)
                               (project:pos -> value -> int) (e result:expr)
