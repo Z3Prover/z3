@@ -16,6 +16,7 @@ Abstract:
 #include "api/z3.h"
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_context.h"
+#include "opt/opt_curve_certificate.h"
 #include "opt/opt_geometric.h"
 #include "opt/opt_nlsat.h"
 #include "opt/opt_search.h"
@@ -2090,6 +2091,38 @@ static void tst_unbounded_curve() {
     }
 }
 
+// maximize y with y = x*x, x >= 0 over the models (5, 25), (6, 36), (7, 49).
+// The backward differences at (7, 49) are (1, 13) and (0, 2). The ray
+// x = 7 + t, y = 49 + 13 t leaves the parabola at t = 1; the quadratic
+// x = 7 + t, y = 49 + 13 t + 2 t (t + 1) / 2 = (7 + t)^2 stays on it.
+// With only the last two models neither the ray nor a unit direction holds.
+static void tst_unbounded_curve_parabola() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    app_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+    app_ref y(m.mk_const(symbol("y"), a.mk_int()), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_ge(x, a.mk_int(0)));
+    hard.push_back(m.mk_eq(y, a.mk_mul(x, x)));
+    sref_vector<model> models;
+    for (int v : {5, 6, 7}) {
+        model_ref mdl = alloc(model, m);
+        mdl->register_decl(x->get_decl(), a.mk_int(v));
+        mdl->register_decl(y->get_decl(), a.mk_int(v * v));
+        models.push_back(mdl.get());
+    }
+    opt::curve_certificate curve(m, p);
+    ENSURE(curve.prove_unbounded(hard, y, models) == l_true);
+    ENSURE(std::strcmp(curve.kind_name(), "quadratic") == 0);
+    sref_vector<model> last_two;
+    last_two.push_back(models.get(1));
+    last_two.push_back(models.get(2));
+    opt::curve_certificate ray(m, p);
+    ENSURE(ray.prove_unbounded(hard, y, last_two) == l_undef);
+}
+
 static void set_lp_relaxation(opt_fixture& f, bool relax) {
     Z3_params p = Z3_mk_params(f.ctx);
     Z3_params_inc_ref(f.ctx, p);
@@ -2225,6 +2258,7 @@ void tst_opt_bounds() {
     tst_nlsat_unbounded_reals_only();
     tst_unbounded_curve_cancellation();
     tst_unbounded_curve();
+    tst_unbounded_curve_parabola();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
