@@ -632,11 +632,11 @@ foreign-name instances nevertheless take their own theory's values in
 the witness (`clash_eq_excluded`, `true_numerals_excluded`,
 `datatype_and_excluded`).
 
-Not covered and still blocking a global theorem: quantifier and binder
-rules (the classical model of the ghost-semantics follow-up below gives
-typed quantifiers their standard meaning, but no kernel rule is proved
-sound from it yet), definitions, the array, arithmetic, datatype, finite-field and
-normalization checkers, Skolemization, and the document layer. The legacy
+Not covered and still blocking a global theorem: quantifier introduction
+and the other binder rules, definitions, the array, arithmetic, datatype,
+finite-field and normalization checkers, Skolemization, and the document
+layer. Checked quantifier instantiation is the exception: the theorem
+below uses the inhabited typed quantifier contract. The legacy
 `model_sound` remains without a model: the quantification in its
 open-environment typing contracts (`boolean_model`, the Int conjunct of
 `numeric_model`, and `array_model`) is unchanged. The re-keyed `eq_sound`
@@ -728,6 +728,15 @@ model, including false conclusions returned with pending 1 and capture,
 shadowing and unscoped-argument mutations. Quantifier introduction and
 the other binder rules, definitions, Skolemization and the document layer
 are not covered.
+
+The instantiation result also applies to the document layer's
+`check_node_with_membership` entry point: this rule never reads the
+supplied membership predicate. The bridge requires zero pending
+obligations and makes no agreement assumption on that predicate. It is
+still a node-level statement, not a document theorem. A separate test
+isolates the closed-argument condition: an open Int argument passes the
+other instantiation checks but can produce a false conclusion under an
+ill-typed environment, and remains pending.
 
 Development code outside the checker that computes with the values of
 expressions uses its own executable evaluator, `Z3AstTotEval`

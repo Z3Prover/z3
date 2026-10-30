@@ -34,6 +34,7 @@ module C = Z3CanonicalOps
 module L = FStar.List.Tot
 module SM = Z3StandardModel
 module BV = Z3BvLemma
+module D = Z3Definitions
 
 type leaf = func_decl -> list value -> int
 let g (base:leaf) : interpretation value = GS.ghost_standard base
@@ -120,6 +121,25 @@ let some_is_not_certification (base:leaf) (rho:env value)
            ~(scoped_holds (g base) rho (fst (Some?.v (result int_wrong_node)))))
   = int_wrong_pending ();
     int_wrong_false base rho
+
+let membership_accept_all (_:judgment) : bool = true
+
+let membership_entry_checked (base:leaf) (rho:env value)
+  : Lemma (membership_accept_all int_node.conclusion /\
+           check_node_with_membership [] false [] membership_accept_all int_node ==
+             Some (fact int_node.conclusion, 0) /\
+           scoped_holds (g base) rho (fact int_node.conclusion))
+  = int_checked ();
+    QK.lemma_instantiation_membership_irrelevant [] false [] membership_accept_all int_node;
+    assert_norm (membership_accept_all int_node.conclusion);
+    GS.lemma_quantifier_model base;
+    QK.lemma_instantiation_membership_sound [] (g base) GS.domains rho false [] membership_accept_all int_node
+
+let membership_entry_pending ()
+  : Lemma (check_node_with_membership [] false [] membership_accept_all int_wrong_node ==
+             Some (fact int_wrong_node.conclusion, 1))
+  = int_wrong_pending ();
+    QK.lemma_instantiation_membership_irrelevant [] false [] membership_accept_all int_wrong_node
 
 (* The argument 6 with the instance at 5. *)
 let int_wrong_argument : proof_node = qi [num 6] (Holds (clause GT.valid int_inst))
@@ -331,6 +351,31 @@ let nested_mutations_pending ()
     assert_norm (result dangling_node == Some (fact dangling_node.conclusion, 1));
     assert_norm (result unscoped_node == Some (fact unscoped_node.conclusion, 1));
     assert_norm (result unscoped_captured_node == Some (fact unscoped_captured_node.conclusion, 1))
+
+let open_int_instance : expr = eq (plus GT.x0 (num 0)) GT.x0
+let open_int_node : proof_node = qi [GT.x0] (Holds (clause GT.valid open_int_instance))
+
+let open_int_argument_pending ()
+  : Lemma (result open_int_node == Some (fact open_int_node.conclusion, 1) /\
+           C.canonical_or (C.or_decl 2) /\ C.canonical_not not_decl /\
+           sorts_match [GT.x0] [int_s] /\ D.scoped [] GT.valid /\
+           Q.substitute (L.rev [GT.x0]) open_int_instance == Some open_int_instance /\
+           D.scoped_args [] [GT.x0] == false)
+  = assert_norm (result open_int_node == Some (fact open_int_node.conclusion, 1));
+    C.lemma_canonical_decls bool_sort 2;
+    assert_norm (sorts_match [GT.x0] [int_s]);
+    assert_norm (D.scoped [] GT.valid);
+    assert_norm (Q.substitute (L.rev [GT.x0]) open_int_instance == Some open_int_instance);
+    assert_norm (D.scoped_args [] [GT.x0] == false)
+
+let open_int_argument_false (base:leaf) (rho:env value)
+  : Lemma (Some? (result open_int_node) /\
+           ~(scoped_holds (g base) (shift [VBool true] rho)
+               (fst (Some?.v (result open_int_node)))))
+  = open_int_argument_pending ();
+    GT.valid_true base (shift [VBool true] rho);
+    GT.untyped_body_false base rho;
+    lemma_clause base (shift [VBool true] rho) GT.valid open_int_instance
 
 (* The capture and shadowing clauses are false: certifying them would be unsound. *)
 let nested_mutations_false (base:leaf) (rho:env value)
@@ -558,3 +603,16 @@ let bv3_instance_is_true (base:leaf) (rho:env value) : Lemma (lit_true (g base) 
 [@@expect_failure [19]]
 let bv_two_is_zero (base:leaf) (rho:env value) : Lemma (eval (g base) (eq (lit 2) (lit 0)) rho == VBool true)
   = bv_sound base rho
+
+[@@expect_failure [19]]
+let open_int_argument_is_checked ()
+  : Lemma (result open_int_node == Some (fact open_int_node.conclusion, 0))
+  = assert_norm (result open_int_node == Some (fact open_int_node.conclusion, 0))
+
+[@@expect_failure [19]]
+let membership_pending_is_checked ()
+  : Lemma (check_node_with_membership [] false [] membership_accept_all int_wrong_node ==
+             Some (fact int_wrong_node.conclusion, 0))
+  = membership_entry_pending ();
+    assert_norm (check_node_with_membership [] false [] membership_accept_all int_wrong_node ==
+                   Some (fact int_wrong_node.conclusion, 0))

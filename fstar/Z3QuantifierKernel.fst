@@ -157,6 +157,26 @@ let lemma_instantiation_rule_sound (skolems:list SK.definition) (i:interpretatio
   = lemma_instantiation_result skolems strict assertions node;
     lemma_instantiation_node_sound skolems i dom rho strict assertions node
 
+let lemma_instantiation_membership_irrelevant (skolems:list SK.definition)
+                                            (strict:bool) (assertions:list judgment)
+                                            (contains:judgment -> bool) (node:proof_node)
+  : Lemma (requires QuantifierInstantiation? node.kind)
+          (ensures check_node_with_membership skolems strict assertions contains node ==
+                   check_node_with_context skolems strict assertions node)
+  = match node.kind with QuantifierInstantiation _ -> ()
+
+let lemma_instantiation_membership_sound (skolems:list SK.definition) (i:interpretation value)
+                                         (dom:CO.domains) (rho:env value)
+                                         (strict:bool) (assertions:list judgment)
+                                         (contains:judgment -> bool) (node:proof_node)
+  : Lemma (requires TQ.quantifier_model i dom /\ QuantifierInstantiation? node.kind /\
+                    Some? (check_node_with_membership skolems strict assertions contains node) /\
+                    snd (Some?.v (check_node_with_membership skolems strict assertions contains node)) == 0)
+          (ensures scoped_holds i rho
+                     (fst (Some?.v (check_node_with_membership skolems strict assertions contains node))))
+  = lemma_instantiation_membership_irrelevant skolems strict assertions contains node;
+    lemma_instantiation_node_sound skolems i dom rho strict assertions node
+
 let lemma_typed_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                                  (dom:CO.domains) (scope:list sort) (rho:env value)
                                  (strict:bool) (assertions:list judgment) (node:proof_node)
