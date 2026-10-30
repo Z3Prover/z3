@@ -22,6 +22,7 @@ Revision History:
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/simplifiers/finite_set_simplifier.h"
 #include <string>
 
 static void tst_finite_set_basic() {
@@ -434,6 +435,465 @@ static void tst_finite_set_lambda_filter() {
     Z3_del_config(cfg);
 }
 
+static bool eval_finite_set_bool(Z3_context ctx, Z3_ast value) {
+    value = Z3_simplify(ctx, value);
+    auto b = Z3_get_bool_value(ctx, value);
+    if (b != Z3_L_UNDEF)
+        return b == Z3_L_TRUE;
+    Z3_app app = Z3_to_app(ctx, value);
+    auto kind = Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, app));
+    if (kind == Z3_OP_NOT)
+        return !eval_finite_set_bool(ctx, Z3_get_app_arg(ctx, app, 0));
+    ENSURE(kind == Z3_OP_FINITE_SET_IN);
+    Z3_ast elem = Z3_get_app_arg(ctx, app, 0);
+    svector<Z3_ast> todo;
+    todo.push_back(Z3_get_app_arg(ctx, app, 1));
+    while (!todo.empty()) {
+        Z3_app set = Z3_to_app(ctx, todo.back());
+        todo.pop_back();
+        switch (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, set))) {
+        case Z3_OP_FINITE_SET_EMPTY:
+            break;
+        case Z3_OP_FINITE_SET_SINGLETON: {
+            Z3_ast eq = Z3_mk_eq(ctx, elem, Z3_get_app_arg(ctx, set, 0));
+            auto equal = Z3_get_bool_value(ctx, Z3_simplify(ctx, eq));
+            ENSURE(equal != Z3_L_UNDEF);
+            if (equal == Z3_L_TRUE)
+                return true;
+            break;
+        }
+        case Z3_OP_FINITE_SET_UNION:
+            todo.push_back(Z3_get_app_arg(ctx, set, 0));
+            todo.push_back(Z3_get_app_arg(ctx, set, 1));
+            break;
+        default:
+            ENSURE(false);
+        }
+    }
+    return false;
+}
+
+static void check_finite_set_model(Z3_context ctx, Z3_solver solver) {
+    Z3_model model = Z3_solver_get_model(ctx, solver);
+    Z3_model_inc_ref(ctx, model);
+    Z3_ast_vector assertions = Z3_solver_get_assertions(ctx, solver);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i) {
+        Z3_ast value = nullptr;
+        ENSURE(Z3_model_eval(ctx, model, Z3_ast_vector_get(ctx, assertions, i), true, &value));
+        value = Z3_simplify(ctx, value);
+        bool valid = eval_finite_set_bool(ctx, value);
+        if (!valid)
+            std::cout << "model:\n" << Z3_model_to_string(ctx, model)
+                      << "\nassertion: " << Z3_ast_to_string(ctx, Z3_ast_vector_get(ctx, assertions, i))
+                      << "\nvalue: " << Z3_ast_to_string(ctx, value) << "\n";
+        ENSURE(valid);
+    }
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_model_dec_ref(ctx, model);
+}
+
+static void tst_finite_set_lambda_predicates(bool reuse_witness) {
+    struct test_case {
+        char const* formula;
+        Z3_lbool expected;
+        bool existing_witness = false;
+    };
+    test_case cases[] = {
+        {
+            "(declare-datatype T ((mk-t (value Int) (flag Bool))))"
+            "(declare-const s (FiniteSet T))"
+            "(assert (distinct"
+            " (set.filter (lambda ((x T)) (flag x)) s)"
+            " (as set.empty (FiniteSet T))))",
+            Z3_L_TRUE
+        },
+        {
+            "(declare-datatype T ((mk-t (value Int))))"
+            "(declare-const s (FiniteSet T))"
+            "(declare-const t (FiniteSet T))"
+            "(assert (distinct s (as set.empty (FiniteSet T))))"
+            "(assert (= s (set.filter (lambda ((x T))"
+            " (distinct (set.filter (lambda ((y T)) (= (value x) (value y))) t)"
+            " (as set.empty (FiniteSet T)))) s)))",
+            Z3_L_TRUE
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(assert (set.in 0 s))"
+            "(assert (= (set.filter (lambda ((x Int)) (>= x 0)) s)"
+            " (as set.empty (FiniteSet Int))))",
+            Z3_L_FALSE
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(declare-const p (Array Int Bool))"
+            "(assert (set.in 0 s))"
+            "(assert (= (set.filter p s) (as set.empty (FiniteSet Int))))"
+            "(assert (select p 0))",
+            Z3_L_FALSE
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(declare-const t (FiniteSet (FiniteSet Int)))"
+            "(assert (set.in 0 s))"
+            "(assert (= t (set.singleton s)))",
+            Z3_L_TRUE
+        },
+        {
+            "(declare-datatype T ((mk-t (key Int) (flag Bool))))"
+            "(declare-const s (FiniteSet T))"
+            "(assert (distinct s (as set.empty (FiniteSet T))))"
+            "(assert (= s (set.filter (lambda ((x T))"
+            " (= s (set.filter (lambda ((y T))"
+            " (=> (= (key x) (key y)) (= x y))) s))) s)))",
+            Z3_L_TRUE
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(declare-const t (FiniteSet Int))"
+            "(declare-const x Int)"
+            "(declare-const y Int)"
+            "(assert (= x y))"
+            "(assert (set.in x s))"
+            "(assert (not (set.in y t)))"
+            "(assert (distinct s t))",
+            Z3_L_TRUE, true
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(assert (set.in 0 s))"
+            "(assert (distinct s (as set.empty (FiniteSet Int))))",
+            Z3_L_TRUE, true
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(assert (set.in 0 s))"
+            "(assert (distinct (as set.empty (FiniteSet Int)) s))",
+            Z3_L_TRUE, true
+        },
+        {
+            "(declare-const s (FiniteSet Int))"
+            "(declare-const t (FiniteSet Int))"
+            "(assert (set.in 0 s))"
+            "(assert (set.in 0 t))"
+            "(assert (= (set.size s) 1))"
+            "(assert (= (set.size t) 1))"
+            "(assert (distinct s t))",
+            Z3_L_FALSE
+        }
+    };
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_params params = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, params);
+    Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "finite_set.reuse_witness"), reuse_witness);
+    for (auto const& test : cases) {
+        Z3_solver_reset(ctx, solver);
+        Z3_solver_set_params(ctx, solver, params);
+        Z3_solver_from_string(ctx, solver, test.formula);
+        ENSURE(Z3_solver_check(ctx, solver) == test.expected);
+        if (test.existing_witness && reuse_witness) {
+            Z3_stats stats = Z3_solver_get_statistics(ctx, solver);
+            Z3_stats_inc_ref(ctx, stats);
+            bool skipped = false;
+            for (unsigned i = 0; i < Z3_stats_size(ctx, stats); ++i)
+                if (std::string(Z3_stats_get_key(ctx, stats, i)) == "finite-set-extensionality-skipped")
+                    skipped = Z3_stats_get_uint_value(ctx, stats, i) > 0;
+            ENSURE(skipped);
+            Z3_stats_dec_ref(ctx, stats);
+        }
+        if (test.expected != Z3_L_TRUE)
+            continue;
+        check_finite_set_model(ctx, solver);
+    }
+    Z3_solver_reset(ctx, solver);
+    Z3_solver_set_params(ctx, solver, params);
+    Z3_solver_from_string(ctx, solver,
+        "(declare-const s (FiniteSet Int))"
+        "(declare-const t (FiniteSet Int))");
+    char const* scopes[] = {
+        "(assert (set.in 0 s))"
+        "(assert (not (set.in 0 t)))"
+        "(assert (distinct s t))",
+        "(assert (not (set.in 0 s)))"
+        "(assert (not (set.in 0 t)))"
+        "(assert (distinct s t))"
+    };
+    for (auto scope : scopes) {
+        Z3_solver_push(ctx, solver);
+        Z3_solver_from_string(ctx, solver, scope);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+        check_finite_set_model(ctx, solver);
+        Z3_solver_pop(ctx, solver, 1);
+    }
+    Z3_solver_reset(ctx, solver);
+    Z3_solver_set_params(ctx, solver, params);
+    Z3_solver_from_string(ctx, solver,
+        "(declare-const s (FiniteSet Int))"
+        "(assert (distinct (set.filter (lambda ((x Int)) (>= x 0)) s)"
+        " (as set.empty (FiniteSet Int))))");
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_ast_vector assertions = Z3_solver_get_assertions(ctx, solver);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    Z3_app assertion = Z3_to_app(ctx, Z3_ast_vector_get(ctx, assertions, 0));
+    Z3_app filter = Z3_to_app(ctx, Z3_get_app_arg(ctx, assertion, 0));
+    Z3_ast predicate = Z3_get_app_arg(ctx, filter, 0);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_symbol name = Z3_mk_string_symbol(ctx, "x");
+    Z3_ast variable = Z3_mk_bound(ctx, 0, int_sort);
+    Z3_ast zero = Z3_mk_int(ctx, 0, int_sort);
+    Z3_ast negative = Z3_mk_lt(ctx, variable, zero);
+    Z3_ast complement = Z3_mk_lambda(ctx, 1, &int_sort, &name, negative);
+    Z3_ast lhs = Z3_mk_array_default(ctx, predicate);
+    Z3_ast rhs = Z3_mk_array_default(ctx, complement);
+    Z3_solver_push(ctx, solver);
+    Z3_solver_assert(ctx, solver, Z3_mk_eq(ctx, lhs, rhs));
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+    Z3_solver_pop(ctx, solver, 1);
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_params_dec_ref(ctx, params);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+}
+
+static void check_finite_set_simplification(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string source = R"(
+        (declare-const S (FiniteSet Int))
+        (declare-const T (FiniteSet Int))
+        (declare-const R (FiniteSet Real))
+        (declare-const c Int)
+        (declare-const r Real)
+        (declare-const b Bool)
+        (declare-fun p (Int) Bool)
+        (declare-fun f (Int) Int)
+        (declare-fun h (Int Int) Int)
+        (declare-datatype Clock ((tick (time Int))))
+        (declare-const C (FiniteSet Clock))
+        (declare-datatype Pair ((pair (first Int) (second Int))))
+        (declare-const P (FiniteSet Pair))
+        (declare-datatype Maybe ((none) (some (value Int))))
+        (declare-const M (FiniteSet Maybe))
+    )";
+    source += "(assert " + std::string(input) + ")(assert " + expected + ")";
+    Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, source.c_str(), 0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    ENSURE(Z3_ast_vector_size(ctx, assertions) == 2);
+    Z3_goal goal = Z3_mk_goal(ctx, true, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, 0));
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "finite-set-simplify");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+    Z3_goal simplified = Z3_apply_result_get_subgoal(ctx, result, 0);
+    svector<Z3_ast> formulas;
+    for (unsigned i = 0; i < Z3_goal_size(ctx, simplified); ++i)
+        formulas.push_back(Z3_goal_formula(ctx, simplified, i));
+    Z3_ast actual = Z3_simplify(ctx, Z3_mk_and(ctx, formulas.size(), formulas.data()));
+    Z3_ast wanted = Z3_simplify(ctx, Z3_ast_vector_get(ctx, assertions, 1));
+    if (!Z3_is_eq_ast(ctx, actual, wanted)) {
+        std::cout << "Input: " << input << "\nActual: " << Z3_ast_to_string(ctx, actual)
+                  << "\nExpected: " << Z3_ast_to_string(ctx, wanted) << "\n";
+        ENSURE(false);
+    }
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_del_context(ctx);
+}
+
+static void tst_finite_set_simplifier() {
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) b) S) S)",
+        "(or (= S (as set.empty (FiniteSet Int))) b)");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) b) S) (as set.empty (FiniteSet Int)))",
+        "(or (= S (as set.empty (FiniteSet Int))) (not b))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) (p x)) (as set.empty (FiniteSet Int))) (as set.empty (FiniteSet Int)))",
+        "true");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) (and (= c x) (p x))) S) (as set.empty (FiniteSet Int)))",
+        "(not (and (set.in c S) (p c)))");
+    check_finite_set_simplification(
+        "(= S (set.filter (lambda ((x Int)) (and (= x c) (p x))) S))",
+        "(or (= S (as set.empty (FiniteSet Int))) (and (= S (set.singleton c)) (p c)))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Clock)) (and (<= c (time x)) (<= (time x) (+ c 0)))) C) (as set.empty (FiniteSet Clock)))",
+        "(not (set.in (tick c) C))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Clock)) (and (= (time x) c) (p (time x)))) C) C)",
+        "(or (= C (as set.empty (FiniteSet Clock))) (and (= C (set.singleton (tick c))) (p c)))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) (=> b (p x))) S) S)",
+        "(or (not b) (= (set.filter (lambda ((x Int)) (p x)) S) S))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) (or b (p x))) S) S)",
+        "(or b (= (set.filter (lambda ((x Int)) (p x)) S) S))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((x Int)) (and b (p x))) S) (as set.empty (FiniteSet Int)))",
+        "(or (not b) (= (set.filter (lambda ((x Int)) (p x)) S) (as set.empty (FiniteSet Int))))");
+    check_finite_set_simplification(
+        "(forall ((c Int)) (= (set.filter (lambda ((x Int)) (> c 0)) S) S))",
+        "(forall ((c Int)) (or (= S (as set.empty (FiniteSet Int))) (> c 0)))");
+    check_finite_set_simplification(
+        "(forall ((c Int)) (= (set.filter (lambda ((x Int)) (and (= x c) (forall ((y Int)) (p (+ x y))))) S) (as set.empty (FiniteSet Int))))",
+        "(forall ((c Int)) (not (and (set.in c S) (forall ((y Int)) (p (+ c y))))))");
+    check_finite_set_simplification(
+        "(forall ((c Int)) (= (set.filter (lambda ((x Int)) (and (= x c) (= (set.filter (lambda ((y Int)) (= y x)) T) (as set.empty (FiniteSet Int))))) S) (as set.empty (FiniteSet Int))))",
+        "(forall ((c Int)) (not (and (set.in c S) (not (set.in c T)))))");
+    check_finite_set_simplification(
+        "(not (= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= x hi)) S) S)) S) (as set.empty (FiniteSet Int))))",
+        "(not (= S (as set.empty (FiniteSet Int))))");
+    check_finite_set_simplification(
+        "(= (as set.empty (FiniteSet Int)) (set.filter (lambda ((lo Int)) (= S (set.filter (lambda ((x Int)) (>= (f x) (f lo))) S))) S))",
+        "(= S (as set.empty (FiniteSet Int)))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((hi Clock)) (= (set.filter (lambda ((x Clock)) (<= (time hi) (time x))) C) C)) C) (as set.empty (FiniteSet Clock)))",
+        "(= C (as set.empty (FiniteSet Clock)))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((hi Pair)) (= (set.filter (lambda ((x Pair)) (<= (first x) (first hi))) P) P)) P) (as set.empty (FiniteSet Pair)))",
+        "(= P (as set.empty (FiniteSet Pair)))");
+    check_finite_set_simplification(
+        "(= (set.filter (lambda ((hi Real)) (= (set.filter (lambda ((x Real)) (<= x hi)) R) R)) R) (as set.empty (FiniteSet Real)))",
+        "(= R (as set.empty (FiniteSet Real)))");
+    check_finite_set_simplification(
+        "(forall ((U (FiniteSet Int))) (= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= x hi)) U) U)) U) (as set.empty (FiniteSet Int))))",
+        "(forall ((U (FiniteSet Int))) (= U (as set.empty (FiniteSet Int))))");
+    check_finite_set_simplification(
+        "(forall ((c Int)) (= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= (* c x) (* c hi))) S) S)) S) (as set.empty (FiniteSet Int))))",
+        "(forall ((c Int)) (= S (as set.empty (FiniteSet Int))))");
+
+    char const* unchanged[] = {
+        "(= (set.filter (lambda ((x Clock)) (and (>= (time x) c) (<= (time x) (+ c 1)))) C) (as set.empty (FiniteSet Clock)))",
+        "(= (set.filter (lambda ((x Pair)) (= (first x) c)) P) (as set.empty (FiniteSet Pair)))",
+        "(= (set.filter (lambda ((x Maybe)) (= (value x) c)) M) (as set.empty (FiniteSet Maybe)))",
+        "(= (set.filter (lambda ((x Clock)) (= (time x) r)) C) (as set.empty (FiniteSet Clock)))",
+        "(= (set.filter (lambda ((x Int)) (= x (f x))) S) (as set.empty (FiniteSet Int)))",
+        "(= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= x hi)) T) T)) S) (as set.empty (FiniteSet Int)))",
+        "(= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (< x hi)) S) S)) S) (as set.empty (FiniteSet Int)))",
+        "(= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= (f x) (- (f hi) 1))) S) S)) S) (as set.empty (FiniteSet Int)))",
+        "(= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= (h x hi) (h hi hi))) S) S)) S) (as set.empty (FiniteSet Int)))",
+        "(= (set.filter (lambda ((hi Int)) (= (set.filter (lambda ((x Int)) (<= x hi)) S) S)) S) S)"
+    };
+    for (char const* input : unchanged)
+        check_finite_set_simplification(input, input);
+}
+
+static void tst_finite_set_simplifier_state(bool proofs) {
+    ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+    reg_decl_plugins(m);
+    finite_set_util fs(m);
+    arith_util arith(m);
+    sort_ref ints(arith.mk_int(), m);
+    sort_ref sets(fs.mk_finite_set_sort(ints), m);
+    expr_ref s(m.mk_const("S", sets), m), b(m.mk_const("b", m.mk_bool_sort()), m);
+    symbol name("x");
+    sort* domain = ints;
+    quantifier_ref predicate(m.mk_lambda(1, &domain, &name, b), m);
+    expr_ref filtered(fs.mk_filter(predicate, s), m);
+    expr_ref formula(m.mk_eq(filtered, s), m);
+    expr_dependency_ref dep(m.mk_leaf(b), m);
+    proof_ref pr(m.mk_asserted(formula), m);
+    base_dependent_expr_state state(m);
+    state.add(dependent_expr(m, formula, pr, dep));
+    state.advance_qhead();
+    state.add(dependent_expr(m, formula, pr, dep));
+    finite_set_simplifier simplify(m, params_ref(), state);
+    simplify.reduce();
+    ENSURE(state[0].fml() == formula);
+    if (proofs) {
+        ENSURE(state[1].fml() == formula);
+        ENSURE(state[1].pr() == pr.get());
+        return;
+    }
+    ENSURE(state[1].fml() != formula);
+    ENSURE(state[1].dep() == dep.get());
+    expr_ref result(state[1].fml(), m);
+    simplify.reduce();
+    ENSURE(state[1].fml() == result);
+}
+
+static void tst_finite_set_tactic() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "finite-set");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_solver base = Z3_mk_solver_from_tactic(ctx, tactic);
+    Z3_solver_inc_ref(ctx, base);
+    Z3_simplifier simplifier = Z3_mk_simplifier(ctx, "finite-set-simplify");
+    Z3_simplifier_inc_ref(ctx, simplifier);
+    Z3_solver solver = Z3_solver_add_simplifier(ctx, base, simplifier);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_solver_from_string(ctx, solver, R"(
+        (declare-const S (FiniteSet Int))
+        (assert (not (= (set.filter (lambda ((x Int)) (= x 5)) S)
+                       (as set.empty (FiniteSet Int)))))
+    )");
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_model model = Z3_solver_get_model(ctx, solver);
+    Z3_model_inc_ref(ctx, model);
+    Z3_ast_vector assertions = Z3_solver_get_assertions(ctx, solver);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    Z3_ast value = nullptr;
+    ENSURE(Z3_model_eval(ctx, model, Z3_ast_vector_get(ctx, assertions, 0), true, &value));
+    ENSURE(Z3_get_bool_value(ctx, Z3_simplify(ctx, value)) == Z3_L_TRUE);
+    Z3_solver_push(ctx, solver);
+    Z3_solver_assert(ctx, solver, Z3_mk_not(ctx, Z3_ast_vector_get(ctx, assertions, 0)));
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+    Z3_solver_pop(ctx, solver, 1);
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_model_dec_ref(ctx, model);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_simplifier_dec_ref(ctx, simplifier);
+    Z3_solver_dec_ref(ctx, base);
+
+    Z3_solver core_solver = Z3_mk_solver_from_tactic(ctx, tactic);
+    Z3_solver_inc_ref(ctx, core_solver);
+    Z3_params params = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, params);
+    Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "unsat_core"), true);
+    Z3_solver_set_params(ctx, core_solver, params);
+    Z3_ast_vector core_assertions = Z3_parse_smtlib2_string(ctx, R"(
+        (declare-const CoreS (FiniteSet Int))
+        (assert (not (= (set.filter (lambda ((x Int)) (= x 5)) CoreS)
+                       (as set.empty (FiniteSet Int)))))
+        (assert (not (set.in 5 CoreS)))
+    )", 0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, core_assertions);
+    for (unsigned i = 0; i < 2; ++i) {
+        Z3_ast label = Z3_mk_const(ctx, Z3_mk_int_symbol(ctx, i), Z3_mk_bool_sort(ctx));
+        Z3_solver_assert_and_track(ctx, core_solver, Z3_ast_vector_get(ctx, core_assertions, i), label);
+    }
+    ENSURE(Z3_solver_check(ctx, core_solver) == Z3_L_FALSE);
+    ENSURE(Z3_ast_vector_size(ctx, Z3_solver_get_unsat_core(ctx, core_solver)) == 2);
+    Z3_stats stats = Z3_solver_get_statistics(ctx, core_solver);
+    Z3_stats_inc_ref(ctx, stats);
+    bool invoked = false;
+    for (unsigned i = 0; i < Z3_stats_size(ctx, stats); ++i)
+        if (std::string(Z3_stats_get_key(ctx, stats, i)) == "finite-set-simplify-fixed-points")
+            invoked |= Z3_stats_get_uint_value(ctx, stats, i) > 0;
+    ENSURE(invoked);
+    Z3_stats_dec_ref(ctx, stats);
+    Z3_ast_vector_dec_ref(ctx, core_assertions);
+    Z3_params_dec_ref(ctx, params);
+    Z3_solver_dec_ref(ctx, core_solver);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_del_context(ctx);
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_filter();
@@ -446,4 +906,10 @@ void tst_finite_set() {
     tst_finite_set_size_union_singletons();
     tst_finite_set_quantified_membership();
     tst_finite_set_lambda_filter();
+    tst_finite_set_lambda_predicates(false);
+    tst_finite_set_lambda_predicates(true);
+    tst_finite_set_simplifier();
+    tst_finite_set_simplifier_state(false);
+    tst_finite_set_simplifier_state(true);
+    tst_finite_set_tactic();
 }
