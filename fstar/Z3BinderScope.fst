@@ -83,13 +83,44 @@ let rec entries_scoped (t:scope_demands) (cache:I.index_tree judgment) (k:nat) (
 
 (* --- The bounded primitives compute the specification -------------------------- *)
 
-let rec lemma_length_within (#a:Type) (work:nat) (l:list a)
-  : Lemma (requires Some? (scope_length_within work l))
-          (ensures fst (Some?.v (scope_length_within work l)) == L.length l)
+(* The scope-length loop: `acc` plus the length and the work left, or `None`
+   when the list is longer than the work. *)
+let rec lemma_length_acc (#a:Type) (work acc:nat) (l:list a)
+  : Lemma (ensures scope_length_acc work acc l ==
+                   (if L.length l <= work then Some (acc + L.length l, work - L.length l) else None))
           (decreases l)
   = match l with
     | [] -> ()
-    | _ :: rest -> lemma_length_within (work - 1) rest
+    | _ :: rest -> if work > 0 then lemma_length_acc (work - 1) (acc + 1) rest
+
+(* The recursive definition of d50187500, as deep as the list on the Cherry
+   backend, computes the same: the loop changes no result or charge. *)
+let rec scope_length_rec (#a:Type) (work:nat) (l:list a)
+  : Tot (option (nat & nat)) (decreases l) =
+  match l with
+  | [] -> Some (0, work)
+  | _ :: rest ->
+    if work = 0 then None
+    else (match scope_length_rec (work - 1) rest with
+          | Some (n, w) -> Some (n + 1, w)
+          | None -> None)
+
+let rec lemma_length_rec (#a:Type) (work:nat) (l:list a)
+  : Lemma (ensures scope_length_rec work l ==
+                   (if L.length l <= work then Some (L.length l, work - L.length l) else None))
+          (decreases l)
+  = match l with
+    | [] -> ()
+    | _ :: rest -> if work > 0 then lemma_length_rec (work - 1) rest
+
+let lemma_length_same (#a:Type) (work:nat) (l:list a)
+  : Lemma (scope_length_within work l == scope_length_rec work l)
+  = lemma_length_acc work 0 l; lemma_length_rec work l
+
+let lemma_length_within (#a:Type) (work:nat) (l:list a)
+  : Lemma (requires Some? (scope_length_within work l))
+          (ensures fst (Some?.v (scope_length_within work l)) == L.length l)
+  = lemma_length_acc work 0 l
 
 let rec lemma_count_cells (#a:Type) (acc:nat) (l:list a)
   : Lemma (ensures count_cells acc l == acc + L.length l) (decreases l)
@@ -329,6 +360,7 @@ let lemma_guard (count work:nat) (c:binder_certificate) (cache:I.index_tree judg
                    L.memP [] (scope_demanded (fst (Some?.v (binder_scopes count work c))) c.binder_root) /\
                    entries_scoped (fst (Some?.v (binder_scopes count work c))) cache 0 c.binder_entries)
   = let t, w = Some?.v (binder_scopes count work c) in
+    lemma_count_cells 0 c.binder_entries;
     FStar.List.Tot.Properties.mem_memP [] (scope_demanded t c.binder_root);
     lemma_entries_checked t cache 0 c.binder_entries w
 
@@ -370,7 +402,7 @@ let lemma_checked_guard (skolems:list SK.definition) (assertions:list judgment)
                     let n = L.length c.binder_entries in
                     I.index_find cache c.binder_root == Some concl /\
                     binder_scoped_within (binder_demand_limit n) (binder_work_limit n) c cache))
-  = ()
+  = lemma_count_cells 0 c.binder_entries
 
 let lemma_checked_root_scoped (skolems:list SK.definition) (assertions:list judgment)
                               (c:binder_certificate) (concl:judgment)

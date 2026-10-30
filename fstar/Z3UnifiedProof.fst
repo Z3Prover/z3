@@ -599,16 +599,19 @@ let binder_work_limit (n:nat) : nat = 65536 * (n + 1)
 let scope_charge (work cost:nat) : option nat =
   if cost <= work then Some (work - cost) else None
 
-(* The length of `l`, one unit per element. *)
-let rec scope_length_within (#a:Type) (work:nat) (l:list a)
+(* `acc` plus the length of `l`, one unit per element, by a self tail call: the
+   Cherry backend compiles it to a loop (`goto`), so it needs no stack in the
+   length of `l` (a binder list can be as long as the work allows). *)
+let rec scope_length_acc (#a:Type) (work acc:nat) (l:list a)
   : Tot (option (nat & nat)) (decreases l) =
   match l with
-  | [] -> Some (0, work)
-  | _ :: rest ->
-    if work = 0 then None
-    else (match scope_length_within (work - 1) rest with
-          | Some (n, w) -> Some (n + 1, w)
-          | None -> None)
+  | [] -> Some (acc, work)
+  | _ :: rest -> if work = 0 then None else scope_length_acc (work - 1) (acc + 1) rest
+
+(* The length of `l` and the work left, one unit per element; `None` when `l`
+   is longer than `work` (`Z3BinderScope.lemma_length_acc`). *)
+let scope_length_within (#a:Type) (work:nat) (l:list a) : option (nat & nat) =
+  scope_length_acc work 0 l
 
 (* The number of elements of `l` plus `acc`, by a self tail call: the Cherry
    backend compiles it to a loop (`goto`), so it needs no stack in the length
@@ -874,9 +877,10 @@ let rec scope_entries_checked (t:scope_demands) (cache:Z3ProofIndex.index_tree j
 
 (* The scopes assigned by the backward pass, starting from the root at `[]`,
    and the work left; `None` when a bound is exceeded or a premise is not an
-   earlier entry. *)
+   earlier entry. The guard counts entries with `count_cells` (a loop), which
+   is `L.length` (`Z3BinderScope.lemma_count_cells`). *)
 let binder_scopes (count work:nat) (certificate:binder_certificate) : option (scope_demands & nat) =
-  let n = L.length certificate.binder_entries in
+  let n = count_cells 0 certificate.binder_entries in
   let root = certificate.binder_root in
   if 0 <= root && root < n then
     scope_demand_entries (Z3ProofIndex.index_put Z3ProofIndex.Empty root [[]]) (n - 1)
@@ -888,7 +892,7 @@ let binder_scopes (count work:nat) (certificate:binder_certificate) : option (sc
 let binder_scoped_within (count work:nat) (certificate:binder_certificate)
                          (cache:Z3ProofIndex.index_tree judgment) : bool =
   let root = certificate.binder_root in
-  0 <= root && root < L.length certificate.binder_entries &&
+  0 <= root && root < count_cells 0 certificate.binder_entries &&
   (match binder_scopes count work certificate with
    | Some (t, w) ->
      L.mem [] (scope_demanded t root) &&
@@ -896,7 +900,7 @@ let binder_scoped_within (count work:nat) (certificate:binder_certificate)
    | None -> false)
 
 let binder_scoped (certificate:binder_certificate) (cache:Z3ProofIndex.index_tree judgment) : bool =
-  let n = L.length certificate.binder_entries in
+  let n = count_cells 0 certificate.binder_entries in
   binder_scoped_within (binder_demand_limit n) (binder_work_limit n) certificate cache
 
 let check_binder_with_context (skolems:list SK.definition) (assertions:list judgment)
