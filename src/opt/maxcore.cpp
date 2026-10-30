@@ -323,6 +323,13 @@ public:
             if (!bounds_meet())
                 improve_model(m_model);
         }
+        // The bounds can meet before the correction loop runs, e.g. when the
+        // relaxation seeds a model that attains the relaxation lower bound.
+        // The current model is then an optimal assignment for this objective;
+        // record it so commit_assignment pins the soft literals and later
+        // lex objectives respect this objective's optimum.
+        if (!m_found_feasible_optimum)
+            m_found_feasible_optimum = m_model.get() != nullptr;
         m_relaxation_closed = m_lower < m_upper;
         m_lower = m_upper;
         trace();
