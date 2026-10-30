@@ -67,9 +67,12 @@ static void tst_forall_real(unsigned rlimit) {
         return;
     }
     // Without elimination the arithmetic solver does not see the
-    // quantified bound, and the optimum stays unknown.
+    // quantified bound; whatever it answers must not contradict it.
     expr_ref_vector asms(m);
-    ENSURE(ctx.optimize(asms) == l_undef);
+    lbool r = ctx.optimize(asms);
+    ENSURE(r != l_false);
+    if (r == l_true)
+        ENSURE(is_value(a, ctx.get_upper(0), 1));
 }
 
 static void tst_exists_real() {
@@ -117,6 +120,79 @@ static void tst_window_int() {
     expr_ref width(a.mk_sub(k, n), m);
     ctx.add_objective(to_app(width.get()), false);
     check_optimum(ctx, width, 3);
+    // The second check-sat reuses the remembered elimination.
+    check_optimum(ctx, width, 3);
+}
+
+static void tst_negative_divisor() {
+    // With 0 <= x <= 10, exists z. 0 <= z <= x and (mod z -3) = 0 holds
+    // for every x (take z = 0), so the maximum of x is 10. The qe tactic
+    // alone turns the constraint into false.
+    std::cout << "opt_quantifiers: mod by a negative numeral\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    expr_ref x(m.mk_const("x", a.mk_int()), m);
+    sort* integer = a.mk_int();
+    symbol z_name("z");
+    expr_ref z(m.mk_var(0, integer), m);
+    expr_ref body(m.mk_and(a.mk_le(a.mk_int(0), z), a.mk_le(z, x),
+                           m.mk_eq(a.mk_mod(z, a.mk_int(-3)), a.mk_int(0))), m);
+    ctx.add_hard_constraint(m.mk_exists(1, &integer, &z_name, body));
+    ctx.add_hard_constraint(a.mk_ge(x, a.mk_int(0)));
+    ctx.add_hard_constraint(a.mk_le(x, a.mk_int(10)));
+    ctx.add_objective(to_app(x.get()), true);
+    check_optimum(ctx, x, 10);
+}
+
+static void tst_positive_divisor_offset() {
+    // With 0 <= a <= 5: exists y0 in [-3, a + 3]. forall y1 in [-3, a + 3].
+    // (mod (y0 - 1) 3) != y1 + 2 a + 13. The right side is at least 10
+    // and mod is at most 2, so the constraint holds and the maximum of a
+    // is 5. The qe tactic alone turns the constraint into false.
+    std::cout << "opt_quantifiers: mod with an offset\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    expr_ref c(m.mk_const("a", a.mk_int()), m);
+    sort* integer = a.mk_int();
+    symbol y0_name("y0"), y1_name("y1");
+    expr_ref upper(a.mk_add(c, a.mk_int(3)), m);
+    // Inside forall y1 the variable y1 has index 0 and y0 has index 1.
+    expr_ref y1(m.mk_var(0, integer), m);
+    expr_ref y0_inner(m.mk_var(1, integer), m);
+    expr_ref lhs(a.mk_mod(a.mk_add(y0_inner, a.mk_int(-1)), a.mk_int(3)), m);
+    expr_ref rhs(a.mk_add(y1, a.mk_mul(a.mk_int(2), c), a.mk_int(13)), m);
+    expr_ref y1_range(m.mk_and(a.mk_le(a.mk_int(-3), y1), a.mk_le(y1, upper)), m);
+    expr_ref forall_y1(m.mk_forall(1, &integer, &y1_name, m.mk_implies(y1_range, m.mk_not(m.mk_eq(lhs, rhs)))), m);
+    expr_ref y0(m.mk_var(0, integer), m);
+    expr_ref y0_range(m.mk_and(a.mk_le(a.mk_int(-3), y0), a.mk_le(y0, upper)), m);
+    ctx.add_hard_constraint(m.mk_exists(1, &integer, &y0_name, m.mk_and(y0_range, forall_y1)));
+    ctx.add_hard_constraint(a.mk_ge(c, a.mk_int(0)));
+    ctx.add_hard_constraint(a.mk_le(c, a.mk_int(5)));
+    ctx.add_objective(to_app(c.get()), true);
+    check_optimum(ctx, c, 5);
+}
+
+static void tst_negated_coefficient() {
+    // maximize x subject to forall y >= 0. x + (* (- 1) y) <= 7; the
+    // coefficient (- 1) is folded into the numeral -1, and the optimum is 7.
+    std::cout << "opt_quantifiers: coefficient written as (- 1)\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    expr_ref x(m.mk_const("x", a.mk_real()), m);
+    sort* real = a.mk_real();
+    symbol y_name("y");
+    expr_ref y(m.mk_var(0, real), m);
+    expr_ref minus_y(a.mk_mul(a.mk_uminus(a.mk_real(1)), y), m);
+    expr_ref body(m.mk_implies(a.mk_ge(y, a.mk_real(0)), a.mk_le(a.mk_add(x, minus_y), a.mk_real(7))), m);
+    ctx.add_hard_constraint(m.mk_forall(1, &real, &y_name, body));
+    ctx.add_objective(to_app(x.get()), true);
+    check_optimum(ctx, x, 7);
 }
 
 static void tst_nonlinear_kept() {
@@ -143,5 +219,8 @@ void tst_opt_quantifiers() {
     tst_forall_real(0);
     tst_exists_real();
     tst_window_int();
+    tst_negative_divisor();
+    tst_positive_divisor_offset();
+    tst_negated_coefficient();
     tst_nonlinear_kept();
 }

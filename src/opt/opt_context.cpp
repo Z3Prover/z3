@@ -33,6 +33,9 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/arith/lia2card_tactic.h"
 #include "qe/qe_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/expr_abstract.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -147,6 +150,7 @@ namespace opt {
         m_model_fixed(),
         m_objective_refs(m),
         m_core(m),
+        m_elim_quantifiers_pinned(m),
         m_unknown("unknown")
     {
         params_ref p;
@@ -365,6 +369,10 @@ namespace opt {
         }
         internalize();
         update_solver();
+        // A timeout or Ctrl-C during normalize: report unknown, as when
+        // the first check below is canceled.
+        if (!m.inc())
+            return l_undef;
         if (contains_quantifiers()) {
             warning_msg("optimization with quantified constraints is not supported");
         }
@@ -1151,11 +1159,18 @@ namespace opt {
         expr_ref_vector fmls(m);
         m_model_converter = nullptr;
         to_fmls(fmls);
-        eliminate_quantifiers(fmls);
-        simplify_fmls(fmls, asms);
-        while (asms.empty() && simplify_min_max_of_sums(fmls))
+        // A timeout or Ctrl-C during quantifier elimination is raised again
+        // only after from_fmls, which would throw otherwise; optimize then
+        // reports unknown.
+        bool canceled = !eliminate_quantifiers(fmls);
+        if (!canceled) {
             simplify_fmls(fmls, asms);
+            while (asms.empty() && simplify_min_max_of_sums(fmls))
+                simplify_fmls(fmls, asms);
+        }
         from_fmls(fmls);
+        if (canceled)
+            m.limit().cancel();
     }
 
     namespace {
@@ -1167,6 +1182,7 @@ namespace opt {
             arith_util               a;
             bool                     m_has_int = false;
             bool                     m_has_real = false;
+            bool                     m_has_mod_div = false;
             obj_hashtable<func_decl> m_constants;
 
             bool check_sort(sort* s) {
@@ -1204,7 +1220,10 @@ namespace opt {
                             ++num_terms;
                     return num_terms <= 1;
                 }
-                case OP_DIV: case OP_IDIV: case OP_MOD:
+                case OP_IDIV: case OP_MOD:
+                    m_has_mod_div = true;
+                    return a.is_numeral(e->get_arg(1), divisor) && !divisor.is_zero();
+                case OP_DIV:
                     return a.is_numeral(e->get_arg(1), divisor) && !divisor.is_zero();
                 default:
                     return false;
@@ -1249,6 +1268,110 @@ namespace opt {
             }
 
             obj_hashtable<func_decl> const& constants() const { return m_constants; }
+
+            // Whether the formula contains integer div or mod.
+            bool has_mod_div() const { return m_has_mod_div; }
+        };
+
+        // The arithmetic plugin of the qe tactic does not eliminate
+        // variables correctly from some formulas with mod (for example, a
+        // negative divisor, or a positive one with an offset inside mod).
+        // Before elimination, each integer (div t k) and (mod t k) inside a
+        // quantifier is replaced by a fresh variable of that quantifier:
+        // t = k q + r and 0 <= r < |k| define q = (div t k) and
+        // r = (mod t k) uniquely, so binding q and r existentially (under
+        // exists) or universally with the definition as premise (under
+        // forall) gives an equivalent formula in pure linear arithmetic.
+        class mod_div_purifier {
+            ast_manager&          m;
+            arith_util            a;
+            obj_map<expr, expr*>  m_cache;
+            expr_ref_vector       m_pinned;
+
+            expr* pin(expr* e) {
+                m_pinned.push_back(e);
+                return e;
+            }
+
+            // Replaces div and mod outside nested quantifiers of the
+            // instantiated body e. The quotient and remainder of each (t, k)
+            // are added to vars and their definitions to defs.
+            expr* replace(expr* e, obj_map<expr, expr*>& cache, obj_map<expr, std::pair<app*, app*>>& divisions,
+                          app_ref_vector& vars, expr_ref_vector& defs) {
+                expr* r = nullptr;
+                if (!is_app(e))
+                    return e;
+                if (cache.find(e, r))
+                    return r;
+                app* ap = to_app(e);
+                ptr_buffer<expr> args;
+                for (expr* arg : *ap)
+                    args.push_back(replace(arg, cache, divisions, vars, defs));
+                r = pin(m.mk_app(ap->get_decl(), args.size(), args.data()));
+                rational k;
+                if ((a.is_mod(r) || a.is_idiv(r)) && a.is_numeral(args[1], k) && !k.is_zero()) {
+                    expr* key = pin(a.mk_mod(args[0], args[1]));
+                    std::pair<app*, app*> qr;
+                    if (!divisions.find(key, qr)) {
+                        qr.first = m.mk_fresh_const("q", a.mk_int());
+                        qr.second = m.mk_fresh_const("r", a.mk_int());
+                        vars.push_back(qr.first);
+                        vars.push_back(qr.second);
+                        defs.push_back(m.mk_eq(args[0], a.mk_add(a.mk_mul(a.mk_int(k), qr.first), qr.second)));
+                        defs.push_back(a.mk_ge(qr.second, a.mk_int(0)));
+                        defs.push_back(a.mk_lt(qr.second, a.mk_int(abs(k))));
+                        divisions.insert(key, qr);
+                    }
+                    r = a.is_mod(r) ? qr.second : qr.first;
+                }
+                cache.insert(e, r);
+                return r;
+            }
+
+        public:
+            mod_div_purifier(ast_manager& m): m(m), a(m), m_pinned(m) {}
+
+            expr* operator()(expr* e) {
+                expr* r = nullptr;
+                if (is_var(e))
+                    return e;
+                if (m_cache.find(e, r))
+                    return r;
+                if (is_quantifier(e)) {
+                    quantifier* q = to_quantifier(e);
+                    unsigned n = q->get_num_decls();
+                    app_ref_vector vars(m);
+                    for (unsigned i = 0; i < n; ++i)
+                        vars.push_back(m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i)));
+                    expr_ref body = instantiate(m, q, (expr* const*) vars.data());
+                    body = (*this)(body);
+                    obj_map<expr, expr*> cache;
+                    obj_map<expr, std::pair<app*, app*>> divisions;
+                    expr_ref_vector defs(m);
+                    body = replace(body, cache, divisions, vars, defs);
+                    if (!defs.empty())
+                        body = is_forall(q) ? m.mk_implies(mk_and(defs), body) : m.mk_and(mk_and(defs), body);
+                    body = expr_abstract(vars, body);
+                    ptr_buffer<sort> sorts;
+                    buffer<symbol> names;
+                    for (app* v : vars) {
+                        sorts.push_back(v->get_sort());
+                        names.push_back(v->get_decl()->get_name());
+                    }
+                    for (unsigned i = 0; i < n; ++i)
+                        names[i] = q->get_decl_name(i);
+                    r = pin(m.mk_quantifier(q->get_kind(), vars.size(), sorts.data(), names.data(), body));
+                }
+                else {
+                    app* ap = to_app(e);
+                    ptr_buffer<expr> args;
+                    for (expr* arg : *ap)
+                        args.push_back((*this)(arg));
+                    r = pin(m.mk_app(ap->get_decl(), args.size(), args.data()));
+                }
+                m_cache.insert(e, r);
+                return r;
+            }
         };
     }
 
@@ -1257,56 +1380,85 @@ namespace opt {
     // tactic finds for it. The two are equivalent over the free constants,
     // so the optimum and the models of the free constants are unchanged.
     // Constraints for which no such formula is found within
-    // opt.elim_quantifiers_rlimit are kept.
-    void context::eliminate_quantifiers(expr_ref_vector& fmls) {
+    // opt.elim_quantifiers_rlimit are kept. The outcome for each constraint
+    // is remembered, so later check-sat calls do not repeat the work.
+    // Returns false if a timeout or Ctrl-C arrived; the caller must raise
+    // it again, because popping the private budget clears it.
+    bool context::eliminate_quantifiers(expr_ref_vector& fmls) {
         unsigned budget = opt_params(m_params).elim_quantifiers_rlimit();
-        // Pushing a resource scope clears the cancellation flag.
         if (budget == 0 || !m.inc())
-            return;
+            return true;
+        if (budget != m_elim_quantifiers_budget) {
+            m_elim_quantifiers_cache.reset();
+            m_elim_quantifiers_pinned.reset();
+            m_elim_quantifiers_budget = budget;
+        }
         bool external_cancel = false;
         {
+            // Pushing a resource scope clears the cancellation flag.
             scoped_rlimit limit(m.limit(), budget);
             for (unsigned i = 0; i < fmls.size() && m.inc(); ++i) {
                 expr* f = fmls.get(i);
+                expr* cached = nullptr;
+                if (m_elim_quantifiers_cache.find(f, cached)) {
+                    fmls[i] = cached;
+                    continue;
+                }
                 if (!has_quantifiers(f) || is_objective(f))
                     continue;
-                linear_arith_fragment input(m);
-                if (!input.contains(f))
+                expr_ref result = eliminate_quantifiers(f);
+                // A constraint that failed because of a timeout or Ctrl-C
+                // may succeed next time.
+                if (result.get() == f && !m.inc() && m.limit().get_cancel_msg() == Z3_CANCELED_MSG)
                     continue;
-                expr_ref result(m);
-                try {
-                    goal_ref g = alloc(goal, m, false, false);
-                    g->assert_expr(f);
-                    goal_ref_buffer goals;
-                    tactic_ref qe = mk_qe_tactic(m, params_ref());
-                    (*qe)(g, goals);
-                    if (goals.size() != 1)
-                        continue;
-                    expr_ref_vector conjuncts(m);
-                    goals[0]->get_formulas(conjuncts);
-                    result = mk_and(conjuncts);
-                }
-                catch (z3_exception& ex) {
-                    IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed " << ex.what() << ")\n");
-                    continue;
-                }
-                // The result must not introduce constants that f does not have.
-                linear_arith_fragment output(m);
-                if (has_quantifiers(result) || !output.contains(result))
-                    continue;
-                bool same_constants = true;
-                for (func_decl* c : output.constants())
-                    same_constants &= input.constants().contains(c);
-                if (!same_constants)
-                    continue;
-                IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers " << mk_bounded_pp(result, m, 2) << ")\n");
+                m_elim_quantifiers_pinned.push_back(f);
+                m_elim_quantifiers_pinned.push_back(result);
+                m_elim_quantifiers_cache.insert(f, result);
                 fmls[i] = result;
             }
             external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
         }
-        // Popping the private budget must not swallow a timeout or Ctrl-C.
-        if (external_cancel)
-            m.limit().cancel();
+        return !external_cancel;
+    }
+
+    // The quantifier-free equivalent of f, or f itself.
+    expr_ref context::eliminate_quantifiers(expr* f) {
+        expr_ref g(f, m), result(m);
+        linear_arith_fragment input(m);
+        try {
+            // Fold numerals such as (- 1) and (/ 1.0 2.0).
+            th_rewriter rw(m);
+            rw(g);
+            if (!input.contains(g))
+                return expr_ref(f, m);
+            if (input.has_mod_div()) {
+                mod_div_purifier purify(m);
+                g = purify(g);
+            }
+            goal_ref goal = alloc(::goal, m, false, false);
+            goal->assert_expr(g);
+            goal_ref_buffer goals;
+            tactic_ref qe = mk_qe_tactic(m, params_ref());
+            (*qe)(goal, goals);
+            if (goals.size() != 1)
+                return expr_ref(f, m);
+            expr_ref_vector conjuncts(m);
+            goals[0]->get_formulas(conjuncts);
+            result = mk_and(conjuncts);
+        }
+        catch (z3_exception& ex) {
+            IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed " << ex.what() << ")\n");
+            return expr_ref(f, m);
+        }
+        // The result must not introduce constants that f does not have.
+        linear_arith_fragment output(m);
+        if (has_quantifiers(result) || !output.contains(result))
+            return expr_ref(f, m);
+        for (func_decl* c : output.constants())
+            if (!input.constants().contains(c))
+                return expr_ref(f, m);
+        IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers " << mk_bounded_pp(result, m, 2) << ")\n");
+        return result;
     }
 
     void context::simplify_fmls(expr_ref_vector& fmls, expr_ref_vector const& asms) {
