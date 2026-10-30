@@ -42,8 +42,9 @@ class CherryBuildTests(unittest.TestCase):
                 self.assertTrue((root / module).is_file())
         self.assertLess(modules.index("Z3ProofDocument.fst"), modules.index("Z3NativeProof.fst"))
         self.assertLess(modules.index("Z3SortedProof.fst"), modules.index("Z3NativeProof.fst"))
-        self.assertEqual(manifest["modules"][-3:],
-                         ["Z3Native.fsti", "Z3NativeProof.fst", "Z3Tptp.fst"])
+        self.assertEqual(manifest["modules"][-4:],
+                         ["Z3Native.fsti", "Z3NativeProof.fst", "Z3Tptp.fst",
+                          "Z3DirectProof.fst"])
 
 
 class CheckerPackageTests(unittest.TestCase):

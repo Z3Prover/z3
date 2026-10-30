@@ -70,7 +70,7 @@ def build(args):
         modules += manifest["tests"] + ["Z3CherryTests.fst"]
     for module in modules:
         run(common + ["--cache_checked_modules", ROOT / module])
-    entries = ["Z3Cherry.marshal", "Z3Cherry.check", "Z3Cherry.diagnose", "Z3Cherry.tstp",
+    entries = ["Z3Cherry.marshal", "Z3Cherry.check", "Z3Cherry.diagnose", "Z3Cherry.tstp", "Z3Cherry.direct",
                "Z3Cherry.constructor_op", "Z3Cherry.recognizer_op",
                "Z3Cherry.accessor_op", "Z3Cherry.rational_op"]
     if args.run_tests:
@@ -115,6 +115,7 @@ def build(args):
         run([output / "checker-tests"])
         environment = os.environ.copy()
         environment["Z3_FSTAR_CHECKER"] = str(output / "checker")
+        environment["Z3_FSTAR_SOLVER"] = str(z3)
         environment.pop("Z3_FSTAR_WSL_DISTRO", None)
         run([sys.executable, ROOT / "tools/test_native_checker.py"], env=environment)
         run([sys.executable, ROOT / "tools/test_convert_taelja.py"], env=environment)

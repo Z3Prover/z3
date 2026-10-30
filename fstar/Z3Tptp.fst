@@ -266,18 +266,20 @@ let rec render_literals (doc:P.document) (scope:list sort) (values:list literal)
     let rest = render_literals doc scope rest in
     a :: rest
 
+let render_clause (doc:P.document) (scope:list sort) (values:list literal) : ML string =
+  let rendered = render_literals doc scope values in
+  let formula = if rendered = [] then "$false" else join " | " rendered in
+  if scope = [] then formula
+  else
+    let variables = binders doc (L.rev scope) 0 in
+    "![" ^ join "," variables ^ "]:(" ^ formula ^ ")"
+
 let clause (doc:P.document) (e:expr) : ML string =
   let scope, body = universal_scope [] e in
   let values = literals true body in
   let positives = L.fold_left (fun n (positive, _) -> if positive then n + 1 else n) 0 values in
   if positives > 1 then unsupported "a clause is not Horn"
-  else
-    let rendered = render_literals doc scope values in
-    let formula = if rendered = [] then "$false" else join " | " rendered in
-    if scope = [] then formula
-    else
-      let variables = binders doc (L.rev scope) 0 in
-      "![" ^ join "," variables ^ "]:(" ^ formula ^ ")"
+  else render_clause doc scope values
 
 let equation (e:expr) : option (expr & expr) =
   match e with

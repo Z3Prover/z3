@@ -64,6 +64,220 @@ of all imports.
 | Typed proof documents | [`Z3ProofDocument.fst`](Z3ProofDocument.fst) performs transport-independent definition, scope, input, and topological validation; [`Z3ProofIndex.fst`](Z3ProofIndex.fst) supplies persistent caches. |
 | Native Z3 integration | [`Z3Native.fsti`](Z3Native.fsti) and [`ocaml_runtime/Z3Native.ml`](ocaml_runtime/Z3Native.ml) expose foreign API views; [`Z3NativeProof.fst`](Z3NativeProof.fst) marshals expressions and proof DAGs directly into checker datatypes. |
 
+## Native direct proofs, including non-Horn clauses
+
+Both native frontends accept `--direct-out FILE` in batch mode. After a
+zero-obligation `ACCEPT`, [`Z3DirectProof.fst`](Z3DirectProof.fst) derives the
+complement of the **last input assertion**, which must be a nonconstant ground
+literal. Put the negation of the desired goal last. Equivalent ground copies
+are omitted too; none is exported as an axiom.
+
+```sh
+checker --direct-out direct.p input.smt2
+```
+
+This path needs no Taelja and permits multiple positive literals. It supports
+clausal unit-resolution proofs over uninterpreted predicates and non-Boolean
+terms, universal instantiation, clause-equivalent preprocessing, and native
+`hypothesis`/`lemma` case-search proofs. For example, from `p | q`, `~p | r`,
+`~q | r`, and the designated input `~r`, it produces a forward derivation of
+`r` from the first three axioms.
+
+A node with conclusion `C` and local hypotheses `H` becomes the unconditional
+clause `C | ~H`, with the goal added if it used the designated input.
+Hypotheses and that input become axiom-free tautologies. Binary resolution
+computes the actual resolvent, followed by checked literal-inclusion weakening
+when necessary. Learned clauses discharge only local hypotheses, never the
+designated input. The output ends in `goal_1` with role `theorem`, not a
+refutation under a negated-goal axiom. Ground equality reflexivity, symmetry,
+binary transitivity, congruence, and predicate rewriting carry the same guards.
+Boolean unit propagation through `iff-true`/`iff-false` proofs does too.
+An independently inconsistent background
+may establish the goal by weakening the empty clause.
+
+The initial path requires ground literal hypotheses and resolution units;
+quantified goals, nonclausal assertions, other equality rules,
+existential/Skolemization, and interpreted theory inferences are unsupported.
+It preserves the shared exporter's declaration/sort naming and typed universal
+binders. `--direct-out` cannot be combined with `--tstp-out`,
+`--interactive`, or `--clause-proofs`. Unsupported exports fail before opening
+the destination. This is a presentation pass, not an extension of the trusted
+kernel or a new soundness theorem for exported text. The native CLI tests can
+independently check every emitted inference against only its cited parents:
+set `Z3_FSTAR_SOLVER` to the checkout Z3 executable (both test builders do so
+automatically).
+
+### A Gentzen LK account
+
+The appropriate calculus is **classical, multiple-succedent LK with equality**.
+Write `Gamma |- Delta` for a sequent: the conjunction of the antecedent
+implies the disjunction of the succedent. An empty succedent means
+contradiction. A clause is a succedent, so a non-Horn clause needs no special
+logical rule or single-positive-literal restriction. `bar(l)` denotes literal
+complement; double negations are normalized classically.
+
+The relevant ordinary LK rules include:
+
+```text
+           B |- B                                      identity
+
+    Gamma, B |- Delta
+    ----------------------                            negation-right
+    Gamma |- Delta, ~B
+
+    Gamma |- Delta, B       B, Pi |- Lambda
+    --------------------------------------            cut
+    Gamma, Pi |- Delta, Lambda
+
+    Gamma |- Delta
+    ------------------                                right weakening
+    Gamma |- Delta, B
+
+    Gamma |- Delta, B, B
+    --------------------                              right contraction
+    Gamma |- Delta, B
+
+    Gamma, B |- Delta       Gamma, D |- Delta
+    ----------------------------------------          disjunction-left
+    Gamma, (B | D) |- Delta
+```
+
+Exchange and left structural rules are implicit. Packing a succedent into
+one disjunctive formula uses disjunction-right.
+
+Let `A` be the designated last literal, `G = bar(A)`, and `Gamma` the
+remaining background assertions, omitting equivalent ground copies of `A`.
+For each retained proof node, `H` records its local hypotheses and `g` its
+dependency on `A`. Its conditional judgment has the form
+`Gamma, H, [A if g] |- C`. Repeated negation-right, classical double-negation
+normalization, and disjunction-right give the export invariant:
+
+```text
+    Gamma |- C, bar(h1), ..., bar(hm), [G if g]
+```
+
+Thus exported clauses are unconditional **relative to Gamma**, not relative
+to the entire original input. The metadata describes the premises retained
+by the presentation pass; clause-equivalent preprocessing can discard
+logically redundant proof dependencies.
+
+**Leaves.** A background assertion remains a background axiom. A local
+hypothesis `h`, or the designated input `A`, is replaced by the corresponding
+identity-derived excluded-middle sequent `|- h, bar(h)` or `|- A, G`.
+Neither becomes a new background axiom.
+
+**Resolution.** For signed-literal clause succedents, the derived cut macro is:
+
+```text
+    Gamma |- D, l       Pi |- E, bar(l)
+    ----------------------------------
+    Gamma, Pi |- D, E
+```
+
+It expands into ordinary LK cut and negation rules. Lifted resolution units
+can have several literals because they carry hypothesis/goal guards. The
+implementation computes their actual binary resolvent, contracts repeated
+literals, then checks literal inclusion before weakening to the required
+lifted conclusion. Weakening matters: if a carried `~p` coincides with a
+resolution pivot, resolving `~p | q` with `p` yields `q`, while retained
+context metadata may still require the weaker `q | ~p`. It is not correct
+to label the latter the exact resolvent without this extra step.
+
+**Learned clauses.** Suppose a native lemma discharges local hypotheses
+`S` from a contradiction, retaining `H'`. Its lifted premise is
+`bar(S) | bar(H') | [G if g]`. The native learned clause `L` contains the
+complements needed to discharge `S`, so the target
+`L | bar(H') | [G if g]` follows by exchange, contraction, and possibly
+weakening. The exporter checks this inclusion. It never removes the
+separate `g` flag when discharging local hypotheses. In the example below,
+learning `p` under the designated input `~r` therefore yields `p | r`,
+not an unconditional theorem `p`.
+
+**Quantifiers and equality.** A universal instance follows by
+universal-left and cut with the universal premise; it is not an extra
+axiom. Guards and goals are ground, so no quantified variable occurs free
+in them. Consequently placing guards inside a universal prefix is
+capture-free and corresponds to standard LK quantifier rules. Ground
+equality uses reflexivity and equality substitution, with cut carrying the
+side succedents through symmetry, transitivity, congruence, and rewriting.
+Boolean unit propagation similarly expands into propositional rules.
+`forward_rewriting` is such a macro inference, not a primitive LK rule.
+
+**Root.** The accepted native root has `C` empty and no local hypotheses.
+If `g` is true, the lifted root is `Gamma |- G`. If it is false, the
+background already derives the empty succedent, and right weakening gives
+`Gamma |- G`. In either case `A` is absent from the final antecedent.
+
+For the first example, resolve `p | q` with `~p | r` to get `q | r`,
+then with `~q | r` to get `r | r`, and contract to `r`. The captured
+`forward_rewriting` step compresses these cuts. Alternatively, the LK
+branches `Gamma, p |- r` and `Gamma, q |- r` combine by disjunction-left
+on the background clause `p | q`.
+
+This is a classical direct derivation of the goal from the background,
+**not a claim of cut elimination or an intuitionistic LJ translation**.
+Excluded middle and classical double-negation normalization remain
+available. The correspondence above is a mathematical account of the
+presentation pass, not an F*-proved semantic-preservation theorem or a
+new trusted kernel rule.
+
+### Reproducible non-Horn examples
+
+The inputs and captured native OCaml outputs are checked in together:
+
+| Input | Captured output | Goal and feature |
+|---|---|---|
+| [`cases.smt2`](examples/direct/cases.smt2) | [`cases.p`](examples/direct/cases.p) | `r`, by disjunctive cases |
+| [`learned-clause.smt2`](examples/direct/learned-clause.smt2) | [`learned-clause.p`](examples/direct/learned-clause.p) | `r`, with native `hypothesis`/`lemma` nodes |
+| [`quantified.smt2`](examples/direct/quantified.smt2) | [`quantified.p`](examples/direct/quantified.p) | `q(a)`, by a typed non-Horn universal instance |
+
+For example:
+
+```sh
+checker --direct-out direct.p fstar/examples/direct/learned-clause.smt2
+```
+
+The learned-clause input is:
+
+```smt2
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(assert (or p q))
+(assert (or (not p) q r))
+(assert (or p (not q) r))
+(assert (or (not p) (not q) r))
+(assert (not r))
+```
+
+Its actual direct output is:
+
+```tptp
+% Native direct proof; the last input assertion is discharged, not an axiom.
+cnf(a0,axiom,((p) | (q))).
+cnf(a1,axiom,(~(p) | (q) | (r))).
+cnf(a2,axiom,((p) | ~(q) | (r))).
+cnf(a3,axiom,(~(p) | ~(q) | (r))).
+cnf(p5,plain,(~(r) | (r)),inference(tautology,[status(thm)],[])).
+cnf(p28,plain,(~(p) | (p)),inference(tautology,[status(thm)],[])).
+cnf(p29_r0,plain,((q) | (p)),inference(resolution,[status(thm)],[a0,p28])).
+cnf(p30_r0,plain,((p) | (r)),inference(resolution,[status(thm)],[a2,p29_r0])).
+cnf(p30_r1,plain,((r) | (p)),inference(resolution,[status(thm)],[p30_r0,p28])).
+cnf(p32_r0,plain,((q) | (r)),inference(resolution,[status(thm)],[a1,p30_r1])).
+cnf(p33_r0,plain,(~(p) | (r)),inference(resolution,[status(thm)],[a3,p32_r0])).
+cnf(p33_r1,plain,((r)),inference(resolution,[status(thm)],[p33_r0,p30_r1])).
+cnf(goal_1,theorem,((r)),inference(reiteration,[status(thm)],[p33_r1])).
+```
+
+There is no `~r` axiom, and `p28` is an excluded-middle theorem, not a
+local assumption smuggled into the background. The clause at `p30_r1` is
+the guarded learned lemma. The three stored outputs are example snapshots,
+not stable proof-node identifiers: a different Z3 version can produce a
+different valid DAG. The native CLI tests replay all three inputs with
+both frontends, compare the background axioms and final goals, and, when
+`Z3_FSTAR_SOLVER` is set, validate every recorded and regenerated inference
+against only its cited parents.
+
 ## Taelja TPTP conversion
 
 Both native frontends accept `--tstp-out FILE` in batch mode. After the

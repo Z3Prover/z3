@@ -48,6 +48,7 @@ struct Options {
     uint32_t timeout = 0;
     std::string path;
     std::string tstp_out;
+    std::string direct_out;
 };
 
 static std::string sort_shape(Z3AstTheory_sort sort, unsigned depth) {
@@ -339,18 +340,20 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
             std::cerr << std::fixed << std::setprecision(3)
                       << "diagnose_ms=" << milliseconds(Clock::now(), check_end) << '\n';
     }
-    if (!options.tstp_out.empty()) {
+    if (!options.tstp_out.empty() || !options.direct_out.empty()) {
         if (result.tag != FSTAR_PERVASIVES_NATIVE_SOME__INT ||
             !cherry_int_eq(result.val.Some, CHERRY_INT_SMALL(0)))
-            throw NativeError("TSTP export requires a fully accepted proof");
-        auto derivation = Z3Cherry_tstp(marshaled.value);
+            throw NativeError("Proof export requires a fully accepted proof");
+        bool direct = !options.direct_out.empty();
+        auto derivation = direct ? Z3Cherry_direct(marshaled.value) : Z3Cherry_tstp(marshaled.value);
         std::string output = text(derivation);
         cherry_dec(derivation);
-        std::ofstream file(options.tstp_out, std::ios::binary);
+        auto const& path = direct ? options.direct_out : options.tstp_out;
+        std::ofstream file(path, std::ios::binary);
         file << output;
         file.close();
         if (!file)
-            throw NativeError("cannot write TSTP output: " + options.tstp_out);
+            throw NativeError("cannot write proof output: " + path);
     }
     size_t edges = 0, binder_nodes = 0, binder_edges = 0;
     each<Prims_list__entry_Cons_s>(doc.entries, [&](auto const& entry) {
@@ -556,13 +559,14 @@ static int interactive(z3::context& context, Options const& options) {
 
 static char const* usage =
     "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] "
-    "[--sorted-core] [--tstp-out FILE] [--timeout-ms N] [input.smt2]\n"
+    "[--sorted-core] [--tstp-out FILE | --direct-out FILE] [--timeout-ms N] [input.smt2]\n"
     "  --interactive    Evaluate stdin commands and certify each UNSAT proof\n"
     "  --clause-proofs  Certify clausal SMT search proofs\n"
     "  --stats          Report phase timings and marshaled node counts\n"
     "  --diagnostics    Report typed unmet-obligation fingerprints\n"
     "  --sorted-core    Use sort-indexed checking without legacy fallback\n"
     "  --tstp-out FILE  Export a fully accepted Horn proof for Taelja\n"
+    "  --direct-out FILE Derive the complement of the last assertion without Taelja\n"
     "  --version        Report the embedded Z3 version\n"
     "  --timeout-ms N   Solver timeout, 0..4294967295 milliseconds (0 is unlimited)\n";
 
@@ -593,6 +597,11 @@ static int run(int argc, char** argv) {
                 throw NativeError("missing --tstp-out path");
             options.tstp_out = argv[i];
         }
+        else if (!anonymous && argument == "--direct-out") {
+            if (++i == argc || !*argv[i])
+                throw NativeError("missing --direct-out path");
+            options.direct_out = argv[i];
+        }
         else if (!anonymous && (argument == "--timeout-ms" || argument.starts_with("--timeout-ms="))) {
             std::string value;
             if (argument == "--timeout-ms") {
@@ -619,6 +628,10 @@ static int run(int argc, char** argv) {
         throw NativeError("--interactive reads commands from stdin, not an input file");
     if (!options.tstp_out.empty() && (options.interactive || options.clause_proofs))
         throw NativeError("--tstp-out requires batch mode without --clause-proofs");
+    if (!options.direct_out.empty() && (options.interactive || options.clause_proofs))
+        throw NativeError("--direct-out requires batch mode without --clause-proofs");
+    if (!options.tstp_out.empty() && !options.direct_out.empty())
+        throw NativeError("cannot combine --tstp-out and --direct-out");
     z3::config config;
     config.set("proof", true);
     config.set("timeout", std::to_string(options.timeout).c_str());

@@ -169,7 +169,7 @@ try {
   Write-Host "=== Phase 1b: extract to OCaml ==="
   $modNames = ($modules | Where-Object { $_ -ne "Z3Native.fsti" } |
     ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
-  foreach ($entry in @("Z3NativeProof.fst", "Z3Tptp.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst", "Z3BvFreshModel.fst")) {
+  foreach ($entry in @("Z3NativeProof.fst", "Z3Tptp.fst", "Z3DirectProof.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst", "Z3BvFreshModel.fst")) {
     & $FstarExe --warn_error '@1..999' --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
         --smt $Z3Exe --z3version $z3Version --extract $modNames $entry
     if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
@@ -205,7 +205,7 @@ try {
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedSemantics.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",
-    "Z3Native.ml", "Z3NativeProof.ml", "Z3Tptp.ml", "Z3NativeMain.ml", "main.ml"
+    "Z3Native.ml", "Z3NativeProof.ml", "Z3Tptp.ml", "Z3DirectProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }
   $orderStr = $order -join " "
@@ -311,9 +311,11 @@ echo BUILD_OK
   if ($wslExitCode -ne 0) { throw "Native build, installation, or tests failed" }
   if ($RunTests) {
     $previousChecker = $env:Z3_FSTAR_CHECKER
+    $previousSolver = $env:Z3_FSTAR_SOLVER
     $previousDistribution = $env:Z3_FSTAR_WSL_DISTRO
     try {
       $env:Z3_FSTAR_CHECKER = "$WslBuildDir/checker"
+      $env:Z3_FSTAR_SOLVER = $Z3Exe
       $env:Z3_FSTAR_WSL_DISTRO = $WslDistribution
       $python = if ($windowsHost) { "python" } else { "python3" }
       & $python (Join-Path $PSScriptRoot "test_native_checker.py")
@@ -323,6 +325,7 @@ echo BUILD_OK
     }
     finally {
       $env:Z3_FSTAR_CHECKER = $previousChecker
+      $env:Z3_FSTAR_SOLVER = $previousSolver
       $env:Z3_FSTAR_WSL_DISTRO = $previousDistribution
     }
   }

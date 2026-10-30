@@ -361,6 +361,218 @@ class DirectCheckerTests(unittest.TestCase):
                    if os.name == "nt" else [os.path.expanduser(checker), *args])
         return subprocess.run(command, input=source, text=True, capture_output=True, timeout=30)
 
+    def validate_direct_steps(self, proof):
+        solver = os.environ.get("Z3_FSTAR_SOLVER")
+        if not solver:
+            return
+        declarations = []
+        formulas = {}
+        for line in proof.splitlines():
+            if line.startswith("%"):
+                continue
+            if re.match(r"tff\(t[sd]\d+,type,", line):
+                declarations.append(line)
+                continue
+            axiom = re.fullmatch(r"(cnf|tff)\((a\d+),axiom,\((.*)\)\)\.", line)
+            if axiom:
+                formulas[axiom[2]] = axiom[3]
+                continue
+            step = re.fullmatch(
+                r"(cnf|tff)\((\w+),(plain|theorem),\((.*)\),"
+                r"inference\((\w+),\[status\(thm\)\],\[(.*?)\]\)\)\.", line)
+            self.assertIsNotNone(step, line)
+            keyword, name, _, formula, _, parents = step.groups()
+            parents = parents.split(",") if parents else []
+            self.assertTrue(all(parent in formulas for parent in parents), line)
+            language = "tff" if keyword == "tff" else "fof"
+            query = "\n".join(declarations + [
+                f"{language}(input{index},axiom,({formulas[parent]}))."
+                for index, parent in enumerate(parents)
+            ] + [f"{language}(claim,conjecture,({formula}))."])
+            result = subprocess.run(
+                [solver, "-tptp", "-T:5", "-in"], input=query,
+                text=True, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr + query)
+            self.assertRegex(result.stdout, r"SZS status (Unsatisfiable|Theorem)\b",
+                             line + "\n" + query + "\n" + result.stdout + result.stderr)
+            formulas[name] = formula
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_native_direct_published_examples(self):
+        examples = Path(__file__).resolve().parents[1] / "examples" / "direct"
+
+        def axioms(proof):
+            return dict(re.findall(r"^(?:cnf|tff)\((a\d+),axiom,\((.*)\)\)\.$",
+                                   proof, re.MULTILINE))
+
+        def goal(proof):
+            match = re.search(r"^(?:cnf|tff)\(goal_1,theorem,\((.*)\),inference\(",
+                              proof, re.MULTILINE)
+            self.assertIsNotNone(match, proof)
+            return match[1]
+
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "direct.p"
+            for name in ("cases", "learned-clause", "quantified"):
+                with self.subTest(name=name):
+                    source = (examples / f"{name}.smt2").read_text(encoding="utf-8")
+                    recorded = (examples / f"{name}.p").read_text(encoding="utf-8")
+                    result = self.run_checker(source, "--direct-out", str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout.strip(), "ACCEPT")
+                    generated = path.read_text(encoding="utf-8")
+                    self.assertEqual(axioms(recorded), axioms(generated))
+                    self.assertEqual(goal(recorded), goal(generated))
+                    self.validate_direct_steps(recorded)
+                    self.validate_direct_steps(generated)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_native_direct_non_horn_proofs(self):
+        declarations = ("(declare-const p Bool)(declare-const q Bool)"
+                        "(declare-const r Bool)")
+        cases = (
+            ("disjunction", "(assert (or p q))(assert (not p))(assert (not q))", "q"),
+            ("cases", "(assert (or p q))(assert (or (not p) r))"
+             "(assert (or (not q) r))(assert (not r))", "r"),
+            ("learned-clause", "(assert (or p q))(assert (or (not p) q r))"
+             "(assert (or p (not q) r))(assert (or (not p) (not q) r))"
+             "(assert (not r))", "r"),
+            ("negative-goal", "(assert (or (not p) (not q)))"
+             "(assert p)(assert q)", "~(q)"),
+            ("duplicate-goal", "(assert (or p q))(assert (not p))"
+             "(assert (not q))(assert (not q))", "q"),
+            ("normalized-duplicate-goal", "(assert (or p q))(assert (not p))"
+             "(assert (not (not (not q))))(assert (not q))", "q"),
+            ("inconsistent-background", "(assert false)(assert (not p))", "p"),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "direct.p"
+            for name, assertions, goal in cases:
+                with self.subTest(name=name):
+                    result = self.run_checker(
+                        declarations + assertions, "--direct-out", str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout.strip(), "ACCEPT")
+                    proof = path.read_text(encoding="utf-8")
+                    self.assertIn(",theorem,", proof.splitlines()[-1])
+                    self.assertIn(goal, proof.splitlines()[-1])
+                    goal_count = 2 if name.endswith("duplicate-goal") else 1
+                    self.assertEqual(proof.count(",axiom,"),
+                                     assertions.count("(assert") - goal_count)
+                    for index in range(assertions.count("(assert") - goal_count,
+                                       assertions.count("(assert")):
+                        self.assertNotIn(f"(a{index},axiom,", proof)
+                    if name == "learned-clause":
+                        self.assertGreaterEqual(proof.count("inference(tautology,"), 2)
+                    if name == "inconsistent-background":
+                        self.assertIn("inference(weakening,", proof)
+                    self.validate_direct_steps(proof)
+                    if name == "disjunction" and os.environ.get("Z3_FSTAR_SOLVER"):
+                        corrupted = re.sub(
+                            r"(goal_1,theorem,)\(.*?\)(,inference)",
+                            r"\1($false)\2", proof)
+                        self.assertNotEqual(proof, corrupted)
+                        with self.assertRaises(AssertionError):
+                            self.validate_direct_steps(corrupted)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_native_direct_quantified_non_horn_proof(self):
+        source = ("(declare-sort U 0)(declare-const a U)"
+                  "(declare-fun p (U) Bool)(declare-fun q (U) Bool)"
+                  "(assert (forall ((x U)) (or (p x) (q x))))"
+                  "(assert (not (p a)))(assert (not (q a)))")
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "direct.p"
+            result = self.run_checker(source, "--direct-out", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            proof = path.read_text(encoding="utf-8")
+            self.assertIn("'U':$tType", proof)
+            self.assertIn("![X0:'U']", proof)
+            self.assertIn("inference(instantiate,", proof)
+            self.assertEqual(proof.count(",axiom,"), 2)
+            self.assertIn("(q(a))", proof.splitlines()[-1])
+            self.assertNotIn("cnf(", proof)
+            self.validate_direct_steps(proof)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_native_direct_nested_case_search(self):
+        variables = [[f"p{i}h{j}" for j in range(3)] for i in range(4)]
+        clauses = ["(or " + " ".join(row) + " r)" for row in variables]
+        clauses += [f"(or (not {variables[i][h]}) (not {variables[j][h]}) r)"
+                    for h in range(3) for i in range(4) for j in range(i + 1, 4)]
+        source = "".join(f"(declare-const {name} Bool)"
+                         for name in ["r"] + [name for row in variables for name in row])
+        source += "".join(f"(assert {clause})" for clause in clauses) + "(assert (not r))"
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "direct.p"
+            result = self.run_checker(source, "--direct-out", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            proof = path.read_text(encoding="utf-8")
+            self.assertGreaterEqual(proof.count("inference(tautology,"), 3)
+            self.assertEqual(proof.count(",axiom,"), len(clauses))
+            self.assertNotIn(f"(a{len(clauses)},axiom,", proof)
+            self.assertIn("(r)", proof.splitlines()[-1])
+            self.assertIn(",theorem,", proof.splitlines()[-1])
+            self.validate_direct_steps(proof)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_native_direct_ground_equality(self):
+        declarations = ("(declare-sort U 0)(declare-const a U)(declare-const b U)"
+                        "(declare-const c U)(declare-fun f (U) U)"
+                        "(declare-fun p (U) Bool)(declare-fun q (U) Bool)")
+        cases = (
+            ("transitivity", "(assert (= a b))(assert (= c b))"
+             "(assert (not (= a c)))", "a = c"),
+            ("congruence", "(assert (= a b))(assert (= b c))"
+             "(assert (p (f a)))(assert (not (p (f c))))", "p(f(c))"),
+            ("non-horn", "(assert (or (p a) (q a)))(assert (= a b))"
+             "(assert (not (p b)))(assert (not (q b)))", "q(b)"),
+            ("discharged-equality", "(assert (p a))(assert (not (p b)))"
+             "(assert (= a b))", "~(a = b)"),
+            ("reflexivity", "(assert (not (= a a)))", "a = a"),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "direct.p"
+            for name, assertions, goal in cases:
+                with self.subTest(name=name):
+                    result = self.run_checker(
+                        declarations + assertions, "--direct-out", str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    proof = path.read_text(encoding="utf-8")
+                    self.assertIn(goal, proof.splitlines()[-1])
+                    self.assertEqual(proof.count(",axiom,"), assertions.count("(assert") - 1)
+                    self.validate_direct_steps(proof)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_native_direct_unsupported_preserves_output(self):
+        sources = (
+            "(declare-const p Bool)(declare-const q Bool)"
+            "(assert (and p q))(assert (not q))",
+            "(declare-sort U 0)(declare-const a U)(declare-fun p (U) Bool)"
+            "(assert (p a))(assert (forall ((x U)) (not (p x))))",
+            "(declare-const p Bool)(declare-const q Bool)"
+            "(assert p)(assert (not (or p q)))",
+            "(declare-const x Real)(assert (> x 0))(assert (< x 0))",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "direct.p"
+            for source in sources:
+                with self.subTest(source=source):
+                    path.write_text("existing output", encoding="ascii")
+                    result = self.run_checker(source, "--direct-out", str(path))
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn("ERROR", result.stderr)
+                    self.assertEqual(path.read_text(), "existing output")
+            for args in (("--interactive",), ("--clause-proofs",),
+                         ("--tstp-out", str(path))):
+                with self.subTest(args=args):
+                    result = self.run_checker("", "--direct-out", str(path), *args)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertEqual(path.read_text(), "existing output")
+            result = self.run_checker("(assert true)", "--direct-out", str(path))
+            self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+            self.assertEqual(path.read_text(), "existing output")
+
     @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
     def test_tstp_export_and_unsupported_proofs(self):
         source = ("(declare-sort U 0)(declare-const a U)"
