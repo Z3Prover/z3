@@ -537,8 +537,14 @@ would be vacuous and would not discharge this gate.
 
 `Z3CoreModel.core_model i dom` replaces, for the default kernel's Boolean,
 equality and congruence rules, the legacy contracts that have no model.
-The model owns its sort domains `dom` (only `Bool` is fixed, to `VBool`);
-environments are typed against an explicit scope of sorts, with the de
+The model owns its sort domains `dom`. `typing` fixes only `Bool`, to
+`VBool`, but the domains are not arbitrary: integer `+`/`*` must return
+`VInt` (`Z3Commutativity.arithmetic_model`), so the Int domain contains
+those images, and canonical equality must decide value identity on every
+carrier where it is applied (under the current `Tot` interpretation
+fields no construction is known for a carrier with several distinct array
+values; this is not proved impossible). Environments are typed against an
+explicit scope of sorts, with the de
 Bruijn convention of `Z3Definitions.scoped`. Applications map typed
 arguments into the range domain, `forall`/`exists` give Boolean values and
 a lambda gives a value of its array sort when its body maps typed argument
@@ -556,16 +562,36 @@ and `*` computed, and `Z3StandardModel.fits` as its domains (a lambda now
 evaluates to the opaque value of its array sort there).
 
 `Z3CoreKernel.lemma_core_check_node_sound` is about the kernel's own
-`check_node_with_context`. For every accepted node whose rule is
-assertion, hypothesis, lemma, reflexivity, symmetry, transitivity,
-transitivity path, congruence, commutativity, `iff~`, `mp`, `mp~`, unit
-resolution, and-elimination, not-or-elimination, iff-true or iff-false, or
-a premise-free theory lemma or rewrite decided by `Z3BvExhaustive`, the
-returned checked fact holds in every core model, under every environment
-typed for the scope its judgments are scoped in. Native top-level entry
-formulas are closed (`Z3ProofDocument.prepare_entry_using` rejects
-unscoped formulas of documents with binders), so scope `[]` applies there;
-a document-level theorem is not claimed.
+`check_node_with_context`. For every node for which it returns `Some` and
+whose rule is assertion, hypothesis, lemma, reflexivity, symmetry,
+transitivity, transitivity path, congruence, commutativity, `iff~`, `mp`,
+`mp~`, unit resolution, and-elimination, not-or-elimination, iff-true or
+iff-false, or a theory lemma or rewrite whose conclusion `Z3BvExhaustive`
+decides, the returned checked fact holds in every core model, under every
+environment typed for a scope its judgments and premises are scoped in,
+given that its premises and the assertions hold there. `Some` is not the
+same as zero obligations: the kernel returns `Some` for well-formed
+theory-lemma and rewrite nodes (which may have premises) with a pending
+obligation, even for a false conclusion; for those nodes the guarantee
+comes from the `core_rule` condition that the bounded evaluator decides
+the conclusion, and the theorem ignores the obligation count. It is a
+theorem about one node, not about a proof DAG; no document-level theorem
+is claimed. Its scope hypothesis is not established for documents by any
+F* lemma: `Z3ProofDocument.prepare_entry_using` rejects unscoped entry
+formulas only for documents with binders, while for a document whose
+expression table is ground, F* checks no entry scope and closedness rests
+on the native side listing every subexpression in the table.
+
+`Z3CoreModelTests` instantiates the theorem on accepted and-elimination,
+not-or-elimination and unit-resolution nodes and on bit-vector theory-lemma
+and rewrite nodes, and on a unit resolution over the open `Var 0 Bool` with
+scope `[Bool]`, and shows that the premises are satisfiable in witness core
+models. It also shows that the typed environment is needed (an accepted
+hypothesis discharge over `Var 0 Bool` has true premises and a false
+conclusion in a core model under an untyped environment, and under an
+environment typed for the binder-swapped scope `[Int; Bool]`), and that a
+contingent bit-vector equation is returned as `Some` but is not a core
+rule and is false in a core model.
 
 The kernel's Boolean dispatch accepts only canonical connectives:
 `Z3ProofTheory.is_not`, resolution complements, clauses and consequences,
@@ -574,19 +600,28 @@ recognizers of `Z3QuantifierInstantiation`, `Z3QuantifierPull`,
 `Z3QuantifierReduce`, `Z3QuantifierDer`, `Z3FiniteFieldLemma`,
 `Z3FiniteFieldPac`, `Z3IntegerDivision` and `Z3ArithmeticFactor`. A user
 declaration that merely carries a connective's name is an ordinary atom.
-Native connectives are canonical, so native acceptance is unchanged.
+Native connectives are canonical: the native `canonical_dispatch` test
+checks this on recorded formulas, it is not an F* lemma about marshaling,
+and native acceptance on the measured inputs was unchanged.
 
 Not covered and still blocking a global theorem: quantifier truth and
-binder rules (classical quantification over infinite domains and
-extensional equality of array values cannot be computed by a `Tot`
-interpretation field in the installed F* versions), definitions, the
-array, arithmetic, datatype, finite-field and normalization checkers,
-Skolemization, and the document layer. The legacy `model_sound` keeps its
-name-keyed connective contracts and remains without a model;
-`Z3CoreModelTests` adds two further obstructions to it: `array_model` and
-`numeric_model` conflict on the closed, well-sorted `(store a 0 1/2)` over
-`(Array Int Real)`, and the untyped `quantifier_model` makes the valid
-`forall x:Int. x + 0 = x` false.
+binder rules (for classical quantification over infinite domains and
+extensional equality of array values no construction is known under the
+current `Tot` interpretation fields; this is not proved impossible),
+definitions, the array, arithmetic, datatype, finite-field and
+normalization checkers, Skolemization, and the document layer. The legacy
+`model_sound` keeps its name-keyed connective contracts and remains
+without a model. `Z3CoreModelTests` records two further obstructions to
+it as finite clause instances, each with satisfiable drop-one controls.
+O1: the store clause of `array_model` at the closed, well-sorted
+`(store a 0 1/2)` over `(Array Int Real)`, the numeral clause of
+`numeric_operators` at `1/2` and its clause `nu (VInt n) = n` are jointly
+unsatisfiable; no environment is involved, so typed environments cannot
+repair it. O2: the untyped `quantifier_model` clause at the value list
+`[true]`, the `arithmetic_model` clause and the untyped `eq_sound` clause
+make the valid `forall x:Int. x + 0 = x` false, so every model of these
+three contracts, if one exists, falsifies it; the typed restriction of the
+quantifier clause holds in a witness core model.
 
 ### Follow-up: fresh-bit elimination by scoped projections
 
@@ -960,9 +995,10 @@ remaining heads use the leaf function on their argument values. The
 direct `lemma_valid_standard` proves accepted evaluator clauses true in
 each such model. The legacy kernel theorem still reaches the evaluator
 only through the uninhabited `model_sound` contract (see "Removing
-impossible environment assumptions" above). `Z3CoreKernel` proves accepted
-bounded bit-vector theory-lemma and rewrite nodes sound from the inhabited
-`Z3CoreModel.core_model` (see "Typed canonical core model" below); no
+impossible environment assumptions" above). `Z3CoreKernel` proves
+theory-lemma and rewrite nodes whose conclusion this evaluator decides
+sound from the inhabited `Z3CoreModel.core_model` (see "Typed canonical
+core model" above); no
 document-level theorem is claimed. Arrays,
 arithmetic, datatypes, finite fields and quantifiers have no theory
 semantics in this ground model. Before anything is enumerated the conclusion must have at

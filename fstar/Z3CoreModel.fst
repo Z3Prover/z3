@@ -7,15 +7,23 @@
    `Z3UnifiedProof.model_sound` has no model (`Z3ScopedModelTests`,
    `Z3CoreModelTests`): several of its conjuncts quantify over open terms
    under every environment, the legacy connective contracts are keyed by
-   name only, and `array_model` and `numeric_model` already conflict on a
-   closed, well-sorted term. This module states a smaller contract,
-   `core_model`, that the kernel's Boolean, equality and congruence rules
-   need, and proves that it has models.
+   name only, and the store clause of `array_model` and the numeral clauses
+   of `numeric_operators` are already jointly unsatisfiable on a closed,
+   well-sorted term (finite clause instances in `Z3CoreModelTests`). This
+   module states a smaller contract, `core_model`, that the kernel's
+   Boolean, equality and congruence rules need, and proves that it has
+   models.
 
    * A model owns its sort domains (`domains`): the values that terms and
-     variables of each sort take. Only `Bool` is fixed, to `VBool`.
-     Standard models choose their own carriers; the witness below is
-     not baked into the contract.
+     variables of each sort take. `typing` fixes only `Bool`, to `VBool`,
+     but the domains are not arbitrary: `arithmetic_model` makes integer
+     `+`/`*` return `VInt` (`VInt 0` on non-integer arguments), so the Int
+     domain must contain those images, and canonical equality must decide
+     value identity wherever it is applied; under the current `Tot`
+     interpretation fields no construction is known for a carrier with
+     several distinct array (function) values (not proved impossible).
+     Standard models choose their own carriers; the witness below is not
+     baked into the contract.
    * Environments are typed against a scope of sorts (`env_typed`), the
      same de Bruijn convention as `Z3Definitions.scoped`: index 0 is the
      innermost binder. A lambda's argument list is innermost-first, so it
@@ -37,10 +45,11 @@
    This is NOT a model of `model_sound`. Quantifier truth, lambda/array
    semantics, real arithmetic, datatypes and finite fields are not
    constrained by `core_model`: the witness gives `forall`/`exists` a
-   constant value and lambdas an opaque one. A standard semantics of
+   constant value and lambdas an opaque one. For a standard semantics of
    quantifiers over infinite domains, and of equality between array
-   values, needs classical decisions that a `Tot` interpretation field
-   cannot compute in the installed F* versions.
+   values, no construction is known under the current `Tot`
+   interpretation fields (it would need classical decisions); this is
+   not proved impossible.
 *)
 module Z3CoreModel
 

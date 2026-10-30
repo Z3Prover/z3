@@ -6,13 +6,22 @@
    `Z3CoreModel.core_model` instead of the uninhabited `model_sound`.
 
    `lemma_core_check_node_sound` is about the kernel's own acceptance
-   function `check_node_with_context`. For every node accepted there whose
-   rule is a core rule (`core_rule`), the returned checked fact holds in
-   every model of `core_model`, under every environment typed for the
-   scope the node's judgments are scoped in. The proof uses no
-   `model_sound` conjunct, so it is not vacuous: `Z3CoreModel.
-   lemma_core_inhabited` gives a model, and `Z3CoreModelTests` checks
-   accepted nodes against it.
+   function `check_node_with_context`. For every node for which it
+   returns `Some` and whose rule is a core rule (`core_rule`), the
+   returned checked fact holds in every model of `core_model`, under every
+   environment typed for a scope the node's judgments and premises are
+   scoped in, given that its premises and the assertions hold there. The
+   proof uses no `model_sound` conjunct, so it is not vacuous:
+   `Z3CoreModel.lemma_core_inhabited` gives a model, and
+   `Z3CoreModelTests` checks accepted nodes against it.
+
+   `Some` is not "zero obligations": for a theory-lemma or rewrite node
+   (which may also have premises) the kernel can return `Some` with a
+   pending obligation, including for a false conclusion. The guarantee
+   for those nodes comes from `core_rule`, which requires the bounded
+   bit-vector evaluator itself to decide the conclusion; the theorem
+   ignores the obligation count. It is a theorem about one node, not
+   about a proof DAG or a document.
 
    Core rules: assertion, hypothesis, lemma (hypothesis discharge),
    reflexivity, symmetry, transitivity, transitivity path, congruence,
@@ -25,7 +34,10 @@
    axioms, the other rewrite and theory-lemma checkers (arrays,
    arithmetic, datatypes, finite fields, normalization), Skolemization
    and the document layer. Those still rest on `model_sound`, which has
-   no model.
+   no model. No F* lemma connects document entries to scope `[]`: for
+   documents whose expression table is ground, `Z3ProofDocument` does
+   not check entry scope and relies on the native side listing every
+   subexpression in the table.
 *)
 module Z3CoreKernel
 
