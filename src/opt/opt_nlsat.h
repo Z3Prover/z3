@@ -29,6 +29,7 @@ Author:
 --*/
 #pragma once
 
+#include <functional>
 #include <optional>
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -47,9 +48,19 @@ namespace opt {
     /**
        \brief True when the hard constraints and obj lie in the fragment
        nlsat decides: Boolean structure over polynomial arithmetic atoms,
-       with uninterpreted constants as the only free symbols.
+       with uninterpreted constants as the only free symbols. With
+       reals_only, integer terms other than numerals are rejected as well.
     */
-    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj);
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj, bool reals_only = false);
+
+    /**
+       \brief Run query under a private budget of ticks resource-counter ticks;
+       zero disables it. An expired budget or an interruption gives l_undef.
+       Pushing and popping the budget clear the cancellation flag, so the
+       query is not started once the enclosing operation is canceled, and a
+       cancellation that arrives during the query is raised again after the pop.
+    */
+    lbool bounded_limit_query(ast_manager& m, unsigned ticks, std::function<lbool()> const& query);
 
     // Express equality to a real numeral using rational-coefficient constraints,
     // so the SMT arithmetic solver can commit an exact algebraic value.
@@ -94,30 +105,21 @@ namespace opt {
                        unsigned max_rounds, result& r, unsigned supremum_rlimit = 100000);
 
         /**
-           \brief Check whether feasible objective values approach bound from below:
-           forall e > 0. exists xs. hard /\ lo <= obj /\ bound-e < obj < bound.
-           bound must be an arithmetic numeral, possibly algebraic.
-           This alone does not prove that bound is an upper bound. Maximize
-           separately refutes obj >= bound before accepting an open supremum.
-           Returns l_undef outside the real-arithmetic fragment or when the
-           query exceeds rlimit_budget; zero disables the query.
-        */
-        lbool can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
-                                     expr* bound, unsigned rlimit_budget = 100000);
-
-        /**
            \brief Decide whether obj is unbounded above over the hard
            constraints and lo <= obj (lo must be attained by some model):
            nlsat projects feasible regions onto the objective until it finds
            an unbounded ray or covers all feasible values. Returns
            l_true (unbounded above), l_false (some upper bound exists, value
-           not computed), l_undef (outside the fragment or the solver gave up).
+           not computed), l_undef (outside the fragment, an integer term
+           occurs, or the solver gave up).
         */
         lbool prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo);
 
     private:
         struct search_state;
         lbool prove_unbounded(goal const& pg, app* T);
+        // forall e > 0. exists xs. pg /\ bound - e < T < bound, for a numeral
+        // bound; maximize refutes T >= bound separately.
         lbool can_approach_from_below(goal const& pg, app* T, expr* bound);
         lbool check_limit(goal const& pg, app* T, expr* bound);
         void prove_strict_upper_bound(nlsat::solver& s, nlsat::var t, algebraic_numbers::anum const& sup,
