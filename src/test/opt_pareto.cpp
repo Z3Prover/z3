@@ -535,13 +535,14 @@ static void tst_assumption_fallback() {
     ENSURE(counter(st, "pareto nlsat checks") == 0);
 }
 
-static void tst_continuous_front(bool reuse_nlsat_solver, bool circular) {
-    // Every point of the boundary g(x, y) = 1 with x, y >= 0 is Pareto-optimal
+static void tst_continuous_front(bool reuse_nlsat_solver, bool circular, unsigned scale) {
+    // Every point of the boundary g(x, y) = scale with x, y >= 0 is Pareto-optimal
     // for maximizing x and minimizing -y, where g(x, y) = x + y or
     // g(x, y) = x^2 + y^2. A climb that only asks for a dominating model can
     // improve forever by ever smaller steps, so each check must instead end
-    // at an exact boundary point, distinct from the points returned before.
-    std::cout << "opt_pareto: continuous front" << (circular ? " (circle)" : "") << "\n";
+    // at an exact boundary point, distinct from the points returned before,
+    // also when the front is far from the first models (scale > 1).
+    std::cout << "opt_pareto: continuous front" << (circular ? " (circle)" : "") << " scale " << scale << "\n";
     ast_manager m;
     reg_decl_plugins(m);
     arith_util a(m);
@@ -550,11 +551,11 @@ static void tst_continuous_front(bool reuse_nlsat_solver, bool circular) {
     expr_ref x(m.mk_const("x", a.mk_real()), m);
     expr_ref y(m.mk_const("y", a.mk_real()), m);
     expr_ref zero(a.mk_numeral(rational(0), false), m);
-    expr_ref one(a.mk_numeral(rational(1), false), m);
+    expr_ref level(a.mk_numeral(rational(scale), false), m);
     expr_ref boundary(circular ? a.mk_add(a.mk_mul(x, x), a.mk_mul(y, y)) : a.mk_add(x, y), m);
     ctx.add_hard_constraint(a.mk_ge(x, zero));
     ctx.add_hard_constraint(a.mk_ge(y, zero));
-    ctx.add_hard_constraint(a.mk_le(boundary, one));
+    ctx.add_hard_constraint(a.mk_le(boundary, level));
     expr_ref minus_y(a.mk_uminus(y), m);
     ctx.add_objective(to_app(x.get()), true);
     ctx.add_objective(to_app(minus_y.get()), false);
@@ -563,7 +564,7 @@ static void tst_continuous_front(bool reuse_nlsat_solver, bool circular) {
         ENSURE(ctx.optimize(asms) == l_true);
         model_ref model;
         ctx.get_model(model);
-        ENSURE(model->is_true(m.mk_eq(boundary, one)));
+        ENSURE(model->is_true(m.mk_eq(boundary, level)));
         ENSURE(model->is_true(a.mk_ge(x, zero)) && model->is_true(a.mk_ge(y, zero)));
         expr_ref xv = (*model)(x);
         for (expr* earlier : xs)
@@ -642,8 +643,10 @@ void tst_opt_pareto() {
         tst_uf_fallback(reuse_nlsat_solver);
         tst_finite_front(reuse_nlsat_solver);
         tst_mixed_directions(reuse_nlsat_solver);
-        tst_continuous_front(reuse_nlsat_solver, false);
-        tst_continuous_front(reuse_nlsat_solver, true);
+        tst_continuous_front(reuse_nlsat_solver, false, 1);
+        tst_continuous_front(reuse_nlsat_solver, true, 1);
+        tst_continuous_front(reuse_nlsat_solver, false, 1000);
+        tst_continuous_front(reuse_nlsat_solver, true, 1000000);
     }
 }
 
