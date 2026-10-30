@@ -765,8 +765,10 @@ pending 1. The guard is bounded: at most 1024 sorts per assigned scope, 64
 scopes per entry, `4n + 1024` assignments for `n` entries, and a work
 budget of `65536 (n + 1)` units charged before each step. Each unit is an
 entry, index lookup, list cell, expression node, sort node, name character
-or scope cell. An index lookup, an integer operation and a name-length
-computation each count as one unit and are not time-bounded. Exceeding a
+or scope cell. The units are an abstract count, not a time bound: an index
+lookup takes up to `log2 n + 1` steps, and a name's length is computed
+before it is charged (both runtimes count one character per UTF-8 lead
+byte, at least a quarter of the bytes even for malformed names). Exceeding a
 bound rejects the certificate. `Z3BinderScope` proves that an accepted
 certificate has a root scoped at `[]` and that every premise used at an
 assigned scope is scoped under the user's reversed binder sorts. The

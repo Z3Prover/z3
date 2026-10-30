@@ -887,7 +887,25 @@ let checked_binder_proofs () =
   let t0 = Unix.gettimeofday () in
   require (pending (diamond 40) 120 (U.Equal (tt, tt)) = 1)
     "exponential shared binder proof was accepted";
-  require (Unix.gettimeofday () -. t0 < 5.0) "exponential shared binder proof was not cut off"
+  require (Unix.gettimeofday () -. t0 < 5.0) "exponential shared binder proof was not cut off";
+  (* Sort names are charged by FStar.String.strlen before they are compared. The
+     runtime counts like the Cherry runtime: code points on valid UTF-8, and at
+     least a quarter of the bytes on any byte string. *)
+  List.iter (fun (s, n) ->
+      require (Z.equal (FStar_String.strlen s) (Z.of_int n))
+        ("runtime strlen disagrees with the Cherry runtime: " ^ String.escaped s))
+    ["", 0; "Int", 3; "\xC3\xA9", 1; "\xE2\x82\xAC", 1; "\xF0\x9F\x98\x80", 1; "e\xCC\x81", 2;
+     "\x80\x80\x80\x80\x80\x80\x80\x80", 4; "\xC3", 1; "a\xE2\x82", 2; "\xFF\xFE", 1;
+     "\xC0\x80", 1; "\xED\xA0\x80", 1];
+  let named len c =
+    let s = A.BaseSort (String.make len c) in
+    let x = A.Var (Z.zero, s) in
+    let q = all [s] (eqe x x) in
+    pending [entry "refl" (eqe (eqe x x) (eqe x x)) [] None;
+             entry "quant-intro" (eqe q q) [0] (Some [s])] 1 (U.Equal (q, q)) in
+  require (named 1000 'S' = 0) "a binder sort with a 1000-character name was rejected";
+  require (named 1_000_000 '\x80' = 1)
+    "a long malformed sort name was compared without its length being charged"
 
 let checked_binder_definitions () =
   let c = context () in

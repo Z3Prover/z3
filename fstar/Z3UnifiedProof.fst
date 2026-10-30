@@ -570,11 +570,15 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
      `len + 2` units per assigned scope of length `len`.
 
    The units are an abstract count, not a time bound: a lookup in
-   `Z3ProofIndex.index_tree` costs up to `log2 n + 1` steps, an integer
-   (bignum) comparison or update is one primitive operation, and computing a
-   name's length is one primitive operation (the OCaml runtime counts the
-   string's UTF-8 characters; the Cherry runtime builds its character list).
-   Linear passes over the entry list itself (its length and reversal), and
+   `Z3ProofIndex.index_tree` costs up to `log2 n + 1` steps, and an integer
+   (bignum) comparison or update is one primitive operation. A name's length
+   is computed before it is charged: both runtimes count one character per
+   UTF-8 lead byte (`ocaml_runtime/fStar_String.ml` steps like the Cherry
+   runtime), in as many steps as the count, which is at least a quarter of
+   the name's bytes also for malformed UTF-8; so the uncharged work is that
+   of the one name whose length exceeds the remaining budget, and comparing
+   two names costs at most four units per charged character. Linear passes
+   over the entry list itself (its length and reversal), and
    `check_binder_entries`, which runs before the guard, are not charged; the
    budget bounds the guard's own work. The guard only rejects certificates;
    it accepts nothing new. *)
