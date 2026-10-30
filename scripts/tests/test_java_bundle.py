@@ -13,6 +13,7 @@ import test_java_package as fixtures
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'java'))
 import maven_artifacts
+import maven_auto
 import maven_bundle as bundle
 from mk_java_package import json_bytes, sha256, write_checksums
 
@@ -70,6 +71,11 @@ class MavenBundleTests(unittest.TestCase):
                          'results': {tool + ':' + kind: {'passed': True, 'sources_javadoc_resolved': True,
                              'sha256': self.report['jar_sha256'][artifacts[kind]]}
                              for tool in ('maven', 'gradle') for kind in ('win-x64', 'all')}}
+        self.consumer['results']['maven:auto'] = {
+            'passed': True, 'sources_javadoc_resolved': True, 'selected_platform': 'win-x64',
+            'selector_sha256': sha256(maven_auto.pom(self.report)),
+            'sha256': self.report['jar_sha256'][artifacts['win-x64']],
+            'override_checked': True, 'unsupported_rejected': True}
         self.smoke = {'source_commit': 'a' * 40, 'generator_sha256': 'generator', 'loader_sha256': 'loader',
                       'platform': 'win-x64', 'passed': True,
                       'artifacts': {kind: {'passed': True, 'jar_name': artifacts[kind],
@@ -95,7 +101,7 @@ class MavenBundleTests(unittest.TestCase):
         first, second = self.assemble('first'), self.assemble('second')
         self.assertEqual((first / 'maven-rehearsal.zip').read_bytes(), (second / 'maven-rehearsal.zip').read_bytes())
         entries = bundle.checked_zip((first / 'maven-rehearsal.zip').read_bytes())
-        self.assertEqual(len(entries), (len(self.report['artifacts']) + 1) * 5)
+        self.assertEqual(len(entries), (len(self.report['artifacts']) + 2) * 5)
         for name in [*self.report['artifacts'].values(), self.pom]:
             path = 'invalid/z3/prototype/z3/' + self.identity['version'] + '/' + name
             self.assertEqual(entries[path], (self.packages / name).read_bytes())
@@ -103,6 +109,25 @@ class MavenBundleTests(unittest.TestCase):
         self.assertFalse(manifest['publishable'])
         self.assertFalse(manifest['signed'])
         self.assertEqual(manifest['workflow'], self.expected)
+
+    def test_runtime_pom_cannot_add_platform_dependencies(self):
+        path = self.packages / self.pom
+        text = path.read_text(encoding='utf-8').replace('</project>', '<dependencies/></project>')
+        path.write_text(text, encoding='utf-8')
+        self.save_report()
+        with self.assertRaisesRegex(ValueError, 'automatic platform dependencies'):
+            self.assemble()
+
+    def test_selector_receipt_must_cover_exact_pom_platform_and_failure_behavior(self):
+        result = self.consumer['results']['maven:auto']
+        for key, value in (('selector_sha256', 'wrong'), ('selected_platform', 'linux-x64'),
+                           ('override_checked', False), ('unsupported_rejected', False)):
+            original = result[key]
+            result[key] = value
+            self.save_receipts()
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'Automatic selector'):
+                self.assemble()
+            result[key] = original
 
     def test_missing_source_or_javadoc_companion_rejected_before_output(self):
         for key in ('sources', 'all-javadoc'):

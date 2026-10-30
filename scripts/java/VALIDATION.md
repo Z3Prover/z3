@@ -207,3 +207,39 @@ returns HTTP 422: `Actions has been disabled for this repository.` Restoring tha
 repository setting requires the owner's decision. The PR remains Draft; no
 registry publication or publishing credentials were used. See [MAVEN.md](MAVEN.md)
 for scope and the remaining namespace, ownership and signing decisions.
+
+## Optional Maven platform selector (2026-10-31)
+
+This follow-up starts from upstream `974e3512dbf462dc537b5eda4a2166910ac9f9cf`.
+The publication discussion is [issue #11471](https://github.com/Z3Prover/z3/issues/11471).
+It adds an unpublished POM-only selector to the repository rehearsal; it does
+not choose official coordinates or add a publisher.
+
+Local Windows x64 checks passed with Maven 3.9.12, Gradle 9.8.2 and JDK 25.0.3:
+
+- All 55 packaging/release/Maven regression tests passed. New cases cover the
+  generated selector, deterministic metadata, rejection of duplicate runtime
+  JARs or unrelated POMs, and exact selector receipts at the final bundle gate.
+- Maven resolved and executed the explicit platform, universal and automatic
+  forms. Gradle resolved and executed both existing explicit forms. All five
+  cases verified runtime/source/Javadoc hashes, embedded JNI extraction,
+  Context/version/SAT/UNSAT and concurrent initialization.
+- The automatic consumer declared no classifier or OS profiles. Its actual
+  dependency POM and selected Windows JAR matched their expected SHA-256 values.
+  Offline checks verified an explicit `z3.platform=all` override and rejection
+  of an unavailable classifier. This exposed and corrected dependency-POM
+  property precedence using the explicit override profile also used by OpenJFX.
+- actionlint 1.7.12 passed for the five Java packaging/consumer/rehearsal
+  workflows with ShellCheck disabled; `git diff --check` passed.
+
+These local consumer checks reused existing 5.3.2 prototype native/API inputs
+with source identity `1b859b6bc7637a9c802a92a0dee72df9e843274d`. Their provenance
+was preserved when preparing the Maven family with the current script. The
+local harness reused cached Maven plugins and a file mirror to avoid repeated
+network downloads. These results do not establish current-source native builds
+or automatic selection on another operating system.
+
+At this checkpoint, hosted Packaging Test and Full Flow results for this
+follow-up are pending. The consumer matrix exercises automatic selection on
+Linux x64, Windows x64 and macOS arm64; the existing native smoke coverage is
+unchanged. The PR remains Draft until hosted validation can be assessed.

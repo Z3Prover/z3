@@ -11,6 +11,7 @@ from xml.sax.saxutils import escape
 
 from prepare import run, SCRIPTS
 from mk_java_package import LIBRARIES, json_bytes, sha256
+import maven_auto
 
 
 def check_resolved(paths, packages, report, classifier):
@@ -22,6 +23,19 @@ def check_resolved(paths, packages, report, classifier):
     for name in expected:
         if sha256((packages / name).read_bytes()) != report['jar_sha256'][name]:
             raise ValueError('Prepared Maven artifact changed: ' + name)
+
+
+def maven_runtime(classpath, report, selector=False):
+    paths = [Path(p) for p in classpath.strip().split(os.pathsep)]
+    jars = [p for p in paths if p.suffix == '.jar']
+    metadata = [p for p in paths if p.suffix != '.jar']
+    # dependency:build-classpath also lists an explicitly requested POM. It
+    # contains no Java classes; allow only this exact selector metadata.
+    if (len(jars) != 1 or len(metadata) != int(selector)
+            or any(p.suffix != '.pom' or sha256(p.read_bytes()) != sha256(maven_auto.pom(report))
+                   for p in metadata)):
+        raise ValueError('Maven must resolve exactly one runtime JAR and only the requested selector POM')
+    return jars[0]
 
 
 def consume(packages, platform, work, mvn, gradle=None, repository=None):
@@ -39,29 +53,17 @@ def consume(packages, platform, work, mvn, gradle=None, repository=None):
     settings = work / 'settings.xml'
     settings.write_text('<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"/>', encoding='utf-8')
     identity = report['maven']
-    base = identity['artifactId'] + '-' + identity['version']
-    bootstrap = work / 'pom.xml'
-    bootstrap.write_text('<project><modelVersion>4.0.0</modelVersion><groupId>invalid.z3.consumer</groupId>'
-                         '<artifactId>bootstrap</artifactId><version>1</version></project>', encoding='utf-8')
     maven = [mvn, '-B', '-ntp', '-s', settings, '-Dmaven.repo.local=' + str(work / 'maven-cache')]
-    attachments = {key: name for key, name in report['artifacts'].items() if key}
-    # The URL is constructed from a local Path, never accepted from an argument.
-    # This exercises the standard deploy-file layout without a remote upload.
-    repository_sha = None
+    from maven_bundle import check_repository, prepare_repository, read_family
     if repository is None:
         repository = work / 'repository'
-        run([*maven, '-f', bootstrap, 'org.apache.maven.plugins:maven-deploy-plugin:3.2.0:deploy-file',
-             '-Durl=' + repository.as_uri(), '-DrepositoryId=local-preparation-test',
-             '-Dfile=' + str(packages / (base + '.jar')), '-DpomFile=' + str(packages / (base + '.pom')),
-             '-Dfiles=' + ','.join(str(packages / name) for name in attachments.values()),
-             '-Dclassifiers=' + ','.join(attachments), '-Dtypes=' + ','.join('jar' for _ in attachments)])
-    else:
-        from maven_bundle import check_repository, read_family
-        repository = repository.resolve()
-        repository_sha = check_repository(repository, packages, read_family(packages))
+        prepare_repository(packages, repository)
+    repository = repository.resolve()
+    repository_sha = check_repository(repository, packages, read_family(packages))
     results = {}
     for tool in ['maven'] + (['gradle'] if gradle else []):
-        for classifier in (platform, 'all'):
+        for classifier in (platform, 'all') + (('auto',) if tool == 'maven' else ()):
+            selected = platform if classifier == 'auto' else classifier
             project = work / (tool + '-' + classifier)
             source = project / 'src/main/java'
             source.mkdir(parents=True)
@@ -69,24 +71,27 @@ def consume(packages, platform, work, mvn, gradle=None, repository=None):
             coordinate = ':'.join(identity[key] for key in ('groupId', 'artifactId', 'version'))
             if tool == 'maven':
                 dependency = '<groupId>{groupId}</groupId><artifactId>{artifactId}</artifactId><version>{version}</version>'.format(**identity)
-                items = ''.join('<artifactItem>' + dependency + '<classifier>' + classifier + '-' + kind
+                items = ''.join('<artifactItem>' + dependency + '<classifier>' + selected + '-' + kind
                                 + '</classifier><type>jar</type></artifactItem>' for kind in ('sources', 'javadoc'))
+                requested = (('<groupId>{groupId}</groupId><artifactId>{artifactId}</artifactId>'
+                              '<version>{version}</version><type>pom</type>').format(**maven_auto.identity(report))
+                             if classifier == 'auto' else dependency + '<classifier>' + classifier + '</classifier>')
                 pom = '''<project><modelVersion>4.0.0</modelVersion><groupId>invalid.z3.consumer</groupId>
 <artifactId>consumer</artifactId><version>1</version><properties><maven.compiler.release>8</maven.compiler.release>
 <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
 <repositories><repository><id>test-files</id><url>{url}</url></repository></repositories>
-<dependencies><dependency>{dependency}<classifier>{classifier}</classifier></dependency></dependencies>
+<dependencies><dependency>{requested}</dependency></dependencies>
 <build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-dependency-plugin</artifactId>
 <version>3.9.0</version><configuration><outputFile>${{project.basedir}}/classpath.txt</outputFile>
 <outputDirectory>${{project.basedir}}/companions</outputDirectory><artifactItems>{items}</artifactItems></configuration>
-</plugin></plugins></build></project>'''.format(url=escape(repository.as_uri()), dependency=dependency,
-                                             classifier=classifier, items=items)
+</plugin></plugins></build></project>'''.format(url=escape(repository.as_uri()), requested=requested, items=items)
                 (project / 'pom.xml').write_text(pom, encoding='utf-8')
                 run([*maven, '-f', project / 'pom.xml',
                      'org.apache.maven.plugins:maven-compiler-plugin:3.16.0:compile',
                      'org.apache.maven.plugins:maven-dependency-plugin:3.9.0:build-classpath',
                      'org.apache.maven.plugins:maven-dependency-plugin:3.9.0:copy'])
-                jar = Path((project / 'classpath.txt').read_text(encoding='utf-8').strip())
+                classpath = (project / 'classpath.txt').read_text(encoding='utf-8').strip()
+                jar = maven_runtime(classpath, report, selector=classifier == 'auto')
                 resolved = [jar, *sorted((project / 'companions').glob('*.jar'))]
                 classes = project / 'target/classes'
             else:
@@ -114,21 +119,46 @@ tasks.register('resolved') {
                 run([gradle, '--no-daemon', '--console=plain', '-p', project, 'resolved'])
                 resolution = json.loads((project / 'resolved.json').read_bytes())
                 jar = Path(resolution['binary'])
+                classpath = str(jar)
                 resolved = [jar, *resolution['companions']]
                 classes = project / 'build/classes/java/main'
-            check_resolved(resolved, packages, report, classifier)
+            check_resolved(resolved, packages, report, selected)
             empty, temporary = project / 'empty-native-path', project / 'native-temp'
             empty.mkdir()
             temporary.mkdir()
             # Child JVM has an empty explicit JNI path. Smoke asserts extraction
             # of exactly the current platform's two libraries as well as SAT/UNSAT.
             output = run(['java', '-Djava.library.path=' + str(empty), '-Djava.io.tmpdir=' + str(temporary),
-                          '-cp', str(classes) + os.pathsep + str(jar), 'Smoke', 'bundled',
+                          '-cp', str(classes) + os.pathsep + classpath, 'Smoke', 'bundled',
                           report['runtime_version'], ','.join(LIBRARIES[platform.split('-')[0]])])
             if 'PASS bundled' not in output:
                 raise ValueError('Consumer did not report native success')
             results[tool + ':' + classifier] = {'passed': True, 'sha256': sha256(jar.read_bytes()),
                                                 'sources_javadoc_resolved': True}
+            if classifier == 'auto':
+                # Both ordinary forms have already populated this isolated
+                # cache. Offline checks cannot fetch an unrelated remote JAR.
+                command = [*maven, '-o', '-f', project / 'pom.xml',
+                           'org.apache.maven.plugins:maven-dependency-plugin:3.9.0:build-classpath',
+                           '-Dmdep.regenerateFile=true']
+                original_classpath = (project / 'classpath.txt').read_bytes()
+                run([*command, '-Dz3.platform=all'])
+                override = maven_runtime((project / 'classpath.txt').read_text(encoding='utf-8'),
+                                         report, selector=True)
+                if (sha256(override.read_bytes())
+                        != report['jar_sha256'][report['artifacts']['all']]):
+                    raise ValueError('Explicit target platform did not override host detection')
+                try:
+                    run([*command, '-Dz3.platform=unsupported-platform-test'])
+                except ValueError as error:
+                    if 'unsupported-platform-test' not in str(error):
+                        raise
+                else:
+                    raise ValueError('Unsupported platform unexpectedly resolved a runtime JAR')
+                (project / 'classpath.txt').write_bytes(original_classpath)
+                results['maven:auto'].update(selected_platform=platform,
+                    selector_sha256=sha256(maven_auto.pom(report)),
+                    override_checked=True, unsupported_rejected=True)
             print('PASS consumer', tool, classifier, flush=True)
     (work / 'receipt.json').write_bytes(json_bytes({'source_commit': report['source_commit'],
                                                    'platform': platform, 'results': results,

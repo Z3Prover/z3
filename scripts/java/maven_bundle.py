@@ -11,6 +11,7 @@ from xml.etree import ElementTree as ET
 import zipfile
 
 from maven_artifacts import NS
+import maven_auto
 from smoke import verify_jar
 from verify_release import MODES
 from mk_java_package import checked_zip, json_bytes, sha256, write_checksums, write_jar
@@ -73,6 +74,8 @@ def read_family(packages):
             raise ValueError('Missing POM metadata: ' + path)
     if root.find('{' + NS + '}distributionManagement') is not None:
         raise ValueError('Rehearsal POM must not configure remote deployment')
+    if any(root.find('{' + NS + '}' + name) is not None for name in ('dependencies', 'profiles')):
+        raise ValueError('Runtime POM must not add automatic platform dependencies')
     entries = {}
     for key, name in expected.items():
         data = (packages / name).read_bytes()
@@ -101,11 +104,11 @@ def repository_files(packages, report):
     identity = report['maven']
     prefix = '/'.join([*identity['groupId'].split('.'), identity['artifactId'], identity['version']])
     names = [*report['artifacts'].values(), identity['artifactId'] + '-' + identity['version'] + '.pom']
-    files = {}
-    for name in sorted(names):
-        data = (packages / name).read_bytes()
-        path = prefix + '/' + name
-        files[path] = data
+    files = {prefix + '/' + name: (packages / name).read_bytes() for name in sorted(names)}
+    selector = maven_auto.identity(report)
+    selector_prefix = '/'.join([*selector['groupId'].split('.'), selector['artifactId'], selector['version']])
+    files[selector_prefix + '/' + selector['artifactId'] + '-' + selector['version'] + '.pom'] = maven_auto.pom(report)
+    for path, data in list(files.items()):
         # MD5/SHA-1 are repository compatibility files, not our integrity gate.
         for algorithm in ('md5', 'sha1', 'sha256', 'sha512'):
             digest = hashlib.new(algorithm, data, usedforsecurity=False).hexdigest()
@@ -147,6 +150,7 @@ def check_receipts(packages, report, repository_sha, consumers, smokes):
         receipt = json.loads(path.read_bytes())
         platform = receipt['platform']
         required = {tool + ':' + kind for tool in ('maven', 'gradle') for kind in (platform, 'all')}
+        required.add('maven:auto')
         if (platform not in report['platforms'] or platform in consumer_results
                 or receipt['source_commit'] != report['source_commit']
                 or receipt['preparation_sha256'] != preparation_sha
@@ -154,7 +158,13 @@ def check_receipts(packages, report, repository_sha, consumers, smokes):
                 or set(receipt['results']) != required):
             raise ValueError('Missing, duplicate or stale Maven/Gradle consumer receipt')
         for key, result in receipt['results'].items():
-            name = report['artifacts'][key.split(':')[1]]
+            variant = platform if key == 'maven:auto' else key.split(':')[1]
+            name = report['artifacts'][variant]
+            if key == 'maven:auto' and (result.get('selected_platform') != platform
+                    or result.get('selector_sha256') != sha256(maven_auto.pom(report))
+                    or result.get('override_checked') is not True
+                    or result.get('unsupported_rejected') is not True):
+                raise ValueError('Automatic selector did not validate the current platform and POM')
             if (result.get('passed') is not True or result.get('sources_javadoc_resolved') is not True
                     or result['sha256'] != report['jar_sha256'][name]):
                 raise ValueError('Consumer did not validate the exact prepared artifacts')
