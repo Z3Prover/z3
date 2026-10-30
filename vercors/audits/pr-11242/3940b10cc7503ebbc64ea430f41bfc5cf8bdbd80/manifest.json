@@ -1,0 +1,18 @@
+{
+  "pull_request": 11242,
+  "head_sha": "3940b10cc7503ebbc64ea430f41bfc5cf8bdbd80",
+  "base_sha": "5b25866d00e94fe04fd97301e22e03472ae4a121",
+  "path_prefix": "vercors/audits/pr-11242/3940b10cc7503ebbc64ea430f41bfc5cf8bdbd80/",
+  "verdict": "inconclusive",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41021687561",
+  "files": [
+    {
+      "name": "REPORT.md",
+      "sha256": "5066a7bef3a782e29490b6ac422e854aecc0a1acec5f8a57b21ebaffdcab2b67"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "512f0182762bcef0faf050c0d49725ea3c96ef6bb748c0ea701e781190af206d"
+    }
+  ]
+}
