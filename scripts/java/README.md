@@ -5,6 +5,8 @@ The loader and layered CI were merged in
 For the subsequent source-matched release attachment flow, see
 [RELEASE.md](RELEASE.md). The investigation below records the earlier baseline;
 it is not a statement of the current published release or Maven availability.
+For the subsequent unpublished Maven source/Javadoc and consumer tests, see
+[MAVEN.md](MAVEN.md).
 
 Investigation date: 2026-10-29. Source baseline:
 `c95b61cb03b22e258dfbc5941262c9273e6650bd` (upstream master).

@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/java-full-flow.yml'
       - '.github/workflows/java-package-artifacts.yml'
+      - '.github/workflows/java-maven-consumers.yml'
       - '.github/workflows/release.yml'
       - 'scripts/java/**'
       - 'scripts/mk_java_package.py'
