@@ -33,6 +33,8 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/arith/lia2card_tactic.h"
 #include "qe/qe_tactic.h"
+#include "qe/qsat.h"
+#include "smt/smt_solver.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/expr_abstract.h"
@@ -1373,11 +1375,39 @@ namespace opt {
                 return r;
             }
         };
+
+        // The quantifier-free formula that tactic t finds for f, or null if
+        // t fails or the result is not a formula of the fragment over the
+        // given constants.
+        expr_ref eliminate_with(ast_manager& m, tactic& t, expr* f, obj_hashtable<func_decl> const& constants) {
+            goal_ref g = alloc(::goal, m, false, false);
+            g->assert_expr(f);
+            goal_ref_buffer goals;
+            try {
+                t(g, goals);
+            }
+            catch (z3_exception& ex) {
+                IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed " << t.name() << " " << ex.what() << ")\n");
+                return expr_ref(m);
+            }
+            if (goals.size() != 1)
+                return expr_ref(m);
+            expr_ref_vector conjuncts(m);
+            goals[0]->get_formulas(conjuncts);
+            expr_ref result = mk_and(conjuncts);
+            linear_arith_fragment output(m);
+            if (has_quantifiers(result) || !output.contains(result))
+                return expr_ref(m);
+            for (func_decl* c : output.constants())
+                if (!constants.contains(c))
+                    return expr_ref(m);
+            return result;
+        }
     }
 
     // A hard constraint that quantifies over linear integer or linear real
-    // arithmetic is replaced by the quantifier-free formula that the qe
-    // tactic finds for it. The two are equivalent over the free constants,
+    // arithmetic is replaced by a quantifier-free formula found for it by
+    // quantifier elimination. The two are equivalent over the free constants,
     // so the optimum and the models of the free constants are unchanged.
     // Constraints for which no such formula is found within
     // opt.elim_quantifiers_rlimit are kept. The outcome for each constraint
@@ -1397,14 +1427,14 @@ namespace opt {
         {
             // Pushing a resource scope clears the cancellation flag.
             scoped_rlimit limit(m.limit(), budget);
-            for (unsigned i = 0; i < fmls.size() && m.inc(); ++i) {
+            for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr* f = fmls.get(i);
                 expr* cached = nullptr;
                 if (m_elim_quantifiers_cache.find(f, cached)) {
                     fmls[i] = cached;
                     continue;
                 }
-                if (!has_quantifiers(f) || is_objective(f))
+                if (!m.inc() || !has_quantifiers(f) || is_objective(f))
                     continue;
                 expr_ref result = eliminate_quantifiers(f);
                 // A constraint that failed because of a timeout or Ctrl-C
@@ -1421,7 +1451,10 @@ namespace opt {
         return !external_cancel;
     }
 
-    // The quantifier-free equivalent of f, or f itself.
+    // The quantifier-free equivalent of f, or f itself. Neither the qe
+    // tactic nor the model-based qe_rec tactic is correct on every linear
+    // integer formula, so both run, and a result is used only if a
+    // quantifier-free check proves the two results equivalent.
     expr_ref context::eliminate_quantifiers(expr* f) {
         expr_ref g(f, m), result(m);
         linear_arith_fragment input(m);
@@ -1431,32 +1464,39 @@ namespace opt {
             rw(g);
             if (!input.contains(g))
                 return expr_ref(f, m);
+            expr_ref pure(g);
             if (input.has_mod_div()) {
                 mod_div_purifier purify(m);
-                g = purify(g);
+                pure = purify(g);
             }
-            goal_ref goal = alloc(::goal, m, false, false);
-            goal->assert_expr(g);
-            goal_ref_buffer goals;
-            tactic_ref qe = mk_qe_tactic(m, params_ref());
-            (*qe)(goal, goals);
-            if (goals.size() != 1)
+            // qe_rec gives up on some div and mod terms, for example with a
+            // negative divisor, but not on their purified form.
+            tactic_ref qe_rec = mk_qe_rec_tactic(m, params_ref());
+            expr_ref r1 = eliminate_with(m, *qe_rec, g, input.constants());
+            if (!r1 && pure != g && m.inc())
+                r1 = eliminate_with(m, *qe_rec, pure, input.constants());
+            if (!r1) {
+                IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed qe_rec)\n");
                 return expr_ref(f, m);
-            expr_ref_vector conjuncts(m);
-            goals[0]->get_formulas(conjuncts);
-            result = mk_and(conjuncts);
+            }
+            tactic_ref qe = mk_qe_tactic(m, params_ref());
+            expr_ref r2 = eliminate_with(m, *qe, pure, input.constants());
+            if (!r2)
+                return expr_ref(f, m);
+            ref<solver> s = mk_smt_solver(m, params_ref(), symbol::null);
+            s->assert_expr(m.mk_not(m.mk_eq(r1, r2)));
+            lbool differ = s->check_sat(0, nullptr);
+            if (differ != l_false) {
+                IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed "
+                           << (differ == l_true ? "results differ" : "equivalence check unknown") << ")\n");
+                return expr_ref(f, m);
+            }
+            result = get_num_exprs(r2) < get_num_exprs(r1) ? r2 : r1;
         }
         catch (z3_exception& ex) {
             IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed " << ex.what() << ")\n");
             return expr_ref(f, m);
         }
-        // The result must not introduce constants that f does not have.
-        linear_arith_fragment output(m);
-        if (has_quantifiers(result) || !output.contains(result))
-            return expr_ref(f, m);
-        for (func_decl* c : output.constants())
-            if (!input.constants().contains(c))
-                return expr_ref(f, m);
         IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers " << mk_bounded_pp(result, m, 2) << ")\n");
         return result;
     }

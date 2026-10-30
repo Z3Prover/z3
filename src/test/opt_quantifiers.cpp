@@ -195,6 +195,46 @@ static void tst_negated_coefficient() {
     check_optimum(ctx, x, 7);
 }
 
+static void tst_qe_disagrees() {
+    // With -4 <= a, b <= 4: exists y, q, r2, q3, r. 0 <= y <= 1 and
+    // a + 3 = 6 q + r2, 0 <= r2 < 6 and q + 2 a = 3 q3 + r, 0 <= r < 3 and
+    // r + 3 b <= 5. a = b = -4 satisfies it (q = -1, r2 = 5, q3 = -3,
+    // r = 0), so the minimum of a + b is -8. The qe tactic alone drops
+    // a = -4; its result differs from that of qe_rec, so the constraint
+    // is kept.
+    std::cout << "opt_quantifiers: qe and qe_rec disagree\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    expr_ref ca(m.mk_const("a", a.mk_int()), m);
+    expr_ref cb(m.mk_const("b", a.mk_int()), m);
+    sort* integer = a.mk_int();
+    sort* sorts[5] = { integer, integer, integer, integer, integer };
+    symbol names[5] = { symbol("y"), symbol("q"), symbol("r2"), symbol("q3"), symbol("r") };
+    // The last declared variable, r, has index 0.
+    expr_ref y(m.mk_var(4, integer), m), q(m.mk_var(3, integer), m), r2(m.mk_var(2, integer), m);
+    expr_ref q3(m.mk_var(1, integer), m), r(m.mk_var(0, integer), m);
+    expr_ref_vector body(m);
+    body.push_back(a.mk_le(a.mk_int(0), y));
+    body.push_back(a.mk_le(y, a.mk_int(1)));
+    body.push_back(m.mk_eq(a.mk_add(ca, a.mk_int(3)), a.mk_add(a.mk_mul(a.mk_int(6), q), r2)));
+    body.push_back(a.mk_le(a.mk_int(0), r2));
+    body.push_back(a.mk_lt(r2, a.mk_int(6)));
+    body.push_back(m.mk_eq(a.mk_add(q, a.mk_mul(a.mk_int(2), ca)), a.mk_add(a.mk_mul(a.mk_int(3), q3), r)));
+    body.push_back(a.mk_le(a.mk_int(0), r));
+    body.push_back(a.mk_lt(r, a.mk_int(3)));
+    body.push_back(a.mk_le(a.mk_add(r, a.mk_mul(a.mk_int(3), cb)), a.mk_int(5)));
+    ctx.add_hard_constraint(m.mk_exists(5, sorts, names, mk_and(body)));
+    for (expr* v : { ca.get(), cb.get() }) {
+        ctx.add_hard_constraint(a.mk_ge(v, a.mk_int(-4)));
+        ctx.add_hard_constraint(a.mk_le(v, a.mk_int(4)));
+    }
+    expr_ref sum(a.mk_add(ca, cb), m);
+    ctx.add_objective(to_app(sum.get()), false);
+    check_optimum(ctx, sum, -8);
+}
+
 static void tst_nonlinear_kept() {
     // forall y. y * y + 1 >= c * y is outside the linear fragment; the
     // constraint is kept, so the optimum 2 is not claimed.
@@ -222,5 +262,6 @@ void tst_opt_quantifiers() {
     tst_negative_divisor();
     tst_positive_divisor_offset();
     tst_negated_coefficient();
+    tst_qe_disagrees();
     tst_nonlinear_kept();
 }
