@@ -240,6 +240,15 @@ static void tst_can_approach_from_below() {
     isolated.push_back(m.mk_eq(a.mk_mul(x, x), two));
     isolated.push_back(a.mk_gt(x, zero));
     ENSURE(opt.can_approach_from_below(isolated, x, rational(0), root) == l_false);
+
+    // nlsat's limit check gives up on integer variables, so an integer term is
+    // rejected before preprocessing; the one tick is the query's own m.inc().
+    expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+    expr_ref_vector mixed(hard);
+    mixed.push_back(a.mk_le(x, a.mk_to_real(n)));
+    uint64_t start = m.limit().count();
+    ENSURE(opt.can_approach_from_below(mixed, x, rational(0), root) == l_undef);
+    ENSURE(m.limit().count() - start <= 1);
 }
 
 static void tst_projected_limits() {

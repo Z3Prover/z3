@@ -100,8 +100,9 @@ namespace opt {
            bound must be an arithmetic numeral, possibly algebraic.
            This alone does not prove that bound is an upper bound. Maximize
            separately refutes obj >= bound before accepting an open supremum.
-           Returns l_undef outside the real-arithmetic fragment or when the
-           query exceeds rlimit_budget; zero disables the query.
+           Returns l_undef outside the real-arithmetic fragment (an integer
+           term occurs) or when the query exceeds rlimit_budget; zero disables
+           the query.
         */
         lbool can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
                                      expr* bound, unsigned rlimit_budget = 100000);

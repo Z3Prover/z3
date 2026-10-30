@@ -194,8 +194,10 @@ namespace opt {
     lbool nlsat_opt::can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
                                             expr* bound, unsigned rlimit_budget) {
         return bounded_limit_query(m, rlimit_budget, [&]() {
-            if (!m_arith.is_real(obj) || !in_nra_fragment(m, m_arith, hard, obj)) {
-                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: outside NRA)\n");
+            // check_limit gives up on integer variables, so reject them before
+            // spending the budget on preprocessing and loading.
+            if (!m_arith.is_real(obj) || !in_nra_fragment(m, m_arith, hard, obj, true)) {
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: outside real NRA)\n");
                 return l_undef;
             }
             app_ref T(m);
@@ -239,6 +241,13 @@ namespace opt {
     }
 
     lbool nlsat_opt::check_limit(goal const& pg, app* T, expr* bound) {
+        // nlsat's limit check gives up on integer variables, including those
+        // that purification introduces; skip loading a fresh solver for them.
+        expr_ref_vector forms(m);
+        for (unsigned i = 0; i < pg.size(); ++i)
+            forms.push_back(pg.form(i));
+        if (!in_nra_fragment(m, m_arith, forms, T, true))
+            return l_undef;
         nlsat::solver s(m.limit(), m_params, true);
         nlsat::var t;
         expr_ref_vector x2t(m), b2a(m);
