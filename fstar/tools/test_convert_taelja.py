@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from convert_taelja import convert
+from test_native_checker import TPTP_NAMING_CASES
 
 
 HORN = """(declare-sort U 0)
@@ -196,9 +197,10 @@ class TaeljaTests(unittest.TestCase):
                      (assert (not (r a)))"""))
             cases += tuple((name, EQUALITY + assertions) for name, assertions in EQUALITY_CASES)
             cases += QUANTIFIED_CASES
+            cases += TPTP_NAMING_CASES
             for name, problem in cases:
                 with self.subTest(name=name):
-                    source.write_text(problem, encoding="ascii")
+                    source.write_text(problem, encoding="utf-8")
                     convert(source, output, os.environ["Z3_FSTAR_CHECKER"], os.environ["TAELJA"])
                     derivation = output.read_text(encoding="utf-8")
                     self.assertIn("inference(", derivation)

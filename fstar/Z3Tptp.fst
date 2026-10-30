@@ -24,8 +24,52 @@ let rec join (separator:string) (values:list string) : Tot string (decreases val
   | [x] -> x
   | x :: rest -> x ^ separator ^ join separator rest
 
+let digit (c:FStar.Char.char) : bool =
+  let n = FStar.Char.int_of_char c in
+  48 <= n && n <= 57
+
+let rec native_name_suffix (cs:list FStar.Char.char)
+  : Tot (option string) (decreases cs) =
+  match cs with
+  | ':' :: rest -> Some (FStar.String.string_of_list rest)
+  | c :: rest -> if digit c then native_name_suffix rest else None
+  | [] -> None
+
+let source_name (d:func_decl) : string =
+  (* Native opaque identities are decl!<id>:<source-name>. *)
+  match FStar.String.list_of_string d.decl_name with
+  | 'd' :: 'e' :: 'c' :: 'l' :: '!' :: c :: rest ->
+    if digit c then
+      (match native_name_suffix rest with
+       | Some name -> name
+       | None -> d.decl_name)
+    else d.decl_name
+  | _ -> d.decl_name
+
+let lower (c:FStar.Char.char) : bool =
+  let n = FStar.Char.int_of_char c in
+  97 <= n && n <= 122
+
+let plain_word (name:string) : bool =
+  match FStar.String.list_of_string name with
+  | [] -> false
+  | c :: rest ->
+    lower c && L.for_all (fun c ->
+      let n = FStar.Char.int_of_char c in
+      lower c || (65 <= n && n <= 90) || digit c || c = '_') rest
+
+let rec fresh_name (name:string) (ds:list func_decl) : ML string =
+  if L.for_all (fun d -> source_name d <> name) ds then name
+  else fresh_name (name ^ "_") ds
+
 let symbol (doc:P.document) (d:func_decl) : ML string =
-  "d" ^ string_of_int (position d doc.declarations 0)
+  let index = position d doc.declarations 0 in
+  let name = source_name d in
+  if plain_word name &&
+     L.for_all (fun other ->
+       other = d || other.interp <> None || source_name other <> name) doc.declarations
+  then name
+  else fresh_name ("d" ^ string_of_int index) doc.declarations
 
 let rec universal_scope (scope:list sort) (e:expr) : ML (list sort & expr) =
   match e with
@@ -51,7 +95,8 @@ let type_sorts (doc:P.document) : list sort =
   L.fold_left (fun sorts e -> L.fold_left add sorts (bound_sorts e)) sorts doc.assertions
 
 let type_name (doc:P.document) (s:sort) : ML string =
-  if s = bool_sort then "$o" else "s" ^ string_of_int (position s (type_sorts doc) 0)
+  if s = bool_sort then "$o"
+  else fresh_name ("s" ^ string_of_int (position s (type_sorts doc) 0)) doc.declarations
 
 let rec type_names (doc:P.document) (ss:list sort) : ML (list string) =
   match ss with
@@ -61,13 +106,13 @@ let rec type_names (doc:P.document) (ss:list sort) : ML (list string) =
     let rest = type_names doc rest in
     name :: rest
 
-let rec sort_declarations (ss:list sort) (index:nat) : ML string =
+let rec sort_declarations (doc:P.document) (ss:list sort) (index:nat) : ML string =
   match ss with
   | [] -> ""
   | _ :: rest ->
-    let name = "s" ^ string_of_int index in
-    let rest = sort_declarations rest (index + 1) in
-    "tff(t" ^ name ^ ",type," ^ name ^ ":$tType).\n" ^ rest
+    let name = fresh_name ("s" ^ string_of_int index) doc.declarations in
+    let rest = sort_declarations doc rest (index + 1) in
+    "tff(ts" ^ string_of_int index ^ ",type," ^ name ^ ":$tType).\n" ^ rest
 
 let rec symbol_declarations (doc:P.document) (ds:list func_decl) (index:nat) : ML string =
   match ds with
@@ -76,12 +121,12 @@ let rec symbol_declarations (doc:P.document) (ds:list func_decl) (index:nat) : M
     let declaration =
       if d.interp <> None then ""
       else
-        let name = "d" ^ string_of_int index in
+        let name = symbol doc d in
         let domain = type_names doc d.domain in
         let range = type_name doc d.range in
         let signature = if domain = [] then range
                         else "(" ^ join " * " domain ^ ") > " ^ range in
-        "tff(t" ^ name ^ ",type," ^ name ^ ":" ^ signature ^ ").\n" in
+        "tff(td" ^ string_of_int index ^ ",type," ^ name ^ ":" ^ signature ^ ").\n" in
     let rest = symbol_declarations doc rest (index + 1) in
     declaration ^ rest
 
@@ -424,9 +469,9 @@ let export (doc:P.document) : ML string =
     if lines = [] then unsupported "the refutation has no supported inference steps"
     else
     let types = if typed doc then
-      let sorts = sort_declarations (type_sorts doc) 0 in
+      let sorts = sort_declarations doc (type_sorts doc) 0 in
       let symbols = symbol_declarations doc doc.declarations 0 in
       sorts ^ symbols
       else "" in
-    "% Horn refutation; declaration names are renamed injectively.\n" ^ types ^
+    "% Horn refutation; declaration names are preserved where unambiguous.\n" ^ types ^
     join "" axioms ^ join "" (L.rev lines)

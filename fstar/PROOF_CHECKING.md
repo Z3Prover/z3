@@ -84,7 +84,11 @@ Reflexive disequalities are eliminated by equality resolution.
 Modus-ponens steps that only change the presentation of the same clause are
 removed, including `p => q` versus `not p or q`, and reversed term equalities.
 Each clause has at most one positive literal.
-Declaration names are renamed injectively. Ground-only problems use CNF.
+Original declaration names are retained when they are unambiguous TPTP plain
+words (`[a-z][A-Za-z0-9_]*`). Overloaded and other names use injective `dN`
+fallbacks. Generated declaration and sort names avoid original names by
+appending underscores on collision. Native declaration identities are unchanged.
+Ground-only problems use CNF.
 Problems with universal assertions use typed TPTP (TFF): sort declarations,
 function/predicate signatures, and typed universal binders preserve the
 original many-sorted vocabulary. Nested universal prefixes, unused binders,

@@ -9,6 +9,37 @@ import threading
 import unittest
 
 
+def named_horn(predicate="p", conclusion="q", argument="a"):
+    return (f"(declare-sort U 0)(declare-const {argument} U)"
+            f"(declare-fun {predicate} (U) Bool)(declare-fun {conclusion} (U) Bool)"
+            f"(assert ({predicate} {argument}))"
+            f"(assert (or (not ({predicate} {argument})) ({conclusion} {argument})))"
+            f"(assert (not ({conclusion} {argument})))")
+
+
+TPTP_NAMING_CASES = (
+    ("readable", named_horn("premise_A1", "conclusion_2", "input_A0")),
+    ("invalid", named_horn("|bad name|")),
+    ("uppercase", named_horn("Premise")),
+    ("colon", named_horn("|p:q|")),
+    ("quoted-word", named_horn("|'p'|", "p")),
+    ("unicode", named_horn("|na\u00efve|")),
+    ("overloaded-predicate", "(declare-sort U 0)(declare-sort V 0)"
+     "(declare-const a U)(declare-const b V)"
+     "(declare-fun p (U) Bool)(declare-fun p (V) Bool)"
+     "(assert (p a))(assert (or (not (p a)) (p b)))(assert (not (p b)))"),
+    ("overloaded-constant", "(declare-sort U 0)(declare-sort V 0)"
+     "(declare-const a U)(declare-const a V)"
+     "(declare-fun p (U) Bool)(declare-fun q (V) Bool)"
+     "(assert (forall ((x U)) (=> (p x) (q (as a V)))))"
+     "(assert (p (as a U)))(assert (not (q (as a V))))"),
+    ("sort-collision", "(declare-sort U 0)(declare-const a U)"
+     "(declare-fun s0 (U) Bool)(declare-fun s0_ (U) Bool)"
+     "(assert (forall ((x U)) (=> (s0 x) (s0_ x))))"
+     "(assert (s0 a))(assert (not (s0_ a)))"),
+)
+
+
 NEGATIVE_NNF_CASES = (
     ("existential", "(declare-fun p (Int) Bool)"
      "(assert (not (exists ((x Int)) (p x))))(assert (p 0))"),
@@ -304,6 +335,8 @@ class DirectCheckerTests(unittest.TestCase):
             self.assertEqual(result.stdout.strip(), "ACCEPT")
             proof = path.read_text(encoding="utf-8")
             self.assertIn("cnf(a0,axiom,", proof)
+            self.assertIn("(p(a))", proof)
+            self.assertIn("(q(a))", proof)
             self.assertIn("inference(resolution,[status(thm)]", proof)
             self.assertIn("$false", proof.splitlines()[-1])
 
@@ -377,12 +410,55 @@ class DirectCheckerTests(unittest.TestCase):
             scope = re.search(r"!\[X0:(s\d+),X1:(s\d+)\]", proof)
             self.assertIsNotNone(scope, proof)
             self.assertNotEqual(scope.group(1), scope.group(2))
-            self.assertRegex(proof, r"d\d+\(X0,X1\)")
-            self.assertRegex(proof, r"d\d+\(X1,X0\)")
+            self.assertIn("p(X0,X1)", proof)
+            self.assertIn("q(X1,X0)", proof)
             self.assertIn("inference(instantiate,", proof)
             self.assertEqual(proof.count(",axiom,"), 3)
             self.assertNotIn("cnf(", proof)
             self.assertIn("$false", proof.splitlines()[-1])
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_tstp_preserves_unambiguous_names_without_collisions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "proof.tstp"
+
+            def export(source):
+                result = self.run_checker(source, "--tstp-out", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.strip(), "ACCEPT")
+                return path.read_text(encoding="utf-8")
+
+            for name, source in TPTP_NAMING_CASES:
+                with self.subTest(name=name):
+                    proof = export(source)
+                    if name == "readable":
+                        self.assertIn("premise_A1(input_A0)", proof)
+                        self.assertIn("conclusion_2(input_A0)", proof)
+                    elif name in ("invalid", "uppercase", "colon", "quoted-word", "unicode"):
+                        self.assertRegex(proof, r"\bd\d+\(a\)")
+                        self.assertNotIn("bad name", proof)
+                        self.assertNotIn("Premise", proof)
+                        self.assertNotIn("p:q", proof)
+                        self.assertNotIn("'p'", proof)
+                        self.assertNotIn("na\u00efve", proof)
+                    elif name == "overloaded-predicate":
+                        self.assertNotRegex(proof, r"\bp\(")
+                        self.assertEqual(len(set(re.findall(r"\b(d\d+)\([ab]\)", proof))), 2)
+                    elif name == "overloaded-constant":
+                        self.assertNotRegex(proof, r"\ba\b")
+                        self.assertEqual(len(set(re.findall(r"\b[pq]\((d\d+)\)", proof))), 2)
+                    elif name == "sort-collision":
+                        self.assertIn("type,s0__:$tType", proof)
+                        self.assertIn("s0(X0)", proof)
+                        self.assertIn("s0_(X0)", proof)
+
+            source = named_horn("|Bad Name|")
+            fallback = re.search(r"\b(d\d+)\(a\)", export(source)).group(1)
+            source = re.sub(r"\ba\b", fallback, source)
+            source = re.sub(r"\bq\b", fallback + "_", source)
+            proof = export(source)
+            self.assertIn(f"{fallback}__({fallback})", proof)
+            self.assertIn(f"{fallback}_({fallback})", proof)
 
     def test_zero_extension_refutations_and_counterexamples(self):
         for width, extra in ((1, 0), (1, 1), (8, 24), (65, 65), (1, 4095)):
