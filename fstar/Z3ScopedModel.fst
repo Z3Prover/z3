@@ -46,7 +46,7 @@ let application_model (i:interpretation value) : prop =
     arguments_typed f.domain vs ==> scalar_typed f.range (i.interp_app f vs)) /\
   (forall (f:func_decl{is_uninterp_decl f}) (vs:list value).
     arguments_typed f.domain vs ==> scalar_typed f.range (i.uninterp_app f vs)) /\
-  (forall (k:quantifier_kind) (bs:list sort) (body:list value -> value).
+  (forall (k:quantifier_kind) (bs:list sort) (body:list value -> GTot value).
     (k = Forall_k \/ k = Exists_k) ==> VBool? (i.interp_quant k bs body))
 
 let rec lemma_evaluate (i:interpretation value) (scope:list sort) (e:expr) (rho:env value)
@@ -106,7 +106,7 @@ let lemma_witness ()
     let uninterpreted (f:func_decl{is_uninterp_decl f}) (vs:list value)
       : Lemma (arguments_typed f.domain vs ==> scalar_typed f.range (witness.uninterp_app f vs))
       = () in
-    let quantifier (k:quantifier_kind) (bs:list sort) (body:list value -> value)
+    let quantifier (k:quantifier_kind) (bs:list sort) (body:list value -> GTot value)
       : Lemma ((k = Forall_k \/ k = Exists_k) ==> VBool? (witness.interp_quant k bs body))
       = () in
     FStar.Classical.forall_intro_2 interpreted;

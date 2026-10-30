@@ -169,23 +169,56 @@ let remove (n:nat) (term e:expr) : option expr =
     else None
   | _ -> None
 
+(* Two Boolean terms with the same truth value have the same value. *)
+let lemma_same_truth (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires boolean_model i /\ get_sort a == bool_sort /\ get_sort b == bool_sort /\
+                    (lit_true i rho a <==> lit_true i rho b))
+          (ensures eval i a rho == eval i b rho)
+  = assert (VBool? (eval i a rho) /\ VBool? (eval i b rho))
+
+let lemma_erased_length (n:nat) (bs:list sort)
+  : Lemma (requires n < L.length (L.rev bs))
+          (ensures n < L.length bs /\ L.length (L.rev (V.erase n (L.rev bs))) == L.length bs - 1)
+  = FStar.List.Tot.Properties.rev_length bs;
+    V.lemma_erase_length n (L.rev bs);
+    FStar.List.Tot.Properties.rev_length (V.erase n (L.rev bs))
+
+(* What `remove` checked, read off once outside any model hypothesis. *)
+let lemma_remove_shape (n:nat) (term e result:expr)
+  : Lemma (requires remove n term e == Some result)
+          (ensures Quantifier? e /\
+                   (let Quantifier k bs s body = e in
+                    let lowered = Some?.v (V.lower n term) in
+                    let bs' = L.rev (V.erase n (L.rev bs)) in
+                    (k = Forall_k \/ k = Exists_k) /\ s == bool_sort /\ get_sort body == bool_sort /\
+                    n < L.length bs /\ bs <> [] /\ Some? (V.lower n term) /\
+                    guarded (k = Forall_k) n term body /\
+                    get_sort (substitute n lowered body) == bool_sort /\
+                    L.length bs' == L.length bs - 1 /\
+                    e == V.quantified k bs body /\
+                    result == V.quantified k bs' (substitute n lowered body)))
+  = match e with
+    | Quantifier k bs s body ->
+      assert (n < L.length (L.rev bs));
+      lemma_erased_length n bs
+
 let lemma_remove_sound (n:nat) (term e result:expr)
                        (i:interpretation value) (rho:env value)
   : Lemma (requires B.boolean_rewrite_model i /\ eq_sound i /\ quant_extensional i /\
                     Q.quantifier_model i /\ remove n term e == Some result)
           (ensures eval i e rho == eval i result rho) =
+  lemma_remove_shape n term e result;
   match e with
   | Quantifier k bs _ body ->
     let lowered = Some?.v (V.lower n term) in
     let bs' = L.rev (V.erase n (L.rev bs)) in
-    FStar.List.Tot.Properties.rev_length bs;
-    V.lemma_erase_length n (L.rev bs);
-    FStar.List.Tot.Properties.rev_length (V.erase n (L.rev bs));
     lemma_assignments (k = Forall_k) n (L.length bs) term lowered body i rho;
-    Q.lemma_quantifier_truth i rho k bs body;
+    (* Both sides through `V.lemma_quantified_truth`, i.e. in the same
+       `all_assignments` form that `lemma_assignments` relates. *)
+    V.lemma_quantified_truth i rho k bs body;
     V.lemma_quantified_truth i rho k bs' (substitute n lowered body);
-    match eval i e rho, eval i result rho with VBool _, VBool _ -> () | _, _ -> ()
-  | _ -> ()
+    assert (lit_true i rho e <==> lit_true i rho result);
+    lemma_same_truth i rho e result
 
 let endpoint (a b:expr) : list (nat & expr) =
   match a with Var n _ -> [(n, b)] | _ -> []

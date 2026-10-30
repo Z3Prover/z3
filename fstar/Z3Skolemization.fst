@@ -716,7 +716,7 @@ let rec lemma_build_fields (choice:hilbert_choice) (defs:list definition) (i:int
 let lemma_quantifier_fields (i j:interpretation value)
   : Lemma (requires quant_extensional i /\ i.interp_quant == j.interp_quant)
           (ensures quant_extensional j) =
-  let aux (k:quantifier_kind) (bs:list sort) (f g:list value -> value)
+  let aux (k:quantifier_kind) (bs:list sort) (f g:list value -> GTot value)
     : Lemma ((forall (vs:list value{L.length vs = L.length bs}). f vs == g vs) ==>
         j.interp_quant k bs f == j.interp_quant k bs g) = ()
   in FStar.Classical.forall_intro_4 aux;

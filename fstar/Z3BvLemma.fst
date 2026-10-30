@@ -169,8 +169,19 @@ let word_parts (e:expr) : option (pos & list expr) =
 let rec bits_number (bs:list bool) : Tot nat (decreases bs) =
   match bs with [] -> 0 | b :: rest -> (if b then 1 else 0) + 2 * bits_number rest
 
-let bit_values (i:interpretation value) (rho:env value) (args:list expr) : list bool =
-  L.map (fun e -> Z3BooleanRewrite.bool_value (eval i e rho)) args
+(* Ghost, like `eval`: the Boolean values of the arguments. *)
+let rec bit_values (i:interpretation value) (rho:env value) (args:list expr)
+  : GTot (list bool) (decreases args) =
+  match args with
+  | [] -> []
+  | e :: rest -> Z3BooleanRewrite.bool_value (eval i e rho) :: bit_values i rho rest
+
+let rec lemma_bit_values_length (i:interpretation value) (rho:env value) (args:list expr)
+  : Lemma (ensures L.length (bit_values i rho args) == L.length args) (decreases args)
+          [SMTPat (L.length (bit_values i rho args))]
+  = match args with
+    | [] -> ()
+    | _ :: rest -> lemma_bit_values_length i rho rest
 
 let calculate (width:pos) (op:decl_kind) (xs:list (U.uint_t width)) : U.uint_t width =
   match xs with

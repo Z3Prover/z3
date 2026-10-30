@@ -92,9 +92,23 @@ let calculate (p:pos) (op:decl_kind) (xs:list int) : int =
   else if op = op_ff_bitsum then bitsum_mod p 1 xs
   else (match xs with [x] -> (0 - x) % p | _ -> 0)
 
-let projections (i:interpretation value) (rho:env value) (project:int -> value -> int)
-                (p:int) (args:list expr) : list int =
-  L.map (fun a -> project p (eval i a rho)) args
+(* Ghost, like `eval`: the projections of the argument values. *)
+let rec projections (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                    (p:int) (args:list expr) : GTot (list int) (decreases args) =
+  match args with
+  | [] -> []
+  | a :: rest -> project p (eval i a rho) :: projections i rho project p rest
+
+let rec lemma_projections (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                          (p:int) (args:list expr) (k:nat)
+  : Lemma (ensures L.length (projections i rho project p args) == L.length args /\
+                   (k < L.length args ==>
+                    L.index (projections i rho project p args) k == project p (eval i (L.index args k) rho)))
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | _ :: rest -> if k = 0 then lemma_projections i rho project p rest 0
+                   else lemma_projections i rho project p rest (k - 1)
 
 (* Closed terms avoid imposing finite-field typing on arbitrary binder environments. *)
 let ff_model (i:interpretation value) (project:int -> value -> int) : prop =
@@ -261,9 +275,18 @@ let rec lemma_index_of (e:expr) (tbl:list expr) (k:nat)
             | Some j -> lemma_index_of e rest j
             | None -> ())
 
+(* The values of the table entries, computed once in a ghost context; the
+   result is an ordinary valuation of the polynomial variables. *)
 let valuation (i:interpretation value) (rho:env value) (project:int -> value -> int)
-              (p:int) (tbl:list expr) : nat -> int =
-  fun k -> if k < L.length tbl then project p (eval i (L.index tbl k) rho) else 0
+              (p:int) (tbl:list expr) : GTot (nat -> int) =
+  let values = projections i rho project p tbl in
+  fun k -> if k < L.length values then L.index values k else 0
+
+let lemma_valuation (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                    (p:int) (tbl:list expr) (k:nat)
+  : Lemma (valuation i rho project p tbl k ==
+           (if k < L.length tbl then project p (eval i (L.index tbl k) rho) else 0))
+  = lemma_projections i rho project p tbl k
 
 let atom_poly (tbl:list expr) (e:expr) : option poly =
   match index_of e tbl with
@@ -446,6 +469,7 @@ let lemma_atom_poly (i:interpretation value) (rho:env value) (project:int -> val
     lemma_index_of e tbl k;
     lemma_range i rho project p e;
     let v = valuation i rho project p tbl in
+    lemma_valuation i rho project p tbl k;
     assert (v k == project p (eval i e rho));
     assert (peval v [([k], 1)] == v k);
     M.small_mod (project p (eval i e rho)) p
@@ -480,7 +504,7 @@ let rec lemma_to_poly (i:interpretation value) (rho:env value) (project:int -> v
                lemma_operation_shape f args p op;
                lemma_args_sort args p;
                lemma_to_polys i rho project p tbl args qs;
-               lemma_map_length (fun a -> project p (eval i a rho)) args;
+               lemma_projections i rho project p args 0;
                assert (project p (eval i e rho) == calculate p op (projections i rho project p args));
                lemma_combine (valuation i rho project p tbl) p op qs
                  (projections i rho project p args) q
@@ -1344,14 +1368,12 @@ and lemma_eval_and (i:interpretation value) (rho:env value) (project:int -> valu
       lemma_eval_and i rho project p tbl v rest
 
 (* The residues of the leaves in the model form one of the enumerated vectors. *)
-let rec lemma_projections_index (i:interpretation value) (rho:env value) (project:int -> value -> int)
-                                (p:int) (tbl:list expr) (k:nat)
+let lemma_projections_index (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                            (p:int) (tbl:list expr) (k:nat)
   : Lemma (requires k < L.length tbl)
           (ensures L.length (projections i rho project p tbl) == L.length tbl /\
                    L.index (projections i rho project p tbl) k == project p (eval i (L.index tbl k) rho))
-          (decreases tbl)
-  = match tbl with
-    | _ :: rest -> if k = 0 then () else lemma_projections_index i rho project p rest (k - 1)
+  = lemma_projections i rho project p tbl k
 
 let rec lemma_projections_range (i:interpretation value) (rho:env value) (project:int -> value -> int)
                                 (p:int) (tbl:list expr)

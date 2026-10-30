@@ -593,6 +593,12 @@ let w0 : interpretation value = CO.witness (fun _ _ -> 0)
 
 let rho_array_at_int : env value = fun _ -> VArr (AT.const_arr 0)
 
+(* The first core model need not satisfy the untyped `eq_sound`: an Int
+   variable mapped to an array value makes its canonical `x = x` false.
+   Another core model, the classical
+   `Z3GhostStandardModel.ghost_standard`, does satisfy it
+   (`Z3GhostStandardModelTests.ghost_with_untyped_equality`); `eq_sound` is
+   not a consequence of `core_model`. *)
 let core_without_untyped_equality ()
   : Lemma (CO.core_model w0 CO.witness_domains /\
            Z3ResolutionProofTheory.not_sound w0 /\ Z3ResolutionProofTheory.and_sound w0 /\

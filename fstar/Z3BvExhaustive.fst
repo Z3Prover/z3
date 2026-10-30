@@ -608,7 +608,7 @@ and lemma_eval_and (i:interpretation value) (rho:env value) (project:pos -> valu
 
 (* The values of the leaves in the model form one of the enumerated vectors. *)
 let rec actual (i:interpretation value) (rho:env value) (project:pos -> value -> int)
-               (tbl:leaf_table) : Tot (list int) (decreases tbl) =
+               (tbl:leaf_table) : GTot (list int) (decreases tbl) =
   match tbl with
   | [] -> []
   | (e, w) :: rest -> project w (eval i e rho) :: actual i rho project rest

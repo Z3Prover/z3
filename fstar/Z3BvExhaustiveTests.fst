@@ -394,7 +394,7 @@ let nary_add (a b c:expr) : expr =
   App { decl_name = "bvadd"; domain = [bv 3; bv 3; bv 3]; range = bv 3; interp = Some BV.op_add;
         int_params = [3] } [a; b; c]
 
-let standard_value (e:expr) : value = eval (SM.standard leaf0) e rho0
+let standard_value (e:expr) : GTot value = eval (SM.standard leaf0) e rho0
 
 let standard_operations ()
   : Lemma (standard_value (op2 "bvmul" BV.op_mul 3 (num 3 3) (num 3 5)) == VSeq [3; 7] /\

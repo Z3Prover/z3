@@ -541,9 +541,9 @@ The model owns its sort domains `dom`. `typing` fixes only `Bool`, to
 `VBool`, but the domains are not arbitrary: integer `+`/`*` must return
 `VInt` (`Z3Commutativity.arithmetic_model`), so the Int domain contains
 those images, and canonical equality must decide value identity on every
-carrier where it is applied (under the current `Tot` interpretation
-fields no construction is known for a carrier with several distinct array
-values; this is not proved impossible). Environments are typed against an
+carrier where it is applied (the interpretation fields are ghost, so a
+model may decide this classically; see the ghost-semantics follow-up
+below). Environments are typed against an
 explicit scope of sorts, with the de
 Bruijn convention of `Z3Definitions.scoped`. Applications map typed
 arguments into the range domain, `forall`/`exists` give Boolean values and
@@ -619,11 +619,10 @@ foreign-name instances nevertheless take their own theory's values in
 the witness (`clash_eq_excluded`, `true_numerals_excluded`,
 `datatype_and_excluded`).
 
-Not covered and still blocking a global theorem: quantifier truth and
-binder rules (for classical quantification over infinite domains and
-extensional equality of array values no construction is known under the
-current `Tot` interpretation fields; this is not proved impossible),
-definitions, the array, arithmetic, datatype, finite-field and
+Not covered and still blocking a global theorem: quantifier and binder
+rules (the classical model of the ghost-semantics follow-up below gives
+typed quantifiers their standard meaning, but no kernel rule is proved
+sound from it yet), definitions, the array, arithmetic, datatype, finite-field and
 normalization checkers, Skolemization, and the document layer. The legacy
 `model_sound` remains without a model: the quantification in its
 open-environment typing contracts (`boolean_model`, the Int conjunct of
@@ -640,6 +639,62 @@ repair it. O2: the untyped `quantifier_model` clause at the value list
 make the valid `forall x:Int. x + 0 = x` false, so every model of these
 three contracts, if one exists, falsifies it; the typed restriction of the
 quantifier clause holds in a witness core model.
+
+### Follow-up: ghost semantics and a classical standard model
+
+The fields of `Z3AstTheory.interpretation` and `eval`/`eval_args` are now
+ghost (`GTot`); the body passed to `interp_quant` is a ghost function. The
+production `value` type is unchanged: `VBool` carries an ordinary `bool`
+and `VArr` a `Tot` function. A model may therefore decide classical
+propositions with `FStar.IndefiniteDescription.strong_excluded_middle`;
+no axiom is added. Ghost results cannot reach executable code (F* rejects
+a ghost computation in a `Tot` context), so every executable checker
+function is unchanged. Where a proof needs an executable evaluator on a
+ghost valuation (`Z3BoundedBoolEquiv`), the executable evaluator and row
+check stay as they are and a ghost twin (`geval`) is proved to agree with
+them; lemmas about the executable normal forms are applied to a ghost
+valuation through `freeze`, an ordinary valuation computed in a ghost
+context that agrees with it on the finitely many atoms. Spec-only helpers
+that compute with `eval` (for example `Z3BvLemma.bit_values`,
+`Z3FiniteFieldLemma.projections`) became ghost.
+
+`Z3GhostStandardModel.ghost_standard` is a second, hypothesis-free core
+model built with that decision. One interpretation, with one choice of
+domains and the projection `Z3StandardModel.std_project`, satisfies
+`core_model` (including the ground bit-vector contracts), the legacy
+untyped canonical `eq_sound` (identity of any two values under every
+environment, two arrays being equal exactly when they agree at every
+index), typed `forall`/`exists` over exactly the value lists typed for
+the reversed binder list, standard domains (Bool, every integer, every
+`(Array Int Int)` array, the `2^w` bit-vectors of width `w <= 4096`) and
+integer numerals (`op_num_rational` with parameters `[n; 1]` and range
+Int). `Z3GhostStandardModelTests` evaluates actual terms: `forall x:Int.
+x + 0 = x` is true and `x + 0 = x + 1` false; `exists x:Int. x + 1 = 0`
+is true and `x + 1 = x` false; with binders `[Int; Bool]`, `forall x, p.
+p => x + 0 = x` and `exists x, p. p and x = -1` are true and the
+binder-swapped form false; `1 = 0` is false (the first witness gives every
+numeral the value 0); fractions and Real numerals stay opaque leaves;
+array identity equalities hold and shifted or stored-different ones fail;
+`forall a. store a 0 (select a 0) = a` holds and its `+1` mutation fails.
+Each opposite claim is rejected as a mutation control. The first witness
+remains a core model that does not satisfy the untyped `eq_sound`;
+`eq_sound` is not a consequence of `core_model`.
+
+The second witness does not model lambdas (an opaque value of the array
+sort: a ghost body cannot become a `Tot` `VArr` payload), real
+arithmetic, datatypes, finite fields, sequences, nested or non-integer
+arrays, or quantification over those carriers. It does not satisfy the
+untyped legacy `boolean_model`, so `model_sound` still has no model
+(`ghost_boolean_model_fails`). No kernel rule outside `core_rule` is yet
+proved sound from it, and there is no document-level theorem.
+
+Development code outside the checker that computes with the values of
+expressions uses its own executable evaluator, `Z3AstTotEval`
+(`tot_interpretation`, `teval`, and `teval_bool`, a copy of
+`Z3BasicExprTheory.eval_bool`): the regular-expression track
+(`Z3RegexExprTheory`, used by `Z3RegexInfo.compute_info`). It agrees with
+`eval` of the corresponding ghost interpretation on quantifier-free
+expressions only; a `Tot` quantifier field cannot be given a ghost body.
 
 ### Follow-up: fresh-bit elimination by scoped projections
 

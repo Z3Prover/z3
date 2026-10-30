@@ -22,11 +22,11 @@
      but the domains are not arbitrary: `arithmetic_model` makes integer
      `+`/`*` return `VInt` (`VInt 0` on non-integer arguments), so the Int
      domain must contain those images, and canonical equality must decide
-     value identity wherever it is applied; under the current `Tot`
-     interpretation fields no construction is known for a carrier with
-     several distinct array (function) values (not proved impossible).
-     Standard models choose their own carriers; the witness below is not
-     baked into the contract.
+     value identity wherever it is applied. The interpretation fields and
+     `eval` are ghost, so a model may decide it classically, also for
+     array (function) values (`Z3GhostStandardModel`). Standard models
+     choose their own carriers; the witnesses are not baked into the
+     contract.
    * Environments are typed against a scope of sorts (`env_typed`), the
      same de Bruijn convention as `Z3Definitions.scoped`: index 0 is the
      innermost binder. A lambda's argument list is innermost-first, so it
@@ -47,12 +47,14 @@
 
    This is NOT a model of `model_sound`. Quantifier truth, lambda/array
    semantics, real arithmetic, datatypes and finite fields are not
-   constrained by `core_model`: the witness gives `forall`/`exists` a
-   constant value and lambdas an opaque one. For a standard semantics of
-   quantifiers over infinite domains, and of equality between array
-   values, no construction is known under the current `Tot`
-   interpretation fields (it would need classical decisions); this is
-   not proved impossible.
+   constrained by `core_model`: this witness gives `forall`/`exists` a
+   constant value and lambdas an opaque one, and its equality need not
+   decide identity outside typed environments
+   (`Z3CoreModelTests.core_without_untyped_equality`). A second,
+   classical witness, `Z3GhostStandardModel.ghost_standard`, is also a
+   core model, and in addition gives typed `forall`/`exists` and the
+   untyped canonical equality on every value their standard meaning; its
+   lambdas stay opaque.
 *)
 module Z3CoreModel
 
@@ -81,15 +83,15 @@ let rec args_typed (dom:domains) (ss:list sort) (vs:list value) : Tot prop (decr
 let env_typed (dom:domains) (scope:list sort) (rho:env value) : prop =
   forall (n:nat). n < L.length scope ==> dom (L.index scope n) (rho n)
 
-let applied (i:interpretation value) (f:func_decl) (vs:list value) : value =
+let applied (i:interpretation value) (f:func_decl) (vs:list value) : GTot value =
   if Some? f.interp then i.interp_app f vs else i.uninterp_app f vs
 
 let typing (i:interpretation value) (dom:domains) : prop =
   (forall (v:value). dom bool_sort v <==> VBool? v) /\
   (forall (f:func_decl) (vs:list value). args_typed dom f.domain vs ==> dom f.range (applied i f vs)) /\
-  (forall (k:quantifier_kind) (bs:list sort) (body:list value -> value).
+  (forall (k:quantifier_kind) (bs:list sort) (body:list value -> GTot value).
      (k = Forall_k \/ k = Exists_k) ==> VBool? (i.interp_quant k bs body)) /\
-  (forall (bs:list sort) (s:sort) (body:list value -> value).
+  (forall (bs:list sort) (s:sort) (body:list value -> GTot value).
      (forall (vs:list value). args_typed dom (L.rev bs) vs ==> dom s (body vs)) ==>
      dom (ArraySort bs s) (i.interp_quant Lambda_k bs body))
 

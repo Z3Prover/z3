@@ -35,7 +35,11 @@
    malformed results are coerced to the declaration's range sort.
    Heads outside those cases use `leaf f (argument values)`, also coerced
    to their range sort. `lemma_standard_model` proves
-   `ground_model (standard leaf) std_project` for every `leaf`.
+   `ground_model (standard leaf) std_project` for every `leaf`. The
+   bit-vector half holds for every interpretation that computes the
+   bit-vector heads as `standard` does (`bv_like`,
+   `lemma_bv_like_ground`); `Z3GhostStandardModel` uses this for its
+   classical model.
    `lemma_opaque_constant` shows that one nullary uninterpreted BV
    constant can take any residue of its bounded width. It is not a
    general independence theorem for arbitrary opaque applications.
@@ -526,22 +530,77 @@ let lemma_ground_boolean (leaf:func_decl -> list value -> int)
 
 (* --- The bit-vector contracts ------------------------------------------ *)
 
-let lemma_injective (leaf:func_decl -> list value -> int) (width:pos) (a b:expr) (rho:env value)
-  : Lemma (width <= max_width /\ closed_ground a /\ closed_ground b /\
-           get_sort a == BV.bv_sort width /\ get_sort b == BV.bv_sort width ==>
-           ((eval (standard leaf) a rho == eval (standard leaf) b rho <==>
-             std_project width (eval (standard leaf) a rho) == std_project width (eval (standard leaf) b rho)) /\
-            0 <= std_project width (eval (standard leaf) a rho) /\
-            std_project width (eval (standard leaf) a rho) < pow2 width))
+(* The bit-vector contracts constrain only the applications of the
+   bit-vector heads and the values of closed ground bit-vector terms. They
+   hold in every interpretation that computes those heads as `standard`
+   does, from the values of their arguments (`bv_heads`), and gives every
+   ground bit-vector term a value of its sort (`bv_fits`). `standard leaf`
+   is one such interpretation (`lemma_standard_bv_like`); the classical
+   model of `Z3GhostStandardModel` is another. *)
+let bv_heads (i:interpretation value) : prop =
+  forall (f:func_decl) (args:list expr) (rho:env value).
+    Some? f.interp /\ (f.range == bool_sort \/ Some? (width_of_sort f.range)) /\
+    Some? (bv_raw f (eval_args i args rho)) ==>
+    eval i (App f args) rho == coerce f.range (Some?.v (bv_raw f (eval_args i args rho)))
+
+let bv_fits (i:interpretation value) : prop =
+  forall (e:expr) (rho:env value).
+    ground e /\ Some? (width_of_sort (get_sort e)) ==> fits (get_sort e) (eval i e rho)
+
+let bv_like (i:interpretation value) : prop = bv_heads i /\ bv_fits i
+
+let lemma_bv_head (i:interpretation value) (f:func_decl) (args:list expr) (rho:env value)
+  : Lemma (requires bv_heads i /\ Some? f.interp /\ (f.range == bool_sort \/ Some? (width_of_sort f.range)) /\
+                    Some? (bv_raw f (eval_args i args rho)))
+          (ensures eval i (App f args) rho == coerce f.range (Some?.v (bv_raw f (eval_args i args rho))))
+  = ()
+
+let lemma_bv_fits (i:interpretation value) (e:expr) (rho:env value)
+  : Lemma (requires bv_fits i /\ ground e /\ Some? (width_of_sort (get_sort e)))
+          (ensures fits (get_sort e) (eval i e rho))
+  = ()
+
+(* A bit-vector head is not a canonical connective. *)
+let lemma_bv_not_boolean (f:func_decl) (vs:list value)
+  : Lemma (requires Some? (bv_raw f vs)) (ensures bool_raw f vs == None)
+  = ()
+
+let lemma_standard_bv_like (leaf:func_decl -> list value -> int)
+  : Lemma (bv_like (standard leaf))
+  = let i = standard leaf in
+    let heads (f:func_decl) (args:list expr) (rho:env value)
+      : Lemma (Some? f.interp /\ (f.range == bool_sort \/ Some? (width_of_sort f.range)) /\
+               Some? (bv_raw f (eval_args i args rho)) ==>
+               eval i (App f args) rho == coerce f.range (Some?.v (bv_raw f (eval_args i args rho))))
+      = let vs = eval_args i args rho in
+        if Some? f.interp && Some? (bv_raw f vs) then (
+          lemma_bv_not_boolean f vs;
+          lemma_eval_app leaf f args rho) in
+    let fitting (e:expr) (rho:env value)
+      : Lemma (ground e /\ Some? (width_of_sort (get_sort e)) ==> fits (get_sort e) (eval i e rho))
+      = if ground e then lemma_ground_fits leaf e rho in
+    FStar.Classical.forall_intro_3 heads;
+    FStar.Classical.forall_intro_2 fitting
+
+let lemma_injective (i:interpretation value) (width:pos) (a b:expr) (rho:env value)
+  : Lemma (requires bv_like i)
+          (ensures width <= max_width /\ closed_ground a /\ closed_ground b /\
+                   get_sort a == BV.bv_sort width /\ get_sort b == BV.bv_sort width ==>
+                   ((eval i a rho == eval i b rho <==>
+                     std_project width (eval i a rho) == std_project width (eval i b rho)) /\
+                    0 <= std_project width (eval i a rho) /\
+                    std_project width (eval i a rho) < pow2 width))
   = if width <= max_width && closed_ground a && closed_ground b &&
        get_sort a = BV.bv_sort width && get_sort b = BV.bv_sort width then (
-      lemma_ground_fits leaf a rho;
-      lemma_ground_fits leaf b rho;
-      lemma_fits_bv width (eval (standard leaf) a rho);
-      lemma_fits_bv width (eval (standard leaf) b rho))
+      lemma_width width;
+      lemma_bv_fits i a rho;
+      lemma_bv_fits i b rho;
+      lemma_fits_bv width (eval i a rho);
+      lemma_fits_bv width (eval i b rho))
 
-let lemma_numeral (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (width:pos) (n:int)
-  : Lemma (BV.numeral e == Some (width, n) ==> std_project width (eval (standard leaf) e rho) == n)
+let lemma_numeral (i:interpretation value) (e:expr) (rho:env value) (width:pos) (n:int)
+  : Lemma (requires bv_like i)
+          (ensures BV.numeral e == Some (width, n) ==> std_project width (eval i e rho) == n)
   = match BV.numeral e with
     | Some (w, k) ->
       if w = width && k = n then (
@@ -549,68 +608,73 @@ let lemma_numeral (leaf:func_decl -> list value -> int) (e:expr) (rho:env value)
         | App f [] ->
           lemma_width width;
           lemma_bool_width ();
-          lemma_bvv width n)
+          lemma_bvv width n;
+          lemma_bv_head i f [] rho)
     | None -> ()
 
-let lemma_operation (leaf:func_decl -> list value -> int) (f:func_decl) (args:list expr) (rho:env value)
+let lemma_operation (i:interpretation value) (f:func_decl) (args:list expr) (rho:env value)
                     (width:pos) (op:decl_kind)
-  : Lemma (closed_ground (App f args) /\ BV.operation f args == Some (width, op) ==>
-           std_project width (eval (standard leaf) (App f args) rho) ==
-           BV.calculate width op (BV.words width std_project (eval_args (standard leaf) args rho)))
+  : Lemma (requires bv_like i)
+          (ensures closed_ground (App f args) /\ BV.operation f args == Some (width, op) ==>
+                   std_project width (eval i (App f args) rho) ==
+                   BV.calculate width op (BV.words width std_project (eval_args i args rho)))
   = if BV.operation f args = Some (width, op) then (
-      let vs = eval_args (standard leaf) args rho in
-      lemma_eval_args_length (standard leaf) args rho;
+      let vs = eval_args i args rho in
+      lemma_eval_args_length i args rho;
       lemma_width width;
       lemma_bool_width ();
-      lemma_bvv width (BV.calculate width op (BV.words width std_project vs)))
+      lemma_bvv width (BV.calculate width op (BV.words width std_project vs));
+      lemma_bv_head i f args rho)
 
-let lemma_nary_operation (leaf:func_decl -> list value -> int) (f:func_decl) (args:list expr) (rho:env value)
+let lemma_nary_operation (i:interpretation value) (f:func_decl) (args:list expr) (rho:env value)
                          (width:pos) (op:decl_kind)
-  : Lemma (closed_ground (App f args) /\ BV.nary_operation f args == Some (width, op) ==>
-           std_project width (eval (standard leaf) (App f args) rho) ==
-           BV.calculate_nary width op (BV.words width std_project (eval_args (standard leaf) args rho)))
+  : Lemma (requires bv_like i)
+          (ensures closed_ground (App f args) /\ BV.nary_operation f args == Some (width, op) ==>
+                   std_project width (eval i (App f args) rho) ==
+                   BV.calculate_nary width op (BV.words width std_project (eval_args i args rho)))
   = if BV.nary_operation f args = Some (width, op) then (
-      let vs = eval_args (standard leaf) args rho in
-      lemma_eval_args_length (standard leaf) args rho;
+      let vs = eval_args i args rho in
+      lemma_eval_args_length i args rho;
       lemma_width width;
       lemma_bool_width ();
-      lemma_bvv width (BV.calculate_nary width op (BV.words width std_project vs)))
+      lemma_bvv width (BV.calculate_nary width op (BV.words width std_project vs));
+      lemma_bv_head i f args rho)
 
-let lemma_extract (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (s:BV.extraction)
-  : Lemma (closed_ground e /\ BV.extract_parts e == Some s ==>
-           std_project (s.BV.high - s.BV.low + 1) (eval (standard leaf) e rho) ==
-             (std_project s.BV.source_width (eval (standard leaf) s.BV.operand rho) / pow2 s.BV.low) %
-             pow2 (s.BV.high - s.BV.low + 1))
+let lemma_extract (i:interpretation value) (e:expr) (rho:env value) (s:BV.extraction)
+  : Lemma (requires bv_like i)
+          (ensures closed_ground e /\ BV.extract_parts e == Some s ==>
+                   std_project (s.BV.high - s.BV.low + 1) (eval i e rho) ==
+                     (std_project s.BV.source_width (eval i s.BV.operand rho) / pow2 s.BV.low) %
+                     pow2 (s.BV.high - s.BV.low + 1))
   = if BV.extract_parts e = Some s then (
       match e with
       | App f [x] ->
         (match f.int_params with
          | [w; h; l] ->
-           let i = standard leaf in
            let vx = eval i x rho in
            let k : pos = h - l + 1 in
            let r = (std_project w vx / pow2 l) % pow2 k in
            assert (s.BV.operand == x /\ s.BV.source_width == w /\ s.BV.high == h /\ s.BV.low == l /\
                    f.interp == Some BV.op_extract /\ f.range == BV.bv_sort k /\ k <= max_width);
            assert (eval_args i [x] rho == [vx]);
-           assert (bool_raw f [vx] == None);
            assert (bv_raw f [vx] == Some (bvv k r));
            lemma_extract_bound k (std_project w vx / pow2 l);
            lemma_width k;
            lemma_bool_width ();
-           lemma_bvv k r))
+           lemma_bvv k r;
+           lemma_bv_head i f [x] rho))
 
-let lemma_concat (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (c:BV.concatenation)
-  : Lemma (closed_ground e /\ BV.concat_parts e == Some c ==>
-           std_project (c.BV.left_width + c.BV.right_width) (eval (standard leaf) e rho) ==
-             std_project c.BV.left_width (eval (standard leaf) c.BV.left rho) * pow2 c.BV.right_width +
-             std_project c.BV.right_width (eval (standard leaf) c.BV.right rho))
+let lemma_concat (i:interpretation value) (e:expr) (rho:env value) (c:BV.concatenation)
+  : Lemma (requires bv_like i)
+          (ensures closed_ground e /\ BV.concat_parts e == Some c ==>
+                   std_project (c.BV.left_width + c.BV.right_width) (eval i e rho) ==
+                     std_project c.BV.left_width (eval i c.BV.left rho) * pow2 c.BV.right_width +
+                     std_project c.BV.right_width (eval i c.BV.right rho))
   = if BV.concat_parts e = Some c then (
       match e with
       | App f [x; y] ->
         (match f.int_params with
          | [m; n] ->
-           let i = standard leaf in
            let vx = eval i x rho in
            let vy = eval i y rho in
            let a = std_project m vx in
@@ -618,80 +682,87 @@ let lemma_concat (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) 
            assert (c.BV.left == x /\ c.BV.right == y /\ c.BV.left_width == m /\
                    c.BV.right_width == n /\ f.interp == Some BV.op_concat);
            assert (eval_args i [x; y] rho == [vx; vy]);
-           assert (bool_raw f [vx; vy] == None);
            assert (bv_raw f [vx; vy] == Some (bvv (m + n) (a * pow2 n + b)));
            lemma_concat_bound m n a b;
            lemma_width (m + n);
            lemma_bool_width ();
-           lemma_bvv (m + n) (a * pow2 n + b)))
+           lemma_bvv (m + n) (a * pow2 n + b);
+           lemma_bv_head i f [x; y] rho))
 
-let lemma_zero_extend (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (s:BV.zero_extension)
-  : Lemma (closed_ground e /\ BV.zero_extend_parts e == Some s ==>
-           std_project (s.BV.input_width + s.BV.extra_width) (eval (standard leaf) e rho) ==
-             std_project s.BV.input_width (eval (standard leaf) s.BV.argument rho))
+let lemma_zero_extend (i:interpretation value) (e:expr) (rho:env value) (s:BV.zero_extension)
+  : Lemma (requires bv_like i)
+          (ensures closed_ground e /\ BV.zero_extend_parts e == Some s ==>
+                   std_project (s.BV.input_width + s.BV.extra_width) (eval i e rho) ==
+                     std_project s.BV.input_width (eval i s.BV.argument rho))
   = if BV.zero_extend_parts e = Some s then (
       match e with
       | App f [x] ->
         (match f.int_params with
          | [w; k] ->
-           let i = standard leaf in
            let vx = eval i x rho in
            let a = std_project w vx in
            assert (s.BV.argument == x /\ s.BV.input_width == w /\ s.BV.extra_width == k /\
                    f.interp == Some BV.op_zero_extend /\ f.range == BV.bv_sort (w + k) /\
                    w + k <= max_width);
            assert (eval_args i [x] rho == [vx]);
-           assert (bool_raw f [vx] == None);
            assert (bv_raw f [vx] == Some (bvv (w + k) a));
            lemma_zero_extend_bound w k a;
            lemma_width (w + k);
            lemma_bool_width ();
-           lemma_bvv (w + k) a))
+           lemma_bvv (w + k) a;
+           lemma_bv_head i f [x] rho))
 
-let lemma_word (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (width:pos) (args:list expr)
-  : Lemma (closed_ground e /\ BV.word_parts e == Some (width, args) ==>
-           std_project width (eval (standard leaf) e rho) ==
-           BV.bits_number (BV.bit_values (standard leaf) rho args))
+let lemma_word (i:interpretation value) (e:expr) (rho:env value) (width:pos) (args:list expr)
+  : Lemma (requires bv_like i)
+          (ensures closed_ground e /\ BV.word_parts e == Some (width, args) ==>
+                   std_project width (eval i e rho) == BV.bits_number (BV.bit_values i rho args))
   = if BV.word_parts e = Some (width, args) then (
-      let i = standard leaf in
       lemma_bit_values i rho args;
       lemma_eval_args_length i args rho;
       lemma_bits_number (L.map BR.bool_value (eval_args i args rho));
       FStar.List.Tot.Properties.map_lemma BR.bool_value (eval_args i args rho);
       lemma_width width;
       lemma_bool_width ();
-      lemma_bvv width (BV.bits_number (BV.bit_values i rho args)))
+      lemma_bvv width (BV.bits_number (BV.bit_values i rho args));
+      match e with App f _ -> lemma_bv_head i f args rho)
 
-let lemma_unsigned (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (c:BV.unsigned_comparison)
-  : Lemma (closed_ground e /\ BV.unsigned_parts e == Some c ==>
-           eval (standard leaf) e rho ==
-           VBool (BV.unsigned_value c.BV.relation
-             (std_project c.BV.width (eval (standard leaf) c.BV.lhs rho))
-             (std_project c.BV.width (eval (standard leaf) c.BV.rhs rho))))
+let lemma_unsigned (i:interpretation value) (e:expr) (rho:env value) (c:BV.unsigned_comparison)
+  : Lemma (requires bv_like i)
+          (ensures closed_ground e /\ BV.unsigned_parts e == Some c ==>
+                   eval i e rho ==
+                   VBool (BV.unsigned_value c.BV.relation
+                     (std_project c.BV.width (eval i c.BV.lhs rho))
+                     (std_project c.BV.width (eval i c.BV.rhs rho))))
   = if BV.unsigned_parts e = Some c then (
       match e with
       | App f [x; y] ->
         (match f.int_params with
          | [w] ->
-           let i = standard leaf in
            let vx = eval i x rho in
            let vy = eval i y rho in
            let r = VBool (BV.unsigned_value c.BV.relation (std_project w vx) (std_project w vy)) in
            assert (c.BV.lhs == x /\ c.BV.rhs == y /\ c.BV.width == w /\ f.interp == Some c.BV.relation /\
                    unsigned_kind c.BV.relation /\ f.range == bool_sort);
            assert (eval_args i [x; y] rho == [vx; vy]);
-           assert (bool_raw f [vx; vy] == None);
            assert (bv_raw f [vx; vy] == Some r);
-           assert (fits bool_sort r)))
+           assert (fits bool_sort r);
+           lemma_bv_head i f [x; y] rho))
 
-let lemma_concat3 (leaf:func_decl -> list value -> int) (e:expr) (rho:env value) (c:BV.concatenation3)
-  : Lemma (concat3_at (standard leaf) std_project e rho c)
+(* The three-part concatenation bound, kept apart from the evaluation. *)
+let lemma_concat3_bound (p q t:pos) (a b d:int)
+  : Lemma (requires 0 <= a /\ a < pow2 p /\ 0 <= b /\ b < pow2 q /\ 0 <= d /\ d < pow2 t)
+          (ensures 0 <= a * pow2 (q + t) + b * pow2 t + d /\
+                   a * pow2 (q + t) + b * pow2 t + d < pow2 (p + q + t))
+  = lemma_concat_bound q t b d;
+    lemma_concat_bound p (q + t) a (b * pow2 t + d)
+
+let lemma_concat3 (i:interpretation value) (e:expr) (rho:env value) (c:BV.concatenation3)
+  : Lemma (requires bv_like i) (ensures concat3_at i std_project e rho c)
   = if BV.concat3_parts e = Some c then (
       match e with
       | App f [x; y; z] ->
         (match f.int_params with
          | [p; q; t] ->
-           let i = standard leaf in
            let vx = eval i x rho in
            let vy = eval i y rho in
            let vz = eval i z rho in
@@ -703,74 +774,114 @@ let lemma_concat3 (leaf:func_decl -> list value -> int) (e:expr) (rho:env value)
                    c.BV.width2 == q /\ c.BV.width3 == t /\ f.interp == Some BV.op_concat /\
                    f.range == BV.bv_sort (p + q + t) /\ p + q + t <= max_width);
            assert (eval_args i [x; y; z] rho == [vx; vy; vz]);
-           assert (bool_raw f [vx; vy; vz] == None);
            assert (bv_raw f [vx; vy; vz] == Some (bvv (p + q + t) r));
-           lemma_concat_bound q t b d;
-           lemma_concat_bound p (q + t) a (b * pow2 t + d);
+           lemma_std_project p vx;
+           lemma_std_project q vy;
+           lemma_std_project t vz;
+           lemma_concat3_bound p q t a b d;
            lemma_width (p + q + t);
            lemma_bool_width ();
-           lemma_bvv (p + q + t) r))
+           lemma_bvv (p + q + t) r;
+           lemma_bv_head i f [x; y; z] rho))
 
-let lemma_bv_values (leaf:func_decl -> list value -> int)
-  : Lemma (bv_values (standard leaf) std_project)
-  = FStar.Classical.forall_intro_4 (lemma_injective leaf)
+(* One lemma per conjunct of `ground_bv`, then their conjunction. *)
+let lemma_bv_values_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_values i std_project)
+  = introduce forall (width:pos) (a b:expr) (rho:env value).
+      (width <= max_width /\ closed_ground a /\ closed_ground b /\
+       get_sort a == BV.bv_sort width /\ get_sort b == BV.bv_sort width ==>
+       ((eval i a rho == eval i b rho <==>
+         std_project width (eval i a rho) == std_project width (eval i b rho)) /\
+        0 <= std_project width (eval i a rho) /\ std_project width (eval i a rho) < pow2 width))
+    with lemma_injective i width a b rho
 
-let lemma_bv_numerals (leaf:func_decl -> list value -> int)
-  : Lemma (bv_numerals (standard leaf) std_project)
-  = FStar.Classical.forall_intro_4 (lemma_numeral leaf)
+let lemma_bv_numerals_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_numerals i std_project)
+  = introduce forall (e:expr) (rho:env value) (width:pos) (n:int).
+      (BV.numeral e == Some (width, n) ==> std_project width (eval i e rho) == n)
+    with lemma_numeral i e rho width n
 
-let lemma_bv_operations (leaf:func_decl -> list value -> int)
-  : Lemma (bv_operations (standard leaf) std_project)
+let lemma_bv_operations_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_operations i std_project)
   = introduce forall (f:func_decl) (args:list expr) (rho:env value) (width:pos) (op:decl_kind).
       (closed_ground (App f args) /\ BV.operation f args == Some (width, op) ==>
-       std_project width (eval (standard leaf) (App f args) rho) ==
-       BV.calculate width op (BV.words width std_project (eval_args (standard leaf) args rho)))
-    with lemma_operation leaf f args rho width op
+       std_project width (eval i (App f args) rho) ==
+       BV.calculate width op (BV.words width std_project (eval_args i args rho)))
+    with lemma_operation i f args rho width op
 
-let lemma_bv_nary_operations (leaf:func_decl -> list value -> int)
-  : Lemma (bv_nary_operations (standard leaf) std_project)
+let lemma_bv_nary_operations_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_nary_operations i std_project)
   = introduce forall (f:func_decl) (args:list expr) (rho:env value) (width:pos) (op:decl_kind).
       (closed_ground (App f args) /\ BV.nary_operation f args == Some (width, op) ==>
-       std_project width (eval (standard leaf) (App f args) rho) ==
-       BV.calculate_nary width op (BV.words width std_project (eval_args (standard leaf) args rho)))
-    with lemma_nary_operation leaf f args rho width op
+       std_project width (eval i (App f args) rho) ==
+       BV.calculate_nary width op (BV.words width std_project (eval_args i args rho)))
+    with lemma_nary_operation i f args rho width op
 
-let lemma_bv_extracts (leaf:func_decl -> list value -> int)
-  : Lemma (bv_extracts (standard leaf) std_project)
-  = FStar.Classical.forall_intro_3 (lemma_extract leaf)
+let lemma_bv_extracts_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_extracts i std_project)
+  = introduce forall (e:expr) (rho:env value) (s:BV.extraction).
+      (closed_ground e /\ BV.extract_parts e == Some s ==>
+       std_project (s.BV.high - s.BV.low + 1) (eval i e rho) ==
+         (std_project s.BV.source_width (eval i s.BV.operand rho) / pow2 s.BV.low) %
+         pow2 (s.BV.high - s.BV.low + 1))
+    with lemma_extract i e rho s
 
-let lemma_bv_concats (leaf:func_decl -> list value -> int)
-  : Lemma (bv_concats (standard leaf) std_project)
-  = FStar.Classical.forall_intro_3 (lemma_concat leaf)
+let lemma_bv_concats_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_concats i std_project)
+  = introduce forall (e:expr) (rho:env value) (c:BV.concatenation).
+      (closed_ground e /\ BV.concat_parts e == Some c ==>
+       std_project (c.BV.left_width + c.BV.right_width) (eval i e rho) ==
+         std_project c.BV.left_width (eval i c.BV.left rho) * pow2 c.BV.right_width +
+         std_project c.BV.right_width (eval i c.BV.right rho))
+    with lemma_concat i e rho c
 
-let lemma_bv_zero_extends (leaf:func_decl -> list value -> int)
-  : Lemma (bv_zero_extends (standard leaf) std_project)
-  = FStar.Classical.forall_intro_3 (lemma_zero_extend leaf)
+let lemma_bv_zero_extends_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_zero_extends i std_project)
+  = introduce forall (e:expr) (rho:env value) (s:BV.zero_extension).
+      (closed_ground e /\ BV.zero_extend_parts e == Some s ==>
+       std_project (s.BV.input_width + s.BV.extra_width) (eval i e rho) ==
+         std_project s.BV.input_width (eval i s.BV.argument rho))
+    with lemma_zero_extend i e rho s
 
-let lemma_bv_words (leaf:func_decl -> list value -> int)
-  : Lemma (bv_words (standard leaf) std_project)
-  = FStar.Classical.forall_intro_4 (lemma_word leaf)
+let lemma_bv_words_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_words i std_project)
+  = introduce forall (e:expr) (rho:env value) (width:pos) (args:list expr).
+      (closed_ground e /\ BV.word_parts e == Some (width, args) ==>
+       std_project width (eval i e rho) == BV.bits_number (BV.bit_values i rho args))
+    with lemma_word i e rho width args
 
-let lemma_bv_unsigned (leaf:func_decl -> list value -> int)
-  : Lemma (bv_unsigned (standard leaf) std_project)
-  = FStar.Classical.forall_intro_3 (lemma_unsigned leaf)
+let lemma_bv_unsigned_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_unsigned i std_project)
+  = introduce forall (e:expr) (rho:env value) (c:BV.unsigned_comparison).
+      (closed_ground e /\ BV.unsigned_parts e == Some c ==>
+       eval i e rho ==
+       VBool (BV.unsigned_value c.BV.relation
+         (std_project c.BV.width (eval i c.BV.lhs rho))
+         (std_project c.BV.width (eval i c.BV.rhs rho))))
+    with lemma_unsigned i e rho c
 
-let lemma_bv_concats3 (leaf:func_decl -> list value -> int)
-  : Lemma (bv_concats3 (standard leaf) std_project)
-  = FStar.Classical.forall_intro_3 (lemma_concat3 leaf)
+let lemma_bv_concats3_like (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures bv_concats3 i std_project)
+  = introduce forall (e:expr) (rho:env value) (c:BV.concatenation3). concat3_at i std_project e rho c
+    with lemma_concat3 i e rho c
+
+let lemma_bv_like_ground (i:interpretation value)
+  : Lemma (requires bv_like i) (ensures ground_bv i std_project)
+  = lemma_bv_values_like i;
+    lemma_bv_numerals_like i;
+    lemma_bv_operations_like i;
+    lemma_bv_nary_operations_like i;
+    lemma_bv_extracts_like i;
+    lemma_bv_concats_like i;
+    lemma_bv_zero_extends_like i;
+    lemma_bv_words_like i;
+    lemma_bv_unsigned_like i;
+    lemma_bv_concats3_like i
 
 let lemma_ground_bv (leaf:func_decl -> list value -> int)
   : Lemma (ground_bv (standard leaf) std_project)
-  = lemma_bv_values leaf;
-    lemma_bv_numerals leaf;
-    lemma_bv_operations leaf;
-    lemma_bv_nary_operations leaf;
-    lemma_bv_extracts leaf;
-    lemma_bv_concats leaf;
-    lemma_bv_zero_extends leaf;
-    lemma_bv_words leaf;
-    lemma_bv_unsigned leaf;
-    lemma_bv_concats3 leaf
+  = lemma_standard_bv_like leaf;
+    lemma_bv_like_ground (standard leaf)
 
 (* --- The ground contracts have models ---------------------------------- *)
 
