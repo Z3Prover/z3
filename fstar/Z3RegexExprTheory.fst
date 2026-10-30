@@ -202,7 +202,7 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
    missing piece `cond_interp`'s doc comment above flagged: without
    it, `=`/`distinct` between `seq a`-sorted arguments cannot be told
    apart from equality/distinctness between any other (opaque) sort,
-   since `Z3BasicExprTheory.eval_bool` is monomorphic in a single
+   since `Z3AstTotEval.teval_bool` is monomorphic in a single
    `value:eqtype` for an entire condition tree and so cannot itself
    recurse into real `seq a` semantics mid-tree. *)
 let seq_sort : sort = BaseSort "Seq"
@@ -220,7 +220,7 @@ let rec eval_leaf_list (#a:eqtype) (sl:seq_lit a) (args:list expr) : list (seq a
    condition expression, used to pick the actual branch of an
    `(ite c t f)` node -- see `cond_interp`'s doc comment above.
 
-   This mirrors `Z3BasicExprTheory.eval_bool`'s own structural
+   This mirrors `Z3AstTotEval.teval_bool`'s own structural
    recursion over the propositional connectives (`and`/`or`/`not`/
    `implies`/`xor`/`ite`/`true`/`false`), but additionally recognizes
    `(= x y)`/`(distinct x1 ... xn)` nodes whose arguments are
@@ -230,8 +230,8 @@ let rec eval_leaf_list (#a:eqtype) (sl:seq_lit a) (args:list expr) : list (seq a
    itself recognize (an `=`/`distinct` between non-sequence-sorted
    arguments, an arity mismatch, an uninterpreted Boolean atom, or an
    application from another family entirely) falls back to
-   `cond_interp` via `eval_bool`, exactly as the previous, simpler
-   definition of `eval_cond` always did. *)
+   `cond_interp` via `Z3AstTotEval.teval_bool`, as before. Both
+   interpretation fields in `seq_lit` use the executable Tot interface. *)
 let rec eval_cond (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot bool (decreases e) =
   let fallback () = T.teval_bool sl.cond_interp (fun b -> b) e (fun _ -> false) in
   match e with

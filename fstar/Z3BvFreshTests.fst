@@ -135,12 +135,14 @@ let context_extension ()
            (let rs = Some?.v (M.check_context context_inputs context_formulas) in
             let ext = F.extend_context rs context_base project in
             eval_args ext context_inputs zero_env == eval_args context_base context_inputs zero_env /\
+            eval_args ext context_inputs zero_env == [VBool true] /\
             eval ext (equation rv) zero_env == VBool true /\
             eval ext (R.mk_eq_expr (F.word sw) (F.source sw)) zero_env == VBool true))
   = assert_norm (Some? (M.check_context context_inputs context_formulas) /\
                  (let rs = Some?.v (M.check_context context_inputs context_formulas) in
                   let ext = F.extend_context rs context_base project in
                   eval_args ext context_inputs zero_env == eval_args context_base context_inputs zero_env /\
+                  eval_args ext context_inputs zero_env == [VBool true] /\
                   eval ext (equation rv) zero_env == VBool true /\
                   eval ext (R.mk_eq_expr (F.word sw) (F.source sw)) zero_env == VBool true))
 
@@ -151,16 +153,24 @@ let retraction ()
            M.retract rv.F.symbols 5 first == R.true_expr /\
            (let one = F.extend rv context_base project in
             eval one first zero_env == eval context_base (M.retract rv.F.symbols 5 first) zero_env /\
+            eval one first zero_env == VBool true /\
             eval one (F.word rv) zero_env == eval context_base (M.retract rv.F.symbols 5 (F.word rv)) zero_env /\
+            eval one (F.word rv) zero_env == VInt 5 /\
             eval one applied zero_env == eval context_base (M.retract rv.F.symbols 5 applied) zero_env /\
-            eval one quantified zero_env == eval context_base (M.retract rv.F.symbols 5 quantified) zero_env))
+            eval one applied zero_env == VInt 37 /\
+            eval one quantified zero_env == eval context_base (M.retract rv.F.symbols 5 quantified) zero_env /\
+            eval one quantified zero_env == VBool true))
   = assert_norm (F.number rv context_base project == 5 /\
                  M.retract rv.F.symbols 5 first == R.true_expr /\
                  (let one = F.extend rv context_base project in
                   eval one first zero_env == eval context_base (M.retract rv.F.symbols 5 first) zero_env /\
+                  eval one first zero_env == VBool true /\
                   eval one (F.word rv) zero_env == eval context_base (M.retract rv.F.symbols 5 (F.word rv)) zero_env /\
+                  eval one (F.word rv) zero_env == VInt 5 /\
                   eval one applied zero_env == eval context_base (M.retract rv.F.symbols 5 applied) zero_env /\
-                  eval one quantified zero_env == eval context_base (M.retract rv.F.symbols 5 quantified) zero_env))
+                  eval one applied zero_env == VInt 37 /\
+                  eval one quantified zero_env == eval context_base (M.retract rv.F.symbols 5 quantified) zero_env /\
+                  eval one quantified zero_env == VBool true))
 
 (* --- scoped-model-extension --------------------------------------------------- *)
 
@@ -234,9 +244,19 @@ let wrong_reconstruction ()
 let wrong_bit_value () : Lemma (F.number rv context_base project == 4)
   = assert_norm (F.number rv context_base project == 4)
 
+let reserved_name_is_atom ()
+  : Lemma (Some? (F.check_context [] scoped_equations) /\
+           (let ext = F.extend_context (Some?.v (F.check_context [] scoped_equations)) scoped_base project in
+            eval ext (App (symbol "true" bool_sort) []) scoped_env == VBool false))
+  = assert_norm (Some? (F.check_context [] scoped_equations) /\
+                 (let ext = F.extend_context (Some?.v (F.check_context [] scoped_equations)) scoped_base project in
+                  eval ext (App (symbol "true" bool_sort) []) scoped_env == VBool false))
+
 [@@expect_failure [19]]
 let reserved_name_is_literal ()
-  : Lemma (let ext = F.extend_context (Some?.v (F.check_context [] scoped_equations)) scoped_base project in
-           eval ext (App (symbol "true" bool_sort) []) scoped_env == VBool true)
-  = assert_norm (let ext = F.extend_context (Some?.v (F.check_context [] scoped_equations)) scoped_base project in
-                 eval ext (App (symbol "true" bool_sort) []) scoped_env == VBool true)
+  : Lemma (Some? (F.check_context [] scoped_equations) /\
+           (let ext = F.extend_context (Some?.v (F.check_context [] scoped_equations)) scoped_base project in
+            eval ext (App (symbol "true" bool_sort) []) scoped_env == VBool true))
+  = assert_norm (Some? (F.check_context [] scoped_equations) /\
+                 (let ext = F.extend_context (Some?.v (F.check_context [] scoped_equations)) scoped_base project in
+                  eval ext (App (symbol "true" bool_sort) []) scoped_env == VBool true))

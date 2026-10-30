@@ -374,6 +374,12 @@ declarations, and missing operator identity. The existing unconditional
 rewrite checker still rejects an arbitrary variable-to-fresh-word
 equality.
 
+After the ghost-semantics migration, the width 1/3/8 reconstruction and
+evaluation-preservation assertions run as checked F* computations in
+[`Z3BvFreshTests.fst`](Z3BvFreshTests.fst). The native group retains its
+executable context, freshness and kernel checks. Its PASS no longer means
+those semantic evaluations execute natively.
+
 Re-diagnosing the three completed partial BV proofs gives:
 
 | Input | Pending | Passing single-word extension conditions |
@@ -437,6 +443,11 @@ native test groups, and all 26 CLI tests pass. The new native group checks
 simultaneous reconstruction, reversed equality, global bit collisions,
 input freshness under binders, reserved-name rejection, and literal
 retraction/evaluation correspondence.
+
+The context-extension and retraction evaluation checks now run as F*
+proofs in [`Z3BvFreshTests.fst`](Z3BvFreshTests.fst). Native tests still
+execute the structural context, retraction and step checks; they do not
+execute the erased interpretation records.
 
 The actual partial proofs pass the complete, model-safe context guard:
 
@@ -514,9 +525,11 @@ The scoped theorem uses the structural `Z3BvFresh.check_context`.
 Fresh uninterpreted atoms named `true`, `false`, `and`, or `or` are safe
 under these prerequisites: they remain distinct from the interpreted
 operators. The earlier reserved-name guard remains only for the legacy
-Boolean-model transfer helper. Native regressions deliberately assign
-false to an uninterpreted atom named `true`, and true to one named
-`false`, while preserving both official literals.
+Boolean-model transfer helper. The regression that assigns false to an
+uninterpreted atom named `true`, and true to one named `false`, while
+preserving both official literals now runs as a checked F* computation
+in [`Z3BvFreshTests.fst`](Z3BvFreshTests.fst), not as native semantic
+evaluation.
 
 Strict verification (including all three legacy-contract counterexamples),
 extraction, all 48 native test groups, and all 26 CLI tests pass. The
