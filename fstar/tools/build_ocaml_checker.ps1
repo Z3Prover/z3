@@ -186,7 +186,7 @@ try {
     $WslBuildDir = [IO.Path]::GetFullPath($WslBuildDir)
   }
   $order = @(
-    "prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
+    "prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_String.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
     "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3ProofSet.ml",

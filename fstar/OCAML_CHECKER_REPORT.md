@@ -738,6 +738,67 @@ isolates the closed-argument condition: an open Int argument passes the
 other instantiation checks but can produce a false conclusion under an
 ill-typed environment, and remains pending.
 
+### Binder certificates: scope guard and typed quantifier introduction
+
+A `QuantifierIntroduction` node carries a certificate of binder entries
+at different binder depths. Before this change the kernel checked no
+entry's scope, so it accepted, with zero pending obligations, a node whose
+bound variable is annotated `Bool` under an `Int` binder:
+`forall x:Int. (or p (not p)) = forall x:Int. true` with `p` the variable
+0. The Boolean wrapper of `binder_quantifier_step` treats `p` as a Boolean
+atom, but in the classical model `p` takes the integer value of the
+binder, so the left side is false. This is an abstract kernel term. The
+document layer rejects its formula when the expression table is not ground
+(`D.scoped []`), but a document with an empty or ground table skips that
+check, and inner certificate entries are never checked by the document.
+No native input producing it is known.
+
+`check_binder_with_context` now also requires `binder_scoped`. Entries
+are assigned the scopes at which the root uses them: the root at the
+closed scope `[]`; an entry with binder sorts `bs` used at `S` reads its
+premises at `L.rev bs @ S`, any other entry at `S`. Premises must be
+earlier entries. Each entry's judgment must be scoped
+(`Z3Definitions.scoped`) at every scope assigned to it, so a closed
+subproof can be shared inside and outside binders. A `QuantifierIntroduction`
+node whose conclusion is not closed and well sorted is now returned with
+pending 1. The guard is bounded: at most 1024 sorts per assigned scope, 64
+scopes per entry, `4n + 1024` assignments for `n` entries, and a work
+budget of `65536 (n + 1)` units charged before each step. Each unit is an
+entry, index lookup, list cell, expression node, sort node, name character
+or scope cell. An index lookup, an integer operation and a name-length
+computation each count as one unit and are not time-bounded. Exceeding a
+bound rejects the certificate. `Z3BinderScope` proves that an accepted
+certificate has a root scoped at `[]` and that every premise used at an
+assigned scope is scoped under the user's reversed binder sorts. The
+bounded primitives compute exactly `D.scoped`, list length, scope
+membership and sort equality.
+
+`Z3BinderKernel` proves, from `Z3TypedQuantifier.quantifier_model`, that
+an introduction node checked with pending 0 has a true conclusion under
+every environment at which the node's assertions hold, provided every
+entry of its certificate is in the following fragment:
+- a closed `asserted` input, true everywhere by closedness;
+- a core rule at its own scope;
+- a forall or exists introduction whose body edge is exactly the two
+  bodies, so its normalization wrappers hold by reflexivity.
+
+The invariant, over the checker's own cache, is "every entry's judgment is
+scoped and true under every environment typed for each scope assigned to
+it". It does not use `model_sound` or a cache claim about all
+environments. In the classical model, the open premise `x + 0 = x` is
+false when `x` is a Boolean.
+
+The following are not covered: lambda introduction, Boolean `nnf` steps
+without sorts (which rewrite premises inside binder bodies), `nnf-neg`,
+Skolemization, `rewrite`, `th-lemma` and other leaves, and introductions
+through non-reflexive normalization. Such certificates can still be
+accepted, and their acceptance rests on the legacy model.
+`Z3BinderScopeTests` and `Z3BinderKernelTests` check red/green actual
+nodes (previously certified false and ill-scoped certificates, the
+abstract document entry, bound boundaries), positive certificates whose
+conclusions follow through the theorem, mutations, and the uncovered
+kinds. These are node theorems; there is no document theorem.
+
 Development code outside the checker that computes with the values of
 expressions uses its own executable evaluator, `Z3AstTotEval`
 (`tot_interpretation`, `teval`, and `teval_bool`, a copy of

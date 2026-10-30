@@ -15,7 +15,7 @@
     "Z3QuantifierDer.fst", "Z3Skolemization.fst",
     "Z3LambdaRewrite.fst", "Z3ArrayEquality.fst", "Z3BvLemma.fst", "Z3StandardModel.fst", "Z3BvWord.fst", "Z3BvOrder.fst", "Z3BvExtract.fst", "Z3BvExhaustive.fst", "Z3BvAddNormalize.fst", "Z3BvFresh.fst",
     "Z3BvFreshModel.fst", "Z3DatatypeLemma.fst", "Z3DatatypeValue.fst", "Z3CoreModel.fst", "Z3TypedQuantifier.fst", "Z3GhostStandardModel.fst", "Z3DatatypeSignature.fst",
-    "Z3TheoryNormalize.fst", "Z3UnifiedProof.fst", "Z3CoreKernel.fst", "Z3QuantifierKernel.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
+    "Z3TheoryNormalize.fst", "Z3UnifiedProof.fst", "Z3CoreKernel.fst", "Z3QuantifierKernel.fst", "Z3BinderScope.fst", "Z3BinderKernel.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
     "Z3SortedSemantics.fst", "Z3SortedQuantifier.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   ],
@@ -24,6 +24,6 @@
     "Z3DatatypeValueTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst", "Z3ArrayEqualityTests.fst",
     "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst", "Z3PulseJustificationChecker.fst",
     "Z3LraFarkasTheory.fst", "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst",
-    "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BvFreshTests.fst"
+    "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst"
   ]
 }
