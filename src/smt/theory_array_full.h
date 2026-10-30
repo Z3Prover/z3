@@ -105,6 +105,7 @@ namespace smt {
         void assign_eqs();
 
         lbool check_const_arrays();
+        lbool check_map_arrays();
 
         
     public:

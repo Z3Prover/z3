@@ -409,7 +409,22 @@ static void check_array_index_dependencies() {
         "(assert (= ((as const (Array D Bool Bool)) false)\n"
         "  (store (store (store (store (store (store\n"
         "    ((as const (Array D Bool Bool)) true)\n"
-        "    a false false) a true false) b false false) b true false) c false false) x y false)))\n"}) {
+        "    a false false) a true false) b false false) b true false) c false false) x y false)))\n",
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x D)\n"
+        "(assert (= ((_ map or)\n"
+        "  (store ((as const (Array D Bool)) false) a true)\n"
+        "  (store (store ((as const (Array D Bool)) false) b true) x true))\n"
+        "  ((as const (Array D Bool)) true)))\n",
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x D)\n"
+        "(declare-const y Bool)\n"
+        "(assert (= ((_ map or)\n"
+        "  (store ((as const (Array D Bool Bool)) false) a false true)\n"
+        "  (store (store (store (store (store\n"
+        "    ((as const (Array D Bool Bool)) false)\n"
+        "    a true true) b false true) b true true) c false true) x y true))\n"
+        "  ((as const (Array D Bool Bool)) true)))\n"}) {
         for (unsigned backend = 0; backend < 3; ++backend) {
             bool sat_smt = backend == 2;
             auto mode = backend == 1 ? PGM_ENABLED : PGM_DISABLED;
@@ -448,6 +463,150 @@ static void check_array_index_dependencies() {
                 VERIFY(l_true == slv->check_sat(0, nullptr));
             }
         }
+    }
+}
+
+static void check_mapped_array_coherence() {
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(assert (= ((_ map or)\n"
+         "  (store ((as const (Array D Bool)) false) a true)\n"
+         "  (store ((as const (Array D Bool)) false) b true))\n"
+         "  ((as const (Array D Bool)) true)))\n", l_false},
+        {"(declare-datatypes () ((D a b)))\n"
+         "(assert (= ((_ map or)\n"
+         "  (store ((as const (Array D Bool)) false) a true)\n"
+         "  (store ((as const (Array D Bool)) false) b true))\n"
+         "  ((as const (Array D Bool)) true)))\n", l_true},
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(assert (= ((_ map or)\n"
+         "  (store ((as const (Array D Bool)) false) a true)\n"
+         "  (store ((as const (Array D Bool)) false) b true))\n"
+         "  ((as const (Array D Bool)) false)))\n", l_false},
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(assert (= (store ((_ map or)\n"
+         "  (store ((as const (Array D Bool)) false) a true)\n"
+         "  (store ((as const (Array D Bool)) false) b true)) c true)\n"
+         "  ((as const (Array D Bool)) true)))\n", l_true},
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(assert (= (store ((_ map or)\n"
+         "  (store ((as const (Array D Bool)) false) a true)\n"
+         "  (store ((as const (Array D Bool)) false) b true)) a true)\n"
+         "  ((as const (Array D Bool)) true)))\n", l_false},
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(declare-const x (Array D Int))\n"
+         "(declare-const y (Array D Int))\n"
+         "(assert (= x (store ((as const (Array D Int)) 1) a 3)))\n"
+         "(assert (= y (store ((as const (Array D Int)) 2) b 5)))\n"
+         "(assert (= ((_ map (+ (Int Int) Int)) x y)\n"
+         "  ((as const (Array D Int)) 4)))\n", l_false},
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(declare-fun f (Int Int) Bool)\n"
+         "(assert (not (f 0 1)))\n"
+         "(assert (= ((_ map f)\n"
+         "  (store ((as const (Array D Int)) 0) a 2)\n"
+         "  (store ((as const (Array D Int)) 1) b 3))\n"
+         "  ((as const (Array D Bool)) true)))\n", l_false},
+        {"(assert (= ((_ map or)\n"
+         "  (store ((as const (Array Bool Bool Bool)) false) false false true)\n"
+         "  (store ((as const (Array Bool Bool Bool)) false) true true true))\n"
+         "  ((as const (Array Bool Bool Bool)) true)))\n", l_false},
+        {"(assert (= ((_ map or)\n"
+         "  (store ((as const (Array (_ BitVec 2) Bool)) false) #b00 true)\n"
+         "  (store ((as const (Array (_ BitVec 2) Bool)) false) #b01 true))\n"
+         "  ((as const (Array (_ BitVec 2) Bool)) true)))\n", l_false},
+        {"(assert (= ((_ map or)\n"
+         "  (store (store ((as const (Array Bool Bool Bool)) false)\n"
+         "    false false true) false true true)\n"
+         "  (store (store ((as const (Array Bool Bool Bool)) false)\n"
+         "    true false true) true true true))\n"
+         "  ((as const (Array Bool Bool Bool)) true)))\n", l_true},
+        {"(declare-datatypes () ((D a b c)))\n"
+         "(assert (= ((_ map or)\n"
+         "  ((_ map or)\n"
+         "    (store ((as const (Array D Bool)) false) a true)\n"
+         "    (store ((as const (Array D Bool)) false) b true))\n"
+         "  (store ((as const (Array D Bool)) false) c true))\n"
+         "  ((as const (Array D Bool)) true)))\n", l_true}
+    };
+    for (auto const& test : cases) {
+        for (unsigned backend = 0; backend < 3; ++backend) {
+            ast_manager m(backend == 1 ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(test.input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", backend == 2);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i < 2; ++i) {
+                slv->push();
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                lbool actual = slv->check_sat(0, nullptr);
+                if (actual != test.expected)
+                    std::cerr << "map coherence: expected " << test.expected << ", got " << actual
+                              << ", backend=" << backend << '\n' << test.input << '\n';
+                VERIFY(actual == test.expected);
+                if (actual == l_true) {
+                    model_ref mdl;
+                    slv->get_model(mdl);
+                    VERIFY(mdl);
+                    array_util arrays(m);
+                    for (expr* assertion : cmd.assertions()) {
+                        expr* lhs = nullptr, *rhs = nullptr;
+                        VERIFY(m.is_eq(assertion, lhs, rhs));
+                        for (char const* name : {"a", "b", "c"}) {
+                            if (!cmd.is_func_decl(symbol(name)))
+                                continue;
+                            expr_ref index(m.mk_const(cmd.find_func_decl(symbol(name))), m);
+                            expr_ref lsel(arrays.mk_select(lhs, index), m);
+                            expr_ref rsel(arrays.mk_select(rhs, index), m);
+                            expr_ref eq(m.mk_eq(lsel, rsel), m), value(m);
+                            VERIFY(mdl->eval_expr(eq, value, true));
+                            VERIFY(m.is_true(value));
+                        }
+                    }
+                }
+                slv->pop(1);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+}
+
+static void check_mapped_array_dependencies() {
+    char const* input =
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x (Array D Bool))\n"
+        "(declare-const y (Array D Bool))\n"
+        "(declare-const p Bool)\n"
+        "(assert (=> p (= x (store ((as const (Array D Bool)) false) a true))))\n"
+        "(assert (= y (store ((as const (Array D Bool)) false) b true)))\n"
+        "(assert (= ((_ map or) x y) ((as const (Array D Bool)) true)))\n";
+    for (unsigned backend = 0; backend < 3; ++backend) {
+        ast_manager m(backend == 1 ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref params;
+        params.set_bool("smt", backend == 2);
+        params.set_bool("unsat_core", true);
+        ref<solver> slv = mk_smt2_solver(m, params, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
+        expr_ref assumption(m.mk_const(cmd.find_func_decl(symbol("p"))), m);
+        expr* assumptions[] = {assumption};
+        VERIFY(l_false == slv->check_sat(1, assumptions));
+        expr_ref_vector core(m);
+        slv->get_unsat_core(core);
+        VERIFY(core.size() == 1 && core[0] == assumption);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
     }
 }
 
@@ -800,6 +959,8 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_sequence_last_index();
     check_array_index_dependencies();
+    check_mapped_array_coherence();
+    check_mapped_array_dependencies();
     check_stored_lambdas();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
