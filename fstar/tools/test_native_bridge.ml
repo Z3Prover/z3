@@ -888,15 +888,27 @@ let checked_binder_proofs () =
   require (pending (diamond 40) 120 (U.Equal (tt, tt)) = 1)
     "exponential shared binder proof was accepted";
   require (Unix.gettimeofday () -. t0 < 5.0) "exponential shared binder proof was not cut off";
-  (* Sort names are charged by FStar.String.strlen before they are compared. The
-     runtime counts like the Cherry runtime: code points on valid UTF-8, and at
+  (* Sort names are charged by U.name_length, which equals FStar.String.strlen,
+     before they are compared. It counts FStar.String.list_of_string, which the
+     runtime decodes like the Cherry runtime: code points on valid UTF-8, and at
      least a quarter of the bytes on any byte string. *)
   List.iter (fun (s, n) ->
       require (Z.equal (FStar_String.strlen s) (Z.of_int n))
-        ("runtime strlen disagrees with the Cherry runtime: " ^ String.escaped s))
+        ("runtime strlen disagrees with the Cherry runtime: " ^ String.escaped s);
+      require (Z.equal (U.name_length s) (Z.of_int n))
+        ("guard name length disagrees with strlen: " ^ String.escaped s))
     ["", 0; "Int", 3; "\xC3\xA9", 1; "\xE2\x82\xAC", 1; "\xF0\x9F\x98\x80", 1; "e\xCC\x81", 2;
      "\x80\x80\x80\x80\x80\x80\x80\x80", 4; "\xC3", 1; "a\xE2\x82", 2; "\xFF\xFE", 1;
      "\xC0\x80", 1; "\xED\xA0\x80", 1];
+  (* Decoded characters: scalar boundaries and malformed sequences (U+FFFD). *)
+  List.iter (fun (s, cs) ->
+      require (FStar_String.list_of_string s = cs)
+        ("runtime list_of_string decodes unexpectedly: " ^ String.escaped s))
+    ["a\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80", [0x61; 0xE9; 0x20AC; 0x1F600];
+     "\xED\x9F\xBE\xED\x9F\xBF\xEE\x80\x80\xF4\x8F\xBF\xBF", [0xD7FE; 0xD7FF; 0xE000; 0x10FFFF];
+     "\xED\xA0\x80\xED\xBF\xBF\xF4\x90\x80\x80", [0xFFFD; 0xFFFD; 0xFFFD];
+     "\x80\x80\xC0\x80\xF5\x80\x80\x80", [0xFFFD; 0xFFFD; 0xFFFD];
+     "\xE0\x80\x80", [0]; "a\xF0\x9F\x98", [0x61; 0xFFFD]];
   let named len c =
     let s = A.BaseSort (String.make len c) in
     let x = A.Var (Z.zero, s) in
@@ -905,7 +917,9 @@ let checked_binder_proofs () =
              entry "quant-intro" (eqe q q) [0] (Some [s])] 1 (U.Equal (q, q)) in
   require (named 1000 'S' = 0) "a binder sort with a 1000-character name was rejected";
   require (named 1_000_000 '\x80' = 1)
-    "a long malformed sort name was compared without its length being charged"
+    "a long malformed sort name was compared without its length being charged";
+  require (named 1_000_000 'S' = 1)
+    "a long sort name was compared without its length being charged"
 
 let checked_binder_definitions () =
   let c = context () in

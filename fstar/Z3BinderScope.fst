@@ -91,6 +91,17 @@ let rec lemma_length_within (#a:Type) (work:nat) (l:list a)
     | [] -> ()
     | _ :: rest -> lemma_length_within (work - 1) rest
 
+let rec lemma_count_cells (#a:Type) (acc:nat) (l:list a)
+  : Lemma (ensures count_cells acc l == acc + L.length l) (decreases l)
+  = match l with
+    | [] -> ()
+    | _ :: rest -> lemma_count_cells (acc + 1) rest
+
+(* The guard charges a name `FStar.String.strlen` units, counted without
+   `List.Tot.length`'s recursion. *)
+let lemma_name_length (s:string) : Lemma (name_length s == FStar.String.strlen s)
+  = lemma_count_cells 0 (FStar.String.list_of_string s)
+
 let rec lemma_sort_eq_within (work:nat) (s t:sort)
   : Lemma (requires Some? (sort_eq_within work s t))
           (ensures fst (Some?.v (sort_eq_within work s t)) == sort_eq s t)

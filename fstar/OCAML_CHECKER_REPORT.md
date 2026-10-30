@@ -766,12 +766,22 @@ scopes per entry, `4n + 1024` assignments for `n` entries, and a work
 budget of `65536 (n + 1)` units charged before each step. Each unit is an
 entry, index lookup, list cell, expression node, sort node, name character
 or scope cell. The units are an abstract count, not a time bound: an index
-lookup takes up to `log2 n + 1` steps, and a name's length is computed
-before it is charged (both runtimes count one character per UTF-8 lead
-byte, at least a quarter of the bytes even for malformed names). Exceeding a
-bound rejects the certificate. `Z3BinderScope` proves that an accepted
-certificate has a root scoped at `[]` and that every premise used at an
-assigned scope is scoped under the user's reversed binder sorts. The
+lookup takes up to `log2 n + 1` steps, and the two names of a comparison
+are counted before they are charged (`name_length`, proved equal to
+`FStar.String.strlen`: a tail-recursive count of `list_of_string`, so no
+stack in the name's length; both runtimes decode one character per UTF-8
+lead byte, at least a quarter of the bytes even for malformed names). The
+uncharged work is that of the two names of the one comparison whose charge
+exceeds the remaining budget. Exceeding a bound rejects the certificate,
+also a legitimate one: the budget grows with the number of entries, and a
+two-entry certificate (196,608 units) already stays pending with a sort
+tree of 4,095 unfolded nodes, a 10,000-character sort name or a
+10,000-argument application under one binder. On native inputs, the
+certificates for a sort name of 10,000 characters are accepted, and
+those for 100,000 characters or more stay pending. `Z3BinderScope` proves
+that an accepted certificate has a root scoped at `[]` and that every
+premise used at an assigned scope is scoped under the user's reversed
+binder sorts. The
 bounded primitives compute exactly `D.scoped`, list length, scope
 membership and sort equality.
 
@@ -2939,7 +2949,7 @@ opam/OCaml are otherwise unavailable natively on Windows:
 | `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |
 | `fStar_UInt32.ml` | Native integer character-facing representation; `v` converts to exact `Prims.int` |
 | `fStar_UInt.ml` | Fixed-width modular arithmetic, masks, shifts, rotations, and bitwise operations via Zarith |
-| `fStar_String.ml` | `strlen`/`list_of_string`/`string_of_list`, byte-wise via `Stdlib.String`/`Stdlib.Char` (sufficient: the JSON proof format is pure ASCII) |
+| `fStar_String.ml` | `list_of_string` (code points as `int`, decoded like the Cherry runtime by UTF-8 lead byte, U+FFFD for malformed sequences; it differs from the Cherry runtime only at U+D7FF, which the Cherry runtime maps to U+FFFD) and `strlen` (the length of that list, without building it); loops, no Batteries. The checker uses only the length (`Z3UnifiedProof.name_length`), which agrees with the Cherry runtime on every byte string |
 | `fStar_FunctionalExtensionality.ml` | `restricted_t` as a plain function-type alias (type-level only; never invoked at runtime by this checker) |
 | `pulse_Lib_Reference.ml` | `ref`/`alloc`/`read`/`write` over a native OCaml `ref`, matching the exact (ghost-argument-padded) call shapes the extracted code uses: `alloc () v`, `read r () ()`, `write r v` |
 | `pulse_Lib_Dv.ml` | `unreachable () = Stdlib.failwith "..."` |

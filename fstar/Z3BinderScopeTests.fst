@@ -451,6 +451,32 @@ let name_lengths ()
     assert_norm (binder_scoped_within 1 (less (work_used 1 (named_cert long_name))) (named_cert long_name)
                    (cache_of (named_cert long_name)) == false)
 
+(* The guard's `name_length` is `FStar.String.strlen` (`Z3BinderScope.lemma_name_length`),
+   computed by a tail-recursive count. On valid UTF-8 names the F* normalizer counts code
+   points, including the scalar boundaries U+D7FE, U+D7FF, U+E000 and U+10FFFF, whose decoded
+   characters are those of the corresponding character literals. *)
+let name_length_values ()
+  : Lemma (name_length "" == 0 /\
+           name_length "Int" == 3 /\
+           name_length "é" == 1 /\
+           name_length "€" == 1 /\
+           name_length "𝔸" == 1 /\
+           name_length "é" == 2 /\
+           name_length "😀" == 1 /\
+           name_length "aé€😀" == 4 /\
+           name_length "퟾퟿􏿿" == 4 /\
+           FStar.String.list_of_string "퟾퟿􏿿" == ['퟾'; '퟿'; ''; '􏿿'])
+  = assert_norm (name_length "" == 0);
+    assert_norm (name_length "Int" == 3);
+    assert_norm (name_length "é" == 1);
+    assert_norm (name_length "€" == 1);
+    assert_norm (name_length "𝔸" == 1);
+    assert_norm (name_length "é" == 2);
+    assert_norm (name_length "😀" == 1);
+    assert_norm (name_length "aé€😀" == 4);
+    assert_norm (name_length "퟾퟿􏿿" == 4);
+    assert_norm (FStar.String.list_of_string "퟾퟿􏿿" == ['퟾'; '퟿'; ''; '􏿿'])
+
 (* --- The structural theorems on accepted certificates ------------------------------------ *)
 
 let sum_root_scoped () : Lemma (BS.binder_judgment_scoped [] sum_node.conclusion)

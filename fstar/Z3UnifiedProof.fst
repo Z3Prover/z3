@@ -563,25 +563,29 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
      lookup or update, per list cell counted or compared, per expression node
      walked, per sort node compared (both sorts are walked together, so a
      comparison costs at most the smaller unfolded sort), the lengths of both
-     names (`FStar.String.strlen`) before two base-sort names are compared,
-     and one unit per variable index step; `2 m + 1` units to build the scope
-     under `m` binders, also inside expressions, where scopes are not capped
-     by `binder_scope_limit` but every cell built or indexed is charged; and
-     `len + 2` units per assigned scope of length `len`.
+     names (`name_length`, which equals `FStar.String.strlen`) before two
+     base-sort names are compared, and one unit per variable index step;
+     `2 m + 1` units to build the scope under `m` binders, also inside
+     expressions, where scopes are not capped by `binder_scope_limit` but
+     every cell built or indexed is charged; and `len + 2` units per assigned
+     scope of length `len`.
 
    The units are an abstract count, not a time bound: a lookup in
    `Z3ProofIndex.index_tree` costs up to `log2 n + 1` steps, and an integer
-   (bignum) comparison or update is one primitive operation. A name's length
-   is computed before it is charged: both runtimes count one character per
-   UTF-8 lead byte (`ocaml_runtime/fStar_String.ml` steps like the Cherry
-   runtime), in as many steps as the count, which is at least a quarter of
-   the name's bytes also for malformed UTF-8; so the uncharged work is that
-   of the one name whose length exceeds the remaining budget, and comparing
-   two names costs at most four units per charged character. Linear passes
-   over the entry list itself (its length and reversal), and
-   `check_binder_entries`, which runs before the guard, are not charged; the
-   budget bounds the guard's own work. The guard only rejects certificates;
-   it accepts nothing new. *)
+   (bignum) comparison or update is one primitive operation. The two names'
+   lengths are computed before they are charged: both runtimes decode one
+   character per UTF-8 lead byte (`ocaml_runtime/fStar_String.ml` decodes
+   like the Cherry runtime), in as many steps and list cells as the count,
+   which is at least a quarter of the name's bytes also for malformed UTF-8;
+   the count is a tail-recursive loop, so it needs no stack proportional to
+   the name. The uncharged work is therefore that of the two names of the
+   one comparison whose charge exceeds the remaining budget (neither name
+   need exceed it alone): at most the budget plus both names' bytes, up to
+   constant factors. Comparing two names costs at most four units per
+   charged character. Linear passes over the entry list itself (its length
+   and reversal), and `check_binder_entries`, which runs before the guard,
+   are not charged; the budget bounds the guard's own work. The guard only
+   rejects certificates; it accepts nothing new. *)
 let binder_scope_limit : nat = 1024
 
 let binder_entry_scope_limit : nat = 64
@@ -606,6 +610,21 @@ let rec scope_length_within (#a:Type) (work:nat) (l:list a)
           | Some (n, w) -> Some (n + 1, w)
           | None -> None)
 
+(* The number of elements of `l` plus `acc`, by a self tail call: the Cherry
+   backend compiles it to a loop (`goto`), so it needs no stack in the length
+   of `l`. *)
+let rec count_cells (#a:Type) (acc:nat) (l:list a) : Tot nat (decreases l) =
+  match l with
+  | [] -> acc
+  | _ :: rest -> count_cells (acc + 1) rest
+
+(* The length of a name, as `FStar.String.strlen` counts it
+   (`Z3BinderScope.lemma_name_length`): the characters of
+   `FStar.String.list_of_string`. `strlen` itself is `List.Tot.length` of that
+   list, which the Cherry backend compiles to a recursion as deep as the name
+   (a native stack overflow on names of a few hundred thousand characters). *)
+let name_length (s:string) : nat = count_cells 0 (FStar.String.list_of_string s)
+
 (* `sort_eq s t` and `sort_list_eq l1 l2` (structural sort equality), one
    unit per sort node and list cell visited, and the two names' lengths
    before two base-sort names are compared. *)
@@ -615,7 +634,7 @@ let rec sort_eq_within (work:nat) (s t:sort) : Tot (option (bool & nat)) (decrea
   | Some w ->
     (match s, t with
      | BaseSort a, BaseSort b ->
-       (match scope_charge w (FStar.String.strlen a + FStar.String.strlen b) with
+       (match scope_charge w (name_length a + name_length b) with
         | Some w' -> Some (a = b, w')
         | None -> None)
      | ArraySort d1 r1, ArraySort d2 r2 ->
