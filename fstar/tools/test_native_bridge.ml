@@ -2164,6 +2164,11 @@ let sorted_quantifier_rewrites () =
   let declarations =
     "(declare-datatype T ((C (field Int)) (D)))\
      (declare-fun P (T) Bool)(declare-fun Q (T Int) Bool)\
+     (declare-fun box (Bool) T)\
+     (declare-fun mix (Int Bool) T)\
+     (declare-fun fakeEq (Int Int) Bool)\
+     (declare-fun fakeAdd (Int Int) Int)\
+     (declare-fun fakeIte (Bool T T) T)\
      (declare-fun fake (Bool Bool) Bool)" in
   let check expected left right =
     let native = List.hd (parse c
@@ -2174,13 +2179,16 @@ let sorted_quantifier_rewrites () =
       "sorted quantifier regression did not retain its datatype signature";
     let formula = B.cached_expression st native in
     let conclusion = Option.get (U.classify_fact formula) in
-    let result = K.check_node schema []
-      { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } in
-    let checked = match result with
-      | Some (_, pending) -> Z.equal pending Z.zero
-      | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
-    require (checked = expected)
-      ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right);
+    List.iter (fun kind ->
+      let result = K.check_node schema []
+        { U.kind; conclusion1 = conclusion; premises = [] } in
+      let checked = match result with
+        | Some (_, pending) -> Z.equal pending Z.zero
+        | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
+      require (checked = expected)
+        ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right))
+      [U.RewriteRule; U.QuantifierIntroduction {
+        U.binder_entries = []; binder_root = Z.minus_one }];
     (match formula with
      | A.App (f, args) ->
          require (not (K.consequence schema [] (A.App ({ f with A.interp = None }, args))))
@@ -2196,6 +2204,117 @@ let sorted_quantifier_rewrites () =
   check true
     "(lambda ((x T)) (=> (P x) (Q x 0)))"
     "(lambda ((x T)) (or (not (P x)) (Q x 0)))";
+  check true
+    "(forall ((x T)) (= (box (and (P x) (Q x 0))) x))"
+    "(forall ((x T)) (= (box (not (or (not (P x)) (not (Q x 0))))) x))";
+  check true
+    "(forall ((x T)) (exists ((y Int)) (= (box (and (P x) (Q x y))) x)))"
+    "(forall ((x T)) (exists ((y Int)) (= (box (not (or (not (P x)) (not (Q x y))))) x)))";
+  check true
+    "(lambda ((x T)) (box (and (P x) (Q x 0))))"
+    "(lambda ((x T)) (box (not (or (not (P x)) (not (Q x 0))))))";
+  check true
+    "(forall ((x T)) (exists ((y Int)) (= 346 (field x))))"
+    "(forall ((x T)) (exists ((y Int)) (= (field x) 346)))";
+  check true
+    "(forall ((x T) (y Real)) (= 1.0 y))"
+    "(forall ((x T) (y Real)) (= y 1.0))";
+  check true
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (or (forall ((y Int)) (= (field x) 7)) (not (P x))))";
+  check true
+    "(forall ((x T)) (not (and (P x) (exists ((y Int)) (= 7 (field x))))))"
+    "(forall ((x T)) (or (not (P x)) (not (exists ((y Int)) (= (field x) 7)))))";
+  check true
+    "(forall ((x T)) (= (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (= (forall ((y Int)) (= (field x) 7)) (P x)))";
+  check false
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (=> (Q x y) (forall ((z Int)) (= 7 (field x)))))))"
+    "(forall ((x T)) (or (forall ((y Int)) (or (forall ((z Int)) (= (field x) 7)) (not (Q x y)))) (not (P x))))";
+  let rec duplicate depth body =
+    if depth = 0 then body
+    else duplicate (depth - 1) ("(let ((p " ^ body ^ ")) (and p p))")
+  in
+  let large_body = duplicate 8 "(forall ((y Int)) (= 7 (field x)))" in
+  check false
+    ("(forall ((x T)) " ^ large_body ^ ")")
+    "(forall ((x T)) (forall ((y Int)) (= (field x) 7)))";
+  check true
+    ("(forall ((x T)) (=> (P x) " ^ large_body ^ "))")
+    ("(forall ((x T)) (or (not (P x)) " ^ large_body ^ "))");
+  check false
+    "(forall ((x T)) (= (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (= (forall ((y Int)) (= (field x) 8)) (P x)))";
+  check true
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (P x)) D x))";
+  check true
+    "(lambda ((x T)) (ite (and (P x) (Q x 0)) x D))"
+    "(lambda ((x T)) (ite (or (not (P x)) (not (Q x 0))) D x))";
+  check false
+    "(forall ((x T)) (= 346 (field x)))"
+    "(forall ((x T)) (= (field x) 347))";
+  check false
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (or (forall ((y Int)) (= (field x) 8)) (not (P x))))";
+  check false
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (P x)) x D))";
+  check false
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (Q x 0)) D x))";
+  check false
+    "(forall ((x T)) (fakeEq 346 (field x)))"
+    "(forall ((x T)) (fakeEq (field x) 346))";
+  check false
+    "(lambda ((x T)) (fakeIte (P x) x D))"
+    "(lambda ((x T)) (fakeIte (not (P x)) D x))";
+  check true
+    "(forall ((x T)) (= (+ (field x) 0) 7))"
+    "(forall ((x T)) (= (field x) 7))";
+  check true
+    "(lambda ((x T)) (+ (field x) 0))"
+    "(lambda ((x T)) (field x))";
+  check true
+    "(forall ((x T) (y Int)) (= (+ (field x) y) 7))"
+    "(forall ((x T) (y Int)) (= (+ y (field x)) 7))";
+  check true
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (>= (+ (field x) (* (- 1) y)) 0))";
+  check true
+    "(forall ((x T) (y Int)) (not (> (+ (field x) 3) y)))"
+    "(forall ((x T) (y Int)) (<= (+ (field x) (* (- 1) y)) (- 3)))";
+  check true
+    "(forall ((x T) (y Int)) (= (* 2 (- (field x) y)) 0))"
+    "(forall ((x T) (y Int)) (= (field x) y))";
+  check false
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (>= (+ (field x) (* (- 1) y)) 1))";
+  check false
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (> (field x) y))";
+  check false
+    "(lambda ((x T)) (fakeAdd (field x) 0))"
+    "(lambda ((x T)) (field x))";
+  check false
+    "(forall ((x T) (y Real)) (= (+ y 0.0) 7.0))"
+    "(forall ((x T) (y Real)) (= y 7.0))";
+  check false
+    ("(lambda ((x T)) (+ (field x) " ^
+      String.concat " " (List.init 256 (fun _ -> "0")) ^ "))")
+    "(lambda ((x T)) (field x))";
+  let clauses = List.init 30 (fun i ->
+    Printf.sprintf "(or (Q x %d) (Q x %d))" (2 * i) (2 * i + 1)) in
+  let conjunction xs = "(and " ^ String.concat " " xs ^ ")" in
+  check true
+    ("(forall ((x T)) " ^ conjunction clauses ^ ")")
+    ("(forall ((x T)) " ^ conjunction (List.rev clauses) ^ ")");
+  check true
+    ("(lambda ((x T)) (mix (+ (field x) 0) " ^ conjunction clauses ^ "))")
+    ("(lambda ((x T)) (mix (field x) " ^ conjunction (List.rev clauses) ^ "))");
+  check false
+    "(forall ((x T)) (= (box (and (P x) (Q x 0))) x))"
+    "(forall ((x T)) (= (box (or (P x) (Q x 0))) x))";
   check false "(forall ((x T)) (P x))" "(forall ((x T)) (not (P x)))";
   check false "(forall ((x T)) (P x))" "(exists ((x T)) (P x))";
   check false "(forall ((x T) (y T)) (P x))" "(forall ((x T) (y T)) (P y))";
@@ -2257,6 +2376,9 @@ let sorted_quantifier_flattening () =
   check true
     "(forall ((a T) (b Bool) (n Int)) (r a b n))"
     "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))";
+  check true
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (exists ((z T)) (r z b n))))"
+    "(forall ((a T) (b Bool) (n Int)) (exists ((z T)) (r z b n)))";
   check false
     "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))"
     "(forall ((b Bool) (n Int) (a T)) (r a b n))";
@@ -2349,7 +2471,14 @@ let sorted_quantifier_instances () =
         let args = List.map (function A.App (_, [term; _]) -> term
           | _ -> failwith "malformed sorted test binding") bindings in
         require (Q.check args formula = expected)
-          ("unexpected sorted quantifier instance: " ^ clause)
+          ("unexpected sorted quantifier instance: " ^ clause);
+        let schema = N.view_datatypes st.B.retained_sorts in
+        let node = { U.kind = U.QuantifierInstantiation args;
+          conclusion1 = Option.get (U.classify_fact formula); premises = [] } in
+        require ((match K.check_node schema [] node with
+          | Some (_, pending) -> Z.equal pending Z.zero
+          | None -> false) = expected)
+          ("sorted node dispatch disagrees for nested instantiation: " ^ clause)
     | [] -> failwith "missing sorted instantiation fixture"
   in
   check_clause
@@ -2359,7 +2488,30 @@ let sorted_quantifier_instances () =
   check_clause
     "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
          (exists ((y T)) (R D y)))"
-    ["D"] false
+    ["D"] true;
+  check_clause
+    "(or (not (forall ((x T)) (forall ((y T)) (R x y))))\
+         (forall ((y T)) (R D y)))"
+    ["D"] true;
+  check_clause
+    "(or (not (forall ((x T) (n Int))\
+                (exists ((y T)) (and (Q x n) (R x y)))))\
+         (exists ((y T)) (and (Q D 7) (R D y))))"
+    ["D"; "7"] true;
+  check_clause
+    "(or (not (forall ((x T) (b Bool))\
+                (exists ((y T)) (or b (R x y)))))\
+         (exists ((y T)) (or (forall ((z T)) (P z)) (R D y))))"
+    ["D"; "(forall ((z T)) (P z))"] true;
+  check_clause
+    "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
+         (exists ((y T)) (R y D)))"
+    ["D"] false;
+  check_clause
+    "(or (not (forall ((x T) (n Int))\
+                (exists ((y T)) (and (Q x n) (R x y)))))\
+         (exists ((y T)) (and (Q D 7) (R D y))))"
+    ["7"; "D"] false
 
 let assumed_nlsat () =
   let c = context () in
@@ -2481,6 +2633,54 @@ let typed_observations () =
     "non-Boolean proof conclusion was certified"
 
 let contextual_boolean_rewrites () =
+  let module F = Z3BoundedBoolEquiv in
+  let module N = Z3BooleanNormalForm in
+  let atom i = F.Atom (A.Var (Z.of_int i, A.bool_sort)) in
+  let rec equalities n =
+    if n = 0 then atom 0 else F.Eq (equalities (n - 1), atom n) in
+  let deep = equalities 48 in
+  require (N.forced_pair [] deep = (false, false))
+    "unassigned nested equalities acquired a forced truth value";
+  require (not (N.forced_polarity [] deep true) &&
+           not (N.forced_polarity [] deep false))
+    "single-polarity propagation changed unassigned nested equalities";
+  require (N.forced_pair (List.init 49 (fun i -> F.Not (atom i))) deep = (true, false))
+    "nested equality propagation lost the positive result";
+  require (N.forced_pair (atom 48 :: List.init 48 (fun i -> F.Not (atom i))) deep = (false, true))
+    "nested equality propagation ignored the changed final input";
+  require (N.forced_pair [atom 0; F.Not (atom 0)] (F.Eq (atom 0, atom 0)) = (true, true))
+    "paired propagation changed inconsistent-context behavior";
+  require (N.clause_tautology (F.Nary (F.Or, [F.Not deep; deep])))
+    "deep complementary clause was not certified";
+  require (not (N.clause_tautology (F.Nary (F.Or, [F.Not deep; atom 49]))))
+    "deep clause mutation became a tautology";
+  let module D = Z3SortedDatatype in
+  let wide_formula = F.Nary (F.Or, List.init 24 atom) in
+  let contextual = F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, wide_formula)]),
+      F.Nary (F.Or, [atom 0; F.Not wide_formula])) in
+  require (D.propositional contextual && D.bounded_propositional contextual)
+    "wide contextual equivalence was incorrectly restricted by its atom count";
+  require (not (D.propositional (F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, wide_formula)]),
+      F.Nary (F.Or, [atom 0; wide_formula])))))
+    "wide contextual mutation was certified";
+  let shared = ref (atom 0) in
+  for i = 1 to 12 do
+    shared := F.Eq (!shared, F.Not !shared)
+  done;
+  require (D.context_budget (Z.of_int 256) !shared = None)
+    "context limit counted shared nodes instead of tree occurrences";
+  let large_clause = F.Nary (F.Or, List.init 300 atom) in
+  require (D.propositional (F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, large_clause)]),
+      F.Nary (F.Or, [atom 0; F.Not large_clause]))))
+    "congruence context limit leaked into datatype certificates";
+  require (D.propositional (F.Nary (F.Or, [large_clause; F.Not large_clause])))
+    "context limit disabled large complementary clauses";
+  let reordered = F.Nary (F.Or, List.init 300 (fun i -> atom (299 - i))) in
+  require (D.propositional (F.Eq (large_clause, reordered)))
+    "context limit disabled large shape equivalences";
   let c = context () in
   let declarations = List.init 24 (fun i ->
       Printf.sprintf "(declare-const p%d Bool)" i) |> String.concat "" in
@@ -4658,7 +4858,7 @@ let bv_bounded_evaluation () =
   let declarations =
     "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const x (_ BitVec 8))\
      (declare-const y (_ BitVec 4))(declare-const y5 (_ BitVec 5))(declare-const z (_ BitVec 12))\
-     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)\
+     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)(declare-const q Bool)\
      (declare-fun f ((_ BitVec 8)) (_ BitVec 8))" in
   let judgment formula =
     let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
@@ -4668,7 +4868,8 @@ let bv_bounded_evaluation () =
     match U.check_node [] { U.kind = kind; conclusion1 = j; premises } with
     | Some (_, pending) -> Some pending
     | None -> None in
-  let premise = { U.conclusion = judgment "p"; hypotheses = [] } in
+  (* Keep the premise independent: p already entails the tested disjunction containing p. *)
+  let premise = { U.conclusion = judgment "q"; hypotheses = [] } in
   let lemma expected formula =
     let j = judgment formula in
     require (U.checked_theory_lemma (U.Unverified "th-lemma") j [] = expected)

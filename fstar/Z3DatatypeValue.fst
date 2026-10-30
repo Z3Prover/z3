@@ -342,6 +342,36 @@ and evaluate_body (#base:sort -> Type0) (sigma:signature) (i:interpretation base
   FStar.FunctionalExtensionality.on_dom (arguments base sigma (L.rev bound)) (fun vs ->
     (evaluate sigma i (L.rev bound @ scope) (extend sigma scope (L.rev bound) vs rho) body <: tree base))
 
+let lemma_quantifier_environments (#base:sort -> Type0) (sigma:signature)
+                                  (i:interpretation base sigma)
+                                  (left_scope right_scope:list sort)
+                                  (rho:environment base sigma left_scope)
+                                  (eta:environment base sigma right_scope)
+                                  (k:quantifier_kind) (bound:list sort) (t:sort) (a b:expr)
+  : Lemma (requires D.scoped (L.rev bound @ left_scope) a /\
+                    D.scoped (L.rev bound @ right_scope) b /\
+                    get_sort a == t /\ get_sort b == t /\ (k == Lambda_k \/ t == bool_sort) /\
+                    (forall (vs:arguments base sigma (L.rev bound)).
+                      evaluate sigma i (L.rev bound @ left_scope)
+                        (extend sigma left_scope (L.rev bound) vs rho) a ==
+                      evaluate sigma i (L.rev bound @ right_scope)
+                        (extend sigma right_scope (L.rev bound) vs eta) b))
+          (ensures evaluate sigma i left_scope rho (Quantifier k bound (quant_sort k bound t) a) ==
+                   evaluate sigma i right_scope eta (Quantifier k bound (quant_sort k bound t) b)) =
+  let left = evaluate_body sigma i left_scope rho bound a in
+  let right = evaluate_body sigma i right_scope eta bound b in
+  let pointwise (vs:arguments base sigma (L.rev bound))
+    : Lemma (left vs == right vs) = () in
+  FStar.Classical.forall_intro pointwise;
+  assert (FStar.FunctionalExtensionality.feq left right);
+  FStar.FunctionalExtensionality.extensionality
+    (arguments base sigma (L.rev bound)) (fun _ -> tree base) left right;
+  assert (left == right);
+  assert (evaluate sigma i left_scope rho (Quantifier k bound (quant_sort k bound t) a) ==
+          i.quantification k bound t (typed_body sigma bound t left));
+  assert (evaluate sigma i right_scope eta (Quantifier k bound (quant_sort k bound t) b) ==
+          i.quantification k bound t (typed_body sigma bound t right))
+
 let lemma_quantifier_congruence (#base:sort -> Type0) (sigma:signature)
                                 (i:interpretation base sigma)
                                 (scope:list sort) (rho:environment base sigma scope)
@@ -355,16 +385,4 @@ let lemma_quantifier_congruence (#base:sort -> Type0) (sigma:signature)
                         (extend sigma scope (L.rev bound) vs rho) b))
           (ensures evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) a) ==
                    evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) b)) =
-  let left = evaluate_body sigma i scope rho bound a in
-  let right = evaluate_body sigma i scope rho bound b in
-  let pointwise (vs:arguments base sigma (L.rev bound))
-    : Lemma (left vs == right vs) = () in
-  FStar.Classical.forall_intro pointwise;
-  assert (FStar.FunctionalExtensionality.feq left right);
-  FStar.FunctionalExtensionality.extensionality
-    (arguments base sigma (L.rev bound)) (fun _ -> tree base) left right;
-  assert (left == right);
-  assert (evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) a) ==
-          i.quantification k bound t (typed_body sigma bound t left));
-  assert (evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) b) ==
-          i.quantification k bound t (typed_body sigma bound t right))
+  lemma_quantifier_environments sigma i scope scope rho rho k bound t a b

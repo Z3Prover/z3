@@ -35,7 +35,7 @@ let forall_model (#base:sort -> Type0) (s:S.checked_schema)
        T.truth_value s bc (body vs))
 
 let lemma_forall_truth (#base:sort -> Type0) (s:S.checked_schema)
-                       (bc:S.boolean_carrier base) (eq:T.scalar_equality base)
+                       (bc:S.boolean_carrier base) (eq:T.scalar_model base)
                        (other:V.interpretation base (S.signature s))
                        (scope:list sort) (rho:V.environment base (S.signature s) scope)
                        (bound:list sort) (body:expr)
@@ -89,25 +89,52 @@ let rec lemma_extend_append (#base:sort -> Type0) (sigma:V.signature)
     if n > 0 then lemma_extend_append sigma scope rest ys tail ws rho (n - 1)
   | _, _ -> ()
 
-(* Pointwise environments suffice for quantifier-free bodies; no function
-   equality or additional extensionality premise is needed. *)
+let rec lemma_extend_environments (#base:sort -> Type0) (sigma:V.signature)
+                                 (scope bound:list sort) (vs:V.arguments base sigma bound)
+                                 (rho eta:V.environment base sigma scope)
+                                 (n:nat{n < L.length (bound @ scope)})
+  : Lemma (requires forall (j:nat{j < L.length scope}). rho j == eta j)
+          (ensures V.extend sigma scope bound vs rho n ==
+                   V.extend sigma scope bound vs eta n)
+          (decreases bound) =
+  match bound, vs with
+  | [], [] -> ()
+  | _ :: rest, _ :: tail ->
+    if n > 0 then lemma_extend_environments sigma scope rest tail rho eta (n - 1)
+  | _, _ -> ()
+
 let rec lemma_free_environments (#base:sort -> Type0) (sigma:V.signature)
                                (i:V.interpretation base sigma) (scope:list sort)
                                (rho eta:V.environment base sigma scope) (e:expr)
-  : Lemma (requires D.scoped scope e /\ quantifier_free e /\
+  : Lemma (requires D.scoped scope e /\
                     (forall (n:nat{n < L.length scope}). rho n == eta n))
           (ensures V.evaluate sigma i scope rho e == V.evaluate sigma i scope eta e)
           (decreases e) =
   match e with
   | Var _ _ -> ()
   | App f args -> lemma_free_args_environments sigma i scope rho eta args f.domain
-  | Quantifier _ _ _ _ -> ()
+  | Quantifier k bound _ body ->
+    let pointwise (vs:V.arguments base sigma (L.rev bound))
+      : Lemma (V.evaluate sigma i (L.rev bound @ scope)
+                 (V.extend sigma scope (L.rev bound) vs rho) body ==
+               V.evaluate sigma i (L.rev bound @ scope)
+                 (V.extend sigma scope (L.rev bound) vs eta) body) =
+      let indices (n:nat{n < L.length (L.rev bound @ scope)})
+        : Lemma (V.extend sigma scope (L.rev bound) vs rho n ==
+                 V.extend sigma scope (L.rev bound) vs eta n) =
+        lemma_extend_environments sigma scope (L.rev bound) vs rho eta n in
+      FStar.Classical.forall_intro indices;
+      lemma_free_environments sigma i (L.rev bound @ scope)
+        (V.extend sigma scope (L.rev bound) vs rho)
+        (V.extend sigma scope (L.rev bound) vs eta) body in
+    FStar.Classical.forall_intro pointwise;
+    V.lemma_quantifier_environments sigma i scope scope rho eta k bound (get_sort body) body body
 
 and lemma_free_args_environments (#base:sort -> Type0) (sigma:V.signature)
                                 (i:V.interpretation base sigma) (scope:list sort)
                                 (rho eta:V.environment base sigma scope)
                                 (args:list expr) (ss:list sort)
-  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ quantifier_free_args args /\
+  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\
                     (forall (n:nat{n < L.length scope}). rho n == eta n))
           (ensures V.evaluate_args sigma i scope rho args ss ==
                    V.evaluate_args sigma i scope eta args ss)
@@ -124,7 +151,7 @@ let flatten (a b:expr) : bool =
     Quantifier Forall_k combined v body' ->
     t = bool_sort && u = bool_sort && v = bool_sort &&
     get_sort body = bool_sort && combined = outer @ inner &&
-    body = body' && quantifier_free body
+    body = body'
   | _, _ -> false
 
 let check_flatten (formula:expr) : bool =
@@ -134,7 +161,7 @@ let check_flatten (formula:expr) : bool =
    | _ -> false)
 
 let lemma_flatten (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                  (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                   (a b:expr)
   : Lemma (requires forall_model s bc other /\ D.scoped [] a /\ D.scoped [] b /\ flatten a b)
           (ensures T.evaluate s bc eq other a == T.evaluate s bc eq other b) =
@@ -199,7 +226,7 @@ let lemma_flatten (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carri
   | _, _ -> ()
 
 let lemma_check_flatten (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                        (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                         (formula:expr)
   : Lemma (requires forall_model s bc other /\ check_flatten formula)
           (ensures T.truth s bc eq other formula) =
@@ -221,6 +248,11 @@ let forall_elimination_model (#base:sort -> Type0) (s:S.checked_schema)
     T.truth_value s bc (other.quantification Forall_k bound bool_sort body) ==>
     T.truth_value s bc (body vs)
 
+let rec binding_indices (start:nat) (args:list expr) : Tot (list nat) (decreases args) =
+  match args with
+  | [] -> []
+  | _ :: rest -> start :: binding_indices (start + 1) rest
+
 let check (args:list expr) (formula:expr) : bool =
   match formula with
   | App f [App n [Quantifier Forall_k bs t body]; inst] ->
@@ -228,7 +260,8 @@ let check (args:list expr) (formula:expr) : bool =
     f = BR.connective_decl BR.Disjunction [App n [Quantifier Forall_k bs t body]; inst] &&
     n = R.not_decl && t = bool_sort &&
     D.scoped_args [] args && sorts_match (L.rev args) (L.rev bs) &&
-    quantifier_free body && SB.substitute (L.rev args) body = Some inst
+    ((quantifier_free body && SB.substitute (L.rev args) body = Some inst) ||
+     D.instantiate 0 (binding_indices 0 (L.rev args)) (L.rev args) body = Some inst)
   | _ -> false
 
 let lemma_forall_elimination (#base:sort -> Type0) (s:S.checked_schema)
@@ -293,8 +326,216 @@ and lemma_substitute_args (#base:sort -> Type0) (sigma:V.signature)
     lemma_substitute_args sigma i rho args ss rest tail remaining
   | _, _, _ -> ()
 
+let rec lemma_closed_argument (variables:list nat) (args:list expr) (n:nat) (term:expr)
+  : Lemma (requires D.scoped_args [] args /\ D.argument n variables args == Some term)
+          (ensures D.scoped [] term /\ L.mem term args)
+          (decreases args) =
+  match variables, args with
+  | v :: vs, _ :: rest ->
+    if n <> v then lemma_closed_argument vs rest n term
+  | _, _ -> ()
+
+let closed_values (#base:sort -> Type0) (sigma:V.signature)
+                  (i:V.interpretation base sigma)
+                  (empty:V.environment base sigma []) (args:list expr) : prop =
+  forall (term:expr{D.scoped [] term}). L.mem term args ==>
+    (forall (scope:list sort). D.scoped scope term) /\
+    (forall (amount cutoff:nat). D.lift amount cutoff term == term) /\
+    (forall (scope:list sort) (rho:V.environment base sigma scope).
+      D.scoped scope term ==>
+      V.evaluate sigma i scope rho term == V.evaluate sigma i [] empty term)
+
+let instance_environments (#base:sort -> Type0) (sigma:V.signature)
+                          (i:V.interpretation base sigma)
+                          (scope ss:list sort) (variables:list nat) (args:list expr)
+                          (rho:V.environment base sigma (scope @ ss))
+                          (eta:V.environment base sigma scope)
+                          (empty:V.environment base sigma []) : prop =
+  forall (n:nat{n < L.length (scope @ ss)}).
+    (n < L.length scope ==> rho n == eta n) /\
+    (n >= L.length scope ==>
+      (forall (term:expr{D.scoped [] term}).
+        D.argument (n - L.length scope) variables args == Some term ==>
+        rho n == V.evaluate sigma i [] empty term))
+
+let rec lemma_instance_extend (#base:sort -> Type0) (sigma:V.signature)
+                              (i:V.interpretation base sigma)
+                              (scope ss bound:list sort) (vs:V.arguments base sigma bound)
+                              (variables:list nat) (args:list expr)
+                              (rho:V.environment base sigma (scope @ ss))
+                              (eta:V.environment base sigma scope)
+                              (empty:V.environment base sigma [])
+  : Lemma (requires instance_environments sigma i scope ss variables args rho eta empty)
+          (ensures
+            (let _ = LP.append_assoc bound scope ss in
+             instance_environments sigma i (bound @ scope) ss variables args
+               (V.extend sigma (scope @ ss) bound vs rho)
+               (V.extend sigma scope bound vs eta) empty))
+          (decreases bound) =
+  LP.append_assoc bound scope ss;
+  match bound, vs with
+  | [], [] -> ()
+  | _ :: rest, _ :: tail ->
+    lemma_instance_extend sigma i scope ss rest tail variables args rho eta empty;
+    let indices (n:nat{n < L.length ((bound @ scope) @ ss)})
+      : Lemma (
+          (n < L.length (bound @ scope) ==>
+            V.extend sigma (scope @ ss) bound vs rho n ==
+            V.extend sigma scope bound vs eta n) /\
+          (n >= L.length (bound @ scope) ==>
+            (forall (term:expr{D.scoped [] term}).
+              D.argument (n - L.length (bound @ scope)) variables args == Some term ==>
+              V.extend sigma (scope @ ss) bound vs rho n ==
+              V.evaluate sigma i [] empty term))) =
+      if n > 0 then (
+        LP.append_assoc rest scope ss;
+        assert (n - 1 < L.length ((rest @ scope) @ ss))) in
+    FStar.Classical.forall_intro indices
+  | _, _ -> ()
+
+let rec lemma_instantiate (#base:sort -> Type0) (sigma:V.signature)
+                          (i:V.interpretation base sigma)
+                          (scope ss:list sort) (variables:list nat) (args:list expr)
+                          (rho:V.environment base sigma (scope @ ss))
+                          (eta:V.environment base sigma scope)
+                          (empty:V.environment base sigma []) (body result:expr)
+  : Lemma (requires D.scoped_args [] args /\ closed_values sigma i empty args /\
+                    instance_environments sigma i scope ss variables args rho eta empty /\
+                    D.scoped (scope @ ss) body /\ D.scoped scope result /\
+                    D.instantiate (L.length scope) variables args body == Some result)
+          (ensures V.evaluate sigma i (scope @ ss) rho body ==
+                   V.evaluate sigma i scope eta result)
+          (decreases body) =
+  match body, result with
+  | Var n _, _ ->
+    if n >= L.length scope then (
+      let term = Some?.v (D.argument (n - L.length scope) variables args) in
+      lemma_closed_argument variables args (n - L.length scope) term;
+      assert (D.scoped scope term /\ D.lift (L.length scope) 0 term == term /\
+              V.evaluate sigma i scope eta term == V.evaluate sigma i [] empty term))
+  | App f xs, App _ ys ->
+    lemma_instantiate_args sigma i scope ss variables args rho eta empty xs ys f.domain
+  | Quantifier k bound _ b, Quantifier _ _ _ b' ->
+    LP.rev_length bound;
+    LP.append_length (L.rev bound) scope;
+    LP.append_assoc (L.rev bound) scope ss;
+    let pointwise (vs:V.arguments base sigma (L.rev bound))
+      : Lemma (V.evaluate sigma i (L.rev bound @ (scope @ ss))
+                 (V.extend sigma (scope @ ss) (L.rev bound) vs rho) b ==
+               V.evaluate sigma i (L.rev bound @ scope)
+                 (V.extend sigma scope (L.rev bound) vs eta) b') =
+      lemma_instance_extend sigma i scope ss (L.rev bound) vs variables args rho eta empty;
+      lemma_instantiate sigma i (L.rev bound @ scope) ss variables args
+        (V.extend sigma (scope @ ss) (L.rev bound) vs rho)
+        (V.extend sigma scope (L.rev bound) vs eta) empty b b' in
+    FStar.Classical.forall_intro pointwise;
+    V.lemma_quantifier_environments sigma i (scope @ ss) scope rho eta
+      k bound (get_sort b) b b'
+  | _, _ -> ()
+
+and lemma_instantiate_args (#base:sort -> Type0) (sigma:V.signature)
+                           (i:V.interpretation base sigma)
+                           (scope ss:list sort) (variables:list nat) (args:list expr)
+                           (rho:V.environment base sigma (scope @ ss))
+                           (eta:V.environment base sigma scope)
+                           (empty:V.environment base sigma [])
+                           (xs ys:list expr) (domain:list sort)
+  : Lemma (requires D.scoped_args [] args /\ closed_values sigma i empty args /\
+                    instance_environments sigma i scope ss variables args rho eta empty /\
+                    D.scoped_args (scope @ ss) xs /\ D.scoped_args scope ys /\
+                    sorts_match xs domain /\ sorts_match ys domain /\
+                    D.instantiate_args (L.length scope) variables args xs == Some ys)
+          (ensures V.evaluate_args sigma i (scope @ ss) rho xs domain ==
+                   V.evaluate_args sigma i scope eta ys domain)
+          (decreases xs) =
+  match xs, ys, domain with
+  | x :: rest, y :: tail, _ :: remaining ->
+    lemma_instantiate sigma i scope ss variables args rho eta empty x y;
+    lemma_instantiate_args sigma i scope ss variables args rho eta empty rest tail remaining
+  | _, _, _ -> ()
+
+let rec lemma_instance_lookup (#base:sort -> Type0) (sigma:V.signature)
+                              (i:V.interpretation base sigma)
+                              (rho:V.environment base sigma []) (args:list expr) (ss:list sort)
+                              (start:nat) (n:nat{n < L.length ss /\ n < L.length (ss @ [])})
+                              (term:expr)
+  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\ D.scoped [] term /\
+                    D.argument (start + n) (binding_indices start args) args == Some term)
+          (ensures V.extend sigma [] ss (V.evaluate_args sigma i [] rho args ss) rho n ==
+                   V.evaluate sigma i [] rho term)
+          (decreases args) =
+  match args, ss with
+  | _ :: rest, _ :: tail ->
+    if n > 0 then lemma_instance_lookup sigma i rho rest tail (start + 1) (n - 1) term
+  | _, _ -> ()
+
+let rec lemma_index_append (scope tail:list sort) (n:nat{n < L.length scope})
+  : Lemma (L.index (scope @ tail) n == L.index scope n) (decreases scope) =
+  match scope with
+  | [] -> ()
+  | _ :: rest -> if n > 0 then lemma_index_append rest tail (n - 1)
+
+let rec lemma_closed_syntax (scope tail:list sort) (amount cutoff:nat) (e:expr)
+  : Lemma (requires D.scoped scope e)
+          (ensures D.scoped (scope @ tail) e /\
+                   D.lift amount (L.length scope + cutoff) e == e /\
+                   D.instantiate (L.length scope + cutoff) [] [] e == Some e)
+          (decreases e) =
+  match e with
+  | Var n _ ->
+    LP.append_length scope tail;
+    lemma_index_append scope tail n
+  | App _ args -> lemma_closed_args_syntax scope tail amount cutoff args
+  | Quantifier _ bound _ body ->
+    LP.rev_length bound;
+    LP.append_length (L.rev bound) scope;
+    LP.append_assoc (L.rev bound) scope tail;
+    lemma_closed_syntax (L.rev bound @ scope) tail amount cutoff body
+
+and lemma_closed_args_syntax (scope tail:list sort) (amount cutoff:nat) (args:list expr)
+  : Lemma (requires D.scoped_args scope args)
+          (ensures D.scoped_args (scope @ tail) args /\
+                   D.lift_args amount (L.length scope + cutoff) args == args /\
+                   D.instantiate_args (L.length scope + cutoff) [] [] args == Some args)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | e :: rest ->
+    lemma_closed_syntax scope tail amount cutoff e;
+    lemma_closed_args_syntax scope tail amount cutoff rest
+
+(* Empty substitution proves weakening without assuming that closed terms
+   are quantifier-free; the instantiation lemma only needs closure of its
+   substitution arguments, which is vacuous for the empty list. *)
+let lemma_closed_values (#base:sort -> Type0) (sigma:V.signature)
+                        (i:V.interpretation base sigma)
+                        (empty:V.environment base sigma []) (args:list expr)
+  : Lemma (closed_values sigma i empty args) =
+  let terms (term:expr{D.scoped [] term})
+    : Lemma (L.mem term args ==>
+        (forall (scope:list sort). D.scoped scope term) /\
+        (forall (amount cutoff:nat). D.lift amount cutoff term == term) /\
+        (forall (scope:list sort) (rho:V.environment base sigma scope).
+          D.scoped scope term ==>
+          V.evaluate sigma i scope rho term == V.evaluate sigma i [] empty term)) =
+    let scopes (scope:list sort) : Lemma (D.scoped scope term) =
+      lemma_closed_syntax [] scope 0 0 term in
+    FStar.Classical.forall_intro scopes;
+    let lifts (amount cutoff:nat) : Lemma (D.lift amount cutoff term == term) =
+      lemma_closed_syntax [] [] amount cutoff term in
+    FStar.Classical.forall_intro_2 lifts;
+    let environments (scope:list sort) (rho:V.environment base sigma scope)
+      : Lemma (D.scoped scope term ==>
+               V.evaluate sigma i scope rho term == V.evaluate sigma i [] empty term) =
+      lemma_closed_syntax [] scope 0 0 term;
+      assert (closed_values sigma i empty []);
+      assert (instance_environments sigma i [] scope [] [] rho empty empty);
+      lemma_instantiate sigma i [] scope [] [] rho empty empty term term in
+    FStar.Classical.forall_intro_2 environments in
+  FStar.Classical.forall_intro terms
+
 let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                 (args:list expr) (formula:expr)
   : Lemma (requires forall_elimination_model s bc other /\ check args formula)
           (ensures T.truth s bc eq other formula) =
@@ -310,7 +551,28 @@ let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
     let function_body = V.typed_body sigma bs bool_sort
       (V.evaluate_body sigma i [] rho bs body) in
     LP.append_l_nil scope;
-    lemma_substitute sigma i rho actuals scope body inst;
+    if quantifier_free body && SB.substitute actuals body = Some inst then
+      lemma_substitute sigma i rho actuals scope body inst
+    else (
+      lemma_closed_values sigma i rho actuals;
+      let indices (n:nat{n < L.length (scope @ [])})
+        : Lemma (
+            (n < 0 ==>
+              V.extend sigma [] scope vs rho n == rho n) /\
+            (n >= 0 ==>
+              (forall (term:expr{D.scoped [] term}).
+                D.argument n (binding_indices 0 actuals) actuals == Some term ==>
+                V.extend sigma [] scope vs rho n == V.evaluate sigma i [] rho term))) =
+        let terms (term:expr{D.scoped [] term})
+          : Lemma (
+              D.argument n (binding_indices 0 actuals) actuals == Some term ==>
+              V.extend sigma [] scope vs rho n == V.evaluate sigma i [] rho term) =
+          if D.argument n (binding_indices 0 actuals) actuals = Some term then
+            lemma_instance_lookup sigma i rho actuals scope 0 n term in
+        FStar.Classical.forall_intro terms in
+      FStar.Classical.forall_intro indices;
+      lemma_instantiate sigma i [] (scope @ []) (binding_indices 0 actuals) actuals
+        (V.extend sigma [] scope vs rho) rho rho body inst);
     T.lemma_negation s bc eq other n (Quantifier Forall_k bs t body);
     T.lemma_nary s bc eq other f [App n [Quantifier Forall_k bs t body]; inst]
       Z3BoundedBoolEquiv.Or;

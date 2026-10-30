@@ -24,8 +24,9 @@ let primitive_default (s:sort) : primitive s =
 let primitive_equal (s:sort) (x y:primitive s) : bool =
   match s with BaseSort "Int" -> x = y | BaseSort "Bool" -> x = y | _ -> true
 
-let equality : T.scalar_equality primitive =
-  T.Mkscalar_equality #primitive primitive_equal ()
+let equality : T.scalar_model primitive =
+  { T.reflection = T.Mkscalar_equality #primitive primitive_equal ();
+    integers = Z3SortedInteger.Mkcarrier #primitive (fun n -> n) (fun n -> n) () }
 
 let booleans : S.boolean_carrier primitive =
   S.Mkboolean_carrier #primitive (fun b -> b) (fun b -> b) ()
@@ -65,6 +66,40 @@ let schema : S.checked_schema =
 let model : V.interpretation primitive (S.signature schema) =
   T.interpretation #primitive schema booleans equality
     (S.default_interpretation #primitive schema primitive_default)
+
+let shifted_integers : T.scalar_model primitive = {
+  equality with integers = Z3SortedInteger.Mkcarrier #primitive
+    (fun n -> n + 17) (fun n -> n - 17) () }
+
+let integer_literal (n:int) = App {
+  decl_name = "integer"; domain = []; range = integer;
+  interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+
+let integer_addition = App {
+  decl_name = "+"; domain = [integer; integer]; range = integer;
+  interp = Some Z3ValueTheory.op_arith_add; int_params = [] }
+  [integer_literal 2; integer_literal 3]
+
+let integer_semantics_is_not_the_carrier_representation ()
+  : Lemma (T.evaluate schema booleans shifted_integers
+      (S.default_interpretation #primitive schema primitive_default) integer_addition ==
+      V.Scalar integer 22) =
+  assert (T.evaluate schema booleans shifted_integers
+    (S.default_interpretation #primitive schema primitive_default) integer_addition ==
+    V.Scalar integer 22) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
+let integer_sort_cannot_be_a_datatype ()
+  : Lemma (not (S.valid {
+      S.sorts = [integer];
+      cases = [{ S.constructor = { empty with range = integer };
+                 recognizer = { is_empty with domain = [integer] };
+                 accessors = [] }] })) =
+  assert_norm (not (S.valid {
+    S.sorts = [integer];
+    cases = [{ S.constructor = { empty with range = integer };
+               recognizer = { is_empty with domain = [integer] };
+               accessors = [] }] }))
 
 let chain = BaseSort "Chain"
 let chain_empty : func_decl = {
@@ -271,7 +306,7 @@ let original_inputs_and_exhaustiveness ()
     root = 0 } == Some 1)
 
 let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier base)
-                                   (eq:T.scalar_equality base)
+                                   (eq:T.scalar_model base)
                                    (other:V.interpretation base (S.signature schema))
   : Lemma (ensures not (T.truths schema bc eq other exhaustive_document.assertions)) =
   original_inputs_and_exhaustiveness ();
@@ -344,7 +379,7 @@ let core_document : P.document = {
 }
 
 let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean_carrier base)
-                                             (eq:T.scalar_equality base)
+                                             (eq:T.scalar_model base)
                                              (other:V.interpretation base (S.signature core_schema))
   : Lemma (ensures K.check_document core_schema core_document == Some 0 /\
                    not (T.truths core_schema bc eq other core_document.assertions)) =
@@ -419,7 +454,7 @@ let rejected_sorted_quantifier_flattening ()
     (Quantifier Forall_k [bool_sort; bool_sort] bool_sort (Var 2 bool_sort)))))
 
 let sorted_flattening_semantics (#base:sort -> Type0) (bc:S.boolean_carrier base)
-                               (eq:T.scalar_equality base)
+                               (eq:T.scalar_model base)
                                (other:V.interpretation base (S.signature schema))
   : Lemma (requires Z3SortedQuantifier.forall_model schema bc other)
           (ensures T.truth schema bc eq other (R.mk_eq_expr pull_nested pull_flat)) =
