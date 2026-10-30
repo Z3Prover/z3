@@ -6,10 +6,13 @@
 
    `Z3UnifiedProof.model_sound` has no model (`Z3ScopedModelTests`,
    `Z3CoreModelTests`): several of its conjuncts quantify over open terms
-   under every environment, the legacy connective contracts are keyed by
-   name only, and the store clause of `array_model` and the numeral clauses
-   of `numeric_operators` are already jointly unsatisfiable on a closed,
-   well-sorted term (finite clause instances in `Z3CoreModelTests`). This
+   under every environment, its quantifier and lambda contracts read
+   bodies under untyped value lists, and the store clause of `array_model`
+   and the numeral clauses of `numeric_operators` are already jointly
+   unsatisfiable on a closed, well-sorted term (finite clause instances in
+   `Z3CoreModelTests`). Its connective contracts are now keyed by
+   `Z3CanonicalOps`, which removes the name/tag clashes with the
+   bit-vector and datatype contracts, but not these obstructions. This
    module states a smaller contract, `core_model`, that the kernel's
    Boolean, equality and congruence rules need, and proves that it has
    models.

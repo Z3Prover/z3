@@ -70,6 +70,29 @@ let guarded (universal:bool) (n:nat) (term body:expr) : bool =
   B.boolean_equiv 8 10 body (gate universal (mk_eq_expr variable term) body) ||
   B.boolean_equiv 8 10 body (gate universal (mk_eq_expr term variable) body)
 
+(* The equality guard is false when its sides differ (`eq_sound` at the
+   canonical `eq_decl`, and `boolean_model` for its Boolean value). *)
+let lemma_unequal_guard (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires boolean_model i /\ eq_sound i /\ ~(eval i a rho == eval i b rho))
+          (ensures eval i (mk_eq_expr a b) rho == VBool false)
+  = lemma_eq_decl_canonical (get_sort a);
+    assert (get_sort (mk_eq_expr a b) == bool_sort)
+
+(* The gates are the canonical `or`/`and`, read off their contracts once. *)
+let lemma_universal_gate (i:interpretation value) (rho:env value) (guard body:expr)
+  : Lemma (requires not_sound i /\ or_sound i /\ eval i guard rho == VBool false)
+          (ensures lit_true i rho (gate true guard body))
+  = let f = App?.decl (gate true guard body) in
+    assert_norm (C.canonical_or f /\ gate true guard body == App f [mk_not_expr guard; body]);
+    lemma_not_decl_canonical guard;
+    assert (lit_true i rho (mk_not_expr guard))
+
+let lemma_existential_gate (i:interpretation value) (rho:env value) (guard body:expr)
+  : Lemma (requires and_sound i /\ ~(lit_true i rho guard))
+          (ensures ~(lit_true i rho (gate false guard body)))
+  = let f = App?.decl (gate false guard body) in
+    assert_norm (C.canonical_and f /\ gate false guard body == App f [guard; body])
+
 let lemma_guarded_outside (universal:bool) (n:nat) (term body:expr)
                           (i:interpretation value) (rho:env value)
   : Lemma (requires B.boolean_rewrite_model i /\ eq_sound i /\ guarded universal n term body /\
@@ -80,9 +103,11 @@ let lemma_guarded_outside (universal:bool) (n:nat) (term body:expr)
     if B.boolean_equiv 8 10 body (gate universal (mk_eq_expr variable term) body)
     then mk_eq_expr variable term else mk_eq_expr term variable in
   B.lemma_boolean_equiv_sound 8 10 i rho body (gate universal guard body);
-  assert (~(lit_true i rho guard));
-  if universal then (
-    match eval i guard rho with VBool _ -> () | _ -> ())
+  assert (eval i variable rho == rho n);
+  lemma_unequal_guard i rho variable term;
+  lemma_unequal_guard i rho term variable;
+  if universal then lemma_universal_gate i rho guard body
+  else lemma_existential_gate i rho guard body
 
 let rec lemma_insert_index (n:nat) (v:value) (vs:list value)
   : Lemma (requires n <= L.length vs)

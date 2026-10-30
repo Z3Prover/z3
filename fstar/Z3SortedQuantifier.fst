@@ -293,6 +293,27 @@ and lemma_substitute_args (#base:sort -> Type0) (sigma:V.signature)
     lemma_substitute_args sigma i rho args ss rest tail remaining
   | _, _, _ -> ()
 
+(* What `check` establishes about the shape it accepts, in a small context:
+   the scoping of each part and the classification of the two connectives. *)
+let lemma_check_parts (args:list expr) (f n:func_decl) (bs:list sort) (t:sort) (body inst:expr)
+  : Lemma (requires check args (App f [App n [Quantifier Forall_k bs t body]; inst]))
+          (ensures D.scoped [] (App f [App n [Quantifier Forall_k bs t body]; inst]) /\
+                   D.scoped [] (App n [Quantifier Forall_k bs t body]) /\
+                   D.scoped (L.rev bs @ []) body /\ D.scoped [] inst /\ t == bool_sort /\
+                   T.classify f == T.Nary Z3BoundedBoolEquiv.Or /\ T.classify n == T.Negation /\
+                   D.scoped_args [] args /\ sorts_match (L.rev args) (L.rev bs) /\
+                   quantifier_free body /\ SB.substitute (L.rev args) body == Some inst) =
+  assert_norm (T.classify R.not_decl == T.Negation);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [App n [Quantifier Forall_k bs t body]; inst]) ==
+               T.Nary Z3BoundedBoolEquiv.Or)
+
+(* A two-argument disjunction of atoms, unfolded once. *)
+let lemma_or_pair (v:expr -> bool) (a b:expr)
+  : Lemma (Z3BoundedBoolEquiv.eval_args v Z3BoundedBoolEquiv.Or (L.map Z3BoundedBoolEquiv.Atom [a; b]) ==
+           (v a || v b)) =
+  assert_norm (Z3BoundedBoolEquiv.eval_args v Z3BoundedBoolEquiv.Or (L.map Z3BoundedBoolEquiv.Atom [a; b]) ==
+               (v a || v b))
+
 let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                 (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
                 (args:list expr) (formula:expr)
@@ -300,6 +321,7 @@ let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
           (ensures T.truth s bc eq other formula) =
   match formula with
   | App f [App n [Quantifier Forall_k bs t body]; inst] ->
+    lemma_check_parts args f n bs t body inst;
     let sigma = S.signature s in
     let i = T.interpretation s bc eq other in
     let rho = T.empty_environment sigma in
@@ -314,6 +336,7 @@ let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
     T.lemma_negation s bc eq other n (Quantifier Forall_k bs t body);
     T.lemma_nary s bc eq other f [App n [Quantifier Forall_k bs t body]; inst]
       Z3BoundedBoolEquiv.Or;
+    lemma_or_pair (T.truth s bc eq other) (App n [Quantifier Forall_k bs t body]) inst;
     assert (T.evaluate s bc eq other (Quantifier Forall_k bs t body) ==
             other.quantification Forall_k bs bool_sort function_body);
     lemma_forall_elimination s bc other bs function_body vs;

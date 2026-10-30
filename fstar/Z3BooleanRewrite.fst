@@ -7,6 +7,7 @@ open Z3ObservationalEquality
 open FStar.List.Tot
 module B = Z3BoundedBoolEquiv
 module N = Z3BooleanNormalForm
+module C = Z3CanonicalOps
 
 type connective =
   | Conjunction
@@ -29,8 +30,27 @@ let connective_decl (op:connective) (args:list expr) : func_decl =
     interp = Some (if op = Conjunction then op_and else op_or);
     int_params = [] }
 
+let rec lemma_boolean_domain (args:list expr)
+  : Lemma (ensures C.boolean_sorts (boolean_domain args)) (decreases args)
+  = match args with
+    | [] -> ()
+    | _ :: rest -> lemma_boolean_domain rest
+
+(* The connective declarations built here are the canonical `and`/`or`. *)
+let lemma_connective_decl (op:connective) (args:list expr)
+  : Lemma (ensures (op = Conjunction ==> C.canonical_and (connective_decl op args)) /\
+                   (op = Disjunction ==> C.canonical_or (connective_decl op args)))
+          [SMTPat (connective_decl op args)]
+  = lemma_boolean_domain args
+
 let connective_app (op:connective) (f:func_decl) (args:list expr) : bool =
   f = connective_decl op args && boolean_args args
+
+let lemma_connective_app (op:connective) (f:func_decl) (args:list expr)
+  : Lemma (requires connective_app op f args)
+          (ensures (op = Conjunction ==> C.canonical_and f) /\ (op = Disjunction ==> C.canonical_or f))
+          [SMTPat (connective_app op f args)]
+  = lemma_boolean_domain args
 
 let rec flatten_expr (op:connective) (e:expr)
   : Tot (list expr) (decreases e) =
@@ -60,6 +80,12 @@ let connective_holds (op:connective) (i:interpretation value) (rho:env value)
   match op with
   | Conjunction -> conj_holds i rho args
   | Disjunction -> clause_holds i rho args
+
+(* The canonical connective built here holds exactly when its arguments do. *)
+let lemma_connective_holds (op:connective) (i:interpretation value) (rho:env value) (args:list expr)
+  : Lemma (requires and_sound i /\ or_sound i)
+          (ensures lit_true i rho (App (connective_decl op args) args) <==> connective_holds op i rho args)
+  = lemma_connective_decl op args
 
 let rec lemma_connective_append (op:connective) (i:interpretation value)
                                  (rho:env value) (xs ys:list expr)
@@ -141,6 +167,19 @@ let native_bool_op (f:func_decl) (args:list expr) : B.bool_op =
                 interp = Some op_false; int_params = [] } && args = []
   then B.BFalse
   else B.Opaque
+
+(* The declarations `native_bool_op` recognizes are the canonical connectives. *)
+let lemma_native_bool_op (f:func_decl) (args:list expr)
+  : Lemma (match native_bool_op f args with
+           | B.BNary B.And -> C.canonical_and f
+           | B.BNary B.Or -> C.canonical_or f
+           | B.BNot -> C.canonical_not f
+           | B.BImplies -> C.canonical_implies f
+           | B.BEq -> C.canonical_eq f
+           | B.BTrue -> C.canonical_true f
+           | B.BFalse -> C.canonical_false f
+           | _ -> True)
+  = lemma_boolean_domain args
 
 let reflexive_equality (e:expr) : bool =
   match e with
@@ -297,6 +336,7 @@ let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
   else if mem e boundaries then ()
   else match e with
   | App f args ->
+    lemma_native_bool_op f args;
     (match native_bool_op f args with
      | B.BTrue | B.BFalse -> ()
      | B.BNary B.Xor ->

@@ -76,103 +76,72 @@ let complementary (l1 l2:literal) : bool =
 
 (* ----------------------------------------------------------------- *)
 (* Connective soundness hypotheses, explicit on `i` (same style as     *)
-(* `Z3ProofTheory.fst`'s `quant_extensional`): these state that `i`     *)
-(* interprets any func_decl literally named "not"/"and"/"or"/          *)
-(* "implies"/"=" the standard way. Kept explicit rather than baked     *)
-(* into `interpretation` so this file stays theory/wiring-agnostic.    *)
+(* `Z3ProofTheory.fst`'s `quant_extensional`): `i` interprets the      *)
+(* canonical `not`/`and`/`or`/`=>`/`=`/`true`/`false` the standard     *)
+(* way. A declaration is canonical only when its name, kind tag,       *)
+(* domain, range and parameters all have the shape `Z3CanonicalOps`   *)
+(* gives that connective; keying by the name alone made these          *)
+(* contracts contradict the bit-vector and datatype contracts on       *)
+(* declarations of those theories that share a connective's name.     *)
 (* ----------------------------------------------------------------- *)
 
 let not_sound (i:interpretation value) : prop =
   forall (f:func_decl) (a:expr) (rho:env value).
     {:pattern (eval i (App f [a]) rho)}
-    f.decl_name == "not" ==>
+    C.canonical_not f ==>
     ((eval i (App f [a]) rho == VBool true) == (eval i a rho == VBool false))
 
 let and_sound (i:interpretation value) : prop =
   forall (f:func_decl) (args:list expr) (rho:env value).
     {:pattern (eval i (App f args) rho)}
-    f.decl_name == "and" ==>
+    C.canonical_and f ==>
     (eval i (App f args) rho == VBool true <==> conj_holds i rho args)
 
 let or_sound (i:interpretation value) : prop =
   forall (f:func_decl) (args:list expr) (rho:env value).
     {:pattern (eval i (App f args) rho)}
-    f.decl_name == "or" ==>
+    C.canonical_or f ==>
     (eval i (App f args) rho == VBool true <==> clause_holds i rho args)
 
 let implies_sound (i:interpretation value) : prop =
   forall (f:func_decl) (a b:expr) (rho:env value).
     {:pattern (eval i (App f [a; b]) rho)}
-    (f.decl_name == "implies" \/ f.decl_name == "=>") ==>
-    (eval i (App f [a; b]) rho == VBool true <==> (lit_true i rho a ==> lit_true i rho b))
-
-let eq_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (a b:expr) (rho:env value).
-    {:pattern (eval i (App f [a; b]) rho)}
-    f.decl_name == "=" ==>
-    (eval i (App f [a; b]) rho == VBool true <==> eval i a rho == eval i b rho)
-
-(* The nullary constants `true`/`false` (`op_true`/`op_false`, per
-   `Z3InterpretedProofChecker.fst`'s `interp_true`/`interp_false`). *)
-let true_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (rho:env value).
-    {:pattern (eval i (App f []) rho)}
-    f.decl_name == "true" ==> eval i (App f []) rho == VBool true
-
-let false_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (rho:env value).
-    {:pattern (eval i (App f []) rho)}
-    f.decl_name == "false" ==> eval i (App f []) rho == VBool false
-
-(* ----------------------------------------------------------------- *)
-(* The same connective contracts, keyed by the typed canonical policy  *)
-(* of `Z3CanonicalOps` (name, kind tag, domain, range and parameters). *)
-(* A declaration of another theory that shares a connective's name    *)
-(* (a datatype accessor named `and`, a bit-vector numeral named        *)
-(* `true`) is not constrained by them. The resolution layer below and  *)
-(* the kernel's Boolean rules depend only on these. The name-keyed     *)
-(* contracts above imply them (`lemma_legacy_canonical`).              *)
-(* ----------------------------------------------------------------- *)
-
-let canonical_not_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (a:expr) (rho:env value).
-    {:pattern (eval i (App f [a]) rho)}
-    C.canonical_not f ==>
-    ((eval i (App f [a]) rho == VBool true) == (eval i a rho == VBool false))
-
-let canonical_and_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (args:list expr) (rho:env value).
-    {:pattern (eval i (App f args) rho)}
-    C.canonical_and f ==>
-    (eval i (App f args) rho == VBool true <==> conj_holds i rho args)
-
-let canonical_or_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (args:list expr) (rho:env value).
-    {:pattern (eval i (App f args) rho)}
-    C.canonical_or f ==>
-    (eval i (App f args) rho == VBool true <==> clause_holds i rho args)
-
-let canonical_implies_sound (i:interpretation value) : prop =
-  forall (f:func_decl) (a b:expr) (rho:env value).
-    {:pattern (eval i (App f [a; b]) rho)}
     C.canonical_implies f ==>
     (eval i (App f [a; b]) rho == VBool true <==> (lit_true i rho a ==> lit_true i rho b))
 
-let canonical_true_sound (i:interpretation value) : prop =
+(* Untyped: it quantifies over every environment, so it still asks the
+   model to decide identity of arbitrary values (see `Z3CoreModel` for the
+   typed form the core kernel theorem uses). *)
+let eq_sound (i:interpretation value) : prop =
+  forall (f:func_decl) (a b:expr) (rho:env value).
+    {:pattern (eval i (App f [a; b]) rho)}
+    C.canonical_eq f ==>
+    (eval i (App f [a; b]) rho == VBool true <==> eval i a rho == eval i b rho)
+
+(* The nullary constants `true`/`false` (`op_true`/`op_false`). *)
+let true_sound (i:interpretation value) : prop =
   forall (f:func_decl) (rho:env value).
     {:pattern (eval i (App f []) rho)}
     C.canonical_true f ==> eval i (App f []) rho == VBool true
 
-let canonical_false_sound (i:interpretation value) : prop =
+let false_sound (i:interpretation value) : prop =
   forall (f:func_decl) (rho:env value).
     {:pattern (eval i (App f []) rho)}
     C.canonical_false f ==> eval i (App f []) rho == VBool false
+
+(* Names for the canonical contracts as one group; `canonical_connectives`
+   is what `Z3CoreModel.core_model` requires of the connectives. *)
+let canonical_not_sound (i:interpretation value) : prop = not_sound i
+let canonical_and_sound (i:interpretation value) : prop = and_sound i
+let canonical_or_sound (i:interpretation value) : prop = or_sound i
+let canonical_implies_sound (i:interpretation value) : prop = implies_sound i
+let canonical_true_sound (i:interpretation value) : prop = true_sound i
+let canonical_false_sound (i:interpretation value) : prop = false_sound i
 
 let canonical_connectives (i:interpretation value) : prop =
   canonical_not_sound i /\ canonical_and_sound i /\ canonical_or_sound i /\
   canonical_implies_sound i /\ canonical_true_sound i /\ canonical_false_sound i
 
-(* Every canonical connective carries the name its legacy contract is keyed by. *)
 let lemma_legacy_canonical (i:interpretation value)
   : Lemma (requires not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
                     true_sound i /\ false_sound i)
@@ -186,7 +155,7 @@ let lemma_legacy_canonical (i:interpretation value)
    an injective constructor and `bool` has only two values, both
    decided automatically by Z3's native datatype theory). *)
 let lemma_not_relates (i:interpretation value) (rho:env value) (f:func_decl) (a:expr)
-  : Lemma (requires not_sound i /\ f.decl_name == "not" /\ VBool? (eval i a rho))
+  : Lemma (requires not_sound i /\ C.canonical_not f /\ VBool? (eval i a rho))
           (ensures (eval i (App f [a]) rho == VBool true) == (eval i a rho == VBool false))
   = ()
 
@@ -393,6 +362,15 @@ let mk_iff_expr (a b:expr) : expr = App (eq_decl bool_sort) [a; b]
 let true_expr : expr = App ({ decl_name = "true"; domain = []; range = bool_sort; interp = Some op_true; int_params = [] }) []
 let false_expr : expr = App ({ decl_name = "false"; domain = []; range = bool_sort; interp = Some op_false; int_params = [] }) []
 
+(* The declarations the checkers build are the canonical ones. *)
+let lemma_eq_decl_canonical (s:sort)
+  : Lemma (C.canonical_eq (eq_decl s)) [SMTPat (eq_decl s)]
+  = ()
+
+let lemma_constants_canonical ()
+  : Lemma (C.canonical_true (App?.decl true_expr) /\ C.canonical_false (App?.decl false_expr))
+  = ()
+
 (* A clause is read off a canonical `or` (its disjuncts) or the canonical
    `false` (the empty clause); any other formula is a unit clause. *)
 let formula_clause (e:expr) : clause =
@@ -575,6 +553,10 @@ type rproof =
 let not_decl : func_decl =
   { decl_name = "not"; domain = [bool_sort]; range = bool_sort; interp = Some op_not; int_params = [] }
 let mk_not_expr (a:expr) : expr = App not_decl [a]
+
+let lemma_not_decl_canonical (a:expr)
+  : Lemma (C.canonical_not not_decl) [SMTPat (mk_not_expr a)]
+  = ()
 
 let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
   match p with

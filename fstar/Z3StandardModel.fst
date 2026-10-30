@@ -7,9 +7,10 @@
    The global hypothesis `Z3UnifiedProof.model_sound` has no model.
    `Z3ScopedModelTests` proves the impossible open-environment typing
    assumptions; the separate repair evidence also records the name/tag
-   clashes. Some contracts constrain open terms under every environment,
-   and name-keyed Boolean clauses overlap with bit-vector and datatype
-   kind tags. This module states smaller contracts, `ground_model`, and
+   clashes, which keying the connective contracts by `Z3CanonicalOps`
+   has since removed. Some contracts still constrain open terms under
+   every environment (see `Z3CoreModel` for the typed contract the core
+   kernel theorem uses). This module states smaller contracts, `ground_model`, and
    proves that they have models. It does not repair the global hypothesis.
 
    * The terms are closed ground terms: applications only, with no

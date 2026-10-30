@@ -28,6 +28,7 @@ module PT = Z3ProofTheory
 module QI = Z3QuantifierInstantiation
 module SM = Z3StandardModel
 module BV = Z3BvLemma
+module DL = Z3DatatypeLemma
 module L = FStar.List.Tot
 
 (* --- The contract has a model ------------------------------------------- *)
@@ -96,6 +97,84 @@ let accessor_free (rho:env value)
            eval (CO.witness (fun _ _ -> 1)) accessor_app rho == VBool true)
   = assert_norm (eval (CO.witness (fun _ _ -> 0)) accessor_app rho == VBool false);
     assert_norm (eval (CO.witness (fun _ _ -> 1)) accessor_app rho == VBool true)
+
+(* --- The legacy connective contracts, keyed by the canonical predicates ------ *)
+
+(* The connective conjuncts of `model_sound` (`not_sound` ... `false_sound`) are
+   keyed by `Z3CanonicalOps`, exactly as the core contract's connectives, so
+   every core model satisfies them. *)
+let legacy_connectives (i:interpretation value) (dom:CO.domains)
+  : Lemma (requires CO.core_model i dom)
+          (ensures not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
+                   true_sound i /\ false_sound i)
+  = ()
+
+(* Closed instances that the name-keyed contracts forced into contradiction
+   with the bit-vector and datatype contracts. The canonical keys do not
+   constrain them, and in a core model (which satisfies the re-keyed
+   contracts) they take the values of their own theory, which the old
+   name-keyed instances excluded. *)
+let zero2 : expr = BV.literal 2 0
+let clash_eq_app : expr = App clash_eq [zero2; zero2]
+let true_numeral (n:int) : func_decl =
+  { decl_name = "true"; domain = []; range = BV.bv_sort 1; interp = Some BV.op_numeral; int_params = [1; n] }
+
+(* `=` tagged `bvult`: the comparison 0 <u 0 is false although its arguments
+   are equal; name-keyed `eq_sound` made it true. *)
+let clash_eq_excluded (rho:env value)
+  : Lemma (~(C.canonical_eq clash_eq) /\ clash_eq.decl_name == "=" /\
+           CO.core_model (CO.witness (fun _ _ -> 0)) CO.witness_domains /\
+           eval (CO.witness (fun _ _ -> 0)) clash_eq_app rho == VBool false)
+  = CO.lemma_witness (fun _ _ -> 0);
+    assert_norm (eval (CO.witness (fun _ _ -> 0)) clash_eq_app rho == VBool false)
+
+(* Bit-vector numerals named `true`: they denote 0 and 1; name-keyed
+   `true_sound` made both `VBool true`, so their projections would agree. *)
+let true_numerals_excluded (rho:env value)
+  : Lemma (~(C.canonical_true (true_numeral 0)) /\ ~(C.canonical_true (true_numeral 1)) /\
+           SM.std_project 1 (eval (CO.witness (fun _ _ -> 0)) (App (true_numeral 0) []) rho) == 0 /\
+           SM.std_project 1 (eval (CO.witness (fun _ _ -> 0)) (App (true_numeral 1) []) rho) == 1)
+  = assert_norm (SM.std_project 1 (eval (CO.witness (fun _ _ -> 0)) (App (true_numeral 0) []) rho) == 0 /\
+                 SM.std_project 1 (eval (CO.witness (fun _ _ -> 0)) (App (true_numeral 1) []) rho) == 1)
+
+(* A datatype `T = mk (and:Bool) (or:Bool) (not:Bool)`, as the native bridge
+   marshals it: the accessor `and` of `mk true b b` is its first field, true,
+   for both values of `b`, and the two constructions differ. Name-keyed
+   `and_sound` made the accessor a conjunction of the (non-Boolean) record. *)
+let t_sort : sort = BaseSort "T"
+let mk_decl : func_decl =
+  { decl_name = "mk"; domain = [bool_sort; bool_sort; bool_sort]; range = t_sort;
+    interp = Some DL.op_constructor; int_params = [7; 9; 3] }
+let and_field : func_decl =
+  { decl_name = "and"; domain = [t_sort]; range = bool_sort; interp = Some DL.op_accessor; int_params = [7; 9; 0] }
+let mk_app (b:expr) : expr = App mk_decl [true_expr; b; b]
+let bit (v:value) : int = match v with VBool true -> 1 | _ -> 0
+(* `mk` encodes its fields as bits; the accessor `and` reads the first one. *)
+let record_base : func_decl -> list value -> int = fun f vs ->
+  if f.decl_name = "mk" then (match vs with [a; b; c] -> 4 * bit a + 2 * bit b + bit c | _ -> 0)
+  else if f.decl_name = "and" then (match vs with [VInt n] -> (n / 4) % 2 | _ -> 0)
+  else 0
+let record_fields (v:value) : list value =
+  match v with VInt n -> [VBool ((n / 4) % 2 = 1); VBool ((n / 2) % 2 = 1); VBool (n % 2 = 1)] | _ -> []
+
+let datatype_and_excluded (rho:env value)
+  : Lemma (~(C.canonical_and and_field) /\
+           CO.core_model (CO.witness record_base) CO.witness_domains /\
+           record_fields (eval (CO.witness record_base) (mk_app true_expr) rho) ==
+             [VBool true; VBool true; VBool true] /\
+           record_fields (eval (CO.witness record_base) (mk_app false_expr) rho) ==
+             [VBool true; VBool false; VBool false] /\
+           eval (CO.witness record_base) (App and_field [mk_app true_expr]) rho == VBool true /\
+           eval (CO.witness record_base) (App and_field [mk_app false_expr]) rho == VBool true /\
+           ~(conj_holds (CO.witness record_base) rho [mk_app true_expr]))
+  = CO.lemma_witness record_base;
+    assert_norm (record_fields (eval (CO.witness record_base) (mk_app true_expr) rho) ==
+                   [VBool true; VBool true; VBool true] /\
+                 record_fields (eval (CO.witness record_base) (mk_app false_expr) rho) ==
+                   [VBool true; VBool false; VBool false]);
+    assert_norm (eval (CO.witness record_base) (App and_field [mk_app true_expr]) rho == VBool true /\
+                 eval (CO.witness record_base) (App and_field [mk_app false_expr]) rho == VBool true);
+    assert_norm (~(conj_holds (CO.witness record_base) rho [mk_app true_expr]))
 
 (* --- Accepted kernel nodes hold in every core model --------------------------- *)
 
@@ -345,7 +424,7 @@ let bv_bad_countermodel (rho:env value)
 (* --- Canonical dispatch in the kernel ---------------------------------------- *)
 
 (* The same shapes over a declaration that only carries the connective's name
-   are rejected by the migrated kernel; the name-keyed kernel accepted them. *)
+   are rejected by the migrated kernel; the earlier name-keyed kernel accepted them. *)
 let fake_and : func_decl =
   { decl_name = "and"; domain = [bool_sort; bool_sort]; range = bool_sort; interp = Some 202; int_params = [0; 0; 0] }
 let fake_not : func_decl =

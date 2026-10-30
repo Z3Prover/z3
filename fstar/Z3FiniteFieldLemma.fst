@@ -650,8 +650,12 @@ let rec lemma_prune (v:nat -> int) (p:pos) (q:poly)
       lemma_prune v p rest;
       M.lemma_mod_mul_distr_l c (mval v m) p;
       if c % p = 0
-      then lemma_add_cong p (c * mval v m) (peval v rest) 0 (peval v rest)
-      else lemma_add_cong p (c * mval v m) (peval v (prune p rest)) (c * mval v m) (peval v rest)
+      then (
+        assert (prune p q == prune p rest /\ peval v q == c * mval v m + peval v rest);
+        lemma_add_cong p (c * mval v m) (peval v rest) 0 (peval v rest))
+      else (
+        assert (prune p q == (m, c) :: prune p rest /\ peval v q == c * mval v m + peval v rest);
+        lemma_add_cong p (c * mval v m) (peval v (prune p rest)) (c * mval v m) (peval v rest))
 
 let nonzero_constant (p:pos) (d:poly) : bool =
   match prune p d with

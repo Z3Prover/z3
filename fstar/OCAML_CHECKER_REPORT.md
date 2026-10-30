@@ -604,15 +604,30 @@ Native connectives are canonical: the native `canonical_dispatch` test
 checks this on recorded formulas, it is not an F* lemma about marshaling,
 and native acceptance on the measured inputs was unchanged.
 
+The connective conjuncts of the legacy `model_sound`
+(`not`/`and`/`or`/`implies`/`eq`/`true`/`false_sound`) are keyed by the same
+`Z3CanonicalOps` predicates, and every consumer was migrated to them. The
+name/tag clashes they had with the bit-vector and datatype contracts (an
+`=` tagged `bvult`, bit-vector numerals named `true`, a datatype accessor
+named `and`, a 2-ary constructor named `=>`) no longer constrain anything:
+`Z3CoreModelTests` shows that every core model satisfies the re-keyed
+contracts (`legacy_connectives`) and that in a core model these closed
+instances take the values of their own theory, which the name-keyed
+instances excluded (`clash_eq_excluded`, `true_numerals_excluded`,
+`datatype_and_excluded`). The re-keyed `eq_sound` still quantifies over
+every environment.
+
 Not covered and still blocking a global theorem: quantifier truth and
 binder rules (for classical quantification over infinite domains and
 extensional equality of array values no construction is known under the
 current `Tot` interpretation fields; this is not proved impossible),
 definitions, the array, arithmetic, datatype, finite-field and
 normalization checkers, Skolemization, and the document layer. The legacy
-`model_sound` keeps its name-keyed connective contracts and remains
-without a model. `Z3CoreModelTests` records two further obstructions to
-it as finite clause instances, each with satisfiable drop-one controls.
+`model_sound` remains without a model: its open-environment contracts
+(`boolean_model`, the Int conjunct of `numeric_model`, `array_model`, and
+the untyped `eq_sound`) are unchanged, and `Z3CoreModelTests` records two
+further obstructions to it as finite clause instances, each with
+satisfiable drop-one controls.
 O1: the store clause of `array_model` at the closed, well-sorted
 `(store a 0 1/2)` over `(Array Int Real)`, the numeral clause of
 `numeric_operators` at `1/2` and its clause `nu (VInt n) = n` are jointly
