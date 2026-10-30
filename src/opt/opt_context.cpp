@@ -869,16 +869,21 @@ namespace opt {
             return false;
         nlsat_opt engine(m, params_ref());
         nlsat_opt::result res(m);
-        lbool r = engine.maximize(hard, term, lower, std::nullopt, opt_params(m_params).optsmt_bisect_rounds(), res, 0);
+        // Only an attained maximum is used, so skip the supremum and
+        // unboundedness proofs, which could take the whole budget.
+        lbool r = engine.maximize(hard, term, lower, std::nullopt, opt_params(m_params).optsmt_bisect_rounds(), res, 0, false);
         IF_VERBOSE(2, verbose_stream() << "(opt.pareto :cone-maximum " << index << " " << r
                    << " :attained " << res.m_attained << " :value " << res.m_value << ")\n");
         if (r != l_true || !res.m_attained || !res.m_model)
             return false;
         model_ref candidate = res.m_model;
         candidate->set_model_completion(true);
-        for (expr* f : assertions)
-            if (!candidate->is_true(f))
+        for (expr* f : assertions) {
+            if (!candidate->is_true(f)) {
+                IF_VERBOSE(1, verbose_stream() << "(opt.pareto :cone-model-rejected " << mk_pp(f, m) << ")\n");
                 return false;
+            }
+        }
         mdl = candidate;
         return true;
     }

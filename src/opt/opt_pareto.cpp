@@ -44,8 +44,13 @@ namespace opt {
                         return l_undef;
                     // The first model is dominated; on a continuous front
                     // single improvements can continue indefinitely.
-                    if (num_improvements++ == 1)
+                    if (num_improvements++ == 1) {
                         cb.maximize_in_cone(*m_solver, m_model);
+                        // A timeout or cancel during the step is re-raised
+                        // after it; report it as unknown, not as an error.
+                        if (!m.inc())
+                            return l_undef;
+                    }
                     m_solver->get_labels(m_labels);
                     m_model->set_model_completion(true);
                     IF_VERBOSE(1,

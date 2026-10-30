@@ -440,26 +440,26 @@ namespace opt {
         expr_ref_vector m_x2t, m_b2a;
         // The solver owns their number manager and must outlive these values.
         scoped_anum m_best, m_sup;
-        bool const m_has_upper_bound;
+        bool const m_probe_unbounded;
         bool m_has_best = false;
         bool m_has_sup = false; // a candidate endpoint, not yet a global upper-bound proof
         lbool m_status = l_undef;
 
-        search_state(ast_manager& m, params_ref const& p, goal* pg, app* objective, bool has_upper_bound):
+        search_state(ast_manager& m, params_ref const& p, goal* pg, app* objective, bool probe_unbounded):
             m_goal(pg),
             m_objective(objective, m),
             m_converter(pg->mc()),
             m_solver(m.limit(), p, true),
             m_x2t(m), m_b2a(m),
             m_best(m_solver.am()), m_sup(m_solver.am()),
-            m_has_upper_bound(has_upper_bound) {}
+            m_probe_unbounded(probe_unbounded) {}
 
         search_state(search_state const&) = delete;
         search_state& operator=(search_state const&) = delete;
     };
 
     // Improve the model and remember the candidate endpoint. After five
-    // consecutive rounds without one, probe unboundedness if no upper bound was supplied.
+    // consecutive rounds without one, probe unboundedness if requested and no upper bound was supplied.
     void nlsat_opt::search_models(search_state& state, unsigned max_rounds, result& res) {
         auto& s = state.m_solver;
         auto& am = s.am();
@@ -484,7 +484,7 @@ namespace opt {
                 // for a projected feasible ray.
                 if (++unbounded_rounds > 4) {
                     IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
-                    if (!state.m_has_upper_bound && prove_unbounded(*state.m_goal, state.m_objective) == l_true) {
+                    if (state.m_probe_unbounded && prove_unbounded(*state.m_goal, state.m_objective) == l_true) {
                         res.m_unbounded = true;
                         IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat: objective proven unbounded above)\n");
                     }
@@ -523,7 +523,7 @@ namespace opt {
     }
 
     lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
-                              unsigned max_rounds, result& res, unsigned supremum_rlimit) {
+                              unsigned max_rounds, result& res, unsigned supremum_rlimit, bool probe_unbounded) {
         res.reset();
         if (!in_nra_fragment(m, m_arith, hard, obj)) {
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
@@ -537,7 +537,7 @@ namespace opt {
         if (st != l_true)
             return st;
 
-        search_state state(m, m_params, pg.get(), T.get(), hi.has_value());
+        search_state state(m, m_params, pg.get(), T.get(), probe_unbounded && !hi.has_value());
         if (!load(*state.m_goal, state.m_objective, state.m_solver, state.m_variable, state.m_x2t, state.m_b2a))
             return l_undef;
 

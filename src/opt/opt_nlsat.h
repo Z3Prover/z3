@@ -89,9 +89,12 @@ namespace opt {
            and l_false when hard /\ lo <= obj <= hi has no model.
            supremum_rlimit bounds the extra finite-limit certification query;
            zero disables that query without disabling upper-bound checks.
+           With probe_unbounded false, the search gives up (l_undef) where it
+           would otherwise try to prove the objective unbounded.
         */
         lbool maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
-                       unsigned max_rounds, result& r, unsigned supremum_rlimit = 100000);
+                       unsigned max_rounds, result& r, unsigned supremum_rlimit = 100000,
+                       bool probe_unbounded = true);
 
         /**
            \brief Check whether feasible objective values approach bound from below:

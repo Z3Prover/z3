@@ -572,10 +572,64 @@ static void tst_continuous_front(bool reuse_nlsat_solver, bool circular) {
     }
 }
 
+// Maximizes the given terms; the cone step simulates a timeout that fires
+// during it, which leaves the manager canceled when the step returns.
+class cancel_in_cone_callback : public opt::pareto_callback {
+    ast_manager& m;
+    arith_util a;
+    expr_ref_vector m_objectives;
+public:
+    bool m_called = false;
+    cancel_in_cone_callback(ast_manager& m, expr_ref_vector const& objectives):
+        m(m), a(m), m_objectives(objectives) {}
+    unsigned num_objectives() override { return m_objectives.size(); }
+    expr_ref mk_gt(unsigned i, model_ref& mdl) override {
+        return expr_ref(a.mk_gt(m_objectives.get(i), (*mdl)(m_objectives.get(i))), m);
+    }
+    expr_ref mk_ge(unsigned i, model_ref& mdl) override {
+        return expr_ref(a.mk_ge(m_objectives.get(i), (*mdl)(m_objectives.get(i))), m);
+    }
+    expr_ref mk_le(unsigned i, model_ref& mdl) override {
+        return expr_ref(a.mk_le(m_objectives.get(i), (*mdl)(m_objectives.get(i))), m);
+    }
+    void fix_model(model_ref& mdl) override {}
+    void maximize_in_cone(solver& s, model_ref& mdl) override {
+        m_called = true;
+        m.limit().cancel();
+    }
+};
+
+static void tst_cancel_in_cone() {
+    // A cancel raised by the cone step must end the climb with unknown
+    // instead of escaping from the next dominance check as an exception.
+    std::cout << "opt_pareto: cancel in cone step\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    expr_ref x(m.mk_const("x", a.mk_real()), m);
+    expr_ref y(m.mk_const("y", a.mk_real()), m);
+    expr_ref zero(a.mk_numeral(rational(0), false), m);
+    expr_ref one(a.mk_numeral(rational(1), false), m);
+    solver_ref s = opt::mk_pareto_nlsat_solver(m, p);
+    s->assert_expr(a.mk_ge(x, zero));
+    s->assert_expr(a.mk_ge(y, zero));
+    s->assert_expr(a.mk_le(a.mk_add(x, y), one));
+    expr_ref_vector objectives(m);
+    objectives.push_back(x);
+    objectives.push_back(y);
+    cancel_in_cone_callback cb(m, objectives);
+    opt::gia_pareto gia(m, cb, s.get(), p);
+    ENSURE(gia() == l_undef);
+    ENSURE(cb.m_called);
+    m.limit().reset_cancel();
+}
+
 void tst_opt_pareto() {
     // Cover solver state, fragment selection, and Pareto enumeration/fallback.
     tst_solver_scopes();
     tst_cancelled_solver();
+    tst_cancel_in_cone();
     tst_reuse_fragment();
     // Sampled fronts already exercise both nlsat modes; assumptions force SMT.
     tst_sampled_fronts(0, 8);
