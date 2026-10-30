@@ -811,6 +811,83 @@ namespace opt {
         TRACE(opt, model_smt2_pp(tout, m, *m_model.get(), 0););
     }
 
+    // Let f_1, ..., f_n be the objectives, oriented for maximization, and
+    // v_i = f_i(mdl). For k = 1, ..., n, replace mdl by a model where f_k
+    // attains its maximum over the assertions of s and f_i >= v_i for all i,
+    // then update the values v_i. If every maximum is attained, the final
+    // model maximizes (f_1, ..., f_n) lexicographically over that set, so no
+    // model of the assertions dominates it. On a continuous front the plain
+    // climb can instead improve forever by ever smaller steps. The loop stops
+    // at the first maximum that is not attained or not found within
+    // opt.pareto_cone_rlimit; mdl then stays a model of the assertions.
+    void context::maximize_in_cone(solver& s, model_ref& mdl) {
+        unsigned budget = opt_params(m_params).pareto_cone_rlimit();
+        // On the nlsat-backed solver the assertions of s and the constraints
+        // f_i >= v_i, with exact algebraic v_i, lie in the fragment nlsat_opt
+        // decides. Pushing a resource scope clears the cancellation flag, so do not
+        // enter one when the enclosing operation has already been canceled.
+        if (!m_pareto_exact_comparison || budget == 0 || !m.inc())
+            return;
+        expr_ref_vector assertions(m);
+        s.get_assertions(assertions);
+        bool external_cancel = false;
+        {
+            scoped_rlimit limit(m.limit(), budget);
+            try {
+                for (unsigned i = 0; i < m_objectives.size(); ++i)
+                    if (!maximize_objective_in_cone(assertions, i, mdl))
+                        break;
+            }
+            catch (z3_exception& ex) {
+                if (!m.limit().is_canceled())
+                    throw;
+                IF_VERBOSE(2, verbose_stream() << "(opt.pareto :cone-maximization-interrupted " << ex.what() << ")\n");
+            }
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+        }
+        // Popping the private budget must not swallow a timeout or Ctrl-C.
+        if (external_cancel)
+            m.limit().cancel();
+    }
+
+    // Maximize objective index over the assertions and f_i >= f_i(mdl) for
+    // all objectives i. Returns true when the maximum is attained; mdl is then
+    // replaced by a model of the assertions where it is attained.
+    bool context::maximize_objective_in_cone(expr_ref_vector const& assertions, unsigned index, model_ref& mdl) {
+        objective const& obj = m_objectives[index];
+        if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
+            return false;
+        mdl->set_model_completion(true);
+        expr_ref_vector hard(assertions);
+        for (unsigned i = 0; i < m_objectives.size(); ++i)
+            hard.push_back(mk_ge(i, mdl));
+        expr_ref term(obj.m_term, m);
+        if (obj.m_type == O_MINIMIZE)
+            term = m_arith.mk_uminus(term);
+        rational lower;
+        if (!model_value_bound(m_arith, (*mdl)(term), true, lower))
+            return false;
+        nlsat_opt engine(m, params_ref());
+        nlsat_opt::result res(m);
+        // Only an attained maximum is used, so skip the supremum and
+        // unboundedness proofs, which could take the whole budget.
+        lbool r = engine.maximize(hard, term, lower, std::nullopt, opt_params(m_params).optsmt_bisect_rounds(), res, 0, false);
+        IF_VERBOSE(2, verbose_stream() << "(opt.pareto :cone-maximum " << index << " " << r
+                   << " :attained " << res.m_attained << " :value " << res.m_value << ")\n");
+        if (r != l_true || !res.m_attained || !res.m_model)
+            return false;
+        model_ref candidate = res.m_model;
+        candidate->set_model_completion(true);
+        for (expr* f : assertions) {
+            if (!candidate->is_true(f)) {
+                IF_VERBOSE(1, verbose_stream() << "(opt.pareto :cone-model-rejected " << mk_pp(f, m) << ")\n");
+                return false;
+            }
+        }
+        mdl = candidate;
+        return true;
+    }
+
     // Pick the solver the GIA loop runs on. On a pure NRA problem the
     // dominance and blocking constraints go to an nlsat-backed solver:
     // nlsat decides atoms over irrational algebraic numerals, which the
