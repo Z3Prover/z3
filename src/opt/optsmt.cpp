@@ -739,9 +739,19 @@ namespace opt {
         }            
     }
 
+    // Seed the best model with the model of the initial satisfiability check,
+    // together with its labels: when the search never improves on it,
+    // get_model returns this pair, and labels left empty would replace the
+    // ones the context recorded for that same model.
+    void optsmt::get_base_model() {
+        m_context.get_base_model(m_best_model);
+        m_labels.reset();
+        m_context.get_labels(m_labels);
+    }
+
     lbool optsmt::lex(unsigned obj_index, bool is_maximize) {
         TRACE(opt, tout << "optsmt:lex\n";);
-        m_context.get_base_model(m_best_model);
+        get_base_model();
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
         if (is_maximize && m_optsmt_engine == symbol("symba"))
@@ -948,7 +958,7 @@ namespace opt {
         // m_optsmt_engine is "symba", because symba_opt and geometric_opt
         // optimize all objectives jointly, violating box mode semantics.
         //
-        m_context.get_base_model(m_best_model);
+        get_base_model();
         for (unsigned i = 0; i < m_vars.size() && m.inc(); ++i) {
             // Reset bounds for objective i so that update_lower_lex
             // contamination from earlier objectives does not affect it.
