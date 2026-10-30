@@ -16,7 +16,8 @@
     "Z3LambdaRewrite.fst", "Z3ArrayEquality.fst", "Z3BvLemma.fst", "Z3BvWord.fst", "Z3BvOrder.fst", "Z3BvExtract.fst", "Z3BvExhaustive.fst", "Z3BvAddNormalize.fst", "Z3BvFresh.fst",
     "Z3BvFreshModel.fst", "Z3DatatypeLemma.fst", "Z3DatatypeValue.fst", "Z3DatatypeSignature.fst",
     "Z3TheoryNormalize.fst", "Z3UnifiedProof.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
-    "Z3SortedSemantics.fst", "Z3SortedQuantifier.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
+    "Z3SortedInteger.fst", "Z3SortedSemantics.fst", "Z3SortedArithmetic.fst",
+    "Z3SortedQuantifier.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   ],
   "tests": [
