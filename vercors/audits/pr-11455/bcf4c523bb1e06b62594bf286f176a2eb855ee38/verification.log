@@ -1,0 +1,6 @@
+VerCors 2.4.0; java openjdk 17.0.21; bundled solver as shipped in release.
+Attempt1 (unsigned long class): Parsing failed: TypeSpecifier1Context not supported.
+Attempt2 (long class): same failure.
+Attempt3 (pointer params): "This expression is not a heap location."
+Final fresh-dir run of SizeBound.cpp: exit 0
+[INFO] Verification completed successfully.
