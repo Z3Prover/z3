@@ -20,9 +20,12 @@ MODULES = (
     "Z3BvInvertibilityRemainder", "Z3BvInvertibilityLogical",
     "Z3BvInvertibilityCarry", "Z3BvInvertibilityFactors",
     "Z3BvInvertibilityMultiply", "Z3BvInvertibilityFinal",
+    "Z3BvInvertibilityConcat", "Z3BvInvertibilityConcatOrder",
+    "Z3BvInvertibilityConcatProofs",
     "Z3BvInvertibilityComplete",
 )
-EXTRACTED = ("Z3BvTheory", "Z3BvInvertibility", "Z3BvInvertibilityConditions")
+EXTRACTED = ("Z3BvTheory", "Z3BvInvertibility", "Z3BvInvertibilityConditions",
+             "Z3BvInvertibilityConcat")
 
 
 def executable(value):
@@ -75,7 +78,8 @@ export LD_LIBRARY_PATH="$install/lib:${{LD_LIBRARY_PATH:-}}"
 ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg \\
   -I "$install/lib/ocaml/z3" -ccopt "-L$install/lib" z3ml.cmxa \\
   prims.ml fStar_UInt.ml Z3BvTheory.ml Z3BvInvertibility.ml \\
-  Z3BvInvertibilityConditions.ml test_bv_invertibility.ml -o invertibility-tests
+  Z3BvInvertibilityConditions.ml Z3BvInvertibilityConcat.ml \\
+  test_bv_invertibility.ml -o invertibility-tests
 ./invertibility-tests {args.max_width}
 """
     log = work / "native-tests.log"
@@ -121,13 +125,14 @@ def main():
         for module in MODULES:
             run(common + ["--cache_checked_modules", f"{module}.fst"],
                 root, work / "verification.log")
-        print("All 160 arbitrary-width invertibility conditions verified.", flush=True)
+        print("All 160 same-width and 20 mixed-width invertibility families verified.",
+              flush=True)
         if not args.verify_only:
             extracted = work / "extracted"
             extracted.mkdir()
             run(common + ["--codegen", "OCaml", "--include", str(cache),
                           "--odir", str(extracted), "--extract", " ".join(EXTRACTED),
-                          "Z3BvInvertibilityConditions.fst"],
+                          "Z3BvInvertibilityConcat.fst"],
                 root, work / "extraction.log")
             native_test(args, root, work)
 

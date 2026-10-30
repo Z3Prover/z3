@@ -14,6 +14,8 @@ module L = Z3BvInvertibilityLogical
 module C = Z3BvInvertibilityCarry
 module M = Z3BvInvertibilityMultiply
 module F = Z3BvInvertibilityFinal
+module K = Z3BvInvertibilityConcat
+module KP = Z3BvInvertibilityConcatProofs
 
 let lemma_invertibility (#n:pos) (op:operator) (r:I.relation) (s t:bv n)
   : Lemma
@@ -113,3 +115,10 @@ let lemma_invertibility (#n:pos) (op:operator) (r:I.relation) (s t:bv n)
     | I.Uge -> A.lemma_remainder_divisor_uge s t
     | I.Slt | I.Sle -> A.lemma_remainder_signed_lower r s t
     | I.Sgt | I.Sge -> A.lemma_remainder_signed_upper r s t)
+
+let lemma_concat_invertibility (#n:pos) (#m:pos) (p:K.position) (r:I.relation)
+  (s:bv m) (t:bv (n + m))
+  : Lemma
+    (K.condition_value #n #m p r s t <==>
+      (exists (x:bv n). I.holds r (K.apply p s x) t)) =
+  KP.lemma_invertibility_value #n #m p r s t

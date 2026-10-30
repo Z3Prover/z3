@@ -13,6 +13,13 @@ All **160 same-width conditions** are proved in both directions. The theorem's
 exhaustive matches cover the complete operator and relation types; there is no
 width bound, admission, assumed invertibility rule, or unchecked fallback.
 
+`Z3BvInvertibilityComplete.lemma_concat_invertibility` additionally proves
+**20 mixed-width concatenation families**: both `concat x s` and `concat s x`,
+with all ten relations and independently arbitrary positive widths for `x`
+and `s`. Its target is any bit vector of the combined width. The conditions,
+constructive witnesses, and verified target decomposition are defined in
+`Z3BvInvertibilityConcat.fst`.
+
 ## Paper and source inventory
 
 Ha Truong, Jordin Palmeri, Liam Secrist, Jacob Schuckman, Arjun Viswanathan,
@@ -34,8 +41,12 @@ The paper's corrected conditions are taken from its
 commit `c91e27a181816c918a98a06d6c4c501641706d05`.
 The F* proofs are independent proofs, not imported Rocq proof certificates.
 
-This is the paper's 160-cell, same-width inventory. Mixed-width concatenation
-conditions are outside that inventory and are not claimed here.
+The source directory also contains 40 concatenation samples:
+`check_<relation>_bvconcat<0|1>_<1|65>_65bit.smt2`. These sample variable
+widths 1 and 65, with the fixed operand at width 65. The 20 general
+concatenation families cover both sampled widths, and all other positive
+width pairs. Together with the 160 same-width families, this covers all
+200 sampled 65-bit inventory files, not 200 distinct operator/relation families.
 
 ## Complete coverage
 
@@ -60,8 +71,11 @@ relations: `=`, `!=`, `<u`, `>u`, `<=u`, `>=u`, `<s`, `>s`, `<=s`, `>=s`.
 | Divisor | `s /u x` | All |
 | RemainderValue | `x %u s` | All |
 | RemainderDivisor | `s %u x` | All |
+| Concatenation, variable high part | `concat x s` | All |
+| Concatenation, variable low part | `concat s x` | All |
 
-`Z3BvInvertibilityConditions.fst` contains the executable source conditions.
+`Z3BvInvertibilityConditions.fst` contains the same-width executable conditions;
+`Z3BvInvertibilityConcat.fst` contains the mixed-width conditions.
 `Z3BvInvertibilityComplete.fst` dispatches each cell to its proof:
 
 | Modules | Proof content |
@@ -71,9 +85,17 @@ relations: `=`, `!=`, `<u`, `>u`, `<=u`, `>=u`, `<s`, `>s`, `<=s`, `>=s`.
 | `Arithmetic`, `Division`, `Dividend`, `Remainder` | Quotient/remainder bounds, attainable extrema, exact division images |
 | `Shifts`, `Logical`, `Final` | Signed/unsigned shift extrema and reconstruction |
 | `Factors`, `Multiply` | Power-of-two factorization, constructive odd inverses, modular multiplication image |
+| `ConcatOrder`, `ConcatProofs` | Signed/unsigned lexicographic order, target decomposition, necessity and constructive sufficiency |
 
 The suffixes `Proofs`, `Bits`, etc. abbreviate `Z3BvInvertibilityProofs`,
 `Z3BvInvertibilityBits`, etc.; `Invertibility` means `Z3BvInvertibility`.
+
+For concatenation, `ConcatProofs.lemma_invertibility` states the equivalence
+with a target split into `tx` and `ts`, matching the source conditions.
+`lemma_invertibility_value` and the complete-module entry point remove that
+restriction using verified extraction and reconstruction. Signed comparisons
+use signed order on the high part and unsigned order on the low part.
+The proofs include width-one and asymmetric-width cases without exceptions.
 
 ## Width-one corrections
 
@@ -110,8 +132,8 @@ the extraction/runtime boundary; they are tests, not the all-width proofs.
 ## Reproducing verification and executable tests
 
 The runner uses a **fresh cache**, treats every F* warning as an error, and
-checks one module per invocation. It verifies all 18 modules, including the
-corrected foundation and the complete theorem. It then extracts the three
+checks one module per invocation. It verifies all 21 modules, including the
+corrected foundation and both complete theorems. It then extracts the four
 computational modules and compiles the native tests with strict OCaml warnings.
 
 Use F* with its standard library, Python 3, and Z3 built and installed from
@@ -140,6 +162,14 @@ The native suite exhaustively checks all 160 conditions at widths 1-8:
 **13,980,800 condition instances**. It compares all operator operands with
 native Z3 at widths 1-4 and checks boundary operands at widths
 1, 2, 17, 32, 64, 65, and 257, including sign extension.
+
+It additionally checks **204,000 mixed-width condition and witness instances**
+exhaustively for independently chosen operand widths 1-4, comparing every
+concatenation with native Z3 and checking both target-extraction directions.
+Native signed/unsigned relation tests cover asymmetric width pairs including
+1/65, 65/1, 17/32, 32/17, 64/65, 65/64, 1/257, and 257/1, as well as
+257/257. These exercise positive and negative conditions and their canonical
+witnesses against native Z3.
 
 The complete theorem and its proof dependencies are also registered in
 verification order in `tools/checker_modules.json`, so the existing checker

@@ -30,6 +30,8 @@
     "Z3BvInvertibilityArithmetic.fst", "Z3BvInvertibilityDivision.fst", "Z3BvInvertibilityDividend.fst",
     "Z3BvInvertibilityShifts.fst", "Z3BvInvertibilityRemainder.fst", "Z3BvInvertibilityLogical.fst",
     "Z3BvInvertibilityCarry.fst", "Z3BvInvertibilityFactors.fst", "Z3BvInvertibilityMultiply.fst",
-    "Z3BvInvertibilityFinal.fst", "Z3BvInvertibilityComplete.fst"
+    "Z3BvInvertibilityFinal.fst", "Z3BvInvertibilityConcat.fst",
+    "Z3BvInvertibilityConcatOrder.fst", "Z3BvInvertibilityConcatProofs.fst",
+    "Z3BvInvertibilityComplete.fst"
   ]
 }

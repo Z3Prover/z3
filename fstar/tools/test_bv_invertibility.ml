@@ -1,6 +1,7 @@
 module T = Z3BvTheory
 module I = Z3BvInvertibility
 module C = Z3BvInvertibilityConditions
+module K = Z3BvInvertibilityConcat
 module B = Z3.BitVector
 
 let operators =
@@ -132,12 +133,135 @@ let boundaries ctx =
     ) values
   ) [1; 2; 17; 32; 64; 65; 257]
 
+let native_concat ctx p s x =
+  match p with
+  | K.High -> B.mk_concat ctx x s
+  | K.Low -> B.mk_concat ctx s x
+
+let word ctx n x = B.mk_numeral ctx (Z.to_string x) n
+
+let check_concat ctx n m p s x =
+  let actual = K.apply (Z.of_int n) (Z.of_int m) p s x in
+  let expected = value (native_concat ctx p (word ctx m s) (word ctx n x)) in
+  if not (Z.equal actual expected) then
+    failwith (Printf.sprintf "concatenation mismatch: widths=%d,%d" n m);
+  expected
+
+let check_target_parts n m p t tx ts =
+  let n = Z.of_int n and m = Z.of_int m in
+  if not (Z.equal (K.variable_part n m p t) tx &&
+          Z.equal (K.fixed_part n m p t) ts) then
+    failwith "concatenation target decomposition mismatch"
+
+let holds n r a b =
+  match r with
+  | I.Eq -> a = b
+  | I.Ne -> a <> b
+  | I.Ult -> a < b
+  | I.Ugt -> a > b
+  | I.Ule -> a <= b
+  | I.Uge -> a >= b
+  | I.Slt -> signed n a < signed n b
+  | I.Sgt -> signed n a > signed n b
+  | I.Sle -> signed n a <= signed n b
+  | I.Sge -> signed n a >= signed n b
+
+let exhaustive_concat ctx max_width =
+  let checked = ref 0 in
+  for n = 1 to min 4 max_width do
+    for m = 1 to min 4 max_width do
+      let wn = Z.of_int n and wm = Z.of_int m in
+      List.iteri (fun position p ->
+        for s = 0 to (1 lsl m) - 1 do
+          let parameter = Z.of_int s in
+          let outputs = Array.init (1 lsl n) (fun x ->
+            Z.to_int (check_concat ctx n m p parameter (Z.of_int x))) in
+          for t = 0 to (1 lsl (n + m)) - 1 do
+            let tx, ts =
+              match p with
+              | K.High -> t lsr m, t land ((1 lsl m) - 1)
+              | K.Low -> t land ((1 lsl n) - 1), t lsr n
+            in
+            let target = Z.of_int t in
+            let tx = Z.of_int tx and ts = Z.of_int ts in
+            check_target_parts n m p target tx ts;
+            List.iteri (fun relation r ->
+              let expected = Array.exists (fun y -> holds (n + m) r y t) outputs in
+              let actual = K.condition wn wm p r parameter tx ts in
+              let witness = K.witness wn p r tx in
+              let attained = holds (n + m) r outputs.(Z.to_int witness) t in
+              if actual <> expected || actual <> attained ||
+                 actual <> K.condition_value wn wm p r parameter target then
+                failwith (Printf.sprintf
+                  "concat condition mismatch: widths=%d,%d position=%d relation=%d s=%d t=%d"
+                  n m position relation s t);
+              incr checked
+            ) relations
+          done
+        done
+      ) [K.High; K.Low]
+    done
+  done;
+  Printf.printf "%d exhaustive mixed-width condition and witness instances passed\n%!"
+    !checked
+
+let native_holds ctx r a b =
+  let predicate =
+    match r with
+    | I.Eq -> Z3.Boolean.mk_eq ctx a b
+    | I.Ne -> Z3.Boolean.mk_not ctx (Z3.Boolean.mk_eq ctx a b)
+    | I.Ult -> B.mk_ult ctx a b
+    | I.Ugt -> B.mk_ugt ctx a b
+    | I.Ule -> B.mk_ule ctx a b
+    | I.Uge -> B.mk_uge ctx a b
+    | I.Slt -> B.mk_slt ctx a b
+    | I.Sgt -> B.mk_sgt ctx a b
+    | I.Sle -> B.mk_sle ctx a b
+    | I.Sge -> B.mk_sge ctx a b
+  in
+  Z3.Boolean.is_true (Z3.Expr.simplify predicate None)
+
+let concat_boundaries ctx =
+  let values n =
+    let half = Z.shift_left Z.one (n - 1) in
+    [Z.zero; Z.one; Z.pred half; half; Z.pred (Z.shift_left Z.one n)]
+    |> List.sort_uniq Z.compare
+  in
+  List.iter (fun (n, m) ->
+    let wn = Z.of_int n and wm = Z.of_int m in
+    List.iter (fun p ->
+      List.iter (fun s ->
+        List.iter (fun tx ->
+          ignore (check_concat ctx n m p s tx);
+          List.iter (fun ts ->
+            let target = native_concat ctx p (word ctx m ts) (word ctx n tx) in
+            let t = value target in
+            check_target_parts n m p t tx ts;
+            List.iter (fun r ->
+              let x = K.witness wn p r tx in
+              let result = native_concat ctx p (word ctx m s) (word ctx n x) in
+              let actual = K.condition wn wm p r s tx ts in
+              if actual <> native_holds ctx r result target ||
+                 actual <> K.condition_value wn wm p r s t then
+                failwith (Printf.sprintf
+                  "native concat condition/witness mismatch: widths=%d,%d" n m)
+            ) relations
+          ) (values m)
+        ) (values n)
+      ) (values m)
+    ) [K.High; K.Low]
+  ) [1, 1; 1, 65; 65, 1; 17, 32; 32, 17; 64, 65; 65, 64;
+     1, 257; 257, 1; 257, 257];
+  Printf.printf "Mixed-width native Z3 boundary and signed-order checks passed\n%!"
+
 let () =
   let max_width = if Array.length Sys.argv = 2 then int_of_string Sys.argv.(1) else 8 in
   if max_width < 1 || max_width > 8 then invalid_arg "width must be between 1 and 8";
   Printf.printf "Native Z3 oracle: %s\n%!" Z3.Version.full_version;
   let ctx = Z3.mk_context [] in
   boundaries ctx;
+  concat_boundaries ctx;
+  exhaustive_concat ctx max_width;
   let checked = exhaustive ctx max_width in
   Printf.printf "%d exhaustive condition instances passed; native Z3 semantic checks passed\n%!"
     checked
