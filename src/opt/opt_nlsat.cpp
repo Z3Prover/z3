@@ -191,24 +191,6 @@ namespace opt {
         return chk.ok && !(reals_only && chk.has_int);
     }
 
-    lbool nlsat_opt::can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
-                                            expr* bound, unsigned rlimit_budget) {
-        return bounded_limit_query(m, rlimit_budget, [&]() {
-            // check_limit gives up on integer variables, so reject them before
-            // spending the budget on preprocessing and loading.
-            if (!m_arith.is_real(obj) || !in_nra_fragment(m, m_arith, hard, obj, true)) {
-                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: outside real NRA)\n");
-                return l_undef;
-            }
-            app_ref T(m);
-            goal_ref pg;
-            lbool st = preprocess(hard, obj, lo, std::nullopt, T, pg);
-            if (st != l_true)
-                return st;
-            return can_approach_from_below(*pg, T, bound);
-        });
-    }
-
     lbool nlsat_opt::can_approach_from_below(goal const& pg, app* T, expr* bound) {
         rational q;
         if (!bound || (!m_arith.is_numeral(bound, q) && !m_arith.is_irrational_algebraic_numeral(bound))) {

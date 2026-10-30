@@ -95,19 +95,6 @@ namespace opt {
                        unsigned max_rounds, result& r, unsigned supremum_rlimit = 100000);
 
         /**
-           \brief Check whether feasible objective values approach bound from below:
-           forall e > 0. exists xs. hard /\ lo <= obj /\ bound-e < obj < bound.
-           bound must be an arithmetic numeral, possibly algebraic.
-           This alone does not prove that bound is an upper bound. Maximize
-           separately refutes obj >= bound before accepting an open supremum.
-           Returns l_undef outside the real-arithmetic fragment (an integer
-           term occurs) or when the query exceeds rlimit_budget; zero disables
-           the query.
-        */
-        lbool can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
-                                     expr* bound, unsigned rlimit_budget = 100000);
-
-        /**
            \brief Decide whether obj is unbounded above over the hard
            constraints and lo <= obj (lo must be attained by some model):
            nlsat projects feasible regions onto the objective until it finds
@@ -121,6 +108,8 @@ namespace opt {
     private:
         struct search_state;
         lbool prove_unbounded(goal const& pg, app* T);
+        // forall e > 0. exists xs. pg /\ bound - e < T < bound, for a numeral
+        // bound; maximize refutes T >= bound separately.
         lbool can_approach_from_below(goal const& pg, app* T, expr* bound);
         lbool check_limit(goal const& pg, app* T, expr* bound);
         void prove_strict_upper_bound(nlsat::solver& s, nlsat::var t, algebraic_numbers::anum const& sup,
