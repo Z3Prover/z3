@@ -1848,6 +1848,32 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Native checks of the arithmetic solver's axioms (2026-10-29)
+
+Clauses the sat.smt arithmetic solver adds without a hint of their own
+(`arith_axioms.cpp`) reach the log with a bare `arith` hint listing the
+negated clause literals, and Z3's own replay had no checker for that name:
+every one went to the SMT fallback (5,213 steps in 164 of 452 unsat logs of
+the LRA/LIA/UFLRA random generators, all from `random_division_instance`
+and its variant with functions, plus 18 in the UFLRA logs of the iter-043
+scan). The arithmetic checker now registers `arith` and accepts a clause when
+one literal is valid by linear arithmetic once `(mod u k)` is replaced by
+`u - k * (div u k)` and `(/ u k)` by `u / k` for nonzero numerals k, or by
+the bounds `0 <= (mod u k) <= |k| - 1`, or when the clause is one of the two
+`abs` cases, `(abs u) = u` or `(abs u) = -u` with the case condition implied
+by the negation of the other literal. A leading `true` stands for the false
+`q = 0` literal of `q * (p / q) = p` that the logged clause omits; the
+checker's `clause` drops it, so the trimmer keeps the logged clause. Anything
+else under `arith` (to_int, powers, nonlinear divisors) still falls back.
+After the change the same logs have no `arith` fallback (only the `cut`
+steps, by design), and a soundness fuzz of 3,000 random near-miss clauses
+found no accepted invalid one. The Python replay and Lean checked these
+steps already, so certificates are unchanged. Tests:
+`tst_checker_arith_axioms`, `tst_replay_arith_axioms` in
+`src/test/proof_replay.cpp`, and
+`test_native_checker_verifies_arithmetic_axioms` in
+`test_proof_certificate.py` (all three inputs fail on the previous build).
+
 ### Constant rows in native implied-equality checking (2026-10-19)
 
 The native `implied-eq` checker now handles constant inequalities before
