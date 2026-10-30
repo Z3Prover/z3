@@ -1,0 +1,51 @@
+name: Java Maven Repository Rehearsal
+
+on:
+  workflow_call:
+    inputs:
+      smoke-artifact-pattern:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-maven-test-packages
+          path: packages
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-maven-test-repository
+          path: repository
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: java-maven-consumer-*
+          path: consumers
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ${{ inputs.smoke-artifact-pattern }}
+          path: smokes
+      - name: Require exact source, repository and tested JAR hashes
+        run: >-
+          python scripts/java/maven_bundle.py verify --packages packages --repository repository
+          --consumer-receipts consumers --smoke-receipts smokes --out-dir verified
+          --source-commit ${{ github.sha }} --workflow-repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-maven-rehearsal-bundle
+          path: verified/*
+          if-no-files-found: error
+          retention-days: 7
