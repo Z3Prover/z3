@@ -1,0 +1,7 @@
+VerCors 2.4.0 (bundled Z3, silicon). Fresh dir, no caches.
+$ timeout 120 /tmp/gh-aw/vercors/vercors --lang cpp --backend silicon --dev-total-timeout 60 /tmp/gh-aw/agent/fresh/TstpOption.cpp
+[INFO] Start: VerCors (at 07:49:05)
+[INFO] Verification completed successfully.
+[INFO] Done: VerCors (at 07:49:28, duration: 00:00:23)
+exit=0
+Earlier attempts (omitted from bundle): failed on NULL (unsupported name) and on permission/assertion issues in the extract; fixed by annotation changes only.
