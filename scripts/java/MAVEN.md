@@ -2,8 +2,9 @@
 
 PR #11441 was merged on 2026-10-29. The official `z3-5.3.3` GitHub Release
 contains the API JAR, `linux-x64`, `win-x64`, `osx-arm64` and `all` JARs,
-with provenance, validation and SHA-256 attachments. This follow-up prepares
-Maven companions and tests consumers; it does not publish to a Maven registry.
+with provenance, validation and SHA-256 attachments. PR #11454 added Maven
+companions and consumer tests. Repository rehearsals extend those tests without
+publishing to a Maven registry.
 
 ## Artifact family
 
@@ -54,9 +55,10 @@ the same JDK/Maven toolchain; cross-JDK byte identity is not promised.
 
 ## Consumer checks without remote publication
 
-`maven_consumer.py` accepts a fresh local work directory. Deploy Plugin 3.2.0
-places already-built files into a repository whose `file:` URL is derived from
-that directory. The script has no remote repository upload option. It uses
+`maven_consumer.py` accepts a fresh local work directory. With `--repository`,
+it checks and consumes the already assembled Maven directory. Without this
+option, Deploy Plugin 3.2.0 places already-built files into a local repository.
+Both modes construct a `file:` URL from a local path and have no remote upload option. They use
 isolated Maven settings and artifact cache, keeping credentials out of this test.
 Maven plugins can still be downloaded from Central.
 
@@ -72,7 +74,8 @@ Example after `prepare.py --with-sources` and ordinary JAR assembly:
 
 ```text
 python scripts/java/maven_artifacts.py --packages build/java-packages --sources build/java-test/sources --out-dir build/java-maven-packages --work-dir build/java-maven-work
-python scripts/java/maven_consumer.py --packages build/java-maven-packages --platform win-x64 --work-dir build/java-consumer --gradle
+python scripts/java/maven_bundle.py prepare --packages build/java-maven-packages --out-dir build/java-maven-repository
+python scripts/java/maven_consumer.py --packages build/java-maven-packages --repository build/java-maven-repository --platform win-x64 --work-dir build/java-consumer --gradle
 ```
 
 Maven and Gradle must be installed to run both consumer tools. Omit `--gradle`
@@ -83,6 +86,73 @@ The separate `java-maven-test-packages` artifact is never selected by the GitHub
 Release attachment publisher. Existing final release verification also waits for
 the new consumer jobs. There is no publication credential, signature or Maven
 upload job in these workflows.
+
+## Offline repository bundle
+
+`maven_bundle.py prepare` validates the exact family, its SHA-256 manifest,
+POM coordinates and SCM commit, source hashes, required Javadoc pages, and
+embedded native manifests. It copies the existing POM/JAR bytes to the standard
+`group/path/artifact/version/` directory and writes MD5, SHA-1, SHA-256 and SHA-512
+sidecars. MD5/SHA-1 serve repository compatibility; SHA-256 binds the test evidence.
+It does not generate snapshot timestamp metadata or expose an HTTP repository.
+The fixed test snapshot is consumed directly from the local file repository.
+
+Maven and Gradle consumers record a hash of this exact directory as well as
+the preparation report and resolved JARs. A final job in fast and Full-Flow CI
+downloads the repository, family and receipts from that same workflow run.
+`maven_bundle.py verify` requires all declared platforms, both consumer tools,
+both platform/universal JARs and all seven native smoke modes. It rejects stale
+source identities, changed files, missing companions and incomplete receipts.
+Full-Flow native provenance must also match repository, run ID and attempt.
+Fast CI retains its explicitly mixed, pinned-release/current-loader provenance.
+
+Only after these checks does it produce `maven-rehearsal.zip`, `rehearsal.json`
+and `SHA256SUMS`. The ZIP contains the Maven directory only; the report preserves
+provenance and test receipts separately. ZIP timestamps and ordering are fixed,
+so identical inputs produce identical ZIP bytes. The report always states
+`publishable: false` and `signed: false`. No signatures, production coordinates,
+remote uploads or registry acceptance are implied. Central signatures and
+Portal-side validation remain a later, maintainer-controlled step.
+
+The `java-maven-test-repository` and `java-maven-rehearsal-bundle` artifacts are
+also excluded from the GitHub Release attachment publisher. Packaging jobs
+reuse the tested JARs and never rebuild native code for this rehearsal.
+
+## Dependency examples for a local rehearsal
+
+These examples use the deliberately unpublished test coordinates and a local
+repository from fast CI. They are not dependencies available on Central.
+Replace the local repository URL with the absolute `file:` URL for your directory.
+
+```xml
+<repositories>
+  <repository>
+    <id>z3-local-rehearsal</id>
+    <url>file:///absolute/path/to/java-maven-repository</url>
+  </repository>
+</repositories>
+<dependencies>
+  <dependency>
+    <groupId>invalid.z3.prototype</groupId>
+    <artifactId>z3</artifactId>
+    <version>5.3.2-packaging-SNAPSHOT</version>
+    <classifier>all</classifier>
+  </dependency>
+</dependencies>
+```
+
+```groovy
+repositories { maven { url = uri('/absolute/path/to/java-maven-repository') } }
+dependencies { implementation 'invalid.z3.prototype:z3:5.3.2-packaging-SNAPSHOT:all' }
+```
+
+Use `all` for the supported platform union, or replace it with `linux-x64`,
+`win-x64` or `osx-arm64` for a platform JAR. Omit the classifier for the API-only
+JAR, supplying matching system native libraries through the existing loader
+mechanism. Select a single form per classpath. Platform/universal JARs extract
+only the current platform's libraries and still require OS runtime dependencies
+described in RELEASE.md. A successful rehearsal on these three platforms does
+not establish compatibility with additional OS/CPU combinations.
 
 ## Publication decisions reserved for maintainers
 

@@ -24,7 +24,7 @@ def check_resolved(paths, packages, report, classifier):
             raise ValueError('Prepared Maven artifact changed: ' + name)
 
 
-def consume(packages, platform, work, mvn, gradle=None):
+def consume(packages, platform, work, mvn, gradle=None, repository=None):
     packages, work = packages.resolve(), work.resolve()
     report = json.loads((packages / 'maven-preparation.json').read_bytes())
     if report['maven']['groupId'] != 'invalid.z3.prototype' or not report['prototype']:
@@ -47,12 +47,18 @@ def consume(packages, platform, work, mvn, gradle=None):
     attachments = {key: name for key, name in report['artifacts'].items() if key}
     # The URL is constructed from a local Path, never accepted from an argument.
     # This exercises the standard deploy-file layout without a remote upload.
-    repository = work / 'repository'
-    run([*maven, '-f', bootstrap, 'org.apache.maven.plugins:maven-deploy-plugin:3.2.0:deploy-file',
-         '-Durl=' + repository.as_uri(), '-DrepositoryId=local-preparation-test',
-         '-Dfile=' + str(packages / (base + '.jar')), '-DpomFile=' + str(packages / (base + '.pom')),
-         '-Dfiles=' + ','.join(str(packages / name) for name in attachments.values()),
-         '-Dclassifiers=' + ','.join(attachments), '-Dtypes=' + ','.join('jar' for _ in attachments)])
+    repository_sha = None
+    if repository is None:
+        repository = work / 'repository'
+        run([*maven, '-f', bootstrap, 'org.apache.maven.plugins:maven-deploy-plugin:3.2.0:deploy-file',
+             '-Durl=' + repository.as_uri(), '-DrepositoryId=local-preparation-test',
+             '-Dfile=' + str(packages / (base + '.jar')), '-DpomFile=' + str(packages / (base + '.pom')),
+             '-Dfiles=' + ','.join(str(packages / name) for name in attachments.values()),
+             '-Dclassifiers=' + ','.join(attachments), '-Dtypes=' + ','.join('jar' for _ in attachments)])
+    else:
+        from maven_bundle import check_repository, read_family
+        repository = repository.resolve()
+        repository_sha = check_repository(repository, packages, read_family(packages))
     results = {}
     for tool in ['maven'] + (['gradle'] if gradle else []):
         for classifier in (platform, 'all'):
@@ -126,6 +132,7 @@ tasks.register('resolved') {
             print('PASS consumer', tool, classifier, flush=True)
     (work / 'receipt.json').write_bytes(json_bytes({'source_commit': report['source_commit'],
                                                    'platform': platform, 'results': results,
+                                                   'repository_sha256': repository_sha,
                                                    'preparation_sha256': sha256((packages / 'maven-preparation.json').read_bytes())}))
 
 
@@ -134,6 +141,7 @@ def main():
     parser.add_argument('--packages', type=Path, required=True)
     parser.add_argument('--platform', required=True)
     parser.add_argument('--work-dir', type=Path, required=True)
+    parser.add_argument('--repository', type=Path, help='Resolve from an already prepared local repository')
     parser.add_argument('--mvn', default=shutil.which('mvn') or shutil.which('mvn.cmd'))
     parser.add_argument('--gradle', nargs='?', const='auto', help='Also test Gradle; optionally pass its executable path')
     args = parser.parse_args()
@@ -144,7 +152,7 @@ def main():
             args.gradle = shutil.which('gradle') or shutil.which('gradle.bat')
             if not args.gradle:
                 raise ValueError('Gradle executable missing')
-        consume(args.packages, args.platform, args.work_dir, args.mvn, args.gradle)
+        consume(args.packages, args.platform, args.work_dir, args.mvn, args.gradle, args.repository)
     except (OSError, KeyError, ValueError) as error:
         parser.exit(1, 'Maven/Gradle consumer failed: ' + str(error) + '\n')
 
