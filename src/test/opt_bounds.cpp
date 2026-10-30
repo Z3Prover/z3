@@ -1886,6 +1886,87 @@ static void set_unbounded_curve(opt_fixture& f, bool enabled) {
     Z3_params_dec_ref(f.ctx, p);
 }
 
+static void tst_unbounded_curve_cancellation() {
+    for (bool throw_after_cancel : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit budget(m.limit(), 1000000);
+        arith_util a(m);
+        opt::context ctx(m);
+        params_ref p;
+        p.set_uint("arith.solver", 6);
+        generic_model_converter fm(m, "curve cancellation");
+        struct completion_model : model {
+            expr_ref value;
+            bool &canceled;
+            bool throw_after_cancel;
+
+            completion_model(ast_manager &m, expr *value, bool &canceled, bool throw_after_cancel)
+                : model(m), value(value, m), canceled(canceled), throw_after_cancel(throw_after_cancel) {}
+
+            expr *get_some_value(sort *s) override {
+                if (s != value->get_sort())
+                    return model::get_some_value(s);
+                if (!canceled) {
+                    canceled = true;
+                    m.limit().cancel();
+                    if (throw_after_cancel)
+                        throw default_exception(Z3_CANCELED_MSG);
+                }
+                return value;
+            }
+        };
+        struct completion_solver : opt::opt_solver {
+            using opt_solver::opt_solver;
+            func_decl *missing = nullptr;
+            bool canceled = false;
+            bool throw_after_cancel = false;
+
+            void get_model_core(model_ref &mdl) override {
+                opt_solver::get_model_core(mdl);
+                ENSURE(mdl);
+                expr *value = mdl->get_const_interp(missing);
+                ENSURE(value);
+                model_ref copy = alloc(completion_model, get_manager(), value, canceled, throw_after_cancel);
+                copy->copy_const_interps(*mdl);
+                copy->copy_func_interps(*mdl);
+                copy->copy_usort_interps(*mdl);
+                copy->unregister_decl(missing);
+                mdl = copy;
+            }
+        } s(m, p, fm);
+        opt::optsmt optimizer(m, ctx);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+        expr_ref y(m.mk_const(symbol("y"), a.mk_int()), m);
+        expr_ref z(m.mk_const(symbol("z"), a.mk_real()), m);
+        expr_ref one(a.mk_int(1), m), two(a.mk_real(2), m);
+        s.missing = to_app(z)->get_decl();
+        s.throw_after_cancel = throw_after_cancel;
+        s.assert_expr(a.mk_ge(a.mk_mul(x, y), one));
+        s.assert_expr(a.mk_ge(y, one));
+        // Completing z cancels inside the probe's private budget. Its algebraic
+        // value makes the curve check return l_undef without a solver exception.
+        s.assert_expr(m.mk_eq(a.mk_mul(z, z), two));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+        model_ref mdl;
+        s.get_model(mdl);
+        ctx.set_model(mdl);
+        unsigned h = optimizer.add(to_app(x));
+        optimizer.setup(s);
+        optimizer.updt_params(p);
+        rational initial;
+        ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
+        optimizer.update_lower(h, opt::inf_eps(initial));
+        ENSURE(optimizer.lex(h, true) == l_undef);
+        ENSURE(s.canceled && m.limit().is_canceled());
+        ENSURE(m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+        m.limit().reset_cancel();
+        solver::scoped_push scope(s);
+        s.assert_expr(m.mk_eq(x, one));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+    }
+}
+
 // Integer and mixed objectives cannot use the nlsat projection. A polynomial
 // curve through the recent models certifies unboundedness instead: a ray,
 // a quadratic, a cubic, or a unit direction of an objective variable.
@@ -2115,6 +2196,7 @@ void tst_opt_bounds() {
     std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
     tst_lex_after_unbounded();
     std::cout << "opt_bounds: unbounded integer objectives along polynomial curves\n";
+    tst_unbounded_curve_cancellation();
     tst_unbounded_curve();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();

@@ -252,6 +252,10 @@ namespace opt {
                         set_best(obj_index, infty, is_maximize);
                         break;
                     }
+                    if (m.limit().is_canceled()) {
+                        is_sat = l_undef;
+                        break;
+                    }
                     // saturate: an overflow to 0 would make the budget
                     // infinite (reslimit::push treats 0 as no limit)
                     if (unbounded_check_rlimit <= UINT_MAX / 2)
@@ -383,10 +387,10 @@ namespace opt {
        by the climb hold in the current model and are harmless. The budget's
        expiry surfaces from the nlsat solver as a solver_exception, not a
        tactic_exception, so any z3_exception here means "no proof within
-       budget", never an error to propagate. A cancellation flag (a soft
-       timeout, ctrl-c) also lands in the same catch, and popping the budget
-       would erase it; it is probed while still set and re-raised so the
-       caller's m.inc() loop still observes it. An expired tighter enclosing
+       budget", never an error to propagate. Curve queries may instead
+       return l_undef on cancellation. Popping the budget would erase an
+       external cancellation (a soft timeout, ctrl-c), so it is always probed
+       while still set and re-raised for the caller. An expired tighter enclosing
        rlimit needs no such care: the counter stays above that ceiling after
        the pop and keeps failing on its own.
     */
@@ -420,11 +424,10 @@ namespace opt {
                     IF_VERBOSE(1, if (by_curve) verbose_stream() << "(optsmt unbounded above along a "
                                << curve.kind_name() << ")\n");
                 }
-            }
-            catch (z3_exception&) {
-                external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+            } catch (z3_exception &) {
                 r = l_undef;
             }
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
             // read before the pop of the budget truncates the counter
             consumed = m.limit().count() - start;
         }
