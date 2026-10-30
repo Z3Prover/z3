@@ -17,6 +17,7 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_context.h"
 #include "opt/opt_geometric.h"
+#include "opt/opt_nlsat.h"
 #include "opt/opt_search.h"
 #include "smt/smt_context.h"
 #include "util/common_msgs.h"
@@ -1967,6 +1968,31 @@ static void tst_unbounded_curve_cancellation() {
     }
 }
 
+// nlsat's limit check gives up on integer variables, so a real objective over
+// an integer variable is rejected before preprocessing spends any budget.
+static void tst_nlsat_unbounded_reals_only() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+    expr_ref r(a.mk_to_real(n), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_ge(x, a.mk_mul(r, r)));
+    uint64_t start = m.limit().count();
+    {
+        opt::nlsat_opt engine(m, p);
+        ENSURE(engine.prove_unbounded(hard, x, rational(0)) == l_undef);
+    }
+    ENSURE(m.limit().count() == start);
+    hard.reset();
+    hard.push_back(a.mk_ge(x, a.mk_mul(y, y)));
+    opt::nlsat_opt engine(m, p);
+    ENSURE(engine.prove_unbounded(hard, x, rational(0)) == l_true);
+}
+
 // Integer and mixed objectives cannot use the nlsat projection. A polynomial
 // curve through the recent models certifies unboundedness instead: a ray,
 // a quadratic, a cubic, or a unit direction of an objective variable.
@@ -2196,6 +2222,7 @@ void tst_opt_bounds() {
     std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
     tst_lex_after_unbounded();
     std::cout << "opt_bounds: unbounded integer objectives along polynomial curves\n";
+    tst_nlsat_unbounded_reals_only();
     tst_unbounded_curve_cancellation();
     tst_unbounded_curve();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";

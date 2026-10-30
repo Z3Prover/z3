@@ -380,7 +380,7 @@ namespace opt {
 
     /**
        \brief Certify that objective idx is unbounded above over the current
-       assertions: for a real objective by projecting feasible nlsat regions
+       assertions: over real variables by projecting feasible nlsat regions
        onto the objective, and otherwise along a polynomial curve through the
        recent models, which also covers integer and mixed objectives,
        given a budget of rlimit_budget resource-counter ticks; bounds pushed
@@ -401,8 +401,6 @@ namespace opt {
         for (unsigned i = 0; i < m_s->get_num_assertions(); ++i)
             hard.push_back(m_s->get_assertion(i));
         params_ref p;
-        arith_util arith(m);
-        bool is_int = arith.is_int(m_objs.get(idx));
         lbool r = l_undef;
         bool by_curve = false;
         uint64_t start = m.limit().count();
@@ -411,7 +409,8 @@ namespace opt {
         {
             scoped_rlimit budget(m.limit(), rlimit_budget);
             try {
-                if (m_optsmt_nlsat && !is_int) {
+                // returns l_undef at once when any term is an integer
+                if (m_optsmt_nlsat) {
                     nlsat_opt engine(m, p);
                     r = engine.prove_unbounded(hard, m_objs.get(idx), lower(idx).get_rational());
                 }

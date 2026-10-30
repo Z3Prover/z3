@@ -151,11 +151,13 @@ namespace opt {
        arithmetic atoms, with uninterpreted constants as the only free symbols.
        Uninterpreted functions of positive arity are rejected because nlsat
        would treat their applications as unrelated variables (no congruence).
+       has_int records a term of sort Int other than a numeral.
     */
     struct nra_fragment_check {
         ast_manager& m;
         arith_util&  a;
         bool         ok = true;
+        bool         has_int = false;
         nra_fragment_check(ast_manager& m, arith_util& a): m(m), a(a) {}
         void operator()(var*) { ok = false; }
         void operator()(quantifier*) { ok = false; }
@@ -172,19 +174,21 @@ namespace opt {
             sort* s = n->get_sort();
             if (!m.is_bool(s) && !a.is_real(s) && !a.is_int(s))
                 ok = false;
+            else if (a.is_int(s) && !a.is_numeral(n))
+                has_int = true;
         }
     };
 
-    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj) {
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj, bool reals_only) {
         nra_fragment_check chk(m, a);
         expr_fast_mark1 visited;
         for (expr* f : hard) {
             for_each_expr_core<nra_fragment_check, expr_fast_mark1, false, false>(chk, visited, f);
-            if (!chk.ok)
+            if (!chk.ok || (reals_only && chk.has_int))
                 return false;
         }
         for_each_expr_core<nra_fragment_check, expr_fast_mark1, false, false>(chk, visited, obj);
-        return chk.ok;
+        return chk.ok && !(reals_only && chk.has_int);
     }
 
     lbool nlsat_opt::can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
@@ -213,7 +217,9 @@ namespace opt {
     }
 
     lbool nlsat_opt::prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo) {
-        if (!in_nra_fragment(m, m_arith, hard, obj))
+        // check_limit gives up on integer variables, so reject them before
+        // spending the budget on preprocessing and loading.
+        if (!in_nra_fragment(m, m_arith, hard, obj, true))
             return l_undef;
         // Normalize through the same pipeline as maximize: the assertions may
         // contain division and other non-polynomial arithmetic that

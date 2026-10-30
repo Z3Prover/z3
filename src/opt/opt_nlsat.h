@@ -47,9 +47,10 @@ namespace opt {
     /**
        \brief True when the hard constraints and obj lie in the fragment
        nlsat decides: Boolean structure over polynomial arithmetic atoms,
-       with uninterpreted constants as the only free symbols.
+       with uninterpreted constants as the only free symbols. With
+       reals_only, integer terms other than numerals are rejected as well.
     */
-    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj);
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj, bool reals_only = false);
 
     // Express equality to a real numeral using rational-coefficient constraints,
     // so the SMT arithmetic solver can commit an exact algebraic value.
@@ -111,7 +112,8 @@ namespace opt {
            nlsat projects feasible regions onto the objective until it finds
            an unbounded ray or covers all feasible values. Returns
            l_true (unbounded above), l_false (some upper bound exists, value
-           not computed), l_undef (outside the fragment or the solver gave up).
+           not computed), l_undef (outside the fragment, an integer term
+           occurs, or the solver gave up).
         */
         lbool prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo);
 
