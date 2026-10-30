@@ -100,20 +100,19 @@ let accessor_free (rho:env value)
 
 (* --- The legacy connective contracts, keyed by the canonical predicates ------ *)
 
-(* The connective conjuncts of `model_sound` (`not_sound` ... `false_sound`) are
-   keyed by `Z3CanonicalOps`, exactly as the core contract's connectives, so
-   every core model satisfies them. *)
+(* Every core model satisfies the six non-equality contracts
+   `not_sound`, `and_sound`, `or_sound`, `implies_sound`, `true_sound`
+   and `false_sound`. Its typed equality does not imply `eq_sound`. *)
 let legacy_connectives (i:interpretation value) (dom:CO.domains)
   : Lemma (requires CO.core_model i dom)
           (ensures not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
                    true_sound i /\ false_sound i)
   = ()
 
-(* Closed instances that the name-keyed contracts forced into contradiction
-   with the bit-vector and datatype contracts. The canonical keys do not
-   constrain them, and in a core model (which satisfies the re-keyed
-   contracts) they take the values of their own theory, which the old
-   name-keyed instances excluded. *)
+(* Closed foreign-name instances take their own theory's values in the
+   witness core model. It satisfies the six non-equality connective
+   contracts and typed canonical equality, not the untyped `eq_sound`.
+   The former name-keyed clauses incorrectly captured these instances. *)
 let zero2 : expr = BV.literal 2 0
 let clash_eq_app : expr = App clash_eq [zero2; zero2]
 let true_numeral (n:int) : func_decl =
@@ -591,6 +590,19 @@ let e_from_eq_sound (i:interpretation value) (rho:env value)
     assert (C.canonical_eq (eq_decl int_s) /\ (eq_decl int_s).decl_name == "=")
 
 let w0 : interpretation value = CO.witness (fun _ _ -> 0)
+
+let rho_array_at_int : env value = fun _ -> VArr (AT.const_arr 0)
+
+let core_without_untyped_equality ()
+  : Lemma (CO.core_model w0 CO.witness_domains /\
+           Z3ResolutionProofTheory.not_sound w0 /\ Z3ResolutionProofTheory.and_sound w0 /\
+           Z3ResolutionProofTheory.or_sound w0 /\ Z3ResolutionProofTheory.implies_sound w0 /\
+           Z3ResolutionProofTheory.true_sound w0 /\ Z3ResolutionProofTheory.false_sound w0 /\
+           ~(Z3ResolutionProofTheory.eq_sound w0))
+  = CO.lemma_witness (fun _ _ -> 0);
+    legacy_connectives w0 CO.witness_domains;
+    lemma_eq_decl_canonical int_s;
+    assert_norm (eval w0 (App (eq_decl int_s) [Var 0 int_s; Var 0 int_s]) rho_array_at_int == VBool false)
 
 let drop_q (rho:env value)
   : Lemma (lit_true w0 rho valid_forall /\ a_inst w0 rho /\ e_inst w0 rho /\ ~(q_inst w0 rho))

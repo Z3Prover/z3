@@ -604,18 +604,20 @@ Native connectives are canonical: the native `canonical_dispatch` test
 checks this on recorded formulas, it is not an F* lemma about marshaling,
 and native acceptance on the measured inputs was unchanged.
 
-The connective conjuncts of the legacy `model_sound`
-(`not`/`and`/`or`/`implies`/`eq`/`true`/`false_sound`) are keyed by the same
-`Z3CanonicalOps` predicates, and every consumer was migrated to them. The
-name/tag clashes they had with the bit-vector and datatype contracts (an
-`=` tagged `bvult`, bit-vector numerals named `true`, a datatype accessor
-named `and`, a 2-ary constructor named `=>`) no longer constrain anything:
-`Z3CoreModelTests` shows that every core model satisfies the re-keyed
-contracts (`legacy_connectives`) and that in a core model these closed
-instances take the values of their own theory, which the name-keyed
-instances excluded (`clash_eq_excluded`, `true_numerals_excluded`,
-`datatype_and_excluded`). The re-keyed `eq_sound` still quantifies over
-every environment.
+The seven connective conjuncts of the legacy `model_sound`
+(`not`/`and`/`or`/`implies`/`eq`/`true`/`false_sound`) are keyed by the
+same `Z3CanonicalOps` predicates, and their consumers were migrated to
+them. The Boolean clauses no longer capture the former foreign-name
+instances: `=` tagged `bvult`, BV numerals named `true`, and datatype
+operations named `and` or `=>`. Every core model satisfies the six
+non-equality contracts (`legacy_connectives`) and its typed canonical
+equality. This does not imply the re-keyed `eq_sound`, which still
+quantifies over every environment. The witness core model fails that
+untyped contract: an Int variable mapped to an array value makes its
+canonical `x = x` false (`core_without_untyped_equality`). The closed
+foreign-name instances nevertheless take their own theory's values in
+the witness (`clash_eq_excluded`, `true_numerals_excluded`,
+`datatype_and_excluded`).
 
 Not covered and still blocking a global theorem: quantifier truth and
 binder rules (for classical quantification over infinite domains and
@@ -623,10 +625,11 @@ extensional equality of array values no construction is known under the
 current `Tot` interpretation fields; this is not proved impossible),
 definitions, the array, arithmetic, datatype, finite-field and
 normalization checkers, Skolemization, and the document layer. The legacy
-`model_sound` remains without a model: its open-environment contracts
-(`boolean_model`, the Int conjunct of `numeric_model`, `array_model`, and
-the untyped `eq_sound`) are unchanged, and `Z3CoreModelTests` records two
-further obstructions to it as finite clause instances, each with
+`model_sound` remains without a model: the quantification in its
+open-environment typing contracts (`boolean_model`, the Int conjunct of
+`numeric_model`, and `array_model`) is unchanged. The re-keyed `eq_sound`
+also retains untyped environment quantification. `Z3CoreModelTests`
+records two further obstructions as finite clause instances with
 satisfiable drop-one controls.
 O1: the store clause of `array_model` at the closed, well-sorted
 `(store a 0 1/2)` over `(Array Int Real)`, the numeral clause of
