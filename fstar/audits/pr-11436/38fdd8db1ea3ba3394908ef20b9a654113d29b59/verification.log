@@ -1,0 +1,5 @@
+$ fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3TptpLiteralAudit.fst
+stdout: Verified module: Z3TptpLiteralAudit
+All verification conditions discharged successfully
+stderr: (empty)
+exit code: 0
