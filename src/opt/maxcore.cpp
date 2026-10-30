@@ -497,7 +497,12 @@ public:
     void get_current_correction_set(exprs& cs) {
         model_ref mdl;
         s().get_model(mdl);
-        update_assignment(mdl);
+        if (mdl)
+            update_assignment(mdl);
+        else if (m_csmodel)
+            // The solver can report sat without yielding a model; fall back
+            // to the best cached assignment from a previous update_assignment.
+            mdl = m_csmodel;
         get_current_correction_set(mdl.get(), cs);
     }
 
