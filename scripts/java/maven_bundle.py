@@ -162,7 +162,6 @@ def check_receipts(packages, report, repository_sha, consumers, smokes):
             name = report['artifacts'][variant]
             if key == 'maven:auto' and (result.get('selected_platform') != platform
                     or result.get('selector_sha256') != sha256(maven_auto.pom(report))
-                    or result.get('override_checked') is not True
                     or result.get('unsupported_rejected') is not True):
                 raise ValueError('Automatic selector did not validate the current platform and POM')
             if (result.get('passed') is not True or result.get('sources_javadoc_resolved') is not True

@@ -60,6 +60,8 @@ def consume(packages, platform, work, mvn, gradle=None, repository=None):
         prepare_repository(packages, repository)
     repository = repository.resolve()
     repository_sha = check_repository(repository, packages, read_family(packages))
+    maven_version = run([mvn, '-v']).strip()
+    print(maven_version, flush=True)
     results = {}
     for tool in ['maven'] + (['gradle'] if gradle else []):
         for classifier in (platform, 'all') + (('auto',) if tool == 'maven' else ()):
@@ -136,31 +138,26 @@ tasks.register('resolved') {
             results[tool + ':' + classifier] = {'passed': True, 'sha256': sha256(jar.read_bytes()),
                                                 'sources_javadoc_resolved': True}
             if classifier == 'auto':
-                # Both ordinary forms have already populated this isolated
-                # cache. Offline checks cannot fetch an unrelated remote JAR.
-                command = [*maven, '-o', '-f', project / 'pom.xml',
-                           'org.apache.maven.plugins:maven-dependency-plugin:3.9.0:build-classpath',
-                           '-Dmdep.regenerateFile=true']
-                original_classpath = (project / 'classpath.txt').read_bytes()
-                run([*command, '-Dz3.platform=all'])
-                override = maven_runtime((project / 'classpath.txt').read_text(encoding='utf-8'),
-                                         report, selector=True)
-                if (sha256(override.read_bytes())
-                        != report['jar_sha256'][report['artifacts']['all']]):
-                    raise ValueError('Explicit target platform did not override host detection')
+                # With no matching platform profile, the default classifier
+                # must fail resolution. This is a metadata fixture, not a run
+                # on an unsupported native host. Offline mode prevents fallback
+                # to a remote artifact under the test coordinates.
+                unsupported = project / 'unsupported-platform.pom'
+                unsupported.write_bytes(maven_auto.pom({**report, 'platforms': []}))
                 try:
-                    run([*command, '-Dz3.platform=unsupported-platform-test'])
+                    run([*maven, '-o', '-f', unsupported,
+                         'org.apache.maven.plugins:maven-dependency-plugin:3.9.0:build-classpath'])
                 except ValueError as error:
-                    if 'unsupported-platform-test' not in str(error):
+                    if maven_auto.UNSUPPORTED not in str(error):
                         raise
                 else:
                     raise ValueError('Unsupported platform unexpectedly resolved a runtime JAR')
-                (project / 'classpath.txt').write_bytes(original_classpath)
                 results['maven:auto'].update(selected_platform=platform,
                     selector_sha256=sha256(maven_auto.pom(report)),
-                    override_checked=True, unsupported_rejected=True)
+                    unsupported_rejected=True)
             print('PASS consumer', tool, classifier, flush=True)
     (work / 'receipt.json').write_bytes(json_bytes({'source_commit': report['source_commit'],
+                                                   'maven_version': maven_version,
                                                    'platform': platform, 'results': results,
                                                    'repository_sha256': repository_sha,
                                                    'preparation_sha256': sha256((packages / 'maven-preparation.json').read_bytes())}))

@@ -74,8 +74,9 @@ remains in the ordinary packaging smoke jobs. No additional native build occurs.
 The Maven consumer also declares the POM-only automatic selector without a
 classifier, consumer-side OS profiles or platform-detection extensions. Its
 classpath must contain exactly the expected platform JAR, and it runs the same
-native smoke. Offline checks verify an explicit `z3.platform=all` override and
-failure for an unavailable platform. The final bundle requires this additional
+native smoke. An offline negative metadata fixture with no matching platform
+profiles must fail resolution of the default unavailable classifier. This fixture
+does not represent execution on an unsupported native host. The final bundle requires this additional
 receipt and binds it to the selector POM's SHA-256 as well as the runtime JAR.
 
 Example after `prepare.py --with-sources` and ordinary JAR assembly:
@@ -192,11 +193,12 @@ The API source/Javadoc companions remain attached to the selected runtime JAR.
 Detection follows the JVM running Maven, including its architecture. Supported
 profiles are generated only for platforms present in the prepared repository.
 Unknown platforms resolve an intentionally unavailable
-`unsupported-platform-set-z3.platform` classifier and fail instead of selecting
-another architecture. For a different deployment target, set for example
-`-Dz3.platform=linux-x64`, or select `all` for one cross-platform application
-artifact. An explicit classifier on the ordinary `z3` dependency remains
-available and does not pull in an additional platform JAR.
+`unsupported-platform-use-explicit-classifier` classifier and fail instead of selecting
+another architecture. For a different deployment target, use the ordinary `z3`
+dependency with an explicit platform classifier, or select `all` for one
+cross-platform application artifact. These forms do not pull in an additional
+platform JAR. Overriding the selector with CLI or consumer POM properties is not
+supported: dependency profile activation differs between Maven versions.
 
 This entry point is Maven-specific. Gradle consumers should continue selecting
 a platform classifier or `all`; Maven profile activation does not establish
@@ -204,11 +206,16 @@ automatic selection in Gradle. The selector adds no new native platform support.
 Cross-platform CI results, rather than successful POM generation, establish its
 tested coverage.
 
-The published OS profiles and explicit override follow the pattern in the
+The published OS profiles use the same general approach as the
 [OpenJFX 21.0.2 parent POM](https://repo.maven.apache.org/maven2/org/openjfx/javafx/21.0.2/javafx-21.0.2.pom).
-The override profile matters: CLI properties do not normally replace properties
-defined in a dependency POM. Consumer tests exercise the actual resolved POM,
-including this override, rather than only inspecting its XML.
+Only OS/architecture activation is used. Maven 3.10 isolates dependency profile
+activation from consumer CLI properties and also considers properties declared
+in the dependency POM; a self-referencing custom-override profile can therefore
+activate unexpectedly. See the
+[Maven 3.10 profile activation context](https://maven.apache.org/ref/3.10.0/apidocs/org/apache/maven/model/profile/ProfileActivationContext.html).
+The selector avoids that property-activation dependency. Consumer tests exercise
+the actual resolved POM rather than only inspecting its XML, and record the
+installed Maven version in their receipts.
 
 ## Publication decisions reserved for maintainers
 

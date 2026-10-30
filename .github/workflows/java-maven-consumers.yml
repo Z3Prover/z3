@@ -53,5 +53,6 @@ jobs:
             consumer-result/receipt.json
             consumer-result/maven-auto/pom.xml
             consumer-result/maven-auto/classpath.txt
+            consumer-result/maven-auto/unsupported-platform.pom
           if-no-files-found: warn
           retention-days: 7

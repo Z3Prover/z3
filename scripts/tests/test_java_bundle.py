@@ -75,7 +75,7 @@ class MavenBundleTests(unittest.TestCase):
             'passed': True, 'sources_javadoc_resolved': True, 'selected_platform': 'win-x64',
             'selector_sha256': sha256(maven_auto.pom(self.report)),
             'sha256': self.report['jar_sha256'][artifacts['win-x64']],
-            'override_checked': True, 'unsupported_rejected': True}
+            'unsupported_rejected': True}
         self.smoke = {'source_commit': 'a' * 40, 'generator_sha256': 'generator', 'loader_sha256': 'loader',
                       'platform': 'win-x64', 'passed': True,
                       'artifacts': {kind: {'passed': True, 'jar_name': artifacts[kind],
@@ -121,7 +121,7 @@ class MavenBundleTests(unittest.TestCase):
     def test_selector_receipt_must_cover_exact_pom_platform_and_failure_behavior(self):
         result = self.consumer['results']['maven:auto']
         for key, value in (('selector_sha256', 'wrong'), ('selected_platform', 'linux-x64'),
-                           ('override_checked', False), ('unsupported_rejected', False)):
+                           ('unsupported_rejected', False)):
             original = result[key]
             result[key] = value
             self.save_receipts()

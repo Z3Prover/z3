@@ -41,14 +41,9 @@ class MavenAutoTests(unittest.TestCase):
         root = ET.fromstring(maven_auto.pom(self.report))
         matches = {}
         for profile in root.findall('m:profiles/m:profile', self.ns):
-            if self.text(profile, 'id') == 'z3-platform-override':
-                self.assertEqual(self.text(profile, 'activation/property/name'), 'z3.platform')
-                self.assertEqual(self.text(profile, 'properties/z3.platform'), '${z3.platform}')
-                self.assertIsNone(profile.find('m:activation/m:os', self.ns))
-                continue
             platform = self.text(profile, 'properties/z3.platform')
             matches.setdefault(platform, set()).add(self.text(profile, 'activation/os/arch'))
-            self.assertEqual(self.text(profile, 'activation/property/name'), '!z3.platform')
+            self.assertIsNone(profile.find('m:activation/m:property', self.ns))
             field = 'name' if platform.startswith('linux-') else 'family'
             self.assertEqual(self.text(profile, 'activation/os/' + field),
                              {'linux-x64': 'Linux', 'win-x64': 'Windows', 'osx-arm64': 'Mac'}[platform])
@@ -58,8 +53,7 @@ class MavenAutoTests(unittest.TestCase):
         self.report['platforms'] = ['win-x64']
         windows = ET.fromstring(maven_auto.pom(self.report))
         self.assertEqual({self.text(p, 'properties/z3.platform')
-                          for p in windows.findall('m:profiles/m:profile', self.ns)
-                          if self.text(p, 'id') != 'z3-platform-override'}, {'win-x64'})
+                          for p in windows.findall('m:profiles/m:profile', self.ns)}, {'win-x64'})
 
     def test_selector_is_deterministic_and_does_not_modify_runtime_pom(self):
         original = maven_artifacts.pom_text(self.report['maven'], self.report['source_commit'])

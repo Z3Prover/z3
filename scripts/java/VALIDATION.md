@@ -226,9 +226,9 @@ Local Windows x64 checks passed with Maven 3.9.12, Gradle 9.8.2 and JDK 25.0.3:
   Context/version/SAT/UNSAT and concurrent initialization.
 - The automatic consumer declared no classifier or OS profiles. Its actual
   dependency POM and selected Windows JAR matched their expected SHA-256 values.
-  Offline checks verified an explicit `z3.platform=all` override and rejection
-  of an unavailable classifier. This exposed and corrected dependency-POM
-  property precedence using the explicit override profile also used by OpenJFX.
+  This initial implementation also tested a CLI override, but the hosted Linux
+  consumer subsequently exposed a Maven 3.10 incompatibility in the override
+  profile. That result does not establish portable CLI override support.
 - actionlint 1.7.12 passed for the five Java packaging/consumer/rehearsal
   workflows with ShellCheck disabled; `git diff --check` passed.
 
@@ -243,3 +243,19 @@ At this checkpoint, hosted Packaging Test and Full Flow results for this
 follow-up are pending. The consumer matrix exercises automatic selection on
 Linux x64, Windows x64 and macOS arm64; the existing native smoke coverage is
 unchanged. The PR remains Draft until hosted validation can be assessed.
+
+The hosted Linux consumer at `1605bb5` failed with a recursive expression in
+`z3.platform`; Windows passed. Maven 3.10's external profile activation also
+consults the dependency's own properties. The follow-up removes property-based
+activation and CLI override support, keeping only OS/architecture profiles.
+Cross-target builds use the existing explicit platform or `all` dependency.
+The new negative metadata fixture checks failure when no platform profile
+matches, and consumer receipts now record Maven's version. Validation of that
+correction is pending at this checkpoint.
+
+Local checks after removing property-based activation passed: all 55 regression
+tests, all five Windows Maven/Gradle consumer cases, the offline negative
+metadata fixture, and actionlint for the five Java workflows. A subsequent
+message-only change renamed the unavailable classifier to direct users toward
+an explicit classifier; all four selector tests passed again. Hosted results
+for the corrected implementation remain pending.
