@@ -28,9 +28,14 @@ Copyright (c) 2015 Microsoft Corporation
 #include <sstream>
 
 static void check_activity_case_splits() {
+    struct case_split_context : smt::context {
+        using smt::context::context;
+        using smt::context::m_searching;
+    };
     for (auto strategy : {CS_ACTIVITY_DELAY_NEW, CS_ACTIVITY, CS_ACTIVITY_WITH_CACHE})
     for (unsigned relevancy : {0u, 1u, 2u})
     for (double random_freq : {0.0, 1.0})
+    for (bool delayed : {false, true})
     for (unsigned seed = 0; seed < 4; ++seed) {
         ast_manager m;
         smt_params params;
@@ -39,7 +44,7 @@ static void check_activity_case_splits() {
         params.m_relevancy_lvl = relevancy;
         params.m_random_var_freq = random_freq;
         params.m_random_seed = seed;
-        smt::context ctx(m, params);
+        case_split_context ctx(m, params);
         app_ref a(m.mk_const("a", m.mk_bool_sort()), m);
         app_ref b(m.mk_const("b", m.mk_bool_sort()), m);
         app_ref c(m.mk_const("c", m.mk_bool_sort()), m);
@@ -51,8 +56,10 @@ static void check_activity_case_splits() {
         ctx.set_activity(vc, 2.0);
         ctx.mark_as_relevant(vb);
         scoped_ptr<smt::case_split_queue> queue(smt::mk_case_split_queue(ctx, params));
+        ctx.m_searching = delayed;
         for (auto v : {va, vb, vc})
             queue->mk_var_eh(v);
+        ctx.m_searching = false;
 
         smt::bool_var next;
         lbool phase;

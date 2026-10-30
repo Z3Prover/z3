@@ -117,16 +117,7 @@ namespace {
 
         void pop_scope(unsigned num_scopes) override {}
 
-        void next_case_split(bool_var & next, lbool & phase) override {
-            phase = l_undef;
-            
-            if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
-                next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
-                TRACE(random_split, tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
-                if (m_context.get_assignment(next) == l_undef && m_context.is_relevant(next))
-                    return;
-            }
-
+        void next_case_split_core(bool_var & next) {
             next = null_bool_var;
             bool_var_vector irrelevant;
             while (!m_queue.empty()) {
@@ -143,6 +134,19 @@ namespace {
                 m_queue.insert(v);
             if (next == null_bool_var && !m_queue.empty())
                 next = m_queue.erase_min();
+        }
+
+        void next_case_split(bool_var & next, lbool & phase) override {
+            phase = l_undef;
+
+            if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
+                next = m_context.get_random_value() % m_context.get_num_b_internalized();
+                TRACE(random_split, tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
+                if (m_context.get_assignment(next) == l_undef && m_context.is_relevant(next))
+                    return;
+            }
+
+            next_case_split_core(next);
         }
 
         void display(std::ostream & out) override {
@@ -229,7 +233,7 @@ namespace {
             m_queue.swap(m_delayed_queue);
             SASSERT(m_delayed_queue.empty());
             
-            act_case_split_queue::next_case_split(next, phase);
+            next_case_split_core(next);
         }
     };
 
