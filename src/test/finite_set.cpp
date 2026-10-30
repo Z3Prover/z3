@@ -279,6 +279,50 @@ static void tst_finite_set_sort_size() {
     ENSURE(bv4_set_sz.size() == 65536); // 2^16 = 65536
 }
 
+static void tst_finite_set_size_domain_bound() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    struct test_case {
+        char const* declarations;
+        char const* size;
+        Z3_lbool expected;
+    };
+    test_case const cases[] = {
+        { "(declare-const A (FiniteSet Bool))", "0", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet Bool))", "1", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet Bool))", "2", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet Bool))", "3", Z3_L_FALSE },
+        { "(declare-const A (FiniteSet (_ BitVec 2)))", "4", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet (_ BitVec 2)))", "5", Z3_L_FALSE },
+        { "(declare-datatype E ((a) (b) (c)))(declare-const A (FiniteSet E))", "3", Z3_L_TRUE },
+        { "(declare-datatype E ((a) (b) (c)))(declare-const A (FiniteSet E))", "4", Z3_L_FALSE },
+        { "(declare-const A (FiniteSet (FiniteSet Bool)))", "4", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet (FiniteSet Bool)))", "5", Z3_L_FALSE },
+        { "(declare-const A (FiniteSet (_ BitVec 32)))", "4294967296", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet (_ BitVec 32)))", "4294967297", Z3_L_FALSE },
+        { "(declare-const A (FiniteSet (_ BitVec 64)))", "3", Z3_L_TRUE },
+        { "(declare-const A (FiniteSet Int))", "3", Z3_L_TRUE },
+        { "(declare-sort U 0)(declare-const A (FiniteSet U))", "3", Z3_L_TRUE },
+    };
+    for (auto const& test : cases) {
+        Z3_solver_reset(ctx, solver);
+        Z3_solver_from_string(ctx, solver, test.declarations);
+        std::string spec = std::string("(assert (= (set.size A) ") + test.size + "))";
+        for (unsigned i = 0; i < 2; ++i) {
+            Z3_solver_push(ctx, solver);
+            Z3_solver_from_string(ctx, solver, spec.c_str());
+            ENSURE(Z3_solver_check(ctx, solver) == test.expected);
+            Z3_solver_pop(ctx, solver, 1);
+            ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+        }
+    }
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+}
+
 static void tst_finite_set_size_members() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -396,6 +440,7 @@ void tst_finite_set() {
     tst_finite_set_is_value();
     tst_finite_set_is_fully_interp();
     tst_finite_set_sort_size();
+    tst_finite_set_size_domain_bound();
     tst_finite_set_size_members();
     tst_finite_set_size_three_members();
     tst_finite_set_size_union_singletons();
