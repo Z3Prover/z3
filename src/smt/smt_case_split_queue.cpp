@@ -123,17 +123,26 @@ namespace {
             if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
                 next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
                 TRACE(random_split, tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
-                if (m_context.get_assignment(next) == l_undef)
+                if (m_context.get_assignment(next) == l_undef && m_context.is_relevant(next))
                     return;
             }
-            
-            while (!m_queue.empty()) {
-                next = m_queue.erase_min();
-                if (m_context.get_assignment(next) == l_undef)
-                    return;
-            }
-            
+
             next = null_bool_var;
+            bool_var_vector irrelevant;
+            while (!m_queue.empty()) {
+                bool_var v = m_queue.erase_min();
+                if (m_context.get_assignment(v) != l_undef)
+                    continue;
+                if (m_context.is_relevant(v)) {
+                    next = v;
+                    break;
+                }
+                irrelevant.push_back(v);
+            }
+            for (bool_var v : irrelevant)
+                m_queue.insert(v);
+            if (next == null_bool_var && !m_queue.empty())
+                next = m_queue.erase_min();
         }
 
         void display(std::ostream & out) override {
@@ -220,13 +229,7 @@ namespace {
             m_queue.swap(m_delayed_queue);
             SASSERT(m_delayed_queue.empty());
             
-            while (!m_queue.empty()) {
-                next = m_queue.erase_min();
-                if (m_context.get_assignment(next) == l_undef)
-                    return;
-            }
-            
-            next = null_bool_var;
+            act_case_split_queue::next_case_split(next, phase);
         }
     };
 
