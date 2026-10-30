@@ -1,0 +1,9 @@
+F* 2026.09.27; Z3 4.13.3 (pinned independent backend)
+$ timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --include /home/runner/work/z3/z3/fstar --cache_dir cache --odir out Z3FiniteSetSizeBound.fst
+stdout:
+Verified module: Z3FiniteSetSizeBound
+All verification conditions discharged successfully
+
+stderr:
+
+exit 0
