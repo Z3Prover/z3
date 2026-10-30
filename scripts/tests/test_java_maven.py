@@ -56,6 +56,23 @@ class MavenPreparationTests(unittest.TestCase):
                 'com/microsoft/z3/Context.java', 'com/microsoft/z3/Native.java',
                 'com/microsoft/z3/NativeLibraryLoader.java', 'com/microsoft/z3/enumerations/Z3_lbool.java'})
 
+    def test_changed_loader_or_native_source_body_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / 'com/microsoft/z3'
+            package.mkdir(parents=True)
+            for name in ('Native', 'NativeLibraryLoader'):
+                (package / (name + '.java')).write_bytes(b'original source')
+            digest = sources.sha256(b'original source')
+            provenance = {'loader_sha256': digest, 'generated_native_sha256': digest}
+            sources.verify_loader_sources(root, provenance)
+            for name in ('Native', 'NativeLibraryLoader'):
+                path = package / (name + '.java')
+                path.write_bytes(b'same signature, different body')
+                with self.assertRaises(ValueError):
+                    sources.verify_loader_sources(root, provenance)
+                path.write_bytes(b'original source')
+
     def test_changed_or_missing_consumer_artifact_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

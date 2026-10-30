@@ -165,3 +165,45 @@ been exercised. Maven publication, signing, official coordinates, additional
 architectures and clean Windows CRT availability remain outside this PR's
 validation. See [RELEASE.md](RELEASE.md) for the release artifacts and rehearsal
 procedure. PR #11441 remains a draft until its hosted checks can be assessed.
+
+## Maven preparation follow-up (2026-10-30, PR #11454)
+
+The preceding paragraphs are historical checkpoints. Rechecking upstream on
+2026-10-30 confirmed that PR #11441 was merged on 2026-10-29 at
+`68ba6f35daba276596e49f63ed1398130c4f0ff1`.
+[Fast CI at its final head](https://github.com/nieyuanhong/z3/actions/runs/40858779996)
+passed. [Full Flow](https://github.com/nieyuanhong/z3/actions/runs/40857306477)
+passed at implementation commit `95f7ee1`; that run does not establish an
+exact-head Full Flow result for the subsequent documentation/CI corrections.
+The official `z3-5.3.3` Release now includes the API, three platform and universal
+JARs, provenance, validation and checksums.
+
+[PR #11454](https://github.com/Z3Prover/z3/pull/11454) starts from upstream
+`1b859b6bc7637a9c802a92a0dee72df9e843274d` on the separate
+`feat/java-maven-artifacts` branch. Local Windows evidence for the implementation:
+
+- 38 packaging/release/Maven tests and three generator tests passed.
+- actionlint 1.7.12 passed for all five affected Java/release workflows, with
+  ShellCheck disabled; `git diff --check` passed.
+- The pinned 5.3.2 Java sources, current generated Native and loader compiled
+  with Java 8 compatibility. All 157 classes and JVM member signatures match
+  the prepared API, allowing compiler member-order differences only.
+- The actual loader/Native source bytes match preparation hashes. A regression
+  also rejects a changed body with the same signature.
+- Maven Source/Javadoc plugins produced real companion archives. All nine JAR
+  hashes in the one-platform Windows test family reproduced in a separate
+  output/work directory under the same local toolchain.
+- Maven and checksum-verified Gradle 9.8.2 each resolved the Windows platform
+  and universal forms plus their corresponding source/Javadoc classifiers from
+  isolated file repositories. Resolved hashes, bundled extraction, Context,
+  runtime version, SAT/UNSAT and concurrent initialization passed in all four
+  consumer cases. Local source compilation used JDK 25 with `--release 8`.
+
+These local prototype inputs remain deliberately pinned to 5.3.2 and are not
+current-source native builds. The new CI schedules Java 17 consumer checks on
+Linux x64, Windows x64 and macOS arm64; those hosted checks and the new Full Flow
+have **not run** at this checkpoint. The fork's Actions are disabled. Dispatch
+returns HTTP 422: `Actions has been disabled for this repository.` Restoring that
+repository setting requires the owner's decision. The PR remains Draft; no
+registry publication or publishing credentials were used. See [MAVEN.md](MAVEN.md)
+for scope and the remaining namespace, ownership and signing decisions.

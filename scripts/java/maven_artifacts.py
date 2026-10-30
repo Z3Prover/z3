@@ -3,14 +3,13 @@
 # Prepare unpublished Maven companions using existing Maven plugins.
 ############################################
 import argparse
-import json
 from pathlib import Path
 import shutil
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
 from prepare import run
-from sources import SCRIPTS, verify
+from sources import SCRIPTS, verify, verify_loader_sources
 from smoke import read_provenance, verify_jar
 from mk_java_package import checked_zip, json_bytes, metadata_names, package_basename, sha256, write_checksums
 
@@ -42,6 +41,7 @@ def prepare(packages, sources, out, work, mvn):
     variants = ['', *sorted(provenance['platforms']), 'all']
     for classifier in variants[1:]:
         verify_jar(packages, provenance, classifier)
+    verify_loader_sources(sources, provenance)
     work.mkdir(parents=True)
     validation = verify(sources, packages / (base + '.jar'), work / 'source-check')
     # Use an isolated source tree so the Maven plugins cannot pick up cache or

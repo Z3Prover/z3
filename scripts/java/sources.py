@@ -10,7 +10,7 @@ import shutil
 import sys
 
 from prepare import ROOT, SCRIPTS, run, signatures
-from mk_java_package import checked_zip, json_bytes, sha256
+from mk_java_package import checked_zip, sha256
 
 
 def canonical_signatures(text):
@@ -22,6 +22,15 @@ def canonical_signatures(text):
     return sorted((header, tuple(sorted(part.strip() for part in
                                        re.split(r'(?m)(?=^  \S)', body) if part.strip())))
                   for header, body in classes)
+
+
+def verify_loader_sources(sources, provenance):
+    expected = {'NativeLibraryLoader.java': provenance['loader_sha256']}
+    if 'generated_native_sha256' in provenance:
+        expected['Native.java'] = provenance['generated_native_sha256']
+    for name, digest in expected.items():
+        if sha256((sources / 'com/microsoft/z3' / name).read_bytes()) != digest:
+            raise ValueError('Source attachment differs from prepared loader/generator input: ' + name)
 
 
 def collect(source_root, headers, generated, loader, out, api_jar):

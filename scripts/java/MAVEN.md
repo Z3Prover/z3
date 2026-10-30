@@ -32,13 +32,15 @@ JAR determines which handwritten files were shipped: the official CMake source
 list currently excludes some Java files present in the repository.
 
 Full Flow uses the current checkout's Java sources and official header list.
-Only Java files are generated or compiled in packaging jobs. Native ZIPs still
-come from the existing producers in the same workflow run and attempt.
+Packaging jobs regenerate the bindings and compile Java. Native ZIPs come from
+the existing producers in the same workflow run and attempt.
 
 Before creating companions, `sources.py` compiles the entire source set with
 `javac --release 8` and compares the exact class set and every JVM member
 signature against the API JAR. Comparison tolerates compiler member ordering,
 including synthetic accessors, without dropping members or descriptors.
+Loader source bytes and, for fast preparation, generated Native source bytes
+must also match the hashes captured when preparing the binary API.
 This is a compatibility check, not a proof that arbitrary source bodies and
 bytecode are equivalent. Version/commit pinning and tracked generators establish
 the source origin; provenance distinguishes mixed fast-test inputs.
