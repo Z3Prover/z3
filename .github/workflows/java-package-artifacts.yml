@@ -19,7 +19,7 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,6 +29,10 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ inputs.linux-artifact }}
@@ -55,12 +59,30 @@ jobs:
             --preparation native-inputs/preparation.json --out-dir java-packages \
             --platform linux-x64 --platform win-x64 --platform osx-arm64 \
             --artifact-id z3 --version "$version"
+      - name: Collect matching current-source Java files
+        run: >-
+          python scripts/java/sources.py --out-dir java-sources --work-dir java-generated
+          --api-jar native-inputs/prepared-api.jar
+      - name: Prepare unpublished Maven companions
+        run: >-
+          python scripts/java/maven_artifacts.py --packages java-packages --sources java-sources
+          --out-dir java-maven-packages --work-dir java-maven-work
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-maven-test-packages
+          path: java-maven-packages/*
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: java-assembled-packages
           path: java-packages/*
           if-no-files-found: error
           retention-days: 7
+
+  maven-consumers:
+    needs: package
+    uses: ./.github/workflows/java-maven-consumers.yml
 
   smoke:
     needs: package
@@ -102,7 +124,7 @@ jobs:
           retention-days: 7
 
   verified:
-    needs: [package, smoke]
+    needs: [package, smoke, maven-consumers]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

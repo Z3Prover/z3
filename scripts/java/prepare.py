@@ -3,6 +3,7 @@
 # Prepare fast-test inputs with the current generator and pinned release JNI.
 ############################################
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import difflib
 import json
 from pathlib import Path
@@ -54,7 +55,7 @@ def signatures(classpath, family):
     return '\n'.join(line for line in text.splitlines() if not line.startswith('Compiled from '))
 
 
-def prepare(lock_path, work, platforms):
+def prepare(lock_path, work, platforms, with_sources=False):
     lock = json.loads(lock_path.read_text(encoding='utf-8'))
     work.mkdir(parents=True, exist_ok=True)
     archives = work / 'downloads'
@@ -74,9 +75,14 @@ def prepare(lock_path, work, platforms):
     official = work / 'official-api.jar'
     official.write_bytes(api_data)
     source_root = work / 'release-source'
-    for path, source in lock['sources'].items():
+    def download_source(item):
+        path, source = item
+        if not with_sources and path.endswith('.java'):
+            return
         url = 'https://raw.githubusercontent.com/Z3Prover/z3/' + lock['commit'] + '/' + path
         download(url, source['sha256'], source_root / path)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(download_source, lock['sources'].items()))
     generated = work / 'generated'
     classes = work / 'classes'
     for directory in (generated, classes):
@@ -124,6 +130,9 @@ def prepare(lock_path, work, platforms):
         'native_class_count': len(family), 'non_native_entries_unchanged': True,
     }
     (work / 'preparation.json').write_bytes(json_bytes(provenance))
+    if with_sources:
+        from sources import collect
+        collect(source_root, headers, generated, loader, work / 'sources', patched_api)
     print('Prepared current-branch loader; checked', len(family), 'Native classes and unchanged API entries.')
     return provenance
 
@@ -133,9 +142,10 @@ def main():
     parser.add_argument('--release-lock', type=Path, default=Path(__file__).with_name('release.json'))
     parser.add_argument('--work-dir', type=Path, required=True)
     parser.add_argument('--platform', action='append', required=True)
+    parser.add_argument('--with-sources', action='store_true', help='Also prepare version-matched source attachments')
     args = parser.parse_args()
     try:
-        prepare(args.release_lock, args.work_dir, args.platform)
+        prepare(args.release_lock, args.work_dir, args.platform, args.with_sources)
     except (ValueError, OSError, KeyError, zipfile.BadZipFile) as ex:
         parser.exit(1, 'Java preparation failed: ' + str(ex) + '\n')
 

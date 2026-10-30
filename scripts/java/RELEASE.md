@@ -42,7 +42,8 @@ Use one API-containing JAR on the classpath. `all` covers the explicitly listed
 platforms; other ZIP architectures are not implicitly included or claimed as
 verified. These files do not include a Maven POM or claim Maven coordinates.
 Namespace ownership, sources/Javadoc, signing and Maven publishing are a
-separate follow-up. In `--release` mode, the packer requires the exact source
+separate follow-up; [MAVEN.md](MAVEN.md) describes the unpublished companion
+preparation and consumer checks. In `--release` mode, the packer requires the exact source
 version, workflow inputs and matching API class bytes, and refuses `--group-id`.
 Fast tests retain their explicit prototype coordinates, suffixed version and
 prototype provenance, so mixed test inputs cannot enter the release gate.
