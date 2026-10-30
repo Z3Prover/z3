@@ -109,8 +109,7 @@ namespace opt {
         return mk_and(constraints);
     }
 
-    template<typename Query>
-    static lbool bounded_limit_query(ast_manager& m, unsigned ticks, Query const& query) {
+    lbool bounded_limit_query(ast_manager& m, unsigned ticks, std::function<lbool()> const& query) {
         if (ticks == 0) {
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check disabled)\n");
             return l_undef;

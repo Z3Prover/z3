@@ -21,6 +21,7 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "math/polynomial/algebraic_numbers.h"
+#include "util/common_msgs.h"
 #include "util/rlimit.h"
 #include <initializer_list>
 
@@ -433,6 +434,47 @@ static void tst_open_limit_resource_scopes() {
     ENSURE(res.m_open);
 }
 
+// The guards of the private budget, called directly: maximize offers no
+// point to cancel between its search and the query. Pushing and popping a
+// resource scope both clear the cancellation flag.
+static void tst_bounded_limit_query_cancel() {
+    std::cout << "opt_nlsat: bounded limit query cancellation\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    scoped_rlimit budget(m.limit(), 1000000);
+    bool called = false;
+    auto query = [&]() { called = true; return l_true; };
+    // Already canceled: the query must not start, and the flag must survive.
+    m.limit().cancel();
+    ENSURE(opt::bounded_limit_query(m, 1000, query) == l_undef);
+    ENSURE(!called);
+    ENSURE(m.limit().is_canceled() && m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+    m.limit().reset_cancel();
+    ENSURE(opt::bounded_limit_query(m, 1000, query) == l_true);
+    ENSURE(called);
+    // Canceled during the query, with a normal return or an exception: the
+    // pop clears the flag, so it is raised again for the caller.
+    for (bool raise : {false, true}) {
+        lbool r = opt::bounded_limit_query(m, 1000, [&]() {
+            m.limit().cancel();
+            if (raise)
+                throw default_exception(Z3_CANCELED_MSG);
+            return l_true;
+        });
+        ENSURE(r == (raise ? l_undef : l_true));
+        ENSURE(m.limit().is_canceled() && m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+        m.limit().reset_cancel();
+    }
+    // An expired private budget is not an external cancellation.
+    lbool r = opt::bounded_limit_query(m, 10, [&]() -> lbool {
+        while (m.inc())
+            ;
+        throw default_exception(Z3_MAX_RESOURCE_MSG);
+    });
+    ENSURE(r == l_undef);
+    ENSURE(m.inc());
+}
+
 // maximize x s.t. x^3 = 2*x within [-2, 2]: the feasible set is the three
 // isolated roots {-sqrt(2), 0, sqrt(2)} of the cubic, so every cell is a
 // point; the maximum is the irrational root sqrt(2), attained and reported
@@ -525,6 +567,7 @@ void tst_opt_nlsat() {
     tst_open_proof_budget();
     tst_result_reuse();
     tst_open_limit_resource_scopes();
+    tst_bounded_limit_query_cancel();
     tst_outside_fragment();
     tst_infeasible();
 }

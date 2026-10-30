@@ -29,6 +29,7 @@ Author:
 --*/
 #pragma once
 
+#include <functional>
 #include <optional>
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
@@ -51,6 +52,15 @@ namespace opt {
        reals_only, integer terms other than numerals are rejected as well.
     */
     bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj, bool reals_only = false);
+
+    /**
+       \brief Run query under a private budget of ticks resource-counter ticks;
+       zero disables it. An expired budget or an interruption gives l_undef.
+       Pushing and popping the budget clear the cancellation flag, so the
+       query is not started once the enclosing operation is canceled, and a
+       cancellation that arrives during the query is raised again after the pop.
+    */
+    lbool bounded_limit_query(ast_manager& m, unsigned ticks, std::function<lbool()> const& query);
 
     // Express equality to a real numeral using rational-coefficient constraints,
     // so the SMT arithmetic solver can commit an exact algebraic value.
