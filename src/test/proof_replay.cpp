@@ -514,6 +514,97 @@ static void tst_replay_boolean_constants_and_arguments() {
         "(declare-fun rup () Proof)(infer rup)"), "tseitin 2");
 }
 
+// A bare arith hint (an axiom of sat.smt's arith solver) lists the negated
+// clause literals; a leading true stands for a literal the log omits.
+static bool check_arith_axiom(ast_manager& m, char const* source, bool leading_true = false) {
+    auto lits = parse_lits(m, source);
+    expr_ref_vector args(m);
+    if (leading_true)
+        args.push_back(m.mk_true());
+    for (expr* lit : lits)
+        args.push_back(mk_not(m, lit));
+    app_ref hint(m.mk_app(symbol("arith"), args.size(), args.data(), m.mk_proof_sort()), m);
+    arith::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// The arith solver's axioms (arith_axioms.cpp) for div, mod and / by a numeral
+// and for abs went to the SMT fallback (5,213 steps over the division
+// generators of test_proof_to_lean_lia.py, 18 over test_proof_to_lean_uflra.py).
+// They are checked against the defining identities and bounds now.
+static void tst_checker_arith_axioms() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls = "(declare-const x Int)(declare-const y Int)(declare-const r Real)";
+    auto check = [&](char const* clause, bool leading_true = false) {
+        return check_arith_axiom(m, (std::string(decls) + clause).c_str(), leading_true);
+    };
+    ENSURE(check("(assert (= (+ (* 3 (div x 3)) (mod x 3)) x))"));
+    ENSURE(check("(assert (= (+ (* (- 3) (div (+ x y) (- 3))) (mod (+ x y) (- 3))) (+ x y)))"));
+    ENSURE(check("(assert (>= (mod x 3) 0))"));
+    ENSURE(check("(assert (<= (mod x 3) 2))"));
+    ENSURE(check("(assert (<= (mod (* 2 x) (- 3)) 2))"));
+    ENSURE(check("(assert (< (mod x 3) 3))"));
+    ENSURE(check("(assert (not (< (mod x 3) 0)))"));
+    ENSURE(check("(assert (= (* 2.0 (/ 1.0 2.0)) 1.0))", true));
+    ENSURE(check("(assert (= (* 2.0 (/ r 2.0)) r))", true));
+    ENSURE(check("(assert (not (>= x 0)))(assert (= (abs x) x))"));
+    ENSURE(check("(assert (>= x 0))(assert (= (abs x) (- x)))"));
+    ENSURE(check("(assert (not (>= x 1)))(assert (= (abs x) x))"));
+    ENSURE(check("(assert (> r 0.0))(assert (= (- r) (abs r)))"));
+    // Wrong multiplier, term, divisor or bound, division by zero, the wrong
+    // abs case, and a hint of nothing are falsifiable.
+    ENSURE(!check("(assert (= (+ (* 2 (div x 3)) (mod x 3)) x))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x 3)) (mod y 3)) x))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x 3)) (mod x 2)) x))"));
+    ENSURE(!check("(assert (= (+ (* 0 (div x 0)) (mod x 0)) x))"));
+    ENSURE(!check("(assert (>= (mod x 0) 0))"));
+    ENSURE(!check("(assert (>= (mod x 3) 1))"));
+    ENSURE(!check("(assert (<= (mod x 3) 1))"));
+    ENSURE(!check("(assert (< (mod x (- 3)) 2))"));
+    ENSURE(!check("(assert (not (= (+ (* 3 (div x 3)) (mod x 3)) x)))"));
+    ENSURE(!check("(assert (= (* 0.0 (/ r 0.0)) r))", true));
+    ENSURE(!check("(assert (= (* 3.0 (/ r 2.0)) r))", true));
+    ENSURE(!check("(assert (>= x 0))(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (not (>= x 0)))(assert (= (abs x) (- x)))"));
+    ENSURE(!check("(assert (not (>= x (- 1))))(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (= (abs x) (+ x 1)))(assert (not (>= x 0)))"));
+    ENSURE(!check("", true));
+    ENSURE(check("(assert (not (= 1 2)))"));
+    ENSURE(!check("(assert (= 1 2))"));
+}
+
+// Z3's log for (> (mod x 3) 2) under sat.smt (shapes of liad1.log),
+// with abs and a numeral division: every axiom verifies natively, and the
+// trimmer keeps the axiom whose true argument the logged clause omits.
+static char const* arith_axioms_log =
+    "(declare-fun x () Int)(declare-fun y () Int)"
+    "(define-const $1 Int (mod x 3))(define-const $2 Int (div x 3))"
+    "(define-const $3 Bool (= (+ (* 3 $2) $1) x))(define-const $4 Bool (>= $1 0))"
+    "(define-const $5 Bool (<= $1 2))"
+    "(declare-fun arith (Bool) Proof)"
+    "(infer $3 (arith (not $3)))(infer $4 (arith (not $4)))(infer $5 (arith (not $5)))"
+    "(define-const $6 Bool (>= y 0))(define-const $7 Bool (= (abs y) y))(define-const $8 Bool (= (abs y) (- y)))"
+    "(declare-fun arith (Bool Bool) Proof)"
+    "(infer (not $6) $7 (arith $6 (not $7)))(infer $6 $8 (arith (not $6) (not $8)))"
+    "(define-const $9 Bool (= (* 2.0 (/ 1.0 2.0)) 1.0))"
+    "(infer $9 (arith true (not $9)))"
+    "(assume (not $5) (not $9))(assume (not $7) (not $8))"
+    "(declare-fun rup () Proof)(infer rup)";
+
+static void tst_replay_arith_axioms() {
+    check_verified_natively(replay(arith_axioms_log), "arith 6");
+    std::string out;
+    {
+        scoped_trim trim;
+        out = replay(arith_axioms_log);
+    }
+    std::cout << out;
+    ENSURE(out.find("not derivable") == std::string::npos);
+    ENSURE(out.find("(infer rup") != std::string::npos);
+}
+
 // An alldiff hint lists the clause itself.
 static bool check_alldiff(ast_manager& m, char const* source) {
     auto lits = parse_lits(m, source);
@@ -1126,6 +1217,8 @@ void tst_proof_replay() {
     tst_checker_tseitin_constants();
     tst_checker_euf_negated_arguments();
     tst_replay_boolean_constants_and_arguments();
+    tst_checker_arith_axioms();
+    tst_replay_arith_axioms();
     tst_checker_alldiff();
     tst_replay_alldiff_gates();
     tst_fallback_proves_logged_clause();
