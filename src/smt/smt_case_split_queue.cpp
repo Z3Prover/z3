@@ -119,21 +119,22 @@ namespace {
 
         void next_case_split_core(bool_var & next) {
             next = null_bool_var;
-            bool_var_vector irrelevant;
-            while (!m_queue.empty()) {
-                bool_var v = m_queue.erase_min();
-                if (m_context.get_assignment(v) != l_undef)
-                    continue;
-                if (m_context.is_relevant(v)) {
-                    next = v;
-                    break;
+            while (!m_queue.empty() && m_context.get_assignment(m_queue.min_value()) != l_undef)
+                m_queue.erase_min();
+            if (m_queue.empty())
+                return;
+            next = m_queue.min_value();
+            if (!m_context.is_relevant(next)) {
+                bool_var relevant = null_bool_var;
+                for (bool_var v : m_queue) {
+                    if (m_context.get_assignment(v) == l_undef && m_context.is_relevant(v) &&
+                        (relevant == null_bool_var || m_context.get_activity(v) > m_context.get_activity(relevant)))
+                        relevant = v;
                 }
-                irrelevant.push_back(v);
+                if (relevant != null_bool_var)
+                    next = relevant;
             }
-            for (bool_var v : irrelevant)
-                m_queue.insert(v);
-            if (next == null_bool_var && !m_queue.empty())
-                next = m_queue.erase_min();
+            m_queue.erase(next);
         }
 
         void next_case_split(bool_var & next, lbool & phase) override {

@@ -38,6 +38,7 @@ static void check_activity_case_splits() {
     for (bool delayed : {false, true})
     for (unsigned seed = 0; seed < 4; ++seed) {
         ast_manager m;
+        reg_decl_plugins(m);
         smt_params params;
         params.m_auto_config = false;
         params.m_case_split_strategy = strategy;
@@ -109,12 +110,14 @@ static void check_datatype_recognizer_phases() {
     smt_params params;
     params.m_dt_lazy_splits = 2;
     smt::context ctx(m, params);
+    ctx.push();
     unsigned i = 0;
     for (expr* recognizer : cmd.assertions()) {
         ctx.internalize(recognizer, false);
         VERIFY(ctx.try_true_first(ctx.get_bool_var(recognizer)) == (i == 0 || i == 2));
         ++i;
     }
+    ctx.pop(1);
 }
 
 static void check_sat_smt_recfun(char const* input)
