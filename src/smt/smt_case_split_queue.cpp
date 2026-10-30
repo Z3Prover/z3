@@ -537,7 +537,12 @@ namespace {
         }
 
         void del_var_eh(bool_var v) override {
-            if (v >= m_bs_num_bool_vars && m_delayed_queue.contains(v))
+            // Variables created during a search are deleted when the base level is
+            // popped after the search ended (m_bs_num_bool_vars is then UINT_MAX),
+            // e.g. between the rounds of a recursive function unfolding. They must
+            // leave the delayed queue regardless, or a later search dequeues a
+            // variable that no longer exists.
+            if (m_delayed_queue.contains(v))
                 m_delayed_queue.erase(v);
         }
 
@@ -579,6 +584,9 @@ namespace {
         
         void init_search_eh() override {
             m_bs_num_bool_vars = m_context.get_num_bool_vars();
+            // variables that survived from a previous search are now below the
+            // threshold and are handled by the relevancy queue.
+            m_delayed_queue.reset();
         }
 
         void end_search_eh() override {
