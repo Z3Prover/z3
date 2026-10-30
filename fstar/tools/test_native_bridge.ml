@@ -2958,10 +2958,11 @@ let fresh_bit_model_extension () =
     { reconstruction.F.constructor with A.interp = None } };
   check true [] { reconstruction with F.constructor =
     { reconstruction.F.constructor with A.decl_name = "not-a-trusted-word-name" } };
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n
-    | _ -> failwith "expected a numeric test-model value" in
-  List.iter (fun (width, values) ->
+  (* The model extension itself (`F.extend`) is ghost, like `Z3AstTheory.eval`, and is
+     not extracted: that it reconstructs the values 0,1 / 0,1,5,7 / 0,128,165,255 of these
+     words, satisfies the equation and leaves other symbols unchanged is checked by
+     evaluation in `Z3BvFreshTests.model_extension_{1,3,8}`. *)
+  List.iter (fun width ->
       let symbols = List.init width (fun n -> symbol ("ordinary-name-" ^ string_of_int n)) in
       let constructor = match Z3BvWord.word (F.atoms symbols) with
         | A.App (f, _) -> f | _ -> failwith "expected word constructor" in
@@ -2973,48 +2974,8 @@ let fresh_bit_model_extension () =
                         A.App (unrelated, [])] in
       check true assertions r;
       require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
-        "fresh-bit reconstruction became an unconditional rewrite";
-      List.iter (fun n ->
-          let base : Z3ValueTheory.value A.interpretation = {
-            A.interp_app = (fun f vs ->
-              match f.A.interp, vs with
-              | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
-                  let rec number = function
-                    | [] -> Z.zero
-                    | Z3ValueTheory.VBool b :: rest ->
-                        Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-                    | _ -> failwith "expected Boolean test-model bits" in
-                  Z3ValueTheory.VInt (number vs)
-              | Some op, [Z3ValueTheory.VInt a; Z3ValueTheory.VInt b]
-                  when Z.equal op Z3ValueTheory.op_eq ->
-                  Z3ValueTheory.VBool (Z.equal a b)
-              | _ -> failwith "unexpected interpreted test-model application");
-            A.uninterp_app = (fun f vs ->
-              if f = r.F.original then Z3ValueTheory.VInt (Z.of_int n)
-              else match vs with
-                | [] -> Z3ValueTheory.VBool false
-                | _ -> Z3ValueTheory.VInt (Z.of_int 37));
-            A.interp_quant = (fun _ _ _ -> failwith "unexpected test-model quantifier");
-          } in
-          let extended = F.extend r base project in
-          let rho _ = Z3ValueTheory.VInt Z.zero in
-          (match A.eval extended (F.source r) rho, A.eval extended (F.word r) rho with
-           | Z3ValueTheory.VInt a, Z3ValueTheory.VInt b ->
-               require (Z.equal a (Z.of_int n) && Z.equal a b)
-                 "fresh-bit extension did not reconstruct the original value"
-           | _ -> failwith "expected numeric reconstructed values");
-          (match A.eval extended (equation r) rho with
-           | Z3ValueTheory.VBool true -> ()
-           | _ -> failwith "reconstruction equality is false in the extension");
-          (match A.eval extended (A.App (unrelated, [])) rho with
-           | Z3ValueTheory.VBool false -> ()
-           | _ -> failwith "extension changed an unrelated symbol");
-          (match extended.A.uninterp_app (List.hd symbols) [Z3ValueTheory.VBool true] with
-           | Z3ValueTheory.VInt v ->
-               require (Z.equal v (Z.of_int 37)) "extension changed a non-nullary application"
-           | _ -> failwith "expected unchanged non-nullary interpretation"))
-        values)
-    [1, [0; 1]; 3, [0; 1; 5; 7]; 8, [0; 128; 165; 255]]
+        "fresh-bit reconstruction became an unconditional rewrite")
+    [1; 3; 8]
 
 let fresh_bit_context_extension () =
   let module F = Z3BvFresh in
@@ -3055,49 +3016,20 @@ let fresh_bit_context_extension () =
       require (M.check_context inputs [equation unsafe] = None)
         "semantic reserved-name collision was accepted")
     ["true"; "false"; "and"; "or"];
-  let base : Z3ValueTheory.value A.interpretation = {
-    A.interp_app = (fun f vs ->
-      match f.A.interp, vs with
-      | Some op, [] when Z.equal op Z3ValueTheory.op_true -> Z3ValueTheory.VBool true
-      | Some op, [] when Z.equal op Z3ValueTheory.op_false -> Z3ValueTheory.VBool false
-      | Some op, [a; b] when Z.equal op Z3ValueTheory.op_eq -> Z3ValueTheory.VBool (a = b)
-      | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
-          let rec number = function
-            | [] -> Z.zero
-            | Z3ValueTheory.VBool b :: rest ->
-                Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-            | _ -> failwith "expected Boolean context-model bits" in
-          Z3ValueTheory.VInt (number vs)
-      | _ -> failwith "unexpected context-model interpreted application");
-    A.uninterp_app = (fun f vs ->
-      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 5)
-      else if f = s.F.original then Z3ValueTheory.VInt (Z.of_int 2)
-      else match vs with [] -> Z3ValueTheory.VBool false | _ -> Z3ValueTheory.VInt (Z.of_int 37));
-    A.interp_quant = (fun _ bs body -> body (List.map (fun _ -> Z3ValueTheory.VBool true) bs));
-  } in
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected numeric context-model value" in
-  let rho _ = Z3ValueTheory.VInt Z.zero in
-  let extended = F.extend_context rs base project in
-  require (A.eval_args extended inputs rho = A.eval_args base inputs rho)
-    "batch extension changed original inputs";
-  List.iter (fun e ->
-      require (A.eval extended e rho = Z3ValueTheory.VBool true)
-        "batch extension did not satisfy all reconstruction orientations")
-    formulas;
-  let n = F.number r base project in
-  let one = F.extend r base project in
+  (* The extensions (`F.extend_context`, `F.extend`, `F.number`) are ghost, like
+     `Z3AstTheory.eval`, and are not extracted. That the batch extension keeps the
+     inputs and satisfies both orientations, that the bit value of `r` in this model is 5,
+     and that retraction preserves evaluation are checked by evaluation in
+     `Z3BvFreshTests.context_extension` and `retraction`, on this fixture. The
+     executable retraction is checked here with that bit value. *)
+  let n = Z.of_int 5 in
   require (M.retract r.F.symbols n first = R.true_expr)
     "fresh bit did not retract to its Boolean literal";
   let applied = A.App (List.hd r.F.symbols, [A.Var (Z.zero, A.bool_sort)]) in
   require (M.retract r.F.symbols n applied = applied)
     "retraction changed a non-nullary application or bound variable";
   require (M.retract r.F.symbols n (F.source r) = F.source r)
-    "retraction changed an original BV constant";
-  List.iter (fun e ->
-      require (A.eval one e rho = A.eval base (M.retract r.F.symbols n e) rho)
-        "literal retraction did not preserve extended evaluation")
-    [first; F.word r; applied; quantified]
+    "retraction changed an original BV constant"
 
 let fresh_bit_document_projections () =
   let module F = Z3BvFresh in
@@ -3200,20 +3132,18 @@ let scoped_model_extension () =
   let module M = Z3BvFreshModel in
   let module R = Z3ResolutionProofTheory in
   let scope = [A.bool_sort; SM.int_sort] in
-  let rho = SM.default_environment scope in
   let bvar = A.Var (Z.zero, A.bool_sort) in
-  let ivar = A.Var (Z.one, SM.int_sort) in
   require (not (Z3Definitions.scoped [] bvar) && Z3Definitions.scoped scope bvar)
     "scope checking accepted an unbound variable or rejected a typed one";
-  require (A.eval SM.witness bvar rho = Z3ValueTheory.VBool false &&
-           A.eval SM.witness ivar rho = Z3ValueTheory.VInt Z.zero)
-    "typed scalar environment did not preserve variable values";
+  (* `SM.witness`, `Z3AstTheory.eval` and the extension `F.extend_context` are ghost and
+     are not extracted. The evaluation facts this test used to check at run time (variable
+     values in the typed and in a mistyped environment, reconstruction of the source value,
+     the reversed equation, fresh atoms named like literals, the official literals, and
+     scalar typing of every evaluated term) are checked by evaluation in
+     `Z3BvFreshTests.scoped_witness` and `scoped_extension`, on this fixture. *)
   require (not (SM.scalar_typed A.bool_sort (Z3ValueTheory.VInt Z.zero)) &&
            not (SM.scalar_typed SM.int_sort (Z3ValueTheory.VBool false)))
     "scalar typing accepted a mismatched environment value";
-  require (A.eval SM.witness bvar (fun _ -> Z3ValueTheory.VInt Z.zero) =
-             Z3ValueTheory.VInt Z.zero)
-    "scoped contracts unexpectedly changed generic variable evaluation";
   require (SM.arguments_typed scope [Z3ValueTheory.VBool false; Z3ValueTheory.VInt Z.zero] &&
            not (SM.arguments_typed scope [Z3ValueTheory.VInt Z.zero; Z3ValueTheory.VBool false]) &&
            not (SM.arguments_typed scope [Z3ValueTheory.VBool false]))
@@ -3227,47 +3157,14 @@ let scoped_model_extension () =
   let r = { F.width = Z.of_int 4; original = symbol "v" (Z3BvLemma.bv_sort (Z.of_int 4));
             constructor; symbols } in
   let equations = [R.mk_eq_expr (F.word r) (F.source r)] in
-  let rs = match F.check_context [] equations with
-    | Some rs -> rs | None -> failwith "scoped structural context was rejected" in
+  require (Option.is_some (F.check_context [] equations))
+    "scoped structural context was rejected";
   require (M.check_context [] equations = None)
     "legacy model-safety guard unexpectedly accepted reserved fresh names";
-  let base : Z3ValueTheory.value A.interpretation = {
-    SM.witness with
-    A.interp_app = (fun f vs ->
-      if f.A.interp = Some Z3BvLemma.op_mkbv then (
-        let rec number = function
-          | [] -> Z.zero
-          | Z3ValueTheory.VBool b :: rest ->
-              Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-          | _ -> failwith "expected scoped-model word bits" in
-        Z3ValueTheory.VInt (number vs))
-      else SM.witness.A.interp_app f vs);
-    A.uninterp_app = (fun f vs ->
-      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 6)
-      else SM.witness.A.uninterp_app f vs);
-  } in
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected a numeric scoped-model value" in
-  let extended = F.extend_context rs base project in
-  let v = Z3ValueTheory.VInt (Z.of_int 6) in
-  require (A.eval extended (F.source r) rho = v && A.eval extended (F.word r) rho = v)
-    "scoped extension did not reconstruct the source value";
-  require (A.eval extended (List.hd equations) rho = Z3ValueTheory.VBool true)
-    "scoped extension did not satisfy reversed reconstruction";
-  require (A.eval extended (A.App (List.nth symbols 0, [])) rho = Z3ValueTheory.VBool false &&
-           A.eval extended (A.App (List.nth symbols 1, [])) rho = Z3ValueTheory.VBool true)
-    "fresh uninterpreted atoms were confused with official literals";
-  require (A.eval extended R.true_expr rho = Z3ValueTheory.VBool true &&
-           A.eval extended R.false_expr rho = Z3ValueTheory.VBool false)
-    "scoped extension changed official Boolean literals";
   let quantified = A.Quantifier (A.Forall_k, scope, A.bool_sort,
     R.mk_eq_expr (A.Var (Z.zero, SM.int_sort)) (A.Var (Z.zero, SM.int_sort))) in
   require (Z3Definitions.scoped [] quantified)
     "mixed-sort quantified test was not well-scoped";
-  List.iter (fun e ->
-      require (SM.scalar_typed (A.get_sort e) (A.eval extended e rho))
-        "extension broke scoped scalar typing")
-    [bvar; ivar; R.true_expr; R.false_expr; quantified; F.word r];
   require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
     "scoped-model theorem enabled unconditional reconstruction acceptance"
 
