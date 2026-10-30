@@ -698,8 +698,36 @@ sort: a ghost body cannot become a `Tot` `VArr` payload), real
 arithmetic, datatypes, finite fields, sequences, nested or non-integer
 arrays, or quantification over those carriers. It does not satisfy the
 untyped legacy `boolean_model`, so `model_sound` still has no model
-(`ghost_boolean_model_fails`). No kernel rule outside `core_rule` is yet
-proved sound from it, and there is no document-level theorem.
+(`ghost_boolean_model_fails`). Apart from quantifier instantiation
+(below), no kernel rule outside `core_rule` is proved sound from it, and
+there is no document-level theorem.
+
+`Z3QuantifierKernel` proves the kernel's quantifier-instantiation nodes
+from the typed contract `Z3TypedQuantifier.quantifier_model`: `core_model`,
+typed `forall`/`exists` over the value lists typed by the reversed binder
+list, and quantifier extensionality, for one interpretation and one
+domain assignment. `core_model` is unchanged. The classical model
+satisfies all three jointly (`lemma_quantifier_model`); extensionality is
+proved from its quantifier field, including the opaque lambda branch, and
+is not a beta law. The executable decision `Z3QuantifierInstantiation.check`
+is unchanged. `lemma_check_typed` proves its accepted clauses true in
+every quantifier model under every environment: the evaluated closed
+arguments are typed by `L.rev bs`, the `forall` is eliminated at exactly
+those values, and `Z3BinderSubstitution.lemma_substitute` relates the body
+there to the instance. `Some` is not certification: an instantiation node
+is returned with pending 0 exactly when `check_step` accepts it, and with
+pending 1 otherwise, including false conclusions and every `Equal`
+conclusion. `lemma_instantiation_node_sound` requires pending 0, and
+`lemma_typed_check_node_sound` extends the core node theorem to core rules
+plus checked instantiations. The legacy `lemma_check_sound` still needs the
+untyped `boolean_model` and `forall_elimination_model`; the classical
+model falsifies the latter, and neither is used. `Z3QuantifierKernelTests`
+computes accepted and rejected actual nodes, Int, Bool, `[Int; Bool]`,
+two Int binders, nested binders and `BV2`, and checks them in the classical
+model, including false conclusions returned with pending 1 and capture,
+shadowing and unscoped-argument mutations. Quantifier introduction and
+the other binder rules, definitions, Skolemization and the document layer
+are not covered.
 
 Development code outside the checker that computes with the values of
 expressions uses its own executable evaluator, `Z3AstTotEval`

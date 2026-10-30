@@ -34,10 +34,14 @@
    axioms, the other rewrite and theory-lemma checkers (arrays,
    arithmetic, datatypes, finite fields, normalization), Skolemization
    and the document layer. Those still rest on `model_sound`, which has
-   no model. No F* lemma connects document entries to scope `[]`: for
-   documents whose expression table is ground, `Z3ProofDocument` does
-   not check entry scope and relies on the native side listing every
-   subexpression in the table.
+   no model. The one exception is quantifier instantiation:
+   `Z3QuantifierKernel` proves checked instantiation nodes sound from the
+   inhabited `Z3TypedQuantifier.quantifier_model` (the core contracts,
+   typed quantifiers and quantifier extensionality) and extends this
+   theorem to them (`lemma_typed_check_node_sound`). No F* lemma connects
+   document entries to scope `[]`: for documents whose expression table is
+   ground, `Z3ProofDocument` does not check entry scope and relies on the
+   native side listing every subexpression in the table.
 *)
 module Z3CoreKernel
 

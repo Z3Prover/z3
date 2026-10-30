@@ -21,17 +21,23 @@
      decides the identity of ANY two values, under every environment,
      including two array values (`VArr`), which are equal exactly when
      they agree at every index (`lemma_array_equality`);
-   * `typed_quantifiers`: `forall`/`exists` range over exactly the value
-     lists typed for the binders (`CO.args_typed domains (L.rev bs)`,
-     innermost binder first), and are true exactly when the body holds
-     for all/some of them;
-   * `standard_domains`: Bool is `VBool`, Int is every `VInt n` (an
-     infinite domain), `BV<w>` (w <= 4096) is the `2^w` bit-vector values,
-     and `(Array Int Int)` is every `VArr` array; together with
-     `int_numerals`, an integer numeral `op_num_rational` with parameters
-     `[n; 1]` and range Int denotes `VInt n`.
+  * `Z3TypedQuantifier.typed_quantifiers`: `forall`/`exists` range over
+    exactly the value lists typed for the binders
+    (`CO.args_typed domains (L.rev bs)`, innermost binder first), and are
+    true exactly when the body holds for all/some of them;
+  * `quant_extensional`: every quantifier value, the opaque lambda value
+    included, depends only on the body's values at lists of the binder
+    length (`lemma_quant_extensional`; this is not a lambda law);
+  * `standard_domains`: Bool is `VBool`, Int is every `VInt n` (an
+    infinite domain), `BV<w>` (w <= 4096) is the `2^w` bit-vector values,
+    and `(Array Int Int)` is every `VArr` array; together with
+    `int_numerals`, an integer numeral `op_num_rational` with parameters
+    `[n; 1]` and range Int denotes `VInt n`.
 
-   `lemma_ghost_inhabited` packages these as one witness.
+  `lemma_ghost_inhabited` packages these, except quantifier
+  extensionality, as one witness; `lemma_quantifier_model` adds that the
+  same interpretation and domains are a model of the kernel contract
+  `Z3TypedQuantifier.quantifier_model` used by `Z3QuantifierKernel`.
 
    What is NOT modeled. A lambda gets an opaque array value of its sort
    (no beta law): a ghost body cannot become the `Tot` payload of `VArr`.
@@ -70,6 +76,7 @@ module SM = Z3StandardModel
 module CM = Z3Commutativity
 module CO = Z3CoreModel
 module A = Z3ArrayTheory
+module TQ = Z3TypedQuantifier
 module BV = Z3BvLemma
 module ID = FStar.IndefiniteDescription
 module L = FStar.List.Tot
@@ -341,12 +348,8 @@ let lemma_core_model (base:func_decl -> list value -> int)
 
 (* --- Typed quantifiers ------------------------------------------------------- *)
 
-let typed_quantifiers (i:interpretation value) (dom:CO.domains) : prop =
-  forall (bs:list sort) (s:sort) (body:expr) (rho:env value).
-    (eval i (Quantifier Forall_k bs s body) rho == VBool true <==>
-     (forall (vs:list value). CO.args_typed dom (L.rev bs) vs ==> eval i body (shift vs rho) == VBool true)) /\
-    (eval i (Quantifier Exists_k bs s body) rho == VBool true <==>
-     (exists (vs:list value). CO.args_typed dom (L.rev bs) vs /\ eval i body (shift vs rho) == VBool true))
+(* The typed quantifier contract is `Z3TypedQuantifier.typed_quantifiers`,
+   shared with the kernel theorem `Z3QuantifierKernel`. *)
 
 let lemma_forall (base:func_decl -> list value -> int) (bs:list sort) (s:sort) (body:expr) (rho:env value)
   : Lemma (eval (ghost_standard base) (Quantifier Forall_k bs s body) rho ==
@@ -361,7 +364,7 @@ let lemma_exists (base:func_decl -> list value -> int) (bs:list sort) (s:sort) (
   = ()
 
 let lemma_typed_quantifiers (base:func_decl -> list value -> int)
-  : Lemma (typed_quantifiers (ghost_standard base) domains)
+  : Lemma (TQ.typed_quantifiers (ghost_standard base) domains)
   = let i = ghost_standard base in
     let aux (bs:list sort) (s:sort) (body:expr) (rho:env value)
       : Lemma ((eval i (Quantifier Forall_k bs s body) rho == VBool true <==>
@@ -420,10 +423,48 @@ let lemma_array_equality (base:func_decl -> list value -> int) (f:func_decl) (a 
   = lemma_eq_sound base;
     A.lemma_array_extensionality x y
 
+(* --- Quantifier extensionality --------------------------------------------- *)
+
+(* Every branch of `gquant` reads its body only at value lists of the binder
+   length: forall/exists at the lists typed by `L.rev bs` (which have that
+   length), the opaque lambda at the one-element lists `[VInt x]` for
+   `bs = [Int]`. This is extensionality of the quantifier field only; the
+   opaque lambda value satisfies no beta law. *)
+let lemma_gquant_extensional (k:quantifier_kind) (bs:list sort) (f g:list value -> GTot value)
+  : Lemma (requires forall (vs:list value{L.length vs = L.length bs}). f vs == g vs)
+          (ensures gquant k bs f == gquant k bs g)
+  = let typed_length (vs:list value)
+      : Lemma (CO.args_typed domains (L.rev bs) vs ==> L.length vs = L.length bs)
+      = FStar.List.Tot.Properties.rev_length bs;
+        FStar.Classical.move_requires (CO.lemma_args_typed_length domains (L.rev bs)) vs in
+    FStar.Classical.forall_intro typed_length;
+    match k with
+    | Forall_k ->
+      lemma_decide (forall (vs:list value). CO.args_typed domains (L.rev bs) vs ==> f vs == VBool true);
+      lemma_decide (forall (vs:list value). CO.args_typed domains (L.rev bs) vs ==> g vs == VBool true)
+    | Exists_k ->
+      lemma_decide (exists (vs:list value). CO.args_typed domains (L.rev bs) vs /\ f vs == VBool true);
+      lemma_decide (exists (vs:list value). CO.args_typed domains (L.rev bs) vs /\ g vs == VBool true)
+    | Lambda_k ->
+      if bs = [int_sort] then (
+        assert (forall (x:int). L.length [VInt x] = L.length bs);
+        lemma_decide (forall (x:int). VInt? (f [VInt x]));
+        lemma_decide (forall (x:int). VInt? (g [VInt x])))
+
+let lemma_quant_extensional (base:func_decl -> list value -> int)
+  : Lemma (quant_extensional (ghost_standard base))
+  = let i = ghost_standard base in
+    let aux (k:quantifier_kind) (bs:list sort) (f g:list value -> GTot value)
+      : Lemma ((forall (vs:list value{L.length vs = L.length bs}). f vs == g vs) ==>
+               i.interp_quant k bs f == i.interp_quant k bs g)
+      = FStar.Classical.move_requires (lemma_gquant_extensional k bs f) g in
+    FStar.Classical.forall_intro_4 aux;
+    assert_norm (quant_extensional i)
+
 (* --- One witness for all of them ---------------------------------------------- *)
 
 let ghost_model (i:interpretation value) (dom:CO.domains) : prop =
-  CO.core_model i dom /\ eq_sound i /\ typed_quantifiers i dom /\ standard_domains dom /\ int_numerals i
+  CO.core_model i dom /\ eq_sound i /\ TQ.typed_quantifiers i dom /\ standard_domains dom /\ int_numerals i
 
 let lemma_ghost_standard (base:func_decl -> list value -> int)
   : Lemma (ghost_model (ghost_standard base) domains /\ SM.ground_bv (ghost_standard base) SM.std_project)
@@ -438,3 +479,17 @@ let lemma_ghost_standard (base:func_decl -> list value -> int)
 let lemma_ghost_inhabited ()
   : Lemma (exists (i:interpretation value) (dom:CO.domains). ghost_model i dom)
   = lemma_ghost_standard (fun _ _ -> 0)
+
+(* The same interpretation, domains and projection are also a model of the
+   kernel's typed quantifier contract: core contracts, typed quantifiers and
+   quantifier extensionality, jointly. *)
+let lemma_quantifier_model (base:func_decl -> list value -> int)
+  : Lemma (TQ.quantifier_model (ghost_standard base) domains /\
+           ghost_model (ghost_standard base) domains /\
+           SM.ground_bv (ghost_standard base) SM.std_project)
+  = lemma_ghost_standard base;
+    lemma_quant_extensional base
+
+let lemma_quantifier_inhabited ()
+  : Lemma (exists (i:interpretation value) (dom:CO.domains). TQ.quantifier_model i dom /\ ghost_model i dom)
+  = lemma_quantifier_model (fun _ _ -> 0)

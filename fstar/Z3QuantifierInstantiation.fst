@@ -22,6 +22,18 @@ let check (args:list expr) (formula:expr) : bool =
     substitute (L.rev args) body = Some inst
   | _ -> false
 
+(* Legacy, untyped: a true `forall` must hold at EVERY value list of the
+   binder count, for example at a Boolean substituted for an integer
+   binder. Together with the untyped `boolean_model` that the legacy
+   `lemma_check_sound` below also requires, this is part of
+   `Z3UnifiedProof.model_sound`, which has no model; the classical
+   standard model falsifies it (`Z3QuantifierKernelTests.
+   untyped_elimination_fails`). The legacy lemma is therefore vacuous and is
+   kept only for the legacy kernel theorem. The typed replacement is
+   `Z3QuantifierKernel.lemma_check_typed`, proved from the inhabited
+   `Z3TypedQuantifier.quantifier_model`, with the node theorem
+   `Z3QuantifierKernel.lemma_instantiation_node_sound`; neither uses this
+   contract or the lemma below. *)
 let forall_elimination_model (i:interpretation value) : prop =
   forall (bs:list sort) (body:expr) (rho:env value)
          (vs:list value{L.length vs = L.length bs}).
