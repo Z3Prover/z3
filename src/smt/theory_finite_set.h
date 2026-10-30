@@ -122,12 +122,14 @@ namespace smt {
             unsigned m_num_axioms_conflicts = 0;
             unsigned m_num_axioms_propagated = 0;
             unsigned m_num_axioms_case_splits = 0;
+            unsigned m_num_extensionality_skipped = 0;
 
             void collect_statistics(::statistics & st) const {
                 st.update("finite-set-axioms-created", m_num_axioms_created);
                 st.update("finite-set-axioms-propagated", m_num_axioms_propagated);
                 st.update("finite-set-axioms-conflicts", m_num_axioms_conflicts);
                 st.update("finite-set-axioms-case-splits", m_num_axioms_case_splits);
+                st.update("finite-set-extensionality-skipped", m_num_extensionality_skipped);
             }
         };
 
@@ -156,6 +158,7 @@ namespace smt {
         void propagate() override;
         void assign_eh(bool_var v, bool is_true) override;
         void relevant_eh(expr *n) override;
+        bool is_beta_redex(enode* p, enode* n) const override;
         
         theory * mk_fresh(context * new_ctx) override;
         char const * get_name() const override { return "finite_set"; }
