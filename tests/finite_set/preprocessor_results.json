@@ -1,0 +1,223 @@
+{
+  "scope": "Opt-in SMT-LIB preprocessing prototype for native FiniteSet. All 1362 inputs preprocessed; matched solving measurements cover 186 inputs.",
+  "prototype": {
+    "module": "tests\\finite_set\\finite_set_simplifier.py",
+    "translator_option": "--simplify-finite-sets",
+    "standalone_usage": "python tests\\finite_set\\finite_set_simplifier.py input.smt2 --output simplified.smt2",
+    "default": false,
+    "rules": [
+      "Eliminate bounded filters whose predicate does not use the bound variable, retaining the domain emptiness condition.",
+      "Replace uniquely fixed existential elements by membership and the substituted predicate; handle equalities and equal lower/upper bounds.",
+      "For single-field records, reconstruct the unique record from its field value.",
+      "Replace universal fixed-point predicates by an empty-or-singleton condition.",
+      "Factor independent implication guards in universals and conjunction guards in existentials.",
+      "Apply supporting Boolean, arithmetic-zero, singleton-membership and constructor-selector reductions."
+    ],
+    "safety": "Capture-safe substitution handles nested lambda/quantifier/let binders and quoted aliases. Unknown or overloaded result sorts are not guessed; Real-valued points are not substituted into Int domains. Partial multi-field records and nonzero-width intervals are not collapsed.",
+    "sha256": "b0f83576ae5323f8045ddec49fe4ae088567265139e27f2418889d8fb10e16ee"
+  },
+  "measurement": {
+    "git_base": "aa71a62fdffbfede37f7558b52da4d52841e04ea",
+    "z3_binary_sha256": "527f6727e30935fd82e03866a91e2b1fa24b2c5f796550b5255070e3b1a6a1eb",
+    "selection": "All 138 cvc5-UNSAT cases and 48 evenly sampled cvc5-SAT cases, identical to the earlier validation subset.",
+    "timeout_seconds": 20,
+    "external_failsafe_seconds": 22,
+    "workers": 8,
+    "solver_options": [],
+    "witness_reuse": false,
+    "method": "Separate sequential batches with the same binary and worker count: preprocessed first, then a fresh unprocessed baseline. No solver C++ code changed for this prototype.",
+    "caveat": "Concurrent throughput measurements, not isolated single-process latency. Preprocessing time is reported separately."
+  },
+  "baseline": {
+    "artifact": ".z3-agent\\finite-sets\\preprocessor-baseline-subset",
+    "counts": {"unsat": 103, "sat": 1, "timeout": 82},
+    "summed_wall_seconds": 1794.355902,
+    "elapsed_seconds": 231.33500370010734,
+    "solved_wall_seconds": 151.286815,
+    "median_solved_seconds": 0.544482,
+    "par2_seconds": 3431.286815
+  },
+  "preprocessed": {
+    "artifact": ".z3-agent\\finite-sets\\preprocessor-subset",
+    "input_artifact": ".z3-agent\\finite-sets\\preprocessed\\z3",
+    "counts": {"unsat": 128, "sat": 0, "timeout": 58},
+    "summed_wall_seconds": 1282.412052,
+    "elapsed_seconds": 167.82838559988886,
+    "solved_wall_seconds": 120.247958,
+    "median_solved_seconds": 0.1903375,
+    "par2_seconds": 2440.247958,
+    "summed_wall_reduction_percent": 28.530786419203924,
+    "newly_solved_unsat": 26,
+    "regressions_to_timeout": [
+      {"file": "set_quantifiers_ALMI_ALMI-Corrected_concern_02.smt2", "reference": "unsat", "previous_seconds": 3.853247},
+      {"file": "set_quantifiers_test4_redundancy_02.smt2", "reference": "sat", "previous_seconds": 3.66482}
+    ],
+    "disagreements_with_cvc5": [],
+    "remaining_timeouts_by_reference": {"sat": 48, "unsat": 10},
+    "example_gains": [
+      {"file": "set_quantifiers_ALMI_ALMI_concern_01.smt2", "seconds": 0.217139},
+      {"file": "set_quantifiers_BSN_BSN-corrected_concern_07.smt2", "seconds": 0.045175},
+      {"file": "set_quantifiers_ASPEN_aspen-corrected_concern_00.smt2", "seconds": 0.188973}
+    ],
+    "repeated_example": {
+      "file": "set_quantifiers_ALMI_ALMI_concern_01.smt2",
+      "runs": 3,
+      "min_ms": 212,
+      "median_ms": 224,
+      "max_ms": 248,
+      "result": "unsat",
+      "logged_in": ".z3-agent\\z3agent.db"
+    }
+  },
+  "solver_workload": {
+    "baseline_median_axioms_created": 110964.5,
+    "preprocessed_median_axioms_created": 24142.5,
+    "baseline_total_axioms_created": 54720249,
+    "preprocessed_total_axioms_created": 54375620,
+    "baseline_median_case_splits": 4288,
+    "preprocessed_median_case_splits": 974.5,
+    "baseline_median_final_checks": 10614,
+    "preprocessed_median_final_checks": 2315,
+    "baseline_median_max_memory_mb": 24.435,
+    "preprocessed_median_max_memory_mb": 22.385,
+    "baseline_peak_max_memory_mb": 74.92,
+    "preprocessed_peak_max_memory_mb": 131.95,
+    "note": "The median workload decreases substantially, but hard SAT cases still dominate cumulative work and peak memory."
+  },
+  "preprocessing_cost": {
+    "full_corpus_files": 1362,
+    "filters_before": 369429,
+    "filters_after": 275183,
+    "filter_reduction_percent": 25.51126197456074,
+    "full_corpus_rule_counts": {"fixed_point": 49162, "unused_binder": 45084, "independent_guard": 14758},
+    "native_rewrite_and_emit_seconds_full_corpus": 13.761027192464098,
+    "subset_rule_counts": {"fixed_point": 6767, "unused_binder": 5813, "independent_guard": 2081},
+    "translation_and_preprocessing_seconds_subset": 2.6004127024207264,
+    "cost_note": "Native rewrite timing excludes input parsing and file I/O. Translation timing includes conversion, preprocessing and emission, but excludes source parsing and file I/O."
+  },
+  "validation": {
+    "python_tests": "20 passed, including 19 independent cvc5 unsatisfiability checks of original XOR simplified formulas.",
+    "additional_reference_checks": "Existing eight semantic cases checked in original cvc5 syntax and both universal encodings.",
+    "all_default_translations_unchanged": 1362,
+    "all_native_preprocessor_outputs_match_measured_inputs": 1362,
+    "native_finite_sets_only": true,
+    "known_sat_model": {
+      "file": "set_quantifiers_test4_redundancy_02.smt2",
+      "original_assertions_validated": 15,
+      "preprocessed_assertions_validated": 15,
+      "note": "The original SAT model satisfies both assertion sets even though solving the preprocessed form times out."
+    },
+    "smoke_checks": ["SMT solving/model", "Python bindings solving/model", "CLI help"],
+    "patch_whitespace": "git diff --check passed"
+  },
+  "native_implementation": {
+    "module": "src\\ast\\simplifiers\\finite_set_simplifier.cpp",
+    "simplifier_and_preprocessing_tactic": "finite-set-simplify",
+    "solving_tactic": "finite-set",
+    "invocation": "(check-sat-using finite-set)",
+    "default_solver_pipeline_changed": false,
+    "proof_mode": "Proof-enabled goals skip these rewrites; the SMT solver remains available.",
+    "validation": {
+      "native_unit_tests": 120,
+      "python_tests": 20,
+      "native_positive_shape_cases": 13,
+      "native_conservative_shape_cases": 5,
+      "additional_cases": ["assertion dependencies", "incremental suffix boundary", "idempotence", "proof-mode preservation", "model evaluation", "push/pop", "unsat cores", "tactic invocation statistics"],
+      "independent_cvc5_equivalences_unsat": 12,
+      "independent_cvc5_equivalences_unknown": 1,
+      "reference_note": "Outer universals checked pointwise with fresh constants. cvc5 returns unknown on the case containing an additional unbounded integer quantifier; its native output matches the expected capture-safe substitution.",
+      "sleec_inputs_preprocessed": 1362,
+      "filters_before": 369429,
+      "filters_after": 275183,
+      "artifact": ".z3-agent\\finite-sets\\native-preprocessor"
+    },
+    "representative_benchmark": {
+      "file": "set_quantifiers_ALMI_ALMI_concern_01.smt2",
+      "tactic": "finite-set",
+      "runs": 3,
+      "timeout_seconds": 20,
+      "min_ms": 207,
+      "median_ms": 210,
+      "max_ms": 217,
+      "result": "unsat",
+      "logged_in": ".z3-agent\\z3agent.db"
+    },
+    "matched_benchmark": {
+      "scope": "186 SLEEC cases: all 138 reference-UNSAT cases and 48 evenly sampled reference-SAT cases; not a new full-corpus solve.",
+      "timeout_seconds": 20,
+      "external_failsafe_seconds": 22,
+      "workers": 8,
+      "method": "Sequential native-tactic, current-binary default-baseline, and fresh cvc5 batches. Summed process wall times include native preprocessing and timeouts.",
+      "z3_binary_sha256": "1300d92a48f4b1314cb45362afdbac1956ca2f22fc81c2335b94c6e48673a740",
+      "cvc5_version": "1.4.2 (282d5e0)",
+      "baseline": {
+        "counts": {"unsat": 103, "sat": 1, "timeout": 82},
+        "summed_wall_seconds": 1791.135835,
+        "batch_elapsed_seconds": 230.75822399999015,
+        "median_solved_seconds": 0.5266255
+      },
+      "native_tactic": {
+        "counts": {"unsat": 126, "sat": 0, "timeout": 60},
+        "summed_wall_seconds": 1297.547212,
+        "batch_elapsed_seconds": 167.76716529997066,
+        "median_solved_seconds": 0.202376
+      },
+      "cvc5": {
+        "counts": {"unsat": 138, "sat": 48, "timeout": 0},
+        "summed_wall_seconds": 50.688278,
+        "batch_elapsed_seconds": 6.733973499853164,
+        "median_solved_seconds": 0.19096649999999998
+      },
+      "native_vs_baseline": {
+        "newly_solved_unsat": 25,
+        "net_additional_solved": 22,
+        "summed_wall_reduction_percent": 27.5572970712185,
+        "regressions_to_timeout": [
+          "set_quantifiers_ALMI_ALMI-Corrected_concern_02.smt2",
+          "set_quantifiers_Autocar_Autocar-corrected_concern_05.smt2",
+          "set_quantifiers_test4_redundancy_02.smt2"
+        ],
+        "common_solved": 101,
+        "common_baseline_seconds": 140.476915,
+        "common_native_seconds": 57.803372
+      },
+      "native_vs_historical_python_prototype": {
+        "prototype_solved": 128,
+        "native_solved": 126,
+        "gains": [],
+        "regressions_to_timeout": [
+          "set_quantifiers_Autocar_Autocar-corrected_concern_05.smt2",
+          "set_quantifiers_buggy_redundancy_00.smt2"
+        ],
+        "note": "The Python-prototype run is historical, not rerun in this batch."
+      },
+      "remaining_timeouts_by_reference": {"unsat": 12, "sat": 48},
+      "answer_disagreements": [],
+      "artifact": ".z3-agent\\finite-sets\\native-tactic-subset\\comparison.json"
+    },
+    "extremum_preprocessing": {
+      "implementation": "src\\ast\\simplifiers\\finite_set_simplifier.cpp",
+      "statistic": "finite-set-simplify-extrema",
+      "rule": "Existence of a minimum/maximum of an Int/Real projection over a native finite set is equivalent to nonemptiness.",
+      "safety": "Match identical domains and projections with capture-safe lifting; reject strict orders and projections depending on the candidate. Keep the empty-domain guard. Proof-mode behavior and the default solver pipeline are unchanged.",
+      "scope": "Same 186-input subset, eight workers, 20-second limit; not a new full-corpus solve.",
+      "counts": {"unsat": 135, "sat": 48, "timeout": 3},
+      "summed_wall_seconds": 102.915633,
+      "batch_elapsed_seconds": 22.19888909999281,
+      "newly_solved": 57,
+      "regressions": 0,
+      "answer_disagreements": 0,
+      "validation": {
+        "native_all_tests": 120,
+        "explicit_finite_set_extra_test": "passed",
+        "python_tests": 20,
+        "independent_bounded_support_equivalence_checks": 7,
+        "sat_models_validated": 48,
+        "original_assertions_validated": 5047
+      },
+      "artifact": ".z3-agent\\finite-sets\\extrema-tactic-subset\\comparison.json"
+    },
+    "measurement_note": "matched_benchmark records the previous native tactic; extremum_preprocessing records the later extremum-rule run. Previous baseline and cvc5 measurements were not rerun for the extremum comparison."
+  },
+  "decision": "Keep opt-in via finite-set: extremum preprocessing solves all 48 sampled SAT cases and 135 of 138 UNSAT cases, with 57 gains and no solved-case regressions over the previous native tactic. Three UNSAT cases still time out."
+}

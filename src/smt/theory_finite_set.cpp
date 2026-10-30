@@ -16,6 +16,7 @@ Abstract:
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_arith_value.h"
+#include "params/smt_params_helper.hpp"
 #include "ast/ast_pp.h"
 
 namespace smt {
@@ -98,13 +99,13 @@ namespace smt {
             ctx.push_trail(push_back_trail(m_var_data[r]->m_setops));
             for (auto arg : enode::args(n)) {
                 expr *e = arg->get_expr();
-                if (!u.is_finite_set(e))
+                if (!u.is_finite_set(e) || u.is_singleton(n->get_expr()))
                     continue;
                 auto v = arg->get_root()->get_th_var(get_id());
                 SASSERT(v != null_theory_var);
                 // add axioms for x in S, e := setop S T ...
                 for (auto in : m_var_data[v]->m_parent_in)
-                    add_membership_axioms(in->get_arg(0)->get_expr(), e);
+                    add_membership_axioms(in->get_arg(0)->get_expr(), n->get_expr());
                 m_var_data[v]->m_parent_setops.push_back(n);
                 ctx.push_trail(push_back_trail(m_var_data[v]->m_parent_setops));
             }
@@ -248,6 +249,10 @@ namespace smt {
             add_immediate_axioms(to_app(t));
     }
 
+    bool theory_finite_set::is_beta_redex(enode* p, enode* n) const {
+        return u.is_filter(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root();
+    }
+
     void theory_finite_set::apply_sort_cnstr(enode* n, sort* s) {
         SASSERT(u.is_finite_set(s));
         if (!is_attached_to_var(n))
@@ -283,22 +288,51 @@ namespace smt {
                 std::swap(e1, e2);
             if (!is_new_axiom(e1, e2))
                 return;
-            if (are_forced_distinct(n1, n2))
-                return;
             m_diseqs.push_back({v1, v2});
             ctx.push_trail(push_back_vector(m_diseqs));
+            if (smt_params_helper(ctx.get_params()).finite_set_reuse_witness() && are_forced_distinct(n1, n2)) {
+                ++m_stats.m_num_extensionality_skipped;
+                return;
+            }
             m_axioms.extensionality_axiom(e1, e2);
         }
     }
 
-    //
-    // TODO: add implementation that detects sets that are known to be distinct.
-    // for example, 
-    // . x in a is assigned to true and y in b is assigned to false and x ~ y
-    // . or upper-bound(set.size(a)) < lower-bound(set.size(b))
-    //   where upper and lower bounds can be queried using arith_value
-    // 
     bool theory_finite_set::are_forced_distinct(enode* a, enode* b) {
+        a = a->get_root();
+        b = b->get_root();
+        auto is_empty = [&](enode* root) {
+            enode* n = root;
+            do {
+                if (u.is_empty(n->get_expr()))
+                    return true;
+                n = n->get_next();
+            } while (n != root);
+            return false;
+        };
+        bool a_empty = is_empty(a), b_empty = is_empty(b);
+        obj_map<enode, lbool> members;
+        for (enode* p : enode::parents(a)) {
+            if (!ctx.is_relevant(p) || !u.is_in(p->get_expr()) || p->get_arg(1)->get_root() != a)
+                continue;
+            lbool value = ctx.find_assignment(p->get_expr());
+            if (value == l_undef)
+                continue;
+            if (b_empty && value == l_true)
+                return true;
+            members.insert(p->get_arg(0)->get_root(), value);
+        }
+        for (enode* p : enode::parents(b)) {
+            if (!ctx.is_relevant(p) || !u.is_in(p->get_expr()) || p->get_arg(1)->get_root() != b)
+                continue;
+            lbool value = ctx.find_assignment(p->get_expr()), other;
+            if (value == l_undef)
+                continue;
+            if (a_empty && value == l_true)
+                return true;
+            if (members.find(p->get_arg(0)->get_root(), other) && other != value)
+                return true;
+        }
         return false;
     }
 

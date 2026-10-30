@@ -531,6 +531,32 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
         self.assertIn("semantics=sorted-datatype", result.stderr)
 
+    def test_datatype_operations_named_like_connectives(self):
+        # Z3 lets user datatypes name accessors and constructors `and`, `or`, `not`, `=>`, `true` and `false`
+        # (with argument sorts the builtin connectives do not take); the bridge marshals them with those names
+        # and the datatype kind tags. They are datatype operations, never connectives: refutations that need
+        # their datatype meaning are certified, and a satisfiable input is never certified unsat.
+        accessors = ("(declare-datatypes ((T 0)) (((mk (|and| Bool) (|or| Bool) (|not| Bool)"
+                     " (bits (_ BitVec 2))))))")
+        constants = "(declare-datatypes ((U 0)) (((mkU (|true| Bool) (|false| Bool) (|=>| Bool)))))(declare-const v U)"
+        constructors = ("(declare-datatypes ((R 0)) (((|true| (val Int)) (|false| (other Int)))))"
+                        "(declare-const r R)(declare-const q R)")
+        for source, expected in (
+                (accessors + "(declare-const t T)(assert (|and| t))(assert (not (|and| t)))", (0, "ACCEPT")),
+                (accessors + "(assert (|and| (mk false true true #b01)))", (0, "ACCEPT")),
+                ("(declare-datatypes ((S 0)) (((|or| (left Int) (right Int)) (|not| (inner Int)))))"
+                 "(declare-const s S)(assert (= s (|or| 1 2)))(assert (= s (|not| 3)))", (0, "ACCEPT")),
+                (accessors + "(declare-const t T)(assert (|and| t))(assert (|or| t))(assert (not (|not| t)))",
+                 (4, "SAT")),
+                (constants + "(assert (|true| v))(assert (not (|true| v)))", (0, "ACCEPT")),
+                (constants + "(assert (not (|true| v)))(assert (|false| v))(assert (not (|=>| v)))", (4, "SAT")),
+                (constructors + "(assert (= r (|true| 1)))(assert (= r (|false| 1)))", (0, "ACCEPT")),
+                (constructors + "(assert (= r (|true| 1)))(assert (not (= q (|true| 1))))", (4, "SAT"))):
+            with self.subTest(source=source):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), expected,
+                                 result.stdout + result.stderr)
+
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
             with self.subTest(case=name):

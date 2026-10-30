@@ -154,10 +154,62 @@ static void tst_modular_inverse() {
     }
 }
 
+static void tst_inverse_trig_domains() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    arith_rewriter ar(m);
+    th_rewriter rw(m);
+    struct {
+        decl_kind outer, inner;
+    } const compositions[] = {
+        {OP_SIN, OP_ASIN}, {OP_COS, OP_ACOS}, {OP_SIN, OP_ACOS},
+        {OP_COSH, OP_ACOSH}, {OP_TANH, OP_ATANH}
+    };
+    for (auto const& c : compositions) {
+        for (rational const& k : {rational(-2), rational(-1), rational(-3, 4), rational(0),
+                                  rational(3, 4), rational(1), rational(2)}) {
+            expr_ref x(a.mk_numeral(k, false), m);
+            expr_ref inverse(m.mk_app(a.get_family_id(), c.inner, x.get()), m);
+            expr_ref term(m.mk_app(a.get_family_id(), c.outer, inverse.get()), m);
+            expr_ref result(m);
+            bool in_domain = c.inner == OP_ACOSH ? k >= rational(1) :
+                c.inner == OP_ATANH ? k > rational(-1) && k < rational(1) :
+                k >= rational(-1) && k <= rational(1);
+            br_status status = ar.mk_app_core(to_app(term)->get_decl(), 1, to_app(term)->get_args(), result);
+            ENSURE((status != BR_FAILED) == in_domain);
+            if (in_domain) {
+                expr_ref expected(x, m);
+                if (c.outer == OP_SIN && c.inner == OP_ACOS) {
+                    expected = a.mk_numeral(rational(1) - k * k, false);
+                    expected = a.mk_power(expected, a.mk_numeral(rational(1, 2), false));
+                }
+                rw(expected);
+                rw(result);
+                expr_ref eq(m.mk_eq(result, expected), m);
+                rw(eq);
+                ENSURE(m.is_true(eq));
+            }
+            else {
+                expr_ref diseq(m.mk_not(m.mk_eq(term, x)), m);
+                rw(diseq);
+                ENSURE(!m.is_false(diseq));
+            }
+        }
+        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+        expr_ref inverse(m.mk_app(a.get_family_id(), c.inner, x.get()), m);
+        expr_ref term(m.mk_app(a.get_family_id(), c.outer, inverse.get()), m);
+        expr_ref result(term, m);
+        rw(result);
+        ENSURE(result == term);
+    }
+}
+
 void tst_arith_rewriter() {
     test_complex_logic_names();
     tst_proof_associative_flattening();
     tst_modular_inverse();
+    tst_inverse_trig_domains();
     ast_manager m;
     reg_decl_plugins(m);
     arith_rewriter ar(m);

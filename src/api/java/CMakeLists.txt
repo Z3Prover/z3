@@ -140,6 +140,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   ListSort.java
   Log.java
   Model.java
+  NativeLibraryLoader.java
   Optimize.java
   ParamDescrs.java
   Params.java

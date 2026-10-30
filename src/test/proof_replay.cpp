@@ -20,6 +20,7 @@ Abstract:
 #include "sat/sat_proof_trim.h"
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
+#include "sat/smt/euf_proof_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
 #include "util/gparams.h"
 #include "util/z3_exception.h"
@@ -422,6 +423,186 @@ static void tst_replay_tseitin_xor() {
         "(infer (not a) b $1 (tseitin $1 (not a) b))"
         "(assume p $1)(assume (not p))(assume a)(assume b)"
         "(declare-fun rup () Proof)(infer $1 rup)(infer rup)"), "tseitin 4");
+}
+
+// Constants in a gate clause have their value under every assignment: Z3 logs
+// a gate over true with a separate false literal standing for (not true), and
+// a clause with a literal that is constantly true, or with a literal and its
+// negation, is a tautology whatever its gate.
+static void tst_checker_tseitin_constants() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls =
+        "(declare-sort U 0)(declare-const a U)(declare-const b U)"
+        "(declare-const p Bool)(declare-const q Bool)(declare-fun r (Bool) Bool)";
+    auto check = [&](char const* clause) {
+        return check_tseitin(m, (std::string(decls) + clause).c_str());
+    };
+    ENSURE(check("(assert true)(assert false)(assert false)"));
+    ENSURE(check("(assert false)(assert (not (not true)))"));
+    ENSURE(check("(assert (not (r p)))(assert (not p))(assert p)"));
+    ENSURE(check("(assert (not (r true)))(assert (not (ite p q true)))(assert (r true))"));
+    ENSURE(check("(assert false)(assert (or (= a b) true))"));
+    ENSURE(check("(assert (not (= true q)))(assert q)(assert false)"));
+    ENSURE(check("(assert (= true q))(assert (not q))(assert false)"));
+    ENSURE(check("(assert (ite p q true))(assert p)(assert false)"));
+    ENSURE(check("(assert (not (ite (not q) (not true) (r q))))(assert q)(assert false)"));
+    ENSURE(check("(assert (= (ite p a a) a))"));
+    // The same shapes with the constant on the wrong side are falsifiable.
+    ENSURE(!check("(assert false)"));
+    ENSURE(!check("(assert (not true))(assert false)"));
+    ENSURE(!check("(assert (or (= a b) false))(assert false)"));
+    ENSURE(!check("(assert (not (= true q)))(assert (not q))(assert false)"));
+    ENSURE(!check("(assert (= true q))(assert q)(assert false)"));
+    ENSURE(!check("(assert (ite p q true))(assert (not p))(assert false)"));
+    ENSURE(!check("(assert (not (ite (not q) (not true) (r q))))(assert (not q))(assert false)"));
+    ENSURE(!check("(assert (= (ite p a b) a))"));
+    ENSURE(!check("(assert (= (ite p a a) b))"));
+}
+
+// An euf hint lists the negated clause literals, then the congruence steps.
+static bool check_euf(ast_manager& m, std::string const& decls, char const* lits, char const* congruences) {
+    expr_ref_vector args = parse_lits(m, (decls + lits).c_str());
+    expr_ref_vector eqs = parse_lits(m, (decls + congruences).c_str());
+    for (expr* eq : eqs)
+        args.push_back(m.mk_app(symbol("cc"), 1, &eq, m.mk_proof_sort()));
+    app_ref hint(m.mk_app(symbol("euf"), args.size(), args.data(), m.mk_proof_sort()), m);
+    euf::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// A Boolean term under a function, (pb (not q)), is congruent to (pb true)
+// when the literals fix q to false; (not q) itself need not be a literal.
+static void tst_checker_euf_negated_arguments() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    std::string decls = "(declare-const q Bool)(declare-const s Bool)(declare-fun pb (Bool) Bool)";
+    ENSURE(check_euf(m, decls, "(assert (not q))(assert (pb true))(assert (not (pb (not q))))",
+                     "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(check_euf(m, decls, "(assert s)(assert (pb (not s)))(assert (not (pb false)))",
+                     "(assert (= (pb (not s)) (pb false)))"));
+    ENSURE(check_euf(m, decls, "(assert q)(assert (pb (not (not q))))(assert (not (pb true)))",
+                     "(assert (= (pb (not (not q))) (pb true)))"));
+    ENSURE(check_euf(m, decls, "(assert (not q))(assert (pb (not q)))(assert (not (pb (not s))))(assert (not s))",
+                     "(assert (= (pb (not q)) (pb (not s))))"));
+    // q true, or q unconstrained, does not make (not q) true.
+    ENSURE(!check_euf(m, decls, "(assert q)(assert (pb true))(assert (not (pb (not q))))",
+                      "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(!check_euf(m, decls, "(assert (pb true))(assert (not (pb (not q))))",
+                      "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(!check_euf(m, decls, "(assert (not q))(assert (pb (not q)))(assert (not (pb (not s))))(assert s)",
+                      "(assert (= (pb (not q)) (pb (not s))))"));
+    // The congruence step is still required.
+    ENSURE(!check_euf(m, decls, "(assert (not q))(assert (pb true))(assert (not (pb (not q))))", ""));
+}
+
+// Z3's logs for such clauses verify natively, without the SMT fallback.
+static void tst_replay_boolean_constants_and_arguments() {
+    check_verified_natively(replay(
+        "(declare-fun s () Bool)(declare-fun pb (Bool) Bool)"
+        "(define-const $1 Bool (not s))(define-const $2 Bool (pb $1))(define-const $3 Bool (pb false))"
+        "(assume s)(assume $2)(assume (not $3))"
+        "(declare-fun cc (Bool) Proof)(declare-fun euf (Bool Bool Bool Proof) Proof)"
+        "(infer $1 $3 (not $2) (euf $2 s (not $3) (cc (= $2 $3))))"
+        "(declare-fun rup () Proof)(infer rup)"), "euf 1");
+    check_verified_natively(replay(
+        "(declare-sort U 0)(declare-fun a () U)(declare-fun p () Bool)(declare-fun q () Bool)"
+        "(define-const $1 Bool (= (ite p a a) a))(define-const $2 Bool (= true q))"
+        "(declare-fun tseitin (Bool) Proof)(infer $1 (tseitin $1))"
+        "(declare-fun tseitin (Bool Bool Bool) Proof)(infer (not $2) q false (tseitin (not $2) q false))"
+        "(assume (not $1) $2)(assume (not q))(assume (not false))"
+        "(declare-fun rup () Proof)(infer rup)"), "tseitin 2");
+}
+
+// A bare arith hint (an axiom of sat.smt's arith solver) lists the negated
+// clause literals; a leading true stands for a literal the log omits.
+static bool check_arith_axiom(ast_manager& m, char const* source, bool leading_true = false) {
+    auto lits = parse_lits(m, source);
+    expr_ref_vector args(m);
+    if (leading_true)
+        args.push_back(m.mk_true());
+    for (expr* lit : lits)
+        args.push_back(mk_not(m, lit));
+    app_ref hint(m.mk_app(symbol("arith"), args.size(), args.data(), m.mk_proof_sort()), m);
+    arith::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// The arith solver's axioms (arith_axioms.cpp) for div, mod and / by a numeral
+// and for abs went to the SMT fallback (5,213 steps over the division
+// generators of test_proof_to_lean_lia.py, 18 over test_proof_to_lean_uflra.py).
+// They are checked against the defining identities and bounds now.
+static void tst_checker_arith_axioms() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls = "(declare-const x Int)(declare-const y Int)(declare-const r Real)";
+    auto check = [&](char const* clause, bool leading_true = false) {
+        return check_arith_axiom(m, (std::string(decls) + clause).c_str(), leading_true);
+    };
+    ENSURE(check("(assert (= (+ (* 3 (div x 3)) (mod x 3)) x))"));
+    ENSURE(check("(assert (= (+ (* (- 3) (div (+ x y) (- 3))) (mod (+ x y) (- 3))) (+ x y)))"));
+    ENSURE(check("(assert (>= (mod x 3) 0))"));
+    ENSURE(check("(assert (<= (mod x 3) 2))"));
+    ENSURE(check("(assert (<= (mod (* 2 x) (- 3)) 2))"));
+    ENSURE(check("(assert (< (mod x 3) 3))"));
+    ENSURE(check("(assert (not (< (mod x 3) 0)))"));
+    ENSURE(check("(assert (= (* 2.0 (/ 1.0 2.0)) 1.0))", true));
+    ENSURE(check("(assert (= (* 2.0 (/ r 2.0)) r))", true));
+    ENSURE(check("(assert (not (>= x 0)))(assert (= (abs x) x))"));
+    ENSURE(check("(assert (>= x 0))(assert (= (abs x) (- x)))"));
+    ENSURE(check("(assert (not (>= x 1)))(assert (= (abs x) x))"));
+    ENSURE(check("(assert (> r 0.0))(assert (= (- r) (abs r)))"));
+    // Wrong multiplier, term, divisor or bound, division by zero, the wrong
+    // abs case, and a hint of nothing are falsifiable.
+    ENSURE(!check("(assert (= (+ (* 2 (div x 3)) (mod x 3)) x))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x 3)) (mod y 3)) x))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x 3)) (mod x 2)) x))"));
+    ENSURE(!check("(assert (= (+ (* 0 (div x 0)) (mod x 0)) x))"));
+    ENSURE(!check("(assert (>= (mod x 0) 0))"));
+    ENSURE(!check("(assert (>= (mod x 3) 1))"));
+    ENSURE(!check("(assert (<= (mod x 3) 1))"));
+    ENSURE(!check("(assert (< (mod x (- 3)) 2))"));
+    ENSURE(!check("(assert (not (= (+ (* 3 (div x 3)) (mod x 3)) x)))"));
+    ENSURE(!check("(assert (= (* 0.0 (/ r 0.0)) r))", true));
+    ENSURE(!check("(assert (= (* 3.0 (/ r 2.0)) r))", true));
+    ENSURE(!check("(assert (>= x 0))(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (not (>= x 0)))(assert (= (abs x) (- x)))"));
+    ENSURE(!check("(assert (not (>= x (- 1))))(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (= (abs x) (+ x 1)))(assert (not (>= x 0)))"));
+    ENSURE(!check("", true));
+    ENSURE(check("(assert (not (= 1 2)))"));
+    ENSURE(!check("(assert (= 1 2))"));
+}
+
+// Z3's log for (> (mod x 3) 2) under sat.smt (shapes of liad1.log),
+// with abs and a numeral division: every axiom verifies natively, and the
+// trimmer keeps the axiom whose true argument the logged clause omits.
+static char const* arith_axioms_log =
+    "(declare-fun x () Int)(declare-fun y () Int)"
+    "(define-const $1 Int (mod x 3))(define-const $2 Int (div x 3))"
+    "(define-const $3 Bool (= (+ (* 3 $2) $1) x))(define-const $4 Bool (>= $1 0))"
+    "(define-const $5 Bool (<= $1 2))"
+    "(declare-fun arith (Bool) Proof)"
+    "(infer $3 (arith (not $3)))(infer $4 (arith (not $4)))(infer $5 (arith (not $5)))"
+    "(define-const $6 Bool (>= y 0))(define-const $7 Bool (= (abs y) y))(define-const $8 Bool (= (abs y) (- y)))"
+    "(declare-fun arith (Bool Bool) Proof)"
+    "(infer (not $6) $7 (arith $6 (not $7)))(infer $6 $8 (arith (not $6) (not $8)))"
+    "(define-const $9 Bool (= (* 2.0 (/ 1.0 2.0)) 1.0))"
+    "(infer $9 (arith true (not $9)))"
+    "(assume (not $5) (not $9))(assume (not $7) (not $8))"
+    "(declare-fun rup () Proof)(infer rup)";
+
+static void tst_replay_arith_axioms() {
+    check_verified_natively(replay(arith_axioms_log), "arith 6");
+    std::string out;
+    {
+        scoped_trim trim;
+        out = replay(arith_axioms_log);
+    }
+    std::cout << out;
+    ENSURE(out.find("not derivable") == std::string::npos);
+    ENSURE(out.find("(infer rup") != std::string::npos);
 }
 
 // An alldiff hint lists the clause itself.
@@ -1033,6 +1214,11 @@ void tst_proof_replay() {
     tst_replay_implied_eq_constant_row();
     tst_checker_tseitin_xor();
     tst_replay_tseitin_xor();
+    tst_checker_tseitin_constants();
+    tst_checker_euf_negated_arguments();
+    tst_replay_boolean_constants_and_arguments();
+    tst_checker_arith_axioms();
+    tst_replay_arith_axioms();
     tst_checker_alldiff();
     tst_replay_alldiff_gates();
     tst_fallback_proves_logged_clause();

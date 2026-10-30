@@ -9,6 +9,7 @@ module P = Z3QuantifierPull
 module S = Z3BinderSubstitution
 module B = Z3BooleanRewrite
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
 let rec quantify_args (kind:quantifier_kind) (sorts:list sort) (args:list expr)
   : Tot (list expr) (decreases args) =
@@ -20,8 +21,8 @@ let push (e:expr) : option expr =
   match e with
   | Quantifier k bs s (App f args) ->
     if s = bool_sort && f.range = bool_sort && P.boolean_args args &&
-       ((k = Forall_k && f.decl_name = "and") ||
-        (k = Exists_k && f.decl_name = "or"))
+       ((k = Forall_k && C.canonical_and f) ||
+        (k = Exists_k && C.canonical_or f))
     then Some (App f (quantify_args k bs args)) else None
   | _ -> None
 
@@ -30,8 +31,8 @@ let rec lemma_push_args (i:interpretation value) (rho:env value)
                         (f:func_decl) (args:list expr)
   : Lemma (requires N.quantifier_model i /\ boolean_model i /\ and_sound i /\ or_sound i /\
                     f.range = bool_sort /\ P.boolean_args args /\
-                    ((kind = Forall_k /\ f.decl_name = "and") \/
-                     (kind = Exists_k /\ f.decl_name = "or")))
+                    ((kind = Forall_k /\ C.canonical_and f) \/
+                     (kind = Exists_k /\ C.canonical_or f)))
           (ensures eval i (Quantifier kind sorts bool_sort (App f args)) rho ==
                    eval i (App f (quantify_args kind sorts args)) rho)
           (decreases args)

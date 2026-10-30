@@ -56,6 +56,7 @@ module L = FStar.List.Tot
 module M = FStar.Math.Lemmas
 module O = Z3ObservationalEquality
 module PT = Z3ProofTheory
+module C = Z3CanonicalOps
 
 (* ----------------------------------------------------------------- *)
 (* Certificates                                                        *)
@@ -218,7 +219,7 @@ let rec index_equations (tree:index_tree equation) (k:int) (es:list equation)
 
 let clause_literals (e:expr) : list expr =
   match e with
-  | App f args -> if f.decl_name = "or" then args else [e]
+  | App f args -> if C.canonical_or f then args else [e]
   | _ -> [e]
 
 let rec negated_in (l:expr) (lits:list expr) : Tot bool (decreases lits) =
@@ -473,7 +474,7 @@ let rec lemma_append_last (a:list expr) (t:expr)
 (* ----------------------------------------------------------------- *)
 
 let valuation (i:interpretation value) (rho:env value) (project:int -> value -> int)
-              (p:int) (tbl:list expr) : nat -> int =
+              (p:int) (tbl:list expr) : GTot (nat -> int) =
   FF.valuation i rho project p tbl
 
 let eq_ok (i:interpretation value) (rho:env value) (v:nat -> int) (p:pos) (e:equation) : prop =
@@ -502,6 +503,7 @@ let lemma_term_poly (i:interpretation value) (rho:env value) (project:int -> val
       let k = Some?.v (FF.index_of t tbl) in
       FF.lemma_index_of t tbl k;
       lemma_prefix_index tbl final k;
+      FF.lemma_valuation i rho project p final k;
       lemma_peval_variable v k
 
 let rec lemma_term_polys (i:interpretation value) (rho:env value) (project:int -> value -> int)
@@ -549,6 +551,7 @@ let lemma_definition (i:interpretation value) (rho:env value) (project:int -> va
     assert (project p (eval i t rho) == FF.calculate p op xs);
     FF.lemma_range i rho project p t;
     M.small_mod (project p (eval i t rho)) p;
+    FF.lemma_valuation i rho project p final k;
     assert (v k == project p (eval i t rho));
     lemma_peval_variable v k;
     FF.lemma_pscale v (-1) fq;
@@ -727,7 +730,7 @@ let lemma_clause_literals (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires or_sound i /\ ~(lit_true i rho e))
           (ensures none_true i rho (clause_literals e))
   = match e with
-    | App f args -> if f.decl_name = "or" then lemma_clause_holds i rho args else ()
+    | App f args -> if C.canonical_or f then lemma_clause_holds i rho args else ()
     | _ -> ()
 #pop-options
 

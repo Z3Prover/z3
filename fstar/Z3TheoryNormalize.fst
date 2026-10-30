@@ -148,6 +148,12 @@ and normalize_args (fuel:nat) (args:list expr)
      | Some b, Some bs -> Some (b :: bs)
      | _, _ -> None)
 
+(* Applications with equal argument values are equal, apart from any model contract. *)
+let lemma_app_congruence (i:interpretation value) (rho:env value) (f:func_decl) (args xs:list expr)
+  : Lemma (requires eval_args i args rho == eval_args i xs rho)
+          (ensures eval i (App f args) rho == eval i (App f xs) rho)
+  = ()
+
 let rec lemma_normalize (fuel:nat) (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires normalization_model i /\ normalize fuel e == Some result)
           (ensures eval i e rho == eval i result rho)
@@ -159,6 +165,7 @@ let rec lemma_normalize (fuel:nat) (i:interpretation value) (rho:env value) (e r
       | App f args ->
         let xs = Some?.v (normalize_args next args) in
         lemma_normalize_args next i rho args xs;
+        lemma_app_congruence i rho f args xs;
         App f xs
       | Quantifier k bs s body ->
         let b = Some?.v (normalize next body) in

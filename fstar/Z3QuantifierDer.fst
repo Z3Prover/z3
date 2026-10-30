@@ -12,6 +12,7 @@ module V = Z3QuantifierVacuity
 module P = Z3QuantifierPull
 module R = Z3QuantifierReduce
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
 let rec substitute (n:nat) (term body:expr) : Tot expr (decreases body) =
   match body with
@@ -69,6 +70,29 @@ let guarded (universal:bool) (n:nat) (term body:expr) : bool =
   B.boolean_equiv 8 10 body (gate universal (mk_eq_expr variable term) body) ||
   B.boolean_equiv 8 10 body (gate universal (mk_eq_expr term variable) body)
 
+(* The equality guard is false when its sides differ (`eq_sound` at the
+   canonical `eq_decl`, and `boolean_model` for its Boolean value). *)
+let lemma_unequal_guard (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires boolean_model i /\ eq_sound i /\ ~(eval i a rho == eval i b rho))
+          (ensures eval i (mk_eq_expr a b) rho == VBool false)
+  = lemma_eq_decl_canonical (get_sort a);
+    assert (get_sort (mk_eq_expr a b) == bool_sort)
+
+(* The gates are the canonical `or`/`and`, read off their contracts once. *)
+let lemma_universal_gate (i:interpretation value) (rho:env value) (guard body:expr)
+  : Lemma (requires not_sound i /\ or_sound i /\ eval i guard rho == VBool false)
+          (ensures lit_true i rho (gate true guard body))
+  = let f = App?.decl (gate true guard body) in
+    assert_norm (C.canonical_or f /\ gate true guard body == App f [mk_not_expr guard; body]);
+    lemma_not_decl_canonical guard;
+    assert (lit_true i rho (mk_not_expr guard))
+
+let lemma_existential_gate (i:interpretation value) (rho:env value) (guard body:expr)
+  : Lemma (requires and_sound i /\ ~(lit_true i rho guard))
+          (ensures ~(lit_true i rho (gate false guard body)))
+  = let f = App?.decl (gate false guard body) in
+    assert_norm (C.canonical_and f /\ gate false guard body == App f [guard; body])
+
 let lemma_guarded_outside (universal:bool) (n:nat) (term body:expr)
                           (i:interpretation value) (rho:env value)
   : Lemma (requires B.boolean_rewrite_model i /\ eq_sound i /\ guarded universal n term body /\
@@ -79,9 +103,11 @@ let lemma_guarded_outside (universal:bool) (n:nat) (term body:expr)
     if B.boolean_equiv 8 10 body (gate universal (mk_eq_expr variable term) body)
     then mk_eq_expr variable term else mk_eq_expr term variable in
   B.lemma_boolean_equiv_sound 8 10 i rho body (gate universal guard body);
-  assert (~(lit_true i rho guard));
-  if universal then (
-    match eval i guard rho with VBool _ -> () | _ -> ())
+  assert (eval i variable rho == rho n);
+  lemma_unequal_guard i rho variable term;
+  lemma_unequal_guard i rho term variable;
+  if universal then lemma_universal_gate i rho guard body
+  else lemma_existential_gate i rho guard body
 
 let rec lemma_insert_index (n:nat) (v:value) (vs:list value)
   : Lemma (requires n <= L.length vs)
@@ -143,23 +169,56 @@ let remove (n:nat) (term e:expr) : option expr =
     else None
   | _ -> None
 
+(* Two Boolean terms with the same truth value have the same value. *)
+let lemma_same_truth (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires boolean_model i /\ get_sort a == bool_sort /\ get_sort b == bool_sort /\
+                    (lit_true i rho a <==> lit_true i rho b))
+          (ensures eval i a rho == eval i b rho)
+  = assert (VBool? (eval i a rho) /\ VBool? (eval i b rho))
+
+let lemma_erased_length (n:nat) (bs:list sort)
+  : Lemma (requires n < L.length (L.rev bs))
+          (ensures n < L.length bs /\ L.length (L.rev (V.erase n (L.rev bs))) == L.length bs - 1)
+  = FStar.List.Tot.Properties.rev_length bs;
+    V.lemma_erase_length n (L.rev bs);
+    FStar.List.Tot.Properties.rev_length (V.erase n (L.rev bs))
+
+(* What `remove` checked, read off once outside any model hypothesis. *)
+let lemma_remove_shape (n:nat) (term e result:expr)
+  : Lemma (requires remove n term e == Some result)
+          (ensures Quantifier? e /\
+                   (let Quantifier k bs s body = e in
+                    let lowered = Some?.v (V.lower n term) in
+                    let bs' = L.rev (V.erase n (L.rev bs)) in
+                    (k = Forall_k \/ k = Exists_k) /\ s == bool_sort /\ get_sort body == bool_sort /\
+                    n < L.length bs /\ bs <> [] /\ Some? (V.lower n term) /\
+                    guarded (k = Forall_k) n term body /\
+                    get_sort (substitute n lowered body) == bool_sort /\
+                    L.length bs' == L.length bs - 1 /\
+                    e == V.quantified k bs body /\
+                    result == V.quantified k bs' (substitute n lowered body)))
+  = match e with
+    | Quantifier k bs s body ->
+      assert (n < L.length (L.rev bs));
+      lemma_erased_length n bs
+
 let lemma_remove_sound (n:nat) (term e result:expr)
                        (i:interpretation value) (rho:env value)
   : Lemma (requires B.boolean_rewrite_model i /\ eq_sound i /\ quant_extensional i /\
                     Q.quantifier_model i /\ remove n term e == Some result)
           (ensures eval i e rho == eval i result rho) =
+  lemma_remove_shape n term e result;
   match e with
   | Quantifier k bs _ body ->
     let lowered = Some?.v (V.lower n term) in
     let bs' = L.rev (V.erase n (L.rev bs)) in
-    FStar.List.Tot.Properties.rev_length bs;
-    V.lemma_erase_length n (L.rev bs);
-    FStar.List.Tot.Properties.rev_length (V.erase n (L.rev bs));
     lemma_assignments (k = Forall_k) n (L.length bs) term lowered body i rho;
-    Q.lemma_quantifier_truth i rho k bs body;
+    (* Both sides through `V.lemma_quantified_truth`, i.e. in the same
+       `all_assignments` form that `lemma_assignments` relates. *)
+    V.lemma_quantified_truth i rho k bs body;
     V.lemma_quantified_truth i rho k bs' (substitute n lowered body);
-    match eval i e rho, eval i result rho with VBool _, VBool _ -> () | _, _ -> ()
-  | _ -> ()
+    assert (lit_true i rho e <==> lit_true i rho result);
+    lemma_same_truth i rho e result
 
 let endpoint (a b:expr) : list (nat & expr) =
   match a with Var n _ -> [(n, b)] | _ -> []
@@ -169,7 +228,7 @@ let rec candidates (e:expr) : Tot (list (nat & expr)) (decreases e) =
   | Var n s -> if s = bool_sort then [(n, true_expr); (n, false_expr)] else []
   | App f args ->
     let here = match args with
-      | [a; b] -> if f.decl_name = "=" then endpoint a b @ endpoint b a else []
+      | [a; b] -> if C.canonical_eq f then endpoint a b @ endpoint b a else []
       | _ -> [] in
     here @ candidates_args args
   | Quantifier _ _ _ _ -> []

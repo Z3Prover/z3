@@ -9,6 +9,7 @@ open Z3ResolutionProofTheory
 module A = Z3LinearArithmeticAst
 module E = Z3LinearArithmeticEmbed
 module R = Z3ArithmeticRewrite
+module C = Z3CanonicalOps
 
 let op_idiv : decl_kind = 33
 let op_mod : decl_kind = 34
@@ -98,7 +99,7 @@ let residual_bound (guard body:expr) : bool =
 let check (e:expr) : bool =
   match e with
   | App f [guard; body] ->
-    f.decl_name = "or" && f.interp = Some op_or &&
+    C.canonical_or f &&
     f.domain = [bool_sort; bool_sort] && f.range = bool_sort &&
     (decomposition guard body || lower_bound guard body ||
      upper_bound guard body || residual_bound guard body)

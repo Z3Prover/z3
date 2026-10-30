@@ -1,0 +1,75 @@
+name: Java Full Flow
+
+# Controlled native builds followed by the same Java gate used by releases.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['feat/java-*']
+    paths:
+      - '.github/workflows/java-full-flow.yml'
+      - '.github/workflows/java-package-artifacts.yml'
+      - '.github/workflows/java-maven-consumers.yml'
+      - '.github/workflows/java-maven-bundle.yml'
+      - '.github/workflows/release.yml'
+      - 'scripts/java/**'
+      - 'scripts/mk_java_package.py'
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    # A marked push bootstraps the new workflow on a fork without changing its
+    # default branch; ordinary pushes do not start expensive native builds.
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[java-full-flow]')
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, platform: linux-x64, architecture: x64}
+          - {os: windows-2025, platform: win-x64, architecture: x64}
+          - {os: macos-15, platform: osx-arm64, architecture: aarch64}
+    runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.3'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: ${{ matrix.architecture }}
+      - name: Build Linux distribution using existing upstream producer
+        if: runner.os == 'Linux'
+        run: python scripts/mk_unix_dist.py --nodotnet --nopython --arch=x64
+      - name: Build macOS distribution using existing upstream producer
+        if: runner.os == 'macOS'
+        run: python scripts/mk_unix_dist.py --nodotnet --nopython --arch=arm64 --os=osx-13.3
+      - name: Build Windows distribution using existing upstream producer
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+          python scripts\mk_win_dist.py --x64-only --nodotnet --nopython --zip
+      - name: Record build identity and checksum
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir build/native-receipt
+          --platform ${{ matrix.platform }} --source-commit ${{ github.sha }}
+          --repository ${{ github.repository }} --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-native-${{ matrix.platform }}
+          path: |
+            dist/**/*.zip
+            build/native-receipt/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  java:
+    needs: native
+    uses: ./.github/workflows/java-package-artifacts.yml

@@ -628,9 +628,20 @@ let lemma_nonnegative_expr (x zero:expr) (i:interpretation value)
   assert (lit_true i rho (nonnegative_expr x zero) <==>
     E.numeric_relation A.Ge (nu (eval i x rho)) (nu (eval i zero rho)))
 
+(* The canonical equality of two Boolean terms, and its canonical negation. *)
+let lemma_same_sign (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires Z3ObservationalEquality.boolean_model i /\ eq_sound i /\ not_sound i /\
+                    get_sort a == bool_sort /\ get_sort b == bool_sort)
+          (ensures (lit_true i rho (mk_eq_expr a b) <==> (lit_true i rho a <==> lit_true i rho b)) /\
+                   (lit_true i rho (mk_not_expr (mk_eq_expr a b)) <==> ~(lit_true i rho (mk_eq_expr a b)))) =
+  lemma_eq_decl_canonical bool_sort;
+  lemma_not_decl_canonical (mk_eq_expr a b);
+  assert (get_sort (mk_eq_expr a b) == bool_sort)
+
 let lemma_product_sign_formula (r:A.relation) (x y zero:expr)
                               (i:interpretation value) (nu:value -> real) (rho:env value)
-  : Lemma (requires E.numeric_model i nu /\ B.boolean_rewrite_model i /\
+  : Lemma (requires E.numeric_model i nu /\ Z3ObservationalEquality.boolean_model i /\
+                    eq_sound i /\ not_sound i /\ and_sound i /\ or_sound i /\
                     (r = A.Le \/ r = A.Ge) /\ A.numeric_sort (get_sort zero) /\
                     get_sort x == get_sort zero /\ get_sort y == get_sort zero /\
                     nu (eval i zero rho) == 0.0R)
@@ -646,15 +657,61 @@ let lemma_product_sign_formula (r:A.relation) (x y zero:expr)
   let same = mk_eq_expr gx gy in
   let eqs = [mk_eq_expr x zero; mk_eq_expr y zero] in
   let zeros = App (B.connective_decl B.Disjunction eqs) eqs in
+  let terms = [(if r = A.Le then mk_not_expr same else same); zeros] in
+  B.lemma_connective_holds B.Disjunction i rho eqs;
+  B.lemma_connective_holds B.Disjunction i rho terms;
+  lemma_same_sign i rho gx gy;
+  assert (product_sign_formula r x y zero == App (B.connective_decl B.Disjunction terms) terms);
   assert_norm (get_sort (product_sign_formula r x y zero) == bool_sort);
   assert (lit_true i rho zeros <==>
-    nu (eval i x rho) == 0.0R \/ nu (eval i y rho) == 0.0R);
-  (match eval i gx rho, eval i gy rho with
-   | VBool _, VBool _ ->
-     assert (lit_true i rho same <==>
-       ((nu (eval i x rho) >=. 0.0R) <==> (nu (eval i y rho) >=. 0.0R)))
-   | _, _ -> ());
-  assert (lit_true i rho (mk_not_expr same) <==> ~(lit_true i rho same))
+    nu (eval i x rho) == 0.0R \/ nu (eval i y rho) == 0.0R)
+
+(* The equation branch of `product_sign_rewrite`, from the facts it needs only. *)
+let lemma_product_zero_rewrite (e result product zero:expr) (args:list expr)
+                               (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_model i nu /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
+                    and_sound i /\ or_sound i /\
+                    A.numeric_sort (get_sort zero) /\ A.same_sort (get_sort zero) args /\
+                    get_sort product == get_sort zero /\ nu (eval i zero rho) == 0.0R /\
+                    nu (eval i product rho) == E.numeric_product (L.map nu (eval_args i args rho)) /\
+                    e == mk_eq_expr product zero /\ get_sort e == bool_sort /\ get_sort result == bool_sort /\
+                    result == App (B.connective_decl B.Disjunction (L.map (zero_factor_equality zero) args))
+                                  (L.map (zero_factor_equality zero) args))
+          (ensures eval i e rho == eval i result rho) =
+  let eqs = L.map (zero_factor_equality zero) args in
+  lemma_zero_product_args args zero i nu rho;
+  lemma_numeric_zero_equality product zero i nu rho;
+  B.lemma_connective_holds B.Disjunction i rho eqs;
+  Z3ObservationalEquality.lemma_observations_values i rho e result
+
+(* The two-factor sign branch. *)
+let lemma_product_sign_pair (r:A.relation) (e result product x y zero:expr)
+                            (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_model i nu /\ B.boolean_rewrite_model i /\
+                    (r = A.Le \/ r = A.Ge) /\ A.numeric_sort (get_sort zero) /\
+                    get_sort x == get_sort zero /\ get_sort y == get_sort zero /\
+                    nu (eval i zero rho) == 0.0R /\ A.comparison e == Some (r, product, zero) /\
+                    nu (eval i product rho) == nu (eval i x rho) *. nu (eval i y rho) /\
+                    result == product_sign_formula r x y zero /\ get_sort e == bool_sort)
+          (ensures eval i e rho == eval i result rho) =
+  lemma_product_sign_formula r x y zero i nu rho;
+  lemma_numeric_comparison e product zero r i nu rho;
+  Z3ObservationalEquality.lemma_observations_values i rho e result
+
+(* The fourth-power branch: x*x*x*x <= 0 iff x = 0. *)
+let lemma_product_fourth_power (e result product x zero:expr)
+                               (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_model i nu /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
+                    A.numeric_sort (get_sort zero) /\ get_sort x == get_sort zero /\
+                    nu (eval i zero rho) == 0.0R /\ A.comparison e == Some (A.Le, product, zero) /\
+                    nu (eval i product rho) ==
+                      nu (eval i x rho) *. (nu (eval i x rho) *. (nu (eval i x rho) *. (nu (eval i x rho) *. 1.0R))) /\
+                    result == mk_eq_expr x zero /\ get_sort e == bool_sort)
+          (ensures eval i e rho == eval i result rho) =
+  lemma_fourth_power_zero (nu (eval i x rho));
+  lemma_numeric_zero_equality x zero i nu rho;
+  lemma_numeric_comparison e product zero A.Le i nu rho;
+  Z3ObservationalEquality.lemma_observations_values i rho e result
 
 #push-options "--z3rlimit 20"
 let lemma_product_sign_rewrite (e result:expr) (i:interpretation value)
@@ -676,36 +733,21 @@ let lemma_product_sign_rewrite (e result:expr) (i:interpretation value)
     E.lemma_mul_application f args i nu rho;
     assert (get_sort e == bool_sort /\ get_sort result == bool_sort);
     if r = A.Eq then (
-      lemma_zero_product_args args zero i nu rho;
-      lemma_numeric_zero_equality product zero i nu rho;
       assert (cmp == eq_decl (get_sort product));
-      assert (lit_true i rho e <==> nu (eval i product rho) == 0.0R);
-      let eqs = L.map (zero_factor_equality zero) args in
-      assert (result == App (B.connective_decl B.Disjunction eqs) eqs);
-      lemma_zero_product_disjunction args zero i rho;
-      assert (lit_true i rho result <==>
-        clause_holds i rho eqs);
-      Z3ObservationalEquality.lemma_observations_values i rho e result)
+      assert (get_sort product == get_sort zero);
+      lemma_product_zero_rewrite e result product zero args i nu rho)
     else (match args with
       | [x; y] ->
         assert (r = A.Le \/ r = A.Ge);
         assert (result == product_sign_formula r x y zero);
         assert_norm (E.numeric_product (L.map nu (eval_args i [x; y] rho)) ==
           nu (eval i x rho) *. nu (eval i y rho));
-        lemma_product_sign_formula r x y zero i nu rho;
-        lemma_numeric_comparison e product zero r i nu rho;
-        assert (lit_true i rho e <==> E.numeric_relation r (nu (eval i product rho)) 0.0R);
-        Z3ObservationalEquality.lemma_observations_values i rho e result
+        lemma_product_sign_pair r e result product x y zero i nu rho
       | [x; _; _; _] ->
         assert (r == A.Le /\ result == mk_eq_expr x zero);
         assert_norm (E.numeric_product (L.map nu (eval_args i [x; x; x; x] rho)) ==
           nu (eval i x rho) *. (nu (eval i x rho) *. (nu (eval i x rho) *. (nu (eval i x rho) *. 1.0R))));
-        lemma_fourth_power_zero (nu (eval i x rho));
-        lemma_numeric_zero_equality x zero i nu rho;
-        lemma_numeric_comparison e product zero r i nu rho;
-        assert (lit_true i rho e <==> nu (eval i product rho) <=. 0.0R);
-        assert (lit_true i rho result <==> nu (eval i x rho) == 0.0R);
-        Z3ObservationalEquality.lemma_observations_values i rho e result
+        lemma_product_fourth_power e result product x zero i nu rho
       | _ -> ())
   | _ -> ()
 #pop-options
@@ -831,6 +873,10 @@ let lemma_triangle_equality (e:expr) (i:interpretation value)
     let bounds = if split_equation eq forward then forward
                  else App (B.connective_decl B.Conjunction [u; l]) [u; l] in
     lemma_split_equation eq bounds i nu rho;
+    B.lemma_connective_holds B.Disjunction i rho [eq; App lf [l]; App uf [u]];
+    B.lemma_connective_holds B.Conjunction i rho [l; u];
+    B.lemma_connective_holds B.Conjunction i rho [u; l];
+    lemma_not_decl_canonical l;
     (match eval i l rho, eval i u rho with
      | VBool _, VBool _ -> ()
      | _, _ -> ())

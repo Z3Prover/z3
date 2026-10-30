@@ -10,6 +10,8 @@ module D = Z3Definitions
 module L = FStar.List.Tot
 module U = FStar.UInt
 module BV = Z3BvLemma
+module C = Z3CanonicalOps
+module SM = Z3StandardModel
 
 (* Bounded exhaustive evaluation of bit-vector clauses over opaque leaves.
 
@@ -18,18 +20,34 @@ module BV = Z3BvLemma
    fragment is small: Boolean `true`, `false`, `not`, `and`, `or`, `=` on
    Booleans and on bit-vectors, the unsigned comparisons `bvult`/`bvule`/
    `bvuge`, bit-vector numerals, `concat` of two arguments, `extract`,
-   `zero_extend`, and `bvadd` of two arguments. Each of them is recognized by
-   the `Z3BvLemma` recognizers, which check the declaration's parameters,
-   domain, range and argument sorts, and each is evaluated exactly as the
-   matching conjunct of `Z3BvLemma.bv_model` describes it.
+   `zero_extend`, and `bvadd` of two arguments. The connectives are
+   recognized by the typed canonical predicates of `Z3CanonicalOps` (name,
+   kind tag, domain, range and parameters), never by their name alone. The
+   bit-vector operators are recognized by the `Z3BvLemma` recognizers, which
+   check the declaration's parameters, domain, range and argument sorts. Each
+   is evaluated exactly as the matching contract of
+   `Z3StandardModel.ground_model` describes it. A declaration named `=` or
+   `and` whose kind tag is a bit-vector or datatype kind is therefore never
+   evaluated as a connective.
+
+   Soundness is proved from `Z3StandardModel.ground_model`, the ground
+   Boolean and bit-vector contracts (`lemma_valid_ground`). Every standard
+   interpretation `Z3StandardModel.standard leaf` satisfies them, so that
+   theorem has models, and an accepted clause is true in each of them
+   (`lemma_valid_standard`). The kernel's hypotheses imply `ground_model`
+   (`Z3StandardModel.lemma_ground_of_global`), but the legacy kernel theorem
+   is stated over `Z3UnifiedProof.model_sound`, which has no model, so that
+   statement is vacuous. `Z3CoreKernel` proves accepted theory-lemma and
+   rewrite nodes decided here sound from the inhabited
+   `Z3CoreModel.core_model` instead.
 
    A leaf is a closed bit-vector term of a known width `w` whose head is not
    one of those operators, such as `(select a i)`, an uninterpreted constant,
    or a bit-vector operator outside the fragment such as `bvmul`. A leaf is
    never evaluated: structurally equal leaves of the same width share one
    value, distinct leaves are enumerated independently over every value in
-   [0, 2^w). Under `bv_model` the value of any closed term of sort `BV<w>`
-   lies in that range, so a clause that evaluates to true under every
+   [0, 2^w). Under `ground_model` the value of any closed ground term of sort
+   `BV<w>` lies in that range, so a clause that evaluates to true under every
    enumerated assignment holds in every model. A term whose declaration claims
    one of the evaluated bit-vector kinds but is malformed (wrong parameters,
    widths, arity or sorts, or a numeral out of range) is neither evaluated nor
@@ -134,15 +152,15 @@ let rec eval_bool (tbl:leaf_table) (v:nat -> int) (e:expr) : Tot (option bool) (
   match e with
   | App f args ->
     if get_sort e <> bool_sort then None
-    else if f.decl_name = "true" && args = [] then Some true
-    else if f.decl_name = "false" && args = [] then Some false
-    else if f.decl_name = "not" then
+    else if C.canonical_true f && args = [] then Some true
+    else if C.canonical_false f && args = [] then Some false
+    else if C.canonical_not f then
       (match args with
        | [a] -> (match eval_bool tbl v a with Some b -> Some (not b) | None -> None)
        | _ -> None)
-    else if f.decl_name = "or" then eval_or tbl v args
-    else if f.decl_name = "and" then eval_and tbl v args
-    else if f.decl_name = "=" then
+    else if C.canonical_or f then eval_or tbl v args
+    else if C.canonical_and f then eval_and tbl v args
+    else if C.canonical_eq f then
       (match args with
        | [a; b] ->
          if boolean_pair a b then
@@ -211,8 +229,8 @@ let rec leaves_bv (tbl:leaf_table) (w:pos) (e:expr) : Tot leaf_table (decreases 
 let rec leaves_bool (tbl:leaf_table) (e:expr) : Tot leaf_table (decreases e) =
   match e with
   | App f args ->
-    if f.decl_name = "not" || f.decl_name = "or" || f.decl_name = "and" then leaves_bools tbl args
-    else if f.decl_name = "=" then
+    if C.canonical_not f || C.canonical_or f || C.canonical_and f then leaves_bools tbl args
+    else if C.canonical_eq f then
       (match args with
        | [a; b] ->
          if boolean_pair a b then leaves_bool (leaves_bool tbl a) b
@@ -241,18 +259,12 @@ let rec within_bits (tbl:leaf_table) (acc:nat) : Tot bool (decreases tbl) =
        | [] -> true
        | (_, w) :: rest -> within_bits rest (acc + w)
 
+(* Every leaf is a closed ground term of its width, at most 4096 bits wide
+   (the leaves are subterms of the checked ground clause and their widths add
+   up to at most `max_leaf_bits`, so this test never fails on a collected
+   table; it states what the soundness proof uses). *)
 let closed_leaf (x:expr & pos) : bool =
-  D.scoped [] (fst x) && get_sort (fst x) = BV.bv_sort (snd x)
-
-let rec ground (e:expr) : Tot bool (decreases e) =
-  match e with
-  | App _ args -> ground_args args
-  | _ -> false
-
-and ground_args (args:list expr) : Tot bool (decreases args) =
-  match args with
-  | [] -> true
-  | a :: rest -> ground a && ground_args rest
+  SM.closed_ground (fst x) && snd x <= SM.max_width && get_sort (fst x) = BV.bv_sort (snd x)
 
 let rec widths (tbl:leaf_table) : Tot (list pos) (decreases tbl) =
   match tbl with
@@ -285,7 +297,7 @@ let clause_true (tbl:leaf_table) (e:expr) (r:list int) : bool =
    evaluates both operands of `&&`. *)
 let valid (e:expr) : bool =
   if not (Some? (expression_budget max_nodes e)) then false
-  else if not (ground e && D.scoped [] e) then false
+  else if not (SM.closed_ground e) then false
   else
     let tbl = leaves_bool [] e in
     if not (within_bits tbl 0) then false
@@ -353,17 +365,18 @@ let agrees (i:interpretation value) (rho:env value) (project:pos -> value -> int
   forall (k:nat). k < L.length tbl ==>
     v k == project (snd (L.index tbl k)) (eval i (fst (L.index tbl k)) rho)
 
+(* The hypotheses of the evaluation: the ground Boolean and bit-vector
+   contracts. They have models (`Z3StandardModel.lemma_standard_model`). *)
 let eval_model (i:interpretation value) (project:pos -> value -> int) : prop =
-  BV.bv_model i project /\ boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
-  eq_sound i /\ true_sound i /\ false_sound i
+  SM.ground_model i project
 
 let lemma_scoped_app (f:func_decl) (args:list expr)
-  : Lemma (requires D.scoped [] (App f args)) (ensures D.scoped_args [] args)
-  = ()
+  : Lemma (requires SM.closed_ground (App f args)) (ensures SM.closed_args args)
+  = SM.lemma_closed_app f args
 
 let lemma_scoped_cons (a:expr) (rest:list expr)
-  : Lemma (requires D.scoped_args [] (a :: rest)) (ensures D.scoped [] a /\ D.scoped_args [] rest)
-  = ()
+  : Lemma (requires SM.closed_args (a :: rest)) (ensures SM.closed_ground a /\ SM.closed_args rest)
+  = SM.lemma_closed_cons a rest
 
 let lemma_leaf (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                (tbl:leaf_table) (v:nat -> int) (w:pos) (e:expr)
@@ -374,16 +387,16 @@ let lemma_leaf (i:interpretation value) (rho:env value) (project:pos -> value ->
 
 let lemma_add (i:interpretation value) (rho:env value) (project:pos -> value -> int)
               (f:func_decl) (x y:expr) (w:pos)
-  : Lemma (requires BV.bv_model i project /\ D.scoped [] (App f [x; y]) /\
+  : Lemma (requires SM.ground_bv i project /\ SM.closed_ground (App f [x; y]) /\
                     BV.operation f [x; y] == Some (w, BV.op_add) /\
-                    D.scoped [] x /\ D.scoped [] y /\
+                    SM.closed_ground x /\ SM.closed_ground y /\
                     get_sort x == BV.bv_sort w /\ get_sort y == BV.bv_sort w)
           (ensures get_sort (App f [x; y]) == BV.bv_sort w /\
                    project w (eval i (App f [x; y]) rho) ==
                    (project w (eval i x rho) + project w (eval i y rho)) % pow2 w)
-  = BV.lemma_operation i rho project f [x; y] w BV.op_add;
-    BV.lemma_word i rho project w x;
-    BV.lemma_word i rho project w y;
+  = SM.lemma_ground_operation i rho project f [x; y] w BV.op_add;
+    SM.lemma_ground_word i rho project w x;
+    SM.lemma_ground_word i rho project w y;
     assert_norm (eval_args i [x; y] rho == [eval i x rho; eval i y rho]);
     assert_norm (BV.words w project [eval i x rho; eval i y rho] ==
                  [U.to_uint_t w (project w (eval i x rho)); U.to_uint_t w (project w (eval i y rho))])
@@ -424,18 +437,18 @@ let value_of (i:interpretation value) (rho:env value) (project:pos -> value -> i
 
 let lemma_concat_case (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                       (tbl:leaf_table) (v:nat -> int) (w:pos) (f:func_decl) (x y:expr) (c:BV.concatenation)
-  : Lemma (requires BV.bv_model i project /\ D.scoped [] (App f [x; y]) /\
+  : Lemma (requires SM.ground_bv i project /\ SM.closed_ground (App f [x; y]) /\
                     None? (BV.numeral (App f [x; y])) /\ BV.concat_parts (App f [x; y]) == Some c /\
                     Some? (eval_bv tbl v w (App f [x; y])) /\
                     value_of i rho project tbl v c.BV.left_width x /\
                     value_of i rho project tbl v c.BV.right_width y)
           (ensures value_of i rho project tbl v w (App f [x; y]))
   = lemma_eval_bv_concat tbl v w f x y c;
-    BV.lemma_concat_parts i rho project (App f [x; y]) c
+    SM.lemma_ground_concat i rho project (App f [x; y]) c
 
 let lemma_add_case (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                    (tbl:leaf_table) (v:nat -> int) (w:pos) (f:func_decl) (x y:expr)
-  : Lemma (requires BV.bv_model i project /\ D.scoped [] (App f [x; y]) /\
+  : Lemma (requires SM.ground_bv i project /\ SM.closed_ground (App f [x; y]) /\
                     None? (BV.numeral (App f [x; y])) /\ None? (BV.concat_parts (App f [x; y])) /\
                     BV.operation f [x; y] == Some (w, BV.op_add) /\
                     Some? (eval_bv tbl v w (App f [x; y])) /\
@@ -449,7 +462,7 @@ let lemma_add_case (i:interpretation value) (rho:env value) (project:pos -> valu
 
 let rec lemma_eval_bv (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                       (tbl:leaf_table) (v:nat -> int) (w:pos) (e:expr)
-  : Lemma (requires BV.bv_model i project /\ D.scoped [] e /\
+  : Lemma (requires SM.ground_bv i project /\ SM.closed_ground e /\
                     agrees i rho project tbl v /\ Some? (eval_bv tbl v w e))
           (ensures get_sort e == BV.bv_sort w /\
                    project w (eval i e rho) == Some?.v (eval_bv tbl v w e))
@@ -461,17 +474,17 @@ let rec lemma_eval_bv (i:interpretation value) (rho:env value) (project:pos -> v
        | App f [x] ->
          (match BV.extract_parts e, BV.zero_extend_parts e with
           | Some s, _ ->
-            BV.lemma_extract_parts i rho project e s;
+            SM.lemma_ground_extract i rho project e s;
             lemma_eval_bv i rho project tbl v s.BV.source_width x
           | None, Some z ->
-            BV.lemma_zero_extend_parts i rho project e z;
+            SM.lemma_ground_zero_extend i rho project e z;
             lemma_eval_bv i rho project tbl v z.BV.input_width x
           | None, None -> lemma_leaf i rho project tbl v w e)
        | App f [x; y] ->
          (match BV.concat_parts e, BV.operation f [x; y] with
           | Some c, _ ->
             lemma_eval_bv_concat tbl v w f x y c;
-            BV.lemma_concat_parts i rho project e c;
+            SM.lemma_ground_concat i rho project e c;
             lemma_eval_bv i rho project tbl v c.BV.left_width x;
             lemma_eval_bv i rho project tbl v c.BV.right_width y;
             lemma_concat_case i rho project tbl v w f x y c
@@ -488,21 +501,36 @@ let rec lemma_eval_bv (i:interpretation value) (rho:env value) (project:pos -> v
           | None, None -> lemma_leaf i rho project tbl v w e)
        | _ -> lemma_eval_bv_other tbl v w e; lemma_leaf i rho project tbl v w e)
 
+(* The width of an evaluated bit-vector operator application is at most 4096,
+   since every recognizer bounds it. *)
+let lemma_bv_width (e:expr)
+  : Lemma (requires Some? (bv_width e)) (ensures Some?.v (bv_width e) <= SM.max_width)
+  = match e with
+    | App f [] -> ()
+    | App f [x] -> ()
+    | App f [x; y] -> ()
+    | _ -> ()
+
+let lemma_equal_width (a b:expr)
+  : Lemma (requires Some? (equal_width a b)) (ensures Some?.v (equal_width a b) <= SM.max_width)
+  = match bv_width a with
+    | Some _ -> lemma_bv_width a
+    | None -> lemma_bv_width b
+
 let lemma_bv_equality (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                       (tbl:leaf_table) (v:nat -> int) (w:pos) (a b:expr)
-  : Lemma (requires BV.bv_model i project /\ D.scoped [] a /\ D.scoped [] b /\
-                    agrees i rho project tbl v /\
+  : Lemma (requires SM.ground_bv i project /\ SM.closed_ground a /\ SM.closed_ground b /\
+                    w <= SM.max_width /\ agrees i rho project tbl v /\
                     Some? (eval_bv tbl v w a) /\ Some? (eval_bv tbl v w b))
           (ensures (eval i a rho == eval i b rho) <==>
                    (Some?.v (eval_bv tbl v w a) = Some?.v (eval_bv tbl v w b)))
   = lemma_eval_bv i rho project tbl v w a;
     lemma_eval_bv i rho project tbl v w b;
-    assert ((eval i a rho == eval i b rho) <==>
-            project w (eval i a rho) == project w (eval i b rho))
+    SM.lemma_ground_equal i rho project w a b
 
 let lemma_unsigned (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                    (tbl:leaf_table) (v:nat -> int) (f:func_decl) (a b:expr)
-  : Lemma (requires BV.bv_model i project /\ D.scoped [] (App f [a; b]) /\
+  : Lemma (requires SM.ground_bv i project /\ SM.closed_ground (App f [a; b]) /\
                     agrees i rho project tbl v /\
                     Some? (BV.unsigned_parts (App f [a; b])) /\
                     (let c = Some?.v (BV.unsigned_parts (App f [a; b])) in
@@ -513,19 +541,14 @@ let lemma_unsigned (i:interpretation value) (rho:env value) (project:pos -> valu
                              (Some?.v (eval_bv tbl v c.BV.width a))
                              (Some?.v (eval_bv tbl v c.BV.width b)))))
   = let c = Some?.v (BV.unsigned_parts (App f [a; b])) in
-    lemma_scoped_app f [a; b];
-    lemma_scoped_cons a [b];
-    lemma_scoped_cons b [];
+    SM.lemma_ground_unsigned i rho project (App f [a; b]) c;
     assert (c.BV.lhs == a /\ c.BV.rhs == b);
     lemma_eval_bv i rho project tbl v c.BV.width a;
-    lemma_eval_bv i rho project tbl v c.BV.width b;
-    assert (eval i (App f [a; b]) rho ==
-            VBool (BV.unsigned_value c.BV.relation (project c.BV.width (eval i c.BV.lhs rho))
-                                                   (project c.BV.width (eval i c.BV.rhs rho))))
+    lemma_eval_bv i rho project tbl v c.BV.width b
 
 let rec lemma_eval_bool (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                         (tbl:leaf_table) (v:nat -> int) (e:expr)
-  : Lemma (requires eval_model i project /\ D.scoped [] e /\
+  : Lemma (requires eval_model i project /\ SM.closed_ground e /\
                     agrees i rho project tbl v /\ Some? (eval_bool tbl v e))
           (ensures eval i e rho == VBool (Some?.v (eval_bool tbl v e)))
           (decreases e)
@@ -533,16 +556,16 @@ let rec lemma_eval_bool (i:interpretation value) (rho:env value) (project:pos ->
     | App f args ->
       assert (VBool? (eval i e rho));
       lemma_scoped_app f args;
-      if f.decl_name = "true" && args = [] then ()
-      else if f.decl_name = "false" && args = [] then ()
-      else if f.decl_name = "not" then
+      if C.canonical_true f && args = [] then ()
+      else if C.canonical_false f && args = [] then ()
+      else if C.canonical_not f then
         (match args with
          | [a] ->
            lemma_scoped_cons a [];
            lemma_eval_bool i rho project tbl v a)
-      else if f.decl_name = "or" then lemma_eval_or i rho project tbl v args
-      else if f.decl_name = "and" then lemma_eval_and i rho project tbl v args
-      else if f.decl_name = "=" then
+      else if C.canonical_or f then lemma_eval_or i rho project tbl v args
+      else if C.canonical_and f then lemma_eval_and i rho project tbl v args
+      else if C.canonical_eq f then
         (match args with
          | [a; b] ->
            lemma_scoped_cons a [b];
@@ -550,14 +573,16 @@ let rec lemma_eval_bool (i:interpretation value) (rho:env value) (project:pos ->
            if boolean_pair a b then (
              lemma_eval_bool i rho project tbl v a;
              lemma_eval_bool i rho project tbl v b)
-           else lemma_bv_equality i rho project tbl v (Some?.v (equal_width a b)) a b)
+           else (
+             lemma_equal_width a b;
+             lemma_bv_equality i rho project tbl v (Some?.v (equal_width a b)) a b))
       else
         (match args with
          | [a; b] -> lemma_unsigned i rho project tbl v f a b)
 
 and lemma_eval_or (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                   (tbl:leaf_table) (v:nat -> int) (args:list expr)
-  : Lemma (requires eval_model i project /\ D.scoped_args [] args /\
+  : Lemma (requires eval_model i project /\ SM.closed_args args /\
                     agrees i rho project tbl v /\ Some? (eval_or tbl v args))
           (ensures Some?.v (eval_or tbl v args) == true <==> clause_holds i rho args)
           (decreases args)
@@ -570,7 +595,7 @@ and lemma_eval_or (i:interpretation value) (rho:env value) (project:pos -> value
 
 and lemma_eval_and (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                    (tbl:leaf_table) (v:nat -> int) (args:list expr)
-  : Lemma (requires eval_model i project /\ D.scoped_args [] args /\
+  : Lemma (requires eval_model i project /\ SM.closed_args args /\
                     agrees i rho project tbl v /\ Some? (eval_and tbl v args))
           (ensures Some?.v (eval_and tbl v args) == true <==> conj_holds i rho args)
           (decreases args)
@@ -583,7 +608,7 @@ and lemma_eval_and (i:interpretation value) (rho:env value) (project:pos -> valu
 
 (* The values of the leaves in the model form one of the enumerated vectors. *)
 let rec actual (i:interpretation value) (rho:env value) (project:pos -> value -> int)
-               (tbl:leaf_table) : Tot (list int) (decreases tbl) =
+               (tbl:leaf_table) : GTot (list int) (decreases tbl) =
   match tbl with
   | [] -> []
   | (e, w) :: rest -> project w (eval i e rho) :: actual i rho project rest
@@ -608,13 +633,13 @@ let rec lemma_actual_index (i:interpretation value) (rho:env value) (project:pos
 
 let rec lemma_actual_range (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                            (tbl:leaf_table)
-  : Lemma (requires BV.bv_model i project /\ L.for_all closed_leaf tbl)
+  : Lemma (requires SM.ground_bv i project /\ L.for_all closed_leaf tbl)
           (ensures in_range (widths tbl) (actual i rho project tbl))
           (decreases tbl)
   = match tbl with
     | [] -> ()
     | (e, w) :: rest ->
-      BV.lemma_word i rho project w e;
+      SM.lemma_ground_word i rho project w e;
       lemma_actual_range i rho project rest
 
 let lemma_actual_agrees (i:interpretation value) (rho:env value) (project:pos -> value -> int)
@@ -637,22 +662,49 @@ let lemma_valid (i:interpretation value) (rho:env value) (project:pos -> value -
     lemma_actual_agrees i rho project tbl;
     lemma_eval_bool i rho project tbl (vector_value r) e
 
-(* The hypotheses are conjuncts of `Z3UnifiedProof.model_sound` (the bit-vector
-   one through `Z3TheoryNormalize.normalization_model`). *)
+(* The accepted path is sound in every model of the ground contracts. *)
+let lemma_valid_ground (e:expr) (i:interpretation value) (project:pos -> value -> int) (rho:env value)
+  : Lemma (requires SM.ground_model i project /\ valid e) (ensures lit_true i rho e)
+  = lemma_valid i rho project e
+
+let lemma_equivalent_ground (a b:expr) (i:interpretation value) (project:pos -> value -> int)
+                            (rho:env value)
+  : Lemma (requires SM.ground_model i project /\ equivalent a b) (ensures eval i a rho == eval i b rho)
+  = lemma_valid i rho project (mk_eq_expr a b);
+    assert (C.canonical_eq (eq_decl (get_sort a)))
+
+(* ... and those models exist: every standard interpretation, whatever the
+   values of its opaque leaves, makes an accepted clause true. *)
+let lemma_valid_standard (e:expr) (leaf:func_decl -> list value -> int) (rho:env value)
+  : Lemma (requires valid e) (ensures lit_true (SM.standard leaf) rho e)
+  = SM.lemma_standard_model leaf;
+    lemma_valid (SM.standard leaf) rho SM.std_project e
+
+let lemma_equivalent_standard (a b:expr) (leaf:func_decl -> list value -> int) (rho:env value)
+  : Lemma (requires equivalent a b) (ensures eval (SM.standard leaf) a rho == eval (SM.standard leaf) b rho)
+  = SM.lemma_standard_model leaf;
+    lemma_equivalent_ground a b (SM.standard leaf) SM.std_project rho
+
+(* Legacy kernel entry points. Their hypotheses are conjuncts of
+   `Z3UnifiedProof.model_sound`, which is uninhabited. The implication to
+   the ground contracts is therefore vacuous and does not restore kernel
+   soundness. The direct ground and standard lemmas above are the
+   non-vacuous claims for this evaluator. *)
 let lemma_valid_sound (e:expr) (i:interpretation value) (rho:env value)
   : Lemma (requires (exists (project:pos -> value -> int). BV.bv_model i project) /\
-                    boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
+                    boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
                     eq_sound i /\ true_sound i /\ false_sound i /\ valid e)
           (ensures lit_true i rho e)
   = let aux (project:pos -> value -> int)
       : Lemma (requires BV.bv_model i project) (ensures lit_true i rho e)
-      = lemma_valid i rho project e in
+      = SM.lemma_ground_of_global i project;
+        lemma_valid i rho project e in
     FStar.Classical.exists_elim (lit_true i rho e)
       #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project)
 
 let lemma_equivalent_sound (a b:expr) (i:interpretation value) (rho:env value)
   : Lemma (requires (exists (project:pos -> value -> int). BV.bv_model i project) /\
-                    boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
+                    boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
                     eq_sound i /\ true_sound i /\ false_sound i /\ equivalent a b)
           (ensures eval i a rho == eval i b rho)
   = lemma_valid_sound (mk_eq_expr a b) i rho

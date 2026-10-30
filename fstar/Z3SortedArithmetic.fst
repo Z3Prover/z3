@@ -167,6 +167,30 @@ let lemma_comparison (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
       match r with A.Le | A.Lt | A.Ge | A.Gt | A.Eq -> ())
   | _ -> ()
 
+(* `R.constraint_of` at a comparison, unfolded once: an equation has no
+   constraint, and otherwise the polynomial is the oriented difference
+   (`A.oriented`) of the two linearized sides. A separate lemma, so that the
+   comparison case of `lemma_constraint` does not unfold `constraint_of` in
+   its own larger context. *)
+let lemma_constraint_of_comparison (fuel:nat) (positive:bool) (e a b:expr) (r:A.relation)
+                                   (p:A.contribution)
+  : Lemma (requires ~(e = Z3ResolutionProofTheory.true_expr || e = Z3ResolutionProofTheory.false_expr) /\
+                    A.comparison e == Some (r, a, b) /\ R.constraint_of fuel positive e == Some p)
+          (ensures r <> A.Eq /\ Some? (A.linearize 64 a) /\ Some? (A.linearize 64 b) /\
+                   p.P.poly == fst (A.oriented positive r (Some?.v (A.linearize 64 a))
+                                                         (Some?.v (A.linearize 64 b)))) =
+  ()
+
+(* The value of that polynomial, from `E.lemma_oriented`: the precondition of
+   `R.lemma_scaled_relation`, proved apart from the larger context of
+   `lemma_constraint`. *)
+let lemma_oriented_constraint (positive:bool) (r:A.relation) (pa pb:A.poly) (p:A.contribution)
+                              (x y:real) (v:expr -> real)
+  : Lemma (requires p.P.poly == fst (A.oriented positive r pa pb) /\
+                    E.denotes pa x v /\ E.denotes pb y v)
+          (ensures P.value p.P.poly v == of_int p.P.poly.denom *. E.difference positive r x y) =
+  E.lemma_oriented positive r pa pb x y v
+
 let rec lemma_constraint (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                          (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -186,6 +210,7 @@ let rec lemma_constraint (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   | _ ->
     (match A.comparison e with
      | Some (r, a, b) ->
+       lemma_constraint_of_comparison fuel positive e a b r p;
        let pa = Some?.v (A.linearize 64 a) in
        let pb = Some?.v (A.linearize 64 b) in
        lemma_linearize s bc model other scope rho 64 a pa;
@@ -193,7 +218,7 @@ let rec lemma_constraint (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
        let x = of_int (integer s bc model other scope rho a) in
        let y = of_int (integer s bc model other scope rho b) in
        let v = valuation s bc model other scope rho in
-       E.lemma_oriented positive r pa pb x y v;
+       lemma_oriented_constraint positive r pa pb p x y v;
        R.lemma_scaled_relation positive r p.poly.denom (P.value p.poly v) x y;
        lemma_comparison s bc model other scope rho e a b r
      | None -> ())

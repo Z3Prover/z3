@@ -1589,6 +1589,29 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Native euf and tseitin checks over Boolean constants and arguments (2026-10-28)
+
+Z3's own replay (`z3 -smt2 log`, the `smt-clause-log` matrix cells) sent
+two kinds of steps to its SMT fallback (`verified-smt`). The euf checker
+(`eq_theory_checker`) merges the atom of a literal `(not q)` with false but
+gives the term `(not q)` no class, so congruence `(pb (not q)) = (pb true)`
+was "not congruent"; congruence now also equates Boolean arguments whose
+truth values are known, reading `not` through. The tseitin checker matched
+gate clauses literal by literal, so a gate over a constant (Z3 writes
+`(not (= true b))`, b, false, with false standing for `(not true)`), an
+`or` gate with a `true` disjunct, `(= (ite c a a) a)`, and clauses with
+complementary literals or a constantly true literal were missed; the checker
+now gives the constants their fixed values and accepts those tautologies.
+Over 692 unsat logs of the UF-family random generators (seeds 1..300 of
+eight generators of the Lean suites) the native replay went from 28 euf and
+700 tseitin fallbacks (165 logs) to none; the remaining fallbacks there are
+arithmetic (`cut`, `arith`). The Python replay and Lean checked these steps
+already, so certificates are unchanged. Tests: `tst_checker_tseitin_constants`,
+`tst_checker_euf_negated_arguments`, `tst_replay_boolean_constants_and_arguments`
+in `src/test/proof_replay.cpp`, and
+`test_native_checker_verifies_boolean_arguments_and_constant_gates` in
+`test_proof_certificate.py` (real Z3 logs, all fail on the previous build).
+
 ### Trimmer: negated Boolean arguments (2026-10-28)
 
 A Boolean term under an uninterpreted function, x = `(not q)` in
@@ -1824,6 +1847,32 @@ now when the replay frontend exits inside a log instead of ending the
 binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
+
+### Native checks of the arithmetic solver's axioms (2026-10-29)
+
+Clauses the sat.smt arithmetic solver adds without a hint of their own
+(`arith_axioms.cpp`) reach the log with a bare `arith` hint listing the
+negated clause literals, and Z3's own replay had no checker for that name:
+every one went to the SMT fallback (5,213 steps in 164 of 452 unsat logs of
+the LRA/LIA/UFLRA random generators, all from `random_division_instance`
+and its variant with functions, plus 18 in the UFLRA logs of the iter-043
+scan). The arithmetic checker now registers `arith` and accepts a clause when
+one literal is valid by linear arithmetic once `(mod u k)` is replaced by
+`u - k * (div u k)` and `(/ u k)` by `u / k` for nonzero numerals k, or by
+the bounds `0 <= (mod u k) <= |k| - 1`, or when the clause is one of the two
+`abs` cases, `(abs u) = u` or `(abs u) = -u` with the case condition implied
+by the negation of the other literal. A leading `true` stands for the false
+`q = 0` literal of `q * (p / q) = p` that the logged clause omits; the
+checker's `clause` drops it, so the trimmer keeps the logged clause. Anything
+else under `arith` (to_int, powers, nonlinear divisors) still falls back.
+After the change the same logs have no `arith` fallback (only the `cut`
+steps, by design), and a soundness fuzz of 3,000 random near-miss clauses
+found no accepted invalid one. The Python replay and Lean checked these
+steps already, so certificates are unchanged. Tests:
+`tst_checker_arith_axioms`, `tst_replay_arith_axioms` in
+`src/test/proof_replay.cpp`, and
+`test_native_checker_verifies_arithmetic_axioms` in
+`test_proof_certificate.py` (all three inputs fail on the previous build).
 
 ### Constant rows in native implied-equality checking (2026-10-19)
 

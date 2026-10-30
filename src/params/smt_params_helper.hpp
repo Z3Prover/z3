@@ -16,6 +16,7 @@ Abstract:
 #include "util/gparams.h"
 
 #define SMT_PARAMS_HELPER_LIST(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_) \
+  BOOL_  (finite_set_reuse_witness, "finite_set.reuse_witness", false, "reuse known distinguishing members instead of introducing finite-set extensionality witnesses (may change branching)") \
   BOOL_  (ff_unique, "ff.unique", true, "bounded uniqueness propagation before field solving") \
   UINT_  (ff_unique_work, "ff.unique_work", 1000000, "local work allowance for the entire uniqueness attempt") \
   UINT_  (ff_unique_nodes, "ff.unique_nodes", 50000, "maximum nodes in uniqueness search") \

@@ -169,8 +169,19 @@ let word_parts (e:expr) : option (pos & list expr) =
 let rec bits_number (bs:list bool) : Tot nat (decreases bs) =
   match bs with [] -> 0 | b :: rest -> (if b then 1 else 0) + 2 * bits_number rest
 
-let bit_values (i:interpretation value) (rho:env value) (args:list expr) : list bool =
-  L.map (fun e -> Z3BooleanRewrite.bool_value (eval i e rho)) args
+(* Ghost, like `eval`: the Boolean values of the arguments. *)
+let rec bit_values (i:interpretation value) (rho:env value) (args:list expr)
+  : GTot (list bool) (decreases args) =
+  match args with
+  | [] -> []
+  | e :: rest -> Z3BooleanRewrite.bool_value (eval i e rho) :: bit_values i rho rest
+
+let rec lemma_bit_values_length (i:interpretation value) (rho:env value) (args:list expr)
+  : Lemma (ensures L.length (bit_values i rho args) == L.length args) (decreases args)
+          [SMTPat (L.length (bit_values i rho args))]
+  = match args with
+    | [] -> ()
+    | _ :: rest -> lemma_bit_values_length i rho rest
 
 let calculate (width:pos) (op:decl_kind) (xs:list (U.uint_t width)) : U.uint_t width =
   match xs with
@@ -573,7 +584,7 @@ let comparison_bridge (e:expr) : option expr =
 
 let lemma_bit_test (i:interpretation value) (rho:env value)
                    (project:pos -> value -> int) (e x:expr) (k:int)
-  : Lemma (requires bv_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+  : Lemma (requires bv_model i project /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
                     D.scoped [] e /\ bit_test e == Some (x, k))
           (ensures D.scoped [] x /\ get_sort x == bv_sort 1 /\
                    0 <= k /\ k < 2 /\
@@ -587,7 +598,7 @@ let lemma_bit_test (i:interpretation value) (rho:env value)
 
 let lemma_bit_conditional (i:interpretation value) (rho:env value)
                           (project:pos -> value -> int) (e result:expr)
-  : Lemma (requires bv_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+  : Lemma (requires bv_model i project /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
                     AR.term_ite_sound i /\ D.scoped [] e /\
                     bit_conditional e == Some result)
           (ensures eval i e rho == eval i result rho)
@@ -860,7 +871,7 @@ let lemma_extract_rewrite (i:interpretation value) (rho:env value)
 
 let lemma_concat_comparison (i:interpretation value) (rho:env value)
                             (project:pos -> value -> int) (e result:expr)
-  : Lemma (requires bv_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+  : Lemma (requires bv_model i project /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
                     D.scoped [] e /\ concat_comparison e == Some result)
           (ensures eval i e rho == eval i result rho)
   = match e with
@@ -955,9 +966,15 @@ let lemma_left_identity (i:interpretation value) (rho:env value)
 let lemma_subtraction_words (width:pos) (a b:U.uint_t width)
   : Lemma (U.sub_mod a b == U.add_mod a (U.mul_mod (U.ones width) b))
   = let p = pow2 width in
-    FStar.Math.Lemmas.lemma_mod_add_distr a ((p - 1) * b) p;
-    FStar.Math.Lemmas.lemma_mod_plus (a - b) b p;
-    assert (a + (p - 1) * b == a - b + b * p)
+    let c = (p - 1) * b in
+    assert (U.mul_mod (U.ones width) b == c % p);
+    assert (U.add_mod a (U.mul_mod (U.ones width) b) == (a + c % p) % p);
+    assert (U.sub_mod a b == (a - b) % p);
+    FStar.Math.Lemmas.lemma_mod_add_distr a c p;
+    FStar.Math.Lemmas.distributivity_sub_left p 1 b;
+    FStar.Math.Lemmas.swap_mul p b;
+    assert (a + c == a - b + b * p);
+    FStar.Math.Lemmas.lemma_mod_plus (a - b) b p
 
 let lemma_subtraction_rewrite (i:interpretation value) (rho:env value)
                               (project:pos -> value -> int) (e result:expr)
@@ -1100,7 +1117,7 @@ let lemma_isolate_words (width:pos) (a b c:U.uint_t width)
 #push-options "--fuel 4 --ifuel 2"
 let lemma_isolate_equality (i:interpretation value) (rho:env value)
                            (project:pos -> value -> int) (e result:expr)
-  : Lemma (requires bv_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+  : Lemma (requires bv_model i project /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
                     D.scoped [] e /\ isolate_equality e == Some result)
           (ensures eval i e rho == eval i result rho)
   = match e with
@@ -1209,7 +1226,7 @@ let lemma_double_words (width:pos) (a b:U.uint_t width)
 
 let lemma_double_equality (i:interpretation value) (rho:env value)
                           (project:pos -> value -> int) (e result:expr)
-  : Lemma (requires bv_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+  : Lemma (requires bv_model i project /\ Z3ObservationalEquality.boolean_model i /\ eq_sound i /\
                     D.scoped [] e /\ double_equality e == Some result)
           (ensures eval i e rho == eval i result rho)
   = match e with
