@@ -86,8 +86,12 @@ removed, including `p => q` versus `not p or q`, and reversed term equalities.
 Each clause has at most one positive literal.
 Original declaration names are retained when they are unambiguous TPTP plain
 words (`[a-z][A-Za-z0-9_]*`). Overloaded and other names use injective `dN`
-fallbacks. Generated declaration and sort names avoid original names by
-appending underscores on collision. Native declaration identities are unchanged.
+fallbacks. Unambiguous source sort names are retained as TPTP atoms, quoting
+printable ASCII names such as `U` or `user sort` and escaping quotes/backslashes.
+Ambiguous, non-ASCII, or term-colliding sort names use injective `sN` fallbacks.
+Generated declaration and sort names avoid original names in both namespaces
+by appending underscores on collision. Native declaration and sort identities
+are unchanged.
 Ground-only problems use CNF.
 Problems with universal assertions use typed TPTP (TFF): sort declarations,
 function/predicate signatures, and typed universal binders preserve the

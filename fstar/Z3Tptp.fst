@@ -58,9 +58,50 @@ let plain_word (name:string) : bool =
       let n = FStar.Char.int_of_char c in
       lower c || (65 <= n && n <= 90) || digit c || c = '_') rest
 
-let rec fresh_name (name:string) (ds:list func_decl) : ML string =
-  if L.for_all (fun d -> source_name d <> name) ds then name
-  else fresh_name (name ^ "_") ds
+let source_sort_name (s:sort) : option string =
+  match s with
+  | BaseSort name ->
+    Some (match FStar.String.list_of_string name with
+    | 's' :: 'o' :: 'r' :: 't' :: '!' :: c :: rest ->
+      if digit c then
+        (match native_name_suffix rest with Some name -> name | None -> name)
+      else name
+    | _ -> name)
+  | _ -> None
+
+let rec escape_atom (cs:list FStar.Char.char)
+  : Tot (list FStar.Char.char) (decreases cs) =
+  match cs with
+  | [] -> []
+  | c :: rest ->
+    if c = '\'' || c = '\\' then '\\' :: c :: escape_atom rest
+    else c :: escape_atom rest
+
+let sort_atom (name:string) : option string =
+  if plain_word name then Some name
+  else
+    let cs = FStar.String.list_of_string name in
+    if cs <> [] && L.for_all (fun c ->
+      let n = FStar.Char.int_of_char c in 32 <= n && n <= 126) cs
+    then Some ("'" ^ FStar.String.string_of_list (escape_atom cs) ^ "'")
+    else None
+
+let rec bound_sorts (e:expr) : Tot (list sort) (decreases e) =
+  match e with
+  | Quantifier _ bs _ body -> L.append bs (bound_sorts body)
+  | _ -> []
+
+let type_sorts (doc:P.document) : list sort =
+  let add sorts s = if s = bool_sort || L.mem s sorts then sorts else s :: sorts in
+  let sorts = L.fold_left (fun sorts d ->
+    L.fold_left add (add sorts d.range) d.domain) [] doc.declarations in
+  L.fold_left (fun sorts e -> L.fold_left add sorts (bound_sorts e)) sorts doc.assertions
+
+let rec fresh_name (name:string) (doc:P.document) : ML string =
+  if L.for_all (fun d -> source_name d <> name) doc.declarations &&
+     L.for_all (fun s -> source_sort_name s <> Some name) (type_sorts doc)
+  then name
+  else fresh_name (name ^ "_") doc
 
 let symbol (doc:P.document) (d:func_decl) : ML string =
   let index = position d doc.declarations 0 in
@@ -69,7 +110,7 @@ let symbol (doc:P.document) (d:func_decl) : ML string =
      L.for_all (fun other ->
        other = d || other.interp <> None || source_name other <> name) doc.declarations
   then name
-  else fresh_name ("d" ^ string_of_int index) doc.declarations
+  else fresh_name ("d" ^ string_of_int index) doc
 
 let rec universal_scope (scope:list sort) (e:expr) : ML (list sort & expr) =
   match e with
@@ -83,20 +124,20 @@ let rec universal_scope (scope:list sort) (e:expr) : ML (list sort & expr) =
 let typed (doc:P.document) : bool =
   not (L.for_all (fun e -> not (Quantifier? e)) doc.assertions)
 
-let rec bound_sorts (e:expr) : Tot (list sort) (decreases e) =
-  match e with
-  | Quantifier _ bs _ body -> L.append bs (bound_sorts body)
-  | _ -> []
-
-let type_sorts (doc:P.document) : list sort =
-  let add sorts s = if s = bool_sort || L.mem s sorts then sorts else s :: sorts in
-  let sorts = L.fold_left (fun sorts d ->
-    L.fold_left add (add sorts d.range) d.domain) [] doc.declarations in
-  L.fold_left (fun sorts e -> L.fold_left add sorts (bound_sorts e)) sorts doc.assertions
-
 let type_name (doc:P.document) (s:sort) : ML string =
   if s = bool_sort then "$o"
-  else fresh_name ("s" ^ string_of_int (position s (type_sorts doc) 0)) doc.declarations
+  else
+    let sorts = type_sorts doc in
+    let name = match source_sort_name s with
+      | Some name ->
+        if L.for_all (fun other ->
+             other = s || source_sort_name other <> Some name) sorts &&
+           L.for_all (fun d -> source_name d <> name) doc.declarations
+        then sort_atom name else None
+      | None -> None in
+    match name with
+    | Some name -> name
+    | None -> fresh_name ("s" ^ string_of_int (position s sorts 0)) doc
 
 let rec type_names (doc:P.document) (ss:list sort) : ML (list string) =
   match ss with
@@ -109,8 +150,8 @@ let rec type_names (doc:P.document) (ss:list sort) : ML (list string) =
 let rec sort_declarations (doc:P.document) (ss:list sort) (index:nat) : ML string =
   match ss with
   | [] -> ""
-  | _ :: rest ->
-    let name = fresh_name ("s" ^ string_of_int index) doc.declarations in
+  | s :: rest ->
+    let name = type_name doc s in
     let rest = sort_declarations doc rest (index + 1) in
     "tff(ts" ^ string_of_int index ^ ",type," ^ name ^ ":$tType).\n" ^ rest
 

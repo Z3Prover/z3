@@ -33,11 +33,49 @@ TPTP_NAMING_CASES = (
      "(declare-fun p (U) Bool)(declare-fun q (V) Bool)"
      "(assert (forall ((x U)) (=> (p x) (q (as a V)))))"
      "(assert (p (as a U)))(assert (not (q (as a V))))"),
-    ("sort-collision", "(declare-sort U 0)(declare-const a U)"
-     "(declare-fun s0 (U) Bool)(declare-fun s0_ (U) Bool)"
-     "(assert (forall ((x U)) (=> (s0 x) (s0_ x))))"
+    ("sort-collision", "(declare-sort |na\u00efve| 0)(declare-const a |na\u00efve|)"
+     "(declare-fun s0 (|na\u00efve|) Bool)(declare-fun s0_ (|na\u00efve|) Bool)"
+     "(assert (forall ((x |na\u00efve|)) (=> (s0 x) (s0_ x))))"
      "(assert (s0 a))(assert (not (s0_ a)))"),
 )
+
+
+def sorted_horn(first="U", second="V", predicate="p", conclusion="q"):
+    return (f"(declare-sort {first} 0)(declare-sort {second} 0)"
+            f"(declare-const a {first})(declare-const b {second})"
+            f"(declare-fun {predicate} ({first} {second}) Bool)"
+            f"(declare-fun {conclusion} ({second} {first}) Bool)"
+            f"(assert (forall ((x {first}) (y {second}))"
+            f" (=> ({predicate} x y) ({conclusion} y x))))"
+            f"(assert ({predicate} a b))(assert (not ({conclusion} b a)))")
+
+
+TPTP_SORT_NAMING_CASES = (
+    ("sort-readable", sorted_horn("entity", "location")),
+    ("sort-uppercase", sorted_horn()),
+    ("sort-quoted", sorted_horn("|user sort|", "|owner's sort|")),
+    ("sort-colon", sorted_horn("|sort!7:source|", "|dollar$sort|")),
+    ("sort-invalid", sorted_horn("|na\u00efve|", "valid")),
+    ("sort-symbol-collision", sorted_horn("p", "v")),
+    ("sort-reserved-fallback", sorted_horn("p", "s0", conclusion="s0_")),
+    ("sort-duplicate", "(declare-sort box 1)(declare-sort left 0)(declare-sort right 0)"
+     "(declare-const a (box left))(declare-const b (box right))"
+     "(declare-fun p ((box left) (box right)) Bool)"
+     "(declare-fun q ((box right) (box left)) Bool)"
+     "(assert (forall ((x (box left)) (y (box right))) (=> (p x y) (q y x))))"
+     "(assert (p a b))(assert (not (q b a)))"),
+    ("sort-quoted-word", sorted_horn("|'entity'|", "type")),
+    ("sort-dollar", sorted_horn("|$o|", "|$tType|")),
+)
+
+TPTP_EXPECTED_SORT_NAMES = {
+    "sort-readable": ("entity", "location"),
+    "sort-uppercase": ("'U'", "'V'"),
+    "sort-quoted": ("'user sort'", "'owner\\'s sort'"),
+    "sort-colon": ("'sort!7:source'", "'dollar$sort'"),
+    "sort-quoted-word": ("'\\'entity\\''", "type"),
+    "sort-dollar": ("'$o'", "'$tType'"),
+}
 
 
 NEGATIVE_NNF_CASES = (
@@ -407,7 +445,7 @@ class DirectCheckerTests(unittest.TestCase):
             self.assertEqual(result.stdout.strip(), "ACCEPT")
             proof = path.read_text(encoding="utf-8")
             self.assertIn(":$tType", proof)
-            scope = re.search(r"!\[X0:(s\d+),X1:(s\d+)\]", proof)
+            scope = re.search(r"!\[X0:('U'),X1:('V')\]", proof)
             self.assertIsNotNone(scope, proof)
             self.assertNotEqual(scope.group(1), scope.group(2))
             self.assertIn("p(X0,X1)", proof)
@@ -459,6 +497,52 @@ class DirectCheckerTests(unittest.TestCase):
             proof = export(source)
             self.assertIn(f"{fallback}__({fallback})", proof)
             self.assertIn(f"{fallback}_({fallback})", proof)
+
+    @unittest.skipIf(os.name == "nt", "Export paths are native; run this test in WSL")
+    def test_tstp_preserves_sort_names_without_symbol_or_sort_collisions(self):
+        atom = r"(?:[a-z][A-Za-z0-9_]*|'(?:\\.|[^'\\])*')"
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "proof.tstp"
+
+            def export(source):
+                result = self.run_checker(source, "--tstp-out", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.strip(), "ACCEPT")
+                return path.read_text(encoding="utf-8")
+
+            for name, source in TPTP_SORT_NAMING_CASES:
+                with self.subTest(name=name):
+                    proof = export(source)
+                    sorts = re.findall(r"tff\(ts\d+,type,(" + atom + r"):\$tType\)", proof)
+                    self.assertEqual(len(sorts), 2, proof)
+                    self.assertEqual(len(set(sorts)), 2, proof)
+                    symbols = re.findall(r"tff\(td\d+,type,(" + atom + "):", proof)
+                    self.assertTrue(set(sorts).isdisjoint(symbols), proof)
+                    if name in TPTP_EXPECTED_SORT_NAMES:
+                        first, second = TPTP_EXPECTED_SORT_NAMES[name]
+                        self.assertEqual(set(sorts), {first, second})
+                        self.assertIn(f"![X0:{first},X1:{second}]", proof)
+                        self.assertIn(f"type,p:({first} * {second}) > $o", proof)
+                        self.assertIn(f"type,q:({second} * {first}) > $o", proof)
+                    elif name == "sort-invalid":
+                        self.assertIn("valid", sorts)
+                        self.assertNotIn("na\u00efve", proof)
+                        self.assertTrue(any(re.fullmatch(r"s\d+_*", s) for s in sorts), proof)
+                    elif name == "sort-duplicate":
+                        self.assertTrue(all(re.fullmatch(r"s\d+_*", s) for s in sorts), proof)
+                    else:
+                        self.assertNotIn("p", sorts)
+                        self.assertIn("p(X0,X1)", proof)
+                        if name == "sort-reserved-fallback":
+                            self.assertIn("s0", sorts)
+                            self.assertNotIn("s0_", sorts)
+                            self.assertIn("s0_(X1,X0)", proof)
+
+            proof = export(sorted_horn("u", "v", predicate="|Bad Name|"))
+            fallback = re.search(r"\b(d\d+)\(X0,X1\)", proof).group(1)
+            proof = export(sorted_horn(fallback, "v", predicate="|Bad Name|"))
+            self.assertIn(f"type,{fallback}:$tType", proof)
+            self.assertIn(f"{fallback}_(X0,X1)", proof)
 
     def test_zero_extension_refutations_and_counterexamples(self):
         for width, extra in ((1, 0), (1, 1), (8, 24), (65, 65), (1, 4095)):
