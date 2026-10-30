@@ -37,10 +37,14 @@ jobs:
         with:
           name: java-maven-test-packages
           path: packages
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-maven-test-repository
+          path: repository
       - name: Resolve and execute the same JARs with Maven and Gradle
         run: >-
           python scripts/java/maven_consumer.py --packages packages --platform ${{ matrix.platform }}
-          --work-dir consumer-result --gradle
+          --work-dir consumer-result --gradle --repository repository
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

@@ -912,7 +912,8 @@ jobs:
         run: |
 
           ls
-          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+          # Maven rehearsal ZIPs are test artifacts, never release attachments.
+          find tmp -type f -not -path 'tmp/java-maven-*/*' \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
 
           # Only the final Java artifact has passed every native smoke job.
           # Do not publish the intermediate java-assembled-packages artifact.

@@ -67,6 +67,16 @@ jobs:
         run: >-
           python scripts/java/maven_artifacts.py --packages java-packages --sources java-sources
           --out-dir java-maven-packages --work-dir java-maven-work
+      - name: Assemble local Maven repository without changing JAR bytes
+        run: >-
+          python scripts/java/maven_bundle.py prepare --packages java-maven-packages
+          --out-dir java-maven-repository
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-maven-test-repository
+          path: java-maven-repository/
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: java-maven-test-packages
@@ -83,6 +93,12 @@ jobs:
   maven-consumers:
     needs: package
     uses: ./.github/workflows/java-maven-consumers.yml
+
+  maven-bundle:
+    needs: [package, smoke, maven-consumers]
+    uses: ./.github/workflows/java-maven-bundle.yml
+    with:
+      smoke-artifact-pattern: java-release-smoke-*
 
   smoke:
     needs: package
