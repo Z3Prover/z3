@@ -205,13 +205,15 @@ this case needed a new, independent theory of that family:
   `value:eqtype`), truth constants, and `ite` (for genuinely
   Bool-sorted `ite`, as opposed to the regex-sorted case below).
   Compiles standalone with zero admits.
-- **[`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst)**: `seq_lit` gained a `cond_interp :
-  interpretation bool` field and `eval_cond`, used only to give a
-  regex-sorted `ite`'s *condition* `c` a concrete truth value (`c` is
-  assumed closed; atoms not themselves built from basic connectives
-  -- e.g. an opaque string equality -- are treated as propositions
-  whose truth `cond_interp` assigns directly, out of scope to model
-  more deeply). `to_lang`'s new `ite` case requires *both* branches
+- **[`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst)**: `seq_lit` has
+  executable `leaf_interp` and `cond_interp` fields of type
+  `Z3AstTotEval.tot_interpretation`, instantiated with sequence and Boolean
+  values respectively. This is a public API change from
+  `Z3AstTheory.interpretation`, whose fields are now ghost. `eval_cond`
+  uses the Tot interface to evaluate the closed condition `c` of a
+  regex-sorted `(ite c t f)`. Opaque atoms, such as a string equality not
+  handled by the sequence-specific cases, receive their truth values
+  from `cond_interp`. `to_lang`'s `ite` case requires *both* branches
   `t`/`f` to be recognized regex expressions (matching that an
   ill-formed `ite` is not well-sorted regardless of which branch a
   model happens to select) and then picks the one `eval_cond` selects
@@ -431,7 +433,7 @@ Closes the "conditions mixing genuine sequence-level equalities with
 Boolean structure" gap listed above: previously `eval_cond` (used by
 `to_lang`'s `(ite c t f)` case to pick the actual, model-dependent
 branch) evaluated its condition `c` entirely via
-`Z3BasicExprTheory.eval_bool sl.cond_interp ...`, which is
+`Z3AstTotEval.teval_bool sl.cond_interp ...`, which is
 monomorphic in a single `value:eqtype` for the whole condition tree
 (instantiated at `value = bool` here) -- so a subterm `(= s1 s2)`
 where `s1`, `s2 : seq a` could only ever be treated as an *opaque*
@@ -440,7 +442,7 @@ even though [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst) already has its own
 of sequence equality via `eval_leaf`.
 
 `eval_cond` is now a recursive function in its own right (mirroring
-`eval_bool`'s structural recursion over `and`/`or`/`not`/`implies`/
+`Z3AstTotEval.teval_bool`'s structural recursion over `and`/`or`/`not`/`implies`/
 `xor`/`ite`/`true`/`false`, via the mutually-recursive helpers
 `eval_cond_and`/`eval_cond_or`), with two new cases:
 
@@ -457,7 +459,7 @@ Any node `eval_cond` does not itself recognize this way -- an
 `=`/`distinct` between non-sequence-sorted arguments, an arity
 mismatch, an uninterpreted Boolean atom, or an application from
 another family entirely -- falls back to the previous
-`eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false)` path
+`Z3AstTotEval.teval_bool sl.cond_interp (fun b -> b) e (fun _ -> false)` path
 unchanged, so this is a strict extension, not a behavior change, for
 every condition that does not itself contain a sequence-sorted
 equality/distinctness.

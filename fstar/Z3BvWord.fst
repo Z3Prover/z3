@@ -108,7 +108,7 @@ let rec bit_equalities (xs ys:list expr) : Tot (list expr) (decreases xs) =
   | _, _ -> []
 
 let rec lemma_bit_equalities (i:interpretation value) (rho:env value) (xs ys:list expr)
-  : Lemma (requires B.boolean_rewrite_model i /\ L.length xs == L.length ys /\
+  : Lemma (requires Z3ObservationalEquality.boolean_model i /\ eq_sound i /\ L.length xs == L.length ys /\
                     L.for_all (fun x -> get_sort x = bool_sort) xs /\
                     L.for_all (fun x -> get_sort x = bool_sort) ys)
           (ensures (conj_holds i rho (bit_equalities xs ys) <==>
@@ -134,7 +134,8 @@ let equality_rewrite (e:expr) : option expr =
 
 let lemma_equality_rewrite (i:interpretation value) (rho:env value)
                            (project:pos -> value -> int) (e result:expr)
-  : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
+  : Lemma (requires BV.bv_model i project /\ SM.literal_model i /\ Z3ObservationalEquality.boolean_model i /\
+                    eq_sound i /\ and_sound i /\ or_sound i /\
                     D.scoped [] e /\ equality_rewrite e == Some result)
           (ensures eval i e rho == eval i result rho)
   = match e with
@@ -145,6 +146,7 @@ let lemma_equality_rewrite (i:interpretation value) (rho:env value)
       lemma_parts i rho project b width ys;
       lemma_number_equal (BV.bit_values i rho xs) (BV.bit_values i rho ys);
       lemma_bit_equalities i rho xs ys;
+      B.lemma_connective_holds B.Conjunction i rho (bit_equalities xs ys);
       assert ((eval i a rho == eval i b rho) <==>
         project width (eval i a rho) == project width (eval i b rho));
       assert (lit_true i rho result <==>
@@ -328,7 +330,7 @@ let concat_rewrite (e:expr) : option expr =
 
 let lemma_concat_rewrite (i:interpretation value) (rho:env value)
                          (project:pos -> value -> int) (e result:expr)
-  : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
+  : Lemma (requires BV.bv_model i project /\ SM.literal_model i /\
                     D.scoped [] e /\ concat_rewrite e == Some result)
           (ensures eval i e rho == eval i result rho)
   = let c = Some?.v (BV.concat_parts e) in
@@ -468,6 +470,14 @@ let addition_rewrite (e:expr) : option expr =
      | _, _, _ -> None)
   | _ -> None
 
+(* The arithmetic of a ripple-carry sum, apart from the semantic context. *)
+let lemma_add_number (width:nat) (xs ys sums:list bool) (overflow:bool) (pa pb:int)
+  : Lemma (requires L.length xs == width /\ L.length ys == width /\
+                    (sums, overflow) == add_values false xs ys /\
+                    pa == BV.bits_number xs /\ pb == BV.bits_number ys)
+          (ensures pa + pb == BV.bits_number sums + pow2 width * bit_number overflow)
+  = lemma_add_values false xs ys
+
 let lemma_addition_rewrite (i:interpretation value) (rho:env value)
                            (project:pos -> value -> int) (e result:expr)
   : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
@@ -481,14 +491,14 @@ let lemma_addition_rewrite (i:interpretation value) (rho:env value)
       lemma_parts i rho project a width xs;
       lemma_parts i rho project b width ys;
       lemma_add_bits i rho false_expr xs ys;
-      lemma_add_values false (BV.bit_values i rho xs) (BV.bit_values i rho ys);
       let sums, overflow = add_bits false_expr xs ys in
+      lemma_constants_canonical ();
+      lemma_add_number width (BV.bit_values i rho xs) (BV.bit_values i rho ys)
+        (BV.bit_values i rho sums) (B.bool_value (eval i overflow rho))
+        (project width (eval i a rho)) (project width (eval i b rho));
       lemma_word_shape sums;
       lemma_parts i rho project result width sums;
       lemma_number_bounds (BV.bit_values i rho sums);
-      assert (project width (eval i a rho) + project width (eval i b rho) ==
-        BV.bits_number (BV.bit_values i rho sums) +
-        pow2 width * bit_number (B.bool_value (eval i overflow rho)));
       M.lemma_mod_plus (BV.bits_number (BV.bit_values i rho sums))
         (bit_number (B.bool_value (eval i overflow rho))) (pow2 width);
       M.small_mod (BV.bits_number (BV.bit_values i rho sums)) (pow2 width);
@@ -626,10 +636,30 @@ let concat_equality_rewrite (e:expr) : option expr =
       | None -> concat_numeral_equality b a)
   | _ -> None
 
+(* The rewritten conjunction, read off `concat_numeral_equality`, apart from
+   the semantic context. *)
+let lemma_concat_numeral_result (a b result:expr)
+  : Lemma (requires concat_numeral_equality a b == Some result)
+          (ensures (let c:BV.concatenation = Some?.v (BV.concat_parts a) in
+                    let n = snd (Some?.v (BV.numeral b)) in
+                    let p = pow2 c.right_width in
+                    let r = mk_eq_expr c.right (BV.literal c.right_width (n % p)) in
+                    let l = mk_eq_expr c.left (BV.literal c.left_width (n / p)) in
+                    result == App (B.connective_decl B.Conjunction [r; l]) [r; l]))
+  = ()
+
+(* A two-argument canonical conjunction, apart from the surrounding context. *)
+let lemma_pair_conjunction (i:interpretation value) (rho:env value) (r l result:expr)
+  : Lemma (requires and_sound i /\ or_sound i /\
+                    result == App (B.connective_decl B.Conjunction [r; l]) [r; l])
+          (ensures lit_true i rho result <==> (lit_true i rho r /\ lit_true i rho l))
+  = B.lemma_connective_holds B.Conjunction i rho [r; l]
+
 #push-options "--fuel 4 --ifuel 2"
 let lemma_concat_numeral_equality (i:interpretation value) (rho:env value)
                                  (project:pos -> value -> int) (a b result:expr)
-  : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
+  : Lemma (requires BV.bv_model i project /\ Z3ObservationalEquality.boolean_model i /\
+                    eq_sound i /\ and_sound i /\ or_sound i /\
                     D.scoped [] a /\ D.scoped [] b /\
                     concat_numeral_equality a b == Some result)
           (ensures (eval i a rho == eval i b rho) <==> lit_true i rho result)
@@ -665,7 +695,12 @@ let lemma_concat_numeral_equality (i:interpretation value) (rho:env value)
     let l = mk_eq_expr c.left (BV.literal c.left_width (n / p)) in
     assert (lit_true i rho r <==> eval i c.right rho == eval i (BV.literal c.right_width (n % p)) rho);
     assert (lit_true i rho l <==> eval i c.left rho == eval i (BV.literal c.left_width (n / p)) rho);
-    assert (lit_true i rho result <==> (lit_true i rho r /\ lit_true i rho l))
+    lemma_concat_numeral_result a b result;
+    assert (width == c.left_width + c.right_width);
+    assert (project width (eval i a rho) == x * p + y);
+    assert ((eval i a rho == eval i b rho) <==> (x == n / p /\ y == n % p));
+    assert ((eval i a rho == eval i b rho) <==> (lit_true i rho r /\ lit_true i rho l));
+    lemma_pair_conjunction i rho r l result
 
 let lemma_concat_equality_rewrite (i:interpretation value) (rho:env value)
                                  (project:pos -> value -> int) (e result:expr)
@@ -803,12 +838,18 @@ let rewrite (e:expr) : option expr =
   let r = concat_association_rewrite e in
   if Some? r then r else not_concat_rewrite e
 
+(* The canonical `true`/`false` contracts give the literal contract. *)
+let lemma_literal_model (i:interpretation value)
+  : Lemma (requires true_sound i /\ false_sound i) (ensures SM.literal_model i)
+  = lemma_constants_canonical ()
+
 let lemma_rewrite (i:interpretation value) (rho:env value)
                   (project:pos -> value -> int) (e result:expr)
   : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
                     rewrite e == Some result)
           (ensures eval i e rho == eval i result rho)
-  = if Some? (equality_rewrite e) then lemma_equality_rewrite i rho project e result
+  = lemma_literal_model i;
+    if Some? (equality_rewrite e) then lemma_equality_rewrite i rho project e result
     else if Some? (concat_equality_rewrite e) then lemma_concat_equality_rewrite i rho project e result
     else if Some? (extract_rewrite e) then lemma_extract_rewrite i rho project e result
     else if Some? (concat_rewrite e) then lemma_concat_rewrite i rho project e result

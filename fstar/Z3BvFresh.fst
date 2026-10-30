@@ -103,17 +103,16 @@ let rec lookup (f:func_decl) (symbols:list func_decl) (n:nat)
   | g :: rest -> if f = g then Some (n % 2 <> 0) else lookup f rest (n / 2)
 
 let number (r:reconstruction) (i:interpretation value) (project:pos -> value -> int)
-  : U.uint_t r.width =
+  : GTot (U.uint_t r.width) =
   U.to_uint_t r.width (project r.width (eval i (source r) (fun _ -> VInt 0)))
 
 (* Only nullary fresh Boolean applications are changed. *)
 let extend (r:reconstruction) (i:interpretation value) (project:pos -> value -> int)
   : interpretation value =
-  let n = number r i project in
   { i with uninterp_app = (fun f vs ->
       match vs with
       | [] ->
-        (match lookup f r.symbols n with
+        (match lookup f r.symbols (number r i project) with
          | Some b -> VBool b
          | None -> i.uninterp_app f vs)
       | _ -> i.uninterp_app f vs) }

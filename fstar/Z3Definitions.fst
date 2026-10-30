@@ -443,8 +443,10 @@ let propositional_tautology (e:expr) : bool =
 let lemma_propositional_tautology_sound (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires definition_model i /\ propositional_tautology e)
           (ensures lit_true i rho e) =
-  Z3BooleanNormalForm.lemma_clause_tautology_sound (valuation i rho)
-    (boolean_cut (boolean_frontier 3 e) 4 e);
+  let s = boolean_cut (boolean_frontier 3 e) 4 e in
+  Z3BoundedBoolEquiv.lemma_freeze (valuation i rho) (Z3BoundedBoolEquiv.support s) s;
+  Z3BooleanNormalForm.lemma_clause_tautology_sound
+    (Z3BoundedBoolEquiv.freeze (valuation i rho) (Z3BoundedBoolEquiv.support s)) s;
   lemma_boolean_cut_sound (boolean_frontier 3 e) 4 i rho e;
   match eval i e rho with VBool _ -> () | _ -> ()
 

@@ -33,6 +33,7 @@ open Z3ResolutionProofTheory
 module D = Z3Definitions
 module L = FStar.List.Tot
 module M = FStar.Math.Lemmas
+module C = Z3CanonicalOps
 
 let op_ff_num : decl_kind = 300
 let op_ff_add : decl_kind = 301
@@ -91,9 +92,23 @@ let calculate (p:pos) (op:decl_kind) (xs:list int) : int =
   else if op = op_ff_bitsum then bitsum_mod p 1 xs
   else (match xs with [x] -> (0 - x) % p | _ -> 0)
 
-let projections (i:interpretation value) (rho:env value) (project:int -> value -> int)
-                (p:int) (args:list expr) : list int =
-  L.map (fun a -> project p (eval i a rho)) args
+(* Ghost, like `eval`: the projections of the argument values. *)
+let rec projections (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                    (p:int) (args:list expr) : GTot (list int) (decreases args) =
+  match args with
+  | [] -> []
+  | a :: rest -> project p (eval i a rho) :: projections i rho project p rest
+
+let rec lemma_projections (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                          (p:int) (args:list expr) (k:nat)
+  : Lemma (ensures L.length (projections i rho project p args) == L.length args /\
+                   (k < L.length args ==>
+                    L.index (projections i rho project p args) k == project p (eval i (L.index args k) rho)))
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | _ :: rest -> if k = 0 then lemma_projections i rho project p rest 0
+                   else lemma_projections i rho project p rest (k - 1)
 
 (* Closed terms avoid imposing finite-field typing on arbitrary binder environments. *)
 let ff_model (i:interpretation value) (project:int -> value -> int) : prop =
@@ -260,9 +275,18 @@ let rec lemma_index_of (e:expr) (tbl:list expr) (k:nat)
             | Some j -> lemma_index_of e rest j
             | None -> ())
 
+(* The values of the table entries, computed once in a ghost context; the
+   result is an ordinary valuation of the polynomial variables. *)
 let valuation (i:interpretation value) (rho:env value) (project:int -> value -> int)
-              (p:int) (tbl:list expr) : nat -> int =
-  fun k -> if k < L.length tbl then project p (eval i (L.index tbl k) rho) else 0
+              (p:int) (tbl:list expr) : GTot (nat -> int) =
+  let values = projections i rho project p tbl in
+  fun k -> if k < L.length values then L.index values k else 0
+
+let lemma_valuation (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                    (p:int) (tbl:list expr) (k:nat)
+  : Lemma (valuation i rho project p tbl k ==
+           (if k < L.length tbl then project p (eval i (L.index tbl k) rho) else 0))
+  = lemma_projections i rho project p tbl k
 
 let atom_poly (tbl:list expr) (e:expr) : option poly =
   match index_of e tbl with
@@ -445,6 +469,7 @@ let lemma_atom_poly (i:interpretation value) (rho:env value) (project:int -> val
     lemma_index_of e tbl k;
     lemma_range i rho project p e;
     let v = valuation i rho project p tbl in
+    lemma_valuation i rho project p tbl k;
     assert (v k == project p (eval i e rho));
     assert (peval v [([k], 1)] == v k);
     M.small_mod (project p (eval i e rho)) p
@@ -479,7 +504,7 @@ let rec lemma_to_poly (i:interpretation value) (rho:env value) (project:int -> v
                lemma_operation_shape f args p op;
                lemma_args_sort args p;
                lemma_to_polys i rho project p tbl args qs;
-               lemma_map_length (fun a -> project p (eval i a rho)) args;
+               lemma_projections i rho project p args 0;
                assert (project p (eval i e rho) == calculate p op (projections i rho project p args));
                lemma_combine (valuation i rho project p tbl) p op qs
                  (projections i rho project p args) q
@@ -649,8 +674,12 @@ let rec lemma_prune (v:nat -> int) (p:pos) (q:poly)
       lemma_prune v p rest;
       M.lemma_mod_mul_distr_l c (mval v m) p;
       if c % p = 0
-      then lemma_add_cong p (c * mval v m) (peval v rest) 0 (peval v rest)
-      else lemma_add_cong p (c * mval v m) (peval v (prune p rest)) (c * mval v m) (peval v rest)
+      then (
+        assert (prune p q == prune p rest /\ peval v q == c * mval v m + peval v rest);
+        lemma_add_cong p (c * mval v m) (peval v rest) 0 (peval v rest))
+      else (
+        assert (prune p q == (m, c) :: prune p rest /\ peval v q == c * mval v m + peval v rest);
+        lemma_add_cong p (c * mval v m) (peval v (prune p rest)) (c * mval v m) (peval v rest))
 
 let nonzero_constant (p:pos) (d:poly) : bool =
   match prune p d with
@@ -1011,15 +1040,15 @@ and eval_bool (p:pos) (tbl:list expr) (v:nat -> int) (e:expr) : Tot (option bool
   match e with
   | App f args ->
     if get_sort e <> bool_sort then None
-    else if f.decl_name = "true" && args = [] then Some true
-    else if f.decl_name = "false" && args = [] then Some false
-    else if f.decl_name = "not" then
+    else if C.canonical_true f && args = [] then Some true
+    else if C.canonical_false f && args = [] then Some false
+    else if C.canonical_not f then
       (match args with
        | [a] -> (match eval_bool p tbl v a with Some b -> Some (not b) | None -> None)
        | _ -> None)
-    else if f.decl_name = "or" then eval_or p tbl v args
-    else if f.decl_name = "and" then eval_and p tbl v args
-    else if f.decl_name = "=" then
+    else if C.canonical_or f then eval_or p tbl v args
+    else if C.canonical_and f then eval_and p tbl v args
+    else if C.canonical_eq f then
       (match args with
        | [a; b] ->
          if get_sort a = ff_sort p && get_sort b = ff_sort p then
@@ -1289,15 +1318,15 @@ and lemma_eval_bool (i:interpretation value) (rho:env value) (project:int -> val
     | App f args ->
       lemma_bool_value i rho e;
       lemma_scoped_app f args;
-      if f.decl_name = "true" && args = [] then ()
-      else if f.decl_name = "false" && args = [] then ()
-      else if f.decl_name = "not" then
+      if C.canonical_true f && args = [] then ()
+      else if C.canonical_false f && args = [] then ()
+      else if C.canonical_not f then
         (match args with
          | [a] ->
            lemma_scoped_cons a [];
            lemma_eval_bool i rho project p tbl v a)
-      else if f.decl_name = "or" then lemma_eval_or i rho project p tbl v args
-      else if f.decl_name = "and" then lemma_eval_and i rho project p tbl v args
+      else if C.canonical_or f then lemma_eval_or i rho project p tbl v args
+      else if C.canonical_and f then lemma_eval_and i rho project p tbl v args
       else
         (match args with
          | [a; b] ->
@@ -1339,14 +1368,12 @@ and lemma_eval_and (i:interpretation value) (rho:env value) (project:int -> valu
       lemma_eval_and i rho project p tbl v rest
 
 (* The residues of the leaves in the model form one of the enumerated vectors. *)
-let rec lemma_projections_index (i:interpretation value) (rho:env value) (project:int -> value -> int)
-                                (p:int) (tbl:list expr) (k:nat)
+let lemma_projections_index (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                            (p:int) (tbl:list expr) (k:nat)
   : Lemma (requires k < L.length tbl)
           (ensures L.length (projections i rho project p tbl) == L.length tbl /\
                    L.index (projections i rho project p tbl) k == project p (eval i (L.index tbl k) rho))
-          (decreases tbl)
-  = match tbl with
-    | _ :: rest -> if k = 0 then () else lemma_projections_index i rho project p rest (k - 1)
+  = lemma_projections i rho project p tbl k
 
 let rec lemma_projections_range (i:interpretation value) (rho:env value) (project:int -> value -> int)
                                 (p:int) (tbl:list expr)

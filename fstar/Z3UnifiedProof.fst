@@ -39,6 +39,7 @@ module FP = Z3FiniteFieldPac
 module BE = Z3BvExhaustive
 module BN = Z3BvAddNormalize
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
 type judgment =
   | Holds : formula:expr -> judgment
@@ -347,15 +348,14 @@ let logical_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
          | Unverified "th-lemma", _ -> TN.consequence es target
          | QuantifierInstantiation args, [] -> Q.check args target
          | ModusPonens, [a; App f [s; t]] ->
-           (f.decl_name = "implies" || f.decl_name = "=>" || f.decl_name = "=") &&
-           a = s && target = t
+           (C.canonical_implies f || C.canonical_eq f) && a = s && target = t
          | UnitResolution, c :: units ->
            boolean_formulas (formula_clause c) &&
            clause_consequence (resolution_residual c units) target
          | AndElimination, [App f args] ->
-           f.decl_name = "and" && L.mem target args
+           C.canonical_and f && L.mem target args
          | NotOrElimination, [App f [App g args]] ->
-           f.decl_name = "not" && g.decl_name = "or" &&
+           C.canonical_not f && C.canonical_or g &&
            (L.mem (mk_not_expr target) args ||
             (match is_not target with
              | Some t -> get_sort t = bool_sort && L.mem t args && target = App f [t]
@@ -918,6 +918,7 @@ let lemma_logical_step_sound (i:interpretation value) (rho:env value)
                     judgments_hold i rho facts /\ logical_step kind concl facts)
           (ensures judgment_holds i rho concl)
   = lemma_proposition_sound i rho concl;
+    lemma_legacy_canonical i;
     match kind with
     | ObservationalMP ->
       (match facts with
@@ -1299,13 +1300,13 @@ let lemma_complement_from_false (i:interpretation value) (rho:env value) (h e:ex
   = match h with
     | App f [] -> (match e with | App g [] -> () | _ -> ())
     | App f [a] ->
-      if f.decl_name = "not" && a = e then (
+      if C.canonical_not f && a = e then (
         lemma_not_relates i rho f a;
         match eval i e rho with | VBool _ -> () | _ -> ())
       else
         (match e with
          | App g [b] ->
-           if g.decl_name = "not" && b = h then (
+           if C.canonical_not g && b = h then (
              lemma_not_relates i rho g b;
              match eval i h rho with | VBool _ -> () | _ -> ())
            else ()
@@ -1313,7 +1314,7 @@ let lemma_complement_from_false (i:interpretation value) (rho:env value) (h e:ex
     | _ ->
       (match e with
        | App g [b] ->
-         if g.decl_name = "not" && b = h then (
+         if C.canonical_not g && b = h then (
            lemma_not_relates i rho g b;
            match eval i h rho with | VBool _ -> () | _ -> ())
          else ()
