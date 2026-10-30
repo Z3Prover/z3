@@ -316,6 +316,7 @@ namespace opt {
         void reset_maxsmts();
         void import_scoped_state();
         void normalize(expr_ref_vector const& asms);
+        void eliminate_quantifiers(expr_ref_vector& fmls);
         void internalize();
         bool is_objective(expr* fml);
         bool is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);

@@ -32,6 +32,7 @@ Notes:
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/arith/lia2card_tactic.h"
+#include "qe/qe_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -1150,10 +1151,162 @@ namespace opt {
         expr_ref_vector fmls(m);
         m_model_converter = nullptr;
         to_fmls(fmls);
+        eliminate_quantifiers(fmls);
         simplify_fmls(fmls, asms);
         while (asms.empty() && simplify_min_max_of_sums(fmls))
             simplify_fmls(fmls, asms);
         from_fmls(fmls);
+    }
+
+    namespace {
+        // Formulas over Boolean connectives, quantifiers, and linear
+        // arithmetic whose integer or real constants and bound variables
+        // are all of one sort. The constants seen are collected.
+        class linear_arith_fragment {
+            ast_manager&             m;
+            arith_util               a;
+            bool                     m_has_int = false;
+            bool                     m_has_real = false;
+            obj_hashtable<func_decl> m_constants;
+
+            bool check_sort(sort* s) {
+                if (m.is_bool(s))
+                    return true;
+                if (a.is_int(s))
+                    m_has_int = true;
+                else if (a.is_real(s))
+                    m_has_real = true;
+                else
+                    return false;
+                return true;
+            }
+
+            bool check_app(app* e) {
+                rational divisor;
+                if (a.is_numeral(e))
+                    return true;
+                if (is_uninterp_const(e)) {
+                    m_constants.insert(e->get_decl());
+                    return check_sort(e->get_sort());
+                }
+                if (e->get_family_id() == m.get_basic_family_id())
+                    return true;
+                if (e->get_family_id() != a.get_family_id())
+                    return false;
+                switch (e->get_decl_kind()) {
+                case OP_LE: case OP_GE: case OP_LT: case OP_GT:
+                case OP_ADD: case OP_SUB: case OP_UMINUS:
+                    return true;
+                case OP_MUL: {
+                    unsigned num_terms = 0;
+                    for (expr* arg : *e)
+                        if (!a.is_numeral(arg))
+                            ++num_terms;
+                    return num_terms <= 1;
+                }
+                case OP_DIV: case OP_IDIV: case OP_MOD:
+                    return a.is_numeral(e->get_arg(1), divisor) && !divisor.is_zero();
+                default:
+                    return false;
+                }
+            }
+
+        public:
+            linear_arith_fragment(ast_manager& m): m(m), a(m) {}
+
+            bool contains(expr* f) {
+                ast_mark visited;
+                ptr_buffer<expr> todo;
+                todo.push_back(f);
+                while (!todo.empty()) {
+                    expr* e = todo.back();
+                    todo.pop_back();
+                    if (visited.is_marked(e))
+                        continue;
+                    visited.mark(e, true);
+                    if (is_var(e)) {
+                        if (!check_sort(e->get_sort()))
+                            return false;
+                    }
+                    else if (is_quantifier(e)) {
+                        quantifier* q = to_quantifier(e);
+                        if (is_lambda(q))
+                            return false;
+                        for (unsigned i = 0; i < q->get_num_decls(); ++i)
+                            if (!check_sort(q->get_decl_sort(i)))
+                                return false;
+                        todo.push_back(q->get_expr());
+                    }
+                    else {
+                        app* ap = to_app(e);
+                        if (!check_app(ap))
+                            return false;
+                        for (expr* arg : *ap)
+                            todo.push_back(arg);
+                    }
+                }
+                return !(m_has_int && m_has_real);
+            }
+
+            obj_hashtable<func_decl> const& constants() const { return m_constants; }
+        };
+    }
+
+    // A hard constraint that quantifies over linear integer or linear real
+    // arithmetic is replaced by the quantifier-free formula that the qe
+    // tactic finds for it. The two are equivalent over the free constants,
+    // so the optimum and the models of the free constants are unchanged.
+    // Constraints for which no such formula is found within
+    // opt.elim_quantifiers_rlimit are kept.
+    void context::eliminate_quantifiers(expr_ref_vector& fmls) {
+        unsigned budget = opt_params(m_params).elim_quantifiers_rlimit();
+        // Pushing a resource scope clears the cancellation flag.
+        if (budget == 0 || !m.inc())
+            return;
+        bool external_cancel = false;
+        {
+            scoped_rlimit limit(m.limit(), budget);
+            for (unsigned i = 0; i < fmls.size() && m.inc(); ++i) {
+                expr* f = fmls.get(i);
+                if (!has_quantifiers(f) || is_objective(f))
+                    continue;
+                linear_arith_fragment input(m);
+                if (!input.contains(f))
+                    continue;
+                expr_ref result(m);
+                try {
+                    goal_ref g = alloc(goal, m, false, false);
+                    g->assert_expr(f);
+                    goal_ref_buffer goals;
+                    tactic_ref qe = mk_qe_tactic(m, params_ref());
+                    (*qe)(g, goals);
+                    if (goals.size() != 1)
+                        continue;
+                    expr_ref_vector conjuncts(m);
+                    goals[0]->get_formulas(conjuncts);
+                    result = mk_and(conjuncts);
+                }
+                catch (z3_exception& ex) {
+                    IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers :failed " << ex.what() << ")\n");
+                    continue;
+                }
+                // The result must not introduce constants that f does not have.
+                linear_arith_fragment output(m);
+                if (has_quantifiers(result) || !output.contains(result))
+                    continue;
+                bool same_constants = true;
+                for (func_decl* c : output.constants())
+                    same_constants &= input.constants().contains(c);
+                if (!same_constants)
+                    continue;
+                IF_VERBOSE(2, verbose_stream() << "(opt.elim-quantifiers " << mk_bounded_pp(result, m, 2) << ")\n");
+                fmls[i] = result;
+            }
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+        }
+        // Popping the private budget must not swallow a timeout or Ctrl-C.
+        if (external_cancel)
+            m.limit().cancel();
     }
 
     void context::simplify_fmls(expr_ref_vector& fmls, expr_ref_vector const& asms) {

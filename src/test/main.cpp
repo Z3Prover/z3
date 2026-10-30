@@ -165,6 +165,7 @@
     X(opt_bounds) \
     X(opt_nlsat) \
     X(opt_pareto) \
+    X(opt_quantifiers) \
     X(opt_value) \
     X(13) \
     X(zstring)

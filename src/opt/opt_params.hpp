@@ -41,6 +41,7 @@ Abstract:
   BOOL_  (enable_core_rotate,              "enable_core_rotate",              false,     "enable core rotation to both sample cores and correction sets") \
   BOOL_  (enable_sat,                      "enable_sat",                      true,      "enable the new SAT core for propositional constraints") \
   BOOL_  (elim_01,                         "elim_01",                         true,      "eliminate 01 variables") \
+  UINT_  (elim_quantifiers_rlimit,         "elim_quantifiers_rlimit",         1000000,   "resource limit for replacing hard constraints that quantify over linear integer or linear real arithmetic by equivalent quantifier-free constraints before optimization (0 disables it)") \
   BOOL_  (incremental,                     "incremental",                     false,     "set incremental mode. It disables pre-processing and enables adding constraints in model event handler") \
   BOOL_  (pp_neat,                         "pp.neat",                         true,      "use neat (as opposed to less readable, but faster) pretty printer when displaying context") \
   BOOL_  (pb_compile_equality,             "pb.compile_equality",             false,     "compile arithmetical equalities into pseudo-Boolean equality (instead of two inequalites)") \
