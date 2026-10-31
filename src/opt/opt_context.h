@@ -383,6 +383,7 @@ namespace opt {
         void publish_pareto_result();
         void maximize_in_cone(solver& s, model_ref& mdl) override;
         bool maximize_objective_in_cone(expr_ref_vector const& assertions, unsigned index, model_ref& mdl);
+        bool maximize_objective_in_cone_smt(expr_ref_vector const& assertions, unsigned index, model_ref& mdl);
         expr_ref mk_ge(expr* t, expr* s);
         expr_ref mk_cmp(bool is_ge, model_ref& mdl, objective const& obj);
 
