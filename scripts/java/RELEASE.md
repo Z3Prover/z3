@@ -1,10 +1,11 @@
 # Java release attachments
 
-The release and nightly workflows reuse `UbuntuBuild`, `WindowsBuild-x64` and `MacArm64`
-from its existing native producers. Each producer records source commit,
+The release and nightly workflows reuse `UbuntuBuild`, `UbuntuArm64`,
+`WindowsBuild-x64` and `MacArm64` from their existing native producers.
+Each producer records source commit,
 source/runtime version, platform, workflow run ID, run attempt and ZIP SHA-256
 in its existing artifact. Artifact names and ZIP layout remain compatible with
-the existing NuGet and Python consumers. The three Java-producing jobs use
+the existing NuGet and Python consumers. The four Java-producing jobs use
 Temurin 17; API class bytes must agree across their distributions.
 
 `java-package-artifacts.yml` is shared by Release Build, Nightly Build and Java Full Flow:
@@ -13,7 +14,7 @@ Temurin 17; API class bytes must agree across their distributions.
 2. Reject mixed source/version/run/attempt, missing inputs or incorrect hashes.
 3. Assemble the unmodified source-built API and original native libraries.
    This job neither downloads release binaries nor compiles native code.
-4. Test each platform JAR and the same universal JAR on native Linux x64,
+4. Test each platform JAR and the same universal JAR on native Linux x64/arm64,
    Windows x64 and macOS arm64 runners using Java 17. Tests cover Context,
    version, SAT/UNSAT, concurrent initialization, conventional loading and
    loading failures. Java 8 coverage remains in the fast Packaging Test CI.
@@ -29,7 +30,7 @@ and disabled by default; see [MAVEN.md](MAVEN.md).
 
 ## Nightly downloads
 
-Nightly Build records the same source/run/attempt receipts in its three existing
+Nightly Build records the same source/run/attempt receipts in its four existing
 native artifacts and uses Temurin 17 for those producers. Its Java package job
 uses only those same-run artifacts; it does not rebuild native code or download
 binaries from the moving `Nightly` release. The existing Nightly publisher waits
@@ -48,9 +49,9 @@ These downloads do not publish a Maven version or establish snapshot coordinates
 For source version `X.Y.Z.0` and matching workflow `RELEASE_VERSION=X.Y.Z`:
 
 - `z3-X.Y.Z.jar`: API only; use with an external native installation.
-- `z3-X.Y.Z-linux-x64.jar`, `z3-X.Y.Z-win-x64.jar`,
+- `z3-X.Y.Z-linux-x64.jar`, `z3-X.Y.Z-linux-arm64.jar`, `z3-X.Y.Z-win-x64.jar`,
   `z3-X.Y.Z-osx-arm64.jar`: API and the indicated platform's Z3/JNI pair.
-- `z3-X.Y.Z-all.jar`: one API copy and all three selected platforms.
+- `z3-X.Y.Z-all.jar`: one API copy and all four selected platforms.
 - `z3-X.Y.Z-java-provenance.json`: source, workflow and native input identity.
 - `z3-X.Y.Z-java-validation.json`: native results and tested JAR hashes.
 - `z3-X.Y.Z-java-SHA256SUMS`: checksums of every Java attachment above.

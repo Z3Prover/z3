@@ -164,11 +164,11 @@ dependencies { implementation 'invalid.z3.prototype:z3:5.3.2-packaging-SNAPSHOT:
 ```
 
 Use `all` for the supported platform union, or replace it with `linux-x64`,
-`win-x64` or `osx-arm64` for a platform JAR. Omit the classifier for the API-only
+`linux-arm64`, `win-x64` or `osx-arm64` for a platform JAR. Omit the classifier for the API-only
 JAR, supplying matching system native libraries through the existing loader
 mechanism. Select a single form per classpath. Platform/universal JARs extract
 only the current platform's libraries and still require OS runtime dependencies
-described in RELEASE.md. A successful rehearsal on these three platforms does
+described in RELEASE.md. A successful rehearsal on these four platforms does
 not establish compatibility with additional OS/CPU combinations.
 
 ## Optional Maven automatic platform selection (unpublished)
