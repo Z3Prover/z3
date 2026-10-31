@@ -1,1 +1,0 @@
-No VerCors invocation was made. Reason: the selected functions use Z3 library types and C++ features (lambdas, RAII, exceptions, templates, reference-counted smart pointers) that VerCors C++ cannot model faithfully. No includes of PR-owned headers were allowed, and no faithful standalone extract exists. Verdict: inconclusive.
