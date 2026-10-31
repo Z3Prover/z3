@@ -127,6 +127,31 @@ namespace {
                     return;
             }
             
+            if (m_context.relevancy()) {
+                // Prefer relevant variables. A decision on an irrelevant variable still
+                // propagates through the Tseitin clauses of the irrelevant node and can
+                // force relevant atoms (e.g. the recognizers of a recursive datatype)
+                // into values that the relevant part of the search would not choose.
+                // The irrelevant variables are decided once no relevant one is left.
+                svector<bool_var> skipped;
+                bool found = false;
+                while (!m_queue.empty()) {
+                    next = m_queue.erase_min();
+                    if (m_context.get_assignment(next) != l_undef)
+                        continue;
+                    if (m_context.is_relevant(next)) {
+                        found = true;
+                        break;
+                    }
+                    skipped.push_back(next);
+                }
+                for (bool_var v : skipped)
+                    if (!m_queue.contains(v))
+                        m_queue.insert(v);
+                if (found)
+                    return;
+            }
+
             while (!m_queue.empty()) {
                 next = m_queue.erase_min();
                 if (m_context.get_assignment(next) == l_undef)
