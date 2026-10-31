@@ -33,7 +33,9 @@ module Z3TypedRoot
    not, =>, n-ary and/or/xor, = at every sort, ite at every sort, Int and Real
    numerals (op_num_rational), + * - over Int or Real (n-ary, including the
    native binary Int op_plus/op_mul records; nullary + and * are the empty
-   sum 0 and empty product 1, as in Z3SortedInteger), Real / with a nonzero
+   sum 0 and empty product 1: at Int exactly as Z3SortedInteger.classify
+   computes them, at Real by R2 through i itself, because the Sorted layers
+   classify no Real operator), Real / with a nonzero
    divisor, to_real, <= < >= > over Int or Real, select and store at every
    datatype-free array sort (any arity, nested), lambda at every
    datatype-free array sort, forall/exists over every sort. Everything else
@@ -320,8 +322,11 @@ let op_typed (sigma:V.signature) (f:func_decl) (op:theory_op) : bool =
   | Store ds r -> f = store_decl ds r && free sigma (ArraySort ds r)
   | Other -> true
 
-(* Same tests as Z3SortedSemantics.classify (G1-local copy, because the
-   Sorted modules downstream of the GTot change are not migrated in G1). *)
+(* Same tests as Z3SortedSemantics.classify (a root-local copy, so that this
+   module depends on no Sorted module). The copies cannot drift silently:
+   Z3SortedRoot.lemma_core_agreement proves them equal on every declaration
+   (TR.connective f == core_op (T.classify f)) and fails to verify if
+   either copy changes. *)
 let connective (f:func_decl) : theory_op =
   if f = { decl_name = "true"; domain = []; range = bool_sort;
            interp = Some op_true; int_params = [] } then Constant true
@@ -347,7 +352,9 @@ let connective (f:func_decl) : theory_op =
    preparation, a deliberate change of the root class): a nullary canonical
    `+`/`*` (op_arith_add/op_arith_mul, no parameters) is NOT a numeral, so it
    reaches `A.operation_of` and classifies as the empty sum (0) / empty
-   product (1), exactly as Z3SortedInteger.classify computes it at runtime.
+   product (1). At Int this is exactly what Z3SortedInteger.classify
+   computes at runtime; at Real the Sorted layers classify nothing (Sorted
+   passes the record to i, where R2 gives 0.0 / 1.0).
    Before this change TR left it free. Z3 itself rejects nullary arithmetic
    operators (arith_decl_plugin::mk_func_decl, "no arguments supplied to
    arithmetical operator"), so no SMT-LIB/native term is affected: the change

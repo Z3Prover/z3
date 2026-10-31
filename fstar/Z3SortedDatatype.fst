@@ -117,7 +117,7 @@ let rec lemma_field_equalities (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
                    (forall (e:expr). L.mem e (field_equalities xs ys) ==> get_sort e == bool_sort) /\
                    (T.evaluate_arguments s bc eq other xs ss ==
                     T.evaluate_arguments s bc eq other ys ss <==>
-                    B.eval_args (T.truth s bc eq other) B.And (L.map B.Atom (field_equalities xs ys))))
+                    B.geval_args (T.truth s bc eq other) B.And (L.map B.Atom (field_equalities xs ys))))
           (decreases xs) =
   match xs, ys, ss with
   | x :: rest, y :: tail, t :: remaining ->
@@ -166,7 +166,7 @@ let lemma_conjunction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   : Lemma (requires D.scoped_args [] es /\
                     (forall (e:expr). L.mem e es ==> get_sort e == bool_sort))
           (ensures T.truth s bc eq other (App (BR.connective_decl BR.Conjunction es) es) ==
-                   B.eval_args (T.truth s bc eq other) B.And (L.map B.Atom es)) =
+                   B.geval_args (T.truth s bc eq other) B.And (L.map B.Atom es)) =
   lemma_boolean_domain es;
   T.lemma_evaluate_core s bc eq other (BR.connective_decl BR.Conjunction es) es;
   T.lemma_boolean_arguments s bc eq other es (BR.boolean_domain es) B.And
@@ -335,7 +335,7 @@ let rec lemma_has_recognizer (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   : Lemma (requires D.scoped [] subject /\ D.scoped_args [] es /\
                     V.recognize f (T.evaluate s bc eq other subject) /\
                     has_recognizer s subject f es)
-          (ensures B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom es))
+          (ensures B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom es))
           (decreases es) =
   match es with
   | [] -> ()
@@ -544,7 +544,7 @@ let lemma_formula (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carri
                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                   (axioms:bool) (e:expr) (f:B.skeleton)
   : Lemma (requires D.scoped [] e /\ formula s axioms e == Some f)
-          (ensures B.eval (T.truth s bc eq other) f == T.truth s bc eq other e) =
+          (ensures B.geval (T.truth s bc eq other) f == T.truth s bc eq other e) =
   let result = Some?.v (normalize s 64 e) in
   lemma_normalize s bc eq other 64 e result;
   if axioms && axiom s result then lemma_axiom s bc eq other result
@@ -562,7 +562,7 @@ let rec lemma_formulas (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                        (es:list expr) (fs:list B.skeleton)
   : Lemma (requires D.scoped_args [] es /\ formulas s es == Some fs)
-          (ensures B.eval_args (T.truth s bc eq other) B.And fs == T.truths s bc eq other es)
+          (ensures B.geval_args (T.truth s bc eq other) B.And fs == T.truths s bc eq other es)
           (decreases es) =
   match es, fs with
   | e :: rest, f :: tail ->
@@ -640,6 +640,25 @@ let lemma_bounded_propositional (rho:expr -> bool) (f:B.skeleton)
   : Lemma (requires bounded_propositional f) (ensures B.eval rho f) =
   lemma_propositional_core rho true f
 
+(* Typed-root G2: the Sorted truth is a GHOST valuation. The executable
+   propositional checks above are sound for every ghost valuation too: the
+   Tot soundness lemma is applied to an executable valuation frozen on the
+   formula's atoms (B.freeze, a ghost-built Tot lookup table), which agrees
+   with the ghost valuation on every atom of the formula (B.lemma_freeze).
+   No Ghost->Tot cast of the valuation itself. *)
+let lemma_propositional_core_g (sigma:expr -> GTot bool) (bounded_context:bool) (f:B.skeleton)
+  : Lemma (requires propositional_core bounded_context f) (ensures B.geval sigma f) =
+  lemma_propositional_core (B.freeze sigma (B.support f)) bounded_context f;
+  B.lemma_freeze sigma (B.support f) f
+
+let lemma_propositional_g (sigma:expr -> GTot bool) (f:B.skeleton)
+  : Lemma (requires propositional f) (ensures B.geval sigma f) =
+  lemma_propositional_core_g sigma false f
+
+let lemma_bounded_propositional_g (sigma:expr -> GTot bool) (f:B.skeleton)
+  : Lemma (requires bounded_propositional f) (ensures B.geval sigma f) =
+  lemma_propositional_core_g sigma true f
+
 let rec lemma_true_member (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                           (facts:list expr) (e:expr)
@@ -683,7 +702,7 @@ let lemma_literals (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                    (e:expr)
   : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
-          (ensures B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom (literals e)) ==
+          (ensures B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (literals e)) ==
                    T.truth s bc eq other e) =
   if e = R.false_expr then T.lemma_cut s bc eq other 1 e
   else match e with
@@ -704,9 +723,9 @@ let lemma_eliminated (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     T.lemma_negation s bc eq other f a
   | _ -> ()
 
-let rec lemma_literal_member (rho:expr -> bool) (es:list expr) (e:expr)
+let rec lemma_literal_member (rho:expr -> GTot bool) (es:list expr) (e:expr)
   : Lemma (requires L.mem e es /\ rho e)
-          (ensures B.eval_args rho B.Or (L.map B.Atom es))
+          (ensures B.geval_args rho B.Or (L.map B.Atom es))
           (decreases es) =
   match es with [] -> () | x :: rest -> if x <> e then lemma_literal_member rho rest e
 
@@ -715,7 +734,7 @@ let rec lemma_resolved (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
                       (units:list expr) (conclusion:expr) (clause:list expr)
   : Lemma (requires T.truths s bc eq other units /\ D.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ resolved units conclusion clause /\
-                    B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom clause))
+                    B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom clause))
           (ensures T.truth s bc eq other conclusion)
           (decreases clause) =
   match clause with
@@ -803,7 +822,7 @@ let lemma_boolean_consequence_at (#base:sort -> Type0) (s:S.checked_schema) (bc:
   let boundaries = reflection_boundaries depth facts conclusion in
   T.lemma_cut_with_boundaries s bc eq other boundaries depth premise;
   T.lemma_cut_with_boundaries s bc eq other boundaries depth conclusion;
-  lemma_propositional (T.truth s bc eq other)
+  lemma_propositional_g (T.truth s bc eq other)
     (B.Implies (T.cut_with_boundaries boundaries depth premise)
                (T.cut_with_boundaries boundaries depth conclusion))
 
@@ -860,7 +879,7 @@ let rec lemma_excluded_atoms (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                              (facts:list expr)
   : Lemma (requires T.truths s bc eq other facts)
-          (ensures not (B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom (excluded_atoms facts))))
+          (ensures not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (excluded_atoms facts))))
           (decreases facts) =
   match facts with
   | [] -> ()
@@ -975,7 +994,7 @@ let lemma_normalized_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:
   let c = Some?.v (formula s true conclusion) in
   lemma_formulas s bc eq other facts fs;
   lemma_formula s bc eq other true conclusion c;
-  lemma_propositional (T.truth s bc eq other) (B.Implies (B.Nary B.And fs) c)
+  lemma_propositional_g (T.truth s bc eq other) (B.Implies (B.Nary B.And fs) c)
 
 let equality_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   let expanded = equality_exclusions s facts facts in

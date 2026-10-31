@@ -114,17 +114,23 @@ let sorted_empty_sum (u:TR.uninterpreted) (i:RT.model u)
   RT.empty_int_values u i
 
 (* --- Classifier mutants stay free in BOTH classifiers ------------------ *)
+(* (W3: each mutant's root side is stated here as well, not only in
+   Z3TypedRootTests empty_mutants / native_records_wrong_sorts.) *)
 
 let classifier_mutants ()
   : Lemma (I.classify (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == I.Other /\
            TR.classify RT.sigma (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == TR.Other /\
            I.classify (TR.nullary_decl TR.int_s "-" op_arith_sub) == I.Other /\
+           TR.classify RT.sigma (TR.nullary_decl TR.int_s "-" op_arith_sub) == TR.Other /\
            I.classify (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == I.Other /\
+           TR.classify RT.sigma (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == TR.Other /\
            I.classify TR.native_plus_int == I.Calculate A.Add) =
   assert_norm (I.classify (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == I.Other);
   assert_norm (TR.classify RT.sigma (RT.mk "+" op_mul [TR.int_s; TR.int_s] TR.int_s []) == TR.Other);
   assert_norm (I.classify (TR.nullary_decl TR.int_s "-" op_arith_sub) == I.Other);
+  assert_norm (TR.classify RT.sigma (TR.nullary_decl TR.int_s "-" op_arith_sub) == TR.Other);
   assert_norm (I.classify (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == I.Other);
+  assert_norm (TR.classify RT.sigma (RT.mk "+" op_plus [TR.int_s; TR.int_s; TR.int_s] TR.int_s []) == TR.Other);
   assert_norm (I.classify TR.native_plus_int == I.Calculate A.Add)
 
 (* --- Negative controls: the agreement needs the root contract ---------- *)
