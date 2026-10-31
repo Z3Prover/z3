@@ -2157,6 +2157,165 @@ let sorted_datatype_checker () =
        (assert (not (= (field (D 0)) (field (D 1)))))" Z.zero = N.Sat)
     "wrong-constructor selectors were incorrectly forced to a shared default"
 
+let sorted_integer_farkas () =
+  let module K = Z3SortedProof in
+  let module AR = Z3SortedArithmetic in
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+    "(declare-datatype T ((C (field Int))))(declare-const t T)\
+     (declare-const r Real)(declare-const p Bool)\
+     (assert (> (field t) 0))(assert (< (field t) 1))\
+     (assert (> r 0.0))(assert (< r 0.0))(assert p)\
+     (assert (<= (field t) 0))(assert (>= (field t) 0))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let expressions = List.map (B.cached_expression st) native in
+  let x, y, real_x, real_y, p, le, ge = match expressions with
+    | [x; y; real_x; real_y; p; le; ge] -> x, y, real_x, real_y, p, le, ge
+    | _ -> failwith "expected integer Farkas regression formulas" in
+  let one = Z.one, Z.one in
+  let zero = Z.zero, Z.one in
+  let check expected formulas weights =
+    require (AR.check_contradiction formulas weights = expected)
+      "unexpected sorted integer Farkas certificate verdict" in
+  check true [true, x; true, y] [one; one];
+  check true [true, x; true, y] [Z.one, Z.of_int 2; Z.one, Z.of_int 2];
+  check false [true, x; true, y] [one; zero];
+  check false [true, x; true, y] [one];
+  check false [true, x; true, y] [one; one; one];
+  check false [true, real_x; true, real_y] [one; one];
+  check true [true, x; true, y; true, real_x; false, p] [one; one; zero; zero];
+  check false [true, le; true, ge] [one; one];
+  let fake = match x with
+    | A.App (f, args) -> A.App ({ f with A.interp = None }, args)
+    | _ -> failwith "expected an integer comparison" in
+  check false [true, fake; true, y] [one; one];
+  check false (List.init 5000 (fun _ -> true, p)) (List.init 5000 (fun _ -> zero));
+  let fact formula =
+    { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [p] } in
+  let node =
+    { U.kind = U.ArithmeticFarkas [one; one];
+      conclusion1 = Option.get (U.classify_fact R.false_expr);
+      premises = [fact x; fact y] } in
+  require (K.arithmetic_farkas node) "typed Farkas dispatch did not replay the certificate";
+  (match K.check_node schema [] node with
+   | Some (result, pending) ->
+       require (Z.equal pending Z.zero && result.U.hypotheses = [p])
+         "typed Farkas lost inherited hypotheses or retained an obligation"
+   | None -> failwith "typed Farkas rejected well-sorted premises");
+  let fake_or = A.App
+    ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort];
+       range = A.bool_sort; interp = None; int_params = [] }, [le; ge]) in
+  require (not (K.arithmetic_farkas
+    { node with U.conclusion1 = Option.get (U.classify_fact fake_or); premises = [] }))
+    "typed Farkas treated an uninterpreted or lookalike as a clause"
+
+let sorted_epsilon_skolemization () =
+  let module K = Z3SortedProof in
+  let module E = Z3SortedSkolem in
+  let module R = Z3ResolutionProofTheory in
+  let declarations =
+    "(declare-datatype T ((C (field Int))))\
+     (declare-fun p (Int Int) Bool)(declare-fun q (T Int) Bool)\
+     (declare-const c Int)(declare-const h Int)(declare-const t T)\
+     (declare-fun k (Int) Int)" in
+  let fixture left right =
+    let c = context () in
+    let native = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let a, b = match B.cached_expression st (List.hd native) with
+      | A.App (_, [a; b]) -> a, b
+      | _ -> failwith "expected a Skolem test equation" in
+    let entry = { P.rule = U.Skolemization;
+      formula = Z3ObservationalEquality.mk_oeq_expr a b; premise_ids = [] } in
+    let doc = { P.declarations = []; expressions = [a; b]; assertions = [R.false_expr];
+      entries = [entry; { P.rule = U.Asserted; formula = R.false_expr; premise_ids = [] }];
+      root = Z.one } in
+    schema, doc, entry, a, b in
+  let cases = [
+    "(exists ((x Int)) (p x x))", "(p c c)", true;
+    "(not (forall ((x Int)) (p x x)))", "(not (p c c))", true;
+    "(not (forall ((x Int)) (not (p x x))))", "(p c c)", true;
+    "(exists ((x T) (y Int)) (q x y))", "(q t c)", true;
+    "(exists ((x Int) (y Int)) (not (= x y)))", "(not (= c h))", true;
+    "(exists ((x Int) (unused T)) (p x x))", "(p c c)", true;
+    "(exists ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((y Int)) (p c y))", true;
+    "(exists ((x Int)) (p x x))", "(p c h)", false;
+    "(exists ((x Int) (y Int)) (not (= x y)))", "(not (= c c))", false;
+    "(exists ((x Int)) (p x c))", "(p c c)", false;
+    "(forall ((x Int)) (p x x))", "(p c c)", false;
+    "(not (forall ((x Int)) (p x x)))", "(p c c)", false;
+    "(exists ((x Int)) (p x h))", "(p (k h) h)", false;
+  ] in
+  List.iter (fun (left, right, expected) ->
+    let schema, doc, entry, a, b = fixture left right in
+    let ds = K.epsilon_context schema doc in
+    require (K.epsilon_entry schema ds entry = expected)
+      ("incorrect typed epsilon eligibility: " ^ left ^ " -> " ^ right);
+    let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+    require (result = K.check_document_epsilon schema doc &&
+             diagnostic = K.diagnose_document_epsilon schema doc)
+      "typed epsilon checking and diagnostics disagree";
+    if expected then (
+      require (K.check_document schema doc = Some Z.one && result = Some Z.zero)
+        "typed epsilon did not discharge precisely the isolated Skolem obligation";
+      require (K.epsilon_context schema
+        { doc with P.assertions = R.mk_eq_expr b b :: doc.P.assertions } = [])
+        "typed epsilon reused a witness already present in original inputs";
+      require (not (K.epsilon_entry schema ds { entry with P.premise_ids = [Z.zero] }))
+        "typed epsilon ignored an unexpected premise";
+      require (not (K.epsilon_entry schema ds { entry with P.formula = R.mk_eq_expr a b }))
+        "typed epsilon admitted an ordinary equality lookalike";
+      let conflicting = List.hd ds in
+      require (not (E.eligible schema
+        { conflicting with Z3Skolemization.dependencies = [Z.zero, A.BaseSort "Int"] }))
+        "typed epsilon admitted a dependency-bearing certificate"))
+    cases;
+  let schema, doc, entry, _, _ = fixture
+    "(exists ((x Int)) (p x x))" "(p c c)" in
+  let _, _, conflict, _, _ = fixture
+    "(exists ((x Int)) (not (p x x)))" "(not (p c c))" in
+  require (K.epsilon_context schema { doc with P.entries = entry :: conflict :: doc.P.entries } = [])
+    "incompatible typed choice equations shared a witness";
+  require (List.length (K.epsilon_context schema { doc with P.entries = entry :: doc.P.entries }) = 1)
+    "duplicate identical typed choice equations were rejected";
+  let schema, doc, first, _, _ = fixture "(exists ((x Int)) (= x h))" "(= c h)" in
+  let _, _, second, _, _ = fixture "(exists ((x Int)) (= x c))" "(= h c)" in
+  require (K.epsilon_context schema { doc with P.entries = [first; second] } = [])
+    "cyclic typed choice equations were admitted";
+  List.iter (fun source ->
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (schema.Z3DatatypeSignature.cases <> []) "native epsilon test omitted datatypes";
+    require (K.epsilon_context schema doc <> []) "native epsilon test omitted a closed choice block";
+    let before, after = K.diagnose_document schema doc, K.diagnose_document_epsilon schema doc in
+    match before, after with
+    | P.DocumentChecked (old_pending, old_unmet), P.DocumentChecked (pending, unmet) ->
+      let sk = List.fold_left (fun n obligation ->
+        if obligation.P.obligation_rule = U.Skolemization
+        then Z.add n obligation.P.obligation_count else n) Z.zero old_unmet in
+      require (Z.sign sk > 0 && Z.equal (Z.add pending sk) old_pending &&
+               List.for_all (fun obligation -> obligation.P.obligation_rule <> U.Skolemization) unmet)
+        ("native typed epsilon did not discharge its Skolem steps: " ^ source)
+    | _ -> failwith "native typed epsilon rejected a previously checkable proof")
+    [
+      "(declare-datatype T ((C (field Int))))(declare-fun p (T) Bool)\
+       (assert (exists ((x T)) (p x)))(assert (forall ((x T)) (not (p x))))";
+      "(declare-datatype T ((C (field Int))))(declare-fun p (T) Bool)(declare-fun q (T) Bool)\
+       (assert (not (forall ((x T)) (p x))))(assert (forall ((x T)) (q x)))\
+       (assert (forall ((x T)) (=> (q x) (p x))))";
+    ];
+  let assertions, proof = unsat
+    "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))\
+     (assert (forall ((x Int)) (not (p x))))" in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (K.epsilon_context schema doc <> [] &&
+           K.check_document_epsilon schema doc = Some Z.zero)
+    "native typed integer epsilon refutation was not fully certified"
+
 let sorted_quantifier_rewrites () =
   let module K = Z3SortedProof in
   let module S = Z3DatatypeSignature in
@@ -5723,6 +5882,8 @@ let () =
      "certified-theory-lemmas-and-definition-axioms", checked_theory_extensions;
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
+     "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
      "sorted-native-universal-flattening", sorted_quantifier_flattening;
      "sorted-native-quantifier-instances", sorted_quantifier_instances;

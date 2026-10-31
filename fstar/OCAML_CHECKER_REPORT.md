@@ -4134,3 +4134,259 @@ global-context-limit, and congruence-only paired experiments are archived under
 separately named paths. Their coverage figures are not the final figures above.
 Temporary profiling object files were removed; sources, logs, diagnostic
 executables, and all immutable benchmark baselines were retained.
+
+## Typed integer Farkas bridge after merging master (2026-10-31)
+
+The sorted kernel now replays supplied Farkas coefficients against typed
+integer semantics. It checks closed Boolean assumptions, exact coefficient
+arity, canonical integer comparisons and negations, polynomial contributions,
+and the strict-integer-bound adjustment. Zero-weight assumptions may have
+unsupported arithmetic semantics, but must still be scoped Boolean formulas.
+A 4,096-expression-occurrence budget precedes certificate normalization.
+
+The kernel forms negative conclusion literals through the canonical
+`Z3SortedDatatype.literals` boundary, not the legacy name-based clause parser.
+Premise hypotheses remain inherited; an arithmetic contradiction is proved
+under those hypotheses, not by treating local premises as unconditional facts.
+The proof reuses mathematical weighted-polynomial soundness, not the legacy
+`numeric_model` contract. Nonzero Real or mixed arithmetic contributions remain
+unsupported in this typed bridge.
+
+### Source-matched rebuild and verification
+
+Master was merged into the working branch as
+`535285c1ebe7f041dbb2a8c453fe4255173b540b`; the Farkas changes remain uncommitted.
+Both the SMT executable used by F* and the static library/OCaml bindings used
+by the checker were rebuilt and installed separately from all baseline binaries.
+The rebuilt solver is **Z3 5.3.4**, reporting that merge commit.
+
+Validation passed:
+
+* All **77 production modules** and **24 manifest F*/Pulse test modules** verify
+  strictly, with warnings treated as errors and a fresh checked-module cache.
+* All four official OCaml extraction roots were regenerated, constructor
+  projectors made exhaustive, and the native checker compiled with warnings
+  treated as errors.
+* **68 native test groups**, **50 CLI tests**, and **122 solver unit tests** pass.
+  The solver unit-test target was explicitly rebuilt before its final run.
+* A separate source-matched shared-library/Python build passes basic integer
+  solving, positive-model evaluation, and command-line-help smoke tests.
+* Hashes of **116 executable-source/test/tool files**, installed solver files,
+  and preserved baseline solver binaries were checked.
+
+Focused Farkas regressions exercise integer strictness, fractional weights,
+coefficient mutations and length mismatches, unsupported Real contributions,
+zero-weight ignored assumptions, forged comparison/disjunction declarations,
+occurrence limits, and inherited hypotheses.
+
+### Full original-input coverage
+
+All **583 unchanged original `fstar-build` sessions** were replayed with the
+same interactive/diagnostic protocol, 10,000 ms solver timeout, 60-second
+session wall limit, 4 GiB per worker, and eight workers. The immutable comparison
+baseline remains the published integer bridge in
+`build\fstar-arithmetic-bridge-20261030`.
+
+On **513 completed sessions with identical solver-answer sequences**:
+
+| Metric | Integer baseline | Merged Farkas checker | Change |
+|---|---:|---:|---:|
+| Pending `arith/farkas` obligations | 9,099 | 1,128 | -7,971 (-87.6%) |
+| Total pending obligations | 61,912 | 53,750 | -8,162 (-13.2%) |
+
+Across **6,450 aligned UNSAT queries with matching structural proof-size
+metadata**, pending obligations fall **34,417 -> 30,459**, with no pending-count
+increases. Matching metadata does not establish byte-identical proofs.
+All **18 baseline ACCEPT queries** remain observed and accepted; there are
+**no additional fully ACCEPT queries**. No rejection, crash, protocol error, or
+aligned SAT/UNSAT contradiction was observed.
+
+| Session outcome | Integer baseline | Merged Farkas checker |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 1 |
+| PARTIAL | 531 | 533 |
+| UNKNOWN | 11 | 11 |
+| TIMEOUT | 40 | 38 |
+
+Raw query observations are ACCEPT 18 -> 18, PARTIAL 11,115 -> 11,208, and UNKNOWN
+415 -> 443. These include different timeout prefixes and solver-generated
+proofs, so they are not the rule-coverage denominator. All **11,226 normalized
+`; ACCEPT` / `; PARTIAL` records** were independently reparsed and validated.
+
+The pre-merge Farkas run is preserved separately in
+`build\fstar-farkas-bridge-20261030`. Against it, **515** completed sessions have
+matching solver answers; total pending is **54,318 -> 54,337**. On **6,814**
+aligned UNSAT queries with matching structural metadata, pending totals are
+exactly **35,700 -> 35,700**, with no increases. Thus the measured coverage gain
+comes from the Farkas extension, not an additional fixed-metadata improvement
+from merging master. The solver changed from 5.3.3 to 5.3.4, so broader proof
+and timing differences must not be attributed solely to checker changes.
+
+### Performance failures and remaining blockers
+
+**Performance validation is not uniformly passing.** The strict sequential
+pilot fails its completion assertion for UInt-3: the fresh baseline completes
+in **54.813 s**, while the merged checker times out at **60.052 s**. The original
+full-replay outcomes are retained; UInt-3 times out in both full collections.
+
+`FStar.Math.Lemmas-1` is the one newly timed-out session in the full comparison.
+A separate sequential probe reproduces baseline PARTIAL **48.078 s** versus
+merged TIMEOUT **60.042 s**. The answer/proof observations differ, so this does
+not isolate a checker-only cause. Three baseline timeout sessions finish in
+the merged full replay: `Pulse.Lib.ForEvery-2`,
+`PulseCore.IndirectionTheorySep-3`, and `FStar.Matrix-4`. Successful diagnostic
+or pilot runs do not replace any recorded production timeout.
+
+Among completed, non-timeout sessions, queries with exactly one pending
+obligation have these remaining rules:
+
+| Rule | Queries | Distinct input files |
+|---|---:|---:|
+| `sk` | 2,321 | 223 |
+| `nnf-neg` | 27 | 22 |
+| `elim-unused` | 12 | 2 |
+| `nnf-pos` | 3 | 3 |
+
+Skolemization remains the dominant last-rule blocker. This extension reduces
+unchecked arithmetic obligations, but does not yet increase complete proof
+certification.
+
+### Artifacts
+
+Merged artifacts are under `build\fstar-farkas-merged-20261031`.
+`build.log`, `unit-tests.log`, `python-build.log`, `smoke-results.json`,
+`build-info.json`, `verified-modules.json`, `source.patch`, and `source-snapshot`
+record rebuild, strict verification, tests, and provenance. The checker SHA-256
+is `8a637ef09c6bdf249966ad48e131330d807cb3f868fa8283cf076a98743826c8`.
+`results` retains all structured results, raw logs, and normalized proof records.
+`comparison-integer-baseline.json`, `comparison-premerge-farkas.json`,
+their aligned-query CSVs, and `progress-details.json` retain both comparisons
+and exact last-rule diagnostics. `pilot.log`, `pilot\results.json`,
+`timeout-probe.log`, and `timeout-probe\results.json` preserve the performance
+failures and sequential follow-up without overwriting original replay results.
+
+## Typed Hilbert-epsilon Skolem bridge (2026-10-31)
+
+`Z3SortedSkolem` connects recognized closed Skolem blocks to the sort-indexed
+semantics. It chooses one tuple over the complete reversed binder-sort list,
+then projects its coordinates into fresh constant interpretations. Existential
+blocks choose a satisfying tuple; negated universal blocks choose a
+counterexample tuple. Separate independent choices are not used, since their
+coordinates need not satisfy a joint predicate.
+
+The verified construction preserves expressions fresh for the introduced
+constants, including nested quantifiers, and therefore preserves all original
+assertions. Ordered extensions preserve older choice equations. Canonical
+Boolean, integer, and datatype interpretations remain fixed.
+
+The sorted document path elaborates only certified, premise-free `sk` entries
+with observational conclusions into asserted choice equations. The unchanged
+sorted kernel checks the resulting document. `lemma_check_document_epsilon`
+proves inconsistency of the **original** assertions, not merely inconsistency
+after arbitrary extra assumptions. Its explicit semantic parameters are a
+typed Hilbert-choice operator and full typed universal/existential truth laws.
+This is a conditional model-extension theorem; it does not establish an
+unconditional standard model for every supported sort. Epsilon is a semantic
+parameter, not a trusted runtime witness search. No admits or new axioms were
+added, and the existing `lemma_check_document` contract is unchanged.
+
+### Supported boundary and validation
+
+The initial bridge supports closed blocks introducing uninterpreted constants
+with no ambient dependencies. Joint mixed-sort witnesses, unused tuple
+coordinates, nested body quantifiers, and canonical double-negation targets
+are supported. Recognition, sort checks, substitution agreement, witness
+freshness, safe context ordering, and original-input freshness are required.
+Duplicate identical definitions are allowed; conflicting or cyclic contexts
+disable the extension and leave unsupported steps to ordinary pending-rule
+diagnostics. Dependency-bearing functions and Skolem steps inside binder
+certificates remain outside this extension. A 4,096-occurrence budget precedes
+recognition of each candidate entry.
+
+Fresh-cache strict verification passed for **78 production modules** and all
+**25 manifest F*/Pulse test modules**. All four extraction roots were
+regenerated; the checker and tests compile with OCaml warnings treated as
+errors. **69 native groups** and **51 CLI tests** pass. Tests cover coordinated
+witnesses, target/polarity mutations, input-symbol reuse, incompatible and
+cyclic definitions, duplicate definitions, unexpected premises, ordinary
+equality lookalikes, unsupported dependencies, and fully certified typed-core
+refutations in batch and interactive modes. The semantic regression proves
+that joint epsilon selection chooses distinct coordinates together when the
+predicate requires them to differ.
+
+The datatype-native examples discharge their Skolem obligations while
+preserving an existing pending constructor-reconstruction theory lemma.
+They are not reported as fully certified datatype proofs. The exact unchanged
+source-matched Z3 5.3.4 installation was reused after hash checks; integer SMT,
+model, command-line-help, and Python-binding smoke checks pass.
+
+### Full original-input comparison
+
+All **583 unchanged sessions** were replayed with the previous protocol:
+interactive diagnostics, a 10,000 ms solver timeout, a 60-second session wall
+limit, 4 GiB per worker, and eight workers. The immediate immutable baseline is
+`build\fstar-farkas-merged-20261031`.
+
+On **514 completed sessions with identical solver-answer sequences**:
+
+| Metric | Merged Farkas baseline | Epsilon checker | Change |
+|---|---:|---:|---:|
+| Pending `sk` obligations | 7,542 | 48 | -7,494 (-99.36%) |
+| Total pending obligations | 54,085 | 46,236 | -7,849 (-14.51%) |
+| ACCEPT queries | 18 | 2,010 | +1,992 |
+
+Across **6,095 aligned UNSAT queries with matching structural metadata**,
+pending totals fall **27,722 -> 21,904**, with **no pending-count increases**.
+Matching metadata does not establish byte-identical proofs. Across all raw
+aligned observations there are **2,694 PARTIAL -> ACCEPT transitions** and
+**522 pending-count increases**, all of the latter outside the matching-metadata
+cohort. All **18 previous ACCEPT queries** remain observed and accepted.
+There are no rejections, crashes, protocol errors, or aligned SAT/UNSAT
+contradictions. All **11,229 normalized `; ACCEPT` / `; PARTIAL` records** were
+independently reparsed and checked.
+
+| Session outcome | Merged Farkas baseline | Epsilon checker |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 18 |
+| PARTIAL | 533 | 515 |
+| UNKNOWN | 11 | 12 |
+| TIMEOUT | 38 | 38 |
+
+The additional whole-session ACCEPTs include `Pulse.C.Types.Array.Base`,
+`Pulse.Checker.Pure`, `Pulse.Lib.Primitives`, `Pulse.Readback-1`,
+`PulseCore.Action`, `FStar.All`, `FStar.Tactics.NamedView`, and
+`FStar.Tactics.PrettifyType`. Raw query counts are ACCEPT **18 -> 2,722**,
+PARTIAL **11,208 -> 8,507**, and UNKNOWN **443 -> 438**; these include differing
+solver observations and timeout prefixes and are not the matched denominator.
+
+No completed session now has a query whose sole pending rule is `sk`
+(**2,321 -> 0**). The exposed last-rule blockers are `nnf-neg` (358 queries),
+`nnf-pos` (316), `quant-intro` (235), `def-axiom` (88), `rewrite` (73),
+`th-lemma` (52), and `elim-unused` (12). These are last-rule counts, not
+increases in total obligations of those families.
+
+### Performance caveats and artifacts
+
+Performance validation is **not uniformly passing**. The full epsilon replay
+newly times out on `Pulse.Lib.PCM.FractionalPreorder` and `FStar.Matrix-4`;
+the baseline timeouts `FStar.Math.Lemmas-1` and `FStar.UInt-3` instead complete.
+The original outcomes remain unchanged. Sequential probes complete the two
+new timeout cases, but are slower: FractionalPreorder **32.937 -> 54.705 s**
+and Matrix-4 **53.858 -> 55.355 s**. Their solver-answer sequences differ, so
+these runs do not isolate a checker-only regression and do not replace the
+full-replay timeouts. The separate sequential UInt-3 pilot times out in both
+versions (**60.055 / 60.054 s**); its successful full-replay completion is not
+reported as a performance fix.
+
+Artifacts are under `build\fstar-epsilon-20261031`. `build.log` preserves the
+initial native-test compilation failure; `native-target*.log` preserves the
+fixture/debugging attempts. `build-retry.log` records the successful strict
+build and baseline preservation. `full` holds the independent cache,
+generated sources, checker, source snapshot and hashes, full `results`,
+`comparison.json`, `aligned-queries.csv`, and `progress-details.json`.
+The checker SHA-256 is
+`00913ef722145249032d705d0f8f8fff24b1828153e6cd2165ae7e25a558166c`.
+`full\results\proof-results.log` retains the requested normalized proof output.
+`pilot.log`, `full\pilot\results.json`, `timeout-probe.log`, and
+`full\timeout-probe\results.json` retain all sequential observations.
+This report records validation before publication of the changes.

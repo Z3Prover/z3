@@ -492,6 +492,27 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-core", interactive.stdout)
 
+    def test_sorted_core_certifies_closed_epsilon_skolemization(self):
+        sources = (
+            "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))"
+            "(assert (forall ((x Int)) (not (p x))))",
+            "(declare-fun p (Int Int) Bool)(assert (exists ((x Int) (y Int)) (p x y)))"
+            "(assert (forall ((x Int) (y Int)) (not (p x y))))",
+            "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+            "(assert (not (forall ((x Int)) (p x))))(assert (forall ((x Int)) (q x)))"
+            "(assert (forall ((x Int)) (=> (q x) (p x))))",
+        )
+        for source in sources:
+            for interactive in (False, True):
+                with self.subTest(source=source, interactive=interactive):
+                    args = ["--sorted-core", "--diagnostics"]
+                    if interactive:
+                        args.append("--interactive")
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("; proof-check ACCEPT" if interactive else "ACCEPT", result.stdout)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+
     def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
         source = ("(declare-const x Real)(declare-const y Real)"
                   "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
