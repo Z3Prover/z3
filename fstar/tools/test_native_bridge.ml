@@ -973,6 +973,123 @@ let readable_same_proof () =
   require (Marshal.to_string (fst (B.marshal_with_datatypes assertions proof)) [] = before)
     "the proof document changed after the driver rendered it"
 
+(* Cases the golden renders of readable_conditions do not reach: bit-vector values as the checker reflected them (encoded signed,
+   malformed, wider than a machine word), wide extractions, malformed decl!/sort! identities, and the report branches that bound
+   premises or name a stage. Expectations come from the printer's contract, not from observed output: what the checker saw is shown
+   verbatim (never re-encoded, repaired or reduced), an unmatched native identity is a plain quoted name, and every limit leaves a
+   marker. tests.cpp repeats each expectation for the Cherry printer. *)
+let readable_edge_cases () =
+  let module R = Z3NativeMain.Readable in
+  let z = Z.of_int in
+  let base name = A.BaseSort name in
+  let int_sort = base "Int" and bool_sort = base "Bool" in
+  let declaration ?interp ?(params = []) name domain range =
+    { A.decl_name = name; domain; range; interp; int_params = params } in
+  let constant ?interp ?params name range = A.App (declaration ?interp ?params name [] range, []) in
+  let bv_numeral width value =
+    constant ~interp:Z3BvLemma.op_numeral ~params:[z width; value] "bv" (base (Printf.sprintf "BV%d" width)) in
+  let text e = fst (R.judgment_text (U.Holds e)) in
+  let expect label actual expected =
+    require (actual = expected) (Printf.sprintf "%s: %S, expected %S" label actual expected) in
+  let lines rows = String.concat "\n" rows ^ "\n" in
+  let huge sign = Printf.sprintf "<%shuge integer: more than 100 digits omitted>" sign in
+  (* bit-vector values: encoded two's complement, negative or out of range as reflected, wide, beyond the digit limit *)
+  expect "minimum signed value, as encoded" (text (bv_numeral 8 (z 128))) "holds((_ bv128 8))";
+  expect "negative value is not re-encoded" (text (bv_numeral 8 (z (-1)))) "holds((_ bv-1 8))";
+  expect "value beyond the width is not reduced" (text (bv_numeral 8 (z 256))) "holds((_ bv256 8))";
+  expect "zero width" (text (bv_numeral 0 Z.zero)) "holds((_ bv0 0))";
+  let ones_256 = Z.pred (Z.shift_left Z.one 256) in
+  expect "256-bit all ones" (text (bv_numeral 256 ones_256)) ("holds((_ bv" ^ Z.to_string ones_256 ^ " 256))");
+  expect "value of 100 digits" (text (bv_numeral 333 (Z.pow (z 10) 99)))
+    ("holds((_ bv1" ^ String.make 99 '0' ^ " 333))");
+  expect "value of 101 digits" (text (bv_numeral 333 (Z.pow (z 10) 100))) ("holds((_ bv" ^ huge "+" ^ " 333))");
+  expect "512-bit value beyond the digit limit" (text (bv_numeral 512 (Z.shift_left Z.one 511)))
+    ("holds((_ bv" ^ huge "+" ^ " 512))");
+  expect "negative 512-bit value beyond the digit limit"
+    (text (bv_numeral 512 (Z.neg (Z.shift_left Z.one 511)))) ("holds((_ bv" ^ huge "-" ^ " 512))");
+  expect "width beyond the digit limit"
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[Z.pow (z 10) 150; z 5] "bv" (base "BV0")))
+    ("holds((_ bv5 " ^ huge "+" ^ "))");
+  (* wide extractions: widths and bounds are shown as reflected, even beyond a machine word *)
+  let bv256 = base "BV256" and bv128 = base "BV128" and bv101 = base "BV101" in
+  let extract params domain range = declaration ~interp:Z3BvLemma.op_extract ~params "extract" [domain] range in
+  expect "wide extraction" (text (A.App (extract [z 256; z 200; z 100] bv256 bv101, [A.Var (z 0, bv256)])))
+    "holds((extract[256,200,100] #0:BV256))";
+  expect "extraction of a wide numeral"
+    (text (A.App (extract [z 256; z 255; z 128] bv256 bv128, [bv_numeral 256 ones_256])))
+    ("holds((extract[256,255,128] (_ bv" ^ Z.to_string ones_256 ^ " 256)))");
+  expect "extraction bound beyond a machine word"
+    (text (A.App (extract [z 256; Z.of_string "18446744073709551621"; z 100] bv256 bv101, [A.Var (z 0, bv256)])))
+    "holds((extract[256,18446744073709551621,100] #0:BV256))";
+  (* declaration identities: only "decl!DIGITS:NAME" (at most 20 digits) is a native identity; any other name is kept quoted, with no id *)
+  List.iter (fun (name, shown) ->
+      expect ("declaration " ^ String.escaped name) (text (constant name int_sort)) ("holds(" ^ shown ^ ":Int)"))
+    ["decl!", "decl!#-"; "decl!:x", "|decl!:x|#-"; "decl!abc:x", "|decl!abc:x|#-"; "decl!12", "decl!12#-";
+     "decl!12:", "||#12"; "decl!7:f:g", "|f:g|#7"; "decl!7:decl!8:x", "|decl!8:x|#7"; "decl!007:x", "x#007";
+     "Decl!3:x", "|Decl!3:x|#-"; "sort!3:x", "|sort!3:x|#-"; "decl!\xd9\xa3:x", "|decl!\xd9\xa3:x|#-";
+     "decl!12345678901234567890:x", "x#12345678901234567890";
+     "decl!123456789012345678901:x", "|decl!123456789012345678901:x|#-"];
+  expect "interpreted head whose name looks like a native identity"
+    (text (constant ~interp:(z 999) "decl!3:x" bool_sort)) "holds(|decl!3:x|)";
+  let p = constant "decl!1:p" bool_sort and q = constant "decl!2:q" bool_sort in
+  expect "uninterpreted function named like a connective, without a native id"
+    (text (A.App (declaration "and" [bool_sort; bool_sort] bool_sort, [p; q])))
+    "holds((and#-:Bool p#1:Bool q#2:Bool))";
+  expect "uninterpreted function named like a connective, with a native id"
+    (text (A.App (declaration "decl!5:and" [bool_sort; bool_sort] bool_sort, [p; q])))
+    "holds((and#5:Bool p#1:Bool q#2:Bool))";
+  (* sort identities follow the same rule with "sort!DIGITS:NAME" *)
+  List.iter (fun (name, shown) ->
+      expect ("sort " ^ String.escaped name) (text (A.Var (z 0, base name))) ("holds(#0:" ^ shown ^ ")"))
+    ["sort!", "sort!"; "sort!:T", "|sort!:T|"; "sort!x:T", "|sort!x:T|"; "sort!5", "sort!5"; "sort!5:", "||#5";
+     "sort!5:two words", "|two words|#5"; "sort!4:Int", "Int#4"; "sort!8:Bool", "Bool#8";
+     "Sort!5:T", "|Sort!5:T|"; "decl!5:T", "|decl!5:T|"];
+  expect "array sort over malformed and native sorts"
+    (text (A.Var (z 0, A.ArraySort ([base "sort!x:T"; int_sort], base "sort!6:U"))))
+    "holds(#0:(Array |sort!x:T| Int U#6))";
+  (* the report: premise limit, other stages, accepted proofs and huge counts *)
+  let five = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5; Z.one] "numeral" int_sort in
+  let x = constant "decl!3:x" int_sort in
+  let conclusion = A.App (declaration ~interp:Z3ValueTheory.op_eq "=" [int_sort; int_sort] bool_sort, [x; five]) in
+  let ids = List.init 10 (fun i -> z (100 + i)) in
+  let leaf = { P.rule = U.Unverified "th-lemma"; formula = conclusion; premise_ids = ids } in
+  let doc = { P.declarations = []; expressions = []; assertions = []; entries = [leaf]; root = Z.zero } in
+  let obligation ?(premises = []) count =
+    { P.obligation_index = Z.zero; obligation_rule = leaf.P.rule; obligation_conclusion = U.Holds conclusion;
+      obligation_premises = premises; obligation_source = conclusion; obligation_count = count } in
+  let premises = List.init 10 (fun i -> if i mod 2 = 0 then U.Holds p else U.Equal (x, x)) in
+  expect "premise limit"
+    (R.report_text 1 "PARTIAL 1" doc (P.DocumentChecked (Z.one, [obligation ~premises Z.one])))
+    (lines ["readable\tquery=1\tverdict=PARTIAL 1\tpending=1\tfamilies=1\tshown=1";
+            "readable\tfamily=1/1\trule=th-lemma\tcount=1\tmembers=1\tnode=0\tnode-pending=1";
+            "  node 0: premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>";
+            "  premise #100: holds(p#1:Bool)"; "  premise #101: equal(x#3:Int, x#3:Int)";
+            "  premise #102: holds(p#1:Bool)"; "  premise #103: equal(x#3:Int, x#3:Int)";
+            "  premise #104: holds(p#1:Bool)"; "  premise #105: equal(x#3:Int, x#3:Int)";
+            "  premise #106: holds(p#1:Bool)"; "  premise #107: equal(x#3:Int, x#3:Int)";
+            "  ...<2 more premises omitted>";
+            "  conclusion: holds((= x#3:Int 5))"; "  source formula: same as conclusion";
+            "readable\tend\tquery=1"]);
+  expect "missing-premise rejection names the node and its premise ids"
+    (R.report_text 8 "REJECT" doc (P.DocumentRejected (P.MissingPremise, Some Z.zero, None)))
+    (lines ["readable\tquery=8\tverdict=REJECT\tstage=missing-premise\tindex=0";
+            "  node 0: rule=th-lemma premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>";
+            "  source formula: none reported"; "readable\tend\tquery=8"]);
+  expect "entry rejection without an index"
+    (R.report_text 9 "REJECT" doc (P.DocumentRejected (P.ProofEntry, None, None)))
+    (lines ["readable\tquery=9\tverdict=REJECT\tstage=proof-entry\tindex=-"; "  source formula: none reported";
+            "readable\tend\tquery=9"]);
+  expect "accepted proof" (R.report_text 2 "ACCEPT" doc (P.DocumentChecked (Z.zero, [])))
+    (lines ["readable\tquery=2\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0"; "readable\tend\tquery=2"]);
+  let bare = { doc with P.entries = [{ leaf with P.premise_ids = [] }] } in
+  let big = Z.pow (z 10) 200 in
+  expect "huge counts"
+    (R.report_text 1 "PARTIAL" bare (P.DocumentChecked (big, [obligation big])))
+    (lines ["readable\tquery=1\tverdict=PARTIAL\tpending=" ^ huge "+" ^ "\tfamilies=1\tshown=1";
+            "readable\tfamily=1/1\trule=th-lemma\tcount=" ^ huge "+" ^ "\tmembers=1\tnode=0\tnode-pending=" ^ huge "+";
+            "  node 0: premises: none"; "  conclusion: holds((= x#3:Int 5))"; "  source formula: same as conclusion";
+            "readable\tend\tquery=1"])
+
 let identity_and_binders () =
   let c = context () in
   let inputs = parse c
@@ -6099,6 +6216,7 @@ let () =
      "typed-obligation-diagnostics", typed_diagnostics;
      "readable-obligation-diagnostics", readable_conditions;
      "readable-same-proof-document", readable_same_proof;
+     "readable-edge-conditions", readable_edge_cases;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "definition-expanded-binder-certificates", checked_binder_definitions;

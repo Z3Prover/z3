@@ -1,11 +1,25 @@
 #include "native.h"
 #include "readable.h"
 
+#include <algorithm>
+#include <charconv>
 #include <chrono>
+#include <exception>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
+
+// readable_report is a static function of the checker's driver. The driver is compiled into this test, with its main renamed away and
+// never called, so the report branches that no command line reaches are tested on the real function (not on a copy).
+#define main checker_driver_main
+#include "main.cpp"
+#undef main
 
 namespace {
 using namespace checker;
@@ -223,6 +237,276 @@ bool readable_regressions() {
     return ok;
 }
 
+Z3UnifiedProof_rule unverified(std::string const& name) {
+    Z3UnifiedProof_rule rule{};
+    rule.tag = Z3UNIFIEDPROOF_UNVERIFIED;
+    rule.val.Unverified = str(name);
+    return rule;
+}
+
+Z3UnifiedProof_judgment holds_of(Z3AstTheory_expr value) {
+    Z3UnifiedProof_judgment judgment{};
+    judgment.tag = Z3UNIFIEDPROOF_HOLDS;
+    judgment.val.Holds = value;
+    return judgment;
+}
+
+Z3UnifiedProof_judgment equal_of(Z3AstTheory_expr left, Z3AstTheory_expr right) {
+    Z3UnifiedProof_judgment judgment{};
+    judgment.tag = Z3UNIFIEDPROOF_EQUAL;
+    judgment.val.Equal.left = left;
+    judgment.val.Equal.right = right;
+    return judgment;
+}
+
+Z3ProofDocument_entry entry_of(std::string const& rule, Z3AstTheory_expr formula, std::vector<cherry_int> const& premise_ids) {
+    return {unverified(rule), formula, list<Prims_list__int_Cons_s>(premise_ids)};
+}
+
+Z3ProofDocument_document_Mk_document_s document_of(std::vector<Z3ProofDocument_entry> const& entries) {
+    Z3ProofDocument_document_Mk_document_s value{};
+    value.declarations = value.expressions = value.assertions = CHERRY_SCALAR(0);
+    value.entries = list<Prims_list__entry_Cons_s>(entries);
+    value.root = z(0);
+    return value;
+}
+
+Z3ProofDocument_unmet_obligation obligation_of(std::string const& rule, int64_t index, cherry_int count,
+                                               Z3UnifiedProof_judgment conclusion,
+                                               std::vector<Z3UnifiedProof_judgment> const& premises,
+                                               Z3AstTheory_expr source) {
+    return {z(index), unverified(rule), conclusion, list<Prims_list__judgment_Cons_s>(premises), source, count};
+}
+
+Z3ProofDocument_document_diagnostic checked_of(cherry_int pending, std::vector<Z3ProofDocument_unmet_obligation> const& obligations) {
+    Z3ProofDocument_document_diagnostic value{};
+    value.tag = Z3PROOFDOCUMENT_DOCUMENTCHECKED;
+    value.val.DocumentChecked.pending = pending;
+    value.val.DocumentChecked.obligations = list<Prims_list__unmet_obligation_Cons_s>(obligations);
+    return value;
+}
+
+Z3ProofDocument_document_diagnostic rejected_of(Z3ProofDocument_diagnostic_stage stage, std::optional<int64_t> index,
+                                                std::optional<Z3AstTheory_expr> source) {
+    Z3ProofDocument_document_diagnostic value{};
+    value.tag = Z3PROOFDOCUMENT_DOCUMENTREJECTED;
+    value.val.DocumentRejected.stage = stage;
+    if (index)
+        value.val.DocumentRejected.index = some<FStar_Pervasives_Native_option__int>(z(*index));
+    if (source)
+        value.val.DocumentRejected.source = some<FStar_Pervasives_Native_option__expr>(*source);
+    return value;
+}
+
+// Cases readable_regressions does not reach, mirroring the OCaml bridge test readable_edge_cases (same expectations, written from the
+// printer's contract: what the checker saw is shown as reflected and never re-encoded, repaired or reduced, an unmatched native
+// identity is a plain quoted name, every limit leaves a marker) and the report goldens of its readable_conditions, run on the
+// driver's own readable_report: node mapping and its absence, family and size limits, rejected documents.
+bool readable_edge_cases() {
+    bool ok = true;
+    auto expect = [&](std::string const& label, std::string const& actual, std::string const& expected) {
+        if (actual != expected) {
+            std::cerr << "readable " << label << ": " << actual << ", expected " << expected << '\n';
+            ok = false;
+        }
+    };
+    auto require = [&](char const* label, bool condition) {
+        if (!condition) {
+            std::cerr << "readable " << label << '\n';
+            ok = false;
+        }
+    };
+    auto int_sort = base("Int"), bool_sort = base("Bool");
+    auto decimal = [](std::string const& digits) { return cherry_int_of_decimal(digits.c_str()); };
+    auto huge = [](char const* sign) { return std::string("<") + sign + "huge integer: more than 100 digits omitted>"; };
+    auto shown = [](Z3AstTheory_expr value) { return text(value).first; };
+    // F* Z3BvLemma.op_numeral / op_extract, Z3ValueTheory.op_eq (tools/test_native_checker.py guards op_numeral)
+    auto bv_tag = CHERRY_INT_SMALL(108), extract_tag = CHERRY_INT_SMALL(111), eq_tag = CHERRY_INT_SMALL(7);
+    auto bv_numeral = [&](int64_t width, cherry_int value) {
+        return constant("bv", base("BV" + std::to_string(width)), bv_tag, {z(width), value});
+    };
+    // bit-vector values: encoded two's complement, negative or out of range as reflected, wide, beyond the digit limit
+    expect("minimum signed value, as encoded", shown(bv_numeral(8, z(128))), "holds((_ bv128 8))");
+    expect("negative value is not re-encoded", shown(bv_numeral(8, z(-1))), "holds((_ bv-1 8))");
+    expect("value beyond the width is not reduced", shown(bv_numeral(8, z(256))), "holds((_ bv256 8))");
+    expect("zero width", shown(bv_numeral(0, z(0))), "holds((_ bv0 0))");
+    std::string const ones_256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+    expect("256-bit all ones", shown(bv_numeral(256, decimal(ones_256))), "holds((_ bv" + ones_256 + " 256))");
+    expect("value of 100 digits", shown(bv_numeral(333, decimal("1" + std::string(99, '0')))),
+           "holds((_ bv1" + std::string(99, '0') + " 333))");
+    expect("value of 101 digits", shown(bv_numeral(333, decimal("1" + std::string(100, '0')))),
+           "holds((_ bv" + huge("+") + " 333))");
+    expect("512-bit value beyond the digit limit", shown(bv_numeral(512, decimal("1" + std::string(154, '0')))),
+           "holds((_ bv" + huge("+") + " 512))");
+    expect("negative 512-bit value beyond the digit limit", shown(bv_numeral(512, decimal("-1" + std::string(154, '0')))),
+           "holds((_ bv" + huge("-") + " 512))");
+    expect("width beyond the digit limit",
+           shown(constant("bv", base("BV0"), bv_tag, {decimal("1" + std::string(150, '0')), z(5)})),
+           "holds((_ bv5 " + huge("+") + "))");
+    // wide extractions: widths and bounds are shown as reflected, even beyond a machine word
+    auto bv256 = base("BV256"), bv128 = base("BV128"), bv101 = base("BV101");
+    auto extract = [&](std::vector<cherry_int> const& parameters, Z3AstTheory_sort domain, Z3AstTheory_sort range,
+                       Z3AstTheory_expr argument) {
+        return app(declaration("extract", {domain}, range, extract_tag, parameters), {argument});
+    };
+    expect("wide extraction", shown(extract({z(256), z(200), z(100)}, bv256, bv101, variable(0, bv256))),
+           "holds((extract[256,200,100] #0:BV256))");
+    expect("extraction of a wide numeral",
+           shown(extract({z(256), z(255), z(128)}, bv256, bv128, bv_numeral(256, decimal(ones_256)))),
+           "holds((extract[256,255,128] (_ bv" + ones_256 + " 256)))");
+    expect("extraction bound beyond a machine word",
+           shown(extract({z(256), decimal("18446744073709551621"), z(100)}, bv256, bv101, variable(0, bv256))),
+           "holds((extract[256,18446744073709551621,100] #0:BV256))");
+    // declaration identities: only "decl!DIGITS:NAME" (at most 20 digits) is a native identity; any other name is kept quoted, with no id
+    for (auto const& [name, expected] : std::vector<std::pair<std::string, std::string>>{
+             {"decl!", "decl!#-"}, {"decl!:x", "|decl!:x|#-"}, {"decl!abc:x", "|decl!abc:x|#-"},
+             {"decl!12", "decl!12#-"}, {"decl!12:", "||#12"}, {"decl!7:f:g", "|f:g|#7"},
+             {"decl!7:decl!8:x", "|decl!8:x|#7"}, {"decl!007:x", "x#007"}, {"Decl!3:x", "|Decl!3:x|#-"},
+             {"sort!3:x", "|sort!3:x|#-"}, {"decl!\xd9\xa3:x", "|decl!\xd9\xa3:x|#-"},
+             {"decl!12345678901234567890:x", "x#12345678901234567890"},
+             {"decl!123456789012345678901:x", "|decl!123456789012345678901:x|#-"}})
+        expect("declaration " + name, shown(constant(name, int_sort)), "holds(" + expected + ":Int)");
+    expect("interpreted head whose name looks like a native identity",
+           shown(constant("decl!3:x", bool_sort, CHERRY_INT_SMALL(999))), "holds(|decl!3:x|)");
+    auto p = constant("decl!1:p", bool_sort), q = constant("decl!2:q", bool_sort);
+    expect("uninterpreted function named like a connective, without a native id",
+           shown(app(declaration("and", {bool_sort, bool_sort}, bool_sort), {p, q})),
+           "holds((and#-:Bool p#1:Bool q#2:Bool))");
+    expect("uninterpreted function named like a connective, with a native id",
+           shown(app(declaration("decl!5:and", {bool_sort, bool_sort}, bool_sort), {p, q})),
+           "holds((and#5:Bool p#1:Bool q#2:Bool))");
+    // sort identities follow the same rule with "sort!DIGITS:NAME"
+    for (auto const& [name, expected] : std::vector<std::pair<std::string, std::string>>{
+             {"sort!", "sort!"}, {"sort!:T", "|sort!:T|"}, {"sort!x:T", "|sort!x:T|"}, {"sort!5", "sort!5"},
+             {"sort!5:", "||#5"}, {"sort!5:two words", "|two words|#5"}, {"sort!4:Int", "Int#4"},
+             {"sort!8:Bool", "Bool#8"}, {"Sort!5:T", "|Sort!5:T|"}, {"decl!5:T", "|decl!5:T|"}})
+        expect("sort " + name, shown(variable(0, base(name))), "holds(#0:" + expected + ")");
+    expect("array sort over malformed and native sorts",
+           shown(variable(0, array({base("sort!x:T"), int_sort}, base("sort!6:U")))),
+           "holds(#0:(Array |sort!x:T| Int U#6))");
+
+    // the report, on readable_report itself
+    auto five = constant("numeral", int_sort, Z3Cherry_rational_op, {z(5), z(1)});
+    auto x = constant("decl!3:x", int_sort);
+    auto conclusion = app(declaration("=", {int_sort, int_sort}, bool_sort, eq_tag), {x, five});
+    auto lines = [](std::initializer_list<std::string> rows) {
+        std::string result;
+        for (auto const& row : rows)
+            result += row + "\n";
+        return result;
+    };
+    auto report = [&](unsigned query, std::string const& verdict, Z3ProofDocument_document_Mk_document_s const& document,
+                      Z3ProofDocument_document_diagnostic const& diagnostic) {
+        return readable_report(query, verdict, document, diagnostic);
+    };
+    auto const two = z(2);
+    // two entries, as in the OCaml golden: node 1 has premise ids #31 #77
+    auto leaf = entry_of("th-lemma", conclusion, {z(31), z(77)});
+    auto doc = document_of({leaf, leaf});
+    auto obligation = [&](std::string const& rule, int64_t index, Z3UnifiedProof_judgment judgment,
+                          std::vector<Z3UnifiedProof_judgment> const& premises) {
+        return obligation_of(rule, index, two, judgment, premises, conclusion);
+    };
+    std::vector<Z3UnifiedProof_judgment> const both{holds_of(p), equal_of(x, x)};
+    auto checked = [&](std::vector<Z3ProofDocument_unmet_obligation> const& obligations) {
+        return report(3, "PARTIAL 2", doc, checked_of(two, obligations));
+    };
+    expect("checked report", checked({obligation("th-lemma", 1, holds_of(conclusion), both)}),
+           lines({"readable\tquery=3\tverdict=PARTIAL 2\tpending=2\tfamilies=1\tshown=1",
+                  "readable\tfamily=1/1\trule=th-lemma\tcount=2\tmembers=1\tnode=1\tnode-pending=2",
+                  "  node 1: premises: #31 #77", "  premise #31: holds(p#1:Bool)",
+                  "  premise #77: equal(x#3:Int, x#3:Int)", "  conclusion: holds((= x#3:Int 5))",
+                  "  source formula: same as conclusion", "readable\tend\tquery=3"}));
+    require("a differing source formula was hidden",
+            contains(checked({obligation("th-lemma", 1, equal_of(x, five), both)}),
+                     "  conclusion: equal(x#3:Int, 5)\n  source formula: holds((= x#3:Int 5))\n"));
+    auto unmatched = checked({obligation("other", 1, holds_of(conclusion), both)});
+    require("premises were attached to a node of another rule",
+            contains(unmatched, "  node 1: no source-node mapping (the document entry at this index has another rule or premise "
+                                "count): premise ids unavailable\n  premise [0]: holds(p#1:Bool)\n"));
+    require("unrelated premise ids were shown", !contains(unmatched, "#31") && !contains(unmatched, "#77"));
+    auto miscounted = checked({obligation("th-lemma", 1, holds_of(conclusion), {holds_of(p)})});
+    require("premises were attached to a node with another premise count",
+            contains(miscounted, "no source-node mapping (the document entry at this index has another rule or premise count)") &&
+            !contains(miscounted, "#31"));
+    require("an obligation without a document entry got premise ids",
+            contains(checked({obligation("th-lemma", 9, holds_of(conclusion), both)}),
+                     "  node 9: no source-node mapping (no document entry at this index): premise ids unavailable\n"));
+    require("a rejection without a document entry claimed premises",
+            contains(report(7, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_MISSINGPREMISE, 9, std::nullopt)),
+                     "  node 9: no source-node mapping (no document entry at this index)\n"));
+    std::vector<Z3ProofDocument_unmet_obligation> numbered;
+    for (int i = 0; i < 25; ++i) {
+        char rule[16];
+        std::snprintf(rule, sizeof rule, "rule-%02d", i);
+        numbered.push_back(obligation_of(rule, 0, z(i + 1), holds_of(conclusion), both, conclusion));
+    }
+    auto limited = checked(numbered);
+    require("family limit",
+            contains(limited, "pending=2\tfamilies=25\tshown=20\n") &&
+            contains(limited, "readable\tomitted\tfamilies=5\treason=family-limit\n") &&
+            contains(limited, "readable\tfamily=20/25\trule=rule-05\tcount=6\t") && !contains(limited, "rule=rule-04\t"));
+    auto heavy = app(declaration("decl!8:h", {}, int_sort), std::vector<Z3AstTheory_expr>(600, x));
+    std::vector<Z3UnifiedProof_judgment> const big_premises(8, holds_of(heavy));
+    std::vector<Z3ProofDocument_unmet_obligation> big;
+    for (int i = 0; i < 6; ++i)
+        big.push_back(obligation_of("big-" + std::to_string(i), 1, two, holds_of(heavy), big_premises, heavy));
+    auto sized = checked(big);
+    require("report size limit",
+            sized.size() < readable::max_report_chars + 200 &&
+            contains(sized, "readable\tomitted\treason=report-size\nreadable\tend\tquery=3\n"));
+    expect("rejected report", report(4, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_PROOFENTRY, 1, conclusion)),
+           lines({"readable\tquery=4\tverdict=REJECT\tstage=proof-entry\tindex=1",
+                  "  node 1: rule=th-lemma premises: #31 #77", "  source formula: holds((= x#3:Int 5))",
+                  "readable\tend\tquery=4"}));
+    expect("rejected report without a node", report(5, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_MISSINGROOT, std::nullopt, std::nullopt)),
+           lines({"readable\tquery=5\tverdict=REJECT\tstage=missing-root\tindex=-", "  source formula: none reported",
+                  "readable\tend\tquery=5"}));
+    require("a root-stage rejection claimed a proof node",
+            !contains(report(6, "REJECT", doc, rejected_of(Z3PROOFDOCUMENT_OPENROOT, 1, std::nullopt)), "  node "));
+    // the premise limit, other stages, an accepted proof and huge counts
+    std::vector<cherry_int> ids;
+    for (int i = 0; i < 10; ++i)
+        ids.push_back(z(100 + i));
+    auto many = document_of({entry_of("th-lemma", conclusion, ids)});
+    std::vector<Z3UnifiedProof_judgment> premises;
+    for (int i = 0; i < 10; ++i)
+        premises.push_back(i % 2 == 0 ? holds_of(p) : equal_of(x, x));
+    expect("premise limit",
+           report(1, "PARTIAL 1", many,
+                  checked_of(z(1), {obligation_of("th-lemma", 0, z(1), holds_of(conclusion), premises, conclusion)})),
+           lines({"readable\tquery=1\tverdict=PARTIAL 1\tpending=1\tfamilies=1\tshown=1",
+                  "readable\tfamily=1/1\trule=th-lemma\tcount=1\tmembers=1\tnode=0\tnode-pending=1",
+                  "  node 0: premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>",
+                  "  premise #100: holds(p#1:Bool)", "  premise #101: equal(x#3:Int, x#3:Int)",
+                  "  premise #102: holds(p#1:Bool)", "  premise #103: equal(x#3:Int, x#3:Int)",
+                  "  premise #104: holds(p#1:Bool)", "  premise #105: equal(x#3:Int, x#3:Int)",
+                  "  premise #106: holds(p#1:Bool)", "  premise #107: equal(x#3:Int, x#3:Int)",
+                  "  ...<2 more premises omitted>", "  conclusion: holds((= x#3:Int 5))",
+                  "  source formula: same as conclusion", "readable\tend\tquery=1"}));
+    expect("missing-premise rejection names the node and its premise ids",
+           report(8, "REJECT", many, rejected_of(Z3PROOFDOCUMENT_MISSINGPREMISE, 0, std::nullopt)),
+           lines({"readable\tquery=8\tverdict=REJECT\tstage=missing-premise\tindex=0",
+                  "  node 0: rule=th-lemma premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>",
+                  "  source formula: none reported", "readable\tend\tquery=8"}));
+    expect("entry rejection without an index",
+           report(9, "REJECT", many, rejected_of(Z3PROOFDOCUMENT_PROOFENTRY, std::nullopt, std::nullopt)),
+           lines({"readable\tquery=9\tverdict=REJECT\tstage=proof-entry\tindex=-", "  source formula: none reported",
+                  "readable\tend\tquery=9"}));
+    expect("accepted proof", report(2, "ACCEPT", many, checked_of(z(0), {})),
+           lines({"readable\tquery=2\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0", "readable\tend\tquery=2"}));
+    auto bare = document_of({entry_of("th-lemma", conclusion, {})});
+    auto const googol_squared = decimal("1" + std::string(200, '0'));
+    expect("huge counts",
+           report(1, "PARTIAL", bare,
+                  checked_of(googol_squared, {obligation_of("th-lemma", 0, googol_squared, holds_of(conclusion), {}, conclusion)})),
+           lines({"readable\tquery=1\tverdict=PARTIAL\tpending=" + huge("+") + "\tfamilies=1\tshown=1",
+                  "readable\tfamily=1/1\trule=th-lemma\tcount=" + huge("+") + "\tmembers=1\tnode=0\tnode-pending=" + huge("+"),
+                  "  node 0: premises: none", "  conclusion: holds((= x#3:Int 5))", "  source formula: same as conclusion",
+                  "readable\tend\tquery=1"}));
+    return ok;
+}
+
 // Every datum the printer reads, as text: the conclusion, premises, source formula, index and count of each obligation.
 std::string rendered_diagnostic(Z3ProofDocument_document_diagnostic const& value) {
     if (value.tag != Z3PROOFDOCUMENT_DOCUMENTCHECKED)
@@ -397,7 +681,7 @@ int main() {
         std::cerr << "Cherry native finite-field certificate flattening regression failed\n";
         return 1;
     }
-    if (!readable_regressions() || !readable_same_proof()) {
+    if (!readable_regressions() || !readable_same_proof() || !readable_edge_cases()) {
         std::cerr << "Cherry readable rendering regressions failed\n";
         return 1;
     }

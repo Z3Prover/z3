@@ -1239,6 +1239,100 @@ class ReadableDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(self.conclusion(result.stderr), r"\|h\u00e9llo \u2603\|#\d+:Real")
 
+    @staticmethod
+    def pigeonhole(n=20):
+        """Unsatisfiable, and far beyond a 1 ms solver budget: the same instance as test_timeout_is_not_certified_unsat."""
+        terms = ["(declare-const p%d_%d Bool)" % (i, j) for i in range(n) for j in range(n - 1)]
+        terms.extend("(assert (or %s))" % " ".join("p%d_%d" % (i, j) for j in range(n - 1)) for i in range(n))
+        terms.extend("(assert (or (not p%d_%d) (not p%d_%d)))" % (i, j, k, j)
+                     for j in range(n - 1) for i in range(n) for k in range(i))
+        return "\n".join(terms)
+
+    @staticmethod
+    def observed(result):
+        return result.returncode, result.stdout, result.stderr
+
+    def test_unknown_results_and_timeouts_have_no_block_and_keep_the_protocol(self):
+        # An UNKNOWN answer has no proof, so there is nothing to render: the flag changes neither stdout, the exit status nor stderr.
+        source = self.pigeonhole()
+        runs = [self.run_checker(source, *flags, "--timeout-ms", "1") for flags in ((), ("--diagnostics",), ("--readable",))]
+        self.assertEqual(runs[0].returncode, 5, runs[0].stdout + runs[0].stderr)
+        self.assertRegex(runs[0].stdout, r"^UNKNOWN .*timeout")
+        self.assertEqual(runs[0].stderr, "")
+        for run in runs[1:]:
+            self.assertEqual(self.observed(run), self.observed(runs[0]))
+        # interactive: a solver timeout and a tactic that gives up are both plain `unknown` replies, with no block either
+        for script, args in ((source + "(check-sat)", ("--timeout-ms", "1")),
+                             ("(declare-const p Bool)(assert p)(check-sat-using skip)", ())):
+            with self.subTest(script=script[-24:], args=args):
+                plain = self.run_checker(script, "--interactive", *args)
+                readable = self.run_checker(script, "--interactive", "--readable", *args)
+                self.assertEqual(self.observed(readable), self.observed(plain))
+                self.assertEqual(plain.returncode, 0, plain.stdout + plain.stderr)
+                self.assertEqual(plain.stdout, "unknown\n")
+                self.assertEqual(plain.stderr, "")
+
+    def test_a_query_without_a_proof_does_not_consume_a_query_number(self):
+        # Queries are numbered like the `; proof-check` lines: the 2nd proof is query 2 even when an UNKNOWN reply lies between.
+        script = ("(declare-const x Real)"
+                  "(push)(assert (= (* x x) 2))(assert (= (* x x x) 3))(check-sat)(pop)"
+                  "(push)(assert (> x 0))(check-sat-using skip)(pop)"
+                  "(push)(assert (= (* x x) 3))(assert (= (* x x x x) 5))(check-sat)(pop)")
+        plain = self.run_checker(script, "--interactive", "--diagnostics")
+        readable = self.run_checker(script, "--interactive", "--readable")
+        self.assertEqual(readable.returncode, 3, readable.stdout + readable.stderr)
+        self.assertEqual((readable.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", readable.stdout)),
+                         (plain.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", plain.stdout)))
+        self.assertEqual(readable.stdout.count("unknown\n"), 1, readable.stdout)
+        verdicts = re.findall(r"(?m)^; proof-check (.*)$", readable.stdout)
+        self.assertEqual(len(verdicts), 2, readable.stdout)
+        headers = re.findall(r"(?m)^readable\tquery=(\d+)\tverdict=(.*?)\tpending=", readable.stderr)
+        self.assertEqual(headers, [("1", verdicts[0]), ("2", verdicts[1])], readable.stderr)
+        # each block follows the machine row of its own query and agrees with it (the two proofs may differ between runs of the OCaml
+        # checker, so the rows are compared within the readable run, not with the run without the flag)
+        rows = [line for line in readable.stderr.splitlines() if line.startswith(("diagnostic\tchecked\t", "readable\tquery="))]
+        self.assertEqual(len(rows), 4, readable.stderr)
+        for diagnostic, header in zip(rows[0::2], rows[1::2]):
+            counts = re.fullmatch(r"diagnostic\tchecked\t(pending=\d+)\t(families=\d+)", diagnostic)
+            self.assertTrue(counts, diagnostic)
+            self.assertRegex(header, r"\t%s\t%s\t" % counts.groups())
+
+    def test_errors_and_malformed_input_are_unchanged_by_the_flag(self):
+        # A REJECT verdict is reserved for a malformed proof document and no SMT-LIB input produces one (the reports in the repository
+        # and the replayed F* corpus contain none); the rejected-document report is therefore covered by the unit-level goldens (bridge tests
+        # readable-obligation-diagnostics and readable-edge-conditions, tests.cpp readable_edge_cases). Parse errors, protocol errors and
+        # unusable arguments reach the driver before any proof is rendered: stdout, exit status and stderr must be exactly the flag-less ones.
+        for source, args in (("(assert missing)", ()),
+                             ("(assert", ()),
+                             ('{"format":"resolution-v1","root":0}', ()),
+                             ("(assert false)", ("--timeout-ms", "not-a-number")),
+                             ("(assert false)", ("--timeout-ms", "4294967296")),
+                             ("(assert false)", ("--smt2",)),
+                             ("", ("--interactive", "unused.smt2")),
+                             ("(assert", ("--interactive",)),
+                             ('(echo "unfinished', ("--interactive",)),
+                             ("(assert |unfinished", ("--interactive",))):
+            with self.subTest(source=source, args=args):
+                plain = self.run_checker(source, *args)
+                readable = self.run_checker(source, "--readable", *args)
+                self.assertEqual(plain.returncode, 2, plain.stdout + plain.stderr)
+                self.assertTrue(plain.stderr.strip())
+                self.assertEqual(self.observed(readable), self.observed(plain))
+                self.assertNotIn("readable\t", readable.stderr)
+
+    def test_an_interactive_command_error_leaves_the_stdout_protocol_and_numbers_the_next_proof(self):
+        script = "(set-option :produce-proofs false)(assert missing)(assert false)(check-sat)"
+        plain = self.run_checker(script, "--interactive", "--diagnostics")
+        readable = self.run_checker(script, "--interactive", "--readable")
+        self.assertEqual(plain.returncode, 2, plain.stdout + plain.stderr)
+        self.assertIn("(error", plain.stdout)
+        self.assertEqual((readable.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", readable.stdout)),
+                         (plain.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", plain.stdout)))
+        self.assertTrue(readable.stderr.startswith(plain.stderr), readable.stderr)
+        self.assertEqual(readable.stderr[len(plain.stderr):],
+                         "readable\tquery=1\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0\n"
+                         "readable\tend\tquery=1\n")
+
     def test_help_lists_the_flag(self):
         result = self.run_checker("", "--help")
         self.assertEqual(result.returncode, 0, result.stderr)
