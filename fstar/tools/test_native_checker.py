@@ -1,5 +1,6 @@
 """End-to-end direct SMT-LIB tests; no Python Z3 binding or proof transport."""
 import os
+import re
 from pathlib import Path
 import subprocess
 import queue
@@ -1080,6 +1081,197 @@ class DirectCheckerTests(unittest.TestCase):
                 process.kill()
                 process.communicate()
             reader.join(timeout=5)
+
+
+@unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
+                     "Set Z3_FSTAR_CHECKER to the built native checker")
+class ReadableDiagnosticsTests(unittest.TestCase):
+    """--readable adds bounded, lossless pending conditions after the unchanged machine diagnostics."""
+    run_checker = DirectCheckerTests.run_checker
+    NONLINEAR = "(declare-const x Real)(assert (= (* x x) 2))(assert (= (* x x x) 3))"
+    REPAIR = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+
+    def run_utf8(self, source, *args):
+        checker = os.environ["Z3_FSTAR_CHECKER"]
+        distribution = os.environ.get("Z3_FSTAR_WSL_DISTRO")
+        wsl = ["wsl"] + (["-d", distribution] if distribution else [])
+        command = ([*wsl, "-e", "bash", "-c", checker + ' "$@"', "checker", *args]
+                   if os.name == "nt" else [os.path.expanduser(checker), *args])
+        result = subprocess.run(command, input=source.encode("utf-8"), capture_output=True, timeout=30)
+        return subprocess.CompletedProcess(result.args, result.returncode,
+                                           result.stdout.decode("utf-8"), result.stderr.decode("utf-8"))
+
+    def conclusion(self, stderr):
+        return re.search(r"(?m)^  conclusion: (.*)$", stderr).group(1)
+
+    def test_flag_changes_neither_verdicts_nor_the_machine_rows_it_extends(self):
+        accepted = "(assert false)"
+        satisfiable = "(declare-const x Int)(assert (> x 0))"
+        sources = {"accepted": accepted, "satisfiable": satisfiable, "real": self.NONLINEAR,
+                   "bit-vector": (self.REPAIR / "egt-6871.smt2").read_text(),
+                   "finite-field": ("(set-logic QF_FF)(define-sort F () (_ FiniteField 2147483647))"
+                                    "(declare-const x F)(assert (= (ff.mul x x) (as ff0 F)))"
+                                    "(assert (not (= x (as ff0 F))))")}
+        for name, source in sources.items():
+            for interactive in (False, True):
+                args = ("--interactive",) if interactive else ()
+                text = source + "(check-sat)" if interactive else source
+                with self.subTest(source=name, interactive=interactive):
+                    plain = self.run_checker(text, *args)
+                    diagnostic = self.run_checker(text, "--diagnostics", *args)
+                    readable = self.run_checker(text, "--readable", *args)
+                    both = self.run_checker(text, "--diagnostics", "--readable", *args)
+                    # `; proof-stats` carries timings; everything else on stdout is the protocol.
+                    protocol = lambda result: (result.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", result.stdout))
+                    self.assertEqual(protocol(readable), protocol(plain), readable.stderr)
+                    self.assertEqual(protocol(diagnostic), protocol(plain), diagnostic.stderr)
+                    self.assertEqual(readable.stderr, both.stderr)
+                    self.assertTrue(readable.stderr.startswith(diagnostic.stderr), readable.stderr)
+                    for line in readable.stderr[len(diagnostic.stderr):].splitlines():
+                        self.assertTrue(line.startswith(("readable\t", "  ")), line)
+                    self.assertEqual("readable\t" in readable.stderr, name not in ("satisfiable",))
+
+    def test_pending_real_conditions_show_values_sorts_and_declaration_identity(self):
+        for interactive in (False, True):
+            with self.subTest(interactive=interactive):
+                text = self.NONLINEAR + ("(check-sat)" if interactive else "")
+                result = self.run_checker(text, "--readable", *(("--interactive",) if interactive else ()))
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                stderr = result.stderr
+                self.assertRegex(stderr, r"(?m)^readable\tquery=1\tverdict=PARTIAL 1\tpending=1\tfamilies=1\tshown=1$")
+                self.assertRegex(stderr, r"(?m)^readable\tfamily=1/1\trule=th-lemma\tcount=1\tmembers=1"
+                                         r"\tnode=0\tnode-pending=1$")
+                conclusion = self.conclusion(stderr)
+                self.assertRegex(conclusion, r"\(\* x#\d+:Real x#\d+:Real x#\d+:Real\) 3:Real\)")
+                self.assertRegex(conclusion, r"\(\* x#\d+:Real x#\d+:Real\) 2:Real\)")
+                self.assertIn("\n  source formula: same as conclusion\n", stderr)
+                self.assertTrue(stderr.endswith("readable\tend\tquery=1\n"), stderr)
+
+    def test_bit_vector_values_widths_and_array_sorts_are_kept(self):
+        result = self.run_checker((self.REPAIR / "egt-6871.smt2").read_text(), "--readable")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        for expected in ("(_ bv308 32)", "(_ bv241 32)", "concat[24,8]", "bvadd[32]", "(Array BV32 BV8)"):
+            self.assertIn(expected, conclusion)
+        self.assertRegex(conclusion, r"\(bvsle#\d+:Bool \(_ bv308 32\)")
+        self.assertRegex(conclusion, r"\(bit2bool#\d+:Bool \(select packet#\d+:\(Array BV32 BV8\) \(_ bv241 32\)\)\)")
+        machine = [line for line in result.stderr.splitlines() if line.startswith("obligation\t")]
+        self.assertEqual(len(machine), 1)
+        self.assertNotIn("308", machine[0])
+
+    def test_multi_index_arrays_and_same_named_functions_stay_distinguishable(self):
+        arrays = ("(declare-const a (Array Int Int Real))(assert (= (* (select a 1 2) (select a 1 2)) 2))"
+                  "(assert (= (* (select a 1 2) (select a 1 2) (select a 1 2)) 3))")
+        result = self.run_checker(arrays, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\(select a#\d+:\(Array Int Int Real\) 1 2\)")
+        overloaded = ("(declare-fun f (Int) Real)(declare-fun f (Real) Real)"
+                      "(assert (= (* (f 1) (f 1.0)) 2))(assert (= (* (f 1) (f 1.0) (f 1) (f 1.0)) 5))")
+        result = self.run_checker(overloaded, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        self.assertEqual(len(set(re.findall(r"\bf#(\d+):Real", conclusion))), 2, conclusion)
+        self.assertRegex(conclusion, r"\(f#\d+:Real 1\)")
+        self.assertRegex(conclusion, r"\(f#\d+:Real 1:Real\)")
+
+    def test_datatype_accessor_named_like_a_connective_is_marked(self):
+        source = ("(declare-datatypes ((T 0)) (((mk (|and| Real)))))(declare-const t T)"
+                  "(assert (= (* (|and| t) (|and| t)) 2))(assert (= (* (|and| t) (|and| t) (|and| t)) 3))")
+        result = self.run_checker(source, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stderr, r"\(and@accessor\[\d+,\d+,0\]:Real t#\d+:T#\d+\)")
+
+    def test_premises_come_from_the_document_node_of_the_obligation(self):
+        source = ("(declare-const x Real)(assert (exists ((a Real)) (and (= (* a a) x) (> a 1))))"
+                  "(assert (< (* x x) 1))")
+        result = self.run_checker(source, "--readable")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
+        family = re.search(r"(?m)^readable\tfamily=1/1\trule=arith/farkas\t.*\tnode=(\d+)\t", result.stderr)
+        self.assertTrue(family, result.stderr)
+        node = re.search(r"(?m)^  node (\d+): premises: #(\d+) #(\d+)$", result.stderr)
+        self.assertTrue(node, result.stderr)
+        self.assertEqual(node.group(1), family.group(1))
+        for premise in node.group(2, 3):
+            self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(" % premise)
+        self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(\(not \(<= a!2#\d+:Real 1:Real\)\)\)$" % node.group(2))
+
+    def test_interactive_queries_are_numbered_like_proof_callbacks(self):
+        script = ("(declare-const x Real)"
+                  "(push)(assert (= (* x x) 2))(assert (= (* x x x) 3))(check-sat)(pop)"
+                  "(push)(assert (> x 0))(check-sat)(pop)"
+                  "(push)(assert (= (* x x) 3))(assert (= (* x x x x) 5))(check-sat)(pop)")
+        result = self.run_checker(script, "--interactive", "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        verdicts = re.findall(r"(?m)^; proof-check (.*)$", result.stdout)
+        self.assertEqual(len(verdicts), 2, result.stdout)
+        self.assertEqual(result.stdout.count("\nsat\n") + result.stdout.startswith("sat\n"), 1, result.stdout)
+        headers = re.findall(r"(?m)^readable\tquery=(\d+)\tverdict=(.*?)\tpending=", result.stderr)
+        self.assertEqual(headers, [("1", verdicts[0]), ("2", verdicts[1])], result.stderr)
+        self.assertEqual(result.stderr.count("readable\tend\tquery="), 2)
+
+    def test_accepted_proofs_have_an_empty_block_and_satisfiable_inputs_none(self):
+        accepted = self.run_checker("(assert false)", "--readable")
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(accepted.stderr,
+                         "diagnostic\tchecked\tpending=0\tfamilies=0\n"
+                         "readable\tquery=1\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0\n"
+                         "readable\tend\tquery=1\n")
+        satisfiable = self.run_checker("(declare-const x Int)(assert (> x 0))", "--readable")
+        self.assertEqual((satisfiable.returncode, satisfiable.stdout.strip(), satisfiable.stderr), (4, "SAT", ""))
+
+    def test_large_conclusions_are_truncated_with_markers(self):
+        count = 1500
+        declarations = "".join("(declare-const y%d Real)" % i for i in range(count))
+        arguments = " ".join("y%d" % i for i in range(count))
+        source = (declarations + "(declare-fun f (%s) Real)" % " ".join(["Real"] * count) +
+                  "(assert (= (* (f %s) (f %s)) 2))(assert (= (* (f %s) (f %s) (f %s)) 3))" % ((arguments,) * 5))
+        result = self.run_checker(source, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        self.assertRegex(conclusion, r"<\.\.\.(chars|nodes)>$")
+        self.assertLessEqual(len(conclusion), 4096 + 40)
+
+    def test_unicode_names_are_quoted_and_kept(self):
+        source = ("(declare-const |h\u00e9llo \u2603| Real)"
+                  "(assert (= (* |h\u00e9llo \u2603| |h\u00e9llo \u2603|) 2))"
+                  "(assert (= (* |h\u00e9llo \u2603| |h\u00e9llo \u2603| |h\u00e9llo \u2603|) 3))")
+        result = self.run_utf8(source, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\|h\u00e9llo \u2603\|#\d+:Real")
+
+    def test_help_lists_the_flag(self):
+        result = self.run_checker("", "--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(result.stdout, r"--readable\b")
+        self.assertIn("--diagnostics", result.stdout)
+
+
+class ReadableTagTests(unittest.TestCase):
+    def test_cherry_renderer_uses_the_bit_vector_numeral_tag_of_the_f_star_source(self):
+        # The extracted Cherry checker exports the datatype and rational tags, not this one.
+        root = Path(__file__).resolve().parent.parent
+        tag = re.search(r"let op_numeral : decl_kind = (\d+)",
+                        (root / "Z3BvLemma.fst").read_text(encoding="utf-8")).group(1)
+        header = (root / "cherry_runtime" / "readable.h").read_text(encoding="utf-8")
+        self.assertRegex(header, r"bv_numeral_op\(\) \{ return CHERRY_INT_SMALL\(%s\); \}" % tag)
+
+    def test_the_printers_cannot_call_the_checker(self):
+        # --readable renders the diagnostic the one diagnosed check produced; a second check would double the work and could not be
+        # told from the first by a verdict. The printers (OCaml Readable module, Cherry readable.h and readable_report) never reference
+        # a checking or marshaling entry point, and each driver has exactly one diagnosed-check call site.
+        root = Path(__file__).resolve().parent.parent
+        header = (root / "cherry_runtime" / "readable.h").read_text(encoding="utf-8")
+        main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
+        report = main[main.index("static std::string readable_report("):main.index("struct Report {")]
+        for text in (header, report):
+            self.assertNotRegex(text, r"Z3Cherry_(check|diagnose|marshal)\b")
+        self.assertEqual(len(re.findall(r"Z3Cherry_diagnose\(", main)), 1)
+        self.assertEqual(len(re.findall(r"Z3Cherry_check\(", main)), 1)
+        ocaml = (root / "ocaml_runtime" / "Z3NativeMain.ml").read_text(encoding="utf-8")
+        printer = ocaml[ocaml.index("module Readable = struct"):ocaml.index("let check_proof ")]
+        self.assertNotRegex(printer, r"check_document|diagnose_document|check_proof|Z3SortedProof|Z3NativeProof")
+        self.assertEqual(len(re.findall(r"check_document_diagnosed", ocaml)), 2)
+        self.assertEqual(len(re.findall(r"Readable\.report\b", ocaml)), 1)
 
 
 if __name__ == "__main__":

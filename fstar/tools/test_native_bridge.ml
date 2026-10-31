@@ -711,6 +711,268 @@ let typed_diagnostics () =
      P.DocumentChecked (Z.zero, []), Some Z.one;
      P.DocumentRejected (P.ProofEntry, None, None), Some Z.zero]
 
+(* --readable renders what the checker saw, within explicit bounds. Expressions are built by hand,
+   so malformed metadata and shapes no solver produces (200,000 layers, 2^100 shared occurrences,
+   million-bit numerals) are covered next to the ordinary ones. *)
+let readable_conditions () =
+  let module R = Z3NativeMain.Readable in
+  let z = Z.of_int in
+  let base name = A.BaseSort name in
+  let int_sort = base "Int" and bool_sort = base "Bool" and real_sort = base "Real" in
+  let bv8 = base "BV8" and bv32 = base "BV32" in
+  let declaration ?interp ?(params = []) name domain range =
+    { A.decl_name = name; domain; range; interp; int_params = params } in
+  let constant ?interp ?params name range = A.App (declaration ?interp ?params name [] range, []) in
+  let numeral ?(range = int_sort) n d =
+    constant ~interp:Z3ValueTheory.op_num_rational ~params:[n; d] "numeral" range in
+  let bv_numeral width value =
+    constant ~interp:Z3BvLemma.op_numeral ~params:[z width; value]
+      "bv" (base (Printf.sprintf "BV%d" width)) in
+  let text e = fst (R.judgment_text (U.Holds e)) in
+  let expect label actual expected =
+    require (actual = expected) (Printf.sprintf "%s: %S, expected %S" label actual expected) in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  (* values and sorts *)
+  expect "integer numeral" (text (numeral (z 5) Z.one)) "holds(5)";
+  expect "rational numeral" (text (numeral ~range:real_sort (z (-7)) (z 3))) "holds(-7/3:Real)";
+  expect "integral real numeral" (text (numeral ~range:real_sort (z 2) Z.one)) "holds(2:Real)";
+  expect "bit-vector numeral" (text (bv_numeral 8 (z 255))) "holds((_ bv255 8))";
+  expect "wide bit-vector numeral"
+    (text (bv_numeral 64 (Z.of_string "18446744073709551615")))
+    "holds((_ bv18446744073709551615 64))";
+  let extract = declaration ~interp:Z3BvLemma.op_extract ~params:[z 32; z 15; z 8] "extract" [bv32] bv8 in
+  expect "extraction parameters" (text (A.App (extract, [A.Var (z 0, bv32)])))
+    "holds((extract[32,15,8] #0:BV32))";
+  expect "multi-index array" (text (A.Var (z 0, A.ArraySort ([int_sort; int_sort], bool_sort))))
+    "holds(#0:(Array Int Int Bool))";
+  expect "nested array" (text (A.Var (z 1, A.ArraySort ([int_sort], A.ArraySort ([bv8], bool_sort)))))
+    "holds(#1:(Array Int (Array BV8 Bool)))";
+  let inner = A.Quantifier (A.Exists_k, [bv8], bool_sort, A.Var (z 1, int_sort)) in
+  expect "nested binders"
+    (text (A.Quantifier (A.Forall_k, [int_sort; A.ArraySort ([int_sort], bool_sort)], bool_sort, inner)))
+    "holds((forall [Int (Array Int Bool)] (exists [BV8] #1:Int)))";
+  expect "lambda"
+    (text (A.Quantifier (A.Lambda_k, [int_sort], A.ArraySort ([int_sort], bool_sort), A.Var (z 0, int_sort))))
+    "holds((lambda [Int] #0:Int))";
+  (* identity: same-named declarations stay apart, datatype operations are not connectives *)
+  let f7 = declaration "decl!7:f" [int_sort] int_sort and f9 = declaration "decl!9:f" [real_sort] int_sort in
+  let x = constant "decl!3:x" int_sort and y = constant "decl!4:y" real_sort in
+  expect "first same-named function" (text (A.App (f7, [x]))) "holds((f#7:Int x#3:Int))";
+  expect "second same-named function" (text (A.App (f9, [y]))) "holds((f#9:Int y#4:Real))";
+  expect "uninterpreted symbol without a native id" (text (constant "g" bool_sort)) "holds(g#-:Bool)";
+  expect "user sort" (text (constant "decl!6:t" (base "sort!5:T"))) "holds(t#6:T#5)";
+  let p = constant "decl!1:p" bool_sort and q = constant "decl!2:q" bool_sort in
+  let conjunction = declaration ~interp:Z3ValueTheory.op_and "and" [bool_sort; bool_sort] bool_sort in
+  expect "Boolean connective" (text (A.App (conjunction, [p; q]))) "holds((and p#1:Bool q#2:Bool))";
+  let owner = base "sort!5:T" in
+  let accessor = declaration ~interp:Z3DatatypeLemma.op_accessor ~params:[z 5; z 12; z 0] "and" [owner] bool_sort in
+  expect "accessor named like a connective"
+    (text (A.App (accessor, [constant "decl!6:t" owner]))) "holds((and@accessor[5,12,0]:Bool t#6:T#5))";
+  expect "constructor named like a constant"
+    (text (constant ~interp:Z3DatatypeLemma.op_constructor ~params:[z 5; z 13; z 0] "true" owner))
+    "holds(true@constructor[5,13,0]:T#5)";
+  (* names *)
+  expect "Unicode name" (text (constant "decl!3:h\xc3\xa9llo \xe2\x98\x83" int_sort)) "holds(|h\xc3\xa9llo \xe2\x98\x83|#3:Int)";
+  expect "bar, backslash and control bytes" (text (constant "decl!4:a|b\\c\n" int_sort))
+    "holds(|a\\x7cb\\x5cc\\x0a|#4:Int)";
+  expect "invalid UTF-8" (text (constant "decl!5:\xff\xc0\x80\xed\xa0\x80" int_sort))
+    "holds(|\\xff\\xc0\\x80\\xed\\xa0\\x80|#5:Int)";
+  expect "C1 control" (text (constant "decl!5:\xc2\x85" int_sort)) "holds(|\\xc2\\x85|#5:Int)";
+  expect "empty name" (text (constant "" int_sort)) "holds(||#-:Int)";
+  expect "name starting with a digit" (text (constant "1x" int_sort)) "holds(|1x|#-:Int)";
+  expect "long name" (text (constant ("decl!1:" ^ String.make 300 'a') int_sort))
+    ("holds(|" ^ String.make 96 'a' ^ "...<204 more bytes>|#1:Int)");
+  (* numerals are checked against 10^100 before they are converted *)
+  let nines = String.make 100 '9' in
+  expect "100-digit numeral" (text (numeral (Z.of_string nines) Z.one)) ("holds(" ^ nines ^ ")");
+  expect "negative 100-digit numeral" (text (numeral (Z.neg (Z.of_string nines)) Z.one)) ("holds(-" ^ nines ^ ")");
+  expect "101-digit numeral" (text (numeral (Z.pow (z 10) 100) Z.one))
+    "holds(<+huge integer: more than 100 digits omitted>)";
+  expect "negative huge numeral" (text (numeral (Z.neg (Z.pow (z 10) 400)) Z.one))
+    "holds(<-huge integer: more than 100 digits omitted>)";
+  let started = Sys.time () in
+  expect "million-bit numeral" (text (numeral (Z.shift_left Z.one 4_000_000) (z 3)))
+    "holds(<+huge integer: more than 100 digits omitted>/3)";
+  require (Sys.time () -. started < 5.0) "a huge numeral was converted before the size check";
+  (* malformed metadata is shown as reflected, never repaired *)
+  expect "rational without a denominator"
+    (text (constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5] "5" int_sort)) "holds(|5|[5])";
+  expect "bit-vector numeral without a value"
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8] "bv" bv8)) "holds(bv[8])";
+  expect "bit-vector numeral with an extra parameter"
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8; z 255; z 1] "bv" bv8)) "holds(bv[8,255,1])";
+  expect "unknown interpretation" (text (constant ~interp:(z 999) "weird" bool_sort)) "holds(weird)";
+  expect "parameter limit" (text (constant ~params:(List.init 40 z) "decl!1:p" bool_sort))
+    ("holds(p#1[" ^ String.concat "," (List.init 16 string_of_int) ^ ",<24 more>]:Bool)");
+  (* limits leave explicit markers and stay cheap *)
+  let negation = declaration ~interp:Z3ValueTheory.op_not "not" [bool_sort] bool_sort in
+  let deep = ref p in
+  for _ = 1 to 200_000 do deep := A.App (negation, [!deep]) done;
+  let rendered, cut = R.judgment_text (U.Holds !deep) in
+  require (cut && contains rendered "<...depth>" && String.length rendered < 400) "deep expression was not cut";
+  let pair = declaration "decl!8:g" [int_sort; int_sort] int_sort in
+  let dag = ref x in
+  for _ = 1 to 100 do dag := A.App (pair, [!dag; !dag]) done;
+  let started = Sys.time () in
+  let rendered, cut = R.judgment_text (U.Holds !dag) in
+  require (Sys.time () -. started < 5.0) "a shared DAG was expanded";
+  require (cut && String.length rendered <= R.max_chars + 16) "shared DAG output was not bounded";
+  let rendered, cut =
+    R.judgment_text (U.Holds (A.App (declaration "decl!8:h" [] int_sort, List.init 5000 (fun _ -> numeral (z 5) Z.one)))) in
+  require (cut && contains rendered "<...nodes>") "node limit left no marker";
+  let rendered, cut =
+    R.judgment_text (U.Holds (A.Var (z 0, A.ArraySort (List.init 3000 (fun _ -> int_sort), bool_sort)))) in
+  require (cut && contains rendered "<...chars>" && String.length rendered <= R.max_chars + 16)
+    "character limit left no marker";
+  let nested = ref bool_sort in
+  for _ = 1 to 100 do nested := A.ArraySort ([int_sort], !nested) done;
+  let rendered, cut = R.judgment_text (U.Holds (A.Var (z 0, !nested))) in
+  require (cut && contains rendered "<...depth>") "sort depth limit left no marker";
+  (* the report: node index, premise ids, truncation, and no unrelated premises *)
+  let five = numeral (z 5) Z.one in
+  let conclusion = A.App (declaration ~interp:Z3ValueTheory.op_eq "=" [int_sort; int_sort] bool_sort, [x; five]) in
+  let leaf = { P.rule = U.Unverified "th-lemma"; formula = conclusion; premise_ids = [z 31; z 77] } in
+  let doc = { P.declarations = []; expressions = []; assertions = []; entries = [leaf; leaf]; root = z 1 } in
+  let obligation ?(rule = leaf.P.rule) ?(index = 1) ?(count = 2) conclusion =
+    { P.obligation_index = z index; obligation_rule = rule; obligation_conclusion = conclusion;
+      obligation_premises = [U.Holds p; U.Equal (x, x)]; obligation_source = leaf.P.formula;
+      obligation_count = z count } in
+  let checked ?(document = doc) obligations =
+    R.report_text 3 "PARTIAL 2" document (P.DocumentChecked (z 2, obligations)) in
+  expect "checked report" (checked [obligation (U.Holds conclusion)])
+    ("readable\tquery=3\tverdict=PARTIAL 2\tpending=2\tfamilies=1\tshown=1\n\
+      readable\tfamily=1/1\trule=th-lemma\tcount=2\tmembers=1\tnode=1\tnode-pending=2\n\
+     \  node 1: premises: #31 #77\n\
+     \  premise #31: holds(p#1:Bool)\n\
+     \  premise #77: equal(x#3:Int, x#3:Int)\n\
+     \  conclusion: holds((= x#3:Int 5))\n\
+     \  source formula: same as conclusion\n\
+      readable\tend\tquery=3\n");
+  let differing = checked [obligation (U.Equal (x, five))] in
+  require (contains differing "  conclusion: equal(x#3:Int, 5)\n  source formula: holds((= x#3:Int 5))\n")
+    "a differing source formula was hidden";
+  let unmatched = checked [obligation ~rule:(U.Unverified "other") (U.Holds conclusion)] in
+  require (contains unmatched
+             "  node 1: no source-node mapping (the document entry at this index has another rule or premise count): premise ids unavailable\n  premise [0]: holds(p#1:Bool)\n")
+    "premises were attached to a node of another rule";
+  require (not (contains unmatched "#31") && not (contains unmatched "#77")) "unrelated premise ids were shown";
+  let miscounted = checked [{ (obligation (U.Holds conclusion)) with P.obligation_premises = [U.Holds p] }] in
+  require (contains miscounted "no source-node mapping (the document entry at this index has another rule or premise count)" &&
+           not (contains miscounted "#31"))
+    "premises were attached to a node with another premise count";
+  require (contains (checked [obligation ~index:9 (U.Holds conclusion)])
+             "  node 9: no source-node mapping (no document entry at this index): premise ids unavailable\n")
+    "an obligation without a document entry got premise ids";
+  require (contains (R.report_text 7 "REJECT" doc (P.DocumentRejected (P.MissingPremise, Some (z 9), None)))
+             "  node 9: no source-node mapping (no document entry at this index)\n")
+    "a rejection without a document entry claimed premises";
+  let numbered = List.init 25 (fun i ->
+      obligation ~rule:(U.Unverified (Printf.sprintf "rule-%02d" i)) ~index:0 ~count:(i + 1) (U.Holds conclusion)) in
+  let limited = checked numbered in
+  require (contains limited "pending=2\tfamilies=25\tshown=20\n" &&
+           contains limited "readable\tomitted\tfamilies=5\treason=family-limit\n" &&
+           contains limited "readable\tfamily=20/25\trule=rule-05\tcount=6\t" &&
+           not (contains limited "rule=rule-04\t"))
+    "family limit";
+  let heavy = A.App (declaration "decl!8:h" [] int_sort, List.init 600 (fun _ -> x)) in
+  let big_premises = List.init 8 (fun _ -> U.Holds heavy) in
+  let big = List.init 6 (fun i ->
+      { (obligation ~rule:(U.Unverified (Printf.sprintf "big-%d" i)) (U.Holds heavy)) with
+        P.obligation_premises = big_premises; obligation_source = heavy }) in
+  let sized = checked big in
+  require (String.length sized < R.max_report_chars + 200 &&
+           contains sized "readable\tomitted\treason=report-size\nreadable\tend\tquery=3\n")
+    "report size limit";
+  expect "rejected report"
+    (R.report_text 4 "REJECT" doc (P.DocumentRejected (P.ProofEntry, Some (z 1), Some conclusion)))
+    ("readable\tquery=4\tverdict=REJECT\tstage=proof-entry\tindex=1\n\
+     \  node 1: rule=th-lemma premises: #31 #77\n\
+     \  source formula: holds((= x#3:Int 5))\n\
+      readable\tend\tquery=4\n");
+  expect "rejected report without a node"
+    (R.report_text 5 "REJECT" doc (P.DocumentRejected (P.MissingRoot, None, None)))
+    ("readable\tquery=5\tverdict=REJECT\tstage=missing-root\tindex=-\n\
+     \  source formula: none reported\n\
+      readable\tend\tquery=5\n");
+  require (not (contains (R.report_text 6 "REJECT" doc (P.DocumentRejected (P.OpenRoot, Some (z 1), None))) "  node "))
+    "a root-stage rejection claimed a proof node"
+
+(* The printer reads a finished diagnostic. On one fixed proof document: the check and diagnose results and the machine rows are the same
+   before and after readable output is rendered, neither the document nor the diagnostic is modified, and rendering performs no
+   checking (the hash the checker calls per judgment is not called). The CLI driver gives the same verdict, summary and machine rows
+   with and without --readable on the same native proof, and the readable records only extend them. *)
+let readable_same_proof () =
+  let module R = Z3NativeMain.Readable in
+  let capture_stderr f =
+    let path = Filename.temp_file "readable" ".stderr" in
+    let fd = Unix.openfile path [Unix.O_WRONLY; Unix.O_TRUNC] 0o600 in
+    let saved = Unix.dup Unix.stderr in
+    flush stderr;
+    Unix.dup2 fd Unix.stderr;
+    Fun.protect ~finally:(fun () -> flush stderr; Unix.dup2 saved Unix.stderr; Unix.close saved; Unix.close fd) f;
+    let text = In_channel.with_open_bin path In_channel.input_all in
+    Sys.remove path;
+    text in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  (* A chain of 20 asserted equalities (the checker indexes its inputs by hashing them from 17 asserted entries on, which is what the
+     call counter below observes) under a nonlinear conflict that leaves a pending theory lemma. *)
+  let declarations = String.concat "" (List.init 21 (fun i -> Printf.sprintf "(declare-const x%d Real)" i)) in
+  let chain = String.concat "" (List.init 20 (fun i -> Printf.sprintf "(assert (= x%d x%d))" i (i + 1))) in
+  let assertions, proof = unsat (declarations ^ chain ^ "(assert (= (* x20 x20) 2))(assert (= (* x0 x0 x0) 3))") in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (schema.Z3DatatypeSignature.cases = []) "expected the legacy checker";
+  let calls = ref 0 in
+  let hash value = incr calls; Z3NativeMain.assertion_hash value in
+  let document_bytes () = Marshal.to_string doc [] in
+  let before = document_bytes () in
+  let result, diagnostic = P.check_document_diagnosed_indexed hash doc in
+  let checks = !calls in
+  require (checks > 0) "the diagnosed check did not hash anything";
+  let pending = match diagnostic with
+    | P.DocumentChecked (n, _ :: _) -> n
+    | _ -> failwith "expected pending obligations" in
+  require (result = Some pending) "the diagnosed result disagrees with the diagnostic";
+  let rows_before = capture_stderr (fun () -> Z3NativeMain.report_diagnostics diagnostic result) in
+  require (contains rows_before "obligation\tth-lemma\t") "no machine row for the pending theory lemma";
+  let diagnostic_bytes = Marshal.to_string diagnostic [] in
+  let text = R.report_text 1 (Z3NativeMain.result_text result) doc diagnostic in
+  require (contains text "readable\tquery=1\tverdict=PARTIAL ") "no readable block for the pending proof";
+  require (!calls = checks) "rendering invoked the checker";
+  require (document_bytes () = before) "rendering changed the proof document";
+  require (Marshal.to_string diagnostic [] = diagnostic_bytes) "rendering changed the diagnostic";
+  require (R.report_text 1 (Z3NativeMain.result_text result) doc diagnostic = text)
+    "the readable block is not a function of the diagnostic";
+  require (capture_stderr (fun () -> Z3NativeMain.report_diagnostics diagnostic result) = rows_before)
+    "the machine rows changed after rendering";
+  let result', diagnostic' = P.check_document_diagnosed_indexed hash doc in
+  require (result' = result && diagnostic' = diagnostic) "the check result changed after rendering";
+  require (!calls = 2 * checks) "a diagnosed check is not a fixed amount of work";
+  require (P.check_document_indexed Z3NativeMain.assertion_hash doc = result) "diagnosed and plain verdicts differ";
+  (* the driver on the same native proof, with and without readable output *)
+  let run readable =
+    let outcome = ref (None, "") in
+    let stderr_text = capture_stderr (fun () ->
+        outcome := Z3NativeMain.check_proof false true readable 1 false 0.0 0.0 assertions proof) in
+    !outcome, stderr_text in
+  let (plain_result, plain_summary), plain_stderr = run false in
+  let (readable_result, readable_summary), readable_stderr = run true in
+  let untimed summary = String.concat " " (List.filteri (fun i _ -> i >= 3) (String.split_on_char ' ' summary)) in
+  require (plain_result = result && readable_result = result) "the driver verdict differs from the document check";
+  require (untimed plain_summary = untimed readable_summary) "--readable changed the driver summary";
+  require (plain_stderr = rows_before) "the driver's machine rows differ from the diagnostic rows";
+  require (String.starts_with ~prefix:plain_stderr readable_stderr &&
+           String.starts_with ~prefix:"readable\tquery=1\t"
+             (String.sub readable_stderr (String.length plain_stderr) (String.length readable_stderr - String.length plain_stderr)))
+    "the readable records do not simply extend the machine rows";
+  require (Marshal.to_string (fst (B.marshal_with_datatypes assertions proof)) [] = before)
+    "the proof document changed after the driver rendered it"
+
 let identity_and_binders () =
   let c = context () in
   let inputs = parse c
@@ -5835,6 +6097,8 @@ let () =
      "cached-definition-expansion", cached_definition_expansion;
      "ordered-congruence-matching", ordered_congruence_matching;
      "typed-obligation-diagnostics", typed_diagnostics;
+     "readable-obligation-diagnostics", readable_conditions;
+     "readable-same-proof-document", readable_same_proof;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "definition-expanded-binder-certificates", checked_binder_definitions;

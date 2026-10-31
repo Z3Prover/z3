@@ -2472,6 +2472,54 @@ while alpha-aliasing opaque declarations. They are coarse diagnostic
 groupings, not semantic-equivalence tests or proof evidence. Counts sum to
 the same pending total as the ordinary checker.
 
+`--readable` (both checkers; implies `--diagnostics`) additionally writes bounded, lossless
+blocks to stderr, after the unchanged `diagnostic` and `obligation` rows. Where the fingerprint
+alias-names declarations and drops bit-vector values, parameters, and binder sorts, a block shows
+one representative (the first obligation) of each of the first twenty families, in the order of
+the `obligation` rows. Header rows are tab-separated, bodies are indented:
+
+```
+readable    query=Q  verdict=PARTIAL 1  pending=1  families=1  shown=1
+readable    family=1/1  rule=arith/farkas  count=1  members=1  node=24  node-pending=1
+  node 24: premises: #14 #23
+  premise #14: holds((not (<= a!2#2147483817:Real 1:Real)))
+  premise #23: holds((not (>= (* x#2147483796:Real x#2147483796:Real) 1:Real)))
+  conclusion: holds((not (>= (+ x#2147483796:Real (* -1:Real (* a!2#2147483817:Real a!2#2147483817:Real))) 0:Real)))
+  source formula: same as conclusion
+readable    end  query=Q
+```
+
+(An illustration of the format, not captured output.) `query` counts the process's proof
+callbacks, so it matches the n-th `; proof-check` line of the interactive protocol. `node` is the
+position of the obligation in the document's proof entries; the premise ids are that entry's
+`premise_ids`, and each premise is the judgment the checker had derived for it. They are shown
+only if the entry has the same rule and premise count as the obligation. Otherwise (no entry at
+that index, or an entry of another rule or arity) the block says `no source-node mapping`, with the
+reason, and numbers the premises `[0]`, `[1]`, ... instead, never attaching another node's. The
+conclusion is the judgment the checker computed (after definition expansion); the source formula
+is the entry's formula as marshaled from Z3. Neither is a reason: a pending obligation may be
+unsupported rather than invalid, and the checker reports no reason. Expressions are written as
+S-expressions: `#I:S` is a bound variable with its de Bruijn index and sort, `(forall [S ...]
+body)` lists the binder sorts, numerals are `5`, `-7/3:Real`, and `(_ bv255 8)`, an
+uninterpreted declaration is `NAME#ID` with its native id (so same-named declarations stay
+apart), a datatype operation is marked `@constructor`, `@recognizer`, or `@accessor` (an
+accessor named `and` is not a connective), `[...]` lists the reflected integer parameters, and
+names are quoted as `|...|` with `\xNN` for control, invalid-UTF-8, `|`, and `\` bytes. Depth
+(48), nodes (1000) and characters (4096) per expression, name bytes (96), numeral digits (100,
+tested before conversion), parameters (16), premises per block (8), families (20) and
+characters per query (131072) are bounded; each cut leaves a marker such as `<...depth>`,
+`<...nodes>`, `<...chars>`, `<+huge integer: more than 100 digits omitted>`, or `...<N more bytes>`.
+A rejected document prints its stage, index, and source formula, and for `proof-entry` and
+`missing-premise` the rule and premise ids of that entry. The flag only reads the diagnostic
+result, after the single diagnosed check: for a given proof the verdict, stdout, exit status, and
+machine rows are unchanged (a same-proof OCaml bridge test, a Cherry test, and a textual guard that
+the printers reference no checking entry point cover this). It does write more, and in the
+OCaml-linked checker the proof Z3 finds for a later query of an incremental session depends on the
+process's allocation pattern (as the existing `--stats` already shows on the unmodified checker),
+so a log replayed with and without `--readable` (or with another binary) can get different proofs
+for some queries; results are comparable per proof, not per input. The Cherry checker is not
+sensitive in this way.
+
 ### Coverage extensions (2026-10-16)
 
 `Z3ArithmeticRewrite.fst` checks integer affine normalization and numeric
