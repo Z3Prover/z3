@@ -6,7 +6,7 @@ This directory contains three related activities:
 |---|---|---|
 | **1. Formalization of SMT theories** | Define abstract, value-level semantics and mechanically prove theory laws in F*. | [Formalization](FORMALIZATION.md) |
 | **2. Neuro-Formal audits of Z3 source code** | Examine selected C++ implementations against the formalized semantics, verify their semantic obligations, and document findings and scope limits. | [Source audits](SOURCE_AUDITS.md) |
-| **3. Proof checking of Z3 proofs** | Build verified checkers that validate proof steps and certificates using the formalized semantics and lemmas. | [Proof checking](PROOF_CHECKING.md); [technical report](TECHNICAL_CHECKER_REPORT.md) ([LaTeX source](TECHNICAL_CHECKER_REPORT.tex)) |
+| **3. Proof checking of Z3 proofs** | Build verified checkers that validate proof steps and certificates using the formalized semantics and lemmas. | [Proof checking](PROOF_CHECKING.md); [technical report](TECHNICAL_CHECKER_REPORT.md) ([LaTeX source](TECHNICAL_CHECKER_REPORT.tex), [PDF](TECHNICAL_CHECKER_REPORT.pdf)) |
 
 The formalization is the shared foundation. **Source audits and proof
 checking are independent activities**: both depend on the formalization,
