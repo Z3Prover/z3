@@ -1,0 +1,5 @@
+F* 2026.09.27 / Z3 version 4.13.3 - 64 bit
+timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out FarkasClauseAudit.fst
+Verified module: FarkasClauseAudit
+All verification conditions discharged successfully
+exit=0
