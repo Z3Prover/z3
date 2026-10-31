@@ -75,6 +75,7 @@ add_executable(test-z3
   horn_subsume_model_converter.cpp
   horner.cpp
   hwf.cpp
+  inc_sat_solver_pop.cpp
   inf_rational.cpp
   interval.cpp
   karr.cpp

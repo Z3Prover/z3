@@ -141,6 +141,7 @@
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
+    X(inc_sat_solver_pop) \
     X(ff_domain) \
     X(ff_solver) \
     X(ff_euf) \
