@@ -12,7 +12,14 @@
    legacy model_sound / numeric_model / array_model hypothesis.
 
    Only the free-choice controls (x/0 and head(nil) disagree across two
-   standard models) are standard-specific, by design. *)
+   standard models) are standard-specific, by design.
+
+   Section M (G2 preparation, new F* pins) adds: the nullary +/* policy
+   (empty sum/product; an interpretation with (+)() = 1 is proved NOT a root
+   model), the native op_plus/op_mul records and their mismatching
+   variants, n-ary and/or/+/*/- laws with positively false mutants, the
+   SMT sort-shape (zero-index array) rejections, and instances of the
+   document-level support induction. *)
 module Z3TypedRootTests
 
 open Z3AstTheory
@@ -27,6 +34,7 @@ module D = Z3Definitions
 module L = FStar.List.Tot
 module B = Z3BoundedBoolEquiv
 module DL = Z3DatatypeLemma
+module A = Z3LinearArithmeticAst
 
 let empty_schema : S.schema = { S.sorts = []; S.cases = [] }
 
@@ -352,10 +360,16 @@ let ev_rcompare (u:TR.uninterpreted) (i:model u) (scope:list sort) (rho:env u sc
 
 let arith_i : expr = isub (imul two three) one
 
+(* 2 * 3 = 6, in its own small query. *)
+let product_int_value (u:TR.uninterpreted) (i:model u) (scope:list sort) (rho:env u scope)
+  : Lemma (D.scoped scope (imul two three) /\ int_v (ev u i scope rho (imul two three)) == 6) =
+  ev_inum u i scope rho 2; ev_inum u i scope rho 3;
+  ev_imul u i scope rho two three
+
 let arith_int_value (u:TR.uninterpreted) (i:model u) (scope:list sort) (rho:env u scope)
   : Lemma (D.scoped scope arith_i /\ int_v (ev u i scope rho arith_i) == 5) =
-  ev_inum u i scope rho 2; ev_inum u i scope rho 3; ev_inum u i scope rho 1;
-  ev_imul u i scope rho two three;
+  product_int_value u i scope rho;
+  ev_inum u i scope rho 1;
   ev_isub u i scope rho (imul two three) one
 
 (* (2 * 3) - 1 = 5 is true; = 6 is false *)
@@ -541,7 +555,8 @@ let o1_half (u:TR.uninterpreted) (i:model u) (rho:env u scope1)
   ev_read_back u i rho;
   ev_eq u i scope1 rho read_back half
 
-(* mutation: reading back 1/3 is false (a genuine false claim) *)
+(* mutation: reading back 1/3 is false (a genuine false claim). THIS positive
+   proof of the negation, for every root model, is the primary evidence. *)
 let o1_third (u:TR.uninterpreted) (i:model u) (rho:env u scope1)
   : Lemma (bool_v (ev u i scope1 rho o1_third_e) == false) =
   ev_read_back u i rho;
@@ -550,6 +565,9 @@ let o1_third (u:TR.uninterpreted) (i:model u) (rho:env u scope1)
   real_numeral_facts ();
   ev_eq u i scope1 rho read_back third
 
+(* Supplementary control only: the solver fails on the false claim by a
+   TIMEOUT, which by itself does not show the claim is false (o1_third
+   does). Its budget is deliberately not raised. *)
 [@@expect_failure [19]]
 let o1_third_is_true (u:TR.uninterpreted) (i:model u) (rho:env u scope1)
   : Lemma (bool_v (ev u i scope1 rho o1_third_e) == true) =
@@ -1588,3 +1606,369 @@ let standard_joint_list (u:TR.uninterpreted) (uf:TR.symbols u lsch) (rho:lenv u)
   recognizers_cons u i rho;
   accessors u i rho;
   head_of_nil_is_free u uf rho
+
+(* ========================================================================== *)
+(* M. G2 preparation (new F* pins): nullary policy, native records, n-ary     *)
+(*    laws, SMT sort shape, document-level support induction                 *)
+(* ========================================================================== *)
+
+let bv (#u:TR.uninterpreted) (b:bool) : TR.tvalue u sch bool_sort = TR.boolean #u sch b
+let iv (#u:TR.uninterpreted) (n:int) : TR.tvalue u sch int_s = TR.make #u #sigma int_s n
+let rv (#u:TR.uninterpreted) (x:real) : TR.tvalue u sch real_s = TR.make #u #sigma real_s x
+
+(* --- M1. Nullary + and * are the empty sum and empty product ------------- *)
+(* A deliberate change of the root class (it was a free choice before): it   *)
+(* matches Z3SortedInteger's runtime classification, and Z3 never emits a    *)
+(* nullary arithmetic operator, so no SMT term is affected.                  *)
+
+let empty_int_values (u:TR.uninterpreted) (i:model u)
+  : Lemma (int_v (i.V.application (TR.empty_sum_decl int_s) []) == 0 /\
+           int_v (i.V.application (TR.empty_product_decl int_s) []) == 1) =
+  TR.lemma_classify_empty_sum sch int_s;
+  TR.lemma_classify_empty_product sch int_s;
+  TR.law_int_nary i (TR.empty_sum_decl int_s) A.Add [];
+  TR.law_int_nary i (TR.empty_product_decl int_s) A.Mul []
+
+let empty_real_values (u:TR.uninterpreted) (i:model u)
+  : Lemma (real_v (i.V.application (TR.empty_sum_decl real_s) []) == 0.0R /\
+           real_v (i.V.application (TR.empty_product_decl real_s) []) == 1.0R) =
+  TR.lemma_classify_empty_sum sch real_s;
+  TR.lemma_classify_empty_product sch real_s;
+  TR.law_real_nary i (TR.empty_sum_decl real_s) A.Add [];
+  TR.law_real_nary i (TR.empty_product_decl real_s) A.Mul []
+
+(* Mutants, positively false in every root model; nullary - stays free. *)
+let empty_mutants (u:TR.uninterpreted) (i:model u)
+  : Lemma (~(int_v (i.V.application (TR.empty_sum_decl int_s) []) == 1) /\
+           ~(int_v (i.V.application (TR.empty_product_decl int_s) []) == 0) /\
+           TR.classify sigma (TR.nullary_decl int_s "-" op_arith_sub) == TR.Other) =
+  empty_int_values u i;
+  TR.lemma_classify_nullary_minus sch int_s
+
+(* At expression level, through the production evaluator. *)
+let empty_sum_e : expr = App (TR.empty_sum_decl int_s) []
+
+let empty_sum_expression (u:TR.uninterpreted) (i:model u) (scope:list sort) (rho:env u scope)
+  : Lemma (D.scoped scope empty_sum_e /\ int_v (ev u i scope rho empty_sum_e) == 0) =
+  ev_app0 u i scope rho (TR.empty_sum_decl int_s);
+  empty_int_values u i
+
+(* An interpretation that answers (+)() = 1 is NOT a root model. *)
+let bad_empty_sum (u:TR.uninterpreted) (uf:TR.symbols u sch) : TR.interp u sch =
+  let i = TR.standard u sch uf in
+  { V.application = (fun (f:func_decl) (xs:TR.targuments u sch f.domain) ->
+      if f = TR.empty_sum_decl int_s then (iv #u 1 <: TR.tvalue u sch f.range)
+      else i.V.application f xs);
+    V.quantification = i.V.quantification }
+
+let bad_empty_sum_not_root (u:TR.uninterpreted) (uf:TR.symbols u sch)
+  : Lemma (~(TR.root_model u sch (bad_empty_sum u uf))) =
+  TR.lemma_classify_empty_sum sch int_s;
+  let aux () : Lemma (requires TR.root_model u sch (bad_empty_sum u uf)) (ensures False) =
+    TR.law_int_nary (bad_empty_sum u uf) (TR.empty_sum_decl int_s) A.Add [] in
+  FStar.Classical.move_requires aux ()
+
+(* --- M2. Native records: exact metadata, every mismatch is free ---------- *)
+
+let native_records_positive ()
+  : Lemma (TR.classify sigma TR.native_plus_int == TR.Arith int_s A.Add /\
+           TR.classify sigma TR.native_times_int == TR.Arith int_s A.Mul /\
+           TR.classify sigma (TR.select_decl [int_s; int_s] real_s) == TR.Select [int_s; int_s] real_s) =
+  TR.lemma_classify_native_plus sch;
+  TR.lemma_classify_native_times sch;
+  TR.lemma_classify_select sigma [int_s; int_s] real_s
+
+let native_records_wrong_sorts ()
+  : Lemma (TR.classify sigma (mk "+" op_plus [real_s; real_s] real_s []) == TR.Other /\
+           TR.classify sigma (mk "*" op_mul [real_s; real_s] real_s []) == TR.Other /\
+           TR.classify sigma (mk "+" op_plus [int_s; int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "*" op_mul [int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "+" op_plus [int_s; int_s] real_s []) == TR.Other) =
+  assert_norm (TR.classify sigma (mk "+" op_plus [real_s; real_s] real_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "*" op_mul [real_s; real_s] real_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "+" op_plus [int_s; int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "*" op_mul [int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "+" op_plus [int_s; int_s] real_s []) == TR.Other)
+
+let native_records_wrong_metadata ()
+  : Lemma (TR.classify sigma (mk "*" op_plus [int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "+" op_mul [int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "plus" op_plus [int_s; int_s] int_s []) == TR.Other /\
+           TR.classify sigma (mk "+" op_plus [int_s; int_s] int_s [1]) == TR.Other /\
+           TR.classify sigma (mk "*" op_mul [int_s; int_s] int_s [0]) == TR.Other) =
+  assert_norm (TR.classify sigma (mk "*" op_plus [int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "+" op_mul [int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "plus" op_plus [int_s; int_s] int_s []) == TR.Other);
+  assert_norm (TR.classify sigma (mk "+" op_plus [int_s; int_s] int_s [1]) == TR.Other);
+  assert_norm (TR.classify sigma (mk "*" op_mul [int_s; int_s] int_s [0]) == TR.Other)
+
+(* Native tags a multi-index store None (Z3NativeProof.operator_tag): it is
+   NOT the canonical store and stays a free, unsupported operator. *)
+let arr2_s : sort = ArraySort [int_s; int_s] real_s
+let native_store2 : func_decl =
+  { decl_name = "store"; domain = [arr2_s; int_s; int_s; real_s]; range = arr2_s; interp = None; int_params = [] }
+
+let native_multi_store_free () : Lemma (TR.classify sigma native_store2 == TR.Other) =
+  assert_norm (TR.classify sigma native_store2 == TR.Other)
+
+(* --- M3. n-ary laws: and/or, Int/Real +, *, left-associative - ---------- *)
+
+let and0_d : func_decl = mk "and" op_and [] bool_sort []
+let and1_d : func_decl = mk "and" op_and [bool_sort] bool_sort []
+let and3_d : func_decl = mk "and" op_and [bool_sort; bool_sort; bool_sort] bool_sort []
+let or0_d : func_decl = mk "or" op_or [] bool_sort []
+let or3_d : func_decl = mk "or" op_or [bool_sort; bool_sort; bool_sort] bool_sort []
+
+let nary_bool_classes ()
+  : Lemma (TR.classify sigma and0_d == TR.Nary B.And /\ TR.classify sigma and1_d == TR.Nary B.And /\
+           TR.classify sigma and3_d == TR.Nary B.And /\ TR.classify sigma or0_d == TR.Nary B.Or /\
+           TR.classify sigma or3_d == TR.Nary B.Or) =
+  assert_norm (TR.classify sigma and0_d == TR.Nary B.And /\ TR.classify sigma and1_d == TR.Nary B.And /\
+               TR.classify sigma and3_d == TR.Nary B.And /\ TR.classify sigma or0_d == TR.Nary B.Or /\
+               TR.classify sigma or3_d == TR.Nary B.Or)
+
+let nary_and_small (u:TR.uninterpreted) (i:model u) (a:bool)
+  : Lemma (bool_v (i.V.application and0_d []) == true /\ bool_v (i.V.application and1_d [bv #u a]) == a) =
+  nary_bool_classes ();
+  TR.law_nary i and0_d B.And [];
+  TR.law_nary i and1_d B.And [bv #u a]
+
+let nary_and3 (u:TR.uninterpreted) (i:model u) (a b c:bool)
+  : Lemma (bool_v (i.V.application and3_d [bv #u a; bv #u b; bv #u c]) == (a && b && c)) =
+  nary_bool_classes ();
+  TR.law_nary i and3_d B.And [bv #u a; bv #u b; bv #u c]
+
+let nary_and (u:TR.uninterpreted) (i:model u) (a b c:bool)
+  : Lemma (bool_v (i.V.application and0_d []) == true /\
+           bool_v (i.V.application and1_d [bv #u a]) == a /\
+           bool_v (i.V.application and3_d [bv #u a; bv #u b; bv #u c]) == (a && b && c)) =
+  nary_and_small u i a;
+  nary_and3 u i a b c
+
+let nary_or0 (u:TR.uninterpreted) (i:model u)
+  : Lemma (bool_v (i.V.application or0_d []) == false) =
+  nary_bool_classes ();
+  TR.law_nary i or0_d B.Or []
+
+let nary_or3 (u:TR.uninterpreted) (i:model u) (a b c:bool)
+  : Lemma (bool_v (i.V.application or3_d [bv #u a; bv #u b; bv #u c]) == (a || b || c)) =
+  nary_bool_classes ();
+  TR.law_nary i or3_d B.Or [bv #u a; bv #u b; bv #u c]
+
+let nary_or (u:TR.uninterpreted) (i:model u) (a b c:bool)
+  : Lemma (bool_v (i.V.application or0_d []) == false /\
+           bool_v (i.V.application or3_d [bv #u a; bv #u b; bv #u c]) == (a || b || c)) =
+  nary_or0 u i;
+  nary_or3 u i a b c
+
+let nary_bool_mutants (u:TR.uninterpreted) (i:model u)
+  : Lemma (~(bool_v (i.V.application and3_d [bv #u true; bv #u true; bv #u false]) == true) /\
+           ~(bool_v (i.V.application or3_d [bv #u false; bv #u false; bv #u true]) == false)) =
+  nary_and u i true true false;
+  nary_or u i false false true
+
+let add1_d : func_decl = mk "+" op_arith_add [int_s] int_s []
+let add3_d : func_decl = mk "+" op_arith_add [int_s; int_s; int_s] int_s []
+let mul1_d : func_decl = mk "*" op_arith_mul [int_s] int_s []
+let mul3_d : func_decl = mk "*" op_arith_mul [int_s; int_s; int_s] int_s []
+let sub3_d : func_decl = mk "-" op_arith_sub [int_s; int_s; int_s] int_s []
+
+let nary_int_classes ()
+  : Lemma (TR.classify sigma add1_d == TR.Arith int_s A.Add /\ TR.classify sigma add3_d == TR.Arith int_s A.Add /\
+           TR.classify sigma mul1_d == TR.Arith int_s A.Mul /\ TR.classify sigma mul3_d == TR.Arith int_s A.Mul /\
+           TR.classify sigma sub3_d == TR.Arith int_s A.Sub) =
+  assert_norm (TR.classify sigma add1_d == TR.Arith int_s A.Add);
+  assert_norm (TR.classify sigma add3_d == TR.Arith int_s A.Add);
+  assert_norm (TR.classify sigma mul1_d == TR.Arith int_s A.Mul);
+  assert_norm (TR.classify sigma mul3_d == TR.Arith int_s A.Mul);
+  assert_norm (TR.classify sigma sub3_d == TR.Arith int_s A.Sub)
+
+let nary_int_add1 (u:TR.uninterpreted) (i:model u) (x:int)
+  : Lemma (int_v (i.V.application add1_d [iv #u x]) == x) =
+  nary_int_classes ();
+  TR.law_int_nary i add1_d A.Add [iv #u x]
+
+let nary_int_add3 (u:TR.uninterpreted) (i:model u) (x y z:int)
+  : Lemma (int_v (i.V.application add3_d [iv #u x; iv #u y; iv #u z]) == x + y + z) =
+  nary_int_classes ();
+  TR.law_int_nary i add3_d A.Add [iv #u x; iv #u y; iv #u z]
+
+let nary_int_add (u:TR.uninterpreted) (i:model u) (x y z:int)
+  : Lemma (int_v (i.V.application add1_d [iv #u x]) == x /\
+           int_v (i.V.application add3_d [iv #u x; iv #u y; iv #u z]) == x + y + z) =
+  nary_int_add1 u i x;
+  nary_int_add3 u i x y z
+
+let nary_int_mul (u:TR.uninterpreted) (i:model u)
+  : Lemma (int_v (i.V.application mul1_d [iv #u 5]) == 5 /\
+           int_v (i.V.application mul3_d [iv #u 2; iv #u 3; iv #u 4]) == 24) =
+  nary_int_classes ();
+  TR.law_int_nary i mul1_d A.Mul [iv #u 5];
+  TR.law_int_nary i mul3_d A.Mul [iv #u 2; iv #u 3; iv #u 4]
+
+(* Left-associative: -(x, y, z) = (x - y) - z, not x - (y - z). *)
+let nary_int_sub (u:TR.uninterpreted) (i:model u) (x y z:int)
+  : Lemma (int_v (i.V.application sub3_d [iv #u x; iv #u y; iv #u z]) == (x - y) - z) =
+  nary_int_classes ();
+  TR.law_int_nary i sub3_d A.Sub [iv #u x; iv #u y; iv #u z]
+
+let nary_int_mutants (u:TR.uninterpreted) (i:model u)
+  : Lemma (int_v (i.V.application sub3_d [iv #u 10; iv #u 3; iv #u 2]) == 5 /\
+           ~(int_v (i.V.application sub3_d [iv #u 10; iv #u 3; iv #u 2]) == 9) /\
+           ~(int_v (i.V.application add3_d [iv #u 1; iv #u 2; iv #u 3]) == 5) /\
+           ~(int_v (i.V.application mul3_d [iv #u 2; iv #u 3; iv #u 4]) == 9)) =
+  nary_int_sub u i 10 3 2;
+  nary_int_add u i 1 2 3;
+  nary_int_mul u i
+
+let radd3_d : func_decl = mk "+" op_arith_add [real_s; real_s; real_s] real_s []
+let rmul3_d : func_decl = mk "*" op_arith_mul [real_s; real_s; real_s] real_s []
+let rsub3_d : func_decl = mk "-" op_arith_sub [real_s; real_s; real_s] real_s []
+
+let nary_real_classes ()
+  : Lemma (TR.classify sigma radd3_d == TR.Arith real_s A.Add /\ TR.classify sigma rmul3_d == TR.Arith real_s A.Mul /\
+           TR.classify sigma rsub3_d == TR.Arith real_s A.Sub) =
+  assert_norm (TR.classify sigma radd3_d == TR.Arith real_s A.Add);
+  assert_norm (TR.classify sigma rmul3_d == TR.Arith real_s A.Mul);
+  assert_norm (TR.classify sigma rsub3_d == TR.Arith real_s A.Sub)
+
+let nary_real_add (u:TR.uninterpreted) (i:model u) (x y z:real)
+  : Lemma (real_v (i.V.application radd3_d [rv #u x; rv #u y; rv #u z]) == x +. y +. z) =
+  nary_real_classes ();
+  TR.law_real_nary i radd3_d A.Add [rv #u x; rv #u y; rv #u z]
+
+let nary_real_sub (u:TR.uninterpreted) (i:model u) (x y z:real)
+  : Lemma (real_v (i.V.application rsub3_d [rv #u x; rv #u y; rv #u z]) == (x -. y) -. z) =
+  nary_real_classes ();
+  TR.law_real_nary i rsub3_d A.Sub [rv #u x; rv #u y; rv #u z]
+
+let nary_real (u:TR.uninterpreted) (i:model u) (x y z:real)
+  : Lemma (real_v (i.V.application radd3_d [rv #u x; rv #u y; rv #u z]) == x +. y +. z /\
+           real_v (i.V.application rsub3_d [rv #u x; rv #u y; rv #u z]) == (x -. y) -. z) =
+  nary_real_add u i x y z;
+  nary_real_sub u i x y z
+
+let nary_real_mul (u:TR.uninterpreted) (i:model u)
+  : Lemma (real_v (i.V.application rmul3_d [rv #u 2.0R; rv #u 3.0R; rv #u 4.0R]) == 24.0R) =
+  nary_real_classes ();
+  TR.law_real_nary i rmul3_d A.Mul [rv #u 2.0R; rv #u 3.0R; rv #u 4.0R]
+
+let nary_real_mutants (u:TR.uninterpreted) (i:model u)
+  : Lemma (real_v (i.V.application rsub3_d [rv #u 6.0R; rv #u 3.0R; rv #u 2.0R]) == 1.0R /\
+           ~(real_v (i.V.application rsub3_d [rv #u 6.0R; rv #u 3.0R; rv #u 2.0R]) == 5.0R) /\
+           ~(real_v (i.V.application rmul3_d [rv #u 2.0R; rv #u 3.0R; rv #u 4.0R]) == 9.0R)) =
+  nary_real u i 6.0R 3.0R 2.0R;
+  nary_real_mul u i
+
+(* One n-ary term through the production evaluator. *)
+let ten : expr = inum 10
+let sub3_e : expr = App sub3_d [ten; three; two]
+
+let nary_sub_expression (u:TR.uninterpreted) (i:model u) (scope:list sort) (rho:env u scope)
+  : Lemma (D.scoped scope sub3_e /\ int_v (ev u i scope rho sub3_e) == 5 /\
+           ~(int_v (ev u i scope rho sub3_e) == 9)) =
+  ev_inum u i scope rho 10; ev_inum u i scope rho 3; ev_inum u i scope rho 2;
+  ev_app3 u i scope rho sub3_d ten three two;
+  int_ext (ev u i scope rho ten) (iv #u 10);
+  int_ext (ev u i scope rho three) (iv #u 3);
+  int_ext (ev u i scope rho two) (iv #u 2);
+  nary_int_sub u i 10 3 2
+
+(* --- M4. SMT sort shape: zero-index arrays are rejected at every depth --- *)
+
+let z_int : sort = ArraySort [] int_s
+let g0_decl : func_decl = { decl_name = "g0"; domain = [z_int]; range = int_s; interp = None; int_params = [] }
+let hidden_zero_uf : expr = App g0_decl [Var 0 z_int]
+let hidden_zero_binder : expr = Quantifier Forall_k [z_int] bool_sort true_e
+let hidden_zero_eq : expr = eq (Var 0 z_int) (Var 0 z_int)
+
+let support_zero_index_sorts ()
+  : Lemma (not (TR.supported_sort sigma z_int) /\
+           not (TR.supported_sort sigma (ArraySort [int_s] z_int)) /\
+           not (TR.supported_sort sigma (ArraySort [z_int] int_s)) /\
+           not (TR.supported_sort sigma (ArraySort [int_s; ArraySort [bool_sort] z_int] real_s)) /\
+           TR.supported_sort sigma (ArraySort [int_s; ArraySort [bool_sort] int_s] real_s) /\
+           TR.supported_sort sigma arr2_s) =
+  assert_norm (not (TR.supported_sort sigma z_int) /\
+               not (TR.supported_sort sigma (ArraySort [int_s] z_int)) /\
+               not (TR.supported_sort sigma (ArraySort [z_int] int_s)));
+  assert_norm (not (TR.supported_sort sigma (ArraySort [int_s; ArraySort [bool_sort] z_int] real_s)));
+  assert_norm (TR.supported_sort sigma (ArraySort [int_s; ArraySort [bool_sort] int_s] real_s) /\
+               TR.supported_sort sigma arr2_s)
+
+(* Well-scoped terms rejected only by the coverage check: a zero-index sort
+   hidden in a declaration domain under a supported result, in a binder of
+   a Bool quantifier, under an equality; and a document containing one. *)
+let support_zero_index_terms ()
+  : Lemma (D.scoped [z_int] hidden_zero_uf /\ D.scoped [] hidden_zero_binder /\ D.scoped [z_int] hidden_zero_eq /\
+           TR.supported_sort sigma (get_sort hidden_zero_uf) /\
+           not (TR.supported_expression sigma hidden_zero_uf) /\
+           not (TR.supported_expression sigma hidden_zero_binder) /\
+           not (TR.supported_expression sigma hidden_zero_eq) /\
+           not (TR.supported_document sch [o1_half_e; eq hidden_zero_uf zero])) =
+  assert_norm (D.scoped [z_int] hidden_zero_uf /\ D.scoped [] hidden_zero_binder /\ D.scoped [z_int] hidden_zero_eq);
+  assert_norm (TR.supported_sort sigma (get_sort hidden_zero_uf) /\ not (TR.supported_expression sigma hidden_zero_uf));
+  assert_norm (not (TR.supported_expression sigma hidden_zero_binder) /\
+               not (TR.supported_expression sigma hidden_zero_eq));
+  assert_norm (not (TR.supported_document sch [o1_half_e; eq hidden_zero_uf zero]))
+
+(* A constructor field of zero-index sort passes S.valid but not the root's
+   own schema coverage check; the same schema with a one-index field passes. *)
+let box_s : sort = BaseSort "Box"
+let box_schema (field:sort) : S.schema =
+  let mk_box = { decl_name = "mkbox"; domain = [field]; range = box_s; interp = Some DL.op_constructor;
+                 int_params = [0; 0; 1] } in
+  let is_box = { decl_name = "is-mkbox"; domain = [box_s]; range = bool_sort; interp = Some DL.op_recognizer;
+                 int_params = [0; 0] } in
+  let unbox = { decl_name = "unbox"; domain = [box_s]; range = field; interp = Some DL.op_accessor;
+                int_params = [0; 0; 0] } in
+  { S.sorts = [box_s]; S.cases = [{ S.constructor = mk_box; S.recognizer = is_box; S.accessors = [unbox] }] }
+
+let zero_index_field_valid_but_unsupported ()
+  : Lemma (S.valid (box_schema z_int) /\ not (TR.supported (box_schema z_int)) /\
+           S.valid (box_schema ii_s) /\ TR.supported (box_schema ii_s)) =
+  assert_norm (S.valid (box_schema z_int) /\ not (TR.supported (box_schema z_int)));
+  assert_norm (S.valid (box_schema ii_s) /\ TR.supported (box_schema ii_s))
+
+(* --- M5. The document-level induction is usable (not vacuous) ---------- *)
+
+let document_nodes_ready ()
+  : Lemma (TR.node_ready sigma stored /\ TR.node_ready sigma read_back /\ TR.sort_ready sigma arr_s /\
+           TR.free sigma arr_s) =
+  assert_norm (TR.supported_document sch [o1_half_e]);
+  assert_norm (TR.occurs stored o1_half_e /\ TR.occurs read_back o1_half_e);
+  TR.lemma_document_node sch [o1_half_e] o1_half_e stored;
+  TR.lemma_document_node sch [o1_half_e] o1_half_e read_back
+
+let list_document_nodes_ready ()
+  : Lemma (TR.node_ready lsigma fa_list /\ TR.sort_ready lsigma l_s) =
+  assert_norm (TR.supported_document lsch [fa_list]);
+  assert_norm (TR.occurs fa_list fa_list);
+  TR.lemma_document_node lsch [fa_list] fa_list fa_list
+
+(* --- M6. Joint positive witness for the new facts: one standard model --- *)
+
+let preparation_facts (u:TR.uninterpreted) (i:TR.interp u sch) : prop =
+  int_v (i.V.application (TR.empty_sum_decl int_s) []) == 0 /\
+  int_v (i.V.application (TR.empty_product_decl int_s) []) == 1 /\
+  real_v (i.V.application (TR.empty_sum_decl real_s) []) == 0.0R /\
+  bool_v (i.V.application and3_d [bv #u true; bv #u true; bv #u false]) == false /\
+  int_v (i.V.application sub3_d [iv #u 10; iv #u 3; iv #u 2]) == 5 /\
+  int_v (i.V.application mul3_d [iv #u 2; iv #u 3; iv #u 4]) == 24 /\
+  real_v (i.V.application rsub3_d [rv #u 6.0R; rv #u 3.0R; rv #u 2.0R]) == 1.0R
+
+let preparation_facts_hold (u:TR.uninterpreted) (i:model u)
+  : Lemma (preparation_facts u i) =
+  empty_int_values u i;
+  empty_real_values u i;
+  nary_and u i true true false;
+  nary_int_sub u i 10 3 2;
+  nary_int_mul u i;
+  nary_real u i 6.0R 3.0R 2.0R
+
+let standard_joint_preparation (u:TR.uninterpreted) (uf:TR.symbols u sch)
+  : Lemma (TR.root_model u sch (TR.standard u sch uf) /\ preparation_facts u (TR.standard u sch uf) /\
+           ~(TR.root_model u sch (bad_empty_sum u uf))) =
+  TR.lemma_standard_root u sch uf;
+  preparation_facts_hold u (TR.standard u sch uf);
+  bad_empty_sum_not_root u uf

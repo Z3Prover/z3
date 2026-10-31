@@ -20,18 +20,27 @@ module Z3TypedRoot
    Datatype sorts never use their carrier: their values are the existing
    checked constructor trees (V.has_sort rejects a Scalar at a datatype sort).
    Arrays whose sort mentions a datatype (V.contains_datatype) are OUTSIDE the
-   supported domain: their carrier is a nonempty placeholder and every operator
-   on them (select/store/lambda/...) is a free model choice with no array law.
+   supported domain: their carrier is a nonempty PLACEHOLDER. On it, select,
+   store, lambda and every other array/theory symbol are free model choices
+   with no array law, but `=`, `ite` and forall/exists are still interpreted
+   (equality, choice and quantification over the placeholder carrier). That
+   is sound (L1), but has no SMT meaning, so `supported_expression` rejects
+   every term that mentions such a sort. Zero-index arrays (ArraySort [] r,
+   at any depth) have a carrier and satisfy the array laws below, but are
+   not SMT-LIB sorts and are likewise rejected by the support checks.
 
    Interpreted operators (canonical metadata only, see `classify`): true, false,
    not, =>, n-ary and/or/xor, = at every sort, ite at every sort, Int and Real
-   numerals (op_num_rational), + * - over Int or Real, Real / with a nonzero
+   numerals (op_num_rational), + * - over Int or Real (n-ary, including the
+   native binary Int op_plus/op_mul records; nullary + and * are the empty
+   sum 0 and empty product 1, as in Z3SortedInteger), Real / with a nonzero
    divisor, to_real, <= < >= > over Int or Real, select and store at every
-   supported array sort (any arity, nested), lambda at every supported array
-   sort, forall/exists over every sort. Everything else is a free choice in
-   `symbols` (uninterpreted symbols, Int div/mod/abs, distinct, const-array,
-   array-ext, BV/FF/Seq/FP operators, real division by zero, ill-matched
-   datatype selectors, operators and lambdas at unsupported sorts).
+   datatype-free array sort (any arity, nested), lambda at every
+   datatype-free array sort, forall/exists over every sort. Everything else
+   is a free choice in `symbols` (uninterpreted symbols, Int div/mod/abs,
+   distinct, const-array, array-ext, BV/FF/Seq/FP operators, real division
+   by zero, ill-matched datatype selectors, and select/store/lambda at array
+   sorts mentioning a datatype).
 
    Contract (corrected): `root_model` = R1 quantifiers, R2 operators (single
    definitional source `interpreted`), R3 lambdas, R4 constructors, R5
@@ -237,8 +246,10 @@ type targuments (u:uninterpreted) (sch:S.checked_schema) (ts:list sort) =
 (* Every remaining choice of a model, with NO constraint: uninterpreted
    symbols, every operator outside the interpreted set below (including
    integer div/mod, distinct, BV/FF/Seq/FP operators), real division by
-   zero, ill-matched datatype selectors, and every operator or lambda at a
-   sort mentioning a datatype. *)
+   zero, ill-matched datatype selectors, and select/store/lambda (and every
+   other non-connective operator) at an array sort mentioning a datatype.
+   `=` and `ite` at such a placeholder sort are NOT free: they are
+   interpreted by `connective` like at every other sort. *)
 noeq type symbols (u:uninterpreted) (sch:S.checked_schema) = {
   apply: f:func_decl -> targuments u sch f.domain -> GTot (tvalue u sch f.range);
   lambda: bound:list sort -> t:sort -> (targuments u sch (L.rev bound) -> GTot (tvalue u sch t)) ->
@@ -332,9 +343,20 @@ let connective (f:func_decl) : theory_op =
   | [_; s; _] -> if f = ite_decl s then Choice s else Other
   | _ -> Other
 
+(* Numerals, arithmetic, to_real and comparisons. Nullary policy (G2
+   preparation, a deliberate change of the root class): a nullary canonical
+   `+`/`*` (op_arith_add/op_arith_mul, no parameters) is NOT a numeral, so it
+   reaches `A.operation_of` and classifies as the empty sum (0) / empty
+   product (1), exactly as Z3SortedInteger.classify computes it at runtime.
+   Before this change TR left it free. Z3 itself rejects nullary arithmetic
+   operators (arith_decl_plugin::mk_func_decl, "no arguments supplied to
+   arithmetical operator"), so no SMT-LIB/native term is affected: the change
+   only narrows the root class on non-SMT input and is no coverage gain.
+   Nullary `-` stays Other (operation_of needs an argument). *)
 let numeric (sigma:V.signature) (f:func_decl) : theory_op =
   let s = f.range in
-  if (s = int_s || s = real_s) && not (V.datatype_sort sigma s) && f.domain = [] then
+  if (s = int_s || s = real_s) && not (V.datatype_sort sigma s) && f.domain = [] &&
+     Some? (A.numeral (App f [])) then
     (match A.numeral (App f []) with
      | Some (n, d) -> if s = real_s || d = 1 then Numeral s n d else Other
      | None -> Other)
@@ -574,38 +596,61 @@ let standard (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
 let rec base_owned (sigma:V.signature) : Tot bool (decreases sigma) =
   match sigma with [] -> true | f :: rest -> BaseSort? f.range && base_owned rest
 
-(* Schema part of the claimed STANDARD domain, as an executable check.
-   S.valid already rejects a datatype at Bool or Int, but NOT a datatype
-   registered under the name "Real", nor a constructor whose range is an
-   array sort. Constructibility (L1) does not need it: a root model exists
-   for every checked schema, but on an unsupported schema primitive Real
-   heads (numerals, +, /, ...) classify as free symbols, so the root class
-   there is NOT an SMT semantics class. No production route enforces this
-   check in G1; a future root validator must establish it (it is not
-   implied by S.valid). *)
-let supported (sch:S.schema) : bool =
-  S.valid sch && not (V.datatype_sort (S.signature sch) real_s) && base_owned (S.signature sch)
+(* SMT-LIB shape of a sort: every array sort, at ANY depth (index sorts and
+   result sort), has at least one index. `ArraySort [] r` has a carrier
+   (functions from unit) and the array laws below hold for it, but it is not
+   an SMT-LIB sort, so the coverage checks exclude it. *)
+let rec smt_shaped (s:sort) : Tot bool (decreases s) =
+  match s with
+  | BaseSort _ -> true
+  | ArraySort ds r -> Cons? ds && smt_shaped_all ds && smt_shaped r
 
-type supported_schema = sch:S.checked_schema{supported sch}
+and smt_shaped_all (ss:list sort) : Tot bool (decreases ss) =
+  match ss with [] -> true | s :: rest -> smt_shaped s && smt_shaped_all rest
 
-(* Sort part: a datatype sort itself (values are checked constructor trees)
-   or a sort mentioning no datatype (standard carrier). Rejected: array sorts
-   whose index or result (at any depth) mentions a registered datatype; they
-   only have a nonempty PLACEHOLDER carrier and no array law. This is the
-   same condition S.valid imposes on constructor fields (S.supported_fields). *)
+(* Sort part: an SMT-shaped sort that is a datatype sort itself (values are
+   checked constructor trees) or mentions no datatype (standard carrier).
+   Rejected: array sorts whose index or result (at any depth) mentions a
+   registered datatype (they only have a nonempty PLACEHOLDER carrier and no
+   array law), and zero-index arrays at any depth. *)
 let supported_sort (sigma:V.signature) (s:sort) : bool =
-  V.datatype_sort sigma s || free sigma s
+  smt_shaped s && (V.datatype_sort sigma s || free sigma s)
 
 let rec supported_sorts (sigma:V.signature) (ss:list sort) : Tot bool (decreases ss) =
   match ss with [] -> true | s :: rest -> supported_sort sigma s && supported_sorts sigma rest
+
+(* Every constructor field of the schema is a supported sort (the root's
+   OWN coverage check on fields; S.valid's supported_fields does not reject
+   zero-index arrays). *)
+let rec fields_supported (sigma:V.signature) (cs:list S.constructor_case) : Tot bool (decreases cs) =
+  match cs with
+  | [] -> true
+  | c :: rest -> supported_sorts sigma c.S.constructor.domain && fields_supported sigma rest
+
+(* Schema part of the claimed STANDARD domain, as an executable check:
+   S.valid (cases, recognizers, accessors, distinct cases, productive sorts,
+   no Bool/Int datatype), no datatype registered under the name "Real",
+   no array-ranged constructor, and supported constructor fields.
+   Constructibility (L1) does not need it: a root model exists for every
+   checked schema, but on an unsupported schema primitive Real heads
+   (numerals, +, /, ...) classify as free symbols, so the root class there
+   is NOT an SMT semantics class. No production route enforces this check;
+   a future root validator must establish it (it is not implied by S.valid). *)
+let supported (sch:S.schema) : bool =
+  S.valid sch && not (V.datatype_sort (S.signature sch) real_s) && base_owned (S.signature sch) &&
+  fields_supported (S.signature sch) sch.S.cases
+
+type supported_schema = sch:S.checked_schema{supported sch}
 
 (* Expression part: EVERY sort occurring in the term (variable sorts, the
    domain and range of every declaration, every binder sort and every
    quantifier/lambda sort, at every depth) is supported. So an unsupported
    nested subterm cannot hide inside an opaque leaf and then receive a
-   theory law. A PURE, future-checkable interface: in G1 no route or
-   validator calls it; L2 must derive/check it from the real document
-   before any certification relies on the laws below. *)
+   theory law. This is a COVERAGE check, not a typing check: it does not
+   test that a Var's sort label matches its binder, nor argument/domain
+   agreement. Any future L2 must combine it with D.scoped (and the
+   document's own well-formedness checks) on the real document; it is a
+   PURE, future-checkable interface that no route or validator calls yet. *)
 let rec supported_expression (sigma:V.signature) (e:expr) : Tot bool (decreases e) =
   match e with
   | Var _ s -> supported_sort sigma s
@@ -944,7 +989,12 @@ let lemma_difference (#a #b:Type0) (fn gn:func_space a b) (fallback:a)
 (* Operators outside this list (distinct, op_num_int numerals, Int         *)
 (* div/mod/abs, to_int/is_int, const-array, array-ext, op_oeq, n-ary =,    *)
 (* n-ary =>, BV/FF/Seq/FP/String/Regex, real x/0, unmatched selectors,     *)
-(* operators at sorts mentioning a datatype) are FREE: no law is claimed.  *)
+(* select/store/lambda at array sorts mentioning a datatype) are FREE: no  *)
+(* law is claimed. Some laws (law_equality, law_ite, R1) also hold at such *)
+(* placeholder sorts, but with no SMT meaning there: the support checks   *)
+(* exclude those terms. The preconditions of each law are stated in it    *)
+(* (domain shape, supported_schema, free array sort, nonzero divisor,      *)
+(* distinct index tuples), not only the classifier fact.                   *)
 (* ====================================================================== *)
 
 (* Every classified (non-Other) operator carries a theory interp tag, so it
@@ -1215,9 +1265,10 @@ let law_real_gt (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:f
   lemma_operator i f [x; y]
 
 (* --- Arrays of any arity at supported (datatype-free) sorts ------------- *)
-(* The laws are stated for every index list ds; SMT-LIB has no zero-index
-   arrays, so ds = [] (carrier: functions from unit) is a harmless extra
-   case of the prototype, not a claim about an SMT-LIB sort. *)
+(* The laws are stated for every index list ds, including ds = [] (carrier:
+   functions from unit): a root model also exists for that non-SMT sort, but
+   it is NOT an SMT-LIB sort and supported_sort (smt_shaped) rejects it at
+   any depth, so no coverage claim is made for it. *)
 
 let lemma_classify_select (sigma:V.signature) (ds:list sort) (r:sort)
   : Lemma (requires free sigma (ArraySort ds r))
@@ -1447,11 +1498,12 @@ let lemma_supported_primitives (sch:supported_schema)
   : Lemma (not (V.datatype_sort (S.signature sch) bool_sort) /\ not (V.datatype_sort (S.signature sch) int_s) /\
            not (V.datatype_sort (S.signature sch) real_s)) = ()
 
-(* A supported array sort is datatype-free: select/store are the theory
-   operators and lambda/extensionality laws apply. *)
+(* A supported array sort is SMT-shaped (at least one index) and
+   datatype-free: select/store are the theory operators and the lambda and
+   extensionality laws apply. *)
 let lemma_supported_array (sch:supported_schema) (ds:list sort) (r:sort)
   : Lemma (requires supported_sort (S.signature sch) (ArraySort ds r))
-          (ensures free (S.signature sch) (ArraySort ds r) /\
+          (ensures Cons? ds /\ smt_shaped_all ds /\ smt_shaped r /\ free (S.signature sch) (ArraySort ds r) /\
                    classify (S.signature sch) (select_decl ds r) == Select ds r /\
                    classify (S.signature sch) (store_decl ds r) == Store ds r) =
   lemma_base_owned (S.signature sch) ds r
@@ -1473,6 +1525,106 @@ let lemma_supported_application (sigma:V.signature) (f:func_decl) (args:list exp
   : Lemma (requires supported_expression sigma (App f args))
           (ensures supported_sort sigma f.range /\ supported_sorts sigma f.domain /\
                    supported_expressions sigma args) = ()
+
+(* --- Document-level support induction ---------------------------------- *)
+
+(* x occurs in e: the reflexive subterm relation of the production AST
+   (every argument of an application, the body of every quantifier and
+   lambda, at every depth). *)
+let rec occurs (x e:expr) : Tot bool (decreases e) =
+  x = e ||
+  (match e with
+   | Var _ _ -> false
+   | App _ args -> occurs_in x args
+   | Quantifier _ _ _ body -> occurs x body)
+
+and occurs_in (x:expr) (es:list expr) : Tot bool (decreases es) =
+  match es with [] -> false | e :: rest -> occurs x e || occurs_in x rest
+
+(* Support is inherited by every subterm. *)
+let rec lemma_supported_occurs (sigma:V.signature) (x e:expr)
+  : Lemma (requires supported_expression sigma e /\ occurs x e)
+          (ensures supported_expression sigma x) (decreases e) =
+  if x = e then ()
+  else match e with
+  | Var _ _ -> ()
+  | App _ args -> lemma_supported_occurs_in sigma x args
+  | Quantifier _ _ _ body -> lemma_supported_occurs sigma x body
+
+and lemma_supported_occurs_in (sigma:V.signature) (x:expr) (es:list expr)
+  : Lemma (requires supported_expressions sigma es /\ occurs_in x es)
+          (ensures supported_expression sigma x) (decreases es) =
+  match es with
+  | [] -> ()
+  | e :: rest -> if occurs x e then lemma_supported_occurs sigma x e else lemma_supported_occurs_in sigma x rest
+
+(* List membership. *)
+let rec lemma_supported_sorts_mem (sigma:V.signature) (ss:list sort) (s:sort)
+  : Lemma (requires supported_sorts sigma ss /\ L.mem s ss) (ensures supported_sort sigma s) (decreases ss) =
+  match ss with [] -> () | t :: rest -> if t = s then () else lemma_supported_sorts_mem sigma rest s
+
+let rec lemma_supported_expressions_mem (sigma:V.signature) (es:list expr) (e:expr)
+  : Lemma (requires supported_expressions sigma es /\ L.mem e es) (ensures supported_expression sigma e)
+          (decreases es) =
+  match es with [] -> () | d :: rest -> if d = e then () else lemma_supported_expressions_mem sigma rest e
+
+(* What the laws need of a sort occurring in a supported term over a
+   supported schema: support, SMT shape, and an array sort is datatype-free
+   with at least one index (so select/store classify as the theory
+   operators and the array/lambda laws apply, with an SMT meaning). *)
+let sort_ready (sigma:V.signature) (s:sort) : prop =
+  supported_sort sigma s /\ smt_shaped s /\
+  (ArraySort? s ==> free sigma s /\ Cons? (ArraySort?.domain s))
+
+(* Every sort of one node: a variable's sort label, a declaration's range
+   and every domain sort, a quantifier/lambda sort and every binder sort. *)
+let node_ready (sigma:V.signature) (x:expr) : prop =
+  match x with
+  | Var _ s -> sort_ready sigma s
+  | App f _ -> sort_ready sigma f.range /\ (forall (s:sort). L.mem s f.domain ==> sort_ready sigma s)
+  | Quantifier _ bound s _ -> sort_ready sigma s /\ (forall (b:sort). L.mem b bound ==> sort_ready sigma b)
+
+let lemma_sort_ready (sch:supported_schema) (s:sort)
+  : Lemma (requires supported_sort (S.signature sch) s) (ensures sort_ready (S.signature sch) s) =
+  match s with ArraySort ds r -> lemma_base_owned (S.signature sch) ds r | BaseSort _ -> ()
+
+let rec lemma_sorts_ready (sch:supported_schema) (ss:list sort)
+  : Lemma (requires supported_sorts (S.signature sch) ss)
+          (ensures forall (s:sort). L.mem s ss ==> sort_ready (S.signature sch) s) (decreases ss) =
+  match ss with [] -> () | s :: rest -> lemma_sort_ready sch s; lemma_sorts_ready sch rest
+
+let lemma_node_ready (sch:supported_schema) (x:expr)
+  : Lemma (requires supported_expression (S.signature sch) x) (ensures node_ready (S.signature sch) x) =
+  match x with
+  | Var _ s -> lemma_sort_ready sch s
+  | App f _ -> lemma_sort_ready sch f.range; lemma_sorts_ready sch f.domain
+  | Quantifier _ bound s _ -> lemma_sort_ready sch s; lemma_sorts_ready sch bound
+
+(* THE document-level lemma: every node occurring in any expression of a
+   supported document is supported and law-ready. Coverage only: a future
+   L2 must ALSO establish D.scoped (typing) for the same document. *)
+let lemma_document_node (sch:S.schema) (es:list expr) (e x:expr)
+  : Lemma (requires supported_document sch es /\ L.mem e es /\ occurs x e)
+          (ensures supported sch /\ supported_expression (S.signature sch) x /\ node_ready (S.signature sch) x) =
+  lemma_supported_expressions_mem (S.signature sch) es e;
+  lemma_supported_occurs (S.signature sch) x e;
+  lemma_node_ready sch x
+
+(* Every constructor field of a supported schema is law-ready (the values
+   quantified over at a datatype sort only contain law-ready scalars). *)
+let rec lemma_fields_ready_in (sch:supported_schema) (cs:list S.constructor_case) (c:S.constructor_case)
+  : Lemma (requires fields_supported (S.signature sch) cs /\ L.mem c cs)
+          (ensures forall (s:sort). L.mem s c.S.constructor.domain ==> sort_ready (S.signature sch) s)
+          (decreases cs) =
+  match cs with
+  | [] -> ()
+  | d :: rest ->
+    if d = c then lemma_sorts_ready sch c.S.constructor.domain else lemma_fields_ready_in sch rest c
+
+let lemma_fields_ready (sch:supported_schema) (c:S.constructor_case)
+  : Lemma (requires L.mem c sch.S.cases)
+          (ensures forall (s:sort). L.mem s c.S.constructor.domain ==> sort_ready (S.signature sch) s) =
+  lemma_fields_ready_in sch sch.S.cases c
 
 (* Canonical declarations of the interpreted primitive operators. *)
 let true_decl : func_decl = { decl_name = "true"; domain = []; range = bool_sort; interp = Some op_true; int_params = [] }
@@ -1537,3 +1689,32 @@ let lemma_classify_divide (sch:supported_schema)
   : Lemma (classify (S.signature sch) divide_decl == Divide) = ()
 let lemma_classify_to_real (sch:supported_schema)
   : Lemma (classify (S.signature sch) to_real_decl == ToReal) = ()
+
+(* Native records. Z3NativeProof.operator_tag gives binary Int + and * the
+   tags op_plus/op_mul (every other arity, and every Real +/*, gets
+   op_arith_add/op_arith_mul, covered by plus_decl/times_decl above and the
+   n-ary laws); the native exporter gives them the Z3 names "+"/"*" and no
+   parameters (Z3Native.view_expression). Name, tag, sorts and parameters
+   are all checked: any mismatch classifies Other (pinned in the tests). *)
+let native_plus_int : func_decl = binary_decl int_s "+" op_plus int_s
+let native_times_int : func_decl = binary_decl int_s "*" op_mul int_s
+
+let lemma_classify_native_plus (sch:S.checked_schema)
+  : Lemma (classify (S.signature sch) native_plus_int == Arith int_s A.Add) = ()
+let lemma_classify_native_times (sch:S.checked_schema)
+  : Lemma (classify (S.signature sch) native_times_int == Arith int_s A.Mul) = ()
+
+(* Nullary policy: canonical nullary + and * are the empty sum and the
+   empty product (law_int_nary/law_real_nary then give 0 and 1); nullary -
+   stays free. See `numeric`. *)
+let nullary_decl (s:sort) (name:string) (tag:decl_kind) : func_decl =
+  { decl_name = name; domain = []; range = s; interp = Some tag; int_params = [] }
+let empty_sum_decl (s:sort) : func_decl = nullary_decl s "+" op_arith_add
+let empty_product_decl (s:sort) : func_decl = nullary_decl s "*" op_arith_mul
+
+let lemma_classify_empty_sum (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (empty_sum_decl s) == Arith s A.Add) = ()
+let lemma_classify_empty_product (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (empty_product_decl s) == Arith s A.Mul) = ()
+let lemma_classify_nullary_minus (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (nullary_decl s "-" op_arith_sub) == Other) = ()
