@@ -85,6 +85,13 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: aarch64
       
       - name: Build
         run: python scripts/mk_unix_dist.py --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64 --os=osx-13.3
@@ -102,11 +109,20 @@ jobs:
           done
           echo "OK: macOS arm64 artifacts are arm64"
 
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform osx-arm64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: MacArm64
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-*.json
           retention-days: 2
 
   # ============================================================================
@@ -243,6 +259,13 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
       
       - name: Build
         run: python scripts/mk_unix_dist.py --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
@@ -253,11 +276,20 @@ jobs:
       - name: Test
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
 
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform linux-x64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UbuntuBuild
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-*.json
           retention-days: 2
 
   ubuntu-arm64:
@@ -514,6 +546,13 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
       
       - name: Build
         shell: cmd
@@ -521,12 +560,21 @@ jobs:
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
+
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist/x64 --out-dir dist/x64
+          --platform win-x64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
       
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: WindowsBuild-x64
-          path: dist/x64/*.zip
+          path: |
+            dist/x64/*.zip
+            dist/x64/receipt-*.json
           retention-days: 2
 
   windows-build-x86:
@@ -586,6 +634,17 @@ jobs:
   # ============================================================================
   # PACKAGE STAGE
   # ============================================================================
+
+  java-package:
+    name: "Package and validate Java nightly artifacts"
+    needs: [ubuntu-build, windows-build-x64, mac-build-arm64]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/java-package-artifacts.yml
+    with:
+      linux-artifact: UbuntuBuild
+      windows-artifact: WindowsBuild-x64
+      macos-artifact: MacArm64
   
   nuget-package-x64:
     name: "NuGet 64 packaging"
@@ -823,7 +882,8 @@ jobs:
       nuget-package-x64,
       nuget-package-x86,
       validate-macos-headerpad-x64,
-      validate-macos-headerpad-arm64
+      validate-macos-headerpad-arm64,
+      java-package
     ]
     runs-on: ubuntu-latest
     steps:
@@ -891,7 +951,11 @@ jobs:
           fi
 
           ls
-          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+          # Maven rehearsal ZIPs are CI artifacts, not Nightly attachments.
+          find tmp -type f -not -path 'tmp/java-maven-*/*' \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+
+          # Attach only Java files that passed the shared native validation gate.
+          find tmp/java-release-packages -maxdepth 1 -type f \( -name "*.jar" -o -name "z3-*-java-*.json" -o -name "z3-*-java-SHA256SUMS" \) -print0 >> release_files.txt
           
           # Deduplicate files - keep only first occurrence of each basename
           # Use NUL-delimited input/output to handle spaces in filenames safely
