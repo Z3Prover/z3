@@ -1,0 +1,22 @@
+{
+  "pull_request": 11488,
+  "head_sha": "59fc59afc805afa9329ab43d5c372c78ee65efe0",
+  "base_sha": "deef01f5b899f47fdbeccb0f408b57324cbb1ffe",
+  "path_prefix": "fstar/audits/pr-11488/59fc59afc805afa9329ab43d5c372c78ee65efe0/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41197878801",
+  "files": [
+    {
+      "name": "Z3FmaSmallSig.fst",
+      "sha256": "3691d82531995e0ce2c39a1c7a5ed33d305b6d6891ffdb65b4acb939ab19a3ef"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "d994d2309ebc9d51b2ed97aa227e82737d6e21748517faf0af16839c93cd0370"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "eed812e179df566dcf5c1fa71f78a5f277e33017099caf417e7f2dc2fdde666d"
+    }
+  ]
+}
