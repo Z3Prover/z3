@@ -27,6 +27,99 @@ Copyright (c) 2015 Microsoft Corporation
 #include <cstring>
 #include <sstream>
 
+static void check_activity_case_splits() {
+    struct case_split_context : smt::context {
+        using smt::context::context;
+        using smt::context::m_searching;
+    };
+    for (auto strategy : {CS_ACTIVITY_DELAY_NEW, CS_ACTIVITY, CS_ACTIVITY_WITH_CACHE})
+    for (unsigned relevancy : {0u, 1u, 2u})
+    for (double random_freq : {0.0, 1.0})
+    for (bool delayed : {false, true})
+    for (unsigned seed = 0; seed < 4; ++seed) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        smt_params params;
+        params.m_auto_config = false;
+        params.m_case_split_strategy = strategy;
+        params.m_relevancy_lvl = relevancy;
+        params.m_random_var_freq = random_freq;
+        params.m_random_seed = seed;
+        case_split_context ctx(m, params);
+        app_ref a(m.mk_const("a", m.mk_bool_sort()), m);
+        app_ref b(m.mk_const("b", m.mk_bool_sort()), m);
+        app_ref c(m.mk_const("c", m.mk_bool_sort()), m);
+        smt::bool_var va = ctx.mk_bool_var(a);
+        smt::bool_var vb = ctx.mk_bool_var(b);
+        smt::bool_var vc = ctx.mk_bool_var(c);
+        ctx.set_activity(va, 3.0);
+        ctx.set_activity(vb, 1.0);
+        ctx.set_activity(vc, 2.0);
+        ctx.mark_as_relevant(vb);
+        scoped_ptr<smt::case_split_queue> queue(smt::mk_case_split_queue(ctx, params));
+        ctx.m_searching = delayed;
+        for (auto v : {va, vb, vc})
+            queue->mk_var_eh(v);
+        ctx.m_searching = false;
+
+        smt::bool_var next;
+        lbool phase;
+        queue->next_case_split(next, phase);
+        if (relevancy) {
+            VERIFY(next == vb);
+        }
+        else if (random_freq == 0.0) {
+            VERIFY(next == va);
+        }
+        VERIFY(next == va || next == vb || next == vc);
+        VERIFY(phase == l_undef);
+        ctx.assign(smt::literal(next), smt::b_justification::mk_axiom());
+        ctx.mark_as_relevant(vc);
+        for (unsigned i = 0; i < 2; ++i) {
+            queue->next_case_split(next, phase);
+            VERIFY(next == va || next == vb || next == vc);
+            VERIFY(ctx.get_assignment(next) == l_undef);
+            if (relevancy && i == 0) {
+                VERIFY(next == vc);
+            }
+            ctx.assign(smt::literal(next), smt::b_justification::mk_axiom());
+        }
+        queue->next_case_split(next, phase);
+        VERIFY(next == smt::null_bool_var);
+    }
+}
+
+static void check_datatype_recognizer_phases() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(
+        "(declare-datatype L ((cons (head Int) (tail L)) (nil)))\n"
+        "(declare-datatype T ((branch (child T)) (leaf (value Int))))\n"
+        "(declare-datatype E ((e0) (e1)))\n"
+        "(declare-const xs L)\n"
+        "(declare-const t T)\n"
+        "(declare-const e E)\n"
+        "(assert ((_ is nil) xs))\n"
+        "(assert ((_ is cons) xs))\n"
+        "(assert ((_ is leaf) t))\n"
+        "(assert ((_ is branch) t))\n"
+        "(assert ((_ is e0) e))\n"
+        "(assert ((_ is e1) e))\n");
+    VERIFY(parse_smt2_commands(cmd, is));
+    smt_params params;
+    params.m_dt_lazy_splits = 2;
+    smt::context ctx(m, params);
+    ctx.push();
+    unsigned i = 0;
+    for (expr* recognizer : cmd.assertions()) {
+        ctx.internalize(recognizer, false);
+        VERIFY(ctx.try_true_first(ctx.get_bool_var(recognizer)) == (i == 0 || i == 2));
+        ++i;
+    }
+    ctx.pop(1);
+}
+
 static void check_sat_smt_recfun(char const* input)
 {
     ast_manager m;
@@ -788,6 +881,8 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_activity_case_splits();
+    check_datatype_recognizer_phases();
     check_intblast_signed_mod();
     check_qsat_proofs();
     check_qe_rec_proofs();

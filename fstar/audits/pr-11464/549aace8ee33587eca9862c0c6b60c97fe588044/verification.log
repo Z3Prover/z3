@@ -1,0 +1,3 @@
+F* 2026.09.27; Z3 4.13.3; fresh cache; timeout 120; exit 0
+Verified module: CaseSplitCore
+All verification conditions discharged successfully

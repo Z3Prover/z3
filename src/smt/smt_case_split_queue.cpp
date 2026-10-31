@@ -117,23 +117,37 @@ namespace {
 
         void pop_scope(unsigned num_scopes) override {}
 
+        void next_case_split_core(bool_var & next) {
+            next = null_bool_var;
+            while (!m_queue.empty() && m_context.get_assignment(m_queue.min_value()) != l_undef)
+                m_queue.erase_min();
+            if (m_queue.empty())
+                return;
+            next = m_queue.min_value();
+            if (!m_context.is_relevant(next)) {
+                bool_var relevant = null_bool_var;
+                for (bool_var v : m_queue) {
+                    if (m_context.get_assignment(v) == l_undef && m_context.is_relevant(v) &&
+                        (relevant == null_bool_var || m_context.get_activity(v) > m_context.get_activity(relevant)))
+                        relevant = v;
+                }
+                if (relevant != null_bool_var)
+                    next = relevant;
+            }
+            m_queue.erase(next);
+        }
+
         void next_case_split(bool_var & next, lbool & phase) override {
             phase = l_undef;
-            
+
             if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
-                next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
+                next = m_context.get_random_value() % m_context.get_num_b_internalized();
                 TRACE(random_split, tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
-                if (m_context.get_assignment(next) == l_undef)
+                if (m_context.get_assignment(next) == l_undef && m_context.is_relevant(next))
                     return;
             }
-            
-            while (!m_queue.empty()) {
-                next = m_queue.erase_min();
-                if (m_context.get_assignment(next) == l_undef)
-                    return;
-            }
-            
-            next = null_bool_var;
+
+            next_case_split_core(next);
         }
 
         void display(std::ostream & out) override {
@@ -220,13 +234,7 @@ namespace {
             m_queue.swap(m_delayed_queue);
             SASSERT(m_delayed_queue.empty());
             
-            while (!m_queue.empty()) {
-                next = m_queue.erase_min();
-                if (m_context.get_assignment(next) == l_undef)
-                    return;
-            }
-            
-            next = null_bool_var;
+            next_case_split_core(next);
         }
     };
 

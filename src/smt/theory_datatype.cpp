@@ -325,6 +325,12 @@ namespace smt {
             bool_var bv = ctx.mk_bool_var(term);
             ctx.set_var_theory(bv, get_id());
             ctx.set_enode_flag(bv, true);
+            if (is_recognizer(term)) {
+                sort* s = term->get_arg(0)->get_sort();
+                if (m_util.is_recursive(s) &&
+                    m_util.get_recognizer_constructor(term->get_decl()) == m_util.get_non_rec_constructor(s))
+                    ctx.set_true_first_flag(bv);
+            }
         }
         if (is_constructor(term) || is_update_field(term)) {
             SASSERT(!is_attached_to_var(e));

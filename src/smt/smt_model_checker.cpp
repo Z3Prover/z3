@@ -602,6 +602,9 @@ namespace smt {
         vector<std::tuple<enode *, enode *>> dummy;
         for (instance const& inst : m_new_instances) {
             quantifier * q  = inst.m_q;
+            // A restart may have popped a quantifier introduced in a decision scope.
+            if (!m_context->b_internalized(q))
+                m_context->internalize(q, true, inst.m_generation);
             if (m_context->b_internalized(q)) {
                 bindings.reset();
                 unsigned num_decls = q->get_num_decls();

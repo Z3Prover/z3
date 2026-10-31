@@ -1,0 +1,22 @@
+{
+  "pull_request": 11464,
+  "head_sha": "a73be5032fce7e37d67df612535e9e52ebed5238",
+  "base_sha": "30daf835d2c23b71298e83451ce03d7fa203376b",
+  "path_prefix": "fstar/audits/pr-11464/a73be5032fce7e37d67df612535e9e52ebed5238/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41074992895",
+  "files": [
+    {
+      "name": "CaseSplitAudit.fst",
+      "sha256": "64be2f875fa1979041d99a51fb3f7b971da2f6ce51c83375c8acf7d3fb8619bb"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "60adb0a76ee5ad56df88d1a4a2f7ab80bfed572f8477ba0bb2013c0e26137be0"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "1465bac196ed139e18330327198cbd735503f41f8686410a405830076b3cdfac"
+    }
+  ]
+}
