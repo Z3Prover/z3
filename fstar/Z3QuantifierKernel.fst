@@ -48,9 +48,10 @@
    model; `Z3QuantifierKernelTests` checks accepted and rejected nodes
    against it.
 
-   NOT covered: quantifier introduction and the other binder rules,
-   definitions, Skolemization, lambdas, arrays beyond the core contracts,
-   and the proof DAG and document layers.
+   NOT covered here: quantifier introduction (a fragment is proved in
+   `Z3BinderKernel`) and the other binder rules, definitions, Skolemization,
+   lambdas, arrays beyond the core contracts, and the proof DAG and
+   document layers.
 *)
 module Z3QuantifierKernel
 

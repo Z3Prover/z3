@@ -27,11 +27,10 @@ class datatype_factory : public struct_factory {
 
     // One term_enumeration instance per (top-level) datatype sort. Each
     // instance is seeded with the constructors of the sort and of every
-    // datatype sort transitively reachable through constructor argument
-    // sorts, and is given an external enumerator that defers to the model
-    // for values of non-datatype argument sorts. Used by get_fresh_value to
-    // manufacture successive, structurally distinct values of a recursive
-    // datatype sort.
+    // datatype sort in its recursive dependency group, and is given an
+    // external enumerator that defers to the model for other argument
+    // sorts. Used by get_fresh_value to manufacture successive,
+    // structurally distinct values of a recursive datatype sort.
     obj_map<sort, term_enumeration *>          m_fresh_enum;
     obj_map<sort, term_enumeration::iterator *> m_fresh_iter;
 

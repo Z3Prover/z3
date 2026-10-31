@@ -75,6 +75,56 @@ let bounded_conditional_rewrite () : bool =
   not (Z3TheoryNormalize.equivalent shared R.true_expr) &&
   CR.equivalent (ite guard R.true_expr R.false_expr) guard
 
+(* The binder scope guard builds scopes, walks expressions and compares sorts
+   with loops (`U.scope_under`, `U.scoped_frames_within`, `U.sort_tasks_within`).
+   Each certificate below holds a deep or wide term in a used internal entry
+   under the closed root `(= true true)`, so the document's own scope check of
+   the node formula does not walk it; unused `refl` entries give the guard its
+   work. Before the loops, the guard overflowed the native stack on all four
+   (a quantifier over 200,000 binders, 200,000 nested negations, a sort nested
+   50,000 deep in an array domain); the guard-free checker accepted them. Inputs
+   are built by tail-recursive accumulators. *)
+let rec int_sorts (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
+  if n = 0 then acc else int_sorts (n - 1) (A.BaseSort "Int" :: acc)
+
+let rec nested_not (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else nested_not (depth - 1) (R.mk_not_expr acc)
+
+let rec domain_nested (depth:nat) (acc:A.sort) : Tot A.sort (decreases depth) =
+  if depth = 0 then acc else domain_nested (depth - 1) (A.ArraySort [acc] (A.BaseSort "Int"))
+
+let binder_entry (name:string) (formula:A.expr) (premises:list int) : U.binder_entry =
+  { U.binder_name = name; U.binder_formula = formula; U.binder_premises = premises; U.binder_sorts = None }
+
+let rec padding (count:nat) (entries:list U.binder_entry)
+  : Tot (list U.binder_entry) (decreases count) =
+  if count = 0 then entries
+  else padding (count - 1) (binder_entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] :: entries)
+
+(* refl (= q q); iff-true ((= q q) = true); mp true; iff-true (true = true), the root. *)
+let hidden_term_pending (q:A.expr) (pad:nat) : int =
+  let eqq = R.mk_eq_expr q q in
+  let entries =
+    binder_entry "refl" eqq [] ::
+    binder_entry "iff-true" (R.mk_iff_expr eqq R.true_expr) [0] ::
+    binder_entry "mp" R.true_expr [0; 1] ::
+    binder_entry "iff-true" (R.mk_iff_expr R.true_expr R.true_expr) [2] :: padding pad [] in
+  let e = { P.rule = U.QuantifierIntroduction ({ U.binder_entries = entries; U.binder_root = 3 });
+            P.formula = R.mk_eq_expr R.true_expr R.true_expr; P.premise_ids = [] } in
+  match P.check_entry false true [] [] Z3ProofIndex.Empty e with
+  | Some (_, pending) -> pending
+  | None -> -1
+
+let binder_guard_stack () : bool =
+  let deep_sort = domain_nested 50000 (A.BaseSort "Int") in
+  let x = A.Var 0 deep_sort in
+  let deep_sort_q = A.Quantifier A.Forall_k [deep_sort] A.bool_sort (R.mk_eq_expr x x) in
+  hidden_term_pending (A.Quantifier A.Forall_k (int_sorts 200000 []) A.bool_sort R.true_expr) 42 = 0 &&
+  hidden_term_pending (nested_not 200000 R.true_expr) 308 = 0 &&
+  hidden_term_pending deep_sort_q 200 = 0 &&
+  (* the same certificate with less work: the guard's budget leaves it pending *)
+  hidden_term_pending deep_sort_q 79 = 1
+
 (* The verdict of a diagnosed document is the verdict of its check (Z3Cherry.lemma_diagnose_is_check),
    for accepted, pending and rejected documents. *)
 let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
@@ -100,4 +150,5 @@ let run () : bool =
   diagnosis_is_check false pending && diagnosis_is_check true pending &&
   large_axiom_scan () &&
   large_documents () &&
-  bounded_conditional_rewrite ()
+  bounded_conditional_rewrite () &&
+  binder_guard_stack ()

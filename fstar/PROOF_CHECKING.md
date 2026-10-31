@@ -31,8 +31,13 @@ kernel, `Z3CoreKernel.lemma_core_check_node_sound` proves the Boolean,
 equality and congruence rules (and bounded bit-vector steps) from the
 inhabited typed contract `Z3CoreModel.core_model`. Checked quantifier
 instantiation is proved separately by `Z3QuantifierKernel` under an
-inhabited typed quantifier contract. The remaining rules of that kernel
-still rest on the legacy `Z3UnifiedProof.model_sound`, which has no model.
+inhabited typed quantifier contract, and quantifier introduction by
+`Z3BinderKernel` for certificates of closed inputs, core rules and exact
+forall/exists introductions. The binder-certificate scope guard
+(`Z3UnifiedProof.binder_scoped`, structural theorems in `Z3BinderScope`)
+rejects certificates whose entries are not scoped at the binder depth
+where the root uses them. The remaining rules of that kernel still rest
+on the legacy `Z3UnifiedProof.model_sound`, which has no model.
 
 ## Modules and architecture
 

@@ -3,6 +3,25 @@
 This records experiments for an upstream contribution. It does not establish an
 official Maven release or platform coverage beyond the rows below.
 
+## Linux ARM64 extension
+
+The workflow matrix now includes native `ubuntu-24.04-arm` runners. Packaging
+Test uses the existing hash-pinned 5.3.2 Linux ARM64 ZIP with current-branch Java
+classes, and tests both the platform JAR and the same four-platform `all` JAR
+on Temurin 8 and 17. The Maven/Gradle consumer matrix also tests this platform,
+including Maven automatic selection for `aarch64`.
+
+Full Flow builds Linux ARM64 from the checked-out source on an ARM64 runner.
+Release and Nightly reuse their existing cross-built `UbuntuArm64` ZIP with a
+source/run/attempt/hash receipt. All callers pass that artifact to the shared
+package job; this job does not rebuild native libraries. The existing receipt
+gates require Linux ARM64 smoke and consumer results before accepting the
+expanded artifact family. Run-specific results are recorded in the PR; adding
+a matrix entry alone is not evidence of a passing native test.
+
+This targets glibc-based Linux. It does not extend coverage to musl, Android,
+older glibc releases or other architectures.
+
 ## Initial classifier Packaging Test CI
 
 - [First successful run](https://github.com/nieyuanhong/z3/actions/runs/40814341795)

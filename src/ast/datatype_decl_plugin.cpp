@@ -1276,6 +1276,11 @@ namespace datatype {
     }
 
 
+    bool util::is_non_rec_constructor(func_decl * c) {
+        SASSERT(is_constructor(c));
+        return all_of(*c, [&](sort* s) { return !is_datatype(s) && !is_recursive_nested(s); });
+    }
+
     /**
        \brief Return a constructor mk(T_1, ... T_n)
        where each T_i is not a datatype or it is a datatype that contains 
@@ -1324,7 +1329,7 @@ namespace datatype {
         unsigned start = rand();
         for (unsigned cj = 0; cj < constructors.size(); ++cj) {
             func_decl* c = constructors[(start + cj) % constructors.size()];
-            if (all_of(*c, [&](sort* s) { return !is_datatype(s) && !is_recursive_nested(s); })) {
+            if (is_non_rec_constructor(c)) {
                 TRACE(util_bug, tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
                 result.first = c;
                 result.second = 1;

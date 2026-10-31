@@ -738,6 +738,108 @@ isolates the closed-argument condition: an open Int argument passes the
 other instantiation checks but can produce a false conclusion under an
 ill-typed environment, and remains pending.
 
+### Binder certificates: scope guard and typed quantifier introduction
+
+A `QuantifierIntroduction` node carries a certificate of binder entries
+at different binder depths. Before this change the kernel checked no
+entry's scope, so it accepted, with zero pending obligations, a node whose
+bound variable is annotated `Bool` under an `Int` binder:
+`forall x:Int. (or p (not p)) = forall x:Int. true` with `p` the variable
+0. The Boolean wrapper of `binder_quantifier_step` treats `p` as a Boolean
+atom, but in the classical model `p` takes the integer value of the
+binder, so the left side is false. This is an abstract kernel term. The
+document layer rejects its formula when the expression table is not ground
+(`D.scoped []`), but a document with an empty or ground table skips that
+check, and inner certificate entries are never checked by the document.
+No native input producing it is known.
+
+`check_binder_with_context` now also requires `binder_scoped`. Entries
+are assigned the scopes at which the root uses them: the root at the
+closed scope `[]`; an entry with binder sorts `bs` used at `S` reads its
+premises at `L.rev bs @ S`, any other entry at `S`. Premises must be
+earlier entries. Each entry's judgment must be scoped
+(`Z3Definitions.scoped`) at every scope assigned to it, so a closed
+subproof can be shared inside and outside binders. A `QuantifierIntroduction`
+node whose conclusion is not closed and well sorted is now returned with
+pending 1. The guard is bounded: at most 1024 sorts per assigned scope, 64
+scopes per entry, `4n + 1024` assignments for `n` entries, and a work
+budget of `65536 (n + 1)` units charged before each step. Each unit is an
+entry, index lookup, list cell, expression node, sort node, name character
+or scope cell. The units are an abstract count, not a time bound: an index
+lookup takes up to `log2 n + 1` steps, and the two names of a comparison
+are counted before they are charged (`name_length`, proved equal to
+`FStar.String.strlen`: a tail-recursive count of `list_of_string`, so no
+stack in the name's length; both runtimes decode one character per UTF-8
+lead byte, at least a quarter of the bytes even for malformed names, and
+materialize about twice as many transient list cells as characters). The
+uncharged work is that of the two names of the one comparison whose charge
+exceeds the remaining budget. Exceeding a bound rejects the certificate,
+also a legitimate one: the budget grows with the number of entries, and a
+two-entry certificate (196,608 units) already stays pending with a sort
+tree of 4,095 unfolded nodes, a 10,000-character sort name or a
+10,000-argument application under one binder. On native inputs, the
+certificates for a sort name of 10,000 characters are accepted, and
+those for 100,000 characters or more stay pending. `Z3BinderScope` proves
+that an accepted certificate has a root scoped at `[]` and that every
+premise used at an assigned scope is scoped under the user's reversed
+binder sorts. The
+bounded primitives compute exactly `D.scoped`, list length, scope
+membership and sort equality.
+
+The guard's walks are loops on both backends. The scope under binders
+(`scope_under`, equal to `L.rev bs @ S`), the expression walk
+(`scoped_frames_within`) and the sort comparison (`sort_tasks_within`)
+keep their pending work on explicit worklists, with at most two new
+worklist cells per step; every step on a sort task or an expression node,
+but a failing last one, is charged at least one unit, and popping a
+finished expression frame is free (one pop per frame, and frames are
+pushed only by the walk's start and by charged steps); the list and name
+counts are loops.
+`Z3BinderScope` proves each equal to the recursive function it replaced
+(the guard of `0ebb92579`), on every input, for the result and the work
+left (`lemma_scope_under`, `lemma_scoped_same`, `lemma_sort_same`,
+`lemma_premise_scope_same`), so no decision, charge or bound changed. The
+recursive versions overflowed the default 8 MiB native stack of the
+Cherry checker on certificates whose used internal entries hold a
+quantifier over 180,000 binders (`L.append` of the binder list),
+40,000 nested applications, or a sort nested 50,000 deep in an array
+domain, all accepted by the checker without the guard. The Cherry
+regression `Z3CherryTests.binder_guard_stack` decides such certificates
+(200,000 binders, 200,000 negations, depth 50,000). This concerns the
+guard's own stack only. With the pinned F* (v2026.10.25, nightly
+2026-10-30) and the inlined option binds of `Z3ProofIndex`,
+`check_binder_entries`, which runs before the guard, is a loop as well
+(at the earlier pins it recursed once per entry and overflowed near
+20,000 `refl` entries, also without the guard), and `List.Tot.length`
+compiles to a loop under Cherry; the expression and sort recursion
+elsewhere in the checker is unchanged.
+
+`Z3BinderKernel` proves, from `Z3TypedQuantifier.quantifier_model`, that
+an introduction node checked with pending 0 has a true conclusion under
+every environment at which the node's assertions hold, provided every
+entry of its certificate is in the following fragment:
+- a closed `asserted` input, true everywhere by closedness;
+- a core rule at its own scope;
+- a forall or exists introduction whose body edge is exactly the two
+  bodies, so its normalization wrappers hold by reflexivity.
+
+The invariant, over the checker's own cache, is "every entry's judgment is
+scoped and true under every environment typed for each scope assigned to
+it". It does not use `model_sound` or a cache claim about all
+environments. In the classical model, the open premise `x + 0 = x` is
+false when `x` is a Boolean.
+
+The following are not covered: lambda introduction, Boolean `nnf` steps
+without sorts (which rewrite premises inside binder bodies), `nnf-neg`,
+Skolemization, `rewrite`, `th-lemma` and other leaves, and introductions
+through non-reflexive normalization. Such certificates can still be
+accepted, and their acceptance rests on the legacy model.
+`Z3BinderScopeTests` and `Z3BinderKernelTests` check red/green actual
+nodes (previously certified false and ill-scoped certificates, the
+abstract document entry, bound boundaries), positive certificates whose
+conclusions follow through the theorem, mutations, and the uncovered
+kinds. These are node theorems; there is no document theorem.
+
 Development code outside the checker that computes with the values of
 expressions uses its own executable evaluator, `Z3AstTotEval`
 (`tot_interpretation`, `teval`, and `teval_bool`, a copy of
@@ -2891,7 +2993,7 @@ opam/OCaml are otherwise unavailable natively on Windows:
 | `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |
 | `fStar_UInt32.ml` | Native integer character-facing representation; `v` converts to exact `Prims.int` |
 | `fStar_UInt.ml` | Fixed-width modular arithmetic, masks, shifts, rotations, and bitwise operations via Zarith |
-| `fStar_String.ml` | `strlen`/`list_of_string`/`string_of_list`, byte-wise via `Stdlib.String`/`Stdlib.Char` (sufficient: the JSON proof format is pure ASCII) |
+| `fStar_String.ml` | `list_of_string` (code points as `int`, decoded like the Cherry runtime by UTF-8 lead byte, U+FFFD for malformed sequences; it differs from the Cherry runtime only at U+D7FF, which the Cherry runtime maps to U+FFFD) and `strlen` (the length of that list, without building it); loops, no Batteries. The checker uses only the length (`Z3UnifiedProof.name_length`). F*'s Custard extraction realizes `FStar.String.list_of_string` inline with Batteries (ulib `FStar.String-ocaml.fst`), which this build does not link: `build_ocaml_checker.ps1` replaces that realization, at its one use in `name_length`, by this function, and stops if the realization changed, occurs elsewhere or any other Batteries name remains. This is a trusted runtime binding. It agrees with the Cherry runtime by construction (the same lead-byte step widths) and the extracted `name_length` of both backends was equal on the tested corpora (120,069 byte strings, including malformed ones); both count names of 1,000,000 characters in a loop. This is not a proof of conformance on arbitrary bytes |
 | `fStar_FunctionalExtensionality.ml` | `restricted_t` as a plain function-type alias (type-level only; never invoked at runtime by this checker) |
 | `pulse_Lib_Reference.ml` | `ref`/`alloc`/`read`/`write` over a native OCaml `ref`, matching the exact (ghost-argument-padded) call shapes the extracted code uses: `alloc () v`, `read r () ()`, `write r v` |
 | `pulse_Lib_Dv.ml` | `unreachable () = Stdlib.failwith "..."` |
