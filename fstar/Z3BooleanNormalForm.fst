@@ -865,14 +865,50 @@ let lemma_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
     lemma_normalize_context_sound rho 2 t;
     lemma_contextual_equivalent_sound rho (normalize_context 2 s) (normalize_context 2 t))
 
+(* The first atom of [B.support e] (lemma_first_atom), without building the support. *)
+let rec first_atom (#a:Type) (e:B.formula a) : Tot (option a) (decreases e) =
+  match e with
+  | B.Atom x -> Some x
+  | B.Bool _ -> None
+  | B.Nary _ args -> first_atom_args args
+  | B.Not x -> first_atom x
+  | B.Implies x y | B.Eq x y -> (match first_atom x with None -> first_atom y | r -> r)
+and first_atom_args (#a:Type) (args:list (B.formula a)) : Tot (option a) (decreases args) =
+  match args with
+  | [] -> None
+  | x :: xs -> (match first_atom x with None -> first_atom_args xs | r -> r)
+
+let first_of (#a:Type) (xs:list a) : option a = match xs with [] -> None | x :: _ -> Some x
+
+let lemma_first_of_append (#a:Type) (xs ys:list a)
+  : Lemma (first_of (xs @ ys) == (match first_of xs with None -> first_of ys | r -> r)) =
+  match xs with [] -> () | _ -> ()
+
+let rec lemma_first_atom (#a:Type) (e:B.formula a)
+  : Lemma (ensures first_atom e == first_of (B.support e)) (decreases e) =
+  match e with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Nary _ args -> lemma_first_atom_args args
+  | B.Not x -> lemma_first_atom x
+  | B.Implies x y | B.Eq x y ->
+    lemma_first_atom x; lemma_first_atom y;
+    lemma_first_of_append (B.support x) (B.support y)
+and lemma_first_atom_args (#a:Type) (args:list (B.formula a))
+  : Lemma (ensures first_atom_args args == first_of (B.support_args args)) (decreases args) =
+  match args with
+  | [] -> ()
+  | x :: xs ->
+    lemma_first_atom x; lemma_first_atom_args xs;
+    lemma_first_of_append (B.support x) (B.support_args xs)
+
 let rec shannon (fuel:nat) (s t:formula) : Tot bool (decreases fuel) =
   if normal_equivalent s t then true
   else if fuel = 0 then false
   else
     let _ = assert (fuel > 0) in
-    match B.support s @ B.support t with
-    | [] -> false
-    | atom :: _ ->
+    match (match first_atom s with None -> first_atom t | atom -> atom) with
+    | None -> false
+    | Some atom ->
       shannon (fuel - 1) (specialize [B.Atom atom] s) (specialize [B.Atom atom] t) &&
       shannon (fuel - 1) (specialize [B.Not (B.Atom atom)] s)
                          (specialize [B.Not (B.Atom atom)] t)
@@ -883,9 +919,9 @@ let rec lemma_shannon_sound (rho:Z3AstTheory.expr -> bool) (fuel:nat) (s t:formu
           (decreases fuel) =
   if normal_equivalent s t then lemma_normal_equivalent_sound rho s t
   else if fuel > 0 then
-    match B.support s @ B.support t with
-    | [] -> ()
-    | atom :: _ ->
+    match (match first_atom s with None -> first_atom t | atom -> atom) with
+    | None -> ()
+    | Some atom ->
       let negative = if rho atom then [B.Not (B.Atom atom)] else [B.Atom atom] in
       lemma_specialize_sound rho negative s;
       lemma_specialize_sound rho negative t;

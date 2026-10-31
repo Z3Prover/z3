@@ -13,6 +13,7 @@ module R = Z3ResolutionProofTheory
 module D = Z3Definitions
 module L = FStar.List.Tot
 module I = Z3ProofIndex
+module IT = Z3IdTable
 module B = Z3BoundedBoolEquiv
 module TN = Z3TheoryNormalize
 module Q = Z3SortedQuantifier
@@ -1036,13 +1037,21 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       DT.lemma_consequence s bc eq other (scoped_propositions node.premises) (scoped_proposition fact);
       lemma_scoped_proposition s bc eq other fact)
 
-let prepare_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
+let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =
   if not (D.scoped [] e.formula && in_context s e.formula) then None
-  else match U.classify_fact e.formula, I.opt_map (I.index_find cache) e.premise_ids with
+  else match U.classify_fact e.formula, premises with
   | Some conclusion, Some premises ->
     Some { U.kind = e.rule; conclusion = conclusion; premises = premises }
   | _, _ -> None
+
+let prepare_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
+  : option U.proof_node =
+  prepare_entry_from s (I.opt_map_tail (I.index_find cache) e.premise_ids) e
+
+let prepare_entry_table (s:S.checked_schema) (cache:IT.t U.checked_fact) (e:P.entry)
+  : option U.proof_node =
+  prepare_entry_from s (I.opt_map_tail (IT.find cache) e.premise_ids) e
 
 let rec check_entries (s:S.checked_schema) (assertions:list expr)
                       (cache:I.index_tree U.checked_fact) (next pending:nat) (entries:list P.entry)
@@ -1169,20 +1178,20 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
     T.lemma_cut s bc eq other 1 R.false_expr)
 
 let rec diagnose_entries (s:S.checked_schema) (assertions:list expr)
-                         (cache:I.index_tree U.checked_fact) (next pending:nat)
+                         (cache:IT.t U.checked_fact) (next pending:nat)
                          (unmet:list P.unmet_obligation) (entries:list P.entry)
   : Tot P.entries_diagnostic (decreases entries) =
   match entries with
   | [] -> P.EntriesChecked cache pending (L.rev unmet)
   | e :: rest ->
     let reject = P.EntriesRejected (P.DocumentRejected P.ProofEntry (Some next) (Some e.formula)) in
-    match prepare_entry s cache e with
+    match prepare_entry_table s cache e with
     | None -> reject
     | Some node ->
       (match check_node_cached s assertions node with
        | None -> reject
        | Some (fact, local) ->
-         let cache = I.index_put cache next fact in
+         let cache = IT.put cache next fact in
          let unmet =
            if local = 0 then unmet
            else {
@@ -1193,19 +1202,21 @@ let rec diagnose_entries (s:S.checked_schema) (assertions:list expr)
            } :: unmet in
          diagnose_entries s assertions cache (next + 1) (pending + local) unmet rest)
 
-let diagnostic_entries_result (d:P.entries_diagnostic) : option (I.index_tree U.checked_fact & nat) =
+let diagnostic_entries_result (d:P.entries_diagnostic) : option (IT.t U.checked_fact & nat) =
   match d with P.EntriesChecked cache pending _ -> Some (cache, pending) | P.EntriesRejected _ -> None
 
 let rec lemma_diagnose_entries (s:S.checked_schema) (assertions:list expr)
-                               (cache:I.index_tree U.checked_fact) (next pending:nat)
+                               (cache:IT.t U.checked_fact) (tree:I.index_tree U.checked_fact) (next pending:nat)
                                (unmet:list P.unmet_obligation) (entries:list P.entry)
-  : Lemma (diagnostic_entries_result (diagnose_entries s assertions cache next pending unmet entries) ==
-           check_entries s assertions cache next pending entries)
+  : Lemma (requires P.agrees cache tree)
+          (ensures P.entries_agree (diagnostic_entries_result (diagnose_entries s assertions cache next pending unmet entries))
+                                   (check_entries s assertions tree next pending entries))
           (decreases entries) =
   match entries with
   | [] -> ()
   | e :: rest ->
-    (match prepare_entry s cache e with
+    P.lemma_agrees_opt_map cache tree e.premise_ids;
+    (match prepare_entry_table s cache e with
      | None -> ()
      | Some node ->
        (match check_node_cached s assertions node with
@@ -1219,20 +1230,21 @@ let rec lemma_diagnose_entries (s:S.checked_schema) (assertions:list expr)
               obligation_premises = U.premise_judgments node.premises;
               obligation_source = e.formula; obligation_count = local;
             } :: unmet in
-          lemma_diagnose_entries s assertions (I.index_put cache next fact)
+          P.lemma_agrees_put cache tree next fact;
+          lemma_diagnose_entries s assertions (IT.put cache next fact) (I.index_put tree next fact)
             (next + 1) (pending + local) unmet rest))
 
 let diagnose_document (schema:S.schema) (doc:P.document) : P.document_diagnostic =
   if not (S.valid schema) then P.DocumentRejected P.LogicalDeclarations None None
   else if not (boolean_expressions schema doc.assertions && U.ordinary_facts doc.assertions)
   then P.DocumentRejected P.OriginalAssertions None None
-  else match diagnose_entries schema doc.assertions I.Empty 0 0 [] doc.entries with
+  else match diagnose_entries schema doc.assertions IT.empty 0 0 [] doc.entries with
   | P.EntriesRejected reason ->
     (match reason with
      | P.DocumentRejected _ _ _ -> reason
      | P.DocumentChecked _ _ -> P.DocumentRejected P.ProofEntry None None)
   | P.EntriesChecked cache pending unmet ->
-    (match I.index_find cache doc.root with
+    (match IT.find cache doc.root with
      | None -> P.DocumentRejected P.MissingRoot None None
      | Some fact ->
        if fact.conclusion = U.Holds R.false_expr && fact.hypotheses = []
@@ -1245,12 +1257,12 @@ let lemma_diagnose_document (schema:S.schema) (doc:P.document)
   : Lemma (diagnostic_result (diagnose_document schema doc) == check_document schema doc) =
   if S.valid schema && boolean_expressions schema doc.assertions && U.ordinary_facts doc.assertions
   then (
-    lemma_diagnose_entries schema doc.assertions I.Empty 0 0 [] doc.entries;
-    match diagnose_entries schema doc.assertions I.Empty 0 0 [] doc.entries with
+    lemma_diagnose_entries schema doc.assertions IT.empty I.Empty 0 0 [] doc.entries;
+    match diagnose_entries schema doc.assertions IT.empty 0 0 [] doc.entries with
     | P.EntriesRejected reason ->
       (match reason with P.DocumentRejected _ _ _ | P.DocumentChecked _ _ -> ())
     | P.EntriesChecked cache _ _ ->
-      (match I.index_find cache doc.root with None -> () | Some _ -> ()))
+      (match IT.find cache doc.root with None -> () | Some _ -> ()))
 
 let check_document_diagnosed (schema:S.schema) (doc:P.document)
   : result:(option nat & P.document_diagnostic){
