@@ -1,0 +1,10 @@
+{
+  "objective": [-1, -1],
+  "integers": [0],
+  "constraints": [
+    {"coefficients": [1, 0], "rhs": "3/2"},
+    {"coefficients": [-1, 0], "rhs": 0},
+    {"coefficients": [0, 1], "rhs": "1/3"},
+    {"coefficients": [0, -1], "rhs": 0}
+  ]
+}
