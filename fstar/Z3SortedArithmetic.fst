@@ -245,20 +245,40 @@ let lemma_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
     lemma_comparison s bc model other scope rho e a b A.Eq
   | _ -> ()
 
-let equivalent (a b:expr) : bool =
+let lemma_constant_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                            (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                            (e result:expr)
+  : Lemma (requires D.scoped scope e /\ D.scoped scope result /\
+                    integer_formula 16 e /\ R.constant_equation e result)
+          (ensures T.evaluate_at s bc model other scope rho e ==
+                   T.evaluate_at s bc model other scope rho result) =
+  let p = Some?.v (R.equation_of e) in
+  let v = valuation s bc model other scope rho in
+  lemma_equation s bc model other scope rho e p;
+  P.lemma_collect p.mono [] v;
+  P.lemma_all_zero (P.collect p.mono []) v;
+  (match result with
+   | App f [] -> T.lemma_evaluate_core_at s bc model other scope rho f []
+   | _ -> ());
+  T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho e);
+  T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho result)
+
+let arithmetic_equivalent (a b:expr) : bool =
   let numeric = get_sort a = A.int_s && get_sort b = A.int_s in
   let boolean = get_sort a = bool_sort && get_sort b = bool_sort &&
     integer_formula 16 a && integer_formula 16 b in
   if not (numeric || boolean) then false
   else if not (Some? (expression_budget 256 a) && Some? (expression_budget 256 b)) then false
   else if numeric then R.integer_equivalent a b
-  else R.boolean_equivalent a b || R.equation_equivalent a b
+  else R.boolean_equivalent a b || R.equation_equivalent a b ||
+       R.constant_equation a b || R.constant_equation b a
 
-let lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+let lemma_arithmetic_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope)
                      (a b:expr)
-  : Lemma (requires D.scoped scope a /\ D.scoped scope b /\ equivalent a b)
+  : Lemma (requires D.scoped scope a /\ D.scoped scope b /\ arithmetic_equivalent a b)
           (ensures T.evaluate_at s bc model other scope rho a ==
                    T.evaluate_at s bc model other scope rho b) =
   let v = valuation s bc model other scope rho in
@@ -269,6 +289,10 @@ let lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     lemma_linearize s bc model other scope rho 64 b q;
     R.lemma_same_polynomial p q (v a) (v b) v;
     lemma_integer_equality s bc model other scope rho a b)
+  else if R.constant_equation a b then
+    lemma_constant_equation s bc model other scope rho a b
+  else if R.constant_equation b a then
+    lemma_constant_equation s bc model other scope rho b a
   else (
     if R.boolean_equivalent a b then (
       let p = Some?.v (R.constraint_of 16 true a) in
@@ -282,5 +306,119 @@ let lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
       lemma_equation s bc model other scope rho a p;
       lemma_equation s bc model other scope rho b q;
       R.lemma_equation_polynomials p q v);
+    T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho a);
+    T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho b))
+
+let rec constant_boolean (fuel:nat) (e:expr) : Tot (option bool) (decreases %[fuel; 0]) =
+  if fuel = 0 || get_sort e <> bool_sort then None
+  else if arithmetic_equivalent e Z3ResolutionProofTheory.true_expr then Some true
+  else if arithmetic_equivalent e Z3ResolutionProofTheory.false_expr then Some false
+  else match e with
+  | App f args ->
+    (match T.classify f, args with
+     | T.Negation, [a] ->
+       (match constant_boolean (fuel - 1) a with Some v -> Some (not v) | _ -> None)
+     | T.Implication, [a; b] ->
+       (match constant_boolean (fuel - 1) a, constant_boolean (fuel - 1) b with
+        | Some x, Some y -> Some (not x || y) | _, _ -> None)
+     | T.Equality s, [a; b] ->
+       if s <> bool_sort then None else
+       (match constant_boolean (fuel - 1) a, constant_boolean (fuel - 1) b with
+        | Some x, Some y -> Some (x = y) | _, _ -> None)
+     | T.Choice s, [c; a; b] ->
+       if s <> bool_sort then None else
+       (match constant_boolean (fuel - 1) c, constant_boolean (fuel - 1) a,
+              constant_boolean (fuel - 1) b with
+        | Some v, Some x, Some y -> Some (if v then x else y) | _, _, _ -> None)
+     | T.Nary op, _ ->
+       (match constant_boolean_args (fuel - 1) args with
+        | Some vs -> Some (T.combine op vs) | _ -> None)
+     | _, _ -> None)
+  | _ -> None
+
+and constant_boolean_args (fuel:nat) (args:list expr)
+  : Tot (option (list bool)) (decreases %[fuel; L.length args + 1]) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match constant_boolean fuel a, constant_boolean_args fuel rest with
+     | Some v, Some vs -> Some (v :: vs) | _, _ -> None)
+
+let rec lemma_constant_boolean (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                              (fuel:nat) (e:expr) (v:bool)
+  : Lemma (requires D.scoped scope e /\ constant_boolean fuel e == Some v)
+          (ensures T.truth_at s bc model other scope rho e == v)
+          (decreases %[fuel; 0]) =
+  if arithmetic_equivalent e Z3ResolutionProofTheory.true_expr then (
+    lemma_arithmetic_equivalent s bc model other scope rho e Z3ResolutionProofTheory.true_expr;
+    match Z3ResolutionProofTheory.true_expr with
+    | App f [] -> T.lemma_evaluate_core_at s bc model other scope rho f [] | _ -> ())
+  else if arithmetic_equivalent e Z3ResolutionProofTheory.false_expr then (
+    lemma_arithmetic_equivalent s bc model other scope rho e Z3ResolutionProofTheory.false_expr;
+    match Z3ResolutionProofTheory.false_expr with
+    | App f [] -> T.lemma_evaluate_core_at s bc model other scope rho f [] | _ -> ())
+  else match e with
+  | App f args ->
+    T.lemma_evaluate_core_at s bc model other scope rho f args;
+    (match T.classify f, args with
+     | T.Negation, [a] ->
+       lemma_constant_boolean s bc model other scope rho (fuel - 1) a
+         (Some?.v (constant_boolean (fuel - 1) a))
+     | T.Implication, [a; b] | T.Equality _, [a; b] ->
+       lemma_constant_boolean s bc model other scope rho (fuel - 1) a
+         (Some?.v (constant_boolean (fuel - 1) a));
+       lemma_constant_boolean s bc model other scope rho (fuel - 1) b
+         (Some?.v (constant_boolean (fuel - 1) b));
+       if T.classify f = T.Equality bool_sort then
+         T.lemma_boolean_equality_at s bc model other scope rho a b
+     | T.Choice _, [c; a; b] ->
+       lemma_constant_boolean s bc model other scope rho (fuel - 1) c
+         (Some?.v (constant_boolean (fuel - 1) c));
+       lemma_constant_boolean s bc model other scope rho (fuel - 1) a
+         (Some?.v (constant_boolean (fuel - 1) a));
+       lemma_constant_boolean s bc model other scope rho (fuel - 1) b
+         (Some?.v (constant_boolean (fuel - 1) b))
+     | T.Nary _, _ ->
+       lemma_constant_boolean_args s bc model other scope rho (fuel - 1) args f.domain
+         (Some?.v (constant_boolean_args (fuel - 1) args))
+     | _, _ -> ())
+  | _ -> ()
+
+and lemma_constant_boolean_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                               (fuel:nat) (args:list expr) (ss:list sort) (vs:list bool)
+  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ T.boolean_sorts ss /\
+                    constant_boolean_args fuel args == Some vs)
+          (ensures T.boolean_values s bc ss
+            (T.evaluate_arguments_at s bc model other scope rho args ss) == vs)
+          (decreases %[fuel; L.length args + 1]) =
+  match args, ss with
+  | a :: rest, t :: tail ->
+    V.lemma_sort_eq (get_sort a) t;
+    lemma_constant_boolean s bc model other scope rho fuel a (L.hd vs);
+    lemma_constant_boolean_args s bc model other scope rho fuel rest tail (L.tl vs)
+  | _, _ -> ()
+
+let equivalent (a b:expr) : bool =
+  arithmetic_equivalent a b ||
+  (get_sort a = bool_sort && get_sort b = bool_sort &&
+   Some? (expression_budget 256 a) && Some? (expression_budget 256 b) &&
+   (match constant_boolean 64 a, constant_boolean 64 b with
+    | Some x, Some y -> x = y | _, _ -> false))
+
+let lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                     (a b:expr)
+  : Lemma (requires D.scoped scope a /\ D.scoped scope b /\ equivalent a b)
+          (ensures T.evaluate_at s bc model other scope rho a ==
+                   T.evaluate_at s bc model other scope rho b) =
+  if arithmetic_equivalent a b then lemma_arithmetic_equivalent s bc model other scope rho a b
+  else (
+    lemma_constant_boolean s bc model other scope rho 64 a (Some?.v (constant_boolean 64 a));
+    lemma_constant_boolean s bc model other scope rho 64 b (Some?.v (constant_boolean 64 b));
     T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho a);
     T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho b))

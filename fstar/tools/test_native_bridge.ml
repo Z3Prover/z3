@@ -137,6 +137,35 @@ let exact_numerals () =
   require (q = (Z.of_string "-123456789012345678901234567890", Z.of_int 97))
     "foreign rational was rounded"
 
+let pretty_expressions () =
+  let c = context () in
+  let declarations =
+    "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)\
+     (declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let check source expected arithmetic =
+    let assertions = parse c
+        (declarations ^ "(assert " ^ (if arithmetic then "(= " ^ source ^ " 0)" else source) ^ ")") in
+    let st = B.marshal_expressions (B.empty_state ()) assertions in
+    let value = B.cached_expression st (List.hd assertions) in
+    let value = if arithmetic then match value with
+        | A.App (_, [left; _]) -> left
+        | _ -> failwith "expected equality"
+      else value in
+    let actual = Z3NativeMain.pretty_expr value in
+    require (actual = expected) ("pretty expression: " ^ actual ^ "; expected: " ^ expected) in
+  List.iter (fun (source, expected, arithmetic) -> check source expected arithmetic)
+    ["(and p (or q r))", "p and (q or r)", false;
+     "(or (and p q) r)", "p and q or r", false;
+     "(= p (= q r))", "p = (q = r)", false;
+     "(+ x (* y z))", "x + y * z", true;
+     "(* (+ x y) z)", "(x + y) * z", true;
+     "(- x (- y z))", "x - (y - z)", true;
+     "(- (- x))", "-(-x)", true;
+     "(not (<= (+ x (* y z)) 0))", "not (x + y * z <= 0)", false];
+  let fake = A.App ({ A.decl_name = "and"; domain = []; range = A.BaseSort "Bool";
+                     interp = None; int_params = [] }, []) in
+  require (Z3NativeMain.pretty_expr fake = "|and|") "uninterpreted connective was printed as logic"
+
 let native_farkas () =
   let doc = document
       "(declare-const x Real)(declare-const y Real)\
@@ -2450,6 +2479,47 @@ let sorted_quantifier_rewrites () =
   check false
     "(forall ((x T)) (fake (P x) (Q x 0)))"
     "(forall ((x T)) (or (not (P x)) (Q x 0)))"
+
+let sorted_constant_folding () =
+  let module K = Z3SortedProof in
+  let c = context () in
+  let declarations =
+    "(declare-datatype T ((C (field Int))))\
+     (declare-fun box (Bool) T)(declare-fun mix (Int Bool) T)\
+     (declare-fun fakeEq (Int Int) Bool)(declare-fun fakeAdd (Int Int) Int)" in
+  List.iter (fun (left, right, expected) ->
+    let native = List.hd (parse c
+      (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))")) in
+    let st = B.marshal_expressions (B.empty_state ()) [native] in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    require (schema.Z3DatatypeSignature.cases <> [])
+      "constant folding regression did not select datatype semantics";
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st native)) in
+    let result = K.check_node schema []
+      { U.kind = U.RewriteRule; conclusion; premises = [] } in
+    require (match result with Some (_, pending) ->
+        Z.equal pending (if expected then Z.zero else Z.one) | None -> false)
+      ("incorrect sorted constant folding: " ^ left ^ " -> " ^ right))
+    ["(box (= 12 23))", "(box false)", true;
+     "(box (= 12 12))", "(box true)", true;
+     "(box (= (+ 12 11) 23))", "(box true)", true;
+     "(box true)", "(box (= (* (- 12) 2) (- 24)))", true;
+     "(box (= (* 18446744073709551616 18446744073709551616)\
+       340282366920938463463374607431768211456))", "(box true)", true;
+     "(mix (+ 12 11) (= 12 23))", "(mix 23 false)", true;
+     "(box (< (+ 12 11) 23))", "(box false)", true;
+     "(box (and (= 12 23) (>= 23 12)))", "(box false)", true;
+     "(box (not (= 12 23)))", "(box true)", true;
+     "(box (=> (= 12 12) (= 12 23)))", "(box false)", true;
+     "(box (= (= 12 23) (< 23 12)))", "(box true)", true;
+     "(box (ite (= 12 23) false true))", "(box true)", true;
+     "(box (xor (= 12 23) true false))", "(box true)", true;
+     "(box (= 12 23))", "(box true)", false;
+     "(box (= 12 12))", "(box false)", false;
+     "(box (= (+ 12 11) 24))", "(box true)", false;
+     "(box (and (= 12 23) (>= 23 12)))", "(box true)", false;
+     "(box (fakeEq 12 23))", "(box false)", false;
+     "(mix (fakeAdd 12 11) false)", "(mix 23 false)", false]
 
 let sorted_quantifier_flattening () =
   let module K = Z3SortedProof in
@@ -5835,6 +5905,7 @@ let () =
      "cached-definition-expansion", cached_definition_expansion;
      "ordered-congruence-matching", ordered_congruence_matching;
      "typed-obligation-diagnostics", typed_diagnostics;
+     "precedence-aware-expression-printer", pretty_expressions;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "definition-expanded-binder-certificates", checked_binder_definitions;
@@ -5850,6 +5921,7 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
+     "sorted-constant-folding-rewrites", sorted_constant_folding;
      "sorted-native-universal-flattening", sorted_quantifier_flattening;
      "sorted-native-quantifier-instances", sorted_quantifier_instances;
      "malformed-foreign-certificate", malformed_foreign_certificate;
