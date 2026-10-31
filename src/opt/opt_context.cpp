@@ -828,9 +828,13 @@ namespace opt {
     // then update the values v_i. If every maximum is attained, the final
     // model maximizes (f_1, ..., f_n) lexicographically over that set, so no
     // model of the assertions dominates it. On a continuous front the plain
-    // climb can instead improve forever by ever smaller steps. The loop stops
-    // at the first maximum that is not attained or not found within
-    // opt.pareto_cone_rlimit; mdl then stays a model of the assertions.
+    // climb can instead improve forever by ever smaller steps. On the
+    // nlsat-backed solver the loop stops at the first maximum that is not
+    // attained; on the opt_solver it leaves mdl unchanged for that objective
+    // and moves on to the next one, so the result maximizes only some of the
+    // objectives. The step ends when opt.pareto_cone_rlimit is exhausted. In
+    // all cases mdl stays a model of the assertions and the values v_i never
+    // decrease.
     void context::maximize_in_cone(solver& s, model_ref& mdl) {
         unsigned budget = opt_params(m_params).pareto_cone_rlimit();
         // On the nlsat-backed solver the assertions of s and the constraints
@@ -857,7 +861,11 @@ namespace opt {
                     bool attained = on_opt_solver
                         ? maximize_objective_in_cone_smt(assertions, i, mdl)
                         : maximize_objective_in_cone(assertions, i, mdl);
-                    if (!attained)
+                    // On the opt_solver a failed objective leaves mdl as it
+                    // was, and the later objectives can still reach the front
+                    // from it, for example when the supremum of the first
+                    // objective is open in the whole cone.
+                    if (!attained && !on_opt_solver)
                         break;
                 }
             }
@@ -921,7 +929,8 @@ namespace opt {
     // branch is not attained there, for example because the branch contains
     // a strict dominance constraint f_j > v_j that the cone already implies
     // by f_j >= v'_j with v'_j > v_j, assert f >= r instead; if that is
-    // unsat, the maximum is not certified and the step stops.
+    // unsat, the maximum is not certified, mdl is left unchanged, and the
+    // step moves on to the next objective.
     bool context::maximize_objective_in_cone_smt(expr_ref_vector const& assertions, unsigned index, model_ref& mdl) {
         objective const& obj = m_objectives[index];
         if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)

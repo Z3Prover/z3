@@ -631,12 +631,14 @@ static void tst_continuous_front_smt(smt_front_reason reason, unsigned scale) {
     ENSURE(counter(st, "pareto nlsat checks") == 0);
 }
 
-static void tst_branch_front_smt(unsigned n) {
-    // x lies in one of [0, 1), ..., [n - 1, n) or equals n, and x + y <= n,
-    // y >= 0, maximizing x and y with opt.pareto_nlsat=false. In a half-open
-    // branch the supremum of x is not attained, so the cone step must move
-    // on to the branches above it. Each check must end on x + y = n.
-    std::cout << "opt_pareto: half-open branches on the smt solver, n " << n << "\n";
+static void tst_branch_front_smt(unsigned n, bool closed) {
+    // x lies in one of [0, 1), ..., [n - 1, n), or equals n if closed, and
+    // x + y <= n, y >= 0, maximizing x and y with opt.pareto_nlsat=false. In
+    // a half-open branch the supremum of x is not attained, so the cone step
+    // must move on to the branches above it. Without x = n the supremum of x
+    // is not attained in the whole cone, and the step must still maximize y.
+    // Each check must end on x + y = n.
+    std::cout << "opt_pareto: half-open branches on the smt solver, n " << n << " closed " << closed << "\n";
     ast_manager m;
     reg_decl_plugins(m);
     arith_util a(m);
@@ -652,7 +654,8 @@ static void tst_branch_front_smt(unsigned n) {
     expr_ref_vector branches(m), xs(m);
     for (unsigned k = 0; k < n; ++k)
         branches.push_back(m.mk_and(a.mk_le(num(k), x), a.mk_lt(x, num(k + 1))));
-    branches.push_back(m.mk_eq(x, num(n)));
+    if (closed)
+        branches.push_back(m.mk_eq(x, num(n)));
     expr_ref boundary(a.mk_add(x, y), m);
     ctx.add_hard_constraint(m.mk_or(branches));
     ctx.add_hard_constraint(a.mk_le(boundary, num(n)));
@@ -741,7 +744,8 @@ void tst_opt_pareto() {
         tst_continuous_front_smt(reason, 1000);
     }
     for (unsigned n : {2, 6})
-        tst_branch_front_smt(n);
+        for (bool closed : {true, false})
+            tst_branch_front_smt(n, closed);
     // Run the remaining front tests with and without nlsat reuse. The UF case
     // must stay on the general SMT solver regardless of this setting.
     for (bool reuse_nlsat_solver : {false, true}) {
