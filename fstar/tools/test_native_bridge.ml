@@ -1139,6 +1139,49 @@ let readable_edge_cases () =
     R.judgment_text (U.Holds (A.App (declaration ~interp:Z3ValueTheory.op_const_array "const" [bool_sort] !nested, [truth]))) in
   require (cut && String.length rendered < 700 && String.starts_with ~prefix:"holds((const:(Array Int (Array Int " rendered)
     "a deeply nested array range was not cut with a marker";
+  (* chains of heads: an omitted range follows from what is printed; what is cut, not compared or does not print its own sort keeps it *)
+  let over_bv = text (const_array [bv8] int_sort zero) in
+  expect "constant array over a bit-vector domain" over_bv "holds((const:(Array BV8 Int) 0))";
+  require (over_bv <> over_int && over_bv <> over_real) "constant arrays over Int, Real and bit-vector domains read alike";
+  let numeral_of range n = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z n; Z.one] "numeral" range in
+  expect "integral Real numeral under a sum"
+    (text (operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [numeral_of real_sort 2; x_real]))
+    "holds((+ 2:Real #1:Real))";
+  expect "integer literal under a sum"
+    (text (operator "+" Z3ValueTheory.op_arith_add [int_sort; int_sort] int_sort [numeral_of int_sort 2; y_int]))
+    "holds((+ 2 #2:Int))";
+  expect "select of a store of a constant array"
+    (text (A.App (declaration ~interp:Z3ValueTheory.op_select "select" [arrays; int_sort] int_sort,
+                  [store_of (const_array [int_sort] int_sort zero); zero])))
+    "holds((select:Int (store (const:(Array Int Int) 0) 0 0) 0))";
+  let ite_int a b = operator "ite" Z3ValueTheory.op_ite [bool_sort; int_sort; int_sort] int_sort [c_bool; a; b] in
+  expect "nested conditionals" (text (ite_int (ite_int zero y_int) y_int))
+    "holds((ite:Int #3:Bool (ite:Int #3:Bool 0 #2:Int) #2:Int))";
+  expect "a lambda argument does not print its sort"
+    (text (store_of (A.Quantifier (A.Lambda_k, [int_sort], arrays, A.Var (z 0, int_sort)))))
+    "holds((store:(Array Int Int) (lambda [Int] #0:Int) 0 0))";
+  let int_sum = ref y_int in
+  for _ = 1 to 100 do int_sum := operator "+" Z3ValueTheory.op_arith_add [int_sort; int_sort] int_sort [!int_sum; y_int] done;
+  let rendered, cut = R.judgment_text (U.Holds (operator "to_real" Z3ValueTheory.op_to_real [int_sort] real_sort [!int_sum])) in
+  require (cut && String.starts_with ~prefix:"holds((to_real:Real (+ (+ " rendered && contains rendered "(+:Int <...depth> <...depth>)")
+    "a conversion of a cut sum lost a sort";
+  let real_sum = operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [x_real; x_real] in
+  let node_limited fillers =
+    R.judgment_text (U.Holds (A.App (declaration "decl!8:h" [] int_sort, List.init fillers (fun _ -> zero) @ [real_sum]))) in
+  let rendered, cut = node_limited 998 in
+  require (cut && contains rendered "(+:Real <...nodes>") "a head whose argument is cut at the node limit lost its sort";
+  let rendered, cut = node_limited 997 in
+  require (cut && contains rendered "(+ #1:Real <...nodes>") "a head whose first argument is printed printed a range";
+  let long_sort n = base (String.make n 'S') in
+  let rendered = text (store_over (long_sort 5000)) in
+  require (String.starts_with ~prefix:"holds((store:|S" rendered && contains rendered "<4904 more bytes>")
+    "sort names beyond the comparison limit were compared";
+  require (String.starts_with ~prefix:"holds((store #0:|S" (text (store_over (long_sort 100))))
+    "equal sort names of 100 bytes were not recognized";
+  let rendered, cut =
+    R.judgment_text (U.Holds (operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort (x_real :: List.init 3000 (fun _ -> x_real)))) in
+  require (cut && String.starts_with ~prefix:"holds((+ #1:Real #1:Real" rendered && String.ends_with ~suffix:"<...chars>" rendered)
+    "output clipping hid where the text ends";
   (* the report: premise limit, other stages, accepted proofs and huge counts *)
   let five = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5; Z.one] "numeral" int_sort in
   let x = constant "decl!3:x" int_sort in

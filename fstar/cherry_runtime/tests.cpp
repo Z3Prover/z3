@@ -509,6 +509,72 @@ bool readable_edge_cases() {
         std::cerr << "readable a deeply nested array range was not cut with a marker: " << nested_rendering.first << '\n';
         ok = false;
     }
+    // chains of heads: an omitted range follows from what is printed; what is cut, not compared or does not print its own sort keeps it
+    auto over_bv = shown(const_array({bv8}, int_sort, zero));
+    expect("constant array over a bit-vector domain", over_bv, "holds((const:(Array BV8 Int) 0))");
+    if (over_bv == over_int || over_bv == over_real) {
+        std::cerr << "readable constant arrays over Int, Real and bit-vector domains read alike\n";
+        ok = false;
+    }
+    auto numeral_of = [&](Z3AstTheory_sort range, int64_t n) { return constant("numeral", range, Z3Cherry_rational_op, {z(n), z(1)}); };
+    expect("integral Real numeral under a sum",
+           shown(operator_of("+", add_tag, {real_sort, real_sort}, real_sort, {numeral_of(real_sort, 2), x_real})),
+           "holds((+ 2:Real #1:Real))");
+    expect("integer literal under a sum",
+           shown(operator_of("+", add_tag, {int_sort, int_sort}, int_sort, {numeral_of(int_sort, 2), y_int})),
+           "holds((+ 2 #2:Int))");
+    expect("select of a store of a constant array",
+           shown(app(declaration("select", {arrays, int_sort}, int_sort, select_tag), {store_of(const_array({int_sort}, int_sort, zero)), zero})),
+           "holds((select:Int (store (const:(Array Int Int) 0) 0 0) 0))");
+    auto ite_int = [&](Z3AstTheory_expr a, Z3AstTheory_expr b) {
+        return operator_of("ite", ite_tag, {bool_sort, int_sort, int_sort}, int_sort, {c_bool, a, b});
+    };
+    expect("nested conditionals", shown(ite_int(ite_int(zero, y_int), y_int)),
+           "holds((ite:Int #3:Bool (ite:Int #3:Bool 0 #2:Int) #2:Int))");
+    auto lambda = quantifier(Z3ASTTHEORY_LAMBDA_K, {int_sort}, arrays, variable(0, int_sort));
+    expect("a lambda argument does not print its sort", shown(store_of(lambda)),
+           "holds((store:(Array Int Int) (lambda [Int] #0:Int) 0 0))");
+    auto int_sum = y_int;
+    for (int i = 0; i < 100; ++i)
+        int_sum = operator_of("+", add_tag, {int_sort, int_sort}, int_sort, {int_sum, y_int});
+    auto converted = text(operator_of("to_real", to_real_tag, {int_sort}, real_sort, {int_sum}));
+    if (!converted.second || converted.first.rfind("holds((to_real:Real (+ (+ ", 0) != 0 ||
+        !contains(converted.first, "(+:Int <...depth> <...depth>)")) {
+        std::cerr << "readable a conversion of a cut sum lost a sort: " << converted.first << '\n';
+        ok = false;
+    }
+    auto real_sum = operator_of("+", add_tag, {real_sort, real_sort}, real_sort, {x_real, x_real});
+    auto node_limited = [&](int fillers) {
+        std::vector<Z3AstTheory_expr> arguments(fillers, zero);
+        arguments.push_back(real_sum);
+        return text(app(declaration("decl!8:h", {}, int_sort), arguments));
+    };
+    auto at_limit = node_limited(998), below_limit = node_limited(997);
+    if (!at_limit.second || !contains(at_limit.first, "(+:Real <...nodes>")) {
+        std::cerr << "readable a head whose argument is cut at the node limit lost its sort\n";
+        ok = false;
+    }
+    if (!below_limit.second || !contains(below_limit.first, "(+ #1:Real <...nodes>")) {
+        std::cerr << "readable a head whose first argument is printed printed a range\n";
+        ok = false;
+    }
+    auto long_sort = [&](size_t length) { return base(std::string(length, 'S')); };
+    auto long_store = shown(store_over(long_sort(5000)));
+    if (long_store.rfind("holds((store:|S", 0) != 0 || !contains(long_store, "<4904 more bytes>")) {
+        std::cerr << "readable sort names beyond the comparison limit were compared: " << long_store << '\n';
+        ok = false;
+    }
+    if (shown(store_over(long_sort(100))).rfind("holds((store #0:|S", 0) != 0) {
+        std::cerr << "readable equal sort names of 100 bytes were not recognized\n";
+        ok = false;
+    }
+    std::vector<Z3AstTheory_expr> many_reals(3001, x_real);
+    auto clipped = text(operator_of("+", add_tag, {real_sort, real_sort}, real_sort, many_reals));
+    if (!clipped.second || clipped.first.rfind("holds((+ #1:Real #1:Real", 0) != 0 ||
+        clipped.first.size() < 10 || clipped.first.compare(clipped.first.size() - 10, 10, "<...chars>") != 0) {
+        std::cerr << "readable output clipping hid where the text ends\n";
+        ok = false;
+    }
 
     // the report, on readable_report itself
     auto five = constant("numeral", int_sort, Z3Cherry_rational_op, {z(5), z(1)});

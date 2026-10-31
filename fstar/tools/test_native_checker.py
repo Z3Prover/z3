@@ -1246,15 +1246,15 @@ class ReadableDiagnosticsTests(unittest.TestCase):
             term = "(f ((as const (Array %s Int)) 0))" % domain
             return ("(declare-fun f ((Array %s Int)) Real)(assert (= (* %s %s) 2))(assert (= (* %s %s %s) 3))"
                     % (domain, term, term, term, term, term))
-        conclusions = {}
-        for domain in ("Int", "Real"):
+        conclusions, printed = {}, {"Int": "Int", "Real": "Real", "(_ BitVec 8)": "BV8"}
+        for domain, shown in printed.items():
             with self.subTest(domain=domain):
                 result = self.run_checker(source(domain), "--readable")
                 self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
                 conclusions[domain] = self.conclusion(result.stderr)
-                self.assertRegex(conclusions[domain], r"\(f#\d+:Real \(const:\(Array %s Int\) 0\)\)" % domain)
-        self.assertEqual(len(conclusions), 2)
-        self.assertNotEqual(conclusions["Int"], conclusions["Real"])
+                self.assertRegex(conclusions[domain], r"\(f#\d+:Real \(const:\(Array %s Int\) 0\)\)" % shown)
+        self.assertEqual(len(conclusions), 3)
+        self.assertEqual(len(set(conclusions.values())), 3)
         # both arrays in one document: same-named overloads stay apart by id, and each argument keeps its own array sort
         int_term, real_term = "(g ((as const (Array Int Int)) 0))", "(g ((as const (Array Real Int)) 0))"
         overloaded = ("(declare-fun g ((Array Int Int)) Real)(declare-fun g ((Array Real Int)) Real)"
@@ -1267,6 +1267,19 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                for domain in ("Int", "Real")}
         self.assertTrue(all(ids.values()), conclusion)
         self.assertNotEqual(ids["Int"].group(1), ids["Real"].group(1))
+
+    def test_empty_sequences_keep_their_sort(self):
+        # seq.empty has no arguments: its sort is the only thing that says which sequence it is
+        def source(sort):
+            term = "(f (as seq.empty %s))" % sort
+            return ("(declare-fun f (%s) Real)(assert (= (* %s %s) 2))(assert (= (* %s %s %s) 3))"
+                    % (sort, term, term, term, term, term))
+        result = self.run_checker(source("(Seq Int)"), "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:SeqInt\)")
+        result = self.run_checker(source("(Seq Real)"), "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:Seq#\d+\)")
 
     @staticmethod
     def pigeonhole(n=20):

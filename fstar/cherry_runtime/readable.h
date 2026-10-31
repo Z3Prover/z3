@@ -265,8 +265,10 @@ inline bool same_sort(Z3AstTheory_sort a, Z3AstTheory_sort b) {
 // constant array occur nowhere in its arguments), except where the range is printed anyway or
 // needs no printing: Bool (connectives and predicates: an interpreted head without a range is
 // Bool) and the sort of the first argument, which that argument prints (+ * bvadd store, as in
-// SMT-LIB). [implied] says whether the range is the first argument's sort; it is false when
-// the argument is cut by the depth limit or the comparison was not completed.
+// SMT-LIB). [implied] says whether the range is the first argument's sort and that argument
+// prints its own: it is false when the argument would be cut by the depth or the node limit,
+// is a quantifier (a lambda prints its binder sorts, not its own sort), or the comparison was
+// not completed.
 template<class Implied>
 inline void head_text(Text& out, Z3AstTheory_func_decl const& decl, Implied implied) {
     std::vector<cherry_int> values;
@@ -346,8 +348,9 @@ inline void expression_text(Text& out, Z3AstTheory_expr value, unsigned depth) {
         }
         out.add("(");
         head_text(out, app->decl, [&] {
-            return depth >= 2 &&
-                same_sort(app->decl.range, sort_of(reinterpret_cast<Prims_list__expr_Cons_s*>(app->args)->hd));
+            auto first = reinterpret_cast<Prims_list__expr_Cons_s*>(app->args)->hd;
+            return depth >= 2 && out.nodes < max_nodes && cherry_tag(first) != Z3ASTTHEORY_QUANTIFIER &&
+                same_sort(app->decl.range, sort_of(first));
         });
         each<Prims_list__expr_Cons_s>(app->args, [&](auto argument) {
             out.add(" ");

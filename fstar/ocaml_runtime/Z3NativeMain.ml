@@ -304,8 +304,10 @@ module Readable = struct
      constant array occur nowhere in its arguments), except where the range is printed anyway or
      needs no printing: Bool (connectives and predicates: an interpreted head without a range is
      Bool) and the sort of the first argument, which that argument prints (+ * bvadd store, as in
-     SMT-LIB). [implied] says whether the range is the first argument's sort; it is false when
-     the argument is cut by the depth limit or the comparison was not completed. *)
+     SMT-LIB). [implied] says whether the range is the first argument's sort and that argument
+     prints its own: it is false when the argument would be cut by the depth or the node limit,
+     is a quantifier (a lambda prints its binder sorts, not its own sort), or the comparison was
+     not completed. *)
   let head state ~implied decl =
     match decl.A.interp, decl.A.int_params with
     | Some k, [n; d] when Z.equal k Z3ValueTheory.op_num_rational ->
@@ -346,7 +348,12 @@ module Readable = struct
       | A.App (decl, []) -> head state ~implied:(lazy false) decl
       | A.App (decl, arguments) ->
           add state "(";
-          head state ~implied:(lazy (depth >= 2 && same_sort decl.A.range (A.get_sort (List.hd arguments)))) decl;
+          let first = List.hd arguments in
+          let implied = lazy (depth >= 2 && state.nodes < max_nodes &&
+                              (match first with
+                               | A.Quantifier _ -> false
+                               | _ -> same_sort decl.A.range (A.get_sort first))) in
+          head state ~implied decl;
           List.iter (fun argument -> add state " "; expression state (depth - 1) argument) arguments;
           add state ")")
 
