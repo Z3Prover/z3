@@ -828,26 +828,46 @@ namespace opt {
     // then update the values v_i. If every maximum is attained, the final
     // model maximizes (f_1, ..., f_n) lexicographically over that set, so no
     // model of the assertions dominates it. On a continuous front the plain
-    // climb can instead improve forever by ever smaller steps. The loop stops
-    // at the first maximum that is not attained or not found within
-    // opt.pareto_cone_rlimit; mdl then stays a model of the assertions.
+    // climb can instead improve forever by ever smaller steps. On the
+    // nlsat-backed solver the loop stops at the first maximum that is not
+    // attained; on the opt_solver it leaves mdl unchanged for that objective
+    // and moves on to the next one, so the result maximizes only some of the
+    // objectives. The step ends when opt.pareto_cone_rlimit is exhausted. In
+    // all cases mdl stays a model of the assertions and the values v_i never
+    // decrease.
     void context::maximize_in_cone(solver& s, model_ref& mdl) {
         unsigned budget = opt_params(m_params).pareto_cone_rlimit();
         // On the nlsat-backed solver the assertions of s and the constraints
         // f_i >= v_i, with exact algebraic v_i, lie in the fragment nlsat_opt
-        // decides. Pushing a resource scope clears the cancellation flag, so do not
-        // enter one when the enclosing operation has already been canceled.
-        if (!m_pareto_exact_comparison || budget == 0 || !m.inc())
+        // decides. Otherwise s is the opt_solver, whose arithmetic solver
+        // maximizes the objectives registered by optsmt. Pushing a resource
+        // scope clears the cancellation flag, so do not enter one when the
+        // enclosing operation has already been canceled.
+        bool on_opt_solver = !m_pareto_exact_comparison && &s == m_opt_solver.get();
+        bool supported = m_pareto_exact_comparison || on_opt_solver;
+        if (!supported || budget == 0 || !m.inc())
             return;
         expr_ref_vector assertions(m);
         s.get_assertions(assertions);
+        // The smt solver may answer sat on quantified assertions without
+        // deciding them, and the model check below cannot decide them either.
+        if (on_opt_solver && any_of(assertions, [&](expr* f) { return has_quantifiers(f); }))
+            return;
         bool external_cancel = false;
         {
             scoped_rlimit limit(m.limit(), budget);
             try {
-                for (unsigned i = 0; i < m_objectives.size(); ++i)
-                    if (!maximize_objective_in_cone(assertions, i, mdl))
+                for (unsigned i = 0; i < m_objectives.size(); ++i) {
+                    bool attained = on_opt_solver
+                        ? maximize_objective_in_cone_smt(assertions, i, mdl)
+                        : maximize_objective_in_cone(assertions, i, mdl);
+                    // On the opt_solver a failed objective leaves mdl as it
+                    // was, and the later objectives can still reach the front
+                    // from it, for example when the supremum of the first
+                    // objective is open in the whole cone.
+                    if (!attained && !on_opt_solver)
                         break;
+                }
             }
             catch (z3_exception& ex) {
                 if (!m.limit().is_canceled())
@@ -896,6 +916,90 @@ namespace opt {
             }
         }
         mdl = candidate;
+        return true;
+    }
+
+    // The same on the opt_solver: with f = f_index and b the value of f in
+    // the best model so far, assert f > b and, while that is satisfiable,
+    // take the model of the check as the new best and let the arithmetic
+    // solver maximize f within the branch found. Its model is only a
+    // candidate: it is adopted when the solver validated the maximum and
+    // the model improves on b. When f > b becomes unsat, b is the maximum
+    // and the best model attains it. If the supremum r of a real f in a
+    // branch is not attained there, for example because the branch contains
+    // a strict dominance constraint f_j > v_j that the cone already implies
+    // by f_j >= v'_j with v'_j > v_j, assert f >= r instead; if that is
+    // unsat, the maximum is not certified, mdl is left unchanged, and the
+    // step moves on to the next objective.
+    bool context::maximize_objective_in_cone_smt(expr_ref_vector const& assertions, unsigned index, model_ref& mdl) {
+        objective const& obj = m_objectives[index];
+        if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
+            return false;
+        if (!m_arith.is_int_real(obj.m_term))
+            return false;
+        expr_ref term(obj.m_term, m);
+        if (obj.m_type == O_MINIMIZE)
+            term = m_arith.mk_uminus(term);
+        bool is_int = m_arith.is_int(term);
+        mdl->set_model_completion(true);
+        rational best_value, value;
+        if (!m_arith.is_numeral((*mdl)(term), best_value))
+            return false;
+        opt_solver& s = *m_opt_solver;
+        model_ref best = mdl;
+        // Adopt the current model of s if it improves on the best value.
+        auto adopt = [&]() {
+            model_ref candidate;
+            s.get_model(candidate);
+            if (!candidate)
+                return false;
+            candidate->set_model_completion(true);
+            if (!m_arith.is_numeral((*candidate)(term), value) || value <= best_value)
+                return false;
+            best = candidate;
+            best_value = value;
+            return true;
+        };
+        {
+            solver::scoped_push _push(s);
+            for (unsigned i = 0; i < m_objectives.size(); ++i)
+                s.assert_expr(mk_ge(i, mdl));
+            expr_ref improvement(m_arith.mk_gt(term, m_arith.mk_numeral(best_value, is_int)), m);
+            bool strict_improvement = true;
+            while (true) {
+                s.assert_expr(improvement);
+                lbool r = s.check_sat(0, nullptr);
+                if (r == l_false && strict_improvement)
+                    break;
+                // The model of the check satisfies the improvement asserted.
+                if (r != l_true || !adopt())
+                    return false;
+                expr_ref blocker(m);
+                maximize_result result = s.maximize_objective(obj.m_index, blocker, false, false);
+                if (!result.hint.is_finite())
+                    return false;
+                // Without validation, the model left by the maximization can
+                // be an assignment of the relaxation that violates the scope.
+                if (result.bound_valid && result.hint_status == l_true)
+                    adopt();
+                rational supremum = result.hint.get_rational();
+                strict_improvement = is_int || result.hint.get_infinitesimal().is_zero() || supremum <= best_value;
+                if (strict_improvement)
+                    improvement = m_arith.mk_gt(term, m_arith.mk_numeral(best_value, is_int));
+                else
+                    improvement = m_arith.mk_ge(term, m_arith.mk_numeral(supremum, false));
+            }
+        }
+        if (best == mdl)
+            return true;
+        for (expr* f : assertions) {
+            if (!best->is_true(f)) {
+                IF_VERBOSE(1, verbose_stream() << "(opt.pareto :cone-model-rejected " << mk_pp(f, m) << ")\n");
+                return false;
+            }
+        }
+        IF_VERBOSE(2, verbose_stream() << "(opt.pareto :cone-maximum " << index << " :value " << best_value << ")\n");
+        mdl = best;
         return true;
     }
 
