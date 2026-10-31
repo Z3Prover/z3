@@ -517,7 +517,7 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
   | [] -> Some cache
   | e :: rest ->
     classify_fact e.binder_formula >>= (fun concl ->
-    opt_map (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
+    Z3ProofIndex.opt_map_tail (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
     if binder_step_with_context skolems assertions e concl facts then
       check_binder_entries skolems assertions rest (Z3ProofIndex.index_put cache next concl) (next + 1)
     else None))
@@ -575,24 +575,30 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
    `scope_under`, which equals `L.rev bs @ scope`; the expression walk
    (`scoped_frames_within`) and the sort comparison (`sort_tasks_within`)
    keep their pending work on explicit worklists, with at most two new cells
-   per step and every step but a failing last one charged at least a unit;
-   the list and name counts are loops. They
-   compute exactly the results and the work left of the recursive functions
-   of 0ebb92579 (`Z3BinderScope.lemma_scope_under`, `lemma_scoped_same`,
-   `lemma_sort_same`, `lemma_premise_scope_same`), whose recursion was as
-   deep as the expression, the sort or the binder list on the Cherry
-   backend. This is not a stack bound for the whole checker:
-   `check_binder_entries`, which runs before the guard, still recurses once
-   per entry.
+   per step; every step on a sort task or an expression node, but a failing
+   last one, is charged at least a unit, and popping a finished expression
+   frame is free (one pop per frame, and frames are pushed only by the
+   walk's start and by charged steps); the list and name counts are loops.
+   They compute exactly the results and the work left of the recursive
+   functions of 0ebb92579 (`Z3BinderScope.lemma_scope_under`,
+   `lemma_scoped_same`, `lemma_sort_same`, `lemma_premise_scope_same`),
+   whose recursion was as deep as the expression, the sort or the binder
+   list on the Cherry backend. This is not a stack bound for the whole
+   checker.
+   `check_binder_entries`, which runs before the guard, is also a loop on
+   the Cherry backend: its option binds are inlined
+   (`Z3ProofIndex.bind_opt`), so its recursive call is a self tail call.
 
    The units are an abstract count, not a time bound: a lookup in
    `Z3ProofIndex.index_tree` costs up to `log2 n + 1` steps, and an integer
    (bignum) comparison or update is one primitive operation. The two names'
    lengths are computed before they are charged: both runtimes decode one
    character per UTF-8 lead byte (`ocaml_runtime/fStar_String.ml` decodes
-   like the Cherry runtime), in as many steps as the count and about twice as
-   many transient list cells (the decoded list and its reversal), and the
-   count is at least a quarter of the name's bytes also for malformed UTF-8;
+   like the Cherry runtime; the OCaml build calls it in place of F*'s
+   Batteries-based `list_of_string`), in as many steps as the count and
+   about twice as many transient list cells (the decoded list and its
+   reversal), and the count is at least a quarter of the name's bytes also
+   for malformed UTF-8;
    the count is a tail-recursive loop, so it needs no stack proportional to
    the name. The uncharged work is therefore that of the two names of the
    one comparison whose charge exceeds the remaining budget (neither name
@@ -640,8 +646,11 @@ let rec count_cells (#a:Type) (acc:nat) (l:list a) : Tot nat (decreases l) =
 (* The length of a name, as `FStar.String.strlen` counts it
    (`Z3BinderScope.lemma_name_length`): the characters of
    `FStar.String.list_of_string`. `strlen` itself is `List.Tot.length` of that
-   list, which the Cherry backend compiles to a recursion as deep as the name
-   (a native stack overflow on names of a few hundred thousand characters). *)
+   list, which the Cherry backend compiled, at the nightly F* pin before
+   2026-10-30, to a recursion as deep as the name (a native stack overflow on
+   names of a few hundred thousand characters). `FStar.String.length` is not
+   used: the Cherry runtime computes it by counting the bytes that are not
+   UTF-8 continuation bytes, which a malformed name can make zero. *)
 let name_length (s:string) : nat = count_cells 0 (FStar.String.list_of_string s)
 
 (* The scope under the binder sorts `bs`, `L.rev bs @ scope` (`Var 0` is the
@@ -649,8 +658,9 @@ let name_length (s:string) : nat = count_cells 0 (FStar.String.list_of_string s)
    Cherry backend compiles it to a loop (`goto`), so it needs no stack in the
    length of `bs`, which inside an expression is bounded only by the work.
    `L.append` is a recursion as deep as `bs` on the Cherry backend. This is
-   `L.rev_acc bs scope`, written here because the OCaml runtime stand-in
-   (`ocaml_runtime/fStar_List_Tot_Base.ml`) does not provide `rev_acc`. *)
+   `L.rev_acc bs scope` (`Z3BinderScope.lemma_scope_under_rev_acc`), written
+   here when the OCaml runtime stand-in (`ocaml_runtime/fStar_List_Tot_Base.ml`)
+   did not provide `rev_acc`. *)
 let rec scope_under (bs scope:list sort) : Tot (list sort) (decreases bs) =
   match bs with
   | [] -> scope

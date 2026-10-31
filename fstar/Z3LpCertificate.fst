@@ -44,6 +44,7 @@ type column_bounds = {
   upper: option nat;
 }
 
+[@@FStar.Attributes.cherry_boxed]
 type step = {
   rule: rule;
   conclusion: fact;
@@ -68,10 +69,13 @@ type certificate = {
 
 type parser (a:Type) = list raw_parameter -> Tot (option (a & list raw_parameter))
 
+[@@FStar.Attributes.custard_inline]
 let bind (#a #b:Type) (p:parser a) (f:a -> parser b) : parser b =
   fun ps -> p ps >>= (fun (x, rest) -> f x rest)
 
+[@@FStar.Attributes.custard_inline]
 let ( let* ) = bind
+[@@FStar.Attributes.custard_inline]
 let pure (#a:Type) (x:a) : parser a = fun ps -> Some (x, ps)
 let reject (#a:Type) : parser a = fun _ -> None
 

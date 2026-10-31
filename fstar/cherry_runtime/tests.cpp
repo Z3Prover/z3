@@ -26,7 +26,7 @@ int main() {
         auto document = Z3Cherry_marshal(inputs, proof);
         checker_drop_asts(inputs);
         bool complete = checker::length<Prims_list__expr_Cons_s>(
-            document.document.assertions) == assertions.size();
+            reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(document.document)->assertions) == assertions.size();
         checker_drop_marshaled(document);
         if (!complete) {
             std::cerr << "Cherry wide native assertion marshalling regression failed\n";

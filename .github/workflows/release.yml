@@ -18,6 +18,12 @@ on:
         required: false
         type: boolean
         default: false
+      maven_publish:
+        description: 'Maven Central: configured uses JAVA_MAVEN_CENTRAL_MODE (default disabled)'
+        required: false
+        type: choice
+        options: [configured, disabled, validate, publish]
+        default: configured
 
 permissions:
   contents: write
@@ -648,6 +654,23 @@ jobs:
       linux-artifact: UbuntuBuild
       windows-artifact: WindowsBuild-x64
       macos-artifact: MacArm64
+      maven-group-id: ${{ vars.JAVA_MAVEN_GROUP_ID || 'invalid.z3.prototype' }}
+
+  maven-central:
+    name: "Optional Maven Central deployment"
+    needs: java-package
+    permissions:
+      contents: read
+    uses: ./.github/workflows/java-maven-central.yml
+    with:
+      mode: ${{ inputs.maven_publish == 'configured' && (vars.JAVA_MAVEN_CENTRAL_MODE || 'disabled') || inputs.maven_publish }}
+      group-id: ${{ vars.JAVA_MAVEN_GROUP_ID }}
+      artifact-id: ${{ vars.JAVA_MAVEN_ARTIFACT_ID }}
+    secrets:
+      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+      MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
   
   nuget-package-x64:
     name: "NuGet 64 packaging"

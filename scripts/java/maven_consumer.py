@@ -10,6 +10,7 @@ import shutil
 from xml.sax.saxutils import escape
 
 from prepare import run, SCRIPTS
+from maven_artifacts import TEST_GROUP
 from mk_java_package import LIBRARIES, json_bytes, sha256
 import maven_auto
 
@@ -38,11 +39,10 @@ def maven_runtime(classpath, report, selector=False):
     return jars[0]
 
 
-def consume(packages, platform, work, mvn, gradle=None, repository=None):
+def consume(packages, platform, work, mvn, gradle=None, repository=None, group_id=TEST_GROUP):
     packages, work = packages.resolve(), work.resolve()
-    report = json.loads((packages / 'maven-preparation.json').read_bytes())
-    if report['maven']['groupId'] != 'invalid.z3.prototype' or not report['prototype']:
-        raise ValueError('Consumer test accepts only unpublished test coordinates')
+    from maven_bundle import read_family
+    report = read_family(packages, group_id)
     if platform not in report['platforms']:
         raise ValueError('Consumer platform absent from prepared family')
     for line in (packages / 'SHA256SUMS').read_text(encoding='ascii').splitlines():
@@ -54,12 +54,12 @@ def consume(packages, platform, work, mvn, gradle=None, repository=None):
     settings.write_text('<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"/>', encoding='utf-8')
     identity = report['maven']
     maven = [mvn, '-B', '-ntp', '-s', settings, '-Dmaven.repo.local=' + str(work / 'maven-cache')]
-    from maven_bundle import check_repository, prepare_repository, read_family
+    from maven_bundle import check_repository, prepare_repository
     if repository is None:
         repository = work / 'repository'
-        prepare_repository(packages, repository)
+        prepare_repository(packages, repository, group_id)
     repository = repository.resolve()
-    repository_sha = check_repository(repository, packages, read_family(packages))
+    repository_sha = check_repository(repository, packages, report)
     maven_version = run([mvn, '-v']).strip()
     print(maven_version, flush=True)
     results = {}
@@ -169,6 +169,7 @@ def main():
     parser.add_argument('--platform', required=True)
     parser.add_argument('--work-dir', type=Path, required=True)
     parser.add_argument('--repository', type=Path, help='Resolve from an already prepared local repository')
+    parser.add_argument('--group-id', default=TEST_GROUP)
     parser.add_argument('--mvn', default=shutil.which('mvn') or shutil.which('mvn.cmd'))
     parser.add_argument('--gradle', nargs='?', const='auto', help='Also test Gradle; optionally pass its executable path')
     args = parser.parse_args()
@@ -179,7 +180,7 @@ def main():
             args.gradle = shutil.which('gradle') or shutil.which('gradle.bat')
             if not args.gradle:
                 raise ValueError('Gradle executable missing')
-        consume(args.packages, args.platform, args.work_dir, args.mvn, args.gradle, args.repository)
+        consume(args.packages, args.platform, args.work_dir, args.mvn, args.gradle, args.repository, args.group_id)
     except (OSError, KeyError, ValueError) as error:
         parser.exit(1, 'Maven/Gradle consumer failed: ' + str(error) + '\n')
 

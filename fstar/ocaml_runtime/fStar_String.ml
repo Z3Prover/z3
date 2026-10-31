@@ -1,5 +1,10 @@
 (* Stand-in for FStar_String (OCaml extraction target of FStar.String),
    with only what the extracted checker uses and no Batteries dependency.
+   F*'s Custard extraction (v2026.10.25) realizes `list_of_string` inline
+   with Batteries (ulib FStar.String-ocaml.fst); build_ocaml_checker.ps1
+   replaces that realization, at its one use (Z3UnifiedProof.name_length),
+   by `list_of_string` below, and stops on any other Batteries use. This is
+   a trusted runtime binding.
 
    `list_of_string` decodes the string as the Cherry runtime's
    `FStar.String.list_of_string` (ulib `FStar.String-c.cherry.fst`) does: one

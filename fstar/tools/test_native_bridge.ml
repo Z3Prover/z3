@@ -275,7 +275,7 @@ let checked_gomory_cuts () =
   } in
   let step rule conclusion = {
     C.rule; conclusion; input = None; assumption = None; id = Z.zero;
-    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition1 = None;
+    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition = None;
     source = None; divisor = Z.one, Z.one; premises = []; bounds = []
   } in
   let q n d = Z.of_int n, Z.of_int d in
@@ -832,7 +832,7 @@ let checked_binder_proofs () =
   require (not (U.binder_step_with_inputs [open_fact] leaf open_fact []))
     "open assertion was generalized across binder environments";
   let node = { U.kind = U.QuantifierIntroduction certificate;
-               conclusion1 = conclusion; premises = [] } in
+               conclusion = conclusion; premises = [] } in
   require (match U.check_node_with_inputs true [input] node with
       | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
     "input-aware binder certificate was not integrated in the node checker";
@@ -848,7 +848,7 @@ let checked_binder_proofs () =
     match U.check_node_with_inputs true []
             { U.kind = U.QuantifierIntroduction
                 { U.binder_entries = entries; binder_root = Z.of_int root };
-              conclusion1 = concl; premises = [] } with
+              conclusion = concl; premises = [] } with
     | Some (_, p) -> Z.to_int p | None -> -1 in
   let refl_true = entry "refl" (eqe tt tt) [] None in
   let p0 = A.Var (Z.zero, bool_s) and x0 = A.Var (Z.zero, int_s) in
@@ -1607,7 +1607,7 @@ let checked_quantifier_pulling () =
               "pull-quant accepted exhausted normalization fuel";
             let bad = U.Equal (a, Z3ResolutionProofTheory.false_expr) in
             require (match U.check_node [] { U.kind = U.PullQuantifier;
-                conclusion1 = bad; premises = [] } with
+                conclusion = bad; premises = [] } with
                 | Some (_, n) -> Z.equal n Z.one | None -> false)
               "unsupported pull-quant did not retain an explicit obligation";
             require (A.get_sort a = A.get_sort b) "pull-quant changed the result sort"
@@ -1773,7 +1773,7 @@ let checked_quantifier_reductions () =
         ("incorrect quantified rewrite decision: " ^ name);
       require (not (U.check_step rule conclusion [conclusion]))
         ("quantified rewrite accepted unexpected premises: " ^ name);
-      require (match U.check_node [] { U.kind = rule; conclusion1 = conclusion; premises = [] } with
+      require (match U.check_node [] { U.kind = rule; conclusion = conclusion; premises = [] } with
           | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
           | None -> false)
         ("quantified rewrite lost its obligation: " ^ name)) cases
@@ -1874,7 +1874,7 @@ let checked_theory_extensions () =
       require (U.check_step U.DefAxiom conclusion [] = expected)
         ("incorrect definition axiom decision: " ^ name);
       require (match U.check_node [] {
-          U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises = [] } with
+          U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises = [] } with
           | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
           | None -> false)
         ("theory lemma lost its explicit obligation: " ^ name)) cases;
@@ -2059,8 +2059,7 @@ let concrete_datatype_model () =
         "typed quantifier evaluation reversed de Bruijn bindings incorrectly";
       result);
   } in
-  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b);
-                   boolean_isomorphism = () } in
+  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b) } in
   let interpreted = S.interpretation schema booleans other in
   let apply = interpreted.V.application in
   require (apply fork.S.constructor [leaf_bool; leaf_bool] = fork_bool &&
@@ -2311,7 +2310,7 @@ let sorted_quantifier_rewrites () =
     let conclusion = Option.get (U.classify_fact formula) in
     List.iter (fun kind ->
       let result = K.check_node schema []
-        { U.kind; conclusion1 = conclusion; premises = [] } in
+        { U.kind; conclusion = conclusion; premises = [] } in
       let checked = match result with
         | Some (_, pending) -> Z.equal pending Z.zero
         | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
@@ -2490,7 +2489,7 @@ let sorted_quantifier_flattening () =
     require (Q.check_flatten formula = expected)
       ("incorrect flattening certificate: " ^ left ^ " -> " ^ right);
     let node = { U.kind = U.PullQuantifier;
-      conclusion1 = Option.get (U.classify_fact formula); premises = [] } in
+      conclusion = Option.get (U.classify_fact formula); premises = [] } in
     let accepted = function Some (_, pending) -> Z.equal pending Z.zero | None -> false in
     require (accepted (K.check_node schema [] node) = expected)
       "sorted node dispatch disagrees with flattening check";
@@ -2604,7 +2603,7 @@ let sorted_quantifier_instances () =
           ("unexpected sorted quantifier instance: " ^ clause);
         let schema = N.view_datatypes st.B.retained_sorts in
         let node = { U.kind = U.QuantifierInstantiation args;
-          conclusion1 = Option.get (U.classify_fact formula); premises = [] } in
+          conclusion = Option.get (U.classify_fact formula); premises = [] } in
         require ((match K.check_node schema [] node with
           | Some (_, pending) -> Z.equal pending Z.zero
           | None -> false) = expected)
@@ -3763,7 +3762,7 @@ let arithmetic_factor_rewrites () =
     conclusion_of d a b, a, b in
   (* The kernel's verdict on the step as a node: its pending obligations, or None for REJECT. *)
   let pending conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   (* The CLI verdict on a refutation whose only rewrite is the step: unit resolution of
@@ -3841,7 +3840,7 @@ let arithmetic_factor_rewrites () =
      well-formed step that no rule certifies stays pending. *)
   (let conclusion, _, _ = step "(declare-const p Bool)" "p" "p" in
    require (pending conclusion = Some Z.zero) "a reflexive rewrite was not certified";
-   require (U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion;
+   require (U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion;
                               premises = [{ U.conclusion = conclusion; hypotheses = [] }] } = None)
      "a rewrite with a premise was not rejected");
   List.iter (fun (s, zero, one, two, minus) ->
@@ -4155,7 +4154,7 @@ let conditional_comparison_rewrites () =
     let d, a, b = equation ?binders declarations left right in
     conclusion_of d a b, a, b in
   let pending conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   let outcome declarations left right =
@@ -4393,7 +4392,7 @@ let bv_extract_rewrites () =
     | Some conclusion -> conclusion
     | None -> failwith "expected a typed bit-vector extraction rewrite conclusion" in
   let pending conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   let outcome left right =
@@ -4764,10 +4763,10 @@ let arithmetic_implication source premises target expected =
       ("incorrect arithmetic implication: " ^ source);
     require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") conclusion facts))
       "arithmetic implication accepted assumed-origin evidence";
-    let premises = List.map (fun conclusion1 ->
-        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    let premises = List.map (fun conclusion ->
+        { U.conclusion = conclusion; hypotheses = [] }) facts in
     require (match U.check_node [] {
-        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises } with
         | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
         | None -> false)
       "arithmetic implication lost its explicit obligation"
@@ -4892,7 +4891,7 @@ let bv_bounded_evaluation () =
     let st = B.marshal_expressions (B.empty_state ()) [input] in
     Option.get (U.classify_fact (B.cached_expression st input)) in
   let pending kind j premises =
-    match U.check_node [] { U.kind = kind; conclusion1 = j; premises } with
+    match U.check_node [] { U.kind = kind; conclusion = j; premises } with
     | Some (_, pending) -> Some pending
     | None -> None in
   (* Keep the premise independent: p already entails the tested disjunction containing p. *)
@@ -5119,7 +5118,7 @@ let bv_sum_normalization () =
     | Some conclusion -> conclusion
     | None -> failwith "expected a typed bit-vector sum conclusion" in
   let pending ?(premises = []) conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   let outcome left right =
@@ -5400,15 +5399,12 @@ let bv_sum_normalization () =
                  rebuilt terms: %d invalid\n%!" !accepted !invalid !outside !terms_invalid;
   if !failures <> [] then failwith (String.concat "\n  " (List.rev !failures))
 
+(* Custard leaves out the match cases that a refinement rules out, so a call
+   outside the domain fails instead of returning a value. *)
 let erased_refinement_guards () =
-  require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
-    "constructor projector changed on its valid domain";
-  (match A.__proj__BaseSort__item__name (A.ArraySort ([], A.bool_sort)) with
-   | _ -> failwith "invalid constructor projector returned a value"
-   | exception Invalid_argument _ -> ());
   (match Z3SeqTheory.nth [] Z.zero with
    | _ -> failwith "out-of-range sequence access returned a value"
-   | exception Invalid_argument _ -> ())
+   | exception Match_failure _ -> ())
 
 let proof_check_callback () =
   let c = context () in
@@ -5622,10 +5618,10 @@ let ff_theory_lemmas () =
     let facts = List.rev (List.tl (List.rev judgments)) in
     require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
       ("incorrect finite-field theory lemma: " ^ clause);
-    let premises = List.map (fun conclusion1 ->
-        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    let premises = List.map (fun conclusion ->
+        { U.conclusion = conclusion; hypotheses = [] }) facts in
     require (match U.check_node [] {
-        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises } with
         | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
         | None -> false)
       ("finite-field theory lemma lost its obligation: " ^ clause)
