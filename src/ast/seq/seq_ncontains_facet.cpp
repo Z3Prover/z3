@@ -130,9 +130,11 @@ namespace seq {
             expr* nt = n.get(k);
             if (ht == nt)
                 continue; // identical token (same variable, or same interned constant)
-            if (u.str.is_unit(ht) && u.str.is_unit(nt) && m.are_distinct(ht, nt))
+            if (!u.str.is_unit(ht) || !u.str.is_unit(nt))
+                return l_undef; // unknown length: later tokens are not aligned
+            if (m.are_distinct(ht, nt))
                 return l_false; // distinct resolved constants: determined mismatch
-            undef = true; // at least one side is an unresolved variable
+            undef = true;
         }
         return undef ? l_undef : l_true;
     }
