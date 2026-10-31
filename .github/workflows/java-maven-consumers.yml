@@ -41,7 +41,7 @@ jobs:
         with:
           name: java-maven-test-repository
           path: repository
-      - name: Resolve and execute the same JARs with Maven and Gradle
+      - name: Resolve platform and all JARs, plus the Maven automatic selector
         run: >-
           python scripts/java/maven_consumer.py --packages packages --platform ${{ matrix.platform }}
           --work-dir consumer-result --gradle --repository repository
@@ -49,6 +49,10 @@ jobs:
         if: always()
         with:
           name: java-maven-consumer-${{ matrix.platform }}
-          path: consumer-result/receipt.json
+          path: |
+            consumer-result/receipt.json
+            consumer-result/maven-auto/pom.xml
+            consumer-result/maven-auto/classpath.txt
+            consumer-result/maven-auto/unsupported-platform.pom
           if-no-files-found: warn
           retention-days: 7

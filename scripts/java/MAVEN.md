@@ -57,7 +57,8 @@ the same JDK/Maven toolchain; cross-JDK byte identity is not promised.
 
 `maven_consumer.py` accepts a fresh local work directory. With `--repository`,
 it checks and consumes the already assembled Maven directory. Without this
-option, Deploy Plugin 3.2.0 places already-built files into a local repository.
+option, the existing repository assembler places already-built files and the
+selector POM into a fresh local repository.
 Both modes construct a `file:` URL from a local path and have no remote upload option. They use
 isolated Maven settings and artifact cache, keeping credentials out of this test.
 Maven plugins can still be downloaded from Central.
@@ -69,6 +70,14 @@ path. It requires exactly two extracted libraries and successful version,
 Context, SAT/UNSAT and concurrent initialization checks. CI runs on Linux x64,
 Windows x64 and macOS arm64 using Java 17. Existing Java 8/17/21 loader coverage
 remains in the ordinary packaging smoke jobs. No additional native build occurs.
+
+The Maven consumer also declares the POM-only automatic selector without a
+classifier, consumer-side OS profiles or platform-detection extensions. Its
+classpath must contain exactly the expected platform JAR, and it runs the same
+native smoke. An offline negative metadata fixture with no matching platform
+profiles must fail resolution of the default unavailable classifier. This fixture
+does not represent execution on an unsupported native host. The final bundle requires this additional
+receipt and binds it to the selector POM's SHA-256 as well as the runtime JAR.
 
 Example after `prepare.py --with-sources` and ordinary JAR assembly:
 
@@ -105,6 +114,13 @@ both platform/universal JARs and all seven native smoke modes. It rejects stale
 source identities, changed files, missing companions and incomplete receipts.
 Full-Flow native provenance must also match repository, run ID and attempt.
 Fast CI retains its explicitly mixed, pinned-release/current-loader provenance.
+
+The repository also includes an unpublished `<artifactId>-auto` POM generated
+from the validated platform list. Its identity, SCM commit and checksum sidecars
+are covered by the same repository digest. No Java classes or new native builds
+are needed for this additional artifact. The original runtime POM remains free
+of platform-selection dependencies, since that POM is shared by API-only,
+platform and `all` dependencies.
 
 Only after these checks does it produce `maven-rehearsal.zip`, `rehearsal.json`
 and `SHA256SUMS`. The ZIP contains the Maven directory only; the report preserves
@@ -153,6 +169,53 @@ mechanism. Select a single form per classpath. Platform/universal JARs extract
 only the current platform's libraries and still require OS runtime dependencies
 described in RELEASE.md. A successful rehearsal on these three platforms does
 not establish compatibility with additional OS/CPU combinations.
+
+## Optional Maven automatic platform selection (unpublished)
+
+With the same local rehearsal repository, Maven users can instead declare:
+
+```xml
+<dependency>
+  <groupId>invalid.z3.prototype</groupId>
+  <artifactId>z3-auto</artifactId>
+  <version>5.3.2-packaging-SNAPSHOT</version>
+  <type>pom</type>
+</dependency>
+```
+
+The published selector POM activates OS/architecture profiles and depends on
+exactly one of the existing self-contained platform JARs. The consuming project
+does not need a classifier, its own profiles or a detection plugin. The `pom`
+dependency type avoids an empty selector JAR and extra source/Javadoc artifacts.
+The API source/Javadoc companions remain attached to the selected runtime JAR.
+`z3-auto` is a provisional test artifactId, not an approved official coordinate.
+
+Detection follows the JVM running Maven, including its architecture. Supported
+profiles are generated only for platforms present in the prepared repository.
+Unknown platforms resolve an intentionally unavailable
+`unsupported-platform-use-explicit-classifier` classifier and fail instead of selecting
+another architecture. For a different deployment target, use the ordinary `z3`
+dependency with an explicit platform classifier, or select `all` for one
+cross-platform application artifact. These forms do not pull in an additional
+platform JAR. Overriding the selector with CLI or consumer POM properties is not
+supported: dependency profile activation differs between Maven versions.
+
+This entry point is Maven-specific. Gradle consumers should continue selecting
+a platform classifier or `all`; Maven profile activation does not establish
+automatic selection in Gradle. The selector adds no new native platform support.
+Cross-platform CI results, rather than successful POM generation, establish its
+tested coverage.
+
+The published OS profiles use the same general approach as the
+[OpenJFX 21.0.2 parent POM](https://repo.maven.apache.org/maven2/org/openjfx/javafx/21.0.2/javafx-21.0.2.pom).
+Only OS/architecture activation is used. Maven 3.10 isolates dependency profile
+activation from consumer CLI properties and also considers properties declared
+in the dependency POM; a self-referencing custom-override profile can therefore
+activate unexpectedly. See the
+[Maven 3.10 profile activation context](https://maven.apache.org/ref/3.10.0/apidocs/org/apache/maven/model/profile/ProfileActivationContext.html).
+The selector avoids that property-activation dependency. Consumer tests exercise
+the actual resolved POM rather than only inspecting its XML, and record the
+installed Maven version in their receipts.
 
 ## Publication decisions reserved for maintainers
 
