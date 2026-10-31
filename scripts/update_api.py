@@ -1396,6 +1396,11 @@ z3_long_funs = frozenset([
     'Z3_solver_check_assumptions',
     'Z3_simplify',
     'Z3_simplify_ex',
+    'Z3_fixedpoint_query',
+    'Z3_fixedpoint_query_relations',
+    'Z3_optimize_check',
+    'Z3_tactic_apply',
+    'Z3_tactic_apply_ex',
     ])
 
 z3_ml_overrides = frozenset([
