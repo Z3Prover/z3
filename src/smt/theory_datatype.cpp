@@ -326,12 +326,11 @@ namespace smt {
             ctx.set_var_theory(bv, get_id());
             ctx.set_enode_flag(bv, true);
             if (is_recognizer(term)) {
-                // prefer the non-recursive constructor when the SAT solver decides on a
+                // prefer non-recursive constructors when the SAT solver decides on a
                 // recognizer of a recursive datatype, as mk_split does for the recognizers
                 // it introduces itself: smallest models first.
-                sort* s = term->get_arg(0)->get_sort();
-                if (m_util.is_recursive(s) &&
-                    m_util.get_recognizer_constructor(term->get_decl()) == m_util.get_non_rec_constructor(s))
+                auto c = m_util.get_recognizer_constructor(term->get_decl());
+                if (m_util.is_recursive(c->get_range()) && m_util.is_non_rec_constructor(c))
                     ctx.set_true_first_flag(bv);
             }
         }
