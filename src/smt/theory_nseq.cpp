@@ -847,6 +847,19 @@ namespace smt {
                     if (is_uninterp(to_app(t)->get_arg(0)) && m_ambient->solver_facet(node).value(len, v))
                         assumptions.push_back(m.mk_eq(len, m_autil.mk_numeral(v, true)));
                 }
+                // Assume t = k using t <= s && t >= s.
+                // Otw. it internalise those atoms internally over and over again and 
+                // propagates t = s false => Nothing leared. Will loop
+                // not a general solution or protection against other solvers rewriting stuff
+                if (ctx.get_theory(m_autil.get_family_id())) {
+                    for (unsigned i = 0, sz = assumptions.size(); i < sz; ++i) {
+                        expr* x = nullptr, *y = nullptr;
+                        if (m.is_eq(assumptions.get(i), x, y) && m_autil.is_int(x) && m_autil.is_numeral(y)) {
+                            assumptions.push_back(m_autil.mk_ge(x, y));
+                            assumptions.set(i, m_autil.mk_le(x, y));
+                        }
+                    }
+                }
                 for (expr* a : assumptions) {
                     literal lit = mk_literal(a);
                     bool_var bv = lit.var();
