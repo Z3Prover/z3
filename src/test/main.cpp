@@ -134,6 +134,7 @@
     X(check_assumptions) \
     X(smt_context) \
     X(sat_config) \
+    X(sat_unsat_core) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \

@@ -145,6 +145,7 @@ add_executable(test-z3
   sat_lookahead.cpp
   sat_user_scope.cpp
   sat_smt_proof_scope.cpp
+  sat_unsat_core.cpp
   smt_proof_checker.cpp
   smt_proof_weakening.cpp
   scoped_timer.cpp
