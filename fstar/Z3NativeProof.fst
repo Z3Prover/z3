@@ -17,6 +17,7 @@ module DT = Z3DatatypeLemma
 module CP = Z3ClauseProof
 module R = Z3ResolutionProofTheory
 
+[@@FStar.Attributes.cherry_boxed]
 noeq
 type state = {
   sorts: index_tree sort;
@@ -230,7 +231,7 @@ let native_rule (view:N.proof_view) (formula:expr) : ML rule =
     if view.proof_name <> "th-lemma" then N.fail "Farkas parameters on a non-theory node"
     else
       let coefficients = require_some "Malformed native Farkas certificate"
-                                      (opt_map coefficient coefficients) in
+                                      (opt_map_tail coefficient coefficients) in
       ArithmeticFarkas coefficients
   | None, None ->
     match P.rule_of_name view.proof_name with

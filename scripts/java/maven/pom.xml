@@ -8,7 +8,7 @@
   <version>@VERSION@</version>
   <packaging>jar</packaging>
   <name>Z3 Java bindings</name>
-  <description>Java bindings for the Z3 theorem prover. Unpublished Maven preparation test.</description>
+  <description>Java bindings for the Z3 theorem prover.</description>
   <url>https://github.com/Z3Prover/z3</url>
   <licenses>
     <license>

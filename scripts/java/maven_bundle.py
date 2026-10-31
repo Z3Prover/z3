@@ -10,18 +10,18 @@ import re
 from xml.etree import ElementTree as ET
 import zipfile
 
-from maven_artifacts import NS
+from maven_artifacts import NS, TEST_GROUP, validate_group
 import maven_auto
 from smoke import verify_jar
 from verify_release import MODES
 from mk_java_package import checked_zip, json_bytes, sha256, write_checksums, write_jar
 
 
-def read_family(packages):
+def read_family(packages, group_id=TEST_GROUP):
     report = json.loads((packages / 'maven-preparation.json').read_bytes())
     identity = report['maven']
-    if report['prototype'] is not True or identity['groupId'] != 'invalid.z3.prototype':
-        raise ValueError('Repository rehearsal accepts only unpublished test coordinates')
+    if report['prototype'] is not True or identity['groupId'] != validate_group(group_id):
+        raise ValueError('Repository rehearsal requires the explicitly selected unpublished coordinates')
     for key in ('artifactId', 'version'):
         if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', identity[key]) or '..' in identity[key]:
             raise ValueError('Unsafe Maven coordinate: ' + key)
@@ -120,8 +120,8 @@ def repository_digest(files):
     return sha256(json_bytes({name: sha256(data) for name, data in sorted(files.items())}))
 
 
-def prepare_repository(packages, out):
-    report = read_family(packages)
+def prepare_repository(packages, out, group_id=TEST_GROUP):
+    report = read_family(packages, group_id)
     files = repository_files(packages, report)
     out.mkdir(parents=True, exist_ok=False)
     for name, data in files.items():
@@ -144,10 +144,15 @@ def check_repository(repository, packages, report):
 
 
 def check_receipts(packages, report, repository_sha, consumers, smokes):
+    return check_receipt_data(packages, report, repository_sha,
+        [json.loads(p.read_bytes()) for p in sorted(consumers.rglob('receipt.json'))],
+        [json.loads(p.read_bytes()) for p in sorted(smokes.rglob('receipt.json'))])
+
+
+def check_receipt_data(packages, report, repository_sha, consumers, smokes):
     preparation_sha = sha256((packages / 'maven-preparation.json').read_bytes())
     consumer_results, smoke_results = {}, {}
-    for path in sorted(consumers.rglob('receipt.json')):
-        receipt = json.loads(path.read_bytes())
+    for receipt in consumers:
         platform = receipt['platform']
         required = {tool + ':' + kind for tool in ('maven', 'gradle') for kind in (platform, 'all')}
         required.add('maven:auto')
@@ -169,8 +174,7 @@ def check_receipts(packages, report, repository_sha, consumers, smokes):
                 raise ValueError('Consumer did not validate the exact prepared artifacts')
         consumer_results[platform] = receipt
     provenance = report['input_provenance']
-    for path in sorted(smokes.rglob('receipt.json')):
-        receipt = json.loads(path.read_bytes())
+    for receipt in smokes:
         platform = receipt['platform']
         if (platform not in report['platforms'] or receipt.get('passed') is not True
                 or any(receipt[key] != provenance[key] for key in
@@ -189,8 +193,8 @@ def check_receipts(packages, report, repository_sha, consumers, smokes):
     return {'consumers': consumer_results, 'smokes': smoke_results}
 
 
-def bundle(packages, repository, consumers, smokes, out, expected):
-    report = read_family(packages)
+def bundle(packages, repository, consumers, smokes, out, expected, group_id=TEST_GROUP):
+    report = read_family(packages, group_id)
     provenance = report['input_provenance']
     if report['source_commit'] != expected['source_commit']:
         raise ValueError('Bundle source commit differs from the current checkout')
@@ -220,6 +224,7 @@ def main():
     for command in (prepare, validate):
         command.add_argument('--packages', type=Path, required=True)
         command.add_argument('--out-dir', type=Path, required=True)
+        command.add_argument('--group-id', default=TEST_GROUP)
     for name in ('repository', 'consumer-receipts', 'smoke-receipts'):
         validate.add_argument('--' + name, type=Path, required=True)
     for name in ('source-commit', 'workflow-repository', 'run-id', 'run-attempt'):
@@ -227,12 +232,12 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == 'prepare':
-            prepare_repository(args.packages, args.out_dir)
+            prepare_repository(args.packages, args.out_dir, args.group_id)
         else:
             expected = {'source_commit': args.source_commit, 'repository': args.workflow_repository,
                         'run_id': args.run_id, 'run_attempt': args.run_attempt}
             bundle(args.packages, args.repository, args.consumer_receipts, args.smoke_receipts,
-                   args.out_dir, expected)
+                   args.out_dir, expected, args.group_id)
     except (OSError, KeyError, ValueError, ET.ParseError, zipfile.BadZipFile) as error:
         parser.exit(1, 'Maven repository rehearsal failed: ' + str(error) + '\n')
 

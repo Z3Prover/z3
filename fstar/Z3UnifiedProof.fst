@@ -517,7 +517,7 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
   | [] -> Some cache
   | e :: rest ->
     classify_fact e.binder_formula >>= (fun concl ->
-    opt_map (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
+    Z3ProofIndex.opt_map_tail (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
     if binder_step_with_context skolems assertions e concl facts then
       check_binder_entries skolems assertions rest (Z3ProofIndex.index_put cache next concl) (next + 1)
     else None))
