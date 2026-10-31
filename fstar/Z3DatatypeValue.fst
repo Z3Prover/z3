@@ -115,11 +115,14 @@ let rec lemma_fields_index (#base:sort -> Type0) (sigma:signature)
   | _ :: rest, _ :: tail -> if n = 0 then () else lemma_fields_index sigma rest tail (n - 1)
   | _, _ -> ()
 
+(* G1 typed-root prototype: the fallback is a ghost function, because a
+   standard model may answer an ill-matched selector with an arbitrary
+   (model-chosen, possibly ghost) value. A Tot fallback is still accepted. *)
 let select (#base:sort -> Type0) (sigma:signature) (f:func_decl{L.mem f sigma})
            (n:nat{n < L.length f.domain})
-           (fallback:value base sigma f.range -> value base sigma (L.index f.domain n))
+           (fallback:value base sigma f.range -> GTot (value base sigma (L.index f.domain n)))
            (v:value base sigma f.range)
-  : value base sigma (L.index f.domain n) =
+  : GTot (value base sigma (L.index f.domain n)) =
   match v with
   | Constructor g xs ->
     if f = g then (
@@ -136,14 +139,14 @@ let lemma_injective (#base:sort -> Type0) (f:func_decl) (xs ys:list (tree base))
 
 let lemma_select_match (#base:sort -> Type0) (sigma:signature) (f:func_decl{L.mem f sigma})
                        (xs:arguments base sigma f.domain) (n:nat{n < L.length f.domain})
-                       (fallback:value base sigma f.range -> value base sigma (L.index f.domain n))
+                       (fallback:value base sigma f.range -> GTot (value base sigma (L.index f.domain n)))
   : Lemma (ensures n < L.length xs /\
                    select sigma f n fallback (construct sigma f xs) == L.index xs n) =
   lemma_fields_index sigma f.domain xs n
 
 let lemma_select_mismatch (#base:sort -> Type0) (sigma:signature) (f:func_decl{L.mem f sigma})
                           (n:nat{n < L.length f.domain})
-                          (fallback:value base sigma f.range -> value base sigma (L.index f.domain n))
+                          (fallback:value base sigma f.range -> GTot (value base sigma (L.index f.domain n)))
                           (v:value base sigma f.range)
   : Lemma (requires not (recognize f v))
           (ensures select sigma f n fallback v == fallback v) =
@@ -161,7 +164,7 @@ let lemma_rebuild_from_selectors (#base:sort -> Type0) (sigma:signature)
                                 (v:value base sigma f.range)
                                 (xs:arguments base sigma f.domain{L.length xs = L.length f.domain})
                                 (fallback:(n:nat{n < L.length f.domain} ->
-                                  value base sigma f.range -> value base sigma (L.index f.domain n)))
+                                  value base sigma f.range -> GTot (value base sigma (L.index f.domain n))))
   : Lemma (requires recognize f v /\
                     (forall (n:nat). n < L.length f.domain ==>
                       L.index xs n == select sigma f n (fallback n) v))
@@ -280,20 +283,26 @@ let rec extend (#base:sort -> Type0) (sigma:signature) (scope bound:list sort)
     fun n -> if n = 0 then v else remaining (n - 1)
   | _, _ -> FStar.Pervasives.false_elim ()
 
+(* G1 typed-root prototype: the interpretation is a proof-only (ghost)
+   object. A standard model decides classical propositions (quantifiers over
+   infinite carriers, equality of reals and of array functions) with
+   FStar.IndefiniteDescription.strong_excluded_middle and stores ghost
+   lambda bodies in restricted ghost function carriers. Tot fields are still
+   accepted (a Tot arrow is a GTot arrow). *)
 noeq
 type interpretation (base:sort -> Type0) (sigma:signature) = {
-  application: f:func_decl -> arguments base sigma f.domain -> value base sigma f.range;
+  application: f:func_decl -> arguments base sigma f.domain -> GTot (value base sigma f.range);
   quantification:
     k:quantifier_kind -> bound:list sort -> body_sort:sort ->
-    (arguments base sigma (L.rev bound) -> value base sigma body_sort) ->
-    value base sigma (quant_sort k bound body_sort);
+    (arguments base sigma (L.rev bound) -> GTot (value base sigma body_sort)) ->
+    GTot (value base sigma (quant_sort k bound body_sort));
 }
 
 let typed_body (#base:sort -> Type0) (sigma:signature) (bound:list sort) (t:sort)
-               (f:(arguments base sigma (L.rev bound) -> Tot (tree base)){
+               (f:(arguments base sigma (L.rev bound) -> GTot (tree base)){
                  forall (vs:arguments base sigma (L.rev bound)). has_sort sigma t (f vs)})
                (vs:arguments base sigma (L.rev bound))
-  : value base sigma t = f vs
+  : GTot (value base sigma t) = f vs
 
 noextract
 let rec expression_size (e:expr) : Tot pos (decreases e) =
@@ -305,10 +314,11 @@ let rec expression_size (e:expr) : Tot pos (decreases e) =
 and expressions_size (es:list expr) : Tot nat (decreases es) =
   match es with [] -> 0 | e :: rest -> expression_size e + expressions_size rest
 
+noextract
 let rec evaluate (#base:sort -> Type0) (sigma:signature) (i:interpretation base sigma)
                  (scope:list sort) (rho:environment base sigma scope)
                  (e:expr{D.scoped scope e})
-  : Tot (value base sigma (get_sort e)) (decreases %[(expression_size e <: nat); (0 <: nat)]) =
+  : GTot (value base sigma (get_sort e)) (decreases %[(expression_size e <: nat); (0 <: nat)]) =
   match e with
   | Var n _ -> rho n
   | App f args ->
@@ -322,7 +332,7 @@ and evaluate_args (#base:sort -> Type0) (sigma:signature) (i:interpretation base
                   (scope:list sort) (rho:environment base sigma scope)
                   (es:list expr{D.scoped_args scope es})
                   (ss:list sort{sorts_match es ss})
-  : Tot (arguments base sigma ss) (decreases %[(expressions_size es <: nat); (1 <: nat)]) =
+  : GTot (arguments base sigma ss) (decreases %[(expressions_size es <: nat); (1 <: nat)]) =
   match es, ss with
   | [], [] -> []
   | e :: rest, s :: remaining ->
@@ -333,13 +343,13 @@ and evaluate_args (#base:sort -> Type0) (sigma:signature) (i:interpretation base
 and evaluate_body (#base:sort -> Type0) (sigma:signature) (i:interpretation base sigma)
                   (scope:list sort) (rho:environment base sigma scope) (bound:list sort)
                   (body:expr{D.scoped (L.rev bound @ scope) body})
-  : Tot (f:FStar.FunctionalExtensionality.restricted_t (arguments base sigma (L.rev bound))
+  : GTot (f:FStar.FunctionalExtensionality.restricted_g_t (arguments base sigma (L.rev bound))
              (fun _ -> tree base){
            forall (vs:arguments base sigma (L.rev bound)).
              has_sort sigma (get_sort body) (f vs)})
         (decreases %[(expression_size body <: nat); (1 <: nat)]) =
   (* Canonicalize the refined argument domain for quantifier congruence. *)
-  FStar.FunctionalExtensionality.on_dom (arguments base sigma (L.rev bound)) (fun vs ->
+  FStar.FunctionalExtensionality.on_dom_g (arguments base sigma (L.rev bound)) (fun vs ->
     (evaluate sigma i (L.rev bound @ scope) (extend sigma scope (L.rev bound) vs rho) body <: tree base))
 
 let lemma_quantifier_environments (#base:sort -> Type0) (sigma:signature)
@@ -363,8 +373,8 @@ let lemma_quantifier_environments (#base:sort -> Type0) (sigma:signature)
   let pointwise (vs:arguments base sigma (L.rev bound))
     : Lemma (left vs == right vs) = () in
   FStar.Classical.forall_intro pointwise;
-  assert (FStar.FunctionalExtensionality.feq left right);
-  FStar.FunctionalExtensionality.extensionality
+  assert (FStar.FunctionalExtensionality.feq_g left right);
+  FStar.FunctionalExtensionality.extensionality_g
     (arguments base sigma (L.rev bound)) (fun _ -> tree base) left right;
   assert (left == right);
   assert (evaluate sigma i left_scope rho (Quantifier k bound (quant_sort k bound t) a) ==
