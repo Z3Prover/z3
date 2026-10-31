@@ -2325,7 +2325,7 @@ let sorted_integer_farkas () =
     { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [p] } in
   let node =
     { U.kind = U.ArithmeticFarkas [one; one];
-      conclusion1 = Option.get (U.classify_fact R.false_expr);
+      conclusion = Option.get (U.classify_fact R.false_expr);
       premises = [fact x; fact y] } in
   require (K.arithmetic_farkas node) "typed Farkas dispatch did not replay the certificate";
   (match K.check_node schema [] node with
@@ -2337,7 +2337,7 @@ let sorted_integer_farkas () =
     ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort];
        range = A.bool_sort; interp = None; int_params = [] }, [le; ge]) in
   require (not (K.arithmetic_farkas
-    { node with U.conclusion1 = Option.get (U.classify_fact fake_or); premises = [] }))
+    { node with U.conclusion = Option.get (U.classify_fact fake_or); premises = [] }))
     "typed Farkas treated an uninterpreted or lookalike as a clause"
 
 let sorted_epsilon_skolemization () =
