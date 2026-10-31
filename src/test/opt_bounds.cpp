@@ -26,6 +26,7 @@ Abstract:
 #include "smt/smt_context.h"
 #include "util/common_msgs.h"
 #include "util/debug.h"
+#include "util/gparams.h"
 #include <climits>
 #include <cstring>
 #include <initializer_list>
@@ -998,11 +999,15 @@ static void tst_multiobjective(bool box) {
     }
 }
 
-// For x >= 0, y >= 0, x + y <= 5, lexicographic maximization gives (5, 0).
-// Box optimization instead gives max(x) = max(y) = 5 in different models.
-// Call optsmt directly: the public context also fixes earlier objectives,
-// which could hide a missing constraint in optsmt::lex itself.
+// set-option assigns the global parameter auto_config; later tests in this
+// process create contexts that read it.
+struct scoped_auto_config {
+    std::string saved = gparams::get_value("auto_config");
+    ~scoped_auto_config() { gparams::set("auto_config", saved.c_str()); }
+};
+
 static void tst_labels_after_maximize() {
+    scoped_auto_config restore_auto_config;
     // The search cannot improve on the model of the initial check here, so
     // the reported model is that base model. Its labels must come with it:
     // optsmt used to return the base model with an empty label list, which
@@ -1034,6 +1039,10 @@ static void tst_labels_after_maximize() {
     ENSURE(!labels.contains(symbol("L4")));
 }
 
+// For x >= 0, y >= 0, x + y <= 5, lexicographic maximization gives (5, 0).
+// Box optimization instead gives max(x) = max(y) = 5 in different models.
+// Call optsmt directly: the public context also fixes earlier objectives,
+// which could hide a missing constraint in optsmt::lex itself.
 static void tst_lex_box_search() {
     ast_manager m;
     reg_decl_plugins(m);
