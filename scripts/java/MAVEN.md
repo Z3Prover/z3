@@ -8,8 +8,9 @@ publishing to a Maven registry.
 
 ## Artifact family
 
-The preparation flow deliberately fixes the test group to
-`invalid.z3.prototype`. This is not a proposed official namespace. It produces:
+The preparation flow defaults to the test group `invalid.z3.prototype`.
+This is not a proposed official namespace. An explicit `--group-id` selects a
+maintainer-configured group before repository and consumer validation. It produces:
 
 - A POM with project, MIT license, contributor and commit-specific SCM metadata.
 - The original API, platform and universal JARs, copied without changing bytes.
@@ -93,8 +94,8 @@ All output/work directories must be fresh to exclude stale artifacts.
 
 The separate `java-maven-test-packages` artifact is never selected by the GitHub
 Release attachment publisher. Existing final release verification also waits for
-the new consumer jobs. There is no publication credential, signature or Maven
-upload job in these workflows.
+the new consumer jobs. PR and Full-Flow validation jobs have no publication
+credentials and perform no Maven uploads.
 
 ## Offline repository bundle
 
@@ -232,7 +233,7 @@ For a default, public consumer experience, prefer Maven Central after namespace
 approval. Central additionally requires signatures/checksums and accurate
 [publication metadata and attachments](https://central.sonatype.org/publish/requirements/).
 Its [Portal Maven integration](https://central.sonatype.org/publish/publish-portal-maven/)
-is a separate, explicitly controlled follow-up. `deploy-file` is not itself a
+is explicitly controlled as described below. `deploy-file` alone is not a
 complete Central Portal publishing workflow.
 
 Both channels should receive the exact JAR bytes that passed native validation.
@@ -240,3 +241,68 @@ Sign and upload after that gate. A packaging fix needs a new version; do not
 overwrite a published Central release. Clean Windows CRT availability, additional
 architectures and minimum OS/runtime compatibility remain the existing explicit
 boundaries in RELEASE.md.
+
+## Central publication configuration (disabled by default)
+
+The shared Java validation workflow stages already tested JARs and POMs through
+the standard Maven Deploy Plugin without credentials or upload. Source-built
+stable Full Flow then runs Sonatype's `central-publishing-maven-plugin` 0.12.0
+with `skipUpload=true`, using the unchanged POM-only selector as its project.
+Fast CI retains its pinned SNAPSHOT identity and assembles a local rehearsal ZIP
+instead, since Central's plugin sends snapshots through a different mechanism.
+The `java-maven-central-rehearsal` Actions artifact contains the bundle and exact
+file hashes; its receipt identifies which tool ran. Local repository metadata is
+excluded. Deployment runs on Linux; local Windows rehearsals check the plugin's
+native ZIP separator variants against the exact inventory but cannot upload.
+Native code is never rebuilt by these steps.
+
+Release Build has a `maven_publish` input:
+
+- `configured` (default): use `JAVA_MAVEN_CENTRAL_MODE`, falling back to `disabled`.
+- `disabled`: always skip deployment, even when credentials exist.
+- `validate`: sign and upload for Central validation, leaving public release to
+  the maintainer through the Portal.
+- `publish`: sign, upload, and wait for validated artifacts to be published.
+
+Adding credentials alone does not enable deployment. When deployment is enabled,
+missing configuration is an error, not a successful skip. Repository preparation
+still uses test coordinates when no group is configured.
+
+After approving the coordinates and obtaining namespace rights, an upstream
+maintainer configures repository variables:
+
+- `JAVA_MAVEN_GROUP_ID`: the approved namespace. The preparation, selector,
+  three-platform consumer tests and final bundle all use it before publishing.
+- `JAVA_MAVEN_ARTIFACT_ID`: the artifactId already used by the source-built and
+  tested family (currently `z3`). This is an approval check, not a rename step.
+- `JAVA_MAVEN_CENTRAL_MODE`: initially `disabled`; use `validate` for the first
+  controlled deployment and `publish` only after reviewing it.
+
+Configure a `maven-central` GitHub environment with release-tag restrictions and
+the required approvals, then add `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`,
+`MAVEN_GPG_KEY` and `MAVEN_GPG_PASSPHRASE`. Use Portal user-token
+credentials and an exported, passphrase-protected PGP signing key whose public
+key is available as required by Central. The Maven GPG Plugin 3.2.8 BC signer
+reads key material and passphrase from environment variables; neither is placed
+on the command line, in generated POMs, or in uploaded build artifacts.
+
+Deployment requires an upstream `workflow_dispatch` run from the matching
+`refs/tags/z3-X.Y.Z` tag, a numeric stable version, current-source native inputs
+from that exact run/attempt, and the complete native/Maven/Gradle receipt gate.
+The publisher rechecks the verified repository bytes and receipts, signs the
+same JAR bytes, rehearses the signed bundle locally, and then calls the Central
+plugin. Existing stable coordinates and errors checking remote state fail
+instead of silently overwriting or skipping publication. This workflow is not
+called by PR, fast packaging or Nightly runs; fork deployment is rejected.
+
+After the first controlled deployment, setting the repository mode to `publish`
+allows later tagged Release Build runs to publish without per-version source
+edits. The explicit `disabled` input remains available for rehearsals. Upload,
+validation and published states are distinct in the publication receipt. A
+failed/partial Portal deployment needs inspection before retrying; Central
+release versions must not be overwritten.
+
+GitHub Packages and Maven SNAPSHOT publication are separate optional channels.
+This change neither configures them nor assigns an official publishing owner.
+The actual namespace, environment approvals and credentials remain maintainer
+decisions tracked in [issue #11471](https://github.com/Z3Prover/z3/issues/11471).
