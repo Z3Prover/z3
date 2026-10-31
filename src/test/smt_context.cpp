@@ -613,6 +613,119 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_integer_power(bool euf) {
+    struct example { char const* input; lbool expected; };
+    example examples[] = {
+        {"(assert (= (mod (^ 2 (- 3)) 3) 2))", l_true},
+        {"(declare-const n Int)(assert (>= n 0))(assert (= (^ 2 n) 3))", l_false},
+        {"(declare-const n Int)(assert (> n 10))(assert (= (^ 2 n) 2048))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> x y))(assert (>= y 1))(assert (<= (^ 2 x) (^ 2 y)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
+         "(assert (= (^ x y) (- 8)))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (distinct y 0))(assert (= (^ 2 x) (^ 3 y)))", l_false},
+        {"(declare-const n Int)(declare-const f Int)(assert (>= n 1))"
+         "(assert (distinct (* (+ f n) (^ 2 n))"
+         " (+ (* 2 (+ f n (- 1)) (^ 2 (- n 1))) (^ 2 n))))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> (* x x) 4))(assert (> (* y y) 4))"
+         "(assert (= (^ (^ x y) y) (^ x (^ y y))))", l_false},
+        {"(declare-const x Int)(assert (= (^ x 0) 1))(assert (= x 0))", l_true},
+    };
+    for (auto const& example : examples) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(example.input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_uint("timeout", 10000);
+        if (euf) {
+            p.set_bool("smt", true);
+            p.set_bool("euf", true);
+        }
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        lbool result = slv->check_sat(0, nullptr);
+        if (result != example.expected) {
+            std::cerr << "integer power: " << example.input << "\nresult: " << result
+                      << "\nreason: " << slv->reason_unknown() << "\n";
+            statistics st;
+            slv->collect_statistics(st);
+            std::cerr << st << "\n";
+        }
+        ENSURE(result == example.expected);
+        if (result == l_true) {
+            model_ref mdl;
+            slv->get_model(mdl);
+            for (expr* assertion : cmd.assertions()) {
+                expr_ref value(m);
+                ENSURE(mdl->eval_expr(assertion, value, true) && m.is_true(value));
+            }
+        }
+        slv->push();
+        slv->assert_expr(m.mk_false());
+        ENSURE(slv->check_sat(0, nullptr) == l_false);
+        slv->pop(1);
+        ENSURE(slv->check_sat(0, nullptr) == example.expected);
+    }
+    {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+        expr_ref p(m.mk_const(symbol("p"), m.mk_bool_sort()), m);
+        expr_ref q(m.mk_const(symbol("q"), m.mk_bool_sort()), m);
+        expr_ref ten(a.mk_int(10), m), two(a.mk_int(2), m), target(a.mk_int(2048), m);
+        expr_ref positive(a.mk_gt(n, ten), m), power(a.mk_power(two, n), m);
+        expr_ref equality(m.mk_eq(power, target), m), witness(m.mk_and(positive, equality), m);
+        expr_ref zero(a.mk_int(0), m), negative(a.mk_lt(n, zero), m);
+        expr_ref first(m.mk_implies(p, witness), m), second(m.mk_implies(q, negative), m);
+        params_ref params;
+        params.set_bool("unsat_core", true);
+        if (euf) {
+            params.set_bool("smt", true);
+            params.set_bool("euf", true);
+        }
+        ref<solver> slv = mk_smt2_solver(m, params, symbol::null);
+        slv->assert_expr(first);
+        slv->assert_expr(second);
+        expr* assumptions[] = {p, q};
+        ENSURE(slv->check_sat(1, assumptions) == l_true);
+        ENSURE(slv->check_sat(2, assumptions) == l_false);
+        expr_ref_vector core(m);
+        slv->get_unsat_core(core);
+        ENSURE(core.size() == 2 && core.contains(p) && core.contains(q));
+        params.set_uint("rlimit", 20);
+        slv->updt_params(params);
+        ENSURE(slv->check_sat(1, assumptions) != l_false);
+        params.set_uint("rlimit", 0);
+        slv->updt_params(params);
+        ENSURE(slv->check_sat(1, assumptions) == l_true);
+
+        params.set_bool("core.minimize", true);
+        slv = mk_smt2_solver(m, params, symbol::null);
+        expr_ref one(a.mk_int(1), m);
+        positive = a.mk_ge(n, one);
+        expr_ref is_one(m.mk_eq(n, one), m);
+        expr_ref not_one(m.mk_not(is_one), m);
+        first = m.mk_implies(p, positive);
+        second = m.mk_implies(q, not_one);
+        slv->assert_expr(first);
+        slv->assert_expr(second);
+        slv->assert_expr(a.mk_gt(power, zero));
+        ENSURE(slv->check_sat(2, assumptions) == l_true);
+        model_ref mdl;
+        slv->get_model(mdl);
+        expr_ref result(m);
+        ENSURE(mdl->eval_expr(p, result, true) && m.is_true(result));
+        ENSURE(mdl->eval_expr(q, result, true) && m.is_true(result));
+    }
+}
+
 static void check_special_relation_logic() {
     for (char const* logic : {"UFDTLIA", "ALL", ""}) {
         for (bool external : {false, true}) {
@@ -788,6 +901,8 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_integer_power(false);
+    check_integer_power(true);
     check_intblast_signed_mod();
     check_qsat_proofs();
     check_qe_rec_proofs();

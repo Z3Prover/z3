@@ -27,6 +27,7 @@ namespace arith {
         m_resource_limit(*this),
         m_bp(*this, m_implied_bounds),
         a(m),
+        m_swine(m),
         m_bound_terms(m),
         m_bound_predicate(m)
     {
@@ -76,6 +77,9 @@ namespace arith {
                 result->m_new_bounds.push_back(b2);
             }
         }
+
+        for (expr* e : m_power_terms)
+            result->m_power_terms.push_back(ctx.copy(dst_ctx, ctx.get_enode(e))->get_expr());
 
         // clone rows into m_solver, m_nla, m_lia
         // NOT_IMPLEMENTED_YET();
@@ -1030,6 +1034,71 @@ namespace arith {
         }
     }
 
+    void solver::add_assumptions(sat::literal_set& assumptions) {
+        expr_ref_vector extra(m), lemmas(m);
+        m_swine.add_assumptions(m_power_terms, extra, lemmas);
+        for (expr* lemma : lemmas)
+            add_unit(mk_literal(lemma));
+        for (expr* assumption : extra) {
+            literal lit = mk_literal(assumption);
+            assumptions.insert(lit);
+            s().assign_scoped(lit);
+        }
+    }
+
+    bool solver::should_research(sat::literal_vector const& core) {
+        expr_ref_vector expressions(m);
+        for (literal lit : core) {
+            expr_ref e = ctx.literal2expr(lit);
+            if (e)
+                expressions.push_back(e);
+        }
+        return m_swine.should_research(expressions);
+    }
+
+    bool solver::get_power_value(expr* e, rational& value) {
+        if (a.is_numeral(e, value))
+            return value.is_int();
+        enode* n = ctx.get_enode(e);
+        if (!n)
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (!is_registered_var(v))
+            return false;
+        if (use_nra_model()) {
+            auto& am = m_nla->am();
+            auto const& av = nl_value(v, m_nla->tmp1());
+            if (!am.is_rational(av))
+                return false;
+            am.to_rational(av, value);
+        }
+        else {
+            if (!m_model_is_initialized)
+                return false;
+            value = get_value(v);
+        }
+        return value.is_int();
+    }
+
+    sat::check_result solver::check_integer_powers() {
+        ptr_vector<expr> powers;
+        for (expr* e : m_power_terms)
+            if (ctx.is_relevant(ctx.get_enode(e)))
+                powers.push_back(e);
+        expr_ref_vector lemmas(m);
+        auto value = [&](expr* e, rational& v) { return get_power_value(e, v); };
+        switch (m_swine.check(powers, value, lemmas)) {
+        case l_true:
+            return sat::check_result::CR_DONE;
+        case l_false:
+            for (expr* lemma : lemmas)
+                add_unit(mk_literal(lemma));
+            return sat::check_result::CR_CONTINUE;
+        default:
+            return sat::check_result::CR_GIVEUP;
+        }
+    }
+
     sat::check_result solver::check() {
         unsigned level = 2;
         force_push();
@@ -1097,6 +1166,12 @@ namespace arith {
 
         if (ctx.get_config().m_arith_ignore_int && int_undef)
             return sat::check_result::CR_GIVEUP;
+        if (!m_power_terms.empty()) {
+            init_model();
+            auto power_status = check_integer_powers();
+            if (power_status != sat::check_result::CR_DONE)
+                return power_status;
+        }
         if (m_not_handled != nullptr) {
             TRACE(arith, tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);
             return sat::check_result::CR_GIVEUP;

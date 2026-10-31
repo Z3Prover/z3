@@ -439,6 +439,8 @@ struct purify_arith_proc {
         }
    
         br_status process_power(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
+            if (u().is_int(f->get_range()))
+                return BR_FAILED;
             rational y;
             if (!u().is_numeral(args[1], y))
                 return BR_FAILED;

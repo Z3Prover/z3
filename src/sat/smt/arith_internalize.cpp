@@ -265,8 +265,14 @@ namespace arith {
                     st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_power(n, n1, n2)) {
-                    found_unsupported(n);
-                    mk_power_axiom(n, n1, n2);
+                    if (a.is_int(n)) {
+                        ctx.push(push_back_vector(m_power_terms));
+                        m_power_terms.push_back(n);
+                    }
+                    else {
+                        found_unsupported(n);
+                        mk_power_axiom(n, n1, n2);
+                    }
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }

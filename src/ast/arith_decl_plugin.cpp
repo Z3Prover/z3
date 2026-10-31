@@ -217,7 +217,7 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_is_int_decl = m->mk_func_decl(symbol("is_int"), r, m->mk_bool_sort(), func_decl_info(id, OP_IS_INT));
     m->inc_ref(m_is_int_decl);
 
-    m_i_power_decl = m->mk_func_decl(symbol("^"), i, i, r, func_decl_info(id, OP_POWER));
+    m_i_power_decl = m->mk_func_decl(symbol("^"), i, i, i, func_decl_info(id, OP_POWER));
     m->inc_ref(m_i_power_decl);
     MK_OP(m_r_power_decl, "^", OP_POWER, r);
 
@@ -427,7 +427,7 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
         if (is_real) { 
             return m_manager->mk_func_decl(symbol("^0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_POWER0));
         }
-        return m_manager->mk_func_decl(symbol("^0"), m_int_decl, m_int_decl, m_real_decl, func_decl_info(m_family_id, OP_POWER0));
+        return m_manager->mk_func_decl(symbol("^0"), m_int_decl, m_int_decl, m_int_decl, func_decl_info(m_family_id, OP_POWER0));
     case OP_TO_REAL: return is_real ? m_r_to_real_decl : m_to_real_decl;
     case OP_TO_INT:  return is_real ? m_to_int_decl : m_i_to_int_decl;
     case OP_IS_INT:  return m_is_int_decl;
@@ -986,8 +986,9 @@ bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* con
         f_out = m_manager.mk_func_decl(arith_family_id, OP_MOD0, 0, nullptr, 2, rs, mk_int());
         return true;
     }
-    if (is_decl_of(f, arith_family_id, OP_POWER) && n == 2 && is_numeral(args[1], r) && r.is_zero() && is_numeral(args[0], r) && r.is_zero()) {
-        f_out = is_int(args[0]) ? mk_ipower0() : mk_rpower0();
+    if (is_decl_of(f, arith_family_id, OP_POWER) && n == 2 && is_real(args[0]) &&
+        is_numeral(args[1], r) && r.is_zero() && is_numeral(args[0], r) && r.is_zero()) {
+        f_out = mk_rpower0();
         return true;
     }
     return plugin().is_considered_uninterpreted(f);
@@ -998,7 +999,7 @@ bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* con
 func_decl* arith_util::mk_ipower0() {
     sort* s = mk_int();
     sort* rs[2] = { s, s };
-    return m_manager.mk_func_decl(arith_family_id, OP_POWER0, 0, nullptr, 2, rs, mk_real());
+    return m_manager.mk_func_decl(arith_family_id, OP_POWER0, 0, nullptr, 2, rs, s);
 }
 
 func_decl* arith_util::mk_rpower0() {

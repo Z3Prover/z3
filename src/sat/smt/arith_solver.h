@@ -19,6 +19,7 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/arith_swine.h"
 
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
@@ -218,6 +219,7 @@ namespace arith {
         ptr_vector<app>        m_underspecified;
         ptr_vector<expr>       m_idiv_terms;
         ptr_vector<app>        m_bv_terms;
+        ptr_vector<expr>       m_power_terms;
         vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
@@ -259,6 +261,10 @@ namespace arith {
         vector<parameter>   m_params;
         nla::lemma          m_lemma;
         arith_util          a;
+        arith_swine         m_swine;
+
+        bool get_power_value(expr* e, rational& value);
+        sat::check_result check_integer_powers();
 
         bool is_int(theory_var v) const { return is_int(var2enode(v)); }
         bool is_int(euf::enode* n) const { return a.is_int(n->get_expr()); }
@@ -494,6 +500,9 @@ namespace arith {
         sat::check_result check() override;
         void simplify() override {}
         void init_search() override {}
+        bool tracking_assumptions() override { return !m_power_terms.empty(); }
+        void add_assumptions(sat::literal_set& assumptions) override;
+        bool should_research(sat::literal_vector const& core) override;
 
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
