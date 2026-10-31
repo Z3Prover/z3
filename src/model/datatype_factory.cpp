@@ -9,10 +9,10 @@ Abstract:
 
     Value factory for algebraic datatypes, implemented on top of the
     generic bottom-up term_enumeration module. Constructors of the
-    datatype sort (and of every datatype sort reachable through
-    constructor argument sorts) are registered as grammar productions.
-    Values for non-datatype argument sorts (e.g., Int, arrays,
-    uninterpreted sorts) are supplied through term_enumeration's external
+    datatype sort (and of every datatype sort in its recursive dependency
+    group) are registered as grammar productions.
+    Values for other argument sorts (e.g., Int, arrays, unrelated
+    datatypes) are supplied through term_enumeration's external
     enumerator hook, which defers to the underlying model.
 
 Author:
@@ -41,12 +41,13 @@ datatype_factory::~datatype_factory() {
 /**
    \brief Build (or retrieve from \c cache) a term_enumeration that can
    enumerate values of sort \c s. The enumerator's grammar is seeded with
-   the constructors of \c s and of every datatype sort transitively
-   reachable through constructor argument sorts -- including datatype
+   the constructors of \c s and of every datatype sort in its recursive
+   dependency group. Dependencies include constructor argument sorts and
    sorts nested under parametric sort constructors such as Array, Seq
-   and FiniteSet (e.g. (Array Int MyList), (Seq MyList)). Values for
-   argument sorts that are not datatypes are produced on demand by the
-   external enumerator, which asks the model for a value.
+   and FiniteSet (e.g. (Array Int MyList), (Seq MyList)). Only sorts that
+   can also reach \c s need productions: enumerating other recursive sorts
+   can generate arbitrarily many irrelevant terms before producing a value
+   of \c s. Other argument sorts are seeded by the external enumerator.
 */
 term_enumeration & datatype_factory::get_enumerator(sort * s, obj_map<sort, term_enumeration *> & cache) {
     term_enumeration * te = nullptr;
@@ -56,38 +57,57 @@ term_enumeration & datatype_factory::get_enumerator(sort * s, obj_map<sort, term
     te = alloc(term_enumeration, m_manager);
     cache.insert(s, te);
 
-    ptr_vector<sort> todo;
+    ptr_vector<sort> todo, reachable;
     obj_hashtable<sort> visited;
+    obj_map<sort, ptr_vector<sort>> parents;
+    auto add_dependency = [&](sort* cur, sort* arg) {
+        parents.insert_if_not_there(arg, ptr_vector<sort>()).push_back(cur);
+        if (!visited.contains(arg)) {
+            visited.insert(arg);
+            todo.push_back(arg);
+        }
+    };
     todo.push_back(s);
     visited.insert(s);
     while (!todo.empty()) {
         sort * cur = todo.back();
         todo.pop_back();
+        reachable.push_back(cur);
         if (m_util.is_datatype(cur)) {
             for (func_decl * c : *m_util.get_datatype_constructors(cur)) {
-                te->add_production(c);
                 unsigned num = c->get_arity();
-                for (unsigned i = 0; i < num; ++i) {
-                    sort * s_arg = c->get_domain(i);
-                    if (!visited.contains(s_arg)) {
-                        visited.insert(s_arg);
-                        todo.push_back(s_arg);
-                    }
-                }
+                for (unsigned i = 0; i < num; ++i)
+                    add_dependency(cur, c->get_domain(i));
             }
         }
         // Sorts such as Array, Seq and FiniteSet may nest a datatype sort
         // as one of their sort parameters (e.g., the range of an Array,
         // the element sort of a Seq or FiniteSet). Follow those nested
-        // sorts uniformly, via sort::get_sort_parameters(), so that any
-        // datatype constructors they contain are also registered.
-        for (sort * nested : cur->get_sort_parameters()) {
-            if (!visited.contains(nested)) {
-                visited.insert(nested);
-                todo.push_back(nested);
+        // sorts uniformly, via sort::get_sort_parameters(), to preserve
+        // recursive dependencies through these sorts.
+        for (sort * nested : cur->get_sort_parameters())
+            add_dependency(cur, nested);
+    }
+
+    visited.reset();
+    visited.insert(s);
+    todo.push_back(s);
+    while (!todo.empty()) {
+        sort* cur = todo.back();
+        todo.pop_back();
+        if (auto* entry = parents.find_core(cur)) {
+            for (sort* parent : entry->get_data().m_value) {
+                if (!visited.contains(parent)) {
+                    visited.insert(parent);
+                    todo.push_back(parent);
+                }
             }
         }
     }
+    for (sort* cur : reachable)
+        if (visited.contains(cur) && m_util.is_datatype(cur))
+            for (func_decl* c : *m_util.get_datatype_constructors(cur))
+                te->add_production(c);
 
     te->set_external_enumerator([this](sort * s_arg) -> expr* {
         return m_model.get_some_value(s_arg);
