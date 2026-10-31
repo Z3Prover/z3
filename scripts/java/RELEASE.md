@@ -71,6 +71,8 @@ macOS 13.3 or newer for these upstream builds, and the supported Microsoft
 Visual C++ runtime on Windows. The JAR embeds only Z3 and its JNI bridge.
 Hosted-runner success does not establish compatibility with a clean Windows
 installation lacking that runtime. No native binaries are rewritten.
+Bundled JARs reuse verified per-user native files when possible; see
+[NATIVE_CACHE.md](NATIVE_CACHE.md) for configuration, cleanup and private fallback.
 
 ## Validation without publishing
 
