@@ -172,6 +172,7 @@ add_executable(test-z3
   smt_context.cpp
   solver_pool.cpp
   sorting_network.cpp
+  spacer.cpp
   stack.cpp
   string_buffer.cpp
   substitution.cpp
