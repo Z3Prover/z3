@@ -33,9 +33,19 @@ module Z3TypedRoot
    array-ext, BV/FF/Seq/FP operators, real division by zero, ill-matched
    datatype selectors, operators and lambdas at unsupported sorts).
 
-   Contract: `root_model` (R1 quantifiers, R2 operators, R3 lambdas, R4
-   constructors). L1 `lemma_standard_root`: `standard u sch uf` satisfies it for
-   EVERY u and uf over every `supported` schema. *)
+   Contract (corrected): `root_model` = R1 quantifiers, R2 operators (single
+   definitional source `interpreted`), R3 lambdas, R4 constructors, R5
+   recognizers (constructor identity, via S.find_recognizer), R6 matched
+   accessors (exact field, via S.find_accessor; unmatched selectors stay free).
+   Kernels use the NAMED laws (the law_ and lemma_eval_ lemmas), proved for
+   EVERY model of root_model, never the definition of `interpreted` or `standard`.
+
+   L1 `lemma_standard_root`: `standard u sch uf` satisfies root_model for EVERY
+   u and uf over every checked schema (constructibility). The STANDARD (SMT)
+   meaning is claimed only for `supported` schemas and expressions passing
+   `supported_expression`; both are pure executable checks that no production
+   route enforces in G1. Front-end obligation (not checked here): BaseSort
+   "Bool"/"Int"/"Real" in the AST denote the SMT theory sorts. *)
 
 open Z3AstTheory
 open Z3ValueTheory
@@ -122,8 +132,10 @@ let decide (p:prop) : GTot (b:bool{b <==> p}) = ID.strong_excluded_middle p
 (* Supported domain and conversions between trees and carriers             *)
 (* ---------------------------------------------------------------------- *)
 
-(* A sort is in the supported (standard) domain iff it mentions no datatype
-   sort of the schema. Executable, structural, schema-dependent. *)
+(* A sort is datatype-free (standard carrier, theory laws apply) iff it
+   mentions no datatype sort of the schema. Executable, structural,
+   schema-dependent. `supported_sort` below also admits datatype sorts
+   themselves (checked constructor trees). *)
 let free (sigma:V.signature) (s:sort) : bool = not (V.contains_datatype sigma s)
 
 let rec lemma_registered (sigma:V.signature) (f:func_decl)
@@ -556,22 +568,58 @@ let standard (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
   S.interpretation sch (booleans u) (theory u sch uf)
 
 (* ---------------------------------------------------------------------- *)
-(* Supported schemas                                                        *)
+(* Supported domain: schemas, sorts and expressions (pure, executable)      *)
 (* ---------------------------------------------------------------------- *)
 
 let rec base_owned (sigma:V.signature) : Tot bool (decreases sigma) =
   match sigma with [] -> true | f :: rest -> BaseSort? f.range && base_owned rest
 
-(* The claimed support domain of the root theorem, as an executable check.
+(* Schema part of the claimed STANDARD domain, as an executable check.
    S.valid already rejects a datatype at Bool or Int, but NOT a datatype
    registered under the name "Real", nor a constructor whose range is an
-   array sort. A future root validator must establish `supported` before
-   any theory or array acceptance relies on these laws; it is not implied
-   by S.valid. *)
+   array sort. Constructibility (L1) does not need it: a root model exists
+   for every checked schema, but on an unsupported schema primitive Real
+   heads (numerals, +, /, ...) classify as free symbols, so the root class
+   there is NOT an SMT semantics class. No production route enforces this
+   check in G1; a future root validator must establish it (it is not
+   implied by S.valid). *)
 let supported (sch:S.schema) : bool =
   S.valid sch && not (V.datatype_sort (S.signature sch) real_s) && base_owned (S.signature sch)
 
 type supported_schema = sch:S.checked_schema{supported sch}
+
+(* Sort part: a datatype sort itself (values are checked constructor trees)
+   or a sort mentioning no datatype (standard carrier). Rejected: array sorts
+   whose index or result (at any depth) mentions a registered datatype; they
+   only have a nonempty PLACEHOLDER carrier and no array law. This is the
+   same condition S.valid imposes on constructor fields (S.supported_fields). *)
+let supported_sort (sigma:V.signature) (s:sort) : bool =
+  V.datatype_sort sigma s || free sigma s
+
+let rec supported_sorts (sigma:V.signature) (ss:list sort) : Tot bool (decreases ss) =
+  match ss with [] -> true | s :: rest -> supported_sort sigma s && supported_sorts sigma rest
+
+(* Expression part: EVERY sort occurring in the term (variable sorts, the
+   domain and range of every declaration, every binder sort and every
+   quantifier/lambda sort, at every depth) is supported. So an unsupported
+   nested subterm cannot hide inside an opaque leaf and then receive a
+   theory law. A PURE, future-checkable interface: in G1 no route or
+   validator calls it; L2 must derive/check it from the real document
+   before any certification relies on the laws below. *)
+let rec supported_expression (sigma:V.signature) (e:expr) : Tot bool (decreases e) =
+  match e with
+  | Var _ s -> supported_sort sigma s
+  | App f args ->
+    supported_sort sigma f.range && supported_sorts sigma f.domain && supported_expressions sigma args
+  | Quantifier _ bound s body ->
+    supported_sorts sigma bound && supported_sort sigma s && supported_expression sigma body
+
+and supported_expressions (sigma:V.signature) (es:list expr) : Tot bool (decreases es) =
+  match es with [] -> true | e :: rest -> supported_expression sigma e && supported_expressions sigma rest
+
+(* A whole query/document: every expression supported over a supported schema. *)
+let supported_document (sch:S.schema) (es:list expr) : bool =
+  supported sch && supported_expressions (S.signature sch) es
 
 (* ---------------------------------------------------------------------- *)
 (* The typed root contract                                                  *)
@@ -618,13 +666,64 @@ let lambda_law (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) : prop 
     i.quantification Lambda_k bound t body ==
     make #u #(S.signature sch) (ArraySort bound t) (graph u sch bound t body)
 
-(* R4: constructors build the checked constructor trees. *)
+(* R4: constructors build the checked constructor trees. (The evaluator
+   builds registered constructors itself, V.evaluate's App case; R4 makes
+   the interpretation's own application agree with that layer.) *)
 let constructor_law (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) : prop =
   forall (f:func_decl{L.mem f (S.signature sch)}) (xs:targuments u sch f.domain).
     i.application f xs == V.construct (S.signature sch) f xs
 
+(* R5: a recognizer of the schema, as found by the executable metadata
+   search S.find_recognizer, tests constructor identity: is-c(v) is true
+   exactly when the head constructor of the checked tree v is c's
+   constructor (V.recognize is that head test, not the standard model). *)
+let recognizer_case (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                    (c:S.constructor_case{L.mem c sch.cases /\ f.domain = [c.constructor.range] /\
+                                          f.range = bool_sort})
+                    (v:tvalue u sch c.constructor.range) : prop =
+  truth sch (i.application f [v]) == V.recognize c.constructor v
+
+let recognizer_at (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) (f:func_decl) : prop =
+  match S.find_recognizer f sch.cases with
+  | None -> True
+  | Some c -> (forall (v:tvalue u sch c.constructor.range). recognizer_case u sch i f c v)
+
+let recognizer_law (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) : prop =
+  forall (f:func_decl). recognizer_at u sch i f
+
+(* The n-th field of a typed argument list, at its declared sort. *)
+let field_of (#u:uninterpreted) (#sch:S.checked_schema) (ss:list sort) (ys:targuments u sch ss)
+             (n:nat{n < L.length ss}) : tvalue u sch (L.index ss n) =
+  V.lemma_fields_index (S.signature sch) ss ys n;
+  L.index ys n
+
+type accessor_of (sch:S.checked_schema) (f:func_decl) =
+  r:S.accessor_match{L.mem r.matched_case sch.cases /\
+                     r.field < L.length r.matched_case.constructor.domain /\
+                     f.domain = [r.matched_case.constructor.range] /\
+                     f.range = L.index r.matched_case.constructor.domain r.field}
+
+(* R6: a MATCHED selector (S.find_accessor gives its case c and field n)
+   applied to a c-constructed tree returns exactly its n-th field. Nothing
+   is said about a selector applied to a tree of another constructor: that
+   value stays an arbitrary, argument-dependent free choice. *)
+let accessor_case (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                  (r:accessor_of sch f) (ys:targuments u sch r.matched_case.constructor.domain) : prop =
+  i.application f [S.constructor_value sch r.matched_case ys] ==
+  field_of #u #sch r.matched_case.constructor.domain ys r.field
+
+let accessor_at (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) (f:func_decl) : prop =
+  match S.find_accessor f sch.cases with
+  | None -> True
+  | Some r -> (forall (ys:targuments u sch r.matched_case.constructor.domain). accessor_case u sch i f r ys)
+
+let accessor_law (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) : prop =
+  forall (f:func_decl). accessor_at u sch i f
+
+(* The corrected root contract: R1-R6, one joint interpretation. *)
 let root_model (u:uninterpreted) (sch:S.checked_schema) (i:interp u sch) : prop =
-  quantifier_laws u sch i /\ operator_law u sch i /\ lambda_law u sch i /\ constructor_law u sch i
+  quantifier_laws u sch i /\ operator_law u sch i /\ lambda_law u sch i /\ constructor_law u sch i /\
+  recognizer_law u sch i /\ accessor_law u sch i
 
 (* ---------------------------------------------------------------------- *)
 (* L1: the standard model satisfies the root contract, for EVERY choice of  *)
@@ -697,17 +796,77 @@ let lemma_lambda_law (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
 let lemma_constructor_law (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
   : Lemma (constructor_law u sch (standard u sch uf)) = ()
 
-(* L1. No hypothesis on u or uf: one joint positive model for every free choice. *)
-let lemma_standard_root (u:uninterpreted) (sch:supported_schema) (uf:symbols u sch)
+(* Metadata facts: the three datatype kinds are told apart by their interp
+   tag, so a recognizer or an accessor is never a registered constructor,
+   and an accessor is never a recognizer. *)
+let lemma_constructor_interp (sch:S.checked_schema) (f:func_decl)
+  : Lemma (requires L.mem f (S.signature sch)) (ensures f.interp == Some Z3DatatypeLemma.op_constructor) =
+  S.lemma_case_of sch.cases f;
+  let c = Some?.v (S.case_of sch.cases f) in
+  S.lemma_case_member (S.signature sch) sch.sorts sch.cases c
+
+let rec lemma_recognizer_interp (f:func_decl) (cs:list S.constructor_case)
+  : Lemma (requires Some? (S.find_recognizer f cs))
+          (ensures f.interp == Some Z3DatatypeLemma.op_recognizer) (decreases cs) =
+  match cs with
+  | [] -> ()
+  | c :: rest -> if Some? (S.find_recognizer f rest) then lemma_recognizer_interp f rest
+
+let rec lemma_accessor_interp (f:func_decl) (cs:list S.constructor_case)
+  : Lemma (requires Some? (S.find_accessor f cs))
+          (ensures f.interp == Some Z3DatatypeLemma.op_accessor) (decreases cs) =
+  match cs with
+  | [] -> ()
+  | c :: rest -> if Some? (S.find_accessor f rest) then lemma_accessor_interp f rest
+
+let lemma_recognizer_at (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch) (f:func_decl)
+  : Lemma (recognizer_at u sch (standard u sch uf) f) =
+  match S.find_recognizer f sch.cases with
+  | None -> ()
+  | Some c ->
+    lemma_recognizer_interp f sch.cases;
+    if L.mem f (S.signature sch) then lemma_constructor_interp sch f
+
+let lemma_recognizer_law (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
+  : Lemma (recognizer_law u sch (standard u sch uf)) =
+  FStar.Classical.forall_intro (lemma_recognizer_at u sch uf)
+
+let lemma_accessor_at (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch) (f:func_decl)
+  : Lemma (accessor_at u sch (standard u sch uf) f) =
+  match S.find_accessor f sch.cases with
+  | None -> ()
+  | Some r ->
+    lemma_accessor_interp f sch.cases;
+    if L.mem f (S.signature sch) then lemma_constructor_interp sch f;
+    if Some? (S.find_recognizer f sch.cases) then lemma_recognizer_interp f sch.cases;
+    let c = r.matched_case in
+    let aux (ys:targuments u sch c.constructor.domain)
+      : Lemma (accessor_case u sch (standard u sch uf) f r ys) =
+      S.lemma_signature_member sch.cases c;
+      V.lemma_fields_index (S.signature sch) c.constructor.domain ys r.field in
+    FStar.Classical.forall_intro aux
+
+let lemma_accessor_law (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
+  : Lemma (accessor_law u sch (standard u sch uf)) =
+  FStar.Classical.forall_intro (lemma_accessor_at u sch uf)
+
+(* L1. No hypothesis on u or uf: one joint positive model of the CORRECTED
+   contract R1-R6 for every free choice. Constructibility holds for every
+   checked schema (`supported` is not needed for it); the STANDARD meaning
+   of the root class is claimed only on supported schemas and supported
+   expressions (see the support section and the law preconditions). *)
+let lemma_standard_root (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
   : Lemma (root_model u sch (standard u sch uf)) =
   lemma_quantifier_laws u sch uf;
   lemma_operator_law u sch uf;
   lemma_lambda_law u sch uf;
-  lemma_constructor_law u sch uf
+  lemma_constructor_law u sch uf;
+  lemma_recognizer_law u sch uf;
+  lemma_accessor_law u sch uf
 
-(* Non-vacuity: the class of root models is inhabited for every supported
+(* Non-vacuity: the class of root models is inhabited for every checked
    schema and every choice of uninterpreted carriers. *)
-let lemma_root_inhabited (u:uninterpreted) (sch:supported_schema)
+let lemma_root_inhabited (u:uninterpreted) (sch:S.checked_schema)
   : Lemma (exists (i:interp u sch). root_model u sch i) =
   let uf : symbols u sch = {
     apply = (fun f _ -> S.value_inhabitant sch (default_value u) f.range);
@@ -716,22 +875,12 @@ let lemma_root_inhabited (u:uninterpreted) (sch:supported_schema)
   lemma_standard_root u sch uf
 
 (* ---------------------------------------------------------------------- *)
-(* Evaluation step for interpreted applications (used by the AST witnesses) *)
+(* Free choices of the standard family (standard-specific, by design)      *)
 (* ---------------------------------------------------------------------- *)
 
-let lemma_eval_interpreted (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                           (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                           (f:func_decl) (args:list expr)
-  : Lemma (requires D.scoped scope (App f args) /\ not (datatype_kind f) /\
-                    Some? (interpreted u sch f
-                      (V.evaluate_args (S.signature sch) (standard u sch uf) scope rho args f.domain)))
-          (ensures V.evaluate (S.signature sch) (standard u sch uf) scope rho (App f args) ==
-                   Some?.v (interpreted u sch f
-                     (V.evaluate_args (S.signature sch) (standard u sch uf) scope rho args f.domain))) =
-  lemma_not_constructor sch f;
-  lemma_standard_application u sch uf f
-    (V.evaluate_args (S.signature sch) (standard u sch uf) scope rho args f.domain)
-
+(* In the standard family an application that SMT-LIB leaves open (an
+   operator outside the interpreted set, a real division by zero, an
+   unmatched selector at the theory layer) is exactly the free choice. *)
 let lemma_eval_free_choice (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
                            (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
                            (f:func_decl) (args:list expr)
@@ -744,7 +893,10 @@ let lemma_eval_free_choice (u:uninterpreted) (sch:S.checked_schema) (uf:symbols 
   lemma_standard_application u sch uf f
     (V.evaluate_args (S.signature sch) (standard u sch uf) scope rho args f.domain)
 
-(* Function-space facts behind the array laws (no hypothesis). *)
+(* ---------------------------------------------------------------------- *)
+(* Function-space facts behind the array laws (no hypothesis)               *)
+(* ---------------------------------------------------------------------- *)
+
 let lemma_read_write_same (#a #b:Type0) (fn:func_space a b) (i:a) (v:b)
   : Lemma (read (write fn i v) i == v) = ()
 
@@ -754,167 +906,6 @@ let lemma_read_write_other (#a #b:Type0) (fn:func_space a b) (i j:a) (v:b)
 let lemma_function_extensionality (#a #b:Type0) (fn gn:func_space a b)
   : Lemma ((forall (x:a). read fn x == read gn x) <==> fn == gn) =
   FE.extensionality_g a (fun _ -> b) fn gn
-
-(* Evaluation of production quantifier nodes under the standard model. *)
-let lemma_eval_forall (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                      (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                      (bound:list sort) (body:expr)
-  : Lemma (requires D.scoped scope (Quantifier Forall_k bound bool_sort body))
-          (ensures truth sch (V.evaluate (S.signature sch) (standard u sch uf) scope rho
-                               (Quantifier Forall_k bound bool_sort body)) == true <==>
-                   (forall (vs:targuments u sch (L.rev bound)).
-                      truth sch (V.evaluate (S.signature sch) (standard u sch uf) (L.rev bound @ scope)
-                                   (V.extend (S.signature sch) scope (L.rev bound) vs rho) body) == true)) =
-  let sigma = S.signature sch in
-  let fbody = V.typed_body sigma bound bool_sort
-                (V.evaluate_body sigma (standard u sch uf) scope rho bound body) in
-  lemma_forall_case u sch uf bound fbody
-
-let lemma_eval_exists (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                      (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                      (bound:list sort) (body:expr)
-  : Lemma (requires D.scoped scope (Quantifier Exists_k bound bool_sort body))
-          (ensures truth sch (V.evaluate (S.signature sch) (standard u sch uf) scope rho
-                               (Quantifier Exists_k bound bool_sort body)) == true <==>
-                   (exists (vs:targuments u sch (L.rev bound)).
-                      truth sch (V.evaluate (S.signature sch) (standard u sch uf) (L.rev bound @ scope)
-                                   (V.extend (S.signature sch) scope (L.rev bound) vs rho) body) == true)) =
-  let sigma = S.signature sch in
-  let fbody = V.typed_body sigma bound bool_sort
-                (V.evaluate_body sigma (standard u sch uf) scope rho bound body) in
-  lemma_exists_case u sch uf bound fbody
-
-(* A lambda at a supported sort evaluates to the graph of its body; reading
-   the graph at an index tuple evaluates the body under the REVERSED typed
-   arguments (innermost binder = last index). *)
-let lemma_eval_lambda (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                      (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                      (bound:list sort) (t:sort) (body:expr)
-                      (ix:indices u bound)
-  : Lemma (requires D.scoped scope (Quantifier Lambda_k bound (ArraySort bound t) body) /\
-                    get_sort body == t /\ free (S.signature sch) (ArraySort bound t))
-          (ensures read #(indices u bound) #(carrier u t)
-                     (scalar #u #(S.signature sch) (ArraySort bound t)
-                       (V.evaluate (S.signature sch) (standard u sch uf) scope rho
-                         (Quantifier Lambda_k bound (ArraySort bound t) body))) ix ==
-                   scalar #u #(S.signature sch) t
-                     (V.evaluate (S.signature sch) (standard u sch uf) (L.rev bound @ scope)
-                       (V.extend (S.signature sch) scope (L.rev bound)
-                         (reverse_arguments (S.signature sch) bound
-                           (from_indices #u #(S.signature sch) bound ix)) rho) body)) =
-  ()
-
-(* ---------------------------------------------------------------------- *)
-(* Expression-level array laws at every supported single-index sort,       *)
-(* derived from the standard model (not assumed)                            *)
-(* ---------------------------------------------------------------------- *)
-
-let lemma_classify_select (sigma:V.signature) (ds:list sort) (r:sort)
-  : Lemma (requires free sigma (ArraySort ds r))
-          (ensures classify sigma (select_decl ds r) == Select ds r) = ()
-
-let lemma_classify_store (sigma:V.signature) (ds:list sort) (r:sort)
-  : Lemma (requires free sigma (ArraySort ds r))
-          (ensures classify sigma (store_decl ds r) == Store ds r) = ()
-
-let lemma_store_value (u:uninterpreted) (sch:S.checked_schema) (d r:sort)
-                      (va:tvalue u sch (ArraySort [d] r)) (vi:tvalue u sch d) (vv:tvalue u sch r)
-  : Lemma (requires free (S.signature sch) (ArraySort [d] r))
-          (ensures Some? (interpreted u sch (store_decl [d] r) [va; vi; vv]) /\
-                   Some?.v (interpreted u sch (store_decl [d] r) [va; vi; vv]) ==
-                   make #u #(S.signature sch) (ArraySort [d] r)
-                     (write #(indices u [d]) #(carrier u r) (scalar #u #(S.signature sch) (ArraySort [d] r) va)
-                       (to_indices #u #(S.signature sch) [d] [vi]) (scalar #u #(S.signature sch) r vv))) =
-  lemma_classify_store (S.signature sch) [d] r
-
-let lemma_select_value (u:uninterpreted) (sch:S.checked_schema) (d r:sort)
-                       (va:tvalue u sch (ArraySort [d] r)) (vi:tvalue u sch d)
-  : Lemma (requires free (S.signature sch) (ArraySort [d] r))
-          (ensures Some? (interpreted u sch (select_decl [d] r) [va; vi]) /\
-                   Some?.v (interpreted u sch (select_decl [d] r) [va; vi]) ==
-                   make #u #(S.signature sch) r
-                     (read #(indices u [d]) #(carrier u r) (scalar #u #(S.signature sch) (ArraySort [d] r) va)
-                       (to_indices #u #(S.signature sch) [d] [vi]))) =
-  lemma_classify_select (S.signature sch) [d] r
-
-let lemma_eval_store (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                     (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                     (d r:sort) (a i v:expr)
-  : Lemma (requires free (S.signature sch) (ArraySort [d] r) /\ D.scoped scope (App (store_decl [d] r) [a; i; v]) /\
-                    get_sort a == ArraySort [d] r /\ get_sort i == d /\ get_sort v == r)
-          (ensures (let ev (e:expr{D.scoped scope e}) = V.evaluate (S.signature sch) (standard u sch uf) scope rho e in
-                    ev (App (store_decl [d] r) [a; i; v]) ==
-                    make #u #(S.signature sch) (ArraySort [d] r)
-                      (write #(indices u [d]) #(carrier u r) (scalar #u #(S.signature sch) (ArraySort [d] r) (ev a))
-                        (to_indices #u #(S.signature sch) [d] [ev i]) (scalar #u #(S.signature sch) r (ev v))))) =
-  let sigma = S.signature sch in
-  let ev (e:expr{D.scoped scope e}) = V.evaluate sigma (standard u sch uf) scope rho e in
-  assert (V.evaluate_args sigma (standard u sch uf) scope rho [a; i; v] (store_decl [d] r).domain ==
-          [ev a; ev i; ev v]);
-  lemma_store_value u sch d r (ev a) (ev i) (ev v);
-  lemma_eval_interpreted u sch uf scope rho (store_decl [d] r) [a; i; v]
-
-let lemma_eval_select (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                      (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                      (d r:sort) (a i:expr)
-  : Lemma (requires free (S.signature sch) (ArraySort [d] r) /\ D.scoped scope (App (select_decl [d] r) [a; i]) /\
-                    get_sort a == ArraySort [d] r /\ get_sort i == d)
-          (ensures (let ev (e:expr{D.scoped scope e}) = V.evaluate (S.signature sch) (standard u sch uf) scope rho e in
-                    ev (App (select_decl [d] r) [a; i]) ==
-                    make #u #(S.signature sch) r
-                      (read #(indices u [d]) #(carrier u r) (scalar #u #(S.signature sch) (ArraySort [d] r) (ev a))
-                        (to_indices #u #(S.signature sch) [d] [ev i])))) =
-  let sigma = S.signature sch in
-  let ev (e:expr{D.scoped scope e}) = V.evaluate sigma (standard u sch uf) scope rho e in
-  assert (V.evaluate_args sigma (standard u sch uf) scope rho [a; i] (select_decl [d] r).domain == [ev a; ev i]);
-  lemma_select_value u sch d r (ev a) (ev i);
-  lemma_eval_interpreted u sch uf scope rho (select_decl [d] r) [a; i]
-
-(* select (store a i v) i = v, for every supported single-index array sort *)
-let lemma_select_store_same (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                            (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                            (d r:sort) (a i v:expr)
-  : Lemma (requires free (S.signature sch) (ArraySort [d] r) /\
-                    D.scoped scope (App (select_decl [d] r) [App (store_decl [d] r) [a; i; v]; i]) /\
-                    get_sort a == ArraySort [d] r /\ get_sort i == d /\ get_sort v == r)
-          (ensures V.evaluate (S.signature sch) (standard u sch uf) scope rho
-                     (App (select_decl [d] r) [App (store_decl [d] r) [a; i; v]; i]) ==
-                   V.evaluate (S.signature sch) (standard u sch uf) scope rho v) =
-  let sigma = S.signature sch in
-  let ev (e:expr{D.scoped scope e}) = V.evaluate sigma (standard u sch uf) scope rho e in
-  let st = App (store_decl [d] r) [a; i; v] in
-  lemma_eval_store u sch uf scope rho d r a i v;
-  lemma_eval_select u sch uf scope rho d r st i;
-  let fa = scalar #u #sigma (ArraySort [d] r) (ev a) in
-  let ix = to_indices #u #sigma [d] [ev i] in
-  lemma_read_write_same #(indices u [d]) #(carrier u r) fa ix (scalar #u #sigma r (ev v));
-  lemma_make_scalar #u #sigma r (ev v)
-
-(* i <> j  ==>  select (store a i v) j = select a j *)
-let lemma_select_store_other (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
-                             (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
-                             (d r:sort) (a i j v:expr)
-  : Lemma (requires free (S.signature sch) (ArraySort [d] r) /\
-                    D.scoped scope (App (select_decl [d] r) [App (store_decl [d] r) [a; i; v]; j]) /\
-                    D.scoped scope (App (select_decl [d] r) [a; j]) /\
-                    get_sort a == ArraySort [d] r /\ get_sort i == d /\ get_sort j == d /\ get_sort v == r /\
-                    ~(V.evaluate (S.signature sch) (standard u sch uf) scope rho i ==
-                      V.evaluate (S.signature sch) (standard u sch uf) scope rho j))
-          (ensures V.evaluate (S.signature sch) (standard u sch uf) scope rho
-                     (App (select_decl [d] r) [App (store_decl [d] r) [a; i; v]; j]) ==
-                   V.evaluate (S.signature sch) (standard u sch uf) scope rho
-                     (App (select_decl [d] r) [a; j])) =
-  let sigma = S.signature sch in
-  let ev (e:expr{D.scoped scope e}) = V.evaluate sigma (standard u sch uf) scope rho e in
-  let st = App (store_decl [d] r) [a; i; v] in
-  lemma_eval_store u sch uf scope rho d r a i v;
-  lemma_eval_select u sch uf scope rho d r st j;
-  lemma_eval_select u sch uf scope rho d r a j;
-  lemma_make_scalar #u #sigma d (ev i);
-  lemma_make_scalar #u #sigma d (ev j);
-  let fa = scalar #u #sigma (ArraySort [d] r) (ev a) in
-  lemma_read_write_other #(indices u [d]) #(carrier u r) fa
-    (to_indices #u #sigma [d] [ev i]) (to_indices #u #sigma [d] [ev j]) (scalar #u #sigma r (ev v))
 
 (* Extensionality of array VALUES at every supported sort (any arity). *)
 let lemma_array_extensionality (#u:uninterpreted) (#sigma:V.signature) (ds:list sort) (r:sort)
@@ -930,7 +921,8 @@ let lemma_array_extensionality (#u:uninterpreted) (#sigma:V.signature) (ds:list 
   lemma_make_scalar #u #sigma (ArraySort ds r) y
 
 (* The array-ext difference witness, by the library's ghost indefinite
-   description (no new axiom). Not yet wired to the array-ext operator. *)
+   description (no new axiom). Not wired to the array-ext operator, which
+   stays a FREE symbol in this correction. *)
 let difference (#a #b:Type0) (fn gn:func_space a b) (fallback:a)
   : GTot (x:a{fn == gn \/ ~(read fn x == read gn x)}) =
   if decide (fn == gn) then fallback
@@ -941,3 +933,607 @@ let difference (#a #b:Type0) (fn gn:func_space a b) (fallback:a)
 
 let lemma_difference (#a #b:Type0) (fn gn:func_space a b) (fallback:a)
   : Lemma (fn == gn \/ ~(read fn (difference fn gn fallback) == read gn (difference fn gn fallback))) = ()
+
+(* ====================================================================== *)
+(* NAMED LAWS, proved for EVERY model i of root_model (not only standard).  *)
+(* Each law is stated with the executable classifier fact that identifies  *)
+(* the operator (or the canonical array declaration) as its precondition   *)
+(* and the expected mathematical value (F* bool/int/FStar.Real operators,  *)
+(* typed argument lists, constructor trees) as its conclusion. Kernels     *)
+(* cite these laws; they never need to unfold `interpreted`/`standard`.    *)
+(* Operators outside this list (distinct, op_num_int numerals, Int         *)
+(* div/mod/abs, to_int/is_int, const-array, array-ext, op_oeq, n-ary =,    *)
+(* n-ary =>, BV/FF/Seq/FP/String/Regex, real x/0, unmatched selectors,     *)
+(* operators at sorts mentioning a datatype) are FREE: no law is claimed.  *)
+(* ====================================================================== *)
+
+(* Every classified (non-Other) operator carries a theory interp tag, so it
+   is never a datatype operation and never a registered constructor. *)
+let lemma_connective_theory (f:func_decl)
+  : Lemma (requires ~(Other? (connective f))) (ensures not (datatype_kind f)) = ()
+
+let lemma_numeric_theory (sigma:V.signature) (f:func_decl)
+  : Lemma (requires ~(Other? (numeric sigma f))) (ensures not (datatype_kind f)) = ()
+
+let lemma_array_theory (sigma:V.signature) (f:func_decl)
+  : Lemma (requires ~(Other? (array_op sigma f))) (ensures not (datatype_kind f)) = ()
+
+let lemma_classified_theory (sch:S.checked_schema) (f:func_decl)
+  : Lemma (requires ~(Other? (classify (S.signature sch) f)))
+          (ensures not (datatype_kind f) /\ not (L.mem f (S.signature sch))) =
+  let sigma = S.signature sch in
+  (if not (Other? (connective f)) then lemma_connective_theory f
+   else if not (Other? (numeric sigma f)) then lemma_numeric_theory sigma f
+   else lemma_array_theory sigma f);
+  lemma_not_constructor sch f
+
+(* The single use of R2 (internal: the laws below are the interface). *)
+let lemma_operator (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                   (f:func_decl) (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ ~(Other? (classify (S.signature sch) f)) /\
+                    Some? (interpreted u sch f xs))
+          (ensures i.application f xs == Some?.v (interpreted u sch f xs)) =
+  lemma_classified_theory sch f
+
+(* Primitive values of a tree. Int is never a datatype of a checked schema
+   (S.valid); Real is not a datatype of a supported schema. *)
+let int_of (#u:uninterpreted) (sch:S.checked_schema) (v:tvalue u sch int_s) : int =
+  scalar #u #(S.signature sch) int_s v
+
+let real_of (#u:uninterpreted) (sch:supported_schema) (v:tvalue u sch real_s) : real =
+  scalar #u #(S.signature sch) real_s v
+
+(* --- Boolean connectives ------------------------------------------------- *)
+
+let law_constant (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl) (b:bool)
+                 (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Constant b)
+          (ensures truth sch (i.application f xs) == b) =
+  lemma_operator i f xs
+
+let law_not (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+            (x:tvalue u sch bool_sort)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Negation)
+          (ensures truth sch (i.application f [x]) == not (truth sch x)) =
+  lemma_operator i f [x]
+
+let law_implies (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch bool_sort)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Implication)
+          (ensures truth sch (i.application f [x; y]) == (not (truth sch x) || truth sch y)) =
+  lemma_operator i f [x; y]
+
+let law_and (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+            (x y:tvalue u sch bool_sort)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Nary B.And /\
+                    f.domain == [bool_sort; bool_sort])
+          (ensures truth sch (i.application f [x; y]) == (truth sch x && truth sch y)) =
+  lemma_operator i f [x; y]
+
+let law_or (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+           (x y:tvalue u sch bool_sort)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Nary B.Or /\
+                    f.domain == [bool_sort; bool_sort])
+          (ensures truth sch (i.application f [x; y]) == (truth sch x || truth sch y)) =
+  lemma_operator i f [x; y]
+
+let law_xor (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+            (x y:tvalue u sch bool_sort)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Nary B.Xor /\
+                    f.domain == [bool_sort; bool_sort])
+          (ensures truth sch (i.application f [x; y]) == (truth sch x <> truth sch y)) =
+  lemma_operator i f [x; y]
+
+(* n-ary and/or/xor: the fold of the production Boolean semantics
+   (B.combine/B.neutral), i.e. conjunction, disjunction, parity. *)
+let law_nary (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl) (op:B.nary_op)
+             (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Nary op)
+          (ensures truth sch (i.application f xs) == combine op (truths sch f.domain xs)) =
+  lemma_operator i f xs
+
+let rec lemma_combine_and (bs:list bool)
+  : Lemma (combine B.And bs == true <==> (forall (b:bool). L.mem b bs ==> b)) (decreases bs) =
+  match bs with [] -> () | _ :: rest -> lemma_combine_and rest
+
+let rec lemma_combine_or (bs:list bool)
+  : Lemma (combine B.Or bs == true <==> L.mem true bs) (decreases bs) =
+  match bs with [] -> () | _ :: rest -> lemma_combine_or rest
+
+(* --- Equality and if-then-else at every sort --------------------------- *)
+
+let law_equality (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl) (s:sort)
+                 (x y:tvalue u sch s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Equality s)
+          (ensures truth sch (i.application f [x; y]) == true <==> x == y) =
+  lemma_operator i f [x; y]
+
+let law_ite (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl) (s:sort)
+            (c:tvalue u sch bool_sort) (x y:tvalue u sch s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Choice s)
+          (ensures i.application f [c; x; y] == (if truth sch c then x else y)) =
+  lemma_operator i f [c; x; y]
+
+(* --- Numerals (op_num_rational [n; d], d > 0; Int numerals have d = 1) -- *)
+
+let law_int_numeral (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                    (n:int) (d:pos) (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Numeral int_s n d)
+          (ensures d == 1 /\ int_of sch (i.application f xs) == n) =
+  lemma_operator i f xs
+
+let law_real_numeral (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                     (n:int) (d:pos) (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Numeral real_s n d)
+          (ensures real_of sch (i.application f xs) == of_int n /. of_int d) =
+  lemma_operator i f xs
+
+(* --- Integer arithmetic ------------------------------------------------- *)
+
+let law_int_add (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith int_s A.Add /\
+                    f.domain == [int_s; int_s])
+          (ensures int_of sch (i.application f [x; y]) == int_of sch x + int_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_int_mul (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith int_s A.Mul /\
+                    f.domain == [int_s; int_s])
+          (ensures int_of sch (i.application f [x; y]) == int_of sch x * int_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_int_sub (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith int_s A.Sub /\
+                    f.domain == [int_s; int_s])
+          (ensures int_of sch (i.application f [x; y]) == int_of sch x - int_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_int_negate (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                   (x:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith int_s A.Sub /\
+                    f.domain == [int_s])
+          (ensures int_of sch (i.application f [x]) == - (int_of sch x)) =
+  lemma_operator i f [x]
+
+(* n-ary: sum, product, x1 - (x2 + ... + xn) *)
+let law_int_nary (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                 (o:A.operation) (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith int_s o)
+          (ensures int_of sch (i.application f xs) ==
+                   (match o with
+                    | A.Add -> isum (ints sch f.domain xs)
+                    | A.Mul -> iproduct (ints sch f.domain xs)
+                    | _ -> isubtract (ints sch f.domain xs))) =
+  lemma_operator i f xs
+
+(* --- Real arithmetic, division, conversion ------------------------------ *)
+
+let law_real_add (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                 (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith real_s A.Add /\
+                    f.domain == [real_s; real_s])
+          (ensures real_of sch (i.application f [x; y]) == real_of sch x +. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_real_mul (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                 (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith real_s A.Mul /\
+                    f.domain == [real_s; real_s])
+          (ensures real_of sch (i.application f [x; y]) == real_of sch x *. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_real_sub (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                 (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith real_s A.Sub /\
+                    f.domain == [real_s; real_s])
+          (ensures real_of sch (i.application f [x; y]) == real_of sch x -. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_real_negate (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                    (x:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith real_s A.Sub /\
+                    f.domain == [real_s])
+          (ensures real_of sch (i.application f [x]) == 0.0R -. real_of sch x) =
+  lemma_operator i f [x]
+
+let law_real_nary (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                  (o:A.operation) (xs:targuments u sch f.domain)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Arith real_s o)
+          (ensures real_of sch (i.application f xs) ==
+                   (match o with
+                    | A.Add -> rsum (reals sch f.domain xs)
+                    | A.Mul -> rproduct (reals sch f.domain xs)
+                    | _ -> rsubtract (reals sch f.domain xs))) =
+  lemma_operator i f xs
+
+(* Division by a NONZERO divisor only. x/0 has no law: it stays a free,
+   argument-dependent model choice. *)
+let law_real_divide (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                    (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Divide /\
+                    ~(real_of sch y == 0.0R))
+          (ensures real_of sch (i.application f [x; y]) == real_of sch x /. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_to_real (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                (x:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == ToReal)
+          (ensures real_of sch (i.application f [x]) == of_int (int_of sch x)) =
+  lemma_operator i f [x]
+
+(* --- Comparisons --------------------------------------------------------- *)
+
+let law_int_le (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+               (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare int_s A.Le)
+          (ensures truth sch (i.application f [x; y]) == (int_of sch x <= int_of sch y)) =
+  lemma_operator i f [x; y]
+
+let law_int_lt (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+               (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare int_s A.Lt)
+          (ensures truth sch (i.application f [x; y]) == (int_of sch x < int_of sch y)) =
+  lemma_operator i f [x; y]
+
+let law_int_ge (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+               (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare int_s A.Ge)
+          (ensures truth sch (i.application f [x; y]) == (int_of sch x >= int_of sch y)) =
+  lemma_operator i f [x; y]
+
+let law_int_gt (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+               (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare int_s A.Gt)
+          (ensures truth sch (i.application f [x; y]) == (int_of sch x > int_of sch y)) =
+  lemma_operator i f [x; y]
+
+let law_real_le (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare real_s A.Le)
+          (ensures truth sch (i.application f [x; y]) == true <==> real_of sch x <=. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_real_lt (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare real_s A.Lt)
+          (ensures truth sch (i.application f [x; y]) == true <==> real_of sch x <. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_real_ge (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare real_s A.Ge)
+          (ensures truth sch (i.application f [x; y]) == true <==> real_of sch x >=. real_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_real_gt (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch real_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == Compare real_s A.Gt)
+          (ensures truth sch (i.application f [x; y]) == true <==> real_of sch x >. real_of sch y) =
+  lemma_operator i f [x; y]
+
+(* --- Arrays of any arity at supported (datatype-free) sorts ------------- *)
+(* The laws are stated for every index list ds; SMT-LIB has no zero-index
+   arrays, so ds = [] (carrier: functions from unit) is a harmless extra
+   case of the prototype, not a claim about an SMT-LIB sort. *)
+
+let lemma_classify_select (sigma:V.signature) (ds:list sort) (r:sort)
+  : Lemma (requires free sigma (ArraySort ds r))
+          (ensures classify sigma (select_decl ds r) == Select ds r) = ()
+
+let lemma_classify_store (sigma:V.signature) (ds:list sort) (r:sort)
+  : Lemma (requires free sigma (ArraySort ds r))
+          (ensures classify sigma (store_decl ds r) == Store ds r) = ()
+
+(* The argument list of store(a, i1..in, v). *)
+let store_arguments (#u:uninterpreted) (#sch:S.checked_schema) (ds:list sort) (r:sort)
+                    (a:tvalue u sch (ArraySort ds r)) (ix:targuments u sch ds) (v:tvalue u sch r)
+  : targuments u sch (store_decl ds r).domain =
+  a :: append_arguments (S.signature sch) ds [r] ix [v]
+
+let rec lemma_split_store (#u:uninterpreted) (#sigma:V.signature)
+                          (ds:list sort{not (V.contains_datatype_args sigma ds)})
+                          (r:sort{not (V.datatype_sort sigma r)})
+                          (ix:V.arguments (carrier u) sigma ds) (v:V.value (carrier u) sigma r)
+  : Lemma (ensures split_store #u #sigma ds r (append_arguments sigma ds [r] ix [v]) ==
+                   (to_indices #u #sigma ds ix, scalar #u #sigma r v)) (decreases ds) =
+  match ds, ix with
+  | [], [] -> ()
+  | d :: rest, x :: tail -> lemma_split_store #u #sigma rest r tail v
+  | _, _ -> ()
+
+let lemma_store_value (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (ds:list sort) (r:sort)
+                      (a:tvalue u sch (ArraySort ds r)) (ix:targuments u sch ds) (v:tvalue u sch r)
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort ds r))
+          (ensures i.application (store_decl ds r) (store_arguments ds r a ix v) ==
+                   make #u #(S.signature sch) (ArraySort ds r)
+                     (write #(indices u ds) #(carrier u r) (scalar #u #(S.signature sch) (ArraySort ds r) a)
+                       (to_indices #u #(S.signature sch) ds ix) (scalar #u #(S.signature sch) r v))) =
+  lemma_classify_store (S.signature sch) ds r;
+  lemma_operator i (store_decl ds r) (store_arguments ds r a ix v);
+  lemma_split_store #u #(S.signature sch) ds r ix v
+
+let lemma_select_value (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (ds:list sort) (r:sort)
+                       (a:tvalue u sch (ArraySort ds r)) (ix:targuments u sch ds)
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort ds r))
+          (ensures i.application (select_decl ds r) (a :: ix) ==
+                   make #u #(S.signature sch) r
+                     (read #(indices u ds) #(carrier u r) (scalar #u #(S.signature sch) (ArraySort ds r) a)
+                       (to_indices #u #(S.signature sch) ds ix))) =
+  lemma_classify_select (S.signature sch) ds r;
+  lemma_operator i (select_decl ds r) (a :: ix)
+
+(* select(store(a, i, v), i) = v, every arity *)
+let law_select_store_same (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (ds:list sort) (r:sort)
+                          (a:tvalue u sch (ArraySort ds r)) (ix:targuments u sch ds) (v:tvalue u sch r)
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort ds r))
+          (ensures i.application (select_decl ds r)
+                     (i.application (store_decl ds r) (store_arguments ds r a ix v) :: ix) == v) =
+  let sigma = S.signature sch in
+  lemma_store_value i ds r a ix v;
+  lemma_select_value i ds r (i.application (store_decl ds r) (store_arguments ds r a ix v)) ix;
+  lemma_make_scalar #u #sigma r v
+
+(* i <> j (as typed index tuples)  ==>  select(store(a, i, v), j) = select(a, j), every arity *)
+let law_select_store_other (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (ds:list sort) (r:sort)
+                           (a:tvalue u sch (ArraySort ds r)) (ix jx:targuments u sch ds) (v:tvalue u sch r)
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort ds r) /\ ~(ix == jx))
+          (ensures i.application (select_decl ds r)
+                     (i.application (store_decl ds r) (store_arguments ds r a ix v) :: jx) ==
+                   i.application (select_decl ds r) (a :: jx)) =
+  let sigma = S.signature sch in
+  lemma_store_value i ds r a ix v;
+  lemma_select_value i ds r (i.application (store_decl ds r) (store_arguments ds r a ix v)) jx;
+  lemma_select_value i ds r a jx;
+  lemma_from_to #u #sigma ds ix;
+  lemma_from_to #u #sigma ds jx
+
+(* Extensionality: arrays that agree on every typed index tuple are equal. *)
+let law_array_extensionality (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (ds:list sort) (r:sort)
+                             (a b:tvalue u sch (ArraySort ds r))
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort ds r) /\
+                    (forall (jx:targuments u sch ds).
+                       i.application (select_decl ds r) (a :: jx) == i.application (select_decl ds r) (b :: jx)))
+          (ensures a == b) =
+  let sigma = S.signature sch in
+  let pointwise (ix:indices u ds)
+    : Lemma (read #(indices u ds) #(carrier u r) (scalar #u #sigma (ArraySort ds r) a) ix ==
+             read #(indices u ds) #(carrier u r) (scalar #u #sigma (ArraySort ds r) b) ix) =
+    let jx = from_indices #u #sigma ds ix in
+    lemma_to_from #u #sigma ds ix;
+    lemma_select_value i ds r a jx;
+    lemma_select_value i ds r b jx in
+  FStar.Classical.forall_intro pointwise;
+  lemma_array_extensionality #u #sigma ds r a b
+
+(* beta: select(lambda bound. body, i1..in) = body at the REVERSED typed
+   arguments (the body sees the innermost binder, the last index, as Var 0). *)
+let law_select_lambda (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (bound:list sort) (t:sort)
+                      (body:body_of u sch bound t) (ix:targuments u sch bound)
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort bound t))
+          (ensures i.application (select_decl bound t) (i.quantification Lambda_k bound t body :: ix) ==
+                   body (reverse_arguments (S.signature sch) bound ix)) =
+  let sigma = S.signature sch in
+  lemma_select_value i bound t (i.quantification Lambda_k bound t body) ix;
+  lemma_from_to #u #sigma bound ix;
+  lemma_make_scalar #u #sigma t (body (reverse_arguments sigma bound ix))
+
+(* --- The free choices of the STANDARD family (by design not root laws) --- *)
+
+(* x/0 is uf.apply at the division symbol, a function of both arguments. *)
+let lemma_standard_divide_by_zero (u:uninterpreted) (sch:supported_schema) (uf:symbols u sch) (f:func_decl)
+                                  (x y:tvalue u sch real_s)
+  : Lemma (requires classify (S.signature sch) f == Divide /\ real_of sch y == 0.0R)
+          (ensures (standard u sch uf).application f [x; y] == uf.apply f [x; y]) =
+  lemma_classified_theory sch f;
+  lemma_standard_application u sch uf f [x; y]
+
+(* --- Datatypes: constructor identity and matched fields ----------------- *)
+
+(* A recognizer applied to a constructor tree is true exactly for its own
+   constructor (and false for every other constructor of the sort). *)
+let law_recognizer (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                   (f:func_decl{Some? (S.find_recognizer f sch.cases)})
+                   (d:S.registered_case sch{d.constructor.range ==
+                                            (Some?.v (S.find_recognizer f sch.cases)).constructor.range})
+                   (ys:targuments u sch d.constructor.domain)
+  : Lemma (requires root_model u sch i)
+          (ensures truth sch (i.application f [S.constructor_value sch d ys]) ==
+                   (d.constructor = (Some?.v (S.find_recognizer f sch.cases)).constructor)) =
+  let c = Some?.v (S.find_recognizer f sch.cases) in
+  assert (recognizer_at u sch i f);
+  assert (recognizer_case u sch i f c (S.constructor_value sch d ys))
+
+(* A matched selector applied to its constructor returns the exact field. *)
+let law_accessor (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                 (f:func_decl{Some? (S.find_accessor f sch.cases)})
+                 (ys:targuments u sch (Some?.v (S.find_accessor f sch.cases)).matched_case.constructor.domain)
+  : Lemma (requires root_model u sch i)
+          (ensures i.application f [S.constructor_value sch (Some?.v (S.find_accessor f sch.cases)).matched_case ys] ==
+                   field_of #u #sch (Some?.v (S.find_accessor f sch.cases)).matched_case.constructor.domain ys
+                     (Some?.v (S.find_accessor f sch.cases)).field) =
+  let r = Some?.v (S.find_accessor f sch.cases) in
+  assert (accessor_at u sch i f);
+  assert (accessor_case u sch i f r ys)
+
+(* ---------------------------------------------------------------------- *)
+(* Evaluation of production AST under ANY root model: the evaluator layer  *)
+(* ---------------------------------------------------------------------- *)
+
+(* Registered constructors are built by the evaluator (consistent with R4). *)
+let lemma_eval_constructor (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                           (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
+                           (f:func_decl) (args:list expr)
+  : Lemma (requires D.scoped scope (App f args) /\ L.mem f (S.signature sch))
+          (ensures V.evaluate (S.signature sch) i scope rho (App f args) ==
+                   V.construct (S.signature sch) f (V.evaluate_args (S.signature sch) i scope rho args f.domain)) = ()
+
+(* Every other application is the interpretation's application. *)
+let lemma_eval_application (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                           (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
+                           (f:func_decl) (args:list expr)
+  : Lemma (requires D.scoped scope (App f args) /\ not (L.mem f (S.signature sch)))
+          (ensures V.evaluate (S.signature sch) i scope rho (App f args) ==
+                   i.application f (V.evaluate_args (S.signature sch) i scope rho args f.domain)) = ()
+
+(* Classified theory operators, recognizers and accessors are never
+   registered constructors. *)
+let lemma_not_registered (sch:S.checked_schema) (f:func_decl)
+  : Lemma (requires ~(Other? (classify (S.signature sch) f)) \/ Some? (S.find_recognizer f sch.cases) \/
+                    Some? (S.find_accessor f sch.cases))
+          (ensures not (L.mem f (S.signature sch))) =
+  if L.mem f (S.signature sch) then begin
+    lemma_constructor_interp sch f;
+    if Some? (S.find_recognizer f sch.cases) then lemma_recognizer_interp f sch.cases;
+    if Some? (S.find_accessor f sch.cases) then lemma_accessor_interp f sch.cases;
+    if not (Other? (classify (S.signature sch) f)) then lemma_classified_theory sch f
+  end
+
+(* R1 at production quantifier nodes, for any root model. *)
+let lemma_eval_forall (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                      (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
+                      (bound:list sort) (body:expr)
+  : Lemma (requires root_model u sch i /\ D.scoped scope (Quantifier Forall_k bound bool_sort body))
+          (ensures truth sch (V.evaluate (S.signature sch) i scope rho
+                               (Quantifier Forall_k bound bool_sort body)) == true <==>
+                   (forall (vs:targuments u sch (L.rev bound)).
+                      truth sch (V.evaluate (S.signature sch) i (L.rev bound @ scope)
+                                   (V.extend (S.signature sch) scope (L.rev bound) vs rho) body) == true)) =
+  let sigma = S.signature sch in
+  let fbody = V.typed_body sigma bound bool_sort (V.evaluate_body sigma i scope rho bound body) in
+  assert (forall_case u sch i bound fbody)
+
+let lemma_eval_exists (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                      (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
+                      (bound:list sort) (body:expr)
+  : Lemma (requires root_model u sch i /\ D.scoped scope (Quantifier Exists_k bound bool_sort body))
+          (ensures truth sch (V.evaluate (S.signature sch) i scope rho
+                               (Quantifier Exists_k bound bool_sort body)) == true <==>
+                   (exists (vs:targuments u sch (L.rev bound)).
+                      truth sch (V.evaluate (S.signature sch) i (L.rev bound @ scope)
+                                   (V.extend (S.signature sch) scope (L.rev bound) vs rho) body) == true)) =
+  let sigma = S.signature sch in
+  let fbody = V.typed_body sigma bound bool_sort (V.evaluate_body sigma i scope rho bound body) in
+  assert (exists_case u sch i bound fbody)
+
+(* select of a production lambda node, for any root model and any arity:
+   the body is evaluated under the REVERSED typed index arguments. *)
+let lemma_eval_select_lambda (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch)
+                             (scope:list sort) (rho:V.environment (carrier u) (S.signature sch) scope)
+                             (bound:list sort) (t:sort) (body:expr) (ix:targuments u sch bound)
+  : Lemma (requires root_model u sch i /\ free (S.signature sch) (ArraySort bound t) /\
+                    D.scoped scope (Quantifier Lambda_k bound (ArraySort bound t) body) /\ get_sort body == t)
+          (ensures i.application (select_decl bound t)
+                     (V.evaluate (S.signature sch) i scope rho (Quantifier Lambda_k bound (ArraySort bound t) body) :: ix) ==
+                   V.evaluate (S.signature sch) i (L.rev bound @ scope)
+                     (V.extend (S.signature sch) scope (L.rev bound)
+                       (reverse_arguments (S.signature sch) bound ix) rho) body) =
+  let sigma = S.signature sch in
+  let fbody = V.typed_body sigma bound t (V.evaluate_body sigma i scope rho bound body) in
+  law_select_lambda i bound t fbody ix
+
+(* ---------------------------------------------------------------------- *)
+(* The support predicates imply the law preconditions                      *)
+(* ---------------------------------------------------------------------- *)
+
+let rec lemma_base_owned (sigma:V.signature) (ds:list sort) (r:sort)
+  : Lemma (requires base_owned sigma) (ensures not (V.datatype_sort sigma (ArraySort ds r))) (decreases sigma) =
+  match sigma with [] -> () | _ :: rest -> lemma_base_owned rest ds r
+
+(* Bool, Int and Real are the theory sorts of a supported schema. *)
+let lemma_supported_primitives (sch:supported_schema)
+  : Lemma (not (V.datatype_sort (S.signature sch) bool_sort) /\ not (V.datatype_sort (S.signature sch) int_s) /\
+           not (V.datatype_sort (S.signature sch) real_s)) = ()
+
+(* A supported array sort is datatype-free: select/store are the theory
+   operators and lambda/extensionality laws apply. *)
+let lemma_supported_array (sch:supported_schema) (ds:list sort) (r:sort)
+  : Lemma (requires supported_sort (S.signature sch) (ArraySort ds r))
+          (ensures free (S.signature sch) (ArraySort ds r) /\
+                   classify (S.signature sch) (select_decl ds r) == Select ds r /\
+                   classify (S.signature sch) (store_decl ds r) == Store ds r) =
+  lemma_base_owned (S.signature sch) ds r
+
+(* A supported lambda node has a datatype-free array sort. *)
+let lemma_supported_lambda (sch:supported_schema) (scope:list sort) (bound:list sort) (s:sort) (body:expr)
+  : Lemma (requires supported_expression (S.signature sch) (Quantifier Lambda_k bound s body) /\
+                    D.scoped scope (Quantifier Lambda_k bound s body))
+          (ensures s == ArraySort bound (get_sort body) /\ free (S.signature sch) (ArraySort bound (get_sort body))) =
+  lemma_base_owned (S.signature sch) bound (get_sort body)
+
+(* Every binder of a supported quantifier is a supported sort. *)
+let lemma_supported_binders (sigma:V.signature) (k:quantifier_kind) (bound:list sort) (s:sort) (body:expr)
+  : Lemma (requires supported_expression sigma (Quantifier k bound s body))
+          (ensures supported_sorts sigma bound /\ supported_expression sigma body) = ()
+
+(* Every declaration of a supported application has supported domain and range. *)
+let lemma_supported_application (sigma:V.signature) (f:func_decl) (args:list expr)
+  : Lemma (requires supported_expression sigma (App f args))
+          (ensures supported_sort sigma f.range /\ supported_sorts sigma f.domain /\
+                   supported_expressions sigma args) = ()
+
+(* Canonical declarations of the interpreted primitive operators. *)
+let true_decl : func_decl = { decl_name = "true"; domain = []; range = bool_sort; interp = Some op_true; int_params = [] }
+let false_decl : func_decl = { decl_name = "false"; domain = []; range = bool_sort; interp = Some op_false; int_params = [] }
+let not_decl : func_decl = { decl_name = "not"; domain = [bool_sort]; range = bool_sort; interp = Some op_not; int_params = [] }
+let implies_decl : func_decl =
+  { decl_name = "=>"; domain = [bool_sort; bool_sort]; range = bool_sort; interp = Some op_implies; int_params = [] }
+let bool2_decl (name:string) (tag:decl_kind) : func_decl =
+  { decl_name = name; domain = [bool_sort; bool_sort]; range = bool_sort; interp = Some tag; int_params = [] }
+let int_numeral (n:int) : func_decl =
+  { decl_name = "num"; domain = []; range = int_s; interp = Some op_num_rational; int_params = [n; 1] }
+let real_numeral (n:int) (d:pos) : func_decl =
+  { decl_name = "num"; domain = []; range = real_s; interp = Some op_num_rational; int_params = [n; d] }
+let binary_decl (s:sort) (name:string) (tag:decl_kind) (range:sort) : func_decl =
+  { decl_name = name; domain = [s; s]; range = range; interp = Some tag; int_params = [] }
+let negate_decl (s:sort) : func_decl =
+  { decl_name = "-"; domain = [s]; range = s; interp = Some op_arith_sub; int_params = [] }
+let to_real_decl : func_decl =
+  { decl_name = "to_real"; domain = [int_s]; range = real_s; interp = Some op_to_real; int_params = [] }
+
+let lemma_classify_booleans (sigma:V.signature) (s:sort)
+  : Lemma (classify sigma true_decl == Constant true /\ classify sigma false_decl == Constant false /\
+           classify sigma not_decl == Negation /\ classify sigma implies_decl == Implication /\
+           classify sigma (bool2_decl "and" op_and) == Nary B.And /\
+           classify sigma (bool2_decl "or" op_or) == Nary B.Or /\
+           classify sigma (bool2_decl "xor" op_xor) == Nary B.Xor /\
+           classify sigma (R.eq_decl s) == Equality s /\ classify sigma (ite_decl s) == Choice s) = ()
+
+let lemma_classify_numerals (sch:supported_schema) (n:int) (d:pos)
+  : Lemma (classify (S.signature sch) (int_numeral n) == Numeral int_s n 1 /\
+           classify (S.signature sch) (real_numeral n d) == Numeral real_s n d) = ()
+
+let plus_decl (s:sort) : func_decl = binary_decl s "+" op_arith_add s
+let times_decl (s:sort) : func_decl = binary_decl s "*" op_arith_mul s
+let minus_decl (s:sort) : func_decl = binary_decl s "-" op_arith_sub s
+let divide_decl : func_decl = binary_decl real_s "/" op_arith_div real_s
+let le_decl (s:sort) : func_decl = binary_decl s "<=" op_arith_le bool_sort
+let lt_decl (s:sort) : func_decl = binary_decl s "<" op_arith_lt bool_sort
+let ge_decl (s:sort) : func_decl = binary_decl s ">=" op_arith_ge bool_sort
+let gt_decl (s:sort) : func_decl = binary_decl s ">" op_arith_gt bool_sort
+
+type numeric_sort = s:sort{s == int_s \/ s == real_s}
+
+(* One small lemma per operator (a single conjunction took 6-9 s). *)
+let lemma_classify_plus (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (plus_decl s) == Arith s A.Add) = ()
+let lemma_classify_times (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (times_decl s) == Arith s A.Mul) = ()
+let lemma_classify_minus (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (minus_decl s) == Arith s A.Sub) = ()
+let lemma_classify_negate (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (negate_decl s) == Arith s A.Sub) = ()
+let lemma_classify_le (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (le_decl s) == Compare s A.Le) = ()
+let lemma_classify_lt (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (lt_decl s) == Compare s A.Lt) = ()
+let lemma_classify_ge (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (ge_decl s) == Compare s A.Ge) = ()
+let lemma_classify_gt (sch:supported_schema) (s:numeric_sort)
+  : Lemma (classify (S.signature sch) (gt_decl s) == Compare s A.Gt) = ()
+let lemma_classify_divide (sch:supported_schema)
+  : Lemma (classify (S.signature sch) divide_decl == Divide) = ()
+let lemma_classify_to_real (sch:supported_schema)
+  : Lemma (classify (S.signature sch) to_real_decl == ToReal) = ()
