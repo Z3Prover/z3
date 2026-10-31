@@ -86,7 +86,8 @@ def write_jar(path, entries):
             item.create_system = 3
             item.external_attr = 0o100644 << 16
             item.compress_type = zipfile.ZIP_DEFLATED
-            out.writestr(item, entries[name])
+            # Pass the level explicitly for entries with custom ZipInfo metadata.
+            out.writestr(item, entries[name], compresslevel=9)
 
 
 def validate_api(entries):

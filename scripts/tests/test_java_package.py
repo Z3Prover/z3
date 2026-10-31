@@ -11,6 +11,7 @@ import tempfile
 import unittest
 import warnings
 import zipfile
+import zlib
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -178,6 +179,26 @@ class JavaPackagingTests(unittest.TestCase):
         provenance = json.loads(entries['META-INF/z3/provenance.json'])
         self.assertTrue(provenance['prototype'])
         self.assertEqual(provenance['release_commit'], 'a' * 40)
+
+    def test_native_resources_use_configured_compression(self):
+        # Varying repeat lengths distinguish level 9 from default compression.
+        data = pe() + b''.join(b'a' * length + b'b' for length in range(1, 512))
+        self.entries[self.prefix + 'bin/libz3.dll'] = data
+        self.write_release()
+        sizes = {}
+        for level in (zlib.Z_DEFAULT_COMPRESSION, 9):
+            compressor = zlib.compressobj(level, zlib.DEFLATED, -15)
+            sizes[level] = len(compressor.compress(data) + compressor.flush())
+        self.assertLess(sizes[9], sizes[zlib.Z_DEFAULT_COMPRESSION])
+        out = self.build()
+        resource = package.RESOURCE_PREFIX + 'win-x64/libz3.dll'
+        for classifier in ('win-x64', 'all'):
+            with self.subTest(classifier=classifier), zipfile.ZipFile(
+                    out / ('z3-5.3.2-packaging-SNAPSHOT-' + classifier + '.jar')) as jar:
+                info = jar.getinfo(resource)
+                self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
+                self.assertEqual(info.compress_size, sizes[9])
+                self.assertEqual(jar.read(resource), data)
 
     def test_corrupt_download_rejected_before_output(self):
         (self.root / self.name).write_bytes(b'broken')
