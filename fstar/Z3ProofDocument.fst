@@ -18,6 +18,7 @@ type entry = {
   premise_ids: list int;
 }
 
+[@@FStar.Attributes.cherry_boxed]
 type document = {
   declarations: list func_decl;
   expressions: list expr;
@@ -91,11 +92,11 @@ let rec add_definitions (defs more:list D.definition)
 let document_definitions (doc:document) : option (list D.definition) =
   collect_definitions [] (axiom_branches doc.entries) doc.entries >>= (fun defs ->
   let equations = reconstruction_equations doc.entries [] in
-  let inputs = L.append doc.assertions (L.map (fun d -> d.D.body) defs) in
+  let inputs = Z3List.append doc.assertions (Z3List.map (fun d -> d.D.body) defs) in
   let bounded (e:expr) = Some? (expression_budget 65536 e) in
   // Avoid expanding heavily shared DAGs into unbounded trees.
-  if equations = [] || not (L.for_all bounded inputs &&
-                           L.for_all (fun e -> bounded e.formula) doc.entries)
+  if equations = [] || not (Z3List.for_all bounded inputs &&
+                           Z3List.for_all (fun e -> bounded e.formula) doc.entries)
   then Some defs else
   match BF.check_context inputs equations with
   | None -> Some defs
@@ -109,7 +110,7 @@ let expand_rule (defs:list D.definition) (kind:rule) : option rule =
   if defs = [] then Some kind
   else match kind with
   | QuantifierIntroduction certificate ->
-    opt_map (fun e ->
+    opt_map_tail (fun e ->
       D.expand (L.length defs) defs e.binder_formula >>= (fun formula ->
       Some { e with binder_formula = formula })) certificate.binder_entries >>= (fun entries ->
     Some (QuantifierIntroduction { certificate with binder_entries = entries }))
@@ -222,7 +223,7 @@ let prepare_entry_using (transform:D.expander) (bound:bool) (defs:list D.definit
   (if defs = [] then Some e.formula else transform (L.length defs) defs e.formula) >>= (fun formula ->
   if bound && not (D.scoped [] formula) then None else
   classify_fact formula >>= (fun concl ->
-  opt_map (index_find prev) e.premise_ids >>= (fun premises ->
+  opt_map_tail (index_find prev) e.premise_ids >>= (fun premises ->
   expand_rule_using transform defs e.rule >>= (fun kind ->
   Some { kind = kind; conclusion = concl; premises = premises }))))
 
@@ -408,7 +409,7 @@ let prepare_document_inputs_using (transform:D.expander) (doc:document)
   if not (D.acyclic_using transform (L.length defs) defs defs) then None else
   (if defs = [] then Some doc.assertions
    else D.expand_list_using transform (L.length defs) defs doc.assertions) >>= (fun expanded ->
-  opt_map classify_fact expanded >>= (fun inputs ->
+  opt_map_tail classify_fact expanded >>= (fun inputs ->
   Some (bound, defs, inputs, expanded))))
 
 let prepare_document_inputs (doc:document) : option (bool & list D.definition & list judgment & list expr) =
@@ -526,7 +527,7 @@ let rec diagnose_entries_using (check:entry_checker) (skolems:list SK.definition
       let cache' = index_put cache next fact in
       if local = 0 then diagnose_entries_using check skolems bound defs inputs contains cache' (next + 1) pending unmet rest
       else
-        match opt_map (index_find cache) e.premise_ids with
+        match opt_map_tail (index_find cache) e.premise_ids with
         | None -> EntriesRejected (DocumentRejected MissingPremise (Some next) (Some e.formula))
         | Some premises ->
           let obligation = {
@@ -659,7 +660,7 @@ let diagnose_document_definitions_using (transform:D.expander) (lookup:input_loo
            else D.expand_list_using transform (L.length defs) defs doc.assertions) with
     | None -> DocumentRejected DefinitionExpansion None None
     | Some expanded ->
-      match opt_map classify_fact expanded with
+      match opt_map_tail classify_fact expanded with
       | None -> DocumentRejected InputClassification None None
       | Some inputs -> diagnose_document_inputs_using transform lookup doc bound defs expanded inputs
 
@@ -709,7 +710,7 @@ let lemma_diagnose_document_definitions_using (transform:D.expander) (lookup:inp
            (if not (D.acyclic_using transform (L.length defs) defs defs) then None else
             (if defs = [] then Some doc.assertions
              else D.expand_list_using transform (L.length defs) defs doc.assertions) >>= (fun expanded ->
-            opt_map classify_fact expanded >>= (fun inputs ->
+            opt_map_tail classify_fact expanded >>= (fun inputs ->
             prepare_skolem_context_using transform defs doc.assertions expanded doc.entries >>= (fun skolems ->
             check_entries_using (checker_using transform) skolems true bound defs inputs (lookup inputs)
               Empty 0 0 doc.entries >>= finish_document doc defs))))) =
@@ -718,7 +719,7 @@ let lemma_diagnose_document_definitions_using (transform:D.expander) (lookup:inp
            else D.expand_list_using transform (L.length defs) defs doc.assertions) with
     | None -> ()
     | Some expanded ->
-      match opt_map classify_fact expanded with
+      match opt_map_tail classify_fact expanded with
       | None -> ()
       | Some inputs ->
         lemma_diagnose_document_inputs_using transform lookup doc bound defs expanded inputs)

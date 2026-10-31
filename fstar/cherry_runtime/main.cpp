@@ -294,7 +294,8 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     NativeSession session(context);
     Owned<Prims_list__ast, checker_drop_asts> roots(list<Prims_list__ast_Cons_s>(assertions));
     Owned<Z3Cherry_marshaled, checker_drop_marshaled> marshaled(Z3Cherry_marshal(roots.value, proof));
-    auto const& doc = marshaled.value.document;
+    // document is [@@cherry_boxed]: a counted cell holding the record.
+    auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.value.document);
     auto marshal_end = Clock::now();
     bool datatype = !cherry_is_scalar(marshaled.value.schema.cases);
     bool sorted = datatype || options.sorted_core;

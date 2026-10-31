@@ -167,13 +167,14 @@ try {
   }
 
   Write-Host "=== Phase 1b: extract to OCaml ==="
-  $modNames = ($modules | Where-Object { $_ -ne "Z3Native.fsti" } |
-    ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
-  foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst", "Z3BvFreshModel.fst")) {
-    & $FstarExe --warn_error '@1..999' --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
-        --smt $Z3Exe --z3version $z3Version --extract $modNames $entry
-    if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
-  }
+  # Custard extracts the whole program in one run. Every checker module is a root, so the
+  # hand-written OCaml driver can use any of its definitions; --custard_split keeps one
+  # OCaml module per F* module, which the driver and the link order below rely on.
+  $entryModules = $modules | Where-Object { $_ -ne "Z3Native.fsti" } |
+    ForEach-Object { "--custard_entry_module"; $_ -replace '\.fst$', '' }
+  & $FstarExe --warn_error '@1..999' --codegen OCaml --custard_split --cache_dir $CacheDir --include $CacheDir `
+      --odir $extractDir --smt $Z3Exe --z3version $z3Version @entryModules Z3NativeProof.fst
+  if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed" }
 
   Write-Host "=== Phase 2: compile native checker ==="
   if ($windowsHost) {
@@ -186,8 +187,9 @@ try {
     $WslBuildDir = [IO.Path]::GetFullPath($WslBuildDir)
   }
   $order = @(
-    "prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
+    "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
+    "Z3List.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
     "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3ProofSet.ml",
     "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
@@ -215,12 +217,11 @@ try {
   $shellBuildDir = if ($WslBuildDir.StartsWith("~/")) { '$HOME/' + $WslBuildDir.Substring(2) } else { $WslBuildDir }
   $testScript = ""
   if ($RunTests) {
-    $testOrder = ($order | Where-Object { $_ -ne "main.ml" }) -join " "
     $testScript = @"
 cp "$wslFstarDir/tools/test_native_bridge.ml" .
 ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
   -ccopt "-L`$z3_install/lib" \
-  z3ml.cmxa $testOrder test_native_bridge.ml -o native-tests
+  z3ml.cmxa `$test_order test_native_bridge.ml -o native-tests
 ./native-tests
 "@
     if ($ProfileChecker) {
@@ -278,22 +279,21 @@ for module in $orderStr; do
   fi
 done
 cd "$shellBuildDir"
+# Custard does not open Prims; its equality must still be the shim's, not Stdlib's.
+for module in $extractedOrderStr; do sed -i '2a open Prims' "`$module"; done
 eval `$(opam env --switch=$OpamSwitch)
 $linkSetup
 "`$z3_install/bin/z3" -version
 # compiler-libs' Main.cmi must not collide with the checker entry point.
 mkdir -p extraction-tools
-cp "$wslFstarDir/tools/complete_ocaml_projectors.ml" extraction-tools/
-(
-  cd extraction-tools
-  ocamlfind ocamlopt -warn-error +a -package compiler-libs.common -linkpkg \
-    complete_ocaml_projectors.ml -o complete-ocaml-projectors
-)
-./extraction-tools/complete-ocaml-projectors $extractedOrderStr
 $profileScript
+# Custard emits a specialization into the module whose dependencies it needs, so link in
+# dependency order rather than in the order of the list above.
+link_order=`$(ocamlfind ocamldep -sort $orderStr)
+test_order=`$(echo "`$link_order" | sed 's/ main\.ml//')
 ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
   -ccopt "-L`$z3_install/lib" \
-  z3ml.cmxa $orderStr -o checker
+  z3ml.cmxa `$link_order -o checker
 $testScript
 $cherryScript
 echo BUILD_OK

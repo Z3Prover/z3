@@ -1039,7 +1039,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
 let prepare_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
   : option U.proof_node =
   if not (D.scoped [] e.formula && in_context s e.formula) then None
-  else match U.classify_fact e.formula, I.opt_map (I.index_find cache) e.premise_ids with
+  else match U.classify_fact e.formula, I.opt_map_tail (I.index_find cache) e.premise_ids with
   | Some conclusion, Some premises ->
     Some { U.kind = e.rule; conclusion = conclusion; premises = premises }
   | _, _ -> None

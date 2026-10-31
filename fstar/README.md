@@ -35,7 +35,7 @@ for protocol, ownership, and certification limits.
 ## Shared toolchain
 
 The documented toolchain is [F*](https://github.com/FStarLang/FStar)
-`v2026.09.27` (Windows x64). The proof-checker harness builds and installs
+`v2026.10.25` (Windows x64). The proof-checker harness builds and installs
 Z3 from this checkout before verification or testing. F* and Pulse use
 the installed `build\install\bin\z3.exe`, not F*'s historical Z3 4.13.3
 backend or an executable found incidentally on `PATH`. The harness reads
@@ -64,8 +64,8 @@ and solve, marshal, and check in process. Their input options, incremental
 protocol, diagnostics, and exit codes are the same.
 
 Cherry currently requires **Linux x86-64 or AArch64, GCC/G++ 15+**, and a
-Cherry-capable F*. CI pins **nightly-2026-10-23**, commit
-`9f0182e8b179f95e8dfcdfcd7680e27741c793b1`, separately from the OCaml verifier.
+Cherry-capable F*. CI pins **nightly-2026-10-30**, commit
+`c68959fe1f070cd66a5ed2e92965185505f109ce`, separately from the OCaml verifier.
 `tools/checker_modules.json` supplies the dependency-ordered shared module and
 test lists to both build paths. Every source is verified before extraction;
 the installed checkout Z3 is explicitly selected as the SMT backend.
@@ -110,11 +110,12 @@ that checkout's Z3, verifies the Pulse modules and their tests, extracts and
 links the native F* checker, and
 runs both executables' bridge/CLI self-tests. The Linux path uses the same
 `tools/checker_modules.json` lists as the Windows/WSL build,
-with pinned F* `v2026.09.27` and OCaml `5.3.0` for the OCaml executable,
+with pinned F* `v2026.10.25` and OCaml `5.3.0` for the OCaml executable,
 and the separately pinned nightly and GCC/G++ 15 for Cherry.
-F* and enabled OCaml compiler warnings fail the build. Extracted constructor
-projectors receive explicit rejecting out-of-domain arms using OCaml's
-AST, without suppressing partial-match warnings or changing checker rules.
+F* and enabled OCaml compiler warnings fail the build. The OCaml checker is
+extracted in one whole-program Custard run (`--codegen OCaml --custard_split`)
+and linked in `ocamldep -sort` order; a call outside a refinement's domain
+raises `Match_failure` rather than returning a value.
 
 It also runs after a successful default-branch **Nightly Build**, building that
 nightly's exact source commit rather than the latest branch tip. On success,
