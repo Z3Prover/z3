@@ -170,7 +170,7 @@ try {
   # Custard extracts the whole program in one run. Every checker module is a root, so the
   # hand-written OCaml driver can use any of its definitions; --custard_split keeps one
   # OCaml module per F* module, which the driver and the link order below rely on.
-  $entryModules = $modules | Where-Object { $_ -ne "Z3Native.fsti" } |
+  $entryModules = $modules | Where-Object { $_ -notlike "*.fsti" } |
     ForEach-Object { "--custard_entry_module"; $_ -replace '\.fst$', '' }
   & $FstarExe --warn_error '@1..999' --codegen OCaml --custard_split --cache_dir $CacheDir --include $CacheDir `
       --odir $extractDir --smt $Z3Exe --z3version $z3Version @entryModules Z3NativeProof.fst
@@ -191,7 +191,7 @@ try {
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3List.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
-    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3ProofSet.ml",
+    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
     "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",

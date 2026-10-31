@@ -1,7 +1,7 @@
 {
   "modules": [
     "Z3List.fst", "Z3AstTheory.fst", "Z3ArrayTheory.fst", "Z3SeqTheory.fst", "Z3BvTheory.fst",
-    "Z3ValueTheory.fst", "Z3CanonicalOps.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3ProofSet.fst",
+    "Z3ValueTheory.fst", "Z3CanonicalOps.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3IdTable.fsti", "Z3IdTable.fst", "Z3ProofSet.fst",
     "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
     "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
     "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
@@ -20,6 +20,7 @@
     "Z3SortedQuantifier.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   ],
+  "cherry_modules": ["Z3IdTable-c.cherry.fst"],
   "tests": [
     "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst", "Z3ArithmeticFactorTests.fst", "Z3LpIntegerCutTests.fst",
     "Z3DatatypeValueTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst", "Z3ArrayEqualityTests.fst",

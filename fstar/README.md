@@ -67,8 +67,12 @@ Cherry currently requires **Linux x86-64 or AArch64, GCC/G++ 15+**, and a
 Cherry-capable F*. CI pins **nightly-2026-10-30**, commit
 `c68959fe1f070cd66a5ed2e92965185505f109ce`, separately from the OCaml verifier.
 `tools/checker_modules.json` supplies the dependency-ordered shared module and
-test lists to both build paths. Every source is verified before extraction;
-the installed checkout Z3 is explicitly selected as the SMT backend.
+test lists to both build paths. Its `cherry_modules` list names Cherry-only
+implementations, such as `Z3IdTable-c.cherry.fst` (the proof-id caches as
+immutable arrays instead of `Z3IdTable.fst`'s binary trie), which F* selects
+over the default implementation when generating Cherry code. Every source is
+verified before extraction; the installed checkout Z3 is explicitly selected as
+the SMT backend.
 
 To add Cherry to the existing Windows/WSL or Linux build, pass
 `-BuildCherry -CherryFstarExe <Linux-path-to-fstar.exe>` to
