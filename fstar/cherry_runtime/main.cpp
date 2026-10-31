@@ -302,7 +302,7 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     // Without --diagnostics the document is checked once by Z3Cherry_check. With --diagnostics it is
     // checked once by Z3Cherry_diagnose and the verdict is read from that result: F* proves
     // diagnostic_result (diagnose ...) == check ... (Z3ProofDocument.lemma_diagnose_document_using and
-    // Z3SortedProof.lemma_diagnose_document), the fact on which the OCaml driver takes its verdict from
+    // Z3SortedProof.lemma_diagnose_document_epsilon), the fact on which the OCaml driver takes its verdict from
     // check_document_diagnosed*. A second checking pass would only repeat the work.
     std::optional<Owned<Result, checker_drop_result>> checked;
     std::optional<Owned<Z3ProofDocument_document_diagnostic, checker_drop_diagnostic>> diagnosed;

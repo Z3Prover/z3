@@ -105,6 +105,15 @@ let exists_model (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
     (exists (vs:V.arguments base (S.signature s) (L.rev bound)).
        T.truth_value s bc (body vs))
 
+let lemma_application_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                            (d:definition s) (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
+                            (f:func_decl) (args:V.arguments base (S.signature s) f.domain)
+  : Lemma (requires SK.component f d.witnesses == None)
+          (ensures T.application s bc eq other f args ==
+                   T.application s bc eq (override s d vs other) f args) =
+  ()
+
 let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                     (d:definition s) (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts))
@@ -116,7 +125,9 @@ let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
   match e with
   | Var _ _ -> ()
   | App f args ->
-    lemma_fresh_args s bc eq other d vs scope rho args f.domain
+    lemma_fresh_args s bc eq other d vs scope rho args f.domain;
+    lemma_application_fresh s bc eq other d vs f
+      (V.evaluate_args (S.signature s) (T.interpretation s bc eq other) scope rho args f.domain)
   | Quantifier k bound _ body ->
     let pointwise (ws:V.arguments base (S.signature s) (L.rev bound))
       : Lemma (

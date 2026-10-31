@@ -4492,3 +4492,70 @@ The checker SHA-256 is
 `pilot.log`, `full\pilot\results.json`, `timeout-probe.log`, and
 `full\timeout-probe\results.json` retain all sequential observations.
 This report records validation before publication of the changes.
+
+## Typed bridges after the latest master merge (2026-10-31)
+
+Master `8fbb275ab` was merged without conflicts as `0200d3b49`.
+The source-matched Z3 5.3.4 solver and static OCaml bindings were rebuilt and
+installed independently under `build\fstar-epsilon-master-20261031`.
+The complete solver unit suite passed (**122 passed, 0 failed**), as did
+SMT/model, Python-binding, and command-line help smoke checks.
+
+Master's whole-program Custard extraction requires the workflow-pinned
+F* **v2026.10.25**; the older local compiler lacks `custard_inline`.
+The two new Farkas native fixtures were updated from the legacy generated
+field `conclusion1` to Custard's `conclusion`, in commit `443084f53`.
+The remote partial-scope audit addition `64bf52c67` was then fast-forwarded
+without changing executable checker inputs.
+
+Cherry's wrappers now call `check_document_epsilon` and
+`diagnose_document_epsilon`, with the corresponding diagnostic-equivalence
+lemma, matching the OCaml sorted frontend. The workflow-pinned Cherry
+**nightly-2026-10-30** initially timed out in the application case of
+`Z3SortedSkolem.lemma_fresh`. Factoring application preservation into
+`lemma_application_fresh` makes the unchanged freshness theorem verify on
+both compilers without increasing resource limits or adding assumptions.
+
+Completed validation of the exact source patch on top of `64bf52c67`:
+
+- Stable F*: **83 production manifest entries** and **27 F*/Pulse test
+  entries** verified; whole-program Custard extraction, warning-as-error
+  native compilation, **69 native regression groups**, and **52 CLI tests**
+  passed.
+- Cherry: all production, Cherry-specific, and manifest test entries,
+  including `Z3Cherry` and `Z3CherryTests`, verified; extraction, GCC 15
+  compilation with runtime debug checks enabled, C++ native self-tests,
+  and the same **52 CLI tests** passed, including closed epsilon refutations.
+- Both build wrappers checked unchanged HEAD, source patch and input hashes,
+  and installed solver hashes. The OCaml rebuild also checked preservation
+  of the original epsilon baseline and results.
+
+The final OCaml executable is byte-identical to the earlier post-merge
+pilot executable, SHA-256
+`8b5acc83040c6238a77aec134b311be6be360f18242170242e697584233e1dee`.
+The proof-only freshness helper changes no extracted OCaml behavior.
+
+### Targeted post-merge collection pilot
+
+Nine unchanged saved sessions were replayed sequentially against the
+preserved pre-merge epsilon results, with the same 60-second session limit.
+All six selected whole-session ACCEPTs remain ACCEPT and all **61 previously
+ACCEPTed queries** in the nine files are retained. The selected PARTIAL
+sessions `Pulse.Recursion-1` and `Pulse.Lib.Swap.Spec` remain PARTIAL; the former
+still has one pending `sk`. All eight completed baseline sessions have
+identical solver-answer sequences after the merge.
+
+`FStar.UInt-3` changes from a **60.066 s TIMEOUT** in the preserved full replay
+to **42.477 s PARTIAL** in this sequential pilot. Its answer sequence differs,
+so this observation neither replaces the historical timeout nor establishes
+a performance fix. This is **not a new full 583-session comparison**:
+the coverage tables and performance caveats above remain pre-merge results.
+
+Artifacts are under `build\fstar-epsilon-master-20261031`:
+`checker-proof-hardening.log`, `build-info.json`, `source.patch`,
+`skolem-nightly.log`, `cherry-build-initial-failure.log`,
+`cherry-build-retry.log`, `cherry\verified-source-info.json`, and the preserved
+source snapshots. `pilot.log` and `pilot\results.json` preserve the nine-file
+observations; `pilot\build-info.json` and `pilot\checker` preserve their exact
+original executable provenance. These local successes do not establish
+green GitHub CI; the remote audit head's workflows require approval.
