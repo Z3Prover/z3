@@ -43,6 +43,7 @@ namespace opt {
         bool             m_dual_bounds = true;
         unsigned         m_nlsat_supremum_rlimit = 100000;
         bool             m_lex_after_unbounded = true;
+        bool             m_unbounded_curve = true;
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
         sref_vector<model> m_models;
@@ -90,6 +91,8 @@ namespace opt {
 
         enum class nlsat_outcome { no_result, certified, incomplete };
 
+        void get_base_model();
+
         inf_eps const& lower(unsigned index) const { return m_lower[index].rational_bound(); }
         inf_eps const& upper(unsigned index) const { return m_upper[index].rational_bound(); }
 
@@ -102,7 +105,7 @@ namespace opt {
         lbool refine_real_objective(unsigned idx, bool is_maximize, inf_eps const& hi, bool smt_gave_up);
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
         nlsat_outcome nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
-        bool prove_unbounded_above(unsigned idx, unsigned rlimit_budget);
+        bool prove_unbounded_above(unsigned idx, unsigned rlimit_budget, sref_vector<model> const& recent_models);
 
         lbool reaches_infinity(unsigned idx, model_ref& witness);
 

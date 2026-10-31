@@ -81,6 +81,7 @@ let rec productive (sigma:V.signature) (sorts:list sort) : Tot bool (decreases s
 
 let valid (s:schema) : bool =
   not (V.contains_datatype (signature s) bool_sort) &&
+  not (V.datatype_sort (signature s) (BaseSort "Int")) &&
   cases_valid (signature s) s.sorts s.cases && productive (signature s) s.sorts
 
 type checked_schema = s:schema{valid s}

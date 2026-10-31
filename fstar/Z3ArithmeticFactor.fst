@@ -14,6 +14,7 @@ module N = Z3NlaLemma
 module B = Z3BooleanRewrite
 module O = Z3ObservationalEquality
 module AR = Z3ArithmeticRewrite
+module C = Z3CanonicalOps
 
 (* Factored sign rewrites (arith_rewriter::factor_le_ge_eq). For a numeric p
    with a common factor f, Z3 rewrites with g = p / f:
@@ -180,7 +181,7 @@ let factored (atoms:list expr) (s:sort) (r:A.relation) (p:N.poly) (e:expr) : boo
   else false
 
 let candidate_shape (b:expr) : bool =
-  match b with App f [_; _] -> f.decl_name = "or" | _ -> false
+  match b with App f [_; _] -> C.canonical_or f | _ -> false
 
 let check (a b:expr) : bool =
   match A.comparison a with

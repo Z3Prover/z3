@@ -109,8 +109,7 @@ namespace opt {
         return mk_and(constraints);
     }
 
-    template<typename Query>
-    static lbool bounded_limit_query(ast_manager& m, unsigned ticks, Query const& query) {
+    lbool bounded_limit_query(ast_manager& m, unsigned ticks, std::function<lbool()> const& query) {
         if (ticks == 0) {
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check disabled)\n");
             return l_undef;
@@ -151,11 +150,13 @@ namespace opt {
        arithmetic atoms, with uninterpreted constants as the only free symbols.
        Uninterpreted functions of positive arity are rejected because nlsat
        would treat their applications as unrelated variables (no congruence).
+       has_int records a term of sort Int other than a numeral.
     */
     struct nra_fragment_check {
         ast_manager& m;
         arith_util&  a;
         bool         ok = true;
+        bool         has_int = false;
         nra_fragment_check(ast_manager& m, arith_util& a): m(m), a(a) {}
         void operator()(var*) { ok = false; }
         void operator()(quantifier*) { ok = false; }
@@ -172,35 +173,21 @@ namespace opt {
             sort* s = n->get_sort();
             if (!m.is_bool(s) && !a.is_real(s) && !a.is_int(s))
                 ok = false;
+            else if (a.is_int(s) && !a.is_numeral(n))
+                has_int = true;
         }
     };
 
-    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj) {
+    bool in_nra_fragment(ast_manager& m, arith_util& a, expr_ref_vector const& hard, expr* obj, bool reals_only) {
         nra_fragment_check chk(m, a);
         expr_fast_mark1 visited;
         for (expr* f : hard) {
             for_each_expr_core<nra_fragment_check, expr_fast_mark1, false, false>(chk, visited, f);
-            if (!chk.ok)
+            if (!chk.ok || (reals_only && chk.has_int))
                 return false;
         }
         for_each_expr_core<nra_fragment_check, expr_fast_mark1, false, false>(chk, visited, obj);
-        return chk.ok;
-    }
-
-    lbool nlsat_opt::can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
-                                            expr* bound, unsigned rlimit_budget) {
-        return bounded_limit_query(m, rlimit_budget, [&]() {
-            if (!m_arith.is_real(obj) || !in_nra_fragment(m, m_arith, hard, obj)) {
-                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: outside NRA)\n");
-                return l_undef;
-            }
-            app_ref T(m);
-            goal_ref pg;
-            lbool st = preprocess(hard, obj, lo, std::nullopt, T, pg);
-            if (st != l_true)
-                return st;
-            return can_approach_from_below(*pg, T, bound);
-        });
+        return chk.ok && !(reals_only && chk.has_int);
     }
 
     lbool nlsat_opt::can_approach_from_below(goal const& pg, app* T, expr* bound) {
@@ -213,7 +200,9 @@ namespace opt {
     }
 
     lbool nlsat_opt::prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo) {
-        if (!in_nra_fragment(m, m_arith, hard, obj))
+        // check_limit gives up on integer variables, so reject them before
+        // spending the budget on preprocessing and loading.
+        if (!in_nra_fragment(m, m_arith, hard, obj, true))
             return l_undef;
         // Normalize through the same pipeline as maximize: the assertions may
         // contain division and other non-polynomial arithmetic that
@@ -233,6 +222,13 @@ namespace opt {
     }
 
     lbool nlsat_opt::check_limit(goal const& pg, app* T, expr* bound) {
+        // nlsat's limit check gives up on integer variables, including those
+        // that purification introduces; skip loading a fresh solver for them.
+        expr_ref_vector forms(m);
+        for (unsigned i = 0; i < pg.size(); ++i)
+            forms.push_back(pg.form(i));
+        if (!in_nra_fragment(m, m_arith, forms, T, true))
+            return l_undef;
         nlsat::solver s(m.limit(), m_params, true);
         nlsat::var t;
         expr_ref_vector x2t(m), b2a(m);
@@ -441,38 +437,82 @@ namespace opt {
         // The solver owns their number manager and must outlive these values.
         scoped_anum m_best, m_sup;
         bool const m_has_upper_bound;
+        bool const m_probe_unbounded;
         bool m_has_best = false;
         bool m_has_sup = false; // a candidate endpoint, not yet a global upper-bound proof
         lbool m_status = l_undef;
 
-        search_state(ast_manager& m, params_ref const& p, goal* pg, app* objective, bool has_upper_bound):
+        search_state(ast_manager& m, params_ref const& p, goal* pg, app* objective, bool has_upper_bound, bool probe_unbounded):
             m_goal(pg),
             m_objective(objective, m),
             m_converter(pg->mc()),
             m_solver(m.limit(), p, true),
             m_x2t(m), m_b2a(m),
             m_best(m_solver.am()), m_sup(m_solver.am()),
-            m_has_upper_bound(has_upper_bound) {}
+            m_has_upper_bound(has_upper_bound),
+            m_probe_unbounded(probe_unbounded) {}
 
         search_state(search_state const&) = delete;
         search_state& operator=(search_state const&) = delete;
     };
 
     // Improve the model and remember the candidate endpoint. After five
-    // consecutive rounds without one, probe unboundedness if no upper bound was supplied.
+    // consecutive rounds without one, probe unboundedness if requested and stop.
+    // Otherwise, once a plain round has improved the first model and while the
+    // model is below the endpoint or no endpoint is known, ask for best + step
+    // under an assumption, doubling step after a model and halving it after a
+    // refutation or to stay below the endpoint. nlsat samples just above best
+    // and learns a tighter endpoint only once a sample passes it, so without
+    // the step a maximum far from the start, or far below a loose endpoint,
+    // would take as many rounds as its distance.
     void nlsat_opt::search_models(search_state& state, unsigned max_rounds, result& res) {
         auto& s = state.m_solver;
         auto& am = s.am();
-        unsigned unbounded_rounds = 0;
+        unsigned unbounded_rounds = 0, models = 0;
+        rational step(1);
+        bool attained = false, refuted = false;
+        scoped_anum delta(am), target(am);
         for (unsigned round = 0; round < max_rounds && m.inc(); ++round) {
             res.m_rounds = round + 1;
-            state.m_status = s.check();
+            // A plain check first, and after a refuted step, decides whether best is the maximum.
+            if (!state.m_probe_unbounded && models >= 2 && !attained && !refuted) {
+                // Below an unattained endpoint best < sup, so this terminates.
+                for (;;) {
+                    am.set(delta, step.to_mpq());
+                    am.add(state.m_best, delta, target);
+                    if (!state.m_has_sup || am.lt(target, state.m_sup))
+                        break;
+                    step /= rational(2);
+                }
+                nlsat::literal_vector probe;
+                probe.push_back(mk_lower_bound(s, state.m_variable, target, false));
+                if (probe[0] == nlsat::null_literal) {
+                    state.m_status = l_undef;
+                    break;
+                }
+                lbool r = s.check(probe);
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat step " << step << " " << r << ")\n");
+                if (r == l_false) {
+                    // Only the step is refuted; the maximum is below best + step.
+                    state.m_status = l_undef;
+                    step /= rational(2);
+                    refuted = true;
+                    continue;
+                }
+                state.m_status = r;
+                step *= rational(2);
+            }
+            else {
+                state.m_status = s.check();
+                refuted = false;
+            }
             TRACE(opt, tout << "nlsat round " << round << ": " << state.m_status << "\n";);
             if (state.m_status != l_true)
                 break;
             am.set(state.m_best, s.value(state.m_variable));
             state.m_has_best = true;
-            bool attained = false;
+            ++models;
+            attained = false;
             state.m_has_sup = s.max_var_sup(state.m_sup, attained);
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat round " << round << " value "; am.display_root_smt2(verbose_stream(), state.m_best);
                        verbose_stream() << (attained ? " sup" : " below-sup") << ")\n");
@@ -482,8 +522,8 @@ namespace opt {
                 // conflict learning. An unbounded-looking interval alone is
                 // inconclusive; without a supplied upper bound, check
                 // for a projected feasible ray.
-                if (++unbounded_rounds > 4) {
-                    IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
+                if (state.m_probe_unbounded && ++unbounded_rounds > 4) {
+                    IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: no upper endpoint found)\n");
                     if (!state.m_has_upper_bound && prove_unbounded(*state.m_goal, state.m_objective) == l_true) {
                         res.m_unbounded = true;
                         IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat: objective proven unbounded above)\n");
@@ -523,7 +563,7 @@ namespace opt {
     }
 
     lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
-                              unsigned max_rounds, result& res, unsigned supremum_rlimit) {
+                              unsigned max_rounds, result& res, unsigned supremum_rlimit, bool probe_unbounded) {
         res.reset();
         if (!in_nra_fragment(m, m_arith, hard, obj)) {
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
@@ -537,7 +577,7 @@ namespace opt {
         if (st != l_true)
             return st;
 
-        search_state state(m, m_params, pg.get(), T.get(), hi.has_value());
+        search_state state(m, m_params, pg.get(), T.get(), hi.has_value(), probe_unbounded);
         if (!load(*state.m_goal, state.m_objective, state.m_solver, state.m_variable, state.m_x2t, state.m_b2a))
             return l_undef;
 

@@ -3,6 +3,9 @@ name: Java Release Artifacts
 on:
   workflow_call:
     inputs:
+      maven-group-id:
+        type: string
+        default: invalid.z3.prototype
       linux-artifact:
         type: string
         default: java-native-linux-x64
@@ -20,6 +23,8 @@ jobs:
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      JAVA_MAVEN_GROUP_ID: ${{ inputs.maven-group-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -64,9 +69,23 @@ jobs:
           python scripts/java/sources.py --out-dir java-sources --work-dir java-generated
           --api-jar native-inputs/prepared-api.jar
       - name: Prepare unpublished Maven companions
+        shell: bash
         run: >-
           python scripts/java/maven_artifacts.py --packages java-packages --sources java-sources
           --out-dir java-maven-packages --work-dir java-maven-work
+          --group-id "$JAVA_MAVEN_GROUP_ID"
+      - name: Assemble local Maven repository without changing JAR bytes
+        shell: bash
+        run: >-
+          python scripts/java/maven_bundle.py prepare --packages java-maven-packages
+          --out-dir java-maven-repository
+          --group-id "$JAVA_MAVEN_GROUP_ID"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-maven-test-repository
+          path: java-maven-repository/
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: java-maven-test-packages
@@ -83,6 +102,15 @@ jobs:
   maven-consumers:
     needs: package
     uses: ./.github/workflows/java-maven-consumers.yml
+    with:
+      group-id: ${{ inputs.maven-group-id }}
+
+  maven-bundle:
+    needs: [package, smoke, maven-consumers]
+    uses: ./.github/workflows/java-maven-bundle.yml
+    with:
+      smoke-artifact-pattern: java-release-smoke-*
+      group-id: ${{ inputs.maven-group-id }}
 
   smoke:
     needs: package

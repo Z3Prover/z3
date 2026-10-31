@@ -75,6 +75,7 @@ add_executable(test-z3
   horn_subsume_model_converter.cpp
   horner.cpp
   hwf.cpp
+  inc_sat_solver_pop.cpp
   inf_rational.cpp
   interval.cpp
   karr.cpp
@@ -109,6 +110,7 @@ add_executable(test-z3
   opt_bounds.cpp
   opt_nlsat.cpp
   opt_pareto.cpp
+  opt_quantifiers.cpp
   opt_value.cpp
   optional.cpp
   parray.cpp
@@ -145,6 +147,7 @@ add_executable(test-z3
   sat_lookahead.cpp
   sat_user_scope.cpp
   sat_smt_proof_scope.cpp
+  sat_unsat_core.cpp
   smt_proof_checker.cpp
   smt_proof_weakening.cpp
   scoped_timer.cpp

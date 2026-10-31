@@ -235,15 +235,18 @@ let linear_expander : expander = fun fuel defs e -> expand fuel defs e
 let memoized_expander (hash:(nat & expr) -> nat) : expander =
   fun fuel defs e -> memoized_expand hash fuel defs e
 
-let rec expand_list_using (transform:expander) (fuel:nat) (defs:list definition) (args:list expr)
-  : Tot (result:option (list expr){result == expand_args fuel defs args})
-        (decreases args) =
+let rec lemma_expand_list_using (transform:expander) (fuel:nat) (defs:list definition) (args:list expr)
+  : Lemma (ensures Z3ProofIndex.opt_map (transform fuel defs) args == expand_args fuel defs args)
+          (decreases args) =
   match args with
-  | [] -> Some []
-  | a :: rest ->
-    (match transform fuel defs a, expand_list_using transform fuel defs rest with
-     | Some a', Some rest' -> Some (a' :: rest')
-     | _, _ -> None)
+  | [] -> ()
+  | _ :: rest -> lemma_expand_list_using transform fuel defs rest
+
+(* Assertion lists grow with the input, so this uses the tail-recursive opt_map. *)
+let expand_list_using (transform:expander) (fuel:nat) (defs:list definition) (args:list expr)
+  : result:option (list expr){result == expand_args fuel defs args} =
+  lemma_expand_list_using transform fuel defs args;
+  Z3ProofIndex.opt_map_tail (transform fuel defs) args
 
 let check_fresh_inputs (defs:list definition) (assertions:list expr)
   : b:bool{b ==> fresh_args defs assertions /\
@@ -443,8 +446,10 @@ let propositional_tautology (e:expr) : bool =
 let lemma_propositional_tautology_sound (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires definition_model i /\ propositional_tautology e)
           (ensures lit_true i rho e) =
-  Z3BooleanNormalForm.lemma_clause_tautology_sound (valuation i rho)
-    (boolean_cut (boolean_frontier 3 e) 4 e);
+  let s = boolean_cut (boolean_frontier 3 e) 4 e in
+  Z3BoundedBoolEquiv.lemma_freeze (valuation i rho) (Z3BoundedBoolEquiv.support s) s;
+  Z3BooleanNormalForm.lemma_clause_tautology_sound
+    (Z3BoundedBoolEquiv.freeze (valuation i rho) (Z3BoundedBoolEquiv.support s)) s;
   lemma_boolean_cut_sound (boolean_frontier 3 e) 4 i rho e;
   match eval i e rho with VBool _ -> () | _ -> ()
 

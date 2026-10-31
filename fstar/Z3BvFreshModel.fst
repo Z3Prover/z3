@@ -14,8 +14,11 @@ module SM = Z3ScopedModel
 module D = Z3Definitions
 module SK = Z3Skolemization
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
-(* The legacy Boolean model constrains these nullary declarations by name. *)
+(* Fresh symbols may not carry the names `true`/`false`/`and`/`or`. This guard
+   is unchanged; the retraction lemmas below use it. (The connective contracts
+   themselves are keyed by `Z3CanonicalOps`, not by these names.) *)
 let rec safe_symbols (symbols:list func_decl) : Tot bool (decreases symbols) =
   match symbols with
   | [] -> true
@@ -463,8 +466,8 @@ let lemma_literals (r:F.reconstruction) (i:interpretation value) (project:pos ->
           (ensures true_sound (F.extend r i project) /\ false_sound (F.extend r i project))
   = let j = F.extend r i project in
     let aux (f:func_decl) (rho:env value)
-      : Lemma ((f.decl_name == "true" ==> eval j (App f []) rho == VBool true) /\
-               (f.decl_name == "false" ==> eval j (App f []) rho == VBool false))
+      : Lemma ((C.canonical_true f ==> eval j (App f []) rho == VBool true) /\
+               (C.canonical_false f ==> eval j (App f []) rho == VBool false))
       = if f.decl_name = "true" || f.decl_name = "false" then (
           lemma_retract_named r.F.symbols (F.number r i project) f [];
           lemma_eval_retract r i project rho (App f [])) in
@@ -509,7 +512,7 @@ let lemma_boolean_base (r:F.reconstruction) (i:interpretation value) (project:po
         lemma_eval_retract r i project rho a in
     FStar.Classical.forall_intro_2 boolean;
     let negation (f:func_decl) (a:expr) (rho:env value)
-      : Lemma (f.decl_name == "not" ==>
+      : Lemma (C.canonical_not f ==>
                 ((eval j (App f [a]) rho == VBool true) == (eval j a rho == VBool false)))
       = lemma_eval_retract r i project rho (App f [a]);
         lemma_eval_retract r i project rho a in
@@ -523,9 +526,9 @@ let lemma_boolean_connectives (r:F.reconstruction) (i:interpretation value) (pro
     let symbols = r.F.symbols in
     let n = F.number r i project in
     let connectives (f:func_decl) (args:list expr) (rho:env value)
-      : Lemma ((f.decl_name == "and" ==>
+      : Lemma ((C.canonical_and f ==>
                  (eval j (App f args) rho == VBool true <==> conj_holds j rho args)) /\
-               (f.decl_name == "or" ==>
+               (C.canonical_or f ==>
                  (eval j (App f args) rho == VBool true <==> clause_holds j rho args)))
       = if f.decl_name = "and" || f.decl_name = "or" then (
           lemma_retract_named symbols n f args;
@@ -539,9 +542,9 @@ let lemma_boolean_binary (r:F.reconstruction) (i:interpretation value) (project:
   = let j = F.extend r i project in
     let binary (f:func_decl) (a b:expr) (rho:env value)
       : Lemma (
-          ((f.decl_name == "implies" \/ f.decl_name == "=>") ==>
+          (C.canonical_implies f ==>
             (eval j (App f [a; b]) rho == VBool true <==> (lit_true j rho a ==> lit_true j rho b))) /\
-          (f.decl_name == "=" ==>
+          (C.canonical_eq f ==>
             (eval j (App f [a; b]) rho == VBool true <==> eval j a rho == eval j b rho)))
       = lemma_eval_retract r i project rho (App f [a; b]);
         lemma_eval_retract r i project rho a;

@@ -1,0 +1,153 @@
+{
+  "recorded_utc": "2026-10-29T08:48:22.849253+00:00",
+  "paper": {
+    "title": "Solving Set Constraints with Comprehensions and Bounded Quantifiers",
+    "venue": "FMCAD 2025",
+    "url": "https://arxiv.org/abs/2508.08496",
+    "doi": "10.34727/2025/isbn.978-3-85448-084-6_16",
+    "table_III_set_bounded_cvc5": {
+      "sat": 1189,
+      "unsat": 138,
+      "unknown": 35
+    },
+    "paper_solvers": "Z3 4.13.4; cvc5 1.2.0, commit f3fc80e; Linux AMD EPYC 7313"
+  },
+  "dataset": {
+    "repository": "https://github.com/cvc5/sets-and-relations-benchmarks",
+    "commit": "efdb3cba6d280eec9a659abaf5c6f7d2ecaf4222",
+    "directory": "sleec/smtlib_set_quantifiers",
+    "count": 1362
+  },
+  "binary_sha256": {
+    "z3": "890d9626f29e6ac708c4dde1270cb5ba43d49044836386f8c41c6046728e07f7",
+    "cvc5": "868a0d7a5e3acba7d7e71b95c7a7f89fdc7b82d1ab8d2ea4a84ff067274bdf5a"
+  },
+  "methodology": {
+    "timeout": "20 seconds per process via solver-internal wall limits; 22-second external failsafe",
+    "workers": 16,
+    "physical_cores": 16,
+    "logical_processors": 32,
+    "cpu": "AMD EPYC 7763",
+    "ram_gib": 128,
+    "timing": "Single-run end-to-end wall time, includes process startup, parsing, solving and statistics; concurrent throughput, not isolated latency.",
+    "cvc5_options": "Retain source options (including enum-inst, sets-exp, produce-models, check-models); remove get-model to exclude model printing.",
+    "z3_options": "Native FiniteSet, ALL logic, produce-models; -smt2 -st -T:20 -t:20000.",
+    "translation": "Tuple sorts become bijective single-constructor datatypes. all(p,S) becomes filter(p,S)=S; some(p,S) becomes filter(p,S)!=empty. Product bounds become equivalent nested bounds; no finite-domain bound is imposed.",
+    "limitation": "Z3 has no native rel.product. Eliminating products changes the syntactic solver workload and introduces nested filters, potentially outside the paper's decidable fragment. No claim of isolated or paper-version reproduction.",
+    "manifest_hashes": "SHA256 of UTF-8 input text after universal-newline normalization."
+  },
+  "validation": {
+    "converter_tests_passed": 8,
+    "reference_semantic_cases": 6,
+    "sampled_original_vs_translated_checks": "comparison/translation_checks.json",
+    "native_z3_tests": [
+      "finite_set",
+      "finite_set_rewriter"
+    ],
+    "smoke_checks": [
+      "SMT integer solving and model",
+      "current Python binding integer solving and model",
+      "command-line help"
+    ],
+    "input_hashes_verified": 1362,
+    "runs_with_native_finite_set_statistics": 1362,
+    "raw_log_files": 5448
+  },
+  "membership_pilot": {
+    "description": "Separate diagnostic only: same native FiniteSet datatypes, but standard forall/exists guarded by set.in, rather than filters. Not part of aggregate comparison.",
+    "samples": [
+      {
+        "file": "set_quantifiers_ALMI_ALMI-Corrected_concern_00.smt2",
+        "result": "unsat",
+        "seconds": 0.846
+      },
+      {
+        "file": "set_quantifiers_ALMI_ALMI-Corrected_conflict_10.smt2",
+        "result": "timeout",
+        "seconds": 20.171
+      },
+      {
+        "file": "set_quantifiers_ALMI_ALMI-Corrected_redundancy_14.smt2",
+        "result": "timeout",
+        "seconds": 20.174
+      }
+    ]
+  },
+  "completed_utc": "2026-10-29T09:13:46.096591+00:00",
+  "run": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+    "timeout_seconds": 20,
+    "workers": 16,
+    "source": "C:\\z3\\.z3-agent\\finite-sets\\upstream\\sleec\\smtlib_set_quantifiers",
+    "versions": {
+      "z3": "Z3 version 5.3.2 - 64 bit - build hashcode 7dac245e68a3321fbe2328a0d0676d7bc3784503",
+      "cvc5": "cvc5 1.4.2 [git 282d5e0 on branch HEAD]"
+    }
+  },
+  "results": {
+    "z3": {
+      "counts": {
+        "timeout": 1362
+      },
+      "solved_seconds": 0,
+      "wall_seconds": 27357.520821,
+      "par2_seconds": 54480,
+      "mean_par2_seconds": 40.0,
+      "median_solved_seconds": null,
+      "median_all_seconds": 20.0778,
+      "min_seconds": 20.041787,
+      "max_seconds": 20.654646,
+      "solved": 0
+    },
+    "cvc5": {
+      "counts": {
+        "unsat": 138,
+        "sat": 1192,
+        "unknown": 17,
+        "timeout": 15
+      },
+      "solved_seconds": 909.561459,
+      "wall_seconds": 1575.371034,
+      "par2_seconds": 2189.561459,
+      "mean_par2_seconds": 1.6076075323054333,
+      "median_solved_seconds": 0.47132850000000004,
+      "median_all_seconds": 0.4815835,
+      "min_seconds": 0.099527,
+      "max_seconds": 22.043174,
+      "solved": 1330
+    },
+    "common_solved": 0,
+    "disagreements": [],
+    "common_seconds": {
+      "z3": 0,
+      "cvc5": 0
+    }
+  },
+  "z3_statistics": {
+    "finite-set-axioms-created": {
+      "min": 415.0,
+      "median": 2391.0,
+      "max": 78193.0
+    },
+    "array-ext-ax": {
+      "min": 11318.0,
+      "median": 34822.5,
+      "max": 51997.0
+    },
+    "max-memory": {
+      "min": 31.99,
+      "median": 513.73,
+      "max": 2031.1
+    }
+  },
+  "artifacts": {
+    "results_csv": ".z3-agent\\finite-sets\\comparison\\results.csv",
+    "logs": ".z3-agent\\finite-sets\\comparison\\logs",
+    "adapted_z3_inputs": ".z3-agent\\finite-sets\\comparison\\z3",
+    "manifest": ".z3-agent\\finite-sets\\comparison\\manifest.json",
+    "translation_checks": ".z3-agent\\finite-sets\\comparison\\translation_checks.json",
+    "z3_database": ".z3-agent\\z3agent.db"
+  },
+  "reproduce": "python tests\\finite_set\\sleec.py --source .z3-agent\\finite-sets\\upstream\\sleec\\smtlib_set_quantifiers --output .z3-agent\\finite-sets\\comparison --z3 build\\z3.exe --cvc5 .z3-agent\\finite-sets\\cvc5\\cvc5-Win64-x86_64-static\\bin\\cvc5.exe --timeout 20 --workers 16"
+}

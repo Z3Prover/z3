@@ -23,8 +23,10 @@ Abstract:
   UINT_  (optsmt_dual_bound_rlimit,        "optsmt_dual_bound_rlimit",        100,       "resource limit for a cross-branch nonlinear bound probe while no finite upper bound is known (0 disables the extra check)") \
   UINT_  (optsmt_nlsat_supremum_rlimit,    "optsmt_nlsat_supremum_rlimit",    100000,    "resource limit for certifying finite open suprema with native nlsat projection (0 disables the extra check)") \
   BOOL_  (optsmt_lex_after_unbounded,      "optsmt_lex_after_unbounded",      true,      "after an unbounded lexicographic objective, determine later arithmetic objectives as the limits of their optima; false leaves them as unrestricted intervals") \
+  BOOL_  (optsmt_unbounded_curve,          "optsmt_unbounded_curve",          true,      "certify an unbounded objective along a polynomial curve through recent models (a ray, a quadratic, a cubic, or a unit direction) whose points all satisfy the hard constraints; applies to integer and mixed objectives as well") \
   BOOL_  (pareto_nlsat,                    "pareto_nlsat",                    true,      "enumerate Pareto fronts of pure NRA problems over an nlsat-backed solver, comparing objectives against exact algebraic model values instead of rounded isolating-interval endpoints") \
   BOOL_  (pareto_nlsat_reuse,              "pareto_nlsat_reuse",              true,      "reuse nlsat clauses across Pareto checks on polynomial real problems; false keeps the exact solver that starts each check from scratch") \
+  UINT_  (pareto_cone_rlimit,              "pareto_cone_rlimit",              1000000,   "resource limit for the step that, once a Pareto climb finds a dominating model, maximizes the objectives in turn over the models that are at least as good as that one, so that a continuous front yields a point (0 disables it)") \
   UINT_  (pareto_nlsat_max_lemmas,         "pareto_nlsat_max_lemmas",         128,       "maximum number of independent learned clauses retained between Pareto climbs; shorter clauses are preferred") \
   SYMBOL_(maxsat_engine,                   "maxsat_engine",                   "maxres",  "select engine for maxsat: 'core_maxsat', 'wmax', 'maxres', 'maxresw', 'pd-maxres', 'maxres-bin', 'rc2'") \
   SYMBOL_(priority,                        "priority",                        "lex",     "select how to prioritize objectives: 'lex' (lexicographic), 'pareto', 'box'") \
@@ -39,6 +41,7 @@ Abstract:
   BOOL_  (enable_core_rotate,              "enable_core_rotate",              false,     "enable core rotation to both sample cores and correction sets") \
   BOOL_  (enable_sat,                      "enable_sat",                      true,      "enable the new SAT core for propositional constraints") \
   BOOL_  (elim_01,                         "elim_01",                         true,      "eliminate 01 variables") \
+  UINT_  (elim_quantifiers_rlimit,         "elim_quantifiers_rlimit",         1000000,   "resource limit for replacing hard constraints that quantify over linear integer or linear real arithmetic by equivalent quantifier-free constraints before optimization (0 disables it)") \
   BOOL_  (incremental,                     "incremental",                     false,     "set incremental mode. It disables pre-processing and enables adding constraints in model event handler") \
   BOOL_  (pp_neat,                         "pp.neat",                         true,      "use neat (as opposed to less readable, but faster) pretty printer when displaying context") \
   BOOL_  (pb_compile_equality,             "pb.compile_equality",             false,     "compile arithmetical equalities into pseudo-Boolean equality (instead of two inequalites)") \

@@ -90,7 +90,7 @@ let equivalent (a b:expr) : bool =
 
 (* The sum of the values of the atoms in the model. *)
 let rec atom_total (i:interpretation value) (rho:env value) (project:pos -> value -> int)
-                   (w:pos) (atoms:list expr) : Tot int (decreases atoms) =
+                   (w:pos) (atoms:list expr) : GTot int (decreases atoms) =
   match atoms with
   | [] -> 0
   | a :: rest -> project w (eval i a rho) + atom_total i rho project w rest

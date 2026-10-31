@@ -1,13 +1,13 @@
 # Java release attachments
 
-The release workflow reuses `UbuntuBuild`, `WindowsBuild-x64` and `MacArm64`
+The release and nightly workflows reuse `UbuntuBuild`, `WindowsBuild-x64` and `MacArm64`
 from its existing native producers. Each producer records source commit,
 source/runtime version, platform, workflow run ID, run attempt and ZIP SHA-256
 in its existing artifact. Artifact names and ZIP layout remain compatible with
 the existing NuGet and Python consumers. The three Java-producing jobs use
 Temurin 17; API class bytes must agree across their distributions.
 
-`java-package-artifacts.yml` is shared by Release Build and Java Full Flow:
+`java-package-artifacts.yml` is shared by Release Build, Nightly Build and Java Full Flow:
 
 1. Download only the selected artifacts from the caller's workflow run.
 2. Reject mixed source/version/run/attempt, missing inputs or incorrect hashes.
@@ -24,7 +24,24 @@ Temurin 17; API class bytes must agree across their distributions.
 The GitHub publisher depends on this entire gate. It selects Java files only
 from `java-release-packages`, never the intermediate assembly. The existing
 `publish_github` switch and draft/prerelease behavior are preserved; there is
-no additional registry, credential or publishing job.
+no additional Java attachment publisher. Optional Maven deployment is separate
+and disabled by default; see [MAVEN.md](MAVEN.md).
+
+## Nightly downloads
+
+Nightly Build records the same source/run/attempt receipts in its three existing
+native artifacts and uses Temurin 17 for those producers. Its Java package job
+uses only those same-run artifacts; it does not rebuild native code or download
+binaries from the moving `Nightly` release. The existing Nightly publisher waits
+for the shared Java gate and attaches only `java-release-packages`, excluding
+Maven rehearsal ZIPs and intermediate Java assemblies.
+
+The Nightly release provides the same API-only, platform and universal JAR
+forms listed below. Names retain the checked-out source version, while the
+provenance and validation attachments identify the exact source commit and
+workflow run. The `Nightly` release/tag and its download contents are replaced
+by later runs: keep the provenance and checksum files when pinning a build.
+These downloads do not publish a Maven version or establish snapshot coordinates.
 
 ## Files and versions
 
@@ -41,9 +58,9 @@ For source version `X.Y.Z.0` and matching workflow `RELEASE_VERSION=X.Y.Z`:
 Use one API-containing JAR on the classpath. `all` covers the explicitly listed
 platforms; other ZIP architectures are not implicitly included or claimed as
 verified. These files do not include a Maven POM or claim Maven coordinates.
-Namespace ownership, sources/Javadoc, signing and Maven publishing are a
-separate follow-up; [MAVEN.md](MAVEN.md) describes the unpublished companion
-preparation and consumer checks. In `--release` mode, the packer requires the exact source
+Namespace ownership and Maven deployment require maintainer configuration;
+[MAVEN.md](MAVEN.md) describes companion preparation, consumer checks, signing
+and the disabled-by-default Central workflow. In `--release` mode, the packer requires the exact source
 version, workflow inputs and matching API class bytes, and refuses `--group-id`.
 Fast tests retain their explicit prototype coordinates, suffixed version and
 prototype provenance, so mixed test inputs cannot enter the release gate.
@@ -68,8 +85,9 @@ It builds only the three required native distributions. It never invokes
 Release Build or accesses publishing credentials.
 
 For an explicitly authorized rehearsal of the entire existing Release Build,
-set **all three** inputs to false: `publish_github`, `publish_nuget`,
-`publish_pypi`. In particular, `publish_github` currently defaults to true.
+set `publish_github`, `publish_nuget`, and `publish_pypi` to false, and set
+`maven_publish=disabled`. In particular, `publish_github` defaults to true;
+the Maven override disables any configured repository publication mode.
 Use the resulting verified artifact for inspection. Rerun **all jobs** when
 retrying: successful native artifacts from a previous attempt are intentionally
 rejected rather than mixed with the new attempt. A real release remains a

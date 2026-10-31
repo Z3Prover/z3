@@ -183,6 +183,9 @@ class JavaReleaseWorkflowTests(unittest.TestCase):
                         'UbuntuBuild/native distribution.zip']
             rejected = ['java-assembled-packages/unverified.jar',
                         'java-assembled-packages/z3-5.3.2-java-provenance.json',
+                        'java-maven-test-repository/invalid/z3/prototype/z3/5.3.2/z3-5.3.2.jar',
+                        'java-maven-rehearsal-bundle/maven-rehearsal.zip',
+                        'java-maven-rehearsal-bundle/rehearsal.json',
                         'java-release-smoke-win-x64/receipt.json', 'UbuntuBuild/receipt-linux-x64.json']
             for name in selected + rejected:
                 path = directory / 'tmp' / name

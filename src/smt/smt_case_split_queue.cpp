@@ -562,7 +562,7 @@ namespace {
         }
 
         void del_var_eh(bool_var v) override {
-            if (v >= m_bs_num_bool_vars && m_delayed_queue.contains(v))
+            if (m_delayed_queue.contains(v))
                 m_delayed_queue.erase(v);
         }
 
@@ -604,6 +604,7 @@ namespace {
         
         void init_search_eh() override {
             m_bs_num_bool_vars = m_context.get_num_bool_vars();
+            m_delayed_queue.reset();
         }
 
         void end_search_eh() override {

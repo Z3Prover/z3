@@ -275,7 +275,7 @@ let checked_gomory_cuts () =
   } in
   let step rule conclusion = {
     C.rule; conclusion; input = None; assumption = None; id = Z.zero;
-    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition1 = None;
+    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition = None;
     source = None; divisor = Z.one, Z.one; premises = []; bounds = []
   } in
   let q n d = Z.of_int n, Z.of_int d in
@@ -832,7 +832,7 @@ let checked_binder_proofs () =
   require (not (U.binder_step_with_inputs [open_fact] leaf open_fact []))
     "open assertion was generalized across binder environments";
   let node = { U.kind = U.QuantifierIntroduction certificate;
-               conclusion1 = conclusion; premises = [] } in
+               conclusion = conclusion; premises = [] } in
   require (match U.check_node_with_inputs true [input] node with
       | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
     "input-aware binder certificate was not integrated in the node checker"
@@ -1502,7 +1502,7 @@ let checked_quantifier_pulling () =
               "pull-quant accepted exhausted normalization fuel";
             let bad = U.Equal (a, Z3ResolutionProofTheory.false_expr) in
             require (match U.check_node [] { U.kind = U.PullQuantifier;
-                conclusion1 = bad; premises = [] } with
+                conclusion = bad; premises = [] } with
                 | Some (_, n) -> Z.equal n Z.one | None -> false)
               "unsupported pull-quant did not retain an explicit obligation";
             require (A.get_sort a = A.get_sort b) "pull-quant changed the result sort"
@@ -1668,7 +1668,7 @@ let checked_quantifier_reductions () =
         ("incorrect quantified rewrite decision: " ^ name);
       require (not (U.check_step rule conclusion [conclusion]))
         ("quantified rewrite accepted unexpected premises: " ^ name);
-      require (match U.check_node [] { U.kind = rule; conclusion1 = conclusion; premises = [] } with
+      require (match U.check_node [] { U.kind = rule; conclusion = conclusion; premises = [] } with
           | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
           | None -> false)
         ("quantified rewrite lost its obligation: " ^ name)) cases
@@ -1756,7 +1756,7 @@ let checked_theory_extensions () =
       require (U.check_step U.DefAxiom conclusion [] = expected)
         ("incorrect definition axiom decision: " ^ name);
       require (match U.check_node [] {
-          U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises = [] } with
+          U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises = [] } with
           | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
           | None -> false)
         ("theory lemma lost its explicit obligation: " ^ name)) cases;
@@ -1929,8 +1929,7 @@ let concrete_datatype_model () =
         "typed quantifier evaluation reversed de Bruijn bindings incorrectly";
       result);
   } in
-  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b);
-                   boolean_isomorphism = () } in
+  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b) } in
   let interpreted = S.interpretation schema booleans other in
   let apply = interpreted.V.application in
   require (apply fork.S.constructor [leaf_bool; leaf_bool] = fork_bool &&
@@ -2164,6 +2163,11 @@ let sorted_quantifier_rewrites () =
   let declarations =
     "(declare-datatype T ((C (field Int)) (D)))\
      (declare-fun P (T) Bool)(declare-fun Q (T Int) Bool)\
+     (declare-fun box (Bool) T)\
+     (declare-fun mix (Int Bool) T)\
+     (declare-fun fakeEq (Int Int) Bool)\
+     (declare-fun fakeAdd (Int Int) Int)\
+     (declare-fun fakeIte (Bool T T) T)\
      (declare-fun fake (Bool Bool) Bool)" in
   let check expected left right =
     let native = List.hd (parse c
@@ -2174,13 +2178,16 @@ let sorted_quantifier_rewrites () =
       "sorted quantifier regression did not retain its datatype signature";
     let formula = B.cached_expression st native in
     let conclusion = Option.get (U.classify_fact formula) in
-    let result = K.check_node schema []
-      { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } in
-    let checked = match result with
-      | Some (_, pending) -> Z.equal pending Z.zero
-      | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
-    require (checked = expected)
-      ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right);
+    List.iter (fun kind ->
+      let result = K.check_node schema []
+        { U.kind; conclusion = conclusion; premises = [] } in
+      let checked = match result with
+        | Some (_, pending) -> Z.equal pending Z.zero
+        | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
+      require (checked = expected)
+        ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right))
+      [U.RewriteRule; U.QuantifierIntroduction {
+        U.binder_entries = []; binder_root = Z.minus_one }];
     (match formula with
      | A.App (f, args) ->
          require (not (K.consequence schema [] (A.App ({ f with A.interp = None }, args))))
@@ -2196,6 +2203,117 @@ let sorted_quantifier_rewrites () =
   check true
     "(lambda ((x T)) (=> (P x) (Q x 0)))"
     "(lambda ((x T)) (or (not (P x)) (Q x 0)))";
+  check true
+    "(forall ((x T)) (= (box (and (P x) (Q x 0))) x))"
+    "(forall ((x T)) (= (box (not (or (not (P x)) (not (Q x 0))))) x))";
+  check true
+    "(forall ((x T)) (exists ((y Int)) (= (box (and (P x) (Q x y))) x)))"
+    "(forall ((x T)) (exists ((y Int)) (= (box (not (or (not (P x)) (not (Q x y))))) x)))";
+  check true
+    "(lambda ((x T)) (box (and (P x) (Q x 0))))"
+    "(lambda ((x T)) (box (not (or (not (P x)) (not (Q x 0))))))";
+  check true
+    "(forall ((x T)) (exists ((y Int)) (= 346 (field x))))"
+    "(forall ((x T)) (exists ((y Int)) (= (field x) 346)))";
+  check true
+    "(forall ((x T) (y Real)) (= 1.0 y))"
+    "(forall ((x T) (y Real)) (= y 1.0))";
+  check true
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (or (forall ((y Int)) (= (field x) 7)) (not (P x))))";
+  check true
+    "(forall ((x T)) (not (and (P x) (exists ((y Int)) (= 7 (field x))))))"
+    "(forall ((x T)) (or (not (P x)) (not (exists ((y Int)) (= (field x) 7)))))";
+  check true
+    "(forall ((x T)) (= (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (= (forall ((y Int)) (= (field x) 7)) (P x)))";
+  check false
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (=> (Q x y) (forall ((z Int)) (= 7 (field x)))))))"
+    "(forall ((x T)) (or (forall ((y Int)) (or (forall ((z Int)) (= (field x) 7)) (not (Q x y)))) (not (P x))))";
+  let rec duplicate depth body =
+    if depth = 0 then body
+    else duplicate (depth - 1) ("(let ((p " ^ body ^ ")) (and p p))")
+  in
+  let large_body = duplicate 8 "(forall ((y Int)) (= 7 (field x)))" in
+  check false
+    ("(forall ((x T)) " ^ large_body ^ ")")
+    "(forall ((x T)) (forall ((y Int)) (= (field x) 7)))";
+  check true
+    ("(forall ((x T)) (=> (P x) " ^ large_body ^ "))")
+    ("(forall ((x T)) (or (not (P x)) " ^ large_body ^ "))");
+  check false
+    "(forall ((x T)) (= (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (= (forall ((y Int)) (= (field x) 8)) (P x)))";
+  check true
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (P x)) D x))";
+  check true
+    "(lambda ((x T)) (ite (and (P x) (Q x 0)) x D))"
+    "(lambda ((x T)) (ite (or (not (P x)) (not (Q x 0))) D x))";
+  check false
+    "(forall ((x T)) (= 346 (field x)))"
+    "(forall ((x T)) (= (field x) 347))";
+  check false
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (or (forall ((y Int)) (= (field x) 8)) (not (P x))))";
+  check false
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (P x)) x D))";
+  check false
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (Q x 0)) D x))";
+  check false
+    "(forall ((x T)) (fakeEq 346 (field x)))"
+    "(forall ((x T)) (fakeEq (field x) 346))";
+  check false
+    "(lambda ((x T)) (fakeIte (P x) x D))"
+    "(lambda ((x T)) (fakeIte (not (P x)) D x))";
+  check true
+    "(forall ((x T)) (= (+ (field x) 0) 7))"
+    "(forall ((x T)) (= (field x) 7))";
+  check true
+    "(lambda ((x T)) (+ (field x) 0))"
+    "(lambda ((x T)) (field x))";
+  check true
+    "(forall ((x T) (y Int)) (= (+ (field x) y) 7))"
+    "(forall ((x T) (y Int)) (= (+ y (field x)) 7))";
+  check true
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (>= (+ (field x) (* (- 1) y)) 0))";
+  check true
+    "(forall ((x T) (y Int)) (not (> (+ (field x) 3) y)))"
+    "(forall ((x T) (y Int)) (<= (+ (field x) (* (- 1) y)) (- 3)))";
+  check true
+    "(forall ((x T) (y Int)) (= (* 2 (- (field x) y)) 0))"
+    "(forall ((x T) (y Int)) (= (field x) y))";
+  check false
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (>= (+ (field x) (* (- 1) y)) 1))";
+  check false
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (> (field x) y))";
+  check false
+    "(lambda ((x T)) (fakeAdd (field x) 0))"
+    "(lambda ((x T)) (field x))";
+  check false
+    "(forall ((x T) (y Real)) (= (+ y 0.0) 7.0))"
+    "(forall ((x T) (y Real)) (= y 7.0))";
+  check false
+    ("(lambda ((x T)) (+ (field x) " ^
+      String.concat " " (List.init 256 (fun _ -> "0")) ^ "))")
+    "(lambda ((x T)) (field x))";
+  let clauses = List.init 30 (fun i ->
+    Printf.sprintf "(or (Q x %d) (Q x %d))" (2 * i) (2 * i + 1)) in
+  let conjunction xs = "(and " ^ String.concat " " xs ^ ")" in
+  check true
+    ("(forall ((x T)) " ^ conjunction clauses ^ ")")
+    ("(forall ((x T)) " ^ conjunction (List.rev clauses) ^ ")");
+  check true
+    ("(lambda ((x T)) (mix (+ (field x) 0) " ^ conjunction clauses ^ "))")
+    ("(lambda ((x T)) (mix (field x) " ^ conjunction (List.rev clauses) ^ "))");
+  check false
+    "(forall ((x T)) (= (box (and (P x) (Q x 0))) x))"
+    "(forall ((x T)) (= (box (or (P x) (Q x 0))) x))";
   check false "(forall ((x T)) (P x))" "(forall ((x T)) (not (P x)))";
   check false "(forall ((x T)) (P x))" "(exists ((x T)) (P x))";
   check false "(forall ((x T) (y T)) (P x))" "(forall ((x T) (y T)) (P y))";
@@ -2241,7 +2359,7 @@ let sorted_quantifier_flattening () =
     require (Q.check_flatten formula = expected)
       ("incorrect flattening certificate: " ^ left ^ " -> " ^ right);
     let node = { U.kind = U.PullQuantifier;
-      conclusion1 = Option.get (U.classify_fact formula); premises = [] } in
+      conclusion = Option.get (U.classify_fact formula); premises = [] } in
     let accepted = function Some (_, pending) -> Z.equal pending Z.zero | None -> false in
     require (accepted (K.check_node schema [] node) = expected)
       "sorted node dispatch disagrees with flattening check";
@@ -2257,6 +2375,9 @@ let sorted_quantifier_flattening () =
   check true
     "(forall ((a T) (b Bool) (n Int)) (r a b n))"
     "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))";
+  check true
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (exists ((z T)) (r z b n))))"
+    "(forall ((a T) (b Bool) (n Int)) (exists ((z T)) (r z b n)))";
   check false
     "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))"
     "(forall ((b Bool) (n Int) (a T)) (r a b n))";
@@ -2349,7 +2470,14 @@ let sorted_quantifier_instances () =
         let args = List.map (function A.App (_, [term; _]) -> term
           | _ -> failwith "malformed sorted test binding") bindings in
         require (Q.check args formula = expected)
-          ("unexpected sorted quantifier instance: " ^ clause)
+          ("unexpected sorted quantifier instance: " ^ clause);
+        let schema = N.view_datatypes st.B.retained_sorts in
+        let node = { U.kind = U.QuantifierInstantiation args;
+          conclusion = Option.get (U.classify_fact formula); premises = [] } in
+        require ((match K.check_node schema [] node with
+          | Some (_, pending) -> Z.equal pending Z.zero
+          | None -> false) = expected)
+          ("sorted node dispatch disagrees for nested instantiation: " ^ clause)
     | [] -> failwith "missing sorted instantiation fixture"
   in
   check_clause
@@ -2359,7 +2487,30 @@ let sorted_quantifier_instances () =
   check_clause
     "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
          (exists ((y T)) (R D y)))"
-    ["D"] false
+    ["D"] true;
+  check_clause
+    "(or (not (forall ((x T)) (forall ((y T)) (R x y))))\
+         (forall ((y T)) (R D y)))"
+    ["D"] true;
+  check_clause
+    "(or (not (forall ((x T) (n Int))\
+                (exists ((y T)) (and (Q x n) (R x y)))))\
+         (exists ((y T)) (and (Q D 7) (R D y))))"
+    ["D"; "7"] true;
+  check_clause
+    "(or (not (forall ((x T) (b Bool))\
+                (exists ((y T)) (or b (R x y)))))\
+         (exists ((y T)) (or (forall ((z T)) (P z)) (R D y))))"
+    ["D"; "(forall ((z T)) (P z))"] true;
+  check_clause
+    "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
+         (exists ((y T)) (R y D)))"
+    ["D"] false;
+  check_clause
+    "(or (not (forall ((x T) (n Int))\
+                (exists ((y T)) (and (Q x n) (R x y)))))\
+         (exists ((y T)) (and (Q D 7) (R D y))))"
+    ["7"; "D"] false
 
 let assumed_nlsat () =
   let c = context () in
@@ -2481,6 +2632,54 @@ let typed_observations () =
     "non-Boolean proof conclusion was certified"
 
 let contextual_boolean_rewrites () =
+  let module F = Z3BoundedBoolEquiv in
+  let module N = Z3BooleanNormalForm in
+  let atom i = F.Atom (A.Var (Z.of_int i, A.bool_sort)) in
+  let rec equalities n =
+    if n = 0 then atom 0 else F.Eq (equalities (n - 1), atom n) in
+  let deep = equalities 48 in
+  require (N.forced_pair [] deep = (false, false))
+    "unassigned nested equalities acquired a forced truth value";
+  require (not (N.forced_polarity [] deep true) &&
+           not (N.forced_polarity [] deep false))
+    "single-polarity propagation changed unassigned nested equalities";
+  require (N.forced_pair (List.init 49 (fun i -> F.Not (atom i))) deep = (true, false))
+    "nested equality propagation lost the positive result";
+  require (N.forced_pair (atom 48 :: List.init 48 (fun i -> F.Not (atom i))) deep = (false, true))
+    "nested equality propagation ignored the changed final input";
+  require (N.forced_pair [atom 0; F.Not (atom 0)] (F.Eq (atom 0, atom 0)) = (true, true))
+    "paired propagation changed inconsistent-context behavior";
+  require (N.clause_tautology (F.Nary (F.Or, [F.Not deep; deep])))
+    "deep complementary clause was not certified";
+  require (not (N.clause_tautology (F.Nary (F.Or, [F.Not deep; atom 49]))))
+    "deep clause mutation became a tautology";
+  let module D = Z3SortedDatatype in
+  let wide_formula = F.Nary (F.Or, List.init 24 atom) in
+  let contextual = F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, wide_formula)]),
+      F.Nary (F.Or, [atom 0; F.Not wide_formula])) in
+  require (D.propositional contextual && D.bounded_propositional contextual)
+    "wide contextual equivalence was incorrectly restricted by its atom count";
+  require (not (D.propositional (F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, wide_formula)]),
+      F.Nary (F.Or, [atom 0; wide_formula])))))
+    "wide contextual mutation was certified";
+  let shared = ref (atom 0) in
+  for i = 1 to 12 do
+    shared := F.Eq (!shared, F.Not !shared)
+  done;
+  require (D.context_budget (Z.of_int 256) !shared = None)
+    "context limit counted shared nodes instead of tree occurrences";
+  let large_clause = F.Nary (F.Or, List.init 300 atom) in
+  require (D.propositional (F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, large_clause)]),
+      F.Nary (F.Or, [atom 0; F.Not large_clause]))))
+    "congruence context limit leaked into datatype certificates";
+  require (D.propositional (F.Nary (F.Or, [large_clause; F.Not large_clause])))
+    "context limit disabled large complementary clauses";
+  let reordered = F.Nary (F.Or, List.init 300 (fun i -> atom (299 - i))) in
+  require (D.propositional (F.Eq (large_clause, reordered)))
+    "context limit disabled large shape equivalences";
   let c = context () in
   let declarations = List.init 24 (fun i ->
       Printf.sprintf "(declare-const p%d Bool)" i) |> String.concat "" in
@@ -2958,10 +3157,11 @@ let fresh_bit_model_extension () =
     { reconstruction.F.constructor with A.interp = None } };
   check true [] { reconstruction with F.constructor =
     { reconstruction.F.constructor with A.decl_name = "not-a-trusted-word-name" } };
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n
-    | _ -> failwith "expected a numeric test-model value" in
-  List.iter (fun (width, values) ->
+  (* The model extension itself (`F.extend`) is ghost, like `Z3AstTheory.eval`, and is
+     not extracted: that it reconstructs the values 0,1 / 0,1,5,7 / 0,128,165,255 of these
+     words, satisfies the equation and leaves other symbols unchanged is checked by
+     evaluation in `Z3BvFreshTests.model_extension_{1,3,8}`. *)
+  List.iter (fun width ->
       let symbols = List.init width (fun n -> symbol ("ordinary-name-" ^ string_of_int n)) in
       let constructor = match Z3BvWord.word (F.atoms symbols) with
         | A.App (f, _) -> f | _ -> failwith "expected word constructor" in
@@ -2973,48 +3173,8 @@ let fresh_bit_model_extension () =
                         A.App (unrelated, [])] in
       check true assertions r;
       require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
-        "fresh-bit reconstruction became an unconditional rewrite";
-      List.iter (fun n ->
-          let base : Z3ValueTheory.value A.interpretation = {
-            A.interp_app = (fun f vs ->
-              match f.A.interp, vs with
-              | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
-                  let rec number = function
-                    | [] -> Z.zero
-                    | Z3ValueTheory.VBool b :: rest ->
-                        Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-                    | _ -> failwith "expected Boolean test-model bits" in
-                  Z3ValueTheory.VInt (number vs)
-              | Some op, [Z3ValueTheory.VInt a; Z3ValueTheory.VInt b]
-                  when Z.equal op Z3ValueTheory.op_eq ->
-                  Z3ValueTheory.VBool (Z.equal a b)
-              | _ -> failwith "unexpected interpreted test-model application");
-            A.uninterp_app = (fun f vs ->
-              if f = r.F.original then Z3ValueTheory.VInt (Z.of_int n)
-              else match vs with
-                | [] -> Z3ValueTheory.VBool false
-                | _ -> Z3ValueTheory.VInt (Z.of_int 37));
-            A.interp_quant = (fun _ _ _ -> failwith "unexpected test-model quantifier");
-          } in
-          let extended = F.extend r base project in
-          let rho _ = Z3ValueTheory.VInt Z.zero in
-          (match A.eval extended (F.source r) rho, A.eval extended (F.word r) rho with
-           | Z3ValueTheory.VInt a, Z3ValueTheory.VInt b ->
-               require (Z.equal a (Z.of_int n) && Z.equal a b)
-                 "fresh-bit extension did not reconstruct the original value"
-           | _ -> failwith "expected numeric reconstructed values");
-          (match A.eval extended (equation r) rho with
-           | Z3ValueTheory.VBool true -> ()
-           | _ -> failwith "reconstruction equality is false in the extension");
-          (match A.eval extended (A.App (unrelated, [])) rho with
-           | Z3ValueTheory.VBool false -> ()
-           | _ -> failwith "extension changed an unrelated symbol");
-          (match extended.A.uninterp_app (List.hd symbols) [Z3ValueTheory.VBool true] with
-           | Z3ValueTheory.VInt v ->
-               require (Z.equal v (Z.of_int 37)) "extension changed a non-nullary application"
-           | _ -> failwith "expected unchanged non-nullary interpretation"))
-        values)
-    [1, [0; 1]; 3, [0; 1; 5; 7]; 8, [0; 128; 165; 255]]
+        "fresh-bit reconstruction became an unconditional rewrite")
+    [1; 3; 8]
 
 let fresh_bit_context_extension () =
   let module F = Z3BvFresh in
@@ -3055,49 +3215,20 @@ let fresh_bit_context_extension () =
       require (M.check_context inputs [equation unsafe] = None)
         "semantic reserved-name collision was accepted")
     ["true"; "false"; "and"; "or"];
-  let base : Z3ValueTheory.value A.interpretation = {
-    A.interp_app = (fun f vs ->
-      match f.A.interp, vs with
-      | Some op, [] when Z.equal op Z3ValueTheory.op_true -> Z3ValueTheory.VBool true
-      | Some op, [] when Z.equal op Z3ValueTheory.op_false -> Z3ValueTheory.VBool false
-      | Some op, [a; b] when Z.equal op Z3ValueTheory.op_eq -> Z3ValueTheory.VBool (a = b)
-      | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
-          let rec number = function
-            | [] -> Z.zero
-            | Z3ValueTheory.VBool b :: rest ->
-                Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-            | _ -> failwith "expected Boolean context-model bits" in
-          Z3ValueTheory.VInt (number vs)
-      | _ -> failwith "unexpected context-model interpreted application");
-    A.uninterp_app = (fun f vs ->
-      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 5)
-      else if f = s.F.original then Z3ValueTheory.VInt (Z.of_int 2)
-      else match vs with [] -> Z3ValueTheory.VBool false | _ -> Z3ValueTheory.VInt (Z.of_int 37));
-    A.interp_quant = (fun _ bs body -> body (List.map (fun _ -> Z3ValueTheory.VBool true) bs));
-  } in
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected numeric context-model value" in
-  let rho _ = Z3ValueTheory.VInt Z.zero in
-  let extended = F.extend_context rs base project in
-  require (A.eval_args extended inputs rho = A.eval_args base inputs rho)
-    "batch extension changed original inputs";
-  List.iter (fun e ->
-      require (A.eval extended e rho = Z3ValueTheory.VBool true)
-        "batch extension did not satisfy all reconstruction orientations")
-    formulas;
-  let n = F.number r base project in
-  let one = F.extend r base project in
+  (* The extensions (`F.extend_context`, `F.extend`, `F.number`) are ghost, like
+     `Z3AstTheory.eval`, and are not extracted. That the batch extension keeps the
+     inputs and satisfies both orientations, that the bit value of `r` in this model is 5,
+     and that retraction preserves evaluation are checked by evaluation in
+     `Z3BvFreshTests.context_extension` and `retraction`, on this fixture. The
+     executable retraction is checked here with that bit value. *)
+  let n = Z.of_int 5 in
   require (M.retract r.F.symbols n first = R.true_expr)
     "fresh bit did not retract to its Boolean literal";
   let applied = A.App (List.hd r.F.symbols, [A.Var (Z.zero, A.bool_sort)]) in
   require (M.retract r.F.symbols n applied = applied)
     "retraction changed a non-nullary application or bound variable";
   require (M.retract r.F.symbols n (F.source r) = F.source r)
-    "retraction changed an original BV constant";
-  List.iter (fun e ->
-      require (A.eval one e rho = A.eval base (M.retract r.F.symbols n e) rho)
-        "literal retraction did not preserve extended evaluation")
-    [first; F.word r; applied; quantified]
+    "retraction changed an original BV constant"
 
 let fresh_bit_document_projections () =
   let module F = Z3BvFresh in
@@ -3200,20 +3331,18 @@ let scoped_model_extension () =
   let module M = Z3BvFreshModel in
   let module R = Z3ResolutionProofTheory in
   let scope = [A.bool_sort; SM.int_sort] in
-  let rho = SM.default_environment scope in
   let bvar = A.Var (Z.zero, A.bool_sort) in
-  let ivar = A.Var (Z.one, SM.int_sort) in
   require (not (Z3Definitions.scoped [] bvar) && Z3Definitions.scoped scope bvar)
     "scope checking accepted an unbound variable or rejected a typed one";
-  require (A.eval SM.witness bvar rho = Z3ValueTheory.VBool false &&
-           A.eval SM.witness ivar rho = Z3ValueTheory.VInt Z.zero)
-    "typed scalar environment did not preserve variable values";
+  (* `SM.witness`, `Z3AstTheory.eval` and the extension `F.extend_context` are ghost and
+     are not extracted. The evaluation facts this test used to check at run time (variable
+     values in the typed and in a mistyped environment, reconstruction of the source value,
+     the reversed equation, fresh atoms named like literals, the official literals, and
+     scalar typing of every evaluated term) are checked by evaluation in
+     `Z3BvFreshTests.scoped_witness` and `scoped_extension`, on this fixture. *)
   require (not (SM.scalar_typed A.bool_sort (Z3ValueTheory.VInt Z.zero)) &&
            not (SM.scalar_typed SM.int_sort (Z3ValueTheory.VBool false)))
     "scalar typing accepted a mismatched environment value";
-  require (A.eval SM.witness bvar (fun _ -> Z3ValueTheory.VInt Z.zero) =
-             Z3ValueTheory.VInt Z.zero)
-    "scoped contracts unexpectedly changed generic variable evaluation";
   require (SM.arguments_typed scope [Z3ValueTheory.VBool false; Z3ValueTheory.VInt Z.zero] &&
            not (SM.arguments_typed scope [Z3ValueTheory.VInt Z.zero; Z3ValueTheory.VBool false]) &&
            not (SM.arguments_typed scope [Z3ValueTheory.VBool false]))
@@ -3227,47 +3356,14 @@ let scoped_model_extension () =
   let r = { F.width = Z.of_int 4; original = symbol "v" (Z3BvLemma.bv_sort (Z.of_int 4));
             constructor; symbols } in
   let equations = [R.mk_eq_expr (F.word r) (F.source r)] in
-  let rs = match F.check_context [] equations with
-    | Some rs -> rs | None -> failwith "scoped structural context was rejected" in
+  require (Option.is_some (F.check_context [] equations))
+    "scoped structural context was rejected";
   require (M.check_context [] equations = None)
     "legacy model-safety guard unexpectedly accepted reserved fresh names";
-  let base : Z3ValueTheory.value A.interpretation = {
-    SM.witness with
-    A.interp_app = (fun f vs ->
-      if f.A.interp = Some Z3BvLemma.op_mkbv then (
-        let rec number = function
-          | [] -> Z.zero
-          | Z3ValueTheory.VBool b :: rest ->
-              Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-          | _ -> failwith "expected scoped-model word bits" in
-        Z3ValueTheory.VInt (number vs))
-      else SM.witness.A.interp_app f vs);
-    A.uninterp_app = (fun f vs ->
-      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 6)
-      else SM.witness.A.uninterp_app f vs);
-  } in
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected a numeric scoped-model value" in
-  let extended = F.extend_context rs base project in
-  let v = Z3ValueTheory.VInt (Z.of_int 6) in
-  require (A.eval extended (F.source r) rho = v && A.eval extended (F.word r) rho = v)
-    "scoped extension did not reconstruct the source value";
-  require (A.eval extended (List.hd equations) rho = Z3ValueTheory.VBool true)
-    "scoped extension did not satisfy reversed reconstruction";
-  require (A.eval extended (A.App (List.nth symbols 0, [])) rho = Z3ValueTheory.VBool false &&
-           A.eval extended (A.App (List.nth symbols 1, [])) rho = Z3ValueTheory.VBool true)
-    "fresh uninterpreted atoms were confused with official literals";
-  require (A.eval extended R.true_expr rho = Z3ValueTheory.VBool true &&
-           A.eval extended R.false_expr rho = Z3ValueTheory.VBool false)
-    "scoped extension changed official Boolean literals";
   let quantified = A.Quantifier (A.Forall_k, scope, A.bool_sort,
     R.mk_eq_expr (A.Var (Z.zero, SM.int_sort)) (A.Var (Z.zero, SM.int_sort))) in
   require (Z3Definitions.scoped [] quantified)
     "mixed-sort quantified test was not well-scoped";
-  List.iter (fun e ->
-      require (SM.scalar_typed (A.get_sort e) (A.eval extended e rho))
-        "extension broke scoped scalar typing")
-    [bvar; ivar; R.true_expr; R.false_expr; quantified; F.word r];
   require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
     "scoped-model theorem enabled unconditional reconstruction acceptance"
 
@@ -3536,7 +3632,7 @@ let arithmetic_factor_rewrites () =
     conclusion_of d a b, a, b in
   (* The kernel's verdict on the step as a node: its pending obligations, or None for REJECT. *)
   let pending conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   (* The CLI verdict on a refutation whose only rewrite is the step: unit resolution of
@@ -3614,7 +3710,7 @@ let arithmetic_factor_rewrites () =
      well-formed step that no rule certifies stays pending. *)
   (let conclusion, _, _ = step "(declare-const p Bool)" "p" "p" in
    require (pending conclusion = Some Z.zero) "a reflexive rewrite was not certified";
-   require (U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion;
+   require (U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion;
                               premises = [{ U.conclusion = conclusion; hypotheses = [] }] } = None)
      "a rewrite with a premise was not rejected");
   List.iter (fun (s, zero, one, two, minus) ->
@@ -3928,7 +4024,7 @@ let conditional_comparison_rewrites () =
     let d, a, b = equation ?binders declarations left right in
     conclusion_of d a b, a, b in
   let pending conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   let outcome declarations left right =
@@ -4166,7 +4262,7 @@ let bv_extract_rewrites () =
     | Some conclusion -> conclusion
     | None -> failwith "expected a typed bit-vector extraction rewrite conclusion" in
   let pending conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   let outcome left right =
@@ -4537,10 +4633,10 @@ let arithmetic_implication source premises target expected =
       ("incorrect arithmetic implication: " ^ source);
     require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") conclusion facts))
       "arithmetic implication accepted assumed-origin evidence";
-    let premises = List.map (fun conclusion1 ->
-        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    let premises = List.map (fun conclusion ->
+        { U.conclusion = conclusion; hypotheses = [] }) facts in
     require (match U.check_node [] {
-        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises } with
         | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
         | None -> false)
       "arithmetic implication lost its explicit obligation"
@@ -4658,17 +4754,18 @@ let bv_bounded_evaluation () =
   let declarations =
     "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const x (_ BitVec 8))\
      (declare-const y (_ BitVec 4))(declare-const y5 (_ BitVec 5))(declare-const z (_ BitVec 12))\
-     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)\
+     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)(declare-const q Bool)\
      (declare-fun f ((_ BitVec 8)) (_ BitVec 8))" in
   let judgment formula =
     let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
     let st = B.marshal_expressions (B.empty_state ()) [input] in
     Option.get (U.classify_fact (B.cached_expression st input)) in
   let pending kind j premises =
-    match U.check_node [] { U.kind = kind; conclusion1 = j; premises } with
+    match U.check_node [] { U.kind = kind; conclusion = j; premises } with
     | Some (_, pending) -> Some pending
     | None -> None in
-  let premise = { U.conclusion = judgment "p"; hypotheses = [] } in
+  (* Keep the premise independent: p already entails the tested disjunction containing p. *)
+  let premise = { U.conclusion = judgment "q"; hypotheses = [] } in
   let lemma expected formula =
     let j = judgment formula in
     require (U.checked_theory_lemma (U.Unverified "th-lemma") j [] = expected)
@@ -4751,6 +4848,106 @@ let bv_bounded_evaluation () =
   lemma false "(or (bvsle x x) (bvult x #x00))";
   lemma false "(or p (bvult x #x00))"
 
+(* The connectives are dispatched on the typed canonical declarations of Z3CanonicalOps (name, kind tag,
+   domain, range, parameters). Z3 lets user datatypes have accessors and constructors named like
+   connectives; the bridge marshals them with Z3's name and the datatype kind tags, so they must never
+   be evaluated as connectives. The canonical connectives the bridge marshals are evaluated as before. *)
+let canonical_dispatch () =
+  let c = context () in
+  (* A constructor may share a connective's name only with argument sorts the builtin does not take; it is
+     declared apart from the accessors of the same names, which Z3 would not disambiguate. *)
+  let accessors =
+    "(declare-datatypes ((T 0)) (((mk (|and| Bool) (|or| Bool) (|not| Bool) (bits (_ BitVec 2))))))\
+     (declare-const t T)(declare-const x (_ BitVec 2))(declare-const p Bool)" in
+  let constructors =
+    "(declare-datatypes ((S 0)) (((|or| (left Int) (right Int)) (|not| (inner Int)))))(declare-const s S)" in
+  let parsed declarations formula =
+    let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [input] in
+    B.cached_expression st input in
+  let expression = parsed accessors in
+  let judgment formula = Option.get (U.classify_fact (expression formula)) in
+  (* `checked` is the whole premise-free `th-lemma` check, `bounded` the bounded bit-vector evaluation alone. *)
+  let lemma checked bounded formula =
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (judgment formula) [] = checked)
+      ("incorrect theory lemma check: " ^ formula);
+    require (Z3BvExhaustive.valid (expression formula) = bounded)
+      ("incorrect bounded evaluation: " ^ formula) in
+  let head formula = match expression formula with
+    | A.App (d, _) -> d
+    | _ -> failwith ("expected an application: " ^ formula) in
+  (* The declaration of the right-hand side of an equation. *)
+  let right formula = match parsed constructors formula with
+    | A.App (_, [_; A.App (d, _)]) -> d
+    | _ -> failwith ("expected an equation with an application: " ^ formula) in
+  let datatype name tag formula d =
+    require (d.A.decl_name = name &&
+             (match d.A.interp with Some k -> Z.equal k (Z.of_int tag) | None -> false))
+      ("datatype declaration not marshaled with its name and kind tag: " ^ formula);
+    require (not (Z3CanonicalOps.canonical_connective d))
+      ("datatype declaration taken as a connective: " ^ formula) in
+  List.iter (fun (name, formula) -> datatype name 202 formula (head formula))
+    ["and", "(|and| t)"; "or", "(|or| t)"; "not", "(|not| t)"];
+  List.iter (fun (name, formula) -> datatype name 200 formula (right formula))
+    ["or", "(= s (|or| 1 2))"; "not", "(= s (|not| 3))"];
+  require (Z3CanonicalOps.canonical_and (head "(and p (|and| t))"))
+    "the native conjunction is not canonical";
+  require (Z3CanonicalOps.canonical_or (head "(or p (|or| t))")) "the native disjunction is not canonical";
+  require (Z3CanonicalOps.canonical_not (head "(not (|not| t))")) "the native negation is not canonical";
+  require (Z3CanonicalOps.canonical_eq (head "(= x #b01)")) "the native equation is not canonical";
+  (* The accessors are datatype operations: atoms of the Boolean structure and evaluated by the datatype
+     rules, so true claims about them are checked and false ones are not, and the bounded evaluation never
+     reads them as connectives. *)
+  lemma false false "(|and| t)";
+  lemma true false "(or (|and| t) (not (|and| t)))";
+  lemma false false "(or (|and| t) (|or| t))";
+  lemma false false "(and (|and| t) (not (|and| t)))";
+  lemma true false "(|and| (mk true true true #b01))";
+  lemma false false "(|and| (mk false true true #b01))";
+  lemma true false "(not (|and| (mk false true true #b01)))";
+  lemma true false "(not (|not| (mk true true false #b01)))";
+  lemma true false "(= (bits (mk true true true #b01)) #b01)";
+  lemma false false "(= (bits (mk true true true #b01)) #b10)";
+  (* An accessor of bit-vector sort is an opaque leaf of the bounded evaluation; a clause with a Boolean
+     disjunct it does not evaluate is not decided by it, even when another disjunct is true. *)
+  lemma true true "(= (bvadd (bits t) #b00) (bits t))";
+  lemma false false "(= (bits t) #b01)";
+  lemma true false "(or (|and| t) (not (bvult (bits t) #b00)))";
+  lemma true true "(or (not (bvult (bits t) #b10)) (bvule (bits t) #b01))";
+  lemma false false "(or (not (bvult (bits t) #b11)) (bvule (bits t) #b01))";
+  (* Accessors named `true`, `false` and `=>`, and constructors with arguments named `true` and `false` (Z3
+     rejects nullary constructors with those names, whose argument sorts are the builtin constants'). Each
+     datatype is declared alone, because Z3 then reads the bare symbols `true` and `false` as its accessors. *)
+  let named_accessors =
+    "(declare-datatypes ((U 0)) (((mkU (|true| Bool) (|false| Bool) (|=>| Bool)))))(declare-const v U)" in
+  let named_constructors =
+    "(declare-datatypes ((R 0)) (((|true| (val Int)) (|false| (other Int)))))(declare-const r R)" in
+  let head_in declarations formula = match parsed declarations formula with
+    | A.App (d, _) -> d
+    | _ -> failwith ("expected an application: " ^ formula) in
+  let right_in declarations formula = match parsed declarations formula with
+    | A.App (_, [_; A.App (d, _)]) -> d
+    | _ -> failwith ("expected an equation with an application: " ^ formula) in
+  List.iter (fun (name, formula) -> datatype name 202 formula (head_in named_accessors formula))
+    ["true", "(|true| v)"; "false", "(|false| v)"; "=>", "(|=>| v)"];
+  List.iter (fun (name, formula) -> datatype name 200 formula (right_in named_constructors formula))
+    ["true", "(= r (|true| 1))"; "false", "(= r (|false| 2))"];
+  require (Z3CanonicalOps.canonical_true (head "true")) "the native constant true is not canonical";
+  require (Z3CanonicalOps.canonical_false (head "false")) "the native constant false is not canonical";
+  require (Z3CanonicalOps.canonical_implies (head "(=> p (|and| t))")) "the native implication is not canonical";
+  (* Read as the constants, `(not (|false| v))` and `(or (|true| v) (|false| v))` would be tautologies; they
+     are datatype accessors whose fields may both be false, so neither is checked. *)
+  let lemma_in declarations checked bounded formula =
+    let e = parsed declarations formula in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (Option.get (U.classify_fact e)) [] = checked)
+      ("incorrect theory lemma check: " ^ formula);
+    require (Z3BvExhaustive.valid e = bounded) ("incorrect bounded evaluation: " ^ formula) in
+  lemma_in named_accessors false false "(|true| v)";
+  lemma_in named_accessors false false "(not (|false| v))";
+  lemma_in named_accessors false false "(or (|true| v) (|false| v))";
+  lemma_in named_accessors false false "(|=>| v)";
+  lemma_in named_accessors true false "(or (|true| v) (not (|true| v)))"
+
 (* Modular normalization of bit-vector sums over opaque summands (Z3BvAddNormalize): the constant
    re-association rewrites of the QF_ABV pulse reports, bvadd(bvadd(c1, t), c2) = bvadd(c3, t) with
    c3 = c1 + c2 modulo 2^w over any term t, and the n-ary forms of the same flattening. The accepted cases
@@ -4791,7 +4988,7 @@ let bv_sum_normalization () =
     | Some conclusion -> conclusion
     | None -> failwith "expected a typed bit-vector sum conclusion" in
   let pending ?(premises = []) conclusion =
-    match U.check_node [] { U.kind = U.RewriteRule; conclusion1 = conclusion; premises } with
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises } with
     | Some (_, obligations) -> Some obligations
     | None -> None in
   let outcome left right =
@@ -5072,15 +5269,12 @@ let bv_sum_normalization () =
                  rebuilt terms: %d invalid\n%!" !accepted !invalid !outside !terms_invalid;
   if !failures <> [] then failwith (String.concat "\n  " (List.rev !failures))
 
+(* Custard leaves out the match cases that a refinement rules out, so a call
+   outside the domain fails instead of returning a value. *)
 let erased_refinement_guards () =
-  require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
-    "constructor projector changed on its valid domain";
-  (match A.__proj__BaseSort__item__name (A.ArraySort ([], A.bool_sort)) with
-   | _ -> failwith "invalid constructor projector returned a value"
-   | exception Invalid_argument _ -> ());
   (match Z3SeqTheory.nth [] Z.zero with
    | _ -> failwith "out-of-range sequence access returned a value"
-   | exception Invalid_argument _ -> ())
+   | exception Match_failure _ -> ())
 
 let proof_check_callback () =
   let c = context () in
@@ -5294,10 +5488,10 @@ let ff_theory_lemmas () =
     let facts = List.rev (List.tl (List.rev judgments)) in
     require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
       ("incorrect finite-field theory lemma: " ^ clause);
-    let premises = List.map (fun conclusion1 ->
-        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    let premises = List.map (fun conclusion ->
+        { U.conclusion = conclusion; hypotheses = [] }) facts in
     require (match U.check_node [] {
-        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises } with
         | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
         | None -> false)
       ("finite-field theory lemma lost its obligation: " ^ clause)
@@ -5551,6 +5745,7 @@ let () =
      "checked-inferred-integer-splits", arithmetic_inferred_splits;
      "checked-integer-rounding-cuts", arithmetic_integer_rounding;
      "checked-bounded-bit-vector-evaluation", bv_bounded_evaluation;
+     "canonical-connective-dispatch", canonical_dispatch;
      "checked-bit-vector-sum-normalization", bv_sum_normalization;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;

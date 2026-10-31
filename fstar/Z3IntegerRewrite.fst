@@ -75,7 +75,7 @@ let indivisible_equation (e:expr) : bool =
 
 let rec quotient_value (d:pos) (ms:list (int & expr))
                        (i:interpretation value) (rho:env value)
-  : Tot int (decreases ms) =
+  : GTot int (decreases ms) =
   match ms with
   | [] -> 0
   | (n, e) :: rest -> (n / d) * E.integer_value (eval i e rho) + quotient_value d rest i rho
