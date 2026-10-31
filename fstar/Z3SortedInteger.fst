@@ -105,10 +105,13 @@ let rec numbers (#base:sort -> Type0) (s:S.checked_schema) (integers:carrier bas
   | _ :: rest, x :: tail -> number s integers x :: numbers s integers rest tail
   | _, _ -> FStar.Pervasives.false_elim ()
 
+(* Typed-root G2 slice: the integer layer is a ghost specification, because
+   `other` (and S.application) are ghost. `classify` above stays Tot and
+   executable. *)
 let application (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                 (integers:carrier base) (other:V.interpretation base (S.signature s))
                 (f:func_decl) (xs:V.arguments base (S.signature s) f.domain)
-  : V.value base (S.signature s) f.range =
+  : GTot (V.value base (S.signature s) f.range) =
   match classify f with
   | Numeral n -> value s integers n
   | Calculate op -> value s integers (calculate op (numbers s integers f.domain xs))
