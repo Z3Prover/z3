@@ -2503,7 +2503,14 @@ S-expressions: `#I:S` is a bound variable with its de Bruijn index and sort, `(f
 body)` lists the binder sorts, numerals are `5`, `-7/3:Real`, and `(_ bv255 8)`, an
 uninterpreted declaration is `NAME#ID` with its native id (so same-named declarations stay
 apart), a datatype operation is marked `@constructor`, `@recognizer`, or `@accessor` (an
-accessor named `and` is not a connective), `[...]` lists the reflected integer parameters, and
+accessor named `and` is not a connective), any other interpreted operation shows its range after
+`:` (`(const:(Array Int Int) 0)`, `(select:Int a i)`, `(extract[32,15,8]:BV8 x)`, `(to_real:Real n)`;
+the domain sorts of a constant array occur nowhere in its arguments) except when the range is Bool
+(connectives and predicates: no range means Bool) or the sort of its first argument, which that
+argument prints (`(+ x:Real 5:Real)`, `(bvadd[32] x y)`, `(store a i v)`), so the sort of every
+expression is printed or follows from what is printed; the comparison is bounded like the rest and
+the range is printed when it cannot be completed or the argument is cut, `[...]` lists the reflected
+integer parameters, and
 names are quoted as `|...|` with `\xNN` for control, invalid-UTF-8, `|`, and `\` bytes. Depth
 (48), nodes (1000) and characters (4096) per expression, name bytes (96), numeral digits (100,
 tested before conversion), parameters (16), premises per block (8), families (20) and

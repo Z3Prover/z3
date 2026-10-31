@@ -133,7 +133,7 @@ bool readable_regressions() {
            "holds((_ bv18446744073709551615 64))");
     expect("extraction parameters",
            text(app(declaration("extract", {bv32}, bv8, extract_tag, {z(32), z(15), z(8)}), {variable(0, bv32)})),
-           "holds((extract[32,15,8] #0:BV32))");
+           "holds((extract[32,15,8]:BV8 #0:BV32))");
     expect("multi-index array", text(variable(0, array({int_sort, int_sort}, bool_sort))),
            "holds(#0:(Array Int Int Bool))");
     expect("nested array", text(variable(1, array({int_sort}, array({bv8}, bool_sort)))),
@@ -190,11 +190,11 @@ bool readable_regressions() {
            "holds(<+huge integer: more than 100 digits omitted>/3)");
     // malformed metadata is shown as reflected, never repaired
     expect("rational without a denominator", text(constant("5", int_sort, Z3Cherry_rational_op, {z(5)})),
-           "holds(|5|[5])");
+           "holds(|5|[5]:Int)");
     expect("bit-vector numeral without a value", text(constant("bv", bv8, bv_numeral_tag, {z(8)})),
-           "holds(bv[8])");
+           "holds(bv[8]:BV8)");
     expect("bit-vector numeral with an extra parameter",
-           text(constant("bv", bv8, bv_numeral_tag, {z(8), z(255), z(1)})), "holds(bv[8,255,1])");
+           text(constant("bv", bv8, bv_numeral_tag, {z(8), z(255), z(1)})), "holds(bv[8,255,1]:BV8)");
     expect("unknown interpretation", text(constant("weird", bool_sort, CHERRY_INT_SMALL(999))), "holds(weird)");
     std::vector<cherry_int> forty;
     for (int i = 0; i < 40; ++i)
@@ -343,20 +343,20 @@ bool readable_edge_cases() {
     expect("width beyond the digit limit",
            shown(constant("bv", base("BV0"), bv_tag, {decimal("1" + std::string(150, '0')), z(5)})),
            "holds((_ bv5 " + huge("+") + "))");
-    // wide extractions: widths and bounds are shown as reflected, even beyond a machine word
+    // wide extractions: widths and bounds are shown as reflected, even beyond a machine word, with the range they give
     auto bv256 = base("BV256"), bv128 = base("BV128"), bv101 = base("BV101");
     auto extract = [&](std::vector<cherry_int> const& parameters, Z3AstTheory_sort domain, Z3AstTheory_sort range,
                        Z3AstTheory_expr argument) {
         return app(declaration("extract", {domain}, range, extract_tag, parameters), {argument});
     };
     expect("wide extraction", shown(extract({z(256), z(200), z(100)}, bv256, bv101, variable(0, bv256))),
-           "holds((extract[256,200,100] #0:BV256))");
+           "holds((extract[256,200,100]:BV101 #0:BV256))");
     expect("extraction of a wide numeral",
            shown(extract({z(256), z(255), z(128)}, bv256, bv128, bv_numeral(256, decimal(ones_256)))),
-           "holds((extract[256,255,128] (_ bv" + ones_256 + " 256)))");
+           "holds((extract[256,255,128]:BV128 (_ bv" + ones_256 + " 256)))");
     expect("extraction bound beyond a machine word",
            shown(extract({z(256), decimal("18446744073709551621"), z(100)}, bv256, bv101, variable(0, bv256))),
-           "holds((extract[256,18446744073709551621,100] #0:BV256))");
+           "holds((extract[256,18446744073709551621,100]:BV101 #0:BV256))");
     // declaration identities: only "decl!DIGITS:NAME" (at most 20 digits) is a native identity; any other name is kept quoted, with no id
     for (auto const& [name, expected] : std::vector<std::pair<std::string, std::string>>{
              {"decl!", "decl!#-"}, {"decl!:x", "|decl!:x|#-"}, {"decl!abc:x", "|decl!abc:x|#-"},
@@ -384,6 +384,131 @@ bool readable_edge_cases() {
     expect("array sort over malformed and native sorts",
            shown(variable(0, array({base("sort!x:T"), int_sort}, base("sort!6:U")))),
            "holds(#0:(Array |sort!x:T| Int U#6))");
+    // The range of an interpreted head is printed after ':' unless it is Bool (connectives and predicates: an interpreted head without a
+    // range is Bool) or the sort of its first argument, which that argument prints: so the sort of an expression is always printed or
+    // follows from what is printed. A constant array needs it most: its domain sorts occur nowhere in its arguments, so without the
+    // range arrays over different domains read the same.
+    auto real_sort = base("Real");
+    // F* Z3ValueTheory op_select / op_store / op_true / op_const_array / op_ite / op_to_real / op_arith_add / op_arith_le and
+    // Z3BvLemma op_add / op_concat / op_zero_extend
+    auto select_tag = CHERRY_INT_SMALL(3), store_tag = CHERRY_INT_SMALL(4), true_tag = CHERRY_INT_SMALL(8),
+         ite_tag = CHERRY_INT_SMALL(19), add_tag = CHERRY_INT_SMALL(23), le_tag = CHERRY_INT_SMALL(27),
+         to_real_tag = CHERRY_INT_SMALL(31), const_tag = CHERRY_INT_SMALL(32), bv_add_tag = CHERRY_INT_SMALL(104),
+         bv_concat_tag = CHERRY_INT_SMALL(112), zero_extend_tag = CHERRY_INT_SMALL(119), unknown_tag = CHERRY_INT_SMALL(999);
+    auto zero = constant("numeral", int_sort, Z3Cherry_rational_op, {z(0), z(1)});
+    auto truth = constant("true", bool_sort, true_tag);
+    auto const_array = [&](std::vector<Z3AstTheory_sort> const& domains, Z3AstTheory_sort element, Z3AstTheory_expr value) {
+        return app(declaration("const", {element}, array(domains, element), const_tag), {value});
+    };
+    auto over_int = shown(const_array({int_sort}, int_sort, zero)), over_real = shown(const_array({real_sort}, int_sort, zero));
+    expect("constant array over Int", over_int, "holds((const:(Array Int Int) 0))");
+    expect("constant array over Real", over_real, "holds((const:(Array Real Int) 0))");
+    if (over_int == over_real) {
+        std::cerr << "readable constant arrays over different domains read the same\n";
+        ok = false;
+    }
+    expect("constant array over two domains", shown(const_array({int_sort, real_sort}, bool_sort, truth)),
+           "holds((const:(Array Int Real Bool) true))");
+    expect("constant array of constant arrays",
+           shown(const_array({int_sort}, array({real_sort}, bool_sort), const_array({real_sort}, bool_sort, truth))),
+           "holds((const:(Array Int (Array Real Bool)) (const:(Array Real Bool) true)))");
+    auto arrays = array({int_sort}, int_sort);
+    auto store_of = [&](Z3AstTheory_expr array_argument) {
+        return app(declaration("store", {arrays, int_sort, int_sort}, arrays, store_tag), {array_argument, zero, zero});
+    };
+    expect("store takes the sort of its array argument", shown(store_of(variable(0, arrays))),
+           "holds((store #0:(Array Int Int) 0 0))");
+    expect("store of a constant array", shown(store_of(const_array({int_sort}, int_sort, zero))),
+           "holds((store (const:(Array Int Int) 0) 0 0))");
+    expect("select shows its element sort",
+           shown(app(declaration("select", {arrays, int_sort}, int_sort, select_tag), {variable(0, arrays), zero})),
+           "holds((select:Int #0:(Array Int Int) 0))");
+    // operators that keep the sort of their first argument, predicates, and operators that change the sort
+    auto x_real = variable(1, real_sort), y_int = variable(2, int_sort), c_bool = variable(3, bool_sort);
+    auto five_real = constant("numeral", real_sort, Z3Cherry_rational_op, {z(5), z(1)});
+    auto operator_of = [&](std::string const& name, cherry_int tag, std::vector<Z3AstTheory_sort> const& domain,
+                           Z3AstTheory_sort range, std::vector<Z3AstTheory_expr> const& arguments,
+                           std::vector<cherry_int> const& parameters = {}) {
+        return app(declaration(name, domain, range, tag, parameters), arguments);
+    };
+    expect("sum keeps the sort of its first argument",
+           shown(operator_of("+", add_tag, {real_sort, real_sort}, real_sort, {x_real, five_real})), "holds((+ #1:Real 5:Real))");
+    expect("sum of integers", shown(operator_of("+", add_tag, {int_sort, int_sort}, int_sort, {zero, y_int})),
+           "holds((+ 0 #2:Int))");
+    expect("conversion to Real shows its range", shown(operator_of("to_real", to_real_tag, {int_sort}, real_sort, {y_int})),
+           "holds((to_real:Real #2:Int))");
+    expect("comparison is Bool",
+           shown(operator_of("<=", le_tag, {real_sort, real_sort}, bool_sort, {x_real, five_real})), "holds((<= #1:Real 5:Real))");
+    expect("conditional over integers",
+           shown(operator_of("ite", ite_tag, {bool_sort, int_sort, int_sort}, int_sort, {c_bool, zero, y_int})),
+           "holds((ite:Int #3:Bool 0 #2:Int))");
+    expect("conditional over Bool",
+           shown(operator_of("ite", ite_tag, {bool_sort, bool_sort, bool_sort}, bool_sort, {c_bool, p, q})),
+           "holds((ite #3:Bool p#1:Bool q#2:Bool))");
+    auto bv8 = base("BV8"), bv24 = base("BV24"), bv32 = base("BV32");
+    expect("bit-vector sum keeps the sort of its first argument",
+           shown(operator_of("bvadd", bv_add_tag, {bv32, bv32}, bv32, {variable(0, bv32), variable(1, bv32)}, {z(32)})),
+           "holds((bvadd[32] #0:BV32 #1:BV32))");
+    expect("concatenation shows its width",
+           shown(operator_of("concat", bv_concat_tag, {bv24, bv8}, bv32, {variable(0, bv24), variable(1, bv8)}, {z(24), z(8)})),
+           "holds((concat[24,8]:BV32 #0:BV24 #1:BV8))");
+    expect("zero extension shows its width",
+           shown(operator_of("zero_extend", zero_extend_tag, {bv8}, bv32, {variable(0, bv8)}, {z(8), z(24)})),
+           "holds((zero_extend[8,24]:BV32 #0:BV8))");
+    auto t5 = base("sort!5:T"), t6 = base("sort!6:T");
+    expect("unknown interpreted head over one user sort",
+           shown(operator_of("weird", unknown_tag, {t5}, t5, {constant("decl!6:t", t5)})), "holds((weird t#6:T#5))");
+    expect("unknown interpreted head between two user sorts of one name",
+           shown(operator_of("weird", unknown_tag, {t6}, t5, {constant("decl!6:t", t6)})), "holds((weird:T#5 t#6:T#6))");
+    expect("unknown interpreted constant", shown(constant("weird", int_sort, unknown_tag)), "holds(weird:Int)");
+    expect("unknown interpreted array constant", shown(constant("weird", arrays, unknown_tag)), "holds(weird:(Array Int Int))");
+    expect("a user sort named Bool is not Bool", shown(constant("weird", base("sort!8:Bool"), unknown_tag)), "holds(weird:Bool#8)");
+    // where the argument is cut by the depth limit the sort is printed; so are sorts too deep or too wide to be compared
+    auto sum = x_real;
+    for (int i = 0; i < 100; ++i)
+        sum = operator_of("+", add_tag, {real_sort, real_sort}, real_sort, {sum, x_real});
+    auto sum_rendering = text(sum);
+    if (!sum_rendering.second || sum_rendering.first.rfind("holds((+ (+ (+ ", 0) != 0 ||
+        !contains(sum_rendering.first, "(+:Real <...depth> <...depth>)")) {
+        std::cerr << "readable a cut argument left the sum without its sort: " << sum_rendering.first << '\n';
+        ok = false;
+    }
+    auto nested_sort = [&](int levels) {
+        auto result = bool_sort;
+        for (int i = 0; i < levels; ++i)
+            result = array({int_sort}, result);
+        return result;
+    };
+    auto store_over = [&](Z3AstTheory_sort sort_value) {
+        return app(declaration("store", {sort_value}, sort_value, store_tag), {variable(0, sort_value)});
+    };
+    expect("store over a moderately nested sort", shown(store_over(nested_sort(3))),
+           "holds((store #0:(Array Int (Array Int (Array Int Bool)))))");
+    auto deep_store = text(store_over(nested_sort(100)));
+    if (!deep_store.second || deep_store.first.rfind("holds((store:(Array Int (Array Int ", 0) != 0 ||
+        !contains(deep_store.first, "<...depth>")) {
+        std::cerr << "readable sorts nested beyond the limit were compared: " << deep_store.first << '\n';
+        ok = false;
+    }
+    auto shared_sort = int_sort;
+    for (int i = 0; i < 40; ++i)
+        shared_sort = array({shared_sort, shared_sort}, bool_sort);
+    auto shared_started = std::chrono::steady_clock::now();
+    auto shared_store = text(store_over(shared_sort));
+    if (!shared_store.second || shared_store.first.rfind("holds((store:(Array ", 0) != 0 ||
+        std::chrono::steady_clock::now() - shared_started >= std::chrono::seconds(5)) {
+        std::cerr << "readable sorts sharing their parts were compared without a budget: " << shared_store.first << '\n';
+        ok = false;
+    }
+    auto nested = bool_sort;
+    for (int i = 0; i < 100; ++i)
+        nested = array({int_sort}, nested);
+    auto nested_rendering = text(app(declaration("const", {bool_sort}, nested, const_tag), {truth}));
+    if (!nested_rendering.second || nested_rendering.first.size() >= 700 ||
+        nested_rendering.first.rfind("holds((const:(Array Int (Array Int ", 0) != 0) {
+        std::cerr << "readable a deeply nested array range was not cut with a marker: " << nested_rendering.first << '\n';
+        ok = false;
+    }
 
     // the report, on readable_report itself
     auto five = constant("numeral", int_sort, Z3Cherry_rational_op, {z(5), z(1)});

@@ -1151,10 +1151,10 @@ class ReadableDiagnosticsTests(unittest.TestCase):
         result = self.run_checker((self.REPAIR / "egt-6871.smt2").read_text(), "--readable")
         self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
         conclusion = self.conclusion(result.stderr)
-        for expected in ("(_ bv308 32)", "(_ bv241 32)", "concat[24,8]", "bvadd[32]", "(Array BV32 BV8)"):
+        for expected in ("(_ bv308 32)", "(_ bv241 32)", "concat[24,8]:BV32", "bvadd[32]", "(Array BV32 BV8)"):
             self.assertIn(expected, conclusion)
         self.assertRegex(conclusion, r"\(bvsle#\d+:Bool \(_ bv308 32\)")
-        self.assertRegex(conclusion, r"\(bit2bool#\d+:Bool \(select packet#\d+:\(Array BV32 BV8\) \(_ bv241 32\)\)\)")
+        self.assertRegex(conclusion, r"\(bit2bool#\d+:Bool \(select:BV8 packet#\d+:\(Array BV32 BV8\) \(_ bv241 32\)\)\)")
         machine = [line for line in result.stderr.splitlines() if line.startswith("obligation\t")]
         self.assertEqual(len(machine), 1)
         self.assertNotIn("308", machine[0])
@@ -1164,7 +1164,7 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                   "(assert (= (* (select a 1 2) (select a 1 2) (select a 1 2)) 3))")
         result = self.run_checker(arrays, "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(self.conclusion(result.stderr), r"\(select a#\d+:\(Array Int Int Real\) 1 2\)")
+        self.assertRegex(self.conclusion(result.stderr), r"\(select:Real a#\d+:\(Array Int Int Real\) 1 2\)")
         overloaded = ("(declare-fun f (Int) Real)(declare-fun f (Real) Real)"
                       "(assert (= (* (f 1) (f 1.0)) 2))(assert (= (* (f 1) (f 1.0) (f 1) (f 1.0)) 5))")
         result = self.run_checker(overloaded, "--readable")
@@ -1238,6 +1238,35 @@ class ReadableDiagnosticsTests(unittest.TestCase):
         result = self.run_utf8(source, "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(self.conclusion(result.stderr), r"\|h\u00e9llo \u2603\|#\d+:Real")
+
+    def test_constant_arrays_keep_the_array_sort_their_arguments_do_not_carry(self):
+        # `(const 0)` alone cannot say which array it is: the domain sorts of a constant array occur nowhere in its arguments, so a
+        # printer that drops the range makes two different conditions read the same (it was byte-identical for these two inputs).
+        def source(domain):
+            term = "(f ((as const (Array %s Int)) 0))" % domain
+            return ("(declare-fun f ((Array %s Int)) Real)(assert (= (* %s %s) 2))(assert (= (* %s %s %s) 3))"
+                    % (domain, term, term, term, term, term))
+        conclusions = {}
+        for domain in ("Int", "Real"):
+            with self.subTest(domain=domain):
+                result = self.run_checker(source(domain), "--readable")
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                conclusions[domain] = self.conclusion(result.stderr)
+                self.assertRegex(conclusions[domain], r"\(f#\d+:Real \(const:\(Array %s Int\) 0\)\)" % domain)
+        self.assertEqual(len(conclusions), 2)
+        self.assertNotEqual(conclusions["Int"], conclusions["Real"])
+        # both arrays in one document: same-named overloads stay apart by id, and each argument keeps its own array sort
+        int_term, real_term = "(g ((as const (Array Int Int)) 0))", "(g ((as const (Array Real Int)) 0))"
+        overloaded = ("(declare-fun g ((Array Int Int)) Real)(declare-fun g ((Array Real Int)) Real)"
+                      "(assert (= (* %s %s) 2))(assert (= (* %s %s %s %s) 5))"
+                      % (int_term, real_term, int_term, real_term, int_term, real_term))
+        result = self.run_checker(overloaded, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        ids = {domain: re.search(r"\(g#(\d+):Real \(const:\(Array %s Int\) 0\)\)" % domain, conclusion)
+               for domain in ("Int", "Real")}
+        self.assertTrue(all(ids.values()), conclusion)
+        self.assertNotEqual(ids["Int"].group(1), ids["Real"].group(1))
 
     @staticmethod
     def pigeonhole(n=20):

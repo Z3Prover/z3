@@ -745,7 +745,7 @@ let readable_conditions () =
     "holds((_ bv18446744073709551615 64))";
   let extract = declaration ~interp:Z3BvLemma.op_extract ~params:[z 32; z 15; z 8] "extract" [bv32] bv8 in
   expect "extraction parameters" (text (A.App (extract, [A.Var (z 0, bv32)])))
-    "holds((extract[32,15,8] #0:BV32))";
+    "holds((extract[32,15,8]:BV8 #0:BV32))";
   expect "multi-index array" (text (A.Var (z 0, A.ArraySort ([int_sort; int_sort], bool_sort))))
     "holds(#0:(Array Int Int Bool))";
   expect "nested array" (text (A.Var (z 1, A.ArraySort ([int_sort], A.ArraySort ([bv8], bool_sort)))))
@@ -799,11 +799,11 @@ let readable_conditions () =
   require (Sys.time () -. started < 5.0) "a huge numeral was converted before the size check";
   (* malformed metadata is shown as reflected, never repaired *)
   expect "rational without a denominator"
-    (text (constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5] "5" int_sort)) "holds(|5|[5])";
+    (text (constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5] "5" int_sort)) "holds(|5|[5]:Int)";
   expect "bit-vector numeral without a value"
-    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8] "bv" bv8)) "holds(bv[8])";
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8] "bv" bv8)) "holds(bv[8]:BV8)";
   expect "bit-vector numeral with an extra parameter"
-    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8; z 255; z 1] "bv" bv8)) "holds(bv[8,255,1])";
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8; z 255; z 1] "bv" bv8)) "holds(bv[8,255,1]:BV8)";
   expect "unknown interpretation" (text (constant ~interp:(z 999) "weird" bool_sort)) "holds(weird)";
   expect "parameter limit" (text (constant ~params:(List.init 40 z) "decl!1:p" bool_sort))
     ("holds(p#1[" ^ String.concat "," (List.init 16 string_of_int) ^ ",<24 more>]:Bool)");
@@ -993,6 +993,10 @@ let readable_edge_cases () =
     require (actual = expected) (Printf.sprintf "%s: %S, expected %S" label actual expected) in
   let lines rows = String.concat "\n" rows ^ "\n" in
   let huge sign = Printf.sprintf "<%shuge integer: more than 100 digits omitted>" sign in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
   (* bit-vector values: encoded two's complement, negative or out of range as reflected, wide, beyond the digit limit *)
   expect "minimum signed value, as encoded" (text (bv_numeral 8 (z 128))) "holds((_ bv128 8))";
   expect "negative value is not re-encoded" (text (bv_numeral 8 (z (-1)))) "holds((_ bv-1 8))";
@@ -1010,17 +1014,17 @@ let readable_edge_cases () =
   expect "width beyond the digit limit"
     (text (constant ~interp:Z3BvLemma.op_numeral ~params:[Z.pow (z 10) 150; z 5] "bv" (base "BV0")))
     ("holds((_ bv5 " ^ huge "+" ^ "))");
-  (* wide extractions: widths and bounds are shown as reflected, even beyond a machine word *)
+  (* wide extractions: widths and bounds are shown as reflected, even beyond a machine word, with the range they give *)
   let bv256 = base "BV256" and bv128 = base "BV128" and bv101 = base "BV101" in
   let extract params domain range = declaration ~interp:Z3BvLemma.op_extract ~params "extract" [domain] range in
   expect "wide extraction" (text (A.App (extract [z 256; z 200; z 100] bv256 bv101, [A.Var (z 0, bv256)])))
-    "holds((extract[256,200,100] #0:BV256))";
+    "holds((extract[256,200,100]:BV101 #0:BV256))";
   expect "extraction of a wide numeral"
     (text (A.App (extract [z 256; z 255; z 128] bv256 bv128, [bv_numeral 256 ones_256])))
-    ("holds((extract[256,255,128] (_ bv" ^ Z.to_string ones_256 ^ " 256)))");
+    ("holds((extract[256,255,128]:BV128 (_ bv" ^ Z.to_string ones_256 ^ " 256)))");
   expect "extraction bound beyond a machine word"
     (text (A.App (extract [z 256; Z.of_string "18446744073709551621"; z 100] bv256 bv101, [A.Var (z 0, bv256)])))
-    "holds((extract[256,18446744073709551621,100] #0:BV256))";
+    "holds((extract[256,18446744073709551621,100]:BV101 #0:BV256))";
   (* declaration identities: only "decl!DIGITS:NAME" (at most 20 digits) is a native identity; any other name is kept quoted, with no id *)
   List.iter (fun (name, shown) ->
       expect ("declaration " ^ String.escaped name) (text (constant name int_sort)) ("holds(" ^ shown ^ ":Int)"))
@@ -1047,6 +1051,94 @@ let readable_edge_cases () =
   expect "array sort over malformed and native sorts"
     (text (A.Var (z 0, A.ArraySort ([base "sort!x:T"; int_sort], base "sort!6:U"))))
     "holds(#0:(Array |sort!x:T| Int U#6))";
+  (* The range of an interpreted head is printed after ':' unless it is Bool (connectives and predicates: an interpreted head without a
+     range is Bool) or the sort of its first argument, which that argument prints: so the sort of an expression is always printed or
+     follows from what is printed. A constant array needs it most: its domain sorts occur nowhere in its arguments, so without the
+     range arrays over different domains read the same. *)
+  let real_sort = base "Real" in
+  let zero = constant ~interp:Z3ValueTheory.op_num_rational ~params:[Z.zero; Z.one] "numeral" int_sort in
+  let truth = constant ~interp:Z3ValueTheory.op_true "true" bool_sort in
+  let const_array domains element value =
+    A.App (declaration ~interp:Z3ValueTheory.op_const_array "const" [element] (A.ArraySort (domains, element)), [value]) in
+  let over_int = text (const_array [int_sort] int_sort zero) and over_real = text (const_array [real_sort] int_sort zero) in
+  expect "constant array over Int" over_int "holds((const:(Array Int Int) 0))";
+  expect "constant array over Real" over_real "holds((const:(Array Real Int) 0))";
+  require (over_int <> over_real) "constant arrays over different domains read the same";
+  expect "constant array over two domains" (text (const_array [int_sort; real_sort] bool_sort truth))
+    "holds((const:(Array Int Real Bool) true))";
+  expect "constant array of constant arrays"
+    (text (const_array [int_sort] (A.ArraySort ([real_sort], bool_sort)) (const_array [real_sort] bool_sort truth)))
+    "holds((const:(Array Int (Array Real Bool)) (const:(Array Real Bool) true)))";
+  let arrays = A.ArraySort ([int_sort], int_sort) in
+  let store_of array_argument =
+    A.App (declaration ~interp:Z3ValueTheory.op_store "store" [arrays; int_sort; int_sort] arrays, [array_argument; zero; zero]) in
+  expect "store takes the sort of its array argument" (text (store_of (A.Var (z 0, arrays)))) "holds((store #0:(Array Int Int) 0 0))";
+  expect "store of a constant array" (text (store_of (const_array [int_sort] int_sort zero)))
+    "holds((store (const:(Array Int Int) 0) 0 0))";
+  expect "select shows its element sort"
+    (text (A.App (declaration ~interp:Z3ValueTheory.op_select "select" [arrays; int_sort] int_sort, [A.Var (z 0, arrays); zero])))
+    "holds((select:Int #0:(Array Int Int) 0))";
+  (* operators that keep the sort of their first argument, predicates, and operators that change the sort *)
+  let x_real = A.Var (z 1, real_sort) and y_int = A.Var (z 2, int_sort) and c_bool = A.Var (z 3, bool_sort) in
+  let five_real = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5; Z.one] "numeral" real_sort in
+  let operator ?(params = []) name op domain range args = A.App (declaration ~interp:op ~params name domain range, args) in
+  expect "sum keeps the sort of its first argument"
+    (text (operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [x_real; five_real])) "holds((+ #1:Real 5:Real))";
+  expect "sum of integers"
+    (text (operator "+" Z3ValueTheory.op_arith_add [int_sort; int_sort] int_sort [zero; y_int])) "holds((+ 0 #2:Int))";
+  expect "conversion to Real shows its range"
+    (text (operator "to_real" Z3ValueTheory.op_to_real [int_sort] real_sort [y_int])) "holds((to_real:Real #2:Int))";
+  expect "comparison is Bool"
+    (text (operator "<=" Z3ValueTheory.op_arith_le [real_sort; real_sort] bool_sort [x_real; five_real])) "holds((<= #1:Real 5:Real))";
+  expect "conditional over integers"
+    (text (operator "ite" Z3ValueTheory.op_ite [bool_sort; int_sort; int_sort] int_sort [c_bool; zero; y_int]))
+    "holds((ite:Int #3:Bool 0 #2:Int))";
+  expect "conditional over Bool"
+    (text (operator "ite" Z3ValueTheory.op_ite [bool_sort; bool_sort; bool_sort] bool_sort [c_bool; p; q]))
+    "holds((ite #3:Bool p#1:Bool q#2:Bool))";
+  let bv8 = base "BV8" and bv24 = base "BV24" and bv32 = base "BV32" in
+  expect "bit-vector sum keeps the sort of its first argument"
+    (text (operator ~params:[z 32] "bvadd" Z3BvLemma.op_add [bv32; bv32] bv32 [A.Var (z 0, bv32); A.Var (z 1, bv32)]))
+    "holds((bvadd[32] #0:BV32 #1:BV32))";
+  expect "concatenation shows its width"
+    (text (operator ~params:[z 24; z 8] "concat" Z3BvLemma.op_concat [bv24; bv8] bv32 [A.Var (z 0, bv24); A.Var (z 1, bv8)]))
+    "holds((concat[24,8]:BV32 #0:BV24 #1:BV8))";
+  expect "zero extension shows its width"
+    (text (operator ~params:[z 8; z 24] "zero_extend" Z3BvLemma.op_zero_extend [bv8] bv32 [A.Var (z 0, bv8)]))
+    "holds((zero_extend[8,24]:BV32 #0:BV8))";
+  let t5 = base "sort!5:T" and t6 = base "sort!6:T" in
+  expect "unknown interpreted head over one user sort"
+    (text (operator "weird" (z 999) [t5] t5 [constant "decl!6:t" t5])) "holds((weird t#6:T#5))";
+  expect "unknown interpreted head between two user sorts of one name"
+    (text (operator "weird" (z 999) [t6] t5 [constant "decl!6:t" t6])) "holds((weird:T#5 t#6:T#6))";
+  expect "unknown interpreted constant" (text (constant ~interp:(z 999) "weird" int_sort)) "holds(weird:Int)";
+  expect "unknown interpreted array constant" (text (constant ~interp:(z 999) "weird" arrays)) "holds(weird:(Array Int Int))";
+  expect "a user sort named Bool is not Bool" (text (constant ~interp:(z 999) "weird" (base "sort!8:Bool"))) "holds(weird:Bool#8)";
+  (* where the argument is cut by the depth limit the sort is printed; so are sorts too deep or too wide to be compared *)
+  let sum = ref x_real in
+  for _ = 1 to 100 do sum := operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [!sum; x_real] done;
+  let rendered, cut = R.judgment_text (U.Holds !sum) in
+  require (cut && String.starts_with ~prefix:"holds((+ (+ (+ " rendered && contains rendered "(+:Real <...depth> <...depth>)")
+    "a cut argument left the sum without its sort";
+  let nested_sort n = let s = ref bool_sort in for _ = 1 to n do s := A.ArraySort ([int_sort], !s) done; !s in
+  let store_over sort_value =
+    A.App (declaration ~interp:Z3ValueTheory.op_store "store" [sort_value] sort_value, [A.Var (z 0, sort_value)]) in
+  expect "store over a moderately nested sort" (let s = nested_sort 3 in text (store_over s))
+    "holds((store #0:(Array Int (Array Int (Array Int Bool)))))";
+  let rendered, cut = R.judgment_text (U.Holds (store_over (nested_sort 100))) in
+  require (cut && String.starts_with ~prefix:"holds((store:(Array Int (Array Int " rendered && contains rendered "<...depth>")
+    "sorts nested beyond the limit were compared";
+  let rec shared n = if n = 0 then int_sort else (let s = shared (n - 1) in A.ArraySort ([s; s], bool_sort)) in
+  let started = Sys.time () in
+  let rendered, cut = R.judgment_text (U.Holds (store_over (shared 40))) in
+  require (Sys.time () -. started < 5.0) "sorts sharing their parts were compared without a budget";
+  require (cut && String.starts_with ~prefix:"holds((store:(Array " rendered) "sorts sharing their parts were compared";
+  let nested = ref bool_sort in
+  for _ = 1 to 100 do nested := A.ArraySort ([int_sort], !nested) done;
+  let rendered, cut =
+    R.judgment_text (U.Holds (A.App (declaration ~interp:Z3ValueTheory.op_const_array "const" [bool_sort] !nested, [truth]))) in
+  require (cut && String.length rendered < 700 && String.starts_with ~prefix:"holds((const:(Array Int (Array Int " rendered)
+    "a deeply nested array range was not cut with a marker";
   (* the report: premise limit, other stages, accepted proofs and huge counts *)
   let five = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5; Z.one] "numeral" int_sort in
   let x = constant "decl!3:x" int_sort in

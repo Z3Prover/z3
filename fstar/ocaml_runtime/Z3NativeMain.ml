@@ -276,12 +276,37 @@ module Readable = struct
     else if Z.equal k Z3DatatypeLemma.op_accessor then "@accessor"
     else ""
 
+  (* Sorts are equal if they are the same name or the same array of equal sorts. The comparison is bounded like the rendering (depth,
+     nodes, name bytes): when it cannot be completed the sorts count as different, which only prints more. *)
+  let max_compared_name_bytes = 4096
+
+  let same_sort a b =
+    let budget = ref max_nodes in
+    let rec go depth a b =
+      decr budget;
+      depth > 0 && !budget >= 0 &&
+      (match a, b with
+       | A.BaseSort x, A.BaseSort y ->
+           String.length x <= max_compared_name_bytes && String.equal x y
+       | A.ArraySort (d1, r1), A.ArraySort (d2, r2) ->
+           List.compare_lengths d1 d2 = 0 && List.for_all2 (go (depth - 1)) d1 d2 && go (depth - 1) r1 r2
+       | _ -> false)
+    in
+    go max_depth a b
+
   (* A rational numeral shows its value (and its sort unless Int), a bit-vector numeral
      (_ bvVALUE WIDTH). Every other head is NAME, followed by [reflected integer parameters]; an
      uninterpreted head is NAME#ID (or NAME#- without a native id) and a datatype operation carries
      @constructor, @recognizer or @accessor, each with its range sort after ':', so neither can
-     be mistaken for a builtin connective that shares its name. *)
-  let head state decl =
+     be mistaken for a builtin connective that shares its name. Every other interpreted head also
+     shows its range after ':', for example (const:(Array Int Int) 0), (select:Int a i) or
+     (extract[32,15,8]:BV8 x), because the arguments do not always carry it (the domain sorts of a
+     constant array occur nowhere in its arguments), except where the range is printed anyway or
+     needs no printing: Bool (connectives and predicates: an interpreted head without a range is
+     Bool) and the sort of the first argument, which that argument prints (+ * bvadd store, as in
+     SMT-LIB). [implied] says whether the range is the first argument's sort; it is false when
+     the argument is cut by the depth limit or the comparison was not completed. *)
+  let head state ~implied decl =
     match decl.A.interp, decl.A.int_params with
     | Some k, [n; d] when Z.equal k Z3ValueTheory.op_num_rational ->
         add state (integer n);
@@ -300,8 +325,9 @@ module Readable = struct
                         | None -> symbol name ^ "#-")
                    | Some k -> symbol name ^ datatype_marker k);
         parameters state values;
-        (match interp with
-         | Some k when datatype_marker k = "" -> ()
+        (match interp, decl.A.range with
+         | Some k, A.BaseSort "Bool" when datatype_marker k = "" -> ()
+         | Some k, _ when datatype_marker k = "" && Lazy.force implied -> ()
          | _ -> add state ":"; sort state max_depth decl.A.range)
 
   let rec expression state depth e =
@@ -317,10 +343,10 @@ module Readable = struct
           add state "] ";
           expression state (depth - 1) body;
           add state ")"
-      | A.App (decl, []) -> head state decl
+      | A.App (decl, []) -> head state ~implied:(lazy false) decl
       | A.App (decl, arguments) ->
           add state "(";
-          head state decl;
+          head state ~implied:(lazy (depth >= 2 && same_sort decl.A.range (A.get_sort (List.hd arguments)))) decl;
           List.iter (fun argument -> add state " "; expression state (depth - 1) argument) arguments;
           add state ")")
 

@@ -204,12 +204,71 @@ inline void parameters_text(Text& out, std::vector<cherry_int> const& values) {
     out.add("]");
 }
 
+inline bool is_bool_sort(Z3AstTheory_sort sort) {
+    return cherry_tag(sort) == Z3ASTTHEORY_BASESORT &&
+        view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(sort)->name) == "Bool";
+}
+
+inline Z3AstTheory_sort sort_of(Z3AstTheory_expr value) {
+    switch (cherry_tag(value)) {
+    case Z3ASTTHEORY_VAR: return reinterpret_cast<Z3AstTheory_expr_Var_s*>(value)->s;
+    case Z3ASTTHEORY_APP: return reinterpret_cast<Z3AstTheory_expr_App_s*>(value)->decl.range;
+    case Z3ASTTHEORY_QUANTIFIER: return reinterpret_cast<Z3AstTheory_expr_Quantifier_s*>(value)->qsort;
+    default: throw NativeError("Invalid extracted expression tag");
+    }
+}
+
+constexpr size_t max_compared_name_bytes = 4096;
+
+// Sorts are equal if they are the same name or the same array of equal sorts. The comparison is bounded like the rendering (depth,
+// nodes, name bytes): when it cannot be completed the sorts count as different, which only prints more.
+inline bool same_sort(Z3AstTheory_sort a, Z3AstTheory_sort b, unsigned depth, unsigned& budget) {
+    if (!budget)
+        return false;
+    --budget;
+    if (!depth)
+        return false;
+    bool a_base = cherry_tag(a) == Z3ASTTHEORY_BASESORT, b_base = cherry_tag(b) == Z3ASTTHEORY_BASESORT;
+    if (a_base != b_base)
+        return false;
+    if (a_base) {
+        auto x = view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(a)->name);
+        auto y = view(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(b)->name);
+        return x.size() <= max_compared_name_bytes && x == y;
+    }
+    auto* left = reinterpret_cast<Z3AstTheory_sort_ArraySort_s*>(a);
+    auto* right = reinterpret_cast<Z3AstTheory_sort_ArraySort_s*>(b);
+    auto x = left->domain, y = right->domain;
+    while (!cherry_is_scalar(x) && !cherry_is_scalar(y)) {
+        auto* cx = reinterpret_cast<Prims_list__sort_Cons_s*>(x);
+        auto* cy = reinterpret_cast<Prims_list__sort_Cons_s*>(y);
+        if (!same_sort(cx->hd, cy->hd, depth - 1, budget))
+            return false;
+        x = cx->tl;
+        y = cy->tl;
+    }
+    return cherry_is_scalar(x) && cherry_is_scalar(y) && same_sort(left->range, right->range, depth - 1, budget);
+}
+
+inline bool same_sort(Z3AstTheory_sort a, Z3AstTheory_sort b) {
+    unsigned budget = max_nodes;
+    return same_sort(a, b, max_depth, budget);
+}
+
 // A rational numeral shows its value (and its sort unless Int), a bit-vector numeral
 // (_ bvVALUE WIDTH). Every other head is NAME, followed by [reflected integer parameters]; an
 // uninterpreted head is NAME#ID (or NAME#- without a native id) and a datatype operation carries
 // @constructor, @recognizer or @accessor, each with its range sort after ':', so neither can
-// be mistaken for a builtin connective that shares its name.
-inline void head_text(Text& out, Z3AstTheory_func_decl const& decl) {
+// be mistaken for a builtin connective that shares its name. Every other interpreted head also
+// shows its range after ':', for example (const:(Array Int Int) 0), (select:Int a i) or
+// (extract[32,15,8]:BV8 x), because the arguments do not always carry it (the domain sorts of a
+// constant array occur nowhere in its arguments), except where the range is printed anyway or
+// needs no printing: Bool (connectives and predicates: an interpreted head without a range is
+// Bool) and the sort of the first argument, which that argument prints (+ * bvadd store, as in
+// SMT-LIB). [implied] says whether the range is the first argument's sort; it is false when
+// the argument is cut by the depth limit or the comparison was not completed.
+template<class Implied>
+inline void head_text(Text& out, Z3AstTheory_func_decl const& decl, Implied implied) {
     std::vector<cherry_int> values;
     each<Prims_list__int_Cons_s>(decl.int_params, [&](auto n) { values.push_back(n); });
     bool interpreted = decl.interp.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT;
@@ -240,7 +299,9 @@ inline void head_text(Text& out, Z3AstTheory_func_decl const& decl) {
     }
     out.add(head);
     parameters_text(out, values);
-    if (!interpreted || !datatype_marker(decl.interp.val.Some).empty()) {
+    bool annotated = !interpreted || !datatype_marker(decl.interp.val.Some).empty() ||
+        (!is_bool_sort(decl.range) && !implied());
+    if (annotated) {
         out.add(":");
         sort_text(out, decl.range, max_depth);
     }
@@ -280,11 +341,14 @@ inline void expression_text(Text& out, Z3AstTheory_expr value, unsigned depth) {
     case Z3ASTTHEORY_APP: {
         auto* app = reinterpret_cast<Z3AstTheory_expr_App_s*>(value);
         if (cherry_is_scalar(app->args)) {
-            head_text(out, app->decl);
+            head_text(out, app->decl, [] { return false; });
             return;
         }
         out.add("(");
-        head_text(out, app->decl);
+        head_text(out, app->decl, [&] {
+            return depth >= 2 &&
+                same_sort(app->decl.range, sort_of(reinterpret_cast<Prims_list__expr_Cons_s*>(app->args)->hd));
+        });
         each<Prims_list__expr_Cons_s>(app->args, [&](auto argument) {
             out.add(" ");
             expression_text(out, argument, depth - 1);
