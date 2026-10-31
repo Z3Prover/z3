@@ -12,7 +12,8 @@ Abstract:
     assert directly: the model values of the front points are irrational
     algebraic numerals, front points closer than the 12-digit display
     bracket are still told apart, and problems outside the NRA fragment
-    fall back to the smt solver and enumerate their front there.
+    fall back to the smt solver and enumerate their front there, also when
+    the front is continuous.
 
 Author:
 
@@ -573,6 +574,108 @@ static void tst_continuous_front(bool reuse_nlsat_solver, bool circular, unsigne
     }
 }
 
+enum class smt_front_reason { uninterpreted_function, assumption, nlsat_disabled };
+
+static void tst_continuous_front_smt(smt_front_reason reason, unsigned scale) {
+    // The continuous front x + y = scale, x, y >= 0 of maximizing x and
+    // minimizing -y, on the smt solver: an uninterpreted function, an
+    // assumption, or opt.pareto_nlsat=false keeps the problem off the
+    // nlsat-backed solver. Each check must end at a boundary point, distinct
+    // from the points returned before.
+    std::cout << "opt_pareto: continuous front on the smt solver, reason " << static_cast<int>(reason)
+              << " scale " << scale << "\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    params_ref p;
+    p.set_sym("priority", symbol("pareto"));
+    p.set_bool("pareto_nlsat", reason != smt_front_reason::nlsat_disabled);
+    ctx.updt_params(p);
+    sort* real = a.mk_real();
+    expr_ref x(m.mk_const("x", real), m);
+    expr_ref y(m.mk_const("y", real), m);
+    expr_ref q(m.mk_const("q", m.mk_bool_sort()), m);
+    func_decl_ref f(m.mk_func_decl(symbol("f"), real, real), m);
+    expr_ref zero(a.mk_numeral(rational(0), false), m);
+    expr_ref level(a.mk_numeral(rational(scale), false), m);
+    expr_ref boundary(a.mk_add(x, y), m);
+    expr_ref_vector asms(m), xs(m);
+    ctx.add_hard_constraint(a.mk_ge(x, zero));
+    ctx.add_hard_constraint(a.mk_ge(y, zero));
+    if (reason == smt_front_reason::assumption) {
+        ctx.add_hard_constraint(m.mk_implies(q, a.mk_le(boundary, level)));
+        asms.push_back(q);
+    }
+    else
+        ctx.add_hard_constraint(a.mk_le(boundary, level));
+    if (reason == smt_front_reason::uninterpreted_function)
+        ctx.add_hard_constraint(m.mk_eq(m.mk_app(f, x.get()), y));
+    expr_ref minus_y(a.mk_uminus(y), m);
+    ctx.add_objective(to_app(x.get()), true);
+    ctx.add_objective(to_app(minus_y.get()), false);
+    for (unsigned i = 0; i < 3; ++i) {
+        ENSURE(ctx.optimize(asms) == l_true);
+        model_ref model;
+        ctx.get_model(model);
+        ENSURE(model->is_true(m.mk_eq(boundary, level)));
+        ENSURE(model->is_true(a.mk_ge(x, zero)) && model->is_true(a.mk_ge(y, zero)));
+        expr_ref xv = (*model)(x);
+        ENSURE(a.is_numeral(xv));
+        for (expr* earlier : xs)
+            ENSURE(model->is_false(m.mk_eq(xv, earlier)));
+        xs.push_back(xv);
+    }
+    statistics st;
+    ctx.collect_statistics(st);
+    ENSURE(counter(st, "pareto nlsat checks") == 0);
+}
+
+static void tst_branch_front_smt(unsigned n, bool closed) {
+    // x lies in one of [0, 1), ..., [n - 1, n), or equals n if closed, and
+    // x + y <= n, y >= 0, maximizing x and y with opt.pareto_nlsat=false. In
+    // a half-open branch the supremum of x is not attained, so the cone step
+    // must move on to the branches above it. Without x = n the supremum of x
+    // is not attained in the whole cone, and the step must still maximize y.
+    // Each check must end on x + y = n.
+    std::cout << "opt_pareto: half-open branches on the smt solver, n " << n << " closed " << closed << "\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    params_ref p;
+    p.set_sym("priority", symbol("pareto"));
+    p.set_bool("pareto_nlsat", false);
+    ctx.updt_params(p);
+    sort* real = a.mk_real();
+    expr_ref x(m.mk_const("x", real), m);
+    expr_ref y(m.mk_const("y", real), m);
+    auto num = [&](unsigned k) { return expr_ref(a.mk_numeral(rational(k), false), m); };
+    expr_ref_vector branches(m), xs(m);
+    for (unsigned k = 0; k < n; ++k)
+        branches.push_back(m.mk_and(a.mk_le(num(k), x), a.mk_lt(x, num(k + 1))));
+    if (closed)
+        branches.push_back(m.mk_eq(x, num(n)));
+    expr_ref boundary(a.mk_add(x, y), m);
+    ctx.add_hard_constraint(m.mk_or(branches));
+    ctx.add_hard_constraint(a.mk_le(boundary, num(n)));
+    ctx.add_hard_constraint(a.mk_ge(y, num(0)));
+    ctx.add_objective(to_app(x.get()), true);
+    ctx.add_objective(to_app(y.get()), true);
+    expr_ref_vector asms(m);
+    for (unsigned i = 0; i < 3; ++i) {
+        ENSURE(ctx.optimize(asms) == l_true);
+        model_ref model;
+        ctx.get_model(model);
+        ENSURE(model->is_true(m.mk_eq(boundary, num(n))));
+        expr_ref xv = (*model)(x);
+        ENSURE(a.is_numeral(xv));
+        for (expr* earlier : xs)
+            ENSURE(model->is_false(m.mk_eq(xv, earlier)));
+        xs.push_back(xv);
+    }
+}
+
 // Maximizes the given terms; the cone step simulates a timeout that fires
 // during it, which leaves the manager canceled when the step returns.
 class cancel_in_cone_callback : public opt::pareto_callback {
@@ -635,6 +738,14 @@ void tst_opt_pareto() {
     // Sampled fronts already exercise both nlsat modes; assumptions force SMT.
     tst_sampled_fronts(0, 8);
     tst_assumption_fallback();
+    for (smt_front_reason reason : {smt_front_reason::uninterpreted_function, smt_front_reason::assumption,
+                                    smt_front_reason::nlsat_disabled}) {
+        tst_continuous_front_smt(reason, 1);
+        tst_continuous_front_smt(reason, 1000);
+    }
+    for (unsigned n : {2, 6})
+        for (bool closed : {true, false})
+            tst_branch_front_smt(n, closed);
     // Run the remaining front tests with and without nlsat reuse. The UF case
     // must stay on the general SMT solver regardless of this setting.
     for (bool reuse_nlsat_solver : {false, true}) {
