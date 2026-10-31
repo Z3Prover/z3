@@ -16,7 +16,15 @@
      (`premise_scope_of`: `L.rev bs @ s` under binder sorts `bs`, else `s`).
      `lemma_entries_checked` proves that the bounded executable check implies
      it: the work-counted primitives compute exactly the list length, scope
-     membership and `Z3Definitions.scoped` whenever they finish.
+     membership and `Z3Definitions.scoped` whenever they finish. The guard
+     builds the scope under binders with the loop `scope_under`, which is
+     `L.rev_acc` and `L.rev bs @ s` (`lemma_scope_under`), and walks
+     expressions and compares sorts over explicit worklists. The recursive
+     definitions of 0ebb92579 are kept for the proof only (`*_rec`,
+     `binder_premise_scope_append`), and the loops change no result and no
+     remaining work (`lemma_sort_same`, `lemma_sort_list_same`,
+     `lemma_scoped_same`, `lemma_scoped_args_same`,
+     `lemma_premise_scope_same`).
    * Theorem 1, `lemma_root_scoped` / `lemma_checked_root_scoped`: the root is
      an entry, it is assigned `[]`, and its judgment (the node conclusion) is
      scoped at `[]` (closed and well sorted).
@@ -133,31 +141,127 @@ let rec lemma_count_cells (#a:Type) (acc:nat) (l:list a)
 let lemma_name_length (s:string) : Lemma (name_length s == FStar.String.strlen s)
   = lemma_count_cells 0 (FStar.String.list_of_string s)
 
-let rec lemma_sort_eq_within (work:nat) (s t:sort)
-  : Lemma (requires Some? (sort_eq_within work s t))
-          (ensures fst (Some?.v (sort_eq_within work s t)) == sort_eq s t)
+(* The recursive sort comparison of d50187500/0ebb92579, word for word under
+   new names, proof only: as deep as the sorts on the Cherry backend. *)
+let rec sort_eq_within_rec (work:nat) (s t:sort) : Tot (option (bool & nat)) (decreases s) =
+  match scope_charge work 1 with
+  | None -> None
+  | Some w ->
+    (match s, t with
+     | BaseSort a, BaseSort b ->
+       (match scope_charge w (name_length a + name_length b) with
+        | Some w' -> Some (a = b, w')
+        | None -> None)
+     | ArraySort d1 r1, ArraySort d2 r2 ->
+       (match sort_list_eq_within_rec w d1 d2 with
+        | Some (true, w') -> sort_eq_within_rec w' r1 r2
+        | r -> r)
+     | _, _ -> Some (false, w))
+
+and sort_list_eq_within_rec (work:nat) (l1 l2:list sort) : Tot (option (bool & nat)) (decreases l1) =
+  match scope_charge work 1 with
+  | None -> None
+  | Some w ->
+    (match l1, l2 with
+     | [], [] -> Some (true, w)
+     | a :: l1', b :: l2' ->
+       (match sort_eq_within_rec w a b with
+        | Some (true, w') -> sort_list_eq_within_rec w' l1' l2'
+        | r -> r)
+     | _, _ -> Some (false, w))
+
+(* What the worklist means: the recursive comparisons of its tasks in order,
+   up to the first that is not `Some (true, _)`. *)
+let rec sort_tasks_spec (work:nat) (tasks:list sort_task) : Tot (option (bool & nat)) (decreases tasks) =
+  match tasks with
+  | [] -> Some (true, work)
+  | SortPair s t :: rest ->
+    (match sort_eq_within_rec work s t with
+     | Some (true, w) -> sort_tasks_spec w rest
+     | r -> r)
+  | SortListPair l1 l2 :: rest ->
+    (match sort_list_eq_within_rec work l1 l2 with
+     | Some (true, w) -> sort_tasks_spec w rest
+     | r -> r)
+
+let rec lemma_sort_tasks (work:nat) (tasks:list sort_task)
+  : Lemma (ensures sort_tasks_within work tasks == sort_tasks_spec work tasks) (decreases work)
+  = match tasks with
+    | [] -> ()
+    | SortPair s t :: rest ->
+      (match scope_charge work 1 with
+       | None -> ()
+       | Some w ->
+         (match s, t with
+          | BaseSort a, BaseSort b ->
+            (match scope_charge w (name_length a + name_length b) with
+             | Some w' -> if a = b then lemma_sort_tasks w' rest
+             | None -> ())
+          | ArraySort d1 r1, ArraySort d2 r2 ->
+            lemma_sort_tasks w (SortListPair d1 d2 :: SortPair r1 r2 :: rest);
+            (match sort_list_eq_within_rec w d1 d2 with
+             | Some (true, w') -> ()
+             | _ -> ())
+          | _, _ -> ()))
+    | SortListPair l1 l2 :: rest ->
+      (match scope_charge work 1 with
+       | None -> ()
+       | Some w ->
+         (match l1, l2 with
+          | [], [] -> lemma_sort_tasks w rest
+          | a :: l1', b :: l2' ->
+            lemma_sort_tasks w (SortPair a b :: SortListPair l1' l2' :: rest);
+            (match sort_eq_within_rec w a b with
+             | Some (true, w') -> ()
+             | _ -> ())
+          | _, _ -> ()))
+
+(* The worklist comparison changes no result and no remaining work. *)
+let lemma_sort_same (work:nat) (s t:sort)
+  : Lemma (sort_eq_within work s t == sort_eq_within_rec work s t)
+  = lemma_sort_tasks work [SortPair s t]
+
+let lemma_sort_list_same (work:nat) (l1 l2:list sort)
+  : Lemma (sort_list_eq_within work l1 l2 == sort_list_eq_within_rec work l1 l2)
+  = lemma_sort_tasks work [SortListPair l1 l2]
+
+let rec lemma_sort_eq_within_rec (work:nat) (s t:sort)
+  : Lemma (requires Some? (sort_eq_within_rec work s t))
+          (ensures fst (Some?.v (sort_eq_within_rec work s t)) == sort_eq s t)
           (decreases s)
   = let w = work - 1 in
     match s, t with
     | ArraySort d1 r1, ArraySort d2 r2 ->
-      lemma_sort_list_eq_within w d1 d2;
-      (match sort_list_eq_within w d1 d2 with
-       | Some (true, w') -> lemma_sort_eq_within w' r1 r2
+      lemma_sort_list_eq_within_rec w d1 d2;
+      (match sort_list_eq_within_rec w d1 d2 with
+       | Some (true, w') -> lemma_sort_eq_within_rec w' r1 r2
        | _ -> ())
     | _, _ -> ()
 
-and lemma_sort_list_eq_within (work:nat) (l1 l2:list sort)
-  : Lemma (requires Some? (sort_list_eq_within work l1 l2))
-          (ensures fst (Some?.v (sort_list_eq_within work l1 l2)) == sort_list_eq l1 l2)
+and lemma_sort_list_eq_within_rec (work:nat) (l1 l2:list sort)
+  : Lemma (requires Some? (sort_list_eq_within_rec work l1 l2))
+          (ensures fst (Some?.v (sort_list_eq_within_rec work l1 l2)) == sort_list_eq l1 l2)
           (decreases l1)
   = let w = work - 1 in
     match l1, l2 with
     | a :: l1', b :: l2' ->
-      lemma_sort_eq_within w a b;
-      (match sort_eq_within w a b with
-       | Some (true, w') -> lemma_sort_list_eq_within w' l1' l2'
+      lemma_sort_eq_within_rec w a b;
+      (match sort_eq_within_rec w a b with
+       | Some (true, w') -> lemma_sort_list_eq_within_rec w' l1' l2'
        | _ -> ())
     | _, _ -> ()
+
+let lemma_sort_eq_within (work:nat) (s t:sort)
+  : Lemma (requires Some? (sort_eq_within work s t))
+          (ensures fst (Some?.v (sort_eq_within work s t)) == sort_eq s t)
+  = lemma_sort_same work s t;
+    lemma_sort_eq_within_rec work s t
+
+let lemma_sort_list_eq_within (work:nat) (l1 l2:list sort)
+  : Lemma (requires Some? (sort_list_eq_within work l1 l2))
+          (ensures fst (Some?.v (sort_list_eq_within work l1 l2)) == sort_list_eq l1 l2)
+  = lemma_sort_list_same work l1 l2;
+    lemma_sort_list_eq_within_rec work l1 l2
 
 (* The same as structural equality. *)
 let lemma_sort_equal_within (work:nat) (s t:sort)
@@ -204,9 +308,172 @@ let lemma_binder_scope_length (bs scope:list sort)
   = FStar.List.Tot.Properties.append_length (L.rev bs) scope;
     FStar.List.Tot.Properties.rev_length bs
 
-let rec lemma_scoped_within (work:nat) (scope:list sort) (len:nat) (e:expr)
-  : Lemma (requires len == L.length scope /\ Some? (scoped_within work scope len e))
-          (ensures fst (Some?.v (scoped_within work scope len e)) == D.scoped scope e)
+(* The guard's scope under binders: `scope_under` is the library's
+   tail-recursive `L.rev_acc`, which is `L.rev bs @ scope`. *)
+let rec lemma_scope_under_rev_acc (bs scope:list sort)
+  : Lemma (ensures scope_under bs scope == L.rev_acc bs scope) (decreases bs)
+  = match bs with
+    | [] -> ()
+    | b :: rest -> lemma_scope_under_rev_acc rest (b :: scope)
+
+let lemma_rev_acc_scope (#a:Type) (bs scope:list a)
+  : Lemma (L.rev_acc bs scope == L.append (L.rev bs) scope)
+  = FStar.List.Tot.Properties.rev_acc_rev' bs scope;
+    FStar.List.Tot.Properties.rev_rev' bs
+
+let lemma_scope_under (bs scope:list sort)
+  : Lemma (scope_under bs scope == L.append (L.rev bs) scope)
+  = lemma_scope_under_rev_acc bs scope;
+    lemma_rev_acc_scope bs scope
+
+(* The recursive walk of d50187500/0ebb92579, word for word under new names,
+   proof only: it built the scope under binders with `L.append (L.rev bs)
+   scope` and recursed through arguments and bodies, as deep as the
+   expression and as long as `bs` on the Cherry backend. With
+   `sort_eq_within == sort_eq_within_rec` (`lemma_sort_same`) and the
+   unchanged `sorts_match_within`, it is the 0ebb92579 function. *)
+let rec scoped_within_rec (work:nat) (scope:list sort) (len:nat) (e:expr)
+  : Tot (option (bool & nat)) (decreases e) =
+  match scope_charge work 1 with
+  | None -> None
+  | Some w ->
+    (match e with
+     | Var n s ->
+       if n < len then
+         (match scope_charge w (n + 1) with
+          | Some w' ->
+            (match scope_nth scope n with
+             | Some s' -> sort_eq_within w' s' s
+             | None -> Some (false, w'))
+          | None -> None)
+       else Some (false, w)
+     | App f args ->
+       (match sorts_match_within w args f.domain with
+        | Some (true, w') -> scoped_args_within_rec w' scope len args
+        | r -> r)
+     | Quantifier k bs s b ->
+       (match scope_length_within w bs with
+        | Some (m, w1) ->
+          (match scope_charge w1 (2 * m + 1) with
+           | Some w2 ->
+             (match sort_eq_within w2 s (quant_sort k bs (get_sort b)) with
+              | Some (true, w3) ->
+                (match (if k = Lambda_k then Some (true, w3) else sort_eq_within w3 (get_sort b) bool_sort) with
+                 | Some (true, w4) -> scoped_within_rec w4 (L.append (L.rev bs) scope) (m + len) b
+                 | r -> r)
+              | r -> r)
+           | None -> None)
+        | None -> None))
+
+and scoped_args_within_rec (work:nat) (scope:list sort) (len:nat) (args:list expr)
+  : Tot (option (bool & nat)) (decreases args) =
+  match args with
+  | [] -> Some (true, work)
+  | a :: rest ->
+    (match scoped_within_rec work scope len a with
+     | Some (true, w) -> scoped_args_within_rec w scope len rest
+     | Some (false, w) -> Some (false, w)
+     | None -> None)
+
+(* The premise scope of 0ebb92579, proof only. *)
+let binder_premise_scope_append (work:nat) (e:binder_entry) (scope:list sort) (len:nat)
+  : option (list sort & nat & nat) =
+  match e.binder_sorts with
+  | None -> Some (scope, len, work)
+  | Some bs ->
+    (match scope_length_within work bs with
+     | Some (m, w) ->
+       if m + len > binder_scope_limit then None
+       else (match scope_charge w (2 * m + 1) with
+             | Some w' -> Some (L.append (L.rev bs) scope, m + len, w')
+             | None -> None)
+     | None -> None)
+
+(* What the worklist of frames means: the recursive walk of every frame in
+   order, up to the first that is not `Some (true, _)`. *)
+let rec scoped_frames_spec (work:nat) (frames:list scope_frame)
+  : Tot (option (bool & nat)) (decreases frames) =
+  match frames with
+  | [] -> Some (true, work)
+  | (scope, len, es) :: rest ->
+    (match scoped_args_within_rec work scope len es with
+     | Some (true, w) -> scoped_frames_spec w rest
+     | r -> r)
+
+let rec lemma_scoped_frames (work:nat) (frames:list scope_frame)
+  : Lemma (ensures scoped_frames_within work frames == scoped_frames_spec work frames)
+          (decreases %[frame_nodes frames; L.length frames])
+  = match frames with
+    | [] -> ()
+    | (_, _, []) :: rest -> lemma_scoped_frames work rest
+    | (scope, len, e :: es) :: rest ->
+      let rest' = (scope, len, es) :: rest in
+      (match scope_charge work 1 with
+       | None -> ()
+       | Some w ->
+         (match e with
+          | Var n s ->
+            if n < len then
+              (match scope_charge w (n + 1) with
+               | Some w' ->
+                 (match scope_nth scope n with
+                  | Some s' ->
+                    (match sort_eq_within w' s' s with
+                     | Some (true, w'') -> lemma_scoped_frames w'' rest'
+                     | _ -> ())
+                  | None -> ())
+               | None -> ())
+          | App f args ->
+            (match sorts_match_within w args f.domain with
+             | Some (true, w') ->
+               lemma_scoped_frames w' ((scope, len, args) :: rest');
+               (match scoped_args_within_rec w' scope len args with
+                | Some (true, w'') -> ()
+                | _ -> ())
+             | _ -> ())
+          | Quantifier k bs s b ->
+            lemma_scope_under bs scope;
+            (match scope_length_within w bs with
+             | Some (m, w1) ->
+               (match scope_charge w1 (2 * m + 1) with
+                | Some w2 ->
+                  (match sort_eq_within w2 s (quant_sort k bs (get_sort b)) with
+                   | Some (true, w3) ->
+                     (match (if k = Lambda_k then Some (true, w3) else sort_eq_within w3 (get_sort b) bool_sort) with
+                      | Some (true, w4) ->
+                        lemma_scoped_frames w4 ((scope_under bs scope, m + len, [b]) :: rest');
+                        (match scoped_within_rec w4 (scope_under bs scope) (m + len) b with
+                         | Some (true, w'') -> ()
+                         | _ -> ())
+                      | _ -> ())
+                   | _ -> ())
+                | None -> ())
+             | None -> ())))
+
+(* The worklist walk changes no result and no remaining work. *)
+let lemma_scoped_same (work:nat) (scope:list sort) (len:nat) (e:expr)
+  : Lemma (scoped_within work scope len e == scoped_within_rec work scope len e)
+  = lemma_scoped_frames work [(scope, len, [e])];
+    match scoped_within_rec work scope len e with
+    | Some (true, w) -> ()
+    | _ -> ()
+
+let lemma_scoped_args_same (work:nat) (scope:list sort) (len:nat) (args:list expr)
+  : Lemma (scoped_args_within work scope len args == scoped_args_within_rec work scope len args)
+  = lemma_scoped_frames work [(scope, len, args)];
+    match scoped_args_within_rec work scope len args with
+    | Some (true, w) -> ()
+    | _ -> ()
+
+let lemma_premise_scope_same (work:nat) (e:binder_entry) (scope:list sort) (len:nat)
+  : Lemma (binder_premise_scope_within work e scope len == binder_premise_scope_append work e scope len)
+  = match e.binder_sorts with
+    | None -> ()
+    | Some bs -> lemma_scope_under bs scope
+
+let rec lemma_scoped_within_rec (work:nat) (scope:list sort) (len:nat) (e:expr)
+  : Lemma (requires len == L.length scope /\ Some? (scoped_within_rec work scope len e))
+          (ensures fst (Some?.v (scoped_within_rec work scope len e)) == D.scoped scope e)
           (decreases e)
   = let w = work - 1 in
     match e with
@@ -217,7 +484,7 @@ let rec lemma_scoped_within (work:nat) (scope:list sort) (len:nat) (e:expr)
     | App f args ->
       lemma_sorts_match_within w args f.domain;
       (match sorts_match_within w args f.domain with
-       | Some (true, w') -> lemma_scoped_args_within w' scope len args
+       | Some (true, w') -> lemma_scoped_args_within_rec w' scope len args
        | _ -> ())
     | Quantifier k bs s b ->
       let m, w1 = Some?.v (scope_length_within w bs) in
@@ -227,25 +494,37 @@ let rec lemma_scoped_within (work:nat) (scope:list sort) (len:nat) (e:expr)
       lemma_sort_equal_within w2 s (quant_sort k bs (get_sort b));
       (match sort_eq_within w2 s (quant_sort k bs (get_sort b)) with
        | Some (true, w3) ->
-         if k = Lambda_k then lemma_scoped_within w3 (L.append (L.rev bs) scope) (m + len) b
+         if k = Lambda_k then lemma_scoped_within_rec w3 (L.append (L.rev bs) scope) (m + len) b
          else (
            lemma_sort_equal_within w3 (get_sort b) bool_sort;
            match sort_eq_within w3 (get_sort b) bool_sort with
-           | Some (true, w4) -> lemma_scoped_within w4 (L.append (L.rev bs) scope) (m + len) b
+           | Some (true, w4) -> lemma_scoped_within_rec w4 (L.append (L.rev bs) scope) (m + len) b
            | _ -> ())
        | _ -> ())
 
-and lemma_scoped_args_within (work:nat) (scope:list sort) (len:nat) (args:list expr)
-  : Lemma (requires len == L.length scope /\ Some? (scoped_args_within work scope len args))
-          (ensures fst (Some?.v (scoped_args_within work scope len args)) == D.scoped_args scope args)
+and lemma_scoped_args_within_rec (work:nat) (scope:list sort) (len:nat) (args:list expr)
+  : Lemma (requires len == L.length scope /\ Some? (scoped_args_within_rec work scope len args))
+          (ensures fst (Some?.v (scoped_args_within_rec work scope len args)) == D.scoped_args scope args)
           (decreases args)
   = match args with
     | [] -> ()
     | a :: rest ->
-      lemma_scoped_within work scope len a;
-      (match scoped_within work scope len a with
-       | Some (true, w) -> lemma_scoped_args_within w scope len rest
+      lemma_scoped_within_rec work scope len a;
+      (match scoped_within_rec work scope len a with
+       | Some (true, w) -> lemma_scoped_args_within_rec w scope len rest
        | _ -> ())
+
+let lemma_scoped_within (work:nat) (scope:list sort) (len:nat) (e:expr)
+  : Lemma (requires len == L.length scope /\ Some? (scoped_within work scope len e))
+          (ensures fst (Some?.v (scoped_within work scope len e)) == D.scoped scope e)
+  = lemma_scoped_same work scope len e;
+    lemma_scoped_within_rec work scope len e
+
+let lemma_scoped_args_within (work:nat) (scope:list sort) (len:nat) (args:list expr)
+  : Lemma (requires len == L.length scope /\ Some? (scoped_args_within work scope len args))
+          (ensures fst (Some?.v (scoped_args_within work scope len args)) == D.scoped_args scope args)
+  = lemma_scoped_args_same work scope len args;
+    lemma_scoped_args_within_rec work scope len args
 
 let lemma_judgment_scoped_within (work:nat) (scope:list sort) (len:nat) (j:judgment)
   : Lemma (requires len == L.length scope /\ Some? (judgment_scoped_within work scope len j) /\
@@ -265,7 +544,7 @@ let lemma_premise_scope_within (work:nat) (e:binder_entry) (scope:list sort) (le
                     s' == premise_scope_of e scope /\ len' == L.length s'))
   = match e.binder_sorts with
     | None -> ()
-    | Some bs -> lemma_length_within work bs; lemma_binder_scope_length bs scope
+    | Some bs -> lemma_length_within work bs; lemma_binder_scope_length bs scope; lemma_scope_under bs scope
 
 let rec lemma_premises_within (t:scope_demands) (k:int) (ps:list int) (scope:list sort) (work:nat)
   : Lemma (requires Some? (scope_premises_demanded t k ps scope work))

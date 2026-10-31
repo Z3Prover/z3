@@ -11,16 +11,17 @@
    value is a surrogate or above U+10FFFF. Overlong 3- and 4-byte forms keep
    their value, as in the Cherry runtime. One difference: the Cherry runtime
    maps the valid scalar U+D7FF to U+FFFD; here it is U+D7FF. The checker uses
-   only the length of this list (`Z3UnifiedProof.name_length`), which is the
-   same on both runtimes for every byte string. It is a loop, with no stack in
-   the length of the string.
+   only the length of this list (`Z3UnifiedProof.name_length`), which agrees
+   with the Cherry runtime by construction (the same step widths) and was equal
+   on the tested corpus; there is no proof for arbitrary bytes. It is a loop,
+   with no stack in the length of the string.
 
    `strlen` is `List.length (list_of_string s)`, by the same steps without
    building the list. On valid UTF-8 this counts the code points. On any byte
    string it is at least the byte length divided by 4 (every step covers at
    most 4 bytes), so a malformed string (stray continuation bytes, truncated
-   sequences) is never counted as shorter than that; both backends give the
-   same count on every input. *)
+   sequences) is never counted as shorter than that; both backends step by the
+   same widths. *)
 
 let width (b : int) : int =
   if b < 0x80 then 1 else if b < 0xE0 then 2 else if b < 0xF0 then 3 else 4

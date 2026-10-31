@@ -770,7 +770,8 @@ lookup takes up to `log2 n + 1` steps, and the two names of a comparison
 are counted before they are charged (`name_length`, proved equal to
 `FStar.String.strlen`: a tail-recursive count of `list_of_string`, so no
 stack in the name's length; both runtimes decode one character per UTF-8
-lead byte, at least a quarter of the bytes even for malformed names). The
+lead byte, at least a quarter of the bytes even for malformed names, and
+materialize about twice as many transient list cells as characters). The
 uncharged work is that of the two names of the one comparison whose charge
 exceeds the remaining budget. Exceeding a bound rejects the certificate,
 also a legitimate one: the budget grows with the number of entries, and a
@@ -784,6 +785,29 @@ premise used at an assigned scope is scoped under the user's reversed
 binder sorts. The
 bounded primitives compute exactly `D.scoped`, list length, scope
 membership and sort equality.
+
+The guard's walks are loops on both backends. The scope under binders
+(`scope_under`, equal to `L.rev bs @ S`), the expression walk
+(`scoped_frames_within`) and the sort comparison (`sort_tasks_within`)
+keep their pending work on explicit worklists, with at most two new
+worklist cells per step and every step but a failing last one charged at
+least one unit; the list and name counts are loops.
+`Z3BinderScope` proves each equal to the recursive function it replaced
+(the guard of `0ebb92579`), on every input, for the result and the work
+left (`lemma_scope_under`, `lemma_scoped_same`, `lemma_sort_same`,
+`lemma_premise_scope_same`), so no decision, charge or bound changed. The
+recursive versions overflowed the default 8 MiB native stack of the
+Cherry checker on certificates whose used internal entries hold a
+quantifier over 180,000 binders (`L.append` of the binder list),
+40,000 nested applications, or a sort nested 50,000 deep in an array
+domain, all accepted by the checker without the guard. The Cherry
+regression `Z3CherryTests.binder_guard_stack` decides such certificates
+(200,000 binders, 200,000 negations, depth 50,000). This concerns the
+guard's own stack only: `check_binder_entries`, which runs before it,
+recurses once per entry (a native overflow near 20,000 `refl` entries,
+also without the guard), and the 33 `List.Tot.length` uses on sort lists
+and the expression and sort recursion elsewhere in the checker are
+unchanged.
 
 `Z3BinderKernel` proves, from `Z3TypedQuantifier.quantifier_model`, that
 an introduction node checked with pending 0 has a true conclusion under
@@ -2949,7 +2973,7 @@ opam/OCaml are otherwise unavailable natively on Windows:
 | `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |
 | `fStar_UInt32.ml` | Native integer character-facing representation; `v` converts to exact `Prims.int` |
 | `fStar_UInt.ml` | Fixed-width modular arithmetic, masks, shifts, rotations, and bitwise operations via Zarith |
-| `fStar_String.ml` | `list_of_string` (code points as `int`, decoded like the Cherry runtime by UTF-8 lead byte, U+FFFD for malformed sequences; it differs from the Cherry runtime only at U+D7FF, which the Cherry runtime maps to U+FFFD) and `strlen` (the length of that list, without building it); loops, no Batteries. The checker uses only the length (`Z3UnifiedProof.name_length`), which agrees with the Cherry runtime on every byte string |
+| `fStar_String.ml` | `list_of_string` (code points as `int`, decoded like the Cherry runtime by UTF-8 lead byte, U+FFFD for malformed sequences; it differs from the Cherry runtime only at U+D7FF, which the Cherry runtime maps to U+FFFD) and `strlen` (the length of that list, without building it); loops, no Batteries. The checker uses only the length (`Z3UnifiedProof.name_length`). It agrees with the Cherry runtime by construction (the same lead-byte step widths) and was equal on the tested corpus (20,041 byte strings, including malformed and 100,000-character names); this is not a proof of conformance on arbitrary bytes |
 | `fStar_FunctionalExtensionality.ml` | `restricted_t` as a plain function-type alias (type-level only; never invoked at runtime by this checker) |
 | `pulse_Lib_Reference.ml` | `ref`/`alloc`/`read`/`write` over a native OCaml `ref`, matching the exact (ghost-argument-padded) call shapes the extracted code uses: `alloc () v`, `read r () ()`, `write r v` |
 | `pulse_Lib_Dv.ml` | `unreachable () = Stdlib.failwith "..."` |

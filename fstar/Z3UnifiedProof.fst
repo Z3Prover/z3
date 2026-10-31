@@ -570,13 +570,29 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
      every cell built or indexed is charged; and `len + 2` units per assigned
      scope of length `len`.
 
+   Stack. The guard's walks are loops (self tail calls, which the Cherry
+   backend compiles to `goto`): the scope under `bs` is built by
+   `scope_under`, which equals `L.rev bs @ scope`; the expression walk
+   (`scoped_frames_within`) and the sort comparison (`sort_tasks_within`)
+   keep their pending work on explicit worklists, with at most two new cells
+   per step and every step but a failing last one charged at least a unit;
+   the list and name counts are loops. They
+   compute exactly the results and the work left of the recursive functions
+   of 0ebb92579 (`Z3BinderScope.lemma_scope_under`, `lemma_scoped_same`,
+   `lemma_sort_same`, `lemma_premise_scope_same`), whose recursion was as
+   deep as the expression, the sort or the binder list on the Cherry
+   backend. This is not a stack bound for the whole checker:
+   `check_binder_entries`, which runs before the guard, still recurses once
+   per entry.
+
    The units are an abstract count, not a time bound: a lookup in
    `Z3ProofIndex.index_tree` costs up to `log2 n + 1` steps, and an integer
    (bignum) comparison or update is one primitive operation. The two names'
    lengths are computed before they are charged: both runtimes decode one
    character per UTF-8 lead byte (`ocaml_runtime/fStar_String.ml` decodes
-   like the Cherry runtime), in as many steps and list cells as the count,
-   which is at least a quarter of the name's bytes also for malformed UTF-8;
+   like the Cherry runtime), in as many steps as the count and about twice as
+   many transient list cells (the decoded list and its reversal), and the
+   count is at least a quarter of the name's bytes also for malformed UTF-8;
    the count is a tail-recursive loop, so it needs no stack proportional to
    the name. The uncharged work is therefore that of the two names of the
    one comparison whose charge exceeds the remaining budget (neither name
@@ -628,35 +644,64 @@ let rec count_cells (#a:Type) (acc:nat) (l:list a) : Tot nat (decreases l) =
    (a native stack overflow on names of a few hundred thousand characters). *)
 let name_length (s:string) : nat = count_cells 0 (FStar.String.list_of_string s)
 
-(* `sort_eq s t` and `sort_list_eq l1 l2` (structural sort equality), one
-   unit per sort node and list cell visited, and the two names' lengths
-   before two base-sort names are compared. *)
-let rec sort_eq_within (work:nat) (s t:sort) : Tot (option (bool & nat)) (decreases s) =
-  match scope_charge work 1 with
-  | None -> None
-  | Some w ->
-    (match s, t with
-     | BaseSort a, BaseSort b ->
-       (match scope_charge w (name_length a + name_length b) with
-        | Some w' -> Some (a = b, w')
-        | None -> None)
-     | ArraySort d1 r1, ArraySort d2 r2 ->
-       (match sort_list_eq_within w d1 d2 with
-        | Some (true, w') -> sort_eq_within w' r1 r2
-        | r -> r)
-     | _, _ -> Some (false, w))
+(* The scope under the binder sorts `bs`, `L.rev bs @ scope` (`Var 0` is the
+   last binder; `Z3BinderScope.lemma_scope_under`), by a self tail call: the
+   Cherry backend compiles it to a loop (`goto`), so it needs no stack in the
+   length of `bs`, which inside an expression is bounded only by the work.
+   `L.append` is a recursion as deep as `bs` on the Cherry backend. This is
+   `L.rev_acc bs scope`, written here because the OCaml runtime stand-in
+   (`ocaml_runtime/fStar_List_Tot_Base.ml`) does not provide `rev_acc`. *)
+let rec scope_under (bs scope:list sort) : Tot (list sort) (decreases bs) =
+  match bs with
+  | [] -> scope
+  | b :: rest -> scope_under rest (b :: scope)
 
-and sort_list_eq_within (work:nat) (l1 l2:list sort) : Tot (option (bool & nat)) (decreases l1) =
-  match scope_charge work 1 with
-  | None -> None
-  | Some w ->
-    (match l1, l2 with
-     | [], [] -> Some (true, w)
-     | a :: l1', b :: l2' ->
-       (match sort_eq_within w a b with
-        | Some (true, w') -> sort_list_eq_within w' l1' l2'
-        | r -> r)
-     | _, _ -> Some (false, w))
+(* One task of the sort comparison: two sorts, or two sort lists compared
+   cell by cell. *)
+type sort_task =
+  | SortPair : sort -> sort -> sort_task
+  | SortListPair : list sort -> list sort -> sort_task
+
+(* `sort_eq s t` and `sort_list_eq l1 l2` (structural sort equality) for the
+   tasks in order, one unit per sort node and list cell visited, and the two
+   names' lengths before two base-sort names are compared; the first unequal
+   pair or exhausted budget ends the comparison. The pending comparisons are
+   an explicit worklist and the function is a self tail call, which the
+   Cherry backend compiles to a loop (`goto`): it needs no stack in the depth
+   of the sorts. Each step charges a unit and pushes at most two tasks, so the
+   worklist cells allocated are at most twice the units charged. It computes
+   exactly what the recursive comparison of d50187500/0ebb92579 computed,
+   result and work left (`Z3BinderScope.lemma_sort_same`). *)
+let rec sort_tasks_within (work:nat) (tasks:list sort_task)
+  : Tot (option (bool & nat)) (decreases work) =
+  match tasks with
+  | [] -> Some (true, work)
+  | SortPair s t :: rest ->
+    (match scope_charge work 1 with
+     | None -> None
+     | Some w ->
+       (match s, t with
+        | BaseSort a, BaseSort b ->
+          (match scope_charge w (name_length a + name_length b) with
+           | Some w' -> if a = b then sort_tasks_within w' rest else Some (false, w')
+           | None -> None)
+        | ArraySort d1 r1, ArraySort d2 r2 ->
+          sort_tasks_within w (SortListPair d1 d2 :: SortPair r1 r2 :: rest)
+        | _, _ -> Some (false, w)))
+  | SortListPair l1 l2 :: rest ->
+    (match scope_charge work 1 with
+     | None -> None
+     | Some w ->
+       (match l1, l2 with
+        | [], [] -> sort_tasks_within w rest
+        | a :: l1', b :: l2' -> sort_tasks_within w (SortPair a b :: SortListPair l1' l2' :: rest)
+        | _, _ -> Some (false, w)))
+
+let sort_eq_within (work:nat) (s t:sort) : option (bool & nat) =
+  sort_tasks_within work [SortPair s t]
+
+let sort_list_eq_within (work:nat) (l1 l2:list sort) : option (bool & nat) =
+  sort_tasks_within work [SortListPair l1 l2]
 
 (* `sorts_match args dom`. *)
 let rec sorts_match_within (work:nat) (args:list expr) (dom:list sort)
@@ -689,49 +734,89 @@ let rec scope_nth (scope:list sort) (n:nat) : Tot (option sort) (decreases scope
   | [] -> None
   | s :: rest -> if n = 0 then Some s else scope_nth rest (n - 1)
 
-(* `Z3Definitions.scoped scope e`, for `len` the length of `scope`. *)
-let rec scoped_within (work:nat) (scope:list sort) (len:nat) (e:expr)
-  : Tot (option (bool & nat)) (decreases e) =
-  match scope_charge work 1 with
-  | None -> None
-  | Some w ->
-    (match e with
-     | Var n s ->
-       if n < len then
-         (match scope_charge w (n + 1) with
-          | Some w' ->
-            (match scope_nth scope n with
-             | Some s' -> sort_eq_within w' s' s
-             | None -> Some (false, w'))
-          | None -> None)
-       else Some (false, w)
-     | App f args ->
-       (match sorts_match_within w args f.domain with
-        | Some (true, w') -> scoped_args_within w' scope len args
-        | r -> r)
-     | Quantifier k bs s b ->
-       (match scope_length_within w bs with
-        | Some (m, w1) ->
-          (match scope_charge w1 (2 * m + 1) with
-           | Some w2 ->
-             (match sort_eq_within w2 s (quant_sort k bs (get_sort b)) with
-              | Some (true, w3) ->
-                (match (if k = Lambda_k then Some (true, w3) else sort_eq_within w3 (get_sort b) bool_sort) with
-                 | Some (true, w4) -> scoped_within w4 (L.append (L.rev bs) scope) (m + len) b
-                 | r -> r)
-              | r -> r)
-           | None -> None)
-        | None -> None))
+(* Expression nodes, the termination measure of `scoped_frames_within`
+   (proof only, not extracted). *)
+noextract
+let rec expr_nodes (e:expr) : Tot nat (decreases e) =
+  match e with
+  | Var _ _ -> 1
+  | App _ args -> 1 + expr_list_nodes args
+  | Quantifier _ _ _ b -> 1 + expr_nodes b
 
-and scoped_args_within (work:nat) (scope:list sort) (len:nat) (args:list expr)
-  : Tot (option (bool & nat)) (decreases args) =
-  match args with
+and expr_list_nodes (es:list expr) : Tot nat (decreases es) =
+  match es with
+  | [] -> 0
+  | a :: rest -> expr_nodes a + expr_list_nodes rest
+
+(* A frame of the scope check: the expressions still to be checked, in
+   order, at a scope and its length. *)
+type scope_frame = list sort & nat & list expr
+
+noextract
+let rec frame_nodes (frames:list scope_frame) : Tot nat (decreases frames) =
+  match frames with
+  | [] -> 0
+  | (_, _, es) :: rest -> expr_list_nodes es + frame_nodes rest
+
+(* `Z3Definitions.scoped scope e` for every expression of every frame, in
+   order, for `len` the length of `scope`; the first expression that is not
+   scoped, or the exhausted budget, ends the check. The pending expressions
+   are an explicit worklist of frames and the function is a self tail call,
+   which the Cherry backend compiles to a loop (`goto`): it needs no stack in
+   the depth of the expression. Each expression node allocates at most two
+   frames and, unless its first charge fails and ends the check, is charged
+   at least a unit; popping an exhausted frame allocates nothing. It computes
+   exactly what the recursive walk of
+   d50187500/0ebb92579 computed, result and work left
+   (`Z3BinderScope.lemma_scoped_same`). *)
+let rec scoped_frames_within (work:nat) (frames:list scope_frame)
+  : Tot (option (bool & nat)) (decreases %[frame_nodes frames; L.length frames]) =
+  match frames with
   | [] -> Some (true, work)
-  | a :: rest ->
-    (match scoped_within work scope len a with
-     | Some (true, w) -> scoped_args_within w scope len rest
-     | Some (false, w) -> Some (false, w)
-     | None -> None)
+  | (_, _, []) :: rest -> scoped_frames_within work rest
+  | (scope, len, e :: es) :: rest ->
+    let rest' = (scope, len, es) :: rest in
+    (match scope_charge work 1 with
+     | None -> None
+     | Some w ->
+       (match e with
+        | Var n s ->
+          if n < len then
+            (match scope_charge w (n + 1) with
+             | Some w' ->
+               (match scope_nth scope n with
+                | Some s' ->
+                  (match sort_eq_within w' s' s with
+                   | Some (true, w'') -> scoped_frames_within w'' rest'
+                   | r -> r)
+                | None -> Some (false, w'))
+             | None -> None)
+          else Some (false, w)
+        | App f args ->
+          (match sorts_match_within w args f.domain with
+           | Some (true, w') -> scoped_frames_within w' ((scope, len, args) :: rest')
+           | r -> r)
+        | Quantifier k bs s b ->
+          (match scope_length_within w bs with
+           | Some (m, w1) ->
+             (match scope_charge w1 (2 * m + 1) with
+              | Some w2 ->
+                (match sort_eq_within w2 s (quant_sort k bs (get_sort b)) with
+                 | Some (true, w3) ->
+                   (match (if k = Lambda_k then Some (true, w3) else sort_eq_within w3 (get_sort b) bool_sort) with
+                    | Some (true, w4) -> scoped_frames_within w4 ((scope_under bs scope, m + len, [b]) :: rest')
+                    | r -> r)
+                 | r -> r)
+              | None -> None)
+           | None -> None)))
+
+(* `Z3Definitions.scoped scope e`, for `len` the length of `scope`. *)
+let scoped_within (work:nat) (scope:list sort) (len:nat) (e:expr) : option (bool & nat) =
+  scoped_frames_within work [(scope, len, [e])]
+
+(* `Z3Definitions.scoped_args scope args`. *)
+let scoped_args_within (work:nat) (scope:list sort) (len:nat) (args:list expr) : option (bool & nat) =
+  scoped_frames_within work [(scope, len, args)]
 
 let judgment_scoped_within (work:nat) (scope:list sort) (len:nat) (j:judgment)
   : option (bool & nat) =
@@ -753,7 +838,7 @@ let binder_premise_scope_within (work:nat) (e:binder_entry) (scope:list sort) (l
      | Some (m, w) ->
        if m + len > binder_scope_limit then None
        else (match scope_charge w (2 * m + 1) with
-             | Some w' -> Some (L.append (L.rev bs) scope, m + len, w')
+             | Some w' -> Some (scope_under bs scope, m + len, w')
              | None -> None)
      | None -> None)
 
