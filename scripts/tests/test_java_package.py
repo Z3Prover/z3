@@ -71,10 +71,10 @@ class JavaPackagingTests(unittest.TestCase):
                                 'invalid.z3.prototype', 'z3', '5.3.2-packaging-SNAPSHOT')
 
     def add_unix_platform(self, classifier):
-        if classifier == 'linux-x64':
+        if classifier.startswith('linux-'):
             data = bytearray(64)
             data[:6] = b'\x7fELF\x02\x01'
-            struct.pack_into('<H', data, 18, 62)
+            struct.pack_into('<H', data, 18, {'linux-x64': 62, 'linux-arm64': 183}[classifier])
             binary = bytes(data)
         else:
             binary = b'\xcf\xfa\xed\xfe' + struct.pack('<I', 0x100000c) + bytes(24)
@@ -94,6 +94,7 @@ class JavaPackagingTests(unittest.TestCase):
     def test_universal_contains_exact_platform_union_and_one_api(self):
         sources = {'win-x64': self.entries,
                    'linux-x64': self.add_unix_platform('linux-x64'),
+                   'linux-arm64': self.add_unix_platform('linux-arm64'),
                    'osx-arm64': self.add_unix_platform('osx-arm64')}
         out = self.build(platforms=list(sources))
         provenance = json.loads((out / 'provenance.json').read_bytes())
@@ -105,7 +106,7 @@ class JavaPackagingTests(unittest.TestCase):
             license_text = next(v for k, v in sources[classifier].items() if k.endswith('/LICENSE.txt'))
             self.assertEqual(universal['META-INF/z3/licenses/' + classifier + '.txt'], license_text)
         self.assertEqual({k: v for k, v in universal.items() if k.startswith(package.RESOURCE_PREFIX)}, union)
-        self.assertEqual(len(union), 6)
+        self.assertEqual(len(union), 8)
         self.assertEqual({k: v for k, v in universal.items() if k.endswith('.class')}, self.api_entries)
         embedded = json.loads(universal['META-INF/z3/provenance.json'])
         self.assertEqual(set(embedded['platforms']), set(sources))

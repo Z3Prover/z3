@@ -89,6 +89,7 @@
     X(api_polynomial) \
     X(api_pb) \
     X(api_datalog) \
+    X(spacer) \
     X(parametric_datatype) \
     X(cube_clause) \
     X(old_interval) \
@@ -134,6 +135,7 @@
     X(check_assumptions) \
     X(smt_context) \
     X(sat_config) \
+    X(sat_unsat_core) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
@@ -141,6 +143,7 @@
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
+    X(inc_sat_solver_pop) \
     X(ff_domain) \
     X(ff_solver) \
     X(ff_euf) \
@@ -165,6 +168,7 @@
     X(opt_bounds) \
     X(opt_nlsat) \
     X(opt_pareto) \
+    X(opt_quantifiers) \
     X(opt_value) \
     X(13) \
     X(zstring)

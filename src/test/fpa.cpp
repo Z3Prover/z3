@@ -379,6 +379,36 @@ static void check_fp_commands(char const* input, char const* expected) {
     Z3_del_context(ctx);
 }
 
+static void test_fma_small_significand() {
+    char const* input =
+        "(set-logic QF_FP)\n"
+        "(declare-const x (_ FloatingPoint 2 3))\n"
+        "(declare-const y (_ FloatingPoint 2 3))\n"
+        "(declare-const z (_ FloatingPoint 2 3))\n"
+        "(push)\n"
+        "(assert (= x (fp.neg ((_ to_fp 2 3) RNE 3.0))))\n"
+        "(assert (= y ((_ to_fp 2 3) RNE 1.0)))\n"
+        "(assert (= z ((_ to_fp 2 3) RNE 0.5)))\n"
+        "(assert (= (fp.fma RNE x y z) (fp.neg ((_ to_fp 2 3) RNE 2.5))))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (= x (fp.neg ((_ to_fp 2 3) RNE 3.0))))\n"
+        "(assert (= y ((_ to_fp 2 3) RNE 1.0)))\n"
+        "(assert (= z ((_ to_fp 2 3) RNE 0.5)))\n"
+        "(assert (= (fp.fma RNE x y z) (_ -oo 2 3)))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (= x ((_ to_fp 2 3) RNE 0.25)))\n"
+        "(assert (= y ((_ to_fp 2 3) RNE 0.25)))\n"
+        "(assert (= z ((_ to_fp 2 3) RNE 0.25)))\n"
+        "(assert (= (fp.fma RNE x y z) ((_ to_fp 2 3) RNE 1.25)))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+    check_fp_commands(input, "sat\nunsat\nunsat\n");
+}
+
 static void test_raw_nan_congruence() {
     char const* prelude =
         "(set-logic ALL)\n"
@@ -432,6 +462,7 @@ static void test_null_fp_arguments() {
 }
 
 void tst_fpa() {
+    test_fma_small_significand();
     test_incremental_symbolic_to_fp_real();
     test_raw_nan_congruence();
     test_rem_subnormal_divisor();

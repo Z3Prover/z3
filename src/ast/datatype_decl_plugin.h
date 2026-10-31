@@ -439,6 +439,7 @@ namespace datatype {
         unsigned get_datatype_num_constructors(sort * ty);
         unsigned get_datatype_num_parameter_sorts(sort * ty);
         sort*  get_datatype_parameter_sort(sort * ty, unsigned idx);
+        bool is_non_rec_constructor(func_decl * c);
         func_decl * get_non_rec_constructor(sort * ty);
         func_decl * get_constructor_recognizer(func_decl * constructor);
         func_decl * get_constructor_is(func_decl * constructor);
@@ -514,5 +515,4 @@ inline constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r
 datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs, symbol const& subterm_name = symbol::null);
 inline void del_datatype_decl(datatype_decl * d) {}
 inline void del_datatype_decls(unsigned num, datatype_decl * const * ds) {}
-
 

@@ -1,0 +1,5 @@
+F* 2026.09.27, Z3 4.13.3, timeout 120s, z3rlimit 10, fresh cache
+exit code: exit 0
+Verified module: Z3OptNlsatInline
+All verification conditions discharged successfully
+stderr: (empty)

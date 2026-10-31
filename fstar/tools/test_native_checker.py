@@ -578,6 +578,23 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stdout.strip()), expected,
                                  result.stdout + result.stderr)
 
+    def test_long_sort_names_in_binder_certificates(self):
+        # The binder scope guard charges sort names by their length before comparing them. A
+        # 300,000-character name exceeds the guard's budget and stays pending; the Cherry checker
+        # counted it with a recursion as deep as the name and overflowed its native stack.
+        for length, expected in ((1000, "ACCEPT"), (300_000, "PARTIAL")):
+            name = "S" * length
+            source = (f"(declare-sort {name} 0)(declare-fun p ({name}) Bool)(declare-const c {name})"
+                      f"(assert (forall ((x {name})) (and (p x) true)))(assert (not (p c)))")
+            with self.subTest(length=length):
+                result = self.run_checker(source, "--diagnostics")
+                if expected == "ACCEPT":
+                    self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                     result.stdout + result.stderr)
+                else:
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
             with self.subTest(case=name):

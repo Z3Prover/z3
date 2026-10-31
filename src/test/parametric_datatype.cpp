@@ -351,7 +351,34 @@ static void test_subterm_recursive_polarity() {
     }
 }
 
+static void test_non_recursive_recognizer_phases() {
+    cmd_context ctx;
+    std::stringstream input(
+        "(declare-datatype T ((nil) (leaf (value Int)) (cons (tail T))"
+        " (seq-node (children (Seq T))) (array-node (entries (Array Int T)))))\n"
+        "(declare-datatype E ((a) (b)))\n"
+        "(declare-const x T)\n"
+        "(declare-const e E)\n"
+        "(assert ((_ is nil) x))\n"
+        "(assert ((_ is leaf) x))\n"
+        "(assert ((_ is cons) x))\n"
+        "(assert ((_ is seq-node) x))\n"
+        "(assert ((_ is array-node) x))\n"
+        "(assert ((_ is a) e))\n");
+    ENSURE(parse_smt2_commands(ctx, input));
+    smt_params params;
+    smt::context smt_ctx(ctx.m(), params);
+    smt_ctx.push();
+    unsigned i = 0;
+    for (expr* a : ctx.assertions()) {
+        smt_ctx.internalize(a, false);
+        ENSURE(smt_ctx.try_true_first(smt_ctx.get_bool_var(a)) == (i < 2));
+        ++i;
+    }
+}
+
 void tst_parametric_datatype() {
+    test_non_recursive_recognizer_phases();
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
     test_subterm_recursive_polarity();

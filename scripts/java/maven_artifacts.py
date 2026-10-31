@@ -4,6 +4,7 @@
 ############################################
 import argparse
 from pathlib import Path
+import re
 import shutil
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
@@ -14,7 +15,14 @@ from smoke import read_provenance, verify_jar
 from mk_java_package import checked_zip, json_bytes, metadata_names, package_basename, sha256, write_checksums
 
 NS = 'http://maven.apache.org/POM/4.0.0'
+TEST_GROUP = 'invalid.z3.prototype'
 ET.register_namespace('', NS)
+
+
+def validate_group(group):
+    if not re.fullmatch(r'[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+', group):
+        raise ValueError('Unsafe Maven groupId')
+    return group
 
 
 def pom_text(identity, commit):
@@ -25,15 +33,15 @@ def pom_text(identity, commit):
     return text
 
 
-def prepare(packages, sources, out, work, mvn):
+def prepare(packages, sources, out, work, mvn, group_id=TEST_GROUP):
     packages, sources, out, work = [p.resolve() for p in (packages, sources, out, work)]
     if out.exists() or work.exists():
         raise ValueError('Use fresh Maven output and work directories')
     provenance = read_provenance(packages)
     base = package_basename(provenance)
-    # A fixed, deliberately invalid namespace prevents this preparation flow from
-    # being mistaken for an approved upstream Maven publication configuration.
-    identity = {'groupId': 'invalid.z3.prototype', **provenance['distribution']}
+    # Select coordinates before consumer validation. Preparing a group never
+    # grants publishing permission; the default remains deliberately invalid.
+    identity = {'groupId': validate_group(group_id), **provenance['distribution']}
     for line in (packages / metadata_names(provenance)[1]).read_text(encoding='ascii').splitlines():
         digest, name = line.split('  ', 1)
         if Path(name).name != name or sha256((packages / name).read_bytes()) != digest:
@@ -124,11 +132,12 @@ def main():
     for name in ('packages', 'sources', 'out-dir', 'work-dir'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--mvn', default=shutil.which('mvn') or shutil.which('mvn.cmd'))
+    parser.add_argument('--group-id', default=TEST_GROUP)
     args = parser.parse_args()
     try:
         if not args.mvn:
             raise ValueError('Maven is required for source/Javadoc plugins')
-        prepare(args.packages, args.sources, args.out_dir, args.work_dir, args.mvn)
+        prepare(args.packages, args.sources, args.out_dir, args.work_dir, args.mvn, args.group_id)
     except (ValueError, KeyError, OSError) as error:
         parser.exit(1, 'Maven preparation failed: ' + str(error) + '\n')
 

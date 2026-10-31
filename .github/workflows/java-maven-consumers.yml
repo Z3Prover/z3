@@ -2,18 +2,25 @@ name: Java Maven Consumers
 
 on:
   workflow_call:
+    inputs:
+      group-id:
+        type: string
+        default: invalid.z3.prototype
 
 permissions:
   contents: read
 
 jobs:
   consumer:
+    env:
+      JAVA_MAVEN_GROUP_ID: ${{ inputs.group-id }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         include:
           - {os: ubuntu-24.04, platform: linux-x64, architecture: x64}
+          - {os: ubuntu-24.04-arm, platform: linux-arm64, architecture: aarch64}
           - {os: windows-2025, platform: win-x64, architecture: x64}
           - {os: macos-15, platform: osx-arm64, architecture: aarch64}
     runs-on: ${{ matrix.os }}
@@ -41,14 +48,20 @@ jobs:
         with:
           name: java-maven-test-repository
           path: repository
-      - name: Resolve and execute the same JARs with Maven and Gradle
+      - name: Resolve platform and all JARs, plus the Maven automatic selector
+        shell: bash
         run: >-
           python scripts/java/maven_consumer.py --packages packages --platform ${{ matrix.platform }}
           --work-dir consumer-result --gradle --repository repository
+          --group-id "$JAVA_MAVEN_GROUP_ID"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: java-maven-consumer-${{ matrix.platform }}
-          path: consumer-result/receipt.json
+          path: |
+            consumer-result/receipt.json
+            consumer-result/maven-auto/pom.xml
+            consumer-result/maven-auto/classpath.txt
+            consumer-result/maven-auto/unsupported-platform.pom
           if-no-files-found: warn
           retention-days: 7

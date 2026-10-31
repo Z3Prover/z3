@@ -1,8 +1,10 @@
 module Z3ProofIndex
 
+[@@FStar.Attributes.custard_inline]
 let bind_opt (#a #b:Type) (x:option a) (f:a -> option b) : option b =
   match x with Some y -> f y | None -> None
 
+[@@FStar.Attributes.custard_inline]
 let ( >>= ) = bind_opt
 
 let rec opt_map (#a #b:Type) (f:a -> option b) (xs:list a)
@@ -13,6 +15,42 @@ let rec opt_map (#a #b:Type) (f:a -> option b) (xs:list a)
     (match f x, opt_map f rest with
      | Some y, Some ys -> Some (y :: ys)
      | _, _ -> None)
+
+(* [opt_map] is the specification; executable callers on lists that grow with the
+   proof use this tail-recursive version (see Z3List). *)
+let rec opt_map_acc (#a #b:Type) ([@@@FStar.Attributes.monomorphize] f:a -> option b)
+                    (xs:list a) (acc:list b)
+  : Tot (option (list b)) (decreases xs) =
+  match xs with
+  | [] -> Some (FStar.List.Tot.rev acc)
+  | x :: rest -> (match f x with Some y -> opt_map_acc f rest (y :: acc) | None -> None)
+
+let rec lemma_opt_map_acc (#a #b:Type) (f:a -> option b) (xs:list a) (acc:list b)
+  : Lemma (ensures opt_map_acc f xs acc ==
+                   (match opt_map f xs with
+                    | Some ys -> Some (FStar.List.Tot.append (FStar.List.Tot.rev acc) ys)
+                    | None -> None))
+          (decreases xs) =
+  match xs with
+  | [] -> FStar.List.Tot.append_l_nil (FStar.List.Tot.rev acc)
+  | x :: rest ->
+    match f x with
+    | Some y ->
+      lemma_opt_map_acc f rest (y :: acc);
+      Z3List.lemma_rev_cons y acc;
+      (match opt_map f rest with
+       | Some ys -> FStar.List.Tot.append_assoc (FStar.List.Tot.rev acc) [y] ys
+       | None -> ())
+    | None -> ()
+
+[@@FStar.Attributes.custard_inline]
+let opt_map_tail (#a #b:Type) ([@@@FStar.Attributes.monomorphize] f:a -> option b) (xs:list a)
+  : option (list b) =
+  opt_map_acc f xs []
+
+let lemma_opt_map_tail (#a #b:Type) (f:a -> option b) (xs:list a)
+  : Lemma (opt_map_tail f xs == opt_map f xs) [SMTPat (opt_map_tail f xs)] =
+  lemma_opt_map_acc f xs []
 
 noeq
 type index_tree (a:Type) =
