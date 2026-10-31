@@ -1,0 +1,187 @@
+name: Java Release Artifacts
+
+on:
+  workflow_call:
+    inputs:
+      maven-group-id:
+        type: string
+        default: invalid.z3.prototype
+      linux-artifact:
+        type: string
+        default: java-native-linux-x64
+      windows-artifact:
+        type: string
+        default: java-native-win-x64
+      macos-artifact:
+        type: string
+        default: java-native-osx-arm64
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      JAVA_MAVEN_GROUP_ID: ${{ inputs.maven-group-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            scripts
+            src/api/java
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.linux-artifact }}
+          path: native-artifacts/java-native-linux-x64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.windows-artifact }}
+          path: native-artifacts/java-native-win-x64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.macos-artifact }}
+          path: native-artifacts/java-native-osx-arm64
+      - name: Validate source, version, run, attempt and checksums
+        run: >-
+          python scripts/java/workflow_inputs.py collect --input-dir native-artifacts --out-dir native-inputs
+          --platform linux-x64 --platform win-x64 --platform osx-arm64 --source-commit ${{ github.sha }}
+          --repository ${{ github.repository }} --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+      - name: Assemble release attachments without recompiling native code
+        shell: bash
+        run: |
+          version=$(cut -d. -f1-3 scripts/VERSION.txt | tr -d '\r\n')
+          python scripts/mk_java_package.py --release --release-lock native-inputs/inputs.json \
+            --artifacts-dir native-inputs --api-jar native-inputs/prepared-api.jar \
+            --preparation native-inputs/preparation.json --out-dir java-packages \
+            --platform linux-x64 --platform win-x64 --platform osx-arm64 \
+            --artifact-id z3 --version "$version"
+      - name: Collect matching current-source Java files
+        run: >-
+          python scripts/java/sources.py --out-dir java-sources --work-dir java-generated
+          --api-jar native-inputs/prepared-api.jar
+      - name: Prepare unpublished Maven companions
+        shell: bash
+        run: >-
+          python scripts/java/maven_artifacts.py --packages java-packages --sources java-sources
+          --out-dir java-maven-packages --work-dir java-maven-work
+          --group-id "$JAVA_MAVEN_GROUP_ID"
+      - name: Assemble local Maven repository without changing JAR bytes
+        shell: bash
+        run: >-
+          python scripts/java/maven_bundle.py prepare --packages java-maven-packages
+          --out-dir java-maven-repository
+          --group-id "$JAVA_MAVEN_GROUP_ID"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-maven-test-repository
+          path: java-maven-repository/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-maven-test-packages
+          path: java-maven-packages/*
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-assembled-packages
+          path: java-packages/*
+          if-no-files-found: error
+          retention-days: 7
+
+  maven-consumers:
+    needs: package
+    uses: ./.github/workflows/java-maven-consumers.yml
+    with:
+      group-id: ${{ inputs.maven-group-id }}
+
+  maven-bundle:
+    needs: [package, smoke, maven-consumers]
+    uses: ./.github/workflows/java-maven-bundle.yml
+    with:
+      smoke-artifact-pattern: java-release-smoke-*
+      group-id: ${{ inputs.maven-group-id }}
+
+  smoke:
+    needs: package
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, platform: linux-x64, architecture: x64}
+          - {os: windows-2025, platform: win-x64, architecture: x64}
+          - {os: macos-15, platform: osx-arm64, architecture: aarch64}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: ${{ matrix.architecture }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-assembled-packages
+          path: packages
+      - name: Test the final platform and shared universal JARs
+        run: >-
+          python scripts/java/smoke.py --packages packages
+          --platform ${{ matrix.platform }} --jar-kind both --work-dir smoke-result
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: java-release-smoke-${{ matrix.platform }}
+          path: smoke-result/receipt.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  verified:
+    needs: [package, smoke, maven-consumers]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            scripts
+            src/api/java
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-assembled-packages
+          path: packages
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: java-release-smoke-*
+          path: receipts
+      - name: Require complete native results for the exact release JARs
+        shell: bash
+        run: |
+          version=$(cut -d. -f1-3 scripts/VERSION.txt | tr -d '\r\n')
+          python scripts/java/verify_release.py --packages packages --receipts receipts --out-dir verified \
+            --release-version "$version" --source-commit "$GITHUB_SHA" \
+            --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-release-packages
+          path: verified/*
+          if-no-files-found: error
+          retention-days: 7

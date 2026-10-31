@@ -1,0 +1,4 @@
+fstar.exe F* 2026.09.27, z3 4.13.3, --z3rlimit 10, timeout 120
+Verified module: AuditArithAxiom
+All verification conditions discharged successfully
+exit 0

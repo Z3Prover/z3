@@ -50,6 +50,7 @@
     X(region) \
     X(symbol) \
     X(heap) \
+    X(min_cut) \
     X(hashtable) \
     X(rational) \
     X(inf_rational) \
@@ -122,6 +123,7 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_limits) \
     X(seq_parikh) \
     X(seq_power) \
     X(seq_eq_approx) \
@@ -132,6 +134,7 @@
     X(check_assumptions) \
     X(smt_context) \
     X(sat_config) \
+    X(sat_unsat_core) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
@@ -139,11 +142,13 @@
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
+    X(inc_sat_solver_pop) \
     X(ff_domain) \
     X(ff_solver) \
     X(ff_euf) \
     X(ff_native_proof) \
     X(finite_field) \
+    X(flatten_clauses) \
     X(polynomial) \
     X(polynomial_factorization) \
     X(upolynomial) \
@@ -154,6 +159,7 @@
     X(nla_transcendentals) \
     X(nla_intervals) \
     X(lp_bound_propagation) \
+    X(lp_matrix) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
@@ -161,6 +167,7 @@
     X(opt_bounds) \
     X(opt_nlsat) \
     X(opt_pareto) \
+    X(opt_quantifiers) \
     X(opt_value) \
     X(13) \
     X(zstring)

@@ -1621,20 +1621,17 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE_FULL;
     }
     case longer_c: {
-        unsigned i = as.size();
-        while (i >= bs.size()) {
+        while (as.size() >= bs.size()) {
             switch (is_suffix(as, bs)) {
             case l_undef:
                 return BR_FAILED;
             case l_true: {
-                auto _seq0 = str().mk_length(a);
-                auto _seq1 = m_autil.mk_int(bs.size() - i);
-                result = m_autil.mk_sub(_seq0, _seq1);
+                expr_ref prefix(str().mk_concat(as.size() - bs.size(), as.data(), a->get_sort()), m());
+                result = str().mk_length(prefix);
                 return BR_REWRITE3;
             }
             case l_false:
                 as.pop_back();
-                --i;
                 break;
             }
         }
@@ -1693,7 +1690,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         auto b1 = m_autil.mk_le(c, str().mk_length(a));
         auto cond = m().mk_and(a1, b1);
         result = m().mk_ite(cond, c, minus_one());
-        return BR_REWRITE2;
+        return BR_REWRITE_FULL;
     }
 
     

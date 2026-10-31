@@ -36,6 +36,7 @@ type assigned_literal = {
 
 type assignment = index_tree assigned_literal
 
+[@@FStar.Attributes.cherry_boxed]
 noeq
 type database = {
   clauses: index_tree (option clause);
@@ -196,7 +197,7 @@ let assign (db:database) (b:builder) (values:assignment) (jobs:list nat)
       Conflict contradiction b
   | None ->
     let values = index_put values lit.atom { negative = lit.negative; proof_id = id } in
-    Pending values (affected db lit @ jobs) b
+    Pending values (Z3List.append (affected db lit) jobs) b
 
 let rec propagate (fuel:nat) (db:database) (b:builder)
                   (values:assignment) (jobs:list nat)
@@ -290,7 +291,7 @@ let rec reindex (entries:list (nat & P.entry)) (indices:index_tree nat)
   match entries with
   | [] -> Some (indices, L.rev result)
   | (id, e) :: rest ->
-    opt_map (fun old -> index_find indices old >>= (fun fresh -> Some (proof_index fresh)))
+    opt_map_tail (fun old -> index_find indices old >>= (fun fresh -> Some (proof_index fresh)))
       e.P.premise_ids >>= (fun premises ->
     reindex rest (index_put indices id next) (next + 1)
       ({ e with P.premise_ids = premises } :: result))

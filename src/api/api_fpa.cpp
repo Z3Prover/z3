@@ -26,15 +26,15 @@ static bool is_fp_sort(Z3_context c, Z3_sort s) {
 }
 
 static bool is_fp(Z3_context c, Z3_ast a) {
-    return mk_c(c)->fpautil().is_float(to_expr(a));
+    return a != nullptr && is_expr(a) && mk_c(c)->fpautil().is_float(to_expr(a));
 }
 
 static bool is_rm(Z3_context c, Z3_ast a) {
-    return mk_c(c)->fpautil().is_rm(to_expr(a));
+    return a != nullptr && is_expr(a) && mk_c(c)->fpautil().is_rm(to_expr(a));
 }
 
 static bool is_bv(Z3_context c, Z3_ast a) {
-    return mk_c(c)->bvutil().is_bv(to_expr(a));
+    return a != nullptr && is_expr(a) && mk_c(c)->bvutil().is_bv(to_expr(a));
 }
 
 extern "C" {
@@ -1231,7 +1231,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t)) {
+        if (!t || !is_expr(t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1245,7 +1245,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1259,7 +1259,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1273,7 +1273,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1287,7 +1287,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1301,7 +1301,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1315,7 +1315,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }
@@ -1329,7 +1329,7 @@ extern "C" {
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
-        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+        if (!t || !is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return false;
         }

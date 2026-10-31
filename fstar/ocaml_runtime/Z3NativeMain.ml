@@ -8,6 +8,7 @@ let diagnostic_rule = function
   | Z3UnifiedProof.Unverified name -> name
   | Z3UnifiedProof.ArithmeticFarkas _ -> "arith/farkas"
   | Z3UnifiedProof.ArithmeticGomory _ -> "arith/lp-gomory"
+  | Z3UnifiedProof.FiniteFieldPac _ -> "th-lemma"
   | Z3UnifiedProof.RewriteRule -> "rewrite"
   | Z3UnifiedProof.PullQuantifier -> "pull-quant"
   | Z3UnifiedProof.DestructiveEqualityResolution -> "der"
@@ -122,10 +123,7 @@ let fingerprint judgment =
 (* Inspect argument structure, not just the shared connective declaration. *)
 let assertion_hash value = Z.of_int (Hashtbl.hash_param 64 256 value)
 
-let report_diagnostics sorted schema doc expected =
-  let diagnostic =
-    if sorted then Z3SortedProof.diagnose_document schema doc
-    else Z3ProofDocument.diagnose_document_indexed assertion_hash doc in
+let report_diagnostics diagnostic expected =
   match diagnostic, expected with
   | Z3ProofDocument.DocumentChecked (pending, obligations), Some actual
       when Z.equal pending actual ->
@@ -160,9 +158,17 @@ let check_proof statistics diagnostics sorted_core start solved assertions proof
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
   let sorted = datatype || sorted_core in
-  let result =
-    if sorted then Z3SortedProof.check_document schema doc
-    else Z3ProofDocument.check_document_indexed assertion_hash doc in
+  let result, diagnostic =
+    if diagnostics then (
+      let result, diagnostic =
+        if sorted then Z3SortedProof.check_document_diagnosed schema doc
+        else Z3ProofDocument.check_document_diagnosed_indexed assertion_hash doc in
+      result, Some diagnostic)
+    else (
+      let result =
+        if sorted then Z3SortedProof.check_document schema doc
+        else Z3ProofDocument.check_document_indexed assertion_hash doc in
+      result, None) in
   let checked = Unix.gettimeofday () in
   let summary = Printf.sprintf
       "solve_ms=%.3f marshal_ms=%.3f check_ms=%.3f expressions=%d declarations=%d proof_nodes=%d semantics=%s"
@@ -171,10 +177,12 @@ let check_proof statistics diagnostics sorted_core start solved assertions proof
       (List.length doc.declarations) (List.length doc.entries)
       (if datatype then "sorted-datatype" else if sorted then "sorted-core" else "legacy") in
   if statistics then Printf.eprintf "%s\n%!" summary;
-  if diagnostics then (
-    report_diagnostics sorted schema doc result;
-    if statistics then
-      Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
+  (match diagnostic with
+   | None -> ()
+   | Some diagnostic ->
+       report_diagnostics diagnostic result;
+       if statistics then
+         Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->
     count + List.length entry.Z3ProofDocument.premise_ids) 0 doc.entries in
   let binder_nodes, binder_edges = List.fold_left (fun (nodes, edges) entry ->

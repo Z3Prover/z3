@@ -7,6 +7,7 @@ open Z3ObservationalEquality
 open FStar.List.Tot
 module B = Z3BoundedBoolEquiv
 module N = Z3BooleanNormalForm
+module C = Z3CanonicalOps
 
 type connective =
   | Conjunction
@@ -29,8 +30,27 @@ let connective_decl (op:connective) (args:list expr) : func_decl =
     interp = Some (if op = Conjunction then op_and else op_or);
     int_params = [] }
 
+let rec lemma_boolean_domain (args:list expr)
+  : Lemma (ensures C.boolean_sorts (boolean_domain args)) (decreases args)
+  = match args with
+    | [] -> ()
+    | _ :: rest -> lemma_boolean_domain rest
+
+(* The connective declarations built here are the canonical `and`/`or`. *)
+let lemma_connective_decl (op:connective) (args:list expr)
+  : Lemma (ensures (op = Conjunction ==> C.canonical_and (connective_decl op args)) /\
+                   (op = Disjunction ==> C.canonical_or (connective_decl op args)))
+          [SMTPat (connective_decl op args)]
+  = lemma_boolean_domain args
+
 let connective_app (op:connective) (f:func_decl) (args:list expr) : bool =
   f = connective_decl op args && boolean_args args
+
+let lemma_connective_app (op:connective) (f:func_decl) (args:list expr)
+  : Lemma (requires connective_app op f args)
+          (ensures (op = Conjunction ==> C.canonical_and f) /\ (op = Disjunction ==> C.canonical_or f))
+          [SMTPat (connective_app op f args)]
+  = lemma_boolean_domain args
 
 let rec flatten_expr (op:connective) (e:expr)
   : Tot (list expr) (decreases e) =
@@ -60,6 +80,12 @@ let connective_holds (op:connective) (i:interpretation value) (rho:env value)
   match op with
   | Conjunction -> conj_holds i rho args
   | Disjunction -> clause_holds i rho args
+
+(* The canonical connective built here holds exactly when its arguments do. *)
+let lemma_connective_holds (op:connective) (i:interpretation value) (rho:env value) (args:list expr)
+  : Lemma (requires and_sound i /\ or_sound i)
+          (ensures lit_true i rho (App (connective_decl op args) args) <==> connective_holds op i rho args)
+  = lemma_connective_decl op args
 
 let rec lemma_connective_append (op:connective) (i:interpretation value)
                                  (rho:env value) (xs ys:list expr)
@@ -141,6 +167,19 @@ let native_bool_op (f:func_decl) (args:list expr) : B.bool_op =
                 interp = Some op_false; int_params = [] } && args = []
   then B.BFalse
   else B.Opaque
+
+(* The declarations `native_bool_op` recognizes are the canonical connectives. *)
+let lemma_native_bool_op (f:func_decl) (args:list expr)
+  : Lemma (match native_bool_op f args with
+           | B.BNary B.And -> C.canonical_and f
+           | B.BNary B.Or -> C.canonical_or f
+           | B.BNot -> C.canonical_not f
+           | B.BImplies -> C.canonical_implies f
+           | B.BEq -> C.canonical_eq f
+           | B.BTrue -> C.canonical_true f
+           | B.BFalse -> C.canonical_false f
+           | _ -> True)
+  = lemma_boolean_domain args
 
 let reflexive_equality (e:expr) : bool =
   match e with
@@ -265,7 +304,10 @@ let boolean_equiv (depth width:nat) (s t:expr) : bool =
 let bool_value (v:value) : bool =
   match v with VBool b -> b | _ -> false
 
-let valuation (i:interpretation value) (rho:env value) : expr -> bool =
+(* Ghost: the truth of an atom under the (ghost) interpretation. Lemmas
+   about the executable normal-form and row checks are applied to it
+   through `B.freeze`, an executable valuation agreeing on the atoms. *)
+let valuation (i:interpretation value) (rho:env value) : expr -> GTot bool =
   fun e -> bool_value (eval i e rho)
 
 let ite_sound (i:interpretation value) : prop =
@@ -289,7 +331,7 @@ let boolean_rewrite_model (i:interpretation value) : prop =
 let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
                                 (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires boolean_rewrite_model i /\ get_sort e == bool_sort)
-          (ensures B.eval (valuation i rho) (boolean_cut boundaries depth e) ==
+          (ensures B.geval (valuation i rho) (boolean_cut boundaries depth e) ==
                    bool_value (eval i e rho))
           (decreases e) =
   if reflexive_equality e then (
@@ -297,6 +339,7 @@ let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
   else if mem e boundaries then ()
   else match e with
   | App f args ->
+    lemma_native_bool_op f args;
     (match native_bool_op f args with
      | B.BTrue | B.BFalse -> ()
      | B.BNary B.Xor ->
@@ -333,7 +376,7 @@ let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
             lemma_boolean_cut_sound boundaries (depth - 1) i rho c;
             lemma_boolean_cut_sound boundaries (depth - 1) i rho t;
             lemma_boolean_cut_sound boundaries (depth - 1) i rho f;
-            B.lemma_boolean_ite_eval (valuation i rho)
+            B.lemma_boolean_ite_geval (valuation i rho)
               (boolean_cut boundaries (depth - 1) c)
               (boolean_cut boundaries (depth - 1) t)
               (boolean_cut boundaries (depth - 1) f);
@@ -347,9 +390,9 @@ and lemma_boolean_cut_args_sound (boundaries:list expr) (depth:nat)
                                  (i:interpretation value) (rho:env value) (args:list expr)
   : Lemma (requires boolean_rewrite_model i /\ boolean_args args)
           (ensures
-            (B.eval_args (valuation i rho) B.And (boolean_cut_args boundaries depth args) == true
+            (B.geval_args (valuation i rho) B.And (boolean_cut_args boundaries depth args) == true
              <==> conj_holds i rho args) /\
-            (B.eval_args (valuation i rho) B.Or (boolean_cut_args boundaries depth args) == true
+            (B.geval_args (valuation i rho) B.Or (boolean_cut_args boundaries depth args) == true
              <==> clause_holds i rho args))
           (decreases args) =
   match args with
@@ -368,17 +411,21 @@ let lemma_boolean_equiv_sound (depth width:nat) (i:interpretation value)
   let ct = boolean_cut boundaries depth t in
   let atoms = B.unique (B.support cs @ B.support ct) in
   if structural_boolean_equiv s t then (
-    N.lemma_equivalent_sound (valuation i rho)
-      (boolean_cut [] (boolean_height s) s) (boolean_cut [] (boolean_height t) t);
+    let ss = boolean_cut [] (boolean_height s) s in
+    let st = boolean_cut [] (boolean_height t) t in
+    B.lemma_freeze_pair (valuation i rho) ss st;
+    N.lemma_equivalent_sound (B.freeze (valuation i rho) (B.support ss @ B.support st)) ss st;
     lemma_boolean_cut_sound [] (boolean_height s) i rho s;
     lemma_boolean_cut_sound [] (boolean_height t) i rho t)
   else (
-    if N.equivalent cs ct then N.lemma_equivalent_sound (valuation i rho) cs ct
+    if N.equivalent cs ct then (
+      B.lemma_freeze_pair (valuation i rho) cs ct;
+      N.lemma_equivalent_sound (B.freeze (valuation i rho) (B.support cs @ B.support ct)) cs ct)
     else (
       B.lemma_mem_append (B.support cs) (B.support ct);
       B.lemma_unique_mem (B.support cs @ B.support ct);
       assert (B.agree_outside atoms (fun _ -> false) (valuation i rho) cs ct);
-      B.lemma_check_rows_sound atoms (fun _ -> false) (valuation i rho) cs ct);
+      B.lemma_check_rows_sound_ghost atoms (fun _ -> false) (valuation i rho) cs ct);
     lemma_boolean_cut_sound boundaries depth i rho s;
     lemma_boolean_cut_sound boundaries depth i rho t);
   match eval i s rho, eval i t rho with VBool _, VBool _ -> () | _, _ -> ()
@@ -393,9 +440,11 @@ let lemma_boolean_search_sound (i:interpretation value) (rho:env value) (s t:exp
           (ensures eval i s rho == eval i t rho) =
   let cs = boolean_cut [] (boolean_height s) s in
   let ct = boolean_cut [] (boolean_height t) t in
-  N.lemma_shannon_sound (valuation i rho) 7 (N.normalize_context 2 cs) (N.normalize_context 2 ct);
-  N.lemma_normalize_context_sound (valuation i rho) 2 cs;
-  N.lemma_normalize_context_sound (valuation i rho) 2 ct;
+  let v = B.freeze (valuation i rho) (B.support cs @ B.support ct) in
+  B.lemma_freeze_pair (valuation i rho) cs ct;
+  N.lemma_shannon_sound v 7 (N.normalize_context 2 cs) (N.normalize_context 2 ct);
+  N.lemma_normalize_context_sound v 2 cs;
+  N.lemma_normalize_context_sound v 2 ct;
   lemma_boolean_cut_sound [] (boolean_height s) i rho s;
   lemma_boolean_cut_sound [] (boolean_height t) i rho t;
   match eval i s rho, eval i t rho with VBool _, VBool _ -> () | _, _ -> ()

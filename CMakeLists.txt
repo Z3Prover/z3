@@ -50,7 +50,7 @@ if (Z3_INCLUDE_GIT_HASH OR Z3_INCLUDE_GIT_DESCRIBE)
   endif()
 
   if (Z3_INCLUDE_GIT_DESCRIBE)
-    call_git(Z3_GIT_DESCRIPTION describe --tags)
+    call_git(Z3_GIT_DESCRIPTION describe --tags --always)
     if (Z3_GIT_DESCRIPTION)
       message(STATUS "Using Git description in version output: ${Z3_GIT_DESCRIPTION}")
       # This mimics the behaviour of the old build system.

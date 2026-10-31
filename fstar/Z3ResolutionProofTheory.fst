@@ -38,6 +38,7 @@ module Z3ResolutionProofTheory
 open Z3AstTheory
 open Z3ValueTheory
 open Z3ProofTheory
+module C = Z3CanonicalOps
 
 (* ----------------------------------------------------------------- *)
 (* Literals and clauses                                                *)
@@ -62,64 +63,90 @@ let rec conj_holds (i:interpretation value) (rho:env value) (c:list expr) : Tot 
   | [] -> True
   | l :: c' -> lit_true i rho l /\ conj_holds i rho c'
 
-(* `src/ast/proofs/proof_checker.cpp`'s `m.is_complement`. *)
+(* `src/ast/proofs/proof_checker.cpp`'s `m.is_complement`. Only the
+   canonical `true`, `false` and `not` (`Z3CanonicalOps`) count: a user
+   declaration that merely carries one of those names is an ordinary atom. *)
 let complementary (l1 l2:literal) : bool =
   is_not l1 = Some l2 || is_not l2 = Some l1 ||
   (match l1, l2 with
    | App f [], App g [] ->
-     (f.decl_name = "true" && g.decl_name = "false") ||
-     (f.decl_name = "false" && g.decl_name = "true")
+     (C.canonical_true f && C.canonical_false g) ||
+     (C.canonical_false f && C.canonical_true g)
    | _, _ -> false)
 
 (* ----------------------------------------------------------------- *)
 (* Connective soundness hypotheses, explicit on `i` (same style as     *)
-(* `Z3ProofTheory.fst`'s `quant_extensional`): these state that `i`     *)
-(* interprets any func_decl literally named "not"/"and"/"or"/          *)
-(* "implies"/"=" the standard way. Kept explicit rather than baked     *)
-(* into `interpretation` so this file stays theory/wiring-agnostic.    *)
+(* `Z3ProofTheory.fst`'s `quant_extensional`): `i` interprets the      *)
+(* canonical `not`/`and`/`or`/`=>`/`=`/`true`/`false` the standard     *)
+(* way. A declaration is canonical only when its name, kind tag,       *)
+(* domain, range and parameters all have the shape `Z3CanonicalOps`   *)
+(* gives that connective; keying by the name alone made these          *)
+(* contracts contradict the bit-vector and datatype contracts on       *)
+(* declarations of those theories that share a connective's name.     *)
 (* ----------------------------------------------------------------- *)
 
 let not_sound (i:interpretation value) : prop =
   forall (f:func_decl) (a:expr) (rho:env value).
     {:pattern (eval i (App f [a]) rho)}
-    f.decl_name == "not" ==>
+    C.canonical_not f ==>
     ((eval i (App f [a]) rho == VBool true) == (eval i a rho == VBool false))
 
 let and_sound (i:interpretation value) : prop =
   forall (f:func_decl) (args:list expr) (rho:env value).
     {:pattern (eval i (App f args) rho)}
-    f.decl_name == "and" ==>
+    C.canonical_and f ==>
     (eval i (App f args) rho == VBool true <==> conj_holds i rho args)
 
 let or_sound (i:interpretation value) : prop =
   forall (f:func_decl) (args:list expr) (rho:env value).
     {:pattern (eval i (App f args) rho)}
-    f.decl_name == "or" ==>
+    C.canonical_or f ==>
     (eval i (App f args) rho == VBool true <==> clause_holds i rho args)
 
 let implies_sound (i:interpretation value) : prop =
   forall (f:func_decl) (a b:expr) (rho:env value).
     {:pattern (eval i (App f [a; b]) rho)}
-    (f.decl_name == "implies" \/ f.decl_name == "=>") ==>
+    C.canonical_implies f ==>
     (eval i (App f [a; b]) rho == VBool true <==> (lit_true i rho a ==> lit_true i rho b))
 
+(* Untyped: it quantifies over every environment, so it still asks the
+   model to decide identity of arbitrary values (see `Z3CoreModel` for the
+   typed form the core kernel theorem uses). *)
 let eq_sound (i:interpretation value) : prop =
   forall (f:func_decl) (a b:expr) (rho:env value).
     {:pattern (eval i (App f [a; b]) rho)}
-    f.decl_name == "=" ==>
+    C.canonical_eq f ==>
     (eval i (App f [a; b]) rho == VBool true <==> eval i a rho == eval i b rho)
 
-(* The nullary constants `true`/`false` (`op_true`/`op_false`, per
-   `Z3InterpretedProofChecker.fst`'s `interp_true`/`interp_false`). *)
+(* The nullary constants `true`/`false` (`op_true`/`op_false`). *)
 let true_sound (i:interpretation value) : prop =
   forall (f:func_decl) (rho:env value).
     {:pattern (eval i (App f []) rho)}
-    f.decl_name == "true" ==> eval i (App f []) rho == VBool true
+    C.canonical_true f ==> eval i (App f []) rho == VBool true
 
 let false_sound (i:interpretation value) : prop =
   forall (f:func_decl) (rho:env value).
     {:pattern (eval i (App f []) rho)}
-    f.decl_name == "false" ==> eval i (App f []) rho == VBool false
+    C.canonical_false f ==> eval i (App f []) rho == VBool false
+
+(* Names for the canonical contracts as one group; `canonical_connectives`
+   is what `Z3CoreModel.core_model` requires of the connectives. *)
+let canonical_not_sound (i:interpretation value) : prop = not_sound i
+let canonical_and_sound (i:interpretation value) : prop = and_sound i
+let canonical_or_sound (i:interpretation value) : prop = or_sound i
+let canonical_implies_sound (i:interpretation value) : prop = implies_sound i
+let canonical_true_sound (i:interpretation value) : prop = true_sound i
+let canonical_false_sound (i:interpretation value) : prop = false_sound i
+
+let canonical_connectives (i:interpretation value) : prop =
+  canonical_not_sound i /\ canonical_and_sound i /\ canonical_or_sound i /\
+  canonical_implies_sound i /\ canonical_true_sound i /\ canonical_false_sound i
+
+let lemma_legacy_canonical (i:interpretation value)
+  : Lemma (requires not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
+                    true_sound i /\ false_sound i)
+          (ensures canonical_connectives i)
+  = ()
 
 (* `not_sound`, specialized to a single `f`/`a`: instantiated with
    `a`'s own (known-`VBool`) value, it relates `(not a)`'s truth to
@@ -128,7 +155,12 @@ let false_sound (i:interpretation value) : prop =
    an injective constructor and `bool` has only two values, both
    decided automatically by Z3's native datatype theory). *)
 let lemma_not_relates (i:interpretation value) (rho:env value) (f:func_decl) (a:expr)
-  : Lemma (requires not_sound i /\ f.decl_name == "not" /\ VBool? (eval i a rho))
+  : Lemma (requires not_sound i /\ C.canonical_not f /\ VBool? (eval i a rho))
+          (ensures (eval i (App f [a]) rho == VBool true) == (eval i a rho == VBool false))
+  = ()
+
+let lemma_canonical_not_relates (i:interpretation value) (rho:env value) (f:func_decl) (a:expr)
+  : Lemma (requires canonical_not_sound i /\ C.canonical_not f /\ VBool? (eval i a rho))
           (ensures (eval i (App f [a]) rho == VBool true) == (eval i a rho == VBool false))
   = ()
 
@@ -140,19 +172,19 @@ let lemma_not_relates (i:interpretation value) (rho:env value) (f:func_decl) (a:
    explicit side conditions elsewhere in this project, rather than
    baked into `interpretation` itself). *)
 let lemma_complementary_sound (i:interpretation value) (rho:env value) (l1 l2:literal)
-  : Lemma (requires not_sound i /\ true_sound i /\ false_sound i /\
+  : Lemma (requires canonical_not_sound i /\ canonical_true_sound i /\ canonical_false_sound i /\
                     complementary l1 l2 /\ lit_true i rho l1 /\
                     VBool? (eval i l2 rho))
           (ensures lit_is_false i rho l2)
   = match l1 with
     | App f [] -> (match l2 with | App g [] -> () | _ -> ())
     | App f [a] ->
-      if f.decl_name = "not" && a = l2 then lemma_not_relates i rho f a
+      if C.canonical_not f && a = l2 then lemma_canonical_not_relates i rho f a
       else
         (match l2 with
          | App g [b] ->
-           if g.decl_name = "not" && b = l1 then
-             (lemma_not_relates i rho g b;
+           if C.canonical_not g && b = l1 then
+             (lemma_canonical_not_relates i rho g b;
               match eval i l2 rho with
               | VBool c -> ())
            else ()
@@ -160,8 +192,8 @@ let lemma_complementary_sound (i:interpretation value) (rho:env value) (l1 l2:li
     | _ ->
       (match l2 with
        | App g [b] ->
-         if g.decl_name = "not" && b = l1 then
-           (lemma_not_relates i rho g b;
+         if C.canonical_not g && b = l1 then
+           (lemma_canonical_not_relates i rho g b;
             match eval i l2 rho with
             | VBool c -> ())
          else ()
@@ -205,52 +237,64 @@ let rec lemma_clause_shrink (i:interpretation value) (rho:env value) (c:clause) 
            (fun _ -> ())
            (fun _ -> lemma_clause_shrink i rho c' l))
 
-let rec find_complement (c:clause) (f:literal) : Tot (option literal) (decreases c) =
+let rec remove_complements (c:clause) (f:literal) : Tot clause (decreases c) =
   match c with
-  | [] -> None
-  | l0 :: c' -> if complementary l0 f then Some l0 else find_complement c' f
+  | [] -> []
+  | l0 :: c' ->
+    if complementary l0 f then remove_complements c' f
+    else l0 :: remove_complements c' f
 
 (* Both negation and constant-complement cases are symmetric. *)
 let lemma_complementary_sym (l1 l2:literal)
   : Lemma (complementary l1 l2 == complementary l2 l1)
   = ()
 
-let rec lemma_find_complement_mem (c:clause) (f:literal)
-  : Lemma (requires Some? (find_complement c f))
-          (ensures List.Tot.memP (Some?.v (find_complement c f)) c /\
-                   complementary f (Some?.v (find_complement c f)))
+let rec lemma_remove_complements_wf (i:interpretation value) (rho:env value)
+                                    (c:clause) (f:literal)
+  : Lemma (requires wf_clause i rho c)
+          (ensures wf_clause i rho (remove_complements c f))
+          (decreases c)
+  = match c with
+    | [] -> ()
+    | _ :: c' -> lemma_remove_complements_wf i rho c' f
+
+let rec lemma_remove_complements_sound (i:interpretation value) (rho:env value)
+                                       (c:clause) (f:literal)
+  : Lemma (requires clause_holds i rho c /\ canonical_not_sound i /\ canonical_true_sound i /\
+                    canonical_false_sound i /\ wf_clause i rho c /\ lit_true i rho f)
+          (ensures clause_holds i rho (remove_complements c f))
           (decreases c)
   = match c with
     | [] -> ()
     | l0 :: c' ->
-      if complementary l0 f then lemma_complementary_sym l0 f
-      else lemma_find_complement_mem c' f
+      if complementary l0 f then (
+        lemma_complementary_sym l0 f;
+        lemma_complementary_sound i rho f l0;
+        lemma_remove_complements_sound i rho c' f)
+      else (
+        FStar.Classical.excluded_middle (lit_true i rho l0);
+        FStar.Classical.or_elim #(lit_true i rho l0) #(~ (lit_true i rho l0))
+          #(fun () -> clause_holds i rho (remove_complements c f))
+          (fun _ -> ())
+          (fun _ -> lemma_remove_complements_sound i rho c' f))
 
 let rec unit_resolve (c:clause) (fmls:list literal) : Tot clause (decreases fmls) =
   match fmls with
   | [] -> c
-  | f :: fmls' ->
-    (match find_complement c f with
-     | Some l0 -> unit_resolve (remove_first c l0) fmls'
-     | None -> unit_resolve c fmls')
+  | f :: fmls' -> unit_resolve (remove_complements c f) fmls'
 
 let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
-  : Lemma (requires clause_holds i rho c /\ not_sound i /\ true_sound i /\ false_sound i /\
-                    wf_clause i rho c /\
+  : Lemma (requires clause_holds i rho c /\ canonical_not_sound i /\ canonical_true_sound i /\
+                    canonical_false_sound i /\ wf_clause i rho c /\
                     (forall (f:literal). List.Tot.memP f fmls ==> lit_true i rho f))
           (ensures clause_holds i rho (unit_resolve c fmls))
           (decreases fmls)
   = match fmls with
     | [] -> ()
     | f :: fmls' ->
-      (match find_complement c f with
-       | Some l0 ->
-         lemma_find_complement_mem c f;
-         lemma_complementary_sound i rho f l0;
-         lemma_clause_shrink i rho c l0;
-         lemma_remove_first_wf i rho c l0;
-         lemma_unit_resolve_sound i rho (remove_first c l0) fmls'
-       | None -> lemma_unit_resolve_sound i rho c fmls')
+      lemma_remove_complements_sound i rho c f;
+      lemma_remove_complements_wf i rho c f;
+      lemma_unit_resolve_sound i rho (remove_complements c f) fmls'
 
 (* The full `PR_UNIT_RESOLUTION` soundness statement: a true clause,
    resolved against a list of proven-true resolvent facts, remains a
@@ -260,8 +304,8 @@ let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:cla
    literal falsity means the premises were contradictory under `rho`
    -- exactly the semantic content of a refutation.) *)
 let lemma_unit_resolution_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
-  : Lemma (requires clause_holds i rho c /\ not_sound i /\ true_sound i /\ false_sound i /\
-                    wf_clause i rho c /\
+  : Lemma (requires clause_holds i rho c /\ canonical_not_sound i /\ canonical_true_sound i /\
+                    canonical_false_sound i /\ wf_clause i rho c /\
                     (forall (f:literal). List.Tot.memP f fmls ==> lit_true i rho f))
           (ensures clause_holds i rho (unit_resolve c fmls))
   = lemma_unit_resolve_sound i rho c fmls
@@ -318,18 +362,29 @@ let mk_iff_expr (a b:expr) : expr = App (eq_decl bool_sort) [a; b]
 let true_expr : expr = App ({ decl_name = "true"; domain = []; range = bool_sort; interp = Some op_true; int_params = [] }) []
 let false_expr : expr = App ({ decl_name = "false"; domain = []; range = bool_sort; interp = Some op_false; int_params = [] }) []
 
+(* The declarations the checkers build are the canonical ones. *)
+let lemma_eq_decl_canonical (s:sort)
+  : Lemma (C.canonical_eq (eq_decl s)) [SMTPat (eq_decl s)]
+  = ()
+
+let lemma_constants_canonical ()
+  : Lemma (C.canonical_true (App?.decl true_expr) /\ C.canonical_false (App?.decl false_expr))
+  = ()
+
+(* A clause is read off a canonical `or` (its disjuncts) or the canonical
+   `false` (the empty clause); any other formula is a unit clause. *)
 let formula_clause (e:expr) : clause =
   match e with
   | App f args ->
-    if f.decl_name = "or" then args
-    else if f.decl_name = "false" && args = [] then []
+    if C.canonical_or f then args
+    else if C.canonical_false f && args = [] then []
     else [e]
   | _ -> [e]
 
 let consequence_covers (concl lit:expr) : bool =
   lit = concl ||
   (match concl with
-   | App f args -> f.decl_name = "or" && List.Tot.mem lit args
+   | App f args -> C.canonical_or f && List.Tot.mem lit args
    | _ -> false)
 
 let rec clause_consequence (residual:clause) (concl:expr) : Tot bool (decreases residual) =
@@ -353,14 +408,14 @@ let rec lemma_clause_member (i:interpretation value) (rho:env value) (c:clause) 
     | h :: rest -> if h = l then () else lemma_clause_member i rho rest l
 
 let lemma_formula_clause (i:interpretation value) (rho:env value) (e:expr)
-  : Lemma (requires lit_true i rho e /\ or_sound i /\ false_sound i)
+  : Lemma (requires lit_true i rho e /\ canonical_or_sound i /\ canonical_false_sound i)
           (ensures clause_holds i rho (formula_clause e))
   = match e with
     | App f args -> ()
     | _ -> ()
 
 let lemma_consequence_covers (i:interpretation value) (rho:env value) (concl lit:expr)
-  : Lemma (requires consequence_covers concl lit /\ lit_true i rho lit /\ or_sound i)
+  : Lemma (requires consequence_covers concl lit /\ lit_true i rho lit /\ canonical_or_sound i)
           (ensures lit_true i rho concl)
   = if lit = concl then ()
     else match concl with
@@ -370,7 +425,7 @@ let lemma_consequence_covers (i:interpretation value) (rho:env value) (concl lit
          | _ -> ()
 
 let rec lemma_clause_consequence (i:interpretation value) (rho:env value) (c:clause) (concl:expr)
-  : Lemma (requires clause_holds i rho c /\ clause_consequence c concl /\ or_sound i)
+  : Lemma (requires clause_holds i rho c /\ clause_consequence c concl /\ canonical_or_sound i)
           (ensures lit_true i rho concl)
           (decreases c)
   = match c with
@@ -384,7 +439,8 @@ let rec lemma_clause_consequence (i:interpretation value) (rho:env value) (c:cla
 
 let lemma_resolution_residual_sound (i:interpretation value) (rho:env value)
                                     (c:expr) (units:list literal)
-  : Lemma (requires lit_true i rho c /\ not_sound i /\ or_sound i /\ true_sound i /\ false_sound i /\
+  : Lemma (requires lit_true i rho c /\ canonical_not_sound i /\ canonical_or_sound i /\
+                    canonical_true_sound i /\ canonical_false_sound i /\
                     wf_clause i rho (formula_clause c) /\
                     (forall (u:literal). List.Tot.memP u units ==> lit_true i rho u))
           (ensures clause_holds i rho (resolution_residual c units))
@@ -492,12 +548,15 @@ type rproof =
      unconditionally -- classical proof by contradiction. *)
   | RLemma      : fact_:expr -> pf_false:rproof -> rproof
 
-(* `not`, as a canonical `func_decl` (only its `decl_name`/`interp`
-   matter to `not_sound`/`eval`, never object identity -- see
-   `Z3ProofTheory.is_not`, which is likewise purely name-driven). *)
+(* `not`, as the canonical `func_decl` (`Z3CanonicalOps.not_decl`): the
+   only declaration `Z3ProofTheory.is_not` recognizes. *)
 let not_decl : func_decl =
   { decl_name = "not"; domain = [bool_sort]; range = bool_sort; interp = Some op_not; int_params = [] }
 let mk_not_expr (a:expr) : expr = App not_decl [a]
+
+let lemma_not_decl_canonical (a:expr)
+  : Lemma (C.canonical_not not_decl) [SMTPat (mk_not_expr a)]
+  = ()
 
 let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
   match p with
@@ -505,14 +564,14 @@ let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
   | RAndElim and_f conj t premise ->
     (match rfact premise with
      | Some (App f args) ->
-       if f = and_f && f.decl_name = "and" && args = conj && List.Tot.mem t conj
+       if f = and_f && C.canonical_and f && args = conj && List.Tot.mem t conj
        then Some t else None
      | _ -> None)
   | RModusPonens a b imp_f pf_a pf_imp ->
     (match rfact pf_a, rfact pf_imp with
      | Some a', Some (App f [a2; b2]) ->
        if a' = a && a2 = a && b2 = b && f = imp_f &&
-          (imp_f.decl_name = "implies" || imp_f.decl_name = "=>" || imp_f.decl_name = "=")
+          (C.canonical_implies imp_f || C.canonical_eq imp_f)
        then Some b else None
      | _, _ -> None)
   | RCommute f s t -> Some (mk_eq_expr (App f [s; t]) (App f [t; s]))
@@ -539,7 +598,7 @@ let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
   | RNotOrElim t premise ->
     (match rfact premise with
      | Some (App f [App orf args]) ->
-       if f.decl_name = "not" && orf.decl_name = "or" && List.Tot.mem t args
+       if C.canonical_not f && C.canonical_or orf && List.Tot.mem t args
        then Some (App f [t]) else None
      | _ -> None)
   | Hyp a -> Some a
@@ -651,7 +710,7 @@ and runits_size (units:list (expr & rproof)) : nat =
    well-sortedness side condition forces `fact_` itself true. *)
 let lemma_lemma_sound (i:interpretation value) (rho:env value) (fact_:expr)
                        (hyp_implies_false:squash (conj_holds i rho [mk_not_expr fact_] ==> lit_true i rho false_expr))
-  : Lemma (requires false_sound i /\ not_sound i /\ VBool? (eval i fact_ rho))
+  : Lemma (requires canonical_false_sound i /\ canonical_not_sound i /\ VBool? (eval i fact_ rho))
           (ensures lit_true i rho fact_)
   = let goal () : prop = lit_true i rho fact_ in
     FStar.Classical.excluded_middle (conj_holds i rho [mk_not_expr fact_]);
@@ -697,7 +756,8 @@ let rec lemma_rproof_sound_hyps (i:interpretation value) (p:rproof) (rho:env val
                     quant_extensional i)
           (ensures conj_holds i rho hyps ==> lit_true i rho (Some?.v (rfact p)))
           (decreases rproof_size p)
-  = match p with
+  = lemma_legacy_canonical i;
+    match p with
     | REq s t p1 ->
       lemma_proof_sound i p1 rho;
       let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (mk_eq_expr s t)) = () in
@@ -737,7 +797,7 @@ let rec lemma_rproof_sound_hyps (i:interpretation value) (p:rproof) (rho:env val
        | Some a' ->
          (match a' with
           | App f [a0] ->
-            if f.decl_name = "not" then
+           if C.canonical_not f then
               let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (mk_iff_expr a false_expr)) =
                 lemma_iff_false_sound i rho a
               in FStar.Classical.impl_intro aux

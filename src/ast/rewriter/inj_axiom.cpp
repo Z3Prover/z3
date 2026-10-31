@@ -66,6 +66,11 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                     }
                     else if (c1 == c2 && c1 != var1 && c1 != var2) {
                         if (is_var(c1)) {
+                            // the reconstructed axiom introduces a fresh variable per
+                            // position, so repeated passive variables cannot be handled.
+                            for (unsigned j = 0; j < i; ++j)
+                                if (f1->get_arg(j) == c1)
+                                    return false;
                             ++num_vars;
                         }
                     }

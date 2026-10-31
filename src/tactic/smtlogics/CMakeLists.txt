@@ -1,5 +1,6 @@
 z3_add_component(smtlogic_tactics
   SOURCES
+    finite_set_tactic.cpp
     nra_tactic.cpp
     qfaufbv_tactic.cpp
     qfauflia_tactic.cpp

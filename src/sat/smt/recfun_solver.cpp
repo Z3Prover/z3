@@ -212,7 +212,8 @@ namespace recfun {
         if (m_qhead == m_propagation_queue.size())
             return false;
         ctx.push(value_trail<unsigned>(m_qhead));
-        for (; m_qhead < m_propagation_queue.size() && !s().inconsistent(); ++m_qhead) {
+        // Yield to the context's resource checks before processing newly queued expansions.
+        for (unsigned end = m_propagation_queue.size(); m_qhead < end && !s().inconsistent(); ++m_qhead) {
             auto& p = *m_propagation_queue[m_qhead];
             if (p.is_guard()) 
                 assert_guard(p.guard(), *m_guard2pending[p.guard()]);

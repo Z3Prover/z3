@@ -26,6 +26,8 @@ Tests:
      for a refutational soundness bug, issue #10621)
  28. Solver: sequence-valued ite branch equalities reach the sequence theory
      (issue #11268)
+ 29. last_indexof uses element positions, including symbolic-length prefixes
+     (issue #11327)
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -38,6 +40,7 @@ Tests:
 #include "smt/smt_context.h"
 #include <iostream>
 #include <string>
+#include <vector>
 
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
@@ -337,7 +340,78 @@ static void tst_length_coherence_guards() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_seq_index_empty_pattern() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref empty(su.str.mk_string(zstring("")), m);
+
+    for (char const* text : {"", "a"}) {
+        expr_ref haystack(su.str.mk_string(zstring(text)), m);
+        for (char const* offset : {"-4294967296", "-1", "0", "1", "2",
+                                  "4294967295", "4294967296", "18446744073709551616"}) {
+            rational index(offset);
+            expr_ref start(a.mk_int(index), m);
+            expr_ref result(su.str.mk_index(haystack, empty, start), m);
+            rw(result);
+            rational actual;
+            rational expected = index.is_nonneg() && index <= rational(zstring(text).length()) ?
+                index : rational(-1);
+            ENSURE(a.is_numeral(result, actual) && actual == expected);
+        }
+
+        app_ref start(m.mk_const("i", a.mk_int()), m);
+        expr_ref result(su.str.mk_index(haystack, empty, start), m);
+        expr_ref lower(a.mk_le(a.mk_int(0), start), m);
+        expr_ref upper(a.mk_le(start, a.mk_int(zstring(text).length())), m);
+        expr_ref condition(m.mk_and(lower, upper), m);
+        expr_ref expected(m.mk_ite(condition, start, a.mk_int(-1)), m);
+        rw(result);
+        rw(expected);
+        ENSURE(result == expected);
+    }
+}
+
+static void tst_seq_last_index() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+
+    auto check = [&](expr* haystack, expr* needle, expr* expected) {
+        expr_ref result(su.str.mk_last_index(haystack, needle), m);
+        expr_ref normalized(expected, m);
+        rw(result);
+        rw(normalized);
+        ENSURE(result == normalized);
+    };
+
+    expr_ref ten(su.str.mk_unit(a.mk_int(10)), m);
+    expr_ref twenty(su.str.mk_unit(a.mk_int(20)), m);
+    expr_ref thirty(su.str.mk_unit(a.mk_int(30)), m);
+    expr_ref sequence(su.str.mk_concat(ten, twenty), m);
+    check(sequence, twenty, a.mk_int(1));
+    check(sequence, ten, a.mk_int(0));
+
+    expr_ref repeated(su.str.mk_concat(sequence, sequence, ten), m);
+    expr_ref pattern(su.str.mk_concat(sequence, ten), m);
+    check(repeated, pattern, a.mk_int(2));
+
+    sort_ref seq_int(su.str.mk_seq(a.mk_int()), m);
+    app_ref p(m.mk_const("p", seq_int), m);
+    expr_ref prefix(su.str.mk_concat(p, ten), m);
+    expr_ref needle(su.str.mk_concat(p, twenty), m);
+    expr_ref position(a.mk_add(su.str.mk_length(p), a.mk_int(1)), m);
+    check(su.str.mk_concat(prefix, needle), needle, position);
+    check(su.str.mk_concat(prefix, needle, thirty), needle, position);
+}
+
 void tst_seq_rewriter() {
+    tst_seq_index_empty_pattern();
+    tst_seq_last_index();
     tst_extract_length_products();
     tst_eq_skolem_arity();
     tst_nested_extract_prefix_of_suffix();

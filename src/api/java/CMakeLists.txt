@@ -140,6 +140,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   ListSort.java
   Log.java
   Model.java
+  NativeLibraryLoader.java
   Optimize.java
   ParamDescrs.java
   Params.java
@@ -194,7 +195,11 @@ add_custom_target(build_z3_java_bindings
 # TODO: Should we set ``CMAKE_JNI_TARGET`` to ``TRUE``?
 # REMARK: removed VERSION to fix issue with using this to create installations.
 
-set(CMAKE_JAVA_COMPILE_FLAGS -source 1.8 -target 1.8)
+if (Java_VERSION VERSION_LESS "9")
+  set(CMAKE_JAVA_COMPILE_FLAGS -source 1.8 -target 1.8)
+else()
+  set(CMAKE_JAVA_COMPILE_FLAGS --release 8)
+endif()
 
 add_jar(z3JavaJar
   SOURCES ${Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH}

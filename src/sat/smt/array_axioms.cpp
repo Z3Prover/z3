@@ -414,7 +414,7 @@ namespace array {
         euf::enode* ndef2 = e_internalize(def2);
 
         if (has_unitary_domain(store)) {
-            def2 = store->get_arg(num_args - 1);
+            ndef2 = e_internalize(store->get_arg(num_args - 1));
         }
         else if (!has_large_domain(store)) {
             //

@@ -17,7 +17,9 @@ module BV = Z3BvLemma
 module BW = Z3BvWord
 module BO = Z3BvOrder
 module DT = Z3DatatypeLemma
+module AE = Z3ArrayEquality
 module L = FStar.List.Tot
+module FF = Z3FiniteFieldLemma
 
 type datatype_view = (value -> (int & int)) & (value -> list value)
 
@@ -26,12 +28,14 @@ let normalization_model (i:interpretation value) : prop =
   quant_extensional i /\ QN.quantifier_model i /\ LR.lambda_model i /\
   (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu) /\
   (exists (project:pos -> value -> int). BV.bv_model i project) /\
+  (exists (project:int -> value -> int). FF.ff_model i project) /\
   (exists (view:datatype_view). DT.datatype_model i (fst view) (snd view))
 
 let root (e:expr) : option expr =
   if D.tautology 128 e || AR.equivalent e true_expr then Some true_expr
   else if AR.equivalent e false_expr then Some false_expr
   else if Some? (AR.product_sign_rewrite e) then AR.product_sign_rewrite e
+  else if AE.unequal_defaults e then Some false_expr
   else match DT.rewrite e, BV.rewrite e, BW.rewrite e, BO.rewrite e, LR.beta e, LR.extensional e with
   | Some result, _, _, _, _, _ | _, Some result, _, _, _, _ |
     _, _, Some result, _, _, _ | _, _, _, Some result, _, _ |
@@ -96,6 +100,7 @@ let lemma_root (i:interpretation value) (rho:env value) (e result:expr)
     else if AR.equivalent e true_expr then AR.lemma_equivalent_with_numeric_model e true_expr i rho
     else if AR.equivalent e false_expr then AR.lemma_equivalent_with_numeric_model e false_expr i rho
     else if Some? (AR.product_sign_rewrite e) then AR.lemma_product_sign_with_numeric_model e result i rho
+    else if AE.unequal_defaults e then AE.lemma_unequal_defaults i rho e
     else match DT.rewrite e, BV.rewrite e, BW.rewrite e, BO.rewrite e, LR.beta e, LR.extensional e with
     | Some result, _, _, _, _, _ -> lemma_datatype i rho e result
     | _, Some result, _, _, _, _ -> lemma_bv i rho e result
@@ -143,6 +148,12 @@ and normalize_args (fuel:nat) (args:list expr)
      | Some b, Some bs -> Some (b :: bs)
      | _, _ -> None)
 
+(* Applications with equal argument values are equal, apart from any model contract. *)
+let lemma_app_congruence (i:interpretation value) (rho:env value) (f:func_decl) (args xs:list expr)
+  : Lemma (requires eval_args i args rho == eval_args i xs rho)
+          (ensures eval i (App f args) rho == eval i (App f xs) rho)
+  = ()
+
 let rec lemma_normalize (fuel:nat) (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires normalization_model i /\ normalize fuel e == Some result)
           (ensures eval i e rho == eval i result rho)
@@ -154,6 +165,7 @@ let rec lemma_normalize (fuel:nat) (i:interpretation value) (rho:env value) (e r
       | App f args ->
         let xs = Some?.v (normalize_args next args) in
         lemma_normalize_args next i rho args xs;
+        lemma_app_congruence i rho f args xs;
         App f xs
       | Quantifier k bs s body ->
         let b = Some?.v (normalize next body) in
@@ -182,10 +194,12 @@ and lemma_normalize_args (fuel:nat) (i:interpretation value) (rho:env value)
     | _, _ -> ()
 
 let equivalent (a b:expr) : bool =
-  match normalize 64 a, normalize 64 b with
+  if not (Some? (expression_budget 4096 a) && Some? (expression_budget 4096 b))
+  then false
+  else match normalize 64 a, normalize 64 b with
   | Some x, Some y ->
     QR.equivalent 64 x y || AR.equivalent x y || BV.equivalent x y ||
-    BW.equivalent x y || A.equivalent 64 x y
+    BW.equivalent x y || FF.equivalent x y || A.equivalent 64 x y
   | _, _ -> false
 
 let lemma_equivalent (i:interpretation value) (rho:env value) (a b:expr)
@@ -208,6 +222,12 @@ let lemma_equivalent (i:interpretation value) (rho:env value) (a b:expr)
         = BW.lemma_equivalent i rho project x y in
       FStar.Classical.exists_elim (eval i x rho == eval i y rho)
         #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project))
+    else if FF.equivalent x y then (
+      let aux (project:int -> value -> int)
+        : Lemma (requires FF.ff_model i project) (ensures eval i x rho == eval i y rho)
+        = FF.lemma_equivalent i rho project x y in
+      FStar.Classical.exists_elim (eval i x rho == eval i y rho)
+        #(int -> value -> int) #(fun project -> FF.ff_model i project) () (fun project -> aux project))
     else A.lemma_equivalent_sound 64 i rho x y
 
 let unit_coefficients (conclusion:expr) (facts:list expr) : list LA.coefficient =

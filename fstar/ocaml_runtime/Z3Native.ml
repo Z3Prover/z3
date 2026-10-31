@@ -8,7 +8,7 @@ type operator =
   | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
-  | Rational | BvNumeral | Opaque
+  | Rational | BvNumeral | Bvzeroextend | FfNum | FfAdd | FfMul | FfNeg | FfBitsum | Opaque
 
 type sort_view =
   | Base of string
@@ -35,6 +35,18 @@ type parameter_view =
   | ParameterExpression of ast
   | ParameterUnsupported
 
+type ff_pac_node =
+  | PacInput of Z.t
+  | PacAdd of Z.t * Z.t
+  | PacMul of Z.t * ast * Z.t list
+
+type ff_pac_view = {
+  pac_premises: ast list;
+  pac_nodes: ff_pac_node list;
+  pac_root: Z.t;
+  pac_support: Z.t list;
+}
+
 type proof_view = {
   proof_name: string;
   premises: ast list;
@@ -44,6 +56,7 @@ type proof_view = {
   lp_data: (string * parameter_view list) option;
   binding: (native_sort list * ast) option;
   instantiations: ast list;
+  ff_pac: ff_pac_view option;
 }
 
 type clause_action = InputClause | LearnedClause | TheoryClause | DeleteClause
@@ -90,6 +103,7 @@ let view_sort s =
       let domains = List.init (Z3native.get_array_arity c s)
           (Z3native.get_array_sort_domain_n c s) in
       Array (domains, Z3native.get_array_sort_range c s)
+  | Z3enums.FINITE_FIELD_SORT -> Base ("FF" ^ Z3native.get_finite_field_sort_size c s)
   | _ -> Base (unique "sort" (sort_id s) name)
 
 let operator = function
@@ -104,6 +118,7 @@ let operator = function
   | Z3enums.OP_BSUB -> Bvsub | Z3enums.OP_BNEG -> Bvneg
   | Z3enums.OP_BUDIV -> Bvudiv | Z3enums.OP_BUREM -> Bvurem
   | Z3enums.OP_EXTRACT -> Bvextract | Z3enums.OP_CONCAT -> Bvconcat
+  | Z3enums.OP_ZERO_EXT -> Bvzeroextend
   | Z3enums.OP_MKBV -> Bvmkbv
   | Z3enums.OP_ULT -> Bvult | Z3enums.OP_ULEQ -> Bvule | Z3enums.OP_UGEQ -> Bvuge
   | Z3enums.OP_BSHL -> Bvshl | Z3enums.OP_BLSHR -> Bvlshr
@@ -117,6 +132,8 @@ let operator = function
   | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
   | Z3enums.OP_GE -> Ge | Z3enums.OP_GT -> Gt | Z3enums.OP_TO_REAL -> ToReal
   | Z3enums.OP_ANUM -> Rational | Z3enums.OP_BNUM -> BvNumeral
+  | Z3enums.OP_FF_NUM -> FfNum | Z3enums.OP_FF_ADD -> FfAdd | Z3enums.OP_FF_MUL -> FfMul
+  | Z3enums.OP_FF_NEG -> FfNeg | Z3enums.OP_FF_BITSUM -> FfBitsum
   | _ -> Opaque
 
 let rational text =
@@ -126,6 +143,13 @@ let rational text =
     Q.num q, Q.den q
   with Invalid_argument _ | Division_by_zero ->
     fail ("Invalid native rational: " ^ text)
+
+(* The decimal modulus of a finite-field sort, as reported by the native API. *)
+let field_modulus c s =
+  let text = Z3native.get_finite_field_sort_size c s in
+  match rational text with
+  | n, d when Z.equal d Z.one -> n
+  | _ -> fail ("Invalid native finite-field modulus: " ^ text)
 
 let app_args c a =
   List.init (Z3native.get_app_num_args c a) (Z3native.get_app_arg c a)
@@ -196,6 +220,17 @@ let view_datatypes roots =
         nested_datatype (Z3native.get_array_sort_range c s)
     | _ -> false
   in
+  let rec check_field s =
+    let c = ctx s in
+    match Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) with
+    | Z3enums.SEQ_SORT ->
+        if nested_datatype s then fail "Nested datatype sequence fields are not supported"
+    | Z3enums.ARRAY_SORT ->
+        List.iter (fun index -> check_field (Z3native.get_array_sort_domain_n c s index))
+          (List.init (Z3native.get_array_arity c s) Fun.id);
+        check_field (Z3native.get_array_sort_range c s)
+    | _ -> ()
+  in
   let rec visit sorts cases = function
     | [] -> { S.sorts = List.rev sorts; cases = List.rev cases }
     | s :: rest when Hashtbl.mem seen (sort_id s) -> visit sorts cases rest
@@ -215,6 +250,7 @@ let view_datatypes roots =
                     declaration c (Z3native.get_datatype_sort_constructor_accessor c s index field)) },
                 List.init arity (Z3native.get_domain c constructor))
                 |> List.split in
+            List.iter (List.iter check_field) fields;
             visit (logical_sort s :: sorts) (List.rev_append cases' cases)
               (List.concat fields @ rest)
         | Z3enums.ARRAY_SORT ->
@@ -222,8 +258,7 @@ let view_datatypes roots =
                 (Z3native.get_array_sort_domain_n c s) in
             visit sorts cases (domains @ (Z3native.get_array_sort_range c s :: rest))
         | Z3enums.SEQ_SORT ->
-            if nested_datatype s then fail "Nested datatype sequence fields are not supported";
-            visit sorts cases rest
+            visit sorts cases (Z3native.get_seq_sort_basis c s :: rest)
         | _ -> visit sorts cases rest
   in
   visit [] [] roots
@@ -249,7 +284,7 @@ let view_expression a =
       let id = Z.of_int (Z3native.get_func_decl_id c d) in
       let native_kind = Z3native.get_decl_kind c d in
       let op = operator (Z3enums.decl_kind_of_int native_kind) in
-      let numeral = if op = Rational || op = BvNumeral
+      let numeral = if op = Rational || op = BvNumeral || op = FfNum
                     then Some (rational (Z3native.get_numeral_string c a))
                     else None in
       let range = Z3native.get_range c d in
@@ -268,11 +303,20 @@ let view_expression a =
             then fail "Malformed native bit-vector extraction";
             Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d 0)) ::
             List.init 2 (fun i -> Z.of_int (Z3native.get_decl_int_parameter c d i))
+        | Bvzeroextend ->
+            if Z3native.get_decl_num_parameters c d <> 1 ||
+               Z3native.get_domain_size c d <> 1 ||
+               Z3enums.parameter_kind_of_int (Z3native.get_decl_parameter_kind c d 0) <>
+                 Z3enums.PARAMETER_INT
+            then fail "Malformed native bit-vector zero extension";
+            [Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d 0));
+             Z.of_int (Z3native.get_decl_int_parameter c d 0)]
         | Bvconcat ->
             List.init (Z3native.get_domain_size c d) (fun i ->
               Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d i)))
         | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor ->
             datatype_parameters c d op
+        | FfNum | FfAdd | FfMul | FfNeg | FfBitsum -> [field_modulus c range]
         | _ -> [] in
       let name = if op = BvNumeral then "bv"
                  else if op = Rational then Z3native.ast_to_string c a
@@ -283,6 +327,79 @@ let view_expression a =
       } in
       Application (declaration, app_args c app)
   | _ -> fail "Native object is not an expression"
+
+(* Flattens a recorded `ff-pac` certificate without trusting it: the nodes
+   are listed children first, each shared AST once, and references are
+   positions in that list. The traversal is iterative and stops before
+   expanding more than `max_certificate_nodes` nodes; indices must be Int
+   numerals in [0, 2^32). Any other shape yields None, so the step stays an
+   unchecked obligation; the F* kernel re-checks every field. *)
+exception Malformed_certificate
+
+let max_certificate_nodes = 100000
+let max_certificate_index = Z.shift_left Z.one 32
+
+let view_ff_pac c certificate =
+  let kind a = Z3enums.sort_kind_of_int (Z3native.get_sort_kind c (Z3native.get_sort c a)) in
+  let application a =
+    if not (Z3native.is_app c a) then raise Malformed_certificate;
+    let app = Z3native.to_app c a in
+    symbol c (Z3native.get_decl_name c (Z3native.get_app_decl c app)), app_args c app in
+  let arguments a name =
+    match application a with
+    | n, args when n = name -> args
+    | _ -> raise Malformed_certificate in
+  let index a =
+    if not (Z3native.is_numeral_ast c a) || kind a <> Z3enums.INT_SORT then
+      raise Malformed_certificate;
+    let value = Z.of_string (Z3native.get_numeral_string c a) in
+    if Z.sign value < 0 || Z.geq value max_certificate_index then raise Malformed_certificate;
+    value in
+  let node a =
+    match application a with
+    | "ff-input", [i] -> `Input i
+    | "ff-add", [l; r] -> `Add (l, r)
+    | "ff-mul", s :: coefficient :: factor -> `Mul (s, coefficient, factor)
+    | _ -> raise Malformed_certificate in
+  let positions = Hashtbl.create 64 in
+  let id a = Z3native.get_ast_id c a in
+  let position a =
+    match Hashtbl.find_opt positions (id a) with
+    | Some i -> Z.of_int i
+    | None -> raise Malformed_certificate in
+  let rec flatten nodes count expanded = function
+    | [] -> List.rev nodes
+    | `Visit a :: rest when Hashtbl.mem positions (id a) -> flatten nodes count expanded rest
+    | `Visit a :: rest ->
+        if expanded >= max_certificate_nodes then raise Malformed_certificate;
+        let expanded = expanded + 1 in
+        (match node a with
+         | `Input _ -> flatten nodes count expanded (`Build a :: rest)
+         | `Add (l, r) -> flatten nodes count expanded (`Visit l :: `Visit r :: `Build a :: rest)
+         | `Mul (s, _, _) -> flatten nodes count expanded (`Visit s :: `Build a :: rest))
+    | `Build a :: rest when Hashtbl.mem positions (id a) -> flatten nodes count expanded rest
+    | `Build a :: rest ->
+        if count >= max_certificate_nodes then raise Malformed_certificate;
+        let value = match node a with
+          | `Input i -> PacInput (index i)
+          | `Add (l, r) -> PacAdd (position l, position r)
+          | `Mul (s, coefficient, factor) ->
+              if kind coefficient <> Z3enums.FINITE_FIELD_SORT then raise Malformed_certificate;
+              PacMul (position s, coefficient, List.map index factor) in
+        Hashtbl.add positions (id a) count;
+        flatten (value :: nodes) (count + 1) expanded rest in
+  try
+    match application certificate with
+    | "ff-pac", [premises; root; support] ->
+        let premises = arguments premises "ff-premises" in
+        if List.exists (fun p -> kind p <> Z3enums.BOOL_SORT) premises then
+          raise Malformed_certificate;
+        let support = List.map index (arguments support "ff-support") in
+        let nodes = flatten [] 0 0 [`Visit root] in
+        Some { pac_premises = premises; pac_nodes = nodes; pac_root = position root;
+               pac_support = support }
+    | _ -> None
+  with Malformed_certificate -> None
 
 let view_proof a =
   let c = ctx a in
@@ -376,7 +493,12 @@ let view_proof a =
             fail "Malformed native quantified instance parameter";
           Z3native.get_decl_ast_parameter c d i)
     else [] in
-  { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations }
+  let ff_pac =
+    if name = "th-lemma" && count = 3 && parameter_symbol 0 = Some "ff" &&
+       parameter_symbol 1 = Some "pac" && parameter_kind 2 = Z3enums.PARAMETER_AST
+    then view_ff_pac c (Z3native.get_decl_ast_parameter c d 2)
+    else None in
+  { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations; ff_pac }
 
 let view_clause_trail a =
   let c = ctx a in

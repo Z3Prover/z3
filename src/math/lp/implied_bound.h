@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 #pragma once
+#include <utility>
 #include "math/lp/lp_settings.h"
 #include "math/lp/lar_constraints.h"
 namespace lp {
@@ -46,7 +47,7 @@ class implied_bound {
     // like explain_implied, but delivers each premise with its Farkas coefficient,
     // normalized so that the bounded column has coefficient 1.
     void explain_weighted(weighted_consumer const& consume) const { m_explain_weighted(consume); }
-    void set_explain(dependency_explain f, weighted_explain w) { m_explain_bound = f; m_explain_weighted = w; }
+    void set_explain(dependency_explain f, weighted_explain w) { m_explain_bound = std::move(f); m_explain_weighted = std::move(w); }
     lconstraint_kind kind() const {
         lconstraint_kind k = m_is_lower_bound? GE : LE;
         if (m_strict)
@@ -64,8 +65,8 @@ class implied_bound {
         m_j(j),
         m_is_lower_bound(is_lower_bound),
         m_strict(is_strict),
-        m_explain_bound(get_dep),
-        m_explain_weighted(get_weighted) {
+        m_explain_bound(std::move(get_dep)),
+        m_explain_weighted(std::move(get_weighted)) {
     }
 };
 }

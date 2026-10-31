@@ -5,13 +5,17 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/proofs/proof_checker.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "model/model.h"
+#include "qe/qsat.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -56,6 +60,39 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static void check_recfun_rlimit(char const* input, unsigned rlimit) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    cmd.params().set_rlimit(rlimit);
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    cmd.check_sat(0, nullptr);
+    VERIFY(cmd.cs_state() == cmd_context::css_unknown);
+    VERIFY(out.str() == "unknown\n");
+}
+
+static void check_recfun_rlimits() {
+    for (char const* input : {
+            "(define-fun-rec f ((x Int)) Int (f x))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f () Int (+ 1 f))\n"
+            "(assert (= f 1))\n",
+            "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
+            " ((g x) (f x)))\n"
+            "(assert (= (f 0) 1))\n"}) {
+        check_recfun_rlimit(input, 1);
+    }
+    check_recfun_rlimit(
+        "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+        "(assert (= (f 0) 1))\n", 1000);
+}
+
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
     for (unsigned i = 0; i < st.size(); ++i)
         if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
@@ -63,6 +100,99 @@ static bool get_uint_stat(statistics const& st, char const* key, unsigned& value
             return true;
         }
     return false;
+}
+
+static void check_arithmetic_propagation_cancellation() {
+    struct propagation_context : smt::context {
+        using smt::context::context;
+        using smt::context::propagate;
+    };
+    for (bool cancel : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        smt_params params;
+        propagation_context ctx(m, params);
+        ctx.push();
+        VERIFY(ctx.at_base_level());
+        arith_util a(m);
+        expr_ref x(m.mk_const("x", a.mk_int()), m);
+        expr_ref y(m.mk_const("y", a.mk_int()), m);
+        expr_ref sum(a.mk_add(x, y), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref bound(a.mk_ge(sum, one), m);
+        ctx.internalize(bound, false);
+        ctx.mark_as_relevant(bound.get());
+        ctx.assign(ctx.get_literal(bound), smt::b_justification::mk_axiom());
+        {
+            scoped_rlimit limit(m.limit(), cancel ? 0 : 1);
+            if (cancel)
+                m.limit().cancel();
+            VERIFY(ctx.propagate());
+            statistics st;
+            ctx.collect_statistics(st);
+            unsigned pivots = 0;
+            get_uint_stat(st, "arith-pivots", pivots);
+            VERIFY(pivots == 0);
+        }
+        VERIFY(ctx.check() == l_true);
+        statistics st;
+        ctx.collect_statistics(st);
+        unsigned pivots = 0;
+        VERIFY(get_uint_stat(st, "arith-pivots", pivots) && pivots > 0);
+        ctx.push();
+        ctx.assert_expr(m.mk_not(bound));
+        VERIFY(ctx.check() == l_false);
+        ctx.pop(1);
+        VERIFY(ctx.check() == l_true);
+        ctx.pop(1);
+        VERIFY(ctx.check() == l_true);
+    }
+}
+
+static void check_lp_cancellation_recovery() {
+    struct resource_limit : lp::lp_resource_limit {
+        reslimit limit;
+        lp::statistics const* stats = nullptr;
+        bool enabled = true;
+        bool cancel_after_pivot = false;
+        bool pivot_checked = false;
+        bool get_cancel_flag() override {
+            if (enabled && cancel_after_pivot && stats->m_pivots > 0)
+                limit.cancel();
+            return !limit.inc();
+        }
+        bool get_cancel_flag(unsigned cost) override {
+            pivot_checked = true;
+            if (enabled && !cancel_after_pivot)
+                limit.cancel();
+            return !limit.inc(cost);
+        }
+    };
+    for (bool after_pivot : {false, true}) {
+        resource_limit resource;
+        lp::lar_solver solver;
+        resource.stats = &solver.settings().stats();
+        resource.cancel_after_pivot = after_pivot;
+        solver.settings().set_resource_limit(resource);
+        auto x = solver.add_var(0, true);
+        auto y = solver.add_var(1, true);
+        vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+        coeffs.push_back({lp::mpq(1), x});
+        coeffs.push_back({lp::mpq(1), y});
+        auto term = solver.add_term(coeffs, 2);
+        solver.add_var_bound(term, lp::GE, lp::mpq(1));
+        {
+            scoped_rlimit limit(resource.limit, 0);
+            VERIFY(solver.find_feasible_solution() == lp::lp_status::CANCELLED);
+            VERIFY(resource.pivot_checked);
+            VERIFY(solver.settings().stats().m_pivots == (after_pivot ? 1u : 0u));
+            VERIFY(solver.ax_is_correct());
+        }
+        resource.enabled = false;
+        VERIFY(solver.find_feasible_solution() == lp::lp_status::OPTIMAL);
+        VERIFY(solver.ax_is_correct());
+        VERIFY(solver.column_is_feasible(term));
+    }
 }
 
 static void check_array_domain(char const* input, lbool expected) {
@@ -75,6 +205,195 @@ static void check_array_domain(char const* input, lbool expected) {
     for (expr* a : cmd.assertions())
         slv->assert_expr(a);
     VERIFY(expected == slv->check_sat(0, nullptr));
+}
+
+static void check_stored_lambdas() {
+    auto check = [](char const* input, lbool expected) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == (expected == l_false ? "unsat\n" : "sat\n"));
+    };
+    // Regression for issue #11267: stores must preserve lambda semantics.
+    for (char const* input : {
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(assert (= (store ((as const (Array Int Int)) 3) 7 0)\n"
+        "           (store (lambda ((x Int)) x) 7 0)))\n",
+        "(assert (= (store (lambda ((x Int)) (+ x 1)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store (lambda ((x Int)) 3) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (store (lambda ((x Int)) x) 7 0)))\n"
+        "(assert (= a (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= (store a 7 0) (store ((as const (Array Int Int)) 3) 7 0)))\n"
+        "(assert (= a (lambda ((x Int)) x)))\n",
+        "(declare-datatypes ((W 0)) (((mk (arr (Array Int Int))))))\n"
+        "(declare-const w W)\n"
+        "(assert (= w (mk (store (lambda ((x Int)) x) 7 0))))\n"
+        "(assert (= w (mk (store ((as const (Array Int Int)) 3) 7 0))))\n",
+        "(assert (= (store (store (lambda ((x Int)) x) 7 0) 8 0)\n"
+        "           (store (store ((as const (Array Int Int)) 3) 7 0) 8 0)))\n",
+        "(assert (= (store (lambda ((x Int) (y Int)) (+ x y)) 7 8 0)\n"
+        "           (store ((as const (Array Int Int Int)) 3) 7 8 0)))\n",
+        "(assert (= (store ((_ map (+ (Int Int) Int)) (lambda ((x Int)) x)\n"
+        "                   ((as const (Array Int Int)) 1)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n"}) {
+        check(input, l_false);
+    }
+    check(
+        "(assert (= (store (lambda ((x Int)) (ite (= x 7) 1 3)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n", l_true);
+    check(
+        "(assert (= (store (lambda ((x Bool)) (ite x 1 3)) true 0)\n"
+        "           (store ((as const (Array Bool Int)) 3) true 0)))\n", l_true);
+}
+
+static void check_sat_array_lambdas() {
+    for (char const* input : {
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store (lambda ((x Int)) (+ x 1)) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= (store a 7 0) (store ((as const (Array Int Int)) 3) 7 0)))\n"
+        "(assert (= a (lambda ((x Int)) x)))\n",
+        "(declare-datatypes ((W 0)) (((mk (arr (Array Int Int))))))\n"
+        "(declare-const w W)\n"
+        "(assert (= w (mk (store (lambda ((x Int)) x) 7 0))))\n"
+        "(assert (= w (mk (store ((as const (Array Int Int)) 3) 7 0))))\n",
+        "(assert (= (store (store (lambda ((x Int)) x) 7 0) 8 0)\n"
+        "           (store (store ((as const (Array Int Int)) 3) 7 0) 8 0)))\n",
+        "(assert (= (store ((_ map (+ (Int Int) Int)) (lambda ((x Int)) x)\n"
+        "                   ((as const (Array Int Int)) 1)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (store (lambda ((x Int)) x) 7 0)))\n"
+        "(assert (= a (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-fun f (Int) Int)\n"
+        "(assert (= (f 0) 0))\n"
+        "(assert (= (store (_ as-array f) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= (f 0) 0))\n"
+        "(assert (= a (store (_ as-array f) 7 0)))\n"
+        "(assert (= a (store ((as const (Array Int Int)) 3) 7 0)))\n"}) {
+        for (bool smt : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", smt);
+            p.set_bool("euf", !smt);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i < 2; ++i) {
+                slv->push();
+                for (expr* a : cmd.assertions())
+                    slv->assert_expr(a);
+                // These backends may give up on lambdas, but must not report sat.
+                VERIFY(l_true != slv->check_sat(0, nullptr));
+                slv->pop(1);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+}
+
+static void check_expand_store_eq() {
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(assert (= (store ((as const (Array Bool Int)) 0) false 1)\n"
+         "           (store ((as const (Array Bool Int)) 1) true 0)))\n",
+         l_true},
+        {"(assert (= (store (store ((as const (Array Bool Bool Int)) 0)\n"
+         "                         false false 1) false true 1)\n"
+         "           (store (store ((as const (Array Bool Bool Int)) 1)\n"
+         "                         true false 0) true true 0)))\n",
+         l_true},
+        {"(assert (= (store ((as const (Array (_ BitVec 2) Int)) 0) #b00 1)\n"
+         "           (store ((as const (Array (_ BitVec 2) Int)) 1) #b01 0)))\n",
+         l_false},
+        {"(assert (= (store ((as const (Array Int Int)) 0) 0 1)\n"
+         "           (store ((as const (Array Int Int)) 1) 1 0)))\n",
+         l_false},
+        {"(declare-const a (Array Bool Int))\n"
+         "(assert (= (store a false 0) (store a false 1)))\n",
+         l_false}
+    };
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(test.input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("expand_store_eq", true);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(test.expected == slv->check_sat(0, nullptr));
+    }
+}
+
+static void check_sequence_last_index() {
+    char const* const cases[] = {
+        "(assert (= (seq.last_indexof (seq.++ (seq.unit 10) (seq.unit 20))"
+        "                           (seq.unit 20)) 1))",
+        "(assert (= (seq.last_indexof (seq.++ (seq.unit 10) (seq.unit 20))"
+        "                           (seq.unit 10)) 0))",
+        "(assert (= (seq.last_indexof"
+        "  (seq.++ (seq.unit 10) (seq.unit 20) (seq.unit 10) (seq.unit 20) (seq.unit 10))"
+        "  (seq.++ (seq.unit 10) (seq.unit 20) (seq.unit 10))) 2))",
+        "(declare-const p (Seq Int))"
+        "(assert (= (seq.last_indexof (seq.++ p (seq.unit 10) p (seq.unit 20))"
+        "                           (seq.++ p (seq.unit 20))) (+ (seq.len p) 1)))",
+        "(declare-const p (Seq Int))"
+        "(assert (= (seq.last_indexof (seq.++ p (seq.unit 10) p (seq.unit 20) (seq.unit 30))"
+        "                           (seq.++ p (seq.unit 20))) (+ (seq.len p) 1)))",
+        "(declare-const t String)"
+        "(assert (= (seq.last_indexof (str.++ t \"a\" t \"b\") (str.++ t \"b\")) (+ (str.len t) 1)))"
+    };
+    for (bool sat_smt : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(test);
+            VERIFY(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_bool("smt", sat_smt);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            expr* assertion = cmd.assertions()[0];
+            // Each equation is valid, including for arbitrary symbolic prefixes.
+            // Check both accepting its value and rejecting every other value.
+            for (bool negate : {false, true}) {
+                slv->push();
+                slv->assert_expr(negate ? m.mk_not(assertion) : assertion);
+                lbool expected = negate ? l_false : l_true;
+                lbool actual = slv->check_sat(0, nullptr);
+                bool correct = actual == expected;
+                if (!correct)
+                    std::cerr << "last_indexof: expected " << expected << ", got " << actual
+                              << ", sat.smt=" << sat_smt << ", negate=" << negate
+                              << '\n' << test << '\n';
+                VERIFY(correct);
+                slv->pop(1);
+            }
+        }
+    }
 }
 
 static void check_array_index_dependencies() {
@@ -129,6 +448,73 @@ static void check_array_index_dependencies() {
                 VERIFY(l_true == slv->check_sat(0, nullptr));
             }
         }
+    }
+}
+
+static void check_singleton_array_defaults() {
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(declare-datatypes () ((D d)))\n"
+         "(assert (= (default (store ((as const (Array D Int)) 0) d 1)) 1))\n",
+         l_true},
+        {"(declare-datatypes () ((D d)))\n"
+         "(assert (= (default (store ((as const (Array D Int)) 0) d 1)) 0))\n",
+         l_false},
+        {"(declare-datatypes () ((D d) (E e)))\n"
+         "(declare-const v Int)\n"
+         "(assert (distinct v 0))\n"
+         "(assert (= (default (store ((as const (Array D E Int)) 0) d e v)) v))\n",
+         l_true},
+        {"(declare-datatypes () ((D d) (E e)))\n"
+         "(declare-const v Int)\n"
+         "(assert (distinct v 0))\n"
+         "(assert (= (default (store ((as const (Array D E Int)) 0) d e v)) 0))\n",
+         l_false}
+    };
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(test.input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(test.expected == slv->check_sat(0, nullptr));
+    }
+}
+
+static void check_singleton_array_range_cardinality() {
+    char const* declarations =
+        "(declare-datatypes () ((One one)))\n"
+        "(declare-datatypes ((Box 1))\n"
+        "  ((par (T) ((box (value (Array T One)))))))\n"
+        "(declare-const b (Box Int))\n";
+    std::string equality =
+        "(= (store ((as const (Array (Box Int) Bool)) false) b true)\n"
+        "   ((as const (Array (Box Int) Bool)) true))";
+    struct {
+        bool sat_smt;
+        bool negate;
+    } cases[] = {{false, false}, {false, true}, {true, false}, {true, true}};
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::string input = std::string(declarations) + "(assert " +
+            (test.negate ? "(not " + equality + ")" : equality) + ")\n";
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", test.sat_smt);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY((test.negate ? l_false : l_true) == slv->check_sat(0, nullptr));
     }
 }
 
@@ -369,15 +755,171 @@ static void check_special_relation_logic() {
     }
 }
 
+static void check_qsat_proofs() {
+    struct {
+        char const* input;
+        lbool expected;
+        bool quantified = false;
+    } cases[] = {
+        {"(declare-fun a () (Array Int (Array Int Int)))\n"
+         "(assert (= a (store a 0 (store (select a 0) 0 0))))\n", l_true},
+        {"(declare-const x Int)\n"
+         "(assert (> x 0))\n"
+         "(assert (< x 0))\n", l_false},
+        {"(assert (forall ((a Real)) (exists ((b Real))\n"
+         " (and (>= (+ a b) 0.0) (<= b 0.0)))))\n", l_false, true}
+    };
+    for (bool proofs : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(test.input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            tactic_ref t = mk_qsat_tactic(m, params_ref());
+            goal_ref g = alloc(goal, m, proofs, true, false);
+            for (expr* a : cmd.assertions())
+                g->assert_expr(a);
+            model_ref md;
+            labels_vec labels;
+            proof_ref pr(m);
+            expr_dependency_ref core(m);
+            std::string reason_unknown;
+            lbool expected = proofs && test.quantified ? l_undef : test.expected;
+            VERIFY(expected == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+            if (expected == l_undef) {
+                VERIFY(reason_unknown == "qsat does not support proof production");
+                VERIFY(!pr);
+            }
+            else if (expected == l_true) {
+                VERIFY(md);
+                for (expr* a : cmd.assertions()) {
+                    expr_ref value(m);
+                    VERIFY(md->eval_expr(a, value) && m.is_true(value));
+                }
+            }
+            else if (proofs) {
+                VERIFY(pr && m.is_false(m.get_fact(pr)));
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(checker.check(pr, side_conditions));
+            }
+        }
+    }
+}
+
+static void check_qe_rec_proofs() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const p Bool)\n"
+            "(assert (not (exists ((x Int)) p)))\n"
+            "(assert p)\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        tactic_ref t = mk_qe_rec_tactic(m, params_ref());
+        goal_ref g = alloc(goal, m, proofs, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        tactic_ref solve = proofs ? t.get() : and_then(t.get(), mk_smt_tactic(m));
+        VERIFY(l_false == check_sat(*solve, g, md, labels, pr, core, reason_unknown));
+        if (proofs) {
+            VERIFY(pr && m.is_false(m.get_fact(pr)));
+            proof_checker checker(m);
+            expr_ref_vector side_conditions(m);
+            VERIFY(checker.check(pr, side_conditions));
+        }
+
+        std::istringstream quantified(
+            "(assert (forall ((a Real)) (exists ((b Real))\n"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))\n");
+        cmd.reset_assertions();
+        VERIFY(parse_smt2_commands(cmd, quantified));
+        g = alloc(goal, m, proofs, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        if (proofs) {
+            VERIFY(l_undef == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+            VERIFY(reason_unknown == "qsat does not support proof production");
+            VERIFY(!pr);
+        }
+        else {
+            goal_ref_buffer result;
+            (*t)(g, result);
+            VERIFY(result.size() == 1);
+            for (unsigned i = 0; i < result[0]->size(); ++i)
+                VERIFY(!has_quantifiers(result[0]->form(i)));
+        }
+    }
+}
+
+static void check_intblast_signed_mod() {
+    for (int x = 0; x < 8; ++x) {
+        for (int y = 0; y < 8; ++y) {
+            int sx = x < 4 ? x : x - 8;
+            int sy = y < 4 ? y : y - 8;
+            int expected = sx;
+            if (sy != 0) {
+                expected = sx % sy;
+                if (expected != 0 && (expected < 0) != (sy < 0))
+                    expected += sy;
+            }
+            expected = (expected + 8) % 8;
+            std::ostringstream spec;
+            spec << "(declare-const x (_ BitVec 3))\n"
+                 << "(declare-const y (_ BitVec 3))\n"
+                 << "(assert (bvule (_ bv" << x << " 3) x))\n"
+                 << "(assert (bvule x (_ bv" << x << " 3)))\n"
+                 << "(assert (bvule (_ bv" << y << " 3) y))\n"
+                 << "(assert (bvule y (_ bv" << y << " 3)))\n"
+                 << "(assert (= (ubv_to_int (bvsmod x y)) " << expected << "))\n";
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(spec.str());
+            ENSURE(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_uint("bv.solver", 2);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i + 1 < cmd.assertions().size(); ++i)
+                slv->assert_expr(cmd.assertions()[i]);
+            slv->push();
+            slv->assert_expr(m.mk_not(cmd.assertions().back()));
+            ENSURE(l_false == slv->check_sat(0, nullptr));
+            slv->pop(1);
+            slv->assert_expr(cmd.assertions().back());
+            ENSURE(l_true == slv->check_sat(0, nullptr));
+        }
+    }
+}
+
 void tst_smt_context()
 {
     check_integer_power(false);
     check_integer_power(true);
+    check_intblast_signed_mod();
+    check_qsat_proofs();
+    check_qe_rec_proofs();
+    check_arithmetic_propagation_cancellation();
+    check_lp_cancellation_recovery();
+    check_recfun_rlimits();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_sequence_last_index();
     check_array_index_dependencies();
+    check_stored_lambdas();
+    check_sat_array_lambdas();
+    check_singleton_array_defaults();
+    check_singleton_array_range_cardinality();
+    check_expand_store_eq();
 
     smt_params params;
 
@@ -601,6 +1143,20 @@ void tst_smt_context()
         "(declare-fun isL2 (L2) Bool)\n"
         "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
         "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(define-fun-rec g ((x Int)) Int (ite (<= x 0) 0 (+ 1 (g (- x 1)))))\n"
+            "(define-fun-rec h ((x Int)) Int (g x))\n"
+            "(define-fun-rec f ((x Int)) Int (h x))\n"
+            "(assert (= (f 3) 3))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        model mdl(m);
+        expr_ref value(m);
+        VERIFY(mdl.eval_expr(cmd.assertions()[0], value));
+        VERIFY(m.is_true(value));
+    }
 
     // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
     // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh

@@ -1,0 +1,6 @@
+F* 2026.09.27 (commit 7deb38a); Z3 4.13.3
+$ /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3OptBoundedQuery.fst
+stdout: Verified module: Z3OptBoundedQuery
+All verification conditions discharged successfully
+stderr: (empty)
+exit code: 0

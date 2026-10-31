@@ -524,7 +524,7 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
 
 bool theory_seq::check_fixed_length(bool is_zero, bool check_long_strings) {
     bool found = false;    
-    for (unsigned i = 0; i < m_length.size(); ++i) {
+    for (unsigned i = 0; i < m_length.size() && m.inc(); ++i) {
         expr* e = m_length.get(i);
         if (fixed_length(e, is_zero, check_long_strings)) 
             found = true;        
@@ -556,9 +556,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
     if (!check_long_strings && lo > 20 && !is_zero)
         return false;
 
-    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
-    m_fixed.insert(e);
-
     expr_ref seq(e, m), head(m), tail(m);
 
     if (lo.is_zero()) {
@@ -568,12 +565,16 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
         unsigned _lo = lo.get_unsigned();
         expr_ref_vector elems(m);
         for (unsigned j = 0; j < _lo; ++j) {
+            if (!m.inc())
+                return false;
             m_sk.decompose(seq, head, tail);
             elems.push_back(head);
             seq = tail;
         }
         seq = mk_concat(elems.size(), elems.data());
     }
+    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
+    m_fixed.insert(e);
     literal b = mk_seq_eq(seq, e);
     if (ctx.get_assignment(b) == l_true)
         return false;
@@ -1549,7 +1550,7 @@ bool theory_seq::explain_empty(expr_ref_vector& es, dependency*& dep) {
 
 bool theory_seq::simplify_and_solve_eqs() {
     m_new_solution = true;
-    while (m_new_solution && !ctx.inconsistent()) {
+    while (m_new_solution && !ctx.inconsistent() && m.inc()) {
         m_new_solution = false;
         solve_eqs(0);
     }
@@ -2654,6 +2655,8 @@ bool theory_seq::canonize(expr* e, expr_ref_vector& es, dependency*& eqs, bool& 
     expr* e1, *e2;
     expr_ref e3(e, m);
     while (true) {
+        if (!can_reduce_eqs())
+            return false;
         if (m_util.str.is_concat(e3, e1, e2)) {
             if (!canonize(e1, es, eqs, change)) {
                 return false;
@@ -2691,9 +2694,14 @@ bool theory_seq::expand(expr* e, dependency*& eqs, expr_ref& result) {
     unsigned sz = m_expand_todo.size();
     m_expand_todo.push_back(e);
     while (m_expand_todo.size() != sz) {
+        if (!can_reduce_eqs()) {
+            m_expand_todo.shrink(sz);
+            return false;
+        }
         expr* e = m_expand_todo.back();
         bool r = expand1(e, eqs, result);
         if (!r) {
+            m_expand_todo.shrink(sz);
             return false; 
         }
         if (result) {
@@ -2859,15 +2867,16 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
+    m_num_eager_eq_steps = 0;
     if (m_regex.can_propagate())
         m_regex.propagate();
-    while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
+    while (m_axioms_head < m_axioms.size() && !ctx.inconsistent() && m.inc()) {
         expr_ref e(m);
         e = m_axioms.get(m_axioms_head);
         deque_axiom(e);
         ++m_axioms_head;
     }
-    while (!m_replay.empty() && !ctx.inconsistent()) {
+    while (!m_replay.empty() && !ctx.inconsistent() && m.inc()) {
         TRACE(seq, tout << "replay at level: " << ctx.get_scope_level() << "\n";);
         apply& app = *m_replay[m_replay.size() - 1];
         app(*this);
@@ -2875,7 +2884,6 @@ void theory_seq::propagate() {
     }
     if (m_new_solution) {
         simplify_and_solve_eqs();
-        m_new_solution = false;
     }
 }
 

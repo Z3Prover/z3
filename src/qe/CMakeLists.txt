@@ -15,9 +15,11 @@ z3_add_component(qe
     qe_tactic.cpp
     qsat.cpp
   COMPONENT_DEPENDENCIES
+    core_tactics
     nlsat_tactic
     nlsat
     smt
+    smt_tactic
     tactic
     mbp
     qe_lite

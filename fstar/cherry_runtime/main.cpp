@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <utility>
 
@@ -181,6 +182,7 @@ static std::string rule_name(Z3UnifiedProof_rule const& rule) {
     RULE(DEFINITIONINTRODUCTION, "intro-def"); RULE(APPLYDEFINITION, "apply-def");
     RULE(HYPOTHESIS, "hypothesis"); RULE(LEMMARULE, "lemma");
     RULE(ARITHMETICFARKAS, "arith/farkas"); RULE(ARITHMETICGOMORY, "arith/lp-gomory");
+    RULE(FINITEFIELDPAC, "th-lemma");
     RULE(REWRITERULE, "rewrite"); RULE(PULLQUANTIFIER, "pull-quant");
     RULE(DESTRUCTIVEEQUALITYRESOLUTION, "der"); RULE(SKOLEMIZATION, "sk");
     RULE(ELIMUNUSED, "elim-unused"); RULE(PUSHQUANTIFIER, "push-quant");
@@ -229,10 +231,7 @@ static char const* stage_name(Z3ProofDocument_diagnostic_stage stage) {
     }
 }
 
-static void report_diagnostics(bool sorted, Z3Cherry_marshaled document, Result result) {
-    Owned<Z3ProofDocument_document_diagnostic, checker_drop_diagnostic>
-        diagnostic(Z3Cherry_diagnose(sorted, document));
-    auto const& value = diagnostic.value;
+static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value, Result result) {
     if (value.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED &&
         result.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT &&
         cherry_int_eq(value.val.DocumentChecked.pending, result.val.Some)) {
@@ -295,11 +294,33 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     NativeSession session(context);
     Owned<Prims_list__ast, checker_drop_asts> roots(list<Prims_list__ast_Cons_s>(assertions));
     Owned<Z3Cherry_marshaled, checker_drop_marshaled> marshaled(Z3Cherry_marshal(roots.value, proof));
-    auto const& doc = marshaled.value.document;
+    // document is [@@cherry_boxed]: a counted cell holding the record.
+    auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.value.document);
     auto marshal_end = Clock::now();
     bool datatype = !cherry_is_scalar(marshaled.value.schema.cases);
     bool sorted = datatype || options.sorted_core;
-    Owned<Result, checker_drop_result> result(Z3Cherry_check(sorted, marshaled.value));
+    // Without --diagnostics the document is checked once by Z3Cherry_check. With --diagnostics it is
+    // checked once by Z3Cherry_diagnose and the verdict is read from that result: F* proves
+    // diagnostic_result (diagnose ...) == check ... (Z3ProofDocument.lemma_diagnose_document_using and
+    // Z3SortedProof.lemma_diagnose_document), the fact on which the OCaml driver takes its verdict from
+    // check_document_diagnosed*. A second checking pass would only repeat the work.
+    std::optional<Owned<Result, checker_drop_result>> checked;
+    std::optional<Owned<Z3ProofDocument_document_diagnostic, checker_drop_diagnostic>> diagnosed;
+    Result result{};
+    if (options.diagnostics) {
+        diagnosed.emplace(Z3Cherry_diagnose(sorted, marshaled.value));
+        auto const& value = diagnosed->value;
+        if (value.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED) {
+            result.tag = FSTAR_PERVASIVES_NATIVE_SOME__INT;
+            result.val.Some = value.val.DocumentChecked.pending;
+        }
+        else
+            result.tag = FSTAR_PERVASIVES_NATIVE_NONE__INT;
+    }
+    else {
+        checked.emplace(Z3Cherry_check(sorted, marshaled.value));
+        result = checked->value;
+    }
     auto check_end = Clock::now();
     std::ostringstream summary;
     summary << std::fixed << std::setprecision(3)
@@ -313,7 +334,7 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     if (options.statistics)
         std::cerr << summary.str() << '\n';
     if (options.diagnostics) {
-        report_diagnostics(sorted, marshaled.value, result.value);
+        report_diagnostics(diagnosed->value, result);
         if (options.statistics)
             std::cerr << std::fixed << std::setprecision(3)
                       << "diagnose_ms=" << milliseconds(Clock::now(), check_end) << '\n';
@@ -328,8 +349,8 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
                     binder_edges += length<Prims_list__int_Cons_s>(bound.binder_premises);
                 });
     });
-    bool rejected = result.value.tag == FSTAR_PERVASIVES_NATIVE_NONE__INT;
-    auto pending = rejected ? "unknown" : integer(result.value.val.Some);
+    bool rejected = result.tag == FSTAR_PERVASIVES_NATIVE_NONE__INT;
+    auto pending = rejected ? "unknown" : integer(result.val.Some);
     summary << " assertions=" << assertions.size() << " proof_edges=" << edges
             << " binder_nodes=" << binder_nodes << " binder_edges=" << binder_edges
             << " pending=" << pending;

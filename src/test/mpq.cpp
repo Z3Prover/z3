@@ -160,7 +160,117 @@ static void tst_prev_power_2() {
     tst_prev_power_2((1ll << 60), 3, 58);
 }
 
+template<bool SYNCH>
+static void tst_small_arithmetic() {
+    mpq_manager<SYNCH> m;
+    _scoped_numeral<mpq_manager<SYNCH>> a(m), b(m), c(m), expected(m);
+    _scoped_numeral<mpz_manager<SYNCH>> p(m), q(m), n(m), d(m);
+    int nums[] = {INT_MIN, INT_MIN + 1, -65537, -1, 0, 1, 65537, INT_MAX - 1, INT_MAX};
+    int dens[] = {1, 2, 3, 65537, INT_MAX - 1, INT_MAX};
+    for (int an : nums) for (int ad : dens) for (int bn : nums) for (int bd : dens) {
+        m.set(a, an, ad);
+        m.set(b, bn, bd);
+        m.mul(a.get().numerator(), b.get().denominator(), p);
+        m.mul(b.get().numerator(), a.get().denominator(), q);
+        ENSURE(m.lt(a, b) == m.lt(p, q));
+        for (unsigned op = 0; op < 3; ++op) {
+            if (op == 2) {
+                m.mul(a.get().numerator(), b.get().numerator(), n);
+                m.mul(a.get().denominator(), b.get().denominator(), d);
+            }
+            else {
+                if (op == 0)
+                    m.add(p, q, n);
+                else
+                    m.sub(p, q, n);
+                m.mul(a.get().denominator(), b.get().denominator(), d);
+            }
+            m.set(expected, n, d);
+            auto apply = [&](mpq const& x, mpq const& y) {
+                if (op == 0)
+                    m.add(x, y, c);
+                else if (op == 1)
+                    m.sub(x, y, c);
+                else
+                    m.mul(x, y, c);
+                ENSURE(m.eq(c, expected));
+            };
+            m.set(c, "18446744073709551617/4294967297");
+            apply(a, b);
+            m.set(c, a);
+            apply(c, b);
+            m.set(c, b);
+            apply(a, c);
+        }
+    }
+}
+
+template<bool SYNCH>
+static void tst_fused_addmul() {
+    mpq_manager<SYNCH> m;
+    _scoped_numeral<mpq_manager<SYNCH>> a(m), b(m), c(m), result(m), expected(m);
+    _scoped_numeral<mpz_manager<SYNCH>> p(m), q(m), n(m), d(m);
+    char const* values[] = {
+        "0", "1", "-1", "2/3", "-2/3", "3/2", "-4/9",
+        "1048575/1048573", "-1048575/1048573",
+        "1048576/1048573", "1048573/1048576",
+        "-2147483648/2147483647", "2147483647",
+        "18446744073709551617/4294967297", "18446744073709551617/9", "2/15"
+    };
+    for (auto av : values) for (auto bv : values) for (auto cv : values) {
+        m.set(a, av);
+        m.set(b, bv);
+        m.set(c, cv);
+        m.mul(b.get().numerator(), c.get().numerator(), p);
+        m.mul(p, a.get().denominator(), p);
+        m.mul(b.get().denominator(), c.get().denominator(), q);
+        m.mul(q, a.get().numerator(), q);
+        m.mul(a.get().denominator(), b.get().denominator(), d);
+        m.mul(d, c.get().denominator(), d);
+        for (bool subtract : {false, true}) {
+            if (subtract)
+                m.sub(q, p, n);
+            else
+                m.add(p, q, n);
+            m.set(expected, n, d);
+            auto check = [&](mpq const& x, mpq const& y, mpq const& z) {
+                if (subtract)
+                    m.submul(x, y, z, result);
+                else
+                    m.addmul(x, y, z, result);
+                if (!m.eq(result, expected))
+                    std::cerr << (subtract ? "submul(" : "addmul(")
+                              << av << ", " << bv << ", " << cv << ") = "
+                              << m.to_string(result) << ", expected " << m.to_string(expected)
+                              << ", synchronized=" << SYNCH << "\n";
+                ENSURE(m.eq(result.get().numerator(), expected.get().numerator()));
+                ENSURE(m.eq(result.get().denominator(), expected.get().denominator()));
+            };
+            m.set(result, "18446744073709551617/4294967297");
+            check(a, b, c);
+            m.set(result, a);
+            check(result, b, c);
+            m.set(result, b);
+            check(a, result, c);
+            m.set(result, c);
+            check(a, b, result);
+        }
+    }
+    for (auto value : values) {
+        rational a(value), result(a);
+        rational expected = a + a * a;
+        result.addmul(result, result);
+        ENSURE(result == expected);
+    }
+}
+
 void tst_mpq() {
+#ifndef SINGLE_THREAD
+    tst_fused_addmul<true>();
+    tst_small_arithmetic<true>();
+#endif
+    tst_fused_addmul<false>();
+    tst_small_arithmetic<false>();
     tst_prev_power_2();
     set_str_bug();
     bug2();
@@ -169,5 +279,3 @@ void tst_mpq() {
     tst1();
     tst2();
 }
-
-

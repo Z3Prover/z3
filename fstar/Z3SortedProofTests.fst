@@ -24,8 +24,9 @@ let primitive_default (s:sort) : primitive s =
 let primitive_equal (s:sort) (x y:primitive s) : bool =
   match s with BaseSort "Int" -> x = y | BaseSort "Bool" -> x = y | _ -> true
 
-let equality : T.scalar_equality primitive =
-  T.Mkscalar_equality #primitive primitive_equal ()
+let equality : T.scalar_model primitive =
+  { T.reflection = T.Mkscalar_equality #primitive primitive_equal ();
+    integers = Z3SortedInteger.Mkcarrier #primitive (fun n -> n) (fun n -> n) () }
 
 let booleans : S.boolean_carrier primitive =
   S.Mkboolean_carrier #primitive (fun b -> b) (fun b -> b) ()
@@ -65,6 +66,113 @@ let schema : S.checked_schema =
 let model : V.interpretation primitive (S.signature schema) =
   T.interpretation #primitive schema booleans equality
     (S.default_interpretation #primitive schema primitive_default)
+
+let shifted_integers : T.scalar_model primitive = {
+  equality with integers = Z3SortedInteger.Mkcarrier #primitive
+    (fun n -> n + 17) (fun n -> n - 17) () }
+
+let integer_literal (n:int) = App {
+  decl_name = "integer"; domain = []; range = integer;
+  interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+
+let integer_addition = App {
+  decl_name = "+"; domain = [integer; integer]; range = integer;
+  interp = Some Z3ValueTheory.op_arith_add; int_params = [] }
+  [integer_literal 2; integer_literal 3]
+
+let integer_semantics_is_not_the_carrier_representation ()
+  : Lemma (T.evaluate schema booleans shifted_integers
+      (S.default_interpretation #primitive schema primitive_default) integer_addition ==
+      V.Scalar integer 22) =
+  assert (T.evaluate schema booleans shifted_integers
+    (S.default_interpretation #primitive schema primitive_default) integer_addition ==
+    V.Scalar integer 22) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
+let integer_sort_cannot_be_a_datatype ()
+  : Lemma (not (S.valid {
+      S.sorts = [integer];
+      cases = [{ S.constructor = { empty with range = integer };
+                 recognizer = { is_empty with domain = [integer] };
+                 accessors = [] }] })) =
+  assert_norm (not (S.valid {
+    S.sorts = [integer];
+    cases = [{ S.constructor = { empty with range = integer };
+               recognizer = { is_empty with domain = [integer] };
+               accessors = [] }] }))
+
+let chain = BaseSort "Chain"
+let chain_empty : func_decl = {
+  decl_name = "chain-empty"; domain = []; range = chain;
+  interp = Some 200; int_params = [1; 0; 0];
+}
+let chain_link : func_decl = {
+  decl_name = "chain-link"; domain = [chain; chain]; range = chain;
+  interp = Some 200; int_params = [1; 1; 2];
+}
+let chain_is_empty : func_decl = {
+  decl_name = "chain-is-empty"; domain = [chain]; range = bool_sort;
+  interp = Some 201; int_params = [1; 0];
+}
+let chain_is_link : func_decl = {
+  decl_name = "chain-is-link"; domain = [chain]; range = bool_sort;
+  interp = Some 201; int_params = [1; 1];
+}
+let chain_head : func_decl = {
+  decl_name = "chain-head"; domain = [chain]; range = chain;
+  interp = Some 202; int_params = [1; 1; 0];
+}
+let chain_tail : func_decl = {
+  decl_name = "chain-tail"; domain = [chain]; range = chain;
+  interp = Some 202; int_params = [1; 1; 1];
+}
+
+let chain_schema : S.checked_schema =
+  let s = {
+    S.sorts = [chain];
+    cases = [
+      { S.constructor = chain_empty; recognizer = chain_is_empty; accessors = [] };
+      { S.constructor = chain_link; recognizer = chain_is_link; accessors = [chain_head; chain_tail] }];
+  } in
+  assert_norm (S.valid s);
+  s
+
+let chain_x = App {
+  decl_name = "chain-x"; domain = []; range = chain; interp = None; int_params = [];
+} []
+let chain_y = App {
+  decl_name = "chain-y"; domain = []; range = chain; interp = None; int_params = [];
+} []
+let chain_nil = App chain_empty []
+let chain_cycle = App chain_link [chain_nil; chain_x]
+
+let checked_direct_constructor_cycles ()
+  : Lemma (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_cycle chain_x] /\
+           K.cyclic_conflict chain_schema [R.true_expr; R.mk_eq_expr chain_x chain_cycle] /\
+           K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_x; chain_nil])] /\
+           K.direct_consequence chain_schema [R.mk_eq_expr chain_cycle chain_x] R.false_expr) =
+  assert_norm (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_cycle chain_x]);
+  assert_norm (K.cyclic_conflict chain_schema [R.true_expr; R.mk_eq_expr chain_x chain_cycle]);
+  assert_norm (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_x; chain_nil])]);
+  assert_norm (K.direct_consequence chain_schema [R.mk_eq_expr chain_cycle chain_x] R.false_expr)
+
+let rejected_constructor_cycle_lookalikes ()
+  : Lemma (
+    not (K.cyclic_conflict chain_schema []) /\
+    not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_nil; chain_y])]) /\
+    not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x
+      (App { chain_link with decl_name = "opaque-link" } [chain_nil; chain_x])]) /\
+    not (K.cyclic_conflict chain_schema [App { (R.eq_decl chain) with interp = None }
+      [chain_x; chain_cycle]]) /\
+    not (K.cyclic_conflict chain_schema [R.mk_eq_expr (Var 0 chain) (App chain_link [chain_nil; Var 0 chain])])) =
+  assert_norm (not (K.cyclic_conflict chain_schema []));
+  assert_norm (not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_nil; chain_y])]));
+  assert_norm (not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x
+    (App { chain_link with decl_name = "opaque-link" } [chain_nil; chain_x])]));
+  assert_norm (not (K.cyclic_conflict chain_schema [App { (R.eq_decl chain) with interp = None }
+    [chain_x; chain_cycle]]));
+  assert_norm (not (K.cyclic_conflict chain_schema [R.mk_eq_expr (Var 0 chain)
+    (App chain_link [chain_nil; Var 0 chain])]))
 
 let opaque_array = ArraySort [box] integer
 
@@ -198,7 +306,7 @@ let original_inputs_and_exhaustiveness ()
     root = 0 } == Some 1)
 
 let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier base)
-                                   (eq:T.scalar_equality base)
+                                   (eq:T.scalar_model base)
                                    (other:V.interpretation base (S.signature schema))
   : Lemma (ensures not (T.truths schema bc eq other exhaustive_document.assertions)) =
   original_inputs_and_exhaustiveness ();
@@ -271,11 +379,86 @@ let core_document : P.document = {
 }
 
 let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean_carrier base)
-                                             (eq:T.scalar_equality base)
+                                             (eq:T.scalar_model base)
                                              (other:V.interpretation base (S.signature core_schema))
   : Lemma (ensures K.check_document core_schema core_document == Some 0 /\
                    not (T.truths core_schema bc eq other core_document.assertions)) =
   assert_norm (K.check_document core_schema core_document == Some 0);
   K.lemma_check_document core_schema bc eq other core_document
+
+(* Independently constructed bodies: declaration-order blocks flatten as
+   outer @ inner, whereas the de Bruijn scope is rev inner @ rev outer. *)
+let pull_body = App {
+  decl_name = "pull-relation"; domain = [box; bool_sort; integer]; range = bool_sort;
+  interp = None; int_params = [];
+} [Var 2 box; Var 1 bool_sort; Var 0 integer]
+
+let pull_nested =
+  Quantifier Forall_k [box] bool_sort
+    (Quantifier Forall_k [bool_sort; integer] bool_sort pull_body)
+
+let pull_flat = Quantifier Forall_k [box; bool_sort; integer] bool_sort pull_body
+
+let pull_boolean_body = R.mk_eq_expr
+  (App { decl_name = "pull-boolean"; domain = [bool_sort; bool_sort]; range = bool_sort;
+         interp = None; int_params = [] } [Var 1 bool_sort; Var 0 bool_sort])
+  (Var 1 bool_sort)
+
+let pull_boolean_nested =
+  Quantifier Forall_k [bool_sort] bool_sort
+    (Quantifier Forall_k [bool_sort] bool_sort pull_boolean_body)
+
+let pull_boolean_flat =
+  Quantifier Forall_k [bool_sort; bool_sort] bool_sort pull_boolean_body
+
+let pull_node (a b:expr) : U.proof_node = {
+  U.kind = U.PullQuantifier; conclusion = U.Equal a b; premises = [];
+}
+
+let checked_sorted_quantifier_flattening ()
+  : Lemma (ensures
+      K.check_node schema [] (pull_node pull_nested pull_flat) ==
+        Some ({ U.conclusion = U.Equal pull_nested pull_flat; hypotheses = [] }, 0) /\
+      K.check_node schema [] (pull_node pull_boolean_nested pull_boolean_flat) ==
+        Some ({ U.conclusion = U.Equal pull_boolean_nested pull_boolean_flat; hypotheses = [] }, 0) /\
+      Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_flat pull_nested)) =
+  assert_norm (K.check_node schema [] (pull_node pull_nested pull_flat) ==
+    Some ({ U.conclusion = U.Equal pull_nested pull_flat; hypotheses = [] }, 0));
+  assert_norm (K.check_node schema [] (pull_node pull_boolean_nested pull_boolean_flat) ==
+    Some ({ U.conclusion = U.Equal pull_boolean_nested pull_boolean_flat; hypotheses = [] }, 0));
+  assert_norm (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_flat pull_nested))
+
+let rejected_sorted_quantifier_flattening ()
+  : Lemma (ensures
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+        (Quantifier Forall_k [bool_sort; integer; box] bool_sort pull_body))) /\
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_boolean_nested
+        (Quantifier Forall_k [bool_sort; bool_sort] bool_sort
+          (R.mk_eq_expr (Var 0 bool_sort) (Var 1 bool_sort))))) /\
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+        (Quantifier Exists_k [box; bool_sort; integer] bool_sort pull_body))) /\
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr
+        (Quantifier Forall_k [bool_sort] bool_sort
+          (Quantifier Forall_k [bool_sort] bool_sort (Var 2 bool_sort)))
+        (Quantifier Forall_k [bool_sort; bool_sort] bool_sort (Var 2 bool_sort))))) =
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+    (Quantifier Forall_k [bool_sort; integer; box] bool_sort pull_body))));
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_boolean_nested
+    (Quantifier Forall_k [bool_sort; bool_sort] bool_sort
+      (R.mk_eq_expr (Var 0 bool_sort) (Var 1 bool_sort))))));
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+    (Quantifier Exists_k [box; bool_sort; integer] bool_sort pull_body))));
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr
+    (Quantifier Forall_k [bool_sort] bool_sort
+      (Quantifier Forall_k [bool_sort] bool_sort (Var 2 bool_sort)))
+    (Quantifier Forall_k [bool_sort; bool_sort] bool_sort (Var 2 bool_sort)))))
+
+let sorted_flattening_semantics (#base:sort -> Type0) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base)
+                               (other:V.interpretation base (S.signature schema))
+  : Lemma (requires Z3SortedQuantifier.forall_model schema bc other)
+          (ensures T.truth schema bc eq other (R.mk_eq_expr pull_nested pull_flat)) =
+  assert_norm (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested pull_flat));
+  Z3SortedQuantifier.lemma_check_flatten schema bc eq other (R.mk_eq_expr pull_nested pull_flat)
 
 #pop-options

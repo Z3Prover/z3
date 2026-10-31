@@ -223,6 +223,84 @@ void test_exp_negative_twenty() {
     Z3_del_context(ctx);
 }
 
+void test_sin_negative_interval() {
+    for (char const* options : {
+            "",
+            "(set-option :model_validate true)\n",
+            "(set-option :smt.arith.nl.transcendental false)\n"}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = options;
+        spec +=
+            "(set-logic ALL)\n"
+            "(declare-const h Real)\n"
+            "(declare-const e Real)\n"
+            "(assert (<= (- 0.3141592653589793) h (- 0.10471975511965975)))\n"
+            "(assert (= (sin h) 0.0))\n"
+            "(assert (= (* e e) 2.0))\n"
+            "(check-sat)\n"
+            "(set-option :smt.arith.nl.transcendental true)\n"
+            "(set-option :model_validate false)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != "unsat\n")
+            std::cout << response << "\n";
+        VERIFY(response == "unsat\n");
+        Z3_del_context(ctx);
+    }
+}
+
+void test_sin_polynomial_arguments() {
+    for (char const* arg : {"(* (/ 1.0 2.0) h)", "(* h h)"}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec =
+            "(set-logic ALL)\n"
+            "(declare-const h Real)\n"
+            "(declare-const e Real)\n"
+            "(assert (<= (- 0.3) h (- 0.1)))\n"
+            "(assert (= (sin ";
+        spec += arg;
+        spec +=
+            ") 0.0))\n"
+            "(assert (= (* e e) 2.0))\n"
+            "(check-sat)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != "unsat\n")
+            std::cout << response << "\n";
+        VERIFY(response == "unsat\n");
+        Z3_del_context(ctx);
+    }
+}
+
+void test_finite_set_cardinality_with_transcendentals() {
+    for (char const* options : {
+             "",
+             "(set-option :model_validate true)\n"}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = options;
+        spec +=
+            "(set-logic ALL)\n"
+            "(declare-const x Real)\n"
+            "(declare-const y Real)\n"
+            "(declare-const S (FiniteSet Real))\n"
+            "(assert (= x 0.0))\n"
+            "(assert (= y 0.0))\n"
+            "(assert (>= (+ (sin x) (exp x)) 0.0))\n"
+            "(assert (>= (+ (sin y) (exp y)) 0.0))\n"
+            "(assert (= (set.size S) 1))\n"
+            "(check-sat)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != "sat\n")
+            std::cout << response << "\n";
+        VERIFY(response == "sat\n");
+        Z3_del_context(ctx);
+    }
+}
+
 void test_transcendental_enclosures_do_not_certify_sat() {
     char const* assertions[] = {
         "(= (exp (- 20.0)) 0.1)",
@@ -282,6 +360,9 @@ void test_nla_transcendentals() {
     test_unrefined_failure_is_not_sat();
     test_incremental_exp_unsat();
     test_exp_negative_twenty();
+    test_sin_negative_interval();
+    test_sin_polynomial_arguments();
+    test_finite_set_cardinality_with_transcendentals();
     test_transcendental_enclosures_do_not_certify_sat();
     test_pi_positive_sat();
     test_atan2_unsat_regression();

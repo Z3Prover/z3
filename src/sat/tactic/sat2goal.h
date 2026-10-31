@@ -61,6 +61,8 @@ public:
         void display(std::ostream& out) override;
         void get_units(obj_map<expr, bool>& units) override;
         expr* var2expr(sat::bool_var v) const { return m_var2expr.get(v, nullptr); }
+        // Forget the expressions of the variables numbered num_vars and above.
+        void shrink(unsigned num_vars) { if (num_vars < m_var2expr.size()) m_var2expr.shrink(num_vars); }
         expr_ref lit2expr(sat::literal l);
         void insert(sat::bool_var v, expr * atom, bool aux);
     };

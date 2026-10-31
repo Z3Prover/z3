@@ -141,6 +141,8 @@ if (Z3_INSTALL_PYTHON_BINDINGS)
                    ". Not trying to guess.")
   endif()
 
+  cmake_path(CONVERT "${CMAKE_INSTALL_PYTHON_PKG_DIR}"
+    TO_CMAKE_PATH_LIST CMAKE_INSTALL_PYTHON_PKG_DIR NORMALIZE)
   # Check if path exists under the install prefix if it is absolute. If the
   # path is relative it will be installed under the install prefix so there
   # if nothing to check

@@ -153,10 +153,25 @@ execute_process(
 
 set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
 
-set(c_lib_deps "-L${libz3_path}" "-lz3" "-lstdc++" "-lpthread")
-if (Z3_USE_LIB_GMP)
-  list(APPEND c_lib_deps "-lgmp")
+set(z3_lib_deps "-lz3" "-lstdc++")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT BUILD_SHARED_LIBS)
+  # Static tactic registrations must survive archive member selection.
+  set(z3_lib_deps "-Wl,--whole-archive,-lz3,--no-whole-archive" "-lstdc++")
 endif()
+if (NOT APPLE)
+  list(APPEND z3_lib_deps "-lpthread")
+endif()
+if (Z3_USE_LIB_GMP)
+  list(APPEND z3_lib_deps "-lgmp")
+endif()
+set(c_lib_deps "-L${libz3_path}")
+foreach(dep IN LISTS z3_lib_deps)
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT BUILD_SHARED_LIBS)
+    list(APPEND c_lib_deps "-cclib" "${dep}" "-ldopt" "${dep}")
+  else()
+    list(APPEND c_lib_deps "${dep}")
+  endif()
+endforeach()
 
 if( APPLE )
   # set(ocaml_rpath "@executable_path/../libz3${so_ext}")
@@ -260,7 +275,7 @@ set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlc
-    -cclib "-L${libz3_path}" -cclib "-lz3"
+    -cclib "-L${libz3_path}"
     -o "${z3ml_bin}/ml_example.byte"
     -package zarith
     -linkpkg
@@ -276,7 +291,7 @@ add_custom_command(
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlopt
-    -cclib "-L${libz3_path}" -cclib "-lz3"
+    -cclib "-L${libz3_path}"
     -o "${z3ml_bin}/ml_example"
     -package zarith
     -linkpkg
@@ -292,7 +307,7 @@ if (OCAML_VERSION VERSION_GREATER_EQUAL "5.0")
   add_custom_command(
     TARGET build_z3_ocaml_bindings POST_BUILD
     COMMAND "${OCAMLFIND}" ocamlopt
-      -cclib "-L${libz3_path}" -cclib "-lz3"
+      -cclib "-L${libz3_path}"
       -o "${z3ml_bin}/parallel_finalizers"
       -package zarith
       -linkpkg

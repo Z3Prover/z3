@@ -210,7 +210,7 @@ let uninterp_app (f:func_decl{is_uninterp_decl f}) (args:list value) : value =
    (none of the example leaves below sit under a quantifier), so any
    well-typed, *extensional* choice suffices; a constant function is
    the simplest one, and makes `quant_extensional` hold trivially. *)
-let interp_quant (_:quantifier_kind) (_:list sort) (_:list value -> value) : value = VBool true
+let interp_quant (_:quantifier_kind) (_:list sort) (_:list value -> GTot value) : value = VBool true
 
 let the_interpretation : interpretation value = {
   interp_app; uninterp_app; interp_quant;

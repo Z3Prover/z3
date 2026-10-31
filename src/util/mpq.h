@@ -105,6 +105,7 @@ class mpq_manager : public mpz_manager<SYNCH> {
     void lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3);
 
     void rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2);
+    bool small_addmul(mpq const& a, mpq const& b, mpq const& c, mpq& d);
 
 public:
     typedef mpq numeral;
@@ -338,6 +339,8 @@ public:
             set(d, a);
         }
         else {
+            if (is_small(a) && is_small(b) && is_small(c) && small_addmul(a, b, c, d))
+                return;
             if (SYNCH) {
                 mpq tmp;
                 mul(b,c,tmp);

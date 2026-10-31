@@ -443,7 +443,16 @@ namespace smt {
         mpf_manager & mpfm = m_fpa_util.fm();
 
         if (m_fpa_util.is_float(n) || m_fpa_util.is_rm(n)) {
-            if (!m_fpa_util.is_fp(n)) {
+            if (m_fpa_util.is_fp(n)) {
+                expr_ref is_nan(m_fpa_util.mk_is_nan(n), m);
+                is_nan = convert(is_nan);
+                m_th_rw(is_nan);
+                expr_ref nan(m_fpa_util.mk_nan(n->get_sort()), m);
+                expr_ref eq(m.mk_eq(n, nan), m);
+                assert_cnstr(m.mk_implies(is_nan, eq));
+                assert_cnstr(mk_side_conditions());
+            }
+            else {
                 expr_ref wrapped(m), c(m);
                 wrapped = m_converter.wrap(n);
                 mpf_rounding_mode rm;

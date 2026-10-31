@@ -435,6 +435,82 @@ static void test_error_handler() {
     Z3_del_context(ctx);
 }
 
+static void test_apply_result_subgoal_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "skip");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    unsigned size = Z3_apply_result_get_num_subgoals(ctx, result);
+    ENSURE(size == 1);
+    for (unsigned i : { size, size + 1 }) {
+        ENSURE(!Z3_apply_result_get_subgoal(ctx, result, i));
+        ENSURE(Z3_get_error_code(ctx) == Z3_IOB);
+    }
+    Z3_goal subgoal = Z3_apply_result_get_subgoal(ctx, result, 0);
+    ENSURE(subgoal);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_goal_inc_ref(ctx, subgoal);
+    ENSURE(Z3_goal_size(ctx, subgoal) == 0);
+    Z3_goal_dec_ref(ctx, subgoal);
+
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_del_context(ctx);
+}
+
+static void test_query_constructor_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_symbol field_names[] = {
+        Z3_mk_string_symbol(ctx, "fst"), Z3_mk_string_symbol(ctx, "snd")
+    };
+    Z3_sort field_sorts[] = { Z3_mk_int_sort(ctx), Z3_mk_int_sort(ctx) };
+    unsigned sort_refs[] = { 0, 0 };
+    for (unsigned arity : { 0u, 1u, 2u }) {
+        Z3_constructor ctor = Z3_mk_constructor(
+            ctx, Z3_mk_string_symbol(ctx, "mk"), Z3_mk_string_symbol(ctx, "is_mk"),
+            arity, field_names, field_sorts, sort_refs);
+        ENSURE(Z3_mk_datatype(ctx, Z3_mk_string_symbol(ctx, "P"), 1, &ctor));
+        Z3_func_decl constructor = nullptr, tester = nullptr;
+        Z3_func_decl accessors[3] = {};
+        Z3_query_constructor(ctx, ctor, arity + 1, &constructor, &tester, accessors);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!constructor && !tester);
+        for (auto accessor : accessors)
+            ENSURE(!accessor);
+
+        Z3_query_constructor(ctx, ctor, arity, &constructor, &tester, accessors);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(constructor && tester);
+        ENSURE(Z3_get_arity(ctx, constructor) == arity);
+        for (unsigned i = 0; i < arity; ++i)
+            ENSURE(accessors[i]);
+        ENSURE(!accessors[arity]);
+
+        for (unsigned count = 0; count < arity; ++count) {
+            Z3_func_decl partial[2] = {};
+            Z3_query_constructor(ctx, ctor, count, nullptr, nullptr, partial);
+            ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+            for (unsigned i = 0; i < count; ++i)
+                ENSURE(partial[i] == accessors[i]);
+            ENSURE(!partial[count]);
+        }
+        Z3_del_constructor(ctx, ctor);
+    }
+    Z3_del_context(ctx);
+}
+
 struct proof_callback_state {
     Z3_context context = nullptr;
     std::vector<std::vector<std::string>> inputs;
@@ -558,6 +634,120 @@ static void test_command_proof_check_callback() {
 // process-global allocated memory, so the work reaching the factorizer depends
 // on machine load and on whatever ran earlier in the same process.
 
+static void test_apply_result_nonempty_subgoal_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), int_sort);
+    Z3_goal g = Z3_mk_goal(ctx, true, false, false);
+    Z3_goal_inc_ref(ctx, g);
+    Z3_goal_assert(ctx, g, Z3_mk_gt(ctx, x, Z3_mk_int(ctx, 1, int_sort)));
+    Z3_tactic t = Z3_mk_tactic(ctx, "skip");
+    Z3_tactic_inc_ref(ctx, t);
+    Z3_apply_result r = Z3_tactic_apply(ctx, t, g);
+    Z3_apply_result_inc_ref(ctx, r);
+
+    unsigned n = Z3_apply_result_get_num_subgoals(ctx, r);
+    ENSURE(n == 1);
+    ENSURE(Z3_apply_result_get_subgoal(ctx, r, n - 1) != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    // the valid indices are 0 .. n-1
+    ENSURE(Z3_apply_result_get_subgoal(ctx, r, n) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_IOB);
+
+    Z3_apply_result_dec_ref(ctx, r);
+    Z3_tactic_dec_ref(ctx, t);
+    Z3_goal_dec_ref(ctx, g);
+    Z3_del_context(ctx);
+}
+
+static void test_query_constructor_num_fields() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    // (declare-datatype P ((mk (fst Int))))
+    Z3_symbol field_names[1] = { Z3_mk_string_symbol(ctx, "fst") };
+    Z3_sort field_sorts[1] = { Z3_mk_int_sort(ctx) };
+    unsigned sort_refs[1] = { 0 };
+    Z3_constructor con = Z3_mk_constructor(ctx, Z3_mk_string_symbol(ctx, "mk"), Z3_mk_string_symbol(ctx, "is_mk"),
+                                           1, field_names, field_sorts, sort_refs);
+    Z3_mk_datatype(ctx, Z3_mk_string_symbol(ctx, "P"), 1, &con);
+
+    Z3_func_decl cd = nullptr, tester = nullptr;
+    Z3_func_decl accs[3] = { nullptr, nullptr, nullptr };
+    Z3_query_constructor(ctx, con, 1, &cd, &tester, accs);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(accs[0] != nullptr);
+
+    // asking for more accessors than the constructor has must not read past them
+    Z3_func_decl more[3] = { nullptr, nullptr, nullptr };
+    Z3_query_constructor(ctx, con, 3, &cd, &tester, more);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(more[0] == nullptr && more[1] == nullptr && more[2] == nullptr);
+
+    Z3_del_constructor(ctx, con);
+    Z3_del_context(ctx);
+}
+
+// A zero value for these "every N" parameters used to crash with a modulo
+// by zero: smt.qi.profile_freq, smt.arith.branch_cut_ratio (old arithmetic
+// solver) and smt.arith.nl.horner_frequency.
+static void test_zero_frequency_params() {
+    char const* specs[] = {
+        "(set-option :smt.qi.profile true)\n"
+        "(set-option :smt.qi.profile_freq 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const a Int)\n"
+        "(assert (forall ((x Int)) (! (> (f x) x) :pattern ((f x)))))\n"
+        "(assert (> (f a) (f (+ a 1))))\n"
+        "(assert (> (f (f a)) 0))\n"
+        "(check-sat)\n",
+
+        "(set-option :smt.arith.solver 2)\n"
+        "(set-option :smt.arith.branch_cut_ratio 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-const z Int)\n"
+        "(assert (= (f x) (+ (* 13 x) (* 17 y) (* 19 z))))\n"
+        "(assert (= (f x) 1001))\n"
+        "(assert (and (>= x 0) (>= y 0) (>= z 0) (<= x 100) (<= y 100) (<= z 100)))\n"
+        "(assert (> (* 2 x) (+ y 5)))\n"
+        "(assert (< (* 3 z) (+ x 7)))\n"
+        "(check-sat)\n",
+
+        "(set-option :smt.arith.nl.horner_frequency 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-const z Int)\n"
+        "(assert (= (* x y z) 1000003))\n"
+        "(assert (> x 1))\n"
+        "(assert (> y 1))\n"
+        "(assert (> z 1))\n"
+        "(check-sat)\n",
+    };
+    for (char const* spec : specs) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx, spec);
+        bool ok = response.find("error") == std::string::npos &&
+                  (response.find("sat\n") != std::string::npos || response.find("unknown\n") != std::string::npos);
+        if (!ok)
+            std::cout << spec << response << "\n";
+        ENSURE(ok);
+        Z3_del_context(ctx);
+    }
+}
+
 void tst_api() {
     test_solver_model_completion();
     test_apps();
@@ -570,7 +760,12 @@ void tst_api() {
     test_strict_real_maximize();
     test_strict_real_maximize_disjunction();
     test_error_handler();
+    test_apply_result_subgoal_bounds();
+    test_query_constructor_bounds();
     test_command_proof_check_callback();
+    test_apply_result_nonempty_subgoal_bounds();
+    test_query_constructor_num_fields();
+    test_zero_frequency_params();
 }
 
 void test_max_rev() {

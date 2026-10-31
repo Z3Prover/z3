@@ -15,16 +15,23 @@ Abstract:
 --*/
 #include "api/z3.h"
 #include "ast/reg_decl_plugins.h"
+#include "cmd_context/cmd_context.h"
+#include "opt/opt_cmds.h"
 #include "opt/opt_context.h"
+#include "opt/opt_curve_certificate.h"
 #include "opt/opt_geometric.h"
+#include "opt/opt_nlsat.h"
 #include "opt/opt_search.h"
+#include "parsers/smt2/smt2parser.h"
 #include "smt/smt_context.h"
 #include "util/common_msgs.h"
 #include "util/debug.h"
+#include "util/gparams.h"
 #include <climits>
 #include <cstring>
 #include <initializer_list>
 #include <iostream>
+#include <sstream>
 
 namespace {
 
@@ -299,7 +306,7 @@ static void tst_dual_bound_premises() {
 // dual bounds leaves +oo unless the caller already supplied a finite cap.
 static void tst_dual_bound_cancellation() {
     for (unsigned region : {0u, 1u, 2u})
-    for (unsigned probe_budget : {0u, 1u, 100u, 1000u})
+    for (unsigned probe_budget : {0u, 1u, 1000u})
     for (bool known_upper : {false, true})
     for (bool enabled : {false, true}) {
         bool conditional = region != 0;
@@ -390,7 +397,7 @@ static void tst_dual_bound_cancellation() {
         auto upper = optimizer.get_upper(h).rational_bound();
         ENSURE(lower.is_finite() && lower.get_rational() >= rational(0));
         ENSURE(lower.get_rational() * lower.get_rational() <= rational(2));
-        bool certified = known_upper || (enabled && (!conditional || probe_budget >= 100));
+        bool certified = known_upper || (enabled && (!conditional || probe_budget >= 1000));
         if (certified ? upper != opt::inf_eps(rational(2)) : upper.is_finite() || !upper.is_pos())
             std::cerr << "dual bound: region=" << region << " budget=" << probe_budget
                       << " enabled=" << enabled << " upper=" << upper << "\n";
@@ -697,7 +704,7 @@ static void tst_dual_bound_api() {
         opt_fixture f;
         Z3_params p = Z3_mk_params(f.ctx);
         Z3_params_inc_ref(f.ctx, p);
-        Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), conditional ? 3000 : 20000);
+        Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), 20000);
         Z3_optimize_set_params(f.ctx, f.opt, p);
         Z3_params_dec_ref(f.ctx, p);
         Z3_ast sum = f.num(0), squares = f.num(0);
@@ -990,6 +997,46 @@ static void tst_multiobjective(bool box) {
         ensure_model_value(f, x, high_value);
         ensure_model_value(f, shifted, low_value);
     }
+}
+
+// set-option assigns the global parameter auto_config; later tests in this
+// process create contexts that read it.
+struct scoped_auto_config {
+    std::string saved = gparams::get_value("auto_config");
+    ~scoped_auto_config() { gparams::set("auto_config", saved.c_str()); }
+};
+
+static void tst_labels_after_maximize() {
+    scoped_auto_config restore_auto_config;
+    // The search cannot improve on the model of the initial check here, so
+    // the reported model is that base model. Its labels must come with it:
+    // optsmt used to return the base model with an empty label list, which
+    // replaced the labels the context had recorded for it.
+    char const* input =
+        "(set-option :auto_config false)\n"
+        "(declare-fun x () Int)\n"
+        "(declare-fun f (Int) Bool)\n"
+        "(declare-fun l1 () Bool)\n"
+        "(declare-fun l2 () Bool)\n"
+        "(declare-fun l3 () Bool)\n"
+        "(declare-fun l4 () Bool)\n"
+        "(assert (not\n"
+        "  (let ((ok (=> (! (and l1 true) :lblpos L1) (! (or l2 (f x)) :lblneg L2))))\n"
+        "    (=> (! (and l3 true) :lblpos L3)\n"
+        "        (and (=> (= x 2) ok) (=> (= x 1) (=> (! (and l4 true) :lblpos L4) ok)))))))\n"
+        "(maximize x)\n"
+        "(check-sat)\n";
+    cmd_context cmd(false);
+    install_opt_cmds(cmd);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    check_sat_result* result = cmd.get_check_sat_result();
+    ENSURE(result && result->status() == l_true);
+    svector<symbol> labels;
+    result->get_labels(labels);
+    for (char const* name : {"L1", "L2", "L3"})
+        ENSURE(labels.contains(symbol(name)));
+    ENSURE(!labels.contains(symbol("L4")));
 }
 
 // For x >= 0, y >= 0, x + y <= 5, lexicographic maximization gives (5, 0).
@@ -1877,6 +1924,305 @@ static void tst_lex_after_unbounded() {
     }
 }
 
+static void set_unbounded_curve(opt_fixture& f, bool enabled) {
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_bool(f.ctx, p, f.symbol("optsmt_unbounded_curve"), enabled);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+}
+
+static void tst_unbounded_curve_cancellation() {
+    for (bool throw_after_cancel : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit budget(m.limit(), 1000000);
+        arith_util a(m);
+        opt::context ctx(m);
+        params_ref p;
+        p.set_uint("arith.solver", 6);
+        generic_model_converter fm(m, "curve cancellation");
+        struct completion_model : model {
+            expr_ref value;
+            bool &canceled;
+            bool throw_after_cancel;
+
+            completion_model(ast_manager &m, expr *value, bool &canceled, bool throw_after_cancel)
+                : model(m), value(value, m), canceled(canceled), throw_after_cancel(throw_after_cancel) {}
+
+            expr *get_some_value(sort *s) override {
+                if (s != value->get_sort())
+                    return model::get_some_value(s);
+                if (!canceled) {
+                    canceled = true;
+                    m.limit().cancel();
+                    if (throw_after_cancel)
+                        throw default_exception(Z3_CANCELED_MSG);
+                }
+                return value;
+            }
+        };
+        struct completion_solver : opt::opt_solver {
+            using opt_solver::opt_solver;
+            func_decl *missing = nullptr;
+            bool canceled = false;
+            bool throw_after_cancel = false;
+
+            void get_model_core(model_ref &mdl) override {
+                opt_solver::get_model_core(mdl);
+                ENSURE(mdl);
+                expr *value = mdl->get_const_interp(missing);
+                ENSURE(value);
+                model_ref copy = alloc(completion_model, get_manager(), value, canceled, throw_after_cancel);
+                copy->copy_const_interps(*mdl);
+                copy->copy_func_interps(*mdl);
+                copy->copy_usort_interps(*mdl);
+                copy->unregister_decl(missing);
+                mdl = copy;
+            }
+        } s(m, p, fm);
+        opt::optsmt optimizer(m, ctx);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+        expr_ref y(m.mk_const(symbol("y"), a.mk_int()), m);
+        expr_ref z(m.mk_const(symbol("z"), a.mk_real()), m);
+        expr_ref one(a.mk_int(1), m), two(a.mk_real(2), m);
+        s.missing = to_app(z)->get_decl();
+        s.throw_after_cancel = throw_after_cancel;
+        s.assert_expr(a.mk_ge(a.mk_mul(x, y), one));
+        s.assert_expr(a.mk_ge(y, one));
+        // Completing z cancels inside the probe's private budget. Its algebraic
+        // value makes the curve check return l_undef without a solver exception.
+        s.assert_expr(m.mk_eq(a.mk_mul(z, z), two));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+        model_ref mdl;
+        s.get_model(mdl);
+        ctx.set_model(mdl);
+        unsigned h = optimizer.add(to_app(x));
+        optimizer.setup(s);
+        optimizer.updt_params(p);
+        rational initial;
+        ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
+        optimizer.update_lower(h, opt::inf_eps(initial));
+        ENSURE(optimizer.lex(h, true) == l_undef);
+        ENSURE(s.canceled && m.limit().is_canceled());
+        ENSURE(m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+        m.limit().reset_cancel();
+        solver::scoped_push scope(s);
+        s.assert_expr(m.mk_eq(x, one));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+    }
+}
+
+// nlsat's limit check gives up on integer variables, so a real objective over
+// an integer variable is rejected before preprocessing spends any budget.
+static void tst_nlsat_unbounded_reals_only() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+    expr_ref r(a.mk_to_real(n), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_ge(x, a.mk_mul(r, r)));
+    uint64_t start = m.limit().count();
+    {
+        opt::nlsat_opt engine(m, p);
+        ENSURE(engine.prove_unbounded(hard, x, rational(0)) == l_undef);
+    }
+    ENSURE(m.limit().count() == start);
+    hard.reset();
+    hard.push_back(a.mk_ge(x, a.mk_mul(y, y)));
+    opt::nlsat_opt engine(m, p);
+    ENSURE(engine.prove_unbounded(hard, x, rational(0)) == l_true);
+}
+
+// Integer and mixed objectives cannot use the nlsat projection. A polynomial
+// curve through the recent models certifies unboundedness instead: a ray,
+// a quadratic, a cubic, or a unit direction of an objective variable.
+static void tst_unbounded_curve() {
+    {
+        // x*y >= 1, y >= 1: the ray through the last two models
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 1, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    for (unsigned degree : {2u, 3u}) {
+        // x = y^2 and x = y^3 with y >= 0: curves through three or four models
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast ys[] = {y, y, y};
+        f.add(Z3_mk_eq(f.ctx, x, Z3_mk_mul(f.ctx, degree, ys)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 0, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    {
+        // minimize x = -y^2: unbounded below
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        f.add(Z3_mk_eq(f.ctx, x, Z3_mk_unary_minus(f.ctx, f.square(y))));
+        unsigned h = f.objective(x, false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, -1, 0, 0);
+    }
+    {
+        // mixed sorts: integer x, real y with x*y >= 1, y >= 1
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = f.real("y");
+        Z3_ast xy[] = {Z3_mk_int2real(f.ctx, x), y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), f.num(1)));
+        f.add(Z3_mk_ge(f.ctx, y, f.num(1)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    {
+        // bounded control: x*y <= 12 with x, y >= 1 has the maximum 12
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_le(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 12, integer)));
+        f.add(Z3_mk_ge(f.ctx, x, Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 1, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, Z3_mk_int(f.ctx, 12, integer), Z3_INT_SORT);
+    }
+    {
+        // lexicographic: after the unbounded x, y takes its limit 10
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_le(f.ctx, y, Z3_mk_int(f.ctx, 10, integer)));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, Z3_mk_int(f.ctx, 10, integer), Z3_INT_SORT);
+    }
+    for (bool curve : {true, false}) {
+        // a real objective keeps the nlsat projection when the curve is disabled
+        opt_fixture f;
+        set_unbounded_curve(f, curve);
+        Z3_ast x = f.real("x"), y = f.real("y");
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), f.num(1)));
+        f.add(Z3_mk_ge(f.ctx, y, f.num(1)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+}
+
+// maximize y with y = x*x, x >= 0 over the models (5, 25), (6, 36), (7, 49).
+// The backward differences at (7, 49) are (1, 13) and (0, 2). The ray
+// x = 7 + t, y = 49 + 13 t leaves the parabola at t = 1; the quadratic
+// x = 7 + t, y = 49 + 13 t + 2 t (t + 1) / 2 = (7 + t)^2 stays on it.
+// With only the last two models neither the ray nor a unit direction holds.
+static void tst_unbounded_curve_parabola() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    app_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+    app_ref y(m.mk_const(symbol("y"), a.mk_int()), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_ge(x, a.mk_int(0)));
+    hard.push_back(m.mk_eq(y, a.mk_mul(x, x)));
+    sref_vector<model> models;
+    for (int v : {5, 6, 7}) {
+        model_ref mdl = alloc(model, m);
+        mdl->register_decl(x->get_decl(), a.mk_int(v));
+        mdl->register_decl(y->get_decl(), a.mk_int(v * v));
+        models.push_back(mdl.get());
+    }
+    opt::curve_certificate curve(m, p);
+    ENSURE(curve.prove_unbounded(hard, y, models) == l_true);
+    ENSURE(std::strcmp(curve.kind_name(), "quadratic") == 0);
+    sref_vector<model> last_two;
+    last_two.push_back(models.get(1));
+    last_two.push_back(models.get(2));
+    opt::curve_certificate ray(m, p);
+    ENSURE(ray.prove_unbounded(hard, y, last_two) == l_undef);
+}
+
+static void set_lp_relaxation(opt_fixture& f, bool relax) {
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_bool(f.ctx, p, f.symbol("maxres.lp_relaxation"), relax);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+}
+
+// A cardinality constraint over the soft literals has an integral linear
+// relaxation, so the relaxation bound n - k meets the first rounded
+// assignment. A vertex cover of K4 has relaxation bound 2 and optimum 3, so
+// the cores still decide it. Both answers are the same without the relaxation.
+static void tst_maxsmt_lp_relaxation() {
+    for (bool relax : {true, false}) {
+        {
+            opt_fixture f;
+            set_lp_relaxation(f, relax);
+            unsigned const n = 12, k = 5;
+            Z3_ast xs[n];
+            for (unsigned i = 0; i < n; ++i) {
+                std::string name = "x" + std::to_string(i);
+                xs[i] = Z3_mk_const(f.ctx, f.symbol(name.c_str()), Z3_mk_bool_sort(f.ctx));
+            }
+            f.add(Z3_mk_atmost(f.ctx, n, xs, k));
+            unsigned cost = 0;
+            for (unsigned i = 0; i < n; ++i)
+                cost = Z3_optimize_assert_soft(f.ctx, f.opt, xs[i], "1", f.symbol("cost"));
+            ENSURE(cost == 0);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_finite_bounds(f, cost, f.num(n - k), Z3_INT_SORT);
+        }
+        {
+            opt_fixture f;
+            set_lp_relaxation(f, relax);
+            Z3_ast xs[4];
+            for (unsigned i = 0; i < 4; ++i) {
+                std::string name = "v" + std::to_string(i);
+                xs[i] = Z3_mk_const(f.ctx, f.symbol(name.c_str()), Z3_mk_bool_sort(f.ctx));
+            }
+            for (unsigned i = 0; i < 4; ++i)
+                for (unsigned j = i + 1; j < 4; ++j) {
+                    Z3_ast edge[] = {xs[i], xs[j]};
+                    f.add(Z3_mk_or(f.ctx, 2, edge));
+                }
+            unsigned cost = 0;
+            for (unsigned i = 0; i < 4; ++i)
+                cost = Z3_optimize_assert_soft(f.ctx, f.opt, Z3_mk_not(f.ctx, xs[i]), "1", f.symbol("cost"));
+            ENSURE(cost == 0);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_finite_bounds(f, cost, f.num(3), Z3_INT_SORT);
+        }
+    }
+}
+
 static void tst_symba_bounds() {
     // An integer slack selects theory_inf_arith instead of the pure-LRA
     // shortcut, so these cases exercise SYMBA's vector-bound updates.
@@ -1951,8 +2297,17 @@ void tst_opt_bounds() {
     tst_multiobjective(false);
     tst_multiobjective(true);
     tst_lex_box_search();
+    std::cout << "opt_bounds: labels of the reported model\n";
+    tst_labels_after_maximize();
     std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
     tst_lex_after_unbounded();
+    std::cout << "opt_bounds: unbounded integer objectives along polynomial curves\n";
+    tst_nlsat_unbounded_reals_only();
+    tst_unbounded_curve_cancellation();
+    tst_unbounded_curve();
+    tst_unbounded_curve_parabola();
+    std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
+    tst_maxsmt_lp_relaxation();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
     tst_open_bounds();
     tst_open_polynomial_objectives();

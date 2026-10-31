@@ -215,11 +215,234 @@ static void test_to_fp_real_int_symbolic_rtn() {
     Z3_del_context(ctx);
 }
 
+static void test_mbqi_nan_arrays() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Equal array elements can have different user-supplied NaN payloads.
+    char const* spec = R"(
+(set-option :smt.mbqi.max_iterations 10)
+(set-option :rlimit 1000000)
+(declare-const len Int)
+(declare-const a (Array Int (_ FloatingPoint 5 11)))
+(declare-const b (Array Int (_ FloatingPoint 5 11)))
+(declare-fun nanbits-a ((Array Int (_ FloatingPoint 5 11)) Int) (_ BitVec 16))
+(declare-fun nanbits-b ((Array Int (_ FloatingPoint 5 11)) Int) (_ BitVec 16))
+(assert (<= 0 len))
+(assert (<= len 9223372036854775807))
+(assert (forall ((i Int))
+  (! (=> (and (<= 0 i) (< i len)) (= (select a i) (select b i)))
+     :pattern ((select a i) (select b i)))))
+(assert (not (forall ((i Int))
+  (! (let ((pa (nanbits-a a i)) (pb (nanbits-b b i)))
+       (let ((sa (ite (= ((_ extract 9 0) pa) #b0000000000)
+                      #b0000000001 ((_ extract 9 0) pa)))
+             (sb (ite (= ((_ extract 9 0) pb) #b0000000000)
+                      #b0000000001 ((_ extract 9 0) pb))))
+         (let ((va (ite (fp.isNaN (select a i))
+                        (concat ((_ extract 15 15) pa) #b11111 sa)
+                        (fp.to_ieee_bv (select a i))))
+               (vb (ite (fp.isNaN (select b i))
+                        (concat ((_ extract 15 15) pb) #b11111 sb)
+                        (fp.to_ieee_bv (select b i)))))
+           (=> (and (<= 0 i) (< i len)) (= (ubv_to_int va) (ubv_to_int vb))))))
+     :pattern ((select a i) (select b i))))))
+(check-sat)
+)";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "sat\n")
+        std::cout << response << "\n";
+    ENSURE(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_wrapped_rounding_mode_uf() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* spec = R"(
+(declare-fun mode (Int) RoundingMode)
+(assert (= (mode 0) RTP))
+(assert (not (= (fp.add (mode 0) ((_ to_fp 5 11) #x3c00) ((_ to_fp 5 11) #x1000))
+                ((_ to_fp 5 11) #x3c01))))
+(check-sat)
+)";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "unsat\n")
+        std::cout << response << "\n";
+    ENSURE(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_nan_datatype_congruence() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* spec = R"(
+(set-option :rlimit 1000000)
+(declare-datatype Expr ((Flt (get-float (_ FloatingPoint 8 24)))))
+(declare-const x Expr)
+(assert (distinct x (Flt (_ NaN 8 24))))
+(assert (fp.isNaN (get-float x)))
+(check-sat)
+)";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "unsat\n")
+        std::cout << response << "\n";
+    ENSURE(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_to_fp_real_without_rounding_mode() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // (_ to_fp eb sb) applied to a single Real is not a supported form; it is
+    // rejected with the list of supported forms (it used to read domain[1]).
+    char const* no_rm_spec =
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) r)))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, no_rm_spec);
+    ENSURE(response.find("Unexpected argument combination") != std::string::npos);
+    ENSURE(response.find("sort mismatch") == std::string::npos);
+
+    char const* rm_spec =
+        "(reset)\n"
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) RNE r)))\n"
+        "(check-sat)\n";
+    response = Z3_eval_smtlib2_string(ctx, rm_spec);
+    ENSURE(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_incremental_symbolic_to_fp_real() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* input =
+        "(set-option :timeout 30000)\n"
+        "(set-logic QF_FPLRA)\n"
+        "(declare-const rm RoundingMode)\n"
+        "(declare-const q Real)\n"
+        "(declare-const r Float32)\n"
+        "(assert (= r ((_ to_fp 8 24) rm q)))\n"
+        "(push)\n(assert (= rm RNE))\n(assert (= q 1.0))\n"
+        "(assert (fp.gt r ((_ to_fp 8 24) RNE 2.0)))\n"
+        "(check-sat)\n(pop)\n"
+        "(check-sat-assuming ((= rm RNE) (= q 1.0)"
+        " (not (fp.eq r ((_ to_fp 8 24) RNE 1.0)))))\n"
+        "(push)\n(assert (= rm RTZ))\n(assert (= q (/ 1.0 3.0)))\n"
+        "(assert (= r ((_ to_fp 8 24) RTZ (/ 1.0 3.0))))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != "unsat\nunsat\nsat\n")
+        std::cout << input << "\n" << response;
+    ENSURE(response == "unsat\nunsat\nsat\n");
+    for (char const* mode : {"RNE", "RNA", "RTP", "RTN", "RTZ"}) {
+        std::string spec =
+            "(reset)\n(set-option :timeout 30000)\n(set-logic QF_FPLRA)\n"
+            "(declare-const rm RoundingMode)\n(declare-const q Real)\n"
+            "(declare-const r (_ FloatingPoint 3 4))\n"
+            "(assert (= r ((_ to_fp 3 4) rm q)))\n";
+        std::string expected;
+        for (char const* value : {"0.0", "(/ 1.0 64.0)", "(- (/ 1.0 128.0))",
+                                 "(/ 15.0 64.0)", "(/ 31.0 32.0)", "(/ 17.0 16.0)",
+                                 "(/ 31.0 2.0)", "(- 1000.0)"}) {
+            std::string rounded = std::string("((_ to_fp 3 4) ") + mode + " " + value + ")";
+            spec += std::string("(push)\n(assert (= rm ") + mode + "))\n(assert (= q " + value + "))\n"
+                "(push)\n(assert (distinct r " + rounded + "))\n(check-sat)\n(pop)\n"
+                "(assert (= r " + rounded + "))\n(check-sat)\n(pop)\n";
+            expected += "unsat\nsat\n";
+        }
+        response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != expected)
+            std::cout << spec << "\n" << response;
+        ENSURE(response == expected);
+    }
+}
+
+static void check_fp_commands(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != expected)
+        std::cout << input << "\n" << response;
+    ENSURE(response == expected);
+    Z3_del_context(ctx);
+}
+
+static void test_raw_nan_congruence() {
+    char const* prelude =
+        "(set-logic ALL)\n"
+        "(declare-const b (_ BitVec 16))\n"
+        "(declare-const c (_ BitVec 16))\n"
+        "(declare-fun f ((_ FloatingPoint 5 11)) (_ BitVec 8))\n"
+        "(declare-const a (Array (_ FloatingPoint 5 11) Int))\n";
+    for (char const* mismatch : {
+            "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n",
+            "(assert (distinct (select a ((_ to_fp 5 11) b)) (select a (_ NaN 5 11))))\n",
+            "(assert (distinct (f (fp ((_ extract 15 15) b) ((_ extract 14 10) b) ((_ extract 9 0) b)))"
+            " (f (_ NaN 5 11))))\n"}) {
+        std::string input = std::string(prelude) +
+            "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+            "(assert (fp.isNaN ((_ to_fp 5 11) c)))\n" + mismatch + "(check-sat)\n";
+        check_fp_commands(input.c_str(), "unsat\n");
+    }
+    std::string input = std::string(prelude) +
+        "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+        "(assert (= (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n"
+        "(push)\n(assert (= b #xffff))\n(assert (= c #x7e02))\n(check-sat)\n(pop)\n"
+        "(push)\n(assert (= b #x7c01))\n(assert (= c #xfe00))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\nsat\n");
+    input = std::string(prelude) +
+        "(assert (= b #x3c00))\n(assert (= c #x4000))\n"
+        "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\n");
+}
+
+static void test_null_fp_arguments() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // NULL arguments are rejected with Z3_INVALID_ARG instead of dereferenced
+    Z3_sort fp_sort = Z3_mk_fpa_sort_32(ctx);
+    Z3_ast f = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "f"), fp_sort);
+    ENSURE(!Z3_fpa_is_numeral_nan(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_fpa_is_numeral_inf(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, nullptr, f, f) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, nullptr) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, f) != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
+    test_incremental_symbolic_to_fp_real();
+    test_raw_nan_congruence();
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
     test_to_fp_real_zero_sign();
     test_inexact_symbolic_to_fp_real();
     test_to_fp_real_int_symbolic_rtn();
+    test_mbqi_nan_arrays();
+    test_wrapped_rounding_mode_uf();
+    test_nan_datatype_congruence();
+    test_to_fp_real_without_rounding_mode();
+    test_null_fp_arguments();
 }

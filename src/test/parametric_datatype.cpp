@@ -190,8 +190,174 @@ static void test_smt2_parametric_datatype_is_constructor() {
     ENSURE(l_true == smt_ctx.check());
 }
 
+static void test_subterm_declarations() {
+    char const* prelude =
+        "(declare-datatypes ((Lst 1)) ((par (X) ((lnil) (lcons (lh X) (lt (Lst X)))))))\n";
+    for (char const* field : {"(Lst T)", "(Lst (Lst T))", "(Array Int T)", "(Seq T)"}) {
+        cmd_context ctx;
+        std::ostringstream out;
+        ctx.set_regular_stream(out);
+        std::istringstream input(std::string(prelude) +
+            "(declare-datatype T ((leaf) (node (ch " + field + "))) :subterm sub)\n");
+        ENSURE(!parse_smt2_commands(ctx, input));
+        ENSURE(out.str().find("subterm predicates are not supported for nested or mutually recursive datatypes") != std::string::npos);
+    }
+
+    char const* controls[] = {
+        "(declare-datatype T ((leaf) (node (ch T))) :subterm sub)\n"
+        "(assert (sub leaf (node leaf)))",
+        "(declare-datatype T ((leaf) (node (ch T) (data (Lst Int)))) :subterm sub)\n"
+        "(assert (sub leaf (node leaf lnil)))",
+        "(declare-datatype T (par (X) ((leaf) (node (ch (T X))))) :subterm sub)\n"
+        "(declare-const t (T Int))\n"
+        "(assert (sub (as leaf (T Int)) (node (as leaf (T Int)))))",
+        "(declare-datatype T ((leaf) (node (ch (Lst T)))))\n"
+        "(declare-const t T)\n"
+        "(assert (= t (node (lcons leaf lnil))))"
+    };
+    for (char const* control : controls) {
+        cmd_context ctx;
+        std::istringstream input(std::string(prelude) + control);
+        ENSURE(parse_smt2_commands(ctx, input));
+        smt_params params;
+        smt::context smt_ctx(ctx.m(), params);
+        for (expr* a : ctx.assertions())
+            smt_ctx.assert_expr(a);
+        ENSURE(l_true == smt_ctx.check());
+    }
+}
+
+static void test_array_field_cardinality() {
+    struct test_case {
+        char const* domain;
+        char const* field;
+        sort_size expected;
+    };
+    test_case cases[] = {
+        {"Bool", "(Array T One)", sort_size(1)},
+        {"Int", "(Array T One)", sort_size(1)},
+        {"(_ BitVec 64)", "(Array T One)", sort_size(1)},
+        {"Bool", "(Array T Bool One)", sort_size(1)},
+        {"Int", "(Array T Bool One)", sort_size(1)},
+        {"(_ BitVec 64)", "(Array T Bool One)", sort_size(1)},
+        {"Bool", "(Array T Bool)", sort_size(4)},
+        {"Bool", "(Array T Bool Bool)", sort_size(16)},
+        {"Int", "(Array T Bool)", sort_size::mk_infinite()},
+        {"(_ BitVec 64)", "(Array T Bool)", sort_size::mk_very_big()},
+        {"Bool", "(Array T Int)", sort_size::mk_infinite()},
+        {"Bool", "(Array T (_ BitVec 64))", sort_size::mk_very_big()}
+    };
+    for (auto const& test : cases) {
+        std::string input =
+            "(declare-datatypes () ((One one)))\n"
+            "(declare-datatypes ((Box 1)) ((par (T) ((box (value " +
+            std::string(test.field) + "))))))\n"
+            "(declare-const b (Box " + test.domain + "))\n";
+        cmd_context cmd;
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        sort_size const& actual = cmd.find_func_decl(symbol("b"))->get_range()->get_num_elements();
+        VERIFY(actual.is_finite() == test.expected.is_finite());
+        VERIFY(actual.is_infinite() == test.expected.is_infinite());
+        VERIFY(actual.is_very_big() == test.expected.is_very_big());
+        if (test.expected.is_finite())
+            VERIFY(actual.size() == test.expected.size());
+    }
+}
+
+static void check_datatype_commands(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string actual = Z3_eval_smtlib2_string(ctx, input);
+    if (actual != expected)
+        std::cout << input << "\n" << actual;
+    ENSURE(actual == expected);
+    Z3_del_context(ctx);
+}
+
+static void test_inferred_match_constructor() {
+    check_datatype_commands(
+        "(declare-datatype O (par (X) ((none) (some (val X)))))\n"
+        "(assert (= 1 (match (some 3) ((none 0) (z 1)))))\n"
+        "(check-sat)\n", "sat\n");
+    check_datatype_commands(
+        "(declare-datatype O (par (X) ((none) (some (val X)))))\n"
+        "(assert (forall ((x Int)) (= 1 (match (some x) ((none 0) (z 1))))))\n"
+        "(check-sat)\n", "sat\n");
+    check_datatype_commands(
+        "(declare-datatype O (par (X) ((none) (some (val X)))))\n"
+        "(declare-const b (O Bool))\n"
+        "(assert (= 0 (match (some 3) ((none 0) ((some x) 1)))))\n"
+        "(check-sat)\n", "unsat\n");
+}
+
+static void test_sequence_field_occurs_check() {
+    char const* prelude =
+        "(declare-datatype R ((rl) (rn (rc (Seq R)))))\n"
+        "(declare-const x R)\n"
+        "(declare-const s (Seq R))\n"
+        "(declare-const t (Seq R))\n";
+    for (char const* cycle : {
+            "(assert (= x (rn (seq.++ (seq.unit x) t))))\n",
+            "(assert (= x (rn s)))\n(assert (> (seq.len s) 0))\n"
+            "(assert (= (seq.nth s 0) x))\n",
+            "(assert (= s (seq.unit x)))\n"
+            "(assert (= x (rn (seq.++ s t))))\n"}) {
+        std::string input = std::string(prelude) + cycle + "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+    }
+    std::string input = std::string(prelude) +
+        "(assert (= x (rn s)))\n"
+        "(push)\n"
+        "(assert (> (seq.len s) 0))\n"
+        "(assert (= (seq.nth s 0) x))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(assert (= (seq.len s) 0))\n"
+        "(assert (= (seq.nth s 0) x))\n"
+        "(check-sat)\n";
+    check_datatype_commands(input.c_str(), "unsat\nsat\n");
+}
+
+static void test_subterm_recursive_polarity() {
+    char const* declarations =
+        "(declare-datatype L ((nil) (cons (hd Int) (tl L))) :subterm sub)\n"
+        "(declare-const x L)\n"
+        "(declare-const y L)\n";
+    for (unsigned relevancy : {0, 2}) {
+        std::string prelude = "(set-option :smt.relevancy " + std::to_string(relevancy) + ")\n" + declarations;
+        std::string input = prelude +
+            "(assert (sub x y))\n(assert (sub y x))\n(assert (distinct x y))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+        input = prelude +
+            "(assert (= y (cons 1 (cons 2 nil))))\n"
+            "(assert ((_ is cons) x))\n(assert (= (hd x) 3))\n"
+            "(assert (sub x y))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+        input = prelude +
+            "(assert (= y (cons 1 (cons 2 nil))))\n"
+            "(assert (= x (cons 2 nil)))\n(assert (sub x y))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "sat\n");
+        input = prelude +
+            "(assert (= x (cons 2 nil)))\n(assert (sub x y))\n"
+            "(push)\n(assert (= y nil))\n(check-sat)\n(pop)\n"
+            "(assert (= y (cons 1 x)))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n");
+        input = prelude +
+            "(assert (= x (cons 2 nil)))\n(assert (= y (cons 1 nil)))\n"
+            "(assert (not (sub x y)))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "sat\n");
+    }
+}
+
 void tst_parametric_datatype() {
+    test_inferred_match_constructor();
+    test_sequence_field_occurs_check();
+    test_subterm_recursive_polarity();
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
     test_smt2_parametric_datatype_is_constructor();
+    test_subterm_declarations();
+    test_array_field_cardinality();
 }

@@ -1,7 +1,7 @@
 ################################################################################
 # Example C++ project
 ################################################################################
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.5...3.10)
 project(Z3_CXX_EXAMPLE CXX)
 find_package(Z3
   REQUIRED

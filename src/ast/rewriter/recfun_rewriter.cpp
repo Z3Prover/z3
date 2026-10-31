@@ -36,6 +36,26 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         if (!d.get_rhs())
             return BR_FAILED;
         auto r = d.get_rhs();
+        // Leave cycles through unconditional bodies to the resource-limited theory solver.
+        if (d.is_fun_macro()) {
+            ptr_vector<func_decl> todo;
+            ast_mark visited;
+            todo.push_back(f);
+            visited.mark(f, true);
+            for (unsigned i = 0; i < todo.size(); ++i) {
+                for (expr* t : subterms::all(expr_ref(m_rec.get_def(todo[i]).get_rhs(), m))) {
+                    if (!m_rec.is_defined(t))
+                        continue;
+                    func_decl* g = to_app(t)->get_decl();
+                    if (g == f)
+                        return BR_FAILED;
+                    if (m_rec.has_def(g) && m_rec.get_def(g).is_fun_macro() && !visited.is_marked(g)) {
+                        visited.mark(g, true);
+                        todo.push_back(g);
+                    }
+                }
+            }
+        }
         bool safe_to_subst = true;
         for (unsigned i = 0; i < num_args; ++i) 
             if (!m.is_value(args[i]))

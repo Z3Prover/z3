@@ -31,6 +31,115 @@ NEGATIVE_NNF_CASES = (
      "(assert (p 0))(assert (q 0))"),
 )
 
+# The nnf tactic Skolemizes a block even when none of its variables occurs in the body. Only
+# `under-binder` has an ambient bound variable (a de Bruijn index); the others use free constants.
+UNUSED_SKOLEM_CASES = (
+    ("constant-false", "(assert (exists ((a Int)) false))(assert (forall ((b Int)) false))"
+     "(check-sat-using nnf)"),
+    ("only-existential", "(assert (exists ((a Int)) false))(check-sat-using nnf)"),
+    ("free-constant", "(declare-const p Bool)(assert (exists ((a Int)) p))(assert (not p))"
+     "(check-sat-using (then nnf smt))"),
+    ("multi-binder", "(declare-const p Bool)(assert (exists ((a Int) (b Real)) p))"
+     "(assert (not p))(check-sat-using (then nnf smt))"),
+    ("ground-application", "(declare-fun p (Int) Bool)(assert (exists ((a Int)) (p 0)))"
+     "(assert (not (p 0)))(check-sat-using (then nnf smt))"),
+    ("negative-universal", "(declare-const p Bool)(assert (not (forall ((a Int)) p)))"
+     "(assert p)(check-sat-using (then nnf smt))"),
+    ("under-binder", "(declare-fun p (Int) Bool)"
+     "(assert (forall ((z Int)) (exists ((a Int)) (p z))))(assert (not (p 0)))"
+     "(check-sat-using (then nnf smt))"),
+)
+
+# The arithmetic rewriter factors p REL 0 when a term divides every monomial of p
+# (factor_le_ge_eq). These are the first queries of z3test nl12, nl49, nl33, and nl57.
+FACTOR_SIGN_CASES = (
+    ("int-le", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
+     "(assert (and (> (+ (* x1 x2) x3) 0) (<= x1 (- 1)) (>= x1 (- 1)) (= x2 x3)))"),
+    ("int-eq", "(declare-const x1 Int)(declare-const x2 Int)(declare-const x3 Int)"
+     "(declare-const x4 Int)(declare-const x5 Int)"
+     "(assert (and (<= x4 x5) (<= x5 x4) (= x2 (+ x3 x5))"
+     " (not (= (* x1 x2) (+ (* x1 x3) (* x1 x4))))))"),
+    ("real-ge", "(declare-const x Real)(assert (and (< 1.0 x) (not (< x (* x x)))))"),
+    ("real-lt", "(declare-const x Real)(declare-const y Real)"
+     "(assert (and (<= 0.0 x) (<= (- 1.0) y) (< (+ (* x y) x) 0.0)))"),
+)
+
+# The arithmetic rewriter lifts a conditional with a numeral branch out of a comparison
+# with a numeral (mk_le_ge_eq_core), also after moving a numeral addend across
+# (1 + (ite c 0 -1) >= 1). real-guarded-division is z3test z3.12; the shapes of
+# both-numerals and shifted-numerals occur in z3test issue-963 and string6.
+ITE_COMPARISON_CASES = (
+    ("real-guarded-division",
+     "(define-fun mydiv ((x Real) (y Real)) Real (if (not (= y 0.0)) (/ x y) 0.0))"
+     "(declare-const a Real)(declare-const b Real)"
+     "(assert (>= (mydiv a b) 1.0))(assert (= b 0.0))"),
+    ("int-then-false", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (>= (ite c 0 x) 1))(assert c)"),
+    ("int-else-false", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (>= (ite c x 0) 1))(assert (not c))"),
+    ("int-le-then-true", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (<= (ite c 1 x) 2))(assert (not (<= x 2)))(assert (not c))"),
+    ("real-le-then-true", "(declare-const c Bool)(declare-const x Real)"
+     "(assert (<= (ite c 1.0 x) 2.0))(assert (not c))(assert (> x 2.0))"),
+    ("int-shifted", "(declare-const c Bool)(declare-const x Int)"
+     "(assert (>= (+ 1 (ite c 0 x)) 0))(assert (not c))(assert (< x (- 1)))"),
+    ("both-numerals", "(declare-sort U 0)(declare-const u U)(declare-const v U)"
+     "(assert (>= (ite (= u v) 1 (- 1)) 0))(assert (not (= u v)))"),
+    ("shifted-numerals", "(declare-sort U 0)(declare-const u U)(declare-const v U)"
+     "(assert (>= (+ 1 (ite (= u v) 0 (- 1))) 1))(assert (not (= u v)))"),
+)
+
+# The bit-vector rewriter moves an extraction into a sum or product of the low bits and into
+# both branches of a conditional (mk_extract), composing an extraction of an extraction. The
+# sum of a numeral and a conditional is the shape of z3test 6079-8.
+BV_EXTRACT_CASES = (
+    ("add-low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 3 0) (bvadd x y))"
+     " (bvadd ((_ extract 3 0) x) ((_ extract 3 0) y)))))"),
+    ("mul-low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 3 0) (bvmul x y))"
+     " (bvmul ((_ extract 3 0) x) ((_ extract 3 0) y)))))"),
+    ("add-ternary", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(declare-const z (_ BitVec 8))(assert (not (= ((_ extract 2 0) (bvadd x y z))"
+     " (bvadd ((_ extract 2 0) x) ((_ extract 2 0) y) ((_ extract 2 0) z)))))"),
+    ("add-numeral-ite", "(declare-const c Bool)(declare-const k (_ BitVec 7))"
+     "(assert (not (= ((_ extract 4 0) (bvadd #b0000001 (ite c k #b0000000)))"
+     " (bvadd #b00001 (ite c ((_ extract 4 0) k) #b00000)))))"),
+    ("mul-composed", "(declare-const u (_ BitVec 16))(declare-const x (_ BitVec 8))"
+     "(assert (not (= ((_ extract 3 0) (bvmul ((_ extract 11 4) u) x))"
+     " (bvmul ((_ extract 7 4) u) ((_ extract 3 0) x)))))"),
+    ("ite-composed", "(declare-const p Bool)(declare-const u (_ BitVec 16))"
+     "(declare-const x (_ BitVec 8))"
+     "(assert (not (= ((_ extract 1 1) (ite p ((_ extract 9 2) u) x))"
+     " (ite p ((_ extract 3 3) u) ((_ extract 1 1) x)))))"),
+    ("ite-composed-66", "(declare-const m (_ BitVec 66))(declare-const n (_ BitVec 66))"
+     "(declare-const w (_ BitVec 80))"
+     "(assert (not (= ((_ extract 6 0) (ite (= m n) ((_ extract 65 0) w) m))"
+     " (ite (= m n) ((_ extract 6 0) w) ((_ extract 6 0) m)))))"),
+)
+
+# An extraction of a concatenation (mk_extract) is the bits of the low argument, of the high
+# argument, or a concatenation of the bits of both, with extractions of extractions composed.
+# The last three are the shapes of z3test 6079-8.
+BV_EXTRACT_CONCAT_CASES = (
+    ("low", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 5 2) (concat x y)) ((_ extract 5 2) y))))"),
+    ("high", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 14 9) (concat x y)) ((_ extract 6 1) x))))"),
+    ("across", "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 9 4) (concat x y))"
+     " (concat ((_ extract 1 0) x) ((_ extract 7 4) y)))))"),
+    ("high-composed", "(declare-const u (_ BitVec 16))(declare-const b (_ BitVec 1))"
+     "(assert (not (= ((_ extract 14 14) (concat ((_ extract 15 2) u) b)) ((_ extract 15 15) u))))"),
+    ("across-composed", "(declare-const u (_ BitVec 16))(declare-const b (_ BitVec 1))"
+     "(assert (not (= ((_ extract 2 0) (concat ((_ extract 7 2) u) b))"
+     " (concat ((_ extract 3 2) u) b))))"),
+    ("across-numeral-ite", "(declare-const p Bool)(declare-const x (_ BitVec 8))"
+     "(declare-const y (_ BitVec 8))"
+     "(assert (not (= ((_ extract 8 1) (concat #b0 (ite p x y)))"
+     " (concat #b0 ((_ extract 7 1) (ite p x y))))))"),
+)
+
 PULL_QUANT_CASES = (
     ("nested-exists", "(declare-fun p (Int Int) Bool)"
      "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
@@ -70,6 +179,106 @@ RULE_EXTENSION_CASES = (
     ("bv-wrap", "(assert (not (= (bvadd #xff #x01) #x00)))"),
 )
 
+# Rewrite steps of the Pulse QF_FF certificates (z3test generator, seed 40244844124).
+# Their proofs contain only `rewrite` steps decided by polynomial arithmetic modulo p, or by
+# comparing an ite with a numeral.
+def finite_field(prime, assertion):
+    return (f"(set-logic QF_FF)(define-sort F () (_ FiniteField {prime}))"
+            f"(declare-const x F)(declare-const y F)(assert {assertion})")
+
+
+FINITE_FIELD_CASES = (
+    ("ff-17-bitsum-folding", finite_field(17,
+     "(and (= (ff.mul (ff.bitsum x (as ff2 F)) (ff.bitsum (as ff-3 F) x))"
+     " (ff.bitsum (ff.mul x x) (ff.bitsum x y)))"
+     " (= (ff.bitsum (as ff24 F) (as ff19 F)) (as ff19 F)))")),
+    ("ff-17-cancellation", finite_field(17,
+     "(and (= (ff.bitsum x (ff.mul y y))"
+     " (ff.bitsum (ff.mul x (as ff24 F)) (ff.bitsum x (as ff31 F))))"
+     " (= (ff.neg (ff.add y (as ff5 F))) (ff.neg y)))")),
+    ("ff-2-numeral-disequality", finite_field(2,
+     "(or (= (as ff3 F) (as ff0 F)) (not (= x x)))")),
+    ("ff-5-negative-numerals", finite_field(5,
+     "(and (= (ff.mul (as ff-2 F) (ff.add (as ff3 F) (as ff8 F))) (as ff4 F))"
+     " (= (ff.bitsum y (ff.neg y)) (ff.bitsum (ff.bitsum y x) (ff.neg x))))")),
+    ("ff-5-conditional-atom", finite_field(5,
+     "(and (= (ff.neg (ff.mul (as ff5 F) x)) y)"
+     " (= (ite (= x y) (as ff1 F) (ff.neg y)) x))")),
+    ("ff-5-numeral-square", finite_field(5,
+     "(and (= (ff.mul y y) (ff.bitsum (as ff1 F) (ff.mul (as ff-7 F) (as ff-6 F))))"
+     " (= y (ff.neg (as ff4 F))))")),
+    ("ff-5-double-negation", finite_field(5,
+     "(and (not (= (ff.neg (ff.neg (as ff1 F))) (as ff-4 F)))"
+     " (not (= (ite (= x y) (ite (= x y) y x) (ff.add y y))"
+     " (ff.mul (ff.neg y) (ff.bitsum (as ff-8 F) x)))))")),
+    ("ff-7-negated-product", finite_field(7,
+     "(and (= (ff.mul y (ff.neg (as ff0 F))) (ff.neg (ff.neg x)))"
+     " (= (as ff5 F) (ff.bitsum (as ff6 F) (ff.bitsum x (as ff8 F)))))")),
+    ("ff-7-zero-product", finite_field(7,
+     "(and (= (ff.mul (ff.mul y y) x) (ff.add (ff.add x x) (ff.bitsum y x)))"
+     " (= (ff.mul (ff.add (as ff7 F) y) (ff.mul y (as ff7 F))) (as ff-10 F)))")),
+    ("ff-7-rescaled-equation", finite_field(7,
+     "(and (= (ff.mul (ite (= x y) (as ff-4 F) y) (ff.add x x))"
+     " (ff.add (ff.neg (as ff-7 F)) (ff.bitsum x (as ff11 F))))"
+     " (= x (ff.mul (ff.neg x) (ff.bitsum (as ff7 F) (as ff-3 F)))))")),
+    # An ite compared with a numeral (field-3/case-02, field-7/case-01): a branch that differs
+    # from the numeral by a nonzero constant is dropped and the condition selects the other.
+    ("ff-3-ite-equal-numeral", finite_field(3,
+     "(and (= (ite (= x y) (ff.neg (as ff1 F)) (ff.bitsum y y)) (as ff1 F))"
+     " (= y (ite (= x y) (ff.add x y) (ff.mul (as ff5 F) y))))")),
+    ("ff-7-ite-equal-numeral", finite_field(7,
+     "(and (= (ff.bitsum (as ff2 F) (ff.neg y)) (ff.neg (ff.bitsum y y)))"
+     " (= (ite (= x y) (ff.neg (as ff9 F)) (as ff-13 F)) (as ff-4 F)))")),
+)
+RULE_EXTENSION_CASES += FINITE_FIELD_CASES
+
+# The remaining Pulse QF_FF certificates, verbatim: their `th-lemma` steps are decided by
+# evaluating the clause under every assignment of residues to its leaves (at most 4096).
+FINITE_FIELD_THEORY_LEMMA_CASES = (
+    ("ff-17-case-02", finite_field(17,
+     "(and (= (ff.add (ff.bitsum x (as ff19 F)) (as ff-26 F)) (ff.add (ff.mul (as ff-11 F) x) y))"
+     " (= (ite (= x y) (ff.mul x y) (ff.bitsum y y)) (ff.mul x (ite (= x y) (as ff-6 F) x))))")),
+    ("ff-17-case-03", finite_field(17,
+     "(and (= (as ff-23 F) (ff.bitsum (ff.neg y) (ff.add x x)))"
+     " (= (ff.bitsum (ite (= x y) y x) (ff.neg (as ff-16 F))) (ff.mul (ff.add x (as ff6 F)) (ff.add x y))))")),
+    ("ff-17-case-05", finite_field(17,
+     "(and (= x (as ff29 F)) (= (ff.mul (ff.add y x) (ff.mul y x)) (as ff25 F)))")),
+    ("ff-2-case-02", finite_field(2,
+     "(and (not (= y (ff.mul (ff.add (as ff0 F) x) (ff.bitsum y x))))"
+     " (= (ff.bitsum (ff.mul x y) (ff.bitsum y y)) y))")),
+    ("ff-2-case-03", finite_field(2,
+     "(and (not (= (ff.mul (ff.mul x x) (as ff-3 F)) (ff.neg (as ff2 F))))"
+     " (= (ff.mul x (ff.bitsum x y)) (ff.mul y (ff.mul y (as ff-4 F)))))")),
+    ("ff-2-case-04", finite_field(2,
+     "(and (= (ite (= x y) (as ff3 F) (ff.mul x y)) (ff.neg (ff.mul x x)))"
+     " (= y (ff.mul (as ff3 F) (as ff2 F))))")),
+    ("ff-2-case-05", finite_field(2,
+     "(and (= (ff.add (ff.mul x (as ff2 F)) (ff.add y (as ff2 F))) (ff.bitsum (ff.add y y) (ff.bitsum y (as ff2 F))))"
+     " (not (= (ff.mul x x) (ff.bitsum (ff.bitsum x y) (ff.add y x)))))")),
+    ("ff-3-case-03", finite_field(3,
+     "(and (= x (ite (= x y) (ff.neg y) y)) (= (ff.neg (ff.bitsum x (as ff2 F))) (as ff1 F)))")),
+    ("ff-3-case-04", finite_field(3,
+     "(and (= (ff.mul (ite (= x y) (as ff5 F) (as ff1 F)) (ff.mul x y)) (ff.add x (ff.neg (as ff-5 F))))"
+     " (= (ff.bitsum (ff.neg (as ff3 F)) x) (ff.add (ff.add (as ff-4 F) (as ff5 F)) (ff.mul x y))))")),
+    ("ff-3-case-05", finite_field(3,
+     "(and (= (ff.add (ff.bitsum x y) (ff.mul y y)) y)"
+     " (= (ff.mul (ff.bitsum (as ff-1 F) x) (ff.bitsum (as ff4 F) (as ff-4 F)))"
+     " (ff.add (ite (= x y) y (as ff3 F)) (ff.add x x))))")),
+    ("ff-5-case-04", finite_field(5,
+     "(and (= (as ff8 F) (ff.mul (ff.mul x x) (ff.neg x)))"
+     " (= (ff.add (as ff3 F) y) (ff.add (as ff-9 F) (ite (= x y) (as ff-8 F) y))))")),
+    ("ff-7-case-02", finite_field(7,
+     "(and (= (ff.add (ff.add (as ff-8 F) (as ff-9 F)) (ff.neg x)) (ite (= x y) (ff.neg (as ff-8 F)) x))"
+     " (= (ff.add (ff.neg (as ff-7 F)) (ff.bitsum y y)) (ff.bitsum (ff.mul x x) (as ff-6 F))))")),
+)
+RULE_EXTENSION_CASES += FINITE_FIELD_THEORY_LEMMA_CASES
+
+
+# x*y = 1 and x*(y+1) = x+2 have no common root; Z3 refutes them with a `th-lemma`.
+def unit_ideal(prime):
+    return finite_field(prime,
+        "(and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F))))")
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -81,6 +290,36 @@ class DirectCheckerTests(unittest.TestCase):
         command = ([*wsl, "-e", "bash", "-c", checker + ' "$@"', "checker", *args]
                    if os.name == "nt" else [os.path.expanduser(checker), *args])
         return subprocess.run(command, input=source, text=True, capture_output=True, timeout=30)
+
+    def test_zero_extension_refutations_and_counterexamples(self):
+        for width, extra in ((1, 0), (1, 1), (8, 24), (65, 65), (1, 4095)):
+            declarations = f"(declare-const x (_ BitVec {width}))"
+            extension = f"((_ zero_extend {extra}) x)"
+            target = f"(concat (_ bv0 {extra}) x)" if extra else "x"
+            source = declarations + f"(assert (not (= {extension} {target})))"
+            for interactive in (False, True):
+                with self.subTest(width=width, extra=extra, interactive=interactive):
+                    args = ["--diagnostics"]
+                    if interactive:
+                        args.append("--interactive")
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("; proof-check ACCEPT" if interactive else "ACCEPT", result.stdout)
+                    self.assertNotIn("obligation\t", result.stderr)
+        for assertion in (
+                "(not (= ((_ zero_extend 24) #xff) #x000000ff))",
+                "(= ((_ zero_extend 24) #xff) #xffffffff)"):
+            result = self.run_checker(f"(assert {assertion})", "--diagnostics")
+            self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                             result.stdout + result.stderr)
+        for source in (
+                "(declare-const x (_ BitVec 8))"
+                "(assert (not (= ((_ zero_extend 24) x) (concat (_ bv1 24) x))))",
+                "(declare-const x (_ BitVec 1))"
+                "(assert (not (= ((_ zero_extend 1) x) (concat x #b0))))"):
+            result = self.run_checker(source, "--diagnostics")
+            self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"),
+                             result.stdout + result.stderr)
 
     def test_checked_boolean_equality_and_array_refutations(self):
         for source in (
@@ -99,6 +338,24 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertRegex(result.stderr, r"marshal_ms=\d+\.\d+")
                 self.assertRegex(result.stderr, r"expressions=\d+")
 
+    def test_unsigned_bv_reflexivity_in_both_modes(self):
+        for comparison, negated in (("bvule", True), ("bvuge", True),
+                                    ("bvult", False)):
+            term = f"({comparison} x x)"
+            if negated:
+                term = f"(not {term})"
+            source = f"(declare-const x (_ BitVec 27))(assert {term})"
+            for interactive in (False, True):
+                with self.subTest(comparison=comparison, interactive=interactive):
+                    result = self.run_checker(
+                        source + ("(check-sat)" if interactive else ""),
+                        *(["--interactive"] if interactive else []))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+
     def test_uf_allows_a_user_sort_named_set_in_both_modes(self):
         source = ("(set-logic UF)(declare-sort Set 0)(declare-const x Set)"
                   "(declare-fun p (Set) Bool)(assert (p x))(assert (not (p x)))")
@@ -115,6 +372,108 @@ class DirectCheckerTests(unittest.TestCase):
             "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
+
+    def test_integer_rounding_certifies_qf_lia_ring_benchmarks(self):
+        # SMT-LIB 2025 QF_LIA ring benchmarks (Alberto Griggio), verbatim. Their carry lemmas hold over
+        # the integers but not over the rationals, and z3 labels them `arith unsupported`: each lemma
+        # needs rounding a row whose coefficients share a factor (after fixed variables are
+        # substituted), then a Farkas refutation.
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        for name in ("ring_2exp4_6vars_3ite_unsat.smt2", "ring_2exp8_6vars_2ite_unsat.smt2"):
+            source = (repair / name).read_text()
+            with self.subTest(name=name, interactive=False):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stdout + result.stderr)
+                self.assertNotIn("obligation\t", result.stderr)
+            with self.subTest(name=name, interactive=True):
+                result = self.run_checker(source, "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+
+    def test_bounded_bv_evaluation_certifies_qf_abv_egt_benchmarks(self):
+        # SMT-LIB QF_ABV/egt/egt-0160.smt2, egt-0218.smt2 and egt-4297.smt2 (Vijay Ganesh, Clark Barrett),
+        # verbatim. Their pending rewrites and bit-vector theory lemmas range over one 8-bit leaf
+        # (select packet #x000000f1) and are decided by evaluating them under all 256 values of the leaf.
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        for name in ("egt-0160.smt2", "egt-0218.smt2", "egt-4297.smt2"):
+            source = (repair / name).read_text()
+            with self.subTest(name=name, interactive=False):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stdout + result.stderr)
+                self.assertNotIn("obligation\t", result.stderr)
+            with self.subTest(name=name, interactive=True):
+                result = self.run_checker(source, "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+        source = (repair / "egt-0160.smt2").read_text()
+        # A satisfiable variant (bound 400 instead of 547) has no proof to certify.
+        satisfiable = source.replace("(bvule ?v_0 (_ bv547 32))", "(bvule ?v_0 (_ bv400 32))")
+        self.assertNotEqual(satisfiable, source)
+        result = self.run_checker(satisfiable, "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
+        # egt-6871's only lemma needs signed `bvsle` and `bit2bool`, which the native bridge leaves opaque.
+        source = (repair / "egt-6871.smt2").read_text()
+        result = self.run_checker(source, "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"),
+                         result.stdout + result.stderr)
+        self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
+
+    def test_bv_sum_normalization_removes_pending_qf_abv_rewrites(self):
+        # SMT-LIB QF_ABV benchmarks of the pulse reports, verbatim: egt-1341, egt-1513 and egt-4119
+        # (Vijay Ganesh, Clark Barrett; bench run 40723098000) and try4_difret_functions_disjunctions_mv.hash_pjw
+        # (Ivan Jager; z3 run 40718873785). Their rewrite steps bvadd(bvadd(c1, t), c2) = bvadd(c3, t) (c3 =
+        # c1 + c2 modulo 2^32, over an uninterpreted constant or an 8-bit read zero-extended to 32 bits), the
+        # same with a bare t when the numerals cancel, and the n-ary forms bvadd(bvadd(c1, t0, t1), c2) =
+        # bvadd(c3, t0, t1), bvadd(bvadd(c1, t0), bvadd(c2, t1)) = bvadd(c3, t0, t1) and bvadd(c1, bvadd(c2, t0,
+        # t1)) = bvadd(c3, t0, t1) are decided by the modular normalization of Z3BvAddNormalize. None of the four
+        # is a full ACCEPT: the other rewrites and the bit-vector theory lemmas stay pending, so the checks are the
+        # exact number of pending steps and the absence of the re-association fingerprints.
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        reassociation = "eq(bvadd:U(bvadd:U("
+        for name, pending, families in (
+                ("egt-1513.smt2", 4, 4),
+                ("egt-4119.smt2", 3, 3),
+                ("egt-1341.smt2", 4, 4),
+                ("try4_difret_functions_disjunctions_mv.hash_pjw.il.disjunctions_0.smt2", 39, 20)):
+            with self.subTest(name=name):
+                source = (repair / name).read_text()
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (3, f"PARTIAL {pending}"),
+                                 result.stdout + result.stderr)
+                self.assertIn(f"diagnostic\tchecked\tpending={pending}\tfamilies={families}\n", result.stderr)
+                self.assertNotIn(reassociation, result.stderr)
+        # The bound 300 instead of 547 makes egt-1513 satisfiable: there is no proof to certify.
+        source = (repair / "egt-1513.smt2").read_text()
+        satisfiable = source.replace("(_ bv547 32)", "(_ bv300 32)")
+        self.assertNotEqual(satisfiable, source)
+        result = self.run_checker(satisfiable, "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
+
+    def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
+        source = (
+            "(declare-fun a () Real)"
+            "(assert (< (/ 1 0 a) 1))"
+            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))"
+            "(assert (forall ((c Real)) (forall ((d Real)) (forall ((e Real))"
+            "  (>= (* e c) 2 (* d (/ 1 c) (/ 0 c)))))))")
+        for solver in (2, 6):
+            for interactive in (False, True):
+                with self.subTest(solver=solver, interactive=interactive):
+                    text = f"(set-option :smt.arith.solver {solver})" + source
+                    args = ["--diagnostics", "--timeout-ms", "10000"]
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertRegex(result.stdout,
+                                         r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
+                    else:
+                        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+                    self.assertNotIn("stage=open-root", result.stderr)
 
     def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
         for source in (
@@ -172,6 +531,32 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
         self.assertIn("semantics=sorted-datatype", result.stderr)
 
+    def test_datatype_operations_named_like_connectives(self):
+        # Z3 lets user datatypes name accessors and constructors `and`, `or`, `not`, `=>`, `true` and `false`
+        # (with argument sorts the builtin connectives do not take); the bridge marshals them with those names
+        # and the datatype kind tags. They are datatype operations, never connectives: refutations that need
+        # their datatype meaning are certified, and a satisfiable input is never certified unsat.
+        accessors = ("(declare-datatypes ((T 0)) (((mk (|and| Bool) (|or| Bool) (|not| Bool)"
+                     " (bits (_ BitVec 2))))))")
+        constants = "(declare-datatypes ((U 0)) (((mkU (|true| Bool) (|false| Bool) (|=>| Bool)))))(declare-const v U)"
+        constructors = ("(declare-datatypes ((R 0)) (((|true| (val Int)) (|false| (other Int)))))"
+                        "(declare-const r R)(declare-const q R)")
+        for source, expected in (
+                (accessors + "(declare-const t T)(assert (|and| t))(assert (not (|and| t)))", (0, "ACCEPT")),
+                (accessors + "(assert (|and| (mk false true true #b01)))", (0, "ACCEPT")),
+                ("(declare-datatypes ((S 0)) (((|or| (left Int) (right Int)) (|not| (inner Int)))))"
+                 "(declare-const s S)(assert (= s (|or| 1 2)))(assert (= s (|not| 3)))", (0, "ACCEPT")),
+                (accessors + "(declare-const t T)(assert (|and| t))(assert (|or| t))(assert (not (|not| t)))",
+                 (4, "SAT")),
+                (constants + "(assert (|true| v))(assert (not (|true| v)))", (0, "ACCEPT")),
+                (constants + "(assert (not (|true| v)))(assert (|false| v))(assert (not (|=>| v)))", (4, "SAT")),
+                (constructors + "(assert (= r (|true| 1)))(assert (= r (|false| 1)))", (0, "ACCEPT")),
+                (constructors + "(assert (= r (|true| 1)))(assert (not (= q (|true| 1))))", (4, "SAT"))):
+            with self.subTest(source=source):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), expected,
+                                 result.stdout + result.stderr)
+
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
             with self.subTest(case=name):
@@ -182,6 +567,36 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(interactive.returncode, 0,
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+
+    def test_finite_field_theory_lemmas_are_checked_within_the_bound(self):
+        # 17^2 assignments are evaluated. Over a 31-bit prime the same refutation has more
+        # than 4096; its `th-lemma` step is checked by replaying the recorded ideal certificate.
+        result = self.run_checker(unit_ideal(17), "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
+        for prime in (2147483647, 2305843009213693951, 170141183460469231731687303715884105727):
+            with self.subTest(prime=prime):
+                source = unit_ideal(prime)
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+
+    def test_finite_field_inverse_witnesses_remain_unchecked(self):
+        # A certificate that uses the inverse witness of a disequality needs a prime modulus;
+        # its `th-lemma` step stays an unmet obligation, alone or next to a checked one.
+        for assertions, pending in (
+                ("(assert (= (ff.mul x x) (as ff0 F)))(assert (not (= x (as ff0 F))))", 1),
+                ("(assert (= (ff.mul x y) (as ff1 F)))(assert (= (ff.mul x x) (as ff0 F)))", 1)):
+            with self.subTest(assertions=assertions):
+                source = ("(set-logic QF_FF)(define-sort F () (_ FiniteField 2147483647))"
+                          "(declare-const x F)(declare-const y F)" + assertions)
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (3, f"PARTIAL {pending}"),
+                                 result.stderr)
+                self.assertRegex(result.stderr, r"obligation\tth-lemma\t")
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertIn(f"unsat\n; proof-check PARTIAL {pending}\n", interactive.stdout)
 
     def test_quantified_rewrites_are_certified_in_both_modes(self):
         for source in (
@@ -206,6 +621,33 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertRegex(interactive.stdout, r"binder_nodes=\d+ binder_edges=\d+")
                 if source.startswith("(assert (not (forall"):
                     self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
+
+    def test_quantified_arithmetic_avoids_asserted_false_proofs(self):
+        source = ("(assert (forall ((a Real)) (exists ((b Real))"
+                  " (and (>= (+ a b) 0.0) (<= b 0.0)))))")
+        direct = self.run_checker(source, "--diagnostics")
+        self.assertIn(direct.returncode, (0, 3), direct.stdout + direct.stderr)
+        self.assertRegex(direct.stdout.strip(), r"^(ACCEPT|PARTIAL [1-9][0-9]*)$")
+        self.assertIn("diagnostic\tchecked\tpending=", direct.stderr)
+        interactive = self.run_checker(
+            source + "(check-sat-using smt)(check-sat)", "--interactive", "--diagnostics")
+        self.assertIn(interactive.returncode, (0, 3), interactive.stdout + interactive.stderr)
+        self.assertEqual(interactive.stdout.splitlines().count("unsat"), 2)
+        self.assertEqual(interactive.stdout.count("; proof-check "), 2)
+        self.assertIn("; proof-check ACCEPT", interactive.stdout)
+        self.assertNotIn("; proof-check REJECT", interactive.stdout)
+
+    def test_qsat_refuses_unsupported_proof_production(self):
+        result = self.run_checker(
+            "(assert (forall ((a Real)) (exists ((b Real))"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))"
+            "(check-sat-using qsat)(get-info :reason-unknown)",
+            "--interactive")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.splitlines()[0], "unknown")
+        self.assertIn("qsat does not support proof production", result.stdout + result.stderr)
+        self.assertNotIn("; proof-check ", result.stdout)
+        self.assertNotIn("unsat", result.stdout.splitlines())
 
     def test_uncertified_nonlinear_arithmetic_remains_partial(self):
         result = self.run_checker(
@@ -236,6 +678,94 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(interactive.returncode, 0,
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+
+    def test_quantifier_push_through_demorgan_body(self):
+        result = self.run_checker(
+            "(assert (forall ((a Real)) (exists ((b Real))"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))"
+            "(check-sat-using bv)(check-sat-using smt)(check-sat)",
+            "--interactive", "--diagnostics")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.splitlines().count("unsat"), 3)
+        self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 3)
+        self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
+
+    def test_unused_skolem_block_is_certified(self):
+        for name, source in UNUSED_SKOLEM_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(source, "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+                if name == "under-binder":
+                    self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
+
+    def test_factored_sign_rewrites_are_certified(self):
+        for name, source in FACTOR_SIGN_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        satisfiable = self.run_checker(
+            "(declare-const x Real)(assert (and (< 1.0 x) (< x (* x x))))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_conditional_comparison_rewrites_are_certified(self):
+        for name, source in ITE_COMPARISON_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        satisfiable = self.run_checker(
+            "(declare-const c Bool)(declare-const x Int)"
+            "(assert (>= (ite c 0 x) 1))(assert (not c))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_bv_extract_rewrites_are_certified(self):
+        for name, source in BV_EXTRACT_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        # Bits above the lowest are not a sum of the extracted bits (carries).
+        satisfiable = self.run_checker(
+            "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+            "(assert (not (= ((_ extract 4 1) (bvadd x y))"
+            " (bvadd ((_ extract 4 1) x) ((_ extract 4 1) y)))))(check-sat)",
+            "--interactive")
+        self.assertEqual(satisfiable.returncode, 0, satisfiable.stdout + satisfiable.stderr)
+        self.assertEqual(satisfiable.stdout.strip(), "sat")
+
+    def test_bv_extract_concat_rewrites_are_certified(self):
+        for name, source in BV_EXTRACT_CONCAT_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+        # Bits of x offset by one, and the two parts in the other order, are other bits.
+        for name, source in (
+                ("offset", "(assert (not (= ((_ extract 14 9) (concat x y)) ((_ extract 7 2) x))))"),
+                ("order", "(assert (not (= ((_ extract 9 4) (concat x y))"
+                          " (concat ((_ extract 7 4) y) ((_ extract 1 0) x)))))")):
+            with self.subTest(case=name):
+                satisfiable = self.run_checker(
+                    "(declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))"
+                    + source + "(check-sat)", "--interactive")
+                self.assertEqual(satisfiable.returncode, 0,
+                                 satisfiable.stdout + satisfiable.stderr)
+                self.assertEqual(satisfiable.stdout.strip(), "sat")
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
@@ -422,6 +952,32 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 2)
         self.assertIn("(A B)", result.stdout)
+
+    def test_interactive_redundant_global_declarations_options(self):
+        for option in ("global-decls", "global-declarations"):
+            with self.subTest(option=option):
+                result = self.run_checker(
+                    f"(set-option :{option} false)"
+                    "(declare-const p Bool)"
+                    f"(set-option :{option} false)"
+                    "(assert p)(assert (not p))(check-sat)(reset)"
+                    f"(set-option :{option} false)"
+                    "(assert false)(check-sat)",
+                    "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 2)
+                self.assertNotIn("(error", result.stdout)
+
+    def test_interactive_global_declarations_changes_preserve_scope(self):
+        result = self.run_checker(
+            "(declare-const p Bool)(set-option :global-decls true)"
+            "(push)(declare-const q Bool)(pop)(assert q)"
+            "(assert false)(check-sat)",
+            "--interactive")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("cannot be modified after initialization", result.stdout)
+        self.assertIn("unknown constant q", result.stdout)
+        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
 
     def test_interactive_partial_is_not_a_certificate(self):
         result = self.run_checker(

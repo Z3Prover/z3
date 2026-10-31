@@ -965,7 +965,7 @@ br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
     }
 
     if (st == BR_FAILED && mk_eq_mod(arg1, arg2, result)) 
-        st = BR_REWRITE2;
+        st = BR_REWRITE_FULL;
     return st;
 }
 
@@ -994,9 +994,72 @@ br_status arith_rewriter::mk_and_core(unsigned n, expr* const* args, expr_ref& r
     return BR_FAILED;
 }
 
+static rational symmod(rational const& a, rational const& b) {
+    rational r = mod(a, b);
+    if (2*r > b) r -= b;
+    return r;
+}
+
 bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
     expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
     rational p, k, l;
+    if (m_util.is_numeral(arg1) && m_util.is_mod(arg2))
+        std::swap(arg1, arg2);
+    if (m_util.is_mod(arg1, x, y) && m_util.is_numeral(y, p) &&
+        m_util.is_numeral(arg2, l) && 0 <= l && l < p && m_util.is_add(x)) {
+        ptr_buffer<expr> terms;
+        vector<rational> coeffs;
+        rational offset(0), cost(0), inverse(1);
+        for (expr* arg : *to_app(x)) {
+            if (m_util.is_numeral(arg, k))
+                offset += k;
+            else {
+                terms.push_back(get_power_product(arg, k));
+                coeffs.push_back(k);
+                cost += abs(k);
+            }
+        }
+        // Only invert a coefficient when the total coefficient magnitude decreases.
+        hashtable<rational, rational::hash_proc, rational::eq_proc> candidates;
+        for (auto const& coeff : coeffs) {
+            // Bound the search to avoid quadratic work on large sums.
+            if (cost <= rational(coeffs.size()) || candidates.size() == 32)
+                break;
+            if (!m.inc())
+                return false;
+            if (coeff.is_one() || coeff.is_minus_one() || candidates.contains(coeff))
+                continue;
+            candidates.insert(coeff);
+            rational a, b;
+            if (gcd(p, coeff, a, b) != 1)
+                continue;
+            rational new_cost(0);
+            for (auto const& c : coeffs) {
+                if (!m.inc())
+                    return false;
+                new_cost += abs(symmod(b * c, p));
+                if (new_cost >= cost)
+                    break;
+            }
+            if (new_cost < cost) {
+                cost = new_cost;
+                inverse = b;
+            }
+        }
+        if (inverse != 1) {
+            expr_ref_vector args(m);
+            for (unsigned i = 0; i < terms.size(); ++i) {
+                rational c = symmod(inverse * coeffs[i], p);
+                if (!c.is_zero())
+                    args.push_back(m_util.mk_mul(m_util.mk_int(c), terms[i]));
+            }
+            expr_ref sum(m_util.mk_add(args.size(), args.data()), m);
+            expr_ref lhs(m_util.mk_mod(sum, y), m);
+            expr_ref rhs(m_util.mk_int(mod(inverse * (l - offset), p)), m);
+            result = m.mk_eq(lhs, rhs);
+            return true;
+        }
+    }
     // match k*u mod p = l, where k, p, l are integers
     if (m_util.is_mod(arg1, x, y) && m_util.is_numeral(y, p) &&
         m_util.is_mul(x, z, u) && m_util.is_numeral(z, k) &&
@@ -1539,12 +1602,6 @@ void arith_rewriter::remove_divisor(expr* d, ptr_buffer<expr>& args) {
     } 
     UNREACHABLE(); 
 } 
-
-static rational symmod(rational const& a, rational const& b) {
-    rational r = mod(a, b);
-    if (2*r > b) r -= b;
-    return r;
-}
 
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
@@ -2435,12 +2492,13 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
 
 br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
     expr * m, *x;
-    if (m_util.is_asin(arg, x)) {
-        // sin(asin(x)) == x
+    rational k;
+    if (m_util.is_asin(arg, x) && is_numeral(x, k) && k >= rational(-1) && k <= rational(1)) {
+        // sin(asin(x)) == x for -1 <= x <= 1
         result = x;
         return BR_DONE;
     }
-    if (m_util.is_acos(arg, x)) {
+    if (m_util.is_acos(arg, x) && is_numeral(x, k) && k >= rational(-1) && k <= rational(1)) {
         {
             auto _seq2265_0 = m_util.mk_real(1);
             auto _seq2265_1 = m_util.mk_mul(x, x);
@@ -2450,7 +2508,6 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
         }
         return BR_REWRITE_FULL;
     }
-    rational k;
     if (is_numeral(arg, k) && k.is_zero()) {
         // sin(0) == 0
         result = arg;
@@ -2499,8 +2556,9 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
 
 br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
     expr* x;
-    if (m_util.is_acos(arg, x)) {
-        // cos(acos(x)) == x
+    rational k;
+    if (m_util.is_acos(arg, x) && is_numeral(x, k) && k >= rational(-1) && k <= rational(1)) {
+        // cos(acos(x)) == x for -1 <= x <= 1
         result = x;
         return BR_DONE;
     }
@@ -2508,7 +2566,6 @@ br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
         // cos(asin(x)) == ...
     }
 
-    rational k;
     if (is_numeral(arg, k) && k.is_zero()) {
         // cos(0) == 1
         result = m_util.mk_numeral(rational(1), false);
@@ -2781,8 +2838,9 @@ br_status arith_rewriter::mk_sinh_core(expr * arg, expr_ref & result) {
 
 br_status arith_rewriter::mk_cosh_core(expr * arg, expr_ref & result) {
     expr* t;
-    if (m_util.is_acosh(arg, t)) {
-        // cosh(acosh(t)) == t
+    rational k;
+    if (m_util.is_acosh(arg, t) && is_numeral(t, k) && k >= rational(1)) {
+        // cosh(acosh(t)) == t for t >= 1
         result = t;
         return BR_DONE;
     }
@@ -2796,8 +2854,9 @@ br_status arith_rewriter::mk_cosh_core(expr * arg, expr_ref & result) {
 
 br_status arith_rewriter::mk_tanh_core(expr * arg, expr_ref & result) {
     expr * t;
-    if (m_util.is_atanh(arg, t)) {
-        // tanh(atanh(t)) == t
+    rational k;
+    if (m_util.is_atanh(arg, t) && is_numeral(t, k) && k > rational(-1) && k < rational(1)) {
+        // tanh(atanh(t)) == t for -1 < t < 1
         result = t;
         return BR_DONE;
     }

@@ -16,6 +16,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import warnings
 
 import z3
 
@@ -238,6 +239,24 @@ UF_NEGATED_ITE_CONDITION = """\
 (assert (and (not q) q))
 (assert (= c (ite (not q) a b)))
 (assert (= (f c) (ite (not (= a b)) (f a) (f b))))
+(check-sat)
+"""
+
+# A predicate over a Boolean argument that also occurs outside it, under a
+# root ite whose gate clauses the exporter ties to the assertion by cnf
+# lemmas: the propagation proof keeps (P (and a b)) opaque while the clause
+# around it has (and a b) unfolded, and its fallback unfolds both.
+UF_SHARED_GATE_ARGUMENT = """\
+(set-logic QF_UF)
+(declare-fun P (Bool) Bool)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(declare-const s Bool)
+(assert (and (or (and a b) q) (or (not q) (not r)) (ite (P (and a b)) r s) (or (not s) (not (P (and a b))))
+             (not (and a b))))
+(assert (or (not s) r))
 (check-sat)
 """
 
@@ -876,7 +895,46 @@ class TestUninterpretedValidation(unittest.TestCase):
             # The lemma is over the implying assertions only, never all of them.
             literals = graph.clause(graph.conclusion(node))
             self.assertLess(len(literals), len(graph.assertions) + 1)
-        proof_to_lean.reconstruct(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        # These clauses rest on the value of the ite under the distinct, not
+        # on the Boolean structure over opaque atoms: no propagation proof
+        # is found and the lemmas go to grind alone (see _cnf_lemma).
+        self.assertNotIn("Classical.byContradiction", text)
+        for node in cnf:
+            self.assertTrue(text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+                            .endswith("\n  grind (splits := 64)"))
+
+    def test_cnf_fallback_unfolds_a_formula_shared_with_a_leaf(self):
+        # The predicate application (P (and a b)) is an opaque leaf of the
+        # propagation proof, and its argument (and a b) also occurs outside
+        # it. The structural attempt unfolds nothing (the gates are named by
+        # their definitions, the leaf by its own), so the fallback unfolds
+        # everything reachable once, the shared argument included.
+        source = UF_SHARED_GATE_ARGUMENT
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertTrue(cnf)
+        (leaf,) = {node for node in range(len(graph.nodes))
+                   if graph.kind(node) == z3.Z3_OP_UNINTERPRETED and graph.arguments(node)}
+        (shared,) = graph.arguments(leaf)
+        self.assertEqual(graph.kind(shared), z3.Z3_OP_AND)
+        text = proof_to_lean.reconstruct(source, certificate)
+        for node in cnf:
+            lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            head, _, attempts = lemma.partition("\n  first\n")
+            self.assertNotIn("unfold", head)
+            structural, fallback = attempts.split("\n    | (")
+            self.assertIn("refine Classical.byContradiction ?_\n", structural)
+            self.assertNotIn("unfold formula", structural.split("refine Classical.byContradiction ?_", 1)[1])
+            self.assertNotIn("let _s", structural)  # the gates are named by their definitions
+            self.assertRegex(structural, r"have _f\d+ : \((Not )?\(formula_\d+ _atoms")
+            rest = fallback.split("\n", 1)[0].split()
+            self.assertEqual(rest[0], "unfold")
+            reachable = proof_to_lean._reachable(graph, graph.conclusion(node))[0]
+            self.assertEqual(rest[1:], proof_to_lean._definition_names(graph, reachable))
+            self.assertIn("formula_%d" % leaf, rest)
+            self.assertEqual(rest.count("formula_%d" % shared), 1)
 
     def test_distinct_gate_clauses_are_def_axioms_proved_from_the_pairs(self):
         source = UF_INPUTS["uf_distinct_gates"]
@@ -1640,6 +1698,56 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             return certificate, " ".join(result.stdout.split())
 
+    def test_trimmed_logs_over_a_declared_sort_verify(self):
+        # Logs from 4 KB up are trimmed natively; the trimmer prints the
+        # input's (declare-sort U 0), which the dependency core rejected, so
+        # every large QF_UF log fell back to the untrimmed replay (z3test's
+        # NEQ004_size4: 47,038 resolution steps instead of 16,643, twice the
+        # Lean time). The threshold is lowered so a small input is trimmed;
+        # warnings are errors, so a fallback would fail the test.
+        trimmed = []
+        original = proof_clause_log.trim_clause_log
+
+        def trim(*args, **kwargs):
+            trimmed.append(original(*args, **kwargs))
+            return trimmed[-1]
+
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), \
+                patch.object(proof_clause_log, "trim_clause_log", trim), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            certificate, report = self.check(equality_diamond(3))
+        self.assertEqual(len(trimmed), 1)
+        self.assertTrue(trimmed[0].startswith("(declare-sort U 0)\n"))
+        self.assertIn("(deps ", trimmed[0])
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_moderate_logs_are_trimmed_by_default(self):
+        # SMT-LIB QF_UF 2018-Goel-hwbench/QF_UF_train-gate.6.prop1_ab_reg_max:
+        # a 32 KB clause log, below the former 1 MB trimming threshold, whose
+        # replay certified the whole search (2,254 nodes, 711 KB of Lean)
+        # where the final conflict needs a sixth of it. The default export
+        # trims it now; warnings are errors, so a fallback would fail.
+        source = (_EXAMPLES / "data" / "QF_UF_train-gate.6.prop1_ab_reg_max.smt2").read_text()
+        logs, original = [], proof_clause_log.trim_clause_log
+
+        def trim(z3_executable, text, timeout=None):
+            logs.append((text, original(z3_executable, text, timeout)))
+            return logs[-1][1]
+
+        with patch.object(proof_clause_log, "trim_clause_log", trim), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            certificate, report = self.check(source)
+        self.assertEqual(len(logs), 1)
+        log, core = logs[0]
+        self.assertTrue(proof_clause_log._TRIM_THRESHOLD <= len(log) < 1_000_000, len(log))
+        self.assertIn("(deps ", core)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf")):
+            untrimmed = proof_certificate.export_clause_log_certificate(source)
+        self.assertLess(3 * len(certificate["nodes"]), len(untrimmed["nodes"]))
+        self.assertLess(certificate["rule_counts"]["th-lemma"], untrimmed["rule_counts"]["th-lemma"])
+
     def test_documented_uf_inputs_verify_under_the_standard_axioms(self):
         for name, source in UF_INPUTS.items():
             with self.subTest(name=name):
@@ -1655,6 +1763,27 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             with self.subTest(depth=depth):
                 certificate, _ = self.check(source)
                 self.assertIn("def-axiom", certificate["rule_counts"])
+
+    def test_cnf_fallback_over_a_shared_leaf_argument_verifies(self):
+        # Structural first; then with the structural script replaced by one
+        # Lean rejects, so that `first` takes the fallback, whose unfold
+        # list names the predicate and its argument (see the validation
+        # test of the same input).
+        source = UF_SHARED_GATE_ARGUMENT
+        certificate, report = self.check(source)
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        original = proof_to_lean._PropositionalProver.refutation
+
+        def bogus(prover, structure, facts=()):
+            lines = original(prover, structure, facts)
+            return None if lines is None else [
+                "refine (fun (_h : %s) => ?_)" % proof_to_lean._render_structure(structure), "exact (_h : False)"]
+
+        with patch.object(proof_to_lean._PropositionalProver, "refutation", bogus):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertIn("refine Classical.byContradiction ?_\n       refine (fun (_h : ", text)
+            self.check(source)
 
     def test_one_argument_distinct_verifies(self):
         for name, source in UF_ONE_ARGUMENT_DISTINCT.items():
@@ -1679,7 +1808,10 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
         for seed in TestLegacyUninterpretedLeanIntegration.BOOLEAN_PREDICATE_SEEDS:
             source = random_boolean_predicate_instance(seed)
-            with self.subTest(seed=seed):
+            # Warnings are errors: seed 116 fell back to the untrimmed log
+            # over a negated Boolean argument until iter-042.
+            with self.subTest(seed=seed), warnings.catch_warnings():
+                warnings.simplefilter("error")
                 certificate, report = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
@@ -1735,13 +1867,45 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
     BOOL_ARGUMENT_SEEDS = (4, 98, 347, 1639, 2088)
 
     def test_random_instances_with_boolean_arguments(self):
+        # Warnings are errors: the trimmer once read the negated Boolean
+        # argument (not (not q)) as a variable unrelated to q and fell back to
+        # the untrimmed log on seeds 347 and 2088 (iter-041).
         for seed in self.BOOL_ARGUMENT_SEEDS:
             source = random_bool_argument_instance(seed)
-            with self.subTest(seed=seed):
+            with self.subTest(seed=seed), warnings.catch_warnings():
+                warnings.simplefilter("error")
                 self.assertGreaterEqual(_unsat_core_size(source), 4, "re-pick seed %d" % seed)
                 certificate, _ = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 self.assertIn("(_bool (formula_", proof_to_lean.reconstruct(source, certificate))
+
+    # Every seed in 1..2500 of random_bool_argument_instance and 1..300 of
+    # random_boolean_predicate_instance whose log the trimmer rejected
+    # before iter-042, other than the pinned ones above (615 unsat logs, 9
+    # fallbacks, now none). Exported without Lean: the trimmed core must
+    # replay with warnings as errors.
+    NEGATED_ARGUMENT_TRIM_SEEDS = {"bool_argument": (1080, 1387, 1811, 2158, 2175), "boolean_predicate": (272,)}
+
+    def test_negated_boolean_arguments_do_not_defeat_trimming(self):
+        generators = {"bool_argument": random_bool_argument_instance,
+                      "boolean_predicate": random_boolean_predicate_instance}
+        cores, original = [], proof_clause_log.trim_clause_log
+
+        def trim(*args, **kwargs):
+            cores.append(original(*args, **kwargs))
+            return cores[-1]
+
+        for generator, seeds in self.NEGATED_ARGUMENT_TRIM_SEEDS.items():
+            for seed in seeds:
+                source = generators[generator](seed)
+                del cores[:]
+                with self.subTest(generator=generator, seed=seed), \
+                        patch.object(proof_clause_log, "trim_clause_log", trim), warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    certificate = proof_certificate.export_clause_log_certificate(source)
+                    self.assertEqual(len(cores), 1)
+                    self.assertIn("(deps ", cores[0])
+                    self.assertIn("th-lemma", certificate["rule_counts"])
 
     def test_long_refutations_are_outlined_into_bounded_lemmas(self):
         # Seven levels give about 1,600 proof steps; as one nested term the main

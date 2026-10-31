@@ -35,7 +35,7 @@ for protocol, ownership, and certification limits.
 ## Shared toolchain
 
 The documented toolchain is [F*](https://github.com/FStarLang/FStar)
-`v2026.09.27` (Windows x64). The proof-checker harness builds and installs
+`v2026.10.25` (Windows x64). The proof-checker harness builds and installs
 Z3 from this checkout before verification or testing. F* and Pulse use
 the installed `build\install\bin\z3.exe`, not F*'s historical Z3 4.13.3
 backend or an executable found incidentally on `PATH`. The harness reads
@@ -64,11 +64,15 @@ and solve, marshal, and check in process. Their input options, incremental
 protocol, diagnostics, and exit codes are the same.
 
 Cherry currently requires **Linux x86-64 or AArch64, GCC/G++ 15+**, and a
-Cherry-capable F*. CI pins **nightly-2026-10-23**, commit
-`9f0182e8b179f95e8dfcdfcd7680e27741c793b1`, separately from the OCaml verifier.
+Cherry-capable F*. CI pins **nightly-2026-10-30**, commit
+`c68959fe1f070cd66a5ed2e92965185505f109ce`, separately from the OCaml verifier.
 `tools/checker_modules.json` supplies the dependency-ordered shared module and
-test lists to both build paths. Every source is verified before extraction;
-the installed checkout Z3 is explicitly selected as the SMT backend.
+test lists to both build paths. Its `cherry_modules` list names Cherry-only
+implementations, such as `Z3IdTable-c.cherry.fst` (the proof-id caches as
+immutable arrays instead of `Z3IdTable.fst`'s binary trie), which F* selects
+over the default implementation when generating Cherry code. Every source is
+verified before extraction; the installed checkout Z3 is explicitly selected as
+the SMT backend.
 
 To add Cherry to the existing Windows/WSL or Linux build, pass
 `-BuildCherry -CherryFstarExe <Linux-path-to-fstar.exe>` to
@@ -110,11 +114,12 @@ that checkout's Z3, verifies the Pulse modules and their tests, extracts and
 links the native F* checker, and
 runs both executables' bridge/CLI self-tests. The Linux path uses the same
 `tools/checker_modules.json` lists as the Windows/WSL build,
-with pinned F* `v2026.09.27` and OCaml `5.3.0` for the OCaml executable,
+with pinned F* `v2026.10.25` and OCaml `5.3.0` for the OCaml executable,
 and the separately pinned nightly and GCC/G++ 15 for Cherry.
-F* and enabled OCaml compiler warnings fail the build. Extracted constructor
-projectors receive explicit rejecting out-of-domain arms using OCaml's
-AST, without suppressing partial-match warnings or changing checker rules.
+F* and enabled OCaml compiler warnings fail the build. The OCaml checker is
+extracted in one whole-program Custard run (`--codegen OCaml --custard_split`)
+and linked in `ocamldep -sort` order; a call outside a refinement's domain
+raises `Match_failure` rather than returning a value.
 
 It also runs after a successful default-branch **Nightly Build**, building that
 nightly's exact source commit rather than the latest branch tip. On success,
@@ -148,7 +153,8 @@ timeout overrides. Automatic runs use the default regression settings.
 The first regression job downloads the OCaml package and reruns the CLI suite.
 A second job downloads the Cherry package from the same build, reruns
 the CLI suite without installing build toolchains, then replays the same
-z3test commit and the **identical 225/310 sampled inputs and 25 QF_FF inputs**
+z3test commit and the **identical 225/285 sampled inputs, 300 fixed QF_BV inputs,
+and 25 QF_FF inputs**
 from the OCaml report artifact. It does not download the Zenodo archives again.
 Cherry coverage and timing reports are published separately.
 These executables run the extracted F* document-checker kernel; the
@@ -166,13 +172,15 @@ parsed final assertion set, not an incremental sequence of commands.
 The same job also evaluates two freshly sampled SMT-LIB cohorts:
 **225 inputs**, with **25 UNSAT-annotated benchmarks per logic** for QF_UF,
 QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA, QF_AUFLIA, AUFLIA, and UFLIA;
-and **310 extended inputs**, with 25 each for **QF_DT, QF_NIA, UF, QF_BV,
+and **285 extended inputs**, with 25 each for **QF_DT, QF_NIA, UF,
 QF_UFBV, QF_UFDT, QF_ABV, QF_AUFBV, QF_UFLRA, QF_NRA,
 UFDT, and UFDTLIA** plus **all 10 UNSAT-annotated UFLRA inputs**.
 UFLRA has only 15 benchmarks total; its five SAT-annotated inputs are not
 certificate examples. QF_LIRA is omitted because the pinned archive supplies
 only two eligible UNSAT inputs under the size limit. QF_UFDTLIA is omitted
 because its archive contains only unknown-annotated inputs.
+CI skips QF_BV during archive sampling because its large archive repeatedly
+times out; a separate fixed QF_BV cohort is checked out from z3test instead.
 The existing manifests in `Z3Prover/z3test/regressions/smtlib-sample`
 and `fstar/benchmarks/smtlib-sample` now supply the archive URLs, pinned
 SHA-256 hashes, compressed sizes, and required counts, not the CI input
@@ -199,12 +207,24 @@ rerunning the same workflow run retains its seed. Dispatch input
 `smtlib_sample_seed` reproduces a recorded selection against the same archive
 configuration and sampler. UFLRA necessarily remains the same ten inputs. The two
 cohorts retain their separate execution/diagnostic budgets and require
-exactly 225/310 manifested inputs; `max_cases` does not truncate them.
+exactly 225/285 manifested inputs; `max_cases` does not truncate them.
 The extended cohort remains independent of the external z3test checkout.
 Each report artifact includes `inputs/` with the selected original files
 and manifest, the seed, source-manifest hash, archive/member provenance,
 input SHA-256 hashes, and `sampling.log`. The harness verifies exact
 manifest membership and every input hash before executing any case.
+
+A fixed **300-input QF_BV cohort** comes from the checked-out z3test's
+`regressions/smtlib-qfbv` directory. All inputs retain their upstream UNSAT
+annotations and original bytes, are at most **8 KiB**, and have distinct hashes.
+They were selected once from the pinned SMT-LIB 2025 QF_BV archive using the
+lowest SHA-256 priorities with fixed seed `pulse-qfbv-300-v1`, without using
+solver or checker results. The manifest records the archive provenance, size
+bound, member paths, and every input hash. Both backends replay the same fixed
+300 files; neither downloads QF_BV from Zenodo in CI. These inputs are not
+rotated by `smtlib_sample_seed` or truncated by `max_cases`. A manual
+`z3test_ref` must include this directory. The cohort has a separate
+`qfbv_total_timeout_seconds` execution budget.
 
 A separate **25-input QF_FF cohort** uses the checked-out z3test's
 `regressions/finite_field/test_qfff.py` generator and exhaustive small-field

@@ -42,7 +42,8 @@ class CheckerSamplingTests(unittest.TestCase):
         for path in paths:
             self.assertRegex(path.read_bytes(), sampler.STATUS)
         workflow = (root / ".github" / "workflows" / "pulse-checker-regressions.yml").read_text()
-        self.assertIn(f"--expected-cases {sum(counts.values())} ", workflow)
+        self.assertIn(f"--expected-cases {sum(counts.values()) - counts['QF_BV']} ", workflow)
+        self.assertIn("--skip-logic QF_BV ", workflow)
 
     def archive(self, directory, members, logic="QF_DT"):
         contents = io.BytesIO()
@@ -165,6 +166,39 @@ class CheckerSamplingTests(unittest.TestCase):
             self.assertIn("Maximum eligible input size: 262144 bytes", text)
             self.assertIn("Benchmark sampling: **success**", text)
             self.assertEqual(json.loads((report / "summary.json").read_text())["tested"], 0)
+
+    def test_skipped_archive_is_not_downloaded_or_included_in_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path, entry = self.archive(directory, [("non-incremental/QF_DT/a.smt2", UNSAT)])
+            _, skipped_entry = self.archive(
+                directory, [("non-incremental/QF_BV/a.smt2", UNSAT)], logic="QF_BV")
+            manifest = Path(directory) / "source.json"
+            manifest.write_text(json.dumps({
+                "schema_version": 1, "source": "https://zenodo.org/records/16740866",
+                "per_logic": {"QF_DT": 1, "QF_BV": 1},
+                "archives": [skipped_entry, entry],
+            }))
+            output = Path(directory) / "sample"
+
+            def download(destination, spec, timeout):
+                self.assertEqual(spec, entry)
+                shutil.copyfile(path, destination)
+
+            with patch.object(sampler, "download_archive", side_effect=download) as fetch, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                sampler.prepare_sample(manifest, output, "seed", 60, ["QF_BV"])
+            self.assertEqual(fetch.call_count, 1)
+            document = json.loads((output / "manifest.json").read_text())
+            self.assertEqual(document["per_logic"], {"QF_DT": 1})
+            self.assertEqual([row["logic"] for row in document["archives"]], ["QF_DT"])
+            paths, discovered = runner.discover(output, ".", 0)
+            self.assertEqual(discovered, 1)
+            runner.verify_manifest(output, ".", output / "manifest.json", paths)
+
+            for skipped in (["UF"], ["QF_DT", "QF_BV"]):
+                with self.subTest(skipped=skipped), self.assertRaises(ValueError):
+                    sampler.prepare_sample(manifest, Path(directory) / "invalid",
+                                           "seed", 60, skipped)
 
     def test_download_failure_never_creates_a_success_manifest(self):
         with tempfile.TemporaryDirectory() as directory:

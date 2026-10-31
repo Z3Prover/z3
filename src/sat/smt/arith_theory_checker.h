@@ -20,6 +20,10 @@ The module assumes a limited repertoire of arithmetic proof rules.
 - farkas - inequalities, equalities and disequalities with coefficients
 - implied-eq - last literal is a disequality. The literals before imply the complementary equality.
 - bound - last literal is a bound. It is implied by prior literals.
+- arith - a theory axiom without coefficients; the arguments are the negated clause literals.
+  The clause is accepted when one literal is valid by linear arithmetic over the defining
+  identities and bounds of div, mod and / by nonzero numerals, or when it is one of the two
+  case splits of abs.
 
 --*/
 #pragma once
@@ -41,6 +45,7 @@ namespace arith {
             farkas_t,
             implied_eq_t,
             bound_t,
+            axiom_t,
             none_t
         };
         
@@ -68,10 +73,14 @@ namespace arith {
         symbol       m_implied_eq = symbol("implied-eq");
         symbol       m_bound = symbol("bound");
         symbol       m_cut = symbol("cut");
+        symbol       m_axiom = symbol("arith");
+        expr_ref_vector m_pinned;
 
         rule_type_t rule_type(app* jst) const {
             if (jst->get_name() == m_cut)
                 return cut_t;
+            if (jst->get_name() == m_axiom)
+                return axiom_t;
             if (jst->get_name() == m_bound)
                 return bound_t;
             if (jst->get_name() == m_implied_eq)
@@ -429,13 +438,154 @@ namespace arith {
             rows.push_back(row());
             return rows.back();
         }
-        
+
+        /**
+         * Theory axioms (rule arith) are the defining facts of the operations the
+         * linear solver treats as opaque terms. For a nonzero numeral k:
+         *   u = k * (div u k) + (mod u k),  0 <= (mod u k) <= |k| - 1,  k * (u / k) = u,
+         * and (abs u) is u when u >= 0 and -u when u <= 0.
+         */
+
+        // (mod u k) for an integer numeral k other than 0.
+        bool is_mod_by_numeral(expr* e, expr*& u, expr*& k, rational& n) const {
+            return a.is_mod(e, u, k) && is_numeral(k, n) && n.is_int() && !n.is_zero();
+        }
+
+        // Replace every (mod u k) by u - k * (div u k) and every (u / k) by u / k
+        // for nonzero numerals k.
+        void expand_definitions(row& r) {
+            vector<std::pair<expr*, rational>> terms;
+            for (auto const& [v, c] : r.m_coeffs)
+                terms.push_back({ v, c });
+            expr* u, * k;
+            rational n;
+            for (auto const& [v, c] : terms) {
+                if (is_mod_by_numeral(v, u, k, n)) {
+                    expr* d = a.mk_idiv(u, k);
+                    m_pinned.push_back(d);
+                    add(r, v, -c);
+                    linearize(r, c, u);
+                    add(r, d, -c * n);
+                }
+                else if (a.is_div(v, u, k) && is_numeral(k, n) && !n.is_zero()) {
+                    add(r, v, -c);
+                    linearize(r, c / n, u);
+                }
+            }
+        }
+
+        // r <= 0 (r < 0 if strict) has no solution. The only term may be one
+        // (mod u k), which ranges over 0 .. |k| - 1.
+        bool is_infeasible(row const& r) {
+            row s;
+            s.m_coeff = r.m_coeff;
+            s.m_strict = r.m_strict;
+            if (r.m_coeffs.size() == 1) {
+                auto const& [v, c] = *r.m_coeffs.begin();
+                expr* u, * k;
+                rational n;
+                if (!is_mod_by_numeral(v, u, k, n))
+                    return false;
+                if (c < 0)
+                    s.m_coeff += c * (abs(n) - 1);
+            }
+            else if (!r.m_coeffs.empty())
+                return false;
+            return check_ineq(s);
+        }
+
+        // The negation of the literal (sign ? (not e) : e) as r <= 0 or r < 0.
+        bool negate_literal(row& r, expr* e, bool sign) {
+            return add_literal(r, rational(1), e, !sign);
+        }
+
+        bool is_valid_literal(expr* e, bool sign) {
+            expr* x, * y;
+            if (m.is_true(e) || m.is_false(e))
+                return m.is_true(e) != sign;
+            if (m.is_eq(e, x, y) && a.is_int_real(x)) {
+                row r;
+                linearize(r, rational(1), x);
+                linearize(r, rational(-1), y);
+                expand_definitions(r);
+                return sign ? r.m_coeffs.empty() && r.m_coeff != 0 : r.is_zero();
+            }
+            row r;
+            return negate_literal(r, e, sign) && is_infeasible(r);
+        }
+
+        // The negation of the literal (sign ? (not e) : e) and a * u < 0 cannot
+        // both hold: a positive multiple of a * u plus the negation's row is a
+        // constant that is not negative.
+        bool implies_nonnegative(expr* e, bool sign, rational const& a_coeff, expr* u) {
+            row r, t;
+            if (!negate_literal(r, e, sign))
+                return false;
+            linearize(t, a_coeff, u);
+            if (t.m_coeffs.empty())
+                return false;
+            auto const& [v, c] = *t.m_coeffs.begin();
+            rational rc;
+            if (!r.m_coeffs.find(v, rc))
+                return false;
+            rational lambda = -rc / c;
+            if (!lambda.is_pos())
+                return false;
+            add(r, t, lambda);
+            return r.m_coeffs.empty() && !r.m_coeff.is_neg();
+        }
+
+        // (abs u) = u or (abs u) = -u, with the case condition u >= 0 or u <= 0
+        // implied by the negation of another literal of the clause.
+        bool is_abs_case(vector<std::pair<expr*, bool>> const& lits) {
+            for (unsigned i = 0; i < lits.size(); ++i) {
+                auto [e, sign] = lits[i];
+                expr* x, * y, * u;
+                if (sign || !m.is_eq(e, x, y))
+                    continue;
+                if (!a.is_abs(x, u)) {
+                    std::swap(x, y);
+                    if (!a.is_abs(x, u))
+                        continue;
+                }
+                for (int s : { 1, -1 }) {
+                    row r;
+                    linearize(r, rational(1), y);
+                    linearize(r, rational(-s), u);
+                    if (!r.is_zero())
+                        continue;
+                    for (unsigned j = 0; j < lits.size(); ++j)
+                        if (j != i && implies_nonnegative(lits[j].first, lits[j].second, rational(s), u))
+                            return true;
+                }
+            }
+            return false;
+        }
+
+        bool check_axiom(app* jst) {
+            vector<std::pair<expr*, bool>> lits;
+            for (expr* arg : *jst) {
+                if (!m.is_bool(arg))
+                    return false;
+                if (m.is_true(arg))
+                    continue;
+                expr* e = arg;
+                bool sign = !m.is_not(arg, e);
+                if (is_valid_literal(e, sign))
+                    return true;
+                lits.push_back({ e, sign });
+            }
+            return is_abs_case(lits);
+        }
+
     public:
         theory_checker(ast_manager& m): 
-            m(m), 
-            a(m) {}
+            m(m),
+            a(m),
+            m_pinned(m) {}
 
         void reset() {
+            m_pinned.reset();
             m_ineq.reset();
             m_conseq.reset();
             m_eqs.reset();
@@ -480,10 +630,12 @@ namespace arith {
             return out;
         }
 
+        // A true argument stands for a literal false at the base level that the
+        // logged clause omits (the q = 0 of a division axiom by a numeral q).
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);
-            for (expr* arg : *jst) 
-                if (m.is_bool(arg))
+            for (expr* arg : *jst)
+                if (m.is_bool(arg) && !m.is_true(arg))
                     result.push_back(mk_not(m, arg));
             return result;
         }
@@ -519,6 +671,8 @@ namespace arith {
             switch (rt) {
             case cut_t:
                 return false;
+            case axiom_t:
+                return check_axiom(jst);
             case none_t:
                 IF_VERBOSE(0, verbose_stream() << "unhandled inference " << mk_pp(jst, m) << "\n");
                 return false;
@@ -575,6 +729,7 @@ namespace arith {
             pc.register_plugin(m_bound, this);
             pc.register_plugin(m_implied_eq, this);
             pc.register_plugin(m_cut, this);
+            pc.register_plugin(m_axiom, this);
         }
         
     };

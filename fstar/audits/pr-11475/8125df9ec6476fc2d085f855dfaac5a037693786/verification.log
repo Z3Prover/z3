@@ -1,0 +1,8 @@
+cmd: fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out --include fstar M.fst (timeout 120)
+F* 2026.09.27; Z3 4.13.3
+Verified module: T
+All verification conditions discharged successfully
+T exit=0
+Verified module: OptModDivPurify
+All verification conditions discharged successfully
+OptModDivPurify exit=0

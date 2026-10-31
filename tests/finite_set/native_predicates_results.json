@@ -1,0 +1,110 @@
+{
+  "scope": "Native FiniteSet local lambda consumers and deferred array defaults; 186-input validation subset, not a full-corpus rerun.",
+  "changes": [
+    "Register set.filter predicate arguments through theory::is_beta_redex.",
+    "Defer lambda-default axioms when all relevant uses are non-array pointwise consumers; retain default axioms for escaping lambdas and ordinary array uses.",
+    "Propagate existing base memberships to newly created set operations; exclude singleton elements from base-set propagation."
+  ],
+  "run": {
+    "z3": "Z3 version 5.3.2 - 64 bit - build hashcode aa71a62fdffbfede37f7558b52da4d52841e04ea",
+    "binary_sha256": "89751bedde0c6f0482aa309e137cb681eca4d8e3156da222eeb486eb4759a7d7",
+    "git_base": "aa71a62fdffbfede37f7558b52da4d52841e04ea",
+    "timeout_seconds": 20,
+    "workers": 8,
+    "selection": "All 138 cvc5 UNSAT inputs, plus 48 SAT inputs sampled evenly by sorted filename.",
+    "source_directory": ".z3-agent\\finite-sets\\comparison\\z3",
+    "patch_sha256": "e896f1882d99a76fce174ef730f718001187c013e4a3164b6caa10ee3a7502e4"
+  },
+  "results": {
+    "counts": {
+      "unsat": 103,
+      "timeout": 82,
+      "sat": 1
+    },
+    "by_reference": {
+      "sat": {
+        "timeout": 47,
+        "sat": 1
+      },
+      "unsat": {
+        "unsat": 103,
+        "timeout": 35
+      }
+    },
+    "disagreements": [],
+    "wall_seconds": 1805.081789,
+    "elapsed_seconds": 235.98972800001502,
+    "solved_seconds": 161.72204200000002,
+    "validation": {
+      "unit_suite": "120 passed, 0 failed",
+      "targeted_suites": [
+        "finite_set",
+        "finite_set_rewriter"
+      ],
+      "smoke_checks": [
+        "integer SMT solving/model",
+        "Python solving/model",
+        "CLI help"
+      ]
+    }
+  },
+  "baseline_on_same_inputs": {
+    "counts": {
+      "timeout": 186
+    },
+    "wall_seconds": 3735.69193
+  },
+  "timing": {
+    "solved_median_seconds": 0.586401,
+    "solved_min_seconds": 0.066957,
+    "solved_max_seconds": 18.890419,
+    "mean_par2_seconds": 18.503881946236557,
+    "caveat": "Current subset used 8 workers; earlier baseline used 16. Wall times are concurrent measurements, not controlled isolated latency."
+  },
+  "statistics": {
+    "array-def-lambda": {
+      "min": 0,
+      "median": 0.0,
+      "max": 0
+    },
+    "array-ext-ax": {
+      "min": 0,
+      "median": 0.0,
+      "max": 0
+    },
+    "finite-set-axioms-created": {
+      "min": 338.0,
+      "median": 110964.5,
+      "max": 867865.0
+    },
+    "max-memory": {
+      "min": 19.04,
+      "median": 24.435000000000002,
+      "max": 74.92
+    }
+  },
+  "sat_model_checks": [
+    {
+      "file": "set_quantifiers_test4_redundancy_02.smt2",
+      "result": "sat",
+      "assertions_validated": 15,
+      "seconds": 3.719708099961281
+    }
+  ],
+  "regressions": [
+    "Nonempty tuple filter SAT with evaluated-model checking",
+    "Nested existential capture SAT with evaluated-model checking",
+    "Existing base member excluded by filter: UNSAT",
+    "Array predicate shared between filter and select: UNSAT",
+    "Singleton of a FiniteSet element: SAT",
+    "Nested universal product-style uniqueness: SAT with evaluated-model checking",
+    "Local lambda later observed through array default: SAT/UNSAT/SAT across push/pop"
+  ],
+  "remaining_limitations": "47 of 48 sampled SAT inputs and 35 of 138 cvc5-UNSAT inputs still time out at 20 seconds. Native bounded quantifier operators, witness reuse, and native products are not implemented by this patch.",
+  "artifacts": {
+    "results_csv": ".z3-agent\\finite-sets\\native-local-defaults\\results.csv",
+    "logs": ".z3-agent\\finite-sets\\native-local-defaults\\logs",
+    "original_subset_summary": ".z3-agent\\finite-sets\\native-local-defaults\\summary.json",
+    "sat_model_checks": ".z3-agent\\finite-sets\\native-local-defaults\\sat_model_checks.json"
+  }
+}

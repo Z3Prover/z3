@@ -161,6 +161,7 @@ def _configure_z3():
         'Z3_SINGLE_THREADED' : IS_SINGLE_THREADED,      # avoid solving features that use threads
         'Z3_POLLING_TIMER' : IS_SINGLE_THREADED,         # avoid using timer threads
         'Z3_BUILD_PYTHON_BINDINGS' : True,
+        'Z3_INSTALL_PYTHON_BINDINGS' : False,
         # Build Options
         'CMAKE_BUILD_TYPE' : 'Release',
         # For Pyodide/emscripten builds, skip the z3 shell executable.  The

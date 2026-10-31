@@ -34,6 +34,7 @@ class cross_nested {
     std::function<bool (unsigned)>                    m_var_is_fixed;
     random_gen                                        m_random;
     bool                                              m_done = false;
+    bool                                              m_limit_exceeded = false;
     ptr_vector<nex>                                   m_b_split_vec;
     int                                               m_reported = 0;
     bool                                              m_random_bit = false;
@@ -170,6 +171,8 @@ public:
         auto copy_of_front = copy_front(front);
         int alloc_size = static_cast<int>(m_nex_creator.size());
         for (lpvar j : vars) {
+            if (m_done || m_limit_exceeded)
+                return;
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers
                 // because the interval products do not become smaller
@@ -177,7 +180,7 @@ public:
                 continue;
             }
             explore_of_expr_on_sum_and_var(c, j, front);
-            if (m_done)
+            if (m_done || m_limit_exceeded)
                 return;
             TRACE(nla_cn, tout << "before restore c=" << **c << "\nm_e=" << *m_e << "\n";);
             *c = copy_of_c;
@@ -249,6 +252,12 @@ public:
     }
     
     void explore_expr_on_front_elem(nex** c, vector<nex**>& front) {
+        if (m_done || m_limit_exceeded)
+            return;
+        if (!m_limit.inc()) {
+            m_limit_exceeded = true;
+            return;
+        }
         svector<lpvar> vars;
         if (proceed_with_common_factor_or_get_vars_to_factor_out(c, vars, front))
             return;
@@ -283,9 +292,13 @@ public:
     // front will be explored more
     void explore_of_expr_on_sum_and_var(nex** c, lpvar j, vector<nex**> front) {
         TRACE(nla_cn, tout << "m_e=" << *m_e << "\nc=" << **c << "\nj = " << nex_creator::ch(j) << "\nfront="; print_front(front, tout) << "\n";);
-        if (!split_with_var(*c, j, front))
+        if (m_done || m_limit_exceeded)
             return;
-        if (!m_limit.inc())
+        if (!m_limit.inc()) {
+            m_limit_exceeded = true;
+            return;
+        }
+        if (!split_with_var(*c, j, front))
             return;
         TRACE(nla_cn, tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
         if (front.empty()) {

@@ -16,11 +16,14 @@ module D = Z3Definitions
 module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
 module AR = Z3ArithmeticRewrite
+module AF = Z3ArithmeticFactor
+module BX = Z3BvExtract
 module IR = Z3IntegerRewrite
 module ID = Z3IntegerDivision
 module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
 module G = Z3LpGomory
+module IC = Z3LpIntegerCut
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
 module QV = Z3QuantifierVacuity
@@ -31,7 +34,12 @@ module QR = Z3QuantifierReduce
 module DE = Z3DestructiveEquality
 module LR = Z3LambdaRewrite
 module TN = Z3TheoryNormalize
+module FF = Z3FiniteFieldLemma
+module FP = Z3FiniteFieldPac
+module BE = Z3BvExhaustive
+module BN = Z3BvAddNormalize
 module L = FStar.List.Tot
+module C = Z3CanonicalOps
 
 type judgment =
   | Holds : formula:expr -> judgment
@@ -60,6 +68,7 @@ type rule =
   | Unverified : name:string -> rule
   | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
   | ArithmeticGomory : certificate:G.certificate -> rule
+  | FiniteFieldPac : certificate:FP.certificate -> rule
   | RewriteRule
   | PullQuantifier
   | DestructiveEqualityResolution
@@ -272,17 +281,23 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
      | DestructiveEquality | DestructiveEqualityResolution ->
        facts = [] && (QD.equivalent 64 a b || DE.check a b)
      | RewriteRule | ApplyDefinition ->
+       (* The Boolean equivalence test boolean_equiv 8 10 a b is the first test of
+          QR.equivalent 64 a b, so it is not repeated as a separate alternative:
+          the alternatives accept the same pairs, and the full Boolean normal
+          form of a large step is computed once rather than once per alternative. *)
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
                       Z3DistinctAst.duplicate_rewrite a b ||
                       Z3DistinctEmbed.expansion_rewrite a b ||
                       constant_quantifier_rewrite a b ||
-                      boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
+                     A.equivalent 64 a b || AR.equivalent a b ||
+                      AF.check a b || BX.check a b ||
                       QR.equivalent 64 a b || LR.rewrite a b ||
                       CR.equivalent a b || IR.equivalent a b || ID.equivalent a b ||
                       ID.equivalent b a || QV.equivalent 64 a b ||
                       TN.equivalent a b ||
-                      boolean_search a b)
+                      boolean_search a b ||
+                      (kind = RewriteRule && (BE.equivalent a b || BN.equivalent a b)))
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -333,15 +348,14 @@ let logical_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
          | Unverified "th-lemma", _ -> TN.consequence es target
          | QuantifierInstantiation args, [] -> Q.check args target
          | ModusPonens, [a; App f [s; t]] ->
-           (f.decl_name = "implies" || f.decl_name = "=>" || f.decl_name = "=") &&
-           a = s && target = t
+           (C.canonical_implies f || C.canonical_eq f) && a = s && target = t
          | UnitResolution, c :: units ->
            boolean_formulas (formula_clause c) &&
            clause_consequence (resolution_residual c units) target
          | AndElimination, [App f args] ->
-           f.decl_name = "and" && L.mem target args
+           C.canonical_and f && L.mem target args
          | NotOrElimination, [App f [App g args]] ->
-           f.decl_name = "not" && g.decl_name = "or" &&
+           C.canonical_not f && C.canonical_or g &&
            (L.mem (mk_not_expr target) args ||
             (match is_not target with
              | Some t -> get_sort t = bool_sort && L.mem t args && target = App f [t]
@@ -503,7 +517,7 @@ let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgm
   | [] -> Some cache
   | e :: rest ->
     classify_fact e.binder_formula >>= (fun concl ->
-    opt_map (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
+    Z3ProofIndex.opt_map_tail (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
     if binder_step_with_context skolems assertions e concl facts then
       check_binder_entries skolems assertions rest (Z3ProofIndex.index_put cache next concl) (next + 1)
     else None))
@@ -568,14 +582,23 @@ let rec remaining_hypotheses (hyps:list expr) (concl:expr)
 
 let false_judgment (j:judgment) : bool = j = Holds false_expr
 
+(* A finite-field lemma carrying its recorded ideal certificate; the
+   certificate is replayed only after the exhaustive check. *)
+let pac_lemma (kind:rule) (e:expr) : bool =
+  match kind with
+  | FiniteFieldPac c -> FP.check c e
+  | _ -> false
+
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   match kind, proposition concl, propositions facts with
   | ArithmeticGomory c, Some e, Some es -> G.check c e es
-  | Unverified "th-lemma", Some e, Some es ->
-    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e)) ||
+  | Unverified "th-lemma", Some e, Some es
+  | FiniteFieldPac _, Some e, Some es ->
+    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e || FF.exhaustive_clause e ||
+                 pac_lemma kind e)) ||
     TN.consequence es e || LP.implied_equality e es ||
     (Some? (LA.comparison e) && LP.inferred_bound e es) ||
-    G.inferred_split e es
+    G.inferred_split e es || IC.inferred e es || (es = [] && BE.valid e)
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
@@ -608,7 +631,7 @@ let check_node_with_membership (skolems:list SK.definition) (strict:bool)
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
+    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
       accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
     | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier
     | DestructiveEquality | DestructiveEqualityResolution ->
@@ -835,9 +858,10 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if Z3DistinctEmbed.expansion_rewrite a b then
            Z3DistinctEmbed.lemma_expansion_rewrite_sound i rho a b
          else if constant_quantifier_rewrite a b then lemma_constant_quantifier_sound i rho a b
-         else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
          else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
          else if AR.equivalent a b then AR.lemma_equivalent_with_numeric_model a b i rho
+         else if AF.check a b then AF.lemma_check_sound a b i rho
+         else if BX.check a b then BX.lemma_check_sound a b i rho
          else if QR.equivalent 64 a b then QR.lemma_equivalent 64 i rho a b
          else if LR.rewrite a b then LR.lemma_rewrite i rho a b
          else if CR.equivalent a b then CR.lemma_equivalent_sound i rho a b
@@ -846,7 +870,9 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if ID.equivalent b a then ID.lemma_equivalent b a i rho
          else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
          else if TN.equivalent a b then TN.lemma_equivalent i rho a b
-         else lemma_boolean_search_sound i rho a b);
+         else if boolean_search a b then lemma_boolean_search_sound i rho a b
+         else if BE.equivalent a b then BE.lemma_equivalent_sound a b i rho
+         else BN.lemma_equivalent_sound a b i rho);
          lemma_relational_value_sound i rho concl r a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
@@ -892,6 +918,7 @@ let lemma_logical_step_sound (i:interpretation value) (rho:env value)
                     judgments_hold i rho facts /\ logical_step kind concl facts)
           (ensures judgment_holds i rho concl)
   = lemma_proposition_sound i rho concl;
+    lemma_legacy_canonical i;
     match kind with
     | ObservationalMP ->
       (match facts with
@@ -1273,13 +1300,13 @@ let lemma_complement_from_false (i:interpretation value) (rho:env value) (h e:ex
   = match h with
     | App f [] -> (match e with | App g [] -> () | _ -> ())
     | App f [a] ->
-      if f.decl_name = "not" && a = e then (
+      if C.canonical_not f && a = e then (
         lemma_not_relates i rho f a;
         match eval i e rho with | VBool _ -> () | _ -> ())
       else
         (match e with
          | App g [b] ->
-           if g.decl_name = "not" && b = h then (
+           if C.canonical_not g && b = h then (
              lemma_not_relates i rho g b;
              match eval i h rho with | VBool _ -> () | _ -> ())
            else ()
@@ -1287,7 +1314,7 @@ let lemma_complement_from_false (i:interpretation value) (rho:env value) (h e:ex
     | _ ->
       (match e with
        | App g [b] ->
-         if g.decl_name = "not" && b = h then (
+         if C.canonical_not g && b = h then (
            lemma_not_relates i rho g b;
            match eval i h rho with | VBool _ -> () | _ -> ())
          else ()
@@ -1349,6 +1376,11 @@ let rec lemma_boolean_premises (ps:list checked_fact)
       lemma_boolean_premises rest;
       lemma_boolean_union p.hypotheses (premise_hypotheses rest)
 
+(* Kept out of lemma_check_node_sound: only the existing model contract is used. *)
+let lemma_pac_lemma_sound (i:interpretation value) (rho:env value) (kind:rule) (e:expr)
+  : Lemma (requires model_sound i /\ pac_lemma kind e) (ensures lit_true i rho e)
+  = match kind with FiniteFieldPac c -> FP.lemma_check_sound i rho c e
+
 let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:env value) (strict:bool)
                     (assertions:list judgment) (node:proof_node) : prop =
   match node.kind with
@@ -1360,7 +1392,7 @@ let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:e
     not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
+  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -1389,7 +1421,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
         if check_step DefAxiom node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
+      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
           lemma_premises_sound i rho node.premises;
@@ -1411,13 +1443,17 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                if array_lemma e then lemma_array_lemma_sound i rho e
                else if AR.triangle_equality e then AR.lemma_triangle_with_numeric_model e i rho
                else if ID.check e then ID.lemma_check e i rho
+               else if FF.exhaustive_clause e then FF.lemma_exhaustive_clause_sound i rho e
+               else if pac_lemma node.kind e then lemma_pac_lemma_sound i rho node.kind e
                else
                  let es = Some?.v (propositions (premise_judgments node.premises)) in
                  if TN.consequence es e then TN.lemma_consequence i rho es e
                  else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
                  else if Some? (LA.comparison e) && LP.inferred_bound e es
                  then LP.lemma_inferred_bound e es i rho
-                 else G.lemma_inferred_split_sound e es i rho)
+                 else if G.inferred_split e es then G.lemma_inferred_split_sound e es i rho
+                 else if IC.inferred e es then IC.lemma_inferred_sound e es i rho
+                 else BE.lemma_valid_sound e i rho)
           | None -> ())
       | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
       | DestructiveEqualityResolution | QuantifierInstantiation _ ->
