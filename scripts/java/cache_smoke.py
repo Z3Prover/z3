@@ -149,6 +149,27 @@ def cache_smoke(jar, classes, work, version, libraries, environment, run):
     run(command(temporary, link, helper=['Smoke', 'lifecycle-private', version, ','.join(libraries)]), environment)
     if any(target.iterdir()):
         raise ValueError('Loader followed a native-cache symlink')
+    # A cached library symlink is also rejected, even if its bytes match the JAR.
+    linked_root = work / 'linked-library'
+    linked_pair = linked_root / pair.name
+    linked_pair.mkdir(parents=True)
+    for name in libraries:
+        if name == libraries[-1]:
+            (linked_pair / name).symlink_to((pair / name).resolve())
+        else:
+            (linked_pair / name).write_bytes((pair / name).read_bytes())
+    run(command(work / 'file-link-tmp', linked_root,
+                helper=['Smoke', 'lifecycle-private', version, ','.join(libraries)]), environment)
+    if not (linked_pair / libraries[-1]).is_symlink():
+        raise ValueError('Loader modified a cached library symlink')
+    if os.name != 'nt':
+        untrusted = work / 'other-writable'
+        untrusted.mkdir()
+        untrusted.chmod(0o777)
+        run(command(work / 'permission-tmp', untrusted,
+                    helper=['Smoke', 'lifecycle-private', version, ','.join(libraries)]), environment)
+        if any(untrusted.iterdir()):
+            raise ValueError('Loader used an other-writable native cache')
     passed('cache-links')
     if set(results) != CACHE_MODES:
         raise ValueError('Incomplete native cache smoke coverage')

@@ -55,16 +55,16 @@ final class NativeLibraryLoader {
         try {
             String core = libraryName(platform, "z3");
             String bridge = libraryName(platform, "z3java");
-            if (!"false".equalsIgnoreCase(System.getProperty("z3.nativeCache"))) {
-                try {
+            try {
+                if (!"false".equalsIgnoreCase(System.getProperty("z3.nativeCache"))) {
                     loadCached(platform, core, bridge);
                     return;
-                } catch (IOException | UnsatisfiedLinkError | SecurityException
-                         | OverlappingFileLockException | java.nio.file.InvalidPathException
-                         | UnsupportedOperationException ex) {
-                    // Restricted filesystems and other ClassLoaders keep the private path.
-                    cacheFailure = ex;
                 }
+            } catch (IOException | UnsatisfiedLinkError | SecurityException
+                     | OverlappingFileLockException | java.nio.file.InvalidPathException
+                     | UnsupportedOperationException ex) {
+                // Restricted properties/filesystems and other ClassLoaders keep the private path.
+                cacheFailure = ex;
             }
             // Check both before creating a directory or loading either library.
             try (InputStream coreInput = resource(platform, core);
