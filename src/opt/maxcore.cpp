@@ -323,6 +323,13 @@ public:
             if (!bounds_meet())
                 improve_model(m_model);
         }
+        // The bounds can meet before the correction loop runs, e.g. when the
+        // relaxation seeds a model that attains the relaxation lower bound.
+        // The current model is then an optimal assignment for this objective;
+        // record it so commit_assignment pins the soft literals and later
+        // lex objectives respect this objective's optimum.
+        if (!m_found_feasible_optimum)
+            m_found_feasible_optimum = m_model.get() != nullptr;
         m_relaxation_closed = m_lower < m_upper;
         m_lower = m_upper;
         trace();
@@ -497,7 +504,12 @@ public:
     void get_current_correction_set(exprs& cs) {
         model_ref mdl;
         s().get_model(mdl);
-        update_assignment(mdl);
+        if (mdl)
+            update_assignment(mdl);
+        else if (m_csmodel)
+            // The solver can report sat without yielding a model; fall back
+            // to the best cached assignment from a previous update_assignment.
+            mdl = m_csmodel;
         get_current_correction_set(mdl.get(), cs);
     }
 

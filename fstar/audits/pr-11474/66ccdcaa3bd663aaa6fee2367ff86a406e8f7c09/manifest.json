@@ -1,0 +1,22 @@
+{
+  "pull_request": 11474,
+  "head_sha": "66ccdcaa3bd663aaa6fee2367ff86a406e8f7c09",
+  "base_sha": "d687b6a18d03834ec2bfaa72647890c444748a09",
+  "path_prefix": "fstar/audits/pr-11474/66ccdcaa3bd663aaa6fee2367ff86a406e8f7c09/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41140532186",
+  "files": [
+    {
+      "name": "SatCoreLevel0.fst",
+      "sha256": "a3da425044190953b773d26118a7599bc39c2a2d417e4bcb64f4ce8c749a79f7"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "973bc68936142973cd9c1814a601de2d9cfd8b48a68788ad202f4d9f3f3ef073"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "33d5ad1f98069d99bcbcc4f3bbe1070bb49c738c3f9cfb5ddd1eed95c2488fd5"
+    }
+  ]
+}
