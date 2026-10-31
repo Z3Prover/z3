@@ -187,7 +187,7 @@ try {
     $WslBuildDir = [IO.Path]::GetFullPath($WslBuildDir)
   }
   $order = @(
-    "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
+    "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_String.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3List.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
@@ -281,6 +281,23 @@ done
 cd "$shellBuildDir"
 # Custard does not open Prims; its equality must still be the shim's, not Stdlib's.
 for module in $extractedOrderStr; do sed -i '2a open Prims' "`$module"; done
+# F*'s OCaml realization of FStar.String.list_of_string (ulib FStar.String-ocaml.fst) uses
+# Batteries, which this build does not link. Its one use, the binder guard's name count
+# (Z3UnifiedProof.name_length), calls the stand-in ocaml_runtime/fStar_String.ml instead, which
+# decodes like the Cherry runtime's FStar.String, in a loop. A changed realization, another use
+# of it, or any other use of Batteries stops the build here.
+list_of_string='(fun s -> BatList.init (BatUTF8.length s) (fun i -> BatUChar.code (BatUTF8.get s i)))'
+users=`$(grep -lF "`$list_of_string" $extractedOrderStr || true)
+uses=`$(cat $extractedOrderStr | grep -oF "`$list_of_string" | wc -l || true)
+if [ "`$users" != Z3UnifiedProof.ml ] || [ "`$uses" != 1 ]; then
+  echo "expected one Batteries list_of_string, in Z3UnifiedProof.ml; found `$uses in: `$users" >&2
+  exit 1
+fi
+sed -i 's/(fun s -> BatList\.init (BatUTF8\.length s) (fun i -> BatUChar\.code (BatUTF8\.get s i)))/FStar_String.list_of_string/' Z3UnifiedProof.ml
+if grep -n 'Bat[A-Z][A-Za-z0-9_]*\.' $extractedOrderStr; then
+  echo "extracted code uses Batteries, which this build does not link" >&2
+  exit 1
+fi
 eval `$(opam env --switch=$OpamSwitch)
 $linkSetup
 "`$z3_install/bin/z3" -version
