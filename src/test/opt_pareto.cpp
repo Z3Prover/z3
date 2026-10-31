@@ -631,6 +631,48 @@ static void tst_continuous_front_smt(smt_front_reason reason, unsigned scale) {
     ENSURE(counter(st, "pareto nlsat checks") == 0);
 }
 
+static void tst_branch_front_smt(unsigned n) {
+    // x lies in one of [0, 1), ..., [n - 1, n) or equals n, and x + y <= n,
+    // y >= 0, maximizing x and y with opt.pareto_nlsat=false. In a half-open
+    // branch the supremum of x is not attained, so the cone step must move
+    // on to the branches above it. Each check must end on x + y = n.
+    std::cout << "opt_pareto: half-open branches on the smt solver, n " << n << "\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    params_ref p;
+    p.set_sym("priority", symbol("pareto"));
+    p.set_bool("pareto_nlsat", false);
+    ctx.updt_params(p);
+    sort* real = a.mk_real();
+    expr_ref x(m.mk_const("x", real), m);
+    expr_ref y(m.mk_const("y", real), m);
+    auto num = [&](unsigned k) { return expr_ref(a.mk_numeral(rational(k), false), m); };
+    expr_ref_vector branches(m), xs(m);
+    for (unsigned k = 0; k < n; ++k)
+        branches.push_back(m.mk_and(a.mk_le(num(k), x), a.mk_lt(x, num(k + 1))));
+    branches.push_back(m.mk_eq(x, num(n)));
+    expr_ref boundary(a.mk_add(x, y), m);
+    ctx.add_hard_constraint(m.mk_or(branches));
+    ctx.add_hard_constraint(a.mk_le(boundary, num(n)));
+    ctx.add_hard_constraint(a.mk_ge(y, num(0)));
+    ctx.add_objective(to_app(x.get()), true);
+    ctx.add_objective(to_app(y.get()), true);
+    expr_ref_vector asms(m);
+    for (unsigned i = 0; i < 3; ++i) {
+        ENSURE(ctx.optimize(asms) == l_true);
+        model_ref model;
+        ctx.get_model(model);
+        ENSURE(model->is_true(m.mk_eq(boundary, num(n))));
+        expr_ref xv = (*model)(x);
+        ENSURE(a.is_numeral(xv));
+        for (expr* earlier : xs)
+            ENSURE(model->is_false(m.mk_eq(xv, earlier)));
+        xs.push_back(xv);
+    }
+}
+
 // Maximizes the given terms; the cone step simulates a timeout that fires
 // during it, which leaves the manager canceled when the step returns.
 class cancel_in_cone_callback : public opt::pareto_callback {
@@ -698,6 +740,8 @@ void tst_opt_pareto() {
         tst_continuous_front_smt(reason, 1);
         tst_continuous_front_smt(reason, 1000);
     }
+    for (unsigned n : {2, 6})
+        tst_branch_front_smt(n);
     // Run the remaining front tests with and without nlsat reuse. The UF case
     // must stay on the general SMT solver regardless of this setting.
     for (bool reuse_nlsat_solver : {false, true}) {

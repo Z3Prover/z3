@@ -840,7 +840,8 @@ namespace opt {
         // scope clears the cancellation flag, so do not enter one when the
         // enclosing operation has already been canceled.
         bool on_opt_solver = !m_pareto_exact_comparison && &s == m_opt_solver.get();
-        if ((!m_pareto_exact_comparison && !on_opt_solver) || budget == 0 || !m.inc())
+        bool supported = m_pareto_exact_comparison || on_opt_solver;
+        if (!supported || budget == 0 || !m.inc())
             return;
         expr_ref_vector assertions(m);
         s.get_assertions(assertions);
@@ -911,14 +912,16 @@ namespace opt {
     }
 
     // The same on the opt_solver: with f = f_index and b the value of f in
-    // the best model so far, assert f > b and, while that is satisfiable, let
-    // the arithmetic solver maximize f within the branch found, which gives a
-    // model with a larger b. When f > b becomes unsat, b is the maximum and
-    // the best model attains it. If the supremum r of f in a branch is not
-    // attained there, for example because the branch contains a strict
-    // dominance constraint f_j > v_j that the cone already implies by
-    // f_j >= v'_j with v'_j > v_j, assert f >= r instead; if that is unsat,
-    // the maximum is not certified and the step stops.
+    // the best model so far, assert f > b and, while that is satisfiable,
+    // take the model of the check as the new best and let the arithmetic
+    // solver maximize f within the branch found. Its model is only a
+    // candidate: it is adopted when the solver validated the maximum and
+    // the model improves on b. When f > b becomes unsat, b is the maximum
+    // and the best model attains it. If the supremum r of a real f in a
+    // branch is not attained there, for example because the branch contains
+    // a strict dominance constraint f_j > v_j that the cone already implies
+    // by f_j >= v'_j with v'_j > v_j, assert f >= r instead; if that is
+    // unsat, the maximum is not certified and the step stops.
     bool context::maximize_objective_in_cone_smt(expr_ref_vector const& assertions, unsigned index, model_ref& mdl) {
         objective const& obj = m_objectives[index];
         if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
@@ -935,6 +938,19 @@ namespace opt {
             return false;
         opt_solver& s = *m_opt_solver;
         model_ref best = mdl;
+        // Adopt the current model of s if it improves on the best value.
+        auto adopt = [&]() {
+            model_ref candidate;
+            s.get_model(candidate);
+            if (!candidate)
+                return false;
+            candidate->set_model_completion(true);
+            if (!m_arith.is_numeral((*candidate)(term), value) || value <= best_value)
+                return false;
+            best = candidate;
+            best_value = value;
+            return true;
+        };
         {
             solver::scoped_push _push(s);
             for (unsigned i = 0; i < m_objectives.size(); ++i)
@@ -946,29 +962,23 @@ namespace opt {
                 lbool r = s.check_sat(0, nullptr);
                 if (r == l_false && strict_improvement)
                     break;
-                if (r != l_true)
+                // The model of the check satisfies the improvement asserted.
+                if (r != l_true || !adopt())
                     return false;
                 expr_ref blocker(m);
                 maximize_result result = s.maximize_objective(obj.m_index, blocker, false, false);
                 if (!result.hint.is_finite())
                     return false;
-                model_ref candidate;
-                s.get_model(candidate);
-                if (!candidate)
-                    return false;
-                candidate->set_model_completion(true);
-                if (!m_arith.is_numeral((*candidate)(term), value) || value <= best_value)
-                    return false;
-                best = candidate;
-                best_value = value;
-                rational supremum = is_int ? ceil(result.hint.get_rational()) : result.hint.get_rational();
-                strict_improvement = result.hint.get_infinitesimal().is_zero();
+                // Without validation, the model left by the maximization can
+                // be an assignment of the relaxation that violates the scope.
+                if (result.bound_valid && result.hint_status == l_true)
+                    adopt();
+                rational supremum = result.hint.get_rational();
+                strict_improvement = is_int || result.hint.get_infinitesimal().is_zero() || supremum <= best_value;
                 if (strict_improvement)
                     improvement = m_arith.mk_gt(term, m_arith.mk_numeral(best_value, is_int));
-                else if (supremum > best_value)
-                    improvement = m_arith.mk_ge(term, m_arith.mk_numeral(supremum, is_int));
                 else
-                    return false;
+                    improvement = m_arith.mk_ge(term, m_arith.mk_numeral(supremum, false));
             }
         }
         if (best == mdl)
