@@ -18,7 +18,7 @@ import maven_consumer
 class MavenAutoTests(unittest.TestCase):
     def setUp(self):
         self.report = {'maven': {'groupId': 'invalid.z3.prototype', 'artifactId': 'z3', 'version': '1-test'},
-                       'source_commit': 'a' * 40, 'platforms': ['linux-x64', 'win-x64', 'osx-arm64']}
+                       'source_commit': 'a' * 40, 'platforms': ['linux-x64', 'linux-arm64', 'win-x64', 'osx-arm64']}
         self.ns = {'m': maven_artifacts.NS}
 
     def text(self, root, path):
@@ -46,8 +46,10 @@ class MavenAutoTests(unittest.TestCase):
             self.assertIsNone(profile.find('m:activation/m:property', self.ns))
             field = 'name' if platform.startswith('linux-') else 'family'
             self.assertEqual(self.text(profile, 'activation/os/' + field),
-                             {'linux-x64': 'Linux', 'win-x64': 'Windows', 'osx-arm64': 'Mac'}[platform])
+                             {'linux-x64': 'Linux', 'linux-arm64': 'Linux',
+                              'win-x64': 'Windows', 'osx-arm64': 'Mac'}[platform])
         self.assertEqual(matches, {'linux-x64': {'amd64', 'x86_64', 'x64'},
+                                  'linux-arm64': {'aarch64', 'arm64'},
                                   'win-x64': {'amd64', 'x86_64', 'x64'},
                                   'osx-arm64': {'aarch64', 'arm64'}})
         self.report['platforms'] = ['win-x64']
