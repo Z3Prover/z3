@@ -381,6 +381,21 @@ let rec selectors (s:S.checked_schema) (constructor:func_decl)
   | e :: rest -> selector_of s constructor subject index e &&
                  selectors s constructor subject (index + 1) rest
 
+(* Proof-only helpers (no statement change): the head of a selector list,
+   and one step of list indexing. Each is proved in its own small query, so
+   lemma_selector_index no longer has to rediscover them in its larger
+   context (there it needed fuel retries on one pin after the ghost
+   migration). *)
+let lemma_selector_head (s:S.checked_schema) (constructor:func_decl)
+                        (subject:expr) (index:nat) (e:expr) (rest:list expr)
+  : Lemma (requires selectors s constructor subject index (e :: rest))
+          (ensures selector_of s constructor subject index e /\
+                   selectors s constructor subject (index + 1) rest) = ()
+
+let lemma_index_step (e:expr) (rest:list expr) (n:pos)
+  : Lemma (requires n < L.length (e :: rest))
+          (ensures L.index (e :: rest) n == L.index rest (n - 1)) = ()
+
 let rec lemma_selector_index (s:S.checked_schema) (constructor:func_decl)
                              (subject:expr) (index:nat) (es:list expr) (n:nat)
   : Lemma (requires selectors s constructor subject index es /\ n < L.length es)
@@ -388,7 +403,14 @@ let rec lemma_selector_index (s:S.checked_schema) (constructor:func_decl)
           (decreases es) =
   match es with
   | [] -> ()
-  | _ :: rest -> if n > 0 then lemma_selector_index s constructor subject (index + 1) rest (n - 1)
+  | e :: rest ->
+    lemma_selector_head s constructor subject index e rest;
+    if n > 0 then begin
+      lemma_selector_index s constructor subject (index + 1) rest (n - 1);
+      lemma_index_step e rest n;
+      assert (index + 1 + (n - 1) == index + n)
+    end
+    else assert (L.index es n == e)
 
 let lemma_selector_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))

@@ -192,7 +192,14 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    lemma_document_read_view proves that the decision equals the decision
    on the read view, which drops the declarations/expressions tables and
    every other payload. So the covered terms below (assertions, entry
-   formulas, instantiation arguments) are ALL terms the checker reads. *)
+   formulas, instantiation arguments) are all DOCUMENT terms the checker
+   reads. The checker also builds internal terms of its own (the canonical
+   false, equality and Boolean wrappers, field equalities and the
+   instances of instantiation); those are not gated, and need not be: the
+   falsity proof above (lemma_root_check_document) holds in every root
+   model for every document with Some 0, covered or not. Coverage only
+   restricts which certified documents are read as SMT queries; it is not
+   used by the abstract root-class falsity proof. *)
 let rule_shape (r:U.rule) : U.rule =
   match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _ -> r
@@ -261,7 +268,8 @@ let rec entries_covered (sigma:V.signature) (es:list P.entry) : Tot bool (decrea
    formula and every instantiation argument typed and covered. Only the
    assertions are needed for the SMT reading of the conclusion; the entry
    and argument checks are deliberately conservative, so that a certified
-   proof never reads a term outside the covered fragment. *)
+   proof never reads a DOCUMENT term outside the covered fragment (terms the
+   kernels build internally are not gated, see above). *)
 let root_covered (schema:S.schema) (doc:P.document) : bool =
   TR.supported schema &&
   D.scoped_args [] doc.P.assertions &&

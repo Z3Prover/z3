@@ -2,12 +2,15 @@ module Z3SortedRootDocumentTests
 
 (* G2 document slice tests (PROTOTYPE, not in the default route).
 
-   Every positive control is an ACTUAL Z3ProofDocument.document run through
-   the ACTUAL checker (Z3SortedProof.check_document, by normalization),
-   gated by the root-specific Z3SortedRootDocument.check_root_document, and
-   then falsified in EVERY root model (Z3SortedRootDocument.
-   lemma_root_certified, any u, any i with TR.root_model) and in the
-   standard root model for EVERY u and uf (lemma_standard_certified).
+   The nine positive documents (B1-B9) are ACTUAL Z3ProofDocument.document
+   values run through the ACTUAL checker (Z3SortedProof.check_document, by
+   normalization), gated by the root-specific
+   Z3SortedRootDocument.check_root_document, and then falsified in EVERY
+   root model (Z3SortedRootDocument.lemma_root_certified, any u, any i with
+   TR.root_model) and in the standard root model for EVERY u and uf
+   (standard_joint_documents). Four further certified variants (the D8 and
+   D10 minimal pairs, F1 and F2) are checked for their RootCertified verdict
+   only; they are not run through the falsification lemmas.
    Negative controls report the actual verdict of the gate (Rejected,
    Pending, Uncovered); the false-input controls also come with a
    positively proved counter-model (the assertions hold in a standard root

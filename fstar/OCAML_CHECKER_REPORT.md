@@ -1467,7 +1467,7 @@ truth (the Sorted layers agree with every root model,
 `Z3SortedRoot.fst`); its off-route gate `check_root_document` certifies a
 zero-obligation document only when the schema, the original assertions,
 every entry formula and every instantiation argument are typed and inside
-the root's supported fragment.
+the root's supported fragment (scope and limits below).
 A concrete total interpretation witness ensures
 that the interpretation type itself is inhabited; the theorem does not
 assume the legacy `model_sound` or global all-environments contracts.
@@ -1479,6 +1479,33 @@ the empty-cache induction establishes the invariant from the original
 document. The standalone node-checking wrapper still validates supplied
 premises. Hypothesis discharge checks canonical negations and handles
 both clause literals and the complement of the whole conclusion.
+
+**Typed-root gate: scope, counts and limits (prototype branch).** The gate
+checks every *document* term the checker reads: the original assertions,
+the entry formulas and the instantiation arguments. The canonical false,
+equality and Boolean wrappers and the instances the kernels build
+internally are not gated; they need not be, because the falsity theorem
+holds in every root model for every zero-obligation document, covered or
+not. Coverage only restricts which certified documents are read as SMT
+queries; it is not used by the abstract root-class falsity proof.
+`Z3SortedRootDocumentTests.fst` certifies 9 positive documents (B1–B9),
+each proved false in every root model, plus 4 certified variants (the D8
+and D10 minimal pairs, F1 and F2) checked for their verdict only, and 10
+negative controls. The ghost checks that `concrete_datatype_model` in
+`tools/test_native_bridge.ml` could no longer run (7 removed `require`s
+carrying 13 value checks, plus the quantifier-signature check and the
+escape guard of its `other`) are F\* lemmas with exact values and 11 refuted
+wrong-value mutants in `Z3DatatypeNativeModelTests.fst`, on a fixture with
+symbolic ids; the harness keeps every executable check and adds two
+dispatch `require`s with 11 conjuncts on the real native schema. No route
+calls the gate: a native Sorted ACCEPT is not `RootCertified`, every other
+legacy ACCEPT is untouched, the default route is unchanged, and the legacy
+`model_sound` still has no model. Trust points: the native front end's
+translation of assertions, schema and `define-fun` definitions; native
+datatype id and tag fidelity; and the parameterization by full
+function-space arrays and lambdas and by `FStar.Real`, which is a
+metatheoretic assumption, not an F\* theorem that every SMT model is a
+root model (non-standard or axiomatic array structures are not claimed).
 
 Congruence beneath `forall`, `exists`, and lambdas uses evaluation in
 arbitrary typed binder environments. It also descends through typed
