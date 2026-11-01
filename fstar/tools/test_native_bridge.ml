@@ -2016,12 +2016,12 @@ let concrete_datatype_model () =
   require (S.recognizer_value schema fork fork_value &&
            not (S.recognizer_value schema branch fork_value))
     "concrete datatype recognizers did not distinguish constructors";
-  let fallback value =
-    if S.recognizer_value schema leaf value then nil_value else cons_value in
-  require (S.accessor_value schema branch Z.zero fallback leaf_value = nil_value &&
-           S.accessor_value schema branch Z.zero fallback fork_value = cons_value &&
-           S.accessor_value schema branch Z.zero fallback branch_value = cons_value)
-    "selectors did not preserve matching fields and argument-dependent wrong-constructor values";
+  (* `S.accessor_value` is ghost since the typed-root G1a change (023988e32) and is not
+     extracted. The three selector facts this test used to check at run time (the matched
+     field of `branch`, and the argument-dependent wrong-constructor fallback on `leaf` and
+     `fork`) are proved with their exact values, and wrong-value mutants refuted, in
+     `Z3DatatypeNativeModelTests.a1_leaf`, `a1_fork`, `a1_branch` and `a1_mutants`, on this
+     fixture. *)
   require (V.Constructor (fork.S.constructor, V.fields fork_value) = fork_value)
     "concrete datatype reconstruction failed";
   require (List.for_all (fun sort ->
@@ -2034,55 +2034,36 @@ let concrete_datatype_model () =
    | Some child -> require (child = nil_value && Z.lt (V.size child) (V.size branch_value))
        "recursive datatype subterms did not have smaller finite size"
    | None -> failwith "missing recursive datatype subterm");
-  let convert _ _ = false in
-  let leaf_bool, fork_bool, branch_bool, nil_bool, cons_bool =
-    V.map_base convert leaf_value, V.map_base convert fork_value,
-    V.map_base convert branch_value, V.map_base convert nil_value,
-    V.map_base convert cons_value in
   let children = List.hd branch.S.accessors in
   let opaque = { children with A.decl_name = "opaque"; interp = None; int_params = [] } in
-  let other = {
-    V.application = (fun f args ->
-      match args with
-      | [value] when f = children ->
-          if V.recognize leaf.S.constructor value then nil_bool else cons_bool
-      | [_] when f = opaque -> nil_bool
-      | _ -> failwith "canonical datatype operation escaped to the supplied interpretation");
-    quantification = (fun kind bound body_sort body ->
-      require (kind = A.Forall_k &&
-               bound = [A.BaseSort "Int"; A.BaseSort "Bool"] &&
-               body_sort = A.BaseSort "Bool")
-        "typed evaluator changed a quantifier signature";
-      let result = body [V.Scalar (A.BaseSort "Bool", true);
-                         V.Scalar (A.BaseSort "Int", false)] in
-      require (result = V.Scalar (A.BaseSort "Bool", true))
-        "typed quantifier evaluation reversed de Bruijn bindings incorrectly";
-      result);
-  } in
-  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b) } in
-  let interpreted = S.interpretation schema booleans other in
-  let apply = interpreted.V.application in
-  require (apply fork.S.constructor [leaf_bool; leaf_bool] = fork_bool &&
-           apply fork.S.recognizer [fork_bool] = V.Scalar (A.BaseSort "Bool", true) &&
-           apply branch.S.recognizer [fork_bool] = V.Scalar (A.BaseSort "Bool", false))
+  (* `S.interpretation`/`S.application` and `V.evaluate` are ghost since the typed-root G1a
+     change (023988e32) and are not extracted. The facts this test used to check at run time
+     through the supplied interpretation `other` (canonical constructor and recognizer
+     dispatch, the matched `children` field, its argument-dependent fallback on `leaf` and
+     `fork`, `opaque` reaching `other`, selector evaluation of `children x` at `fork`, and the
+     quantifier evaluated with the supplied interpretation over the reversed typed binders
+     [Bool true; Int false]) are proved with their exact values, and wrong-value mutants
+     refuted, in `Z3DatatypeNativeModelTests.a2_*`, `a3_*` and `a4_*`, on this fixture and
+     this `other`. The executable dispatch decisions those facts rest on are checked here on
+     the native schema itself. *)
+  require (List.mem fork.S.constructor sigma &&
+           not (List.mem fork.S.recognizer sigma) && not (List.mem branch.S.recognizer sigma) &&
+           S.find_recognizer fork.S.recognizer schema.S.cases = Some fork &&
+           S.find_recognizer branch.S.recognizer schema.S.cases = Some branch)
     "native constructor or recognizer dispatch was not canonical";
-  require (apply children [branch_bool] = cons_bool &&
-           apply children [leaf_bool] = nil_bool &&
-           apply children [fork_bool] = cons_bool &&
-           apply opaque [fork_bool] = nil_bool)
-    "native selector dispatch lost matching fields or argument-dependent fallbacks";
+  require (not (List.mem children sigma) &&
+           S.find_recognizer children schema.S.cases = None &&
+           S.find_accessor children schema.S.cases = Some { S.matched_case = branch; field = Z.zero } &&
+           not (List.mem opaque sigma) &&
+           S.find_recognizer opaque schema.S.cases = None &&
+           S.find_accessor opaque schema.S.cases = None)
+    "native selector dispatch lost matching fields or reached an opaque symbol";
   let scope = [leaf.S.constructor.A.range] in
-  let rho _ = fork_bool in
   let expression = A.App (children, [A.Var (Z.zero, leaf.S.constructor.A.range)]) in
   require (Z3Definitions.scoped scope expression) "native evaluator fixture is not well sorted";
-  require (V.evaluate sigma interpreted scope rho expression = cons_bool)
-    "typed AST evaluator bypassed native selector dispatch";
   let quantified = A.Quantifier (A.Forall_k, [A.BaseSort "Int"; A.BaseSort "Bool"],
       A.BaseSort "Bool", A.Var (Z.zero, A.BaseSort "Bool")) in
   require (Z3Definitions.scoped [] quantified) "native quantifier fixture is not well sorted";
-  require (V.evaluate sigma interpreted [] (fun _ -> failwith "empty environment") quantified =
-           V.Scalar (A.BaseSort "Bool", true))
-    "typed AST evaluator did not preserve the supplied quantifier interpretation";
   let forged = { children with A.int_params = [Z.zero; Z.zero; Z.of_int 99] } in
   require (S.find_accessor forged schema.S.cases = None &&
            S.find_recognizer { fork.S.recognizer with A.range = A.BaseSort "Int" }

@@ -1437,22 +1437,37 @@ the surrounding interpretation.
 
 **Production integration:** `Z3SortedSemantics.fst` supplies canonical
 Boolean operations, polymorphic equality and conditionals over the typed
-carrier. Scalar equality is supplied with a correctness proof; recursive
+carrier. Its semantic definitions (application, evaluation, truth) are
+ghost (`GTot`) specifications; the executable classifiers and
+`cut_with_boundaries` are unchanged. Scalar equality is a ghost decision
+supplied with a correctness proof (no executable equality on reals,
+functions or uninterpreted carrier elements is assumed); recursive
 datatype equality is derived. `Z3SortedDatatype.fst` derives constructor
 rewrites, exhaustive recognizer splits, and recognizer-guarded selector
 reconstruction from the actual checked schema. Equality commutativity,
 constant-branch conditionals, direct modus ponens, and literal resolution
 also have proofs in this interpretation. Bounded Boolean reflection
 preserves shared expression boundaries instead of expanding every nested
-conditional. Constructor-equality propagation uses the derived laws,
-not assumed legacy datatype axioms.
+conditional. Proofs apply the executable propositional decisions to the
+ghost truth through `Z3BoundedBoolEquiv.geval` and an executable valuation
+frozen on the formula's atoms (`freeze`). Constructor-equality propagation
+uses the derived laws, not assumed legacy datatype axioms.
 
 `Z3SortedProof.fst` checks raw proof DAGs against their **original
 assertions** using topological premise lookup, checked declaration
 membership, closed well-sorted facts, hypothesis inheritance/discharge,
 and explicit pending counts. Its `lemma_check_document` proves that a
 zero-obligation result rules out any typed interpretation satisfying the
-original assertions and the quantifier laws required by the document.
+original assertions and the quantifier laws required by the document
+(`Z3SortedQuantifier.forall_model`/`forall_elimination_model`, stated over
+ghost bodies). On the typed-root prototype branch,
+`Z3SortedRootDocument.fst` derives those quantifier laws from R1 of every
+`Z3TypedRoot.root_model` and restates the theorem in the root model's own
+truth (the Sorted layers agree with every root model,
+`Z3SortedRoot.fst`); its off-route gate `check_root_document` certifies a
+zero-obligation document only when the schema, the original assertions,
+every entry formula and every instantiation argument are typed and inside
+the root's supported fragment (scope and limits below).
 A concrete total interpretation witness ensures
 that the interpretation type itself is inhabited; the theorem does not
 assume the legacy `model_sound` or global all-environments contracts.
@@ -1464,6 +1479,33 @@ the empty-cache induction establishes the invariant from the original
 document. The standalone node-checking wrapper still validates supplied
 premises. Hypothesis discharge checks canonical negations and handles
 both clause literals and the complement of the whole conclusion.
+
+**Typed-root gate: scope, counts and limits (prototype branch).** The gate
+checks every *document* term the checker reads: the original assertions,
+the entry formulas and the instantiation arguments. The canonical false,
+equality and Boolean wrappers and the instances the kernels build
+internally are not gated; they need not be, because the falsity theorem
+holds in every root model for every zero-obligation document, covered or
+not. Coverage only restricts which certified documents are read as SMT
+queries; it is not used by the abstract root-class falsity proof.
+`Z3SortedRootDocumentTests.fst` certifies 9 positive documents (B1–B9),
+each proved false in every root model, plus 4 certified variants (the D8
+and D10 minimal pairs, F1 and F2) checked for their verdict only, and 10
+negative controls. The ghost checks that `concrete_datatype_model` in
+`tools/test_native_bridge.ml` could no longer run (7 removed `require`s
+carrying 13 value checks, plus the quantifier-signature check and the
+escape guard of its `other`) are F\* lemmas with exact values and 11 refuted
+wrong-value mutants in `Z3DatatypeNativeModelTests.fst`, on a fixture with
+symbolic ids; the harness keeps every executable check and adds two
+dispatch `require`s with 11 conjuncts on the real native schema. No route
+calls the gate: a native Sorted ACCEPT is not `RootCertified`, every other
+legacy ACCEPT is untouched, the default route is unchanged, and the legacy
+`model_sound` still has no model. Trust points: the native front end's
+translation of assertions, schema and `define-fun` definitions; native
+datatype id and tag fidelity; and the parameterization by full
+function-space arrays and lambdas and by `FStar.Real`, which is a
+metatheoretic assumption, not an F\* theorem that every SMT model is a
+root model (non-standard or axiomatic array structures are not claimed).
 
 Congruence beneath `forall`, `exists`, and lambdas uses evaluation in
 arbitrary typed binder environments. It also descends through typed
@@ -4075,10 +4117,12 @@ semantics or certify every remaining arithmetic theory lemma.
 `Z3SortedInteger` defines an explicit integer carrier isomorphism: encoding and
 decoding are mutual inverses, but the carrier need not be definitionally equal
 to F* integers. `Z3SortedSemantics.scalar_model` combines that carrier with
-scalar equality reflection. Canonical integer numerals, addition, multiplication,
-subtraction, and comparisons are interpreted mathematically; unsupported
-operations retain the existing datatype/uninterpreted interpretation. Checked
-datatype schemas cannot claim the built-in Int sort.
+(ghost) scalar equality reflection. Canonical integer numerals, addition,
+multiplication, subtraction, and comparisons are interpreted mathematically;
+unsupported operations retain the existing datatype/uninterpreted
+interpretation. Checked datatype schemas cannot claim the built-in Int sort.
+The integer read-back `Z3SortedArithmetic.integer` is ghost; the polynomial
+valuation stays a total `expr -> real` because `FStar.Real.real` is erasable.
 
 `Z3SortedArithmetic` proves scoped polynomial denotation and the soundness of
 integer-term, comparison, and equation equivalence. It uses the existing

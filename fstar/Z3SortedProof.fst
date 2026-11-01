@@ -29,7 +29,7 @@ let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
 
 let rec equations_hold (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                       (js:list U.judgment) : Tot bool (decreases js) =
+                       (js:list U.judgment) : GTot bool (decreases js) =
   match js with
   | [] -> true
   | U.Equal a b :: rest -> T.same_value s bc eq other a b && equations_hold s bc eq other rest
@@ -52,7 +52,7 @@ let rec lemma_equations (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
 
 let rec known_equal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                    (origin:expr) (known:list expr) : Tot bool (decreases known) =
+                    (origin:expr) (known:list expr) : GTot bool (decreases known) =
   match known with
   | [] -> true
   | e :: rest -> T.same_value s bc eq other origin e && known_equal s bc eq other origin rest
@@ -137,6 +137,82 @@ let lemma_propositional (rho:expr -> bool) (arithmetic:bool) (negated:bool) (a b
   else DT.lemma_bounded_propositional rho
     (B.Eq (if negated then B.Not (T.cut 64 a) else T.cut 64 a) (T.cut 64 b))
 
+(* Typed-root G2: the Sorted truth is a GHOST valuation. The executable
+   propositional checks are sound for it through an executable valuation
+   frozen on the atoms of the checked formula (B.freeze / B.lemma_freeze),
+   never by casting the ghost valuation to Tot. *)
+let lemma_propositional_g (sigma:expr -> GTot bool) (arithmetic:bool) (negated:bool) (a b:expr)
+  : Lemma (requires propositional arithmetic negated a b)
+          (ensures B.geval sigma
+            (B.Eq (if negated then B.Not (T.cut 64 a) else T.cut 64 a) (T.cut 64 b))) =
+  let f = B.Eq (if negated then B.Not (T.cut 64 a) else T.cut 64 a) (T.cut 64 b) in
+  lemma_propositional (B.freeze sigma (B.support f)) arithmetic negated a b;
+  B.lemma_freeze sigma (B.support f) f
+
+(* N.normalize preserves every ghost valuation (frozen on the atoms of both
+   formulas). *)
+let lemma_normalize_geval (sigma:expr -> GTot bool) (negative:bool) (f:B.skeleton)
+  : Lemma (B.geval sigma (N.normalize negative f) ==
+           (if negative then not (B.geval sigma f) else B.geval sigma f)) =
+  B.lemma_freeze_pair sigma f (N.normalize negative f);
+  N.lemma_normalize_sound (B.freeze sigma (L.append (B.support f) (B.support (N.normalize negative f))))
+    negative f
+
+(* Ghost twin of N.lemma_shape_equal_by_sound: its hypothesis relates the
+   valuation on EVERY pair accepted by `same`, so it cannot go through a
+   finite freeze; the same structural proof is repeated over B.geval. *)
+let rec lemma_shape_equal_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> Tot bool)
+                                   (fuel:nat) (s t:B.skeleton)
+  : Lemma (requires N.shape_equal_by same fuel s t /\
+                    (forall (a b:expr). same a b ==> rho a == rho b))
+          (ensures B.geval rho s == B.geval rho t)
+          (decreases %[fuel; 0]) =
+  if s = t || fuel = 0 then ()
+  else match s, t with
+  | B.Atom _, B.Atom _ -> ()
+  | B.Not a, B.Not b -> lemma_shape_equal_by_geval rho same (fuel - 1) a b
+  | B.Eq a b, B.Eq c d ->
+    if N.shape_equal_by same (fuel - 1) a c && N.shape_equal_by same (fuel - 1) b d then (
+      lemma_shape_equal_by_geval rho same (fuel - 1) a c;
+      lemma_shape_equal_by_geval rho same (fuel - 1) b d)
+    else (
+      lemma_shape_equal_by_geval rho same (fuel - 1) a d;
+      lemma_shape_equal_by_geval rho same (fuel - 1) b c)
+  | B.Nary op xs, B.Nary other ys ->
+    lemma_shape_included_by_geval rho same (fuel - 1) xs ys;
+    lemma_shape_included_by_geval rho same (fuel - 1) ys xs;
+    (match op with B.And | B.Or | B.Xor -> ())
+  | _, _ -> ()
+
+and lemma_shape_included_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> Tot bool)
+                                  (fuel:nat) (xs ys:list B.skeleton)
+  : Lemma (requires N.shape_included_by same fuel xs ys /\
+                    (forall (a b:expr). same a b ==> rho a == rho b))
+          (ensures
+            (B.geval_args rho B.And ys ==> B.geval_args rho B.And xs) /\
+            (B.geval_args rho B.Or xs ==> B.geval_args rho B.Or ys))
+          (decreases %[fuel; L.length xs + L.length ys + 1]) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    lemma_shape_member_by_geval rho same fuel x ys;
+    lemma_shape_included_by_geval rho same fuel rest ys
+
+and lemma_shape_member_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> Tot bool)
+                                (fuel:nat) (x:B.skeleton) (ys:list B.skeleton)
+  : Lemma (requires N.shape_member_by same fuel x ys /\
+                    (forall (a b:expr). same a b ==> rho a == rho b))
+          (ensures
+            (B.geval_args rho B.And ys ==> B.geval rho x) /\
+            (B.geval rho x ==> B.geval_args rho B.Or ys))
+          (decreases %[fuel; L.length ys]) =
+  match ys with
+  | [] -> ()
+  | y :: rest ->
+    if fuel > 0 && N.shape_equal_by same (fuel - 1) x y
+    then lemma_shape_equal_by_geval rho same (fuel - 1) x y
+    else lemma_shape_member_by_geval rho same fuel x rest
+
 let rec congruent (arithmetic:bool) (search_atoms:bool) (scope:list sort) (fuel:nat) (a b:expr)
   : Tot bool (decreases %[fuel; 0]) =
   get_sort a = get_sort b &&
@@ -204,7 +280,7 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
   else if get_sort a = bool_sort && propositional arithmetic false a b then (
     T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 a;
     T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 b;
-    lemma_propositional (T.truth_at s bc eq other scope rho) arithmetic false a b;
+    lemma_propositional_g (T.truth_at s bc eq other scope rho) arithmetic false a b;
     T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho a);
     T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho b))
   else if fuel > 0 then (
@@ -238,7 +314,7 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
         lemma_congruent s bc eq other scope rho arithmetic search_atoms (fuel - 1) y u;
         T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 c;
         T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 d;
-        lemma_propositional (T.truth_at s bc eq other scope rho) arithmetic true c d;
+        lemma_propositional_g (T.truth_at s bc eq other scope rho) arithmetic true c d;
         assert (T.truth_at s bc eq other scope rho c <>
                 T.truth_at s bc eq other scope rho d);
         T.lemma_evaluate_core_at s bc eq other scope rho f xs;
@@ -316,10 +392,10 @@ and lemma_congruent_boolean (#base:sort -> Type0) (s:S.checked_schema)
              T.truth_at s bc eq other scope rho x == T.truth_at s bc eq other scope rho y) =
     if same x y then lemma_congruent s bc eq other scope rho arithmetic false (atom_fuel fuel) x y in
   FStar.Classical.forall_intro_2 atoms;
-  N.lemma_shape_equal_by_sound (T.truth_at s bc eq other scope rho) same
+  lemma_shape_equal_by_geval (T.truth_at s bc eq other scope rho) same
     32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b));
-  N.lemma_normalize_sound (T.truth_at s bc eq other scope rho) false (T.cut 64 a);
-  N.lemma_normalize_sound (T.truth_at s bc eq other scope rho) false (T.cut 64 b);
+  lemma_normalize_geval (T.truth_at s bc eq other scope rho) false (T.cut 64 a);
+  lemma_normalize_geval (T.truth_at s bc eq other scope rho) false (T.cut 64 b);
   T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 a;
   T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 b;
   T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho a);
@@ -490,7 +566,7 @@ let rec lemma_negative_atoms (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (facts:list expr)
   : Lemma (requires T.truths s bc eq other facts)
-          (ensures not (B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom (negative_atoms facts))))
+          (ensures not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (negative_atoms facts))))
           (decreases facts) =
   match facts with
   | [] -> ()
@@ -663,7 +739,7 @@ let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
       let bound = V.extend sigma [] scope vs rho in
       T.lemma_cut_with_boundaries_at s bc eq other body_scope bound [] 64 a;
       T.lemma_cut_with_boundaries_at s bc eq other body_scope bound [] 64 b;
-      DT.lemma_propositional (T.truth_at s bc eq other body_scope bound)
+      DT.lemma_propositional_g (T.truth_at s bc eq other body_scope bound)
         (B.Eq (T.cut 64 a) (T.cut 64 b));
       T.lemma_boolean s bc (left vs);
       T.lemma_boolean s bc (right vs)
@@ -792,12 +868,12 @@ let rec scoped_propositions (ps:list U.checked_fact) : Tot (list expr) (decrease
 
 let fact_holds (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-               (p:U.checked_fact) : bool =
+               (p:U.checked_fact) : GTot bool =
   not (T.truths s bc eq other p.hypotheses) || T.truth s bc eq other (proposition p.conclusion)
 
 let rec facts_hold (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                   (ps:list U.checked_fact) : Tot bool (decreases ps) =
+                   (ps:list U.checked_fact) : GTot bool (decreases ps) =
   match ps with [] -> true | p :: rest -> fact_holds s bc eq other p && facts_hold s bc eq other rest
 
 let rec lemma_boolean_expressions (s:S.checked_schema) (es:list expr)

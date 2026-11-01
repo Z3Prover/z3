@@ -23,9 +23,11 @@
   "cherry_modules": ["Z3IdTable-c.cherry.fst"],
   "tests": [
     "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst", "Z3ArithmeticFactorTests.fst", "Z3LpIntegerCutTests.fst",
-    "Z3DatatypeValueTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst", "Z3ArrayEqualityTests.fst",
+    "Z3DatatypeValueTests.fst", "Z3DatatypeNativeModelTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst", "Z3ArrayEqualityTests.fst",
     "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst", "Z3PulseJustificationChecker.fst",
     "Z3LraFarkasTheory.fst", "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst",
-    "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst"
+    "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst",
+    "Z3TypedRoot.fst", "Z3TypedRootTests.fst", "Z3SortedRoot.fst", "Z3SortedRootTests.fst",
+    "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst"
   ]
 }
