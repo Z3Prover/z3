@@ -4505,7 +4505,7 @@ freshness, safe context ordering, and original-input freshness are required.
 Duplicate identical definitions are allowed; conflicting or cyclic contexts
 disable the extension and leave unsupported steps to ordinary pending-rule
 diagnostics. Dependency-bearing functions and Skolem steps inside binder
-certificates remain outside this extension. A 4,096-occurrence budget precedes
+certificates remain outside this extension. (Closed Skolem steps inside the NNF certificates that the Sorted kernel now replays are collected since 2026-11-01; see the NNF section below.) A 4,096-occurrence budget precedes
 recognition of each candidate entry.
 
 Fresh-cache strict verification passed for **78 production modules** and all
@@ -4832,3 +4832,29 @@ commit) only has workflow runs waiting for approval. Earlier failures of the
 `Run regressions` step (z3test `3477.smt2`, `3559.smt2`, Windows
 `opt_nlsat_*`) also occur on master `8fbb275ab` and do not involve `fstar/`;
 macOS was not run locally.
+
+## NNF certificate replay on the Sorted route (2026-11-01)
+
+Route and diagnostic contract change. On the Sorted datatype route
+(`check_document_epsilon_diagnosed`, used by both front ends with one diagnosed
+check), a premise-free `QuantifierIntroduction` node whose certificate root is
+`nnf-neg` or `nnf-pos` is now replayed by `Z3NnfReplay` before the previous
+propositional fallback; see [NNF certificate replay](PROOF_CHECKING.md#nnf-certificate-replay-sorted-route)
+for the rules, the certificate protocol (the unchanged marshalled certificate),
+the model boundary and the coverage table. A replayed node reports no pending
+obligation. A certificate outside the calculus stays a pending obligation with
+the same label as before (the front ends name the certificate's root entry).
+A certificate whose premise ids are not earlier entries now rejects the document
+at that proof entry (`proof-entry` stage) instead of counting as pending; the
+native marshal never produces such ids. The epsilon context additionally
+collects closed, eligible inner `sk` steps of replayed certificates, through
+the unchanged gates; if the merged context fails a gate, the previous
+top-level context is used. Quant-intro-rooted certificates, dependent Skolem
+functions and naming/rewrite steps inside certificates stay pending.
+
+Evidence so far is F* only (CI pin v2026.10.25 and nightly-2026-10-30):
+`Z3NnfReplay`, `Z3SortedProof`, `Z3SortedRootDocument` and their tests verify,
+and `Z3NnfReplayTests` replays two previously pending corpus certificates
+(FStar.Nonempty query 2 node 11 and FStar.Class.TotalOrder.Raw query 1 node 43)
+in documents certified by the root gates. Native before/after corpus numbers on
+a current-master producer are not yet recorded here.
