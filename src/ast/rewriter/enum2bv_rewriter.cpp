@@ -38,6 +38,7 @@ struct enum2bv_rewriter::imp {
     unsigned_vector           m_enum_consts_lim;
     unsigned                  m_num_translated;
     i_sort_pred*              m_sort_pred;
+    bool                      m_produce_proofs;
 
     struct rw_cfg : public default_rewriter_cfg {
         imp&                 m_imp;
@@ -238,7 +239,7 @@ struct enum2bv_rewriter::imp {
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);
-            if (m.proofs_enabled())
+            if (m_imp.m_produce_proofs && m.proofs_enabled())
                 result_pr = m.mk_rewrite(q, result);
             return true;
         }
@@ -259,14 +260,14 @@ struct enum2bv_rewriter::imp {
         rw_cfg m_cfg;
 
         rw(imp& t, ast_manager & m, params_ref const & p) :
-            rewriter_tpl<rw_cfg>(m, m.proofs_enabled(), m_cfg),
+            rewriter_tpl<rw_cfg>(m, t.m_produce_proofs && m.proofs_enabled(), m_cfg),
             m_cfg(t, m) {
         }
     };
 
     rw m_rw;
     
-    imp(ast_manager& m, params_ref const& p): 
+    imp(ast_manager& m, params_ref const& p, bool produce_proofs):
         m(m), m_params(p), m_bounds(m),
         m_dt(m),
         m_enum_consts(m),
@@ -274,6 +275,7 @@ struct enum2bv_rewriter::imp {
         m_enum_defs(m),
         m_num_translated(0), 
         m_sort_pred(nullptr),
+        m_produce_proofs(produce_proofs),
         m_rw(*this, m, p) {
     }
 
@@ -323,12 +325,20 @@ struct enum2bv_rewriter::imp {
 };
 
 
-enum2bv_rewriter::enum2bv_rewriter(ast_manager & m, params_ref const& p) {  m_imp = alloc(imp, m, p); }
+enum2bv_rewriter::enum2bv_rewriter(ast_manager & m, params_ref const& p, bool produce_proofs) {
+    m_imp = alloc(imp, m, p, produce_proofs);
+}
 enum2bv_rewriter::~enum2bv_rewriter() { dealloc(m_imp); }
 void enum2bv_rewriter::updt_params(params_ref const & p) { m_imp->updt_params(p); }
 ast_manager & enum2bv_rewriter::m() const { return m_imp->m; }
 unsigned enum2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); }
-void enum2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
+void enum2bv_rewriter::cleanup() {
+    ast_manager& mgr = m();
+    params_ref p = m_imp->m_params;
+    bool produce_proofs = m_imp->m_produce_proofs;
+    dealloc(m_imp);
+    m_imp = alloc(imp, mgr, p, produce_proofs);
+}
 obj_map<func_decl, func_decl*> const& enum2bv_rewriter::enum2bv() const { return m_imp->m_enum2bv; }
 obj_map<func_decl, func_decl*> const& enum2bv_rewriter::bv2enum() const { return m_imp->m_bv2enum; }
 obj_map<func_decl, expr*> const& enum2bv_rewriter::enum2def() const { return m_imp->m_enum2def; }

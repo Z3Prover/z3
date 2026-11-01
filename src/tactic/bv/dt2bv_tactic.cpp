@@ -20,6 +20,7 @@ Revision History:
 --*/
 
 #include "tactic/bv/dt2bv_tactic.h"
+#include "tactic/bv/dt2bv_proof_converter.h"
 #include "tactic/tactical.h"
 #include "ast/converters/generic_model_converter.h"
 #include "ast/datatype_decl_plugin.h"
@@ -129,20 +130,31 @@ public:
             m_fd_sorts.remove(s);
         if (!m_fd_sorts.empty()) {
             ref<generic_model_converter> filter = alloc(generic_model_converter, m, "dt2bv");
-            enum2bv_rewriter rw(m, m_params);
+            enum2bv_rewriter rw(m, m_params, false);
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
+            expr_ref_vector translated(m);
             for (unsigned idx = 0; idx < size; ++idx) {
                 rw(g->form(idx), new_curr, new_pr);
-                if (produce_proofs) {
-                    proof * pr = g->pr(idx);
-                    new_pr = m.mk_modus_ponens(pr, new_pr);
-                }
-                g->update(idx, new_curr, new_pr, g->dep(idx));
+                translated.push_back(new_curr);
             }
             expr_ref_vector bounds(m);
             rw.flush_side_constraints(bounds);
+            ref<dt2bv_proof_converter> pc;
+            if (produce_proofs) {
+                pc = alloc(dt2bv_proof_converter, m);
+                for (auto const& kv : rw.enum2bv())
+                    pc->insert_enum(kv.m_key, kv.m_value);
+                for (unsigned idx = 0; idx < size; ++idx)
+                    pc->insert(g->pr(idx), translated.get(idx));
+                for (expr* b : bounds)
+                    pc->insert_bound(b);
+                g->add(pc.get());
+            }
+            for (unsigned idx = 0; idx < size; ++idx)
+                g->update(idx, translated.get(idx),
+                          produce_proofs ? m.mk_asserted(translated.get(idx)) : nullptr, g->dep(idx));
             for (expr* b : bounds) 
                 g->assert_expr(b);
             for (auto const& kv : rw.enum2bv()) 

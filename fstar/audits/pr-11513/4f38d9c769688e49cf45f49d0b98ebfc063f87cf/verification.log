@@ -1,0 +1,7 @@
+$ fstar.exe --version -> F* 2026.09.27 ; z3 --version -> Z3 version 4.13.3 - 64 bit
+$ timeout 120 fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --cache_dir cache --odir out --z3rlimit 10 Dt2BvEncodingAudit.fst
+exit 0
+stdout: Verified module: Dt2BvEncodingAudit
+All verification conditions discharged successfully
+stderr: (empty)
+(An earlier attempt with `open FStar.Mul` failed with namespace error; removed.)

@@ -1,0 +1,88 @@
+{
+  "base_sha": "dd4179a5500dfe5dea9ab923177f5a4339c4ffd1",
+  "verdict": "proved-conditional-denotational-transport",
+  "scope": "Semantic source audit; not mechanized C++ or SMT correctness",
+  "hash_normalization": "UTF-8 text bytes with CRLF normalized to LF, matching Git text blobs",
+  "toolchain": {
+    "fstar_version": "F* 2026.10.25\r\nplatform=Windows_x64\r\nsystem=Win32\r\ncompiler=OCaml 5.3.0\r\ndate=2026-10-25 15:48:28 +0000\r\ncommit=362e792b3aa882f1766b95c7450e3fe63081163d",
+    "z3_version": "Z3 version 5.3.4 - 64 bit - build hashcode dd4179a5500dfe5dea9ab923177f5a4339c4ffd1",
+    "fstar_sha256": "d632801deb0aff4f86bf9a8df46287da2b796f7fb2895f5cabf665991ea7f706",
+    "z3_sha256": "8fc397c6df1588d1821be6b6f4f757222ae49d327029d85cc4cc7905599cd402"
+  },
+  "sources": [
+    {
+      "name": "src\\ast\\converters\\proof_converter.h",
+      "sha256": "fac22ae5d1ddac25414946589358f89de4e1f4fe10b2687326d765d97374ab7b"
+    },
+    {
+      "name": "src\\ast\\converters\\proof_converter.cpp",
+      "sha256": "67fc8bdfc73710933fa3c773292b158d0216e3ad222c50845cba96548d6f4550"
+    },
+    {
+      "name": "src\\ast\\rewriter\\enum2bv_rewriter.h",
+      "sha256": "907454231168411698136927b64ff776c55f5e5b60293044f49af3e69c914069"
+    },
+    {
+      "name": "src\\ast\\rewriter\\enum2bv_rewriter.cpp",
+      "sha256": "8f0bbaef23fd92d00f2e66861391bec1feabf09a99a1edf7ffa685527cdb1d46"
+    },
+    {
+      "name": "src\\tactic\\bv\\CMakeLists.txt",
+      "sha256": "aabd46626ee36192374b46854677d173d6f2b9bdd37727f1cdcdd3cbd0f58bd5"
+    },
+    {
+      "name": "src\\tactic\\bv\\dt2bv_proof_converter.h",
+      "sha256": "d9a4008b8bf2528efb1cb1e5e6a3519dd420266ca4de1d2624beefaef6a4bbfc"
+    },
+    {
+      "name": "src\\tactic\\bv\\dt2bv_proof_converter.cpp",
+      "sha256": "0ca9d160e4eeb66bfb99dcf3f614688f831b96082ccfd9927610ed098c9a7081"
+    },
+    {
+      "name": "src\\tactic\\bv\\dt2bv_tactic.cpp",
+      "sha256": "9735123aed0e00772b9d6ef87b34de17d53aa26e1a22dbf92c77cd743238f724"
+    },
+    {
+      "name": "src\\tactic\\goal.h",
+      "sha256": "17cdb1d25fb0cf94d919aba718e0e9446aff26f1cd4d2c12151db2f7175ef60e"
+    },
+    {
+      "name": "src\\tactic\\goal.cpp",
+      "sha256": "e61434f9c91968538c4b7a48211657c51c5d3e1109a2ef07f7d02a1e837e9908"
+    },
+    {
+      "name": "src\\tactic\\tactic.cpp",
+      "sha256": "0eeb5240a4fa7a829cff11b481f7ed24ce65c1914bf137b851da386afcb2da30"
+    },
+    {
+      "name": "src\\tactic\\tactical.cpp",
+      "sha256": "b9e7845c834ed03fb45c141be655a07cd36a62384f406ec33794db58e8553891"
+    },
+    {
+      "name": "src\\tactic\\core\\split_clause_tactic.cpp",
+      "sha256": "554896341dc6af0e3bc2c741b183cb8fa6e28c66fb80a7615a98d645ece66d39"
+    },
+    {
+      "name": "src\\test\\get_consequences.cpp",
+      "sha256": "98eff56dcd62591b65e92b27011f3e9022d5532f5163e20a75b0d4d00110897d"
+    }
+  ],
+  "files": [
+    {
+      "name": "Dt2BvProofConverter.fst",
+      "sha256": "a984c395baa748930aee4acfb9c5da3b7183ef832e9ac090ff2f61af0137a03e"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "ff5e99429fbf692556ca2a80f1796943915b0ce88be30d9a8db78386b9baf3e4"
+    },
+    {
+      "name": "verify.ps1",
+      "sha256": "f3558cdc420120164bc7668bc5a40751e477bd533d889acb2eed8afb1882f55e"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "512cc554f67249c5a09333f60c26a0786eeeeeb02b643e44558bc4aa3948e100"
+    }
+  ]
+}

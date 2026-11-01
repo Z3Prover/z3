@@ -9,10 +9,12 @@ z3_add_component(bv_tactics
     bv_bounds_tactic.cpp
     bv_size_reduction_tactic.cpp
     bv_slice_tactic.cpp
+    dt2bv_proof_converter.cpp
     dt2bv_tactic.cpp
     elim_small_bv_tactic.cpp
   COMPONENT_DEPENDENCIES
     bit_blaster
     core_tactics
+    smt
     tactic
 )
