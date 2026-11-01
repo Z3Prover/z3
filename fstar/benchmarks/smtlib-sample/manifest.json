@@ -482,7 +482,7 @@
       "sha256": "973d6855a801340248c845cf8383939fe8b7150a9093e133d23e1253d0e5c16a"
     },
     {
-      "path": "QF_NIA/LassoRanker/PodelskiRybalchenko-LICS2004-Fig2-TACAS2011-Fig3_true-termination.c_Iteration4_Loop+nonterminationTemplate_0.smt2",
+      "path": "QF_NIA/LassoRanker/PodelskiRybalchenko-LICS2004-Fig2-TACAS2011-Fig3-iter4.smt2",
       "logic": "QF_NIA",
       "archive_path": "non-incremental/QF_NIA/LassoRanker/PodelskiRybalchenko-LICS2004-Fig2-TACAS2011-Fig3_true-termination.c_Iteration4_Loop+nonterminationTemplate_0.smt2",
       "size_bytes": 24436,
@@ -1693,7 +1693,7 @@
       "sha256": "269338cb7a84b72c329e91dbb5816662af8c558e2becc70b02f3e8e2dfccc798"
     },
     {
-      "path": "QF_UFLRA/cpachecker-induction-svcomp14/cpachecker-induction.while_infinite_loop_3_true-unreach-call_false-termination.i.smt2",
+      "path": "QF_UFLRA/cpachecker-induction-svcomp14/while_infinite_loop_3_true-unreach-call_false-termination.smt2",
       "logic": "QF_UFLRA",
       "archive_path": "non-incremental/QF_UFLRA/cpachecker-induction-svcomp14/cpachecker-induction.while_infinite_loop_3_true-unreach-call_false-termination.i.smt2",
       "size_bytes": 458,
@@ -1861,7 +1861,7 @@
       "sha256": "af4a52a334cc58c157bbc8f14019da39a0172d4e1927d4f77caa0205e8fa294a"
     },
     {
-      "path": "QF_NRA/20220314-Uncu/Rational_Function_Proof_Calls_With_Disjunctive_Denominator_Simplifications/DDC_ProveIneq_Mitrinovic_7_35.smt2",
+      "path": "QF_NRA/20220314-Uncu/rational-function-disjunctive-denominators/DDC_ProveIneq_Mitrinovic_7_35.smt2",
       "logic": "QF_NRA",
       "archive_path": "non-incremental/QF_NRA/20220314-Uncu/Rational_Function_Proof_Calls_With_Disjunctive_Denominator_Simplifications/DDC_ProveIneq_Mitrinovic_7_35.smt2",
       "size_bytes": 1529,
