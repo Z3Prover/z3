@@ -4780,6 +4780,8 @@ against the `dd4179a55` solver, and no C++ object was recompiled.
 | CLI suite, OCaml checker | 71/71 | 74/74 |
 | CLI suite, Cherry checker | **70/71: fails the #11497 expression-row assertion** | 74/74 |
 | QF_FF workflow inputs (25), both checkers | 25 ACCEPT | 25 ACCEPT |
+| `run_checker_regressions.py run` on z3test `regressions/proofs` (17), both checkers | 16 ACCEPT, 1 UNKNOWN | 16 ACCEPT, 1 UNKNOWN |
+| Harness tests `test_checker_*.py` (private venv with `zstandard` 0.25.0, Python 3.14) | 43/43 | 43/43 |
 
 **Matched controls** (base and candidate measured at the same time with the
 same harness, lists, inputs and limits: 10 s solver timeout, 60 s wall,
