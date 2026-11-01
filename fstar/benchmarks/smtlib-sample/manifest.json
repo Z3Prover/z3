@@ -1672,7 +1672,7 @@
       "sha256": "36089daf881331bbcac192f475df912b23cedb630f1e55dc6da4bed6c459c625"
     },
     {
-      "path": "QF_UFLRA/cpachecker-induction-svcomp14/cpachecker-induction.43_1a_cilled_true-unreach-call_ok_nondet_linux-43_1a-drivers--input--touchscreen--touchwin.ko-ldv_main0_sequence_infinite_withcheck_stateful.cil.out.c.smt2",
+      "path": "QF_UFLRA/cpachecker-induction-svcomp14/touchwin.smt2",
       "logic": "QF_UFLRA",
       "archive_path": "non-incremental/QF_UFLRA/cpachecker-induction-svcomp14/cpachecker-induction.43_1a_cilled_true-unreach-call_ok_nondet_linux-43_1a-drivers--input--touchscreen--touchwin.ko-ldv_main0_sequence_infinite_withcheck_stateful.cil.out.c.smt2",
       "size_bytes": 1341,
