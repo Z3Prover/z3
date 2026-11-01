@@ -27,9 +27,10 @@ package com.microsoft.z3;
  * debugging, and proof extraction.
  * </p>
  * <p>
- * Usage: create an instance, override {@link #onClause(Expr, int[], ASTVector)},
+ * Usage: create an instance, override {@code onClause},
  * and close the instance when done.
  * </p>
+ * @see OnClause#onClause
  **/
 public class OnClause implements AutoCloseable {
 

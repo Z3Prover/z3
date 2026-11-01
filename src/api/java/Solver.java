@@ -61,8 +61,8 @@ public class Solver extends Z3Object {
 
     /**
      * The current number of backtracking points (scopes). 
-     * @see #pop
-     * @see #push
+     * @see Solver#pop
+     * @see Solver#push
      **/
     public int getNumScopes()
     {
@@ -72,7 +72,7 @@ public class Solver extends Z3Object {
 
     /**
      * Creates a backtracking point. 
-     * @see #pop
+     * @see Solver#pop
      **/
     public void push()
     {
@@ -93,7 +93,7 @@ public class Solver extends Z3Object {
      * Remarks: Note that
      * an exception is thrown if {@code n} is not smaller than
      * {@code NumScopes} 
-     * @see #push
+     * @see Solver#push
      **/
     public void pop(int n)
     {
@@ -142,13 +142,15 @@ public class Solver extends Z3Object {
      * using the Boolean constants in ps.
      *
      * Remarks: 
-     * This API is an alternative to {@link #check()} with assumptions for
+     * This API is an alternative to {@code check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using {@code #assertAndTrack}
+     * of the Boolean variables provided using {@code assertAndTrack}
      * and the Boolean literals
-     * provided using {@link #check()} with assumptions.
+     * provided using {@code check} with assumptions.
+     * @see Solver#check
+     * @see Solver#assertAndTrack
      **/
     public void assertAndTrack(Expr<BoolSort>[] constraints, Expr<BoolSort>[] ps)
     {
@@ -169,13 +171,15 @@ public class Solver extends Z3Object {
      * using the Boolean constant p.
      * 
      * Remarks: 
-     * This API is an alternative to {@link #check} with assumptions for
+     * This API is an alternative to {@code check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using {@link #assertAndTrack}
+     * of the Boolean variables provided using {@code assertAndTrack}
      * and the Boolean literals
-     * provided using {@link #check} with assumptions.
+     * provided using {@code check} with assumptions.
+     * @see Solver#check
+     * @see Solver#assertAndTrack
      */ 
     public void assertAndTrack(Expr<BoolSort> constraint, Expr<BoolSort> p)
     {
@@ -228,9 +232,9 @@ public class Solver extends Z3Object {
     /**
      * Checks whether the assertions in the solver are consistent or not.
      * Remarks:  
-     * @see #getModel
-     * @see #getUnsatCore
-     * @see #getProof
+     * @see Solver#getModel
+     * @see Solver#getUnsatCore
+     * @see Solver#getProof
      **/
     @SafeVarargs
     public final Status check(Expr<BoolSort>... assumptions)
@@ -250,9 +254,9 @@ public class Solver extends Z3Object {
     /**
      * Checks whether the assertions in the solver are consistent or not.
      * Remarks:  
-     * @see #getModel
-     * @see #getUnsatCore
-     * @see #getProof
+     * @see Solver#getModel
+     * @see Solver#getUnsatCore
+     * @see Solver#getProof
      **/
     @SuppressWarnings("rawtypes")
     public Status check()
@@ -394,7 +398,6 @@ public class Solver extends Z3Object {
      * Retrieve the decision levels for each literal in the solver's trail after a {@code check} call.
      * The trail contains Boolean literals (decisions and propagations) in the order they were assigned.
      * The returned array has one entry per trail literal, indicating at which decision level it was assigned.
-     * Use {@link #getTrail()} to retrieve the trail literals themselves.
      * 
      * @return An array where element i contains the decision level for the i-th trail literal
      * @throws Z3Exception

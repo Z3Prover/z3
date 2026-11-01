@@ -165,6 +165,15 @@ def cleanup_API(inf, outf):
         if not pat1.match(line) and not pat2.match(line) and not pat3.match(line) and not pat4.match(line) and not pat5.match(line):
             _outf.write(line)
 
+def cleanup_dotnet(inf, outf):
+    with open(inf, encoding='utf-8') as source:
+        text = source.read()
+    # Doxygen parses "signed" as a type specifier rather than a C# parameter.
+    text = re.sub(r'<param name="signed">(.*?)</param>',
+                  r'<para><c>signed</c>: \1</para>', text)
+    with open(outf, 'w', encoding='utf-8') as target:
+        target.write(text)
+
 def configure_file(template_file_path, output_file_path, substitutions):
     """
         Read a template file ``template_file_path``, perform substitutions
@@ -284,9 +293,18 @@ try:
         print(".NET documentation enabled")
         doxygen_config_substitutions['DOTNET_API_FILES'] = '*.cs'
         dotnet_api_search_path_str = ""
-        for p in DOTNET_API_SEARCH_PATHS:
+        for index, p in enumerate(DOTNET_API_SEARCH_PATHS):
+            staging = temp_path('dotnet-' + str(index))
+            for directory, _, files in os.walk(p):
+                for filename in files:
+                    if not filename.endswith('.cs'):
+                        continue
+                    source = os.path.join(directory, filename)
+                    target = os.path.join(staging, os.path.relpath(source, p))
+                    mk_dir(os.path.dirname(target))
+                    cleanup_dotnet(source, target)
             # Quote path so that paths with spaces are handled correctly
-            dotnet_api_search_path_str += "\"{}\" ".format(p)
+            dotnet_api_search_path_str += "\"{}\" ".format(staging)
         doxygen_config_substitutions['DOTNET_API_SEARCH_PATHS'] = dotnet_api_search_path_str
     else:
         print(".NET documentation disabled")

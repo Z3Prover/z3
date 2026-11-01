@@ -82,7 +82,7 @@ public class FuncDecl<R extends Sort> extends AST
 
     /**
      * The size of the domain of the function declaration
-     * @see #getArity
+     * @see FuncDecl#getArity
      **/
     public int getDomainSize()
     {

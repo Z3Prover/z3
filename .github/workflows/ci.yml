@@ -325,7 +325,8 @@ jobs:
           set -e
           ${{ matrix.setupCmd1 }}
           ${{ matrix.setupCmd2 }}
-          ${{ matrix.buildCmd }}
+          python_install_dir=$(python -c 'import sysconfig; print("lib/python" + sysconfig.get_python_version() + "/site-packages")')
+          ${{ matrix.buildCmd }} -DCMAKE_INSTALL_PYTHON_PKG_DIR="$python_install_dir"
 
       - name: Build
         run: |
@@ -667,7 +668,8 @@ jobs:
         run: |
           set -e
           eval "$(opam env)"
-          cmake -G "Ninja" -S . -B build -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=lib -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -DZ3_BUILD_OCAML_BINDINGS=ON
+          python_install_dir=$(python -c 'import sysconfig; print("lib/python" + sysconfig.get_python_version() + "/site-packages")')
+          cmake -G "Ninja" -S . -B build -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=lib -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -DZ3_BUILD_OCAML_BINDINGS=ON -DCMAKE_INSTALL_PYTHON_PKG_DIR="$python_install_dir"
 
       - name: Build
         run: |

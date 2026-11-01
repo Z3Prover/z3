@@ -210,7 +210,7 @@ struct finite_set_simplifier::rw_cfg : public default_rewriter_cfg {
     }
 
     br_status reduce_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result, proof_ref&) {
-        if (m.is_eq(f)) {
+        if (n == 2 && m.is_eq(f)) {
             for (unsigned i = 0; i < 2; ++i) {
                 expr* predicate = nullptr, * domain = nullptr;
                 expr* other = args[1 - i];
