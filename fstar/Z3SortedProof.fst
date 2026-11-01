@@ -1042,7 +1042,7 @@ let rec lemma_arithmetic_assumptions (#base:sort -> Type0) (s:S.checked_schema) 
                                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                     (facts lits:list expr)
   : Lemma (requires T.truths s bc eq other facts /\
-                    not (B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
           (ensures AR.assumptions_hold s bc eq other
             (L.map Z3LinearArithmeticAst.positive_literal facts @
              L.map Z3LinearArithmeticAst.negative_literal lits))
@@ -1500,25 +1500,16 @@ let rec lemma_truths_append (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
           (decreases xs) =
   match xs with [] -> () | _ :: rest -> lemma_truths_append s bc eq other rest ys
 
+(* The elimination law over GHOST bodies (Q.elimination_case), read off the
+   universal law case by case. *)
 let lemma_full_forall_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (other:V.interpretation base (S.signature s))
   : Lemma (requires Q.forall_model s bc other)
           (ensures Q.forall_elimination_model s bc other) =
-  let at (bound:list sort)
-    : Lemma (forall (body:V.arguments base (S.signature s) (L.rev bound) ->
-                         V.value base (S.signature s) bool_sort)
+  introduce forall (bound:list sort) (body:Q.ghost_body base s bound)
                    (vs:V.arguments base (S.signature s) (L.rev bound)).
-        T.truth_value s bc (other.quantification Forall_k bound bool_sort body) ==>
-        T.truth_value s bc (body vs)) =
-    let body_at (body:V.arguments base (S.signature s) (L.rev bound) ->
-                     V.value base (S.signature s) bool_sort)
-      : Lemma (forall (vs:V.arguments base (S.signature s) (L.rev bound)).
-          T.truth_value s bc (other.quantification Forall_k bound bool_sort body) ==>
-          T.truth_value s bc (body vs)) =
-      assert (T.truth_value s bc (other.quantification Forall_k bound bool_sort body) <==>
-        (forall (vs:V.arguments base (S.signature s) (L.rev bound)). T.truth_value s bc (body vs))) in
-    FStar.Classical.forall_intro body_at in
-  FStar.Classical.forall_intro at
+    Q.elimination_case s bc other bound body vs
+  with assert (Q.forall_case s bc other bound body)
 
 let lemma_check_document_epsilon (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (choice:E.hilbert_choice base s)

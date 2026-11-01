@@ -12,6 +12,8 @@ module D = Z3Definitions
 module R = Z3ResolutionProofTheory
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
+module FE = FStar.FunctionalExtensionality
+module ID = FStar.IndefiniteDescription
 
 let constant_safe (s:S.checked_schema) (f:func_decl) : bool =
   f.domain = [] && f.interp = None && f.int_params = [] &&
@@ -44,13 +46,46 @@ let definition_of (s:S.checked_schema) (a b:expr) : option (definition s) =
     then Some d else None
   | None -> None
 
+(* Typed-root G2: a Hilbert choice is a GHOST function that picks ONE whole
+   typed tuple for a joint predicate over all witness coordinates (never one
+   coordinate at a time). The model side of the Sorted semantics is ghost,
+   so the predicates it is applied to are ghost propositions; a Tot choice
+   over `prop` would not be constructible. `ghost_choice` below constructs
+   one from the installed FStar.IndefiniteDescription ghost API only. *)
 noeq
 type hilbert_choice (base:sort -> Type0) (s:S.checked_schema) = {
   epsilon: ss:list sort ->
     predicate:(V.arguments base (S.signature s) ss -> prop) ->
-    Tot (vs:V.arguments base (S.signature s) ss{
+    GTot (vs:V.arguments base (S.signature s) ss{
       (exists (ws:V.arguments base (S.signature s) ss). predicate ws) ==> predicate vs});
 }
+
+(* A typed inhabitant of every argument list, from an inhabitant of every
+   base carrier (S.value_inhabitant also covers datatype sorts). *)
+noextract
+let rec arguments_inhabitant (#base:sort -> Type0) (s:S.checked_schema)
+                             (base_value:(t:sort -> base t)) (ss:list sort)
+  : Tot (V.arguments base (S.signature s) ss) (decreases ss) =
+  match ss with
+  | [] -> []
+  | t :: rest -> S.value_inhabitant s base_value t :: arguments_inhabitant s base_value rest
+
+(* ONE choice of the whole tuple: a satisfying tuple when one exists,
+   otherwise the default tuple. No axiom beyond the library's ghost
+   strong_excluded_middle / indefinite_description_ghost. *)
+noextract
+let ghost_epsilon (#base:sort -> Type0) (s:S.checked_schema) (base_value:(t:sort -> base t))
+                  (ss:list sort) (predicate:V.arguments base (S.signature s) ss -> prop)
+  : GTot (vs:V.arguments base (S.signature s) ss{
+      (exists (ws:V.arguments base (S.signature s) ss). predicate ws) ==> predicate vs}) =
+  if ID.strong_excluded_middle (exists (ws:V.arguments base (S.signature s) ss). predicate ws)
+  then ID.indefinite_description_ghost (V.arguments base (S.signature s) ss) predicate
+  else arguments_inhabitant s base_value ss
+
+noextract
+let ghost_choice (#base:sort -> Type0) (s:S.checked_schema) (base_value:(t:sort -> base t))
+  : hilbert_choice base s =
+  { epsilon = (fun ss predicate -> ghost_epsilon s base_value ss predicate) }
 
 let rec tuple_at (#base:sort -> Type0) (sigma:V.signature) (ss:list sort)
                  (vs:V.arguments base sigma ss) (n:nat{n < L.length ss})
@@ -91,19 +126,23 @@ let goal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
 let selected (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
              (eq:T.scalar_model base) (choice:hilbert_choice base s)
              (other:V.interpretation base (S.signature s)) (d:definition s)
-  : vs:V.arguments base (S.signature s) (L.rev d.bound_sorts){
+  : GTot (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts){
       (exists (ws:V.arguments base (S.signature s) (L.rev d.bound_sorts)).
-        goal s bc eq other d ws) ==> goal s bc eq other d vs} =
+        goal s bc eq other d ws) ==> goal s bc eq other d vs}) =
   choice.epsilon (L.rev d.bound_sorts) (goal s bc eq other d)
+
+(* Existential semantics over GHOST bodies (Q.ghost_body, the argument type
+   of V.interpretation's quantification), named per case like
+   Q.forall_case (R1's exists_case read through the Sorted carrier). *)
+let exists_case (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                (other:V.interpretation base (S.signature s))
+                (bound:list sort) (body:Q.ghost_body base s bound) : prop =
+  T.truth_value s bc (other.quantification Exists_k bound bool_sort body) <==>
+  (exists (vs:V.arguments base (S.signature s) (L.rev bound)). T.truth_value s bc (body vs))
 
 let exists_model (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                  (other:V.interpretation base (S.signature s)) : prop =
-  forall (bound:list sort)
-         (body:V.arguments base (S.signature s) (L.rev bound) ->
-               V.value base (S.signature s) bool_sort).
-    T.truth_value s bc (other.quantification Exists_k bound bool_sort body) <==>
-    (exists (vs:V.arguments base (S.signature s) (L.rev bound)).
-       T.truth_value s bc (body vs))
+  forall (bound:list sort) (body:Q.ghost_body base s bound). exists_case s bc other bound body
 
 let lemma_application_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -141,9 +180,8 @@ let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
     let left = V.evaluate_body (S.signature s) (T.interpretation s bc eq other) scope rho bound body in
     let right = V.evaluate_body (S.signature s) (T.interpretation s bc eq (override s d vs other))
       scope rho bound body in
-    assert (FStar.FunctionalExtensionality.feq left right);
-    FStar.FunctionalExtensionality.extensionality
-      (V.arguments base (S.signature s) (L.rev bound)) (fun _ -> V.tree base) left right
+    assert (FE.feq_g left right);
+    FE.extensionality_g (V.arguments base (S.signature s) (L.rev bound)) (fun _ -> V.tree base) left right
 
 and lemma_fresh_args (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -270,9 +308,7 @@ let lemma_source_goal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     Q.lemma_forall_truth s bc eq other [] (T.empty_environment (S.signature s)) d.bound_sorts d.body;
     T.lemma_evaluate_core s bc eq other R.not_decl [q])
   else
-    assert (T.truth_value s bc (other.quantification Exists_k d.bound_sorts bool_sort f) <==>
-      (exists (vs:V.arguments base (S.signature s) (L.rev d.bound_sorts)).
-        T.truth_value s bc (f vs)))
+    assert (exists_case s bc other d.bound_sorts f)
 
 let lemma_definition_parts (s:S.checked_schema) (a b:expr) (d:definition s)
   : Lemma (requires definition_of s a b == Some d)
@@ -357,12 +393,29 @@ let lemma_source_fresh (s:S.checked_schema) (newer:definition s) (older:SK.defin
           (ensures SK.fresh newer.witnesses (SK.source older)) =
   lemma_interpreted_fresh (L.rev newer.bound_sorts) newer.witnesses R.not_decl
 
+(* Bounded helpers for lemma_instance_fresh: the instantiation is the
+   (possibly negated) substitution target, and negation keeps freshness. *)
+let lemma_instantiation_target (d:SK.definition) (b:expr)
+  : Lemma (requires d.dependencies == [] /\ SK.instantiation d == Some b)
+          (ensures Some? (SK.substitute 0 (L.length d.bound_sorts) [] d.witnesses d.body) /\
+                   b == (let target = Some?.v (SK.substitute 0 (L.length d.bound_sorts) [] d.witnesses d.body) in
+                         if d.negative then SK.negate target else target)) =
+  ()
+
+let lemma_negate_fresh (ws:list SK.witness) (e:expr)
+  : Lemma (requires SK.fresh ws e /\ SK.component R.not_decl ws == None)
+          (ensures SK.fresh ws (SK.negate e)) =
+  ()
+
 let lemma_instance_fresh (s:S.checked_schema) (newer older:definition s) (b:expr)
   : Lemma (requires SK.safe_extension newer [older] /\ SK.instantiation older == Some b)
           (ensures SK.fresh newer.witnesses b) =
+  lemma_instantiation_target older b;
   let target = Some?.v (SK.substitute 0 (L.length older.bound_sorts) [] older.witnesses older.body) in
+  assert (SK.disjoint newer.witnesses older.witnesses /\ SK.fresh newer.witnesses older.body);
   lemma_substitute_fresh newer.witnesses older.witnesses 0 (L.length older.bound_sorts) older.body target;
-  lemma_interpreted_fresh (L.rev newer.bound_sorts) newer.witnesses R.not_decl
+  lemma_interpreted_fresh (L.rev newer.bound_sorts) newer.witnesses R.not_decl;
+  if older.negative then lemma_negate_fresh newer.witnesses target
 
 let instance_holds (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -386,7 +439,7 @@ let rec lemma_context_member (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
 let rec build (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
               (eq:T.scalar_model base) (choice:hilbert_choice base s)
               (ds:list (definition s)) (other:V.interpretation base (S.signature s))
-  : Tot (V.interpretation base (S.signature s)) (decreases ds) =
+  : GTot (V.interpretation base (S.signature s)) (decreases ds) =
   match ds with
   | [] -> other
   | d :: rest ->
@@ -426,31 +479,19 @@ let rec lemma_context_preserved (#base:sort -> Type0) (s:S.checked_schema) (bc:S
     FStar.Classical.forall_intro at;
     lemma_context_preserved s bc eq other newer vs rest
 
-noextract
-let quantification_models (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-  (quantification:(k:quantifier_kind -> bound:list sort -> body_sort:sort ->
-    (V.arguments base (S.signature s) (L.rev bound) -> V.value base (S.signature s) body_sort) ->
-    V.value base (S.signature s) (quant_sort k bound body_sort))) : prop =
-  (forall (bound:list sort)
-          (body:V.arguments base (S.signature s) (L.rev bound) ->
-                V.value base (S.signature s) bool_sort).
-     T.truth_value s bc (quantification Forall_k bound bool_sort body) <==>
-     (forall (vs:V.arguments base (S.signature s) (L.rev bound)). T.truth_value s bc (body vs))) /\
-  (forall (bound:list sort)
-          (body:V.arguments base (S.signature s) (L.rev bound) ->
-                V.value base (S.signature s) bool_sort).
-     T.truth_value s bc (quantification Exists_k bound bool_sort body) <==>
-     (exists (vs:V.arguments base (S.signature s) (L.rev bound)). T.truth_value s bc (body vs)))
-
+(* Every quantifier law of the epsilon theorem reads only `quantification`,
+   which every extension below keeps unchanged. *)
 let lemma_quantification_models (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                 (other newer:V.interpretation base (S.signature s))
   : Lemma (requires other.quantification == newer.quantification /\
                     Q.forall_model s bc other /\ exists_model s bc other)
           (ensures Q.forall_model s bc newer /\ exists_model s bc newer) =
-  assert_norm (quantification_models s bc other.quantification ==
-    (Q.forall_model s bc other /\ exists_model s bc other));
-  assert_norm (quantification_models s bc newer.quantification ==
-    (Q.forall_model s bc newer /\ exists_model s bc newer))
+  introduce forall (bound:list sort) (body:Q.ghost_body base s bound).
+    Q.forall_case s bc newer bound body
+  with assert (Q.forall_case s bc other bound body);
+  introduce forall (bound:list sort) (body:Q.ghost_body base s bound).
+    exists_case s bc newer bound body
+  with assert (exists_case s bc other bound body)
 
 let rec lemma_build_context (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                            (eq:T.scalar_model base) (choice:hilbert_choice base s)

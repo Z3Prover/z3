@@ -429,14 +429,17 @@ let lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho a);
     T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho b))
 
+(* Typed-root G2: the Farkas replay's model side is a GHOST specification
+   (T.truth is ghost). The executable certificate check below
+   (certificate_inputs, check_contradiction) stays Tot. *)
 let satisfied (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
               (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
-              (positive:bool) (e:expr) : bool =
+              (positive:bool) (e:expr) : GTot bool =
   if positive then T.truth s bc model other e else not (T.truth s bc model other e)
 
 let rec assumptions_hold (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                         (xs:list (bool & expr)) : Tot bool (decreases xs) =
+                         (xs:list (bool & expr)) : GTot bool (decreases xs) =
   match xs with
   | [] -> true
   | (positive, e) :: rest ->

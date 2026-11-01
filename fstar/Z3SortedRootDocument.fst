@@ -185,16 +185,21 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    premise ids and its rule; there is no definition expansion and no
    normalization of entry terms before the kernels (SP.prepare_entry_from
    only checks D.scoped/in_context of e.formula and classifies it). Of the
-   rule it distinguishes exactly five shapes (check_node_cached:
+   rule it distinguishes exactly six shapes (check_node_cached:
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
-   with its argument list); every other rule, with every payload (Farkas,
-   Gomory, PAC, binder certificates, rule names), is judged identically.
-   lemma_document_read_view proves that the decision equals the decision
-   on the read view, which drops the declarations/expressions tables and
-   every other payload. So the covered terms below (assertions, entry
-   formulas, instantiation arguments) are all DOCUMENT terms the checker
-   reads. The checker also builds internal terms of its own (the canonical
-   false, equality and Boolean wrappers, field equalities and the
+   with its argument list, and ArithmeticFarkas WITH its coefficient list,
+   which SP.arithmetic_farkas replays); the epsilon route
+   (check_document_epsilon, section 6) also distinguishes Skolemization.
+   Every other rule, with every other payload (Gomory, PAC, binder
+   certificates, rule names), is judged identically. The read view KEEPS
+   the Farkas coefficients and the Skolemization label (erasing them would
+   change the decision); lemma_document_read_view proves that the decision
+   equals the decision on the read view, which drops the
+   declarations/expressions tables and every other payload. So the covered
+   terms below (assertions, entry formulas, instantiation arguments) are
+   all DOCUMENT terms the checker reads; the Farkas coefficients are
+   numbers, not terms. The checker also builds internal terms of its own
+   (the canonical false, equality and Boolean wrappers, field equalities and the
    instances of instantiation); those are not gated, and need not be: the
    falsity proof above (lemma_root_check_document) holds in every root
    model for every document with Some 0, covered or not. Coverage only
@@ -202,7 +207,8 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    used by the abstract root-class falsity proof. *)
 let rule_shape (r:U.rule) : U.rule =
   match r with
-  | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _ -> r
+  | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
+  | U.ArithmeticFarkas _ | U.Skolemization -> r
   | _ -> U.Unverified "payload-erased"
 
 let shape_entry (e:P.entry) : P.entry = { e with P.rule = rule_shape e.P.rule }
@@ -216,9 +222,11 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
   : Lemma (SP.check_node_cached s assertions node ==
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
   match node.U.kind with
-  | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _ -> ()
+  | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
+  | U.ArithmeticFarkas _ | U.Skolemization -> ()
   | _ ->
     let node' = { node with U.kind = rule_shape node.U.kind } in
+    assert (not (SP.arithmetic_farkas node) /\ not (SP.arithmetic_farkas node'));
     assert (not (SP.lemma_step node) /\ not (SP.lemma_step node'));
     assert (not (SP.quantifier_instantiation node) /\ not (SP.quantifier_instantiation node'));
     assert (not (SP.quantifier_flattening node) /\ not (SP.quantifier_flattening node'))
@@ -300,7 +308,7 @@ let lemma_certified_schema (schema:S.schema) (doc:P.document)
 
 (* The gate, too, reads only the read view: the native declarations and
    expressions tables and every rule payload other than instantiation
-   arguments never change its verdict. *)
+   arguments and Farkas coefficients never change its verdict. *)
 let rec lemma_entries_covered_view (sigma:V.signature) (es:list P.entry)
   : Lemma (entries_covered sigma (L.map shape_entry es) == entries_covered sigma es) (decreases es) =
   match es with [] -> () | _ :: rest -> lemma_entries_covered_view sigma rest

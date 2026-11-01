@@ -24,3 +24,12 @@ let joint_choice_has_compatible_coordinates (choice:E.hilbert_choice primitive s
     [V.Scalar bool_sort false; V.Scalar bool_sort true] in
   assert_norm (distinct [V.Scalar bool_sort false; V.Scalar bool_sort true]);
   FStar.Classical.exists_intro distinct witness
+
+(* The production ghost choice (FStar.IndefiniteDescription only) is a
+   hilbert_choice, so the joint property holds for an actual, constructed
+   choice, not only for a hypothetical one: its one chosen tuple has two
+   different coordinates, which independent per-coordinate choices could
+   not guarantee. *)
+let ghost_choice_has_compatible_coordinates ()
+  : Lemma (ensures distinct ((E.ghost_choice schema (fun (_:sort) -> false)).E.epsilon sorts distinct)) =
+  joint_choice_has_compatible_coordinates (E.ghost_choice schema (fun (_:sort) -> false))
