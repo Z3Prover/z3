@@ -380,8 +380,9 @@ let tables_never_read (schema:S.schema) (d:P.document) (ds:list func_decl) (es:l
   same_reads schema d ({ d with P.declarations = ds; P.expressions = es })
 
 (* Concrete instances: an UNSUPPORTED term (an array over the datatype Box)
-   listed only in the expressions table, and a different payload-carrying
-   rule for the arithmetic step, leave the certified verdicts unchanged. *)
+   listed only in the expressions table, and an (empty, hence not
+   replayable) Farkas certificate on a step the consequence kernel checks
+   by itself, leave the certified verdicts unchanged. *)
 let f1_hidden_table_term () : Lemma (RD.check_root_document PT.schema
                                        ({ b6_document with P.expressions = [hidden_arg] }) == RD.RootCertified) =
   b6_certified ();
@@ -397,3 +398,179 @@ let f2_payload_rule () : Lemma (RD.check_root_document PT.core_schema
                       [entry (U.ArithmeticFarkas []) commuted [];
                        entry U.Asserted (R.mk_not_expr commuted) [];
                        entry U.UnitResolution R.false_expr [0; 1]] 2) == RD.RootCertified)
+
+(* ---------------------------------------------------------------------- *)
+(* G. Typed Int Farkas: the coefficients are READ (kept by the read view)   *)
+(* ---------------------------------------------------------------------- *)
+
+(* x > 0 and x < 1 over Int: refuted only with the strict-bound rounding of
+   the integer Farkas replay, by the certificate (1, 1). *)
+let zero : expr = App (TR.int_numeral 0) []
+let x_positive : expr = App (TR.gt_decl integer) [x_int; zero]
+let x_below_one : expr = App (TR.lt_decl integer) [x_int; one]
+
+let farkas_document (cs:list Z3LinearArithmeticAst.coefficient) : P.document =
+  doc [x_positive; x_below_one]
+      [entry U.Asserted x_positive []; entry U.Asserted x_below_one [];
+       entry (U.ArithmeticFarkas cs) R.false_expr [0; 1]]
+      2
+
+let g1_farkas_certified () : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1)]) ==
+                                    RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1)]) == RD.RootCertified)
+
+(* Mutant certificates on the same step: a zero weight, a missing and an
+   extra coefficient. Each leaves the step as an open obligation (one
+   document per lemma). *)
+let g2_zero_weight_pending () : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (0, 1)]) ==
+                                       RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (0, 1)]) == RD.RootPending 1)
+
+let g2_missing_coefficient_pending () : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1)]) ==
+                                               RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1)]) == RD.RootPending 1)
+
+let g2_extra_coefficient_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (1, 1)]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (1, 1)]) == RD.RootPending 1)
+
+(* The read view keeps the coefficient list: the certified and the mutant
+   documents keep different read views, and each keeps its verdict there. *)
+let g3_farkas_read_view ()
+  : Lemma (RD.read_view (farkas_document [(1, 1); (1, 1)]) =!= RD.read_view (farkas_document [(1, 1); (0, 1)]) /\
+           RD.check_root_document PT.core_schema (RD.read_view (farkas_document [(1, 1); (1, 1)])) ==
+             RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (farkas_document [(1, 1); (0, 1)])) ==
+             RD.RootPending 1) =
+  assert_norm (L.map RD.shape_entry (farkas_document [(1, 1); (1, 1)]).P.entries =!=
+               L.map RD.shape_entry (farkas_document [(1, 1); (0, 1)]).P.entries);
+  g1_farkas_certified (); g2_zero_weight_pending ();
+  RD.lemma_root_read_view PT.core_schema (farkas_document [(1, 1); (1, 1)]);
+  RD.lemma_root_read_view PT.core_schema (farkas_document [(1, 1); (0, 1)])
+
+(* The certified Farkas document is false in EVERY root model. *)
+let g4_farkas_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema (farkas_document [(1, 1); (1, 1)]) i) =
+  g1_farkas_certified ();
+  RD.lemma_root_certified u PT.core_schema (farkas_document [(1, 1); (1, 1)]) i
+
+(* ---------------------------------------------------------------------- *)
+(* H. The Hilbert-epsilon route and its root gate                           *)
+(* ---------------------------------------------------------------------- *)
+
+(* exists y:Int. pi(y) is Skolemized to pi(sk) (an observational step with no
+   premises); pi(sk) and forall y. not pi(y) then refute by instantiation. *)
+let sk : expr = const "sk" integer
+let some_pi : expr = Quantifier Exists_k [integer] bool_sort (App pi_decl [Var 0 integer])
+let no_pi : expr = Quantifier Forall_k [integer] bool_sort (R.mk_not_expr (App pi_decl [Var 0 integer]))
+
+let epsilon_document (assertions:list expr) (witness:expr) : P.document =
+  doc assertions
+      [entry U.Skolemization (Z3ObservationalEquality.mk_oeq_expr some_pi (pi_at witness)) [];
+       entry U.Asserted some_pi [];
+       entry U.ModusPonens (pi_at witness) [1; 0];
+       entry (U.QuantifierInstantiation [witness])
+             (disjunction [R.mk_not_expr no_pi; R.mk_not_expr (pi_at witness)]) [];
+       entry U.Asserted no_pi [];
+       entry U.UnitResolution R.false_expr [3; 4; 2]]
+      5
+
+let h_document : P.document = epsilon_document [some_pi; no_pi] sk
+
+(* The plain route leaves exactly the Skolem step open; the epsilon route
+   certifies it, and its root gate reports RootCertified (one normalized
+   run of each route; the gate verdicts follow from them and coverage). *)
+let h1_plain_pending () : Lemma (SP.check_document PT.core_schema h_document == Some 1) =
+  assert_norm (SP.check_document PT.core_schema h_document == Some 1)
+
+let h1_epsilon_accepts () : Lemma (SP.check_document_epsilon PT.core_schema h_document == Some 0) =
+  assert_norm (SP.check_document_epsilon PT.core_schema h_document == Some 0)
+
+let h1_covered () : Lemma (RD.root_covered PT.core_schema h_document) =
+  assert_norm (RD.root_covered PT.core_schema h_document)
+
+let h1_epsilon_certified ()
+  : Lemma (SP.check_document PT.core_schema h_document == Some 1 /\
+           SP.check_document_epsilon PT.core_schema h_document == Some 0 /\
+           RD.check_root_document PT.core_schema h_document == RD.RootPending 1 /\
+           RD.check_root_document_epsilon PT.core_schema h_document == RD.RootCertified) =
+  h1_plain_pending (); h1_epsilon_accepts (); h1_covered ()
+
+(* The certified epsilon document is false in EVERY root model, and in the
+   standard root model for EVERY u and uf; the choice extension of any root
+   model by its definitions is again a root model, keeps the original
+   assertions' truth and satisfies the generated choice equation. *)
+let h2_epsilon_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema h_document i /\
+                   TR.root_model u PT.core_schema (RD.epsilon_extension u PT.core_schema i h_document) /\
+                   RD.root_truths u PT.core_schema (RD.epsilon_extension u PT.core_schema i h_document)
+                     h_document.P.assertions == RD.root_truths u PT.core_schema i h_document.P.assertions) =
+  h1_epsilon_certified ();
+  RD.lemma_root_certified_epsilon u PT.core_schema h_document i;
+  RD.lemma_root_epsilon_extension u PT.core_schema i h_document
+
+let h3_epsilon_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema h_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  h2_epsilon_false u (TR.standard u PT.core_schema uf)
+
+(* Negative controls. A witness that already occurs in an original
+   assertion is not fresh: no choice equation is used and the Skolem step
+   stays open. *)
+let h4_reused_witness_pending ()
+  : Lemma (RD.check_root_document_epsilon PT.core_schema
+             (epsilon_document [some_pi; no_pi; R.mk_eq_expr sk sk] sk) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document_epsilon PT.core_schema
+                 (epsilon_document [some_pi; no_pi; R.mk_eq_expr sk sk] sk) == RD.RootPending 1)
+
+(* A wrong-polarity target, exists y. pi(y) ~ not pi(sk), on the satisfiable
+   inputs (exists y. pi(y)) and (forall y. pi(y)) (every pi true): the step
+   is no Skolem definition, so the would-be refutation stays open. *)
+let h5_document : P.document =
+  doc [some_pi; all_pi]
+      [entry U.Skolemization (Z3ObservationalEquality.mk_oeq_expr some_pi (R.mk_not_expr (pi_at sk))) [];
+       entry U.Asserted some_pi [];
+       entry U.ModusPonens (R.mk_not_expr (pi_at sk)) [1; 0];
+       entry (U.QuantifierInstantiation [sk]) (qi_clause (pi_at sk)) [];
+       entry U.Asserted all_pi [];
+       entry U.UnitResolution R.false_expr [3; 4; 2]]
+      5
+
+let h5_wrong_polarity_unused () : Lemma (SP.epsilon_context PT.core_schema h5_document == []) =
+  assert_norm (SP.epsilon_context PT.core_schema h5_document == [])
+
+let h5_wrong_polarity_pending ()
+  : Lemma (RD.check_root_document_epsilon PT.core_schema h5_document == RD.RootPending 1) =
+  assert_norm (RD.check_root_document_epsilon PT.core_schema h5_document == RD.RootPending 1)
+
+(* The epsilon gate reads only the read view (Skolemization kept): the native
+   tables never change its verdict. *)
+let h6_epsilon_tables_never_read (ds:list func_decl) (es:list expr)
+  : Lemma (RD.check_root_document_epsilon PT.core_schema
+             ({ h_document with P.declarations = ds; P.expressions = es }) == RD.RootCertified) =
+  h1_epsilon_certified ();
+  RD.lemma_root_read_view_epsilon PT.core_schema h_document;
+  RD.lemma_root_read_view_epsilon PT.core_schema ({ h_document with P.declarations = ds; P.expressions = es })
+
+(* A later definition whose source mentions the witness of an earlier one
+   (exists y. q2(sk, y) ~ q2(sk, sk2)) is ordered after it: both
+   definitions are used, in either entry order. *)
+let q2_decl : func_decl =
+  { decl_name = "q2"; domain = [integer; integer]; range = bool_sort; interp = None; int_params = [] }
+let sk2 : expr = const "sk2" integer
+let skolem_pi : P.entry = entry U.Skolemization (Z3ObservationalEquality.mk_oeq_expr some_pi (pi_at sk)) []
+let skolem_q : P.entry =
+  entry U.Skolemization
+    (Z3ObservationalEquality.mk_oeq_expr
+       (Quantifier Exists_k [integer] bool_sort (App q2_decl [sk; Var 0 integer])) (App q2_decl [sk; sk2])) []
+
+let h7_later_reference_forward ()
+  : Lemma (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_pi; skolem_q] 0)) == 2) =
+  assert_norm (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_pi; skolem_q] 0)) == 2)
+
+let h7_later_reference_backward ()
+  : Lemma (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_q; skolem_pi] 0)) == 2) =
+  assert_norm (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_q; skolem_pi] 0)) == 2)
