@@ -1468,7 +1468,9 @@ class ReadableTagTests(unittest.TestCase):
         ocaml = (root / "ocaml_runtime" / "Z3NativeMain.ml").read_text(encoding="utf-8")
         printer = ocaml[ocaml.index("module Readable = struct"):ocaml.index("let check_proof ")]
         self.assertNotRegex(printer, r"check_document|diagnose_document|check_proof|Z3SortedProof|Z3NativeProof")
-        self.assertEqual(len(re.findall(r"check_document_diagnosed", ocaml)), 2)
+        # The sorted route's one call site is the epsilon entry point, the legacy route's the indexed one.
+        self.assertEqual(len(re.findall(r"check_document(?:_epsilon)?_diagnosed", ocaml)), 2)
+        self.assertEqual(len(re.findall(r"Z3SortedProof\.check_document_epsilon_diagnosed\b", ocaml)), 1)
         self.assertEqual(len(re.findall(r"Readable\.report\b", ocaml)), 1)
 
 
