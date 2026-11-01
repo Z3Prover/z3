@@ -1453,6 +1453,26 @@ let elaborate_epsilon (s:S.checked_schema) (ds:list (E.definition s)) (doc:P.doc
   else { doc with P.assertions = doc.assertions @ epsilon_equations s ds doc.entries;
                   P.entries = epsilon_entries s ds doc.entries }
 
+(* Source-node alignment, which both native frontends' readable reports rely
+   on (they render the elaborated diagnostic against the ORIGINAL entries):
+   elaboration keeps one entry per original entry, at the same index, with
+   the same formula and premise ids; only the rule of a used Skolem step
+   becomes Asserted. Choice equations are appended to the assertions, and a
+   rejected assertion list is reported without an index. *)
+let rec lemma_epsilon_entries_aligned (s:S.checked_schema) (ds:list (E.definition s))
+                                      (entries:list P.entry) (n:nat)
+  : Lemma (requires n < L.length entries)
+          (ensures L.length (epsilon_entries s ds entries) == L.length entries /\
+                   (let e = L.index entries n in
+                    let e' = L.index (epsilon_entries s ds entries) n in
+                    e'.P.formula == e.P.formula /\ e'.P.premise_ids == e.P.premise_ids /\
+                    (e'.P.rule == e.P.rule \/ (epsilon_entry s ds e /\ e'.P.rule == U.Asserted))))
+          (decreases entries) =
+  match entries with
+  | _ :: rest ->
+    if n > 0 then lemma_epsilon_entries_aligned s ds rest (n - 1)
+    else if Cons? rest then lemma_epsilon_entries_aligned s ds rest 0
+
 let check_document_epsilon (schema:S.schema) (doc:P.document) : option nat =
   if not (S.valid schema) then None
   else check_document schema (elaborate_epsilon schema (epsilon_context schema doc) doc)

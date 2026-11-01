@@ -514,6 +514,24 @@ class DirectCheckerTests(unittest.TestCase):
                     self.assertIn("; proof-check ACCEPT" if interactive else "ACCEPT", result.stdout)
                     self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
 
+    def test_readable_epsilon_partial_keeps_source_nodes(self):
+        """After epsilon elaboration a pending node still names its original entry, in both modes."""
+        source = ("(assert (exists ((x Real)) (and (= (* x x) 2.0) (= (* x x x) 3.0))))")
+        for interactive in (False, True):
+            with self.subTest(interactive=interactive):
+                mode = ("--interactive",) if interactive else ()
+                text = source + ("(check-sat)" if interactive else "")
+                plain = self.run_checker(text, "--sorted-core", "--diagnostics", *mode)
+                readable = self.run_checker(text, "--sorted-core", "--readable", *mode)
+                self.assertEqual(readable.returncode, 3, readable.stdout + readable.stderr)
+                self.assertEqual(plain.returncode, readable.returncode, plain.stdout + plain.stderr)
+                self.assertNotIn("obligation\tsk\t", readable.stderr)
+                self.assertNotIn("rule=sk\t", readable.stderr)
+                self.assertRegex(readable.stderr, r"(?m)^readable\tquery=1\tverdict=PARTIAL [1-9][0-9]*\t")
+                self.assertRegex(readable.stderr, r"(?m)^  node [0-9]+: premises: ")
+                self.assertNotIn("no source-node mapping", readable.stderr)
+                self.assertTrue(readable.stderr.startswith(plain.stderr), readable.stderr)
+
     def test_sorted_datatype_certifies_constant_folding_in_both_modes(self):
         declarations = ("(declare-datatype T ((C (field Int))))"
                         "(declare-const t T)(assert ((_ is C) t))")

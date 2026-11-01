@@ -2845,6 +2845,15 @@ let sorted_integer_farkas () =
     | _ -> failwith "expected an integer comparison" in
   check false [true, fake; true, y] [one; one];
   check false (List.init 5000 (fun _ -> true, p)) (List.init 5000 (fun _ -> zero));
+  (* polarity: the negated strict lower bound (field t) <= 0 with (field t) < 1 is satisfiable *)
+  check false [false, x; true, y] [one; one];
+  (* cancellation: (field t) > 0 and (field t) <= 0 sum to 0 > 0 *)
+  check true [true, x; true, le] [one; one];
+  (* the 4096-node expression budget, at its boundary: x and y have 4 nodes each, p one *)
+  let padded n = [true, x; true, y] @ List.init n (fun _ -> true, p) in
+  let padded_weights n = [one; one] @ List.init n (fun _ -> zero) in
+  check true (padded 4088) (padded_weights 4088);
+  check false (padded 4089) (padded_weights 4089);
   let fact formula =
     { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [p] } in
   let node =
@@ -2862,7 +2871,22 @@ let sorted_integer_farkas () =
        range = A.bool_sort; interp = None; int_params = [] }, [le; ge]) in
   require (not (K.arithmetic_farkas
     { node with U.conclusion = Option.get (U.classify_fact fake_or); premises = [] }))
-    "typed Farkas treated an uninterpreted or lookalike as a clause"
+    "typed Farkas treated an uninterpreted or lookalike as a clause";
+  (* signed conclusion literals: a negated literal of the conclusion is assumed positive, from one premise
+     or from a canonical two-literal clause with no premise *)
+  let negated e = R.mk_not_expr e in
+  require (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact (negated y)); premises = [fact x] })
+    "typed Farkas ignored a negated conclusion literal";
+  let clause = A.App
+    ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort];
+       range = A.bool_sort; interp = Some Z3ValueTheory.op_or; int_params = [] }, [negated x; negated y]) in
+  require (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact clause); premises = [] })
+    "typed Farkas ignored the literals of a conclusion clause";
+  require (not (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact y); premises = [fact x] }))
+    "typed Farkas accepted a positive conclusion literal as an assumption"
 
 let sorted_epsilon_skolemization () =
   let module K = Z3SortedProof in
@@ -2968,6 +2992,65 @@ let sorted_epsilon_skolemization () =
   require (K.epsilon_context schema doc <> [] &&
            K.check_document_epsilon schema doc = Some Z.zero)
     "native typed integer epsilon refutation was not fully certified"
+
+(* Readable output on the epsilon route. The elaborated document keeps one entry per ORIGINAL entry (a used Skolem step only
+   changes its rule label to Asserted, and every choice equation is appended to the assertions), so an obligation or a
+   rejected entry names the same original entry and premise ids; an assertion-stage rejection carries no index at all. The
+   report is rendered from the one diagnosed check, which equals the plain epsilon check. *)
+let readable_epsilon_provenance () =
+  let module K = Z3SortedProof in
+  let module R = Z3NativeMain.Readable in
+  let module RT = Z3ResolutionProofTheory in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  let c = context () in
+  let native = parse c
+    "(declare-fun p (Int Int) Bool)(declare-const c Int)\
+     (assert (= (exists ((x Int)) (p x x)) (p c c)))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let a, b = match B.cached_expression st (List.hd native) with
+    | A.App (_, [a; b]) -> a, b
+    | _ -> failwith "expected a Skolem test equation" in
+  let skolem = { P.rule = U.Skolemization; formula = Z3ObservationalEquality.mk_oeq_expr a b; premise_ids = [] } in
+  let document entries = { P.declarations = []; expressions = [a; b]; assertions = [RT.false_expr];
+                           entries; root = Z.one } in
+  let diagnosed doc =
+    let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+    require (result = K.check_document_epsilon schema doc && diagnostic = K.diagnose_document_epsilon schema doc)
+      "epsilon check and diagnosis disagree";
+    result, diagnostic, R.report_text 1 (Z3NativeMain.result_text result) doc diagnostic in
+  (* an open step after the used Skolem step: its obligation names original entry 1 and its premise #0 *)
+  let doc = document [skolem; { P.rule = U.Unverified "open-step"; formula = RT.false_expr; premise_ids = [Z.zero] }] in
+  require (K.epsilon_context schema doc <> []) "the provenance fixture lost its choice block";
+  let result, diagnostic, text = diagnosed doc in
+  (match diagnostic with
+   | P.DocumentChecked (pending, [obligation]) ->
+       require (result = Some Z.one && Z.equal pending Z.one && Z.equal obligation.P.obligation_index Z.one &&
+                obligation.P.obligation_rule = U.Unverified "open-step")
+         "the epsilon obligation does not name its original entry"
+   | _ -> failwith "expected exactly one open step after epsilon elaboration");
+  require (contains text "\tnode=1\t" && contains text "  node 1: premises: #0\n")
+    "readable epsilon output lost the original node or premise ids";
+  require (not (contains text "no source-node mapping")) "readable epsilon output dropped a valid source mapping";
+  (* an ill-scoped entry after the used Skolem step is rejected at its own original index *)
+  let doc = document [skolem; { P.rule = U.Unverified "bad"; formula = A.Var (Z.zero, A.bool_sort); premise_ids = [] }] in
+  let result, diagnostic, text = diagnosed doc in
+  (match diagnostic with
+   | P.DocumentRejected (P.ProofEntry, Some index, _) ->
+       require (result = None && Z.equal index Z.one) "the epsilon rejection does not name its original entry"
+   | _ -> failwith "expected a proof-entry rejection after epsilon elaboration");
+  require (contains text "  node 1: rule=bad premises: none\n") "readable epsilon rejection lost its original entry";
+  (* a rejected original assertion is reported without any index (never an appended choice equation's) *)
+  let doc = { (document [skolem; { P.rule = U.Asserted; formula = RT.false_expr; premise_ids = [] }])
+              with P.assertions = [A.Var (Z.zero, A.bool_sort)] } in
+  let result, diagnostic, text = diagnosed doc in
+  require (result = None && diagnostic = P.DocumentRejected (P.OriginalAssertions, None, None))
+    "an epsilon assertion-stage rejection carried an index";
+  require (contains text "\tstage=original-assertions\tindex=-\n" && not (contains text "  node "))
+    "readable epsilon assertion rejection attached a node"
 
 let sorted_quantifier_rewrites () =
   let module K = Z3SortedProof in
@@ -6579,6 +6662,7 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
+     "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
      "sorted-constant-folding-rewrites", sorted_constant_folding;
      "sorted-native-universal-flattening", sorted_quantifier_flattening;
