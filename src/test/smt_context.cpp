@@ -5,6 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "smt/smt_case_split_queue.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
@@ -26,6 +27,49 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/smtlogics/smt_tactic.h"
 #include <cstring>
 #include <sstream>
+
+static void check_case_split_relevant_first() {
+    for (unsigned strategy : {0u, 1u, 2u}) {
+        for (unsigned relevancy : {0u, 2u}) {
+            for (unsigned setting : {0u, 1u, 2u}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                params_ref p;
+                p.set_bool("auto_config", false);
+                p.set_uint("case_split", strategy);
+                p.set_uint("relevancy", relevancy);
+                if (setting != 0)
+                    p.set_bool("case_split_relevant_first", setting == 2);
+                smt_params params;
+                params.updt_params(p);
+                params.m_random_var_freq = 0;
+                smt::context ctx(m, params, p);
+                ctx.push();
+                app_ref irrelevant(m.mk_const("irrelevant", m.mk_bool_sort()), m);
+                app_ref relevant(m.mk_const("relevant", m.mk_bool_sort()), m);
+                ctx.internalize(irrelevant, false);
+                ctx.internalize(relevant, false);
+                ctx.mark_as_relevant(relevant.get());
+                smt::bool_var vi = ctx.get_bool_var(irrelevant);
+                smt::bool_var vr = ctx.get_bool_var(relevant);
+                ctx.set_activity(vi, 2);
+                ctx.set_activity(vr, 1);
+                scoped_ptr<smt::case_split_queue> queue(smt::mk_case_split_queue(ctx, params));
+                queue->mk_var_eh(vi);
+                queue->mk_var_eh(vr);
+                bool relevant_first = setting == 2 && relevancy != 0;
+                smt::bool_var next;
+                lbool phase;
+                queue->next_case_split(next, phase);
+                VERIFY(next == (relevant_first ? vr : vi));
+                queue->next_case_split(next, phase);
+                VERIFY(next == (relevant_first ? vi : vr));
+                queue->next_case_split(next, phase);
+                VERIFY(next == smt::null_bool_var);
+            }
+        }
+    }
+}
 
 static void check_sat_smt_recfun(char const* input)
 {
@@ -788,6 +832,7 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_case_split_relevant_first();
     check_intblast_signed_mod();
     check_qsat_proofs();
     check_qe_rec_proofs();
