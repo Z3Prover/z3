@@ -266,7 +266,339 @@ let report_diagnostics diagnostic expected =
         (match source with None -> "" | Some e -> "\t" ^ fingerprint (Z3UnifiedProof.Holds e))
   | _ -> Z3Native.fail "Diagnostic result disagrees with document checker"
 
-let check_proof statistics diagnostics sorted_core start solved assertions proof =
+let result_text = function
+  | None -> "REJECT"
+  | Some n when Z.equal n Z.zero -> "ACCEPT"
+  | Some n -> "PARTIAL " ^ Z.to_string n
+
+(* [fingerprint] groups obligations and is deliberately lossy. --readable also renders what the
+   checker saw for one representative of each group: numeral values, bit-vector widths, declaration
+   parameters, array and binder sorts, and declaration identity. Every limit below is explicit and
+   leaves a "<...>" marker; nothing here feeds back into checking. *)
+module Readable = struct
+  module A = Z3AstTheory
+  module P = Z3ProofDocument
+  module U = Z3UnifiedProof
+
+  let max_depth = 48 and max_nodes = 1000 and max_chars = 4096 and max_name_bytes = 96
+  and max_digits = 100 and max_params = 16 and max_families = 20 and max_premises = 8
+  and max_report_chars = 131072
+
+  exception Limit of string
+
+  type state = { text : Buffer.t; mutable nodes : int; mutable cut : bool }
+
+  let add state piece =
+    if Buffer.length state.text + String.length piece > max_chars then raise (Limit "chars");
+    Buffer.add_string state.text piece
+
+  let digit_limit = Z.pow (Z.of_int 10) max_digits
+
+  (* Size is checked before conversion: a huge numeral never becomes a huge string. *)
+  let integer n =
+    if Z.numbits n <= 333 && Z.lt (Z.abs n) digit_limit then Z.to_string n
+    else Printf.sprintf "<%shuge integer: more than %d digits omitted>"
+        (if Z.sign n < 0 then "-" else "+") max_digits
+
+  let simple_character = function
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*'
+    | '_' | '-' | '+' | '=' | '<' | '>' | '.' | '?' | '/' -> true
+    | _ -> false
+
+  (* SMT-LIB symbol for [name] from byte [first]: simple when possible, otherwise |quoted| with
+     \xNN for control, invalid-UTF-8, '|' and '\' bytes. Long names are cut at [max_name_bytes]. *)
+  let symbol ?(first = 0) name =
+    let length = String.length name - first in
+    let shown = min length max_name_bytes in
+    let simple = ref (shown > 0 && (name.[first] < '0' || name.[first] > '9')) in
+    for i = first to first + shown - 1 do
+      if not (simple_character name.[i]) then simple := false
+    done;
+    if !simple && shown = length then String.sub name first length
+    else (
+      let quoted = Buffer.create (shown + 8) in
+      Buffer.add_char quoted '|';
+      let position = ref first in
+      while !position < first + shown do
+        let decoded = String.get_utf_8_uchar name !position in
+        let width = Uchar.utf_decode_length decoded in
+        let scalar = if Uchar.utf_decode_is_valid decoded
+          then Uchar.to_int (Uchar.utf_decode_uchar decoded) else -1 in
+        if scalar >= 0x20 && scalar <> 0x7f && (scalar < 0x80 || scalar >= 0xa0)
+           && scalar <> 0x7c && scalar <> 0x5c
+        then Buffer.add_string quoted (String.sub name !position width)
+        else
+          for j = !position to !position + width - 1 do
+            Buffer.add_string quoted (Printf.sprintf "\\x%02x" (Char.code name.[j]))
+          done;
+        position := !position + width
+      done;
+      if !position < String.length name then
+        Buffer.add_string quoted
+          (Printf.sprintf "...<%d more bytes>" (String.length name - !position));
+      Buffer.add_char quoted '|';
+      Buffer.contents quoted)
+
+  (* The native bridge names an opaque declaration "decl!ID:NAME" and a non-builtin sort
+     "sort!ID:NAME"; they are shown as NAME#ID, which keeps same-named symbols apart. *)
+  let identified prefix name =
+    let start = String.length prefix + 1 in
+    if String.length name > start && String.starts_with ~prefix:(prefix ^ "!") name then (
+      let stop = min (String.length name) (start + 21) in
+      let colon = ref start in
+      while !colon < stop && name.[!colon] <> ':' do incr colon done;
+      if !colon > start && !colon < stop then (
+        let digits = ref true in
+        for i = start to !colon - 1 do
+          if name.[i] < '0' || name.[i] > '9' then digits := false
+        done;
+        if !digits then Some (!colon + 1, String.sub name start (!colon - start)) else None)
+      else None)
+    else None
+
+  let rec sort state depth = function
+    | A.BaseSort name ->
+        add state (match identified "sort" name with
+                   | Some (first, id) -> symbol ~first name ^ "#" ^ id
+                   | None -> symbol name)
+    | A.ArraySort (domains, range) ->
+        if depth = 0 then (state.cut <- true; add state "<...depth>")
+        else (
+          add state "(Array";
+          List.iter (fun domain -> add state " "; sort state (depth - 1) domain) domains;
+          add state " ";
+          sort state (depth - 1) range;
+          add state ")")
+
+  let kind_name = function
+    | A.Forall_k -> "forall" | A.Exists_k -> "exists" | A.Lambda_k -> "lambda"
+
+  let parameters state = function
+    | [] -> ()
+    | values ->
+        add state "[";
+        List.iteri (fun i value ->
+          if i < max_params then (if i > 0 then add state ","; add state (integer value))) values;
+        let extra = List.length values - max_params in
+        if extra > 0 then add state (Printf.sprintf ",<%d more>" extra);
+        add state "]"
+
+  let datatype_marker k =
+    if Z.equal k Z3DatatypeLemma.op_constructor then "@constructor"
+    else if Z.equal k Z3DatatypeLemma.op_recognizer then "@recognizer"
+    else if Z.equal k Z3DatatypeLemma.op_accessor then "@accessor"
+    else ""
+
+  (* Sorts are equal if they are the same name or the same array of equal sorts. The comparison is bounded like the rendering (depth,
+     nodes, name bytes): when it cannot be completed the sorts count as different, which only prints more. *)
+  let max_compared_name_bytes = 4096
+
+  let same_sort a b =
+    let budget = ref max_nodes in
+    let rec go depth a b =
+      decr budget;
+      depth > 0 && !budget >= 0 &&
+      (match a, b with
+       | A.BaseSort x, A.BaseSort y ->
+           String.length x <= max_compared_name_bytes && String.equal x y
+       | A.ArraySort (d1, r1), A.ArraySort (d2, r2) ->
+           List.compare_lengths d1 d2 = 0 && List.for_all2 (go (depth - 1)) d1 d2 && go (depth - 1) r1 r2
+       | _ -> false)
+    in
+    go max_depth a b
+
+  (* A rational numeral shows its value (and its sort unless Int), a bit-vector numeral
+     (_ bvVALUE WIDTH). Every other head is NAME, followed by [reflected integer parameters]; an
+     uninterpreted head is NAME#ID (or NAME#- without a native id) and a datatype operation carries
+     @constructor, @recognizer or @accessor, each with its range sort after ':', so neither can
+     be mistaken for a builtin connective that shares its name. Every other interpreted head also
+     shows its range after ':', for example (const:(Array Int Int) 0), (select:Int a i) or
+     (extract[32,15,8]:BV8 x), because the arguments do not always carry it (the domain sorts of a
+     constant array occur nowhere in its arguments), except where the range is printed anyway or
+     needs no printing: Bool (connectives and predicates: an interpreted head without a range is
+     Bool) and the sort of the first argument, which that argument prints (+ * bvadd store, as in
+     SMT-LIB). [implied] says whether the range is the first argument's sort and that argument
+     prints its own: it is false when the argument would be cut by the depth or the node limit,
+     is a quantifier (a lambda prints its binder sorts, not its own sort), or the comparison was
+     not completed. *)
+  let head state ~implied decl =
+    match decl.A.interp, decl.A.int_params with
+    | Some k, [n; d] when Z.equal k Z3ValueTheory.op_num_rational ->
+        add state (integer n);
+        if not (Z.equal d Z.one) then add state ("/" ^ integer d);
+        (match decl.A.range with
+         | A.BaseSort "Int" -> ()
+         | range -> add state ":"; sort state max_depth range)
+    | Some k, [width; value] when Z.equal k Z3BvLemma.op_numeral ->
+        add state ("(_ bv" ^ integer value ^ " " ^ integer width ^ ")")
+    | interp, values ->
+        let name = decl.A.decl_name in
+        add state (match interp with
+                   | None ->
+                       (match identified "decl" name with
+                        | Some (first, id) -> symbol ~first name ^ "#" ^ id
+                        | None -> symbol name ^ "#-")
+                   | Some k -> symbol name ^ datatype_marker k);
+        parameters state values;
+        (match interp, decl.A.range with
+         | Some k, A.BaseSort "Bool" when datatype_marker k = "" -> ()
+         | Some k, _ when datatype_marker k = "" && Lazy.force implied -> ()
+         | _ -> add state ":"; sort state max_depth decl.A.range)
+
+  let rec expression state depth e =
+    if depth = 0 then (state.cut <- true; add state "<...depth>")
+    else (
+      if state.nodes >= max_nodes then raise (Limit "nodes");
+      state.nodes <- state.nodes + 1;
+      match e with
+      | A.Var (index, s) -> add state ("#" ^ integer index ^ ":"); sort state max_depth s
+      | A.Quantifier (kind, sorts, _, body) ->
+          add state ("(" ^ kind_name kind ^ " [");
+          List.iteri (fun i s -> if i > 0 then add state " "; sort state max_depth s) sorts;
+          add state "] ";
+          expression state (depth - 1) body;
+          add state ")"
+      | A.App (decl, []) -> head state ~implied:(lazy false) decl
+      | A.App (decl, arguments) ->
+          add state "(";
+          let first = List.hd arguments in
+          let implied = lazy (depth >= 2 && state.nodes < max_nodes &&
+                              (match first with
+                               | A.Quantifier _ -> false
+                               | _ -> same_sort decl.A.range (A.get_sort first))) in
+          head state ~implied decl;
+          List.iter (fun argument -> add state " "; expression state (depth - 1) argument) arguments;
+          add state ")")
+
+  let judgment state = function
+    | U.Holds e -> add state "holds("; expression state max_depth e; add state ")"
+    | U.Equal (left, right) ->
+        add state "equal("; expression state max_depth left; add state ", ";
+        expression state max_depth right; add state ")"
+    | U.Observational (left, right) ->
+        add state "observational("; expression state max_depth left; add state ", ";
+        expression state max_depth right; add state ")"
+
+  (* The bounded text of [write], and whether any limit cut it short. *)
+  let render write =
+    let state = { text = Buffer.create 256; nodes = 0; cut = false } in
+    (try write state with Limit reason ->
+       state.cut <- true;
+       Buffer.add_string state.text ("<..." ^ reason ^ ">"));
+    Buffer.contents state.text, state.cut
+
+  let judgment_text value = render (fun state -> judgment state value)
+
+  (* One readable block per query: the representative of each of the first [max_families]
+     obligation families, in the order of the machine rows. The node index is the position of the
+     obligation in the document's proof entries, which is where its premise ids are read from. *)
+  let report_text query verdict (doc : P.document) diagnostic =
+    let out = Buffer.create 1024 and full = ref false in
+    let emit block =
+      if not !full then
+        if Buffer.length out + String.length block > max_report_chars then full := true
+        else Buffer.add_string out block
+    in
+    let entry_at index =
+      if Z.sign index >= 0 && Z.fits_int index then List.nth_opt doc.P.entries (Z.to_int index)
+      else None
+    in
+    let premise_list = function
+      | [] -> "none"
+      | ids ->
+          let extra = List.length ids - max_premises in
+          String.concat " " (List.filteri (fun i _ -> i < max_premises) ids
+                             |> List.map (fun id -> "#" ^ integer id)) ^
+          (if extra > 0 then Printf.sprintf " ...<%d more>" extra else "")
+    in
+    let family_block position total rule count members (first : P.unmet_obligation) =
+      let b = Buffer.create 512 in
+      let index = first.P.obligation_index in
+      Printf.bprintf b "readable\tfamily=%d/%d\trule=%s\tcount=%s\tmembers=%d\tnode=%s\tnode-pending=%s\n"
+        position total rule (integer count) members (integer index)
+        (integer first.P.obligation_count);
+      let premises = first.P.obligation_premises in
+      let ids = match entry_at index with
+        | None -> Error "no document entry at this index"
+        | Some e when diagnostic_rule e.P.rule <> diagnostic_rule first.P.obligation_rule
+                      || List.length e.P.premise_ids <> List.length premises ->
+            Error "the document entry at this index has another rule or premise count"
+        | Some e -> Ok e.P.premise_ids in
+      (match ids with
+       | Ok ids -> Printf.bprintf b "  node %s: premises: %s\n" (integer index) (premise_list ids)
+       | Error reason ->
+           Printf.bprintf b "  node %s: no source-node mapping (%s): premise ids unavailable\n"
+             (integer index) reason);
+      List.iteri (fun k premise ->
+        if k < max_premises then (
+          let label = match ids with
+            | Ok ids -> "#" ^ integer (List.nth ids k)
+            | Error _ -> "[" ^ string_of_int k ^ "]" in
+          Printf.bprintf b "  premise %s: %s\n" label (fst (judgment_text premise)))) premises;
+      let extra = List.length premises - max_premises in
+      if extra > 0 then Printf.bprintf b "  ...<%d more premises omitted>\n" extra;
+      let conclusion, conclusion_cut = judgment_text first.P.obligation_conclusion in
+      Printf.bprintf b "  conclusion: %s\n" conclusion;
+      let source, source_cut = judgment_text (U.Holds first.P.obligation_source) in
+      if source = conclusion && not conclusion_cut && not source_cut
+      then Buffer.add_string b "  source formula: same as conclusion\n"
+      else Printf.bprintf b "  source formula: %s\n" source;
+      Buffer.contents b
+    in
+    (match diagnostic with
+     | P.DocumentChecked (pending, obligations) ->
+         let families = Hashtbl.create 32 in
+         List.iter (fun obligation ->
+           let key = diagnostic_rule obligation.P.obligation_rule,
+                     fingerprint obligation.P.obligation_conclusion in
+           let count, members, first =
+             match Hashtbl.find_opt families key with
+             | Some value -> value
+             | None -> Z.zero, 0, obligation in
+           Hashtbl.replace families key
+             (Z.add count obligation.P.obligation_count, members + 1, first)) obligations;
+         let ordered =
+           Hashtbl.to_seq families |> List.of_seq |>
+           List.sort (fun (key1, (n1, _, _)) (key2, (n2, _, _)) ->
+             let order = Z.compare n2 n1 in if order = 0 then compare key1 key2 else order) in
+         let total = List.length ordered in
+         let shown = min total max_families in
+         emit (Printf.sprintf "readable\tquery=%d\tverdict=%s\tpending=%s\tfamilies=%d\tshown=%d\n"
+                 query verdict (integer pending) total shown);
+         List.iteri (fun i ((rule, _), (count, members, first)) ->
+           if i < max_families then emit (family_block (i + 1) total rule count members first))
+           ordered;
+         if total > shown then
+           emit (Printf.sprintf "readable\tomitted\tfamilies=%d\treason=family-limit\n" (total - shown));
+         if !full then Buffer.add_string out "readable\tomitted\treason=report-size\n"
+     | P.DocumentRejected (stage, index, source) ->
+         let b = Buffer.create 256 in
+         Printf.bprintf b "readable\tquery=%d\tverdict=%s\tstage=%s\tindex=%s\n" query verdict
+           (diagnostic_stage stage) (match index with None -> "-" | Some n -> integer n);
+         (match stage, index with
+          | (P.ProofEntry | P.MissingPremise), Some i ->
+              (match entry_at i with
+               | Some e ->
+                   Printf.bprintf b "  node %s: rule=%s premises: %s\n" (integer i)
+                     (diagnostic_rule e.P.rule) (premise_list e.P.premise_ids)
+               | None ->
+                   Printf.bprintf b "  node %s: no source-node mapping (no document entry at this index)\n"
+                     (integer i))
+          | _ -> ());
+         (match source with
+          | Some e ->
+              Printf.bprintf b "  source formula: %s\n" (fst (judgment_text (U.Holds e)))
+          | None -> Buffer.add_string b "  source formula: none reported\n");
+         emit (Buffer.contents b));
+    Buffer.add_string out (Printf.sprintf "readable\tend\tquery=%d\n" query);
+    Buffer.contents out
+
+  let report query verdict doc diagnostic =
+    prerr_string (report_text query verdict doc diagnostic);
+    flush stderr
+end
+
+let check_proof statistics diagnostics readable query sorted_core start solved assertions proof =
   let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
@@ -294,6 +626,7 @@ let check_proof statistics diagnostics sorted_core start solved assertions proof
    | None -> ()
    | Some diagnostic ->
        report_diagnostics diagnostic result;
+       if readable then Readable.report query (result_text result) doc diagnostic;
        if statistics then
          Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->
@@ -310,11 +643,6 @@ let check_proof statistics diagnostics sorted_core start solved assertions proof
     "%s assertions=%d proof_edges=%d binder_nodes=%d binder_edges=%d pending=%s"
     summary (List.length assertions) edges binder_nodes binder_edges
     (match result with None -> "unknown" | Some n -> Z.to_string n)
-
-let result_text = function
-  | None -> "REJECT"
-  | Some n when Z.equal n Z.zero -> "ACCEPT"
-  | Some n -> "PARTIAL " ^ Z.to_string n
 
 let whitespace = function ' ' | '\t' | '\r' | '\n' -> true | _ -> false
 
@@ -377,15 +705,16 @@ let command_name text =
   in
   String.sub text first (finish first - first)
 
-let interactive statistics diagnostics sorted_core clause_proofs timeout =
+let interactive statistics diagnostics readable sorted_core clause_proofs timeout =
   let context = Z3Native.create_context timeout in
-  let error = ref false and rejected = ref false and partial = ref false in
+  let error = ref false and rejected = ref false and partial = ref false and queries = ref 0 in
   let start = ref (Unix.gettimeofday ()) in
   let registration = Z3native.set_proof_check_callback context (fun proof vector ->
+    incr queries;
     let solved = Unix.gettimeofday () in
     let assertions = List.init (Z3native.ast_vector_size context vector)
         (Z3native.ast_vector_get context vector) in
-    let result, summary = check_proof statistics diagnostics sorted_core !start solved assertions proof in
+    let result, summary = check_proof statistics diagnostics readable !queries sorted_core !start solved assertions proof in
     (match result with
      | None -> rejected := true
      | Some n -> if not (Z.equal n Z.zero) then partial := true);
@@ -436,7 +765,7 @@ let interactive statistics diagnostics sorted_core clause_proofs timeout =
 let run args =
   let statistics = ref false and diagnostics = ref false and sorted_core = ref false
   and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
-  and clause_proofs = ref false in
+  and clause_proofs = ref false and readable = ref false in
   let options = [
     "--interactive", Arg.Set interactive_mode,
       " Evaluate stdin commands incrementally and certify each UNSAT proof";
@@ -444,6 +773,8 @@ let run args =
       " Produce and certify clausal SMT search proofs using reverse unit propagation";
     "--stats", Arg.Set statistics, " Report phase timings and unique marshaled node counts";
     "--diagnostics", Arg.Set diagnostics, " Report typed unmet-obligation fingerprints on stderr";
+    "--readable", Arg.Set readable,
+      " Also print bounded readable pending/rejected conditions on stderr (implies --diagnostics)";
     "--sorted-core", Arg.Set sorted_core,
       " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
     "--timeout-ms", Arg.String (fun value ->
@@ -462,11 +793,12 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args))
-      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--sorted-core] [--timeout-ms N] [input.smt2]";
+      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] [--sorted-core] [--timeout-ms N] [input.smt2]";
+    if !readable then diagnostics := true;
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
-      exit (interactive !statistics !diagnostics !sorted_core !clause_proofs !timeout));
+      exit (interactive !statistics !diagnostics !readable !sorted_core !clause_proofs !timeout));
     let input =
       match !path with
       | None | Some "-" -> read_all stdin
@@ -482,7 +814,7 @@ let run args =
         Printf.printf "UNKNOWN %s\n" reason; exit 5
     | Z3Native.Unsat (assertions, proof) ->
         let solved = Unix.gettimeofday () in
-        let result, _ = check_proof !statistics !diagnostics !sorted_core start solved assertions proof in
+        let result, _ = check_proof !statistics !diagnostics !readable 1 !sorted_core start solved assertions proof in
         (match result with
          | None -> print_endline "REJECT"; exit 1
          | Some n when Z.equal n Z.zero -> print_endline "ACCEPT"; exit 0

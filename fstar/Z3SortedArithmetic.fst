@@ -16,10 +16,16 @@ module I = Z3SortedInteger
 module D = Z3Definitions
 module L = FStar.List.Tot
 
+(* Typed-root G2: `integer` is a GHOST specification (T.evaluate_at is ghost).
+   `valuation` stays a Tot `expr -> real`: FStar.Real.real is [@@erasable]
+   (non-informative), so the ghost integer read-back is promoted to a Tot
+   real-valued closure, as the polynomial denotation lemmas (E, P) expect.
+   The executable checkers (A.linearize, integer_formula, equivalent) are
+   unchanged. *)
 let integer (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
             (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
             (scope:list sort) (rho:V.environment base (S.signature s) scope)
-            (e:expr) : int =
+            (e:expr) : GTot int =
   if D.scoped scope e && get_sort e = A.int_s
   then I.number s model.integers (T.evaluate_at s bc model other scope rho e)
   else 0
