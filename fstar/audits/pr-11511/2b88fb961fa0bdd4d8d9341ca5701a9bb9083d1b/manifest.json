@@ -1,0 +1,22 @@
+{
+  "pull_request": 11511,
+  "head_sha": "2b88fb961fa0bdd4d8d9341ca5701a9bb9083d1b",
+  "base_sha": "dd4179a5500dfe5dea9ab923177f5a4339c4ffd1",
+  "path_prefix": "fstar/audits/pr-11511/2b88fb961fa0bdd4d8d9341ca5701a9bb9083d1b/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41311364005",
+  "files": [
+    {
+      "name": "Z3FiniteSetLocalRewrites.fst",
+      "sha256": "3afbaa6dadefd7004e0b9b4e74f0c0ecef551df3f929004ea9453cf405e72bdd"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "f1aca57b30bb31e29edb2cb5d0f631b228164756483ec9ee7900a4eda14ea6ad"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "41c0c188b4beb90c14e53fc4cc98c6c2bba9dff82ad5d9e504706661ffe6bce9"
+    }
+  ]
+}

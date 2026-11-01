@@ -44,6 +44,7 @@ class finite_set_rewriter {
     finite_set_util  u;
     expr_ref_vector m_pinned;
     expr_mark m_is_min;
+    params_ref m_params;
     
     expr * min(expr *a);
     std::pair<expr *, expr *> get_min(expr *a);
@@ -64,14 +65,15 @@ class finite_set_rewriter {
 
 public:
     finite_set_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m(m), u(m), m_pinned(m) {
+        m(m), u(m), m_pinned(m), m_params(p) {
     }
     
     family_id get_fid() const { return u.get_family_id(); }
     finite_set_util& util() { return u; }
+    void updt_params(params_ref const& p) { m_params.append(p); }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);   
 
     br_status mk_eq_core(expr *a, expr *b, expr_ref &result);
+    br_status mk_eq_bounded(expr *a, expr *b, expr_ref &result);
 };
-

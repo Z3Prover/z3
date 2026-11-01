@@ -21,9 +21,60 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/finite_set_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_substitution.h"
 
 class finite_set_rewriter_test {
 public:
+    void test_bounded_filters(bool proofs) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        finite_set_util fs(m);
+        arith_util a(m);
+        sort_ref ints(a.mk_int(), m);
+        sort_ref sets(fs.mk_finite_set_sort(ints), m);
+        expr_ref s(m.mk_const("S", sets), m), c(m.mk_const("c", ints), m);
+        expr_ref x(m.mk_var(0, ints), m), body(m.mk_eq(x, c), m);
+        symbol name("x");
+        sort* domain = ints;
+        quantifier_ref predicate(m.mk_lambda(1, &domain, &name, body), m);
+        expr_ref filtered(fs.mk_filter(predicate, s), m);
+        expr_ref empty(fs.mk_empty(sets), m), formula(m.mk_eq(filtered, empty), m);
+        expr_ref member(fs.mk_in(c, s), m), expected(m.mk_not(member), m), result(m);
+        finite_set_rewriter fs_rw(m);
+        ENSURE(fs_rw.mk_eq_core(filtered, empty, result) != BR_FAILED);
+        th_rewriter rw(m);
+        rw(expected);
+        ENSURE(result == expected);
+        proof_ref pr(m);
+        rw(formula, result, pr);
+        ENSURE(result == expected);
+        if (proofs)
+            ENSURE(pr && m.get_fact(pr) == m.mk_eq(formula, result));
+        expr_ref again(m);
+        rw(result, again);
+        ENSURE(again == result);
+        if (!proofs) {
+            expr_ref five(a.mk_int(5), m);
+            expr_dependency_ref dep(m.mk_leaf(c), m);
+            expr_substitution subst(m, true);
+            subst.insert(c, five, dep);
+            rw.set_substitution(&subst);
+            rw(formula, result);
+            member = fs.mk_in(five, s);
+            expected = m.mk_not(member);
+            th_rewriter normalize(m);
+            normalize(expected);
+            ENSURE(result == expected);
+            ENSURE(rw.get_used_dependencies() == dep.get());
+            expr_ref falsity(m.mk_false(), m);
+            subst.insert(formula, falsity);
+            rw.set_substitution(&subst);
+            rw(formula, result);
+            ENSURE(m.is_false(result));
+        }
+    }
+
     void test_union_idempotent() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -442,4 +493,6 @@ void tst_finite_set_rewriter() {
     test.test_in_singleton();
     test.test_in_empty();
     test.test_map_filter();
+    test.test_bounded_filters(false);
+    test.test_bounded_filters(true);
 }
