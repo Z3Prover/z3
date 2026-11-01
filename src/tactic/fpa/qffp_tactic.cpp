@@ -29,6 +29,7 @@ Notes:
 #include "ackermannization/ackermannize_bv_tactic.h"
 
 #include "tactic/fpa/qffp_tactic.h"
+#include "ast/datatype_decl_plugin.h"
 
 
 struct is_non_fp_qfnra_predicate {
@@ -152,4 +153,37 @@ probe * mk_is_qffp_probe() {
 
 probe * mk_is_qffpbv_probe() {
     return alloc(is_qffp_probe);
+}
+
+struct is_non_qffp_with_enums_predicate : is_non_qffp_predicate {
+    datatype_util du;
+    bool has_enum = false;
+    bool has_fp = false;
+
+    is_non_qffp_with_enums_predicate(ast_manager & m) : is_non_qffp_predicate(m), du(m) {}
+    using is_non_qffp_predicate::operator();
+
+    void operator()(app * n) {
+        sort * s = n->get_sort();
+        if (du.is_enum_sort(s)) {
+            if (!is_uninterp_const(n) && !du.is_constructor(n))
+                throw found();
+            has_enum = true;
+            return;
+        }
+        has_fp |= fu.is_float(s);
+        is_non_qffp_predicate::operator()(n);
+    }
+};
+
+class is_qffp_with_enums_probe : public probe {
+public:
+    result operator()(goal const & g) override {
+        is_non_qffp_with_enums_predicate predicate(g.m());
+        return !test(g, predicate) && predicate.has_fp && predicate.has_enum;
+    }
+};
+
+probe * mk_is_qffp_with_enums_probe() {
+    return alloc(is_qffp_with_enums_probe);
 }

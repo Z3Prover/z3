@@ -44,3 +44,6 @@ probe * mk_is_qffpbv_probe();
 Z3_ADD_PROBE(is_qffp, "is-qffp", "true if the goal is in QF_FP (floats).", mk_is_qffp_probe());
 Z3_ADD_PROBE(is_qffpbv, "is-qffpbv", "true if the goal is in QF_FPBV (floats+bit-vectors).", mk_is_qffpbv_probe());
 
+
+// Restricted mixed FP/finite-enum fragment for default tactic dispatch.
+probe * mk_is_qffp_with_enums_probe();

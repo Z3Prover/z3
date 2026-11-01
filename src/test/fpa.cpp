@@ -379,6 +379,51 @@ static void check_fp_commands(char const* input, char const* expected) {
     Z3_del_context(ctx);
 }
 
+static void test_default_fp_with_finite_enumeration() {
+    // An independent enum constraint must not hide the floating-point fragment
+    // from the default strategy. Use a resource budget, not a wall-clock bound.
+    check_fp_commands(R"(
+(set-option :rlimit 2000000)
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (= mode F))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "sat\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (= mode F))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+(get-value (mode))
+)", "sat\n((mode F))\n");
+
+    // No fixed constructor: UNSAT requires the enum's finite domain, including
+    // exclusion of the two unused three-bit encodings for this six-value sort.
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (distinct mode A B C D E F))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "unsat\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (= mode F))
+(assert (= x ((_ to_fp 8 24) #x3f800000)))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "unsat\n");
+}
+
 static void test_fma_small_significand() {
     char const* input =
         "(set-logic QF_FP)\n"
@@ -462,6 +507,7 @@ static void test_null_fp_arguments() {
 }
 
 void tst_fpa() {
+    test_default_fp_with_finite_enumeration();
     test_fma_small_significand();
     test_incremental_symbolic_to_fp_real();
     test_raw_nan_congruence();
