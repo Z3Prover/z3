@@ -115,8 +115,9 @@ struct is_non_qffp_predicate {
     bv_util       bu;
     fpa_util      fu;
     arith_util    au;
+    datatype_util du;
 
-    is_non_qffp_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m) {}
+    is_non_qffp_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m), du(m) {}
 
     void operator()(var *) { throw found(); }
 
@@ -124,12 +125,12 @@ struct is_non_qffp_predicate {
 
     void operator()(app * n) {
         sort * s = n->get_sort();
-        if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s) && !au.is_real(s))
+        if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s) && !au.is_real(s) && !du.is_enum_sort(s))
             throw found();
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id())
             return;
-        if (fid == fu.get_family_id() || fid == bu.get_family_id())
+        if (fid == fu.get_family_id() || fid == bu.get_family_id() || fid == du.get_family_id())
             return;
         if (is_uninterp_const(n))
             return;
@@ -153,37 +154,4 @@ probe * mk_is_qffp_probe() {
 
 probe * mk_is_qffpbv_probe() {
     return alloc(is_qffp_probe);
-}
-
-struct is_non_qffp_with_enums_predicate : is_non_qffp_predicate {
-    datatype_util du;
-    bool has_enum = false;
-    bool has_fp = false;
-
-    is_non_qffp_with_enums_predicate(ast_manager & m) : is_non_qffp_predicate(m), du(m) {}
-    using is_non_qffp_predicate::operator();
-
-    void operator()(app * n) {
-        sort * s = n->get_sort();
-        if (du.is_enum_sort(s)) {
-            if (!is_uninterp_const(n) && !du.is_constructor(n))
-                throw found();
-            has_enum = true;
-            return;
-        }
-        has_fp |= fu.is_float(s);
-        is_non_qffp_predicate::operator()(n);
-    }
-};
-
-class is_qffp_with_enums_probe : public probe {
-public:
-    result operator()(goal const & g) override {
-        is_non_qffp_with_enums_predicate predicate(g.m());
-        return !test(g, predicate) && predicate.has_fp && predicate.has_enum;
-    }
-};
-
-probe * mk_is_qffp_with_enums_probe() {
-    return alloc(is_qffp_with_enums_probe);
 }

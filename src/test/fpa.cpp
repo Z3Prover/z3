@@ -379,6 +379,107 @@ static void check_fp_commands(char const* input, char const* expected) {
     Z3_del_context(ctx);
 }
 
+static void test_qffp_enumeration_probe() {
+    struct test_case {
+        char const* input;
+        bool expected;
+    };
+    test_case tests[] = {
+        {"(assert (= mode A))\n", true},
+        {"(assert (= mode (ite p A B)))\n", true},
+        {"(assert ((_ is A) mode))\n", true},
+        {"(declare-fun f (Mode) Mode)\n(assert (= (f mode) A))\n", false},
+        {"(declare-const a (Array Mode Mode))\n(assert (= (select a mode) A))\n", false},
+        {"(declare-datatype NodeList ((nil) (cons (tail NodeList))))\n"
+         "(declare-const l NodeList)\n(assert ((_ is nil) l))\n", false},
+        {"(assert (forall ((m Mode)) (= m A)))\n", false},
+    };
+    for (auto const& test : tests) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string input =
+            "(declare-datatype Mode ((A) (B)))\n"
+            "(declare-const mode Mode)\n"
+            "(declare-const p Bool)\n";
+        input += test.input;
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, input.c_str(), 0, nullptr, nullptr, 0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        Z3_goal goal = Z3_mk_goal(ctx, true, false, false);
+        Z3_goal_inc_ref(ctx, goal);
+        for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+            Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+        for (char const* name : {"is-qffp", "is-qffpbv"}) {
+            Z3_probe probe = Z3_mk_probe(ctx, name);
+            Z3_probe_inc_ref(ctx, probe);
+            ENSURE(Z3_probe_apply(ctx, probe, goal) == (test.expected ? 1.0 : 0.0));
+            Z3_probe_dec_ref(ctx, probe);
+        }
+        Z3_goal_dec_ref(ctx, goal);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_del_context(ctx);
+    }
+}
+
+static void test_default_fp_enumeration_modes() {
+    for (unsigned mode : {0u, 1u, 2u}) {
+        Z3_config cfg = Z3_mk_config();
+        if (mode == 2)
+            Z3_set_param_value(cfg, "proof", "true");
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_tactic tactic = Z3_mk_tactic(ctx, "default");
+        Z3_tactic_inc_ref(ctx, tactic);
+        Z3_solver solver = Z3_mk_solver_from_tactic(ctx, tactic);
+        Z3_solver_inc_ref(ctx, solver);
+        if (mode == 1) {
+            Z3_params params = Z3_mk_params(ctx);
+            Z3_params_inc_ref(ctx, params);
+            Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "unsat_core"), true);
+            Z3_solver_set_params(ctx, solver, params);
+            Z3_params_dec_ref(ctx, params);
+        }
+        char const* input =
+            "(declare-datatype Mode ((A) (B)))\n"
+            "(declare-const u Mode)\n"
+            "(declare-const v Mode)\n"
+            "(declare-const w Mode)\n"
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(assert (fp.isNaN (fp.sqrt RNE x)))\n"
+            "(assert (distinct u v))\n"
+            "(assert (distinct v w))\n"
+            "(assert (distinct u w))\n";
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, input, 0, nullptr, nullptr, 0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        char const* names[] = {"uv", "vw", "uw"};
+        auto assert_formula = [&](unsigned i) {
+            Z3_ast a = Z3_ast_vector_get(ctx, assertions, i);
+            if (mode == 1 && i > 0) {
+                Z3_ast label = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, names[i - 1]), Z3_mk_bool_sort(ctx));
+                Z3_solver_assert_and_track(ctx, solver, a, label);
+            }
+            else
+                Z3_solver_assert(ctx, solver, a);
+        };
+        for (unsigned i = 0; i < 3; ++i)
+            assert_formula(i);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+        Z3_solver_push(ctx, solver);
+        assert_formula(3);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+        if (mode == 1)
+            ENSURE(Z3_ast_vector_size(ctx, Z3_solver_get_unsat_core(ctx, solver)) == 3);
+        if (mode == 2)
+            ENSURE(Z3_solver_get_proof(ctx, solver) != nullptr);
+        Z3_solver_pop(ctx, solver, 1);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_solver_dec_ref(ctx, solver);
+        Z3_tactic_dec_ref(ctx, tactic);
+        Z3_del_context(ctx);
+    }
+}
+
 static void test_default_fp_with_finite_enumeration() {
     // An independent enum constraint must not hide the floating-point fragment
     // from the default strategy. Use a resource budget, not a wall-clock bound.
@@ -410,6 +511,16 @@ static void test_default_fp_with_finite_enumeration() {
 (declare-const mode Mode)
 (assert (distinct mode A B C D E F))
 (assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "unsat\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 5 11))
+(declare-datatype Mode ((A) (B)))
+(declare-const mode Mode)
+(assert (= mode (ite (fp.isNaN x) A B)))
+(assert ((_ is A) mode))
+(assert (not (fp.isNaN x)))
 (check-sat-using default)
 )", "unsat\n");
 
@@ -507,6 +618,8 @@ static void test_null_fp_arguments() {
 }
 
 void tst_fpa() {
+    test_qffp_enumeration_probe();
+    test_default_fp_enumeration_modes();
     test_default_fp_with_finite_enumeration();
     test_fma_small_significand();
     test_incremental_symbolic_to_fp_real();
