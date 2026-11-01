@@ -110,10 +110,12 @@ public:
         app * cls                 = to_app(in->form(cls_pos));
         expr_dependency * cls_dep = in->dep(cls_pos);
         if (produce_proofs)
-            in->set(alloc(split_pc, m, cls, in->pr(cls_pos)));
+            in->add(alloc(split_pc, m, cls, in->pr(cls_pos)));
         report_tactic_progress(":num-new-branches", cls->get_num_args());
         for (expr* lit_i : *cls) {
             goal * subgoal_i = alloc(goal, *in);
+            // The parent chain runs after the split hypotheses are discharged.
+            subgoal_i->set(static_cast<proof_converter*>(nullptr));
             subgoal_i->set(in->mc());
             proof * pr_i = nullptr;
             if (produce_proofs)

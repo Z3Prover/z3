@@ -1,0 +1,10 @@
+F* 2026.10.25
+platform=Windows_x64
+system=Win32
+compiler=OCaml 5.3.0
+date=2026-10-25 15:48:28 +0000
+commit=362e792b3aa882f1766b95c7450e3fe63081163d
+Z3 version 5.3.4 - 64 bit - build hashcode dd4179a5500dfe5dea9ab923177f5a4339c4ffd1
+Command: F* --message_format human --warn_error @1..999 --smt Z3 --z3version <detected> Dt2BvProofConverter.fst
+Verified module: Dt2BvProofConverter
+All verification conditions discharged successfully

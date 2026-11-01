@@ -26,7 +26,7 @@ class enum2bv_rewriter {
     struct imp;
     imp* m_imp;
 public:
-    enum2bv_rewriter(ast_manager & m, params_ref const& p);
+    enum2bv_rewriter(ast_manager & m, params_ref const& p, bool produce_proofs = true);
     ~enum2bv_rewriter();
 
     void updt_params(params_ref const & p);

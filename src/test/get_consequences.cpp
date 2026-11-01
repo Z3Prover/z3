@@ -11,7 +11,17 @@ Copyright (c) 2016 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "tactic/bv/dt2bv_tactic.h"
+#include "tactic/bv/dt2bv_proof_converter.h"
+#include "ast/converters/proof_converter.h"
+#include "ast/for_each_expr.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/proofs/proof_utils.h"
+#include "params/smt_params.h"
+#include "smt/smt_kernel.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/split_clause_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "smt/smt_solver.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
@@ -279,6 +289,220 @@ static void test_datatype_accessor_consequences() {
     ENSURE(found_a && found_b);
 }
 
+static void check_dt2bv_proof(ast_manager& m, proof* proof, obj_hashtable<expr> const& originals) {
+    bv_util bv(m);
+    ENSURE(proof && m.is_false(m.get_fact(proof)) && proof_utils::is_closed(m, proof));
+    auto check_leaves = [&](expr* e) {
+        if (m.is_asserted(e))
+            ENSURE(originals.contains(m.get_fact(to_app(e))));
+        ENSURE(!is_uninterp_const(e) || !bv.is_bv(e));
+    };
+    for_each_expr(check_leaves, proof);
+    proof_checker checker(m);
+    expr_ref_vector conditions(m);
+    ENSURE(checker.check(proof, conditions));
+    for (expr* condition : conditions) {
+        smt_params params;
+        smt::kernel check(m, params);
+        expr_ref negation(m.mk_not(condition), m);
+        check.assert_expr(negation);
+        ENSURE(check.check() == l_false);
+    }
+}
+
+class counting_proof_converter : public proof_converter {
+    unsigned& m_calls;
+public:
+    counting_proof_converter(unsigned& calls): m_calls(calls) {}
+
+    proof_ref operator()(ast_manager& m, unsigned num_source, proof* const* source) override {
+        ENSURE(num_source == 1 && source[0] && proof_utils::is_closed(m, source[0]));
+        bv_util bv(m);
+        auto check_encoding = [&](expr* e) { ENSURE(!is_uninterp_const(e) || !bv.is_bv(e)); };
+        for_each_expr(check_encoding, source[0]);
+        ++m_calls;
+        return proof_ref(source[0], m);
+    }
+
+    proof_converter* translate(ast_translation&) override {
+        return alloc(counting_proof_converter, m_calls);
+    }
+
+    void display(std::ostream& out) override { out << "(counting-proof-converter)\n"; }
+};
+
+static void test_dt2bv_proofs() {
+    for (unsigned count : {1u, 2u, 3u, 5u}) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        datatype_util dt(m);
+        bv_util bv(m);
+        ptr_vector<constructor_decl> declarations;
+        for (unsigned i = 0; i < count; ++i)
+            declarations.push_back(mk_constructor_decl(symbol(i), symbol(i + count), 0, nullptr));
+        datatype_decl* enumeration = mk_datatype_decl(dt, symbol("Enum"), 0, nullptr,
+                                                      count, declarations.data());
+        sort_ref_vector sorts(m);
+        ENSURE(dt.plugin().mk_datatypes(1, &enumeration, 0, nullptr, sorts));
+        expr_ref x = mk_const(m, "x", sorts.get(0));
+        auto const& constructors = *dt.get_datatype_constructors(sorts.get(0));
+        goal_ref input = alloc(goal, m, true, true, false);
+        obj_hashtable<expr> originals;
+        for (func_decl* constructor : constructors) {
+            expr_ref value(m.mk_const(constructor), m);
+            expr_ref equation(m.mk_eq(x, value), m);
+            expr_ref assertion(m.mk_not(equation), m);
+            originals.insert(assertion);
+            input->assert_expr(assertion);
+        }
+        tactic_ref tactic = mk_dt2bv_tactic(m);
+        goal_ref_buffer result;
+        (*tactic)(input, result);
+        ENSURE(result.size() == 1);
+        proof_converter_ref converter = result[0]->pc();
+        ENSURE(converter);
+        ref<solver> backend = mk_smt_solver(m, params_ref(), symbol::null);
+        for (unsigned i = 0; i < result[0]->size(); ++i)
+            backend->assert_expr(result[0]->form(i));
+        ENSURE(backend->check_sat(0, nullptr) == l_false);
+        proof_ref proof(backend->get_proof(), m);
+        apply(m, converter.get(), proof);
+        check_dt2bv_proof(m, proof, originals);
+
+        ast_manager target(PGM_ENABLED);
+        reg_decl_plugins(target);
+        ast_translation translation(m, target);
+        proof_converter_ref translated = converter->translate(translation);
+        proof_ref target_proof(translation(backend->get_proof()), target);
+        apply(target, translated.get(), target_proof);
+        obj_hashtable<expr> target_originals;
+        for (expr* original : originals)
+            target_originals.insert(translation(original));
+        check_dt2bv_proof(target, target_proof, target_originals);
+
+        proof_ref foreign(m.mk_asserted(m.mk_false()), m);
+        bool rejected = false;
+        try { apply(m, converter.get(), foreign); }
+        catch (tactic_exception const&) { rejected = true; }
+        ENSURE(rejected);
+
+        if (count > 1) {
+            expr_ref first(m.mk_const(constructors[0]), m), second(m.mk_const(constructors[1]), m);
+            expr_ref eq_first(m.mk_eq(x, first), m), eq_second(m.mk_eq(x, second), m);
+            expr_ref clause(m.mk_or(eq_first, eq_second), m);
+            originals.insert(clause);
+            for (unsigned composition : {0u, 1u, 2u}) {
+                unsigned conversions = 0;
+                goal_ref branch = alloc(goal, m, true, true, false);
+                branch->add(alloc(counting_proof_converter, conversions));
+                branch->assert_expr(clause);
+                branch->assert_expr(m.mk_not(eq_first));
+                branch->assert_expr(m.mk_not(eq_second));
+                tactic_ref encode = mk_dt2bv_tactic(m);
+                tactic_ref split = mk_split_clause_tactic();
+                tactic_ref smt = mk_smt_tactic(m);
+                tactic_ref pipeline;
+                if (composition == 0)
+                    pipeline = and_then(encode.get(), split.get(), smt.get());
+                else if (composition == 1)
+                    pipeline = and_then(split.get(), encode.get(), smt.get());
+                else {
+                    tactic_ref step = or_else(split.get(), smt.get());
+                    tactic_ref repeated = repeat(step.get(), 4);
+                    pipeline = and_then(encode.get(), repeated.get());
+                }
+                model_ref model;
+                labels_vec labels;
+                expr_dependency_ref core(m);
+                std::string reason;
+                ENSURE(check_sat(*pipeline, branch, model, labels, proof, core, reason) == l_false);
+                ENSURE(conversions == 1);
+                check_dt2bv_proof(m, proof, originals);
+            }
+            goal_ref no_proofs = alloc(goal, m, false, true, false);
+            no_proofs->assert_expr(clause);
+            no_proofs->assert_expr(m.mk_not(eq_first));
+            no_proofs->assert_expr(m.mk_not(eq_second));
+            tactic_ref encode = mk_dt2bv_tactic(m);
+            tactic_ref split = mk_split_clause_tactic();
+            tactic_ref smt = mk_smt_tactic(m);
+            tactic_ref pipeline = and_then(encode.get(), split.get(), smt.get());
+            model_ref model;
+            labels_vec labels;
+            expr_dependency_ref core(m);
+            std::string reason;
+            ENSURE(check_sat(*pipeline, no_proofs, model, labels, proof, core, reason) == l_false);
+            ENSURE(!proof && !no_proofs->pc());
+        }
+
+        if (count == 2) {
+            expr_ref fresh = mk_bv(m, "binding", 1);
+            expr_ref first(m.mk_const(constructors[0]), m);
+            expr_ref condition(m.mk_eq(x, first), m);
+            expr_ref zero(bv.mk_numeral(0, 1), m), one(bv.mk_numeral(1, 1), m);
+            expr_ref encoding(m.mk_ite(condition, zero, one), m);
+            sort* domain = fresh->get_sort();
+            symbol name("z");
+            func_decl_ref predicate(m.mk_func_decl(symbol("P"), 1, &domain, m.mk_bool_sort()), m);
+            expr_ref variable(m.mk_var(0, domain), m);
+            expr_ref body(m.mk_app(predicate.get(), variable), m);
+            expr_ref quantified(m.mk_forall(1, &domain, &name, body), m);
+            expr_ref instance(m.mk_app(predicate.get(), fresh), m);
+            expr_ref encoded_instance(m.mk_app(predicate.get(), encoding), m);
+            expr_ref original_not(m.mk_not(encoded_instance), m);
+            expr_ref instance_clause(m.mk_or(m.mk_not(quantified), instance), m);
+            expr* binding = fresh;
+            proof_ref instantiation(m.mk_quant_inst(instance_clause, 1, &binding), m);
+            proof_ref universal(m.mk_asserted(quantified), m);
+            proof_ref negated(m.mk_asserted(m.mk_not(instance)), m);
+            proof = m.mk_unit_resolution({instantiation, universal, negated}, m.mk_false());
+            dt2bv_proof_converter parameters(m);
+            parameters.insert_enum(to_app(x)->get_decl(), to_app(fresh)->get_decl());
+            parameters.insert(universal, quantified);
+            proof_ref original(m.mk_asserted(original_not), m);
+            parameters.insert(original, m.mk_not(instance));
+            apply(m, &parameters, proof);
+            obj_hashtable<expr> parameter_originals;
+            parameter_originals.insert(quantified);
+            parameter_originals.insert(original_not);
+            check_dt2bv_proof(m, proof, parameter_originals);
+            bool found = false;
+            auto check_binding = [&](expr* e) {
+                if (m.is_quant_inst(e)) {
+                    found = true;
+                    auto const& parameter = to_app(e)->get_decl()->get_parameter(0);
+                    ENSURE(parameter.is_ast() && parameter.get_ast() == encoding);
+                }
+            };
+            for_each_expr(check_binding, proof);
+            ENSURE(found);
+            parameter payload[] = {parameter(symbol("bv")), parameter(to_app(fresh)->get_decl())};
+            expr* false_fact = m.mk_false();
+            proof_ref unsupported(m.mk_app(m.get_basic_family_id(), PR_TH_LEMMA, 2, payload,
+                                            1, &false_fact), m);
+            rejected = false;
+            try { apply(m, &parameters, unsupported); }
+            catch (tactic_exception const&) { rejected = true; }
+            ENSURE(rejected);
+        }
+
+        if (count == 3) {
+            dt2bv_proof_converter bad(m);
+            expr_ref fresh = mk_bv(m, "bad", 2);
+            bad.insert_enum(to_app(x)->get_decl(), to_app(fresh)->get_decl());
+            expr_ref numeral(bv.mk_numeral(0, 2), m);
+            expr_ref wrong(m.mk_eq(fresh, numeral), m);
+            expr_ref value(m.mk_const(constructors[0]), m);
+            expr_ref equation(m.mk_eq(x, value), m);
+            proof_ref original(m.mk_asserted(m.mk_not(equation)), m);
+            rejected = false;
+            try { bad.insert(original, wrong); }
+            catch (tactic_exception const&) { rejected = true; }
+            ENSURE(rejected);
+        }
+    }
+}
+
 void tst_get_consequences() {
     test1();
     test2();
@@ -286,4 +510,5 @@ void tst_get_consequences() {
     test_bounded_int_translation();
     test_cardinality_consequences_after_check();
     test_datatype_accessor_consequences();
+    test_dt2bv_proofs();
 }
