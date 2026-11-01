@@ -22,7 +22,7 @@ Revision History:
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
-#include "ast/simplifiers/finite_set_simplifier.h"
+#include "ast/simplifiers/rewriter_simplifier.h"
 #include <string>
 
 static void tst_finite_set_basic() {
@@ -661,6 +661,20 @@ static void tst_finite_set_lambda_predicates(bool reuse_witness) {
     Z3_del_context(ctx);
 }
 
+static bool contains_finite_set_filter(Z3_context ctx, Z3_ast e) {
+    if (Z3_get_ast_kind(ctx, e) == Z3_QUANTIFIER_AST)
+        return contains_finite_set_filter(ctx, Z3_get_quantifier_body(ctx, e));
+    if (Z3_get_ast_kind(ctx, e) != Z3_APP_AST)
+        return false;
+    Z3_app app = Z3_to_app(ctx, e);
+    if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, app)) == Z3_OP_FINITE_SET_FILTER)
+        return true;
+    for (unsigned i = 0; i < Z3_get_app_num_args(ctx, app); ++i)
+        if (contains_finite_set_filter(ctx, Z3_get_app_arg(ctx, app, i)))
+            return true;
+    return false;
+}
+
 static void check_finite_set_simplification(char const* input, char const* expected) {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -686,10 +700,20 @@ static void check_finite_set_simplification(char const* input, char const* expec
     Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, source.c_str(), 0, nullptr, nullptr, 0, nullptr, nullptr);
     Z3_ast_vector_inc_ref(ctx, assertions);
     ENSURE(Z3_ast_vector_size(ctx, assertions) == 2);
+    Z3_ast direct = Z3_simplify(ctx, Z3_ast_vector_get(ctx, assertions, 0));
+    Z3_ast wanted = Z3_simplify(ctx, Z3_ast_vector_get(ctx, assertions, 1));
+    if (!Z3_is_eq_ast(ctx, direct, wanted)) {
+        std::cout << "Input: " << input << "\nDefault simplify: " << Z3_ast_to_string(ctx, direct)
+                  << "\nExpected: " << Z3_ast_to_string(ctx, wanted) << "\n";
+        ENSURE(false);
+    }
+    ENSURE(Z3_is_eq_ast(ctx, Z3_simplify(ctx, direct), direct));
+    if (std::string(input) == expected)
+        ENSURE(contains_finite_set_filter(ctx, direct));
     Z3_goal goal = Z3_mk_goal(ctx, true, false, false);
     Z3_goal_inc_ref(ctx, goal);
     Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, 0));
-    Z3_tactic tactic = Z3_mk_tactic(ctx, "finite-set-simplify");
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "simplify");
     Z3_tactic_inc_ref(ctx, tactic);
     Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
     Z3_apply_result_inc_ref(ctx, result);
@@ -699,7 +723,6 @@ static void check_finite_set_simplification(char const* input, char const* expec
     for (unsigned i = 0; i < Z3_goal_size(ctx, simplified); ++i)
         formulas.push_back(Z3_goal_formula(ctx, simplified, i));
     Z3_ast actual = Z3_simplify(ctx, Z3_mk_and(ctx, formulas.size(), formulas.data()));
-    Z3_ast wanted = Z3_simplify(ctx, Z3_ast_vector_get(ctx, assertions, 1));
     if (!Z3_is_eq_ast(ctx, actual, wanted)) {
         std::cout << "Input: " << input << "\nActual: " << Z3_ast_to_string(ctx, actual)
                   << "\nExpected: " << Z3_ast_to_string(ctx, wanted) << "\n";
@@ -712,7 +735,7 @@ static void check_finite_set_simplification(char const* input, char const* expec
     Z3_del_context(ctx);
 }
 
-static void tst_finite_set_simplifier() {
+static void tst_finite_set_simplify() {
     check_finite_set_simplification(
         "(= (set.filter (lambda ((x Int)) b) S) S)",
         "(or (= S (as set.empty (FiniteSet Int))) b)");
@@ -790,7 +813,7 @@ static void tst_finite_set_simplifier() {
         check_finite_set_simplification(input, input);
 }
 
-static void tst_finite_set_simplifier_state(bool proofs) {
+static void tst_finite_set_rewriter_state(bool proofs) {
     ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
     reg_decl_plugins(m);
     finite_set_util fs(m);
@@ -809,30 +832,25 @@ static void tst_finite_set_simplifier_state(bool proofs) {
     state.add(dependent_expr(m, formula, pr, dep));
     state.advance_qhead();
     state.add(dependent_expr(m, formula, pr, dep));
-    finite_set_simplifier simplify(m, params_ref(), state);
+    rewriter_simplifier simplify(m, params_ref(), state);
     simplify.reduce();
     ENSURE(state[0].fml() == formula);
-    if (proofs) {
-        ENSURE(state[1].fml() == formula);
-        ENSURE(state[1].pr() == pr.get());
-        return;
-    }
     ENSURE(state[1].fml() != formula);
     ENSURE(state[1].dep() == dep.get());
+    if (proofs)
+        ENSURE(state[1].pr() && m.get_fact(state[1].pr()) == state[1].fml());
     expr_ref result(state[1].fml(), m);
     simplify.reduce();
     ENSURE(state[1].fml() == result);
 }
 
-static void tst_finite_set_tactic() {
+static void tst_finite_set_solver() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
-    Z3_tactic tactic = Z3_mk_tactic(ctx, "finite-set");
-    Z3_tactic_inc_ref(ctx, tactic);
-    Z3_solver base = Z3_mk_solver_from_tactic(ctx, tactic);
+    Z3_solver base = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, base);
-    Z3_simplifier simplifier = Z3_mk_simplifier(ctx, "finite-set-simplify");
+    Z3_simplifier simplifier = Z3_mk_simplifier(ctx, "simplify");
     Z3_simplifier_inc_ref(ctx, simplifier);
     Z3_solver solver = Z3_solver_add_simplifier(ctx, base, simplifier);
     Z3_solver_inc_ref(ctx, solver);
@@ -860,7 +878,7 @@ static void tst_finite_set_tactic() {
     Z3_simplifier_dec_ref(ctx, simplifier);
     Z3_solver_dec_ref(ctx, base);
 
-    Z3_solver core_solver = Z3_mk_solver_from_tactic(ctx, tactic);
+    Z3_solver core_solver = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, core_solver);
     Z3_params params = Z3_mk_params(ctx);
     Z3_params_inc_ref(ctx, params);
@@ -879,18 +897,9 @@ static void tst_finite_set_tactic() {
     }
     ENSURE(Z3_solver_check(ctx, core_solver) == Z3_L_FALSE);
     ENSURE(Z3_ast_vector_size(ctx, Z3_solver_get_unsat_core(ctx, core_solver)) == 2);
-    Z3_stats stats = Z3_solver_get_statistics(ctx, core_solver);
-    Z3_stats_inc_ref(ctx, stats);
-    bool invoked = false;
-    for (unsigned i = 0; i < Z3_stats_size(ctx, stats); ++i)
-        if (std::string(Z3_stats_get_key(ctx, stats, i)) == "finite-set-simplify-fixed-points")
-            invoked |= Z3_stats_get_uint_value(ctx, stats, i) > 0;
-    ENSURE(invoked);
-    Z3_stats_dec_ref(ctx, stats);
     Z3_ast_vector_dec_ref(ctx, core_assertions);
     Z3_params_dec_ref(ctx, params);
     Z3_solver_dec_ref(ctx, core_solver);
-    Z3_tactic_dec_ref(ctx, tactic);
     Z3_del_context(ctx);
 }
 
@@ -908,8 +917,8 @@ void tst_finite_set() {
     tst_finite_set_lambda_filter();
     tst_finite_set_lambda_predicates(false);
     tst_finite_set_lambda_predicates(true);
-    tst_finite_set_simplifier();
-    tst_finite_set_simplifier_state(false);
-    tst_finite_set_simplifier_state(true);
-    tst_finite_set_tactic();
+    tst_finite_set_simplify();
+    tst_finite_set_rewriter_state(false);
+    tst_finite_set_rewriter_state(true);
+    tst_finite_set_solver();
 }
