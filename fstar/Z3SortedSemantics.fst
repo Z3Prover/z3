@@ -10,9 +10,12 @@ module D = Z3Definitions
 module L = FStar.List.Tot
 module I = Z3SortedInteger
 
+(* Typed-root G2 slice: scalar equality is a GHOST decision (equality of
+   reals, of array functions and of uninterpreted carrier elements has no Tot
+   decision procedure); its payload is still an ordinary bool. *)
 noeq
 type scalar_equality (base:sort -> Type0) = {
-  equal_scalar: s:sort -> base s -> base s -> bool;
+  equal_scalar: s:sort -> base s -> base s -> GTot bool;
   scalar_equality_correct: u:unit{
     forall (s:sort) (x y:base s). equal_scalar s x y <==> x == y};
 }
@@ -25,7 +28,7 @@ type scalar_model (base:sort -> Type0) = {
 
 let rec equal_tree (#base:sort -> Type0) (equality:scalar_equality base)
                    (x y:V.tree base)
-  : Tot bool (decreases x) =
+  : GTot bool (decreases x) =
   match x, y with
   | V.Scalar s a, V.Scalar t b ->
     if s = t then equality.equal_scalar s a b else false
@@ -35,7 +38,7 @@ let rec equal_tree (#base:sort -> Type0) (equality:scalar_equality base)
 
 and equal_fields (#base:sort -> Type0) (equality:scalar_equality base)
                  (xs ys:list (V.tree base))
-  : Tot bool (decreases xs) =
+  : GTot bool (decreases xs) =
   match xs, ys with
   | [], [] -> true
   | x :: rest, y :: tail -> equal_tree equality x y && equal_fields equality rest tail
@@ -146,10 +149,12 @@ let classify (f:func_decl) : op:operation{operation_typed f op} =
   | [_; s; _] -> if f = ite_decl s then Choice s else Other
   | _ -> Other
 
+(* Ghost specification (the `other` interpretation and scalar equality are
+   ghost); `classify` above stays Tot and executable. *)
 let application (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                 (equality:scalar_model base) (other:V.interpretation base (S.signature s))
                 (f:func_decl) (xs:V.arguments base (S.signature s) f.domain)
-  : V.value base (S.signature s) f.range =
+  : GTot (V.value base (S.signature s) f.range) =
   match classify f with
   | Constant b -> boolean s bc b
   | Negation ->
@@ -185,25 +190,25 @@ let evaluate_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
              (equality:scalar_model base) (other:V.interpretation base (S.signature s))
              (scope:list sort) (rho:V.environment base (S.signature s) scope)
              (e:expr{D.scoped scope e})
-  : V.value base (S.signature s) (get_sort e) =
+  : GTot (V.value base (S.signature s) (get_sort e)) =
   V.evaluate (S.signature s) (interpretation s bc equality other) scope rho e
 
 let evaluate (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
              (equality:scalar_model base) (other:V.interpretation base (S.signature s))
              (e:expr{D.scoped [] e})
-  : V.value base (S.signature s) (get_sort e) =
+  : GTot (V.value base (S.signature s) (get_sort e)) =
   evaluate_at s bc equality other [] (empty_environment (S.signature s)) e
 
 let truth_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
           (equality:scalar_model base) (other:V.interpretation base (S.signature s))
           (scope:list sort) (rho:V.environment base (S.signature s) scope)
-          (e:expr) : bool =
+          (e:expr) : GTot bool =
   D.scoped scope e && get_sort e = bool_sort &&
   truth_value s bc (evaluate_at s bc equality other scope rho e)
 
 unfold let truth (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
           (equality:scalar_model base) (other:V.interpretation base (S.signature s))
-  : expr -> Tot bool =
+  : expr -> GTot bool =
   truth_at s bc equality other [] (empty_environment (S.signature s))
 
 let evaluate_arguments_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -211,14 +216,14 @@ let evaluate_arguments_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boole
                        (scope:list sort) (rho:V.environment base (S.signature s) scope)
                        (es:list expr{D.scoped_args scope es})
                        (ss:list sort{sorts_match es ss})
-  : V.arguments base (S.signature s) ss =
+  : GTot (V.arguments base (S.signature s) ss) =
   V.evaluate_args (S.signature s) (interpretation s bc equality other) scope rho es ss
 
 let evaluate_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                        (equality:scalar_model base) (other:V.interpretation base (S.signature s))
                        (es:list expr{D.scoped_args [] es})
                        (ss:list sort{sorts_match es ss})
-  : V.arguments base (S.signature s) ss =
+  : GTot (V.arguments base (S.signature s) ss) =
   evaluate_arguments_at s bc equality other [] (empty_environment (S.signature s)) es ss
 
 let lemma_registered_constructor (s:S.checked_schema) (f:func_decl)
@@ -338,7 +343,7 @@ let rec lemma_boolean_arguments_at (#base:sort -> Type0) (s:S.checked_schema) (b
   : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ boolean_sorts ss)
           (ensures combine op (boolean_values s bc ss
                      (evaluate_arguments_at s bc equality other scope rho args ss)) ==
-                   B.eval_args (truth_at s bc equality other scope rho) op (L.map B.Atom args))
+                   B.geval_args (truth_at s bc equality other scope rho) op (L.map B.Atom args))
           (decreases args) =
   match args, ss with
   | a :: rest, t :: tail ->
@@ -351,7 +356,7 @@ let lemma_boolean_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                             (args:list expr) (ss:list sort) (op:B.nary_op)
   : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\ boolean_sorts ss)
           (ensures combine op (boolean_values s bc ss (evaluate_arguments s bc equality other args ss)) ==
-                   B.eval_args (truth s bc equality other) op (L.map B.Atom args)) =
+                   B.geval_args (truth s bc equality other) op (L.map B.Atom args)) =
   lemma_boolean_arguments_at s bc equality other [] (empty_environment (S.signature s)) args ss op
 
 let rec lemma_cut_with_boundaries_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -359,7 +364,7 @@ let rec lemma_cut_with_boundaries_at (#base:sort -> Type0) (s:S.checked_schema) 
                   (scope:list sort) (rho:V.environment base (S.signature s) scope)
                   (boundaries:list expr) (fuel:nat) (e:expr)
   : Lemma (requires D.scoped scope e /\ get_sort e == bool_sort)
-          (ensures B.eval (truth_at s bc equality other scope rho) (cut_with_boundaries boundaries fuel e) ==
+          (ensures B.geval (truth_at s bc equality other scope rho) (cut_with_boundaries boundaries fuel e) ==
                    truth_at s bc equality other scope rho e)
           (decreases e) =
   if fuel = 0 || L.mem e boundaries then ()
@@ -391,7 +396,7 @@ let rec lemma_cut_with_boundaries_at (#base:sort -> Type0) (s:S.checked_schema) 
          lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) c;
          lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) a;
          lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) b;
-         B.lemma_boolean_ite_eval (truth_at s bc equality other scope rho)
+         B.lemma_boolean_ite_geval (truth_at s bc equality other scope rho)
            (cut_with_boundaries boundaries (fuel - 1) c)
            (cut_with_boundaries boundaries (fuel - 1) a)
            (cut_with_boundaries boundaries (fuel - 1) b))
@@ -403,9 +408,9 @@ and lemma_cut_args_with_boundaries_at (#base:sort -> Type0) (s:S.checked_schema)
                    (scope:list sort) (rho:V.environment base (S.signature s) scope)
                    (boundaries:list expr) (fuel:nat) (args:list expr) (ss:list sort) (op:B.nary_op)
   : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ boolean_sorts ss)
-          (ensures B.eval_args (truth_at s bc equality other scope rho) op
+          (ensures B.geval_args (truth_at s bc equality other scope rho) op
                      (cut_args_with_boundaries boundaries fuel args) ==
-                   B.eval_args (truth_at s bc equality other scope rho) op (L.map B.Atom args))
+                   B.geval_args (truth_at s bc equality other scope rho) op (L.map B.Atom args))
           (decreases args) =
   match args, ss with
   | a :: rest, t :: tail ->
@@ -418,7 +423,7 @@ let lemma_cut_with_boundaries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
                   (equality:scalar_model base) (other:V.interpretation base (S.signature s))
                   (boundaries:list expr) (fuel:nat) (e:expr)
   : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
-          (ensures B.eval (truth s bc equality other) (cut_with_boundaries boundaries fuel e) ==
+          (ensures B.geval (truth s bc equality other) (cut_with_boundaries boundaries fuel e) ==
                    truth s bc equality other e) =
   lemma_cut_with_boundaries_at s bc equality other [] (empty_environment (S.signature s)) boundaries fuel e
 
@@ -426,7 +431,7 @@ let lemma_cut (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier b
               (equality:scalar_model base) (other:V.interpretation base (S.signature s))
               (fuel:nat) (e:expr)
   : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
-          (ensures B.eval (truth s bc equality other) (cut fuel e) == truth s bc equality other e) =
+          (ensures B.geval (truth s bc equality other) (cut fuel e) == truth s bc equality other e) =
   lemma_cut_with_boundaries s bc equality other [] fuel e
 
 let lemma_nary (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -434,7 +439,7 @@ let lemma_nary (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier 
                (f:func_decl) (args:list expr) (op:B.nary_op)
   : Lemma (requires D.scoped [] (App f args) /\ classify f == Nary op)
           (ensures truth s bc eq other (App f args) ==
-                   B.eval_args (truth s bc eq other) op (L.map B.Atom args)) =
+                   B.geval_args (truth s bc eq other) op (L.map B.Atom args)) =
   lemma_evaluate_core s bc eq other f args;
   lemma_boolean_arguments s bc eq other args f.domain op
 
@@ -448,19 +453,19 @@ let lemma_negation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
 
 let rec truths (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
-               (es:list expr) : Tot bool (decreases es) =
+               (es:list expr) : GTot bool (decreases es) =
   match es with [] -> true | e :: rest -> truth s bc eq other e && truths s bc eq other rest
 
 let rec lemma_truths (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:scalar_model base) (other:V.interpretation base (S.signature s))
                      (es:list expr)
-  : Lemma (B.eval_args (truth s bc eq other) B.And (L.map B.Atom es) ==
+  : Lemma (B.geval_args (truth s bc eq other) B.And (L.map B.Atom es) ==
            truths s bc eq other es) (decreases es) =
   match es with [] -> () | _ :: rest -> lemma_truths s bc eq other rest
 
 let same_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                (eq:scalar_model base) (other:V.interpretation base (S.signature s))
-               (a b:expr) : bool =
+               (a b:expr) : GTot bool =
   D.scoped [] a && D.scoped [] b &&
   equal_tree eq.reflection (evaluate s bc eq other a) (evaluate s bc eq other b)
 

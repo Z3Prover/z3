@@ -23,16 +23,31 @@ and quantifier_free_args (args:list expr) : Tot bool (decreases args) =
 
 (* Standard universal truth semantics, over sort-indexed assignments.
    Unlike elimination alone, this also supports universal introduction.
-   This constrains the operator independently of any proof certificate. *)
+   This constrains the operator independently of any proof certificate.
+   Typed-root G2: the bodies are GHOST functions, exactly the argument type
+   of V.interpretation's quantification (V.evaluate_body is ghost). This is
+   R1's `forall_case` shape (Z3TypedRoot), which every root model satisfies
+   (Z3SortedRootDocument derives it; it is never assumed there). The body
+   type is NAMED, so that every statement (here and in a model derivation)
+   quantifies over one type. *)
+type ghost_body (base:sort -> Type0) (s:S.checked_schema) (bound:list sort) =
+  V.arguments base (S.signature s) (L.rev bound) -> GTot (V.value base (S.signature s) bool_sort)
+
+(* One binder list and one body: Z3TypedRoot.forall_case, read through the
+   Sorted Boolean carrier. Named, so that the model statement below is
+   matched (and derived) one case at a time. *)
+let forall_case (#base:sort -> Type0) (s:S.checked_schema)
+                (bc:S.boolean_carrier base)
+                (other:V.interpretation base (S.signature s))
+                (bound:list sort) (body:ghost_body base s bound) : prop =
+  T.truth_value s bc (other.quantification Forall_k bound bool_sort body) <==>
+  (forall (vs:V.arguments base (S.signature s) (L.rev bound)).
+     T.truth_value s bc (body vs))
+
 let forall_model (#base:sort -> Type0) (s:S.checked_schema)
                  (bc:S.boolean_carrier base)
                  (other:V.interpretation base (S.signature s)) : prop =
-  forall (bound:list sort)
-         (body:V.arguments base (S.signature s) (L.rev bound) ->
-               V.value base (S.signature s) bool_sort).
-    T.truth_value s bc (other.quantification Forall_k bound bool_sort body) <==>
-    (forall (vs:V.arguments base (S.signature s) (L.rev bound)).
-       T.truth_value s bc (body vs))
+  forall (bound:list sort) (body:ghost_body base s bound). forall_case s bc other bound body
 
 let lemma_forall_truth (#base:sort -> Type0) (s:S.checked_schema)
                        (bc:S.boolean_carrier base) (eq:T.scalar_model base)
@@ -48,6 +63,7 @@ let lemma_forall_truth (#base:sort -> Type0) (s:S.checked_schema)
                  (V.extend (S.signature s) scope (L.rev bound) vs rho) body)) =
   let f = V.typed_body (S.signature s) bound bool_sort
     (V.evaluate_body (S.signature s) (T.interpretation s bc eq other) scope rho bound body) in
+  assert (forall_case s bc other bound f);
   assert (T.truth_value s bc (other.quantification Forall_k bound bool_sort f) <==>
           (forall (vs:V.arguments base (S.signature s) (L.rev bound)).
              T.truth_value s bc (f vs)))
@@ -237,16 +253,22 @@ let lemma_check_flatten (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
     T.lemma_equality s bc eq other a b
   | _ -> ()
 
-(* This constrains the logical operator, not the validity of a proof rule. *)
+(* This constrains the logical operator, not the validity of a proof rule.
+   Typed-root G2: over GHOST bodies (see forall_model). *)
+let elimination_case (#base:sort -> Type0) (s:S.checked_schema)
+                     (bc:S.boolean_carrier base)
+                     (other:V.interpretation base (S.signature s))
+                     (bound:list sort) (body:ghost_body base s bound)
+                     (vs:V.arguments base (S.signature s) (L.rev bound)) : prop =
+  T.truth_value s bc (other.quantification Forall_k bound bool_sort body) ==>
+  T.truth_value s bc (body vs)
+
 let forall_elimination_model (#base:sort -> Type0) (s:S.checked_schema)
                              (bc:S.boolean_carrier base)
                              (other:V.interpretation base (S.signature s)) : prop =
-  forall (bound:list sort)
-         (body:V.arguments base (S.signature s) (L.rev bound) ->
-               V.value base (S.signature s) bool_sort)
+  forall (bound:list sort) (body:ghost_body base s bound)
          (vs:V.arguments base (S.signature s) (L.rev bound)).
-    T.truth_value s bc (other.quantification Forall_k bound bool_sort body) ==>
-    T.truth_value s bc (body vs)
+    elimination_case s bc other bound body vs
 
 let rec binding_indices (start:nat) (args:list expr) : Tot (list nat) (decreases args) =
   match args with
@@ -268,13 +290,12 @@ let lemma_forall_elimination (#base:sort -> Type0) (s:S.checked_schema)
                              (bc:S.boolean_carrier base)
                              (other:V.interpretation base (S.signature s))
                              (bound:list sort)
-                             (body:V.arguments base (S.signature s) (L.rev bound) ->
-                                   V.value base (S.signature s) bool_sort)
+                             (body:ghost_body base s bound)
                              (vs:V.arguments base (S.signature s) (L.rev bound))
   : Lemma (requires forall_elimination_model s bc other)
           (ensures T.truth_value s bc (other.quantification Forall_k bound bool_sort body) ==>
                    T.truth_value s bc (body vs)) =
-  ()
+  assert (elimination_case s bc other bound body vs)
 
 let rec lemma_lookup (#base:sort -> Type0) (sigma:V.signature)
                      (i:V.interpretation base sigma) (rho:V.environment base sigma [])
@@ -549,11 +570,12 @@ let lemma_check_parts (args:list expr) (f n:func_decl) (bs:list sort) (t:sort) (
   assert_norm (T.classify (BR.connective_decl BR.Disjunction [App n [Quantifier Forall_k bs t body]; inst]) ==
                T.Nary Z3BoundedBoolEquiv.Or)
 
-(* A two-argument disjunction of atoms, unfolded once. *)
-let lemma_or_pair (v:expr -> bool) (a b:expr)
-  : Lemma (Z3BoundedBoolEquiv.eval_args v Z3BoundedBoolEquiv.Or (L.map Z3BoundedBoolEquiv.Atom [a; b]) ==
+(* A two-argument disjunction of atoms, unfolded once (ghost valuation, the
+   Sorted truth is ghost). *)
+let lemma_or_pair (v:expr -> GTot bool) (a b:expr)
+  : Lemma (Z3BoundedBoolEquiv.geval_args v Z3BoundedBoolEquiv.Or (L.map Z3BoundedBoolEquiv.Atom [a; b]) ==
            (v a || v b)) =
-  assert_norm (Z3BoundedBoolEquiv.eval_args v Z3BoundedBoolEquiv.Or (L.map Z3BoundedBoolEquiv.Atom [a; b]) ==
+  assert_norm (Z3BoundedBoolEquiv.geval_args v Z3BoundedBoolEquiv.Or (L.map Z3BoundedBoolEquiv.Atom [a; b]) ==
                (v a || v b))
 
 let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)

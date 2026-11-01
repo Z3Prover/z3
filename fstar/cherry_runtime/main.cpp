@@ -1,4 +1,5 @@
 #include "native.h"
+#include "readable.h"
 
 #include <algorithm>
 #include <charconv>
@@ -42,6 +43,7 @@ public:
 struct Options {
     bool statistics = false;
     bool diagnostics = false;
+    bool readable = false;
     bool sorted_core = false;
     bool clause_proofs = false;
     bool interactive = false;
@@ -279,6 +281,156 @@ static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value,
         throw NativeError("Diagnostic result disagrees with document checker");
 }
 
+// One block per query: the representative of each of the first max_families obligation families, in
+// the order of the machine rows. The node index is the position of the obligation in the document's
+// proof entries, which is where its premise ids are read from. Mirrors Z3NativeMain.Readable.report_text.
+static std::string readable_report(unsigned query, std::string const& verdict,
+                                   Z3ProofDocument_document_Mk_document_s const& doc,
+                                   Z3ProofDocument_document_diagnostic const& diagnostic) {
+    using namespace readable;
+    std::string out;
+    bool full = false;
+    auto emit = [&](std::string const& block) {
+        if (full)
+            return;
+        if (out.size() + block.size() > max_report_chars)
+            full = true;
+        else
+            out += block;
+    };
+    auto entry_at = [&](cherry_int index) -> Z3ProofDocument_entry const* {
+        if (!cherry_is_scalar(index) || cherry_int_lt(index, CHERRY_INT_SMALL(0)))
+            return nullptr;
+        uint64_t wanted = cherry_int_to_u64(index), position = 0;
+        for (auto cursor = doc.entries; !cherry_is_scalar(cursor);) {
+            auto* cell = reinterpret_cast<Prims_list__entry_Cons_s*>(cursor);
+            if (position++ == wanted)
+                return &cell->hd;
+            cursor = cell->tl;
+        }
+        return nullptr;
+    };
+    auto premise_list = [](std::vector<cherry_int> const& ids) {
+        if (ids.empty())
+            return std::string("none");
+        std::string result;
+        for (size_t i = 0; i < ids.size() && i < max_premises; ++i)
+            result += (i ? " #" : "#") + integer_text(ids[i]);
+        if (ids.size() > max_premises)
+            result += " ...<" + std::to_string(ids.size() - max_premises) + " more>";
+        return result;
+    };
+    auto family_block = [&](size_t position, size_t total, std::string const& rule, cherry_int count,
+                            size_t members, Z3ProofDocument_unmet_obligation const& first) {
+        auto const index = first.obligation_index;
+        std::string block = "readable\tfamily=" + std::to_string(position) + "/" + std::to_string(total) +
+            "\trule=" + rule + "\tcount=" + integer_text(count) + "\tmembers=" + std::to_string(members) +
+            "\tnode=" + integer_text(index) + "\tnode-pending=" + integer_text(first.obligation_count) + "\n";
+        std::vector<Z3UnifiedProof_judgment const*> premises;
+        each<Prims_list__judgment_Cons_s>(first.obligation_premises,
+            [&](auto const& premise) { premises.push_back(&premise); });
+        std::vector<cherry_int> ids;
+        auto const* entry = entry_at(index);
+        std::string unmapped;
+        if (!entry)
+            unmapped = "no document entry at this index";
+        else if (rule_name(entry->rule) != rule)
+            unmapped = "the document entry at this index has another rule or premise count";
+        else {
+            each<Prims_list__int_Cons_s>(entry->premise_ids, [&](auto id) { ids.push_back(id); });
+            if (ids.size() != premises.size())
+                unmapped = "the document entry at this index has another rule or premise count";
+        }
+        bool const known = unmapped.empty();
+        block += "  node " + integer_text(index) + ": " +
+            (known ? "premises: " + premise_list(ids) :
+                "no source-node mapping (" + unmapped + "): premise ids unavailable") + "\n";
+        for (size_t k = 0; k < premises.size() && k < max_premises; ++k)
+            block += "  premise " + (known ? "#" + integer_text(ids[k]) : "[" + std::to_string(k) + "]") +
+                ": " + judgment_text(*premises[k]).first + "\n";
+        if (premises.size() > max_premises)
+            block += "  ...<" + std::to_string(premises.size() - max_premises) + " more premises omitted>\n";
+        auto conclusion = judgment_text(first.obligation_conclusion);
+        block += "  conclusion: " + conclusion.first + "\n";
+        Z3UnifiedProof_judgment holds{};
+        holds.tag = Z3UNIFIEDPROOF_HOLDS;
+        holds.val.Holds = first.obligation_source;
+        auto source = judgment_text(holds);
+        block += source.first == conclusion.first && !conclusion.second && !source.second ?
+            std::string("  source formula: same as conclusion\n") :
+            "  source formula: " + source.first + "\n";
+        return block;
+    };
+    if (diagnostic.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED) {
+        struct Family {
+            Count count;
+            size_t members = 0;
+            Z3ProofDocument_unmet_obligation const* first = nullptr;
+        };
+        using Key = std::pair<std::string, std::string>;
+        std::map<Key, Family> families;
+        each<Prims_list__unmet_obligation_Cons_s>(diagnostic.val.DocumentChecked.obligations,
+            [&](auto const& obligation) {
+                auto [found, inserted] = families.try_emplace(
+                    Key{rule_name(obligation.obligation_rule),
+                        Fingerprint().judgment(obligation.obligation_conclusion)});
+                if (inserted)
+                    found->second.first = &obligation;
+                found->second.count.add(obligation.obligation_count);
+                ++found->second.members;
+            });
+        std::vector<std::map<Key, Family>::const_iterator> order;
+        for (auto it = families.begin(); it != families.end(); ++it)
+            order.push_back(it);
+        std::sort(order.begin(), order.end(), [](auto a, auto b) {
+            auto comparison = cherry_int_cmp(a->second.count.value, b->second.count.value);
+            return comparison ? comparison > 0 : a->first < b->first;
+        });
+        size_t total = order.size(), shown = std::min<size_t>(total, max_families);
+        emit("readable\tquery=" + std::to_string(query) + "\tverdict=" + verdict + "\tpending=" +
+             integer_text(diagnostic.val.DocumentChecked.pending) + "\tfamilies=" + std::to_string(total) +
+             "\tshown=" + std::to_string(shown) + "\n");
+        for (size_t i = 0; i < shown; ++i)
+            emit(family_block(i + 1, total, order[i]->first.first, order[i]->second.count.value,
+                              order[i]->second.members, *order[i]->second.first));
+        if (total > shown)
+            emit("readable\tomitted\tfamilies=" + std::to_string(total - shown) + "\treason=family-limit\n");
+        if (full)
+            out += "readable\tomitted\treason=report-size\n";
+    }
+    else {
+        auto const& rejected = diagnostic.val.DocumentRejected;
+        bool has_index = rejected.index.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT;
+        std::string block = "readable\tquery=" + std::to_string(query) + "\tverdict=" + verdict +
+            "\tstage=" + stage_name(rejected.stage) + "\tindex=" +
+            (has_index ? integer_text(rejected.index.val.Some) : std::string("-")) + "\n";
+        if (has_index && (rejected.stage == Z3PROOFDOCUMENT_PROOFENTRY ||
+                          rejected.stage == Z3PROOFDOCUMENT_MISSINGPREMISE)) {
+            auto const index = rejected.index.val.Some;
+            if (auto const* entry = entry_at(index)) {
+                std::vector<cherry_int> ids;
+                each<Prims_list__int_Cons_s>(entry->premise_ids, [&](auto id) { ids.push_back(id); });
+                block += "  node " + integer_text(index) + ": rule=" + rule_name(entry->rule) +
+                    " premises: " + premise_list(ids) + "\n";
+            }
+            else
+                block += "  node " + integer_text(index) +
+                    ": no source-node mapping (no document entry at this index)\n";
+        }
+        if (rejected.source.tag == FSTAR_PERVASIVES_NATIVE_SOME__EXPR) {
+            Z3UnifiedProof_judgment holds{};
+            holds.tag = Z3UNIFIEDPROOF_HOLDS;
+            holds.val.Holds = rejected.source.val.Some;
+            block += "  source formula: " + judgment_text(holds).first + "\n";
+        }
+        else
+            block += "  source formula: none reported\n";
+        emit(block);
+    }
+    out += "readable\tend\tquery=" + std::to_string(query) + "\n";
+    return out;
+}
+
 struct Report {
     int status;
     std::string verdict;
@@ -290,7 +442,8 @@ static double milliseconds(Clock::time_point end, Clock::time_point start) {
 }
 
 static Report check_proof(z3::context& context, Options const& options, Clock::time_point start,
-                          Clock::time_point solved, std::vector<Z3_ast> const& assertions, Z3_ast proof) {
+                          Clock::time_point solved, std::vector<Z3_ast> const& assertions, Z3_ast proof,
+                          unsigned query) {
     NativeSession session(context);
     Owned<Prims_list__ast, checker_drop_asts> roots(list<Prims_list__ast_Cons_s>(assertions));
     Owned<Z3Cherry_marshaled, checker_drop_marshaled> marshaled(Z3Cherry_marshal(roots.value, proof));
@@ -335,6 +488,12 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
         std::cerr << summary.str() << '\n';
     if (options.diagnostics) {
         report_diagnostics(diagnosed->value, result);
+        if (options.readable) {
+            std::string verdict = result.tag == FSTAR_PERVASIVES_NATIVE_NONE__INT ? "REJECT" :
+                cherry_int_eq(result.val.Some, CHERRY_INT_SMALL(0)) ? "ACCEPT" :
+                "PARTIAL " + integer(result.val.Some);
+            std::cerr << readable_report(query, verdict, doc, diagnosed->value) << std::flush;
+        }
         if (options.statistics)
             std::cerr << std::fixed << std::setprecision(3)
                       << "diagnose_ms=" << milliseconds(Clock::now(), check_end) << '\n';
@@ -450,6 +609,7 @@ struct Interactive {
     bool partial = false;
     std::string report;
     std::exception_ptr callback_error;
+    unsigned queries = 0;
 
     static Z3_string callback(void* user, Z3_context, Z3_ast proof, Z3_ast_vector inputs) noexcept {
         auto& self = *static_cast<Interactive*>(user);
@@ -458,7 +618,8 @@ struct Interactive {
             std::vector<Z3_ast> assertions;
             for (unsigned i = 0, n = Z3_ast_vector_size(self.context, inputs); i < n; ++i)
                 assertions.push_back(Z3_ast_vector_get(self.context, inputs, i));
-            auto report = check_proof(self.context, self.options, self.start, solved, assertions, proof);
+            auto report = check_proof(self.context, self.options, self.start, solved, assertions, proof,
+                                      ++self.queries);
             self.rejected |= report.status == 1;
             self.partial |= report.status == 3;
             self.report = "; proof-check " + report.verdict + "\n; proof-stats " + report.statistics;
@@ -481,7 +642,7 @@ static std::string evaluate(z3::context& context, std::string const& command) {
 }
 
 static int interactive(z3::context& context, Options const& options) {
-    Interactive state{context, options, Clock::now(), false, false, {}, {}};
+    Interactive state{context, options, Clock::now(), false, false, {}, {}, 0};
     struct Registration {
         z3::context& context;
         ~Registration() { Z3_set_proof_check_callback(context, nullptr, nullptr); }
@@ -542,12 +703,13 @@ static int interactive(z3::context& context, Options const& options) {
 }
 
 static char const* usage =
-    "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] "
+    "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] "
     "[--sorted-core] [--timeout-ms N] [input.smt2]\n"
     "  --interactive    Evaluate stdin commands and certify each UNSAT proof\n"
     "  --clause-proofs  Certify clausal SMT search proofs\n"
     "  --stats          Report phase timings and marshaled node counts\n"
     "  --diagnostics    Report typed unmet-obligation fingerprints\n"
+    "  --readable       Also print bounded readable pending/rejected conditions (implies --diagnostics)\n"
     "  --sorted-core    Use sort-indexed checking without legacy fallback\n"
     "  --version        Report the embedded Z3 version\n"
     "  --timeout-ms N   Solver timeout, 0..4294967295 milliseconds (0 is unlimited)\n";
@@ -572,6 +734,7 @@ static int run(int argc, char** argv) {
         else if (!anonymous && argument == "--interactive") options.interactive = true;
         else if (!anonymous && argument == "--stats") options.statistics = true;
         else if (!anonymous && argument == "--diagnostics") options.diagnostics = true;
+        else if (!anonymous && argument == "--readable") options.readable = options.diagnostics = true;
         else if (!anonymous && argument == "--sorted-core") options.sorted_core = true;
         else if (!anonymous && argument == "--clause-proofs") options.clause_proofs = true;
         else if (!anonymous && (argument == "--timeout-ms" || argument.starts_with("--timeout-ms="))) {
@@ -643,7 +806,7 @@ static int run(int argc, char** argv) {
     std::vector<Z3_ast> roots;
     for (unsigned i = 0; i < assertions.size(); ++i)
         roots.push_back(assertions[i]);
-    auto report = check_proof(context, options, start, solved, roots, proof);
+    auto report = check_proof(context, options, start, solved, roots, proof, 1);
     std::cout << report.verdict << '\n';
     return report.status;
 }
