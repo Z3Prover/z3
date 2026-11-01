@@ -4339,3 +4339,496 @@ global-context-limit, and congruence-only paired experiments are archived under
 separately named paths. Their coverage figures are not the final figures above.
 Temporary profiling object files were removed; sources, logs, diagnostic
 executables, and all immutable benchmark baselines were retained.
+
+## Typed integer Farkas bridge after merging master (2026-10-31)
+
+The sorted kernel now replays supplied Farkas coefficients against typed
+integer semantics. It checks closed Boolean assumptions, exact coefficient
+arity, canonical integer comparisons and negations, polynomial contributions,
+and the strict-integer-bound adjustment. Zero-weight assumptions may have
+unsupported arithmetic semantics, but must still be scoped Boolean formulas.
+A 4,096-expression-occurrence budget precedes certificate normalization.
+
+The kernel forms negative conclusion literals through the canonical
+`Z3SortedDatatype.literals` boundary, not the legacy name-based clause parser.
+Premise hypotheses remain inherited; an arithmetic contradiction is proved
+under those hypotheses, not by treating local premises as unconditional facts.
+The proof reuses mathematical weighted-polynomial soundness, not the legacy
+`numeric_model` contract. Nonzero Real or mixed arithmetic contributions remain
+unsupported in this typed bridge.
+
+### Source-matched rebuild and verification
+
+Master was merged into the working branch as
+`535285c1ebe7f041dbb2a8c453fe4255173b540b`; the Farkas changes remain uncommitted.
+Both the SMT executable used by F* and the static library/OCaml bindings used
+by the checker were rebuilt and installed separately from all baseline binaries.
+The rebuilt solver is **Z3 5.3.4**, reporting that merge commit.
+
+Validation passed:
+
+* All **77 production modules** and **24 manifest F*/Pulse test modules** verify
+  strictly, with warnings treated as errors and a fresh checked-module cache.
+* All four official OCaml extraction roots were regenerated, constructor
+  projectors made exhaustive, and the native checker compiled with warnings
+  treated as errors.
+* **68 native test groups**, **50 CLI tests**, and **122 solver unit tests** pass.
+  The solver unit-test target was explicitly rebuilt before its final run.
+* A separate source-matched shared-library/Python build passes basic integer
+  solving, positive-model evaluation, and command-line-help smoke tests.
+* Hashes of **116 executable-source/test/tool files**, installed solver files,
+  and preserved baseline solver binaries were checked.
+
+Focused Farkas regressions exercise integer strictness, fractional weights,
+coefficient mutations and length mismatches, unsupported Real contributions,
+zero-weight ignored assumptions, forged comparison/disjunction declarations,
+occurrence limits, and inherited hypotheses.
+
+### Full original-input coverage
+
+All **583 unchanged original `fstar-build` sessions** were replayed with the
+same interactive/diagnostic protocol, 10,000 ms solver timeout, 60-second
+session wall limit, 4 GiB per worker, and eight workers. The immutable comparison
+baseline remains the published integer bridge in
+`build\fstar-arithmetic-bridge-20261030`.
+
+On **513 completed sessions with identical solver-answer sequences**:
+
+| Metric | Integer baseline | Merged Farkas checker | Change |
+|---|---:|---:|---:|
+| Pending `arith/farkas` obligations | 9,099 | 1,128 | -7,971 (-87.6%) |
+| Total pending obligations | 61,912 | 53,750 | -8,162 (-13.2%) |
+
+Across **6,450 aligned UNSAT queries with matching structural proof-size
+metadata**, pending obligations fall **34,417 -> 30,459**, with no pending-count
+increases. Matching metadata does not establish byte-identical proofs.
+All **18 baseline ACCEPT queries** remain observed and accepted; there are
+**no additional fully ACCEPT queries**. No rejection, crash, protocol error, or
+aligned SAT/UNSAT contradiction was observed.
+
+| Session outcome | Integer baseline | Merged Farkas checker |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 1 |
+| PARTIAL | 531 | 533 |
+| UNKNOWN | 11 | 11 |
+| TIMEOUT | 40 | 38 |
+
+Raw query observations are ACCEPT 18 -> 18, PARTIAL 11,115 -> 11,208, and UNKNOWN
+415 -> 443. These include different timeout prefixes and solver-generated
+proofs, so they are not the rule-coverage denominator. All **11,226 normalized
+`; ACCEPT` / `; PARTIAL` records** were independently reparsed and validated.
+
+The pre-merge Farkas run is preserved separately in
+`build\fstar-farkas-bridge-20261030`. Against it, **515** completed sessions have
+matching solver answers; total pending is **54,318 -> 54,337**. On **6,814**
+aligned UNSAT queries with matching structural metadata, pending totals are
+exactly **35,700 -> 35,700**, with no increases. Thus the measured coverage gain
+comes from the Farkas extension, not an additional fixed-metadata improvement
+from merging master. The solver changed from 5.3.3 to 5.3.4, so broader proof
+and timing differences must not be attributed solely to checker changes.
+
+### Performance failures and remaining blockers
+
+**Performance validation is not uniformly passing.** The strict sequential
+pilot fails its completion assertion for UInt-3: the fresh baseline completes
+in **54.813 s**, while the merged checker times out at **60.052 s**. The original
+full-replay outcomes are retained; UInt-3 times out in both full collections.
+
+`FStar.Math.Lemmas-1` is the one newly timed-out session in the full comparison.
+A separate sequential probe reproduces baseline PARTIAL **48.078 s** versus
+merged TIMEOUT **60.042 s**. The answer/proof observations differ, so this does
+not isolate a checker-only cause. Three baseline timeout sessions finish in
+the merged full replay: `Pulse.Lib.ForEvery-2`,
+`PulseCore.IndirectionTheorySep-3`, and `FStar.Matrix-4`. Successful diagnostic
+or pilot runs do not replace any recorded production timeout.
+
+Among completed, non-timeout sessions, queries with exactly one pending
+obligation have these remaining rules:
+
+| Rule | Queries | Distinct input files |
+|---|---:|---:|
+| `sk` | 2,321 | 223 |
+| `nnf-neg` | 27 | 22 |
+| `elim-unused` | 12 | 2 |
+| `nnf-pos` | 3 | 3 |
+
+Skolemization remains the dominant last-rule blocker. This extension reduces
+unchecked arithmetic obligations, but does not yet increase complete proof
+certification.
+
+### Artifacts
+
+Merged artifacts are under `build\fstar-farkas-merged-20261031`.
+`build.log`, `unit-tests.log`, `python-build.log`, `smoke-results.json`,
+`build-info.json`, `verified-modules.json`, `source.patch`, and `source-snapshot`
+record rebuild, strict verification, tests, and provenance. The checker SHA-256
+is `8a637ef09c6bdf249966ad48e131330d807cb3f868fa8283cf076a98743826c8`.
+`results` retains all structured results, raw logs, and normalized proof records.
+`comparison-integer-baseline.json`, `comparison-premerge-farkas.json`,
+their aligned-query CSVs, and `progress-details.json` retain both comparisons
+and exact last-rule diagnostics. `pilot.log`, `pilot\results.json`,
+`timeout-probe.log`, and `timeout-probe\results.json` preserve the performance
+failures and sequential follow-up without overwriting original replay results.
+
+## Typed Hilbert-epsilon Skolem bridge (2026-10-31)
+
+`Z3SortedSkolem` connects recognized closed Skolem blocks to the sort-indexed
+semantics. It chooses one tuple over the complete reversed binder-sort list,
+then projects its coordinates into fresh constant interpretations. Existential
+blocks choose a satisfying tuple; negated universal blocks choose a
+counterexample tuple. Separate independent choices are not used, since their
+coordinates need not satisfy a joint predicate.
+
+The verified construction preserves expressions fresh for the introduced
+constants, including nested quantifiers, and therefore preserves all original
+assertions. Ordered extensions preserve older choice equations. Canonical
+Boolean, integer, and datatype interpretations remain fixed.
+
+The sorted document path elaborates only certified, premise-free `sk` entries
+with observational conclusions into asserted choice equations. The unchanged
+sorted kernel checks the resulting document. `lemma_check_document_epsilon`
+proves inconsistency of the **original** assertions, not merely inconsistency
+after arbitrary extra assumptions. Its explicit semantic parameters are a
+typed Hilbert-choice operator and full typed universal/existential truth laws.
+This is a conditional model-extension theorem; it does not establish an
+unconditional standard model for every supported sort. Epsilon is a semantic
+parameter, not a trusted runtime witness search. No admits or new axioms were
+added, and the existing `lemma_check_document` contract is unchanged.
+
+### Supported boundary and validation
+
+The initial bridge supports closed blocks introducing uninterpreted constants
+with no ambient dependencies. Joint mixed-sort witnesses, unused tuple
+coordinates, nested body quantifiers, and canonical double-negation targets
+are supported. Recognition, sort checks, substitution agreement, witness
+freshness, safe context ordering, and original-input freshness are required.
+Duplicate identical definitions are allowed; conflicting or cyclic contexts
+disable the extension and leave unsupported steps to ordinary pending-rule
+diagnostics. Dependency-bearing functions and Skolem steps inside binder
+certificates remain outside this extension. A 4,096-occurrence budget precedes
+recognition of each candidate entry.
+
+Fresh-cache strict verification passed for **78 production modules** and all
+**25 manifest F*/Pulse test modules**. All four extraction roots were
+regenerated; the checker and tests compile with OCaml warnings treated as
+errors. **69 native groups** and **51 CLI tests** pass. Tests cover coordinated
+witnesses, target/polarity mutations, input-symbol reuse, incompatible and
+cyclic definitions, duplicate definitions, unexpected premises, ordinary
+equality lookalikes, unsupported dependencies, and fully certified typed-core
+refutations in batch and interactive modes. The semantic regression proves
+that joint epsilon selection chooses distinct coordinates together when the
+predicate requires them to differ.
+
+The datatype-native examples discharge their Skolem obligations while
+preserving an existing pending constructor-reconstruction theory lemma.
+They are not reported as fully certified datatype proofs. The exact unchanged
+source-matched Z3 5.3.4 installation was reused after hash checks; integer SMT,
+model, command-line-help, and Python-binding smoke checks pass.
+
+### Full original-input comparison
+
+All **583 unchanged sessions** were replayed with the previous protocol:
+interactive diagnostics, a 10,000 ms solver timeout, a 60-second session wall
+limit, 4 GiB per worker, and eight workers. The immediate immutable baseline is
+`build\fstar-farkas-merged-20261031`.
+
+On **514 completed sessions with identical solver-answer sequences**:
+
+| Metric | Merged Farkas baseline | Epsilon checker | Change |
+|---|---:|---:|---:|
+| Pending `sk` obligations | 7,542 | 48 | -7,494 (-99.36%) |
+| Total pending obligations | 54,085 | 46,236 | -7,849 (-14.51%) |
+| ACCEPT queries | 18 | 2,010 | +1,992 |
+
+Across **6,095 aligned UNSAT queries with matching structural metadata**,
+pending totals fall **27,722 -> 21,904**, with **no pending-count increases**.
+Matching metadata does not establish byte-identical proofs. Across all raw
+aligned observations there are **2,694 PARTIAL -> ACCEPT transitions** and
+**522 pending-count increases**, all of the latter outside the matching-metadata
+cohort. All **18 previous ACCEPT queries** remain observed and accepted.
+There are no rejections, crashes, protocol errors, or aligned SAT/UNSAT
+contradictions. All **11,229 normalized `; ACCEPT` / `; PARTIAL` records** were
+independently reparsed and checked.
+
+| Session outcome | Merged Farkas baseline | Epsilon checker |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 18 |
+| PARTIAL | 533 | 515 |
+| UNKNOWN | 11 | 12 |
+| TIMEOUT | 38 | 38 |
+
+The additional whole-session ACCEPTs include `Pulse.C.Types.Array.Base`,
+`Pulse.Checker.Pure`, `Pulse.Lib.Primitives`, `Pulse.Readback-1`,
+`PulseCore.Action`, `FStar.All`, `FStar.Tactics.NamedView`, and
+`FStar.Tactics.PrettifyType`. Raw query counts are ACCEPT **18 -> 2,722**,
+PARTIAL **11,208 -> 8,507**, and UNKNOWN **443 -> 438**; these include differing
+solver observations and timeout prefixes and are not the matched denominator.
+
+No completed session now has a query whose sole pending rule is `sk`
+(**2,321 -> 0**). The exposed last-rule blockers are `nnf-neg` (358 queries),
+`nnf-pos` (316), `quant-intro` (235), `def-axiom` (88), `rewrite` (73),
+`th-lemma` (52), and `elim-unused` (12). These are last-rule counts, not
+increases in total obligations of those families.
+
+### Performance caveats and artifacts
+
+Performance validation is **not uniformly passing**. The full epsilon replay
+newly times out on `Pulse.Lib.PCM.FractionalPreorder` and `FStar.Matrix-4`;
+the baseline timeouts `FStar.Math.Lemmas-1` and `FStar.UInt-3` instead complete.
+The original outcomes remain unchanged. Sequential probes complete the two
+new timeout cases, but are slower: FractionalPreorder **32.937 -> 54.705 s**
+and Matrix-4 **53.858 -> 55.355 s**. Their solver-answer sequences differ, so
+these runs do not isolate a checker-only regression and do not replace the
+full-replay timeouts. The separate sequential UInt-3 pilot times out in both
+versions (**60.055 / 60.054 s**); its successful full-replay completion is not
+reported as a performance fix.
+
+Artifacts are under `build\fstar-epsilon-20261031`. `build.log` preserves the
+initial native-test compilation failure; `native-target*.log` preserves the
+fixture/debugging attempts. `build-retry.log` records the successful strict
+build and baseline preservation. `full` holds the independent cache,
+generated sources, checker, source snapshot and hashes, full `results`,
+`comparison.json`, `aligned-queries.csv`, and `progress-details.json`.
+The checker SHA-256 is
+`00913ef722145249032d705d0f8f8fff24b1828153e6cd2165ae7e25a558166c`.
+`full\results\proof-results.log` retains the requested normalized proof output.
+`pilot.log`, `full\pilot\results.json`, `timeout-probe.log`, and
+`full\timeout-probe\results.json` retain all sequential observations.
+This report records validation before publication of the changes.
+
+## Typed bridges after the latest master merge (2026-10-31)
+
+(These counts are for the `8fbb275ab` merge `0200d3b49`; the current state is in the 2026-11-01
+reconciliation section below.)
+
+Master `8fbb275ab` was merged without conflicts as `0200d3b49`.
+The source-matched Z3 5.3.4 solver and static OCaml bindings were rebuilt and
+installed independently under `build\fstar-epsilon-master-20261031`.
+The complete solver unit suite passed (**122 passed, 0 failed**), as did
+SMT/model, Python-binding, and command-line help smoke checks.
+
+Master's whole-program Custard extraction requires the workflow-pinned
+F* **v2026.10.25**; the older local compiler lacks `custard_inline`.
+The two new Farkas native fixtures were updated from the legacy generated
+field `conclusion1` to Custard's `conclusion`, in commit `443084f53`.
+The remote partial-scope audit addition `64bf52c67` was then fast-forwarded
+without changing executable checker inputs.
+
+Cherry's wrappers now call `check_document_epsilon` and
+`diagnose_document_epsilon`, with the corresponding diagnostic-equivalence
+lemma, matching the OCaml sorted frontend. The workflow-pinned Cherry
+**nightly-2026-10-30** initially timed out in the application case of
+`Z3SortedSkolem.lemma_fresh`. Factoring application preservation into
+`lemma_application_fresh` makes the unchanged freshness theorem verify on
+both compilers without increasing resource limits or adding assumptions.
+
+Completed validation of the exact source patch on top of `64bf52c67`:
+
+- Stable F*: **83 production manifest entries** and **27 F*/Pulse test
+  entries** verified; whole-program Custard extraction, warning-as-error
+  native compilation, **69 native regression groups**, and **52 CLI tests**
+  passed.
+- Cherry: all production, Cherry-specific, and manifest test entries,
+  including `Z3Cherry` and `Z3CherryTests`, verified; extraction, GCC 15
+  compilation with runtime debug checks enabled, C++ native self-tests,
+  and the same **52 CLI tests** passed, including closed epsilon refutations.
+- Both build wrappers checked unchanged HEAD, source patch and input hashes,
+  and installed solver hashes. The OCaml rebuild also checked preservation
+  of the original epsilon baseline and results.
+
+The final OCaml executable is byte-identical to the earlier post-merge
+pilot executable, SHA-256
+`8b5acc83040c6238a77aec134b311be6be360f18242170242e697584233e1dee`.
+The proof-only freshness helper changes no extracted OCaml behavior.
+
+### Targeted post-merge collection pilot
+
+Nine unchanged saved sessions were replayed sequentially against the
+preserved pre-merge epsilon results, with the same 60-second session limit.
+All six selected whole-session ACCEPTs remain ACCEPT and all **61 previously
+ACCEPTed queries** in the nine files are retained. The selected PARTIAL
+sessions `Pulse.Recursion-1` and `Pulse.Lib.Swap.Spec` remain PARTIAL; the former
+still has one pending `sk`. All eight completed baseline sessions have
+identical solver-answer sequences after the merge.
+
+`FStar.UInt-3` changes from a **60.066 s TIMEOUT** in the preserved full replay
+to **42.477 s PARTIAL** in this sequential pilot. Its answer sequence differs,
+so this observation neither replaces the historical timeout nor establishes
+a performance fix. This is **not a new full 583-session comparison**:
+the coverage tables and performance caveats above remain pre-merge results.
+
+Artifacts are under `build\fstar-epsilon-master-20261031`:
+`checker-proof-hardening.log`, `build-info.json`, `source.patch`,
+`skolem-nightly.log`, `cherry-build-initial-failure.log`,
+`cherry-build-retry.log`, `cherry\verified-source-info.json`, and the preserved
+source snapshots. `pilot.log` and `pilot\results.json` preserve the nine-file
+observations; `pilot\build-info.json` and `pilot\checker` preserve their exact
+original executable provenance. These local successes do not establish
+green GitHub CI; the remote audit head's workflows require approval.
+
+## Reconciliation with master 66273b16f and dd4179a55 (2026-11-01)
+
+This branch now contains master through `dd4179a55`: merge `35c3d005d`
+brings in `66273b16f` (#11498 typed root and ghost Sorted semantics,
+#11503 readable diagnostics, #11497 constant folding and `expression`
+rows, #11499 documentation, #11478 pinned toolchains), and merge
+`62e4ef4ec` brings in `dd4179a55` (relevant-first case splitting made
+opt-in, Java packaging). The counts in the 2026-10-31 sections above
+describe the earlier `8fbb275ab` merge and the pre-merge collection at
+`48d452072`; they are not results of this reconciliation.
+
+**Conflicts.** `Z3SortedArithmetic.fst` keeps master's constant folding and
+appends the Farkas replay unchanged; `tools/checker_modules.json` keeps
+both test sets; `tools/test_native_checker.py` keeps both new tests.
+
+**Ghost semantics.** Master made the Sorted semantics ghost. The proof-side
+Farkas assumptions (`Z3SortedArithmetic.satisfied`, `assumptions_hold`) are
+now `GTot`; the executable `certificate_inputs` and `check_contradiction` are
+unchanged. `Z3SortedSkolem.hilbert_choice.epsilon` is a `GTot` choice of ONE
+joint witness tuple over the reversed binder sorts, never one choice per
+coordinate. `ghost_choice` builds an instance from the installed
+`FStar.IndefiniteDescription` (`strong_excluded_middle`,
+`indefinite_description_ghost`) and a typed default tuple; no axiom, admit
+or assumption is added. `selected` and `build` are ghost, freshness uses the
+ghost extensionality of master's restricted bodies, and the existential law
+is stated per case over ghost bodies.
+
+**Composition with the typed root model** (`Z3SortedRootDocument.fst`, off
+every route):
+
+* `lemma_exists_model` derives the existential law from R1 of a root model
+  `i`, next to master's universal laws for the same `i`. `root_choice` is
+  `ghost_choice` over the root carriers; `lemma_root_selected` shows that the
+  production `selected` tuple satisfies the whole Skolem body jointly in `i`
+  whenever the definition's source holds there.
+* `lemma_root_check_document_epsilon`: for every root model `i`, **if**
+  `Z3SortedProof.check_document_epsilon` returns `Some 0`, the ORIGINAL
+  assertions are not all true in `i`. The statement is conditional on that
+  zero-obligation verdict; a root model alone proves nothing. Master's
+  `TR.lemma_standard_root` makes the root-model hypothesis hold for the
+  standard model of every carrier and symbol choice.
+* `lemma_root_override`, `lemma_root_build` and
+  `lemma_root_epsilon_extension`: every choice extension of a root model is
+  again a root model (all six root laws), keeps the truth of the original
+  assertions, and makes every generated choice equation true.
+* `check_root_document_epsilon` is a pure gate that no route calls. Its
+  `RootCertified` verdict also requires a supported schema and root coverage
+  of the ORIGINAL document's terms (assertions, entry formulas including each
+  Skolem entry's source, body, binders and witnesses, instantiation
+  arguments); the generated equations are proved closed and covered.
+* The read view of the document theorem now keeps the payloads the checker
+  consumes: `ArithmeticFarkas` with its coefficient list and the
+  `Skolemization` label; master's other payload erasure is unchanged, and the
+  read-view equalities are proved for both routes.
+
+**Scope that does not change.** A native `ACCEPT` is not `RootCertified`, and
+the default route is unchanged. The legacy default `model_sound` still has
+no model; nothing here repairs it or claims every-theory soundness.
+Dependency-bearing Skolem functions and Skolem steps inside binder
+certificates stay unsupported and pending. Master's trust points remain:
+the native front end's translation of assertions, schema and definitions,
+native datatype id and tag fidelity, and the full-function-space array,
+lambda and `FStar.Real` parameterization of the root class.
+
+**Readable diagnostics.** The elaborated epsilon document keeps one entry per
+original entry (`Z3SortedProof.lemma_epsilon_entries_aligned`): a used Skolem
+step only becomes `Asserted` and every choice equation is appended to the
+assertions, so obligations and rejections name the original node, and an
+assertion-stage rejection carries no index. Both frontends render the one
+diagnosed result; no second checker call is made.
+
+**Cherry `expression` rows (master #11497 defect).** #11497 added an
+`expression` row after each `obligation` row to the OCaml driver and a shared
+CLI assertion that every obligation row has one, but not to the Cherry
+driver, so `test_diagnostics_preserve_results_and_count_typed_obligations`
+fails on Cherry for every PARTIAL proof (hosted master run `41303493755`, and
+local master builds with the `8fbb275ab` and `dd4179a55` producers). The
+Cherry driver now prints the same rows with a bounded C++ port of
+`pretty_judgment` (same precedences, binder names, numeral, name and sort
+rules and bounds). Verdicts, pending counts, stdout and exit codes are
+unchanged. The C++ and OCaml printer tests expect the same strings for the
+same hand-built shapes, and a textual test compares the operator tags with
+`Z3ValueTheory.fst`. The printer guard of #11503 now counts the ordinary or
+epsilon diagnosed-check token (still exactly two call sites).
+On the 25 PARTIAL control inputs where both checkers report the same verdict
+and diagnostic rows, they print the same 529 expression rows (rule, count,
+node and text); in 4 of these files equal-count families come in another order,
+because families are ordered by their obligation fingerprint, whose symbol
+numbering already differs between the two drivers on master. On direct
+fixtures (batch and interactive, default and `--sorted-core`, `--diagnostics`
+and `--readable`) the rows are identical, stdout differs only in the
+`*_ms` timings, and the `--readable` stderr extends the `--diagnostics` stderr.
+
+### Validation of the frozen candidate `6c6603471`
+
+One Z3 producer, built from `dd4179a55` with default parameters, serves both
+the master baseline and the candidate: an incremental rebuild of a validated
+`8fbb275ab` producer recompiled 300 of 903 translation units (317 s), and a
+per-unit depfile check found no reused object with a changed input. Both
+checkers embed the producer stamp `dd4179a55`, not their own commit. Each
+side ran `build_ocaml_checker.ps1 -RunTests -BuildCherry` from an LF `git
+archive` with fresh F* caches, on the workflow pins F* `v2026.10.25` (OCaml)
+and `nightly-2026-10-30` (Cherry); the F* proofs were therefore re-checked
+against the `dd4179a55` solver, and no C++ object was recompiled.
+
+| | master `dd4179a55` | candidate `6c6603471` |
+|---|---|---|
+| F* manifest, v2026.10.25 | 82 production + 33 test entries, all verified | 83 + 34, all verified |
+| F* manifest + Cherry modules, nightly-2026-10-30 | all verified | all verified |
+| OCaml native groups | 72 pass | 75 pass (adds `sorted-integer-Farkas`, `sorted-typed-epsilon-Skolemization`, `readable-epsilon-provenance`) |
+| Cherry self-tests (`tests.cpp`) | pass | pass, including the expression-row regressions |
+| CLI suite, OCaml checker | 71/71 | 74/74 |
+| CLI suite, Cherry checker | **70/71: fails the #11497 expression-row assertion** | 74/74 |
+| QF_FF workflow inputs (25), both checkers | 25 ACCEPT | 25 ACCEPT |
+| `run_checker_regressions.py run` on z3test `regressions/proofs` (17), both checkers | 16 ACCEPT, 1 UNKNOWN | 16 ACCEPT, 1 UNKNOWN |
+| Harness tests `test_checker_*.py` (private venv with `zstandard` 0.25.0, Python 3.14) | 43/43 | 43/43 |
+
+**Matched controls** (base and candidate measured at the same time with the
+same harness, lists, inputs and limits: 10 s solver timeout, 60 s wall,
+4 GiB). Per-query sets, both checkers: `targets` (3), `proofs.all` (17),
+`abv-all` (50), `bench-sample.all` (225) and `z3-sample.all` (225) give
+**0 rows that differ** between base and candidate (outcome, verdict, pending
+count, obligations); for example `z3-sample.all` is 194 ACCEPT, 5 PARTIAL,
+6 TIMEOUT, 20 UNKNOWN on both. Interactive z3test sets: `accept59-extra` is
+70 ACCEPT on both. In `sample46` one file differs, on OCaml only:
+`2956.smt2` keeps its proof sizes (151 and 382 nodes) and its 7 pending
+`arith/farkas` obligations are discharged (pending 91 -> 84). The Cherry
+checker crashes on that file in both base and candidate (pre-existing). The
+TIMEOUT, UNKNOWN, `command-error`, `outer-timeout` and crash classes are not
+passes, and they are identical on both sides.
+
+**11-session pilot** (original `fstar-build` sessions, interactive with
+diagnostics, same limits; an 11-session pilot, not a re-run of the 583-session
+collection). The task-private copy of the reviewed sweep harness differs
+only in its manifest-size check. On Cherry every query has the same
+proof-size metadata in base and candidate (metadata-matched, not proof-byte
+identity): ACCEPT queries 0 -> 65, and eight sessions become fully accepted
+(`Pulse.C.Types.Array.Base`, `Pulse.Checker.Pure`, `Pulse.Lib.Primitives`,
+`Pulse.Readback-1`, `PulseCore.Action`, `FStar.All`,
+`FStar.Tactics.NamedView`, `FStar.Tactics.PrettifyType`). Total pending falls
+822 -> 453: `sk` 137 -> 1 and `arith/farkas` 233 -> 0, with every other family
+unchanged, no pending increase, no ACCEPT lost and no REJECT.
+`Pulse.Recursion-1`, `Pulse.Lib.Swap.Spec` and `FStar.UInt-3` stay PARTIAL.
+The OCaml checker gives the same eight accepted sessions, but its proofs for
+later queries of a session depend on the process's allocation pattern (see
+`--readable` above), so only part of its queries are metadata-matched; on those
+there is no pending increase. `FStar.UInt-3` sits at the 60 s limit: in the
+counted run the OCaml base completed in 57.5 s and the OCaml candidate hit the
+limit at 60.1 s after 75 queries. In three reruns per build the base completed
+3 times (54.4-58.3 s) and the candidate twice (54.7 and 55.5 s) and timed out
+once, with varying numbers of solver `unknown` answers; Cherry completes on both
+(about 45-50 s). This is recorded as a time-limit caveat, not as an isolated
+checker regression or a fix.
+
+**Upstream drift.** Compared with the same control sets on the earlier
+`8fbb275ab` master checker, master `dd4179a55` gains one `z3-sample` ACCEPT
+(one UNKNOWN fewer) and changes the `sample46` pending totals (OCaml 122 -> 133,
+Cherry 31 -> 42). Base and candidate agree on all of these, so they come from
+master (checker and producer changes after `8fbb275ab`) or from run conditions
+(that wave used two workers per side, this one four), not from this branch.
+
+GitHub CI is not claimed: the latest remote head (`7aae2a68c`, a bot audit
+commit) only has workflow runs waiting for approval. Earlier failures of the
+`Run regressions` step (z3test `3477.smt2`, `3559.smt2`, Windows
+`opt_nlsat_*`) also occur on master `8fbb275ab` and do not involve `fstar/`;
+macOS was not run locally.

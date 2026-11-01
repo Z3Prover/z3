@@ -606,12 +606,12 @@ let check_proof statistics diagnostics readable query sorted_core start solved a
   let result, diagnostic =
     if diagnostics then (
       let result, diagnostic =
-        if sorted then Z3SortedProof.check_document_diagnosed schema doc
+        if sorted then Z3SortedProof.check_document_epsilon_diagnosed schema doc
         else Z3ProofDocument.check_document_diagnosed_indexed assertion_hash doc in
       result, Some diagnostic)
     else (
       let result =
-        if sorted then Z3SortedProof.check_document schema doc
+        if sorted then Z3SortedProof.check_document_epsilon schema doc
         else Z3ProofDocument.check_document_indexed assertion_hash doc in
       result, None) in
   let checked = Unix.gettimeofday () in

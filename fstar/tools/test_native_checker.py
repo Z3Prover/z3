@@ -493,6 +493,45 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-core", interactive.stdout)
 
+    def test_sorted_core_certifies_closed_epsilon_skolemization(self):
+        sources = (
+            "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))"
+            "(assert (forall ((x Int)) (not (p x))))",
+            "(declare-fun p (Int Int) Bool)(assert (exists ((x Int) (y Int)) (p x y)))"
+            "(assert (forall ((x Int) (y Int)) (not (p x y))))",
+            "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+            "(assert (not (forall ((x Int)) (p x))))(assert (forall ((x Int)) (q x)))"
+            "(assert (forall ((x Int)) (=> (q x) (p x))))",
+        )
+        for source in sources:
+            for interactive in (False, True):
+                with self.subTest(source=source, interactive=interactive):
+                    args = ["--sorted-core", "--diagnostics"]
+                    if interactive:
+                        args.append("--interactive")
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("; proof-check ACCEPT" if interactive else "ACCEPT", result.stdout)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+
+    def test_readable_epsilon_partial_keeps_source_nodes(self):
+        """After epsilon elaboration a pending node still names its original entry, in both modes."""
+        source = ("(assert (exists ((x Real)) (and (= (* x x) 2.0) (= (* x x x) 3.0))))")
+        for interactive in (False, True):
+            with self.subTest(interactive=interactive):
+                mode = ("--interactive",) if interactive else ()
+                text = source + ("(check-sat)" if interactive else "")
+                plain = self.run_checker(text, "--sorted-core", "--diagnostics", *mode)
+                readable = self.run_checker(text, "--sorted-core", "--readable", *mode)
+                self.assertEqual(readable.returncode, 3, readable.stdout + readable.stderr)
+                self.assertEqual(plain.returncode, readable.returncode, plain.stdout + plain.stderr)
+                self.assertNotIn("obligation\tsk\t", readable.stderr)
+                self.assertNotIn("rule=sk\t", readable.stderr)
+                self.assertRegex(readable.stderr, r"(?m)^readable\tquery=1\tverdict=PARTIAL [1-9][0-9]*\t")
+                self.assertRegex(readable.stderr, r"(?m)^  node [0-9]+: premises: ")
+                self.assertNotIn("no source-node mapping", readable.stderr)
+                self.assertTrue(readable.stderr.startswith(plain.stderr), readable.stderr)
+
     def test_sorted_datatype_certifies_constant_folding_in_both_modes(self):
         declarations = ("(declare-datatype T ((C (field Int))))"
                         "(declare-const t T)(assert ((_ is C) t))")
@@ -1414,6 +1453,20 @@ class ReadableTagTests(unittest.TestCase):
         header = (root / "cherry_runtime" / "readable.h").read_text(encoding="utf-8")
         self.assertRegex(header, r"bv_numeral_op\(\) \{ return CHERRY_INT_SMALL\(%s\); \}" % tag)
 
+    def test_cherry_expression_rows_use_the_operator_tags_of_the_f_star_source(self):
+        # Pretty in the Cherry driver mirrors Z3NativeMain.pretty_judgment for the `expression` rows; the extracted checker does not
+        # export these Z3ValueTheory tags. The printer never references a checking or marshaling entry point.
+        root = Path(__file__).resolve().parent.parent
+        values = dict(re.findall(r"let (op_\w+) : decl_kind = (\d+)",
+                                 (root / "Z3ValueTheory.fst").read_text(encoding="utf-8")))
+        main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
+        pretty = main[main.index("class Pretty {"):main.index("static std::string rule_name(")]
+        tags = re.findall(r"static constexpr int64_t (op_\w+) = (\d+);", pretty)
+        self.assertEqual(len(tags), 14)
+        for name, value in tags:
+            self.assertEqual(values.get(name), value, name)
+        self.assertNotRegex(pretty, r"Z3Cherry_(check|diagnose|marshal)\b")
+
     def test_the_printers_cannot_call_the_checker(self):
         # --readable renders the diagnostic the one diagnosed check produced; a second check would double the work and could not be
         # told from the first by a verdict. The printers (OCaml Readable module, Cherry readable.h and readable_report) never reference
@@ -1429,7 +1482,9 @@ class ReadableTagTests(unittest.TestCase):
         ocaml = (root / "ocaml_runtime" / "Z3NativeMain.ml").read_text(encoding="utf-8")
         printer = ocaml[ocaml.index("module Readable = struct"):ocaml.index("let check_proof ")]
         self.assertNotRegex(printer, r"check_document|diagnose_document|check_proof|Z3SortedProof|Z3NativeProof")
-        self.assertEqual(len(re.findall(r"check_document_diagnosed", ocaml)), 2)
+        # The sorted route's one call site is the epsilon entry point, the legacy route's the indexed one.
+        self.assertEqual(len(re.findall(r"check_document(?:_epsilon)?_diagnosed", ocaml)), 2)
+        self.assertEqual(len(re.findall(r"Z3SortedProof\.check_document_epsilon_diagnosed\b", ocaml)), 1)
         self.assertEqual(len(re.findall(r"Readable\.report\b", ocaml)), 1)
 
 
