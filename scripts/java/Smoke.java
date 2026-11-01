@@ -32,7 +32,8 @@ public final class Smoke {
         if (mode.equals("skip")) {
             System.setProperty("z3.skipLibraryLoad", "true");
             Class.forName("com.microsoft.z3.Native");
-        } else if (mode.equals("missing") || mode.equals("unsupported") || mode.equals("temp-failure")) {
+        } else if (mode.equals("missing") || mode.equals("unsupported") || mode.equals("temp-failure")
+                || mode.equals("cache-failure")) {
             if (mode.equals("unsupported")) {
                 System.setProperty("os.arch", "unknown-test-cpu");
             }
@@ -49,8 +50,13 @@ public final class Smoke {
                 if (!error.getMessage().contains(expected)) {
                     throw new AssertionError("Wrong failure stage", error);
                 }
-                if (mode.equals("temp-failure") && !(error.getCause() instanceof java.io.IOException)) {
+                if ((mode.equals("temp-failure") || mode.equals("cache-failure"))
+                        && !(error.getCause() instanceof java.io.IOException)) {
                     throw new AssertionError("Expected temporary-directory I/O failure", error);
+                }
+                if (mode.equals("cache-failure") && (!error.getMessage().contains("Cache attempt:")
+                        || error.getCause().getSuppressed().length == 0)) {
+                    throw new AssertionError("Lost cache failure diagnostics", error);
                 }
                 System.out.println(error.getMessage());
             }
@@ -75,7 +81,7 @@ public final class Smoke {
                 throw new AssertionError("Version mismatch: " + version + " != " + args[1]);
             }
             System.out.println("Context/version/SAT/UNSAT/concurrent initialization: " + version);
-            if (mode.equals("bundled")) {
+            if (mode.equals("bundled") || mode.equals("lifecycle-private")) {
                 java.io.File[] directories = new java.io.File(System.getProperty("java.io.tmpdir")).listFiles();
                 if (directories == null || directories.length != 1
                         || !directories[0].getName().startsWith("z3-native-") || !directories[0].isDirectory()) {

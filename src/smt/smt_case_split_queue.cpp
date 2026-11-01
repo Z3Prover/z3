@@ -127,7 +127,7 @@ namespace {
                     return;
             }
             
-            if (m_context.relevancy()) {
+            if (m_params.m_case_split_relevant_first && m_context.relevancy()) {
                 // Prefer relevant variables. A decision on an irrelevant variable still
                 // propagates through the Tseitin clauses of the irrelevant node and can
                 // force relevant atoms (e.g. the recognizers of a recursive datatype)

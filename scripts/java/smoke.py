@@ -9,6 +9,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from cache_smoke import cache_smoke
+
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 from mk_java_package import (LIBRARIES, RESOURCE_PREFIX, checked_zip, metadata_names,
@@ -92,7 +94,8 @@ def smoke(packages, platform, work, jar_kind='both'):
         return result.stdout + result.stderr
 
     run(['javac', '-source', '8', '-target', '8', '-cp', base_jar, '-d', classes,
-         SCRIPTS / 'java/Smoke.java', SCRIPTS / 'java/LoaderPlatformTest.java'])
+         SCRIPTS / 'java/Smoke.java', SCRIPTS / 'java/LoaderPlatformTest.java',
+         SCRIPTS / 'java/CacheClassLoaderTest.java'])
     environment = dict(os.environ)
     for name in ('LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH',
                  'JDK_JAVA_OPTIONS', '_JAVA_OPTIONS', 'CLASSPATH'):
@@ -126,13 +129,20 @@ def smoke(packages, platform, work, jar_kind='both'):
                 temp = variant / 'tmp-is-a-file'
                 temp.write_text('not a directory', encoding='ascii')
             command = ['java', '-Djava.library.path=' + str(native_dir.resolve()),
+                       # Keep the original extraction/failure contract as an explicit opt-out test.
+                       '-Dz3.nativeCache=' + ('false' if mode in ('bundled', 'temp-failure') else 'true'),
+                       '-Dz3.nativeCacheDir=' + str((variant / 'unexpected-cache').resolve()),
                        '-Djava.io.tmpdir=' + str(temp.resolve()), '-cp',
                        str(artifact) + os.pathsep + str(classes.resolve()), 'Smoke', mode, version,
                        ','.join(libraries)]
             print(classifier + ': ' + run(command, mode_environment).strip(), flush=True)
+            if (variant / 'unexpected-cache').exists():
+                raise ValueError('Unexpected cache access in mode: ' + mode)
             if mode in ('system', 'system-base', 'missing', 'unsupported', 'skip') and any(temp.iterdir()):
                 raise ValueError('Unexpected extraction in mode: ' + mode)
             results.append(mode)
+        results.extend(cache_smoke(jar, classes, variant / 'cache-tests', version,
+                                   libraries, environment, run))
         print(run(['java', '-cp', str(jar) + os.pathsep + str(classes.resolve()),
                    'com.microsoft.z3.LoaderPlatformTest'], environment).strip())
         receipts[classifier] = {'jar_name': jar.name, 'jar_sha256': sha256(jar.read_bytes()),

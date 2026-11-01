@@ -130,7 +130,8 @@ tasks.register('resolved') {
             temporary.mkdir()
             # Child JVM has an empty explicit JNI path. Smoke asserts extraction
             # of exactly the current platform's two libraries as well as SAT/UNSAT.
-            output = run(['java', '-Djava.library.path=' + str(empty), '-Djava.io.tmpdir=' + str(temporary),
+            output = run(['java', '-Dz3.nativeCache=false',
+                          '-Djava.library.path=' + str(empty), '-Djava.io.tmpdir=' + str(temporary),
                           '-cp', str(classes) + os.pathsep + classpath, 'Smoke', 'bundled',
                           report['runtime_version'], ','.join(LIBRARIES[platform.split('-')[0]])])
             if 'PASS bundled' not in output:
