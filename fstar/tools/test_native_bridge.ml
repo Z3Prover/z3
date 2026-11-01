@@ -2943,6 +2943,109 @@ let sorted_integer_farkas () =
     { node with U.conclusion = Option.get (U.classify_fact y); premises = [fact x] }))
     "typed Farkas accepted a positive conclusion literal as an assumption"
 
+(* The Sorted route replays the NNF certificates the producer emits (Z3NnfReplay): no
+   certificate rooted at nnf-neg/nnf-pos is left pending in these proofs (negated exists,
+   the synthetic ite/iff/xor/implication/nested-duality probes, a datatype binder), and the
+   replay's own walks are loops at the native stack: a 200,000-step chain, a 100,000-ary
+   disjunction and 200,000 nested negations (each pending without enough work, replayed with
+   it), a shared term with 2^60 tree nodes (pending), and a forward premise id (a rejected
+   proof entry). *)
+let sorted_nnf_replay () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let nnf_rooted rule = match rule with
+    | U.QuantifierIntroduction c -> NR.nnf_root c
+    | _ -> false in
+  let sources = [
+    "negated-exists", "(declare-fun p (Int) Bool)(assert (not (exists ((x Int)) (p x))))(assert (p 0))";
+    "ite", "(declare-fun p (Int) Bool)(declare-const c Bool)\
+      (assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))(assert c)\
+      (assert (forall ((x Int)) (p x)))";
+    "iff", "(declare-fun p (Int) Bool)(declare-const a Bool)\
+      (assert (not (= a (forall ((x Int)) (p x)))))(assert a)(assert (forall ((x Int)) (p x)))";
+    "xor", "(declare-fun q (Int Real) Bool)(declare-const a Bool)\
+      (assert (not (xor a (exists ((x Int) (r Real)) (q x r)))))(assert a)\
+      (assert (forall ((x Int) (r Real)) (not (q x r))))";
+    "implication", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((z Int)) (not (=> (p z) (exists ((y Int)) (q y 1.0))))))\
+      (assert (p 0))(assert (q 3 1.0))";
+    "nested-duality", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((w Int)) (not (exists ((x Int) (r Real))\
+        (and (q x r) (exists ((x Int)) (and (p x) (p w))))))))(assert (q 1 2.0))(assert (p 3))";
+    "datatype-binder", "(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)\
+      (assert (not (exists ((x T)) (p x))))(assert (p D))";
+  ] in
+  List.iter (fun (name, source) ->
+      let assertions, proof = unsat source in
+      let doc, schema = B.marshal_with_datatypes assertions proof in
+      require (List.exists (fun e -> nnf_rooted e.P.rule) doc.P.entries)
+        ("no NNF certificate in the proof: " ^ name);
+      let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+      (match diagnostic with
+       | P.DocumentChecked (_, unmet) ->
+         List.iter (fun o ->
+             require (not (nnf_rooted o.P.obligation_rule))
+               ("an NNF certificate stayed pending: " ^ name)) unmet
+       | P.DocumentRejected _ -> failwith ("sorted NNF document rejected: " ^ name));
+      require (result <> None) ("sorted NNF document has no verdict: " ^ name))
+    sources;
+  let p = A.App ({ A.decl_name = "p"; domain = []; range = A.bool_sort; interp = None; int_params = [] }, []) in
+  let oeq = Z3ObservationalEquality.mk_oeq_expr in
+  let neg = R.mk_not_expr in
+  let entry name formula premises =
+    { U.binder_name = name; binder_formula = formula;
+      binder_premises = List.map Z.of_int premises; binder_sorts = None } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) []) in
+  let verdict entries root lhs rhs =
+    NR.replay [] { U.binder_entries = entries; binder_root = Z.of_int root } (U.Observational (lhs, rhs)) in
+  let twice e = neg (neg e) in
+  (* a chain: refl, 200,000 trans steps, the double-negation root *)
+  let steps = List.init 200000 (fun k -> entry "trans" (oeq p p) [k; 0]) in
+  let chain = entry "refl" (oeq p p) [] :: List.rev_append (List.rev steps) [entry "nnf-neg" (oeq (twice p) p) [200000]] in
+  require (verdict chain 200001 (twice p) p = NR.Replayed) "deep NNF chain was not replayed";
+  (* a 100,000-ary De Morgan step *)
+  let n = 100000 in
+  let bools = List.init n (fun _ -> A.bool_sort) in
+  let disjunction = A.App ({ A.decl_name = "or"; domain = bools; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_or; int_params = [] }, List.init n (fun _ -> p)) in
+  let conjunction = A.App ({ A.decl_name = "and"; domain = bools; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_and; int_params = [] }, List.init n (fun _ -> neg p)) in
+  let wide pad =
+    verdict (entry "refl" (oeq (neg p) (neg p)) [] ::
+             entry "nnf-neg" (oeq (neg disjunction) conjunction) (List.init n (fun _ -> 0)) :: padding pad)
+      1 (neg disjunction) conjunction in
+  require (wide 200 = NR.Replayed) "wide NNF step was not replayed";
+  require (wide 0 = NR.Unreplayed) "wide NNF step was replayed beyond the work budget";
+  (* 200,000 nested negations *)
+  let rec nested depth acc = if depth = 0 then acc else nested (depth - 1) (neg acc) in
+  let deep = nested 200000 p in
+  let deep_verdict pad =
+    verdict (entry "refl" (oeq deep deep) [] :: entry "nnf-neg" (oeq (twice deep) deep) [0] :: padding pad)
+      1 (twice deep) deep in
+  require (deep_verdict 800 = NR.Replayed) "deep NNF term was not replayed";
+  require (deep_verdict 0 = NR.Unreplayed) "deep NNF term was replayed beyond the work budget";
+  (* a DAG whose tree has 2^60 nodes *)
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let big = dag 60 p in
+  require (verdict [entry "refl" (oeq big big) []; entry "nnf-neg" (oeq (twice big) big) [0]] 1 (twice big) big
+           = NR.Unreplayed) "exponential NNF term was replayed";
+  (* a forward premise id: malformed, and the document rejects that proof entry *)
+  let forward = { U.binder_entries = [entry "refl" (oeq p p) [1]; entry "nnf-neg" (oeq (twice p) p) [0]];
+                  binder_root = Z.one } in
+  require (NR.replay [] forward (U.Observational (twice p, p)) = NR.Malformed) "forward premise id was not malformed";
+  let doc = { P.declarations = []; expressions = []; assertions = [R.false_expr];
+    entries = [{ P.rule = U.QuantifierIntroduction forward; formula = oeq (twice p) p; premise_ids = [] };
+               { P.rule = U.Asserted; formula = R.false_expr; premise_ids = [] }];
+    root = Z.one } in
+  let empty = { Z3DatatypeSignature.sorts = []; cases = [] } in
+  (match K.check_document_epsilon_diagnosed empty doc with
+   | None, P.DocumentRejected (P.ProofEntry, Some index, _) ->
+     require (Z.equal index Z.zero) "malformed certificate rejected at the wrong entry"
+   | _ -> failwith "malformed NNF certificate was not a rejected proof entry")
+
 let sorted_epsilon_skolemization () =
   let module K = Z3SortedProof in
   let module E = Z3SortedSkolem in
@@ -6717,6 +6820,7 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
+     "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
      "sorted-constant-folding-rewrites", sorted_constant_folding;
