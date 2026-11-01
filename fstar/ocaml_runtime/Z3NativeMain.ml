@@ -120,6 +120,116 @@ let fingerprint judgment =
       let right = expression 5 right in
       "oeq(" ^ left ^ " -> " ^ right ^ ")"
 
+let pretty_judgment judgment =
+  let module A = Z3AstTheory in
+  let module V = Z3ValueTheory in
+  let budget = ref 512 and next_bound = ref 0 in
+  let original_name prefix name =
+    let prefix = prefix ^ "!" in
+    let start = String.length prefix in
+    if String.starts_with ~prefix name then
+      match String.index_from_opt name start ':' with
+      | Some stop when stop > start &&
+          String.for_all (function '0' .. '9' -> true | _ -> false)
+            (String.sub name start (stop - start)) ->
+          String.sub name (stop + 1) (String.length name - stop - 1)
+      | _ -> name
+    else name
+  in
+  let symbol name =
+    let safe = function
+      | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '.' | '$' | '!' -> true
+      | _ -> false in
+    if name <> "" && String.length name <= 256 && String.for_all safe name &&
+       (match name.[0] with '0' .. '9' -> false | _ -> true) &&
+       not (List.mem name ["and"; "or"; "not"; "forall"; "exists"; "lambda"])
+    then name
+    else
+      let name = if String.length name > 256 then String.sub name 0 256 ^ "..." else name in
+      "|" ^ String.escaped name ^ "|"
+  in
+  let rec sort depth = function
+    | A.BaseSort name -> symbol (original_name "sort" name)
+    | A.ArraySort (domains, range) ->
+        if depth = 0 || List.length domains > 32 then "Array"
+        else "Array[" ^ String.concat ", " (List.map (sort (depth - 1)) domains) ^
+             "; " ^ sort (depth - 1) range ^ "]"
+  in
+  let rec expression depth environment minimum e =
+    if depth = 0 || !budget = 0 then "...:" ^ sort 2 (A.get_sort e)
+    else (
+      decr budget;
+      let render minimum = expression (depth - 1) environment minimum in
+      let precedence, text =
+        match e with
+        | A.Var (index, _) ->
+            let name =
+              if Z.sign index >= 0 && Z.fits_int index then
+                List.nth_opt environment (Z.to_int index)
+              else None in
+            100, (match name with Some name -> name | None -> "#" ^ Z.to_string index)
+        | A.Quantifier (kind, bindings, _, body) ->
+            if List.length bindings > 32 then 100, "...:" ^ sort 2 (A.get_sort e)
+            else
+              let names = List.map (fun _ ->
+                let name = "#b" ^ string_of_int !next_bound in
+                incr next_bound;
+                name) bindings in
+              let declarations = List.map2 (fun name s -> name ^ ":" ^ sort 3 s) names bindings in
+              let kind = match kind with A.Forall_k -> "forall"
+                  | A.Exists_k -> "exists" | A.Lambda_k -> "lambda" in
+              0, kind ^ " (" ^ String.concat ", " declarations ^ "). " ^
+                 expression (depth - 1) (List.rev names @ environment) 0 body
+        | A.App (decl, args) ->
+            let is kind = decl.A.interp = Some kind in
+            let name = if decl.A.interp = None
+                then original_name "decl" decl.A.decl_name else decl.A.decl_name in
+            let infix precedence token strict =
+              precedence, String.concat (" " ^ token ^ " ")
+                (List.mapi (fun i arg -> render
+                  (if strict || i > 0 then precedence + 1 else precedence) arg) args) in
+            if List.length args > 32 then 100, "...:" ^ sort 2 decl.A.range
+            else if is V.op_num_rational && args = [] then
+              (match decl.A.int_params with
+               | [n; d] when Z.sign d > 0 ->
+                   let text = Z.to_string n ^ (if Z.equal d Z.one then "" else "/" ^ Z.to_string d) in
+                   if String.length text > 64 then 100, "...:" ^ sort 2 decl.A.range
+                   else (if not (Z.equal d Z.one) then 50 else if Z.sign n < 0 then 60 else 100), text
+               | _ -> 100, symbol name)
+            else if is V.op_not && List.length args = 1 then
+              60, "not " ^ render 61 (List.hd args)
+            else if is V.op_arith_sub && List.length args = 1 then
+              60, "-" ^ render 61 (List.hd args)
+            else if List.length args >= 2 && is V.op_or then infix 10 "or" false
+            else if List.length args >= 2 && is V.op_and then infix 20 "and" false
+            else if List.length args = 2 && is V.op_eq then infix 30 "=" true
+            else if List.length args = 2 && is V.op_arith_le then infix 30 "<=" true
+            else if List.length args = 2 && is V.op_arith_lt then infix 30 "<" true
+            else if List.length args = 2 && is V.op_arith_ge then infix 30 ">=" true
+            else if List.length args = 2 && is V.op_arith_gt then infix 30 ">" true
+            else if List.length args >= 2 && (is V.op_arith_add || is V.op_plus) then
+              infix 40 "+" false
+            else if List.length args >= 2 && is V.op_arith_sub then infix 40 "-" false
+            else if List.length args >= 2 && (is V.op_arith_mul || is V.op_mul) then
+              infix 50 "*" false
+            else if List.length args = 2 && is V.op_arith_div then infix 50 "/" false
+            else
+              100, symbol name ^
+                (if args = [] then "" else "(" ^ String.concat ", " (List.map (render 0) args) ^ ")")
+      in
+      if precedence < minimum then "(" ^ text ^ ")" else text)
+  in
+  match judgment with
+  | Z3UnifiedProof.Holds e -> expression 12 [] 0 e
+  | Z3UnifiedProof.Equal (left, right) ->
+      let left = expression 12 [] 31 left in
+      left ^ " = " ^ expression 12 [] 31 right
+  | Z3UnifiedProof.Observational (left, right) ->
+      let left = expression 12 [] 31 left in
+      left ^ " ~ " ^ expression 12 [] 31 right
+
+let pretty_expr e = pretty_judgment (Z3UnifiedProof.Holds e)
+
 (* Inspect argument structure, not just the shared connective declaration. *)
 let assertion_hash value = Z.of_int (Hashtbl.hash_param 64 256 value)
 
@@ -131,22 +241,25 @@ let report_diagnostics diagnostic expected =
       List.iter (fun obligation ->
         let key = diagnostic_rule obligation.Z3ProofDocument.obligation_rule,
                   fingerprint obligation.Z3ProofDocument.obligation_conclusion in
-        let count, first =
+        let count, first, conclusion =
           match Hashtbl.find_opt families key with
           | Some value -> value
-          | None -> Z.zero, obligation.Z3ProofDocument.obligation_index in
+          | None -> Z.zero, obligation.Z3ProofDocument.obligation_index,
+                    obligation.Z3ProofDocument.obligation_conclusion in
         let local = obligation.Z3ProofDocument.obligation_count in
         total := Z.add !total local;
-        Hashtbl.replace families key (Z.add count local, first)) obligations;
+        Hashtbl.replace families key (Z.add count local, first, conclusion)) obligations;
       if not (Z.equal !total pending) then Z3Native.fail "Diagnostic obligation count mismatch";
       Printf.eprintf "diagnostic\tchecked\tpending=%s\tfamilies=%d\n"
         (Z.to_string pending) (Hashtbl.length families);
       Hashtbl.to_seq families |> List.of_seq |>
-        List.sort (fun (key1, (n1, _)) (key2, (n2, _)) ->
+        List.sort (fun (key1, (n1, _, _)) (key2, (n2, _, _)) ->
           let order = Z.compare n2 n1 in if order = 0 then compare key1 key2 else order) |>
-        List.iter (fun ((rule, shape), (count, first)) ->
+        List.iter (fun ((rule, shape), (count, first, conclusion)) ->
           Printf.eprintf "obligation\t%s\t%s\t%s\t%s\n"
-            rule (Z.to_string count) (Z.to_string first) shape)
+            rule (Z.to_string count) (Z.to_string first) shape;
+          Printf.eprintf "expression\t%s\t%s\t%s\t%s\n"
+            rule (Z.to_string count) (Z.to_string first) (pretty_judgment conclusion))
   | Z3ProofDocument.DocumentRejected (stage, index, source), None ->
       Printf.eprintf "diagnostic\trejected\tstage=%s\tindex=%s%s\n"
         (diagnostic_stage stage) (match index with None -> "-" | Some n -> Z.to_string n)

@@ -493,6 +493,24 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-core", interactive.stdout)
 
+    def test_sorted_datatype_certifies_constant_folding_in_both_modes(self):
+        declarations = ("(declare-datatype T ((C (field Int))))"
+                        "(declare-const t T)(assert ((_ is C) t))")
+        for assertion in ("(= 12 23)", "(not (= (+ 12 11) 23))",
+                          "(not (= (* (- 12) 2) (- 24)))"):
+            with self.subTest(assertion=assertion):
+                source = declarations + "(assert " + assertion + ")"
+                result = self.run_checker(source, "--diagnostics", "--stats")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                self.assertIn("semantics=sorted-datatype", result.stderr)
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics", "--stats")
+                self.assertEqual(interactive.returncode, 0,
+                                 interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+                self.assertIn("semantics=sorted-datatype", interactive.stdout)
+
     def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
         source = ("(declare-const x Real)(declare-const y Real)"
                   "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
@@ -850,6 +868,11 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(sum(int(row[2]) for row in rows), expected)
                 self.assertIn("diagnostic\tchecked\tpending=%d\t" % expected, diagnostic.stderr)
                 self.assertRegex(diagnostic.stderr, r"diagnose_ms=\d+\.\d+")
+                expressions = [line.split("\t") for line in diagnostic.stderr.splitlines()
+                               if line.startswith("expression\t")]
+                self.assertEqual([row[1:4] for row in expressions],
+                                 [row[1:4] for row in rows])
+                self.assertTrue(all(len(row) == 5 and row[4] for row in expressions))
                 if expected:
                     renamed = self.run_checker(source.replace("x", "a").replace("y", "b"),
                                                "--diagnostics")
