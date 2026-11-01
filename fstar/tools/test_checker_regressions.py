@@ -220,6 +220,92 @@ class CheckerRegressionTests(unittest.TestCase):
             self.assertEqual(summary["diagnostic_errors"], 1)
             self.assertEqual(len(summary["warnings"]), 1)
 
+    def test_readable_diagnostics_preserve_machine_rows_and_rejection_details(self):
+        readable = (
+            "readable\tquery=1\tverdict=PARTIAL 3\tpending=3\tfamilies=1\tshown=1\n"
+            "readable\tfamily=1/1\trule=th-lemma\tcount=3\tmembers=1\tnode=17\tnode-pending=3\n"
+            "  node 17: premises: #31\n"
+            "  premise #31: holds(p#1:Bool)\n"
+            "  conclusion: holds((= x#3:Int 5))\n"
+            "  source formula: same as conclusion\n"
+            "readable\tend\tquery=1\n")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stderr"
+            machine = ("diagnostic\tchecked\tpending=3\tfamilies=1\n"
+                       "obligation\tth-lemma\t3\t17\tHolds:Int\n")
+            path.write_text(machine)
+            baseline = runner.read_diagnostics(path)
+            path.write_text(machine + readable + "unrelated stderr\n")
+            diagnostic = runner.read_diagnostics(path)
+            self.assertEqual(diagnostic.pop("readable"), readable)
+            self.assertEqual(diagnostic, baseline)
+            rejected = ("readable\tquery=1\tverdict=REJECT\tstage=proof-entry\tindex=17\n"
+                        "  node 17: no source-node mapping\n"
+                        "  source formula: <...chars>\n"
+                        "readable\tend\tquery=1\n")
+            path.write_text("diagnostic\trejected\tstage=proof-entry\tindex=17\n" + rejected)
+            diagnostic = runner.read_diagnostics(path)
+            self.assertEqual(diagnostic["rejection"], ["stage=proof-entry", "index=17"])
+            self.assertEqual(diagnostic["readable"], rejected)
+
+    def test_readable_replay_reports_conditions_without_changing_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, _ = self.manifested_corpus(directory)
+            args.readable = True
+            args.output.mkdir()
+            (args.output / "selection.json").write_text(json.dumps({
+                "solver_timeout_ms": 10, "case_timeout_seconds": 2, "memory_limit_mb": 0}))
+            result = {"path": "QF_LIA/example.smt2", "outcome": "PARTIAL", "verdict": "PARTIAL 3"}
+            results_path = args.output / "results.jsonl"
+            results_path.write_text(json.dumps(result) + "\n")
+            original = results_path.read_bytes()
+            readable = ("readable\tquery=1\tverdict=PARTIAL 3\n"
+                        "readable\tfamily=1/1\trule=th-lemma\tcount=3\n"
+                        "  premise #31: holds(p#1:Bool)\n"
+                        "  conclusion: holds((= x#3:Int 5))\n"
+                        "  source formula: same as conclusion\n"
+                        "readable\tend\tquery=1\n")
+
+            def replay(command, *unused, **kwargs):
+                self.assertIn("--readable", command)
+                stderr = "diagnostic-logs/000000.stderr"
+                (args.output / stderr).write_text("diagnostic\tchecked\tpending=3\tfamilies=1\n"
+                                                "obligation\tth-lemma\t3\t17\tHolds:Int\n" + readable)
+                return {**result, "stderr": stderr}
+
+            with patch.object(runner, "run_case", side_effect=replay), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.diagnose(args), 0)
+            self.assertEqual(results_path.read_bytes(), original)
+            runner.report(args.output)
+            report = (args.output / "report.md").read_text()
+            self.assertIn(readable, report)
+            self.assertIn("diagnostic-logs/000000.stderr", report)
+            summary = json.loads((args.output / "summary.json").read_text())
+            self.assertEqual(summary["counts"]["PARTIAL"], 1)
+            self.assertEqual(summary["obligation_families"][0]["obligations"], 3)
+            rows = [json.loads((args.output / "diagnostics.jsonl").read_text())]
+            rows[0]["matches_original"] = False
+            (args.output / "diagnostics.jsonl").write_text(json.dumps(rows[0]) + "\n")
+            runner.report(args.output)
+            self.assertNotIn(readable, (args.output / "report.md").read_text())
+
+    def test_readable_report_bounds_and_fences_examples(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            readable = "readable\tquery=1\tverdict=REJECT\n  source formula: ```" + "x" * 13000
+            rows = [{"path": f"case-{index}.smt2", "outcome": "REJECT",
+                     "matches_original": True, "stderr": f"diagnostic-logs/{index:06d}.stderr",
+                     "diagnostics": {"readable": readable}} for index in range(4)]
+            (output / "diagnostics.jsonl").write_text(
+                "".join(json.dumps(row) + "\n" for row in rows))
+            runner.report(output)
+            report = (output / "report.md").read_text()
+            self.assertEqual(report.count("````text"), 3)
+            self.assertEqual(report.count("<...summary truncated; see diagnostic stderr>"), 3)
+            self.assertIn("1 additional readable cases", report)
+            self.assertLess(len(report), 40000)
+
     def test_manifest_verifies_all_input_hashes_and_membership(self):
         with tempfile.TemporaryDirectory() as directory:
             args, _ = self.manifested_corpus(directory)

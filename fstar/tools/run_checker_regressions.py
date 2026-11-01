@@ -212,25 +212,35 @@ def cell(value):
 
 def read_diagnostics(path):
     summary, obligations = None, []
+    readable, in_readable = [], False
     with path.open(encoding="utf-8", errors="replace") as stream:
         for line in stream:
+            if line.startswith("readable\t"):
+                in_readable = not line.startswith("readable\tend\t")
+                readable.append(line)
+            elif in_readable and line.startswith("  "):
+                readable.append(line)
             fields = line.rstrip("\n").split("\t")
             if fields[:2] == ["diagnostic", "checked"] and len(fields) == 4:
                 summary = {"pending": int(fields[2].removeprefix("pending=")),
                            "families": int(fields[3].removeprefix("families="))}
             elif fields[:2] == ["diagnostic", "rejected"]:
-                return {"rejection": fields[2:]}
+                summary = {"rejection": fields[2:]}
             elif fields[0] == "obligation" and len(fields) == 5:
                 obligations.append({"rule": fields[1], "count": int(fields[2]),
                                     "first_index": int(fields[3]), "fingerprint": fields[4]})
     if summary is None:
         raise ValueError("Missing checker diagnostic summary")
-    if (summary["families"] != len(obligations) or
+    if "rejection" not in summary and (summary["families"] != len(obligations) or
             len({(item["rule"], item["fingerprint"]) for item in obligations}) != len(obligations) or
             summary["pending"] != sum(item["count"] for item in obligations) or
             any(item["count"] <= 0 or item["first_index"] < 0 for item in obligations)):
         raise ValueError("Inconsistent checker diagnostic obligation counts")
-    return {**summary, "obligations": obligations}
+    if "rejection" not in summary:
+        summary["obligations"] = obligations
+    if readable:
+        summary["readable"] = "".join(readable)
+    return summary
 
 
 def read_results(path):
@@ -274,8 +284,9 @@ def diagnose(args):
                 row = {"path": relative, "outcome": "NOT_RUN",
                        "reason": "Diagnostic budget exhausted"}
             else:
+                readable_options = ["--readable"] if getattr(args, "readable", False) else []
                 row = run_case(
-                    [str(checker), "--stats", "--diagnostics", "--timeout-ms",
+                    [str(checker), "--stats", "--diagnostics", *readable_options, "--timeout-ms",
                      str(selection["solver_timeout_ms"]), str(path)],
                     relative, output, index,
                     min(2 * selection["case_timeout_seconds"], remaining),
@@ -284,6 +295,8 @@ def diagnose(args):
                 if row["outcome"] in ("PARTIAL", "REJECT"):
                     try:
                         row["diagnostics"] = read_diagnostics(output / row["stderr"])
+                        if readable_options and not row["diagnostics"].get("readable"):
+                            raise ValueError("Missing checker readable diagnostic output")
                         if row["outcome"] == "PARTIAL" and (
                                 row["diagnostics"].get("pending") != int(row["verdict"].split()[1])):
                             raise ValueError("Diagnostic pending count disagrees with verdict")
@@ -478,6 +491,26 @@ def report(output):
             lines.append(f'| {cell(group["rule"])} | {cell(group["fingerprint"])} | '
                          f'{group["sole_family_proofs"]} | {group["proofs"]} | '
                          f'{group["obligations"]} | {cell(group["example"])} |')
+        examples = [row for row in diagnostics if row.get("matches_original") and
+                    not row.get("diagnostic_error") and row.get("diagnostics", {}).get("readable")]
+        if examples:
+            lines += ["", "### Readable pending and rejected conditions", "",
+                      "Representative diagnostic replays (first 3 matching cases). Pending means unmet, "
+                      "not necessarily invalid; the checker may lack a rule or exceed a bound. "
+                      "Equal replay verdicts do not establish identical producer proofs. "
+                      "Native truncation and missing-source markers are preserved; full output is in "
+                      "the diagnostic stderr artifacts."]
+            for row in examples[:3]:
+                text = row["diagnostics"]["readable"]
+                if len(text) > 12000:
+                    text = text[:12000] + "\n<...summary truncated; see diagnostic stderr>\n"
+                fence = "`" * max(3, 1 + max(
+                    (len(run) for run in re.findall(r"`+", text)), default=0))
+                lines += ["", f'**{cell(row["path"])}** ({row["outcome"]}); '
+                          f'log: `{cell(row["stderr"])}`', "",
+                          fence + "text", text.rstrip("\n"), fence]
+            if len(examples) > 3:
+                lines += ["", f'{len(examples) - 3} additional readable cases are retained in artifacts.']
     lines += ["", "## Per-file results (first 100; full list in results.csv)", "",
               "| File | Outcome | Wall seconds |", "|---|---|---:|"]
     for row in results[:100]:
@@ -538,6 +571,8 @@ def main():
     diagnostic.add_argument("--checker", type=Path, required=True)
     diagnostic.add_argument("--corpus", type=Path, required=True)
     diagnostic.add_argument("--output", type=Path, required=True)
+    diagnostic.add_argument("--readable", action="store_true",
+                            help="Include native readable pending/rejected conditions in reports")
     diagnostic.add_argument("--total-timeout-seconds", type=positive_float, default=900)
     args = parser.parse_args()
     if args.command == "report":

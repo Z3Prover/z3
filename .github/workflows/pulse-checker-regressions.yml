@@ -157,6 +157,18 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pulse-checker-report/qfbv"
           mkdir -p "$RUNNER_TEMP/pulse-checker-report/qfff"
 
+      - name: Checkout updated regression reporting tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: regression-tools
+          sparse-checkout: fstar/tools
+          persist-credentials: false
+
+      - name: Use reporting tools from this workflow revision
+        run: |
+          cp regression-tools/fstar/tools/{run_checker_regressions.py,test_checker_regressions.py} fstar/tools/
+
       - name: Checkout z3test
         id: corpus
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -382,7 +394,7 @@ jobs:
                 corpus="$GITHUB_WORKSPACE/z3test"
               fi
               python3 fstar/tools/run_checker_regressions.py diagnose \
-                --checker "$CHECKER" \
+                --checker "$CHECKER" --readable \
                 --corpus "$corpus" --output "$report" \
                 --total-timeout-seconds 900 || status=1
             fi
@@ -472,6 +484,18 @@ jobs:
           ref: ${{ needs.build-test-report.outputs.corpus_commit }}
           path: z3test
           persist-credentials: false
+
+      - name: Checkout updated regression reporting tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: regression-tools
+          sparse-checkout: fstar/tools
+          persist-credentials: false
+
+      - name: Use reporting tools from this workflow revision
+        run: |
+          cp regression-tools/fstar/tools/{run_checker_regressions.py,test_checker_regressions.py} fstar/tools/
 
       - name: Download standalone Cherry checker
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -576,7 +600,7 @@ jobs:
             fi
             if [[ -f "$report/selection.json" && -f "$report/results.jsonl" ]]; then
               python3 fstar/tools/run_checker_regressions.py diagnose \
-                --checker "$CHECKER" --corpus "$corpus" --output "$report" \
+                --checker "$CHECKER" --readable --corpus "$corpus" --output "$report" \
                 --total-timeout-seconds 900 || status=1
             fi
             python3 fstar/tools/run_checker_regressions.py report --output "$report"
