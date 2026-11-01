@@ -34,6 +34,7 @@ Notes:
 #include "tactic/arith/probe_arith.h"
 #include "tactic/smtlogics/quant_tactics.h"
 #include "tactic/fpa/qffp_tactic.h"
+#include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/fpa/qffplra_tactic.h"
 #include "tactic/smtlogics/qfaufbv_tactic.h"
 #include "tactic/smtlogics/qfauflia_tactic.h"
@@ -44,6 +45,8 @@ Notes:
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m, p),
+                                        when(mk_not(mk_has_quantifier_probe()),
+                                             if_no_proofs(if_no_unsat_cores(mk_dt2bv_tactic(m, p)))),
                                         cond(mk_and(mk_is_propositional_probe(), mk_not(mk_produce_proofs_probe())),
                                              mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_fd_tactic(m, p); }),
                                         cond(mk_is_qfbv_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qfbv_tactic(m, p); }),
