@@ -1,0 +1,6 @@
+fstar F* 2026.09.27
+z3 Z3 version 4.13.3 - 64 bit
+$ fstar.exe --smt z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out FiniteSetEqGuard.fst
+Verified module: FiniteSetEqGuard
+All verification conditions discharged successfully
+exit 0

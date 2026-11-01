@@ -262,11 +262,11 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
     ENDIF()
 
     IF(_DN_NETCOREAPP)
-        SET(_DN_BUILD_OPTIONS -f net8.0)
+        SET(_DN_BUILD_OPTIONS -f net8.0 /p:TargetFrameworks=net8.0)
         SET(_DN_PACK_OPTIONS /p:TargetFrameworks=net8.0)
     ELSEIF(UNIX)
         # Unix builds default to netstandard2.0
-        SET(_DN_BUILD_OPTIONS -f netstandard2.0)
+        SET(_DN_BUILD_OPTIONS -f netstandard2.0 /p:TargetFrameworks=netstandard2.0)
         SET(_DN_PACK_OPTIONS /p:TargetFrameworks=netstandard2.0)
     ENDIF()
 

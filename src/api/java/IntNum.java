@@ -68,8 +68,9 @@ public class IntNum extends IntExpr
     /**
      * Retrieve the unsigned 64-bit value.
      * The returned Java {@code long} holds the raw bit pattern;
-     * use {@code Long.toUnsignedString(v)} or {@link #getBigInteger()}
+     * use {@code Long.toUnsignedString(v)} or {@code getBigInteger()}
      * for values exceeding {@code Long.MAX_VALUE}.
+     * @see IntNum#getBigInteger
      **/
     public long getUint64()
     {
