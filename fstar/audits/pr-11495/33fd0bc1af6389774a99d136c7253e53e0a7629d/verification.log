@@ -1,0 +1,6 @@
+Command: /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir c2 --odir o2 SkolemComponentAudit.fst
+exit 0
+Verified module: SkolemComponentAudit
+All verification conditions discharged successfully
+
+Base check of Z3List.fst: exit 1, Identifier custard_inline not found in module FStar.Attributes.

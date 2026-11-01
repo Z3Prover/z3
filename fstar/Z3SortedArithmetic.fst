@@ -428,3 +428,96 @@ let lemma_equivalent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     lemma_constant_boolean s bc model other scope rho 64 b (Some?.v (constant_boolean 64 b));
     T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho a);
     T.lemma_boolean s bc (T.evaluate_at s bc model other scope rho b))
+
+(* Typed-root G2: the Farkas replay's model side is a GHOST specification
+   (T.truth is ghost). The executable certificate check below
+   (certificate_inputs, check_contradiction) stays Tot. *)
+let satisfied (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+              (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+              (positive:bool) (e:expr) : GTot bool =
+  if positive then T.truth s bc model other e else not (T.truth s bc model other e)
+
+let rec assumptions_hold (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (xs:list (bool & expr)) : GTot bool (decreases xs) =
+  match xs with
+  | [] -> true
+  | (positive, e) :: rest ->
+    satisfied s bc model other positive e && assumptions_hold s bc model other rest
+
+let rec certificate_inputs (xs:list (bool & expr)) (cs:list A.coefficient)
+  : Tot bool (decreases xs) =
+  match xs, cs with
+  | [], [] -> true
+  | (_, e) :: rest, c :: tail ->
+    D.scoped [] e && get_sort e = bool_sort &&
+    (fst c = 0 || integer_formula 16 e) && certificate_inputs rest tail
+  | _, _ -> false
+
+let check_contradiction (xs:list (bool & expr)) (cs:list A.coefficient) : bool =
+  if not (Some? (arguments_budget 4096 (L.map snd xs))) then false
+  else if not (certificate_inputs xs cs) then false
+  else match A.prepare xs cs with
+  | Some ps -> P.accepts ps
+  | None -> false
+
+let rec lemma_literal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (fuel:nat) (positive:bool) (e:expr) (p:bool) (rel:A.relation) (a b:expr)
+  : Lemma (requires D.scoped [] e /\ integer_formula fuel e /\
+                    A.literal fuel positive e == Some (p, rel, a, b) /\
+                    satisfied s bc model other positive e)
+          (ensures D.scoped [] a /\ D.scoped [] b /\
+                   get_sort a == A.int_s /\ get_sort b == A.int_s /\
+                   E.parsed_holds p rel
+                     (of_int (integer s bc model other [] (T.empty_environment (S.signature s)) a))
+                     (of_int (integer s bc model other [] (T.empty_environment (S.signature s)) b)))
+          (decreases fuel) =
+  match e with
+  | App f [q] ->
+    T.lemma_evaluate_core s bc model other f [q];
+    lemma_literal s bc model other (fuel - 1) (not positive) q p rel a b
+  | _ -> lemma_comparison s bc model other [] (T.empty_environment (S.signature s)) e a b rel
+
+let lemma_prepare_literal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (c:A.coefficient) (positive:bool) (e:expr) (out:A.contribution)
+  : Lemma (requires D.scoped [] e /\ (fst c == 0 \/ integer_formula 16 e) /\
+                    A.prepare_literal c positive e == Some out /\
+                    satisfied s bc model other positive e)
+          (ensures P.holds out (valuation s bc model other [] (T.empty_environment (S.signature s)))) =
+  if fst c = 0 then ()
+  else
+    let p, rel, a, b = Some?.v (A.literal 16 positive e) in
+    lemma_literal s bc model other 16 positive e p rel a b;
+    let pa = Some?.v (A.linearize 256 a) in
+    let pb = Some?.v (A.linearize 256 b) in
+    let rho = T.empty_environment (S.signature s) in
+    lemma_linearize s bc model other [] rho 256 a pa;
+    lemma_linearize s bc model other [] rho 256 b pb;
+    let nx = integer s bc model other [] rho a in
+    let ny = integer s bc model other [] rho b in
+    E.lemma_weighted c p rel true pa pb (of_int nx) (of_int ny) nx ny
+      (valuation s bc model other [] rho)
+
+let rec lemma_prepare (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (xs:list (bool & expr)) (cs:list A.coefficient) (ps:list A.contribution)
+  : Lemma (requires certificate_inputs xs cs /\ A.prepare xs cs == Some ps /\
+                    assumptions_hold s bc model other xs)
+          (ensures P.all_hold ps (valuation s bc model other [] (T.empty_environment (S.signature s))))
+          (decreases xs) =
+  match xs, cs with
+  | (positive, e) :: rest, c :: tail ->
+    lemma_prepare_literal s bc model other c positive e (Some?.v (A.prepare_literal c positive e));
+    lemma_prepare s bc model other rest tail (Some?.v (A.prepare rest tail))
+  | _, _ -> ()
+
+let lemma_check_contradiction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (xs:list (bool & expr)) (cs:list A.coefficient)
+  : Lemma (requires check_contradiction xs cs /\ assumptions_hold s bc model other xs)
+          (ensures False) =
+  let ps = Some?.v (A.prepare xs cs) in
+  lemma_prepare s bc model other xs cs ps;
+  P.lemma_accepts_sound ps (valuation s bc model other [] (T.empty_environment (S.signature s)))
