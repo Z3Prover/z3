@@ -503,6 +503,16 @@ static void test_default_fp_with_finite_enumeration() {
 (get-value (mode))
 )", "sat\n((mode F))\n");
 
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 5 11))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (distinct mode A B C D E))
+(assert (fp.isNaN x))
+(check-sat-using qffp)
+(get-value (mode))
+)", "sat\n((mode F))\n");
+
     // No fixed constructor: UNSAT requires the enum's finite domain, including
     // exclusion of the two unused three-bit encodings for this six-value sort.
     check_fp_commands(R"(

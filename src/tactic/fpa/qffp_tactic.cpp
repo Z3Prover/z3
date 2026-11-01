@@ -22,6 +22,7 @@ Notes:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/arith/probe_arith.h"
 #include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/smtlogics/qfnra_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
@@ -88,6 +89,7 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                                  mk_fpa2bv_tactic(m, p),
                                  mk_propagate_values_tactic(m, p),
                                  using_params(mk_simplify_tactic(m, p), simp_p),
+                                 mk_dt2bv_tactic(m, p),
                                  if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m, p))));
 
     tactic * st = and_then(preamble,
