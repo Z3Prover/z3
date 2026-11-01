@@ -298,6 +298,132 @@ Z3ProofDocument_document_diagnostic rejected_of(Z3ProofDocument_diagnostic_stage
     return value;
 }
 
+// The `expression` machine rows (Pretty in main.cpp): the OCaml bridge test pretty_expressions expects the same strings for the same
+// hand-built shapes, and report_diagnostics prints one row after each obligation row with the conclusion of the family's first
+// obligation, as the OCaml driver does.
+bool pretty_regressions() {
+    bool ok = true;
+    auto expect = [&](std::string const& label, std::string const& actual, std::string const& expected) {
+        if (actual != expected) {
+            std::cerr << "pretty " << label << ": " << actual << ", expected " << expected << '\n';
+            ok = false;
+        }
+    };
+    auto bool_s = base("Bool"), int_s = base("Int"), real_s = base("Real");
+    auto decimal = [](std::string const& digits) { return cherry_int_of_decimal(digits.c_str()); };
+    // F* Z3ValueTheory.op_not / op_eq / op_and / op_or / op_arith_add / op_arith_mul / op_arith_sub / op_arith_gt
+    auto not_tag = CHERRY_INT_SMALL(1), eq_tag = CHERRY_INT_SMALL(7), and_tag = CHERRY_INT_SMALL(13),
+         or_tag = CHERRY_INT_SMALL(14), add_tag = CHERRY_INT_SMALL(23), mul_tag = CHERRY_INT_SMALL(24),
+         sub_tag = CHERRY_INT_SMALL(25), gt_tag = CHERRY_INT_SMALL(30);
+    auto numeral = [&](cherry_int n, cherry_int d, Z3AstTheory_sort range) {
+        return constant("numeral", range, Z3Cherry_rational_op, {n, d});
+    };
+    auto shown = [](Z3AstTheory_expr value) { return Pretty().judgment(holds_of(value)); };
+    auto x = constant("decl!3:x", int_s), p = constant("decl!1:p", bool_s), q = constant("decl!2:q", bool_s),
+         y = constant("decl!5:y", int_s), z_ = constant("decl!6:z", int_s), r = constant("decl!7:r", bool_s);
+    auto binary = [&](cherry_int tag, std::string const& token, Z3AstTheory_expr a, Z3AstTheory_expr b) {
+        return app(declaration(token, {int_s, int_s}, cherry_int_eq(tag, eq_tag) ? bool_s : int_s, tag), {a, b});
+    };
+    auto boolean = [&](cherry_int tag, std::string const& token, Z3AstTheory_expr a, Z3AstTheory_expr b) {
+        return app(declaration(token, {bool_s, bool_s}, bool_s, tag), {a, b});
+    };
+    auto negation = [&](Z3AstTheory_expr a) { return app(declaration("not", {bool_s}, bool_s, not_tag), {a}); };
+    auto minus = [&](Z3AstTheory_expr a) { return app(declaration("-", {int_s}, int_s, sub_tag), {a}); };
+    // the OCaml bridge cases parsed from SMT-LIB, rebuilt by hand
+    expect("and over or", shown(boolean(and_tag, "and", p, boolean(or_tag, "or", q, r))), "p and (q or r)");
+    expect("or over and", shown(boolean(or_tag, "or", boolean(and_tag, "and", p, q), r)), "p and q or r");
+    expect("nested equality", shown(boolean(eq_tag, "=", p, boolean(eq_tag, "=", q, r))), "p = (q = r)");
+    expect("sum of product", shown(binary(add_tag, "+", x, binary(mul_tag, "*", y, z_))), "x + y * z");
+    expect("product of sum", shown(binary(mul_tag, "*", binary(add_tag, "+", x, y), z_)), "(x + y) * z");
+    expect("right-nested difference", shown(binary(sub_tag, "-", x, binary(sub_tag, "-", y, z_))), "x - (y - z)");
+    expect("double negation", shown(minus(minus(x))), "-(-x)");
+    expect("negated comparison", shown(negation(app(declaration("<=", {int_s, int_s}, bool_s, CHERRY_INT_SMALL(27)),
+        {binary(add_tag, "+", x, binary(mul_tag, "*", y, z_)), numeral(z(0), z(1), int_s)}))), "not (x + y * z <= 0)");
+    expect("uninterpreted connective", shown(constant("and", bool_s)), "|and|");
+    // the shared hand-built shapes of pretty_expressions
+    expect("binders", shown(quantifier(Z3ASTTHEORY_FORALL_K, {int_s, bool_s}, bool_s,
+        boolean(or_tag, "or", binary(eq_tag, "=", variable(1, int_s), x), variable(0, bool_s)))),
+        "forall (#b0:Int, #b1:Bool). #b0 = x or #b1");
+    expect("negated binder", shown(negation(quantifier(Z3ASTTHEORY_EXISTS_K, {int_s}, bool_s,
+        app(declaration(">", {int_s, int_s}, bool_s, gt_tag), {variable(0, int_s), numeral(z(0), z(1), int_s)})))),
+        "not (exists (#b0:Int). #b0 > 0)");
+    expect("rational summand", shown(app(declaration("+", {int_s, real_s}, real_s, add_tag),
+        {x, numeral(z(-7), z(3), real_s)})), "x + -7/3");
+    expect("negative factor", shown(binary(mul_tag, "*", x, numeral(z(-5), z(1), int_s))), "x * -5");
+    expect("negated negative numeral", shown(minus(numeral(z(-5), z(1), int_s))), "-(-5)");
+    std::string const ten63 = "1" + std::string(63, '0');
+    expect("64-character numeral", shown(numeral(decimal(ten63), z(1), int_s)), ten63);
+    expect("65-character numeral", shown(numeral(decimal(ten63 + "0"), z(1), int_s)), "...:Int");
+    expect("65-character negative numeral", shown(numeral(decimal("-" + ten63), z(1), int_s)), "...:Int");
+    expect("5000-digit numeral", shown(numeral(decimal("1" + std::string(5000, '0')), z(3), int_s)), "...:Int");
+    expect("unbound variable", shown(variable(3, int_s)), "#3");
+    expect("quoted name", shown(constant("decl!2:a b", int_s)), "|a b|");
+    expect("long name", shown(constant("decl!9:" + std::string(300, 'a'), int_s)), "|" + std::string(256, 'a') + "...|");
+    expect("uninterpreted keyword", shown(constant("decl!4:or", bool_s)), "|or|");
+    expect("non-numeric id", shown(constant("decl!x:y", int_s)), "|decl!x:y|");
+    auto set = array({int_s}, bool_s), owner = base("sort!5:T");
+    expect("binder sorts", shown(quantifier(Z3ASTTHEORY_LAMBDA_K, {set, owner}, array({set, owner}, set), variable(1, set))),
+        "lambda (#b0:Array[Int; Bool], #b1:T). #b0");
+    auto f = [&](std::vector<Z3AstTheory_expr> const& arguments) {
+        return app(declaration("decl!7:f", std::vector<Z3AstTheory_sort>(arguments.size(), int_s), int_s), arguments);
+    };
+    expect("uninterpreted application", shown(f({x, numeral(z(1), z(1), int_s)})), "f(x, 1)");
+    expect("argument limit", shown(f(std::vector<Z3AstTheory_expr>(33, x))), "...:Int");
+    auto deep = p;
+    for (int i = 0; i < 13; ++i)
+        deep = negation(deep);
+    std::string nested = "not ...:Bool";
+    for (int i = 0; i < 11; ++i)
+        nested = "not (" + nested + ")";
+    expect("depth limit", shown(deep), nested);
+    expect("equality judgment", Pretty().judgment(equal_of(x, binary(add_tag, "+", x, numeral(z(1), z(1), int_s)))),
+           "x = x + 1");
+    Z3UnifiedProof_judgment observational{};
+    observational.tag = Z3UNIFIEDPROOF_OBSERVATIONAL;
+    observational.val.Observational.left = p;
+    observational.val.Observational.right = boolean(or_tag, "or", p, q);
+    expect("observational judgment", Pretty().judgment(observational), "p ~ (p or q)");
+    // 512 visited nodes bound a shared DAG whose tree is exponential
+    auto pair = declaration("decl!8:g", {int_s, int_s}, int_s);
+    auto dag = x;
+    for (int i = 0; i < 100; ++i)
+        dag = app(pair, {dag, dag});
+    auto bounded = shown(dag);
+    if (bounded.size() > 20000 || bounded.find("...:Int") == std::string::npos) {
+        std::cerr << "pretty node budget did not bound a shared DAG (" << bounded.size() << " characters)\n";
+        ok = false;
+    }
+    // report_diagnostics: an expression row after each obligation row, from the first obligation of the family
+    auto pending = z(5);
+    auto diagnostic = checked_of(pending, {
+        obligation_of("r1", 4, z(1), holds_of(boolean(or_tag, "or", p, q)), {}, p),
+        obligation_of("r0", 7, z(3), equal_of(x, binary(add_tag, "+", x, numeral(z(1), z(1), int_s))), {}, x),
+        obligation_of("r1", 9, z(1), holds_of(boolean(or_tag, "or", r, p)), {}, r)});
+    std::ostringstream captured;
+    auto* previous = std::cerr.rdbuf(captured.rdbuf());
+    try {
+        report_diagnostics(diagnostic, some<Result>(pending));
+    }
+    catch (...) {
+        std::cerr.rdbuf(previous);
+        throw;
+    }
+    std::cerr.rdbuf(previous);
+    std::vector<std::string> lines;
+    std::istringstream rows(captured.str());
+    for (std::string line; std::getline(rows, line);)
+        lines.push_back(line);
+    auto prefix = [](std::string const& line, std::string const& start) { return line.rfind(start, 0) == 0; };
+    bool rows_ok = lines.size() == 5 && lines[0] == "diagnostic\tchecked\tpending=5\tfamilies=2" &&
+        prefix(lines[1], "obligation\tr0\t3\t7\t") && lines[2] == "expression\tr0\t3\t7\tx = x + 1" &&
+        prefix(lines[3], "obligation\tr1\t2\t4\t") && lines[4] == "expression\tr1\t2\t4\tp or q";
+    if (!rows_ok) {
+        std::cerr << "pretty expression rows:\n" << captured.str();
+        ok = false;
+    }
+    return ok;
+}
+
 // Cases readable_regressions does not reach, mirroring the OCaml bridge test readable_edge_cases (same expectations, written from the
 // printer's contract: what the checker saw is shown as reflected and never re-encoded, repaired or reduced, an unmatched native
 // identity is a plain quoted name, every limit leaves a marker) and the report goldens of its readable_conditions, run on the
@@ -874,6 +1000,10 @@ int main() {
     }
     if (!readable_regressions() || !readable_same_proof() || !readable_edge_cases()) {
         std::cerr << "Cherry readable rendering regressions failed\n";
+        return 1;
+    }
+    if (!pretty_regressions()) {
+        std::cerr << "Cherry expression-row regressions failed\n";
         return 1;
     }
     std::cout << "Cherry kernel and native acceptance/rejection regressions passed\n";

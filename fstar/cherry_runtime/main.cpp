@@ -177,6 +177,227 @@ public:
     }
 };
 
+// Precedence-aware infix text of an obligation conclusion, for the `expression` machine rows that follow each `obligation`
+// row. It mirrors Z3NativeMain.pretty_judgment in the OCaml checker with the same bounds: 512 visited nodes and depth 12 per
+// judgment, at most 32 arguments or binders, 64-character numerals and 256-byte names. A numeral is compared with 10^64
+// before it is converted, so no input yields an unbounded string. Nothing here feeds back into checking.
+class Pretty {
+    // F* Z3ValueTheory tags. The extracted checker exports only the rational tag (Z3Cherry_rational_op);
+    // tools/test_native_checker.py compares these with the F* source.
+    static constexpr int64_t op_not = 1;
+    static constexpr int64_t op_plus = 2;
+    static constexpr int64_t op_eq = 7;
+    static constexpr int64_t op_and = 13;
+    static constexpr int64_t op_or = 14;
+    static constexpr int64_t op_mul = 17;
+    static constexpr int64_t op_arith_add = 23;
+    static constexpr int64_t op_arith_mul = 24;
+    static constexpr int64_t op_arith_sub = 25;
+    static constexpr int64_t op_arith_div = 26;
+    static constexpr int64_t op_arith_le = 27;
+    static constexpr int64_t op_arith_lt = 28;
+    static constexpr int64_t op_arith_ge = 29;
+    static constexpr int64_t op_arith_gt = 30;
+    unsigned budget = 512, next_bound = 0;
+
+    // "decl!ID:NAME" and "sort!ID:NAME" (native ids) are shown as NAME.
+    static std::string original_name(std::string const& prefix, std::string const& name) {
+        auto marker = prefix + "!";
+        if (name.compare(0, marker.size(), marker) != 0)
+            return name;
+        auto stop = name.find(':', marker.size());
+        if (stop == std::string::npos || stop == marker.size())
+            return name;
+        for (auto i = marker.size(); i < stop; ++i)
+            if (name[i] < '0' || name[i] > '9')
+                return name;
+        return name.substr(stop + 1);
+    }
+    static std::string symbol(std::string const& name) {
+        auto safe = [](unsigned char c) {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                c == '_' || c == '.' || c == '$' || c == '!';
+        };
+        if (!name.empty() && name.size() <= 256 && std::all_of(name.begin(), name.end(), safe) &&
+            !(name[0] >= '0' && name[0] <= '9') && name != "and" && name != "or" && name != "not" &&
+            name != "forall" && name != "exists" && name != "lambda")
+            return name;
+        return "|" + escaped(name.size() > 256 ? name.substr(0, 256) + "..." : name) + "|";
+    }
+    // At most limit + 1 cells are visited.
+    template<class Cell>
+    static size_t length_up_to(cherry_obj* values, size_t limit) {
+        size_t result = 0;
+        while (!cherry_is_scalar(values) && result <= limit) {
+            ++result;
+            values = reinterpret_cast<Cell*>(values)->tl;
+        }
+        return result;
+    }
+    std::string sort(Z3AstTheory_sort value, unsigned depth) {
+        if (cherry_tag(value) == Z3ASTTHEORY_BASESORT)
+            return symbol(original_name("sort", text(reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(value)->name)));
+        auto* array = reinterpret_cast<Z3AstTheory_sort_ArraySort_s*>(value);
+        if (!depth || length_up_to<Prims_list__sort_Cons_s>(array->domain, 32) > 32)
+            return "Array";
+        std::string result = "Array[";
+        bool first = true;
+        each<Prims_list__sort_Cons_s>(array->domain, [&](auto domain) {
+            if (!std::exchange(first, false))
+                result += ", ";
+            result += sort(domain, depth - 1);
+        });
+        return result + "; " + sort(array->range, depth - 1) + "]";
+    }
+    // A rational numeral n/d with d > 0 shows n, or n/d when d is not 1; text longer than 64 characters is elided.
+    static std::optional<std::string> numeral_text(cherry_int n, cherry_int d) {
+        struct Bounds {
+            cherry_int upper = cherry_int_of_decimal(("1" + std::string(64, '0')).c_str());
+            cherry_int lower = cherry_int_neg(upper);
+            ~Bounds() {
+                cherry_dec(upper);
+                cherry_dec(lower);
+            }
+        };
+        static Bounds const bounds;
+        // |n| >= 10^64 or d >= 10^64 already has more than 64 characters.
+        if (!cherry_int_lt(n, bounds.upper) || !cherry_int_gt(n, bounds.lower) || !cherry_int_lt(d, bounds.upper))
+            return std::nullopt;
+        auto result = integer(n) + (cherry_int_eq(d, CHERRY_INT_SMALL(1)) ? "" : "/" + integer(d));
+        if (result.size() > 64)
+            return std::nullopt;
+        return result;
+    }
+    std::string expression(Z3AstTheory_expr value, unsigned depth, std::vector<std::string> const& environment,
+                           int minimum) {
+        if (!depth || !budget)
+            return "...:" + sort(expression_sort(value), 2);
+        --budget;
+        auto render = [&](int least, Z3AstTheory_expr argument) {
+            return expression(argument, depth - 1, environment, least);
+        };
+        int precedence = 100;
+        std::string result;
+        switch (cherry_tag(value)) {
+        case Z3ASTTHEORY_VAR: {
+            auto index = reinterpret_cast<Z3AstTheory_expr_Var_s*>(value)->idx;
+            if (cherry_int_ge(index, CHERRY_INT_SMALL(0)) &&
+                cherry_int_lt(index, cherry_int_of_u64(environment.size())))
+                result = environment[cherry_int_to_u64(index)];
+            else
+                result = "#" + readable::integer_text(index);
+            break;
+        }
+        case Z3ASTTHEORY_QUANTIFIER: {
+            auto* quantified = reinterpret_cast<Z3AstTheory_expr_Quantifier_s*>(value);
+            if (length_up_to<Prims_list__sort_Cons_s>(quantified->bound_sorts, 32) > 32) {
+                result = "...:" + sort(expression_sort(value), 2);
+                break;
+            }
+            std::vector<std::string> names, declarations;
+            each<Prims_list__sort_Cons_s>(quantified->bound_sorts, [&](auto) {
+                names.push_back("#b" + std::to_string(next_bound++));
+            });
+            size_t i = 0;
+            each<Prims_list__sort_Cons_s>(quantified->bound_sorts, [&](auto bound) {
+                declarations.push_back(names[i++] + ":" + sort(bound, 3));
+            });
+            std::vector<std::string> inner(names.rbegin(), names.rend());
+            inner.insert(inner.end(), environment.begin(), environment.end());
+            precedence = 0;
+            result = std::string(quantified->qk == Z3ASTTHEORY_FORALL_K ? "forall" :
+                quantified->qk == Z3ASTTHEORY_EXISTS_K ? "exists" : "lambda") + " (";
+            for (size_t k = 0; k < declarations.size(); ++k)
+                result += (k ? ", " : "") + declarations[k];
+            result += "). " + expression(quantified->body, depth - 1, inner, 0);
+            break;
+        }
+        case Z3ASTTHEORY_APP: {
+            auto* app = reinterpret_cast<Z3AstTheory_expr_App_s*>(value);
+            auto const& decl = app->decl;
+            bool interpreted = decl.interp.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT;
+            auto is = [&](int64_t tag) { return interpreted && cherry_int_eq(decl.interp.val.Some, CHERRY_INT_SMALL(tag)); };
+            auto name = interpreted ? text(decl.decl_name) : original_name("decl", text(decl.decl_name));
+            auto count = length_up_to<Prims_list__expr_Cons_s>(app->args, 32);
+            std::vector<Z3AstTheory_expr> arguments;
+            if (count <= 32)
+                each<Prims_list__expr_Cons_s>(app->args, [&](auto argument) { arguments.push_back(argument); });
+            auto infix = [&](int level, char const* token, bool strict) {
+                precedence = level;
+                for (size_t k = 0; k < arguments.size(); ++k)
+                    result += (k ? std::string(" ") + token + " " : std::string()) +
+                        render(strict || k > 0 ? level + 1 : level, arguments[k]);
+            };
+            if (count > 32)
+                result = "...:" + sort(decl.range, 2);
+            else if (interpreted && cherry_int_eq(decl.interp.val.Some, Z3Cherry_rational_op) && arguments.empty()) {
+                std::vector<cherry_int> parameters;
+                if (length_up_to<Prims_list__int_Cons_s>(decl.int_params, 2) == 2)
+                    each<Prims_list__int_Cons_s>(decl.int_params, [&](auto n) { parameters.push_back(n); });
+                if (parameters.size() == 2 && cherry_int_gt(parameters[1], CHERRY_INT_SMALL(0))) {
+                    auto numeral = numeral_text(parameters[0], parameters[1]);
+                    if (!numeral)
+                        result = "...:" + sort(decl.range, 2);
+                    else {
+                        result = *numeral;
+                        precedence = !cherry_int_eq(parameters[1], CHERRY_INT_SMALL(1)) ? 50 :
+                            cherry_int_lt(parameters[0], CHERRY_INT_SMALL(0)) ? 60 : 100;
+                    }
+                }
+                else
+                    result = symbol(name);
+            }
+            else if (is(op_not) && arguments.size() == 1) {
+                precedence = 60;
+                result = "not " + render(61, arguments[0]);
+            }
+            else if (is(op_arith_sub) && arguments.size() == 1) {
+                precedence = 60;
+                result = "-" + render(61, arguments[0]);
+            }
+            else if (arguments.size() >= 2 && is(op_or)) infix(10, "or", false);
+            else if (arguments.size() >= 2 && is(op_and)) infix(20, "and", false);
+            else if (arguments.size() == 2 && is(op_eq)) infix(30, "=", true);
+            else if (arguments.size() == 2 && is(op_arith_le)) infix(30, "<=", true);
+            else if (arguments.size() == 2 && is(op_arith_lt)) infix(30, "<", true);
+            else if (arguments.size() == 2 && is(op_arith_ge)) infix(30, ">=", true);
+            else if (arguments.size() == 2 && is(op_arith_gt)) infix(30, ">", true);
+            else if (arguments.size() >= 2 && (is(op_arith_add) || is(op_plus))) infix(40, "+", false);
+            else if (arguments.size() >= 2 && is(op_arith_sub)) infix(40, "-", false);
+            else if (arguments.size() >= 2 && (is(op_arith_mul) || is(op_mul))) infix(50, "*", false);
+            else if (arguments.size() == 2 && is(op_arith_div)) infix(50, "/", false);
+            else {
+                result = symbol(name);
+                if (!arguments.empty()) {
+                    result += "(";
+                    for (size_t k = 0; k < arguments.size(); ++k)
+                        result += (k ? ", " : "") + render(0, arguments[k]);
+                    result += ")";
+                }
+            }
+            break;
+        }
+        default: throw NativeError("Invalid extracted expression tag");
+        }
+        return precedence < minimum ? "(" + result + ")" : result;
+    }
+public:
+    std::string judgment(Z3UnifiedProof_judgment const& value) {
+        switch (value.tag) {
+        case Z3UNIFIEDPROOF_HOLDS: return expression(value.val.Holds, 12, {}, 0);
+        case Z3UNIFIEDPROOF_EQUAL: {
+            auto left = expression(value.val.Equal.left, 12, {}, 31);
+            return left + " = " + expression(value.val.Equal.right, 12, {}, 31);
+        }
+        case Z3UNIFIEDPROOF_OBSERVATIONAL: {
+            auto left = expression(value.val.Observational.left, 12, {}, 31);
+            return left + " ~ " + expression(value.val.Observational.right, 12, {}, 31);
+        }
+        default: throw NativeError("Invalid extracted judgment tag");
+        }
+    }
+};
+
 static std::string rule_name(Z3UnifiedProof_rule const& rule) {
     switch (rule.tag) {
 #define RULE(tag, name) case Z3UNIFIEDPROOF_##tag: return name
@@ -237,7 +458,8 @@ static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value,
     if (value.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED &&
         result.tag == FSTAR_PERVASIVES_NATIVE_SOME__INT &&
         cherry_int_eq(value.val.DocumentChecked.pending, result.val.Some)) {
-        struct Group { Count count; std::string first; };
+        // The first obligation of a family names its node and, as in the OCaml driver, gives the conclusion of its expression row.
+        struct Group { Count count; std::string first; Z3UnifiedProof_judgment conclusion{}; };
         using Key = std::pair<std::string, std::string>;
         std::map<Key, Group> groups;
         Count total;
@@ -246,8 +468,10 @@ static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value,
                 Key key{rule_name(obligation.obligation_rule),
                     Fingerprint().judgment(obligation.obligation_conclusion)};
                 auto [found, inserted] = groups.try_emplace(std::move(key));
-                if (inserted)
+                if (inserted) {
                     found->second.first = integer(obligation.obligation_index);
+                    found->second.conclusion = obligation.obligation_conclusion;
+                }
                 found->second.count.add(obligation.obligation_count);
                 total.add(obligation.obligation_count);
             });
@@ -262,10 +486,14 @@ static void report_diagnostics(Z3ProofDocument_document_diagnostic const& value,
             auto comparison = cherry_int_cmp(a->second.count.value, b->second.count.value);
             return comparison ? comparison > 0 : a->first < b->first;
         });
-        for (auto it : order)
+        for (auto it : order) {
             std::cerr << "obligation\t" << it->first.first << '\t'
                       << integer(it->second.count.value) << '\t' << it->second.first
                       << '\t' << it->first.second << '\n';
+            std::cerr << "expression\t" << it->first.first << '\t'
+                      << integer(it->second.count.value) << '\t' << it->second.first
+                      << '\t' << Pretty().judgment(it->second.conclusion) << '\n';
+        }
     }
     else if (value.tag == Z3PROOFDOCUMENT_DOCUMENTREJECTED &&
              result.tag == FSTAR_PERVASIVES_NATIVE_NONE__INT) {

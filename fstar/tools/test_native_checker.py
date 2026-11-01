@@ -1453,6 +1453,20 @@ class ReadableTagTests(unittest.TestCase):
         header = (root / "cherry_runtime" / "readable.h").read_text(encoding="utf-8")
         self.assertRegex(header, r"bv_numeral_op\(\) \{ return CHERRY_INT_SMALL\(%s\); \}" % tag)
 
+    def test_cherry_expression_rows_use_the_operator_tags_of_the_f_star_source(self):
+        # Pretty in the Cherry driver mirrors Z3NativeMain.pretty_judgment for the `expression` rows; the extracted checker does not
+        # export these Z3ValueTheory tags. The printer never references a checking or marshaling entry point.
+        root = Path(__file__).resolve().parent.parent
+        values = dict(re.findall(r"let (op_\w+) : decl_kind = (\d+)",
+                                 (root / "Z3ValueTheory.fst").read_text(encoding="utf-8")))
+        main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
+        pretty = main[main.index("class Pretty {"):main.index("static std::string rule_name(")]
+        tags = re.findall(r"static constexpr int64_t (op_\w+) = (\d+);", pretty)
+        self.assertEqual(len(tags), 14)
+        for name, value in tags:
+            self.assertEqual(values.get(name), value, name)
+        self.assertNotRegex(pretty, r"Z3Cherry_(check|diagnose|marshal)\b")
+
     def test_the_printers_cannot_call_the_checker(self):
         # --readable renders the diagnostic the one diagnosed check produced; a second check would double the work and could not be
         # told from the first by a verdict. The printers (OCaml Readable module, Cherry readable.h and readable_report) never reference

@@ -164,7 +164,62 @@ let pretty_expressions () =
      "(not (<= (+ x (* y z)) 0))", "not (x + y * z <= 0)", false];
   let fake = A.App ({ A.decl_name = "and"; domain = []; range = A.BaseSort "Bool";
                      interp = None; int_params = [] }, []) in
-  require (Z3NativeMain.pretty_expr fake = "|and|") "uninterpreted connective was printed as logic"
+  require (Z3NativeMain.pretty_expr fake = "|and|") "uninterpreted connective was printed as logic";
+  (* Hand-built shapes shared with the Cherry driver's expression rows (cherry_runtime/tests.cpp pretty_regressions
+     expects the same strings): binders, numerals, names, sorts and bounds. *)
+  let module V = Z3ValueTheory in
+  let bool_s = A.BaseSort "Bool" and int_s = A.BaseSort "Int" and real_s = A.BaseSort "Real" in
+  let app name domain range interp args =
+    A.App ({ A.decl_name = name; domain; range; interp; int_params = [] }, args) in
+  let constant name range = app name [] range None [] in
+  let numeral n d range =
+    A.App ({ A.decl_name = "numeral"; domain = []; range; interp = Some V.op_num_rational;
+             int_params = [n; d] }, []) in
+  let var i s = A.Var (Z.of_int i, s) in
+  let x = constant "decl!3:x" int_s and p = constant "decl!1:p" bool_s and q = constant "decl!2:q" bool_s in
+  let binary kind token a b = app token [int_s; int_s] (if kind = V.op_eq then bool_s else int_s) (Some kind) [a; b] in
+  let disjunction a b = app "or" [bool_s; bool_s] bool_s (Some V.op_or) [a; b] in
+  let negation a = app "not" [bool_s] bool_s (Some V.op_not) [a] in
+  let ten n = Z.pow (Z.of_int 10) n in
+  let shared = [
+    "binders", A.Quantifier (A.Forall_k, [int_s; bool_s], bool_s,
+                             disjunction (binary V.op_eq "=" (var 1 int_s) x) (var 0 bool_s)),
+      "forall (#b0:Int, #b1:Bool). #b0 = x or #b1";
+    "negated binder", negation (A.Quantifier (A.Exists_k, [int_s], bool_s,
+      app ">" [int_s; int_s] bool_s (Some V.op_arith_gt) [var 0 int_s; numeral Z.zero Z.one int_s])),
+      "not (exists (#b0:Int). #b0 > 0)";
+    "rational summand", app "+" [int_s; real_s] real_s (Some V.op_arith_add) [x; numeral (Z.of_int (-7)) (Z.of_int 3) real_s],
+      "x + -7/3";
+    "negative factor", binary V.op_arith_mul "*" x (numeral (Z.of_int (-5)) Z.one int_s), "x * -5";
+    "negated negative numeral", app "-" [int_s] int_s (Some V.op_arith_sub) [numeral (Z.of_int (-5)) Z.one int_s], "-(-5)";
+    "64-character numeral", numeral (ten 63) Z.one int_s, Z.to_string (ten 63);
+    "65-character numeral", numeral (ten 64) Z.one int_s, "...:Int";
+    "65-character negative numeral", numeral (Z.neg (ten 63)) Z.one int_s, "...:Int";
+    "unbound variable", var 3 int_s, "#3";
+    "quoted name", constant "decl!2:a b" int_s, "|a b|";
+    "long name", constant ("decl!9:" ^ String.make 300 'a') int_s, "|" ^ String.make 256 'a' ^ "...|";
+    "uninterpreted keyword", constant "decl!4:or" bool_s, "|or|";
+    "non-numeric id", constant "decl!x:y" int_s, "|decl!x:y|";
+    "binder sorts", A.Quantifier (A.Lambda_k, [A.ArraySort ([int_s], bool_s); A.BaseSort "sort!5:T"],
+                                  A.ArraySort ([A.ArraySort ([int_s], bool_s); A.BaseSort "sort!5:T"], A.ArraySort ([int_s], bool_s)),
+                                  var 1 (A.ArraySort ([int_s], bool_s))),
+      "lambda (#b0:Array[Int; Bool], #b1:T). #b0";
+    "uninterpreted application", app "decl!7:f" [int_s; int_s] int_s None [x; numeral Z.one Z.one int_s], "f(x, 1)";
+    "argument limit", app "decl!7:f" (List.init 33 (fun _ -> int_s)) int_s None (List.init 33 (fun _ -> x)), "...:Int"] in
+  List.iter (fun (label, value, expected) ->
+      let actual = Z3NativeMain.pretty_expr value in
+      require (actual = expected) ("pretty " ^ label ^ ": " ^ actual ^ "; expected: " ^ expected)) shared;
+  let deep = ref p in
+  for _ = 1 to 13 do deep := negation !deep done;
+  let expected = ref "not ...:Bool" in
+  for _ = 1 to 11 do expected := "not (" ^ !expected ^ ")" done;
+  require (Z3NativeMain.pretty_expr !deep = !expected) "pretty depth limit";
+  List.iter (fun (label, judgment, expected) ->
+      let actual = Z3NativeMain.pretty_judgment judgment in
+      require (actual = expected) ("pretty " ^ label ^ ": " ^ actual ^ "; expected: " ^ expected))
+    ["equality judgment", U.Equal (x, binary V.op_arith_add "+" x (numeral Z.one Z.one int_s)), "x = x + 1";
+     "observational judgment", U.Observational (p, disjunction p q), "p ~ (p or q)";
+     "holds judgment", U.Holds (disjunction p q), "p or q"]
 
 let native_farkas () =
   let doc = document
