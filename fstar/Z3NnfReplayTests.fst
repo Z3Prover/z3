@@ -43,6 +43,9 @@ module Z3NnfReplayTests
       mutants (label-only claim with a counter-model, kind change, negative
       body, dual connective, extra child, swapped branches, out-of-scope and
       wrongly sorted indices, self reference).
+   H. The duality mutant under HETEROGENEOUS binders [Int; Real] (a positive
+      body fact for a negative duality): pending, in a would-be refutation
+      of satisfiable inputs, with the positively proved counter-model.
 
    Every expected failure is the checker's own verdict on a well-typed
    certificate, computed by normalization; none is a parse, effect or
@@ -314,8 +317,10 @@ let b9_entries : list U.binder_entry =
 let b9_wrong_polarity () : Lemma (pending (cert b9_entries 1) (neg (exists_ [integer] p0)) (forall_ [integer] p0)) =
   assert_norm (pending (cert b9_entries 1) (neg (exists_ [integer] p0)) (forall_ [integer] p0))
 
-(* B10 bad root (out of range, or not an nnf step): pending. Forward, self
-   and negative premise ids: malformed. *)
+(* B10 bad root (out of range, or not an nnf step): pending. Forward, self,
+   negative and missing (past the last entry) premise ids: malformed. The
+   boundary is structural only: an unsupported rule with valid ids (B11) and
+   a valid id shared by two children (b10_shared) are not malformed. *)
 let b10_bad_root ()
   : Lemma (pending (cert a1_entries 7) (neg a1_src) a1_tgt /\
            pending (cert a1_entries 0) (neg a1_src) a1_tgt /\
@@ -330,13 +335,24 @@ let b10_malformed ()
            malformed (cert [refl (neg p); refl z; refl (neg q); be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; 3]] 3)
                      (neg a1_src) a1_tgt /\
            malformed (cert [refl (neg p); refl z; refl (neg q); be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; (-2)]] 3)
+                     (neg a1_src) a1_tgt /\
+           malformed (cert [refl (neg p); refl z; refl (neg q); be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; 9]] 3)
                      (neg a1_src) a1_tgt) =
   assert_norm (malformed (cert [be "refl" (oeq (neg p) (neg p)) [1]; refl z; refl (neg q);
                                 be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; 2]] 3) (neg a1_src) a1_tgt);
   assert_norm (malformed (cert [refl (neg p); refl z; refl (neg q); be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; 3]] 3)
                          (neg a1_src) a1_tgt);
   assert_norm (malformed (cert [refl (neg p); refl z; refl (neg q); be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; (-2)]] 3)
+                         (neg a1_src) a1_tgt);
+  assert_norm (malformed (cert [refl (neg p); refl z; refl (neg q); be "nnf-neg" (oeq (neg a1_src) a1_tgt) [0; 1; 9]] 3)
                          (neg a1_src) a1_tgt)
+
+(* A valid earlier entry used by two children of one step: replayed. *)
+let b10_shared ()
+  : Lemma (replays (cert [refl (neg p); be "nnf-neg" (oeq (neg (mk_or [p; p])) (mk_and [neg p; neg p])) [0; 0]] 1)
+                   (neg (mk_or [p; p])) (mk_and [neg p; neg p])) =
+  assert_norm (replays (cert [refl (neg p); be "nnf-neg" (oeq (neg (mk_or [p; p])) (mk_and [neg p; neg p])) [0; 0]] 1)
+                       (neg (mk_or [p; p])) (mk_and [neg p; neg p]))
 
 (* B11 the hnf.cpp variant: nnf-neg(q, body, [apply-def]) whose target is
    not the negation of its source; and B12 a quant-intro root (not an NNF
@@ -956,3 +972,67 @@ let g4_scope_mutants ()
   assert_norm (pending (cert (g3_with (Var 3 integer) false) 4) (g3_lhs (Var 3 integer)) (g3_rhs (Var 3 integer)));
   assert_norm (pending (cert (g3_with (Var 2 real) false) 4) (g3_lhs (Var 2 real)) (g3_rhs (Var 2 real)));
   assert_norm (malformed (cert (g3_with (Var 2 integer) true) 4) (g3_lhs (Var 2 integer)) (g3_rhs (Var 2 integer)))
+
+(* ---------------------------------------------------------------------- *)
+(* H. Mixed-binder duality mutant with a counter-model                      *)
+(* ---------------------------------------------------------------------- *)
+
+(* H1 the wrong-polarity duality under the heterogeneous binders [Int; Real]:
+   (not (exists x:Int r:Real. q x r)) ~ (forall x:Int r:Real. q x r), in a
+   would-be refutation of the SATISFIABLE inputs (not (exists x r. q x r))
+   and (not (q k r0)): the node stays pending, so the document is not
+   certified. *)
+let rc : expr = const "r0" real
+let h1_ex : expr = exists_ [integer; real] qxr
+let h1_fa : expr = forall_ [integer; real] qxr
+let h1_a : expr = neg h1_ex
+let h1_b : expr = neg (App qd [kc; rc])
+let h1_entries : list U.binder_entry = [refl qxr; bq "nnf-neg" [integer; real] (oeq h1_a h1_fa) [0]]
+let h1_document : P.document =
+  doc [h1_a; h1_b]
+      [entry U.Asserted h1_a [];
+       entry (U.QuantifierIntroduction (cert h1_entries 1)) (oeq h1_a h1_fa) [];
+       entry U.ObservationalMP h1_fa [0; 1];
+       entry (U.QuantifierInstantiation [kc; rc]) (mk_or [neg h1_fa; App qd [kc; rc]]) [];
+       entry U.Asserted h1_b [];
+       entry U.UnitResolution R.false_expr [3; 2; 4]]
+      5
+
+let h1_mutant_pending ()
+  : Lemma (pending (cert h1_entries 1) h1_a h1_fa /\
+           RD.check_root_document_epsilon PT.core_schema h1_document == RD.RootPending 1) =
+  assert_norm (pending (cert h1_entries 1) h1_a h1_fa);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema h1_document == RD.RootPending 1)
+
+let lemma_q_false (u:TR.uninterpreted) (scope:list sort)
+                  (rho:V.environment (TR.carrier u) (S.signature PT.core_schema) scope) (a b:expr)
+  : Lemma (requires D.scoped scope (App qd [a; b]))
+          (ensures TR.truth PT.core_schema
+                     (V.evaluate (S.signature PT.core_schema)
+                        (TR.standard u PT.core_schema (RDT.uf_bool u false)) scope rho (App qd [a; b])) == false) =
+  assert_norm (TR.classify (S.signature PT.core_schema) qd == TR.Other);
+  TR.lemma_eval_free_choice u PT.core_schema (RDT.uf_bool u false) scope rho qd [a; b]
+
+(* The positive counter-model: the standard root model that interprets every
+   free Boolean symbol as false (for every u) satisfies both inputs, so a
+   replay that accepted the mutant would certify a satisfiable document. *)
+let h1_counter_model (u:TR.uninterpreted)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema (RDT.uf_bool u false)) /\
+           RD.root_truths u PT.core_schema (TR.standard u PT.core_schema (RDT.uf_bool u false)) h1_document.P.assertions) =
+  let sch = PT.core_schema in
+  let i = TR.standard u sch (RDT.uf_bool u false) in
+  let sigma = S.signature sch in
+  let empty = RD.empty_root u sch in
+  TR.lemma_standard_root u sch (RDT.uf_bool u false);
+  (* (not (q k r0)) *)
+  lemma_q_false u [] empty kc rc;
+  lemma_not_value u i [] empty (App qd [kc; rc]);
+  (* (not (exists x r. q x r)): no witness at the reversed binder scope [Real; Int] *)
+  let none (vs:TR.targuments u sch (L.rev [integer; real]))
+    : Lemma (TR.truth sch (V.evaluate sigma i (L.append (L.rev [integer; real]) [])
+               (V.extend sigma [] (L.rev [integer; real]) vs empty) qxr) == false) =
+    lemma_q_false u (L.append (L.rev [integer; real]) []) (V.extend sigma [] (L.rev [integer; real]) vs empty)
+      (Var 1 integer) (Var 0 real) in
+  FStar.Classical.forall_intro none;
+  TR.lemma_eval_exists i [] empty [integer; real] qxr;
+  lemma_not_value u i [] empty h1_ex

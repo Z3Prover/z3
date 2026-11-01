@@ -33,17 +33,23 @@ NEGATIVE_NNF_CASES = (
 )
 
 # Negation-normal-form shapes the producer emits under nnf-neg/nnf-pos certificates beyond the
-# cases above: quantified ite/iff/xor branches, an implication inside a universal and nested
-# heterogeneous duality with a shadowed binder (the Sorted route replays them, Z3NnfReplay).
+# cases above: quantified ite/iff/xor branches, xor under a universal, an implication inside a
+# universal and nested heterogeneous duality with a shadowed binder (the Sorted route replays
+# them, Z3NnfReplay). No input fixes a Boolean by a unit assertion, so preprocessing cannot
+# simplify the connective away before NNF: each proof carries an NNF-rooted certificate.
 SORTED_NNF_CASES = (
     ("ite", "(declare-fun p (Int) Bool)(declare-const c Bool)"
-     "(assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))(assert c)"
+     "(assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))"
      "(assert (forall ((x Int)) (p x)))"),
     ("iff", "(declare-fun p (Int) Bool)(declare-const a Bool)"
-     "(assert (not (= a (forall ((x Int)) (p x)))))(assert a)(assert (forall ((x Int)) (p x)))"),
-    ("xor", "(declare-fun q (Int Real) Bool)(declare-const a Bool)"
-     "(assert (not (xor a (exists ((x Int) (r Real)) (q x r)))))(assert a)"
-     "(assert (forall ((x Int) (r Real)) (not (q x r))))"),
+     "(assert (not (= a (forall ((x Int)) (p x)))))(assert (forall ((x Int)) (p x)))"
+     "(assert (or a (p 1)))(assert (or a (not (p 2))))"),
+    ("xor", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)(declare-const a Bool)"
+     "(assert (xor a (forall ((x Int) (r Real)) (q x r))))(assert (forall ((x Int) (r Real)) (q x r)))"
+     "(assert (forall ((x Int)) (p x)))(assert (or a (not (p 2))))"),
+    ("xor-under-binder", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((z Int)) (xor (p z) (exists ((x Int) (r Real)) (q x r)))))"
+     "(assert (forall ((x Int) (r Real)) (not (q x r))))(assert (not (p 3)))"),
     ("implication", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
      "(assert (forall ((z Int)) (not (=> (p z) (exists ((y Int)) (q y 1.0))))))"
      "(assert (p 0))(assert (q 3 1.0))"),
@@ -765,13 +771,18 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
 
     def test_sorted_route_replays_nnf_certificates(self):
-        """No nnf-neg/nnf-pos certificate stays pending on the Sorted route, in both modes."""
+        """The Sorted route accepts these proofs, so no nnf-neg/nnf-pos certificate stays pending,
+        in both modes (a checker that leaves the certificates pending reports PARTIAL)."""
         for name, source in NEGATIVE_NNF_CASES + SORTED_NNF_CASES:
             for interactive in (False, True):
                 with self.subTest(case=name, interactive=interactive):
                     args = ["--sorted-core", "--diagnostics"] + (["--interactive"] if interactive else [])
                     result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
-                    self.assertIn(result.returncode, (0, 3), result.stdout + result.stderr)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
                     self.assertNotIn("obligation	nnf-neg	", result.stderr)
                     self.assertNotIn("obligation	nnf-pos	", result.stderr)
 
