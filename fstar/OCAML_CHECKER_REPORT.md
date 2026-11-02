@@ -4880,9 +4880,27 @@ certificates and is unchanged.
   re-established at every update. `prepare_certificate` rebuilds the certificate from the graph:
   each entry's formula is the expression stored at the node of its native conclusion, so the
   prepared certificate and its node handles satisfy `handles_ok` by construction; the document
-  holds the prepared certificate. A certificate that cannot be prepared (a lookup or builder
-  exhausted, a missing node or sort) and every certificate of a clausal document (whose entries
-  are renumbered when it is pruned) has no prepared form and stays pending (`outcome=unprepared`).
+  holds the prepared certificate. Each preparation step returns `Built`, `Exhausted` with the
+  graph phase (preparation or storage), or `Invalid` with the input the builders do not take (an
+  expression, sort or declaration id the cache does not hold, or a refused node such as one that
+  is not earlier); the sort, expression, argument and entry walks are worklists or self tail calls
+  (loops on the Cherry backend), so their depth needs no native stack. A certificate that cannot
+  be prepared has no prepared form and stays pending, and its row names why:
+  `outcome=unprepared` with `reason=exhausted` and `phase=graph-preparation` or
+  `phase=graph-storage`, `reason=invalid:missing-expression|missing-sort|missing-declaration|refused-node`,
+  `reason=clausal` (a clausal document, whose entries are renumbered when it is pruned),
+  `reason=definitions` (see below) or `reason=absent` (no preparation recorded). For an exhausted
+  or invalid preparation, `graph-preparation=used/limit` and `graph-storage=used/limit` are the
+  units that the steps before the one that stopped used of the certificate's allowance (the
+  stopped step's own charge is not included). Exhaustion and invalid input are both pending, never
+  a rejection, and neither falls back to the default check.
+- Documents with definitions (interim): the default checks a quantifier introduction after
+  expanding the document's definitions in its certificate (`prepare_entry_using`), while the
+  prepared certificate is the one marshaled before definitions are collected. Until the checked
+  graph expands definitions itself, every quantifier introduction of a document with definitions
+  is unprepared with `reason=definitions` and pending, even where the default certifies it (for
+  example the negative-NNF certificates whose roots are definition-expanded); the unexpanded
+  certificate is never checked in its place.
 - Guard (`Z3DagScope`, `Z3DagGuard`): the backward pass of `verified-sorts-v1` over the graph's
   sort table, then a memoised forward pass: each demanded scope is interned to a canonical scope id
   (`lemma_scope_canonical`) and the judgment's nodes are walked there, recording a node/scope pair
@@ -4901,6 +4919,14 @@ certificates and is unchanged.
   table paths and job cells. The default marshaler's own reading of the native proof, which both
   modes perform, is not counted in either mode. The units are abstract counts, not a time or
   memory bound, and there is no claim of a bound on the unmodified parser, solver or runtime.
+  Opt-in-only work that the graph's units do not count: the walks' `node_of` reads of frame
+  nodes and the `value_at` reads of entry formulas; the lookup of a declaration in the default
+  marshaler's declaration table; the second native view of an uncached expression and the
+  strings (names) it allocates; temporary lists (native id lists, job lists); the size of integer
+  parameters (counted one unit each); and, as in the default, `check_binder_entries` and the
+  root comparison. On the sorted route (datatype documents, `--sorted-core`) the opt-in marshaler
+  still builds the graph although that route never reads binder certificates; this cost is
+  disclosed, not avoided.
 - Budgets: a certificate with `n` entries (the entries of that certificate that the checker reads,
   as for `binder_work_limit`; not a document-wide or predicted count) gets `n + 1` shares of each:
   graph preparation 16,384 and storage 4,096, guard preparation 16,384, validation 65,536 and
@@ -4914,7 +4940,34 @@ certificates and is unchanged.
   preparation, which only counts binder-sort names again (largest 25 per share) and is set to admit
   binder sort names of a few thousand characters. They are provisional calibration values of the
   experimental mode, not the default checker's budgets, and they are separate dimensions, not an
-  equivalent of the old single budget.
+  equivalent of the old single budget. They are calibrated on the same 28 dumps that are measured
+  below, so those measurements are not held-out evidence. That the allowance is never refilled
+  holds by inspection of `Z3NativeProof.marshal_binder`, not by a proof, and there is no theorem
+  about the graph's size against the document's DAG.
+- Finite-budget retention limits (W5, both backends): at these budgets the mode leaves pending
+  some certificates that the default certifies. A term of depth 1,000 under one binder (5
+  entries): default ACCEPT; opt-in PARTIAL 1, `reason=exhausted phase=graph-preparation
+  graph-preparation=98113/98304`. A binder sort nested 300 deep (2 entries): default ACCEPT;
+  opt-in PARTIAL 1, `reason=exhausted phase=graph-storage graph-storage=12249/12288` (1,000
+  deep: graph preparation). 2,000 alternating binders: the default's scope caps already leave it
+  pending, and the opt-in guard reports `exhausted phase=storage`. These fail closed; the mode is
+  not more complete than the default in general and not uniformly faster.
+- Native stack (W5, 8 MiB stack, both backends, against the frozen master checkers): the graph's
+  walks need no stack in depth or width. A term of depth 100,000 under 1,000 binders is checked by
+  the opt-in mode on both backends (3.5 to 3.7 s; the default leaves it pending in 5 to 13 s).
+  The Cherry checkers of master and of this mode overflow their stack, default and opt-in alike,
+  at a term of depth 200,000 and a nested array sort of depth 70,000, in steps that run in both
+  modes; at an application with 1,000,000 arguments the default Cherry checkers overflow while the
+  opt-in mode leaves it pending (its graph preparation exhausted at the first visit). The OCaml
+  checkers do not overflow on these inputs.
+  A chain of 60 shared `let`s (a tree of 2^60 nodes) exceeds 120 s in every mode, in the
+  default rule checks, which the opt-in mode also runs.
+- Trust and evidence: the memo walk is proved sound (`lemma_walk`), not complete; its completeness
+  (every valid scope checked) is tested, not proved. The relation between a native id and the
+  cached expression it locates is the marshaler's runtime glue under the existing reflection
+  contract, covered by tests and source review, not a formal proof of the producer's fidelity.
+  The native name counter is a trusted runtime binding (W2). The last `--resource-accounting`
+  value given wins, like `--timeout-ms`.
 - Measured (direct harness on the NNF task's 20 diagnosed guard-budget certificates, 28 dumps, with
   the extracted builders and guard; per-certificate table in the W4 receipt): all 28 are checked at
   the mode's budgets; the old guard's single work budget admits none of them. Units are reported per

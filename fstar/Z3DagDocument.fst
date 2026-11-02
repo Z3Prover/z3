@@ -19,9 +19,10 @@
    formula is the expression stored at the node of its native conclusion,
    its binder sorts those of their native sorts, and it returns that
    certificate with the nodes (`prepared`: `handles_ok`, by construction, in
-   an invariant graph). A certificate that cannot be prepared (a node or sort
-   missing, a budget exhausted) has no prepared form; the opt-in check leaves
-   it pending.
+   an invariant graph). Every step returns `Built`, `Exhausted` with the
+   graph phase, or `Invalid` with the input it does not take; a certificate
+   that cannot be prepared has no prepared form, its `preparation` records
+   why, and the opt-in check leaves it pending.
 
    `verify_binder_dag` checks a prepared certificate: its entries
    (`check_binder_entries`), its root, then `Z3DagGuard.dag_guard`. Its
@@ -109,16 +110,40 @@ let with_budget (c:ccache) (prep store:nat) : ccache =
 (* `c'` extends `c`: the same graph nodes and expressions, more sorts. *)
 let cgrow (c c':ccache) : prop = CG.cgrows c.graph c'.graph
 
+(* Why a preparation step stops: a phase of the graph's own budget is
+   exhausted, or its input is one the checked builders do not take (an id the
+   cache does not hold, a node that is not earlier). Either leaves the
+   certificate without a prepared form, pending. *)
+type invalid_reason =
+  | MissingExpression
+  | MissingSort
+  | MissingDeclaration
+  | RefusedNode
+
+noeq
+type step (a:Type) =
+  | Built : value:a -> step a
+  | Exhausted : phase:T.phase -> step a
+  | Invalid : reason:invalid_reason -> step a
+
+(* The failure of `r`, at another type. *)
+let fail (#a #b:Type) (r:step a) : r':step b{~(Built? r')} =
+  match r with
+  | Exhausted p -> Exhausted p
+  | Invalid w -> Invalid w
+  | Built _ -> Invalid RefusedNode
+
 (* `prep` and `store` units, from the graph's budgets. *)
-let spend (c:ccache) (prep store:nat) : r:option ccache{Some? r ==> cgrow c (Some?.v r)} =
-  if c.graph.CG.prep < prep || c.graph.CG.store < store then None
+let spend (c:ccache) (prep store:nat) : r:step ccache{Built? r ==> cgrow c (Built?.value r)} =
+  if c.graph.CG.prep < prep then Exhausted T.Preparation
+  else if c.graph.CG.store < store then Exhausted T.Storage
   else begin
     let g' = { c.graph with CG.prep = c.graph.CG.prep - prep; CG.store = c.graph.CG.store - store } in
     CG.lemma_budget c.graph g'.CG.prep g'.CG.store;
     reveal_caches c;
     lemma_caches_grow c.graph g' c;
     reveal_caches ({ c with graph = g' });
-    Some ({ c with graph = g' })
+    Built ({ c with graph = g' })
   end
 
 (* The graph `g'`, grown from the cache's. *)
@@ -140,15 +165,22 @@ let find_sort (c:ccache) (nid:nat)
   : r:found CG.csort{(Found? r ==> cgrow c (Found?.cache r) /\ CG.csort_ok (Found?.cache r).graph (Found?.value r)) /\
                      (Missing? r ==> cgrow c (Missing?.cache r))} =
   match spend c tu 0 with
-  | None -> LookupExhausted
-  | Some c' -> reveal_caches c'; (match I.index_get c'.sorts nid with Some v -> Found c' v | None -> Missing c')
+  | Built c' -> reveal_caches c'; (match I.index_get c'.sorts nid with Some v -> Found c' v | None -> Missing c')
+  | _ -> LookupExhausted
 
 let find_expr (c:ccache) (nid:nat)
   : r:found nat{(Found? r ==> cgrow c (Found?.cache r) /\ Found?.value r < CG.node_count (Found?.cache r).graph) /\
                 (Missing? r ==> cgrow c (Missing?.cache r))} =
   match spend c tu 0 with
-  | None -> LookupExhausted
-  | Some c' -> reveal_caches c'; (match I.index_get c'.exprs nid with Some x -> Found c' x | None -> Missing c')
+  | Built c' -> reveal_caches c'; (match I.index_get c'.exprs nid with Some x -> Found c' x | None -> Missing c')
+  | _ -> LookupExhausted
+
+(* A lookup that found nothing: `why` if the id is not cached, else the
+   exhausted lookup. *)
+let not_found (#a #b:Type) (why:invalid_reason) (r:found a) : r':step b{~(Built? r')} =
+  match r with
+  | LookupExhausted -> Exhausted T.Preparation
+  | _ -> Invalid why
 
 let rec lemma_csorts_rev (g:CG.cgraph) (l acc:list CG.csort)
   : Lemma (requires CG.csorts_ok g l /\ CG.csorts_ok g acc) (ensures CG.csorts_ok g (L.rev_acc l acc)) (decreases l)
@@ -158,36 +190,51 @@ let rec lemma_below_rev (b:nat) (l acc:list nat)
   : Lemma (requires CS.all_below l b /\ CS.all_below acc b) (ensures CS.all_below (L.rev_acc l acc) b) (decreases l)
   = match l with [] -> () | x :: l' -> lemma_below_rev b l' (x :: acc)
 
-(* The checked sorts of the native sorts `nids`, all cached, in order. *)
-let rec find_sorts (c:ccache) (nids:list nat) (acc:list CG.csort{CG.csorts_ok c.graph acc})
-  : Tot (r:option (ccache & list CG.csort){Some? r ==> (let (c', vs) = Some?.v r in cgrow c c' /\ CG.csorts_ok c'.graph vs)})
+(* The checked sorts of the native sorts `nids`, all cached, in order, after
+   `acc`; `c0` is where the lookups started. A self tail call (a loop on the
+   Cherry backend): no stack in the number of sorts. *)
+let rec find_sorts_from (c0:ccache) (c:ccache{cgrow c0 c}) (nids:list nat) (acc:list CG.csort{CG.csorts_ok c.graph acc})
+  : Tot (r:step (ccache & list CG.csort){Built? r ==> (let (c', vs) = Built?.value r in cgrow c0 c' /\ CG.csorts_ok c'.graph vs)})
         (decreases nids) =
   match nids with
-  | [] -> lemma_csorts_rev c.graph acc []; CG.lemma_cgrows_refl c.graph; Some (c, L.rev acc)
+  | [] -> lemma_csorts_rev c.graph acc []; Built (c, L.rev acc)
   | n :: rest ->
-    (match find_sort c n with
+    let f = find_sort c n in
+    (match f with
      | Found c' v ->
        CG.lemma_csorts_grows c.graph c'.graph acc;
-       (match find_sorts c' rest (v :: acc) with
-        | Some (c'', vs) -> CG.lemma_cgrows_trans c.graph c'.graph c''.graph; Some (c'', vs)
-        | None -> None)
-     | _ -> None)
+       CG.lemma_cgrows_trans c0.graph c.graph c'.graph;
+       find_sorts_from c0 c' rest (v :: acc)
+     | _ -> not_found MissingSort f)
 
-(* The nodes of the native expressions `nids`, all cached, in order. *)
-let rec find_exprs (c:ccache) (nids:list nat) (acc:list nat{CS.all_below acc (CG.node_count c.graph)})
-  : Tot (r:option (ccache & list nat){Some? r ==> (let (c', xs) = Some?.v r in
-                                        cgrow c c' /\ CS.all_below xs (CG.node_count c'.graph))})
+let find_sorts (c:ccache) (nids:list nat) (acc:list CG.csort{CG.csorts_ok c.graph acc})
+  : r:step (ccache & list CG.csort){Built? r ==> (let (c', vs) = Built?.value r in cgrow c c' /\ CG.csorts_ok c'.graph vs)} =
+  CG.lemma_cgrows_refl c.graph;
+  find_sorts_from c c nids acc
+
+(* The nodes of the native expressions `nids`, all cached, in order, by a
+   self tail call. *)
+let rec find_exprs_from (c0:ccache) (c:ccache{cgrow c0 c}) (nids:list nat)
+                        (acc:list nat{CS.all_below acc (CG.node_count c.graph)})
+  : Tot (r:step (ccache & list nat){Built? r ==> (let (c', xs) = Built?.value r in
+                                       cgrow c0 c' /\ CS.all_below xs (CG.node_count c'.graph))})
         (decreases nids) =
   match nids with
-  | [] -> lemma_below_rev (CG.node_count c.graph) acc []; CG.lemma_cgrows_refl c.graph; Some (c, L.rev acc)
+  | [] -> lemma_below_rev (CG.node_count c.graph) acc []; Built (c, L.rev acc)
   | n :: rest ->
-    (match find_expr c n with
+    let f = find_expr c n in
+    (match f with
      | Found c' x ->
        T.lemma_all_below_widen acc (CG.node_count c.graph) (CG.node_count c'.graph);
-       (match find_exprs c' rest (x :: acc) with
-        | Some (c'', xs) -> CG.lemma_cgrows_trans c.graph c'.graph c''.graph; Some (c'', xs)
-        | None -> None)
-     | _ -> None)
+       CG.lemma_cgrows_trans c0.graph c.graph c'.graph;
+       find_exprs_from c0 c' rest (x :: acc)
+     | _ -> not_found MissingExpression f)
+
+let find_exprs (c:ccache) (nids:list nat) (acc:list nat{CS.all_below acc (CG.node_count c.graph)})
+  : r:step (ccache & list nat){Built? r ==> (let (c', xs) = Built?.value r in
+                                  cgrow c c' /\ CS.all_below xs (CG.node_count c'.graph))} =
+  CG.lemma_cgrows_refl c.graph;
+  find_exprs_from c c nids acc
 
 (* --- Building by native id -------------------------------------------------------------------------- *)
 
@@ -197,15 +244,16 @@ let lemma_put_sorts (g:CG.cgraph) (t:I.index_tree CG.csort) (nid:nat) (v:CG.csor
       = I.lemma_index_put t nid v k in
     FStar.Classical.forall_intro aux
 
-let put_sort (c:ccache) (nid:nat) (v:CG.csort{CG.csort_ok c.graph v}) : option (c':ccache{cgrow c c'}) =
-  match spend c tu (1 + tu) with
-  | None -> None
-  | Some c1 ->
+let put_sort (c:ccache) (nid:nat) (v:CG.csort{CG.csort_ok c.graph v}) : r:step ccache{Built? r ==> cgrow c (Built?.value r)} =
+  let r = spend c tu (1 + tu) in
+  match r with
+  | Built c1 ->
     CG.lemma_csort_grows c.graph c1.graph v;
     reveal_caches c1;
     lemma_put_sorts c1.graph c1.sorts nid v;
     reveal_caches ({ c1 with sorts = I.index_put c1.sorts nid v });
-    Some ({ c1 with sorts = I.index_put c1.sorts nid v })
+    Built ({ c1 with sorts = I.index_put c1.sorts nid v })
+  | _ -> fail r
 
 let lemma_put_exprs (g:CG.cgraph) (t:I.index_tree nat) (nid x:nat)
   : Lemma (requires exprs_ok g t /\ x < CG.node_count g) (ensures exprs_ok g (I.index_put t nid x))
@@ -213,14 +261,15 @@ let lemma_put_exprs (g:CG.cgraph) (t:I.index_tree nat) (nid x:nat)
       = I.lemma_index_put t nid x k in
     FStar.Classical.forall_intro aux
 
-let put_expr (c:ccache) (nid:nat) (x:nat{x < CG.node_count c.graph}) : option (c':ccache{cgrow c c'}) =
-  match spend c tu (1 + tu) with
-  | None -> None
-  | Some c1 ->
+let put_expr (c:ccache) (nid:nat) (x:nat{x < CG.node_count c.graph}) : r:step ccache{Built? r ==> cgrow c (Built?.value r)} =
+  let r = spend c tu (1 + tu) in
+  match r with
+  | Built c1 ->
     reveal_caches c1;
     lemma_put_exprs c1.graph c1.exprs nid x;
     reveal_caches ({ c1 with exprs = I.index_put c1.exprs nid x });
-    Some ({ c1 with exprs = I.index_put c1.exprs nid x })
+    Built ({ c1 with exprs = I.index_put c1.exprs nid x })
+  | _ -> fail r
 
 let decl_of (c:ccache) (nid arity:nat) : r:option CG.cdecl{Some? r ==> CG.decl_ok c.graph (Some?.v r)} =
   reveal_caches c;
@@ -240,46 +289,48 @@ let lemma_put_decls (g:CG.cgraph) (t:I.index_tree (I.index_tree CG.cdecl)) (nid 
         I.lemma_index_put inner arity d a in
     FStar.Classical.forall_intro_2 aux
 
-let put_decl (c:ccache) (nid arity:nat) (d:CG.cdecl{CG.decl_ok c.graph d}) : option (c':ccache{cgrow c c'}) =
-  match spend c (2 * tu) (2 + 2 * tu) with
-  | None -> None
-  | Some c1 ->
+let put_decl (c:ccache) (nid arity:nat) (d:CG.cdecl{CG.decl_ok c.graph d}) : r:step ccache{Built? r ==> cgrow c (Built?.value r)} =
+  let r = spend c (2 * tu) (2 + 2 * tu) in
+  match r with
+  | Built c1 ->
     CG.lemma_decl_grows c.graph c1.graph d;
     reveal_caches c1;
     lemma_put_decls c1.graph c1.decls nid arity d;
     let inner = match I.index_get c1.decls nid with Some inner -> inner | None -> I.Empty in
     reveal_caches ({ c1 with decls = I.index_put c1.decls nid (I.index_put inner arity d) });
-    Some ({ c1 with decls = I.index_put c1.decls nid (I.index_put inner arity d) })
+    Built ({ c1 with decls = I.index_put c1.decls nid (I.index_put inner arity d) })
+  | _ -> fail r
 
-let forget (#c:ccache) (r:option (c':ccache{cgrow c c'})) : option ccache =
-  match r with Some c' -> Some c' | None -> None
-
-let build_base_sort (c:ccache) (nid:nat) (name:string) : option ccache =
+let build_base_sort (c:ccache) (nid:nat) (name:string) : step ccache =
   match CG.base_sort c.graph name with
-  | CG.Sorted g' v -> CG.lemma_base_sort c.graph name; let c1 = with_graph c g' in forget (put_sort c1 nid v)
-  | CG.SortExhausted _ -> None
+  | CG.Sorted g' v -> CG.lemma_base_sort c.graph name; let c1 = with_graph c g' in put_sort c1 nid v
+  | CG.SortExhausted p -> Exhausted p
 
-let build_array_sort (c:ccache) (nid:nat) (dom:list nat) (range:nat) : option ccache =
-  match find_sorts c dom [] with
-  | None -> None
-  | Some (c1, ds) ->
-    (match find_sort c1 range with
+let build_array_sort (c:ccache) (nid:nat) (dom:list nat) (range:nat) : step ccache =
+  let fs = find_sorts c dom [] in
+  match fs with
+  | Built (c1, ds) ->
+    let f = find_sort c1 range in
+    (match f with
      | Found c2 r ->
        CG.lemma_csorts_grows c1.graph c2.graph ds;
        CG.lemma_array_sort c2.graph ds r;
        (match CG.array_sort c2.graph ds r with
-        | CG.Sorted g' v -> forget (put_sort (with_graph c2 g') nid v)
-        | CG.SortExhausted _ -> None)
-     | _ -> None)
+        | CG.Sorted g' v -> put_sort (with_graph c2 g') nid v
+        | CG.SortExhausted p -> Exhausted p)
+     | _ -> not_found MissingSort f)
+  | _ -> fail fs
 
-let build_var (c:ccache) (nid:nat) (n:nat) (sort:nat) : option ccache =
-  match find_sort c sort with
+let build_var (c:ccache) (nid:nat) (n:nat) (sort:nat) : step ccache =
+  let f = find_sort c sort in
+  match f with
   | Found c1 v ->
     CG.lemma_add_var c1.graph n v;
     (match CG.add_var c1.graph n v with
-     | CG.Built g' x -> forget (put_expr (with_graph c1 g') nid x)
-     | _ -> None)
-  | _ -> None
+     | CG.Built g' x -> put_expr (with_graph c1 g') nid x
+     | CG.BuildExhausted p -> Exhausted p
+     | CG.BuildInvalid -> Invalid RefusedNode)
+  | _ -> not_found MissingSort f
 
 noeq
 type with_decl = { wcache: ccache; wdecl: CG.cdecl }
@@ -288,89 +339,99 @@ let decl_ok_from (c:ccache) (r:with_decl) : prop = cgrow c r.wcache /\ CG.decl_o
 
 let decl_from_sort (c:ccache) (dnid arity:nat) (name:string) (tag:option decl_kind) (params:list int) (xs:list nat)
                    (r:CG.csort{CG.csort_ok c.graph r})
-  : r:option with_decl{Some? r ==> decl_ok_from c (Some?.v r)} =
+  : r:step with_decl{Built? r ==> decl_ok_from c (Built?.value r)} =
   CG.lemma_new_decl c.graph name tag params xs r;
   match CG.new_decl c.graph name tag params xs r with
   | CG.Declared g' d ->
     let c3 = with_graph c g' in
-    (match put_decl c3 dnid arity d with
-     | Some c4 ->
+    let pr = put_decl c3 dnid arity d in
+    (match pr with
+     | Built c4 ->
        CG.lemma_decl_grows c3.graph c4.graph d;
        CG.lemma_cgrows_trans c.graph c3.graph c4.graph;
-       Some ({ wcache = c4; wdecl = d })
-     | None -> None)
-  | _ -> None
+       Built ({ wcache = c4; wdecl = d })
+     | _ -> fail pr)
+  | CG.DeclExhausted p -> Exhausted p
+  | CG.DeclInvalid -> Invalid RefusedNode
 
 let make_decl (c:ccache) (dnid arity:nat) (name:string) (tag:option decl_kind) (params:list int) (xs:list nat)
               (range:nat)
-  : r:option with_decl{Some? r ==> decl_ok_from c (Some?.v r)} =
+  : r:step with_decl{Built? r ==> decl_ok_from c (Built?.value r)} =
   match CS.checked_name_units name c.graph.CG.prep with
-  | None -> None
+  | None -> Exhausted T.Preparation
   | Some len ->
-    (match spend c (len + L.length params) 0 with
-     | None -> None
-     | Some c1 ->
-       (match find_sort c1 range with
+    let sp = spend c (len + L.length params) 0 in
+    (match sp with
+     | Built c1 ->
+       let f = find_sort c1 range in
+       (match f with
         | Found c2 r ->
           CG.lemma_cgrows_trans c.graph c1.graph c2.graph;
           let res = decl_from_sort c2 dnid arity name tag params xs r in
-          if None? res then None
+          if not (Built? res) then fail res
           else begin
-            let c3 = (Some?.v res).wcache in
-            let d = (Some?.v res).wdecl in
+            let c3 = (Built?.value res).wcache in
+            let d = (Built?.value res).wdecl in
             CG.lemma_cgrows_trans c.graph c2.graph c3.graph;
-            Some ({ wcache = c3; wdecl = d })
+            Built ({ wcache = c3; wdecl = d })
           end
-        | _ -> None))
+        | _ -> not_found MissingSort f)
+     | _ -> fail sp)
 
 (* The declaration `dnid` at the arity of `xs`, cached, or made from the
    argument nodes and its range (its name's characters counted, bounded). *)
 let ensure_decl (c:ccache) (dnid:nat) (name:string) (tag:option decl_kind) (params:list int) (xs:list nat)
-                (range:nat) : r:option with_decl{Some? r ==> decl_ok_from c (Some?.v r)} =
+                (range:nat) : r:step with_decl{Built? r ==> decl_ok_from c (Built?.value r)} =
   let arity = L.length xs in
-  match spend c (2 * tu) 0 with
-  | None -> None
-  | Some c0 ->
+  let sp = spend c (2 * tu) 0 in
+  match sp with
+  | Built c0 ->
     (match decl_of c0 dnid arity with
-     | Some d -> Some ({ wcache = c0; wdecl = d })
+     | Some d -> Built ({ wcache = c0; wdecl = d })
      | None ->
        let res = make_decl c0 dnid arity name tag params xs range in
-       if None? res then None
+       if not (Built? res) then fail res
        else begin
-         let c1 = (Some?.v res).wcache in
-         let d = (Some?.v res).wdecl in
+         let c1 = (Built?.value res).wcache in
+         let d = (Built?.value res).wdecl in
          CG.lemma_cgrows_trans c.graph c0.graph c1.graph;
-         Some ({ wcache = c1; wdecl = d })
+         Built ({ wcache = c1; wdecl = d })
        end)
+  | _ -> fail sp
 
 let build_app (c:ccache) (nid:nat) (dnid:nat) (name:string) (tag:option decl_kind) (params:list int)
-              (args:list nat) (range:nat) : option ccache =
-  match find_exprs c args [] with
-  | None -> None
-  | Some (c1, xs) ->
+              (args:list nat) (range:nat) : step ccache =
+  let fs = find_exprs c args [] in
+  match fs with
+  | Built (c1, xs) ->
     let res = ensure_decl c1 dnid name tag params xs range in
     (match res with
-     | None -> None
-     | Some p ->
+     | Built p ->
        let c2 = p.wcache in
        let d = p.wdecl in
        CG.lemma_add_app c2.graph d xs;
        (match CG.add_app c2.graph d xs with
-        | CG.Built g' x -> forget (put_expr (with_graph c2 g') nid x)
-        | _ -> None))
+        | CG.Built g' x -> put_expr (with_graph c2 g') nid x
+        | CG.BuildExhausted ph -> Exhausted ph
+        | CG.BuildInvalid -> Invalid RefusedNode)
+     | _ -> fail res)
+  | _ -> fail fs
 
-let build_quant (c:ccache) (nid:nat) (k:quantifier_kind) (sorts:list nat) (body:nat) : option ccache =
-  match find_sorts c sorts [] with
-  | None -> None
-  | Some (c1, bs) ->
-    (match find_expr c1 body with
+let build_quant (c:ccache) (nid:nat) (k:quantifier_kind) (sorts:list nat) (body:nat) : step ccache =
+  let fs = find_sorts c sorts [] in
+  match fs with
+  | Built (c1, bs) ->
+    let f = find_expr c1 body in
+    (match f with
      | Found c2 y ->
        CG.lemma_csorts_grows c1.graph c2.graph bs;
        CG.lemma_add_quant c2.graph k bs y;
        (match CG.add_quant c2.graph k bs y with
-        | CG.Built g' x -> forget (put_expr (with_graph c2 g') nid x)
-        | _ -> None)
-     | _ -> None)
+        | CG.Built g' x -> put_expr (with_graph c2 g') nid x
+        | CG.BuildExhausted p -> Exhausted p
+        | CG.BuildInvalid -> Invalid RefusedNode)
+     | _ -> not_found MissingExpression f)
+  | _ -> fail fs
 
 (* --- Prepared certificates ------------------------------------------------------------------------ *)
 
@@ -417,47 +478,97 @@ type entries_of = { ecache: ccache; eentries: list binder_entry; ehandles: list 
 noeq
 type sorts_of = { scache: ccache; ssorts: option (list sort) }
 
-let rec prepare_entries (c:ccache) (raw:list raw_entry) (ae:list binder_entry) (ah:list nat)
-  : Tot (r:option entries_of{Some? r ==> (let e = Some?.v r in cgrow c e.ecache /\ DGP.handles_ok e.ecache.graph e.eentries e.ehandles)})
+(* The entries of `raw` after `ae`/`ah`, rebuilt from the cache; `c0` is
+   where the rebuilding started. A self tail call: no stack in the number of
+   entries. *)
+let rec prepare_entries_from (c0:ccache) (c:ccache{cgrow c0 c}) (raw:list raw_entry) (ae:list binder_entry) (ah:list nat)
+  : Tot (r:step entries_of{Built? r ==> (let e = Built?.value r in cgrow c0 e.ecache /\ DGP.handles_ok e.ecache.graph e.eentries e.ehandles)})
         (requires DGP.handles_ok c.graph ae ah)
         (decreases raw) =
   match raw with
   | [] ->
     lemma_handles_rev c.graph ae ah [] [];
-    CG.lemma_cgrows_refl c.graph;
-    Some ({ ecache = c; eentries = L.rev ae; ehandles = L.rev ah })
+    Built ({ ecache = c; eentries = L.rev ae; ehandles = L.rev ah })
   | r :: rest ->
-    (match find_expr c r.raw_formula with
+    let fe = find_expr c r.raw_formula in
+    (match fe with
      | Found c1 x ->
        let f = value_at c1.graph x in
-       let sorts : r:option sorts_of{Some? r ==> cgrow c1 (Some?.v r).scache} =
+       let sorts : s:step sorts_of{Built? s ==> cgrow c1 (Built?.value s).scache} =
          match r.raw_sorts with
-         | None -> CG.lemma_cgrows_refl c1.graph; Some ({ scache = c1; ssorts = None })
+         | None -> CG.lemma_cgrows_refl c1.graph; Built ({ scache = c1; ssorts = None })
          | Some nids ->
-           (match find_sorts c1 nids [] with
-            | Some (c2, cs) -> Some ({ scache = c2; ssorts = Some (L.map fst cs) })
-            | None -> None) in
+           let fs = find_sorts c1 nids [] in
+           (match fs with
+            | Built (c2, cs) -> Built ({ scache = c2; ssorts = Some (L.map fst cs) })
+            | _ -> fail fs) in
        (match sorts with
-        | None -> None
-        | Some so ->
+        | Built so ->
           let c2 = so.scache in
           let bs = so.ssorts in
           let e = { binder_name = r.raw_name; binder_formula = f; binder_premises = r.raw_premises; binder_sorts = bs } in
           lemma_handles_grow c.graph c2.graph ae ah;
           CG.lemma_cgrows_trans c.graph c1.graph c2.graph;
-          (match prepare_entries c2 rest (e :: ae) (x :: ah) with
-           | Some r -> CG.lemma_cgrows_trans c.graph c2.graph r.ecache.graph; Some r
-           | None -> None))
-     | _ -> None)
+          CG.lemma_cgrows_trans c0.graph c.graph c2.graph;
+          prepare_entries_from c0 c2 rest (e :: ae) (x :: ah)
+        | _ -> fail sorts)
+     | _ -> not_found MissingExpression fe)
 
-let prepare_certificate (c:ccache) (raw:list raw_entry) (root:int) : option (ccache & prepared) =
-  match prepare_entries c raw [] [] with
-  | Some r ->
-    let c' = r.ecache in
-    let es = r.eentries in
-    let hs = r.ehandles in
-    Some (c', { pgraph = c'.graph; pcert = { binder_entries = es; binder_root = root }; phandles = hs })
-  | None -> None
+let prepare_certificate (c:ccache) (raw:list raw_entry) (root:int) : step (ccache & prepared) =
+  CG.lemma_cgrows_refl c.graph;
+  let r = prepare_entries_from c c raw [] [] in
+  match r with
+  | Built e ->
+    let c' = e.ecache in
+    let es = e.eentries in
+    let hs = e.ehandles in
+    Built (c', { pgraph = c'.graph; pcert = { binder_entries = es; binder_root = root }; phandles = hs })
+  | _ -> fail r
+
+(* Why a quantifier introduction of an opt-in document has no prepared
+   certificate: its preparation stopped (a graph phase exhausted, or an input
+   the builders do not take), its document is clausal (whose entries are
+   renumbered when it is pruned), its document has definitions (whose
+   expansion changes the certificate after it was prepared: the prepared one
+   is not the one the default checks), or no preparation was recorded for it. *)
+type unprepared_reason =
+  | UnpreparedExhausted : phase:T.phase -> unprepared_reason
+  | UnpreparedInvalid : reason:invalid_reason -> unprepared_reason
+  | UnpreparedClausal
+  | UnpreparedDefinitions
+  | UnpreparedAbsent
+
+let reason_of (#a:Type) (r:step a) : unprepared_reason =
+  match r with
+  | Exhausted p -> UnpreparedExhausted p
+  | Invalid w -> UnpreparedInvalid w
+  | Built _ -> UnpreparedAbsent
+
+(* A lookup in the cache that its budget no longer pays. *)
+let lookup_exhausted : unprepared_reason = UnpreparedExhausted T.Preparation
+
+(* The preparation of one quantifier introduction: its prepared certificate,
+   or why there is none with the graph units (preparation, storage) that the
+   steps before the one that stopped used of the certificate's allowance. *)
+noeq
+type preparation =
+  | Ready : p:prepared -> preparation
+  | Unready : reason:unprepared_reason -> used:option (nat & nat) -> preparation
+
+(* The preparations of a document's quantifier introductions, by entry. *)
+noeq
+type companions = {
+  clausal: bool;
+  preparations: I.index_tree preparation;
+}
+
+let no_companions : companions = { clausal = false; preparations = I.Empty }
+
+let preparation_of (cs:companions) (i:nat) : preparation =
+  if cs.clausal then Unready UnpreparedClausal None
+  else match I.index_get cs.preparations i with
+    | Some p -> p
+    | None -> Unready UnpreparedAbsent None
 
 (* --- The check -------------------------------------------------------------------------------------- *)
 

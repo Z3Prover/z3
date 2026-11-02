@@ -78,13 +78,12 @@ let verified_rows ([@@@FStar.Attributes.cherry_borrowed] d:Z3VerifiedDocument.ve
   : list string =
   Z3VerifiedDocument.report_rows d.Z3VerifiedDocument.reports
 
-(* The opt-in accounting mode `verified-dag-v1`: the document marshaled once with the prepared
-   certificates of its quantifier introductions, then one diagnosed check, whose result is the
-   verdict. *)
+(* The opt-in accounting mode `verified-dag-v1`: the document marshaled once with the preparations
+   of its quantifier introductions, then one diagnosed check, whose result is the verdict. *)
 noeq
 type marshaled_dag = {
   dag_base: marshaled;
-  dag_companions: Z3ProofIndex.index_tree Z3DagDocument.prepared;
+  dag_companions: Z3DagDocument.companions;
 }
 
 let marshal_dag ([@@@FStar.Attributes.cherry_borrowed] assertions:list Z3Native.ast)

@@ -28,17 +28,18 @@ module G = Z3CheckedGuard
 module DD = Z3DagDocument
 
 (* The opt-in mode: `verified-sorts-v1`, or `verified-dag-v1` with the
-   prepared certificates of the document's quantifier introductions, by entry. *)
+   preparations of the document's quantifier introductions, by entry. *)
 noeq
 type accounting =
   | SortsV1
-  | DagV1 : companions:index_tree DD.prepared -> accounting
+  | DagV1 : companions:DD.companions -> accounting
 
 type binder_report = {
   report_index: nat;
   report_entries: nat;
   report_outcome: G.binder_outcome;
   report_graph: option (nat & nat);
+  report_unprepared: option DD.unprepared_reason;
 }
 
 noeq
@@ -52,20 +53,35 @@ let entry_count (r:rule) : nat =
   | QuantifierIntroduction c -> count_cells 0 c.binder_entries
   | _ -> 0
 
+(* The preparation of entry `next` in the opt-in DAG mode. A document with
+   definitions has none: the default checks the certificate after their
+   expansion (`prepare_entry_using`), not the one prepared while it was
+   marshaled. *)
+let dag_preparation (cs:DD.companions) (defs:list D.definition) (next:nat) : DD.preparation =
+  match defs with
+  | _ :: _ -> DD.Unready DD.UnpreparedDefinitions None
+  | [] -> DD.preparation_of cs next
+
 let verified_entry (acct:accounting) (transform:D.expander) (skolems:list SK.definition) (bound:bool)
                    (defs:list D.definition) (inputs:list judgment) (contains:judgment -> bool)
                    (prev:IT.t checked_fact) (next:nat) (e:entry)
-  : option (checked_fact & nat) & option (G.binder_outcome & nat & option (nat & nat)) =
+  : option (checked_fact & nat) &
+    option (G.binder_outcome & nat & option (nat & nat) & option DD.unprepared_reason) =
   match prepare_entry_using transform bound defs prev e with
   | None -> None, None
   | Some node ->
-    let prepared = match acct with DagV1 cs -> index_get cs next | SortsV1 -> None in
+    let preparation = match acct with DagV1 cs -> Some (dag_preparation cs defs next) | SortsV1 -> None in
+    let prepared = match preparation with Some (DD.Ready p) -> Some p | _ -> None in
     let r, outcome =
       match acct with
       | SortsV1 -> G.check_node_verified skolems true inputs contains node
       | DagV1 _ -> DD.check_node_dag skolems true inputs contains node prepared in
-    let graph = match prepared with Some p -> Some (DD.graph_used p) | None -> None in
-    r, (match outcome with Some o -> Some (o, entry_count node.kind, graph) | None -> None)
+    let graph, why =
+      match preparation with
+      | Some (DD.Ready p) -> Some (DD.graph_used p), None
+      | Some (DD.Unready w used) -> used, Some w
+      | None -> None, None in
+    r, (match outcome with Some o -> Some (o, entry_count node.kind, graph, why) | None -> None)
 
 let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skolems:list SK.definition)
                                   (bound:bool) (defs:list D.definition)
@@ -79,7 +95,9 @@ let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skol
   | e :: rest ->
     let r, outcome = verified_entry acct transform skolems bound defs inputs contains cache next e in
     let reports = match outcome with
-      | Some (o, n, gr) -> { report_index = next; report_entries = n; report_outcome = o; report_graph = gr } :: reports
+      | Some (o, n, gr, why) ->
+        { report_index = next; report_entries = n; report_outcome = o; report_graph = gr; report_unprepared = why }
+        :: reports
       | None -> reports in
     match r with
     | None -> EntriesRejected (DocumentRejected ProofEntry (Some next) (Some e.formula)), L.rev reports
@@ -165,7 +183,7 @@ let diagnose_document_verified (acct:accounting) (transform:D.expander) (lookup:
 let diagnose_document_verified_indexed (hash:judgment -> nat) (doc:document) : verified_diagnostic =
   diagnose_document_verified SortsV1 (D.memoized_expander (fun (_, e) -> hash (Holds e))) (document_lookup hash doc) doc
 
-let diagnose_document_dag_indexed (hash:judgment -> nat) (doc:document) (companions:index_tree DD.prepared)
+let diagnose_document_dag_indexed (hash:judgment -> nat) (doc:document) (companions:DD.companions)
   : verified_diagnostic =
   diagnose_document_verified (DagV1 companions) (D.memoized_expander (fun (_, e) -> hash (Holds e)))
     (document_lookup hash doc) doc
@@ -181,9 +199,31 @@ let phase_text (p:Z3CheckedTerms.phase) : string =
 let units_text (name:string) (limit left:nat) : string =
   "\t" ^ name ^ "=" ^ string_of_int (limit - left) ^ "/" ^ string_of_int limit
 
+let invalid_text (w:DD.invalid_reason) : string =
+  match w with
+  | DD.MissingExpression -> "missing-expression"
+  | DD.MissingSort -> "missing-sort"
+  | DD.MissingDeclaration -> "missing-declaration"
+  | DD.RefusedNode -> "refused-node"
+
+(* Why a quantifier introduction has no prepared certificate: a phase of the
+   checked graph's budget exhausted (`graph-preparation`, `graph-storage`), an
+   input the graph's builders do not take, a clausal document, a document with
+   definitions, or no preparation recorded. *)
+let unprepared_text (why:DD.unprepared_reason) : string =
+  match why with
+  | DD.UnpreparedExhausted p -> "exhausted\tphase=graph-" ^ phase_text p
+  | DD.UnpreparedInvalid w -> "invalid:" ^ invalid_text w
+  | DD.UnpreparedClausal -> "clausal"
+  | DD.UnpreparedDefinitions -> "definitions"
+  | DD.UnpreparedAbsent -> "absent"
+
 (* One row per quantifier introduction checked by the opt-in guard: the mode,
    its entry index and binder entries, the outcome, and the units used of each
-   budget (`used/limit`), or the exhausted phase. *)
+   budget (`used/limit`), or the exhausted phase; for a certificate without a
+   prepared form, why (`reason=`). The graph's units are those its steps used
+   of the certificate's allowance, for an unprepared one those of the steps
+   before the one that stopped. *)
 let report_row (dag:bool) (r:binder_report) : string =
   let b = if dag then DD.dag_budget r.report_entries else G.verified_budget r.report_entries in
   let used (left:G.resource_budget) : string =
@@ -198,7 +238,8 @@ let report_row (dag:bool) (r:binder_report) : string =
    | G.BinderGuardChecked left -> "checked" ^ used left
    | G.BinderGuardRefused left -> "refused" ^ used left
    | G.BinderGuardExhausted p -> "exhausted\tphase=" ^ phase_text p
-   | G.BinderUnprepared -> "unprepared") ^
+   | G.BinderUnprepared ->
+     "unprepared" ^ (match r.report_unprepared with Some why -> "\treason=" ^ unprepared_text why | None -> "")) ^
   (match r.report_graph with
    | Some (gp, gs) ->
      let shares = r.report_entries + 1 in

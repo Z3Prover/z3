@@ -36,9 +36,10 @@ type state = {
   next_proof: nat;
   clausal: bool;
   (* The opt-in mode `verified-dag-v1` only: the checked graph of binder
-     certificates and their prepared forms, by entry. *)
+     certificates and their preparations (a prepared form, or why there is
+     none), by entry. *)
   checked: option CD.ccache;
-  companions: index_tree CD.prepared;
+  companions: index_tree CD.preparation;
 }
 
 let empty_state () : state = {
@@ -213,8 +214,24 @@ let marshal_expressions (st:state) (es:list N.ast) : ML state =
 (* The checked graph is built only in the opt-in mode, for the conclusions and
    binder sorts of binder certificates, after the default marshaling has read
    them: a native id locates an entry of `Z3DagDocument.ccache`, which the
-   checked builders earn (`ccache_ok`); `None` abandons the graph of the
-   certificate being marshaled, which then has no prepared form. *)
+   checked builders earn (`ccache_ok`). A step that cannot be taken (a graph
+   phase exhausted, an id the cache does not hold) stops the graph of the
+   certificate being marshaled, which then has no prepared form; the stop
+   keeps why, and the graph units left before that step. *)
+
+noeq
+type checked (a:Type) =
+  | CheckedTo : value:a -> checked a
+  | CheckedStopped : reason:CD.unprepared_reason -> prep_left:nat -> store_left:nat -> checked a
+
+let stopped (#a:Type) (c:CD.ccache) (why:CD.unprepared_reason) : checked a =
+  CheckedStopped why c.CD.graph.CG.prep c.CD.graph.CG.store
+
+(* The cache built by a step from `c`, or why it stopped. *)
+let built_from (c:CD.ccache) (r:CD.step CD.ccache) : checked CD.ccache =
+  match r with
+  | CD.Built c' -> CheckedTo c'
+  | _ -> stopped c (CD.reason_of r)
 
 let rec native_sort_ids (ss:list N.native_sort) (acc:list nat) : ML (list nat) =
   match ss with
@@ -226,104 +243,112 @@ let rec native_ast_ids (es:list N.ast) (acc:list nat) : ML (list nat) =
   | [] -> L.rev acc
   | e :: rest -> let i = N.ast_id e in native_ast_ids rest (i :: acc)
 
-let rec checked_sort (c:CD.ccache) (s:N.native_sort) : ML (option CD.ccache) =
-  let nid = N.sort_id s in
-  match CD.find_sort c nid with
-  | CD.Found c' _ -> Some c'
-  | CD.LookupExhausted -> None
-  | CD.Missing c' ->
-    (match N.view_sort s with
-     | N.Base name -> CD.build_base_sort c' nid name
-     | N.Array domains range ->
-       (match checked_sorts c' domains with
-        | None -> None
-        | Some c'' ->
-          (match checked_sort c'' range with
-           | None -> None
-           | Some c3 ->
-             let ds = native_sort_ids domains [] in
-             let r = N.sort_id range in
-             CD.build_array_sort c3 nid ds r)))
+(* Sorts are visited on an explicit worklist (a self tail call), so nesting
+   needs no native stack: an array sort's domains and range first, then the
+   array sort itself. *)
+noeq
+type sort_job =
+  | SortVisit : N.native_sort -> sort_job
+  | SortBuild : nat -> list N.native_sort -> N.native_sort -> sort_job
 
-and checked_sorts (c:CD.ccache) (ss:list N.native_sort) : ML (option CD.ccache) =
-  match ss with
-  | [] -> Some c
-  | s :: rest ->
-    (match checked_sort c s with
-     | Some c' -> checked_sorts c' rest
-     | None -> None)
+let rec checked_sort_jobs (c:CD.ccache) (jobs:list sort_job) : ML (checked CD.ccache) =
+  match jobs with
+  | [] -> CheckedTo c
+  | SortVisit s :: rest ->
+    let nid = N.sort_id s in
+    (match CD.find_sort c nid with
+     | CD.Found c' _ -> checked_sort_jobs c' rest
+     | CD.LookupExhausted -> stopped c CD.lookup_exhausted
+     | CD.Missing c' ->
+       (match N.view_sort s with
+        | N.Base name ->
+          (match built_from c' (CD.build_base_sort c' nid name) with
+           | CheckedTo c'' -> checked_sort_jobs c'' rest
+           | stop -> stop)
+        | N.Array domains range ->
+          checked_sort_jobs c'
+            (map_prepend (fun s -> SortVisit s) domains (SortVisit range :: SortBuild nid domains range :: rest))))
+  | SortBuild nid domains range :: rest ->
+    let ds = native_sort_ids domains [] in
+    let r = N.sort_id range in
+    (match built_from c (CD.build_array_sort c nid ds r) with
+     | CheckedTo c' -> checked_sort_jobs c' rest
+     | stop -> stop)
+
+let checked_sorts (c:CD.ccache) (ss:list N.native_sort) : ML (checked CD.ccache) =
+  checked_sort_jobs c (map_prepend (fun s -> SortVisit s) ss [])
 
 noeq
 type checked_job =
   | CheckVisit : N.ast -> checked_job
   | CheckBuild : N.ast -> N.expression_view -> checked_job
 
-let checked_build (st:state) (c:CD.ccache) (e:N.ast) (view:N.expression_view) : ML (option CD.ccache) =
+let checked_build (st:state) (c:CD.ccache) (e:N.ast) (view:N.expression_view) : ML (checked CD.ccache) =
   let nid = N.ast_id e in
   match view with
   | N.Variable index s ->
-    (match checked_sort c s with
-     | Some c1 -> let sid = N.sort_id s in CD.build_var c1 nid index sid
-     | None -> None)
+    (match checked_sorts c [s] with
+     | CheckedTo c1 -> let sid = N.sort_id s in built_from c1 (CD.build_var c1 nid index sid)
+     | stop -> stop)
   | N.Application d args ->
-    (match checked_sort c d.range with
-     | None -> None
-     | Some c1 ->
+    (match checked_sorts c [d.range] with
+     | CheckedTo c1 ->
        let arity = L.length args in
        let cached = match index_get st.declarations d.id with Some tree -> index_get tree arity | None -> None in
        (match cached with
         | Some fd ->
           let xs = native_ast_ids args [] in
           let r = N.sort_id d.range in
-          CD.build_app c1 nid d.id fd.decl_name fd.interp fd.int_params xs r
-        | None -> None))
+          built_from c1 (CD.build_app c1 nid d.id fd.decl_name fd.interp fd.int_params xs r)
+        | None -> stopped c1 (CD.UnpreparedInvalid CD.MissingDeclaration))
+     | stop -> stop)
   | N.Quantified kind sorts body ->
     (match checked_sorts c sorts with
-     | Some c1 ->
+     | CheckedTo c1 ->
        let ss = native_sort_ids sorts [] in
        let b = N.ast_id body in
-       CD.build_quant c1 nid kind ss b
-     | None -> None)
+       built_from c1 (CD.build_quant c1 nid kind ss b)
+     | stop -> stop)
 
-let rec checked_expression_jobs (st:state) (c:CD.ccache) (jobs:list checked_job) : ML (option CD.ccache) =
+let rec checked_expression_jobs (st:state) (c:CD.ccache) (jobs:list checked_job) : ML (checked CD.ccache) =
   match jobs with
-  | [] -> Some c
+  | [] -> CheckedTo c
   | CheckVisit e :: rest ->
     let nid = N.ast_id e in
     (match CD.find_expr c nid with
      | CD.Found c' _ -> checked_expression_jobs st c' rest
-     | CD.LookupExhausted -> None
+     | CD.LookupExhausted -> stopped c CD.lookup_exhausted
      | CD.Missing c' ->
        let view = N.view_expression e in
        let children = expression_children view in
        let n = L.length children in
-       (match CD.spend c' (1 + n) (1 + n) with
-        | Some c'' ->
+       (match built_from c' (CD.spend c' (1 + n) (1 + n)) with
+        | CheckedTo c'' ->
           checked_expression_jobs st c''
             (map_prepend (fun e -> CheckVisit e) children (CheckBuild e view :: rest))
-        | None -> None))
+        | stop -> stop))
   | CheckBuild e view :: rest ->
     (match checked_build st c e view with
-     | Some c' -> checked_expression_jobs st c' rest
-     | None -> None)
+     | CheckedTo c' -> checked_expression_jobs st c' rest
+     | stop -> stop)
 
 (* The graph of a binder entry: its conclusion and its binder sorts, and the
    entry as `Z3DagDocument.prepare_certificate` reads it. *)
 let checked_entry (st:state) (c:CD.ccache) (conclusion:N.ast) (sorts:option (list N.native_sort))
-                  (name:string) (premises:list int) : ML (option (CD.ccache & CD.raw_entry)) =
+                  (name:string) (premises:list int) : ML (checked (CD.ccache & CD.raw_entry)) =
   match checked_expression_jobs st c [CheckVisit conclusion] with
-  | None -> None
-  | Some c1 ->
+  | CheckedStopped why p s -> CheckedStopped why p s
+  | CheckedTo c1 ->
     let f = N.ast_id conclusion in
     (match sorts with
      | None ->
-       Some (c1, { CD.raw_name = name; CD.raw_formula = f; CD.raw_premises = premises; CD.raw_sorts = None })
+       CheckedTo (c1, { CD.raw_name = name; CD.raw_formula = f; CD.raw_premises = premises; CD.raw_sorts = None })
      | Some ss ->
        (match checked_sorts c1 ss with
-        | Some c2 ->
+        | CheckedTo c2 ->
           let ids = native_sort_ids ss [] in
-          Some (c2, { CD.raw_name = name; CD.raw_formula = f; CD.raw_premises = premises; CD.raw_sorts = Some ids })
-        | None -> None))
+          CheckedTo (c2, { CD.raw_name = name; CD.raw_formula = f; CD.raw_premises = premises; CD.raw_sorts = Some ids })
+        | CheckedStopped why p s -> CheckedStopped why p s))
 
 (* A binder entry as the default marshaling read it, for the checked graph. *)
 noeq
@@ -335,13 +360,13 @@ type native_entry = {
 }
 
 let rec checked_entries (st:state) (c:CD.ccache) (es:list native_entry) (acc:list CD.raw_entry)
-  : ML (option (CD.ccache & list CD.raw_entry)) =
+  : ML (checked (CD.ccache & list CD.raw_entry)) =
   match es with
-  | [] -> Some (c, L.rev acc)
+  | [] -> CheckedTo (c, L.rev acc)
   | e :: rest ->
     (match checked_entry st c e.native_conclusion e.native_sorts e.native_name e.native_premises with
-     | Some (c', r) -> checked_entries st c' rest (r :: acc)
-     | None -> None)
+     | CheckedTo (c', r) -> checked_entries st c' rest (r :: acc)
+     | CheckedStopped why p s -> CheckedStopped why p s)
 
 
 let rec parameter_expressions (ps:list N.parameter_view) : Tot (list N.ast) (decreases ps) =
@@ -495,17 +520,14 @@ let rec marshal_binder_jobs (st:state) (cache:index_tree nat)
     marshal_binder_jobs st (index_put cache (N.ast_id p) next)
                        (entry :: entries) (next + 1) rest raw
 
-(* In the opt-in mode the certificate is prepared on the checked graph
-   (`Z3DagDocument.prepare_certificate`) and the document holds the prepared
-   one; a certificate that cannot be prepared is the default one, with no
-   prepared form. *)
 (* In the opt-in mode the certificate is prepared on the checked graph after
    its entries are marshaled: the graph's allowance is the certificate's,
    `n + 1` shares for `n` entries (`Z3DagDocument.graph_*_per_entry`), then
    `Z3DagDocument.prepare_certificate`; the document holds the prepared
-   certificate. A certificate that cannot be prepared is the default one,
-   with no prepared form. *)
-let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state & option CD.prepared) =
+   certificate. A certificate that cannot be prepared is the default one; its
+   preparation records why, with the graph units (preparation, storage) that
+   the steps before the one that stopped used of the allowance. *)
+let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state & option CD.preparation) =
   let st, cache, entries, raw = marshal_binder_jobs st Empty [] 0 [VisitBinder p] [] in
   let root = require_some "Native binder proof root was not marshaled"
                          (index_get cache (N.ast_id p)) in
@@ -514,13 +536,18 @@ let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state & optio
   | None -> certificate, st, None
   | Some c ->
     let shares = L.length entries + 1 in
-    let c = CD.with_budget c (CD.graph_preparation_per_entry * shares) (CD.graph_storage_per_entry * shares) in
+    let gp = CD.graph_preparation_per_entry * shares in
+    let gs = CD.graph_storage_per_entry * shares in
+    let c = CD.with_budget c gp gs in
+    let unready (why:CD.unprepared_reason) (pl sl:nat) : CD.preparation =
+      CD.Unready why (Some ((if pl <= gp then gp - pl else 0), (if sl <= gs then gs - sl else 0))) in
     (match checked_entries st c (L.rev raw) [] with
-     | None -> certificate, st, None
-     | Some (c1, rs) ->
+     | CheckedStopped why pl sl -> certificate, st, Some (unready why pl sl)
+     | CheckedTo (c1, rs) ->
        (match CD.prepare_certificate c1 rs root with
-        | Some (c', prepared) -> prepared.CD.pcert, { st with checked = Some c' }, Some prepared
-        | None -> certificate, st, None))
+        | CD.Built (c', prepared) -> prepared.CD.pcert, { st with checked = Some c' }, Some (CD.Ready prepared)
+        | r -> certificate, st,
+              Some (unready (CD.reason_of r) c1.CD.graph.CG.prep c1.CD.graph.CG.store)))
 
 let clause_builder (st:state) : CP.builder =
   { CP.entries = st.entries; CP.next = st.next_proof }
@@ -715,10 +742,11 @@ let marshal_with_datatypes (assertions:list N.ast) (proof:N.ast)
   doc, schema
 
 (* The opt-in mode `verified-dag-v1`: the document, its datatypes and the
-   prepared certificates of its quantifier introductions, by entry. A clausal
-   document's entries are renumbered when it is pruned, so it has none. *)
+   preparations of its quantifier introductions, by entry. A clausal
+   document's entries are renumbered when it is pruned, so it has none: every
+   quantifier introduction of it is unprepared, as clausal. *)
 let marshal_with_datatypes_dag (assertions:list N.ast) (proof:N.ast)
-  : ML (P.document & Z3DatatypeSignature.schema & index_tree CD.prepared) =
+  : ML (P.document & Z3DatatypeSignature.schema & CD.companions) =
   let doc, st = marshal_state_using true assertions proof in
   let schema = N.view_datatypes st.retained_sorts in
-  doc, schema, (if st.clausal then Empty else st.companions)
+  doc, schema, { CD.clausal = st.clausal; CD.preparations = (if st.clausal then Empty else st.companions) }

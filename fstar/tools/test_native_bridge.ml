@@ -1624,14 +1624,14 @@ let dag_binder_guard () =
       List.iteri (fun i e -> match e.P.rule, U.classify_fact e.P.formula with
           | U.QuantifierIntroduction cert, Some concl ->
               incr seen;
-              (match Z3ProofIndex.index_get companions (Z.of_int i) with
-               | Some p ->
+              (match DD.preparation_of companions (Z.of_int i) with
+               | DD.Ready p ->
                    require (p.DD.pcert = cert) ("the prepared certificate is not the document's: " ^ source);
                    let dag = match DD.verify_binder_dag [] [] p concl with G.BinderGuardChecked _ -> true | _ -> false in
                    require (U.check_binder cert concl = dag) ("DAG guard disagrees with the default guard: " ^ source);
                    require (G.check_binder_verified [] [] cert concl = dag)
                      ("DAG guard disagrees with verified-sorts-v1: " ^ source)
-               | None -> failwith ("a quantifier introduction has no prepared certificate: " ^ source))
+               | DD.Unready _ -> failwith ("a quantifier introduction has no prepared certificate: " ^ source))
           | _ -> ()) doc.P.entries;
       let checked = V.diagnose_document_dag_indexed hash doc companions in
       require (P.diagnostic_result checked.V.diagnostic = P.check_document doc)
@@ -1640,14 +1640,15 @@ let dag_binder_guard () =
           | G.BinderGuardChecked _ -> true | _ -> false) checked.V.reports)
         ("verified-dag-v1 did not check a binder of: " ^ source);
       (* without prepared certificates every quantifier introduction stays pending *)
-      let unprepared = V.diagnose_document_dag_indexed hash doc Z3ProofIndex.Empty in
-      require (unprepared.V.reports <> [] && List.for_all (fun r -> r.V.report_outcome = G.BinderUnprepared)
+      let unprepared = V.diagnose_document_dag_indexed hash doc DD.no_companions in
+      require (unprepared.V.reports <> [] && List.for_all (fun r -> r.V.report_outcome = G.BinderUnprepared &&
+                                                               r.V.report_unprepared = Some DD.UnpreparedAbsent)
                  unprepared.V.reports) ("an unprepared certificate was checked: " ^ source)) sources;
   require (!seen >= 7) "verified-dag-v1 regression did not exercise the binders";
   let doc, companions = prepared_of (List.hd sources) in
   let index, entry = List.find (fun (_, e) -> match e.P.rule with
       | U.QuantifierIntroduction _ -> true | _ -> false) (List.mapi (fun i e -> (i, e)) doc.P.entries) in
-  let p = Option.get (Z3ProofIndex.index_get companions (Z.of_int index)) in
+  let p = match DD.preparation_of companions (Z.of_int index) with DD.Ready p -> p | _ -> failwith "unprepared" in
   let certificate = p.DD.pcert in
   let conclusion = Option.get (U.classify_fact entry.P.formula) in
   let with_cert c = { p with DD.pcert = c } in
@@ -1697,6 +1698,7 @@ let dag_binder_guard () =
    entry, both nodes keeping their exact expressions. *)
 let dag_held_out () =
   let module G = Z3CheckedGuard in
+  let module T = Z3CheckedTerms in
   let module V = Z3VerifiedDocument in
   let module DD = Z3DagDocument in
   let module CG = Z3CheckedGraph in
@@ -1727,9 +1729,9 @@ let dag_held_out () =
             ("verified-dag-v1 did not check a binder of: " ^ source)) checked.V.reports;
       List.iteri (fun i e -> match e.P.rule, U.classify_fact e.P.formula with
           | U.QuantifierIntroduction _, Some concl ->
-              (match Z3ProofIndex.index_get companions (Z.of_int i) with
-               | Some p -> prepared := (p, concl) :: !prepared
-               | None -> failwith ("no prepared certificate: " ^ source))
+              (match DD.preparation_of companions (Z.of_int i) with
+               | DD.Ready p -> prepared := (p, concl) :: !prepared
+               | DD.Unready _ -> failwith ("no prepared certificate: " ^ source))
           | _ -> ()) doc.P.entries) sources;
   require (!reports >= 5) "held-out cases did not exercise the binders";
   (* a prepared certificate of one document does not check another document's conclusion *)
@@ -1746,30 +1748,43 @@ let dag_held_out () =
   (* an 8 MiB name at preparation 0 and 1 is exhausted at once *)
   let huge = String.make 8388608 'S' in
   let t0 = Unix.gettimeofday () in
-  require (DD.build_base_sort (fresh Z.zero big) Z.zero huge = None &&
-           DD.build_base_sort (fresh Z.one big) Z.zero huge = None) "a huge name was interned without budget";
+  require (DD.build_base_sort (fresh Z.zero big) Z.zero huge = DD.Exhausted T.Preparation &&
+           DD.build_base_sort (fresh Z.one big) Z.zero huge = DD.Exhausted T.Preparation)
+    "a huge name was interned without budget";
   require (Unix.gettimeofday () -. t0 < 0.05) "a huge name at preparation 0 was scanned";
   (* exact units and one short, for a base sort and a variable of it *)
   let build p s =
     match DD.build_base_sort (fresh p s) Z.zero "S\xcf\x89" with
-    | Some c -> DD.build_var c Z.one Z.zero Z.zero
-    | None -> None in
+    | DD.Built c -> DD.build_var c Z.one Z.zero Z.zero
+    | r -> r in
+  let is_built r = match r with DD.Built _ -> true | _ -> false in
   (match build big big with
-   | Some c ->
+   | DD.Built c ->
        let p = Z.sub big c.DD.graph.CG.prep and s = Z.sub big c.DD.graph.CG.store in
-       require (build p s <> None) "the exact units do not build";
-       require (build (Z.pred p) s = None && build p (Z.pred s) = None) "one unit short still builds"
-   | None -> failwith "the graph did not build a variable");
+       require (is_built (build p s)) "the exact units do not build";
+       require (build (Z.pred p) s = DD.Exhausted T.Preparation) "one preparation unit short is not exhausted preparation";
+       require (build p (Z.pred s) = DD.Exhausted T.Storage) "one storage unit short is not exhausted storage"
+   | _ -> failwith "the graph did not build a variable");
+  (* an id the cache does not hold is invalid input, not exhaustion, at any budget *)
+  (match DD.build_base_sort (fresh big big) Z.zero "AAAA" with
+   | DD.Built c ->
+       require (DD.build_var c Z.one Z.zero (Z.of_int 7) = DD.Invalid DD.MissingSort) "a missing sort id was not invalid";
+       require (DD.build_quant c Z.one A.Forall_k [Z.zero] (Z.of_int 9) = DD.Invalid DD.MissingExpression)
+         "a missing body id was not invalid";
+       require (DD.build_var (DD.with_budget c Z.zero big) Z.one Z.zero (Z.of_int 7) = DD.Exhausted T.Preparation)
+         "a lookup without budget was not exhausted"
+   | _ -> failwith "the graph did not build a sort");
+  let get r = match r with DD.Built c -> c | _ -> failwith "the graph did not build" in
   (* same-length names are distinct sorts, equal names one sort (complete comparison in one bucket) *)
   let sort_of c nid = match DD.find_sort c (Z.of_int nid) with DD.Found (c', v) -> c', snd v | _ -> failwith "sort" in
-  let c = Option.get (DD.build_base_sort (fresh big big) Z.zero "AAAA") in
-  let c = Option.get (DD.build_base_sort c Z.one "BBBB") in
-  let c = Option.get (DD.build_base_sort c (Z.of_int 2) "AAAA") in
+  let c = get (DD.build_base_sort (fresh big big) Z.zero "AAAA") in
+  let c = get (DD.build_base_sort c Z.one "BBBB") in
+  let c = get (DD.build_base_sort c (Z.of_int 2) "AAAA") in
   let c, a0 = sort_of c 0 in let c, b1 = sort_of c 1 in let c, a2 = sort_of c 2 in
   require (not (Z.equal a0 b1) && Z.equal a0 a2) "same-length names are not told apart by complete comparison";
   (* a native id bound again relocates the cache entry; both nodes keep their exact expressions *)
-  let c = Option.get (DD.build_var c (Z.of_int 5) Z.zero Z.zero) in
-  let c = Option.get (DD.build_var c (Z.of_int 5) Z.one Z.one) in
+  let c = get (DD.build_var c (Z.of_int 5) Z.zero Z.zero) in
+  let c = get (DD.build_var c (Z.of_int 5) Z.one Z.one) in
   (match DD.find_expr c (Z.of_int 5) with
    | DD.Found (c', x) ->
        require (CG.value_of c'.DD.graph x = Some (A.Var (Z.one, A.BaseSort "BBBB"))) "a rebound id lost its expression";
@@ -1782,6 +1797,86 @@ let dag_held_out () =
    | CG.Declared (g', d) ->
        require (CG.add_app g' d [CG.node_count g'] = CG.BuildInvalid) "a node referring to itself was built"
    | _ -> failwith "declaration")
+
+(* verified-dag-v1, incremental queries: every check marshals its own checked graph. In one context,
+   push/pop drops a query's terms and later queries reuse their native ids for other expressions; each
+   query's preparations check that query's binders with the default verdict, and a preparation of
+   another query never checks this query's document (no node, scope or memo survives a query). *)
+let dag_incremental_isolation () =
+  let module G = Z3CheckedGuard in
+  let module V = Z3VerifiedDocument in
+  let module DD = Z3DagDocument in
+  let hash value = Z.of_int (Hashtbl.hash value) in
+  let queries = [
+    "(declare-fun p (Int) Bool)(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))";
+    "(declare-fun q (Real Int) Bool)(assert (not (forall ((y Real) (x Int)) (or (q y (+ x 0)) (not (q y x))))))";
+    "(declare-sort S 0)(declare-fun r (S) S)(assert (not (forall ((z S)) (= (r (r z)) (r (r z))))))";
+    "(declare-fun p (Int) Bool)(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))"
+  ] in
+  let c = context () in
+  let seen = ref [] in
+  let registration = Z3native.set_proof_check_callback c (fun proof assertions ->
+      let inputs = List.init (Z3native.ast_vector_size c assertions) (Z3native.ast_vector_get c assertions) in
+      let doc, _, companions = B.marshal_with_datatypes_dag inputs proof in
+      seen := (doc, companions, N.ast_id proof :: List.map N.ast_id inputs) :: !seen;
+      "query") in
+  ignore (Z3native.eval_smtlib2_string c "(set-option :produce-proofs true)");
+  List.iter (fun q ->
+      require (Z3native.eval_smtlib2_string c ("(push)" ^ q ^ "(check-sat)(pop)") = "unsat\nquery\n")
+        ("query was not refuted: " ^ q)) queries;
+  Z3native.clear_proof_check_callback c;
+  ignore (Sys.opaque_identity registration);
+  let docs = List.rev !seen in
+  require (List.length docs = List.length queries) "a query was not checked";
+  let dag doc companions = V.diagnose_document_dag_indexed hash doc companions in
+  let checked d = d.V.reports <> [] && List.for_all (fun r -> match r.V.report_outcome with
+      | G.BinderGuardChecked _ -> true | _ -> false) d.V.reports in
+  List.iter (fun (doc, companions, _) ->
+      let d = dag doc companions in
+      require (P.diagnostic_result d.V.diagnostic = P.check_document doc) "a query's verdict differs from the default";
+      require (checked d) "a query's own preparations did not check its binders") docs;
+  (* reused native ids across the queries, with other expressions *)
+  let ids = List.map (fun (_, _, ids) -> ids) docs in
+  let reused = List.exists (fun i -> List.length (List.filter (List.mem i) ids) > 1) (List.concat ids) in
+  Printf.printf "  dag-incremental: native ids reused across queries: %b\n%!" reused;
+  (* a preparation of another query does not check this one *)
+  List.iteri (fun i (doc, _, _) ->
+      List.iteri (fun j (other, companions, _) ->
+          if i <> j && other <> doc then
+            require (not (checked (dag doc companions)))
+              (Printf.sprintf "query %d checked with the preparations of query %d" i j)) docs) docs
+
+(* verified-dag-v1 and definitions: the default checks a quantifier introduction after expanding the
+   document's definitions (Z3ProofDocument.prepare_entry_using); the certificate prepared while the
+   document was marshaled is the unexpanded one, so in a document with definitions every quantifier
+   introduction is unprepared (reason definitions) and pending, never checked on the unexpanded form. *)
+let dag_definitions_pending () =
+  let module G = Z3CheckedGuard in
+  let module V = Z3VerifiedDocument in
+  let module DD = Z3DagDocument in
+  let module R = Z3ResolutionProofTheory in
+  let hash value = Z.of_int (Hashtbl.hash value) in
+  let assertions, proof =
+    unsat "(declare-fun p (Int) Bool)(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))" in
+  let doc, _, companions = B.marshal_with_datatypes_dag assertions proof in
+  let fresh = A.App ({ A.decl_name = "w5!def"; A.domain = []; A.range = A.bool_sort; A.interp = None;
+                       A.int_params = [] }, []) in
+  let definition = { P.rule = U.DefinitionIntroduction; P.formula = R.mk_eq_expr fresh R.true_expr; P.premise_ids = [] } in
+  let defined = { doc with P.entries = doc.P.entries @ [definition] } in
+  require (P.check_document defined = Some Z.zero) "the default does not accept the document with a definition";
+  let plain = V.diagnose_document_dag_indexed hash doc companions in
+  require (P.diagnostic_result plain.V.diagnostic = Some Z.zero) "the document without definitions is not checked";
+  let d = V.diagnose_document_dag_indexed hash defined companions in
+  require (P.diagnostic_result d.V.diagnostic <> Some Z.zero) "a document with definitions was accepted on its unexpanded certificates";
+  require (d.V.reports <> [] && List.for_all (fun r -> r.V.report_outcome = G.BinderUnprepared &&
+                                                        r.V.report_unprepared = Some DD.UnpreparedDefinitions) d.V.reports)
+    "a quantifier introduction of a document with definitions is not unprepared for its definitions";
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  require (List.for_all (fun row -> contains row "\toutcome=unprepared\treason=definitions") (V.dag_report_rows d.V.reports))
+    "the opt-in row does not name the definitions"
 
 let verified_binder_guard () =
   let module G = Z3CheckedGuard in
@@ -7164,6 +7259,8 @@ let () =
      "opt-in-verified-binder-guard", verified_binder_guard;
      "opt-in-dag-binder-guard", dag_binder_guard;
      "opt-in-dag-held-out", dag_held_out;
+     "opt-in-dag-incremental-isolation", dag_incremental_isolation;
+     "opt-in-dag-definitions-pending", dag_definitions_pending;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;

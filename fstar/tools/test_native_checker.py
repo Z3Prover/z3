@@ -717,6 +717,73 @@ class DirectCheckerTests(unittest.TestCase):
                     else:
                         self.assertIn(result.returncode, (0, 3), result.stdout + result.stderr)
 
+    def test_resource_accounting_names_why_a_binder_is_unprepared(self):
+        # verified-dag-v1 leaves a quantifier introduction without a prepared certificate pending and
+        # names why: a phase of the checked graph's budget exhausted, with the graph units that the
+        # steps before it used of the certificate's allowance, or a clausal document. Neither falls
+        # back to the default check.
+        def rows(result):
+            return [line for line in result.stderr.splitlines() if line.startswith("resource-accounting\t")]
+        deep = "(f " * 5000 + "x" + ")" * 5000
+        source = f"(declare-fun f (Int) Int)(assert (not (forall ((x Int)) (= (+ {deep} 0) {deep}))))"
+        result = self.run_checker(source, "--diagnostics", "--resource-accounting", "verified-dag-v1")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertTrue(rows(result), result.stderr)
+        for row in rows(result):
+            match = re.fullmatch(r"resource-accounting\tverified-dag-v1\tnode=\d+\tentries=\d+\toutcome=unprepared"
+                                 r"\treason=exhausted\tphase=graph-preparation"
+                                 r"\tgraph-preparation=(\d+)/(\d+)\tgraph-storage=(\d+)/(\d+)", row)
+            self.assertIsNotNone(match, row)
+            used, limit, cells, cell_limit = map(int, match.groups())
+            self.assertLessEqual(used, limit, row)
+            self.assertLessEqual(cells, cell_limit, row)
+        source = ("(declare-fun f (Int) Int)(declare-const c Bool)"
+                  "(assert (forall ((x Int)) (= (f (+ x 0)) (+ x (ite c 1 2)))))"
+                  "(assert (not (= (f 0) (ite c 1 2))))(check-sat-using (then elim-term-ite smt))")
+        default = self.run_checker(source, "--clause-proofs", "--diagnostics")
+        self.assertEqual((default.returncode, default.stdout.strip()), (0, "ACCEPT"), default.stderr)
+        opted = self.run_checker(source, "--clause-proofs", "--diagnostics", "--resource-accounting", "verified-dag-v1")
+        self.assertEqual(opted.returncode, 3, opted.stdout + opted.stderr)
+        self.assertRegex(opted.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertTrue(rows(opted), opted.stderr)
+        for row in rows(opted):
+            self.assertRegex(row, r"^resource-accounting\tverified-dag-v1\tnode=\d+\tentries=\d+"
+                                  r"\toutcome=unprepared\treason=clausal$")
+
+    def test_resource_accounting_last_mode_wins_and_queries_are_isolated(self):
+        source = "(assert (not (forall ((x Int)) (= (+ x 0) x))))"
+        for args, mode in ((("--resource-accounting", "verified-dag-v1", "--resource-accounting", "verified-sorts-v1"),
+                            "verified-sorts-v1"),
+                           (("--resource-accounting", "verified-sorts-v1", "--resource-accounting=verified-dag-v1"),
+                            "verified-dag-v1")):
+            with self.subTest(args=args):
+                result = self.run_checker(source, *args)
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
+                rows = [line for line in result.stderr.splitlines() if line.startswith("resource-accounting\t")]
+                self.assertTrue(rows, result.stderr)
+                for row in rows:
+                    self.assertTrue(row.startswith("resource-accounting\t" + mode + "\t"), row)
+        # Interactive queries with push/pop: each check marshals its own checked graph, so no node,
+        # scope or memo of an earlier query (whose native ids later queries reuse) checks a later one.
+        script = ("(declare-fun p (Int) Bool)"
+                  "(push)(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))(check-sat)(pop)"
+                  "(push)(declare-fun q (Real Int) Bool)"
+                  "(assert (not (forall ((y Real) (x Int)) (or (q y (+ x 0)) (not (q y x))))))(check-sat)(pop)"
+                  "(push)(declare-sort S 0)(declare-fun r (S) S)"
+                  "(assert (not (forall ((z S)) (= (r (r z)) (r (r z))))))(check-sat)(pop)"
+                  "(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))(check-sat)")
+        default = self.run_checker(script, "--interactive")
+        opted = self.run_checker(script, "--interactive", "--resource-accounting", "verified-dag-v1")
+        self.assertEqual(opted.returncode, 0, opted.stdout + opted.stderr)
+        verdicts = [line for line in opted.stdout.splitlines() if line.startswith("; proof-check")]
+        self.assertEqual(verdicts, ["; proof-check ACCEPT"] * 4, opted.stdout)
+        self.assertEqual(verdicts, [line for line in default.stdout.splitlines() if line.startswith("; proof-check")])
+        rows = [line for line in opted.stderr.splitlines() if line.startswith("resource-accounting\t")]
+        self.assertGreaterEqual(len(rows), 4, opted.stderr)
+        for row in rows:
+            self.assertIn("\toutcome=checked\t", row)
+
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
             with self.subTest(case=name):

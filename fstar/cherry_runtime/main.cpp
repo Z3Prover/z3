@@ -1004,8 +1004,10 @@ static int run(int argc, char** argv) {
             }
             else
                 value = argument.substr(argument.find('=') + 1);
-            if (value == "verified-sorts-v1")
+            if (value == "verified-sorts-v1") {
                 options.verified = true;
+                options.dag = false;
+            }
             else if (value == "verified-dag-v1")
                 options.verified = options.dag = true;
             else

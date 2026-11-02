@@ -602,7 +602,7 @@ let check_proof statistics diagnostics readable query sorted_core verified dag s
   (* --resource-accounting verified-dag-v1 marshals once, with the checked graph of binder certificates. *)
   let doc, schema, companions =
     if dag then Z3NativeProof.marshal_with_datatypes_dag assertions proof
-    else (let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in doc, schema, Z3ProofIndex.Empty) in
+    else (let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in doc, schema, Z3DagDocument.no_companions) in
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
   let sorted = datatype || sorted_core in
@@ -798,7 +798,7 @@ let run args =
     "--sorted-core", Arg.Set sorted_core,
       " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
     "--resource-accounting", Arg.String (fun value ->
-        if value = "verified-sorts-v1" then verified := true
+        if value = "verified-sorts-v1" then (verified := true; dag := false)
         else if value = "verified-dag-v1" then (verified := true; dag := true)
         else raise (Arg.Bad "invalid --resource-accounting")),
       "MODE Check binder scopes with checked sort ids and separate preparation, validation and \
