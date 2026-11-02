@@ -362,47 +362,9 @@ jobs:
             --out "${{ runner.temp }}/proof-canaries.jsonl" \
             z3test/regressions/proofs/canaries/*.txt
 
-      - name: Install Lean for native proof reconstruction
+      - name: Check native proofs in Lean
         if: matrix.name == 'releaseClang'
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://elan.lean-lang.org/elan-init.sh -o "$RUNNER_TEMP/elan-init.sh"
-          sh "$RUNNER_TEMP/elan-init.sh" -y --no-modify-path --default-toolchain none
-          "$HOME/.elan/bin/elan" toolchain install "$(cat lean/lean-toolchain)"
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-
-      - name: Check native Boolean proofs in Lean
-        if: matrix.name == 'releaseClang'
-        env:
-          PYTHONPATH: ${{ github.workspace }}/build/python
-        run: python -m unittest discover -s examples/python -p 'test_proof_to_lean*.py' -v
-
-      - name: Require Lean-certified Boolean matrix results
-        if: matrix.name == 'releaseClang'
-        env:
-          Z3_EXE: ${{ github.workspace }}/build/z3
-          Z3_SOURCE: ${{ github.workspace }}
-        run: |
-          python -m unittest discover -s z3test/scripts/proofs -p 'test_proof*.py' -v
-          python z3test/scripts/proofs/proof_matrix.py \
-            --z3 "$Z3_EXE" --z3-source "$Z3_SOURCE" \
-            --lean --cells legacy-proof-object --timeout 30 \
-            --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
-            --out "${{ runner.temp }}/lean-proof-matrix.jsonl" \
-            z3test/regressions/proofs/lean/boolean_*.smt2 \
-            z3test/regressions/proofs/lean/unit_resolution.smt2
-
-      - name: Require Lean-certified QF_LRA matrix results
-        if: matrix.name == 'releaseClang'
-        env:
-          Z3_EXE: ${{ github.workspace }}/build/z3
-          Z3_SOURCE: ${{ github.workspace }}
-        run: |
-          python z3test/scripts/proofs/proof_matrix.py \
-            --z3 "$Z3_EXE" --z3-source "$Z3_SOURCE" \
-            --lean --cells smt-clause-log-nopp --timeout 30 \
-            --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
-            --out "${{ runner.temp }}/lean-proof-matrix.jsonl" \
-            z3test/regressions/proofs/lean/lra_*.smt2
+        run: scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "${{ runner.temp }}"
 
       - name: Upload native and Lean proof artifacts
         if: always() && matrix.name == 'releaseClang'
