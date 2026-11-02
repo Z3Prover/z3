@@ -1689,6 +1689,100 @@ let dag_binder_guard () =
            budget big big s, 0; budget big big (Z.pred s), 4; budget pr v s, 0])
    | _ -> failwith "verified-dag-v1 guard did not check a real certificate")
 
+(* verified-dag-v1, held-out cases: proofs with Unicode and same-length names, nested arrays, a subterm
+   reused under different binder scopes and DAG diamonds keep the default verdict and are checked; the
+   checked graph refuses or exhausts (never checks) a stale prepared certificate from another document,
+   a huge name at preparation 0, one unit short of a build, and a node that is not earlier; same-length
+   names stay distinct sorts and equal names one sort; a native id bound again only relocates the cache
+   entry, both nodes keeping their exact expressions. *)
+let dag_held_out () =
+  let module G = Z3CheckedGuard in
+  let module V = Z3VerifiedDocument in
+  let module DD = Z3DagDocument in
+  let module CG = Z3CheckedGraph in
+  let hash value = Z.of_int (Hashtbl.hash value) in
+  let sources = [
+    "(declare-sort |S\xcf\x89| 0)(declare-fun f (|S\xcf\x89| |S\xcf\x89|) |S\xcf\x89|)\
+     (assert (not (forall ((x |S\xcf\x89|) (y |S\xcf\x89|)) (= (f (f x y) (f x y)) (f (f x y) (f x y))))))";
+    "(declare-fun a () (Array Int (Array Int Bool)))\
+     (assert (not (forall ((i Int) (j Int)) (= (select (select a i) j) (select (select a i) j)))))";
+    "(declare-fun g (Int) Int)\
+     (assert (not (and (forall ((x Int)) (= (g (+ x 0)) (g x))) (forall ((y Bool)) (= (g (+ 1 0)) (g 1))))))";
+    "(declare-sort AAAA 0)(declare-sort BBBB 0)\
+     (assert (not (forall ((x AAAA) (y BBBB)) (and (= x x) (= y y)))))";
+    "(declare-fun h (Int Int) Int)\
+     (assert (not (forall ((x Int)) (forall ((y Int)) (= (h (h (+ x 0) y) (h y x)) (h (h x y) (h y (+ x 0))))))))"
+  ] in
+  let prepared = ref [] and reports = ref 0 in
+  List.iter (fun source ->
+      let assertions, proof = unsat source in
+      let doc, _, companions = B.marshal_with_datatypes_dag assertions proof in
+      require (doc = B.marshal assertions proof) ("opt-in marshal changed the document: " ^ source);
+      let checked = V.diagnose_document_dag_indexed hash doc companions in
+      require (P.diagnostic_result checked.V.diagnostic = P.check_document doc)
+        ("verified-dag-v1 verdict differs from the default verdict: " ^ source);
+      List.iter (fun r ->
+          incr reports;
+          require (match r.V.report_outcome with G.BinderGuardChecked _ -> true | _ -> false)
+            ("verified-dag-v1 did not check a binder of: " ^ source)) checked.V.reports;
+      List.iteri (fun i e -> match e.P.rule, U.classify_fact e.P.formula with
+          | U.QuantifierIntroduction _, Some concl ->
+              (match Z3ProofIndex.index_get companions (Z.of_int i) with
+               | Some p -> prepared := (p, concl) :: !prepared
+               | None -> failwith ("no prepared certificate: " ^ source))
+          | _ -> ()) doc.P.entries) sources;
+  require (!reports >= 5) "held-out cases did not exercise the binders";
+  (* a prepared certificate of one document does not check another document's conclusion *)
+  (match !prepared with
+   | (p1, c1) :: rest ->
+       (match List.find_opt (fun (_, c) -> c <> c1) rest with
+        | Some (_, c2) ->
+            require (match DD.verify_binder_dag [] [] p1 c2 with G.BinderGuardChecked _ -> false | _ -> true)
+              "a stale prepared certificate checked another conclusion"
+        | None -> failwith "held-out cases have one conclusion")
+   | [] -> failwith "no prepared certificates");
+  let big = Z.of_int 1_000_000_000 in
+  let fresh p s = DD.with_budget DD.empty_cache p s in
+  (* an 8 MiB name at preparation 0 and 1 is exhausted at once *)
+  let huge = String.make 8388608 'S' in
+  let t0 = Unix.gettimeofday () in
+  require (DD.build_base_sort (fresh Z.zero big) Z.zero huge = None &&
+           DD.build_base_sort (fresh Z.one big) Z.zero huge = None) "a huge name was interned without budget";
+  require (Unix.gettimeofday () -. t0 < 0.05) "a huge name at preparation 0 was scanned";
+  (* exact units and one short, for a base sort and a variable of it *)
+  let build p s =
+    match DD.build_base_sort (fresh p s) Z.zero "S\xcf\x89" with
+    | Some c -> DD.build_var c Z.one Z.zero Z.zero
+    | None -> None in
+  (match build big big with
+   | Some c ->
+       let p = Z.sub big c.DD.graph.CG.prep and s = Z.sub big c.DD.graph.CG.store in
+       require (build p s <> None) "the exact units do not build";
+       require (build (Z.pred p) s = None && build p (Z.pred s) = None) "one unit short still builds"
+   | None -> failwith "the graph did not build a variable");
+  (* same-length names are distinct sorts, equal names one sort (complete comparison in one bucket) *)
+  let sort_of c nid = match DD.find_sort c (Z.of_int nid) with DD.Found (c', v) -> c', snd v | _ -> failwith "sort" in
+  let c = Option.get (DD.build_base_sort (fresh big big) Z.zero "AAAA") in
+  let c = Option.get (DD.build_base_sort c Z.one "BBBB") in
+  let c = Option.get (DD.build_base_sort c (Z.of_int 2) "AAAA") in
+  let c, a0 = sort_of c 0 in let c, b1 = sort_of c 1 in let c, a2 = sort_of c 2 in
+  require (not (Z.equal a0 b1) && Z.equal a0 a2) "same-length names are not told apart by complete comparison";
+  (* a native id bound again relocates the cache entry; both nodes keep their exact expressions *)
+  let c = Option.get (DD.build_var c (Z.of_int 5) Z.zero Z.zero) in
+  let c = Option.get (DD.build_var c (Z.of_int 5) Z.one Z.one) in
+  (match DD.find_expr c (Z.of_int 5) with
+   | DD.Found (c', x) ->
+       require (CG.value_of c'.DD.graph x = Some (A.Var (Z.one, A.BaseSort "BBBB"))) "a rebound id lost its expression";
+       require (CG.value_of c'.DD.graph Z.zero = Some (A.Var (Z.zero, A.BaseSort "AAAA")))
+         "a rebound id changed an earlier node"
+   | _ -> failwith "rebound id not found");
+  (* a node that is not earlier (itself, beyond the graph) is refused *)
+  let g = c.DD.graph in
+  (match CG.new_decl g "f" None [] [Z.zero] (A.BaseSort "AAAA", a0) with
+   | CG.Declared (g', d) ->
+       require (CG.add_app g' d [CG.node_count g'] = CG.BuildInvalid) "a node referring to itself was built"
+   | _ -> failwith "declaration")
+
 let verified_binder_guard () =
   let module G = Z3CheckedGuard in
   let module T = Z3CheckedTerms in
@@ -7069,6 +7163,7 @@ let () =
      "checked-sort-graph-native-counter", checked_sort_graph;
      "opt-in-verified-binder-guard", verified_binder_guard;
      "opt-in-dag-binder-guard", dag_binder_guard;
+     "opt-in-dag-held-out", dag_held_out;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;
