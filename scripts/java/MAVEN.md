@@ -160,11 +160,19 @@ Replace the local repository URL with the absolute `file:` URL for your director
 
 ```groovy
 repositories { maven { url = uri('/absolute/path/to/java-maven-repository') } }
-dependencies { implementation 'invalid.z3.prototype:z3:5.3.2-packaging-SNAPSHOT:all' }
+dependencies {
+  // every supported platform in one artifact
+  implementation 'invalid.z3.prototype:z3:5.3.2-packaging-SNAPSHOT:all'
+  // or one explicit platform instead of all
+  // implementation 'invalid.z3.prototype:z3:5.3.2-packaging-SNAPSHOT:linux-x64'
+}
 ```
 
 Use `all` for the supported platform union, or replace it with `linux-x64`,
-`linux-arm64`, `win-x64` or `osx-arm64` for a platform JAR. Omit the classifier for the API-only
+`linux-arm64`, `win-x64` or `osx-arm64` for a platform JAR. Gradle does not
+activate profiles declared in a dependency POM, so an explicit classifier or
+`all` is the supported Gradle form; the `z3-auto` selector described below is
+Maven-only. Omit the classifier for the API-only
 JAR, supplying matching system native libraries through the existing loader
 mechanism. Select a single form per classpath. Platform/universal JARs extract
 only the current platform's libraries and still require OS runtime dependencies
@@ -201,9 +209,10 @@ cross-platform application artifact. These forms do not pull in an additional
 platform JAR. Overriding the selector with CLI or consumer POM properties is not
 supported: dependency profile activation differs between Maven versions.
 
-This entry point is Maven-specific. Gradle consumers should continue selecting
-a platform classifier or `all`; Maven profile activation does not establish
-automatic selection in Gradle. The selector adds no new native platform support.
+This entry point is Maven-specific. Gradle does not activate profiles declared
+in a dependency POM, so `z3-auto` selects no platform JAR there; Gradle
+consumers should use an explicit platform classifier or `all`, as shown above.
+The selector adds no new native platform support.
 Cross-platform CI results, rather than successful POM generation, establish its
 tested coverage.
 
