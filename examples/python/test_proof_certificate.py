@@ -2871,6 +2871,13 @@ class TestClauseLogReplay(unittest.TestCase):
             "(assert (< (+ (* 2 (abs x)) y) 1))(assert (> y 0))(assert (> (mod x 3) 0))",
             "(declare-fun f (Real) Real)(declare-const r Real)"
             "(assert (= 2.0 (/ 3.0 2.0)))(assert (= (f (/ 1.0 2.0)) (+ r r)))",
+            # lia_rem of test_proof_to_lean_lia.py: the two rem axioms per term
+            # (rem u k) = (mod u k) under k >= 0 and (rem u k) = -(mod u k)
+            # otherwise; until 2026-10-31 the one whose guard is false fell back
+            # (280 steps in the 37 unsat logs of random_remainder_instance
+            # seeds 1 to 40)
+            "(declare-const x Int)(declare-const y Int)"
+            "(assert (> (rem (+ x y) (- 3)) 0))(assert (> (rem (+ x y) 3) 0))(assert (= (mod (+ x y) 3) 1))",
         ]
         for index, source in enumerate(inputs):
             with self.subTest(source=source):
@@ -2881,6 +2888,17 @@ class TestClauseLogReplay(unittest.TestCase):
                     absolute = re.search(r"\(define-const (\$\d+) Int \(abs x0\)\)", log)
                     self.assertIsNotNone(absolute, log)
                     self.assertIn("Bool (= %s x0))" % absolute.group(1), log)
+                if index == 3:
+                    # both signs of the divisor, each with its rem = -mod case
+                    for divisor in ("3", "(- 3)"):
+                        rem = re.search(r"\(define-const (\$\d+) Int \(rem (\$\d+) %s\)\)" % re.escape(divisor), log)
+                        self.assertIsNotNone(rem, log)
+                        mod = re.search(r"\(define-const (\$\d+) Int \(mod %s %s\)\)" % (
+                            re.escape(rem.group(2)), re.escape(divisor)), log)
+                        self.assertIsNotNone(mod, log)
+                        negated = re.search(r"\(define-const (\$\d+) Int \(- %s\)\)" % re.escape(mod.group(1)), log)
+                        self.assertIsNotNone(negated, log)
+                        self.assertIn("Bool (= %s %s))" % (rem.group(1), negated.group(1)), log)
                 with tempfile.TemporaryDirectory() as directory:
                     path = Path(directory) / "proof.log"
                     path.write_text(log, encoding="utf-8")

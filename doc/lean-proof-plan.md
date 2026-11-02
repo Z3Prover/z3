@@ -2076,6 +2076,24 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Native checks of the rem axioms (2026-10-31)
+
+Z3's own replay of a clause log checked only the `rem` axiom whose guard
+`(>= k 0)` is decided in its favour (the guard literal is valid); the other
+one, `(= (rem t k) (mod t k))` for `k > 0` or `(= (rem t k) (- (mod t k)))`
+for `k < 0`, went to the SMT fallback: 280 steps in the 37 unsatisfiable
+logs of `random_remainder_instance` seeds 1 to 40. The `arith` checker's
+`expand_definitions` now also replaces `(rem u k)` for a nonzero numeral `k`
+by `s * (u - k * (div u k))`, `s` the sign of `k`, so both axioms verify
+natively and those logs fall back on `cut` steps only (by design); the other
+generators of the Lean suites are unchanged (cut only). `rem` bounds, zero or
+term divisors are still rejected. Python and Lean already checked these
+steps; certificates are unchanged. A fuzz of 1,500 near-miss `rem` clauses
+accepted none that z3py found falsifiable. Tests: the rem cases of
+`tst_checker_arith_axioms` and `tst_replay_arith_axioms` in
+`src/test/proof_replay.cpp`, and the `lia_rem` input of
+`test_native_checker_verifies_arithmetic_axioms`.
+
 ### Int rem by a numeral (2026-10-31)
 
 `rem` is a Z3 extension, `(ite (>= k 0) (mod t k) (- (mod t k)))`, and every
@@ -2233,7 +2251,8 @@ the bounds `0 <= (mod u k) <= |k| - 1`, or when the clause is one of the two
 by the negation of the other literal. A leading `true` stands for the false
 `q = 0` literal of `q * (p / q) = p` that the logged clause omits; the
 checker's `clause` drops it, so the trimmer keeps the logged clause. Anything
-else under `arith` (to_int, powers, nonlinear divisors) still falls back.
+else under `arith` (to_int, powers, nonlinear divisors) still falls back
+(`rem`: see 2026-10-31).
 After the change the same logs have no `arith` fallback (only the `cut`
 steps, by design), and a soundness fuzz of 3,000 random near-miss clauses
 found no accepted invalid one. The Python replay and Lean checked these
