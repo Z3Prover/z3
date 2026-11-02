@@ -21,7 +21,10 @@
      reusing the first), a body imported once and reused by a later call
      (`bodies` passed on), and an expansion one unit short (exhausted);
    * deep inputs (100,000 nested applications) interned, lifted,
-     instantiated and expanded without a stack that grows with the depth.
+     instantiated and expanded without a stack that grows with the depth,
+     and 2,000 nested applications of a defined symbol expanded within a
+     linear budget;
+   * an ill-sorted application of an expanded argument refused.
 *)
 module Z3CheckedExpansionTests
 
@@ -204,6 +207,22 @@ let body_reused () : bool =
 
 let rec chain (n:nat) (acc:expr) : Tot expr (decreases n) = if n = 0 then acc else chain (n - 1) (q acc)
 
+(* Regressions of the W6 development builds. An application whose argument
+   sorts do not match its declaration is not rebuilt (refused, pending),
+   never rebuilt with another expression. The expansion of a chain of 2,000
+   applications of a defined symbol fits 20,000,000 preparation units (it
+   needs about 3,500,000; a lift by 0 that walked each argument again needed
+   729,489,112). *)
+let ill_sorted_refused () : bool =
+  match expansion defs1 1 big (App k_d [f c]) with
+  | Some None -> true
+  | _ -> false
+
+let deep_linear () : bool =
+  match expansion [def q_d [0] (gg (v 0) c)] 1 20000000 (all (p (chain 2000 (v 0)))) with
+  | Some (Some _) -> true
+  | _ -> false
+
 let deep () : bool =
   let e = all (p (chain 100000 (v 0))) in
   let defs_q = [def q_d [0] (gg (v 0) c)] in
@@ -258,6 +277,8 @@ let checks () : list bool =
    exhausted defs1 1 0 (f c);
    exhausted defs1 1 200 (f c);
    not (exhausted defs1 1 big (f c));
+   ill_sorted_refused ();
+   deep_linear ();
    deep ()]
 
 let rec first_false (l:list bool) (i:int) : Tot int (decreases l) =

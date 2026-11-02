@@ -2065,8 +2065,19 @@ let dag_definition_expansion () =
            expand_ok defs_chain 1 (all (f (v 0))) && expand_ok [def f_d [0] (f (v 0))] 1 (f cst) &&
            expand_ok [def f_d [5] (p (v 0))] 1 (f cst) && expand_ok [] 0 (f cst))
     "an expansion differs from Z3Definitions.expand";
-  (* deep: 100,000 nested applications under a binder *)
+  (* W6 dev2 regressions: an ill-sorted application of an expanded argument is refused, not rebuilt;
+     2,000 nested applications of a defined symbol expand within 20,000,000 preparation units (a lift
+     by 0 that walked each argument again needed 729,489,112) *)
   let rec chain n acc = if n = 0 then acc else chain (n - 1) (q acc) in
+  (let g, x = intern (CG.empty big big) (A.App (k_d, [f cst])) in
+   require (match CX.expand_nodes defs1 Z.one g Z3ProofIndex.Empty [x] with CX.ExpandStopped _ -> true | _ -> false)
+     "an ill-sorted application was rebuilt");
+  (let g, x = intern (CG.empty big big) (all (p (chain 2000 (v 0)))) in
+   let g = { g with CG.prep = Z.of_int 20_000_000 } in
+   require (match CX.expand_nodes [def q_d [0] (gg (v 0) cst)] Z.one g Z3ProofIndex.Empty [x] with
+       | CX.ExpandedNodes _ -> true | _ -> false)
+     "2,000 nested applications of a definition did not expand within a linear budget");
+  (* deep: 100,000 nested applications under a binder *)
   let deep = all (p (chain 100000 (v 0))) in
   let t0 = Unix.gettimeofday () in
   let g1, x = intern (CG.empty big big) deep in
