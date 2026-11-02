@@ -2732,35 +2732,75 @@ let sorted_datatype_checker () =
   let module S = Z3DatatypeSignature in
   let module DT = Z3SortedDatatype in
   let module R = Z3ResolutionProofTheory in
+  (* A `true` fixture must be fully checked: ACCEPT with no pending obligation. A datatype
+     whose constructors all lack fields is an enumeration, and since master #11506 the
+     producer proves enumeration-only goals through QF_FD/dt2bv. The sorted checker supports
+     none of the datatype-to-bit-vector `rewrite` steps of that route, so such a document is
+     only partly checked (or rejected). The `false` fixtures keep the original enumeration
+     inputs as dt2bv coverage: every constructor-logic and input-binding control below still
+     runs on them, but their verdict is deliberately not pinned, so a checker that later
+     certifies them is not a regression. Their certified counterparts give each constructor
+     an Int field; the producer then stays on the datatype theory (the exhaustiveness
+     refutations are one `th-lemma datatype` over the negated recognizers), and every direct
+     control keeps the same shape. *)
   let samples = [
-    "exhaustiveness",
+    "exhaustiveness", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)\
+       (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
+    "exhaustiveness-three", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int)) (E (third Int))))\
+       (declare-const x T)(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))\
+       (assert (not ((_ is E) x)))";
+    "enumeration-exhaustiveness-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
-    "exhaustiveness-three",
+    "enumeration-exhaustiveness-three-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D) (E)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))(assert (not ((_ is E) x)))";
-    "reconstruction",
+    "reconstruction", true,
       "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)\
        (assert ((_ is C) x))(assert (not (= x (C (field x)))))";
-    "injectivity",
+    "injectivity", true,
       "(declare-datatype T ((C (field Int)) (D)))\
        (declare-const a Int)(declare-const b Int)\
        (assert (= (C a) (C b)))(assert (not (= a b)))";
-    "disjointness",
+    "disjointness", true,
       "(declare-datatype T ((C (field Int)) (D)))(declare-const a Int)\
        (assert (= (C a) D))";
-    "conditional-constructor",
+    "conditional-constructor", true,
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (= x (ite false C D)))(assert (not (= x D)))";
-    "symmetric-equality",
+    "symmetric-equality", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)\
+       (declare-const y T)(assert (= x (C 0)))(assert (= x y))(assert (not (= y x)))";
+    "enumeration-symmetric-equality-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D)))(declare-const x T)(declare-const y T)\
        (assert (= x C))(assert (= x y))(assert (not (= y x)))";
   ] in
-  List.iter (fun (name, source) ->
+  let exhaustiveness_samples = ["exhaustiveness"; "exhaustiveness-three";
+    "enumeration-exhaustiveness-dt2bv-coverage"; "enumeration-exhaustiveness-three-dt2bv-coverage"] in
+  let three_constructor_samples = ["exhaustiveness-three";
+    "enumeration-exhaustiveness-three-dt2bv-coverage"] in
+  let int_sort = A.BaseSort "Int" in
+  (* A well-sorted instance of a constructor, each field an uninterpreted constant of its
+     sort: the direct controls below build constructor equalities from it, so a control that
+     expects a rejection cannot pass merely because its constructor application is ill-sorted. *)
+  let instance case =
+    let field sort =
+      if sort <> int_sort then failwith "datatype fixture constructor with a non-Int field";
+      A.App ({ A.decl_name = "field-value"; domain = []; range = sort; interp = None;
+               int_params = [] }, []) in
+    let value = A.App (case.S.constructor, List.map field case.S.constructor.A.domain) in
+    require (Z3Definitions.scoped [] value) "a datatype constructor instance was not well sorted";
+    value in
+  List.iter (fun (name, certified, source) ->
       let assertions, proof = unsat source in
       let doc, schema = B.marshal_with_datatypes assertions proof in
       require (schema.S.cases <> [] && S.valid schema) ("invalid sorted schema: " ^ name);
-      if name = "exhaustiveness" || name = "exhaustiveness-three" then (
+      require (certified || List.for_all (fun case -> case.S.constructor.A.domain = [])
+                 schema.S.cases)
+        ("a dt2bv coverage fixture is not an enumeration: " ^ name);
+      if List.mem name exhaustiveness_samples then (
         let last = List.hd (List.rev doc.P.assertions) in
         let premises = List.filter (fun e -> e <> last) doc.P.assertions in
         let tester, subject = match last with
@@ -2804,7 +2844,7 @@ let sorted_datatype_checker () =
           | Some c -> c
           | None -> failwith "missing recognizer case" in
         let negative = R.mk_not_expr (A.App (tester, [subject])) in
-        let witness = A.App (case.S.constructor, []) in
+        let witness = instance case in
         List.iter (fun facts ->
           require (DT.consequence schema facts R.false_expr)
             "constructor equality did not conflict with its negative recognizer")
@@ -2816,9 +2856,13 @@ let sorted_datatype_checker () =
           "constructor equality conflicted without a negative recognizer";
         let alternative = List.find (fun c -> c.S.constructor <> case.S.constructor) schema.S.cases in
         require (not (DT.consequence schema
-          [negative; R.mk_eq_expr (A.App (alternative.S.constructor, [])) subject] R.false_expr))
+          [negative; R.mk_eq_expr (instance alternative) subject] R.false_expr))
           "a constructor conflicted with a different negative recognizer";
-        if name = "exhaustiveness-three" then
+        require (DT.consequence schema
+          [R.mk_not_expr (A.App (alternative.S.recognizer, [subject]));
+           R.mk_eq_expr (instance alternative) subject] R.false_expr)
+          "a constructor did not conflict with its own negative recognizer";
+        if List.mem name three_constructor_samples then
           (require (not (DT.exhaustiveness_from schema [List.hd premises]
             (A.App (tester, [subject]))))
             "constructor was inferred without excluding every alternative";
@@ -2832,7 +2876,7 @@ let sorted_datatype_checker () =
             "a non-nullary constructor equality did not conflict with its negative recognizer"
         | _ -> failwith "expected a recognizer and negated reconstruction equality");
       let result = K.check_document schema doc in
-      require (result = Some Z.zero)
+      require (not certified || result = Some Z.zero)
         ("sorted datatype proof remained unchecked: " ^ name ^
          (match result with None -> " (rejected)" | Some n -> " (pending " ^ Z.to_string n ^ ")"));
       require (K.diagnostic_result (K.diagnose_document schema doc) = result)

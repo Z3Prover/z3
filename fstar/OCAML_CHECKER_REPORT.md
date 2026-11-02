@@ -4998,3 +4998,30 @@ timed out or crashed), baseline and candidate with the same flags and limits:
   equal the in-sequence ones. Estimated cost at the files' observed per-query rates,
   about 0.7 CPU-hours (OCaml) and 1.6 (Cherry) plus the repeated prefix processing,
   at most 37 and 41.5 CPU-hours if every query used the full 60 s; not run.
+
+### Datatype test fixtures after master #11506 (build repair)
+
+Master #11506 makes the producer prove enumeration-only datatype goals (every constructor
+without fields) through QFFP/dt2bv. Its datatype-to-bit-vector `rewrite` steps are not
+supported by the sorted checker, so the old exhaustiveness fixture (`T ((C) (D))`) is only
+partly checked (`PARTIAL 7`) and the three-constructor one is rejected; no checker rule,
+producer tactic, budget or model changed. The failing expectation was a full certificate
+for an input the checker does not claim to certify, not a datatype-checking defect.
+
+- The certified exhaustiveness, three-constructor exhaustiveness and symmetric-equality
+  fixtures now give each constructor an `Int` field (`T ((C (field Int)) (D (other Int)))`).
+  The producer then stays on the datatype theory (the exhaustiveness refutations are one
+  `th-lemma datatype` over the negated recognizers) and both backends `ACCEPT` them with no
+  pending obligation, in batch and
+  interactive mode. The native group builds every constructor witness of its direct
+  controls from well-sorted arguments and checks that they are well sorted, so the
+  negative controls (a constructor against a different negative recognizer, equalities
+  without the matching recognizer) cannot pass by ill-sortedness; a positive control with
+  the same witness shape (a constructor against its own negative recognizer) must still
+  conflict.
+- The original enumeration inputs stay as separate `dt2bv-coverage` fixtures. The native
+  group runs every direct control and input-binding negative on them and requires the
+  fixture to be an enumeration, but does not pin their verdict (a later checker that
+  certifies them is not a regression); the CLI test accepts exactly `ACCEPT` or
+  `PARTIAL n` (never `SAT`, `REJECT` or a crash) with `semantics=sorted-datatype` in
+  both modes, without pinning `n`. `PARTIAL` there is not a certified verdict.
