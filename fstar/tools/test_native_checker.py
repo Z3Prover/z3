@@ -377,6 +377,38 @@ SORTED_CHOICE_SATISFIABLE_CASES = (
      "(assert (not (P a)))"),
 )
 
+# Quant-intro certificates: the producer's rewriting under binders (rewriter proof-bind /
+# quant-intro), reduced from the F* corpus. Implication-to-or under three nested Term binders
+# (the FStar.Tactics.BreakVC q1 shape: a pure-Boolean certificate beyond the bounded congruence)
+# and Int comparison normal forms (`>` to `not <=`, x - y against 0) under two Universe binders.
+# Each proof's only otherwise-unchecked step is the quant-intro certificate, which the sorted
+# kernel replays entry by entry at the binder scopes. Satisfiable variants (decided with
+# model-based instantiation) are never certified.
+SORTED_QUANT_INTRO_CASES = (
+    ("nested-implication-binders", FSTAR_QUERY_PREAMBLE +
+     "(declare-sort Term)(declare-fun H (Term) Bool)(declare-fun K (Term) Bool)"
+     "(declare-fun V (Term Term) Bool)(declare-fun l1 () Bool)"
+     "(assert (not (forall ((x0 Term)) (=> (H x0) (forall ((x1 Term)) (=> (and (K x1)"
+     " (forall ((x2 Term)) (! (=> (or l1 (H x2)) (V x1 x2)) :pattern ((V x1 x2)))))"
+     " (forall ((x2 Term)) (=> (H x2) (V x1 x2)))))))))"),
+    ("integer-comparison-under-binders", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun pi (Universe Universe) Bool)"
+     "(assert (forall ((x Universe) (y Universe)) (! (=> (> (h x) (h y)) (pi x y)) :pattern ((pi x y)))))"
+     "(assert (> (h a) (h b)))(assert (not (pi a b)))"),
+)
+SORTED_QUANT_INTRO_SATISFIABLE_CASES = (
+    ("nested-implication-other-guard", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)"
+     "(declare-sort Term)(declare-fun H (Term) Bool)(declare-fun K (Term) Bool)"
+     "(declare-fun V (Term Term) Bool)(declare-fun l1 () Bool)"
+     "(assert (not (forall ((x0 Term)) (=> (H x0) (forall ((x1 Term)) (=> (and (K x1)"
+     " (forall ((x2 Term)) (! (=> (or l1 (H x2)) (V x1 x2)) :pattern ((V x1 x2)))))"
+     " (forall ((x2 Term)) (=> (K x2) (V x1 x2)))))))))"),
+    ("integer-comparison-weak", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)"
+     "(declare-fun pi (Universe Universe) Bool)"
+     "(assert (forall ((x Universe) (y Universe)) (! (=> (> (h x) (h y)) (pi x y)) :pattern ((pi x y)))))"
+     "(assert (>= (h a) (h b)))(assert (not (pi a b)))"),
+)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -764,6 +796,34 @@ class DirectCheckerTests(unittest.TestCase):
                         self.assertIn("semantics=sorted-datatype", result.stderr)
                     self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
         for name, source in SORTED_CHOICE_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_quant_intro_certificates_in_both_modes(self):
+        for name, source in SORTED_QUANT_INTRO_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                    self.assertNotIn("obligation\tquant-intro\t", result.stderr)
+        for name, source in SORTED_QUANT_INTRO_SATISFIABLE_CASES:
             with self.subTest(case=name):
                 result = self.run_checker(source, "--diagnostics")
                 self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)

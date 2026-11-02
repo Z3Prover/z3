@@ -35,11 +35,12 @@ module Z3SortedRootDocument
    so the checker reasons about it only by congruence (it is a free symbol
    of the Sorted proof); no theory law is used for it.
 
-   NNF certificates (Z3NnfReplay, read by SP.check_node_cached): the
+   Binder certificates (Z3NnfReplay, read by SP.check_node_cached): the
    replay's quantifier laws (Q.forall_model and E.exists_model) are derived
    from R1 of the same i (section 1), the read view KEEPS the certificate
    (rule_shape), and the coverage gate checks every entry formula and binder
-   sort of a consumed certificate and its scope guard (certificate_covered).
+   sort of a consumed certificate (an NNF or a quant-intro root,
+   NR.consumed_root) and its scope guard (certificate_covered).
    Inner Skolem steps are true only in the epsilon extension (section 6),
    which is where the epsilon theorem evaluates the elaborated document.
 
@@ -240,10 +241,11 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
    with its argument list, ArithmeticFarkas WITH its coefficient list,
    which SP.arithmetic_farkas replays, and QuantifierIntroduction WITH its
-   binder certificate, which the NNF replay (Z3NnfReplay, SP.nnf_verdict)
-   reads when its root is nnf-neg or nnf-pos); the epsilon route
-   (check_document_epsilon, section 6) also distinguishes Skolemization and
-   collects the closed Skolem steps inside consumed certificates.
+   binder certificate, which the certificate replay (Z3NnfReplay,
+   SP.nnf_verdict) reads when its root is nnf-neg, nnf-pos or quant-intro);
+   the epsilon route (check_document_epsilon, section 6) also distinguishes
+   Skolemization and collects the closed Skolem steps inside consumed NNF
+   certificates.
    Every other rule, with every other payload (Gomory, PAC, rule names), is
    judged identically. The read view KEEPS the Farkas coefficients, the
    binder certificates and the Skolemization label (erasing them would
@@ -326,14 +328,15 @@ let rec binder_entries_covered (sigma:V.signature) (bs:list U.binder_entry) : To
     (match b.U.binder_sorts with Some ss -> TR.supported_sorts sigma ss | None -> true) &&
     binder_entries_covered sigma rest
 
-(* A certificate the NNF replay consumes: every internal term covered, and
-   the scope guard (NR.certificate_scoped: every entry the root uses is typed
-   by D.scoped at EVERY scope assigned to it) passes. Other certificates are
-   not read by the Sorted route and are not gated. *)
+(* A certificate the replay consumes (NR.consumed_root: an NNF root or a
+   quant-intro root): every internal term covered, and the scope guard
+   (NR.certificate_scoped: every entry the root uses is typed by D.scoped
+   at EVERY scope assigned to it) passes. Other certificates are not read
+   by the Sorted route and are not gated. *)
 let certificate_covered (sigma:V.signature) (r:U.rule) : bool =
   match r with
   | U.QuantifierIntroduction c ->
-    not (NR.nnf_root c) || (binder_entries_covered sigma c.U.binder_entries && NR.certificate_scoped c)
+    not (NR.consumed_root c) || (binder_entries_covered sigma c.U.binder_entries && NR.certificate_scoped c)
   | _ -> true
 
 (* TYPING (D.scoped) and COVERAGE (TR.supported_expression: every sort of
@@ -432,19 +435,38 @@ let rec lemma_binder_entry_covered (sigma:V.signature) (bs:list U.binder_entry) 
           (decreases bs) =
   match bs with [] -> () | d :: rest -> if d = b then () else lemma_binder_entry_covered sigma rest b
 
-(* The internal terms of a certificate the NNF replay consumes: in a
-   certified document the certificate passed the scope guard and every node
-   of every one of its entry formulas is supported and law-ready. *)
+(* The internal terms of a certificate the replay consumes (NNF or
+   quant-intro root): in a certified document the certificate passed the
+   scope guard and every node of every one of its entry formulas is
+   supported and law-ready. *)
 let lemma_certified_certificate_node (schema:S.schema) (doc:P.document) (e:P.entry)
                                      (c:U.binder_certificate) (b:U.binder_entry) (x:expr)
   : Lemma (requires check_root_document schema doc == RootCertified /\ L.mem e doc.P.entries /\
-                    e.P.rule == U.QuantifierIntroduction c /\ NR.nnf_root c /\
+                    e.P.rule == U.QuantifierIntroduction c /\ NR.consumed_root c /\
                     L.mem b c.U.binder_entries /\ TR.occurs x b.U.binder_formula)
           (ensures NR.certificate_scoped c /\
                    TR.supported_expression (S.signature schema) x /\ TR.node_ready (S.signature schema) x) =
   lemma_entries_covered_mem (S.signature schema) doc.P.entries e;
   lemma_binder_entry_covered (S.signature schema) c.U.binder_entries b;
   TR.lemma_document_node schema [b.U.binder_formula] b.U.binder_formula x
+
+(* The binder sorts of every entry of a consumed certificate are supported
+   too (quant-intro and quantifier steps read their bodies at
+   `L.rev bs @ scope`, so every sort a body is typed at is covered). *)
+let rec lemma_binder_sorts_covered (sigma:V.signature) (bs:list U.binder_entry) (b:U.binder_entry) (ss:list sort)
+  : Lemma (requires binder_entries_covered sigma bs /\ L.mem b bs /\ b.U.binder_sorts == Some ss)
+          (ensures TR.supported_sorts sigma ss)
+          (decreases bs) =
+  match bs with [] -> () | d :: rest -> if d = b then () else lemma_binder_sorts_covered sigma rest b ss
+
+let lemma_certified_certificate_sorts (schema:S.schema) (doc:P.document) (e:P.entry)
+                                      (c:U.binder_certificate) (b:U.binder_entry) (ss:list sort)
+  : Lemma (requires check_root_document schema doc == RootCertified /\ L.mem e doc.P.entries /\
+                    e.P.rule == U.QuantifierIntroduction c /\ NR.consumed_root c /\
+                    L.mem b c.U.binder_entries /\ b.U.binder_sorts == Some ss)
+          (ensures TR.supported_sorts (S.signature schema) ss) =
+  lemma_entries_covered_mem (S.signature schema) doc.P.entries e;
+  lemma_binder_sorts_covered (S.signature schema) c.U.binder_entries b ss
 
 (* The original assertions of an accepted document are closed Boolean
    terms: DERIVED from the checker's own result (SP.check_document tests
