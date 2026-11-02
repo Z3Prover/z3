@@ -1,0 +1,77 @@
+name: Lean proofs
+
+# On-demand check of Z3's native proofs in Lean: builds z3 (Release, clang, Python bindings) from the
+# selected branch, then runs scripts/ci_lean_proofs.sh, the same checks the CI workflow runs in its
+# releaseClang job. Run from the Actions tab or with:
+#   gh workflow run lean-proofs.yml --ref <branch> -f z3test_ref=<ref>
+
+on:
+  workflow_dispatch:
+    inputs:
+      z3test_repository:
+        description: 'z3test repository (owner/name)'
+        type: string
+        default: 'Z3Prover/z3test'
+      z3test_ref:
+        description: 'z3test branch, tag, or commit'
+        type: string
+        default: 'master'
+      timeout:
+        description: 'Per-benchmark timeout in seconds for the proof matrices'
+        type: string
+        default: '30'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lean-proofs:
+    name: "Lean proof checks"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout z3test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.z3test_repository }}
+          ref: ${{ inputs.z3test_ref }}
+          path: z3test
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.x'
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=True
+
+      - name: Build
+        run: ninja -C build
+
+      - name: Check native proofs in Lean
+        env:
+          TIMEOUT: ${{ inputs.timeout }}
+        run: scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "$RUNNER_TEMP" --timeout "$TIMEOUT"
+
+      - name: Upload native and Lean proof artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lean-proof-certificates
+          path: |
+            ${{ runner.temp }}/lean-proof-artifacts/
+            ${{ runner.temp }}/lean-proof-matrix.jsonl
+          if-no-files-found: warn
