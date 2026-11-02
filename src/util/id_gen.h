@@ -21,11 +21,15 @@ Revision History:
 #include "util/vector.h"
 #include "util/util.h"
 
-class id_gen {
+// If SmallestFirst=true, ID generation is deterministic regardless of
+// recycling order.
+template<bool SmallestFirst>
+class id_gen_tpl {
     unsigned        m_next_id;
+    // Min-heap (smallest ID at the front) if SmallestFirst, otherwise a stack.
     unsigned_vector m_free_ids;
 public:
-    id_gen(unsigned start = 0):m_next_id(start) {}
+    id_gen_tpl(unsigned start = 0):m_next_id(start) {}
     
     unsigned mk() {
         unsigned r;
@@ -34,6 +38,8 @@ public:
             m_next_id++;
         }
         else {
+            if constexpr (SmallestFirst)
+                std::pop_heap(m_free_ids.begin(), m_free_ids.end(), std::greater<unsigned>());
             r = m_free_ids.back();
             m_free_ids.pop_back();
         }
@@ -43,7 +49,9 @@ public:
     void recycle(unsigned id) { 
         if (memory::is_out_of_memory())
             return;
-        m_free_ids.push_back(id); 
+        m_free_ids.push_back(id);
+        if constexpr (SmallestFirst)
+            std::push_heap(m_free_ids.begin(), m_free_ids.end(), std::greater<unsigned>());
     }
     
     void reset(unsigned start = 0) {
@@ -56,9 +64,12 @@ public:
         m_free_ids.finalize();
     }
     
-    unsigned show_hash(){
-      unsigned h = string_hash(std::string_view((char *)&m_free_ids[0],m_free_ids.size()*sizeof(unsigned)),17);
-      return hash_u_u(h,m_next_id);
+    unsigned show_hash() {
+        unsigned_vector ids(m_free_ids);
+        if constexpr (SmallestFirst)
+            std::sort(ids.begin(), ids.end());
+        unsigned h = string_hash(std::string_view(reinterpret_cast<char const*>(ids.data()), ids.size()*sizeof(unsigned)), 17);
+        return hash_u_u(h, m_next_id);
     }
 
     /**
@@ -79,8 +90,17 @@ public:
     }
 
     void display_free_ids(std::ostream & out) {
-        ::display(out, m_free_ids.begin(), m_free_ids.end());
+        unsigned_vector ids(m_free_ids);
+        if constexpr (SmallestFirst)
+            std::sort(ids.begin(), ids.end());
+        ::display(out, ids.begin(), ids.end());
     }
 
 };
 
+// Preserve LIFO recycling for clients that do not need a canonical order.
+using id_gen = id_gen_tpl<false>;
+
+// Choose the smallest free ID, independently of the order of completed releases.
+// Only the free set at the next allocation matters; heap layout is not observable.
+using ordered_id_gen = id_gen_tpl<true>;
