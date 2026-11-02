@@ -2732,35 +2732,75 @@ let sorted_datatype_checker () =
   let module S = Z3DatatypeSignature in
   let module DT = Z3SortedDatatype in
   let module R = Z3ResolutionProofTheory in
+  (* A `true` fixture must be fully checked: ACCEPT with no pending obligation. A datatype
+     whose constructors all lack fields is an enumeration, and since master #11506 the
+     producer proves enumeration-only goals through QF_FD/dt2bv. The sorted checker supports
+     none of the datatype-to-bit-vector `rewrite` steps of that route, so such a document is
+     only partly checked (or rejected). The `false` fixtures keep the original enumeration
+     inputs as dt2bv coverage: every constructor-logic and input-binding control below still
+     runs on them, but their verdict is deliberately not pinned, so a checker that later
+     certifies them is not a regression. Their certified counterparts give each constructor
+     an Int field; the producer then stays on the datatype theory (the exhaustiveness
+     refutations are one `th-lemma datatype` over the negated recognizers), and every direct
+     control keeps the same shape. *)
   let samples = [
-    "exhaustiveness",
+    "exhaustiveness", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)\
+       (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
+    "exhaustiveness-three", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int)) (E (third Int))))\
+       (declare-const x T)(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))\
+       (assert (not ((_ is E) x)))";
+    "enumeration-exhaustiveness-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
-    "exhaustiveness-three",
+    "enumeration-exhaustiveness-three-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D) (E)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))(assert (not ((_ is E) x)))";
-    "reconstruction",
+    "reconstruction", true,
       "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)\
        (assert ((_ is C) x))(assert (not (= x (C (field x)))))";
-    "injectivity",
+    "injectivity", true,
       "(declare-datatype T ((C (field Int)) (D)))\
        (declare-const a Int)(declare-const b Int)\
        (assert (= (C a) (C b)))(assert (not (= a b)))";
-    "disjointness",
+    "disjointness", true,
       "(declare-datatype T ((C (field Int)) (D)))(declare-const a Int)\
        (assert (= (C a) D))";
-    "conditional-constructor",
+    "conditional-constructor", true,
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (= x (ite false C D)))(assert (not (= x D)))";
-    "symmetric-equality",
+    "symmetric-equality", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)\
+       (declare-const y T)(assert (= x (C 0)))(assert (= x y))(assert (not (= y x)))";
+    "enumeration-symmetric-equality-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D)))(declare-const x T)(declare-const y T)\
        (assert (= x C))(assert (= x y))(assert (not (= y x)))";
   ] in
-  List.iter (fun (name, source) ->
+  let exhaustiveness_samples = ["exhaustiveness"; "exhaustiveness-three";
+    "enumeration-exhaustiveness-dt2bv-coverage"; "enumeration-exhaustiveness-three-dt2bv-coverage"] in
+  let three_constructor_samples = ["exhaustiveness-three";
+    "enumeration-exhaustiveness-three-dt2bv-coverage"] in
+  let int_sort = A.BaseSort "Int" in
+  (* A well-sorted instance of a constructor, each field an uninterpreted constant of its
+     sort: the direct controls below build constructor equalities from it, so a control that
+     expects a rejection cannot pass merely because its constructor application is ill-sorted. *)
+  let instance case =
+    let field sort =
+      if sort <> int_sort then failwith "datatype fixture constructor with a non-Int field";
+      A.App ({ A.decl_name = "field-value"; domain = []; range = sort; interp = None;
+               int_params = [] }, []) in
+    let value = A.App (case.S.constructor, List.map field case.S.constructor.A.domain) in
+    require (Z3Definitions.scoped [] value) "a datatype constructor instance was not well sorted";
+    value in
+  List.iter (fun (name, certified, source) ->
       let assertions, proof = unsat source in
       let doc, schema = B.marshal_with_datatypes assertions proof in
       require (schema.S.cases <> [] && S.valid schema) ("invalid sorted schema: " ^ name);
-      if name = "exhaustiveness" || name = "exhaustiveness-three" then (
+      require (certified || List.for_all (fun case -> case.S.constructor.A.domain = [])
+                 schema.S.cases)
+        ("a dt2bv coverage fixture is not an enumeration: " ^ name);
+      if List.mem name exhaustiveness_samples then (
         let last = List.hd (List.rev doc.P.assertions) in
         let premises = List.filter (fun e -> e <> last) doc.P.assertions in
         let tester, subject = match last with
@@ -2804,7 +2844,7 @@ let sorted_datatype_checker () =
           | Some c -> c
           | None -> failwith "missing recognizer case" in
         let negative = R.mk_not_expr (A.App (tester, [subject])) in
-        let witness = A.App (case.S.constructor, []) in
+        let witness = instance case in
         List.iter (fun facts ->
           require (DT.consequence schema facts R.false_expr)
             "constructor equality did not conflict with its negative recognizer")
@@ -2816,9 +2856,13 @@ let sorted_datatype_checker () =
           "constructor equality conflicted without a negative recognizer";
         let alternative = List.find (fun c -> c.S.constructor <> case.S.constructor) schema.S.cases in
         require (not (DT.consequence schema
-          [negative; R.mk_eq_expr (A.App (alternative.S.constructor, [])) subject] R.false_expr))
+          [negative; R.mk_eq_expr (instance alternative) subject] R.false_expr))
           "a constructor conflicted with a different negative recognizer";
-        if name = "exhaustiveness-three" then
+        require (DT.consequence schema
+          [R.mk_not_expr (A.App (alternative.S.recognizer, [subject]));
+           R.mk_eq_expr (instance alternative) subject] R.false_expr)
+          "a constructor did not conflict with its own negative recognizer";
+        if List.mem name three_constructor_samples then
           (require (not (DT.exhaustiveness_from schema [List.hd premises]
             (A.App (tester, [subject]))))
             "constructor was inferred without excluding every alternative";
@@ -2832,7 +2876,7 @@ let sorted_datatype_checker () =
             "a non-nullary constructor equality did not conflict with its negative recognizer"
         | _ -> failwith "expected a recognizer and negated reconstruction equality");
       let result = K.check_document schema doc in
-      require (result = Some Z.zero)
+      require (not certified || result = Some Z.zero)
         ("sorted datatype proof remained unchecked: " ^ name ^
          (match result with None -> " (rejected)" | Some n -> " (pending " ^ Z.to_string n ^ ")"));
       require (K.diagnostic_result (K.diagnose_document schema doc) = result)
@@ -2942,6 +2986,135 @@ let sorted_integer_farkas () =
   require (not (K.arithmetic_farkas
     { node with U.conclusion = Option.get (U.classify_fact y); premises = [fact x] }))
     "typed Farkas accepted a positive conclusion literal as an assumption"
+
+(* The Sorted route replays the NNF certificates the producer emits (Z3NnfReplay): no
+   certificate rooted at nnf-neg/nnf-pos is left pending in these proofs (negated exists,
+   the synthetic ite/iff/xor/implication/nested-duality probes, a datatype binder; each
+   proof has such a certificate), and the replay's own walks are loops at the native stack:
+   a 200,000-step chain, a 100,000-ary disjunction and 200,000 nested negations (each
+   pending without enough work, replayed with it), a shared term with 2^60 tree nodes
+   (pending). The premise-id boundary is structural: forward, self, negative and missing ids
+   make the certificate malformed and reject its proof entry; valid earlier and shared ids
+   replay; an unsupported rule with valid ids stays pending. *)
+let sorted_nnf_replay () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let nnf_rooted rule = match rule with
+    | U.QuantifierIntroduction c -> NR.nnf_root c
+    | _ -> false in
+  let sources = [
+    "negated-exists", "(declare-fun p (Int) Bool)(assert (not (exists ((x Int)) (p x))))(assert (p 0))";
+    "ite", "(declare-fun p (Int) Bool)(declare-const c Bool)\
+      (assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))\
+      (assert (forall ((x Int)) (p x)))";
+    "iff", "(declare-fun p (Int) Bool)(declare-const a Bool)\
+      (assert (not (= a (forall ((x Int)) (p x)))))(assert (forall ((x Int)) (p x)))\
+      (assert (or a (p 1)))(assert (or a (not (p 2))))";
+    "xor", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)(declare-const a Bool)\
+      (assert (xor a (forall ((x Int) (r Real)) (q x r))))(assert (forall ((x Int) (r Real)) (q x r)))\
+      (assert (forall ((x Int)) (p x)))(assert (or a (not (p 2))))";
+    "xor-under-binder", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((z Int)) (xor (p z) (exists ((x Int) (r Real)) (q x r)))))\
+      (assert (forall ((x Int) (r Real)) (not (q x r))))(assert (not (p 3)))";
+    "implication", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((z Int)) (not (=> (p z) (exists ((y Int)) (q y 1.0))))))\
+      (assert (p 0))(assert (q 3 1.0))";
+    "nested-duality", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((w Int)) (not (exists ((x Int) (r Real))\
+        (and (q x r) (exists ((x Int)) (and (p x) (p w))))))))(assert (q 1 2.0))(assert (p 3))";
+    "datatype-binder", "(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)\
+      (assert (not (exists ((x T)) (p x))))(assert (p D))";
+  ] in
+  List.iter (fun (name, source) ->
+      let assertions, proof = unsat source in
+      let doc, schema = B.marshal_with_datatypes assertions proof in
+      require (List.exists (fun e -> nnf_rooted e.P.rule) doc.P.entries)
+        ("no NNF certificate in the proof: " ^ name);
+      let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+      (match diagnostic with
+       | P.DocumentChecked (_, unmet) ->
+         List.iter (fun o ->
+             require (not (nnf_rooted o.P.obligation_rule))
+               ("an NNF certificate stayed pending: " ^ name)) unmet
+       | P.DocumentRejected _ -> failwith ("sorted NNF document rejected: " ^ name));
+      require (result <> None) ("sorted NNF document has no verdict: " ^ name))
+    sources;
+  let p = A.App ({ A.decl_name = "p"; domain = []; range = A.bool_sort; interp = None; int_params = [] }, []) in
+  let oeq = Z3ObservationalEquality.mk_oeq_expr in
+  let neg = R.mk_not_expr in
+  let entry name formula premises =
+    { U.binder_name = name; binder_formula = formula;
+      binder_premises = List.map Z.of_int premises; binder_sorts = None } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) []) in
+  let verdict entries root lhs rhs =
+    NR.replay [] { U.binder_entries = entries; binder_root = Z.of_int root } (U.Observational (lhs, rhs)) in
+  let twice e = neg (neg e) in
+  (* a chain: refl, 200,000 trans steps, the double-negation root *)
+  let steps = List.init 200000 (fun k -> entry "trans" (oeq p p) [k; 0]) in
+  let chain = entry "refl" (oeq p p) [] :: List.rev_append (List.rev steps) [entry "nnf-neg" (oeq (twice p) p) [200000]] in
+  require (verdict chain 200001 (twice p) p = NR.Replayed) "deep NNF chain was not replayed";
+  (* a 100,000-ary De Morgan step *)
+  let n = 100000 in
+  let bools = List.init n (fun _ -> A.bool_sort) in
+  let disjunction = A.App ({ A.decl_name = "or"; domain = bools; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_or; int_params = [] }, List.init n (fun _ -> p)) in
+  let conjunction = A.App ({ A.decl_name = "and"; domain = bools; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_and; int_params = [] }, List.init n (fun _ -> neg p)) in
+  let wide pad =
+    verdict (entry "refl" (oeq (neg p) (neg p)) [] ::
+             entry "nnf-neg" (oeq (neg disjunction) conjunction) (List.init n (fun _ -> 0)) :: padding pad)
+      1 (neg disjunction) conjunction in
+  require (wide 200 = NR.Replayed) "wide NNF step was not replayed";
+  require (wide 0 = NR.Unreplayed) "wide NNF step was replayed beyond the work budget";
+  (* 200,000 nested negations *)
+  let rec nested depth acc = if depth = 0 then acc else nested (depth - 1) (neg acc) in
+  let deep = nested 200000 p in
+  let deep_verdict pad =
+    verdict (entry "refl" (oeq deep deep) [] :: entry "nnf-neg" (oeq (twice deep) deep) [0] :: padding pad)
+      1 (twice deep) deep in
+  require (deep_verdict 800 = NR.Replayed) "deep NNF term was not replayed";
+  require (deep_verdict 0 = NR.Unreplayed) "deep NNF term was replayed beyond the work budget";
+  (* a DAG whose tree has 2^60 nodes *)
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let big = dag 60 p in
+  require (verdict [entry "refl" (oeq big big) []; entry "nnf-neg" (oeq (twice big) big) [0]] 1 (twice big) big
+           = NR.Unreplayed) "exponential NNF term was replayed";
+  (* the premise-id boundary on the double negation (not (not p)) ~ p *)
+  let double ids = verdict [entry "refl" (oeq p p) []; entry "nnf-neg" (oeq (twice p) p) ids] 1 (twice p) p in
+  require (double [0] = NR.Replayed) "valid earlier premise id was not replayed";
+  List.iter (fun ids -> require (double ids = NR.Malformed) "invalid premise id was not malformed")
+    [[1]; [-1]; [2]; [7]];
+  let disjunction2 = A.App ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                              interp = Some Z3ValueTheory.op_or; int_params = [] }, [p; p]) in
+  let conjunction2 = A.App ({ A.decl_name = "and"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                              interp = Some Z3ValueTheory.op_and; int_params = [] }, [neg p; neg p]) in
+  require (verdict [entry "refl" (oeq (neg p) (neg p)) []; entry "nnf-neg" (oeq (neg disjunction2) conjunction2) [0; 0]]
+             1 (neg disjunction2) conjunction2 = NR.Replayed) "shared premise id was not replayed";
+  require (verdict [entry "apply-def" (oeq p p) []; entry "nnf-neg" (oeq (twice p) p) [0]] 1 (twice p) p = NR.Unreplayed)
+    "unsupported rule with valid premise ids was not left pending";
+  (* a forward premise id: malformed, and the document rejects that proof entry *)
+  let forward = { U.binder_entries = [entry "refl" (oeq p p) [1]; entry "nnf-neg" (oeq (twice p) p) [0]];
+                  binder_root = Z.one } in
+  require (NR.replay [] forward (U.Observational (twice p, p)) = NR.Malformed) "forward premise id was not malformed";
+  let document certificate = { P.declarations = []; expressions = []; assertions = [R.false_expr];
+    entries = [{ P.rule = U.QuantifierIntroduction certificate; formula = oeq (twice p) p; premise_ids = [] };
+               { P.rule = U.Asserted; formula = R.false_expr; premise_ids = [] }];
+    root = Z.one } in
+  let with_ids ids = { U.binder_entries = [entry "refl" (oeq p p) []; entry "nnf-neg" (oeq (twice p) p) ids];
+                       binder_root = Z.one } in
+  let empty = { Z3DatatypeSignature.sorts = []; cases = [] } in
+  List.iter (fun certificate ->
+      match K.check_document_epsilon_diagnosed empty (document certificate) with
+      | None, P.DocumentRejected (P.ProofEntry, Some index, _) ->
+        require (Z.equal index Z.zero) "malformed certificate rejected at the wrong entry"
+      | _ -> failwith "malformed NNF certificate was not a rejected proof entry")
+    [forward; with_ids [1]; with_ids [-1]; with_ids [7]];
+  (match K.check_document_epsilon_diagnosed empty (document (with_ids [0])) with
+   | Some n, P.DocumentChecked _ -> require (Z.equal n Z.zero) "valid NNF certificate document left pending"
+   | _ -> failwith "valid NNF certificate document was not checked")
 
 let sorted_epsilon_skolemization () =
   let module K = Z3SortedProof in
@@ -6717,6 +6890,7 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
+     "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
      "sorted-constant-folding-rewrites", sorted_constant_folding;

@@ -4505,7 +4505,7 @@ freshness, safe context ordering, and original-input freshness are required.
 Duplicate identical definitions are allowed; conflicting or cyclic contexts
 disable the extension and leave unsupported steps to ordinary pending-rule
 diagnostics. Dependency-bearing functions and Skolem steps inside binder
-certificates remain outside this extension. A 4,096-occurrence budget precedes
+certificates remain outside this extension. (Closed Skolem steps inside the NNF certificates that the Sorted kernel now replays are collected since 2026-11-01; see the NNF section below.) A 4,096-occurrence budget precedes
 recognition of each candidate entry.
 
 Fresh-cache strict verification passed for **78 production modules** and all
@@ -4724,8 +4724,9 @@ every route):
 **Scope that does not change.** A native `ACCEPT` is not `RootCertified`, and
 the default route is unchanged. The legacy default `model_sound` still has
 no model; nothing here repairs it or claims every-theory soundness.
-Dependency-bearing Skolem functions and Skolem steps inside binder
-certificates stay unsupported and pending. Master's trust points remain:
+Top-level dependency-bearing Skolem steps stay pending; Skolem steps inside
+consumed NNF certificates are handled by the closed and dependent contexts
+described under the NNF certificate replay below. Master's trust points remain:
 the native front end's translation of assertions, schema and definitions,
 native datatype id and tag fidelity, and the full-function-space array,
 lambda and `FStar.Real` parameterization of the root class.
@@ -4832,3 +4833,195 @@ commit) only has workflow runs waiting for approval. Earlier failures of the
 `Run regressions` step (z3test `3477.smt2`, `3559.smt2`, Windows
 `opt_nlsat_*`) also occur on master `8fbb275ab` and do not involve `fstar/`;
 macOS was not run locally.
+
+## NNF certificate replay on the Sorted route (2026-11-01)
+
+Route and diagnostic contract change. On the Sorted datatype route
+(`check_document_epsilon_diagnosed`, used by both front ends with one diagnosed
+check), a premise-free `QuantifierIntroduction` node whose certificate root is
+`nnf-neg` or `nnf-pos` is now replayed by `Z3NnfReplay` before the previous
+propositional fallback; see [NNF certificate replay](PROOF_CHECKING.md#nnf-certificate-replay-sorted-route)
+for the rules, the certificate protocol (the unchanged marshalled certificate),
+the model boundary and the coverage table. A replayed node reports no pending
+obligation. A certificate outside the calculus stays a pending obligation with
+the same label as before (the front ends name the certificate's root entry).
+A certificate whose premise ids are not earlier entries now rejects the document
+at that proof entry (`proof-entry` stage) instead of counting as pending; the
+native marshal never produces such ids. The epsilon context additionally
+collects closed, eligible inner `sk` steps of replayed certificates, through
+the unchanged gates; if the merged context fails a gate, the previous
+top-level context is used. Open (dependent) `sk` steps of replayed certificates
+form a dependent context on top of it (`Z3SortedDependentSkolem`): each certified
+step's universal closure over its dependency scope is appended to the assertions
+and holds in the joint dependent choice extension of the original model (one
+witness tuple per argument tuple); see
+[dependent Skolem functions](PROOF_CHECKING.md#nnf-certificate-replay-sorted-route).
+Quant-intro-rooted certificates and naming/rewrite steps inside certificates stay
+pending.
+
+F* evidence (CI pin v2026.10.25 and nightly-2026-10-30): `Z3NnfReplay`,
+`Z3SortedProof`, `Z3SortedRootDocument` and their tests verify, and
+`Z3NnfReplayTests` replays two previously pending corpus certificates
+(FStar.Nonempty query 2 node 11 and FStar.Class.TotalOrder.Raw query 1 node 43)
+in documents certified by the root gates.
+
+### Native validation and the fstar-build replay (b3c1e0bac producer)
+
+Both builds use one Z3 producer built from b3c1e0bac (z3 `3ac509ee…`, libz3.a
+`f66d5e53…`) and fresh F* caches on both pins: baseline = b3c1e0bac, candidate =
+5ff246341 (the replay plus its corrected native tests).
+
+- Both pipelines are RED at the same place, caused by master #11506 (enumeration
+  goals routed through QFFP/dt2bv), not by this change: OCaml `native-tests` stops
+  at `contextual-sorted-datatype-proof-kernel` (exhaustiveness fixture `PARTIAL 7`,
+  seven dt2bv `rewrite` obligations), and both CLI suites fail only
+  `test_contextual_datatype_proofs_in_both_modes`. The same candidate sources
+  linked against the dd4179a55 producer accept the fixture. With every group run,
+  the baseline has 74 PASS / 1 FAIL and the candidate 75 PASS / 1 FAIL (the new
+  `sorted-NNF-certificate-replay` passes); Cherry `checker-tests` pass on both;
+  QF_FF 25/25 on both backends of both builds.
+- The 15 NNF CLI cases (8 negative, 7 Sorted probes; batch and interactive; OCaml
+  and Cherry): baseline `PARTIAL 1` with one `nnf-neg` or `nnf-pos` obligation on
+  every run, candidate `ACCEPT` on every run, same proof metadata.
+- All 583 incremental F* query logs (`C:\bench\inputs\fstar-build`, exact bytes,
+  10 s solver, 60 s per file, 4 GiB, both backends). Pending obligations over all
+  answered queries, baseline -> candidate: OCaml `nnf-neg` 5,655 -> 213, `nnf-pos`
+  5,948 -> 5,820; Cherry `nnf-neg` 5,570 -> 211, `nnf-pos` 5,841 -> 5,670. On the
+  10,776 structurally matched Cherry queries (proof metadata and non-NNF obligation
+  groups equal), `nnf-neg` 5,411 -> 210 and `nnf-pos` 5,693 -> 5,564, 385
+  queries become `ACCEPT`, no obligation is added and no other family changes;
+  OCaml (5,897 structurally matched queries): `nnf-neg` 2,735 -> 119, `nnf-pos` 1,604 -> 1,560.
+  Timeouts, crashes and unexecuted tails (OCaml candidate: 43 files at 60 s, 2,474
+  queries not answered) are not counted as checked and may hide further NNF
+  obligations.
+- The remaining NNF obligations, classified by re-running the replay steps on the
+  actual certificates (5,962 diagnosed nodes): 5,892 stop at an open `sk` step, a
+  Skolem FUNCTION of the enclosing binders (99.8 % of the `nnf-pos` and 71 % of the
+  `nnf-neg` residue); 47 at a closed `sk` step over the 4,096-node definition budget;
+  14 at the scope guard; 9 at `intro-def`/`apply-def` naming steps. No residue stops
+  at a local NNF rule, so the remaining gap is the dependent Skolem functions, which
+  need an argument-dependent choice extension of the epsilon model (not a new NNF
+  rule). That extension is now implemented and verified on both pins (next phase);
+  its effect on these counts has not been re-measured yet.
+- Throughput: the candidate first answered fewer queries in time (OCaml 11,733 ->
+  11,556; 6 OCaml and 2 Cherry files went from complete to the 60 s limit). On the
+  same documents the cost was `Z3Skolemization.order_context`, cubic in the number of
+  definitions, now fed every closed inner `sk` step in document order (243
+  definitions: 17 s). `Z3SortedProof.certified_context` now orders the reversed
+  collection, which is already ordered in that case (0.2 s); the context set and every
+  gate are unchanged. The corpus numbers above were measured before this fix.
+
+### Dependent Skolem functions: native validation and the NNF-bearing re-sweep
+
+Candidate 3499ebf14 (dependent Skolem functions, `Z3SortedDependentSkolem`) against the
+same b3c1e0bac producer and baseline, fresh F* caches on both pins: the suites have the
+same single producer-caused RED as the baseline (OCaml `native-tests` stop, 75/76 groups
+with every group run, one CLI test on each backend), Cherry `checker-tests` pass, QF_FF
+25/25 on both backends; the 15 NNF CLI probes are `PARTIAL 1` on the baseline and
+`ACCEPT` on the candidate in all 60 runs with identical proof metadata; the datatype
+fixture stays `PARTIAL 7` on both.
+
+Re-sweep of the 359 NNF-bearing files (every file with an NNF obligation left by the
+previous candidate on either backend, the discordant files, every file that previously
+timed out or crashed), baseline and candidate with the same flags and limits:
+
+- Pending NNF obligations over the answered queries, baseline -> candidate: OCaml
+  `nnf-neg` 4,321 -> 73, `nnf-pos` 5,945 -> 10; Cherry `nnf-neg` 4,214 -> 70, `nnf-pos`
+  5,846 -> 10. On the 8,518 structurally matched Cherry queries (proof metadata
+  and non-NNF obligation groups equal): 5,750 `nnf-pos` and 4,074 `nnf-neg` obligations
+  discharged, 80 remain, none added, 713 queries become `ACCEPT`, no `ACCEPT` becomes
+  `PARTIAL`; OCaml (4,177 structurally matched queries): 1,526 / 1,774 discharged, 29 remain, none
+  added. Structural matching does not establish byte-identical proofs; the original
+  per-query observations and unmatched prefixes remain separate from this cohort.
+- The remaining NNF obligations (83 OCaml, 80 Cherry), classified by a separate
+  diagnostic rerun of the same files (the replay steps and the scope guard's forward
+  pass re-run step by step with the candidate's own extracted functions, checked
+  against the production result) and matched to the counted residue: 54 OCaml / 53
+  Cherry stop at a closed `sk` step whose formula exceeds the 4,096-node definition
+  budget (4,110-24,844 nodes; zero dependencies, so not a dependent Skolem step); 9 /
+  9 at `intro-def`/`apply-def` naming steps inside `nnf-pos` certificates; 20 / 17 at
+  the binder scope guard, every one by EXHAUSTING the guard's work budget
+  (`binder_work_limit`, 65,536 units per entry) in its forward pass, never by a scope,
+  sort, index or premise failure: with an unbounded budget the same guard passes,
+  needing 1.02-14.2 times the budget, and 81-92 % of the units are the characters of
+  base-sort names (every uninterpreted sort is marshalled as `sort!<id>:<name>`, here
+  20 characters, and both names are charged before each sort comparison, once per
+  variable and per argument). Behind the guard, 19 of these 20 certificates would
+  still stop at an `sk` step over the 4,096-node budget; only one (PulseCore.Action-1
+  query 1) would replay. No residue stops at a dependent Skolem step, a local NNF
+  rule, or a malformed certificate. Matching: 30 OCaml / 22 Cherry obligations have a
+  diagnosed node in a structurally matched proof (same metadata and NNF groups); 53 / 57 have
+  the same NNF obligation (same rule, source/target fingerprint and count) in the same
+  query of another OCaml proof of it (OCaml proofs vary between runs); one Cherry
+  obligation (FStar.Math.Lemmas-2 query 35) has no exact counterpart (the closest
+  OCaml proofs differ in one arithmetic comparison and stop at the scope guard's
+  budget). An earlier version of this classification supported "guard budget" with the
+  work left after the guard's backward pass, which is the budget handed to its forward
+  pass, not what remained when it failed; the class is unchanged, the evidence above is
+  the failing branch (the forward pass's scope check of one entry running out of work)
+  and the total charge per certificate. The unbounded repeats are diagnostic
+  measurements only, not a checker pass and not a production budget. The guard's
+  accounting and limits are unchanged.
+- Follow-up (not implemented): a cheaper sort-identity or shared-certificate accounting
+  for the guard, without a budget raise, would discharge only the PulseCore.Action-1
+  node (the other 19 also stop at an `sk` step over the 4,096-node budget).
+  It needs a proved bijection between the representation and the AST sorts, binders
+  and metadata it stands for (equal representations exactly for equal sorts), native
+  sort ids treated as untrusted, no stripping of name prefixes and no collapsing of
+  distinct names, a bounded table construction charged to the same budget, and
+  adversarial tests (different names with one native id, one name with different ids).
+- The 224 files outside the selection were last run in this report's sweep with the
+  previous candidate (5ff246341). A separate, later run (not part of the 359-file
+  re-sweep) replayed exactly those 224 files with the frozen 3499ebf14 binaries (an
+  independent reviewer's run, label `rev-out224-cand-3499ebf14`, OCaml checker
+  `2388389168cf500d`, Cherry checker `943dcb2f2ea51d1b`; same harness, flags and limits;
+  accounting re-checked from its own records): 448/448 files COMPLETE, 2,553 answered
+  queries per backend (every query of those files; OCaml 905 `ACCEPT` / 1,557 `PARTIAL` /
+  91 `UNKNOWN`, Cherry 905 / 1,562 / 86), no `nnf-neg` or `nnf-pos` obligation, no
+  `REJECT`. It has no baseline twin.
+- Check time on structurally matched queries: Cherry +10.6 % (8,518 queries), OCaml +8.4 % (4,177);
+  the largest matched-file increases are FStar.Reflection.TermEq-1 (+26 %), FStar.Math.Euclid-3
+  (+21 %) and FStar.Tactics.CanonCommSemiring-1 (+21.6 %). These cohort timings do not
+  establish identical proof bytes. Separately, on the same frozen marshalled documents of
+  TermEq-1 the candidate's decision takes 18.1 s against the baseline's 16.5 s (query 24)
+  and 11.2 s against 10.8 s (query 49); the added time is the certification of the closed
+  context, the dependent context (including one redundant re-check of the closed order)
+  and the NNF replay. The observed 60 s boundary crossings are retained; the matched
+  timing analysis did not attribute them to checking overhead. Timeouts, crashes and
+  unexecuted tails are not counted as checked.
+- Not checked: the unanswered tails of the timed-out and crashed files (OCaml 2,227
+  queries in 37 files at 60 s; Cherry 2,493 queries in 32 files at 60 s and 7 crashed
+  files). They may hold further NNF obligations. A bounded follow-up would replay each
+  tail query on its own (the file's commands up to that `check-sat`, earlier
+  `check-sat`s removed, declarations, assertions, options and push/pop kept), with the
+  same 10 s solver and 60 s limits; such inputs are derived, so their proofs need not
+  equal the in-sequence ones. Estimated cost at the files' observed per-query rates,
+  about 0.7 CPU-hours (OCaml) and 1.6 (Cherry) plus the repeated prefix processing,
+  at most 37 and 41.5 CPU-hours if every query used the full 60 s; not run.
+
+### Datatype test fixtures after master #11506 (build repair)
+
+Master #11506 makes the producer prove enumeration-only datatype goals (every constructor
+without fields) through QFFP/dt2bv. Its datatype-to-bit-vector `rewrite` steps are not
+supported by the sorted checker, so the old exhaustiveness fixture (`T ((C) (D))`) is only
+partly checked (`PARTIAL 7`) and the three-constructor one is rejected; no checker rule,
+producer tactic, budget or model changed. The failing expectation was a full certificate
+for an input the checker does not claim to certify, not a datatype-checking defect.
+
+- The certified exhaustiveness, three-constructor exhaustiveness and symmetric-equality
+  fixtures now give each constructor an `Int` field (`T ((C (field Int)) (D (other Int)))`).
+  The producer then stays on the datatype theory (the exhaustiveness refutations are one
+  `th-lemma datatype` over the negated recognizers) and both backends `ACCEPT` them with no
+  pending obligation, in batch and
+  interactive mode. The native group builds every constructor witness of its direct
+  controls from well-sorted arguments and checks that they are well sorted, so the
+  negative controls (a constructor against a different negative recognizer, equalities
+  without the matching recognizer) cannot pass by ill-sortedness; a positive control with
+  the same witness shape (a constructor against its own negative recognizer) must still
+  conflict.
+- The original enumeration inputs stay as separate `dt2bv-coverage` fixtures. The native
+  group runs every direct control and input-binding negative on them and requires the
+  fixture to be an enumeration, but does not pin their verdict (a later checker that
+  certifies them is not a regression); the CLI test accepts exactly `ACCEPT` or
+  `PARTIAL n` (never `SAT`, `REJECT` or a crash) with `semantics=sorted-datatype` in
+  both modes, without pinning `n`. `PARTIAL` there is not a certified verdict.

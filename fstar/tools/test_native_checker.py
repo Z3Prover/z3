@@ -32,6 +32,34 @@ NEGATIVE_NNF_CASES = (
      "(assert (p 0))(assert (q 0))"),
 )
 
+# Negation-normal-form shapes the producer emits under nnf-neg/nnf-pos certificates beyond the
+# cases above: quantified ite/iff/xor branches, xor under a universal, an implication inside a
+# universal and nested heterogeneous duality with a shadowed binder (the Sorted route replays
+# them, Z3NnfReplay). No input fixes a Boolean by a unit assertion, so preprocessing cannot
+# simplify the connective away before NNF: each proof carries an NNF-rooted certificate.
+SORTED_NNF_CASES = (
+    ("ite", "(declare-fun p (Int) Bool)(declare-const c Bool)"
+     "(assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))"
+     "(assert (forall ((x Int)) (p x)))"),
+    ("iff", "(declare-fun p (Int) Bool)(declare-const a Bool)"
+     "(assert (not (= a (forall ((x Int)) (p x)))))(assert (forall ((x Int)) (p x)))"
+     "(assert (or a (p 1)))(assert (or a (not (p 2))))"),
+    ("xor", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)(declare-const a Bool)"
+     "(assert (xor a (forall ((x Int) (r Real)) (q x r))))(assert (forall ((x Int) (r Real)) (q x r)))"
+     "(assert (forall ((x Int)) (p x)))(assert (or a (not (p 2))))"),
+    ("xor-under-binder", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((z Int)) (xor (p z) (exists ((x Int) (r Real)) (q x r)))))"
+     "(assert (forall ((x Int) (r Real)) (not (q x r))))(assert (not (p 3)))"),
+    ("implication", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((z Int)) (not (=> (p z) (exists ((y Int)) (q y 1.0))))))"
+     "(assert (p 0))(assert (q 3 1.0))"),
+    ("nested-duality", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((w Int)) (not (exists ((x Int) (r Real))"
+     " (and (q x r) (exists ((x Int)) (and (p x) (p w))))))))(assert (q 1 2.0))(assert (p 3))"),
+    ("datatype-binder", "(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)"
+     "(assert (not (exists ((x T)) (p x))))(assert (p D))"),
+)
+
 # The nnf tactic Skolemizes a block even when none of its variables occurs in the body. Only
 # `under-binder` has an ambient bound variable (a de Bruijn index); the others use free constants.
 UNUSED_SKOLEM_CASES = (
@@ -563,8 +591,10 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertIn("semantics=sorted-core", interactive.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
+        # Constructors with fields keep the producer on the datatype theory (the exhaustiveness
+        # refutation is one `th-lemma datatype`), so these are certified without pending steps.
         for source in (
-                "(declare-datatype T ((C) (D)))(declare-const x T)"
+                "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)"
                 "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))",
                 "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)"
                 "(assert ((_ is C) x))(assert (not (= x (C (field x)))))"):
@@ -579,6 +609,27 @@ class DirectCheckerTests(unittest.TestCase):
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-datatype", interactive.stdout)
+
+    def test_enumeration_datatype_dt2bv_coverage_in_both_modes(self):
+        # Since master #11506 the producer proves enumeration-only goals through QF_FD/dt2bv. The
+        # sorted checker supports none of the datatype-to-bit-vector rewrites of that route, so
+        # this input is only partly checked. It stays as coverage: ACCEPT (should the checker
+        # later certify it) or PARTIAL in the sorted datatype semantics, never SAT, REJECT or a
+        # crash. The pending count is not pinned, and PARTIAL is not a certified verdict.
+        source = ("(declare-datatype T ((C) (D)))(declare-const x T)"
+                  "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))")
+        verdict = r"(ACCEPT|PARTIAL [1-9][0-9]*)"
+        result = self.run_checker(source, "--diagnostics", "--stats")
+        self.assertRegex(result.stdout.strip(), "^" + verdict + "$", result.stderr)
+        self.assertEqual(result.returncode, 0 if result.stdout.strip() == "ACCEPT" else 3,
+                         result.stderr)
+        self.assertIn("semantics=sorted-datatype", result.stderr)
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertRegex(interactive.stdout, r"(?m)^unsat\n; proof-check " + verdict + "$")
+        self.assertEqual(interactive.returncode,
+                         0 if "; proof-check ACCEPT" in interactive.stdout else 3,
+                         interactive.stdout + interactive.stderr)
+        self.assertIn("semantics=sorted-datatype", interactive.stdout)
 
     def test_contextual_datatypes_do_not_fall_back_to_legacy_arithmetic(self):
         result = self.run_checker(
@@ -741,6 +792,22 @@ class DirectCheckerTests(unittest.TestCase):
                 interactive = self.run_checker(source + "(check-sat)", "--interactive")
                 self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+
+    def test_sorted_route_replays_nnf_certificates(self):
+        """The Sorted route accepts these proofs, so no nnf-neg/nnf-pos certificate stays pending,
+        in both modes (a checker that leaves the certificates pending reports PARTIAL)."""
+        for name, source in NEGATIVE_NNF_CASES + SORTED_NNF_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--sorted-core", "--diagnostics"] + (["--interactive"] if interactive else [])
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                    self.assertNotIn("obligation	nnf-neg	", result.stderr)
+                    self.assertNotIn("obligation	nnf-pos	", result.stderr)
 
     def test_nested_quantifier_pulling_is_certified(self):
         for name, source in PULL_QUANT_CASES:
