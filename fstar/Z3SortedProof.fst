@@ -1460,12 +1460,19 @@ let rec certify_epsilon (s:S.checked_schema) (defs:list SK.definition)
     if not (E.eligible s d) then None
     else match certify_epsilon s rest with None -> None | Some more -> Some (d :: more)
 
+(* The collections list definitions in document order, oldest first, while an
+   ordered context lists the newest first (each definition's witnesses fresh in
+   every later body). Ordering the reversed list makes the common case a single
+   `SK.ordered_context` pass instead of `order_context`'s repeated selection,
+   which is cubic in the number of definitions (243 merged definitions: 17 s
+   instead of 0.2 s). The selection still runs when the reversed list is not
+   ordered, and every result passes the same gates below. *)
 let certified_context (s:S.checked_schema) (doc:P.document) (collected:option (list SK.definition))
   : ds:list (E.definition s){SK.ordered_context (E.erase s ds) /\ SK.fresh_inputs (E.erase s ds) doc.assertions} =
   match collected with
   | None -> []
   | Some defs ->
-    (match SK.order_context (L.length defs) defs with
+    (match SK.order_context (L.length defs) (L.rev defs) with
      | None -> []
      | Some ordered ->
        (match certify_epsilon s ordered with

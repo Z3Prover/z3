@@ -4852,9 +4852,53 @@ the unchanged gates; if the merged context fails a gate, the previous
 top-level context is used. Quant-intro-rooted certificates, dependent Skolem
 functions and naming/rewrite steps inside certificates stay pending.
 
-Evidence so far is F* only (CI pin v2026.10.25 and nightly-2026-10-30):
-`Z3NnfReplay`, `Z3SortedProof`, `Z3SortedRootDocument` and their tests verify,
-and `Z3NnfReplayTests` replays two previously pending corpus certificates
+F* evidence (CI pin v2026.10.25 and nightly-2026-10-30): `Z3NnfReplay`,
+`Z3SortedProof`, `Z3SortedRootDocument` and their tests verify, and
+`Z3NnfReplayTests` replays two previously pending corpus certificates
 (FStar.Nonempty query 2 node 11 and FStar.Class.TotalOrder.Raw query 1 node 43)
-in documents certified by the root gates. Native before/after corpus numbers on
-a current-master producer are not yet recorded here.
+in documents certified by the root gates.
+
+### Native validation and the fstar-build replay (b3c1e0bac producer)
+
+Both builds use one Z3 producer built from b3c1e0bac (z3 `3ac509ee…`, libz3.a
+`f66d5e53…`) and fresh F* caches on both pins: baseline = b3c1e0bac, candidate =
+5ff246341 (the replay plus its corrected native tests).
+
+- Both pipelines are RED at the same place, caused by master #11506 (enumeration
+  goals routed through QFFP/dt2bv), not by this change: OCaml `native-tests` stops
+  at `contextual-sorted-datatype-proof-kernel` (exhaustiveness fixture `PARTIAL 7`,
+  seven dt2bv `rewrite` obligations), and both CLI suites fail only
+  `test_contextual_datatype_proofs_in_both_modes`. The same candidate sources
+  linked against the dd4179a55 producer accept the fixture. With every group run,
+  the baseline has 74 PASS / 1 FAIL and the candidate 75 PASS / 1 FAIL (the new
+  `sorted-NNF-certificate-replay` passes); Cherry `checker-tests` pass on both;
+  QF_FF 25/25 on both backends of both builds.
+- The 15 NNF CLI cases (8 negative, 7 Sorted probes; batch and interactive; OCaml
+  and Cherry): baseline `PARTIAL 1` with one `nnf-neg` or `nnf-pos` obligation on
+  every run, candidate `ACCEPT` on every run, same proof metadata.
+- All 583 incremental F* query logs (`C:\bench\inputs\fstar-build`, exact bytes,
+  10 s solver, 60 s per file, 4 GiB, both backends). Pending obligations over all
+  answered queries, baseline -> candidate: OCaml `nnf-neg` 5,655 -> 213, `nnf-pos`
+  5,948 -> 5,820; Cherry `nnf-neg` 5,570 -> 211, `nnf-pos` 5,841 -> 5,670. On the
+  10,776 Cherry queries with the same proof on both sides (metadata and non-NNF
+  obligations equal), `nnf-neg` 5,411 -> 210 and `nnf-pos` 5,693 -> 5,564, 385
+  queries become `ACCEPT`, no obligation is added and no other family changes;
+  OCaml (5,897 same-proof queries): `nnf-neg` 2,735 -> 119, `nnf-pos` 1,604 -> 1,560.
+  Timeouts, crashes and unexecuted tails (OCaml candidate: 43 files at 60 s, 2,474
+  queries not answered) are not counted as checked and may hide further NNF
+  obligations.
+- The remaining NNF obligations, classified by re-running the replay steps on the
+  actual certificates (5,962 diagnosed nodes): 5,892 stop at an open `sk` step, a
+  Skolem FUNCTION of the enclosing binders (99.8 % of the `nnf-pos` and 71 % of the
+  `nnf-neg` residue); 47 at a closed `sk` step over the 4,096-node definition budget;
+  14 at the scope guard; 9 at `intro-def`/`apply-def` naming steps. No residue stops
+  at a local NNF rule, so the remaining gap is the dependent Skolem functions, which
+  need an argument-dependent choice extension of the epsilon model (not a new NNF
+  rule).
+- Throughput: the candidate first answered fewer queries in time (OCaml 11,733 ->
+  11,556; 6 OCaml and 2 Cherry files went from complete to the 60 s limit). On the
+  same documents the cost was `Z3Skolemization.order_context`, cubic in the number of
+  definitions, now fed every closed inner `sk` step in document order (243
+  definitions: 17 s). `Z3SortedProof.certified_context` now orders the reversed
+  collection, which is already ordered in that case (0.2 s); the context set and every
+  gate are unchanged. The corpus numbers above were measured before this fix.

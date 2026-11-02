@@ -230,7 +230,39 @@ parameters).
 | negative `forall` | Skolemized by the producer (`sk` + `trans`), covered by the two rows above |
 | dependent Skolem functions, open `sk`, `quant-intro` or `rewrite` roots, labels (`rewrite` from `mk_iff_oeq`), `apply-def`/`intro-def` naming, lambdas, the `hnf.cpp` `nnf-neg` variant, any other entry name | PENDING |
 | over budget, unclassifiable entry, failed guard or local check | PENDING |
-| premise id that is not an earlier entry (forward, self, negative) | rejected proof entry (`Malformed`) |
+| premise id that is not an earlier entry (forward, self, negative, or past the last entry) in an `nnf-neg`/`nnf-pos`-rooted certificate | rejected proof entry (`Malformed`) |
+
+**Premise-id boundary (diagnostic contract change).** Before this replay, the
+Sorted route never read a binder certificate, so an `nnf-neg`/`nnf-pos` node
+whose certificate had an invalid premise id was judged like any other
+premise-free node: accepted if `(= (not s) t)` (or `(= s t)`) was a bounded
+propositional/datatype consequence, otherwise one pending obligation. Now
+`Z3NnfReplay.replay` returns `Malformed` for such a certificate and
+`check_node_cached` returns `None`: the document is rejected at that entry
+(`proof-entry` stage), even if the old propositional test would have accepted
+the conclusion. The change is structural only. It applies only to certificates
+whose root entry is `nnf-neg` or `nnf-pos` (others, and an out-of-range root,
+stay `Unreplayed`), and only to ids `p` of entry `k` with `p < 0` or `p >= k`.
+Unsupported entries, unclassifiable formulas, guard or local-rule failures and
+budget exhaustion are `Unreplayed`, and `Unreplayed` falls through to every
+previous disjunct of `check_node_cached`. The native marshal numbers certificate
+entries in post order, so it never produces such ids. Tests:
+`Z3NnfReplayTests.b10_malformed`/`b10_shared`, the OCaml bridge group
+`sorted-NNF-certificate-replay` and `Z3CherryTests.nnf_premise_boundary`
+(forward, self, negative and missing ids malformed and their documents
+rejected; valid earlier and shared ids replayed; an unsupported rule with valid
+ids pending; a valid certificate document certified).
+
+**Measured coverage (fstar-build, b3c1e0bac producer).** Over the 583
+incremental F* query logs, the pending `nnf-neg` obligations drop from 5,655 to
+213 (OCaml; Cherry 5,570 to 211) and `nnf-pos` from 5,948 to 5,820 (Cherry 5,841
+to 5,670). Re-running the replay steps on the remaining certificates, almost all
+of them stop at an open `sk` step: a Skolem function of the enclosing binders,
+whose choice equation holds only in an argument-dependent choice extension that
+the epsilon route does not build yet. The rest stop at closed `sk` steps over the
+4,096-node definition budget, at the scope guard, or at `intro-def`/`apply-def`
+naming steps; none at a local NNF rule. See
+[the native validation](OCAML_CHECKER_REPORT.md#native-validation-and-the-fstar-build-replay-b3c1e0bac-producer).
 
 **Model and trust.** `Z3NnfReplay.lemma_replay` proves, for every entry and
 every scope the guard assigned to it, that its judgment holds in the Sorted
@@ -260,7 +292,7 @@ with a shadowing inner `Int` binder in both directions, a shared entry at two
 scopes), rejects the mutations (wrong sign, swapped/missing/reused children,
 wrong connective, canonical-name lookalikes, wrong binder sorts/order, a
 capturing index, wrong polarity under a binder, bad roots, forward/self/
-negative ids, the `hnf.cpp` variant, a `quant-intro` root, an `sk` step that is
+negative/missing ids, the `hnf.cpp` variant, a `quant-intro` root, an `sk` step that is
 not an assertion, an open dependent `sk`), and checks two actual previously
 pending corpus certificates (FStar.Nonempty query 2 node 11; the 14-entry
 FStar.Class.TotalOrder.Raw query 1 node 43 with an inner closed `sk`) in
@@ -274,7 +306,20 @@ binders, and mutations (an implication read as a disjunction, a quantifier
 kind change, a negative body fact, a dual connective, an extra child, swapped
 branches, out-of-scope and wrongly sorted indices, a self reference) that
 stay pending or malformed. The propositional mutants also come with proved
-standard-root-model counter-models of their claims.
+standard-root-model counter-models of their claims, and so does the
+wrong-polarity duality under the heterogeneous binders `[Int; Real]` (section
+H: pending in a would-be refutation of inputs true in a standard root model).
+
+Native tests: the OCaml bridge group `sorted-NNF-certificate-replay` requires
+an NNF-rooted certificate in each producer proof of the synthetic probes and
+none of them pending, and `test_native_checker.py`
+(`test_sorted_route_replays_nnf_certificates`) requires `ACCEPT` for them in
+batch and interactive mode on both backends. The first native run showed that
+the original `ite`/`iff`/`xor` probes fixed their Boolean by a unit assertion,
+so the preprocessor substituted it and their proofs had no NNF certificate
+(the old checker accepted them too); they were replaced by probes without a
+unit Boolean (and `xor` under a universal was added), on which the previous
+checker reports one pending `nnf-neg`/`nnf-pos` obligation each.
 
 ## Native LP inference certificates
 
