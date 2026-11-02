@@ -675,3 +675,79 @@ let i6_counterfeit_pending ()
 let i7_missing_bound_pending ()
   : Lemma (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1) =
   assert_norm (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* J. Term if-then-else branch clauses (same-model theorem, no new symbol)  *)
+(* ---------------------------------------------------------------------- *)
+
+let def_axiom_refute (clause u1 u2:expr) : P.document =
+  doc [u1; u2]
+      [entry U.DefAxiom clause []; entry U.Asserted u1 []; entry U.Asserted u2 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2]]
+      3
+
+(* Raise q5 nodes 68 and 116 over Universe, and an Int choice with reversed
+   equality operands and swapped literals. *)
+let j1_document : P.document =
+  def_axiom_refute PT.ite_then PT.raise_guard
+    (PT.not_eq PT.ub (PT.universe_choice PT.raise_guard PT.ub PT.ua))
+
+let j2_document : P.document =
+  def_axiom_refute PT.ite_else (R.mk_not_expr PT.raise_guard)
+    (PT.not_eq PT.ua (PT.universe_choice PT.raise_guard PT.ub PT.ua))
+
+let j3_document : P.document =
+  def_axiom_refute PT.ite_int_else_swapped (PT.not_eq (PT.int_choice PT.pb PT.ione PT.izero) PT.izero)
+    (R.mk_not_expr PT.pb)
+
+let j1_certified () : Lemma (RD.check_root_document PT.core_schema j1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema j1_document == RD.RootCertified)
+
+let j2_certified () : Lemma (RD.check_root_document PT.core_schema j2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema j2_document == RD.RootCertified)
+
+let j3_certified () : Lemma (RD.check_root_document PT.core_schema j3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema j3_document == RD.RootCertified)
+
+let choice_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema j1_document i /\ falsified u PT.core_schema j2_document i /\
+                   falsified u PT.core_schema j3_document i) =
+  j1_certified (); RD.lemma_root_certified u PT.core_schema j1_document i;
+  j2_certified (); RD.lemma_root_certified u PT.core_schema j2_document i;
+  j3_certified (); RD.lemma_root_certified u PT.core_schema j3_document i
+
+let choice_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema j1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema j2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema j3_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  choice_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants (counter-models: Z3SortedProofTests.choice_counter_models)
+   stay open obligations: the guard flipped, the other branch, another
+   condition. *)
+let j4_flipped_guard_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.flipped_guard_mutant (R.mk_not_expr PT.pb)
+                (PT.not_eq PT.ione (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.flipped_guard_mutant (R.mk_not_expr PT.pb)
+                    (PT.not_eq PT.ione (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1)
+
+let j5_wrong_branch_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.wrong_branch_mutant PT.pb
+                (PT.not_eq PT.izero (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.wrong_branch_mutant PT.pb
+                    (PT.not_eq PT.izero (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1)
+
+let j6_other_condition_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.other_condition_mutant PT.pb
+                (PT.not_eq PT.ione (PT.int_choice PT.qb PT.ione PT.izero))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.other_condition_mutant PT.pb
+                    (PT.not_eq PT.ione (PT.int_choice PT.qb PT.ione PT.izero))) == RD.RootPending 1)

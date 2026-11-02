@@ -355,6 +355,28 @@ SORTED_INT_ORDER_SATISFIABLE_CASES = (
      "(assert (<= (h a) (h b)))(assert (not (= (h a) (h b))))"),
 )
 
+# Term if-then-else definition axioms in the shapes of Pulse.Lib.Raise q5 (a Universe choice
+# under an Int bound), Pulse.C.Types.Fields q1 (a Term choice under a Boolean-box equation) and
+# an Int choice: `(or (not c) (= t (ite c t u)))` and `(or c (= u (ite c t u)))`, both
+# branches, replayed as a theorem of the same interpretation (no new symbol).
+SORTED_CHOICE_CASES = (
+    ("universe-bound-choice", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun P (Universe) Bool)(assert (P (ite (<= (ulevel a) (ulevel b)) b a)))"
+     "(assert (not (P a)))(assert (not (P b)))"),
+    ("term-boolean-box-choice", FSTAR_QUERY_PREAMBLE +
+     "(declare-sort Term)(declare-fun F (Term Term) Term)(declare-fun BoxBool (Bool) Term)"
+     "(declare-fun Pt (Term) Bool)(declare-fun t1 () Term)(declare-fun t2 () Term)(declare-fun s () Term)"
+     "(assert (Pt (ite (= (F s t1) (BoxBool true)) t1 t2)))(assert (not (Pt t1)))(assert (not (Pt t2)))"),
+    ("integer-choice", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun c () Bool)(declare-fun k () Int)(declare-fun g (Int) Int)(declare-fun Pi (Int) Bool)"
+     "(assert (Pi (ite c 1 (g k))))(assert (not (Pi 1)))(assert (not (Pi (g k))))"),
+)
+SORTED_CHOICE_SATISFIABLE_CASES = (
+    ("one-branch-excluded", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun P (Universe) Bool)(assert (P (ite (<= (ulevel a) (ulevel b)) b a)))"
+     "(assert (not (P a)))"),
+)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -715,6 +737,33 @@ class DirectCheckerTests(unittest.TestCase):
                                   result.stdout)
                     self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
         for name, source in SORTED_INT_ORDER_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_term_choice_definition_axioms_in_both_modes(self):
+        for name, source in SORTED_CHOICE_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_CHOICE_SATISFIABLE_CASES:
             with self.subTest(case=name):
                 result = self.run_checker(source, "--diagnostics")
                 self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)

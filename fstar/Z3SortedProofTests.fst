@@ -616,4 +616,100 @@ let int_order_counter_models ()
           T.truth core_schema booleans equality (valued x_one) (R.mk_eq_expr xi yi) == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
+(* ---------------------------------------------------------------------- *)
+(* Term if-then-else branch clauses                                         *)
+(* ---------------------------------------------------------------------- *)
+
+(* Raise q5's term choice over the uninterpreted sort Universe (its
+   condition an Int bound on ulevel(b) + (-1) * ulevel(a)), and Int choices
+   of the numerals 1 and 0 under an opaque Boolean p. *)
+let universe_decl (name:string) : func_decl =
+  { decl_name = name; domain = []; range = universe; interp = None; int_params = [] }
+let ua = App (universe_decl "a") []
+let ub = App (universe_decl "b") []
+let raise_guard = geq (minus lb la) izero
+let raise_le_guard = leq (minus lb la) izero
+let universe_choice (c:expr) (t u:expr) : expr = App (T.ite_decl universe) [c; t; u]
+let int_choice (c:expr) (t u:expr) : expr = App (T.ite_decl integer) [c; t; u]
+
+let p_decl : func_decl = { decl_name = "p"; domain = []; range = bool_sort; interp = None; int_params = [] }
+let pb = App p_decl []
+let qb = App { p_decl with decl_name = "q" } []
+
+let ite_then = disjunction [R.mk_not_expr raise_guard; R.mk_eq_expr ub (universe_choice raise_guard ub ua)]
+let ite_else = disjunction [raise_guard; R.mk_eq_expr ua (universe_choice raise_guard ub ua)]
+let ite_then_le = disjunction [R.mk_not_expr raise_le_guard; R.mk_eq_expr ua (universe_choice raise_le_guard ua ub)]
+let ite_int_then_reversed = disjunction [R.mk_not_expr pb; R.mk_eq_expr (int_choice pb ione izero) ione]
+let ite_int_else_swapped = disjunction [R.mk_eq_expr (int_choice pb ione izero) izero; pb]
+(* A negated condition: its then-branch literal is the condition's atom. *)
+let ite_negated_guard = disjunction [pb; R.mk_eq_expr ione (int_choice (R.mk_not_expr pb) ione izero)]
+
+let checked_choice_clauses ()
+  : Lemma (K.choice_clause ite_then /\ K.choice_clause ite_else /\ K.choice_clause ite_then_le /\
+           K.choice_clause ite_int_then_reversed /\ K.choice_clause ite_int_else_swapped /\
+           K.choice_clause ite_negated_guard /\ K.consequence core_schema [] ite_then /\
+           K.consequence core_schema [] ite_int_else_swapped) =
+  assert_norm (K.choice_clause ite_then /\ K.choice_clause ite_else /\ K.choice_clause ite_then_le /\
+               K.choice_clause ite_int_then_reversed /\ K.choice_clause ite_int_else_swapped /\
+               K.choice_clause ite_negated_guard);
+  assert_norm (K.consequence core_schema [] ite_then);
+  assert_norm (K.consequence core_schema [] ite_int_else_swapped)
+
+(* The generic theorem at one instance: both branch clauses hold in EVERY
+   Sorted model. *)
+let choice_clauses_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                        (other:V.interpretation base (S.signature core_schema))
+  : Lemma (T.truth core_schema bc eq other ite_then /\ T.truth core_schema bc eq other ite_else) =
+  checked_choice_clauses ();
+  assert_norm (K.consequence core_schema [] ite_else);
+  K.lemma_consequence core_schema bc eq other [] ite_then;
+  K.lemma_consequence core_schema bc eq other [] ite_else
+
+(* False variants: the guard flipped, the other branch, another condition,
+   and a counterfeit `if` or `=` (same name, no interpretation tag). *)
+let flipped_guard_mutant = disjunction [pb; R.mk_eq_expr ione (int_choice pb ione izero)]
+let wrong_branch_mutant = disjunction [R.mk_not_expr pb; R.mk_eq_expr izero (int_choice pb ione izero)]
+let other_condition_mutant = disjunction [R.mk_not_expr pb; R.mk_eq_expr ione (int_choice qb ione izero)]
+let counterfeit_ite_mutant =
+  disjunction [R.mk_not_expr pb; R.mk_eq_expr ione (App ({ T.ite_decl integer with interp = None }) [pb; ione; izero])]
+let counterfeit_eq_mutant =
+  disjunction [R.mk_not_expr pb; App ({ R.eq_decl integer with interp = None }) [ione; int_choice pb ione izero]]
+
+let refused_choice_mutants ()
+  : Lemma (not (K.choice_clause flipped_guard_mutant) /\ not (K.choice_clause wrong_branch_mutant) /\
+           not (K.choice_clause other_condition_mutant) /\ not (K.choice_clause counterfeit_ite_mutant) /\
+           not (K.choice_clause counterfeit_eq_mutant) /\
+           not (K.direct_consequence core_schema [] flipped_guard_mutant) /\
+           not (K.direct_consequence core_schema [] wrong_branch_mutant)) =
+  assert_norm (not (K.choice_clause flipped_guard_mutant) /\ not (K.choice_clause wrong_branch_mutant) /\
+               not (K.choice_clause other_condition_mutant) /\ not (K.choice_clause counterfeit_ite_mutant) /\
+               not (K.choice_clause counterfeit_eq_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] flipped_guard_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] wrong_branch_mutant))
+
+(* Opposite-value counter-models: p (and q) chosen, every other free symbol
+   at its default; each false variant is false there. *)
+let booled (holds:func_decl -> bool) : V.interpretation primitive (S.signature core_schema) = {
+  V.application = (fun f xs ->
+    if f.range = bool_sort && holds f then V.Scalar bool_sort true
+    else (valued nothing).V.application f xs);
+  V.quantification = (valued nothing).V.quantification;
+}
+
+let p_true (f:func_decl) : bool = f = p_decl
+let none_true (f:func_decl) : bool = false
+
+let choice_counter_models ()
+  : Lemma (T.truth core_schema booleans equality (booled none_true) flipped_guard_mutant == false /\
+           T.truth core_schema booleans equality (booled p_true) wrong_branch_mutant == false /\
+           T.truth core_schema booleans equality (booled p_true) other_condition_mutant == false /\
+           T.truth core_schema booleans equality (booled p_true) counterfeit_ite_mutant == false /\
+           T.truth core_schema booleans equality (booled p_true) counterfeit_eq_mutant == false) =
+  assert (T.truth core_schema booleans equality (booled none_true) flipped_guard_mutant == false /\
+          T.truth core_schema booleans equality (booled p_true) wrong_branch_mutant == false /\
+          T.truth core_schema booleans equality (booled p_true) other_condition_mutant == false /\
+          T.truth core_schema booleans equality (booled p_true) counterfeit_ite_mutant == false /\
+          T.truth core_schema booleans equality (booled p_true) counterfeit_eq_mutant == false) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
 #pop-options

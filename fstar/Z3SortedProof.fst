@@ -1012,6 +1012,99 @@ let lemma_order_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   lemma_has_bound s bc eq other x y true facts;
   lemma_has_bound s bc eq other x y false facts
 
+(* ---------------------------------------------------------------------- *)
+(* Term if-then-else branch clauses                                         *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's two clauses of a term choice (smt_internalizer,
+   internalize_ite_term): (not c) \/ t = (ite c t u) and c \/ u = (ite c t u).
+   A theorem of the same Sorted interpretation: the canonical choice
+   evaluates to the branch its condition selects and the canonical equality
+   reflects that value. No symbol is introduced and the interpretation is not
+   extended. Any branch sort, either equality orientation, either literal
+   order. *)
+
+(* lit holds exactly when c does not: lit is (not c), or c is (not lit). *)
+let complement (lit c:expr) : bool =
+  (match negated lit with Some a -> a = c | None -> false) ||
+  (match negated c with Some a -> a = lit | None -> false)
+
+(* lit \/ v = ch, ch the canonical choice (ite c t u) at the sort of its
+   branches and v the branch the condition selects whenever lit is false:
+   t when lit is the complement of c, u when lit is c itself. *)
+let branch_equation (lit v ch:expr) : bool =
+  match ch with
+  | App g [c; t; u] ->
+    T.classify g = T.Choice (get_sort t) &&
+    ((v = t && complement lit c) || (v = u && lit = c))
+  | _ -> false
+
+(* The canonical equality of a branch and its choice, in either order. *)
+let branch_literal (lit e:expr) : bool =
+  match e with
+  | App f [a; b] -> f = R.eq_decl (get_sort a) && (branch_equation lit a b || branch_equation lit b a)
+  | _ -> false
+
+let choice_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> branch_literal a b || branch_literal b a
+  | _ -> false
+
+let lemma_branch_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (lit v ch:expr)
+  : Lemma (requires D.scoped [] lit /\ D.scoped [] ch /\ branch_equation lit v ch /\
+                    not (T.truth s bc eq other lit))
+          (ensures D.scoped [] v /\ get_sort ch == get_sort v /\
+                   T.evaluate s bc eq other ch == T.evaluate s bc eq other v) =
+  match ch with
+  | App g [c; t; u] ->
+    assert (g == T.ite_decl (get_sort t));
+    V.lemma_sort_eq (get_sort c) bool_sort;
+    V.lemma_sort_eq (get_sort u) (get_sort t);
+    let rho = T.empty_environment (S.signature s) in
+    T.lemma_evaluate_core_at s bc eq other [] rho g [c; t; u];
+    assert_norm (T.evaluate_arguments_at s bc eq other [] rho [c; t; u] [bool_sort; get_sort t; get_sort t] ==
+                 [T.evaluate_at s bc eq other [] rho c; T.evaluate_at s bc eq other [] rho t;
+                  T.evaluate_at s bc eq other [] rho u]);
+    (match negated lit with
+     | Some a -> if a = c then lemma_negated s bc eq other lit a
+     | None -> ());
+    (match negated c with
+     | Some a -> if a = lit then lemma_negated s bc eq other c a
+     | None -> ())
+  | _ -> ()
+
+let lemma_branch_literal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (lit e:expr)
+  : Lemma (requires D.scoped [] lit /\ D.scoped [] e /\ branch_literal lit e /\
+                    not (T.truth s bc eq other lit))
+          (ensures T.truth s bc eq other e) =
+  match e with
+  | App f [a; b] ->
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b;
+    if branch_equation lit a b then lemma_branch_equation s bc eq other lit a b
+    else lemma_branch_equation s bc eq other lit b a
+  | _ -> ()
+
+let lemma_choice_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\ choice_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  match DT.literals conclusion with
+  | [a; b] ->
+    lemma_literals_scoped (DT.literals conclusion) a;
+    lemma_literals_scoped (DT.literals conclusion) b;
+    if T.truth s bc eq other a then lemma_clause_member s bc eq other conclusion a
+    else if T.truth s bc eq other b then lemma_clause_member s bc eq other conclusion b
+    else if branch_literal a b then lemma_branch_literal s bc eq other a b
+    else lemma_branch_literal s bc eq other b a
+  | _ -> ()
+
 let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   (D.scoped [] conclusion && get_sort conclusion = bool_sort && DT.simple_consequence facts conclusion) ||
   equality_consequence s facts conclusion ||
@@ -1019,7 +1112,7 @@ let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) 
   negative_exhaustion s facts || cyclic_conflict s facts || reconstruction_conflict s facts facts ||
   DT.consequence s facts conclusion ||
   (D.scoped [] conclusion && get_sort conclusion = bool_sort &&
-   (order_clause conclusion || order_equation facts conclusion))
+   (order_clause conclusion || order_equation facts conclusion || choice_clause conclusion))
 
 let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -1042,7 +1135,8 @@ let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   else if reconstruction_conflict s facts facts then lemma_reconstruction_conflict s bc eq other facts facts
   else if DT.consequence s facts conclusion then DT.lemma_consequence s bc eq other facts conclusion
   else if order_clause conclusion then lemma_order_clause s bc eq other conclusion
-  else lemma_order_equation s bc eq other facts conclusion
+  else if order_equation facts conclusion then lemma_order_equation s bc eq other facts conclusion
+  else lemma_choice_clause s bc eq other conclusion
 
 let rec propagate (s:S.checked_schema) (fuel:nat) (facts:list expr) (conclusion:expr)
   : Tot bool (decreases fuel) =
