@@ -29,11 +29,16 @@ import z3
 
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
-    _NO_PREPROCESSING, _TOKEN, bound_combination_refutes, constant_value, integer_divisor,
+    _NO_PREPROCESSING, _TOKEN, _real_counterpart, bound_combination_refutes, constant_value, integer_divisor,
     integer_tightened, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
+# The sort a log term's arguments take, for their numerals: an arithmetic
+# operator passes its own on, div, mod, rem, and to_real take Int arguments
+# (see _Terms.build).
+_SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
+_INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -290,10 +295,14 @@ class _Terms:
         self.constants = {}
         self.functions = {}  # uninterpreted functions and predicates of the input, by name
         self.sorts = set()   # names of the input's uninterpreted sorts
-        # The log prints numerals without a sort; an integer input (which the
-        # exporter never mixes with Real) values them in Int, so that the
-        # rebuilt atoms compare Int terms rather than coercing them to Real.
-        self.integer = False
+        # The log prints numerals without a sort; an integer input values them
+        # in Int, so that the rebuilt atoms compare Int terms rather than
+        # coercing them to Real. An input over both sorts (QF_LIRA, no
+        # conversions) reads them by their spelling: Z3 prints a Real numeral
+        # with a decimal point (2.0, (/ 3.0 2.0)) and an Int one without. A
+        # numeral read with the wrong sort is coerced by z3py into a to_real
+        # term or fails to build, which no input atom matches.
+        self.integer = self.real = False
         pending, seen = list(assertions), set()
         while pending:
             expr = pending.pop()
@@ -304,6 +313,8 @@ class _Terms:
                 self.sorts.add(expr.sort().name())
             if z3.is_int(expr):
                 self.integer = True
+            elif z3.is_real(expr):
+                self.real = True
             if expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
                 if z3.is_const(expr):
                     self.constants[str(expr.decl().name())] = expr
@@ -317,7 +328,16 @@ class _Terms:
         array = (z3.Ast * len(arguments))(*[argument.as_ast() for argument in arguments])
         return z3.ArithRef(z3.Z3_mk_sub(self.context.ref(), len(arguments), array), self.context)
 
-    def build(self, sexpr):
+    def build(self, sexpr, integer=None):
+        """Build a log term; integer, when known, is whether it is Int-valued (for its numerals).
+
+        Definitions of an arithmetic sort pass it down (define). Once an
+        assertion folds to false, Z3 logs the remaining assertions
+        unprocessed, with Int numerals and their to_real coercions even in a
+        QF_LRA input under logic ALL ((define-const $17 Int (- 2)),
+        (to_real 3)), where the input reads (- 2.0) and 3.0 (see
+        proof_certificate._parse_snapshot).
+        """
         if isinstance(sexpr, str):
             if sexpr in self.defined:
                 return self.defined[sexpr]
@@ -327,7 +347,9 @@ class _Terms:
                 return z3.BoolVal(False, self.context)
             if _NUMERAL.match(sexpr):
                 value = Fraction(sexpr)
-                if not self.integer:
+                if integer is None:
+                    integer = self.integer and not (self.real and "." in sexpr)
+                if not integer:
                     return z3.RealVal(str(value), self.context)
                 if value.denominator != 1:
                     raise ProofExportError("fractional numeral in an integer clause log: %s" % sexpr)
@@ -338,9 +360,17 @@ class _Terms:
             raise ProofExportError("the clause log uses an undeclared or fresh symbol: %s" % sexpr)
         if not sexpr:
             raise ProofExportError("empty application in the clause log")
-        head, arguments = sexpr[0], [self.build(argument) for argument in sexpr[1:]]
+        head = sexpr[0]
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
+        sorts = [None] * (len(sexpr) - 1)
+        if head in _SAME_SORT_HEADS:
+            sorts = [integer] * len(sorts)
+        elif head in _INT_ARGUMENT_HEADS:
+            sorts = [True] * len(sorts)
+        elif head == "ite":
+            sorts = [None] + [integer] * (len(sorts) - 1)
+        arguments = [self.build(argument, sort) for argument, sort in zip(sexpr[1:], sorts)]
         count = len(arguments)
         function = self.functions.get(_symbol(head))
         if function is not None and function.arity() != count:
@@ -351,6 +381,13 @@ class _Terms:
             raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
 
     def _apply(self, head, count, arguments):
+        if head == "to_real" and count == 1 and z3.is_int(arguments[0]):
+            # The injection of a term built from numerals is that term over
+            # Real numerals, as the input snapshot reads it; to_real of any
+            # other Int term relates the sorts and stays rejected.
+            counterpart = _real_counterpart(arguments[0], self.context)
+            if counterpart is not None:
+                return counterpart
         if head == "not" and count == 1:
             return z3.Not(arguments[0])
         if head == "or":
@@ -404,7 +441,7 @@ class _Terms:
         if sort == "Proof":
             self.hints[name] = sexpr
             return
-        expr = self.build(sexpr)
+        expr = self.build(sexpr, {"Int": True, "Real": False}.get(sort))
         if str(expr.sort()) != _symbol(sort):  # The log quotes sort names the way it quotes symbols.
             raise ProofExportError("definition %s has sort %s, declared %s" % (name, expr.sort(), sort))
         self.defined[name] = expr

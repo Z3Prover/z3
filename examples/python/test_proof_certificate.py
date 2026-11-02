@@ -1465,6 +1465,37 @@ class TestFragmentClassification(unittest.TestCase):
                 self.assertEqual(self.classify(source), "qf_uflia")
         self.assertEqual(self.classify(_UFLIA), "qf_uflia")
 
+    def test_int_and_real_atoms_side_by_side_are_qf_lira(self):
+        # Int and Real variables without a conversion between them: every
+        # atom is over one sort, each sort has its own valuation in Lean.
+        for source in [
+            "(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))",
+            "(declare-const x Int)(declare-const y Real)(declare-const p Bool)"
+            "(assert (or p (= (mod (+ x 1) 3) (ite p 1 2))))(assert (=> p (< (abs y) (/ y 3.0))))",
+            # An integer numeral where a Real is expected is still a Real numeral.
+            "(declare-const x Int)(declare-const y Real)(assert (or (> x 1) (> y (+ 1 2))))",
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), "qf_lira")
+        mixed = "(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))"
+        for parse in (proof_certificate.parse_assertions, proof_certificate.parse_legacy_assertions):
+            with self.subTest(parse=parse.__name__):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                            r"\(qf_lira\).*accept the fragment explicitly"):
+                    parse(mixed, z3.Context())
+        for source, message in [
+            # A conversion relates the sorts: still rejected.
+            ("(declare-const x Int)(declare-const y Real)(assert (> (+ x 0.5) y))", "operator: to_real"),
+            ("(declare-const x Int)(declare-const y Real)(assert (= x (to_int y)))", "operator: to_int"),
+            ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (is_int y)))", "operator: is_int"),
+            # Both sorts next to uninterpreted symbols have no encoding.
+            ("(declare-fun f (Int) Int)(declare-const x Int)(declare-const y Real)(assert (and (> (f x) 1) (> y 1.0)))",
+             "mixing integer and real arithmetic with uninterpreted functions"),
+        ]:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.classify(source)
+
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
         for source, message in [
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
@@ -1478,7 +1509,6 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-fun f (Int) Int)(declare-const x Real)(declare-const y Int)(assert (and (> (f y) 1) (> x 1.0)))",
              "mixing integer and real"),
             ("(declare-const x Int)(declare-const y Real)(assert (> (to_real x) y))", "unsupported arithmetic operator"),
-            ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))", "mixing integer and real"),
             # Integer div and mod by zero are uninterpreted in SMT-LIB and
             # total in Lean, by a term nonlinear; so is Z3's rem.
             ("(declare-const x Int)(assert (> (div x 0) 1))", "integer div is supported only by a nonzero constant"),
@@ -2721,6 +2751,47 @@ class TestClauseLogReplay(unittest.TestCase):
         log = _LRA_LOG + "(infer rup)\n"
         certificate = self.replay(_LRA, log)
         self.assertEqual(certificate["rule_counts"]["lemma"], 2)
+
+    def test_raw_assertions_after_an_assumed_empty_clause_read_as_the_input(self):
+        # Once an assertion folds to false, Z3 logs the remaining ones
+        # unprocessed: Int numerals and to_real coercions in a QF_LRA input
+        # (logic ALL), which the reader once failed on ("definition $17 has
+        # sort Real, declared Int"). Numerals take the sort of their
+        # definition, and to_real of a numeral term is that term over Real,
+        # as the input snapshot reads (* (- 2) y) and (* 3 x).
+        source = ("(declare-const x Real)(declare-const y Real)(assert (> x 1.0))(assert (= (* 0 y) 1.0))"
+                  "(assert (< (+ (* 3 x) (* (- 2) y)) 1.0))")
+        log = """\
+(declare-fun x () Real)
+(define-const $22 Bool (<= x 1.0))
+(assume (not $22))
+(assume (not false))
+(assume)
+(declare-fun y () Real)
+(define-const $17 Int (- 2))
+(define-const $18 Real (to_real $17))
+(define-const $19 Real (* $18 y))
+(define-const $14 Real (to_real 3))
+(define-const $15 Real (* $14 x))
+(define-const $20 Real (+ $15 $19))
+(define-const $21 Bool (< $20 1.0))
+(assume $21)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertNotIn("to_real", json.dumps(certificate["declarations"]))
+        self.assertEqual({d["range"] for d in certificate["declarations"]} & {"Int"}, set())
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)  # the raw clause is bound to the input
+        # to_real of an Int term other than a numeral term still relates the sorts.
+        mixed = source.replace("(declare-const y Real)", "(declare-const y Real)(declare-const n Int)") + \
+            "(assert (> n 0))"
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported operator in the clause log: to_real"):
+            self.replay(mixed, log.replace("(define-const $18 Real (to_real $17))",
+                                           "(declare-fun n () Int)\n(define-const $18 Real (to_real n))"))
+        if _z3_available():
+            self.assertEqual(proof_certificate.export_clause_log_certificate(source)["fragment"], "qf_lra")
 
     def test_implied_equality_hints_end_in_a_disequality(self):
         source = ("(declare-const x Real)(declare-const y Real)"

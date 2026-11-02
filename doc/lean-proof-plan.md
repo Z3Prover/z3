@@ -2076,6 +2076,38 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Int and Real side by side: qf_lira (2026-11-02)
+
+Input with both Int and Real variables was rejected ("mixing integer and
+real arithmetic is not supported"), even when no term converts between the
+sorts. Such input is now the `qf_lira` fragment (opt-in with the integer
+ones, both cores): conversions stay rejected (`to_real` of anything but
+numerals, `to_int`, `is_int`), and so do both sorts next to uninterpreted
+functions. Every atom is over one sort and Z3 relates no atoms of the two
+sorts in one arithmetic lemma. The statement takes two valuations,
+`(_vars : Nat -> Rat) (_ivars : Nat -> Int)`; numerals, ite, abs, the
+scaling and ite-branch helpers, and the normalized rewrites read the type
+off their node, the atom keys round over Int atoms only, and each th-lemma
+takes the Int or Real path by the sort of its atoms (`_lemma_numeric`, which
+rejects a lemma over both). The clause-log reader values a numeral by its
+spelling in such input (`2.0` Real, `2` Int). Found on the way, for every
+fragment: once an assertion folds to false, Z3 logs the empty assumption and
+then the remaining assertions unprocessed, Int numerals and `to_real`
+coercions included, which made the reader fail on a QF_LRA input under
+logic ALL ("definition $17 has sort Real, declared Int"); the reader now
+gives a numeral the sort of its definition (an Int one under `to_real`,
+`div`, `mod`, `rem`) and reads `to_real` of a numeral term as that term over
+Real, as the input snapshot does (`_real_counterpart`). (Stopping the replay
+at the empty assumption instead was tried and dropped: six reconstructor
+tests rely on what Z3 logs after it, gate clauses and solver axioms.)
+Tests: `test_proof_to_lean_lira.py` (four documented inputs with farkas, cut,
+and arith hints and four `random_mixed_instance` seeds on both cores, the
+encoding, label and sort tampering, a lemma over both sorts, the numeral
+spelling), classification cases and the raw-tail replay in
+`test_proof_certificate.py`. A sweep of the 15 unsatisfiable seeds in 1-60
+(30 runs on both cores) verified in Lean. Not done: conversions
+(`to_real` of Int terms, `to_int`, `is_int`), which need cast lemmas in Lean.
+
 ### Native checks of the rem axioms (2026-10-31)
 
 Z3's own replay of a clause log checked only the `rem` axiom whose guard

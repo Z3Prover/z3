@@ -133,11 +133,15 @@ integer arithmetic, where functions and predicates may take and return Int
 (an application with an Int result is an opaque atom of the linear forms),
 a function whose signature mentions Int makes the input qf_uflia even
 without any Int atom, and a Bool-only predicate over Int atoms belongs here
-too; it shares qf_lia's opt-in on both cores. Integer
+too; it shares qf_lia's opt-in on both cores. The qf_lira fragment has
+Int and Real atoms side by side without any conversion between them, each
+atom over one sort (the qf_lia and qf_lra shapes, Boolean structure tying
+them together); it shares the opt-in too, and both cores certify it. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
-nonlinear), to_real, to_int, and Int mixed with Real (QF_LIRA, also
-through a function signature such as (Int) Real) are rejected explicitly.
+nonlinear), to_real of anything but numerals, to_int, is_int, and Int
+mixed with Real next to uninterpreted functions (also through a function
+signature such as (Int) Real) are rejected explicitly.
 The exception is an integer numeral where a Real is expected: without a
 set-logic, or under ALL, Z3 reads (* 2 x) over a Real x as
 (* (to_real 2) x), and such a to_real of a term built from numerals, sums,
@@ -161,7 +165,7 @@ Bundle format, version 2
     format          "z3-native-proof-dag"
     format_version  2
     z3_version      producer's full Z3 version
-    fragment        "propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", or "qf_uflia"
+    fragment        "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
@@ -206,7 +210,8 @@ functions and predicates and function declarations with range Real and a
 nonempty domain; qf_uflia does the same with Int. A certificate declaring
 an uninterpreted sort or function must be labelled qf_uf, qf_uflra, or
 qf_uflia according to whether it contains arithmetic and over which sort,
-and the reconstructor rejects any other combination.
+and the reconstructor rejects any other combination; only a qf_lira
+certificate declares both Int and Real symbols, and it must.
 Other native shapes are rejected, never serialized incompletely. The root is
 required to conclude false, but checking that shape does not establish proof
 correctness.
@@ -679,6 +684,23 @@ equalities, under the condition and under its negation, stated the same way
 ite_eq_left and ite_eq_right; Z3's rewriter can push a comparison through an
 ite, in which case these are the only facts tying the ite to its branches.
 
+A qf_lira certificate takes both valuations, (_vars : Nat -> Rat)
+(_ivars : Nat -> Int): a Real variable is _vars i and an Int one _ivars i
+(one numbering for both), numerals, ite, and abs take the type of their
+node, and every atom is over one sort, a Real one as for qf_lra and an Int
+one as for qf_lia below. Z3 relates no atoms of the two sorts in one
+arithmetic lemma (no conversion is accepted), so the reconstructor reads
+each th-lemma's sort off its atoms: an Int lemma takes the integer path
+(tightening, the generalized attempt, the combination and split proofs), a
+Real one the Real path, and a lemma over both sorts is rejected. Rewrites,
+which may span both sorts, are proved by first | omega | grind (splits := 64).
+The Rat encoding of the Real variables stays sound next to Int ones: fix the
+Int values and the truth value of every atom and ite condition, and the Real
+constraints left are a linear system with rational coefficients, which has a
+rational solution if it has a real one. Int and Real ites with the same value
+table are kept apart in normalized rewrites, so each atom's form ranges over
+terms of its own sort.
+
 For qf_lia certificates the second argument is _vars : Nat -> Int, numerals
 are Int literals, an Int ite is Lean's ite over Int with the classical
 instance, and no encoding argument is needed: the variables range over
@@ -1017,7 +1039,8 @@ Include the real Lean integration tests when the pinned toolchain is installed:
 test_proof_to_lean_arith.py covers the qf_lra slice, test_proof_to_lean_lia.py
 the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice,
 test_proof_to_lean_uflra.py the qf_uflra slice, and
-test_proof_to_lean_uflia.py the qf_uflia slice end to end; all need the z3
+test_proof_to_lean_uflia.py the qf_uflia slice, and
+test_proof_to_lean_lira.py the qf_lira slice end to end; all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
 Python's recursion limit; its clause-log tests also need the z3 executable.

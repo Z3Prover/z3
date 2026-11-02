@@ -4,11 +4,12 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_UF, QF_UFLRA, or QF_UFLIA SMT-LIB problem.
+"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_LIRA, QF_UF, QF_UFLRA, or QF_UFLIA SMT-LIB problem.
 
 Two proof sources: the legacy proof object of the smt core and the sat.smt
 clause log, both for every fragment; the integer ones (QF_LIA, QF_UFLIA,
-including div and mod by a numeral and abs) are opt-in on both, since the
+including div and mod by a numeral and abs, and QF_LIRA, Int and Real
+variables without conversions) are opt-in on both, since the
 integer solver's cuts are certified by Lean alone. An incremental script
 (push, pop, reset, several check-sat queries, assumptions) is certified one
 query at a time: the certificate is about the assertions in scope at the
@@ -118,7 +119,7 @@ _ARITH_NAMES = {
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # The fragments over Int, certified through the clause log and Lean alone
 # (see parse_assertions).
-_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia")
+_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira")
 # arith is the hint of the arithmetic solver's own axioms (the div and mod
 # definitions): like euf it lists jointly contradictory literals, and like cut
 # it is shape-checked here and proved by Lean alone.
@@ -598,7 +599,7 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
+    """Return "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
     while pending:
@@ -641,10 +642,16 @@ def classify_fragment(assertions):
         # Int and the integer solver's rounding steps are proved there, on its
         # own (QF_LIA) or next to uninterpreted sorts and functions (QF_UFLIA,
         # the Int valuation next to the carrier, into which Int arguments are
-        # injected like Bool ones). Mixed Int/Real input (QF_LIRA) has no
-        # encoding yet.
+        # injected like Bool ones). Int and Real side by side (QF_LIRA) are
+        # two valuations, one per sort: no conversion between them is
+        # accepted (to_real of a non-numeral term, to_int, and is_int are
+        # rejected above), so every atom is over one sort. Uninterpreted
+        # functions next to both sorts have no encoding yet.
         if real:
-            raise ProofExportError("mixing integer and real arithmetic is not supported")
+            if sorts or functions:
+                raise ProofExportError("mixing integer and real arithmetic with uninterpreted functions "
+                                       "is not supported")
+            return "qf_lira"
         return "qf_uflia" if sorts or functions else "qf_lia"
     if sorts or functions:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
@@ -694,7 +701,7 @@ def parse_assertions(source, context, integer=False, query=None):
 
     The snapshot is that of the script's only check-sat query, or of the
     query selected by its zero-based index (see query_snapshot). The integer
-    fragments (qf_lia, qf_uflia) are opt-in: the integer solver's
+    fragments (qf_lia, qf_uflia, qf_lira) are opt-in: the integer solver's
     cut steps (and Farkas steps resting on cuts) carry no coefficient
     certificate that the replay can re-derive, so they are certified by Lean
     alone and a consumer accepts them explicitly. The exporter and the
