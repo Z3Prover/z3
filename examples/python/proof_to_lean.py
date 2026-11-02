@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 import functools
 import hashlib
+import itertools
 import json
 import math
 import os
@@ -94,13 +95,14 @@ _ARITH_SORTS = ("Real", "Int")
 _NUMBER_TYPES = {"Real": "Rat", "Int": "Int"}
 # The arithmetic of a qf_lira certificate: Int and Real variables side by
 # side, each sort with its own valuation (_ivars into Int, _vars into Rat),
-# and to_real, Lean's Int.cast into Rat, the one conversion between them.
+# and the conversions between them: to_real, Lean's Int.cast into Rat,
+# to_int, Rat.floor, and is_int, a Real term equal to the cast of its floor.
 # Whatever depends on the sort (numerals, rounding, the theory tactic) is
 # read off the node; a theory lemma over atoms of both sorts is rejected
-# unless it reaches to_real (_lemma_numeric).
+# unless it reaches a conversion (_lemma_numeric).
 _MIXED = "Int and Real"
-# The arithmetic class of a qf_lira theory step reaching to_real (_lemma_numeric).
-_CAST = "Int and Real through to_real"
+# The arithmetic class of a qf_lira theory step reaching a conversion (_lemma_numeric).
+_CAST = "Int and Real through a conversion"
 # The fragments mixing arithmetic with uninterpreted symbols, by arithmetic sort.
 _MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia"}
 # Refutations with more proof steps than this are split into separately
@@ -491,6 +493,11 @@ def _declaration(raw, sorts):
             if name != "to_real" or domain != ("Int",) or numeric != "Real":
                 raise ReconstructionError("invalid to_real declaration")
             return _Declaration(kind, name, domain, raw["range"], parameters)
+        elif kind == z3.Z3_OP_TO_INT:
+            # The floor of a Real term, Rat.floor, qf_lira only like to_real.
+            if name != "to_int" or domain != ("Real",) or numeric != "Int":
+                raise ReconstructionError("invalid to_int declaration")
+            return _Declaration(kind, name, domain, raw["range"], parameters)
         elif kind in _INT_NAMES:
             if _INT_NAMES[kind] != name or (numeric != "Int" and kind not in _NUMERIC_KINDS):
                 raise ReconstructionError("unsupported arithmetic declaration: %s" % name)
@@ -502,7 +509,11 @@ def _declaration(raw, sorts):
         if len(domain) != expected:
             raise ReconstructionError("invalid arithmetic declaration arity: %s" % name)
     elif raw["range"] == "Bool":
-        if kind in _ARITH_PREDICATE_NAMES:
+        if kind == z3.Z3_OP_IS_INT:
+            # (is_int t) is (= (to_real (to_int t)) t), qf_lira only.
+            if name != "is_int" or domain != ("Real",):
+                raise ReconstructionError("invalid is_int declaration")
+        elif kind in _ARITH_PREDICATE_NAMES:
             if _ARITH_PREDICATE_NAMES[kind] != name or domain not in (("Real", "Real"), ("Int", "Int")):
                 raise ReconstructionError("invalid arithmetic predicate declaration: %s" % name)
         else:
@@ -854,6 +865,8 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         return "(-%s)" % args[0]
     if kind == z3.Z3_OP_TO_REAL:
         return "((%s : Int) : Rat)" % args[0]
+    if kind == z3.Z3_OP_TO_INT:
+        return "(Rat.floor %s)" % args[0]
     if kind == z3.Z3_OP_ABS:
         # SMT-LIB's definition; the instance's proposition is inferred from the condition.
         return "(@ite %s (%s >= ((0 : %s))) (Classical.propDecidable _) %s (-%s))" % (
@@ -885,6 +898,9 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
             return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
         if kind == z3.Z3_OP_EQ:
             return "(%s = %s)" % tuple(args)
+        if kind == z3.Z3_OP_IS_INT:
+            # SMT-LIB's definition, (= (to_real (to_int t)) t).
+            return "(((Rat.floor %s : Int) : Rat) = %s)" % (args[0], args[0])
         if kind == z3.Z3_OP_DISTINCT:
             pairs = ["(Not (%s = %s))" % (left, right)
                      for index, left in enumerate(args) for right in args[index + 1:]]
@@ -1227,6 +1243,8 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
             return "(ite_congr_classical %s %s %s)" % tuple(arguments), True, []
         if kind == z3.Z3_OP_TO_REAL:
             return "(congrArg (fun (_t : Int) => ((_t : Int) : Rat)) %s)" % arguments[0], False, []
+        if kind == z3.Z3_OP_TO_INT:
+            return "(congrArg (fun (_t : Rat) => Rat.floor _t) %s)" % arguments[0], False, []
         if graph.is_arith(left) and (kind in _REAL_NAMES or kind in _INT_NAMES):
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
@@ -1238,6 +1256,9 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
             pairs = ["(not_congr %s)" % _term_equality_congruence(first, second)
                      for index, first in enumerate(arguments) for second in arguments[index + 1:]]
             return _fold("and_congr", pairs, "(Iff.refl True)"), False, []
+        if kind == z3.Z3_OP_IS_INT:
+            return ("(Iff.of_eq (congrArg (fun (_t : Rat) => ((Rat.floor _t : Int) : Rat) = _t) %s))"
+                    % arguments[0]), False, []
         if graph.is_arith(left_args[0]) and kind in _ARITH_PREDICATE_NAMES:
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
@@ -1575,43 +1596,123 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices):
     (to_real of Int terms and numerals) is stated equivalent to an Int atom
     (_integrality_fact), so a cut that rounds it, such as
     (= (to_real n) (/ 9 4)) refuted by integrality, is an integer lemma.
-    Steps reaching no to_real get nothing.
+    to_int is Rat.floor, and (is_int t) states t equal to the cast of its
+    floor: for each floor of a Real term a the step reaches, the core
+    lemmas state ((Rat.floor a : Int) : Rat) <= a < (Rat.floor a : Rat) + 1,
+    the two axioms Z3's arithmetic solver adds for to_int, with which the
+    floor is one more Int atom cast into Rat; floors of terms differing by
+    an integer are related too (_floor_shift_facts). Steps reaching no
+    conversion get nothing.
     """
-    if not any(graph.kind(node) == z3.Z3_OP_TO_REAL for node in reachable):
+    if not any(graph.kind(node) in _CONVERSION_KINDS for node in reachable):
         return []
-    facts = []
+    facts, floors = [], []
     for formula in sorted(reachable):
         kind, arguments = graph.kind(formula), graph.arguments(formula)
+        if kind in (z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT):
+            if arguments[0] not in floors:
+                floors.append(arguments[0])
+                argument = "(%s)" % _inline(graph, arguments[0], atom_indices, variable_indices)
+                facts.append("have _f%d := Rat.floor_le %s" % (arguments[0], argument))
+                facts.append("have _u%d := Rat.lt_floor_add_one %s" % (arguments[0], argument))
+            continue
         if kind not in _CAST_ATOMS or graph.is_term(formula) or not graph.is_arith(arguments[0]):
             continue
         if not graph.is_int(arguments[0]):
-            fact = _integrality_fact(graph, formula, atom_indices, variable_indices)
-            if fact is not None:
-                facts.append(fact)
+            facts.extend(_integrality_fact(graph, formula, atom_indices, variable_indices) or [])
             continue
         lemma, swapped = _CAST_ATOMS[kind]
         sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in arguments]
         if swapped:
             sides.reverse()
         facts.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
+    facts.extend(_floor_shift_facts(graph, floors, atom_indices, variable_indices))
     facts.append("push_cast at *")
     return facts
 
 
+# Floors per theory step beyond which _floor_shift_facts relates none (it relates every pair).
+_FLOOR_SHIFT_LIMIT = 12
+
+
+def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
+    """Relate the floors of Real terms a and b whose difference D is an integer: floor a = floor b + D.
+
+    Z3's rewriter moves integer summands out of a floor, (to_int (+ x 1.0))
+    to (+ (to_int x) 1) and (is_int (+ x 1.0)) to (is_int x), which the
+    floor bounds alone do not show (they bound each floor within 1 of its
+    argument, not to an integer offset). D is a linear form over Int terms
+    (numerals, and Int atoms through to_real) with integer coefficients;
+    the core lemma Rat.floor_add_intCast moves it out of the floor, and the
+    equation is cast into Rat for the Real atoms over the floors.
+
+    A floored term a that is itself such an integer D, as in (is_int
+    (to_real n)), gets floor a = D through the core lemma
+    Rat.floor_intCast; these facts are one per floor and are not capped.
+    """
+    forms = {}
+    for argument in floors:
+        terms = {}
+        try:
+            constant = _linear_term(graph, argument, Fraction(1), terms)
+        except ReconstructionError:
+            continue
+        forms[argument] = ({atom: value for atom, value in terms.items() if value}, constant)
+    facts = []
+    for argument, (terms, constant) in sorted(forms.items()):
+        if (any(not graph.is_int(atom) or value.denominator != 1 for atom, value in terms.items())
+                or constant.denominator != 1):
+            continue
+        value = _scaled_form(graph, terms, constant, 1, atom_indices, variable_indices, True)
+        side = _inline(graph, argument, atom_indices, variable_indices)
+        facts.append("have _z%d := congrArg (fun (_t : Int) => ((_t : Int) : Rat)) ((congrArg Rat.floor "
+                     "(show (%s) = (((%s) : Int) : Rat) by push_cast; grind)).trans (Rat.floor_intCast _))" % (
+                         argument, side, value))
+    if len(floors) > _FLOOR_SHIFT_LIMIT:
+        return facts
+    for first, second in itertools.combinations(sorted(forms), 2):
+        (first_terms, first_constant), (second_terms, second_constant) = forms[first], forms[second]
+        difference = {atom: first_terms.get(atom, 0) - second_terms.get(atom, 0)
+                      for atom in set(first_terms) | set(second_terms)}
+        difference = {atom: value for atom, value in difference.items() if value}
+        constant = first_constant - second_constant
+        if (any(not graph.is_int(atom) or value.denominator != 1 for atom, value in difference.items())
+                or constant.denominator != 1):
+            continue
+        offset = _scaled_form(graph, difference, constant, 1, atom_indices, variable_indices, True)
+        sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in (first, second)]
+        facts.append("have _d%d_%d := congrArg (fun (_t : Int) => ((_t : Int) : Rat)) ((congrArg Rat.floor "
+                     "(show %s = %s + (((%s) : Int) : Rat) by push_cast; grind)).trans Rat.floor_add_intCast)" % (
+                         first, second, sides[0], sides[1], offset))
+    return facts
+
+
+# The conversions between the sorts of a qf_lira certificate: the injection
+# of Int into Real, the floor of a Real term, and the integrality test,
+# whose definition is in terms of the other two (_cast_facts).
+_CONVERSION_KINDS = (z3.Z3_OP_TO_REAL, z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT)
 # The core lemmas relating a relation between two Int terms to the one between their casts into Rat.
 _CAST_RELATIONS = {"<=": "Rat.intCast_le_intCast", "<": "Rat.intCast_lt_intCast", "=": "Rat.intCast_inj"}
+# The cast lemma (_CAST_LEMMAS) of an Int atom F R 0, by relation.
+_CAST_LEMMA_OF = {"<=": "_int_cast_le", "<": "_int_cast_lt", "=": "_int_cast_eq"}
 
 
 def _integrality_fact(graph, atom, atom_indices, variable_indices):
     """State a Real atom over Int terms alone equivalent to an Int atom, or return None for any other.
+
+    Returns the tactic lines of the facts.
 
     The atom is sum(terms) + constant R 0 over the Rat casts of Int terms;
     scaled by the common denominator d > 0 of its coefficients and
     constant it is F R 0 for an integer linear form F, so the atom is
     equivalent to the Int atom F R 0: grind proves the atom equivalent to
     the cast relation (Int.cast F) R 0 once push_cast has distributed the
-    cast, and the core lemma relates that to F R 0. An atom without a
-    linear form (a rewrite's dead branch dividing by zero) gets no fact.
+    cast, and the core lemma relates that to F R 0. The Int atom F R 0
+    is then transported back into Rat like any other (_CAST_LEMMAS), so a
+    strict bound is tightened between the casts as well: with x = (to_real
+    (to_int x)), (not (<= 3.0 (to_real (to_int x)))) bounds x by 2, not 3.
+    An atom without a linear form (a rewrite's dead branch dividing by
+    zero) gets no facts.
     """
     try:
         relation, terms, constant = _atom_constraint(graph, atom)
@@ -1621,8 +1722,10 @@ def _integrality_fact(graph, atom, atom_indices, variable_indices):
         return None
     scale = _common_denominator(terms, constant)
     form = _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, True)
-    return "have _r%d : (%s) <-> ((%s) %s ((0 : Int))) := Iff.trans (by push_cast; grind) %s" % (
-        atom, _inline(graph, atom, atom_indices, variable_indices), form, relation, _CAST_RELATIONS[relation])
+    return ["have _r%d : (%s) <-> ((%s) %s ((0 : Int))) := Iff.trans (by push_cast; grind) %s" % (
+                atom, _inline(graph, atom, atom_indices, variable_indices), form, relation,
+                _CAST_RELATIONS[relation]),
+            "have _q%d := %s (%s) ((0 : Int))" % (atom, _CAST_LEMMA_OF[relation], form)]
 
 
 def _definition_names(graph, nodes):
@@ -1751,7 +1854,8 @@ def _lemma_numeric(graph, node):
     Without a conversion Z3 never combines atoms of the two sorts in one
     arithmetic lemma, and the Int and Real treatments (rounding,
     tightening, omega) differ, so a step over both is rejected. A step
-    reaching to_real is _CAST: Int terms enter Real atoms there, so its
+    reaching a conversion (to_real, or to_int and is_int, whose floor
+    is an Int atom over a Real term) is _CAST: the sorts meet there, so its
     combination is rational with each Int atom tightened on its own
     (_polarity_constraint), and Lean proves it with both sorts tied
     together (_cast_facts). Several checks ask about one step, so the
@@ -1766,7 +1870,7 @@ def _lemma_numeric(graph, node):
     for formula in formulas:
         reachable = _reachable(graph, formula)[0]
         sorts.update(graph.decl(term).range for term in reachable if graph.is_arith(term))
-        casts = casts or any(graph.kind(term) == z3.Z3_OP_TO_REAL for term in reachable)
+        casts = casts or any(graph.kind(term) in _CONVERSION_KINDS for term in reachable)
     if casts:
         sorts = {_CAST}
     elif len(sorts) > 1:
@@ -2070,7 +2174,8 @@ def _linear_structure(graph, node):
     return structure
 
 
-_LINEAR_ATOM_KINDS = (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS)
+_LINEAR_ATOM_KINDS = (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
+                      z3.Z3_OP_TO_INT)
 
 
 def _farkas_multipliers(forms, coefficients, equalities):
@@ -2152,7 +2257,8 @@ def _opaque_rewrite_tactic(graph):
     return "omega" if graph.numeric == "Int" else "grind (splits := 64)"
 
 
-_OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED)
+_OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED,
+                     z3.Z3_OP_TO_INT)
 
 
 def _is_opaque_int_atom(graph, node):
@@ -4243,10 +4349,10 @@ def _def_axiom_lemma(graph, terms, node):
 def _linear_term(graph, node, scale, terms):
     """Accumulate the linear form of a Real or Int node into terms; return its constant part.
 
-    Variables, ite terms, integer div, mod, and rem, and abs are the atoms
-    of the linear form; each is opaque to Farkas reasoning, an ite tied to
-    its branches by gate clauses and a div, mod, or rem to its operands by
-    the solver's arith axioms.
+    Variables, ite terms, integer div, mod, and rem, abs, and to_int are
+    the atoms of the linear form; each is opaque to Farkas reasoning, an
+    ite tied to its branches by gate clauses and a div, mod, rem, or to_int
+    to its operands by the solver's arith axioms.
     """
     kind = graph.kind(node)
     arguments = graph.arguments(node)
@@ -4389,6 +4495,10 @@ def _check_th_lemma(graph, node):
                 atom = graph.arguments(atom)[0]
             if graph.kind(atom) == z3.Z3_OP_FALSE and literal == atom:
                 continue  # The legacy core's axioms are stated as (or false l).
+            if graph.kind(atom) == z3.Z3_OP_IS_INT:
+                # The is_int definition's axioms (qf_lira): its argument is linear.
+                _linear_term(graph, graph.arguments(atom)[0], Fraction(1), {})
+                continue
             _atom_constraint(graph, atom)
         return
     if parameters[0] not in _COEFFICIENT_HINTS:
@@ -4723,10 +4833,13 @@ def reconstruct(source, certificate):
     if graph.arithmetic and graph.numeric == "Int":
         lines.append("-- Int variables are encoded as Int; the integer lemmas are proved by omega, else grind.")
     elif graph.numeric == _MIXED:
-        casts = any(decl.kind == z3.Z3_OP_TO_REAL for decl in graph.declarations)
+        kinds = {decl.kind for decl in graph.declarations}
+        conversions = "to_real is Int.cast into Rat" if z3.Z3_OP_TO_REAL in kinds else ""
+        if kinds & {z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT}:
+            conversions += (", " if conversions else "") + "to_int is Rat.floor"
         lines.append("-- Real variables are encoded as Rat (_vars) and Int variables as Int (_ivars), %s; "
                      "the integer lemmas are proved by omega, else grind." % (
-                         "to_real is Int.cast into Rat" if casts else "no term converting between them"))
+                         conversions or "no term converting between them"))
     elif graph.arithmetic:
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
     if any(decl.kind in _INT_NAMES and decl.range == "Int" for decl in graph.declarations):
@@ -4759,7 +4872,7 @@ def reconstruct(source, certificate):
     lines.extend(["namespace " + namespace, "", "set_option maxRecDepth 100000", ""])
     options = len(lines) - 1
     lines.extend(_interpretation_structure(graph))
-    if any(decl.kind == z3.Z3_OP_TO_REAL for decl in graph.declarations):
+    if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.

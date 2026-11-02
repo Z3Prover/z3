@@ -3,10 +3,12 @@
 #
 # Tests for the QF_LIRA slice of the Lean reconstruction: Int and Real
 # variables side by side, each sort valued on its own (_ivars into Int,
-# _vars into Rat), and related by to_real (Int.cast into Rat). Validation without Lean, and end-to-end
+# _vars into Rat), and related by to_real (Int.cast into Rat), to_int
+# (Rat.floor), and is_int. Validation without Lean, and end-to-end
 # checks through both proof cores that need the z3 executable and the
 # pinned Lean toolchain.
 ############################################
+import collections
 import copy
 import hashlib
 from pathlib import Path
@@ -125,6 +127,144 @@ CAST_INPUTS = {
 (check-sat)
 """,
 }
+
+
+# Documented inputs taking floors of Real terms: to_int is Rat.floor, an
+# Int atom bounded by the core lemmas Rat.floor_le and Rat.lt_floor_add_one
+# (Z3's two arith axioms for it), and (is_int t) is t = ((Rat.floor t : Int)
+# : Rat) (proof_to_lean._cast_facts).
+FLOOR_INPUTS = {
+    # n = floor x with x > 5/2 forces n >= 2: a farkas lemma over both
+    # sorts through the upper floor axiom.
+    "floor_bounds": """(declare-const x Real)
+(declare-const n Int)
+(assert (= n (to_int x)))
+(assert (> x 2.5))
+(assert (< n 2))
+""",
+    # An integer strictly between 5/2 and 3: the Real atom (<= 3.0 x) over
+    # the floor alone is tightened through its Int counterpart.
+    "is_int_window": """(declare-const x Real)
+(assert (is_int x))
+(assert (> x 2.5))
+(assert (< x 3.0))
+""",
+    "not_is_int": """(declare-const x Real)
+(assert (not (is_int x)))
+(assert (= (* 2.0 x) 6.0))
+""",
+    # The floor of a sum and of a scaled term; the legacy core rewrites
+    # inside the floors (congruence through to_int).
+    "floor_sum": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const n Int)
+(assert (= n (to_int (+ x 0.5))))
+(assert (>= x 1.25))
+(assert (<= x 1.4))
+(assert (not (= n 1)))
+""",
+    "floor_half": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const n Int)
+(assert (= n (to_int (/ x 2.0))))
+(assert (< (* 2 n) 3))
+(assert (> x 4.0))
+""",
+    # z3test regressions/smt2/issue-1608.smt2: Z3 rewrites (is_int (+ x 1))
+    # to (is_int x), proved through floor (x + 1) = floor x + 1.
+    "is_int_shift": """(declare-const x Real)
+(assert (is_int x))
+(assert (not (is_int (+ x 1))))
+""",
+    # to_int undoes to_real, also below zero.
+    "floor_round_trip": """(set-logic QF_LIRA)
+(declare-const n Int)
+(declare-const x Real)
+(declare-const y Real)
+(assert (= x (to_real n)))
+(assert (or (not (= (to_int x) n)) (and (< (- 2.0) y (- 1.0)) (not (= (to_int y) (- 2))))))
+""",
+    # The floor of an integer-valued term is that term (Rat.floor_intCast);
+    # the floor bounds alone leave floor (n) = n - 1 open.
+    "is_int_of_int": """(declare-const n Int)
+(assert (not (is_int (to_real n))))
+""",
+    "is_int_of_int_sum": """(declare-const n Int)
+(declare-const m Int)
+(assert (not (is_int (+ (to_real n) (* 2.0 (to_real m)) 3.0))))
+""",
+}
+
+
+def random_floor_instance(seed, variables=3, constraints=10):
+    """A random QF_LIRA problem over floors of Real terms (to_int, is_int), or None when it is satisfiable."""
+    generator = random.Random(seed)
+    lines = ["(set-logic QF_LIRA)"]
+    lines += ["(declare-const n%d Int)" % i for i in range(variables)]
+    lines += ["(declare-const x%d Real)" % i for i in range(variables)]
+    lines += ["(declare-const p%d Bool)" % i for i in range(2)]
+
+    def real_numeral(quarters):
+        text = "%d.%s" % (abs(quarters) // 4, ("0", "25", "5", "75")[abs(quarters) % 4])
+        return text if quarters >= 0 else "(- %s)" % text
+
+    def integer_numeral(value):
+        return "%d" % value if value >= 0 else "(- %d)" % -value
+
+    def real_term():
+        roll, v = generator.random(), generator.randrange(variables)
+        if roll < 0.5:
+            return "x%d" % v
+        if roll < 0.7:
+            return "(+ x%d %s)" % (v, real_numeral(generator.randint(-6, 6)))
+        if roll < 0.85:
+            return "(* %s x%d)" % (generator.choice(["0.5", "2.0", "(- 1.0)", "1.5"]), v)
+        return "(ite p%d x%d %s)" % (generator.randrange(2), v, real_numeral(generator.randint(-6, 6)))
+
+    def int_term():
+        return "(to_int %s)" % real_term() if generator.random() < 0.6 else "n%d" % generator.randrange(variables)
+
+    def atom():
+        roll = generator.random()
+        relation = generator.choice(["<=", ">=", "<", ">", "="])
+        if roll < 0.15:
+            return "(is_int %s)" % real_term()
+        if roll < 0.55:
+            return "(%s %s %s)" % (relation, int_term(), integer_numeral(generator.randint(-4, 4)))
+        if roll < 0.75:
+            return "(%s %s (+ %s %s))" % (relation, int_term(), int_term(), integer_numeral(generator.randint(-2, 2)))
+        return "(%s %s %s)" % (relation, real_term(), real_numeral(generator.randint(-16, 16)))
+
+    def literal():
+        if generator.random() < 0.15:
+            return generator.choice(["p0", "p1", "(not p0)", "(not p1)"])
+        return atom() if generator.random() < 0.8 else "(not %s)" % atom()
+
+    # A small box for the Real variables, where Z3 decides is_int quickly.
+    lines += ["(assert (<= (- 4.0) x%d 4.0))" % i for i in range(variables)]
+    for _ in range(constraints):
+        roll = generator.random()
+        if roll < 0.4:
+            lines.append("(assert (or %s %s))" % (literal(), literal()))
+        elif roll < 0.55:
+            lines.append("(assert (or %s %s %s))" % (literal(), literal(), literal()))
+        else:
+            lines.append("(assert %s)" % atom())
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("timeout", 5000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Unsatisfiable seeds of random_floor_instance: 39 relates floors of terms
+# differing by an integer on both cores and rewrites inside a legacy floor,
+# 43 has a clause-log rewrite of (is_int (+ x 1.0)) to (is_int x), 73
+# bound hints and a legacy floor shift, 135 an is_int atom the clause log
+# keeps, with its definition as arith hints.
+FLOOR_SEEDS = (39, 43, 73, 135)
 
 
 def random_cast_instance(seed, variables=3, constraints=10):
@@ -554,6 +694,159 @@ class TestCastValidation(unittest.TestCase):
         self.assertFalse(proof_clause_log.check_linear_hint("cut", [(1, z3.ToReal(n) == quarter)]))
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint over Real atoms"):
             proof_clause_log.check_linear_hint("cut", [(1, x + z3.ToReal(n) == quarter)])
+
+
+class TestFloorValidation(unittest.TestCase):
+    """Validation without Lean of to_int and is_int: their encoding, the floor facts, and what stays rejected."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not _z3_available():
+            raise unittest.SkipTest("the z3 executable is required for the clause log")
+        cls.source = FLOOR_INPUTS["is_int_window"]
+        cls.certificate = _export(cls.source, "clause-log")
+
+    def test_to_int_is_rat_floor_and_lemmas_get_floor_facts(self):
+        declarations = self.certificate["declarations"]
+        self.assertIn({"kind": z3.Z3_OP_IS_INT, "name": "is_int", "domain": ["Real"], "range": "Bool",
+                       "parameters": []}, declarations)
+        self.assertIn({"kind": z3.Z3_OP_TO_INT, "name": "to_int", "domain": ["Real"], "range": "Int",
+                       "parameters": []}, declarations)
+        text = proof_to_lean.reconstruct(self.source, self.certificate)
+        self.assertIn("-- Real variables are encoded as Rat (_vars) and Int variables as Int (_ivars), "
+                      "to_real is Int.cast into Rat, to_int is Rat.floor", text)
+        # is_int states its argument equal to the cast of its floor.
+        self.assertIn("(((Rat.floor (term_0 _atoms _vars _ivars) : Int) : Rat) = (term_0 _atoms _vars _ivars))",
+                      text)
+        self.assertIn(": Int := (Rat.floor (term_", text)
+        self.assertRegex(text, r"have _f\d+ := Rat\.floor_le \(_vars 0\)\n\s+have _u\d+ := "
+                               r"Rat\.lt_floor_add_one \(_vars 0\)")
+        # The Real atom (<= 3.0 (to_real (to_int x))) is an Int atom, cast
+        # back into Rat to be tightened.
+        self.assertRegex(text, r"have _q\d+ := _int_cast_le \(.*Rat\.floor \(_vars 0\).*\) \(\(0 : Int\)\)")
+
+    def test_floors_of_terms_differing_by_an_integer_are_related(self):
+        source = random_floor_instance(FLOOR_SEEDS[1])
+        self.assertIsNotNone(source)
+        text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
+        self.assertRegex(text, r"have _d\d+_\d+ := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
+                               r"\(\(congrArg Rat\.floor \(show .* by push_cast; grind\)\)\.trans "
+                               r"Rat\.floor_add_intCast\)")
+        # Of the floors of x, x + 1/2, and x + 2 (the legacy certificate
+        # keeps the input's terms, and the rewritten 2 + x and 1/2 + x),
+        # only those differing by an integer are related.
+        source = ("(declare-const x Real)\n"
+                  "(assert (or (> (to_int x) (to_int (+ x 0.5))) (> (to_int x) (to_int (+ x 2.0)))))\n")
+        graph = proof_to_lean._validate_graph(source, _export(source, "legacy"))
+        floors = sorted({graph.arguments(node)[0] for node in range(len(graph.nodes))
+                         if graph.kind(node) == z3.Z3_OP_TO_INT})
+        self.assertGreaterEqual(len(floors), 3)
+        indices = collections.defaultdict(int)  # every variable rendered as _vars 0
+        facts = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        self.assertTrue(any("(((((2 : Int))) : Int) : Rat)" in fact for fact in facts), facts)
+        for fact in facts:
+            with self.subTest(fact=fact):
+                self.assertIn(fact.count("((1 : Rat) / (2 : Rat))"), (0, 2))
+
+    def test_floor_of_an_integer_valued_term_is_that_term(self):
+        source = FLOOR_INPUTS["is_int_of_int"]
+        for core in ("clause-log", "legacy"):
+            with self.subTest(core=core):
+                text = proof_to_lean.reconstruct(source, _export(source, core))
+                self.assertRegex(text, r"have _z\d+ := congrArg \(fun \(_t : Int\) => \(\(_t : Int\) : Rat\)\) "
+                                       r"\(\(congrArg Rat\.floor \(show .* by push_cast; grind\)\)\.trans "
+                                       r"\(Rat\.floor_intCast _\)\)")
+        # Floors of Real variables get none.
+        text = proof_to_lean.reconstruct(self.source, self.certificate)
+        self.assertNotIn("Rat.floor_intCast", text)
+
+    def test_floor_shift_pairs_are_capped(self):
+        # 13 floors x + k/2: past the cap no pair is related, while the
+        # floor of the integer-valued n + 1 is still stated.
+        terms = ["(to_int (+ x %d.%d))" % (k // 2, 5 * (k % 2)) for k in range(1, 13)]
+        source = ("(declare-const x Real)\n(declare-const n Int)\n(assert (or %s))\n"
+                  "(assert (not (> (to_int (+ (to_real n) 1.0)) n)))\n"
+                  % " ".join("(> %s 7)" % term for term in terms))
+        graph = proof_to_lean._validate_graph(source, _export(source, "legacy"))
+        floors = sorted({graph.arguments(node)[0] for node in range(len(graph.nodes))
+                         if graph.kind(node) == z3.Z3_OP_TO_INT})
+        self.assertGreater(len(floors), proof_to_lean._FLOOR_SHIFT_LIMIT)
+        indices = collections.defaultdict(int)
+        capped = proof_to_lean._floor_shift_facts(graph, floors, indices, indices)
+        self.assertFalse([fact for fact in capped if fact.startswith("have _d")], capped)
+        self.assertTrue([fact for fact in capped if fact.startswith("have _z")], capped)
+        below = proof_to_lean._floor_shift_facts(graph, floors[:proof_to_lean._FLOOR_SHIFT_LIMIT], indices, indices)
+        self.assertTrue([fact for fact in below if fact.startswith("have _d")], below)
+
+    def test_is_int_definition_axioms_are_arith_hints(self):
+        source = random_floor_instance(FLOOR_SEEDS[3])
+        self.assertIsNotNone(source)
+        certificate = _export(source, "clause-log")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        axioms = [node for node in _th_lemma_nodes(certificate) if _parameters(certificate, node) == ["arith"]
+                  and any(graph.kind(term) == z3.Z3_OP_IS_INT
+                          for term in proof_to_lean._reachable(graph, graph.conclusion(node))[0])]
+        self.assertGreaterEqual(len(axioms), 2)
+        for node in axioms:
+            proof_to_lean._check_th_lemma(graph, node)
+
+    def test_invalid_floor_declarations_are_rejected(self):
+        for name, domain, range_ in (("to_int", ["Int"], "Int"), ("to_int", ["Real"], "Real"),
+                                     ("is_int", ["Int"], "Bool"), ("is_int", ["Real", "Real"], "Bool")):
+            tampered = copy.deepcopy(self.certificate)
+            declaration = next(d for d in tampered["declarations"] if d["name"] == name)
+            declaration["domain"], declaration["range"] = domain, range_
+            with self.subTest(name=name, domain=domain, range=range_):
+                with self.assertRaises(proof_to_lean.ReconstructionError):
+                    proof_to_lean.reconstruct(self.source, tampered)
+
+    def test_integrality_cuts_over_real_variables_are_rejected(self):
+        # x and x/2 integers, x in {3, 5}: the clause log's cut rounds
+        # (= (* 0.5 x) (to_real (to_int (* 0.5 x)))), a Real atom over the
+        # Real variable x, which Lean cannot prove from the floor bounds
+        # alone; the exporter rejects it explicitly.
+        source = """(set-logic QF_LIRA)
+(declare-const x Real)
+(assert (is_int x))
+(assert (is_int (/ x 2.0)))
+(assert (or (= x 3.0) (= x 5.0)))
+"""
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint over Real atoms"):
+            _export(source, "clause-log")
+
+
+class TestFloorLeanIntegration(unittest.TestCase):
+    """End-to-end through to_int and is_int: both proof cores, certificate, Lean reconstruction, kernel check."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not _z3_available():
+            raise unittest.SkipTest("the z3 executable is required for the clause log")
+
+    def test_documented_floor_inputs_verify_on_both_cores(self):
+        hints, congruences = set(), 0
+        for name, source in FLOOR_INPUTS.items():
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    certificate, text = _check_in_lean(self, source, core)
+                    self.assertIn("Rat.floor_le", text)
+                    if core == "clause-log":
+                        hints |= _hints(certificate)
+                    else:
+                        congruences += text.count("congrArg (fun (_t : Rat) => Rat.floor _t)")
+        # The to_int axioms are arith hints; farkas lemmas combine them.
+        self.assertLessEqual({"farkas", "arith"}, hints)
+        self.assertGreater(congruences, 0)
+
+    def test_pinned_random_floor_instances_verify_on_both_cores(self):
+        shifts = 0
+        for seed in FLOOR_SEEDS:
+            source = random_floor_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            for core in ("clause-log", "legacy"):
+                with self.subTest(seed=seed, core=core):
+                    shifts += "Rat.floor_add_intCast" in _check_in_lean(self, source, core)[1]
+        self.assertGreaterEqual(shifts, 3)
 
 
 class TestCastLeanIntegration(unittest.TestCase):

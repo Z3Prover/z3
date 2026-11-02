@@ -35,10 +35,11 @@ from proof_certificate import (
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 # The sort a log term's arguments take, for their numerals: an arithmetic
-# operator passes its own on, div, mod, rem, and to_real take Int arguments
-# (see _Terms.build).
+# operator passes its own on, div, mod, rem, and to_real take Int arguments,
+# to_int and is_int Real ones (see _Terms.build).
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
+_REAL_ARGUMENT_HEADS = ("to_int", "is_int")
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -368,6 +369,8 @@ class _Terms:
             sorts = [integer] * len(sorts)
         elif head in _INT_ARGUMENT_HEADS:
             sorts = [True] * len(sorts)
+        elif head in _REAL_ARGUMENT_HEADS:
+            sorts = [False] * len(sorts)
         elif head == "ite":
             sorts = [None] + [integer] * (len(sorts) - 1)
         arguments = [self.build(argument, sort) for argument, sort in zip(sexpr[1:], sorts)]
@@ -387,6 +390,11 @@ class _Terms:
             # other Int term is the injection itself (QF_LIRA conversions).
             counterpart = _real_counterpart(arguments[0], self.context)
             return counterpart if counterpart is not None else z3.ToReal(arguments[0])
+        if head == "to_int" and count == 1 and z3.is_real(arguments[0]):
+            # The floor of a Real term (QF_LIRA conversions).
+            return z3.ToInt(arguments[0])
+        if head == "is_int" and count == 1 and z3.is_real(arguments[0]):
+            return z3.IsInt(arguments[0])
         if head == "not" and count == 1:
             return z3.Not(arguments[0])
         if head == "or":
@@ -577,7 +585,8 @@ def _linear(expr, terms=None, scale=Fraction(1)):
         return terms, scale * value
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS):
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
+                z3.Z3_OP_TO_INT):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)
@@ -716,10 +725,13 @@ def check_arith_hint(pairs):
     The sat.smt arithmetic solver labels the clauses it adds on its own arith
     (the definitions of an integer div and mod by a numeral k: k * (div t k)
     + (mod t k) = t, 0 <= mod t k, and mod t k <= |k| - 1; and of rem:
-    k < 0 or rem t k = mod t k, k >= 0 or rem t k = -(mod t k)). The
-    literals are not a Farkas combination, so only their shape is checked (an
-    arithmetic equality or inequality whose sides are linear, with div, mod,
-    and rem by a nonzero numeral as atoms); Lean proves the clause. Each literal is
+    k < 0 or rem t k = mod t k, k >= 0 or rem t k = -(mod t k); of to_int:
+    (to_real (to_int t)) <= t < (to_real (to_int t)) + 1; and of is_int:
+    (is_int t) iff (= (to_real (to_int t)) t)). The literals are not a
+    Farkas combination, so only their shape is checked (an arithmetic
+    equality or inequality whose sides are linear, with div, mod, and rem by
+    a nonzero numeral and to_int as atoms, or is_int of a linear term); Lean
+    proves the clause. Each literal is
     checked as its atom, whatever its polarity: the equality axiom reaches
     the hint as a negated equality, which the combination paths (cut among
     them) refuse because a disequality cannot be summed, while here nothing
@@ -727,7 +739,10 @@ def check_arith_hint(pairs):
     """
     for _, literal in pairs:
         atom, _ = _strip(literal)
-        _constraint(atom)
+        if z3.is_app_of(atom, z3.Z3_OP_IS_INT):
+            _linear(atom.arg(0))
+        else:
+            _constraint(atom)
 
 
 class _Normalizer:

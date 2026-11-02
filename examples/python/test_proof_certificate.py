@@ -564,7 +564,7 @@ class TestProofCertificate(unittest.TestCase):
 
     def test_unsupported_input_is_rejected_even_with_false(self):
         problems = [
-            "(declare-const x Int)(declare-const y Real)(assert (= x (to_int y)))",
+            "(declare-fun f (Int) Int)(declare-const y Real)(assert (= (f 1) (to_int y)))",
             "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
@@ -1480,6 +1480,12 @@ class TestFragmentClassification(unittest.TestCase):
             "(declare-const x Int)(declare-const y Real)(assert (> (+ x 0.5) y))",
             "(declare-const x Int)(declare-const y Real)(assert (> (to_real x) y))",
             "(declare-const x Real)(declare-const n Int)(assert (< x (abs n)))",
+            # to_int (the floor) and is_int out of Real, by themselves and
+            # under to_real.
+            "(declare-const x Int)(declare-const y Real)(assert (= x (to_int y)))",
+            "(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (is_int y)))",
+            "(declare-const y Real)(assert (not (is_int (+ y 0.5))))",
+            "(declare-const x Int)(declare-const y Real)(assert (> (to_real x) (to_int y)))",
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_lira")
@@ -1490,11 +1496,13 @@ class TestFragmentClassification(unittest.TestCase):
                                             r"\(qf_lira\).*accept the fragment explicitly"):
                     parse(mixed, z3.Context())
         for source, message in [
-            # Conversions out of Real: still rejected.
-            ("(declare-const x Int)(declare-const y Real)(assert (= x (to_int y)))", "operator: to_int"),
-            ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (is_int y)))", "operator: is_int"),
-            # Both sorts next to uninterpreted symbols have no encoding.
+            # Both sorts next to uninterpreted symbols have no encoding,
+            # through a conversion or not.
             ("(declare-fun f (Int) Int)(declare-const x Int)(declare-const y Real)(assert (and (> (f x) 1) (> y 1.0)))",
+             "mixing integer and real arithmetic with uninterpreted functions"),
+            ("(declare-fun f (Int) Int)(declare-const y Real)(assert (> (f (to_int y)) 1))",
+             "mixing integer and real arithmetic with uninterpreted functions"),
+            ("(declare-fun p (Real) Bool)(declare-const y Real)(assert (and (p y) (is_int y)))",
              "mixing integer and real arithmetic with uninterpreted functions"),
         ]:
             with self.subTest(source=source):
@@ -1509,12 +1517,11 @@ class TestFragmentClassification(unittest.TestCase):
             # function signature; no conversions.
             ("(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))", "mixing integer and real"),
             # Z3's parser coerces a Real argument of an Int-domain function with to_int.
-            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "operator: to_int"),
+            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "mixing integer and real"),
             ("(declare-fun f (Real) Int)(declare-const x Real)(assert (> (f x) 1))", "mixing integer and real"),
             ("(declare-fun f (Int) Int)(declare-const x Real)(declare-const y Int)(assert (and (> (f y) 1) (> x 1.0)))",
              "mixing integer and real"),
-            ("(declare-const x Int)(declare-const y Real)(assert (> (to_real x) (to_int y)))",
-             "unsupported arithmetic operator: to_int"),
+            ("(declare-const y Real)(assert (> (to_int (* y y)) 1))", "nonlinear"),
             # Integer div and mod by zero are uninterpreted in SMT-LIB and
             # total in Lean, by a term nonlinear; so is Z3's rem.
             ("(declare-const x Int)(assert (> (div x 0) 1))", "integer div is supported only by a nonzero constant"),

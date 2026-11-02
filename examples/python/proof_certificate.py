@@ -101,9 +101,10 @@ _BOOLEAN_OPERATORS = {
 # axiomatizes div, mod, and rem by explicit clauses, see proof_clause_log, and
 # rewrites abs to an ite; rem, a Z3 extension, is mod by a positive divisor
 # and its negation by a negative one). Int and Real meet in qf_lira, where
-# to_real injects Int terms into Real; to_int and is_int are rejected (an
-# integer numeral Z3 coerces to Real is read as a Real numeral, see
-# _parse_snapshot).
+# to_real injects Int terms into Real, to_int takes the floor of a Real term
+# (an opaque Int atom, which Z3's arithmetic solver bounds by two axioms),
+# and is_int tests a Real term (an integer numeral Z3 coerces to Real is
+# read as a Real numeral, see _parse_snapshot).
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
@@ -521,9 +522,10 @@ def _require_linear_arithmetic(expr):
     """Reject Real or Int terms outside the linear fragment with constant coefficients.
 
     Real division is accepted by a nonzero constant, integer div, mod, and rem
-    by a nonzero constant, abs over Int or Real, and to_real of an Int term
-    (the injection, linear in its argument); to_int and is_int fall through
-    to the rejection.
+    by a nonzero constant, abs over Int or Real, to_real of an Int term
+    (the injection, linear in its argument), and to_int of a Real term (the
+    floor, an atom of the linear forms like div). is_int, a predicate, is
+    accepted by classify_fragment.
     """
     kind = expr.decl().kind()
     # abs over Real is accepted too: SMT-LIB defines abs on Int only, but Z3
@@ -540,8 +542,8 @@ def _require_linear_arithmetic(expr):
             raise ProofExportError("division is supported only by a nonzero constant")
     elif kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
-    elif kind == z3.Z3_OP_TO_REAL:
-        pass  # Its Int argument is checked like any other term.
+    elif kind in (z3.Z3_OP_TO_REAL, z3.Z3_OP_TO_INT):
+        pass  # Its argument is checked like any other term.
     elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_ITE):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
 
@@ -623,6 +625,9 @@ def classify_fragment(assertions):
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 pass
+            elif decl.kind() == z3.Z3_OP_IS_INT:
+                # (is_int t) is (= (to_real (to_int t)) t) by SMT-LIB's definition.
+                real = integer = True
             elif decl.kind() not in _ARITH_PREDICATES and decl.kind() not in _BOOLEAN_OPERATORS:
                 raise ProofExportError("unsupported propositional operator: %s" % decl.name())
             if decl.kind() in _ARITH_PREDICATES or decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
@@ -647,9 +652,9 @@ def classify_fragment(assertions):
         # own (QF_LIA) or next to uninterpreted sorts and functions (QF_UFLIA,
         # the Int valuation next to the carrier, into which Int arguments are
         # injected like Bool ones). Int and Real side by side (QF_LIRA) are
-        # two valuations, one per sort, related by to_real only (to_int and
-        # is_int are rejected above). Uninterpreted functions next to both
-        # sorts have no encoding yet.
+        # two valuations, one per sort, related by to_real, to_int, and
+        # is_int. Uninterpreted functions next to both sorts have no
+        # encoding yet.
         if real:
             if sorts or functions:
                 raise ProofExportError("mixing integer and real arithmetic with uninterpreted functions "

@@ -135,12 +135,12 @@ a function whose signature mentions Int makes the input qf_uflia even
 without any Int atom, and a Bool-only predicate over Int atoms belongs here
 too; it shares qf_lia's opt-in on both cores. The qf_lira fragment has
 Int and Real atoms side by side (the qf_lia and qf_lra shapes, Boolean
-structure tying them together), and to_real of Int terms (variables, sums,
-ite, div, mod, abs) inside Real atoms; it shares the opt-in too, and both
-cores certify it. Integer
+structure tying them together), to_real of Int terms (variables, sums,
+ite, div, mod, abs) inside Real atoms, and to_int and is_int of linear Real
+terms; it shares the opt-in too, and both cores certify it. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
-nonlinear), to_int, is_int, and Int
+nonlinear), and Int
 mixed with Real next to uninterpreted functions (also through a function
 signature such as (Int) Real) are rejected explicitly.
 The exception is an integer numeral where a Real is expected: without a
@@ -213,7 +213,8 @@ an uninterpreted sort or function must be labelled qf_uf, qf_uflra, or
 qf_uflia according to whether it contains arithmetic and over which sort,
 and the reconstructor rejects any other combination; only a qf_lira
 certificate declares both Int and Real symbols, and it must; to_real, from
-Int to Real, is its one conversion declaration.
+Int to Real, to_int, from Real to Int, and is_int, over Real, are its
+conversion declarations.
 Other native shapes are rejected, never serialized incompletely. The root is
 required to conclude false, but checking that shape does not establish proof
 correctness.
@@ -707,7 +708,17 @@ between the casts of s and t (three private lemmas, _int_cast_le,
 _int_cast_lt, _int_cast_eq, from core's Rat.intCast_le_intCast and its
 siblings), and every Real atom over Int terms alone is stated equivalent to
 the Int atom of its integer-scaled form; push_cast then distributes the
-casts. Rewrites, which may span both sorts, are proved by first | omega |
+casts. to_int is Rat.floor, an Int atom of the linear forms like div,
+and (is_int t) is ((Rat.floor t : Int) : Rat) = t, SMT-LIB's definition; a
+lemma reaching either gets the floor bounds of each floored term a from
+core's Rat.floor_le and Rat.lt_floor_add_one (Z3's two arith axioms for
+to_int), floor a = D (core's Rat.floor_intCast) when a is itself an
+integer D over Int terms, and floor a = floor b + D (core's
+Rat.floor_add_intCast) for two floored terms differing by an integer D,
+which Z3's rewriter uses to move integer summands out of a floor (these
+pairs only up to 12 floors per lemma). A cut that rounds a Real atom over a Real
+variable through a floor (x and x/2 both integers) is still rejected.
+Rewrites, which may span both sorts, are proved by first | omega |
 grind (splits := 64). The Rat encoding of the Real variables stays sound
 next to Int ones: fix the Int values and the truth value of every atom and
 ite condition, and the Real constraints left (to_real terms now integer
