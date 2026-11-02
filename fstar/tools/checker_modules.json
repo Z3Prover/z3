@@ -6,7 +6,7 @@
     "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
     "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
     "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
-    "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3CheckedScope.fst", "Z3DagScope.fst", "Z3ScopedModel.fst",
+    "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3CheckedScope.fst", "Z3DagScope.fst", "Z3CheckedExpansion.fst", "Z3ScopedModel.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
     "Z3NlaLemma.fst", "Z3ArithmeticFactor.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3LpIntegerCut.fst", "Z3IntegerDivision.fst", "Z3FiniteFieldLemma.fst", "Z3FiniteFieldPac.fst",
@@ -30,6 +30,6 @@
     "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst",
     "Z3TypedRoot.fst", "Z3TypedRootTests.fst", "Z3SortedRoot.fst", "Z3SortedRootTests.fst",
     "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst",
-    "Z3CheckedSortsTests.fst", "Z3CheckedGuardTests.fst", "Z3CheckedGraphTests.fst", "Z3CheckedExpansion.fst"
+    "Z3CheckedSortsTests.fst", "Z3CheckedGuardTests.fst", "Z3CheckedGraphTests.fst", "Z3CheckedExpansionTests.fst"
   ]
 }

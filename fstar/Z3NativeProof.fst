@@ -35,11 +35,11 @@ type state = {
   entries: list P.entry;
   next_proof: nat;
   clausal: bool;
-  (* The opt-in mode `verified-dag-v1` only: the checked graph of binder
-     certificates and their preparations (a prepared form, or why there is
-     none), by entry. *)
+  (* The opt-in mode `verified-dag-v1` only: the checked cache of binder
+     certificates (holding their prepared forms) and what was recorded for
+     each, by entry. *)
   checked: option CD.ccache;
-  companions: index_tree CD.preparation;
+  companions: index_tree CD.mark;
 }
 
 let empty_state () : state = {
@@ -523,11 +523,13 @@ let rec marshal_binder_jobs (st:state) (cache:index_tree nat)
 (* In the opt-in mode the certificate is prepared on the checked graph after
    its entries are marshaled: the graph's allowance is the certificate's,
    `n + 1` shares for `n` entries (`Z3DagDocument.graph_*_per_entry`), then
-   `Z3DagDocument.prepare_certificate`; the document holds the prepared
-   certificate. A certificate that cannot be prepared is the default one; its
-   preparation records why, with the graph units (preparation, storage) that
-   the steps before the one that stopped used of the allowance. *)
-let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state & option CD.preparation) =
+   `Z3DagDocument.prepare_certificate`, which records it, as entry `index`,
+   in the document's cache; the document holds the prepared certificate. Its
+   mark records the graph units (preparation, storage) the preparation used
+   of the allowance. A certificate that cannot be prepared is the default
+   one; its mark records why, with the units the steps before the one that
+   stopped used. *)
+let marshal_binder (st:state) (p:N.ast) (index:nat) : ML (binder_certificate & state & option CD.mark) =
   let st, cache, entries, raw = marshal_binder_jobs st Empty [] 0 [VisitBinder p] [] in
   let root = require_some "Native binder proof root was not marshaled"
                          (index_get cache (N.ast_id p)) in
@@ -539,13 +541,15 @@ let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state & optio
     let gp = CD.graph_preparation_per_entry * shares in
     let gs = CD.graph_storage_per_entry * shares in
     let c = CD.with_budget c gp gs in
-    let unready (why:CD.unprepared_reason) (pl sl:nat) : CD.preparation =
-      CD.Unready why (Some ((if pl <= gp then gp - pl else 0), (if sl <= gs then gs - sl else 0))) in
+    let used (pl sl:nat) : nat & nat = ((if pl <= gp then gp - pl else 0), (if sl <= gs then gs - sl else 0)) in
+    let unready (why:CD.unprepared_reason) (pl sl:nat) : CD.mark = CD.NotRecorded why (Some (used pl sl)) in
     (match checked_entries st c (L.rev raw) [] with
      | CheckedStopped why pl sl -> certificate, st, Some (unready why pl sl)
      | CheckedTo (c1, rs) ->
-       (match CD.prepare_certificate c1 rs root with
-        | CD.Built (c', prepared) -> prepared.CD.pcert, { st with checked = Some c' }, Some (CD.Ready prepared)
+       (match CD.prepare_certificate c1 rs root index with
+        | CD.Built (c', prepared) ->
+          prepared.CD.pcert, { st with checked = Some c' },
+          Some (CD.Recorded (used c'.CD.graph.CG.prep c'.CD.graph.CG.store))
         | r -> certificate, st,
               Some (unready (CD.reason_of r) c1.CD.graph.CG.prep c1.CD.graph.CG.store)))
 
@@ -671,7 +675,7 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
     let formula = cached_expression st view.conclusion in
     let rule, premises, st =
       if binder_rule view.proof_name then
-        let certificate, st, prepared = marshal_binder st p in
+        let certificate, st, prepared = marshal_binder st p st.next_proof in
         let st = match prepared with
           | Some pc -> { st with companions = index_put st.companions st.next_proof pc }
           | None -> st in
@@ -749,4 +753,5 @@ let marshal_with_datatypes_dag (assertions:list N.ast) (proof:N.ast)
   : ML (P.document & Z3DatatypeSignature.schema & CD.companions) =
   let doc, st = marshal_state_using true assertions proof in
   let schema = N.view_datatypes st.retained_sorts in
-  doc, schema, { CD.clausal = st.clausal; CD.preparations = (if st.clausal then Empty else st.companions) }
+  doc, schema, { CD.clausal = st.clausal; CD.final = (if st.clausal then None else st.checked);
+                 CD.marks = (if st.clausal then Empty else st.companions) }

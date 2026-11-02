@@ -990,7 +990,10 @@ bool bounded_name_units() {
 int main() {
     custard_init_globals();
     if (!Z3CherryTests_run()) {
-        std::cerr << "Cherry kernel acceptance/rejection regressions failed\n";
+        cherry_int failing = Z3CherryTests_expansion_failure();
+        std::cerr << "Cherry kernel acceptance/rejection regressions failed (first failing definition-expansion check: "
+                  << cherry_int_to_i64(failing) << ")\n";
+        cherry_dec(failing);
         return 1;
     }
     if (!bounded_name_units()) {

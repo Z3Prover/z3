@@ -1625,7 +1625,7 @@ let dag_binder_guard () =
           | U.QuantifierIntroduction cert, Some concl ->
               incr seen;
               (match DD.preparation_of companions (Z.of_int i) with
-               | DD.Ready p ->
+               | DD.Ready (p, _, _) ->
                    require (p.DD.pcert = cert) ("the prepared certificate is not the document's: " ^ source);
                    let dag = match DD.verify_binder_dag [] [] p concl with G.BinderGuardChecked _ -> true | _ -> false in
                    require (U.check_binder cert concl = dag) ("DAG guard disagrees with the default guard: " ^ source);
@@ -1648,7 +1648,7 @@ let dag_binder_guard () =
   let doc, companions = prepared_of (List.hd sources) in
   let index, entry = List.find (fun (_, e) -> match e.P.rule with
       | U.QuantifierIntroduction _ -> true | _ -> false) (List.mapi (fun i e -> (i, e)) doc.P.entries) in
-  let p = match DD.preparation_of companions (Z.of_int index) with DD.Ready p -> p | _ -> failwith "unprepared" in
+  let p = match DD.preparation_of companions (Z.of_int index) with DD.Ready (p, _, _) -> p | _ -> failwith "unprepared" in
   let certificate = p.DD.pcert in
   let conclusion = Option.get (U.classify_fact entry.P.formula) in
   let with_cert c = { p with DD.pcert = c } in
@@ -1730,7 +1730,7 @@ let dag_held_out () =
       List.iteri (fun i e -> match e.P.rule, U.classify_fact e.P.formula with
           | U.QuantifierIntroduction _, Some concl ->
               (match DD.preparation_of companions (Z.of_int i) with
-               | DD.Ready p -> prepared := (p, concl) :: !prepared
+               | DD.Ready (p, _, _) -> prepared := (p, concl) :: !prepared
                | DD.Unready _ -> failwith ("no prepared certificate: " ^ source))
           | _ -> ()) doc.P.entries) sources;
   require (!reports >= 5) "held-out cases did not exercise the binders";
@@ -1850,10 +1850,12 @@ let dag_incremental_isolation () =
    document's definitions (Z3ProofDocument.prepare_entry_using); the certificate prepared while the
    document was marshaled is the unexpanded one, so in a document with definitions every quantifier
    introduction is unprepared (reason definitions) and pending, never checked on the unexpanded form. *)
-let dag_definitions_pending () =
+(* verified-dag-v1 with definitions: a document whose definitions the default expands is checked on
+   the certificate the default checks, its formulas expanded on the checked graph (here an unused
+   definition: the expansion keeps each formula). *)
+let dag_definitions_expanded () =
   let module G = Z3CheckedGuard in
   let module V = Z3VerifiedDocument in
-  let module DD = Z3DagDocument in
   let module R = Z3ResolutionProofTheory in
   let hash value = Z.of_int (Hashtbl.hash value) in
   let assertions, proof =
@@ -1864,19 +1866,226 @@ let dag_definitions_pending () =
   let definition = { P.rule = U.DefinitionIntroduction; P.formula = R.mk_eq_expr fresh R.true_expr; P.premise_ids = [] } in
   let defined = { doc with P.entries = doc.P.entries @ [definition] } in
   require (P.check_document defined = Some Z.zero) "the default does not accept the document with a definition";
-  let plain = V.diagnose_document_dag_indexed hash doc companions in
-  require (P.diagnostic_result plain.V.diagnostic = Some Z.zero) "the document without definitions is not checked";
   let d = V.diagnose_document_dag_indexed hash defined companions in
-  require (P.diagnostic_result d.V.diagnostic <> Some Z.zero) "a document with definitions was accepted on its unexpanded certificates";
-  require (d.V.reports <> [] && List.for_all (fun r -> r.V.report_outcome = G.BinderUnprepared &&
-                                                        r.V.report_unprepared = Some DD.UnpreparedDefinitions) d.V.reports)
-    "a quantifier introduction of a document with definitions is not unprepared for its definitions";
+  require (P.diagnostic_result d.V.diagnostic = Some Z.zero) "a document with definitions is not checked after their expansion";
+  require (d.V.reports <> [] && List.for_all (fun r -> match r.V.report_outcome with
+      | G.BinderGuardChecked _ -> true | _ -> false) d.V.reports)
+    "a quantifier introduction of a document with definitions was not checked";
   let contains text needle =
     let n = String.length needle in
     let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
     from 0 in
-  require (List.for_all (fun row -> contains row "\toutcome=unprepared\treason=definitions") (V.dag_report_rows d.V.reports))
-    "the opt-in row does not name the definitions"
+  require (List.for_all (fun row -> contains row "\toutcome=checked" && contains row "\texpansion-debit-preparation=")
+             (V.dag_report_rows d.V.reports))
+    "the opt-in row does not report the expansion"
+
+(* verified-dag-v1 definition expansion on the checked graph (Z3CheckedExpansion, Z3DagDocument):
+   - the expansion of a prepared certificate is exactly the default's expanded certificate, and the
+     DAG guard checks it (and refuses its invalid-leaf mutant);
+   - a document's body is imported once: a second certificate using the same definition in the same
+     document context costs fewer units than the first, and as many as the first in a fresh context
+     (the RED of a repeated import);
+   - at the exact units of an expansion it is prepared, one unit short it is exhausted, pending;
+   - lift, instantiation and expansion agree with Z3Definitions on nested binders, swapped variables,
+     different arguments, chains, cycles and refused variables;
+   - 100,000 nested applications are interned, lifted, instantiated and expanded under the 8 MiB stack. *)
+let dag_definition_expansion () =
+  let module G = Z3CheckedGuard in
+  let module T = Z3CheckedTerms in
+  let module DD = Z3DagDocument in
+  let module CG = Z3CheckedGraph in
+  let module CX = Z3CheckedExpansion in
+  let module D = Z3Definitions in
+  let big = Z.of_int 1_000_000_000 in
+  let intern g e = match CX.intern_expr g e with CX.Interned (g', y) -> g', y | _ -> failwith "not interned" in
+  let c = context () in
+  let parsed = parse c
+      "(declare-fun f (Int) Bool)(declare-fun p (Int) Bool)\
+       (assert (forall ((x Int)) (= (f x) (not (p x)))))\
+       (assert (forall ((x Int)) (= (not (f x)) (not (f x)))))\
+       (assert (= (not (forall ((x Int)) (f x)))\
+                  (exists ((x Int)) (not (f x)))))" in
+  let st = B.marshal_expressions (B.empty_state ()) parsed in
+  (match List.map (B.cached_expression st) parsed with
+   | A.Quantifier (_, _, _, A.App (_, [A.App (symbol, _); body])) ::
+     A.Quantifier (_, _, _, leaf) :: formula :: [] ->
+       let defs = [{ D.symbol; variables = [Z.zero]; body }] in
+       let cert leaf = { U.binder_entries = [
+           { U.binder_name = "refl"; binder_formula = leaf; binder_premises = []; binder_sorts = None };
+           { U.binder_name = "nnf-neg"; binder_formula = formula; binder_premises = [Z.zero];
+             binder_sorts = Some [A.BaseSort "Int"] } ]; binder_root = Z.one } in
+       let certificate = cert leaf in
+       let expected = match P.expand_rule defs (U.QuantifierIntroduction certificate) with
+         | Some (U.QuantifierIntroduction e) -> e | _ -> failwith "the default does not expand the certificate" in
+       let concl = Option.get (U.classify_fact (Option.get (D.expand Z.one defs formula))) in
+       let g1, h1 = intern (CG.empty big big) leaf in
+       let g2, h2 = intern g1 formula in
+       let prepared = { DD.pgraph = g2; DD.pcert = certificate; DD.phandles = [h1; h2] } in
+       let context prep = { DD.xgraph = { g2 with CG.prep = prep; CG.store = big }; DD.xbodies = Z3ProofIndex.Empty } in
+       let expand x p = DD.expand_prepared defs g2 x p (Z.zero, Z.zero) in
+       (match expand (context big) prepared with
+        | { DD.xprep = DD.Ready (p', _, _); DD.xctx = x1; DD.xdebit = Some (u1, _); DD.xforfeit = None } ->
+            require (p'.DD.pcert = expected) "the graph expansion is not the default's expanded certificate";
+            require (match DD.verify_binder_dag [] [] p' concl with G.BinderGuardChecked _ -> true | _ -> false)
+              "the expanded certificate is not checked";
+            (* the same definition in a second certificate of the document: its body is not imported again *)
+            (match expand x1 prepared with
+             | { DD.xprep = DD.Ready (p2, _, _); DD.xdebit = Some (u2, _); _ } ->
+                 require (p2.DD.pcert = expected) "the second expansion differs";
+                 require (Z.lt u2 u1) "the document's second certificate imported the body again";
+                 (* RED: a fresh context imports it again *)
+                 (match expand (context big) prepared with
+                  | { DD.xdebit = Some (u3, _); _ } ->
+                      require (Z.equal u3 u1) "a fresh context did not pay the import";
+                      Printf.printf "    definition import: first certificate %s units, second %s, fresh context %s\n"
+                        (Z.to_string u1) (Z.to_string u2) (Z.to_string u3)
+                  | _ -> failwith "fresh context expansion failed")
+             | _ -> failwith "second expansion failed");
+            (* exact units, and one short *)
+            (match expand (context u1) prepared with
+             | { DD.xprep = DD.Ready (p', _, _); _ } -> require (p'.DD.pcert = expected) "exact units differ"
+             | _ -> failwith "the expansion at its exact units was not prepared");
+            (* one unit short: exhausted, pending; the allowance it held is forfeited (not reported as
+               work), and a later certificate of the same document finds it spent *)
+            (match expand (context (Z.pred u1)) prepared with
+             | { DD.xprep = DD.Unready (DD.UnpreparedExpansionExhausted T.Preparation, _); DD.xctx = x2;
+                 DD.xdebit = None; DD.xforfeit = Some (f1, _) } ->
+                 require (Z.equal f1 (Z.pred u1)) "the forfeited allowance is not what was left";
+                 (match expand x2 prepared with
+                  | { DD.xprep = DD.Unready (DD.UnpreparedExpansionExhausted _, _); DD.xforfeit = Some (f2, _); _ } ->
+                      require (Z.equal f2 Z.zero) "a spent allowance was refilled"
+                  | _ -> failwith "a certificate after a stopped expansion was expanded")
+             | _ -> failwith "the expansion one unit short was not exhausted");
+            (* a node id that is not in the graph is refused *)
+            require (CX.expand_nodes defs Z.one g2 Z3ProofIndex.Empty [CG.node_count g2] = CX.ExpandStopped CG.BuildInvalid)
+              "an id outside the graph was expanded";
+            (* one document with three quantifier introductions using the same definition: its body is
+               imported once, by the first; the verdict is the default's *)
+            let hash value = Z.of_int (Hashtbl.hash value) in
+            let module V = Z3VerifiedDocument in
+            let definition = List.hd parsed |> B.cached_expression st in
+            let def_entry = { P.rule = U.DefinitionIntroduction; P.formula = definition; P.premise_ids = [] } in
+            let qi = { P.rule = U.QuantifierIntroduction certificate; P.formula = formula; P.premise_ids = [] } in
+            let document n = { P.declarations = []; P.expressions = []; P.assertions = [];
+                               P.entries = def_entry :: List.init n (fun _ -> qi); P.root = Z.of_int n } in
+            let record = { DD.rcert = certificate; DD.rhandles = [h1; h2] } in
+            let companions n =
+              let preps = List.fold_left (fun t i -> Z3ProofIndex.index_put t (Z.of_int i) record)
+                            Z3ProofIndex.Empty (List.init n (fun i -> i + 1)) in
+              let marks = List.fold_left (fun t i -> Z3ProofIndex.index_put t (Z.of_int i) (DD.Recorded (Z.zero, Z.zero)))
+                            Z3ProofIndex.Empty (List.init n (fun i -> i + 1)) in
+              { DD.clausal = false;
+                DD.final = Some { DD.graph = g2; DD.sorts = Z3ProofIndex.Empty; DD.decls = Z3ProofIndex.Empty;
+                                  DD.exprs = Z3ProofIndex.Empty; DD.preps = preps };
+                DD.marks = marks } in
+            let debits n =
+              let doc = document n in
+              let d = V.diagnose_document_dag_indexed hash doc (companions n) in
+              require (P.diagnostic_result d.V.diagnostic = P.check_document doc)
+                "the verdict of the document with definitions differs from the default";
+              require (List.length d.V.reports = n && List.for_all (fun r -> match r.V.report_outcome with
+                  | G.BinderGuardChecked _ -> true | _ -> false) d.V.reports)
+                "a quantifier introduction of the document was not checked after expansion";
+              List.map (fun r -> match r.V.report_debit with Some (u, _) -> u | None -> failwith "no debit") d.V.reports in
+            (match debits 3, debits 1 with
+             | [d1; d2; d3], [single] ->
+                 require (Z.equal d1 single) "the first certificate's debit depends on the others";
+                 require (Z.lt d2 d1 && Z.equal d2 d3) "a later certificate of the document imported the body again";
+                 Printf.printf "    document debits: %s, %s, %s (single-certificate document %s)\n"
+                   (Z.to_string d1) (Z.to_string d2) (Z.to_string d3) (Z.to_string single)
+             | _ -> failwith "unexpected reports")
+        | _ -> failwith "the certificate was not expanded");
+       (* the invalid-leaf mutant: expanded, then refused *)
+       let bad_leaf = Z3ResolutionProofTheory.mk_eq_expr (A.Var (Z.zero, A.bool_sort)) Z3ResolutionProofTheory.true_expr in
+       let g3, h3 = intern g2 bad_leaf in
+       let bad = { DD.pgraph = g3; DD.pcert = cert bad_leaf; DD.phandles = [h3; h2] } in
+       (match DD.expand_prepared defs g3 { DD.xgraph = g3; DD.xbodies = Z3ProofIndex.Empty } bad (Z.zero, Z.zero) with
+        | { DD.xprep = DD.Ready (p', _, _); _ } ->
+            require (match DD.verify_binder_dag [] [] p' concl with G.BinderGuardChecked _ -> false | _ -> true)
+              "an expanded invalid hidden proof was checked"
+        | _ -> ())
+   | _ -> failwith "unexpected definition-expansion formulas");
+  (* lift, instantiation and expansion against Z3Definitions *)
+  let int_s = A.BaseSort "Int" in
+  let decl name dom r = { A.decl_name = name; A.domain = dom; A.range = r; A.interp = None; A.int_params = [] } in
+  let p_d = decl "p" [int_s] A.bool_sort and f_d = decl "f" [int_s] A.bool_sort and k_d = decl "k" [int_s] A.bool_sort
+  and g_d = decl "g" [int_s; int_s] int_s and q_d = decl "q" [int_s] int_s and c_d = decl "c" [] int_s
+  and n_d = decl "n" [A.bool_sort] A.bool_sort in
+  let v n = A.Var (Z.of_int n, int_s) and cst = A.App (c_d, []) in
+  let q e = A.App (q_d, [e]) and gg a b = A.App (g_d, [a; b]) and p e = A.App (p_d, [e])
+  and f e = A.App (f_d, [e]) and k e = A.App (k_d, [e]) in
+  let all b = A.Quantifier (A.Forall_k, [int_s], A.bool_sort, b) in
+  let def s vars body = { D.symbol = s; D.variables = List.map Z.of_int vars; D.body = body } in
+  let lift_ok e a cut =
+    let g, x = intern (CG.empty big big) e in
+    match CX.glift (Z.of_int a) (Z.of_int cut) g Z3ProofIndex.Empty x with
+    | CX.LiftedNode (g', _, y) -> CG.value_of g' y = Some (D.lift (Z.of_int a) (Z.of_int cut) e)
+    | _ -> false in
+  let inst_ok body a0 a1 vars =
+    let g1, b = intern (CG.empty big big) body in
+    let g2, n0 = intern g1 a0 in
+    let g3, n1 = intern g2 a1 in
+    let vars = List.map Z.of_int vars in
+    match CX.ginst vars [n0; n1] g3 b, D.instantiate Z.zero vars [a0; a1] body with
+    | CX.InstNode (g4, z), Some w -> CG.value_of g4 z = Some w
+    | CX.InstStopped _, None -> true
+    | _ -> false in
+  let expand_ok defs fuel e =
+    let g, x = intern (CG.empty big big) e in
+    match CX.expand_nodes defs (Z.of_int fuel) g Z3ProofIndex.Empty [x], D.expand (Z.of_int fuel) defs e with
+    | CX.ExpandedNodes (g', _, [y]), Some w -> CG.value_of g' y = Some w
+    | CX.ExpandStopped _, None -> true
+    | _ -> false in
+  let defs1 = [def f_d [0] (p (q (v 0)))] in
+  let defs_quant = [def f_d [0] (all (p (gg (v 0) (v 1))))] in
+  let defs_chain = [def f_d [0] (k (v 0)); def k_d [0] (p (v 0))] in
+  let e1 = all (p (gg (v 0) (v 1))) in
+  require (lift_ok e1 2 0 && lift_ok e1 1 1 && lift_ok (gg (v 0) (v 5)) 4 3) "a lift differs from Z3Definitions.lift";
+  (* one body instantiated with two argument lists, one after the other on one graph *)
+  (let body = gg (v 0) (q (v 0)) in
+   let g1, b = intern (CG.empty big big) body in
+   let g2, n0 = intern g1 cst in
+   let g3, n1 = intern g2 (q cst) in
+   match CX.ginst [Z.zero] [n0] g3 b with
+   | CX.InstNode (g4, z0) ->
+       (match CX.ginst [Z.zero] [n1] g4 b with
+        | CX.InstNode (g5, z1) ->
+            require (CG.value_of g5 z0 = D.instantiate Z.zero [Z.zero] [cst] body &&
+                     CG.value_of g5 z1 = D.instantiate Z.zero [Z.zero] [q cst] body && not (Z.equal z0 z1))
+              "an instance reused another argument list's"
+        | _ -> failwith "second instance stopped")
+   | _ -> failwith "first instance stopped");
+  require (inst_ok (all (p (gg (v 0) (v 1)))) (q (v 0)) cst [0; 1] &&
+           inst_ok (gg (v 0) (v 1)) (q cst) cst [1; 0] && inst_ok (gg (v 0) (v 1)) (q cst) cst [0; 1] &&
+           inst_ok (gg (v 0) (v 7)) cst cst [0; 1])
+    "an instance differs from Z3Definitions.instantiate";
+  require (expand_ok defs1 1 (all (f (v 0))) && expand_ok defs1 1 (all (gg (q (v 0)) (q (v 0)))) &&
+           expand_ok defs1 1 (A.App (n_d, [f cst])) && expand_ok defs_quant 1 (all (f (v 0))) &&
+           expand_ok defs_quant 1 (f (q cst)) && expand_ok defs_chain 2 (all (f (v 0))) &&
+           expand_ok defs_chain 1 (all (f (v 0))) && expand_ok [def f_d [0] (f (v 0))] 1 (f cst) &&
+           expand_ok [def f_d [5] (p (v 0))] 1 (f cst) && expand_ok [] 0 (f cst))
+    "an expansion differs from Z3Definitions.expand";
+  (* deep: 100,000 nested applications under a binder *)
+  let rec chain n acc = if n = 0 then acc else chain (n - 1) (q acc) in
+  let deep = all (p (chain 100000 (v 0))) in
+  let t0 = Unix.gettimeofday () in
+  let g1, x = intern (CG.empty big big) deep in
+  (match CX.glift Z.one Z.zero g1 Z3ProofIndex.Empty x with
+   | CX.LiftedNode (g2, _, _) ->
+       (match CX.ginst [Z.zero] [x] g2 x with
+        | CX.InstNode (g3, _) ->
+            (match CX.expand_nodes [def q_d [0] (gg (v 0) cst)] Z.one g3 Z3ProofIndex.Empty [x] with
+             | CX.ExpandedNodes (g4, _, [_]) ->
+                 Printf.printf "    deep expansion: %s nodes, %.2f s\n" (Z.to_string (CG.node_count g4))
+                   (Unix.gettimeofday () -. t0)
+             | CX.ExpandStopped b -> failwith ("the deep expansion stopped: " ^ match b with
+                 | CG.BuildExhausted T.Preparation -> "preparation exhausted"
+                 | CG.BuildExhausted T.Storage -> "storage exhausted"
+                 | CG.BuildExhausted T.Validation -> "validation exhausted"
+                 | _ -> "invalid")
+             | _ -> failwith "the deep expansion gave another number of nodes")
+        | _ -> failwith "the deep instantiation stopped")
+   | _ -> failwith "the deep lift stopped")
 
 let verified_binder_guard () =
   let module G = Z3CheckedGuard in
@@ -7260,7 +7469,8 @@ let () =
      "opt-in-dag-binder-guard", dag_binder_guard;
      "opt-in-dag-held-out", dag_held_out;
      "opt-in-dag-incremental-isolation", dag_incremental_isolation;
-     "opt-in-dag-definitions-pending", dag_definitions_pending;
+     "opt-in-dag-definitions-expanded", dag_definitions_expanded;
+     "opt-in-dag-definition-expansion", dag_definition_expansion;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;

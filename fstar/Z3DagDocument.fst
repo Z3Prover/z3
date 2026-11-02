@@ -44,10 +44,17 @@ module DG = Z3DagGuard
 module DGP = Z3DagGuardProof
 module BS = Z3BinderScope
 module SK = Z3Skolemization
+module D = Z3Definitions
+module CX = Z3CheckedExpansion
 
 let tu : nat = CS.table_units
 
 (* --- The checked marshaling cache --------------------------------------------------------------- *)
+
+(* A prepared certificate recorded in the cache: its certificate and the
+   nodes of its entries' formulas, in the cache's graph. *)
+noeq
+type prep_record = { rcert: binder_certificate; rhandles: list nat }
 
 noeq
 type ccache_raw = {
@@ -55,6 +62,7 @@ type ccache_raw = {
   sorts: I.index_tree CG.csort;
   decls: I.index_tree (I.index_tree CG.cdecl);
   exprs: I.index_tree nat;
+  preps: I.index_tree prep_record;
 }
 
 let sorts_ok (g:CG.cgraph) (t:I.index_tree CG.csort) : prop =
@@ -68,21 +76,45 @@ let decls_ok (g:CG.cgraph) (t:I.index_tree (I.index_tree CG.cdecl)) : prop =
 let exprs_ok (g:CG.cgraph) (t:I.index_tree nat) : prop =
   forall (k:nat). (match I.index_get t k with Some x -> x < CG.node_count g | None -> True)
 
+let rec lemma_handles_grow (g g':CG.cgraph) (es:list binder_entry) (hs:list nat)
+  : Lemma (requires CG.cgrows g g' /\ DGP.handles_ok g es hs) (ensures DGP.handles_ok g' es hs) (decreases es)
+  = match es, hs with
+    | _ :: es', _ :: hs' -> lemma_handles_grow g g' es' hs'
+    | _, _ -> ()
+
+let preps_ok (g:CG.cgraph) (t:I.index_tree prep_record) : prop =
+  forall (k:nat). (match I.index_get t k with
+                   | Some r -> DGP.handles_ok g r.rcert.binder_entries r.rhandles
+                   | None -> True)
+
 [@@"opaque_to_smt"]
-let caches_ok (c:ccache_raw) : prop = sorts_ok c.graph c.sorts /\ decls_ok c.graph c.decls /\ exprs_ok c.graph c.exprs
+let caches_ok (c:ccache_raw) : prop =
+  sorts_ok c.graph c.sorts /\ decls_ok c.graph c.decls /\ exprs_ok c.graph c.exprs /\ preps_ok c.graph c.preps
 
 let reveal_caches (c:ccache_raw)
-  : Lemma (caches_ok c <==> (sorts_ok c.graph c.sorts /\ decls_ok c.graph c.decls /\ exprs_ok c.graph c.exprs))
+  : Lemma (caches_ok c <==> (sorts_ok c.graph c.sorts /\ decls_ok c.graph c.decls /\ exprs_ok c.graph c.exprs /\
+                            preps_ok c.graph c.preps))
   = FStar.Pervasives.reveal_opaque (`%caches_ok) (caches_ok c)
 
 let ccache_ok (c:ccache_raw) : prop = CG.graph_inv c.graph /\ caches_ok c
 
 type ccache = c:ccache_raw{ccache_ok c}
 
+let lemma_preps_grow (g g':CG.cgraph) (t:I.index_tree prep_record)
+  : Lemma (requires CG.cgrows g g' /\ preps_ok g t) (ensures preps_ok g' t)
+  = let aux (k:nat) : Lemma (match I.index_get t k with
+                             | Some r -> DGP.handles_ok g' r.rcert.binder_entries r.rhandles
+                             | None -> True)
+      = match I.index_get t k with
+        | Some r -> lemma_handles_grow g g' r.rcert.binder_entries r.rhandles
+        | None -> () in
+    FStar.Classical.forall_intro aux
+
 let lemma_caches_grow (g g':CG.cgraph) (c:ccache_raw)
-  : Lemma (requires CG.cgrows g g' /\ sorts_ok g c.sorts /\ decls_ok g c.decls /\ exprs_ok g c.exprs)
-          (ensures sorts_ok g' c.sorts /\ decls_ok g' c.decls /\ exprs_ok g' c.exprs)
-  = let s (k:nat) : Lemma (match I.index_get c.sorts k with Some v -> CG.csort_ok g' v | None -> True)
+  : Lemma (requires CG.cgrows g g' /\ sorts_ok g c.sorts /\ decls_ok g c.decls /\ exprs_ok g c.exprs /\ preps_ok g c.preps)
+          (ensures sorts_ok g' c.sorts /\ decls_ok g' c.decls /\ exprs_ok g' c.exprs /\ preps_ok g' c.preps)
+  = lemma_preps_grow g g' c.preps;
+    let s (k:nat) : Lemma (match I.index_get c.sorts k with Some v -> CG.csort_ok g' v | None -> True)
       = match I.index_get c.sorts k with Some v -> CG.lemma_csort_grows g g' v | None -> () in
     let d (k a:nat) : Lemma (match I.index_get c.decls k with
                              | Some inner -> (match I.index_get inner a with Some d -> CG.decl_ok g' d | None -> True)
@@ -96,8 +128,8 @@ let lemma_caches_grow (g g':CG.cgraph) (c:ccache_raw)
 let empty_cache : ccache =
   CG.lemma_with_sorts (CG.empty 0 0) CS.empty_table 0 0;
   CS.lemma_initial_state ({ CS.preparation = 0; CS.storage = 0 });
-  reveal_caches ({ graph = CG.empty 0 0; sorts = I.Empty; decls = I.Empty; exprs = I.Empty });
-  { graph = CG.empty 0 0; sorts = I.Empty; decls = I.Empty; exprs = I.Empty }
+  reveal_caches ({ graph = CG.empty 0 0; sorts = I.Empty; decls = I.Empty; exprs = I.Empty; preps = I.Empty });
+  { graph = CG.empty 0 0; sorts = I.Empty; decls = I.Empty; exprs = I.Empty; preps = I.Empty }
 
 (* A fresh allowance, for the certificate being prepared. *)
 let with_budget (c:ccache) (prep store:nat) : ccache =
@@ -461,12 +493,6 @@ let rec lemma_handles_rev (g:CG.cgraph) (es:list binder_entry) (hs:list nat) (ae
     | e :: es', h :: hs' -> lemma_handles_rev g es' hs' (e :: ae) (h :: ah)
     | _, _ -> ()
 
-let rec lemma_handles_grow (g g':CG.cgraph) (es:list binder_entry) (hs:list nat)
-  : Lemma (requires CG.cgrows g g' /\ DGP.handles_ok g es hs) (ensures DGP.handles_ok g' es hs) (decreases es)
-  = match es, hs with
-    | _ :: es', _ :: hs' -> lemma_handles_grow g g' es' hs'
-    | _, _ -> ()
-
 let value_at (g:CG.cgraph) (x:nat{CG.graph_inv g /\ x < CG.node_count g}) : e:expr{CG.value_of g x == Some e} =
   CG.reveal_exact g x;
   match CG.value_of g x with Some e -> e
@@ -514,7 +540,23 @@ let rec prepare_entries_from (c0:ccache) (c:ccache{cgrow c0 c}) (raw:list raw_en
         | _ -> fail sorts)
      | _ -> not_found MissingExpression fe)
 
-let prepare_certificate (c:ccache) (raw:list raw_entry) (root:int) : step (ccache & prepared) =
+(* `c` with the prepared certificate of entry `i` recorded. *)
+let record (c:ccache) (i:nat) (cert:binder_certificate) (hs:list nat{DGP.handles_ok c.graph cert.binder_entries hs})
+  : c':ccache{c'.graph == c.graph} =
+  reveal_caches c;
+  let t = I.index_put c.preps i ({ rcert = cert; rhandles = hs }) in
+  let aux (k:nat) : Lemma (match I.index_get t k with
+                           | Some r -> DGP.handles_ok c.graph r.rcert.binder_entries r.rhandles
+                           | None -> True)
+    = I.lemma_index_put c.preps i ({ rcert = cert; rhandles = hs }) k in
+  FStar.Classical.forall_intro aux;
+  reveal_caches ({ c with preps = t });
+  { c with preps = t }
+
+(* The certificate of entry `i` rebuilt from the cache, and recorded in it
+   (`1 + table_units` of storage): the document's prepared certificates live
+   in the one cache of its graph. *)
+let prepare_certificate (c:ccache) (raw:list raw_entry) (root:int) (i:nat) : step (ccache & prepared) =
   CG.lemma_cgrows_refl c.graph;
   let r = prepare_entries_from c c raw [] [] in
   match r with
@@ -522,20 +564,29 @@ let prepare_certificate (c:ccache) (raw:list raw_entry) (root:int) : step (ccach
     let c' = e.ecache in
     let es = e.eentries in
     let hs = e.ehandles in
-    Built (c', { pgraph = c'.graph; pcert = { binder_entries = es; binder_root = root }; phandles = hs })
+    let cert = { binder_entries = es; binder_root = root } in
+    (* the record's table update, charged *)
+    let sp = spend c' 0 (1 + tu) in
+    (match sp with
+     | Built c1 ->
+       lemma_handles_grow c'.graph c1.graph es hs;
+       let c'' = record c1 i cert hs in
+       Built (c'', { pgraph = c''.graph; pcert = cert; phandles = hs })
+     | _ -> fail sp)
   | _ -> fail r
 
 (* Why a quantifier introduction of an opt-in document has no prepared
    certificate: its preparation stopped (a graph phase exhausted, or an input
    the builders do not take), its document is clausal (whose entries are
-   renumbered when it is pruned), its document has definitions (whose
-   expansion changes the certificate after it was prepared: the prepared one
-   is not the one the default checks), or no preparation was recorded for it. *)
+   renumbered when it is pruned), the expansion of its document's
+   definitions on the graph stopped (a graph phase exhausted, or a node it
+   does not rebuild: `expand_prepared`), or no preparation was recorded for it. *)
 type unprepared_reason =
   | UnpreparedExhausted : phase:T.phase -> unprepared_reason
   | UnpreparedInvalid : reason:invalid_reason -> unprepared_reason
   | UnpreparedClausal
-  | UnpreparedDefinitions
+  | UnpreparedExpansionExhausted : phase:T.phase -> unprepared_reason
+  | UnpreparedExpansionInvalid
   | UnpreparedAbsent
 
 let reason_of (#a:Type) (r:step a) : unprepared_reason =
@@ -547,27 +598,53 @@ let reason_of (#a:Type) (r:step a) : unprepared_reason =
 (* A lookup in the cache that its budget no longer pays. *)
 let lookup_exhausted : unprepared_reason = UnpreparedExhausted T.Preparation
 
-(* The preparation of one quantifier introduction: its prepared certificate,
-   or why there is none with the graph units (preparation, storage) that the
-   steps before the one that stopped used of the certificate's allowance. *)
-noeq
-type preparation =
-  | Ready : p:prepared -> preparation
-  | Unready : reason:unprepared_reason -> used:option (nat & nat) -> preparation
+(* What the marshaler recorded for one quantifier introduction: its
+   certificate was prepared (and recorded in the document's cache) with the
+   graph units (preparation, storage) its preparation used of its allowance,
+   or why it was not, with the units the steps before the one that stopped
+   used. *)
+type mark =
+  | Recorded : used:(nat & nat) -> mark
+  | NotRecorded : reason:unprepared_reason -> used:option (nat & nat) -> mark
 
-(* The preparations of a document's quantifier introductions, by entry. *)
+(* The marks of a document's quantifier introductions, by entry, and the
+   document's checked cache after its marshaling. *)
 noeq
 type companions = {
   clausal: bool;
-  preparations: I.index_tree preparation;
+  final: option ccache;
+  marks: I.index_tree mark;
 }
 
-let no_companions : companions = { clausal = false; preparations = I.Empty }
+let no_companions : companions = { clausal = false; final = None; marks = I.Empty }
 
-let preparation_of (cs:companions) (i:nat) : preparation =
+(* The preparation of one quantifier introduction: its prepared certificate
+   in the document's graph, with the units its preparation used, or why
+   there is none. *)
+noeq
+type preparation =
+  | Ready : p:prepared -> used:(nat & nat) -> preparation
+  | Unready : reason:unprepared_reason -> used:option (nat & nat) -> preparation
+
+(* The document's graph, of its cache after marshaling. *)
+let base_graph (cs:companions) : g:CG.cgraph{CG.graph_inv g} =
+  match cs.final with
+  | Some c -> c.graph
+  | None -> empty_cache.graph
+
+let preparation_of (cs:companions) (i:nat)
+  : r:preparation{Ready? r ==> (Ready?.p r).pgraph == base_graph cs} =
   if cs.clausal then Unready UnpreparedClausal None
-  else match I.index_get cs.preparations i with
-    | Some p -> p
+  else match I.index_get cs.marks i with
+    | Some (NotRecorded w u) -> Unready w u
+    | Some (Recorded u) ->
+      (match cs.final with
+       | Some c ->
+         reveal_caches c;
+         (match I.index_get c.preps i with
+          | Some r -> Ready ({ pgraph = c.graph; pcert = r.rcert; phandles = r.rhandles }) u
+          | None -> Unready UnpreparedAbsent None)
+       | None -> Unready UnpreparedAbsent None)
     | None -> Unready UnpreparedAbsent None
 
 (* --- The check -------------------------------------------------------------------------------------- *)
@@ -600,14 +677,184 @@ let dag_budget (n:nat) : G.resource_budget = {
   G.storage = dag_storage_per_entry * (n + 1);
 }
 
-(* The units the checked graph spent on a prepared certificate, of its allowance. *)
-let graph_used (p:prepared) : nat & nat =
-  let shares = count_cells 0 p.pcert.binder_entries + 1 in
-  let gp = graph_preparation_per_entry * shares in
-  let gs = graph_storage_per_entry * shares in
-  ((if p.pgraph.CG.prep <= gp then gp - p.pgraph.CG.prep else 0),
-   (if p.pgraph.CG.store <= gs then gs - p.pgraph.CG.store else 0))
+(* --- Definitions: the prepared certificate after their expansion -------------------------------- *)
 
+(* The entries `es` with the formulas stored at the nodes `ys`, in order,
+   by a self tail call (`acc` last first). *)
+let rec with_values (g:CG.cgraph) (es:list binder_entry) (ys:list nat) (acc:list binder_entry)
+  : Tot (option (list binder_entry)) (decreases es) =
+  match es, ys with
+  | [], [] -> Some (L.rev acc)
+  | e :: es', y :: ys' ->
+    (match CG.value_of g y with
+     | Some w -> with_values g es' ys' ({ e with binder_formula = w } :: acc)
+     | None -> None)
+  | _, _ -> None
+
+noextract
+let rec with_values_spec (g:CG.cgraph) (es:list binder_entry) (ys:list nat)
+  : Tot (option (list binder_entry)) (decreases es) =
+  match es, ys with
+  | [], [] -> Some []
+  | e :: es', y :: ys' ->
+    (match CG.value_of g y, with_values_spec g es' ys' with
+     | Some w, Some r -> Some ({ e with binder_formula = w } :: r)
+     | _, _ -> None)
+  | _, _ -> None
+
+let rec lemma_with_values (g:CG.cgraph) (es:list binder_entry) (ys:list nat) (acc:list binder_entry)
+  : Lemma (ensures with_values g es ys acc ==
+                   (match with_values_spec g es ys with
+                    | Some r -> Some (L.append (L.rev acc) r)
+                    | None -> None))
+          (decreases es)
+  = match es, ys with
+    | [], [] -> L.append_l_nil (L.rev acc)
+    | e :: es', y :: ys' ->
+      (match CG.value_of g y with
+       | Some w ->
+         let e' = { e with binder_formula = w } in
+         lemma_with_values g es' ys' (e' :: acc);
+         Z3List.lemma_rev_cons e' acc;
+         (match with_values_spec g es' ys' with
+          | Some r -> L.append_assoc (L.rev acc) [e'] r
+          | None -> ())
+       | None -> ())
+    | _, _ -> ()
+
+noextract
+let formulas (es:list binder_entry) : list expr = L.map (fun (e:binder_entry) -> e.binder_formula) es
+
+(* `es'` is `es` with each formula replaced by its expansion with fuel `f`. *)
+noextract
+let rec expanded_rel (defs:list D.definition) (f:nat) (es es':list binder_entry) : Tot prop (decreases es) =
+  match es, es' with
+  | [], [] -> True
+  | e :: r, e' :: r' ->
+    e' == { e with binder_formula = e'.binder_formula } /\
+    D.expand f defs e.binder_formula == Some e'.binder_formula /\ expanded_rel defs f r r'
+  | _, _ -> False
+
+let rec lemma_handles_values (g:CG.cgraph) (es:list binder_entry) (hs:list nat)
+  : Lemma (requires DGP.handles_ok g es hs)
+          (ensures CS.all_below hs (CG.node_count g) /\ CG.values_of g hs == Some (formulas es))
+          (decreases es)
+  = match es, hs with
+    | _ :: es', _ :: hs' -> lemma_handles_values g es' hs'
+    | _, _ -> ()
+
+let rec lemma_expanded_entries (defs:list D.definition) (f:nat) (g:CG.cgraph) (es:list binder_entry)
+                               (ys:list nat) (ws:list expr)
+  : Lemma (requires CG.values_of g ys == Some ws /\ I.opt_map (D.expand f defs) (formulas es) == Some ws /\
+                    CS.all_below ys (CG.node_count g))
+          (ensures (match with_values_spec g es ys with
+                    | Some es' -> DGP.handles_ok g es' ys /\ expanded_rel defs f es es'
+                    | None -> False))
+          (decreases es)
+  = match es, ys, ws with
+    | _ :: es', _ :: ys', _ :: ws' -> lemma_expanded_entries defs f g es' ys' ws'
+    | _, _, _ -> ()
+
+(* The entries `es` (formulas at the nodes `xs` of `g0`) with the formulas
+   of the nodes `ys` of `g` that store their expansions. *)
+let expanded_entries (defs:list D.definition) (g0 g:CG.cgraph) (es:list binder_entry) (xs ys:list nat)
+  : Pure (option (list binder_entry))
+         (requires DGP.handles_ok g0 es xs /\ CS.all_below ys (CG.node_count g) /\
+                   (match CG.values_of g0 xs, CG.values_of g ys with
+                    | Some vs, Some ws -> I.opt_map (D.expand (L.length defs) defs) vs == Some ws
+                    | _, _ -> False))
+         (ensures fun r -> match r with
+                        | Some es' -> DGP.handles_ok g es' ys /\ expanded_rel defs (L.length defs) es es'
+                        | None -> True) =
+  lemma_handles_values g0 es xs;
+  lemma_with_values g es ys [];
+  (match CG.values_of g ys with Some ws -> lemma_expanded_entries defs (L.length defs) g es ys ws | None -> ());
+  with_values g es ys []
+
+let expansion_reason (b:CG.built) : unprepared_reason =
+  match b with
+  | CG.BuildExhausted p -> UnpreparedExpansionExhausted p
+  | _ -> UnpreparedExpansionInvalid
+
+(* The document's expansion context: one graph grown from the document's
+   graph (`base_graph`), the nodes of the definitions' bodies imported so far
+   (by position in the document's definitions `defs`, fixed for the
+   document's check), and the one allowance of the document's expansions,
+   set once (`expansion_context`) and never refilled. A body is imported once
+   per document and reused by every later certificate. *)
+noeq
+type xcontext = { xgraph: CG.cgraph; xbodies: I.index_tree nat }
+
+let xok (defs:list D.definition) (base:CG.cgraph) (x:xcontext) : prop =
+  CG.graph_inv x.xgraph /\ CG.cgrows base x.xgraph /\ CX.bodies_ok defs x.xgraph x.xbodies
+
+type context (defs:list D.definition) (base:CG.cgraph) = x:xcontext{xok defs base x}
+
+let expansion_context (defs:list D.definition) (cs:companions) (prep store:nat) : context defs (base_graph cs) =
+  let g = base_graph cs in
+  CG.lemma_budget g prep store;
+  { xgraph = { g with CG.prep = prep; CG.store = store }; xbodies = I.Empty }
+
+(* The context after an expansion that stopped: its allowance is spent. *)
+let spent (#defs:list D.definition) (#base:CG.cgraph) (x:context defs base) : context defs base =
+  let g' = { x.xgraph with CG.prep = 0; CG.store = 0 } in
+  CG.lemma_budget x.xgraph 0 0;
+  CX.lemma_bodies_grows defs x.xgraph g' x.xbodies;
+  CG.lemma_cgrows_trans base x.xgraph g';
+  { x with xgraph = g' }
+
+let prepared_rel (defs:list D.definition) (p:prepared) (r:preparation) : prop =
+  match r with
+  | Ready p' _ ->
+    (match defs with
+     | [] -> p' == p
+     | _ -> p'.pcert.binder_root == p.pcert.binder_root /\
+           expanded_rel defs (L.length defs) p.pcert.binder_entries p'.pcert.binder_entries)
+  | Unready _ _ -> True
+
+(* `xdebit`: the units (preparation, storage) that a successful expansion
+   charged to the document's expansion allowance, a debit of the document's
+   one ledger, not a budget of its own; `xforfeit`: when the expansion
+   stopped, what the allowance still held when it began, forfeited (it
+   includes what the stopped attempt used, which is not reported apart). *)
+noeq
+type expanded_prep (defs:list D.definition) (base:CG.cgraph) = {
+  xprep: preparation;
+  xctx: context defs base;
+  xdebit: option (nat & nat);
+  xforfeit: option (nat & nat);
+}
+
+(* The prepared certificate `p` (in the document's graph) of a document with
+   definitions `defs`: each entry's formula expanded in the document's
+   context (`Z3CheckedExpansion.expand_nodes`, with the fuel the default
+   expansion has, the bodies imported by earlier certificates reused); the
+   handles are those of the expanded formulas. An expansion that stops
+   leaves the certificate pending, with why (`expansion-exhausted`,
+   `expansion-invalid`), and forfeits what is left of the allowance. *)
+let expand_prepared (defs:list D.definition) (#base:CG.cgraph) (x:context defs base)
+                    (p:prepared{p.pgraph == base}) (used:nat & nat)
+  : r:expanded_prep defs base{prepared_rel defs p r.xprep} =
+  match defs with
+  | [] -> { xprep = Ready p used; xctx = x; xdebit = None; xforfeit = None }
+  | _ ->
+    let p0 = x.xgraph.CG.prep in
+    let s0 = x.xgraph.CG.store in
+    lemma_handles_grow base x.xgraph p.pcert.binder_entries p.phandles;
+    lemma_handles_values x.xgraph p.pcert.binder_entries p.phandles;
+    match CX.expand_nodes defs (L.length defs) x.xgraph x.xbodies p.phandles with
+    | CX.ExpandStopped b ->
+      { xprep = Unready (expansion_reason b) (Some used); xctx = spent x; xdebit = None; xforfeit = Some (p0, s0) }
+    | CX.ExpandedNodes g' bodies' ys ->
+      CG.lemma_cgrows_trans base x.xgraph g';
+      let x' : context defs base = { xgraph = g'; xbodies = bodies' } in
+      let units = Some ((if g'.CG.prep <= p0 then p0 - g'.CG.prep else 0),
+                        (if g'.CG.store <= s0 then s0 - g'.CG.store else 0)) in
+      match expanded_entries defs x.xgraph g' p.pcert.binder_entries p.phandles ys with
+      | Some es' ->
+        let p' : prepared = { pgraph = g'; pcert = { p.pcert with binder_entries = es' }; phandles = ys } in
+        { xprep = Ready p' used; xctx = x'; xdebit = units; xforfeit = None }
+      | None -> { xprep = Unready UnpreparedExpansionInvalid (Some used); xctx = x'; xdebit = units; xforfeit = None }
 let verify_binder_dag (skolems:list SK.definition) (assertions:list judgment) (p:prepared) (concl:judgment)
   : G.binder_outcome =
   let c = p.pcert in

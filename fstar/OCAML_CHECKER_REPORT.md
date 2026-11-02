@@ -4880,7 +4880,9 @@ certificates and is unchanged.
   re-established at every update. `prepare_certificate` rebuilds the certificate from the graph:
   each entry's formula is the expression stored at the node of its native conclusion, so the
   prepared certificate and its node handles satisfy `handles_ok` by construction; the document
-  holds the prepared certificate. Each preparation step returns `Built`, `Exhausted` with the
+  holds the prepared certificate, and the cache records it by entry (`preps`, whose `preps_ok`
+  is part of the cache's invariant and is kept by every later update of the graph, so every
+  recorded certificate's handles are valid in the document's one final graph). Each preparation step returns `Built`, `Exhausted` with the
   graph phase (preparation or storage), or `Invalid` with the input the builders do not take (an
   expression, sort or declaration id the cache does not hold, or a refused node such as one that
   is not earlier); the sort, expression, argument and entry walks are worklists or self tail calls
@@ -4889,18 +4891,66 @@ certificates and is unchanged.
   `outcome=unprepared` with `reason=exhausted` and `phase=graph-preparation` or
   `phase=graph-storage`, `reason=invalid:missing-expression|missing-sort|missing-declaration|refused-node`,
   `reason=clausal` (a clausal document, whose entries are renumbered when it is pruned),
-  `reason=definitions` (see below) or `reason=absent` (no preparation recorded). For an exhausted
+  `reason=expansion-exhausted` with `phase=graph-preparation` or `phase=graph-storage` and
+  `reason=expansion-invalid` (the expansion of the document's definitions stopped; see below) or
+  `reason=absent` (no preparation recorded). For an exhausted
   or invalid preparation, `graph-preparation=used/limit` and `graph-storage=used/limit` are the
   units that the steps before the one that stopped used of the certificate's allowance (the
   stopped step's own charge is not included). Exhaustion and invalid input are both pending, never
   a rejection, and neither falls back to the default check.
-- Documents with definitions (interim): the default checks a quantifier introduction after
-  expanding the document's definitions in its certificate (`prepare_entry_using`), while the
-  prepared certificate is the one marshaled before definitions are collected. Until the checked
-  graph expands definitions itself, every quantifier introduction of a document with definitions
-  is unprepared with `reason=definitions` and pending, even where the default certifies it (for
-  example the negative-NNF certificates whose roots are definition-expanded); the unexpanded
-  certificate is never checked in its place.
+- Documents with definitions (W6): the default checks a quantifier introduction after expanding
+  the document's definitions in its certificate's formulas (`prepare_entry_using`, fuel the
+  number of definitions). The opt-in mode checks the same certificate, expanded on the checked
+  graph (`Z3CheckedExpansion`): `glift`, `ginst` and `expand_nodes` build, from a node, the node
+  that stores `Z3Definitions.lift`, `instantiate` and `expand` of its expression, each from the
+  nodes of its rebuilt children (a lift memoised by shift, cutoff and node, an instance by binder
+  depth and node with the call's fixed variables and argument nodes, an expansion by fuel and node
+  with the document's fixed definitions); a node whose children are unchanged is the node itself;
+  the instance of a definition's body is expanded with one less fuel by a frame that carries
+  `D.expand f e == D.expand (f - 1) instance`. The spec functions appear only in the proofs; at
+  run time nothing compares or expands a whole expression. All four loops (lift, instantiation,
+  expansion, and the import of a body) are explicit worklists in self tail calls; each frame is
+  checked again when it is taken. `Z3DagDocument.expand_prepared` expands each entry's formula of a
+  prepared certificate and returns the certificate with the expanded formulas and their nodes
+  (`handles_ok` earned again, and `expanded_rel`); `Z3VerifiedDocument.lemma_dag_preparation`
+  proves that it is the default's expanded certificate
+  (`expand_rule_using defs (QuantifierIntroduction p.pcert) == Some (QuantifierIntroduction p'.pcert)`).
+  A definition's body is an expression of the document, not a node: it is imported into the graph
+  (`intern_expr`, a worklist over the expression, each subexpression charged; a body that is a
+  DAG in memory is imported as its tree, so the import is not bounded by its unique nodes) once
+  per document check and reused through its node by every later certificate: the document's
+  expansion context holds one graph grown from the document's final graph, the nodes of the
+  bodies imported so far (by position in the document's definitions, which are fixed for the
+  check) and one allowance for all its expansions and imports, `graph_preparation_per_entry` and
+  `graph_storage_per_entry` per share of the document's quantifier introductions (`n + 1` per
+  certificate of `n` entries), set once and never refilled; an expansion that stops spends what
+  is left. The allowance is `16,384` preparation and `4,096` storage units times the number of
+  shares, read from the document's entries once its input is read (an arbitrary-precision count,
+  no overflow; no user-supplied credit). Its rows are debits of that one document ledger, not
+  budgets of their own: `expansion-debit-preparation` and `expansion-debit-storage` are what a
+  certificate's successful expansion charged to it; when an expansion stops,
+  `expansion-forfeited-preparation` and `expansion-forfeited-storage` are what the allowance held
+  when that expansion began, forfeited (they include what the stopped attempt used, which is not
+  measured apart, and are not reported as work), and every later expansion of the document finds
+  the allowance spent (fail-closed forfeiture). The common marshaler's reading of the native proof
+  stays outside every budget. A certificate whose expansion stops is pending
+  (`reason=expansion-exhausted` or `reason=expansion-invalid`), never checked unexpanded. A rebuilt quantifier keeps its sort only when its body's sort id is
+  the old one, and an application is rebuilt only when its declaration's domain matched its
+  arguments; otherwise the node is not rebuilt (`expansion-invalid`), a completeness limit for
+  ill-sorted definitions. Opt-in-only work these units count as one unit per definition compared:
+  the structural comparison of declarations in a definition lookup (as in `Z3Definitions.lookup`).
+  Recording a prepared certificate in the cache costs `1 + table_units` storage units of its
+  allowance. A lift by 0 (an argument instantiated outside any binder) is the argument's node
+  itself: without that, a deep test (100,000 nested applications of a defined symbol) exhausted
+  its preparation in a walk per level. Native tests (W6, both backends; `opt-in-dag-definitions-expanded`,
+  `opt-in-dag-definition-expansion`, `Z3CheckedExpansionTests`): the graph expansion of a prepared
+  certificate is the default's expanded certificate and is checked, its invalid-leaf mutant is not;
+  in one document of three certificates using one definition the first pays the body's import
+  (debits 12,901, 11,724, 11,724 units; a one-certificate document 12,901); one unit short of its
+  units an expansion is exhausted and pending, and a later certificate finds the allowance spent;
+  lift, instance and expansion agree with `Z3Definitions` on nested binders, swapped variables,
+  different arguments, chains, cycles and unbound variables; 100,000 nested applications are
+  imported, lifted, instantiated and expanded under the 8 MiB stack (OCaml 7.2 s, 200,008 nodes).
 - Guard (`Z3DagScope`, `Z3DagGuard`): the backward pass of `verified-sorts-v1` over the graph's
   sort table, then a memoised forward pass: each demanded scope is interned to a canonical scope id
   (`lemma_scope_canonical`) and the judgment's nodes are walked there, recording a node/scope pair

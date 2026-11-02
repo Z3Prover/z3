@@ -170,6 +170,9 @@ let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
 let verified_is_check (force_sorted:bool) (m:C.marshaled) : bool =
   P.diagnostic_result (C.diagnose_verified force_sorted m).Z3VerifiedDocument.diagnostic = C.check force_sorted m
 
+(* The position of the first failing definition-expansion check, 0 if none. *)
+let expansion_failure () : int = Z3CheckedExpansionTests.first_failure ()
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -197,4 +200,5 @@ let run () : bool =
   verified_is_check false bad_root && verified_is_check false missing_input &&
   verified_is_check false bad_rule && verified_is_check false pending &&
   Z3CheckedGuardTests.run () &&
-  Z3CheckedGraphTests.run ()
+  Z3CheckedGraphTests.run () &&
+  Z3CheckedExpansionTests.run ()
