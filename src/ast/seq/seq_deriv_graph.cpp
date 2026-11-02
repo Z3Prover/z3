@@ -184,23 +184,30 @@ namespace seq {
         m_out[i].push_back(q);
     }
 
-    void deriv_graph::explore(expr* r, unsigned budget) {
+    bool deriv_graph::explore(expr* r, unsigned budget) {
+        if (m_saturated.contains(r))
+            return true;
         // eagerly only once per region: what an earlier exploration reached grows lazily
         if (m_explored.contains(r))
-            return;
+            return false;
         ptr_vector<expr> todo;
         obj_hashtable<expr> seen;
         todo.push_back(r);
         seen.insert(r);
+        bool complete = true;
         for (unsigned i = 0; i < todo.size(); ++i) {
             expr* p = todo[i];
             if (!m_expanded.contains(p)) {
-                if (budget == 0)
+                if (budget == 0) {
+                    complete = false;
                     continue;
+                }
                 --budget;
                 auto const* t = trans(p);
-                if (!t)
+                if (!t) {
+                    complete = false;
                     continue;
+                }
                 m_expanded.insert(p);
                 for (auto const& x : *t)
                     record(p, x.target);
@@ -214,7 +221,10 @@ namespace seq {
         for (expr* p : todo) {
             pin(p);
             m_explored.insert(p);
+            if (complete)
+                m_saturated.insert(p);
         }
+        return complete;
     }
 
     bool deriv_graph::on_cycle(expr* r) {

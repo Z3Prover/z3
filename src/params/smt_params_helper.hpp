@@ -173,7 +173,7 @@ Abstract:
   BOOL_  (seq_regex_precheck,                      "seq.regex_precheck",                      true,                     "nseq: incremental single-variable regex-intersection feasibility check") \
   BOOL_  (seq_landing,                             "seq.landing",                             true,                     "nseq: landing decomposition of regex memberships over the explored part of the derivative automaton") \
   UINT_  (seq_landing_explore,                     "seq.landing_explore",                     512,                      "nseq: number of derivative states explored eagerly before a landing") \
-  BOOL_  (seq_landing_joint,                       "seq.landing_joint",                       false,                    "nseq: land all memberships a variable leads together, over the product of their regions") \
+  BOOL_  (seq_landing_joint,                       "seq.landing_joint",                       true,                     "nseq: land all memberships a variable leads together, over the product of their regions") \
   BOOL_  (seq_landing_probes,                      "seq.landing_probes",                      true,                     "nseq: before landing, try x = epsilon and x = a under a node budget") \
   BOOL_  (seq_landing_length,                      "seq.landing_length",                      true,                     "nseq: length abstraction of gated views") \
   BOOL_  (seq_landing_eq_test,                     "seq.landing_eq_test",                     false,                    "nseq: refute an equation whose sides have disjoint over-approximations by the regex constraints on their variables") \

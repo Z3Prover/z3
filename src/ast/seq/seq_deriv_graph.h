@@ -77,6 +77,7 @@ namespace seq {
         obj_pair_hashtable<expr, expr> m_edges;
         obj_hashtable<expr> m_expanded;
         obj_hashtable<expr> m_explored;
+        obj_hashtable<expr> m_saturated;    // every state reachable from them is expanded
         scoped_ptr_vector<region> m_regions;
         std::map<std::vector<unsigned>, region*> m_region_ids;
         obj_map<expr, lbool> m_nullable;
@@ -109,7 +110,8 @@ namespace seq {
         // does the run of a view end accepting at s
         lbool accepts(view const& v, expr* s) { return accepts(comp(v, false), s); }
         void record(expr* p, expr* q);
-        void explore(expr* r, unsigned budget);
+        // expand G from r by up to budget states; true if all of r's reach is expanded
+        bool explore(expr* r, unsigned budget);
         bool on_cycle(expr* r);
         region const* reach_region(expr* r);
         region const* singleton(expr* r);

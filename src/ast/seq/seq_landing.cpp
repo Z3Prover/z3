@@ -393,7 +393,8 @@ namespace seq {
 
     // ---- mem_landing_split --------------------------------------------------------------
 
-    // the region a member lands in: a fixed gate, the explored region of a head on a cycle, or {r}
+    // the region a member lands in: a fixed gate, the explored region of a head on a cycle or whose
+    // reach is fully explored, or {r}
     bool mem_landing_split::mk_member(eq_tree::node& n, member& mb, bool cyclic_only) {
         auto& g = m_graph;
         expr* r = mb.m_view.m_state;
@@ -403,13 +404,15 @@ namespace seq {
             mb.m_gate = mb.m_view.m_gate;
             return true;
         }
-        g.explore(r, get_ambient(n).fparams().m_seq_landing_explore);
-        bool cyclic = g.on_cycle(r);
-        if (cyclic_only && !cyclic)
+        // a saturated region has no frontier: landing there needs no escape and no unwinding
+        bool full = g.explore(r, get_ambient(n).fparams().m_seq_landing_explore) || g.on_cycle(r);
+        if (cyclic_only && !full)
             return false;
-        mb.m_gate = cyclic ? g.reach_region(r) : g.singleton(r);
-        if (cyclic)
+        mb.m_gate = full ? g.reach_region(r) : g.singleton(r);
+        if (full)
             g.sweep(*mb.m_gate);
+        else
+            m_stats.m_num_unwind++;
         return true;
     }
 
@@ -512,8 +515,6 @@ namespace seq {
 
         if (!mk_member(n, ms[0], cyclic_only))
             return false;
-        if (!ms[0].m_view.is_gated() && ms[0].m_gate->m_states.size() == 1 && !g.on_cycle(ms[0].m_view.m_state))
-            m_stats.m_num_unwind++;
         // the other memberships x leads land together with it
         for (unsigned j = 0; ac.fparams().m_seq_landing_joint && j < mf.memberships().size(); ++j) {
             str_mem const& sm2 = mf.memberships()[j];
@@ -732,8 +733,9 @@ namespace seq {
                 return nullptr;
             }
         }
-        // land at plain heads on a cycle of G, then at gated heads, and unwind only if neither
-        // exists; memberships in the order they were asserted, as rewriting appends them
+        // land at plain heads on a cycle of G or with a saturated reach, then at gated heads, and
+        // unwind only if neither exists; memberships in the order they were asserted, as rewriting
+        // appends them
         unsigned_vector order;
         for (unsigned i = 0; i < mf.memberships().size(); ++i)
             if (mf.memberships()[i].active())

@@ -31,8 +31,9 @@ Abstract:
       mem_landing_split    derivative steps on plain memberships (recording G),
                            subsumption, probes, and the land / escape branches;
                            unwinding (the region {r}) at heads that are not on
-                           a cycle of G.  All memberships the variable leads
-                           land together, over the product of their regions.
+                           a cycle of G and whose reach is not fully explored.
+                           All memberships the variable leads land together,
+                           over the product of their regions.
 
     G is owned by landing_propagation and outlives every view built over it.
 

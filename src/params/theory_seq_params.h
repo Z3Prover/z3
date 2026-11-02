@@ -73,7 +73,7 @@ struct theory_seq_params {
     bool m_seq_landing = true;
     unsigned m_seq_landing_explore = 512;
     bool m_seq_landing_probes = true;
-    bool m_seq_landing_joint = false;
+    bool m_seq_landing_joint = true;
     bool m_seq_landing_length = true;
     bool m_seq_landing_eq_test = false;
 
