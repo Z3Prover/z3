@@ -607,7 +607,8 @@ let check_proof statistics diagnostics readable query sorted_core verified dag s
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
   let sorted = datatype || sorted_core in
   (* --resource-accounting verified-sorts-v1: one diagnosed check in that mode, whose result is the
-     verdict, with or without --diagnostics. The sorted route never reads binder certificates. *)
+     verdict, with or without --diagnostics. The sorted route does not use the checked guard (its NNF
+     replay calls the default guard) and is unchanged. *)
   let rows = ref [] in
   let result, diagnostic =
     if verified then (

@@ -66,7 +66,8 @@ let diagnose (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marsha
 
 (* The opt-in accounting mode `verified-sorts-v1`: one diagnosed check, whose result is the
    verdict. On the legacy route quantifier introductions use the checked guard
-   (Z3VerifiedDocument); the sorted route never reads binder certificates and is unchanged. *)
+   (Z3VerifiedDocument); the sorted route does not use the checked guard (its NNF replay,
+   Z3NnfReplay, calls the default guard) and is unchanged. *)
 let diagnose_verified (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marshaled)
   : Z3VerifiedDocument.verified_diagnostic =
   if sorted force_sorted m

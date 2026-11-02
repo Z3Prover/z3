@@ -183,8 +183,11 @@ uploads to GitHub Packages. Neither publication path is enabled in this prototyp
   or hosted-runner machines does not prove a clean Windows installation has
   that runtime. Redistribution scope/licensing and clean-machine testing must
   be resolved before claiming a standalone Windows distribution.
-- Platform names follow #10529 (`linux-x64`, `osx-arm64`, `win-x64` etc.); add
-  architectures only with pinned JNI inputs and native execution evidence.
+- Platform keys follow #10529 (`linux-x64`, `osx-arm64`, `win-x64` etc.) and are
+  also the .NET runtime identifiers used by the NuGet path; Maven publishes them
+  under the `os-maven-plugin` spelling (`linux-x86_64`, `windows-x86_64`,
+  `osx-aarch_64`, `linux-aarch_64`). Add architectures only with pinned JNI
+  inputs and native execution evidence.
 - Temp-directory availability, failure diagnostics, skip behavior and Java 8
   compatibility are required. Cleanup of mapped DLLs and multiple independent
   classloaders remain explicitly bounded behavior.
@@ -207,8 +210,8 @@ therefore has a one-platform `all` JAR; use the full CI selection for the
 cross-platform distribution.
 
 For Maven consumers, choose `<classifier>all</classifier>` for the shared
-cross-platform JAR, or e.g. `<classifier>win-x64</classifier>` for the smaller
-platform JAR. Coordinates are still test-only; none of these files has been
+cross-platform JAR, or e.g. `<classifier>windows-x86_64</classifier>` for the
+smaller platform JAR; `all` is roughly the sum of the platform JARs. Coordinates are still test-only; none of these files has been
 published to a Maven registry. The default artifact remains API-only for
 compatibility with external native installations.
 

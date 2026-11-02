@@ -161,6 +161,106 @@ let name_units_agree (s:string) : bool =
   units_within s n n && units_within s n (n + 1) &&
   units_within s n 1267650600228229401496703205376
 
+(* The NNF certificate replay (Z3NnfReplay) at native scale: its walks are
+   loops. A chain of 200,000 transitivity steps, a 100,000-ary disjunction,
+   200,000 nested negations (replayed with enough unused padding entries for
+   the work budget, pending without them), a shared term whose tree has 2^60
+   nodes (pending: the budget is charged per tree node, so the walk stops
+   early), and a forward premise id (malformed). *)
+let nnf_p : A.expr =
+  A.App { A.decl_name = "p"; A.domain = []; A.range = A.bool_sort; A.interp = None; A.int_params = [] } []
+
+let nnf_oeq (a b:A.expr) : A.expr = Z3ObservationalEquality.mk_oeq_expr a b
+
+let rec nnf_chain (count k:nat) (acc:list U.binder_entry) : Tot (list U.binder_entry) (decreases count) =
+  if count = 0 then acc
+  else nnf_chain (count - 1) (k + 1) (binder_entry "trans" (nnf_oeq nnf_p nnf_p) [k; 0] :: acc)
+
+let rec nnf_copies (#a:Type) (count:nat) (x:a) (acc:list a) : Tot (list a) (decreases count) =
+  if count = 0 then acc else nnf_copies (count - 1) x (x :: acc)
+
+let nnf_verdict (entries:list U.binder_entry) (root:int) (lhs rhs:A.expr) : Z3NnfReplay.verdict =
+  Z3NnfReplay.replay [] ({ U.binder_entries = entries; U.binder_root = root }) (U.Observational lhs rhs)
+
+let nnf_wide (n pad:nat) : Z3NnfReplay.verdict =
+  let np = R.mk_not_expr nnf_p in
+  let ps = nnf_copies n nnf_p [] in
+  let nps = nnf_copies n np [] in
+  let bools = nnf_copies n A.bool_sort [] in
+  let disjunction = A.App { A.decl_name = "or"; A.domain = bools; A.range = A.bool_sort;
+                            A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } ps in
+  let conjunction = A.App { A.decl_name = "and"; A.domain = bools; A.range = A.bool_sort;
+                            A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } nps in
+  nnf_verdict (binder_entry "refl" (nnf_oeq np np) [] ::
+               binder_entry "nnf-neg" (nnf_oeq (R.mk_not_expr disjunction) conjunction) (nnf_copies n 0 []) ::
+               padding pad [])
+    1 (R.mk_not_expr disjunction) conjunction
+
+let nnf_deep (depth pad:nat) : Z3NnfReplay.verdict =
+  let deep = nested_not depth nnf_p in
+  let twice = R.mk_not_expr (R.mk_not_expr deep) in
+  nnf_verdict (binder_entry "refl" (nnf_oeq deep deep) [] ::
+               binder_entry "nnf-neg" (nnf_oeq twice deep) [0] :: padding pad [])
+    1 twice deep
+
+let nnf_replay_scale () : bool =
+  let twice = R.mk_not_expr (R.mk_not_expr nnf_p) in
+  let chain = FStar.List.Tot.rev
+    (binder_entry "nnf-neg" (nnf_oeq twice nnf_p) [200000] ::
+     nnf_chain 200000 0 [binder_entry "refl" (nnf_oeq nnf_p nnf_p) []]) in
+  let big = shared_expression 60 nnf_p in
+  let big_twice = R.mk_not_expr (R.mk_not_expr big) in
+  nnf_verdict chain 200001 twice nnf_p = Z3NnfReplay.Replayed &&
+  nnf_wide 100000 200 = Z3NnfReplay.Replayed &&
+  nnf_wide 100000 0 = Z3NnfReplay.Unreplayed &&
+  nnf_deep 200000 800 = Z3NnfReplay.Replayed &&
+  nnf_deep 200000 0 = Z3NnfReplay.Unreplayed &&
+  nnf_verdict [binder_entry "refl" (nnf_oeq big big) []; binder_entry "nnf-neg" (nnf_oeq big_twice big) [0]]
+    1 big_twice big = Z3NnfReplay.Unreplayed &&
+  nnf_verdict [binder_entry "refl" (nnf_oeq nnf_p nnf_p) [1]; binder_entry "nnf-neg" (nnf_oeq twice nnf_p) [0]]
+    1 twice nnf_p = Z3NnfReplay.Malformed
+
+(* The premise-id boundary of the NNF replay is structural: forward, self,
+   negative and missing (past the last entry) ids make a certificate
+   Malformed and its document is rejected; a valid earlier id and one id
+   shared by two children replay; an unsupported rule with valid ids stays
+   pending (Unreplayed), and a valid certificate document is certified. *)
+let nnf_premise_boundary () : bool =
+  let np = R.mk_not_expr nnf_p in
+  let twice = R.mk_not_expr np in
+  let double (ids:list int) : Z3NnfReplay.verdict =
+    nnf_verdict [binder_entry "refl" (nnf_oeq nnf_p nnf_p) []; binder_entry "nnf-neg" (nnf_oeq twice nnf_p) ids]
+      1 twice nnf_p in
+  let two : list A.sort = [A.bool_sort; A.bool_sort] in
+  let or2 = A.App { A.decl_name = "or"; A.domain = two; A.range = A.bool_sort;
+                    A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [nnf_p; nnf_p] in
+  let and2 = A.App { A.decl_name = "and"; A.domain = two; A.range = A.bool_sort;
+                     A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } [np; np] in
+  let document (ids:list int) : C.marshaled =
+    let good = fixture U.Asserted in
+    let certificate = { U.binder_entries = [binder_entry "refl" (nnf_oeq nnf_p nnf_p) [];
+                                            binder_entry "nnf-neg" (nnf_oeq twice nnf_p) ids];
+                        U.binder_root = 1 } in
+    { good with C.document = { good.document with
+        P.entries = [{ P.rule = U.QuantifierIntroduction certificate; P.formula = nnf_oeq twice nnf_p; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = R.false_expr; P.premise_ids = [] }];
+        P.root = 1 } } in
+  double [0] = Z3NnfReplay.Replayed &&
+  nnf_verdict [binder_entry "refl" (nnf_oeq np np) []; binder_entry "nnf-neg" (nnf_oeq (R.mk_not_expr or2) and2) [0; 0]]
+    1 (R.mk_not_expr or2) and2 = Z3NnfReplay.Replayed &&
+  nnf_verdict [binder_entry "apply-def" (nnf_oeq nnf_p nnf_p) []; binder_entry "nnf-neg" (nnf_oeq twice nnf_p) [0]]
+    1 twice nnf_p = Z3NnfReplay.Unreplayed &&
+  double [1] = Z3NnfReplay.Malformed &&
+  double [-1] = Z3NnfReplay.Malformed &&
+  double [2] = Z3NnfReplay.Malformed &&
+  double [7] = Z3NnfReplay.Malformed &&
+  C.check true (document [0]) = Some 0 &&
+  C.check true (document [1]) = None &&
+  C.check true (document [-1]) = None &&
+  C.check true (document [7]) = None &&
+  P.diagnostic_result (C.diagnose true (document [0])) = Some 0 &&
+  P.diagnostic_result (C.diagnose true (document [7])) = None
+
 (* The verdict of a diagnosed document is the verdict of its check (Z3Cherry.lemma_diagnose_is_check),
    for accepted, pending and rejected documents. *)
 let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
@@ -201,4 +301,6 @@ let run () : bool =
   verified_is_check false bad_rule && verified_is_check false pending &&
   Z3CheckedGuardTests.run () &&
   Z3CheckedGraphTests.run () &&
-  Z3CheckedExpansionTests.run ()
+  Z3CheckedExpansionTests.run () &&
+  nnf_replay_scale () &&
+  nnf_premise_boundary ()

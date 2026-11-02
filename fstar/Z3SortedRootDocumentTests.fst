@@ -487,8 +487,10 @@ let h1_plain_pending () : Lemma (SP.check_document PT.core_schema h_document == 
 let h1_epsilon_accepts () : Lemma (SP.check_document_epsilon PT.core_schema h_document == Some 0) =
   assert_norm (SP.check_document_epsilon PT.core_schema h_document == Some 0)
 
-let h1_covered () : Lemma (RD.root_covered PT.core_schema h_document) =
-  assert_norm (RD.root_covered PT.core_schema h_document)
+let h1_covered ()
+  : Lemma (RD.root_covered PT.core_schema h_document /\ RD.dependent_closures PT.core_schema h_document == []) =
+  assert_norm (RD.root_covered PT.core_schema h_document);
+  assert_norm (RD.dependent_closures PT.core_schema h_document == [])
 
 let h1_epsilon_certified ()
   : Lemma (SP.check_document PT.core_schema h_document == Some 1 /\
