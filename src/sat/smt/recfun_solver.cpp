@@ -297,41 +297,32 @@ namespace recfun {
             push_guard(g);
     }
     
+    // see theory_recfun::should_research
     bool solver::should_research(sat::literal_vector const& core) {
         bool found = false;
-        unsigned min_gen = UINT_MAX;
-        expr* to_delete = nullptr;
-        unsigned n = 0;
+        ptr_vector<expr> to_enable;
         for (sat::literal lit : core) {
             expr* e = ctx.bool_var2expr(lit.var());
             if (lit.sign() && is_disabled_guard(e)) {
                 found = true;
-                unsigned gen = ctx.get_max_generation(e);
-                if (gen < min_gen) 
-                    n = 0;
-
-                if (gen <= min_gen && s().rand()() % (++n) == 0) {
-                    to_delete = e;
-                    min_gen = gen;
-                }
+                to_enable.push_back(e);
             }
             else if (u().is_num_rounds(e)) 
                 found = true;
         }
-        if (found) {
-            ++m_num_rounds;
-            if (!to_delete && !m_disabled_guards.empty())
-                to_delete = m_disabled_guards.back();
-            if (to_delete) {
-                m_disabled_guards.erase(to_delete);
-                m_enabled_guards.push_back(to_delete);
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
-            }
-            else {
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round)\n");
-            }
+        if (!found)
+            return false;
+        ++m_num_rounds;
+        if (to_enable.empty() && !m_disabled_guards.empty())
+            to_enable.push_back(m_disabled_guards.back());
+        for (expr* g : to_enable) {
+            m_disabled_guards.erase(g);
+            m_enabled_guards.push_back(g);
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(g, m) << ")\n");
         }
-        return found;
+        if (to_enable.empty())
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round)\n");
+        return true;
     }
 
     bool solver::is_beta_redex(euf::enode* p, euf::enode* n) const {
