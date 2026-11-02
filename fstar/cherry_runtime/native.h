@@ -82,4 +82,6 @@ void checker_drop_native_sorts(Prims_list__native_sort value);
 void checker_drop_asts(Prims_list__ast value);
 void checker_drop_result(checker::Result value);
 void checker_drop_ff_pac(FStar_Pervasives_Native_option__ff_pac_view value);
+cherry_int z3_name_units_scan(cherry_string s, cherry_int limit);
+intptr_t z3_name_units_scan_counted(cherry_string s, cherry_int limit, size_t* reads);
 }

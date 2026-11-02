@@ -74,7 +74,7 @@ def build(args):
                "Z3Cherry.constructor_op", "Z3Cherry.recognizer_op",
                "Z3Cherry.accessor_op", "Z3Cherry.rational_op"]
     if args.run_tests:
-        entries.append("Z3CherryTests.run")
+        entries += ["Z3CherryTests.run", "Z3CherryTests.name_units_agree"]
     extraction = [
         # The pinned compiler warns about monomorphic C ABI names. The bridge
         # compiles against this very header, never a previously generated ABI.

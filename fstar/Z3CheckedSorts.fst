@@ -22,14 +22,16 @@
    Names are counted by the caller's `name_counter`, given the remaining
    preparation budget: it returns the character count (`FStar.String.strlen`)
    when that is within the budget, else `None`, which is exhaustion. This
-   module decodes no string. The contract states the result only; a counter
-   that scans at most the budget plus one character is a runtime obligation
-   (no such primitive exists on either backend yet). A name's bucket is its
+   module decodes no string. The contract states the result only;
+   `checked_name_units` meets it through `Z3NameUnits.scan_units`, whose native
+   realizations scan at most the budget plus one character. A name's bucket is its
    character count, so names of equal length share a bucket and are told
    apart by charged comparisons; an array's bucket mixes its checked children.
 
    Units, charged before the step they pay for. Preparation: one per entry,
-   one per name character, `1 + table_units` per array reference,
+   one per name character (a step of the counter; its last step, which finds
+   the end or a character beyond the budget, is paid by the entry's unit),
+   `1 + table_units` per array reference,
    `table_units` per table lookup or update, and per bucket candidate compared
    `1 + characters` (names) or `2 + arity` (arrays). Storage, the cells this
    module allocates: one per entry (its state), two per array reference (the
@@ -90,6 +92,11 @@ type sort_table = {
 type name_counter =
   s:string -> limit:nat ->
   r:option nat{r == (if FStar.String.strlen s <= limit then Some (FStar.String.strlen s) else None)}
+
+let checked_name_units (s:string) (limit:nat)
+  : r:option nat{r == (if FStar.String.strlen s <= limit then Some (FStar.String.strlen s) else None)} =
+  let r = Z3NameUnits.scan_units s limit in
+  if r < 0 then None else Some r
 
 let mix (h code:nat) : nat = (h * 31 + code) % bucket_count
 

@@ -1519,6 +1519,41 @@ let checked_binder_proofs () =
   require (named 1_000_000 'S' = 1)
     "a long sort name was compared without its length being charged"
 
+(* Z3NameUnits.scan_units is the bounded name counter: the runtime decoder's count
+   (FStar_String.strlen, and Z3UnifiedProof.name_length on the short names) when it is
+   within the limit, else -1, after reading exactly min (count, limit) lead bytes
+   (Z3NameUnits.scan): none for limit 0, so a non-empty name gives -1 and "" gives 0.
+   Lead bytes whose width runs past the end end the name. Limits at and above the
+   byte length, up to 2^32 and 2^100, count fully. *)
+let bounded_name_units () =
+  let check s n =
+    let shown = String.escaped (String.sub s 0 (min 32 (String.length s))) in
+    require (Z.equal (FStar_String.strlen s) (Z.of_int n)) ("runtime strlen changed: " ^ shown);
+    if String.length s < 4096 then
+      require (Z.equal (U.name_length s) (Z.of_int n)) ("guard name length changed: " ^ shown);
+    let probe limit =
+      let within = Z.leq (Z.of_int n) limit in
+      let expected = if within then n else -1 in
+      let reads = if within then n else Z.to_int limit in
+      require (Z.equal (Z3NameUnits.scan_units s limit) (Z.of_int expected) &&
+               Z3NameUnits.scan s limit = (expected, reads))
+        (Printf.sprintf "bounded count of %s (%d characters) under limit %s" shown n (Z.to_string limit)) in
+    List.iter (fun l -> if l >= 0 then probe (Z.of_int l))
+      [0; 1; n - 1; n; n + 1; String.length s; String.length s + 1; 1 lsl 32];
+    probe (Z.shift_left Z.one 100) in
+  List.iter (fun (s, n) -> check s n)
+    ["", 0; "Int", 3; "sort!2147483829:Term", 20; "\xC3\xA9", 1; "\xE2\x82\xAC", 1;
+     "\xF0\x9F\x98\x80", 1; "e\xCC\x81", 2; "\x80\x80\x80\x80\x80\x80\x80\x80", 4; "\xC3", 1;
+     "a\xE2\x82", 2; "\xFF\xFE", 1; "\xC0\x80", 1; "\xED\xA0\x80", 1; "\xED\x9F\xBF", 1;
+     "\xEE\x80\x80", 1; "\xEF\xBF\xBD", 1; "\xF4\x90\x80\x80", 1; "\xF8\x80\x80\x80\x80", 2;
+     "a\xF0\x9F\x98", 2; "\xE0\x80\x80", 1; "\xF0\x9F\x98\x80\xF0\x9F", 2;
+     "sort!7:\xCE\xB1\xCE\xB2\xF0\x9D\x94\xB8\xE2\x82\xAC", 11;
+     "\xFF", 1; "\x80", 1; "\xE2", 1; "ab\xF0", 3; "\xF4\x8F", 1; "Int\xC3", 4];
+  let mib = 8 * 1024 * 1024 in
+  check (String.make mib 'S') mib;
+  check (String.make mib '\x80') (mib / 2);
+  check (String.concat "" (List.init (mib / 4) (fun _ -> "\xF0\x9F\x98\x80"))) (mib / 4)
+
 let checked_binder_definitions () =
   let c = context () in
   let parsed = parse c
@@ -6703,6 +6738,7 @@ let () =
      "readable-edge-conditions", readable_edge_cases;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
+     "bounded-name-units", bounded_name_units;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;

@@ -909,12 +909,90 @@ bool readable_same_proof() {
     checker_drop_marshaled(marshaled);
     return ok;
 }
+
+CHERRY_INT_LIT(boxed_three, 0, 1, 3u);
+CHERRY_INT_LIT(boxed_four, 0, 1, 4u);
+
+// z3_name_units_scan (kernel.c), the bounded name counter, on byte strings F* cannot write: the
+// runtime decoder's count (Z3CherryTests.name_units_agree, on names up to 1 MiB) when it is within
+// the limit, else -1, after reading exactly min(count, limit) lead bytes: none for limit 0, so a
+// non-empty name gives -1 and "" gives 0. Lead bytes whose width runs past the end end the name.
+// Limits at and above the byte size count fully: 2^32, the largest small integer, and INT64_MAX and
+// 2^100 (big integers). Limits compare by value, also in a boxed cell holding a small value (the
+// runtime keeps integers canonical; the counter does not rely on it).
+bool bounded_name_units() {
+    bool ok = true;
+    auto check = [&](std::string const& bytes, int64_t count) {
+        auto s = str(bytes);
+        if (bytes.size() <= (1u << 20) && !Z3CherryTests_name_units_agree(s)) {
+            std::cerr << "bounded name units disagree with the runtime decoder: " << bytes.substr(0, 32) << '\n';
+            ok = false;
+        }
+        auto size = static_cast<int64_t>(bytes.size());
+        for (int64_t limit : {int64_t{0}, int64_t{1}, count - 1, count, count + 1, size, size + 1,
+                              int64_t{1} << 32, int64_t{CHERRY_INT_MAX}, INT64_MAX}) {
+            if (limit < 0)
+                continue;
+            auto bound = cherry_int_of_i64(limit);
+            size_t reads = SIZE_MAX;
+            auto result = z3_name_units_scan_counted(s, bound, &reads);
+            auto scanned = z3_name_units_scan(s, bound);
+            cherry_dec(bound);
+            auto expected = count <= limit ? count : -1;
+            if (result != expected || !cherry_int_eq(scanned, z(expected)) ||
+                reads != static_cast<size_t>(std::min(count, limit))) {
+                std::cerr << "bounded name units: " << count << " characters under limit " << limit
+                          << " gave " << result << " after " << reads << " reads\n";
+                ok = false;
+            }
+        }
+        auto huge = cherry_int_of_decimal("1267650600228229401496703205376");
+        size_t reads = SIZE_MAX;
+        if (z3_name_units_scan_counted(s, huge, &reads) != count || reads != static_cast<size_t>(count)) {
+            std::cerr << "bounded name units: a 2^100 limit did not count " << count << " characters\n";
+            ok = false;
+        }
+        cherry_dec(huge);
+        cherry_dec(s);
+    };
+    std::vector<std::pair<std::string, int64_t>> const cases = {
+        {"", 0}, {"Int", 3}, {"sort!2147483829:Term", 20}, {"\xC3\xA9", 1}, {"\xE2\x82\xAC", 1},
+        {"\xF0\x9F\x98\x80", 1}, {"e\xCC\x81", 2}, {"\x80\x80\x80\x80\x80\x80\x80\x80", 4}, {"\xC3", 1},
+        {"a\xE2\x82", 2}, {"\xFF\xFE", 1}, {"\xC0\x80", 1}, {"\xED\xA0\x80", 1}, {"\xED\x9F\xBF", 1},
+        {"\xEE\x80\x80", 1}, {"\xEF\xBF\xBD", 1}, {"\xF4\x90\x80\x80", 1}, {"\xF8\x80\x80\x80\x80", 2},
+        {"a\xF0\x9F\x98", 2}, {"\xE0\x80\x80", 1}, {"\xF0\x9F\x98\x80\xF0\x9F", 2},
+        {"sort!7:\xCE\xB1\xCE\xB2\xF0\x9D\x94\xB8\xE2\x82\xAC", 11},
+        {"\xFF", 1}, {"\x80", 1}, {"\xE2", 1}, {"ab\xF0", 3}, {"\xF4\x8F", 1}, {"Int\xC3", 4}};
+    for (auto const& [bytes, count] : cases)
+        check(bytes, count);
+    for (size_t size : {size_t{1} << 20, size_t{8} << 20}) {
+        std::string emoji;
+        for (size_t i = 0; i < size / 4; ++i)
+            emoji += "\xF0\x9F\x98\x80";
+        check(std::string(size, 'S'), static_cast<int64_t>(size));
+        check(std::string(size, '\x80'), static_cast<int64_t>(size / 2));
+        check(emoji, static_cast<int64_t>(size / 4));
+    }
+    auto name = str("Int\xC3");
+    size_t three = SIZE_MAX, four = SIZE_MAX;
+    if (z3_name_units_scan_counted(name, reinterpret_cast<cherry_int>(&boxed_three), &three) != -1 || three != 3 ||
+        z3_name_units_scan_counted(name, reinterpret_cast<cherry_int>(&boxed_four), &four) != 4 || four != 4) {
+        std::cerr << "bounded name units: a boxed small limit was not compared by value\n";
+        ok = false;
+    }
+    cherry_dec(name);
+    return ok;
+}
 }
 
 int main() {
     custard_init_globals();
     if (!Z3CherryTests_run()) {
         std::cerr << "Cherry kernel acceptance/rejection regressions failed\n";
+        return 1;
+    }
+    if (!bounded_name_units()) {
+        std::cerr << "Cherry bounded name counter regressions failed\n";
         return 1;
     }
     z3::config config;

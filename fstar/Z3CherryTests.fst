@@ -6,6 +6,7 @@ module R = Z3ResolutionProofTheory
 module U = Z3UnifiedProof
 module C = Z3Cherry
 module CR = Z3ConditionalRewrite
+module CS = Z3CheckedSorts
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -125,6 +126,41 @@ let binder_guard_stack () : bool =
   (* the same certificate with less work: the guard's budget leaves it pending *)
   hidden_term_pending deep_sort_q 79 = 1
 
+(* Checked sorts with the native bounded name counter (`CS.checked_name_units`): the exact
+   units of Int, Bool and Array Int Bool (Z3CheckedSortsTests.exact_budgets) and one short by
+   phase; an 8 MiB name is refused at preparation 0 and 1, and one short of its units
+   (1 + 8388608 characters + 33 + 66 + 33 + 33). *)
+let sort_units (raw:list CS.raw_sort) (p s:nat) : int =
+  match CS.validate_sort_graph CS.checked_name_units raw ({ CS.preparation = p; CS.storage = s }) with
+  | CS.Prepared _ _ left -> p - left.CS.preparation
+  | CS.InvalidSortGraph _ -> -1
+  | CS.Exhausted CS.Preparation -> -2
+  | CS.Exhausted CS.Storage -> -3
+
+let checked_name_units () : bool =
+  let basic = [CS.RawBase 1 "Int"; CS.RawBase 2 "Bool"; CS.RawArray 3 1 [1] 2] in
+  let giant = [CS.RawBase 1 (FStar.String.make 8388608 'g')] in
+  let giant_units = 8388608 + 166 in
+  sort_units basic 573 308 = 573 &&
+  sort_units basic 572 308 = -2 &&
+  sort_units basic 573 307 = -3 &&
+  sort_units giant 0 102 = -2 &&
+  sort_units giant 1 102 = -2 &&
+  sort_units giant (giant_units - 1) 102 = -2 &&
+  sort_units giant giant_units 102 = giant_units
+
+let units_within (s:string) (n limit:nat) : bool =
+  Z3NameUnits.scan_units s limit = (if n <= limit then n else -1)
+
+(* Called by tests.cpp on byte strings F* cannot write: the native counter against the
+   runtime decoder's count (`U.name_length`) under limits 0, 1, the count - 1, the count,
+   the count + 1 and 2^100. *)
+let name_units_agree (s:string) : bool =
+  let n = U.name_length s in
+  units_within s n 0 && units_within s n 1 && (n = 0 || units_within s n (n - 1)) &&
+  units_within s n n && units_within s n (n + 1) &&
+  units_within s n 1267650600228229401496703205376
+
 (* The verdict of a diagnosed document is the verdict of its check (Z3Cherry.lemma_diagnose_is_check),
    for accepted, pending and rejected documents. *)
 let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
@@ -151,4 +187,5 @@ let run () : bool =
   large_axiom_scan () &&
   large_documents () &&
   bounded_conditional_rewrite () &&
-  binder_guard_stack ()
+  binder_guard_stack () &&
+  checked_name_units ()

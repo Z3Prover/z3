@@ -189,7 +189,7 @@ try {
   $order = @(
     "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_String.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
-    "Z3List.ml",
+    "Z3List.ml", "Z3NameUnits.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
     "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
     "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
@@ -296,6 +296,19 @@ fi
 sed -i 's/(fun s -> BatList\.init (BatUTF8\.length s) (fun i -> BatUChar\.code (BatUTF8\.get s i)))/FStar_String.list_of_string/' Z3UnifiedProof.ml
 if grep -n 'Bat[A-Z][A-Za-z0-9_]*\.' $extractedOrderStr; then
   echo "extracted code uses Batteries, which this build does not link" >&2
+  exit 1
+fi
+# Z3NameUnits.scan_units, a name's character count within a limit, is linked as the stand-in
+# ocaml_runtime/Z3NameUnits.ml, a scan that stops after limit + 1 characters. The extraction it
+# replaces must be the reviewed definition; no extracted module may define it again or count
+# characters with the unbounded FStar_String.strlen.
+name_units='let scan_units (s : string) (limit : Prims.int) : Prims.int =
+  (let n = (FStar_String.strlen s) in
+  (if (Prims.op_Less_Equals n limit) then n else (Prims.of_int (-1))))'
+if [ "`$(tail -n +4 "$wslFstarDir/build_extract/native/Z3NameUnits.ml")" != "`$name_units" ] ||
+   ! cmp -s "$wslFstarDir/ocaml_runtime/Z3NameUnits.ml" Z3NameUnits.ml ||
+   grep -n 'scan_units (s :\|FStar_String\.strlen' $extractedOrderStr; then
+  echo "Z3NameUnits.scan_units is not the reviewed extraction linked as ocaml_runtime/Z3NameUnits.ml" >&2
   exit 1
 fi
 eval `$(opam env --switch=$OpamSwitch)
