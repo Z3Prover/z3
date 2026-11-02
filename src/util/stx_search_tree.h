@@ -299,6 +299,9 @@ namespace stx {
             virtual unsigned min_cost() const { return m_min_cost; }
             void set_min_cost(unsigned c) { m_min_cost = c; }
 
+            // - The node is inconsistent: call n.set_conflict(), leave
+            //   committed false, and return nullptr. The driver stops
+            //   dispatch and unwinds this call's scope.
             // - A split exists at exactly `cost`: materialize the FIRST
             //   branch immediately (mutate `n`'s own facet(s) via their
             //   mutator methods, registering trail undo objects - but do
@@ -1001,6 +1004,8 @@ namespace stx {
                     bool committed = false;
                     scoped_push guard(*this);
                     auto it = sp->split(n, 0, out, has_more, committed);
+                    if (n.is_conflict())
+                        return false;
                     if (committed) {
                         guard.release();
                         frame.m_iter = std::move(it);
@@ -1021,14 +1026,13 @@ namespace stx {
                     bool committed = false;
                     scoped_push guard(*this);
                     auto it = sp->split(n, cost, out, has_more, committed);
+                    if (n.is_conflict())
+                        return false;
                     if (committed) {
                         guard.release();
                         frame.m_iter = std::move(it);
                         return true;
                     }
-                    // a plugin that refuted the node instead of splitting it closes it
-                    if (n.is_conflict())
-                        return false;
                     if (has_more)
                         any_offer = true;
                 }

@@ -123,6 +123,24 @@ namespace {
         }
     };
 
+    class conflict_split : public tree_t::split_plugin_i {
+        stx::facet_id m_id;
+        tree_t::dep_tracker m_dep;
+        unsigned& m_calls;
+    public:
+        conflict_split(stx::facet_id id, tree_t::dep_tracker dep, unsigned& calls) :
+            m_id(id), m_dep(dep), m_calls(calls) {}
+        char const* name() const override { return "conflict"; }
+        scoped_ptr<tree_t::split_iterator_i> split(tree_t::node& n, unsigned, tree_t::edge&, bool& has_more, bool& committed) override {
+            ++m_calls;
+            n.facet_as<counter_facet>(m_id).add(1);
+            n.set_conflict(stx::br_plugin_base, m_dep);
+            has_more = true;
+            committed = false;
+            return nullptr;
+        }
+    };
+
     // Build a fresh engine and root for the given configuration.
     tree_t::node* mk_root(tree_t& tree, stx::facet_id& id, counter_config const* cfg) {
         tree_t::node* root = tree.mk_root();
@@ -239,6 +257,34 @@ namespace {
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
+    static void tst_split_conflict(bool completion, bool later_split) {
+        counter_config cfg{ 1, {} };
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
+        unsigned calls = 0;
+        auto dep = tree.dep_mgr().mk_leaf(17);
+        if (completion)
+            tree.add_completion_plugin(alloc(conflict_split, id, dep, calls));
+        else
+            tree.add_split_plugin(alloc(conflict_split, id, dep, calls));
+        if (later_split && !completion)
+            tree.add_split_plugin(alloc(step_split, id, &cfg));
+        tree.add_completion_plugin(alloc(step_split, id, &cfg));
+
+        for (unsigned attempt = 1; attempt <= 2; ++attempt) {
+            ENSURE(tree.solve() == stx::search_result::unsat);
+            ENSURE(calls == attempt);
+            ENSURE(tree.get_stats().m_num_dfs_nodes == attempt);
+            ENSURE(tree.get_stats().m_split_counts.find("step") == tree.get_stats().m_split_counts.end());
+            ENSURE(tree.root()->conflict_dep() == dep);
+            ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
+            ENSURE(tr.get_num_scopes() == 0);
+        }
+    }
+
 } // namespace
 
 void tst_stx_search_tree() {
@@ -248,5 +294,8 @@ void tst_stx_search_tree() {
     tst_irreducible_leaf_unknown();
     tst_trivially_satisfied_root();
     tst_resolve_after_sat_resumes_base_level();
+    tst_split_conflict(false, false);
+    tst_split_conflict(false, true);
+    tst_split_conflict(true, true);
     std::cout << "stx_search_tree: all tests passed\n";
 }
