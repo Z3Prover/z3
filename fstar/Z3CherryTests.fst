@@ -196,4 +196,5 @@ let run () : bool =
   verified_is_check false good && verified_is_check true good &&
   verified_is_check false bad_root && verified_is_check false missing_input &&
   verified_is_check false bad_rule && verified_is_check false pending &&
-  Z3CheckedGuardTests.run ()
+  Z3CheckedGuardTests.run () &&
+  Z3CheckedGraphTests.run ()

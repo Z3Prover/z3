@@ -1042,7 +1042,7 @@ let readable_same_proof () =
   let run readable =
     let outcome = ref (None, "") in
     let stderr_text = capture_stderr (fun () ->
-        outcome := Z3NativeMain.check_proof false true readable 1 false false 0.0 0.0 assertions proof) in
+        outcome := Z3NativeMain.check_proof false true readable 1 false false false 0.0 0.0 assertions proof) in
     !outcome, stderr_text in
   let (plain_result, plain_summary), plain_stderr = run false in
   let (readable_result, readable_summary), readable_stderr = run true in
@@ -1586,6 +1586,109 @@ let checked_sort_graph () =
    and the whole document's verdict in the opt-in mode is the default one. At the scope-guard
    regressions of checked_binder_proofs it gives the default's pending counts. Each budget's exact
    units of a real certificate check, and one unit short is exhaustion of that phase. *)
+(* --resource-accounting verified-dag-v1: binder certificates prepared on the checked expression graph
+   while the document is marshaled (Z3NativeProof.marshal_with_datatypes_dag) and checked by the DAG
+   guard (Z3DagDocument.verify_binder_dag). The opt-in marshal leaves the document unchanged; every
+   quantifier introduction has a prepared certificate, which is the document's; the DAG guard agrees with
+   the default guard and with verified-sorts-v1 on these certified proofs, and refuses or exhausts (never
+   checks) the mutated certificates; at exact budgets it checks and one unit short it is exhausted in that
+   phase. *)
+let dag_binder_guard () =
+  let module G = Z3CheckedGuard in
+  let module T = Z3CheckedTerms in
+  let module V = Z3VerifiedDocument in
+  let module DD = Z3DagDocument in
+  let module DG = Z3DagGuard in
+  let hash value = Z.of_int (Hashtbl.hash value) in
+  let sources = [
+    "(assert (not (forall ((x Int)) (= (+ x 0) x))))";
+    "(declare-fun p (Int) Bool)\
+     (assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))";
+    "(assert (exists ((x Int)) (not (= (+ x 0) x))))";
+    "(assert (not (forall ((x Int)) (forall ((y Real))\
+       (and (= (+ x 0) x) (= (+ y 0.0) y))))))";
+    "(assert (not (= (lambda ((x Int)) (+ x 0)) (lambda ((y Int)) y))))";
+    "(declare-fun f (Int Bool) Int)\
+     (assert (not (forall ((x Int) (b Bool)) (= (f (+ x 0) b) (f x b)))))";
+    "(declare-fun g (Int) Int)\
+     (assert (not (and (forall ((x Int)) (= (g (+ x 0)) (g x))) (forall ((y Bool)) (= (g (+ 1 0)) (g 1))))))"
+  ] in
+  let seen = ref 0 in
+  let prepared_of source =
+    let assertions, proof = unsat source in
+    let doc, _, companions = B.marshal_with_datatypes_dag assertions proof in
+    require (doc = B.marshal assertions proof) ("opt-in marshal changed the document: " ^ source);
+    doc, companions in
+  List.iter (fun source ->
+      let doc, companions = prepared_of source in
+      List.iteri (fun i e -> match e.P.rule, U.classify_fact e.P.formula with
+          | U.QuantifierIntroduction cert, Some concl ->
+              incr seen;
+              (match Z3ProofIndex.index_get companions (Z.of_int i) with
+               | Some p ->
+                   require (p.DD.pcert = cert) ("the prepared certificate is not the document's: " ^ source);
+                   let dag = match DD.verify_binder_dag [] [] p concl with G.BinderGuardChecked _ -> true | _ -> false in
+                   require (U.check_binder cert concl = dag) ("DAG guard disagrees with the default guard: " ^ source);
+                   require (G.check_binder_verified [] [] cert concl = dag)
+                     ("DAG guard disagrees with verified-sorts-v1: " ^ source)
+               | None -> failwith ("a quantifier introduction has no prepared certificate: " ^ source))
+          | _ -> ()) doc.P.entries;
+      let checked = V.diagnose_document_dag_indexed hash doc companions in
+      require (P.diagnostic_result checked.V.diagnostic = P.check_document doc)
+        ("verified-dag-v1 verdict differs from the default verdict: " ^ source);
+      require (checked.V.reports <> [] && List.for_all (fun r -> match r.V.report_outcome with
+          | G.BinderGuardChecked _ -> true | _ -> false) checked.V.reports)
+        ("verified-dag-v1 did not check a binder of: " ^ source);
+      (* without prepared certificates every quantifier introduction stays pending *)
+      let unprepared = V.diagnose_document_dag_indexed hash doc Z3ProofIndex.Empty in
+      require (unprepared.V.reports <> [] && List.for_all (fun r -> r.V.report_outcome = G.BinderUnprepared)
+                 unprepared.V.reports) ("an unprepared certificate was checked: " ^ source)) sources;
+  require (!seen >= 7) "verified-dag-v1 regression did not exercise the binders";
+  let doc, companions = prepared_of (List.hd sources) in
+  let index, entry = List.find (fun (_, e) -> match e.P.rule with
+      | U.QuantifierIntroduction _ -> true | _ -> false) (List.mapi (fun i e -> (i, e)) doc.P.entries) in
+  let p = Option.get (Z3ProofIndex.index_get companions (Z.of_int index)) in
+  let certificate = p.DD.pcert in
+  let conclusion = Option.get (U.classify_fact entry.P.formula) in
+  let with_cert c = { p with DD.pcert = c } in
+  let fail c message =
+    require (not (U.check_binder c conclusion)) ("default guard accepted a mutant: " ^ message);
+    require (match DD.verify_binder_dag [] [] (with_cert c) conclusion with
+        | G.BinderGuardChecked _ -> false | _ -> true) ("verified-dag-v1: " ^ message) in
+  fail { certificate with U.binder_root = Z.minus_one } "negative binder root was trusted";
+  fail { certificate with U.binder_root = Z.of_int 1000000 } "missing binder root was trusted";
+  fail { certificate with U.binder_entries =
+      List.map (fun e -> if e.U.binder_name = "quant-intro" then
+          { e with U.binder_sorts = Some [A.BaseSort "Real"] } else e)
+        certificate.U.binder_entries }
+    "binder generalized across mismatched bound sorts";
+  fail { certificate with U.binder_entries =
+      List.map (fun e -> if e.U.binder_premises <> [] then
+          { e with U.binder_premises = [Z.minus_one] } else e)
+        certificate.U.binder_entries }
+    "binder ignored an invalid premise";
+  (* exact budgets of each phase on the checker's own cache, and one unit short *)
+  let cache = Option.get (U.check_binder_entries [] [] certificate.U.binder_entries Z3ProofIndex.Empty Z.zero) in
+  let big = Z.of_int 100_000_000 in
+  let budget pr v s = { G.preparation = pr; G.validation = v; G.storage = s } in
+  let code r = match r with
+    | DG.DagChecked _ -> 0 | DG.DagRefused -> 1 | DG.DagExhausted T.Preparation -> 2
+    | DG.DagExhausted T.Validation -> 3 | DG.DagExhausted T.Storage -> 4 in
+  let run b = DG.dag_guard b p.DD.pgraph certificate cache p.DD.phandles in
+  (match run (budget big big big) with
+   | DG.DagChecked ds ->
+       let gs = ds.DG.gs in
+       let pr = Z.sub big gs.G.prep and v = Z.sub big gs.G.valid and s = Z.sub big gs.G.store in
+       require (Z.sign v > 0 && Z.sign s > 0) "verified-dag-v1 guard charged nothing";
+       List.iter (fun (b, expected) ->
+           require (code (run b) = expected)
+             (Printf.sprintf "verified-dag-v1 budget boundary (%s, %s, %s) gave another outcome"
+                (Z.to_string b.G.preparation) (Z.to_string b.G.validation) (Z.to_string b.G.storage)))
+         ((if Z.sign pr > 0 then [budget (Z.pred pr) big big, 2] else []) @
+          [budget pr big big, 0; budget big v big, 0; budget big (Z.pred v) big, 3;
+           budget big big s, 0; budget big big (Z.pred s), 4; budget pr v s, 0])
+   | _ -> failwith "verified-dag-v1 guard did not check a real certificate")
+
 let verified_binder_guard () =
   let module G = Z3CheckedGuard in
   let module T = Z3CheckedTerms in
@@ -6965,6 +7068,7 @@ let () =
      "bounded-name-units", bounded_name_units;
      "checked-sort-graph-native-counter", checked_sort_graph;
      "opt-in-verified-binder-guard", verified_binder_guard;
+     "opt-in-dag-binder-guard", dag_binder_guard;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;

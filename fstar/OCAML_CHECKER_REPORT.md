@@ -4854,7 +4854,79 @@ used. The sorted route never reads binder certificates and is unchanged.
   times the peak memory (direct harness, OCaml extraction). PulseCore.Action-1 query 1
   node 433 needs 14,277,241 preparation units, against 3,542,713 old forward units. Its budgets,
   2^16 units per entry and phase, are provisional, and at them the mode admits none of these
-  certificates. Sharing must come from a checked graph built at marshal time.
+  certificates. Sharing must come from a checked graph built at marshal time (`verified-dag-v1` below).
+
+## Opt-in `--resource-accounting verified-dag-v1` (experimental, 2026-11-02)
+
+Both checkers also accept `--resource-accounting verified-dag-v1` (also `=verified-dag-v1`). Without
+the option nothing changes: the default marshaler builds no graph (its new state fields stay
+`None`/`Empty` and every graph function is reached only through them), and the same check runs.
+With it, the document is marshaled once, with a checked expression graph of its binder
+certificates, and checked once by `Z3VerifiedDocument` (no second default check, no fallback after
+exhaustion); one additive stderr row per quantifier introduction reports the outcome, the guard's
+preparation, validation and storage units and the graph's preparation and storage units
+(`graph-preparation=used/limit`, `graph-storage=used/limit`). The sorted route never reads binder
+certificates and is unchanged.
+
+- Graph (`Z3CheckedGraph`): one node per reflected expression the marshaler caches, storing its
+  exact expression; `graph_inv` (every stored expression is its node's constructor applied to its
+  children's stored expressions, sorts given by checked sort ids) is earned by the builders, which
+  read children by node and never compare expressions. `lemma_represents` connects a node to the
+  scope-shape that the scope checks read.
+- Marshaling (`Z3NativeProof`, `Z3DagDocument`): after a certificate's entries are marshaled, the
+  graph is built for their conclusions and binder sorts, keyed by native ids under the reflection
+  contract the marshaler already uses (a native id only locates an earlier cache entry; native
+  proof ids and native expression ids stay separate maps); the cache's invariant (`ccache_ok`) is
+  re-established at every update. `prepare_certificate` rebuilds the certificate from the graph:
+  each entry's formula is the expression stored at the node of its native conclusion, so the
+  prepared certificate and its node handles satisfy `handles_ok` by construction; the document
+  holds the prepared certificate. A certificate that cannot be prepared (a lookup or builder
+  exhausted, a missing node or sort) and every certificate of a clausal document (whose entries
+  are renumbered when it is pruned) has no prepared form and stays pending (`outcome=unprepared`).
+- Guard (`Z3DagScope`, `Z3DagGuard`): the backward pass of `verified-sorts-v1` over the graph's
+  sort table, then a memoised forward pass: each demanded scope is interned to a canonical scope id
+  (`lemma_scope_canonical`) and the judgment's nodes are walked there, recording a node/scope pair
+  only when its own conditions and its recorded children justify it (`memo_ok`: the pair's
+  `Z3Definitions.scoped` holds). The memo lives in one certificate's run and records structural
+  facts only; a refused or exhausted run yields no success.
+- Proofs: `Z3DagGuardProof.lemma_dag_guard` (a checked run gives the root as an entry, `[]` demanded
+  at the root and `Z3BinderScope.entries_scoped`), with `cache_classified` earned from the executed
+  `check_binder_entries` (`lemma_check_entries_classified`); `Z3DagDocument.lemma_verify_binder_dag`;
+  `Z3DagGuardKernel.lemma_dag_certificate_sound` (`Z3BinderKernel`'s fragment soundness);
+  `Z3DagDocument.lemma_check_node_dag` (the node check equals the default one except the
+  quantifier introduction's pending count).
+- Units, charged before the step they pay for: graph preparation counts every visited occurrence
+  (a native-id lookup), every view read (one plus its children), sort and declaration names (by the
+  bounded counter), parameters, table lookups and updates; storage counts nodes, stored expressions,
+  table paths and job cells. The default marshaler's own reading of the native proof, which both
+  modes perform, is not counted in either mode. The units are abstract counts, not a time or
+  memory bound, and there is no claim of a bound on the unmodified parser, solver or runtime.
+- Budgets: a certificate with `n` entries (the entries of that certificate that the checker reads,
+  as for `binder_work_limit`; not a document-wide or predicted count) gets `n + 1` shares of each:
+  graph preparation 16,384 and storage 4,096, guard preparation 16,384, validation 65,536 and
+  storage 16,384 per share. The graph's allowance is set once, when the certificate's graph is
+  prepared after its entries are marshaled; it is not replenished per entry, per failure or per
+  reset, and what is left is not carried to the next certificate. Nodes and sorts prepared for an
+  earlier certificate of the same document are reused, their lookups charged; the cache lives for
+  one marshaled document (one query) and a new query starts empty. Each budget is the smallest power
+  of two at least 1.2 times the largest units per share measured below (graph preparation 9,191,
+  graph storage 2,071, guard validation 50,188, guard storage 9,557), except the guard's
+  preparation, which only counts binder-sort names again (largest 25 per share) and is set to admit
+  binder sort names of a few thousand characters. They are provisional calibration values of the
+  experimental mode, not the default checker's budgets, and they are separate dimensions, not an
+  equivalent of the old single budget.
+- Measured (direct harness on the NNF task's 20 diagnosed guard-budget certificates, 28 dumps, with
+  the extracted builders and guard; per-certificate table in the W4 receipt): all 28 are checked at
+  the mode's budgets; the old guard's single work budget admits none of them. Units are reported per
+  phase; work steps and storage cells are different measures and are not added into one total.
+  PulseCore.Action-1 query 1 node 433, old guard: 3,542,713 forward units required, 2,555,749
+  available after 155 backward units, 43.6 ms. Verified-dag-v1: 567 graph nodes for 70,362 tree
+  occurrences; graph preparation 265,290 work units (counting 101 sort-name characters, 2,692
+  declaration-name characters and 6 parameters once each, and 2,116 native-id lookups) and 68,921
+  storage cells; guard preparation 152, validation 488,221 and storage 106,710; 3.5 ms preparation
+  and 3.8 ms check, 15 MB peak.
+  The independent 4,096-node Skolem-expression budget is unchanged, so this does not make the
+  NNF task's documents accepted where that budget stops them.
 
 ### Datatype test fixtures after master #11506 (build repair)
 

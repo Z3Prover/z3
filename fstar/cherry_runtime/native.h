@@ -76,6 +76,7 @@ Option some(decltype(Option{}.val.Some) value) {
 
 extern "C" {
 void checker_drop_marshaled(Z3Cherry_marshaled value);
+void checker_drop_marshaled_dag(Z3Cherry_marshaled_dag value);
 void checker_drop_diagnostic(Z3ProofDocument_document_diagnostic value);
 void checker_drop_verified(Z3VerifiedDocument_verified_diagnostic value);
 void checker_drop_strings(Prims_list__string value);

@@ -670,26 +670,31 @@ class DirectCheckerTests(unittest.TestCase):
                 default = self.run_checker(source, "--diagnostics")
                 self.assertEqual((default.returncode, default.stdout.strip()), (0, "ACCEPT"), default.stderr)
                 self.assertNotIn("resource-accounting", default.stderr)
-                for args in (("--resource-accounting", "verified-sorts-v1"),
-                             ("--resource-accounting=verified-sorts-v1",)):
+                for mode, args in (("verified-sorts-v1", ("--resource-accounting", "verified-sorts-v1")),
+                                   ("verified-sorts-v1", ("--resource-accounting=verified-sorts-v1",)),
+                                   ("verified-dag-v1", ("--resource-accounting", "verified-dag-v1")),
+                                   ("verified-dag-v1", ("--resource-accounting=verified-dag-v1",))):
                     opted = self.run_checker(source, "--diagnostics", *args)
                     self.assertEqual((opted.returncode, opted.stdout), (default.returncode, default.stdout),
                                      opted.stderr)
                     rows = [line for line in opted.stderr.splitlines() if line.startswith("resource-accounting\t")]
                     self.assertTrue(rows, opted.stderr)
                     for row in rows:
-                        self.assertRegex(row, r"^resource-accounting\tverified-sorts-v1\tnode=\d+\tentries=\d+"
+                        self.assertRegex(row, r"^resource-accounting\t" + mode + r"\tnode=\d+\tentries=\d+"
                                               r"\toutcome=checked\tpreparation=\d+/\d+\tvalidation=\d+/\d+"
-                                              r"\tstorage=\d+/\d+$")
+                                              r"\tstorage=\d+/\d+"
+                                              + (r"\tgraph-preparation=\d+/\d+\tgraph-storage=\d+/\d+$"
+                                                 if mode == "verified-dag-v1" else "$"))
                     self.assertEqual([line for line in opted.stderr.splitlines()
                                       if not line.startswith("resource-accounting\t")],
                                      default.stderr.splitlines())
-                quiet = self.run_checker(source, "--resource-accounting", "verified-sorts-v1")
-                self.assertEqual((quiet.returncode, quiet.stdout.strip()), (0, "ACCEPT"), quiet.stderr)
-                interactive = self.run_checker(source + "(check-sat)", "--interactive",
-                                               "--resource-accounting", "verified-sorts-v1")
-                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
-                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                for mode in ("verified-sorts-v1", "verified-dag-v1"):
+                    quiet = self.run_checker(source, "--resource-accounting", mode)
+                    self.assertEqual((quiet.returncode, quiet.stdout.strip()), (0, "ACCEPT"), quiet.stderr)
+                    interactive = self.run_checker(source + "(check-sat)", "--interactive",
+                                                   "--resource-accounting", mode)
+                    self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                    self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
         for args in (("--resource-accounting",), ("--resource-accounting", "verified-dag"),
                      ("--resource-accounting=",)):
             with self.subTest(args=args):
@@ -705,11 +710,12 @@ class DirectCheckerTests(unittest.TestCase):
             source = (f"(declare-sort {name} 0)(declare-fun p ({name}) Bool)(declare-const c {name})"
                       f"(assert (forall ((x {name})) (and (p x) true)))(assert (not (p c)))")
             with self.subTest(length=length):
-                result = self.run_checker(source, "--resource-accounting", "verified-sorts-v1")
-                if length == 1000:
-                    self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
-                else:
-                    self.assertIn(result.returncode, (0, 3), result.stdout + result.stderr)
+                for mode in ("verified-sorts-v1", "verified-dag-v1"):
+                    result = self.run_checker(source, "--resource-accounting", mode)
+                    if length == 1000:
+                        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
+                    else:
+                        self.assertIn(result.returncode, (0, 3), result.stdout + result.stderr)
 
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:

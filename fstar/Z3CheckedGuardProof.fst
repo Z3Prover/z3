@@ -504,30 +504,41 @@ let lemma_empty_graph () : Lemma (T.graph_ok T.empty_graph)
 
 let lemma_demands_empty (n:nat) : Lemma (demands_ok I.Empty n) = ()
 
-(* The backward pass: a valid state, and the root an entry. *)
-let lemma_backward_start (budget:resource_budget) (root:int) (n v:nat)
-  : Lemma (requires 0 <= root /\ root < n /\ (initial budget).store >= n + 2 + CS.table_units /\ v >= CS.table_units)
-          (ensures inv ({ initial budget with demands = I.index_put I.Empty root [[]]; valid = v - CS.table_units;
-                                             store = (initial budget).store - (n + 2 + CS.table_units) }))
-  = lemma_empty_graph ();
-    lemma_demands_empty 0;
-    lemma_demands_put I.Empty 0 root [[]]
+(* The backward pass from a valid state without demands: a valid state, and the root an entry. *)
+let lemma_backward_start (st:gstate) (root:int) (n v:nat)
+  : Lemma (requires inv st /\ st.demands == I.Empty /\ 0 <= root /\ root < n /\ st.store >= n + 2 + CS.table_units /\
+                    v >= CS.table_units)
+          (ensures inv ({ st with demands = I.index_put I.Empty root [[]]; valid = v - CS.table_units;
+                                  store = st.store - (n + 2 + CS.table_units) }))
+  = lemma_demands_put I.Empty st.graph.T.sorts.CS.node_count root [[]]
 
-let lemma_backward (budget:resource_budget) (c:binder_certificate)
-  : Lemma (match backward budget c with
-           | Go n st1 -> inv st1 /\ n == L.length c.binder_entries /\ 0 <= c.binder_root /\ c.binder_root < n
-           | Stop _ -> True)
-  = let st = initial budget in
-    W.lemma_count_within st.valid 0 c.binder_entries;
+let lemma_backward_from (st:gstate) (c:binder_certificate)
+  : Lemma (requires inv st /\ st.demands == I.Empty)
+          (ensures (match backward_from st c with
+                    | Go n st1 -> inv st1 /\ grows st st1 /\ n == L.length c.binder_entries /\ 0 <= c.binder_root /\
+                                  c.binder_root < n
+                    | Stop _ -> True))
+  = W.lemma_count_within st.valid 0 c.binder_entries;
     match W.count_within st.valid 0 c.binder_entries with
     | Some (n, v) ->
       if 0 <= c.binder_root && c.binder_root < n && st.store >= n + 2 + CS.table_units && v >= CS.table_units then begin
         let st0 = { st with demands = I.index_put I.Empty c.binder_root [[]]; valid = v - CS.table_units;
                             store = st.store - (n + 2 + CS.table_units) } in
-        lemma_backward_start budget c.binder_root n v;
-        lemma_demand_entries st0 (n - 1) (L.rev c.binder_entries) (binder_demand_limit n)
+        lemma_backward_start st c.binder_root n v;
+        T.lemma_graph_grows_refl st.graph;
+        lemma_demand_entries st0 (n - 1) (L.rev c.binder_entries) (binder_demand_limit n);
+        match demand_entries st0 (n - 1) (L.rev c.binder_entries) (binder_demand_limit n) with
+        | Go _ st1 -> lemma_grows_trans st st0 st1
+        | _ -> ()
       end
     | None -> ()
+
+let lemma_backward (budget:resource_budget) (c:binder_certificate)
+  : Lemma (match backward budget c with
+           | Go n st1 -> inv st1 /\ n == L.length c.binder_entries /\ 0 <= c.binder_root /\ c.binder_root < n
+           | Stop _ -> True)
+  = lemma_empty_graph ();
+    lemma_backward_from (initial budget) c
 
 let lemma_root_at_empty (st:gstate) (root:int)
   : Lemma (requires inv st)

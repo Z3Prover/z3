@@ -72,6 +72,7 @@ def build(args):
         run(common + ["--cache_checked_modules", ROOT / module])
     entries = ["Z3Cherry.marshal", "Z3Cherry.check", "Z3Cherry.diagnose",
                "Z3Cherry.diagnose_verified", "Z3Cherry.verified_rows",
+               "Z3Cherry.marshal_dag", "Z3Cherry.diagnose_dag", "Z3Cherry.dag_rows",
                "Z3Cherry.constructor_op", "Z3Cherry.recognizer_op",
                "Z3Cherry.accessor_op", "Z3Cherry.rational_op"]
     if args.run_tests:

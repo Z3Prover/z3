@@ -280,8 +280,7 @@ let initial (budget:resource_budget) : gstate =
 (* The backward pass from the root at `[]`: counting and reversing the
    entries (one validation unit and one storage cell per entry), the root's
    assignment `[[]]`, then the demands of every entry, last first. *)
-let backward (budget:resource_budget) (c:binder_certificate) : step nat =
-  let st = initial budget in
+let backward_from (st:gstate) (c:binder_certificate) : step nat =
   let root = c.binder_root in
   match W.count_within st.valid 0 c.binder_entries with
   | None -> Stop (Exhaust T.Validation)
@@ -295,6 +294,8 @@ let backward (budget:resource_budget) (c:binder_certificate) : step nat =
       match demand_entries st0 (n - 1) (L.rev c.binder_entries) (binder_demand_limit n) with
       | Go () st1 -> Go n st1
       | Stop f -> Stop f
+
+let backward (budget:resource_budget) (c:binder_certificate) : step nat = backward_from (initial budget) c
 
 (* The root is demanded at `[]`. *)
 let root_at_empty (st:gstate) (root:int) : step unit =
@@ -350,6 +351,7 @@ type binder_outcome =
   | BinderGuardChecked : left:resource_budget -> binder_outcome
   | BinderGuardRefused : left:resource_budget -> binder_outcome
   | BinderGuardExhausted : phase:T.phase -> binder_outcome
+  | BinderUnprepared
 
 let left_of (st:gstate) : resource_budget = { preparation = st.prep; validation = st.valid; storage = st.store }
 

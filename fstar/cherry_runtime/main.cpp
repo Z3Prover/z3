@@ -48,6 +48,7 @@ struct Options {
     bool clause_proofs = false;
     bool interactive = false;
     bool verified = false;
+    bool dag = false;
     uint32_t timeout = 0;
     std::string path;
 };
@@ -675,11 +676,18 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
                           unsigned query) {
     NativeSession session(context);
     Owned<Prims_list__ast, checker_drop_asts> roots(list<Prims_list__ast_Cons_s>(assertions));
-    Owned<Z3Cherry_marshaled, checker_drop_marshaled> marshaled(Z3Cherry_marshal(roots.value, proof));
+    // --resource-accounting verified-dag-v1 marshals once, with the checked graph of binder certificates.
+    std::optional<Owned<Z3Cherry_marshaled, checker_drop_marshaled>> plain;
+    std::optional<Owned<Z3Cherry_marshaled_dag, checker_drop_marshaled_dag>> prepared;
+    if (options.dag)
+        prepared.emplace(Z3Cherry_marshal_dag(roots.value, proof));
+    else
+        plain.emplace(Z3Cherry_marshal(roots.value, proof));
+    Z3Cherry_marshaled const& marshaled = options.dag ? prepared->value.dag_base : plain->value;
     // document is [@@cherry_boxed]: a counted cell holding the record.
-    auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.value.document);
+    auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.document);
     auto marshal_end = Clock::now();
-    bool datatype = !cherry_is_scalar(marshaled.value.schema.cases);
+    bool datatype = !cherry_is_scalar(marshaled.schema.cases);
     bool sorted = datatype || options.sorted_core;
     // Without --diagnostics the document is checked once by Z3Cherry_check. With --diagnostics it is
     // checked once by Z3Cherry_diagnose and the verdict is read from that result: F* proves
@@ -694,11 +702,12 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     Z3ProofDocument_document_diagnostic const* diagnostic = nullptr;
     Result result{};
     if (options.verified) {
-        verified.emplace(Z3Cherry_diagnose_verified(sorted, marshaled.value));
+        verified.emplace(options.dag ? Z3Cherry_diagnose_dag(sorted, prepared->value)
+                                     : Z3Cherry_diagnose_verified(sorted, marshaled));
         diagnostic = &verified->value.diagnostic;
     }
     else if (options.diagnostics) {
-        diagnosed.emplace(Z3Cherry_diagnose(sorted, marshaled.value));
+        diagnosed.emplace(Z3Cherry_diagnose(sorted, marshaled));
         diagnostic = &diagnosed->value;
     }
     if (diagnostic) {
@@ -710,7 +719,7 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
             result.tag = FSTAR_PERVASIVES_NATIVE_NONE__INT;
     }
     else {
-        checked.emplace(Z3Cherry_check(sorted, marshaled.value));
+        checked.emplace(Z3Cherry_check(sorted, marshaled));
         result = checked->value;
     }
     auto check_end = Clock::now();
@@ -738,7 +747,8 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
                       << "diagnose_ms=" << milliseconds(Clock::now(), check_end) << '\n';
     }
     if (options.verified) {
-        Owned<Prims_list__string, checker_drop_strings> rows(Z3Cherry_verified_rows(verified->value));
+        Owned<Prims_list__string, checker_drop_strings> rows(
+            options.dag ? Z3Cherry_dag_rows(verified->value) : Z3Cherry_verified_rows(verified->value));
         each<Prims_list__string_Cons_s>(rows.value, [&](auto const& row) { std::cerr << text(row) << '\n'; });
     }
     size_t edges = 0, binder_nodes = 0, binder_edges = 0;
@@ -954,8 +964,9 @@ static char const* usage =
     "  --diagnostics    Report typed unmet-obligation fingerprints\n"
     "  --readable       Also print bounded readable pending/rejected conditions (implies --diagnostics)\n"
     "  --sorted-core    Use sort-indexed checking without legacy fallback\n"
-    "  --resource-accounting verified-sorts-v1\n"
-    "                   Check binder scopes with checked sort ids and separate preparation,\n"
+    "  --resource-accounting verified-sorts-v1|verified-dag-v1\n"
+    "                   Check binder scopes with checked sort ids (verified-dag-v1: and a checked\n"
+    "                   expression graph with a scope memo) and separate preparation,\n"
     "                   validation and storage budgets, and report them (default: off)\n"
     "  --version        Report the embedded Z3 version\n"
     "  --timeout-ms N   Solver timeout, 0..4294967295 milliseconds (0 is unlimited)\n";
@@ -993,9 +1004,12 @@ static int run(int argc, char** argv) {
             }
             else
                 value = argument.substr(argument.find('=') + 1);
-            if (value != "verified-sorts-v1")
+            if (value == "verified-sorts-v1")
+                options.verified = true;
+            else if (value == "verified-dag-v1")
+                options.verified = options.dag = true;
+            else
                 throw NativeError("invalid --resource-accounting");
-            options.verified = true;
         }
         else if (!anonymous && (argument == "--timeout-ms" || argument.starts_with("--timeout-ms="))) {
             std::string value;

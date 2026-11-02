@@ -25,11 +25,20 @@ module SK = Z3Skolemization
 module IT = Z3IdTable
 module L = FStar.List.Tot
 module G = Z3CheckedGuard
+module DD = Z3DagDocument
+
+(* The opt-in mode: `verified-sorts-v1`, or `verified-dag-v1` with the
+   prepared certificates of the document's quantifier introductions, by entry. *)
+noeq
+type accounting =
+  | SortsV1
+  | DagV1 : companions:index_tree DD.prepared -> accounting
 
 type binder_report = {
   report_index: nat;
   report_entries: nat;
   report_outcome: G.binder_outcome;
+  report_graph: option (nat & nat);
 }
 
 noeq
@@ -43,16 +52,22 @@ let entry_count (r:rule) : nat =
   | QuantifierIntroduction c -> count_cells 0 c.binder_entries
   | _ -> 0
 
-let verified_entry (transform:D.expander) (skolems:list SK.definition) (bound:bool) (defs:list D.definition)
-                   (inputs:list judgment) (contains:judgment -> bool) (prev:IT.t checked_fact) (e:entry)
-  : option (checked_fact & nat) & option (G.binder_outcome & nat) =
+let verified_entry (acct:accounting) (transform:D.expander) (skolems:list SK.definition) (bound:bool)
+                   (defs:list D.definition) (inputs:list judgment) (contains:judgment -> bool)
+                   (prev:IT.t checked_fact) (next:nat) (e:entry)
+  : option (checked_fact & nat) & option (G.binder_outcome & nat & option (nat & nat)) =
   match prepare_entry_using transform bound defs prev e with
   | None -> None, None
   | Some node ->
-    let r, outcome = G.check_node_verified skolems true inputs contains node in
-    r, (match outcome with Some o -> Some (o, entry_count node.kind) | None -> None)
+    let prepared = match acct with DagV1 cs -> index_get cs next | SortsV1 -> None in
+    let r, outcome =
+      match acct with
+      | SortsV1 -> G.check_node_verified skolems true inputs contains node
+      | DagV1 _ -> DD.check_node_dag skolems true inputs contains node prepared in
+    let graph = match prepared with Some p -> Some (DD.graph_used p) | None -> None in
+    r, (match outcome with Some o -> Some (o, entry_count node.kind, graph) | None -> None)
 
-let rec diagnose_entries_verified (transform:D.expander) (skolems:list SK.definition)
+let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skolems:list SK.definition)
                                   (bound:bool) (defs:list D.definition)
                                   (inputs:list judgment) (contains:judgment -> bool)
                                   (cache:IT.t checked_fact) (next pending:nat)
@@ -62,15 +77,15 @@ let rec diagnose_entries_verified (transform:D.expander) (skolems:list SK.defini
   match entries with
   | [] -> EntriesChecked cache pending (L.rev unmet), L.rev reports
   | e :: rest ->
-    let r, outcome = verified_entry transform skolems bound defs inputs contains cache e in
+    let r, outcome = verified_entry acct transform skolems bound defs inputs contains cache next e in
     let reports = match outcome with
-      | Some (o, n) -> { report_index = next; report_entries = n; report_outcome = o } :: reports
+      | Some (o, n, gr) -> { report_index = next; report_entries = n; report_outcome = o; report_graph = gr } :: reports
       | None -> reports in
     match r with
     | None -> EntriesRejected (DocumentRejected ProofEntry (Some next) (Some e.formula)), L.rev reports
     | Some (fact, local) ->
       if local = 0 then
-        diagnose_entries_verified transform skolems bound defs inputs contains (IT.put cache next fact)
+        diagnose_entries_verified acct transform skolems bound defs inputs contains (IT.put cache next fact)
           (next + 1) pending unmet reports rest
       else
         match opt_map_tail (IT.find cache) e.premise_ids with
@@ -82,14 +97,14 @@ let rec diagnose_entries_verified (transform:D.expander) (skolems:list SK.defini
             obligation_premises = premise_judgments premises;
             obligation_source = e.formula; obligation_count = local;
           } in
-          diagnose_entries_verified transform skolems bound defs inputs contains (IT.put cache next fact)
+          diagnose_entries_verified acct transform skolems bound defs inputs contains (IT.put cache next fact)
             (next + 1) (pending + local) (obligation :: unmet) reports rest
 
-let diagnose_prepared_verified (transform:D.expander) (lookup:input_lookup) (doc:document)
+let diagnose_prepared_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
                                (bound:bool) (defs:list D.definition)
                                (inputs:list judgment) (skolems:list SK.definition) : verified_diagnostic =
   let entries, reports =
-    diagnose_entries_verified transform skolems bound defs inputs (lookup inputs) IT.empty 0 0 [] [] doc.entries in
+    diagnose_entries_verified acct transform skolems bound defs inputs (lookup inputs) IT.empty 0 0 [] [] doc.entries in
   let diagnostic =
     match entries with
     | EntriesRejected reason ->
@@ -110,7 +125,7 @@ let diagnose_prepared_verified (transform:D.expander) (lookup:input_lookup) (doc
 let rejected (stage:diagnostic_stage) : verified_diagnostic =
   { diagnostic = DocumentRejected stage None None; reports = [] }
 
-let diagnose_inputs_verified (transform:D.expander) (lookup:input_lookup) (doc:document)
+let diagnose_inputs_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
                              (bound:bool) (defs:list D.definition) (expanded:list expr)
                              (inputs:list judgment) : verified_diagnostic =
   match collect_skolems_using transform defs [] doc.entries with
@@ -121,9 +136,9 @@ let diagnose_inputs_verified (transform:D.expander) (lookup:input_lookup) (doc:d
     | Some skolems ->
       if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded)
       then rejected SkolemFreshness
-      else diagnose_prepared_verified transform lookup doc bound defs inputs skolems
+      else diagnose_prepared_verified acct transform lookup doc bound defs inputs skolems
 
-let diagnose_definitions_verified (transform:D.expander) (lookup:input_lookup) (doc:document)
+let diagnose_definitions_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
                                   (bound:bool) (defs:list D.definition) : verified_diagnostic =
   if not (D.acyclic_using transform (L.length defs) defs defs)
   then rejected DefinitionCycle
@@ -134,9 +149,9 @@ let diagnose_definitions_verified (transform:D.expander) (lookup:input_lookup) (
     | Some expanded ->
       match opt_map_tail classify_fact expanded with
       | None -> rejected InputClassification
-      | Some inputs -> diagnose_inputs_verified transform lookup doc bound defs expanded inputs
+      | Some inputs -> diagnose_inputs_verified acct transform lookup doc bound defs expanded inputs
 
-let diagnose_document_verified (transform:D.expander) (lookup:input_lookup) (doc:document) : verified_diagnostic =
+let diagnose_document_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document) : verified_diagnostic =
   let bound = not (ground_exprs doc.expressions) in
   if not (logical_decls doc.declarations) then rejected LogicalDeclarations
   else if bound && not (well_formed_exprs doc.expressions) then rejected ExpressionWellFormedness
@@ -145,10 +160,15 @@ let diagnose_document_verified (transform:D.expander) (lookup:input_lookup) (doc
   else
     match document_definitions doc with
     | None -> rejected DefinitionCollection
-    | Some defs -> diagnose_definitions_verified transform lookup doc bound defs
+    | Some defs -> diagnose_definitions_verified acct transform lookup doc bound defs
 
 let diagnose_document_verified_indexed (hash:judgment -> nat) (doc:document) : verified_diagnostic =
-  diagnose_document_verified (D.memoized_expander (fun (_, e) -> hash (Holds e))) (document_lookup hash doc) doc
+  diagnose_document_verified SortsV1 (D.memoized_expander (fun (_, e) -> hash (Holds e))) (document_lookup hash doc) doc
+
+let diagnose_document_dag_indexed (hash:judgment -> nat) (doc:document) (companions:index_tree DD.prepared)
+  : verified_diagnostic =
+  diagnose_document_verified (DagV1 companions) (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+    (document_lookup hash doc) doc
 
 (* --- Additive diagnostic rows ------------------------------------------------------------------- *)
 
@@ -161,26 +181,36 @@ let phase_text (p:Z3CheckedTerms.phase) : string =
 let units_text (name:string) (limit left:nat) : string =
   "\t" ^ name ^ "=" ^ string_of_int (limit - left) ^ "/" ^ string_of_int limit
 
-(* One row per quantifier introduction checked by the opt-in guard: its entry
-   index and binder entries, the outcome, and the units used of each budget
-   (`used/limit`), or the exhausted phase. *)
-let report_row (r:binder_report) : string =
-  let b = G.verified_budget r.report_entries in
+(* One row per quantifier introduction checked by the opt-in guard: the mode,
+   its entry index and binder entries, the outcome, and the units used of each
+   budget (`used/limit`), or the exhausted phase. *)
+let report_row (dag:bool) (r:binder_report) : string =
+  let b = if dag then DD.dag_budget r.report_entries else G.verified_budget r.report_entries in
   let used (left:G.resource_budget) : string =
     units_text "preparation" b.G.preparation left.G.preparation ^
     units_text "validation" b.G.validation left.G.validation ^
     units_text "storage" b.G.storage left.G.storage in
-  "resource-accounting\tverified-sorts-v1\tnode=" ^ string_of_int r.report_index ^
+  "resource-accounting\t" ^ (if dag then "verified-dag-v1" else "verified-sorts-v1") ^
+  "\tnode=" ^ string_of_int r.report_index ^
   "\tentries=" ^ string_of_int r.report_entries ^ "\toutcome=" ^
   (match r.report_outcome with
    | G.BinderEntriesFailed -> "entries-unchecked"
    | G.BinderGuardChecked left -> "checked" ^ used left
    | G.BinderGuardRefused left -> "refused" ^ used left
-   | G.BinderGuardExhausted p -> "exhausted\tphase=" ^ phase_text p)
+   | G.BinderGuardExhausted p -> "exhausted\tphase=" ^ phase_text p
+   | G.BinderUnprepared -> "unprepared") ^
+  (match r.report_graph with
+   | Some (gp, gs) ->
+     let shares = r.report_entries + 1 in
+     "\tgraph-preparation=" ^ string_of_int gp ^ "/" ^ string_of_int (DD.graph_preparation_per_entry * shares) ^
+     "\tgraph-storage=" ^ string_of_int gs ^ "/" ^ string_of_int (DD.graph_storage_per_entry * shares)
+   | None -> "")
 
-let rec report_rows_acc (rs:list binder_report) (acc:list string) : Tot (list string) (decreases rs) =
+let rec report_rows_acc (dag:bool) (rs:list binder_report) (acc:list string) : Tot (list string) (decreases rs) =
   match rs with
   | [] -> L.rev acc
-  | r :: rest -> report_rows_acc rest (report_row r :: acc)
+  | r :: rest -> report_rows_acc dag rest (report_row dag r :: acc)
 
-let report_rows (rs:list binder_report) : list string = report_rows_acc rs []
+let report_rows (rs:list binder_report) : list string = report_rows_acc false rs []
+
+let dag_report_rows (rs:list binder_report) : list string = report_rows_acc true rs []

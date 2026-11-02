@@ -598,8 +598,11 @@ module Readable = struct
     flush stderr
 end
 
-let check_proof statistics diagnostics readable query sorted_core verified start solved assertions proof =
-  let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
+let check_proof statistics diagnostics readable query sorted_core verified dag start solved assertions proof =
+  (* --resource-accounting verified-dag-v1 marshals once, with the checked graph of binder certificates. *)
+  let doc, schema, companions =
+    if dag then Z3NativeProof.marshal_with_datatypes_dag assertions proof
+    else (let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in doc, schema, Z3ProofIndex.Empty) in
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
   let sorted = datatype || sorted_core in
@@ -612,8 +615,10 @@ let check_proof statistics diagnostics readable query sorted_core verified start
         if sorted then
           { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon schema doc;
             Z3VerifiedDocument.reports = [] }
+        else if dag then Z3VerifiedDocument.diagnose_document_dag_indexed assertion_hash doc companions
         else Z3VerifiedDocument.diagnose_document_verified_indexed assertion_hash doc in
-      rows := Z3VerifiedDocument.report_rows checked.Z3VerifiedDocument.reports;
+      rows := (if dag then Z3VerifiedDocument.dag_report_rows else Z3VerifiedDocument.report_rows)
+                checked.Z3VerifiedDocument.reports;
       let diagnostic = checked.Z3VerifiedDocument.diagnostic in
       Z3ProofDocument.diagnostic_result diagnostic, if diagnostics then Some diagnostic else None)
     else if diagnostics then (
@@ -718,7 +723,7 @@ let command_name text =
   in
   String.sub text first (finish first - first)
 
-let interactive statistics diagnostics readable sorted_core verified clause_proofs timeout =
+let interactive statistics diagnostics readable sorted_core verified dag clause_proofs timeout =
   let context = Z3Native.create_context timeout in
   let error = ref false and rejected = ref false and partial = ref false and queries = ref 0 in
   let start = ref (Unix.gettimeofday ()) in
@@ -728,7 +733,7 @@ let interactive statistics diagnostics readable sorted_core verified clause_proo
     let assertions = List.init (Z3native.ast_vector_size context vector)
         (Z3native.ast_vector_get context vector) in
     let result, summary =
-      check_proof statistics diagnostics readable !queries sorted_core verified !start solved assertions proof in
+      check_proof statistics diagnostics readable !queries sorted_core verified dag !start solved assertions proof in
     (match result with
      | None -> rejected := true
      | Some n -> if not (Z.equal n Z.zero) then partial := true);
@@ -778,6 +783,7 @@ let interactive statistics diagnostics readable sorted_core verified clause_proo
 
 let run args =
   let statistics = ref false and diagnostics = ref false and sorted_core = ref false and verified = ref false
+  and dag = ref false
   and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
   and clause_proofs = ref false and readable = ref false in
   let options = [
@@ -793,9 +799,10 @@ let run args =
       " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
     "--resource-accounting", Arg.String (fun value ->
         if value = "verified-sorts-v1" then verified := true
+        else if value = "verified-dag-v1" then (verified := true; dag := true)
         else raise (Arg.Bad "invalid --resource-accounting")),
       "MODE Check binder scopes with checked sort ids and separate preparation, validation and \
-       storage budgets, and report them (MODE: verified-sorts-v1; default: off)";
+       storage budgets, and report them (MODE: verified-sorts-v1 or verified-dag-v1; default: off)";
     "--timeout-ms", Arg.String (fun value ->
         try
           let n = Z.of_string value in
@@ -817,7 +824,7 @@ let run args =
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
-      exit (interactive !statistics !diagnostics !readable !sorted_core !verified !clause_proofs !timeout));
+      exit (interactive !statistics !diagnostics !readable !sorted_core !verified !dag !clause_proofs !timeout));
     let input =
       match !path with
       | None | Some "-" -> read_all stdin
@@ -834,7 +841,7 @@ let run args =
     | Z3Native.Unsat (assertions, proof) ->
         let solved = Unix.gettimeofday () in
         let result, _ =
-          check_proof !statistics !diagnostics !readable 1 !sorted_core !verified start solved assertions proof in
+          check_proof !statistics !diagnostics !readable 1 !sorted_core !verified !dag start solved assertions proof in
         (match result with
          | None -> print_endline "REJECT"; exit 1
          | Some n when Z.equal n Z.zero -> print_endline "ACCEPT"; exit 0

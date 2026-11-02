@@ -78,6 +78,31 @@ let verified_rows ([@@@FStar.Attributes.cherry_borrowed] d:Z3VerifiedDocument.ve
   : list string =
   Z3VerifiedDocument.report_rows d.Z3VerifiedDocument.reports
 
+(* The opt-in accounting mode `verified-dag-v1`: the document marshaled once with the prepared
+   certificates of its quantifier introductions, then one diagnosed check, whose result is the
+   verdict. *)
+noeq
+type marshaled_dag = {
+  dag_base: marshaled;
+  dag_companions: Z3ProofIndex.index_tree Z3DagDocument.prepared;
+}
+
+let marshal_dag ([@@@FStar.Attributes.cherry_borrowed] assertions:list Z3Native.ast)
+                (proof:Z3Native.ast) : ML marshaled_dag =
+  let doc, schema, companions = Z3NativeProof.marshal_with_datatypes_dag assertions proof in
+  { dag_base = { document = doc; schema = schema }; dag_companions = companions }
+
+let diagnose_dag (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marshaled_dag)
+  : Z3VerifiedDocument.verified_diagnostic =
+  if sorted force_sorted m.dag_base
+  then { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon m.dag_base.schema m.dag_base.document;
+         Z3VerifiedDocument.reports = [] }
+  else Z3VerifiedDocument.diagnose_document_dag_indexed assertion_hash m.dag_base.document m.dag_companions
+
+let dag_rows ([@@@FStar.Attributes.cherry_borrowed] d:Z3VerifiedDocument.verified_diagnostic)
+  : list string =
+  Z3VerifiedDocument.dag_report_rows d.Z3VerifiedDocument.reports
+
 (* A diagnosed document needs no second check: the result recorded by its diagnosis is its verdict, in
    the sorted path (Z3SortedProof.lemma_diagnose_document_epsilon) and in the legacy path
    (Z3ProofDocument.lemma_diagnose_document_indexed). *)
