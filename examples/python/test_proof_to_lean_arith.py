@@ -248,6 +248,126 @@ REAL_DIVISION_AXIOM = """\
 (check-sat)
 """
 
+# Real input with integer numerals and no Real-only logic: Z3 reads each
+# numeral where a Real is expected as an Int term under to_real (around the
+# whole (- 5 1) and (+ 1 3)), which the exporter rejected as an unsupported
+# operator before; it now reads them as QF_LRA does.
+COERCED_NUMERAL_INPUTS = {
+    "numerals_without_logic": """\
+(declare-const x Real)
+(declare-const y Real)
+(assert (<= (* 2 x) 1))
+(assert (> (+ x y) (/ 1 3)))
+(assert (< y (- 2)))
+(check-sat)
+""",
+    "real_ite_under_all": """\
+(set-logic ALL)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const p Bool)
+(assert (= y (ite (> x 1) (- 5 1) (ite p x 2))))
+(assert (distinct y 2 (+ 1 3)))
+(assert (< 3 (* 3 x) (/ 9 2)))
+(check-sat)
+""",
+    "function_of_numerals_without_logic": """\
+(declare-fun f (Real) Real)
+(declare-const x Real)
+(assert (= x 1))
+(assert (= (f 1) 3))
+(assert (< (f x) (- x 2)))
+(check-sat)
+""",
+}
+
+# abs over Real: SMT-LIB defines abs on Int only, Z3 accepts it over Real as
+# (ite (>= t 0) t (- t)). Without a logic, (abs 3) in a Real position is
+# (to_real (abs 3)), read as the Real abs of 3.0.
+REAL_ABS_INPUTS = {
+    "distance": """\
+(declare-const x Real)
+(declare-const y Real)
+(assert (< (abs (- x y)) 1.0))
+(assert (> x 3.0))
+(assert (< y 1.0))
+(check-sat)
+""",
+    "triangle_inequality": """\
+(set-logic QF_LRA)
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (abs (+ x y)) (+ (abs x) (abs y))))
+(check-sat)
+""",
+    "symmetry": """\
+(set-logic QF_LRA)
+(declare-const x Real)
+(assert (not (= (abs x) (abs (- x)))))
+(check-sat)
+""",
+    "nested_without_logic": """\
+(declare-const x Real)
+(declare-const p Bool)
+(assert (< (* 2 (abs (ite p x (- x 1)))) (- (abs (abs x)) (abs 3))))
+(check-sat)
+""",
+    "function": """\
+(declare-fun f (Real) Real)
+(declare-const x Real)
+(assert (< (abs (f x)) (- (f (abs x)) (f (abs (- x))))))
+(assert (= x (- 2.0)))
+(check-sat)
+""",
+}
+
+
+def random_abs_instance(seed, variables=3, constraints=8, functions=False):
+    """A random problem over Real abs terms, without a logic; None unless unsat."""
+    generator = random.Random(seed)
+    lines = ["(declare-const x%d Real)" % i for i in range(variables)]
+    if functions:
+        lines.append("(declare-fun f (Real) Real)")
+
+    def term(v):
+        roll = generator.random()
+        if roll < 0.25:
+            return "(abs x%d)" % v
+        if roll < 0.45:
+            other = generator.randrange(variables)
+            return "(abs (- x%d (* %d x%d) %d))" % (v, generator.choice([-2, 1, 3]), other, generator.randint(-3, 3))
+        if functions and roll < 0.6:
+            return "(f (abs x%d))" % v if generator.random() < 0.5 else "(abs (f x%d))" % v
+        return "x%d" % v
+
+    def atom():
+        chosen = generator.sample(range(variables), generator.randint(1, 3))
+        terms = " ".join("(* %d %s)" % (generator.choice([-3, -2, -1, 1, 2, 3]), term(v)) for v in chosen)
+        relation = generator.choice(["<=", ">=", "<", ">", "="])
+        constant = generator.choice(["%d" % generator.randint(-5, 5), "(/ %d 2)" % generator.randint(-5, 5)])
+        return "(%s (+ %s 0) %s)" % (relation, terms, constant)
+
+    for _ in range(constraints):
+        roll = generator.random()
+        if roll < 0.4:
+            lines.append("(assert (or %s %s))" % (atom(), atom()))
+        elif roll < 0.5:
+            lines.append("(assert (not (and %s %s)))" % (atom(), atom()))
+        else:
+            lines.append("(assert %s)" % atom())
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    solver = z3.Solver(ctx=z3.Context())
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Seeds of random_abs_instance with long refutations among the first sixty
+# without functions and the first forty with (167 to 502 steps on either
+# core); every unsat seed there verifies on both cores.
+REAL_ABS_SEEDS = (17, 52)
+REAL_ABS_FUNCTION_SEEDS = (9, 34)
+
 
 def random_instance(seed, variables, constraints, ite=False):
     """A random QF_LRA problem; callers filter for unsat ones."""
@@ -342,6 +462,55 @@ class TestArithmeticValidation(unittest.TestCase):
             with self.subTest(parameters=parameters):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, message):
                     proof_to_lean.reconstruct(self.source, certificate)
+
+    def test_coerced_numerals_are_bound_to_the_input_by_value(self):
+        # The certificate of a script without a logic states the Real terms
+        # QF_LRA reads: the certificate of the same assertions under QF_LRA
+        # binds to it, and a numeral changed in the certificate does not.
+        source = COERCED_NUMERAL_INPUTS["numerals_without_logic"]
+        certificate = proof_certificate.export_clause_log_certificate("(set-logic QF_LRA)\n" + source)
+        certificate["source_smt2"] = source
+        self.assertNotIn("to_real", json.dumps(certificate))
+        proof_to_lean.reconstruct(source, certificate)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        numerals = {d["name"] for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ANUM}
+        self.assertTrue({"1", "2", "3"} <= numerals, numerals)
+        for declaration in certificate["declarations"]:
+            if declaration["kind"] == z3.Z3_OP_ANUM and declaration["name"] == "2":
+                declaration["name"] = "5"
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not match the original input"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_real_abs_is_stated_as_its_ite_over_rat(self):
+        source = REAL_ABS_INPUTS["distance"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("-- Real abs, which Z3 accepts beyond SMT-LIB, is the ite", text)
+        self.assertRegex(text, r"noncomputable def term_\d+ \(_atoms : Nat -> Prop\) \(_vars : Nat -> Rat\) : Rat := "
+                               r"\(@ite Rat \(\(term_(\d+) _atoms _vars\) >= \(\(0 : Rat\)\)\) "
+                               r"\(Classical.propDecidable _\) \(term_\1 _atoms _vars\) \(-\(term_\1 _atoms _vars\)\)\)")
+        self.assertNotIn("Int", text.split("namespace", 1)[1])
+        absolute = next(index for index, d in enumerate(certificate["declarations"]) if d["kind"] == z3.Z3_OP_ABS)
+        self.assertEqual((certificate["declarations"][absolute]["name"], certificate["declarations"][absolute]["domain"],
+                          certificate["declarations"][absolute]["range"]), ("abs", ["Real"], "Real"))
+        # Of the integer operators only abs is a Real operator; abs keeps its
+        # arity and sort, and a declaration renamed to another operator's
+        # name, or replaced by negation, no longer states the input.
+        for mutate, message in [
+            (lambda d: d.update(kind=z3.Z3_OP_IDIV, name="div", domain=["Real", "Real"]),
+             "unsupported arithmetic declaration: div"),
+            (lambda d: d.update(kind=z3.Z3_OP_MOD, name="mod", domain=["Real", "Real"]),
+             "unsupported arithmetic declaration: mod"),
+            (lambda d: d.update(name="div"), "unsupported arithmetic declaration: div"),
+            (lambda d: d.update(domain=["Int"]), "arithmetic declarations take Real arguments"),
+            (lambda d: d.update(domain=["Real", "Real"]), "invalid arithmetic declaration arity"),
+            (lambda d: d.update(kind=z3.Z3_OP_UMINUS, name="-"), "do not match the original input"),
+        ]:
+            tampered = copy.deepcopy(certificate)
+            mutate(tampered["declarations"][absolute])
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, message):
+                    proof_to_lean.reconstruct(source, tampered)
 
     def test_fragment_and_sort_consistency(self):
         certificate = copy.deepcopy(self.certificate)
@@ -501,7 +670,7 @@ def flattening_rewrite_instance(variables=9):
     return "\n".join(lines) + "\n"
 
 
-def clock_shaped_rewrite_instance():
+def clock_shaped_rewrite_instance(clocks=3):
     """A disjunction with the Boolean skeleton of the clocksynchro_3clocks rewrite over fresh bounds.
 
     z3test's smtlib-sample QF_LRA clock_synchro/clocksynchro_3clocks.main_
@@ -511,7 +680,9 @@ def clock_shaped_rewrite_instance():
     constant atom, a re-nested conjunction), which Z3's rewriter flattens
     to 48 disjuncts; grind failed on the propositional lemma relating the
     two. Here every atom is a bound on its own variable, asserted as a
-    unit, so every disjunct is false and the input is unsat.
+    unit, so every disjunct is false and the input is unsat. More clocks
+    widen the groups (and the copies of the repeated literals) as in the
+    8-clock variant.
     """
     counter = [0]
 
@@ -522,14 +693,17 @@ def clock_shaped_rewrite_instance():
     def neg(formula):
         return "(not %s)" % formula
 
-    clocks = range(3)
+    clocks = range(clocks)
     a = [atom() for _ in range(13)]
     g, s, h = [atom() for _ in clocks], [atom() for _ in clocks], [atom() for _ in clocks]
     a61, a62, a63, a64, a65, a66 = (atom() for _ in range(6))
     k67, k74, k75, k82, k83, k84 = (atom() for _ in range(6))
     disjuncts = [neg(x) for x in a[:10]] + [neg(a[6])] + [neg(x) for x in a[10:13]] + [neg(a[6])]
     disjuncts += ["(and (or %s %s) %s)" % (neg(g[c]), neg(atom()), neg(s[c])) for c in clocks]
-    disjuncts.append("(and (and %s %s) %s)" % (neg(g[0]), neg(g[1]), neg(g[2])))
+    all_off = neg(g[0])
+    for c in clocks[1:]:
+        all_off = "(and %s %s)" % (all_off, neg(g[c]))
+    disjuncts.append(all_off)
     disjuncts += ["(and %s (or %s %s))" % (g[c], neg(atom()), neg(atom())) for c in clocks]
     disjuncts += ["(and (and %s %s) (or (or %s %s) %s))" % (g[c], neg(h[c]), neg(atom()), neg(atom()), neg(atom()))
                   for c in clocks]
@@ -555,6 +729,125 @@ def clock_shaped_rewrite_instance():
     lines += ["(assert (<= x%d 5))" % i for i in range(1, counter[0] + 1)]
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
+
+
+def ite_reshaping_instance(groups=5, condition="and"):
+    """A disjunction of conjunctions over Real ite terms that Z3's rewriter reshapes, refuted by unit bounds.
+
+    The shape of the spider QF_LRA benchmarks (mode_cntrl, current_frame):
+    per group, y is (ite (not b) (ite (and (< x 3) c) (+ x 1) x) x), which
+    the rewriter merges into (ite (or b (not (and (not (<= 3 x)) c))) x
+    (+ 1 x)), and w is (ite (not (< z 3)) 3 z), rewritten to (ite (<= 3 z)
+    3 z), next to atoms the rewriter flattens and normalizes; with five
+    groups the rewrite has 50 atoms. Each disjunct requires (not (< z 3))
+    against the unit (< z 3). condition is the connective of the inner
+    ite's condition (and, =, or xor).
+    """
+    names, disjuncts = [], []
+    for group in range(groups):
+        b, c, x, y, z, w = ("%s%d" % (name, group) for name in "bcxyzw")
+        names += [(b, "Bool"), (c, "Bool"), (x, "Real"), (y, "Real"), (z, "Real"), (w, "Real")]
+        disjuncts.append(
+            "(and (and (and (= %s (ite (not %s) (ite (%s (< %s 3) %s) (+ %s 1) %s) %s))"
+            " (not (< %s 3))) (= %s (ite (not (< %s 3)) 3 %s))) (or (or %s (= %s 3)) (= %s 0)))"
+            % (y, b, condition, x, c, x, x, x, z, w, z, z, c, y, w))
+    assertion = disjuncts[0]
+    for disjunct in disjuncts[1:]:
+        assertion = "(or %s %s)" % (assertion, disjunct)
+    lines = ["(set-logic QF_LRA)"] + ["(declare-const %s %s)" % pair for pair in names]
+    lines.append("(assert %s)" % assertion)
+    lines += ["(assert (< z%d 3))" % group for group in range(groups)]
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def selector_ite_instance(groups=3):
+    """ite_reshaping_instance's skeleton over a rate selected by comparing a numeral-valued ite.
+
+    The shape of the sal/carpark QF_LRA benchmarks (Carpark2-ausgabe-6): per
+    group, a selector s is an ite chain over four flags valued 4 to 0, and
+    the rate (ite (= s 4) 20 (ite (= s 3) 10 (ite (= s 2) 5 (ite (= s 1) 2
+    1)))) compares it with numerals. Z3's rewriter decides those
+    comparisons, turning the rate into an ite over disjunctions of the
+    flags' conjunctions, so the two sides' rate ites share no condition.
+    """
+    names, disjuncts = [], []
+    for group in range(groups):
+        a, b, c, d, x, y, z, w = ("%s%d" % (name, group) for name in "abcdxyzw")
+        names += [(name, "Bool") for name in (a, b, c, d)] + [(name, "Real") for name in (x, y, z, w)]
+        cases = []
+        for value, flags in zip((4, 3, 2, 1), ((False, False, True), (True, True, False),
+                                               (False, True, False), (True, False, False))):
+            for first in (True, False):
+                literals = [name if flag else "(not %s)" % name
+                            for name, flag in zip((a, b, c, d), (first,) + flags)]
+                cases.append(("(and (and (and %s %s) %s) %s)" % tuple(literals), value))
+        selector = "0"
+        for condition, value in reversed(cases):
+            selector = "(ite %s %d %s)" % (condition, value, selector)
+        rate = "1"
+        for value, amount in ((1, 2), (2, 5), (3, 10), (4, 20)):
+            rate = "(ite (= %s %d) %d %s)" % (selector, value, amount, rate)
+        disjuncts.append(
+            "(and (and (and (= %s (+ %s (* %s 10))) (not (< %s 3))) (= %s (ite (not (< %s 3)) 3 %s)))"
+            " (or (or %s (= %s 3)) (= %s 0)))" % (y, x, rate, z, w, z, z, a, y, w))
+    assertion = disjuncts[0]
+    for disjunct in disjuncts[1:]:
+        assertion = "(or %s %s)" % (assertion, disjunct)
+    lines = ["(set-logic QF_LRA)"] + ["(declare-const %s %s)" % pair for pair in names]
+    lines.append("(assert %s)" % assertion)
+    lines += ["(assert (< z%d 3))" % group for group in range(groups)]
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+class TestNormalizedRewriteLinks(unittest.TestCase):
+    """The prover of a normalized rewrite links the sides' structures equal up to flattening."""
+
+    def test_links_cover_swapped_iffs_double_negation_and_constants(self):
+        leaf = [("leaf", index, "_atom%d" % index) for index in range(6)]
+        left = ("and", ("iff", leaf[0], ("or", ("or", leaf[1], leaf[2]), leaf[3])),
+                ("not", ("not", leaf[4])), ("or", leaf[5], ("false",)))
+        right = ("and", leaf[5], leaf[4], ("iff", ("or", leaf[3], leaf[1], leaf[2]), leaf[0]))
+        prover = proof_to_lean._PropositionalProver(left, right, classical=True, links=True)
+        self.assertEqual(prover.representatives[left], prover.representatives[right])
+        lines = prover.equivalence(left, right)
+        self.assertIsNotNone(lines)
+        text = "\n".join(lines)
+        self.assertIn("(Iff.trans (iff_congr ", text)  # the iff with its sides swapped
+        self.assertIn(") iff_comm)", text)
+        self.assertIn("refine Classical.byContradiction (fun (_f", text)
+        source = ["theorem linked (_atoms : Nat -> Prop)%s" % "".join(" (%s : Prop)" % name for _, _, name in leaf),
+                  "    : %s := by" % proof_to_lean._render_structure(("iff", left, right))]
+        source += ["  " + line for line in lines]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "linked.lean"
+            path.write_text("\n".join(source) + "\n\n#print axioms linked\n")
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(path)], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
+
+    def test_disjuncts_of_a_wide_false_disjunction_are_refuted_from_tails(self):
+        # Refuting disjunct i from the disjunction itself took i steps of
+        # mt Or.inr; from the tail bound a stride before it, at most a stride.
+        width = 4 * proof_to_lean._AND_ELIM_STRIDE + 3
+        leaves = [("leaf", index, "_atom%d" % index) for index in range(width)]
+        # The last two disjuncts, assumed, are refuted from the negated disjunction.
+        negation, last = ("not", ("or",) + tuple(leaves)), ("or", leaves[-1], leaves[-2])
+        prover = proof_to_lean._PropositionalProver(last, negation, classical=True)
+        lines = prover.refutation(last, [(negation, "_h")])
+        self.assertIsNotNone(lines)
+        depths = [line.count("(mt (@Or.inr _ _)") for line in lines]
+        self.assertEqual(depths.count(proof_to_lean._AND_ELIM_STRIDE), 4)  # the tails
+        self.assertLessEqual(max(depths), proof_to_lean._AND_ELIM_STRIDE)
+        source = ["theorem refuted (_atoms : Nat -> Prop)%s" % "".join(" (%s : Prop)" % name for _, _, name in leaves),
+                  "    (_h : %s) : Not %s := by" % tuple(proof_to_lean._render_structure(structure)
+                                                      for structure in (negation, last))]
+        source += ["  " + line for line in lines]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "refuted.lean"
+            path.write_text("\n".join(source) + "\n")
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(path)], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
 
 
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
@@ -595,6 +888,44 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         self.assertEqual(certificate["fragment"], "qf_lra")
         self.assertIn(["arith"], [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"])
         self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_real_abs_verifies(self):
+        # Rejected as "abs over Real" before; the clause log has the
+        # rewriter's ite, the statement the input's abs as the ite over Rat.
+        sources = list(REAL_ABS_INPUTS.items())
+        sources += [("seed%d" % seed, random_abs_instance(seed)) for seed in REAL_ABS_SEEDS]
+        sources += [("function_seed%d" % seed, random_abs_instance(seed, functions=True))
+                    for seed in REAL_ABS_FUNCTION_SEEDS]
+        for name, source in sources:
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertEqual(certificate["fragment"], "qf_uflra" if "function" in name else "qf_lra")
+                self.assertIn(_STANDARD_AXIOMS, report)
+                self.assertIn("th-lemma", certificate["rule_counts"])
+
+    def test_untrimmed_real_abs_axioms_verify(self):
+        # Seed 59's log keeps (abs x1) and an arith lemma of its two case
+        # axioms, which trimming drops; replaying it untrimmed checks that
+        # lemma, over the logged abs rather than z3py's (ite (> t 0) t (- t)).
+        # QF_LRA reads the numerals as Real ones; without a logic the
+        # untrimmed log has to_real numerals, which the replay rejects.
+        source = "(set-logic QF_LRA)\n" + random_abs_instance(59)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf")):
+            certificate, report = self.check(source)
+        declarations = certificate["declarations"]
+        used = {node["declaration"] for node in certificate["nodes"]}
+        self.assertIn(("abs", ["Real"]), [(declarations[i]["name"], declarations[i]["domain"]) for i in used])
+        self.assertIn(["arith"], [declarations[i]["parameters"] for i in used if declarations[i]["name"] == "th-lemma"])
+        self.assertNotIn(z3.Z3_OP_GT, [declarations[i]["kind"] for i in used])
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_integer_numerals_in_real_terms_verify(self):
+        for name, source in COERCED_NUMERAL_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertEqual(certificate["fragment"], "qf_uflra" if "function" in name else "qf_lra")
+                self.assertIn(_STANDARD_AXIOMS, report)
+                self.assertIn("th-lemma", certificate["rule_counts"])
 
     def test_boolean_inputs_through_the_clause_log(self):
         from test_proof_to_lean import Z3TEST_LEAN_INPUTS
@@ -728,7 +1059,11 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         lemma = self._normalized_lemma(source)
         self.assertIn("(Not True)", lemma)
         self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
-        self.assertIn("\n       refine Iff.intro (fun (_f1 : _s", lemma)
+        # The sides' structures equal up to flattening are linked first,
+        # each link proved by contradiction (see _equivalent_structures).
+        self.assertRegex(lemma, r"\n       have _f\d+ : _s\d+ := by\n         refine Iff.intro ")
+        self.assertIn("refine Classical.byContradiction (fun (_f", lemma)
+        self.assertRegex(lemma, r"\n       refine Iff.intro \(fun \(_f\d+ : _s")
         self.assertTrue(lemma.endswith(")\n    | grind (splits := 64)"), lemma[-200:])
         self.assertNotIn("Classical.em", lemma)
         self.check(source)
@@ -754,6 +1089,148 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         self.assertNotIn("Classical.em", lemma)
         self.assertLess(len(lemma), proof_to_lean._STRUCTURAL_REWRITE_CHARS // 2)
         self.check(source)
+
+    def test_wide_clock_shaped_flattening_rewrite_verifies(self):
+        # The same skeleton with 16 clocks (a 165-way flattened disjunction):
+        # the search alone exhausted its character budget (each case of one
+        # side's disjunction walked the other side's left-nested chain, and
+        # refuting disjunct i of a false disjunction took i steps), so the
+        # lemma was grind's, which failed after 106 s, as on the 250-way
+        # rewrite of clocksynchro_8clocks.main_invar. With the sides' equal
+        # structures linked and the false disjunction's tails bound, the
+        # proof is linear and checks in seconds.
+        source = clock_shaped_rewrite_instance(clocks=16)
+        lemma = self._normalized_lemma(source)
+        self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
+        # Every disjunct is refuted from a tail at most a stride before it.
+        self.assertLessEqual(max(line.count("(mt (@Or.inr _ _)") for line in lemma.splitlines()),
+                             2 * proof_to_lean._AND_ELIM_STRIDE)
+        self.assertLess(len(lemma), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+        certificate, report = self.check(source)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_rewrite_reshaping_ite_terms_verifies(self):
+        # Z3's rewriter reshapes the ite terms of an assertion (see
+        # ite_reshaping_instance), so the two sides' ites differ and
+        # generalizing them apart fails; grind over the unfolded rewrite
+        # exhausted its heartbeats (as on the spider QF_LRA benchmarks
+        # mode_cntrl and current_frame). Keyed by their value tables, the
+        # ites of both sides are one opaque term per pair, each atom's lemma
+        # proves its ite equal to the representative, and the propositional
+        # lemma links the flattened structures.
+        source = ite_reshaping_instance()
+        for core in ("clause-log", "legacy"):
+            with self.subTest(core=core):
+                certificate = (proof_certificate.export_clause_log_certificate(source) if core == "clause-log"
+                               else proof_certificate.export_certificate(source))
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertIn("private theorem normalized_rewrite_", text)
+                atom_lemmas = text.split("private theorem normalized_atom_")[1:]
+                self.assertTrue(any("(@ite Rat" in lemma.split(":= by", 1)[0] for lemma in atom_lemmas))
+                certificate, report = self.check(source, core)
+                self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_rewrite_reshaping_ites_with_iff_and_xor_conditions_verifies(self):
+        # With an iff or xor inner condition, the value tables still match
+        # the two sides' ites, but grind alone cannot prove the atom over
+        # the merged ite equal to its normalized form; the atom lemma falls
+        # back to splitting every ite of its goal. Before that fallback the
+        # clause-log export failed in normalized_atom (and at the base
+        # commit, grind over the whole rewrite timed out).
+        for condition in ("=", "xor"):
+            with self.subTest(condition=condition):
+                source = ite_reshaping_instance(condition=condition)
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertIn("private theorem normalized_rewrite_", text)
+                self.assertIn("    | ((repeat' split) <;> grind)", text)
+                certificate, report = self.check(source)
+                self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_rewrite_over_numeral_comparisons_of_selector_ites_verifies(self):
+        # Z3's rewriter decides the rate's (= selector k) conditions (see
+        # selector_ite_instance), so the left's rate ite is over comparisons
+        # of the selector ite and the right's over the flags alone. With the
+        # comparisons as independent leaves the tables differed, and grind
+        # over the unfolded rewrite timed out after 60 s, as on
+        # Carpark2-ausgabe-6. Evaluated in the table, they key the two rate
+        # ites alike, and the atom lemmas relating them are proved by cases
+        # on the four flags (grind and splitting every ite both fail there).
+        source = selector_ite_instance()
+        for core in ("clause-log", "legacy"):
+            with self.subTest(core=core):
+                certificate = (proof_certificate.export_clause_log_certificate(source) if core == "clause-log"
+                               else proof_certificate.export_certificate(source))
+                text = proof_to_lean.reconstruct(source, certificate)
+                if core == "clause-log":
+                    self.assertIn("private theorem normalized_rewrite_", text)
+                    self.assertIn("    | (by_cases _c", text)
+                    # The linter is relaxed only for the lemmas with the split.
+                    self.assertEqual(text.count("set_option linter.unusedSimpArgs false in"),
+                                     text.count("    | (by_cases _c"))
+                certificate, report = self.check(source, core)
+                self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_ite_value_tables_evaluate_comparisons_of_numeral_ites(self):
+        # Each rate ite over (= selector k) conditions shares its table with
+        # the rewritten rate ite, whose conditions are over the flags alone;
+        # the selectors are keyed among themselves.
+        groups = 3
+        source = selector_ite_instance(groups)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        rewrite = max((node for node in range(len(graph.nodes)) if graph.decl(node).name == "rewrite"),
+                      key=lambda node: len(proof_to_lean._reachable(graph, graph.conclusion(node))[0]))
+        conclusion = graph.conclusion(rewrite)
+        ites = proof_to_lean._arith_ites(graph, proof_to_lean._reachable(graph, conclusion)[0])
+        atoms = [formula for formula in proof_to_lean._reachable_outside(graph, conclusion, ites)
+                 if graph.kind(formula) == z3.Z3_OP_EQ and graph.is_arith(graph.arguments(formula)[0])]
+        representatives = proof_to_lean._ite_representatives(graph, atoms)
+        self.assertEqual(set(representatives), ites)
+
+        def compares_selector(ite):
+            nodes = proof_to_lean._reachable(graph, graph.arguments(ite)[0])[0]
+            return any(graph.kind(node) == z3.Z3_OP_EQ and proof_to_lean._numeral_ite(graph, graph.arguments(node)[0])
+                       for node in nodes)
+
+        chains = [ite for ite in ites if compares_selector(ite)]
+        self.assertEqual(len(chains), 4 * groups)
+        rates = [ite for ite in chains if not any(ite in graph.arguments(other) for other in chains)]
+        self.assertEqual(len(rates), groups)
+        for rate in rates:
+            partners = [ite for ite in ites if ite != rate and representatives[ite] == representatives[rate]]
+            self.assertTrue(partners)
+            for partner in partners:
+                condition = proof_to_lean._reachable(graph, graph.arguments(partner)[0])[0]
+                self.assertFalse(proof_to_lean._arith_ites(graph, condition))
+        # An ite with a variable branch (the w ites) is no numeral ite, so a
+        # comparison of it would stay a leaf.
+        variable_branch = [ite for ite in ites if graph.kind(graph.arguments(ite)[2]) == z3.Z3_OP_UNINTERPRETED]
+        self.assertTrue(variable_branch)
+        self.assertFalse(any(proof_to_lean._numeral_ite(graph, ite) for ite in variable_branch))
+
+    def test_ite_value_tables_key_reshaped_ites_alike(self):
+        # Per group, the y ite (nested on the left, merged on the right)
+        # and the w ite (its condition negated on the left) each have one
+        # table for both shapes; the left's inner ite has a table of its own.
+        groups = 3
+        source = ite_reshaping_instance(groups)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        rewrite = max((node for node in range(len(graph.nodes)) if graph.decl(node).name == "rewrite"),
+                      key=lambda node: len(proof_to_lean._reachable(graph, graph.conclusion(node))[0]))
+        conclusion = graph.conclusion(rewrite)
+        ites = proof_to_lean._arith_ites(graph, proof_to_lean._reachable(graph, conclusion)[0])
+        atoms = [formula for formula in proof_to_lean._reachable_outside(graph, conclusion, ites)
+                 if graph.kind(formula) == z3.Z3_OP_EQ and graph.is_arith(graph.arguments(formula)[0])]
+        representatives = proof_to_lean._ite_representatives(graph, atoms)
+        self.assertEqual(set(representatives), ites)
+        classes = {}
+        for ite, representative in representatives.items():
+            classes.setdefault(representative, []).append(ite)
+        self.assertEqual(sorted(len(members) for members in classes.values()), [1] * groups + [2] * 2 * groups)
+        for members in classes.values():  # one table, but the conditions differ
+            self.assertEqual(len({graph.arguments(ite)[0] for ite in members}), len(members))
 
     def test_euf_congruence_annotation_cannot_supply_a_missing_equality(self):
         source = ("(declare-const x Real)(declare-const y Real)"
@@ -1135,6 +1612,24 @@ class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
         certificate, report = self.check(REAL_DIVISION_AXIOM, core="legacy")
         self.assertEqual(certificate["fragment"], "qf_lra")
         self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_real_abs_verifies_through_the_legacy_core(self):
+        sources = list(REAL_ABS_INPUTS.items())
+        sources += [("seed%d" % seed, random_abs_instance(seed)) for seed in REAL_ABS_SEEDS]
+        sources += [("function_seed%d" % seed, random_abs_instance(seed, functions=True))
+                    for seed in REAL_ABS_FUNCTION_SEEDS]
+        for name, source in sources:
+            with self.subTest(name=name):
+                certificate, report = self.check(source, core="legacy")
+                self.assertEqual(certificate["fragment"], "qf_uflra" if "function" in name else "qf_lra")
+                self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_integer_numerals_in_real_terms_verify_through_the_legacy_core(self):
+        for name, source in COERCED_NUMERAL_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source, core="legacy")
+                self.assertIn(certificate["fragment"], ("qf_lra", "qf_uflra"))
+                self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_bound_propagations_and_theory_arith_inputs_verify(self):
         for name, source in {**LEGACY_BOUND_INPUTS, **LEGACY_THEORY_ARITH_INPUTS}.items():

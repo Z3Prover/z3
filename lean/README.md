@@ -58,27 +58,28 @@ The resulting theorem quantifies over `_vars : Nat -> Rat` as well as the atom
 valuation and depends on the three standard axioms through Lean core's `Rat`
 library; the Boolean slice stays axiom-free. See the exporter documentation
 for the Real-as-Rat trust statement. A QF_UF input goes through the same two
-commands; its theorem quantifies over `(_U : Type) (_elems : Nat -> _U)
-(_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)
-(_bool : Prop -> _U)` instead of `_vars` (Boolean arguments of functions and
-predicates are injected into `_U` by `_bool`), and `grind`'s congruence
+commands; its theorem quantifies over `(_m : Interpretation)` instead of
+`_vars`, a structure the file declares with the fields `U : Type`,
+`elems : Nat -> U`, `funs : Nat -> List U -> U`, `preds : Nat -> List U -> Prop`,
+and `bool : Prop -> U` (Boolean arguments of functions and predicates are
+injected into `_m.U` by `_m.bool`), and `grind`'s congruence
 proofs report the same three axioms. A QF_UF certificate from the legacy
 proof object (`proof_certificate.py --core legacy`) carries the smt core's
 own equality proofs instead of `euf` hints; its `trans`, `symm`, and
 `monotonicity` steps become `Eq.trans`, `Eq.symm`, and `congrArg` terms over
-`_U`, checked by Lean's type checker without `grind`; an input whose only
+`_m.U`, checked by Lean's type checker without `grind`; an input whose only
 uninterpreted symbols are predicates over Bool (no sort) takes the same
-binders, with `_U` holding nothing but the injected Boolean arguments, and
+structure, with `_m.U` holding nothing but the injected Boolean arguments, and
 is certified from the legacy proof object only. A QF_LRA certificate
 from the legacy proof object carries `theory_lra`'s Farkas coefficients as
 `th-lemma` parameters; each such step is stated as the implication from its
 premises, re-derived in Python and proved by `grind`, and congruence through
 an arithmetic operator is a `grind` lemma over the argument equalities. A
 QF_UFLRA input (uninterpreted sorts or functions mixed with linear real
-arithmetic) takes both the `_vars` valuation and the `_U` binders, plus
-`(_real : Rat -> _U) (_rfuns : Nat -> List _U -> Rat)`: a Real argument of a
-function or predicate is injected into `_U` by `_real`, and a function with a
-Real result is the family `_rfuns`, whose applications are the atoms of the
+arithmetic) takes both the `_vars` valuation and the structure, with two more
+fields `real : Rat -> U` and `rfuns : Nat -> List U -> Rat`: a Real argument of a
+function or predicate is injected into `_m.U` by `_m.real`, and a function with a
+Real result is the family `_m.rfuns`, whose applications are the atoms of the
 linear forms; both cores certify it, predicates over Bool alone included. A
 QF_LIA input (linear integer arithmetic on its own) is certified from both
 cores; its theorem quantifies over `_vars : Nat -> Int`, its
@@ -92,9 +93,9 @@ positive numeral; an `arith` axiom with a negative divisor falls to `grind`).
 Integer `div` and `mod` are Lean's Euclidean `/` and `%` (nonzero constant
 divisors only in the assertions; any other there is rejected) and `abs` is the classical `ite`
 SMT-LIB defines it as. A QF_UFLIA input (the same mixed with uninterpreted sorts
-or functions) takes the QF_UFLRA binders over Int instead,
-`(_vars : Nat -> Int)`, `(_int : Int -> _U)`, and
-`(_ifuns : Nat -> List _U -> Int)`, and is certified from the clause log
+or functions) takes the QF_UFLRA encoding over Int instead,
+`(_vars : Nat -> Int)` and the fields `int : Int -> U` and
+`ifuns : Nat -> List U -> Int`, and is certified from the clause log
 only, with `first | omega | grind` for its lemmas and helpers.
 
 The second command checks the generated proof with Lean before publishing it.
