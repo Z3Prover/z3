@@ -47,14 +47,20 @@
    plus `refl`, `trans` (two premises, middle terms equal), `monotonicity`
    (same declaration; premises match the changed arguments in order, every
    premise consumed) and `sk`: a closed Skolem step `a ~ b` whose equation
-   `(= a b)` is one of the node's assertions. On the epsilon route those
-   assertions include the choice equations of the certified epsilon context
-   (Z3SortedProof.epsilon_context), so an inner Skolem step is accepted only
-   when its definition passed the existing eligibility, ordering and
-   freshness gates, and it is TRUE only in the choice extension of the
-   model, which is where the epsilon theorem evaluates the document. Every
-   other entry kind (rewrite, apply-def, quant-intro, labels, lambda,
-   dependent Skolem functions, the hnf.cpp variant whose body is not the
+   `(= a b)` is one of the node's assertions, or an OPEN (dependent) Skolem
+   step whose universal closure `(forall cb. (= a b))` is one of them and
+   whose dependencies are typed at every scope the guard assigns it. On the
+   epsilon route those assertions include the choice equations of the
+   certified epsilon context (Z3SortedProof.epsilon_context) and the
+   closures of the certified dependent context
+   (Z3SortedProof.dependent_context, Z3SortedDependentSkolem), so an inner
+   Skolem step is accepted only when its definition passed the eligibility,
+   ordering and freshness gates, and it is TRUE only in the choice extension
+   of the model (one joint choice per argument tuple for a dependent step),
+   which is where the epsilon theorem evaluates the document. An open step
+   is read at its scope through the closure by coincidence
+   (lemma_closure_edge). Every other entry kind (rewrite, apply-def,
+   quant-intro, labels, lambda, the hnf.cpp variant whose body is not the
    negation of its source, ...) leaves the node PENDING.
 
    Scopes. The existing guard (Z3UnifiedProof.binder_scopes /
@@ -99,6 +105,8 @@ module B = Z3BoundedBoolEquiv
 module I = Z3ProofIndex
 module BS = Z3BinderScope
 module L = FStar.List.Tot
+module SK = Z3Skolemization
+module DS = Z3SortedDependentSkolem
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -220,6 +228,19 @@ let rec arguments_ok (xs ys:list expr) (facts:list U.judgment) : Tot bool (decre
      | [] -> if x = y then arguments_ok xs' ys' [] else false)
   | _, _ -> false
 
+(* The binder list of an assertion that is the universal closure
+   (forall cb. (= lhs rhs)) of an open equation: on the epsilon route, the
+   closure of a dependent Skolem step of the certified dependent context
+   (Z3SortedProof.dependent_context, Z3SortedDependentSkolem.closure). *)
+let rec find_closure (lhs rhs:expr) (es:list expr) : Tot (option (list sort)) (decreases es) =
+  match es with
+  | [] -> None
+  | a :: rest ->
+    (match a with
+     | Quantifier Forall_k cb s body ->
+       if s = bool_sort && body = R.mk_eq_expr lhs rhs then Some cb else find_closure lhs rhs rest
+     | _ -> find_closure lhs rhs rest)
+
 let entry_ok (assertions:list expr) (e:U.binder_entry) (j:U.judgment) (facts:list U.judgment) : bool =
   match edge j with
   | None -> false
@@ -244,8 +265,28 @@ let entry_ok (assertions:list expr) (e:U.binder_entry) (j:U.judgment) (facts:lis
        | App f xs, App g ys -> f = g && arguments_ok xs ys facts
        | _, _ -> false)
     else if name = "sk" then
-      Nil? facts && U.Observational? j && L.mem (R.mk_eq_expr lhs rhs) assertions
+      Nil? facts && U.Observational? j &&
+      (L.mem (R.mk_eq_expr lhs rhs) assertions || Some? (find_closure lhs rhs assertions))
     else false
+
+let rec all_typed (scopes:list (list sort)) (deps:list SK.dependency) : Tot bool (decreases scopes) =
+  match scopes with [] -> true | sc :: rest -> DS.deps_typed sc deps && all_typed rest deps
+
+(* An open Skolem step is used only at scopes where its dependencies are
+   typed (every dependency index names a position of the scope with its
+   sort). The replay's soundness does not need it (both sides of the step
+   are typed at the scope and at its closure's scope, and lemma_closure_edge
+   reads the closure there by coincidence); it keeps the runtime contract of
+   a dependent step explicit. Closed steps pass unchanged. *)
+let skolem_scopes_ok (e:U.binder_entry) (j:U.judgment) (scopes:list (list sort)) : bool =
+  if e.U.binder_name <> "sk" then true
+  else match edge j with
+  | None -> true
+  | Some (lhs, rhs) ->
+    (D.scoped [] lhs && D.scoped [] rhs) ||
+    (match SK.definition_of lhs rhs with
+     | Some d -> all_typed scopes d.SK.dependencies
+     | None -> false)
 
 (* ---------------------------------------------------------------------- *)
 (* 2. The certificate walk (executable, loops)                              *)
@@ -314,7 +355,7 @@ let rec steps_ok (assertions:list expr) (count:nat) (t:U.scope_demands) (cache:I
          let w3 = if e.U.binder_name = "sk" then (if count <= w2 then Some (w2 - count) else None) else Some w2 in
          (match w3, I.index_find cache k, I.opt_map_tail (I.index_find cache) e.U.binder_premises with
           | Some w, Some j, Some facts ->
-            if entry_ok assertions e j facts
+            if entry_ok assertions e j facts && skolem_scopes_ok e j (U.scope_demanded t k)
             then steps_ok assertions count t cache (I.index_put sizes k size) (k + 1) rest w
             else false
           | _, _, _ -> false))
@@ -865,6 +906,82 @@ let lemma_assertion_edge (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   assert (V.evaluate sigma i scope rho b == V.evaluate sigma i [] empty b);
   lemma_same_at s bc eq other scope rho a b
 
+let rec lemma_find_closure (lhs rhs:expr) (es:list expr) (cb:list sort)
+  : Lemma (requires find_closure lhs rhs es == Some cb)
+          (ensures L.mem (Quantifier Forall_k cb bool_sort (R.mk_eq_expr lhs rhs)) es)
+          (decreases es) =
+  match es with
+  | [] -> ()
+  | a :: rest ->
+    (match a with
+     | Quantifier Forall_k cb' s body ->
+       if s = bool_sort && body = R.mk_eq_expr lhs rhs then () else lemma_find_closure lhs rhs rest cb
+     | _ -> lemma_find_closure lhs rhs rest cb)
+
+(* An argument tuple for the closure's binders built from an environment of
+   the step's scope: the environment's value where the two scopes have the
+   same sort, any value of the sort elsewhere (a ghost value of the
+   interpretation itself; every carrier of an interpretation is inhabited by
+   its constants). Never executed. *)
+let inhabitant_decl (t:sort) : func_decl =
+  { decl_name = "inhabitant"; domain = []; range = t; interp = None; int_params = [] }
+
+let rec transport (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                  (scope:list sort) (rho:V.environment base sigma scope) (offset:nat) (ss:list sort)
+  : GTot (V.arguments base sigma ss) (decreases ss) =
+  match ss with
+  | [] -> []
+  | t :: rest ->
+    let v : V.value base sigma t =
+      if offset < L.length scope && L.index scope offset = t then rho offset
+      else i.V.application (inhabitant_decl t) [] in
+    v :: transport sigma i scope rho (offset + 1) rest
+
+let rec lemma_transport (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                        (scope:list sort) (rho:V.environment base sigma scope) (offset:nat) (ss:list sort)
+                        (n:nat{n < L.length ss})
+  : Lemma (requires offset + n < L.length scope /\ L.index scope (offset + n) == L.index ss n)
+          (ensures (E.tuple_at sigma ss (transport sigma i scope rho offset ss) n <: V.tree base) ==
+                   (rho (offset + n) <: V.tree base))
+          (decreases ss) =
+  match ss with
+  | _ :: rest -> if n > 0 then lemma_transport sigma i scope rho (offset + 1) rest (n - 1)
+
+(* A dependent Skolem step read through its closure: if the universal
+   closure (forall cb. (= a b)) is an assertion, the equation holds at every
+   environment of every scope at which both sides are typed (coincidence
+   between the closure's scope and that scope, Z3SortedDependentSkolem). *)
+let lemma_closure_edge (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (assertions:list expr) (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                       (a b:expr) (cb:list sort)
+  : Lemma (requires Q.forall_model s bc other /\ T.truths s bc eq other assertions /\
+                    L.mem (Quantifier Forall_k cb bool_sort (R.mk_eq_expr a b)) assertions /\
+                    D.scoped scope a /\ D.scoped scope b /\ get_sort a == get_sort b)
+          (ensures same_at s bc eq other scope rho a b) =
+  let sigma = S.signature s in
+  let i = T.interpretation s bc eq other in
+  let empty = T.empty_environment #base sigma in
+  let eqn = R.mk_eq_expr a b in
+  let c = L.rev cb @ [] in
+  lemma_member_truth s bc eq other assertions (Quantifier Forall_k cb bool_sort eqn);
+  assert (D.scoped c eqn);
+  Q.lemma_forall_truth s bc eq other [] empty cb eqn;
+  let vs = transport sigma other scope rho 0 (L.rev cb) in
+  let eta : V.environment base sigma c = V.extend sigma [] (L.rev cb) vs empty in
+  assert (T.truth_at s bc eq other c eta eqn);
+  let at (n:nat{n < L.length c /\ n < L.length scope})
+    : Lemma (L.index c n == L.index scope n ==> (eta n <: V.tree base) == (rho n <: V.tree base)) =
+    DS.lemma_extend_index sigma [] (L.rev cb) vs empty n;
+    DS.lemma_index_split (L.rev cb) [] n;
+    if L.index c n = L.index scope n then lemma_transport sigma other scope rho 0 (L.rev cb) n in
+  FStar.Classical.forall_intro at;
+  assert (DS.compatible sigma c scope eta rho);
+  assert (D.scoped scope eqn);
+  DS.lemma_coincide sigma i c scope eta rho eqn;
+  T.lemma_equality_at s bc eq other scope rho a b;
+  lemma_same_at s bc eq other scope rho a b
+
 (* ---------------------------------------------------------------------- *)
 (* 6. One entry at one assigned scope                                       *)
 (* ---------------------------------------------------------------------- *)
@@ -920,7 +1037,12 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
           lemma_arguments_ok s bc eq other scope rho xs ys f.domain facts;
           lemma_same_at s bc eq other scope rho lhs rhs
         | _, _ -> ())
-      else lemma_assertion_edge s bc eq other assertions scope rho lhs rhs)
+      else if L.mem (R.mk_eq_expr lhs rhs) assertions then
+        lemma_assertion_edge s bc eq other assertions scope rho lhs rhs
+      else (
+        let cb = Some?.v (find_closure lhs rhs assertions) in
+        lemma_find_closure lhs rhs assertions cb;
+        lemma_closure_edge s bc eq other assertions scope rho lhs rhs cb))
 
 let lemma_entry_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))

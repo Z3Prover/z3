@@ -21,6 +21,7 @@ module N = Z3BooleanNormalForm
 module E = Z3SortedSkolem
 module SK = Z3Skolemization
 module NR = Z3NnfReplay
+module DS = Z3SortedDependentSkolem
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -1545,6 +1546,84 @@ let epsilon_context (s:S.checked_schema) (doc:P.document)
   | [] -> certified_context s doc (collect_epsilon s [] doc.entries)
   | ds -> ds
 
+(* An OPEN Skolem step inside an NNF certificate: a dependent Skolem
+   function of outer binders (Z3SortedDependentSkolem). The shape of a
+   closed inner step (premise-free, no binder sorts, the 4096-node
+   expression budget), a formula that is NOT closed (closed steps are
+   inner_definition's), an eligible dependent definition (complete typed
+   argument tuples, safe witness functions, typed dependency scope), and a
+   closure the kernel accepts as an assertion (closed, Boolean, in the
+   schema context). *)
+let dependent_definition (s:S.checked_schema) (b:U.binder_entry) : option (DS.definition s) =
+  if b.U.binder_name <> "sk" || b.U.binder_premises <> [] || Some? b.U.binder_sorts ||
+     not (Some? (expression_budget 4096 b.U.binder_formula)) || D.scoped [] b.U.binder_formula then None
+  else match U.classify_fact b.U.binder_formula with
+  | Some (U.Observational x y) ->
+    (match DS.definition_of s x y with
+     | Some d -> if boolean_expression s (DS.closure d) then Some d else None
+     | None -> None)
+  | _ -> None
+
+let rec collect_dependent (s:S.checked_schema) (defs:list SK.definition) (bs:list U.binder_entry)
+  : Tot (option (list SK.definition)) (decreases bs) =
+  match bs with
+  | [] -> Some defs
+  | b :: rest ->
+    (match dependent_definition s b with
+     | None -> collect_dependent s defs rest
+     | Some d ->
+       (match SK.add_definition defs d with
+        | None -> None
+        | Some more -> collect_dependent s more rest))
+
+(* The dependent Skolem steps of every consumed NNF certificate, in document
+   order; a duplicate is collected once, a conflicting redefinition of a
+   witness fails the collection (SK.add_definition). *)
+let rec collect_dependents (s:S.checked_schema) (defs:list SK.definition) (entries:list P.entry)
+  : Tot (option (list SK.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some defs
+  | e :: rest ->
+    (match nnf_certificate e with
+     | None -> collect_dependents s defs rest
+     | Some c ->
+       (match collect_dependent s defs c.U.binder_entries with
+        | None -> None
+        | Some more -> collect_dependents s more rest))
+
+let rec certify_dependent (s:S.checked_schema) (defs:list SK.definition)
+  : Tot (option (list (DS.definition s))) (decreases defs) =
+  match defs with
+  | [] -> Some []
+  | d :: rest ->
+    if not (DS.eligible s d) then None
+    else if not (boolean_expression s (DS.closure #s d)) then None
+    else match certify_dependent s rest with None -> None | Some more -> Some (d :: more)
+
+(* The dependent context, on top of the closed epsilon context `closed`: the
+   collected definitions in an acyclic order (from the reversed collection,
+   as certified_context), each eligible, the dependent definitions followed
+   by the closed ones an ordered context (every dependent witness fresh in
+   every later body, closed bodies included), and every dependent witness
+   fresh in every ORIGINAL assertion. Otherwise no dependent definition is
+   used and the dependent steps stay pending. *)
+let dependent_context (s:S.checked_schema) (doc:P.document)
+                      (closed:list (E.definition s){SK.ordered_context (E.erase s closed)})
+  : dds:list (DS.definition s){SK.ordered_context (DS.erase s dds @ E.erase s closed) /\
+                               SK.fresh_inputs (DS.erase s dds) doc.assertions} =
+  match collect_dependents s [] doc.entries with
+  | None -> []
+  | Some defs ->
+    (match SK.order_context (L.length defs) (L.rev defs) with
+     | None -> []
+     | Some ordered ->
+       (match certify_dependent s ordered with
+        | None -> []
+        | Some dds ->
+          if SK.ordered_context (DS.erase s dds @ E.erase s closed) &&
+             SK.fresh_inputs (DS.erase s dds) doc.assertions
+          then dds else []))
+
 let epsilon_entry (s:S.checked_schema) (ds:list (E.definition s)) (e:P.entry) : bool =
   match epsilon_definition s e with None -> false | Some d -> L.mem d ds
 
@@ -1614,18 +1693,32 @@ let rec lemma_epsilon_entries_aligned (s:S.checked_schema) (ds:list (E.definitio
     if n > 0 then lemma_epsilon_entries_aligned s ds rest (n - 1)
     else if Cons? rest then lemma_epsilon_entries_aligned s ds rest 0
 
+(* The closures of the used dependent definitions (closed universal
+   equations, proved in the dependent choice extension; not original
+   inputs) are appended to the assertions. The replay accepts an open `sk`
+   step only when its closure is one of them. *)
+let elaborate_dependent (s:S.checked_schema) (dds:list (DS.definition s)) (doc:P.document) : P.document =
+  if dds = [] then doc
+  else { doc with P.assertions = doc.assertions @ DS.closures s dds }
+
+(* The whole elaboration of the epsilon route: the closed choice equations
+   of the epsilon context, then the closures of the dependent context. *)
+let elaborate_full (s:S.checked_schema) (doc:P.document) : P.document =
+  let ds = epsilon_context s doc in
+  elaborate_dependent s (dependent_context s doc ds) (elaborate_epsilon s ds doc)
+
 let check_document_epsilon (schema:S.schema) (doc:P.document) : option nat =
   if not (S.valid schema) then None
-  else check_document schema (elaborate_epsilon schema (epsilon_context schema doc) doc)
+  else check_document schema (elaborate_full schema doc)
 
 let diagnose_document_epsilon (schema:S.schema) (doc:P.document) : P.document_diagnostic =
   if not (S.valid schema) then P.DocumentRejected P.LogicalDeclarations None None
-  else diagnose_document schema (elaborate_epsilon schema (epsilon_context schema doc) doc)
+  else diagnose_document schema (elaborate_full schema doc)
 
 let lemma_diagnose_document_epsilon (schema:S.schema) (doc:P.document)
   : Lemma (diagnostic_result (diagnose_document_epsilon schema doc) == check_document_epsilon schema doc) =
   if S.valid schema then
-    lemma_diagnose_document schema (elaborate_epsilon schema (epsilon_context schema doc) doc)
+    lemma_diagnose_document schema (elaborate_full schema doc)
 
 let check_document_epsilon_diagnosed (schema:S.schema) (doc:P.document)
   : result:(option nat & P.document_diagnostic){
@@ -1698,6 +1791,51 @@ let lemma_full_forall_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc
     Q.elimination_case s bc other bound body vs
   with assert (Q.forall_case s bc other bound body)
 
+(* ONE consistent extension per document, built from the ORIGINAL model:
+   the closed choice context first (Z3SortedSkolem.build), then the
+   dependent context on top of it (Z3SortedDependentSkolem.build). *)
+let full_extension (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                   (doc:P.document) (other:V.interpretation base (S.signature s))
+  : GTot (V.interpretation base (S.signature s)) =
+  let ds = epsilon_context s doc in
+  DS.build s bc eq choice (dependent_context s doc ds) (E.build s bc eq choice ds other)
+
+(* The extension keeps the quantifiers (hence both quantifier laws) and the
+   truth of every ORIGINAL assertion, and makes every generated assertion
+   (closed choice equation, dependent closure) true: the elaborated
+   assertions hold in it exactly when the original ones hold in `other`. *)
+let lemma_full_extension (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                         (doc:P.document) (other:V.interpretation base (S.signature s))
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other)
+          (ensures (let j = full_extension s bc eq choice doc other in
+                    j.V.quantification == other.V.quantification /\
+                    Q.forall_model s bc j /\ E.exists_model s bc j /\
+                    T.truths s bc eq j doc.assertions == T.truths s bc eq other doc.assertions /\
+                    T.truths s bc eq j (epsilon_equations s (epsilon_context s doc) doc.entries) /\
+                    T.truths s bc eq j (DS.closures s (dependent_context s doc (epsilon_context s doc))) /\
+                    T.truths s bc eq j (elaborate_full s doc).P.assertions ==
+                      T.truths s bc eq other doc.assertions)) =
+  let ds = epsilon_context s doc in
+  let dds = dependent_context s doc ds in
+  let e1 = E.build s bc eq choice ds other in
+  let j = DS.build s bc eq choice dds e1 in
+  E.lemma_build_context s bc eq choice ds other;
+  E.lemma_build_inputs s bc eq choice ds other doc.assertions;
+  E.lemma_build_quantification s bc eq choice ds other;
+  E.lemma_quantification_models s bc other e1;
+  DS.lemma_ordered_append (DS.erase s dds) (E.erase s ds);
+  DS.lemma_build_context s bc eq choice dds e1;
+  DS.lemma_build_inputs s bc eq choice dds e1 doc.assertions;
+  DS.lemma_build_closed s bc eq choice dds e1 ds;
+  DS.lemma_build_quantification s bc eq choice dds e1;
+  E.lemma_quantification_models s bc e1 j;
+  lemma_epsilon_equations s bc eq j ds doc.entries;
+  DS.lemma_context_truths s bc eq j dds;
+  lemma_truths_append s bc eq j doc.assertions (epsilon_equations s ds doc.entries);
+  lemma_truths_append s bc eq j (elaborate_epsilon s ds doc).P.assertions (DS.closures s dds)
+
 let lemma_check_document_epsilon (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
                                  (other:V.interpretation base (S.signature s)) (doc:P.document)
@@ -1705,13 +1843,7 @@ let lemma_check_document_epsilon (#base:sort -> Type0) (s:S.checked_schema) (bc:
                     Q.forall_model s bc other /\ E.exists_model s bc other)
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
-    let ds = epsilon_context s doc in
-    let extended = E.build s bc eq choice ds other in
-    E.lemma_build_context s bc eq choice ds other;
-    E.lemma_build_inputs s bc eq choice ds other doc.assertions;
-    E.lemma_build_quantification s bc eq choice ds other;
-    E.lemma_quantification_models s bc other extended;
-    lemma_full_forall_elimination s bc extended;
-    lemma_epsilon_equations s bc eq extended ds doc.entries;
-    lemma_truths_append s bc eq extended doc.assertions (epsilon_equations s ds doc.entries);
-    lemma_check_document s bc eq extended (elaborate_epsilon s ds doc))
+    let j = full_extension s bc eq choice doc other in
+    lemma_full_extension s bc eq choice doc other;
+    lemma_full_forall_elimination s bc j;
+    lemma_check_document s bc eq j (elaborate_full s doc))

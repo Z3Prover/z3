@@ -4724,8 +4724,9 @@ every route):
 **Scope that does not change.** A native `ACCEPT` is not `RootCertified`, and
 the default route is unchanged. The legacy default `model_sound` still has
 no model; nothing here repairs it or claims every-theory soundness.
-Dependency-bearing Skolem functions and Skolem steps inside binder
-certificates stay unsupported and pending. Master's trust points remain:
+Top-level dependency-bearing Skolem steps stay pending; Skolem steps inside
+consumed NNF certificates are handled by the closed and dependent contexts
+described under the NNF certificate replay below. Master's trust points remain:
 the native front end's translation of assertions, schema and definitions,
 native datatype id and tag fidelity, and the full-function-space array,
 lambda and `FStar.Real` parameterization of the root class.
@@ -4849,8 +4850,14 @@ at that proof entry (`proof-entry` stage) instead of counting as pending; the
 native marshal never produces such ids. The epsilon context additionally
 collects closed, eligible inner `sk` steps of replayed certificates, through
 the unchanged gates; if the merged context fails a gate, the previous
-top-level context is used. Quant-intro-rooted certificates, dependent Skolem
-functions and naming/rewrite steps inside certificates stay pending.
+top-level context is used. Open (dependent) `sk` steps of replayed certificates
+form a dependent context on top of it (`Z3SortedDependentSkolem`): each certified
+step's universal closure over its dependency scope is appended to the assertions
+and holds in the joint dependent choice extension of the original model (one
+witness tuple per argument tuple); see
+[dependent Skolem functions](PROOF_CHECKING.md#nnf-certificate-replay-sorted-route).
+Quant-intro-rooted certificates and naming/rewrite steps inside certificates stay
+pending.
 
 F* evidence (CI pin v2026.10.25 and nightly-2026-10-30): `Z3NnfReplay`,
 `Z3SortedProof`, `Z3SortedRootDocument` and their tests verify, and
@@ -4894,7 +4901,8 @@ Both builds use one Z3 producer built from b3c1e0bac (z3 `3ac509ee…`, libz3.a
   14 at the scope guard; 9 at `intro-def`/`apply-def` naming steps. No residue stops
   at a local NNF rule, so the remaining gap is the dependent Skolem functions, which
   need an argument-dependent choice extension of the epsilon model (not a new NNF
-  rule).
+  rule). That extension is now implemented and verified on both pins (next phase);
+  its effect on these counts has not been re-measured yet.
 - Throughput: the candidate first answered fewer queries in time (OCaml 11,733 ->
   11,556; 6 OCaml and 2 Cherry files went from complete to the 60 s limit). On the
   same documents the cost was `Z3Skolemization.order_context`, cubic in the number of

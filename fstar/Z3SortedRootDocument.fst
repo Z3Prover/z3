@@ -64,6 +64,7 @@ module E = Z3SortedSkolem
 module SK = Z3Skolemization
 module NR = Z3NnfReplay
 module R = Z3ResolutionProofTheory
+module DS = Z3SortedDependentSkolem
 
 (* ---------------------------------------------------------------------- *)
 (* 1. Quantifier hypotheses of Z3SortedQuantifier, from R1                  *)
@@ -665,15 +666,114 @@ let rec lemma_root_build (u:TR.uninterpreted) (sch:S.checked_schema)
     let older = E.build sch bc eq choice rest i in
     lemma_root_override u sch d (E.selected sch bc eq choice older d) older
 
+(* 6c'. The same for the dependent extension (Z3SortedDependentSkolem): a
+   dependent witness is an uninterpreted FUNCTION outside the schema, with
+   no recognizer and no accessor and no theory classification
+   (DS.function_safe), so overriding it changes no law of R1-R6. *)
+let lemma_doverride_application (u:TR.uninterpreted) (sch:S.checked_schema)
+                                (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))
+                                (choice:E.hilbert_choice (TR.carrier u) sch) (d:DS.definition sch)
+                                (i:TR.interp u sch) (f:func_decl)
+                                (xs:V.arguments (TR.carrier u) (S.signature sch) f.domain)
+  : Lemma (requires SK.component f d.SK.witnesses == None)
+          (ensures (DS.doverride sch bc eq choice d i).V.application f xs == i.V.application f xs) =
+  ()
+
+let lemma_doverride_recognizer_at (u:TR.uninterpreted) (sch:S.checked_schema)
+                                  (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))
+                                  (choice:E.hilbert_choice (TR.carrier u) sch) (d:DS.definition sch)
+                                  (i:TR.interp u sch) (f:func_decl)
+  : Lemma (requires TR.recognizer_at u sch i f)
+          (ensures TR.recognizer_at u sch (DS.doverride sch bc eq choice d i) f) =
+  if Some? (SK.component f d.SK.witnesses) then DS.lemma_safe_component sch d.SK.witnesses f
+  else match S.find_recognizer f sch.S.cases with
+  | None -> ()
+  | Some c ->
+    introduce forall (v:TR.tvalue u sch c.S.constructor.range).
+      TR.recognizer_case u sch (DS.doverride sch bc eq choice d i) f c v
+    with lemma_doverride_application u sch bc eq choice d i f [v]
+
+let lemma_doverride_accessor_at (u:TR.uninterpreted) (sch:S.checked_schema)
+                                (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))
+                                (choice:E.hilbert_choice (TR.carrier u) sch) (d:DS.definition sch)
+                                (i:TR.interp u sch) (f:func_decl)
+  : Lemma (requires TR.accessor_at u sch i f)
+          (ensures TR.accessor_at u sch (DS.doverride sch bc eq choice d i) f) =
+  if Some? (SK.component f d.SK.witnesses) then DS.lemma_safe_component sch d.SK.witnesses f
+  else match S.find_accessor f sch.S.cases with
+  | None -> ()
+  | Some r ->
+    introduce forall (ys:TR.targuments u sch r.S.matched_case.S.constructor.domain).
+      TR.accessor_case u sch (DS.doverride sch bc eq choice d i) f r ys
+    with lemma_doverride_application u sch bc eq choice d i f
+           [S.constructor_value sch r.S.matched_case ys]
+
+let lemma_doverride_operator_law (u:TR.uninterpreted) (sch:S.checked_schema)
+                                 (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))
+                                 (choice:E.hilbert_choice (TR.carrier u) sch) (d:DS.definition sch)
+                                 (i:TR.interp u sch)
+  : Lemma (requires TR.operator_law u sch i /\ TR.constructor_law u sch i)
+          (ensures TR.operator_law u sch (DS.doverride sch bc eq choice d i) /\
+                   TR.constructor_law u sch (DS.doverride sch bc eq choice d i)) =
+  let j = DS.doverride sch bc eq choice d i in
+  introduce forall (f:func_decl) (xs:TR.targuments u sch f.domain).
+    (not (TR.datatype_kind f) /\ Some? (TR.interpreted u sch f xs)) ==>
+    j.V.application f xs == Some?.v (TR.interpreted u sch f xs)
+  with (
+    if Some? (SK.component f d.SK.witnesses) then (
+      DS.lemma_safe_component sch d.SK.witnesses f;
+      lemma_free_declaration (S.signature sch) f)
+    else lemma_doverride_application u sch bc eq choice d i f xs);
+  introduce forall (f:func_decl{L.mem f (S.signature sch)}) (xs:TR.targuments u sch f.domain).
+    j.V.application f xs == V.construct (S.signature sch) f xs
+  with (
+    if Some? (SK.component f d.SK.witnesses) then DS.lemma_safe_component sch d.SK.witnesses f
+    else lemma_doverride_application u sch bc eq choice d i f xs)
+
+let lemma_root_doverride (u:TR.uninterpreted) (sch:S.checked_schema)
+                         (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))
+                         (choice:E.hilbert_choice (TR.carrier u) sch) (d:DS.definition sch)
+                         (i:TR.interp u sch)
+  : Lemma (requires TR.root_model u sch i)
+          (ensures TR.root_model u sch (DS.doverride sch bc eq choice d i)) =
+  let j = DS.doverride sch bc eq choice d i in
+  assert (j.V.quantification == i.V.quantification);
+  introduce forall (bound:list sort) (body:TR.body_of u sch bound bool_sort).
+    TR.forall_case u sch j bound body
+  with assert (TR.forall_case u sch i bound body);
+  introduce forall (bound:list sort) (body:TR.body_of u sch bound bool_sort).
+    TR.exists_case u sch j bound body
+  with assert (TR.exists_case u sch i bound body);
+  lemma_doverride_operator_law u sch bc eq choice d i;
+  introduce forall (f:func_decl). TR.recognizer_at u sch j f
+  with (assert (TR.recognizer_at u sch i f); lemma_doverride_recognizer_at u sch bc eq choice d i f);
+  introduce forall (f:func_decl). TR.accessor_at u sch j f
+  with (assert (TR.accessor_at u sch i f); lemma_doverride_accessor_at u sch bc eq choice d i f)
+
+let rec lemma_root_dbuild (u:TR.uninterpreted) (sch:S.checked_schema)
+                          (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))
+                          (choice:E.hilbert_choice (TR.carrier u) sch) (ds:list (DS.definition sch))
+                          (i:TR.interp u sch)
+  : Lemma (requires TR.root_model u sch i)
+          (ensures TR.root_model u sch (DS.build sch bc eq choice ds i))
+          (decreases ds) =
+  match ds with
+  | [] -> ()
+  | d :: rest ->
+    lemma_root_dbuild u sch bc eq choice rest i;
+    lemma_root_doverride u sch bc eq choice d (DS.build sch bc eq choice rest i)
+
 (* 6d. The joint positive model of the elaborated document: the root_choice
    extension of a root model i by the definitions the epsilon route
-   actually uses (SP.epsilon_context) is a root model, gives every ORIGINAL
-   assertion the same root truth as i (freshness, over every typed binder
-   environment: E.lemma_fresh), and makes every generated choice equation
-   root-true. *)
+   actually uses (SP.full_extension: the closed context SP.epsilon_context,
+   then the dependent context SP.dependent_context on top of it, ONE
+   extension per document) is a root model, gives every ORIGINAL assertion
+   the same root truth as i (freshness, over every typed binder
+   environment), and makes every generated choice equation and every
+   dependent closure root-true. *)
 let epsilon_extension (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch) (doc:P.document)
   : GTot (TR.interp u sch) =
-  E.build sch (TR.booleans u) (SR.root_scalars u) (root_choice u sch) (SP.epsilon_context sch doc) i
+  SP.full_extension sch (TR.booleans u) (SR.root_scalars u) (root_choice u sch) doc i
 
 let lemma_root_epsilon_extension (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
                                  (doc:P.document)
@@ -682,34 +782,48 @@ let lemma_root_epsilon_extension (u:TR.uninterpreted) (sch:S.checked_schema) (i:
                    root_truths u sch (epsilon_extension u sch i doc) doc.P.assertions ==
                      root_truths u sch i doc.P.assertions /\
                    root_truths u sch (epsilon_extension u sch i doc)
-                     (SP.epsilon_equations sch (SP.epsilon_context sch doc) doc.P.entries)) =
+                     (SP.epsilon_equations sch (SP.epsilon_context sch doc) doc.P.entries) /\
+                   root_truths u sch (epsilon_extension u sch i doc)
+                     (DS.closures sch (SP.dependent_context sch doc (SP.epsilon_context sch doc)))) =
   let bc = TR.booleans u in
   let eq = SR.root_scalars u in
   let ds = SP.epsilon_context sch doc in
+  let dds = SP.dependent_context sch doc ds in
   let j = epsilon_extension u sch i doc in
   lemma_forall_model u sch i;
   lemma_exists_model u sch i;
   lemma_root_build u sch bc eq (root_choice u sch) ds i;
-  E.lemma_build_context sch bc eq (root_choice u sch) ds i;
-  E.lemma_build_inputs sch bc eq (root_choice u sch) ds i doc.P.assertions;
-  SP.lemma_epsilon_equations sch bc eq j ds doc.P.entries;
+  lemma_root_dbuild u sch bc eq (root_choice u sch) dds (E.build sch bc eq (root_choice u sch) ds i);
+  SP.lemma_full_extension sch bc eq (root_choice u sch) doc i;
   lemma_truths_agreement u sch i doc.P.assertions;
   lemma_truths_agreement u sch j doc.P.assertions;
-  lemma_truths_agreement u sch j (SP.epsilon_equations sch ds doc.P.entries)
+  lemma_truths_agreement u sch j (SP.epsilon_equations sch ds doc.P.entries);
+  lemma_truths_agreement u sch j (DS.closures sch dds)
 
 (* 6e. The root gate of the epsilon route (pure, OFF the default route): the
    decision of SP.check_document_epsilon is reused unchanged; coverage is
    checked on the ORIGINAL document (assertions, every entry formula,
    including the Skolemization entries whose formulas carry the consumed
-   definition source, body, binders and witness constants), never on the
-   native tables. *)
+   definition source, body, binders and witness constants, and the formulas
+   of consumed certificates, whose open `sk` steps carry the dependent
+   definitions) and on the GENERATED dependent closures (their dependency
+   scope adds binder sorts), never on the native tables. *)
+let dependent_closures (schema:S.schema) (doc:P.document) : list expr =
+  if S.valid schema then DS.closures schema (SP.dependent_context schema doc (SP.epsilon_context schema doc))
+  else []
+
 let check_root_document_epsilon (schema:S.schema) (doc:P.document) : root_verdict =
   match SP.check_document_epsilon schema doc with
   | None -> RootRejected
   | Some n ->
     if n > 0 then RootPending n
-    else if root_covered schema doc then RootCertified
+    else if root_covered schema doc && TR.supported_expressions (S.signature schema) (dependent_closures schema doc)
+    then RootCertified
     else RootUncovered
+
+let rec lemma_closures_scoped (s:S.checked_schema) (ds:list (DS.definition s))
+  : Lemma (D.scoped_args [] (DS.closures s ds)) (decreases ds) =
+  match ds with [] -> () | _ :: rest -> lemma_closures_scoped s rest
 
 (* The generated choice equations are built from covered entry formulas:
    each is closed and covered (the equality of the two closed Boolean
@@ -787,13 +901,16 @@ let lemma_checked_assertions_typed_epsilon (schema:S.schema) (doc:P.document)
   : Lemma (requires Some? (SP.check_document_epsilon schema doc))
           (ensures typed_assertions doc.P.assertions) =
   let ds = SP.epsilon_context schema doc in
-  lemma_checked_assertions_typed schema (SP.elaborate_epsilon schema ds doc);
+  let dds = SP.dependent_context schema doc ds in
+  let closed = SP.elaborate_epsilon schema ds doc in
+  lemma_checked_assertions_typed schema (SP.elaborate_full schema doc);
+  if dds <> [] then lemma_typed_prefix closed.P.assertions (DS.closures schema dds);
   if ds <> [] then lemma_typed_prefix doc.P.assertions (SP.epsilon_equations schema ds doc.P.entries)
 
 (* The certified epsilon theorem, for ANY checked schema and EVERY root
    model i: the schema is supported, the original assertions (and the
-   generated equations) are typed and covered, and some ORIGINAL assertion
-   is root-false in i. *)
+   generated equations and dependent closures) are typed and covered, and
+   some ORIGINAL assertion is root-false in i. *)
 let lemma_root_certified_epsilon (u:TR.uninterpreted) (sch:S.checked_schema) (doc:P.document)
                                  (i:TR.interp u sch)
   : Lemma (requires check_root_document_epsilon sch doc == RootCertified /\ TR.root_model u sch i)
@@ -801,11 +918,14 @@ let lemma_root_certified_epsilon (u:TR.uninterpreted) (sch:S.checked_schema) (do
                    D.scoped_args [] (SP.epsilon_equations sch (SP.epsilon_context sch doc) doc.P.entries) /\
                    TR.supported_expressions (S.signature sch)
                      (SP.epsilon_equations sch (SP.epsilon_context sch doc) doc.P.entries) /\
+                   D.scoped_args [] (dependent_closures sch doc) /\
+                   TR.supported_expressions (S.signature sch) (dependent_closures sch doc) /\
                    not (root_truths u sch i doc.P.assertions) /\
                    (exists (a:expr). L.mem a doc.P.assertions /\ D.scoped [] a /\ get_sort a == bool_sort /\
                                      not (root_holds u sch i a))) =
   lemma_checked_assertions_typed_epsilon sch doc;
   lemma_epsilon_equations_covered sch (SP.epsilon_context sch doc) doc.P.entries;
+  lemma_closures_scoped sch (SP.dependent_context sch doc (SP.epsilon_context sch doc));
   lemma_root_check_document_epsilon u sch i doc;
   lemma_false_member u sch i doc.P.assertions
 
@@ -882,17 +1002,37 @@ let rec lemma_epsilon_entries_view (s:S.checked_schema) (ds:list (E.definition s
   | [] -> ()
   | e :: rest -> lemma_epsilon_definition_view s e; lemma_epsilon_entries_view s ds rest
 
+(* The dependent collection reads the same consumed certificates. *)
+let rec lemma_dependents_view (s:S.checked_schema) (defs:list SK.definition) (es:list P.entry)
+  : Lemma (ensures SP.collect_dependents s defs (L.map shape_entry es) == SP.collect_dependents s defs es)
+          (decreases es) =
+  match es with
+  | [] -> ()
+  | e :: rest ->
+    lemma_certificate_view e;
+    (match SP.nnf_certificate e with
+     | None -> lemma_dependents_view s defs rest
+     | Some c ->
+       (match SP.collect_dependent s defs c.U.binder_entries with
+        | None -> ()
+        | Some more -> lemma_dependents_view s more rest))
+
 let lemma_document_read_view_epsilon (schema:S.schema) (doc:P.document)
-  : Lemma (SP.check_document_epsilon schema doc == SP.check_document_epsilon schema (read_view doc)) =
+  : Lemma (SP.check_document_epsilon schema doc == SP.check_document_epsilon schema (read_view doc) /\
+           dependent_closures schema doc == dependent_closures schema (read_view doc)) =
   if S.valid schema then (
     lemma_collect_view schema [] doc.P.entries;
     lemma_merged_view schema [] doc.P.entries;
+    lemma_dependents_view schema [] doc.P.entries;
     let ds = SP.epsilon_context schema doc in
     assert (SP.epsilon_context schema (read_view doc) == ds);
+    let dds = SP.dependent_context schema doc ds in
+    assert (SP.dependent_context schema (read_view doc) ds == dds);
     lemma_equations_view schema ds doc.P.entries;
     lemma_epsilon_entries_view schema ds doc.P.entries;
     assert (SP.elaborate_epsilon schema ds (read_view doc) == read_view (SP.elaborate_epsilon schema ds doc));
-    lemma_document_read_view schema (SP.elaborate_epsilon schema ds doc))
+    assert (SP.elaborate_full schema (read_view doc) == read_view (SP.elaborate_full schema doc));
+    lemma_document_read_view schema (SP.elaborate_full schema doc))
 
 let lemma_root_read_view_epsilon (schema:S.schema) (doc:P.document)
   : Lemma (check_root_document_epsilon schema doc == check_root_document_epsilon schema (read_view doc)) =
