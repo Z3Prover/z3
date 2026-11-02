@@ -1,12 +1,12 @@
 {
   "modules": [
     "Z3List.fst", "Z3NameUnits.fsti", "Z3NameUnits.fst", "Z3AstTheory.fst", "Z3ArrayTheory.fst", "Z3SeqTheory.fst", "Z3BvTheory.fst",
-    "Z3ValueTheory.fst", "Z3CanonicalOps.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3IdTable.fsti", "Z3IdTable.fst", "Z3ProofSet.fst",
+    "Z3ValueTheory.fst", "Z3CanonicalOps.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3CheckedSorts.fst", "Z3CheckedTerms.fst", "Z3IdTable.fsti", "Z3IdTable.fst", "Z3ProofSet.fst",
     "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
     "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
     "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
     "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
-    "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3ScopedModel.fst",
+    "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3CheckedScope.fst", "Z3ScopedModel.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
     "Z3NlaLemma.fst", "Z3ArithmeticFactor.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3LpIntegerCut.fst", "Z3IntegerDivision.fst", "Z3FiniteFieldLemma.fst", "Z3FiniteFieldPac.fst",
@@ -15,7 +15,8 @@
     "Z3QuantifierDer.fst", "Z3Skolemization.fst",
     "Z3LambdaRewrite.fst", "Z3ArrayEquality.fst", "Z3BvLemma.fst", "Z3StandardModel.fst", "Z3BvWord.fst", "Z3BvOrder.fst", "Z3BvExtract.fst", "Z3BvExhaustive.fst", "Z3BvAddNormalize.fst", "Z3BvFresh.fst",
     "Z3BvFreshModel.fst", "Z3DatatypeLemma.fst", "Z3DatatypeValue.fst", "Z3CoreModel.fst", "Z3TypedQuantifier.fst", "Z3GhostStandardModel.fst", "Z3DatatypeSignature.fst",
-    "Z3TheoryNormalize.fst", "Z3UnifiedProof.fst", "Z3CoreKernel.fst", "Z3QuantifierKernel.fst", "Z3BinderScope.fst", "Z3BinderKernel.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
+    "Z3TheoryNormalize.fst", "Z3UnifiedProof.fst", "Z3CheckedGuard.fst", "Z3CoreKernel.fst", "Z3QuantifierKernel.fst", "Z3BinderScope.fst",
+    "Z3CheckedGuardProof.fst", "Z3BinderKernel.fst", "Z3CheckedGuardKernel.fst", "Z3ProofDocument.fst", "Z3VerifiedDocument.fst", "Z3ClauseProof.fst",
     "Z3SortedInteger.fst", "Z3SortedSemantics.fst", "Z3SortedArithmetic.fst",
     "Z3SortedQuantifier.fst", "Z3SortedDatatype.fst", "Z3SortedSkolem.fst", "Z3SortedProof.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
@@ -29,6 +30,6 @@
     "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst",
     "Z3TypedRoot.fst", "Z3TypedRootTests.fst", "Z3SortedRoot.fst", "Z3SortedRootTests.fst",
     "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst",
-    "Z3CheckedSorts.fst", "Z3CheckedSortsTests.fst"
+    "Z3CheckedSortsTests.fst", "Z3CheckedGuardTests.fst"
   ]
 }

@@ -962,7 +962,9 @@ bool bounded_name_units() {
         {"\xEE\x80\x80", 1}, {"\xEF\xBF\xBD", 1}, {"\xF4\x90\x80\x80", 1}, {"\xF8\x80\x80\x80\x80", 2},
         {"a\xF0\x9F\x98", 2}, {"\xE0\x80\x80", 1}, {"\xF0\x9F\x98\x80\xF0\x9F", 2},
         {"sort!7:\xCE\xB1\xCE\xB2\xF0\x9D\x94\xB8\xE2\x82\xAC", 11},
-        {"\xFF", 1}, {"\x80", 1}, {"\xE2", 1}, {"ab\xF0", 3}, {"\xF4\x8F", 1}, {"Int\xC3", 4}};
+        {"\xFF", 1}, {"\x80", 1}, {"\xE2", 1}, {"ab\xF0", 3}, {"\xF4\x8F", 1}, {"Int\xC3", 4},
+        {"\xC3" "a", 1}, {"\xE2" "ab", 1}, {"\xF0" "abc", 1}, {"\x7F", 1}, {"\x7F" "a", 2},
+        {"\xBF", 1}, {"\xBF" "a", 1}, {"\xDF", 1}, {"\xDF" "a", 1}, {"\xBF\xBF\xBF", 2}};
     for (auto const& [bytes, count] : cases)
         check(bytes, count);
     for (size_t size : {size_t{1} << 20, size_t{8} << 20}) {

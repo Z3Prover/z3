@@ -64,6 +64,20 @@ let diagnose (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marsha
   if sorted force_sorted m then Z3SortedProof.diagnose_document_epsilon m.schema m.document
   else P.diagnose_document_indexed assertion_hash m.document
 
+(* The opt-in accounting mode `verified-sorts-v1`: one diagnosed check, whose result is the
+   verdict. On the legacy route quantifier introductions use the checked guard
+   (Z3VerifiedDocument); the sorted route never reads binder certificates and is unchanged. *)
+let diagnose_verified (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marshaled)
+  : Z3VerifiedDocument.verified_diagnostic =
+  if sorted force_sorted m
+  then { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon m.schema m.document;
+         Z3VerifiedDocument.reports = [] }
+  else Z3VerifiedDocument.diagnose_document_verified_indexed assertion_hash m.document
+
+let verified_rows ([@@@FStar.Attributes.cherry_borrowed] d:Z3VerifiedDocument.verified_diagnostic)
+  : list string =
+  Z3VerifiedDocument.report_rows d.Z3VerifiedDocument.reports
+
 (* A diagnosed document needs no second check: the result recorded by its diagnosis is its verdict, in
    the sorted path (Z3SortedProof.lemma_diagnose_document_epsilon) and in the legacy path
    (Z3ProofDocument.lemma_diagnose_document_indexed). *)

@@ -47,6 +47,7 @@ struct Options {
     bool sorted_core = false;
     bool clause_proofs = false;
     bool interactive = false;
+    bool verified = false;
     uint32_t timeout = 0;
     std::string path;
 };
@@ -687,13 +688,23 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     // check_document_diagnosed*. A second checking pass would only repeat the work.
     std::optional<Owned<Result, checker_drop_result>> checked;
     std::optional<Owned<Z3ProofDocument_document_diagnostic, checker_drop_diagnostic>> diagnosed;
+    // --resource-accounting verified-sorts-v1: one diagnosed check in that mode
+    // (Z3Cherry_diagnose_verified), whose result is the verdict, with or without --diagnostics.
+    std::optional<Owned<Z3VerifiedDocument_verified_diagnostic, checker_drop_verified>> verified;
+    Z3ProofDocument_document_diagnostic const* diagnostic = nullptr;
     Result result{};
-    if (options.diagnostics) {
+    if (options.verified) {
+        verified.emplace(Z3Cherry_diagnose_verified(sorted, marshaled.value));
+        diagnostic = &verified->value.diagnostic;
+    }
+    else if (options.diagnostics) {
         diagnosed.emplace(Z3Cherry_diagnose(sorted, marshaled.value));
-        auto const& value = diagnosed->value;
-        if (value.tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED) {
+        diagnostic = &diagnosed->value;
+    }
+    if (diagnostic) {
+        if (diagnostic->tag == Z3PROOFDOCUMENT_DOCUMENTCHECKED) {
             result.tag = FSTAR_PERVASIVES_NATIVE_SOME__INT;
-            result.val.Some = value.val.DocumentChecked.pending;
+            result.val.Some = diagnostic->val.DocumentChecked.pending;
         }
         else
             result.tag = FSTAR_PERVASIVES_NATIVE_NONE__INT;
@@ -715,16 +726,20 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     if (options.statistics)
         std::cerr << summary.str() << '\n';
     if (options.diagnostics) {
-        report_diagnostics(diagnosed->value, result);
+        report_diagnostics(*diagnostic, result);
         if (options.readable) {
             std::string verdict = result.tag == FSTAR_PERVASIVES_NATIVE_NONE__INT ? "REJECT" :
                 cherry_int_eq(result.val.Some, CHERRY_INT_SMALL(0)) ? "ACCEPT" :
                 "PARTIAL " + integer(result.val.Some);
-            std::cerr << readable_report(query, verdict, doc, diagnosed->value) << std::flush;
+            std::cerr << readable_report(query, verdict, doc, *diagnostic) << std::flush;
         }
         if (options.statistics)
             std::cerr << std::fixed << std::setprecision(3)
                       << "diagnose_ms=" << milliseconds(Clock::now(), check_end) << '\n';
+    }
+    if (options.verified) {
+        Owned<Prims_list__string, checker_drop_strings> rows(Z3Cherry_verified_rows(verified->value));
+        each<Prims_list__string_Cons_s>(rows.value, [&](auto const& row) { std::cerr << text(row) << '\n'; });
     }
     size_t edges = 0, binder_nodes = 0, binder_edges = 0;
     each<Prims_list__entry_Cons_s>(doc.entries, [&](auto const& entry) {
@@ -932,13 +947,16 @@ static int interactive(z3::context& context, Options const& options) {
 
 static char const* usage =
     "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] "
-    "[--sorted-core] [--timeout-ms N] [input.smt2]\n"
+    "[--sorted-core] [--resource-accounting MODE] [--timeout-ms N] [input.smt2]\n"
     "  --interactive    Evaluate stdin commands and certify each UNSAT proof\n"
     "  --clause-proofs  Certify clausal SMT search proofs\n"
     "  --stats          Report phase timings and marshaled node counts\n"
     "  --diagnostics    Report typed unmet-obligation fingerprints\n"
     "  --readable       Also print bounded readable pending/rejected conditions (implies --diagnostics)\n"
     "  --sorted-core    Use sort-indexed checking without legacy fallback\n"
+    "  --resource-accounting verified-sorts-v1\n"
+    "                   Check binder scopes with checked sort ids and separate preparation,\n"
+    "                   validation and storage budgets, and report them (default: off)\n"
     "  --version        Report the embedded Z3 version\n"
     "  --timeout-ms N   Solver timeout, 0..4294967295 milliseconds (0 is unlimited)\n";
 
@@ -965,6 +983,20 @@ static int run(int argc, char** argv) {
         else if (!anonymous && argument == "--readable") options.readable = options.diagnostics = true;
         else if (!anonymous && argument == "--sorted-core") options.sorted_core = true;
         else if (!anonymous && argument == "--clause-proofs") options.clause_proofs = true;
+        else if (!anonymous && (argument == "--resource-accounting" ||
+                                argument.starts_with("--resource-accounting="))) {
+            std::string value;
+            if (argument == "--resource-accounting") {
+                if (++i == argc)
+                    throw NativeError("missing --resource-accounting value");
+                value = argv[i];
+            }
+            else
+                value = argument.substr(argument.find('=') + 1);
+            if (value != "verified-sorts-v1")
+                throw NativeError("invalid --resource-accounting");
+            options.verified = true;
+        }
         else if (!anonymous && (argument == "--timeout-ms" || argument.starts_with("--timeout-ms="))) {
             std::string value;
             if (argument == "--timeout-ms") {

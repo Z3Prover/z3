@@ -598,13 +598,25 @@ module Readable = struct
     flush stderr
 end
 
-let check_proof statistics diagnostics readable query sorted_core start solved assertions proof =
+let check_proof statistics diagnostics readable query sorted_core verified start solved assertions proof =
   let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
   let sorted = datatype || sorted_core in
+  (* --resource-accounting verified-sorts-v1: one diagnosed check in that mode, whose result is the
+     verdict, with or without --diagnostics. The sorted route never reads binder certificates. *)
+  let rows = ref [] in
   let result, diagnostic =
-    if diagnostics then (
+    if verified then (
+      let checked =
+        if sorted then
+          { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon schema doc;
+            Z3VerifiedDocument.reports = [] }
+        else Z3VerifiedDocument.diagnose_document_verified_indexed assertion_hash doc in
+      rows := Z3VerifiedDocument.report_rows checked.Z3VerifiedDocument.reports;
+      let diagnostic = checked.Z3VerifiedDocument.diagnostic in
+      Z3ProofDocument.diagnostic_result diagnostic, if diagnostics then Some diagnostic else None)
+    else if diagnostics then (
       let result, diagnostic =
         if sorted then Z3SortedProof.check_document_epsilon_diagnosed schema doc
         else Z3ProofDocument.check_document_diagnosed_indexed assertion_hash doc in
@@ -629,6 +641,7 @@ let check_proof statistics diagnostics readable query sorted_core start solved a
        if readable then Readable.report query (result_text result) doc diagnostic;
        if statistics then
          Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
+  List.iter (fun row -> prerr_endline row) !rows;
   let edges = List.fold_left (fun count entry ->
     count + List.length entry.Z3ProofDocument.premise_ids) 0 doc.entries in
   let binder_nodes, binder_edges = List.fold_left (fun (nodes, edges) entry ->
@@ -705,7 +718,7 @@ let command_name text =
   in
   String.sub text first (finish first - first)
 
-let interactive statistics diagnostics readable sorted_core clause_proofs timeout =
+let interactive statistics diagnostics readable sorted_core verified clause_proofs timeout =
   let context = Z3Native.create_context timeout in
   let error = ref false and rejected = ref false and partial = ref false and queries = ref 0 in
   let start = ref (Unix.gettimeofday ()) in
@@ -714,7 +727,8 @@ let interactive statistics diagnostics readable sorted_core clause_proofs timeou
     let solved = Unix.gettimeofday () in
     let assertions = List.init (Z3native.ast_vector_size context vector)
         (Z3native.ast_vector_get context vector) in
-    let result, summary = check_proof statistics diagnostics readable !queries sorted_core !start solved assertions proof in
+    let result, summary =
+      check_proof statistics diagnostics readable !queries sorted_core verified !start solved assertions proof in
     (match result with
      | None -> rejected := true
      | Some n -> if not (Z.equal n Z.zero) then partial := true);
@@ -763,7 +777,7 @@ let interactive statistics diagnostics readable sorted_core clause_proofs timeou
   if !error then 2 else if !rejected then 1 else if !partial then 3 else 0
 
 let run args =
-  let statistics = ref false and diagnostics = ref false and sorted_core = ref false
+  let statistics = ref false and diagnostics = ref false and sorted_core = ref false and verified = ref false
   and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
   and clause_proofs = ref false and readable = ref false in
   let options = [
@@ -777,6 +791,11 @@ let run args =
       " Also print bounded readable pending/rejected conditions on stderr (implies --diagnostics)";
     "--sorted-core", Arg.Set sorted_core,
       " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
+    "--resource-accounting", Arg.String (fun value ->
+        if value = "verified-sorts-v1" then verified := true
+        else raise (Arg.Bad "invalid --resource-accounting")),
+      "MODE Check binder scopes with checked sort ids and separate preparation, validation and \
+       storage budgets, and report them (MODE: verified-sorts-v1; default: off)";
     "--timeout-ms", Arg.String (fun value ->
         try
           let n = Z.of_string value in
@@ -793,12 +812,12 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args))
-      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] [--sorted-core] [--timeout-ms N] [input.smt2]";
+      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] [--sorted-core] [--resource-accounting MODE] [--timeout-ms N] [input.smt2]";
     if !readable then diagnostics := true;
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
-      exit (interactive !statistics !diagnostics !readable !sorted_core !clause_proofs !timeout));
+      exit (interactive !statistics !diagnostics !readable !sorted_core !verified !clause_proofs !timeout));
     let input =
       match !path with
       | None | Some "-" -> read_all stdin
@@ -814,7 +833,8 @@ let run args =
         Printf.printf "UNKNOWN %s\n" reason; exit 5
     | Z3Native.Unsat (assertions, proof) ->
         let solved = Unix.gettimeofday () in
-        let result, _ = check_proof !statistics !diagnostics !readable 1 !sorted_core start solved assertions proof in
+        let result, _ =
+          check_proof !statistics !diagnostics !readable 1 !sorted_core !verified start solved assertions proof in
         (match result with
          | None -> print_endline "REJECT"; exit 1
          | Some n when Z.equal n Z.zero -> print_endline "ACCEPT"; exit 0

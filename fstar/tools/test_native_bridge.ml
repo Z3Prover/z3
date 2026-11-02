@@ -1042,7 +1042,7 @@ let readable_same_proof () =
   let run readable =
     let outcome = ref (None, "") in
     let stderr_text = capture_stderr (fun () ->
-        outcome := Z3NativeMain.check_proof false true readable 1 false 0.0 0.0 assertions proof) in
+        outcome := Z3NativeMain.check_proof false true readable 1 false false 0.0 0.0 assertions proof) in
     !outcome, stderr_text in
   let (plain_result, plain_summary), plain_stderr = run false in
   let (readable_result, readable_summary), readable_stderr = run true in
@@ -1548,11 +1548,191 @@ let bounded_name_units () =
      "\xEE\x80\x80", 1; "\xEF\xBF\xBD", 1; "\xF4\x90\x80\x80", 1; "\xF8\x80\x80\x80\x80", 2;
      "a\xF0\x9F\x98", 2; "\xE0\x80\x80", 1; "\xF0\x9F\x98\x80\xF0\x9F", 2;
      "sort!7:\xCE\xB1\xCE\xB2\xF0\x9D\x94\xB8\xE2\x82\xAC", 11;
-     "\xFF", 1; "\x80", 1; "\xE2", 1; "ab\xF0", 3; "\xF4\x8F", 1; "Int\xC3", 4];
+     "\xFF", 1; "\x80", 1; "\xE2", 1; "ab\xF0", 3; "\xF4\x8F", 1; "Int\xC3", 4;
+     "\xC3a", 1; "\xE2ab", 1; "\xF0abc", 1; "\x7F", 1; "\x7Fa", 2; "\xBF", 1; "\xBFa", 1;
+     "\xDF", 1; "\xDFa", 1; "\xBF\xBF\xBF", 2];
   let mib = 8 * 1024 * 1024 in
   check (String.make mib 'S') mib;
   check (String.make mib '\x80') (mib / 2);
   check (String.concat "" (List.init (mib / 4) (fun _ -> "\xF0\x9F\x98\x80"))) (mib / 4)
+
+(* Checked sort identities with the native bounded counter (Z3CheckedSorts.checked_name_units),
+   as the opt-in guard uses them: the exact units of Int, Bool and Array Int Bool and one short by
+   phase; an 8 MiB name refused at preparation 0, 1 and one short, and checked at its units. *)
+let checked_sort_graph () =
+  let module CS = Z3CheckedSorts in
+  let units raw p s =
+    match CS.validate_checked_sort_graph raw
+            { CS.preparation = Z.of_int p; CS.storage = Z.of_int s } with
+    | CS.Prepared (_, _, left) -> p - Z.to_int left.CS.preparation
+    | CS.InvalidSortGraph _ -> -1
+    | CS.Exhausted CS.Preparation -> -2
+    | CS.Exhausted CS.Storage -> -3 in
+  let basic = [CS.RawBase (Z.of_int 1, "Int"); CS.RawBase (Z.of_int 2, "Bool");
+               CS.RawArray (Z.of_int 3, Z.one, [Z.one], Z.of_int 2)] in
+  require (units basic 573 308 = 573) "checked sorts: exact units changed";
+  require (units basic 572 308 = -2) "checked sorts: one preparation unit short was accepted";
+  require (units basic 573 307 = -3) "checked sorts: one storage cell short was accepted";
+  let giant = [CS.RawBase (Z.one, String.make (8 * 1024 * 1024) 'g')] in
+  let giant_units = 8 * 1024 * 1024 + 166 in
+  List.iter (fun p -> require (units giant p 102 = -2) "checked sorts: an 8 MiB name was not exhausted")
+    [0; 1; giant_units - 1];
+  require (units giant giant_units 102 = giant_units) "checked sorts: an 8 MiB name at its units was refused";
+  require (units [CS.RawBase (Z.one, "sort!1:T"); CS.RawBase (Z.one, "sort!2:T")] 1000 1000 = -1)
+    "checked sorts: one native id with two names was accepted"
+
+(* The opt-in guard (Z3CheckedGuard, --resource-accounting verified-sorts-v1) on the binder
+   certificates of real native proofs and on their mutations: it agrees with the default guard,
+   and the whole document's verdict in the opt-in mode is the default one. At the scope-guard
+   regressions of checked_binder_proofs it gives the default's pending counts. Each budget's exact
+   units of a real certificate check, and one unit short is exhaustion of that phase. *)
+let verified_binder_guard () =
+  let module G = Z3CheckedGuard in
+  let module T = Z3CheckedTerms in
+  let module V = Z3VerifiedDocument in
+  let verified cert concl = G.check_binder_verified [] [] cert concl in
+  let sources = [
+    "(assert (not (forall ((x Int)) (= (+ x 0) x))))";
+    "(declare-fun p (Int) Bool)\
+     (assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))";
+    "(assert (exists ((x Int)) (not (= (+ x 0) x))))";
+    "(assert (not (forall ((x Int)) (forall ((y Real))\
+       (and (= (+ x 0) x) (= (+ y 0.0) y))))))";
+    "(assert (not (= (lambda ((x Int)) (+ x 0)) (lambda ((y Int)) y))))";
+    "(declare-fun f (Int Bool) Int)\
+     (assert (not (forall ((x Int) (b Bool)) (= (f (+ x 0) b) (f x b)))))"
+  ] in
+  let seen = ref 0 in
+  List.iter (fun source ->
+      let doc = document source in
+      List.iter (fun e -> match e.P.rule, U.classify_fact e.P.formula with
+          | U.QuantifierIntroduction cert, Some concl ->
+              incr seen;
+              require (U.check_binder cert concl = verified cert concl)
+                ("opt-in guard disagrees with the default guard: " ^ source)
+          | _ -> ()) doc.P.entries;
+      let checked = V.diagnose_document_verified_indexed (fun value -> Z.of_int (Hashtbl.hash value)) doc in
+      require (P.diagnostic_result checked.V.diagnostic = P.check_document doc)
+        ("opt-in verdict differs from the default verdict: " ^ source);
+      require (checked.V.reports <> [] && List.for_all (fun r -> match r.V.report_outcome with
+          | G.BinderGuardChecked _ -> true | _ -> false) checked.V.reports)
+        ("opt-in guard did not check a binder of: " ^ source)) sources;
+  require (!seen >= 6) "opt-in guard regression did not exercise the binders";
+  let doc = document (List.hd sources) in
+  let entry = List.find (fun e -> match e.P.rule with
+      | U.QuantifierIntroduction _ -> true | _ -> false) doc.P.entries in
+  let certificate = match entry.P.rule with
+    | U.QuantifierIntroduction certificate -> certificate
+    | _ -> assert false in
+  let conclusion = Option.get (U.classify_fact entry.P.formula) in
+  let fail certificate message =
+    require (not (U.check_binder certificate conclusion) && not (verified certificate conclusion)) message in
+  fail { certificate with U.binder_root = Z.minus_one } "opt-in: negative binder root was trusted";
+  fail { certificate with U.binder_root = Z.of_int 1000000 } "opt-in: missing binder root was trusted";
+  fail { certificate with U.binder_entries = List.rev certificate.U.binder_entries }
+    "opt-in: forward binder premises were trusted";
+  fail { certificate with U.binder_entries =
+      List.map (fun e -> if e.U.binder_name = "quant-intro" then
+          { e with U.binder_sorts = Some [A.BaseSort "Real"] } else e)
+        certificate.U.binder_entries }
+    "opt-in: binder generalized across mismatched bound sorts";
+  fail { certificate with U.binder_entries =
+      List.map (fun e -> if e.U.binder_premises <> [] then
+          { e with U.binder_premises = [Z.minus_one] } else e)
+        certificate.U.binder_entries }
+    "opt-in: binder ignored an invalid premise";
+  (* exact budgets on the checker's own cache *)
+  let cache = Option.get (U.check_binder_entries [] [] certificate.U.binder_entries Z3ProofIndex.Empty Z.zero) in
+  let big = Z.of_int 100_000_000 in
+  let budget p v s = { G.preparation = p; G.validation = v; G.storage = s } in
+  let code r = match r with
+    | G.Checked _ -> 0 | G.Refused _ -> 1 | G.Exhausted T.Preparation -> 2
+    | G.Exhausted T.Validation -> 3 | G.Exhausted T.Storage -> 4 in
+  (match G.verified_guard (budget big big big) certificate cache with
+   | G.Checked st ->
+       let p = Z.sub big st.G.prep and v = Z.sub big st.G.valid and s = Z.sub big st.G.store in
+       require (Z.sign p > 0 && Z.sign v > 0 && Z.sign s > 0) "opt-in guard charged nothing";
+       List.iter (fun (b, expected) ->
+           require (code (G.verified_guard b certificate cache) = expected)
+             (Printf.sprintf "opt-in budget boundary (%s, %s, %s) gave another outcome"
+                (Z.to_string b.G.preparation) (Z.to_string b.G.validation) (Z.to_string b.G.storage)))
+         [budget p big big, 0; budget (Z.pred p) big big, 2;
+          budget big v big, 0; budget big (Z.pred v) big, 3;
+          budget big big s, 0; budget big big (Z.pred s), 4; budget p v s, 0]
+   | _ -> failwith "opt-in guard did not check a real certificate");
+  (* the scope-guard regressions of checked_binder_proofs, in the opt-in mode *)
+  let int_s = A.BaseSort "Int" and bool_s = A.bool_sort in
+  let all bs b = A.Quantifier (A.Forall_k, bs, bool_s, b) in
+  let eqe = Z3ResolutionProofTheory.mk_eq_expr in
+  let tt = Z3ResolutionProofTheory.true_expr in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula;
+      binder_premises = List.map Z.of_int premises; binder_sorts = sorts } in
+  (* the pinned units of Z3CheckedGuardTests.boundary_cases (the same certificate on the Cherry side) *)
+  let synthetic =
+    let var n s = A.Var (Z.of_int n, s) in
+    let x = var 0 int_s in
+    let b = all [int_s] (eqe (eqe x x) (eqe (var 1 bool_s) (var 1 bool_s))) in
+    let q = all [int_s; bool_s] b in
+    [entry "refl" (eqe b b) [] None; entry "quant-intro" (eqe q q) [0] (Some [int_s; bool_s])] in
+  let synthetic_cache, _ = List.fold_left (fun (c, k) e ->
+      Z3ProofIndex.index_put c (Z.of_int k) (Option.get (U.classify_fact e.U.binder_formula)), k + 1)
+      (Z3ProofIndex.Empty, 0) synthetic in
+  (match G.verified_guard (budget big big big) { U.binder_entries = synthetic; binder_root = Z.one } synthetic_cache with
+   | G.Checked st ->
+       require (Z.equal (Z.sub big st.G.prep) (Z.of_int 4621) && Z.equal (Z.sub big st.G.valid) (Z.of_int 1545) &&
+                Z.equal (Z.sub big st.G.store) (Z.of_int 1622))
+         "opt-in guard units of the pinned certificate changed"
+   | _ -> failwith "opt-in guard did not check the pinned certificate");
+  let pending entries root concl =
+    let node = { U.kind = U.QuantifierIntroduction
+                   { U.binder_entries = entries; binder_root = Z.of_int root };
+                 conclusion = concl; premises = [] } in
+    let old = match U.check_node_with_inputs true [] node with
+      | Some (_, p) -> Z.to_int p | None -> -1 in
+    let opt = match fst (G.check_node_verified [] true [] (fun _ -> false) node) with
+      | Some (_, p) -> Z.to_int p | None -> -1 in
+    (old, opt) in
+  let refl_true = entry "refl" (eqe tt tt) [] None in
+  let p0 = A.Var (Z.zero, bool_s) and x0 = A.Var (Z.zero, int_s) in
+  let taut a = A.App (Z3CanonicalOps.or_decl (Z.of_int 2), [a; Z3ResolutionProofTheory.mk_not_expr a]) in
+  let ill = all [int_s] (taut p0) and top = all [int_s] tt and ok = all [int_s] (taut (eqe x0 x0)) in
+  require (pending [refl_true; entry "quant-intro" (eqe ill top) [0] (Some [int_s])] 1
+             (U.Equal (ill, top)) = (1, 1)) "opt-in: ill-scoped binder certificate was certified";
+  require (pending [entry "rewrite" (eqe (taut p0) tt) [] None;
+                    entry "quant-intro" (eqe ok top) [0] (Some [int_s])] 1 (U.Equal (ok, top)) = (1, 1))
+    "opt-in: ill-scoped inner binder entry was certified";
+  require (pending [entry "refl" (eqe (taut (eqe x0 x0)) (taut (eqe x0 x0))) [] None;
+                    entry "quant-intro" (eqe ok ok) [0] (Some [int_s])] 1 (U.Equal (ok, ok)) = (0, 0))
+    "opt-in: well-scoped open binder body was rejected";
+  let wide n = let bs = List.init n (fun _ -> int_s) in all bs tt in
+  let wide_cert n = [refl_true; entry "quant-intro" (eqe (wide n) (wide n)) [0]
+                                  (Some (List.init n (fun _ -> int_s)))] in
+  require (pending (wide_cert 1024) 1 (U.Equal (wide 1024, wide 1024)) = (0, 0))
+    "opt-in: binder scope at the length limit was rejected";
+  require (pending (wide_cert 1025) 1 (U.Equal (wide 1025, wide 1025)) = (1, 1))
+    "opt-in: binder scope over the length limit was accepted";
+  let diamond levels =
+    let q s p = entry "quant-intro" (eqe (all [s] tt) (all [s] tt)) [p] (Some [s]) in
+    let join l r = entry "monotonicity" (eqe tt tt) [l; r] None in
+    let rec go i acc = if i > levels then List.rev acc
+      else let a = 3 * (i - 1) in go (i + 1) (join (a + 1) (a + 2) :: q bool_s a :: q int_s a :: acc) in
+    go 1 [refl_true] in
+  require (pending (diamond 6) 18 (U.Equal (tt, tt)) = (0, 0))
+    "opt-in: shared binder proof at the per-entry scope limit was rejected";
+  let t0 = Unix.gettimeofday () in
+  require (pending (diamond 40) 120 (U.Equal (tt, tt)) = (1, 1))
+    "opt-in: exponential shared binder proof was accepted";
+  require (Unix.gettimeofday () -. t0 < 5.0) "opt-in: exponential shared binder proof was not cut off";
+  let named len c =
+    let s = A.BaseSort (String.make len c) in
+    let x = A.Var (Z.zero, s) in
+    let q = all [s] (eqe x x) in
+    pending [entry "refl" (eqe (eqe x x) (eqe x x)) [] None;
+             entry "quant-intro" (eqe q q) [0] (Some [s])] 1 (U.Equal (q, q)) in
+  require (named 1000 'S' = (0, 0)) "opt-in: a binder sort with a 1000-character name was rejected";
+  require (snd (named 1_000_000 '\x80') = 1) "opt-in: a long malformed sort name was not exhausted";
+  require (snd (named 1_000_000 'S') = 1) "opt-in: a long sort name was not exhausted"
 
 let checked_binder_definitions () =
   let c = context () in
@@ -6739,6 +6919,8 @@ let () =
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "bounded-name-units", bounded_name_units;
+     "checked-sort-graph-native-counter", checked_sort_graph;
+     "opt-in-verified-binder-guard", verified_binder_guard;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;

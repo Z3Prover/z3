@@ -4833,3 +4833,25 @@ commit) only has workflow runs waiting for approval. Earlier failures of the
 `Run regressions` step (z3test `3477.smt2`, `3559.smt2`, Windows
 `opt_nlsat_*`) also occur on master `8fbb275ab` and do not involve `fstar/`;
 macOS was not run locally.
+
+## Opt-in `--resource-accounting verified-sorts-v1` (experimental, 2026-11-02)
+
+Both checkers accept `--resource-accounting verified-sorts-v1` (also `=verified-sorts-v1`;
+any other value is an argument error). Without it nothing changes: the same functions run and
+stdout, stderr and the exit status are as before. With it, the legacy route checks the document
+once with `Z3VerifiedDocument` (no second default check). There, quantifier introductions use
+`Z3CheckedGuard.verified_guard` instead of `binder_scoped`, and one additive stderr row per
+quantifier introduction reports the outcome and the preparation, validation and storage units
+used. The sorted route never reads binder certificates and is unchanged.
+
+- Guard: the default guard's algorithm over checked sort ids (`Z3CheckedSorts`) and a checked
+  scope-shape graph (`Z3CheckedTerms`, `Z3CheckedScope`). `Z3CheckedGuardProof` proves that a
+  checked run establishes `Z3BinderScope.entries_scoped`, the root at `[]`, and the root and edge
+  theorems. `Z3CheckedGuardKernel` transfers `Z3BinderKernel`'s fragment soundness.
+- Not a resource fix: this version prepares every demanded entry's judgment as a tree. On the NNF
+  task's guard-budget certificates its preparation alone needs 2.7 to 6.0 times, and its three
+  budgets 3.9 to 8.5 times, the old guard's units, with 3.9 to 10.8 times the CPU and 2 to 110
+  times the peak memory (direct harness, OCaml extraction). PulseCore.Action-1 query 1
+  node 433 needs 14,277,241 preparation units, against 3,542,713 old forward units. Its budgets,
+  2^16 units per entry and phase, are provisional, and at them the mode admits none of these
+  certificates. Sharing must come from a checked graph built at marshal time.

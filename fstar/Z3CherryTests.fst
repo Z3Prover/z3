@@ -166,6 +166,10 @@ let name_units_agree (s:string) : bool =
 let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
   P.diagnostic_result (C.diagnose force_sorted m) = C.check force_sorted m
 
+(* The opt-in mode's verdict on documents without quantifier introductions is the default one. *)
+let verified_is_check (force_sorted:bool) (m:C.marshaled) : bool =
+  P.diagnostic_result (C.diagnose_verified force_sorted m).Z3VerifiedDocument.diagnostic = C.check force_sorted m
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -188,4 +192,8 @@ let run () : bool =
   large_documents () &&
   bounded_conditional_rewrite () &&
   binder_guard_stack () &&
-  checked_name_units ()
+  checked_name_units () &&
+  verified_is_check false good && verified_is_check true good &&
+  verified_is_check false bad_root && verified_is_check false missing_input &&
+  verified_is_check false bad_rule && verified_is_check false pending &&
+  Z3CheckedGuardTests.run ()

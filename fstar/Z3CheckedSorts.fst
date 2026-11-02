@@ -755,6 +755,10 @@ let validate_sort_graph ([@@@FStar.Attributes.monomorphize] name_units:name_coun
   | Refused err -> InvalidSortGraph err
   | OutOf p -> Exhausted p
 
+(* The validator with the native bounded counter, as an extracted entry point. *)
+let validate_checked_sort_graph (raw:list raw_sort) (budget:sort_budget) : sort_graph_result =
+  validate_sort_graph checked_name_units raw budget
+
 let resolve_id (g:checked_sort_graph) (m:id_map g) (x:int) : option (sort_id g) =
   if untrusted_id x then (match I.index_get m x with Some c -> Some c | None -> None) else None
 

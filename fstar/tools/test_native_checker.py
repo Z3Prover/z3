@@ -632,6 +632,62 @@ class DirectCheckerTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
                     self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
 
+    def test_resource_accounting_is_opt_in_and_additive(self):
+        # --resource-accounting verified-sorts-v1 checks binder scopes with checked sort ids and
+        # separate budgets and reports one row per quantifier introduction; without it the
+        # checker's output is unchanged. The verdict on these certified proofs is the same.
+        for source in (
+                "(assert (not (forall ((x Int)) (= (+ x 0) x))))",
+                "(declare-fun p (Int) Bool)"
+                "(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))",
+                "(assert (not (forall ((x Int)) (forall ((y Real))"
+                "(and (= (+ x 0) x) (= (+ y 0.0) y))))))",
+                "(assert (not (= (lambda ((x Int)) (+ x 0)) (lambda ((y Int)) y))))"):
+            with self.subTest(source=source):
+                default = self.run_checker(source, "--diagnostics")
+                self.assertEqual((default.returncode, default.stdout.strip()), (0, "ACCEPT"), default.stderr)
+                self.assertNotIn("resource-accounting", default.stderr)
+                for args in (("--resource-accounting", "verified-sorts-v1"),
+                             ("--resource-accounting=verified-sorts-v1",)):
+                    opted = self.run_checker(source, "--diagnostics", *args)
+                    self.assertEqual((opted.returncode, opted.stdout), (default.returncode, default.stdout),
+                                     opted.stderr)
+                    rows = [line for line in opted.stderr.splitlines() if line.startswith("resource-accounting\t")]
+                    self.assertTrue(rows, opted.stderr)
+                    for row in rows:
+                        self.assertRegex(row, r"^resource-accounting\tverified-sorts-v1\tnode=\d+\tentries=\d+"
+                                              r"\toutcome=checked\tpreparation=\d+/\d+\tvalidation=\d+/\d+"
+                                              r"\tstorage=\d+/\d+$")
+                    self.assertEqual([line for line in opted.stderr.splitlines()
+                                      if not line.startswith("resource-accounting\t")],
+                                     default.stderr.splitlines())
+                quiet = self.run_checker(source, "--resource-accounting", "verified-sorts-v1")
+                self.assertEqual((quiet.returncode, quiet.stdout.strip()), (0, "ACCEPT"), quiet.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive",
+                                               "--resource-accounting", "verified-sorts-v1")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+        for args in (("--resource-accounting",), ("--resource-accounting", "verified-dag"),
+                     ("--resource-accounting=",)):
+            with self.subTest(args=args):
+                result = self.run_checker("(assert false)", *args)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertNotIn("ACCEPT", result.stdout)
+        help_text = self.run_checker("", "--help")
+        self.assertIn("--resource-accounting", help_text.stdout)
+        # A 1000-character sort name is checked; a 300,000-character one is checked or stays pending
+        # under the opt-in budgets, and is never rejected.
+        for length in (1000, 300_000):
+            name = "S" * length
+            source = (f"(declare-sort {name} 0)(declare-fun p ({name}) Bool)(declare-const c {name})"
+                      f"(assert (forall ((x {name})) (and (p x) true)))(assert (not (p c)))")
+            with self.subTest(length=length):
+                result = self.run_checker(source, "--resource-accounting", "verified-sorts-v1")
+                if length == 1000:
+                    self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
+                else:
+                    self.assertIn(result.returncode, (0, 3), result.stdout + result.stderr)
+
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
             with self.subTest(case=name):

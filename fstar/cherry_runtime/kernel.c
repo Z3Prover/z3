@@ -8,6 +8,14 @@ void checker_drop_diagnostic(Z3ProofDocument_document_diagnostic value) {
     cherry_dec_Z3ProofDocument_document_diagnostic(value);
 }
 
+void checker_drop_verified(Z3VerifiedDocument_verified_diagnostic value) {
+    cherry_dec_Z3VerifiedDocument_verified_diagnostic(value);
+}
+
+void checker_drop_strings(Prims_list__string value) {
+    cherry_dec_Prims_list__string(value);
+}
+
 void checker_drop_sort(Z3AstTheory_sort value) {
     cherry_dec_Z3AstTheory_sort(value);
 }
