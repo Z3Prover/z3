@@ -302,10 +302,12 @@ fresh in every original assertion; otherwise no dependent definition is used.
 The model (`DS.doverride`, `DS.build`): for each typed argument tuple ONE whole
 bound tuple is chosen by the Root ghost choice for the joint predicate "the
 body holds at every environment of the dependency scope with these argument
-values", read in the pre-extension interpretation; every witness returns its
-coordinate of that same tuple. `SP.full_extension` builds the closed context
-and then the dependent context from the ORIGINAL model, one extension per
-document. Proved: `DS.lemma_instance` (at every environment of the dependency
+values", read in the pre-extension interpretation of that build step (the
+closed epsilon extension of the original model plus the older dependent
+definitions); every witness returns its coordinate of that same tuple.
+`SP.full_extension` starts from the original model, adds the closed context and
+then the dependent definitions one after another: one extension per document,
+in which every node is re-checked. Proved: `DS.lemma_instance` (at every environment of the dependency
 scope the source and the instance agree in the extension: open substitution
 under binders `lemma_substitute`, a witness application evaluates to the
 coordinate `lemma_select`, coverage coincidence `lemma_covered`),
@@ -319,7 +321,15 @@ off-route gate also checks the generated closures' coverage. Freshness is
 checked against the original inputs and every other (dependent or closed)
 definition; the witness necessarily occurs in the consumed certificate terms
 downstream of its `sk` step, which are re-proved in the extension rather than
-imported.
+imported. The replay matches an open step against ANY assertion of the closure
+shape `(forall cb. (= a b))` with that exact equation, as the closed route
+matches any assertion `(= a b)`: an original input of that shape is a hypothesis
+of the refutation and is true in the extension like every input, so this is
+sound; type, scope and shape are checked. Limits: the dependent context is
+all-or-nothing (one conflicting, cyclic, non-fresh or mis-ordered dependent
+definition anywhere in the document leaves every dependent step pending, the
+closed context unaffected), and the pending obligation does not name the
+dependent gate that failed.
 
 **Resources.** All walks are loops. The guard keeps its bounds; the replay
 charges one budget of `binder_work_limit n` units for the node count of each

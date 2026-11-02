@@ -36,7 +36,14 @@ module Z3NnfSkolemTests
       a captured index under an inner binder, both wrong polarities, a
       witness in an original assertion (no dependent context: pending), one
       function reused by two definitions (collection fails), a cycle (no
-      order), and the zero-dependency case kept on the closed route.
+      order), the zero-dependency case kept on the closed route, the
+      4096-position dependency-scope cap at its boundary, a referenced
+      variable never reinterpreted at another sort, closed constants and
+      dependent functions in one document (dependent body mentioning a closed
+      constant: accepted; closed body mentioning a dependent function: no
+      dependent context), and a satisfiable would-be refutation through a
+      wrong-polarity dependent step: pending, with a proved standard-root
+      counter-model.
 
    Every expected value is the checker's own result, computed by
    normalization on well-typed documents. *)
@@ -61,6 +68,7 @@ module NR = Z3NnfReplay
 module RD = Z3SortedRootDocument
 module DS = Z3SortedDependentSkolem
 module BR = Z3BooleanRewrite
+module RDT = Z3SortedRootDocumentTests
 
 (* ---------------------------------------------------------------------- *)
 (* Shapes                                                                   *)
@@ -639,3 +647,146 @@ let c13_c14_mixed ()
   assert_norm (L.length (SP.dependent_context sch c13_doc (SP.epsilon_context sch c13_doc)) == 1);
   assert_norm (L.length (SP.epsilon_context sch c14_doc) == 1);
   assert_norm (SP.dependent_context sch c14_doc (SP.epsilon_context sch c14_doc) == [])
+
+(* C15 a SATISFIABLE would-be refutation through a wrong-polarity dependent
+   step (exists y. Pw x y) ~ (not (Pw x (sk!w x))): no Skolem definition, no
+   closure, the node stays pending, so the document is not certified; and
+   both inputs hold in the standard root model that interprets every free
+   Boolean symbol as true (for every u): a proved counter-model. *)
+let pw : func_decl = symbol "Pw" [term; term] bool_sort
+let fw : func_decl = symbol "sk!w" [term] term
+let w_body : expr = App pw [Var 1 term; Var 0 term]
+let w_B : expr = exists_ [term] w_body
+let w_bad : expr = neg (App pw [Var 0 term; App fw [Var 0 term]])
+let w_src : expr = forall_ [term] w_B
+let w_tgt : expr = forall_ [term] w_bad
+let w_cert : U.binder_certificate =
+  cert [be "sk" (oeq w_B w_bad) []; bq "nnf-pos" [term] (oeq w_src w_tgt) [0]] 1
+let w_all : expr = forall_ [term; term] w_body
+let w_pc : expr = App pw [c0; App fw [c0]]
+let w_document : P.document =
+  doc [w_src; w_all]
+      [entry U.Asserted w_src [];
+       entry (U.QuantifierIntroduction w_cert) (oeq w_src w_tgt) [];
+       entry U.ObservationalMP w_tgt [0; 1];
+       entry (U.QuantifierInstantiation [c0]) (mk_or [neg w_tgt; neg w_pc]) [];
+       entry U.Asserted w_all [];
+       entry (U.QuantifierInstantiation [c0; App fw [c0]]) (mk_or [neg w_all; w_pc]) [];
+       entry U.UnitResolution R.false_expr [3; 2; 5; 4]]
+      6
+
+let c15_mutant_pending ()
+  : Lemma (SK.definition_of w_B w_bad == None /\
+           RD.check_root_document_epsilon sch w_document == RD.RootPending 1) =
+  assert_norm (SK.definition_of w_B w_bad == None);
+  assert_norm (RD.check_root_document_epsilon sch w_document == RD.RootPending 1)
+
+let lemma_pw_true (u:TR.uninterpreted) (scope:list sort)
+                  (rho:V.environment (TR.carrier u) (S.signature sch) scope) (a b:expr)
+  : Lemma (requires D.scoped scope (App pw [a; b]))
+          (ensures TR.truth sch (V.evaluate (S.signature sch) (TR.standard u sch (RDT.uf_bool u true))
+                                  scope rho (App pw [a; b])) == true) =
+  assert_norm (TR.classify (S.signature sch) pw == TR.Other);
+  TR.lemma_eval_free_choice u sch (RDT.uf_bool u true) scope rho pw [a; b]
+
+let c15_counter_model (u:TR.uninterpreted)
+  : Lemma (TR.root_model u sch (TR.standard u sch (RDT.uf_bool u true)) /\
+           RD.root_truths u sch (TR.standard u sch (RDT.uf_bool u true)) w_document.P.assertions) =
+  let i = TR.standard u sch (RDT.uf_bool u true) in
+  let sigma = S.signature sch in
+  let empty = RD.empty_root u sch in
+  TR.lemma_standard_root u sch (RDT.uf_bool u true);
+  (* forall x y. Pw x y *)
+  let all2 (vs:TR.targuments u sch (L.rev [term; term]))
+    : Lemma (TR.truth sch (V.evaluate sigma i (L.rev [term; term] `L.append` [])
+               (V.extend sigma [] (L.rev [term; term]) vs empty) w_body) == true) =
+    lemma_pw_true u (L.rev [term; term] `L.append` []) (V.extend sigma [] (L.rev [term; term]) vs empty) (Var 1 term) (Var 0 term) in
+  FStar.Classical.forall_intro all2;
+  TR.lemma_eval_forall i [] empty [term; term] w_body;
+  (* forall x. exists y. Pw x y, with the witness y = any value of Term *)
+  let outer (vs:TR.targuments u sch (L.rev [term]))
+    : Lemma (TR.truth sch (V.evaluate sigma i (L.rev [term] `L.append` [])
+               (V.extend sigma [] (L.rev [term]) vs empty) w_B) == true) =
+    let sc = L.rev [term] `L.append` [] in
+    let rho = V.extend sigma [] (L.rev [term]) vs empty in
+    let w : TR.targuments u sch (L.rev [term]) = [S.value_inhabitant sch (TR.default_value u) term] in
+    lemma_pw_true u (L.rev [term] `L.append` sc) (V.extend sigma sc (L.rev [term]) w rho) (Var 1 term) (Var 0 term);
+    FStar.Classical.exists_intro (fun (ws:TR.targuments u sch (L.rev [term])) ->
+      TR.truth sch (V.evaluate sigma i (L.rev [term] `L.append` sc) (V.extend sigma sc (L.rev [term]) ws rho) w_body) == true) w;
+    TR.lemma_eval_exists i sc rho [term] w_body in
+  FStar.Classical.forall_intro outer;
+  TR.lemma_eval_forall i [] empty [term] w_B
+
+(* C16 an ACCEPTED negative-polarity dependent step:
+   (not (forall y. Pw x y)) ~ (not (Pw x (sk!n x))); the definition is
+   negative, its closure exists, and an nnf-pos certificate over it is
+   pending without the closure and replayed with it. *)
+let fn_ : func_decl = symbol "sk!n" [term] term
+let ng_src : expr = neg (forall_ [term] w_body)
+let ng_inst : expr = neg (App pw [Var 0 term; App fn_ [Var 0 term]])
+let ng_cert : U.binder_certificate =
+  cert [be "sk" (oeq ng_src ng_inst) [];
+        bq "nnf-pos" [term] (oeq (forall_ [term] ng_src) (forall_ [term] ng_inst)) [0]] 1
+let ng_closure : expr = forall_ [term] (iff ng_src ng_inst)
+let c16_negative_accepted ()
+  : Lemma ((match DS.definition_of sch ng_src ng_inst with Some d -> d.SK.negative == true | None -> False) /\
+           closure_for ng_src ng_inst == Some ng_closure /\
+           SP.check_node sch [] (node_of ng_cert (forall_ [term] ng_src) (forall_ [term] ng_inst)) ==
+             Some (fact_of (forall_ [term] ng_src) (forall_ [term] ng_inst), 1) /\
+           SP.check_node sch [ng_closure] (node_of ng_cert (forall_ [term] ng_src) (forall_ [term] ng_inst)) ==
+             Some (fact_of (forall_ [term] ng_src) (forall_ [term] ng_inst), 0)) =
+  assert_norm (match DS.definition_of sch ng_src ng_inst with Some d -> d.SK.negative == true | None -> False);
+  assert_norm (closure_for ng_src ng_inst == Some ng_closure);
+  assert_norm (SP.check_node sch [] (node_of ng_cert (forall_ [term] ng_src) (forall_ [term] ng_inst)) ==
+               Some (fact_of (forall_ [term] ng_src) (forall_ [term] ng_inst), 1));
+  assert_norm (SP.check_node sch [ng_closure] (node_of ng_cert (forall_ [term] ng_src) (forall_ [term] ng_inst)) ==
+               Some (fact_of (forall_ [term] ng_src) (forall_ [term] ng_inst), 0))
+
+(* C17 the runtime contract skolem_scopes_ok: the n92 step's dependencies are
+   [(0, Term); (1, Universe)]; it passes at [Term; Universe] and is refused at
+   a scope with Int at position 1 (the guard would refuse such a scope too:
+   the step reads #1 as Universe). *)
+let c17_scope_gate ()
+  : Lemma (NR.skolem_scopes_ok (be "sk" (oeq n_B n_inst) []) (U.Observational n_B n_inst) [[term; universe]] /\
+           not (NR.skolem_scopes_ok (be "sk" (oeq n_B n_inst) []) (U.Observational n_B n_inst)
+                  [[term; universe]; [term; integer]])) =
+  assert_norm (NR.skolem_scopes_ok (be "sk" (oeq n_B n_inst) []) (U.Observational n_B n_inst) [[term; universe]]);
+  assert_norm (not (NR.skolem_scopes_ok (be "sk" (oeq n_B n_inst) []) (U.Observational n_B n_inst)
+                      [[term; universe]; [term; integer]]))
+
+(* C18 the same dependent step in two certificates is collected once. *)
+let c18_document : P.document =
+  doc [] [entry (U.QuantifierIntroduction n92_cert) (oeq n_src n_tgt) [];
+          entry (U.QuantifierIntroduction n92_cert) (oeq n_src n_tgt) []] 0
+let c18_duplicate ()
+  : Lemma (L.length (SP.dependent_context sch c18_document []) == 1) =
+  assert_norm (L.length (SP.dependent_context sch c18_document []) == 1)
+
+(* C19 a non-cyclic chain in REVERSE document order: g's body mentions f
+   (g is newer); g's certificate comes first, so the reversed collection
+   [f; g] is not ordered and the selection finds [g; f]. *)
+let q2t : func_decl = symbol "Q2t" [term; term] bool_sort
+let q3t : func_decl = symbol "Q3t" [term; term; term] bool_sort
+let chf : func_decl = symbol "sk!chf" [term] term
+let chg : func_decl = symbol "sk!chg" [term] term
+let ch_f_B : expr = exists_ [term] (App q2t [Var 1 term; Var 0 term])
+let ch_f_inst : expr = App q2t [Var 0 term; App chf [Var 0 term]]
+let ch_g_B : expr = exists_ [term] (App q3t [Var 1 term; Var 0 term; App chf [Var 1 term]])
+let ch_g_inst : expr = App q3t [Var 0 term; App chg [Var 0 term]; App chf [Var 0 term]]
+let c19_document : P.document =
+  doc [] [entry (U.QuantifierIntroduction (cy_cert ch_g_B ch_g_inst)) (oeq (forall_ [term] ch_g_B) (forall_ [term] ch_g_inst)) [];
+          entry (U.QuantifierIntroduction (cy_cert ch_f_B ch_f_inst)) (oeq (forall_ [term] ch_f_B) (forall_ [term] ch_f_inst)) []] 0
+let c19_reverse_chain ()
+  : Lemma (Some? (SP.collect_dependents sch [] c19_document.P.entries) /\
+           not (SK.ordered_context (L.rev (Some?.v (SP.collect_dependents sch [] c19_document.P.entries)))) /\
+           L.length (SP.dependent_context sch c19_document []) == 2) =
+  assert_norm (Some? (SP.collect_dependents sch [] c19_document.P.entries));
+  assert_norm (not (SK.ordered_context (L.rev (Some?.v (SP.collect_dependents sch [] c19_document.P.entries)))));
+  assert_norm (L.length (SP.dependent_context sch c19_document []) == 2)
+
+(* C20 a sort-mismatched swap: @x2!1 (domain [Term; Universe]) applied as
+   (#1:Universe, #0:Term): no definition. *)
+let n_sk_bad : expr = App x2_1 [Var 1 universe; Var 0 term]
+let n_inst_badswap : expr = mk_and [ht max_ifuel n_sk_bad (Var 0 term); valid (App tag_d [Var 1 universe; Var 0 term; n_sk_bad])]
+let c20_sort_mismatched_swap () : Lemma (SK.definition_of n_B n_inst_badswap == None) =
+  assert_norm (SK.definition_of n_B n_inst_badswap == None)
