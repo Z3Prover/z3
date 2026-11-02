@@ -262,9 +262,12 @@ of them stop at an open `sk` step: a Skolem function of the enclosing binders,
 whose choice equation holds only in an argument-dependent choice extension (now
 built, next paragraph; on the re-swept NNF-bearing files the pending NNF obligations
 drop to 73 `nnf-neg` and 10 `nnf-pos` on OCaml, 70 and 10 on Cherry, see the OCaml
-checker report). The rest stop at closed `sk` steps over the
-4,096-node definition budget, at the scope guard, or at `intro-def`/`apply-def`
-naming steps; none at a local NNF rule. See
+checker report). The rest stop at closed `sk` steps over the 4,096-node
+definition budget, at `intro-def`/`apply-def` naming steps, or at the binder
+scope guard by exhausting its work budget (with an unbounded budget the same
+guard passes; most of its units are the characters of the marshalled
+`sort!<id>:<name>` sort names, charged at every sort comparison); none at a
+local NNF rule, a scope or premise mismatch, or a malformed certificate. See
 [the native validation](OCAML_CHECKER_REPORT.md#native-validation-and-the-fstar-build-replay-b3c1e0bac-producer).
 
 **Model and trust.** `Z3NnfReplay.lemma_replay` proves, for every entry and

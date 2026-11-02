@@ -43,10 +43,18 @@ module Z3NnfSkolemTests
       constant: accepted; closed body mentioning a dependent function: no
       dependent context), and a satisfiable would-be refutation through a
       wrong-polarity dependent step: pending, with a proved standard-root
-      counter-model.
+      counter-model (C15). Then (C16-C20): an ACCEPTED negative-polarity
+      dependent step (pending without its closure, replayed with it); the
+      runtime gate skolem_scopes_ok at an assigned scope (passes at the
+      dependency sorts, refused when one assigned scope has another sort at
+      a dependency's position); the same dependent step in two certificates
+      (one definition); a non-cyclic chain in REVERSE document order (the
+      selection orders it); and a sort-mismatched swap of the arguments (no
+      definition).
 
    Every expected value is the checker's own result, computed by
-   normalization on well-typed documents. *)
+   normalization. Most inputs are well-sorted; C12 and C20 are deliberately
+   ill-sorted inputs, whose expected result is the rejection. *)
 
 open Z3AstTheory
 open Z3ValueTheory

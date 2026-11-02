@@ -4932,9 +4932,52 @@ timed out or crashed), baseline and candidate with the same flags and limits:
   discharged, 80 remain, none added, 713 queries become `ACCEPT`, no `ACCEPT` becomes
   `PARTIAL`; OCaml (4,177 same-proof queries): 1,526 / 1,774 discharged, 29 remain, none
   added.
-- The remaining NNF obligations (diagnostic rerun of the same files): closed `sk` steps
-  over the 4,096-node definition budget, the scope guard, and `intro-def` naming steps;
-  no dependent Skolem step and no local NNF rule.
+- The remaining NNF obligations (83 OCaml, 80 Cherry), classified by a separate
+  diagnostic rerun of the same files (the replay steps and the scope guard's forward
+  pass re-run step by step with the candidate's own extracted functions, checked
+  against the production result) and matched to the counted residue: 54 OCaml / 53
+  Cherry stop at a closed `sk` step whose formula exceeds the 4,096-node definition
+  budget (4,110-24,844 nodes; zero dependencies, so not a dependent Skolem step); 9 /
+  9 at `intro-def`/`apply-def` naming steps inside `nnf-pos` certificates; 20 / 17 at
+  the binder scope guard, every one by EXHAUSTING the guard's work budget
+  (`binder_work_limit`, 65,536 units per entry) in its forward pass, never by a scope,
+  sort, index or premise failure: with an unbounded budget the same guard passes,
+  needing 1.02-14.2 times the budget, and 81-92 % of the units are the characters of
+  base-sort names (every uninterpreted sort is marshalled as `sort!<id>:<name>`, here
+  20 characters, and both names are charged before each sort comparison, once per
+  variable and per argument). Behind the guard, 19 of these 20 certificates would
+  still stop at an `sk` step over the 4,096-node budget; only one (PulseCore.Action-1
+  query 1) would replay. No residue stops at a dependent Skolem step, a local NNF
+  rule, or a malformed certificate. Matching: 30 OCaml / 22 Cherry obligations have a
+  diagnosed node in an identical proof (same metadata and NNF groups); 53 / 57 have
+  the same NNF obligation (same rule, source/target fingerprint and count) in the same
+  query of another OCaml proof of it (OCaml proofs vary between runs); one Cherry
+  obligation (FStar.Math.Lemmas-2 query 35) has no exact counterpart (the closest
+  OCaml proofs differ in one arithmetic comparison and stop at the scope guard's
+  budget). An earlier version of this classification supported "guard budget" with the
+  work left after the guard's backward pass, which is the budget handed to its forward
+  pass, not what remained when it failed; the class is unchanged, the evidence above is
+  the failing branch (the forward pass's scope check of one entry running out of work)
+  and the total charge per certificate. The unbounded repeats are diagnostic
+  measurements only, not a checker pass and not a production budget. The guard's
+  accounting and limits are unchanged.
+- Follow-up (not implemented): a cheaper sort-identity or shared-certificate accounting
+  for the guard, without a budget raise, would discharge only the PulseCore.Action-1
+  node (the other 19 also stop at an `sk` step over the 4,096-node budget).
+  It needs a proved bijection between the representation and the AST sorts, binders
+  and metadata it stands for (equal representations exactly for equal sorts), native
+  sort ids treated as untrusted, no stripping of name prefixes and no collapsing of
+  distinct names, a bounded table construction charged to the same budget, and
+  adversarial tests (different names with one native id, one name with different ids).
+- The 224 files outside the selection were last run in this report's sweep with the
+  previous candidate (5ff246341). A separate, later run (not part of the 359-file
+  re-sweep) replayed exactly those 224 files with the frozen 3499ebf14 binaries (an
+  independent reviewer's run, label `rev-out224-cand-3499ebf14`, OCaml checker
+  `2388389168cf500d`, Cherry checker `943dcb2f2ea51d1b`; same harness, flags and limits;
+  accounting re-checked from its own records): 448/448 files COMPLETE, 2,553 answered
+  queries per backend (every query of those files; OCaml 905 `ACCEPT` / 1,557 `PARTIAL` /
+  91 `UNKNOWN`, Cherry 905 / 1,562 / 86), no `nnf-neg` or `nnf-pos` obligation, no
+  `REJECT`. It has no baseline twin.
 - Check time on the same proofs: Cherry +10.6 % (8,518 queries), OCaml +8.4 % (4,177);
   the worst same-proof files are FStar.Reflection.TermEq-1 (+26 %), FStar.Math.Euclid-3
   (+21 %) and FStar.Tactics.CanonCommSemiring-1 (+21.6 %). On marshalled documents of
@@ -4943,3 +4986,12 @@ timed out or crashed), baseline and candidate with the same flags and limits:
   context, the dependent context (including one redundant re-check of the closed order)
   and the NNF replay. No file crossed the 60 s limit because of the checker on the same
   proof; timeouts, crashes and unexecuted tails are not counted as checked.
+- Not checked: the unanswered tails of the timed-out and crashed files (OCaml 2,227
+  queries in 37 files at 60 s; Cherry 2,493 queries in 32 files at 60 s and 7 crashed
+  files). They may hold further NNF obligations. A bounded follow-up would replay each
+  tail query on its own (the file's commands up to that `check-sat`, earlier
+  `check-sat`s removed, declarations, assertions, options and push/pop kept), with the
+  same 10 s solver and 60 s limits; such inputs are derived, so their proofs need not
+  equal the in-sequence ones. Estimated cost at the files' observed per-query rates,
+  about 0.7 CPU-hours (OCaml) and 1.6 (Cherry) plus the repeated prefix processing,
+  at most 37 and 41.5 CPU-hours if every query used the full 60 s; not run.
