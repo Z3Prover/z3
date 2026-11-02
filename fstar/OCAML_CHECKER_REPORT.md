@@ -4896,8 +4896,10 @@ certificates and is unchanged.
   `reason=absent` (no preparation recorded). For an exhausted
   or invalid preparation, `graph-preparation=used/limit` and `graph-storage=used/limit` are the
   units that the steps before the one that stopped used of the certificate's allowance (the
-  stopped step's own charge is not included). Exhaustion and invalid input are both pending, never
-  a rejection, and neither falls back to the default check.
+  stopped step's own charge is not included); when `prepare_certificate` itself stops, the whole
+  call counts as that step, so the figures are those of the cache before the call and do not
+  include the lookups the call made before it stopped. Exhaustion and invalid input are both
+  pending, never a rejection, and neither falls back to the default check.
 - Documents with definitions (W6): the default checks a quantifier introduction after expanding
   the document's definitions in its certificate's formulas (`prepare_entry_using`, fuel the
   number of definitions). The opt-in mode checks the same certificate, expanded on the checked
@@ -4907,14 +4909,17 @@ certificates and is unchanged.
   depth and node with the call's fixed variables and argument nodes, an expansion by fuel and node
   with the document's fixed definitions); a node whose children are unchanged is the node itself;
   the instance of a definition's body is expanded with one less fuel by a frame that carries
-  `D.expand f e == D.expand (f - 1) instance`. The spec functions appear only in the proofs; at
-  run time nothing compares or expands a whole expression. All four loops (lift, instantiation,
+  `D.expand f e == D.expand (f - 1) instance`. On this checked-graph path the spec functions appear
+  only in the proofs, and at run time nothing compares or expands a whole expression (for the
+  tree expansion that both modes still run, see the next item). All four loops (lift, instantiation,
   expansion, and the import of a body) are explicit worklists in self tail calls; each frame is
   checked again when it is taken. `Z3DagDocument.expand_prepared` expands each entry's formula of a
   prepared certificate and returns the certificate with the expanded formulas and their nodes
   (`handles_ok` earned again, and `expanded_rel`); `Z3VerifiedDocument.lemma_dag_preparation`
   proves that it is the default's expanded certificate
-  (`expand_rule_using defs (QuantifierIntroduction p.pcert) == Some (QuantifierIntroduction p'.pcert)`).
+  (`expand_rule_using defs (QuantifierIntroduction p.pcert) == Some (QuantifierIntroduction p'.pcert)`),
+  given that `p.pcert` is the certificate the document holds for that entry. That relation between
+  an entry and its recorded preparation is the marshaler's runtime glue (see "Trust and evidence").
   A definition's body is an expression of the document, not a node: it is imported into the graph
   (`intern_expr`, a worklist over the expression, each subexpression charged; a body that is a
   DAG in memory is imported as its tree, so the import is not bounded by its unique nodes) once
@@ -4926,7 +4931,11 @@ certificates and is unchanged.
   certificate of `n` entries), set once and never refilled; an expansion that stops spends what
   is left. The allowance is `16,384` preparation and `4,096` storage units times the number of
   shares, read from the document's entries once its input is read (an arbitrary-precision count,
-  no overflow; no user-supplied credit). Its rows are debits of that one document ledger, not
+  no overflow; no user-supplied credit). It reuses the graph's per-share constants and is
+  uncalibrated: no natively produced input with definitions and quantifier introductions exists,
+  so no measurement backs these numbers. That it is never refilled holds by inspection
+  (`expansion_context` is called once per document check, and `spent` empties it when an
+  expansion stops), not by a proof. Its rows are debits of that one document ledger, not
   budgets of their own: `expansion-debit-preparation` and `expansion-debit-storage` are what a
   certificate's successful expansion charged to it; when an expansion stops,
   `expansion-forfeited-preparation` and `expansion-forfeited-storage` are what the allowance held
@@ -4951,6 +4960,26 @@ certificates and is unchanged.
   lift, instance and expansion agree with `Z3Definitions` on nested binders, swapped variables,
   different arguments, chains, cycles and unbound variables; 100,000 nested applications are
   imported, lifted, instantiated and expanded under the 8 MiB stack (OCaml 7.2 s, 200,008 nodes).
+  Coverage: no natively produced CLI input has both definitions and a quantifier introduction;
+  `opt-in-dag-definitions-expanded` adds an unused definition to a produced document (its
+  expansion is the identity), and a used definition is covered by documents and caches built by
+  hand (`opt-in-dag-definition-expansion`).
+- Tree expansion in the opt-in mode (W8): the default prepares a quantifier introduction's node by
+  expanding its certificate's formulas as trees (`prepare_entry_from`, `expand_rule_using`). The
+  opt-in mode does not: its node keeps the certificate as written (`prepare_entry_dag`), because
+  the node check uses only the graph-expanded certificate. `lemma_document_door` proves that the
+  opt-in diagnosis (verdict, pending and unmet obligations, rows) equals the one that prepares
+  every entry as the default does; the default's rejection when that expansion fails cannot occur
+  there, because the Skolem pass below has already expanded the same certificate
+  (`lemma_collect_expands`). The Skolem pass (`collect_skolems_using`), which both modes run before
+  any entry is checked, still expands every quantifier introduction's certificate as a tree to
+  collect the Skolem definitions of its `sk` entries; it decides the default's `SkolemCollection`
+  rejection, is not charged in either mode, and is the identity when the document has no
+  definitions (the NNF document of the n433 measurement below has none: PulseCore.Action-1 query 1
+  has 736 entries, 33 quantifier introductions and no definitions). On the hand-built definition tests of
+  `opt-in-dag-definition-expansion` it builds 60 expanded formula nodes for 3 quantifier
+  introductions (0.05 ms) and 20 for one (0.02 ms; OCaml, W8 development build). Driving the
+  Skolem collection from the checked expansion is a separate follow-up.
 - Guard (`Z3DagScope`, `Z3DagGuard`): the backward pass of `verified-sorts-v1` over the graph's
   sort table, then a memoised forward pass: each demanded scope is interned to a canonical scope id
   (`lemma_scope_canonical`) and the judgment's nodes are walked there, recording a node/scope pair
@@ -4970,13 +4999,15 @@ certificates and is unchanged.
   modes perform, is not counted in either mode. The units are abstract counts, not a time or
   memory bound, and there is no claim of a bound on the unmodified parser, solver or runtime.
   Opt-in-only work that the graph's units do not count: the walks' `node_of` reads of frame
-  nodes and the `value_at` reads of entry formulas; the lookup of a declaration in the default
-  marshaler's declaration table; the second native view of an uncached expression and the
-  strings (names) it allocates; temporary lists (native id lists, job lists); the size of integer
-  parameters (counted one unit each); and, as in the default, `check_binder_entries` and the
-  root comparison. On the sorted route (datatype documents, `--sorted-core`) the opt-in marshaler
-  still builds the graph although that route never reads binder certificates; this cost is
-  disclosed, not avoided.
+  nodes and the `value_at` reads of entry formulas; the `with_values` reads of expanded formulas;
+  the lookups of a certificate's mark and recorded preparation (`marks`, `preps`) when it is
+  checked; the lookup of a declaration in the default marshaler's declaration table; the second
+  native view of an uncached expression or sort and the strings (names) and domain lists it
+  allocates; temporary lists (native id lists, job lists); the size of integer parameters (counted
+  one unit each); and, as in the default, `check_binder_entries`, the root comparison and the
+  Skolem pass's tree expansion. On the sorted route (datatype documents, `--sorted-core`) the
+  opt-in marshaler still builds the graph although that route never reads binder certificates;
+  this cost is disclosed, not avoided.
 - Budgets: a certificate with `n` entries (the entries of that certificate that the checker reads,
   as for `binder_work_limit`; not a document-wide or predicted count) gets `n + 1` shares of each:
   graph preparation 16,384 and storage 4,096, guard preparation 16,384, validation 65,536 and
@@ -5003,7 +5034,10 @@ certificates and is unchanged.
   pending, and the opt-in guard reports `exhausted phase=storage`. These fail closed; the mode is
   not more complete than the default in general and not uniformly faster.
 - Native stack (W5, 8 MiB stack, both backends, against the frozen master checkers): the graph's
-  walks need no stack in depth or width. A term of depth 100,000 under 1,000 binders is checked by
+  walks need no stack in depth or width, except `Z3CheckedGraph.add_quant`'s maps over a
+  quantifier's bound sorts (W4 code), which recurse once per bound sort; the bound sorts paired for
+  a rebuilt or imported quantifier are a self tail call (W8, tested with 1,000,000 bound sorts).
+  A term of depth 100,000 under 1,000 binders is checked by
   the opt-in mode on both backends (3.5 to 3.7 s; the default leaves it pending in 5 to 13 s).
   The Cherry checkers of master and of this mode overflow their stack, default and opt-in alike,
   at a term of depth 200,000 and a nested array sort of depth 70,000, in steps that run in both
@@ -5015,7 +5049,14 @@ certificates and is unchanged.
 - Trust and evidence: the memo walk is proved sound (`lemma_walk`), not complete; its completeness
   (every valid scope checked) is tested, not proved. The relation between a native id and the
   cached expression it locates is the marshaler's runtime glue under the existing reflection
-  contract, covered by tests and source review, not a formal proof of the producer's fidelity.
+  contract, covered by tests and source review, not a formal proof of the producer's fidelity. So
+  is the relation between a document entry and the preparation recorded for it (the marshaler
+  records the certificate it puts in the document at that entry's index): a mutant that reads the
+  preparation of the next entry (`record-wrong-entry`) passes F*, and is caught natively (OCaml:
+  native tests exit 2 at the first failure, 5 `opt-in-dag-*` groups fail when every group runs, 7
+  CLI subtests fail; Cherry: 7 CLI subtests fail, while the F*-extracted `checker-tests` do not
+  catch it), failing closed (pending, never a false acceptance), since every entry of a recorded
+  certificate is checked again against the document's assertions and conclusion.
   The native name counter is a trusted runtime binding (W2). The last `--resource-accounting`
   value given wins, like `--timeout-ms`.
 - Measured (direct harness on the NNF task's 20 diagnosed guard-budget certificates, 28 dumps, with
@@ -5025,8 +5066,9 @@ certificates and is unchanged.
   PulseCore.Action-1 query 1 node 433, old guard: 3,542,713 forward units required, 2,555,749
   available after 155 backward units, 43.6 ms. Verified-dag-v1: 567 graph nodes for 70,362 tree
   occurrences; graph preparation 265,290 work units (counting 101 sort-name characters, 2,692
-  declaration-name characters and 6 parameters once each, and 2,116 native-id lookups) and 68,921
-  storage cells; guard preparation 152, validation 488,221 and storage 106,710; 3.5 ms preparation
+  declaration-name characters and 6 parameters once each, and 2,116 native-id lookups) and 68,955
+  storage cells (W6: including 34 for recording the prepared certificate in the cache);
+  guard preparation 152, validation 488,221 and storage 106,710; 3.5 ms preparation
   and 3.8 ms check, 15 MB peak.
   The independent 4,096-node Skolem-expression budget is unchanged, so this does not make the
   NNF task's documents accepted where that budget stops them.

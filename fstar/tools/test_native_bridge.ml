@@ -1846,10 +1846,6 @@ let dag_incremental_isolation () =
             require (not (checked (dag doc companions)))
               (Printf.sprintf "query %d checked with the preparations of query %d" i j)) docs) docs
 
-(* verified-dag-v1 and definitions: the default checks a quantifier introduction after expanding the
-   document's definitions (Z3ProofDocument.prepare_entry_using); the certificate prepared while the
-   document was marshaled is the unexpanded one, so in a document with definitions every quantifier
-   introduction is unprepared (reason definitions) and pending, never checked on the unexpanded form. *)
 (* verified-dag-v1 with definitions: a document whose definitions the default expands is checked on
    the certificate the default checks, its formulas expanded on the checked graph (here an unused
    definition: the expansion keeps each formula). *)
@@ -1986,6 +1982,28 @@ let dag_definition_expansion () =
               require (List.length d.V.reports = n && List.for_all (fun r -> match r.V.report_outcome with
                   | G.BinderGuardChecked _ -> true | _ -> false) d.V.reports)
                 "a quantifier introduction of the document was not checked after expansion";
+              (* W8: the DAG mode's door (a quantifier introduction's node keeps its certificate unexpanded)
+                 gives the diagnosis of preparing every entry by prepare_entry_using *)
+              let transform = D.memoized_expander (fun (_, e) -> hash (U.Holds e)) in
+              require (V.diagnose_document_verified false (V.DagV1 (companions n)) transform (P.document_lookup hash doc) doc = d)
+                "the door's diagnosis differs from preparing every entry by prepare_entry_using";
+              (* W8: the Skolem pass that both modes run before any entry (collect_skolems_using) still expands
+                 every quantifier introduction's certificate as a tree; measured, not charged *)
+              let defs = Option.get (P.document_definitions doc) in
+              let rec size acc = function
+                | [] -> acc
+                | A.Var _ :: r -> size (acc + 1) r
+                | A.App (_, args) :: r -> size (acc + 1) (List.rev_append args r)
+                | A.Quantifier (_, _, _, b) :: r -> size (acc + 1) (b :: r) in
+              let t0 = Unix.gettimeofday () in
+              require (P.collect_skolems_using transform defs [] doc.P.entries <> None) "the Skolem pass rejected the document";
+              let dt = Unix.gettimeofday () -. t0 in
+              let nodes = List.fold_left (fun acc e -> match P.expand_rule_using transform defs e.P.rule with
+                  | Some (U.QuantifierIntroduction c) ->
+                      List.fold_left (fun acc be -> size acc [be.U.binder_formula]) acc c.U.binder_entries
+                  | _ -> acc) 0 doc.P.entries in
+              Printf.printf "    Skolem pass (both modes, uncharged): %d quantifier introductions, %d expanded formula nodes, %.3f ms\n"
+                n nodes (dt *. 1000.);
               List.map (fun r -> match r.V.report_debit with Some (u, _) -> u | None -> failwith "no debit") d.V.reports in
             (match debits 3, debits 1 with
              | [d1; d2; d3], [single] ->
@@ -2077,6 +2095,25 @@ let dag_definition_expansion () =
    require (match CX.expand_nodes [def q_d [0] (gg (v 0) cst)] Z.one g Z3ProofIndex.Empty [x] with
        | CX.ExpandedNodes _ -> true | _ -> false)
      "2,000 nested applications of a definition did not expand within a linear budget");
+  (* W8 review regressions: an import whose children's lookups the preparation budget cannot pay is
+     exhausted in preparation (it was labelled storage), one whose storage cannot pay in storage; the
+     bound sorts of a quantifier are paired by a self tail call (1,000,000 of them, in order), and a
+     quantifier of 3,000 bound sorts of two kinds is expanded as Z3Definitions.expand expands it *)
+  let intern_short prep store =
+    match CX.intern_expr (CG.empty prep store) (q cst) with
+    | CX.InternStopped (CG.BuildExhausted ph) -> Some ph
+    | _ -> None in
+  require (intern_short CX.memo_units big = Some T.Preparation) "an import short of preparation was not labelled preparation";
+  require (intern_short big Z.zero = Some T.Storage) "an import short of storage was not labelled storage";
+  let mixed n = List.init n (fun i -> if (i + 1) mod 3 = 0 then A.bool_sort else int_s) in
+  (let n = 1_000_000 in
+   let ps = CX.pair_sorts (mixed n) (List.init n Z.of_int) in
+   let rec in_order i = function
+     | [] -> i = n
+     | (b, j) :: rest -> b = (if (i + 1) mod 3 = 0 then A.bool_sort else int_s) && Z.equal j (Z.of_int i) && in_order (i + 1) rest in
+   require (in_order 0 ps) "1,000,000 bound sorts were not paired in order");
+  require (expand_ok defs1 1 (A.Quantifier (A.Forall_k, mixed 3000, A.bool_sort, f (v 1))))
+    "a quantifier of 3,000 bound sorts was not expanded as Z3Definitions.expand";
   (* deep: 100,000 nested applications under a binder *)
   let deep = all (p (chain 100000 (v 0))) in
   let t0 = Unix.gettimeofday () in

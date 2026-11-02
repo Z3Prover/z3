@@ -153,18 +153,43 @@ let lemma_rebuild_app (g:CG.cgraph) (x:nat) (ys:list nat)
       end
     | _, _ -> ()
 
-let rec pair_sorts (bs:list sort) (ids:list nat) : Tot (list CG.csort) (decreases bs) =
+(* The bound sorts paired with their ids, by a self tail call (a quantifier
+   may bind many sorts); `pair_sorts_spec` is the plain recursion it equals. *)
+noextract
+let rec pair_sorts_spec (bs:list sort) (ids:list nat) : Tot (list CG.csort) (decreases bs) =
   match bs, ids with
-  | b :: bs', i :: ids' -> (b, i) :: pair_sorts bs' ids'
+  | b :: bs', i :: ids' -> (b, i) :: pair_sorts_spec bs' ids'
   | _, _ -> []
 
-let rec lemma_pair_sorts (g:CG.cgraph) (bs:list sort) (ids:list nat)
+let rec pair_sorts_acc (bs:list sort) (ids:list nat) (acc:list CG.csort) : Tot (list CG.csort) (decreases bs) =
+  match bs, ids with
+  | b :: bs', i :: ids' -> pair_sorts_acc bs' ids' ((b, i) :: acc)
+  | _, _ -> L.rev acc
+
+let pair_sorts (bs:list sort) (ids:list nat) : list CG.csort = pair_sorts_acc bs ids []
+
+let rec lemma_pair_sorts_acc (bs:list sort) (ids:list nat) (acc:list CG.csort)
+  : Lemma (ensures pair_sorts_acc bs ids acc == L.append (L.rev acc) (pair_sorts_spec bs ids)) (decreases bs)
+  = match bs, ids with
+    | b :: bs', i :: ids' ->
+      lemma_pair_sorts_acc bs' ids' ((b, i) :: acc);
+      Z3List.lemma_rev_cons (b, i) acc;
+      L.append_assoc (L.rev acc) [(b, i)] (pair_sorts_spec bs' ids')
+    | _, _ -> L.append_l_nil (L.rev acc)
+
+let rec lemma_pair_sorts_spec (g:CG.cgraph) (bs:list sort) (ids:list nat)
   : Lemma (requires CS.all_below ids (CG.sort_count g) /\ L.map (CG.interp g) ids == bs)
-          (ensures CG.csorts_ok g (pair_sorts bs ids) /\ L.map fst (pair_sorts bs ids) == bs)
+          (ensures CG.csorts_ok g (pair_sorts_spec bs ids) /\ L.map fst (pair_sorts_spec bs ids) == bs)
           (decreases bs)
   = match bs, ids with
-    | _ :: bs', _ :: ids' -> lemma_pair_sorts g bs' ids'
+    | _ :: bs', _ :: ids' -> lemma_pair_sorts_spec g bs' ids'
     | _, _ -> ()
+
+let lemma_pair_sorts (g:CG.cgraph) (bs:list sort) (ids:list nat)
+  : Lemma (requires CS.all_below ids (CG.sort_count g) /\ L.map (CG.interp g) ids == bs)
+          (ensures CG.csorts_ok g (pair_sorts bs ids) /\ L.map fst (pair_sorts bs ids) == bs)
+  = lemma_pair_sorts_acc bs ids [];
+    lemma_pair_sorts_spec g bs ids
 
 (* The quantifier of `x` (its kind and bound sorts, by their ids) over the
    body node `z`, when `z` has the sort id of `x`'s own body. *)
@@ -939,8 +964,6 @@ let rec lemma_tstack_grows (st st':tstate) (stack:list tframe)
        | _ -> ());
       lemma_tstack_grows st st' rest
 
-let rec range (n m:nat) : Tot (list nat) (decreases m) = if m = 0 then [] else n :: range (n + 1) (m - 1)
-
 (* Fresh indices `next`, `next + 1`, ... for `es`, last first in `acc`. *)
 let rec assign (sub:I.index_tree expr) (next:nat) (es:list expr) (acc:list nat)
   : Tot (I.index_tree expr & nat & list nat) (decreases es) =
@@ -1080,7 +1103,7 @@ let intern_open (st:tstate) (k:nat) (es:list expr) (t:expr) (rest:list tframe)
   let cp : nat = m * CS.table_units in
   let cs : nat = 1 + m * (2 + CS.table_units) in
   match charge st.tg cp cs with
-  | None -> THalt (CG.BuildExhausted T.Storage)
+  | None -> THalt (CG.BuildExhausted (if st.tg.CG.prep < cp then T.Preparation else T.Storage))
   | Some g1 ->
     lemma_charge st.tg cp cs;
     lemma_assign st.sub st.next es [] [];

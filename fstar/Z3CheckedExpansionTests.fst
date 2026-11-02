@@ -240,6 +240,35 @@ let deep () : bool =
      | CX.LiftStopped _ -> false)
   | CX.InternStopped _ -> false
 
+(* Regressions of the W8 review. An import whose children's lookups the
+   preparation budget cannot pay is exhausted in preparation (it was labelled
+   storage), one whose storage cannot pay in storage. The bound sorts of a
+   quantifier are paired by a self tail call: 1,000,000 of them, in order; a
+   quantifier of 3,000 bound sorts of two kinds is expanded as `D.expand`
+   expands it. *)
+let intern_short (prep store:nat) (ph:T.phase) : bool =
+  match CX.intern_expr (fresh prep store) (q c) with
+  | CX.InternStopped (CG.BuildExhausted ph') -> ph' = ph
+  | _ -> false
+
+let rec sorts_acc (n:nat) (acc:list sort) : Tot (list sort) (decreases n) =
+  if n = 0 then acc else sorts_acc (n - 1) ((if n % 3 = 0 then bool_sort else int_s) :: acc)
+
+let rec ids_acc (n:nat) (acc:list nat) : Tot (list nat) (decreases n) =
+  if n = 0 then acc else ids_acc (n - 1) ((n - 1) :: acc)
+
+let rec pairs_in_order (ps:list CG.csort) (i n:nat) : Tot bool (decreases ps) =
+  match ps with
+  | [] -> i = n
+  | (b, j) :: rest -> b = (if (i + 1) % 3 = 0 then bool_sort else int_s) && j = i && pairs_in_order rest (i + 1) n
+
+let wide_pairs () : bool =
+  let n = 1000000 in
+  pairs_in_order (CX.pair_sorts (sorts_acc n []) (ids_acc n [])) 0 n
+
+let wide_quant () : bool =
+  expand_ok defs1 1 (Quantifier Forall_k (sorts_acc 3000 []) bool_sort (f (v 1)))
+
 (* The checks, in order; `first_failure` is the position (from 1) of the
    first that fails, 0 if none, so that a backend can name it. *)
 let checks () : list bool =
@@ -279,7 +308,11 @@ let checks () : list bool =
    not (exhausted defs1 1 big (f c));
    ill_sorted_refused ();
    deep_linear ();
-   deep ()]
+   deep ();
+   intern_short CX.memo_units big T.Preparation;
+   intern_short big 0 T.Storage;
+   wide_pairs ();
+   wide_quant ()]
 
 let rec first_false (l:list bool) (i:int) : Tot int (decreases l) =
   match l with

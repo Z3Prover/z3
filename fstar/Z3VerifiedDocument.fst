@@ -26,6 +26,7 @@ module IT = Z3IdTable
 module L = FStar.List.Tot
 module G = Z3CheckedGuard
 module DD = Z3DagDocument
+module BS = Z3BinderScope
 
 (* The opt-in mode: `verified-sorts-v1`, or `verified-dag-v1` with the
    preparations of the document's quantifier introductions, by entry. *)
@@ -126,11 +127,36 @@ type entry_result (defs:list D.definition) = {
   state: dag_state defs;
 }
 
-let verified_entry (#defs:list D.definition) (transform:D.expander) (skolems:list SK.definition) (bound:bool)
+(* In the opt-in DAG mode a quantifier introduction is checked on its
+   prepared certificate, expanded on the checked graph (`dag_preparation`),
+   so its node keeps the certificate as written instead of expanding it again
+   as a tree; every other step is `prepare_entry_from`'s (the conclusion
+   expanded, scoped and classified, the premises found). Every other entry is
+   prepared by `prepare_entry_using`. *)
+let prepare_entry_dag (transform:D.expander) (bound:bool) (defs:list D.definition)
+                      (prev:IT.t checked_fact) (e:entry) : option proof_node =
+  match e.rule with
+  | QuantifierIntroduction _ ->
+    if bound && not (D.scoped [] e.formula) then None else
+    (if defs = [] then Some e.formula else transform (L.length defs) defs e.formula) >>= (fun formula ->
+    if bound && not (D.scoped [] formula) then None else
+    classify_fact formula >>= (fun concl ->
+    opt_map_tail (IT.find prev) e.premise_ids >>= (fun premises ->
+    Some { kind = e.rule; conclusion = concl; premises = premises })))
+  | _ -> prepare_entry_using transform bound defs prev e
+
+(* `door`: the DAG mode prepares a quantifier introduction by
+   `prepare_entry_dag` (`false`: by `prepare_entry_using`, as every other
+   mode; `lemma_document_door` proves the two equal). *)
+let verified_entry (#defs:list D.definition) (door:bool) (transform:D.expander) (skolems:list SK.definition) (bound:bool)
                    (inputs:list judgment) (contains:judgment -> bool)
                    (prev:IT.t checked_fact) (next:nat) (e:entry) (st:dag_state defs)
   : entry_result defs =
-  match prepare_entry_using transform bound defs prev e with
+  let prepared = match st with
+    | DagState _ _ -> if door then prepare_entry_dag transform bound defs prev e
+                      else prepare_entry_using transform bound defs prev e
+    | NoDag -> prepare_entry_using transform bound defs prev e in
+  match prepared with
   | None -> { checked = None; outcome = None; state = st }
   | Some node ->
     match st with
@@ -154,7 +180,7 @@ let verified_entry (#defs:list D.definition) (transform:D.expander) (skolems:lis
         let r, _ = DD.check_node_dag skolems true inputs contains node None in
         { checked = r; outcome = None; state = st }
 
-let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skolems:list SK.definition)
+let rec diagnose_entries_verified (door:bool) (acct:accounting) (transform:D.expander) (skolems:list SK.definition)
                                   (bound:bool) (defs:list D.definition)
                                   (inputs:list judgment) (contains:judgment -> bool)
                                   (cache:IT.t checked_fact) (next pending:nat)
@@ -164,7 +190,7 @@ let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skol
   match entries with
   | [] -> EntriesChecked cache pending (L.rev unmet), L.rev reports
   | e :: rest ->
-    let er = verified_entry transform skolems bound inputs contains cache next e st in
+    let er = verified_entry door transform skolems bound inputs contains cache next e st in
     let reports = match er.outcome with
       | Some (o, n, gr, why, xd, xf) ->
         { report_index = next; report_entries = n; report_outcome = o; report_graph = gr; report_unprepared = why;
@@ -175,7 +201,7 @@ let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skol
     | None -> EntriesRejected (DocumentRejected ProofEntry (Some next) (Some e.formula)), L.rev reports
     | Some (fact, local) ->
       if local = 0 then
-        diagnose_entries_verified acct transform skolems bound defs inputs contains (IT.put cache next fact)
+        diagnose_entries_verified door acct transform skolems bound defs inputs contains (IT.put cache next fact)
           (next + 1) pending unmet reports er.state rest
       else
         match opt_map_tail (IT.find cache) e.premise_ids with
@@ -187,14 +213,14 @@ let rec diagnose_entries_verified (acct:accounting) (transform:D.expander) (skol
             obligation_premises = premise_judgments premises;
             obligation_source = e.formula; obligation_count = local;
           } in
-          diagnose_entries_verified acct transform skolems bound defs inputs contains (IT.put cache next fact)
+          diagnose_entries_verified door acct transform skolems bound defs inputs contains (IT.put cache next fact)
             (next + 1) (pending + local) (obligation :: unmet) reports er.state rest
 
-let diagnose_prepared_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+let diagnose_prepared_verified (door:bool) (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
                                (bound:bool) (defs:list D.definition)
                                (inputs:list judgment) (skolems:list SK.definition) : verified_diagnostic =
   let entries, reports =
-    diagnose_entries_verified acct transform skolems bound defs inputs (lookup inputs) IT.empty 0 0 [] []
+    diagnose_entries_verified door acct transform skolems bound defs inputs (lookup inputs) IT.empty 0 0 [] []
       (initial_state acct defs doc.entries) doc.entries in
   let diagnostic =
     match entries with
@@ -216,7 +242,7 @@ let diagnose_prepared_verified (acct:accounting) (transform:D.expander) (lookup:
 let rejected (stage:diagnostic_stage) : verified_diagnostic =
   { diagnostic = DocumentRejected stage None None; reports = [] }
 
-let diagnose_inputs_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+let diagnose_inputs_verified (door:bool) (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
                              (bound:bool) (defs:list D.definition) (expanded:list expr)
                              (inputs:list judgment) : verified_diagnostic =
   match collect_skolems_using transform defs [] doc.entries with
@@ -227,9 +253,9 @@ let diagnose_inputs_verified (acct:accounting) (transform:D.expander) (lookup:in
     | Some skolems ->
       if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded)
       then rejected SkolemFreshness
-      else diagnose_prepared_verified acct transform lookup doc bound defs inputs skolems
+      else diagnose_prepared_verified door acct transform lookup doc bound defs inputs skolems
 
-let diagnose_definitions_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+let diagnose_definitions_verified (door:bool) (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
                                   (bound:bool) (defs:list D.definition) : verified_diagnostic =
   if not (D.acyclic_using transform (L.length defs) defs defs)
   then rejected DefinitionCycle
@@ -240,9 +266,9 @@ let diagnose_definitions_verified (acct:accounting) (transform:D.expander) (look
     | Some expanded ->
       match opt_map_tail classify_fact expanded with
       | None -> rejected InputClassification
-      | Some inputs -> diagnose_inputs_verified acct transform lookup doc bound defs expanded inputs
+      | Some inputs -> diagnose_inputs_verified door acct transform lookup doc bound defs expanded inputs
 
-let diagnose_document_verified (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document) : verified_diagnostic =
+let diagnose_document_verified (door:bool) (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document) : verified_diagnostic =
   let bound = not (ground_exprs doc.expressions) in
   if not (logical_decls doc.declarations) then rejected LogicalDeclarations
   else if bound && not (well_formed_exprs doc.expressions) then rejected ExpressionWellFormedness
@@ -251,14 +277,179 @@ let diagnose_document_verified (acct:accounting) (transform:D.expander) (lookup:
   else
     match document_definitions doc with
     | None -> rejected DefinitionCollection
-    | Some defs -> diagnose_definitions_verified acct transform lookup doc bound defs
+    | Some defs -> diagnose_definitions_verified door acct transform lookup doc bound defs
+
+(* --- The DAG mode's door: equal to preparing every entry by `prepare_entry_using` --- *)
+
+(* Every entry's rule expands (`expand_rule`), as `collect_skolems` requires
+   of a quantifier introduction before any entry is checked. *)
+noextract
+let rec rules_expand (defs:list D.definition) (entries:list entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> true
+  | e :: rest -> Some? (expand_rule defs e.rule) && rules_expand defs rest
+
+let rec lemma_collect_expands (defs:list D.definition) (skolems:list SK.definition) (entries:list entry)
+  : Lemma (requires Some? (collect_skolems defs skolems entries))
+          (ensures rules_expand defs entries) (decreases entries)
+  = match entries with
+    | [] -> ()
+    | e :: rest ->
+      match e.rule with
+      | Skolemization ->
+        (match D.expand (L.length defs) defs e.formula with
+         | Some f -> (match collect_skolem_formula skolems f with
+                      | Some more -> lemma_collect_expands defs more rest
+                      | None -> ())
+         | None -> ())
+      | QuantifierIntroduction _ ->
+        (match expand_rule defs e.rule with
+         | Some (QuantifierIntroduction certificate) ->
+           (match collect_binder_skolems skolems certificate.binder_entries with
+            | Some more -> lemma_collect_expands defs more rest
+            | None -> ())
+         | _ -> ())
+      | _ -> lemma_collect_expands defs skolems rest
+
+let rec lemma_expanded_entries_length (transform:D.expander) (defs:list D.definition) (es:list binder_entry)
+  : Lemma (ensures (match expand_binder_entries_using transform defs es with
+                    | Some es' -> L.length es' == L.length es
+                    | None -> True)) (decreases es)
+  = match es with
+    | [] -> ()
+    | _ :: rest -> lemma_expanded_entries_length transform defs rest
+
+let lemma_expanded_count (transform:D.expander) (defs:list D.definition) (c:binder_certificate)
+  : Lemma (match expand_rule_using transform defs (QuantifierIntroduction c) with
+           | Some k -> QuantifierIntroduction? k /\ entry_count k == entry_count (QuantifierIntroduction c)
+           | None -> True)
+  = if defs = [] then ()
+    else begin
+      lemma_expanded_entries_length transform defs c.binder_entries;
+      BS.lemma_count_cells 0 c.binder_entries;
+      match expand_binder_entries_using transform defs c.binder_entries with
+      | Some es' -> BS.lemma_count_cells 0 es'
+      | None -> ()
+    end
+
+(* A quantifier introduction prepared by the door is the node of
+   `prepare_entry_using` with its certificate as written, of as many entries;
+   every other entry is prepared alike. *)
+let lemma_prepare_entry_dag (transform:D.expander) (bound:bool) (defs:list D.definition)
+                            (prev:IT.t checked_fact) (e:entry)
+  : Lemma (requires Some? (expand_rule defs e.rule))
+          (ensures (match prepare_entry_dag transform bound defs prev e, prepare_entry_using transform bound defs prev e with
+                    | None, None -> True
+                    | Some n, Some n' ->
+                      n.conclusion == n'.conclusion /\ n.premises == n'.premises /\
+                      entry_count n.kind == entry_count n'.kind /\
+                      (if QuantifierIntroduction? e.rule
+                       then QuantifierIntroduction? n.kind /\ QuantifierIntroduction? n'.kind
+                       else n == n')
+                    | _, _ -> False))
+  = match e.rule with
+    | QuantifierIntroduction c -> lemma_expanded_count transform defs c
+    | _ -> ()
+
+let lemma_verified_entry_door (#defs:list D.definition) (transform:D.expander) (skolems:list SK.definition) (bound:bool)
+                              (inputs:list judgment) (contains:judgment -> bool)
+                              (prev:IT.t checked_fact) (next:nat) (e:entry) (st:dag_state defs)
+  : Lemma (requires Some? (expand_rule defs e.rule))
+          (ensures verified_entry true transform skolems bound inputs contains prev next e st ==
+                   verified_entry false transform skolems bound inputs contains prev next e st)
+  = lemma_prepare_entry_dag transform bound defs prev e
+
+let rec lemma_entries_door (acct:accounting) (transform:D.expander) (skolems:list SK.definition)
+                           (bound:bool) (defs:list D.definition)
+                           (inputs:list judgment) (contains:judgment -> bool)
+                           (cache:IT.t checked_fact) (next pending:nat)
+                           (unmet:list unmet_obligation) (reports:list binder_report)
+                           (st:dag_state defs) (entries:list entry)
+  : Lemma (requires rules_expand defs entries)
+          (ensures diagnose_entries_verified true acct transform skolems bound defs inputs contains cache next pending
+                     unmet reports st entries ==
+                   diagnose_entries_verified false acct transform skolems bound defs inputs contains cache next pending
+                     unmet reports st entries)
+          (decreases entries)
+  = match entries with
+    | [] -> ()
+    | e :: rest ->
+      lemma_verified_entry_door transform skolems bound inputs contains cache next e st;
+      let er = verified_entry false transform skolems bound inputs contains cache next e st in
+      let reports' = match er.outcome with
+        | Some (o, n, gr, why, xd, xf) ->
+          { report_index = next; report_entries = n; report_outcome = o; report_graph = gr; report_unprepared = why;
+            report_debit = xd; report_forfeit = xf }
+          :: reports
+        | None -> reports in
+      match er.checked with
+      | None -> ()
+      | Some (fact, local) ->
+        if local = 0 then
+          lemma_entries_door acct transform skolems bound defs inputs contains (IT.put cache next fact)
+            (next + 1) pending unmet reports' er.state rest
+        else
+          match opt_map_tail (IT.find cache) e.premise_ids with
+          | None -> ()
+          | Some premises ->
+            let obligation = {
+              obligation_index = next; obligation_rule = e.rule;
+              obligation_conclusion = fact.conclusion;
+              obligation_premises = premise_judgments premises;
+              obligation_source = e.formula; obligation_count = local;
+            } in
+            lemma_entries_door acct transform skolems bound defs inputs contains (IT.put cache next fact)
+              (next + 1) (pending + local) (obligation :: unmet) reports' er.state rest
+
+let lemma_prepared_door (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+                        (bound:bool) (defs:list D.definition) (inputs:list judgment) (skolems:list SK.definition)
+  : Lemma (requires rules_expand defs doc.entries)
+          (ensures diagnose_prepared_verified true acct transform lookup doc bound defs inputs skolems ==
+                   diagnose_prepared_verified false acct transform lookup doc bound defs inputs skolems)
+  = lemma_entries_door acct transform skolems bound defs inputs (lookup inputs) IT.empty 0 0 [] []
+      (initial_state acct defs doc.entries) doc.entries
+
+let lemma_inputs_door (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+                      (bound:bool) (defs:list D.definition) (expanded:list expr) (inputs:list judgment)
+  : Lemma (diagnose_inputs_verified true acct transform lookup doc bound defs expanded inputs ==
+           diagnose_inputs_verified false acct transform lookup doc bound defs expanded inputs)
+  = match collect_skolems_using transform defs [] doc.entries with
+    | None -> ()
+    | Some choices ->
+      match SK.order_context (L.length choices) choices with
+      | None -> ()
+      | Some skolems ->
+        lemma_collect_expands defs [] doc.entries;
+        lemma_prepared_door acct transform lookup doc bound defs inputs skolems
+
+let lemma_definitions_door (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+                           (bound:bool) (defs:list D.definition)
+  : Lemma (diagnose_definitions_verified true acct transform lookup doc bound defs ==
+           diagnose_definitions_verified false acct transform lookup doc bound defs)
+  = match (if defs = [] then Some doc.assertions
+           else D.expand_list_using transform (L.length defs) defs doc.assertions) with
+    | None -> ()
+    | Some expanded ->
+      match opt_map_tail classify_fact expanded with
+      | None -> ()
+      | Some inputs -> lemma_inputs_door acct transform lookup doc bound defs expanded inputs
+
+(* The DAG mode's document diagnosis, with the door, equals the one that
+   prepares every entry by `prepare_entry_using`: the door is reached only
+   after `collect_skolems` has expanded every entry's rule. *)
+let lemma_document_door (acct:accounting) (transform:D.expander) (lookup:input_lookup) (doc:document)
+  : Lemma (diagnose_document_verified true acct transform lookup doc ==
+           diagnose_document_verified false acct transform lookup doc)
+  = match document_definitions doc with
+    | None -> ()
+    | Some defs -> lemma_definitions_door acct transform lookup doc (not (ground_exprs doc.expressions)) defs
 
 let diagnose_document_verified_indexed (hash:judgment -> nat) (doc:document) : verified_diagnostic =
-  diagnose_document_verified SortsV1 (D.memoized_expander (fun (_, e) -> hash (Holds e))) (document_lookup hash doc) doc
+  diagnose_document_verified true SortsV1 (D.memoized_expander (fun (_, e) -> hash (Holds e))) (document_lookup hash doc) doc
 
 let diagnose_document_dag_indexed (hash:judgment -> nat) (doc:document) (companions:DD.companions)
   : verified_diagnostic =
-  diagnose_document_verified (DagV1 companions) (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+  diagnose_document_verified true (DagV1 companions) (D.memoized_expander (fun (_, e) -> hash (Holds e)))
     (document_lookup hash doc) doc
 
 (* --- Additive diagnostic rows ------------------------------------------------------------------- *)
