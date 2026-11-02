@@ -4910,3 +4910,36 @@ Both builds use one Z3 producer built from b3c1e0bac (z3 `3ac509ee…`, libz3.a
   definitions: 17 s). `Z3SortedProof.certified_context` now orders the reversed
   collection, which is already ordered in that case (0.2 s); the context set and every
   gate are unchanged. The corpus numbers above were measured before this fix.
+
+### Dependent Skolem functions: native validation and the NNF-bearing re-sweep
+
+Candidate 3499ebf14 (dependent Skolem functions, `Z3SortedDependentSkolem`) against the
+same b3c1e0bac producer and baseline, fresh F* caches on both pins: the suites have the
+same single producer-caused RED as the baseline (OCaml `native-tests` stop, 75/76 groups
+with every group run, one CLI test on each backend), Cherry `checker-tests` pass, QF_FF
+25/25 on both backends; the 15 NNF CLI probes are `PARTIAL 1` on the baseline and
+`ACCEPT` on the candidate in all 60 runs with identical proof metadata; the datatype
+fixture stays `PARTIAL 7` on both.
+
+Re-sweep of the 359 NNF-bearing files (every file with an NNF obligation left by the
+previous candidate on either backend, the discordant files, every file that previously
+timed out or crashed), baseline and candidate with the same flags and limits:
+
+- Pending NNF obligations over the answered queries, baseline -> candidate: OCaml
+  `nnf-neg` 4,321 -> 73, `nnf-pos` 5,945 -> 10; Cherry `nnf-neg` 4,214 -> 70, `nnf-pos`
+  5,846 -> 10. On the 8,518 Cherry queries with the same proof on both sides (metadata
+  and non-NNF obligations equal): 5,750 `nnf-pos` and 4,074 `nnf-neg` obligations
+  discharged, 80 remain, none added, 713 queries become `ACCEPT`, no `ACCEPT` becomes
+  `PARTIAL`; OCaml (4,177 same-proof queries): 1,526 / 1,774 discharged, 29 remain, none
+  added.
+- The remaining NNF obligations (diagnostic rerun of the same files): closed `sk` steps
+  over the 4,096-node definition budget, the scope guard, and `intro-def` naming steps;
+  no dependent Skolem step and no local NNF rule.
+- Check time on the same proofs: Cherry +10.6 % (8,518 queries), OCaml +8.4 % (4,177);
+  the worst same-proof files are FStar.Reflection.TermEq-1 (+26 %), FStar.Math.Euclid-3
+  (+21 %) and FStar.Tactics.CanonCommSemiring-1 (+21.6 %). On marshalled documents of
+  TermEq-1 the candidate's decision takes 18.1 s against the baseline's 16.5 s (query 24)
+  and 11.2 s against 10.8 s (query 49); the added time is the certification of the closed
+  context, the dependent context (including one redundant re-check of the closed order)
+  and the NNF replay. No file crossed the 60 s limit because of the checker on the same
+  proof; timeouts, crashes and unexecuted tails are not counted as checked.
