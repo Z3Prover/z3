@@ -12,6 +12,7 @@ import zipfile
 
 from maven_artifacts import NS, TEST_GROUP, validate_group
 import maven_auto
+import maven_classifiers
 from smoke import verify_jar
 from verify_release import MODES
 from mk_java_package import checked_zip, json_bytes, sha256, write_checksums, write_jar
@@ -40,9 +41,14 @@ def read_family(packages, group_id=TEST_GROUP):
         raise ValueError('Missing or duplicate platforms')
     if any(not re.fullmatch(r'(linux|win|osx)-(x64|arm64)', p) for p in platforms):
         raise ValueError('Unsafe or unknown platform classifier')
+    # Platform keys stay .NET runtime identifiers; artifacts are published under
+    # the Maven classifier spelling.
+    published = {platform: maven_classifiers.classifier(platform) for platform in platforms}
+    if len(set(published.values())) != len(published):
+        raise ValueError('Duplicate published platform classifier')
     base = identity['artifactId'] + '-' + identity['version']
     expected = {}
-    for variant in ['', *platforms, 'all']:
+    for variant in ['', *[published[platform] for platform in platforms], 'all']:
         for kind in ('', 'sources', 'javadoc'):
             key = '-'.join(p for p in (variant, kind) if p)
             expected[key] = base + ('-' + key if key else '') + '.jar'
@@ -93,9 +99,10 @@ def read_family(packages, group_id=TEST_GROUP):
         if path not in entries['javadoc']:
             raise ValueError('Missing Javadoc page: ' + path)
     for variant in [*platforms, 'all']:
-        verify_jar(packages, provenance, variant)
+        key = published.get(variant, variant)
+        verify_jar(packages, provenance, variant, filename=expected[key])
         for kind in ('sources', 'javadoc'):
-            if report['jar_sha256'][expected[variant + '-' + kind]] != report['jar_sha256'][expected[kind]]:
+            if report['jar_sha256'][expected[key + '-' + kind]] != report['jar_sha256'][expected[kind]]:
                 raise ValueError('Classifier companion differs from shared API companion')
     return report
 
@@ -151,6 +158,7 @@ def check_receipts(packages, report, repository_sha, consumers, smokes):
 
 def check_receipt_data(packages, report, repository_sha, consumers, smokes):
     preparation_sha = sha256((packages / 'maven-preparation.json').read_bytes())
+    published = {platform: maven_classifiers.classifier(platform) for platform in report['platforms']}
     consumer_results, smoke_results = {}, {}
     for receipt in consumers:
         platform = receipt['platform']
@@ -164,7 +172,7 @@ def check_receipt_data(packages, report, repository_sha, consumers, smokes):
             raise ValueError('Missing, duplicate or stale Maven/Gradle consumer receipt')
         for key, result in receipt['results'].items():
             variant = platform if key == 'maven:auto' else key.split(':')[1]
-            name = report['artifacts'][variant]
+            name = report['artifacts'][published.get(variant, variant)]
             if key == 'maven:auto' and (result.get('selected_platform') != platform
                     or result.get('selector_sha256') != sha256(maven_auto.pom(report))
                     or result.get('unsupported_rejected') is not True):
@@ -182,7 +190,7 @@ def check_receipt_data(packages, report, repository_sha, consumers, smokes):
                 or set(receipt['artifacts']) != {platform, 'all'}):
             raise ValueError('Invalid native smoke receipt')
         for key, result in receipt['artifacts'].items():
-            name = report['artifacts'][key]
+            name = report['artifacts'][published.get(key, key)]
             if (result.get('passed') is not True or set(result['modes']) != MODES
                     or result['jar_name'] != name or result['jar_sha256'] != report['jar_sha256'][name]):
                 raise ValueError('Native smoke did not validate the exact prepared JAR')

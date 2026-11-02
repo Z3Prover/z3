@@ -29,9 +29,11 @@ def read_provenance(packages):
     return provenance
 
 
-def verify_jar(packages, provenance, classifier):
+def verify_jar(packages, provenance, classifier, filename=None):
     base = package_basename(provenance)
-    jar = packages / (base + '-' + classifier + '.jar')
+    # The published file name may differ from the internal platform key, so
+    # callers that renamed the artifact pass the actual file name.
+    jar = packages / (filename or (base + '-' + classifier + '.jar'))
     entries = checked_zip(jar.read_bytes())
     embedded = json.loads(entries['META-INF/z3/provenance.json'])
     if (embedded['classifier'] != classifier or any(

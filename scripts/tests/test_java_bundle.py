@@ -5,6 +5,7 @@
 import copy
 import json
 from pathlib import Path
+import shutil
 import sys
 import unittest
 from unittest.mock import patch
@@ -14,6 +15,7 @@ import test_java_package as fixtures
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'java'))
 import maven_artifacts
 import maven_auto
+import maven_classifiers
 import maven_bundle as bundle
 from mk_java_package import json_bytes, sha256, write_checksums
 
@@ -38,13 +40,17 @@ class MavenBundleTests(unittest.TestCase):
             'index.html', 'com/microsoft/z3/Context.html', 'com/microsoft/z3/Version.html',
             'com/microsoft/z3/enumerations/Z3_lbool.html')})
         artifacts = {}
-        for variant in ('', 'win-x64', 'all'):
+        published = maven_classifiers.classifier('win-x64')
+        for variant in ('', published, 'all'):
             for kind, data in (('', None), ('sources', sources), ('javadoc', javadoc)):
                 key = '-'.join(p for p in (variant, kind) if p)
                 name = base + ('-' + key if key else '') + '.jar'
                 artifacts[key] = name
                 if data is not None:
                     (self.packages / name).write_bytes(data)
+                elif variant == published:
+                    # The publisher renames the platform artifact; emulate it.
+                    shutil.move(self.packages / (base + '-win-x64.jar'), self.packages / name)
         self.pom = base + '.pom'
         (self.packages / self.pom).write_text(maven_artifacts.pom_text(self.identity, 'a' * 40), encoding='utf-8')
         self.report = {'prototype': True, 'maven': self.identity, 'input_provenance': provenance,
@@ -69,17 +75,18 @@ class MavenBundleTests(unittest.TestCase):
                          'preparation_sha256': sha256((self.packages / 'maven-preparation.json').read_bytes()),
                          'repository_sha256': bundle.repository_digest(bundle.repository_files(self.packages, self.report)),
                          'results': {tool + ':' + kind: {'passed': True, 'sources_javadoc_resolved': True,
-                             'sha256': self.report['jar_sha256'][artifacts[kind]]}
+                             'sha256': self.report['jar_sha256'][artifacts[published if kind == 'win-x64' else kind]]}
                              for tool in ('maven', 'gradle') for kind in ('win-x64', 'all')}}
         self.consumer['results']['maven:auto'] = {
             'passed': True, 'sources_javadoc_resolved': True, 'selected_platform': 'win-x64',
             'selector_sha256': sha256(maven_auto.pom(self.report)),
-            'sha256': self.report['jar_sha256'][artifacts['win-x64']],
+            'sha256': self.report['jar_sha256'][artifacts[published]],
             'unsupported_rejected': True}
         self.smoke = {'source_commit': 'a' * 40, 'generator_sha256': 'generator', 'loader_sha256': 'loader',
                       'platform': 'win-x64', 'passed': True,
-                      'artifacts': {kind: {'passed': True, 'jar_name': artifacts[kind],
-                          'jar_sha256': self.report['jar_sha256'][artifacts[kind]], 'modes': sorted(bundle.MODES)}
+                      'artifacts': {kind: {'passed': True, 'jar_name': artifacts[published if kind == 'win-x64' else kind],
+                          'jar_sha256': self.report['jar_sha256'][artifacts[published if kind == 'win-x64' else kind]],
+                          'modes': sorted(bundle.MODES)}
                           for kind in ('win-x64', 'all')}}
         self.save_receipts()
 

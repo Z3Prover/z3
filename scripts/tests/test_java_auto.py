@@ -12,6 +12,7 @@ from xml.etree import ElementTree as ET
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'java'))
 import maven_artifacts
 import maven_auto
+import maven_classifiers
 import maven_consumer
 
 
@@ -46,16 +47,28 @@ class MavenAutoTests(unittest.TestCase):
             self.assertIsNone(profile.find('m:activation/m:property', self.ns))
             field = 'name' if platform.startswith('linux-') else 'family'
             self.assertEqual(self.text(profile, 'activation/os/' + field),
-                             {'linux-x64': 'Linux', 'linux-arm64': 'Linux',
-                              'win-x64': 'Windows', 'osx-arm64': 'Mac'}[platform])
-        self.assertEqual(matches, {'linux-x64': {'amd64', 'x86_64', 'x64'},
-                                  'linux-arm64': {'aarch64', 'arm64'},
-                                  'win-x64': {'amd64', 'x86_64', 'x64'},
-                                  'osx-arm64': {'aarch64', 'arm64'}})
+                             {'linux-x86_64': 'Linux', 'linux-aarch_64': 'Linux',
+                              'windows-x86_64': 'Windows', 'osx-aarch_64': 'Mac'}[platform])
+        self.assertEqual(matches, {'linux-x86_64': {'amd64', 'x86_64', 'x64'},
+                                  'linux-aarch_64': {'aarch64', 'arm64'},
+                                  'windows-x86_64': {'amd64', 'x86_64', 'x64'},
+                                  'osx-aarch_64': {'aarch64', 'arm64'}})
         self.report['platforms'] = ['win-x64']
         windows = ET.fromstring(maven_auto.pom(self.report))
         self.assertEqual({self.text(p, 'properties/z3.platform')
-                          for p in windows.findall('m:profiles/m:profile', self.ns)}, {'win-x64'})
+                          for p in windows.findall('m:profiles/m:profile', self.ns)}, {'windows-x86_64'})
+
+    def test_published_classifiers_follow_os_maven_plugin_spelling(self):
+        self.assertEqual(maven_classifiers.CLASSIFIERS, {
+            'linux-x64': 'linux-x86_64', 'linux-arm64': 'linux-aarch_64',
+            'win-x64': 'windows-x86_64', 'osx-arm64': 'osx-aarch_64'})
+        for platform, classifier in maven_classifiers.CLASSIFIERS.items():
+            self.assertRegex(classifier, r'^(linux|windows|osx)-[a-z0-9_]+$')
+            self.assertEqual(maven_classifiers.platform(classifier), platform)
+        with self.assertRaises(ValueError):
+            maven_classifiers.classifier('solaris-sparc')
+        with self.assertRaises(ValueError):
+            maven_classifiers.platform('linux-x64')
 
     def test_selector_is_deterministic_and_does_not_modify_runtime_pom(self):
         original = maven_artifacts.pom_text(self.report['maven'], self.report['source_commit'])
