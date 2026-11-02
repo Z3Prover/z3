@@ -30,6 +30,6 @@
     "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst",
     "Z3TypedRoot.fst", "Z3TypedRootTests.fst", "Z3SortedRoot.fst", "Z3SortedRootTests.fst",
     "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst",
-    "Z3CheckedSortsTests.fst", "Z3CheckedGuardTests.fst", "Z3CheckedGraphTests.fst"
+    "Z3CheckedSortsTests.fst", "Z3CheckedGuardTests.fst", "Z3CheckedGraphTests.fst", "Z3CheckedExpansion.fst"
   ]
 }
