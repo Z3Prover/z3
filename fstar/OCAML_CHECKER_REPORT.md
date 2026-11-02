@@ -4887,10 +4887,10 @@ Both builds use one Z3 producer built from b3c1e0bac (z3 `3ac509ee…`, libz3.a
   10 s solver, 60 s per file, 4 GiB, both backends). Pending obligations over all
   answered queries, baseline -> candidate: OCaml `nnf-neg` 5,655 -> 213, `nnf-pos`
   5,948 -> 5,820; Cherry `nnf-neg` 5,570 -> 211, `nnf-pos` 5,841 -> 5,670. On the
-  10,776 Cherry queries with the same proof on both sides (metadata and non-NNF
-  obligations equal), `nnf-neg` 5,411 -> 210 and `nnf-pos` 5,693 -> 5,564, 385
+  10,776 structurally matched Cherry queries (proof metadata and non-NNF obligation
+  groups equal), `nnf-neg` 5,411 -> 210 and `nnf-pos` 5,693 -> 5,564, 385
   queries become `ACCEPT`, no obligation is added and no other family changes;
-  OCaml (5,897 same-proof queries): `nnf-neg` 2,735 -> 119, `nnf-pos` 1,604 -> 1,560.
+  OCaml (5,897 structurally matched queries): `nnf-neg` 2,735 -> 119, `nnf-pos` 1,604 -> 1,560.
   Timeouts, crashes and unexecuted tails (OCaml candidate: 43 files at 60 s, 2,474
   queries not answered) are not counted as checked and may hide further NNF
   obligations.
@@ -4927,11 +4927,12 @@ timed out or crashed), baseline and candidate with the same flags and limits:
 
 - Pending NNF obligations over the answered queries, baseline -> candidate: OCaml
   `nnf-neg` 4,321 -> 73, `nnf-pos` 5,945 -> 10; Cherry `nnf-neg` 4,214 -> 70, `nnf-pos`
-  5,846 -> 10. On the 8,518 Cherry queries with the same proof on both sides (metadata
-  and non-NNF obligations equal): 5,750 `nnf-pos` and 4,074 `nnf-neg` obligations
+  5,846 -> 10. On the 8,518 structurally matched Cherry queries (proof metadata
+  and non-NNF obligation groups equal): 5,750 `nnf-pos` and 4,074 `nnf-neg` obligations
   discharged, 80 remain, none added, 713 queries become `ACCEPT`, no `ACCEPT` becomes
-  `PARTIAL`; OCaml (4,177 same-proof queries): 1,526 / 1,774 discharged, 29 remain, none
-  added.
+  `PARTIAL`; OCaml (4,177 structurally matched queries): 1,526 / 1,774 discharged, 29 remain, none
+  added. Structural matching does not establish byte-identical proofs; the original
+  per-query observations and unmatched prefixes remain separate from this cohort.
 - The remaining NNF obligations (83 OCaml, 80 Cherry), classified by a separate
   diagnostic rerun of the same files (the replay steps and the scope guard's forward
   pass re-run step by step with the candidate's own extracted functions, checked
@@ -4949,7 +4950,7 @@ timed out or crashed), baseline and candidate with the same flags and limits:
   still stop at an `sk` step over the 4,096-node budget; only one (PulseCore.Action-1
   query 1) would replay. No residue stops at a dependent Skolem step, a local NNF
   rule, or a malformed certificate. Matching: 30 OCaml / 22 Cherry obligations have a
-  diagnosed node in an identical proof (same metadata and NNF groups); 53 / 57 have
+  diagnosed node in a structurally matched proof (same metadata and NNF groups); 53 / 57 have
   the same NNF obligation (same rule, source/target fingerprint and count) in the same
   query of another OCaml proof of it (OCaml proofs vary between runs); one Cherry
   obligation (FStar.Math.Lemmas-2 query 35) has no exact counterpart (the closest
@@ -4978,14 +4979,16 @@ timed out or crashed), baseline and candidate with the same flags and limits:
   queries per backend (every query of those files; OCaml 905 `ACCEPT` / 1,557 `PARTIAL` /
   91 `UNKNOWN`, Cherry 905 / 1,562 / 86), no `nnf-neg` or `nnf-pos` obligation, no
   `REJECT`. It has no baseline twin.
-- Check time on the same proofs: Cherry +10.6 % (8,518 queries), OCaml +8.4 % (4,177);
-  the worst same-proof files are FStar.Reflection.TermEq-1 (+26 %), FStar.Math.Euclid-3
-  (+21 %) and FStar.Tactics.CanonCommSemiring-1 (+21.6 %). On marshalled documents of
+- Check time on structurally matched queries: Cherry +10.6 % (8,518 queries), OCaml +8.4 % (4,177);
+  the largest matched-file increases are FStar.Reflection.TermEq-1 (+26 %), FStar.Math.Euclid-3
+  (+21 %) and FStar.Tactics.CanonCommSemiring-1 (+21.6 %). These cohort timings do not
+  establish identical proof bytes. Separately, on the same frozen marshalled documents of
   TermEq-1 the candidate's decision takes 18.1 s against the baseline's 16.5 s (query 24)
   and 11.2 s against 10.8 s (query 49); the added time is the certification of the closed
   context, the dependent context (including one redundant re-check of the closed order)
-  and the NNF replay. No file crossed the 60 s limit because of the checker on the same
-  proof; timeouts, crashes and unexecuted tails are not counted as checked.
+  and the NNF replay. The observed 60 s boundary crossings are retained; the matched
+  timing analysis did not attribute them to checking overhead. Timeouts, crashes and
+  unexecuted tails are not counted as checked.
 - Not checked: the unanswered tails of the timed-out and crashed files (OCaml 2,227
   queries in 37 files at 60 s; Cherry 2,493 queries in 32 files at 60 s and 7 crashed
   files). They may hold further NNF obligations. A bounded follow-up would replay each
