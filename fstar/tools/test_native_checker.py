@@ -563,8 +563,10 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertIn("semantics=sorted-core", interactive.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
+        # Constructors with fields keep the producer on the datatype theory (the exhaustiveness
+        # refutation is one `th-lemma datatype`), so these are certified without pending steps.
         for source in (
-                "(declare-datatype T ((C) (D)))(declare-const x T)"
+                "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)"
                 "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))",
                 "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)"
                 "(assert ((_ is C) x))(assert (not (= x (C (field x)))))"):
@@ -579,6 +581,27 @@ class DirectCheckerTests(unittest.TestCase):
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-datatype", interactive.stdout)
+
+    def test_enumeration_datatype_dt2bv_coverage_in_both_modes(self):
+        # Since master #11506 the producer proves enumeration-only goals through QF_FD/dt2bv. The
+        # sorted checker supports none of the datatype-to-bit-vector rewrites of that route, so
+        # this input is only partly checked. It stays as coverage: ACCEPT (should the checker
+        # later certify it) or PARTIAL in the sorted datatype semantics, never SAT, REJECT or a
+        # crash. The pending count is not pinned, and PARTIAL is not a certified verdict.
+        source = ("(declare-datatype T ((C) (D)))(declare-const x T)"
+                  "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))")
+        verdict = r"(ACCEPT|PARTIAL [1-9][0-9]*)"
+        result = self.run_checker(source, "--diagnostics", "--stats")
+        self.assertRegex(result.stdout.strip(), "^" + verdict + "$", result.stderr)
+        self.assertEqual(result.returncode, 0 if result.stdout.strip() == "ACCEPT" else 3,
+                         result.stderr)
+        self.assertIn("semantics=sorted-datatype", result.stderr)
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertRegex(interactive.stdout, r"(?m)^unsat\n; proof-check " + verdict + "$")
+        self.assertEqual(interactive.returncode,
+                         0 if "; proof-check ACCEPT" in interactive.stdout else 3,
+                         interactive.stdout + interactive.stderr)
+        self.assertIn("semantics=sorted-datatype", interactive.stdout)
 
     def test_contextual_datatypes_do_not_fall_back_to_legacy_arithmetic(self):
         result = self.run_checker(
