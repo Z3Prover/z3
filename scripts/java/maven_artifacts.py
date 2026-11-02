@@ -13,6 +13,7 @@ from prepare import run
 from sources import SCRIPTS, verify, verify_loader_sources
 from smoke import read_provenance, verify_jar
 from mk_java_package import checked_zip, json_bytes, metadata_names, package_basename, sha256, write_checksums
+import maven_classifiers
 
 NS = 'http://maven.apache.org/POM/4.0.0'
 TEST_GROUP = 'invalid.z3.prototype'
@@ -104,13 +105,17 @@ def prepare(packages, sources, out, work, mvn, group_id=TEST_GROUP):
             raise ValueError('Missing generated Javadoc page: ' + name)
     out.mkdir(parents=True)
     files = {}
-    for classifier in variants:
-        suffix = '-' + classifier if classifier else ''
-        name = base + suffix + '.jar'
-        shutil.copyfile(packages / name, out / name)
-        files[classifier] = name
+    for variant in variants:
+        # Platform keys stay .NET runtime identifiers on disk; only the
+        # published classifier follows the Maven convention.
+        published = (maven_classifiers.classifier(variant)
+                     if variant in provenance['platforms'] else variant)
+        source = base + ('-' + variant if variant else '') + '.jar'
+        name = base + ('-' + published if published else '') + '.jar'
+        shutil.copyfile(packages / source, out / name)
+        files[published] = name
         for kind, jar in [('sources', source_jar), ('javadoc', doc_jar)]:
-            attachment = classifier + '-' + kind if classifier else kind
+            attachment = published + '-' + kind if published else kind
             name = base + '-' + attachment + '.jar'
             shutil.copyfile(jar, out / name)
             files[attachment] = name

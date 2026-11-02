@@ -4,6 +4,7 @@
 # Tests for native Boolean proof certificate export.
 ############################################
 from fractions import Fraction
+import itertools
 import json
 from pathlib import Path
 import re
@@ -12,7 +13,7 @@ import sys
 import tempfile
 import tracemalloc
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import warnings
 
 import z3
@@ -122,6 +123,16 @@ class _FakeDecl:
 
     def params(self):
         return self._parameters
+
+
+def _pigeonhole(holes):
+    """holes + 1 pigeons in holes holes: unsat, and hard for resolution."""
+    source = "".join("(declare-const p%d_%d Bool)" % (p, h) for p in range(holes + 1) for h in range(holes))
+    source += "".join("(assert (or %s))" % " ".join("p%d_%d" % (p, h) for h in range(holes))
+                      for p in range(holes + 1))
+    source += "".join("(assert (or (not p%d_%d) (not p%d_%d)))" % (p, h, q, h)
+                      for h in range(holes) for p in range(holes + 1) for q in range(p + 1, holes + 1))
+    return source
 
 
 def _z3_available():
@@ -1349,6 +1360,62 @@ class TestFragmentClassification(unittest.TestCase):
         ite = ("(declare-const p Bool)(declare-const x Real)"
                "(assert (> (* 2.0 (ite (and p (< x 1.0)) x (ite p 1.0 (- x)))) 2.0))")
         self.assertEqual(self.classify(ite), "qf_lra")
+        # SMT-LIB defines abs on Int only; Z3 accepts it over Real, as the
+        # same ite, of any linear term, nested, and next to functions.
+        for source, fragment in [
+            ("(declare-const x Real)(assert (< (abs x) 0.0))", "qf_lra"),
+            ("(declare-const x Real)(declare-const y Real)(declare-const p Bool)"
+             "(assert (> (abs (- (* 2.0 x) (ite p y (abs y)))) (/ (abs (abs x)) 3.0)))", "qf_lra"),
+            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (< (abs (f x)) (f (abs x))))", "qf_uflra"),
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), fragment)
+
+    def test_integer_numerals_coerced_to_real_read_as_under_qf_lra(self):
+        # Without a logic, or under ALL, Z3 reads an integer numeral where a
+        # Real is expected as an Int term under to_real, around the largest
+        # Int subterm ((to_real (- 5 1 (* 2 (- 1))))); the snapshot replaces
+        # each by the Real term QF_LRA reads, structure kept.
+        for source, logic, fragment in [
+            ("(declare-const x Real)(declare-const y Real)"
+             "(assert (<= (* 2 x) 1))(assert (> (+ x y) (/ 1 3)))(assert (< y (- 2)))", "QF_LRA", "qf_lra"),
+            ("(declare-const x Real)(declare-const y Real)(declare-const p Bool)"
+             "(assert (= y (ite (> x 1) 1 (ite p x (- 5 1 (* 2 (- 1)))))))"
+             "(assert (distinct x 1 (+ 1 2)))", "QF_LRA", "qf_lra"),
+            ("(set-logic ALL)(declare-fun f (Real) Real)(declare-const x Real)"
+             "(assert (= (f 1) 3))(assert (< (f x) (- x 2)))", "QF_UFLRA", "qf_uflra"),
+            # (abs 3) in a Real position is (to_real (abs 3)): QF_LRA reads the
+            # Real abs of 3.0.
+            ("(declare-const x Real)(assert (< (abs (- x 1)) (* 2 (abs (- 1 3)))))(assert (> x (abs 3)))",
+             "QF_LRA", "qf_lra"),
+        ]:
+            with self.subTest(source=source):
+                context = z3.Context()
+                assertions, classified = proof_certificate.parse_assertions(source, context, integer=True)
+                self.assertEqual(classified, fragment)
+                expected = z3.parse_smt2_string("(set-logic %s)" % logic + source.replace("(set-logic ALL)", ""),
+                                                ctx=context)
+                self.assertEqual([assertion.sexpr() for assertion in assertions],
+                                 [assertion.sexpr() for assertion in expected])
+                self.assertNotIn("to_real", " ".join(assertion.sexpr() for assertion in assertions))
+        # An explicit to_real of numerals is read the same way under any logic.
+        assertions, classified = proof_certificate.parse_assertions(
+            "(set-logic QF_LIRA)(declare-const x Real)(assert (> x (to_real (+ 2 1))))(assert (< x 1.0))",
+            z3.Context(), integer=True)
+        self.assertEqual(classified, "qf_lra")
+        self.assertEqual([assertion.sexpr() for assertion in assertions], ["(> x (+ 2.0 1.0))", "(< x 1.0)"])
+        # to_real of an Int variable, of an application, of div, or of an
+        # Int ite still mixes the sorts and is rejected: the z3 executable
+        # keeps (to_real (ite p 1 2)) over an Int ite in its log.
+        for source, message in [
+            ("(declare-const x Real)(declare-const p Bool)(assert (= x (ite p 1 2)))", "operator: to_real"),
+            ("(declare-const x Real)(declare-const i Int)(assert (= x (+ i 1)))", "operator: to_real"),
+            ("(declare-const x Real)(assert (= x (div 7 2)))", "operator: to_real"),
+            ("(declare-fun g (Real) Int)(declare-const x Real)(assert (= x (g 1)))", "operator: to_real"),
+        ]:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.classify(source)
 
     def test_linear_integer_inputs_are_classified(self):
         self.assertEqual(self.classify("(declare-const x Int)(assert (> x 1))"), "qf_lia")
@@ -1364,10 +1431,11 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(self.classify("(declare-const r Real)(declare-const x Int)(assert (> x 1))"), "qf_lia")
         # Integer div and mod by a nonzero numeral (negative too, and written
         # as a negated numeral), of any linear term, variable-free as well,
-        # and abs are opaque atoms of the linear forms.
+        # and abs are opaque atoms of the linear forms, and so is Z3's rem.
         division = ("(declare-const x Int)(declare-const y Int)"
                     "(assert (= y (div x 3)))(assert (> (mod (+ x y) (- 2)) 0))(assert (< (div (* 2 x) -4) y))"
-                    "(assert (= (mod (abs (- x y)) 7) (div 7 2)))(assert (> (* 2 (div (ite (> x 0) x y) 3)) 1))")
+                    "(assert (= (mod (abs (- x y)) 7) (div 7 2)))(assert (> (* 2 (div (ite (> x 0) x y) 3)) 1))"
+                    "(assert (< (rem (+ x y) -3) (rem x 5)))")
         self.assertEqual(self.classify(division), "qf_lia")
         self.assertEqual(self.classify(_LIA_DIV), "qf_lia")
 
@@ -1391,6 +1459,7 @@ class TestFragmentClassification(unittest.TestCase):
             declarations + "(declare-fun h (Int) U)(declare-const p Bool)(assert (= (ite p (h 1) a) a))",
             "(declare-fun h (Bool) Int)(declare-const p Bool)(assert (distinct (h p) (h (not p)) 3))",
             "(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f (div x 2)) (mod (f x) 3)))",
+            "(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f (rem x 2)) (rem (f x) (- 3))))",
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uflia")
@@ -1411,16 +1480,20 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-const x Int)(declare-const y Real)(assert (> (to_real x) y))", "unsupported arithmetic operator"),
             ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))", "mixing integer and real"),
             # Integer div and mod by zero are uninterpreted in SMT-LIB and
-            # total in Lean, by a term nonlinear; rem is not SMT-LIB.
+            # total in Lean, by a term nonlinear; so is Z3's rem.
             ("(declare-const x Int)(assert (> (div x 0) 1))", "integer div is supported only by a nonzero constant"),
             ("(declare-const x Int)(assert (> (mod x (- 1 1)) 1))", "integer mod is supported only by a nonzero constant"),
             ("(declare-const x Int)(declare-const y Int)(assert (> (div x y) 1))",
              "integer div is supported only by a nonzero constant"),
             ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (mod x (f 2)) 1))",
              "integer mod is supported only by a nonzero constant"),
-            ("(declare-const x Int)(assert (> (rem x 2) 1))", "unsupported arithmetic operator: rem"),
-            # SMT-LIB defines abs on Int only; Z3 accepts it over Real, the reconstructor does not.
-            ("(declare-const x Real)(assert (< (abs x) 0.0))", "unsupported arithmetic operator: abs over Real"),
+            ("(declare-const x Int)(assert (> (rem x 0) 1))", "integer rem is supported only by a nonzero constant"),
+            ("(declare-const x Int)(declare-const y Int)(assert (> (rem x y) 1))",
+             "integer rem is supported only by a nonzero constant"),
+            # abs over Real is in the fragment, but not of a nonlinear term,
+            # nor an Int abs under to_real.
+            ("(declare-const x Real)(declare-const y Real)(assert (< (abs (* x y)) 1.0))", "nonlinear"),
+            ("(declare-const x Real)(declare-const n Int)(assert (< x (abs n)))", "operator: to_real"),
             ("(declare-const x Int)(declare-const y Int)(assert (> (* x y) 1))", "nonlinear"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* x (f x)) 1.0))", "nonlinear"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (/ 1.0 (f x)) 1.0))", "division"),
@@ -1956,6 +2029,43 @@ class TestClauseLogReplay(unittest.TestCase):
         assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
         return proof_clause_log.build_certificate(source, fragment, assertions, log, context)
 
+    def test_replay_stops_at_its_time_limit(self):
+        # The replay is Python and in-process: QF_IDL qlock-4-10-8 replayed for
+        # ten minutes under a 60 s z3 timeout. It now has a deadline, checked
+        # before every log command and every bounded solver call.
+        def clock(*readings):
+            fake = Mock()
+            fake.monotonic.side_effect = itertools.chain(readings, itertools.repeat(readings[-1]))
+            return fake
+
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(_LRA, context, integer=True)
+        for timeout, seconds in [(None, proof_clause_log._TIME_LIMIT), (2.5, 3)]:
+            with self.subTest(timeout=timeout), patch.object(proof_clause_log, "time", clock(0.0, seconds + 1.0)):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                            "the clause-log replay exceeded the time limit of %d s" % seconds):
+                    proof_clause_log.build_certificate(_LRA, fragment, assertions, _LRA_LOG, context, timeout)
+        # Within the limit nothing changes.
+        with patch.object(proof_clause_log, "time", clock(0.0, 3.0)):
+            certificate = proof_clause_log.build_certificate(_LRA, fragment, assertions, _LRA_LOG, context, 3)
+        self.assertEqual(certificate, self.replay(_LRA, _LRA_LOG))
+        # The solver calls of the assumption search check it too.
+        replay = proof_clause_log._Replay(_LRA, fragment, assertions, context, 5)
+        replay.deadline -= 6
+        for call in (replay._valid, replay._implying_assertions):
+            with self.subTest(call=call.__name__), \
+                    self.assertRaisesRegex(proof_certificate.ProofExportError, "replay exceeded the time limit of 5 s"):
+                call(z3.BoolVal(True, context))
+        for timeout in (0, -1, float("nan"), True):
+            with self.subTest(timeout=timeout), self.assertRaises(ValueError):
+                proof_clause_log.build_certificate(_LRA, fragment, assertions, _LRA_LOG, context, timeout)
+        # The export passes its timeout to the replay.
+        with patch.object(proof_clause_log, "run_clause_log", return_value=_LRA_LOG), \
+                patch.object(proof_clause_log, "time", clock(0.0, 8.0)), \
+                self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                       "the clause-log replay exceeded the time limit of 7 s"):
+            proof_certificate.export_clause_log_certificate(_LRA, timeout=7)
+
     def test_recorded_log_becomes_a_well_formed_dag(self):
         certificate = self.replay(_LRA, _LRA_LOG)
         self.assertEqual(certificate["fragment"], "qf_lra")
@@ -2031,14 +2141,14 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertEqual(sorted(axioms), ["<=", "=", ">="])
         # The literals must be arithmetic atoms over linear terms: a Boolean
         # literal, a division by zero or by a term, and an empty hint are
-        # rejected; rem is not an SMT-LIB operator.
+        # rejected, rem's too.
         for tampered, message in [
             (_LIA_DIV_LOG.replace("(arith $22)", "(arith true)"), "arith hint has no literals besides true"),
             (_LIA_DIV_LOG.replace("(arith $22)", "(arith false)"), "not an arithmetic atom"),
             (_LIA_DIV_LOG.replace("(div x 3)", "(div x 0)"), "integer div is supported only by a nonzero constant"),
             (_LIA_DIV_LOG.replace("(mod x 3)", "(mod x x)"), "integer mod is supported only by a nonzero constant"),
             (_LIA_DIV_LOG.replace("(arith $22)", "(arith)"), "arith hint has no literals"),
-            (_LIA_DIV_LOG.replace("(mod x 3)", "(rem x 3)"), "unsupported operator in the clause log: rem"),
+            (_LIA_DIV_LOG.replace("(mod x 3)", "(rem x 0)"), "integer rem is supported only by a nonzero constant"),
         ]:
             with self.subTest(message=message):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
@@ -2209,10 +2319,63 @@ class TestClauseLogReplay(unittest.TestCase):
         with patch.object(proof_clause_log._Replay, "_valid", valid):
             node = replay.assume([p, q, r])
         self.assertTrue(checked and not any("x" in claim for claim in checked), checked)
-        self.assertEqual(len(checked), 6)  # five equivalences, then the whole assertion implies the clause
+        # One equivalence (the only candidate over exactly p, q, r), then the
+        # whole assertion implies the clause.
+        self.assertEqual(len(checked), 2)
         self.assertEqual(replay.dag.rule_counts["th-lemma"], 1)  # the cnf lemma from the assertion
         self.assertEqual(replay.dag.rule_counts["asserted"], 1)
         self.assertIsNotNone(node)
+
+    def test_equivalence_search_checks_only_conjuncts_over_the_clause_symbols(self):
+        # A right-nested conjunction shares its symbols with every suffix:
+        # QF_IDL FISCHER6-4-ninc checked seven clauses for equivalence
+        # against all 1,743 suffixes and conjuncts sharing a symbol, 12,207
+        # solver calls over the whole conjunction (459 s), before its first
+        # candidate implied each. Only conjuncts over exactly the clause's
+        # symbols, and leaf conjuncts (not ands) over at least its symbols,
+        # are checked for equivalence now; the suffixes are skipped.
+        width = 300
+        body = "(or p%d q)" % (width - 1)
+        for i in reversed(range(width - 1)):
+            operand = {5: "(not (and (not p5) (not q) (or p5 (not p5))))",
+                       7: "(not (and (not p7) (not q) (or r (not r))))"}.get(i, "(or p%d q)" % i)
+            body = "(and %s %s)" % (operand, body)
+        source = ("(declare-const q Bool)(declare-const r Bool)"
+                  + "".join("(declare-const p%d Bool)" % i for i in range(width)) + "(assert %s)" % body)
+        context = z3.Context()
+        q = z3.Bool("q", context)
+        p = [z3.Bool("p%d" % i, context) for i in range(width)]
+        checked = []
+        original = proof_clause_log._Replay._valid
+
+        def valid(replay, claim):
+            checked.append(claim.decl().kind())
+            return original(replay, claim)
+
+        def assume(literals):
+            assertions, fragment = proof_certificate.parse_assertions(source, context)
+            replay = proof_clause_log._Replay(source, fragment, assertions, context)
+            self.assertGreater(len(replay.assumption_sources), 2 * width - 2)
+            checked.clear()
+            with patch.object(proof_clause_log._Replay, "_valid", valid):
+                self.assertIsNotNone(replay.assume(literals))
+            return replay.dag.rule_counts
+
+        # Implied by the assertion, equivalent to no conjunct: one check.
+        counts = assume([p[0], q, p[1]])
+        self.assertEqual(checked, [z3.Z3_OP_IMPLIES])
+        self.assertEqual((counts["th-lemma"], counts["and-elim"]), (1, 0))
+        # Equivalent to the conjunct over p5 and q, which the keys do not
+        # see: found by the one equivalence check over the same symbols.
+        counts = assume([p[5], q])
+        self.assertEqual(checked, [z3.Z3_OP_EQ])
+        self.assertEqual((counts["th-lemma"], counts["rewrite"], counts["and-elim"]), (0, 1, 6))
+        # Equivalent to the leaf conjunct over p7, q and an irrelevant r:
+        # still a rewrite on that conjunct, not a cnf lemma over the whole
+        # assertion (which Lean may fail to prove for theory leaves).
+        counts = assume([p[7], q])
+        self.assertEqual(checked, [z3.Z3_OP_EQ])
+        self.assertEqual((counts["th-lemma"], counts["rewrite"], counts["and-elim"]), (0, 1, 8))
 
     def test_assumption_search_index_is_linear_on_deep_terms(self):
         # The index first kept the symbol set of every subterm, quadratic on
@@ -2708,6 +2871,13 @@ class TestClauseLogReplay(unittest.TestCase):
             "(assert (< (+ (* 2 (abs x)) y) 1))(assert (> y 0))(assert (> (mod x 3) 0))",
             "(declare-fun f (Real) Real)(declare-const r Real)"
             "(assert (= 2.0 (/ 3.0 2.0)))(assert (= (f (/ 1.0 2.0)) (+ r r)))",
+            # lia_rem of test_proof_to_lean_lia.py: the two rem axioms per term
+            # (rem u k) = (mod u k) under k >= 0 and (rem u k) = -(mod u k)
+            # otherwise; until 2026-10-31 the one whose guard is false fell back
+            # (280 steps in the 37 unsat logs of random_remainder_instance
+            # seeds 1 to 40)
+            "(declare-const x Int)(declare-const y Int)"
+            "(assert (> (rem (+ x y) (- 3)) 0))(assert (> (rem (+ x y) 3) 0))(assert (= (mod (+ x y) 3) 1))",
         ]
         for index, source in enumerate(inputs):
             with self.subTest(source=source):
@@ -2718,6 +2888,17 @@ class TestClauseLogReplay(unittest.TestCase):
                     absolute = re.search(r"\(define-const (\$\d+) Int \(abs x0\)\)", log)
                     self.assertIsNotNone(absolute, log)
                     self.assertIn("Bool (= %s x0))" % absolute.group(1), log)
+                if index == 3:
+                    # both signs of the divisor, each with its rem = -mod case
+                    for divisor in ("3", "(- 3)"):
+                        rem = re.search(r"\(define-const (\$\d+) Int \(rem (\$\d+) %s\)\)" % re.escape(divisor), log)
+                        self.assertIsNotNone(rem, log)
+                        mod = re.search(r"\(define-const (\$\d+) Int \(mod %s %s\)\)" % (
+                            re.escape(rem.group(2)), re.escape(divisor)), log)
+                        self.assertIsNotNone(mod, log)
+                        negated = re.search(r"\(define-const (\$\d+) Int \(- %s\)\)" % re.escape(mod.group(1)), log)
+                        self.assertIsNotNone(negated, log)
+                        self.assertIn("Bool (= %s %s))" % (rem.group(1), negated.group(1)), log)
                 with tempfile.TemporaryDirectory() as directory:
                     path = Path(directory) / "proof.log"
                     path.write_text(log, encoding="utf-8")
@@ -2834,6 +3015,19 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertEqual(commands, [["a", ["b", "c"], "|d e|"], ["f"]])
         with self.assertRaises(proof_certificate.ProofExportError):
             proof_clause_log._sexpressions("(a (b)")
+
+    def test_logged_abs_is_rebuilt_as_the_input_abs(self):
+        # z3py's Abs builds (ite (> t 0) t (- t)); a logged (abs t) must be
+        # the abs application itself, the same term as the input's.
+        for sort in ("Int", "Real"):
+            with self.subTest(sort=sort):
+                context = z3.Context()
+                source = "(declare-const x %s)(assert (< (abs x) (- 1)))" % sort
+                assertions = z3.parse_smt2_string(source, ctx=context)
+                terms = proof_clause_log._Terms(context, list(assertions))
+                built = terms.build(["abs", "x"])
+                self.assertEqual(built.decl().kind(), z3.Z3_OP_ABS)
+                self.assertTrue(built.eq(assertions[0].arg(0)), built)
 
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
     def test_executable_export_and_cli(self):
@@ -3092,6 +3286,159 @@ class TestClauseLogDependencies(unittest.TestCase):
                 with self.assertWarnsRegex(RuntimeWarning, "diagnostic"):
                     core = proof_clause_log.trim_clause_log("unused", _LRA_LOG)
             self.assertIn("(deps 5 3)", core)
+
+    def test_every_z3_run_of_the_export_is_bounded(self):
+        # On 2026-10-30 a sweep that exported without a timeout left eleven
+        # clause-log z3 processes running after its own deadlines killed the
+        # Python workers (220 GB in total). Every run now carries -T and
+        # -memory, by default too, and a wall-clock deadline as a backstop.
+        unsat = subprocess.CompletedProcess([], 0, "unsat\n", "")
+        limits = proof_clause_log._TIME_LIMIT, proof_clause_log._MEMORY_LIMIT
+        for timeout, memory, seconds, megabytes in [(None, None) + limits, (2.5, 100, 3, 100), (0.01, 1, 1, 1)]:
+            with self.subTest(timeout=timeout, memory=memory):
+                with patch.object(proof_clause_log.subprocess, "run", return_value=unsat) as run:
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError, "did not write a clause log"):
+                        proof_clause_log.run_clause_log("z3", "(assert false)", timeout, memory)
+                    with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), \
+                            self.assertWarnsRegex(RuntimeWarning, "unusable log"):
+                        proof_clause_log.trim_clause_log("z3", _LRA_LOG, timeout, memory)
+                self.assertEqual(run.call_count, 2)
+                for call in run.call_args_list:
+                    self.assertEqual(call.args[0][:3], ["z3", "-T:%d" % seconds, "-memory:%d" % megabytes])
+                    self.assertEqual(call.kwargs["timeout"], seconds + proof_clause_log._LIMIT_GRACE)
+        # Other real and integral numbers count; values beyond what
+        # subprocess.run and z3's parameters can hold do not.
+        largest = proof_clause_log._MAX_TIME_LIMIT, proof_clause_log._MAX_MEMORY_LIMIT
+        for timeout, memory, limits in [(Fraction(5, 2), None, (3, proof_clause_log._MEMORY_LIMIT)),
+                                        largest + (largest,)]:
+            with self.subTest(timeout=timeout, memory=memory):
+                with patch.object(proof_clause_log.subprocess, "run", return_value=unsat) as run:
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError, "did not write a clause log"):
+                        proof_clause_log.run_clause_log("z3", "(assert false)", timeout, memory)
+                self.assertEqual(run.call_args.args[0][1:3], ["-T:%d" % limits[0], "-memory:%d" % limits[1]])
+        for timeout, memory in [(0, None), (-1, None), (True, None), ("10", None), (float("inf"), None),
+                                (float("nan"), None), (None, 0), (None, 1.5), (None, True),
+                                (proof_clause_log._MAX_TIME_LIMIT + 0.5, None), (1e20, None),
+                                (None, proof_clause_log._MAX_MEMORY_LIMIT + 1), (None, 2 ** 40)]:
+            with self.subTest(timeout=timeout, memory=memory):
+                with patch.object(proof_clause_log.subprocess, "run", side_effect=AssertionError("ran")):
+                    with self.assertRaises(ValueError):
+                        proof_clause_log.run_clause_log("z3", "(assert false)", timeout, memory)
+
+    def test_limit_hits_are_reported_by_name(self):
+        # Z3 prints "timeout" (status 0) at its -T limit and (error "out of
+        # memory") (status 101) at its -memory limit. A trimmer stopped at
+        # either used to read as an unusable log and send the export to the
+        # untrimmed replay; the solver's timeout read as "did not report unsat".
+        timeout = subprocess.CompletedProcess([], 0, "timeout\n", "")
+        memory = subprocess.CompletedProcess([], 101, "", '(error "out of memory")\n')
+        killed = subprocess.TimeoutExpired(["z3"], 7 + proof_clause_log._LIMIT_GRACE)
+        solver = "the clause-log solver run exceeded the %s limit of %s"
+        for outcome, message in [(timeout, solver % ("time", "7 s")), (memory, solver % ("memory", "64 MB")),
+                                 (killed, solver % ("time", "7 s"))]:
+            with self.subTest(outcome=outcome), self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                patched = {"side_effect": outcome} if isinstance(outcome, Exception) else {"return_value": outcome}
+                with patch.object(proof_clause_log.subprocess, "run", **patched):
+                    proof_clause_log.run_clause_log("z3", "(assert false)", 7, 64)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            for outcome in (timeout, killed):
+                with self.subTest(outcome=outcome), self.assertRaises(subprocess.TimeoutExpired) as raised:
+                    patched = {"side_effect": outcome} if isinstance(outcome, Exception) else {"return_value": outcome}
+                    with patch.object(proof_clause_log.subprocess, "run", **patched):
+                        proof_clause_log.trim_clause_log("z3", _LRA_LOG, 7, 64)
+                self.assertEqual(raised.exception.timeout, 7)
+            with patch.object(proof_clause_log.subprocess, "run", return_value=memory), \
+                    self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                           "native proof trimming exceeded the memory limit of 64 MB"):
+                proof_clause_log.trim_clause_log("z3", _LRA_LOG, 7, 64)
+        # The export names the trimmer's time limit too.
+        with patch.object(proof_clause_log, "run_clause_log", return_value=_LRA_LOG), \
+                patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), \
+                patch.object(proof_clause_log.subprocess, "run", return_value=timeout), \
+                self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                       "native proof trimming exceeded the time limit of 7 s"):
+            proof_certificate.export_clause_log_certificate(_LRA, timeout=7)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_hard_inputs_stop_at_the_limits(self):
+        # Pigeonhole for eleven holes runs for minutes and keeps growing; under
+        # small limits the export ends promptly in an error naming the limit.
+        hard = _pigeonhole(11)
+        for limits, message in [({"timeout": 1}, "solver run exceeded the time limit of 1 s"),
+                                ({"timeout": 60, "memory": 20}, "solver run exceeded the memory limit of 20 MB")]:
+            with self.subTest(**limits), self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                proof_certificate.export_clause_log_certificate(hard, **limits)
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "clause-log", "--timeout", "1", "-"],
+            input=hard, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("solver run exceeded the time limit of 1 s", result.stderr)
+        for flag, value in [("--timeout", "0"), ("--timeout", "nan"), ("--timeout", "1e7"), ("--memory", "0"),
+                            ("--memory", "4294967296")]:
+            with self.subTest(flag=flag, value=value):
+                result = subprocess.run(
+                    [sys.executable, str(_EXAMPLES / "proof_certificate.py"), flag, value, "-"],
+                    input=_LRA, capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("must be a positive number", result.stderr)
+        # The trimmer: pigeonhole for nine holes solves in seconds into a
+        # 6.7 MB log that takes the trimmer longer than a second to reduce.
+        log = proof_clause_log.run_clause_log(proof_certificate.default_z3_executable(), _pigeonhole(9), 120)
+        with self.assertRaises(subprocess.TimeoutExpired) as raised:
+            proof_clause_log.trim_clause_log(proof_certificate.default_z3_executable(), log, 1)
+        self.assertEqual(raised.exception.timeout, 1)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                    "native proof trimming exceeded the memory limit of 20 MB"):
+            proof_clause_log.trim_clause_log(proof_certificate.default_z3_executable(), log, 120, 20)
+        # Small inputs export under explicit limits.
+        certificate = proof_certificate.export_clause_log_certificate(_LRA, timeout=60, memory=1024)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+
+    def test_legacy_solve_stops_at_the_limits(self):
+        # The legacy core solves in this process: proof_certificate.py
+        # --timeout 1 on a hard propositional input (auto selects legacy) ran
+        # unbounded. Its smt core now gets the time limit as the solver's
+        # timeout and the memory limit as z3's high watermark, both by
+        # default too, and reports either by name.
+        hard = _pigeonhole(11)
+        watermark = z3.get_param("memory_high_watermark_mb")
+        for limits, message in [({"timeout": 1}, "legacy solver run exceeded the time limit of 1 s"),
+                                ({"timeout": 5, "memory": 20},
+                                 "memory in this process exceeded the limit of 20 MB during the legacy solver run")]:
+            with self.subTest(**limits), self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                proof_certificate.export_certificate(hard, **limits)
+            self.assertEqual(z3.get_param("memory_high_watermark_mb"), watermark)
+        result = subprocess.run([sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--timeout", "1", "-"],
+                                input=hard, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("legacy solver run exceeded the time limit of 1 s", result.stderr)
+        # The limits reach the solver, the defaults included, and the
+        # watermark is restored even when the check raises.
+        small = _pigeonhole(3)
+        for limits, seconds, megabytes in [({}, proof_clause_log._TIME_LIMIT, proof_clause_log._MEMORY_LIMIT),
+                                           ({"timeout": 2.5, "memory": 1024}, 3, 1024)]:
+            with self.subTest(**limits), patch.object(z3.Solver, "set", autospec=True, side_effect=z3.Solver.set) \
+                    as solver_set, patch.object(z3, "set_param", side_effect=z3.set_param) as set_param:
+                certificate = proof_certificate.export_certificate(small, **limits)
+            self.assertEqual(certificate["fragment"], "propositional")
+            self.assertIn(("timeout", seconds * 1000), [call.args[1:] for call in solver_set.call_args_list])
+            self.assertEqual([call.args for call in set_param.call_args_list],
+                             [("memory_high_watermark_mb", megabytes), ("memory_high_watermark_mb", watermark)])
+        with patch.object(z3.Solver, "check", side_effect=z3.Z3Exception("check failed")), \
+                self.assertRaisesRegex(z3.Z3Exception, "check failed"):
+            proof_certificate.export_certificate(small, memory=20)
+        self.assertEqual(z3.get_param("memory_high_watermark_mb"), watermark)
+        # An interrupt is also "canceled"; before the limit has passed it is
+        # not blamed on the timer.
+        with patch.object(z3.Solver, "check", return_value=z3.unknown), \
+                patch.object(z3.Solver, "reason_unknown", return_value="canceled"), \
+                self.assertRaisesRegex(proof_certificate.ProofExportError, "^unknown: canceled$"):
+            proof_certificate.export_certificate(small, timeout=60)
+        for limits in ({"timeout": 0}, {"timeout": float("inf")}, {"memory": 0}, {"memory": 1.5}):
+            with self.subTest(**limits), patch.object(z3.Solver, "check", side_effect=AssertionError("solved")), \
+                    self.assertRaises(ValueError):
+                proof_certificate.export_certificate(small, **limits)
 
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
     def test_native_trimmed_certificate_replays(self):

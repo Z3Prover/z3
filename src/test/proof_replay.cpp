@@ -530,8 +530,10 @@ static bool check_arith_axiom(ast_manager& m, char const* source, bool leading_t
 
 // The arith solver's axioms (arith_axioms.cpp) for div, mod and / by a numeral
 // and for abs went to the SMT fallback (5,213 steps over the division
-// generators of test_proof_to_lean_lia.py, 18 over test_proof_to_lean_uflra.py).
-// They are checked against the defining identities and bounds now.
+// generators of test_proof_to_lean_lia.py, 18 over test_proof_to_lean_uflra.py),
+// and so did the rem axiom with the false guard (280 steps over
+// random_remainder_instance seeds 1 to 40). They are checked against the
+// defining identities and bounds now.
 static void tst_checker_arith_axioms() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -552,6 +554,15 @@ static void tst_checker_arith_axioms() {
     ENSURE(check("(assert (>= x 0))(assert (= (abs x) (- x)))"));
     ENSURE(check("(assert (not (>= x 1)))(assert (= (abs x) x))"));
     ENSURE(check("(assert (> r 0.0))(assert (= (- r) (abs r)))"));
+    // The two rem axioms of each sign of the divisor (arith_axioms.cpp's
+    // mk_rem_axiom): one guard is valid, the other leaves the rem identity.
+    ENSURE(check("(assert (not (>= 3 0)))(assert (= (rem (+ x y) 3) (mod (+ x y) 3)))"));
+    ENSURE(check("(assert (>= 3 0))(assert (= (rem (+ x y) 3) (- (mod (+ x y) 3))))"));
+    ENSURE(check("(assert (>= (- 3) 0))(assert (= (rem (+ x y) (- 3)) (- (mod (+ x y) (- 3)))))"));
+    ENSURE(check("(assert (not (>= (- 3) 0)))(assert (= (rem (+ x y) (- 3)) (mod (+ x y) (- 3))))"));
+    ENSURE(check("(assert (= (- (mod (* 2 x) (- 4))) (rem (* 2 x) (- 4))))"));
+    ENSURE(check("(assert (= (+ (* 3 (div x 3)) (rem x 3)) x))"));
+    ENSURE(check("(assert (= (+ (* 3 (div x (- 3))) (rem x (- 3))) (- x)))"));
     // Wrong multiplier, term, divisor or bound, division by zero, the wrong
     // abs case, and a hint of nothing are falsifiable.
     ENSURE(!check("(assert (= (+ (* 2 (div x 3)) (mod x 3)) x))"));
@@ -570,13 +581,22 @@ static void tst_checker_arith_axioms() {
     ENSURE(!check("(assert (not (>= x (- 1))))(assert (= (abs x) x))"));
     ENSURE(!check("(assert (= (abs x) x))"));
     ENSURE(!check("(assert (= (abs x) (+ x 1)))(assert (not (>= x 0)))"));
+    // rem with the identity of the other sign, another dividend, a zero or
+    // term divisor, and bounds, which no rem axiom states.
+    ENSURE(!check("(assert (not (>= 3 0)))(assert (= (rem x 3) (- (mod x 3))))"));
+    ENSURE(!check("(assert (>= (- 3) 0))(assert (= (rem x (- 3)) (mod x (- 3))))"));
+    ENSURE(!check("(assert (= (rem x 3) (mod y 3)))"));
+    ENSURE(!check("(assert (= (rem x 0) (mod x 0)))"));
+    ENSURE(!check("(assert (= (rem x y) (mod x y)))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x (- 3))) (rem x (- 3))) x))"));
+    ENSURE(!check("(assert (>= (rem x (- 3)) 0))"));
     ENSURE(!check("", true));
     ENSURE(check("(assert (not (= 1 2)))"));
     ENSURE(!check("(assert (= 1 2))"));
 }
 
 // Z3's log for (> (mod x 3) 2) under sat.smt (shapes of liad1.log),
-// with abs and a numeral division: every axiom verifies natively, and the
+// with abs, rem and a numeral division: every axiom verifies natively, and the
 // trimmer keeps the axiom whose true argument the logged clause omits.
 static char const* arith_axioms_log =
     "(declare-fun x () Int)(declare-fun y () Int)"
@@ -588,13 +608,16 @@ static char const* arith_axioms_log =
     "(define-const $6 Bool (>= y 0))(define-const $7 Bool (= (abs y) y))(define-const $8 Bool (= (abs y) (- y)))"
     "(declare-fun arith (Bool Bool) Proof)"
     "(infer (not $6) $7 (arith $6 (not $7)))(infer $6 $8 (arith (not $6) (not $8)))"
+    "(define-const $10 Int (+ x y))(define-const $11 Int (mod $10 (- 3)))(define-const $12 Int (rem $10 (- 3)))"
+    "(define-const $13 Bool (>= (- 3) 0))(define-const $14 Bool (= $12 $11))(define-const $15 Bool (= $12 (- $11)))"
+    "(infer (not $13) $14 (arith $13 (not $14)))(infer $13 $15 (arith (not $13) (not $15)))"
     "(define-const $9 Bool (= (* 2.0 (/ 1.0 2.0)) 1.0))"
     "(infer $9 (arith true (not $9)))"
     "(assume (not $5) (not $9))(assume (not $7) (not $8))"
     "(declare-fun rup () Proof)(infer rup)";
 
 static void tst_replay_arith_axioms() {
-    check_verified_natively(replay(arith_axioms_log), "arith 6");
+    check_verified_natively(replay(arith_axioms_log), "arith 8");
     std::string out;
     {
         scoped_trim trim;

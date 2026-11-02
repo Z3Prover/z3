@@ -179,6 +179,24 @@ only the current platform's libraries and still require OS runtime dependencies
 described in RELEASE.md. A successful rehearsal on these four platforms does
 not establish compatibility with additional OS/CPU combinations.
 
+Published classifiers use the `os-maven-plugin` spelling, so
+`${os.detected.classifier}` resolves to an artifact this project ships. The
+build-side platform keys (`linux-x64`, `linux-arm64`, `win-x64`, `osx-arm64`)
+are .NET runtime identifiers shared with the NuGet packaging path; they appear
+in CLI flags, release asset names and in-JAR resource directories, not in Maven
+coordinates.
+
+### Choosing between `all` and a platform classifier
+
+`all` contains every supported platform, so its size is close to the sum of the
+platform JARs: about 36 MB for the three platforms shipped in `z3-5.3.3`, and
+about 50 MB once Linux ARM64 is included. A single-platform JAR is much smaller
+(`linux-x86_64` 17 MB, `osx-aarch_64` 12 MB, `windows-x86_64` 8 MB in
+`z3-5.3.3`), and the API-only JAR is about 2 MB. On CI, or anywhere only one
+platform is ever loaded, prefer the explicit classifier: `all` still extracts
+just the current platform's libraries, so the extra platforms are downloaded and
+never used.
+
 ## Optional Maven automatic platform selection (unpublished)
 
 With the same local rehearsal repository, Maven users can instead declare:
