@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Microsoft Corporation
 #
 # Tests for the QF_LIRA slice of the Lean reconstruction: Int and Real
-# variables side by side without conversions, each sort valued on its own
-# (_ivars into Int, _vars into Rat). Validation without Lean, and end-to-end
+# variables side by side, each sort valued on its own (_ivars into Int,
+# _vars into Rat), and related by to_real (Int.cast into Rat). Validation without Lean, and end-to-end
 # checks through both proof cores that need the z3 executable and the
 # pinned Lean toolchain.
 ############################################
@@ -23,7 +23,7 @@ sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
 import proof_to_lean
-from test_proof_to_lean_lia import LIA_INPUTS, _STANDARD_AXIOMS, _hints, _th_lemma_nodes, _z3_available
+from test_proof_to_lean_lia import LIA_INPUTS, _STANDARD_AXIOMS, _hints, _parameters, _th_lemma_nodes, _z3_available
 
 # Documented QF_LIRA inputs: each refutation needs atoms of both sorts, tied
 # together by Boolean structure, while every theory lemma stays within one
@@ -76,6 +76,123 @@ LIRA_INPUTS = {
 (check-sat)
 """,
 }
+
+
+# Documented inputs relating the sorts through to_real: theory lemmas over
+# Int and Real atoms at once, proved with the Int atoms cast into Rat and
+# the Real atoms over Int terms alone tied to Int atoms
+# (proof_to_lean._cast_facts).
+CAST_INPUTS = {
+    # x = n, 0 < x < 1: one farkas lemma over both sorts, which refutes only
+    # once the Int literal (not (<= n 0)) is tightened to n >= 1.
+    "cast_tightening": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const n Int)
+(assert (= x (to_real n)))
+(assert (< 0.0 x))
+(assert (< x 1.0))
+(check-sat)
+""",
+    # A sum under to_real next to a Real offset, and an Int ite of numerals
+    # in a Real position, which Z3 reads as (to_real (ite p 1 2)) (logic ALL).
+    "cast_sum_ite": """(declare-const x Real)
+(declare-const y Real)
+(declare-const n Int)
+(declare-const m Int)
+(declare-const p Bool)
+(assert (= x (+ (to_real (+ n m)) 0.5)))
+(assert (or (> x 4.0) (< n 0) (> y 2.5)))
+(assert (<= (+ n m) 3))
+(assert (>= n 0))
+(assert (= y (ite p 1 2)))
+(check-sat)
+""",
+    # 2n = 2m + 1 over the casts: refuted by integrality alone, a cut over
+    # a Real atom whose linear form ranges over Int terms.
+    "cast_parity_cut": """(set-logic QF_LIRA)
+(declare-const n Int)
+(declare-const m Int)
+(assert (= (* 2.0 (to_real n)) (+ (* 2.0 (to_real m)) 1.0)))
+(check-sat)
+""",
+    # div, mod, and abs of Int terms under to_real.
+    "cast_div_mod_abs": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const n Int)
+(assert (= x (to_real (+ (div n 3) (mod n 3)))))
+(assert (or (< x 2.5) (> x 3.5) (<= (abs (to_real n)) 0.5)))
+(assert (= n 5))
+(check-sat)
+""",
+}
+
+
+def random_cast_instance(seed, variables=3, constraints=10):
+    """A random QF_LIRA problem whose Real atoms range over to_real of Int terms, or None when it is satisfiable."""
+    generator = random.Random(seed)
+    lines = ["(set-logic QF_LIRA)"]
+    lines += ["(declare-const n%d Int)" % i for i in range(variables)]
+    lines += ["(declare-const x%d Real)" % i for i in range(variables)]
+    lines += ["(declare-const p%d Bool)" % i for i in range(2)]
+
+    def coefficient():
+        value = generator.choice([-3, -2, -1, 1, 2, 3])
+        return "%d" % value if value > 0 else "(- %d)" % -value
+
+    def real_numeral(halves):
+        text = "%d.%d" % (abs(halves) // 2, 5 * (abs(halves) % 2))
+        return text if halves >= 0 else "(- %s)" % text
+
+    def int_term():
+        roll, v = generator.random(), generator.randrange(variables)
+        if roll < 0.5:
+            return "n%d" % v
+        if roll < 0.8:
+            w = generator.randrange(variables)
+            return "(+ n%d (* %s n%d))" % (v, coefficient(), w)
+        return "(ite p%d n%d %s)" % (generator.randrange(2), v, integer_numeral(generator.randint(-2, 2)))
+
+    def real_term():
+        return "(to_real %s)" % int_term() if generator.random() < 0.6 else "x%d" % generator.randrange(variables)
+
+    def integer_numeral(value):
+        return "%d" % value if value >= 0 else "(- %d)" % -value
+
+    def atom():
+        roll = generator.random()
+        relation = generator.choice(["<=", ">=", "<", ">", "="])
+        if roll < 0.6:
+            terms = ["(* %s.0 %s)" % (generator.choice([1, 2, 3]), real_term())
+                     for _ in range(generator.randint(1, 2))]
+            left = terms[0] if len(terms) == 1 else "(+ %s)" % " ".join(terms)
+            return "(%s %s %s)" % (relation, left, real_numeral(generator.randint(-12, 12)))
+        return "(%s %s %s)" % (relation, int_term(), integer_numeral(generator.randint(-6, 6)))
+
+    def literal():
+        if generator.random() < 0.15:
+            return generator.choice(["p0", "p1", "(not p0)", "(not p1)"])
+        return atom()
+
+    for _ in range(constraints):
+        roll = generator.random()
+        if roll < 0.4:
+            lines.append("(assert (or %s %s))" % (literal(), literal()))
+        elif roll < 0.55:
+            lines.append("(assert (or %s %s %s))" % (literal(), literal(), literal()))
+        else:
+            lines.append("(assert %s)" % atom())
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Unsatisfiable seeds of random_cast_instance: 11 and 36 have clause-log
+# cuts over Real atoms of Int terms, 12 legacy congruences through to_real,
+# 25 a legacy farkas lemma without coefficients over both sorts.
+CAST_SEEDS = (11, 12, 25, 36)
 
 
 def random_mixed_instance(seed, variables=3, constraints=12):
@@ -263,6 +380,26 @@ class TestMixedValidation(unittest.TestCase):
         self.assertIn("to_real", terms.build(["<=", "x", "1"]).sexpr())
 
 
+def _check_in_lean(test, source, core):
+    """Export, reconstruct, and kernel-check a qf_lira input; return the certificate and the Lean text."""
+    certificate = _export(source, core)
+    test.assertEqual(certificate["fragment"], "qf_lira")
+    with tempfile.TemporaryDirectory() as directory:
+        output = Path(directory) / "checked.lean"
+        proof_to_lean.check_and_write(source, certificate, output)
+        text = output.read_text()
+        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", statement)
+        output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
+        result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
+        test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = " ".join(result.stdout.split())
+        test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+    return certificate, text
+
+
 class TestMixedLeanIntegration(unittest.TestCase):
     """End-to-end: both proof cores, certificate, Lean reconstruction, kernel check."""
 
@@ -272,22 +409,7 @@ class TestMixedLeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def check(self, source, core):
-        certificate = _export(source, core)
-        self.assertEqual(certificate["fragment"], "qf_lira")
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", statement)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            report = " ".join(result.stdout.split())
-            self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
-        return certificate
+        return _check_in_lean(self, source, core)[0]
 
     def test_documented_lira_inputs_verify_on_both_cores(self):
         hints = set()
@@ -318,6 +440,155 @@ class TestMixedLeanIntegration(unittest.TestCase):
             for core in ("clause-log", "legacy"):
                 with self.subTest(seed=seed, core=core):
                     self.check(source, core)
+
+
+class TestCastValidation(unittest.TestCase):
+    """Validation without Lean of to_real: its encoding, the cast facts, and what stays rejected."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not _z3_available():
+            raise unittest.SkipTest("the z3 executable is required for the clause log")
+        cls.source = CAST_INPUTS["cast_tightening"]
+        cls.certificate = _export(cls.source, "clause-log")
+
+    def test_to_real_is_int_cast_and_lemmas_get_cast_facts(self):
+        self.assertIn({"kind": z3.Z3_OP_TO_REAL, "name": "to_real", "domain": ["Int"], "range": "Real",
+                       "parameters": []}, self.certificate["declarations"])
+        text = proof_to_lean.reconstruct(self.source, self.certificate)
+        self.assertIn("-- Real variables are encoded as Rat (_vars) and Int variables as Int (_ivars), "
+                      "to_real is Int.cast into Rat", text)
+        self.assertRegex(text, r"\(_ivars : Nat -> Int\) : Rat := \(\(\(term_\d+ _atoms _vars _ivars\) : Int\) : Rat\)")
+        for lemma in ("_int_cast_le", "_int_cast_lt", "_int_cast_eq"):
+            self.assertIn("private theorem %s (s t : Int)" % lemma, text)
+        # The farkas lemma over x = n, (not (<= n 0)), x < 1 transports the
+        # Int atom into Rat and pushes the casts before grind.
+        self.assertRegex(text, r"have _c\d+ := _int_cast_le \(_ivars 1\) \(\(\(0 : Int\)\)\)\n\s+push_cast at \*")
+        # A certificate without to_real states none of this.
+        text = proof_to_lean.reconstruct(LIRA_INPUTS["lira_ite"], _export(LIRA_INPUTS["lira_ite"], "clause-log"))
+        self.assertNotIn("_int_cast_le", text)
+        self.assertNotIn("push_cast", text)
+
+    def test_real_atoms_over_int_terms_are_tied_to_int_atoms(self):
+        # 2n = 2m + 1 over the casts is an integer constraint: the cut gets
+        # it as an Int atom, scaled to integer coefficients.
+        source = CAST_INPUTS["cast_parity_cut"]
+        certificate = _export(source, "clause-log")
+        self.assertIn("cut", _hints(certificate))
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertRegex(text, r"have _r\d+ : .* <-> \(\(.*\) = \(\(0 : Int\)\)\) := "
+                               r"Iff\.trans \(by push_cast; grind\) Rat\.intCast_inj")
+
+    def test_real_atoms_over_int_terms_key_by_their_meaning(self):
+        # A Real atom over to_real alone is not tightened like an Int atom:
+        # its key (_normalized_atom, used by wide normalized rewrites and ite
+        # tables) must tighten it before taking the integer complement, so
+        # -2n + 1/2 <= 0 keys as not (n <= 0), like the Int atom n >= 1.
+        source = ("(set-logic QF_LIRA)\n(declare-const n Int)\n(declare-const x Real)\n"
+                  "(assert (or (<= (+ (* (- 2.0) (to_real n)) 0.5) 0.0) (> x 1.0)))\n"
+                  "(assert (< n 1))\n(assert (<= x 1.0))\n(assert (or (< (to_real n) 2.5) (> x 0.0)))\n"
+                  "(check-sat)\n")
+        for core in ("clause-log", "legacy"):
+            graph = proof_to_lean._validate_graph(source, _export(source, core))
+            checked = 0
+            for node in range(len(graph.nodes)):
+                kind, arguments = graph.kind(node), graph.arguments(node)
+                if graph.is_term(node) or kind not in proof_to_lean._CAST_ATOMS or kind == z3.Z3_OP_EQ:
+                    continue
+                if not graph.is_arith(arguments[0]):
+                    continue
+                relation, terms, constant = proof_to_lean._atom_constraint(graph, node)
+                if len(terms) != 1 or not graph.is_int(next(iter(terms))):
+                    continue
+                (relation_key, ordered, constant_key), negated = proof_to_lean._normalized_atom(
+                    graph, node, lambda variable: (0, variable))
+                (_, coefficient), = ordered
+                for value in range(-4, 5):
+                    exact = sum(c * value for c in terms.values()) + constant
+                    expected = exact <= 0 if relation == "<=" else exact < 0
+                    keyed = coefficient * value + constant_key
+                    keyed = keyed <= 0 if relation_key == "<=" else keyed < 0
+                    with self.subTest(core=core, node=node, n=value):
+                        self.assertEqual(keyed != negated, expected)
+                checked += 1
+            self.assertGreater(checked, 0)
+
+    def test_invalid_to_real_declarations_are_rejected(self):
+        for domain, range_ in ((["Real"], "Real"), (["Int"], "Int"), (["Int", "Int"], "Real")):
+            tampered = copy.deepcopy(self.certificate)
+            declaration = next(d for d in tampered["declarations"] if d["name"] == "to_real")
+            declaration["domain"], declaration["range"] = domain, range_
+            with self.subTest(domain=domain, range=range_):
+                with self.assertRaises(proof_to_lean.ReconstructionError):
+                    proof_to_lean.reconstruct(self.source, tampered)
+
+    def test_cuts_over_real_atoms_with_real_terms_are_rejected(self):
+        # A cut rounds integer-valued forms only: retargeted at an assertion
+        # with a Real atom over a Real variable, the step is rejected, as
+        # the exporter rejects such a hint.
+        source = random_cast_instance(CAST_SEEDS[0])
+        certificate = _export(source, "clause-log")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        lemma = next(node for node in _th_lemma_nodes(certificate)
+                     if _parameters(certificate, node)[0] == "cut")
+
+        def mixes(node):
+            # A clause of inequalities (a denied equality is no constraint)
+            # over to_real and a Real variable.
+            reachable = proof_to_lean._reachable(graph, node)[0]
+            literals = graph.arguments(node) if graph.kind(node) == z3.Z3_OP_OR else [node]
+            return (all(graph.kind(literal) != z3.Z3_OP_EQ for literal in literals)
+                    and any(graph.kind(term) == z3.Z3_OP_TO_REAL for term in reachable)
+                    and any(graph.kind(term) == z3.Z3_OP_UNINTERPRETED and graph.decl(term).range == "Real"
+                            for term in reachable))
+        target = next(node for node in graph.assertions if mixes(node) and node < lemma)
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][lemma]["arguments"][-1] = target
+        graph = proof_to_lean._validate_graph(source, tampered)
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                    "cut th-lemma over a Real atom with a Real term at node %d" % lemma):
+            proof_to_lean._check_th_lemma(graph, lemma)
+        context = z3.Context()
+        n, x = z3.Int("n", ctx=context), z3.Real("x", ctx=context)
+        quarter = z3.RealVal("9/4", ctx=context)
+        self.assertFalse(proof_clause_log.check_linear_hint("cut", [(1, z3.ToReal(n) == quarter)]))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint over Real atoms"):
+            proof_clause_log.check_linear_hint("cut", [(1, x + z3.ToReal(n) == quarter)])
+
+
+class TestCastLeanIntegration(unittest.TestCase):
+    """End-to-end through to_real: both proof cores, certificate, Lean reconstruction, kernel check."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not _z3_available():
+            raise unittest.SkipTest("the z3 executable is required for the clause log")
+
+    def test_documented_cast_inputs_verify_on_both_cores(self):
+        hints = set()
+        for name, source in CAST_INPUTS.items():
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    certificate, text = _check_in_lean(self, source, core)
+                    self.assertIn("_int_cast_", text)
+                    if core == "clause-log":
+                        hints |= _hints(certificate)
+        self.assertLessEqual({"farkas", "cut", "arith"}, hints)
+
+    def test_pinned_random_cast_instances_verify_on_both_cores(self):
+        hints, congruences = set(), 0
+        for seed in CAST_SEEDS:
+            source = random_cast_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            for core in ("clause-log", "legacy"):
+                with self.subTest(seed=seed, core=core):
+                    certificate, text = _check_in_lean(self, source, core)
+                    if core == "clause-log":
+                        hints |= _hints(certificate)
+                    else:
+                        congruences += text.count("congrArg (fun (_t : Int) => ((_t : Int) : Rat))")
+        self.assertIn("cut", hints)
+        self.assertGreater(congruences, 0)
 
 
 if __name__ == "__main__":

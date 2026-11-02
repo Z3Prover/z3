@@ -384,10 +384,9 @@ class _Terms:
         if head == "to_real" and count == 1 and z3.is_int(arguments[0]):
             # The injection of a term built from numerals is that term over
             # Real numerals, as the input snapshot reads it; to_real of any
-            # other Int term relates the sorts and stays rejected.
+            # other Int term is the injection itself (QF_LIRA conversions).
             counterpart = _real_counterpart(arguments[0], self.context)
-            if counterpart is not None:
-                return counterpart
+            return counterpart if counterpart is not None else z3.ToReal(arguments[0])
         if head == "not" and count == 1:
             return z3.Not(arguments[0])
         if head == "or":
@@ -609,6 +608,11 @@ def _linear(expr, terms=None, scale=Fraction(1)):
         if divisor is None or divisor == 0:
             raise ProofExportError("division is supported only by a nonzero constant")
         terms, constant = _linear(expr.arg(0), terms, scale / divisor)
+    elif kind == z3.Z3_OP_TO_REAL:
+        # The injection of Int into Real commutes with sums and numeral
+        # products, so (to_real t) has t's linear form: Int and Real
+        # constraints over shared Int terms combine over the rationals.
+        terms, constant = _linear(expr.arg(0), terms, scale)
     else:
         raise ProofExportError("unsupported arithmetic term: %s" % expr.decl().name())
     return terms, constant
@@ -648,6 +652,23 @@ def _constraint(literal):
     return relation, terms, constant + offset
 
 
+def _integer_valued(expr):
+    """Whether the atoms of an arithmetic term's linear form are all Int: an Int term, or Real over to_real.
+
+    A Real atom over the injections of Int terms and numerals alone, such
+    as (= (to_real n) (/ 9.0 4.0)), is an integer constraint in disguise,
+    which the integer solver's cuts round like an Int atom.
+    """
+    if z3.is_int(expr) or constant_value(expr) is not None:
+        return True
+    kind = expr.decl().kind()
+    if kind == z3.Z3_OP_TO_REAL:
+        return True
+    if kind in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV):
+        return all(_integer_valued(child) for child in expr.children())
+    return False
+
+
 def check_linear_hint(name, pairs):
     """Check Farkas combinations and the shapes of implied-equality and cut hints.
 
@@ -670,7 +691,7 @@ def check_linear_hint(name, pairs):
     for coefficient, literal in pairs:
         relation, terms, constant = _constraint(literal)
         constraints.append((coefficient, relation, terms, constant))
-        integer = integer or z3.is_int(_strip(literal)[0].arg(0))
+        integer = integer or all(_integer_valued(side) for side in _strip(literal)[0].children())
     if name == "cut":
         if not pairs:
             raise ProofExportError("cut hint without literals")

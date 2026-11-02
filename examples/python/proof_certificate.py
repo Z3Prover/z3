@@ -100,9 +100,9 @@ _BOOLEAN_OPERATORS = {
 # which are opaque atoms of the linear forms (Z3's arithmetic solver
 # axiomatizes div, mod, and rem by explicit clauses, see proof_clause_log, and
 # rewrites abs to an ite; rem, a Z3 extension, is mod by a positive divisor
-# and its negation by a negative one); to_real and to_int are rejected, and
-# Int never mixes with Real
-# (an integer numeral Z3 coerces to Real is read as a Real numeral, see
+# and its negation by a negative one). Int and Real meet in qf_lira, where
+# to_real injects Int terms into Real; to_int and is_int are rejected (an
+# integer numeral Z3 coerces to Real is read as a Real numeral, see
 # _parse_snapshot).
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
@@ -406,8 +406,9 @@ def _parse_snapshot(source, context, query=None):
     statement all see the input as QF_LRA reads it, and the z3 executable's
     rewriter folds such a coercion to a Real numeral before logging. A
     to_real of such a term written explicitly, under any logic, is read the
-    same way. to_real of any other Int term (a variable, an application, an ite, whose
-    coercion the log keeps) stays and is rejected: Int never mixes with Real.
+    same way. to_real of any other Int term (a variable, an application, an
+    ite, whose coercion the log keeps) stays: the input relates the sorts
+    (qf_lira).
     """
     assertions = list(z3.parse_smt2_string(_assertion_commands(source, query), ctx=context))
     pending, seen, coerced = list(assertions), set(), []
@@ -520,8 +521,9 @@ def _require_linear_arithmetic(expr):
     """Reject Real or Int terms outside the linear fragment with constant coefficients.
 
     Real division is accepted by a nonzero constant, integer div, mod, and rem
-    by a nonzero constant, and abs over Int or Real; the conversions between
-    Int and Real are distinct operators that fall through to the rejection.
+    by a nonzero constant, abs over Int or Real, and to_real of an Int term
+    (the injection, linear in its argument); to_int and is_int fall through
+    to the rejection.
     """
     kind = expr.decl().kind()
     # abs over Real is accepted too: SMT-LIB defines abs on Int only, but Z3
@@ -538,6 +540,8 @@ def _require_linear_arithmetic(expr):
             raise ProofExportError("division is supported only by a nonzero constant")
     elif kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
+    elif kind == z3.Z3_OP_TO_REAL:
+        pass  # Its Int argument is checked like any other term.
     elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_ITE):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
 
@@ -643,10 +647,9 @@ def classify_fragment(assertions):
         # own (QF_LIA) or next to uninterpreted sorts and functions (QF_UFLIA,
         # the Int valuation next to the carrier, into which Int arguments are
         # injected like Bool ones). Int and Real side by side (QF_LIRA) are
-        # two valuations, one per sort: no conversion between them is
-        # accepted (to_real of a non-numeral term, to_int, and is_int are
-        # rejected above), so every atom is over one sort. Uninterpreted
-        # functions next to both sorts have no encoding yet.
+        # two valuations, one per sort, related by to_real only (to_int and
+        # is_int are rejected above). Uninterpreted functions next to both
+        # sorts have no encoding yet.
         if real:
             if sorts or functions:
                 raise ProofExportError("mixing integer and real arithmetic with uninterpreted functions "

@@ -2108,6 +2108,46 @@ spelling), classification cases and the raw-tail replay in
 (30 runs on both cores) verified in Lean. Not done: conversions
 (`to_real` of Int terms, `to_int`, `is_int`), which need cast lemmas in Lean.
 
+### to_real of Int terms in qf_lira (2026-11-02)
+
+`to_real` of an Int term (a variable, a sum, an Int `ite`, `div`, `mod`,
+`abs`) is now accepted in `qf_lira` on both cores; `to_int`, `is_int`, and
+both sorts next to uninterpreted functions stay rejected. This also covers
+the iter-055 case of an Int `ite` of numerals in a Real position under
+logic ALL, `(to_real (ite p 1 2))`. Lean renders `to_real` as `Int.cast`
+into `Rat`. A theory lemma reaching `to_real` mixes the sorts (for example
+`x = n`, `(not (<= n 0))`, `x < 1`, which refutes only after the Int literal
+is tightened to `n >= 1`). The exporter and the reconstructor check it as a
+rational combination in which `(to_real t)` has `t`'s linear form and each
+Int atom is tightened on its own. A cut may round only Int atoms and Real
+atoms over Int terms alone, such as `(= (to_real n) (/ 9 4))`. Lean core
+has `push_cast` and `Rat.intCast_le_intCast`/`_lt_`/`_inj`, but `grind`
+does not reason through the cast. The fallback proof of such a lemma
+therefore first states two kinds of facts, then runs `push_cast at *` and
+`grind`:
+
+- every Int atom is equivalent, in both polarities, to the tightened bound
+  between the casts of its sides, through three private lemmas emitted once
+  per file (`_int_cast_le`, `_int_cast_lt`, `_int_cast_eq`);
+- every Real atom over Int terms alone is equivalent to the Int atom of its
+  integer-scaled form.
+
+Removing either kind of fact makes `grind` fail on a lemma that needs it.
+The legacy core's congruence through `to_real` is `congrArg Int.cast`. The
+legacy core's coefficient-free farkas lemmas over both sorts take the
+lattice path, proved by Lean alone. A Real atom over Int terms alone is
+tightened (scaled to integer coefficients, rounded to the lattice) before
+it is keyed for normalized rewrites and ite tables, so it shares its key
+with the equivalent Int atom. Tests: `test_proof_to_lean_lira.py`
+(four documented `to_real` inputs with farkas, cut, bound, and arith hints,
+four `random_cast_instance` seeds on both cores, the encoding, the cast and
+integrality facts, invalid `to_real` declarations, and a cut over a Real
+variable rejected by both checkers); classification and raw-tail cases in
+`test_proof_certificate.py`. All 99 unsatisfiable `random_cast_instance`
+seeds in 1-200 verify in Lean on both cores (198 runs, each at most about
+1 s). Not done: `to_int` and `is_int`, and `to_real` next to uninterpreted
+functions.
+
 ### Native checks of the rem axioms (2026-10-31)
 
 Z3's own replay of a clause log checked only the `rem` axiom whose guard

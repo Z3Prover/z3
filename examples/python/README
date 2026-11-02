@@ -134,12 +134,13 @@ integer arithmetic, where functions and predicates may take and return Int
 a function whose signature mentions Int makes the input qf_uflia even
 without any Int atom, and a Bool-only predicate over Int atoms belongs here
 too; it shares qf_lia's opt-in on both cores. The qf_lira fragment has
-Int and Real atoms side by side without any conversion between them, each
-atom over one sort (the qf_lia and qf_lra shapes, Boolean structure tying
-them together); it shares the opt-in too, and both cores certify it. Integer
+Int and Real atoms side by side (the qf_lia and qf_lra shapes, Boolean
+structure tying them together), and to_real of Int terms (variables, sums,
+ite, div, mod, abs) inside Real atoms; it shares the opt-in too, and both
+cores certify it. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
-nonlinear), to_real of anything but numerals, to_int, is_int, and Int
+nonlinear), to_int, is_int, and Int
 mixed with Real next to uninterpreted functions (also through a function
 signature such as (Int) Real) are rejected explicitly.
 The exception is an integer numeral where a Real is expected: without a
@@ -211,7 +212,8 @@ nonempty domain; qf_uflia does the same with Int. A certificate declaring
 an uninterpreted sort or function must be labelled qf_uf, qf_uflra, or
 qf_uflia according to whether it contains arithmetic and over which sort,
 and the reconstructor rejects any other combination; only a qf_lira
-certificate declares both Int and Real symbols, and it must.
+certificate declares both Int and Real symbols, and it must; to_real, from
+Int to Real, is its one conversion declaration.
 Other native shapes are rejected, never serialized incompletely. The root is
 required to conclude false, but checking that shape does not establish proof
 correctness.
@@ -687,19 +689,32 @@ ite, in which case these are the only facts tying the ite to its branches.
 A qf_lira certificate takes both valuations, (_vars : Nat -> Rat)
 (_ivars : Nat -> Int): a Real variable is _vars i and an Int one _ivars i
 (one numbering for both), numerals, ite, and abs take the type of their
-node, and every atom is over one sort, a Real one as for qf_lra and an Int
-one as for qf_lia below. Z3 relates no atoms of the two sorts in one
-arithmetic lemma (no conversion is accepted), so the reconstructor reads
-each th-lemma's sort off its atoms: an Int lemma takes the integer path
-(tightening, the generalized attempt, the combination and split proofs), a
-Real one the Real path, and a lemma over both sorts is rejected. Rewrites,
-which may span both sorts, are proved by first | omega | grind (splits := 64).
-The Rat encoding of the Real variables stays sound next to Int ones: fix the
-Int values and the truth value of every atom and ite condition, and the Real
-constraints left are a linear system with rational coefficients, which has a
+node, and every atom compares two terms of one sort, a Real one as for
+qf_lra and an Int one as for qf_lia below. to_real is Lean's Int.cast into
+Rat, through which a Real atom's linear form can range over Int terms;
+such an atom keys like the equivalent tightened Int atom when atoms are
+matched up in normalized rewrites and ite tables. Without to_real, Z3
+relates no atoms of the two sorts in one arithmetic lemma, so the
+reconstructor reads each th-lemma's sort off its atoms: an Int lemma takes
+the integer path (tightening, the generalized attempt, the combination and
+split proofs), a Real one the Real path, and a lemma over both sorts is
+rejected. A lemma reaching to_real is checked as a rational combination with
+each Int atom tightened on its own (its coefficients, when it has any, must
+refute the literals; a cut must round Int atoms and Real atoms over Int
+terms only) and proved by grind after two kinds of facts: every Int atom
+s R t is stated equivalent, in both polarities, to the tightened bound
+between the casts of s and t (three private lemmas, _int_cast_le,
+_int_cast_lt, _int_cast_eq, from core's Rat.intCast_le_intCast and its
+siblings), and every Real atom over Int terms alone is stated equivalent to
+the Int atom of its integer-scaled form; push_cast then distributes the
+casts. Rewrites, which may span both sorts, are proved by first | omega |
+grind (splits := 64). The Rat encoding of the Real variables stays sound
+next to Int ones: fix the Int values and the truth value of every atom and
+ite condition, and the Real constraints left (to_real terms now integer
+constants) are a linear system with rational coefficients, which has a
 rational solution if it has a real one. Int and Real ites with the same value
-table are kept apart in normalized rewrites, so each atom's form ranges over
-terms of its own sort.
+table are kept apart in normalized rewrites, so an ite term of one sort never
+stands for one of the other.
 
 For qf_lia certificates the second argument is _vars : Nat -> Int, numerals
 are Int literals, an Int ite is Lean's ite over Int with the classical
