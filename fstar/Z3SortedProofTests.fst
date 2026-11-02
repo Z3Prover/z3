@@ -461,4 +461,159 @@ let sorted_flattening_semantics (#base:sort -> Type0) (bc:S.boolean_carrier base
   assert_norm (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested pull_flat));
   Z3SortedQuantifier.lemma_check_flatten schema bc eq other (R.mk_eq_expr pull_nested pull_flat)
 
+(* ---------------------------------------------------------------------- *)
+(* Int equality/order laws (triangle clauses and implied equalities)        *)
+(* ---------------------------------------------------------------------- *)
+
+(* Int terms: the producer's binary + and * (op_plus, op_mul), opaque
+   Int-valued applications and a nonconstant product of them. *)
+let universe = BaseSort "Universe"
+let ulevel : func_decl = {
+  decl_name = "ulevel"; domain = [universe]; range = integer; interp = None; int_params = [];
+}
+let level (name:string) : expr =
+  App ulevel [App { decl_name = name; domain = []; range = universe; interp = None; int_params = [] } []]
+let la = level "a"
+let lb = level "b"
+
+let x_decl : func_decl = { decl_name = "x"; domain = []; range = integer; interp = None; int_params = [] }
+let xi = App x_decl []
+let yi = App { x_decl with decl_name = "y" } []
+let zi = App { x_decl with decl_name = "z" } []
+(* Spelled like x, a different declaration. *)
+let x_twin = App { x_decl with int_params = [1] } []
+
+let int_operator (name:string) (tag:decl_kind) (range:sort) : func_decl =
+  { decl_name = name; domain = [integer; integer]; range = range; interp = Some tag; int_params = [] }
+let iadd = int_operator "+" Z3ValueTheory.op_plus integer
+let imul = int_operator "*" Z3ValueTheory.op_mul integer
+let ile = int_operator "<=" Z3ValueTheory.op_arith_le bool_sort
+let ige = int_operator ">=" Z3ValueTheory.op_arith_ge bool_sort
+let ilt = int_operator "<" Z3ValueTheory.op_arith_lt bool_sort
+
+let izero = integer_literal 0
+let ione = integer_literal 1
+let minus (a b:expr) : expr = App iadd [a; App imul [integer_literal (-1); b]]
+let leq (a b:expr) : expr = App ile [a; b]
+let geq (a b:expr) : expr = App ige [a; b]
+let not_eq (a b:expr) : expr = R.mk_not_expr (R.mk_eq_expr a b)
+
+let product = App imul [la; lb]
+let span = minus la lb
+let gap = minus product la
+
+(* The actual clause shapes: Pulse.Lib.Raise q5 (1 = S with S <= 1 and
+   S >= 1, S a sum), difference forms of a nonconstant product against an
+   opaque application in either equality orientation and literal order, and
+   the antisymmetry clause in two literal orders. *)
+let raise_le = disjunction [not_eq ione span; leq span ione]
+let raise_ge = disjunction [not_eq ione span; geq span ione]
+let gap_ge = disjunction [not_eq product la; geq gap izero]
+let gap_le_reversed = disjunction [leq gap izero; not_eq la product]
+let antisymmetry = disjunction [R.mk_eq_expr product la; R.mk_not_expr (leq gap izero); R.mk_not_expr (geq gap izero)]
+let antisymmetry_permuted =
+  disjunction [R.mk_not_expr (geq gap izero); R.mk_eq_expr product la; R.mk_not_expr (leq gap izero)]
+
+let checked_int_order_laws ()
+  : Lemma (K.order_clause raise_le /\ K.order_clause raise_ge /\ K.order_clause gap_ge /\
+           K.order_clause gap_le_reversed /\ K.order_clause antisymmetry /\
+           K.order_clause antisymmetry_permuted /\
+           K.order_equation [geq gap izero; leq gap izero] (R.mk_eq_expr product la) /\
+           K.order_equation [leq gap izero; R.true_expr; geq gap izero] (R.mk_eq_expr la product) /\
+           K.order_equation [geq gap izero; leq gap izero] (R.mk_eq_expr izero gap) /\
+           K.consequence core_schema [] raise_le /\
+           K.consequence core_schema [geq gap izero; leq gap izero] (R.mk_eq_expr product la)) =
+  assert_norm (K.order_clause raise_le /\ K.order_clause raise_ge /\ K.order_clause gap_ge /\
+               K.order_clause gap_le_reversed /\ K.order_clause antisymmetry /\
+               K.order_clause antisymmetry_permuted);
+  assert_norm (K.order_equation [geq gap izero; leq gap izero] (R.mk_eq_expr product la) /\
+               K.order_equation [leq gap izero; R.true_expr; geq gap izero] (R.mk_eq_expr la product) /\
+               K.order_equation [geq gap izero; leq gap izero] (R.mk_eq_expr izero gap));
+  assert_norm (K.consequence core_schema [] raise_le);
+  assert_norm (K.consequence core_schema [geq gap izero; leq gap izero] (R.mk_eq_expr product la))
+
+(* The generic theorem at one instance: in EVERY Sorted model (any carrier,
+   scalar model and interpretation) the Raise clause holds, and the two
+   opposite bounds give the equation. *)
+let int_order_laws_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                        (other:V.interpretation base (S.signature core_schema))
+  : Lemma (T.truth core_schema bc eq other raise_le /\
+           (T.truths core_schema bc eq other [geq gap izero; leq gap izero] ==>
+            T.truth core_schema bc eq other (R.mk_eq_expr product la))) =
+  checked_int_order_laws ();
+  K.lemma_consequence core_schema bc eq other [] raise_le;
+  if T.truths core_schema bc eq other [geq gap izero; leq gap izero] then
+    K.lemma_consequence core_schema bc eq other [geq gap izero; leq gap izero] (R.mk_eq_expr product la)
+
+(* False variants, each refused by the executable checks. *)
+let strict_mutant = disjunction [not_eq xi yi; App ilt [xi; yi]]
+let plus_one_mutant = disjunction [not_eq xi yi; leq (App iadd [xi; App imul [ione; yi]]) izero]
+let wrong_operand_mutant = disjunction [not_eq xi yi; geq (minus xi zi) izero]
+let twin_mutant = disjunction [not_eq xi yi; leq (minus x_twin yi) izero]
+let counterfeit_le_mutant = disjunction [not_eq xi yi; App ({ ile with interp = None }) [xi; yi]]
+let counterfeit_add_mutant =
+  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
+let same_bounds_mutant = disjunction [R.mk_eq_expr xi yi; R.mk_not_expr (geq (minus xi yi) izero);
+                                      R.mk_not_expr (leq (minus yi xi) izero)]
+
+let refused_int_order_mutants ()
+  : Lemma (not (K.order_clause strict_mutant) /\ not (K.order_clause plus_one_mutant) /\
+           not (K.order_clause wrong_operand_mutant) /\ not (K.order_clause twin_mutant) /\
+           not (K.order_clause counterfeit_le_mutant) /\ not (K.order_clause counterfeit_add_mutant) /\
+           not (K.order_clause same_bounds_mutant) /\
+           not (K.order_equation [geq (minus xi yi) izero] (R.mk_eq_expr xi yi)) /\
+           not (K.order_equation [geq (minus xi yi) izero; leq (minus yi xi) izero] (R.mk_eq_expr xi yi)) /\
+           not (K.direct_consequence core_schema [] strict_mutant) /\
+           not (K.direct_consequence core_schema [geq (minus xi yi) izero] (R.mk_eq_expr xi yi))) =
+  assert_norm (not (K.order_clause strict_mutant) /\ not (K.order_clause plus_one_mutant) /\
+               not (K.order_clause wrong_operand_mutant) /\ not (K.order_clause twin_mutant) /\
+               not (K.order_clause counterfeit_le_mutant) /\ not (K.order_clause counterfeit_add_mutant) /\
+               not (K.order_clause same_bounds_mutant));
+  assert_norm (not (K.order_equation [geq (minus xi yi) izero] (R.mk_eq_expr xi yi)) /\
+               not (K.order_equation [geq (minus xi yi) izero; leq (minus yi xi) izero] (R.mk_eq_expr xi yi)));
+  assert_norm (not (K.direct_consequence core_schema [] strict_mutant));
+  assert_norm (not (K.direct_consequence core_schema [geq (minus xi yi) izero] (R.mk_eq_expr xi yi)))
+
+(* Opposite-value counter-models in concrete Sorted models (Int scalars,
+   every free Int-valued symbol 0 unless chosen otherwise): each false
+   variant is false there, so certifying it would contradict
+   K.lemma_check_document. *)
+let valued (pick:func_decl -> option int) : V.interpretation primitive (S.signature core_schema) = {
+  V.application = (fun f _ ->
+    match pick f with
+    | Some n -> if f.range = integer then V.Scalar integer n
+                else S.value_inhabitant core_schema primitive_default f.range
+    | None -> S.value_inhabitant core_schema primitive_default f.range);
+  V.quantification = (S.default_interpretation #primitive core_schema primitive_default).V.quantification;
+}
+
+let ones (f:func_decl) : option int = if f.range = integer then Some 1 else None
+let nothing (f:func_decl) : option int = None
+let twin_one (f:func_decl) : option int = if f = { x_decl with int_params = [1] } then Some 1 else None
+let z_one (f:func_decl) : option int = if f.decl_name = "z" then Some 1 else None
+let x_one (f:func_decl) : option int = if f = x_decl then Some 1 else None
+let counterfeit_one (f:func_decl) : option int =
+  if f = { iadd with interp = Some Z3ValueTheory.op_mul } then Some 1 else None
+
+let int_order_counter_models ()
+  : Lemma (T.truth core_schema booleans equality (valued nothing) strict_mutant == false /\
+           T.truth core_schema booleans equality (valued ones) plus_one_mutant == false /\
+           T.truth core_schema booleans equality (valued z_one) wrong_operand_mutant == false /\
+           T.truth core_schema booleans equality (valued twin_one) twin_mutant == false /\
+           T.truth core_schema booleans equality (valued nothing) counterfeit_le_mutant == false /\
+           T.truth core_schema booleans equality (valued x_one) same_bounds_mutant == false /\
+           T.truth core_schema booleans equality (valued counterfeit_one) counterfeit_add_mutant == false /\
+           T.truth core_schema booleans equality (valued x_one) (geq (minus xi yi) izero) == true /\
+           T.truth core_schema booleans equality (valued x_one) (R.mk_eq_expr xi yi) == false) =
+  assert (T.truth core_schema booleans equality (valued nothing) strict_mutant == false /\
+          T.truth core_schema booleans equality (valued ones) plus_one_mutant == false /\
+          T.truth core_schema booleans equality (valued z_one) wrong_operand_mutant == false /\
+          T.truth core_schema booleans equality (valued twin_one) twin_mutant == false /\
+          T.truth core_schema booleans equality (valued nothing) counterfeit_le_mutant == false /\
+          T.truth core_schema booleans equality (valued x_one) same_bounds_mutant == false /\
+          T.truth core_schema booleans equality (valued counterfeit_one) counterfeit_add_mutant == false /\
+          T.truth core_schema booleans equality (valued x_one) (geq (minus xi yi) izero) == true /\
+          T.truth core_schema booleans equality (valued x_one) (R.mk_eq_expr xi yi) == false) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
 #pop-options

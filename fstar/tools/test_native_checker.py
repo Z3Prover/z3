@@ -308,6 +308,53 @@ def unit_ideal(prime):
     return finite_field(prime,
         "(and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F))))")
 
+# Reduced from the F* corpus (Pulse.Lib.Raise q5 and the triangle clauses of the th-lemma
+# cohort): the solver options F* sets, a Fuel datatype in the proof (so the default route is
+# the sorted-datatype semantics, as for every F* query), an uninterpreted Universe sort and
+# opaque Int-valued applications. Each proof's only otherwise-unchecked steps are the
+# producer's integer equality/order steps (`th-lemma arith triangle-eq` clauses and an
+# `implied-eq` from two opposite bounds), which the sorted kernel replays.
+FSTAR_QUERY_PREAMBLE = (
+    "(set-option :auto_config false)(set-option :smt.mbqi false)(set-option :smt.case_split 3)"
+    "(set-option :smt.relevancy 2)(set-option :smt.arith.solver 6)"
+    "(declare-datatypes () ((Fuel (ZFuel) (SFuel (prec Fuel)))))"
+    "(declare-sort Universe)(declare-fun ulevel (Universe) Int)"
+    "(declare-fun a () Universe)(declare-fun b () Universe)"
+    "(declare-fun MaxIFuel () Fuel)(assert (= MaxIFuel (SFuel ZFuel)))"
+    "(declare-fun h (Universe) Int)")
+
+SORTED_INT_ORDER_CASES = (
+    # (or (not (= 1 S)) (<= S 1)) and (>= S 1), S = (+ (h a) (* -1 (h b))): Raise q5's shape.
+    ("sum-equation-upper-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (= (h a) (+ 1 (h b))))(assert (> (h a) (+ 1 (h b))))"),
+    ("sum-equation-lower-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (= (h a) (+ 1 (h b))))(assert (< (h a) (h b)))"),
+    # (or (not (= x y)) (>= (+ x (* -1 y)) 0)) over opaque applications.
+    ("difference-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (= (h a) (h b)))(assert (< (h a) (h b)))"),
+    # (or (= x y) (not (<= (+ x (* -1 y)) 0)) (not (>= (+ x (* -1 y)) 0))).
+    ("antisymmetry-clause", FSTAR_QUERY_PREAMBLE +
+     "(assert (<= (h a) (h b)))(assert (>= (h a) (h b)))(assert (not (= (h a) (h b))))"),
+    # (= x y) from (>= (+ x (* -1 y)) 0) and (<= (+ x (* -1 y)) 0).
+    ("implied-equality-from-bounds", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Int)(declare-const x Int)(declare-const y Int)"
+     "(assert (<= x y))(assert (<= y x))(assert (not (= (g x) (g y))))"),
+)
+
+# No-false-ACCEPT controls on the same shapes. An implied equality that needs linear
+# arithmetic beyond the two bounds on one difference (h a = 1 + h b from S <= 1 and S >= 1)
+# stays an open `th-lemma` obligation; satisfiable variants are never certified.
+SORTED_INT_ORDER_OPEN_CASES = (
+    ("linear-implied-equality", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (= (h a) (+ 1 (h b))))"
+     "(assert (not (= (g (h a)) (g (+ (h b) 1)))))"),
+)
+SORTED_INT_ORDER_SATISFIABLE_CASES = (
+    ("weak-bound", FSTAR_QUERY_PREAMBLE + "(assert (= (h a) (h b)))(assert (<= (h a) (h b)))"),
+    ("one-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (<= (h a) (h b)))(assert (not (= (h a) (h b))))"),
+)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -639,6 +686,42 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
         self.assertIn("semantics=sorted-datatype", result.stderr)
+
+    def test_sorted_integer_equality_order_steps_in_both_modes(self):
+        for name, source in SORTED_INT_ORDER_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_INT_ORDER_OPEN_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics"] + (["--interactive"] if interactive else [])
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    self.assertIn("unsat\n; proof-check PARTIAL 1\n" if interactive else "PARTIAL 1",
+                                  result.stdout)
+                    self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
+        for name, source in SORTED_INT_ORDER_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
 
     def test_datatype_operations_named_like_connectives(self):
         # Z3 lets user datatypes name accessors and constructors `and`, `or`, `not`, `=>`, `true` and `false`

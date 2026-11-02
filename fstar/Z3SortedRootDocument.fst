@@ -1017,6 +1017,13 @@ let rec lemma_dependents_view (s:S.checked_schema) (defs:list SK.definition) (es
         | None -> ()
         | Some more -> lemma_dependents_view s more rest))
 
+(* The certified epsilon context reads the document only through its
+   assertions, which the read view keeps. *)
+let lemma_certified_context_view (s:S.checked_schema) (doc:P.document)
+                                 (collected:option (list SK.definition))
+  : Lemma (SP.certified_context s (read_view doc) collected == SP.certified_context s doc collected) =
+  ()
+
 let lemma_document_read_view_epsilon (schema:S.schema) (doc:P.document)
   : Lemma (SP.check_document_epsilon schema doc == SP.check_document_epsilon schema (read_view doc) /\
            dependent_closures schema doc == dependent_closures schema (read_view doc)) =
@@ -1025,6 +1032,8 @@ let lemma_document_read_view_epsilon (schema:S.schema) (doc:P.document)
     lemma_merged_view schema [] doc.P.entries;
     lemma_dependents_view schema [] doc.P.entries;
     let ds = SP.epsilon_context schema doc in
+    lemma_certified_context_view schema doc (SP.collect_merged schema [] doc.P.entries);
+    lemma_certified_context_view schema doc (SP.collect_epsilon schema [] doc.P.entries);
     assert (SP.epsilon_context schema (read_view doc) == ds);
     let dds = SP.dependent_context schema doc ds in
     assert (SP.dependent_context schema (read_view doc) ds == dds);

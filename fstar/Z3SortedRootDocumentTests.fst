@@ -576,3 +576,102 @@ let h7_later_reference_forward ()
 let h7_later_reference_backward ()
   : Lemma (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_q; skolem_pi] 0)) == 2) =
   assert_norm (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_q; skolem_pi] 0)) == 2)
+
+(* ---------------------------------------------------------------------- *)
+(* I. Int equality/order laws: triangle clauses and implied equalities      *)
+(* ---------------------------------------------------------------------- *)
+
+(* The checks read the formulas only (never the rule label), over the
+   fixtures of Z3SortedProofTests: opaque Int-valued applications ulevel(a),
+   ulevel(b), the sum ulevel(a) + (-1) * ulevel(b) of Raise q5 and the
+   nonconstant product ulevel(a) * ulevel(b), each read as one Int value. *)
+let th_lemma : U.rule = U.Unverified "th-lemma"
+
+(* A clause step refuted by the complements of its literals. *)
+let refute2 (clause u1 u2:expr) : P.document =
+  doc [u1; u2]
+      [entry th_lemma clause []; entry U.Asserted u1 []; entry U.Asserted u2 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2]]
+      3
+
+let refute3 (clause u1 u2 u3:expr) : P.document =
+  doc [u1; u2; u3]
+      [entry th_lemma clause []; entry U.Asserted u1 []; entry U.Asserted u2 []; entry U.Asserted u3 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2; 3]]
+      4
+
+let i1_document : P.document =
+  refute2 PT.raise_le (R.mk_eq_expr PT.ione PT.span) (R.mk_not_expr (PT.leq PT.span PT.ione))
+
+let i2_document : P.document =
+  refute2 PT.gap_le_reversed (R.mk_not_expr (PT.leq PT.gap PT.izero)) (R.mk_eq_expr PT.la PT.product)
+
+let i3_document : P.document =
+  refute3 PT.antisymmetry (PT.not_eq PT.product PT.la) (PT.leq PT.gap PT.izero) (PT.geq PT.gap PT.izero)
+
+(* x = y from the two opposite bounds on x + (-1) * y, the premise ids given. *)
+let implied_document (premises:list int) : P.document =
+  doc [PT.geq PT.gap PT.izero; PT.leq PT.gap PT.izero; PT.not_eq PT.product PT.la]
+      [entry U.Asserted (PT.geq PT.gap PT.izero) []; entry U.Asserted (PT.leq PT.gap PT.izero) [];
+       entry th_lemma (R.mk_eq_expr PT.product PT.la) premises;
+       entry U.Asserted (PT.not_eq PT.product PT.la) [];
+       entry U.UnitResolution R.false_expr [2; 3]]
+      4
+
+let i4_document : P.document = implied_document [0; 1]
+
+let i1_certified () : Lemma (RD.check_root_document PT.core_schema i1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i1_document == RD.RootCertified)
+
+let i2_certified () : Lemma (RD.check_root_document PT.core_schema i2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i2_document == RD.RootCertified)
+
+let i3_certified () : Lemma (RD.check_root_document PT.core_schema i3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i3_document == RD.RootCertified)
+
+let i4_certified () : Lemma (RD.check_root_document PT.core_schema i4_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i4_document == RD.RootCertified)
+
+(* The certified documents are false in EVERY root model, and in the
+   standard root model for every u and uf. *)
+let int_order_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema i1_document i /\ falsified u PT.core_schema i2_document i /\
+                   falsified u PT.core_schema i3_document i /\ falsified u PT.core_schema i4_document i) =
+  i1_certified (); RD.lemma_root_certified u PT.core_schema i1_document i;
+  i2_certified (); RD.lemma_root_certified u PT.core_schema i2_document i;
+  i3_certified (); RD.lemma_root_certified u PT.core_schema i3_document i;
+  i4_certified (); RD.lemma_root_certified u PT.core_schema i4_document i
+
+let int_order_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i3_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i4_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  int_order_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants on the same refutation shapes stay open obligations (their
+   counter-models: Z3SortedProofTests.int_order_counter_models): a strict
+   bound at x = y, a counterfeit `<=` without its interpretation tag, and an
+   implied equality with one of its two bounds missing. *)
+let i5_strict_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (refute2 PT.strict_mutant (R.mk_eq_expr PT.xi PT.yi)
+                (R.mk_not_expr (App PT.ilt [PT.xi; PT.yi]))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (refute2 PT.strict_mutant (R.mk_eq_expr PT.xi PT.yi)
+                    (R.mk_not_expr (App PT.ilt [PT.xi; PT.yi]))) == RD.RootPending 1)
+
+let i6_counterfeit_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (refute2 PT.counterfeit_le_mutant (R.mk_eq_expr PT.xi PT.yi)
+                (R.mk_not_expr (App ({ PT.ile with interp = None }) [PT.xi; PT.yi]))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (refute2 PT.counterfeit_le_mutant (R.mk_eq_expr PT.xi PT.yi)
+                    (R.mk_not_expr (App ({ PT.ile with interp = None }) [PT.xi; PT.yi]))) == RD.RootPending 1)
+
+let i7_missing_bound_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1)
