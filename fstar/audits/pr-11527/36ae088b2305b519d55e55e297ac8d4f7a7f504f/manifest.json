@@ -1,0 +1,22 @@
+{
+  "pull_request": 11527,
+  "head_sha": "36ae088b2305b519d55e55e297ac8d4f7a7f504f",
+  "base_sha": "4629738b98b7b98d826833161cefbefdf1aeb928",
+  "path_prefix": "fstar/audits/pr-11527/36ae088b2305b519d55e55e297ac8d4f7a7f504f/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41595483959",
+  "files": [
+    {
+      "name": "IteMinRegression.fst",
+      "sha256": "603e787671817d93ce2278db6af5223e76cde8b904899421faa782356a7037f2"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "e64bb1245779253d77f7dc74b2a49ca34f262e0840c0f6b2cafe0e93c415f6f7"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "abd70d9dd604523898964927db5ee392ccb5877227ce998af9a9c0f78e42b555"
+    }
+  ]
+}
