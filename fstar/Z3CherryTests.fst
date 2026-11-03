@@ -451,4 +451,5 @@ let run () : bool =
   nnf_replay_scale () &&
   nnf_premise_boundary () &&
   qi_regroup_scale () &&
-  name_pair_units_scale ()
+  name_pair_units_scale () &&
+  Z3NnfReplayCheckedTests.run ()
