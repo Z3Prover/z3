@@ -5035,9 +5035,10 @@ stdout, stderr and the exit status are as before. With it, the legacy route chec
 once with `Z3VerifiedDocument` (no second default check). There, quantifier introductions use
 `Z3CheckedGuard.verified_guard` instead of `binder_scoped`, and one additive stderr row per
 quantifier introduction reports the outcome and the preparation, validation and storage units
-used. The sorted route does not run this guard and is unchanged (since master #11515 it replays
-`nnf-neg`/`nnf-pos` certificates with `Z3NnfReplay`, which calls the default guard; see the route
-limitation under `verified-dag-v1` below).
+used. The sorted route does not run this guard and is unchanged, and the mode reports that: one
+additive row `resource-accounting<TAB>verified-sorts-v1<TAB>not-applied<TAB>reason=sorted-route`
+per checked query there (since master #11515 the sorted route replays `nnf-neg`/`nnf-pos`
+certificates with `Z3NnfReplay`, whose guard `verified-dag-v1` replaces; see below).
 
 - Guard: the default guard's algorithm over checked sort ids (`Z3CheckedSorts`) and a checked
   scope-shape graph (`Z3CheckedTerms`, `Z3CheckedScope`). `Z3CheckedGuardProof` proves that a
@@ -5060,20 +5061,40 @@ With it, the document is marshaled once, with a checked expression graph of its 
 certificates, and checked once by `Z3VerifiedDocument` (no second default check, no fallback after
 exhaustion); one additive stderr row per quantifier introduction reports the outcome, the guard's
 preparation, validation and storage units and the graph's preparation and storage units
-(`graph-preparation=used/limit`, `graph-storage=used/limit`). The sorted route does not use the
-graph and is unchanged.
+(`graph-preparation=used/limit`, `graph-storage=used/limit`).
 
-**Route limitation (after merging master `77cb49fb6`, #11515).** `verified-dag-v1` replaces the
-scope guard only on its own integrated path: the legacy route's quantifier introductions, checked
-through the prepared companion certificates of `Z3VerifiedDocument`. The NNF certificate replay
-merged from #11515 (`Z3NnfReplay`, sorted datatype route) still calls the default guard
-(`binder_scopes`, `scope_entries_checked` with `binder_work_limit`), with or without the option, so
-NNF replay results, pending counts and default NNF behaviour are exactly master's. The PulseCore.Action-1
-query 1 node 433 figures below come from a direct harness that runs this mode's guard on the dumped
-certificate; they are not native NNF throughput and do not discharge any pending NNF obligation.
-Using this mode inside `Z3NnfReplay` (adapter "C") is a separate follow-up: it needs a scope
-invariant for the replay and the propagation of prepared graph handles to it, and it is not part of
-this change.
+**The sorted route (`Z3NnfReplayChecked`, `Z3SortedRoute`).** On the Sorted/datatype route
+(`--sorted-core`, or any datatype declaration) the option replaces the scope guard of the NNF and
+quant-intro certificate replay (`Z3NnfReplay`, merged from #11515 and extended by #11537): the
+document is checked once by `Z3SortedRoute.diagnose_document_epsilon_route`, the epsilon-route check
+of `Z3SortedProof` with the replay of a premise-free quantifier introduction's certificate by
+`Z3NnfReplayChecked.replay_route` on the preparation the marshaler recorded for that entry, and its
+result is the verdict, stdout and exit status (`Z3SortedRoute.lemma_diagnose_document_epsilon_route`).
+Nothing of `Z3SortedProof` changed: without the option the same functions run (`Z3SortedRoute.
+lemma_default_node`: the default node check is the route's at the default replay verdict).
+`Z3NnfReplayChecked.replay_dag` runs `Z3DagGuard.dag_guard` directly on the judgment cache that
+`Z3NnfReplay.judgments_of` builds, with no `check_binder_entries`, no old-budget precondition and no
+boolean from the producer (`lemma_judgments_classified`: that cache is the guard's
+`cache_classified`); its entry loop is `Z3NnfReplay.steps_ok` over the demands the guard's checked
+state denotes (`lemma_steps_checked`), so `Z3NnfReplay.lemma_steps` is reused unchanged and
+`lemma_replay_dag` states what `Z3NnfReplay.lemma_replay` states over the same
+`Q.forall_model`/`E.exists_model`/`ST.truths` (the same typed Root model). The Skolem typing gate of
+open dependent steps (`NR.skolem_scopes_ok`) is kept, decided on the checked sort ids by an
+iterative, charged worklist and proved equal to the default's (`lemma_skolem_gate`), not dropped and
+not read by the ghost interpretation. A certificate without a usable preparation (clausal document,
+absent, exhausted or invalid preparation) is pending with the reason; the default guard never runs
+in its place and no budget is refilled. `Z3SortedRoute.lemma_elaborated_entry` proves that the
+epsilon elaboration keeps every entry's index, formula, premise ids and quantifier-introduction
+certificate, so the marshal-time companions stay exact for the consumed certificate;
+`Z3SortedRootRoute` (verification-only, like `Z3SortedRootDocument`) states the route's Root
+theorem for every root model, a route-aware coverage gate, and the read-view equalities. One row
+per replayed certificate has the same format as above: `outcome=checked|refused|exhausted
+phase=...|entries-unchecked|unprepared reason=...`. Not claimed: the Skolem-expression cap, the
+tree-based charge of `Z3NnfReplay.steps_ok` (`binder_work_limit`) and the marshal-time preparation
+of certificates the replay does not consume are unchanged; the attachment of a companion to its
+entry and the native name counter remain the marshaler's reviewed runtime glue; the theorem holds
+for the preparations the real builders earn (`Z3DagDocument.prepared`), not for records a caller
+fabricates.
 
 - Graph (`Z3CheckedGraph`): one node per reflected expression the marshaler caches, storing its
   exact expression; `graph_inv` (every stored expression is its node's constructor applied to its
