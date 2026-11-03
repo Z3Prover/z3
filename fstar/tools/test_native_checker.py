@@ -1325,6 +1325,27 @@ class DirectCheckerTests(unittest.TestCase):
             self.assertRegex(row, r"^resource-accounting\tverified-dag-v1\tnode=\d+\tentries=\d+\toutcome=unprepared"
                                   r"\treason=exhausted\tphase=graph-preparation"
                                   r"\tgraph-preparation=\d+/\d+\tgraph-storage=\d+/\d+$")
+        # a 1,000-character sort name is checked; a 300,000-character one is checked or stays pending
+        # under the opt-in budgets, never rejected; a wide binder list has the default's verdict
+        for length in (1000, 300_000):
+            name = "S" * length
+            source = (f"(declare-sort {name} 0)(declare-fun p ({name}) Bool)(declare-const c {name})"
+                      f"(assert (not (exists ((x {name})) (p x))))(assert (p c))")
+            with self.subTest(length=length):
+                opted = self.run_checker(source, "--sorted-core", "--resource-accounting", "verified-dag-v1")
+                self.assertIn(opted.returncode, (0, 3), opted.stdout + opted.stderr)
+                self.assertNotIn("REJECT", opted.stdout)
+                if length == 1000:
+                    self.assertEqual(opted.stdout.strip(), "ACCEPT", opted.stderr)
+        width = 60
+        binders = " ".join(f"(x{i} Int)" for i in range(width))
+        source = ("(declare-fun p (" + " ".join(["Int"] * width) + ") Bool)"
+                  f"(assert (not (exists ({binders}) (p " + " ".join(f"x{i}" for i in range(width)) + "))))"
+                  "(assert (p " + " ".join(["0"] * width) + "))")
+        default = self.run_checker(source, "--sorted-core", "--diagnostics")
+        opted = self.run_checker(source, "--sorted-core", "--diagnostics", "--resource-accounting", "verified-dag-v1")
+        self.assertEqual((opted.returncode, opted.stdout), (default.returncode, default.stdout), opted.stderr)
+        self.assertEqual(self.other_lines(opted), default.stderr.splitlines())
 
     def test_resource_accounting_dag_on_the_sorted_route_isolates_interactive_queries(self):
         # Each check marshals its own preparations, so no node, scope or companion of an earlier query

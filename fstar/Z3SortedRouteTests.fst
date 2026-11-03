@@ -256,6 +256,24 @@ let double_negation_agrees () : bool =
      | None -> false)
   | None -> false
 
+(* A small quantified NNF step (the diamond at depth 0): the default guard affords it and replays it (the propositional and
+   equality kernels cannot prove it), the route replays it by the DAG guard; without the preparation the route leaves it pending
+   and the default guard that replays it does not decide it. *)
+let small_quantified_agrees () : bool =
+  match diamond_at 0 1 with
+  | Some (p, cs) ->
+    (match sides_of p.DD.pcert with
+     | Some (a, b) ->
+       let d = refutation p.DD.pcert a b in
+       SP.check_document_epsilon empty_schema d = Some 0 &&
+       SRt.check_document_epsilon_route cs empty_schema d = Some 0 &&
+       (match (SRt.diagnose_document_epsilon_route cs empty_schema d).VD.reports with
+        | [one] -> is_checked one
+        | _ -> false) &&
+       SRt.check_document_epsilon_route DD.no_companions empty_schema d = Some 1
+     | None -> false)
+  | None -> false
+
 (* ---------------------------------------------------------------------- *)
 (* D. An open dependent Skolem step                                         *)
 (* ---------------------------------------------------------------------- *)
@@ -316,5 +334,6 @@ let run () : bool =
   malformed_rejected () &&
   false_claim_not_certified () &&
   double_negation_agrees () &&
+  small_quantified_agrees () &&
   open_skolem_document () &&
   plain_document ()
