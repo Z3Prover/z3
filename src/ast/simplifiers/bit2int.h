@@ -35,7 +35,7 @@ public:
         for (unsigned idx : indices()) {
             auto const& d = m_fmls[idx];
             m_rewriter(d.fml(), r, pr);
-            m_fmls.update(idx, dependent_expr(m, r, mp(d.pr(), pr), d.dep()));
+            m_fmls.update(idx, dependent_expr(m, r, pr ? mp(d.pr(), pr) : d.pr(), d.dep()));
         }
     }
 

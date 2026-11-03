@@ -18,6 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
+#include "ast/simplifiers/bit2int.h"
 #include "ast/simplifiers/recfun_finder.h"
 #include "ast/occurs.h"
 #include "ast/simplifiers/solve_eqs.h"
@@ -26,6 +27,9 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/array_decl_plugin.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
+#include "qe/qe_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/smtlogics/smt_tactic.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -543,6 +547,112 @@ static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& s
     }
 }
 
+static void test_bit2int_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    bv_util bv(m);
+    expr_ref u(m.mk_const("mod-u", bv.mk_sort(3)), m);
+    expr_ref v(m.mk_const("mod-v", bv.mk_sort(3)), m);
+    expr_ref ui(bv.mk_ubv2int(u), m), vi(bv.mk_ubv2int(v), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref negative(a.mk_uminus(ui), m);
+    expr_ref neg_v(a.mk_uminus(vi), m);
+    expr_ref difference(a.mk_add(ui, neg_v), m);
+    expr_ref three(bv.mk_numeral(3, 3), m);
+    expr_ref nonzero(bv.mk_ubv2int(three), m);
+    expr_ref_vector dividends(m), divisors(m);
+    dividends.push_back(ui);
+    dividends.push_back(negative);
+    dividends.push_back(difference);
+    divisors.push_back(zero);
+    divisors.push_back(vi);
+    divisors.push_back(nonzero);
+    bit2int rewrite(m);
+    expr_ref result(m);
+    proof_ref pr(m);
+    for (expr* dividend : dividends) {
+        for (expr* divisor : divisors) {
+            expr_ref original(a.mk_mod(dividend, divisor), m);
+            rewrite(original, result, pr);
+            if (divisor == nonzero) {
+                ENSURE(bv.is_ubv2int(result));
+            }
+            else {
+                ENSURE(a.is_mod(result));
+            }
+            solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
+            expr_ref equality(m.mk_eq(original, result), m);
+            check->assert_expr(m.mk_not(equality));
+            ENSURE(check->check_sat(0, nullptr) == l_false);
+            if (pr) {
+                ENSURE(m.get_fact(pr) == equality);
+                base_dependent_expr_state state(m);
+                state.add(dependent_expr(m, equality, pr, nullptr));
+                expr_ref_vector assertions(m);
+                check_simplifier_proofs(m, state, assertions);
+            }
+        }
+    }
+
+    expr_ref one(a.mk_int(1), m);
+    expr_ref converted(m.mk_eq(ui, one), m);
+    rewrite(converted, result, pr);
+    ENSURE(result != converted && pr);
+    expr_ref x(m.mk_const("mod-x", a.mk_int()), m);
+    expr_ref unchanged(a.mk_gt(x, zero), m);
+    rewrite(unchanged, result, pr);
+    ENSURE(result == unchanged && !pr);
+
+    base_dependent_expr_state state(m);
+    expr_ref_vector assertions(m);
+    assertions.push_back(converted);
+    assertions.push_back(unchanged);
+    assertions.push_back(a.mk_lt(x, zero));
+    for (expr* assertion : assertions)
+        state.add(dependent_expr(m, assertion, m.mk_asserted(assertion), nullptr));
+    bit2int_simplifier simplify(m, params_ref(), state);
+    simplify.reduce();
+    check_simplifier_proofs(m, state, assertions);
+}
+
+static void test_bit2int_zero_divisor_qe() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        bv_util bv(m);
+        expr_ref u(m.mk_const("qe-u", bv.mk_sort(4)), m);
+        expr_ref v(m.mk_const("qe-v", bv.mk_sort(4)), m);
+        expr_ref ui(bv.mk_ubv2int(u), m), vi(bv.mk_ubv2int(v), m);
+        sort* integer = a.mk_int();
+        symbol name("x");
+        expr_ref x(m.mk_var(0, integer), m);
+        expr_ref mod(a.mk_mod(ui, vi), m);
+        expr_ref one(bv.mk_numeral(1, 4), m), zero(bv.mk_numeral(0, 4), m);
+        expr_ref u_value(m.mk_eq(u, one), m), v_value(m.mk_eq(v, zero), m);
+        expr_ref x_value(m.mk_eq(x, mod), m);
+        expr_ref different(m.mk_not(m.mk_eq(x, ui)), m);
+        expr* conjuncts[] = {u_value, v_value, x_value, different};
+        expr_ref body(m.mk_and(conjuncts), m);
+        expr_ref original(m.mk_exists(1, &integer, &name, body), m);
+        solver_ref plain(mk_smt_solver(m, params_ref(), symbol()));
+        plain->assert_expr(original);
+        ENSURE(plain->check_sat(0, nullptr) == l_true);
+        goal_ref input = alloc(goal, m, proofs, true, false);
+        input->assert_expr(original);
+        tactic_ref qe = mk_qe_tactic(m);
+        tactic_ref smt = mk_smt_tactic(m);
+        tactic_ref pipeline = and_then(qe.get(), smt.get());
+        model_ref model;
+        labels_vec labels;
+        proof_ref proof(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*pipeline, input, model, labels, proof, core, reason) == l_true);
+    }
+}
+
 static void test_solve_eqs_proofs() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
@@ -932,6 +1042,8 @@ static void test_nested_symbolic_rotations() {
 
 void tst_simplifier() {
 
+    test_bit2int_proofs();
+    test_bit2int_zero_divisor_qe();
     test_nested_symbolic_rotations();
     test_quantified_bool_literals();
     test_array();
