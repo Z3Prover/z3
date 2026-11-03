@@ -3201,6 +3201,33 @@ let sorted_quant_intro_regrouping () =
       require (not (NR.regrouped l r)) ("operands beyond the depth admission were regrouped: " ^ name))
     [ordered, "ordered"; unordered, "order-free"]
 
+(* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
+   equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
+   only. For every pair below the units equal the previous charge name_length a + name_length b,
+   and the comparison of BaseSort a with BaseSort b returns the previous result and work left
+   with exactly enough work, one unit short (exhausted) and spare work. The pairs: equal names
+   (built separately, so the count-once branch rests on string equality, not identity), a
+   prefix, equal lengths that differ, empty names, 300,000-character names (equal, and differing
+   in the last character), valid non-ASCII UTF-8, and malformed bytes (a lone continuation byte,
+   a truncated lead byte, U+FFFD itself against a byte the decoder reads as U+FFFD). *)
+let name_pair_units_equivalence () =
+  let huge c = String.make 300000 'S' ^ String.make 1 c in
+  let pairs = [
+    "Term", "Te" ^ "rm"; "Term", "Term2"; "Term2", "Term"; "abc", "abd"; "", ""; "", "x";
+    huge 'S', huge 'S'; huge 'S', huge 'T';
+    "\xc3\xa9\xe5\x90\x8d", "\xc3\xa9" ^ "\xe5\x90\x8d"; "\xc3\xa9\xe5\x90\x8d", "\xc3\xa9\xe5\x90\x8e";
+    "\x80\xc3", "\x80" ^ "\xc3"; "\xc3", "\xc3\xa9"; "\xef\xbf\xbd", "\x80" ] in
+  List.iter (fun (a, b) ->
+      let previous = Z.add (U.name_length a) (U.name_length b) in
+      require (Z.equal (U.name_pair_units a b) previous) "name pair units differ from both names' lengths";
+      let units = Z.succ previous in
+      List.iter (fun w ->
+          let expected = if Z.lt w units then None else Some (a = b, Z.sub w units) in
+          require (U.sort_eq_within w (A.BaseSort a) (A.BaseSort b) = expected)
+            "the base-sort comparison changed its result or work left")
+        [Z.pred units; units; Z.add units (Z.of_int 7)])
+    pairs
+
 let sorted_epsilon_skolemization () =
   let module K = Z3SortedProof in
   let module E = Z3SortedSkolem in
@@ -6977,6 +7004,7 @@ let () =
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
+     "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
      "sorted-constant-folding-rewrites", sorted_constant_folding;

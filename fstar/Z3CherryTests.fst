@@ -345,6 +345,37 @@ let nnf_premise_boundary () : bool =
 let diagnosis_is_check (force_sorted:bool) (m:C.marshaled) : bool =
   P.diagnostic_result (C.diagnose force_sorted m) = C.check force_sorted m
 
+(* The base-sort name charge of the scope guard (U.sort_tasks_within) counts
+   two equal names once and doubles the count (U.name_pair_units): a cost
+   reduction only. For every pair below the units equal the previous charge
+   name_length a + name_length b, and comparing BaseSort a with BaseSort b
+   returns the previous result and work left with exactly enough work, one
+   unit short (exhausted) and spare work: equal names (including
+   300,000-character ones; the Cherry extraction folds equal constant
+   strings into one static literal, so here equal names share storage), a
+   prefix, equal lengths that differ, empty names, and non-ASCII UTF-8
+   (two-byte and three-byte characters). Separately built equal strings and
+   malformed byte strings (which cannot be written as F* literals) are
+   covered by the OCaml bridge test. *)
+let sort_eq_previous (a b:string) (w:nat) : bool =
+  let units = 1 + U.name_length a + U.name_length b in
+  U.sort_eq_within w (A.BaseSort a) (A.BaseSort b) =
+    (if w < units then None else Some (a = b, w - units))
+
+let pair_units_exact (a b:string) : bool =
+  let units = 1 + U.name_length a + U.name_length b in
+  U.name_pair_units a b = U.name_length a + U.name_length b &&
+  sort_eq_previous a b (units - 1) && sort_eq_previous a b units && sort_eq_previous a b (units + 7)
+
+let name_pair_units_scale () : bool =
+  let huge_s = FStar.String.make 300000 'S' in
+  let huge_s' = FStar.String.make 300000 'S' in
+  let huge_t = FStar.String.make 300000 'T' in
+  pair_units_exact "Term" "Term" && pair_units_exact "Term" "Term2" && pair_units_exact "Term2" "Term" &&
+  pair_units_exact "abc" "abd" && pair_units_exact "" "" && pair_units_exact "" "x" &&
+  pair_units_exact huge_s huge_s' && pair_units_exact huge_s huge_t &&
+  pair_units_exact "é名" "é名" && pair_units_exact "é名" "é吊"
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -369,4 +400,5 @@ let run () : bool =
   binder_guard_stack () &&
   nnf_replay_scale () &&
   nnf_premise_boundary () &&
-  qi_regroup_scale ()
+  qi_regroup_scale () &&
+  name_pair_units_scale ()
