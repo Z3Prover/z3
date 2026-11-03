@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "cmd_context/tactic_manager.h"
 #include "tactic/tactic.h"
+#include "tactic/core/split_clause_tactic.h"
 
 tactic_manager::~tactic_manager() {
     finalize_tactic_manager();
