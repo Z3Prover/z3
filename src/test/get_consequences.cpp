@@ -18,12 +18,12 @@ Copyright (c) 2016 Microsoft Corporation
 #include "tactic/tactical.h"
 #include "tactic/core/split_clause_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/fd_solver/smtfd_solver.h"
+#include "solver/solver2tactic.h"
 #include "smt/smt_solver.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
 #include "tactic/fd_solver/fd_solver.h"
-#include "tactic/fd_solver/smtfd_solver.h"
-#include "solver/solver2tactic.h"
 #include <iostream>
 #include <string>
 
