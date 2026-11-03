@@ -66,6 +66,13 @@ public:
     void add_simplifier(dependent_expr_simplifier* s) {
         m_simplifiers.push_back(s);
     }
+
+    bool supports_proofs() const override {
+        for (auto* s : m_simplifiers)
+            if (!s->supports_proofs())
+                return false;
+        return true;
+    }
         
     void reduce() override {
         TRACE(simplifier, tout << m_fmls);
