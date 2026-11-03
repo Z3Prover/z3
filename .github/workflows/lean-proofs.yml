@@ -2,9 +2,9 @@ name: Lean proofs
 
 # On-demand check of Z3's native proofs in Lean: builds z3 (Release, clang, Python bindings) from the
 # selected branch, then runs scripts/ci_lean_proofs.sh, the same checks the CI workflow runs in its
-# releaseClang job. In parallel, one informational boundary-probe job per corpus (z3test's SMT-LIB
-# sample, z3test's F* regressions, and Z3's fstar/benchmarks SMT-LIB sample) runs both Lean cells
-# and reports how many inputs are certified and why the others are not. The run summary describes
+# releaseClang job. In parallel, two informational boundary-probe jobs (z3test's SMT-LIB sample;
+# the F* corpora, z3test's F* regressions and Z3's fstar/benchmarks SMT-LIB sample) run both Lean
+# cells and report how many inputs are certified and why the others are not. The run summary describes
 # what was checked, what is trusted, and where certification stops. Run from the Actions tab or with:
 #   gh workflow run lean-proofs.yml --ref <branch> -f z3test_ref=<ref>
 
@@ -104,9 +104,9 @@ jobs:
       fail-fast: false
       matrix:
         corpus:
-          - { name: 'z3test regressions/smtlib-sample', id: z3test-smtlib-sample, path: z3test/regressions/smtlib-sample }
-          - { name: 'z3test regressions/fstar', id: z3test-fstar, path: z3test/regressions/fstar }
-          - { name: 'z3 fstar/benchmarks/smtlib-sample', id: z3-fstar-smtlib-sample, path: fstar/benchmarks/smtlib-sample }
+          # paths: space-separated benchmark directories probed together in one job
+          - { name: 'SMT-LIB sample', id: smtlib-sample, paths: 'z3test/regressions/smtlib-sample' }
+          - { name: 'F* corpora', id: fstar, paths: 'z3test/regressions/fstar fstar/benchmarks/smtlib-sample' }
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,12 +137,14 @@ jobs:
 
       - name: Probe Lean certification
         env:
-          CORPUS: ${{ matrix.corpus.path }}
+          CORPORA: ${{ matrix.corpus.paths }}
           PROBE_TIMEOUT: ${{ inputs.probe_timeout }}
           PROBE_LEAN_TIMEOUT: ${{ inputs.probe_lean_timeout }}
         run: |
+          probe=()
+          for dir in $CORPORA; do probe+=(--probe "$dir"); done
           scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "$RUNNER_TEMP" \
-            --probe-only --probe "$CORPUS" --probe-timeout "$PROBE_TIMEOUT" --probe-lean-timeout "$PROBE_LEAN_TIMEOUT"
+            --probe-only "${probe[@]}" --probe-timeout "$PROBE_TIMEOUT" --probe-lean-timeout "$PROBE_LEAN_TIMEOUT"
 
       - name: Upload probe records and Lean files
         if: always()
