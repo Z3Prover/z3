@@ -3,8 +3,66 @@
 **Review revision:** `4f38d9c769688e49cf45f49d0b98ebfc063f87cf`
 (`dt2bv-certified-proof-converter`, PR #11513).
 This reviews the checkout containing the audited `dt2bv` converter, not subsequent
-changes on `origin/master`. No tactic or simplifier implementation is changed by
-this document.
+changes on `origin/master`. The original findings and catalogue below describe
+that revision; subsequent dispositions are recorded separately.
+
+## Subsequent dispositions
+
+The `sk_hack=true` option is **by design** and **not expected to be sound**.
+Its strengthening is intentional, not a pending tactic/proof-production bug.
+This correction applies to every `sk_hack` reference below, including the
+historical class-2a classification of `nnf` and `snf`; their default
+`sk_hack=false` paths are unaffected. No change to this option is requested.
+
+P3 was repaired by #11530. P4, P5 and ARITH-QE-BIT2INT-ZERO were repaired by
+#11529. The split-converter composition repair was merged in #11528.
+The historical witnesses below remain descriptions of the reviewed revision,
+not assertions that those repaired defects persist on current master.
+
+### Independent repair PRs based on `605d1d83a4614804d400ce5b23eca1f4a20184dd`
+
+The following repairs are published independently, not stacked: demodulation
+#11531, arithmetic purification #11532, custom pipeline contracts #11533, and
+backend tactic boundaries #11534. They are proposed changes, not claims that
+the defects are already fixed on master. The enum2bv module contract is
+documented separately in #11535.
+
+| Finding | Repair |
+|---|---|
+| P1 | Custom solver pipelines reject unsupported proof requests, including nested `then` compositions. Proof-capable passes must return a proof whose fact matches each assertion before the assertion reaches the backend. Reconstruction also checks proof facts. |
+| P2 | Non-ground demodulator instances retain quantifier-instantiation proofs, bound by the surrounding quantifier congruence. Exact-match fast paths record identity bindings instead of leaving absent or stale substitution entries. Uncertified matches are not applied. |
+| ARITH-PURIFY-MOD-QUOTIENT | Modulo purification constructs its auxiliary quotient using the integer-division declaration. |
+| ARITH-PURIFY-CONGRUENCE-LEAF | Div/mod/idiv congruence constraints are arithmetic lemmas with both defining proofs, not new asserted inputs. |
+| ARITH-PURIFY-FRESH-THEORY-LEMMA | Unit-circle constraints include both sine and cosine definitions. The non-basis unit-circle identity is a premise-free theory axiom, not an asserted input. Shared zero-power constants carry a definition of `0^0`, included among the relevant lemma premises. |
+| Additional arithmetic quantifier certificate gap | Purification preserves the actual body proof under a proof binder, using observational quantifier introduction when appropriate, instead of fabricating an unconditional body rewrite. |
+| CORE-FD-NO-PROOF and solver-to-tactic boundary | Unsupported custom FD preprocessing is refused. The generic wrapper rejects absent/non-false refutations before changing the goal, substitutes incoming assertion proofs, and preserves registered converters and proof-mode unknown goals. This does not add FD backend proof extraction. Split-converter materialization was repaired separately in merged #11528. |
+| LOGICS-SMT-FABRICATED-FALSE-BAILOUT | Sequential SMT refuses a proof-enabled UNSAT result without a proof of false; it no longer invents an asserted-false premise. The malformed-backend SMT branch remains source-conditional rather than a triggered production-backend reproduction. |
+
+Validation: each of the four code PRs independently passes the CMake/Ninja
+Release build of shell, test-z3, libz3 and Python bindings, all **126 native
+tests**, and solver/model, CLI-help and fresh Python-binding smoke checks on
+the base above. The combined repairs also passed these checks on
+`772e3ecf652946ce73eaa40260acb63161b85463`. Focused native tests cover
+ground, non-ground and nested mixed-sort binder demodulation, arithmetic
+purification with proofs enabled and disabled, assertion ownership, missing or
+wrong backend certificates, unknown results and custom pipeline capability/fact
+checks. Arithmetic rewrites and theory lemmas are checked independently by SMT
+from their recorded premises; the trigonometric tests supply the standard
+unit-circle identity over the original sine/cosine terms. This catches omitted
+fresh definitions without assuming the generated fresh-symbol identity.
+Demodulation proofs also pass the native proof checker with independently
+discharged side conditions. The legacy native checker rejects the shared
+rewriter's existing congruence steps combining observational definition proofs
+with equality conclusions; complete native-checker replay of arithmetic
+extension proofs is therefore not claimed. These are native producer
+regressions, not a new Pulse corpus-verification result. The intentionally
+unsound `sk_hack=true` behavior is unchanged.
+
+Remaining work includes general bit-blast/FP encoding transport, gauge-fixing
+transport, Horn original-premise transport, quasi-macro definition proofs,
+proof extraction for unsupported backends, and the category-3/4 support projects
+in the historical catalogue. The boundary repairs above do not certify those
+transformations.
 
 ## Classification and scope
 
@@ -157,9 +215,11 @@ The tactic attaches only mk_fpa2bv_model_converter, then inserts each converter 
 
 **Source:** [`src\tactic\fpa\fpa2bv_tactic.cpp:90-105`](https://github.com/Z3Prover/z3/blob/4f38d9c769688e49cf45f49d0b98ebfc063f87cf/src/tactic/fpa/fpa2bv_tactic.cpp#L90-L105); [`src\ast\fpa\fpa2bv_converter.cpp:337-361`](https://github.com/Z3Prover/z3/blob/4f38d9c769688e49cf45f49d0b98ebfc063f87cf/src/ast/fpa/fpa2bv_converter.cpp#L337-L361); [`src\ast\fpa\fpa2bv_converter.cpp:269-325`](https://github.com/Z3Prover/z3/blob/4f38d9c769688e49cf45f49d0b98ebfc063f87cf/src/ast/fpa/fpa2bv_converter.cpp#L269-L325)
 
-### CORE-NNF-SK-HACK: sk_hack parameter strengthens an existential without its predicate premise
+### CORE-NNF-SK-HACK: sk_hack strengthening is intentionally unsound by design
 
-**Class:** 2a. **Evidence status:** confirmed.
+**Disposition:** by design; not expected to be sound and not a pending bug.
+**Evidence status:** intentional behavior confirmed. The historical catalogue
+classified this option as 2a; that defect classification is withdrawn.
 
 When sk_hack=true and an existential carries a one-argument Boolean pattern whose declaration is named sk_hack, skolemizer changes body P(x) to P(x) and sk_hack(x) before substituting the witness. It still emits mk_skolemization(original_exists,strengthened_body), although SMT quantifier patterns impose no logical predicate assumption. Thus even a complete refutation can be of a satisfiable original formula.
 
@@ -702,8 +762,9 @@ coverage proves an error in Z3's producer.
 
 ## Recommended order of work
 
-1. Fix the semantic `bit2int` zero-divisor error (including QE's forced use), and
-   reject unsound `sk_hack` strengthening. These can change SAT to UNSAT.
+1. Fix the semantic `bit2int` zero-divisor error (including QE's forced use);
+   this can change SAT to UNSAT and is now repaired by #11529. The intentionally
+   unsound `sk_hack` option is by design and is excluded from repair work.
 2. Repair endpoint/premise logging in `bit2int`, demodulation, quantifier pulling
    and arithmetic purification; add capability/availability checks at drivers.
 3. Add original-premise transport for bit blasting, FP encodings and gauge fixing,
@@ -712,7 +773,8 @@ coverage proves an error in Z3's producer.
    frontends before attempting category-4 contextual, elimination and backend
    reconstruction projects.
 
-These are review recommendations, not implementation changes made here.
+These are historical review recommendations; subsequent implementations and
+their validation are recorded in the dispositions above.
 
 ## Repair plan
 
@@ -726,7 +788,7 @@ is unsound.
 | 1a | Recover split-clause converter registration/composition from #11513, without its `dt2bv` encoder. Retain the incoming parent converter, keep it out of child goals, apply branch-local converters before discharge, and materialize the result exactly once. | Sequential and repeated splits produce closed refutations with only original asserted leaves. Parent and branch converters run once, in scope; linear and proof-disabled pipelines still work. |
 | 1b | Fix P5 / ARITH-QE-BIT2INT-ZERO and P4 together in the shared `bit2int` rewriter. Preserve integer modulo's zero-divisor completion instead of substituting BV remainder; clear the output proof on unchanged inputs. | Zero and symbolic divisors preserve SAT, including through QE; nonzero and negative-dividend cases remain equivalent. Reusing the rewriter cannot attach a preceding formula's equality to an unchanged assertion. |
 | 1c | Retain P3's existential rewrite certificate. | The returned equality starts at the original existential, ends at the rewritten result, and composes correctly with child rewrites and the original assertion proof. |
-| 2 | Reject `sk_hack` strengthening without a semantic premise; repair demodulation's non-ground instantiation evidence and arithmetic purification endpoints. | SAT/UNSAT agrees with the untransformed problem; quantified refutations retain every needed original premise and have matching inference endpoints. Do not equate a missing certificate with identity. |
+| 2 | Repair demodulation's non-ground instantiation evidence and arithmetic purification endpoints. The intentionally unsound `sk_hack` option is by design and excluded. | For the supported sound paths, SAT/UNSAT agrees with the untransformed problem; quantified refutations retain every needed original premise and have matching inference endpoints. Do not equate a missing certificate with identity. |
 | 3 | Enforce simplifier capability and solver proof-availability contracts. Address unsupported custom simplifier pipelines, `qffd`/`smtfd`, solver-to-tactic premise transport, Horn transport, quasi-macro definitions, and the SMT fabricated-false bailout. | Reject unsupported proof requests before mutation or use a proof-capable fallback. Never publish UNSAT without an original-premise refutation, fabricate an asserted false, or substitute a proof whose fact differs from the replaced leaf. Test direct APIs and composed tactics separately. |
 | 4 | Add closed proof transport for fresh bit-blast/FP encodings, gauge fixing, and then `dt2bv` as independent projects. Reuse ordinary converter composition, not a second converter channel. | Prove generated side constraints, restore original assumptions, and traverse expression-valued proof parameters as well as ordinary AST children. Test scope, context translation, split orders, and repeated application. |
 | 5 | Enable category-3 local rewrites individually, then tackle category-4 contextual simplification, elimination and backend reconstruction. | Each advertised capability performs a real transformation with a checkable certificate; proof-mode no-ops do not count as support. Preserve cancellation and resource limits. |
