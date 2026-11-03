@@ -2748,6 +2748,7 @@ extern "C" {
        Negative integer exponents yield zero unless the base is 1 or -1,
        in which case the usual parity-dependent value is returned.
        Otherwise the arguments are coerced to reals and real exponentiation is used.
+       Real powers with exponent zero are also 1, including \ccode{0.0 ^ 0.0}.
 
        The arguments must have int or real type.
 

@@ -1277,6 +1277,12 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             k   = d2.m_decl;
         }
         func_decl * f;
+        if (s == "**" && fid == m().get_family_id("arith") && k == OP_POWER) {
+            arith_util a(m());
+            if (range && !a.is_int(range))
+                throw cmd_exception("integer exponentiation expects result sort Int");
+            range = a.mk_int();
+        }
         if (num_indices == 0) {
             f = m().mk_func_decl(fid, k, 0, nullptr, arity, domain, range);
         }
@@ -1344,6 +1350,12 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
         builtin_decl const & d2 = peek_builtin_decl(d, args[0]->get_sort()->get_family_id());
         fid = d2.m_fid;
         k   = d2.m_decl;
+    }
+    if (s == "**" && fid == m().get_family_id("arith") && k == OP_POWER) {
+        arith_util a(m());
+        if (range && !a.is_int(range))
+            throw cmd_exception("integer exponentiation expects result sort Int");
+        range = a.mk_int();
     }
     if (num_indices == 0) 
         result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);    

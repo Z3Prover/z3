@@ -106,9 +106,6 @@ namespace arith {
             n = a.mk_mod(x, a.mk_int(0));
             e = a.mk_mod0(x, a.mk_int(0));
         }
-        else if (a.is_power(n, x, y)) {
-            e = a.mk_power0(x, y);
-        }
         if (e) {
             literal lit = eq_internalize(n, e);
             add_unit(lit);
@@ -282,7 +279,7 @@ namespace arith {
                     mk_bv_axiom(to_app(n));
                     ensure_arg_vars(to_app(n));
                 }
-                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n) &&
+                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) &&
                          !a.is_real_part(n) && !a.is_imag_part(n)) {
                     found_unsupported(n);
                     ensure_arg_vars(to_app(n));
@@ -505,7 +502,7 @@ namespace arith {
         theory_var w = mk_evar(n);
 
         if (p == 0) {
-            mk_power0_axioms(t, n);
+            add_unit(eq_internalize(t, a.mk_numeral(rational(1), a.is_int(t))));
         }
         else {
             svector<lpvar> vars;

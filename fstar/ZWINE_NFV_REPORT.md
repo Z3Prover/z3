@@ -7,10 +7,14 @@ The current C++ implementation uses the integer exponentiation specified by
 absolute-exponent operation documented below. Its standard spelling is `**`,
 with signature `Int Int Int`, arbitrary integer exponents, and `(** 0 0) = 1`.
 For negative exponents it returns zero except at bases 1 and -1, where the
-usual parity-dependent value is returned. Real `^` is unchanged. The integer
+usual parity-dependent value is returned. Real `^` uses its existing semantics
+except that, following review, exponent zero now always gives 1, including
+`0.0 ^ 0.0`. The integer
 `^` spelling remains an extension alias; integer powers print as `**`.
-The parser-only `OP_IPOWER` selector rejects non-integer arguments and
-parameters, and constructs the existing integer `OP_POWER` declaration.
+Both overloads use `OP_POWER`; declaration construction checks argument sorts,
+arity, parameters, and the requested result sort. The parser selects the Int
+result for standard `**`, rejecting Real arguments without a separate AST kind.
+`OP_POWER0` and its solver/purification/model-converter plumbing are removed.
 
 The shared candidate checker now checks signed exponents directly. Negative
 exponents are not normalized by absolute value. Negative-exponent lemmas
@@ -84,6 +88,13 @@ additional Python exact-reference cases passed with model evaluation,
 push/pop, and contradictory-value checks across the two backends. Basic
 CLI/model/help and Python-binding smoke checks also passed.
 
+Review follow-up adds direct declaration/application rejection tests, both
+coercion modes, qualified/mapped `**` parsing, proof-checked real zero-power
+rewrites, both-backend zero-power cases, and direct LP candidate checks.
+The F* mathematical bridge is unchanged; the new real zero-power convention
+is a deliberate semantic choice covered by these native regressions, not a
+new claim of machine-checked C++ refinement.
+
 After merging master at `0642c5a7f57e2160511242743e9170ec438a72a1`, the
 Release targets were rebuilt and all 126 default unit groups and the 72
 Python cases passed. The signed-semantics benchmark comparison below measures
@@ -95,7 +106,8 @@ source and verification scope, except for the new benchmark comparison.
 
 ## Signed-semantics benchmark comparison (November 3, 2026)
 
-The current merged zwine implementation was compared with the native Windows
+The merged zwine source `0642c5a7f`, before the review follow-up above, was
+compared with the native Windows
 [SwInE 2 v0.2.1 release](https://github.com/ffrohn/swine-z3/releases/tag/v0.2.1),
 build `ab71d469cf0618006eb456eeaaa0d4ebba2eef9e`, which reports Z3 4.15.4.0.
 Both implement the standard signed semantics; no absolute-value adaptation

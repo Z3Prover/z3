@@ -33,6 +33,22 @@ Revision History:
 
 namespace nla {
 
+static void test_zero_exponent_power() {
+    lp::lar_solver s;
+    reslimit rl;
+    params_ref p;
+    lpvar x = s.add_var(0, false);
+    lpvar y = s.add_var(1, false);
+    lpvar r = s.add_var(2, false);
+    nla::core solver(s, p, rl);
+    s.set_column_value_test(x, lp::impq(rational(0)));
+    s.set_column_value_test(y, lp::impq(rational(0)));
+    s.set_column_value_test(r, lp::impq(rational(0)));
+    ENSURE(solver.check_power(r, x, y) == l_false);
+    s.set_column_value_test(r, lp::impq(rational(1)));
+    ENSURE(solver.check_power(r, x, y) == l_true);
+}
+
 // sin(t)^2 + cos(t)^2 = 1 should catch an assignment that is monomial-wise
 // consistent (each square is within its trivial [0,1] range) but violates
 // the Pythagorean identity, only once the identity axiom is actually
@@ -354,6 +370,7 @@ void test_atan2_unsat_regression() {
 }
 
 void test_nla_transcendentals() {
+    test_zero_exponent_power();
     test_sin_cos_identity_detects_conflict();
     test_cosh_sinh_identity_detects_conflict();
     test_is_nla_context_satisfied();

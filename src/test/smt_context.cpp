@@ -660,6 +660,17 @@ static void check_real_power_bounds() {
 static void check_integer_power(bool euf) {
     struct example { char const* input; lbool expected; };
     example examples[] = {
+        {"(assert (= (^ 0.0 0.0) 1.0))", l_true},
+        {"(assert (distinct (^ 0.0 0.0) 1.0))", l_false},
+        {"(declare-const x Real)(assert (distinct (^ x 0.0) 1.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x 0.0))(assert (>= x 0.0))"
+         "(assert (<= y 0.0))(assert (>= y 0.0))"
+         "(assert (distinct (^ x y) 1.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x 0.0))(assert (>= x 0.0))"
+         "(assert (<= y 0.0))(assert (>= y 0.0))"
+         "(assert (= (^ x y) 1.0))", l_true},
         {"(set-logic QF_NIA)(assert (= (mod (** 2 (- 3)) 3) 0))", l_true},
         {"(set-logic QF_NIA)(assert (= (** 0 0) 1))(assert (= (** 0 (- 3)) 0))"
          "(assert (= (** (- 1) (- 3)) (- 1)))(assert (= (** (- 1) (- 4)) 1))"

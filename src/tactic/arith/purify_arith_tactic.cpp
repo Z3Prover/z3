@@ -62,9 +62,7 @@ For clarity reasons, I write the constraints using ad-hoc notation.
 
 
 Rules
-  (^ t 0) --> k  |  t != 0 implies k = 1,   t = 0 implies k = 0^0 
-  where k is fresh
-  0^0 is a constant used to capture the meaning of (^ 0 0).
+  (^ t 0) --> 1
        
   (^ t (/ 1 n)) --> k  | t = k^n  
   when n is odd
@@ -197,7 +195,6 @@ struct purify_arith_proc {
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
         svector<bin_def>     m_divs, m_idivs, m_mods;
-        expr_ref             m_ipower0, m_rpower0;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;
@@ -207,8 +204,6 @@ struct purify_arith_proc {
             m_pinned(o.m()),
             m_new_cnstrs(o.m()),
             m_new_cnstr_prs(o.m()),
-            m_ipower0(o.m()),
-            m_rpower0(o.m()),
             m_subst(o.m()),           
             m_subst_pr(o.m()),
             m_new_vars(o.m()) {
@@ -444,7 +439,13 @@ struct purify_arith_proc {
             rational y;
             if (!u().is_numeral(args[1], y))
                 return BR_FAILED;
-            if (y.is_int() && !y.is_zero())
+            if (y.is_zero()) {
+                result = u().mk_real(1);
+                if (m().proofs_enabled())
+                    result_pr = m().mk_rewrite(m().mk_app(f, num, args), result);
+                return BR_DONE;
+            }
+            if (y.is_int())
                 return BR_FAILED;
             app_ref t(m());
             t = m().mk_app(f, num, args);
@@ -460,27 +461,7 @@ struct purify_arith_proc {
             cache_result(t, result, result_pr);
             
             expr_ref zero(u().mk_numeral(rational(0), is_int), m());
-            expr_ref one(u().mk_numeral(rational(1), is_int), m());
-            if (y.is_zero()) {
-                expr* p0;
-                if (is_int) {
-                    if (!m_ipower0) m_ipower0 = mk_fresh_var(false);
-                    p0 = m_ipower0;
-                }
-                else {
-                    if (!m_rpower0) m_rpower0 = mk_fresh_var(false);
-                    p0 = m_rpower0;
-                }
-
-                // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
-                expr_ref x_is_zero(EQ(x, zero), m());
-                push_cnstr(OR(x_is_zero, EQ(k, one)));
-                push_cnstr_pr(result_pr);
-                expr_ref x_is_nonzero(NOT(x_is_zero), m());
-                push_cnstr(OR(x_is_nonzero, EQ(k, p0)));
-                push_cnstr_pr(result_pr);
-            }
-            else if (!is_int) {
+            if (!is_int) {
                 SASSERT(!y.is_int());
                 SASSERT(numerator(y).is_one());
                 rational n = denominator(y);
@@ -899,12 +880,6 @@ struct purify_arith_proc {
                 }
                 fmc->add(u().mk_idiv0(), body);
             }
-            if (r.cfg().m_ipower0) {
-                fmc->add(u().mk_ipower0(), r.cfg().m_ipower0);
-            }
-            if (r.cfg().m_rpower0) {
-                fmc->add(u().mk_rpower0(), r.cfg().m_rpower0);
-            }
         }
         if (produce_models && !m_sin_cos.empty()) {
             generic_model_converter* emc = alloc(generic_model_converter, m(), "purify_sin_cos");
@@ -944,7 +919,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         r.insert("complete", CPK_BOOL, 
-                 "add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root", "true");
+                 "add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, neg-root", "true");
         r.insert("elim_root_objects", CPK_BOOL,
                  "eliminate root objects.", "true");
         r.insert("elim_inverses", CPK_BOOL,

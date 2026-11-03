@@ -61,18 +61,10 @@ namespace arith {
         add_clause(is_nonneg, eq_internalize(n, a.mk_uminus(x)));
     }
 
-    // t = n^0
-    void solver::mk_power0_axioms(app* t, app* n) {
-        expr_ref p0(a.mk_power0(n, t->get_arg(1)), m);
-        literal eq = eq_internalize(n, a.mk_numeral(rational(0), a.is_int(n)));
-        add_clause(~eq, eq_internalize(t, p0));
-        add_clause(eq, eq_internalize(t, a.mk_numeral(rational(1), a.is_int(t))));
-    }
-
     // t = n^p
     void solver::mk_power_axiom(expr* p, expr* x, expr* y) {
         if (a.is_zero(y)) {
-            mk_power0_axioms(to_app(p), to_app(x));
+            add_unit(eq_internalize(p, a.mk_numeral(rational(1), a.is_int(p))));
             return;
         }
         rational r;

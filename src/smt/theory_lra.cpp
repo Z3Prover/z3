@@ -324,9 +324,6 @@ class theory_lra::imp {
             n = a.mk_mod(x, a.mk_int(0));
             e = a.mk_mod0(x, a.mk_int(0));
         }
-        else if (a.is_power(n, x, y)) {                
-            e = a.mk_power0(x, y);
-        }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
             ctx().add_relevancy_dependency(n, ctx().bool_var2expr(lit.var()));
@@ -1283,6 +1280,10 @@ public:
         if (a.is_int(p))
             return;
         rational r;
+        if (a.is_extended_numeral(y, r) && r.is_zero()) {
+            mk_axiom(th.mk_eq(p, a.mk_real(1), false));
+            return;
+        }
         // r > 0 => r^y > 0
         if (a.is_extended_numeral(x, r) && r > 0) {
             expr_ref zero(a.mk_real(0), m);
@@ -1297,20 +1298,6 @@ public:
                 literal eq = mk_literal(x_eq_pn);
                 mk_axiom(~ge, eq);
             }
-        }
-        bool can_be_underspecified = false;
-        if (a.is_numeral(x, r) && r == 0 && (!a.is_numeral(y, r) || r == 0))
-            can_be_underspecified = true;
-        if (!a.is_extended_numeral(x, r) && 
-            !a.is_extended_numeral(y, r)) 
-            can_be_underspecified = true;
-        if (can_be_underspecified) {
-            literal lit = th.mk_eq(p, a.mk_power0(x, y), false);
-            ctx().mark_as_relevant(lit);
-            if (proofs_enabled())
-                ctx().mk_th_axiom(get_id(), lit);
-            else
-                ctx().assign(lit, nullptr);
         }
     }
 
@@ -1877,10 +1864,7 @@ public:
 
     final_check_status eval_power(expr* e) {
         expr* x = nullptr, * y = nullptr;
-        rational r;
         VERIFY(a.is_power(e, x, y));
-        if (a.is_numeral(x, r) && r == 0 && a.is_numeral(y, r) && r == 0)
-            return FC_DONE;
         if (!m_nla)
             return FC_GIVEUP;
         switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
@@ -1900,8 +1884,6 @@ public:
             return FC_DONE;
         if (a.is_power(e)) 
             return eval_power(e);        
-        if (a.is_power0(e)) 
-            return FC_DONE;
         return FC_GIVEUP;
     }
 
@@ -4322,7 +4304,6 @@ public:
         return 
             a.is_div0(f) ||
             a.is_idiv0(f) ||
-            a.is_power0(f) ||
             a.is_rem0(f) ||
             a.is_mod0(f);        
     }

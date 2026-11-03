@@ -995,7 +995,7 @@ namespace sls {
             add_arg(term, coeff, mk_op(arith_op_kind::OP_DIV, e, x, y));
         else if (a.is_rem(e, x, y))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_REM, e, x, y));
-        else if (a.is_power(e, x, y) || a.is_power0(e, x, y))
+        else if (a.is_power(e, x, y))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_POWER, e, x, y));
         else if (a.is_abs(e, x))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_ABS, e, x, x));

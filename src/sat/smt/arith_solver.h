@@ -329,7 +329,6 @@ namespace arith {
         void mk_power_axiom(expr* t, expr* n, expr* p);
         void mk_bound_axioms(api_bound& b);
         void mk_bound_axiom(api_bound& b1, api_bound& b2);
-        void mk_power0_axioms(app* t, app* n);
         void mk_bv_axiom(app* n);
         void flush_bound_axioms();
         void add_farkas_clause(sat::literal l1, sat::literal l2);

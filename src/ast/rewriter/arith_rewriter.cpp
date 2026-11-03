@@ -598,13 +598,11 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
         if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() &&
             ((is_eq && k > rational(1)) || (!is_eq && k > rational(2)))) {
             if (is_eq || !k.is_even()) {
-                if (m_util.is_real(arg) && m_util.is_int(arg0))
-                    arg0 = m_util.mk_to_real(arg0);
                 new_args.push_back(arg0);
             }
             else {
-                expr_ref two(m_util.mk_numeral(rational(2), m_util.is_int(arg0)), m);
-                new_args.push_back(m_util.mk_power(arg0, two));
+                new_args.push_back(arg0);
+                new_args.push_back(arg0);
             }
         }
         else {
@@ -1242,6 +1240,9 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
 }
 
 br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    // x**y * z**y = (x*z)**y; x**y * x**t = x**(y+t), except that a
+    // nonunit base and either negative exponent give zero.
+    // NFV: fstar/Z3SwineStandardPower.fst, common_exponent and common_base.
     if (num_args > 1 && m_util.is_int(args[0])) {
         for (unsigned i = 0; i < num_args; ++i) {
             expr* x = nullptr, * y = nullptr;
@@ -1839,9 +1840,7 @@ app* arith_rewriter_core::mk_power(expr* x, rational const& r, sort* s) {
     SASSERT(r.is_unsigned() && r.is_pos());
     bool is_int = m_util.is_int(x);
     app* y = m_util.mk_power(x, m_util.mk_numeral(r, is_int));
-    if (m_util.is_int(s) && m_util.is_real(y))
-        y = m_util.mk_to_int(y);
-    else if (m_util.is_real(s) && m_util.is_int(y))
+    if (m_util.is_real(s) && m_util.is_int(y))
         y = m_util.mk_to_real(y);
     return y;
 }
@@ -1981,6 +1980,8 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     numeral x, y;
     bool is_num_x    = m_util.is_numeral(arg1, x);
     bool is_num_y    = m_util.is_numeral(arg2, y);
+    // Integer powers truncate negative exponents to zero except at +/-1.
+    // NFV: fstar/Z3SwineStandardPower.fst, negative and zero_exponent.
     if (m_util.is_int(arg1)) {
         if (is_num_y && y.is_neg()) {
             expr_ref one(m_util.mk_int(1), m), minus_one(m_util.mk_int(-1), m), zero(m_util.mk_int(0), m);
@@ -2025,6 +2026,8 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         }
         expr* base = nullptr, * exponent = nullptr;
         if (m_util.is_power(arg1, base, exponent)) {
+            // (x**y)**z = x**(y*z), negating y*z if both exponents are
+            // negative. NFV: fstar/Z3SwineStandardPower.fst, nested.
             expr_ref product(m_util.mk_mul(exponent, arg2), m);
             expr_ref zero(m_util.mk_int(0), m);
             expr_ref inner_negative(m_util.mk_lt(exponent, zero), m), outer_negative(m_util.mk_lt(arg2, zero), m);
@@ -2044,8 +2047,6 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         }
         return BR_FAILED;
     }
-    auto ensure_real = [&](expr* e) { return m_util.is_int(e) ? m_util.mk_to_real(e) : e;  };
-
     TRACE(arith, tout << mk_bounded_pp(arg1, m) << " " << mk_bounded_pp(arg2, m) << "\n";);
     if (is_num_x && x.is_one()) {
         result = m_util.mk_numeral(x, false);
@@ -2053,19 +2054,16 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     }
 
     if (is_num_y && y.is_one()) {
-        result = ensure_real(arg1);
+        result = arg1;
         return BR_REWRITE1;
     }
 
+    if (is_num_y && y.is_zero()) {
+        result = m_util.mk_real(1);
+        return BR_DONE;
+    }
+
     if (is_num_x && is_num_y) {
-        if (x.is_zero() && y.is_zero())
-            return BR_FAILED;
-
-        if (y.is_zero()) {
-            result = m_util.mk_numeral(rational(1), false);
-            return BR_DONE;
-        }
-
         if (x.is_zero()) {
             result = m_util.mk_numeral(x, false);
             return BR_DONE;
@@ -2094,15 +2092,14 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         // (^ (^ t y2) y) --> (^ t (* y2 y))  If y2 > 0 && y != 0 && y and y2 are integers
         rational y2;
         if (m_util.is_numeral(arg11, y2) && y2.is_int() && y2.is_pos()) {
-            expr_ref base(ensure_real(arg10), m);
-            result = m_util.mk_power(base, m_util.mk_numeral(y*y2, false));
+            result = m_util.mk_power(arg10, m_util.mk_numeral(y*y2, false));
             return BR_REWRITE2;
         }
     }
 
     if (is_num_y && y.is_minus_one()) {        
         expr_ref one(m_util.mk_real(1), m);
-        result = m_util.mk_div(one, ensure_real(arg1));
+        result = m_util.mk_div(one, arg1);
         {
             auto _seq1812_0 = m.mk_eq(arg1, m_util.mk_numeral(rational(0), m_util.is_int(arg1)));
             auto _seq1812_1 = m_util.mk_real(0);
@@ -2127,7 +2124,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     if (is_num_y && !y.is_int() && !numerator(y).is_one()) {
         {
-            expr_ref lhs(ensure_real(arg1), m);
+            expr_ref lhs(arg1, m);
             expr_ref rhs(m_util.mk_numeral(rational(1) / denominator(y), false), m);
             auto _seq1830_0 = m_util.mk_power(lhs, rhs);
             auto _seq1830_1 = m_util.mk_numeral(numerator(y), false);
@@ -2143,7 +2140,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         for (unsigned i = 0; i < k; ++i) {
             args.push_back(arg1);
         }
-        result = ensure_real(m_util.mk_mul(args.size(), args.data()));
+        result = m_util.mk_mul(args.size(), args.data());
         return BR_REWRITE2;
     }
 
@@ -2154,10 +2151,6 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     if (!is_num_x && !is_irrat_x)
         return BR_FAILED;
-
-    if (y.is_zero()) {
-        return BR_FAILED;
-    }
 
     rational num_y = numerator(y);
     rational den_y = denominator(y);

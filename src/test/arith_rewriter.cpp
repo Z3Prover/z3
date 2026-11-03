@@ -53,7 +53,10 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
 
 static void check_integer_power_syntax() {
     for (char const* term : {"(** 2.0 3)", "(** 2 3.0)", "(** true 2)",
-                             "(** 2)", "(** 2 3 4)", "((_ ** 2) 3 4)"}) {
+                             "(** 2)", "(** 2 3 4)", "((_ ** 2) 3 4)",
+                             "((as ** Real) 2 3)",
+                             "(select ((_ map **) ((as const (Array Int Real)) 2.0)"
+                             " ((as const (Array Int Real)) 3.0)) 0)"}) {
         ast_manager m;
         reg_decl_plugins(m);
         std::ostringstream errors;
@@ -63,6 +66,74 @@ static void check_integer_power_syntax() {
         std::istringstream input(std::string("(assert (= ") + term + " 0))");
         ENSURE(!parse_smt2_commands(ctx, input));
         ENSURE(!errors.str().empty());
+    }
+}
+
+static void check_power_declarations() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    auto reject = [](auto&& construct) {
+        bool rejected = false;
+        try {
+            construct();
+        }
+        catch (ast_exception&) {
+            rejected = true;
+        }
+        ENSURE(rejected);
+    };
+    expr_ref i(a.mk_int(2), m), r(a.mk_real(2), m);
+    expr* args[3] = { i, i, i };
+    sort* integers[3] = { a.mk_int(), a.mk_int(), a.mk_int() };
+    sort* reals[2] = { a.mk_real(), a.mk_real() };
+    sort* invalid[2] = { a.mk_int(), m.mk_bool_sort() };
+    for (unsigned arity : {1u, 3u}) {
+        reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, arity, integers); });
+        reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 0, nullptr, arity, args); });
+    }
+    parameter index(2);
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 1, &index, 2, integers); });
+    reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 1, &index, 2, args); });
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, invalid); });
+    reject([&] { a.mk_power(i, m.mk_true()); });
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, integers, a.mk_real()); });
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, reals, a.mk_int()); });
+    for (bool coercions : {false, true}) {
+        m.enable_int_real_coercions(coercions);
+        for (expr* base : {i.get(), r.get()}) {
+            for (expr* exponent : {i.get(), r.get()}) {
+                if (!coercions && base->get_sort() != exponent->get_sort()) {
+                    reject([&] { a.mk_power(base, exponent); });
+                    continue;
+                }
+                app_ref p(a.mk_power(base, exponent), m);
+                sort* expected = a.is_real(base) || a.is_real(exponent) ? a.mk_real() : a.mk_int();
+                ENSURE(p->get_sort() == expected);
+                ENSURE(p->get_arg(0)->get_sort() == expected);
+                ENSURE(p->get_arg(1)->get_sort() == expected);
+            }
+        }
+    }
+}
+
+static void check_real_zero_power() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m), zero(a.mk_real(0), m);
+    for (expr* base : {x.get(), zero.get()}) {
+        expr_ref input(a.mk_power(base, zero), m), result(m);
+        proof_ref proof(m);
+        rw(input, result, proof);
+        ENSURE(a.is_one(result) && a.is_real(result));
+        ENSURE(proof && m.get_fact(proof) == m.mk_eq(input, result));
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(proof, side_conditions));
+        func_decl_ref uninterpreted(m);
+        ENSURE(!a.is_considered_uninterpreted(to_app(input)->get_decl(), 2, to_app(input)->get_args(), uninterpreted));
     }
 }
 
@@ -275,6 +346,8 @@ static void tst_inverse_trig_domains() {
 
 void tst_arith_rewriter() {
     check_integer_power_syntax();
+    check_power_declarations();
+    check_real_zero_power();
     check_integer_power_lemmas();
     test_complex_logic_names();
     tst_proof_associative_flattening();
