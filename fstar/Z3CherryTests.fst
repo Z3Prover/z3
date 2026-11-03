@@ -452,4 +452,5 @@ let run () : bool =
   nnf_premise_boundary () &&
   qi_regroup_scale () &&
   name_pair_units_scale () &&
-  Z3NnfReplayCheckedTests.run ()
+  Z3NnfReplayCheckedTests.run () &&
+  Z3SortedRouteTests.run ()

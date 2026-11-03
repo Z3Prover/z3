@@ -66,8 +66,9 @@ let diagnose (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marsha
 
 (* The opt-in accounting mode `verified-sorts-v1`: one diagnosed check, whose result is the
    verdict. On the legacy route quantifier introductions use the checked guard
-   (Z3VerifiedDocument); the sorted route does not use the checked guard (its NNF replay,
-   Z3NnfReplay, calls the default guard) and is unchanged. *)
+   (Z3VerifiedDocument). The sorted route is not served by this mode: its NNF replay (Z3NnfReplay)
+   keeps the default guard, the diagnosis is the default one, and the drivers report the mode as
+   not applied there (one `not-applied` row). *)
 let diagnose_verified (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marshaled)
   : Z3VerifiedDocument.verified_diagnostic =
   if sorted force_sorted m
@@ -80,7 +81,10 @@ let verified_rows ([@@@FStar.Attributes.cherry_borrowed] d:Z3VerifiedDocument.ve
   Z3VerifiedDocument.report_rows d.Z3VerifiedDocument.reports
 
 (* The opt-in accounting mode `verified-dag-v1`: the document marshaled once with the preparations
-   of its quantifier introductions, then one diagnosed check, whose result is the verdict. *)
+   of its quantifier introductions, then one diagnosed check, whose result is the verdict. On the
+   sorted route the NNF and quant-intro certificates are replayed by the checked DAG guard
+   (Z3SortedRoute.diagnose_document_epsilon_route); on the legacy route the document is checked by
+   Z3VerifiedDocument. *)
 noeq
 type marshaled_dag = {
   dag_base: marshaled;
@@ -95,8 +99,7 @@ let marshal_dag ([@@@FStar.Attributes.cherry_borrowed] assertions:list Z3Native.
 let diagnose_dag (force_sorted:bool) ([@@@FStar.Attributes.cherry_borrowed] m:marshaled_dag)
   : Z3VerifiedDocument.verified_diagnostic =
   if sorted force_sorted m.dag_base
-  then { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon m.dag_base.schema m.dag_base.document;
-         Z3VerifiedDocument.reports = [] }
+  then Z3SortedRoute.diagnose_document_epsilon_route m.dag_companions m.dag_base.schema m.dag_base.document
   else Z3VerifiedDocument.diagnose_document_dag_indexed assertion_hash m.dag_base.document m.dag_companions
 
 let dag_rows ([@@@FStar.Attributes.cherry_borrowed] d:Z3VerifiedDocument.verified_diagnostic)
@@ -114,3 +117,12 @@ let lemma_diagnose_is_check (force_sorted:bool) (m:marshaled)
     | P.DocumentChecked _ _ | P.DocumentRejected _ _ _ -> ())
   else
     P.lemma_diagnose_document_indexed assertion_hash m.document
+
+(* The same holds of the opt-in route: the result recorded by its diagnosis is its verdict, so one
+   diagnosed check serves stdout, the exit status and the additive rows (Z3SortedRoute.
+   lemma_diagnose_document_epsilon_route). *)
+let lemma_diagnose_dag_is_check (force_sorted:bool) (m:marshaled_dag)
+  : Lemma (requires sorted force_sorted m.dag_base)
+          (ensures P.diagnostic_result (diagnose_dag force_sorted m).Z3VerifiedDocument.diagnostic ==
+                   Z3SortedRoute.check_document_epsilon_route m.dag_companions m.dag_base.schema m.dag_base.document) =
+  Z3SortedRoute.lemma_diagnose_document_epsilon_route m.dag_companions m.dag_base.schema m.dag_base.document

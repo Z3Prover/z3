@@ -606,20 +606,25 @@ let check_proof statistics diagnostics readable query sorted_core verified dag s
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
   let sorted = datatype || sorted_core in
-  (* --resource-accounting verified-sorts-v1: one diagnosed check in that mode, whose result is the
-     verdict, with or without --diagnostics. The sorted route does not use the checked guard (its NNF
-     replay calls the default guard) and is unchanged. *)
+  (* --resource-accounting: one diagnosed check in the selected mode, whose result is the verdict, with
+     or without --diagnostics. verified-dag-v1 replays the NNF and quant-intro certificates of the sorted
+     route by the checked DAG guard (Z3SortedRoute, one row per replayed certificate: checked, refused,
+     exhausted with its phase, entries-unchecked, or unprepared with the reason); verified-sorts-v1 is
+     not applied on the sorted route (its guard is the legacy route's), which one explicit row says. *)
   let rows = ref [] in
   let result, diagnostic =
     if verified then (
       let checked =
         if sorted then
-          { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon schema doc;
-            Z3VerifiedDocument.reports = [] }
+          (if dag then Z3SortedRoute.diagnose_document_epsilon_route companions schema doc
+           else { Z3VerifiedDocument.diagnostic = Z3SortedProof.diagnose_document_epsilon schema doc;
+                  Z3VerifiedDocument.reports = [] })
         else if dag then Z3VerifiedDocument.diagnose_document_dag_indexed assertion_hash doc companions
         else Z3VerifiedDocument.diagnose_document_verified_indexed assertion_hash doc in
       rows := (if dag then Z3VerifiedDocument.dag_report_rows else Z3VerifiedDocument.report_rows)
                 checked.Z3VerifiedDocument.reports;
+      if sorted && not dag then
+        rows := ["resource-accounting\tverified-sorts-v1\tnot-applied\treason=sorted-route"];
       let diagnostic = checked.Z3VerifiedDocument.diagnostic in
       Z3ProofDocument.diagnostic_result diagnostic, if diagnostics then Some diagnostic else None)
     else if diagnostics then (

@@ -696,8 +696,8 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
     // check_document_diagnosed*. A second checking pass would only repeat the work.
     std::optional<Owned<Result, checker_drop_result>> checked;
     std::optional<Owned<Z3ProofDocument_document_diagnostic, checker_drop_diagnostic>> diagnosed;
-    // --resource-accounting verified-sorts-v1: one diagnosed check in that mode
-    // (Z3Cherry_diagnose_verified), whose result is the verdict, with or without --diagnostics.
+    // --resource-accounting: one diagnosed check in the selected mode (Z3Cherry_diagnose_verified or
+    // Z3Cherry_diagnose_dag), whose result is the verdict, with or without --diagnostics.
     std::optional<Owned<Z3VerifiedDocument_verified_diagnostic, checker_drop_verified>> verified;
     Z3ProofDocument_document_diagnostic const* diagnostic = nullptr;
     Result result{};
@@ -750,6 +750,9 @@ static Report check_proof(z3::context& context, Options const& options, Clock::t
         Owned<Prims_list__string, checker_drop_strings> rows(
             options.dag ? Z3Cherry_dag_rows(verified->value) : Z3Cherry_verified_rows(verified->value));
         each<Prims_list__string_Cons_s>(rows.value, [&](auto const& row) { std::cerr << text(row) << '\n'; });
+        // verified-sorts-v1 is the legacy route's guard: not applied on the sorted route (Z3Cherry.diagnose_verified).
+        if (sorted && !options.dag)
+            std::cerr << "resource-accounting\tverified-sorts-v1\tnot-applied\treason=sorted-route\n";
     }
     size_t edges = 0, binder_nodes = 0, binder_edges = 0;
     each<Prims_list__entry_Cons_s>(doc.entries, [&](auto const& entry) {
