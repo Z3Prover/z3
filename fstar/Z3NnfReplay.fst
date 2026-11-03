@@ -35,12 +35,16 @@
                     scope where both sides are typed: the typed Int
                     equivalence Z3SortedArithmetic.equivalent (linear
                     normal forms over the Int carrier; opaque Int-valued
-                    terms are atoms), or the propositional equivalence of
-                    the Boolean cuts (T.cut 64, else the coarser T.cut 2,
-                    decided by Z3SortedDatatype.bounded_propositional, the
-                    check the Sorted route uses for top-level rewrites;
-                    atoms are compared syntactically, so a de Bruijn index
-                    is read at the one scope of the step).
+                    terms are atoms); for Boolean sides, a regrouping of
+                    nested canonical and/or (equal operand lists, or, for
+                    at most 12 operands per side, lists included in each
+                    other; operands compared by exact identity); or the
+                    propositional equivalence of the Boolean cuts (T.cut
+                    64, else the coarser T.cut 2, decided by
+                    Z3SortedDatatype.bounded_propositional, the check the
+                    Sorted route uses for top-level rewrites; atoms are
+                    compared syntactically, so a de Bruijn index is read at
+                    the one scope of the step).
    With `refl`, `trans` and `monotonicity` these replay the body proofs of
    a quant-intro root; nothing is read from the rule names alone.
 
@@ -111,18 +115,30 @@
    charged m times, so the comparisons stay linear in the budget), and one
    unit per assertion for each `sk` step. A `rewrite` leaf is decided only
    after its formula's node count is charged, so its local check reads a
-   tree of at most the remaining budget. That check (existing Sorted-route
-   code, not one of the loops above) is not itself linear in the charge:
-   the Int equivalence reads at most 256 nodes per side, and each of the
-   (at most two) bounded propositional checks normalizes cut trees of at
-   most the charged size and enumerates a truth table only up to 12 atoms
-   (4096 rows of the simplified formula). This is the bounded form of the
-   check the Sorted route already applies, uncharged, to a top-level step
-   of the same size. An exhausted budget leaves the node PENDING. Premise
-   ids that are not earlier entries (forward, self or negative references)
-   make the certificate MALFORMED, which the Sorted route reports as a
-   rejected proof entry, not as a pending obligation (for an NNF and a
-   quant-intro root alike).
+   tree of at most the remaining budget. The regrouping is linear in that
+   charge: each operand walk pops at most 4096 stack entries (else refused)
+   and pushes every argument of an opened connective once; a depth walk
+   (at most 2^20 pops per side) admits only sides of depth at most 4096;
+   equal operand lists are compared once (at most the smaller side's
+   nodes); the order-free inclusion runs only for at most 12 operands per
+   side, so it makes at most 2 * 12 * 12 operand comparisons, together at
+   most 12 times the charged size. Operands are compared by the kernel's
+   structural equality (exact declarations, sorts and arguments), never by
+   native ids, and never more than 4096 levels deep. The node charge does
+   not count the bytes of declaration names; those comparisons are bounded
+   by the leaf's own bytes (12 times on the order-free path).
+   The other checks (existing Sorted-route code, not one of the loops above)
+   are not themselves linear in the charge: the Int equivalence reads at
+   most 256 nodes per side, and each of the (at most two) bounded
+   propositional checks normalizes cut trees of at most the charged size
+   and enumerates a truth table only up to 12 atoms (4096 rows of the
+   simplified formula). This is the bounded form of the check the Sorted
+   route already applies, uncharged, to a top-level step of the same size.
+   An exhausted budget leaves the node PENDING. Premise ids that are not
+   earlier entries (forward, self or negative references) make the
+   certificate MALFORMED, which the Sorted route reports as a rejected
+   proof entry, not as a pending obligation (for an NNF and a quant-intro
+   root alike).
 *)
 module Z3NnfReplay
 
@@ -278,22 +294,102 @@ let rec find_closure (lhs rhs:expr) (es:list expr) : Tot (option (list sort)) (d
        if s = bool_sort && body = R.mk_eq_expr lhs rhs then Some cb else find_closure lhs rhs rest
      | _ -> find_closure lhs rhs rest)
 
+let rec prepend (xs acc:list expr) : Tot (list expr) (decreases xs) =
+  match xs with [] -> acc | x :: rest -> prepend rest (x :: acc)
+
+(* The operands of the nested canonical connective `op` (and, or) at the top
+   of an expression, left to right. An application whose operator classifies
+   as `op` (T.classify: the name, a Boolean domain and range, the
+   interpretation and no parameters) is opened; every other expression (an
+   atom, a negation, a quantifier, a look-alike `or` with another
+   declaration, the other connective) is an operand, compared later by exact
+   identity. A loop over an explicit stack: an opened argument list is pushed
+   reversed, so the operands are reached right to left and consed onto `acc`
+   in order. At most `fuel` pops; a longer walk is refused (None). *)
+let rec operands_within (op:B.nary_op) (fuel:nat) (pending acc:list expr)
+  : Tot (option (list expr)) (decreases fuel) =
+  match pending with
+  | [] -> Some acc
+  | e :: rest ->
+    if fuel = 0 then None
+    else match e with
+      | App f args ->
+        if T.classify f = T.Nary op then operands_within op (fuel - 1) (prepend args rest) acc
+        else operands_within op (fuel - 1) rest (e :: acc)
+      | _ -> operands_within op (fuel - 1) rest (e :: acc)
+
+let operands (op:B.nary_op) (e:expr) : option (list expr) = operands_within op 4096 [e] []
+
+let rec at_most (n:nat) (xs:list expr) : Tot bool (decreases xs) =
+  match xs with
+  | [] -> true
+  | _ :: rest -> if n = 0 then false else at_most (n - 1) rest
+
+(* Every element of xs is an element of ys (exact identity). *)
+let rec included (xs ys:list expr) : Tot bool (decreases xs) =
+  match xs with
+  | [] -> true
+  | x :: rest -> if L.mem x ys then included rest ys else false
+
+let rec depths_at (d:nat) (xs:list expr) (acc:list (expr & nat)) : Tot (list (expr & nat)) (decreases xs) =
+  match xs with [] -> acc | x :: rest -> depths_at d rest ((x, d) :: acc)
+
+(* Every node of the pending expressions lies at most `limit` levels below
+   its root, found within at most `fuel` pops (otherwise false); a loop
+   over an explicit stack. The regrouping admits only sides of depth at
+   most 4096 (and at most 2^20 tree nodes), so the structural comparisons
+   of its operands (recursive in the generated C equality, iterative in
+   OCaml) never descend more than 4096 levels, also for distinct deep
+   operands that pointer equality cannot short-circuit; deeper or larger
+   sides are refused. *)
+let rec shallow_within (limit fuel:nat) (pending:list (expr & nat)) : Tot bool (decreases fuel) =
+  match pending with
+  | [] -> true
+  | (e, d) :: rest ->
+    if fuel = 0 || d > limit then false
+    else match e with
+      | App _ args -> shallow_within limit (fuel - 1) (depths_at (d + 1) args rest)
+      | Quantifier _ _ _ b -> shallow_within limit (fuel - 1) ((b, d + 1) :: rest)
+      | Var _ _ -> shallow_within limit (fuel - 1) rest
+
+let shallow (e:expr) : bool = shallow_within 4096 1048576 [(e, 0)]
+
+(* `lhs` and `rhs` are the same nested `op` over the same operands up to
+   grouping (associativity): equal operand lists; and, for at most 12
+   operands per side (the truth-table bound), up to order and repetition
+   (commutativity, idempotence): each operand list included in the other.
+   Both sides must be shallow (above). *)
+let regrouped_by (op:B.nary_op) (lhs rhs:expr) : bool =
+  match operands op lhs, operands op rhs with
+  | Some xs, Some ys ->
+    shallow lhs && shallow rhs &&
+    (xs = ys || (at_most 12 xs && at_most 12 ys && included xs ys && included ys xs))
+  | _, _ -> false
+
+let regrouped (lhs rhs:expr) : bool = regrouped_by B.Or lhs rhs || regrouped_by B.And lhs rhs
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
-   equivalence, or the propositional equivalence of the Boolean cuts, first
-   at depth 64 and otherwise at depth 2 (the same check over the coarser
-   abstraction whose atoms are the subterms below the top two Boolean
-   levels: an iff/negation normalization of wide conjunctions such as
-   `(= a (not o)) = (not (= o a))` exceeds the truth-table bound at depth 64
-   but has two atoms at depth 2). Every check is syntactic in the atoms, so
-   it holds at every typed environment of every scope at which both sides
-   are typed (lemma_rewrite_at). *)
+   equivalence; or, for Boolean sides, a regrouping of nested canonical
+   and/or over the same operands (the n-ary re-association leaves of
+   Pulse.Checker.Base-1, e.g. (or d1 d2 d3 d4) = (or (or d1 d2) (or d3 d4))
+   with 80-94 KB operands), or the propositional equivalence of the Boolean
+   cuts, first at depth 64 and otherwise at depth 2 (the same check over the
+   coarser abstraction whose atoms are the subterms below the top two
+   Boolean levels: an iff/negation normalization of wide conjunctions such
+   as `(= a (not o)) = (not (= o a))` exceeds the truth-table bound at depth
+   64 but has two atoms at depth 2). Every check is syntactic in the atoms
+   and operands, so it holds at every typed environment of every scope at
+   which both sides are typed (lemma_rewrite_at). *)
 let propositional_at (fuel:nat) (lhs rhs:expr) : bool =
   DT.bounded_propositional (B.Eq (T.cut fuel lhs) (T.cut fuel rhs))
 
+(* `if`, not `||`: F*'s normalizer reduces both operands of `||`, so a
+   normalized check of a regrouped leaf would also run the propositional
+   checks; the executable result is the same. *)
 let rewrite_ok (lhs rhs:expr) : bool =
   AR.equivalent lhs rhs ||
   (get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
-   (propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
+   (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
 
 (* `scoped`: the certificate has a quant-intro root, whose body proofs may
    use quant-intro congruences and rewrite leaves; an NNF certificate
@@ -354,9 +450,6 @@ let skolem_scopes_ok (e:U.binder_entry) (j:U.judgment) (scopes:list (list sort))
 (* ---------------------------------------------------------------------- *)
 (* 2. The certificate walk (executable, loops)                              *)
 (* ---------------------------------------------------------------------- *)
-
-let rec prepend (xs acc:list expr) : Tot (list expr) (decreases xs) =
-  match xs with [] -> acc | x :: rest -> prepend rest (x :: acc)
 
 (* The work left after one unit per node of the pending expressions (tree
    count), or None when the work does not suffice. *)
@@ -1069,10 +1162,133 @@ let lemma_propositional_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
   DT.lemma_bounded_propositional_g (T.truth_at s bc eq other scope rho) (B.Eq (T.cut fuel lhs) (T.cut fuel rhs));
   lemma_same_truth s bc eq other scope rho lhs rhs
 
+(* Regrouped connectives. The fold of `op` over the truths of operands
+   (B.geval_args over their atoms). *)
+let rec fold_truth (t:expr -> GTot bool) (op:B.nary_op) (xs:list expr) : GTot bool (decreases xs) =
+  match xs with
+  | [] -> B.neutral op
+  | x :: rest -> B.combine op (t x) (fold_truth t op rest)
+
+let rec lemma_fold_atoms (t:expr -> GTot bool) (op:B.nary_op) (xs:list expr)
+  : Lemma (ensures B.geval_args t op (L.map B.Atom xs) == fold_truth t op xs) (decreases xs) =
+  match xs with
+  | [] -> ()
+  | _ :: rest -> lemma_fold_atoms t op rest
+
+(* and, or and xor are associative and commutative with a neutral element,
+   so a reversed push onto the stack keeps the fold. *)
+let rec lemma_fold_prepend (t:expr -> GTot bool) (op:B.nary_op) (xs acc:list expr)
+  : Lemma (ensures fold_truth t op (prepend xs acc) == B.combine op (fold_truth t op xs) (fold_truth t op acc))
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest -> lemma_fold_prepend t op rest (x :: acc)
+
+let rec lemma_prepend_scoped (scope:list sort) (xs acc:list expr)
+  : Lemma (requires D.scoped_args scope xs /\ D.scoped_args scope acc)
+          (ensures D.scoped_args scope (prepend xs acc)) (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest -> lemma_prepend_scoped scope rest (x :: acc)
+
+(* The operand loop at a scope where the pending expressions are typed: the
+   fold of the collected operands is the fold of the pending expressions
+   combined with the fold of acc. An opened application of the canonical
+   `op` has the fold of its arguments as its truth (lemma_truth_nary). *)
+let rec lemma_operands_within (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                              (op:B.nary_op) (fuel:nat) (pending acc out:list expr)
+  : Lemma (requires operands_within op fuel pending acc == Some out /\ D.scoped_args scope pending)
+          (ensures fold_truth (T.truth_at s bc eq other scope rho) op out ==
+                   B.combine op (fold_truth (T.truth_at s bc eq other scope rho) op pending)
+                                (fold_truth (T.truth_at s bc eq other scope rho) op acc))
+          (decreases fuel) =
+  match pending with
+  | [] -> ()
+  | e :: rest ->
+    if fuel = 0 then ()
+    else match e with
+      | App f args ->
+        if T.classify f = T.Nary op then (
+          lemma_truth_nary s bc eq other scope rho f args op;
+          lemma_fold_atoms (T.truth_at s bc eq other scope rho) op args;
+          lemma_prepend_scoped scope args rest;
+          lemma_fold_prepend (T.truth_at s bc eq other scope rho) op args rest;
+          lemma_operands_within s bc eq other scope rho op (fuel - 1) (prepend args rest) acc out)
+        else lemma_operands_within s bc eq other scope rho op (fuel - 1) rest (e :: acc) out
+      | _ -> lemma_operands_within s bc eq other scope rho op (fuel - 1) rest (e :: acc) out
+
+let lemma_operands (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                   (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                   (op:B.nary_op) (e:expr) (out:list expr)
+  : Lemma (requires operands op e == Some out /\ D.scoped scope e)
+          (ensures fold_truth (T.truth_at s bc eq other scope rho) op out == T.truth_at s bc eq other scope rho e) =
+  lemma_operands_within s bc eq other scope rho op 4096 [e] [] out
+
+(* Membership: an operand of a true disjunction's list makes it true, and a
+   true conjunction makes each of its operands true. *)
+let rec lemma_member_or (t:expr -> GTot bool) (x:expr) (ys:list expr)
+  : Lemma (requires L.mem x ys /\ t x) (ensures fold_truth t B.Or ys) (decreases ys) =
+  match ys with
+  | [] -> ()
+  | y :: rest -> if y = x then () else lemma_member_or t x rest
+
+let rec lemma_member_and (t:expr -> GTot bool) (x:expr) (ys:list expr)
+  : Lemma (requires L.mem x ys /\ fold_truth t B.And ys) (ensures t x) (decreases ys) =
+  match ys with
+  | [] -> ()
+  | y :: rest -> if y = x then () else lemma_member_and t x rest
+
+let rec lemma_included (t:expr -> GTot bool) (xs ys:list expr)
+  : Lemma (requires included xs ys)
+          (ensures (fold_truth t B.Or xs ==> fold_truth t B.Or ys) /\
+                   (fold_truth t B.And ys ==> fold_truth t B.And xs))
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    FStar.Classical.move_requires (lemma_member_or t x) ys;
+    FStar.Classical.move_requires (lemma_member_and t x) ys;
+    lemma_included t rest ys
+
+(* A regrouping by canonical or / and has equal truth on both sides at ANY
+   scope where both sides are typed, at ANY typed environment of it: equal
+   operand lists have equal folds, and lists included in each other have
+   equal disjunctions and equal conjunctions. *)
+let lemma_regrouped_by (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                       (op:B.nary_op) (lhs rhs:expr)
+  : Lemma (requires regrouped_by op lhs rhs /\ (op == B.Or \/ op == B.And) /\
+                    D.scoped scope lhs /\ D.scoped scope rhs)
+          (ensures T.truth_at s bc eq other scope rho lhs == T.truth_at s bc eq other scope rho rhs) =
+  match operands op lhs, operands op rhs with
+  | Some xs, Some ys ->
+    lemma_operands s bc eq other scope rho op lhs xs;
+    lemma_operands s bc eq other scope rho op rhs ys;
+    if xs = ys then ()
+    else (
+      lemma_included (T.truth_at s bc eq other scope rho) xs ys;
+      lemma_included (T.truth_at s bc eq other scope rho) ys xs)
+  | _, _ -> ()
+
+let lemma_regrouped_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
+  : Lemma (requires regrouped lhs rhs /\ D.scoped scope lhs /\ D.scoped scope rhs /\
+                    get_sort lhs == bool_sort /\ get_sort rhs == bool_sort)
+          (ensures same_at s bc eq other scope rho lhs rhs) =
+  if regrouped_by B.Or lhs rhs then lemma_regrouped_by s bc eq other scope rho B.Or lhs rhs
+  else lemma_regrouped_by s bc eq other scope rho B.And lhs rhs;
+  lemma_same_truth s bc eq other scope rho lhs rhs
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
-   is Z3SortedArithmetic.lemma_equivalent at that scope; the propositional
-   equivalences are lemma_propositional_at. *)
+   is Z3SortedArithmetic.lemma_equivalent at that scope; the regrouping is
+   lemma_regrouped_at; the propositional equivalences are
+   lemma_propositional_at. *)
 let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
@@ -1081,6 +1297,7 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   if AR.equivalent lhs rhs then (
     AR.lemma_equivalent s bc eq other scope rho lhs rhs;
     lemma_same_at s bc eq other scope rho lhs rhs)
+  else if regrouped lhs rhs then lemma_regrouped_at s bc eq other scope rho lhs rhs
   else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
   else lemma_propositional_at s bc eq other scope rho 2 lhs rhs
 

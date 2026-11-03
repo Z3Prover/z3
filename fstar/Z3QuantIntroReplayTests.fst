@@ -15,7 +15,11 @@ module Z3QuantIntroReplayTests
       A4 the iff/negation normalization of a wide disjunction (decided at
          the coarser depth-2 cut; B13 are its wrong-sign mutants);
       A5 the truth-table guard of the bounded propositional check: the
-         same result as before, 12 atoms checked, 13 atoms refused.
+         same result as before, 12 atoms checked, 13 atoms refused;
+      A6 regrouped connectives (the Pulse.Checker.Base-1 q1 node 356
+         re-association leaves, decided by NR.regrouped, beyond the depth-2
+         table), small regroupings, and the theorem in every Sorted model;
+         B14 are its refused mutants.
    B. Mutants (Unreplayed = the node stays pending, Malformed = a rejected
       proof entry): wrong leaf sign, wrong Int target, a de Bruijn shift /
       capture, swapped binder sorts, a leaf reused at an incompatible scope,
@@ -306,6 +310,142 @@ let a5_thirteen_atoms ()
   assert_norm (not (DT.shape_equivalence a4_f) /\ not (N.clause_tautology (N.normalize false a4_f)));
   assert_norm (not (N.equivalent a4_f (B.Bool true)));
   a5_guard_unchanged true a4_f
+
+(* A6 regrouped connectives: the n-ary re-association leaves of
+   Pulse.Checker.Base-1 q1 (callback 1, node 356, entries 146/150/156/164),
+   e.g. (or d1 d2 d3 d4) = (or (or d1 d2) (or d3 d4)) with 80-94 KB
+   operands. In a6_l/a6_r one operand, `deep`, nests alternating and/or 71
+   Boolean levels deep (two closed atoms per level), so, as in the actual
+   leaves, the two sides' cuts put their atom boundaries inside it at
+   different depths: the depth-2 table refutes the leaf (below) and the
+   depth-64 check refuses it too (normalizing that refusal takes F* about
+   15 minutes, so it is asserted by the native bridge test instead,
+   test_native_bridge.ml `sorted_quant_intro_regrouping`). The leaf is
+   decided by the regrouping (NR.regrouped) and the certificate replays.
+   The small shapes are the regrouping's own verdicts: re-association,
+   commutation and duplicates (at most 12 operands), nested and, unary and
+   empty connectives, and an and operand inside an or. *)
+let g_ (name:string) : expr = c_ name
+let rec chain (n:nat) : expr =
+  let level = [c_ ("y" ^ string_of_int n); c_ ("z" ^ string_of_int n)] in
+  if n = 0 then mk_or level
+  else if n % 2 = 0 then mk_or (L.append level [chain (n - 1)])
+  else mk_and (L.append level [chain (n - 1)])
+let deep : expr = chain 70
+let a6_l : expr = mk_or [g_ "g1"; g_ "g2"; g_ "g3"; deep]
+let a6_r : expr = mk_or [mk_or [g_ "g1"; g_ "g2"]; mk_or [g_ "g3"; deep]]
+let a6_cert (l r:expr) : U.binder_certificate =
+  cert [be "rewrite" (eq l r) []; bq "quant-intro" [term] (eq (forall_ [term] l) (forall_ [term] r)) [0]] 1
+
+let a6_regrouped ()
+  : Lemma (not (Z3SortedArithmetic.equivalent a6_l a6_r) /\ not (NR.propositional_at 2 a6_l a6_r) /\
+           NR.regrouped a6_l a6_r /\ NR.rewrite_ok a6_l a6_r /\
+           replays (a6_cert a6_l a6_r) (forall_ [term] a6_l) (forall_ [term] a6_r)) =
+  assert_norm (not (Z3SortedArithmetic.equivalent a6_l a6_r));
+  assert_norm (not (NR.propositional_at 2 a6_l a6_r));
+  assert_norm (NR.regrouped a6_l a6_r);
+  assert_norm (NR.rewrite_ok a6_l a6_r);
+  assert_norm (replays (a6_cert a6_l a6_r) (forall_ [term] a6_l) (forall_ [term] a6_r))
+
+let a6_shapes : list (expr & expr) = [
+  mk_or [g_ "g1"; g_ "g2"; g_ "g3"; g_ "g4"], mk_or [mk_or [g_ "g1"; g_ "g2"]; mk_or [g_ "g3"; g_ "g4"]];
+  mk_or [g_ "g1"; g_ "g2"; g_ "g3"], mk_or [g_ "g3"; mk_or [g_ "g2"; g_ "g1"]];
+  mk_or [g_ "g1"; g_ "g2"; g_ "g1"], mk_or [mk_or [g_ "g2"; g_ "g1"]];
+  mk_and [g_ "g1"; mk_and [g_ "g2"; g_ "g3"]; g_ "g4"], mk_and [mk_and [g_ "g1"; g_ "g2"]; mk_and [g_ "g3"; g_ "g4"]];
+  mk_or [g_ "g1"], g_ "g1";
+  mk_or [], mk_or [mk_or []];
+  mk_and [], mk_and [mk_and []; mk_and []];
+  mk_or [mk_and [g_ "g1"; g_ "g2"]; g_ "g3"], mk_or [mk_or [mk_and [g_ "g1"; g_ "g2"]]; g_ "g3"]]
+
+let a6_ok (lr:expr & expr) : bool =
+  NR.regrouped (fst lr) (snd lr) && NR.rewrite_ok (fst lr) (snd lr) &&
+  replays (a6_cert (fst lr) (snd lr)) (forall_ [term] (fst lr)) (forall_ [term] (snd lr))
+
+let scoped_pair (lr:expr & expr) : bool = D.scoped [term] (fst lr) && D.scoped [term] (snd lr)
+
+let a6_small_shapes () : Lemma (L.for_all a6_ok a6_shapes /\ L.for_all scoped_pair a6_shapes) =
+  assert_norm (L.for_all a6_ok a6_shapes);
+  assert_norm (L.for_all scoped_pair a6_shapes)
+
+let rec lemma_for_all_memP (#a:Type) (f:a -> Tot bool) (l:list a) (x:a)
+  : Lemma (requires L.for_all f l /\ L.memP x l) (ensures f x) (decreases l) =
+  match l with
+  | [] -> ()
+  | _ :: rest -> FStar.Classical.move_requires (lemma_for_all_memP f rest) x
+
+(* The theorem in EVERY Sorted model, at every typed environment of the
+   leaf's scope [Term]: both sides have one value (NR.lemma_rewrite_at,
+   from the regrouping's soundness lemma NR.lemma_regrouped_at). *)
+let a6_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+             (rho:V.environment base (S.signature s) [term])
+  : Lemma (NR.same_at s bc eq other [term] rho a6_l a6_r /\
+           (forall (lr:expr & expr). L.memP lr a6_shapes ==>
+              NR.same_at s bc eq other [term] rho (fst lr) (snd lr))) =
+  a6_regrouped (); a6_small_shapes ();
+  assert_norm (D.scoped [term] a6_l /\ D.scoped [term] a6_r);
+  NR.lemma_rewrite_at s bc eq other [term] rho a6_l a6_r;
+  let at (lr:expr & expr)
+    : Lemma (requires L.memP lr a6_shapes) (ensures NR.same_at s bc eq other [term] rho (fst lr) (snd lr)) =
+    lemma_for_all_memP a6_ok a6_shapes lr;
+    lemma_for_all_memP scoped_pair a6_shapes lr;
+    NR.lemma_rewrite_at s bc eq other [term] rho (fst lr) (snd lr) in
+  FStar.Classical.forall_intro (FStar.Classical.move_requires at)
+
+(* B14 regrouping mutants, each refused by the whole rewrite check (the
+   regrouping and the propositional checks alike) and pending as a
+   certificate; opposite-value counter-models at an environment of the
+   leaf's scope [Term] are D9 in Z3QuantIntroCounterModelTests: a dropped
+   operand, an extra operand, and in place of or (swapped), a counterfeit
+   `or` (another declaration: no interpretation), xor in place of or, an
+   operand of the wrong polarity, a wrong atom, and the empty or against
+   the empty and. An `or`-named operator over a non-Boolean argument sort
+   is not a canonical connective, so it is never opened (one operand). *)
+let fake_or : func_decl = symbol "or" [bool_sort; bool_sort] bool_sort
+let xor_d : func_decl = { decl_name = "xor"; domain = [bool_sort; bool_sort]; range = bool_sort;
+                          interp = Some op_xor; int_params = [] }
+let or_mixed : func_decl = { decl_name = "or"; domain = [bool_sort; term]; range = bool_sort;
+                             interp = Some op_or; int_params = [] }
+let b14_or3 : expr = mk_or [g_ "g1"; g_ "g2"; g_ "g3"]
+let b14_dropped : expr & expr = b14_or3, mk_or [mk_or [g_ "g1"; g_ "g2"]]
+let b14_extra : expr & expr = mk_or [g_ "g1"; g_ "g2"], mk_or [mk_or [g_ "g1"; g_ "g2"]; g_ "g3"]
+let b14_swapped : expr & expr =
+  mk_or [g_ "g1"; g_ "g2"; g_ "g3"; g_ "g4"], mk_or [mk_and [g_ "g1"; g_ "g2"]; mk_or [g_ "g3"; g_ "g4"]]
+let b14_counterfeit : expr & expr = b14_or3, mk_or [App fake_or [g_ "g1"; g_ "g2"]; g_ "g3"]
+let b14_xor : expr & expr = b14_or3, mk_or [App xor_d [g_ "g1"; g_ "g2"]; g_ "g3"]
+let b14_polarity : expr & expr = b14_or3, mk_or [mk_or [g_ "g1"; neg (g_ "g2")]; g_ "g3"]
+let b14_wrong_atom : expr & expr = b14_or3, mk_or [mk_or [g_ "g1"; g_ "g2"]; g_ "g4"]
+let b14_empty : expr & expr = mk_or [], mk_and []
+let b14_mutants : list (expr & expr) = [
+  b14_dropped; b14_extra; b14_swapped; b14_counterfeit; b14_xor; b14_polarity; b14_wrong_atom; b14_empty]
+
+let refused (lr:expr & expr) : bool =
+  not (NR.regrouped (fst lr) (snd lr)) && not (NR.rewrite_ok (fst lr) (snd lr)) &&
+  pending (a6_cert (fst lr) (snd lr)) (forall_ [term] (fst lr)) (forall_ [term] (snd lr))
+
+let b14_regrouping_mutants ()
+  : Lemma (L.for_all refused b14_mutants /\
+           NR.operands B.Or (App or_mixed [g_ "g1"; App (symbol "tc" [] term) []]) ==
+             Some [App or_mixed [g_ "g1"; App (symbol "tc" [] term) []]]) =
+  assert_norm (L.for_all refused b14_mutants);
+  assert_norm (NR.operands B.Or (App or_mixed [g_ "g1"; App (symbol "tc" [] term) []]) ==
+               Some [App or_mixed [g_ "g1"; App (symbol "tc" [] term) []]])
+
+(* B15 the depth admission: both sides of a regrouping must be at most 4096
+   levels deep, which bounds the structural operand comparisons. With the
+   operand f^k(a) (an uninterpreted f), the right side's deepest node is at
+   level k + 2: k = 4094 is regrouped, k = 4095 is refused (a sound
+   refusal; the leaf is true). *)
+let fd : func_decl = symbol "f" [bool_sort] bool_sort
+let rec applied (k:nat) (acc:expr) : Tot expr (decreases k) =
+  if k = 0 then acc else applied (k - 1) (App fd [acc])
+let b15_shape (k:nat) : expr & expr =
+  mk_or [applied k (g_ "a"); g_ "g2"; g_ "g3"], mk_or [mk_or [applied k (g_ "a"); g_ "g2"]; g_ "g3"]
+let b15_depth_admission ()
+  : Lemma (NR.regrouped (fst (b15_shape 4094)) (snd (b15_shape 4094)) /\
+           not (NR.regrouped (fst (b15_shape 4095)) (snd (b15_shape 4095)))) =
+  assert_norm (NR.regrouped (fst (b15_shape 4094)) (snd (b15_shape 4094)));
+  assert_norm (not (NR.regrouped (fst (b15_shape 4095)) (snd (b15_shape 4095))))
 
 (* ---------------------------------------------------------------------- *)
 (* B. Mutants: the actual replay verdicts                                   *)

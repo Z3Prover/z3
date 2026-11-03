@@ -7,9 +7,11 @@ module Z3QuantIntroCounterModelTests
    B7 swapped congruence premises) or, for a corrupted OPEN leaf, at a
    concrete typed environment of the scope the guard assigns it (B12 under
    a VALID closed root, B2 wrong Int target, B3 de Bruijn shift, B13
-   iff/negation leaves with the wrong sign). So a replay that accepted any
-   of them would be unsound; the refusals are the checker's own verdicts,
-   proved by normalization in Z3QuantIntroReplayTests.
+   iff/negation leaves with the wrong sign, B14 regrouping mutants). So a
+   replay that accepted any of them would be unsound; the refusals are the
+   checker's own verdicts, proved by normalization in
+   Z3QuantIntroReplayTests. D9 also reads the A6 regrouping (the
+   Pulse.Checker.Base-1 shape) in every root model.
 
    The models: TR.standard over free choices that interpret a free Boolean
    symbol by a fixed predicate of its declaration (`pick`), every other free
@@ -516,3 +518,261 @@ let d8_iff_sign (u:TR.uninterpreted)
   assert (t QT.b13_inner_r == false);
   T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 QT.a4_l QT.b13_r;
   T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 QT.a4_l QT.b13_inner_r
+
+(* ---------------------------------------------------------------------- *)
+(* D9 B14 (regrouping mutants) and the A6 regroupings in root models       *)
+(* ---------------------------------------------------------------------- *)
+
+(* The leaf scope [Term] of the A6/B14 certificates and one environment. *)
+let leaf_scope : list sort = L.rev [QT.term] @ []
+
+let leaf_env (u:TR.uninterpreted) : V.environment (TR.carrier u) (S.signature PT.core_schema) leaf_scope =
+  V.extend (S.signature PT.core_schema) [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema)
+
+(* The free Boolean constants named in `names` are true, all others false. *)
+let among (names:list string) (f:func_decl) : bool = L.mem f.decl_name names
+
+let lemma_g (u:TR.uninterpreted) (pick:func_decl -> bool) (name:string)
+  : Lemma (requires TR.classify (S.signature PT.core_schema) (QT.symbol name [] bool_sort) == TR.Other)
+          (ensures T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u pick) leaf_scope (leaf_env u)
+                     (QT.g_ name) == pick (QT.symbol name [] bool_sort)) =
+  assert (D.scoped leaf_scope (QT.g_ name));
+  lemma_atom u pick leaf_scope (leaf_env u) (QT.symbol name [] bool_sort) []
+
+(* A canonical n-ary node folds the truths of its arguments. *)
+let lemma_node (u:TR.uninterpreted) (pick:func_decl -> bool) (f:func_decl) (args:list expr) (op:B.nary_op)
+  : Lemma (requires D.scoped leaf_scope (App f args) /\ T.classify f == T.Nary op)
+          (ensures T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u pick) leaf_scope (leaf_env u)
+                     (App f args) ==
+                   NR.fold_truth (T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u pick)
+                                    leaf_scope (leaf_env u)) op args) =
+  NR.lemma_truth_nary PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u pick) leaf_scope (leaf_env u) f args op;
+  NR.lemma_fold_atoms (T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u pick)
+                         leaf_scope (leaf_env u)) op args
+
+let g_classified ()
+  : Lemma (TR.classify (S.signature PT.core_schema) (QT.symbol "g1" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) (QT.symbol "g2" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) (QT.symbol "g3" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) (QT.symbol "g4" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) QT.fake_or == TR.Other /\
+           T.classify QT.xor_d == T.Nary B.Xor /\
+           leaf_scope == [QT.term]) =
+  assert_norm (TR.classify (S.signature PT.core_schema) (QT.symbol "g1" [] bool_sort) == TR.Other);
+  assert_norm (TR.classify (S.signature PT.core_schema) (QT.symbol "g2" [] bool_sort) == TR.Other);
+  assert_norm (TR.classify (S.signature PT.core_schema) (QT.symbol "g3" [] bool_sort) == TR.Other);
+  assert_norm (TR.classify (S.signature PT.core_schema) (QT.symbol "g4" [] bool_sort) == TR.Other);
+  assert_norm (TR.classify (S.signature PT.core_schema) QT.fake_or == TR.Other);
+  assert_norm (T.classify QT.xor_d == T.Nary B.Xor);
+  assert_norm (leaf_scope == [QT.term])
+
+(* The atoms g1..g4 read `among names` in the model `among names`. *)
+let lemma_gs (u:TR.uninterpreted) (names:list string)
+  : Lemma (T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u (among names)) leaf_scope (leaf_env u)
+             (QT.g_ "g1") == L.mem "g1" names /\
+           T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u (among names)) leaf_scope (leaf_env u)
+             (QT.g_ "g2") == L.mem "g2" names /\
+           T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u (among names)) leaf_scope (leaf_env u)
+             (QT.g_ "g3") == L.mem "g3" names /\
+           T.truth_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u (among names)) leaf_scope (leaf_env u)
+             (QT.g_ "g4") == L.mem "g4" names) =
+  g_classified ();
+  lemma_g u (among names) "g1"; lemma_g u (among names) "g2";
+  lemma_g u (among names) "g3"; lemma_g u (among names) "g4"
+
+(* The leaf equation `l = r` is false at the environment when its sides
+   have opposite values there. *)
+let lemma_leaf_false (u:TR.uninterpreted) (pick:func_decl -> bool) (l r:expr)
+  : Lemma (requires D.scoped leaf_scope l /\ D.scoped leaf_scope r /\ get_sort l == bool_sort /\ get_sort r == bool_sort /\
+                    st u pick leaf_scope (leaf_env u) l <> st u pick leaf_scope (leaf_env u) r)
+          (ensures TR.root_model u PT.core_schema (model u pick) /\
+                   not (st u pick leaf_scope (leaf_env u) (QT.eq l r))) =
+  lemma_model u pick;
+  T.lemma_boolean_equality_at PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u pick) leaf_scope (leaf_env u) l r
+
+let g1 : expr = QT.g_ "g1"
+let g2 : expr = QT.g_ "g2"
+let g3 : expr = QT.g_ "g3"
+let g4 : expr = QT.g_ "g4"
+
+let b14_facts ()
+  : Lemma (QT.b14_or3 == QT.mk_or [g1; g2; g3] /\
+           QT.b14_dropped == (QT.b14_or3, QT.mk_or [QT.mk_or [g1; g2]]) /\
+           QT.b14_extra == (QT.mk_or [g1; g2], QT.mk_or [QT.mk_or [g1; g2]; g3]) /\
+           QT.b14_swapped == (QT.mk_or [g1; g2; g3; g4], QT.mk_or [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]) /\
+           QT.b14_counterfeit == (QT.b14_or3, QT.mk_or [App QT.fake_or [g1; g2]; g3]) /\
+           QT.b14_xor == (QT.b14_or3, QT.mk_or [App QT.xor_d [g1; g2]; g3]) /\
+           QT.b14_polarity == (QT.b14_or3, QT.mk_or [QT.mk_or [g1; QT.neg g2]; g3]) /\
+           QT.b14_wrong_atom == (QT.b14_or3, QT.mk_or [QT.mk_or [g1; g2]; g4]) /\
+           QT.b14_empty == (QT.mk_or [], QT.mk_and []) /\
+           T.classify (BR.connective_decl BR.Disjunction [g1; g2; g3]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [g1; g2; g3; g4]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [g1; g2]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [g3; g4]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Conjunction [g1; g2]) == T.Nary B.And /\
+           T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]; g3]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]; g4]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [App QT.fake_or [g1; g2]; g3]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [App QT.xor_d [g1; g2]; g3]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [g1; QT.neg g2]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; QT.neg g2]; g3]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Disjunction []) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Conjunction []) == T.Nary B.And /\
+           D.scoped leaf_scope (QT.mk_or [g1; g2; g3]) /\ D.scoped leaf_scope (QT.mk_or [g1; g2; g3; g4]) /\
+           D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; g2]]) /\ D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; g2]; g3]) /\
+           D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; g2]; g4]) /\
+           D.scoped leaf_scope (QT.mk_or [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]) /\
+           D.scoped leaf_scope (QT.mk_or [App QT.fake_or [g1; g2]; g3]) /\
+           D.scoped leaf_scope (QT.mk_or [App QT.xor_d [g1; g2]; g3]) /\
+           D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; QT.neg g2]; g3]) /\
+           D.scoped leaf_scope (QT.mk_or []) /\ D.scoped leaf_scope (QT.mk_and []) /\
+           D.scoped leaf_scope (QT.mk_or [g1; g2]) /\ D.scoped leaf_scope (QT.mk_or [g3; g4]) /\
+           D.scoped leaf_scope (QT.mk_and [g1; g2]) /\ D.scoped leaf_scope (App QT.fake_or [g1; g2]) /\
+           D.scoped leaf_scope (App QT.xor_d [g1; g2]) /\ D.scoped leaf_scope (QT.mk_or [g1; QT.neg g2]) /\
+           D.scoped leaf_scope (QT.neg g2)) =
+  assert_norm (QT.b14_or3 == QT.mk_or [g1; g2; g3]);
+  assert_norm (QT.b14_dropped == (QT.b14_or3, QT.mk_or [QT.mk_or [g1; g2]]));
+  assert_norm (QT.b14_extra == (QT.mk_or [g1; g2], QT.mk_or [QT.mk_or [g1; g2]; g3]));
+  assert_norm (QT.b14_swapped == (QT.mk_or [g1; g2; g3; g4], QT.mk_or [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]));
+  assert_norm (QT.b14_counterfeit == (QT.b14_or3, QT.mk_or [App QT.fake_or [g1; g2]; g3]));
+  assert_norm (QT.b14_xor == (QT.b14_or3, QT.mk_or [App QT.xor_d [g1; g2]; g3]));
+  assert_norm (QT.b14_polarity == (QT.b14_or3, QT.mk_or [QT.mk_or [g1; QT.neg g2]; g3]));
+  assert_norm (QT.b14_wrong_atom == (QT.b14_or3, QT.mk_or [QT.mk_or [g1; g2]; g4]));
+  assert_norm (QT.b14_empty == (QT.mk_or [], QT.mk_and []));
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [g1; g2; g3]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [g1; g2; g3; g4]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [g1; g2]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [g3; g4]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Conjunction [g1; g2]) == T.Nary B.And);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]; g3]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]; g4]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [App QT.fake_or [g1; g2]; g3]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [App QT.xor_d [g1; g2]; g3]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [g1; QT.neg g2]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [QT.mk_or [g1; QT.neg g2]; g3]) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction []) == T.Nary B.Or);
+  assert_norm (T.classify (BR.connective_decl BR.Conjunction []) == T.Nary B.And);
+  assert_norm (D.scoped leaf_scope (QT.mk_or [g1; g2; g3]) /\ D.scoped leaf_scope (QT.mk_or [g1; g2; g3; g4]));
+  assert_norm (D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; g2]]) /\
+               D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; g2]; g3]));
+  assert_norm (D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; g2]; g4]) /\
+               D.scoped leaf_scope (QT.mk_or [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]));
+  assert_norm (D.scoped leaf_scope (QT.mk_or [App QT.fake_or [g1; g2]; g3]) /\
+               D.scoped leaf_scope (QT.mk_or [App QT.xor_d [g1; g2]; g3]));
+  assert_norm (D.scoped leaf_scope (QT.mk_or [QT.mk_or [g1; QT.neg g2]; g3]) /\
+               D.scoped leaf_scope (QT.mk_or []) /\ D.scoped leaf_scope (QT.mk_and []));
+  assert_norm (D.scoped leaf_scope (QT.mk_or [g1; g2]) /\ D.scoped leaf_scope (QT.mk_or [g3; g4]));
+  assert_norm (D.scoped leaf_scope (QT.mk_and [g1; g2]) /\ D.scoped leaf_scope (App QT.fake_or [g1; g2]));
+  assert_norm (D.scoped leaf_scope (App QT.xor_d [g1; g2]) /\ D.scoped leaf_scope (QT.mk_or [g1; QT.neg g2]));
+  assert_norm (D.scoped leaf_scope (QT.neg g2))
+
+(* Each B14 mutant leaf, in a standard root model of every u, at an
+   environment of its scope [Term]: the two sides have OPPOSITE values, so
+   the refused leaf equation is false there. *)
+let st9 (u:TR.uninterpreted) (names:list string) (e:expr) : GTot bool =
+  st u (among names) leaf_scope (leaf_env u) e
+
+let d9_dropped_extra_wrong (u:TR.uninterpreted)
+  : Lemma (st9 u ["g3"] (fst QT.b14_dropped) == true /\ st9 u ["g3"] (snd QT.b14_dropped) == false /\
+           st9 u ["g3"] (fst QT.b14_extra) == false /\ st9 u ["g3"] (snd QT.b14_extra) == true /\
+           st9 u ["g3"] (fst QT.b14_wrong_atom) == true /\ st9 u ["g3"] (snd QT.b14_wrong_atom) == false) =
+  let n = ["g3"] in
+  let p = among n in
+  b14_facts (); lemma_gs u n;
+  assert_norm (L.mem "g1" n == false /\ L.mem "g2" n == false /\ L.mem "g3" n == true /\ L.mem "g4" n == false);
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3]) [g1; g2; g3] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2]) [g1; g2] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]]) [QT.mk_or [g1; g2]] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]; g3]) [QT.mk_or [g1; g2]; g3] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [QT.mk_or [g1; g2]; g4]) [QT.mk_or [g1; g2]; g4] B.Or
+
+let d9_swapped_counterfeit (u:TR.uninterpreted)
+  : Lemma (st9 u ["g1"] (fst QT.b14_swapped) == true /\ st9 u ["g1"] (snd QT.b14_swapped) == false /\
+           st9 u ["g1"] (fst QT.b14_counterfeit) == true /\ st9 u ["g1"] (snd QT.b14_counterfeit) == false) =
+  let n = ["g1"] in
+  let p = among n in
+  b14_facts (); lemma_gs u n; g_classified ();
+  assert_norm (L.mem "g1" n == true /\ L.mem "g2" n == false /\ L.mem "g3" n == false /\ L.mem "g4" n == false);
+  assert_norm (among n QT.fake_or == false);
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3; g4]) [g1; g2; g3; g4] B.Or;
+  lemma_node u p (BR.connective_decl BR.Conjunction [g1; g2]) [g1; g2] B.And;
+  lemma_node u p (BR.connective_decl BR.Disjunction [g3; g4]) [g3; g4] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]])
+    [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3]) [g1; g2; g3] B.Or;
+  lemma_atom u p leaf_scope (leaf_env u) QT.fake_or [g1; g2];
+  lemma_node u p (BR.connective_decl BR.Disjunction [App QT.fake_or [g1; g2]; g3]) [App QT.fake_or [g1; g2]; g3] B.Or
+
+let d9_xor (u:TR.uninterpreted)
+  : Lemma (st9 u ["g1"; "g2"] (fst QT.b14_xor) == true /\ st9 u ["g1"; "g2"] (snd QT.b14_xor) == false) =
+  let n = ["g1"; "g2"] in
+  let p = among n in
+  b14_facts (); lemma_gs u n; g_classified ();
+  assert_norm (L.mem "g1" n == true /\ L.mem "g2" n == true /\ L.mem "g3" n == false);
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3]) [g1; g2; g3] B.Or;
+  lemma_node u p QT.xor_d [g1; g2] B.Xor;
+  lemma_node u p (BR.connective_decl BR.Disjunction [App QT.xor_d [g1; g2]; g3]) [App QT.xor_d [g1; g2]; g3] B.Or
+
+let d9_polarity (u:TR.uninterpreted)
+  : Lemma (st9 u ["g2"] (fst QT.b14_polarity) == true /\ st9 u ["g2"] (snd QT.b14_polarity) == false) =
+  let n = ["g2"] in
+  let p = among n in
+  b14_facts (); lemma_gs u n;
+  assert_norm (L.mem "g1" n == false /\ L.mem "g2" n == true /\ L.mem "g3" n == false);
+  NR.lemma_truth_not PT.core_schema (TR.booleans u) (SR.root_scalars u) (model u p) leaf_scope (leaf_env u) R.not_decl g2;
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3]) [g1; g2; g3] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [g1; QT.neg g2]) [g1; QT.neg g2] B.Or;
+  lemma_node u p (BR.connective_decl BR.Disjunction [QT.mk_or [g1; QT.neg g2]; g3]) [QT.mk_or [g1; QT.neg g2]; g3] B.Or
+
+let d9_empty (u:TR.uninterpreted)
+  : Lemma (st9 u [] (fst QT.b14_empty) == false /\ st9 u [] (snd QT.b14_empty) == true) =
+  b14_facts ();
+  lemma_node u (among []) (BR.connective_decl BR.Disjunction []) [] B.Or;
+  lemma_node u (among []) (BR.connective_decl BR.Conjunction []) [] B.And
+
+(* Hence every refused B14 leaf equation is FALSE at that environment of
+   its assigned scope. *)
+let d9_regrouping_mutants (u:TR.uninterpreted)
+  : Lemma (not (st9 u ["g3"] (QT.eq (fst QT.b14_dropped) (snd QT.b14_dropped))) /\
+           not (st9 u ["g3"] (QT.eq (fst QT.b14_extra) (snd QT.b14_extra))) /\
+           not (st9 u ["g1"] (QT.eq (fst QT.b14_swapped) (snd QT.b14_swapped))) /\
+           not (st9 u ["g1"] (QT.eq (fst QT.b14_counterfeit) (snd QT.b14_counterfeit))) /\
+           not (st9 u ["g1"; "g2"] (QT.eq (fst QT.b14_xor) (snd QT.b14_xor))) /\
+           not (st9 u ["g2"] (QT.eq (fst QT.b14_polarity) (snd QT.b14_polarity))) /\
+           not (st9 u ["g3"] (QT.eq (fst QT.b14_wrong_atom) (snd QT.b14_wrong_atom))) /\
+           not (st9 u [] (QT.eq (fst QT.b14_empty) (snd QT.b14_empty)))) =
+  b14_facts ();
+  d9_dropped_extra_wrong u; d9_swapped_counterfeit u; d9_xor u; d9_polarity u; d9_empty u;
+  lemma_leaf_false u (among ["g3"]) (fst QT.b14_dropped) (snd QT.b14_dropped);
+  lemma_leaf_false u (among ["g3"]) (fst QT.b14_extra) (snd QT.b14_extra);
+  lemma_leaf_false u (among ["g1"]) (fst QT.b14_swapped) (snd QT.b14_swapped);
+  lemma_leaf_false u (among ["g1"]) (fst QT.b14_counterfeit) (snd QT.b14_counterfeit);
+  lemma_leaf_false u (among ["g1"; "g2"]) (fst QT.b14_xor) (snd QT.b14_xor);
+  lemma_leaf_false u (among ["g2"]) (fst QT.b14_polarity) (snd QT.b14_polarity);
+  lemma_leaf_false u (among ["g3"]) (fst QT.b14_wrong_atom) (snd QT.b14_wrong_atom);
+  lemma_leaf_false u (among []) (fst QT.b14_empty) (snd QT.b14_empty)
+
+(* The A6 Base-1 shape in the root models: in EVERY root model, at EVERY
+   typed environment of the leaf scope [Term], both sides have one ROOT
+   truth value (the Sorted truth over the root scalars of the same
+   interpretation, which A6's every-Sorted-model theorem equates, agrees
+   with its root truth: Z3SortedRoot.lemma_truth_agreement). *)
+let rtruth_in (u:TR.uninterpreted) (i:TR.interp u PT.core_schema) (scope:list sort)
+              (rho:V.environment (TR.carrier u) (S.signature PT.core_schema) scope) (e:expr) : GTot bool =
+  D.scoped scope e && get_sort e = bool_sort &&
+  TR.truth PT.core_schema (V.evaluate (S.signature PT.core_schema) i scope rho e)
+
+let d9_a6_root (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+               (rho:V.environment (TR.carrier u) (S.signature PT.core_schema) [QT.term])
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures rtruth_in u i [QT.term] rho QT.a6_l == rtruth_in u i [QT.term] rho QT.a6_r) =
+  QT.a6_valid PT.core_schema (TR.booleans u) (SR.root_scalars u) i rho;
+  assert_norm (D.scoped [QT.term] QT.a6_l /\ D.scoped [QT.term] QT.a6_r /\
+               get_sort QT.a6_l == bool_sort /\ get_sort QT.a6_r == bool_sort);
+  NR.lemma_same_at PT.core_schema (TR.booleans u) (SR.root_scalars u) i [QT.term] rho QT.a6_l QT.a6_r;
+  SR.lemma_truth_agreement u PT.core_schema i [QT.term] rho QT.a6_l;
+  SR.lemma_truth_agreement u PT.core_schema i [QT.term] rho QT.a6_r
