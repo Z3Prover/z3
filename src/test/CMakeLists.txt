@@ -17,6 +17,7 @@ add_executable(test-z3
   api_polynomial.cpp
   api_pb.cpp
   api_datalog.cpp
+  api_qbmc_recursive.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
