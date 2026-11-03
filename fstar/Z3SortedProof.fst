@@ -1521,6 +1521,105 @@ let rec lemma_arithmetic_assumptions (#base:sort -> Type0) (s:S.checked_schema) 
      | [] -> ()
      | _ :: rest -> lemma_arithmetic_assumptions s bc eq other [] rest)
 
+(* ---------------------------------------------------------------------- *)
+(* Coefficient-free linear Int consequences                                 *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's implied Int equalities and bound conflicts carry no Farkas
+   coefficients (only its arith farkas/bound steps do). The checker
+   recomputes them from the step's own formulas: the existing bounded search
+   LA.synthesize (unchanged and untrusted: at most 32 literals, 16
+   elimination rounds and 128 rows) proposes weights for the premises with
+   one target negated, and the existing typed check AR.check_contradiction
+   validates them against exactly those literals (one weight per literal,
+   signs and orientation, the strict-Int rounding, atoms by expression
+   identity, closed scope, Int comparisons only, every contribution). A
+   failed or wrong search leaves the step open. Only the entry formula and
+   the premise propositions are read, never the rule label or a payload;
+   the two bounds below are internal checker terms. *)
+
+(* Every literal an Int comparison or its negation (AR.integer_formula):
+   Real, mixed and non-arithmetic literals are refused before any search. *)
+let rec integer_literals (lits:list (bool & expr)) : Tot bool (decreases lits) =
+  match lits with
+  | [] -> true
+  | (_, e) :: rest -> AR.integer_formula 16 e && integer_literals rest
+
+(* The existing input bounds, enforced before the search: synthesize's
+   literal cap, check_contradiction's expression budget, Int-only literals. *)
+let linear_inputs (lits:list (bool & expr)) : bool =
+  L.length lits <= 32 && Some? (arguments_budget 4096 (L.map snd lits)) && integer_literals lits
+
+(* The facts and the negation of c are contradictory: the search's weights
+   for the literals it refutes (LA.assumptions c facts), validated. *)
+let refutes (facts:list expr) (c:expr) : bool =
+  let lits = LA.assumptions c facts in
+  linear_inputs lits &&
+  (match LA.synthesize c facts with
+   | Some cs -> AR.check_contradiction lits cs
+   | None -> false)
+
+let int_le (x y:expr) : expr =
+  App { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+        interp = Some Z3ValueTheory.op_arith_le; int_params = [] } [x; y]
+
+let int_ge (x y:expr) : expr =
+  App { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+        interp = Some Z3ValueTheory.op_arith_ge; int_params = [] } [x; y]
+
+(* An Int equation x = y: x <= y and x >= y each refuted on its own (its own
+   search and check), then antisymmetry (order_equation over the two
+   bounds). The conclusion false: one refutation of the facts. *)
+let linear_consequence (facts:list expr) (conclusion:expr) : bool =
+  match int_equation conclusion with
+  | Some (x, y) -> refutes facts (int_le x y) && refutes facts (int_ge x y)
+  | None -> conclusion = R.false_expr && refutes facts R.false_expr
+
+(* A refuted c is not false where the facts hold: the facts and the negated
+   literals of c would satisfy every literal of the validated certificate
+   (lemma_arithmetic_assumptions), contradicting AR.lemma_check_contradiction.
+   The search itself is not trusted. *)
+let lemma_refutes (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (facts:list expr) (c:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ refutes facts c /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (R.formula_clause c))))
+          (ensures False) =
+  lemma_arithmetic_assumptions s bc eq other facts (R.formula_clause c);
+  AR.lemma_check_contradiction s bc eq other (LA.assumptions c facts) (Some?.v (LA.synthesize c facts))
+
+(* A refuted unit clause is true. *)
+let lemma_unit_refuted (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (facts:list expr) (c:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ refutes facts c /\ R.formula_clause c == [c])
+          (ensures T.truth s bc eq other c) =
+  if not (T.truth s bc eq other c) then (
+    assert_norm (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom [c]) ==
+                 B.combine B.Or (T.truth s bc eq other c) (B.neutral B.Or));
+    lemma_refutes s bc eq other facts c)
+
+let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    linear_consequence facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match int_equation conclusion with
+  | Some (x, y) ->
+    let le = int_le x y in
+    let ge = int_ge x y in
+    lemma_equation s bc eq other conclusion x y;
+    assert (R.formula_clause le == [le] /\ R.formula_clause ge == [ge]);
+    lemma_unit_refuted s bc eq other facts le;
+    lemma_unit_refuted s bc eq other facts ge;
+    assert (LA.comparison le == Some (LA.Le, x, y) /\ LA.comparison ge == Some (LA.Ge, x, y));
+    assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
+    lemma_order_equation s bc eq other [le; ge] conclusion
+  | None ->
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other facts R.false_expr
+
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
@@ -1560,7 +1659,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       arithmetic_farkas node || quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
       nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
-      DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) in
+      DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
+      (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1650,10 +1750,14 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_consequence s bc eq other (propositions node.premises) conclusion))
-    else (
+    else if DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) then (
       lemma_scoped_propositions s bc eq other node.premises;
       DT.lemma_consequence s bc eq other (scoped_propositions node.premises) (scoped_proposition fact);
       lemma_scoped_proposition s bc eq other fact)
+    else (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =

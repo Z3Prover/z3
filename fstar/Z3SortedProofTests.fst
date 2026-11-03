@@ -11,6 +11,8 @@ module P = Z3ProofDocument
 module R = Z3ResolutionProofTheory
 module BR = Z3BooleanRewrite
 module Tac = FStar.Tactics.V2
+module LA = Z3LinearArithmeticAst
+module AR = Z3SortedArithmetic
 
 let box = BaseSort "Box"
 let integer = BaseSort "Int"
@@ -924,6 +926,215 @@ let gate_counter_models ()
           T.truth core_schema booleans equality (booled c_true) intro_member_mutant == false /\
           T.truth core_schema booleans equality (booled a_true) counterfeit_or_mutant == false /\
           T.truth core_schema booleans equality (booled none_true) counterfeit_not_mutant == false) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
+(* ---------------------------------------------------------------------- *)
+(* Coefficient-free linear Int consequences (recomputed, checked weights)  *)
+(* ---------------------------------------------------------------------- *)
+
+(* Actual producer shapes (premise and conclusion formulas as emitted; the
+   corpus's BoxInt_proj_0 applications are opaque Int terms here):
+   FStar.Tactics.Canon.Lemmas q2 node 495, x = x + y from the bounds through
+   ulevel(a); FStar.Int64 q8 node 289, 63 = c64 + (-1) * c1 from constant
+   bounds; FStar.Math.Euclid-2 q3 node 306, -1 = x from not (x <= -2) and
+   not (x >= 0), refuted only with the strict-Int rounding; an equality chain
+   x = z through y (four premises); and false from not (x <= 0) and
+   not (x >= 1). *)
+let lin_c64 = App { x_decl with decl_name = "c64" } []
+let lin_c1 = App { x_decl with decl_name = "c1" } []
+
+let lin_canon = [leq la izero; geq (minus la yi) izero; geq la izero; leq (minus la yi) izero]
+let lin_canon_target = R.mk_eq_expr xi (App iadd [xi; yi])
+let lin_constants = [leq lin_c64 (integer_literal 64); leq lin_c1 ione; geq lin_c64 (integer_literal 64); geq lin_c1 ione]
+let lin_constants_target = R.mk_eq_expr (integer_literal 63) (minus lin_c64 lin_c1)
+let lin_tight = [R.mk_not_expr (leq xi (integer_literal (-2))); R.mk_not_expr (geq xi izero)]
+let lin_tight_target = R.mk_eq_expr (integer_literal (-1)) xi
+let lin_chain = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
+let lin_chain_target = R.mk_eq_expr xi zi
+let lin_conflict = [R.mk_not_expr (leq xi izero); R.mk_not_expr (geq xi ione)]
+
+let checked_linear_consequences ()
+  : Lemma (K.linear_consequence lin_canon lin_canon_target /\
+           K.linear_consequence lin_constants lin_constants_target /\
+           K.linear_consequence lin_tight lin_tight_target /\
+           K.linear_consequence lin_chain lin_chain_target /\
+           K.linear_consequence lin_conflict R.false_expr /\
+           not (K.direct_consequence core_schema lin_canon lin_canon_target) /\
+           not (K.direct_consequence core_schema lin_constants lin_constants_target) /\
+           not (K.direct_consequence core_schema lin_tight lin_tight_target) /\
+           not (K.direct_consequence core_schema lin_chain lin_chain_target)) =
+  assert_norm (K.linear_consequence lin_canon lin_canon_target);
+  assert_norm (K.linear_consequence lin_constants lin_constants_target);
+  assert_norm (K.linear_consequence lin_tight lin_tight_target);
+  assert_norm (K.linear_consequence lin_chain lin_chain_target);
+  assert_norm (K.linear_consequence lin_conflict R.false_expr);
+  assert_norm (not (K.direct_consequence core_schema lin_canon lin_canon_target));
+  assert_norm (not (K.direct_consequence core_schema lin_constants lin_constants_target));
+  assert_norm (not (K.direct_consequence core_schema lin_tight lin_tight_target));
+  assert_norm (not (K.direct_consequence core_schema lin_chain lin_chain_target))
+
+(* The generic theorem at these instances, in EVERY Sorted model. *)
+let linear_consequences_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                             (other:V.interpretation base (S.signature core_schema))
+  : Lemma ((T.truths core_schema bc eq other lin_canon ==> T.truth core_schema bc eq other lin_canon_target) /\
+           (T.truths core_schema bc eq other lin_constants ==>
+            T.truth core_schema bc eq other lin_constants_target) /\
+           (T.truths core_schema bc eq other lin_tight ==> T.truth core_schema bc eq other lin_tight_target) /\
+           (T.truths core_schema bc eq other lin_chain ==> T.truth core_schema bc eq other lin_chain_target)) =
+  checked_linear_consequences ();
+  assert_norm (Z3Definitions.scoped [] lin_canon_target /\ Z3Definitions.scoped [] lin_constants_target /\
+               Z3Definitions.scoped [] lin_tight_target /\ Z3Definitions.scoped [] lin_chain_target);
+  if T.truths core_schema bc eq other lin_canon then
+    K.lemma_linear_consequence core_schema bc eq other lin_canon lin_canon_target;
+  if T.truths core_schema bc eq other lin_constants then
+    K.lemma_linear_consequence core_schema bc eq other lin_constants lin_constants_target;
+  if T.truths core_schema bc eq other lin_tight then
+    K.lemma_linear_consequence core_schema bc eq other lin_tight lin_tight_target;
+  if T.truths core_schema bc eq other lin_chain then
+    K.lemma_linear_consequence core_schema bc eq other lin_chain lin_chain_target
+
+(* The conflict is unsatisfiable in EVERY Sorted model. *)
+let linear_conflict_unsatisfiable (#base:sort -> Type0) (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                  (other:V.interpretation base (S.signature core_schema))
+  : Lemma (not (T.truths core_schema bc eq other lin_conflict)) =
+  checked_linear_consequences ();
+  if T.truths core_schema bc eq other lin_conflict then (
+    assert_norm (Z3Definitions.scoped [] R.false_expr);
+    K.lemma_linear_consequence core_schema bc eq other lin_conflict R.false_expr;
+    assert (T.truth core_schema bc eq other R.false_expr);
+    assert_norm (T.cut 1 R.false_expr == Z3BoundedBoolEquiv.Bool false);
+    T.lemma_cut core_schema bc eq other 1 R.false_expr;
+    assert_norm (Z3BoundedBoolEquiv.geval (T.truth core_schema bc eq other) (Z3BoundedBoolEquiv.Bool false) == false))
+
+(* False variants: a sign flipped (x + 1 * y), a wrong coefficient
+   (x + (-2) * y), a dropped bound, a wrong target constant (62), one link
+   of the chain at Real (to_real comparisons: Real/mixed), non-strict bounds
+   in place of the strict ones (x >= -2; x >= 0 with x < 1), a same-spelled
+   twin declaration and a counterfeit `<=` without its interpretation tag. *)
+let lin_plus_one (a b:expr) : expr = App iadd [a; App imul [ione; b]]
+let lin_minus_two (a b:expr) : expr = App iadd [a; App imul [integer_literal (-2); b]]
+let real = BaseSort "Real"
+let to_real (e:expr) : expr =
+  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3ValueTheory.op_to_real;
+        int_params = [] } [e]
+let real_compare (name:string) (tag:decl_kind) (a b:expr) : expr =
+  App { decl_name = name; domain = [real; real]; range = bool_sort; interp = Some tag; int_params = [] } [a; b]
+
+let lin_wrong_sign =
+  [leq (lin_plus_one xi yi) izero; geq (lin_plus_one xi yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
+let lin_wrong_coefficient =
+  [leq (lin_minus_two xi yi) izero; geq (lin_minus_two xi yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
+let lin_dropped = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus yi zi) izero]
+let lin_wrong_target = R.mk_eq_expr (integer_literal 62) (minus lin_c64 lin_c1)
+let lin_mixed =
+  [leq (minus xi yi) izero; geq (minus xi yi) izero;
+   real_compare "<=" Z3ValueTheory.op_arith_le (to_real yi) (to_real zi);
+   real_compare ">=" Z3ValueTheory.op_arith_ge (to_real yi) (to_real zi)]
+let lin_weak_tight = [geq xi (integer_literal (-2)); R.mk_not_expr (geq xi izero)]
+let lin_weak_conflict = [geq xi izero; R.mk_not_expr (geq xi ione)]
+let lin_twin = [leq (minus x_twin yi) izero; geq (minus x_twin yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
+let lin_counterfeit =
+  [App ({ ile with interp = None }) [minus xi yi; izero]; geq (minus xi yi) izero;
+   leq (minus yi zi) izero; geq (minus yi zi) izero]
+(* Genuinely false claims over satisfiable bounds 0 < x < 2 (x = 1 in every
+   model of them): x = 0, and false. No recomputed certificate exists. *)
+let lin_between = [R.mk_not_expr (leq xi izero); R.mk_not_expr (geq xi (integer_literal 2))]
+let lin_between_target = R.mk_eq_expr xi izero
+
+(* Each refused. For the Real link the sort-blind search does propose weights
+   (to_real read through); the typed check refuses them (Int literals only),
+   and linear_consequence refuses the inputs before any search. *)
+let refused_linear_mutants ()
+  : Lemma (not (K.linear_consequence lin_wrong_sign lin_chain_target) /\
+           not (K.linear_consequence lin_wrong_coefficient lin_chain_target) /\
+           not (K.linear_consequence lin_dropped lin_chain_target) /\
+           not (K.linear_consequence lin_constants lin_wrong_target) /\
+           not (K.linear_consequence lin_mixed lin_chain_target) /\
+           not (K.linear_consequence lin_weak_tight lin_tight_target) /\
+           not (K.linear_consequence lin_weak_conflict R.false_expr) /\
+           not (K.linear_consequence lin_twin lin_chain_target) /\
+           not (K.linear_consequence lin_counterfeit lin_chain_target) /\
+           not (K.linear_consequence lin_between lin_between_target) /\
+           not (K.linear_consequence lin_between R.false_expr) /\
+           (match LA.synthesize (K.int_le xi zi) lin_mixed with
+            | Some cs -> not (AR.check_contradiction (LA.assumptions (K.int_le xi zi) lin_mixed) cs)
+            | None -> False)) =
+  assert_norm (not (K.linear_consequence lin_wrong_sign lin_chain_target));
+  assert_norm (not (K.linear_consequence lin_wrong_coefficient lin_chain_target));
+  assert_norm (not (K.linear_consequence lin_dropped lin_chain_target));
+  assert_norm (not (K.linear_consequence lin_constants lin_wrong_target));
+  assert_norm (not (K.linear_consequence lin_mixed lin_chain_target));
+  assert_norm (not (K.linear_consequence lin_weak_tight lin_tight_target));
+  assert_norm (not (K.linear_consequence lin_weak_conflict R.false_expr));
+  assert_norm (not (K.linear_consequence lin_twin lin_chain_target));
+  assert_norm (not (K.linear_consequence lin_counterfeit lin_chain_target));
+  assert_norm (not (K.linear_consequence lin_between lin_between_target));
+  assert_norm (not (K.linear_consequence lin_between R.false_expr));
+  assert_norm (match LA.synthesize (K.int_le xi zi) lin_mixed with
+               | Some cs -> not (AR.check_contradiction (LA.assumptions (K.int_le xi zi) lin_mixed) cs)
+               | None -> False)
+
+(* Opposite-value counter-models: in each concrete Sorted model every premise
+   of the false variant holds and its conclusion is false. The Real
+   comparisons are not Int arithmetic in the Sorted semantics, so they are
+   chosen true there. *)
+let picked (pick:func_decl -> option int) (holds:func_decl -> bool)
+  : V.interpretation primitive (S.signature core_schema) = {
+  V.application = (fun f xs ->
+    if f.range = bool_sort && holds f then V.Scalar bool_sort true
+    else (valued pick).V.application f xs);
+  V.quantification = (valued nothing).V.quantification;
+}
+
+let xyz (x y z:int) (f:func_decl) : option int =
+  if f = x_decl then Some x
+  else if f = { x_decl with decl_name = "y" } then Some y
+  else if f = { x_decl with decl_name = "z" } then Some z
+  else None
+let c64_c1 (f:func_decl) : option int =
+  if f.decl_name = "c64" then Some 64 else if f.decl_name = "c1" then Some 1 else None
+let real_comparisons (f:func_decl) : bool = f.domain = [real; real]
+let counterfeit_le (f:func_decl) : bool = f = { ile with interp = None }
+
+let linear_counter_models ()
+  : Lemma (T.truths core_schema booleans equality (valued (xyz (-1) 1 1)) lin_wrong_sign == true /\
+           T.truth core_schema booleans equality (valued (xyz (-1) 1 1)) lin_chain_target == false /\
+           T.truths core_schema booleans equality (valued (xyz 2 1 1)) lin_wrong_coefficient == true /\
+           T.truth core_schema booleans equality (valued (xyz 2 1 1)) lin_chain_target == false /\
+           T.truths core_schema booleans equality (valued (xyz 0 0 1)) lin_dropped == true /\
+           T.truth core_schema booleans equality (valued (xyz 0 0 1)) lin_chain_target == false /\
+           T.truths core_schema booleans equality (valued c64_c1) lin_constants == true /\
+           T.truth core_schema booleans equality (valued c64_c1) lin_wrong_target == false /\
+           T.truths core_schema booleans equality (picked (xyz 0 0 1) real_comparisons) lin_mixed == true /\
+           T.truth core_schema booleans equality (picked (xyz 0 0 1) real_comparisons) lin_chain_target == false /\
+           T.truths core_schema booleans equality (valued (xyz (-2) 0 0)) lin_weak_tight == true /\
+           T.truth core_schema booleans equality (valued (xyz (-2) 0 0)) lin_tight_target == false /\
+           T.truths core_schema booleans equality (valued nothing) lin_weak_conflict == true /\
+           T.truths core_schema booleans equality (valued (xyz 1 0 0)) lin_twin == true /\
+           T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_chain_target == false /\
+           T.truths core_schema booleans equality (picked (xyz 1 0 0) counterfeit_le) lin_counterfeit == true /\
+           T.truth core_schema booleans equality (picked (xyz 1 0 0) counterfeit_le) lin_chain_target == false /\
+           T.truths core_schema booleans equality (valued (xyz 1 0 0)) lin_between == true /\
+           T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_between_target == false) =
+  assert (T.truths core_schema booleans equality (valued (xyz (-1) 1 1)) lin_wrong_sign == true /\
+          T.truth core_schema booleans equality (valued (xyz (-1) 1 1)) lin_chain_target == false /\
+          T.truths core_schema booleans equality (valued (xyz 2 1 1)) lin_wrong_coefficient == true /\
+          T.truth core_schema booleans equality (valued (xyz 2 1 1)) lin_chain_target == false /\
+          T.truths core_schema booleans equality (valued (xyz 0 0 1)) lin_dropped == true /\
+          T.truth core_schema booleans equality (valued (xyz 0 0 1)) lin_chain_target == false /\
+          T.truths core_schema booleans equality (valued c64_c1) lin_constants == true /\
+          T.truth core_schema booleans equality (valued c64_c1) lin_wrong_target == false /\
+          T.truths core_schema booleans equality (picked (xyz 0 0 1) real_comparisons) lin_mixed == true /\
+          T.truth core_schema booleans equality (picked (xyz 0 0 1) real_comparisons) lin_chain_target == false /\
+          T.truths core_schema booleans equality (valued (xyz (-2) 0 0)) lin_weak_tight == true /\
+          T.truth core_schema booleans equality (valued (xyz (-2) 0 0)) lin_tight_target == false /\
+          T.truths core_schema booleans equality (valued nothing) lin_weak_conflict == true /\
+          T.truths core_schema booleans equality (valued (xyz 1 0 0)) lin_twin == true /\
+          T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_chain_target == false /\
+          T.truths core_schema booleans equality (picked (xyz 1 0 0) counterfeit_le) lin_counterfeit == true /\
+          T.truth core_schema booleans equality (picked (xyz 1 0 0) counterfeit_le) lin_chain_target == false /\
+          T.truths core_schema booleans equality (valued (xyz 1 0 0)) lin_between == true /\
+          T.truth core_schema booleans equality (valued (xyz 1 0 0)) lin_between_target == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
 #pop-options

@@ -185,9 +185,10 @@ let rec lemma_truths_agreement (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR
 
 (* Every rule path of Z3SortedProof.check_node_cached that reports no
    pending obligation (Asserted, Hypothesis, quantifier instantiation,
-   flattening, lemma discharge, the NNF certificate replay, and the
+   flattening, lemma discharge, the NNF certificate replay, the
    propositional, equality, congruence, Int-arithmetic and datatype
-   consequence kernels) preserves the truth of the checked fact in the
+   consequence kernels, and the recomputed linear Int consequence) preserves
+   the truth of the checked fact in the
    Sorted interpretation over i. Its quantifier hypotheses (universal,
    elimination and existential) are DERIVED from R1 (section 1). This is the
    NODE theorem; the document theorem (section 4) is its induction over the
@@ -247,7 +248,11 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    Skolemization and collects the closed Skolem steps inside consumed NNF
    certificates.
    Every other rule, with every other payload (Gomory, PAC, rule names), is
-   judged identically. The read view KEEPS the Farkas coefficients, the
+   judged identically; in particular the coefficient-free linear Int
+   consequence (SP.linear_consequence, the last check of check_node_cached)
+   reads only the entry formula and the premise propositions (the formulas
+   of earlier entries) and recomputes its weights, never a payload. The read
+   view KEEPS the Farkas coefficients, the
    binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision
    equals the decision on the read view, which drops the
@@ -256,8 +261,9 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    entry formulas of consumed certificates) are all DOCUMENT terms the
    checker reads; the Farkas coefficients are numbers, not terms. The
    checker also builds internal terms of its own
-   (the canonical false, equality and Boolean wrappers, field equalities and the
-   instances of instantiation); those are not gated, and need not be: the
+   (the canonical false, equality and Boolean wrappers, field equalities, the
+   instances of instantiation and the Int bounds x <= y, x >= y of the linear
+   consequence); those are not gated, and need not be: the
    falsity proof above (lemma_root_check_document) holds in every root
    model for every document with Some 0, covered or not. Coverage only
    restricts which certified documents are read as SMT queries; it is not

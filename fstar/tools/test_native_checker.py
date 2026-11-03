@@ -341,19 +341,71 @@ SORTED_INT_ORDER_CASES = (
      "(assert (<= x y))(assert (<= y x))(assert (not (= (g x) (g y))))"),
 )
 
-# No-false-ACCEPT controls on the same shapes. An implied equality that needs linear
-# arithmetic beyond the two bounds on one difference (h a = 1 + h b from S <= 1 and S >= 1)
-# stays an open `th-lemma` obligation; satisfiable variants are never certified.
+# No-false-ACCEPT controls on the same shapes. An implied equality beyond the bounded linear
+# search of the sorted kernel (a chain of 17 offset equalities h u_i = h u_{i+1} + 1 through opaque
+# applications: one `implied-eq` step from 34 bound premises, 35 literals per direction, over the
+# search's 32-literal cap) stays an open `th-lemma` obligation; satisfiable variants are never
+# certified. (The earlier control here, h a = 1 + h b from S <= 1 and S >= 1, is a genuine linear
+# consequence that the kernel now certifies: SORTED_LINEAR_CASES.)
+def offset_chain(links):
+    return ("(declare-fun g (Int) Universe)"
+            + "".join(f"(declare-fun u{i} () Universe)" for i in range(links + 1))
+            + "".join(f"(assert (<= (h u{i}) (+ (h u{i + 1}) 1)))(assert (>= (h u{i}) (+ (h u{i + 1}) 1)))"
+                      for i in range(links))
+            + f"(assert (not (= (g (h u0)) (g (+ (h u{links}) {links})))))")
+
 SORTED_INT_ORDER_OPEN_CASES = (
-    ("linear-implied-equality", FSTAR_QUERY_PREAMBLE +
-     "(declare-fun g (Int) Universe)(assert (= (h a) (+ 1 (h b))))"
-     "(assert (not (= (g (h a)) (g (+ (h b) 1)))))"),
+    ("implied-equality-beyond-literal-cap", FSTAR_QUERY_PREAMBLE + offset_chain(17)),
 )
 SORTED_INT_ORDER_SATISFIABLE_CASES = (
     ("weak-bound", FSTAR_QUERY_PREAMBLE + "(assert (= (h a) (h b)))(assert (<= (h a) (h b)))"),
     ("one-bound", FSTAR_QUERY_PREAMBLE +
      "(assert (<= (h a) (h b)))(assert (not (= (h a) (h b))))"),
 )
+
+# Coefficient-free linear Int theory lemmas: the producer's implied equalities (`th-lemma arith
+# implied-eq`) carry no Farkas coefficients. The sorted kernel recomputes them from the step's own
+# premise and conclusion formulas (the bounded search proposes weights, the typed Int Farkas check
+# validates them), one refutation per direction of the equality, closed by antisymmetry. h a = 1 + h b
+# from the two bounds on S = h a + (-1) * h b; -1 = h a from h a > -2 and h a < 0 (the strict-Int
+# rounding; FStar.Math.Euclid-2 q3 node 306); and a chain of four offset equalities through opaque
+# applications (eight bound premises).
+SORTED_LINEAR_CASES = (
+    ("linear-implied-equality", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (= (h a) (+ 1 (h b))))"
+     "(assert (not (= (g (h a)) (g (+ (h b) 1)))))"),
+    ("strict-rounding-equality", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (> (h a) (- 2)))(assert (< (h a) 0))"
+     "(assert (not (= (g (h a)) (g (- 1)))))"),
+    ("offset-chain-equality", FSTAR_QUERY_PREAMBLE + offset_chain(4)),
+)
+# Integer division axioms are not linear consequences of their premises: they stay open
+# `th-lemma` obligations. Satisfiable variants (one bound only; a non-strict bound in place of the
+# strict one; h a = 0 claimed from 0 < h a < 2, where h a = 1) are never certified.
+SORTED_LINEAR_OPEN_CASES = (
+    ("integer-division-bounds", FSTAR_QUERY_PREAMBLE +
+     "(declare-const x Int)(assert (>= x 0))(assert (< (div x 2) 0))", 2),
+)
+SORTED_LINEAR_SATISFIABLE_CASES = (
+    ("one-sided-bound", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (<= (h a) (+ 1 (h b))))"
+     "(assert (not (= (g (h a)) (g (+ (h b) 1)))))"),
+    ("non-strict-lower-bound", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (>= (h a) (- 2)))(assert (< (h a) 0))"
+     "(assert (not (= (g (h a)) (g (- 1)))))"),
+    ("between-bounds", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (> (h a) 0))(assert (< (h a) 2))"
+     "(assert (not (= (g (h a)) (g 0))))"),
+)
+# FStar.IntegerIntervals query 4 (corpus file queries-FStar.IntegerIntervals.smt2, sha256
+# d647c8f057fddde612502c92e3e30a4fd9fba8e08fa3e8b95b9e477846e022af; its exact byte prefix through the
+# fourth (check-sat), sha256 a5d361095fc56ed8fa08b39d50e3d6077dc0660e7d0213dcfa71a7c31f8d9af1), with
+# the three earlier push/pop-scoped queries, comment lines and the echo/get-info commands removed
+# and line ends normalized; no other command is changed. Its only otherwise-unchecked step is the
+# implied equality 5 = (-1) * BoxInt_proj_0(BoxInt 5) + BoxInt_proj_0(BoxInt 10) from the four
+# constant bounds of the two projections. It is checked interactively, as F* runs it: the batch
+# frontend does not decide the quantified prefix (UNKNOWN), which is not a checked result.
+FSTAR_INTEGER_INTERVALS_Q4 = "fstar-integer-intervals-q4.smt2"
 
 # Term if-then-else definition axioms in the shapes of Pulse.Lib.Raise q5 (a Universe choice
 # under an Int bound), Pulse.C.Types.Fields q1 (a Term choice under a Boolean-box equation) and
@@ -839,6 +891,50 @@ class DirectCheckerTests(unittest.TestCase):
                                   result.stdout)
                     self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
         for name, source in SORTED_INT_ORDER_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_linear_integer_consequences_in_both_modes(self):
+        for name, source in SORTED_LINEAR_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        with self.subTest(case="fstar-integer-intervals-q4", interactive=True):
+            result = self.run_checker((repair / FSTAR_INTEGER_INTERVALS_Q4).read_text(),
+                                      "--interactive", "--diagnostics", "--stats")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+            self.assertIn("semantics=sorted-datatype", result.stdout)
+            self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source, pending in SORTED_LINEAR_OPEN_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics"] + (["--interactive"] if interactive else [])
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    self.assertIn(f"unsat\n; proof-check PARTIAL {pending}\n" if interactive
+                                  else f"PARTIAL {pending}", result.stdout)
+                    self.assertEqual(result.stderr.count("obligation\tth-lemma\t"), pending, result.stderr)
+        for name, source in SORTED_LINEAR_SATISFIABLE_CASES:
             with self.subTest(case=name):
                 result = self.run_checker(source, "--diagnostics")
                 self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
