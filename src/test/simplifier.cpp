@@ -16,10 +16,12 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
 #include "ast/occurs.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/pull_nested_quantifiers.h"
 #include "ast/simplifiers/lambda_simplifier.h"
 #include "ast/array_decl_plugin.h"
 #include "smt/smt_solver.h"
@@ -516,8 +518,18 @@ static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& s
         expr_ref_vector side_conditions(m);
         ENSURE(checker.check(pr, side_conditions));
         for (expr* condition : side_conditions) {
+            expr_ref closed(condition, m);
+            expr_free_vars variables(condition);
+            if (!variables.empty()) {
+                // PR_BIND bodies can contribute conditions with free de Bruijn variables.
+                expr_ref_vector values(m);
+                for (unsigned j = 0; j < variables.size(); ++j)
+                    values.push_back(m.mk_fresh_const("proof-var", variables[j] ? variables[j] : m.mk_bool_sort()));
+                var_subst substitute(m, false);
+                closed = substitute(condition, values);
+            }
             solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
-            check->assert_expr(m.mk_not(condition));
+            check->assert_expr(m.mk_not(closed));
             ENSURE(check->check_sat(0, nullptr) == l_false);
         }
         for (expr* e : subterms::all(expr_ref(pr, m))) {
@@ -782,6 +794,50 @@ static void test_demodulator_simplifier_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_pull_nested_quantifier_proofs() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        sort* boolean = m.mk_bool_sort();
+        symbol x_name("x"), y_name("y");
+        expr_ref x(m.mk_var(0, boolean), m), outer(m.mk_var(1, boolean), m);
+        func_decl_ref predicate(m.mk_func_decl(symbol("quant-p"), boolean, boolean), m);
+        expr_ref px(m.mk_app(predicate.get(), x), m);
+        expr_ref not_px(m.mk_not(px), m), double_not_px(m.mk_not(not_px), m);
+        sort* domains[] = {boolean, boolean};
+        func_decl_ref relation(m.mk_func_decl(symbol("quant-r"), 2, domains, boolean), m);
+        expr_ref rxy(m.mk_app(relation.get(), outer, x), m);
+        expr_ref inner_exists(m.mk_exists(1, &boolean, &y_name, rxy), m);
+        expr_ref inner_forall(m.mk_forall(1, &boolean, &y_name, rxy), m);
+        expr_ref_vector originals(m);
+        originals.push_back(m.mk_exists(1, &boolean, &x_name, px));
+        originals.push_back(m.mk_exists(1, &boolean, &x_name, double_not_px));
+        originals.push_back(m.mk_forall(1, &boolean, &x_name, inner_exists));
+        originals.push_back(m.mk_exists(1, &boolean, &x_name, inner_forall));
+        pull_nested_quant rewrite(m);
+        for (expr* original : originals) {
+            expr_ref result(m);
+            proof_ref pr(m);
+            rewrite(original, result, pr);
+            ENSURE(result != original);
+            if (proofs) {
+                expr_ref equality(m.mk_eq(original, result), m);
+                ENSURE(pr && m.get_fact(pr) == equality);
+            }
+            base_dependent_expr_state state(m);
+            state.add(dependent_expr(m, original, proofs ? m.mk_asserted(original) : nullptr, nullptr));
+            pull_nested_quantifiers_simplifier simplify(m, params_ref(), state);
+            simplify.reduce();
+            ENSURE(state[0].fml() == result);
+            if (proofs) {
+                expr_ref_vector assertions(m);
+                assertions.push_back(original);
+                check_simplifier_proofs(m, state, assertions);
+            }
+        }
+    }
+}
+
 static void test_quantified_bool_literals() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -893,5 +949,6 @@ void tst_simplifier() {
     test_flatten_suffix_proofs();
     test_skolemize_bug();
     test_lambda_simplifier_proofs();
+    test_pull_nested_quantifier_proofs();
     test_demodulator_simplifier_proofs();
 }
