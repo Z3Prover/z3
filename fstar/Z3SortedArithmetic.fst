@@ -532,13 +532,25 @@ let lemma_check_contradiction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
 let int_numeral (n:int) (e:expr) : bool =
   match e with App k [] -> I.classify k = I.Numeral n | _ -> false
 
-(* x + (-1) * y as the producer builds it (arith_eq_adapter): a canonical Int
-   addition of x and a canonical Int product of the numeral -1 and y. *)
+(* (-1) * y: a canonical Int product of the numeral -1 and y. *)
+let negated_operand (e:expr) : option expr =
+  match e with
+  | App g [k; y] -> if I.classify g = I.Calculate A.Mul && int_numeral (-1) k then Some y else None
+  | _ -> None
+
+(* x - y as a canonical Int addition of x and (-1) * y, in either operand
+   order: x + (-1) * y as the producer builds it (arith_eq_adapter), and
+   (-1) * y + x as the arithmetic solver writes its own unrewritten equality
+   atoms (theory_lra coeffs2app, e.g. for nonlinear lemmas), whose bounds
+   then give implied equalities. When both operands are negated products,
+   the second is read as (-1) * y. *)
 let difference (e:expr) : option (expr & expr) =
   match e with
-  | App f [x; App g [k; y]] ->
-    if I.classify f = I.Calculate A.Add && I.classify g = I.Calculate A.Mul && int_numeral (-1) k
-    then Some (x, y) else None
+  | App f [a; b] ->
+    if I.classify f <> I.Calculate A.Add then None
+    else (match negated_operand b with
+          | Some y -> Some (a, y)
+          | None -> (match negated_operand a with Some y -> Some (b, y) | None -> None))
   | _ -> None
 
 let lemma_int_numeral (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -574,7 +586,22 @@ let lemma_int_binary (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
                  [I.number s model.T.integers va; I.number s model.T.integers vb])
   | _ -> ()
 
-(* The value of the producer's difference is the difference of the values. *)
+(* The value of (-1) * y is the negated value of y. *)
+let lemma_negated_operand (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                          (e y:expr)
+  : Lemma (requires D.scoped scope e /\ negated_operand e == Some y)
+          (ensures D.scoped scope y /\ get_sort y == A.int_s /\ get_sort e == A.int_s /\
+                   integer s bc model other scope rho e == - (integer s bc model other scope rho y)) =
+  match e with
+  | App g [k; _] ->
+    lemma_int_binary s bc model other scope rho g k y A.Mul;
+    lemma_int_numeral s bc model other scope rho (-1) k
+  | _ -> ()
+
+(* The value of the difference, in either operand order, is the difference
+   of the values. *)
 let lemma_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -585,10 +612,11 @@ let lemma_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
                    integer s bc model other scope rho e ==
                    integer s bc model other scope rho x - integer s bc model other scope rho y) =
   match e with
-  | App f [_; App g [k; _]] ->
-    lemma_int_binary s bc model other scope rho f x (App g [k; y]) A.Add;
-    lemma_int_binary s bc model other scope rho g k y A.Mul;
-    lemma_int_numeral s bc model other scope rho (-1) k
+  | App f [a; b] ->
+    lemma_int_binary s bc model other scope rho f a b A.Add;
+    (match negated_operand b with
+     | Some _ -> lemma_negated_operand s bc model other scope rho b y
+     | None -> lemma_negated_operand s bc model other scope rho a y)
   | _ -> ()
 
 (* A canonical Int comparison l REL r, read on the integer values. *)

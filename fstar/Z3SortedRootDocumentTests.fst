@@ -751,3 +751,77 @@ let j6_other_condition_pending ()
   assert_norm (RD.check_root_document PT.core_schema
                  (def_axiom_refute PT.other_condition_mutant PT.pb
                     (PT.not_eq PT.ione (PT.int_choice PT.qb PT.ione PT.izero))) == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* K. Int equality/order laws over the commuted difference (-1) * y + x    *)
+(* ---------------------------------------------------------------------- *)
+
+(* FStar.Math.Lemmas-2 q12 node 68: x = y from (-1) * y + x >= 0 and <= 0,
+   x the nonconstant product and y the opaque application; the commuted
+   triangle clause and antisymmetry clause. *)
+let commuted_implied_document (premises:list int) : P.document =
+  doc [PT.geq PT.cgap PT.izero; PT.leq PT.cgap PT.izero; PT.not_eq PT.product PT.la]
+      [entry U.Asserted (PT.geq PT.cgap PT.izero) []; entry U.Asserted (PT.leq PT.cgap PT.izero) [];
+       entry th_lemma (R.mk_eq_expr PT.product PT.la) premises;
+       entry U.Asserted (PT.not_eq PT.product PT.la) [];
+       entry U.UnitResolution R.false_expr [2; 3]]
+      4
+
+let k1_document : P.document = commuted_implied_document [0; 1]
+
+let k2_document : P.document =
+  refute2 PT.commuted_eq_upper (R.mk_eq_expr PT.product PT.la) (R.mk_not_expr (PT.leq PT.cgap PT.izero))
+
+let k3_document : P.document =
+  refute3 PT.commuted_antisymmetry (PT.not_eq PT.product PT.la) (PT.leq PT.cgap PT.izero) (PT.geq PT.cgap PT.izero)
+
+let k1_certified () : Lemma (RD.check_root_document PT.core_schema k1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema k1_document == RD.RootCertified)
+
+let k2_certified () : Lemma (RD.check_root_document PT.core_schema k2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema k2_document == RD.RootCertified)
+
+let k3_certified () : Lemma (RD.check_root_document PT.core_schema k3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema k3_document == RD.RootCertified)
+
+let commuted_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema k1_document i /\ falsified u PT.core_schema k2_document i /\
+                   falsified u PT.core_schema k3_document i) =
+  k1_certified (); RD.lemma_root_certified u PT.core_schema k1_document i;
+  k2_certified (); RD.lemma_root_certified u PT.core_schema k2_document i;
+  k3_certified (); RD.lemma_root_certified u PT.core_schema k3_document i
+
+let commuted_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema k1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema k2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema k3_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  commuted_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants stay open obligations (counter-models:
+   Z3SortedProofTests.commuted_counter_models): the coefficient +1, and the
+   two bounds with x and y swapped in one of them. *)
+let k4_plus_one_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (refute2 PT.commuted_plus_one_mutant (R.mk_eq_expr PT.xi PT.yi)
+                (R.mk_not_expr (PT.leq (App PT.iadd [App PT.imul [PT.ione; PT.yi]; PT.xi]) PT.izero))) ==
+           RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (refute2 PT.commuted_plus_one_mutant (R.mk_eq_expr PT.xi PT.yi)
+                    (R.mk_not_expr (PT.leq (App PT.iadd [App PT.imul [PT.ione; PT.yi]; PT.xi]) PT.izero))) ==
+               RD.RootPending 1)
+
+let k5_swapped_bounds_document : P.document =
+  doc [PT.geq (PT.commuted PT.xi PT.yi) PT.izero; PT.leq (PT.commuted PT.yi PT.xi) PT.izero; PT.not_eq PT.xi PT.yi]
+      [entry U.Asserted (PT.geq (PT.commuted PT.xi PT.yi) PT.izero) [];
+       entry U.Asserted (PT.leq (PT.commuted PT.yi PT.xi) PT.izero) [];
+       entry th_lemma (R.mk_eq_expr PT.xi PT.yi) [0; 1];
+       entry U.Asserted (PT.not_eq PT.xi PT.yi) [];
+       entry U.UnitResolution R.false_expr [2; 3]]
+      4
+
+let k5_swapped_bounds_pending ()
+  : Lemma (RD.check_root_document PT.core_schema k5_swapped_bounds_document == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema k5_swapped_bounds_document == RD.RootPending 1)

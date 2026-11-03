@@ -712,4 +712,113 @@ let choice_counter_models ()
           T.truth core_schema booleans equality (booled p_true) counterfeit_eq_mutant == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
+(* ---------------------------------------------------------------------- *)
+(* Int equality/order laws over the commuted difference (-1) * y + x       *)
+(* ---------------------------------------------------------------------- *)
+
+(* The arithmetic solver's own equality atoms put the negated operand first:
+   FStar.Math.Lemmas-2 q12 node 68 concludes (mod x0 x1) = x0 from
+   (-1) * x0 + (mod x0 x1) >= 0 and <= 0, and FStar.Algebra.CommMonoid q3
+   node 97 gives the equation in the other orientation. Here (mod x0 x1) is
+   the nonconstant product, x0 the opaque application. *)
+let commuted (a b:expr) : expr = App iadd [App imul [integer_literal (-1); b]; a]
+let cgap = commuted product la
+
+let commuted_eq_upper = disjunction [not_eq product la; leq cgap izero]
+let commuted_eq_lower_reversed = disjunction [geq cgap izero; not_eq la product]
+let commuted_antisymmetry =
+  disjunction [R.mk_eq_expr product la; R.mk_not_expr (leq cgap izero); R.mk_not_expr (geq cgap izero)]
+
+let checked_commuted_order_laws ()
+  : Lemma (K.order_clause commuted_eq_upper /\ K.order_clause commuted_eq_lower_reversed /\
+           K.order_clause commuted_antisymmetry /\
+           K.order_equation [geq cgap izero; leq cgap izero] (R.mk_eq_expr product la) /\
+           K.order_equation [geq cgap izero; leq cgap izero] (R.mk_eq_expr la product) /\
+           K.order_equation [geq gap izero; leq cgap izero] (R.mk_eq_expr product la) /\
+           K.consequence core_schema [] commuted_eq_upper /\
+           K.consequence core_schema [geq cgap izero; leq cgap izero] (R.mk_eq_expr product la)) =
+  assert_norm (K.order_clause commuted_eq_upper /\ K.order_clause commuted_eq_lower_reversed /\
+               K.order_clause commuted_antisymmetry);
+  assert_norm (K.order_equation [geq cgap izero; leq cgap izero] (R.mk_eq_expr product la) /\
+               K.order_equation [geq cgap izero; leq cgap izero] (R.mk_eq_expr la product) /\
+               K.order_equation [geq gap izero; leq cgap izero] (R.mk_eq_expr product la));
+  assert_norm (K.consequence core_schema [] commuted_eq_upper);
+  assert_norm (K.consequence core_schema [geq cgap izero; leq cgap izero] (R.mk_eq_expr product la))
+
+(* The generic theorem at these instances, in EVERY Sorted model. *)
+let commuted_order_laws_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                             (other:V.interpretation base (S.signature core_schema))
+  : Lemma (T.truth core_schema bc eq other commuted_eq_upper /\
+           (T.truths core_schema bc eq other [geq cgap izero; leq cgap izero] ==>
+            T.truth core_schema bc eq other (R.mk_eq_expr product la))) =
+  checked_commuted_order_laws ();
+  K.lemma_consequence core_schema bc eq other [] commuted_eq_upper;
+  if T.truths core_schema bc eq other [geq cgap izero; leq cgap izero] then
+    K.lemma_consequence core_schema bc eq other [geq cgap izero; leq cgap izero] (R.mk_eq_expr product la)
+
+(* False variants of the commuted form: the coefficient +1, x and y swapped
+   in one bound so both bounds point the same way, a counterfeit `*` (no
+   interpretation tag) or `+` (the op_mul tag; either is an uninterpreted
+   Int function), the coefficient -2, and the difference compared with 1. *)
+let commuted_plus_one_mutant = disjunction [not_eq xi yi; leq (App iadd [App imul [ione; yi]; xi]) izero]
+let commuted_swapped_mutant =
+  disjunction [R.mk_eq_expr xi yi; R.mk_not_expr (leq (commuted xi yi) izero);
+               R.mk_not_expr (geq (commuted yi xi) izero)]
+let commuted_counterfeit_mul_mutant =
+  disjunction [not_eq xi yi; leq (App iadd [App ({ imul with interp = None }) [integer_literal (-1); yi]; xi]) izero]
+let commuted_counterfeit_add_mutant =
+  disjunction [not_eq xi yi;
+               leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
+let commuted_minus_two_mutant =
+  disjunction [not_eq xi yi; geq (App iadd [App imul [integer_literal (-2); yi]; xi]) izero]
+let commuted_constant_mutant = disjunction [not_eq xi yi; geq (commuted xi yi) ione]
+
+let refused_commuted_mutants ()
+  : Lemma (not (K.order_clause commuted_plus_one_mutant) /\ not (K.order_clause commuted_swapped_mutant) /\
+           not (K.order_clause commuted_counterfeit_mul_mutant) /\
+           not (K.order_clause commuted_counterfeit_add_mutant) /\
+           not (K.order_clause commuted_minus_two_mutant) /\ not (K.order_clause commuted_constant_mutant) /\
+           not (K.order_equation [geq (commuted xi yi) izero; leq (commuted yi xi) izero] (R.mk_eq_expr xi yi)) /\
+           not (K.order_equation [geq (App iadd [App imul [ione; yi]; xi]) izero;
+                                  leq (App iadd [App imul [ione; yi]; xi]) izero] (R.mk_eq_expr xi yi)) /\
+           not (K.direct_consequence core_schema [] commuted_plus_one_mutant) /\
+           not (K.direct_consequence core_schema [geq (commuted xi yi) izero; leq (commuted yi xi) izero]
+                  (R.mk_eq_expr xi yi))) =
+  assert_norm (not (K.order_clause commuted_plus_one_mutant) /\ not (K.order_clause commuted_swapped_mutant) /\
+               not (K.order_clause commuted_counterfeit_mul_mutant) /\
+               not (K.order_clause commuted_counterfeit_add_mutant) /\
+               not (K.order_clause commuted_minus_two_mutant) /\ not (K.order_clause commuted_constant_mutant));
+  assert_norm (not (K.order_equation [geq (commuted xi yi) izero; leq (commuted yi xi) izero] (R.mk_eq_expr xi yi)) /\
+               not (K.order_equation [geq (App iadd [App imul [ione; yi]; xi]) izero;
+                                      leq (App iadd [App imul [ione; yi]; xi]) izero] (R.mk_eq_expr xi yi)));
+  assert_norm (not (K.direct_consequence core_schema [] commuted_plus_one_mutant));
+  assert_norm (not (K.direct_consequence core_schema [geq (commuted xi yi) izero; leq (commuted yi xi) izero]
+                      (R.mk_eq_expr xi yi)))
+
+(* Opposite-value counter-models: each false variant is false in a concrete
+   Sorted model (x = y = 1 or x = y = 0; x = 0 and y = 1 for the swapped
+   bounds, whose premises then hold at x = 1, y = 0 while x = y fails). *)
+let y_one (f:func_decl) : option int = if f.decl_name = "y" then Some 1 else None
+
+let commuted_counter_models ()
+  : Lemma (T.truth core_schema booleans equality (valued ones) commuted_plus_one_mutant == false /\
+           T.truth core_schema booleans equality (valued y_one) commuted_swapped_mutant == false /\
+           T.truth core_schema booleans equality (valued ones) commuted_counterfeit_mul_mutant == false /\
+           T.truth core_schema booleans equality (valued ones) commuted_counterfeit_add_mutant == false /\
+           T.truth core_schema booleans equality (valued ones) commuted_minus_two_mutant == false /\
+           T.truth core_schema booleans equality (valued nothing) commuted_constant_mutant == false /\
+           T.truths core_schema booleans equality (valued x_one)
+             [geq (commuted xi yi) izero; leq (commuted yi xi) izero] == true /\
+           T.truth core_schema booleans equality (valued x_one) (R.mk_eq_expr xi yi) == false) =
+  assert (T.truth core_schema booleans equality (valued ones) commuted_plus_one_mutant == false /\
+          T.truth core_schema booleans equality (valued y_one) commuted_swapped_mutant == false /\
+          T.truth core_schema booleans equality (valued ones) commuted_counterfeit_mul_mutant == false /\
+          T.truth core_schema booleans equality (valued ones) commuted_counterfeit_add_mutant == false /\
+          T.truth core_schema booleans equality (valued ones) commuted_minus_two_mutant == false /\
+          T.truth core_schema booleans equality (valued nothing) commuted_constant_mutant == false /\
+          T.truths core_schema booleans equality (valued x_one)
+            [geq (commuted xi yi) izero; leq (commuted yi xi) izero] == true /\
+          T.truth core_schema booleans equality (valued x_one) (R.mk_eq_expr xi yi) == false) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
 #pop-options

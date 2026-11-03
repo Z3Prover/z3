@@ -758,17 +758,18 @@ let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
 (* ---------------------------------------------------------------------- *)
 (* Int equality/order laws: the producer's triangle clauses and implied    *)
 (* equalities over two Int terms x and y (arith_eq_adapter: x = y gives    *)
-(* x <= y and x >= y, directly or on x + (-1) * y against 0, and the two   *)
-(* bounds give x = y back). x and y are any Int terms, read only as their  *)
-(* typed scalar values in the same Sorted interpretation: an opaque        *)
-(* application, a nonlinear product or a sum is one value, matched by      *)
-(* expression identity and never linearized. Formula-based, so the rule    *)
+(* x <= y and x >= y, directly or on x + (-1)*y or (-1)*y + x against 0,  *)
+(* and the two bounds give x = y back). x and y are any Int terms, read    *)
+(* only as their typed scalar values in the same Sorted interpretation: an *)
+(* opaque application, a nonlinear product or a sum is one value, matched  *)
+(* by expression identity and never linearized. Formula-based, so the rule *)
 (* label is never read.                                                    *)
 (* ---------------------------------------------------------------------- *)
 
 (* The operands l and r of an Int comparison read against the pair (x, y):
    l - r is x - y (Some true) or y - x (Some false), either directly or as a
-   difference compared with the numeral 0. *)
+   difference (AR.difference, either addition operand order) compared with
+   the numeral 0. *)
 let offset (x y l r:expr) : option bool =
   if l = x && r = y then Some true
   else if l = y && r = x then Some false
