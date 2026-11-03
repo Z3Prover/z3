@@ -28,6 +28,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "qe/qe_tactic.h"
+#include "tactic/arith/purify_arith_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
 
@@ -547,6 +548,140 @@ static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& s
     }
 }
 
+static void test_purify_arith_proofs() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        auto run = [&](expr_ref_vector const& assertions, expr_ref_vector const& axioms) {
+            goal_ref g = alloc(goal, m, proofs, true, false);
+            for (expr* assertion : assertions)
+                g->assert_expr(assertion);
+            tactic_ref purify = mk_purify_arith_tactic(m);
+            goal_ref_buffer results;
+            (*purify)(g, results);
+            ENSURE(results.size() == 1);
+            base_dependent_expr_state state(m);
+            solver_ref residual(mk_smt_solver(m, params_ref(), symbol()));
+            for (unsigned i = 0; i < results[0]->size(); ++i) {
+                expr* f = results[0]->form(i);
+                residual->assert_expr(f);
+                state.add(dependent_expr(m, f, results[0]->pr(i), nullptr));
+            }
+            ENSURE(residual->check_sat(0, nullptr) == l_false);
+            if (!proofs)
+                return;
+            obj_hashtable<expr> visited;
+            for (unsigned i = 0; i < state.qtail(); ++i) {
+                ENSURE(state[i].pr() && m.get_fact(state[i].pr()) == state[i].fml());
+                for (expr* e : subterms::all(expr_ref(state[i].pr(), m))) {
+                    if (!m.is_proof(e) || visited.contains(e))
+                        continue;
+                    visited.insert(e);
+                    if (m.is_asserted(e)) {
+                        bool found = false;
+                        for (expr* original : assertions)
+                            found |= original == m.get_fact(to_app(e));
+                        ENSURE(found);
+                    }
+                    auto kind = to_app(e)->get_decl_kind();
+                    if (kind != PR_TH_LEMMA && kind != PR_REWRITE)
+                        continue;
+                    proof* lemma = to_app(e);
+                    if (kind == PR_REWRITE && m.is_oeq(m.get_fact(lemma)))
+                        continue;
+                    solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
+                    for (expr* axiom : axioms)
+                        check->assert_expr(axiom);
+                    for (unsigned j = 0; j < m.get_num_parents(lemma); ++j) {
+                        expr_ref fact(m.get_fact(m.get_parent(lemma, j)), m);
+                        if (m.is_oeq(fact))
+                            fact = m.mk_eq(to_app(fact)->get_arg(0), to_app(fact)->get_arg(1));
+                        check->assert_expr(fact);
+                    }
+                    expr_ref fact(m.get_fact(lemma), m);
+                    expr_free_vars variables(fact);
+                    if (!variables.empty()) {
+                        expr_ref_vector values(m);
+                        for (unsigned j = 0; j < variables.size(); ++j)
+                            values.push_back(m.mk_fresh_const("purify-proof-var", variables[j] ? variables[j] : m.mk_bool_sort()));
+                        var_subst substitute(m, false);
+                        fact = substitute(fact, values);
+                    }
+                    check->assert_expr(m.mk_not(fact));
+                    ENSURE(check->check_sat(0, nullptr) == l_false);
+                }
+            }
+        };
+        expr_ref_vector assertions(m), axioms(m);
+        expr_ref x(m.mk_const("purify-x", a.mk_int()), m);
+        expr_ref two(a.mk_int(2), m), five(a.mk_int(5), m), zero(a.mk_int(0), m);
+        expr_ref mod(a.mk_mod(x, two), m);
+        assertions.push_back(m.mk_eq(x, five));
+        assertions.push_back(m.mk_eq(mod, zero));
+        run(assertions, axioms);
+
+        sort* integer = a.mk_int();
+        symbol name("n");
+        expr_ref n(m.mk_var(0, integer), m);
+        expr_ref guard(m.mk_eq(n, zero), m);
+        expr_ref body(m.mk_implies(guard, m.mk_eq(mod, zero)), m);
+        assertions.reset();
+        assertions.push_back(m.mk_eq(x, five));
+        assertions.push_back(m.mk_forall(1, &integer, &name, body));
+        run(assertions, axioms);
+
+        for (unsigned kind = 0; kind < 3; ++kind) {
+            sort* s = kind == 0 ? a.mk_real() : a.mk_int();
+            expr_ref x(m.mk_const("congruence-x", s), m), y(m.mk_const("congruence-y", s), m);
+            expr_ref u(m.mk_const("congruence-u", s), m), v(m.mk_const("congruence-v", s), m);
+            expr_ref lhs(m), rhs(m);
+            if (kind == 0) {
+                lhs = a.mk_div(x, u);
+                rhs = a.mk_div(y, v);
+            }
+            else if (kind == 1) {
+                lhs = a.mk_idiv(x, u);
+                rhs = a.mk_idiv(y, v);
+            }
+            else {
+                lhs = a.mk_mod(x, u);
+                rhs = a.mk_mod(y, v);
+            }
+            assertions.reset();
+            assertions.push_back(m.mk_eq(x, y));
+            assertions.push_back(m.mk_eq(u, v));
+            assertions.push_back(m.mk_eq(u, a.mk_numeral(rational(0), kind != 0)));
+            assertions.push_back(m.mk_not(m.mk_eq(lhs, rhs)));
+            run(assertions, axioms);
+        }
+
+        expr_ref theta(m.mk_const("theta", a.mk_real()), m);
+        expr_ref offset(m.mk_const("offset", a.mk_real()), m);
+        expr_ref sum(a.mk_add(theta, offset), m);
+        for (expr* angle : {theta.get(), sum.get()}) {
+            expr_ref s(a.mk_sin(angle), m), c(a.mk_cos(angle), m);
+            expr_ref ss(a.mk_mul(s, s), m), cc(a.mk_mul(c, c), m);
+            expr_ref circle(a.mk_add(ss, cc), m);
+            assertions.reset();
+            assertions.push_back(m.mk_eq(circle, a.mk_real(0)));
+            axioms.reset();
+            axioms.push_back(m.mk_eq(circle, a.mk_real(1)));
+            run(assertions, axioms);
+        }
+
+        expr_ref y(m.mk_const("power-y", a.mk_real()), m);
+        expr_ref real_zero(a.mk_real(0), m);
+        expr_ref px(a.mk_power(theta, real_zero), m), py(a.mk_power(y, real_zero), m);
+        assertions.reset();
+        assertions.push_back(m.mk_eq(theta, real_zero));
+        assertions.push_back(m.mk_eq(y, real_zero));
+        assertions.push_back(m.mk_not(m.mk_eq(px, py)));
+        axioms.reset();
+        run(assertions, axioms);
+    }
+}
+
 static void test_bit2int_proofs() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
@@ -1042,6 +1177,7 @@ static void test_nested_symbolic_rotations() {
 
 void tst_simplifier() {
 
+    test_purify_arith_proofs();
     test_bit2int_proofs();
     test_bit2int_zero_divisor_qe();
     test_nested_symbolic_rotations();
