@@ -1106,6 +1106,112 @@ let lemma_choice_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
     else lemma_branch_literal s bc eq other b a
   | _ -> ()
 
+(* ---------------------------------------------------------------------- *)
+(* Boolean or-gate definition clauses                                       *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's clauses for a Boolean gate g = (or x1 ... xn), the
+   def-axiom of an `or` subterm: or-intro (or g l), l the complement of a
+   disjunct x_i, and or-elim (or (not g) x1 ... xn), the literals after
+   (not g) exactly the disjuncts of g, in order. Tautologies of the same
+   Sorted interpretation, checked structurally on the canonical or/not
+   declarations (T.classify fixes their Boolean argument and result sorts)
+   and exact expression identity. No cut, truth table or boundary search, so
+   a gate whose shared disjunct the bounded propositional cut would read at
+   two depths is still decided, linearly in the clause size. *)
+
+(* The disjuncts of a canonical `or`. *)
+let disjuncts (g:expr) : option (list expr) =
+  match g with
+  | App f xs -> if T.classify f = T.Nary B.Or then Some xs else None
+  | _ -> None
+
+let rec has_complement (l:expr) (xs:list expr) : Tot bool (decreases xs) =
+  match xs with [] -> false | x :: rest -> complement l x || has_complement l rest
+
+(* g \/ l, l the complement of some disjunct of g. *)
+let or_intro (g l:expr) : bool =
+  match disjuncts g with Some xs -> has_complement l xs | None -> false
+
+(* (not g) \/ x1 \/ ... \/ xn, the literals after (not g) exactly the
+   disjuncts of g. *)
+let or_elim (lits:list expr) : bool =
+  match lits with
+  | n :: ys ->
+    (match negated n with
+     | Some g -> (match disjuncts g with Some xs -> xs = ys | None -> false)
+     | None -> false)
+  | [] -> false
+
+let gate_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> or_intro a b || or_intro b a || or_elim [a; b]
+  | lits -> or_elim lits
+
+(* When l is false, the disjunct it complements is true, so the disjunction is. *)
+let rec lemma_has_complement (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (l:expr) (xs:list expr)
+  : Lemma (requires D.scoped [] l /\ D.scoped_args [] xs /\ has_complement l xs /\
+                    not (T.truth s bc eq other l))
+          (ensures B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom xs))
+          (decreases xs) =
+  match xs with
+  | x :: rest ->
+    if complement l x then (
+      (match negated l with Some a -> if a = x then lemma_negated s bc eq other l a | None -> ());
+      (match negated x with Some a -> if a = l then lemma_negated s bc eq other x a | None -> ());
+      DT.lemma_literal_member (T.truth s bc eq other) xs x)
+    else lemma_has_complement s bc eq other l rest
+  | [] -> ()
+
+let lemma_or_intro (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                   (conclusion g l:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem g (DT.literals conclusion) /\ L.mem l (DT.literals conclusion) /\ or_intro g l)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) g;
+  lemma_literals_scoped (DT.literals conclusion) l;
+  if T.truth s bc eq other l then lemma_clause_member s bc eq other conclusion l
+  else match g with
+  | App f xs ->
+    lemma_has_complement s bc eq other l xs;
+    T.lemma_nary s bc eq other f xs B.Or;
+    lemma_clause_member s bc eq other conclusion g
+  | _ -> ()
+
+let lemma_or_elim (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    or_elim (DT.literals conclusion))
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  DT.lemma_literals s bc eq other conclusion;
+  match DT.literals conclusion with
+  | n :: ys ->
+    lemma_literals_scoped (DT.literals conclusion) n;
+    let g = Some?.v (negated n) in
+    lemma_negated s bc eq other n g;
+    (match g with
+     | App f xs -> T.lemma_nary s bc eq other f xs B.Or
+     | _ -> ())
+  | [] -> ()
+
+let lemma_gate_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\ gate_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match DT.literals conclusion with
+  | [a; b] ->
+    if or_intro a b then lemma_or_intro s bc eq other conclusion a b
+    else if or_intro b a then lemma_or_intro s bc eq other conclusion b a
+    else lemma_or_elim s bc eq other conclusion
+  | _ -> lemma_or_elim s bc eq other conclusion
+
 let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   (D.scoped [] conclusion && get_sort conclusion = bool_sort && DT.simple_consequence facts conclusion) ||
   equality_consequence s facts conclusion ||
@@ -1113,7 +1219,8 @@ let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) 
   negative_exhaustion s facts || cyclic_conflict s facts || reconstruction_conflict s facts facts ||
   DT.consequence s facts conclusion ||
   (D.scoped [] conclusion && get_sort conclusion = bool_sort &&
-   (order_clause conclusion || order_equation facts conclusion || choice_clause conclusion))
+   (order_clause conclusion || order_equation facts conclusion || choice_clause conclusion ||
+    gate_clause conclusion))
 
 let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -1137,7 +1244,8 @@ let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   else if DT.consequence s facts conclusion then DT.lemma_consequence s bc eq other facts conclusion
   else if order_clause conclusion then lemma_order_clause s bc eq other conclusion
   else if order_equation facts conclusion then lemma_order_equation s bc eq other facts conclusion
-  else lemma_choice_clause s bc eq other conclusion
+  else if choice_clause conclusion then lemma_choice_clause s bc eq other conclusion
+  else lemma_gate_clause s bc eq other conclusion
 
 let rec propagate (s:S.checked_schema) (fuel:nat) (facts:list expr) (conclusion:expr)
   : Tot bool (decreases fuel) =

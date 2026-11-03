@@ -825,3 +825,60 @@ let k5_swapped_bounds_document : P.document =
 let k5_swapped_bounds_pending ()
   : Lemma (RD.check_root_document PT.core_schema k5_swapped_bounds_document == RD.RootPending 1) =
   assert_norm (RD.check_root_document PT.core_schema k5_swapped_bounds_document == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* L. Boolean or-gate definition axioms (same-model tautologies)           *)
+(* ---------------------------------------------------------------------- *)
+
+let def_axiom_refute3 (clause u1 u2 u3:expr) : P.document =
+  doc [u1; u2; u3]
+      [entry U.DefAxiom clause []; entry U.Asserted u1 []; entry U.Asserted u2 []; entry U.Asserted u3 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2; 3]]
+      4
+
+(* The nested or-intro of Tactics.BreakVC-1 q1 node 51 and an or-elim, each
+   refuted by the complements of its literals. *)
+let l1_document : P.document =
+  def_axiom_refute PT.or_intro_nested (R.mk_not_expr PT.bvc_g) (R.mk_not_expr PT.bvc_h)
+
+let l2_document : P.document =
+  def_axiom_refute3 PT.or_elim_two (PT.disjunction [PT.atom_a; PT.atom_b])
+    (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)
+
+let l1_certified () : Lemma (RD.check_root_document PT.core_schema l1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema l1_document == RD.RootCertified)
+
+let l2_certified () : Lemma (RD.check_root_document PT.core_schema l2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema l2_document == RD.RootCertified)
+
+let gate_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema l1_document i /\ falsified u PT.core_schema l2_document i) =
+  l1_certified (); RD.lemma_root_certified u PT.core_schema l1_document i;
+  l2_certified (); RD.lemma_root_certified u PT.core_schema l2_document i
+
+let gate_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema l1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema l2_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  gate_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants stay open obligations (counter-models:
+   Z3SortedProofTests.gate_counter_models): the or-elim with a disjunct
+   dropped, and an or-intro literal complementing no disjunct. *)
+let l3_dropped_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute3 PT.elim_dropped_mutant (PT.disjunction [PT.atom_a; PT.atom_b; PT.atom_c])
+                (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute3 PT.elim_dropped_mutant (PT.disjunction [PT.atom_a; PT.atom_b; PT.atom_c])
+                    (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)) == RD.RootPending 1)
+
+let l4_member_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.intro_member_mutant (R.mk_not_expr (PT.disjunction [PT.atom_a; PT.atom_b]))
+                PT.atom_c) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.intro_member_mutant (R.mk_not_expr (PT.disjunction [PT.atom_a; PT.atom_b]))
+                    PT.atom_c) == RD.RootPending 1)

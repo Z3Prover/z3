@@ -377,6 +377,64 @@ SORTED_CHOICE_SATISFIABLE_CASES = (
      "(assert (not (P a)))"),
 )
 
+# Boolean or-gate definition axioms, reduced from FStar.Tactics.BreakVC-1 q1 (its or-intro node 51)
+# in the actual F* encoding. The instantiated query body has a gate g = (or (not G) (not h)) whose
+# disjunct h is itself a nested `or` over more than 12 atoms, so the producer's or-intro clause
+# (or g h) reads h at two depths of the bounded Boolean cut. The sorted kernel replays the
+# producer's or-intro (or g l, l the complement of a disjunct) and or-elim ((not g) or the
+# disjuncts) clauses as same-model tautologies: exact canonical or/not, exact disjuncts.
+BREAKVC_GATE_BACKGROUND = (
+    "(set-option :rewriter.enable_der false)(set-option :rewriter.sort_disjunctions false)"
+    "(declare-sort Term)(declare-sort Universe)(declare-fun U_zero () Universe)"
+    "(declare-datatypes () ((Fuel (ZFuel) (SFuel (prec Fuel)))))(declare-fun MaxIFuel () Fuel)"
+    "(declare-fun Valid (Term) Bool)(declare-fun HasTypeFuel (Fuel Term Term) Bool)"
+    "(define-fun HasType ((x Term) (t Term)) Bool (HasTypeFuel MaxIFuel x t))"
+    "(declare-fun ApplyTT (Term Term) Term)(declare-fun Tm_unit () Term)"
+    "(declare-fun FStar.Pervasives.spinoff (Term) Term)(declare-fun Prims.prop () Term)"
+    "(declare-fun Prims.pure_post (Universe Term) Term)(declare-fun Prims.squash (Term) Term)"
+    "(declare-fun Prims.unit () Term)(declare-fun Tm_arrow_1584e4c87a457f1777a95c06e090cc58 () Term)"
+    "(declare-fun Tm_refine_2de20c066034c13bf76e9c0b94f4806c (Term) Term)"
+    "(assert (! (forall ((@x0 Term)) (! (= (Prims.squash @x0) (Tm_refine_2de20c066034c13bf76e9c0b94f4806c @x0))"
+    " :pattern ((Prims.squash @x0)) :qid equation_Prims.squash)) :named equation_Prims.squash))"
+    "(assert (! (forall ((@u0 Fuel) (@x1 Term) (@x2 Term)) (! (iff (HasTypeFuel @u0 @x1"
+    " (Tm_refine_2de20c066034c13bf76e9c0b94f4806c @x2)) (and (HasTypeFuel @u0 @x1 Prims.unit) (Valid @x2)))"
+    " :pattern ((HasTypeFuel @u0 @x1 (Tm_refine_2de20c066034c13bf76e9c0b94f4806c @x2)))"
+    " :qid refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c))"
+    " :named refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c))"
+    "(declare-fun label_5 () Bool)(declare-fun label_4 () Bool)(declare-fun label_3 () Bool)"
+    "(declare-fun label_2 () Bool)(declare-fun label_1 () Bool)"
+    "(declare-fun Tm_arrow_d5bf7858f58cc2a67d68af59e5ff2145 (Term) Term)"
+    "(declare-fun Tm_arrow_3df206d68ffba27f9349bcb0bb5780db (Term) Term)")
+BREAKVC_GATE_QUERY = (
+    "(assert (! (not (forall ((@x0 Term)) (! (implies (HasType @x0 Tm_arrow_1584e4c87a457f1777a95c06e090cc58)"
+    " (forall ((@x1 Term)) (! (implies (and (HasType @x1 (Prims.pure_post U_zero Prims.unit))"
+    " (forall ((@x2 Term)) (! (implies (and (or label_1 (HasType @x2 Prims.unit))"
+    " (implies (Valid (FStar.Pervasives.spinoff (ApplyTT @x0 Tm_unit))) (or label_2 (Valid (ApplyTT @x0 Tm_unit)))))"
+    " (Valid (ApplyTT @x1 @x2))) :pattern ( (Valid (ApplyTT @x1 @x2))) :qid @query.2)))"
+    " (and (forall ((@x2 Term)) (! (implies (HasType @x2 Prims.unit) (and (forall ((@x3 Term))"
+    " (! (implies (HasType @x3 Prims.unit) (forall ((@x4 Term)) (! (implies (HasType @x4 Prims.unit)"
+    " (forall ((@x5 Term)) (! (implies (and (HasType @x5 Prims.unit) (iff (Valid (ApplyTT @x0 Tm_unit))"
+    " (Valid (FStar.Pervasives.spinoff (ApplyTT @x0 Tm_unit))))) (or label_3 (iff (Valid (FStar.Pervasives.spinoff"
+    " (ApplyTT @x0 Tm_unit))) (Valid (ApplyTT @x0 Tm_unit))))) :qid @query.6))) :qid @query.5))) :qid @query.4))"
+    " (forall ((@x3 Term)) (! (implies (HasType @x3 (Tm_arrow_d5bf7858f58cc2a67d68af59e5ff2145 @x0))"
+    " (forall ((@x4 Term)) (! (implies (HasType @x4 Prims.unit) (forall ((@x5 Term)) (! (implies (HasType @x5"
+    " (Prims.squash (ApplyTT @x0 Tm_unit))) (or label_4 (Valid (ApplyTT @x0 Tm_unit)))) :qid @query.9)))"
+    " :qid @query.8))) :qid @query.7)))) :qid @query.3)) (forall ((@x2 Term)) (! (implies (HasType @x2"
+    " (Tm_arrow_3df206d68ffba27f9349bcb0bb5780db @x0)) (and (forall ((@x3 Term) (@x4 Term)) (! (implies (and"
+    " (HasType @x3 Prims.prop) (HasType @x4 Prims.prop) (exists ((@x5 Term)) (! (and (HasType @x5 Prims.prop)"
+    " (exists ((@x6 Term)) (! (and (HasType @x6 Prims.prop) (exists ((@x7 Term)) (! (and (HasType @x7 Prims.prop)"
+    " (= @x3 @x7) (= @x7 @x6)) :qid @query.14)) (iff (Valid @x6) (Valid @x5))) :qid @query.13))"
+    " (implies (Valid @x5) (Valid @x4))) :qid @query.12)) (Valid @x3)) (or label_5 (Valid @x4))) :qid @query.11))"
+    " (forall ((@x3 Term)) (! (implies (and (HasType @x3 Prims.unit) (implies (Valid (FStar.Pervasives.spinoff"
+    " (ApplyTT @x0 Tm_unit))) (Valid (ApplyTT @x0 Tm_unit)))) (Valid (ApplyTT @x1 @x3))) :qid @query.15))))"
+    " :qid @query.10)))) :qid @query.1))) :qid @query))) :named @query))")
+SORTED_OR_GATE_CASES = (
+    ("breakvc-nested-or-intro", BREAKVC_GATE_BACKGROUND + BREAKVC_GATE_QUERY),
+)
+SORTED_OR_GATE_SATISFIABLE_CASES = (
+    ("breakvc-background-only", "(set-option :smt.mbqi true)" + BREAKVC_GATE_BACKGROUND),
+)
+
 # Quant-intro certificates: the producer's rewriting under binders (rewriter proof-bind /
 # quant-intro), reduced from the F* corpus. Implication-to-or under three nested Term binders
 # (the FStar.Tactics.BreakVC q1 shape: a pure-Boolean certificate beyond the bounded congruence),
@@ -808,6 +866,34 @@ class DirectCheckerTests(unittest.TestCase):
                         self.assertIn("semantics=sorted-datatype", result.stderr)
                     self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
         for name, source in SORTED_CHOICE_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_or_gate_definition_axioms_in_both_modes(self):
+        for name, source in SORTED_OR_GATE_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                    self.assertNotIn("obligation\tdef-axiom\t", result.stderr)
+        for name, source in SORTED_OR_GATE_SATISFIABLE_CASES:
             with self.subTest(case=name):
                 result = self.run_checker(source, "--diagnostics")
                 self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)

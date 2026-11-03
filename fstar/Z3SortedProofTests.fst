@@ -821,4 +821,109 @@ let commuted_counter_models ()
           T.truth core_schema booleans equality (valued x_one) (R.mk_eq_expr xi yi) == false) by
     (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
+(* ---------------------------------------------------------------------- *)
+(* Boolean or-gate definition clauses                                       *)
+(* ---------------------------------------------------------------------- *)
+
+let bool_atom (name:string) : expr =
+  App { decl_name = name; domain = []; range = bool_sort; interp = None; int_params = [] } []
+let atom_a = bool_atom "a"
+let atom_b = bool_atom "b"
+let atom_c = bool_atom "c"
+
+(* FStar.Tactics.BreakVC-1 q1 node 51: (or g h), g = (or (not a) (not h)) and h
+   itself an `or`, nested six deep over 16 more atoms; the other literal
+   order; the literal the negation of a disjunct; and or-elim clauses (Pure.
+   BreakVC-1 q1 node 80, FStar.Order q9 node 145), one over the nested g and h. *)
+let bvc_h =
+  disjunction [
+    R.mk_not_expr (disjunction [bool_atom "b1"; bool_atom "b2"; bool_atom "b3"; bool_atom "b4";
+                                bool_atom "b5"; bool_atom "b6"; bool_atom "b7"; bool_atom "b8";
+                                bool_atom "b9"; bool_atom "b10"; bool_atom "b11"; bool_atom "b12"]);
+    R.mk_not_expr (disjunction [bool_atom "c1";
+                                R.mk_not_expr (disjunction [R.mk_not_expr (bool_atom "d1"); bool_atom "d2"]);
+                                bool_atom "c3"])]
+let bvc_g = disjunction [R.mk_not_expr atom_a; R.mk_not_expr bvc_h]
+let or_intro_nested = disjunction [bvc_g; bvc_h]
+let or_intro_swapped = disjunction [atom_c; disjunction [atom_a; R.mk_not_expr atom_c; atom_b]]
+let or_intro_negated = disjunction [disjunction [atom_a; atom_b; atom_c]; R.mk_not_expr atom_b]
+let or_elim_two = disjunction [R.mk_not_expr (disjunction [atom_a; atom_b]); atom_a; atom_b]
+let or_elim_nested =
+  disjunction [R.mk_not_expr (disjunction [bvc_g; bvc_h; atom_c]); bvc_g; bvc_h; atom_c]
+
+let checked_gate_clauses ()
+  : Lemma (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
+           K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested /\
+           K.consequence core_schema [] or_intro_nested /\ K.consequence core_schema [] or_elim_two) =
+  assert_norm (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
+               K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested);
+  assert_norm (K.consequence core_schema [] or_intro_nested);
+  assert_norm (K.consequence core_schema [] or_elim_two)
+
+(* The bounded propositional route alone refuses the nested or-intro: the
+   shared h is cut at two depths into two different skeletons over more than
+   12 atoms (reflection boundaries share subformulas between formulas only). *)
+let nested_gate_beyond_boolean_consequence ()
+  : Lemma (not (DT.boolean_consequence [] or_intro_nested)) =
+  assert_norm (not (DT.boolean_consequence [] or_intro_nested))
+
+(* The generic theorem at these instances, in EVERY Sorted model. *)
+let gate_clauses_hold (#base:sort -> Type0) (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                      (other:V.interpretation base (S.signature core_schema))
+  : Lemma (T.truth core_schema bc eq other or_intro_nested /\ T.truth core_schema bc eq other or_elim_two) =
+  checked_gate_clauses ();
+  K.lemma_consequence core_schema bc eq other [] or_intro_nested;
+  K.lemma_consequence core_schema bc eq other [] or_elim_two
+
+(* False variants: an or-elim with a disjunct dropped, an or-intro literal of
+   the wrong polarity (the disjunct itself), a literal complementing no
+   disjunct, and a counterfeit `or` or `not` (same name, no interpretation
+   tag: an uninterpreted Boolean function). *)
+let elim_dropped_mutant =
+  disjunction [R.mk_not_expr (disjunction [atom_a; atom_b; atom_c]); atom_a; atom_b]
+let intro_polarity_mutant = disjunction [disjunction [atom_a; atom_b]; atom_a]
+let intro_member_mutant = disjunction [disjunction [atom_a; atom_b]; R.mk_not_expr atom_c]
+let counterfeit_or_mutant =
+  disjunction [App ({ BR.connective_decl BR.Disjunction [atom_a; atom_b] with interp = None }) [atom_a; atom_b];
+               R.mk_not_expr atom_a]
+let counterfeit_not_mutant =
+  disjunction [disjunction [atom_a; atom_b]; App ({ R.not_decl with interp = None }) [atom_a]]
+
+let refused_gate_mutants ()
+  : Lemma (not (K.gate_clause elim_dropped_mutant) /\ not (K.gate_clause intro_polarity_mutant) /\
+           not (K.gate_clause intro_member_mutant) /\ not (K.gate_clause counterfeit_or_mutant) /\
+           not (K.gate_clause counterfeit_not_mutant) /\
+           not (K.direct_consequence core_schema [] elim_dropped_mutant) /\
+           not (K.direct_consequence core_schema [] intro_polarity_mutant) /\
+           not (K.direct_consequence core_schema [] intro_member_mutant) /\
+           not (K.direct_consequence core_schema [] counterfeit_or_mutant) /\
+           not (K.direct_consequence core_schema [] counterfeit_not_mutant)) =
+  assert_norm (not (K.gate_clause elim_dropped_mutant) /\ not (K.gate_clause intro_polarity_mutant) /\
+               not (K.gate_clause intro_member_mutant) /\ not (K.gate_clause counterfeit_or_mutant) /\
+               not (K.gate_clause counterfeit_not_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] elim_dropped_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] intro_polarity_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] intro_member_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] counterfeit_or_mutant));
+  assert_norm (not (K.direct_consequence core_schema [] counterfeit_not_mutant))
+
+(* Opposite-value counter-models: c true and a, b false (the dropped disjunct
+   and the non-member literal); everything false (the wrong polarity, the
+   counterfeit `not`); a true (the counterfeit `or`, false by default). *)
+let c_true (f:func_decl) : bool = f.decl_name = "c"
+let a_true (f:func_decl) : bool = f.decl_name = "a"
+
+let gate_counter_models ()
+  : Lemma (T.truth core_schema booleans equality (booled c_true) elim_dropped_mutant == false /\
+           T.truth core_schema booleans equality (booled none_true) intro_polarity_mutant == false /\
+           T.truth core_schema booleans equality (booled c_true) intro_member_mutant == false /\
+           T.truth core_schema booleans equality (booled a_true) counterfeit_or_mutant == false /\
+           T.truth core_schema booleans equality (booled none_true) counterfeit_not_mutant == false) =
+  assert (T.truth core_schema booleans equality (booled c_true) elim_dropped_mutant == false /\
+          T.truth core_schema booleans equality (booled none_true) intro_polarity_mutant == false /\
+          T.truth core_schema booleans equality (booled c_true) intro_member_mutant == false /\
+          T.truth core_schema booleans equality (booled a_true) counterfeit_or_mutant == false /\
+          T.truth core_schema booleans equality (booled none_true) counterfeit_not_mutant == false) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
+
 #pop-options
