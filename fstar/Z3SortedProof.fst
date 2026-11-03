@@ -22,6 +22,7 @@ module E = Z3SortedSkolem
 module SK = Z3Skolemization
 module NR = Z3NnfReplay
 module DS = Z3SortedDependentSkolem
+module LA = Z3LinearArithmeticAst
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -754,12 +755,472 @@ let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
     T.lemma_equality s bc eq other (Quantifier k bs t a) (Quantifier k' bs' t' b)
   | _ -> ()
 
+(* ---------------------------------------------------------------------- *)
+(* Int equality/order laws: the producer's triangle clauses and implied    *)
+(* equalities over two Int terms x and y (arith_eq_adapter: x = y gives    *)
+(* x <= y and x >= y, directly or on x + (-1)*y or (-1)*y + x against 0,  *)
+(* and the two bounds give x = y back). x and y are any Int terms, read    *)
+(* only as their typed scalar values in the same Sorted interpretation: an *)
+(* opaque application, a nonlinear product or a sum is one value, matched  *)
+(* by expression identity and never linearized. Formula-based, so the rule *)
+(* label is never read.                                                    *)
+(* ---------------------------------------------------------------------- *)
+
+(* The operands l and r of an Int comparison read against the pair (x, y):
+   l - r is x - y (Some true) or y - x (Some false), either directly or as a
+   difference (AR.difference, either addition operand order) compared with
+   the numeral 0. *)
+let offset (x y l r:expr) : option bool =
+  if l = x && r = y then Some true
+  else if l = y && r = x then Some false
+  else if not (AR.int_numeral 0 r) then None
+  else match AR.difference l with
+  | Some (a, b) ->
+    if a = x && b = y then Some true
+    else if a = y && b = x then Some false
+    else None
+  | None -> None
+
+(* An equation x = y at Int (the canonical equality). *)
+let int_equation (e:expr) : option (expr & expr) =
+  match e with
+  | App f [x; y] -> if f = R.eq_decl LA.int_s then Some (x, y) else None
+  | _ -> None
+
+(* An Int comparison l <= r, l >= r or l = r with l - r = +-(x - y): every
+   equal pair x, y satisfies it. *)
+let implied_by_equation (x y c:expr) : bool =
+  match LA.comparison c with
+  | Some (rel, l, r) ->
+    get_sort l = LA.int_s && (rel = LA.Le || rel = LA.Ge || rel = LA.Eq) && Some? (offset x y l r)
+  | None -> false
+
+(* An Int comparison read as a bound on x - y: Some true for x - y <= 0,
+   Some false for x - y >= 0. *)
+let bound (x y c:expr) : option bool =
+  match LA.comparison c with
+  | Some (rel, l, r) ->
+    if get_sort l <> LA.int_s then None
+    else (match offset x y l r with
+          | Some sign -> if rel = LA.Le then Some sign else if rel = LA.Ge then Some (not sign) else None
+          | None -> None)
+  | None -> None
+
+let negated (e:expr) : option expr =
+  match e with App f [a] -> if T.classify f = T.Negation then Some a else None | _ -> None
+
+(* not (x = y) \/ c, c implied by x = y. *)
+let equation_order (ne c:expr) : bool =
+  match negated ne with
+  | Some e -> (match int_equation e with Some (x, y) -> implied_by_equation x y c | None -> false)
+  | None -> false
+
+(* (x = y) \/ not c1 \/ not c2, c1 and c2 opposite bounds on x - y. *)
+let antisymmetric (e n1 n2:expr) : bool =
+  match int_equation e, negated n1, negated n2 with
+  | Some (x, y), Some c1, Some c2 ->
+    (match bound x y c1, bound x y c2 with
+     | Some u1, Some u2 -> u1 <> u2
+     | _, _ -> false)
+  | _, _, _ -> false
+
+(* The two- and three-literal clauses, literals in any order. *)
+let order_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> equation_order a b || equation_order b a
+  | [a; b; c] -> antisymmetric a b c || antisymmetric b a c || antisymmetric c a b
+  | _ -> false
+
+let rec has_bound (x y:expr) (upper:bool) (facts:list expr) : Tot bool (decreases facts) =
+  match facts with
+  | [] -> false
+  | e :: rest -> bound x y e = Some upper || has_bound x y upper rest
+
+(* x = y from an upper and a lower bound on x - y among the facts. *)
+let order_equation (facts:list expr) (conclusion:expr) : bool =
+  match int_equation conclusion with
+  | Some (x, y) -> has_bound x y true facts && has_bound x y false facts
+  | None -> false
+
+let integer_value (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (e:expr) : GTot int =
+  AR.integer s bc eq other [] (T.empty_environment (S.signature s)) e
+
+let lemma_offset (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                 (x y l r:expr) (sign:bool)
+  : Lemma (requires D.scoped [] l /\ D.scoped [] r /\ offset x y l r == Some sign)
+          (ensures integer_value s bc eq other l - integer_value s bc eq other r ==
+                   (if sign then integer_value s bc eq other x - integer_value s bc eq other y
+                    else integer_value s bc eq other y - integer_value s bc eq other x)) =
+  if l = x && r = y then ()
+  else if l = y && r = x then ()
+  else (
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_numeral s bc eq other [] rho 0 r;
+    match AR.difference l with
+    | Some (a, b) -> AR.lemma_difference s bc eq other [] rho l a b
+    | None -> ())
+
+let lemma_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                   (e x y:expr)
+  : Lemma (requires D.scoped [] e /\ int_equation e == Some (x, y))
+          (ensures D.scoped [] x /\ D.scoped [] y /\ get_sort x == LA.int_s /\ get_sort y == LA.int_s /\
+                   (T.truth s bc eq other e <==>
+                    integer_value s bc eq other x == integer_value s bc eq other y)) =
+  match e with
+  | App f [_; _] ->
+    V.lemma_sort_eq (get_sort x) LA.int_s;
+    V.lemma_sort_eq (get_sort y) LA.int_s;
+    T.lemma_equality s bc eq other x y;
+    AR.lemma_integer_equality s bc eq other [] (T.empty_environment (S.signature s)) x y
+  | _ -> ()
+
+let lemma_negated (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (e a:expr)
+  : Lemma (requires D.scoped [] e /\ negated e == Some a)
+          (ensures D.scoped [] a /\ T.truth s bc eq other e == not (T.truth s bc eq other a)) =
+  match e with
+  | App f [_] -> T.lemma_negation s bc eq other f a
+  | _ -> ()
+
+let lemma_implied_by_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (x y c:expr)
+  : Lemma (requires D.scoped [] c /\ implied_by_equation x y c /\
+                    integer_value s bc eq other x == integer_value s bc eq other y)
+          (ensures T.truth s bc eq other c) =
+  match LA.comparison c with
+  | Some (rel, l, r) ->
+    AR.lemma_int_comparison s bc eq other [] (T.empty_environment (S.signature s)) c rel l r;
+    lemma_offset s bc eq other x y l r (Some?.v (offset x y l r))
+  | None -> ()
+
+let lemma_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                (x y c:expr) (upper:bool)
+  : Lemma (requires D.scoped [] c /\ bound x y c == Some upper /\ T.truth s bc eq other c)
+          (ensures (if upper then integer_value s bc eq other x <= integer_value s bc eq other y
+                    else integer_value s bc eq other y <= integer_value s bc eq other x)) =
+  match LA.comparison c with
+  | Some (rel, l, r) ->
+    AR.lemma_int_comparison s bc eq other [] (T.empty_environment (S.signature s)) c rel l r;
+    lemma_offset s bc eq other x y l r (Some?.v (offset x y l r))
+  | None -> ()
+
+(* A true literal of a clause makes the clause true. *)
+let lemma_clause_member (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (conclusion lit:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem lit (DT.literals conclusion) /\ T.truth s bc eq other lit)
+          (ensures T.truth s bc eq other conclusion) =
+  DT.lemma_literal_member (T.truth s bc eq other) (DT.literals conclusion) lit;
+  DT.lemma_literals s bc eq other conclusion
+
+let rec lemma_literals_scoped (es:list expr) (e:expr)
+  : Lemma (requires D.scoped_args [] es /\ L.mem e es) (ensures D.scoped [] e) (decreases es) =
+  match es with [] -> () | d :: rest -> if d <> e then lemma_literals_scoped rest e
+
+let lemma_literals_of (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion)
+          (ensures D.scoped_args [] (DT.literals conclusion)) =
+  match conclusion with
+  | App f es -> ()
+  | _ -> ()
+
+let lemma_equation_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (conclusion ne c:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem ne (DT.literals conclusion) /\ L.mem c (DT.literals conclusion) /\
+                    equation_order ne c)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) ne;
+  lemma_literals_scoped (DT.literals conclusion) c;
+  let e = Some?.v (negated ne) in
+  lemma_negated s bc eq other ne e;
+  let x, y = Some?.v (int_equation e) in
+  lemma_equation s bc eq other e x y;
+  if T.truth s bc eq other ne then lemma_clause_member s bc eq other conclusion ne
+  else (
+    lemma_implied_by_equation s bc eq other x y c;
+    lemma_clause_member s bc eq other conclusion c)
+
+let lemma_antisymmetric (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (conclusion e n1 n2:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem e (DT.literals conclusion) /\ L.mem n1 (DT.literals conclusion) /\
+                    L.mem n2 (DT.literals conclusion) /\ antisymmetric e n1 n2)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) e;
+  lemma_literals_scoped (DT.literals conclusion) n1;
+  lemma_literals_scoped (DT.literals conclusion) n2;
+  let x, y = Some?.v (int_equation e) in
+  let c1 = Some?.v (negated n1) in
+  let c2 = Some?.v (negated n2) in
+  lemma_equation s bc eq other e x y;
+  lemma_negated s bc eq other n1 c1;
+  lemma_negated s bc eq other n2 c2;
+  if T.truth s bc eq other n1 then lemma_clause_member s bc eq other conclusion n1
+  else if T.truth s bc eq other n2 then lemma_clause_member s bc eq other conclusion n2
+  else (
+    lemma_bound s bc eq other x y c1 (Some?.v (bound x y c1));
+    lemma_bound s bc eq other x y c2 (Some?.v (bound x y c2));
+    lemma_clause_member s bc eq other conclusion e)
+
+let lemma_order_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\ order_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match DT.literals conclusion with
+  | [a; b] ->
+    if equation_order a b then lemma_equation_order s bc eq other conclusion a b
+    else lemma_equation_order s bc eq other conclusion b a
+  | [a; b; c] ->
+    if antisymmetric a b c then lemma_antisymmetric s bc eq other conclusion a b c
+    else if antisymmetric b a c then lemma_antisymmetric s bc eq other conclusion b a c
+    else lemma_antisymmetric s bc eq other conclusion c a b
+  | _ -> ()
+
+let rec lemma_has_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (x y:expr) (upper:bool) (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\ has_bound x y upper facts)
+          (ensures (if upper then integer_value s bc eq other x <= integer_value s bc eq other y
+                    else integer_value s bc eq other y <= integer_value s bc eq other x))
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | e :: rest ->
+    if bound x y e = Some upper then lemma_bound s bc eq other x y e upper
+    else lemma_has_bound s bc eq other x y upper rest
+
+let lemma_order_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\ order_equation facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let x, y = Some?.v (int_equation conclusion) in
+  lemma_equation s bc eq other conclusion x y;
+  lemma_has_bound s bc eq other x y true facts;
+  lemma_has_bound s bc eq other x y false facts
+
+(* ---------------------------------------------------------------------- *)
+(* Term if-then-else branch clauses                                         *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's two clauses of a term choice (smt_internalizer,
+   internalize_ite_term): (not c) \/ t = (ite c t u) and c \/ u = (ite c t u).
+   A theorem of the same Sorted interpretation: the canonical choice
+   evaluates to the branch its condition selects and the canonical equality
+   reflects that value. No symbol is introduced and the interpretation is not
+   extended. Any branch sort, either equality orientation, either literal
+   order. *)
+
+(* lit holds exactly when c does not: lit is (not c), or c is (not lit). *)
+let complement (lit c:expr) : bool =
+  (match negated lit with Some a -> a = c | None -> false) ||
+  (match negated c with Some a -> a = lit | None -> false)
+
+(* lit \/ v = ch, ch the canonical choice (ite c t u) at the sort of its
+   branches and v the branch the condition selects whenever lit is false:
+   t when lit is the complement of c, u when lit is c itself. *)
+let branch_equation (lit v ch:expr) : bool =
+  match ch with
+  | App g [c; t; u] ->
+    T.classify g = T.Choice (get_sort t) &&
+    ((v = t && complement lit c) || (v = u && lit = c))
+  | _ -> false
+
+(* The canonical equality of a branch and its choice, in either order. *)
+let branch_literal (lit e:expr) : bool =
+  match e with
+  | App f [a; b] -> f = R.eq_decl (get_sort a) && (branch_equation lit a b || branch_equation lit b a)
+  | _ -> false
+
+let choice_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> branch_literal a b || branch_literal b a
+  | _ -> false
+
+let lemma_branch_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (lit v ch:expr)
+  : Lemma (requires D.scoped [] lit /\ D.scoped [] ch /\ branch_equation lit v ch /\
+                    not (T.truth s bc eq other lit))
+          (ensures D.scoped [] v /\ get_sort ch == get_sort v /\
+                   T.evaluate s bc eq other ch == T.evaluate s bc eq other v) =
+  match ch with
+  | App g [c; t; u] ->
+    assert (g == T.ite_decl (get_sort t));
+    V.lemma_sort_eq (get_sort c) bool_sort;
+    V.lemma_sort_eq (get_sort u) (get_sort t);
+    let rho = T.empty_environment (S.signature s) in
+    T.lemma_evaluate_core_at s bc eq other [] rho g [c; t; u];
+    assert_norm (T.evaluate_arguments_at s bc eq other [] rho [c; t; u] [bool_sort; get_sort t; get_sort t] ==
+                 [T.evaluate_at s bc eq other [] rho c; T.evaluate_at s bc eq other [] rho t;
+                  T.evaluate_at s bc eq other [] rho u]);
+    (match negated lit with
+     | Some a -> if a = c then lemma_negated s bc eq other lit a
+     | None -> ());
+    (match negated c with
+     | Some a -> if a = lit then lemma_negated s bc eq other c a
+     | None -> ())
+  | _ -> ()
+
+let lemma_branch_literal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (lit e:expr)
+  : Lemma (requires D.scoped [] lit /\ D.scoped [] e /\ branch_literal lit e /\
+                    not (T.truth s bc eq other lit))
+          (ensures T.truth s bc eq other e) =
+  match e with
+  | App f [a; b] ->
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b;
+    if branch_equation lit a b then lemma_branch_equation s bc eq other lit a b
+    else lemma_branch_equation s bc eq other lit b a
+  | _ -> ()
+
+let lemma_choice_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\ choice_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  match DT.literals conclusion with
+  | [a; b] ->
+    lemma_literals_scoped (DT.literals conclusion) a;
+    lemma_literals_scoped (DT.literals conclusion) b;
+    if T.truth s bc eq other a then lemma_clause_member s bc eq other conclusion a
+    else if T.truth s bc eq other b then lemma_clause_member s bc eq other conclusion b
+    else if branch_literal a b then lemma_branch_literal s bc eq other a b
+    else lemma_branch_literal s bc eq other b a
+  | _ -> ()
+
+(* ---------------------------------------------------------------------- *)
+(* Boolean or-gate definition clauses                                       *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's clauses for a Boolean gate g = (or x1 ... xn), the
+   def-axiom of an `or` subterm: or-intro (or g l), l the complement of a
+   disjunct x_i, and or-elim (or (not g) x1 ... xn), the literals after
+   (not g) exactly the disjuncts of g, in order. Tautologies of the same
+   Sorted interpretation, checked structurally on the canonical or/not
+   declarations (T.classify fixes their Boolean argument and result sorts)
+   and exact expression identity. No cut, truth table or boundary search, so
+   a gate whose shared disjunct the bounded propositional cut would read at
+   two depths is still decided, linearly in the clause size. *)
+
+(* The disjuncts of a canonical `or`. *)
+let disjuncts (g:expr) : option (list expr) =
+  match g with
+  | App f xs -> if T.classify f = T.Nary B.Or then Some xs else None
+  | _ -> None
+
+let rec has_complement (l:expr) (xs:list expr) : Tot bool (decreases xs) =
+  match xs with [] -> false | x :: rest -> complement l x || has_complement l rest
+
+(* g \/ l, l the complement of some disjunct of g. *)
+let or_intro (g l:expr) : bool =
+  match disjuncts g with Some xs -> has_complement l xs | None -> false
+
+(* (not g) \/ x1 \/ ... \/ xn, the literals after (not g) exactly the
+   disjuncts of g. *)
+let or_elim (lits:list expr) : bool =
+  match lits with
+  | n :: ys ->
+    (match negated n with
+     | Some g -> (match disjuncts g with Some xs -> xs = ys | None -> false)
+     | None -> false)
+  | [] -> false
+
+let gate_clause (conclusion:expr) : bool =
+  match DT.literals conclusion with
+  | [a; b] -> or_intro a b || or_intro b a || or_elim [a; b]
+  | lits -> or_elim lits
+
+(* When l is false, the disjunct it complements is true, so the disjunction is. *)
+let rec lemma_has_complement (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (l:expr) (xs:list expr)
+  : Lemma (requires D.scoped [] l /\ D.scoped_args [] xs /\ has_complement l xs /\
+                    not (T.truth s bc eq other l))
+          (ensures B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom xs))
+          (decreases xs) =
+  match xs with
+  | x :: rest ->
+    if complement l x then (
+      (match negated l with Some a -> if a = x then lemma_negated s bc eq other l a | None -> ());
+      (match negated x with Some a -> if a = l then lemma_negated s bc eq other x a | None -> ());
+      DT.lemma_literal_member (T.truth s bc eq other) xs x)
+    else lemma_has_complement s bc eq other l rest
+  | [] -> ()
+
+let lemma_or_intro (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                   (conclusion g l:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    L.mem g (DT.literals conclusion) /\ L.mem l (DT.literals conclusion) /\ or_intro g l)
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  lemma_literals_scoped (DT.literals conclusion) g;
+  lemma_literals_scoped (DT.literals conclusion) l;
+  if T.truth s bc eq other l then lemma_clause_member s bc eq other conclusion l
+  else match g with
+  | App f xs ->
+    lemma_has_complement s bc eq other l xs;
+    T.lemma_nary s bc eq other f xs B.Or;
+    lemma_clause_member s bc eq other conclusion g
+  | _ -> ()
+
+let lemma_or_elim (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    or_elim (DT.literals conclusion))
+          (ensures T.truth s bc eq other conclusion) =
+  lemma_literals_of conclusion;
+  DT.lemma_literals s bc eq other conclusion;
+  match DT.literals conclusion with
+  | n :: ys ->
+    lemma_literals_scoped (DT.literals conclusion) n;
+    let g = Some?.v (negated n) in
+    lemma_negated s bc eq other n g;
+    (match g with
+     | App f xs -> T.lemma_nary s bc eq other f xs B.Or
+     | _ -> ())
+  | [] -> ()
+
+let lemma_gate_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\ gate_clause conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match DT.literals conclusion with
+  | [a; b] ->
+    if or_intro a b then lemma_or_intro s bc eq other conclusion a b
+    else if or_intro b a then lemma_or_intro s bc eq other conclusion b a
+    else lemma_or_elim s bc eq other conclusion
+  | _ -> lemma_or_elim s bc eq other conclusion
+
 let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   (D.scoped [] conclusion && get_sort conclusion = bool_sort && DT.simple_consequence facts conclusion) ||
   equality_consequence s facts conclusion ||
   (D.scoped [] conclusion && quantifier_equality conclusion) ||
   negative_exhaustion s facts || cyclic_conflict s facts || reconstruction_conflict s facts facts ||
-  DT.consequence s facts conclusion
+  DT.consequence s facts conclusion ||
+  (D.scoped [] conclusion && get_sort conclusion = bool_sort &&
+   (order_clause conclusion || order_equation facts conclusion || choice_clause conclusion ||
+    gate_clause conclusion))
 
 let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -780,7 +1241,11 @@ let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   else if negative_exhaustion s facts then lemma_negative_exhaustion s bc eq other facts
   else if cyclic_conflict s facts then lemma_cyclic_conflict s bc eq other facts
   else if reconstruction_conflict s facts facts then lemma_reconstruction_conflict s bc eq other facts facts
-  else DT.lemma_consequence s bc eq other facts conclusion
+  else if DT.consequence s facts conclusion then DT.lemma_consequence s bc eq other facts conclusion
+  else if order_clause conclusion then lemma_order_clause s bc eq other conclusion
+  else if order_equation facts conclusion then lemma_order_equation s bc eq other facts conclusion
+  else if choice_clause conclusion then lemma_choice_clause s bc eq other conclusion
+  else lemma_gate_clause s bc eq other conclusion
 
 let rec propagate (s:S.checked_schema) (fuel:nat) (facts:list expr) (conclusion:expr)
   : Tot bool (decreases fuel) =
@@ -1056,6 +1521,105 @@ let rec lemma_arithmetic_assumptions (#base:sort -> Type0) (s:S.checked_schema) 
      | [] -> ()
      | _ :: rest -> lemma_arithmetic_assumptions s bc eq other [] rest)
 
+(* ---------------------------------------------------------------------- *)
+(* Coefficient-free linear Int consequences                                 *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's implied Int equalities and bound conflicts carry no Farkas
+   coefficients (only its arith farkas/bound steps do). The checker
+   recomputes them from the step's own formulas: the existing bounded search
+   LA.synthesize (unchanged and untrusted: at most 32 literals, 16
+   elimination rounds and 128 rows) proposes weights for the premises with
+   one target negated, and the existing typed check AR.check_contradiction
+   validates them against exactly those literals (one weight per literal,
+   signs and orientation, the strict-Int rounding, atoms by expression
+   identity, closed scope, Int comparisons only, every contribution). A
+   failed or wrong search leaves the step open. Only the entry formula and
+   the premise propositions are read, never the rule label or a payload;
+   the two bounds below are internal checker terms. *)
+
+(* Every literal an Int comparison or its negation (AR.integer_formula):
+   Real, mixed and non-arithmetic literals are refused before any search. *)
+let rec integer_literals (lits:list (bool & expr)) : Tot bool (decreases lits) =
+  match lits with
+  | [] -> true
+  | (_, e) :: rest -> AR.integer_formula 16 e && integer_literals rest
+
+(* The existing input bounds, enforced before the search: synthesize's
+   literal cap, check_contradiction's expression budget, Int-only literals. *)
+let linear_inputs (lits:list (bool & expr)) : bool =
+  L.length lits <= 32 && Some? (arguments_budget 4096 (L.map snd lits)) && integer_literals lits
+
+(* The facts and the negation of c are contradictory: the search's weights
+   for the literals it refutes (LA.assumptions c facts), validated. *)
+let refutes (facts:list expr) (c:expr) : bool =
+  let lits = LA.assumptions c facts in
+  linear_inputs lits &&
+  (match LA.synthesize c facts with
+   | Some cs -> AR.check_contradiction lits cs
+   | None -> false)
+
+let int_le (x y:expr) : expr =
+  App { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+        interp = Some Z3ValueTheory.op_arith_le; int_params = [] } [x; y]
+
+let int_ge (x y:expr) : expr =
+  App { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+        interp = Some Z3ValueTheory.op_arith_ge; int_params = [] } [x; y]
+
+(* An Int equation x = y: x <= y and x >= y each refuted on its own (its own
+   search and check), then antisymmetry (order_equation over the two
+   bounds). The conclusion false: one refutation of the facts. *)
+let linear_consequence (facts:list expr) (conclusion:expr) : bool =
+  match int_equation conclusion with
+  | Some (x, y) -> refutes facts (int_le x y) && refutes facts (int_ge x y)
+  | None -> conclusion = R.false_expr && refutes facts R.false_expr
+
+(* A refuted c is not false where the facts hold: the facts and the negated
+   literals of c would satisfy every literal of the validated certificate
+   (lemma_arithmetic_assumptions), contradicting AR.lemma_check_contradiction.
+   The search itself is not trusted. *)
+let lemma_refutes (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (facts:list expr) (c:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ refutes facts c /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (R.formula_clause c))))
+          (ensures False) =
+  lemma_arithmetic_assumptions s bc eq other facts (R.formula_clause c);
+  AR.lemma_check_contradiction s bc eq other (LA.assumptions c facts) (Some?.v (LA.synthesize c facts))
+
+(* A refuted unit clause is true. *)
+let lemma_unit_refuted (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (facts:list expr) (c:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ refutes facts c /\ R.formula_clause c == [c])
+          (ensures T.truth s bc eq other c) =
+  if not (T.truth s bc eq other c) then (
+    assert_norm (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom [c]) ==
+                 B.combine B.Or (T.truth s bc eq other c) (B.neutral B.Or));
+    lemma_refutes s bc eq other facts c)
+
+let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    linear_consequence facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match int_equation conclusion with
+  | Some (x, y) ->
+    let le = int_le x y in
+    let ge = int_ge x y in
+    lemma_equation s bc eq other conclusion x y;
+    assert (R.formula_clause le == [le] /\ R.formula_clause ge == [ge]);
+    lemma_unit_refuted s bc eq other facts le;
+    lemma_unit_refuted s bc eq other facts ge;
+    assert (LA.comparison le == Some (LA.Le, x, y) /\ LA.comparison ge == Some (LA.Ge, x, y));
+    assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
+    lemma_order_equation s bc eq other [le; ge] conclusion
+  | None ->
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other facts R.false_expr
+
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
@@ -1095,7 +1659,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       arithmetic_farkas node || quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
       nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
-      DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) in
+      DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
+      (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1185,10 +1750,14 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_consequence s bc eq other (propositions node.premises) conclusion))
-    else (
+    else if DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) then (
       lemma_scoped_propositions s bc eq other node.premises;
       DT.lemma_consequence s bc eq other (scoped_propositions node.premises) (scoped_proposition fact);
       lemma_scoped_proposition s bc eq other fact)
+    else (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =

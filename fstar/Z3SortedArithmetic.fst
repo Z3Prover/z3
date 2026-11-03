@@ -521,3 +521,115 @@ let lemma_check_contradiction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
   let ps = Some?.v (A.prepare xs cs) in
   lemma_prepare s bc model other xs cs ps;
   P.lemma_accepts_sound ps (valuation s bc model other [] (T.empty_environment (S.signature s)))
+
+(* ---------------------------------------------------------------------- *)
+(* Single canonical Int operations read back through the integer carrier,  *)
+(* at any scope. Operands are never linearized: an Int operand (an opaque   *)
+(* application, a nonlinear product, a sum) is only its scalar value.       *)
+(* ---------------------------------------------------------------------- *)
+
+(* The canonical Int numeral n: no arguments, op_num_rational [n; 1] at Int. *)
+let int_numeral (n:int) (e:expr) : bool =
+  match e with App k [] -> I.classify k = I.Numeral n | _ -> false
+
+(* (-1) * y: a canonical Int product of the numeral -1 and y. *)
+let negated_operand (e:expr) : option expr =
+  match e with
+  | App g [k; y] -> if I.classify g = I.Calculate A.Mul && int_numeral (-1) k then Some y else None
+  | _ -> None
+
+(* x - y as a canonical Int addition of x and (-1) * y, in either operand
+   order: x + (-1) * y as the producer builds it (arith_eq_adapter), and
+   (-1) * y + x as the arithmetic solver writes its own unrewritten equality
+   atoms (theory_lra coeffs2app, e.g. for nonlinear lemmas), whose bounds
+   then give implied equalities. When both operands are negated products,
+   the second is read as (-1) * y. *)
+let difference (e:expr) : option (expr & expr) =
+  match e with
+  | App f [a; b] ->
+    if I.classify f <> I.Calculate A.Add then None
+    else (match negated_operand b with
+          | Some y -> Some (a, y)
+          | None -> (match negated_operand a with Some y -> Some (b, y) | None -> None))
+  | _ -> None
+
+let lemma_int_numeral (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                      (n:int) (e:expr)
+  : Lemma (requires D.scoped scope e /\ int_numeral n e)
+          (ensures get_sort e == A.int_s /\ integer s bc model other scope rho e == n) =
+  match e with
+  | App k [] -> lemma_application s bc model other scope rho k []
+  | _ -> ()
+
+let lemma_int_binary (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                     (f:func_decl) (a b:expr) (op:A.operation)
+  : Lemma (requires D.scoped scope (App f [a; b]) /\ I.classify f == I.Calculate op)
+          (ensures D.scoped scope a /\ D.scoped scope b /\ get_sort a == A.int_s /\ get_sort b == A.int_s /\
+                   get_sort (App f [a; b]) == A.int_s /\
+                   (op == A.Add ==> integer s bc model other scope rho (App f [a; b]) ==
+                                     integer s bc model other scope rho a + integer s bc model other scope rho b) /\
+                   (op == A.Mul ==> integer s bc model other scope rho (App f [a; b]) ==
+                                     integer s bc model other scope rho a * integer s bc model other scope rho b)) =
+  match f.domain with
+  | [ta; tb] ->
+    V.lemma_sort_eq (get_sort a) ta;
+    V.lemma_sort_eq (get_sort b) tb;
+    lemma_application s bc model other scope rho f [a; b];
+    let va = T.evaluate_at s bc model other scope rho a in
+    let vb = T.evaluate_at s bc model other scope rho b in
+    assert_norm (T.evaluate_arguments_at s bc model other scope rho [a; b] [A.int_s; A.int_s] == [va; vb]);
+    assert_norm (I.numbers s model.T.integers [A.int_s; A.int_s] [va; vb] ==
+                 [I.number s model.T.integers va; I.number s model.T.integers vb])
+  | _ -> ()
+
+(* The value of (-1) * y is the negated value of y. *)
+let lemma_negated_operand (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                          (e y:expr)
+  : Lemma (requires D.scoped scope e /\ negated_operand e == Some y)
+          (ensures D.scoped scope y /\ get_sort y == A.int_s /\ get_sort e == A.int_s /\
+                   integer s bc model other scope rho e == - (integer s bc model other scope rho y)) =
+  match e with
+  | App g [k; _] ->
+    lemma_int_binary s bc model other scope rho g k y A.Mul;
+    lemma_int_numeral s bc model other scope rho (-1) k
+  | _ -> ()
+
+(* The value of the difference, in either operand order, is the difference
+   of the values. *)
+let lemma_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                     (e x y:expr)
+  : Lemma (requires D.scoped scope e /\ difference e == Some (x, y))
+          (ensures D.scoped scope x /\ D.scoped scope y /\ get_sort x == A.int_s /\ get_sort y == A.int_s /\
+                   get_sort e == A.int_s /\
+                   integer s bc model other scope rho e ==
+                   integer s bc model other scope rho x - integer s bc model other scope rho y) =
+  match e with
+  | App f [a; b] ->
+    lemma_int_binary s bc model other scope rho f a b A.Add;
+    (match negated_operand b with
+     | Some _ -> lemma_negated_operand s bc model other scope rho b y
+     | None -> lemma_negated_operand s bc model other scope rho a y)
+  | _ -> ()
+
+(* A canonical Int comparison l REL r, read on the integer values. *)
+let lemma_int_comparison (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                         (c:expr) (rel:A.relation) (l r:expr)
+  : Lemma (requires D.scoped scope c /\ A.comparison c == Some (rel, l, r) /\ get_sort l == A.int_s)
+          (ensures D.scoped scope l /\ D.scoped scope r /\ get_sort r == A.int_s /\
+                   (T.truth_at s bc model other scope rho c <==>
+                    I.compare rel (integer s bc model other scope rho l) (integer s bc model other scope rho r))) =
+  match c with
+  | App f [_; _] ->
+    V.lemma_sort_eq (get_sort r) A.int_s;
+    lemma_comparison s bc model other scope rho c l r rel
+  | _ -> ()

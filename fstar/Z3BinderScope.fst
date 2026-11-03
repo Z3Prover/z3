@@ -141,6 +141,12 @@ let rec lemma_count_cells (#a:Type) (acc:nat) (l:list a)
 let lemma_name_length (s:string) : Lemma (name_length s == FStar.String.strlen s)
   = lemma_count_cells 0 (FStar.String.list_of_string s)
 
+(* Equal names are counted once (`Z3UnifiedProof.name_pair_units`); the units
+   are both names' lengths. *)
+let lemma_name_pair_units (a b:string)
+  : Lemma (name_pair_units a b == name_length a + name_length b)
+  = ()
+
 (* The recursive sort comparison of d50187500/0ebb92579, word for word under
    new names, proof only: as deep as the sorts on the Cherry backend. *)
 let rec sort_eq_within_rec (work:nat) (s t:sort) : Tot (option (bool & nat)) (decreases s) =
@@ -194,6 +200,7 @@ let rec lemma_sort_tasks (work:nat) (tasks:list sort_task)
        | Some w ->
          (match s, t with
           | BaseSort a, BaseSort b ->
+            lemma_name_pair_units a b;
             (match scope_charge w (name_length a + name_length b) with
              | Some w' -> if a = b then lemma_sort_tasks w' rest
              | None -> ())

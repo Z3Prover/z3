@@ -672,6 +672,17 @@ type sort_task =
   | SortPair : sort -> sort -> sort_task
   | SortListPair : list sort -> list sort -> sort_task
 
+(* The units charged before two base-sort names are compared: both names'
+   lengths, `name_length a + name_length b` (`Z3BinderScope.lemma_name_pair_units`).
+   Equal names (a well-sorted argument against its declared domain sort, a
+   variable against its scope sort) are counted once and the count doubled: on
+   the Cherry backend a count decodes the name into a list of characters
+   (`FStar.String.list_of_string`) and frees it again, and the scope-entry pass
+   compares base sorts at every argument of every node it walks. The charge, the
+   result and the work left are unchanged. *)
+let name_pair_units (a b:string) : nat =
+  if a = b then (let n = name_length a in n + n) else name_length a + name_length b
+
 (* `sort_eq s t` and `sort_list_eq l1 l2` (structural sort equality) for the
    tasks in order, one unit per sort node and list cell visited, and the two
    names' lengths before two base-sort names are compared; the first unequal
@@ -692,7 +703,7 @@ let rec sort_tasks_within (work:nat) (tasks:list sort_task)
      | Some w ->
        (match s, t with
         | BaseSort a, BaseSort b ->
-          (match scope_charge w (name_length a + name_length b) with
+          (match scope_charge w (name_pair_units a b) with
            | Some w' -> if a = b then sort_tasks_within w' rest else Some (false, w')
            | None -> None)
         | ArraySort d1 r1, ArraySort d2 r2 ->
