@@ -36,11 +36,11 @@
                     equivalence Z3SortedArithmetic.equivalent (linear
                     normal forms over the Int carrier; opaque Int-valued
                     terms are atoms), or the propositional equivalence of
-                    the Boolean cuts (T.cut 64, decided by
-                    Z3SortedDatatype.bounded_propositional, the check the
-                    Sorted route uses for top-level rewrites; atoms are
-                    compared syntactically, so a de Bruijn index is read at
-                    the one scope of the step).
+                    the Boolean cuts (T.cut 64, else the coarser T.cut 2,
+                    decided by Z3SortedDatatype.bounded_propositional, the
+                    check the Sorted route uses for top-level rewrites;
+                    atoms are compared syntactically, so a de Bruijn index
+                    is read at the one scope of the step).
    With `refl`, `trans` and `monotonicity` these replay the body proofs of
    a quant-intro root; nothing is read from the rule names alone.
 
@@ -110,12 +110,19 @@
    its premises' formulas at every use (a premise shared by m users is
    charged m times, so the comparisons stay linear in the budget), and one
    unit per assertion for each `sk` step. A `rewrite` leaf is decided only
-   after its formula's node count is charged, so its bounded local check
-   reads a tree of at most the remaining budget. An exhausted budget leaves
-   the node PENDING. Premise ids that are not earlier entries (forward,
-   self or negative references) make the certificate MALFORMED, which the
-   Sorted route reports as a rejected proof entry, not as a pending
-   obligation (for an NNF and a quant-intro root alike).
+   after its formula's node count is charged, so its local check reads a
+   tree of at most the remaining budget. That check (existing Sorted-route
+   code, not one of the loops above) is not itself linear in the charge:
+   the Int equivalence reads at most 256 nodes per side, and each of the
+   (at most two) bounded propositional checks normalizes cut trees of at
+   most the charged size and enumerates a truth table only up to 12 atoms
+   (4096 rows of the simplified formula). This is the bounded form of the
+   check the Sorted route already applies, uncharged, to a top-level step
+   of the same size. An exhausted budget leaves the node PENDING. Premise
+   ids that are not earlier entries (forward, self or negative references)
+   make the certificate MALFORMED, which the Sorted route reports as a
+   rejected proof entry, not as a pending obligation (for an NNF and a
+   quant-intro root alike).
 *)
 module Z3NnfReplay
 
@@ -272,14 +279,21 @@ let rec find_closure (lhs rhs:expr) (es:list expr) : Tot (option (list sort)) (d
      | _ -> find_closure lhs rhs rest)
 
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
-   equivalence, or the propositional equivalence of the Boolean cuts. Both
-   checks are syntactic in the atoms, so they hold at every typed
-   environment of every scope at which both sides are typed
-   (lemma_rewrite_at). *)
+   equivalence, or the propositional equivalence of the Boolean cuts, first
+   at depth 64 and otherwise at depth 2 (the same check over the coarser
+   abstraction whose atoms are the subterms below the top two Boolean
+   levels: an iff/negation normalization of wide conjunctions such as
+   `(= a (not o)) = (not (= o a))` exceeds the truth-table bound at depth 64
+   but has two atoms at depth 2). Every check is syntactic in the atoms, so
+   it holds at every typed environment of every scope at which both sides
+   are typed (lemma_rewrite_at). *)
+let propositional_at (fuel:nat) (lhs rhs:expr) : bool =
+  DT.bounded_propositional (B.Eq (T.cut fuel lhs) (T.cut fuel rhs))
+
 let rewrite_ok (lhs rhs:expr) : bool =
   AR.equivalent lhs rhs ||
   (get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
-   DT.bounded_propositional (B.Eq (T.cut 64 lhs) (T.cut 64 rhs)))
+   (propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
 
 (* `scoped`: the certificate has a quant-intro root, whose body proofs may
    use quant-intro congruences and rewrite leaves; an NNF certificate
@@ -1040,11 +1054,25 @@ let lemma_closure_edge (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
   T.lemma_equality_at s bc eq other scope rho a b;
   lemma_same_at s bc eq other scope rho a b
 
+(* The propositional check at any cut depth, at ANY scope where both sides
+   are typed Booleans and ANY typed environment of it: read through the
+   scoped cut (T.lemma_cut_with_boundaries_at holds for every fuel) and the
+   ghost-valuation soundness of the bounded propositional check. *)
+let lemma_propositional_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                           (scope:list sort) (rho:V.environment base (S.signature s) scope) (fuel:nat) (lhs rhs:expr)
+  : Lemma (requires propositional_at fuel lhs rhs /\ D.scoped scope lhs /\ D.scoped scope rhs /\
+                    get_sort lhs == bool_sort /\ get_sort rhs == bool_sort)
+          (ensures same_at s bc eq other scope rho lhs rhs) =
+  T.lemma_cut_with_boundaries_at s bc eq other scope rho [] fuel lhs;
+  T.lemma_cut_with_boundaries_at s bc eq other scope rho [] fuel rhs;
+  DT.lemma_bounded_propositional_g (T.truth_at s bc eq other scope rho) (B.Eq (T.cut fuel lhs) (T.cut fuel rhs));
+  lemma_same_truth s bc eq other scope rho lhs rhs
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
    is Z3SortedArithmetic.lemma_equivalent at that scope; the propositional
-   equivalence is read through the scoped cut (T.lemma_cut_with_boundaries_at)
-   and the ghost-valuation soundness of the bounded propositional check. *)
+   equivalences are lemma_propositional_at. *)
 let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
@@ -1053,11 +1081,8 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   if AR.equivalent lhs rhs then (
     AR.lemma_equivalent s bc eq other scope rho lhs rhs;
     lemma_same_at s bc eq other scope rho lhs rhs)
-  else (
-    T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 lhs;
-    T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 rhs;
-    DT.lemma_bounded_propositional_g (T.truth_at s bc eq other scope rho) (B.Eq (T.cut 64 lhs) (T.cut 64 rhs));
-    lemma_same_truth s bc eq other scope rho lhs rhs)
+  else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
+  else lemma_propositional_at s bc eq other scope rho 2 lhs rhs
 
 (* ---------------------------------------------------------------------- *)
 (* 6. One entry at one assigned scope                                       *)

@@ -628,7 +628,10 @@ let propositional_core (bounded_context:bool) (f:B.skeleton) : bool =
           N.equivalent f (B.Bool true) then true
   else
     let atoms = B.unique (B.support simplified) in
-    L.length atoms <= 12 && B.check_rows atoms (fun _ -> false) simplified (B.Bool true)
+    (* `if`, not `&&`: F*'s normalizer reduces both operands of `&&`, so a
+       normalized check of a formula over more than 12 atoms would still
+       enumerate all its rows; the executable result is the same. *)
+    if L.length atoms <= 12 then B.check_rows atoms (fun _ -> false) simplified (B.Bool true) else false
 
 let lemma_propositional_core (rho:expr -> bool) (bounded_context:bool) (f:B.skeleton)
   : Lemma (requires propositional_core bounded_context f) (ensures B.eval rho f) =

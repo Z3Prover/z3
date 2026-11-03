@@ -379,11 +379,19 @@ SORTED_CHOICE_SATISFIABLE_CASES = (
 
 # Quant-intro certificates: the producer's rewriting under binders (rewriter proof-bind /
 # quant-intro), reduced from the F* corpus. Implication-to-or under three nested Term binders
-# (the FStar.Tactics.BreakVC q1 shape: a pure-Boolean certificate beyond the bounded congruence)
-# and Int comparison normal forms (`>` to `not <=`, x - y against 0) under two Universe binders.
-# Each proof's only otherwise-unchecked step is the quant-intro certificate, which the sorted
-# kernel replays entry by entry at the binder scopes. Satisfiable variants (decided with
-# model-based instantiation) are never certified.
+# (the FStar.Tactics.BreakVC q1 shape: a pure-Boolean certificate beyond the bounded congruence),
+# Int comparison normal forms (`>` to `not <=`, x - y against 0) under two Universe binders, and
+# the iff/negation normalization of a wide disjunction under a Term binder,
+# (= (P x) (not O)) to (not (= O (P x))) with O over 14 atoms (the FStar.Sequence.Permutation and
+# Pulse.Lib.RingBuffer leaves): beyond the 12-atom truth table of the full Boolean cut and decided
+# over the two-level cut. Each proof's only otherwise-unchecked step is the quant-intro
+# certificate, which the sorted kernel replays entry by entry at the binder scopes. Satisfiable
+# variants (decided with model-based instantiation) are never certified.
+WIDE_IFF_NEGATION = (
+    "(declare-sort Term)(declare-fun P (Term) Bool)(declare-fun t1 () Term)"
+    + "".join(f"(declare-fun w{i} (Term) Bool)" for i in range(1, 15))
+    + "(assert (forall ((x Term)) (! (= (P x) (not (or "
+    + "".join(f"(w{i} x)" for i in range(1, 15)) + "))) :pattern ((P x)))))")
 SORTED_QUANT_INTRO_CASES = (
     ("nested-implication-binders", FSTAR_QUERY_PREAMBLE +
      "(declare-sort Term)(declare-fun H (Term) Bool)(declare-fun K (Term) Bool)"
@@ -395,6 +403,8 @@ SORTED_QUANT_INTRO_CASES = (
      "(declare-fun pi (Universe Universe) Bool)"
      "(assert (forall ((x Universe) (y Universe)) (! (=> (> (h x) (h y)) (pi x y)) :pattern ((pi x y)))))"
      "(assert (> (h a) (h b)))(assert (not (pi a b)))"),
+    ("iff-negation-wide-disjunction", FSTAR_QUERY_PREAMBLE + WIDE_IFF_NEGATION +
+     "(assert (P t1))(assert (w3 t1))"),
 )
 SORTED_QUANT_INTRO_SATISFIABLE_CASES = (
     ("nested-implication-other-guard", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)"
@@ -407,6 +417,8 @@ SORTED_QUANT_INTRO_SATISFIABLE_CASES = (
      "(declare-fun pi (Universe Universe) Bool)"
      "(assert (forall ((x Universe) (y Universe)) (! (=> (> (h x) (h y)) (pi x y)) :pattern ((pi x y)))))"
      "(assert (>= (h a) (h b)))(assert (not (pi a b)))"),
+    ("iff-negation-wide-disjunction-open", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)" +
+     WIDE_IFF_NEGATION + "(assert (P t1))"),
 )
 
 

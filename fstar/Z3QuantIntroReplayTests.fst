@@ -11,7 +11,11 @@ module Z3QuantIntroReplayTests
          difference form `x + (-1)*y <= 0`, implication-to-or, under two
          nested Int binders;
       A3 an exists root, a shared (DAG) closed leaf read at two scopes, and a
-         two-sorted binder list in de Bruijn order.
+         two-sorted binder list in de Bruijn order;
+      A4 the iff/negation normalization of a wide disjunction (decided at
+         the coarser depth-2 cut; B13 are its wrong-sign mutants);
+      A5 the truth-table guard of the bounded propositional check: the
+         same result as before, 12 atoms checked, 13 atoms refused.
    B. Mutants (Unreplayed = the node stays pending, Malformed = a rejected
       proof entry): wrong leaf sign, wrong Int target, a de Bruijn shift /
       capture, swapped binder sorts, a leaf reused at an incompatible scope,
@@ -58,6 +62,7 @@ module PT = Z3SortedProofTests
 module BR = Z3BooleanRewrite
 module B = Z3BoundedBoolEquiv
 module Q = Z3SortedQuantifier
+module N = Z3BooleanNormalForm
 
 (* ---------------------------------------------------------------------- *)
 (* Shapes                                                                   *)
@@ -213,6 +218,94 @@ let a3_shared_leaf ()
                                        (forall_ [term] (mk_and [a3_rhs; a3_side_r]))) =
   assert_norm (replays (cert a3_entries 6) (forall_ [term] (mk_and [a3_lhs; a3_side_l]))
                                            (forall_ [term] (mk_and [a3_rhs; a3_side_r])))
+
+(* A4 the iff/negation normalization of a wide disjunction (the actual
+   shape of FStar.Sequence.Permutation q5 node383 and Pulse.Lib.RingBuffer
+   q22 node85, there with 14-38 literals):  (= a (not o)) = (not (= o a))
+   with o a disjunction of 12 negated atoms under a Term binder. With `a`
+   the depth-64 cut has 13 atoms, one more than its truth-table bound, so
+   only the coarser depth-2 cut (atoms a and o) decides it.
+   B13 wrong-sign mutants, both pending: the outer negation dropped,
+   (= o a) (refused at both depths: o is expanded at depth 2 too), and the
+   negation moved inside, (= (not o) (not a)) (refuted by the two-atom
+   depth-2 table). Both are the complement of the A4 leaf (counter-model
+   D8 of Z3QuantIntroCounterModelTests). *)
+let wd (name:string) : func_decl = symbol name [term] bool_sort
+let w_ (name:string) : expr = App (wd name) [t0]
+let a4_lits : list expr = [
+  neg (w_ "w1"); neg (w_ "w2"); neg (w_ "w3"); neg (w_ "w4"); neg (w_ "w5"); neg (w_ "w6");
+  neg (w_ "w7"); neg (w_ "w8"); neg (w_ "w9"); neg (w_ "w10"); neg (w_ "w11"); neg (w_ "w12")]
+let a4_o : expr = mk_or a4_lits
+let a4_l : expr = eq (p_ t0) (neg a4_o)
+let a4_r : expr = neg (eq a4_o (p_ t0))
+let b13_r : expr = eq a4_o (p_ t0)
+let b13_inner_r : expr = eq (neg a4_o) (neg (p_ t0))
+let a4_cert (rhs:expr) : U.binder_certificate =
+  cert [be "rewrite" (eq a4_l rhs) []; bq "quant-intro" [term] (eq (forall_ [term] a4_l) (forall_ [term] rhs)) [0]] 1
+let a4_iff_negation ()
+  : Lemma (not (NR.propositional_at 64 a4_l a4_r) /\ NR.propositional_at 2 a4_l a4_r /\
+           replays (a4_cert a4_r) (forall_ [term] a4_l) (forall_ [term] a4_r)) =
+  assert_norm (not (NR.propositional_at 64 a4_l a4_r));
+  assert_norm (NR.propositional_at 2 a4_l a4_r);
+  assert_norm (replays (a4_cert a4_r) (forall_ [term] a4_l) (forall_ [term] a4_r))
+
+let b13_iff_sign ()
+  : Lemma (pending (a4_cert b13_r) (forall_ [term] a4_l) (forall_ [term] b13_r) /\
+           not (NR.propositional_at 2 a4_l b13_inner_r) /\
+           pending (a4_cert b13_inner_r) (forall_ [term] a4_l) (forall_ [term] b13_inner_r)) =
+  assert_norm (pending (a4_cert b13_r) (forall_ [term] a4_l) (forall_ [term] b13_r));
+  assert_norm (not (NR.propositional_at 2 a4_l b13_inner_r));
+  assert_norm (pending (a4_cert b13_inner_r) (forall_ [term] a4_l) (forall_ [term] b13_inner_r))
+
+(* A5 the truth-table guard of the bounded propositional check. The `if`
+   of Z3SortedDatatype.propositional_core returns exactly the Boolean of
+   the `&&` it replaced (prior_core is the previous definition verbatim),
+   so the bound is still 12 atoms. At exactly 12 atoms (11 literals and
+   `a`, closed atoms) the iff/negation leaf misses every earlier disjunct
+   and the truth table accepts it; with 13 atoms (A4) it misses them too and
+   is refused by the atom bound, without enumerating rows. *)
+let prior_core (bounded_context:bool) (f:B.skeleton) : bool =
+  if DT.shape_equivalence f then true else
+  let simplified = N.normalize false f in
+  if simplified = B.Bool true then true
+  else if N.clause_tautology simplified then true
+  else if (not bounded_context || Some? (DT.context_budget 256 f)) &&
+          N.equivalent f (B.Bool true) then true
+  else
+    let atoms = B.unique (B.support simplified) in
+    L.length atoms <= 12 && B.check_rows atoms (fun _ -> false) simplified (B.Bool true)
+
+let a5_guard_unchanged (bounded_context:bool) (f:B.skeleton)
+  : Lemma (DT.propositional_core bounded_context f == prior_core bounded_context f) = ()
+
+let c_ (name:string) : expr = App (symbol name [] bool_sort) []
+let a5_o : expr = mk_or [neg (c_ "c1"); neg (c_ "c2"); neg (c_ "c3"); neg (c_ "c4"); neg (c_ "c5"); neg (c_ "c6");
+                         neg (c_ "c7"); neg (c_ "c8"); neg (c_ "c9"); neg (c_ "c10"); neg (c_ "c11")]
+let a5_l : expr = eq (c_ "a") (neg a5_o)
+let a5_r : expr = neg (eq a5_o (c_ "a"))
+let a5_f : B.skeleton = B.Eq (T.cut 64 a5_l) (T.cut 64 a5_r)
+let a4_f : B.skeleton = B.Eq (T.cut 64 a4_l) (T.cut 64 a4_r)
+
+let a5_twelve_atoms ()
+  : Lemma (L.length (B.unique (B.support (N.normalize false a5_f))) = 12 /\
+           not (DT.shape_equivalence a5_f) /\ not (N.clause_tautology (N.normalize false a5_f)) /\
+           not (N.equivalent a5_f (B.Bool true)) /\
+           DT.bounded_propositional a5_f /\ NR.propositional_at 64 a5_l a5_r) =
+  assert_norm (L.length (B.unique (B.support (N.normalize false a5_f))) = 12);
+  assert_norm (not (DT.shape_equivalence a5_f) /\ not (N.clause_tautology (N.normalize false a5_f)));
+  assert_norm (not (N.equivalent a5_f (B.Bool true)));
+  assert_norm (DT.bounded_propositional a5_f)
+
+let a5_thirteen_atoms ()
+  : Lemma (L.length (B.unique (B.support (N.normalize false a4_f))) = 13 /\
+           not (DT.shape_equivalence a4_f) /\ not (N.clause_tautology (N.normalize false a4_f)) /\
+           not (N.equivalent a4_f (B.Bool true)) /\
+           not (DT.bounded_propositional a4_f)) =
+  assert_norm (L.length (B.unique (B.support (N.normalize false a4_f))) = 13);
+  assert_norm (not (N.normalize false a4_f = B.Bool true));
+  assert_norm (not (DT.shape_equivalence a4_f) /\ not (N.clause_tautology (N.normalize false a4_f)));
+  assert_norm (not (N.equivalent a4_f (B.Bool true)));
+  a5_guard_unchanged true a4_f
 
 (* ---------------------------------------------------------------------- *)
 (* B. Mutants: the actual replay verdicts                                   *)

@@ -6,10 +6,10 @@ module Z3QuantIntroCounterModelTests
    closed root equation (B1 wrong leaf sign, B6 missing congruence premise,
    B7 swapped congruence premises) or, for a corrupted OPEN leaf, at a
    concrete typed environment of the scope the guard assigns it (B12 under
-   a VALID closed root, B2 wrong Int target, B3 de Bruijn shift). So a
-   replay that accepted any of them would be unsound; the refusals are the
-   checker's own verdicts, proved by normalization in
-   Z3QuantIntroReplayTests.
+   a VALID closed root, B2 wrong Int target, B3 de Bruijn shift, B13
+   iff/negation leaves with the wrong sign). So a replay that accepted any
+   of them would be unsound; the refusals are the checker's own verdicts,
+   proved by normalization in Z3QuantIntroReplayTests.
 
    The models: TR.standard over free choices that interpret a free Boolean
    symbol by a fixed predicate of its declaration (`pick`), every other free
@@ -445,3 +445,74 @@ let d7_shift (u:TR.uninterpreted)
   assert_norm (TR.icalculate Z3LinearArithmeticAst.Add [0; 0] == 0);
   assert_norm (TR.icompare Z3LinearArithmeticAst.Le 0 0 == true);
   assert_norm (QT.dyy == App (TR.le_decl TR.int_s) [QT.plus QT.i0 (QT.times (QT.num (-1)) QT.i0); QT.num 0])
+
+(* ---------------------------------------------------------------------- *)
+(* D8 B13 (iff/negation leaves of a wide disjunction, wrong sign)          *)
+(* ---------------------------------------------------------------------- *)
+
+let a4_facts ()
+  : Lemma (QT.a4_o == App (BR.connective_decl BR.Disjunction QT.a4_lits) QT.a4_lits /\
+           QT.a4_lits == QT.neg (QT.w_ "w1") :: L.tl QT.a4_lits /\
+           T.classify (BR.connective_decl BR.Disjunction QT.a4_lits) == T.Nary B.Or /\
+           TR.classify (S.signature PT.core_schema) (QT.wd "w1") == TR.Other /\
+           D.scoped [QT.term] (QT.w_ "w1") /\ D.scoped [QT.term] (QT.neg (QT.w_ "w1")) /\
+           D.scoped [QT.term] QT.a4_o /\ D.scoped [QT.term] (QT.neg QT.a4_o) /\
+           D.scoped [QT.term] QT.a4_l /\ D.scoped [QT.term] QT.b13_r /\ D.scoped [QT.term] QT.b13_inner_r) =
+  assert_norm (QT.a4_o == App (BR.connective_decl BR.Disjunction QT.a4_lits) QT.a4_lits);
+  assert_norm (QT.a4_lits == QT.neg (QT.w_ "w1") :: L.tl QT.a4_lits);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction QT.a4_lits) == T.Nary B.Or);
+  assert_norm (TR.classify (S.signature PT.core_schema) (QT.wd "w1") == TR.Other);
+  assert_norm (D.scoped [QT.term] (QT.w_ "w1") /\ D.scoped [QT.term] (QT.neg (QT.w_ "w1")));
+  assert_norm (D.scoped [QT.term] QT.a4_o /\ D.scoped [QT.term] (QT.neg QT.a4_o));
+  assert_norm (D.scoped [QT.term] QT.a4_l /\ D.scoped [QT.term] QT.b13_r /\ D.scoped [QT.term] QT.b13_inner_r)
+
+(* Both B13 leaves are the complement of the A4 leaf. At an environment of
+   their scope [Term] with every free Boolean false (a false, every literal
+   `not w` true, so o true) the A4 left side (= a (not o)) is true, while
+   (= o a) and (= (not o) (not a)) are false: neither leaf equation holds
+   there, so the two refused certificates would certify a false open fact. *)
+let d8_iff_sign (u:TR.uninterpreted)
+  : Lemma (TR.root_model u PT.core_schema (model u none) /\
+           st u none (L.rev [QT.term] @ [])
+              (V.extend (S.signature PT.core_schema) [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema))
+              QT.a4_l == true /\
+           st u none (L.rev [QT.term] @ [])
+              (V.extend (S.signature PT.core_schema) [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema))
+              QT.b13_r == false /\
+           st u none (L.rev [QT.term] @ [])
+              (V.extend (S.signature PT.core_schema) [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema))
+              QT.b13_inner_r == false /\
+           not (st u none (L.rev [QT.term] @ [])
+                  (V.extend (S.signature PT.core_schema) [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema))
+                  (QT.eq QT.a4_l QT.b13_r)) /\
+           not (st u none (L.rev [QT.term] @ [])
+                  (V.extend (S.signature PT.core_schema) [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema))
+                  (QT.eq QT.a4_l QT.b13_inner_r))) =
+  let sigma = S.signature PT.core_schema in
+  let i = model u none in
+  let sb = TR.booleans u in
+  let sc = SR.root_scalars u in
+  let s1 = L.rev [QT.term] @ [] in
+  let r1 = V.extend sigma [] (L.rev [QT.term]) (wterm u) (RD.empty_root u PT.core_schema) in
+  let t = T.truth_at PT.core_schema sb sc i s1 r1 in
+  lemma_model u none; classified (); scopes (); a4_facts ();
+  lemma_atom u none s1 r1 QT.pd [QT.t0];
+  assert (t (QT.p_ QT.t0) == false);
+  lemma_atom u none s1 r1 (QT.wd "w1") [QT.t0];
+  NR.lemma_truth_not PT.core_schema sb sc i s1 r1 R.not_decl (QT.w_ "w1");
+  assert (t (QT.neg (QT.w_ "w1")) == true);
+  NR.lemma_truth_nary PT.core_schema sb sc i s1 r1 (BR.connective_decl BR.Disjunction QT.a4_lits) QT.a4_lits B.Or;
+  assert (L.map B.Atom QT.a4_lits == B.Atom (QT.neg (QT.w_ "w1")) :: L.map B.Atom (L.tl QT.a4_lits));
+  assert (B.geval_args t B.Or (L.map B.Atom QT.a4_lits) ==
+          B.combine B.Or (t (QT.neg (QT.w_ "w1"))) (B.geval_args t B.Or (L.map B.Atom (L.tl QT.a4_lits))));
+  assert (t QT.a4_o == true);
+  NR.lemma_truth_not PT.core_schema sb sc i s1 r1 R.not_decl QT.a4_o;
+  NR.lemma_truth_not PT.core_schema sb sc i s1 r1 R.not_decl (QT.p_ QT.t0);
+  T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 (QT.p_ QT.t0) (QT.neg QT.a4_o);
+  assert (t QT.a4_l == true);
+  T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 QT.a4_o (QT.p_ QT.t0);
+  assert (t QT.b13_r == false);
+  T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 (QT.neg QT.a4_o) (QT.neg (QT.p_ QT.t0));
+  assert (t QT.b13_inner_r == false);
+  T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 QT.a4_l QT.b13_r;
+  T.lemma_boolean_equality_at PT.core_schema sb sc i s1 r1 QT.a4_l QT.b13_inner_r
