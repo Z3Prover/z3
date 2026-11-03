@@ -332,6 +332,31 @@ let lemma_expanded_count (transform:D.expander) (defs:list D.definition) (c:bind
       | None -> ()
     end
 
+(* The kind of a node `prepare_entry_using` prepares is the expansion of the
+   entry's rule: `prepare_entry_from` binds `expand_rule_using` last. Stepped
+   through the binds one `option` at a time, so that the facts the proof needs
+   do not depend on the solver unfolding the whole nested chain at once. *)
+let lemma_prepared_kind (transform:D.expander) (bound:bool) (defs:list D.definition)
+                        (prev:IT.t checked_fact) (e:entry) (n:proof_node)
+  : Lemma (requires prepare_entry_using transform bound defs prev e == Some n)
+          (ensures expand_rule_using transform defs e.rule == Some n.kind)
+  = if bound && not (D.scoped [] e.formula) then ()
+    else
+      match (if defs = [] then Some e.formula else transform (L.length defs) defs e.formula) with
+      | None -> ()
+      | Some formula ->
+        if bound && not (D.scoped [] formula) then ()
+        else
+          match classify_fact formula with
+          | None -> ()
+          | Some concl ->
+            match opt_map_tail (IT.find prev) e.premise_ids with
+            | None -> ()
+            | Some premises ->
+              match expand_rule_using transform defs e.rule with
+              | None -> ()
+              | Some kind -> ()
+
 (* A quantifier introduction prepared by the door is the node of
    `prepare_entry_using` with its certificate as written, of as many entries;
    every other entry is prepared alike. *)
@@ -348,7 +373,11 @@ let lemma_prepare_entry_dag (transform:D.expander) (bound:bool) (defs:list D.def
                        else n == n')
                     | _, _ -> False))
   = match e.rule with
-    | QuantifierIntroduction c -> lemma_expanded_count transform defs c
+    | QuantifierIntroduction c ->
+      lemma_expanded_count transform defs c;
+      (match prepare_entry_using transform bound defs prev e with
+       | Some n' -> lemma_prepared_kind transform bound defs prev e n'
+       | None -> ())
     | _ -> ()
 
 let lemma_verified_entry_door (#defs:list D.definition) (transform:D.expander) (skolems:list SK.definition) (bound:bool)
