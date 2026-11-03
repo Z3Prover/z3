@@ -113,6 +113,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_f_rw.updt_params(p);
         m_seq_rw.updt_params(p);
         m_rec_rw.updt_params(p);
+        m_fs_rw.updt_params(p);
         updt_local_params(p);
     }
 
@@ -1002,7 +1003,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_char_rw(m),
         m_rec_rw(m),
         m_ff_rw(m),
-        m_fs_rw(m),
+        m_fs_rw(m, p),
         m_a_util(m),
         m_bv_util(m),
         m_der(m),
@@ -1025,8 +1026,21 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     }
 
     bool get_subst(expr * s, expr * & t, proof * & pr) {
-        if (m_subst == nullptr)
-            return false;
+        if (m_subst == nullptr) {
+            expr* a = nullptr, * b = nullptr;
+            if (!m().is_eq(s, a, b) || a->get_sort()->get_family_id() != m_fs_rw.get_fid())
+                return false;
+            // Inspect bounded filters before rewriting their comparison atoms.
+            expr_ref result(m());
+            if (m_fs_rw.mk_eq_bounded(a, b, result) == BR_FAILED)
+                return false;
+            t = result;
+            m_pinned.push_back(t);
+            pr = m().proofs_enabled() ? m().mk_rewrite(s, t) : nullptr;
+            if (pr)
+                m_pinned.push_back(pr);
+            return true;
+        }
         expr_dependency * d = nullptr;
         if (m_subst->find(s, t, pr, d)) {
             m_used_dependencies = m().mk_join(m_used_dependencies, d);

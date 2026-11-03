@@ -31,8 +31,13 @@ kernel, `Z3CoreKernel.lemma_core_check_node_sound` proves the Boolean,
 equality and congruence rules (and bounded bit-vector steps) from the
 inhabited typed contract `Z3CoreModel.core_model`. Checked quantifier
 instantiation is proved separately by `Z3QuantifierKernel` under an
-inhabited typed quantifier contract. The remaining rules of that kernel
-still rest on the legacy `Z3UnifiedProof.model_sound`, which has no model.
+inhabited typed quantifier contract, and quantifier introduction by
+`Z3BinderKernel` for certificates of closed inputs, core rules and exact
+forall/exists introductions. The binder-certificate scope guard
+(`Z3UnifiedProof.binder_scoped`, structural theorems in `Z3BinderScope`)
+rejects certificates whose entries are not scoped at the binder depth
+where the root uses them. The remaining rules of that kernel still rest
+on the legacy `Z3UnifiedProof.model_sound`, which has no model.
 
 ## Modules and architecture
 
@@ -49,7 +54,8 @@ of all imports.
 | Typed canonical core model | [`Z3CoreModel.fst`](Z3CoreModel.fst) states `core_model i dom`: model-owned sort domains (typing fixes only `Bool`, to Boolean values, but integer `+`/`*` must return `VInt`, so the Int domain contains those images, and canonical equality must decide value identity wherever it is applied), environments typed against a scope of sorts, application and binder typing, the connectives keyed only by the typed predicates of [`Z3CanonicalOps.fst`](Z3CanonicalOps.fst), equality required to decide value identity only on scoped terms under typed environments, integer `+`/`*`, and the ground bit-vector contracts. `lemma_typed_eval` proves that every scoped term, open or under binders, takes a value of its sort. `lemma_core_inhabited` gives a hypothesis-free model: the standard ground interpretation with integer arithmetic. [`Z3CoreKernel.fst`](Z3CoreKernel.fst) proves, for every node for which the default kernel's `check_node_with_context` returns `Some` by assertion, hypothesis, lemma, reflexivity, symmetry, transitivity, congruence, commutativity, `iff~`, `mp`, `mp~`, unit resolution, and/not-or elimination or iff-true/false, or as a theory lemma or rewrite whose conclusion the bounded bit-vector evaluator decides, that the returned checked fact holds in every core model under every environment typed for a scope its judgments and premises are scoped in, given that its premises and the assertions hold. `Some` is not zero obligations: theory-lemma and rewrite nodes (which may have premises) can be returned with a pending obligation, even when false, and their guarantee comes from the evaluator condition in `core_rule`. It is a per-node theorem; no document-level theorem exists, and no F* lemma establishes the scope of document entries (ground-table documents rely on the native side listing every subexpression). The kernel's Boolean dispatch (`Z3ProofTheory.is_not`, resolution complements and clauses, `mp`, elimination rules, and the quantifier, finite-field, integer-division and factoring recognizers) accepts only canonical connectives. The seven connective conjuncts of the legacy `model_sound` are keyed the same way, but every core model satisfies only the six non-equality contracts and its typed canonical equality, not necessarily the re-keyed untyped `eq_sound` (`Z3CoreModelTests.core_without_untyped_equality`). Closed instances of the former name/tag and datatype-name clashes take the values of their own theory in the witness core model. `model_sound` still has no model: its open-environment, untyped binder and array/numeral obstructions remain. Quantifier truth, lambda/array semantics, real arithmetic, datatypes and finite fields are not part of `core_model`; quantifier and binder rules, definitions, the other rewrite and theory checkers and Skolemization are not covered. [`Z3CoreModelTests.fst`](Z3CoreModelTests.fst) instantiates the theorem on accepted closed and open-scope nodes with premises satisfiable in witness core models, shows that the typed environment and `core_rule` are needed, rejects look-alike connectives, and records two legacy obstructions as finite clause instances with satisfiable drop-one controls: the `array_model` store clause and the `numeric_operators` numeral clauses are jointly unsatisfiable at the closed term `(store a 0 1/2)`, and every model of the untyped quantifier contract with `arithmetic_model` and `eq_sound`, if one exists, falsifies the valid `forall x:Int. x + 0 = x`. |
 | Ghost semantics and classical standard model | The interpretation fields of [`Z3AstTheory.fst`](Z3AstTheory.fst) and `eval` are ghost (`GTot`); the production `value` type, its `bool` and `Tot` array payloads, and every executable checker function are unchanged, and F* rejects ghost results in executable code. Proofs that run an executable evaluator on a ghost valuation use a proved-equal ghost twin or an executable valuation computed in a ghost context (`Z3BoundedBoolEquiv.geval`, `freeze`). [`Z3GhostStandardModel.fst`](Z3GhostStandardModel.fst) builds, with `FStar.IndefiniteDescription.strong_excluded_middle` and no added axiom or hypothesis, one interpretation that is a `Z3CoreModel.core_model` (with the ground bit-vector contracts), satisfies the legacy untyped canonical `eq_sound` on every value including arrays, gives `forall`/`exists` their classical truth over exactly the value lists typed for the reversed binder list, has standard Bool/Int/`(Array Int Int)`/bit-vector domains and computes integer numerals. [`Z3GhostStandardModelTests.fst`](Z3GhostStandardModelTests.fst) evaluates valid, mutated, satisfiable and unsatisfiable Int formulas, `[Int; Bool]` binders and their swapped form, numerals, array equalities and an array quantifier, with mutation controls. Lambdas (opaque values), Real, datatypes, finite fields, sequences and nested arrays are not modeled; the untyped `boolean_model` and hence `model_sound` still have no model; apart from quantifier instantiation (next row), no rule outside `core_rule` and no document theorem rests on this model yet. Development code that computes with expression values uses the executable [`Z3AstTotEval.fst`](Z3AstTotEval.fst), equal to ghost `eval` on quantifier-free expressions. |
 | Typed quantifier instantiation | [`Z3TypedQuantifier.fst`](Z3TypedQuantifier.fst) states `quantifier_model i dom`: one interpretation and one domain assignment that satisfy `core_model`, typed `forall`/`exists` over exactly the value lists typed by the reversed binder list, and quantifier extensionality. `core_model` itself is unchanged. `Z3GhostStandardModel.lemma_quantifier_model` proves that the classical model satisfies all three jointly, with the same interpretation, domains and projection; extensionality is proved from its quantifier field, opaque lambda branch included, and is not a lambda (beta) law. [`Z3QuantifierKernel.fst`](Z3QuantifierKernel.fst) proves the unchanged executable decision `Z3QuantifierInstantiation.check` sound in every such model, under every environment: the evaluated closed arguments are typed by `L.rev bs`, the `forall` is eliminated at exactly those values, and the existing capture-avoiding substitution theorem relates the body there to the instance. For an instantiation node, `check_node_with_context` returns `Some` with pending obligation 0 exactly when `check_step` accepts it, and with pending 1 otherwise, also for false conclusions and always for `Equal` conclusions; observational conclusions and nodes with premises are rejected. The node theorem requires pending 0 and gives the returned fact, which has no hypotheses. `lemma_typed_check_node_sound` extends the core theorem to core rules plus checked instantiations. The legacy `lemma_check_sound` still requires the untyped `boolean_model` and `forall_elimination_model`, has no model, and is not used. [`Z3QuantifierKernelTests.fst`](Z3QuantifierKernelTests.fst) computes accepted and rejected actual nodes (Int, Bool, `[Int; Bool]` and two Int binders, nested binders, `BV2`) and checks them in the classical model: instances follow from true quantifiers, several rejected nodes returned with pending 1 have false conclusions, capture, shadowing, unscoped, wrong-order, wrong-sort and wrong-arity mutations are not checked, and the untyped elimination contract fails there while the typed one holds. Quantifier introduction and the other binder rules, definitions, Skolemization and the document layer still rest on `model_sound`. |
-| Contextual datatype kernel | [`Z3SortedSemantics.fst`](Z3SortedSemantics.fst), [`Z3SortedDatatype.fst`](Z3SortedDatatype.fst), and [`Z3SortedProof.fst`](Z3SortedProof.fst) check native datatype proof DAGs against one checked schema and derive zero-obligation unsatisfiability of the original assertions in the typed interpretation. Native documents with datatype metadata use this path without a legacy fallback; [coverage and theory boundaries](OCAML_CHECKER_REPORT.md#concrete-sort-indexed-datatype-semantics) remain explicit. |
+| Contextual datatype kernel | [`Z3SortedSemantics.fst`](Z3SortedSemantics.fst), [`Z3SortedDatatype.fst`](Z3SortedDatatype.fst), and [`Z3SortedProof.fst`](Z3SortedProof.fst) check native datatype proof DAGs against one checked schema and derive zero-obligation unsatisfiability of the original assertions in the typed interpretation. Native documents with datatype metadata use this path without a legacy fallback; [coverage and theory boundaries](OCAML_CHECKER_REPORT.md#concrete-sort-indexed-datatype-semantics) remain explicit. Typed-root prototype branch only (no route uses it): [`Z3SortedRoot.fst`](Z3SortedRoot.fst) proves that the Sorted layers agree with every [`Z3TypedRoot.fst`](Z3TypedRoot.fst) root model, and [`Z3SortedRootDocument.fst`](Z3SortedRootDocument.fst) derives the Sorted quantifier laws from that root model's R1, restates `lemma_check_document` for every root model and adds an off-route certification gate that also checks typing and root coverage of every document term the checker reads (assertions, entry formulas, instantiation arguments; the canonical wrappers and instances the kernels build internally are not gated, and coverage restricts only the SMT reading, not the root-class falsity proof); [`Z3SortedRootDocumentTests.fst`](Z3SortedRootDocumentTests.fst) runs actual documents through it: 9 positive documents (B1–B9) falsified in every root model plus 4 certified variants (D8 and D10 pairs, F1, F2). No route calls the gate, so a native Sorted ACCEPT is not `RootCertified`; other legacy ACCEPTs, the default route and the uninhabited legacy `model_sound` are unchanged. Native front-end translation (assertions, schema, `define-fun`), native datatype id/tag fidelity and the full-function-space array/lambda and `FStar.Real` parameterization remain trust points, not a theorem about every SMT model. The sorted kernel also replays typed integer Farkas certificates and, on the native sorted route, elaborates certified closed Skolem steps into Hilbert-epsilon choice equations over one joint witness tuple ([`Z3SortedSkolem.fst`](Z3SortedSkolem.fst), `check_document_epsilon`). `Z3SortedRootDocument.fst` keeps the consumed `ArithmeticFarkas` coefficients and `Skolemization` label in its read view and proves that, in every root model, an epsilon verdict `Some 0` makes the original assertions not all true (`lemma_root_check_document_epsilon`, with the off-route gate `check_root_document_epsilon`); closed Skolem steps inside the NNF certificates the kernel replays are collected into the same epsilon context, and their dependent Skolem functions into a dependent context on top of it ([`Z3SortedDependentSkolem.fst`](Z3SortedDependentSkolem.fst), next row); top-level dependency-bearing Skolem steps stay pending. |
+| NNF certificate replay | [`Z3NnfReplay.fst`](Z3NnfReplay.fst) replays, inside `Z3SortedProof.check_node_cached` (one extra disjunct, so the single diagnosed check of both native front ends sees it), the binder certificate of a premise-free `QuantifierIntroduction` node whose root entry is `nnf-neg` or `nnf-pos`: the polarity-aware local NNF rules of `src/ast/normal_forms/nnf.cpp`, `refl`, `trans`, `monotonicity`, closed `sk` steps whose choice equation is an assertion of the (epsilon-elaborated) document, and open (dependent) `sk` steps whose universal closure is one ([`Z3SortedDependentSkolem.fst`](Z3SortedDependentSkolem.fst): one joint witness tuple per argument tuple; tests in [`Z3NnfSkolemTests.fst`](Z3NnfSkolemTests.fst)). `lemma_replay` proves every replayed conclusion true in the Sorted model from the universal and existential quantifier laws only; `Z3SortedRootDocument` derives both from R1 of one inhabited typed root model, keeps the certificate in its read view and gates its internal terms. See [NNF certificate replay](#nnf-certificate-replay-sorted-route). |
 | Rewrite verification | [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) recognizes rewrite schemas and proves matching leaves sound; unmatched leaves can be collected as remaining obligations. |
 | Rewrite synthesis | [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst), [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst), [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst), [`Z3BvEmbed.fst`](Z3BvEmbed.fst), and [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) compute rewritten expressions via `apply_lemma_x`, `apply_lemmas`, and `is_rewrite`. This complements verification of a supplied expression pair. |
 | Clausal/resolution calculus | [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) embeds equational proofs via `REq` and adds propositional/clausal rules, hypotheses, lemmas, and explicit trusted obligations. [`Z3ResolutionProofCheckerTests.fst`](Z3ResolutionProofCheckerTests.fst) exercises this calculus. |
@@ -184,6 +190,209 @@ describes only that historical implementation.
 [`tools/parse_farkas.py`](tools/parse_farkas.py) handles the separate LRA
 certificate examples. Typecheck individual F* modules using the command
 in the [overview](README.md).
+
+## NNF certificate replay (Sorted route)
+
+Z3's NNF converter (`src/ast/normal_forms/nnf.cpp`) proves each step
+`nnf-neg(parents..., (~ (not s) t))` or `nnf-pos(parents..., (~ s t))`;
+`PR_NNF_NEG` in `proof_checker.cpp` is a `TBD` that returns true and is not
+used as evidence. The native marshal (`Z3NativeProof.marshal_binder`, unchanged)
+turns the sub-DAG below such a node into one binder certificate: entries in
+post order, premise ids of earlier entries, and binder sorts plus the open body
+proof for a binder rule whose only premise is `proof-bind`. The Sorted kernel
+used to judge these nodes as premise-free propositional consequences, with
+quantifiers as opaque atoms; it never read the certificate.
+
+**Protocol.** The existing data suffices; no producer or format change.
+`Z3NnfReplay.replay` reads a certificate only when its root entry is `nnf-neg`
+or `nnf-pos`. It classifies every entry's formula, runs the existing scope
+guard (`Z3UnifiedProof.binder_scopes`/`scope_entries_checked`: the root at
+`[]`, the premise of an entry with sorts `bs` used at `S` at `L.rev bs @ S`,
+`Var 0` the last binder, shared entries checked at every assigned scope) and
+then checks the local rule of every entry the root uses. A negative step's
+target is equivalent to the negation of its source; a positive child fact is
+`c ~ r`, a negative one `(not c) ~ r` or the producer's skip `r ~ r` with
+`r = mk_not(c)`. Connectives are recognized only through
+`Z3SortedSemantics.classify` (name, domain, range, interpretation and
+parameters).
+
+| Constructor (children in producer order) | Status |
+|---|---|
+| `and`/`or`, n-ary, negative: dual connective over negative children | replayed |
+| `and`/`or` positive (same connective) and `not` positive (negative child) | replayed; the producer emits `monotonicity` or no step for these |
+| `not x`, negative: positive child (double negation) | replayed |
+| `=>`, negative `(and a' b')` / positive `(or na' b')` | replayed |
+| Boolean `ite`: `[P(c), N(c), Q(x), Q(y)]` to `(and (or nc' x') (or c' y'))` | replayed (both polarities) |
+| Boolean `=` and binary `xor`: `[P(a), N(a), P(b), N(b)]`, equivalence/xor shapes | replayed (both polarities) |
+| `exists`/`forall` with `proof-bind`: same kind (positive) or dual kind (negative) over the same binder list, body fact read at `L.rev bs @ S` | replayed |
+| `refl`, `trans` (two premises, equal middle terms), `monotonicity` (same declaration, premises consumed in argument order) | replayed |
+| closed `sk` (Skolem constants) whose equation `(= a b)` is an assertion; on the epsilon route the closed eligible definitions of top-level and inner `sk` steps form one context (`Z3SortedProof.epsilon_context`; when the merged context fails a gate the top-level context is used) | replayed in the choice extension |
+| open `sk`: a Skolem FUNCTION of the enclosing binders (`(exists bs. B) ~ B[f(x1..xm)]`, or the negative form), accepted when a universal closure `(forall cb. (= a b))` of its exact equation (any binder list cb; the generated ones quantify over the dependency scope) is an assertion and its dependencies are typed at every assigned scope; on the epsilon route the closures of the certified dependent context (`Z3SortedProof.dependent_context`) are appended to the assertions | replayed in the joint dependent choice extension |
+| negative `forall` | Skolemized by the producer (`sk` + `trans`), covered by the rows above |
+| `quant-intro` or `rewrite` roots, labels (`rewrite` from `mk_iff_oeq`), `apply-def`/`intro-def` naming, lambdas, the `hnf.cpp` `nnf-neg` variant, any other entry name | PENDING |
+| over budget, unclassifiable entry, failed guard or local check | PENDING |
+| premise id that is not an earlier entry (forward, self, negative, or past the last entry) in an `nnf-neg`/`nnf-pos`-rooted certificate | rejected proof entry (`Malformed`) |
+
+**Premise-id boundary (diagnostic contract change).** Before this replay, the
+Sorted route never read a binder certificate, so an `nnf-neg`/`nnf-pos` node
+whose certificate had an invalid premise id was judged like any other
+premise-free node: accepted if `(= (not s) t)` (or `(= s t)`) was a bounded
+propositional/datatype consequence, otherwise one pending obligation. Now
+`Z3NnfReplay.replay` returns `Malformed` for such a certificate and
+`check_node_cached` returns `None`: the document is rejected at that entry
+(`proof-entry` stage), even if the old propositional test would have accepted
+the conclusion. The change is structural only. It applies only to certificates
+whose root entry is `nnf-neg` or `nnf-pos` (others, and an out-of-range root,
+stay `Unreplayed`), and only to ids `p` of entry `k` with `p < 0` or `p >= k`.
+Unsupported entries, unclassifiable formulas, guard or local-rule failures and
+budget exhaustion are `Unreplayed`, and `Unreplayed` falls through to every
+previous disjunct of `check_node_cached`. The native marshal numbers certificate
+entries in post order, so it never produces such ids. Tests:
+`Z3NnfReplayTests.b10_malformed`/`b10_shared`, the OCaml bridge group
+`sorted-NNF-certificate-replay` and `Z3CherryTests.nnf_premise_boundary`
+(forward, self, negative and missing ids malformed and their documents
+rejected; valid earlier and shared ids replayed; an unsupported rule with valid
+ids pending; a valid certificate document certified).
+
+**Measured coverage (fstar-build, b3c1e0bac producer).** Over the 583
+incremental F* query logs, the pending `nnf-neg` obligations drop from 5,655 to
+213 (OCaml; Cherry 5,570 to 211) and `nnf-pos` from 5,948 to 5,820 (Cherry 5,841
+to 5,670). Re-running the replay steps on the remaining certificates, almost all
+of them stop at an open `sk` step: a Skolem function of the enclosing binders,
+whose choice equation holds only in an argument-dependent choice extension (now
+built, next paragraph; on the re-swept NNF-bearing files the pending NNF obligations
+drop to 73 `nnf-neg` and 10 `nnf-pos` on OCaml, 70 and 10 on Cherry, see the OCaml
+checker report). The rest stop at closed `sk` steps over the 4,096-node
+definition budget, at `intro-def`/`apply-def` naming steps, or at the binder
+scope guard by exhausting its work budget (with an unbounded budget the same
+guard passes; most of its units are the characters of the marshalled
+`sort!<id>:<name>` sort names, charged at every sort comparison); none at a
+local NNF rule, a scope or premise mismatch, or a malformed certificate. See
+[the native validation](OCAML_CHECKER_REPORT.md#native-validation-and-the-fstar-build-replay-b3c1e0bac-producer).
+
+**Model and trust.** `Z3NnfReplay.lemma_replay` proves, for every entry and
+every scope the guard assigned to it, that its judgment holds in the Sorted
+model at EVERY typed environment of that scope, by induction over the actual
+entries; a quantifier step reads its body only at the binder extensions of the
+same environment. Its model hypotheses are `Q.forall_model` and
+`E.exists_model`; `Z3SortedRootDocument` derives both from R1 of one root model
+(`lemma_root_check_node`, `lemma_root_check_document`), so no binder-cache,
+body or legacy `model_sound`/`boolean_model` assumption is used. Inner `sk`
+equations are true only in the choice extension that
+`lemma_check_document_epsilon` builds from the ORIGINAL model (eligibility,
+disjoint witnesses, acyclic order and freshness in every original assertion
+are the unchanged gates). `rule_shape` now keeps `QuantifierIntroduction`, and
+`entry_covered` requires every entry formula and binder sort of a consumed
+certificate to be supported and the certificate to pass the scope guard
+(`certificate_covered`, `lemma_certified_certificate_node`).
+
+**Dependent Skolem functions** ([`Z3SortedDependentSkolem.fst`](Z3SortedDependentSkolem.fst)).
+An open `sk` step concludes `(exists bs. B) ~ B[f_k(x_1..x_m)/y_k]` at an
+assigned scope; `Z3Skolemization.definition_of` gives its dependencies (index
+and sort of each argument, in argument order) and witness functions. The
+eligibility gate (`DS.eligible`) requires `SK.valid` (every witness has domain
+= the dependency sorts and range = its bound sort, complete argument tuples of
+any arity, no repeated dependency, the body reads only the dependencies,
+witnesses fresh in the body), at least one dependency (the zero-dependency case
+stays on the closed route), uninterpreted witness functions outside every theory
+and datatype operator (`function_safe`), a dependency scope of at most 4,096
+positions in which every dependency is typed, and a closed, Boolean,
+in-context closure; the step's formula must fit the same 4,096-node expression
+budget as a closed inner step (`SP.dependent_definition`), otherwise it stays
+pending. `Z3SortedProof.dependent_context` collects the steps of
+every consumed certificate in document order (`SK.add_definition`: duplicates
+once, conflicting redefinitions fail), orders them from the reversed collection
+(`SK.order_context`), requires the dependent list followed by the closed
+epsilon context to be an ordered context (no cycle; every dependent witness
+fresh in every later body, closed bodies included) and every dependent witness
+fresh in every original assertion; otherwise no dependent definition is used.
+The model (`DS.doverride`, `DS.build`): for each typed argument tuple ONE whole
+bound tuple is chosen by the Root ghost choice for the joint predicate "the
+body holds at every environment of the dependency scope with these argument
+values", read in the pre-extension interpretation of that build step (the
+closed epsilon extension of the original model plus the older dependent
+definitions); every witness returns its coordinate of that same tuple.
+`SP.full_extension` starts from the original model, adds the closed context and
+then the dependent definitions one after another: one extension per document,
+in which every node is re-checked. Proved: `DS.lemma_instance` (at every environment of the dependency
+scope the source and the instance agree in the extension: open substitution
+under binders `lemma_substitute`, a witness application evaluates to the
+coordinate `lemma_select`, coverage coincidence `lemma_covered`),
+`DS.lemma_closure`, `DS.lemma_build_context`, `DS.lemma_build_inputs`,
+`DS.lemma_build_closed`, `SP.lemma_full_extension`; the replay reads a closure at
+the step's scope by the cross-scope coincidence `DS.lemma_coincide`
+(`NR.lemma_closure_edge`); `Z3SortedRootDocument.lemma_root_doverride` shows the
+extension is again a root model, `lemma_root_epsilon_extension` that it keeps
+the original assertions and makes the equations and closures root-true, and the
+off-route gate also checks the generated closures' coverage. Every dependent
+witness is fresh in every OLDER body (closed bodies included; newer bodies may
+mention it) and in every original input, and witnesses are pairwise distinct;
+these are exactly the truths transported across an extension. The witness
+necessarily occurs in the consumed certificate terms downstream of its `sk`
+step; those are re-proved in the one extension rather than imported. The replay matches an open step against ANY assertion of the closure
+shape `(forall cb. (= a b))` with that exact equation, as the closed route
+matches any assertion `(= a b)`: an original input of that shape is a hypothesis
+of the refutation and is true in the extension like every input, so this is
+sound; type, scope and shape are checked. Limits: the dependent context is
+all-or-nothing (one conflicting, cyclic, non-fresh or mis-ordered dependent
+definition anywhere in the document leaves every dependent step pending, the
+closed context unaffected), and the pending obligation does not name the
+dependent gate that failed.
+
+**Resources.** All walks are loops. The guard keeps its bounds; the replay
+charges one budget of `binder_work_limit n` units for the node count of each
+used entry formula, the counts of its premises at every use and one unit per
+assertion for each `sk` step (an open step scans the assertions for its
+equation and then for its closure, and recomputes its definition to check the
+dependency sorts at its scopes; the formula is charged once), before comparing
+terms. Exhaustion is PENDING.
+
+**Tests.** [`Z3NnfReplayTests.fst`](Z3NnfReplayTests.fst) replays every row
+above (n-ary De Morgan, double negation, implication, Boolean equality, xor,
+ite, constants and opaque atoms, positive steps, duality over `[Int; Real]`
+with a shadowing inner `Int` binder in both directions, a shared entry at two
+scopes), rejects the mutations (wrong sign, swapped/missing/reused children,
+wrong connective, canonical-name lookalikes, wrong binder sorts/order, a
+capturing index, wrong polarity under a binder, bad roots, forward/self/
+negative/missing ids, the `hnf.cpp` variant, a `quant-intro` root, an `sk` step that is
+not an assertion, an open dependent `sk`), and checks two actual previously
+pending corpus certificates (FStar.Nonempty query 2 node 11; the 14-entry
+FStar.Class.TotalOrder.Raw query 1 node 43 with an inner closed `sk`) in
+refutations certified by the root gates, a false mutant on satisfiable inputs
+with a proved standard-model counter-model, a malformed certificate that
+rejects its document and a reused witness that leaves the inner step pending.
+The `nnf-pos` steps are checked by the same rules with the positive polarity
+(an `nnf-pos` root may contain `nnf-neg` entries and conversely): positive
+Boolean equality, xor and ite, an `nnf-pos` root over a negative duality under
+binders, and mutations (an implication read as a disjunction, a quantifier
+kind change, a negative body fact, a dual connective, an extra child, swapped
+branches, out-of-scope and wrongly sorted indices, a self reference) that
+stay pending or malformed. The propositional mutants also come with proved
+standard-root-model counter-models of their claims, and so does the
+wrong-polarity duality under the heterogeneous binders `[Int; Real]` (section
+H: pending in a would-be refutation of inputs true in a standard root model).
+[`Z3NnfSkolemTests.fst`](Z3NnfSkolemTests.fst) covers the Skolem contexts:
+the ordering contract of the closed context (section A), the dependent Skolem
+functions on two actual residual certificates (FStar.Nonempty q2 n92 and
+Pulse.C.Types.Scalar-1 q1 n85, pending without the closure and replayed with
+it; the n92 refutation certified on the epsilon route, falsified in every root
+model, with a standard-root instance), a relational two-witness definition, and
+the dependent mutants (section C: argument swaps, missing, repeated and extra
+arguments, a captured index, both polarities, freshness, reuse, cycles, the
+closed route, the scope cap, reinterpretation, mixed closed/dependent order, a
+satisfiable wrong-polarity refutation with a proved counter-model, an accepted
+negative step, the scope gate, duplicates and a reverse-order chain).
+
+Native tests: the OCaml bridge group `sorted-NNF-certificate-replay` requires
+an NNF-rooted certificate in each producer proof of the synthetic probes and
+none of them pending, and `test_native_checker.py`
+(`test_sorted_route_replays_nnf_certificates`) requires `ACCEPT` for them in
+batch and interactive mode on both backends. The first native run showed that
+the original `ite`/`iff`/`xor` probes fixed their Boolean by a unit assertion,
+so the preprocessor substituted it and their proofs had no NNF certificate
+(the old checker accepted them too); they were replaced by probes without a
+unit Boolean (and `xor` under a universal was added), on which the previous
+checker reports one pending `nnf-neg`/`nnf-pos` obligation each.
 
 ## Native LP inference certificates
 

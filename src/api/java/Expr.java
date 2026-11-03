@@ -2093,7 +2093,7 @@ public class Expr<R extends Sort> extends AST
      * identity, but in the context of a register machine allows for terms of
      * kind {@code isRelationUnion} to perform destructive updates to
      * the first argument.
-     * @see #isRelationUnion
+     * @see Expr#isRelationUnion
      * @throws Z3Exception on error
      * @return a boolean
      **/

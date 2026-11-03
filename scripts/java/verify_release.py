@@ -10,8 +10,9 @@ import shutil
 from smoke import read_provenance, verify_jar
 from workflow_inputs import context
 from mk_java_package import json_bytes, metadata_names, package_basename, sha256, write_checksums
+from cache_smoke import CACHE_MODES
 
-MODES = {'bundled', 'system', 'system-base', 'missing', 'unsupported', 'skip', 'temp-failure'}
+MODES = {'bundled', 'system', 'system-base', 'missing', 'unsupported', 'skip', 'temp-failure'} | CACHE_MODES
 
 
 def verify(packages, receipts, out, expected):

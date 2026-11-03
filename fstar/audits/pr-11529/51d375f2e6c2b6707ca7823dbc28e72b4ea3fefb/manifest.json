@@ -1,0 +1,22 @@
+{
+  "pull_request": 11529,
+  "head_sha": "51d375f2e6c2b6707ca7823dbc28e72b4ea3fefb",
+  "base_sha": "4629738b98b7b98d826833161cefbefdf1aeb928",
+  "path_prefix": "fstar/audits/pr-11529/51d375f2e6c2b6707ca7823dbc28e72b4ea3fefb/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41606129265",
+  "files": [
+    {
+      "name": "Bit2IntModAudit.fst",
+      "sha256": "d2781088c3b451cf3a2579aa4b475a95628847df45b3784ebda3653032359909"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "7445e0e304feadaba97eb66d95ce394f4fa5f654cb1b0c6993767dc2ea8eedcc"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "e9e41ad405d08b4ea6c3564a426320f1273706a7ac057d8bebe2c8f3c5288f7f"
+    }
+  ]
+}

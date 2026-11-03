@@ -11,6 +11,7 @@ import tempfile
 import unittest
 import warnings
 import zipfile
+import zlib
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -71,10 +72,10 @@ class JavaPackagingTests(unittest.TestCase):
                                 'invalid.z3.prototype', 'z3', '5.3.2-packaging-SNAPSHOT')
 
     def add_unix_platform(self, classifier):
-        if classifier == 'linux-x64':
+        if classifier.startswith('linux-'):
             data = bytearray(64)
             data[:6] = b'\x7fELF\x02\x01'
-            struct.pack_into('<H', data, 18, 62)
+            struct.pack_into('<H', data, 18, {'linux-x64': 62, 'linux-arm64': 183}[classifier])
             binary = bytes(data)
         else:
             binary = b'\xcf\xfa\xed\xfe' + struct.pack('<I', 0x100000c) + bytes(24)
@@ -94,6 +95,7 @@ class JavaPackagingTests(unittest.TestCase):
     def test_universal_contains_exact_platform_union_and_one_api(self):
         sources = {'win-x64': self.entries,
                    'linux-x64': self.add_unix_platform('linux-x64'),
+                   'linux-arm64': self.add_unix_platform('linux-arm64'),
                    'osx-arm64': self.add_unix_platform('osx-arm64')}
         out = self.build(platforms=list(sources))
         provenance = json.loads((out / 'provenance.json').read_bytes())
@@ -105,7 +107,7 @@ class JavaPackagingTests(unittest.TestCase):
             license_text = next(v for k, v in sources[classifier].items() if k.endswith('/LICENSE.txt'))
             self.assertEqual(universal['META-INF/z3/licenses/' + classifier + '.txt'], license_text)
         self.assertEqual({k: v for k, v in universal.items() if k.startswith(package.RESOURCE_PREFIX)}, union)
-        self.assertEqual(len(union), 6)
+        self.assertEqual(len(union), 8)
         self.assertEqual({k: v for k, v in universal.items() if k.endswith('.class')}, self.api_entries)
         embedded = json.loads(universal['META-INF/z3/provenance.json'])
         self.assertEqual(set(embedded['platforms']), set(sources))
@@ -178,6 +180,26 @@ class JavaPackagingTests(unittest.TestCase):
         provenance = json.loads(entries['META-INF/z3/provenance.json'])
         self.assertTrue(provenance['prototype'])
         self.assertEqual(provenance['release_commit'], 'a' * 40)
+
+    def test_native_resources_use_configured_compression(self):
+        # Varying repeat lengths distinguish level 9 from default compression.
+        data = pe() + b''.join(b'a' * length + b'b' for length in range(1, 512))
+        self.entries[self.prefix + 'bin/libz3.dll'] = data
+        self.write_release()
+        sizes = {}
+        for level in (zlib.Z_DEFAULT_COMPRESSION, 9):
+            compressor = zlib.compressobj(level, zlib.DEFLATED, -15)
+            sizes[level] = len(compressor.compress(data) + compressor.flush())
+        self.assertLess(sizes[9], sizes[zlib.Z_DEFAULT_COMPRESSION])
+        out = self.build()
+        resource = package.RESOURCE_PREFIX + 'win-x64/libz3.dll'
+        for classifier in ('win-x64', 'all'):
+            with self.subTest(classifier=classifier), zipfile.ZipFile(
+                    out / ('z3-5.3.2-packaging-SNAPSHOT-' + classifier + '.jar')) as jar:
+                info = jar.getinfo(resource)
+                self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
+                self.assertEqual(info.compress_size, sizes[9])
+                self.assertEqual(jar.read(resource), data)
 
     def test_corrupt_download_rejected_before_output(self):
         (self.root / self.name).write_bytes(b'broken')

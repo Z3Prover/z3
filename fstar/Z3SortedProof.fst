@@ -18,6 +18,10 @@ module B = Z3BoundedBoolEquiv
 module TN = Z3TheoryNormalize
 module Q = Z3SortedQuantifier
 module N = Z3BooleanNormalForm
+module E = Z3SortedSkolem
+module SK = Z3Skolemization
+module NR = Z3NnfReplay
+module DS = Z3SortedDependentSkolem
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -29,7 +33,7 @@ let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
 
 let rec equations_hold (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                       (js:list U.judgment) : Tot bool (decreases js) =
+                       (js:list U.judgment) : GTot bool (decreases js) =
   match js with
   | [] -> true
   | U.Equal a b :: rest -> T.same_value s bc eq other a b && equations_hold s bc eq other rest
@@ -52,7 +56,7 @@ let rec lemma_equations (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
 
 let rec known_equal (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                    (origin:expr) (known:list expr) : Tot bool (decreases known) =
+                    (origin:expr) (known:list expr) : GTot bool (decreases known) =
   match known with
   | [] -> true
   | e :: rest -> T.same_value s bc eq other origin e && known_equal s bc eq other origin rest
@@ -137,6 +141,82 @@ let lemma_propositional (rho:expr -> bool) (arithmetic:bool) (negated:bool) (a b
   else DT.lemma_bounded_propositional rho
     (B.Eq (if negated then B.Not (T.cut 64 a) else T.cut 64 a) (T.cut 64 b))
 
+(* Typed-root G2: the Sorted truth is a GHOST valuation. The executable
+   propositional checks are sound for it through an executable valuation
+   frozen on the atoms of the checked formula (B.freeze / B.lemma_freeze),
+   never by casting the ghost valuation to Tot. *)
+let lemma_propositional_g (sigma:expr -> GTot bool) (arithmetic:bool) (negated:bool) (a b:expr)
+  : Lemma (requires propositional arithmetic negated a b)
+          (ensures B.geval sigma
+            (B.Eq (if negated then B.Not (T.cut 64 a) else T.cut 64 a) (T.cut 64 b))) =
+  let f = B.Eq (if negated then B.Not (T.cut 64 a) else T.cut 64 a) (T.cut 64 b) in
+  lemma_propositional (B.freeze sigma (B.support f)) arithmetic negated a b;
+  B.lemma_freeze sigma (B.support f) f
+
+(* N.normalize preserves every ghost valuation (frozen on the atoms of both
+   formulas). *)
+let lemma_normalize_geval (sigma:expr -> GTot bool) (negative:bool) (f:B.skeleton)
+  : Lemma (B.geval sigma (N.normalize negative f) ==
+           (if negative then not (B.geval sigma f) else B.geval sigma f)) =
+  B.lemma_freeze_pair sigma f (N.normalize negative f);
+  N.lemma_normalize_sound (B.freeze sigma (L.append (B.support f) (B.support (N.normalize negative f))))
+    negative f
+
+(* Ghost twin of N.lemma_shape_equal_by_sound: its hypothesis relates the
+   valuation on EVERY pair accepted by `same`, so it cannot go through a
+   finite freeze; the same structural proof is repeated over B.geval. *)
+let rec lemma_shape_equal_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> Tot bool)
+                                   (fuel:nat) (s t:B.skeleton)
+  : Lemma (requires N.shape_equal_by same fuel s t /\
+                    (forall (a b:expr). same a b ==> rho a == rho b))
+          (ensures B.geval rho s == B.geval rho t)
+          (decreases %[fuel; 0]) =
+  if s = t || fuel = 0 then ()
+  else match s, t with
+  | B.Atom _, B.Atom _ -> ()
+  | B.Not a, B.Not b -> lemma_shape_equal_by_geval rho same (fuel - 1) a b
+  | B.Eq a b, B.Eq c d ->
+    if N.shape_equal_by same (fuel - 1) a c && N.shape_equal_by same (fuel - 1) b d then (
+      lemma_shape_equal_by_geval rho same (fuel - 1) a c;
+      lemma_shape_equal_by_geval rho same (fuel - 1) b d)
+    else (
+      lemma_shape_equal_by_geval rho same (fuel - 1) a d;
+      lemma_shape_equal_by_geval rho same (fuel - 1) b c)
+  | B.Nary op xs, B.Nary other ys ->
+    lemma_shape_included_by_geval rho same (fuel - 1) xs ys;
+    lemma_shape_included_by_geval rho same (fuel - 1) ys xs;
+    (match op with B.And | B.Or | B.Xor -> ())
+  | _, _ -> ()
+
+and lemma_shape_included_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> Tot bool)
+                                  (fuel:nat) (xs ys:list B.skeleton)
+  : Lemma (requires N.shape_included_by same fuel xs ys /\
+                    (forall (a b:expr). same a b ==> rho a == rho b))
+          (ensures
+            (B.geval_args rho B.And ys ==> B.geval_args rho B.And xs) /\
+            (B.geval_args rho B.Or xs ==> B.geval_args rho B.Or ys))
+          (decreases %[fuel; L.length xs + L.length ys + 1]) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    lemma_shape_member_by_geval rho same fuel x ys;
+    lemma_shape_included_by_geval rho same fuel rest ys
+
+and lemma_shape_member_by_geval (rho:expr -> GTot bool) (same:expr -> expr -> Tot bool)
+                                (fuel:nat) (x:B.skeleton) (ys:list B.skeleton)
+  : Lemma (requires N.shape_member_by same fuel x ys /\
+                    (forall (a b:expr). same a b ==> rho a == rho b))
+          (ensures
+            (B.geval_args rho B.And ys ==> B.geval rho x) /\
+            (B.geval rho x ==> B.geval_args rho B.Or ys))
+          (decreases %[fuel; L.length ys]) =
+  match ys with
+  | [] -> ()
+  | y :: rest ->
+    if fuel > 0 && N.shape_equal_by same (fuel - 1) x y
+    then lemma_shape_equal_by_geval rho same (fuel - 1) x y
+    else lemma_shape_member_by_geval rho same fuel x rest
+
 let rec congruent (arithmetic:bool) (search_atoms:bool) (scope:list sort) (fuel:nat) (a b:expr)
   : Tot bool (decreases %[fuel; 0]) =
   get_sort a = get_sort b &&
@@ -204,7 +284,7 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
   else if get_sort a = bool_sort && propositional arithmetic false a b then (
     T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 a;
     T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 b;
-    lemma_propositional (T.truth_at s bc eq other scope rho) arithmetic false a b;
+    lemma_propositional_g (T.truth_at s bc eq other scope rho) arithmetic false a b;
     T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho a);
     T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho b))
   else if fuel > 0 then (
@@ -238,7 +318,7 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
         lemma_congruent s bc eq other scope rho arithmetic search_atoms (fuel - 1) y u;
         T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 c;
         T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 d;
-        lemma_propositional (T.truth_at s bc eq other scope rho) arithmetic true c d;
+        lemma_propositional_g (T.truth_at s bc eq other scope rho) arithmetic true c d;
         assert (T.truth_at s bc eq other scope rho c <>
                 T.truth_at s bc eq other scope rho d);
         T.lemma_evaluate_core_at s bc eq other scope rho f xs;
@@ -316,10 +396,10 @@ and lemma_congruent_boolean (#base:sort -> Type0) (s:S.checked_schema)
              T.truth_at s bc eq other scope rho x == T.truth_at s bc eq other scope rho y) =
     if same x y then lemma_congruent s bc eq other scope rho arithmetic false (atom_fuel fuel) x y in
   FStar.Classical.forall_intro_2 atoms;
-  N.lemma_shape_equal_by_sound (T.truth_at s bc eq other scope rho) same
+  lemma_shape_equal_by_geval (T.truth_at s bc eq other scope rho) same
     32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b));
-  N.lemma_normalize_sound (T.truth_at s bc eq other scope rho) false (T.cut 64 a);
-  N.lemma_normalize_sound (T.truth_at s bc eq other scope rho) false (T.cut 64 b);
+  lemma_normalize_geval (T.truth_at s bc eq other scope rho) false (T.cut 64 a);
+  lemma_normalize_geval (T.truth_at s bc eq other scope rho) false (T.cut 64 b);
   T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 a;
   T.lemma_cut_with_boundaries_at s bc eq other scope rho [] 64 b;
   T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho a);
@@ -490,7 +570,7 @@ let rec lemma_negative_atoms (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (facts:list expr)
   : Lemma (requires T.truths s bc eq other facts)
-          (ensures not (B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom (negative_atoms facts))))
+          (ensures not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom (negative_atoms facts))))
           (decreases facts) =
   match facts with
   | [] -> ()
@@ -663,7 +743,7 @@ let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
       let bound = V.extend sigma [] scope vs rho in
       T.lemma_cut_with_boundaries_at s bc eq other body_scope bound [] 64 a;
       T.lemma_cut_with_boundaries_at s bc eq other body_scope bound [] 64 b;
-      DT.lemma_propositional (T.truth_at s bc eq other body_scope bound)
+      DT.lemma_propositional_g (T.truth_at s bc eq other body_scope bound)
         (B.Eq (T.cut 64 a) (T.cut 64 b));
       T.lemma_boolean s bc (left vs);
       T.lemma_boolean s bc (right vs)
@@ -792,12 +872,12 @@ let rec scoped_propositions (ps:list U.checked_fact) : Tot (list expr) (decrease
 
 let fact_holds (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-               (p:U.checked_fact) : bool =
+               (p:U.checked_fact) : GTot bool =
   not (T.truths s bc eq other p.hypotheses) || T.truth s bc eq other (proposition p.conclusion)
 
 let rec facts_hold (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                   (ps:list U.checked_fact) : Tot bool (decreases ps) =
+                   (ps:list U.checked_fact) : GTot bool (decreases ps) =
   match ps with [] -> true | p :: rest -> fact_holds s bc eq other p && facts_hold s bc eq other rest
 
 let rec lemma_boolean_expressions (s:S.checked_schema) (es:list expr)
@@ -951,6 +1031,41 @@ let quantifier_flattening (node:U.proof_node) : bool =
   node.kind = U.PullQuantifier && node.premises = [] &&
   Q.check_flatten (proposition node.conclusion)
 
+let arithmetic_assumptions (node:U.proof_node) : list (bool & expr) =
+  L.map Z3LinearArithmeticAst.positive_literal (propositions node.premises) @
+  L.map Z3LinearArithmeticAst.negative_literal (DT.literals (proposition node.conclusion))
+
+let arithmetic_farkas (node:U.proof_node) : bool =
+  match node.kind with
+  | U.ArithmeticFarkas cs -> AR.check_contradiction (arithmetic_assumptions node) cs
+  | _ -> false
+
+let rec lemma_arithmetic_assumptions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                    (facts lits:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
+          (ensures AR.assumptions_hold s bc eq other
+            (L.map Z3LinearArithmeticAst.positive_literal facts @
+             L.map Z3LinearArithmeticAst.negative_literal lits))
+          (decreases %[facts; lits]) =
+  match facts with
+  | _ :: rest -> lemma_arithmetic_assumptions s bc eq other rest lits
+  | [] ->
+    (match lits with
+     | [] -> ()
+     | _ :: rest -> lemma_arithmetic_assumptions s bc eq other [] rest)
+
+(* The NNF certificate replay (Z3NnfReplay) of a premise-free
+   QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
+   Every other node, and every other certificate, is Unreplayed here and
+   keeps the previous treatment. *)
+let nnf_verdict (assertions:list expr) (node:U.proof_node) : NR.verdict =
+  match node.U.kind with
+  | U.QuantifierIntroduction c ->
+    if Nil? node.U.premises then NR.replay assertions c node.U.conclusion else NR.Unreplayed
+  | _ -> NR.Unreplayed
+
 let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : option (U.checked_fact & nat) =
   let conclusion = proposition node.conclusion in
@@ -965,6 +1080,10 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     then Some ({ U.conclusion = node.conclusion; hypotheses = [conclusion] }, 0)
     else None
   | _ ->
+    let nnf = nnf_verdict assertions node in
+    (* A certificate whose premise ids are not earlier entries is a malformed
+       proof entry, reported as a rejection rather than as a pending step. *)
+    if nnf = NR.Malformed then None else
     let inherited = U.premise_hypotheses node.premises in
     let hypotheses =
       if lemma_step node then
@@ -973,7 +1092,8 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
-      quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
+      arithmetic_farkas node || quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
+      nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) in
     Some (fact, (if checked then 0 else 1))
@@ -998,6 +1118,27 @@ let lemma_check_node_context (s:S.checked_schema) (assertions:list expr)
     else if node.kind = U.LemmaRule then
       lemma_remaining_context s (U.premise_hypotheses node.premises) (proposition node.conclusion)
 
+(* A replayed NNF node: its conclusion, a closed equation of two values, is
+   true (Z3NnfReplay.lemma_replay at the scope [] and the empty environment). *)
+let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                   (assertions:list expr) (node:U.proof_node)
+  : Lemma (requires T.truths s bc eq other assertions /\
+                    Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    boolean_expression s (proposition node.conclusion) /\
+                    nnf_verdict assertions node == NR.Replayed)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.kind with
+  | U.QuantifierIntroduction c ->
+    NR.lemma_replay s bc eq other assertions c node.conclusion;
+    (match node.conclusion with
+     | U.Equal a b | U.Observational a b ->
+       V.lemma_sort_eq (get_sort b) (get_sort a);
+       T.lemma_same_value s bc eq other a b;
+       T.lemma_equality s bc eq other a b
+     | U.Holds _ -> ())
+  | _ -> ()
+
 let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
@@ -1005,6 +1146,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                     facts_valid s node.premises /\
                     (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
                     (quantifier_flattening node ==> Q.forall_model s bc other) /\
+                    (U.QuantifierIntroduction? node.kind ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
                     check_node_cached s assertions node == Some (fact, 0))
           (ensures fact_holds s bc eq other fact) =
   lemma_check_node_context s assertions node fact 0;
@@ -1013,7 +1155,16 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
   | U.Hypothesis -> ()
   | _ ->
     let conclusion = proposition node.conclusion in
-    if quantifier_instantiation node then (
+    if arithmetic_farkas node then (
+      if T.truths s bc eq other fact.hypotheses && not (T.truth s bc eq other conclusion) then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        DT.lemma_literals s bc eq other conclusion;
+        lemma_arithmetic_assumptions s bc eq other (propositions node.premises) (DT.literals conclusion);
+        match node.kind with
+        | U.ArithmeticFarkas cs ->
+          AR.lemma_check_contradiction s bc eq other (arithmetic_assumptions node) cs
+        | _ -> ()))
+    else if quantifier_instantiation node then (
       match node.kind, node.conclusion with
       | U.QuantifierInstantiation args, U.Holds formula ->
         Q.lemma_check s bc eq other args formula
@@ -1028,6 +1179,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
           assert_norm (T.cut 1 R.false_expr == B.Bool false);
           T.lemma_cut s bc eq other 1 R.false_expr)
       | _ -> ())
+    else if nnf_verdict assertions node = NR.Replayed then
+      lemma_nnf_node s bc eq other assertions node
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
@@ -1136,6 +1289,13 @@ let rec needs_forall_truth (entries:list P.entry) : Tot bool (decreases entries)
   | e :: rest ->
     e.P.rule = U.PullQuantifier || needs_forall_truth rest
 
+(* An entry with a binder certificate: the NNF replay reads the universal and
+   existential laws (Z3NnfReplay.lemma_replay). *)
+let rec needs_binder_semantics (entries:list P.entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> false
+  | e :: rest -> U.QuantifierIntroduction? e.P.rule || needs_binder_semantics rest
+
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (assertions:list expr) (cache:I.index_tree U.checked_fact)
@@ -1143,6 +1303,7 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
                     (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth entries ==> Q.forall_model s bc other) /\
+                    (needs_binder_semantics entries ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
                     check_entries s assertions cache next pending entries == Some (result, 0))
           (ensures cache_sound s bc eq other result)
           (decreases entries) =
@@ -1164,7 +1325,8 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
                          (doc:P.document)
   : Lemma (requires check_document s doc == Some 0 /\
                     (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other) /\
-                    (needs_forall_truth doc.entries ==> Q.forall_model s bc other))
+                    (needs_forall_truth doc.entries ==> Q.forall_model s bc other) /\
+                    (needs_binder_semantics doc.entries ==> Q.forall_model s bc other /\ E.exists_model s bc other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let cache, _ = Some?.v (check_entries s doc.assertions I.Empty 0 0 doc.entries) in
@@ -1271,3 +1433,417 @@ let check_document_diagnosed (schema:S.schema) (doc:P.document)
   lemma_diagnose_document schema doc;
   let diagnostic = diagnose_document schema doc in
   diagnostic_result diagnostic, diagnostic
+
+let epsilon_definition (s:S.checked_schema) (e:P.entry) : option (E.definition s) =
+  if e.rule <> U.Skolemization || e.premise_ids <> [] ||
+     not (Some? (expression_budget 4096 e.formula)) then None
+  else match U.classify_fact e.formula with
+  | Some (U.Observational a b) -> E.definition_of s a b
+  | _ -> None
+
+let rec collect_epsilon (s:S.checked_schema) (defs:list SK.definition) (entries:list P.entry)
+  : Tot (option (list SK.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some defs
+  | e :: rest ->
+    (match epsilon_definition s e with
+     | None -> collect_epsilon s defs rest
+     | Some d ->
+       (match SK.add_definition defs d with
+        | None -> None
+        | Some more -> collect_epsilon s more rest))
+
+let rec certify_epsilon (s:S.checked_schema) (defs:list SK.definition)
+  : Tot (option (list (E.definition s))) (decreases defs) =
+  match defs with
+  | [] -> Some []
+  | d :: rest ->
+    if not (E.eligible s d) then None
+    else match certify_epsilon s rest with None -> None | Some more -> Some (d :: more)
+
+(* The collections list definitions in document order, oldest first, while an
+   ordered context lists the newest first (each definition's witnesses fresh in
+   every later body). Ordering the reversed list makes the common case a single
+   `SK.ordered_context` pass instead of `order_context`'s repeated selection,
+   which is cubic in the number of definitions (243 merged definitions: 17 s
+   instead of 0.2 s). The selection still runs when the reversed list is not
+   ordered, and every result passes the same gates below. *)
+let certified_context (s:S.checked_schema) (doc:P.document) (collected:option (list SK.definition))
+  : ds:list (E.definition s){SK.ordered_context (E.erase s ds) /\ SK.fresh_inputs (E.erase s ds) doc.assertions} =
+  match collected with
+  | None -> []
+  | Some defs ->
+    (match SK.order_context (L.length defs) (L.rev defs) with
+     | None -> []
+     | Some ordered ->
+       (match certify_epsilon s ordered with
+        | None -> []
+        | Some ds ->
+          if SK.ordered_context (E.erase s ds) && SK.fresh_inputs (E.erase s ds) doc.assertions
+          then ds else []))
+
+(* A closed Skolem step inside an NNF certificate (Z3NnfReplay): the shape of
+   a top-level step (premise-free, no binder sorts, a closed eligible
+   definition of Skolem CONSTANTS: E.definition_of, so dependent Skolem
+   functions and open steps are never collected), and a formula in the
+   schema context, which the elaborated assertions require. *)
+let inner_definition (s:S.checked_schema) (b:U.binder_entry) : option (E.definition s) =
+  if b.U.binder_name <> "sk" || b.U.binder_premises <> [] || Some? b.U.binder_sorts ||
+     not (Some? (expression_budget 4096 b.U.binder_formula)) ||
+     not (D.scoped [] b.U.binder_formula && in_context s b.U.binder_formula) then None
+  else match U.classify_fact b.U.binder_formula with
+  | Some (U.Observational x y) -> E.definition_of s x y
+  | _ -> None
+
+let rec collect_inner (s:S.checked_schema) (defs:list SK.definition) (bs:list U.binder_entry)
+  : Tot (option (list SK.definition)) (decreases bs) =
+  match bs with
+  | [] -> Some defs
+  | b :: rest ->
+    (match inner_definition s b with
+     | None -> collect_inner s defs rest
+     | Some d ->
+       (match SK.add_definition defs d with
+        | None -> None
+        | Some more -> collect_inner s more rest))
+
+(* The certificate of an entry, when the NNF replay consumes it. *)
+let nnf_certificate (e:P.entry) : option U.binder_certificate =
+  match e.P.rule with
+  | U.QuantifierIntroduction c -> if NR.nnf_root c then Some c else None
+  | _ -> None
+
+(* The top-level Skolem steps and the inner Skolem steps of NNF certificates,
+   in document order. *)
+let rec collect_merged (s:S.checked_schema) (defs:list SK.definition) (entries:list P.entry)
+  : Tot (option (list SK.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some defs
+  | e :: rest ->
+    let here =
+      match epsilon_definition s e with
+      | None -> Some defs
+      | Some d -> SK.add_definition defs d in
+    (match here with
+     | None -> None
+     | Some defs' ->
+       (match nnf_certificate e with
+        | None -> collect_merged s defs' rest
+        | Some c ->
+          (match collect_inner s defs' c.U.binder_entries with
+           | None -> None
+           | Some more -> collect_merged s more rest)))
+
+(* The epsilon context: the definitions of the top-level Skolem steps and of
+   the closed inner Skolem steps of NNF certificates, through the unchanged
+   gates (E.eligible, disjoint witnesses, an acyclic order, witnesses fresh in
+   every original assertion). When the merged collection fails a gate, the
+   top-level context alone is used, exactly as before; the inner Skolem steps
+   then stay pending. *)
+let epsilon_context (s:S.checked_schema) (doc:P.document)
+  : ds:list (E.definition s){SK.ordered_context (E.erase s ds) /\ SK.fresh_inputs (E.erase s ds) doc.assertions} =
+  match certified_context s doc (collect_merged s [] doc.entries) with
+  | [] -> certified_context s doc (collect_epsilon s [] doc.entries)
+  | ds -> ds
+
+(* An OPEN Skolem step inside an NNF certificate: a dependent Skolem
+   function of outer binders (Z3SortedDependentSkolem). The shape of a
+   closed inner step (premise-free, no binder sorts, the 4096-node
+   expression budget), a formula that is NOT closed (closed steps are
+   inner_definition's), an eligible dependent definition (complete typed
+   argument tuples, safe witness functions, typed dependency scope), and a
+   closure the kernel accepts as an assertion (closed, Boolean, in the
+   schema context). *)
+let dependent_definition (s:S.checked_schema) (b:U.binder_entry) : option (DS.definition s) =
+  if b.U.binder_name <> "sk" || b.U.binder_premises <> [] || Some? b.U.binder_sorts ||
+     not (Some? (expression_budget 4096 b.U.binder_formula)) || D.scoped [] b.U.binder_formula then None
+  else match U.classify_fact b.U.binder_formula with
+  | Some (U.Observational x y) ->
+    (match DS.definition_of s x y with
+     | Some d -> if boolean_expression s (DS.closure d) then Some d else None
+     | None -> None)
+  | _ -> None
+
+let rec collect_dependent (s:S.checked_schema) (defs:list SK.definition) (bs:list U.binder_entry)
+  : Tot (option (list SK.definition)) (decreases bs) =
+  match bs with
+  | [] -> Some defs
+  | b :: rest ->
+    (match dependent_definition s b with
+     | None -> collect_dependent s defs rest
+     | Some d ->
+       (match SK.add_definition defs d with
+        | None -> None
+        | Some more -> collect_dependent s more rest))
+
+(* The dependent Skolem steps of every consumed NNF certificate, in document
+   order; a duplicate is collected once, a conflicting redefinition of a
+   witness fails the collection (SK.add_definition). *)
+let rec collect_dependents (s:S.checked_schema) (defs:list SK.definition) (entries:list P.entry)
+  : Tot (option (list SK.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some defs
+  | e :: rest ->
+    (match nnf_certificate e with
+     | None -> collect_dependents s defs rest
+     | Some c ->
+       (match collect_dependent s defs c.U.binder_entries with
+        | None -> None
+        | Some more -> collect_dependents s more rest))
+
+let rec certify_dependent (s:S.checked_schema) (defs:list SK.definition)
+  : Tot (option (list (DS.definition s))) (decreases defs) =
+  match defs with
+  | [] -> Some []
+  | d :: rest ->
+    if not (DS.eligible s d) then None
+    else if not (boolean_expression s (DS.closure #s d)) then None
+    else match certify_dependent s rest with None -> None | Some more -> Some (d :: more)
+
+(* The dependent context, on top of the closed epsilon context `closed`: the
+   collected definitions in an acyclic order (from the reversed collection,
+   as certified_context), each eligible, the dependent definitions followed
+   by the closed ones an ordered context (every dependent witness fresh in
+   every later body, closed bodies included), and every dependent witness
+   fresh in every ORIGINAL assertion. Otherwise no dependent definition is
+   used and the dependent steps stay pending. *)
+let dependent_context (s:S.checked_schema) (doc:P.document)
+                      (closed:list (E.definition s){SK.ordered_context (E.erase s closed)})
+  : dds:list (DS.definition s){SK.ordered_context (DS.erase s dds @ E.erase s closed) /\
+                               SK.fresh_inputs (DS.erase s dds) doc.assertions} =
+  match collect_dependents s [] doc.entries with
+  | None -> []
+  | Some defs ->
+    (match SK.order_context (L.length defs) (L.rev defs) with
+     | None -> []
+     | Some ordered ->
+       (match certify_dependent s ordered with
+        | None -> []
+        | Some dds ->
+          if SK.ordered_context (DS.erase s dds @ E.erase s closed) &&
+             SK.fresh_inputs (DS.erase s dds) doc.assertions
+          then dds else []))
+
+let epsilon_entry (s:S.checked_schema) (ds:list (E.definition s)) (e:P.entry) : bool =
+  match epsilon_definition s e with None -> false | Some d -> L.mem d ds
+
+let inner_entry (s:S.checked_schema) (ds:list (E.definition s)) (b:U.binder_entry) : bool =
+  match inner_definition s b with None -> false | Some d -> L.mem d ds
+
+(* The choice equations of the used inner definitions, prepended to acc (a
+   loop over the certificate). *)
+let rec inner_equations (s:S.checked_schema) (ds:list (E.definition s)) (bs:list U.binder_entry)
+                        (acc:list expr)
+  : Tot (list expr) (decreases bs) =
+  match bs with
+  | [] -> acc
+  | b :: rest ->
+    if inner_entry s ds b then
+      (match U.classify_fact b.U.binder_formula with
+       | Some j -> inner_equations s ds rest (proposition j :: acc)
+       | None -> inner_equations s ds rest acc)
+    else inner_equations s ds rest acc
+
+let rec epsilon_equations (s:S.checked_schema) (ds:list (E.definition s)) (entries:list P.entry)
+  : Tot (list expr) (decreases entries) =
+  match entries with
+  | [] -> []
+  | e :: rest ->
+    let tail =
+      match nnf_certificate e with
+      | Some c -> inner_equations s ds c.U.binder_entries (epsilon_equations s ds rest)
+      | None -> epsilon_equations s ds rest in
+    if epsilon_entry s ds e then
+      match U.classify_fact e.formula with
+      | Some j -> proposition j :: tail
+      | None -> tail
+    else tail
+
+let rec epsilon_entries (s:S.checked_schema) (ds:list (E.definition s)) (entries:list P.entry)
+  : Tot (list P.entry) (decreases entries) =
+  match entries with
+  | [] -> []
+  | e :: rest ->
+    (if epsilon_entry s ds e then { e with P.rule = U.Asserted } else e) :: epsilon_entries s ds rest
+
+(* Only choice equations proved in a fresh, typed model extension become
+   assumptions of the unchanged kernel; they are not original inputs. *)
+let elaborate_epsilon (s:S.checked_schema) (ds:list (E.definition s)) (doc:P.document) : P.document =
+  if ds = [] then doc
+  else { doc with P.assertions = doc.assertions @ epsilon_equations s ds doc.entries;
+                  P.entries = epsilon_entries s ds doc.entries }
+
+(* Source-node alignment, which both native frontends' readable reports rely
+   on (they render the elaborated diagnostic against the ORIGINAL entries):
+   elaboration keeps one entry per original entry, at the same index, with
+   the same formula and premise ids; only the rule of a used Skolem step
+   becomes Asserted. Choice equations are appended to the assertions, and a
+   rejected assertion list is reported without an index. *)
+let rec lemma_epsilon_entries_aligned (s:S.checked_schema) (ds:list (E.definition s))
+                                      (entries:list P.entry) (n:nat)
+  : Lemma (requires n < L.length entries)
+          (ensures L.length (epsilon_entries s ds entries) == L.length entries /\
+                   (let e = L.index entries n in
+                    let e' = L.index (epsilon_entries s ds entries) n in
+                    e'.P.formula == e.P.formula /\ e'.P.premise_ids == e.P.premise_ids /\
+                    (e'.P.rule == e.P.rule \/ (epsilon_entry s ds e /\ e'.P.rule == U.Asserted))))
+          (decreases entries) =
+  match entries with
+  | _ :: rest ->
+    if n > 0 then lemma_epsilon_entries_aligned s ds rest (n - 1)
+    else if Cons? rest then lemma_epsilon_entries_aligned s ds rest 0
+
+(* The closures of the used dependent definitions (closed universal
+   equations, proved in the dependent choice extension; not original
+   inputs) are appended to the assertions. The replay accepts an open `sk`
+   step only when its closure is one of them. *)
+let elaborate_dependent (s:S.checked_schema) (dds:list (DS.definition s)) (doc:P.document) : P.document =
+  if dds = [] then doc
+  else { doc with P.assertions = doc.assertions @ DS.closures s dds }
+
+(* The whole elaboration of the epsilon route: the closed choice equations
+   of the epsilon context, then the closures of the dependent context. *)
+let elaborate_full (s:S.checked_schema) (doc:P.document) : P.document =
+  let ds = epsilon_context s doc in
+  elaborate_dependent s (dependent_context s doc ds) (elaborate_epsilon s ds doc)
+
+let check_document_epsilon (schema:S.schema) (doc:P.document) : option nat =
+  if not (S.valid schema) then None
+  else check_document schema (elaborate_full schema doc)
+
+let diagnose_document_epsilon (schema:S.schema) (doc:P.document) : P.document_diagnostic =
+  if not (S.valid schema) then P.DocumentRejected P.LogicalDeclarations None None
+  else diagnose_document schema (elaborate_full schema doc)
+
+let lemma_diagnose_document_epsilon (schema:S.schema) (doc:P.document)
+  : Lemma (diagnostic_result (diagnose_document_epsilon schema doc) == check_document_epsilon schema doc) =
+  if S.valid schema then
+    lemma_diagnose_document schema (elaborate_full schema doc)
+
+let check_document_epsilon_diagnosed (schema:S.schema) (doc:P.document)
+  : result:(option nat & P.document_diagnostic){
+      fst result == check_document_epsilon schema doc /\ diagnostic_result (snd result) == fst result} =
+  lemma_diagnose_document_epsilon schema doc;
+  let diagnostic = diagnose_document_epsilon schema doc in
+  diagnostic_result diagnostic, diagnostic
+
+(* The choice equations of the used inner definitions hold in every model of
+   the epsilon context (in the proof below: the choice extension of the
+   original model, never the original model itself). *)
+let rec lemma_inner_equations (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (ds:list (E.definition s)) (bs:list U.binder_entry) (acc:list expr)
+  : Lemma (requires E.context_model s bc eq other ds /\ T.truths s bc eq other acc)
+          (ensures T.truths s bc eq other (inner_equations s ds bs acc))
+          (decreases bs) =
+  match bs with
+  | [] -> ()
+  | b :: rest ->
+    if inner_entry s ds b then (
+      let d = Some?.v (inner_definition s b) in
+      E.lemma_context_member s bc eq other ds d;
+      match U.classify_fact b.U.binder_formula with
+      | Some (U.Observational x y) ->
+        E.lemma_definition_parts s x y d;
+        T.lemma_boolean_equality s bc eq other x y;
+        lemma_inner_equations s bc eq other ds rest (proposition (U.Observational x y) :: acc)
+      | _ -> ())
+    else lemma_inner_equations s bc eq other ds rest acc
+
+let rec lemma_epsilon_equations (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (ds:list (E.definition s)) (entries:list P.entry)
+  : Lemma (requires E.context_model s bc eq other ds)
+          (ensures T.truths s bc eq other (epsilon_equations s ds entries))
+          (decreases entries) =
+  match entries with
+  | [] -> ()
+  | e :: rest ->
+    lemma_epsilon_equations s bc eq other ds rest;
+    (match nnf_certificate e with
+     | Some c -> lemma_inner_equations s bc eq other ds c.U.binder_entries (epsilon_equations s ds rest)
+     | None -> ());
+    if epsilon_entry s ds e then (
+      let d = Some?.v (epsilon_definition s e) in
+      E.lemma_context_member s bc eq other ds d;
+      match U.classify_fact e.formula with
+      | Some (U.Observational a b) ->
+        E.lemma_definition_parts s a b d;
+        T.lemma_boolean_equality s bc eq other a b
+      | _ -> ())
+
+let rec lemma_truths_append (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                           (xs ys:list expr)
+  : Lemma (T.truths s bc eq other (xs @ ys) ==
+           (T.truths s bc eq other xs && T.truths s bc eq other ys))
+          (decreases xs) =
+  match xs with [] -> () | _ :: rest -> lemma_truths_append s bc eq other rest ys
+
+(* The elimination law over GHOST bodies (Q.elimination_case), read off the
+   universal law case by case. *)
+let lemma_full_forall_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                 (other:V.interpretation base (S.signature s))
+  : Lemma (requires Q.forall_model s bc other)
+          (ensures Q.forall_elimination_model s bc other) =
+  introduce forall (bound:list sort) (body:Q.ghost_body base s bound)
+                   (vs:V.arguments base (S.signature s) (L.rev bound)).
+    Q.elimination_case s bc other bound body vs
+  with assert (Q.forall_case s bc other bound body)
+
+(* ONE consistent extension per document, built from the ORIGINAL model:
+   the closed choice context first (Z3SortedSkolem.build), then the
+   dependent context on top of it (Z3SortedDependentSkolem.build). *)
+let full_extension (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                   (doc:P.document) (other:V.interpretation base (S.signature s))
+  : GTot (V.interpretation base (S.signature s)) =
+  let ds = epsilon_context s doc in
+  DS.build s bc eq choice (dependent_context s doc ds) (E.build s bc eq choice ds other)
+
+(* The extension keeps the quantifiers (hence both quantifier laws) and the
+   truth of every ORIGINAL assertion, and makes every generated assertion
+   (closed choice equation, dependent closure) true: the elaborated
+   assertions hold in it exactly when the original ones hold in `other`. *)
+let lemma_full_extension (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                         (doc:P.document) (other:V.interpretation base (S.signature s))
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other)
+          (ensures (let j = full_extension s bc eq choice doc other in
+                    j.V.quantification == other.V.quantification /\
+                    Q.forall_model s bc j /\ E.exists_model s bc j /\
+                    T.truths s bc eq j doc.assertions == T.truths s bc eq other doc.assertions /\
+                    T.truths s bc eq j (epsilon_equations s (epsilon_context s doc) doc.entries) /\
+                    T.truths s bc eq j (DS.closures s (dependent_context s doc (epsilon_context s doc))) /\
+                    T.truths s bc eq j (elaborate_full s doc).P.assertions ==
+                      T.truths s bc eq other doc.assertions)) =
+  let ds = epsilon_context s doc in
+  let dds = dependent_context s doc ds in
+  let e1 = E.build s bc eq choice ds other in
+  let j = DS.build s bc eq choice dds e1 in
+  E.lemma_build_context s bc eq choice ds other;
+  E.lemma_build_inputs s bc eq choice ds other doc.assertions;
+  E.lemma_build_quantification s bc eq choice ds other;
+  E.lemma_quantification_models s bc other e1;
+  DS.lemma_ordered_append (DS.erase s dds) (E.erase s ds);
+  DS.lemma_build_context s bc eq choice dds e1;
+  DS.lemma_build_inputs s bc eq choice dds e1 doc.assertions;
+  DS.lemma_build_closed s bc eq choice dds e1 ds;
+  DS.lemma_build_quantification s bc eq choice dds e1;
+  E.lemma_quantification_models s bc e1 j;
+  lemma_epsilon_equations s bc eq j ds doc.entries;
+  DS.lemma_context_truths s bc eq j dds;
+  lemma_truths_append s bc eq j doc.assertions (epsilon_equations s ds doc.entries);
+  lemma_truths_append s bc eq j (elaborate_epsilon s ds doc).P.assertions (DS.closures s dds)
+
+let lemma_check_document_epsilon (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                 (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                                 (other:V.interpretation base (S.signature s)) (doc:P.document)
+  : Lemma (requires check_document_epsilon s doc == Some 0 /\
+                    Q.forall_model s bc other /\ E.exists_model s bc other)
+          (ensures not (T.truths s bc eq other doc.assertions)) =
+  if T.truths s bc eq other doc.assertions then (
+    let j = full_extension s bc eq choice doc other in
+    lemma_full_extension s bc eq choice doc other;
+    lemma_full_forall_elimination s bc j;
+    lemma_check_document s bc eq j (elaborate_full s doc))

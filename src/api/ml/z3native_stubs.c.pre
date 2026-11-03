@@ -18,6 +18,10 @@ extern "C" {
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/threads.h>
+#include <caml/version.h>
+#if OCAML_VERSION_MAJOR >= 5
+#include <caml/domain_state.h>
+#endif
 
 #ifdef Custom_tag
 #include <caml/custom.h>
@@ -491,7 +495,7 @@ typedef struct {
   Z3_context_plus cp; /* solver's context, for wrapping AST values */
 } ml_on_clause_ctx;
 
-static void caml_ml_on_clause_eh(void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals) {
+static void caml_ml_on_clause_eh_body(void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals) {
   CAMLparam0();
   CAMLlocal5(cb, ph_opt, deps_cons, lv, cell);
   CAMLlocal1(ast_v);
@@ -529,6 +533,29 @@ static void caml_ml_on_clause_eh(void* ctx, Z3_ast proof_hint, unsigned n, unsig
   caml_callback3(cb, ph_opt, deps_cons, lv);
 
   CAMLreturn0;
+}
+
+/* Z3 calls the handler from inside solver calls, and their stubs differ in
+   whether they keep the OCaml runtime lock: the stubs of Z3_solver_check and
+   Z3_solver_check_assumptions release it before entering Z3, while those of
+   Z3_solver_cube and Z3_solver_get_consequences keep it. The body allocates on
+   the OCaml heap and runs the OCaml callback, so it needs the lock, and taking
+   it when this thread already holds it aborts ("Resource deadlock avoided")
+   or, with systhreads, blocks forever.
+   Since OCaml 5.0, Caml_state_opt is NULL exactly when the current thread does
+   not hold its domain's lock, so the lock is taken only in that case. OCaml 4
+   offers no such test, and there the handler runs as before. */
+static void caml_ml_on_clause_eh(void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals) {
+#if OCAML_VERSION_MAJOR >= 5
+  int acquire = (Caml_state_opt == NULL);
+  if (acquire)
+    caml_acquire_runtime_system();
+  caml_ml_on_clause_eh_body(ctx, proof_hint, n, deps, literals);
+  if (acquire)
+    caml_release_runtime_system();
+#else
+  caml_ml_on_clause_eh_body(ctx, proof_hint, n, deps, literals);
+#endif
 }
 
 CAMLprim DLL_PUBLIC value n_solver_register_on_clause(value ctx_v, value solver_v, value cb_v) {

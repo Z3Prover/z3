@@ -20,7 +20,6 @@ z3_add_component(simplifiers
     factor_simplifier.cpp
     ff_circuit_simplifier.cpp
     ff_simplify.cpp
-    finite_set_simplifier.cpp
     fold_unfold.cpp
     lambda_simplifier.cpp
     leibniz_simplifier.cpp

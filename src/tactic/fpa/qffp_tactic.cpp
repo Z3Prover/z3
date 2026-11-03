@@ -22,6 +22,7 @@ Notes:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/arith/probe_arith.h"
 #include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/smtlogics/qfnra_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
@@ -29,6 +30,7 @@ Notes:
 #include "ackermannization/ackermannize_bv_tactic.h"
 
 #include "tactic/fpa/qffp_tactic.h"
+#include "ast/datatype_decl_plugin.h"
 
 
 struct is_non_fp_qfnra_predicate {
@@ -87,6 +89,7 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                                  mk_fpa2bv_tactic(m, p),
                                  mk_propagate_values_tactic(m, p),
                                  using_params(mk_simplify_tactic(m, p), simp_p),
+                                 mk_dt2bv_tactic(m, p),
                                  if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m, p))));
 
     tactic * st = and_then(preamble,
@@ -114,8 +117,9 @@ struct is_non_qffp_predicate {
     bv_util       bu;
     fpa_util      fu;
     arith_util    au;
+    datatype_util du;
 
-    is_non_qffp_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m) {}
+    is_non_qffp_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m), du(m) {}
 
     void operator()(var *) { throw found(); }
 
@@ -123,12 +127,12 @@ struct is_non_qffp_predicate {
 
     void operator()(app * n) {
         sort * s = n->get_sort();
-        if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s) && !au.is_real(s))
+        if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s) && !au.is_real(s) && !du.is_enum_sort(s))
             throw found();
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id())
             return;
-        if (fid == fu.get_family_id() || fid == bu.get_family_id())
+        if (fid == fu.get_family_id() || fid == bu.get_family_id() || fid == du.get_family_id())
             return;
         if (is_uninterp_const(n))
             return;

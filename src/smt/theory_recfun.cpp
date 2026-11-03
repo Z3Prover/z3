@@ -441,44 +441,48 @@ namespace smt {
         }
     }
 
-    // if `dlimit` or a disabled guard occurs in unsat core, return 'true'
+    /**
+     * if `dlimit` or a disabled guard occurs in unsat core, return 'true' and
+     * enable guards for the next round.
+     *
+     * Every disabled guard named by the core blocked the refutation of the
+     * current round, so all of them are enabled at once: enabling one guard per
+     * round costs one re-search per guard, which is prohibitive for models that
+     * need hundreds of unfoldings (e.g. well-formedness predicates over long
+     * lists and nested datatypes).
+     *
+     * When the core names no guard (the conflict used the clause
+     * `round_k => ~guard` of a guard disabled during this round, which is not
+     * yet an assumption), the most recently disabled guard is enabled, as before.
+     */
     bool theory_recfun::should_research(expr_ref_vector & unsat_core) {
         bool found = false;
-        expr* to_delete = nullptr;
-        unsigned n = 0;
-        unsigned current_depth = UINT_MAX;
+        ptr_vector<expr> to_enable;
         for (auto * ne : unsat_core) {
             expr* e = nullptr;
             if (m.is_not(ne, e) && is_disabled_guard(e)) {
                 found = true;
-                unsigned depth = get_depth(e);
-                if (depth < current_depth) 
-                    n = 0;
-                if (depth <= current_depth && (ctx.get_random_value() % (++n)) == 0) {
-                    to_delete = e;
-                    current_depth = depth;
-                }
+                to_enable.push_back(e);
             }
             else if (u().is_num_rounds(ne)) 
                 found = true;
         }
-        if (found) {
-            m_num_rounds++;
-            if (!to_delete && !m_disabled_guards.empty()) 
-                to_delete = m_disabled_guards.back();
-            if (to_delete) {
-                m_disabled_guards.erase(to_delete);
-                m_enabled_guards.push_back(to_delete);
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
-            }
-            else {
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round " << m_num_rounds << ")\n");
-            }
-            for (expr* g : m_enabled_guards)
-                push_guard(g);
+        if (!found)
+            return false;
+        m_num_rounds++;
+        if (to_enable.empty() && !m_disabled_guards.empty())
+            to_enable.push_back(m_disabled_guards.back());
+        for (expr* g : to_enable) {
+            m_disabled_guards.erase(g);
+            m_enabled_guards.push_back(g);
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(g, m) << ")\n");
         }
+        if (to_enable.empty())
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round " << m_num_rounds << ")\n");
+        for (expr* g : m_enabled_guards)
+            push_guard(g);
         TRACEFN("should research " << found);
-        return found;
+        return true;
     }
 
     /**

@@ -1,5 +1,6 @@
 """End-to-end direct SMT-LIB tests; no Python Z3 binding or proof transport."""
 import os
+import re
 from pathlib import Path
 import subprocess
 import queue
@@ -29,6 +30,34 @@ NEGATIVE_NNF_CASES = (
      "(declare-fun r (Int) Bool)"
      "(assert (not (exists ((x Int)) (ite (p x) (q x) (r x)))))"
      "(assert (p 0))(assert (q 0))"),
+)
+
+# Negation-normal-form shapes the producer emits under nnf-neg/nnf-pos certificates beyond the
+# cases above: quantified ite/iff/xor branches, xor under a universal, an implication inside a
+# universal and nested heterogeneous duality with a shadowed binder (the Sorted route replays
+# them, Z3NnfReplay). No input fixes a Boolean by a unit assertion, so preprocessing cannot
+# simplify the connective away before NNF: each proof carries an NNF-rooted certificate.
+SORTED_NNF_CASES = (
+    ("ite", "(declare-fun p (Int) Bool)(declare-const c Bool)"
+     "(assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))"
+     "(assert (forall ((x Int)) (p x)))"),
+    ("iff", "(declare-fun p (Int) Bool)(declare-const a Bool)"
+     "(assert (not (= a (forall ((x Int)) (p x)))))(assert (forall ((x Int)) (p x)))"
+     "(assert (or a (p 1)))(assert (or a (not (p 2))))"),
+    ("xor", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)(declare-const a Bool)"
+     "(assert (xor a (forall ((x Int) (r Real)) (q x r))))(assert (forall ((x Int) (r Real)) (q x r)))"
+     "(assert (forall ((x Int)) (p x)))(assert (or a (not (p 2))))"),
+    ("xor-under-binder", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((z Int)) (xor (p z) (exists ((x Int) (r Real)) (q x r)))))"
+     "(assert (forall ((x Int) (r Real)) (not (q x r))))(assert (not (p 3)))"),
+    ("implication", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((z Int)) (not (=> (p z) (exists ((y Int)) (q y 1.0))))))"
+     "(assert (p 0))(assert (q 3 1.0))"),
+    ("nested-duality", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)"
+     "(assert (forall ((w Int)) (not (exists ((x Int) (r Real))"
+     " (and (q x r) (exists ((x Int)) (and (p x) (p w))))))))(assert (q 1 2.0))(assert (p 3))"),
+    ("datatype-binder", "(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)"
+     "(assert (not (exists ((x T)) (p x))))(assert (p D))"),
 )
 
 # The nnf tactic Skolemizes a block even when none of its variables occurs in the body. Only
@@ -492,6 +521,63 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-core", interactive.stdout)
 
+    def test_sorted_core_certifies_closed_epsilon_skolemization(self):
+        sources = (
+            "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))"
+            "(assert (forall ((x Int)) (not (p x))))",
+            "(declare-fun p (Int Int) Bool)(assert (exists ((x Int) (y Int)) (p x y)))"
+            "(assert (forall ((x Int) (y Int)) (not (p x y))))",
+            "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+            "(assert (not (forall ((x Int)) (p x))))(assert (forall ((x Int)) (q x)))"
+            "(assert (forall ((x Int)) (=> (q x) (p x))))",
+        )
+        for source in sources:
+            for interactive in (False, True):
+                with self.subTest(source=source, interactive=interactive):
+                    args = ["--sorted-core", "--diagnostics"]
+                    if interactive:
+                        args.append("--interactive")
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("; proof-check ACCEPT" if interactive else "ACCEPT", result.stdout)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+
+    def test_readable_epsilon_partial_keeps_source_nodes(self):
+        """After epsilon elaboration a pending node still names its original entry, in both modes."""
+        source = ("(assert (exists ((x Real)) (and (= (* x x) 2.0) (= (* x x x) 3.0))))")
+        for interactive in (False, True):
+            with self.subTest(interactive=interactive):
+                mode = ("--interactive",) if interactive else ()
+                text = source + ("(check-sat)" if interactive else "")
+                plain = self.run_checker(text, "--sorted-core", "--diagnostics", *mode)
+                readable = self.run_checker(text, "--sorted-core", "--readable", *mode)
+                self.assertEqual(readable.returncode, 3, readable.stdout + readable.stderr)
+                self.assertEqual(plain.returncode, readable.returncode, plain.stdout + plain.stderr)
+                self.assertNotIn("obligation\tsk\t", readable.stderr)
+                self.assertNotIn("rule=sk\t", readable.stderr)
+                self.assertRegex(readable.stderr, r"(?m)^readable\tquery=1\tverdict=PARTIAL [1-9][0-9]*\t")
+                self.assertRegex(readable.stderr, r"(?m)^  node [0-9]+: premises: ")
+                self.assertNotIn("no source-node mapping", readable.stderr)
+                self.assertTrue(readable.stderr.startswith(plain.stderr), readable.stderr)
+
+    def test_sorted_datatype_certifies_constant_folding_in_both_modes(self):
+        declarations = ("(declare-datatype T ((C (field Int))))"
+                        "(declare-const t T)(assert ((_ is C) t))")
+        for assertion in ("(= 12 23)", "(not (= (+ 12 11) 23))",
+                          "(not (= (* (- 12) 2) (- 24)))"):
+            with self.subTest(assertion=assertion):
+                source = declarations + "(assert " + assertion + ")"
+                result = self.run_checker(source, "--diagnostics", "--stats")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                self.assertIn("semantics=sorted-datatype", result.stderr)
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--diagnostics", "--stats")
+                self.assertEqual(interactive.returncode, 0,
+                                 interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+                self.assertIn("semantics=sorted-datatype", interactive.stdout)
+
     def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
         source = ("(declare-const x Real)(declare-const y Real)"
                   "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
@@ -505,8 +591,10 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertIn("semantics=sorted-core", interactive.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
+        # Constructors with fields keep the producer on the datatype theory (the exhaustiveness
+        # refutation is one `th-lemma datatype`), so these are certified without pending steps.
         for source in (
-                "(declare-datatype T ((C) (D)))(declare-const x T)"
+                "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)"
                 "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))",
                 "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)"
                 "(assert ((_ is C) x))(assert (not (= x (C (field x)))))"):
@@ -521,6 +609,27 @@ class DirectCheckerTests(unittest.TestCase):
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-datatype", interactive.stdout)
+
+    def test_enumeration_datatype_dt2bv_coverage_in_both_modes(self):
+        # Since master #11506 the producer proves enumeration-only goals through QF_FD/dt2bv. The
+        # sorted checker supports none of the datatype-to-bit-vector rewrites of that route, so
+        # this input is only partly checked. It stays as coverage: ACCEPT (should the checker
+        # later certify it) or PARTIAL in the sorted datatype semantics, never SAT, REJECT or a
+        # crash. The pending count is not pinned, and PARTIAL is not a certified verdict.
+        source = ("(declare-datatype T ((C) (D)))(declare-const x T)"
+                  "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))")
+        verdict = r"(ACCEPT|PARTIAL [1-9][0-9]*)"
+        result = self.run_checker(source, "--diagnostics", "--stats")
+        self.assertRegex(result.stdout.strip(), "^" + verdict + "$", result.stderr)
+        self.assertEqual(result.returncode, 0 if result.stdout.strip() == "ACCEPT" else 3,
+                         result.stderr)
+        self.assertIn("semantics=sorted-datatype", result.stderr)
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertRegex(interactive.stdout, r"(?m)^unsat\n; proof-check " + verdict + "$")
+        self.assertEqual(interactive.returncode,
+                         0 if "; proof-check ACCEPT" in interactive.stdout else 3,
+                         interactive.stdout + interactive.stderr)
+        self.assertIn("semantics=sorted-datatype", interactive.stdout)
 
     def test_contextual_datatypes_do_not_fall_back_to_legacy_arithmetic(self):
         result = self.run_checker(
@@ -556,6 +665,23 @@ class DirectCheckerTests(unittest.TestCase):
                 result = self.run_checker(source, "--diagnostics")
                 self.assertEqual((result.returncode, result.stdout.strip()), expected,
                                  result.stdout + result.stderr)
+
+    def test_long_sort_names_in_binder_certificates(self):
+        # The binder scope guard charges sort names by their length before comparing them. A
+        # 300,000-character name exceeds the guard's budget and stays pending; the Cherry checker
+        # counted it with a recursion as deep as the name and overflowed its native stack.
+        for length, expected in ((1000, "ACCEPT"), (300_000, "PARTIAL")):
+            name = "S" * length
+            source = (f"(declare-sort {name} 0)(declare-fun p ({name}) Bool)(declare-const c {name})"
+                      f"(assert (forall ((x {name})) (and (p x) true)))(assert (not (p c)))")
+            with self.subTest(length=length):
+                result = self.run_checker(source, "--diagnostics")
+                if expected == "ACCEPT":
+                    self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                     result.stdout + result.stderr)
+                else:
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
 
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
@@ -666,6 +792,22 @@ class DirectCheckerTests(unittest.TestCase):
                 interactive = self.run_checker(source + "(check-sat)", "--interactive")
                 self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+
+    def test_sorted_route_replays_nnf_certificates(self):
+        """The Sorted route accepts these proofs, so no nnf-neg/nnf-pos certificate stays pending,
+        in both modes (a checker that leaves the certificates pending reports PARTIAL)."""
+        for name, source in NEGATIVE_NNF_CASES + SORTED_NNF_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--sorted-core", "--diagnostics"] + (["--interactive"] if interactive else [])
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                    self.assertNotIn("obligation	nnf-neg	", result.stderr)
+                    self.assertNotIn("obligation	nnf-pos	", result.stderr)
 
     def test_nested_quantifier_pulling_is_certified(self):
         for name, source in PULL_QUANT_CASES:
@@ -832,6 +974,11 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(sum(int(row[2]) for row in rows), expected)
                 self.assertIn("diagnostic\tchecked\tpending=%d\t" % expected, diagnostic.stderr)
                 self.assertRegex(diagnostic.stderr, r"diagnose_ms=\d+\.\d+")
+                expressions = [line.split("\t") for line in diagnostic.stderr.splitlines()
+                               if line.startswith("expression\t")]
+                self.assertEqual([row[1:4] for row in expressions],
+                                 [row[1:4] for row in rows])
+                self.assertTrue(all(len(row) == 5 and row[4] for row in expressions))
                 if expected:
                     renamed = self.run_checker(source.replace("x", "a").replace("y", "b"),
                                                "--diagnostics")
@@ -1063,6 +1210,349 @@ class DirectCheckerTests(unittest.TestCase):
                 process.kill()
                 process.communicate()
             reader.join(timeout=5)
+
+
+@unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
+                     "Set Z3_FSTAR_CHECKER to the built native checker")
+class ReadableDiagnosticsTests(unittest.TestCase):
+    """--readable adds bounded, lossless pending conditions after the unchanged machine diagnostics."""
+    run_checker = DirectCheckerTests.run_checker
+    NONLINEAR = "(declare-const x Real)(assert (= (* x x) 2))(assert (= (* x x x) 3))"
+    REPAIR = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+
+    def run_utf8(self, source, *args):
+        checker = os.environ["Z3_FSTAR_CHECKER"]
+        distribution = os.environ.get("Z3_FSTAR_WSL_DISTRO")
+        wsl = ["wsl"] + (["-d", distribution] if distribution else [])
+        command = ([*wsl, "-e", "bash", "-c", checker + ' "$@"', "checker", *args]
+                   if os.name == "nt" else [os.path.expanduser(checker), *args])
+        result = subprocess.run(command, input=source.encode("utf-8"), capture_output=True, timeout=30)
+        return subprocess.CompletedProcess(result.args, result.returncode,
+                                           result.stdout.decode("utf-8"), result.stderr.decode("utf-8"))
+
+    def conclusion(self, stderr):
+        return re.search(r"(?m)^  conclusion: (.*)$", stderr).group(1)
+
+    def test_flag_changes_neither_verdicts_nor_the_machine_rows_it_extends(self):
+        accepted = "(assert false)"
+        satisfiable = "(declare-const x Int)(assert (> x 0))"
+        sources = {"accepted": accepted, "satisfiable": satisfiable, "real": self.NONLINEAR,
+                   "bit-vector": (self.REPAIR / "egt-6871.smt2").read_text(),
+                   "finite-field": ("(set-logic QF_FF)(define-sort F () (_ FiniteField 2147483647))"
+                                    "(declare-const x F)(assert (= (ff.mul x x) (as ff0 F)))"
+                                    "(assert (not (= x (as ff0 F))))")}
+        for name, source in sources.items():
+            for interactive in (False, True):
+                args = ("--interactive",) if interactive else ()
+                text = source + "(check-sat)" if interactive else source
+                with self.subTest(source=name, interactive=interactive):
+                    plain = self.run_checker(text, *args)
+                    diagnostic = self.run_checker(text, "--diagnostics", *args)
+                    readable = self.run_checker(text, "--readable", *args)
+                    both = self.run_checker(text, "--diagnostics", "--readable", *args)
+                    # `; proof-stats` carries timings; everything else on stdout is the protocol.
+                    protocol = lambda result: (result.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", result.stdout))
+                    self.assertEqual(protocol(readable), protocol(plain), readable.stderr)
+                    self.assertEqual(protocol(diagnostic), protocol(plain), diagnostic.stderr)
+                    self.assertEqual(readable.stderr, both.stderr)
+                    self.assertTrue(readable.stderr.startswith(diagnostic.stderr), readable.stderr)
+                    for line in readable.stderr[len(diagnostic.stderr):].splitlines():
+                        self.assertTrue(line.startswith(("readable\t", "  ")), line)
+                    self.assertEqual("readable\t" in readable.stderr, name not in ("satisfiable",))
+
+    def test_pending_real_conditions_show_values_sorts_and_declaration_identity(self):
+        for interactive in (False, True):
+            with self.subTest(interactive=interactive):
+                text = self.NONLINEAR + ("(check-sat)" if interactive else "")
+                result = self.run_checker(text, "--readable", *(("--interactive",) if interactive else ()))
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                stderr = result.stderr
+                self.assertRegex(stderr, r"(?m)^readable\tquery=1\tverdict=PARTIAL 1\tpending=1\tfamilies=1\tshown=1$")
+                self.assertRegex(stderr, r"(?m)^readable\tfamily=1/1\trule=th-lemma\tcount=1\tmembers=1"
+                                         r"\tnode=0\tnode-pending=1$")
+                conclusion = self.conclusion(stderr)
+                self.assertRegex(conclusion, r"\(\* x#\d+:Real x#\d+:Real x#\d+:Real\) 3:Real\)")
+                self.assertRegex(conclusion, r"\(\* x#\d+:Real x#\d+:Real\) 2:Real\)")
+                self.assertIn("\n  source formula: same as conclusion\n", stderr)
+                self.assertTrue(stderr.endswith("readable\tend\tquery=1\n"), stderr)
+
+    def test_bit_vector_values_widths_and_array_sorts_are_kept(self):
+        result = self.run_checker((self.REPAIR / "egt-6871.smt2").read_text(), "--readable")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        for expected in ("(_ bv308 32)", "(_ bv241 32)", "concat[24,8]:BV32", "bvadd[32]", "(Array BV32 BV8)"):
+            self.assertIn(expected, conclusion)
+        self.assertRegex(conclusion, r"\(bvsle#\d+:Bool \(_ bv308 32\)")
+        self.assertRegex(conclusion, r"\(bit2bool#\d+:Bool \(select:BV8 packet#\d+:\(Array BV32 BV8\) \(_ bv241 32\)\)\)")
+        machine = [line for line in result.stderr.splitlines() if line.startswith("obligation\t")]
+        self.assertEqual(len(machine), 1)
+        self.assertNotIn("308", machine[0])
+
+    def test_multi_index_arrays_and_same_named_functions_stay_distinguishable(self):
+        arrays = ("(declare-const a (Array Int Int Real))(assert (= (* (select a 1 2) (select a 1 2)) 2))"
+                  "(assert (= (* (select a 1 2) (select a 1 2) (select a 1 2)) 3))")
+        result = self.run_checker(arrays, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\(select:Real a#\d+:\(Array Int Int Real\) 1 2\)")
+        overloaded = ("(declare-fun f (Int) Real)(declare-fun f (Real) Real)"
+                      "(assert (= (* (f 1) (f 1.0)) 2))(assert (= (* (f 1) (f 1.0) (f 1) (f 1.0)) 5))")
+        result = self.run_checker(overloaded, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        self.assertEqual(len(set(re.findall(r"\bf#(\d+):Real", conclusion))), 2, conclusion)
+        self.assertRegex(conclusion, r"\(f#\d+:Real 1\)")
+        self.assertRegex(conclusion, r"\(f#\d+:Real 1:Real\)")
+
+    def test_datatype_accessor_named_like_a_connective_is_marked(self):
+        source = ("(declare-datatypes ((T 0)) (((mk (|and| Real)))))(declare-const t T)"
+                  "(assert (= (* (|and| t) (|and| t)) 2))(assert (= (* (|and| t) (|and| t) (|and| t)) 3))")
+        result = self.run_checker(source, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stderr, r"\(and@accessor\[\d+,\d+,0\]:Real t#\d+:T#\d+\)")
+
+    def test_premises_come_from_the_document_node_of_the_obligation(self):
+        source = ("(declare-const x Real)(assert (exists ((a Real)) (and (= (* a a) x) (> a 1))))"
+                  "(assert (< (* x x) 1))")
+        result = self.run_checker(source, "--readable")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
+        family = re.search(r"(?m)^readable\tfamily=1/1\trule=arith/farkas\t.*\tnode=(\d+)\t", result.stderr)
+        self.assertTrue(family, result.stderr)
+        node = re.search(r"(?m)^  node (\d+): premises: #(\d+) #(\d+)$", result.stderr)
+        self.assertTrue(node, result.stderr)
+        self.assertEqual(node.group(1), family.group(1))
+        for premise in node.group(2, 3):
+            self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(" % premise)
+        self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(\(not \(<= a!2#\d+:Real 1:Real\)\)\)$" % node.group(2))
+
+    def test_interactive_queries_are_numbered_like_proof_callbacks(self):
+        script = ("(declare-const x Real)"
+                  "(push)(assert (= (* x x) 2))(assert (= (* x x x) 3))(check-sat)(pop)"
+                  "(push)(assert (> x 0))(check-sat)(pop)"
+                  "(push)(assert (= (* x x) 3))(assert (= (* x x x x) 5))(check-sat)(pop)")
+        result = self.run_checker(script, "--interactive", "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        verdicts = re.findall(r"(?m)^; proof-check (.*)$", result.stdout)
+        self.assertEqual(len(verdicts), 2, result.stdout)
+        self.assertEqual(result.stdout.count("\nsat\n") + result.stdout.startswith("sat\n"), 1, result.stdout)
+        headers = re.findall(r"(?m)^readable\tquery=(\d+)\tverdict=(.*?)\tpending=", result.stderr)
+        self.assertEqual(headers, [("1", verdicts[0]), ("2", verdicts[1])], result.stderr)
+        self.assertEqual(result.stderr.count("readable\tend\tquery="), 2)
+
+    def test_accepted_proofs_have_an_empty_block_and_satisfiable_inputs_none(self):
+        accepted = self.run_checker("(assert false)", "--readable")
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(accepted.stderr,
+                         "diagnostic\tchecked\tpending=0\tfamilies=0\n"
+                         "readable\tquery=1\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0\n"
+                         "readable\tend\tquery=1\n")
+        satisfiable = self.run_checker("(declare-const x Int)(assert (> x 0))", "--readable")
+        self.assertEqual((satisfiable.returncode, satisfiable.stdout.strip(), satisfiable.stderr), (4, "SAT", ""))
+
+    def test_large_conclusions_are_truncated_with_markers(self):
+        count = 1500
+        declarations = "".join("(declare-const y%d Real)" % i for i in range(count))
+        arguments = " ".join("y%d" % i for i in range(count))
+        source = (declarations + "(declare-fun f (%s) Real)" % " ".join(["Real"] * count) +
+                  "(assert (= (* (f %s) (f %s)) 2))(assert (= (* (f %s) (f %s) (f %s)) 3))" % ((arguments,) * 5))
+        result = self.run_checker(source, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        self.assertRegex(conclusion, r"<\.\.\.(chars|nodes)>$")
+        self.assertLessEqual(len(conclusion), 4096 + 40)
+
+    def test_unicode_names_are_quoted_and_kept(self):
+        source = ("(declare-const |h\u00e9llo \u2603| Real)"
+                  "(assert (= (* |h\u00e9llo \u2603| |h\u00e9llo \u2603|) 2))"
+                  "(assert (= (* |h\u00e9llo \u2603| |h\u00e9llo \u2603| |h\u00e9llo \u2603|) 3))")
+        result = self.run_utf8(source, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\|h\u00e9llo \u2603\|#\d+:Real")
+
+    def test_constant_arrays_keep_the_array_sort_their_arguments_do_not_carry(self):
+        # `(const 0)` alone cannot say which array it is: the domain sorts of a constant array occur nowhere in its arguments, so a
+        # printer that drops the range makes two different conditions read the same (it was byte-identical for these two inputs).
+        def source(domain):
+            term = "(f ((as const (Array %s Int)) 0))" % domain
+            return ("(declare-fun f ((Array %s Int)) Real)(assert (= (* %s %s) 2))(assert (= (* %s %s %s) 3))"
+                    % (domain, term, term, term, term, term))
+        conclusions, printed = {}, {"Int": "Int", "Real": "Real", "(_ BitVec 8)": "BV8"}
+        for domain, shown in printed.items():
+            with self.subTest(domain=domain):
+                result = self.run_checker(source(domain), "--readable")
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                conclusions[domain] = self.conclusion(result.stderr)
+                self.assertRegex(conclusions[domain], r"\(f#\d+:Real \(const:\(Array %s Int\) 0\)\)" % shown)
+        self.assertEqual(len(conclusions), 3)
+        self.assertEqual(len(set(conclusions.values())), 3)
+        # both arrays in one document: same-named overloads stay apart by id, and each argument keeps its own array sort
+        int_term, real_term = "(g ((as const (Array Int Int)) 0))", "(g ((as const (Array Real Int)) 0))"
+        overloaded = ("(declare-fun g ((Array Int Int)) Real)(declare-fun g ((Array Real Int)) Real)"
+                      "(assert (= (* %s %s) 2))(assert (= (* %s %s %s %s) 5))"
+                      % (int_term, real_term, int_term, real_term, int_term, real_term))
+        result = self.run_checker(overloaded, "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        conclusion = self.conclusion(result.stderr)
+        ids = {domain: re.search(r"\(g#(\d+):Real \(const:\(Array %s Int\) 0\)\)" % domain, conclusion)
+               for domain in ("Int", "Real")}
+        self.assertTrue(all(ids.values()), conclusion)
+        self.assertNotEqual(ids["Int"].group(1), ids["Real"].group(1))
+
+    def test_empty_sequences_keep_their_sort(self):
+        # seq.empty has no arguments: its sort is the only thing that says which sequence it is
+        def source(sort):
+            term = "(f (as seq.empty %s))" % sort
+            return ("(declare-fun f (%s) Real)(assert (= (* %s %s) 2))(assert (= (* %s %s %s) 3))"
+                    % (sort, term, term, term, term, term))
+        result = self.run_checker(source("(Seq Int)"), "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:SeqInt\)")
+        result = self.run_checker(source("(Seq Real)"), "--readable")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:Seq#\d+\)")
+
+    @staticmethod
+    def pigeonhole(n=20):
+        """Unsatisfiable, and far beyond a 1 ms solver budget: the same instance as test_timeout_is_not_certified_unsat."""
+        terms = ["(declare-const p%d_%d Bool)" % (i, j) for i in range(n) for j in range(n - 1)]
+        terms.extend("(assert (or %s))" % " ".join("p%d_%d" % (i, j) for j in range(n - 1)) for i in range(n))
+        terms.extend("(assert (or (not p%d_%d) (not p%d_%d)))" % (i, j, k, j)
+                     for j in range(n - 1) for i in range(n) for k in range(i))
+        return "\n".join(terms)
+
+    @staticmethod
+    def observed(result):
+        return result.returncode, result.stdout, result.stderr
+
+    def test_unknown_results_and_timeouts_have_no_block_and_keep_the_protocol(self):
+        # An UNKNOWN answer has no proof, so there is nothing to render: the flag changes neither stdout, the exit status nor stderr.
+        source = self.pigeonhole()
+        runs = [self.run_checker(source, *flags, "--timeout-ms", "1") for flags in ((), ("--diagnostics",), ("--readable",))]
+        self.assertEqual(runs[0].returncode, 5, runs[0].stdout + runs[0].stderr)
+        self.assertRegex(runs[0].stdout, r"^UNKNOWN .*timeout")
+        self.assertEqual(runs[0].stderr, "")
+        for run in runs[1:]:
+            self.assertEqual(self.observed(run), self.observed(runs[0]))
+        # interactive: a solver timeout and a tactic that gives up are both plain `unknown` replies, with no block either
+        for script, args in ((source + "(check-sat)", ("--timeout-ms", "1")),
+                             ("(declare-const p Bool)(assert p)(check-sat-using skip)", ())):
+            with self.subTest(script=script[-24:], args=args):
+                plain = self.run_checker(script, "--interactive", *args)
+                readable = self.run_checker(script, "--interactive", "--readable", *args)
+                self.assertEqual(self.observed(readable), self.observed(plain))
+                self.assertEqual(plain.returncode, 0, plain.stdout + plain.stderr)
+                self.assertEqual(plain.stdout, "unknown\n")
+                self.assertEqual(plain.stderr, "")
+
+    def test_a_query_without_a_proof_does_not_consume_a_query_number(self):
+        # Queries are numbered like the `; proof-check` lines: the 2nd proof is query 2 even when an UNKNOWN reply lies between.
+        script = ("(declare-const x Real)"
+                  "(push)(assert (= (* x x) 2))(assert (= (* x x x) 3))(check-sat)(pop)"
+                  "(push)(assert (> x 0))(check-sat-using skip)(pop)"
+                  "(push)(assert (= (* x x) 3))(assert (= (* x x x x) 5))(check-sat)(pop)")
+        plain = self.run_checker(script, "--interactive", "--diagnostics")
+        readable = self.run_checker(script, "--interactive", "--readable")
+        self.assertEqual(readable.returncode, 3, readable.stdout + readable.stderr)
+        self.assertEqual((readable.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", readable.stdout)),
+                         (plain.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", plain.stdout)))
+        self.assertEqual(readable.stdout.count("unknown\n"), 1, readable.stdout)
+        verdicts = re.findall(r"(?m)^; proof-check (.*)$", readable.stdout)
+        self.assertEqual(len(verdicts), 2, readable.stdout)
+        headers = re.findall(r"(?m)^readable\tquery=(\d+)\tverdict=(.*?)\tpending=", readable.stderr)
+        self.assertEqual(headers, [("1", verdicts[0]), ("2", verdicts[1])], readable.stderr)
+        # each block follows the machine row of its own query and agrees with it (the two proofs may differ between runs of the OCaml
+        # checker, so the rows are compared within the readable run, not with the run without the flag)
+        rows = [line for line in readable.stderr.splitlines() if line.startswith(("diagnostic\tchecked\t", "readable\tquery="))]
+        self.assertEqual(len(rows), 4, readable.stderr)
+        for diagnostic, header in zip(rows[0::2], rows[1::2]):
+            counts = re.fullmatch(r"diagnostic\tchecked\t(pending=\d+)\t(families=\d+)", diagnostic)
+            self.assertTrue(counts, diagnostic)
+            self.assertRegex(header, r"\t%s\t%s\t" % counts.groups())
+
+    def test_errors_and_malformed_input_are_unchanged_by_the_flag(self):
+        # A REJECT verdict is reserved for a malformed proof document and no SMT-LIB input produces one (the reports in the repository
+        # and the replayed F* corpus contain none); the rejected-document report is therefore covered by the unit-level goldens (bridge tests
+        # readable-obligation-diagnostics and readable-edge-conditions, tests.cpp readable_edge_cases). Parse errors, protocol errors and
+        # unusable arguments reach the driver before any proof is rendered: stdout, exit status and stderr must be exactly the flag-less ones.
+        for source, args in (("(assert missing)", ()),
+                             ("(assert", ()),
+                             ('{"format":"resolution-v1","root":0}', ()),
+                             ("(assert false)", ("--timeout-ms", "not-a-number")),
+                             ("(assert false)", ("--timeout-ms", "4294967296")),
+                             ("(assert false)", ("--smt2",)),
+                             ("", ("--interactive", "unused.smt2")),
+                             ("(assert", ("--interactive",)),
+                             ('(echo "unfinished', ("--interactive",)),
+                             ("(assert |unfinished", ("--interactive",))):
+            with self.subTest(source=source, args=args):
+                plain = self.run_checker(source, *args)
+                readable = self.run_checker(source, "--readable", *args)
+                self.assertEqual(plain.returncode, 2, plain.stdout + plain.stderr)
+                self.assertTrue(plain.stderr.strip())
+                self.assertEqual(self.observed(readable), self.observed(plain))
+                self.assertNotIn("readable\t", readable.stderr)
+
+    def test_an_interactive_command_error_leaves_the_stdout_protocol_and_numbers_the_next_proof(self):
+        script = "(set-option :produce-proofs false)(assert missing)(assert false)(check-sat)"
+        plain = self.run_checker(script, "--interactive", "--diagnostics")
+        readable = self.run_checker(script, "--interactive", "--readable")
+        self.assertEqual(plain.returncode, 2, plain.stdout + plain.stderr)
+        self.assertIn("(error", plain.stdout)
+        self.assertEqual((readable.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", readable.stdout)),
+                         (plain.returncode, re.sub(r"(?m)^; proof-stats .*\n?", "", plain.stdout)))
+        self.assertTrue(readable.stderr.startswith(plain.stderr), readable.stderr)
+        self.assertEqual(readable.stderr[len(plain.stderr):],
+                         "readable\tquery=1\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0\n"
+                         "readable\tend\tquery=1\n")
+
+    def test_help_lists_the_flag(self):
+        result = self.run_checker("", "--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(result.stdout, r"--readable\b")
+        self.assertIn("--diagnostics", result.stdout)
+
+
+class ReadableTagTests(unittest.TestCase):
+    def test_cherry_renderer_uses_the_bit_vector_numeral_tag_of_the_f_star_source(self):
+        # The extracted Cherry checker exports the datatype and rational tags, not this one.
+        root = Path(__file__).resolve().parent.parent
+        tag = re.search(r"let op_numeral : decl_kind = (\d+)",
+                        (root / "Z3BvLemma.fst").read_text(encoding="utf-8")).group(1)
+        header = (root / "cherry_runtime" / "readable.h").read_text(encoding="utf-8")
+        self.assertRegex(header, r"bv_numeral_op\(\) \{ return CHERRY_INT_SMALL\(%s\); \}" % tag)
+
+    def test_cherry_expression_rows_use_the_operator_tags_of_the_f_star_source(self):
+        # Pretty in the Cherry driver mirrors Z3NativeMain.pretty_judgment for the `expression` rows; the extracted checker does not
+        # export these Z3ValueTheory tags. The printer never references a checking or marshaling entry point.
+        root = Path(__file__).resolve().parent.parent
+        values = dict(re.findall(r"let (op_\w+) : decl_kind = (\d+)",
+                                 (root / "Z3ValueTheory.fst").read_text(encoding="utf-8")))
+        main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
+        pretty = main[main.index("class Pretty {"):main.index("static std::string rule_name(")]
+        tags = re.findall(r"static constexpr int64_t (op_\w+) = (\d+);", pretty)
+        self.assertEqual(len(tags), 14)
+        for name, value in tags:
+            self.assertEqual(values.get(name), value, name)
+        self.assertNotRegex(pretty, r"Z3Cherry_(check|diagnose|marshal)\b")
+
+    def test_the_printers_cannot_call_the_checker(self):
+        # --readable renders the diagnostic the one diagnosed check produced; a second check would double the work and could not be
+        # told from the first by a verdict. The printers (OCaml Readable module, Cherry readable.h and readable_report) never reference
+        # a checking or marshaling entry point, and each driver has exactly one diagnosed-check call site.
+        root = Path(__file__).resolve().parent.parent
+        header = (root / "cherry_runtime" / "readable.h").read_text(encoding="utf-8")
+        main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
+        report = main[main.index("static std::string readable_report("):main.index("struct Report {")]
+        for text in (header, report):
+            self.assertNotRegex(text, r"Z3Cherry_(check|diagnose|marshal)\b")
+        self.assertEqual(len(re.findall(r"Z3Cherry_diagnose\(", main)), 1)
+        self.assertEqual(len(re.findall(r"Z3Cherry_check\(", main)), 1)
+        ocaml = (root / "ocaml_runtime" / "Z3NativeMain.ml").read_text(encoding="utf-8")
+        printer = ocaml[ocaml.index("module Readable = struct"):ocaml.index("let check_proof ")]
+        self.assertNotRegex(printer, r"check_document|diagnose_document|check_proof|Z3SortedProof|Z3NativeProof")
+        # The sorted route's one call site is the epsilon entry point, the legacy route's the indexed one.
+        self.assertEqual(len(re.findall(r"check_document(?:_epsilon)?_diagnosed", ocaml)), 2)
+        self.assertEqual(len(re.findall(r"Z3SortedProof\.check_document_epsilon_diagnosed\b", ocaml)), 1)
+        self.assertEqual(len(re.findall(r"Readable\.report\b", ocaml)), 1)
 
 
 if __name__ == "__main__":

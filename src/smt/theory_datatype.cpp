@@ -325,6 +325,14 @@ namespace smt {
             bool_var bv = ctx.mk_bool_var(term);
             ctx.set_var_theory(bv, get_id());
             ctx.set_enode_flag(bv, true);
+            if (is_recognizer(term)) {
+                // prefer non-recursive constructors when the SAT solver decides on a
+                // recognizer of a recursive datatype, as mk_split does for the recognizers
+                // it introduces itself: smallest models first.
+                auto c = m_util.get_recognizer_constructor(term->get_decl());
+                if (m_util.is_recursive(c->get_range()) && m_util.is_non_rec_constructor(c))
+                    ctx.set_true_first_flag(bv);
+            }
         }
         if (is_constructor(term) || is_update_field(term)) {
             SASSERT(!is_attached_to_var(e));

@@ -165,9 +165,9 @@ let recognizer_value (#base:sort -> Type0) (s:checked_schema) (c:registered_case
 let accessor_value (#base:sort -> Type0) (s:checked_schema) (c:registered_case s)
                    (n:nat{n < L.length c.constructor.domain})
                    (fallback:V.value base (signature s) c.constructor.range ->
-                     V.value base (signature s) (L.index c.constructor.domain n))
+                     GTot (V.value base (signature s) (L.index c.constructor.domain n)))
                    (v:V.value base (signature s) c.constructor.range)
-  : V.value base (signature s) (L.index c.constructor.domain n) =
+  : GTot (V.value base (signature s) (L.index c.constructor.domain n)) =
   lemma_signature_member s.cases c;
   V.select (signature s) c.constructor n fallback v
 
@@ -260,10 +260,11 @@ type boolean_carrier (base:sort -> Type0) = {
     (forall (v:base bool_sort). encode_bool (decode_bool v) == v)};
 }
 
+(* G1 typed-root prototype: ghost, because `other` is a ghost interpretation. *)
 let application (#base:sort -> Type0) (s:checked_schema) (booleans:boolean_carrier base)
                 (other:V.interpretation base (signature s))
                 (f:func_decl) (xs:V.arguments base (signature s) f.domain)
-  : V.value base (signature s) f.range =
+  : GTot (V.value base (signature s) f.range) =
   if L.mem f (signature s) then V.construct (signature s) f xs
   else match find_recognizer f s.cases with
   | Some c ->
@@ -277,7 +278,7 @@ let application (#base:sort -> Type0) (s:checked_schema) (booleans:boolean_carri
        (match xs with
         | [v] ->
           let fallback (value:V.value base (signature s) r.matched_case.constructor.range)
-            : V.value base (signature s) (L.index r.matched_case.constructor.domain r.field) =
+            : GTot (V.value base (signature s) (L.index r.matched_case.constructor.domain r.field)) =
             other.application f [value] in
           accessor_value s r.matched_case r.field fallback v
         | _ -> FStar.Pervasives.false_elim ())

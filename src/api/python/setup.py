@@ -11,6 +11,7 @@ from setuptools.command.build import build as _build
 from setuptools.command.sdist import sdist as _sdist
 from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.develop import develop as _develop
+from setuptools.command.egg_info import egg_info as _egg_info, manifest_maker
 
 class LibError(Exception):
     pass
@@ -288,7 +289,7 @@ def _copy_sources():
 
     # Copy in src, but avoid recursion
     def ignore_python_setup_files(src, _):
-        if os.path.normpath(src).endswith('api/python'):
+        if os.path.normpath(src).endswith(os.path.join('api', 'python')):
             return ['core', 'dist', 'MANIFEST', 'MANIFEST.in', 'setup.py', 'z3_solver.egg-info']
         return []
     shutil.copytree(os.path.join(SRC_DIR_REPO, 'src'), os.path.join(SRC_DIR_LOCAL, 'src'),
@@ -308,6 +309,20 @@ class develop(_develop):
         self.execute(_build_z3, (), msg="Building Z3")
         self.execute(_copy_bins, (), msg="Copying binaries")
         _develop.run(self)
+
+class source_manifest(manifest_maker):
+    def read_template(self):
+        # Metadata is requested before sdist assembles the source-only core tree.
+        if os.path.isdir(SRC_DIR_LOCAL):
+            super().read_template()
+
+class egg_info(_egg_info):
+    def find_sources(self):
+        manifest = source_manifest(self.distribution)
+        manifest.ignore_egg_info_dir = self.ignore_egg_info_in_manifest
+        manifest.manifest = os.path.join(self.egg_info, "SOURCES.txt")
+        manifest.run()
+        self.filelist = manifest.filelist
 
 class sdist(_sdist):
     def run(self):
@@ -393,5 +408,5 @@ setup(
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
     data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])] if not IS_PYODIDE else [],
-    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_wheel': bdist_wheel},
+    cmdclass={'build': build, 'develop': develop, 'egg_info': egg_info, 'sdist': sdist, 'bdist_wheel': bdist_wheel},
 )

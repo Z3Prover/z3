@@ -724,6 +724,9 @@ void lemma_global_generalizer::subsumer::ground_free_vars(expr *pat,
 }
 
 pob *lemma_global_generalizer::mk_concretize_pob(pob &n, model_ref &model) {
+    if (!model)
+        return nullptr;
+
     expr_ref_vector new_post(m);
     spacer::pob_concretizer proc(m, model, n.get_concretize_pattern());
     if (proc.apply(n.post(), new_post)) {
