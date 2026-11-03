@@ -106,7 +106,7 @@ private:
     config          m_config;
     statistics      m_stats;
     obj_map<expr, seq::view_vector> m_solution;  // var -> views, from the last decide()
-    obj_map<expr, expr*> m_split_words;     // var -> witness word, cached per refinement round
+    obj_map<expr, expr*> m_split_words;     // var -> candidate word, cached per refinement round
     obj_pair_map<expr, expr, expr*> m_der_cache;  // memoizes der_elem per (regex, element)
     using membership_vec = vector<std::tuple<expr_ref, expr_ref, void*>>;
 
@@ -303,16 +303,18 @@ private:
     // instantiated word.  l_undef when the word or a derivative cannot be evaluated.
     lbool model_accepts(expr* term, expr* r);
 
-    // materialize() without its precondition on the last top-level result, so that the
-    // refinement loop can read the solution of a search it ran itself.  When
-    // allow_unconstrained is false, a variable absent from the recorded relaxation is
-    // reported as unknown instead of being assigned epsilon.
-    lbool materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained = true);
+    // materialize() without its precondition on the last top-level result. Variables
+    // absent from the relaxation receive epsilon; successful refinement records
+    // those candidate choices before exporting its solution.
+    lbool materialize_recorded(expr* var, expr_ref& word);
 
     // Decide `memberships` by refining a relaxation of their intersections, for at most
     // m_split_rounds rounds and `allowance` units of work in total.  l_undef leaves the
     // caller no worse off than before.
     lbool decide_split(membership_vec const& memberships, unsigned budget, unsigned allowance);
+
+    // Preserve the complete candidate checked by refinement as singleton views.
+    lbool record_split_solution(ptr_vector<expr> const& vars);
 
     // Given an unsatisfiable membership set, extract a minimal unsatisfiable subset by
     // deletion and collect the (non-null) dependencies of its members into m_core.

@@ -314,7 +314,7 @@ lbool monadic::materialize(expr* var, expr_ref& word) {
     return materialize_recorded(var, word);
 }
 
-lbool monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_unconstrained) {
+lbool monadic::materialize_recorded(expr* var, expr_ref& word) {
     // without a recorded solution m_solution is empty, and an empty word would pass
     // for a satisfying assignment
     if (!m_config.m_solution)
@@ -329,8 +329,6 @@ lbool monadic::materialize_recorded(expr* var, expr_ref& word, bool allow_uncons
         found = m_solution.find(key, views);
     }
     if (!found) {
-        if (!allow_unconstrained)
-            return l_undef;
         word = u().str.mk_empty(var->get_sort());  // unconstrained: any value will do
         return l_true;
     }
@@ -615,7 +613,7 @@ bool monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst) {
     if (m_split_words.find(t, cached))
         return cached && instantiate_word(cached, elems, false);
     expr_ref w(m);
-    if (materialize_recorded(t, w, false) != l_true) {
+    if (materialize_recorded(t, w) != l_true) {
         m_split_words.insert(t, nullptr);         // remember the failure too
         return false;
     }
@@ -627,7 +625,7 @@ bool monadic::instantiate_word(expr* t, ptr_vector<expr>& elems, bool subst) {
 lbool monadic::model_accepts(expr* term, expr* r) {
     ptr_vector<expr> elems;
     if (!instantiate_word(term, elems))
-        return l_undef;                           // a variable the relaxation never valued
+        return l_undef;
     expr_ref state(r, m);
     for (expr* e : elems) {
         if (re().is_empty(state))
@@ -637,6 +635,40 @@ lbool monadic::model_accepts(expr* term, expr* r) {
             return l_undef;
     }
     return nullable(state);
+}
+
+lbool monadic::record_split_solution(ptr_vector<expr> const& vars) {
+    obj_map<expr, seq::view_vector> solution;
+    for (expr* var : vars) {
+        expr* cached = nullptr;
+        expr_ref word(m);
+        if (m_split_words.find(var, cached)) {
+            if (!cached)
+                return l_undef;
+            word = cached;
+        }
+        else if (materialize_recorded(var, word) != l_true)
+            return l_undef;
+        // Cached candidate words are in the original orientation; the stored views
+        // must match the orientation materialize_recorded() reverses back from.
+        if (m_reversed && !m_rw.mk_seq_reverse(word, word))
+            return l_undef;
+        expr_ref key(var, m);
+        if (m_reversed)
+            key = mk_rev_var(var);
+        expr_ref regex(re().mk_to_re(word), m);
+        m_pin.push_back(key);
+        seq::view_vector views;
+        views.push_back(seq::view::membership(regex, m));
+        solution.insert(key, views);
+    }
+    m_solution.reset();
+    for (auto const& [var, views] : solution)
+        m_solution.insert(var, views);
+    // A completed witness does not enumerate the relaxation's remaining branches.
+    m_stack.reset();
+    m_any_undef = !vars.empty();
+    return l_true;
 }
 
 lbool monadic::decide_split(membership_vec const& memberships, unsigned budget,
@@ -652,6 +684,19 @@ lbool monadic::decide_split(membership_vec const& memberships, unsigned budget,
     }
     if (conjuncts.size() == memberships.size())
         return l_undef;                           // no membership was an intersection: nothing to decompose
+
+    ptr_vector<expr> vars;
+    obj_hashtable<expr> seen;
+    for (auto const& [term, regex, d] : memberships) {
+        vector<atom> atoms;
+        if (!parse_term(term, atoms))
+            return l_undef;
+        for (auto const& a : atoms)
+            if (a.is_var && !seen.contains(a.var)) {
+                seen.insert(a.var);
+                vars.push_back(a.var);
+            }
+    }
 
     m_stats.m_split_calls++;
 
@@ -714,6 +759,8 @@ lbool monadic::decide_split(membership_vec const& memberships, unsigned budget,
                 model_accepts(std::get<0>(conjuncts[i]), std::get<1>(conjuncts[i])) != l_true)
                 violated.push_back(i);
         if (violated.empty()) {
+            if (record_split_solution(vars) != l_true)
+                return l_undef;
             m_stats.m_split_decided++;
             return l_true;
         }
@@ -806,11 +853,15 @@ lbool monadic::decide(membership_vec const& memberships) {
         unsigned const probe_budget = std::max(1000u, limit / 128);
         unsigned const before = work_bails();
         r = decide_policy(memberships, probe_budget, false);
-        if (r == l_undef && work_bails() > before)
+        if (r == l_undef && work_bails() > before) {
+            flet<bool> solution(m_config.m_solution, true);
             r = decide_split(memberships, std::max(1000u, limit / 16), limit);
+        }
     }
     if (r == l_undef)
         r = decide_policy(memberships, limit, true);
+    if (!m_config.m_solution)
+        m_solution.reset();
     m_last_search_result = r;
     return r;
 }
@@ -829,11 +880,9 @@ lbool monadic::enumerate(membership_vec const& memberships, bool resume) {
         // intersection decomposition): a subsequent resume=true pull continues the
         // existing search stack via run_search(true), and switching orientation or
         // decomposing mid-enumeration would abandon that stack. decide()'s
-        // decomposition path (decide_split) certifies l_true/l_false for the whole
-        // conjunction without leaving behind a resumable m_stack; any later pull
-        // will see gen != m_search_gen (or an empty stack) and stop cleanly, so
-        // reporting the one certified solution from decomposition here is correct
-        // even though further pulls will not yield more branches from it.
+        // decomposition path (decide_split) records one complete witness and clears
+        // the relaxation's stack. Enumeration then reports that witness and gives
+        // up rather than resuming a search that omits some original constraints.
         r = decide(memberships);
     }
     m_last_search_memberships = memberships;

@@ -228,6 +228,84 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
+    void check_refinement_completion(char const* name, expr* x, expr* y, expr* unrelated,
+                                     expr* base, expr* left, expr* right, bool reversed,
+                                     bool default_empty = true) {
+        seq::monadic mon(m_rw, m_trail, m_mode);
+        mon.set_budget(128000);
+        mon.set_split_rounds(default_empty ? 2 : 4);
+        mon.set_orientation(reversed ? seq::monadic::orientation::reversed :
+                                       seq::monadic::orientation::forward);
+        expr_ref body(re().mk_to_re(base), m);
+        expr_ref exact(loop(body, 600, 600), m);
+        expr_ref not_left(comp(left), m);
+        expr_ref rx(inter(exact, not_left), m);
+        expr_ref left_star(star(left), m);
+        expr_ref right_star(star(right), m);
+        expr_ref y_constraint(left_star, m);
+        if (!default_empty)
+            y_constraint = cat(right, right_star);
+        expr_ref ry(inter(y_constraint, right_star), m);
+        ptr_vector<expr> base_elems;
+        flatten_seq(base, base_elems);
+        auto verify_model = [&]() {
+            expr_substitution model(m);
+            expr* wx = nullptr, *wy = nullptr;
+            if (mon.materialize_all(model) != l_true || model.sub().size() != 2 ||
+                !model.sub().find(x, wx) || !model.sub().find(y, wy))
+                return false;
+            ptr_vector<expr> xs, ys;
+            flatten_seq(wx, xs);
+            flatten_seq(wy, ys);
+            if (ys.empty() != default_empty || xs.size() != 600 * base_elems.size())
+                return false;
+            for (unsigned i = 0; i < xs.size(); ++i)
+                if (xs[i] != base_elems[i % base_elems.size()])
+                    return false;
+            if (!word_in_re(xs, rx) || !word_in_re(ys, ry))
+                return false;
+            for (auto const& [v, views] : mon.solution()) {
+                expr* word = nullptr;
+                expr* original = mon.unwrap_solution_var(v);
+                if ((original != x && original != y) || views.size() != 1 ||
+                    !views[0].is_membership() || !re().is_to_re(views[0].m_state, word))
+                    return false;
+            }
+            return true;
+        };
+
+        bool ok = true;
+        for (unsigned repeat = 0; repeat < 2; ++repeat) {
+            m_trail.push_scope();
+            mon.add(x, rx, nullptr);
+            mon.add(y, ry, nullptr);
+            unsigned decided = mon.stats().m_split_decided;
+            ok &= mon.check() == l_true;
+            ok &= mon.stats().m_split_decided > decided && verify_model();
+            auto it = mon.iterate(2);
+            obj_map<expr, seq::view_vector> solution;
+            ok &= it.next(solution) && solution.size() == 2 && verify_model();
+            ok &= !it.next(solution) && it.gave_up() && it.count() == 1;
+            mon.set_gen_solution(false);
+            decided = mon.stats().m_split_decided;
+            ok &= mon.check() == l_true && mon.stats().m_split_decided > decided;
+            expr_substitution disabled_model(m);
+            ok &= mon.solution().empty() && mon.materialize_all(disabled_model) == l_undef;
+            mon.set_gen_solution(true);
+            m_trail.pop_scope(1);
+        }
+        ok &= mon.solve(unrelated, left) == l_true;
+        expr_substitution fresh_model(m);
+        ok &= mon.materialize_all(fresh_model) == l_true &&
+              fresh_model.sub().size() == 1 && fresh_model.sub().contains(unrelated);
+        if (!ok)
+            ++m_fail;
+        std::cout << (ok ? "  OK   " : "  FAIL ") << name
+                  << (reversed ? " reversed" : " forward")
+                  << (default_empty ? " empty-default" : " nonempty-refinement")
+                  << " complete refinement witness\n";
+    }
+
     // flatten a ground sequence term into its element values.
     void flatten_seq(expr* seqv, ptr_vector<expr>& elems) {
         zstring zs;
@@ -1232,6 +1310,18 @@ public:
             m_mon.set_split_rounds(0);
             m_mon.set_budget(saved_budget);
         }
+
+        std::cout << "=== seq_monadic: completed refinement candidates ===\n";
+        expr_ref z = var("completion-unrelated");
+        check_refinement_completion("String", x, y, z, sword("ab"), a, b, false);
+        check_refinement_completion("String", x, y, z, sword("ab"), a, b, true);
+        check_refinement_completion("String", x, y, z, sword("ab"), a, b, false, false);
+        expr_ref zi(m.mk_const("completion-unrelated-int", seqI), m);
+        expr_ref two_seq(u.str.mk_unit(i2), m);
+        expr_ref int_base(sconcat(one_seq, two_seq), m);
+        check_refinement_completion("Seq Int", xi, yi, zi, int_base, re1, re2, false);
+        check_refinement_completion("Seq Int", xi, yi, zi, int_base, re1, re2, true);
+        check_refinement_completion("Seq Int", xi, yi, zi, int_base, re1, re2, false, false);
 
         check_view_witness();
         std::cout << "=== seq_monadic: " << (m_fail == 0 ? "ALL PASS" : "FAILURES") << " ("
