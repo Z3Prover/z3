@@ -84,12 +84,74 @@ additional Python exact-reference cases passed with model evaluation,
 push/pop, and contradictory-value checks across the two backends. Basic
 CLI/model/help and Python-binding smoke checks also passed.
 
-The benchmark numbers in the PR and the source mappings in the remainder of
-this report are historical. No benchmark improvement is claimed for the signed
-semantics or journal-paper changes without rerunning that evaluation.
+After merging master at `0642c5a7f57e2160511242743e9170ec438a72a1`, the
+Release targets were rebuilt and all 126 default unit groups and the 72
+Python cases passed. The signed-semantics benchmark comparison below measures
+that merged source tree. The earlier absolute-exponent benchmark results
+remain historical and are not directly comparable with this evaluation.
 
 The remaining sections preserve the earlier audit record and its original
-source and verification scope.
+source and verification scope, except for the new benchmark comparison.
+
+## Signed-semantics benchmark comparison (November 3, 2026)
+
+The current merged zwine implementation was compared with the native Windows
+[SwInE 2 v0.2.1 release](https://github.com/ffrohn/swine-z3/releases/tag/v0.2.1),
+build `ab71d469cf0618006eb456eeaaa0d4ebba2eef9e`, which reports Z3 4.15.4.0.
+Both implement the standard signed semantics; no absolute-value adaptation
+was used.
+
+Inputs came from the journal's
+[QF_EIA v0.3.0 corpus](https://github.com/ffrohn/QF_EIA/tree/v0.3.0),
+commit `752a13df99b996c346679e57daeb9adc34271064`: all 4,627 LoAT
+and 37 PURRS cases. The additional 37 `PURRS_with_axioms` variants were
+excluded. Both solvers received byte-identical input files, with these
+explicit adaptations:
+
+- Rename function applications `(exp ...)` to `(** ...)`.
+- In `PURRS/purrs31.smt2`, replace the Real-sorted triangular exponents
+  `n/2+n*n/2` and `(n-1)/2+(n-1)*(n-1)/2` by
+  `(div (* n (+ n 1)) 2)` and `(div (* (- n 1) n) 2)`.
+  Consecutive integers have an even product, so these are exact integer
+  expressions for every integer `n`. Merely renaming `exp` leaves an
+  ill-sorted standard `**` application, which zwine correctly rejects.
+  No rounding of the individual halves was performed.
+
+Measurements used Windows 11 Enterprise 10.0.26300 on an AMD EPYC 7763 host
+reporting 16 cores and 32 logical processors. Each solver ran separately
+with eight worker processes and a 10-second external wall-clock timeout
+per input. Commands were `z3.exe -st input.smt2` and
+`swine-z3.exe --stats --no-version input.smt2`. Wall time includes process
+startup and output capture. PAR-2 is the sum of successful wall times plus
+20 seconds for each unresolved case. These are single-run measurements
+on a shared host, not confidence intervals or CPU-time measurements.
+
+| Solver | SAT | UNSAT | Solved | Timeouts | Errors / unknown | PAR-2 (s) |
+|---|---:|---:|---:|---:|---:|---:|
+| Current zwine, merged source `0642c5a7f` | 1,962 | 2,693 | 4,655 | 9 | 0 | 539.984 |
+| SwInE 2 v0.2.1, Z3 4.15.4.0 | 1,961 | 2,693 | 4,654 | 10 | 0 | 457.016 |
+
+Zwine solved one more case overall but had an 18.2% higher PAR-2 score.
+Successful-case wall-time sums were 359.984 s and 257.016 s, respectively.
+Both solved 29 of 37 PURRS cases; zwine solved 4,626 LoAT cases and the
+reference solved 4,625. There were no SAT/UNSAT disagreements among the
+4,652 cases both solved. Agreement is not an independent proof of answers.
+
+Zwine-only solves were `LoAT/TPDB_ITS_Complexity/twn14.koat_4.smt2`,
+`PURRS/purrs31.smt2`, and `PURRS/purrs35.smt2`. Reference-only solves were
+`PURRS/purrs17.smt2` and `PURRS/purrs37.smt2`. Both timed out on the other
+seven unresolved cases.
+
+The measured zwine executable's SHA-256 was
+`203792db61087bab5308c604c1c04eea3b3aaacc8863b0a80dc174ca4e4b9915`.
+It was built from the resolved merged index before the merge commit was
+created, so its embedded version hash still names parent `daab2c29b`;
+the measured source tree is `0642c5a7f`, not the pre-merge parent tree.
+The reference executable's SHA-256 was
+`8013ad36a51066bd393011ab554961a96a50cef744472b801416c6533bd26437`.
+Full per-input results, statistics, input hashes, the comparison driver,
+and `z3agent.db` are retained locally under
+`build/power-benchmark-20261103`.
 
 ## Shared solver integration (October 24, 2026)
 
