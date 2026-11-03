@@ -821,12 +821,12 @@ void cmd_context::register_builtin_ops(decl_plugin * p) {
     for (builtin_name const& n : names) {
         if (m_builtin_decls.contains(n.m_name)) {
             builtin_decl & d = m_builtin_decls.find(n.m_name);
-            builtin_decl * new_d = alloc(builtin_decl, fid, n.m_kind, d.m_next);
+            builtin_decl * new_d = alloc(builtin_decl, fid, n.m_kind, n.m_decl, d.m_next);
             d.m_next = new_d;
             m_extra_builtin_decls.push_back(new_d);
         }
         else {
-            m_builtin_decls.insert(n.m_name, builtin_decl(fid, n.m_kind));
+            m_builtin_decls.insert(n.m_name, builtin_decl(fid, n.m_kind, n.m_decl));
         }
     }
 }
@@ -1220,6 +1220,8 @@ func_decl * cmd_context::find_func_decl(symbol const & s) const {
     }
     builtin_decl d;
     if (m_builtin_decls.find(s, d)) {
+        if (d.m_func_decl)
+            return d.m_func_decl;
         try {
             // Remark: ignoring m_next of d. We do not allow two different theories to define the same constant name.
             func_decl * f;
@@ -1233,6 +1235,15 @@ func_decl * cmd_context::find_func_decl(symbol const & s) const {
     }
     throw cmd_exception("invalid function declaration reference, unknown function ", s);
     return nullptr;
+}
+
+sort* builtin_decl::get_range(sort* range) const {
+    if (!m_func_decl)
+        return range;
+    sort* expected = m_func_decl->get_range();
+    if (range && range != expected)
+        throw cmd_exception("invalid result sort for builtin operator");
+    return expected;
 }
 
 /**
@@ -1268,21 +1279,13 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         return f;
     builtin_decl d;
     if ((arity == 0 || domain) && m_builtin_decls.find(s, d)) {
+        // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.
+        if (d.m_decl != 0 && arity > 0)
+            d = peek_builtin_decl(d, domain[0]->get_family_id());
         family_id fid = d.m_fid;
         decl_kind k   = d.m_decl;
-        // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.
-        if (d.m_decl != 0 && arity > 0) {
-            builtin_decl const & d2 = peek_builtin_decl(d, domain[0]->get_family_id());
-            fid = d2.m_fid;
-            k   = d2.m_decl;
-        }
+        range = d.get_range(range);
         func_decl * f;
-        if (s == "**" && fid == m().get_family_id("arith") && k == OP_POWER) {
-            arith_util a(m());
-            if (range && !a.is_int(range))
-                throw cmd_exception("integer exponentiation expects result sort Int");
-            range = a.mk_int();
-        }
         if (num_indices == 0) {
             f = m().mk_func_decl(fid, k, 0, nullptr, arity, domain, range);
         }
@@ -1343,20 +1346,12 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
     builtin_decl d;
     if (!m_builtin_decls.find(s, d)) 
         return false;
+    // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
+    if (d.m_decl != 0 && num_args > 0)
+        d = peek_builtin_decl(d, args[0]->get_sort()->get_family_id());
     family_id fid = d.m_fid;
     decl_kind k   = d.m_decl;
-    // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
-    if (d.m_decl != 0 && num_args > 0) {
-        builtin_decl const & d2 = peek_builtin_decl(d, args[0]->get_sort()->get_family_id());
-        fid = d2.m_fid;
-        k   = d2.m_decl;
-    }
-    if (s == "**" && fid == m().get_family_id("arith") && k == OP_POWER) {
-        arith_util a(m());
-        if (range && !a.is_int(range))
-            throw cmd_exception("integer exponentiation expects result sort Int");
-        range = a.mk_int();
-    }
+    range = d.get_range(range);
     if (num_indices == 0) 
         result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);    
     else 

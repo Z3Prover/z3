@@ -699,6 +699,12 @@ static void check_integer_power(bool euf) {
          "(assert (> (* x x) 4))(assert (> (* y y) 4))"
          "(assert (= (** (** x y) y) (** x (** y y))))", l_false},
         {"(declare-const x Int)(assert (= (** x 0) 1))(assert (= x 0))", l_true},
+        {"(declare-const n Int)(declare-const r Real)"
+         "(assert (= (* r r) 2.0))(assert (> r 0.0))"
+         "(assert (>= n 1))(assert (<= n 4))(assert (= (** 2 n) 8))", l_true},
+        {"(declare-const n Int)(declare-const r Real)"
+         "(assert (= (* r r) 2.0))(assert (> r 0.0))"
+         "(assert (>= n 1))(assert (<= n 4))(assert (= (** 2 n) 3))", l_false},
     };
     for (auto const& example : examples) {
         ast_manager m;

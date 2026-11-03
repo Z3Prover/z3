@@ -12,8 +12,11 @@ except that, following review, exponent zero now always gives 1, including
 `0.0 ^ 0.0`. The integer
 `^` spelling remains an extension alias; integer powers print as `**`.
 Both overloads use `OP_POWER`; declaration construction checks argument sorts,
-arity, parameters, and the requested result sort. The parser selects the Int
-result for standard `**`, rejecting Real arguments without a separate AST kind.
+arity, parameters, and the requested result sort. The arithmetic plugin supplies
+the fixed Int overload for standard `**` through generic builtin metadata.
+The command context uses its declaration for result-sort selection and function
+references, rejecting Real arguments without a separate AST kind or spelling
+checks in `cmd_context`.
 `OP_POWER0` and its solver/purification/model-converter plumbing are removed.
 
 The shared candidate checker now checks signed exponents directly. Negative
@@ -94,6 +97,33 @@ rewrites, both-backend zero-power cases, and direct LP candidate checks.
 The F* mathematical bridge is unchanged; the new real zero-power convention
 is a deliberate semantic choice covered by these native regressions, not a
 new claim of machine-checked C++ refinement.
+
+### Builtin/value-readiness review follow-up (November 4, 2026)
+
+The builtin metadata now carries an optional plugin-owned function declaration.
+This removes the two `**` spelling checks from `cmd_context` and also allows
+unqualified `**` function references, including integer array-map applications.
+Positive qualified/mapped applications, explicit result-sort selection, and
+rejection of Real arguments/results are covered by native parser tests.
+
+Both power-value callbacks check readiness before accessing enodes or columns.
+An available NRA candidate is independent of LP rational-model initialization;
+the initialized flag continues to describe the LP model. SAT `init_model()`
+now resets stale readiness and records the Boolean result of LP initialization,
+as LRA already does. Well-sorted Int numerals need no additional integrality
+check; candidate model values still must be integral.
+
+Both algebraic-number `to_rational` overloads now return a checked Boolean,
+leaving their output unchanged on irrational input. The power-value callbacks
+consume this result directly, avoiding duplicate rationality tests.
+Conversion tests cover both output types, rational fractions, zero, and
+irrational inputs; backend tests combine irrational NRA models with integer
+power SAT/UNSAT obligations and incremental model checks.
+
+Release builds of all four targets, all four focused native groups, all 126
+default native groups, 72 signed-power Python reference cases, and CLI/Python
+smoke checks passed. The SAT search loop and purification guard are unchanged.
+No new F* verification or benchmark measurement is claimed for this cleanup.
 
 After merging master at `0642c5a7f57e2160511242743e9170ec438a72a1`, the
 Release targets were rebuilt and all 126 default unit groups and the 72

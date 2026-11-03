@@ -707,7 +707,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("-",OP_SUB));
     op_names.push_back(builtin_name("~",OP_UMINUS));
     op_names.push_back(builtin_name("*",OP_MUL));
-    op_names.push_back(builtin_name("**", OP_POWER));
+    op_names.push_back(builtin_name("**", OP_POWER, m_i_power_decl));
     op_names.push_back(builtin_name("/",OP_DIV));
     op_names.push_back(builtin_name("div",OP_IDIV));
     if (gparams::get_value("smtlib2_compliant") == "true") {

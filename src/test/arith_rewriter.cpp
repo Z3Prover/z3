@@ -52,6 +52,16 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
 }
 
 static void check_integer_power_syntax() {
+    for (char const* term : {"(** 2 3)", "((as ** Int) 2 3)",
+                             "(select ((_ map **) ((as const (Array Int Int)) 2)"
+                             " ((as const (Array Int Int)) 3)) 0)",
+                             "(^ 2.0 3.0)", "(^ 2 3.0)"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context ctx(false, &m);
+        std::istringstream input(std::string("(assert (= ") + term + " 8))");
+        ENSURE(parse_smt2_commands(ctx, input));
+    }
     for (char const* term : {"(** 2.0 3)", "(** 2 3.0)", "(** true 2)",
                              "(** 2)", "(** 2 3 4)", "((_ ** 2) 3 4)",
                              "((as ** Real) 2 3)",
@@ -114,6 +124,18 @@ static void check_power_declarations() {
                 ENSURE(p->get_arg(1)->get_sort() == expected);
             }
         }
+        cmd_context ctx(false, &m);
+        ctx.init_manager();
+        func_decl_ref f(ctx.find_func_decl(symbol("**"), 0, nullptr, 2, integers, a.mk_int()), m);
+        ENSURE(a.is_int(f->get_range()));
+        bool rejected = false;
+        try {
+            ctx.find_func_decl(symbol("**"), 0, nullptr, 2, integers, a.mk_real());
+        }
+        catch (cmd_exception&) {
+            rejected = true;
+        }
+        ENSURE(rejected);
     }
 }
 

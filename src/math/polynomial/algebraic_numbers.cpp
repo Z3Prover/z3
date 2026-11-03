@@ -335,17 +335,21 @@ namespace algebraic_numbers {
             }
         }
 
-        void to_rational(numeral & a, mpq & r) {
-            VERIFY(is_rational(a));
+        bool to_rational(numeral & a, mpq & r) {
+            if (!is_rational(a))
+                return false;
             SASSERT(a.is_basic());
             qm().set(r, basic_value(a));
+            return true;
         }
 
-        void to_rational(numeral & a, rational & r) {
+        bool to_rational(numeral & a, rational & r) {
             scoped_mpq tmp(qm());
-            to_rational(a, tmp);
+            if (!to_rational(a, tmp))
+                return false;
             rational tmp2(tmp);
             r = tmp2;
+            return true;
         }
 
         unsigned degree(numeral const & a) {
@@ -3388,11 +3392,11 @@ namespace algebraic_numbers {
         return m_imp->degree(const_cast<numeral&>(a));
     }
 
-    void manager::to_rational(numeral const & a, mpq & r) {
+    bool manager::to_rational(numeral const & a, mpq & r) {
         return m_imp->to_rational(const_cast<numeral&>(a), r);
     }
 
-    void manager::to_rational(numeral const & a, rational & r) {
+    bool manager::to_rational(numeral const & a, rational & r) {
         return m_imp->to_rational(const_cast<numeral&>(a), r);
     }
 

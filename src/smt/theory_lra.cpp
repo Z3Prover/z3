@@ -1818,8 +1818,13 @@ public:
     }
 
     bool get_power_value(expr* e, rational& value) {
+        SASSERT(a.is_int(e));
         if (a.is_numeral(e, value))
-            return value.is_int();
+            return true;
+        bool nra_model = use_nra_model();
+        // NRA values do not require LP model initialization.
+        if (!nra_model && !m_model_is_initialized)
+            return false;
         if (!ctx().e_internalized(e))
             return false;
         enode* n = ctx().get_enode(e);
@@ -1828,18 +1833,12 @@ public:
         theory_var v = n->get_th_var(get_id());
         if (!is_registered_var(v))
             return false;
-        if (use_nra_model()) {
+        if (nra_model) {
             auto& am = m_nla->am();
             auto const& av = nl_value(v, m_nla->tmp1());
-            if (!am.is_rational(av))
-                return false;
-            am.to_rational(av, value);
+            return am.to_rational(av, value) && value.is_int();
         }
-        else {
-            if (!m_model_is_initialized)
-                return false;
-            value = get_value(v);
-        }
+        value = get_value(v);
         return value.is_int();
     }
 
