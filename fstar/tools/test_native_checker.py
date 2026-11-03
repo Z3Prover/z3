@@ -60,6 +60,23 @@ SORTED_NNF_CASES = (
      "(assert (not (exists ((x T)) (p x))))(assert (p D))"),
 )
 
+# A formula over a shared diamond (s_i+1 = f(s_i, s_i), 2^depth leaves as a tree, depth + 1 nodes as a DAG)
+# of a sort with a long name, under a quantifier whose NNF step the producer certifies. The default scope
+# guard charges the sort name at every tree leaf and spends its work limit (the certificate stays pending);
+# the checked DAG guard walks each shared node once.
+def diamond_source(depth, length):
+    name = "S" * length
+
+    def diamond(variable):
+        text, previous = "", variable
+        for i in range(1, depth + 1):
+            text += f"(let ((a{i} (f {previous} {previous}))) "
+            previous = f"a{i}"
+        return text + f"(p {previous})" + ")" * depth
+    return (f"(declare-sort {name} 0)(declare-fun f ({name} {name}) {name})(declare-fun p ({name}) Bool)"
+            f"(declare-const c {name})(assert (not (exists ((x {name})) {diamond('x')})))"
+            f"(assert {diamond('c')})")
+
 # The nnf tactic Skolemizes a block even when none of its variables occurs in the body. Only
 # `under-binder` has an ambient bound variable (a de Bruijn index); the others use free constants.
 UNUSED_SKOLEM_CASES = (
@@ -1197,6 +1214,137 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertGreaterEqual(len(rows), 4, opted.stderr)
         for row in rows:
             self.assertIn("\toutcome=checked\t", row)
+
+    CHECKED_ROW = (r"^resource-accounting\tverified-dag-v1\tnode=\d+\tentries=\d+\toutcome=checked"
+                   r"\tpreparation=\d+/\d+\tvalidation=\d+/\d+\tstorage=\d+/\d+"
+                   r"\tgraph-preparation=\d+/\d+\tgraph-storage=\d+/\d+$")
+    NOT_APPLIED_ROW = "resource-accounting\tverified-sorts-v1\tnot-applied\treason=sorted-route"
+
+    @staticmethod
+    def accounting_rows(result):
+        return [line for line in result.stderr.splitlines() if line.startswith("resource-accounting\t")]
+
+    @staticmethod
+    def other_lines(result):
+        return [line for line in result.stderr.splitlines() if not line.startswith("resource-accounting\t")]
+
+    def test_resource_accounting_dag_replays_certificates_on_the_sorted_route(self):
+        # On the Sorted route (forced by --sorted-core, or by a datatype) verified-dag-v1 replays the
+        # NNF and quant-intro certificates by the checked DAG guard: one diagnosed check whose verdict
+        # and exit status are the default route's on these proofs, one additive row per replayed
+        # certificate, and every other output line unchanged. verified-sorts-v1 is the legacy route's
+        # guard and is not applied there, which one explicit row says.
+        arrays = ("(declare-fun a () (Array Int (Array Int Int)))"
+                  "(declare-fun p ((Array Int (Array Int Int))) Bool)"
+                  "(assert (not (exists ((x (Array Int (Array Int Int)))) (p x))))(assert (p a))")
+        reversed_binders = ("(declare-sort S 0)(declare-fun q (S Int) Bool)(declare-const s S)"
+                            "(assert (not (exists ((y S) (x Int)) (q y x))))(assert (q s 3))")
+        cases = [(name, source, ("--sorted-core",)) for name, source in SORTED_NNF_CASES]
+        cases += [("arrays", arrays, ("--sorted-core",)), ("reversed-binders", reversed_binders, ("--sorted-core",)),
+                  ("datatype-without-flag", SORTED_NNF_CASES[-1][1], ())]
+        for name, source, flags in cases:
+            with self.subTest(case=name):
+                default = self.run_checker(source, *flags, "--diagnostics")
+                self.assertEqual((default.returncode, default.stdout.strip()), (0, "ACCEPT"), default.stderr)
+                self.assertEqual(self.accounting_rows(default), [])
+                opted = self.run_checker(source, *flags, "--diagnostics", "--resource-accounting", "verified-dag-v1")
+                self.assertEqual((opted.returncode, opted.stdout), (default.returncode, default.stdout), opted.stderr)
+                self.assertEqual(self.other_lines(opted), default.stderr.splitlines())
+                rows = self.accounting_rows(opted)
+                self.assertTrue(rows, opted.stderr)
+                for row in rows:
+                    self.assertRegex(row, self.CHECKED_ROW)
+                quiet = self.run_checker(source, *flags, "--resource-accounting", "verified-dag-v1")
+                self.assertEqual((quiet.returncode, quiet.stdout.strip()), (0, "ACCEPT"), quiet.stderr)
+                self.assertEqual(self.accounting_rows(quiet), rows)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", *flags,
+                                               "--resource-accounting", "verified-dag-v1")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertTrue(self.accounting_rows(interactive), interactive.stderr)
+                sorts = self.run_checker(source, *flags, "--diagnostics", "--resource-accounting", "verified-sorts-v1")
+                self.assertEqual((sorts.returncode, sorts.stdout), (default.returncode, default.stdout), sorts.stderr)
+                self.assertEqual(self.other_lines(sorts), default.stderr.splitlines())
+                self.assertEqual(self.accounting_rows(sorts), [self.NOT_APPLIED_ROW])
+
+    def test_resource_accounting_dag_accepts_what_the_default_guard_cannot_afford(self):
+        # A real producer proof on the Sorted route: the NNF certificate of a formula over a shared
+        # diamond of a long-named sort. The default scope guard spends its work limit on the tree
+        # (the certificate stays pending, PARTIAL); the checked DAG guard accepts the same proof.
+        # The default route and the verified-sorts-v1 route are unchanged.
+        source = diamond_source(5, 500)
+        default = self.run_checker(source, "--sorted-core", "--diagnostics")
+        self.assertEqual(default.returncode, 3, default.stdout + default.stderr)
+        self.assertRegex(default.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertIn("obligation\tnnf-neg\t", default.stderr)
+        for extra in ((), ("--diagnostics",)):
+            with self.subTest(extra=extra):
+                opted = self.run_checker(source, "--sorted-core", *extra, "--resource-accounting", "verified-dag-v1")
+                self.assertEqual((opted.returncode, opted.stdout.strip()), (0, "ACCEPT"), opted.stderr)
+                self.assertNotIn("obligation\t", opted.stderr)
+                rows = self.accounting_rows(opted)
+                self.assertTrue(rows, opted.stderr)
+                for row in rows:
+                    self.assertRegex(row, self.CHECKED_ROW)
+        sorts = self.run_checker(source, "--sorted-core", "--diagnostics", "--resource-accounting", "verified-sorts-v1")
+        self.assertEqual((sorts.returncode, sorts.stdout), (default.returncode, default.stdout), sorts.stderr)
+        self.assertEqual(self.accounting_rows(sorts), [self.NOT_APPLIED_ROW])
+        interactive_default = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core")
+        interactive = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core",
+                                       "--resource-accounting", "verified-dag-v1")
+        self.assertNotIn("; proof-check ACCEPT", interactive_default.stdout)
+        self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+        self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+
+    def test_resource_accounting_dag_on_the_sorted_route_never_falls_back_to_the_default_guard(self):
+        # A certificate that cannot be prepared stays pending with the reason, exactly as on the legacy
+        # route: a clausal document has no preparation, a deep term exhausts the graph's preparation.
+        # The verdict is the default route's, and the default guard never decides in its place.
+        source = ("(declare-fun f (Int) Int)(declare-const c Bool)"
+                  "(assert (forall ((x Int)) (= (f (+ x 0)) (+ x (ite c 1 2)))))"
+                  "(assert (not (= (f 0) (ite c 1 2))))(check-sat-using (then elim-term-ite smt))")
+        default = self.run_checker(source, "--sorted-core", "--clause-proofs", "--diagnostics")
+        opted = self.run_checker(source, "--sorted-core", "--clause-proofs", "--diagnostics",
+                                 "--resource-accounting", "verified-dag-v1")
+        self.assertEqual((opted.returncode, opted.stdout), (default.returncode, default.stdout), opted.stderr)
+        self.assertEqual(self.other_lines(opted), default.stderr.splitlines())
+        rows = self.accounting_rows(opted)
+        self.assertTrue(rows, opted.stderr)
+        for row in rows:
+            self.assertRegex(row, r"^resource-accounting\tverified-dag-v1\tnode=\d+\tentries=\d+"
+                                  r"\toutcome=unprepared\treason=clausal$")
+        deep = "(f " * 5000 + "x" + ")" * 5000
+        source = f"(declare-fun f (Int) Int)(assert (not (forall ((x Int)) (= (+ {deep} 0) {deep}))))"
+        default = self.run_checker(source, "--sorted-core", "--diagnostics")
+        opted = self.run_checker(source, "--sorted-core", "--diagnostics", "--resource-accounting", "verified-dag-v1")
+        self.assertEqual(opted.returncode, 3, opted.stdout + opted.stderr)
+        self.assertEqual((opted.returncode, opted.stdout), (default.returncode, default.stdout), opted.stderr)
+        rows = self.accounting_rows(opted)
+        self.assertTrue(rows, opted.stderr)
+        for row in rows:
+            self.assertRegex(row, r"^resource-accounting\tverified-dag-v1\tnode=\d+\tentries=\d+\toutcome=unprepared"
+                                  r"\treason=exhausted\tphase=graph-preparation"
+                                  r"\tgraph-preparation=\d+/\d+\tgraph-storage=\d+/\d+$")
+
+    def test_resource_accounting_dag_on_the_sorted_route_isolates_interactive_queries(self):
+        # Each check marshals its own preparations, so no node, scope or companion of an earlier query
+        # (whose native ids later queries reuse) serves a later one, across push and pop.
+        script = ("(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)"
+                  "(push)(assert (not (exists ((x T)) (p x))))(assert (p D))(check-sat)(pop)"
+                  "(push)(declare-sort S 0)(declare-fun q (S) Bool)(declare-const s S)"
+                  "(assert (not (exists ((z S)) (q z))))(assert (q s))(check-sat)(pop)"
+                  "(push)(declare-fun r (T Int) Bool)(assert (not (exists ((x T) (n Int)) (r x n))))(assert (r D 3))(check-sat)(pop)"
+                  "(assert (not (exists ((x T)) (p x))))(assert (p D))(check-sat)")
+        default = self.run_checker(script, "--interactive", "--diagnostics")
+        opted = self.run_checker(script, "--interactive", "--diagnostics", "--resource-accounting", "verified-dag-v1")
+        self.assertEqual(opted.returncode, 0, opted.stdout + opted.stderr)
+        verdicts = [line for line in opted.stdout.splitlines() if line.startswith("; proof-check")]
+        self.assertEqual(verdicts, [line for line in default.stdout.splitlines() if line.startswith("; proof-check")])
+        self.assertEqual(verdicts, ["; proof-check ACCEPT"] * 4, opted.stdout)
+        rows = self.accounting_rows(opted)
+        self.assertGreaterEqual(len(rows), 4, opted.stderr)
+        for row in rows:
+            self.assertRegex(row, self.CHECKED_ROW)
 
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:

@@ -7724,6 +7724,153 @@ let ff_certificates () =
   require (Option.is_none (N.view_ff_pac cx (pac ~premises:[numeral] (input "0"))))
     "non-Boolean native certificate premise accepted"
 
+(* --resource-accounting verified-dag-v1 on the Sorted route (Z3SortedRoute): the NNF and quant-intro
+   certificates of real producer proofs are replayed by the checked DAG guard on the preparations the
+   marshaler recorded for them (Z3NativeProof.marshal_with_datatypes_dag; the document itself is
+   unchanged). The route keeps every proof the default route certifies and gives the same verdict
+   through one diagnosed check; a proof whose NNF certificate the default guard cannot afford
+   (a formula over a shared diamond of a long-named sort) is certified. A certificate without a
+   usable preparation (no companions, a clausal marking, the companions of another document) stays
+   pending with the reason and is never replayed by the default guard; a mutated claim, a malformed
+   certificate and dropped original assertions are not certified; a deep term exhausts the graph's
+   preparation at the normal stack; the diagnosis is a function of the document and its companions
+   alone (a second run, after another document, gives the same rows). *)
+let sorted_dag_route () =
+  let module K = Z3SortedProof in
+  let module SR = Z3SortedRoute in
+  let module V = Z3VerifiedDocument in
+  let module G = Z3CheckedGuard in
+  let module DD = Z3DagDocument in
+  let module NR = Z3NnfReplay in
+  let verdict d = P.diagnostic_result d.V.diagnostic in
+  let consumed doc = List.exists (fun e -> match e.P.rule with
+      | U.QuantifierIntroduction c -> NR.consumed_root c | _ -> false) doc.P.entries in
+  let checked_all reports = reports <> [] && List.for_all (fun r -> match r.V.report_outcome with
+      | G.BinderGuardChecked _ -> true | _ -> false) reports in
+  let unprepared_with why reports = reports <> [] && List.for_all (fun r ->
+      r.V.report_outcome = G.BinderUnprepared && r.V.report_unprepared = Some why) reports in
+  let diamond_source depth length =
+    let name = String.make length 'S' in
+    let body variable =
+      let b = Buffer.create 256 and previous = ref variable in
+      for i = 1 to depth do
+        Printf.bprintf b "(let ((a%d (f %s %s))) " i !previous !previous;
+        previous := Printf.sprintf "a%d" i
+      done;
+      Printf.bprintf b "(p %s)%s" !previous (String.make depth ')');
+      Buffer.contents b in
+    Printf.sprintf "(declare-sort %s 0)(declare-fun f (%s %s) %s)(declare-fun p (%s) Bool)(declare-const c %s)\
+                    (assert (not (exists ((x %s)) %s)))(assert %s)"
+      name name name name name name name (body "x") (body "c") in
+  let sources = [
+    "negated-exists", "(declare-fun p (Int) Bool)(assert (not (exists ((x Int)) (p x))))(assert (p 0))";
+    "ite", "(declare-fun p (Int) Bool)(declare-const c Bool)\
+      (assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))\
+      (assert (forall ((x Int)) (p x)))";
+    "xor-under-binder", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((z Int)) (xor (p z) (exists ((x Int) (r Real)) (q x r)))))\
+      (assert (forall ((x Int) (r Real)) (not (q x r))))(assert (not (p 3)))";
+    "nested-duality", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((w Int)) (not (exists ((x Int) (r Real))\
+        (and (q x r) (exists ((x Int)) (and (p x) (p w))))))))(assert (q 1 2.0))(assert (p 3))";
+    "datatype-binder", "(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)\
+      (assert (not (exists ((x T)) (p x))))(assert (p D))";
+    "arrays", "(declare-fun a () (Array Int (Array Int Int)))\
+      (declare-fun p ((Array Int (Array Int Int))) Bool)\
+      (assert (not (exists ((x (Array Int (Array Int Int)))) (p x))))(assert (p a))";
+    "reversed-binders", "(declare-sort S 0)(declare-fun q (S Int) Bool)(declare-const s S)\
+      (assert (not (exists ((y S) (x Int)) (q y x))))(assert (q s 3))";
+  ] in
+  let marshal source =
+    let assertions, proof = unsat source in
+    let doc, schema, companions = B.marshal_with_datatypes_dag assertions proof in
+    require (doc = B.marshal assertions proof) ("the opt-in marshal changed the document: " ^ source);
+    doc, schema, companions in
+  (* retention and the single diagnosed check, on every proof the default route certifies *)
+  List.iter (fun (name, source) ->
+      let doc, schema, companions = marshal source in
+      let default = K.check_document_epsilon schema doc in
+      let route = SR.check_document_epsilon_route companions schema doc in
+      let d = SR.diagnose_document_epsilon_route companions schema doc in
+      require (default = Some Z.zero) ("the default route does not certify: " ^ name);
+      require (route = Some Z.zero) ("the route lost a proof the default certifies: " ^ name);
+      require (verdict d = route) ("the diagnosed verdict is not the check's: " ^ name);
+      require (consumed doc && checked_all d.V.reports) ("a consumed certificate was not checked by the DAG guard: " ^ name);
+      require (d = SR.diagnose_document_epsilon_route companions schema doc) ("the diagnosis is not a function of its input: " ^ name))
+    sources;
+  (* the certificate the default guard cannot afford *)
+  let source = diamond_source 5 500 in
+  let doc, schema, companions = marshal source in
+  let default = K.check_document_epsilon schema doc in
+  let d = SR.diagnose_document_epsilon_route companions schema doc in
+  require (match default with Some n -> Z.sign n > 0 | None -> false)
+    "the default guard affords the shared diamond";
+  require (SR.check_document_epsilon_route companions schema doc = Some Z.zero && verdict d = Some Z.zero)
+    "the DAG guard did not certify the shared diamond";
+  require (checked_all d.V.reports) "the shared diamond was not checked by the DAG guard";
+  (* no usable preparation: pending with the reason, no fallback to the default guard *)
+  let pending companions' =
+    let d = SR.diagnose_document_epsilon_route companions' schema doc in
+    (match verdict d with Some n -> Z.sign n > 0 | None -> false), d.V.reports in
+  (match pending DD.no_companions with
+   | true, reports -> require (unprepared_with DD.UnpreparedAbsent reports) "absent companions: wrong reason"
+   | false, _ -> failwith "a certificate without a preparation was not left pending");
+  (match pending { companions with DD.clausal = true } with
+   | true, reports -> require (unprepared_with DD.UnpreparedClausal reports) "clausal marking: wrong reason"
+   | false, _ -> failwith "a clausal marking did not leave the certificate pending");
+  let _, _, foreign = marshal "(declare-fun p (Int) Bool)(assert (not (exists ((x Int)) (p x))))(assert (p 0))" in
+  require (SR.check_document_epsilon_route foreign schema doc <> Some Z.zero)
+    "the companions of another document certified the diamond";
+  (* mutated claims and certificates, on the small NNF proof *)
+  let doc, schema, companions = marshal (List.assoc "negated-exists" sources) in
+  let index = fst (List.find (fun (_, e) -> match e.P.rule with
+      | U.QuantifierIntroduction c -> NR.consumed_root c | _ -> false) (List.mapi (fun i e -> (i, e)) doc.P.entries)) in
+  let with_entry f = { doc with P.entries = List.mapi (fun i e -> if i = index then f e else e) doc.P.entries } in
+  let certificate e = match e.P.rule with U.QuantifierIntroduction c -> c | _ -> failwith "not a certificate" in
+  let not_certified name d =
+    require (SR.check_document_epsilon_route companions schema d <> Some Z.zero) ("certified: " ^ name);
+    require (K.check_document_epsilon schema d <> Some Z.zero) ("the default certified: " ^ name) in
+  (* a claim that is not the preparation's root *)
+  not_certified "a swapped claim" (with_entry (fun e -> match U.classify_fact e.P.formula with
+      | Some (U.Observational (a, b)) -> { e with P.formula = Z3ObservationalEquality.mk_oeq_expr b a }
+      | _ -> failwith "unexpected claim"));
+  (* a certificate with a premise that is not an earlier entry: malformed, the document is rejected *)
+  let malformed = with_entry (fun e ->
+      let c = certificate e in
+      let entries = List.mapi (fun i b -> if i = List.length c.U.binder_entries - 1
+                                then { b with U.binder_premises = [Z.of_int 1000] } else b) c.U.binder_entries in
+      { e with P.rule = U.QuantifierIntroduction { c with U.binder_entries = entries } }) in
+  require (SR.check_document_epsilon_route companions schema malformed = None) "a malformed certificate was not rejected";
+  require (K.check_document_epsilon schema malformed = None) "the default did not reject the malformed certificate";
+  (* the original assertions dropped: the refutation is no longer a proof of them *)
+  require (SR.check_document_epsilon_route companions schema { doc with P.assertions = [] } = None)
+    "a document without its original assertions was accepted";
+  (* hand-built companions outside the marshaler's contract: a root that is not the claim, no earlier premise *)
+  let prepared = match DD.preparation_of companions (Z.of_int index) with
+    | DD.Ready (p, _, _) -> p | _ -> failwith "no preparation" in
+  let replay c = (Z3NnfReplayChecked.replay_dag (Z3DagDocument.dag_budget (Z.of_int 2)) [] { prepared with DD.pcert = c }
+                    (match U.classify_fact (List.nth doc.P.entries index).P.formula with
+                     | Some j -> j | None -> failwith "no claim")).Z3NnfReplayChecked.verdict in
+  let c = prepared.DD.pcert in
+  require (replay c = NR.Replayed) "the prepared certificate is not replayed";
+  require (replay { c with U.binder_root = Z.zero } <> NR.Replayed) "a root that is not the claim was replayed";
+  require (replay { c with U.binder_entries = List.mapi (fun i b ->
+      if i = List.length c.U.binder_entries - 1 then { b with U.binder_premises = [] } else b) c.U.binder_entries }
+      <> NR.Replayed) "a rule without its premise was replayed";
+  (* a deep term exhausts the graph's preparation at the normal stack; the verdict is the default's *)
+  let deep = String.concat "" (List.init 5000 (fun _ -> "(f ")) ^ "x" ^ String.make 5000 ')' in
+  let doc, schema, companions = marshal
+      (Printf.sprintf "(declare-fun f (Int) Int)(assert (not (forall ((x Int)) (= (+ %s 0) %s))))" deep deep) in
+  let d = SR.diagnose_document_epsilon_route companions schema doc in
+  require (verdict d = K.check_document_epsilon schema doc) "a deep term changed the verdict";
+  require (List.for_all (fun r -> match r.V.report_outcome, r.V.report_unprepared with
+      | G.BinderUnprepared, Some (DD.UnpreparedExhausted _) -> true | _ -> false) d.V.reports)
+    "a deep term was not left unprepared by the graph's budget";
+  (* a second proof after another one: no state is shared *)
+  let doc2, schema2, companions2 = marshal (List.assoc "negated-exists" sources) in
+  require (SR.check_document_epsilon_route companions2 schema2 doc2 = Some Z.zero)
+    "an earlier document changed a later document's check"
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
@@ -7760,6 +7907,7 @@ let () =
      "opt-in-dag-incremental-isolation", dag_incremental_isolation;
      "opt-in-dag-definitions-expanded", dag_definitions_expanded;
      "opt-in-dag-definition-expansion", dag_definition_expansion;
+     "opt-in-dag-sorted-route", sorted_dag_route;
      "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;
