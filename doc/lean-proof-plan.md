@@ -1589,6 +1589,46 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Pseudo-Boolean constraints through the legacy core (2026-11-02)
+
+Propositional input may now use `at-most`, `at-least`, `pble`, `pbge`, and
+`pbeq` over Boolean variables and their negations (integer parameters; any
+other argument, or such a constraint next to arithmetic or uninterpreted
+functions, is rejected). The certificate keeps each constraint's bound and
+coefficients as declaration parameters, and the reconstructor binds them to
+the input like the arguments. Lean states a constraint as an Int comparison
+of the weighted sum of its literals' values, the classical `if l then 1 else
+0`. theory_pb's `(_ th-lemma pb)` steps and the rewrites over constraints
+(Z3 normalizes `at-most k` to `at-least` of the negations, weights by their
+gcd, decides trivial bounds) are proved after unfolding: a negation's value
+becomes one minus its variable's (`_pb_not`), each variable's value is
+generalized to an Int between 0 and 1 (`_pb_bit`; bounds rather than the
+disjunction `= 0 or = 1`, which omega splits: 83 s against nothing for a
+16-variable at-most), the variable itself becomes `_x = 1`, and omega
+decides the rest. Only the legacy core: the sat.smt core compiles the
+constraints away before its clause log starts and logs bare `smt` clauses
+that cite none of them, so the clause-log exporter rejects them.
+
+Lean rejected two kinds of theory_pb step that do not hold on their own,
+both fixed in `theory_pb.cpp` when proofs are enabled. Internalizing a
+weighted constraint folded the values of arguments already assigned at
+the base level into the bound and then stated, say, `(not (pbge 7 ...))` as
+an axiom without them (the input's `(pble 0 ...)` had fixed those
+arguments false). With proofs enabled no argument is folded (constants
+still are); the arguments are read off the assignment once the constraint's
+literal is assigned, so only an early propagation is lost. Cardinality
+conflict resolution derived a cutting-plane resolvent and propagated its
+asserting literal citing the antecedent literals only, not the constraints
+resolved: `(not p3), (not p12), (pbge 28 ...) |- (not p0)` with p0 in no
+cited constraint. With proofs enabled the conflict clause is learned
+instead, a valid th-lemma. Before the fixes 16 of 31 unsat random 5-variable
+instances failed Lean; after them, z3 confirms every th-lemma pb of 486
+random and 10 pigeonhole refutations on its own, and all 113, 77, 50, and
+37 unsat instances of four random sweeps (5 to 24 variables) and
+pigeonhole up to 6 pigeons in 5 holes (1,572 steps, 8 s) verify in Lean;
+so do the two unsatisfiable queries of z3test `regressions/smt2/pb.smt2`.
+Tests: `test_proof_to_lean_pb.py`.
+
 ### cnf lemmas over a distinct's pairs; conjuncts projected from tails (2026-10-30)
 
 NEQ004's twelve cnf lemmas (`(not A) or (not (= c2 c3))` and the like, A

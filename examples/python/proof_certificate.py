@@ -90,6 +90,15 @@ _BOOLEAN_OPERATORS = {
     z3.Z3_OP_IMPLIES, z3.Z3_OP_XOR, z3.Z3_OP_IFF, z3.Z3_OP_EQ,
     z3.Z3_OP_DISTINCT, z3.Z3_OP_ITE,
 }
+# Pseudo-Boolean constraints over Boolean literals: ((_ at-most k) l1 ... ln)
+# and ((_ at-least k) ...) count the true literals, ((_ pble k c1 ... cn) l1
+# ... ln), pbge, and pbeq compare the sum of the coefficients of the true
+# literals with k. Propositional input only, through the legacy proof object:
+# theory_pb proves its propagations and conflicts as (_ th-lemma pb) steps,
+# which Lean proves over the literals' 0/1 values, while the sat.smt core
+# compiles the constraints away before its clause log starts (the log cites
+# none of them, only bare smt clauses it would rest on).
+_PSEUDO_BOOLEAN = {z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST, z3.Z3_OP_PB_LE, z3.Z3_OP_PB_GE, z3.Z3_OP_PB_EQ}
 # Linear real arithmetic: atoms over Real terms built from variables, numerals,
 # sums, differences, negation, scaling by a numeral, division by a numeral,
 # and Real-valued ite, whose value is a linear term under either branch, and
@@ -548,6 +557,60 @@ def _require_linear_arithmetic(expr):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
 
 
+def pseudo_boolean_parameters(decl):
+    """Return a pseudo-Boolean declaration's bound and coefficients as decimal strings.
+
+    at-most and at-least take the bound alone; pble, pbge, and pbeq take the
+    bound and one coefficient per argument. Z3's parser accepts numerals
+    only, but its rewriter could produce other rationals; anything but
+    integers is rejected.
+    """
+    parameters = decl.params()
+    expected = 1 if decl.kind() in (z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST) else 1 + decl.arity()
+    if len(parameters) != expected:
+        raise ProofExportError("invalid pseudo-Boolean declaration: %s" % decl.name())
+    values = []
+    for parameter in parameters:
+        try:
+            value = Fraction(str(parameter))
+        except (ValueError, ZeroDivisionError):
+            value = None
+        if isinstance(parameter, (bool, float)) or value is None or value.denominator != 1:
+            raise ProofExportError("pseudo-Boolean coefficients must be integers: %s" % decl.name())
+        values.append(str(value.numerator))
+    return values
+
+
+def _require_pseudo_boolean(expr):
+    """Check a pseudo-Boolean constraint: integer parameters over Boolean variables and their negations.
+
+    Lean reads each argument as its 0/1 value and proves the constraint's
+    steps by integer arithmetic over the variables' values (see
+    proof_to_lean), so an argument may not be any other formula.
+    """
+    pseudo_boolean_parameters(expr.decl())
+    for argument in expr.children():
+        # One negation at most: the legacy core rewrites (not (not a)) inside
+        # the constraint by a congruence step the reconstruction does not take.
+        if z3.is_not(argument):
+            argument = argument.arg(0)
+        if not (z3.is_const(argument) and argument.decl().kind() == z3.Z3_OP_UNINTERPRETED):
+            raise ProofExportError("pseudo-Boolean arguments must be Boolean variables or their negations: %s" % expr)
+
+
+def _mentions_pseudo_boolean(assertions):
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen or not z3.is_app(expr):
+            continue
+        seen.add(expr.get_id())
+        if expr.decl().kind() in _PSEUDO_BOOLEAN:
+            return True
+        pending.extend(expr.children())
+    return False
+
+
 def is_uninterpreted_sort(sort):
     return sort.kind() == z3.Z3_UNINTERPRETED_SORT
 
@@ -608,6 +671,7 @@ def classify_fragment(assertions):
     """Return "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
+    pseudo_boolean = False
     while pending:
         expr = pending.pop()
         if expr.get_id() in seen:
@@ -628,6 +692,9 @@ def classify_fragment(assertions):
             elif decl.kind() == z3.Z3_OP_IS_INT:
                 # (is_int t) is (= (to_real (to_int t)) t) by SMT-LIB's definition.
                 real = integer = True
+            elif decl.kind() in _PSEUDO_BOOLEAN:
+                _require_pseudo_boolean(expr)
+                pseudo_boolean = True
             elif decl.kind() not in _ARITH_PREDICATES and decl.kind() not in _BOOLEAN_OPERATORS:
                 raise ProofExportError("unsupported propositional operator: %s" % decl.name())
             if decl.kind() in _ARITH_PREDICATES or decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
@@ -646,6 +713,8 @@ def classify_fragment(assertions):
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
+    if pseudo_boolean and (integer or real or sorts or functions):
+        raise ProofExportError("pseudo-Boolean constraints are supported in propositional input only")
     if integer:
         # Linear integer arithmetic: the Lean encoding values the variables in
         # Int and the integer solver's rounding steps are proved there, on its
@@ -752,6 +821,11 @@ def _th_lemma_parameters(decl, premise_count, conclusion=None, integer=False):
     Z3 could not check stays rejected, as does the nla variant.
     """
     parameters = decl.params()
+    if parameters == ["pb"]:
+        # theory_pb's propagations, conflicts, and constraint axioms: the
+        # premises and the clause are literals and pseudo-Boolean constraints
+        # over Boolean variables, which Lean decides over their 0/1 values.
+        return ["pb"]
     if integer and len(parameters) == 1 and parameters[0] == "arith":
         return ["arith"]
     if integer and len(parameters) == 2 and parameters[0] == "arith" and parameters[1] == "unsupported":
@@ -897,6 +971,8 @@ def _encode_proof(assertions, proof, integer=False):
             if integer and parameters[0] in ("farkas", "bound") and len(parameters) > 1 and \
                     not _integer_coefficients_certify(expr, parameters[0], [Fraction(c) for c in parameters[1:]]):
                 parameters = parameters[:1]  # One declaration per step shape: Lean alone proves this one.
+        elif decl.kind() in _PSEUDO_BOOLEAN:
+            parameters = pseudo_boolean_parameters(decl)
         elif decl.params():
             raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
         key = (decl.get_id(), tuple(parameters))
@@ -1289,6 +1365,9 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None, quer
     import proof_clause_log
     context = z3.Context()
     assertions, fragment = parse_assertions(source, context, integer=True, query=query)
+    if _mentions_pseudo_boolean(assertions):
+        raise ProofExportError("pseudo-Boolean constraints are certified through the legacy proof object only: "
+                               "the sat.smt clause log does not record them")
     commands, index, _ = query_snapshot(source, query)
     executable = z3_executable or default_z3_executable()
     try:

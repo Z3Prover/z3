@@ -32,7 +32,7 @@ import z3
 
 from proof_certificate import (
     ProofExportError, _rounded, bound_combination_refutes, integer_tightened, is_uninterpreted_sort,
-    linear_combination_refutes, numeral_value, parse_assertions, query_snapshot,
+    linear_combination_refutes, numeral_value, parse_assertions, pseudo_boolean_parameters, query_snapshot,
 )
 
 
@@ -53,6 +53,15 @@ _FIXED_ARITY = {
     z3.Z3_OP_EQ: 2, z3.Z3_OP_IFF: 2, z3.Z3_OP_ITE: 3,
 }
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
+# Pseudo-Boolean constraints (propositional certificates only): name, the
+# relation between the weighted count of the true literals and the bound,
+# and whether the declaration carries a coefficient per argument (at-most and
+# at-least weigh every literal 1). A literal l counts as its 0/1 value, the
+# classical (if l then 1 else 0) over Int (_pseudo_boolean_body).
+_PSEUDO_BOOLEAN = {
+    z3.Z3_OP_PB_AT_MOST: ("at-most", "<=", False), z3.Z3_OP_PB_AT_LEAST: ("at-least", ">=", False),
+    z3.Z3_OP_PB_LE: ("pble", "<=", True), z3.Z3_OP_PB_GE: ("pbge", ">=", True), z3.Z3_OP_PB_EQ: ("pbeq", "=", True),
+}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
 # The integer operators, Int certificates only: div and mod by a nonzero
@@ -86,7 +95,9 @@ _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # inequalities, proved by grind like every other theory tautology. arith: the
 # sat.smt arithmetic solver's own axioms (the div, mod, and rem definitions), a
 # clause of linear arithmetic atoms without coefficients, proved by Lean.
-_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith")
+# pb: theory_pb's propagations, conflicts, and constraint axioms, proved over
+# the 0/1 values of the variables (_pseudo_boolean_lemma).
+_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith", "pb")
 _FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia")
 # The arithmetic sorts and their Lean carriers: Real variables are valued in
 # Rat (see the exporter README for the soundness argument), Int variables in
@@ -414,10 +425,15 @@ class _Graph:
 
 
 def _parameters(kind, name, parameters):
-    """Validate declaration parameters: only th-lemma carries a hint and its coefficients."""
+    """Validate declaration parameters: th-lemma carries a hint and its coefficients, a pseudo-Boolean
+    constraint its bound and coefficients (integers; their count is checked against the domain by _declaration)."""
     parameters = _list(parameters, "declaration parameters")
     if any(type(parameter) is not str for parameter in parameters):
         raise ReconstructionError("declaration parameters must be strings")
+    if kind in _PSEUDO_BOOLEAN:
+        if any(re.fullmatch(r"-?(0|[1-9][0-9]*)", parameter) is None for parameter in parameters):
+            raise ReconstructionError("pseudo-Boolean parameters must be integers: %s" % name)
+        return tuple(parameters)
     if kind != z3.Z3_OP_PR_TH_LEMMA:
         if parameters:
             raise ReconstructionError("invalid or parameterized native declaration")
@@ -513,6 +529,11 @@ def _declaration(raw, sorts):
             # (is_int t) is (= (to_real (to_int t)) t), qf_lira only.
             if name != "is_int" or domain != ("Real",):
                 raise ReconstructionError("invalid is_int declaration")
+        elif kind in _PSEUDO_BOOLEAN:
+            expected_name, _, weighted = _PSEUDO_BOOLEAN[kind]
+            if (name != expected_name or any(argument != "Bool" for argument in domain)
+                    or len(parameters) != 1 + (len(domain) if weighted else 0)):
+                raise ReconstructionError("invalid pseudo-Boolean declaration: %s" % name)
         elif kind in _ARITH_PREDICATE_NAMES:
             if _ARITH_PREDICATE_NAMES[kind] != name or domain not in (("Real", "Real"), ("Int", "Int")):
                 raise ReconstructionError("invalid arithmetic predicate declaration: %s" % name)
@@ -631,6 +652,10 @@ def _validate_graph(source, certificate):
         # the label names the other arithmetic sort.
         raise ReconstructionError("only qf_lia and qf_uflia certificates contain Int arithmetic, "
                                   "and they contain no other")
+    if graph.fragment != "propositional" and any(
+            decl.kind in _PSEUDO_BOOLEAN or (decl.kind == z3.Z3_OP_PR_TH_LEMMA and decl.parameters[0] == "pb")
+            for decl in declarations):
+        raise ReconstructionError("pseudo-Boolean constraints occur in propositional certificates only")
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
     # The theorem states the assertions, so every div, mod, and rem they contain
@@ -731,6 +756,8 @@ def _bind_input(source, graph, fragment=None, query=0):
             tables[table][name] = node.declaration
         elif decl.kind == z3.Z3_OP_ANUM:
             name = str(Fraction(decl.name))
+        elif decl.kind in _PSEUDO_BOOLEAN:
+            name = " ".join(decl.parameters)  # the bound and coefficients are part of the constraint
         terms[index] = intern(decl.kind, name, decl.range, (terms[arg] for arg in node.arguments))
 
     original_terms, original_sorts = {}, set()
@@ -757,6 +784,8 @@ def _bind_input(source, graph, fragment=None, query=0):
                 raise ReconstructionError("symbol declared with several signatures: %s" % name)
         elif decl.kind() == z3.Z3_OP_ANUM:
             name = str(numeral_value(expr))
+        elif decl.kind() in _PSEUDO_BOOLEAN:
+            name = " ".join(pseudo_boolean_parameters(decl))
         original_terms[expr.get_id()] = intern(
             decl.kind(), name, range_name, (original_terms[child.get_id()] for child in expr.children()))
     if original_sorts != set(graph.sorts):
@@ -906,6 +935,8 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
                      for index, left in enumerate(args) for right in args[index + 1:]]
             return _fold("And", pairs, "True")
         raise ReconstructionError("unsupported arithmetic atom")
+    if kind in _PSEUDO_BOOLEAN:
+        return _pseudo_boolean_body(graph, node, formula)
     args = [formula(arg) for arg in arguments]
     if kind == z3.Z3_OP_UNINTERPRETED:
         return "_atoms %d" % atom_indices[graph.nodes[node].declaration]
@@ -939,6 +970,109 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
                  for index, left in enumerate(args) for right in args[index + 1:]]
         return _fold("And", pairs, "True")
     raise ReconstructionError("unsupported Boolean expression")
+
+
+def _pseudo_boolean_literal(graph, node):
+    """Whether a node is a Boolean variable or a negation of one, the arguments a pseudo-Boolean constraint takes."""
+    if graph.kind(node) == z3.Z3_OP_NOT:
+        node = graph.arguments(node)[0]
+    return graph.kind(node) == z3.Z3_OP_UNINTERPRETED and not graph.arguments(node)
+
+
+def _pseudo_boolean_body(graph, node, formula):
+    """Render a pseudo-Boolean constraint as an Int comparison of the weighted 0/1 values of its literals.
+
+    Each argument, a Boolean variable or a negation of one, is valued by the
+    classical (if l then 1 else 0); Lean's proofs read a negation's value as
+    one minus its variable's (_PSEUDO_BOOLEAN_LEMMAS).
+    """
+    _, relation, weighted = _PSEUDO_BOOLEAN[graph.kind(node)]
+    parameters = [int(parameter) for parameter in graph.decl(node).parameters]
+    arguments = graph.arguments(node)
+    coefficients = parameters[1:] if weighted else [1] * len(arguments)
+    summands = []
+    for coefficient, argument in zip(coefficients, arguments):
+        if not _pseudo_boolean_literal(graph, argument):
+            raise ReconstructionError("pseudo-Boolean arguments must be Boolean variables or their negations")
+        value = "(@ite Int %s (Classical.propDecidable _) 1 0)" % formula(argument)
+        summands.append(value if coefficient == 1 else "(%s * %s)" % (_numeral("Int", Fraction(coefficient)), value))
+    total = _infix("+", summands) if summands else "((0 : Int))"
+    return "(%s %s %s)" % (total, relation, _numeral("Int", Fraction(parameters[0])))
+
+
+# The value facts of a pseudo-Boolean step, stated once per certificate that
+# has one: a variable's 0/1 value lies between 0 and 1 and is 1 exactly when
+# the variable holds, and a negation's value is one minus the variable's.
+# Bounds rather than the disjunction (= 0 or = 1): omega splits a disjunction,
+# and sixteen of them took 83 s where the bounds take none.
+_PSEUDO_BOOLEAN_LEMMAS = """
+private theorem _pb_bit (p : Prop) :
+    (0 <= (@ite Int p (Classical.propDecidable p) 1 0) /\\ (@ite Int p (Classical.propDecidable p) 1 0) <= 1)
+      /\\ (p <-> (@ite Int p (Classical.propDecidable p) 1 0) = 1) := by
+  by_cases _h : p <;> simp [_h]
+
+private theorem _pb_not (p : Prop) :
+    (@ite Int (Not p) (Classical.propDecidable (Not p)) 1 0) = 1 - (@ite Int p (Classical.propDecidable p) 1 0) := by
+  by_cases _h : p <;> simp [_h]
+""".strip("\n").split("\n")
+
+
+def _pseudo_boolean_lemma(graph, node, prefix, atom_indices):
+    """Prove a step over pseudo-Boolean constraints by integer arithmetic over the variables' 0/1 values.
+
+    The step is a th-lemma pb (theory_pb's propagation, conflict, or axiom
+    clause, stated as the implication from its premises like every legacy
+    th-lemma) or a rewrite between constraints (Z3's pseudo-Boolean rewriter
+    normalizes them, say (at-most 1 a b c) to (at-least 2 (not a) (not b)
+    (not c))). After unfolding, every negation's value becomes one minus its
+    variable's (_pb_not), each variable's value is generalized to an Int
+    _x with 0 <= _x <= 1, the variable itself is rewritten to (_x = 1), and
+    omega, complete for linear integer arithmetic, decides the resulting
+    formula. Every node of the step must be a constraint, a Boolean variable,
+    a negation, a disjunction, or false, which is all theory_pb states.
+    """
+    conclusion = graph.conclusion(node)
+    premises = graph.arguments(node)[:-1]
+    conclusions = [graph.conclusion(premise) for premise in premises] + [conclusion]
+    reachable = set()
+    for formula in conclusions:
+        reachable |= _reachable(graph, formula)[0]
+    allowed = _PSEUDO_BOOLEAN.keys() | {z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_NOT, z3.Z3_OP_OR, z3.Z3_OP_FALSE}
+    if prefix == "rewrite":
+        allowed |= {z3.Z3_OP_EQ, z3.Z3_OP_IFF, z3.Z3_OP_AND, z3.Z3_OP_TRUE}
+    if any(graph.kind(formula) not in allowed or graph.is_term(formula) for formula in reachable):
+        raise ReconstructionError("pseudo-Boolean step over other formulas at node %d" % node)
+    atoms = sorted(atom_indices[graph.nodes[formula].declaration] for formula in reachable
+                   if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED)
+    lines = [
+        "",
+        "set_option maxHeartbeats 1000000 in",
+        # Not every variable occurs outside the constraints, whose values are generalized first.
+        "set_option linter.unusedSimpArgs false in",
+        "private theorem %s_%d (_atoms : Nat -> Prop)" % (prefix, node),
+        "    : %s := by" % " -> ".join(_formula(graph, formula) for formula in conclusions),
+        "  unfold " + " ".join(_definition_names(graph, reachable)),
+    ]
+    if any(graph.kind(formula) == z3.Z3_OP_NOT and graph.kind(parent) in _PSEUDO_BOOLEAN
+           for parent in reachable for formula in graph.arguments(parent)):
+        lines.append("  (try simp only [_pb_not])")
+    for atom in atoms:
+        value = "(@ite Int (_atoms %d) (Classical.propDecidable (_atoms %d)) 1 0)" % (atom, atom)
+        lines.extend([
+            "  have _r%d := (_pb_bit (_atoms %d)).1" % (atom, atom),
+            "  have _e%d := (_pb_bit (_atoms %d)).2" % (atom, atom),
+            "  generalize %s = _x%d at _r%d _e%d |-" % (value, atom, atom, atom),
+        ])
+    # omega reads the connectives of a goal except Iff, and neither False as a
+    # hypothesis nor True as a goal: a rewrite's two directions are proved
+    # apart, and one to false or true is closed by those constants.
+    decide = "omega" if prefix != "rewrite" else (
+        "first | omega | (constructor <;> intro _h <;> first | omega | exact False.elim _h | trivial)")
+    if atoms:
+        lines.append("  (try simp only [%s]) <;> %s" % (", ".join("_e%d" % atom for atom in atoms), decide))
+    else:
+        lines.append("  " + decide)
+    return lines, "(%s_%d _atoms%s)" % (prefix, node, "".join(" _step_%d" % premise for premise in premises))
 
 
 def _inject(position, count, term):
@@ -3607,8 +3741,12 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     conclusion = graph.conclusion(node)
     left, right = _equivalence(graph, conclusion, "rewrite")
     reachable, theory = _reachable(graph, conclusion)
-    if theory and terms is not None and terms[left] == terms[right]:
+    pseudo_boolean = any(graph.kind(formula) in _PSEUDO_BOOLEAN for formula in reachable)
+    if (theory or pseudo_boolean) and terms is not None and terms[left] == terms[right]:
         return [], set(), "(%s.refl %s)" % (_relation(graph, left), _side(graph, left))
+    if pseudo_boolean:
+        lines, term = _pseudo_boolean_lemma(graph, node, "rewrite", atom_indices)
+        return lines, set(), term
     if graph.is_term(left):
         # A rewrite between terms (the legacy core simplifies ite terms, for
         # example (ite true a b) to a): a theory tautology for grind.
@@ -4975,6 +5113,9 @@ def reconstruct(source, certificate):
         lines.append("-- Int div and mod by a numeral are Lean's Euclidean / and %; abs is the ite SMT-LIB defines.")
     if any(decl.kind == z3.Z3_OP_REM for decl in graph.declarations):
         lines.append("-- Int rem by a numeral k is Z3's (ite (>= k 0) (mod t k) (- (mod t k))): t % k, or -(t % k) for k < 0.")
+    if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
+        lines.append("-- Pseudo-Boolean constraints compare the weighted sum of their literals' 0/1 values over Int "
+                     "with their bound.")
     if any(decl.kind in _NUMERIC_KINDS and decl.range == "Real" for decl in graph.declarations):
         lines.append("-- Real abs, which Z3 accepts beyond SMT-LIB, is the ite (if t >= 0 then t else -t).")
     if graph.arithmetic and graph.uninterpreted:
@@ -5003,6 +5144,8 @@ def reconstruct(source, certificate):
     lines.extend(_interpretation_structure(graph))
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
+    if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
+        lines.extend(_PSEUDO_BOOLEAN_LEMMAS + [""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
@@ -5022,6 +5165,8 @@ def reconstruct(source, certificate):
             _check_th_lemma(graph, node)
             if graph.decl(node).parameters[0] == "cnf":
                 lemma, term = _cnf_lemma(graph, node, atom_indices, variable_indices)
+            elif graph.decl(node).parameters[0] == "pb":
+                lemma, term = _pseudo_boolean_lemma(graph, node, "th_lemma", atom_indices)
             else:
                 lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                                            opaque_tactic=_opaque_tactic(graph, node),

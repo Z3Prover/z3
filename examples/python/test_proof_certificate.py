@@ -570,7 +570,7 @@ class TestProofCertificate(unittest.TestCase):
             "(declare-const a (Array Bool Bool))(assert (select a true))",
             "(declare-fun f (Int) Bool)(declare-const x Real)(assert (and (f 1) (> x 1.0)))",
             "(assert (forall ((p Bool)) p))",
-            "(declare-const p Bool)(assert ((_ at-most 1) p))",
+            "(declare-const p Bool)(declare-const q Bool)(assert ((_ at-most 1) (and p q)))",
         ]
         for problem in problems:
             with self.subTest(problem=problem):
@@ -583,8 +583,11 @@ class TestProofCertificate(unittest.TestCase):
         solver = z3.Solver(ctx=context)
         solver.add(p, z3.Not(p))
         self.assertEqual(solver.check(), z3.unsat)
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "parameters"):
-            proof_certificate._encode_proof([z3.PbLe([(p, 1)], 0)], solver.proof())
+        # A pseudo-Boolean constraint keeps its bound and coefficients, the
+        # only parameterized declarations besides th-lemma.
+        encoded = proof_certificate._encode_proof([z3.PbLe([(p, 3)], 2)], solver.proof())
+        self.assertIn(["2", "3"], [declaration["parameters"] for declaration in encoded["declarations"]
+                                   if declaration["name"] == "pble"])
 
     def test_sat_has_no_certificate(self):
         for source in ["", "(assert true)", "(declare-const p Bool)(assert p)"]:

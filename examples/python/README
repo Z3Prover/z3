@@ -101,7 +101,15 @@ scanner. Nonstandard block comments are rejected.
 
 Assertions may use Boolean constants, Boolean variables, not, and, or, implies,
 xor (including Z3's one-argument xor, which it reads as the argument itself),
-Boolean equality/distinct, and Boolean ite. The qf_lra fragment adds Real
+Boolean equality/distinct, and Boolean ite. Propositional input may also use
+the pseudo-Boolean constraints at-most, at-least, pble, pbge, and pbeq over
+Boolean variables and their negations (integer bounds and coefficients);
+they are certified through the legacy proof object only (theory_pb's
+th-lemma pb steps), since the sat.smt core compiles them away before its
+clause log starts, and Lean values each literal 0 or 1 over Int and proves
+those steps and Z3's pseudo-Boolean rewrites by omega. A constraint over
+any other argument, or next to arithmetic or uninterpreted functions, is
+rejected. The qf_lra fragment adds Real
 variables and numerals, sums, differences, negation, multiplication by a
 constant, division by a nonzero constant, Real-valued ite whose condition is
 any supported formula, abs (SMT-LIB defines it on Int only; Z3 accepts it
@@ -155,8 +163,7 @@ several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
 by name, so classification fails for the exporter and again for the
 reconstructor, which parses the input itself. Quantifiers,
-nonlinear terms, bit-vectors, arrays, and pseudo-Boolean operators are
-rejected. Definitions are expanded by Z3's parser.
+nonlinear terms, bit-vectors, and arrays are rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
 assumptions. Declarations unused by the assertions do not affect the fragment.
 
@@ -185,7 +192,10 @@ all their arguments, including their conclusions. Declaration kinds are the
 Z3_OP_* API constants, not a new set of logical rules.
 
 This version supports application nodes with Bool/Proof sorts and declarations
-without parameters. The qf_lra fragment additionally uses the Real sort,
+without parameters, except that a pseudo-Boolean declaration's parameters
+are its bound followed, for pble, pbge, and pbeq, by one coefficient per
+argument (decimal integers), and propositional certificates may contain
+th-lemma declarations with the parameter "pb" alone. The qf_lra fragment additionally uses the Real sort,
 numeral declarations whose name is the exact rational value, the arithmetic
 operators and predicates listed above, and th-lemma declarations whose
 parameters name a theory hint ("farkas", "bound", "implied-eq", "euf",

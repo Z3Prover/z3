@@ -521,11 +521,22 @@ namespace smt {
         arg_t& args = c->m_args[0];
 
         // extract literals and coefficients.
+        // Arguments already assigned (at the base level) are folded into the
+        // bound, except when proofs are enabled: the axioms and lemmas of the
+        // constraint cite its literal, which stands for every argument, but
+        // they would not cite the assignments the folding rests on. Kept
+        // arguments are read off the assignment once the constraint's literal
+        // is assigned (assign_ineq), so only propagation through the bound
+        // before then is lost.
         for (unsigned i = 0; i < num_args; ++i) {
             expr* arg = atom->get_arg(i);
             literal l = compile_arg(arg);
             numeral c = pb.get_coeff(atom, i);
-            switch (ctx.get_assignment(l)) {
+            lbool value = ctx.get_assignment(l);
+            if (proofs_enabled() && l.var() != true_bool_var) {
+                value = l_undef;
+            }
+            switch (value) {
             case l_true: 
                 k -= c;
                 break;
@@ -1809,6 +1820,17 @@ namespace smt {
     bool theory_pb::resolve_conflict(card& c, literal_vector const& confl) {
        
         TRACE(pb, display(tout << "resolve conflict\n", c, true); );
+
+        if (proofs_enabled()) {
+            // The resolvent combines several constraints, but the asserting
+            // literal's justification cites the antecedent literals only, not
+            // the constraints they were resolved from: its th-lemma would not
+            // hold on its own. The conflict clause is a valid th-lemma.
+            // Learning under proofs would need that justification to cite
+            // every resolved constraint (doc/lean-proof-plan.md, "Pseudo-Boolean
+            // constraints through the legacy core").
+            return false;
+        }
 
         bool_var v;
         m_conflict_lvl = 0;
