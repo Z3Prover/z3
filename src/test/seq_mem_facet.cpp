@@ -17,6 +17,7 @@ Abstract:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
 #include "smt/seq_solver_facet.h"
+#include "util/rlimit.h"
 #include <iostream>
 
 namespace {
@@ -167,6 +168,184 @@ namespace {
         }) == stx::search_result::sat);
     }
 
+    static void tst_regex_length_refutation(bool concat, bool generic = false) {
+        fixture f;
+        scoped_rlimit limit(f.m.limit(), 10000);
+        sort_ref seq_sort(generic ? f.u.str.mk_seq(f.a.mk_int()) : f.u.str.mk_string_sort(), f.m);
+        expr_ref x(f.m.mk_fresh_const("x", seq_sort), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", x->get_sort()), f.m);
+        expr_ref term(concat ? f.u.str.mk_concat(x, y) : x.get(), f.m);
+        expr_ref re(f.m);
+        if (generic) {
+            sort_ref re_sort(f.u.re.mk_re(seq_sort), f.m);
+            expr_ref full_char(f.u.re.mk_full_char(re_sort), f.m);
+            re = f.u.re.mk_concat(full_char, full_char);
+            re = f.u.re.mk_concat(re, full_char);
+        }
+        else {
+            expr_ref abc(f.u.str.mk_string("abc"), f.m);
+            re = f.u.re.mk_to_re(abc);
+        }
+        re = f.u.re.mk_star(re);
+        auto& dm = f.tree.dep_mgr();
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(re, f.m), dm.mk_leaf(1)));
+        expr_ref len_x(f.u.str.mk_length(x), f.m);
+        expr_ref bound(f.a.mk_int(concat ? 150000001 : 300000002), f.m);
+        sf.add_constraint(f.m.mk_eq(len_x, bound), dm.mk_leaf(2));
+        if (concat) {
+            expr_ref len_y(f.u.str.mk_length(y), f.m);
+            sf.add_constraint(f.m.mk_eq(len_y, bound), dm.mk_leaf(3));
+        }
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) == stx::simplify_result::conflict);
+        ENSURE(dm.contains(f.root->conflict_dep(), 1));
+        ENSURE(dm.contains(f.root->conflict_dep(), 2));
+        ENSURE(!concat || dm.contains(f.root->conflict_dep(), 3));
+        ENSURE(!mf.witness_extracted());
+    }
+
+    static void tst_regex_length_union() {
+        for (unsigned len : {0u, 2u, 3u, 4u, 5u, 6u, 7u}) {
+            fixture f;
+            expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+            expr_ref aa(f.u.str.mk_string("aa"), f.m);
+            expr_ref bbb(f.u.str.mk_string("bbb"), f.m);
+            expr_ref r1(f.u.re.mk_to_re(aa), f.m), r2(f.u.re.mk_to_re(bbb), f.m);
+            r1 = f.u.re.mk_star(r1);
+            r2 = f.u.re.mk_star(r2);
+            expr_ref re(f.u.re.mk_union(r1, r2), f.m);
+            auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+            auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+            mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+            expr_ref length(f.u.str.mk_length(x), f.m);
+            expr_ref value(f.a.mk_int(len), f.m);
+            sf.add_constraint(f.m.mk_eq(length, value));
+            seq::mem_propagation propagation(f.m, f.u, f.rw);
+            bool unsat = len == 5 || len == 7;
+            ENSURE((propagation.propagate(*f.root) == stx::simplify_result::conflict) == unsat);
+            ENSURE(sf.has_conflict() == unsat);
+            if (!unsat) {
+                expr_ref word(f.m);
+                ENSURE(mf.get_witness(x, word));
+                th_rewriter normalize(f.m);
+                normalize(word);
+                zstring s;
+                ENSURE(f.u.str.is_string(word, s) && s.length() == len);
+            }
+        }
+    }
+
+    static void tst_regex_length_scopes() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref abc(f.u.str.mk_string("abc"), f.m);
+        expr_ref re(f.u.re.mk_to_re(abc), f.m);
+        re = f.u.re.mk_star(re);
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        for (unsigned len : {3u, 2u, 6u}) {
+            f.trail.push_scope();
+            mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+            expr_ref length(f.u.str.mk_length(x), f.m);
+            expr_ref value(f.a.mk_int(len), f.m);
+            sf.add_constraint(f.m.mk_eq(length, value));
+            ENSURE((propagation.propagate(*f.root) == stx::simplify_result::conflict) == (len == 2));
+            ENSURE(sf.has_conflict() == (len == 2));
+            f.trail.pop_scope(1);
+            f.root->clear_status();
+            ENSURE(mf.memberships().empty() && mf.qhead() == 0);
+            ENSURE(!sf.has_conflict());
+        }
+    }
+
+    static void tst_regex_length_reach_view() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref abc(f.u.str.mk_string("abc"), f.m);
+        expr_ref bc(f.u.str.mk_string("bc"), f.m);
+        expr_ref start(f.u.re.mk_to_re(abc), f.m);
+        expr_ref target(f.u.re.mk_to_re(bc), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        mf.add(seq::str_mem(f.m, x, seq::view::reach(start, target, f.m)));
+        expr_ref length(f.u.str.mk_length(x), f.m);
+        expr_ref one(f.a.mk_int(1), f.m);
+        sf.add_constraint(f.m.mk_eq(length, one));
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+        ENSURE(!sf.has_conflict());
+        expr_ref word(f.m);
+        ENSURE(mf.get_witness(x, word));
+        th_rewriter normalize(f.m);
+        normalize(word);
+        zstring s;
+        ENSURE(f.u.str.is_string(word, s) && s == zstring("a"));
+    }
+
+    static void tst_regex_length_large_loop() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref re(f.u.re.mk_to_re(a), f.m);
+        re = f.u.re.mk_loop_proper(re, 0, 0x80000000u);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+        expr_ref length(f.u.str.mk_length(x), f.m);
+        expr_ref zero(f.a.mk_int(0), f.m);
+        sf.add_constraint(f.m.mk_eq(length, zero));
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+        ENSURE(!sf.has_conflict());
+    }
+
+    static void tst_regex_length_extended() {
+        for (unsigned len : {1u, 6u}) {
+            fixture f;
+            expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+            expr_ref aa(f.u.str.mk_string("aa"), f.m);
+            expr_ref aaa(f.u.str.mk_string("aaa"), f.m);
+            expr_ref r1(f.u.re.mk_to_re(aa), f.m), r2(f.u.re.mk_to_re(aaa), f.m);
+            r1 = f.u.re.mk_star(r1);
+            r2 = f.u.re.mk_star(r2);
+            expr_ref re(f.u.re.mk_inter(r1, r2), f.m);
+            re = f.u.re.mk_concat(r1, re);
+            auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+            auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+            mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+            expr_ref length(f.u.str.mk_length(x), f.m);
+            expr_ref value(f.a.mk_int(len), f.m);
+            sf.add_constraint(f.m.mk_eq(length, value));
+            seq::mem_propagation propagation(f.m, f.u, f.rw);
+            ENSURE((propagation.propagate(*f.root) == stx::simplify_result::conflict) == (len == 1));
+            ENSURE(!sf.has_conflict());
+            if (len == 6)
+                ENSURE(mf.witness_extracted());
+        }
+    }
+
+    static void tst_regex_length_equivalent_keys() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref aa(f.u.str.mk_string("aa"), f.m);
+        expr_ref re(f.u.re.mk_to_re(aa), f.m);
+        re = f.u.re.mk_star(re);
+        expr_ref duplicate(f.u.re.mk_union(re, re), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(duplicate, f.m)));
+        expr_ref length(f.u.str.mk_length(x), f.m);
+        expr_ref four(f.a.mk_int(4), f.m);
+        sf.add_constraint(f.m.mk_eq(length, four));
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+        ENSURE(!sf.has_conflict());
+    }
+
     // power_peel_mem should first try the `n = 0` branch, then peel one
     // copy for the `n >= 1` branch. This test drives the split iterator
     // directly to inspect both rewrites.
@@ -282,6 +461,15 @@ void tst_seq_mem_facet() {
     tst_two_var_monadic_sat();
     tst_root_refute_before_equation_substitution();
     tst_symbolic_unit_derivative_not_rejected();
+    tst_regex_length_refutation(false);
+    tst_regex_length_refutation(true);
+    tst_regex_length_refutation(false, true);
+    tst_regex_length_union();
+    tst_regex_length_scopes();
+    tst_regex_length_reach_view();
+    tst_regex_length_large_loop();
+    tst_regex_length_extended();
+    tst_regex_length_equivalent_keys();
     tst_power_peel_mem_split();
     std::cout << "seq_mem_facet: all tests passed\n";
 }

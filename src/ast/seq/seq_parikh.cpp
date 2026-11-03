@@ -40,7 +40,7 @@ expr_ref parikh::mk_sk(char const* name, std::initializer_list<expr*> args, sort
     return expr_ref(m_util.mk_skolem(symbol(name), args.size(), args.begin(), range), m);
 }
 
-expr_ref parikh::num(int i) {
+expr_ref parikh::num(unsigned i) {
     return expr_ref(m_autil.mk_int(i), m);
 }
 

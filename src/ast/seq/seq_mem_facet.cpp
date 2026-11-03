@@ -305,8 +305,50 @@ namespace seq {
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& f = ac.mem_facet_ref();
+        auto& sf = ac.solver_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
+        // Check length consequences before derivative products or witness search.
+        for (unsigned i = f.qhead(); i < f.memberships().size(); ++i) {
+            auto const& sm = f.memberships()[i];
+            if (!sm.active() || !sm.is_plain())
+                continue;
+            arith_util& a = sf.get_arith_util();
+            unsigned lo = u.re.min_length(sm.m_view.m_state);
+            unsigned hi = u.re.max_length(sm.m_view.m_state);
+            if (lo > 0 || hi < UINT_MAX) {
+                expr_ref len_str(a.mk_int(0), m);
+                for (expr* t : sm.m_str) {
+                    expr_ref tok_len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m);
+                    len_str = a.mk_add(len_str, tok_len);
+                }
+                if (lo > 0)
+                    sf.add_constraint(a.mk_ge(len_str, a.mk_int(lo)), sm.m_dep);
+                if (hi < UINT_MAX)
+                    sf.add_constraint(a.mk_le(len_str, a.mk_int(hi)), sm.m_dep);
+            }
+            sort* seq_sort = nullptr;
+            VERIFY(u.is_re(sm.m_view.m_state->get_sort(), seq_sort));
+            expr_ref term(u.str.mk_concat(sm.m_str, seq_sort), m);
+            expr_ref regex(sm.m_view.m_state, m);
+            // Normalize keys before assigning DFS-indexed counters: later
+            // rewriting must not merge counters from different traversals.
+            m_th_rw(term);
+            m_th_rw(regex);
+            expr_ref_vector lemmas(m);
+            if (m_lengths.encode_length_set(term, regex, lemmas)) {
+                for (expr* e : lemmas) {
+                    expr_ref lemma(e, m);
+                    m_th_rw(lemma);
+                    if (!m.is_true(lemma) && sf.add_constraint(lemma, sm.m_dep))
+                        ++m_stats.m_num_length_axioms;
+                }
+            }
+        }
+        if (sf.has_conflict()) {
+            n.set_conflict(stx::br_plugin_base, sf.conflict_dep());
+            return stx::simplify_result::conflict;
+        }
         // Every active single-variable membership is registered with
         // `f.vw()` as it is added. Check their joint feasibility here,
         // before the structural checks below. Disabling
@@ -335,26 +377,6 @@ namespace seq {
                 continue;
             if (sm.is_view())
                 continue;
-            // A plain membership `str in re` bounds `len(str)` by the
-            // regex's min/max accepted length. Assert those bounds into the
-            // arithmetic sub-solver so length reasoning can use them early.
-            {
-                auto& sf = ac.solver_facet_ref();
-                arith_util& a = sf.get_arith_util();
-                unsigned lo = u.re.min_length(sm.m_view.m_state);
-                unsigned hi = u.re.max_length(sm.m_view.m_state);
-                if (lo > 0 || hi < UINT_MAX) {
-                    expr_ref len_str(a.mk_int(0), m_rw.m());
-                    for (expr* t : sm.m_str) {
-                        expr_ref tok_len(u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t), m_rw.m());
-                        len_str = a.mk_add(len_str, tok_len);
-                    }
-                    if (lo > 0)
-                        sf.add_constraint(a.mk_ge(len_str, a.mk_int(lo)), sm.m_dep);
-                    if (hi < UINT_MAX)
-                        sf.add_constraint(a.mk_le(len_str, a.mk_int(hi)), sm.m_dep);
-                }
-            }
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
             expr* elem = nullptr;

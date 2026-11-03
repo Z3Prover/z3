@@ -44,6 +44,7 @@ Author:
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/seq/seq_monadic.h"
+#include "ast/seq/seq_parikh.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_substitution.h"
@@ -171,6 +172,8 @@ namespace seq {
         ast_manager&    m;
         seq_util&       u;
         seq_rewriter&   m_rw;
+        parikh          m_lengths;
+        th_rewriter     m_th_rw;
         // Optional end-game witness solver, gated by
         // smt.seq.mem_monadic_endgame. Once `f.is_satisfied()` holds, it
         // decides all active plain memberships jointly with `seq::monadic`
@@ -180,6 +183,7 @@ namespace seq {
         seq::monadic    m_mon;
         struct stats {
             unsigned m_num_propagate = 0;
+            unsigned m_num_length_axioms = 0;
             unsigned m_num_monadic_asked = 0;
             unsigned m_num_monadic_refuted = 0;
             void reset() { *this = stats(); }
@@ -196,11 +200,12 @@ namespace seq {
         lbool solve_monadic_endgame(ambient_ref<eq_tree::node, eq_tree::dep_tracker>& ac, mem_facet& f, eq_tree::dep_tracker& dep);
     public:
         mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw) :
-            m(m), u(u), m_rw(rw), m_mon(rw, m_mon_trail) {}
+            m(m), u(u), m_rw(rw), m_lengths(m, parikh::config()), m_th_rw(m), m_mon(rw, m_mon_trail) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
             st.update("seq-mem-propagate num calls", m_stats.m_num_propagate);
+            st.update("seq-mem-propagate num length axioms", m_stats.m_num_length_axioms);
             st.update("seq-mem-monadic-endgame num asked", m_stats.m_num_monadic_asked);
             st.update("seq-mem-monadic-endgame num refuted", m_stats.m_num_monadic_refuted);
         }
