@@ -13,10 +13,12 @@ import copy
 import hashlib
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import z3
 
@@ -193,6 +195,22 @@ FLOOR_INPUTS = {
 (declare-const m Int)
 (assert (not (is_int (+ (to_real n) (* 2.0 (to_real m)) 3.0))))
 """,
+    # Integrality cuts through floors of Real variables
+    # (proof_to_lean._projection_facts): x = 2 floor(x/2) + 1 has Real
+    # solutions only, and 1/4 is no integer.
+    "is_int_parity": """(set-logic QF_LIRA)
+(declare-const x Real)
+(assert (is_int x))
+(assert (is_int (/ x 2.0)))
+(assert (or (= x 3.0) (= x 5.0)))
+""",
+    "is_int_quarter": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const p Bool)
+(assert (is_int x))
+(assert (= (ite p x 0.25) 0.25))
+(assert p)
+""",
 }
 
 
@@ -263,8 +281,9 @@ def random_floor_instance(seed, variables=3, constraints=10):
 # differing by an integer on both cores and rewrites inside a legacy floor,
 # 43 has a clause-log rewrite of (is_int (+ x 1.0)) to (is_int x), 73
 # bound hints and a legacy floor shift, 135 an is_int atom the clause log
-# keeps, with its definition as arith hints.
-FLOOR_SEEDS = (39, 43, 73, 135)
+# keeps, with its definition as arith hints; 5 and 54 integrality cuts
+# through floors of Real variables on both cores (_projection_facts).
+FLOOR_SEEDS = (39, 43, 73, 135, 5, 54)
 
 
 def random_cast_instance(seed, variables=3, constraints=10):
@@ -662,38 +681,50 @@ class TestCastValidation(unittest.TestCase):
                 with self.assertRaises(proof_to_lean.ReconstructionError):
                     proof_to_lean.reconstruct(self.source, tampered)
 
-    def test_cuts_over_real_atoms_with_real_terms_are_rejected(self):
-        # A cut rounds integer-valued forms only: retargeted at an assertion
-        # with a Real atom over a Real variable, the step is rejected, as
-        # the exporter rejects such a hint.
-        source = random_cast_instance(CAST_SEEDS[0])
+    def test_cuts_over_real_atoms_alone_are_rejected(self):
+        # A cut rounds by integrality, so some literal must reach an Int
+        # atom: retargeted at the assertion over the Real variable x and an
+        # ite of Real sort (the step still reaches to_real under the ite),
+        # the step is rejected, as the exporter rejects such a hint.
+        source = """(set-logic QF_LIRA)
+(declare-const n Int)
+(declare-const m Int)
+(declare-const x Real)
+(declare-const p Bool)
+(assert (or (< x (ite p (to_real n) 0.5)) (= (* 2.0 (to_real n)) (+ (* 2.0 (to_real m)) 1.0))))
+(assert (>= x (ite p (to_real n) 0.5)))
+"""
         certificate = _export(source, "clause-log")
         graph = proof_to_lean._validate_graph(source, certificate)
         lemma = next(node for node in _th_lemma_nodes(certificate)
                      if _parameters(certificate, node)[0] == "cut")
-
-        def mixes(node):
-            # A clause of inequalities (a denied equality is no constraint)
-            # over to_real and a Real variable.
-            reachable = proof_to_lean._reachable(graph, node)[0]
-            literals = graph.arguments(node) if graph.kind(node) == z3.Z3_OP_OR else [node]
-            return (all(graph.kind(literal) != z3.Z3_OP_EQ for literal in literals)
-                    and any(graph.kind(term) == z3.Z3_OP_TO_REAL for term in reachable)
-                    and any(graph.kind(term) == z3.Z3_OP_UNINTERPRETED and graph.decl(term).range == "Real"
-                            for term in reachable))
-        target = next(node for node in graph.assertions if mixes(node) and node < lemma)
+        target = next(node for node in graph.assertions if graph.kind(node) == z3.Z3_OP_GE)
+        self.assertLess(target, lemma)
         tampered = copy.deepcopy(certificate)
         tampered["nodes"][lemma]["arguments"][-1] = target
         graph = proof_to_lean._validate_graph(source, tampered)
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
-                                    "cut th-lemma over a Real atom with a Real term at node %d" % lemma):
+                                    "cut th-lemma over Real atoms alone at node %d" % lemma):
             proof_to_lean._check_th_lemma(graph, lemma)
         context = z3.Context()
         n, x = z3.Int("n", ctx=context), z3.Real("x", ctx=context)
         quarter = z3.RealVal("9/4", ctx=context)
         self.assertFalse(proof_clause_log.check_linear_hint("cut", [(1, z3.ToReal(n) == quarter)]))
+        # A Real variable next to an Int term, or under a floor, may be
+        # rounded through the Int term (Lean decides whether it is).
+        self.assertFalse(proof_clause_log.check_linear_hint("cut", [(1, x + z3.ToReal(n) == quarter)]))
+        half = x / 2
+        self.assertFalse(proof_clause_log.check_linear_hint("cut", [(1, half == z3.ToReal(z3.ToInt(half)))]))
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint over Real atoms"):
-            proof_clause_log.check_linear_hint("cut", [(1, x + z3.ToReal(n) == quarter)])
+            proof_clause_log.check_linear_hint("cut", [(1, x == quarter), (1, x <= 2 * x + quarter)])
+        # As in the reconstructor, an Int term under a Real ite is opaque,
+        # and an Int numeral is a constant, not an Int atom.
+        p = z3.Bool("p", ctx=context)
+        ite = z3.If(p, z3.ToReal(n), z3.RealVal("1/2", ctx=context))
+        for literal in (x < ite, x + z3.ToReal(z3.IntVal(1, ctx=context)) == quarter):
+            with self.subTest(literal=literal), self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                                                       "cut hint over Real atoms"):
+                proof_clause_log.check_linear_hint("cut", [(1, literal)])
 
 
 class TestFloorValidation(unittest.TestCase):
@@ -800,19 +831,84 @@ class TestFloorValidation(unittest.TestCase):
                 with self.assertRaises(proof_to_lean.ReconstructionError):
                     proof_to_lean.reconstruct(self.source, tampered)
 
-    def test_integrality_cuts_over_real_variables_are_rejected(self):
+    def test_integrality_cuts_through_floors_get_projection_facts(self):
         # x and x/2 integers, x in {3, 5}: the clause log's cut rounds
         # (= (* 0.5 x) (to_real (to_int (* 0.5 x)))), a Real atom over the
-        # Real variable x, which Lean cannot prove from the floor bounds
-        # alone; the exporter rejects it explicitly.
-        source = """(set-logic QF_LIRA)
-(declare-const x Real)
-(assert (is_int x))
-(assert (is_int (/ x 2.0)))
-(assert (or (= x 3.0) (= x 5.0)))
-"""
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint over Real atoms"):
-            _export(source, "clause-log")
+        # Real variable x. Eliminating x leaves 2 floor(x/2) = 5 (or 3) over
+        # the floor alone, stated over Int through its cast lemma.
+        source = FLOOR_INPUTS["is_int_parity"]
+        certificate = _export(source, "clause-log")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cuts = [node for node in _th_lemma_nodes(certificate) if _parameters(certificate, node) == ["cut"]]
+        self.assertTrue(cuts)
+        indices = collections.defaultdict(int)
+        for node in cuts:
+            proof_to_lean._check_th_lemma(graph, node)
+            facts = proof_to_lean._projection_facts(graph, node, indices, indices)
+            with self.subTest(node=node):
+                self.assertRegex(facts[0], r"have _p%d_0 := _int_cast_eq \(\(\(-?2 : Int\)\) \* "
+                                           r"\(Rat\.floor .*\) \+ \(\(-?[35] : Int\)\)\) \(\(0 : Int\)\)" % node)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertRegex(text, r"have _p\d+_0 := _int_cast_eq ")
+        # A step whose constraints mention no Real atom gets none: the cast
+        # parity cut is over Int terms alone (its own integrality facts).
+        source = CAST_INPUTS["cast_parity_cut"]
+        certificate = _export(source, "clause-log")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        for node in _th_lemma_nodes(certificate):
+            with self.subTest(node=node):
+                self.assertEqual(proof_to_lean._projection_facts(graph, node, indices, indices), [])
+
+    def test_projection_eliminates_real_atoms_exactly(self):
+        # x - 5/4 and 3x/2 integral (seed 5's cut): eliminating x relates the
+        # two floors a and b by 8b - 12a = 15, which has no Int solution.
+        source = random_floor_instance(5)
+        self.assertIsNotNone(source)
+        for core in ("clause-log", "legacy"):
+            certificate = _export(source, core)
+            graph = proof_to_lean._validate_graph(source, certificate)
+            indices = collections.defaultdict(int)
+            facts = [fact for node in _th_lemma_nodes(certificate)
+                     for fact in proof_to_lean._projection_facts(graph, node, indices, indices)]
+            with self.subTest(core=core):
+                # The legacy core states the equality as two inequalities.
+                self.assertTrue(any(re.search(r"\(\(-?8 : Int\)\) \* .*\(\(-?12 : Int\)\) \* .*"
+                                              r"\(\(-?15 : Int\)\)\) \(\(0 : Int\)\)$", fact)
+                                    for fact in facts), facts)
+
+    def test_projection_leaves_out_constraints_without_linear_form(self):
+        # A premise without a linear form is left out rather than dropping
+        # every fact: seed 5's legacy farkas still gets the projection of
+        # its other premises with any one of them unreadable.
+        source = random_floor_instance(5)
+        certificate = _export(source, "legacy")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        indices = collections.defaultdict(int)
+        node = next(node for node in _th_lemma_nodes(certificate)
+                    if proof_to_lean._projection_facts(graph, node, indices, indices))
+        premises = [graph.conclusion(premise) for premise in graph.arguments(node)[:-1]]
+        self.assertTrue(premises)
+        original = proof_to_lean._polarity_constraint
+        for broken in premises:
+            def unreadable(graph, literal, polarity, broken=broken):
+                if literal == broken:
+                    raise proof_to_lean.ReconstructionError("no linear form")
+                return original(graph, literal, polarity)
+            with self.subTest(premise=broken), mock.patch.object(proof_to_lean, "_polarity_constraint", unreadable):
+                self.assertTrue(proof_to_lean._projection_facts(graph, node, indices, indices))
+
+    def test_projection_limit_stops_elimination_rounds(self):
+        # The limit is checked before a round builds its rows, the first
+        # round included: below the size of the parity cut's first round,
+        # no fact is stated.
+        source = FLOOR_INPUTS["is_int_parity"]
+        certificate = _export(source, "clause-log")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        indices = collections.defaultdict(int)
+        cut = next(node for node in _th_lemma_nodes(certificate) if _parameters(certificate, node) == ["cut"])
+        self.assertTrue(proof_to_lean._projection_facts(graph, cut, indices, indices))
+        with mock.patch.object(proof_to_lean, "_PROJECTION_LIMIT", 1):
+            self.assertEqual(proof_to_lean._projection_facts(graph, cut, indices, indices), [])
 
 
 class TestFloorLeanIntegration(unittest.TestCase):

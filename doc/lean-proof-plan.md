@@ -2178,6 +2178,20 @@ cut). Of the 81 unsatisfiable `random_floor_instance` seeds in 1-200, 151
 of 162 runs verify in Lean (each about 1 s); the other 11 are such
 integrality cuts (eight clause-log rejections, three legacy Lean failures).
 
+Update (2026-11-02, later): such integrality cuts through floors are now
+certified on both cores. The exporter and the reconstructor accept a cut
+when some literal reaches an Int atom (a floor counts; a cut over Real atoms
+alone stays rejected), and a cut or coefficient-free farkas or bound of a
+conversion step gets its projection onto the Int atoms
+(`_projection_facts`): its constraints and floor bounds with every Real
+atom eliminated exactly in Python (an equality by substitution, the rest by
+Fourier-Motzkin), each projected constraint stated over Int through the
+`_int_cast_*` lemmas (`x = 5` and `x/2` integral leave
+`2 floor(x/2) - 5 = 0`; `x - 5/4` and `3x/2` integral leave
+`8b - 12a - 15 = 0`), which grind's Int module refutes. All 162 runs of the
+81 unsatisfiable seeds verify; without the facts six of the eight runs of
+the new test inputs fail.
+
 ### Native checks of the rem axioms (2026-10-31)
 
 Z3's own replay of a clause log checked only the `rem` axiom whose guard

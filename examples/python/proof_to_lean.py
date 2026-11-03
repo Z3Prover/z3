@@ -1539,7 +1539,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = reachable
     fallback = ["unfold " + " ".join(_definition_names(graph, remaining))] if remaining else []
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
-    fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices))
+    fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
     fallback.append(_theory_tactic(graph))
     alternatives.append(fallback)
     if len(alternatives) == 1:
@@ -1580,7 +1580,7 @@ private theorem _int_cast_eq (s t : Int) :
 """.strip("\n").split("\n")
 
 
-def _cast_facts(graph, reachable, atom_indices, variable_indices):
+def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None):
     """Transport the Int atoms of a theory step reaching to_real into Rat, then push the casts.
 
     Through (to_real t), Int terms occur in Real atoms, and a lemma such as
@@ -1601,8 +1601,10 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices):
     lemmas state ((Rat.floor a : Int) : Rat) <= a < (Rat.floor a : Rat) + 1,
     the two axioms Z3's arithmetic solver adds for to_int, with which the
     floor is one more Int atom cast into Rat; floors of terms differing by
-    an integer are related too (_floor_shift_facts). Steps reaching no
-    conversion get nothing.
+    an integer are related too (_floor_shift_facts). A lattice step (node,
+    a cut or a coefficient-free farkas or bound) also gets its projection
+    onto its Int atoms (_projection_facts). Steps reaching no conversion
+    get nothing.
     """
     if not any(graph.kind(node) in _CONVERSION_KINDS for node in reachable):
         return []
@@ -1627,7 +1629,131 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices):
             sides.reverse()
         facts.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
     facts.extend(_floor_shift_facts(graph, floors, atom_indices, variable_indices))
+    if node is not None:
+        facts.extend(_projection_facts(graph, node, atom_indices, variable_indices))
     facts.append("push_cast at *")
+    return facts
+
+
+# The most constraints _projection_facts keeps while eliminating a Real
+# atom (Fourier-Motzkin multiplies them), and the most facts it states.
+_PROJECTION_LIMIT = 200
+_PROJECTION_FACTS = 16
+
+
+def _projection_facts(graph, node, atom_indices, variable_indices):
+    """Bridge the projection of a lattice step onto its Int atoms into Int: tactic lines.
+
+    A cut or a coefficient-free farkas or bound of a _CAST step may rest on
+    the integrality of floors of Real terms, as in x = 5 against (/ x 2) =
+    (to_real (to_int (/ x 2))), or x - 5/4 and 3x/2 both integral: the
+    rational relaxation over the casts of the Int atoms is feasible (the
+    floor at 5/2; 8b - 12a = 15 for the floors a and b), so grind's Rat
+    module does not refute it, and its Int module never sees the constraint
+    the Real atoms imply between the Int ones. The step's linear constraints
+    (premises held, clause literals denied, and the bounds f <= a < f + 1
+    of each floor f of a term a) are projected onto the Int atoms here by
+    eliminating every other atom exactly (an equality by substitution, the
+    rest by Fourier-Motzkin), which keeps the integer solutions: an Int
+    point satisfies the projection iff the Real atoms extend it. Each
+    projected constraint F R 0, scaled to integer coefficients, is stated
+    through its cast lemma (_CAST_LEMMAS), F R 0 over Int iff its tightened
+    bound over the casts, which after push_cast is the projection grind's
+    Rat module derives; grind's Int module then refutes the Int problem
+    (2f = 5, 8b - 12a = 15). The facts are theorems whatever the projection
+    is, so a wrong one makes Lean fail, never accept. Other steps,
+    projections whose elimination rounds would exceed _PROJECTION_LIMIT
+    constraints, and constraints that never mentioned a Real atom (their
+    own facts are _cast_facts') get none; premises, literals and floors
+    without a linear form are left out of the projection; at most
+    _PROJECTION_FACTS are stated.
+    """
+    decl = graph.decl(node)
+    if (decl.name != "th-lemma" or len(decl.parameters) != 1 or decl.parameters[0] not in ("farkas", "bound", "cut")
+            or _lemma_numeric(graph, node) != _CAST):
+        return []
+    # A premise, literal or floor without a linear form is left out: the
+    # projection of the others is still implied by the step (and the facts
+    # are theorems in any case).
+    constraints = []
+    for literal, holds in ([(graph.conclusion(premise), True) for premise in graph.arguments(node)[:-1]]
+                           + [(literal, False) for literal in graph.clause(graph.conclusion(node))]):
+        try:
+            constraints.append(_polarity_constraint(graph, literal, holds))
+        except ReconstructionError:
+            continue
+    pending, floors = [atom for _, terms, _ in constraints for atom in terms], set()
+    while pending:
+        atom = pending.pop()
+        if graph.kind(atom) != z3.Z3_OP_TO_INT or atom in floors:
+            continue
+        floors.add(atom)
+        terms = {}
+        try:
+            constant = _linear_term(graph, graph.arguments(atom)[0], Fraction(-1), terms)
+        except ReconstructionError:
+            continue
+        terms[atom] = terms.get(atom, 0) + 1
+        constraints.append(("<=", dict(terms), constant))  # f - a <= 0
+        constraints.append(("<", {key: -value for key, value in terms.items() if value},
+                            -constant - 1))  # a - f - 1 < 0
+        pending.extend(terms)
+    # (relation, terms, constant, whether a Real atom was eliminated from it)
+    system = [(relation, {atom: value for atom, value in terms.items() if value}, constant,
+               any(not graph.is_int(atom) for atom in terms))
+              for relation, terms, constant in constraints]
+    while True:
+        reals = sorted({atom for _, terms, _, _ in system for atom in terms if not graph.is_int(atom)})
+        if not reals:
+            break
+        atom = reals[0]
+        users = [constraint for constraint in system if atom in constraint[1]]
+        rest = [constraint for constraint in system if atom not in constraint[1]]
+        pivot = next((constraint for constraint in users if constraint[0] == "="), None)
+        if pivot is not None:
+            pairs = [(pivot, other) for other in users if other is not pivot]
+        else:
+            pairs = [(lower, upper) for lower in users if lower[1][atom] < 0
+                     for upper in users if upper[1][atom] > 0]
+        # Checked before the round builds its rows, so that no round, the
+        # first included, outgrows the limit (n lower and n upper bounds
+        # make n * n rows).
+        if len(rest) + len(pairs) > _PROJECTION_LIMIT:
+            return []
+        for first, second in pairs:
+            # second - (second's coefficient / first's) * first, with a
+            # nonnegative multiplier unless first is an equality.
+            factor = second[1][atom] / first[1][atom]
+            terms = dict(second[1])
+            for key, value in first[1].items():
+                terms[key] = terms.get(key, 0) - factor * value
+            terms = {key: value for key, value in terms.items() if value}
+            if first[0] == "=":
+                relation = second[0]
+            else:
+                relation = "<" if "<" in (first[0], second[0]) else "<="
+            rest.append((relation, terms, second[2] - factor * first[2], True))
+        system = []
+        for relation, terms, constant, derived in rest:
+            if terms:
+                system.append((relation, terms, constant, derived))
+            elif not {"<=": constant <= 0, "<": constant < 0, "=": constant == 0}[relation]:
+                return []  # Refuted over the rationals: grind's Rat module needs no facts.
+    facts, seen = [], set()
+    for relation, terms, constant, derived in system:
+        if not derived:
+            continue
+        scale = _common_denominator(terms, constant)
+        divisor = functools.reduce(_gcd, [abs(int(value * scale)) for value in terms.values()])
+        key = (relation, tuple(sorted((atom, value * scale / divisor) for atom, value in terms.items())),
+               constant * scale / divisor)
+        if key in seen:
+            continue
+        seen.add(key)
+        form = _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, True)
+        facts.append("have _p%d_%d := %s (%s) ((0 : Int))" % (node, len(facts), _CAST_LEMMA_OF[relation], form))
+        if len(facts) == _PROJECTION_FACTS:
+            break
     return facts
 
 
@@ -4517,17 +4643,20 @@ def _check_th_lemma(graph, node):
         # (A coefficient-free farkas or bound over Real falls through to the
         # coefficient count check below.) Through to_real the same holds
         # for the integer lattice of the Int terms (_CAST): a cut there
-        # rounds Real atoms over Int terms alone (their linear forms are
-        # integer, see _integrality_fact) and Int atoms, nothing else.
+        # rounds Int atoms, Real atoms over Int terms alone (their linear
+        # forms are integer, see _integrality_fact), and the floors of Real
+        # terms (to_int, whose integrality the projection onto the Int atoms
+        # shows, see _projection_facts), so some literal must reach an Int
+        # atom.
         if parameters[0] == "cut" and (numeric not in ("Int", _CAST) or coefficients or premises):
             raise ReconstructionError("cut th-lemma requires an Int certificate or a to_real step, no premises, "
                                       "and no coefficients at node %d" % node)
         for premise in premises:
             _atom_constraint(graph, premise)
-        for literal in literals:
-            terms = _linear_constraint(graph, literal)[1]
-            if parameters[0] == "cut" and numeric == _CAST and not graph.integer_form(terms):
-                raise ReconstructionError("cut th-lemma over a Real atom with a Real term at node %d" % node)
+        forms = [_linear_constraint(graph, literal)[1] for literal in literals]
+        if parameters[0] == "cut" and numeric == _CAST and not any(
+                graph.is_int(atom) for terms in forms for atom in terms):
+            raise ReconstructionError("cut th-lemma over Real atoms alone at node %d" % node)
         return
     if parameters[0] == "implied-eq" and premises and not coefficients:
         # The legacy core records none, and implied-eq coefficients are never
