@@ -20,8 +20,10 @@ bool arith_swine::add(unsigned kind, expr* lemma, expr_ref_vector& lemmas) {
 }
 
 bool arith_swine::compute_power(rational const& x, rational const& y, rational& result) {
-    SASSERT(x.is_int() && y.is_int() && y >= 0);
-    if (y.is_zero() || x.is_one())
+    SASSERT(x.is_int() && y.is_int());
+    if (y.is_neg() && !x.is_one() && !x.is_minus_one())
+        result = rational(0);
+    else if (y.is_zero() || x.is_one())
         result = rational(1);
     else if (x.is_zero())
         result = rational(0);
@@ -53,10 +55,10 @@ lbool arith_swine::check_model(vector<power> const& powers) {
     for (auto const& p : powers) {
         if (!m.inc())
             return l_undef;
-        rational exponent = abs(p.y), expected;
-        if (abs(p.x) >= 2 && exponent > rational(p.value.bitsize() + 1))
+        rational expected;
+        if (p.y >= 0 && abs(p.x) >= 2 && p.y > rational(p.value.bitsize() + 1))
             return l_false;
-        if (!compute_power(p.x, exponent, expected))
+        if (!compute_power(p.x, p.y, expected))
             incomplete = true;
         else if (expected != p.value)
             return l_false;
@@ -69,15 +71,28 @@ void arith_swine::symmetry(vector<power> const& powers, value_fn const& value, e
     for (auto const& p : powers) {
         if (p.x >= 0 && p.y >= 0)
             continue;
+        if (p.y < 0) {
+            rational expected;
+            VERIFY(compute_power(p.x, p.y, expected));
+            if (expected == p.value)
+                continue;
+            expr_ref minus_one = num(rational(-1));
+            expr_ref is_one(m.mk_eq(p.base, one), m), is_minus_one(m.mk_eq(p.base, minus_one), m);
+            expr_ref remainder(a.mk_mod(p.exponent, two), m);
+            expr_ref is_even(m.mk_eq(remainder, zero), m);
+            expr_ref sign(m.mk_ite(is_even, one, minus_one), m);
+            expr_ref other(m.mk_ite(is_minus_one, sign, zero), m);
+            expr_ref rhs(m.mk_ite(is_one, one, other), m);
+            expr_ref guard(a.mk_lt(p.exponent, zero), m);
+            expr_ref equality(m.mk_eq(p.term, rhs), m);
+            add(0, m.mk_implies(guard, equality), lemmas);
+            continue;
+        }
         expr_ref base(p.base, m), exponent(p.exponent, m);
         expr_ref_vector guards(m);
         if (p.x < 0) {
             base = a.mk_uminus(base);
             guards.push_back(a.mk_lt(p.base, zero));
-        }
-        if (p.y < 0) {
-            exponent = a.mk_uminus(exponent);
-            guards.push_back(a.mk_lt(p.exponent, zero));
         }
         expr_ref normalized(a.mk_power(base, exponent), m);
         m_rw(normalized);
@@ -126,6 +141,8 @@ void arith_swine::monotonicity(vector<power> const& powers, expr_ref_vector& lem
 void arith_swine::bounding(vector<power> const& powers, expr_ref_vector& lemmas) {
     expr_ref zero = num(rational(0)), one = num(rational(1)), four = num(rational(4));
     for (auto const& p : powers) {
+        if (p.y < 0)
+            continue;
         expr_ref premise(m), conclusion(m);
         if (p.y == 0 && p.value != 1) {
             premise = m.mk_eq(p.exponent, zero);
@@ -141,7 +158,9 @@ void arith_swine::bounding(vector<power> const& powers, expr_ref_vector& lemmas)
             expr_ref exponent_nonzero(m.mk_not(exponent_zero), m);
             premise = m.mk_and(base_zero, exponent_nonzero);
             conclusion = m.mk_eq(p.term, zero);
-            add(2, m.mk_eq(premise, conclusion), lemmas);
+            expr_ref nonnegative(a.mk_ge(p.exponent, zero), m);
+            expr_ref equivalence(m.mk_eq(premise, conclusion), m);
+            add(2, m.mk_implies(nonnegative, equivalence), lemmas);
             continue;
         }
         else if (p.x == 1 && p.value != 1) {
@@ -149,7 +168,8 @@ void arith_swine::bounding(vector<power> const& powers, expr_ref_vector& lemmas)
             conclusion = m.mk_eq(p.term, one);
         }
         else if (p.x > 0 && p.value < 1) {
-            premise = a.mk_gt(p.base, zero);
+            expr_ref positive(a.mk_gt(p.base, zero), m), nonnegative(a.mk_ge(p.exponent, zero), m);
+            premise = m.mk_and(positive, nonnegative);
             conclusion = a.mk_ge(p.term, one);
         }
         else if (p.x > 1 && p.y > 1 && p.x + p.y > 4 && p.value <= p.x * p.y + 1) {
@@ -172,7 +192,7 @@ void arith_swine::bounding(vector<power> const& powers, expr_ref_vector& lemmas)
 void arith_swine::prime(vector<power> const& powers, expr_ref_vector& lemmas) {
     expr_ref zero = num(rational(0));
     for (auto const& p : powers) {
-        if (p.x < 2 || p.value < 2 || p.y == 0)
+        if (p.x < 2 || p.value < 2 || p.y <= 0)
             continue;
         rational x = p.x, v = p.value, divisor(2), witness(0);
         while (x != v && (x > 1 || v > 1)) {
@@ -203,7 +223,9 @@ void arith_swine::prime(vector<power> const& powers, expr_ref_vector& lemmas) {
         expr_ref exponent_zero(m.mk_eq(p.exponent, zero), m);
         expr_ref nonzero(m.mk_not(exponent_zero), m);
         expr_ref rhs(m.mk_and(divides_base, nonzero), m);
-        add(3, m.mk_eq(divides_result, rhs), lemmas);
+        expr_ref nonnegative(a.mk_ge(p.exponent, zero), m);
+        expr_ref equivalence(m.mk_eq(divides_result, rhs), m);
+        add(3, m.mk_implies(nonnegative, equivalence), lemmas);
     }
 }
 

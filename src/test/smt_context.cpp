@@ -616,23 +616,34 @@ static void check_real_power_bounds() {
 static void check_integer_power(bool euf) {
     struct example { char const* input; lbool expected; };
     example examples[] = {
-        {"(assert (= (mod (^ 2 (- 3)) 3) 2))", l_true},
-        {"(declare-const n Int)(assert (>= n 0))(assert (= (^ 2 n) 3))", l_false},
-        {"(declare-const n Int)(assert (> n 10))(assert (= (^ 2 n) 2048))", l_true},
+        {"(set-logic QF_NIA)(assert (= (mod (** 2 (- 3)) 3) 0))", l_true},
+        {"(set-logic QF_NIA)(assert (= (** 0 0) 1))(assert (= (** 0 (- 3)) 0))"
+         "(assert (= (** (- 1) (- 3)) (- 1)))(assert (= (** (- 1) (- 4)) 1))"
+         "(assert (= (** 2 (- 1000000000000000000000000000000)) 0))"
+         "(assert (= (** (- 1) (- 1000000000000000000000000000000)) 1))", l_true},
+        {"(declare-const n Int)(assert (>= n 0))(assert (= (** 2 n) 3))", l_false},
+        {"(set-logic QF_NIA)(declare-const n Int)(assert (> n 10))(assert (= (** 2 n) 2048))", l_true},
         {"(declare-const x Int)(declare-const y Int)"
-         "(assert (> x y))(assert (>= y 1))(assert (<= (^ 2 x) (^ 2 y)))", l_false},
+         "(assert (> x y))(assert (>= y 1))(assert (<= (** 2 x) (** 2 y)))", l_false},
         {"(declare-const x Int)(declare-const y Int)"
          "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
-         "(assert (= (^ x y) (- 8)))", l_true},
+         "(assert (= (** x y) (- 8)))", l_false},
         {"(declare-const x Int)(declare-const y Int)"
-         "(assert (distinct y 0))(assert (= (^ 2 x) (^ 3 y)))", l_false},
+         "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
+         "(assert (= (** x y) 0))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> y 0))(assert (= (** 2 x) (** 3 y)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x 0))(assert (< y 0))(assert (= (** 2 x) (** 3 y)))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< y 0))(assert (= (** x y) 0))(assert (= (* x x) 1))", l_false},
         {"(declare-const n Int)(declare-const f Int)(assert (>= n 1))"
-         "(assert (distinct (* (+ f n) (^ 2 n))"
-         " (+ (* 2 (+ f n (- 1)) (^ 2 (- n 1))) (^ 2 n))))", l_false},
+         "(assert (distinct (* (+ f n) (** 2 n))"
+         " (+ (* 2 (+ f n (- 1)) (** 2 (- n 1))) (** 2 n))))", l_false},
         {"(declare-const x Int)(declare-const y Int)"
          "(assert (> (* x x) 4))(assert (> (* y y) 4))"
-         "(assert (= (^ (^ x y) y) (^ x (^ y y))))", l_false},
-        {"(declare-const x Int)(assert (= (^ x 0) 1))(assert (= x 0))", l_true},
+         "(assert (= (** (** x y) y) (** x (** y y))))", l_false},
+        {"(declare-const x Int)(assert (= (** x 0) 1))(assert (= x 0))", l_true},
     };
     for (auto const& example : examples) {
         ast_manager m;

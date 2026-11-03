@@ -1,5 +1,96 @@
 # zwine integer exponentiation NFV soundness audit
 
+## SMT-LIB semantics and journal-paper integration (November 3, 2026)
+
+The current C++ implementation uses the integer exponentiation specified by
+[SMT-LIB Ints](https://smt-lib.org/theories-Ints.shtml), not the historical
+absolute-exponent operation documented below. Its standard spelling is `**`,
+with signature `Int Int Int`, arbitrary integer exponents, and `(** 0 0) = 1`.
+For negative exponents it returns zero except at bases 1 and -1, where the
+usual parity-dependent value is returned. Real `^` is unchanged. The integer
+`^` spelling remains an extension alias; integer powers print as `**`.
+The parser-only `OP_IPOWER` selector rejects non-integer arguments and
+parameters, and constructs the existing integer `OP_POWER` declaration.
+
+The shared candidate checker now checks signed exponents directly. Negative
+exponents are not normalized by absolute value. Negative-exponent lemmas
+state their exact piecewise value; zero-result equivalence, positivity, and
+prime-divisibility lemmas retain explicit nonnegative-exponent guards.
+Both arithmetic backends consume the same changed helper.
+
+The local 39-page journal manuscript *Satisfiability Modulo Exponential
+Integer Arithmetic*, by Florian Frohn and Juergen Giesl, was read in full.
+Unlike the IJCAR version, it explicitly adopts the standard signed semantics.
+Section 3.1 motivates the following guarded preprocessing improvements:
+
+```text
+exp(exp(x,y),z) = exp(x, if y<0 and z<0 then -(y*z) else y*z)
+exp(x,y)*exp(x,z) =
+  if x != 1 and x != -1 and (y<0 or z<0) then 0 else exp(x,y+z)
+```
+
+The existing common-exponent product rule remains valid. Constant expansion
+still respects Z3's degree/resource limits, rather than copying the paper's
+unconditional expansion of arbitrarily large constant exponents.
+
+Section 3's relaxed spurious-counterexample criterion is deliberately not
+implemented: accepting a repaired arithmetic assignment would also require
+checking all original assertions and reconstructing consistent user-visible
+models, including uninterpreted-function applications. Exact term-by-term
+candidate checking is retained. The existing bounded/unbounded private
+phasing, guarded induction, and denominator-cleared interpolation are retained.
+The benchmark-tuned bounding-first priority is not changed to the paper's
+monotonicity-first heuristic without a new comparative evaluation.
+
+[`Z3SwineStandardPower.fst`](Z3SwineStandardPower.fst) supplies the standard
+semantics as a checked bridge over the original natural-power kernel. It
+proves signed evaluation, zero/unit bases, base-sign symmetry, both guarded
+preprocessing rules, common-exponent multiplication, guarded bounding and
+prime formulas, monotonicity, induction, interpolation, and mathematical
+candidate acceptance. It also checks counterexamples to the old unguarded
+nesting and exponent-addition rules.
+
+The original five modules remain unchanged as historical mathematical kernels;
+their unrestricted absolute-exponent claims must not be read as claims about
+the current signed operation. The bridge explicitly supplies the restrictions
+needed for reuse. This remains a mathematical audit, not a machine-checked
+refinement of C++ AST construction, resource accounting, or solver control flow.
+
+All six modules are checked using the independent stock Z3 4.13.3 and the
+F* executable recorded below, with fresh-cache dependency verification,
+`--z3refresh`, `--query_stats`, native nonlinear encoding, and rlimit 10.
+Reproducible verification, with a new empty cache directory:
+
+```bash
+mkdir -p build/zwine-standard-fstar
+for module in Power Refinements Prime Interpolation Search StandardPower; do
+  /root/.local/fstar/bin/fstar.exe \
+    --include fstar --cache_dir build/zwine-standard-fstar \
+    --cache_checked_modules --already_cached Prims,FStar \
+    --smt /root/.local/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 \
+    --smtencoding.nl_arith_repr native --z3refresh --query_stats \
+    fstar/Z3Swine${module}.fst
+done
+```
+
+Native validation for this update: Release builds of `shell`, `test-z3`,
+`libz3`, and `build_z3_python_bindings`; the focused `arith_rewriter` and
+`smt_context` groups and all 125 default unit groups passed. The focused
+tests cover invalid `**` argument sorts/arity/parameters, standard syntax
+with `QF_NIA`, large negative exponents, signed refinement-lemma evaluation,
+guarded rewrite/model evaluation, both arithmetic backends, incremental
+reuse, interruption recovery, and user-assumption cores. Seventy-two
+additional Python exact-reference cases passed with model evaluation,
+push/pop, and contradictory-value checks across the two backends. Basic
+CLI/model/help and Python-binding smoke checks also passed.
+
+The benchmark numbers in the PR and the source mappings in the remainder of
+this report are historical. No benchmark improvement is claimed for the signed
+semantics or journal-paper changes without rerunning that evaluation.
+
+The remaining sections preserve the earlier audit record and its original
+source and verification scope.
+
 ## Shared solver integration (October 24, 2026)
 
 The refinement helper now lives in `src/ast/rewriter/arith_swine.{h,cpp}`.
@@ -22,7 +113,7 @@ verification below describes the October 17 audit, not a new verification
 of the refactored C++ integrations. The historical source ranges below refer
 to that snapshot; function names identify the relocated refinement code.
 
-## Result: five verified modules, scoped mathematical soundness
+## Historical October 17 result: five verified modules, scoped mathematical soundness
 
 **All five current proof modules verified successfully from a new, empty,
 isolated cache with `--z3refresh`, with every verification condition

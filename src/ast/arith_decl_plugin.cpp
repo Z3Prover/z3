@@ -217,7 +217,7 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_is_int_decl = m->mk_func_decl(symbol("is_int"), r, m->mk_bool_sort(), func_decl_info(id, OP_IS_INT));
     m->inc_ref(m_is_int_decl);
 
-    m_i_power_decl = m->mk_func_decl(symbol("^"), i, i, i, func_decl_info(id, OP_POWER));
+    m_i_power_decl = m->mk_func_decl(symbol("**"), i, i, i, func_decl_info(id, OP_POWER));
     m->inc_ref(m_i_power_decl);
     MK_OP(m_r_power_decl, "^", OP_POWER, r);
 
@@ -589,6 +589,11 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
     }
+    if (k == OP_IPOWER) {
+        if (arity != 2 || num_parameters != 0 || domain[0] != m_int_decl || domain[1] != m_int_decl)
+            m_manager->raise_exception("integer exponentiation expects two arguments of sort Int");
+        return m_i_power_decl;
+    }
     if (k == OP_MUL && arity == 2) {
         if (domain[0] == m_real_decl && domain[1] == m_complex_decl)
             return m_rc_mul_decl;
@@ -628,6 +633,12 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (num_args == 0 && !is_const_op(k)) {
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
+    }
+    if (k == OP_IPOWER) {
+        if (num_args != 2 || num_parameters != 0 ||
+            args[0]->get_sort() != m_int_decl || args[1]->get_sort() != m_int_decl)
+            m_manager->raise_exception("integer exponentiation expects two arguments of sort Int");
+        return m_i_power_decl;
     }
     if (k == OP_MUL && num_args == 2) {
         if (args[0]->get_sort() == m_real_decl && args[1]->get_sort() == m_complex_decl)
@@ -694,6 +705,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("-",OP_SUB));
     op_names.push_back(builtin_name("~",OP_UMINUS));
     op_names.push_back(builtin_name("*",OP_MUL));
+    op_names.push_back(builtin_name("**", OP_IPOWER));
     op_names.push_back(builtin_name("/",OP_DIV));
     op_names.push_back(builtin_name("div",OP_IDIV));
     if (gparams::get_value("smtlib2_compliant") == "true") {

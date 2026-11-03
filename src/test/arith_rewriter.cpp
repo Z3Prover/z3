@@ -51,6 +51,21 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
     return result;
 }
 
+static void check_integer_power_syntax() {
+    for (char const* term : {"(** 2.0 3)", "(** 2 3.0)", "(** true 2)",
+                             "(** 2)", "(** 2 3 4)", "((_ ** 2) 3 4)"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        std::ostringstream errors;
+        cmd_context ctx(false, &m);
+        ctx.set_regular_stream(errors);
+        ctx.set_diagnostic_stream(errors);
+        std::istringstream input(std::string("(assert (= ") + term + " 0))");
+        ENSURE(!parse_smt2_commands(ctx, input));
+        ENSURE(!errors.str().empty());
+    }
+}
+
 static void check_integer_power_lemmas() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -61,6 +76,10 @@ static void check_integer_power_lemmas() {
     struct sample { int x, y, value, z, w, other; bool pair; };
     sample samples[] = {
         {-3, -2, 8, 0, 0, 0, false},
+        {-1, -3, 1, 0, 0, 0, false},
+        {1, -3, 0, 0, 0, 0, false},
+        {0, -3, 1, 0, 0, 0, false},
+        {-3, 2, 8, 0, 0, 0, false},
         {3, 4, 2, 2, 3, 8, true},
         {3, 4, 1, 0, 0, 0, false},
         {2, 3, 8, 2, 4, 17, true},
@@ -76,10 +95,10 @@ static void check_integer_power_lemmas() {
         expr_ref_vector lemmas(m);
         auto value = [&](expr* e, rational& r) { return a.is_numeral(e, r); };
         ENSURE(swine.check(powers, value, lemmas) == l_false);
-        for (int base : {-3, 0, 1, 2, 3, 4, 7}) {
-            for (int exponent : {-3, 0, 1, 2, 4, 8, 9, 10}) {
-                for (int other_base : {0, 2, 3, 7}) {
-                    for (int other_exponent : {0, 1, 3, 4, 10}) {
+        for (int base : {-3, -1, 0, 1, 2, 3, 4, 7}) {
+            for (int exponent : {-4, -3, -1, 0, 1, 2, 4, 8, 9, 10}) {
+                for (int other_base : {-3, -1, 0, 1, 2, 3, 7}) {
+                    for (int other_exponent : {-3, -1, 0, 1, 3, 4, 10}) {
                         model mdl(m);
                         expr_ref xv(a.mk_int(base), m), yv(a.mk_int(exponent), m);
                         expr_ref zv(a.mk_int(other_base), m), wv(a.mk_int(other_exponent), m);
@@ -255,6 +274,7 @@ static void tst_inverse_trig_domains() {
 }
 
 void tst_arith_rewriter() {
+    check_integer_power_syntax();
     check_integer_power_lemmas();
     test_complex_logic_names();
     tst_proof_associative_flattening();
@@ -305,13 +325,24 @@ void tst_arith_rewriter() {
                 rw(power_expr);
                 rational value;
                 ENSURE(au.is_numeral(power_expr, value));
-                ENSURE(value == power(rational(base), static_cast<unsigned>(exponent < 0 ? -exponent : exponent)));
+                rational expected = exponent < 0 && base != 1 && base != -1 ? rational(0) :
+                    power(rational(base), static_cast<unsigned>(exponent < 0 ? -exponent : exponent));
+                ENSURE(value == expected);
                 ENSURE(au.is_int(power_expr));
+                vector<arith_swine::power> powers;
+                powers.push_back({p, i, j, rational(base), rational(exponent), expected});
+                arith_swine swine(m);
+                ENSURE(swine.check_model(powers) == l_true);
+                powers[0].value += rational(1);
+                ENSURE(swine.check_model(powers) == l_false);
             }
         }
         expr_ref nested(au.mk_power(p, k), m);
         expr_ref product(au.mk_mul(j, k), m);
-        expr_ref flattened(au.mk_power(i, product), m);
+        expr_ref negative_j(au.mk_lt(j, zero), m), negative_k(au.mk_lt(k, zero), m);
+        expr_ref both_negative(m.mk_and(negative_j, negative_k), m), negated(au.mk_uminus(product), m);
+        expr_ref corrected(m.mk_ite(both_negative, negated, product), m);
+        expr_ref flattened(au.mk_power(i, corrected), m);
         rw(nested);
         rw(flattened);
         ENSURE(nested == flattened);
@@ -323,6 +354,31 @@ void tst_arith_rewriter() {
         rw(lhs);
         rw(rhs);
         ENSURE(lhs == rhs);
+
+        expr_ref other(au.mk_power(i, k), m), same_base(au.mk_mul(p, other), m);
+        rw(same_base);
+        for (int base : {-3, -1, 0, 1, 2}) {
+            for (int y : {-3, -1, 0, 1, 2}) {
+                for (int z : {-3, -1, 0, 1, 2}) {
+                    model mdl(m);
+                    expr_ref bv(au.mk_int(base), m), yv(au.mk_int(y), m), zv(au.mk_int(z), m);
+                    mdl.register_decl(to_app(i)->get_decl(), bv);
+                    mdl.register_decl(to_app(j)->get_decl(), yv);
+                    mdl.register_decl(to_app(k)->get_decl(), zv);
+                    auto ipow = [](int x, int n) {
+                        return n < 0 && x != 1 && x != -1 ? rational(0) :
+                            power(rational(x), static_cast<unsigned>(n < 0 ? -n : n));
+                    };
+                    expr_ref evaluated(m);
+                    ENSURE(mdl.eval_expr(nested, evaluated));
+                    rational value;
+                    rational inner = ipow(base, y);
+                    ENSURE(au.is_numeral(evaluated, value) && value == ipow(inner.get_int32(), z));
+                    ENSURE(mdl.eval_expr(same_base, evaluated));
+                    ENSURE(au.is_numeral(evaluated, value) && value == ipow(base, y) * ipow(base, z));
+                }
+            }
+        }
 
         expr_ref real_base(au.mk_real(2), m), real_exponent(au.mk_real(-3), m);
         expr_ref real_power(au.mk_power(real_base, real_exponent), m);

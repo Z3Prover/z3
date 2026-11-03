@@ -1249,10 +1249,24 @@ br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, ex
                 continue;
             for (unsigned j = i + 1; j < num_args; ++j) {
                 expr* z = nullptr, * t = nullptr;
-                if (!m_util.is_power(args[j], z, t) || y != t)
+                if (!m_util.is_power(args[j], z, t) || (y != t && x != z))
                     continue;
-                expr_ref base(m_util.mk_mul(x, z), m);
-                expr_ref combined(m_util.mk_power(base, y), m);
+                expr_ref combined(m);
+                if (y == t) {
+                    expr_ref base(m_util.mk_mul(x, z), m);
+                    combined = m_util.mk_power(base, y);
+                }
+                else {
+                    expr_ref sum(m_util.mk_add(y, t), m);
+                    expr_ref rhs(m_util.mk_power(x, sum), m);
+                    expr_ref zero(m_util.mk_int(0), m), one(m_util.mk_int(1), m), minus_one(m_util.mk_int(-1), m);
+                    expr_ref is_one(m.mk_eq(x, one), m), is_minus_one(m.mk_eq(x, minus_one), m);
+                    expr_ref unit(m.mk_or(is_one, is_minus_one), m), nonunit(m.mk_not(unit), m);
+                    expr_ref negative_y(m_util.mk_lt(y, zero), m), negative_t(m_util.mk_lt(t, zero), m);
+                    expr_ref negative(m.mk_or(negative_y, negative_t), m);
+                    expr_ref truncated(m.mk_and(nonunit, negative), m);
+                    combined = m.mk_ite(truncated, zero, rhs);
+                }
                 expr_ref_vector factors(m);
                 for (unsigned k = 0; k < num_args; ++k)
                     if (k != j)
@@ -1969,9 +1983,11 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     bool is_num_y    = m_util.is_numeral(arg2, y);
     if (m_util.is_int(arg1)) {
         if (is_num_y && y.is_neg()) {
-            expr_ref exponent(m_util.mk_int(-y), m);
-            result = m_util.mk_power(arg1, exponent);
-            return BR_REWRITE1;
+            expr_ref one(m_util.mk_int(1), m), minus_one(m_util.mk_int(-1), m), zero(m_util.mk_int(0), m);
+            expr_ref is_one(m.mk_eq(arg1, one), m), is_minus_one(m.mk_eq(arg1, minus_one), m);
+            expr_ref other(m.mk_ite(is_minus_one, y.is_even() ? one.get() : minus_one.get(), zero), m);
+            result = m.mk_ite(is_one, one, other);
+            return BR_REWRITE_FULL;
         }
         if ((is_num_y && y.is_zero()) || (is_num_x && x.is_one())) {
             result = m_util.mk_int(1);
@@ -2008,14 +2024,15 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
             return BR_REWRITE2;
         }
         expr* base = nullptr, * exponent = nullptr;
-        if (m_util.is_uminus(arg2, exponent)) {
-            result = m_util.mk_power(arg1, exponent);
-            return BR_REWRITE1;
-        }
         if (m_util.is_power(arg1, base, exponent)) {
             expr_ref product(m_util.mk_mul(exponent, arg2), m);
-            result = m_util.mk_power(base, product);
-            return BR_REWRITE2;
+            expr_ref zero(m_util.mk_int(0), m);
+            expr_ref inner_negative(m_util.mk_lt(exponent, zero), m), outer_negative(m_util.mk_lt(arg2, zero), m);
+            expr_ref both_negative(m.mk_and(inner_negative, outer_negative), m);
+            expr_ref negated(m_util.mk_uminus(product), m);
+            expr_ref corrected(m.mk_ite(both_negative, negated, product), m);
+            result = m_util.mk_power(base, corrected);
+            return BR_REWRITE_FULL;
         }
         if (is_num_y && y.is_unsigned() && y.get_unsigned() <= m_max_degree &&
             (m_expand_power || m_som || y.get_unsigned() <= 10)) {

@@ -89,6 +89,7 @@ enum arith_op_kind {
     OP_COMPLEX,
     OP_REAL_PART,
     OP_IMAG_PART,
+    OP_IPOWER,        // Integer-only spelling; the resulting declaration uses OP_POWER.
     LAST_ARITH_OP
 };
 
@@ -721,4 +722,3 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
     arith_util a(x.get_manager());
     return app_ref(a.mk_gt(x, y), x.get_manager());
 }
-

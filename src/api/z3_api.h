@@ -2744,7 +2744,9 @@ extern "C" {
        \brief Create an AST node representing \ccode{arg1 ^ arg2}.
 
        If both arguments are integers, the result is an integer and denotes
-       \ccode{arg1 ^ abs(arg2)}, including \ccode{0 ^ 0 = 1}.
+       SMT-LIB integer exponentiation \ccode{(** arg1 arg2)}, including \ccode{(** 0 0) = 1}.
+       Negative integer exponents yield zero unless the base is 1 or -1,
+       in which case the usual parity-dependent value is returned.
        Otherwise the arguments are coerced to reals and real exponentiation is used.
 
        The arguments must have int or real type.
