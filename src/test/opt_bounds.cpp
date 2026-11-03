@@ -1751,6 +1751,48 @@ static void tst_reset_and_invalid_indices(bool open) {
     ensure_finite_bounds(f, replacement, f.num(-1), Z3_INT_SORT);
 }
 
+// Dropping a false level-zero assumption from a MaxSMT core can produce
+// a non-optimal model and inverted bounds after reset-assertions (#11517).
+static void tst_repeated_ite_objective() {
+    std::string saved_arith_solver = gparams::get_value("smt.arith.solver");
+    char const* query =
+        "(assert (>= x 1))\n"
+        "(assert (<= x 3))\n"
+        "(assert (>= y 0))\n"
+        "(assert (<= y 1))\n"
+        "(assert (distinct y 1))\n"
+        "(minimize (ite (= y 0) x 7))\n"
+        "(check-sat)\n";
+    for (unsigned arith_solver : {0u, 2u, 6u}) {
+        std::ostringstream input, output;
+        if (arith_solver)
+            input << "(set-option :smt.arith.solver " << arith_solver << ")\n";
+        input << "(declare-const x Int)\n(declare-const y Int)\n";
+        for (unsigned i = 0; i < 3; ++i) {
+            if (i)
+                input << "(reset-assertions)\n";
+            input << query;
+        }
+        input << "(get-objectives)\n"
+              << "(get-value (x y (ite (= y 0) x 7)))\n";
+        cmd_context cmd(false);
+        install_opt_cmds(cmd);
+        cmd.set_regular_stream(output);
+        std::istringstream is(input.str());
+        ENSURE(parse_smt2_commands(cmd, is));
+        std::string expected =
+            "sat\nsat\nsat\n"
+            "(objectives\n"
+            " ((ite (= y 0) x 7) 1)\n"
+            ")\n"
+            "((x 1)\n"
+            " (y 0)\n"
+            " ((ite (= y 0) x 7) 1))\n";
+        ENSURE(output.str() == expected);
+    }
+    gparams::set("smt.arith.solver", saved_arith_solver.c_str());
+}
+
 static void tst_nested_objective() {
     for (bool maximize : {false, true})
     for (bool reverse : {false, true}) {
@@ -2279,6 +2321,7 @@ static void tst_bitvector_bounds() {
 
 // Run all the optimization tests defined above.
 void tst_opt_bounds() {
+    tst_repeated_ite_objective();
     tst_objective_search();
     std::cout << "opt_bounds: per-call arithmetic results\n";
     tst_maximize_result();
