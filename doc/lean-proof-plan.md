@@ -1589,6 +1589,46 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Pseudo-Boolean constraints through the legacy core (2026-11-02)
+
+Propositional input may now use `at-most`, `at-least`, `pble`, `pbge`, and
+`pbeq` over Boolean variables and their negations (integer parameters; any
+other argument, or such a constraint next to arithmetic or uninterpreted
+functions, is rejected). The certificate keeps each constraint's bound and
+coefficients as declaration parameters, and the reconstructor binds them to
+the input like the arguments. Lean states a constraint as an Int comparison
+of the weighted sum of its literals' values, the classical `if l then 1 else
+0`. theory_pb's `(_ th-lemma pb)` steps and the rewrites over constraints
+(Z3 normalizes `at-most k` to `at-least` of the negations, weights by their
+gcd, decides trivial bounds) are proved after unfolding: a negation's value
+becomes one minus its variable's (`_pb_not`), each variable's value is
+generalized to an Int between 0 and 1 (`_pb_bit`; bounds rather than the
+disjunction `= 0 or = 1`, which omega splits: 83 s against nothing for a
+16-variable at-most), the variable itself becomes `_x = 1`, and omega
+decides the rest. Only the legacy core: the sat.smt core compiles the
+constraints away before its clause log starts and logs bare `smt` clauses
+that cite none of them, so the clause-log exporter rejects them.
+
+Lean rejected two kinds of theory_pb step that do not hold on their own,
+both fixed in `theory_pb.cpp` when proofs are enabled. Internalizing a
+weighted constraint folded the values of arguments already assigned at
+the base level into the bound and then stated, say, `(not (pbge 7 ...))` as
+an axiom without them (the input's `(pble 0 ...)` had fixed those
+arguments false). With proofs enabled no argument is folded (constants
+still are); the arguments are read off the assignment once the constraint's
+literal is assigned, so only an early propagation is lost. Cardinality
+conflict resolution derived a cutting-plane resolvent and propagated its
+asserting literal citing the antecedent literals only, not the constraints
+resolved: `(not p3), (not p12), (pbge 28 ...) |- (not p0)` with p0 in no
+cited constraint. With proofs enabled the conflict clause is learned
+instead, a valid th-lemma. Before the fixes 16 of 31 unsat random 5-variable
+instances failed Lean; after them, z3 confirms every th-lemma pb of 486
+random and 10 pigeonhole refutations on its own, and all 113, 77, 50, and
+37 unsat instances of four random sweeps (5 to 24 variables) and
+pigeonhole up to 6 pigeons in 5 holes (1,572 steps, 8 s) verify in Lean;
+so do the two unsatisfiable queries of z3test `regressions/smt2/pb.smt2`.
+Tests: `test_proof_to_lean_pb.py`.
+
 ### cnf lemmas over a distinct's pairs; conjuncts projected from tails (2026-10-30)
 
 NEQ004's twelve cnf lemmas (`(not A) or (not (= c2 c3))` and the like, A
@@ -2075,6 +2115,122 @@ now when the replay frontend exits inside a log instead of ending the
 binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
+
+### Int and Real side by side: qf_lira (2026-11-02)
+
+Input with both Int and Real variables was rejected ("mixing integer and
+real arithmetic is not supported"), even when no term converts between the
+sorts. Such input is now the `qf_lira` fragment (opt-in with the integer
+ones, both cores): conversions stay rejected (`to_real` of anything but
+numerals, `to_int`, `is_int`), and so do both sorts next to uninterpreted
+functions. Every atom is over one sort and Z3 relates no atoms of the two
+sorts in one arithmetic lemma. The statement takes two valuations,
+`(_vars : Nat -> Rat) (_ivars : Nat -> Int)`; numerals, ite, abs, the
+scaling and ite-branch helpers, and the normalized rewrites read the type
+off their node, the atom keys round over Int atoms only, and each th-lemma
+takes the Int or Real path by the sort of its atoms (`_lemma_numeric`, which
+rejects a lemma over both). The clause-log reader values a numeral by its
+spelling in such input (`2.0` Real, `2` Int). Found on the way, for every
+fragment: once an assertion folds to false, Z3 logs the empty assumption and
+then the remaining assertions unprocessed, Int numerals and `to_real`
+coercions included, which made the reader fail on a QF_LRA input under
+logic ALL ("definition $17 has sort Real, declared Int"); the reader now
+gives a numeral the sort of its definition (an Int one under `to_real`,
+`div`, `mod`, `rem`) and reads `to_real` of a numeral term as that term over
+Real, as the input snapshot does (`_real_counterpart`). (Stopping the replay
+at the empty assumption instead was tried and dropped: six reconstructor
+tests rely on what Z3 logs after it, gate clauses and solver axioms.)
+Tests: `test_proof_to_lean_lira.py` (four documented inputs with farkas, cut,
+and arith hints and four `random_mixed_instance` seeds on both cores, the
+encoding, label and sort tampering, a lemma over both sorts, the numeral
+spelling), classification cases and the raw-tail replay in
+`test_proof_certificate.py`. A sweep of the 15 unsatisfiable seeds in 1-60
+(30 runs on both cores) verified in Lean. Not done: conversions
+(`to_real` of Int terms, `to_int`, `is_int`), which need cast lemmas in Lean.
+
+### to_real of Int terms in qf_lira (2026-11-02)
+
+`to_real` of an Int term (a variable, a sum, an Int `ite`, `div`, `mod`,
+`abs`) is now accepted in `qf_lira` on both cores; `to_int`, `is_int`, and
+both sorts next to uninterpreted functions stay rejected. This also covers
+the iter-055 case of an Int `ite` of numerals in a Real position under
+logic ALL, `(to_real (ite p 1 2))`. Lean renders `to_real` as `Int.cast`
+into `Rat`. A theory lemma reaching `to_real` mixes the sorts (for example
+`x = n`, `(not (<= n 0))`, `x < 1`, which refutes only after the Int literal
+is tightened to `n >= 1`). The exporter and the reconstructor check it as a
+rational combination in which `(to_real t)` has `t`'s linear form and each
+Int atom is tightened on its own. A cut may round only Int atoms and Real
+atoms over Int terms alone, such as `(= (to_real n) (/ 9 4))`. Lean core
+has `push_cast` and `Rat.intCast_le_intCast`/`_lt_`/`_inj`, but `grind`
+does not reason through the cast. The fallback proof of such a lemma
+therefore first states two kinds of facts, then runs `push_cast at *` and
+`grind`:
+
+- every Int atom is equivalent, in both polarities, to the tightened bound
+  between the casts of its sides, through three private lemmas emitted once
+  per file (`_int_cast_le`, `_int_cast_lt`, `_int_cast_eq`);
+- every Real atom over Int terms alone is equivalent to the Int atom of its
+  integer-scaled form.
+
+Removing either kind of fact makes `grind` fail on a lemma that needs it.
+The legacy core's congruence through `to_real` is `congrArg Int.cast`. The
+legacy core's coefficient-free farkas lemmas over both sorts take the
+lattice path, proved by Lean alone. A Real atom over Int terms alone is
+tightened (scaled to integer coefficients, rounded to the lattice) before
+it is keyed for normalized rewrites and ite tables, so it shares its key
+with the equivalent Int atom. Tests: `test_proof_to_lean_lira.py`
+(four documented `to_real` inputs with farkas, cut, bound, and arith hints,
+four `random_cast_instance` seeds on both cores, the encoding, the cast and
+integrality facts, invalid `to_real` declarations, and a cut over a Real
+variable rejected by both checkers); classification and raw-tail cases in
+`test_proof_certificate.py`. All 99 unsatisfiable `random_cast_instance`
+seeds in 1-200 verify in Lean on both cores (198 runs, each at most about
+1 s). Not done: `to_int` and `is_int`, and `to_real` next to uninterpreted
+functions.
+
+### to_int and is_int in qf_lira (2026-11-02)
+
+`to_int` and `is_int` of linear Real terms are now accepted in `qf_lira` on
+both cores. Lean renders `to_int t` as `Rat.floor t` (an opaque Int atom of
+the linear forms, like `div`) and `is_int t` as
+`((Rat.floor t : Int) : Rat) = t`, SMT-LIB's definition. A step reaching
+either is a conversion step like one reaching `to_real`, and its fallback
+proof also states, per floored term `a`, the core lemmas
+`Rat.floor_le a` and `Rat.lt_floor_add_one a` (the two `arith` axioms Z3
+adds for `to_int`), `floor a = D` through `Rat.floor_intCast` when `a` is
+itself an integer `D` over Int terms (`(is_int (to_real n))`), and
+`floor a = floor b + D` through `Rat.floor_add_intCast` for floored terms
+differing by an integer `D` (Z3 rewrites `(is_int (+ x 1.0))` to
+`(is_int x)`; these pairs only up to 12 floors per step). The clause log's
+`arith` hints may carry `is_int` atoms (its definition axioms). A Real atom
+over Int terms alone is now also cast back into Rat after its integrality
+fact, so `(not (<= 3.0 (to_real (to_int x))))` bounds `x` by 2. The legacy
+core's congruence through `to_int` and `is_int` is `congrArg`. Still
+rejected: a cut rounding a Real atom over a Real variable (`x` and `x/2`
+both integral gives `(= (* 0.5 x) (to_real (to_int (* 0.5 x))))`), by the
+exporter ("cut hint over Real atoms") or the reconstructor; the legacy core
+emits such lemmas as farkas steps that Lean then fails to prove. Tests:
+`test_proof_to_lean_lira.py` (nine documented floor inputs, one of them
+z3test `issue-1608.smt2`, and four
+`random_floor_instance` seeds on both cores, the encoding, the floor and
+shift facts, the `is_int` axioms, invalid declarations, and the rejected
+cut). Of the 81 unsatisfiable `random_floor_instance` seeds in 1-200, 151
+of 162 runs verify in Lean (each about 1 s); the other 11 are such
+integrality cuts (eight clause-log rejections, three legacy Lean failures).
+
+Update (2026-11-02, later): such integrality cuts through floors are now
+certified on both cores. The exporter and the reconstructor accept a cut
+when some literal reaches an Int atom (a floor counts; a cut over Real atoms
+alone stays rejected), and a cut or coefficient-free farkas or bound of a
+conversion step gets its projection onto the Int atoms
+(`_projection_facts`): its constraints and floor bounds with every Real
+atom eliminated exactly in Python (an equality by substitution, the rest by
+Fourier-Motzkin), each projected constraint stated over Int through the
+`_int_cast_*` lemmas (`x = 5` and `x/2` integral leave
+`2 floor(x/2) - 5 = 0`; `x - 5/4` and `3x/2` integral leave
+`8b - 12a - 15 = 0`), which grind's Int module refutes. All 162 runs of the
+81 unsatisfiable seeds verify; without the facts six of the eight runs of
+the new test inputs fail.
 
 ### Native checks of the rem axioms (2026-10-31)
 

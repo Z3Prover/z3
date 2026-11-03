@@ -14,10 +14,11 @@ predicates over argument lists; grind's congruence closure proves euf lemmas.
 
 import argparse
 from collections import Counter, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 import functools
 import hashlib
+import itertools
 import json
 import math
 import os
@@ -31,7 +32,7 @@ import z3
 
 from proof_certificate import (
     ProofExportError, _rounded, bound_combination_refutes, integer_tightened, is_uninterpreted_sort,
-    linear_combination_refutes, numeral_value, parse_assertions, query_snapshot,
+    linear_combination_refutes, numeral_value, parse_assertions, pseudo_boolean_parameters, query_snapshot,
 )
 
 
@@ -52,6 +53,15 @@ _FIXED_ARITY = {
     z3.Z3_OP_EQ: 2, z3.Z3_OP_IFF: 2, z3.Z3_OP_ITE: 3,
 }
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
+# Pseudo-Boolean constraints (propositional certificates only): name, the
+# relation between the weighted count of the true literals and the bound,
+# and whether the declaration carries a coefficient per argument (at-most and
+# at-least weigh every literal 1). A literal l counts as its 0/1 value, the
+# classical (if l then 1 else 0) over Int (_pseudo_boolean_body).
+_PSEUDO_BOOLEAN = {
+    z3.Z3_OP_PB_AT_MOST: ("at-most", "<=", False), z3.Z3_OP_PB_AT_LEAST: ("at-least", ">=", False),
+    z3.Z3_OP_PB_LE: ("pble", "<=", True), z3.Z3_OP_PB_GE: ("pbge", ">=", True), z3.Z3_OP_PB_EQ: ("pbeq", "=", True),
+}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
 # The integer operators, Int certificates only: div and mod by a nonzero
@@ -85,13 +95,25 @@ _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # inequalities, proved by grind like every other theory tautology. arith: the
 # sat.smt arithmetic solver's own axioms (the div, mod, and rem definitions), a
 # clause of linear arithmetic atoms without coefficients, proved by Lean.
-_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith")
-_FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", "qf_uflia")
+# pb: theory_pb's propagations, conflicts, and constraint axioms, proved over
+# the 0/1 values of the variables (_pseudo_boolean_lemma).
+_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith", "pb")
+_FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia")
 # The arithmetic sorts and their Lean carriers: Real variables are valued in
 # Rat (see the exporter README for the soundness argument), Int variables in
 # Int, where omega decides the linear integer lemmas (see _grind_lemma).
 _ARITH_SORTS = ("Real", "Int")
 _NUMBER_TYPES = {"Real": "Rat", "Int": "Int"}
+# The arithmetic of a qf_lira certificate: Int and Real variables side by
+# side, each sort with its own valuation (_ivars into Int, _vars into Rat),
+# and the conversions between them: to_real, Lean's Int.cast into Rat,
+# to_int, Rat.floor, and is_int, a Real term equal to the cast of its floor.
+# Whatever depends on the sort (numerals, rounding, the theory tactic) is
+# read off the node; a theory lemma over atoms of both sorts is rejected
+# unless it reaches a conversion (_lemma_numeric).
+_MIXED = "Int and Real"
+# The arithmetic class of a qf_lira theory step reaching a conversion (_lemma_numeric).
+_CAST = "Int and Real through a conversion"
 # The fragments mixing arithmetic with uninterpreted symbols, by arithmetic sort.
 _MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia"}
 # Refutations with more proof steps than this are split into separately
@@ -316,21 +338,42 @@ class _Graph:
     # over Bool alone: either takes the qf_uf encoding (a Bool-only predicate's
     # arguments are injected into the otherwise unused carrier).
     uninterpreted: bool = False
-    numeric: str = "Real"  # the one arithmetic sort of the certificate, Real or Int
+    numeric: str = "Real"  # the arithmetic sort of the certificate: Real, Int, or _MIXED (qf_lira)
+    # The arithmetic sort of each qf_lira theory step, by node (_lemma_numeric).
+    lemma_sorts: dict = field(default_factory=dict, compare=False, repr=False)
 
     @property
     def fragment(self):
         if self.arithmetic and self.uninterpreted:
             return _MIXED_FRAGMENTS[self.numeric]
         if self.arithmetic:
-            return "qf_lia" if self.numeric == "Int" else "qf_lra"
+            return {"Int": "qf_lia", _MIXED: "qf_lira"}.get(self.numeric, "qf_lra")
         return "qf_uf" if self.uninterpreted else "propositional"
 
     @property
     def valuation(self):
-        """Extra Lean arguments of every formula: the numeric valuation, the uninterpreted interpretation, or both."""
-        return {"qf_lra": " _vars", "qf_lia": " _vars", "qf_uf": _UF_ARGUMENTS,
+        """Extra Lean arguments of every formula: the numeric valuations, the uninterpreted interpretation, or both."""
+        return {"qf_lra": " _vars", "qf_lia": " _vars", "qf_lira": " _vars _ivars", "qf_uf": _UF_ARGUMENTS,
                 "qf_uflra": _UFLRA_ARGUMENTS, "qf_uflia": _UFLIA_ARGUMENTS}.get(self.fragment, "")
+
+    def is_int(self, node):
+        """Whether an arithmetic term (or a linear form's atom) is Int-valued."""
+        return self.decl(node).range == "Int"
+
+    def number_type_of(self, node):
+        """The Lean type valuing an arithmetic term: Rat for Real, Int for Int."""
+        return _NUMBER_TYPES[self.decl(node).range]
+
+    def integer_form(self, terms):
+        """Whether a linear form (atoms -> coefficients) is over Int; a constant form is over the certificate's sort.
+
+        In qf_lira a Real atom may reach Int atoms through to_real, so a
+        form is over Int when all its atoms are: (<= (to_real n) 0.5) then
+        keys like (<= n 0), which it is equivalent to.
+        """
+        if self.numeric != _MIXED:
+            return self.numeric == "Int"
+        return bool(terms) and all(self.is_int(variable) for variable in terms)
 
     @property
     def number_type(self):
@@ -382,10 +425,15 @@ class _Graph:
 
 
 def _parameters(kind, name, parameters):
-    """Validate declaration parameters: only th-lemma carries a hint and its coefficients."""
+    """Validate declaration parameters: th-lemma carries a hint and its coefficients, a pseudo-Boolean
+    constraint its bound and coefficients (integers; their count is checked against the domain by _declaration)."""
     parameters = _list(parameters, "declaration parameters")
     if any(type(parameter) is not str for parameter in parameters):
         raise ReconstructionError("declaration parameters must be strings")
+    if kind in _PSEUDO_BOOLEAN:
+        if any(re.fullmatch(r"-?(0|[1-9][0-9]*)", parameter) is None for parameter in parameters):
+            raise ReconstructionError("pseudo-Boolean parameters must be integers: %s" % name)
+        return tuple(parameters)
     if kind != z3.Z3_OP_PR_TH_LEMMA:
         if parameters:
             raise ReconstructionError("invalid or parameterized native declaration")
@@ -426,7 +474,8 @@ def _declaration(raw, sorts):
     parameters = _parameters(kind, name, raw["parameters"])
     # Functions and predicates take arguments of any uninterpreted sort, Bool,
     # Real, or Int (the last three injected into the carrier; a certificate
-    # never mixes Real with Int, see _validate_graph); Proof is never an argument.
+    # with uninterpreted functions has Int or Real, not both, see
+    # classify_fragment); Proof is never an argument.
     argument_sorts = sorts + ("Bool", "Real", "Int")
     if raw["range"] in sorts:
         # Constants, functions, and ite inhabit an uninterpreted sort: no definitions.
@@ -454,6 +503,17 @@ def _declaration(raw, sorts):
             if any(argument not in argument_sorts for argument in domain):
                 raise ReconstructionError("unsupported arithmetic function declaration: %s" % name)
             return _Declaration(kind, name, domain, raw["range"], parameters)
+        elif kind == z3.Z3_OP_TO_REAL:
+            # The injection of Int into Real, qf_lira only (a certificate
+            # over one sort cannot declare it, see _validate_graph).
+            if name != "to_real" or domain != ("Int",) or numeric != "Real":
+                raise ReconstructionError("invalid to_real declaration")
+            return _Declaration(kind, name, domain, raw["range"], parameters)
+        elif kind == z3.Z3_OP_TO_INT:
+            # The floor of a Real term, Rat.floor, qf_lira only like to_real.
+            if name != "to_int" or domain != ("Real",) or numeric != "Int":
+                raise ReconstructionError("invalid to_int declaration")
+            return _Declaration(kind, name, domain, raw["range"], parameters)
         elif kind in _INT_NAMES:
             if _INT_NAMES[kind] != name or (numeric != "Int" and kind not in _NUMERIC_KINDS):
                 raise ReconstructionError("unsupported arithmetic declaration: %s" % name)
@@ -465,7 +525,16 @@ def _declaration(raw, sorts):
         if len(domain) != expected:
             raise ReconstructionError("invalid arithmetic declaration arity: %s" % name)
     elif raw["range"] == "Bool":
-        if kind in _ARITH_PREDICATE_NAMES:
+        if kind == z3.Z3_OP_IS_INT:
+            # (is_int t) is (= (to_real (to_int t)) t), qf_lira only.
+            if name != "is_int" or domain != ("Real",):
+                raise ReconstructionError("invalid is_int declaration")
+        elif kind in _PSEUDO_BOOLEAN:
+            expected_name, _, weighted = _PSEUDO_BOOLEAN[kind]
+            if (name != expected_name or any(argument != "Bool" for argument in domain)
+                    or len(parameters) != 1 + (len(domain) if weighted else 0)):
+                raise ReconstructionError("invalid pseudo-Boolean declaration: %s" % name)
+        elif kind in _ARITH_PREDICATE_NAMES:
             if _ARITH_PREDICATE_NAMES[kind] != name or domain not in (("Real", "Real"), ("Int", "Int")):
                 raise ReconstructionError("invalid arithmetic predicate declaration: %s" % name)
         else:
@@ -563,10 +632,10 @@ def _validate_graph(source, certificate):
     root = _index(certificate["proof"], len(nodes), "proof")
     numeric_sorts = {decl.range for decl in declarations if decl.range in _ARITH_SORTS}
     numeric_sorts.update(sort for decl in declarations for sort in decl.domain if sort in _ARITH_SORTS)
-    if len(numeric_sorts) > 1:
-        raise ReconstructionError("certificates cannot mix Int and Real arithmetic")
+    if len(numeric_sorts) > 1 and certificate["fragment"] != "qf_lira":
+        raise ReconstructionError("%s certificates cannot mix Int and Real arithmetic" % certificate["fragment"])
     arithmetic = bool(numeric_sorts)
-    numeric = numeric_sorts.pop() if numeric_sorts else "Real"
+    numeric = _MIXED if len(numeric_sorts) > 1 else numeric_sorts.pop() if numeric_sorts else "Real"
     if arithmetic and certificate["fragment"] in ("propositional", "qf_uf"):
         raise ReconstructionError("%s certificates cannot contain arithmetic" % certificate["fragment"])
     uninterpreted = bool(sorts) or any(decl.kind == z3.Z3_OP_UNINTERPRETED and decl.domain for decl in declarations)
@@ -577,10 +646,16 @@ def _validate_graph(source, certificate):
     if graph.fragment != certificate["fragment"]:
         if not arithmetic:
             raise ReconstructionError("%s certificates must contain arithmetic" % certificate["fragment"])
+        if certificate["fragment"] == "qf_lira":
+            raise ReconstructionError("qf_lira certificates contain both Int and Real arithmetic")
         # The uninterpreted symbols agree with the label (checked above), so
         # the label names the other arithmetic sort.
         raise ReconstructionError("only qf_lia and qf_uflia certificates contain Int arithmetic, "
                                   "and they contain no other")
+    if graph.fragment != "propositional" and any(
+            decl.kind in _PSEUDO_BOOLEAN or (decl.kind == z3.Z3_OP_PR_TH_LEMMA and decl.parameters[0] == "pb")
+            for decl in declarations):
+        raise ReconstructionError("pseudo-Boolean constraints occur in propositional certificates only")
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
     # The theorem states the assertions, so every div, mod, and rem they contain
@@ -674,13 +749,15 @@ def _bind_input(source, graph, fragment=None, query=0):
                 raise ReconstructionError("unsupported symbol signature: %s" % name)
             if name in tables[table] and tables[table][name] != node.declaration:
                 raise ReconstructionError("ambiguous %s symbol identity: %s" % (
-                    {"atoms": "Boolean", "variables": graph.numeric,
+                    {"atoms": "Boolean", "variables": "arithmetic" if graph.numeric == _MIXED else graph.numeric,
                      "numeric_functions": graph.numeric + " function"}.get(table, table[:-1]), name))
             if any(name in other for key, other in tables.items() if key != table):
                 raise ReconstructionError("symbol used with two sorts: %s" % name)
             tables[table][name] = node.declaration
         elif decl.kind == z3.Z3_OP_ANUM:
             name = str(Fraction(decl.name))
+        elif decl.kind in _PSEUDO_BOOLEAN:
+            name = " ".join(decl.parameters)  # the bound and coefficients are part of the constraint
         terms[index] = intern(decl.kind, name, decl.range, (terms[arg] for arg in node.arguments))
 
     original_terms, original_sorts = {}, set()
@@ -707,6 +784,8 @@ def _bind_input(source, graph, fragment=None, query=0):
                 raise ReconstructionError("symbol declared with several signatures: %s" % name)
         elif decl.kind() == z3.Z3_OP_ANUM:
             name = str(numeral_value(expr))
+        elif decl.kind() in _PSEUDO_BOOLEAN:
+            name = " ".join(pseudo_boolean_parameters(decl))
         original_terms[expr.get_id()] = intern(
             decl.kind(), name, range_name, (original_terms[child.get_id()] for child in expr.children()))
     if original_sorts != set(graph.sorts):
@@ -741,7 +820,8 @@ def _term(graph, node):
 
 
 def _valuation_binder(graph):
-    return {"qf_lra": " (_vars : Nat -> Rat)", "qf_lia": " (_vars : Nat -> Int)", "qf_uf": _UF_BINDERS,
+    return {"qf_lra": " (_vars : Nat -> Rat)", "qf_lia": " (_vars : Nat -> Int)",
+            "qf_lira": " (_vars : Nat -> Rat) (_ivars : Nat -> Int)", "qf_uf": _UF_BINDERS,
             "qf_uflra": _UFLRA_BINDERS, "qf_uflia": _UFLIA_BINDERS}.get(graph.fragment, "")
 
 
@@ -771,13 +851,18 @@ def _application_arguments(graph, arguments, term, formula):
                               else "(_m.bool %s)" % formula(arg) for arg in arguments)
 
 
-def _numeral(graph, value):
-    """Render a rational as a literal of the certificate's number type; Int numerals are integers."""
+def _numeral(sort, value):
+    """Render a rational as a literal of the arithmetic sort (Real or Int); Int numerals are integers."""
     if value.denominator == 1:
-        return "((%d : %s))" % (value.numerator, graph.number_type)
-    if graph.numeric == "Int":
-        raise ReconstructionError("fractional value in an Int certificate: %s" % value)
+        return "((%d : %s))" % (value.numerator, _NUMBER_TYPES[sort])
+    if sort == "Int":
+        raise ReconstructionError("fractional value in an Int term: %s" % value)
     return "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator)
+
+
+def _variable(graph, node, index):
+    """Render an arithmetic variable: _ivars for an Int one in a qf_lira certificate, _vars otherwise."""
+    return ("_ivars %d" if graph.numeric == _MIXED and graph.is_int(node) else "_vars %d") % index
 
 
 def _term_body(graph, node, variable_indices, term=None, formula=None):
@@ -794,23 +879,27 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if kind == z3.Z3_OP_UNINTERPRETED:
         index = variable_indices[graph.nodes[node].declaration]
         if not arguments:
-            return ("_vars %d" if graph.is_arith(node) else "_m.elems %d") % index
+            return _variable(graph, node, index) if graph.is_arith(node) else "_m.elems %d" % index
         return "%s %d %s" % (graph.numeric_functions if graph.is_arith(node) else "_m.funs", index,
                              _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
-        return _numeral(graph, Fraction(graph.decl(node).name))
+        return _numeral(graph.decl(node).range, Fraction(graph.decl(node).name))
     if kind == z3.Z3_OP_ITE:
         # The instance's proposition is inferred from the condition.
         return "(@ite %s %s (Classical.propDecidable _) %s %s)" % (
-            graph.number_type if graph.is_arith(node) else "_m.U",
+            graph.number_type_of(node) if graph.is_arith(node) else "_m.U",
             formula(arguments[0]), term(arguments[1]), term(arguments[2]))
     args = [term(arg) for arg in arguments]
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
+    if kind == z3.Z3_OP_TO_REAL:
+        return "((%s : Int) : Rat)" % args[0]
+    if kind == z3.Z3_OP_TO_INT:
+        return "(Rat.floor %s)" % args[0]
     if kind == z3.Z3_OP_ABS:
         # SMT-LIB's definition; the instance's proposition is inferred from the condition.
         return "(@ite %s (%s >= ((0 : %s))) (Classical.propDecidable _) %s (-%s))" % (
-            graph.number_type, args[0], graph.number_type, args[0], args[0])
+            graph.number_type_of(node), args[0], graph.number_type_of(node), args[0], args[0])
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
         return "(%s %s %s)" % (args[0], "/" if kind == z3.Z3_OP_IDIV else "%", args[1])
     if kind == z3.Z3_OP_REM:
@@ -838,11 +927,16 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
             return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
         if kind == z3.Z3_OP_EQ:
             return "(%s = %s)" % tuple(args)
+        if kind == z3.Z3_OP_IS_INT:
+            # SMT-LIB's definition, (= (to_real (to_int t)) t).
+            return "(((Rat.floor %s : Int) : Rat) = %s)" % (args[0], args[0])
         if kind == z3.Z3_OP_DISTINCT:
             pairs = ["(Not (%s = %s))" % (left, right)
                      for index, left in enumerate(args) for right in args[index + 1:]]
             return _fold("And", pairs, "True")
         raise ReconstructionError("unsupported arithmetic atom")
+    if kind in _PSEUDO_BOOLEAN:
+        return _pseudo_boolean_body(graph, node, formula)
     args = [formula(arg) for arg in arguments]
     if kind == z3.Z3_OP_UNINTERPRETED:
         return "_atoms %d" % atom_indices[graph.nodes[node].declaration]
@@ -876,6 +970,109 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
                  for index, left in enumerate(args) for right in args[index + 1:]]
         return _fold("And", pairs, "True")
     raise ReconstructionError("unsupported Boolean expression")
+
+
+def _pseudo_boolean_literal(graph, node):
+    """Whether a node is a Boolean variable or a negation of one, the arguments a pseudo-Boolean constraint takes."""
+    if graph.kind(node) == z3.Z3_OP_NOT:
+        node = graph.arguments(node)[0]
+    return graph.kind(node) == z3.Z3_OP_UNINTERPRETED and not graph.arguments(node)
+
+
+def _pseudo_boolean_body(graph, node, formula):
+    """Render a pseudo-Boolean constraint as an Int comparison of the weighted 0/1 values of its literals.
+
+    Each argument, a Boolean variable or a negation of one, is valued by the
+    classical (if l then 1 else 0); Lean's proofs read a negation's value as
+    one minus its variable's (_PSEUDO_BOOLEAN_LEMMAS).
+    """
+    _, relation, weighted = _PSEUDO_BOOLEAN[graph.kind(node)]
+    parameters = [int(parameter) for parameter in graph.decl(node).parameters]
+    arguments = graph.arguments(node)
+    coefficients = parameters[1:] if weighted else [1] * len(arguments)
+    summands = []
+    for coefficient, argument in zip(coefficients, arguments):
+        if not _pseudo_boolean_literal(graph, argument):
+            raise ReconstructionError("pseudo-Boolean arguments must be Boolean variables or their negations")
+        value = "(@ite Int %s (Classical.propDecidable _) 1 0)" % formula(argument)
+        summands.append(value if coefficient == 1 else "(%s * %s)" % (_numeral("Int", Fraction(coefficient)), value))
+    total = _infix("+", summands) if summands else "((0 : Int))"
+    return "(%s %s %s)" % (total, relation, _numeral("Int", Fraction(parameters[0])))
+
+
+# The value facts of a pseudo-Boolean step, stated once per certificate that
+# has one: a variable's 0/1 value lies between 0 and 1 and is 1 exactly when
+# the variable holds, and a negation's value is one minus the variable's.
+# Bounds rather than the disjunction (= 0 or = 1): omega splits a disjunction,
+# and sixteen of them took 83 s where the bounds take none.
+_PSEUDO_BOOLEAN_LEMMAS = """
+private theorem _pb_bit (p : Prop) :
+    (0 <= (@ite Int p (Classical.propDecidable p) 1 0) /\\ (@ite Int p (Classical.propDecidable p) 1 0) <= 1)
+      /\\ (p <-> (@ite Int p (Classical.propDecidable p) 1 0) = 1) := by
+  by_cases _h : p <;> simp [_h]
+
+private theorem _pb_not (p : Prop) :
+    (@ite Int (Not p) (Classical.propDecidable (Not p)) 1 0) = 1 - (@ite Int p (Classical.propDecidable p) 1 0) := by
+  by_cases _h : p <;> simp [_h]
+""".strip("\n").split("\n")
+
+
+def _pseudo_boolean_lemma(graph, node, prefix, atom_indices):
+    """Prove a step over pseudo-Boolean constraints by integer arithmetic over the variables' 0/1 values.
+
+    The step is a th-lemma pb (theory_pb's propagation, conflict, or axiom
+    clause, stated as the implication from its premises like every legacy
+    th-lemma) or a rewrite between constraints (Z3's pseudo-Boolean rewriter
+    normalizes them, say (at-most 1 a b c) to (at-least 2 (not a) (not b)
+    (not c))). After unfolding, every negation's value becomes one minus its
+    variable's (_pb_not), each variable's value is generalized to an Int
+    _x with 0 <= _x <= 1, the variable itself is rewritten to (_x = 1), and
+    omega, complete for linear integer arithmetic, decides the resulting
+    formula. Every node of the step must be a constraint, a Boolean variable,
+    a negation, a disjunction, or false, which is all theory_pb states.
+    """
+    conclusion = graph.conclusion(node)
+    premises = graph.arguments(node)[:-1]
+    conclusions = [graph.conclusion(premise) for premise in premises] + [conclusion]
+    reachable = set()
+    for formula in conclusions:
+        reachable |= _reachable(graph, formula)[0]
+    allowed = _PSEUDO_BOOLEAN.keys() | {z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_NOT, z3.Z3_OP_OR, z3.Z3_OP_FALSE}
+    if prefix == "rewrite":
+        allowed |= {z3.Z3_OP_EQ, z3.Z3_OP_IFF, z3.Z3_OP_AND, z3.Z3_OP_TRUE}
+    if any(graph.kind(formula) not in allowed or graph.is_term(formula) for formula in reachable):
+        raise ReconstructionError("pseudo-Boolean step over other formulas at node %d" % node)
+    atoms = sorted(atom_indices[graph.nodes[formula].declaration] for formula in reachable
+                   if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED)
+    lines = [
+        "",
+        "set_option maxHeartbeats 1000000 in",
+        # Not every variable occurs outside the constraints, whose values are generalized first.
+        "set_option linter.unusedSimpArgs false in",
+        "private theorem %s_%d (_atoms : Nat -> Prop)" % (prefix, node),
+        "    : %s := by" % " -> ".join(_formula(graph, formula) for formula in conclusions),
+        "  unfold " + " ".join(_definition_names(graph, reachable)),
+    ]
+    if any(graph.kind(formula) == z3.Z3_OP_NOT and graph.kind(parent) in _PSEUDO_BOOLEAN
+           for parent in reachable for formula in graph.arguments(parent)):
+        lines.append("  (try simp only [_pb_not])")
+    for atom in atoms:
+        value = "(@ite Int (_atoms %d) (Classical.propDecidable (_atoms %d)) 1 0)" % (atom, atom)
+        lines.extend([
+            "  have _r%d := (_pb_bit (_atoms %d)).1" % (atom, atom),
+            "  have _e%d := (_pb_bit (_atoms %d)).2" % (atom, atom),
+            "  generalize %s = _x%d at _r%d _e%d |-" % (value, atom, atom, atom),
+        ])
+    # omega reads the connectives of a goal except Iff, and neither False as a
+    # hypothesis nor True as a goal: a rewrite's two directions are proved
+    # apart, and one to false or true is closed by those constants.
+    decide = "omega" if prefix != "rewrite" else (
+        "first | omega | (constructor <;> intro _h <;> first | omega | exact False.elim _h | trivial)")
+    if atoms:
+        lines.append("  (try simp only [%s]) <;> %s" % (", ".join("_e%d" % atom for atom in atoms), decide))
+    else:
+        lines.append("  " + decide)
+    return lines, "(%s_%d _atoms%s)" % (prefix, node, "".join(" _step_%d" % premise for premise in premises))
 
 
 def _inject(position, count, term):
@@ -1178,6 +1375,10 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
     if graph.is_term(left):
         if kind == z3.Z3_OP_ITE:
             return "(ite_congr_classical %s %s %s)" % tuple(arguments), True, []
+        if kind == z3.Z3_OP_TO_REAL:
+            return "(congrArg (fun (_t : Int) => ((_t : Int) : Rat)) %s)" % arguments[0], False, []
+        if kind == z3.Z3_OP_TO_INT:
+            return "(congrArg (fun (_t : Rat) => Rat.floor _t) %s)" % arguments[0], False, []
         if graph.is_arith(left) and (kind in _REAL_NAMES or kind in _INT_NAMES):
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
@@ -1189,6 +1390,9 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
             pairs = ["(not_congr %s)" % _term_equality_congruence(first, second)
                      for index, first in enumerate(arguments) for second in arguments[index + 1:]]
             return _fold("and_congr", pairs, "(Iff.refl True)"), False, []
+        if kind == z3.Z3_OP_IS_INT:
+            return ("(Iff.of_eq (congrArg (fun (_t : Rat) => ((Rat.floor _t : Int) : Rat) = _t) %s))"
+                    % arguments[0]), False, []
         if graph.is_arith(left_args[0]) and kind in _ARITH_PREDICATE_NAMES:
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
@@ -1317,8 +1521,9 @@ def _scaling_helpers(graph, reachable, atom_indices, variable_indices):
             continue
         helpers.append("  have _s%d : %s -> (%s %s ((0 : %s))) := by grind" % (
             formula, _inline(graph, formula, atom_indices, variable_indices),
-            _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), relation,
-            graph.number_type))
+            _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices,
+                         graph.is_int(arguments[0])), relation,
+            graph.number_type_of(arguments[0])))
     return helpers
 
 
@@ -1329,13 +1534,21 @@ def _common_denominator(terms, constant):
     return scale
 
 
-def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices):
-    """Render scale * (terms + constant) with integer coefficients, as grind's linear module wants it."""
-    # The linear form's variables are Real variables and opaque ite terms.
-    parts = ["((%d : %s)) * %s" % (terms[variable] * scale, graph.number_type,
-                                   _inline(graph, variable, atom_indices, variable_indices))
-             for variable in sorted(terms)]
-    parts.append("((%d : %s))" % (constant * scale, graph.number_type))
+def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, integer):
+    """Render scale * (terms + constant) with integer coefficients, as grind's linear module wants it.
+
+    integer is whether the form is over Int (the sort of the atom or term it comes from).
+    """
+    # The linear form's variables are Real variables and opaque ite terms,
+    # and in qf_lira Int ones a Real atom reaches through to_real.
+    number_type = _NUMBER_TYPES["Int" if integer else "Real"]
+    parts = []
+    for variable in sorted(terms):
+        rendered = _inline(graph, variable, atom_indices, variable_indices)
+        if not integer and graph.is_int(variable):
+            rendered = "((%s : Int) : Rat)" % rendered
+        parts.append("((%d : %s)) * %s" % (terms[variable] * scale, number_type, rendered))
+    parts.append("((%d : %s))" % (constant * scale, number_type))
     return " + ".join(parts)
 
 
@@ -1374,8 +1587,9 @@ def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
                     node, side, hypothesis, inline(node), inline(branch), lemma))
             else:
                 helpers.append("  have _g%d_%d : %s -> ((%d : %s)) * %s = (%s) := fun _h => by rw [%s _h]; grind" % (
-                    node, side, hypothesis, scale, graph.number_type, inline(node),
-                    _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), lemma))
+                    node, side, hypothesis, scale, graph.number_type_of(node), inline(node),
+                    _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, graph.is_int(node)),
+                    lemma))
     return helpers
 
 
@@ -1459,6 +1673,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = reachable
     fallback = ["unfold " + " ".join(_definition_names(graph, remaining))] if remaining else []
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
+    fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
     fallback.append(_theory_tactic(graph))
     alternatives.append(fallback)
     if len(alternatives) == 1:
@@ -1468,6 +1683,309 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         lines.extend("    | (" + "\n       ".join(alternative) + ")" for alternative in alternatives)
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
+
+
+# The cast lemmas a qf_lira certificate with to_real states once (_CAST_LEMMAS)
+# and its theory steps instantiate per Int atom (_cast_facts), by atom kind:
+# the lemma and whether the atom's arguments are swapped (s >= t is t <= s).
+_CAST_ATOMS = {z3.Z3_OP_LE: ("_int_cast_le", False), z3.Z3_OP_GE: ("_int_cast_le", True),
+               z3.Z3_OP_LT: ("_int_cast_lt", False), z3.Z3_OP_GT: ("_int_cast_lt", True),
+               z3.Z3_OP_EQ: ("_int_cast_eq", False)}
+_CAST_LEMMAS = """
+private theorem _int_cast_le (s t : Int) :
+    (s <= t <-> (s : Rat) <= (t : Rat)) /\\ (Not (s <= t) <-> (t : Rat) + 1 <= (s : Rat)) := by
+  constructor
+  . exact Rat.intCast_le_intCast.symm
+  . rw [Int.not_le, Int.lt_iff_add_one_le, <- Rat.intCast_le_intCast]; push_cast; exact Iff.rfl
+
+private theorem _int_cast_lt (s t : Int) :
+    (s < t <-> (s : Rat) + 1 <= (t : Rat)) /\\ (Not (s < t) <-> (t : Rat) <= (s : Rat)) := by
+  constructor
+  . rw [Int.lt_iff_add_one_le, <- Rat.intCast_le_intCast]; push_cast; exact Iff.rfl
+  . rw [Int.not_lt, <- Rat.intCast_le_intCast]
+
+private theorem _int_cast_eq (s t : Int) :
+    (s = t <-> (s : Rat) = (t : Rat))
+      /\\ (Not (s = t) <-> (s : Rat) + 1 <= (t : Rat) \\/ (t : Rat) + 1 <= (s : Rat)) := by
+  constructor
+  . exact Rat.intCast_inj.symm
+  . have _h : (Not (s = t) <-> s + 1 <= t \\/ t + 1 <= s) := by omega
+    rw [_h, <- Rat.intCast_le_intCast, <- Rat.intCast_le_intCast]; push_cast; exact Iff.rfl
+""".strip("\n").split("\n")
+
+
+def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None):
+    """Transport the Int atoms of a theory step reaching to_real into Rat, then push the casts.
+
+    Through (to_real t), Int terms occur in Real atoms, and a lemma such as
+    x = (to_real n), (not (<= n 0)), x < 1 combines Int and Real bounds
+    over the rationals after tightening each Int atom on its own
+    (_polarity_constraint), but grind does not reason through Int.cast.
+    So each Int atom s R t is stated equivalent, in both polarities, to its
+    tightened bound between the casts of s and t (the _CAST_LEMMAS), and
+    push_cast distributes every cast over sums, products, and numerals,
+    leaving the casts of the Int atoms of the linear forms (variables,
+    div, mod, ite) as opaque Rat terms the Real arithmetic combines.
+    Conversely, a Real atom whose linear form ranges over Int terms alone
+    (to_real of Int terms and numerals) is stated equivalent to an Int atom
+    (_integrality_fact), so a cut that rounds it, such as
+    (= (to_real n) (/ 9 4)) refuted by integrality, is an integer lemma.
+    to_int is Rat.floor, and (is_int t) states t equal to the cast of its
+    floor: for each floor of a Real term a the step reaches, the core
+    lemmas state ((Rat.floor a : Int) : Rat) <= a < (Rat.floor a : Rat) + 1,
+    the two axioms Z3's arithmetic solver adds for to_int, with which the
+    floor is one more Int atom cast into Rat; floors of terms differing by
+    an integer are related too (_floor_shift_facts). A lattice step (node,
+    a cut or a coefficient-free farkas or bound) also gets its projection
+    onto its Int atoms (_projection_facts). Steps reaching no conversion
+    get nothing.
+    """
+    if not any(graph.kind(node) in _CONVERSION_KINDS for node in reachable):
+        return []
+    facts, floors = [], []
+    for formula in sorted(reachable):
+        kind, arguments = graph.kind(formula), graph.arguments(formula)
+        if kind in (z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT):
+            if arguments[0] not in floors:
+                floors.append(arguments[0])
+                argument = "(%s)" % _inline(graph, arguments[0], atom_indices, variable_indices)
+                facts.append("have _f%d := Rat.floor_le %s" % (arguments[0], argument))
+                facts.append("have _u%d := Rat.lt_floor_add_one %s" % (arguments[0], argument))
+            continue
+        if kind not in _CAST_ATOMS or graph.is_term(formula) or not graph.is_arith(arguments[0]):
+            continue
+        if not graph.is_int(arguments[0]):
+            facts.extend(_integrality_fact(graph, formula, atom_indices, variable_indices) or [])
+            continue
+        lemma, swapped = _CAST_ATOMS[kind]
+        sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in arguments]
+        if swapped:
+            sides.reverse()
+        facts.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
+    facts.extend(_floor_shift_facts(graph, floors, atom_indices, variable_indices))
+    if node is not None:
+        facts.extend(_projection_facts(graph, node, atom_indices, variable_indices))
+    facts.append("push_cast at *")
+    return facts
+
+
+# The most constraints _projection_facts keeps while eliminating a Real
+# atom (Fourier-Motzkin multiplies them), and the most facts it states.
+_PROJECTION_LIMIT = 200
+_PROJECTION_FACTS = 16
+
+
+def _projection_facts(graph, node, atom_indices, variable_indices):
+    """Bridge the projection of a lattice step onto its Int atoms into Int: tactic lines.
+
+    A cut or a coefficient-free farkas or bound of a _CAST step may rest on
+    the integrality of floors of Real terms, as in x = 5 against (/ x 2) =
+    (to_real (to_int (/ x 2))), or x - 5/4 and 3x/2 both integral: the
+    rational relaxation over the casts of the Int atoms is feasible (the
+    floor at 5/2; 8b - 12a = 15 for the floors a and b), so grind's Rat
+    module does not refute it, and its Int module never sees the constraint
+    the Real atoms imply between the Int ones. The step's linear constraints
+    (premises held, clause literals denied, and the bounds f <= a < f + 1
+    of each floor f of a term a) are projected onto the Int atoms here by
+    eliminating every other atom exactly (an equality by substitution, the
+    rest by Fourier-Motzkin), which keeps the integer solutions: an Int
+    point satisfies the projection iff the Real atoms extend it. Each
+    projected constraint F R 0, scaled to integer coefficients, is stated
+    through its cast lemma (_CAST_LEMMAS), F R 0 over Int iff its tightened
+    bound over the casts, which after push_cast is the projection grind's
+    Rat module derives; grind's Int module then refutes the Int problem
+    (2f = 5, 8b - 12a = 15). The facts are theorems whatever the projection
+    is, so a wrong one makes Lean fail, never accept. Other steps,
+    projections whose elimination rounds would exceed _PROJECTION_LIMIT
+    constraints, and constraints that never mentioned a Real atom (their
+    own facts are _cast_facts') get none; premises, literals and floors
+    without a linear form are left out of the projection; at most
+    _PROJECTION_FACTS are stated.
+    """
+    decl = graph.decl(node)
+    if (decl.name != "th-lemma" or len(decl.parameters) != 1 or decl.parameters[0] not in ("farkas", "bound", "cut")
+            or _lemma_numeric(graph, node) != _CAST):
+        return []
+    # A premise, literal or floor without a linear form is left out: the
+    # projection of the others is still implied by the step (and the facts
+    # are theorems in any case).
+    constraints = []
+    for literal, holds in ([(graph.conclusion(premise), True) for premise in graph.arguments(node)[:-1]]
+                           + [(literal, False) for literal in graph.clause(graph.conclusion(node))]):
+        try:
+            constraints.append(_polarity_constraint(graph, literal, holds))
+        except ReconstructionError:
+            continue
+    pending, floors = [atom for _, terms, _ in constraints for atom in terms], set()
+    while pending:
+        atom = pending.pop()
+        if graph.kind(atom) != z3.Z3_OP_TO_INT or atom in floors:
+            continue
+        floors.add(atom)
+        terms = {}
+        try:
+            constant = _linear_term(graph, graph.arguments(atom)[0], Fraction(-1), terms)
+        except ReconstructionError:
+            continue
+        terms[atom] = terms.get(atom, 0) + 1
+        constraints.append(("<=", dict(terms), constant))  # f - a <= 0
+        constraints.append(("<", {key: -value for key, value in terms.items() if value},
+                            -constant - 1))  # a - f - 1 < 0
+        pending.extend(terms)
+    # (relation, terms, constant, whether a Real atom was eliminated from it)
+    system = [(relation, {atom: value for atom, value in terms.items() if value}, constant,
+               any(not graph.is_int(atom) for atom in terms))
+              for relation, terms, constant in constraints]
+    while True:
+        reals = sorted({atom for _, terms, _, _ in system for atom in terms if not graph.is_int(atom)})
+        if not reals:
+            break
+        atom = reals[0]
+        users = [constraint for constraint in system if atom in constraint[1]]
+        rest = [constraint for constraint in system if atom not in constraint[1]]
+        pivot = next((constraint for constraint in users if constraint[0] == "="), None)
+        if pivot is not None:
+            pairs = [(pivot, other) for other in users if other is not pivot]
+        else:
+            pairs = [(lower, upper) for lower in users if lower[1][atom] < 0
+                     for upper in users if upper[1][atom] > 0]
+        # Checked before the round builds its rows, so that no round, the
+        # first included, outgrows the limit (n lower and n upper bounds
+        # make n * n rows).
+        if len(rest) + len(pairs) > _PROJECTION_LIMIT:
+            return []
+        for first, second in pairs:
+            # second - (second's coefficient / first's) * first, with a
+            # nonnegative multiplier unless first is an equality.
+            factor = second[1][atom] / first[1][atom]
+            terms = dict(second[1])
+            for key, value in first[1].items():
+                terms[key] = terms.get(key, 0) - factor * value
+            terms = {key: value for key, value in terms.items() if value}
+            if first[0] == "=":
+                relation = second[0]
+            else:
+                relation = "<" if "<" in (first[0], second[0]) else "<="
+            rest.append((relation, terms, second[2] - factor * first[2], True))
+        system = []
+        for relation, terms, constant, derived in rest:
+            if terms:
+                system.append((relation, terms, constant, derived))
+            elif not {"<=": constant <= 0, "<": constant < 0, "=": constant == 0}[relation]:
+                return []  # Refuted over the rationals: grind's Rat module needs no facts.
+    facts, seen = [], set()
+    for relation, terms, constant, derived in system:
+        if not derived:
+            continue
+        scale = _common_denominator(terms, constant)
+        divisor = functools.reduce(_gcd, [abs(int(value * scale)) for value in terms.values()])
+        key = (relation, tuple(sorted((atom, value * scale / divisor) for atom, value in terms.items())),
+               constant * scale / divisor)
+        if key in seen:
+            continue
+        seen.add(key)
+        form = _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, True)
+        facts.append("have _p%d_%d := %s (%s) ((0 : Int))" % (node, len(facts), _CAST_LEMMA_OF[relation], form))
+        if len(facts) == _PROJECTION_FACTS:
+            break
+    return facts
+
+
+# Floors per theory step beyond which _floor_shift_facts relates none (it relates every pair).
+_FLOOR_SHIFT_LIMIT = 12
+
+
+def _floor_shift_facts(graph, floors, atom_indices, variable_indices):
+    """Relate the floors of Real terms a and b whose difference D is an integer: floor a = floor b + D.
+
+    Z3's rewriter moves integer summands out of a floor, (to_int (+ x 1.0))
+    to (+ (to_int x) 1) and (is_int (+ x 1.0)) to (is_int x), which the
+    floor bounds alone do not show (they bound each floor within 1 of its
+    argument, not to an integer offset). D is a linear form over Int terms
+    (numerals, and Int atoms through to_real) with integer coefficients;
+    the core lemma Rat.floor_add_intCast moves it out of the floor, and the
+    equation is cast into Rat for the Real atoms over the floors.
+
+    A floored term a that is itself such an integer D, as in (is_int
+    (to_real n)), gets floor a = D through the core lemma
+    Rat.floor_intCast; these facts are one per floor and are not capped.
+    """
+    forms = {}
+    for argument in floors:
+        terms = {}
+        try:
+            constant = _linear_term(graph, argument, Fraction(1), terms)
+        except ReconstructionError:
+            continue
+        forms[argument] = ({atom: value for atom, value in terms.items() if value}, constant)
+    facts = []
+    for argument, (terms, constant) in sorted(forms.items()):
+        if (any(not graph.is_int(atom) or value.denominator != 1 for atom, value in terms.items())
+                or constant.denominator != 1):
+            continue
+        value = _scaled_form(graph, terms, constant, 1, atom_indices, variable_indices, True)
+        side = _inline(graph, argument, atom_indices, variable_indices)
+        facts.append("have _z%d := congrArg (fun (_t : Int) => ((_t : Int) : Rat)) ((congrArg Rat.floor "
+                     "(show (%s) = (((%s) : Int) : Rat) by push_cast; grind)).trans (Rat.floor_intCast _))" % (
+                         argument, side, value))
+    if len(floors) > _FLOOR_SHIFT_LIMIT:
+        return facts
+    for first, second in itertools.combinations(sorted(forms), 2):
+        (first_terms, first_constant), (second_terms, second_constant) = forms[first], forms[second]
+        difference = {atom: first_terms.get(atom, 0) - second_terms.get(atom, 0)
+                      for atom in set(first_terms) | set(second_terms)}
+        difference = {atom: value for atom, value in difference.items() if value}
+        constant = first_constant - second_constant
+        if (any(not graph.is_int(atom) or value.denominator != 1 for atom, value in difference.items())
+                or constant.denominator != 1):
+            continue
+        offset = _scaled_form(graph, difference, constant, 1, atom_indices, variable_indices, True)
+        sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in (first, second)]
+        facts.append("have _d%d_%d := congrArg (fun (_t : Int) => ((_t : Int) : Rat)) ((congrArg Rat.floor "
+                     "(show %s = %s + (((%s) : Int) : Rat) by push_cast; grind)).trans Rat.floor_add_intCast)" % (
+                         first, second, sides[0], sides[1], offset))
+    return facts
+
+
+# The conversions between the sorts of a qf_lira certificate: the injection
+# of Int into Real, the floor of a Real term, and the integrality test,
+# whose definition is in terms of the other two (_cast_facts).
+_CONVERSION_KINDS = (z3.Z3_OP_TO_REAL, z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT)
+# The core lemmas relating a relation between two Int terms to the one between their casts into Rat.
+_CAST_RELATIONS = {"<=": "Rat.intCast_le_intCast", "<": "Rat.intCast_lt_intCast", "=": "Rat.intCast_inj"}
+# The cast lemma (_CAST_LEMMAS) of an Int atom F R 0, by relation.
+_CAST_LEMMA_OF = {"<=": "_int_cast_le", "<": "_int_cast_lt", "=": "_int_cast_eq"}
+
+
+def _integrality_fact(graph, atom, atom_indices, variable_indices):
+    """State a Real atom over Int terms alone equivalent to an Int atom, or return None for any other.
+
+    Returns the tactic lines of the facts.
+
+    The atom is sum(terms) + constant R 0 over the Rat casts of Int terms;
+    scaled by the common denominator d > 0 of its coefficients and
+    constant it is F R 0 for an integer linear form F, so the atom is
+    equivalent to the Int atom F R 0: grind proves the atom equivalent to
+    the cast relation (Int.cast F) R 0 once push_cast has distributed the
+    cast, and the core lemma relates that to F R 0. The Int atom F R 0
+    is then transported back into Rat like any other (_CAST_LEMMAS), so a
+    strict bound is tightened between the casts as well: with x = (to_real
+    (to_int x)), (not (<= 3.0 (to_real (to_int x)))) bounds x by 2, not 3.
+    An atom without a linear form (a rewrite's dead branch dividing by
+    zero) gets no facts.
+    """
+    try:
+        relation, terms, constant = _atom_constraint(graph, atom)
+    except ReconstructionError:
+        return None
+    if not graph.integer_form(terms):
+        return None
+    scale = _common_denominator(terms, constant)
+    form = _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, True)
+    return ["have _r%d : (%s) <-> ((%s) %s ((0 : Int))) := Iff.trans (by push_cast; grind) %s" % (
+                atom, _inline(graph, atom, atom_indices, variable_indices), form, relation,
+                _CAST_RELATIONS[relation]),
+            "have _q%d := %s (%s) ((0 : Int))" % (atom, _CAST_LEMMA_OF[relation], form)]
 
 
 def _definition_names(graph, nodes):
@@ -1549,7 +2067,8 @@ def _atom_bridge_facts(graph, atoms):
     """
     groups = {}
     for atom in atoms:
-        groups.setdefault(_real_atom_key(graph, atom), []).append(atom)
+        # By sort too: in qf_lira an Int and a Real ite over numerals key alike.
+        groups.setdefault((graph.decl(atom).range, _real_atom_key(graph, atom)), []).append(atom)
     lines, names = [], []
     for members in groups.values():
         for first, second in zip(members, members[1:]):
@@ -1584,16 +2103,47 @@ def _opaque_tactic(graph, node):
     atoms' definitions.
     """
     parameters = graph.decl(node).parameters
-    if graph.numeric != "Int" or parameters[0] not in ("farkas", "bound", "cut"):
+    if parameters[0] not in ("farkas", "bound", "cut") or _lemma_numeric(graph, node) != "Int":
         return None
     return "omega" if len(parameters) > 1 else "grind (splits := 64)"
+
+
+def _lemma_numeric(graph, node):
+    """The arithmetic sort of a theory step: the certificate's, or in a qf_lira certificate the one its atoms share.
+
+    Without a conversion Z3 never combines atoms of the two sorts in one
+    arithmetic lemma, and the Int and Real treatments (rounding,
+    tightening, omega) differ, so a step over both is rejected. A step
+    reaching a conversion (to_real, or to_int and is_int, whose floor
+    is an Int atom over a Real term) is _CAST: the sorts meet there, so its
+    combination is rational with each Int atom tightened on its own
+    (_polarity_constraint), and Lean proves it with both sorts tied
+    together (_cast_facts). Several checks ask about one step, so the
+    answer is kept per node.
+    """
+    if graph.numeric != _MIXED:
+        return graph.numeric
+    if node in graph.lemma_sorts:
+        return graph.lemma_sorts[node]
+    formulas = [graph.conclusion(premise) for premise in graph.arguments(node)[:-1]] + [graph.conclusion(node)]
+    sorts, casts = set(), False
+    for formula in formulas:
+        reachable = _reachable(graph, formula)[0]
+        sorts.update(graph.decl(term).range for term in reachable if graph.is_arith(term))
+        casts = casts or any(graph.kind(term) in _CONVERSION_KINDS for term in reachable)
+    if casts:
+        sorts = {_CAST}
+    elif len(sorts) > 1:
+        raise ReconstructionError("arithmetic step over both Int and Real atoms at node %d" % node)
+    graph.lemma_sorts[node] = sorts.pop() if sorts else "Real"
+    return graph.lemma_sorts[node]
 
 
 def _lattice_step(graph, node):
     """Whether node is an Int th-lemma without coefficients: a cut, or a farkas or bound Z3 did not explain."""
     decl = graph.decl(node)
-    return (graph.numeric == "Int" and decl.name == "th-lemma" and len(decl.parameters) == 1
-            and decl.parameters[0] in ("farkas", "bound", "cut"))
+    return (decl.name == "th-lemma" and len(decl.parameters) == 1
+            and decl.parameters[0] in ("farkas", "bound", "cut") and _lemma_numeric(graph, node) == "Int")
 
 
 def _farkas_combination(graph, node):
@@ -1620,7 +2170,7 @@ def _farkas_combination(graph, node):
     generalized and unfolded proofs remain. Lean checks the attempt like
     any other proof; one that does not elaborate falls through to them.
     """
-    if graph.numeric != "Int" or not _combination_certified(graph, node):
+    if _lemma_numeric(graph, node) != "Int" or not _combination_certified(graph, node):
         return None
     coefficients = [Fraction(parameter) for parameter in graph.decl(node).parameters[1:]]
     if (len(coefficients) != len(graph.arguments(node)) - 1 + len(graph.clause(graph.conclusion(node)))
@@ -1884,7 +2434,8 @@ def _linear_structure(graph, node):
     return structure
 
 
-_LINEAR_ATOM_KINDS = (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS)
+_LINEAR_ATOM_KINDS = (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
+                      z3.Z3_OP_TO_INT)
 
 
 def _farkas_multipliers(forms, coefficients, equalities):
@@ -1961,10 +2512,13 @@ def _opaque_rewrite_tactic(graph):
     the rewriter folding a mod by its bounds) fails this attempt fast and
     is proved with the definitions unfolded, as before.
     """
+    if graph.numeric == _MIXED:
+        return "first | omega | grind (splits := 64)"
     return "omega" if graph.numeric == "Int" else "grind (splits := 64)"
 
 
-_OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED)
+_OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED,
+                     z3.Z3_OP_TO_INT)
 
 
 def _is_opaque_int_atom(graph, node):
@@ -2014,7 +2568,7 @@ def _theory_tactic(graph):
     (congruences and uninterpreted atoms). Both produce kernel-checked
     proofs.
     """
-    return "first | omega | grind (splits := 64)" if graph.numeric == "Int" else "grind (splits := 64)"
+    return "first | omega | grind (splits := 64)" if graph.numeric in ("Int", _MIXED) else "grind (splits := 64)"
 
 
 def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
@@ -2162,7 +2716,7 @@ def _condition_key(graph, relation, terms, constant):
         if relation == "=":
             keyed = {key: value / leading for key, value in keyed.items()}
             constant /= leading
-        elif graph.numeric == "Int":
+        elif graph.integer_form(terms):
             keyed, constant = _rounded(keyed, constant)
             if leading < 0:
                 keyed = {key: -value for key, value in keyed.items()}
@@ -3167,7 +3721,7 @@ def _leaf_key(graph, leaf):
         if relation == "=" and terms[min(terms)] < 0:
             scale = -scale
         constant *= scale
-        if graph.numeric == "Int" and relation == "<=":
+        if relation == "<=" and graph.integer_form(terms):
             constant = Fraction(math.ceil(constant))  # terms + constant <= 0 with integer terms
         keys.append((relation, tuple(sorted((variable, value * scale) for variable, value in terms.items())),
                      constant))
@@ -3187,8 +3741,12 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     conclusion = graph.conclusion(node)
     left, right = _equivalence(graph, conclusion, "rewrite")
     reachable, theory = _reachable(graph, conclusion)
-    if theory and terms is not None and terms[left] == terms[right]:
+    pseudo_boolean = any(graph.kind(formula) in _PSEUDO_BOOLEAN for formula in reachable)
+    if (theory or pseudo_boolean) and terms is not None and terms[left] == terms[right]:
         return [], set(), "(%s.refl %s)" % (_relation(graph, left), _side(graph, left))
+    if pseudo_boolean:
+        lines, term = _pseudo_boolean_lemma(graph, node, "rewrite", atom_indices)
+        return lines, set(), term
     if graph.is_term(left):
         # A rewrite between terms (the legacy core simplifies ite terms, for
         # example (ite true a b) to a): a theory tautology for grind.
@@ -3310,6 +3868,13 @@ def _normalizable_rewrite(graph, node, reachable, atoms):
     return all(kind == 0 for _, ordered, _ in left ^ right for (kind, _), _ in ordered)
 
 
+def _int_atom(graph, atom):
+    """Whether an arithmetic atom, under any negations, compares Int terms (and is tightened, _polarity_constraint)."""
+    while graph.kind(atom) == z3.Z3_OP_NOT:
+        atom = graph.arguments(atom)[0]
+    return graph.is_int(graph.arguments(atom)[0])
+
+
 def _normalized_atom(graph, atom, order):
     """The canonical key of an arithmetic atom's linear form, and whether the atom is its negation.
 
@@ -3320,14 +3885,25 @@ def _normalized_atom(graph, atom, order):
     t <= 0, whose complement is -t + 1 <= 0: a form with a negative leading
     coefficient is keyed as the negation of its complement, so that (< x 5)
     and (>= x 5) share one atom (the replay's _Normalizer does the same)
-    and the propositional lemma sees them as complementary.
+    and the propositional lemma sees them as complementary. A Real atom
+    whose form ranges over Int terms alone (through to_real, qf_lira) is
+    not tightened by _atom_constraint, so it is tightened here first:
+    scaled to integer coefficients and constant, a strict t < 0 made
+    t + 1 <= 0, and rounded to the lattice (_rounded), after which it keys
+    like the equivalent Int atom and the complement step is valid.
     """
     relation, terms, constant = _atom_constraint(graph, atom)
+    if relation != "=" and terms and graph.integer_form(terms) and not _int_atom(graph, atom):
+        scale = _common_denominator(terms, constant)
+        terms, constant = {var: value * scale for var, value in terms.items()}, constant * scale
+        if relation == "<":
+            relation, constant = "<=", constant + 1
+        terms, constant = _rounded(terms, constant)
     negated = relation == "<"
     if negated:
         terms, constant, relation = {var: -value for var, value in terms.items()}, -constant, "<="
     first = min(terms, key=order) if terms else None
-    if graph.numeric == "Int" and relation == "<=" and terms and terms[first] < 0:
+    if relation == "<=" and terms and terms[first] < 0 and graph.integer_form(terms):
         terms, constant, negated = {var: -value for var, value in terms.items()}, -constant + 1, True
     if terms:
         scale = terms[first] if relation == "=" else abs(terms[first])
@@ -3422,7 +3998,8 @@ def _ite_representatives(graph, atoms):
             table = _ite_table(graph, ite, order)
         except ReconstructionError:
             continue
-        representatives[ite] = tables.setdefault(table, ite)
+        # By sort too: in qf_lira an Int and a Real ite over numerals tabulate alike.
+        representatives[ite] = tables.setdefault((graph.decl(ite).range, table), ite)
     return representatives
 
 
@@ -3556,22 +4133,23 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
     by grind's case splits on their few conditions, so the reshaping is
     checked atom by atom and the propositional lemma never sees it.
     """
-    def numeral(value):
-        return _numeral(graph, value)
-
     representatives = _ite_representatives(graph, atoms)
 
     def order(variable):
         # Variables by index, then opaque terms by node, an ite by its
         # representative's (see _normalizable_rewrite).
         if not graph.arguments(variable):
-            return 0, variable_indices[graph.nodes[variable].declaration]
+            index = variable_indices[graph.nodes[variable].declaration]
+            variables[index] = variable
+            return 0, index
         return 1, representatives.get(variable, variable)
+
+    variables = {}  # variable index -> its node, for its valuation (_variable)
 
     def render(key):
         kind, index = key
         if kind == 0:
-            return "_vars %d" % index
+            return _variable(graph, variables[index], index)
         return "(%s)" % _inline(graph, index, atom_indices, variable_indices)
 
     canonical, normalized_atoms, rewrites, atom_lemmas, lines = {}, {}, [], [], [
@@ -3586,9 +4164,10 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
         scale = 1
         for value in [value for _, value in ordered] + [constant]:
             scale = scale * value.denominator // _gcd(scale, value.denominator)
-        parts = ["(%s * %s)" % (numeral(value * scale), render(var)) for var, value in ordered]
-        parts.append(numeral(constant * scale))
-        expression = "(%s %s ((0 : %s)))" % (" + ".join(parts), relation, graph.number_type)
+        sort = graph.decl(graph.arguments(atom)[0]).range
+        parts = ["(%s * %s)" % (_numeral(sort, value * scale), render(var)) for var, value in ordered]
+        parts.append(_numeral(sort, constant * scale))
+        expression = "(%s %s ((0 : %s)))" % (" + ".join(parts), relation, _NUMBER_TYPES[sort])
         if not ordered:
             holds = constant == 0 if relation == "=" else constant <= 0
             expression = "True" if holds != negated else "False"
@@ -4034,10 +4613,10 @@ def _def_axiom_lemma(graph, terms, node):
 def _linear_term(graph, node, scale, terms):
     """Accumulate the linear form of a Real or Int node into terms; return its constant part.
 
-    Variables, ite terms, integer div, mod, and rem, and abs are the atoms
-    of the linear form; each is opaque to Farkas reasoning, an ite tied to
-    its branches by gate clauses and a div, mod, or rem to its operands by
-    the solver's arith axioms.
+    Variables, ite terms, integer div, mod, and rem, abs, and to_int are
+    the atoms of the linear form; each is opaque to Farkas reasoning, an
+    ite tied to its branches by gate clauses and a div, mod, rem, or to_int
+    to its operands by the solver's arith axioms.
     """
     kind = graph.kind(node)
     arguments = graph.arguments(node)
@@ -4074,6 +4653,10 @@ def _linear_term(graph, node, scale, terms):
         if divisor == 0:
             raise ReconstructionError("division by zero in a theory lemma")
         return _linear_term(graph, arguments[0], scale / divisor, terms)
+    if kind == z3.Z3_OP_TO_REAL:
+        # The injection commutes with sums and numeral products: (to_real t)
+        # has t's linear form, over t's Int atoms (see _cast_facts).
+        return _linear_term(graph, arguments[0], scale, terms)
     raise ReconstructionError("unsupported arithmetic term in a theory lemma")
 
 
@@ -4131,7 +4714,7 @@ def _polarity_constraint(graph, literal, polarity):
     terms = {}
     constant = _linear_term(graph, first, Fraction(1), terms) + _linear_term(graph, second, Fraction(-1), terms)
     terms = {k: v for k, v in terms.items() if v != 0}
-    if graph.numeric == "Int":
+    if graph.is_int(left):
         # Over Int a strict constraint is its tightened non-strict form, as in
         # Z3's checker; the exporter's replay keys atoms the same way.
         try:
@@ -4176,12 +4759,17 @@ def _check_th_lemma(graph, node):
                 atom = graph.arguments(atom)[0]
             if graph.kind(atom) == z3.Z3_OP_FALSE and literal == atom:
                 continue  # The legacy core's axioms are stated as (or false l).
+            if graph.kind(atom) == z3.Z3_OP_IS_INT:
+                # The is_int definition's axioms (qf_lira): its argument is linear.
+                _linear_term(graph, graph.arguments(atom)[0], Fraction(1), {})
+                continue
             _atom_constraint(graph, atom)
         return
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
     coefficients = [Fraction(parameter) for parameter in parameters[1:]]
-    if parameters[0] == "cut" or (parameters[0] in ("farkas", "bound") and graph.numeric == "Int"
+    numeric = _lemma_numeric(graph, node)
+    if parameters[0] == "cut" or (parameters[0] in ("farkas", "bound") and numeric in ("Int", _CAST)
                                   and not coefficients):
         # An integer cut or gcd conflict, or an integer Farkas or bound step
         # whose LP explanation rested on cuts or on the integer lattice
@@ -4191,14 +4779,22 @@ def _check_th_lemma(graph, node):
         # rounding, so only the shape is checked (integer linear atoms, held
         # premises included) and Lean proves the clause or the implication.
         # (A coefficient-free farkas or bound over Real falls through to the
-        # coefficient count check below.)
-        if parameters[0] == "cut" and (graph.numeric != "Int" or coefficients or premises):
-            raise ReconstructionError("cut th-lemma requires an Int certificate, no premises, and no coefficients "
-                                      "at node %d" % node)
+        # coefficient count check below.) Through to_real the same holds
+        # for the integer lattice of the Int terms (_CAST): a cut there
+        # rounds Int atoms, Real atoms over Int terms alone (their linear
+        # forms are integer, see _integrality_fact), and the floors of Real
+        # terms (to_int, whose integrality the projection onto the Int atoms
+        # shows, see _projection_facts), so some literal must reach an Int
+        # atom.
+        if parameters[0] == "cut" and (numeric not in ("Int", _CAST) or coefficients or premises):
+            raise ReconstructionError("cut th-lemma requires an Int certificate or a to_real step, no premises, "
+                                      "and no coefficients at node %d" % node)
         for premise in premises:
             _atom_constraint(graph, premise)
-        for literal in literals:
-            _linear_constraint(graph, literal)
+        forms = [_linear_constraint(graph, literal)[1] for literal in literals]
+        if parameters[0] == "cut" and numeric == _CAST and not any(
+                graph.is_int(atom) for terms in forms for atom in terms):
+            raise ReconstructionError("cut th-lemma over Real atoms alone at node %d" % node)
         return
     if parameters[0] == "implied-eq" and premises and not coefficients:
         # The legacy core records none, and implied-eq coefficients are never
@@ -4229,7 +4825,7 @@ def _check_th_lemma(graph, node):
     # recomputes the consequent's multiplier after rounding), which the
     # hint's coefficients alone do not show.
     if parameters[0] != "implied-eq" and not linear_combination_refutes(constraints) and not (
-            parameters[0] == "bound" and graph.numeric == "Int" and bound_combination_refutes(constraints)):
+            parameters[0] == "bound" and numeric in ("Int", _CAST) and bound_combination_refutes(constraints)):
         raise ReconstructionError("th-lemma %s coefficients do not refute its literals at node %d" % (
             parameters[0], node))
 
@@ -4503,14 +5099,25 @@ def reconstruct(source, certificate):
             lines.append("-- %s %d: %s" % (label, indices[table][decl], json.dumps(name, ensure_ascii=True)))
     if graph.arithmetic and graph.numeric == "Int":
         lines.append("-- Int variables are encoded as Int; the integer lemmas are proved by omega, else grind.")
-        if any(decl.kind in _INT_NAMES for decl in graph.declarations):
-            lines.append("-- Int div and mod by a numeral are Lean's Euclidean / and %; abs is the ite SMT-LIB defines.")
-        if any(decl.kind == z3.Z3_OP_REM for decl in graph.declarations):
-            lines.append("-- Int rem by a numeral k is Z3's (ite (>= k 0) (mod t k) (- (mod t k))): t % k, or -(t % k) for k < 0.")
+    elif graph.numeric == _MIXED:
+        kinds = {decl.kind for decl in graph.declarations}
+        conversions = "to_real is Int.cast into Rat" if z3.Z3_OP_TO_REAL in kinds else ""
+        if kinds & {z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT}:
+            conversions += (", " if conversions else "") + "to_int is Rat.floor"
+        lines.append("-- Real variables are encoded as Rat (_vars) and Int variables as Int (_ivars), %s; "
+                     "the integer lemmas are proved by omega, else grind." % (
+                         conversions or "no term converting between them"))
     elif graph.arithmetic:
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
-        if any(decl.kind in _NUMERIC_KINDS for decl in graph.declarations):
-            lines.append("-- Real abs, which Z3 accepts beyond SMT-LIB, is the ite (if t >= 0 then t else -t).")
+    if any(decl.kind in _INT_NAMES and decl.range == "Int" for decl in graph.declarations):
+        lines.append("-- Int div and mod by a numeral are Lean's Euclidean / and %; abs is the ite SMT-LIB defines.")
+    if any(decl.kind == z3.Z3_OP_REM for decl in graph.declarations):
+        lines.append("-- Int rem by a numeral k is Z3's (ite (>= k 0) (mod t k) (- (mod t k))): t % k, or -(t % k) for k < 0.")
+    if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
+        lines.append("-- Pseudo-Boolean constraints compare the weighted sum of their literals' 0/1 values over Int "
+                     "with their bound.")
+    if any(decl.kind in _NUMERIC_KINDS and decl.range == "Real" for decl in graph.declarations):
+        lines.append("-- Real abs, which Z3 accepts beyond SMT-LIB, is the ite (if t >= 0 then t else -t).")
     if graph.arithmetic and graph.uninterpreted:
         lines.append("-- %s arguments of functions and predicates are injected into _m.U by %s;"
                      " functions with %s result are the family %s." % (
@@ -4535,6 +5142,10 @@ def reconstruct(source, certificate):
     lines.extend(["namespace " + namespace, "", "set_option maxRecDepth 100000", ""])
     options = len(lines) - 1
     lines.extend(_interpretation_structure(graph))
+    if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
+        lines.extend(_CAST_LEMMAS + [""])
+    if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
+        lines.extend(_PSEUDO_BOOLEAN_LEMMAS + [""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
@@ -4543,7 +5154,8 @@ def reconstruct(source, certificate):
                 classical.add(node)
             lines.append("%sdef term_%d %s : %s := %s" % (
                 "noncomputable " if node in classical else "", node, signature,
-                graph.number_type if graph.is_arith(node) else "_m.U", _term_body(graph, node, variable_indices)))
+                graph.number_type_of(node) if graph.is_arith(node) else "_m.U",
+                _term_body(graph, node, variable_indices)))
         elif graph.decl(node).range == "Bool":
             lines.append("def formula_%d %s : Prop := %s" % (
                 node, signature, _formula_body(graph, node, atom_indices)))
@@ -4553,6 +5165,8 @@ def reconstruct(source, certificate):
             _check_th_lemma(graph, node)
             if graph.decl(node).parameters[0] == "cnf":
                 lemma, term = _cnf_lemma(graph, node, atom_indices, variable_indices)
+            elif graph.decl(node).parameters[0] == "pb":
+                lemma, term = _pseudo_boolean_lemma(graph, node, "th_lemma", atom_indices)
             else:
                 lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                                            opaque_tactic=_opaque_tactic(graph, node),
