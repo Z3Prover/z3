@@ -15,11 +15,14 @@ inferences; the Lean reconstructor does.
 """
 
 from fractions import Fraction
+import math
+import numbers
 import os
 from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 import warnings
 
 import z3
@@ -32,6 +35,8 @@ from proof_certificate import (
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _RESULTS = ("sat", "unsat", "unknown")
+# What z3 prints when it stops at its -memory limit.
+_OUT_OF_MEMORY = '(error "out of memory")'
 # Logs of at least this many characters are trimmed before the replay. Trimming
 # shrinks every real log measured (a 32 KB QF_UF log from 2,254 nodes to 389, a
 # 695 KB one from 204,582 to 6,625) and costs one process launch; below it the
@@ -42,23 +47,77 @@ _RLIMIT = 200000
 # Up to this many assertion conjuncts, an assumed clause is checked against all
 # of them; above it, only against those sharing a symbol (_candidate_sources).
 _SEARCH_ALL_SOURCES = 64
+# Limits of every z3 run below unless the caller passes its own: seconds (-T)
+# and megabytes (-memory). Z3 stops itself at either; a run that outlives its
+# time limit by _LIMIT_GRACE seconds anyway is killed.
+_TIME_LIMIT = 600
+_MEMORY_LIMIT = 8192
+_LIMIT_GRACE = 30
+# Largest limits accepted (about 11.6 days and 4 TB). Above them the deadline
+# overflows subprocess.run, -T overflows z3's 32-bit long on Windows, and
+# -memory overflows z3's unsigned parameter (4294967295 MB already makes z3
+# report out of memory at once).
+_MAX_TIME_LIMIT = 10 ** 6
+_MAX_MEMORY_LIMIT = 2 ** 22
 
 
-def run_clause_log(z3_executable, assertion_text, timeout=None):
-    """Solve with the sat.smt core and return the clause log text."""
+def _limits(timeout, memory):
+    """Return the whole seconds and megabytes of a z3 run, defaults filled in."""
+    if timeout is None:
+        seconds = _TIME_LIMIT
+    elif isinstance(timeout, numbers.Real) and not isinstance(timeout, bool) and 0 < timeout <= _MAX_TIME_LIMIT:
+        seconds = math.ceil(timeout)
+    else:
+        raise ValueError("timeout must be a positive number of seconds, at most %d" % _MAX_TIME_LIMIT)
+    if memory is None:
+        megabytes = _MEMORY_LIMIT
+    elif isinstance(memory, numbers.Integral) and not isinstance(memory, bool) and 0 < memory <= _MAX_MEMORY_LIMIT:
+        megabytes = int(memory)
+    else:
+        raise ValueError("memory must be a positive integer number of megabytes, at most %d" % _MAX_MEMORY_LIMIT)
+    return seconds, megabytes
+
+
+def _run_limited(z3_executable, arguments, timeout, memory, task):
+    """Run z3 with arguments under time and memory limits.
+
+    Raises subprocess.TimeoutExpired, carrying the time limit, when Z3 stops
+    at it (it prints "timeout") or outlives it and is killed, and
+    ProofExportError naming the limit when Z3 runs out of memory.
+    """
+    seconds, megabytes = _limits(timeout, memory)
+    command = [str(z3_executable), "-T:%d" % seconds, "-memory:%d" % megabytes] + arguments
+    try:
+        run = subprocess.run(command, capture_output=True, text=True, timeout=seconds + _LIMIT_GRACE)
+    except subprocess.TimeoutExpired:
+        raise subprocess.TimeoutExpired(command, seconds) from None
+    except OSError as error:
+        raise ProofExportError("cannot run %s with %s: %s" % (task, z3_executable, error)) from error
+    lines = [line.strip() for line in run.stdout.splitlines() if line.strip()]
+    if lines and lines[-1] == "timeout":
+        raise subprocess.TimeoutExpired(command, seconds)
+    if _OUT_OF_MEMORY in run.stderr or _OUT_OF_MEMORY in lines:
+        raise ProofExportError("%s exceeded the memory limit of %d MB" % (task, megabytes))
+    return run
+
+
+def run_clause_log(z3_executable, assertion_text, timeout=None, memory=None):
+    """Solve with the sat.smt core and return the clause log text.
+
+    timeout (seconds) and memory (megabytes) bound the z3 run, by default
+    _TIME_LIMIT and _MEMORY_LIMIT; hitting either raises ProofExportError.
+    """
     with tempfile.TemporaryDirectory(prefix="z3_clause_log_") as directory:
         log = os.path.join(directory, "proof.log")
         problem = os.path.join(directory, "input.smt2")
         Path(problem).write_text(
             '(set-option :sat.smt true)\n(set-option :solver.proof.log "%s")\n' % log
             + _NO_PREPROCESSING + assertion_text + "\n(check-sat)\n", encoding="utf-8")
-        command = [z3_executable, problem]
-        if timeout is not None:
-            command.insert(1, "-T:%d" % max(1, int(timeout)))
+        task = "the clause-log solver run"
         try:
-            run = subprocess.run(command, capture_output=True, text=True)
-        except OSError as error:
-            raise ProofExportError("cannot run the z3 executable %s: %s" % (z3_executable, error))
+            run = _run_limited(z3_executable, [problem], timeout, memory, task)
+        except subprocess.TimeoutExpired as error:
+            raise ProofExportError("%s exceeded the time limit of %d s" % (task, error.timeout)) from None
         lines = [line.strip() for line in run.stdout.splitlines() if line.strip()]
         result = lines[-1] if lines else ""
         if result == "sat":
@@ -167,24 +226,24 @@ def _dependency_core(text):
     return "\n".join(result) + "\n"
 
 
-def trim_clause_log(z3_executable, text, timeout=None):
+def trim_clause_log(z3_executable, text, timeout=None, memory=None):
     """Reduce large logs with untrusted native dependencies; replay checks every retained step.
 
     Trimming only shortens the replay. When the trimmer reports an error (it
     rejects an inference it cannot derive by unit propagation) or writes a
     dependency graph the replay cannot use, the untrimmed log is returned
-    with a warning, and the replay checks every step of it instead.
+    with a warning, and the replay checks every step of it instead. timeout
+    (seconds) and memory (megabytes) bound the trimmer, by default
+    _TIME_LIMIT and _MEMORY_LIMIT; it stopping at the time limit raises
+    subprocess.TimeoutExpired, at the memory limit ProofExportError.
     """
     if len(text) < _TRIM_THRESHOLD:
         return text
     with tempfile.TemporaryDirectory(prefix="z3_clause_trim_") as directory:
         source = Path(directory) / "proof.smt2"
         source.write_text(text, encoding="utf-8")
-        try:
-            run = subprocess.run([str(z3_executable), "-smt2", "solver.proof.trim=true", str(source)],
-                                 capture_output=True, text=True, timeout=timeout)
-        except OSError as error:
-            raise ProofExportError("cannot run native proof trimming: %s" % error) from error
+        run = _run_limited(z3_executable, ["-smt2", "solver.proof.trim=true", str(source)], timeout, memory,
+                           "native proof trimming")
         if run.returncode or "(error" in run.stdout:
             failure = "exited with status %d" % run.returncode if run.returncode else "reported an error"
             warnings.warn("native proof trimming %s, replaying the untrimmed log: %s"
@@ -326,8 +385,13 @@ class _Terms:
         if head in ("div", "mod") and count == 2 and all(z3.is_int(argument) for argument in arguments):
             # z3py builds the integer operators for Int operands: div for /, mod for %.
             return arguments[0] / arguments[1] if head == "div" else arguments[0] % arguments[1]
-        if head == "abs" and count == 1 and z3.is_int(arguments[0]):
-            return z3.Abs(arguments[0])
+        if head == "rem" and count == 2 and all(z3.is_int(argument) for argument in arguments):
+            return z3.ArithRef(z3.Z3_mk_rem(self.context.ref(), arguments[0].as_ast(), arguments[1].as_ast()),
+                               self.context)
+        if head == "abs" and count == 1 and z3.is_arith(arguments[0]):
+            # The abs application itself, as logged: z3py's Abs builds
+            # (ite (> t 0) t (- t)), a different term from the input's abs.
+            return z3.ArithRef(z3.Z3_mk_abs(self.context.ref(), arguments[0].as_ast()), self.context)
         if head in ("<=", "<", ">=", ">") and count == 2:
             left, right = arguments
             return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
@@ -467,17 +531,17 @@ def _linear(expr, terms=None, scale=Fraction(1)):
 
     An ite term is an opaque variable here, as in Z3's arithmetic solver: the
     clause log relates it to its branches through explicit gate clauses. So
-    are an integer div or mod by a nonzero numeral, which the solver's arith
-    axioms relate to their operands, and abs.
+    are an integer div, mod, or rem by a nonzero numeral, which the solver's
+    arith axioms relate to their operands, and abs.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
     value = constant_value(expr)
     if value is not None:
         return terms, scale * value
-    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_ABS):
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)
@@ -593,10 +657,11 @@ def check_arith_hint(pairs):
 
     The sat.smt arithmetic solver labels the clauses it adds on its own arith
     (the definitions of an integer div and mod by a numeral k: k * (div t k)
-    + (mod t k) = t, 0 <= mod t k, and mod t k <= |k| - 1). The literals are
-    not a Farkas combination, so only their shape is checked (an arithmetic
-    equality or inequality whose sides are linear, with div and mod by a
-    nonzero numeral as atoms); Lean proves the clause. Each literal is
+    + (mod t k) = t, 0 <= mod t k, and mod t k <= |k| - 1; and of rem:
+    k < 0 or rem t k = mod t k, k >= 0 or rem t k = -(mod t k)). The
+    literals are not a Farkas combination, so only their shape is checked (an
+    arithmetic equality or inequality whose sides are linear, with div, mod,
+    and rem by a nonzero numeral as atoms); Lean proves the clause. Each literal is
     checked as its atom, whatever its polarity: the equality axiom reaches
     the hint as a negated equality, which the combination paths (cut among
     them) refuse because a disequality cannot be summed, while here nothing
@@ -621,6 +686,8 @@ class _Normalizer:
 
     def __init__(self):
         self.cache = {}  # (AST identifier, polarity) -> (expression kept alive, key)
+        self.failed = {}  # (AST identifier, polarity) -> (expression kept alive, the error its form raised)
+        self.traces = {}  # identifier of a failed error -> its traceback where it was first caught
         self.ids = {}  # canonical form -> key
         self.forms = []  # key -> canonical form
 
@@ -628,11 +695,56 @@ class _Normalizer:
         return self._key(expr, True)
 
     def _key(self, expr, polarity):
+        """The key of expr under polarity, its subformulas' keys computed first without recursion.
+
+        A conjunction a thousand levels deep (QF_IDL FISCHER6-4-ninc, a
+        CVC Lite translation) exceeded Python's recursion limit when every
+        form computed its children's keys recursively. The children are
+        visited bottom up on an explicit stack instead (_requests names the
+        ones _compute_form asks for), so _compute_form finds them cached. A
+        child whose form raises is not raised at once: its error is kept
+        and raised when _compute_form asks for it, as when the keys were
+        computed on demand (a conjunction stops at a false conjunct and
+        never asks for the later ones).
+        """
         index = expr.get_id(), polarity
-        cached = self.cache.get(index)
-        if cached is None:
-            cached = self.cache[index] = (expr, self._intern(self._compute_form(expr, polarity)))
-        return cached[1]
+        if index not in self.cache and index not in self.failed:
+            pending = [(expr, polarity, False)]
+            while pending:
+                node, truth, expanded = pending.pop()
+                position = node.get_id(), truth
+                if position in self.cache or position in self.failed:
+                    continue
+                if not expanded:
+                    pending.append((node, truth, True))
+                    pending.extend((child, sign, False) for child, sign in reversed(self._requests(node, truth)))
+                    continue
+                try:
+                    self.cache[position] = (node, self._intern(self._compute_form(node, truth)))
+                except Exception as error:  # noqa: BLE001 - raised again when the form is asked for
+                    self.failed[position] = (node, error)
+                    self.traces.setdefault(id(error), error.__traceback__)
+        if index in self.failed:
+            # From the traceback where it was first caught: every failing
+            # ancestor raises the same error, which would gather all their frames.
+            error = self.failed[index][1]
+            raise error.with_traceback(self.traces[id(error)])
+        return self.cache[index][1]
+
+    def _requests(self, expr, polarity):
+        """The (subformula, polarity) pairs whose keys _compute_form asks for, in its order."""
+        kind = expr.decl().kind()
+        if kind == z3.Z3_OP_NOT:
+            return [(expr.arg(0), not polarity)]
+        if kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
+            return [(child, polarity) for child in expr.children()]
+        if kind == z3.Z3_OP_IMPLIES:
+            return [(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)]
+        if kind in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE) or kind in _ARITH_PREDICATES or (
+                kind == z3.Z3_OP_EQ and z3.is_arith(expr.arg(0))) or (
+                kind == z3.Z3_OP_DISTINCT and z3.is_arith(expr.arg(0)) and expr.num_args() == 2):
+            return []
+        return [(child, True) for child in expr.children()]
 
     def _intern(self, form):
         key = self.ids.get(form)
@@ -714,11 +826,17 @@ class _Normalizer:
 
 
 def _conjuncts(expr, path=()):
-    """Yield (formula, and-elim path) for every conjunct reachable through nested ands."""
-    yield expr, path
-    if expr.decl().kind() == z3.Z3_OP_AND:
-        for child in expr.children():
-            yield from _conjuncts(child, path + (child,))
+    """Yield (formula, and-elim path) for every conjunct reachable through nested ands.
+
+    Depth first, parents before their conjuncts, without recursion: a
+    QF_IDL model checking input (FISCHER6-4-ninc) nests a thousand ands.
+    """
+    pending = [(expr, path)]
+    while pending:
+        expr, path = pending.pop()
+        yield expr, path
+        if expr.decl().kind() == z3.Z3_OP_AND:
+            pending.extend((child, path + (child,)) for child in reversed(expr.children()))
 
 
 def _symbols(expr):
@@ -740,8 +858,10 @@ def _symbols(expr):
 
 
 class _Replay:
-    def __init__(self, source, fragment, assertions, context):
+    def __init__(self, source, fragment, assertions, context, timeout=None):
         self.source, self.fragment, self.context = source, fragment, context
+        self.time_limit, _ = _limits(timeout, None)
+        self.deadline = time.monotonic() + self.time_limit
         self.assertions = list(assertions)
         self.dag = DagBuilder()
         self.assertion_nodes = [self.dag.expression(expr) for expr in self.assertions]
@@ -751,6 +871,7 @@ class _Replay:
                                    for conjunct, path in _conjuncts(assertion)]
         self.assumptions_by_key = None
         self.sources_by_symbol = None  # declaration id (None: no symbol) -> source positions
+        self.symbol_signatures = None  # conjunct AST id -> hash of its symbol set, with the index
         self.clauses = {}        # entry id -> (proof node, literal expressions)
         self.clause_keys = {}    # entry id -> precomputed literal keys for propagation
         self.literal_keys = {}   # AST id -> (literal kept alive, key)
@@ -909,7 +1030,7 @@ class _Replay:
             assertion, conjunct, path = source
             return self._derive_assumption(assertion, path, conjunct, formula)
         candidates = self._candidate_sources(formula)
-        for assertion, conjunct, path in candidates:
+        for assertion, conjunct, path in self._equivalence_candidates(formula, candidates):
             if self._valid(conjunct == formula):
                 return self._derive_assumption(assertion, path, conjunct, formula)
         for assertion, conjunct, path in candidates:
@@ -940,9 +1061,11 @@ class _Replay:
             return self.assumption_sources
         if self.sources_by_symbol is None:
             self.sources_by_symbol = {}
+            self.symbol_signatures = {}
             # Sources list an and before its conjuncts, so in reverse an and
             # takes the union of its conjuncts' sets instead of a traversal.
-            # The sets are dropped once the index is built.
+            # The sets are dropped once the index is built; a hash of each
+            # stays for _equivalence_candidates.
             symbols_of = {}
             for position in reversed(range(len(self.assumption_sources))):
                 conjunct = self.assumption_sources[position][1]
@@ -951,6 +1074,7 @@ class _Replay:
                 else:
                     symbols = _symbols(conjunct)
                 symbols_of[conjunct.get_id()] = symbols
+                self.symbol_signatures[conjunct.get_id()] = hash(frozenset(symbols))
                 for symbol in symbols or (None,):
                     self.sources_by_symbol.setdefault(symbol, []).append(position)
         symbols = _symbols(formula)
@@ -961,6 +1085,41 @@ class _Replay:
             positions.update(self.sources_by_symbol.get(symbol, ()))
         return [self.assumption_sources[position] for position in sorted(positions)]
 
+    def _equivalence_candidates(self, formula, candidates):
+        """Return the candidates worth a solver check for equivalence with formula.
+
+        Those are the conjuncts over exactly its symbols, and the leaf
+        conjuncts (not ands) over at least them: Z3's preprocessing may
+        simplify a symbol away, as (f (* 0 y)) to (f 0). The skipped ones
+        are the ands over more symbols, which were only ever refuted, one
+        solver call each over the whole conjunct: a QF_IDL model checking
+        input (FISCHER6-4-ninc) nesting a thousand ands checked seven
+        clauses against every suffix conjunction, 12,207 calls of a 459 s
+        export, before the first candidate, the whole assertion, implied
+        each. A leaf is checked at most once per clause, so the checks stay
+        linear in the size of the assertions. A conjunct equivalent to
+        formula also implies it, so the implication pass of assume still
+        ties a skipped one (through a cnf lemma rather than a rewrite);
+        nothing is trusted by skipping. Symbol sets are compared by hash
+        (_candidate_sources); a collision costs one check. A few sources are
+        not indexed and are all checked.
+        """
+        if self.symbol_signatures is None:
+            return candidates
+        symbols = _symbols(formula)
+        signature = hash(frozenset(symbols))
+        if symbols:
+            positions = set(self.sources_by_symbol.get(next(iter(symbols)), ()))
+            for symbol in symbols:
+                positions.intersection_update(self.sources_by_symbol.get(symbol, ()))
+            covering = {self.assumption_sources[position][1].get_id() for position in positions}
+        else:
+            covering = None  # every source covers no symbols
+        return [source for source in candidates
+                if self.symbol_signatures[source[1].get_id()] == signature
+                or (source[1].decl().kind() != z3.Z3_OP_AND
+                    and (covering is None or source[1].get_id() in covering))]
+
     def _implying_assertions(self, formula):
         """Return (asserted node, assertion) pairs for an unsat core of assertions implying formula, or None.
 
@@ -970,6 +1129,7 @@ class _Replay:
         assertions = list(dict.fromkeys(self.assertions, None))
         if not assertions:
             return None
+        self._check_deadline()
         solver = z3.Solver(ctx=self.context)
         solver.set("rlimit", _RLIMIT)
         tracking = [z3.FreshBool("cnf_source", self.context) for _ in assertions]
@@ -999,7 +1159,18 @@ class _Replay:
         self.alive.extend(lemma_literals)
         return self._resolve(lemma, [node for node, _ in sources], lemma_literals, list(literals))
 
+    def _check_deadline(self):
+        """Stop the replay once it has run for its time limit.
+
+        Checked before every log command and every bounded solver call (the
+        assumption search makes thousands on a deeply nested assertion), so
+        the replay overruns its limit by at most one of either.
+        """
+        if time.monotonic() > self.deadline:
+            raise ProofExportError("the clause-log replay exceeded the time limit of %d s" % self.time_limit)
+
     def _valid(self, claim):
+        self._check_deadline()
         solver = z3.Solver(ctx=self.context)
         solver.set("rlimit", _RLIMIT)
         solver.add(z3.Not(claim))
@@ -1183,6 +1354,7 @@ class _Replay:
         # literal is rejected when it is built.
         phantoms = set()
         for command in _sexpressions(text):
+            self._check_deadline()
             if not command or not isinstance(command[0], str):
                 raise ProofExportError("malformed clause log command")
             head = command[0]
@@ -1265,6 +1437,10 @@ class _Replay:
                                     compact=self.trimmed)
 
 
-def build_certificate(source, fragment, assertions, text, context):
-    """Rebuild a clause log as an unverified z3-native-proof-dag bundle."""
-    return _Replay(source, fragment, assertions, context).run(text)
+def build_certificate(source, fragment, assertions, text, context, timeout=None):
+    """Rebuild a clause log as an unverified z3-native-proof-dag bundle.
+
+    timeout (seconds, default _TIME_LIMIT) bounds the replay's wall-clock
+    time; exceeding it raises ProofExportError.
+    """
+    return _Replay(source, fragment, assertions, context, timeout).run(text)

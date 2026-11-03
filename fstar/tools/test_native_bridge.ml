@@ -3880,6 +3880,118 @@ let sorted_nnf_replay () =
    | Some n, P.DocumentChecked _ -> require (Z.equal n Z.zero) "valid NNF certificate document left pending"
    | _ -> failwith "valid NNF certificate document was not checked")
 
+(* The regrouping check of quant-intro rewrite leaves (Z3NnfReplay.regrouped) at native scale.
+   The Pulse.Checker.Base-1 shape (or g1 g2 g3 deep) = (or (or g1 g2) (or g3 deep)), where `deep`
+   nests alternating and/or 71 levels: the depth-64 and depth-2 propositional checks and the Int
+   equivalence all refuse it (the two cuts put their boundaries inside `deep` at different depths),
+   the regrouping accepts it and the certificate replays; a 2,000-operand disjunction against its
+   left-nested binary form replays, 2,100 operands exceed the 4,096-pop operand walk and are
+   refused; an operand with 2^17 tree nodes replays with enough work and is pending without it;
+   an operand whose tree has 2^60 nodes is pending (the leaf's charge runs out first); a
+   200,000-deep or chain is refused by the walk's pop bound. Distinct deep operands f^d(a) and
+   f^d(b) (pointer equality cannot short-circuit them), on the ordered and the order-free path:
+   at d = 4,000 they are compared (refused when the leaves differ, accepted for an unshared equal
+   copy); at d = 200,000 the depth admission (4,096 levels) refuses them before any comparison. *)
+let sorted_quant_intro_regrouping () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module AR = Z3SortedArithmetic in
+  let constant name = A.App ({ A.decl_name = name; domain = []; range = A.bool_sort; interp = None; int_params = [] }, []) in
+  let connective name interp args =
+    A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+             interp = Some interp; int_params = [] }, args) in
+  let mk_or = connective "or" Z3ValueTheory.op_or and mk_and = connective "and" Z3ValueTheory.op_and in
+  let term = A.BaseSort "Term" in
+  let all body = A.Quantifier (A.Forall_k, [term], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all l) (all r)) [0] (Some [term]) ::
+                                      padding pad;
+                   binder_root = Z.one } (U.Equal (all l, all r)) in
+  let g i = constant ("g" ^ string_of_int i) in
+  let rec chain n =
+    let level = [constant ("y" ^ string_of_int n); constant ("z" ^ string_of_int n)] in
+    if n = 0 then mk_or level
+    else if n mod 2 = 0 then mk_or (level @ [chain (n - 1)]) else mk_and (level @ [chain (n - 1)]) in
+  let deep = chain 70 in
+  let a6_l = mk_or [g 1; g 2; g 3; deep] and a6_r = mk_or [mk_or [g 1; g 2]; mk_or [g 3; deep]] in
+  require (not (AR.equivalent a6_l a6_r)) "the Int equivalence accepted a Boolean regrouping";
+  require (not (NR.propositional_at (Z.of_int 64) a6_l a6_r)) "the depth-64 check accepted the deep regrouping";
+  require (not (NR.propositional_at (Z.of_int 2) a6_l a6_r)) "the depth-2 check accepted the deep regrouping";
+  require (NR.regrouped a6_l a6_r && NR.rewrite_ok a6_l a6_r) "the deep regrouping was refused";
+  require (leaf a6_l a6_r 0 = NR.Replayed) "the deep regrouping certificate was not replayed";
+  require (leaf (mk_and [g 1; mk_and [g 2; g 3]; g 4]) (mk_and [mk_and [g 1; g 2]; mk_and [g 3; g 4]]) 0
+           = NR.Replayed) "a nested conjunction was not replayed";
+  require (leaf (mk_or [g 1; g 2; g 3]) (mk_or [mk_or [g 1; g 2]; g 4]) 0 = NR.Unreplayed)
+    "a regrouping with a wrong operand was replayed";
+  let left_nested xs = List.fold_left (fun acc y -> mk_or [acc; y]) (List.hd xs) (List.tl xs) in
+  let wide n = let xs = List.init n (fun i -> constant ("p" ^ string_of_int i)) in mk_or xs, left_nested xs in
+  let l, r = wide 2000 in
+  require (NR.regrouped l r && leaf l r 0 = NR.Replayed) "a 2,000-operand regrouping was not replayed";
+  let l, r = wide 2100 in
+  require (not (NR.regrouped l r)) "a regrouping beyond the operand walk bound was accepted";
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let wide_dag = dag 16 (g 1) in
+  let l = mk_or [wide_dag; g 2; g 3] and r = mk_or [mk_or [wide_dag; g 2]; g 3] in
+  require (leaf l r 2000 = NR.Replayed) "a large operand was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large operand was replayed beyond the work budget";
+  let big = dag 60 (g 1) in
+  require (leaf (mk_or [big; g 2]) (mk_or [mk_or [big]; g 2]) 40 = NR.Unreplayed)
+    "an exponential operand was replayed";
+  let rec or_chain depth acc = if depth = 0 then acc else or_chain (depth - 1) (mk_or [acc; g 2]) in
+  require (not (NR.regrouped (or_chain 200000 (g 1)) (mk_or [g 1; g 2])))
+    "a 200,000-deep or chain was regrouped beyond the operand walk bound";
+  let f = { A.decl_name = "f"; domain = [A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = constant "a" and b = constant "b" in
+  let ordered x y = mk_or [x; g 2; g 3], mk_or [mk_or [y; g 2]; g 3] in
+  let unordered x y = mk_or [x; g 2; g 3], mk_or [g 3; mk_or [g 2; y]] in
+  List.iter (fun (shape, name) ->
+      let l, r = shape (applied 4000 a) (applied 4000 b) in
+      require (not (NR.regrouped l r) && leaf l r 0 = NR.Unreplayed)
+        ("distinct 4,000-deep operands were regrouped: " ^ name);
+      let l, r = shape (applied 4000 a) (applied 4000 a) in
+      require (NR.regrouped l r && leaf l r 0 = NR.Replayed)
+        ("unshared equal 4,000-deep operands were not regrouped: " ^ name);
+      let l, r = shape (applied 200000 a) (applied 200000 b) in
+      require (not (NR.regrouped l r)) ("distinct 200,000-deep operands were regrouped: " ^ name);
+      let l, r = shape (applied 200000 a) (applied 200000 a) in
+      require (not (NR.regrouped l r)) ("operands beyond the depth admission were regrouped: " ^ name))
+    [ordered, "ordered"; unordered, "order-free"]
+
+(* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
+   equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
+   only. For every pair below the units equal the previous charge name_length a + name_length b,
+   and the comparison of BaseSort a with BaseSort b returns the previous result and work left
+   with exactly enough work, one unit short (exhausted) and spare work. The pairs: equal names
+   (built separately, so the count-once branch rests on string equality, not identity), a
+   prefix, equal lengths that differ, empty names, 300,000-character names (equal, and differing
+   in the last character), valid non-ASCII UTF-8, and malformed bytes (a lone continuation byte,
+   a truncated lead byte, U+FFFD itself against a byte the decoder reads as U+FFFD). *)
+let name_pair_units_equivalence () =
+  let huge c = String.make 300000 'S' ^ String.make 1 c in
+  let pairs = [
+    "Term", "Te" ^ "rm"; "Term", "Term2"; "Term2", "Term"; "abc", "abd"; "", ""; "", "x";
+    huge 'S', huge 'S'; huge 'S', huge 'T';
+    "\xc3\xa9\xe5\x90\x8d", "\xc3\xa9" ^ "\xe5\x90\x8d"; "\xc3\xa9\xe5\x90\x8d", "\xc3\xa9\xe5\x90\x8e";
+    "\x80\xc3", "\x80" ^ "\xc3"; "\xc3", "\xc3\xa9"; "\xef\xbf\xbd", "\x80" ] in
+  List.iter (fun (a, b) ->
+      let previous = Z.add (U.name_length a) (U.name_length b) in
+      require (Z.equal (U.name_pair_units a b) previous) "name pair units differ from both names' lengths";
+      let units = Z.succ previous in
+      List.iter (fun w ->
+          let expected = if Z.lt w units then None else Some (a = b, Z.sub w units) in
+          require (U.sort_eq_within w (A.BaseSort a) (A.BaseSort b) = expected)
+            "the base-sort comparison changed its result or work left")
+        [Z.pred units; units; Z.add units (Z.of_int 7)])
+    pairs
+
 let sorted_epsilon_skolemization () =
   let module K = Z3SortedProof in
   let module E = Z3SortedSkolem in
@@ -7663,6 +7775,8 @@ let () =
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
+     "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
+     "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
      "sorted-constant-folding-rewrites", sorted_constant_folding;

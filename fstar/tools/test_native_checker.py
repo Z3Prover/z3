@@ -308,6 +308,229 @@ def unit_ideal(prime):
     return finite_field(prime,
         "(and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F))))")
 
+# Reduced from the F* corpus (Pulse.Lib.Raise q5 and the triangle clauses of the th-lemma
+# cohort): the solver options F* sets, a Fuel datatype in the proof (so the default route is
+# the sorted-datatype semantics, as for every F* query), an uninterpreted Universe sort and
+# opaque Int-valued applications. Each proof's only otherwise-unchecked steps are the
+# producer's integer equality/order steps (`th-lemma arith triangle-eq` clauses and an
+# `implied-eq` from two opposite bounds), which the sorted kernel replays.
+FSTAR_QUERY_PREAMBLE = (
+    "(set-option :auto_config false)(set-option :smt.mbqi false)(set-option :smt.case_split 3)"
+    "(set-option :smt.relevancy 2)(set-option :smt.arith.solver 6)"
+    "(declare-datatypes () ((Fuel (ZFuel) (SFuel (prec Fuel)))))"
+    "(declare-sort Universe)(declare-fun ulevel (Universe) Int)"
+    "(declare-fun a () Universe)(declare-fun b () Universe)"
+    "(declare-fun MaxIFuel () Fuel)(assert (= MaxIFuel (SFuel ZFuel)))"
+    "(declare-fun h (Universe) Int)")
+
+SORTED_INT_ORDER_CASES = (
+    # (or (not (= 1 S)) (<= S 1)) and (>= S 1), S = (+ (h a) (* -1 (h b))): Raise q5's shape.
+    ("sum-equation-upper-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (= (h a) (+ 1 (h b))))(assert (> (h a) (+ 1 (h b))))"),
+    ("sum-equation-lower-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (= (h a) (+ 1 (h b))))(assert (< (h a) (h b)))"),
+    # (or (not (= x y)) (>= (+ x (* -1 y)) 0)) over opaque applications.
+    ("difference-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (= (h a) (h b)))(assert (< (h a) (h b)))"),
+    # (or (= x y) (not (<= (+ x (* -1 y)) 0)) (not (>= (+ x (* -1 y)) 0))).
+    ("antisymmetry-clause", FSTAR_QUERY_PREAMBLE +
+     "(assert (<= (h a) (h b)))(assert (>= (h a) (h b)))(assert (not (= (h a) (h b))))"),
+    # (= x y) from (>= (+ x (* -1 y)) 0) and (<= (+ x (* -1 y)) 0).
+    ("implied-equality-from-bounds", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Int)(declare-const x Int)(declare-const y Int)"
+     "(assert (<= x y))(assert (<= y x))(assert (not (= (g x) (g y))))"),
+)
+
+# No-false-ACCEPT controls on the same shapes. An implied equality beyond the bounded linear
+# search of the sorted kernel (a chain of 17 offset equalities h u_i = h u_{i+1} + 1 through opaque
+# applications: one `implied-eq` step from 34 bound premises, 35 literals per direction, over the
+# search's 32-literal cap) stays an open `th-lemma` obligation; satisfiable variants are never
+# certified. (The earlier control here, h a = 1 + h b from S <= 1 and S >= 1, is a genuine linear
+# consequence that the kernel now certifies: SORTED_LINEAR_CASES.)
+def offset_chain(links):
+    return ("(declare-fun g (Int) Universe)"
+            + "".join(f"(declare-fun u{i} () Universe)" for i in range(links + 1))
+            + "".join(f"(assert (<= (h u{i}) (+ (h u{i + 1}) 1)))(assert (>= (h u{i}) (+ (h u{i + 1}) 1)))"
+                      for i in range(links))
+            + f"(assert (not (= (g (h u0)) (g (+ (h u{links}) {links})))))")
+
+SORTED_INT_ORDER_OPEN_CASES = (
+    ("implied-equality-beyond-literal-cap", FSTAR_QUERY_PREAMBLE + offset_chain(17)),
+)
+SORTED_INT_ORDER_SATISFIABLE_CASES = (
+    ("weak-bound", FSTAR_QUERY_PREAMBLE + "(assert (= (h a) (h b)))(assert (<= (h a) (h b)))"),
+    ("one-bound", FSTAR_QUERY_PREAMBLE +
+     "(assert (<= (h a) (h b)))(assert (not (= (h a) (h b))))"),
+)
+
+# Coefficient-free linear Int theory lemmas: the producer's implied equalities (`th-lemma arith
+# implied-eq`) carry no Farkas coefficients. The sorted kernel recomputes them from the step's own
+# premise and conclusion formulas (the bounded search proposes weights, the typed Int Farkas check
+# validates them), one refutation per direction of the equality, closed by antisymmetry. h a = 1 + h b
+# from the two bounds on S = h a + (-1) * h b; -1 = h a from h a > -2 and h a < 0 (the strict-Int
+# rounding; FStar.Math.Euclid-2 q3 node 306); and a chain of four offset equalities through opaque
+# applications (eight bound premises).
+SORTED_LINEAR_CASES = (
+    ("linear-implied-equality", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (= (h a) (+ 1 (h b))))"
+     "(assert (not (= (g (h a)) (g (+ (h b) 1)))))"),
+    ("strict-rounding-equality", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (> (h a) (- 2)))(assert (< (h a) 0))"
+     "(assert (not (= (g (h a)) (g (- 1)))))"),
+    ("offset-chain-equality", FSTAR_QUERY_PREAMBLE + offset_chain(4)),
+)
+# Integer division axioms are not linear consequences of their premises: they stay open
+# `th-lemma` obligations. Satisfiable variants (one bound only; a non-strict bound in place of the
+# strict one; h a = 0 claimed from 0 < h a < 2, where h a = 1) are never certified.
+SORTED_LINEAR_OPEN_CASES = (
+    ("integer-division-bounds", FSTAR_QUERY_PREAMBLE +
+     "(declare-const x Int)(assert (>= x 0))(assert (< (div x 2) 0))", 2),
+)
+SORTED_LINEAR_SATISFIABLE_CASES = (
+    ("one-sided-bound", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (<= (h a) (+ 1 (h b))))"
+     "(assert (not (= (g (h a)) (g (+ (h b) 1)))))"),
+    ("non-strict-lower-bound", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (>= (h a) (- 2)))(assert (< (h a) 0))"
+     "(assert (not (= (g (h a)) (g (- 1)))))"),
+    ("between-bounds", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun g (Int) Universe)(assert (> (h a) 0))(assert (< (h a) 2))"
+     "(assert (not (= (g (h a)) (g 0))))"),
+)
+# FStar.IntegerIntervals query 4 (corpus file queries-FStar.IntegerIntervals.smt2, sha256
+# d647c8f057fddde612502c92e3e30a4fd9fba8e08fa3e8b95b9e477846e022af; its exact byte prefix through the
+# fourth (check-sat), sha256 a5d361095fc56ed8fa08b39d50e3d6077dc0660e7d0213dcfa71a7c31f8d9af1), with
+# the three earlier push/pop-scoped queries, comment lines and the echo/get-info commands removed
+# and line ends normalized; no other command is changed. Its only otherwise-unchecked step is the
+# implied equality 5 = (-1) * BoxInt_proj_0(BoxInt 5) + BoxInt_proj_0(BoxInt 10) from the four
+# constant bounds of the two projections. It is checked interactively, as F* runs it: the batch
+# frontend does not decide the quantified prefix (UNKNOWN), which is not a checked result.
+FSTAR_INTEGER_INTERVALS_Q4 = "fstar-integer-intervals-q4.smt2"
+
+# Term if-then-else definition axioms in the shapes of Pulse.Lib.Raise q5 (a Universe choice
+# under an Int bound), Pulse.C.Types.Fields q1 (a Term choice under a Boolean-box equation) and
+# an Int choice: `(or (not c) (= t (ite c t u)))` and `(or c (= u (ite c t u)))`, both
+# branches, replayed as a theorem of the same interpretation (no new symbol).
+SORTED_CHOICE_CASES = (
+    ("universe-bound-choice", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun P (Universe) Bool)(assert (P (ite (<= (ulevel a) (ulevel b)) b a)))"
+     "(assert (not (P a)))(assert (not (P b)))"),
+    ("term-boolean-box-choice", FSTAR_QUERY_PREAMBLE +
+     "(declare-sort Term)(declare-fun F (Term Term) Term)(declare-fun BoxBool (Bool) Term)"
+     "(declare-fun Pt (Term) Bool)(declare-fun t1 () Term)(declare-fun t2 () Term)(declare-fun s () Term)"
+     "(assert (Pt (ite (= (F s t1) (BoxBool true)) t1 t2)))(assert (not (Pt t1)))(assert (not (Pt t2)))"),
+    ("integer-choice", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun c () Bool)(declare-fun k () Int)(declare-fun g (Int) Int)(declare-fun Pi (Int) Bool)"
+     "(assert (Pi (ite c 1 (g k))))(assert (not (Pi 1)))(assert (not (Pi (g k))))"),
+)
+SORTED_CHOICE_SATISFIABLE_CASES = (
+    ("one-branch-excluded", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun P (Universe) Bool)(assert (P (ite (<= (ulevel a) (ulevel b)) b a)))"
+     "(assert (not (P a)))"),
+)
+
+# Boolean or-gate definition axioms, reduced from FStar.Tactics.BreakVC-1 q1 (its or-intro node 51)
+# in the actual F* encoding. The instantiated query body has a gate g = (or (not G) (not h)) whose
+# disjunct h is itself a nested `or` over more than 12 atoms, so the producer's or-intro clause
+# (or g h) reads h at two depths of the bounded Boolean cut. The sorted kernel replays the
+# producer's or-intro (or g l, l the complement of a disjunct) and or-elim ((not g) or the
+# disjuncts) clauses as same-model tautologies: exact canonical or/not, exact disjuncts.
+BREAKVC_GATE_BACKGROUND = (
+    "(set-option :rewriter.enable_der false)(set-option :rewriter.sort_disjunctions false)"
+    "(declare-sort Term)(declare-sort Universe)(declare-fun U_zero () Universe)"
+    "(declare-datatypes () ((Fuel (ZFuel) (SFuel (prec Fuel)))))(declare-fun MaxIFuel () Fuel)"
+    "(declare-fun Valid (Term) Bool)(declare-fun HasTypeFuel (Fuel Term Term) Bool)"
+    "(define-fun HasType ((x Term) (t Term)) Bool (HasTypeFuel MaxIFuel x t))"
+    "(declare-fun ApplyTT (Term Term) Term)(declare-fun Tm_unit () Term)"
+    "(declare-fun FStar.Pervasives.spinoff (Term) Term)(declare-fun Prims.prop () Term)"
+    "(declare-fun Prims.pure_post (Universe Term) Term)(declare-fun Prims.squash (Term) Term)"
+    "(declare-fun Prims.unit () Term)(declare-fun Tm_arrow_1584e4c87a457f1777a95c06e090cc58 () Term)"
+    "(declare-fun Tm_refine_2de20c066034c13bf76e9c0b94f4806c (Term) Term)"
+    "(assert (! (forall ((@x0 Term)) (! (= (Prims.squash @x0) (Tm_refine_2de20c066034c13bf76e9c0b94f4806c @x0))"
+    " :pattern ((Prims.squash @x0)) :qid equation_Prims.squash)) :named equation_Prims.squash))"
+    "(assert (! (forall ((@u0 Fuel) (@x1 Term) (@x2 Term)) (! (iff (HasTypeFuel @u0 @x1"
+    " (Tm_refine_2de20c066034c13bf76e9c0b94f4806c @x2)) (and (HasTypeFuel @u0 @x1 Prims.unit) (Valid @x2)))"
+    " :pattern ((HasTypeFuel @u0 @x1 (Tm_refine_2de20c066034c13bf76e9c0b94f4806c @x2)))"
+    " :qid refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c))"
+    " :named refinement_interpretation_Tm_refine_2de20c066034c13bf76e9c0b94f4806c))"
+    "(declare-fun label_5 () Bool)(declare-fun label_4 () Bool)(declare-fun label_3 () Bool)"
+    "(declare-fun label_2 () Bool)(declare-fun label_1 () Bool)"
+    "(declare-fun Tm_arrow_d5bf7858f58cc2a67d68af59e5ff2145 (Term) Term)"
+    "(declare-fun Tm_arrow_3df206d68ffba27f9349bcb0bb5780db (Term) Term)")
+BREAKVC_GATE_QUERY = (
+    "(assert (! (not (forall ((@x0 Term)) (! (implies (HasType @x0 Tm_arrow_1584e4c87a457f1777a95c06e090cc58)"
+    " (forall ((@x1 Term)) (! (implies (and (HasType @x1 (Prims.pure_post U_zero Prims.unit))"
+    " (forall ((@x2 Term)) (! (implies (and (or label_1 (HasType @x2 Prims.unit))"
+    " (implies (Valid (FStar.Pervasives.spinoff (ApplyTT @x0 Tm_unit))) (or label_2 (Valid (ApplyTT @x0 Tm_unit)))))"
+    " (Valid (ApplyTT @x1 @x2))) :pattern ( (Valid (ApplyTT @x1 @x2))) :qid @query.2)))"
+    " (and (forall ((@x2 Term)) (! (implies (HasType @x2 Prims.unit) (and (forall ((@x3 Term))"
+    " (! (implies (HasType @x3 Prims.unit) (forall ((@x4 Term)) (! (implies (HasType @x4 Prims.unit)"
+    " (forall ((@x5 Term)) (! (implies (and (HasType @x5 Prims.unit) (iff (Valid (ApplyTT @x0 Tm_unit))"
+    " (Valid (FStar.Pervasives.spinoff (ApplyTT @x0 Tm_unit))))) (or label_3 (iff (Valid (FStar.Pervasives.spinoff"
+    " (ApplyTT @x0 Tm_unit))) (Valid (ApplyTT @x0 Tm_unit))))) :qid @query.6))) :qid @query.5))) :qid @query.4))"
+    " (forall ((@x3 Term)) (! (implies (HasType @x3 (Tm_arrow_d5bf7858f58cc2a67d68af59e5ff2145 @x0))"
+    " (forall ((@x4 Term)) (! (implies (HasType @x4 Prims.unit) (forall ((@x5 Term)) (! (implies (HasType @x5"
+    " (Prims.squash (ApplyTT @x0 Tm_unit))) (or label_4 (Valid (ApplyTT @x0 Tm_unit)))) :qid @query.9)))"
+    " :qid @query.8))) :qid @query.7)))) :qid @query.3)) (forall ((@x2 Term)) (! (implies (HasType @x2"
+    " (Tm_arrow_3df206d68ffba27f9349bcb0bb5780db @x0)) (and (forall ((@x3 Term) (@x4 Term)) (! (implies (and"
+    " (HasType @x3 Prims.prop) (HasType @x4 Prims.prop) (exists ((@x5 Term)) (! (and (HasType @x5 Prims.prop)"
+    " (exists ((@x6 Term)) (! (and (HasType @x6 Prims.prop) (exists ((@x7 Term)) (! (and (HasType @x7 Prims.prop)"
+    " (= @x3 @x7) (= @x7 @x6)) :qid @query.14)) (iff (Valid @x6) (Valid @x5))) :qid @query.13))"
+    " (implies (Valid @x5) (Valid @x4))) :qid @query.12)) (Valid @x3)) (or label_5 (Valid @x4))) :qid @query.11))"
+    " (forall ((@x3 Term)) (! (implies (and (HasType @x3 Prims.unit) (implies (Valid (FStar.Pervasives.spinoff"
+    " (ApplyTT @x0 Tm_unit))) (Valid (ApplyTT @x0 Tm_unit)))) (Valid (ApplyTT @x1 @x3))) :qid @query.15))))"
+    " :qid @query.10)))) :qid @query.1))) :qid @query))) :named @query))")
+SORTED_OR_GATE_CASES = (
+    ("breakvc-nested-or-intro", BREAKVC_GATE_BACKGROUND + BREAKVC_GATE_QUERY),
+)
+SORTED_OR_GATE_SATISFIABLE_CASES = (
+    ("breakvc-background-only", "(set-option :smt.mbqi true)" + BREAKVC_GATE_BACKGROUND),
+)
+
+# Quant-intro certificates: the producer's rewriting under binders (rewriter proof-bind /
+# quant-intro), reduced from the F* corpus. Implication-to-or under three nested Term binders
+# (the FStar.Tactics.BreakVC q1 shape: a pure-Boolean certificate beyond the bounded congruence),
+# Int comparison normal forms (`>` to `not <=`, x - y against 0) under two Universe binders, and
+# the iff/negation normalization of a wide disjunction under a Term binder,
+# (= (P x) (not O)) to (not (= O (P x))) with O over 14 atoms (the FStar.Sequence.Permutation and
+# Pulse.Lib.RingBuffer leaves): beyond the 12-atom truth table of the full Boolean cut and decided
+# over the two-level cut. Each proof's only otherwise-unchecked step is the quant-intro
+# certificate, which the sorted kernel replays entry by entry at the binder scopes. Satisfiable
+# variants (decided with model-based instantiation) are never certified.
+WIDE_IFF_NEGATION = (
+    "(declare-sort Term)(declare-fun P (Term) Bool)(declare-fun t1 () Term)"
+    + "".join(f"(declare-fun w{i} (Term) Bool)" for i in range(1, 15))
+    + "(assert (forall ((x Term)) (! (= (P x) (not (or "
+    + "".join(f"(w{i} x)" for i in range(1, 15)) + "))) :pattern ((P x)))))")
+SORTED_QUANT_INTRO_CASES = (
+    ("nested-implication-binders", FSTAR_QUERY_PREAMBLE +
+     "(declare-sort Term)(declare-fun H (Term) Bool)(declare-fun K (Term) Bool)"
+     "(declare-fun V (Term Term) Bool)(declare-fun l1 () Bool)"
+     "(assert (not (forall ((x0 Term)) (=> (H x0) (forall ((x1 Term)) (=> (and (K x1)"
+     " (forall ((x2 Term)) (! (=> (or l1 (H x2)) (V x1 x2)) :pattern ((V x1 x2)))))"
+     " (forall ((x2 Term)) (=> (H x2) (V x1 x2)))))))))"),
+    ("integer-comparison-under-binders", FSTAR_QUERY_PREAMBLE +
+     "(declare-fun pi (Universe Universe) Bool)"
+     "(assert (forall ((x Universe) (y Universe)) (! (=> (> (h x) (h y)) (pi x y)) :pattern ((pi x y)))))"
+     "(assert (> (h a) (h b)))(assert (not (pi a b)))"),
+    ("iff-negation-wide-disjunction", FSTAR_QUERY_PREAMBLE + WIDE_IFF_NEGATION +
+     "(assert (P t1))(assert (w3 t1))"),
+)
+SORTED_QUANT_INTRO_SATISFIABLE_CASES = (
+    ("nested-implication-other-guard", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)"
+     "(declare-sort Term)(declare-fun H (Term) Bool)(declare-fun K (Term) Bool)"
+     "(declare-fun V (Term Term) Bool)(declare-fun l1 () Bool)"
+     "(assert (not (forall ((x0 Term)) (=> (H x0) (forall ((x1 Term)) (=> (and (K x1)"
+     " (forall ((x2 Term)) (! (=> (or l1 (H x2)) (V x1 x2)) :pattern ((V x1 x2)))))"
+     " (forall ((x2 Term)) (=> (K x2) (V x1 x2)))))))))"),
+    ("integer-comparison-weak", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)"
+     "(declare-fun pi (Universe Universe) Bool)"
+     "(assert (forall ((x Universe) (y Universe)) (! (=> (> (h x) (h y)) (pi x y)) :pattern ((pi x y)))))"
+     "(assert (>= (h a) (h b)))(assert (not (pi a b)))"),
+    ("iff-negation-wide-disjunction-open", FSTAR_QUERY_PREAMBLE + "(set-option :smt.mbqi true)" +
+     WIDE_IFF_NEGATION + "(assert (P t1))"),
+)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -639,6 +862,169 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
         self.assertIn("semantics=sorted-datatype", result.stderr)
+
+    def test_sorted_integer_equality_order_steps_in_both_modes(self):
+        for name, source in SORTED_INT_ORDER_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_INT_ORDER_OPEN_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics"] + (["--interactive"] if interactive else [])
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    self.assertIn("unsat\n; proof-check PARTIAL 1\n" if interactive else "PARTIAL 1",
+                                  result.stdout)
+                    self.assertIn("obligation\tth-lemma\t1\t", result.stderr)
+        for name, source in SORTED_INT_ORDER_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_linear_integer_consequences_in_both_modes(self):
+        for name, source in SORTED_LINEAR_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
+        with self.subTest(case="fstar-integer-intervals-q4", interactive=True):
+            result = self.run_checker((repair / FSTAR_INTEGER_INTERVALS_Q4).read_text(),
+                                      "--interactive", "--diagnostics", "--stats")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+            self.assertIn("semantics=sorted-datatype", result.stdout)
+            self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source, pending in SORTED_LINEAR_OPEN_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics"] + (["--interactive"] if interactive else [])
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    self.assertIn(f"unsat\n; proof-check PARTIAL {pending}\n" if interactive
+                                  else f"PARTIAL {pending}", result.stdout)
+                    self.assertEqual(result.stderr.count("obligation\tth-lemma\t"), pending, result.stderr)
+        for name, source in SORTED_LINEAR_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_term_choice_definition_axioms_in_both_modes(self):
+        for name, source in SORTED_CHOICE_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_CHOICE_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_or_gate_definition_axioms_in_both_modes(self):
+        for name, source in SORTED_OR_GATE_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                    self.assertNotIn("obligation\tdef-axiom\t", result.stderr)
+        for name, source in SORTED_OR_GATE_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_quant_intro_certificates_in_both_modes(self):
+        for name, source in SORTED_QUANT_INTRO_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=sorted-datatype", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=sorted-datatype", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                    self.assertNotIn("obligation\tquant-intro\t", result.stderr)
+        for name, source in SORTED_QUANT_INTRO_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
 
     def test_datatype_operations_named_like_connectives(self):
         # Z3 lets user datatypes name accessors and constructors `and`, `or`, `not`, `=>`, `true` and `false`

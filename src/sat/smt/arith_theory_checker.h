@@ -22,7 +22,7 @@ The module assumes a limited repertoire of arithmetic proof rules.
 - bound - last literal is a bound. It is implied by prior literals.
 - arith - a theory axiom without coefficients; the arguments are the negated clause literals.
   The clause is accepted when one literal is valid by linear arithmetic over the defining
-  identities and bounds of div, mod and / by nonzero numerals, or when it is one of the two
+  identities and bounds of div, mod, rem and / by nonzero numerals, or when it is one of the two
   case splits of abs.
 
 --*/
@@ -443,6 +443,7 @@ namespace arith {
          * Theory axioms (rule arith) are the defining facts of the operations the
          * linear solver treats as opaque terms. For a nonzero numeral k:
          *   u = k * (div u k) + (mod u k),  0 <= (mod u k) <= |k| - 1,  k * (u / k) = u,
+         *   (rem u k) = (mod u k) when k >= 0 and (rem u k) = -(mod u k) otherwise,
          * and (abs u) is u when u >= 0 and -u when u <= 0.
          */
 
@@ -451,7 +452,8 @@ namespace arith {
             return a.is_mod(e, u, k) && is_numeral(k, n) && n.is_int() && !n.is_zero();
         }
 
-        // Replace every (mod u k) by u - k * (div u k) and every (u / k) by u / k
+        // Replace every (mod u k) by u - k * (div u k), every (rem u k) by
+        // s * (u - k * (div u k)) with s the sign of k, and every (u / k) by u / k
         // for nonzero numerals k.
         void expand_definitions(row& r) {
             vector<std::pair<expr*, rational>> terms;
@@ -460,12 +462,15 @@ namespace arith {
             expr* u, * k;
             rational n;
             for (auto const& [v, c] : terms) {
-                if (is_mod_by_numeral(v, u, k, n)) {
+                bool is_rem = a.is_rem(v, u, k) && is_numeral(k, n) && n.is_int() && !n.is_zero();
+                if (is_rem || is_mod_by_numeral(v, u, k, n)) {
+                    // (rem u k) is (mod u k) when k >= 0 and -(mod u k) otherwise
+                    rational s = is_rem && n.is_neg() ? rational(-1) : rational(1);
                     expr* d = a.mk_idiv(u, k);
                     m_pinned.push_back(d);
                     add(r, v, -c);
-                    linearize(r, c, u);
-                    add(r, d, -c * n);
+                    linearize(r, c * s, u);
+                    add(r, d, -c * s * n);
                 }
                 else if (a.is_div(v, u, k) && is_numeral(k, n) && !n.is_zero()) {
                     add(r, v, -c);

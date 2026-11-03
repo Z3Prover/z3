@@ -713,3 +713,26 @@ coverage proves an error in Z3's producer.
    reconstruction projects.
 
 These are review recommendations, not implementation changes made here.
+
+## Repair plan
+
+Use independent PRs rooted at current master, rather than recovering the entire
+closed #11513. Reproduce each defect on the base revision and keep the regression
+with its fix. Preserve proof-disabled behavior unless the transformation itself
+is unsound.
+
+| Batch | Scope | Acceptance criteria |
+|---|---|---|
+| 1a | Recover split-clause converter registration/composition from #11513, without its `dt2bv` encoder. Retain the incoming parent converter, keep it out of child goals, apply branch-local converters before discharge, and materialize the result exactly once. | Sequential and repeated splits produce closed refutations with only original asserted leaves. Parent and branch converters run once, in scope; linear and proof-disabled pipelines still work. |
+| 1b | Fix P5 / ARITH-QE-BIT2INT-ZERO and P4 together in the shared `bit2int` rewriter. Preserve integer modulo's zero-divisor completion instead of substituting BV remainder; clear the output proof on unchanged inputs. | Zero and symbolic divisors preserve SAT, including through QE; nonzero and negative-dividend cases remain equivalent. Reusing the rewriter cannot attach a preceding formula's equality to an unchanged assertion. |
+| 1c | Retain P3's existential rewrite certificate. | The returned equality starts at the original existential, ends at the rewritten result, and composes correctly with child rewrites and the original assertion proof. |
+| 2 | Reject `sk_hack` strengthening without a semantic premise; repair demodulation's non-ground instantiation evidence and arithmetic purification endpoints. | SAT/UNSAT agrees with the untransformed problem; quantified refutations retain every needed original premise and have matching inference endpoints. Do not equate a missing certificate with identity. |
+| 3 | Enforce simplifier capability and solver proof-availability contracts. Address unsupported custom simplifier pipelines, `qffd`/`smtfd`, solver-to-tactic premise transport, Horn transport, quasi-macro definitions, and the SMT fabricated-false bailout. | Reject unsupported proof requests before mutation or use a proof-capable fallback. Never publish UNSAT without an original-premise refutation, fabricate an asserted false, or substitute a proof whose fact differs from the replaced leaf. Test direct APIs and composed tactics separately. |
+| 4 | Add closed proof transport for fresh bit-blast/FP encodings, gauge fixing, and then `dt2bv` as independent projects. Reuse ordinary converter composition, not a second converter channel. | Prove generated side constraints, restore original assumptions, and traverse expression-valued proof parameters as well as ordinary AST children. Test scope, context translation, split orders, and repeated application. |
+| 5 | Enable category-3 local rewrites individually, then tackle category-4 contextual simplification, elimination and backend reconstruction. | Each advertised capability performs a real transformation with a checkable certificate; proof-mode no-ops do not count as support. Preserve cancellation and resource limits. |
+
+For every producer repair, validate the actual returned proof: conclusion, closed
+hypotheses, asserted-leaf ownership, and rule-specific side conditions. Discharge
+checker side conditions independently; a successful SAT check of the residual
+goal is not proof validation. Record source revisions and limitations, and keep
+the historical evidence above tied to its original review revision.

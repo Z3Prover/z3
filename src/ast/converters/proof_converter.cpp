@@ -78,6 +78,11 @@ void apply(ast_manager & m, proof_converter * pc, proof_ref & pr) {
     }
 }
 
+proof_ref apply(ast_manager & m, proof_converter * pc) {
+    proof_converter_ref converter = pc;
+    return converter ? (*converter)(m, 0, nullptr) : proof_ref(m);
+}
+
 /**
    Let pc2s be a buffer of proof converters that are wrappers for proofs.
    That is, they are functors of the form: unit -> Proof

@@ -30,6 +30,7 @@ bit2int::bit2int(ast_manager & m) :
 }
 
 void bit2int::operator()(expr * n, expr_ref & result, proof_ref& p) {
+    p = nullptr;
     flush_cache();
     expr_reduce emap(*this);
     for_each_ast(emap, n);
@@ -351,6 +352,11 @@ void bit2int::visit(app* n) {
     else if (m_arith_util.is_mod(n) &&
              is_bv_poly(e1, pos1, neg1) &&
              extract_bv(e2, sz2, sign2, e2bv) && !sign2) {
+        // Integer mod at zero is underspecified, unlike BV remainder.
+        if (!m_bv_util.is_numeral(e2bv, k, sz2) || k.is_zero()) {
+            cache_result(n, m.mk_app(f, num_args, args));
+            return;
+        }
         //
         // (pos1 - neg1) mod e2 = (pos1 + (e2 - (neg1 mod e2))) mod e2
         //

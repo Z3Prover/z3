@@ -296,14 +296,15 @@ class TestMixedValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(self.source, self.certificate)
         self.assertIn("theorem unsat (_atoms : Nat -> Prop)" + proof_to_lean._UFLRA_BINDERS, text)
         self.assertIn("(_vars : Nat -> Rat)", proof_to_lean._UFLRA_BINDERS)
-        self.assertIn("(_real : Rat -> _U) (_rfuns : Nat -> List _U -> Rat)", proof_to_lean._UFLRA_BINDERS)
+        self.assertIn(" (_m : Interpretation)", proof_to_lean._UFLRA_BINDERS)
+        self.assertIn("\n  real : Rat -> U\n  rfuns : Nat -> List U -> Rat\n", text)
         self.assertIn('-- Element 0: "a"', text)
         self.assertIn('-- Real function 0: "g"', text)
-        self.assertIn('-- Uninterpreted sort "U" is the type _U', text)
-        self.assertIn("injected into _U by _real; functions with a Real result are the family _rfuns", text)
-        self.assertIn(" : _U := _elems 0", text)
-        self.assertIn(" : Rat := _rfuns 0 [(term_", text)
-        self.assertNotIn(":= _funs ", text)  # h is declared but applied nowhere in this input
+        self.assertIn('-- Uninterpreted sort "U" is the type _m.U', text)
+        self.assertIn("injected into _m.U by _m.real; functions with a Real result are the family _m.rfuns", text)
+        self.assertIn(" : _m.U := _m.elems 0", text)
+        self.assertIn(" : Rat := _m.rfuns 0 [(term_", text)
+        self.assertNotIn(":= _m.funs ", text)  # h is declared but applied nowhere in this input
         self.assertIn("private theorem th_lemma_", text)
         self.assertNotIn("sorry", text)
         self.assertNotIn("axiom ", text)
@@ -326,13 +327,13 @@ class TestMixedValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn('-- Function 0: "h"', text)
         self.assertIn('-- Predicate 0: "p"', text)
-        self.assertIn(" : _U := _funs 0 [(_real (term_", text)
-        self.assertIn(" : Prop := _preds 0 [(term_", text)
-        self.assertNotIn("_rfuns 0", text.split("namespace", 1)[1])
+        self.assertIn(" : _m.U := _m.funs 0 [(_m.real (term_", text)
+        self.assertIn(" : Prop := _m.preds 0 [(term_", text)
+        self.assertNotIn("_m.rfuns 0", text.split("namespace", 1)[1])
         source = UFLRA_INPUTS["uflra_real_predicate"]
         certificate = proof_certificate.export_clause_log_certificate(source)
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertIn(" : Prop := _preds 0 [(_real (term_", text)
+        self.assertIn(" : Prop := _m.preds 0 [(_m.real (term_", text)
         self.assertNotIn("Uninterpreted sort", text)
         graph = proof_to_lean._validate_graph(source, certificate)
         self.assertEqual(graph.sorts, ())
@@ -497,7 +498,7 @@ class TestMixedInProcess(unittest.TestCase):
         certificate = proof_certificate.export_certificate(BOOL_PREDICATE_WITH_ARITHMETIC)
         self.assertEqual(certificate["fragment"], "qf_uflra")
         text = proof_to_lean.reconstruct(BOOL_PREDICATE_WITH_ARITHMETIC, certificate)
-        self.assertIn("(congrArg _bool (propext ", text)
+        self.assertIn("(congrArg _m.bool (propext ", text)
         self.assertIn("No uninterpreted sort", text)
 
 
@@ -596,8 +597,8 @@ class TestLegacyMixedLeanIntegration(_LeanIntegration):
                 certificate, text = self.check(source)
                 self.assertIn("monotonicity", certificate["rule_counts"])
                 if name == "uflra_real_function":
-                    # Congruence through a Real argument injects it by _real.
-                    self.assertIn("(congrArg (_rfuns 0) (congr (congrArg List.cons (congrArg _real ", text)
+                    # Congruence through a Real argument injects it by _m.real.
+                    self.assertIn("(congrArg (_m.rfuns 0) (congr (congrArg List.cons (congrArg _m.real ", text)
                 if name == "uflra_real_to_sort":
                     # theory_lra propagates x = y from the two bounds for the
                     # congruence (h x) = (h y): the legacy implied-eq shape,
@@ -610,7 +611,7 @@ class TestLegacyMixedLeanIntegration(_LeanIntegration):
         certificate, text = self.check(BOOL_PREDICATE_WITH_ARITHMETIC)
         self.assertIn("monotonicity", certificate["rule_counts"])
         self.assertNotIn("th-lemma", certificate["rule_counts"])
-        self.assertIn("(congrArg _bool (propext ", text)
+        self.assertIn("(congrArg _m.bool (propext ", text)
 
     def test_random_instances_through_the_legacy_core(self):
         for seed, with_sort in ((63, False), (79, True)):
