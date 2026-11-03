@@ -422,7 +422,7 @@ class TestMixedValidation(unittest.TestCase):
     def test_fragment_consistency(self):
         for fragment, message in [("qf_uf", "qf_uf certificates cannot contain arithmetic"),
                                   ("propositional", "propositional certificates cannot contain arithmetic"),
-                                  ("qf_lra", "only qf_uf, qf_uflra, and qf_uflia certificates")]:
+                                  ("qf_lra", "only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates")]:
             certificate = copy.deepcopy(self.certificate)
             certificate["fragment"] = fragment
             with self.subTest(fragment=fragment):
@@ -440,7 +440,7 @@ class TestMixedValidation(unittest.TestCase):
         source = Z3TEST_LRA_INPUTS["lra_farkas"]
         certificate = proof_certificate.export_clause_log_certificate(source)
         certificate["fragment"] = "qf_uflra"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates"):
             proof_to_lean.reconstruct(source, certificate)
 
     def test_malformed_mixed_declarations_are_rejected(self):

@@ -98,7 +98,7 @@ _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # pb: theory_pb's propagations, conflicts, and constraint axioms, proved over
 # the 0/1 values of the variables (_pseudo_boolean_lemma).
 _HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith", "pb")
-_FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia")
+_FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia", "qf_uflira")
 # The arithmetic sorts and their Lean carriers: Real variables are valued in
 # Rat (see the exporter README for the soundness argument), Int variables in
 # Int, where omega decides the linear integer lemmas (see _grind_lemma).
@@ -115,7 +115,7 @@ _MIXED = "Int and Real"
 # The arithmetic class of a qf_lira theory step reaching a conversion (_lemma_numeric).
 _CAST = "Int and Real through a conversion"
 # The fragments mixing arithmetic with uninterpreted symbols, by arithmetic sort.
-_MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia"}
+_MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia", _MIXED: "qf_uflira"}
 # Refutations with more proof steps than this are split into separately
 # checked lemmas, none nesting more than _OUTLINE_CHUNK_STEPS steps: one
 # nested term elaborates superlinearly and exhausts the default heartbeat
@@ -230,13 +230,19 @@ _UF_ARGUMENTS = " _m"
 # solver. Nothing states that _m.real is injective and nothing needs it: euf
 # lemmas only use the congruence x = y -> _m.real x = _m.real y. QF_UFLIA is the
 # same encoding over Int, with the injection _m.int and the family _m.ifuns. The
-# valuation stays a parameter of its own, as in QF_LRA and QF_LIA.
+# valuation stays a parameter of its own, as in QF_LRA and QF_LIA. QF_UFLIRA
+# has both valuations, as qf_lira, and both pairs of fields: each numeric
+# argument is injected and each function result valued by the fields of its
+# own sort.
 _NUMERIC_FIELDS = {"Real": (("real", "Rat -> U"), ("rfuns", "Nat -> List U -> Rat")),
                    "Int": (("int", "Int -> U"), ("ifuns", "Nat -> List U -> Int"))}
+_NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 _UFLRA_BINDERS = " (_vars : Nat -> Rat)" + _UF_BINDERS
 _UFLRA_ARGUMENTS = " _vars" + _UF_ARGUMENTS
 _UFLIA_BINDERS = " (_vars : Nat -> Int)" + _UF_BINDERS
 _UFLIA_ARGUMENTS = " _vars" + _UF_ARGUMENTS
+_UFLIRA_BINDERS = " (_vars : Nat -> Rat) (_ivars : Nat -> Int)" + _UF_BINDERS
+_UFLIRA_ARGUMENTS = " _vars _ivars" + _UF_ARGUMENTS
 # The injection of a numeric argument into the carrier and the family of
 # functions with a numeric result, by arithmetic sort.
 _INJECTIONS = {"Real": "_m.real", "Int": "_m.int"}
@@ -338,7 +344,7 @@ class _Graph:
     # over Bool alone: either takes the qf_uf encoding (a Bool-only predicate's
     # arguments are injected into the otherwise unused carrier).
     uninterpreted: bool = False
-    numeric: str = "Real"  # the arithmetic sort of the certificate: Real, Int, or _MIXED (qf_lira)
+    numeric: str = "Real"  # the arithmetic sort of the certificate: Real, Int, or _MIXED (qf_lira, qf_uflira)
     # The arithmetic sort of each qf_lira theory step, by node (_lemma_numeric).
     lemma_sorts: dict = field(default_factory=dict, compare=False, repr=False)
 
@@ -354,7 +360,8 @@ class _Graph:
     def valuation(self):
         """Extra Lean arguments of every formula: the numeric valuations, the uninterpreted interpretation, or both."""
         return {"qf_lra": " _vars", "qf_lia": " _vars", "qf_lira": " _vars _ivars", "qf_uf": _UF_ARGUMENTS,
-                "qf_uflra": _UFLRA_ARGUMENTS, "qf_uflia": _UFLIA_ARGUMENTS}.get(self.fragment, "")
+                "qf_uflra": _UFLRA_ARGUMENTS, "qf_uflia": _UFLIA_ARGUMENTS,
+                "qf_uflira": _UFLIRA_ARGUMENTS}.get(self.fragment, "")
 
     def is_int(self, node):
         """Whether an arithmetic term (or a linear form's atom) is Int-valued."""
@@ -380,15 +387,13 @@ class _Graph:
         """The Lean type valuing the arithmetic variables: Rat for Real, Int for Int."""
         return _NUMBER_TYPES[self.numeric]
 
-    @property
-    def injection(self):
-        """The map injecting a numeric argument of a function or predicate into the carrier."""
-        return _INJECTIONS[self.numeric]
+    def injection(self, node):
+        """The map injecting a numeric argument of a function or predicate into the carrier, by its sort."""
+        return _INJECTIONS[self.decl(node).range]
 
-    @property
-    def numeric_functions(self):
-        """The indexed family of functions with a numeric result."""
-        return _NUMERIC_FUNCTIONS[self.numeric]
+    def numeric_functions(self, node):
+        """The indexed family of functions with a numeric result containing an application, by its sort."""
+        return _NUMERIC_FUNCTIONS[self.decl(node).range]
 
     def is_arith(self, node):
         return self.decl(node).range in _ARITH_SORTS
@@ -473,9 +478,8 @@ def _declaration(raw, sorts):
         raise ReconstructionError("invalid native declaration")
     parameters = _parameters(kind, name, raw["parameters"])
     # Functions and predicates take arguments of any uninterpreted sort, Bool,
-    # Real, or Int (the last three injected into the carrier; a certificate
-    # with uninterpreted functions has Int or Real, not both, see
-    # classify_fragment); Proof is never an argument.
+    # Real, or Int (the last three injected into the carrier, each numeric
+    # sort by its own map); Proof is never an argument.
     argument_sorts = sorts + ("Bool", "Real", "Int")
     if raw["range"] in sorts:
         # Constants, functions, and ite inhabit an uninterpreted sort: no definitions.
@@ -632,26 +636,26 @@ def _validate_graph(source, certificate):
     root = _index(certificate["proof"], len(nodes), "proof")
     numeric_sorts = {decl.range for decl in declarations if decl.range in _ARITH_SORTS}
     numeric_sorts.update(sort for decl in declarations for sort in decl.domain if sort in _ARITH_SORTS)
-    if len(numeric_sorts) > 1 and certificate["fragment"] != "qf_lira":
+    if len(numeric_sorts) > 1 and certificate["fragment"] not in ("qf_lira", "qf_uflira"):
         raise ReconstructionError("%s certificates cannot mix Int and Real arithmetic" % certificate["fragment"])
     arithmetic = bool(numeric_sorts)
     numeric = _MIXED if len(numeric_sorts) > 1 else numeric_sorts.pop() if numeric_sorts else "Real"
     if arithmetic and certificate["fragment"] in ("propositional", "qf_uf"):
         raise ReconstructionError("%s certificates cannot contain arithmetic" % certificate["fragment"])
     uninterpreted = bool(sorts) or any(decl.kind == z3.Z3_OP_UNINTERPRETED and decl.domain for decl in declarations)
-    if uninterpreted != (certificate["fragment"] in ("qf_uf", "qf_uflra", "qf_uflia")):
-        raise ReconstructionError("only qf_uf, qf_uflra, and qf_uflia certificates declare an uninterpreted sort "
-                                  "or function, and they must use one")
+    if uninterpreted != (certificate["fragment"] in ("qf_uf", "qf_uflra", "qf_uflia", "qf_uflira")):
+        raise ReconstructionError("only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates declare an "
+                                  "uninterpreted sort or function, and they must use one")
     graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts, uninterpreted, numeric)
     if graph.fragment != certificate["fragment"]:
         if not arithmetic:
             raise ReconstructionError("%s certificates must contain arithmetic" % certificate["fragment"])
-        if certificate["fragment"] == "qf_lira":
-            raise ReconstructionError("qf_lira certificates contain both Int and Real arithmetic")
+        if certificate["fragment"] in ("qf_lira", "qf_uflira"):
+            raise ReconstructionError("%s certificates contain both Int and Real arithmetic" % certificate["fragment"])
         # The uninterpreted symbols agree with the label (checked above), so
         # the label names the other arithmetic sort.
-        raise ReconstructionError("only qf_lia and qf_uflia certificates contain Int arithmetic, "
-                                  "and they contain no other")
+        raise ReconstructionError("only qf_lia and qf_uflia certificates contain Int arithmetic alone, "
+                                  "and qf_lira and qf_uflira contain both sorts")
     if graph.fragment != "propositional" and any(
             decl.kind in _PSEUDO_BOOLEAN or (decl.kind == z3.Z3_OP_PR_TH_LEMMA and decl.parameters[0] == "pb")
             for decl in declarations):
@@ -692,7 +696,7 @@ _SYMBOL_TABLES = {
 }
 _TABLE_LABELS = {
     "atoms": "Atom", "variables": "Variable", "elements": "Element", "functions": "Function",
-    "predicates": "Predicate", "numeric_functions": "%s function",  # filled with the arithmetic sort
+    "predicates": "Predicate", "numeric_functions": "%s function",  # filled with the function's result sort
 }
 
 
@@ -750,7 +754,8 @@ def _bind_input(source, graph, fragment=None, query=0):
             if name in tables[table] and tables[table][name] != node.declaration:
                 raise ReconstructionError("ambiguous %s symbol identity: %s" % (
                     {"atoms": "Boolean", "variables": "arithmetic" if graph.numeric == _MIXED else graph.numeric,
-                     "numeric_functions": graph.numeric + " function"}.get(table, table[:-1]), name))
+                     "numeric_functions": "arithmetic function" if graph.numeric == _MIXED
+                     else graph.numeric + " function"}.get(table, table[:-1]), name))
             if any(name in other for key, other in tables.items() if key != table):
                 raise ReconstructionError("symbol used with two sorts: %s" % name)
             tables[table][name] = node.declaration
@@ -822,7 +827,8 @@ def _term(graph, node):
 def _valuation_binder(graph):
     return {"qf_lra": " (_vars : Nat -> Rat)", "qf_lia": " (_vars : Nat -> Int)",
             "qf_lira": " (_vars : Nat -> Rat) (_ivars : Nat -> Int)", "qf_uf": _UF_BINDERS,
-            "qf_uflra": _UFLRA_BINDERS, "qf_uflia": _UFLIA_BINDERS}.get(graph.fragment, "")
+            "qf_uflra": _UFLRA_BINDERS, "qf_uflia": _UFLIA_BINDERS,
+            "qf_uflira": _UFLIRA_BINDERS}.get(graph.fragment, "")
 
 
 def _interpretation_structure(graph):
@@ -846,7 +852,7 @@ def _application_arguments(graph, arguments, term, formula):
     A Boolean argument is injected into the carrier by _m.bool (its formula is
     rendered as a Prop) and a Real or Int one by _m.real or _m.int.
     """
-    return "[%s]" % ", ".join("(%s %s)" % (graph.injection, term(arg)) if graph.is_arith(arg)
+    return "[%s]" % ", ".join("(%s %s)" % (graph.injection(arg), term(arg)) if graph.is_arith(arg)
                               else term(arg) if graph.is_term(arg)
                               else "(_m.bool %s)" % formula(arg) for arg in arguments)
 
@@ -880,7 +886,7 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         index = variable_indices[graph.nodes[node].declaration]
         if not arguments:
             return _variable(graph, node, index) if graph.is_arith(node) else "_m.elems %d" % index
-        return "%s %d %s" % (graph.numeric_functions if graph.is_arith(node) else "_m.funs", index,
+        return "%s %d %s" % (graph.numeric_functions(node) if graph.is_arith(node) else "_m.funs", index,
                              _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
         return _numeral(graph.decl(node).range, Fraction(graph.decl(node).name))
@@ -1364,11 +1370,12 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
         # Function or predicate application: every element of the argument
         # list is a term of a sort or an injected Boolean or numeric argument.
         elements = ["(congrArg _m.bool (propext %s))" % argument if not graph.is_term(first)
-                    else "(congrArg %s %s)" % (graph.injection, argument) if graph.is_arith(first) else argument
+                    else "(congrArg %s %s)" % (graph.injection(first), argument) if graph.is_arith(first)
+                    else argument
                     for first, argument in zip(left_args, arguments)]
         if graph.is_term(left):
-            return "(congrArg (%s %d) %s)" % (graph.numeric_functions if graph.is_arith(left) else "_m.funs",
-                                              variable_indices[graph.nodes[left].declaration],
+            family = graph.numeric_functions(left) if graph.is_arith(left) else "_m.funs"
+            return "(congrArg (%s %d) %s)" % (family, variable_indices[graph.nodes[left].declaration],
                                               _list_congruence(elements)), False, []
         return "(Iff.of_eq (congrArg (_m.preds %d) %s))" % (atom_indices[graph.nodes[left].declaration],
                                                              _list_congruence(elements)), False, []
@@ -1486,6 +1493,20 @@ def _reachable(graph, conclusion):
             continue  # rendered as True: its argument occurs nowhere to unfold
         pending.extend(graph.arguments(formula))
     return reachable, theory
+
+
+def _reachable_outside_applications(graph, formula):
+    """The nodes reachable from a formula without entering the arguments of uninterpreted applications."""
+    reachable, pending = set(), [formula]
+    while pending:
+        node = pending.pop()
+        if node in reachable:
+            continue
+        reachable.add(node)
+        if not _trivial_distinct(graph, node) and not (graph.kind(node) == z3.Z3_OP_UNINTERPRETED
+                                                       and graph.arguments(node)):
+            pending.extend(graph.arguments(node))
+    return reachable
 
 
 def _trivial_distinct(graph, node):
@@ -2118,8 +2139,11 @@ def _lemma_numeric(graph, node):
     is an Int atom over a Real term) is _CAST: the sorts meet there, so its
     combination is rational with each Int atom tightened on its own
     (_polarity_constraint), and Lean proves it with both sorts tied
-    together (_cast_facts). Several checks ask about one step, so the
-    answer is kept per node.
+    together (_cast_facts). In a qf_uflira certificate an application of
+    an uninterpreted function is an opaque atom of the linear forms, so
+    its arguments (of either sort) are not the step's: an Int argument of
+    a function with a Real result keeps a step over Real atoms Real.
+    Several checks ask about one step, so the answer is kept per node.
     """
     if graph.numeric != _MIXED:
         return graph.numeric
@@ -2128,7 +2152,7 @@ def _lemma_numeric(graph, node):
     formulas = [graph.conclusion(premise) for premise in graph.arguments(node)[:-1]] + [graph.conclusion(node)]
     sorts, casts = set(), False
     for formula in formulas:
-        reachable = _reachable(graph, formula)[0]
+        reachable = _reachable_outside_applications(graph, formula)
         sorts.update(graph.decl(term).range for term in reachable if graph.is_arith(term))
         casts = casts or any(graph.kind(term) in _CONVERSION_KINDS for term in reachable)
     if casts:
@@ -2170,7 +2194,7 @@ def _farkas_combination(graph, node):
     generalized and unfolded proofs remain. Lean checks the attempt like
     any other proof; one that does not elaborate falls through to them.
     """
-    if _lemma_numeric(graph, node) != "Int" or not _combination_certified(graph, node):
+    if not _combination_certified(graph, node) or _lemma_numeric(graph, node) != "Int":
         return None
     coefficients = [Fraction(parameter) for parameter in graph.decl(node).parameters[1:]]
     if (len(coefficients) != len(graph.arguments(node)) - 1 + len(graph.clause(graph.conclusion(node)))
@@ -2606,6 +2630,9 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
     reachable numeric arguments with one normal form (_real_argument_key)
     gets an explicit equality, which the theory tactic proves on its own
     (splitting the ite conditions) and grind then uses for congruence.
+    The groups are per sort: in a qf_uflira certificate an Int and a Real
+    argument may share a linear form ((ite c 1 0) and (ite c 1.0 0.0)), and
+    they are injected by different maps, so no helper relates them.
     """
     groups = {}
     for node in sorted(reachable):
@@ -2613,7 +2640,8 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
             continue
         for argument in graph.arguments(node):
             if graph.is_arith(argument):
-                members = groups.setdefault(_real_argument_key(graph, argument), [])
+                key = (graph.decl(argument).range, _real_argument_key(graph, argument))
+                members = groups.setdefault(key, [])
                 if argument not in members:
                     members.append(argument)
     helpers = []
@@ -5093,10 +5121,9 @@ def reconstruct(source, certificate):
         lines.append("-- Certified query: check-sat %d of %d (zero-based index %d); the assertions below are "
                      "the ones in scope there, assumptions included." % (query + 1, queries, query))
     for table, label in _TABLE_LABELS.items():
-        if table == "numeric_functions":
-            label = label % graph.numeric
         for name, decl in sorted(tables[table].items(), key=lambda item: indices[table][item[1]]):
-            lines.append("-- %s %d: %s" % (label, indices[table][decl], json.dumps(name, ensure_ascii=True)))
+            shown = label % graph.declarations[decl].range if table == "numeric_functions" else label
+            lines.append("-- %s %d: %s" % (shown, indices[table][decl], json.dumps(name, ensure_ascii=True)))
     if graph.arithmetic and graph.numeric == "Int":
         lines.append("-- Int variables are encoded as Int; the integer lemmas are proved by omega, else grind.")
     elif graph.numeric == _MIXED:
@@ -5119,10 +5146,11 @@ def reconstruct(source, certificate):
     if any(decl.kind in _NUMERIC_KINDS and decl.range == "Real" for decl in graph.declarations):
         lines.append("-- Real abs, which Z3 accepts beyond SMT-LIB, is the ite (if t >= 0 then t else -t).")
     if graph.arithmetic and graph.uninterpreted:
-        lines.append("-- %s arguments of functions and predicates are injected into _m.U by %s;"
-                     " functions with %s result are the family %s." % (
-                         graph.numeric, graph.injection, {"Real": "a Real", "Int": "an Int"}[graph.numeric],
-                         graph.numeric_functions))
+        for sort in _ARITH_SORTS if graph.numeric == _MIXED else (graph.numeric,):
+            lines.append("-- %s arguments of functions and predicates are injected into _m.U by %s;"
+                         " functions with %s result are the family %s." % (
+                             sort, _INJECTIONS[sort], {"Real": "a Real", "Int": "an Int"}[sort],
+                             _NUMERIC_FUNCTIONS[sort]))
     if len(graph.sorts) == 1:
         lines.append("-- Uninterpreted sort %s is the type _m.U; functions and predicates take argument lists."
                      % json.dumps(graph.sorts[0], ensure_ascii=True))

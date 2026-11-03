@@ -520,8 +520,8 @@ class TestIntegerMixedValidation(unittest.TestCase):
     def test_fragment_consistency(self):
         for fragment, message in [("qf_uf", "qf_uf certificates cannot contain arithmetic"),
                                   ("propositional", "propositional certificates cannot contain arithmetic"),
-                                  ("qf_lia", "only qf_uf, qf_uflra, and qf_uflia certificates"),
-                                  ("qf_lra", "only qf_uf, qf_uflra, and qf_uflia certificates"),
+                                  ("qf_lia", "only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates"),
+                                  ("qf_lra", "only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates"),
                                   ("qf_uflra", "only qf_lia and qf_uflia certificates contain Int")]:
             certificate = copy.deepcopy(self.certificate)
             certificate["fragment"] = fragment
@@ -540,7 +540,7 @@ class TestIntegerMixedValidation(unittest.TestCase):
         source = LIA_INPUTS["lia_gcd"]
         certificate = proof_certificate.export_clause_log_certificate(source)
         certificate["fragment"] = "qf_uflia"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates"):
             proof_to_lean.reconstruct(source, certificate)
         from test_proof_to_lean_uf import UF_INPUTS
         source = UF_INPUTS["uf_congruence"]

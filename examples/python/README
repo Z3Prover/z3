@@ -145,7 +145,11 @@ too; it shares qf_lia's opt-in on both cores. The qf_lira fragment has
 Int and Real atoms side by side (the qf_lia and qf_lra shapes, Boolean
 structure tying them together), to_real of Int terms (variables, sums,
 ite, div, mod, abs) inside Real atoms, and to_int and is_int of linear Real
-terms; it shares the opt-in too, and both cores certify it. Integer
+terms; it shares the opt-in too, and both cores certify it. The
+qf_uflira fragment is qf_lira next to uninterpreted sorts and functions:
+functions and predicates may take and return Int and Real (both in one
+signature too), and an input whose signatures and atoms mention both sorts
+is qf_uflira; it shares the opt-in, and both cores certify it. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -173,7 +177,8 @@ Bundle format, version 2
     format          "z3-native-proof-dag"
     format_version  2
     z3_version      producer's full Z3 version
-    fragment        "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia"
+    fragment        "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia",
+                    or "qf_uflira"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
@@ -218,11 +223,12 @@ distinct declarations over one of the sorts; the certificate stays
 many-sorted even though Lean sees one type (see below). The qf_uflra
 fragment combines both and additionally allows Real in the domain of
 functions and predicates and function declarations with range Real and a
-nonempty domain; qf_uflia does the same with Int. A certificate declaring
-an uninterpreted sort or function must be labelled qf_uf, qf_uflra, or
-qf_uflia according to whether it contains arithmetic and over which sort,
-and the reconstructor rejects any other combination; only a qf_lira
-certificate declares both Int and Real symbols, and it must; to_real, from
+nonempty domain; qf_uflia does the same with Int, and qf_uflira with
+both. A certificate declaring an uninterpreted sort or function must be
+labelled qf_uf, qf_uflra, qf_uflia, or qf_uflira according to whether it
+contains arithmetic and over which sorts, and the reconstructor rejects any
+other combination; only a qf_lira or qf_uflira certificate declares both
+Int and Real symbols, and it must; to_real, from
 Int to Real, to_int, from Real to Int, and is_int, over Real, are its
 conversion declarations.
 Other native shapes are rejected, never serialized incompletely. The root is
@@ -490,7 +496,8 @@ th-lemma whose hint is none of these (nla, gomory-cut, gcd-test) is rejected
 at export, and so is a bare (_ th-lemma arith) over Real, which records no
 evidence.
 
-Integer input (qf_lia, qf_uflia, opt-in as for the clause log) is certified
+Integer input (qf_lia, qf_uflia, qf_lira, qf_uflira, opt-in as for the
+clause log) is certified
 on this path too, since 2026-10-16. theory_lra emits the same farkas, bound,
 implied-eq, and triangle-eq steps over Int, and three shapes of its own: a
 bare (_ th-lemma arith) with premises is a cut (the bound literal a Gomory
@@ -912,7 +919,15 @@ qf_uflia certificate takes the same shape over Int: (_vars : Nat -> Int)
 and the fields int : Int -> U and ifuns : Nat -> List U -> Int, with every theory
 lemma, rewrite, and argument-equality helper proved by first | omega | grind
 as for qf_lia (omega reads applications as atoms; grind proves the
-congruences). Nothing
+congruences). A qf_uflira certificate takes both valuations as qf_lira,
+(_vars : Nat -> Rat) (_ivars : Nat -> Int), and all four fields: an Int
+argument is injected by _m.int and a Real one by _m.real, an application
+with an Int result is _m.ifuns i [...] and one with a Real result
+_m.rfuns i [...] (one numbering for both families), and each theory lemma
+takes the sort of its atoms as in qf_lira, an application being one atom
+whatever the sorts of its arguments. The argument-equality helpers relate
+arguments of one sort only: an Int (ite c 1 0) and a Real (ite c 1.0 0.0)
+share a linear form but are injected by different maps. Nothing
 states that _m.real is injective and no inference needs it: euf lemmas use
 only the congruence x = y -> _m.real x = _m.real y, and a model of the input is
 again one instance (its Real carrier is the Rat component). grind compares
@@ -1080,8 +1095,9 @@ Include the real Lean integration tests when the pinned toolchain is installed:
 test_proof_to_lean_arith.py covers the qf_lra slice, test_proof_to_lean_lia.py
 the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice,
 test_proof_to_lean_uflra.py the qf_uflra slice, and
-test_proof_to_lean_uflia.py the qf_uflia slice, and
-test_proof_to_lean_lira.py the qf_lira slice end to end; all need the z3
+test_proof_to_lean_uflia.py the qf_uflia slice,
+test_proof_to_lean_lira.py the qf_lira slice, and
+test_proof_to_lean_uflira.py the qf_uflira slice end to end; all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
 Python's recursion limit; its clause-log tests also need the z3 executable.

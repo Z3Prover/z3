@@ -564,11 +564,11 @@ class TestProofCertificate(unittest.TestCase):
 
     def test_unsupported_input_is_rejected_even_with_false(self):
         problems = [
-            "(declare-fun f (Int) Int)(declare-const y Real)(assert (= (f 1) (to_int y)))",
+            "(declare-fun f (Int) Int)(declare-const y Real)(assert (= (f 1) (to_int (* y y))))",
             "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
-            "(declare-fun f (Int) Bool)(declare-const x Real)(assert (and (f 1) (> x 1.0)))",
+            "(declare-fun f (Int) Bool)(declare-const x Real)(assert (and (f (div 1 0)) (> x 1.0)))",
             "(assert (forall ((p Bool)) p))",
             "(declare-const p Bool)(declare-const q Bool)(assert ((_ at-most 1) (and p q)))",
         ]
@@ -1410,7 +1410,7 @@ class TestFragmentClassification(unittest.TestCase):
         # to_real of an Int variable, of div, or of an Int ite relates the
         # sorts: qf_lira, the z3 executable keeps (to_real (ite p 1 2)) over
         # an Int ite in its log. Next to an uninterpreted function it is
-        # rejected like both sorts are.
+        # qf_uflira.
         for source in [
             "(declare-const x Real)(declare-const p Bool)(assert (= x (ite p 1 2)))",
             "(declare-const x Real)(declare-const i Int)(assert (= x (+ i 1)))",
@@ -1418,9 +1418,8 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_lira")
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "mixing integer and real arithmetic with "
-                                    "uninterpreted functions"):
-            self.classify("(declare-fun g (Real) Int)(declare-const x Real)(assert (= x (g 1)))")
+        self.assertEqual(self.classify("(declare-fun g (Real) Int)(declare-const x Real)(assert (= x (g 1)))"),
+                         "qf_uflira")
 
     def test_linear_integer_inputs_are_classified(self):
         self.assertEqual(self.classify("(declare-const x Int)(assert (> x 1))"), "qf_lia")
@@ -1498,32 +1497,33 @@ class TestFragmentClassification(unittest.TestCase):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError,
                                             r"\(qf_lira\).*accept the fragment explicitly"):
                     parse(mixed, z3.Context())
-        for source, message in [
-            # Both sorts next to uninterpreted symbols have no encoding,
-            # through a conversion or not.
-            ("(declare-fun f (Int) Int)(declare-const x Int)(declare-const y Real)(assert (and (> (f x) 1) (> y 1.0)))",
-             "mixing integer and real arithmetic with uninterpreted functions"),
-            ("(declare-fun f (Int) Int)(declare-const y Real)(assert (> (f (to_int y)) 1))",
-             "mixing integer and real arithmetic with uninterpreted functions"),
-            ("(declare-fun p (Real) Bool)(declare-const y Real)(assert (and (p y) (is_int y)))",
-             "mixing integer and real arithmetic with uninterpreted functions"),
+
+    def test_both_arithmetic_sorts_with_uninterpreted_symbols_are_qf_uflira(self):
+        # Both sorts next to uninterpreted symbols, through a conversion, a
+        # signature over both sorts, or neither.
+        for source in [
+            "(declare-fun f (Int) Int)(declare-const x Int)(declare-const y Real)(assert (and (> (f x) 1) (> y 1.0)))",
+            "(declare-fun f (Int) Int)(declare-const y Real)(assert (> (f (to_int y)) 1))",
+            "(declare-fun p (Real) Bool)(declare-const y Real)(assert (and (p y) (is_int y)))",
+            "(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))",
+            # Z3's parser coerces a Real argument of an Int-domain function with to_int.
+            "(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))",
+            "(declare-fun f (Real) Int)(declare-const x Real)(assert (> (f x) 1))",
+            "(declare-sort U 0)(declare-fun p (Int Real U) Bool)(declare-const u U)(assert (p 1 1.0 u))",
         ]:
             with self.subTest(source=source):
-                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
-                    self.classify(source)
+                self.assertEqual(self.classify(source), "qf_uflira")
+        source = "(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))"
+        for parse in (proof_certificate.parse_assertions, proof_certificate.parse_legacy_assertions):
+            with self.subTest(parse=parse.__name__):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                            r"\(qf_uflira\).*accept the fragment explicitly"):
+                    parse(source, z3.Context())
 
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
         for source, message in [
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
-            # Integer arithmetic never mixes with Real, not even through a
-            # function signature; no conversions.
-            ("(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))", "mixing integer and real"),
-            # Z3's parser coerces a Real argument of an Int-domain function with to_int.
-            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "mixing integer and real"),
-            ("(declare-fun f (Real) Int)(declare-const x Real)(assert (> (f x) 1))", "mixing integer and real"),
-            ("(declare-fun f (Int) Int)(declare-const x Real)(declare-const y Int)(assert (and (> (f y) 1) (> x 1.0)))",
-             "mixing integer and real"),
             ("(declare-const y Real)(assert (> (to_int (* y y)) 1))", "nonlinear"),
             # Integer div and mod by zero are uninterpreted in SMT-LIB and
             # total in Lean, by a term nonlinear; so is Z3's rem.
@@ -1605,9 +1605,10 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uflra")
+        self.assertEqual(self.classify(
+            declarations + "(declare-fun h (U) Int)(declare-const x Real)(assert (and (= (h a) (h a)) (> x 1.0)))"),
+            "qf_uflira")
         for source, message in [
-            (declarations + "(declare-fun h (U) Int)(declare-const x Real)(assert (and (= (h a) (h a)) (> x 1.0)))",
-             "mixing integer and real"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* (f x) (f x)) 1.0))", "nonlinear"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
             # Z3 accepts one name declared with several signatures and tells the

@@ -129,7 +129,7 @@ _ARITH_NAMES = {
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # The fragments over Int, certified through the clause log and Lean alone
 # (see parse_assertions).
-_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira")
+_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira", "qf_uflira")
 # arith is the hint of the arithmetic solver's own axioms (the div and mod
 # definitions): like euf it lists jointly contradictory literals, and like cut
 # it is shape-checked here and proved by Lean alone.
@@ -635,7 +635,7 @@ def _require_uninterpreted_signature(decl, sorts):
     injects a Boolean or numeric argument into the carrier); the result is
     Bool, Real, Int, or a sort. Returns (real, integer): whether the signature
     mentions Real, which makes the input QF_UFLRA, or Int, which makes it
-    QF_UFLIA (never both: a signature mixing them is rejected by the caller).
+    QF_UFLIA (both, in one signature or across several, make it QF_UFLIRA).
     """
     candidates = [decl.domain(i) for i in range(decl.arity())] + [decl.range()]
     real = integer = False
@@ -668,7 +668,11 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
+    """Return the fragment name, rejecting everything else.
+
+    The fragments are "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf",
+    "qf_uflra", "qf_uflia", and "qf_uflira".
+    """
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
     pseudo_boolean = False
@@ -722,13 +726,11 @@ def classify_fragment(assertions):
         # the Int valuation next to the carrier, into which Int arguments are
         # injected like Bool ones). Int and Real side by side (QF_LIRA) are
         # two valuations, one per sort, related by to_real, to_int, and
-        # is_int. Uninterpreted functions next to both sorts have no
-        # encoding yet.
+        # is_int. Next to uninterpreted sorts and functions both sorts are
+        # QF_UFLIRA: both valuations next to the carrier, into which Int and
+        # Real arguments are injected by one map per sort.
         if real:
-            if sorts or functions:
-                raise ProofExportError("mixing integer and real arithmetic with uninterpreted functions "
-                                       "is not supported")
-            return "qf_lira"
+            return "qf_uflira" if sorts or functions else "qf_lira"
         return "qf_uflia" if sorts or functions else "qf_lia"
     if sorts or functions:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
@@ -778,7 +780,7 @@ def parse_assertions(source, context, integer=False, query=None):
 
     The snapshot is that of the script's only check-sat query, or of the
     query selected by its zero-based index (see query_snapshot). The integer
-    fragments (qf_lia, qf_uflia, qf_lira) are opt-in: the integer solver's
+    fragments (qf_lia, qf_uflia, qf_lira, qf_uflira) are opt-in: the integer solver's
     cut steps (and Farkas steps resting on cuts) carry no coefficient
     certificate that the replay can re-derive, so they are certified by Lean
     alone and a consumer accepts them explicitly. The exporter and the
