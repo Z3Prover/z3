@@ -32,6 +32,7 @@
       and by the route, with the Skolem typing gate in the route's units.
    E. A closed document without a quantifier introduction is checked
       identically (`Some 0`, no report).
+   F. A document of 20,000 entries is checked and diagnosed at the normal stack.
 *)
 module Z3SortedRouteTests
 
@@ -328,6 +329,22 @@ let plain_document () : bool =
   (let r = SRt.diagnose_document_epsilon_route DD.no_companions empty_schema d in
    verdict_of r = Some 0 && r.VD.reports = [])
 
+(* ---------------------------------------------------------------------- *)
+(* F. A large document at the normal stack                                  *)
+(* ---------------------------------------------------------------------- *)
+
+let rec repeat_entries (count:nat) (e:P.entry) (entries:list P.entry) : Tot (list P.entry) (decreases count) =
+  if count = 0 then entries else repeat_entries (count - 1) e (e :: entries)
+
+(* The entry loops of the route (check and diagnosis) are self tail calls: 20,000 entries check, and are diagnosed, as the default's. *)
+let large_document () : bool =
+  let e = entry U.Asserted R.false_expr [] in
+  let d = doc [R.false_expr] (repeat_entries 20000 e []) 19999 in
+  SP.check_document_epsilon empty_schema d = Some 0 &&
+  SRt.check_document_epsilon_route DD.no_companions empty_schema d = Some 0 &&
+  (let r = SRt.diagnose_document_epsilon_route DD.no_companions empty_schema d in
+   verdict_of r = Some 0 && r.VD.reports = [])
+
 let run () : bool =
   diamond_route_accepts () &&
   no_fallback () &&
@@ -336,4 +353,5 @@ let run () : bool =
   double_negation_agrees () &&
   small_quantified_agrees () &&
   open_skolem_document () &&
-  plain_document ()
+  plain_document () &&
+  large_document ()

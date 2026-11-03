@@ -419,6 +419,27 @@ let name_pair_units_scale () : bool =
   pair_units_exact huge_s huge_s' && pair_units_exact huge_s huge_t &&
   pair_units_exact "é名" "é名" && pair_units_exact "é名" "é吊"
 
+(* The opt-in route through the Cherry entry points (Z3Cherry.diagnose_dag, the functions the native driver calls): the NNF step of a
+   shared diamond is pending through the default entry points and the sorts mode, accepted through the DAG mode, whose one diagnosed
+   check has one report. *)
+let dag_route_driver () : bool =
+  match Z3SortedRouteTests.diamond_at 10 1 with
+  | Some (p, cs) ->
+    (match Z3SortedRouteTests.sides_of p.Z3DagDocument.pcert with
+     | Some (a, b) ->
+       let base : C.marshaled = { C.document = Z3SortedRouteTests.refutation p.Z3DagDocument.pcert a b;
+                                  C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } } in
+       let m : C.marshaled_dag = { C.dag_base = base; C.dag_companions = cs } in
+       let dag = C.diagnose_dag true m in
+       C.check true base = Some 1 &&
+       P.diagnostic_result (C.diagnose true base) = Some 1 &&
+       P.diagnostic_result (C.diagnose_verified true base).Z3VerifiedDocument.diagnostic = Some 1 &&
+       (C.diagnose_verified true base).Z3VerifiedDocument.reports = [] &&
+       P.diagnostic_result dag.Z3VerifiedDocument.diagnostic = Some 0 &&
+       (match dag.Z3VerifiedDocument.reports with [_] -> true | _ -> false)
+     | None -> false)
+  | None -> false
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -452,5 +473,6 @@ let run () : bool =
   nnf_premise_boundary () &&
   qi_regroup_scale () &&
   name_pair_units_scale () &&
+  dag_route_driver () &&
   Z3NnfReplayCheckedTests.run () &&
   Z3SortedRouteTests.run ()

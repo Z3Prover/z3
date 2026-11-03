@@ -1239,8 +1239,11 @@ class DirectCheckerTests(unittest.TestCase):
                   "(assert (not (exists ((x (Array Int (Array Int Int)))) (p x))))(assert (p a))")
         reversed_binders = ("(declare-sort S 0)(declare-fun q (S Int) Bool)(declare-const s S)"
                             "(assert (not (exists ((y S) (x Int)) (q y x))))(assert (q s 3))")
+        definition = ("(declare-fun p (Int) Bool)(define-fun g ((x Int)) Bool (p (+ x 0)))"
+                      "(assert (not (exists ((y Int)) (g y))))(assert (p 1))")
         cases = [(name, source, ("--sorted-core",)) for name, source in SORTED_NNF_CASES]
         cases += [("arrays", arrays, ("--sorted-core",)), ("reversed-binders", reversed_binders, ("--sorted-core",)),
+                  ("definition", definition, ("--sorted-core",)),
                   ("datatype-without-flag", SORTED_NNF_CASES[-1][1], ())]
         for name, source, flags in cases:
             with self.subTest(case=name):
