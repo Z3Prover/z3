@@ -470,7 +470,7 @@ struct purify_arith_proc {
                 push_cnstr_pr(result_pr);
             }
             else {
-                // Even roots are nonnegative when defined; negative bases use neg-root.
+                // Even roots are nonnegative; negative bases have value zero.
                 expr_ref zero(mk_real_zero(), m());
                 expr_ref x_ge_zero(u().mk_ge(x, zero), m());
                 expr_ref x_lt_zero(NOT(x_ge_zero), m());
@@ -479,8 +479,7 @@ struct purify_arith_proc {
                 push_cnstr(OR(x_lt_zero, nonnegative_root));
                 push_cnstr_pr(result_pr);
 
-                expr_ref negative_root(u().mk_neg_root(x, degree), m());
-                expr_ref value_eq(EQ(k, negative_root), m());
+                expr_ref value_eq(EQ(k, zero), m());
                 push_cnstr(OR(x_ge_zero, value_eq));
                 push_cnstr_pr(result_pr);
             }
@@ -496,40 +495,8 @@ struct purify_arith_proc {
             mk_def_proof(k, s, result_pr);
             cache_result(s, result, result_pr);
 
-            anum_manager & am = u().am();
-            anum const & a = u().to_irrational_algebraic_numeral(s);
-            scoped_mpz_vector p(am.qm());
-            am.get_polynomial(a, p);
-            rational lower, upper;
-            am.get_lower(a, lower);
-            am.get_upper(a, upper);
-            unsigned sz = p.size();
-            SASSERT(sz > 2);
-            ptr_buffer<expr> args;
-            for (unsigned i = 0; i < sz; ++i) {
-                if (am.qm().is_zero(p[i]))
-                    continue;
-                rational coeff = rational(p[i]);
-                if (i == 0) {
-                    args.push_back(u().mk_numeral(coeff, false));
-                }
-                else {
-                    expr * m;
-                    if (i == 1)
-                        m = k;
-                    else
-                        m = u().mk_power(k, u().mk_numeral(rational(i), false));
-                    args.push_back(u().mk_mul(u().mk_numeral(coeff, false), m));
-                }
-            }
-            SASSERT(args.size() >= 2);
-            expr_ref sum(u().mk_add(args.size(), args.data()), m());
-            expr_ref zero(mk_real_zero(), m());
-            push_cnstr(EQ(sum, zero));
-            push_cnstr_pr(result_pr);
-            push_cnstr(u().mk_lt(u().mk_numeral(lower, false), k));
-            push_cnstr_pr(result_pr);
-            push_cnstr(u().mk_lt(k, u().mk_numeral(upper, false)));
+            expr_ref definition = u().mk_algebraic_eq(k, s);
+            push_cnstr(definition);
             push_cnstr_pr(result_pr);
         }
 

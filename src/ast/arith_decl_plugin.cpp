@@ -978,6 +978,30 @@ bool arith_util::is_considered_partially_interpreted(func_decl* f, unsigned n, e
     return false;
 }
 
+expr_ref arith_util::mk_algebraic_eq(expr* term, expr* value) {
+    if (!is_irrational_algebraic_numeral(value))
+        return expr_ref(m_manager.mk_eq(term, value), m_manager);
+
+    // Arithmetic solvers consume a polynomial and isolating interval, not root-obj literals.
+    auto& manager = am();
+    auto const& number = to_irrational_algebraic_numeral(value);
+    scoped_mpz_vector coefficients(manager.qm());
+    manager.get_polynomial(number, coefficients);
+    rational lower, upper;
+    manager.get_interval(number, lower, upper);
+    expr_ref polynomial(mk_real(0), m_manager);
+    for (unsigned i = coefficients.size(); i-- > 0;) {
+        expr_ref product(mk_mul(polynomial, term), m_manager);
+        expr_ref coefficient(mk_real(rational(coefficients[i])), m_manager);
+        polynomial = mk_add(product, coefficient);
+    }
+    expr_ref zero(mk_real(0), m_manager), lo(mk_real(lower), m_manager), hi(mk_real(upper), m_manager);
+    expr_ref equation(m_manager.mk_eq(polynomial, zero), m_manager);
+    expr_ref above(mk_lt(lo, term), m_manager), below(mk_lt(term, hi), m_manager);
+    expr_ref bounds(m_manager.mk_and(above, below), m_manager);
+    return expr_ref(m_manager.mk_and(equation, bounds), m_manager);
+}
+
 bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args, func_decl_ref& f_out) {
     rational r;
     if (is_decl_of(f, arith_family_id, OP_DIV) && n == 2 && is_numeral(args[1], r) && r.is_zero()) {

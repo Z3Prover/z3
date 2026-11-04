@@ -9,6 +9,95 @@ expr_ref arith_swine::num(rational const& n) {
     return expr_ref(a.mk_int(n), m);
 }
 
+void arith_swine::real_power_axioms(expr* term, expr* base, expr* exponent, expr_ref_vector& lemmas) {
+    SASSERT(a.is_real(term));
+    auto add_axiom = [&](expr* axiom) {
+        expr_ref f(axiom, m);
+        m_rw(f);
+        if (!m.is_true(f))
+            lemmas.push_back(f);
+    };
+    expr_ref zero(a.mk_real(0), m), one(a.mk_real(1), m);
+    expr_ref y_zero(m.mk_eq(exponent, zero), m), x_zero(m.mk_eq(base, zero), m);
+    expr_ref p_zero(m.mk_eq(term, zero), m), p_one(m.mk_eq(term, one), m);
+    add_axiom(m.mk_implies(y_zero, p_one));
+    expr_ref nonzero_exponent(m.mk_not(y_zero), m);
+    expr_ref zero_base(m.mk_and(x_zero, nonzero_exponent), m);
+    add_axiom(m.mk_implies(zero_base, p_zero));
+    expr_ref x_one(m.mk_eq(base, one), m);
+    add_axiom(m.mk_implies(x_one, p_one));
+    expr_ref x_pos(a.mk_gt(base, zero), m), p_pos(a.mk_gt(term, zero), m);
+    add_axiom(m.mk_implies(x_pos, p_pos));
+
+    rational r;
+    bool rational_exponent = a.is_extended_numeral(exponent, r);
+    bool even_denominator = rational_exponent && denominator(r).is_even();
+    if (even_denominator || a.is_irrational_algebraic_numeral(exponent)) {
+        expr_ref x_neg(a.mk_lt(base, zero), m);
+        add_axiom(m.mk_implies(x_neg, p_zero));
+    }
+    if (!rational_exponent || r <= 0 || r.is_int())
+        return;
+
+    expr_ref degree(a.mk_real(denominator(r)), m);
+    expr_ref pn(a.mk_power(term, degree), m), xm(base, m);
+    if (!numerator(r).is_one()) {
+        expr_ref power(a.mk_real(numerator(r)), m);
+        xm = a.mk_power(base, power);
+    }
+    expr_ref equation(m.mk_eq(pn, xm), m);
+    if (even_denominator) {
+        expr_ref nonnegative(a.mk_ge(base, zero), m);
+        expr_ref principal(a.mk_ge(term, zero), m);
+        expr_ref graph(m.mk_and(equation, principal), m);
+        add_axiom(m.mk_implies(nonnegative, graph));
+    }
+    else
+        add_axiom(equation);
+}
+
+lbool arith_swine::check_real_power(expr* term, expr* base_value, expr* exponent_value,
+                                    expr* result_value, expr_ref_vector& lemmas) {
+    expr* base = nullptr, * exponent = nullptr;
+    VERIFY(a.is_power(term, base, exponent));
+    SASSERT(a.is_real(term));
+    expr_ref expected(a.mk_power(base_value, exponent_value), m);
+    m_rw(expected);
+    if (!a.is_numeral(expected) && !a.is_irrational_algebraic_numeral(expected))
+        return l_undef;
+    expr_ref equal(m.mk_eq(expected, result_value), m);
+    m_rw(equal);
+    if (m.is_true(equal))
+        return l_true;
+    rational exponent_numeral;
+    if (!a.is_extended_numeral(exponent, exponent_numeral) &&
+        !a.is_irrational_algebraic_numeral(exponent)) {
+        expr_ref zero(a.mk_real(0), m);
+        expr_ref positive(a.mk_gt(base_value, zero), m);
+        m_rw(positive);
+        // Point refinements need not converge for a varying positive-base power.
+        if (m.is_true(positive))
+            return l_undef;
+    }
+    expr_ref x_eq = a.mk_algebraic_eq(base, base_value);
+    expr_ref y_eq = a.mk_algebraic_eq(exponent, exponent_value);
+    rational y;
+    if (a.is_zero(expected) &&
+        (a.is_irrational_algebraic_numeral(exponent_value) ||
+         (a.is_numeral(exponent_value, y) && denominator(y).is_even()))) {
+        expr_ref zero(a.mk_real(0), m);
+        expr_ref negative(a.mk_lt(base_value, zero), m);
+        m_rw(negative);
+        if (m.is_true(negative))
+            x_eq = a.mk_lt(base, zero);
+    }
+    expr_ref guard(m.mk_and(x_eq, y_eq), m), value_eq = a.mk_algebraic_eq(term, expected);
+    expr_ref lemma(m.mk_implies(guard, value_eq), m);
+    m_rw(lemma);
+    lemmas.push_back(lemma);
+    return l_false;
+}
+
 bool arith_swine::add(unsigned kind, expr* lemma, expr_ref_vector& lemmas) {
     expr_ref f(lemma, m);
     m_rw(f);

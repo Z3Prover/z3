@@ -264,7 +264,9 @@ namespace arith {
         arith_swine         m_swine;
 
         bool get_power_value(expr* e, rational& value);
+        bool get_real_power_value(expr* e, expr_ref& value);
         sat::check_result check_integer_powers();
+        sat::check_result check_real_powers();
 
         bool is_int(theory_var v) const { return is_int(var2enode(v)); }
         bool is_int(euf::enode* n) const { return a.is_int(n->get_expr()); }
@@ -499,7 +501,12 @@ namespace arith {
         sat::check_result check() override;
         void simplify() override {}
         void init_search() override {}
-        bool tracking_assumptions() override { return !m_power_terms.empty(); }
+        bool tracking_assumptions() override {
+            for (expr* e : m_power_terms)
+                if (a.is_int(e))
+                    return true;
+            return false;
+        }
         void add_assumptions(sat::literal_set& assumptions) override;
         bool should_research(sat::literal_vector const& core) override;
 

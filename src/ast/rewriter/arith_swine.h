@@ -3,6 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Integer exponentiation refinements from Frohn and Giesl,
 "Satisfiability Modulo Exponential Integer Arithmetic", arXiv:2402.01501.
+Shared Real-power axioms and exact candidate-model validation.
 --*/
 #pragma once
 
@@ -53,6 +54,9 @@ public:
     lbool check_model(vector<power> const& powers);
     lbool check(ptr_vector<expr> const& terms, value_fn const& value, expr_ref_vector& lemmas);
     lbool check(vector<power> const& powers, value_fn const& value, expr_ref_vector& lemmas);
+    void real_power_axioms(expr* term, expr* base, expr* exponent, expr_ref_vector& lemmas);
+    lbool check_real_power(expr* term, expr* base_value, expr* exponent_value,
+                           expr* result_value, expr_ref_vector& lemmas);
     void reset();
     void collect_statistics(::statistics& st) const;
 };

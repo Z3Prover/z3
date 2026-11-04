@@ -159,6 +159,33 @@ static void check_real_zero_power() {
     }
 }
 
+static void check_total_real_power() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    th_rewriter rw(m);
+    for (char const* formula : {
+            "(= (^ (- 1.0) (/ 1.0 2.0)) 0.0)",
+            "(= (^ (- 1.0) (/ (- 3.0) 2.0)) 0.0)",
+            "(= (^ (- 8.0) (/ 2.0 6.0)) (- 2.0))",
+            "(= (^ (- 8.0) (/ 2.0 3.0)) 4.0)",
+            "(= (^ (- 8.0) (/ (- 1.0) 3.0)) (/ (- 1.0) 2.0))",
+            "(= (^ (- (^ 2.0 (/ 1.0 2.0))) (/ 1.0 2.0)) 0.0)",
+            "(= (^ (- 2.0) (^ 2.0 (/ 1.0 2.0))) 0.0)",
+            "(= (^ 0.0 y) (ite (= y 0.0) 1.0 0.0))",
+            "(= (^ 2.0 (- 1.0)) (/ 1.0 2.0))",
+            "(distinct (* (^ (- 1.0) (/ 1.0 2.0)) (^ (- 1.0) (/ 1.0 2.0)))"
+            " (^ (- 1.0) (+ (/ 1.0 2.0) (/ 1.0 2.0))))"}) {
+        expr_ref input = parse_fml(m, formula), result(m);
+        proof_ref proof(m);
+        rw(input, result, proof);
+        ENSURE(m.is_true(result));
+        ENSURE(proof && m.get_fact(proof) == m.mk_eq(input, result));
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(proof, side_conditions));
+    }
+}
+
 static void check_integer_power_lemmas() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -370,6 +397,7 @@ void tst_arith_rewriter() {
     check_integer_power_syntax();
     check_power_declarations();
     check_real_zero_power();
+    check_total_real_power();
     check_integer_power_lemmas();
     test_complex_logic_names();
     tst_proof_associative_flattening();

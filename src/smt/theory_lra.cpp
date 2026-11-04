@@ -1279,26 +1279,10 @@ public:
     void mk_power_axiom(expr* p, expr* x, expr* y) {
         if (a.is_int(p))
             return;
-        rational r;
-        if (a.is_extended_numeral(y, r) && r.is_zero()) {
-            mk_axiom(th.mk_eq(p, a.mk_real(1), false));
-            return;
-        }
-        // r > 0 => r^y > 0
-        if (a.is_extended_numeral(x, r) && r > 0) {
-            expr_ref zero(a.mk_real(0), m);
-            mk_axiom(~mk_literal(a.mk_le(p, zero)));
-        }
-        if (a.is_extended_numeral(y, r) && r > 0) {
-            // r is 1/n then x >= 0 => x = p^n
-            if (numerator(r) == 1 && denominator(r) > 1) {
-                expr_ref x_ge_0(a.mk_ge(x, a.mk_real(0)), m);
-                expr_ref x_eq_pn(a.mk_eq(x, a.mk_power(p, a.mk_real(denominator(r)))), m);
-                literal ge = mk_literal(x_ge_0);
-                literal eq = mk_literal(x_eq_pn);
-                mk_axiom(~ge, eq);
-            }
-        }
+        expr_ref_vector lemmas(m);
+        m_swine.real_power_axioms(p, x, y, lemmas);
+        for (expr* lemma : lemmas)
+            mk_axiom(mk_literal(lemma));
     }
 
     //  n < 0 || rem(a, n) =  mod(a, n)
@@ -1861,19 +1845,54 @@ public:
         }
     }
 
+    bool get_real_power_value(expr* e, expr_ref& value) {
+        if (a.is_numeral(e) || a.is_irrational_algebraic_numeral(e)) {
+            value = e;
+            return true;
+        }
+        bool nra_model = use_nra_model();
+        if (!nra_model && !m_model_is_initialized)
+            return false;
+        if (!ctx().e_internalized(e))
+            return false;
+        enode* n = ctx().get_enode(e);
+        if (!n || !is_registered_var(n->get_th_var(get_id())))
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (nra_model)
+            value = a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), false);
+        else
+            value = a.mk_real(get_value(v));
+        return true;
+    }
+
     final_check_status eval_power(expr* e) {
         expr* x = nullptr, * y = nullptr;
         VERIFY(a.is_power(e, x, y));
-        if (!m_nla)
-            return FC_GIVEUP;
-        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
-        case l_true:
-            return FC_DONE;
-        case l_false:
-            add_lemmas();
-            return FC_CONTINUE;
-        case l_undef:
-            return FC_GIVEUP;
+        if (m_nla) {
+            switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
+            case l_true:
+                return FC_DONE;
+            case l_false:
+                add_lemmas();
+                return FC_CONTINUE;
+            default:
+                break;
+            }
+        }
+        expr_ref xv(m), yv(m), rv(m);
+        if (get_real_power_value(x, xv) && get_real_power_value(y, yv) && get_real_power_value(e, rv)) {
+            expr_ref_vector lemmas(m);
+            switch (m_swine.check_real_power(e, xv, yv, rv, lemmas)) {
+            case l_true:
+                return FC_DONE;
+            case l_false:
+                for (expr* lemma : lemmas)
+                    mk_axiom(mk_literal(lemma));
+                return FC_CONTINUE;
+            default:
+                break;
+            }
         }
         return FC_GIVEUP;
     }

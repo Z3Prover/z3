@@ -2063,12 +2063,23 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         return BR_DONE;
     }
 
-    if (is_num_x && is_num_y) {
-        if (x.is_zero()) {
-            result = m_util.mk_numeral(x, false);
-            return BR_DONE;
-        }
+    bool is_irrat_x = m_util.is_irrational_algebraic_numeral(arg1);
+    bool is_irrat_y = m_util.is_irrational_algebraic_numeral(arg2);
+    bool negative_base = (is_num_x && x.is_neg()) ||
+        (is_irrat_x && m_util.am().is_neg(m_util.to_irrational_algebraic_numeral(arg1)));
+    if (negative_base && (is_irrat_y || (is_num_y && denominator(y).is_even()))) {
+        result = m_util.mk_real(0);
+        return BR_DONE;
+    }
 
+    if (is_num_x && x.is_zero()) {
+        expr_ref zero(m_util.mk_real(0), m), one(m_util.mk_real(1), m);
+        expr_ref is_zero(m.mk_eq(arg2, zero), m);
+        result = m.mk_ite(is_zero, one, zero);
+        return BR_REWRITE2;
+    }
+
+    if (is_num_x && is_num_y) {
         if (y.is_unsigned() && y.get_unsigned() <= m_max_degree) {
             x = power(x, y.get_unsigned());
             result = m_util.mk_numeral(x, false);
@@ -2146,8 +2157,6 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     if (!is_num_y)
         return BR_FAILED;
-
-    bool is_irrat_x = m_util.is_irrational_algebraic_numeral(arg1);
 
     if (!is_num_x && !is_irrat_x)
         return BR_FAILED;

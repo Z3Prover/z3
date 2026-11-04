@@ -262,12 +262,10 @@ namespace arith {
                     st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_power(n, n1, n2)) {
-                    if (a.is_int(n)) {
-                        ctx.push(push_back_vector(m_power_terms));
-                        m_power_terms.push_back(n);
-                    }
-                    else {
-                        found_unsupported(n);
+                    ctx.push(push_back_vector(m_power_terms));
+                    m_power_terms.push_back(n);
+                    if (a.is_real(n)) {
+                        ensure_nla();
                         mk_power_axiom(n, n1, n2);
                     }
                     st.to_ensure_var().push_back(n1);

@@ -2660,6 +2660,10 @@ class ArithRef(ExprRef):
     def __pow__(self, other):
         """Create the Z3 expression `self**other` (** is the power operator).
 
+        Real powers preserve ordinary real values, including odd rational
+        roots and reciprocals. They are zero outside the real domain, with
+        exponent zero always giving one.
+
         >>> x = Real('x')
         >>> x**3
         x**3
@@ -2667,6 +2671,10 @@ class ArithRef(ExprRef):
         Real
         >>> simplify(IntVal(2)**8)
         256
+        >>> simplify(RealVal(-1)**RealVal("1/2"))
+        0
+        >>> simplify(RealVal(-8)**RealVal("-1/3"))
+        -1/2
         """
         a, b = _coerce_exprs(self, other)
         return ArithRef(Z3_mk_power(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)

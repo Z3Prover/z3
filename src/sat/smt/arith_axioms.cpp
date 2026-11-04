@@ -63,27 +63,10 @@ namespace arith {
 
     // t = n^p
     void solver::mk_power_axiom(expr* p, expr* x, expr* y) {
-        if (a.is_zero(y)) {
-            add_unit(eq_internalize(p, a.mk_numeral(rational(1), a.is_int(p))));
-            return;
-        }
-        rational r;
-        // r > 0 => r^y > 0
-        if (a.is_extended_numeral(x, r) && r > 0) {
-            expr_ref zero(a.mk_real(0), m);
-            add_clause(~mk_literal(a.mk_le(p, zero)));
-        }
-        if (a.is_extended_numeral(y, r) && r > 0) {
-            // r is m/n then x >= 0 => x^m = p^n
-            if (denominator(r) > 1) {
-                expr_ref x_ge_0(a.mk_ge(x, a.mk_real(0)), m);
-                expr_ref xn(x, m);
-                if (numerator(r) > 1)
-                    xn = a.mk_power(x, a.mk_real(numerator(r)));
-                expr_ref x_eq_pn(a.mk_eq(xn, a.mk_power(p, a.mk_real(denominator(r)))), m);
-                add_clause(~mk_literal(x_ge_0), mk_literal(x_eq_pn));
-            }
-        }
+        expr_ref_vector lemmas(m);
+        m_swine.real_power_axioms(p, x, y, lemmas);
+        for (expr* lemma : lemmas)
+            add_unit(mk_literal(lemma));
     }
 
     // is_int(x) <=> to_real(to_int(x)) = x

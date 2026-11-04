@@ -614,6 +614,8 @@ public:
 
     bool is_extended_numeral(expr* e, rational& r) const;
 
+    expr_ref mk_algebraic_eq(expr* term, expr* value);
+
 };
 
 

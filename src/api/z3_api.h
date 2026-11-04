@@ -2749,6 +2749,11 @@ extern "C" {
        in which case the usual parity-dependent value is returned.
        Otherwise the arguments are coerced to reals and real exponentiation is used.
        Real powers with exponent zero are also 1, including \ccode{0.0 ^ 0.0}.
+       Zero to any nonzero real exponent is zero. For a negative real base,
+       a reduced rational exponent p/q with odd positive q has the usual
+       real value (including reciprocals for negative p); all other real
+       exponents yield zero. Positive real bases have ordinary real powers.
+       Thus real \ccode{2.0 ^ -1.0 = 1/2}, unlike integer \ccode{(** 2 -1) = 0}.
 
        The arguments must have int or real type.
 

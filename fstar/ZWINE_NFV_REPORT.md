@@ -1,4 +1,94 @@
-# zwine integer exponentiation NFV soundness audit
+# zwine exponentiation NFV soundness audit
+
+## Fully specified Real power (November 4, 2026)
+
+Real power now preserves ordinary real exponentiation wherever it has a
+real value and returns zero elsewhere, with exponent zero taking precedence:
+
+| Inputs | Value |
+|---|---|
+| Any base, exponent zero | 1, including `0^0` |
+| Zero base, nonzero exponent | 0 |
+| Positive base | Ordinary real exponentiation |
+| Negative base, reduced rational `p/q`, positive odd `q` | Signed real power, including reciprocals for negative `p` |
+| Negative base, irrational exponent or reduced even denominator | 0 |
+
+This follows the integer convention of preserving ordinary powers within
+the result domain, not equality across all sort coercions: integer `2**-1`
+is zero, whereas real `2.0^-1.0` is `1/2`. SMT-LIB standardizes the Int
+operation; this fully specified Real operation is a Z3 extension.
+
+The rewriter folds exceptional rational/algebraic cases before calling the
+algebraic root routines. Rational normalization still uses reduced fractions,
+and degree limits limit computation rather than change semantics. No
+unguarded exponent-addition or nested-power law is introduced.
+
+Purification replaces negative even roots by zero, rather than a separate
+uninterpreted `neg-root` application. Odd-root graphs use `k^n=x`; even-root
+graphs use `x>=0 => k^n=x and k>=0` and `x<0 => k=0`. Thus each graph
+determines one value and no longer loses congruence with retained powers.
+The legacy `OP_NEG_ROOT` declaration remains for compatibility, but this
+purifier no longer produces it.
+
+Both arithmetic backends share Real-power axioms and exact candidate
+validation in `arith_swine`. Model refinements are guarded by exact input
+values. Zero-outside-domain refinements fix only the exponent and require
+a negative base, avoiding enumeration of individual negative base values.
+Algebraic equalities are expressed by an integer-coefficient polynomial and
+an open isolating interval, shared with irrational-numeral purification:
+introducing bare algebraic literals into the arithmetic refinement would
+otherwise leave their meaning unsupported. Uncomputed transcendental
+values remain incomplete, not unconstrained successful model values.
+For a varying exponent and positive base, an exact mismatching point alone
+is not refined repeatedly: the classic backend first uses its existing
+general power bounds, and otherwise incomplete cases return `unknown`.
+Matching exact candidate values can still be accepted. This preserves the
+existing positive-base bounds tests without introducing a nonconvergent
+enumeration of fractional exponents.
+
+The accompanying `Z3RealPower*` F* modules specify the total operation,
+rational representation/classifier contracts, guarded rewrites, root
+graphs, exact candidate refinements, isolation-certificate guards, and the
+relationship to standard integer power. Their mathematical model boundary
+is explicit: real analytic laws come from the F* real/power library;
+rational/irrational classification is a correctness-refined parameter.
+Polynomial/root-isolation extraction is trusted through an explicit
+certificate premise, not claimed to be verified C++.
+
+The integer comparison uses a small defining-equation contract matching
+`Z3SwineStandardPower.exp`; it does not depend on the unrelated interpolation
+proofs or claim an automatically checked link to the native implementation.
+The five new modules and their two local foundations are included in the
+checker's dependency-ordered verification tests, without adding them to the
+extracted executable.
+
+Validation uses F* 2026.10.25 and this checkout's rebuilt Z3 5.3.4, with
+rlimit 10, refreshed SMT processes (`--z3refresh`), a fresh checked-module
+cache, and warnings treated as errors. All five new modules and their two
+local foundations discharge their verification conditions. Native
+validation passes all 126 default groups, including the two focused groups.
+The Python integration tests cover purification, original-formula model
+evaluation, both proof modes, the former congruence counterexample, and
+symbolic algebraic irrational exponents, and both signs of algebraic
+isolation guards. Both complete Python doctest suites
+and CLI/Python smoke tests pass. No fresh CentOS CI result is claimed.
+
+For the local Windows/WSL toolchain, standalone verification from `C:\z3q`:
+
+```powershell
+$modules = 'Z3ArithRewriterPower', 'Z3SwinePower', 'Z3RealPower',
+    'Z3RealPowerGraphs', 'Z3RealPowerCertificates', 'Z3RealPowerTests',
+    'Z3RealPowerInteger'
+New-Item -ItemType Directory -Force build\fstar-real-power-checked | Out-Null
+foreach ($module in $modules) {
+    wsl.exe --exec /mnt/c/z3q/build/fstar-epsilon-master-20261031/fstar-toolchain/bin/fstar.exe `
+        --include /mnt/c/z3q/fstar --include /mnt/c/z3q/build/fstar-real-power-checked `
+        --cache_checked_modules --cache_dir /mnt/c/z3q/build/fstar-real-power-checked `
+        --smt /mnt/c/z3q/build/z3.exe --z3version 5.3.4 --z3rlimit 10 `
+        --z3refresh --query_stats --warn_error '@1..999' "/mnt/c/z3q/fstar/$module.fst"
+    if ($LASTEXITCODE -ne 0) { throw "Verification failed: $module" }
+}
+```
 
 ## SMT-LIB semantics and journal-paper integration (November 3, 2026)
 
@@ -7,9 +97,8 @@ The current C++ implementation uses the integer exponentiation specified by
 absolute-exponent operation documented below. Its standard spelling is `**`,
 with signature `Int Int Int`, arbitrary integer exponents, and `(** 0 0) = 1`.
 For negative exponents it returns zero except at bases 1 and -1, where the
-usual parity-dependent value is returned. Real `^` uses its existing semantics
-except that, following review, exponent zero now always gives 1, including
-`0.0 ^ 0.0`. The integer
+usual parity-dependent value is returned. Real `^` uses the fully specified
+semantics above, including `0.0 ^ 0.0 = 1`. The integer
 `^` spelling remains an extension alias; integer powers print as `**`.
 Both overloads use `OP_POWER`; declaration construction checks argument sorts,
 arity, parameters, and the requested result sort. The arithmetic plugin supplies
