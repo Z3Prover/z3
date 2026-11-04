@@ -428,9 +428,9 @@ public:
 };
 
 tactic * mk_horn_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(horn_tactic, false, m, p));
+    return if_no_proofs(clean(alloc(horn_tactic, false, m, p)));
 }
 
 tactic * mk_horn_simplify_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(horn_tactic, true, m, p));
+    return if_no_proofs(clean(alloc(horn_tactic, true, m, p)));
 }

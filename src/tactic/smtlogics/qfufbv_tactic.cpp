@@ -199,6 +199,6 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
     tactic * const preamble_t = mk_qfufbv_preamble1(m, p);
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
-    return and_then(preamble_t,
-                    cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m, p)));
+    return if_no_proofs(and_then(preamble_t,
+                                cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m, p))));
 }

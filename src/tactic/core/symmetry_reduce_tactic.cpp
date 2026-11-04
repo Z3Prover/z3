@@ -621,5 +621,5 @@ void symmetry_reduce_tactic::cleanup() {
 }
 
 tactic * mk_symmetry_reduce_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(symmetry_reduce_tactic, m);
+    return if_no_proofs(alloc(symmetry_reduce_tactic, m));
 }

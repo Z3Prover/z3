@@ -403,6 +403,5 @@ public:
 };
 
 tactic * mk_eq2bv_tactic(ast_manager & m) {
-    return clean(alloc(eq2bv_tactic, m));
+    return if_no_proofs(clean(alloc(eq2bv_tactic, m)));
 }
-

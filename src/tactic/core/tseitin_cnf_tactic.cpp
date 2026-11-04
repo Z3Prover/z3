@@ -935,7 +935,7 @@ public:
 };
 
 tactic * mk_tseitin_cnf_core_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(tseitin_cnf_tactic, m, p));
+    return if_no_proofs(clean(alloc(tseitin_cnf_tactic, m, p)));
 }
 
 tactic * mk_tseitin_cnf_tactic(ast_manager & m, params_ref const & p) {

@@ -1511,16 +1511,13 @@ namespace qe {
 tactic * mk_qsat_tactic(ast_manager& m, params_ref const& p) {
     return cond(mk_and(mk_produce_proofs_probe(), mk_not(mk_has_quantifier_probe())),
                 mk_smt_tactic_core(m, p),
-                alloc(qe::qsat, m, p, qe::qsat_sat));
+                if_no_proofs(alloc(qe::qsat, m, p, qe::qsat_sat)));
 }
 
 tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {   
-    return alloc(qe::qsat, m, p, qe::qsat_qe);
+    return if_no_proofs(alloc(qe::qsat, m, p, qe::qsat_qe));
 }
 
 tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {   
-    tactic_ref t = alloc(qe::qsat, m, p, qe::qsat_qe_rec);
-    return cond(mk_produce_proofs_probe(),
-                and_then(mk_simplify_tactic(m, p), t.get()), t.get());
+    return if_no_proofs(alloc(qe::qsat, m, p, qe::qsat_qe_rec));
 }
-

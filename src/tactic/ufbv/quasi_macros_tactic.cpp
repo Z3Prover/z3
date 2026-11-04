@@ -136,5 +136,5 @@ public:
 };
 
 tactic * mk_quasi_macros_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(quasi_macros_tactic, m, p);
+    return if_no_proofs(alloc(quasi_macros_tactic, m, p));
 }

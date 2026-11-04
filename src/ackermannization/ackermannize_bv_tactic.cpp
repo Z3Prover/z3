@@ -89,5 +89,5 @@ private:
 };
 
 tactic * mk_ackermannize_bv_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(ackermannize_bv_tactic, m, p);
+    return if_no_proofs(alloc(ackermannize_bv_tactic, m, p));
 }

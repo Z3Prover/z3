@@ -252,5 +252,5 @@ public:
 }
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(propagate_values_tactic, m, p);
+    return if_no_proofs(alloc(propagate_values_tactic, m, p));
 }

@@ -470,9 +470,8 @@ public:
 };
 
 tactic * mk_nla2bv_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(nla2bv_tactic, p);
+    return if_no_proofs(alloc(nla2bv_tactic, p));
 }
-
 
 
 

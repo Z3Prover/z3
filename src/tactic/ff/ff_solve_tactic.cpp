@@ -352,5 +352,5 @@ namespace {
     };
 }  // namespace
 tactic *mk_ff_solve_tactic(ast_manager &m, params_ref const &p) {
-    return alloc(ff_solve_tactic, m, p);
+    return if_no_proofs(alloc(ff_solve_tactic, m, p));
 }

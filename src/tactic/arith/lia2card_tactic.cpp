@@ -407,7 +407,7 @@ public:
 };
 
 tactic * mk_lia2card_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(lia2card_tactic, m, p));
+    return if_no_proofs(clean(alloc(lia2card_tactic, m, p)));
 }
 
 bool get_pb_sum(expr* term, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {

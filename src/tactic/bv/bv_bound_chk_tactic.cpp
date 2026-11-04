@@ -15,6 +15,7 @@
  Revision History:
 --*/
 #include "tactic/bv/bv_bound_chk_tactic.h"
+#include "tactic/tactical.h"
 #include "ast/ast.h"
 #include "params/rewriter_params.hpp"
 #include "ast/rewriter/rewriter.h"
@@ -219,5 +220,5 @@ void bv_bound_chk_tactic::reset_statistics() {
 
 
 tactic* mk_bv_bound_chk_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(bv_bound_chk_tactic, m, p);
+    return if_no_proofs(alloc(bv_bound_chk_tactic, m, p));
 }

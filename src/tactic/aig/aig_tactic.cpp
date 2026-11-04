@@ -119,5 +119,5 @@ public:
 };
 
 tactic * mk_aig_tactic(params_ref const & p) {
-    return clean(alloc(aig_tactic, p));
+    return if_no_proofs(clean(alloc(aig_tactic, p)));
 }

@@ -250,6 +250,10 @@ public:
                 return;
             }
             case l_false: {
+                if (in->proofs_enabled() && (!pr || !m.is_false(m.get_fact(pr)))) {
+                    result.push_back(in.get());
+                    return;
+                }
                 if (m_fail_if_inconclusive && !in->unsat_preserved()) {
                     TRACE(smt_tactic, tout << "failed to show to be unsat...\n";);
                     throw tactic_exception("under-approximated goal found to be unsat");
@@ -267,8 +271,6 @@ public:
                     }
                 }
 
-                if (m.proofs_enabled() && !pr) pr = m.mk_asserted(m.mk_false()); // bail out
-                if (pr && m.get_fact(pr) != m.mk_false()) pr = m.mk_asserted(m.mk_false()); // could happen in clause_proof mode
                 in->assert_expr(m.mk_false(), pr, lcore);
                 
                 result.push_back(in.get());
@@ -451,4 +453,3 @@ tactic * mk_smt_tactic_core_using(ast_manager& m, bool auto_config, params_ref c
         t = mk_seq_smt_tactic(m, p);
     return using_params(t, p);
 }
-

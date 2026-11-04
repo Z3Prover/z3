@@ -1702,6 +1702,6 @@ tactic * mk_fm_tactic(ast_manager & m, params_ref const & p) {
     s_p.set_bool("arith_lhs", true);
     s_p.set_bool("elim_and", true);
     s_p.set_bool("som", true);
-    return and_then(using_params(mk_simplify_tactic(m, s_p), s_p), 
-                    clean(alloc(fm_tactic, m, p)));
+    return if_no_proofs(and_then(using_params(mk_simplify_tactic(m, s_p), s_p),
+                                clean(alloc(fm_tactic, m, p))));
 }

@@ -324,5 +324,5 @@ public:
 };
 
 tactic * mk_fix_dl_var_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(fix_dl_var_tactic, m, p));
+    return if_no_proofs(clean(alloc(fix_dl_var_tactic, m, p)));
 }

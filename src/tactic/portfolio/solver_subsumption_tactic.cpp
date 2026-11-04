@@ -177,6 +177,5 @@ public:
 };
 
 tactic* mk_solver_subsumption_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(solver_subsumption_tactic, m, p);
+    return if_no_proofs(alloc(solver_subsumption_tactic, m, p));
 }
-

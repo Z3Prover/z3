@@ -172,5 +172,5 @@ public:
 };
 
 tactic * mk_add_bounds_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(add_bounds_tactic, m, p));
+    return if_no_proofs(clean(alloc(add_bounds_tactic, m, p)));
 }

@@ -237,5 +237,5 @@ namespace {
     };
 }  // namespace
 tactic *mk_ff_sat_tactic(ast_manager &m, params_ref const &p) {
-    return and_then(mk_elim_term_ite_tactic(m, p), alloc(ff_sat_tactic, m, p));
+    return if_no_proofs(and_then(mk_elim_term_ite_tactic(m, p), alloc(ff_sat_tactic, m, p)));
 }

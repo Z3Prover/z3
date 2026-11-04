@@ -165,5 +165,5 @@ public:
 };
 
 tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(dt2bv_tactic, m, p);
+    return if_no_proofs(alloc(dt2bv_tactic, m, p));
 }

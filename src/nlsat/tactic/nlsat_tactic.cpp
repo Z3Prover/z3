@@ -329,5 +329,5 @@ public:
 };
 
 tactic * mk_nlsat_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(nlsat_tactic, p));
+    return if_no_proofs(clean(alloc(nlsat_tactic, p)));
 }

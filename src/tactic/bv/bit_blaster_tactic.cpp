@@ -160,10 +160,9 @@ public:
 
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(bit_blaster_tactic, m, nullptr, p));
+    return if_no_proofs(clean(alloc(bit_blaster_tactic, m, nullptr, p)));
 }
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {
-    return clean(alloc(bit_blaster_tactic, m, rw, p));
+    return if_no_proofs(clean(alloc(bit_blaster_tactic, m, rw, p)));
 }
-

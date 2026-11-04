@@ -433,5 +433,5 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
 }
 
 tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(bv_size_reduction_tactic, m));
+    return if_no_proofs(clean(alloc(bv_size_reduction_tactic, m)));
 }

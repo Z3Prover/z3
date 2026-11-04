@@ -428,5 +428,5 @@ public:
 };
 
 tactic * mk_recover_01_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(recover_01_tactic, m, p));
+    return if_no_proofs(clean(alloc(recover_01_tactic, m, p)));
 }

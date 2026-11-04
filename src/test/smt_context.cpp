@@ -9,7 +9,9 @@ Copyright (c) 2015 Microsoft Corporation
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
+#include "ast/converters/generic_model_converter.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
@@ -719,8 +721,8 @@ static void check_qsat_proofs() {
             lbool expected = proofs && test.quantified ? l_undef : test.expected;
             VERIFY(expected == check_sat(*t, g, md, labels, pr, core, reason_unknown));
             if (expected == l_undef) {
-                VERIFY(reason_unknown == "qsat does not support proof production");
-                VERIFY(!pr);
+                VERIFY(reason_unknown == "unknown");
+                VERIFY(pr && m.get_fact(pr) == cmd.assertions().get(0));
             }
             else if (expected == l_true) {
                 VERIFY(md);
@@ -758,7 +760,7 @@ static void check_qe_rec_proofs() {
         proof_ref pr(m);
         expr_dependency_ref core(m);
         std::string reason_unknown;
-        tactic_ref solve = proofs ? t.get() : and_then(t.get(), mk_smt_tactic(m));
+        tactic_ref solve = and_then(t.get(), mk_smt_tactic(m));
         VERIFY(l_false == check_sat(*solve, g, md, labels, pr, core, reason_unknown));
         if (proofs) {
             VERIFY(pr && m.is_false(m.get_fact(pr)));
@@ -777,8 +779,8 @@ static void check_qe_rec_proofs() {
             g->assert_expr(a);
         if (proofs) {
             VERIFY(l_undef == check_sat(*t, g, md, labels, pr, core, reason_unknown));
-            VERIFY(reason_unknown == "qsat does not support proof production");
-            VERIFY(!pr);
+            VERIFY(reason_unknown == "unknown");
+            VERIFY(pr && m.get_fact(pr) == cmd.assertions().get(0));
         }
         else {
             goal_ref_buffer result;
@@ -786,6 +788,168 @@ static void check_qe_rec_proofs() {
             VERIFY(result.size() == 1);
             for (unsigned i = 0; i < result[0]->size(); ++i)
                 VERIFY(!has_quantifiers(result[0]->form(i)));
+        }
+    }
+}
+
+static void check_proof_mode_noops() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    tactic_manager tactics;
+    install_tactics(tactics);
+    cmd_context cmd(false, &m);
+    std::istringstream input(
+        "(declare-datatype Color ((red) (green) (blue)))\n"
+        "(declare-const c Color)\n"
+        "(declare-const b (_ BitVec 8))\n"
+        "(declare-const f (_ FloatingPoint 8 24))\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-fun h (Int Int) Int)\n"
+        "(assert (or (= c red) (= c green)))\n"
+        "(assert (= (bvadd b #x01) #x02))\n"
+        "(assert (fp.isZero f))\n"
+        "(assert (> x 0))\n"
+        "(assert (< x 3))\n"
+        "(assert (= (div x y) 3))\n"
+        "(assert (forall ((k Int)) (= (h k 0) k)))\n");
+    ENSURE(parse_smt2_commands(cmd, input));
+    for (char const* name : {
+        "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
+        "dt2bv", "elim-small-bv", "eq2bv", "ff-sat", "ff-solve", "ff2bv", "fix-dl-var",
+        "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
+        "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
+        "pqffd", "psat", "psmt", "purify-arith", "qe2", "qe_rec", "qfbv-sls",
+        "qffd", "qfnra-nlsat", "qfufbv_ackr", "qsat", "quasi-macros",
+        "recover-01", "reduce-args", "reduce-bv-size", "sat", "sat-preprocess", "sls-smt",
+        "smtfd", "solver-subsumption", "symmetry-reduce", "tseitin-cnf",
+        "tseitin-cnf-core", "unit-subsume-simplify", "ctx-solver-simplify", "propagate-values",
+        "blast-term-ite", "bv-slice", "bv1-blast", "bvarray2uf", "card2bv",
+        "cofactor-term-ite", "dom-simplify", "elim-predicates", "elim-uncnstr2",
+        "euf-completion", "factor", "fold-unfold",
+        "injectivity", "max-bv-sharing", "propagate-bv-bounds2", "propagate-ineqs",
+        "qe-light", "reduce-args2", "special-relations"
+    }) {
+        tactic_cmd* factory = tactics.find_tactic_cmd(symbol(name));
+        if (!factory)
+            std::cerr << "Missing proof-mode test tactic: " << name << "\n";
+        ENSURE(factory);
+        tactic_ref t = factory->mk(m);
+        if (!strcmp(name, "bit-blast")) {
+            params_ref p;
+            p.set_bool("blast_quant", true);
+            t->updt_params(p);
+        }
+        for (bool cores : {false, true}) {
+            goal_ref g = alloc(goal, m, true, true, cores);
+            for (expr* a : cmd.assertions())
+                g->assert_expr(a, cores ? a : nullptr);
+            g->set_depth(7);
+            g->add(alloc(generic_model_converter, m, "proof-noop"));
+            goal_ref before = alloc(goal, *g);
+            goal_ref_buffer result;
+            (*t)(g, result);
+            ENSURE(result.size() == 1 && result[0] == g.get());
+            ENSURE(g->size() == before->size() && g->depth() == before->depth());
+            ENSURE(g->prec() == before->prec());
+            ENSURE(g->pc() == before->pc() && g->mc() == before->mc() && g->dc() == before->dc());
+            for (unsigned i = 0; i < g->size(); ++i) {
+                ENSURE(g->form(i) == before->form(i));
+                ENSURE(g->pr(i) == before->pr(i));
+                ENSURE(g->dep(i) == before->dep(i));
+            }
+            t->cleanup();
+        }
+    }
+
+    struct {
+        char const* name;
+        char const* input;
+    } cases[] = {
+        {"dt2bv", "(declare-datatype C ((r) (g) (b))) (declare-const c C)"
+                  "(assert (or (= c r) (= c g)))"},
+        {"bit-blast", "(declare-const b (_ BitVec 8)) (assert (= (bvadd b #x01) #x02))"},
+        {"fpa2bv", "(declare-const f (_ FloatingPoint 8 24)) (assert (fp.isZero f))"},
+        {"fix-dl-var", "(declare-const x Int) (declare-const y Int) (assert (<= (- x y) 3))"},
+        {"purify-arith", "(declare-const x Int) (declare-const y Int) (assert (= (div x y) 3))"},
+        {"sat", "(declare-const a Bool) (declare-const b Bool) (assert (or a b))"}
+    };
+    for (auto const& test : cases) {
+        ast_manager n;
+        reg_decl_plugins(n);
+        cmd_context ctx(false, &n);
+        std::istringstream source(test.input);
+        ENSURE(parse_smt2_commands(ctx, source));
+        goal_ref g = alloc(goal, n, false, true, false);
+        for (expr* a : ctx.assertions())
+            g->assert_expr(a);
+        tactic_ref normalize = mk_simplify_tactic(n);
+        goal_ref_buffer normalized;
+        (*normalize)(g, normalized);
+        ENSURE(normalized.size() == 1);
+        g = normalized[0];
+        goal_ref before = alloc(goal, *g);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(test.name))->mk(n);
+        goal_ref_buffer result;
+        (*t)(g, result);
+        ENSURE(result.size() == 1);
+        bool changed = result[0]->size() != before->size();
+        for (unsigned i = 0; !changed && i < before->size(); ++i)
+            changed = result[0]->form(i) != before->form(i);
+        ENSURE(changed);
+        t->cleanup();
+    }
+}
+
+static void check_proof_mode_fallbacks() {
+    struct {
+        char const* name;
+        char const* input;
+    } cases[] = {
+        {"qfbv", "(declare-const x (_ BitVec 8))"
+                  "(assert (= (bvand x #x01) #x01))"
+                  "(assert (= (bvand x #x01) #x00))"},
+        {"qffp", "(declare-datatype C ((r) (g) (b))) (declare-const c C)"
+                 "(declare-const f (_ FloatingPoint 8 24)) (assert (fp.isZero f))"
+                 "(assert (or (= c r) (= c g))) (assert (not (= c r))) (assert (not (= c g)))"},
+        {"qfnia", "(declare-const x Int) (assert (> x 0)) (assert (< x 0))"},
+        {"qfnra", "(declare-const x Real) (assert (> x 0.0)) (assert (< x 0.0))"},
+        {"nra", "(declare-const x Real) (assert (> x 0.0)) (assert (< x 0.0))"},
+        {"lra", "(assert (forall ((a Real)) (exists ((b Real))"
+                " (and (>= (+ a b) 0.0) (<= b 0.0)))))"}
+    };
+    for (auto const& test : cases) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        tactic_manager tactics;
+        install_tactics(tactics);
+        cmd_context cmd(false, &m);
+        std::istringstream input(test.input);
+        ENSURE(parse_smt2_commands(cmd, input));
+        goal_ref g = alloc(goal, m, true, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(test.name))->mk(m);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*t, g, md, labels, pr, core, reason) == l_false);
+        ENSURE(pr && m.is_false(m.get_fact(pr)));
+        for (expr* e : subterms::all(expr_ref(pr, m))) {
+            if (!m.is_asserted(e))
+                continue;
+            bool original = false;
+            for (expr* assertion : cmd.assertions())
+                original |= assertion == m.get_fact(to_app(e));
+            ENSURE(original);
+        }
+        // The legacy checker rejects OEQ definition premises in BV congruence.
+        if (strcmp(test.name, "qfbv")) {
+            proof_checker checker(m);
+            expr_ref_vector side_conditions(m);
+            ENSURE(checker.check(pr, side_conditions));
         }
     }
 }
@@ -832,6 +996,8 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_proof_mode_noops();
+    check_proof_mode_fallbacks();
     check_case_split_relevant_first();
     check_intblast_signed_mod();
     check_qsat_proofs();

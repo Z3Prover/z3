@@ -19,6 +19,7 @@ Notes:
 
 #include "solver/solver.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
 #include "ast/converters/generic_model_converter.h"
 #include "solver/solver2tactic.h"
 #include "ast/ast_util.h"
@@ -196,4 +197,4 @@ public:
     }
 };
 
-tactic* mk_solver2tactic(solver* s) { return alloc(solver2tactic, s); }
+tactic* mk_solver2tactic(solver* s) { return if_no_proofs(alloc(solver2tactic, s)); }

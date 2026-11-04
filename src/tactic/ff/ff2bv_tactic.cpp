@@ -216,7 +216,7 @@ namespace {
     };
 }  // namespace
 tactic *mk_ff2bv_tactic(ast_manager &m, params_ref const &) {
-    return alloc(ff2bv_tactic, m);
+    return if_no_proofs(alloc(ff2bv_tactic, m));
 }
 probe *mk_has_ff_probe() {
     return alloc(has_ff_probe);

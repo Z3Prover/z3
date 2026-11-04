@@ -27,6 +27,7 @@ Author:
 #include "solver/parallel_params.hpp"
 #include "util/search_tree.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
 #include "solver/solver2tactic.h"
 
 #include <algorithm>
@@ -2224,7 +2225,7 @@ public:
 };
 
 tactic* mk_parallel_tactic(solver* s, params_ref const& p) {
-    return alloc(parallel_tactic, s, p);
+    return if_no_proofs(alloc(parallel_tactic, s, p));
 }
 
 #endif

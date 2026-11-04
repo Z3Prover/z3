@@ -846,7 +846,7 @@ public:
 
 // Similar to and_then combinator, but t2 is applied in parallel to all subgoals produced by t1
 tactic * par_and_then(tactic * t1, tactic * t2) {
-    return alloc(par_and_then_tactical, t1, t2);
+    return if_no_proofs(alloc(par_and_then_tactical, t1, t2));
 }
 #endif
 

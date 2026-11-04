@@ -36,6 +36,7 @@ Revision History:
 #include "nlsat/nlsat_assignment.h"
 #include "nlsat/tactic/goal2nlsat.h"
 #include "tactic/core/tseitin_cnf_tactic.h"
+#include "tactic/tactical.h"
 
 
 namespace qe {
@@ -961,11 +962,10 @@ namespace qe {
 }
 
 tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p) {
-    return alloc(qe::nlqsat, m, qe::qsat_t, p);
+    return if_no_proofs(alloc(qe::nlqsat, m, qe::qsat_t, p));
 }
 
 tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p) {
-    return alloc(qe::nlqsat, m, qe::elim_t, p);
+    return if_no_proofs(alloc(qe::nlqsat, m, qe::elim_t, p));
 }
-
 

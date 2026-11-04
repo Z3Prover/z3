@@ -338,6 +338,5 @@ public:
 };
 
 tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(lia2pb_tactic, m, p));
+    return if_no_proofs(clean(alloc(lia2pb_tactic, m, p)));
 }
-

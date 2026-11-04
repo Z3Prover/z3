@@ -28,6 +28,7 @@ and V is a value (true or false) and x is a subterm
 --*/
 
 #include "smt/tactic/ctx_solver_simplify_tactic.h"
+#include "tactic/tactical.h"
 #include "ast/arith_decl_plugin.h"
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
@@ -322,5 +323,5 @@ protected:
 };
 
 tactic * mk_ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(ctx_solver_simplify_tactic, m, p));
+    return if_no_proofs(clean(alloc(ctx_solver_simplify_tactic, m, p)));
 }

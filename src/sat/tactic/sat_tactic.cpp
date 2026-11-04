@@ -276,7 +276,7 @@ protected:
 };
 
 tactic * mk_sat_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(sat_tactic, m, p));
+    return if_no_proofs(clean(alloc(sat_tactic, m, p)));
 }
 
 tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p) {
@@ -287,5 +287,4 @@ tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p) {
     t->updt_params(p);
     return t;
 }
-
 

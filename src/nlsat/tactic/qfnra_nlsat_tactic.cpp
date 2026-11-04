@@ -42,7 +42,7 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
     else
         factor = mk_skip_tactic();
 
-    return and_then(
+    return if_no_proofs(and_then(
         mk_report_verbose_tactic("(qfnra-nlsat-tactic)", 10),
         and_then(using_params(mk_simplify_tactic(m, p),
                               main_p),
@@ -64,6 +64,5 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
             mk_tseitin_cnf_core_tactic(m, p),
             using_params(mk_simplify_tactic(m, p),
                          main_p),
-            mk_nlsat_tactic(m, p)));
+            mk_nlsat_tactic(m, p))));
 }
-

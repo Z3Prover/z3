@@ -479,5 +479,5 @@ public:
 }
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(reduce_args_tactic, m));
+    return if_no_proofs(clean(alloc(reduce_args_tactic, m)));
 }

@@ -149,5 +149,5 @@ public:
 };
 
 tactic * mk_fpa2bv_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(fpa2bv_tactic, m, p));
+    return if_no_proofs(clean(alloc(fpa2bv_tactic, m, p)));
 }

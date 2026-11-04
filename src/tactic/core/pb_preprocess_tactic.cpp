@@ -633,6 +633,5 @@ private:
 
 
 tactic * mk_pb_preprocess_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(pb_preprocess_tactic, m);
+    return if_no_proofs(alloc(pb_preprocess_tactic, m));
 }
-
