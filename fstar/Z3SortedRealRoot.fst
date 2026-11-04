@@ -16,6 +16,7 @@ module TR = Z3TypedRoot
 module SR = Z3SortedRoot
 module RL = Z3SortedReal
 module AR = Z3SortedArithmetic
+module LIN = Z3SortedRealLinear
 
 (* ---------------------------------------------------------------------- *)
 (* The root Real carrier: the identity on FStar.Real.real                   *)
@@ -358,3 +359,52 @@ let lemma_real_datatype_refused ()
            not (TR.supported real_datatype_schema)) =
   assert_norm (not (RL.real_primitive real_datatype_schema));
   assert_norm (not (TR.supported real_datatype_schema))
+
+(* ---------------------------------------------------------------------- *)
+(* The typed Int/Real Farkas check (Z3SortedRealLinear) in every root model *)
+(* ---------------------------------------------------------------------- *)
+
+(* A typed Int/Real Farkas certificate accepted by the executable check
+   refutes its literals in EVERY root model: the Sorted replay lemma with the
+   laws derived from R2 of that same model. *)
+let lemma_root_numeric_contradiction (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
+                                     (xs:list (bool & expr)) (cs:list A.coefficient)
+  : Lemma (requires TR.root_model u sch i /\ LIN.check_numeric_contradiction sch xs cs)
+          (ensures not (AR.assumptions_hold sch (TR.booleans u) (SR.root_scalars u) i xs)) =
+  lemma_root_real_laws u sch i;
+  if AR.assumptions_hold sch (TR.booleans u) (SR.root_scalars u) i xs then
+    LIN.lemma_check_numeric_contradiction sch (TR.booleans u) (SR.root_scalars u) i (root_reals u) xs cs
+
+(* End to end on closed Real literals over an uninterpreted Real constant c:
+   the executable typed check accepts {c > 0, c <= 0} and, in EVERY root
+   model, those two literals are not both true; it refuses the satisfiable
+   {0 < c, c < 1} (true at c = 1/2 in the standard root). *)
+let real_constant_c : expr =
+  App { decl_name = "c"; domain = []; range = A.real_s; interp = None; int_params = [] } []
+
+let real_gt (a b:expr) : expr = App RL.real_gt_decl [a; b]
+
+let contradictory_literals : list (bool & expr) =
+  [(true, real_gt real_constant_c (real_constant 0 1)); (true, real_le real_constant_c (real_constant 0 1))]
+
+let satisfiable_literals : list (bool & expr) =
+  [(true, real_lt (real_constant 0 1) real_constant_c); (true, real_lt real_constant_c (real_constant 1 1))]
+
+let lemma_typed_check_decisions ()
+  : Lemma (LIN.check_numeric_contradiction empty_schema contradictory_literals [(1, 1); (1, 1)] == true /\
+           LIN.check_numeric_contradiction empty_schema satisfiable_literals [(1, 1); (1, 1)] == false /\
+           LIN.check_numeric_contradiction empty_schema satisfiable_literals [(2, 3); (2, 3)] == false) =
+  assert_norm (LIN.check_numeric_contradiction empty_schema contradictory_literals [(1, 1); (1, 1)] == true);
+  assert_norm (LIN.check_numeric_contradiction empty_schema satisfiable_literals [(1, 1); (1, 1)] == false);
+  assert_norm (LIN.check_numeric_contradiction empty_schema satisfiable_literals [(2, 3); (2, 3)] == false)
+
+let lemma_root_refutes_contradictory (u:TR.uninterpreted) (i:TR.interp u empty_schema)
+  : Lemma (requires TR.root_model u empty_schema i)
+          (ensures not (AR.assumptions_hold empty_schema (TR.booleans u) (SR.root_scalars u) i
+                          contradictory_literals)) =
+  lemma_typed_check_decisions ();
+  lemma_root_numeric_contradiction u empty_schema i contradictory_literals [(1, 1); (1, 1)]
+
+let lemma_real_datatype_check_refused ()
+  : Lemma (LIN.check_numeric_contradiction real_datatype_schema contradictory_literals [(1, 1); (1, 1)] == false) =
+  assert_norm (LIN.check_numeric_contradiction real_datatype_schema contradictory_literals [(1, 1); (1, 1)] == false)
