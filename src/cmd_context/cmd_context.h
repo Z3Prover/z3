@@ -159,9 +159,12 @@ public:
 struct builtin_decl {
     family_id      m_fid = null_family_id;
     decl_kind      m_decl = 0;
+    func_decl*     m_func_decl = nullptr;
     builtin_decl * m_next = nullptr;
     builtin_decl() = default;
-    builtin_decl(family_id fid, decl_kind k, builtin_decl * n = nullptr):m_fid(fid), m_decl(k), m_next(n) {}
+    builtin_decl(family_id fid, decl_kind k, func_decl* decl, builtin_decl * n = nullptr):
+        m_fid(fid), m_decl(k), m_func_decl(decl), m_next(n) {}
+    sort* get_range(sort* range) const;
 };
 
 class opt_wrapper : public check_sat_result {

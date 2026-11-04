@@ -43,6 +43,7 @@
 #include "smt/theory_lra.h"
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
+#include "ast/rewriter/arith_swine.h"
 #include "util/nat_set.h"
 #include "ast/converters/generic_model_converter.h"
 #include "ast/ast_pp.h"
@@ -85,6 +86,7 @@ class theory_lra::imp {
     theory_lra&                  th;
     ast_manager&                 m;
     arith_util                   a;
+    arith_swine                  m_swine;
     arith_eq_adapter             m_arith_eq_adapter;
     vector<rational>             m_columns;
       
@@ -321,9 +323,6 @@ class theory_lra::imp {
         else if (a.is_mod(n, x, y)) {                
             n = a.mk_mod(x, a.mk_int(0));
             e = a.mk_mod0(x, a.mk_int(0));
-        }
-        else if (a.is_power(n, x, y)) {                
-            e = a.mk_power0(x, y);
         }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
@@ -942,7 +941,8 @@ class theory_lra::imp {
 public:
     imp(theory_lra& th, ast_manager& m): 
         th(th), m(m), 
-        a(m), 
+        a(m),
+        m_swine(m),
         m_arith_eq_adapter(th, a),            
         m_internalize_head(0),
         m_one_var(UINT_MAX),
@@ -1277,36 +1277,12 @@ public:
     }
 
     void mk_power_axiom(expr* p, expr* x, expr* y) {
-        rational r;
-        // r > 0 => r^y > 0
-        if (a.is_extended_numeral(x, r) && r > 0) {
-            expr_ref zero(a.mk_real(0), m);
-            mk_axiom(~mk_literal(a.mk_le(p, zero)));
-        }
-        if (a.is_extended_numeral(y, r) && r > 0) {
-            // r is 1/n then x >= 0 => x = p^n
-            if (numerator(r) == 1 && denominator(r) > 1) {
-                expr_ref x_ge_0(a.mk_ge(x, a.mk_real(0)), m);
-                expr_ref x_eq_pn(a.mk_eq(x, a.mk_power(p, a.mk_real(denominator(r)))), m);
-                literal ge = mk_literal(x_ge_0);
-                literal eq = mk_literal(x_eq_pn);
-                mk_axiom(~ge, eq);
-            }
-        }
-        bool can_be_underspecified = false;
-        if (a.is_numeral(x, r) && r == 0 && (!a.is_numeral(y, r) || r == 0))
-            can_be_underspecified = true;
-        if (!a.is_extended_numeral(x, r) && 
-            !a.is_extended_numeral(y, r)) 
-            can_be_underspecified = true;
-        if (can_be_underspecified) {
-            literal lit = th.mk_eq(p, a.mk_power0(x, y), false);
-            ctx().mark_as_relevant(lit);
-            if (proofs_enabled())
-                ctx().mk_th_axiom(get_id(), lit);
-            else
-                ctx().assign(lit, nullptr);
-        }
+        if (a.is_int(p))
+            return;
+        expr_ref_vector lemmas(m);
+        m_swine.real_power_axioms(p, x, y, lemmas);
+        for (expr* lemma : lemmas)
+            mk_axiom(mk_literal(lemma));
     }
 
     //  n < 0 || rem(a, n) =  mod(a, n)
@@ -1650,6 +1626,21 @@ public:
         m_num_conflicts = 0;
     }
 
+    void add_theory_assumptions(expr_ref_vector& assumptions) {
+        ptr_vector<expr> powers;
+        for (expr* e : m_not_handled)
+            if (a.is_power(e) && a.is_int(e))
+                powers.push_back(e);
+        expr_ref_vector lemmas(m);
+        m_swine.add_assumptions(powers, assumptions, lemmas);
+        for (expr* lemma : lemmas)
+            mk_axiom(mk_literal(lemma));
+    }
+
+    bool should_research(expr_ref_vector& core) {
+        return m_swine.should_research(core);
+    }
+
     bool can_get_value(theory_var v) const {
         return is_registered_var(v) && m_model_is_initialized;
     }
@@ -1810,31 +1801,107 @@ public:
         return !m_asserted_atoms.empty();
     }
 
-    final_check_status eval_power(expr* e) {
-        expr* x = nullptr, * y = nullptr;
-        rational r;
-        VERIFY(a.is_power(e, x, y));
-        if (a.is_numeral(x, r) && r == 0 && a.is_numeral(y, r) && r == 0)
-            return FC_DONE;
-        if (!m_nla)
-            return FC_GIVEUP;
-        switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
+    bool get_power_value(expr* e, rational& value) {
+        SASSERT(a.is_int(e));
+        if (a.is_numeral(e, value))
+            return true;
+        bool nra_model = use_nra_model();
+        // NRA values do not require LP model initialization.
+        if (!nra_model && !m_model_is_initialized)
+            return false;
+        if (!ctx().e_internalized(e))
+            return false;
+        enode* n = ctx().get_enode(e);
+        if (!n)
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (!is_registered_var(v))
+            return false;
+        if (nra_model) {
+            auto& am = m_nla->am();
+            auto const& av = nl_value(v, m_nla->tmp1());
+            return am.to_rational(av, value) && value.is_int();
+        }
+        value = get_value(v);
+        return value.is_int();
+    }
+
+    final_check_status check_integer_powers() {
+        ptr_vector<expr> powers;
+        for (expr* e : m_not_handled)
+            if (a.is_power(e) && a.is_int(e) && ctx().is_relevant(e))
+                powers.push_back(e);
+        expr_ref_vector lemmas(m);
+        auto value = [&](expr* e, rational& v) { return get_power_value(e, v); };
+        switch (m_swine.check(powers, value, lemmas)) {
         case l_true:
             return FC_DONE;
         case l_false:
-            add_lemmas();
+            for (expr* lemma : lemmas)
+                mk_axiom(mk_literal(lemma));
             return FC_CONTINUE;
-        case l_undef:
+        default:
             return FC_GIVEUP;
+        }
+    }
+
+    bool get_real_power_value(expr* e, expr_ref& value) {
+        if (a.is_numeral(e) || a.is_irrational_algebraic_numeral(e)) {
+            value = e;
+            return true;
+        }
+        bool nra_model = use_nra_model();
+        if (!nra_model && !m_model_is_initialized)
+            return false;
+        if (!ctx().e_internalized(e))
+            return false;
+        enode* n = ctx().get_enode(e);
+        if (!n || !is_registered_var(n->get_th_var(get_id())))
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (nra_model)
+            value = a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), false);
+        else
+            value = a.mk_real(get_value(v));
+        return true;
+    }
+
+    final_check_status eval_power(expr* e) {
+        expr* x = nullptr, * y = nullptr;
+        VERIFY(a.is_power(e, x, y));
+        if (m_nla) {
+            switch (m_nla->check_power(get_lpvar(e), get_lpvar(x), get_lpvar(y))) {
+            case l_true:
+                return FC_DONE;
+            case l_false:
+                add_lemmas();
+                return FC_CONTINUE;
+            default:
+                break;
+            }
+        }
+        expr_ref xv(m), yv(m), rv(m);
+        if (get_real_power_value(x, xv) && get_real_power_value(y, yv) && get_real_power_value(e, rv)) {
+            expr_ref_vector lemmas(m);
+            switch (m_swine.check_real_power(e, xv, yv, rv, lemmas)) {
+            case l_true:
+                return FC_DONE;
+            case l_false:
+                for (expr* lemma : lemmas)
+                    mk_axiom(mk_literal(lemma));
+                return FC_CONTINUE;
+            default:
+                break;
+            }
         }
         return FC_GIVEUP;
     }
 
     final_check_status eval_unsupported(expr* e) {
+        if (a.is_power(e) && a.is_int(e))
+            return FC_DONE;
         if (a.is_power(e)) 
             return eval_power(e);        
-        if (a.is_power0(e)) 
-            return FC_DONE;
         return FC_GIVEUP;
     }
 
@@ -1946,6 +2013,15 @@ public:
             
             if (!m_not_handled.empty())
                 init_variable_values();
+            switch (check_integer_powers()) {
+            case FC_CONTINUE:
+                return FC_CONTINUE;
+            case FC_GIVEUP:
+                st = FC_GIVEUP;
+                break;
+            default:
+                break;
+            }
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
@@ -4117,6 +4193,7 @@ public:
 
     void reset_eh() {
         m_arith_eq_adapter.reset_eh();
+        m_swine.reset();
         m_solver = nullptr;
         m_internalize_head = 0;
         m_not_handled.reset();
@@ -4245,7 +4322,6 @@ public:
         return 
             a.is_div0(f) ||
             a.is_idiv0(f) ||
-            a.is_power0(f) ||
             a.is_rem0(f) ||
             a.is_mod0(f);        
     }
@@ -4907,6 +4983,7 @@ public:
     }
 
     void collect_statistics(::statistics & st) const {
+        m_swine.collect_statistics(st);
         m_arith_eq_adapter.collect_statistics(st);
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
@@ -5024,6 +5101,12 @@ void theory_lra::relevant_eh(expr* e) {
 }
 void theory_lra::init_search_eh() {
     m_imp->init_search_eh();
+}
+void theory_lra::add_theory_assumptions(expr_ref_vector& assumptions) {
+    m_imp->add_theory_assumptions(assumptions);
+}
+bool theory_lra::should_research(expr_ref_vector& core) {
+    return m_imp->should_research(core);
 }
 final_check_status theory_lra::final_check_eh(unsigned level) {
     return m_imp->final_check_eh(level);

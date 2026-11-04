@@ -19,6 +19,7 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/arith_swine.h"
 
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
@@ -218,6 +219,7 @@ namespace arith {
         ptr_vector<app>        m_underspecified;
         ptr_vector<expr>       m_idiv_terms;
         ptr_vector<app>        m_bv_terms;
+        ptr_vector<expr>       m_power_terms;
         vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
@@ -259,6 +261,12 @@ namespace arith {
         vector<parameter>   m_params;
         nla::lemma          m_lemma;
         arith_util          a;
+        arith_swine         m_swine;
+
+        bool get_power_value(expr* e, rational& value);
+        bool get_real_power_value(expr* e, expr_ref& value);
+        sat::check_result check_integer_powers();
+        sat::check_result check_real_powers();
 
         bool is_int(theory_var v) const { return is_int(var2enode(v)); }
         bool is_int(euf::enode* n) const { return a.is_int(n->get_expr()); }
@@ -323,7 +331,6 @@ namespace arith {
         void mk_power_axiom(expr* t, expr* n, expr* p);
         void mk_bound_axioms(api_bound& b);
         void mk_bound_axiom(api_bound& b1, api_bound& b2);
-        void mk_power0_axioms(app* t, app* n);
         void mk_bv_axiom(app* n);
         void flush_bound_axioms();
         void add_farkas_clause(sat::literal l1, sat::literal l2);
@@ -494,6 +501,14 @@ namespace arith {
         sat::check_result check() override;
         void simplify() override {}
         void init_search() override {}
+        bool tracking_assumptions() override {
+            for (expr* e : m_power_terms)
+                if (a.is_int(e))
+                    return true;
+            return false;
+        }
+        void add_assumptions(sat::literal_set& assumptions) override;
+        bool should_research(sat::literal_vector const& core) override;
 
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;

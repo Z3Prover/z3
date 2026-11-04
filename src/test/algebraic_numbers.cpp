@@ -170,6 +170,34 @@ void test_algebraic_degree() {
     VERIFY(am.is_rational(zero));
 }
 
+static void test_algebraic_to_rational() {
+    reslimit rl;
+    unsynch_mpq_manager qm;
+    anum_manager am(rl, qm);
+    scoped_anum a(am), irrational(am);
+    scoped_mpq input(qm), output(qm);
+    rational result(17);
+
+    qm.set(input, -5, 3);
+    am.set(a, input);
+    ENSURE(am.to_rational(a, output) && qm.eq(output, input));
+    ENSURE(am.to_rational(a, result) && result == rational(-5, 3));
+
+    am.set(a, 2);
+    am.root(a, 2, irrational);
+    for (unsigned i = 0; i < 2; ++i) {
+        qm.set(output, 17);
+        result = rational(17);
+        ENSURE(!am.to_rational(irrational, output) && qm.eq(output, 17));
+        ENSURE(!am.to_rational(irrational, result) && result == rational(17));
+        am.neg(irrational);
+    }
+
+    am.reset(a);
+    ENSURE(am.to_rational(a, output) && qm.is_zero(output));
+    ENSURE(am.to_rational(a, result) && result.is_zero());
+}
+
 void test_algebraic_signs() {
     std::cout << "test_algebraic_signs\n";
     
@@ -202,6 +230,7 @@ void test_algebraic_numbers() {
     test_algebraic_comparison();
     test_algebraic_comparison_edge_case();
     test_algebraic_degree();
+    test_algebraic_to_rational();
     test_algebraic_signs();
 }
 
