@@ -543,8 +543,11 @@ def _require_linear_arithmetic(expr):
     # abs over Real is accepted too: SMT-LIB defines abs on Int only, but Z3
     # reads a Real abs by the same definition, (ite (>= t 0) t (- t)), which
     # the reconstructor states over Rat.
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM, z3.Z3_OP_ABS):
-        pass  # Variables, applications of uninterpreted functions, and abs are the atoms of linear forms.
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM, z3.Z3_OP_ABS, z3.Z3_OP_SELECT):
+        # Variables, applications of uninterpreted functions, reads of arrays
+        # (their arrays are checked as they are visited), and abs are the
+        # atoms of linear forms.
+        pass
     elif kind == z3.Z3_OP_MUL:
         if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
             raise ProofExportError("nonlinear multiplication is not supported")
@@ -618,29 +621,38 @@ def is_uninterpreted_sort(sort):
     return sort.kind() == z3.Z3_UNINTERPRETED_SORT
 
 
-def is_array_sort(sort):
-    """Whether sort is an array sort with one index (QF_AX), over uninterpreted index and element sorts.
+def _is_array_component(sort):
+    """Whether sort may index an array or be its element sort: an uninterpreted sort, Int, or Real."""
+    return is_uninterpreted_sort(sort) or sort.kind() in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT)
 
-    Lean renders such an array as a function between their carriers (one
-    type, _m.U), so select is application, store a classical update, and
-    extensionality funext. Arrays over Bool, arithmetic, or array sorts, and
-    arrays of several indices, are not supported (see array_sort_name).
+
+def is_array_sort(sort):
+    """Whether sort is an array sort with one index, over uninterpreted, Int, or Real index and element sorts.
+
+    Lean renders such an array as a function between the types of its index
+    and element sorts (_m.U for every uninterpreted sort, Int, Rat), so
+    select is application, store a classical update, and extensionality
+    funext (QF_AX, QF_ALIA, QF_AUFLIA). Arrays over Bool or array sorts,
+    and arrays of several indices, are not supported (see array_sort_name).
     """
     return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
-            and is_uninterpreted_sort(sort.domain()) and is_uninterpreted_sort(sort.range()))
+            and _is_array_component(sort.domain()) and _is_array_component(sort.range()))
 
 
 def array_sort_name(sort, sorts=None):
     """The certificate's name of a supported array sort, (Array I E); reject any other array sort.
 
-    With sorts (a set), the index and element sorts are checked and recorded
-    as uninterpreted sorts of the input.
+    With sorts (a set), the uninterpreted index and element sorts are
+    checked and recorded as uninterpreted sorts of the input.
     """
     if not is_array_sort(sort):
-        raise ProofExportError("unsupported sort: %s (only arrays from one uninterpreted sort to another)" % sort)
+        raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, and Real)" % sort)
     names = []
     for component in (sort.domain(), sort.range()):
         name = component.name()
+        if not is_uninterpreted_sort(component):
+            names.append(name)  # Int or Real.
+            continue
         if name in _RESERVED_SORTS or re.search(r"[\s()|]", name):
             raise ProofExportError("unsupported array index or element sort name: %s" % name)
         if sorts is not None:
@@ -681,16 +693,24 @@ def _require_uninterpreted_sort(candidate, sorts):
 def _require_uninterpreted_signature(decl, sorts):
     """Check that a function or predicate ranges over uninterpreted sorts, Bool, Real, and Int only.
 
-    Arguments may be Bool, Real, or Int as well as uninterpreted sorts (Lean
-    injects a Boolean or numeric argument into the carrier); the result is
+    Arguments may be Bool, Real, Int, or a supported array sort as well as
+    uninterpreted sorts (Lean injects a Boolean, numeric, or array argument
+    into the carrier); the result is
     Bool, Real, Int, or a sort. Returns (real, integer): whether the signature
     mentions Real, which makes the input QF_UFLRA, or Int, which makes it
     QF_UFLIA (both, in one signature or across several, make it QF_UFLIRA).
     """
     candidates = [decl.domain(i) for i in range(decl.arity())] + [decl.range()]
     real = integer = False
-    for candidate in candidates:
+    for position, candidate in enumerate(candidates):
         if candidate.kind() == z3.Z3_BOOL_SORT:
+            continue
+        if candidate.kind() == z3.Z3_ARRAY_SORT and position < decl.arity() and is_array_sort(candidate):
+            # An array argument (Lean injects it into the carrier like a
+            # numeric one); a function into an array sort is not supported.
+            array_sort_name(candidate, sorts)
+            components = (candidate.domain().kind(), candidate.range().kind())
+            real, integer = real or z3.Z3_REAL_SORT in components, integer or z3.Z3_INT_SORT in components
             continue
         if candidate.kind() == z3.Z3_REAL_SORT:
             real = True
@@ -725,6 +745,7 @@ def classify_fragment(assertions):
     """
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
+    arrays = False  # whether any term has an array sort
     pseudo_boolean = False
     while pending:
         expr = pending.pop()
@@ -766,18 +787,24 @@ def classify_fragment(assertions):
             else:
                 raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
         elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
-            # Arrays from one uninterpreted sort to another (QF_AX): array
-            # constants, store, and ite; select is read above, and equality
-            # and distinct compare arrays. Their index and element sorts join
-            # the input's uninterpreted sorts, so the input is in a UF
-            # fragment. Functions over arrays are rejected by their signature.
+            # Arrays over uninterpreted sorts, Int, and Real (QF_AX, QF_ALIA,
+            # QF_AUFLIA): array constants, store, and ite; select is read
+            # above, and equality and distinct compare arrays. Their
+            # uninterpreted index and element sorts join the input's sorts,
+            # and arrays put the input in a UF fragment (Lean's array
+            # constants are a family of the interpretation). Functions into
+            # arrays are rejected by their signature.
             array_sort_name(expr.sort(), sorts)
+            arrays = True
+            for component in (expr.sort().domain(), expr.sort().range()):
+                real = real or component.kind() == z3.Z3_REAL_SORT
+                integer = integer or component.kind() == z3.Z3_INT_SORT
             if decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE):
                 raise ProofExportError("unsupported array operator: %s" % decl.name())
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
-    if pseudo_boolean and (integer or real or sorts or functions):
+    if pseudo_boolean and (integer or real or sorts or functions or arrays):
         raise ProofExportError("pseudo-Boolean constraints are supported in propositional input only")
     if integer:
         # Linear integer arithmetic: the Lean encoding values the variables in
@@ -790,9 +817,9 @@ def classify_fragment(assertions):
         # QF_UFLIRA: both valuations next to the carrier, into which Int and
         # Real arguments are injected by one map per sort.
         if real:
-            return "qf_uflira" if sorts or functions else "qf_lira"
-        return "qf_uflia" if sorts or functions else "qf_lia"
-    if sorts or functions:
+            return "qf_uflira" if sorts or functions or arrays else "qf_lira"
+        return "qf_uflia" if sorts or functions or arrays else "qf_lia"
+    if sorts or functions or arrays:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
         # are QF_UFLRA: the Lean encoding carries the Rat valuation next to the
         # carrier, into which Real arguments are injected like Bool ones.

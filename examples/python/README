@@ -150,13 +150,16 @@ qf_uflira fragment is qf_lira next to uninterpreted sorts and functions:
 functions and predicates may take and return Int and Real (both in one
 signature too), and an input whose signatures and atoms mention both sorts
 is qf_uflira; it shares the opt-in, and both cores certify it. Arrays
-from one uninterpreted sort to another (QF_AX: (Array Index Element)
-constants, select, store, ite over arrays, and equality between arrays)
-join whichever UF fragment the rest of the input is in, their index and
-element sorts counting as its uninterpreted sorts; only the clause log
-certifies them (the legacy core rejects them explicitly), and arrays over
-Bool, Int, Real, or arrays, arrays with several indices, constant arrays,
-and functions taking or returning arrays are rejected. Integer
+whose index and element sorts are uninterpreted, Int, or Real (QF_AX,
+QF_ALIA, QF_AUFLIA: (Array Index Element) or (Array Int Int) constants,
+select, store, ite over arrays, and equality between arrays) join whichever
+UF fragment the rest of the input is in, their uninterpreted index and
+element sorts counting as its uninterpreted sorts and an Int or Real one as
+its arithmetic (an input with Int arrays alone is qf_uflia); functions and
+predicates may take arrays as arguments. Only the clause log certifies them
+(the legacy core rejects them explicitly); arrays over Bool or arrays,
+arrays with several indices, constant arrays, and functions returning
+arrays are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -981,10 +984,35 @@ grind proves after each lemma states _store_apply for every read of a
 store and _array_ext for every witness it reaches. Array terms stay
 folded in those lemmas (term_N, related to its store or ite by an rfl
 fact): written out, the shared store chains of the swap and storecomm
-benchmarks grow exponentially. A rewrite over stores (Z3's rewriter turns
+benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
 (store (store a i v) i w) into (store a i w) and (store a i (select a i))
-into a) may also use _store_store and _store_select. All four are theorems
+into a, and a cnf step over a predicate of such a store relies on it) may
+also use _store_store and _store_select. All four are theorems
 proved in the file, so no array fact is assumed.
+
+An Int or Real index or element sort is Int or Rat itself: (Array Int Int)
+is Int -> Int, (Array Int Element) is Int -> _m.U, and each Lean array type
+has its own family of constants (arrs_ii : Nat -> Int -> Int; arrs keeps
+the arrays between uninterpreted sorts). A read of an Int or Real array is
+an atom of the linear forms, like an application of an uninterpreted
+function, so Farkas lemmas over reads are checked over them, and an index
+is any linear term. The extensionality witness over Int or Rat indices
+chooses with Nonempty.intro 0 instead of the nonempty field. An array
+argument of a function or predicate is injected into the carrier by one
+more field per Lean array type (arrs_ii_inj : (Int -> Int) -> U), like the
+numeric injections; lemmas use only its congruence. A model is still an
+instance, although no map from U -> U or U -> Int into U is injective
+(Cantor): only finitely many array values are denoted by the input's terms,
+so U is taken to be the model's carriers plus one fresh point per such
+value (arrays over U extended as above, constant off their index sort), the
+injection sends each denoted array to its point, and the functions and
+predicates read their array arguments back from those points. A Real array is
+Rat -> Rat under the argument that values Real variables in Rat: fix the
+equalities among the input's terms and the truth values of its atoms; the
+reads, applications, and variables left are a linear system with rational
+coefficients, so a real model has a rational one with the same equalities,
+and arrays over Rat are then defined by the reads at the (now rational)
+indices, the store relations and (dis)equalities of arrays included.
 
 The equality rules of a legacy proof object are explicit Lean terms over the
 carrier, checked by Lean's type checker without grind: refl, symm, trans, and

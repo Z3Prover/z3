@@ -322,9 +322,10 @@ class _Terms:
             if is_uninterpreted_sort(expr.sort()):
                 self.sorts.add(expr.sort().name())
             elif is_array_sort(expr.sort()):
-                # The log declares an array's index and element sorts even
-                # when no term of them occurs (QF_AX).
-                self.sorts.update((expr.sort().domain().name(), expr.sort().range().name()))
+                # The log declares an array's uninterpreted index and element
+                # sorts even when no term of them occurs (QF_AX).
+                self.sorts.update(component.name() for component in (expr.sort().domain(), expr.sort().range())
+                                  if is_uninterpreted_sort(component))
             if z3.is_int(expr):
                 self.integer = True
             elif z3.is_real(expr):
@@ -619,7 +620,7 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     An ite term is an opaque variable here, as in Z3's arithmetic solver: the
     clause log relates it to its branches through explicit gate clauses. So
     are an integer div, mod, or rem by a nonzero numeral, which the solver's
-    arith axioms relate to their operands, and abs.
+    arith axioms relate to their operands, abs, and a read of an array.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
@@ -629,7 +630,7 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
     if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
-                z3.Z3_OP_TO_INT):
+                z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)

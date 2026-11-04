@@ -1589,6 +1589,38 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Arrays over Int and Real, and functions over arrays (2026-11-03)
+
+Arrays were certified only between uninterpreted sorts, so all 13 of
+z3test's 25 smtlib-sample QF_AUFLIA files that use arrays (`(Array Int
+Int)`) were rejected ("only arrays from one uninterpreted sort to
+another"), and 10 of them also by their Skolem function `sk : (Array Int Int) (Array Int Int)
+-> Int` ("uninterpreted functions over Array(Int, Int)"). Index and element
+sorts may now be Int or Real as well, on the clause log only: Lean renders
+them as Int and Rat (`(Array Int Int)` is `Int -> Int`, one family of
+constants per Lean array type, `_m.arrs_ii`), and the array definitions
+and theorems are generic in both types. A read of an Int or Real array is
+an atom of the linear forms on both sides (exporter `_linear`,
+reconstructor `_LINEAR_ATOM_KINDS` and the generalized opaque atoms, never
+inside a folded array term), the qf_lira sort of a step does not look into
+array terms, and an extensionality witness over Int or Rat chooses with
+`Nonempty.intro 0`. An `array` lemma may compare Int or Real terms only if
+some array of the certificate has that sort. Functions and predicates may
+take arrays: an array argument is injected into the carrier by one field per
+Lean array type (`_m.arrs_ii_inj`), as Int and Real arguments are. No map
+from `U -> U` or `U -> Int` into `U` is injective, so a model is an instance
+because only finitely many array values are denoted: `U` gets one fresh
+point per denoted array, which the injection picks and the functions read
+back. Any theory step reaching a store, not only a rewrite, is offered the
+store identities as a last alternative: a `th-lemma cnf` over a predicate
+of `(store c n (select c n))` needs `_store_select`. The
+unused-simp-argument lint is off for the one store-identity `simp` (it is an
+error under `warningAsError` when simp needs only one identity). Result: of
+the 13 QF_AUFLIA files with arrays, 8 verify (the largest, a 9.2 MB file,
+in 2 minutes); the 4 swap files with `sk` reconstruct to 66 to 243 MB of
+Lean, too large to check, and `cvc/dlx-regfile` exhausts the exporter's
+memory. Tests: `ARITHMETIC_ARRAY_INPUTS` in `test_proof_to_lean_array.py`.
+
 ### Arrays over uninterpreted sorts through the clause log (2026-11-03)
 
 Any array sort was rejected ("unsupported sort"), so none of z3test's 25

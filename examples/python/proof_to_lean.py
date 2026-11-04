@@ -251,32 +251,38 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # when they do (Classical.epsilon; _m.nonempty holds in every model, whose
 # carriers are nonempty). Nothing here is assumed: _store_apply,
 # _array_ext, _store_store, and _store_select are theorems. Array terms stay
-# folded in the lemmas (see _definition_names and _array_helpers).
-_ARRAY_FIELDS = (("arrs", "Nat -> U -> U"),)
+# folded in the lemmas (see _definition_names and _array_helpers). An Int or
+# Real index or element sort is Int or Rat itself (QF_ALIA, QF_AUFLIA), so a
+# read of an Int array is an Int term, an atom of the linear forms like an
+# application, and an index any Int term; each Lean array type has a family
+# of its own (_array_family), and an extensionality witness over Int or Rat
+# indices is chosen with the type's own inhabitant (_nonempty).
+_ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r"}
 _NONEMPTY_FIELDS = (("nonempty", "Nonempty U"),)
 _ARRAY_DEFINITIONS = """
-def _select {U : Type} (a : U -> U) (i : U) : U := a i
+def _select {I E : Type} (a : I -> E) (i : I) : E := a i
 
-noncomputable def _store {U : Type} (a : U -> U) (i v : U) : U -> U :=
-  fun _j => @ite U (_j = i) (Classical.propDecidable _) v (a _j)
+noncomputable def _store {I E : Type} (a : I -> E) (i : I) (v : E) : I -> E :=
+  fun _j => @ite E (_j = i) (Classical.propDecidable _) v (a _j)
 
-private theorem _store_apply {U : Type} (a : U -> U) (i v j : U) :
-    _select (_store a i v) j = @ite U (j = i) (Classical.propDecidable _) v (_select a j) := rfl
+private theorem _store_apply {I E : Type} (a : I -> E) (i : I) (v : E) (j : I) :
+    _select (_store a i v) j = @ite E (j = i) (Classical.propDecidable _) v (_select a j) := rfl
 
-noncomputable def _array_diff {U : Type} (h : Nonempty U) (a b : U -> U) : U :=
-  @Classical.epsilon U h (fun _j => Not (a _j = b _j))
+noncomputable def _array_diff {I E : Type} (h : Nonempty I) (a b : I -> E) : I :=
+  @Classical.epsilon I h (fun _j => Not (a _j = b _j))
 
-private theorem _array_ext {U : Type} (h : Nonempty U) (a b : U -> U) :
+private theorem _array_ext {I E : Type} (h : Nonempty I) (a b : I -> E) :
     a = b \\/ Not (_select a (_array_diff h a b) = _select b (_array_diff h a b)) := by
   by_cases _e : Exists (fun _j => Not (a _j = b _j))
   . exact Or.inr (Classical.epsilon_spec _e)
   . exact Or.inl (funext (fun _j => Classical.byContradiction (fun _n => _e (Exists.intro _j _n))))
 
-private theorem _store_store {U : Type} (a : U -> U) (i v w : U) : _store (_store a i v) i w = _store a i w := by
+private theorem _store_store {I E : Type} (a : I -> E) (i : I) (v w : E) :
+    _store (_store a i v) i w = _store a i w := by
   funext _j
   by_cases _h : _j = i <;> simp [_store, _h]
 
-private theorem _store_select {U : Type} (a : U -> U) (i : U) : _store a i (_select a i) = a := by
+private theorem _store_select {I E : Type} (a : I -> E) (i : I) : _store a i (_select a i) = a := by
   funext _j
   by_cases _h : _j = i <;> simp [_store, _select, _h]
 """.strip("\n").split("\n")
@@ -284,14 +290,86 @@ _ARRAY_NAME = re.compile(r"\(Array ([^\s()|]+) ([^\s()|]+)\)")
 # Z3's array rewriter simplifies (store (store a i v) i w) to (store a i w)
 # and (store a i (select a i)) to a, which the clause-log replay then ties to
 # the assertion by a rewrite; a lemma reaching a store may need these
-# identities, which grind does not derive (they need funext).
-_ARRAY_REWRITE_TACTIC = "try simp only [%s_store_store, _store_select] at *"
+# identities, which grind does not derive (they need funext). simp may use
+# either identity or neither, so its unused-argument lint (an error under
+# warningAsError) is off for this one tactic; that is a lint, not a check.
+_ARRAY_REWRITE_TACTIC = "try (set_option linter.unusedSimpArgs false in simp only [%s_store_store, _store_select] at *)"
+
+
+def _store_identity_instance(graph, nodes):
+    """Whether a store among nodes is the left side of _store_store or _store_select.
+
+    That is (store (store a i v) i w) or (store a i (select a i)), with the
+    same index and array nodes (the certificate's terms are shared).
+    """
+    for node in nodes:
+        if graph.kind(node) != z3.Z3_OP_STORE:
+            continue
+        array, index, value = graph.arguments(node)
+        if graph.kind(array) == z3.Z3_OP_STORE and graph.arguments(array)[1] == index:
+            return True
+        if graph.kind(value) == z3.Z3_OP_SELECT and tuple(graph.arguments(value)) == (array, index):
+            return True
+    return False
 
 
 def _array_components(name):
     """The index and element sort names of a certificate array sort name, None for any other sort name."""
     match = _ARRAY_NAME.fullmatch(name)
     return match.groups() if match else None
+
+
+def _component_type(sort):
+    """The Lean type of an array's index or element sort: Int, Rat, or the carrier _m.U."""
+    return _NUMBER_TYPES.get(sort, "_m.U")
+
+
+def _array_types(name):
+    """The Lean index and element types of a certificate array sort name."""
+    return tuple(_component_type(component) for component in _array_components(name))
+
+
+def _array_family(name):
+    """The interpretation's family of the array constants of an array sort, one per Lean array type.
+
+    Arrays between uninterpreted sorts keep the family arrs; the others are
+    named by their index and element types (arrs_ii for (Array Int Int)).
+    """
+    codes = "".join(_ARRAY_TYPE_CODES[lean] for lean in _array_types(name))
+    return "arrs" if codes == "uu" else "arrs_" + codes
+
+
+def _array_injection(name):
+    """The interpretation's map injecting an array argument of a function or predicate into the carrier.
+
+    Like _m.real and _m.int, nothing states that it is injective and nothing
+    needs it: lemmas only use congruence, a = b -> inj a = inj b. No map
+    from U -> U or U -> Int into U is injective (Cantor), but a model is
+    still an instance: only finitely many array values are denoted by the
+    input's terms, so U is the model's carriers plus one fresh point per
+    such value, the injection sends each denoted array to its point, and
+    the functions and predicates read their array arguments back from them.
+    """
+    return _array_family(name) + "_inj"
+
+
+def _array_family_fields(graph):
+    """The interpretation's fields of the array families the certificate uses, and of their injections."""
+    fields = {}
+    arguments = {sort for decl in graph.declarations if decl.kind == z3.Z3_OP_UNINTERPRETED
+                 for sort in decl.domain if sort in graph.arrays}
+    for sort in graph.arrays:
+        index, element = (lean.replace("_m.", "") for lean in _array_types(sort))
+        fields.setdefault(_array_family(sort), "Nat -> %s -> %s" % (index, element))
+        if sort in arguments:
+            fields.setdefault(_array_injection(sort), "(%s -> %s) -> U" % (index, element))
+    return tuple(sorted(fields.items()))
+
+
+def _nonempty(sort):
+    """The inhabitant of an array index sort the extensionality witness chooses with."""
+    lean = _component_type(sort)
+    return "_m.nonempty" if lean == "_m.U" else "(Nonempty.intro (0 : %s))" % lean
 _UFLRA_BINDERS = " (_vars : Nat -> Rat)" + _UF_BINDERS
 _UFLRA_ARGUMENTS = " _vars" + _UF_ARGUMENTS
 _UFLIA_BINDERS = " (_vars : Nat -> Int)" + _UF_BINDERS
@@ -426,10 +504,12 @@ class _Graph:
         return bool(self.arrays) and self.decl(node).range in self.arrays
 
     def lean_type(self, node):
-        """The Lean type of a term node: Rat or Int, _m.U -> _m.U for an array, _m.U otherwise."""
+        """The Lean type of a term node: Rat or Int, a function type for an array, _m.U otherwise."""
         if self.is_arith(node):
             return self.number_type_of(node)
-        return "(_m.U -> _m.U)" if self.decl(node).range in self.arrays else "_m.U"
+        if self.is_array(node):
+            return "(%s -> %s)" % _array_types(self.decl(node).range)
+        return "_m.U"
 
     @property
     def valuation(self):
@@ -548,9 +628,10 @@ def _uninterpreted_sorts(raws):
         if components is None and ("(" in sort or ")" in sort):
             raise ReconstructionError("unsupported sort: %s" % sort)
         if components is not None:
-            if any(component in _RESERVED_SORTS for component in components):
+            # Index and element sorts are uninterpreted, Int, or Real.
+            if any(component in _RESERVED_SORTS and component not in _ARITH_SORTS for component in components):
                 raise ReconstructionError("unsupported array sort: %s" % sort)
-            sorts.update(components)
+            sorts.update(component for component in components if component not in _ARITH_SORTS)
     if "" in sorts:
         raise ReconstructionError("invalid uninterpreted sort name")
     return tuple(sorted(sorts))
@@ -566,11 +647,22 @@ def _declaration(raw, sorts):
         raise ReconstructionError("invalid native declaration")
     parameters = _parameters(kind, name, raw["parameters"])
     # Functions and predicates take arguments of any uninterpreted sort, Bool,
-    # Real, or Int (the last three injected into the carrier, each numeric
-    # sort by its own map); Proof is never an argument, and neither is an array.
-    argument_sorts = tuple(sort for sort in sorts if not _array_components(sort)) + ("Bool", "Real", "Int")
+    # Real, Int, or array sort (all but the first injected into the carrier,
+    # each numeric sort and each Lean array type by its own map); Proof is
+    # never an argument.
+    argument_sorts = sorts + ("Bool", "Real", "Int")
     array = _array_components(raw["range"]) if raw["range"] in sorts else None
-    if array is not None:
+    if kind == z3.Z3_OP_SELECT:
+        # A read of an array, of its element sort: uninterpreted, Int, or Real.
+        if (name != "select" or len(domain) != 2 or domain[0] not in sorts
+                or _array_components(domain[0]) != (domain[1], raw["range"])):
+            raise ReconstructionError("invalid select declaration")
+    elif kind == z3.Z3_OP_ARRAY_EXT:
+        # The extensionality witness, an index.
+        if (name != "array-ext" or len(domain) != 2 or domain[0] != domain[1] or domain[0] not in sorts
+                or (_array_components(domain[0]) or ("",))[0] != raw["range"]):
+            raise ReconstructionError("invalid array-ext declaration")
+    elif array is not None:
         # Array constants, ite, and store (QF_AX): no functions into arrays.
         if kind == z3.Z3_OP_ITE:
             if name != "if" or domain != ("Bool", raw["range"], raw["range"]):
@@ -583,18 +675,10 @@ def _declaration(raw, sorts):
     elif raw["range"] in sorts:
         # Constants, functions, and ite inhabit an uninterpreted sort: no
         # definitions. Reads of an array and the extensionality witness
-        # (an index) do too.
+        # (an index) may too (checked above).
         if kind == z3.Z3_OP_ITE:
             if name != "if" or domain != ("Bool", raw["range"], raw["range"]):
                 raise ReconstructionError("invalid uninterpreted-sort ite declaration")
-        elif kind == z3.Z3_OP_SELECT:
-            if (name != "select" or len(domain) != 2 or domain[0] not in sorts
-                    or _array_components(domain[0]) != (domain[1], raw["range"])):
-                raise ReconstructionError("invalid select declaration")
-        elif kind == z3.Z3_OP_ARRAY_EXT:
-            if (name != "array-ext" or len(domain) != 2 or domain[0] != domain[1] or domain[0] not in sorts
-                    or (_array_components(domain[0]) or ("",))[0] != raw["range"]):
-                raise ReconstructionError("invalid array-ext declaration")
         elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in argument_sorts for argument in domain):
             raise ReconstructionError("unsupported uninterpreted-sort declaration: %s" % name)
     elif raw["range"] in _ARITH_SORTS:
@@ -745,6 +829,10 @@ def _validate_graph(source, certificate):
     root = _index(certificate["proof"], len(nodes), "proof")
     numeric_sorts = {decl.range for decl in declarations if decl.range in _ARITH_SORTS}
     numeric_sorts.update(sort for decl in declarations for sort in decl.domain if sort in _ARITH_SORTS)
+    # An array over Int or Real makes the certificate arithmetic even if no
+    # term of that sort occurs (the exporter classifies it so).
+    numeric_sorts.update(component for sort in sorts for component in _array_components(sort) or ()
+                         if component in _ARITH_SORTS)
     if len(numeric_sorts) > 1 and certificate["fragment"] not in ("qf_lira", "qf_uflira"):
         raise ReconstructionError("%s certificates cannot mix Int and Real arithmetic" % certificate["fragment"])
     arithmetic = bool(numeric_sorts)
@@ -894,7 +982,8 @@ def _bind_input(source, graph, fragment=None, query=0):
         if is_uninterpreted_sort(expr.sort()):
             original_sorts.add(range_name)
         elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
-            original_sorts.update((range_name,) + _array_components(range_name))
+            original_sorts.update(sort for sort in (range_name,) + _array_components(range_name)
+                                  if sort not in _ARITH_SORTS)
         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
             name = str(decl.name())
             table = _symbol_table(range_name, decl.arity(), graph.sorts)
@@ -952,9 +1041,8 @@ def _interpretation_structure(graph):
     if not graph.uninterpreted:
         return []
     fields = _UF_FIELDS + (_NUMERIC_FIELDS[graph.numeric] if graph.arithmetic else ())
-    if graph.arrays:
-        fields += _ARRAY_FIELDS
-    if any(decl.kind == z3.Z3_OP_ARRAY_EXT for decl in graph.declarations):
+    fields += _array_family_fields(graph)
+    if any(decl.kind == z3.Z3_OP_ARRAY_EXT and decl.range in graph.carriers for decl in graph.declarations):
         fields += _NONEMPTY_FIELDS
     return ["structure Interpretation where"] + ["  %s : %s" % field for field in fields] + [""]
 
@@ -970,9 +1058,12 @@ def _application_arguments(graph, arguments, term, formula):
     """Render the argument list of a function or predicate over the uninterpreted sorts.
 
     A Boolean argument is injected into the carrier by _m.bool (its formula is
-    rendered as a Prop) and a Real or Int one by _m.real or _m.int.
+    rendered as a Prop), a Real or Int one by _m.real or _m.int, and an
+    array by the injection of its Lean type (_array_injection).
     """
     return "[%s]" % ", ".join("(%s %s)" % (graph.injection(arg), term(arg)) if graph.is_arith(arg)
+                              else "(_m.%s %s)" % (_array_injection(graph.decl(arg).range), term(arg))
+                              if graph.is_array(arg)
                               else term(arg) if graph.is_term(arg)
                               else "(_m.bool %s)" % formula(arg) for arg in arguments)
 
@@ -1005,7 +1096,7 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if kind == z3.Z3_OP_UNINTERPRETED:
         index = variable_indices[graph.nodes[node].declaration]
         if not arguments and graph.decl(node).range in graph.arrays:
-            return "_m.arrs %d" % index
+            return "_m.%s %d" % (_array_family(graph.decl(node).range), index)
         if not arguments:
             return _variable(graph, node, index) if graph.is_arith(node) else "_m.elems %d" % index
         return "%s %d %s" % (graph.numeric_functions(node) if graph.is_arith(node) else "_m.funs", index,
@@ -1022,7 +1113,7 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if kind == z3.Z3_OP_STORE:
         return "(_store %s %s %s)" % tuple(args)
     if kind == z3.Z3_OP_ARRAY_EXT:
-        return "(_array_diff _m.nonempty %s %s)" % tuple(args)
+        return "(_array_diff %s %s %s)" % ((_nonempty(graph.decl(node).range),) + tuple(args))
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
     if kind == z3.Z3_OP_TO_REAL:
@@ -1623,7 +1714,12 @@ def _reachable(graph, conclusion):
 
 
 def _reachable_outside_applications(graph, formula):
-    """The nodes reachable from a formula without entering the arguments of uninterpreted applications."""
+    """The nodes reachable from a formula without entering the arguments of uninterpreted applications.
+
+    Reads of arrays, extensionality witnesses, and array terms are not
+    entered either: they are atoms of the linear forms, or contain only
+    such atoms, whatever the sorts of their indices and elements.
+    """
     reachable, pending = set(), [formula]
     while pending:
         node = pending.pop()
@@ -1631,7 +1727,8 @@ def _reachable_outside_applications(graph, formula):
             continue
         reachable.add(node)
         if not _trivial_distinct(graph, node) and not (graph.kind(node) == z3.Z3_OP_UNINTERPRETED
-                                                       and graph.arguments(node)):
+                                                       and graph.arguments(node)) \
+                and graph.kind(node) not in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT) and not graph.is_array(node):
             pending.extend(graph.arguments(node))
     return reachable
 
@@ -1829,11 +1926,16 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
     fallback.append(_theory_tactic(graph))
     alternatives.append(fallback)
-    if prefix == "rewrite" and any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable):
+    if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
+            else _store_identity_instance(graph, reachable)):
         # Z3's rewriter may have applied the store identities: the folded
         # array terms rewritten into their stores (the _t facts of
         # _array_helpers) and normalized by them first; simp may close the
-        # goal.
+        # goal. Not only rewrite steps: a th-lemma cnf over a predicate of an
+        # array, p(c) \/ not p(store c n (select c n)), needs them too. The
+        # alternative is tried only after the others fail; it repeats the
+        # fallback's facts, so other steps get it only when one of their
+        # stores is an instance of an identity.
         names = [line.split()[1] for line in fallback if line.startswith("have _t")]
         alternatives.append(fallback[:-1] + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in names),
                                              "all_goals " + fallback[-1]])
@@ -2213,8 +2315,9 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             helpers.append("  have _s%d := _store_apply %s %s %s %s" % (
                 node, inline(array), inline(index), inline(value), inline(graph.arguments(node)[1])))
         elif kind == z3.Z3_OP_ARRAY_EXT:
-            helpers.append("  have _x%d := _array_ext _m.nonempty %s %s" % (
-                node, inline(graph.arguments(node)[0]), inline(graph.arguments(node)[1])))
+            helpers.append("  have _x%d := _array_ext %s %s %s" % (
+                node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
+                inline(graph.arguments(node)[1])))
     return helpers
 
 
@@ -2649,8 +2752,9 @@ def _linear_structure(graph, node):
     return structure
 
 
+# Reads of arrays and extensionality witnesses over Int or Real are atoms too.
 _LINEAR_ATOM_KINDS = (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
-                      z3.Z3_OP_TO_INT)
+                      z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT)
 
 
 def _farkas_multipliers(forms, coefficients, equalities):
@@ -2733,7 +2837,7 @@ def _opaque_rewrite_tactic(graph):
 
 
 _OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED,
-                     z3.Z3_OP_TO_INT)
+                     z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT)
 
 
 def _is_opaque_int_atom(graph, node):
@@ -2756,7 +2860,11 @@ def _reachable_outside(graph, formula, atoms):
 
 
 def _opaque_int_atoms(graph, formulas):
-    """The outermost opaque Int atoms under the formulas, outer atoms first (ids are topological)."""
+    """The outermost opaque Int atoms under the formulas, outer atoms first (ids are topological).
+
+    Array terms are not entered: they stay folded in the lemmas
+    (_definition_names), so a read inside a store is no atom of the goal.
+    """
     atoms, pending, seen = set(), list(formulas), set()
     while pending:
         node = pending.pop()
@@ -2765,7 +2873,7 @@ def _opaque_int_atoms(graph, formulas):
         seen.add(node)
         if _is_opaque_int_atom(graph, node):
             atoms.add(node)
-        elif not _trivial_distinct(graph, node):
+        elif not _trivial_distinct(graph, node) and not graph.is_array(node):
             pending.extend(graph.arguments(node))
     return sorted(atoms, reverse=True)
 
@@ -4964,10 +5072,14 @@ def _check_th_lemma(graph, node):
         # of an array, index, or element sort, without premises.
         if premises or not literals or not graph.arrays:
             raise ReconstructionError("array th-lemma must be a clause over arrays without premises at node %d" % node)
+        # Int or Real terms are compared only if some array is indexed by or
+        # holds that sort.
+        components = {component for sort in graph.arrays for component in _array_components(sort)}
         for literal in literals:
             atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
-            if (graph.kind(atom) != z3.Z3_OP_EQ or graph.is_arith(graph.arguments(atom)[0])
-                    or not graph.is_term(graph.arguments(atom)[0])):
+            if (graph.kind(atom) != z3.Z3_OP_EQ or not graph.is_term(graph.arguments(atom)[0])
+                    or (graph.is_arith(graph.arguments(atom)[0])
+                        and graph.decl(graph.arguments(atom)[0]).range not in components)):
                 raise ReconstructionError("array th-lemma literals must be equalities over arrays and their sorts "
                                           "at node %d" % node)
         return
@@ -5362,14 +5474,19 @@ def reconstruct(source, certificate):
         # of the theorem over the disjoint union of its carriers.
         lines.append("-- Uninterpreted sorts %s are the one type _m.U; functions and predicates take argument lists."
                      % ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.carriers))
-    elif graph.uninterpreted:
+    elif graph.uninterpreted and not graph.arrays:
         lines.append("-- No uninterpreted sort: the type _m.U carries only the Boolean arguments of the predicates.")
+    elif graph.uninterpreted:
+        lines.append("-- No uninterpreted sort: the type _m.U carries only the arguments of the functions, if any.")
     if graph.arrays:
-        # An array sort's index and element sorts are carriers, so the
-        # sentence above names them.
-        lines.append("-- Array sorts %s are functions _m.U -> _m.U (_m.arrs); select is _select, store the classical "
-                     "update _store, and the extensionality witness array-ext is _array_diff." % ", ".join(
-                         json.dumps(sort, ensure_ascii=True) for sort in graph.arrays))
+        # An array sort's uninterpreted index and element sorts are
+        # carriers, so the sentence above names them; Int and Real ones are
+        # Int and Rat.
+        lines.append("-- Array sorts %s are functions %s; select is _select, store the classical update _store, and "
+                     "the extensionality witness array-ext is _array_diff." % (
+                         ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.arrays),
+                         ", ".join("%s -> %s (_m.%s)" % (_array_types(sort) + (_array_family(sort),))
+                                   for sort in graph.arrays)))
     if any(decl.kind == z3.Z3_OP_UNINTERPRETED and "Bool" in decl.domain for decl in graph.declarations):
         lines.append("-- Boolean arguments of functions and predicates are injected into _m.U by _m.bool.")
     # Formulas over wide n-ary connectives render as right-nested And/Or chains
