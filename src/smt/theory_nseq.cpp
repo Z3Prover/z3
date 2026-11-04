@@ -526,6 +526,7 @@ namespace smt {
         else if (m_seq.str.is_itos(n))
             m_ax.add_itos_axiom(n);
         else if (m_seq.str.is_stoi(n)) {
+            ensure_length_var(to_app(n)->get_arg(0));
             m_ax.add_stoi_axiom_re(n);
             m_ambient->stoi_facet(*m_root).add_term(n);
         }
@@ -681,6 +682,7 @@ namespace smt {
                 return fallback;
             rational len;
             expr_ref len_t(m_seq.str.mk_length(t), m);
+            m_th_rewriter(len_t);
             if (!sf->value(len_t, len) || !len.is_unsigned())
                 return fallback;
             unsigned n_len = len.get_unsigned();
@@ -796,7 +798,8 @@ namespace smt {
             return FC_CONTINUE;
         }
         // Instantiate any newly enabled stoi coherence axioms first.
-        bool stoi_progress = !check_stoi_coherence();
+        if (!check_stoi_coherence())
+            return FC_CONTINUE;
         bool root_asked = false;
         if (m_mem_leaf &&
             m_ambient->fparams().m_seq_monadic_leaf &&
@@ -846,11 +849,15 @@ namespace smt {
                 for (auto const& p : m_ambient->power_facet(node).powers())
                     if (m_ambient->solver_facet(node).value(p.m_n, v))
                         assumptions.push_back(m.mk_eq(p.m_n, m_autil.mk_numeral(v, true)));
-                // Likewise for the lengths of uninterpreted stoi arguments, so stoi coherence runs
-                // at the leaf's lengths. The model evaluator interprets other sequence terms.
-                for (auto const& [t, k] : m_ambient->stoi_facet(node).terms()) {
-                    expr_ref len(m_seq.str.mk_length(to_app(t)->get_arg(0)), m);
-                    if (is_uninterp(to_app(t)->get_arg(0)) && m_ambient->solver_facet(node).value(len, v))
+                // The outer arithmetic model must use the lengths chosen
+                // by the leaf that supplies the sequence model values.
+                for (unsigned var = 0; var < get_num_vars(); ++var) {
+                    expr* e = get_expr(var);
+                    if (!m_seq.is_seq(e) || m.is_value(e) || !ctx.is_relevant(get_enode(var)))
+                        continue;
+                    expr_ref len(m_seq.str.mk_length(e), m);
+                    m_th_rewriter(len);
+                    if (m_ambient->solver_facet(node).value(len, v))
                         assumptions.push_back(m.mk_eq(len, m_autil.mk_numeral(v, true)));
                 }
                 // Assume t = k using t <= s && t >= s.
@@ -896,11 +903,9 @@ namespace smt {
                 report_conflict(dep);
                 return FC_CONTINUE;
             }
-            return stoi_progress ? FC_CONTINUE : FC_GIVEUP;
+            return FC_GIVEUP;
         }
         default:
-            if (stoi_progress)
-                return FC_CONTINUE;
             if (getenv("NSEQ_DUMP_UNKNOWN")) {
                 std::cerr << "theory_nseq: giving up (" << (res == stx::search_result::unknown ? "unknown" : "depth_cutoff") << ")\n";
                 for (unsigned id = 0; id < m_root->num_facets(); ++id)

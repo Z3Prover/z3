@@ -28,7 +28,10 @@ Author:
 #include "smt/seq_solver_facet.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include <iostream>
+#include <sstream>
 
 namespace {
     struct eq_approx_fixture {
@@ -761,6 +764,87 @@ namespace {
                     check_length_model(m, element, length, word_equation);
     }
 
+    static void check_nseq_candidate_model(char const* input, bool require_sat = true, char const* scoped_integer = nullptr) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("model", true);
+        ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        for (expr* assertion : cmd.assertions())
+            s->assert_expr(assertion);
+        auto check_model = [&]() {
+            lbool result = s->check_sat(0, nullptr);
+            ENSURE(result == l_true || (!require_sat && result == l_undef));
+            if (result != l_true)
+                return;
+            model_ref md;
+            s->get_model(md);
+            ENSURE(md);
+            for (expr* assertion : cmd.assertions())
+                ENSURE(md->is_true(assertion));
+        };
+        check_model();
+        if (scoped_integer) {
+            arith_util a(m);
+            expr_ref v(m.mk_const(cmd.find_func_decl(symbol(scoped_integer))), m);
+            expr_ref rejected(m.mk_eq(v, a.mk_int(1)), m);
+            s->push();
+            s->assert_expr(rejected);
+            ENSURE(s->check_sat(0, nullptr) == l_false);
+            s->pop(1);
+            check_model();
+        }
+    }
+
+    static void tst_nseq_candidate_model() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const v Int)
+            (assert (str.in_re x (re.++ (re.* (str.to_re "a")) (re.+ (str.to_re "b")))))
+            (assert (str.in_re x (re.++ (str.to_re "a") (re.* (str.to_re "b")))))
+            (assert (str.in_re x (re.* (re.range "a" "u"))))
+            (assert (str.in_re x (re.++ (re.* (str.to_re "a")) (str.to_re "b"))))
+            (assert (not (str.in_re (str.++ "a" x "b") (re.++ (re.* (str.to_re "a")) (str.to_re "b")))))
+            (assert (= (* v 2) (+ (str.len x) 2)))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const z Int)
+            (assert (not (= (str.contains (str.substr x z z) "A")
+                            (str.prefixof "A" (str.substr x z z)))))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (define-fun i () Int (+ (str.indexof x " " 0) 1))
+            (define-fun y () String (str.substr x i (- (str.len x) i)))
+            (define-fun j () Int (+ (str.indexof y "." 0) 1))
+            (define-fun z () String (str.substr y j (- (str.len y) j)))
+            (assert (= (str.len z) 0))
+            (assert (str.contains y "."))
+            (assert (> (str.len y) 0))
+            (assert (not (str.contains y " ")))
+            (assert (str.contains x " "))
+            (assert (> (str.len x) 0))
+            (assert (>= i 0))
+            (assert (>= (- (str.len x) i) 0))
+            (assert (>= j 0))
+            (assert (>= (- (str.len y) j) 0))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const t String)
+            (declare-const n String)
+            (assert (= (str.++ x y) (str.++ t n)))
+            (assert (str.in_re n (re.* (str.to_re ""))))
+            (assert (< (str.len x) (str.to_int t)))
+        )", false);
+    }
+
 } // namespace
 
     // Block compression should solve `X.a.Y = aaaa.b` within depth 1.
@@ -802,5 +886,6 @@ void tst_seq_eq_facet() {
     tst_word_eq_split_char_eq_sat();
     tst_block_compression_sat();
     tst_nseq_length_model();
+    tst_nseq_candidate_model();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
