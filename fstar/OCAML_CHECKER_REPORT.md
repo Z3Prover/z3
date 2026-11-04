@@ -5319,10 +5319,11 @@ Tested commit `343956e44545334e2d21188ddb85339f992ca851` (tree `b010af546242f12d
 
 - F* CI `v2026.10.25` (103 modules plus 45 tests, 148 of 148 invocations exit 0, 2,770 s) and nightly `2026-10-30` (`build_cherry_checker.py --run-tests` exit 0, 2,967 s).
 - Producer `f3df3153ed4e6fc9b0863f1898f1f82ceb5dba88` (`z3` sha256 `4e45fa6a575198d7d296d2f2f305008a8d7ada4abeb6dbcf2114b718218d1854`, `libz3.a` sha256 `127bf3ba73d1646f7d572af5e91517cf327f77126552c3f4864283efec4e37fb`). The old `4629738b9` stamp is absent. One object in the per-TU proof is reused with a changed input (`finite_set_tactic.cpp.o`); it is absent from `libz3.a`, and its source is in neither tree.
-- Frozen candidate checkers: `ocaml-checker` `127f627a64b53d564cbaa0d2e5874531642b2a7a8b3c04b2c0174be8152d1d17`, `cherry-checker` `3478fc1761b226adcb7ef56db74b4809ffc519075a4f54e504117731345b87e6`.
+- Frozen candidate checkers: `ocaml-checker` `127f627a77b53d564cbaa0d2e5874531642b2a7a8b3c04b2c0174be8152d1d17` (the same bytes in the s4g build and the ordinary pwsh build).
+- `cherry-checker`: the s4g build's binary, which was benchmarked, is `3478fc1761b226adcb7ef56db74b4809ffc519075a4f54e504117731345b87e6`. The ordinary pwsh build produced `de61c49f0015a532c4c73e35d226cfa2db0eace95e9ce09d09aa103d4c31ddbc`. Both have the same generated C and per-object code and differ only in build-directory path strings (receipt `s5b-ps1-build.md`).
 - Native tests 87 PASS and 0 FAIL on each run; CLI `Ran 88 tests ... OK` on OCaml and Cherry; Cherry kernel and native acceptance/rejection regressions pass.
 - Merge history: normal two-parent merge `a56cfc3b835e27e729177958c34d3b78694cb241` (parents `7f5f8a873`, `f3df3153e`). Two proof repairs follow (`80d9815976e2f2a7c364753c3d78807e7e244e31`, `f51bc8d734752231bbd445d6b14f1f4e4fbeb934`), which is the first tree that verifies. The merge commit alone does not verify.
-- The scripted `build_ocaml_checker.ps1 -RunTests -BuildCherry` and QF_FF path were not run for this commit. The WSL body of the OCaml script was run; that gap is recorded here, not closed.
+Ordinary repository script and QF_FF, run on `343956e44` (receipt `s5b-ps1-build.md`): `build_ocaml_checker.ps1 -RunTests -BuildCherry` under pwsh 7.5.4 exited 0 after 6,320 s, with fresh F* caches, the current-master producer, and 0 C++ objects compiled. F* CI `v2026.10.25` verified 103 modules and 45 tests; nightly `2026-10-30` verified 103 modules, 45 tests, 3 Cherry modules and 1 Cherry test. Native tests 87 PASS and 0 FAIL; OCaml and Cherry CLI `Ran 88 tests ... OK`; Cherry kernel and native regressions passed. QF_FF gave 25 of 25 ACCEPT on both backends. Default-option parity against the master `f3df3153e` checkers was 705 of 705 per backend.
 
 ### Benchmark (current producer, same 60 s / 10 s / 4 GiB limits)
 
@@ -5341,7 +5342,7 @@ The criteria were written before the comparison (`default-policy-criteria.md`; t
 
 | criterion | outcome |
 |---|---|
-| C1 soundness and companion mapping | qualified pass (S4 F* evidence; not independently re-verified here) |
+| C1 soundness and companion mapping | qualified pass: F* verified from fresh caches on both pins in two builds (the S4 counted wave and the ordinary pwsh build); qualified by the runtime trust boundaries, namely companion attachment (marshaler glue) and the `DD.prepared` refinement, which is erased at runtime |
 | C2 tests and default parity | pass |
 | C3 no unexplained same-document loss | **fail** (293 certificates, 16 documents) |
 | C4 held-out breadth | **fail** (few-entry deep, wide binder, definition chain, clausal) |
@@ -5357,7 +5358,8 @@ The criteria were written before the comparison (`default-policy-criteria.md`; t
 - `NR.steps_ok` still charges tree nodes against `binder_work_limit`; a 14-deep shared diamond is pending on both routes.
 - Graph preparation and storage allowances are per entry and unchanged; the few-entry losses above follow from them.
 - Marshal-time preparation covers every binder certificate, including ones the replay never consumes; its cost is in `marshal_ms` and is included in the numbers above.
-- Companion attachment to its entry is marshaler glue under the existing reflection contract, checked structurally by the replay's root check. `DD.prepared`'s proofs are erased at runtime, so hand-built records are outside the theorem. The Root route theorem (`Z3SortedRootRoute`) is verification-only and has no executed positive instance.
+- Companion attachment to its entry is marshaler glue under the existing reflection contract, checked structurally by the replay's root check. `DD.prepared`'s proofs are erased at runtime, so hand-built records are outside the theorem.
+- Test-coverage gap, not a trust boundary: the Root route theorem (`Z3SortedRootRoute`) is verified on both pins, but no executed test asserts a positive `RootCertified` for a route document, and no runtime code calls that module. The executed `Z3SortedRoute` it builds on has positive tests and native ACCEPTs.
 - Native name counter remains a trusted runtime binding. No global soundness or DoS claim is made.
 
 ### Follow-ups (not implemented)
