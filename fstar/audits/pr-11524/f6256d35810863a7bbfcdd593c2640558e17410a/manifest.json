@@ -1,0 +1,22 @@
+{
+  "pull_request": 11524,
+  "head_sha": "f6256d35810863a7bbfcdd593c2640558e17410a",
+  "base_sha": "f3df3153ed4e6fc9b0863f1898f1f82ceb5dba88",
+  "path_prefix": "fstar/audits/pr-11524/f6256d35810863a7bbfcdd593c2640558e17410a/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41758308596",
+  "files": [
+    {
+      "name": "Z3DagScopeInterning.fst",
+      "sha256": "f95cb2b0219206dfa09a28748430f3e67ba9e2144f4f9516d4eea2db5a0ec903"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "ec9ab8c8d9233c967e2c7d951c909ea198b620bd658bb52b59a182d0d5e84447"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "d831335e0a0e3476419a6887385debe1e6b27adcce52029922e561af98ff1751"
+    }
+  ]
+}
