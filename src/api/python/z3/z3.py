@@ -8143,13 +8143,16 @@ class Solver(Z3PPObject):
     def reason_unknown(self):
         """Return a string describing why the last `check()` returned `unknown`.
 
+        The integer-power query below is proved `unsat`; the returned reason
+        is only a placeholder in this case.
+
         >>> x = Int('x')
         >>> s = SimpleSolver()
         >>> s.add(x == 2**x)
         >>> s.check()
-        unknown
+        unsat
         >>> s.reason_unknown()
-        '(incomplete (theory arithmetic))'
+        'unknown'
         """
         return Z3_solver_get_reason_unknown(self.ctx.ref(), self.solver)
 
