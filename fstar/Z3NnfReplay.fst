@@ -35,10 +35,29 @@
                     scope where both sides are typed: the typed Int
                     equivalence Z3SortedArithmetic.equivalent (linear
                     normal forms over the Int carrier; opaque Int-valued
-                    terms are atoms); for Boolean sides, a regrouping of
-                    nested canonical and/or (equal operand lists, or, for
-                    at most 12 operands per side, lists included in each
-                    other; operands compared by exact identity); or the
+                    terms are atoms); one of the three ITE laws of
+                    bool_rewriter::mk_ite_core at EVERY result sort (Bool,
+                    Int, Real, uninterpreted, datatype, array), with one
+                    canonical `ite` declaration (T.classify = Choice s,
+                    i.e. exactly T.ite_decl s) on both sides and on the
+                    nested ite, canonical not/or/and, and conditions and
+                    branches compared by exact identity:
+                      (ite (not c) x y) ~ (ite c y x), also oriented
+                        (ite c x y) ~ (ite (not c) y x);
+                      (ite c1 x (ite c2 x y)) ~ (ite (or c1 c2) x y);
+                      (ite c1 (ite c2 x y) y) ~ (ite (and c1 c2) x y),
+                    where the `or`/`and` is binary or flattened one level
+                    (its operands are the operands of c1 followed by those
+                    of c2, each opened only if it is the same canonical
+                    connective, as the producer's mk_and builds it); their
+                    meaning is the choice the Sorted semantics already
+                    gives every `ite` (lemma_ite_rewritten_at), never the
+                    values of the branches, so a Real or other theory
+                    subterm stays an opaque operand; for Boolean sides, a
+                    regrouping of nested canonical and/or (equal operand
+                    lists, or, for at most 12 operands per side, lists
+                    included in each other; operands compared by exact
+                    identity); or the
                     propositional equivalence of the Boolean cuts (T.cut
                     64, else the coarser T.cut 2, decided by
                     Z3SortedDatatype.bounded_propositional, the check the
@@ -115,14 +134,15 @@
    charged m times, so the comparisons stay linear in the budget), and one
    unit per assertion for each `sk` step. A `rewrite` leaf is decided only
    after its formula's node count is charged, so its local check reads a
-   tree of at most the remaining budget. The regrouping is linear in that
-   charge: each operand walk pops at most 4096 stack entries (else refused)
-   and pushes every argument of an opened connective once; a depth walk
-   (at most 2^20 pops per side) admits only sides of depth at most 4096;
-   equal operand lists are compared once (at most the smaller side's
-   nodes); the order-free inclusion runs only for at most 12 operands per
-   side, so it makes at most 2 * 12 * 12 operand comparisons, together at
-   most 12 times the charged size. Operands are compared by the kernel's
+   tree of at most the remaining budget. The regrouping and the ITE laws
+   are linear in that charge: each operand walk pops at most 4096 stack
+   entries (else refused) and pushes every argument of an opened
+   connective once; a depth walk (at most 2^20 pops per side) admits only
+   sides of depth at most 4096; equal operand lists, ITE conditions and
+   branches are compared once (at most the smaller side's nodes); the
+   order-free inclusion runs only for at most 12 operands per side, so it
+   makes at most 2 * 12 * 12 operand comparisons, together at most 12
+   times the charged size. Operands are compared by the kernel's
    structural equality (exact declarations, sorts and arguments), never by
    native ids, and never more than 4096 levels deep. The node charge does
    not count the bytes of declaration names; those comparisons are bounded
@@ -368,9 +388,56 @@ let regrouped_by (op:B.nary_op) (lhs rhs:expr) : bool =
 
 let regrouped (lhs rhs:expr) : bool = regrouped_by B.Or lhs rhs || regrouped_by B.And lhs rhs
 
+(* The operands of a canonical `op` application, one level; any other
+   expression is its own single operand. *)
+let junctands (op:B.nary_op) (e:expr) : list expr =
+  match e with
+  | App f args -> if T.classify f = T.Nary op then args else [e]
+  | _ -> [e]
+
+(* `c` is the canonical `op` (and, or) of c1 and c2: the binary application
+   (op c1 c2), or one application over the operands of c1 followed by those
+   of c2, each opened one level (bool_rewriter's flattening mk_and). *)
+let joined (op:B.nary_op) (c c1 c2:expr) : bool =
+  match c with
+  | App f args -> T.classify f = T.Nary op && (args = [c1; c2] || args = L.append (junctands op c1) (junctands op c2))
+  | _ -> false
+
+(* The ITE laws of bool_rewriter::mk_ite_core on (ite c x y) ~ (ite c' x' y')
+   with one canonical ite declaration f: the negated condition with swapped
+   branches (either side carries the negation), and the merge of a nested
+   (ite c2 ..) of the same f into the then branch (by `or`) or into the else
+   branch (by `and`). *)
+let ite_swapped (c x y c' x' y':expr) : bool =
+  x' = y && y' = x && (negation_of c' c || negation_of c c')
+
+let ite_merged_then (f:func_decl) (c x y c' x' y':expr) : bool =
+  match y with
+  | App g [c2; x2; y2] -> g = f && x2 = x && x' = x && y' = y2 && joined B.Or c' c c2
+  | _ -> false
+
+let ite_merged_else (f:func_decl) (c x y c' x' y':expr) : bool =
+  match x with
+  | App g [c2; x2; y2] -> g = f && y2 = y && y' = y && x' = x2 && joined B.And c' c c2
+  | _ -> false
+
+(* Both sides apply the same declaration f with T.classify f = Choice s
+   (exactly T.ite_decl s, so every branch and the result have sort s) and
+   are shallow (as for the regrouping, which bounds the structural
+   comparisons below), and one law relates them. *)
+let ite_rewritten (lhs rhs:expr) : bool =
+  match lhs, rhs with
+  | App f [c; x; y], App g [c'; x'; y'] ->
+    if f = g && T.Choice? (T.classify f) && shallow lhs && shallow rhs
+    then ite_swapped c x y c' x' y' || ite_merged_then f c x y c' x' y' || ite_merged_else f c x y c' x' y'
+    else false
+  | _, _ -> false
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
-   equivalence; or, for Boolean sides, a regrouping of nested canonical
-   and/or over the same operands (the n-ary re-association leaves of
+   equivalence; an ITE law at any result sort (the term-ITE leaves of
+   Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); or, for Boolean
+   sides, a regrouping of nested canonical and/or over the same operands
+   (the n-ary re-association leaves of
    Pulse.Checker.Base-1, e.g. (or d1 d2 d3 d4) = (or (or d1 d2) (or d3 d4))
    with 80-94 KB operands), or the propositional equivalence of the Boolean
    cuts, first at depth 64 and otherwise at depth 2 (the same check over the
@@ -388,8 +455,9 @@ let propositional_at (fuel:nat) (lhs rhs:expr) : bool =
    checks; the executable result is the same. *)
 let rewrite_ok (lhs rhs:expr) : bool =
   AR.equivalent lhs rhs ||
-  (get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
-   (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
+  (if ite_rewritten lhs rhs then true
+   else get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
+        (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
 
 (* `scoped`: the certificate has a quant-intro root, whose body proofs may
    use quant-intro congruences and rewrite leaves; an NNF certificate
@@ -1284,11 +1352,148 @@ let lemma_regrouped_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
   else lemma_regrouped_by s bc eq other scope rho B.And lhs rhs;
   lemma_same_truth s bc eq other scope rho lhs rhs
 
+(* ITE laws. The value of a canonical ite at ANY sort, at ANY scope where it
+   is typed and ANY typed environment of it, is the value of the branch its
+   condition chooses (T.application, `Choice`): the interpretation the
+   Sorted semantics already gives every ite, no Real or other theory law. *)
+let choose (#base:sort -> Type0) (b:bool) (v w:V.tree base) : V.tree base = if b then v else w
+
+let lemma_value_ite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                    (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                    (f:func_decl) (c x y:expr)
+  : Lemma (requires D.scoped scope (App f [c; x; y]) /\ T.Choice? (T.classify f))
+          (ensures D.scoped scope c /\ D.scoped scope x /\ D.scoped scope y /\
+                   get_sort c == bool_sort /\ get_sort x == f.range /\ get_sort y == f.range /\
+                   T.evaluate_at s bc eq other scope rho (App f [c; x; y]) ==
+                   choose (T.truth_at s bc eq other scope rho c)
+                     (T.evaluate_at s bc eq other scope rho x) (T.evaluate_at s bc eq other scope rho y)) =
+  let r = T.Choice?._0 (T.classify f) in
+  assert (f == T.ite_decl r);
+  V.lemma_sort_eq (get_sort c) bool_sort;
+  V.lemma_sort_eq (get_sort x) r;
+  V.lemma_sort_eq (get_sort y) r;
+  T.lemma_evaluate_core_at s bc eq other scope rho f [c; x; y];
+  assert_norm (T.evaluate_arguments_at s bc eq other scope rho [c; x; y] [bool_sort; r; r] ==
+               [T.evaluate_at s bc eq other scope rho c; T.evaluate_at s bc eq other scope rho x;
+                T.evaluate_at s bc eq other scope rho y])
+
+let rec lemma_fold_append (t:expr -> GTot bool) (op:B.nary_op) (xs ys:list expr)
+  : Lemma (ensures fold_truth t op (L.append xs ys) == B.combine op (fold_truth t op xs) (fold_truth t op ys))
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | _ :: rest -> lemma_fold_append t op rest ys
+
+(* The one-level operands of a typed Boolean term fold to its truth. *)
+let lemma_junctands (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                    (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                    (op:B.nary_op) (e:expr)
+  : Lemma (requires D.scoped scope e /\ get_sort e == bool_sort)
+          (ensures fold_truth (T.truth_at s bc eq other scope rho) op (junctands op e) ==
+                   T.truth_at s bc eq other scope rho e) =
+  match e with
+  | App f args ->
+    if T.classify f = T.Nary op then (
+      lemma_truth_nary s bc eq other scope rho f args op;
+      lemma_fold_atoms (T.truth_at s bc eq other scope rho) op args)
+  | _ -> ()
+
+(* A joined condition is the `op` of the truths of c1 and c2. *)
+let lemma_joined (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                 (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                 (op:B.nary_op) (c c1 c2:expr)
+  : Lemma (requires joined op c c1 c2 /\ D.scoped scope c /\ D.scoped scope c1 /\ D.scoped scope c2 /\
+                    get_sort c1 == bool_sort /\ get_sort c2 == bool_sort)
+          (ensures T.truth_at s bc eq other scope rho c ==
+                   B.combine op (T.truth_at s bc eq other scope rho c1) (T.truth_at s bc eq other scope rho c2)) =
+  match c with
+  | App f args ->
+    let t = T.truth_at s bc eq other scope rho in
+    lemma_truth_nary s bc eq other scope rho f args op;
+    lemma_fold_atoms t op args;
+    if args = [c1; c2] then ()
+    else (
+      lemma_fold_append t op (junctands op c1) (junctands op c2);
+      lemma_junctands s bc eq other scope rho op c1;
+      lemma_junctands s bc eq other scope rho op c2)
+  | _ -> ()
+
+(* Each ITE law has one value on both sides at ANY scope where both sides
+   are typed, at ANY typed environment of it: every side is the choice of
+   its condition (lemma_value_ite); a negated condition swaps the choice
+   (lemma_truth_not), and a joined condition chooses the then branch of
+   (ite c1 x (ite c2 x y)) exactly when c1 or c2 holds, and the then
+   branch of (ite c1 (ite c2 x y) y) exactly when c1 and c2 hold
+   (lemma_joined). *)
+let lemma_ite_swapped_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                         (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\ ite_swapped c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  lemma_value_ite s bc eq other scope rho f c x y;
+  lemma_value_ite s bc eq other scope rho f c' x' y';
+  (match c with
+   | App n [a] -> if T.classify n = T.Negation then lemma_truth_not s bc eq other scope rho n a
+   | _ -> ());
+  (match c' with
+   | App n [a] -> if T.classify n = T.Negation then lemma_truth_not s bc eq other scope rho n a
+   | _ -> ());
+  lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+
+let lemma_ite_merged_then_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\ ite_merged_then f c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  lemma_value_ite s bc eq other scope rho f c x y;
+  lemma_value_ite s bc eq other scope rho f c' x' y';
+  (match y with
+   | App h [c2; x2; y2] ->
+     lemma_value_ite s bc eq other scope rho h c2 x2 y2;
+     lemma_joined s bc eq other scope rho B.Or c' c c2
+   | _ -> ());
+  lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+
+let lemma_ite_merged_else_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\ ite_merged_else f c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  lemma_value_ite s bc eq other scope rho f c x y;
+  lemma_value_ite s bc eq other scope rho f c' x' y';
+  (match x with
+   | App h [c2; x2; y2] ->
+     lemma_value_ite s bc eq other scope rho h c2 x2 y2;
+     lemma_joined s bc eq other scope rho B.And c' c c2
+   | _ -> ());
+  lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+
+let lemma_ite_rewritten_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                           (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
+  : Lemma (requires ite_rewritten lhs rhs /\ D.scoped scope lhs /\ D.scoped scope rhs)
+          (ensures same_at s bc eq other scope rho lhs rhs) =
+  match lhs, rhs with
+  | App f [c; x; y], App _ [c'; x'; y'] ->
+    if ite_swapped c x y c' x' y' then lemma_ite_swapped_at s bc eq other scope rho f c x y c' x' y'
+    else if ite_merged_then f c x y c' x' y' then lemma_ite_merged_then_at s bc eq other scope rho f c x y c' x' y'
+    else lemma_ite_merged_else_at s bc eq other scope rho f c x y c' x' y'
+  | _, _ -> ()
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
-   is Z3SortedArithmetic.lemma_equivalent at that scope; the regrouping is
-   lemma_regrouped_at; the propositional equivalences are
-   lemma_propositional_at. *)
+   is Z3SortedArithmetic.lemma_equivalent at that scope; the ITE laws are
+   lemma_ite_rewritten_at; the regrouping is lemma_regrouped_at; the
+   propositional equivalences are lemma_propositional_at. *)
 let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
@@ -1297,6 +1502,7 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   if AR.equivalent lhs rhs then (
     AR.lemma_equivalent s bc eq other scope rho lhs rhs;
     lemma_same_at s bc eq other scope rho lhs rhs)
+  else if ite_rewritten lhs rhs then lemma_ite_rewritten_at s bc eq other scope rho lhs rhs
   else if regrouped lhs rhs then lemma_regrouped_at s bc eq other scope rho lhs rhs
   else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
   else lemma_propositional_at s bc eq other scope rho 2 lhs rhs

@@ -3201,6 +3201,90 @@ let sorted_quant_intro_regrouping () =
       require (not (NR.regrouped l r)) ("operands beyond the depth admission were regrouped: " ^ name))
     [ordered, "ordered"; unordered, "order-free"]
 
+(* The ITE laws of quant-intro rewrite leaves (Z3NnfReplay.ite_rewritten) at native scale, on the
+   normal stack. At sort Term, under a congruence and a quant-intro over [Term], the negated
+   condition (both orientations), the then merge by `or` and the else merge by a flattened `and`
+   replay, and so do the laws at an array and an Int result sort; their mutants (the merged
+   branches swapped, the negation dropped, `and` for `or`, a counterfeit `if` and a counterfeit
+   `or`) are pending, and none of them is accepted by the Int equivalence. Distinct guards
+   f^d(a) and f^d(b), which pointer equality cannot short-circuit: at d = 4,000 they are compared
+   (refused when they differ, accepted for an unshared equal copy); at d = 200,000 the depth
+   admission (4,096 levels) refuses them before any comparison. A shared guard with 2^16 tree
+   nodes replays with enough work and is pending without it; a shared guard whose tree has 2^60
+   nodes is pending (the leaf's charge runs out first). *)
+let sorted_quant_intro_ite_laws () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module T = Z3SortedSemantics in
+  let module AR = Z3SortedArithmetic in
+  let term = A.BaseSort "Term" in
+  let constant name sort = A.App ({ A.decl_name = name; domain = []; range = sort; interp = None; int_params = [] }, []) in
+  let connective name interp args =
+    A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+             interp = Some interp; int_params = [] }, args) in
+  let mk_or = connective "or" Z3ValueTheory.op_or and mk_and = connective "and" Z3ValueTheory.op_and in
+  let ite c x y = A.App (T.ite_decl (A.get_sort x), [c; x; y]) in
+  let all body = A.Quantifier (A.Forall_k, [term], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    let h = constant "h" (A.get_sort l) in
+    let el = R.mk_eq_expr h l and er = R.mk_eq_expr h r in
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr el er) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all el) (all er)) [1] (Some [term]) ::
+                                      padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (all el, all er)) in
+  let c i = constant ("c" ^ string_of_int i) A.bool_sort in
+  let neg = R.mk_not_expr in
+  let x = A.Var (Z.zero, term) and y = constant "y" term in
+  let laws x y = [
+    ite (neg (c 1)) x y, ite (c 1) y x;
+    ite (c 1) x y, ite (neg (c 1)) y x;
+    ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) x y;
+    ite (mk_and [c 1; c 3]) (ite (mk_and [c 2; c 4]) x y) y, ite (mk_and [c 1; c 3; c 2; c 4]) x y] in
+  let arr = A.ArraySort ([A.BaseSort "Int"], term) and int_s = A.BaseSort "Int" in
+  List.iter (fun (l, r) ->
+      require (NR.ite_rewritten l r && NR.rewrite_ok l r) "an ITE law was refused";
+      require (A.get_sort l = int_s || not (AR.equivalent l r)) "the Int equivalence accepted a non-Int ITE law";
+      require (leaf l r 0 = NR.Replayed) "an ITE law certificate was not replayed")
+    (laws x y @ laws (constant "a1" arr) (constant "a2" arr) @ laws (constant "i1" int_s) (constant "i2" int_s));
+  let twin_if = { A.decl_name = "if"; domain = [A.bool_sort; term; term]; range = term; interp = None; int_params = [] } in
+  let fake_or = { A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  List.iter (fun (l, r, name) ->
+      require (not (NR.rewrite_ok l r) && leaf l r 0 = NR.Unreplayed) ("an ITE mutant was replayed: " ^ name))
+    [ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) y x, "swapped branches";
+     ite (neg (c 1)) x y, ite (c 1) x y, "opposite guard";
+     ite (c 1) x (ite (c 2) x y), ite (mk_and [c 1; c 2]) x y, "and for or";
+     A.App (twin_if, [neg (c 1); x; y]), A.App (twin_if, [c 1; y; x]), "counterfeit if";
+     ite (c 1) x (ite (c 2) x y), ite (A.App (fake_or, [c 1; c 2])) x y, "counterfeit or"];
+  let f = { A.decl_name = "f"; domain = [A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = c 10 and b = c 11 in
+  let swap g g' = ite (neg g) x y, ite g' y x in
+  let l, r = swap (applied 4000 a) (applied 4000 b) in
+  require (not (NR.ite_rewritten l r)) "distinct 4,000-deep guards were accepted";
+  require (leaf l r 200 = NR.Unreplayed) "distinct 4,000-deep guards were replayed";
+  let l, r = swap (applied 4000 a) (applied 4000 a) in
+  require (NR.ite_rewritten l r) "unshared equal 4,000-deep guards were refused";
+  require (leaf l r 200 = NR.Replayed) "unshared equal 4,000-deep guards were not replayed";
+  let l, r = swap (applied 200000 a) (applied 200000 b) in
+  require (not (NR.ite_rewritten l r)) "distinct 200,000-deep guards were accepted";
+  let l, r = swap (applied 200000 a) (applied 200000 a) in
+  require (not (NR.ite_rewritten l r)) "guards beyond the depth admission were accepted";
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let wide = dag 16 a in
+  let l, r = swap wide wide in
+  require (leaf l r 2000 = NR.Replayed) "a large shared guard was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large shared guard was replayed beyond the work budget";
+  let big = dag 60 a in
+  let l, r = swap big big in
+  require (leaf l r 40 = NR.Unreplayed) "an exponential shared guard was replayed"
+
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
    only. For every pair below the units equal the previous charge name_length a + name_length b,
@@ -7004,6 +7088,7 @@ let () =
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
+     "sorted-quant-intro-ite-laws", sorted_quant_intro_ite_laws;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
