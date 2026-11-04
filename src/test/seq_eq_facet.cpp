@@ -23,6 +23,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
+#include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "smt/seq_solver_facet.h"
 #include "smt/smt_solver.h"
@@ -30,6 +31,190 @@ Author:
 #include <iostream>
 
 namespace {
+    struct eq_approx_fixture {
+        struct context : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
+            theory_seq_params params;
+            context(ast_manager& m, seq_util& u, trail_stack& trail) :
+                null_ambient_context(m, u, trail) {}
+            theory_seq_params const& fparams() const override { return params; }
+        };
+        ast_manager m;
+        seq_util u;
+        arith_util a;
+        seq_rewriter rw;
+        trail_stack trail;
+        context ac;
+        seq::eq_tree tree;
+        seq::eq_tree::node* root;
+        stx::facet_id eq_id, mem_id;
+        seq::eq_approx_split approx;
+
+        static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
+        eq_approx_fixture(unsigned max_states = 1u << 12) :
+            u(init(m)), a(m), rw(m), ac(m, u, trail), tree(trail, m.limit()),
+            root(tree.mk_root()),
+            eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
+            mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw, ac)),
+            approx(m, u, rw, max_states) {
+            ac.set_eq_id(eq_id);
+            ac.set_mem_id(mem_id);
+            ac.params.m_seq_eq_approx = true;
+            tree.set_ambient_context(&ac);
+        }
+        seq::eq_facet& eqs() { return root->facet_as<seq::eq_facet>(eq_id); }
+        seq::mem_facet& mems() { return root->facet_as<seq::mem_facet>(mem_id); }
+        expr_ref var(char const* name) {
+            return expr_ref(m.mk_fresh_const(name, u.str.mk_string_sort()), m);
+        }
+        expr_ref word(char const* value) {
+            return expr_ref(u.re.mk_to_re(u.str.mk_string(value)), m);
+        }
+        void add(expr* term, expr* regex, unsigned dep) {
+            mems().add(seq::str_mem(m, term, seq::view::membership(regex, m), tree.dep_mgr().mk_leaf(dep)));
+        }
+        bool refuted() {
+            root->clear_status();
+            seq::eq_tree::edge edge;
+            bool more = true, committed = true;
+            ENSURE(!approx.split(*root, 0, edge, more, committed));
+            ENSURE(!more && !committed);
+            return root->is_conflict();
+        }
+    };
+
+    static void tst_eq_approx_memberships() {
+        eq_approx_fixture f;
+        expr_ref x = f.var("x"), y = f.var("y"), p = f.var("p"), q = f.var("q"), z = f.var("z");
+        expr_ref at(f.u.str.mk_string("@"), f.m), colon(f.u.str.mk_string(":"), f.m);
+        expr* lhs_args[] = { x, at, y };
+        expr* rhs_args[] = { p, colon, q };
+        expr_ref lhs(f.u.str.mk_concat(3, lhs_args, x->get_sort()), f.m);
+        expr_ref rhs(f.u.str.mk_concat(3, rhs_args, x->get_sort()), f.m);
+        f.eqs().add_equation(lhs, rhs, f.tree.dep_mgr().mk_leaf(1));
+        expr_ref a = f.word("a"), b = f.word("b"), c = f.word("c");
+        expr_ref as(f.u.re.mk_star(a), f.m), bs(f.u.re.mk_star(b), f.m), cs(f.u.re.mk_star(c), f.m);
+        f.add(x, as, 2);
+        f.add(y, bs, 3);
+        f.add(z, cs, 4);
+        f.ac.params.m_seq_eq_approx = false;
+        ENSURE(!f.refuted());
+        f.ac.params.m_seq_eq_approx = true;
+        ENSURE(f.refuted());
+        auto& dm = f.tree.dep_mgr();
+        for (unsigned dep : {1u, 2u, 3u})
+            ENSURE(dm.contains(f.root->conflict_dep(), dep));
+        ENSURE(!dm.contains(f.root->conflict_dep(), 4));
+    }
+
+    static void tst_eq_approx_conjunctive_views() {
+        eq_approx_fixture f;
+        expr_ref x = f.var("x"), y = f.var("y");
+        expr_ref a = f.word("a"), b = f.word("b"), c = f.word("c");
+        expr_ref ab(f.u.re.mk_union(a, b), f.m);
+        expr_ref ac(f.u.re.mk_union(a, c), f.m);
+        expr_ref bc(f.u.re.mk_union(b, c), f.m);
+        f.eqs().add_equation(x, y, f.tree.dep_mgr().mk_leaf(1));
+        f.add(x, ab, 2);
+        f.add(y, bc, 3);
+        ENSURE(!f.refuted());
+        f.add(x, ac, 4);
+        ENSURE(f.refuted());
+        for (unsigned dep : {1u, 2u, 3u, 4u})
+            ENSURE(f.tree.dep_mgr().contains(f.root->conflict_dep(), dep));
+    }
+
+    static void tst_eq_approx_scopes() {
+        eq_approx_fixture f;
+        expr_ref x = f.var("x"), b(f.u.str.mk_string("b"), f.m);
+        expr_ref a = f.word("a");
+        expr_ref as(f.u.re.mk_star(a), f.m);
+        f.eqs().add_equation(x, b, f.tree.dep_mgr().mk_leaf(1));
+        ENSURE(!f.refuted());
+        f.trail.push_scope();
+        f.add(x, as, 2);
+        ENSURE(f.refuted());
+        f.trail.pop_scope(1);
+        ENSURE(!f.refuted());
+        f.trail.push_scope();
+        f.add(x, as, 3);
+        f.mems().remove(f.mems().memberships().size() - 1);
+        ENSURE(!f.refuted());
+        f.trail.pop_scope(1);
+        ENSURE(!f.refuted());
+        f.trail.push_scope();
+        f.add(x, as, 4);
+        f.eqs().remove_equation_trailed(0);
+        ENSURE(!f.refuted());
+        f.trail.pop_scope(1);
+        ENSURE(!f.refuted());
+    }
+
+    static void tst_eq_approx_unsupported_views() {
+        eq_approx_fixture f;
+        expr_ref x = f.var("x"), a(f.u.str.mk_string("a"), f.m);
+        f.eqs().add_equation(x, a);
+        expr_ref ab = f.word("ab"), b = f.word("b");
+        f.mems().add(seq::str_mem(f.m, x, seq::view::reach(ab, b, f.m)));
+        ENSURE(!f.refuted()); // The reach language is {"a"}, not {"ab"}.
+        expr_ref r(f.m.mk_fresh_const("R", ab->get_sort()), f.m);
+        ENSURE(!f.u.re.is_ground(r));
+        f.add(x, r, 1);
+        ENSURE(!f.refuted());
+        expr_ref y = f.var("y");
+        expr_ref symbolic(f.u.re.mk_to_re(y), f.m);
+        ENSURE(!f.u.re.is_ground(symbolic));
+        f.add(x, symbolic, 2);
+        ENSURE(!f.refuted());
+    }
+
+    static void tst_eq_approx_generic_sequences() {
+        eq_approx_fixture f;
+        sort_ref seq_sort(f.u.str.mk_seq(f.a.mk_int()), f.m);
+        expr_ref x(f.m.mk_fresh_const("x", seq_sort), f.m);
+        expr_ref zero(f.u.str.mk_unit(f.a.mk_int(0)), f.m);
+        expr_ref one(f.u.str.mk_unit(f.a.mk_int(1)), f.m);
+        expr_ref regex(f.u.re.mk_to_re(zero), f.m);
+        f.eqs().add_equation(x, one, f.tree.dep_mgr().mk_leaf(1));
+        f.add(x, regex, 2);
+        ENSURE(f.refuted());
+        ENSURE(f.tree.dep_mgr().contains(f.root->conflict_dep(), 2));
+        f.trail.push_scope();
+        f.eqs().remove_equation_trailed(0);
+        expr_ref empty(f.u.str.mk_empty(seq_sort), f.m);
+        f.eqs().add_equation(empty, zero);
+        ENSURE(f.refuted());
+        f.trail.pop_scope(1);
+    }
+
+    static void tst_eq_approx_symbolic_predicate() {
+        eq_approx_fixture f;
+        sort* elem_sort = f.a.mk_int();
+        sort_ref seq_sort(f.u.str.mk_seq(elem_sort), f.m);
+        expr_ref x(f.m.mk_fresh_const("x", seq_sort), f.m);
+        expr_ref p(f.m.mk_fresh_const("p", elem_sort), f.m);
+        expr_ref q(f.m.mk_fresh_const("q", elem_sort), f.m);
+        expr_ref v(f.m.mk_var(0, elem_sort), f.m);
+        expr_ref vp(f.m.mk_eq(v, p), f.m), vq(f.m.mk_eq(v, q), f.m);
+        expr_ref body(f.m.mk_and(vp, vq), f.m);
+        symbol name("v");
+        expr_ref pred(f.m.mk_lambda(1, &elem_sort, &name, body), f.m);
+        expr_ref regex(f.u.re.mk_of_pred(pred), f.m);
+        ENSURE(f.u.re.is_ground(regex)); // The regex-info flag does not inspect predicates.
+        expr_ref zero(f.u.str.mk_unit(f.a.mk_int(0)), f.m);
+        f.eqs().add_equation(x, zero);
+        f.add(x, regex, 1);
+        ENSURE(!f.refuted()); // p = q = 0 is consistent.
+    }
+
+    static void tst_eq_approx_budget() {
+        eq_approx_fixture f(0);
+        expr_ref x = f.var("x"), b(f.u.str.mk_string("b"), f.m);
+        expr_ref a = f.word("a");
+        f.eqs().add_equation(x, b);
+        f.add(x, a, 1);
+        ENSURE(!f.refuted());
+    }
+
     static expr_ref mk_unit_char(ast_manager& m, seq_util& u, char ch) {
         return expr_ref(u.str.mk_unit(u.str.mk_char(static_cast<unsigned>(ch))), m);
     }
@@ -591,6 +776,13 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_eq_approx_memberships();
+    tst_eq_approx_conjunctive_views();
+    tst_eq_approx_scopes();
+    tst_eq_approx_unsupported_views();
+    tst_eq_approx_generic_sequences();
+    tst_eq_approx_symbolic_predicate();
+    tst_eq_approx_budget();
     tst_trivial_sat();
     tst_symbol_clash_unsat();
     tst_commute_sat();

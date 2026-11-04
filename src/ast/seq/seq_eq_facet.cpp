@@ -18,8 +18,10 @@ Author:
 --*/
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
+#include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_pp.h"
@@ -596,11 +598,15 @@ namespace seq {
 
     // -- eq_approx_split --
 
-    // Build a concat expression from a token list for seq_eq_approx.
-    static expr* eq_approx_tokens_to_expr(seq_util& u, expr_ref_vector const& ts) {
-        if (ts.empty())
-            return u.str.mk_empty(u.str.mk_string(zstring())->get_sort());
-        return u.str.mk_concat(ts.size(), ts.data(), ts[0]->get_sort());
+    static bool eq_approx_is_ground(seq_util& u, expr_ref const& regex) {
+        if (!u.re.is_ground(regex))
+            return false;
+        // re.of.pred is marked interpreted even when its predicate has
+        // symbolic parameters, which the guard evaluator cannot decide.
+        for (expr* e : subterms::ground(regex))
+            if (u.re.is_of_pred(e))
+                return false;
+        return true;
     }
 
     scoped_ptr<eq_tree::split_iterator_i> eq_approx_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
@@ -611,18 +617,41 @@ namespace seq {
         if (!ac.fparams().m_seq_eq_approx)
             return nullptr;
         auto& f = ac.eq_facet_ref();
+        auto& mf = ac.mem_facet_ref();
+        m_approx.reset_views();
+        obj_map<expr, eq_tree::dep_tracker> deps;
+        for (auto const& sm : mf.memberships()) {
+            // Reach views depend on their producer's transition mode. Omitting
+            // them only weakens this whole-language abstraction.
+            if (!sm.active() || !sm.is_plain() || !eq_approx_is_ground(u, sm.m_view.m_state))
+                continue;
+            sort* seq_sort = nullptr;
+            VERIFY(u.is_re(sm.m_view.m_state->get_sort(), seq_sort));
+            expr_ref term(u.str.mk_concat(sm.m_str, seq_sort), m);
+            m_approx.add_view(term, sm.m_view);
+            eq_tree::dep_tracker prior = nullptr;
+            deps.find(term, prior);
+            deps.insert(term, mf.dm().mk_join(prior, sm.m_dep));
+        }
 
         for (auto const& eq : f.equations()) {
-            if (!eq.active())
+            if (!eq.active() || (eq.m_lhs.empty() && eq.m_rhs.empty()))
                 continue;
-            expr_ref lhs(eq_approx_tokens_to_expr(u, eq.m_lhs), m);
-            expr_ref rhs(eq_approx_tokens_to_expr(u, eq.m_rhs), m);
+            sort* seq_sort = (eq.m_lhs.empty() ? eq.m_rhs[0] : eq.m_lhs[0])->get_sort();
+            expr_ref lhs(u.str.mk_concat(eq.m_lhs, seq_sort), m);
+            expr_ref rhs(u.str.mk_concat(eq.m_rhs, seq_sort), m);
             m_stats.m_num_checks++;
             lbool r = m_approx.check(lhs, rhs);
             if (r == l_false) {
                 // An empty segment-language intersection refutes the equation.
                 m_stats.m_num_refuted++;
-                n.set_conflict(stx::br_plugin_base, eq.m_dep);
+                eq_tree::dep_tracker dep = eq.m_dep;
+                for (expr* term : m_approx.used()) {
+                    eq_tree::dep_tracker d = nullptr;
+                    if (deps.find(term, d))
+                        dep = mf.dm().mk_join(dep, d);
+                }
+                n.set_conflict(stx::br_plugin_base, dep);
                 return nullptr;
             }
         }
