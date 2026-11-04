@@ -684,7 +684,11 @@ namespace seq {
             f.advance_qhead(head);
             changed = true;
         }
-        if (f.is_satisfied()) {
+        // Witnesses commit model-selected lengths. Keep feasibility checks
+        // above active, but postpone these choices until word constraints settle.
+        if (f.is_satisfied() &&
+            ac.eq_facet_ref().is_satisfied() &&
+            ac.deq_facet_ref().is_satisfied()) {
             if (!f.witness_extracted() && !f.memberships().empty()) {
                 bool handled = false;
                 if (ac.fparams().m_seq_mem_monadic_endgame) {

@@ -34,6 +34,7 @@ namespace {
         seq::eq_tree::node* root;
         seq::sub_solver  solver;
         stx::facet_id    eq_id;
+        stx::facet_id    deq_id;
         stx::facet_id    mem_id;
         stx::facet_id    arith_id;
         stx::facet_id    assumption_id;
@@ -47,11 +48,13 @@ namespace {
             root(tree.mk_root()),
             solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
+            deq_id(tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr())),
             mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw, ac)),
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             assumption_id(tree.register_facet<seq::assumption_facet>(*root, m))
         {
             ac.set_eq_id(eq_id);
+            ac.set_deq_id(deq_id);
             ac.set_mem_id(mem_id);
             ac.set_arith_id(arith_id);
             ac.set_assumption_id(assumption_id);
@@ -384,6 +387,85 @@ namespace {
         }) == stx::search_result::sat);
     }
 
+    static void tst_witness_waits_for_word_constraints(bool disequation) {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", x->get_sort()), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref re(f.u.re.mk_to_re(a), f.m);
+        re = f.u.re.mk_star(re);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& df = f.root->facet_as<seq::deq_facet>(f.deq_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        auto& af = f.root->facet_as<seq::assumption_facet>(f.assumption_id);
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        for (unsigned len : {2u, 3u}) {
+            f.trail.push_scope();
+            mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+            expr_ref length(f.u.str.mk_length(x), f.m);
+            expr_ref value(f.a.mk_int(len), f.m);
+            sf.add_constraint(f.m.mk_eq(length, value));
+            if (disequation) {
+                expr_ref_vector lhs(f.m), rhs(f.m);
+                lhs.push_back(x);
+                rhs.push_back(y);
+                df.add_disequation(lhs, rhs);
+            }
+            else
+                ef.add_equation(x, y);
+            ENSURE(mf.is_satisfied());
+            ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+            ENSURE(!mf.witness_extracted() && af.assumptions().empty());
+            unsigned num_views = mf.vw().size();
+            f.trail.push_scope();
+            if (disequation)
+                df.remove_disequation_trailed(0);
+            else
+                ef.remove_equation_trailed(0);
+            ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+            ENSURE(mf.witness_extracted() && af.assumptions().size() == 1);
+            expr_ref word(f.m);
+            ENSURE(mf.get_witness(x, word));
+            th_rewriter normalize(f.m);
+            normalize(word);
+            zstring s;
+            ENSURE(f.u.str.is_string(word, s) && s.length() == len);
+            for (unsigned i = 0; i < len; ++i)
+                ENSURE(s[i] == 'a');
+            f.trail.pop_scope(1);
+            ENSURE(!mf.witness_extracted() && af.assumptions().empty());
+            ENSURE(!mf.get_witness(x, word) && mf.vw().size() == num_views);
+            ENSURE(disequation ? !df.is_satisfied() : !ef.is_satisfied());
+            ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+            ENSURE(!mf.witness_extracted() && af.assumptions().empty());
+            f.trail.pop_scope(1);
+            f.root->clear_status();
+            ENSURE(mf.memberships().empty() && mf.qhead() == 0);
+            ENSURE(ef.is_satisfied() && df.is_satisfied());
+            ENSURE(!sf.has_conflict() && mf.vw().size() == 0);
+        }
+    }
+
+    static void tst_pending_equation_membership_refutation() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", x->get_sort()), f.m);
+        expr_ref ab(f.u.str.mk_string("ab"), f.m);
+        expr_ref ba(f.u.str.mk_string("ba"), f.m);
+        expr_ref r1(f.u.re.mk_to_re(ab), f.m), r2(f.u.re.mk_to_re(ba), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& dm = f.tree.dep_mgr();
+        ef.add_equation(x, y);
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(r1, f.m), dm.mk_leaf(1)));
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(r2, f.m), dm.mk_leaf(2)));
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) == stx::simplify_result::conflict);
+        ENSURE(dm.contains(f.root->conflict_dep(), 1) && dm.contains(f.root->conflict_dep(), 2));
+        ENSURE(!mf.witness_extracted());
+    }
+
     static void tst_regex_length_refutation(bool concat, bool generic = false) {
         fixture f;
         scoped_rlimit limit(f.m.limit(), 10000);
@@ -684,6 +766,9 @@ void tst_seq_mem_facet() {
     tst_two_var_monadic_sat();
     tst_root_refute_before_equation_substitution();
     tst_symbolic_unit_derivative_not_rejected();
+    tst_witness_waits_for_word_constraints(false);
+    tst_witness_waits_for_word_constraints(true);
+    tst_pending_equation_membership_refutation();
     tst_regex_length_refutation(false);
     tst_regex_length_refutation(true);
     tst_regex_length_refutation(false, true);
