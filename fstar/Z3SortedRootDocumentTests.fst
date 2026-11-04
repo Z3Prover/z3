@@ -403,57 +403,116 @@ let f2_payload_rule () : Lemma (RD.check_root_document PT.core_schema
 (* G. Typed Int Farkas: the coefficients are READ (kept by the read view)   *)
 (* ---------------------------------------------------------------------- *)
 
-(* x > 0 and x < 1 over Int: refuted only with the strict-bound rounding of
-   the integer Farkas replay, by the certificate (1, 1). *)
+(* x > 0 and x < 1 over Int, with an unrelated Boolean fact p among the
+   step's premises: refuted only with the strict-bound rounding of the
+   integer Farkas replay, by the certificate (1, 1, 0) (p weighted 0). The
+   checker's own recomputation of coefficients (SP.linear_consequence,
+   section M) reads steps over Int comparisons only, so on this step the
+   producer's coefficients decide; G5 is the same step without p. *)
 let zero : expr = App (TR.int_numeral 0) []
 let x_positive : expr = App (TR.gt_decl integer) [x_int; zero]
 let x_below_one : expr = App (TR.lt_decl integer) [x_int; one]
 
 let farkas_document (cs:list Z3LinearArithmeticAst.coefficient) : P.document =
+  doc [x_positive; x_below_one; PT.proposition]
+      [entry U.Asserted x_positive []; entry U.Asserted x_below_one []; entry U.Asserted PT.proposition [];
+       entry (U.ArithmeticFarkas cs) R.false_expr [0; 1; 2]]
+      3
+
+let g1_farkas_certified ()
+  : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1)]) == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1)]) == RD.RootCertified)
+
+(* Mutant certificates on the same step: a zero weight, a missing and an
+   extra coefficient. Each leaves the step as an open obligation (one
+   document per lemma). *)
+let g2_zero_weight_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (0, 1); (0, 1)]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (0, 1); (0, 1)]) == RD.RootPending 1)
+
+let g2_missing_coefficient_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1)]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1)]) == RD.RootPending 1)
+
+let g2_extra_coefficient_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1); (1, 1)]) ==
+           RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1); (1, 1)]) ==
+               RD.RootPending 1)
+
+(* The read view keeps the coefficient list: the certified and the mutant
+   documents keep different read views, and each keeps its verdict there. *)
+let g3_farkas_read_view ()
+  : Lemma (RD.read_view (farkas_document [(1, 1); (1, 1); (0, 1)]) =!=
+             RD.read_view (farkas_document [(1, 1); (0, 1); (0, 1)]) /\
+           RD.check_root_document PT.core_schema (RD.read_view (farkas_document [(1, 1); (1, 1); (0, 1)])) ==
+             RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (farkas_document [(1, 1); (0, 1); (0, 1)])) ==
+             RD.RootPending 1) =
+  assert_norm (L.map RD.shape_entry (farkas_document [(1, 1); (1, 1); (0, 1)]).P.entries =!=
+               L.map RD.shape_entry (farkas_document [(1, 1); (0, 1); (0, 1)]).P.entries);
+  g1_farkas_certified (); g2_zero_weight_pending ();
+  RD.lemma_root_read_view PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1)]);
+  RD.lemma_root_read_view PT.core_schema (farkas_document [(1, 1); (0, 1); (0, 1)])
+
+(* The certified Farkas document is false in EVERY root model. *)
+let g4_farkas_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1)]) i) =
+  g1_farkas_certified ();
+  RD.lemma_root_certified u PT.core_schema (farkas_document [(1, 1); (1, 1); (0, 1)]) i
+
+(* G5. The same step over the Int comparisons alone, with the zero-weight
+   mutant certificate. The supplied coefficients stay invalid (G6: the
+   coefficient validator refuses them); the step is rescued by a DIFFERENT
+   certificate, the weights the checker recomputes from the formulas
+   (SP.linear_consequence), which the same typed validator accepts. The
+   document is certified and false in EVERY root model. *)
+let farkas_pair_document (cs:list Z3LinearArithmeticAst.coefficient) : P.document =
   doc [x_positive; x_below_one]
       [entry U.Asserted x_positive []; entry U.Asserted x_below_one [];
        entry (U.ArithmeticFarkas cs) R.false_expr [0; 1]]
       2
 
-let g1_farkas_certified () : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1)]) ==
-                                    RD.RootCertified) =
-  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1)]) == RD.RootCertified)
+let g5_recomputed_certified ()
+  : Lemma (RD.check_root_document PT.core_schema (farkas_pair_document [(1, 1); (0, 1)]) == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema (farkas_pair_document [(1, 1); (0, 1)]) == RD.RootCertified)
 
-(* Mutant certificates on the same step: a zero weight, a missing and an
-   extra coefficient. Each leaves the step as an open obligation (one
-   document per lemma). *)
-let g2_zero_weight_pending () : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (0, 1)]) ==
-                                       RD.RootPending 1) =
-  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (0, 1)]) == RD.RootPending 1)
-
-let g2_missing_coefficient_pending () : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1)]) ==
-                                               RD.RootPending 1) =
-  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1)]) == RD.RootPending 1)
-
-let g2_extra_coefficient_pending ()
-  : Lemma (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (1, 1)]) == RD.RootPending 1) =
-  assert_norm (RD.check_root_document PT.core_schema (farkas_document [(1, 1); (1, 1); (1, 1)]) == RD.RootPending 1)
-
-(* The read view keeps the coefficient list: the certified and the mutant
-   documents keep different read views, and each keeps its verdict there. *)
-let g3_farkas_read_view ()
-  : Lemma (RD.read_view (farkas_document [(1, 1); (1, 1)]) =!= RD.read_view (farkas_document [(1, 1); (0, 1)]) /\
-           RD.check_root_document PT.core_schema (RD.read_view (farkas_document [(1, 1); (1, 1)])) ==
-             RD.RootCertified /\
-           RD.check_root_document PT.core_schema (RD.read_view (farkas_document [(1, 1); (0, 1)])) ==
-             RD.RootPending 1) =
-  assert_norm (L.map RD.shape_entry (farkas_document [(1, 1); (1, 1)]).P.entries =!=
-               L.map RD.shape_entry (farkas_document [(1, 1); (0, 1)]).P.entries);
-  g1_farkas_certified (); g2_zero_weight_pending ();
-  RD.lemma_root_read_view PT.core_schema (farkas_document [(1, 1); (1, 1)]);
-  RD.lemma_root_read_view PT.core_schema (farkas_document [(1, 1); (0, 1)])
-
-(* The certified Farkas document is false in EVERY root model. *)
-let g4_farkas_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+let g5_recomputed_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
   : Lemma (requires TR.root_model u PT.core_schema i)
-          (ensures falsified u PT.core_schema (farkas_document [(1, 1); (1, 1)]) i) =
-  g1_farkas_certified ();
-  RD.lemma_root_certified u PT.core_schema (farkas_document [(1, 1); (1, 1)]) i
+          (ensures falsified u PT.core_schema (farkas_pair_document [(1, 1); (0, 1)]) i) =
+  g5_recomputed_certified ();
+  RD.lemma_root_certified u PT.core_schema (farkas_pair_document [(1, 1); (0, 1)]) i
+
+(* G6. Direct coefficient-validator discrimination on the ORIGINAL
+   two-premise step: SP.arithmetic_farkas (AR.check_contradiction on the
+   supplied weights) accepts (1, 1) and refuses the zero-weight, missing
+   and extra coefficient mutants; the recomputed weights for the same
+   literals are a validated certificate (the one G5 uses). *)
+let pair_fact (e:expr) : U.checked_fact = { U.conclusion = U.Holds e; hypotheses = [] }
+
+let pair_node (cs:list Z3LinearArithmeticAst.coefficient) : U.proof_node = {
+  U.kind = U.ArithmeticFarkas cs; conclusion = U.Holds R.false_expr;
+  premises = [pair_fact x_positive; pair_fact x_below_one];
+}
+
+let g6_validator_discriminates ()
+  : Lemma (SP.arithmetic_farkas (pair_node [(1, 1); (1, 1)]) /\
+           not (SP.arithmetic_farkas (pair_node [(1, 1); (0, 1)])) /\
+           not (SP.arithmetic_farkas (pair_node [(1, 1)])) /\
+           not (SP.arithmetic_farkas (pair_node [(1, 1); (1, 1); (1, 1)])) /\
+           (match Z3LinearArithmeticAst.synthesize R.false_expr [x_positive; x_below_one] with
+            | Some cs -> Z3SortedArithmetic.check_contradiction
+                           (Z3LinearArithmeticAst.assumptions R.false_expr [x_positive; x_below_one]) cs
+            | None -> False)) =
+  assert_norm (SP.arithmetic_farkas (pair_node [(1, 1); (1, 1)]));
+  assert_norm (not (SP.arithmetic_farkas (pair_node [(1, 1); (0, 1)])));
+  assert_norm (not (SP.arithmetic_farkas (pair_node [(1, 1)])));
+  assert_norm (not (SP.arithmetic_farkas (pair_node [(1, 1); (1, 1); (1, 1)])));
+  assert_norm (match Z3LinearArithmeticAst.synthesize R.false_expr [x_positive; x_below_one] with
+               | Some cs -> Z3SortedArithmetic.check_contradiction
+                              (Z3LinearArithmeticAst.assumptions R.false_expr [x_positive; x_below_one]) cs
+               | None -> False)
 
 (* ---------------------------------------------------------------------- *)
 (* H. The Hilbert-epsilon route and its root gate                           *)
@@ -576,3 +635,420 @@ let h7_later_reference_forward ()
 let h7_later_reference_backward ()
   : Lemma (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_q; skolem_pi] 0)) == 2) =
   assert_norm (L.length (SP.epsilon_context PT.core_schema (doc [some_pi] [skolem_q; skolem_pi] 0)) == 2)
+
+(* ---------------------------------------------------------------------- *)
+(* I. Int equality/order laws: triangle clauses and implied equalities      *)
+(* ---------------------------------------------------------------------- *)
+
+(* The checks read the formulas only (never the rule label), over the
+   fixtures of Z3SortedProofTests: opaque Int-valued applications ulevel(a),
+   ulevel(b), the sum ulevel(a) + (-1) * ulevel(b) of Raise q5 and the
+   nonconstant product ulevel(a) * ulevel(b), each read as one Int value. *)
+let th_lemma : U.rule = U.Unverified "th-lemma"
+
+(* A clause step refuted by the complements of its literals. *)
+let refute2 (clause u1 u2:expr) : P.document =
+  doc [u1; u2]
+      [entry th_lemma clause []; entry U.Asserted u1 []; entry U.Asserted u2 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2]]
+      3
+
+let refute3 (clause u1 u2 u3:expr) : P.document =
+  doc [u1; u2; u3]
+      [entry th_lemma clause []; entry U.Asserted u1 []; entry U.Asserted u2 []; entry U.Asserted u3 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2; 3]]
+      4
+
+let i1_document : P.document =
+  refute2 PT.raise_le (R.mk_eq_expr PT.ione PT.span) (R.mk_not_expr (PT.leq PT.span PT.ione))
+
+let i2_document : P.document =
+  refute2 PT.gap_le_reversed (R.mk_not_expr (PT.leq PT.gap PT.izero)) (R.mk_eq_expr PT.la PT.product)
+
+let i3_document : P.document =
+  refute3 PT.antisymmetry (PT.not_eq PT.product PT.la) (PT.leq PT.gap PT.izero) (PT.geq PT.gap PT.izero)
+
+(* x = y from the two opposite bounds on x + (-1) * y, the premise ids given. *)
+let implied_document (premises:list int) : P.document =
+  doc [PT.geq PT.gap PT.izero; PT.leq PT.gap PT.izero; PT.not_eq PT.product PT.la]
+      [entry U.Asserted (PT.geq PT.gap PT.izero) []; entry U.Asserted (PT.leq PT.gap PT.izero) [];
+       entry th_lemma (R.mk_eq_expr PT.product PT.la) premises;
+       entry U.Asserted (PT.not_eq PT.product PT.la) [];
+       entry U.UnitResolution R.false_expr [2; 3]]
+      4
+
+let i4_document : P.document = implied_document [0; 1]
+
+let i1_certified () : Lemma (RD.check_root_document PT.core_schema i1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i1_document == RD.RootCertified)
+
+let i2_certified () : Lemma (RD.check_root_document PT.core_schema i2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i2_document == RD.RootCertified)
+
+let i3_certified () : Lemma (RD.check_root_document PT.core_schema i3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i3_document == RD.RootCertified)
+
+let i4_certified () : Lemma (RD.check_root_document PT.core_schema i4_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema i4_document == RD.RootCertified)
+
+(* The certified documents are false in EVERY root model, and in the
+   standard root model for every u and uf. *)
+let int_order_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema i1_document i /\ falsified u PT.core_schema i2_document i /\
+                   falsified u PT.core_schema i3_document i /\ falsified u PT.core_schema i4_document i) =
+  i1_certified (); RD.lemma_root_certified u PT.core_schema i1_document i;
+  i2_certified (); RD.lemma_root_certified u PT.core_schema i2_document i;
+  i3_certified (); RD.lemma_root_certified u PT.core_schema i3_document i;
+  i4_certified (); RD.lemma_root_certified u PT.core_schema i4_document i
+
+let int_order_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i3_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema i4_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  int_order_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants on the same refutation shapes stay open obligations (their
+   counter-models: Z3SortedProofTests.int_order_counter_models): a strict
+   bound at x = y, a counterfeit `<=` without its interpretation tag, and an
+   implied equality with one of its two bounds missing. *)
+let i5_strict_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (refute2 PT.strict_mutant (R.mk_eq_expr PT.xi PT.yi)
+                (R.mk_not_expr (App PT.ilt [PT.xi; PT.yi]))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (refute2 PT.strict_mutant (R.mk_eq_expr PT.xi PT.yi)
+                    (R.mk_not_expr (App PT.ilt [PT.xi; PT.yi]))) == RD.RootPending 1)
+
+let i6_counterfeit_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (refute2 PT.counterfeit_le_mutant (R.mk_eq_expr PT.xi PT.yi)
+                (R.mk_not_expr (App ({ PT.ile with interp = None }) [PT.xi; PT.yi]))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (refute2 PT.counterfeit_le_mutant (R.mk_eq_expr PT.xi PT.yi)
+                    (R.mk_not_expr (App ({ PT.ile with interp = None }) [PT.xi; PT.yi]))) == RD.RootPending 1)
+
+let i7_missing_bound_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* J. Term if-then-else branch clauses (same-model theorem, no new symbol)  *)
+(* ---------------------------------------------------------------------- *)
+
+let def_axiom_refute (clause u1 u2:expr) : P.document =
+  doc [u1; u2]
+      [entry U.DefAxiom clause []; entry U.Asserted u1 []; entry U.Asserted u2 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2]]
+      3
+
+(* Raise q5 nodes 68 and 116 over Universe, and an Int choice with reversed
+   equality operands and swapped literals. *)
+let j1_document : P.document =
+  def_axiom_refute PT.ite_then PT.raise_guard
+    (PT.not_eq PT.ub (PT.universe_choice PT.raise_guard PT.ub PT.ua))
+
+let j2_document : P.document =
+  def_axiom_refute PT.ite_else (R.mk_not_expr PT.raise_guard)
+    (PT.not_eq PT.ua (PT.universe_choice PT.raise_guard PT.ub PT.ua))
+
+let j3_document : P.document =
+  def_axiom_refute PT.ite_int_else_swapped (PT.not_eq (PT.int_choice PT.pb PT.ione PT.izero) PT.izero)
+    (R.mk_not_expr PT.pb)
+
+let j1_certified () : Lemma (RD.check_root_document PT.core_schema j1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema j1_document == RD.RootCertified)
+
+let j2_certified () : Lemma (RD.check_root_document PT.core_schema j2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema j2_document == RD.RootCertified)
+
+let j3_certified () : Lemma (RD.check_root_document PT.core_schema j3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema j3_document == RD.RootCertified)
+
+let choice_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema j1_document i /\ falsified u PT.core_schema j2_document i /\
+                   falsified u PT.core_schema j3_document i) =
+  j1_certified (); RD.lemma_root_certified u PT.core_schema j1_document i;
+  j2_certified (); RD.lemma_root_certified u PT.core_schema j2_document i;
+  j3_certified (); RD.lemma_root_certified u PT.core_schema j3_document i
+
+let choice_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema j1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema j2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema j3_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  choice_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants (counter-models: Z3SortedProofTests.choice_counter_models)
+   stay open obligations: the guard flipped, the other branch, another
+   condition. *)
+let j4_flipped_guard_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.flipped_guard_mutant (R.mk_not_expr PT.pb)
+                (PT.not_eq PT.ione (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.flipped_guard_mutant (R.mk_not_expr PT.pb)
+                    (PT.not_eq PT.ione (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1)
+
+let j5_wrong_branch_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.wrong_branch_mutant PT.pb
+                (PT.not_eq PT.izero (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.wrong_branch_mutant PT.pb
+                    (PT.not_eq PT.izero (PT.int_choice PT.pb PT.ione PT.izero))) == RD.RootPending 1)
+
+let j6_other_condition_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.other_condition_mutant PT.pb
+                (PT.not_eq PT.ione (PT.int_choice PT.qb PT.ione PT.izero))) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.other_condition_mutant PT.pb
+                    (PT.not_eq PT.ione (PT.int_choice PT.qb PT.ione PT.izero))) == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* K. Int equality/order laws over the commuted difference (-1) * y + x    *)
+(* ---------------------------------------------------------------------- *)
+
+(* FStar.Math.Lemmas-2 q12 node 68: x = y from (-1) * y + x >= 0 and <= 0,
+   x the nonconstant product and y the opaque application; the commuted
+   triangle clause and antisymmetry clause. *)
+let commuted_implied_document (premises:list int) : P.document =
+  doc [PT.geq PT.cgap PT.izero; PT.leq PT.cgap PT.izero; PT.not_eq PT.product PT.la]
+      [entry U.Asserted (PT.geq PT.cgap PT.izero) []; entry U.Asserted (PT.leq PT.cgap PT.izero) [];
+       entry th_lemma (R.mk_eq_expr PT.product PT.la) premises;
+       entry U.Asserted (PT.not_eq PT.product PT.la) [];
+       entry U.UnitResolution R.false_expr [2; 3]]
+      4
+
+let k1_document : P.document = commuted_implied_document [0; 1]
+
+let k2_document : P.document =
+  refute2 PT.commuted_eq_upper (R.mk_eq_expr PT.product PT.la) (R.mk_not_expr (PT.leq PT.cgap PT.izero))
+
+let k3_document : P.document =
+  refute3 PT.commuted_antisymmetry (PT.not_eq PT.product PT.la) (PT.leq PT.cgap PT.izero) (PT.geq PT.cgap PT.izero)
+
+let k1_certified () : Lemma (RD.check_root_document PT.core_schema k1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema k1_document == RD.RootCertified)
+
+let k2_certified () : Lemma (RD.check_root_document PT.core_schema k2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema k2_document == RD.RootCertified)
+
+let k3_certified () : Lemma (RD.check_root_document PT.core_schema k3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema k3_document == RD.RootCertified)
+
+let commuted_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema k1_document i /\ falsified u PT.core_schema k2_document i /\
+                   falsified u PT.core_schema k3_document i) =
+  k1_certified (); RD.lemma_root_certified u PT.core_schema k1_document i;
+  k2_certified (); RD.lemma_root_certified u PT.core_schema k2_document i;
+  k3_certified (); RD.lemma_root_certified u PT.core_schema k3_document i
+
+let commuted_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema k1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema k2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema k3_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  commuted_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants stay open obligations (counter-models:
+   Z3SortedProofTests.commuted_counter_models): the coefficient +1, and the
+   two bounds with x and y swapped in one of them. *)
+let k4_plus_one_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (refute2 PT.commuted_plus_one_mutant (R.mk_eq_expr PT.xi PT.yi)
+                (R.mk_not_expr (PT.leq (App PT.iadd [App PT.imul [PT.ione; PT.yi]; PT.xi]) PT.izero))) ==
+           RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (refute2 PT.commuted_plus_one_mutant (R.mk_eq_expr PT.xi PT.yi)
+                    (R.mk_not_expr (PT.leq (App PT.iadd [App PT.imul [PT.ione; PT.yi]; PT.xi]) PT.izero))) ==
+               RD.RootPending 1)
+
+let k5_swapped_bounds_document : P.document =
+  doc [PT.geq (PT.commuted PT.xi PT.yi) PT.izero; PT.leq (PT.commuted PT.yi PT.xi) PT.izero; PT.not_eq PT.xi PT.yi]
+      [entry U.Asserted (PT.geq (PT.commuted PT.xi PT.yi) PT.izero) [];
+       entry U.Asserted (PT.leq (PT.commuted PT.yi PT.xi) PT.izero) [];
+       entry th_lemma (R.mk_eq_expr PT.xi PT.yi) [0; 1];
+       entry U.Asserted (PT.not_eq PT.xi PT.yi) [];
+       entry U.UnitResolution R.false_expr [2; 3]]
+      4
+
+let k5_swapped_bounds_pending ()
+  : Lemma (RD.check_root_document PT.core_schema k5_swapped_bounds_document == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema k5_swapped_bounds_document == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* L. Boolean or-gate definition axioms (same-model tautologies)           *)
+(* ---------------------------------------------------------------------- *)
+
+let def_axiom_refute3 (clause u1 u2 u3:expr) : P.document =
+  doc [u1; u2; u3]
+      [entry U.DefAxiom clause []; entry U.Asserted u1 []; entry U.Asserted u2 []; entry U.Asserted u3 [];
+       entry U.UnitResolution R.false_expr [0; 1; 2; 3]]
+      4
+
+(* The nested or-intro of Tactics.BreakVC-1 q1 node 51 and an or-elim, each
+   refuted by the complements of its literals. *)
+let l1_document : P.document =
+  def_axiom_refute PT.or_intro_nested (R.mk_not_expr PT.bvc_g) (R.mk_not_expr PT.bvc_h)
+
+let l2_document : P.document =
+  def_axiom_refute3 PT.or_elim_two (PT.disjunction [PT.atom_a; PT.atom_b])
+    (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)
+
+let l1_certified () : Lemma (RD.check_root_document PT.core_schema l1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema l1_document == RD.RootCertified)
+
+let l2_certified () : Lemma (RD.check_root_document PT.core_schema l2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema l2_document == RD.RootCertified)
+
+let gate_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema l1_document i /\ falsified u PT.core_schema l2_document i) =
+  l1_certified (); RD.lemma_root_certified u PT.core_schema l1_document i;
+  l2_certified (); RD.lemma_root_certified u PT.core_schema l2_document i
+
+let gate_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema l1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema l2_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  gate_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants stay open obligations (counter-models:
+   Z3SortedProofTests.gate_counter_models): the or-elim with a disjunct
+   dropped, and an or-intro literal complementing no disjunct. *)
+let l3_dropped_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute3 PT.elim_dropped_mutant (PT.disjunction [PT.atom_a; PT.atom_b; PT.atom_c])
+                (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute3 PT.elim_dropped_mutant (PT.disjunction [PT.atom_a; PT.atom_b; PT.atom_c])
+                    (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)) == RD.RootPending 1)
+
+let l4_member_pending ()
+  : Lemma (RD.check_root_document PT.core_schema
+             (def_axiom_refute PT.intro_member_mutant (R.mk_not_expr (PT.disjunction [PT.atom_a; PT.atom_b]))
+                PT.atom_c) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema
+                 (def_axiom_refute PT.intro_member_mutant (R.mk_not_expr (PT.disjunction [PT.atom_a; PT.atom_b]))
+                    PT.atom_c) == RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* M. Coefficient-free linear Int consequences (recomputed weights)        *)
+(* ---------------------------------------------------------------------- *)
+
+(* The facts asserted (entries 0 .. n-1), the th-lemma step concluding the
+   target from all of them (entry n, no coefficients), the negated target
+   asserted, and false by unit resolution. Fixtures of Z3SortedProofTests:
+   the equality chain x = z through y, FStar.Math.Euclid-2 q3 node 306
+   (-1 = x from not (x <= -2) and not (x >= 0), strict-Int rounding), and
+   false from not (x <= 0) and not (x >= 1) as the root step itself. *)
+let rec asserted_entries (es:list expr) : Tot (list P.entry) (decreases es) =
+  match es with [] -> [] | e :: rest -> entry U.Asserted e [] :: asserted_entries rest
+
+let rec first_ids (n:nat) : Tot (list int) (decreases n) =
+  if n = 0 then [] else L.append (first_ids (n - 1)) [n - 1]
+
+let linear_refutation (facts:list expr) (target:expr) : P.document =
+  let n = L.length facts in
+  doc (L.append facts [R.mk_not_expr target])
+      (L.append (asserted_entries facts)
+        [entry th_lemma target (first_ids n); entry U.Asserted (R.mk_not_expr target) [];
+         entry U.UnitResolution R.false_expr [n; n + 1]])
+      (n + 2)
+
+let linear_conflict (facts:list expr) : P.document =
+  let n = L.length facts in
+  doc facts (L.append (asserted_entries facts) [entry th_lemma R.false_expr (first_ids n)]) n
+
+let m1_document : P.document = linear_refutation PT.lin_chain PT.lin_chain_target
+let m2_document : P.document = linear_refutation PT.lin_tight PT.lin_tight_target
+let m3_document : P.document = linear_conflict PT.lin_conflict
+
+let m1_certified () : Lemma (RD.check_root_document PT.core_schema m1_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema m1_document == RD.RootCertified)
+
+let m2_certified () : Lemma (RD.check_root_document PT.core_schema m2_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema m2_document == RD.RootCertified)
+
+let m3_certified () : Lemma (RD.check_root_document PT.core_schema m3_document == RD.RootCertified) =
+  assert_norm (RD.check_root_document PT.core_schema m3_document == RD.RootCertified)
+
+let linear_documents_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures falsified u PT.core_schema m1_document i /\ falsified u PT.core_schema m2_document i /\
+                   falsified u PT.core_schema m3_document i) =
+  m1_certified (); RD.lemma_root_certified u PT.core_schema m1_document i;
+  m2_certified (); RD.lemma_root_certified u PT.core_schema m2_document i;
+  m3_certified (); RD.lemma_root_certified u PT.core_schema m3_document i
+
+let linear_documents_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (TR.root_model u PT.core_schema (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema m1_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema m2_document (TR.standard u PT.core_schema uf) /\
+           falsified u PT.core_schema m3_document (TR.standard u PT.core_schema uf)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  linear_documents_false u (TR.standard u PT.core_schema uf)
+
+(* False variants stay open obligations (counter-models:
+   Z3SortedProofTests.linear_counter_models): a dropped bound, one link of
+   the chain at Real, and non-strict bounds in place of the strict ones (for
+   the equation and for the conflict). *)
+let m4_dropped_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (linear_refutation PT.lin_dropped PT.lin_chain_target) ==
+           RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (linear_refutation PT.lin_dropped PT.lin_chain_target) ==
+               RD.RootPending 1)
+
+let m5_mixed_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (linear_refutation PT.lin_mixed PT.lin_chain_target) ==
+           RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (linear_refutation PT.lin_mixed PT.lin_chain_target) ==
+               RD.RootPending 1)
+
+let m6_weak_bounds_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (linear_refutation PT.lin_weak_tight PT.lin_tight_target) ==
+           RD.RootPending 1 /\
+           RD.check_root_document PT.core_schema (linear_conflict PT.lin_weak_conflict) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (linear_refutation PT.lin_weak_tight PT.lin_tight_target) ==
+               RD.RootPending 1);
+  assert_norm (RD.check_root_document PT.core_schema (linear_conflict PT.lin_weak_conflict) == RD.RootPending 1)
+
+(* M7. Genuinely false steps over the satisfiable bounds 0 < x < 2 (x = 1:
+   Z3SortedProofTests.linear_counter_models) stay open whatever the rule
+   label or the supplied coefficients: x = 0 as a th-lemma or as an
+   arith/farkas step with weights, and false as a th-lemma or with the
+   weights that refute 0 < x < 1. No certificate, supplied or recomputed,
+   exists. *)
+let between_equation (r:U.rule) : P.document =
+  doc (L.append PT.lin_between [R.mk_not_expr PT.lin_between_target])
+      (L.append (asserted_entries PT.lin_between)
+        [entry r PT.lin_between_target [0; 1]; entry U.Asserted (R.mk_not_expr PT.lin_between_target) [];
+         entry U.UnitResolution R.false_expr [2; 3]])
+      4
+
+let between_conflict (r:U.rule) : P.document =
+  doc PT.lin_between (L.append (asserted_entries PT.lin_between) [entry r R.false_expr [0; 1]]) 2
+
+let m7_false_steps_pending ()
+  : Lemma (RD.check_root_document PT.core_schema (between_equation th_lemma) == RD.RootPending 1 /\
+           RD.check_root_document PT.core_schema (between_equation (U.ArithmeticFarkas [(1, 1); (1, 1); (1, 1)])) ==
+             RD.RootPending 1 /\
+           RD.check_root_document PT.core_schema (between_conflict th_lemma) == RD.RootPending 1 /\
+           RD.check_root_document PT.core_schema (between_conflict (U.ArithmeticFarkas [(1, 1); (1, 1)])) ==
+             RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (between_equation th_lemma) == RD.RootPending 1);
+  assert_norm (RD.check_root_document PT.core_schema (between_equation (U.ArithmeticFarkas [(1, 1); (1, 1); (1, 1)])) ==
+               RD.RootPending 1);
+  assert_norm (RD.check_root_document PT.core_schema (between_conflict th_lemma) == RD.RootPending 1);
+  assert_norm (RD.check_root_document PT.core_schema (between_conflict (U.ArithmeticFarkas [(1, 1); (1, 1)])) ==
+               RD.RootPending 1)

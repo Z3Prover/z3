@@ -35,11 +35,12 @@ module Z3SortedRootDocument
    so the checker reasons about it only by congruence (it is a free symbol
    of the Sorted proof); no theory law is used for it.
 
-   NNF certificates (Z3NnfReplay, read by SP.check_node_cached): the
+   Binder certificates (Z3NnfReplay, read by SP.check_node_cached): the
    replay's quantifier laws (Q.forall_model and E.exists_model) are derived
    from R1 of the same i (section 1), the read view KEEPS the certificate
    (rule_shape), and the coverage gate checks every entry formula and binder
-   sort of a consumed certificate and its scope guard (certificate_covered).
+   sort of a consumed certificate (an NNF or a quant-intro root,
+   NR.consumed_root) and its scope guard (certificate_covered).
    Inner Skolem steps are true only in the epsilon extension (section 6),
    which is where the epsilon theorem evaluates the elaborated document.
 
@@ -184,9 +185,10 @@ let rec lemma_truths_agreement (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR
 
 (* Every rule path of Z3SortedProof.check_node_cached that reports no
    pending obligation (Asserted, Hypothesis, quantifier instantiation,
-   flattening, lemma discharge, the NNF certificate replay, and the
+   flattening, lemma discharge, the NNF certificate replay, the
    propositional, equality, congruence, Int-arithmetic and datatype
-   consequence kernels) preserves the truth of the checked fact in the
+   consequence kernels, and the recomputed linear Int consequence) preserves
+   the truth of the checked fact in the
    Sorted interpretation over i. Its quantifier hypotheses (universal,
    elimination and existential) are DERIVED from R1 (section 1). This is the
    NODE theorem; the document theorem (section 4) is its induction over the
@@ -240,12 +242,17 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
    with its argument list, ArithmeticFarkas WITH its coefficient list,
    which SP.arithmetic_farkas replays, and QuantifierIntroduction WITH its
-   binder certificate, which the NNF replay (Z3NnfReplay, SP.nnf_verdict)
-   reads when its root is nnf-neg or nnf-pos); the epsilon route
-   (check_document_epsilon, section 6) also distinguishes Skolemization and
-   collects the closed Skolem steps inside consumed certificates.
+   binder certificate, which the certificate replay (Z3NnfReplay,
+   SP.nnf_verdict) reads when its root is nnf-neg, nnf-pos or quant-intro);
+   the epsilon route (check_document_epsilon, section 6) also distinguishes
+   Skolemization and collects the closed Skolem steps inside consumed NNF
+   certificates.
    Every other rule, with every other payload (Gomory, PAC, rule names), is
-   judged identically. The read view KEEPS the Farkas coefficients, the
+   judged identically; in particular the coefficient-free linear Int
+   consequence (SP.linear_consequence, the last check of check_node_cached)
+   reads only the entry formula and the premise propositions (the formulas
+   of earlier entries) and recomputes its weights, never a payload. The read
+   view KEEPS the Farkas coefficients, the
    binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision
    equals the decision on the read view, which drops the
@@ -254,8 +261,9 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    entry formulas of consumed certificates) are all DOCUMENT terms the
    checker reads; the Farkas coefficients are numbers, not terms. The
    checker also builds internal terms of its own
-   (the canonical false, equality and Boolean wrappers, field equalities and the
-   instances of instantiation); those are not gated, and need not be: the
+   (the canonical false, equality and Boolean wrappers, field equalities, the
+   instances of instantiation and the Int bounds x <= y, x >= y of the linear
+   consequence); those are not gated, and need not be: the
    falsity proof above (lemma_root_check_document) holds in every root
    model for every document with Some 0, covered or not. Coverage only
    restricts which certified documents are read as SMT queries; it is not
@@ -326,14 +334,15 @@ let rec binder_entries_covered (sigma:V.signature) (bs:list U.binder_entry) : To
     (match b.U.binder_sorts with Some ss -> TR.supported_sorts sigma ss | None -> true) &&
     binder_entries_covered sigma rest
 
-(* A certificate the NNF replay consumes: every internal term covered, and
-   the scope guard (NR.certificate_scoped: every entry the root uses is typed
-   by D.scoped at EVERY scope assigned to it) passes. Other certificates are
-   not read by the Sorted route and are not gated. *)
+(* A certificate the replay consumes (NR.consumed_root: an NNF root or a
+   quant-intro root): every internal term covered, and the scope guard
+   (NR.certificate_scoped: every entry the root uses is typed by D.scoped
+   at EVERY scope assigned to it) passes. Other certificates are not read
+   by the Sorted route and are not gated. *)
 let certificate_covered (sigma:V.signature) (r:U.rule) : bool =
   match r with
   | U.QuantifierIntroduction c ->
-    not (NR.nnf_root c) || (binder_entries_covered sigma c.U.binder_entries && NR.certificate_scoped c)
+    not (NR.consumed_root c) || (binder_entries_covered sigma c.U.binder_entries && NR.certificate_scoped c)
   | _ -> true
 
 (* TYPING (D.scoped) and COVERAGE (TR.supported_expression: every sort of
@@ -432,19 +441,38 @@ let rec lemma_binder_entry_covered (sigma:V.signature) (bs:list U.binder_entry) 
           (decreases bs) =
   match bs with [] -> () | d :: rest -> if d = b then () else lemma_binder_entry_covered sigma rest b
 
-(* The internal terms of a certificate the NNF replay consumes: in a
-   certified document the certificate passed the scope guard and every node
-   of every one of its entry formulas is supported and law-ready. *)
+(* The internal terms of a certificate the replay consumes (NNF or
+   quant-intro root): in a certified document the certificate passed the
+   scope guard and every node of every one of its entry formulas is
+   supported and law-ready. *)
 let lemma_certified_certificate_node (schema:S.schema) (doc:P.document) (e:P.entry)
                                      (c:U.binder_certificate) (b:U.binder_entry) (x:expr)
   : Lemma (requires check_root_document schema doc == RootCertified /\ L.mem e doc.P.entries /\
-                    e.P.rule == U.QuantifierIntroduction c /\ NR.nnf_root c /\
+                    e.P.rule == U.QuantifierIntroduction c /\ NR.consumed_root c /\
                     L.mem b c.U.binder_entries /\ TR.occurs x b.U.binder_formula)
           (ensures NR.certificate_scoped c /\
                    TR.supported_expression (S.signature schema) x /\ TR.node_ready (S.signature schema) x) =
   lemma_entries_covered_mem (S.signature schema) doc.P.entries e;
   lemma_binder_entry_covered (S.signature schema) c.U.binder_entries b;
   TR.lemma_document_node schema [b.U.binder_formula] b.U.binder_formula x
+
+(* The binder sorts of every entry of a consumed certificate are supported
+   too (quant-intro and quantifier steps read their bodies at
+   `L.rev bs @ scope`, so every sort a body is typed at is covered). *)
+let rec lemma_binder_sorts_covered (sigma:V.signature) (bs:list U.binder_entry) (b:U.binder_entry) (ss:list sort)
+  : Lemma (requires binder_entries_covered sigma bs /\ L.mem b bs /\ b.U.binder_sorts == Some ss)
+          (ensures TR.supported_sorts sigma ss)
+          (decreases bs) =
+  match bs with [] -> () | d :: rest -> if d = b then () else lemma_binder_sorts_covered sigma rest b ss
+
+let lemma_certified_certificate_sorts (schema:S.schema) (doc:P.document) (e:P.entry)
+                                      (c:U.binder_certificate) (b:U.binder_entry) (ss:list sort)
+  : Lemma (requires check_root_document schema doc == RootCertified /\ L.mem e doc.P.entries /\
+                    e.P.rule == U.QuantifierIntroduction c /\ NR.consumed_root c /\
+                    L.mem b c.U.binder_entries /\ b.U.binder_sorts == Some ss)
+          (ensures TR.supported_sorts (S.signature schema) ss) =
+  lemma_entries_covered_mem (S.signature schema) doc.P.entries e;
+  lemma_binder_sorts_covered (S.signature schema) c.U.binder_entries b ss
 
 (* The original assertions of an accepted document are closed Boolean
    terms: DERIVED from the checker's own result (SP.check_document tests
@@ -1017,6 +1045,13 @@ let rec lemma_dependents_view (s:S.checked_schema) (defs:list SK.definition) (es
         | None -> ()
         | Some more -> lemma_dependents_view s more rest))
 
+(* The certified epsilon context reads the document only through its
+   assertions, which the read view keeps. *)
+let lemma_certified_context_view (s:S.checked_schema) (doc:P.document)
+                                 (collected:option (list SK.definition))
+  : Lemma (SP.certified_context s (read_view doc) collected == SP.certified_context s doc collected) =
+  ()
+
 let lemma_document_read_view_epsilon (schema:S.schema) (doc:P.document)
   : Lemma (SP.check_document_epsilon schema doc == SP.check_document_epsilon schema (read_view doc) /\
            dependent_closures schema doc == dependent_closures schema (read_view doc)) =
@@ -1025,6 +1060,8 @@ let lemma_document_read_view_epsilon (schema:S.schema) (doc:P.document)
     lemma_merged_view schema [] doc.P.entries;
     lemma_dependents_view schema [] doc.P.entries;
     let ds = SP.epsilon_context schema doc in
+    lemma_certified_context_view schema doc (SP.collect_merged schema [] doc.P.entries);
+    lemma_certified_context_view schema doc (SP.collect_epsilon schema [] doc.P.entries);
     assert (SP.epsilon_context schema (read_view doc) == ds);
     let dds = SP.dependent_context schema doc ds in
     assert (SP.dependent_context schema (read_view doc) ds == dds);

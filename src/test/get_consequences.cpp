@@ -10,8 +10,14 @@ Copyright (c) 2016 Microsoft Corporation
 #include "ast/pb_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/proofs/proof_utils.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/split_clause_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "smt/smt_solver.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
@@ -279,6 +285,107 @@ static void test_datatype_accessor_consequences() {
     ENSURE(found_a && found_b);
 }
 
+class tracking_proof_converter : public proof_converter {
+    unsigned& m_calls;
+    bool m_closed;
+public:
+    tracking_proof_converter(unsigned& calls, bool closed): m_calls(calls), m_closed(closed) {}
+
+    proof_ref operator()(ast_manager& m, unsigned num_source, proof* const* source) override {
+        ENSURE(num_source == 1 && source[0]);
+        ENSURE(proof_utils::is_closed(m, source[0]) == m_closed);
+        ++m_calls;
+        return proof_ref(source[0], m);
+    }
+
+    proof_converter* translate(ast_translation&) override {
+        return alloc(tracking_proof_converter, m_calls, m_closed);
+    }
+
+    void display(std::ostream& out) override { out << "(tracking-proof-converter)\n"; }
+};
+
+class register_proof_converter_tactic : public tactic {
+    unsigned& m_calls;
+    bool m_closed;
+public:
+    register_proof_converter_tactic(unsigned& calls, bool closed): m_calls(calls), m_closed(closed) {}
+
+    void operator()(goal_ref const& in, goal_ref_buffer& result) override {
+        if (in->proofs_enabled())
+            in->add(alloc(tracking_proof_converter, m_calls, m_closed));
+        result.push_back(in.get());
+    }
+
+    tactic* translate(ast_manager&) override {
+        return alloc(register_proof_converter_tactic, m_calls, m_closed);
+    }
+
+    void cleanup() override {}
+    char const* name() const override { return "register-proof-converter"; }
+};
+
+static void test_split_proof_converters() {
+    for (bool proofs : {false, true}) {
+        for (unsigned composition : {0u, 1u, 2u}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            unsigned parent_calls = 0, branch_calls = 0;
+            goal_ref input = alloc(goal, m, proofs, true, false);
+            expr_ref a = mk_bool(m, "split-a"), b = mk_bool(m, "split-b");
+            expr_ref clause(m.mk_or(a, b), m), not_a(m.mk_not(a), m), not_b(m.mk_not(b), m);
+            input->assert_expr(clause);
+            input->assert_expr(not_a);
+            input->assert_expr(not_b);
+            if (proofs)
+                input->add(alloc(tracking_proof_converter, parent_calls, true));
+
+            tactic_ref split = mk_split_clause_tactic();
+            tactic_ref register_pc = alloc(register_proof_converter_tactic, branch_calls, composition == 2);
+            tactic_ref smt = mk_smt_tactic(m);
+            tactic_ref solve_branch = and_then(register_pc.get(), smt.get());
+            tactic_ref pipeline;
+            if (composition == 0)
+                pipeline = and_then(split.get(), solve_branch.get());
+            else if (composition == 1) {
+                tactic_ref step = or_else(split.get(), solve_branch.get());
+                pipeline = repeat(step.get(), 4);
+            }
+            else
+                pipeline = solve_branch;
+
+            model_ref model;
+            labels_vec labels;
+            proof_ref proof(m);
+            expr_dependency_ref core(m);
+            std::string reason;
+            ENSURE(check_sat(*pipeline, input, model, labels, proof, core, reason) == l_false);
+            ENSURE(parent_calls == (proofs ? 1u : 0u));
+            ENSURE(branch_calls == (proofs ? (composition == 2 ? 1u : 2u) : 0u));
+            if (proofs) {
+                ENSURE(proof && m.is_false(m.get_fact(proof)) && proof_utils::is_closed(m, proof));
+                auto check_leaves = [&](expr* e) {
+                    if (m.is_asserted(e)) {
+                        expr* fact = m.get_fact(to_app(e));
+                        ENSURE(fact == clause || fact == not_a || fact == not_b);
+                    }
+                };
+                for_each_expr(check_leaves, proof);
+                proof_checker checker(m);
+                expr_ref_vector conditions(m);
+                ENSURE(checker.check(proof, conditions));
+                ENSURE(conditions.empty());
+                tactic_ref skip = mk_skip_tactic();
+                ENSURE(check_sat(*skip, input, model, labels, proof, core, reason) == l_false);
+                ENSURE(parent_calls == 1);
+                ENSURE(branch_calls == (composition == 2 ? 1u : 2u));
+            }
+            else
+                ENSURE(!proof);
+        }
+    }
+}
+
 void tst_get_consequences() {
     test1();
     test2();
@@ -286,4 +393,5 @@ void tst_get_consequences() {
     test_bounded_int_translation();
     test_cardinality_consequences_after_check();
     test_datatype_accessor_consequences();
+    test_split_proof_converters();
 }

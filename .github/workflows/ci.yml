@@ -374,6 +374,7 @@ jobs:
           path: |
             ${{ runner.temp }}/lean-proof-artifacts/
             ${{ runner.temp }}/lean-proof-matrix.jsonl
+            ${{ runner.temp }}/lean-proof-summary.md
           if-no-files-found: warn
 
       - name: Run examples

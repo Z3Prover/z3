@@ -13,8 +13,10 @@ module Z3NnfReplayTests
       missing and reused children, wrong target connective, canonical-name
       lookalikes, wrong binder sorts and order, a capturing de Bruijn index,
       wrong polarity under a binder, a bad root, forward, self and negative
-      premise ids, the hnf.cpp variant, a quant-intro root, and an inner
-      Skolem step that is not a certified choice equation.
+      premise ids, the hnf.cpp variant, and an inner Skolem step that is
+      not a certified choice equation. (A quant-intro root is a consumed
+      certificate too since the scoped rewrite replay: B12 replays it; its
+      own tests are Z3QuantIntroReplayTests.)
    C. Two ACTUAL previously pending corpus certificates (Phase A artifacts,
       dd-producer diagnosis proofs, transcribed entry by entry):
         I1 FStar.Nonempty query 2 node 11 (premise-free nnf-neg: or/3 ->
@@ -355,16 +357,17 @@ let b10_shared ()
                        (neg (mk_or [p; p])) (mk_and [neg p; neg p]))
 
 (* B11 the hnf.cpp variant: nnf-neg(q, body, [apply-def]) whose target is
-   not the negation of its source; and B12 a quant-intro root (not an NNF
-   certificate): both pending. *)
+   not the negation of its source: pending. B12 a quant-intro root over a
+   reflexive body is a consumed certificate (the scoped rewrite replay,
+   Z3QuantIntroReplayTests): replayed. *)
 let b11_hnf () : Lemma (pending (cert [be "apply-def" (oeq p0 p0) []; be "nnf-neg" (oeq (neg (exists_ [integer] p0)) p0) [0]] 1)
                                 (neg (exists_ [integer] p0)) p0) =
   assert_norm (pending (cert [be "apply-def" (oeq p0 p0) []; be "nnf-neg" (oeq (neg (exists_ [integer] p0)) p0) [0]] 1)
                        (neg (exists_ [integer] p0)) p0)
 
-let b12_quant_intro () : Lemma (pending (cert [refl p0; bq "quant-intro" [integer] (oeq (forall_ [integer] p0) (forall_ [integer] p0)) [0]] 1)
+let b12_quant_intro () : Lemma (replays (cert [refl p0; bq "quant-intro" [integer] (oeq (forall_ [integer] p0) (forall_ [integer] p0)) [0]] 1)
                                         (forall_ [integer] p0) (forall_ [integer] p0)) =
-  assert_norm (pending (cert [refl p0; bq "quant-intro" [integer] (oeq (forall_ [integer] p0) (forall_ [integer] p0)) [0]] 1)
+  assert_norm (replays (cert [refl p0; bq "quant-intro" [integer] (oeq (forall_ [integer] p0) (forall_ [integer] p0)) [0]] 1)
                        (forall_ [integer] p0) (forall_ [integer] p0))
 
 (* B13 an inner Skolem step is accepted only as an assertion (on the epsilon
@@ -720,8 +723,9 @@ let e2_payload_consumed ()
 (* E3 coverage reads the consumed certificate: the I1/I2 certificates are
    covered; an unsupported internal term (a zero-index array constant in an
    entry the root does not even use) or a certificate failing the scope
-   guard (B8) is not; a certificate the replay does not consume (B12) is not
-   gated. *)
+   guard (B8) is not; the consumed quant-intro certificate of B12 is gated
+   and covered (Z3QuantIntroReplayTests C4 has its uncovered and
+   unconsumed counterparts). *)
 let zero_index : expr = const "zero-index" (ArraySort [] integer)
 let e3_coverage ()
   : Lemma (RD.certificate_covered (S.signature PT.core_schema) (U.QuantifierIntroduction i1_cert) /\
