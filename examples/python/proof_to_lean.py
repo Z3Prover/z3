@@ -256,7 +256,8 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # read of an Int array is an Int term, an atom of the linear forms like an
 # application, and an index any Int term; each Lean array type has a family
 # of its own (_array_family), and an extensionality witness over Int or Rat
-# indices is chosen with the type's own inhabitant (_nonempty).
+# indices is chosen with the type's own inhabitant (_nonempty). Functions into
+# an array sort are one more family per Lean array type (_array_functions).
 _ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r"}
 _NONEMPTY_FIELDS = (("nonempty", "Nonempty U"),)
 _ARRAY_DEFINITIONS = """
@@ -477,16 +478,30 @@ def _array_injection(name):
     return _array_family(name) + "_inj"
 
 
+def _array_functions(name):
+    """The interpretation's family of the functions into an array sort, one per Lean array type.
+
+    Like _m.funs and the numeric families, a function takes the list of its
+    arguments in the carrier (each injected by its sort) and returns an
+    array of the Lean type, so a model's function into arrays is an instance
+    through the same embedding of its array values as the array constants.
+    """
+    return _array_family(name) + "_funs"
+
+
 def _array_family_fields(graph):
-    """The interpretation's fields of the array families the certificate uses, and of their injections."""
+    """The interpretation's fields of the array families the certificate uses, their injections and functions."""
     fields = {}
     arguments = {sort for decl in graph.declarations if decl.kind == z3.Z3_OP_UNINTERPRETED
                  for sort in decl.domain if sort in graph.arrays}
+    results = {decl.range for decl in graph.declarations if decl.kind == z3.Z3_OP_UNINTERPRETED and decl.domain}
     for sort in graph.arrays:
         index, element = (lean.replace("_m.", "") for lean in _array_types(sort))
         fields.setdefault(_array_family(sort), "Nat -> %s -> %s" % (index, element))
         if sort in arguments:
             fields.setdefault(_array_injection(sort), "(%s -> %s) -> U" % (index, element))
+        if sort in results:
+            fields.setdefault(_array_functions(sort), "Nat -> List U -> %s -> %s" % (index, element))
     return tuple(sorted(fields.items()))
 
 
@@ -674,6 +689,14 @@ class _Graph:
         """The indexed family of functions with a numeric result containing an application, by its sort."""
         return _NUMERIC_FUNCTIONS[self.decl(node).range]
 
+    def function_family(self, node):
+        """The indexed family of an application's function: numeric, into an array sort, or into the carrier."""
+        if self.is_arith(node):
+            return self.numeric_functions(node)
+        if self.is_array(node):
+            return "_m." + _array_functions(self.decl(node).range)
+        return "_m.funs"
+
     def is_arith(self, node):
         return self.decl(node).range in _ARITH_SORTS
 
@@ -796,14 +819,15 @@ def _declaration(raw, sorts):
         if name != "const" or array is None or array[0] not in _UNBOUNDED or domain != (array[1],):
             raise ReconstructionError("invalid constant array declaration")
     elif array is not None:
-        # Array constants, ite, and store (QF_AX): no functions into arrays.
+        # Array constants, functions into arrays (the family of their Lean
+        # array type, _array_functions), ite, and store.
         if kind == z3.Z3_OP_ITE:
             if name != "if" or domain != ("Bool", raw["range"], raw["range"]):
                 raise ReconstructionError("invalid array ite declaration")
         elif kind == z3.Z3_OP_STORE:
             if name != "store" or domain != (raw["range"],) + array:
                 raise ReconstructionError("invalid store declaration")
-        elif kind != z3.Z3_OP_UNINTERPRETED or domain:
+        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in argument_sorts for argument in domain):
             raise ReconstructionError("unsupported array declaration: %s" % name)
     elif raw["range"] in sorts:
         # Constants, functions, and ite inhabit an uninterpreted sort: no
@@ -1017,17 +1041,17 @@ def _validate_graph(source, certificate):
 
 # Symbol tables of a certificate, by (range sort class, has arguments): Boolean
 # atoms, Real or Int variables, elements of the uninterpreted sorts, functions
-# into them, predicates, and functions with a Real or Int result. Each table
-# maps a name to its declaration.
+# into them, predicates, functions with a Real or Int result, array constants,
+# and functions into arrays. Each table maps a name to its declaration.
 _SYMBOL_TABLES = {
     ("Bool", False): "atoms", ("Real", False): "variables", ("Int", False): "variables", ("array", False): "arrays",
     ("sort", False): "elements", ("sort", True): "functions", ("Bool", True): "predicates",
-    ("Real", True): "numeric_functions", ("Int", True): "numeric_functions",
+    ("Real", True): "numeric_functions", ("Int", True): "numeric_functions", ("array", True): "array_functions",
 }
 _TABLE_LABELS = {
     "atoms": "Atom", "variables": "Variable", "elements": "Element", "functions": "Function",
     "predicates": "Predicate", "numeric_functions": "%s function",  # filled with the function's result sort
-    "arrays": "Array",
+    "arrays": "Array", "array_functions": "Array function",
 }
 
 
@@ -1232,7 +1256,7 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
             return "_m.%s %d" % (_array_family(graph.decl(node).range), index)
         if not arguments:
             return _variable(graph, node, index) if graph.is_arith(node) else "_m.elems %d" % index
-        return "%s %d %s" % (graph.numeric_functions(node) if graph.is_arith(node) else "_m.funs", index,
+        return "%s %d %s" % (graph.function_family(node), index,
                              _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
         return _numeral(graph.decl(node).range, Fraction(graph.decl(node).name))
@@ -1729,8 +1753,8 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
                     else argument
                     for first, argument in zip(left_args, arguments)]
         if graph.is_term(left):
-            family = graph.numeric_functions(left) if graph.is_arith(left) else "_m.funs"
-            return "(congrArg (%s %d) %s)" % (family, variable_indices[graph.nodes[left].declaration],
+            return "(congrArg (%s %d) %s)" % (graph.function_family(left),
+                                              variable_indices[graph.nodes[left].declaration],
                                               _list_congruence(elements)), False, []
         return "(Iff.of_eq (congrArg (_m.preds %d) %s))" % (atom_indices[graph.nodes[left].declaration],
                                                              _list_congruence(elements)), False, []
@@ -2447,10 +2471,12 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
     helpers = []
     for node in sorted(reachable):
         kind = graph.kind(node)
-        if graph.is_array(node) and kind in (z3.Z3_OP_STORE, z3.Z3_OP_ITE, z3.Z3_OP_CONST_ARRAY):
+        if graph.is_array(node) and (kind in (z3.Z3_OP_STORE, z3.Z3_OP_ITE, z3.Z3_OP_CONST_ARRAY)
+                                     or (kind == z3.Z3_OP_UNINTERPRETED and graph.arguments(node))):
             # Array terms stay folded (_definition_names); each store, ite
-            # over arrays, and constant array is related to its body one
-            # level down.
+            # over arrays, constant array, and application of a function
+            # into arrays is related to its body one level down (grind's
+            # congruence closure then compares applications by arguments).
             helpers.append("  have _t%d : %s = %s := rfl" % (
                 node, _term(graph, node), _term_body(graph, node, variable_indices, inline, inline)))
         elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_STORE:
@@ -5651,7 +5677,7 @@ def reconstruct(source, certificate):
                for table, symbols in tables.items()}
     atom_indices = {**indices["atoms"], **indices["predicates"]}
     variable_indices = {**indices["variables"], **indices["elements"], **indices["functions"],
-                        **indices["numeric_functions"], **indices["arrays"]}
+                        **indices["numeric_functions"], **indices["arrays"], **indices["array_functions"]}
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     namespace = "Z3Proofs.NativeCertificate.p" + digest
     lines = ["import Init", "", "-- Original input SHA-256: " + digest]
@@ -5712,6 +5738,11 @@ def reconstruct(source, certificate):
                          ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.arrays),
                          ", ".join("%s -> %s (_m.%s)" % (_array_types(sort) + (_array_family(sort),))
                                    for sort in graph.arrays)))
+    if tables["array_functions"]:
+        families = sorted({_array_functions(graph.declarations[decl].range)
+                           for decl in tables["array_functions"].values()})
+        lines.append("-- Functions into array sorts are the families %s, one per Lean array type." % ", ".join(
+            "_m." + family for family in families))
     if any(decl.kind == z3.Z3_OP_UNINTERPRETED and "Bool" in decl.domain for decl in graph.declarations):
         lines.append("-- Boolean arguments of functions and predicates are injected into _m.U by _m.bool.")
     # Formulas over wide n-ary connectives render as right-nested And/Or chains

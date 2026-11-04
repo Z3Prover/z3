@@ -691,23 +691,24 @@ def _require_uninterpreted_sort(candidate, sorts):
 
 
 def _require_uninterpreted_signature(decl, sorts):
-    """Check that a function or predicate ranges over uninterpreted sorts, Bool, Real, and Int only.
+    """Check that a function or predicate ranges over uninterpreted sorts, Bool, Real, Int, and arrays only.
 
     Arguments may be Bool, Real, Int, or a supported array sort as well as
     uninterpreted sorts (Lean injects a Boolean, numeric, or array argument
-    into the carrier); the result is
-    Bool, Real, Int, or a sort. Returns (real, integer): whether the signature
+    into the carrier); the result is Bool, Real, Int, a sort, or a supported
+    array sort. Returns (real, integer): whether the signature
     mentions Real, which makes the input QF_UFLRA, or Int, which makes it
     QF_UFLIA (both, in one signature or across several, make it QF_UFLIRA).
     """
     candidates = [decl.domain(i) for i in range(decl.arity())] + [decl.range()]
     real = integer = False
-    for position, candidate in enumerate(candidates):
+    for candidate in candidates:
         if candidate.kind() == z3.Z3_BOOL_SORT:
             continue
-        if candidate.kind() == z3.Z3_ARRAY_SORT and position < decl.arity() and is_array_sort(candidate):
+        if candidate.kind() == z3.Z3_ARRAY_SORT and is_array_sort(candidate):
             # An array argument (Lean injects it into the carrier like a
-            # numeric one); a function into an array sort is not supported.
+            # numeric one) or result (a family of array-valued functions,
+            # like the numeric ones).
             array_sort_name(candidate, sorts)
             components = (candidate.domain().kind(), candidate.range().kind())
             real, integer = real or z3.Z3_REAL_SORT in components, integer or z3.Z3_INT_SORT in components
@@ -792,8 +793,8 @@ def classify_fragment(assertions):
             # above, and equality and distinct compare arrays. Their
             # uninterpreted index and element sorts join the input's sorts,
             # and arrays put the input in a UF fragment (Lean's array
-            # constants are a family of the interpretation). Functions into
-            # arrays are rejected by their signature.
+            # constants are a family of the interpretation, and so are the
+            # functions into each array sort).
             array_sort_name(expr.sort(), sorts)
             arrays = True
             for component in (expr.sort().domain(), expr.sort().range()):

@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Microsoft Corporation
 #
 # Tests for the array slice of the Lean reconstruction: arrays over
-# uninterpreted sorts, Int, and Real, and constant arrays over Int and Real
-# indices, certified through the sat.smt clause log.
+# uninterpreted sorts, Int, and Real, constant arrays over Int and Real
+# indices, and functions into arrays, certified through the sat.smt clause log.
 # An array is a function _m.U -> _m.U (array constants are the family
 # _m.arrs), select is _select, store the classical update _store, and the
 # array solver's extensionality witness (_ array-ext 0) is _array_diff, an
@@ -386,15 +386,155 @@ REAL_INDEX_CONSTANT_ARRAY_INPUTS = {
 (check-sat)
 """,
 }
+# Functions into arrays: one family per Lean array type (_m.arrs_funs,
+# _m.arrs_ii_funs, ...) taking the argument list like _m.funs. Their
+# applications stay folded in the array lemmas like stores, each stated equal
+# to its body, so grind compares them by congruence on their arguments.
+ARRAY_FUNCTION_INPUTS = {
+    # Equal arguments give equal arrays: (h i) = (h j), so the store at i
+    # overwrites (h j) at i.
+    "function_into_arrays": """(set-logic QF_AUF)
+(declare-sort Index 0)
+(declare-sort Element 0)
+(declare-fun h (Index) (Array Index Element))
+(declare-fun i () Index)
+(declare-fun j () Index)
+(declare-fun e () Element)
+(assert (= (h i) (store (h j) i e)))
+(assert (= i j))
+(assert (not (= (select (h j) i) e)))
+(check-sat)
+""",
+    # An Int function into Int arrays, under a Farkas step over the read.
+    "int_function_into_arrays": """(set-logic QF_AUFLIA)
+(declare-fun f (Int) (Array Int Int))
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= (f x) (store (f y) 0 x)))
+(assert (<= x y))
+(assert (<= y x))
+(assert (< (select (f y) 0) x))
+(check-sat)
+""",
+    # A Real function into Real arrays (qf_uflra).
+    "real_function_into_arrays": """(set-logic QF_AUFLRA)
+(declare-fun r (Real) (Array Real Real))
+(declare-fun x () Real)
+(declare-fun y () Real)
+(assert (= (r x) (store (r y) x 1.0)))
+(assert (= x y))
+(assert (< (select (r x) y) 0.5))
+(check-sat)
+""",
+    # Extensionality over an application: arrays equal after the same store
+    # and equal at the stored index are equal (the witness of (h i) and a).
+    "function_result_extensionality": """(set-logic QF_AUF)
+(declare-sort Index 0)
+(declare-sort Element 0)
+(declare-fun h (Index) (Array Index Element))
+(declare-fun a () (Array Index Element))
+(declare-fun i () Index)
+(declare-fun j () Index)
+(declare-fun e () Element)
+(assert (= (store (h i) j e) (store a j e)))
+(assert (= (select (h i) j) (select a j)))
+(assert (not (= (h i) a)))
+(check-sat)
+""",
+    # A function from arrays into arrays: the rewriter's store identity
+    # (store a i (select a i)) = a under the function.
+    "array_to_array_function": """(set-logic QF_AUF)
+(declare-sort Index 0)
+(declare-sort Element 0)
+(declare-fun g ((Array Index Element)) (Array Index Element))
+(declare-fun a () (Array Index Element))
+(declare-fun i () Index)
+(assert (not (= (g (store a i (select a i))) (g a))))
+(check-sat)
+""",
+    # An application equal to a constant array over Int indices with Real
+    # elements (qf_uflira): _select_const through the application.
+    "function_into_constant_arrays": """(set-logic QF_AUFLIRA)
+(declare-fun c (Int) (Array Int Real))
+(declare-fun k () Int)
+(assert (= (c k) ((as const (Array Int Real)) 2.0)))
+(assert (< (select (c k) 5) 1.0))
+(check-sat)
+""",
+    # An ite over two applications.
+    "ite_over_applications": """(set-logic QF_AUF)
+(declare-sort Index 0)
+(declare-sort Element 0)
+(declare-fun h (Index) (Array Index Element))
+(declare-fun i () Index)
+(declare-fun j () Index)
+(declare-fun k () Index)
+(declare-fun e () Element)
+(declare-fun p () Bool)
+(assert (= (select (h i) k) e))
+(assert (= (select (h j) k) e))
+(assert (not (= (select (ite p (h i) (h j)) k) e)))
+(check-sat)
+""",
+    # A predicate over an application (its injection and its family).
+    "predicate_over_application": """(set-logic QF_AUFLIA)
+(declare-fun p ((Array Int Int)) Bool)
+(declare-fun f (Int) (Array Int Int))
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (p (f x)))
+(assert (<= x y))
+(assert (<= y x))
+(assert (not (p (f y))))
+(check-sat)
+""",
+    # An application at a read of an application.
+    "nested_applications": """(set-logic QF_AUFLIA)
+(declare-fun f (Int) (Array Int Int))
+(declare-fun x () Int)
+(assert (= (select (f x) 0) x))
+(assert (= (f (select (f x) 0)) (store (f x) 1 2)))
+(assert (not (= (select (f x) 1) 2)))
+(check-sat)
+""",
+    # In the style of z3test's fuzzsmt QF_AUFLIA regressions (t168, t170,
+    # both satisfiable): a function from Int arrays into Int arrays applied
+    # twice.
+    "array_function_twice": """(set-logic QF_AUFLIA)
+(declare-fun f1 ((Array Int Int)) (Array Int Int))
+(declare-fun v3 () (Array Int Int))
+(declare-fun v0 () Int)
+(declare-fun v1 () Int)
+(assert (= (f1 v3) (store v3 v0 v1)))
+(assert (= (f1 (f1 v3)) (store (f1 v3) v0 (+ v1 1))))
+(assert (= (select (f1 (f1 v3)) v0) (select v3 v0)))
+(assert (= (select (f1 v3) v0) (select v3 v0)))
+(check-sat)
+""",
+    # Two functions of the same signature share one family at distinct
+    # indices; the roles are asymmetric, so swapping them changes the input.
+    "two_functions_into_arrays": """(set-logic QF_AUFLIA)
+(declare-fun f (Int) (Array Int Int))
+(declare-fun g (Int) (Array Int Int))
+(declare-fun x () Int)
+(assert (= (f x) (store (g x) 0 1)))
+(assert (not (= (select (f x) 0) 1)))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
+ARRAY_INPUTS.update(ARRAY_FUNCTION_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
               "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira",
               "real_index_2549": "qf_uflira", "real_index_read": "qf_uflra",
               "real_index_comparison": "qf_uflira", "real_index_terms": "qf_uflra",
-              "real_index_elements": "qf_uflra"}
+              "real_index_elements": "qf_uflra", "int_function_into_arrays": "qf_uflia",
+              "real_function_into_arrays": "qf_uflra", "function_into_constant_arrays": "qf_uflira",
+              "predicate_over_application": "qf_uflia", "nested_applications": "qf_uflia",
+              "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia"}
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   if name not in _FRAGMENTS)
 
@@ -441,8 +581,11 @@ class TestArrayValidation(unittest.TestCase):
             # Array combinators of Z3's beyond SMT-LIB.
             "(declare-fun g (Int) Int)(declare-fun a () (Array Int Int))(assert (= (select ((_ map g) a) 1) 1))":
                 "unsupported array operator",
-            # A function into an array sort (functions over arrays are supported).
-            "(declare-sort I 0)(declare-fun h (I) (Array I I))(declare-fun i () I)"
+            # Functions over and into arrays are supported, but not into or
+            # over arrays of an unsupported sort.
+            "(declare-sort I 0)(declare-fun h (I) (Array I Bool))(declare-fun i () I)"
+            "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
+            "(declare-sort I 0)(declare-fun h (I) (Array I (Array I I)))(declare-fun i () I)"
             "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
             "(declare-fun h ((Array Int Bool)) Int)(declare-fun a () (Array Int Bool))"
             "(assert (> (h a) (h a)))": "uninterpreted functions over",
@@ -456,7 +599,7 @@ class TestArrayValidation(unittest.TestCase):
                     proof_certificate.parse_assertions(source + "(check-sat)", context, integer=True)
 
     def test_the_legacy_core_rejects_arrays_explicitly(self):
-        for name in ("read_own_write", "int_read_other_index", "function_over_arrays"):
+        for name in ("read_own_write", "int_read_other_index", "function_over_arrays", "function_into_arrays"):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError,
                                             "arrays are certified through the clause log"):
@@ -607,6 +750,72 @@ class TestArrayValidation(unittest.TestCase):
                       "certificate source does not match the original input")
         self._rejects("real_index_read", relabelled_sort("(Array Real Real)", "(Array Int Real)"),
                       "certificate source does not match the original input")
+
+    def test_array_function_encoding(self):
+        """A function into arrays is a family per Lean array type; its applications are tied to their bodies."""
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["function_into_arrays"],
+                                         self.certificates["function_into_arrays"])
+        self.assertIn("  arrs_funs : Nat -> List U -> U -> U", text)
+        self.assertIn('-- Array function 0: "h"', text)
+        self.assertIn("-- Functions into array sorts are the families _m.arrs_funs, one per Lean array type.", text)
+        self.assertIn(": (_m.U -> _m.U) := _m.arrs_funs 0 [(term_", text)
+        self.assertRegex(text, r"have _t[0-9]+ : \(term_[0-9]+ _atoms _m\) = _m\.arrs_funs 0 \[\(_m\.elems [0-9]+\)\]")
+        integer = proof_to_lean.reconstruct(ARRAY_INPUTS["int_function_into_arrays"],
+                                            self.certificates["int_function_into_arrays"])
+        self.assertIn("  arrs_ii_funs : Nat -> List U -> Int -> Int", integer)
+        self.assertIn(":= _m.arrs_ii_funs 0 [(_m.int (term_", integer)
+        # Over arrays and into arrays: the argument's injection and the
+        # result's family, both of the same Lean array type.
+        twice = proof_to_lean.reconstruct(ARRAY_INPUTS["array_function_twice"],
+                                          self.certificates["array_function_twice"])
+        self.assertIn("  arrs_ii_inj : (Int -> Int) -> U", twice)
+        self.assertIn(":= _m.arrs_ii_funs 0 [(_m.arrs_ii_inj (term_", twice)
+        mixed = proof_to_lean.reconstruct(ARRAY_INPUTS["function_into_constant_arrays"],
+                                          self.certificates["function_into_constant_arrays"])
+        self.assertIn("  arrs_ir_funs : Nat -> List U -> Int -> Rat", mixed)
+        # Without a function into arrays there is no such family.
+        plain = proof_to_lean.reconstruct(ARRAY_INPUTS["function_over_arrays"],
+                                          self.certificates["function_over_arrays"])
+        self.assertNotIn("_funs", plain)
+        self.assertNotIn("Array function", plain)
+        for each in (text, integer, twice, mixed):
+            self.assertNotIn("sorry", each)
+            self.assertNotIn("axiom ", each)
+
+    def test_tampered_array_functions_are_rejected(self):
+        def function(certificate, name):
+            return next(d for d in certificate["declarations"] if d["name"] == name)
+
+        def proof_argument(certificate):
+            function(certificate, "h")["domain"] = ["Proof"]
+
+        def array_constant(certificate):
+            # The application turned into a constant of the array sort.
+            function(certificate, "h")["domain"] = []
+
+        def element_argument(certificate):
+            function(certificate, "h")["domain"] = ["Element"]
+
+        def into_real_arrays(certificate):
+            function(certificate, "f")["range"] = "(Array Int Real)"
+
+        def swapped_functions(certificate):
+            # Two functions of the same signature exchanged: the certificate
+            # stays well-formed, so only the binding to the input catches it.
+            first, second = function(certificate, "f"), function(certificate, "g")
+            first["name"], second["name"] = "g", "f"
+
+        def renamed_function(certificate):
+            function(certificate, "g")["name"] = "f2"
+
+        self._rejects("function_into_arrays", proof_argument, "unsupported array declaration")
+        self._rejects("function_into_arrays", array_constant, "wrong number of arguments")
+        self._rejects("function_into_arrays", element_argument, "wrong argument sort")
+        self._rejects("int_function_into_arrays", into_real_arrays, "wrong argument sort")
+        self._rejects("two_functions_into_arrays", swapped_functions,
+                      "certificate (source|assertions) do(es)? not match the original input")
+        self._rejects("two_functions_into_arrays", renamed_function,
+                      "certificate (source|assertions) do(es)? not match the original input")
 
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()
@@ -859,6 +1068,25 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 self.assertTrue(errors, report)
                 for error in errors:
                     self.assertIn("`grind` failed", error)
+
+    def test_application_facts_are_needed(self):
+        """Without the _t facts of applications into arrays grind cannot compare them by their arguments."""
+        source = ARRAY_INPUTS["function_into_arrays"]
+        text = proof_to_lean.reconstruct(source, _export(source))
+        application = re.compile(r"^\s*have _t\d+ : \(term_\d+ [^)]*\) = _m\.arrs_funs ")
+        lines = text.split("\n")
+        self.assertTrue(any(map(application.match, lines)), text)
+        stripped = "\n".join(line for line in lines if not application.match(line))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "stripped.lean"
+            output.write_text(stripped)
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
+        report = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, report)
+        errors = [line for line in report.split("\n") if "error:" in line]
+        self.assertTrue(errors, report)
+        for error in errors:
+            self.assertIn("`grind` failed", error)
 
     def test_comparison_reads_are_needed(self):
         """Without the read facts of _constant_array_comparisons grind cannot prove the rewrite of array.smt2's q2."""

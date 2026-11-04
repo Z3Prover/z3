@@ -1589,6 +1589,29 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Functions into arrays (2026-11-04)
+
+Uninterpreted functions returning an array, `(declare-fun h (I) (Array I
+E))`, were rejected by the exporter ("uninterpreted functions over
+Array(I, E)") and the reconstructor ("unsupported array declaration"),
+although functions over arrays were certified. Both now accept them on the
+clause log, for every array sort already supported (index and element sorts
+uninterpreted, Int, or Real); the result may be the array sort of an
+argument too. Lean renders each as one more family per Lean array type
+(`_m.arrs_funs`, `_m.arrs_ii_funs : Nat -> List U -> Int -> Int`, ...),
+taking the injected argument list like `_m.funs`, so a model's function
+into arrays is an instance through the embedding of its array values that
+the array constants use. Applications stay folded in the array lemmas like
+stores and are each stated equal to their body (a `_t` fact), so grind's
+congruence closure compares them by arguments; without those facts grind
+fails (`test_application_facts_are_needed`). Arrays over Bool or arrays stay
+rejected as results as well as arguments. No z3test input is newly
+certified (the fuzzsmt `t168`/`t170` regressions with such functions are
+satisfiable); eleven synthetic inputs (`ARRAY_FUNCTION_INPUTS` in
+`test_proof_to_lean_array.py`: store, extensionality, ite, constant arrays,
+predicates over applications, Int/Real/mixed sorts, arrays to arrays, two
+functions sharing one family) verify in Lean.
+
 ### Constant arrays over Int and Real indices (2026-11-03, 2026-11-04)
 
 Constant arrays `((as const (Array I E)) v)` were rejected ("unsupported

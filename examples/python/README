@@ -156,11 +156,11 @@ select, store, ite over arrays, and equality between arrays) join whichever
 UF fragment the rest of the input is in, their uninterpreted index and
 element sorts counting as its uninterpreted sorts and an Int or Real one as
 its arithmetic (an input with Int arrays alone is qf_uflia); functions and
-predicates may take arrays as arguments, and constant arrays ((as const
-(Array I E)) v) are supported over Int and Real indices. Only the clause log
-certifies them (the legacy core rejects them explicitly); arrays over Bool
-or arrays, arrays with several indices, constant arrays over other index
-sorts, map, as-array, and functions returning arrays are rejected. Integer
+predicates may take arrays as arguments, functions may return them, and
+constant arrays ((as const (Array I E)) v) are supported over Int and Real
+indices. Only the clause log certifies them (the legacy core rejects them
+explicitly); arrays over Bool or arrays, arrays with several indices,
+constant arrays over other index sorts, map, and as-array are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -1007,7 +1007,13 @@ instance, although no map from U -> U or U -> Int into U is injective
 so U is taken to be the model's carriers plus one fresh point per such
 value (arrays over U extended as above, constant off their index sort), the
 injection sends each denoted array to its point, and the functions and
-predicates read their array arguments back from those points. A Real array is
+predicates read their array arguments back from those points. A function
+into an array sort is one more family per Lean array type (arrs_ii_funs :
+Nat -> List U -> Int -> Int), taking its argument list like funs and the
+numeric families; a model's function into arrays returns its arrays through
+the same embedding as the array constants. Its applications stay folded in
+the array lemmas like stores, each stated equal to its body (an _t fact), so
+grind's congruence closure compares them by their arguments. A Real array is
 Rat -> Rat under the argument that values Real variables in Rat: fix the
 equalities among the input's terms and the truth values of its atoms; the
 reads, applications, and variables left are a linear system with rational
