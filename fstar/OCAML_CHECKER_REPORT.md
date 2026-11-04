@@ -5301,3 +5301,67 @@ fabricates.
   and 3.8 ms check, 15 MB peak.
   The independent 4,096-node Skolem-expression budget is unchanged, so this does not make the
   NNF task's documents accepted where that budget stops them.
+
+## Sorted NNF/QI route, benchmark and default recommendation (2026-11-03)
+
+Tested commit `343956e44545334e2d21188ddb85339f992ca851` (tree `b010af546242f12de7437f84b52c9df13cef51c8`), on current master `f3df3153e` (#11537) merged with the PR branch. The route integration is the Sorted/datatype NNF and quant-intro replay described above; this section records what was measured and what it supports.
+
+### Route coverage
+
+- Under `--resource-accounting verified-dag-v1` (OCaml and Cherry; batch, interactive, quiet and `--diagnostics`), the Sorted/datatype route replays NNF and premise-free quant-intro certificates with the checked DAG guard. There is one diagnosed check; its result is the verdict, stdout and exit status. Rows are additive: `outcome=checked|refused|exhausted phase=...|entries-unchecked|unprepared reason=...`.
+- A certificate with no usable preparation (clausal document, absent, exhausted or invalid preparation) stays pending with its reason. The default guard never runs in its place, and no budget is refilled.
+- `--resource-accounting verified-sorts-v1` is legacy-only. On the Sorted route it prints one explicit `not-applied reason=sorted-route` row.
+- Open dependent Skolem steps keep their typing gate (option C, proved equal to `NR.skolem_scopes_ok`). They are neither refused nor dropped.
+- Default output is unchanged: the default checker is byte-identical to master in the default modules; default-option parity against the frozen `f3df3153e` checkers is 705 of 705 per backend (stdout, stderr and exit).
+- Sample: a shared diamond of a 500-character sort is `PARTIAL 1` by default and `ACCEPT` under `verified-dag-v1` on both backends. A clausal document stays `PARTIAL 1` with six `unprepared reason=clausal` rows, by design.
+
+### Tested pins, producer and identities
+
+- F* CI `v2026.10.25` (103 modules plus 45 tests, 148 of 148 invocations exit 0, 2,770 s) and nightly `2026-10-30` (`build_cherry_checker.py --run-tests` exit 0, 2,967 s).
+- Producer `f3df3153ed4e6fc9b0863f1898f1f82ceb5dba88` (`z3` sha256 `4e45fa6a575198d7d296d2f2f305008a8d7ada4abeb6dbcf2114b718218d1854`, `libz3.a` sha256 `127bf3ba73d1646f7d572af5e91517cf327f77126552c3f4864283efec4e37fb`). The old `4629738b9` stamp is absent. One object in the per-TU proof is reused with a changed input (`finite_set_tactic.cpp.o`); it is absent from `libz3.a`, and its source is in neither tree.
+- Frozen candidate checkers: `ocaml-checker` `127f627a64b53d564cbaa0d2e5874531642b2a7a8b3c04b2c0174be8152d1d17`, `cherry-checker` `3478fc1761b226adcb7ef56db74b4809ffc519075a4f54e504117731345b87e6`.
+- Native tests 87 PASS and 0 FAIL on each run; CLI `Ran 88 tests ... OK` on OCaml and Cherry; Cherry kernel and native acceptance/rejection regressions pass.
+- Merge history: normal two-parent merge `a56cfc3b835e27e729177958c34d3b78694cb241` (parents `7f5f8a873`, `f3df3153e`). Two proof repairs follow (`80d9815976e2f2a7c364753c3d78807e7e244e31`, `f51bc8d734752231bbd445d6b14f1f4e4fbeb934`), which is the first tree that verifies. The merge commit alone does not verify.
+- The scripted `build_ocaml_checker.ps1 -RunTests -BuildCherry` and QF_FF path were not run for this commit. The WSL body of the OCaml script was run; that gap is recorded here, not closed.
+
+### Benchmark (current producer, same 60 s / 10 s / 4 GiB limits)
+
+- Full 583-file corpus (14,030 queries), baseline and candidate on matched 8-CPU sets, plus an A/A control. Aggregate counts are inside the A/A noise and are not presented as gains:
+  - Cherry ACCEPT 9,482 base vs 9,522 candidate; fully accepted files 298 vs 300; timeout files 47 vs 44.
+  - OCaml ACCEPT 9,664 base vs 9,637 candidate; fully accepted files 300 vs 304; timeout files 46 vs 46.
+  - The A/A control moves OCaml ACCEPT by +62 and Cherry by +16, larger than the candidate's own aggregate deltas.
+- Same-document probe (OCaml, 65 targeted files, 2,491 documents, 81,834 premise-free certificates, 900 s diagnostic envelope; not coverage evidence): 450 certificates the default does not replay are replayed; 293 that the default replays are not (227 `unprepared` at graph preparation, 66 at graph storage; 276 of those have two entries). Whole documents: 12 go PARTIAL to ACCEPT, 16 go ACCEPT to PARTIAL.
+- n433 (PulseCore.Action-1, query 1) on the identical captured document (md5 `e42c548d...`): the old guard fails (3,542,713 units required, 2,555,749 available); the DAG guard checks certificates 433 and 425. The query stays PARTIAL because the remaining Skolem step, node 432 with 5,204 nodes, exceeds the unchanged 4,096-node cap. Pending nodes go from 3 to 1.
+- Cost: on the same document the guard alone takes 0.26x the time (113 s to 34 s); whole-document check 0.965x median; DAG marshal 1.19x median. Production per-query marshal plus check: Cherry 0.956x median (A/A 1.014x); OCaml 1.027x median (A/A 0.977x). Per-file peak RSS +3.0% median (A/A +-0.1%), largest process 912 MB.
+- Held-out inputs (201 sources, 1,206 runs): few-entry deep applications lose default ACCEPT from depth 125 (default accepts to depth 1,000), deep arrays from 150, 120 or more binder variables, a 150-deep define-fun chain, and deep push/pop scripts. Long names, shared diamonds, nested scopes and dependent Skolem arities up to 14 are unchanged or better.
+
+### Predeclared criteria and recommendation
+
+The criteria were written before the comparison (`default-policy-criteria.md`; tolerances of 5% median and 10% p95 are decision choices, not measured noise bounds).
+
+| criterion | outcome |
+|---|---|
+| C1 soundness and companion mapping | qualified pass (S4 F* evidence; not independently re-verified here) |
+| C2 tests and default parity | pass |
+| C3 no unexplained same-document loss | **fail** (293 certificates, 16 documents) |
+| C4 held-out breadth | **fail** (few-entry deep, wide binder, definition chain, clausal) |
+| C5 end-to-end cost within tolerance | pass |
+| C6 net gain on the same proofs | **fail** (documents 12 gained vs 16 lost; same-proof Cherry +11/-18, OCaml +2/-10 on full corpus) |
+| C7 honest attribution | pass |
+
+**Recommendation: KEEP the default unchanged.** `--resource-accounting verified-dag-v1` stays opt-in. Two of its real effects are measured: it certifies certificates the default cannot (the n433 guard now passes), and it is cheap enough per query. It also loses certificates the default accepts, and those losses come from the per-entry graph preparation and storage allowance, which starve few-entry certificates with large terms. Raising that allowance, or a fallback that runs the default guard, would be a new policy decision and was not implemented.
+
+### Limits and trust boundaries
+
+- The Skolem-expression cap (4,096 nodes) is unchanged; n433 is not whole-query ACCEPT for this reason.
+- `NR.steps_ok` still charges tree nodes against `binder_work_limit`; a 14-deep shared diamond is pending on both routes.
+- Graph preparation and storage allowances are per entry and unchanged; the few-entry losses above follow from them.
+- Marshal-time preparation covers every binder certificate, including ones the replay never consumes; its cost is in `marshal_ms` and is included in the numbers above.
+- Companion attachment to its entry is marshaler glue under the existing reflection contract, checked structurally by the replay's root check. `DD.prepared`'s proofs are erased at runtime, so hand-built records are outside the theorem. The Root route theorem (`Z3SortedRootRoute`) is verification-only and has no executed positive instance.
+- Native name counter remains a trusted runtime binding. No global soundness or DoS claim is made.
+
+### Follow-ups (not implemented)
+
+- An input-proportional absolute admission and storage policy for graph preparation, with its own proof and compatibility assessment.
+- A route-then-default fallback. It is a counterfactual only: on the 65-file cohort it would retain the 16 lost documents at about 1 s of extra default replay, but it is not implemented or measured end to end, and it would make the default guard part of the new route's trusted path.
+- Per-rule residue (rewrite leaves, Skolem steps over 4,096 nodes, elim-unused, pull-quant). Most 
