@@ -149,7 +149,14 @@ terms; it shares the opt-in too, and both cores certify it. The
 qf_uflira fragment is qf_lira next to uninterpreted sorts and functions:
 functions and predicates may take and return Int and Real (both in one
 signature too), and an input whose signatures and atoms mention both sorts
-is qf_uflira; it shares the opt-in, and both cores certify it. Integer
+is qf_uflira; it shares the opt-in, and both cores certify it. Arrays
+from one uninterpreted sort to another (QF_AX: (Array Index Element)
+constants, select, store, ite over arrays, and equality between arrays)
+join whichever UF fragment the rest of the input is in, their index and
+element sorts counting as its uninterpreted sorts; only the clause log
+certifies them (the legacy core rejects them explicitly), and arrays over
+Bool, Int, Real, or arrays, arrays with several indices, constant arrays,
+and functions taking or returning arrays are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -957,6 +964,28 @@ Python only checks shapes for these hints, so a false euf lemma is caught by
 Lean alone and the file is not published. grind's proofs here report the same
 three standard axioms as the arithmetic slice.
 
+An array sort (Array I E) of the clause log is the Lean function type
+_m.U -> _m.U, and the array constants are one more field of the
+interpretation, arrs : Nat -> U -> U. Each file defines select as _select
+(application, kept folded so grind's congruence closure compares reads of
+different arrays), store as _store (the classical update at one index),
+and the array solver's extensionality witness (_ array-ext 0) as
+_array_diff, Classical.epsilon of an index where the two arrays differ,
+which needs the field nonempty : Nonempty U (present only then). A model's
+array a : I -> E is the function equal to a on I and constant elsewhere;
+that embedding is injective and commutes with select and store at indices
+of I, and every model's carriers are nonempty, so each model is again an
+instance. The array solver's axiom instances (array hints: the store
+axiom, select over store, extensionality) are clauses of equalities that
+grind proves after each lemma states _store_apply for every read of a
+store and _array_ext for every witness it reaches. Array terms stay
+folded in those lemmas (term_N, related to its store or ite by an rfl
+fact): written out, the shared store chains of the swap and storecomm
+benchmarks grow exponentially. A rewrite over stores (Z3's rewriter turns
+(store (store a i v) i w) into (store a i w) and (store a i (select a i))
+into a) may also use _store_store and _store_select. All four are theorems
+proved in the file, so no array fact is assumed.
+
 The equality rules of a legacy proof object are explicit Lean terms over the
 carrier, checked by Lean's type checker without grind: refl, symm, trans, and
 trans* between terms are Eq.refl, Eq.symm, and Eq.trans (between formulas
@@ -1097,7 +1126,8 @@ the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice,
 test_proof_to_lean_uflra.py the qf_uflra slice, and
 test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
-test_proof_to_lean_uflira.py the qf_uflira slice end to end; all need the z3
+test_proof_to_lean_uflira.py the qf_uflira slice, and
+test_proof_to_lean_array.py arrays (QF_AX) end to end; all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
 Python's recursion limit; its clause-log tests also need the z3 executable.

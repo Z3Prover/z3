@@ -132,8 +132,11 @@ _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 _INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira", "qf_uflira")
 # arith is the hint of the arithmetic solver's own axioms (the div and mod
 # definitions): like euf it lists jointly contradictory literals, and like cut
-# it is shape-checked here and proved by Lean alone.
-_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff", "arith")
+# it is shape-checked here and proved by Lean alone. array is the array
+# solver's hint (QF_AX): its select-store and extensionality axioms list the
+# complements of their clause like euf, while its store axiom lists the
+# equality it propagates (see proof_clause_log._Replay.infer).
+_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff", "arith", "array")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
 _CNF_HINT = "cnf"
@@ -615,15 +618,62 @@ def is_uninterpreted_sort(sort):
     return sort.kind() == z3.Z3_UNINTERPRETED_SORT
 
 
+def is_array_sort(sort):
+    """Whether sort is an array sort with one index (QF_AX), over uninterpreted index and element sorts.
+
+    Lean renders such an array as a function between their carriers (one
+    type, _m.U), so select is application, store a classical update, and
+    extensionality funext. Arrays over Bool, arithmetic, or array sorts, and
+    arrays of several indices, are not supported (see array_sort_name).
+    """
+    return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
+            and is_uninterpreted_sort(sort.domain()) and is_uninterpreted_sort(sort.range()))
+
+
+def array_sort_name(sort, sorts=None):
+    """The certificate's name of a supported array sort, (Array I E); reject any other array sort.
+
+    With sorts (a set), the index and element sorts are checked and recorded
+    as uninterpreted sorts of the input.
+    """
+    if not is_array_sort(sort):
+        raise ProofExportError("unsupported sort: %s (only arrays from one uninterpreted sort to another)" % sort)
+    names = []
+    for component in (sort.domain(), sort.range()):
+        name = component.name()
+        if name in _RESERVED_SORTS or re.search(r"[\s()|]", name):
+            raise ProofExportError("unsupported array index or element sort name: %s" % name)
+        if sorts is not None:
+            _require_uninterpreted_sort(component, sorts)
+        names.append(name)
+    return "(Array %s %s)" % tuple(names)
+
+
+def mentions_arrays(assertions):
+    """Whether any assertion has a subterm of an array sort."""
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen or not z3.is_app(expr):
+            continue
+        seen.add(expr.get_id())
+        if expr.sort().kind() == z3.Z3_ARRAY_SORT:
+            return True
+        pending.extend(expr.children())
+    return False
+
+
 def _require_uninterpreted_sort(candidate, sorts):
     """Check an uninterpreted sort's name and record it in sorts.
 
     Any number of uninterpreted sorts is accepted: the Lean encoding renders
     them all as one type, which is sound for unsatisfiability (see the
     exporter README), while the certificate keeps every sort name so the
-    reconstructor can check that the proof is well-sorted.
+    reconstructor can check that the proof is well-sorted. A name with a
+    parenthesis (a quoted symbol) is rejected: the certificate names an
+    array sort (Array I E), which such a name could imitate.
     """
-    if candidate.name() in _RESERVED_SORTS:
+    if candidate.name() in _RESERVED_SORTS or "(" in candidate.name() or ")" in candidate.name():
         raise ProofExportError("unsupported uninterpreted sort name: %s" % candidate.name())
     sorts.add(candidate.name())
 
@@ -709,11 +759,21 @@ def classify_fragment(assertions):
             _require_linear_arithmetic(expr)
         elif is_uninterpreted_sort(expr.sort()):
             # Constants, function applications, and ite, whose branches are
-            # terms of the sort and whose condition is any formula.
-            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
+            # terms of the sort and whose condition is any formula, and reads
+            # of arrays (QF_AX, checked as the array is visited).
+            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_SELECT):
                 _require_uninterpreted_sort(expr.sort(), sorts)
             else:
                 raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
+        elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
+            # Arrays from one uninterpreted sort to another (QF_AX): array
+            # constants, store, and ite; select is read above, and equality
+            # and distinct compare arrays. Their index and element sorts join
+            # the input's uninterpreted sorts, so the input is in a UF
+            # fragment. Functions over arrays are rejected by their signature.
+            array_sort_name(expr.sort(), sorts)
+            if decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE):
+                raise ProofExportError("unsupported array operator: %s" % decl.name())
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
@@ -755,6 +815,11 @@ def _require_legacy_fragment(assertions, integer=False):
     steps without coefficients, certified by Lean alone.
     """
     fragment = classify_fragment(assertions)
+    if mentions_arrays(assertions):
+        # The legacy core's array steps are th-lemma array axioms and
+        # rewrites the reconstructor has no encoding for; the sat.smt array
+        # solver logs each axiom instance as an array clause.
+        raise ProofExportError("arrays are certified through the clause log only")
     if fragment in _INTEGER_FRAGMENTS and not integer:
         raise ProofExportError("integer arithmetic (%s) is certified by Lean alone; "
                                "the consumer must accept the fragment explicitly" % fragment)
@@ -1026,6 +1091,8 @@ class DagBuilder:
         name = self._SORTS.get(sort.kind())
         if name is None and is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
             name = sort.name()  # The certificate keeps the input's own sort name.
+        if name is None and sort.kind() == z3.Z3_ARRAY_SORT:
+            name = array_sort_name(sort)
         if name is None:
             raise ProofExportError("unsupported native proof sort: %s" % sort)
         return name
@@ -1072,6 +1139,8 @@ class DagBuilder:
             name = str(decl.name())
             if decl.kind() == z3.Z3_OP_ANUM:
                 name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
+            elif decl.kind() == z3.Z3_OP_ARRAY_EXT and decl.params() == [0]:
+                pass  # The parameter is the index position, always 0 for one-index arrays.
             elif decl.params():
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             domain = tuple(self.sort_name(decl.domain(i)) for i in range(decl.arity()))

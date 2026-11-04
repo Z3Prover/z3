@@ -1589,6 +1589,33 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Arrays over uninterpreted sorts through the clause log (2026-11-03)
+
+Any array sort was rejected ("unsupported sort"), so none of z3test's 25
+smtlib-sample QF_AX benchmarks (storecomm, storeinv, swap) could be
+certified. Arrays from one uninterpreted sort to another (array constants,
+`select`, `store`, `ite`, equality) now join the UF fragments on the clause
+log; the legacy core rejects them explicitly. The replay reads array sorts
+in definitions, `select`, `store`, and the extensionality witness
+`(_ array-ext 0)` (z3py `Ext`). An `array` lemma is the complement of its
+hint, like `euf`, except for the store axiom: that hint lists the
+equality it propagates (`propagate_axiom`), so the lemma is that equality.
+Lean renders an array as a function `_m.U -> _m.U` (constants `_m.arrs`),
+`select` as `_select`, `store` as the classical update `_store`, and the
+witness as `_array_diff`, an epsilon choice that needs `_m.nonempty`. A
+model's arrays embed injectively, commuting with `select` and `store`, so
+every model is an instance. grind proves the array lemmas with two kinds of
+per-lemma fact, `_store_apply` for each read of a store and `_array_ext`
+for each witness. Array terms stay folded in those lemmas (`term_N`, tied to
+its body by `rfl`): inlined, the shared store chains grow exponentially and
+exhausted the kernel. Rewrites over stores may also use `_store_store` and
+`_store_select`, the identities Z3's rewriter applies. All array facts are
+theorems in the file. Result: 23 of the 25 QF_AX files verify (the slowest
+in 88 s). `storecomm_t2_np_nf_ai_00050_007` and `swap_t2_np_sf_ai_00009_002`
+(17 and 29 MB of Lean) still hit "(kernel) excessive memory consumption".
+That happens in outlined proof steps, not in array lemmas. Tests:
+`test_proof_to_lean_array.py`.
+
 ### Pseudo-Boolean constraints through the legacy core (2026-11-02)
 
 Propositional input may now use `at-most`, `at-least`, `pble`, `pbge`, and

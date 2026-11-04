@@ -30,7 +30,7 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, bound_combination_refutes, constant_value, integer_divisor,
-    integer_tightened, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+    integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -286,6 +286,15 @@ def _number(sexpr):
     raise ProofExportError("unsupported numeral in the clause log")
 
 
+def _sort_text(sexpr):
+    """z3py's rendering of a logged sort: a name, or (Array I E) as Array(I, E)."""
+    if isinstance(sexpr, str):
+        return _symbol(sexpr)
+    if len(sexpr) == 3 and sexpr[0] == "Array" and all(isinstance(part, str) for part in sexpr[1:]):
+        return "Array(%s, %s)" % (_symbol(sexpr[1]), _symbol(sexpr[2]))
+    raise ProofExportError("unsupported sort in the clause log")
+
+
 class _Terms:
     """Build z3 expressions for log terms inside the context of the parsed input."""
 
@@ -312,6 +321,10 @@ class _Terms:
             seen.add(expr.get_id())
             if is_uninterpreted_sort(expr.sort()):
                 self.sorts.add(expr.sort().name())
+            elif is_array_sort(expr.sort()):
+                # The log declares an array's index and element sorts even
+                # when no term of them occurs (QF_AX).
+                self.sorts.update((expr.sort().domain().name(), expr.sort().range().name()))
             if z3.is_int(expr):
                 self.integer = True
             elif z3.is_real(expr):
@@ -362,6 +375,13 @@ class _Terms:
         if not sexpr:
             raise ProofExportError("empty application in the clause log")
         head = sexpr[0]
+        if head == ["_", "array-ext", "0"] and len(sexpr) == 3:
+            # The array solver's Skolem function for extensionality: an index
+            # where two distinct arrays differ (z3py's Ext).
+            left, right = (self.build(argument) for argument in sexpr[1:])
+            if not (is_array_sort(left.sort()) and left.sort().eq(right.sort())):
+                raise ProofExportError("array-ext over unsupported or different sorts in the clause log")
+            return z3.Ext(left, right)
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -412,6 +432,10 @@ class _Terms:
             return _unary_xor(arguments[0])
         if head == "ite" and count == 3:
             return z3.If(arguments[0], arguments[1], arguments[2])
+        if head == "select" and count == 2 and is_array_sort(arguments[0].sort()):
+            return z3.Select(arguments[0], arguments[1])
+        if head == "store" and count == 3 and is_array_sort(arguments[0].sort()):
+            return z3.Store(arguments[0], arguments[1], arguments[2])
         if head == "=" and count == 2:
             return arguments[0] == arguments[1]
         if head == "distinct" and count >= 2:
@@ -448,8 +472,8 @@ class _Terms:
         if sort == "Proof":
             self.hints[name] = sexpr
             return
-        expr = self.build(sexpr, {"Int": True, "Real": False}.get(sort))
-        if str(expr.sort()) != _symbol(sort):  # The log quotes sort names the way it quotes symbols.
+        expr = self.build(sexpr, {"Int": True, "Real": False}.get(sort) if isinstance(sort, str) else None)
+        if str(expr.sort()) != _sort_text(sort):  # The log quotes sort names the way it quotes symbols.
             raise ProofExportError("definition %s has sort %s, declared %s" % (name, expr.sort(), sort))
         self.defined[name] = expr
 
@@ -495,6 +519,25 @@ class _Terms:
             if isinstance(hint, list) and hint[:1] == ["deps"]:
                 return _dependency_numbers(hint)
         return None
+
+
+def _store_axiom(literal):
+    """Whether literal is (= (select (store a i v) i) v), either way round."""
+    if not z3.is_eq(literal):
+        return False
+    for read, value in (literal.children(), reversed(literal.children())):
+        if z3.is_select(read) and z3.is_store(read.arg(0)):
+            store = read.arg(0)
+            if store.num_args() == 3 and read.arg(1).eq(store.arg(1)) and value.eq(store.arg(2)):
+                return True
+    return False
+
+
+def _same_equality(left, right):
+    """Whether two equalities compare the same two terms, in either order."""
+    if not (z3.is_eq(left) and z3.is_eq(right)):
+        return False
+    return {child.get_id() for child in left.children()} == {child.get_id() for child in right.children()}
 
 
 def _unary_xor(argument):
@@ -1334,6 +1377,14 @@ class _Replay:
                 parameters.extend(str(coefficient) for coefficient, _ in pairs)
             lemma_literals = (list(literals) if name == "smt"
                               else [_complement(literal) for _, literal in pairs])
+            if name == "array" and len(pairs) == 1 and _store_axiom(pairs[0][1]):
+                # The store axiom (= (select (store a i v) i) v) lists the
+                # equality it propagates, not its complement (the array
+                # solver's propagate_axiom); the log may state it the other
+                # way round, as its one clause literal.
+                equality = pairs[0][1]
+                lemma_literals = (list(literals) if len(literals) == 1 and _same_equality(literals[0], equality)
+                                  else [equality])
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
         if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
@@ -1490,7 +1541,7 @@ class _Replay:
                     raise ProofExportError("the clause log declares a sort absent from the input: %s"
                                            % command[1])
             elif head == "define-const":
-                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], str):
+                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], (str, list)):
                     raise ProofExportError("malformed definition in the clause log")
                 terms.define(command[1], command[2], command[3])
             elif head in ("assume", "del") and phantoms and any(
