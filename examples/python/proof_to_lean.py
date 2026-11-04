@@ -286,26 +286,29 @@ private theorem _store_select {I E : Type} (a : I -> E) (i : I) : _store a i (_s
   funext _j
   by_cases _h : _j = i <;> simp [_store, _select, _h]
 """.strip("\n").split("\n")
-# A constant array over Int indices, ((as const (Array Int E)) v), is the
-# constant function _const_array. The array solver relates constant arrays to
-# others through their default value (default a), the value an array takes at
-# all but finitely many indices: (default (const v)) = v and (default (store a
-# i v)) = (default a). _default is a function on all of Int -> E with both
-# properties (_default_const, _default_store, theorems over any index type with
-# no finite exhaustive list, _int_unbounded): the value taken outside some
-# finite list if there is one, which is unique then, and otherwise one value
-# that a store does not change (Classical.choice of a Nonempty proof, and
-# proofs are irrelevant). Over a finite index sort no such function exists (a
-# store at every index turns one constant array into another), so the
-# exporter and the reconstructor reject uninterpreted index sorts. Real
-# indices are infinite as well but not implemented yet (they need an
-# unboundedness lemma over Rat), so constant arrays and defaults are admitted
-# over Int indices only.
+# A constant array over Int or Real indices, ((as const (Array I E)) v), is
+# the constant function _const_array. The array solver relates constant arrays
+# to others through their default value (default a), the value an array takes
+# at all but finitely many indices: (default (const v)) = v and (default
+# (store a i v)) = (default a). _default is a function on all of I -> E with
+# both properties (_default_const, _default_store, theorems over any index
+# type with no finite exhaustive list, _int_unbounded and _rat_unbounded): the
+# value taken outside some finite list if there is one, which is unique then,
+# and otherwise one value that a store does not change (Classical.choice of a
+# Nonempty proof, and proofs are irrelevant). Over a finite index sort no such
+# function exists (a store at every index turns one constant array into
+# another), so the exporter and the reconstructor reject uninterpreted index
+# sorts and admit constant arrays and defaults over Int and Real indices only
+# (_UNBOUNDED).
 _CONSTANT_ARRAY_DEFINITIONS = """
 def _const_array (I : Type) {E : Type} (v : E) : I -> E := fun _ => v
 
 private theorem _select_const {I E : Type} (v : E) (i : I) : _select (_const_array I v) i = v := rfl
-
+""".strip("\n").split("\n")
+# The proofs that no finite list exhausts the index type, one per index sort
+# of _UNBOUNDED; a file proves those of its array sorts' indices
+# (_constant_array_definitions).
+_UNBOUNDED_THEOREMS = {"Int": """
 private theorem _int_unbounded : forall l : List Int, Exists (fun x : Int => Not (List.Mem x l)) := by
   intro l
   have _b : Exists (fun b : Int => forall y : Int, List.Mem y l -> y < b) := by
@@ -319,7 +322,22 @@ private theorem _int_unbounded : forall l : List Int, Exists (fun x : Int => Not
       | tail _ h => have := hb y h; omega
   obtain ⟨b, hb⟩ := _b
   exact Exists.intro b (fun h => Int.lt_irrefl b (hb b h))
-
+""".strip("\n").split("\n"), "Real": """
+private theorem _rat_unbounded : forall l : List Rat, Exists (fun x : Rat => Not (List.Mem x l)) := by
+  intro l
+  have _b : Exists (fun b : Rat => forall y : Rat, List.Mem y l -> y < b) := by
+    induction l with
+    | nil => exact Exists.intro 0 (fun _ h => nomatch h)
+    | cons a t ih =>
+      obtain ⟨b, hb⟩ := ih
+      refine Exists.intro (max (a + 1) b) (fun y h => ?_)
+      cases h with
+      | head => grind
+      | tail _ h => have := hb y h; grind
+  obtain ⟨b, hb⟩ := _b
+  exact Exists.intro b (fun h => Rat.lt_irrefl (hb b h))
+""".strip("\n").split("\n")}
+_DEFAULT_DEFINITIONS = """
 noncomputable def _default {I E : Type} (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l)))
     (a : I -> E) : E :=
   @dite E (Exists (fun e : E => Exists (fun l : List I => forall x : I, Not (List.Mem x l) -> a x = e)))
@@ -406,6 +424,33 @@ def _component_type(sort):
 def _array_types(name):
     """The Lean index and element types of a certificate array sort name."""
     return tuple(_component_type(component) for component in _array_components(name))
+
+
+# The Lean proof that no finite list exhausts an index sort over which
+# constant arrays and default values are admitted (_CONSTANT_ARRAY_DEFINITIONS).
+_UNBOUNDED = {"Int": "_int_unbounded", "Real": "_rat_unbounded"}
+
+
+def _unbounded(graph, node, explicit=False):
+    """The unboundedness proof of an array node's index type for _default, with the type itself if explicit.
+
+    explicit gives `(I := Int) _int_unbounded`, for _default_const, whose
+    array argument does not name the index type.
+    """
+    index = _array_components(graph.decl(node).range)[0]
+    if explicit:
+        return "(I := %s) %s" % (_component_type(index), _UNBOUNDED[index])
+    return _UNBOUNDED[index]
+
+
+def _constant_array_definitions(graph):
+    """The constant-array prelude with the unboundedness theorems of the graph's array index sorts only."""
+    indices = {_array_components(sort)[0] for sort in graph.arrays}
+    lines = list(_CONSTANT_ARRAY_DEFINITIONS)
+    for index in _UNBOUNDED:  # Int before Real, a fixed order
+        if index in indices:
+            lines.extend([""] + _UNBOUNDED_THEOREMS[index])
+    return lines + [""] + _DEFAULT_DEFINITIONS
 
 
 def _array_family(name):
@@ -742,13 +787,13 @@ def _declaration(raw, sorts):
                 or (_array_components(domain[0]) or ("",))[0] != raw["range"]):
             raise ReconstructionError("invalid array-ext declaration")
     elif kind == z3.Z3_OP_ARRAY_DEFAULT:
-        # The default value of an array over Int indices (constant arrays).
+        # The default value of an array over Int or Real indices (constant arrays).
         if (name != "default" or len(domain) != 1 or domain[0] not in sorts
-                or _array_components(domain[0]) != ("Int", raw["range"])):
+                or _array_components(domain[0]) not in [(index, raw["range"]) for index in _UNBOUNDED]):
             raise ReconstructionError("invalid default declaration")
     elif kind == z3.Z3_OP_CONST_ARRAY:
-        # A constant array over Int indices.
-        if name != "const" or array is None or array[0] != "Int" or domain != (array[1],):
+        # A constant array over Int or Real indices.
+        if name != "const" or array is None or array[0] not in _UNBOUNDED or domain != (array[1],):
             raise ReconstructionError("invalid constant array declaration")
     elif array is not None:
         # Array constants, ite, and store (QF_AX): no functions into arrays.
@@ -1203,9 +1248,9 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if kind == z3.Z3_OP_ARRAY_EXT:
         return "(_array_diff %s %s %s)" % ((_nonempty(graph.decl(node).range),) + tuple(args))
     if kind == z3.Z3_OP_CONST_ARRAY:
-        return "(@_const_array Int %s %s)" % (_array_types(graph.decl(node).range)[1], args[0])
+        return "(@_const_array %s %s %s)" % (_array_types(graph.decl(node).range) + (args[0],))
     if kind == z3.Z3_OP_ARRAY_DEFAULT:
-        return "(_default _int_unbounded %s)" % args[0]
+        return "(_default %s %s)" % (_unbounded(graph, arguments[0]), args[0])
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
     if kind == z3.Z3_OP_TO_REAL:
@@ -2414,18 +2459,20 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
                 node, inline(array), inline(index), inline(value), inline(graph.arguments(node)[1])))
         elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
             array, index = graph.arguments(node)
-            helpers.append("  have _s%d := _select_const (I := Int) %s %s" % (
-                node, inline(graph.arguments(array)[0]), inline(index)))
+            helpers.append("  have _s%d := _select_const (I := %s) %s %s" % (
+                node, _array_types(graph.decl(array).range)[0], inline(graph.arguments(array)[0]), inline(index)))
         elif kind == z3.Z3_OP_ARRAY_EXT:
             helpers.append("  have _x%d := _array_ext %s %s %s" % (
                 node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
                 inline(graph.arguments(node)[1])))
         elif kind == z3.Z3_OP_ARRAY_DEFAULT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
-            helpers.append("  have _d%d := _default_const (I := Int) _int_unbounded %s" % (
-                node, inline(graph.arguments(graph.arguments(node)[0])[0])))
+            array = graph.arguments(node)[0]
+            helpers.append("  have _d%d := _default_const %s %s" % (
+                node, _unbounded(graph, array, explicit=True), inline(graph.arguments(array)[0])))
         elif kind == z3.Z3_OP_ARRAY_DEFAULT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_STORE:
-            helpers.append("  have _d%d := _default_store _int_unbounded %s" % (
-                node, " ".join(inline(argument) for argument in graph.arguments(graph.arguments(node)[0]))))
+            array = graph.arguments(node)[0]
+            helpers.append("  have _d%d := _default_store %s %s" % (
+                node, _unbounded(graph, array), " ".join(inline(argument) for argument in graph.arguments(array))))
     return helpers
 
 
@@ -2434,7 +2481,7 @@ _COMPARISON_READS = 64
 
 
 def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices):
-    """Default-value and read facts for a rewrite that compares Int-indexed arrays next to a constant array.
+    """Default-value and read facts for a rewrite comparing Int- or Real-indexed arrays next to a constant array.
 
     Z3's rewriter decides an equality between stores over constant arrays
     by the arrays' default values ((= (store (const 0) 1 1) (const 1)) is
@@ -2454,13 +2501,13 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     def inline(sub):
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
 
-    def int_indexed(node):
-        return graph.is_array(node) and _array_components(graph.decl(node).range)[0] == "Int"
+    def unbounded(node):
+        return graph.is_array(node) and _array_components(graph.decl(node).range)[0] in _UNBOUNDED
 
     equalities = [node for node in sorted(reachable)
-                  if graph.kind(node) == z3.Z3_OP_EQ and int_indexed(graph.arguments(node)[0])]
+                  if graph.kind(node) == z3.Z3_OP_EQ and unbounded(graph.arguments(node)[0])]
     arrays = [node for node in sorted(reachable)
-              if graph.kind(node) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) and int_indexed(node)]
+              if graph.kind(node) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) and unbounded(node)]
     indices = {}  # array sort -> the indices stored into arrays of that sort
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
@@ -2472,8 +2519,9 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     helpers = []
     for node in equalities:
         left, right = (inline(argument) for argument in graph.arguments(node))
-        helpers.append("  have _e%d : %s = %s -> _default _int_unbounded %s = _default _int_unbounded %s :="
-                       " congrArg (_default _int_unbounded)" % (node, left, right, left, right))
+        default = "_default %s" % _unbounded(graph, graph.arguments(node)[0])
+        helpers.append("  have _e%d : %s = %s -> %s %s = %s %s := congrArg (%s)" % (
+            node, left, right, default, left, default, right, default))
         for index in sorted(indices.get(graph.decl(graph.arguments(node)[0]).range, ())):
             helpers.append("  have _e%d_%d : %s = %s -> _select %s %s = _select %s %s :="
                            " congrArg (fun _x => _select _x %s)" % (
@@ -2481,13 +2529,16 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
             arguments = " ".join(inline(argument) for argument in graph.arguments(node))
-            helpers.append("  have _ds%d := _default_store _int_unbounded %s" % (node, arguments))
+            helpers.append("  have _ds%d := _default_store %s %s" % (node, _unbounded(graph, node), arguments))
             helpers.extend("  have _ds%d_%d := _store_apply %s %s" % (node, index, arguments, inline(index))
                            for index in sorted(indices.get(graph.decl(node).range, ())))
         else:
             value = inline(graph.arguments(node)[0])
-            helpers.append("  have _dc%d := _default_const (I := Int) _int_unbounded %s" % (node, value))
-            helpers.extend("  have _dc%d_%d := _select_const (I := Int) %s %s" % (node, index, value, inline(index))
+            index_type = _array_types(graph.decl(node).range)[0]
+            helpers.append("  have _dc%d := _default_const %s %s" % (
+                node, _unbounded(graph, node, explicit=True), value))
+            helpers.extend("  have _dc%d_%d := _select_const (I := %s) %s %s" % (
+                node, index, index_type, value, inline(index))
                            for index in sorted(indices.get(graph.decl(node).range, ())))
     return helpers
 
@@ -5673,7 +5724,7 @@ def reconstruct(source, certificate):
     if graph.arrays:
         lines.extend(_ARRAY_DEFINITIONS + [""])
     if any(decl.kind in (z3.Z3_OP_CONST_ARRAY, z3.Z3_OP_ARRAY_DEFAULT) for decl in graph.declarations):
-        lines.extend(_CONSTANT_ARRAY_DEFINITIONS + [""])
+        lines.extend(_constant_array_definitions(graph) + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):

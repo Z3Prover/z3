@@ -157,7 +157,7 @@ UF fragment the rest of the input is in, their uninterpreted index and
 element sorts counting as its uninterpreted sorts and an Int or Real one as
 its arithmetic (an input with Int arrays alone is qf_uflia); functions and
 predicates may take arrays as arguments, and constant arrays ((as const
-(Array Int E)) v) are supported over Int indices. Only the clause log
+(Array I E)) v) are supported over Int and Real indices. Only the clause log
 certifies them (the legacy core rejects them explicitly); arrays over Bool
 or arrays, arrays with several indices, constant arrays over other index
 sorts, map, as-array, and functions returning arrays are rejected. Integer
@@ -1015,22 +1015,21 @@ coefficients, so a real model has a rational one with the same equalities,
 and arrays over Rat are then defined by the reads at the (now rational)
 indices, the store relations and (dis)equalities of arrays included.
 
-A constant array over Int indices is _const_array Int v, the constant
-function (its reads are _select_const, rfl). The array solver relates
+A constant array over Int or Real indices is _const_array Int v (or
+_const_array Rat v), the constant function (its reads are _select_const,
+rfl). The array solver relates
 constant arrays to other arrays through their default values, (default
 (const v)) = v and (default (store a i v)) = (default a), logged as array
 hints over (default a) terms, which are atoms of the linear forms like reads.
-_default is defined on every function Int -> E: the value it takes outside
+_default is defined on every function I -> E: the value it takes outside
 some finite list of indices if there is one (unique, since no finite list
-exhausts Int: _int_unbounded), and otherwise one value that a store does
+exhausts Int or Rat: _int_unbounded, _rat_unbounded), and otherwise one value that a store does
 not change (Classical.choice of a Nonempty proof, which is proof-
 irrelevant). _default_const and _default_store are theorems over any index
 type that no finite list exhausts. Over a finite index sort no such function
 exists (storing at every index turns one constant array into another), so
 constant arrays and default terms over uninterpreted indices are rejected
-by the exporter and by the reconstructor. Real indices are infinite too,
-but are not implemented yet (they need an unboundedness lemma over Rat like
-_int_unbounded) and are rejected as well. Z3's rewriter decides an
+by the exporter and by the reconstructor. Z3's rewriter decides an
 equality between stores over constant arrays by their default values or
 their values at the stored indices; a rewrite step reaching a constant
 array gets those facts for its array equalities.

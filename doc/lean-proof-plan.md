@@ -1589,7 +1589,7 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
-### Constant arrays over Int indices (2026-11-03)
+### Constant arrays over Int and Real indices (2026-11-03, 2026-11-04)
 
 Constant arrays `((as const (Array I E)) v)` were rejected ("unsupported
 array operator: const"), so z3test `regressions/smt2/2549.smt2` and the six
@@ -1615,6 +1615,19 @@ constant array get those facts (`_constant_array_comparisons`). Result:
 `2549.smt2` and all six `array.smt2` queries export and verify in Lean.
 Tests: `CONSTANT_ARRAY_INPUTS` in
 `test_proof_to_lean_array.py`.
+
+Real indices (2026-11-04): constant arrays and default values over
+Real indices are accepted too. Lean proves `_rat_unbounded` (no finite list
+exhausts Rat, bounded by `max (a + 1) b` per element, grind over Rat) and
+instantiates the same `_default_const`, `_default_store`, and
+`_select_const` at `Rat`; the reconstructor maps each admitted index sort to
+its unboundedness theorem (`_UNBOUNDED`), proves only the theorems of the
+index sorts of the file's array sorts (Int-indexed output is unchanged), and
+still rejects uninterpreted index sorts. No z3test file uses Real-indexed constant arrays; the five
+`REAL_INDEX_CONSTANT_ARRAY_INPUTS` (2549 and array.smt2's third query over
+Real indices, a Farkas read, stores at Real terms, uninterpreted elements)
+verify in Lean, and grind fails on the Real 2549 and comparison inputs once
+the default or read facts are removed.
 
 ### Arrays over Int and Real, and functions over arrays (2026-11-03)
 

@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Microsoft Corporation
 #
 # Tests for the array slice of the Lean reconstruction: arrays over
-# uninterpreted sorts, Int, and Real, and constant arrays over Int indices,
-# certified through the sat.smt clause log.
+# uninterpreted sorts, Int, and Real, and constant arrays over Int and Real
+# indices, certified through the sat.smt clause log.
 # An array is a function _m.U -> _m.U (array constants are the family
 # _m.arrs), select is _select, store the classical update _store, and the
 # array solver's extensionality witness (_ array-ext 0) is _array_diff, an
@@ -339,11 +339,62 @@ CONSTANT_ARRAY_INPUTS = {
 (check-sat)
 """,
 }
+# Constant arrays over Real indices: the same encoding over Rat, whose
+# default values rest on _rat_unbounded (no finite list exhausts Rat).
+REAL_INDEX_CONSTANT_ARRAY_INPUTS = {
+    # z3test 2549 over Real indices: the default-value axioms.
+    "real_index_2549": """(declare-const A0 (Array Real Int))
+(declare-const A1 (Array Real Int))
+(assert (= A0 ((as const (Array Real Int)) 0)))
+(assert (= A1 ((as const (Array Real Int)) 1)))
+(assert (= (store A0 2.5 3) (store A1 2.5 3)))
+(check-sat)
+""",
+    # A read of a constant array at a Real variable under a Farkas step.
+    "real_index_read": """(declare-fun a () (Array Real Real))
+(declare-fun x () Real)
+(assert (= a ((as const (Array Real Real)) 5.0)))
+(assert (> (select a x) 5.0))
+(check-sat)
+""",
+    # z3test array.smt2's third query over Real indices: the rewrite compares
+    # two store chains at the stored indices.
+    "real_index_comparison": """(define-fun a () (Array Real Int) ((as const (Array Real Int)) 0))
+(assert (= (store (store (store (store a 0.0 1) 0.5 2) 1.5 3) 0.0 0) (store (store (store a 0.0 1) 0.5 2) 1.5 3)))
+(check-sat)
+""",
+    # Stores at Real terms into constant arrays of different Real defaults.
+    "real_index_terms": """(declare-fun r () (Array Real Real))
+(declare-fun s () (Array Real Real))
+(declare-fun x () Real)
+(declare-fun y () Real)
+(assert (= r (store ((as const (Array Real Real)) 0.5) x y)))
+(assert (= s (store ((as const (Array Real Real)) 1.5) (+ x 1.0) y)))
+(assert (= r s))
+(check-sat)
+""",
+    # Uninterpreted elements over Real indices.
+    "real_index_elements": """(declare-sort Element 0)
+(declare-fun e () Element)
+(declare-fun f () Element)
+(declare-fun x () Real)
+(declare-fun y () Real)
+(declare-fun c () (Array Real Element))
+(assert (= c (store (store ((as const (Array Real Element)) e) x f) y f)))
+(assert (= c ((as const (Array Real Element)) f)))
+(assert (not (= e f)))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
+ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
-              "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira"}
+              "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira",
+              "real_index_2549": "qf_uflira", "real_index_read": "qf_uflra",
+              "real_index_comparison": "qf_uflira", "real_index_terms": "qf_uflra",
+              "real_index_elements": "qf_uflra"}
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   if name not in _FRAGMENTS)
 
@@ -383,11 +434,10 @@ class TestArrayValidation(unittest.TestCase):
             "(assert (not (= (select (select a i) i) i)))": "unsupported array operator: select",
             "(declare-sort I 0)(declare-fun a () (Array I (Array I I)))(declare-fun b () (Array I (Array I I)))"
             "(assert (not (= a b)))": "only arrays over uninterpreted sorts",
-            # Constant arrays over a possibly finite index sort, or over Real.
+            # Constant arrays over a possibly finite index sort.
             "(declare-sort I 0)(declare-fun e () I)(declare-fun i () I)"
-            "(assert (not (= (select ((as const (Array I I)) e) i) e)))": "constant arrays are supported over Int",
-            "(declare-fun x () Real)(assert (= (select ((as const (Array Real Int)) 0) x) 1))":
-                "constant arrays are supported over Int",
+            "(assert (not (= (select ((as const (Array I I)) e) i) e)))":
+                "constant arrays are supported over Int and Real indices only",
             # Array combinators of Z3's beyond SMT-LIB.
             "(declare-fun g (Int) Int)(declare-fun a () (Array Int Int))(assert (= (select ((_ map g) a) 1) 1))":
                 "unsupported array operator",
@@ -461,6 +511,7 @@ class TestArrayValidation(unittest.TestCase):
         self.assertIn(":= _default_store _int_unbounded ((term_", text)
         self.assertIn(":= _default_const (I := Int) _int_unbounded (((1 : Int)))", text)
         self.assertIn("private theorem _int_unbounded", text)
+        self.assertNotIn("_rat_unbounded", text)  # only the index sorts present
         hints = [d["parameters"] for d in self.certificates["z3test_2549"]["declarations"] if d["name"] == "th-lemma"]
         self.assertIn(["array"], hints)
         read = proof_to_lean.reconstruct(ARRAY_INPUTS["read_constant"], self.certificates["read_constant"])
@@ -477,7 +528,21 @@ class TestArrayValidation(unittest.TestCase):
         plain = proof_to_lean.reconstruct(ARRAY_INPUTS["int_store_commutes"], self.certificates["int_store_commutes"])
         self.assertNotIn("_const_array", plain)
         self.assertNotIn("_default", plain)
-        for each in (text, read, rewrite, chains, elements):
+        # Over Real indices: the same definitions over Rat and _rat_unbounded.
+        real = proof_to_lean.reconstruct(ARRAY_INPUTS["real_index_2549"], self.certificates["real_index_2549"])
+        self.assertIn(":= (@_const_array Rat Int (term_", real)
+        self.assertIn(":= (_default _rat_unbounded (term_", real)
+        self.assertIn(":= _default_store _rat_unbounded ((term_", real)
+        self.assertIn(":= _default_const (I := Rat) _rat_unbounded (((1 : Int)))", real)
+        self.assertIn("private theorem _rat_unbounded", real)
+        self.assertNotIn("_int_unbounded", real)
+        real_read = proof_to_lean.reconstruct(ARRAY_INPUTS["real_index_read"], self.certificates["real_index_read"])
+        self.assertIn(":= _select_const (I := Rat) (((5 : Rat)))", real_read)
+        real_chains = proof_to_lean.reconstruct(ARRAY_INPUTS["real_index_comparison"],
+                                                self.certificates["real_index_comparison"])
+        self.assertIn(":= congrArg (_default _rat_unbounded)", real_chains)
+        self.assertIn(":= _select_const (I := Rat) (((0 : Int))) (((1 : Rat) / (2 : Rat)))", real_chains)
+        for each in (text, read, rewrite, chains, elements, real, real_read, real_chains):
             self.assertNotIn("sorry", each)
             self.assertNotIn("axiom ", each)
 
@@ -494,19 +559,54 @@ class TestArrayValidation(unittest.TestCase):
         def default_into_real(certificate):
             declaration(certificate, z3.Z3_OP_ARRAY_DEFAULT)["range"] = "Real"
 
-        def uninterpreted_indices(certificate):
+        def uninterpreted_indices(index):
             # Default values need an infinite index type: over Element
             # indices (a sort that may be finite) the declarations are
             # rejected, not proved.
-            for d in certificate["declarations"]:
-                d["domain"] = ["(Array Element Element)" if s == "(Array Int Element)" else s for s in d["domain"]]
-                if d["range"] == "(Array Int Element)":
-                    d["range"] = "(Array Element Element)"
+            def tamper(certificate):
+                array = "(Array %s Element)" % index
+                for d in certificate["declarations"]:
+                    d["domain"] = ["(Array Element Element)" if s == array else s for s in d["domain"]]
+                    if d["range"] == array:
+                        d["range"] = "(Array Element Element)"
+            return tamper
+
+        def const_value_of_int(certificate):
+            # The const's value (the element), not its index, relabelled to Int.
+            declaration(certificate, z3.Z3_OP_CONST_ARRAY)["domain"] = ["Int"]
+
+        def relabelled_sort(old, new):
+            # One array sort renamed in every string of the certificate: the
+            # certificate stays consistent, so only the comparison with the
+            # input's own declarations catches it.
+            def relabel(value):
+                if isinstance(value, str):
+                    return value.replace(old, new)
+                if isinstance(value, list):
+                    return [relabel(item) for item in value]
+                if isinstance(value, dict):
+                    return {key: relabel(item) for key, item in value.items()}
+                return value
+
+            def tamper(certificate):
+                self.assertIn(old, repr(certificate))
+                certificate.update(relabel(certificate))
+            return tamper
 
         self._rejects("z3test_2549", const_of_real, "invalid constant array declaration")
         self._rejects("z3test_2549", renamed_const, "invalid constant array declaration")
         self._rejects("z3test_2549", default_into_real, "invalid default declaration")
-        self._rejects("element_constants", uninterpreted_indices, "invalid (constant array|default) declaration")
+        self._rejects("element_constants", uninterpreted_indices("Int"),
+                      "invalid (constant array|default) declaration")
+        self._rejects("real_index_elements", uninterpreted_indices("Real"),
+                      "invalid (constant array|default) declaration")
+        self._rejects("real_index_2549", default_into_real, "invalid default declaration")
+        self._rejects("real_index_read", const_value_of_int, "invalid constant array declaration")
+        # Real indices relabelled to Int (or the element sort changed) consistently.
+        self._rejects("real_index_2549", relabelled_sort("(Array Real Int)", "(Array Int Int)"),
+                      "certificate source does not match the original input")
+        self._rejects("real_index_read", relabelled_sort("(Array Real Real)", "(Array Int Real)"),
+                      "certificate source does not match the original input")
 
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()
@@ -525,6 +625,16 @@ class TestArrayValidation(unittest.TestCase):
             with self.subTest(sort=sort):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, "constant array of an unsupported"):
                     terms.build([["as", "const", sort], "5"])
+        # Over Real indices, of an array sort of the input.
+        assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS["real_index_read"], context)
+        terms = proof_clause_log._Terms(context, assertions)
+        terms.define("$1", ["Array", "Real", "Real"], [["as", "const", ["Array", "Real", "Real"]], "5.0"])
+        constant = terms.build("$1")
+        self.assertTrue(z3.is_const_array(constant))
+        self.assertTrue(constant.sort().domain().eq(z3.RealSort(context)))
+        five = z3.RealVal(5, context)
+        self.assertTrue(proof_clause_log._store_axiom(terms.build(["default", "$1"]) == five))
+        self.assertTrue(proof_clause_log._store_axiom(five == terms.build(["select", "$1", "x"])))
 
     def test_reads_of_int_arrays_are_linear_atoms(self):
         """A Farkas lemma over reads of an Int array is checked over the reads as atoms."""
@@ -727,7 +837,8 @@ class TestArrayLeanIntegration(unittest.TestCase):
 
     def test_array_facts_are_needed(self):
         """Without the _store_apply, _array_ext, and default-value facts grind cannot prove the array lemmas."""
-        for name in ("store_commutes", "int_store_commutes", "z3test_2549", "store_over_constants"):
+        for name in ("store_commutes", "int_store_commutes", "z3test_2549", "store_over_constants",
+                     "real_index_2549"):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
@@ -751,24 +862,29 @@ class TestArrayLeanIntegration(unittest.TestCase):
 
     def test_comparison_reads_are_needed(self):
         """Without the read facts of _constant_array_comparisons grind cannot prove the rewrite of array.smt2's q2."""
-        source = ARRAY_INPUTS["z3test_array_q2"]
-        text = proof_to_lean.reconstruct(source, _export(source))
-        # The reads at the stored indices: _e<n>_<i> (congruence of an array
-        # equality), _ds<n>_<i> (_store_apply), _dc<n>_<i> (_select_const).
-        read = re.compile(r"^\s*have _(e|ds|dc)\d+_\d+ ")
-        lines = text.split("\n")
-        self.assertTrue({match.group(1) for match in map(read.match, lines) if match} >= {"e", "ds", "dc"}, text)
-        stripped = "\n".join(line for line in lines if not read.match(line))
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "stripped.lean"
-            output.write_text(stripped)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-        report = result.stdout + result.stderr
-        self.assertNotEqual(result.returncode, 0, report)
-        errors = [line for line in report.split("\n") if "error:" in line]
-        self.assertTrue(errors, report)
-        for error in errors:
-            self.assertIn("`grind` failed", error)
+        for name in ("z3test_array_q2", "real_index_comparison"):
+            with self.subTest(name=name):
+                source = ARRAY_INPUTS[name]
+                text = proof_to_lean.reconstruct(source, _export(source))
+                # The reads at the stored indices: _e<n>_<i> (congruence of
+                # an array equality), _ds<n>_<i> (_store_apply), _dc<n>_<i>
+                # (_select_const).
+                read = re.compile(r"^\s*have _(e|ds|dc)\d+_\d+ ")
+                lines = text.split("\n")
+                self.assertTrue({match.group(1) for match in map(read.match, lines) if match} >= {"e", "ds", "dc"},
+                                text)
+                stripped = "\n".join(line for line in lines if not read.match(line))
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "stripped.lean"
+                    output.write_text(stripped)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                            capture_output=True)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
 
 
 if __name__ == "__main__":
