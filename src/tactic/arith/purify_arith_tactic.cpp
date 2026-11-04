@@ -436,6 +436,8 @@ struct purify_arith_proc {
         br_status process_power(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
             if (u().is_int(f->get_range()))
                 return BR_FAILED;
+            expr * x = args[0];
+            SASSERT(!u().is_int(x));
             rational y;
             if (!u().is_numeral(args[1], y))
                 return BR_FAILED;
@@ -445,55 +447,42 @@ struct purify_arith_proc {
                     result_pr = m().mk_rewrite(m().mk_app(f, num, args), result);
                 return BR_DONE;
             }
-            if (y.is_int())
+            // Only normalized roots are supported; reject before creating a definition.
+            if (y.is_int() || !numerator(y).is_one())
                 return BR_FAILED;
+            rational n = denominator(y);
             app_ref t(m());
             t = m().mk_app(f, num, args);
             if (already_processed(t, result, result_pr))
                 return BR_DONE;
 
-            expr * x = args[0];
-            bool is_int = u().is_int(x);
-
-            expr * k = mk_fresh_var(false);
+            expr * k = mk_fresh_real_var();
             result = k;
             mk_def_proof(k, t, result_pr);
             cache_result(t, result, result_pr);
-            
-            expr_ref zero(u().mk_numeral(rational(0), is_int), m());
-            if (!is_int) {
-                SASSERT(!y.is_int());
-                SASSERT(numerator(y).is_one());
-                rational n = denominator(y);
-                if (!n.is_even()) {
-                    // (^ x (/ 1 n)) --> k  | x = k^n  
-                    // when n is odd
-                    push_cnstr(EQ(x, u().mk_power(k, u().mk_numeral(n, false))));
-                    push_cnstr_pr(result_pr);
-                }
-                else {
-                    SASSERT(n.is_even());
-                    // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
-                    // when n is even
-                    expr_ref x_ge_zero(u().mk_ge(x, zero), m());
-                    expr_ref x_lt_zero(NOT(x_ge_zero), m());
-                    expr_ref root_eq(EQ(x, u().mk_power(k, u().mk_numeral(n, false))), m());
-                    push_cnstr(OR(x_lt_zero, AND(root_eq, u().mk_ge(k, zero))));
-                    push_cnstr_pr(result_pr);
 
-                    push_cnstr(OR(x_ge_zero,
-                                  EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
-                    push_cnstr_pr(result_pr);
-                }
-//                else {
-//                    return BR_FAILED;
-//                }
+            expr_ref degree(u().mk_real(n), m());
+            expr_ref power(u().mk_power(k, degree), m());
+            expr_ref root_eq(EQ(x, power), m());
+            if (!n.is_even()) {
+                // Odd roots are uniquely defined by x = k^n.
+                push_cnstr(root_eq);
+                push_cnstr_pr(result_pr);
             }
             else {
-                // root not supported for integers.
-                SASSERT(is_int);
-                SASSERT(!y.is_int());
-                return BR_FAILED;
+                // Even roots are nonnegative when defined; negative bases use neg-root.
+                expr_ref zero(mk_real_zero(), m());
+                expr_ref x_ge_zero(u().mk_ge(x, zero), m());
+                expr_ref x_lt_zero(NOT(x_ge_zero), m());
+                expr_ref k_ge_zero(u().mk_ge(k, zero), m());
+                expr_ref nonnegative_root(AND(root_eq, k_ge_zero), m());
+                push_cnstr(OR(x_lt_zero, nonnegative_root));
+                push_cnstr_pr(result_pr);
+
+                expr_ref negative_root(u().mk_neg_root(x, degree), m());
+                expr_ref value_eq(EQ(k, negative_root), m());
+                push_cnstr(OR(x_ge_zero, value_eq));
+                push_cnstr_pr(result_pr);
             }
             return BR_DONE;
         }
