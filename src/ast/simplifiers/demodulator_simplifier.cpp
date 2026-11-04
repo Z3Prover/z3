@@ -121,7 +121,7 @@ void demodulator_simplifier::rewrite(unsigned i) {
 /**
    \brief Justify a single demodulator rewrite step `f(args) = np`, where
    `np` was obtained by matching `f(args)` against demodulator `i`'s pattern
-   and instantiating its (now ground) variables. Builds:
+   and instantiating its variables. Builds:
      qi_pr : (or (not q) qe[s])          -- via PR_QUANT_INST
      raw_pr: qe[s]                       -- via unit-resolution against q's own proof
    and, if `qe[s]` is not already syntactically `f(args) = np` (the
@@ -131,18 +131,10 @@ void demodulator_simplifier::rewrite(unsigned i) {
    elementary, independently side-condition-checked propositional identity)
    composed with modus ponens.
 
-   Only attempted when every argument is ground: `f(args)` can otherwise
-   occur nested inside another (outer) quantifier being demodulated, in
-   which case the match binds the demodulator's variables to non-ground
-   terms and there is no single ground quantifier instance that justifies
-   the step; we then conservatively return nullptr (the term-level rewrite
-   itself is unaffected, it simply isn't proof-tracked).
+   Instances under an outer quantifier can contain free de Bruijn variables.
+   The rewriter binds their proofs when constructing quantifier congruence.
 */
 proof* demodulator_simplifier::mk_instance_proof(unsigned i, func_decl* f, expr_ref_vector const& args, expr* np) {
-    for (expr* a : args)
-        if (!is_ground(a))
-            return nullptr;
-
     expr* d_fml = fml(i);
     if (!is_forall(d_fml))
         return nullptr;
@@ -155,7 +147,7 @@ proof* demodulator_simplifier::mk_instance_proof(unsigned i, func_decl* f, expr_
     expr_ref_vector bindings(m);
     for (unsigned k = 0; k < n; ++k) {
         expr_ref b(m);
-        if (!m_match_subst.get_binding(k, b) || !is_ground(b.get()))
+        if (!m_match_subst.get_binding(k, b))
             return nullptr;
         bindings.push_back(b);
     }
@@ -206,10 +198,13 @@ bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args,
 
         if (m_match_subst(lhs, rhs, args.data(), np)) {
             TRACE(demodulator_bug, tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n");
+            if (m.proofs_enabled()) {
+                pr = mk_instance_proof(i, f, args, np);
+                if (!pr)
+                    continue;
+            }
             if (dep(i))
                 m_dependencies.insert(i);
-            if (m.proofs_enabled())
-                pr = mk_instance_proof(i, f, args, np);
             return true;
         }
     }
