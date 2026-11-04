@@ -469,6 +469,10 @@ accepted by `real_farkas` and quant-intro nodes 114 and 176 by the gated replay.
 producer's one-level flattening of `and`), by exact structural identity and the canonical `ite` declaration
 (`T.Choice`); `lemma_ite_rewritten_at` proves them in every Sorted model at every scope. A Real subterm is an
 opaque operand of these laws.
+They are the replayed fragment of the captured Term-ITE leaves; the residual ITE shapes recorded on the captured
+cohort stay pending (no law for them yet): 5 leaves `ite c1 (ite c2 t1 t2) t1 = ite (and c1 (not c2)) t2 t1`
+(`bool_rewriter::mk_ite_core`, merge with a negated inner guard), 6 or-with-negation merges, and 1 leaf that
+lifts an `ite` into a function application. The laws do not read the Real gate.
 
 **Unsupported (pending, with the rule's own diagnostic).** `to_int`, `is_int` (no interpretation tag in the
 operator vocabulary), `div0`/Real division by zero, floor, Int `div`/`mod` at Real, nonlinear Real products
