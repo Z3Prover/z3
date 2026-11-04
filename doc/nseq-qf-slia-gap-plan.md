@@ -53,7 +53,7 @@ are recorded in the session artifacts and benchmark database.
 
 Remaining P0 work includes recovering the timeout/unknown cases and auditing
 snapshot invalidation beyond the covered scope transitions. The broader
-negative-containment, regex-bound, static digit-bound, and symbolic-head
+negative-containment, regex-bound, and symbolic-head
 work below remains open.
 
 ### P1a: empty-side disequations
@@ -75,6 +75,42 @@ The 37-input diagnostic rerun has exactly one outcome change from P0:
 Noetzli 99 becomes UNSAT in 0.029 seconds. The other 36 outcomes, including
 all three winning controls, are preserved; no invalid models or errors
 occur. Rebuilt CLI and Python smoke tests also pass.
+
+### P1b: early short-string conversion bounds
+
+Implemented static upper bounds in the shared regex-based stoi axioms,
+using the existing maximum-length query. Statically empty arguments have
+conversion value -1; arguments of maximum length one have conversion
+value at most 9. The existing lower bound of -1 is preserved. These
+unconditional facts do not require a concrete model length. Longer or
+statically unbounded arguments retain the existing coherence procedure;
+this change does not eagerly generate arbitrary powers of ten.
+
+| Target | After P1a | After P1b |
+|---|---|---|
+| Trau addStrings/69 | UNSAT, 0.549 seconds | UNSAT, 0.031 seconds |
+| CVC4 addStrings/440 | Five-second timeout | UNSAT, 0.029 seconds |
+
+Both targets now finish with zero final checks and zero DFS nodes.
+Case 440's reported memory drops from about 1,238 MB at timeout to 18 MB.
+Three separately logged runs take 29-33 ms. The full 37-input diagnostic
+matrix has 7 SAT, 4 UNSAT, 11 timeouts, and 15 unknowns: case 440 is the
+only outcome change from P1a. All three winning controls are preserved
+at 0.028-0.041 seconds; no invalid models or errors occur. The seven
+conversion inputs also retain their original definite results under
+the explicit `seq` engine.
+
+New regressions reject impossible conversions of `str.at` and zero/one-
+length substrings with search disabled by `max_conflicts=0`. The test
+fails without the static bound. SAT regressions validate models for
+non-digit and out-of-range conversions returning -1, digit 9, a two-digit
+conversion returning 42, and a leading-zero conversion. All 116 native
+tests and rebuilt CLI/Python smoke tests pass.
+
+The sampled add_binary and restoreIpAddresses cases remain timeout or
+unknown under nseq; wider character/conversion consistency is still open.
+The scheduling yield requested alongside P1b was already implemented
+in P0. The next independent plan item is P1c's persistent regex bounds.
 
 ## Baseline and scope
 

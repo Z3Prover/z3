@@ -885,6 +885,51 @@ namespace {
         }
     }
 
+    static void tst_nseq_short_stoi_bounds() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref s(m.mk_fresh_const("s", u.str.mk_string_sort()), m);
+        expr_ref i(m.mk_fresh_const("i", a.mk_int()), m);
+        expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+        expr_ref_vector arguments(m);
+        arguments.push_back(u.str.mk_at(s, i));
+        arguments.push_back(u.str.mk_substr(s, i, one));
+        arguments.push_back(u.str.mk_substr(s, i, zero));
+        int upper_bounds[] = { 9, 9, -1 };
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_uint("max_conflicts", 0);
+        for (unsigned j = 0; j < arguments.size(); ++j) {
+            expr_ref conversion(u.str.mk_stoi(arguments.get(j)), m);
+            expr_ref upper(a.mk_int(upper_bounds[j]), m);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            slv->assert_expr(a.mk_gt(conversion, upper));
+            ENSURE(slv->check_sat(0, nullptr) == l_false);
+        }
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.len s) 1))
+            (assert (= (str.to_int (str.at s 0)) (- 1)))
+            (assert (= (str.to_int (str.at s (- 1))) (- 1)))
+            (assert (= (str.to_int (str.at s 1)) (- 1)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (declare-const i Int)
+            (assert (= (str.to_int (str.at s i)) 9))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.to_int (str.++ (str.at s 0) (str.at s 1))) 42))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.to_int (str.++ "0" (str.at s 0))) 7))
+        )");
+    }
+
     static void tst_nseq_candidate_model() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -974,5 +1019,6 @@ void tst_seq_eq_facet() {
     tst_nseq_length_model();
     tst_nseq_empty_diseq();
     tst_nseq_candidate_model();
+    tst_nseq_short_stoi_bounds();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
