@@ -33,10 +33,245 @@ constraints actually used.
 
 --*/
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/seq/seq_profile_abs.h"
 #include "ast/ast_pp.h"
+#include "util/z3_exception.h"
 #include <algorithm>
 
 namespace seq {
+
+    namespace {
+        // Modular letter-count rows, keyed by shared AST token ids.
+        struct pk_row {
+            u_map<int64_t> m_coeff;
+            int64_t m_const = 0;
+            unsigned m_mask = 0;
+            eq_tree::dep_tracker m_dep = nullptr;
+        };
+
+        bool string_tokens(seq_util& u, expr_ref_vector const& ts) {
+            for (expr* t : ts)
+                if (!u.is_string(t->get_sort()))
+                    return false;
+            return true;
+        }
+
+        void scan_side(ast_manager& m, seq_util& u, expr_ref_vector const& ts, unsigned sigma,
+                       int sign, pk_row& row) {
+            for (expr* t : ts) {
+                if (!m.limit().inc())
+                    throw default_exception(m.limit().get_cancel_msg());
+                zstring s;
+                unsigned ch = 0;
+                expr* c = nullptr;
+                if (u.str.is_string(t, s)) {
+                    for (unsigned i = 0; i < s.length(); ++i)
+                        if (s[i] == sigma)
+                            row.m_const += sign;
+                }
+                else if (u.str.is_unit(t, c) && u.is_const_char(c, ch)) {
+                    if (ch == sigma)
+                        row.m_const += sign;
+                }
+                else {
+                    row.m_coeff.insert_if_not_there(t->get_id(), 0);
+                    row.m_coeff[t->get_id()] += sign;
+                }
+            }
+        }
+
+        void tally_chars(ast_manager& m, seq_util& u, expr* e, u_map<unsigned>& freq) {
+            ptr_vector<expr> todo;
+            obj_hashtable<expr> seen;
+            todo.push_back(e);
+            while (!todo.empty()) {
+                if (!m.limit().inc())
+                    throw default_exception(m.limit().get_cancel_msg());
+                expr* c = todo.back();
+                todo.pop_back();
+                if (seen.contains(c))
+                    continue;
+                seen.insert(c);
+                zstring s;
+                unsigned ch = 0;
+                if (u.str.is_string(c, s)) {
+                    for (unsigned i = 0; i < s.length(); ++i) {
+                        freq.insert_if_not_there(s[i], 0);
+                        ++freq[s[i]];
+                    }
+                }
+                else if (u.is_const_char(c, ch)) {
+                    freq.insert_if_not_there(ch, 0);
+                    ++freq[ch];
+                }
+                if (is_app(c))
+                    for (expr* arg : *to_app(c))
+                        todo.push_back(arg);
+            }
+        }
+    }
+
+    // For each chosen letter sigma and modulus m, profile_abs over-approximates
+    // the possible #sigma(w) mod m for words in each regex R. Membership s in R
+    // becomes c + sum_t a_t*n_t (mod m) in residues(R): literals determine c,
+    // token multiplicities determine a_t, and each opaque token's n_t is free.
+    // Equations add #sigma(lhs) - #sigma(rhs) == 0 (mod m).
+    //
+    // Try up to six letters and moduli 2..5, with at most 1,000,000 residue
+    // assignments per pass. If none satisfies the rows, their joined dependencies
+    // justify a conflict. A feasible assignment does not establish string
+    // satisfiability; skipped/unsupported cases also remain inconclusive.
+    // The same refutation filter runs at the root and in branches.
+    bool mem_facet::check_letter_conflict(eq_facet const& equations, eq_tree::dep_tracker& dep) const {
+        dep = nullptr;
+        ptr_vector<str_mem const> mems;
+        ptr_vector<eq_facet::equation const> eqs;
+        u_map<unsigned> freq;
+        for (auto const& sm : m_mems) {
+            if (!m.limit().inc())
+                throw default_exception(m.limit().get_cancel_msg());
+            sort* s = nullptr;
+            if (!sm.active() || !sm.is_plain() ||
+                !u.is_re(sm.m_view.m_state->get_sort(), s) || !u.is_string(s) ||
+                !string_tokens(u, sm.m_str))
+                continue;
+            // profile_abs's work budget bounds work, not native stack depth.
+            // AST depth is cached and saturates above this conservative limit.
+            if (get_depth(sm.m_view.m_state) > 256)
+                continue;
+            mems.push_back(&sm);
+            tally_chars(m, u, sm.m_view.m_state, freq);
+            // Reconstitute each subject for a per-tree character tally
+            // (shared AST subterms counted once per side).
+            expr_ref term(u.str.mk_concat(sm.m_str, s), m);
+            tally_chars(m, u, term, freq);
+        }
+        if (mems.empty())
+            return false;
+        for (auto const& eq : equations.equations()) {
+            if (!m.limit().inc())
+                throw default_exception(m.limit().get_cancel_msg());
+            if (!eq.active() || !string_tokens(u, eq.m_lhs) || !string_tokens(u, eq.m_rhs))
+                continue;
+            eqs.push_back(&eq);
+            expr_ref lhs(u.str.mk_concat(eq.m_lhs, u.str.mk_string_sort()), m);
+            expr_ref rhs(u.str.mk_concat(eq.m_rhs, u.str.mk_string_sort()), m);
+            tally_chars(m, u, lhs, freq);
+            tally_chars(m, u, rhs, freq);
+        }
+        svector<std::pair<unsigned, unsigned>> by_freq;
+        for (auto const& kv : freq)
+            by_freq.push_back(std::make_pair(kv.m_value, kv.m_key));
+        std::sort(by_freq.begin(), by_freq.end(),
+                  [](auto const& x, auto const& y) {
+                      return x.first != y.first ? x.first > y.first : x.second < y.second;
+                  });
+        unsigned_vector letters;
+        for (auto const& p : by_freq) {
+            if (letters.size() == 6)
+                break;
+            letters.push_back(p.second);
+        }
+
+        profile_abs abs(m);
+        for (unsigned modulus = 2; modulus <= 5; ++modulus) {
+            for (unsigned sigma : letters) {
+                if (!m.limit().inc())
+                    throw default_exception(m.limit().get_cancel_msg());
+                abs.begin_pass(modulus, sigma);
+                vector<pk_row> rows;
+                unsigned full = (1u << modulus) - 1;
+                for (auto const* sm : mems) {
+                    unsigned mask = abs.residues_in_pass(sm->m_view.m_state);
+                    if (mask == full)
+                        continue;
+                    pk_row row;
+                    row.m_mask = mask;
+                    row.m_dep = sm->m_dep;
+                    scan_side(m, u, sm->m_str, sigma, 1, row);
+                    rows.push_back(row);
+                }
+                if (rows.empty())
+                    continue; // Equation-only refutation belongs to the abelian rule.
+                for (auto const* eq : eqs) {
+                    pk_row row;
+                    row.m_mask = 1u;
+                    row.m_dep = eq->m_dep;
+                    scan_side(m, u, eq->m_lhs, sigma, 1, row);
+                    scan_side(m, u, eq->m_rhs, sigma, -1, row);
+                    rows.push_back(row);
+                }
+                unsigned_vector vars;
+                u_map<unsigned> slot;
+                for (auto const& row : rows)
+                    for (auto const& kv : row.m_coeff) {
+                        if (kv.m_value % modulus == 0 || slot.contains(kv.m_key))
+                            continue;
+                        slot.insert(kv.m_key, vars.size());
+                        vars.push_back(kv.m_key);
+                    }
+
+                unsigned space = 1;
+                for (unsigned i = 0; i < vars.size() && space <= 1000000; ++i)
+                    space *= modulus;
+                if (space > 1000000)
+                    continue;
+
+                vector<unsigned_vector> dense;
+                unsigned_vector consts;
+                for (auto const& row : rows) {
+                    unsigned_vector v;
+                    v.resize(vars.size(), 0);
+                    for (auto const& kv : row.m_coeff) {
+                        unsigned idx = 0;
+                        if (slot.find(kv.m_key, idx)) {
+                            int64_t c = kv.m_value % modulus;
+                            if (c < 0)
+                                c += modulus;
+                            v[idx] = static_cast<unsigned>(c);
+                        }
+                    }
+                    dense.push_back(v);
+                    int64_t k = row.m_const % modulus;
+                    if (k < 0)
+                        k += modulus;
+                    consts.push_back(static_cast<unsigned>(k));
+                }
+                unsigned_vector asg;
+                asg.resize(vars.size(), 0);
+                bool feasible = false;
+                while (true) {
+                    if (!m.limit().inc())
+                        throw default_exception(m.limit().get_cancel_msg());
+                    bool ok = true;
+                    for (unsigned i = 0; ok && i < rows.size(); ++i) {
+                        unsigned t = consts[i];
+                        for (unsigned j = 0; j < vars.size(); ++j)
+                            t += dense[i][j] * asg[j];
+                        ok = (rows[i].m_mask >> (t % modulus)) & 1;
+                    }
+                    if (ok) {
+                        feasible = true;
+                        break;
+                    }
+                    unsigned j = 0;
+                    for (; j < vars.size(); ++j) {
+                        if (++asg[j] < modulus)
+                            break;
+                        asg[j] = 0;
+                    }
+                    if (j == vars.size())
+                        break;
+                }
+                if (!feasible) {
+                    for (auto const& row : rows)
+                        dep = m_dm.mk_join(dep, row.m_dep);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     // Intentionally not restricted to plain memberships: single-variable
     // reach views must also participate in `m_vw`'s joint feasibility
@@ -308,6 +543,12 @@ namespace seq {
         auto& sf = ac.solver_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
+        eq_tree::dep_tracker letter_dep = nullptr;
+        if (f.check_letter_conflict(ac.eq_facet_ref(), letter_dep)) {
+            ++m_stats.m_num_letter_refuted;
+            n.set_conflict(stx::br_plugin_base, letter_dep);
+            return stx::simplify_result::conflict;
+        }
         // Check length consequences before derivative products or witness search.
         for (unsigned i = f.qhead(); i < f.memberships().size(); ++i) {
             auto const& sm = f.memberships()[i];

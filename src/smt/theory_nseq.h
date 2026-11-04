@@ -121,6 +121,7 @@ namespace smt {
 
         unsigned m_num_conflicts = 0;
         unsigned m_num_final_checks = 0;
+        unsigned m_num_letter_refuted = 0;
         unsigned m_num_unhandled = 0;
 
         // required virtual methods

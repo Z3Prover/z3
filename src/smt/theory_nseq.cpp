@@ -789,6 +789,12 @@ namespace smt {
         }
 
         flush_assigned_literals();
+        seq::eq_tree::dep_tracker letter_dep = nullptr;
+        if (m_ambient->mem_facet(*m_root).check_letter_conflict(m_ambient->eq_facet(*m_root), letter_dep)) {
+            ++m_num_letter_refuted;
+            report_conflict(letter_dep);
+            return FC_CONTINUE;
+        }
         // Instantiate any newly enabled stoi coherence axioms first.
         bool stoi_progress = !check_stoi_coherence();
         bool root_asked = false;
@@ -929,6 +935,7 @@ namespace smt {
     void theory_nseq::collect_statistics(::statistics& st) const {
         st.update("nseq final checks", m_num_final_checks);
         st.update("nseq conflicts", m_num_conflicts);
+        st.update("nseq root letter-count refutations", m_num_letter_refuted);
         seq::ho_facet const& hf = m_ambient->ho_facet(*m_root);
         st.update("nseq length axioms", hf.num_length_axioms());
         st.update("nseq ho unfolds", hf.num_ho_unfolds());

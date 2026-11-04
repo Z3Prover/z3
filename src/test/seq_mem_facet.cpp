@@ -18,6 +18,7 @@ Abstract:
 #include "ast/seq/seq_assumption_facet.h"
 #include "smt/seq_solver_facet.h"
 #include "util/rlimit.h"
+#include "util/z3_exception.h"
 #include <iostream>
 
 namespace {
@@ -82,6 +83,221 @@ namespace {
         }
         ENSURE(found);
         return *found;
+    }
+
+    // All words over {a,b,c} with #letter == residue (mod modulus).
+    static expr_ref count_regex(fixture& f, char letter, unsigned modulus, unsigned residue) {
+        expr_ref other(f.u.re.mk_empty(f.u.re.mk_re(f.u.str.mk_string_sort())), f.m);
+        for (char c : {'a', 'b', 'c'})
+            if (c != letter) {
+                char text[] = {c, 0};
+                expr_ref r(f.u.re.mk_to_re(f.u.str.mk_string(text)), f.m);
+                other = f.u.re.mk_union(other, r);
+            }
+        other = f.u.re.mk_star(other);
+        char text[] = {letter, 0};
+        expr_ref one(f.u.re.mk_to_re(f.u.str.mk_string(text)), f.m);
+        one = f.u.re.mk_concat(one, other);
+        expr_ref period(f.u.re.mk_loop(one, modulus, modulus), f.m);
+        period = f.u.re.mk_star(period);
+        expr_ref re(f.u.re.mk_concat(other, period), f.m);
+        for (unsigned i = 0; i < residue; ++i)
+            re = f.u.re.mk_concat(re, one);
+        return re;
+    }
+
+    static void tst_letter_count_benchmark(bool mod5) {
+        fixture f;
+        expr_ref_vector x(f.m);
+        for (unsigned i = 0; i < 3; ++i)
+            x.push_back(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()));
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& dm = f.tree.dep_mgr();
+        auto add = [&](std::initializer_list<unsigned> ids, char const* constant, unsigned residue, unsigned dep) {
+            expr_ref_vector ts(f.m);
+            for (unsigned i : ids)
+                ts.push_back(x.get(i));
+            // Keep a concrete string token as well as the usual exploded units.
+            ts.push_back(f.u.str.mk_string(constant));
+            expr_ref re = count_regex(f, mod5 ? 'b' : 'a', mod5 ? 5 : 3, residue);
+            mf.add(seq::str_mem(f.m, ts, seq::view::membership(re, f.m), dm.mk_leaf(dep)));
+        };
+        if (mod5) {
+            // Reduced easy_unsat0026, including its constant offsets.
+            add({0, 1, 2}, "cabcc", 3, 1);
+            add({2, 2, 0}, "bbb", 4, 2);
+            add({0, 0, 1, 2}, "aa", 0, 3);
+            add({0, 2}, "c", 1, 4);
+        }
+        else {
+            // Reduced medium_unsat0057: four cross-subject membership rows.
+            add({1, 1, 2}, "", 1, 1);
+            add({1, 2}, "", 1, 2);
+            add({0, 1, 2, 2}, "", 1, 3);
+            add({0, 2, 2}, "", 0, 4);
+        }
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(mf.check_letter_conflict(ef, dep));
+        for (unsigned i = 1; i <= 4; ++i)
+            ENSURE(dm.contains(dep, i));
+        // Also exercise production branch propagation, before witness search.
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) == stx::simplify_result::conflict);
+        ENSURE(!mf.witness_extracted());
+    }
+
+    static void tst_letter_count_equations_scopes() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", f.u.str.mk_string_sort()), f.m);
+        expr_ref even = count_regex(f, 'a', 2, 0);
+        expr_ref odd = count_regex(f, 'a', 2, 1);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& dm = f.tree.dep_mgr();
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(even, f.m), dm.mk_leaf(1)));
+        mf.add(seq::str_mem(f.m, y, seq::view::membership(odd, f.m), dm.mk_leaf(2)));
+        seq::eq_tree::dep_tracker dep = nullptr;
+        // A previously materialized epsilon witness must NOT fix a free count.
+        mf.set_witness(y, f.u.str.mk_string(""));
+        ENSURE(!mf.check_letter_conflict(ef, dep) && !dep);
+        f.trail.push_scope();
+        ef.add_equation(x, y, dm.mk_leaf(3));
+        ENSURE(mf.check_letter_conflict(ef, dep));
+        for (unsigned i : {1u, 2u, 3u})
+            ENSURE(dm.contains(dep, i));
+        ef.remove_equation_trailed(0);
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        f.trail.pop_scope(1);
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        f.trail.push_scope();
+        expr_ref_vector repl(f.m);
+        repl.push_back(y);
+        mf.apply_subst(x, repl, dm.mk_leaf(4));
+        ENSURE(mf.check_letter_conflict(ef, dep));
+        ENSURE(dm.contains(dep, 1) && dm.contains(dep, 2) && dm.contains(dep, 4));
+        // apply_subst leaves the original membership inactive.
+        mf.remove(2);
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        f.trail.pop_scope(1);
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+    }
+
+    static void tst_letter_count_constants() {
+        fixture f;
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& dm = f.tree.dep_mgr();
+        expr_ref even = count_regex(f, 'a', 2, 0);
+        expr_ref odd = count_regex(f, 'a', 2, 1);
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(even, f.m), dm.mk_leaf(1)));
+        expr_ref unit(f.u.str.mk_unit(f.u.mk_char('a')), f.m);
+        expr_ref rhs(f.u.str.mk_concat(f.u.str.mk_string("aa"), unit), f.m);
+        ef.add_equation(x, rhs, dm.mk_leaf(2));
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(mf.check_letter_conflict(ef, dep));
+        ENSURE(dm.contains(dep, 1) && dm.contains(dep, 2));
+        // Negative equation constants and a closed zero-variable row.
+        f.trail.push_scope();
+        ef.remove_equation_trailed(0);
+        mf.remove(0);
+        mf.add(seq::str_mem(f.m, f.u.str.mk_string("aa"), seq::view::membership(odd, f.m), dm.mk_leaf(3)));
+        ENSURE(mf.check_letter_conflict(ef, dep) && dm.contains(dep, 3));
+        f.trail.pop_scope(1);
+    }
+
+    static void tst_letter_count_opaque_tokens() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", f.u.str.mk_string_sort()), f.m);
+        expr_ref zero(f.a.mk_int(0), f.m);
+        expr_ref opaque(f.u.str.mk_at(x, zero), f.m);
+        expr_ref symbol(f.m.mk_fresh_const("ch", f.u.mk_char_sort()), f.m);
+        expr_ref unit(f.u.str.mk_unit(symbol), f.m);
+        expr_ref odd = count_regex(f, 'a', 2, 1);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& dm = f.tree.dep_mgr();
+        mf.add(seq::str_mem(f.m, opaque, seq::view::membership(odd, f.m), dm.mk_leaf(1)));
+        mf.add(seq::str_mem(f.m, unit, seq::view::membership(odd, f.m), dm.mk_leaf(2)));
+        mf.set_witness(opaque, f.u.str.mk_string(""));
+        mf.set_witness(unit, f.u.str.mk_string(""));
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        // The shared opaque token has coefficient two across the subject.
+        expr_ref doubled(f.u.str.mk_concat(opaque, opaque), f.m);
+        expr_ref term(f.u.str.mk_concat(doubled, y), f.m);
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(odd, f.m), dm.mk_leaf(3)));
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        ef.add_equation(y, unit, dm.mk_leaf(4));
+        ENSURE(!mf.check_letter_conflict(ef, dep)); // 2*odd + odd remains odd.
+        expr_ref even = count_regex(f, 'a', 2, 0);
+        f.trail.push_scope();
+        mf.remove(2);
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(even, f.m), dm.mk_leaf(5)));
+        ENSURE(mf.check_letter_conflict(ef, dep));
+        ENSURE(dm.contains(dep, 2) && dm.contains(dep, 4) && dm.contains(dep, 5));
+        f.trail.pop_scope(1);
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+    }
+
+    static void tst_letter_count_fallbacks() {
+        fixture f;
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        sort_ref re_sort(f.u.re.mk_re(a->get_sort()), f.m);
+        expr_ref empty(f.u.re.mk_empty(re_sort), f.m);
+        expr_ref target(f.u.re.mk_to_re(a), f.m);
+        mf.add(seq::str_mem(f.m, a, seq::view::reach(empty, target, f.m)));
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        expr_ref unknown(f.m.mk_fresh_const("R", re_sort), f.m);
+        mf.add(seq::str_mem(f.m, a, seq::view::membership(unknown, f.m)));
+        ENSURE(!mf.check_letter_conflict(ef, dep));
+        sort_ref ints(f.u.str.mk_seq(f.a.mk_int()), f.m);
+        sort_ref int_re(f.u.re.mk_re(ints), f.m);
+        expr_ref i(f.u.str.mk_unit(f.a.mk_int(97)), f.m);
+        expr_ref int_empty(f.u.re.mk_empty(int_re), f.m);
+        mf.add(seq::str_mem(f.m, i, seq::view::membership(int_empty, f.m)));
+        ef.add_equation(i, f.u.str.mk_empty(ints));
+        ENSURE(!mf.check_letter_conflict(ef, dep) && !dep);
+        expr_ref_vector ts(f.m);
+        for (unsigned j = 0; j < 20; ++j)
+            ts.push_back(f.m.mk_fresh_const("x", a->get_sort()));
+        expr_ref even = count_regex(f, 'a', 2, 0);
+        expr_ref odd = count_regex(f, 'a', 2, 1);
+        mf.add(seq::str_mem(f.m, ts, seq::view::membership(even, f.m)));
+        mf.add(seq::str_mem(f.m, ts, seq::view::membership(odd, f.m)));
+        // 2^20 exceeds the assignment budget; decline, not refute.
+        ENSURE(!mf.check_letter_conflict(ef, dep) && !dep);
+        bool canceled = false;
+        {
+            scoped_rlimit limit(f.m.limit(), 1);
+            try { mf.check_letter_conflict(ef, dep); }
+            catch (default_exception const&) { canceled = true; }
+        }
+        ENSURE(canceled);
+    }
+
+    static void tst_letter_count_regex_depth() {
+        for (unsigned nesting : {254u, 256u, 16384u}) {
+            fixture f;
+            auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+            auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+            expr_ref a(f.u.str.mk_string("a"), f.m);
+            expr_ref re(f.u.re.mk_empty(f.u.re.mk_re(a->get_sort())), f.m);
+            for (unsigned i = 0; i < nesting; ++i)
+                re = f.u.re.mk_complement(re);
+            ENSURE(get_depth(re) == nesting + 1);
+            mf.add(seq::str_mem(f.m, a, seq::view::membership(re, f.m)));
+            seq::eq_tree::dep_tracker dep = nullptr;
+            // An even number of complements of empty remains empty, but the
+            // consumer must decline deep regexes before the recursive abstraction.
+            ENSURE(mf.check_letter_conflict(ef, dep) == (nesting == 254));
+        }
     }
 
     static void tst_trivial_sat() {
@@ -455,6 +671,13 @@ namespace {
 }
 
 void tst_seq_mem_facet() {
+    tst_letter_count_benchmark(false);
+    tst_letter_count_benchmark(true);
+    tst_letter_count_equations_scopes();
+    tst_letter_count_constants();
+    tst_letter_count_opaque_tokens();
+    tst_letter_count_fallbacks();
+    tst_letter_count_regex_depth();
     tst_trivial_sat();
     tst_dead_unsat();
     tst_single_var_sat();

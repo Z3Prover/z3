@@ -21,6 +21,12 @@ Abstract:
     Substitutions chosen elsewhere are broadcast through `subst_sink_i` so
     pending memberships stay synchronized with the shared variable pool.
 
+    Before derivative/witness search (and the theory's root monadic precheck),
+    `check_letter_conflict` checks bounded modular-row consistency using
+    `profile_abs`. It combines active plain String memberships with
+    active equations; unsupported/deep regex rows and oversized residue spaces
+    are conservatively ignored, while resource exhaustion propagates cancellation.
+
     This facet does not implement regex factorization. Membership-side
     splitting is driven entirely by `mem_monadic_split`, which narrows views
     one membership at a time and leaves witness materialization to
@@ -135,6 +141,11 @@ namespace seq {
         vector<str_mem> const& memberships() const { return m_mems; }
         view_witness& vw() { return m_vw; }
 
+        // Bounded per-letter congruence filter over active String memberships
+        // and equations. Opaque tokens are shared, free residue variables.
+        // A false result is inconclusive; a true result joins all row deps.
+        bool check_letter_conflict(eq_facet const& equations, eq_tree::dep_tracker& dep) const;
+
         bool is_single_var_plain(str_mem const& sm) const {
             return sm.m_str.size() == 1 && m_ac.is_var(sm.m_str.get(0));
         }
@@ -183,6 +194,7 @@ namespace seq {
         seq::monadic    m_mon;
         struct stats {
             unsigned m_num_propagate = 0;
+            unsigned m_num_letter_refuted = 0;
             unsigned m_num_length_axioms = 0;
             unsigned m_num_monadic_asked = 0;
             unsigned m_num_monadic_refuted = 0;
@@ -205,6 +217,7 @@ namespace seq {
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {
             st.update("seq-mem-propagate num calls", m_stats.m_num_propagate);
+            st.update("seq-mem-letter-count num refuted", m_stats.m_num_letter_refuted);
             st.update("seq-mem-propagate num length axioms", m_stats.m_num_length_axioms);
             st.update("seq-mem-monadic-endgame num asked", m_stats.m_num_monadic_asked);
             st.update("seq-mem-monadic-endgame num refuted", m_stats.m_num_monadic_refuted);
