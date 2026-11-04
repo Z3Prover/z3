@@ -233,9 +233,8 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
   lemma_forall_model u sch i;
   lemma_forall_elimination_model u sch i;
   lemma_exists_model u sch i;
-  if SP.needs_real_semantics sch doc.P.entries then (
-    SP.lemma_needs_real_primitive sch doc.P.entries;
-    RR.lemma_root_real_model u sch i);
+  if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
+  if SP.needs_real_semantics sch doc.P.entries then SP.lemma_needs_real_primitive sch doc.P.entries;
   SP.lemma_check_document sch (TR.booleans u) (SR.root_scalars u) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 

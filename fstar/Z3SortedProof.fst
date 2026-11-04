@@ -1650,10 +1650,11 @@ let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
    keeps the previous treatment. *)
-let nnf_verdict (assertions:list expr) (node:U.proof_node) : NR.verdict =
+let nnf_verdict (s:S.checked_schema) (assertions:list expr) (node:U.proof_node) : NR.verdict =
   match node.U.kind with
   | U.QuantifierIntroduction c ->
-    if Nil? node.U.premises then NR.replay assertions c node.U.conclusion else NR.Unreplayed
+    if Nil? node.U.premises then NR.replay_with (RL.real_primitive s) assertions c node.U.conclusion
+    else NR.Unreplayed
   | _ -> NR.Unreplayed
 
 let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1670,7 +1671,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     then Some ({ U.conclusion = node.conclusion; hypotheses = [conclusion] }, 0)
     else None
   | _ ->
-    let nnf = nnf_verdict assertions node in
+    let nnf = nnf_verdict s assertions node in
     (* A certificate whose premise ids are not earlier entries is a malformed
        proof entry, reported as a rejection rather than as a pending step. *)
     if nnf = NR.Malformed then None else
@@ -1717,12 +1718,13 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
                    (assertions:list expr) (node:U.proof_node)
   : Lemma (requires T.truths s bc eq other assertions /\
                     Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (RL.real_primitive s ==> RL.real_model s bc eq other) /\
                     boolean_expression s (proposition node.conclusion) /\
-                    nnf_verdict assertions node == NR.Replayed)
+                    nnf_verdict s assertions node == NR.Replayed)
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.kind with
   | U.QuantifierIntroduction c ->
-    NR.lemma_replay s bc eq other assertions c node.conclusion;
+    NR.lemma_replay_with s bc eq other (RL.real_primitive s) assertions c node.conclusion;
     (match node.conclusion with
      | U.Equal a b | U.Observational a b ->
        V.lemma_sort_eq (get_sort b) (get_sort a);
@@ -1766,7 +1768,9 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                     facts_valid s node.premises /\
                     (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
                     (quantifier_flattening node ==> Q.forall_model s bc other) /\
-                    (U.QuantifierIntroduction? node.kind ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (U.QuantifierIntroduction? node.kind ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
                     (real_node s node ==> RL.real_model s bc eq other) /\
                     check_node_cached s assertions node == Some (fact, 0))
           (ensures fact_holds s bc eq other fact) =
@@ -1809,7 +1813,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
           assert_norm (T.cut 1 R.false_expr == B.Bool false);
           T.lemma_cut s bc eq other 1 R.false_expr)
       | _ -> ())
-    else if nnf_verdict assertions node = NR.Replayed then
+    else if nnf_verdict s assertions node = NR.Replayed then
       lemma_nnf_node s bc eq other assertions node
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
@@ -1958,7 +1962,9 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
                     (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth entries ==> Q.forall_model s bc other) /\
-                    (needs_binder_semantics entries ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (needs_binder_semantics entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
                     (needs_real_semantics s entries ==> RL.real_model s bc eq other) /\
                     check_entries s assertions cache next pending entries == Some (result, 0))
           (ensures cache_sound s bc eq other result)
@@ -1983,7 +1989,9 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   : Lemma (requires check_document s doc == Some 0 /\
                     (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth doc.entries ==> Q.forall_model s bc other) /\
-                    (needs_binder_semantics doc.entries ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (needs_binder_semantics doc.entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
                     (needs_real_semantics s doc.entries ==> RL.real_model s bc eq other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
