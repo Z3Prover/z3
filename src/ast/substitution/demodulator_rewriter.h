@@ -144,12 +144,10 @@ public:
 
     /**
        \brief After a successful match via operator()(lhs, rhs, args, new_rhs),
-       retrieve the ground term bound to the lhs-side variable with de Bruijn
+       retrieve the term bound to the lhs-side variable with de Bruijn
        index \c var_idx (lhs variables live in bank 0). Returns false if the
        variable was not bound by the match (e.g. it does not occur in lhs).
-       The caller is responsible for checking that the returned term is
-       actually ground (ensured here whenever the matched application itself
-       is ground, since the binding is always a subterm of that application).
+       Bindings may contain free variables of the matched application.
     */
     bool get_binding(unsigned var_idx, expr_ref& r) const {
         expr_offset eo;
@@ -332,5 +330,4 @@ public:
      Note: m_processed should be obj_hashtable<expr> since we want to remove elements from there efficiently.
     */    
 };
-
 
