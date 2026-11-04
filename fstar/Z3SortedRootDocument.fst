@@ -30,10 +30,14 @@ module Z3SortedRootDocument
    (non-empty for every u and schema, TR.lemma_root_inhabited). The Sorted
    layers interpret the Boolean core, Int numerals/+/*/-/comparisons and
    the datatype operations; on root models these ARE R2/R4/R5/R6
-   (Z3SortedRoot). Every other operator (Real arithmetic, select/store/
-   lambda, distinct, div/mod, BV/FF/Seq/FP, ...) is passed to i untouched,
-   so the checker reasons about it only by congruence (it is a free symbol
-   of the Sorted proof); no theory law is used for it.
+   (Z3SortedRoot). The typed Int/Real Farkas replay (SP.real_farkas) reads
+   the Sorted Real laws (Z3SortedReal.real_model), which are DERIVED from R2
+   of the same i whenever the executed schema gate RL.real_primitive holds
+   (Z3SortedRealRoot.lemma_root_real_model), never assumed. Every other
+   operator (select/store/lambda, distinct, div/mod, BV/FF/Seq/FP, ...) is
+   passed to i untouched, so the checker reasons about it only by
+   congruence (it is a free symbol of the Sorted proof); no theory law is
+   used for it.
 
    Binder certificates (Z3NnfReplay, read by SP.check_node_cached): the
    replay's quantifier laws (Q.forall_model and E.exists_model) are derived
@@ -66,6 +70,8 @@ module SK = Z3Skolemization
 module NR = Z3NnfReplay
 module R = Z3ResolutionProofTheory
 module DS = Z3SortedDependentSkolem
+module RL = Z3SortedReal
+module RR = Z3SortedRealRoot
 
 (* ---------------------------------------------------------------------- *)
 (* 1. Quantifier hypotheses of Z3SortedQuantifier, from R1                  *)
@@ -186,11 +192,12 @@ let rec lemma_truths_agreement (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR
 (* Every rule path of Z3SortedProof.check_node_cached that reports no
    pending obligation (Asserted, Hypothesis, quantifier instantiation,
    flattening, lemma discharge, the NNF certificate replay, the
-   propositional, equality, congruence, Int-arithmetic and datatype
-   consequence kernels, and the recomputed linear Int consequence) preserves
-   the truth of the checked fact in the
+   propositional, equality, congruence, Int-arithmetic, typed Int/Real
+   Farkas and datatype consequence kernels, and the recomputed linear Int
+   consequence) preserves the truth of the checked fact in the
    Sorted interpretation over i. Its quantifier hypotheses (universal,
-   elimination and existential) are DERIVED from R1 (section 1). This is the
+   elimination and existential) are DERIVED from R1 (section 1) and its Real
+   laws from R2 (Z3SortedRealRoot), both of the same i. This is the
    NODE theorem; the document theorem (section 4) is its induction over the
    actual DAG. *)
 let lemma_root_check_node (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
@@ -204,6 +211,7 @@ let lemma_root_check_node (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.inte
   lemma_forall_model u sch i;
   lemma_forall_elimination_model u sch i;
   lemma_exists_model u sch i;
+  if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
   SP.lemma_check_node_cached sch (TR.booleans u) (SR.root_scalars u) i assertions node fact
 
 (* ---------------------------------------------------------------------- *)
@@ -216,8 +224,8 @@ let lemma_root_check_node (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.inte
    root fact `false` with no open hypothesis, total pending count 0)
    returns Some 0, then the original assertions are not all true in i.
    Proved by the existing induction SP.lemma_check_document; its only model
-   hypotheses (forall semantics) are derived from R1; no cache or body
-   truth is assumed. *)
+   hypotheses (forall semantics, Real laws) are derived from R1 and R2; no
+   cache or body truth is assumed. *)
 let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
                               (doc:P.document)
   : Lemma (requires TR.root_model u sch i /\ SP.check_document sch doc == Some 0)
@@ -225,6 +233,9 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
   lemma_forall_model u sch i;
   lemma_forall_elimination_model u sch i;
   lemma_exists_model u sch i;
+  if SP.needs_real_semantics sch doc.P.entries then (
+    SP.lemma_needs_real_primitive sch doc.P.entries;
+    RR.lemma_root_real_model u sch i);
   SP.lemma_check_document sch (TR.booleans u) (SR.root_scalars u) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 
@@ -241,7 +252,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    rule it distinguishes exactly seven shapes (check_node_cached:
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
    with its argument list, ArithmeticFarkas WITH its coefficient list,
-   which SP.arithmetic_farkas replays, and QuantifierIntroduction WITH its
+   which SP.arithmetic_farkas and SP.real_farkas replay, and QuantifierIntroduction WITH its
    binder certificate, which the certificate replay (Z3NnfReplay,
    SP.nnf_verdict) reads when its root is nnf-neg, nnf-pos or quant-intro);
    the epsilon route (check_document_epsilon, section 6) also distinguishes
@@ -259,7 +270,9 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    declarations/expressions tables and every other payload. So the covered
    terms below (assertions, entry formulas, instantiation arguments and the
    entry formulas of consumed certificates) are all DOCUMENT terms the
-   checker reads; the Farkas coefficients are numbers, not terms. The
+   checker reads; the Farkas coefficients are numbers, not terms, and the
+   atoms of a typed Int/Real Farkas replay are subterms of covered premise
+   and conclusion formulas. The
    checker also builds internal terms of its own
    (the canonical false, equality and Boolean wrappers, field equalities, the
    instances of instantiation and the Int bounds x <= y, x >= y of the linear
@@ -271,7 +284,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
 let rule_shape (r:U.rule) : U.rule =
   match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.Skolemization | U.QuantifierIntroduction _ -> r
+  | U.ArithmeticFarkas _ | U.RewriteRule | U.Skolemization | U.QuantifierIntroduction _ -> r
   | _ -> U.Unverified "payload-erased"
 
 let shape_entry (e:P.entry) : P.entry = { e with P.rule = rule_shape e.P.rule }
@@ -286,10 +299,12 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
   match node.U.kind with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
-  | U.ArithmeticFarkas _ | U.Skolemization | U.QuantifierIntroduction _ -> ()
+  | U.ArithmeticFarkas _ | U.RewriteRule | U.Skolemization | U.QuantifierIntroduction _ -> ()
   | _ ->
     let node' = { node with U.kind = rule_shape node.U.kind } in
     assert (not (SP.arithmetic_farkas node) /\ not (SP.arithmetic_farkas node'));
+    assert (not (SP.real_farkas s node) /\ not (SP.real_farkas s node'));
+    assert (not (SP.real_rewrite s node) /\ not (SP.real_rewrite s node'));
     assert (not (SP.lemma_step node) /\ not (SP.lemma_step node'));
     assert (not (SP.quantifier_instantiation node) /\ not (SP.quantifier_instantiation node'));
     assert (not (SP.quantifier_flattening node) /\ not (SP.quantifier_flattening node'))
@@ -566,14 +581,17 @@ let lemma_standard_selected (u:TR.uninterpreted) (sch:S.checked_schema) (uf:TR.s
    epsilon route accepts (Some 0), the ORIGINAL assertions are not all
    root-true in i. SP.lemma_check_document_epsilon is instantiated with
    root_choice and with the universal AND existential laws of the SAME i
-   (derived from R1, never assumed); its fresh extensions of i are internal
-   to its proof (6c shows they are root models again). *)
+   (derived from R1, never assumed) and its Real laws (derived from R2 when
+   the schema gate holds); its fresh extensions of i are internal to its
+   proof (6c shows they are root models again; the Real laws transfer by
+   SP.lemma_full_extension_real_model). *)
 let lemma_root_check_document_epsilon (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
                                       (doc:P.document)
   : Lemma (requires TR.root_model u sch i /\ SP.check_document_epsilon sch doc == Some 0)
           (ensures not (root_truths u sch i doc.P.assertions)) =
   lemma_forall_model u sch i;
   lemma_exists_model u sch i;
+  if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
   SP.lemma_check_document_epsilon sch (TR.booleans u) (SR.root_scalars u) (root_choice u sch) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 
@@ -827,6 +845,33 @@ let lemma_root_epsilon_extension (u:TR.uninterpreted) (sch:S.checked_schema) (i:
   lemma_truths_agreement u sch j doc.P.assertions;
   lemma_truths_agreement u sch j (SP.epsilon_equations sch ds doc.P.entries);
   lemma_truths_agreement u sch j (DS.closures sch dds)
+
+(* 6d'. The same extension keeps every canonical Real operator: in i and in
+   its epsilon extension, every Real numeral, sum, difference, product,
+   to_real and comparison has the same Sorted application, and the Real laws
+   derived from R2 hold in the extension too (it is a root model again). *)
+let lemma_epsilon_real_laws (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
+                            (doc:P.document)
+  : Lemma (requires TR.root_model u sch i /\ RL.real_primitive sch)
+          (ensures RL.real_laws sch (TR.booleans u) (SR.root_scalars u)
+                     (epsilon_extension u sch i doc) (RR.root_reals u)) =
+  lemma_root_epsilon_extension u sch i doc;
+  RR.lemma_root_real_laws u sch (epsilon_extension u sch i doc)
+
+let lemma_epsilon_real_agreement (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.interp u sch)
+                                 (doc:P.document) (f:func_decl) (xs:TR.targuments u sch f.domain)
+  : Lemma (requires TR.root_model u sch i /\ RL.real_primitive sch /\
+                    (RL.Numeral? (RL.classify f) \/ RL.Calculate? (RL.classify f) \/
+                     RL.ToReal? (RL.classify f) \/ RL.Compare? (RL.classify f)))
+          (ensures T.application sch (TR.booleans u) (SR.root_scalars u) (epsilon_extension u sch i doc) f xs ==
+                   T.application sch (TR.booleans u) (SR.root_scalars u) i f xs) =
+  let j = epsilon_extension u sch i doc in
+  lemma_root_epsilon_extension u sch i doc;
+  SR.lemma_application_agreement u sch i f xs;
+  SR.lemma_application_agreement u sch j f xs;
+  RR.lemma_real_classify sch f;
+  TR.lemma_operator i f xs;
+  TR.lemma_operator j f xs
 
 (* 6e. The root gate of the epsilon route (pure, OFF the default route): the
    decision of SP.check_document_epsilon is reused unchanged; coverage is

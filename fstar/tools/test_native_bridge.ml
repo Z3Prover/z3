@@ -2987,6 +2987,84 @@ let sorted_integer_farkas () =
     { node with U.conclusion = Option.get (U.classify_fact y); premises = [fact x] }))
     "typed Farkas accepted a positive conclusion literal as an assumption"
 
+(* Typed Int/Real Farkas replay (Z3SortedRealLinear.check_numeric_contradiction and the dispatch
+   K.real_farkas, tried after the unchanged Int path): marshalled native expressions, exact supplied
+   weights. Real strict bounds stay strict (0 < x < 1 is satisfiable at x = 1/2), a zero weight never
+   supplies strictness, the weights must cancel, and a counterfeit operator, a same-spelled distinct
+   constant, a dropped premise or a datatype named Real are refused; a negative inequality weight is
+   read as its magnitude, as on the Int path. A real producer proof of x > 0, x <= 0 is certified on
+   the Sorted route. *)
+let sorted_real_farkas () =
+  let module K = Z3SortedProof in
+  let module LIN = Z3SortedRealLinear in
+  let module AR = Z3SortedArithmetic in
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+    "(declare-const x Real)(declare-const y Real)(declare-const n Int)\
+     (assert (> x 0.0))(assert (<= x 0.0))(assert (< 0.0 x))(assert (< x 1.0))\
+     (assert (< x y))(assert (<= y x))(assert (<= x y))\
+     (assert (> (to_real n) 0.0))(assert (<= n 0))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let expressions = List.map (B.cached_expression st) native in
+  let pos, nonpos, low, high, lt, ge_rev, le, mixed_pos, int_nonpos = match expressions with
+    | [a; b; c; d; e; f; g; h; i] -> a, b, c, d, e, f, g, h, i
+    | _ -> failwith "expected Real Farkas regression formulas" in
+  let w n d = Z.of_int n, Z.of_int d in
+  let one = w 1 1 in
+  let check expected formulas weights =
+    require (LIN.check_numeric_contradiction schema (List.map (fun e -> true, e) formulas) weights = expected)
+      "unexpected typed Real Farkas certificate verdict" in
+  check true [pos; nonpos] [one; one];
+  check false [low; high] [one; one];
+  check false [low; high] [w 2 3; w 2 3];
+  check true [lt; ge_rev] [one; one];
+  check false [le; ge_rev] [one; one];
+  check false [lt; ge_rev] [w 0 1; one];
+  check true [lt; ge_rev] [w 1 2; w 2 4];
+  check false [lt; ge_rev] [w 1 2; w 3 7];
+  check false [pos; nonpos] [w 2 1; one];
+  check true [lt; ge_rev] [w (-1) 2; w 1 2];
+  check false [pos] [one];
+  check true [mixed_pos; int_nonpos] [one; one];
+  require (not (AR.check_contradiction [true, pos; true, nonpos] [one; one]))
+    "the Int Farkas path accepted Real literals";
+  let rename f e = match e with A.App (g, args) -> A.App (f g, args) | _ -> failwith "expected an application" in
+  check false [rename (fun g -> { g with A.interp = None }) pos; nonpos] [one; one];
+  let real_sort, twin = match nonpos with
+    | A.App (g, [A.App (k, []); zero]) ->
+        k.A.range, A.App (g, [A.App ({ k with A.int_params = [Z.of_int 7] }, []); zero])
+    | _ -> failwith "expected x <= 0" in
+  check false [pos; twin] [one; one];
+  let fact formula = { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [] } in
+  let node weights premises =
+    { U.kind = U.ArithmeticFarkas weights; conclusion = Option.get (U.classify_fact R.false_expr);
+      premises = List.map fact premises } in
+  require (K.real_farkas schema (node [one; one] [pos; nonpos]) &&
+           not (K.arithmetic_farkas (node [one; one] [pos; nonpos])))
+    "typed Real Farkas dispatch did not replay the certificate";
+  (match K.check_node schema [] (node [one; one] [pos; nonpos]) with
+   | Some (_, pending) -> require (Z.equal pending Z.zero) "typed Real Farkas retained an obligation"
+   | None -> failwith "typed Real Farkas rejected well-sorted premises");
+  (match K.check_node schema [] (node [one; one] [low; high]) with
+   | Some (_, pending) -> require (Z.gt pending Z.zero) "satisfiable Real bounds were refuted"
+   | None -> failwith "typed Real Farkas rejected well-sorted premises");
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype) "the Real datatype schema is not a checked schema";
+  require (not (K.real_farkas real_datatype (node [one; one] [pos; nonpos])))
+    "typed Real Farkas ignored a datatype named Real";
+  let assertions, proof = unsat "(declare-const x Real)(assert (> x 0.0))(assert (<= x 0.0))" in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (K.check_document_epsilon schema doc = Some Z.zero)
+    "the producer's Real Farkas refutation was not certified on the Sorted route"
+
 (* The Sorted route replays the NNF certificates the producer emits (Z3NnfReplay): no
    certificate rooted at nnf-neg/nnf-pos is left pending in these proofs (negated exists,
    the synthetic ite/iff/xor/implication/nested-duality probes, a datatype binder; each
@@ -7085,6 +7163,7 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-real-Farkas", sorted_real_farkas;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;

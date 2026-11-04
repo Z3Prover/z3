@@ -407,6 +407,25 @@ SORTED_LINEAR_SATISFIABLE_CASES = (
 # frontend does not decide the quantified prefix (UNKNOWN), which is not a checked result.
 FSTAR_INTEGER_INTERVALS_Q4 = "fstar-integer-intervals-q4.smt2"
 
+# Typed Real certificates on the Sorted route (--sorted-core, and a query whose datatype selects the
+# sorted-datatype semantics): the producer's Real Farkas weights replayed by the typed Int/Real check
+# (Real strict bounds stay strict, Int literals under to_real rounded as Int) and its premise-free Real
+# rewrite equations ((x > 0) = not (x <= 0), (to_real 0) = 0) proved by the Real normal forms.
+SORTED_REAL_CASES = (
+    ("strict-conflict", "(declare-const x Real)(assert (> x 0.0))(assert (<= x 0.0))"),
+    ("strict-pair", "(declare-const x Real)(declare-const y Real)(assert (< x y))(assert (<= y x))"),
+    ("sum-of-positives", "(declare-const x Real)(declare-const y Real)"
+     "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))"),
+    ("datatype-field", "(declare-datatype T ((C (field Real))))(declare-const t T)"
+     "(assert (> (field t) 0.0))(assert (<= (field t) 0.0))"),
+)
+# Satisfiable Real inputs: no Int lattice reasoning at Real (0 < x < 1 holds at x = 1/2, the model the
+# producer returns), and equal non-strict bounds (x = y).
+SORTED_REAL_SATISFIABLE_CASES = (
+    ("between-zero-and-one", "(declare-const x Real)(assert (< 0.0 x))(assert (< x 1.0))"),
+    ("equal-bounds", "(declare-const x Real)(declare-const y Real)(assert (<= x y))(assert (<= y x))"),
+)
+
 # Term if-then-else definition axioms in the shapes of Pulse.Lib.Raise q5 (a Universe choice
 # under an Int bound), Pulse.C.Types.Fields q1 (a Term choice under a Boolean-box equation) and
 # an Int choice: `(or (not c) (= t (ite c t u)))` and `(or c (= u (ite c t u)))`, both
@@ -802,8 +821,12 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("semantics=sorted-datatype", interactive.stdout)
 
     def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
+        # The former input here, x + y <= 0 with x > 0 and y > 0, is now certified by the typed Real
+        # kernel of the Sorted route itself (SORTED_REAL_CASES "sum-of-positives"). This input keeps a
+        # Real step outside the Sorted fragment, the equation (x = y) = (x <= y and x >= y), so the
+        # sorted core still reports it as pending instead of falling back to the legacy arithmetic.
         source = ("(declare-const x Real)(declare-const y Real)"
-                  "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
+                  "(assert (<= x y))(assert (<= y x))(assert (not (= x y)))")
         result = self.run_checker(source, "--sorted-core", "--diagnostics", "--stats")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
@@ -812,6 +835,38 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(interactive.returncode, 3, interactive.stdout + interactive.stderr)
         self.assertIn("; proof-check PARTIAL ", interactive.stdout)
         self.assertIn("semantics=sorted-core", interactive.stdout)
+
+    def test_sorted_real_certificates_in_both_modes(self):
+        for name, source in SORTED_REAL_CASES:
+            for interactive in (False, True):
+                with self.subTest(case=name, interactive=interactive):
+                    args = ["--diagnostics", "--stats", "--sorted-core"]
+                    text = source
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    semantics = "sorted-datatype" if "declare-datatype" in source else "sorted-core"
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        self.assertIn("semantics=" + semantics, result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                        self.assertIn("semantics=" + semantics, result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_REAL_SATISFIABLE_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--sorted-core", "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)(get-value (x))", "--interactive",
+                                               "--sorted-core", "--diagnostics")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("unsat", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
+        between = self.run_checker(SORTED_REAL_SATISFIABLE_CASES[0][1] + "(check-sat)(get-value (x))",
+                                   "--interactive", "--sorted-core")
+        self.assertIn("((x (/ 1.0 2.0)))", between.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
         # Constructors with fields keep the producer on the datatype theory (the exhaustiveness

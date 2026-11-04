@@ -439,6 +439,56 @@ let name_pair_units_scale () : bool =
   pair_units_exact huge_s huge_s' && pair_units_exact huge_s huge_t &&
   pair_units_exact "é名" "é名" && pair_units_exact "é名" "é吊"
 
+(* Typed Int/Real Farkas certificates on the forced Sorted route
+   (Z3SortedProof.real_farkas inside check_document_epsilon), natively: the
+   strict conflict {x > 0, x <= 0} and {x < y, y <= x} with rational weights
+   are accepted; the satisfiable {0 < x, x < 1} (x = 1/2) and {x <= y, y <= x}
+   (x = y), a zero weight on the strict premise, non-cancelling weights, a
+   dropped premise, a counterfeit > and a same-spelled distinct constant stay
+   pending. *)
+let real_s : A.sort = A.BaseSort "Real"
+
+let real_constant (name:string) (params:list int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = real_s; A.interp = None; A.int_params = params } []
+
+let real_numeral (n:int) (d:pos) : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = real_s; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [n; d] } []
+
+let real_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = op; A.int_params = [] }
+    [a; b]
+
+let real_farkas_document (a b:A.expr) (ids:list int) (cs:list Z3LinearArithmeticAst.coefficient) : C.marshaled =
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [a; b];
+      P.entries = [{ P.rule = U.Asserted; P.formula = a; P.premise_ids = [] };
+                   { P.rule = U.Asserted; P.formula = b; P.premise_ids = [] };
+                   { P.rule = U.ArithmeticFarkas cs; P.formula = R.false_expr; P.premise_ids = ids }];
+      P.root = 2 };
+    C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let real_farkas_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let twin = real_constant "x" [7] in
+  let zero = real_numeral 0 1 in
+  let one = real_numeral 1 1 in
+  let gt = real_compare ">" (Some Z3ValueTheory.op_arith_gt) in
+  let fake_gt = real_compare ">" None in
+  let lt = real_compare "<" (Some Z3ValueTheory.op_arith_lt) in
+  let le = real_compare "<=" (Some Z3ValueTheory.op_arith_le) in
+  let check a b ids cs = C.check true (real_farkas_document a b ids cs) in
+  check (gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 0 &&
+  check (lt x y) (le y x) [0; 1] [(1, 2); (2, 4)] = Some 0 &&
+  check (lt zero x) (lt x one) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (le x y) (le y x) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (lt x y) (le y x) [0; 1] [(0, 1); (1, 1)] = Some 1 &&
+  check (lt x y) (le y x) [0; 1] [(1, 2); (3, 7)] = Some 1 &&
+  check (gt x zero) (le x zero) [0] [(1, 1)] = Some 1 &&
+  check (fake_gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (gt x zero) (le twin zero) [0; 1] [(1, 1); (1, 1)] = Some 1
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -465,4 +515,5 @@ let run () : bool =
   nnf_premise_boundary () &&
   qi_regroup_scale () &&
   qi_ite_scale () &&
+  real_farkas_controls () &&
   name_pair_units_scale ()
