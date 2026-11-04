@@ -53,8 +53,28 @@ are recorded in the session artifacts and benchmark database.
 
 Remaining P0 work includes recovering the timeout/unknown cases and auditing
 snapshot invalidation beyond the covered scope transitions. The broader
-negative-containment, regex-bound, empty-disequation, static digit-bound,
-and symbolic-head work below remains open.
+negative-containment, regex-bound, static digit-bound, and symbolic-head
+work below remains open.
+
+### P1a: empty-side disequations
+
+Implemented nonempty-length propagation after disequation simplification.
+When cancellation or a broadcast substitution leaves exactly one empty
+side, `deq_propagation` asserts that the remaining token-length sum is
+positive and discharges the disequation. Both the arithmetic constraint
+and removal are trailed; the length constraint retains the disequation's
+dependency, including any substitution dependencies.
+
+The original Noetzli `str-pred-small-rw_99.smt2` now returns UNSAT within
+the five-second budget, with three final checks and three DFS nodes,
+instead of unknown. Regressions cover both orientations, direct emptiness,
+prefix cancellation, substitution-created emptiness, zero and positive
+lengths, conflict dependencies, and scope rollback. The regressions fail
+before the change; the native suite passes all 116 tests afterward.
+The 37-input diagnostic rerun has exactly one outcome change from P0:
+Noetzli 99 becomes UNSAT in 0.029 seconds. The other 36 outcomes, including
+all three winning controls, are preserved; no invalid models or errors
+occur. Rebuilt CLI and Python smoke tests also pass.
 
 ## Baseline and scope
 

@@ -460,6 +460,71 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
+    static void check_deq_empty_length(bool reverse, unsigned form) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref x(m.mk_fresh_const("x", u.str.mk_string_sort()), m);
+        expr_ref y(m.mk_fresh_const("y", u.str.mk_string_sort()), m);
+        expr_ref len_y(u.str.mk_length(y), m);
+        expr_ref prefix(mk_unit_char(m, u, 'a'));
+        expr_ref_vector lhs(m), rhs(m), empty(m);
+        if (form == 1) {
+            lhs.push_back(prefix);
+            rhs.push_back(prefix);
+        }
+        if (form == 2)
+            lhs.push_back(x);
+        rhs.push_back(y);
+
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_deq_id(deq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+        auto& df = root->facet_as<seq::deq_facet>(deq_id);
+        auto& sf = root->facet_as<seq::solver_facet>(arith_id);
+        df.add_disequation(reverse ? rhs : lhs, reverse ? lhs : rhs, tree.dep_mgr().mk_leaf(7));
+        seq::deq_propagation prop(m, u);
+        for (unsigned length : { 0u, 2u }) {
+            tr.push_scope();
+            expr_ref length_value(a.mk_int(length), m);
+            sf.add_constraint(m.mk_eq(len_y, length_value), tree.dep_mgr().mk_leaf(9));
+            if (form == 2)
+                seq::broadcast_subst(*root, x, empty, tree.dep_mgr().mk_leaf(11));
+            prop.propagate(*root);
+            ENSURE(df.is_satisfied());
+            if (length == 0) {
+                ENSURE(sf.has_conflict());
+                vector<unsigned, false> deps;
+                tree.dep_mgr().linearize(sf.conflict_dep(), deps);
+                ENSURE(std::find(deps.begin(), deps.end(), 7u) != deps.end());
+                ENSURE(std::find(deps.begin(), deps.end(), 9u) != deps.end());
+                if (form == 2)
+                    ENSURE(std::find(deps.begin(), deps.end(), 11u) != deps.end());
+            }
+            else
+                ENSURE(sf.is_satisfied());
+            tr.pop_scope(1);
+            ENSURE(df.disequations()[0].active());
+            ENSURE(sf.is_satisfied());
+        }
+    }
+
+    static void tst_deq_empty_length() {
+        for (bool reverse : { false, true })
+            for (unsigned form : { 0u, 1u, 2u })
+                check_deq_empty_length(reverse, form);
+    }
+
     // A disequation between a constant and itself is an immediate
     // conflict (both sides prefix-strip to empty: forced equal).
     static void tst_deq_trivial_unsat() {
@@ -764,6 +829,26 @@ namespace {
                     check_length_model(m, element, length, word_equation);
     }
 
+    static void tst_nseq_empty_diseq() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref x(m.mk_fresh_const("x", u.str.mk_string_sort()), m);
+        expr_ref z(m.mk_fresh_const("z", a.mk_int()), m);
+        expr_ref text(u.str.mk_string("A"), m);
+        expr_ref part(u.str.mk_substr(text, z, z), m);
+        expr_ref empty(u.str.mk_empty(x->get_sort()), m);
+        expr_ref eq_part(m.mk_eq(x, part), m);
+        expr_ref eq_empty(m.mk_eq(x, empty), m);
+        expr_ref assertion(m.mk_not(m.mk_eq(eq_part, eq_empty)), m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        s->assert_expr(assertion);
+        ENSURE(s->check_sat(0, nullptr) == l_false);
+    }
+
     static void check_nseq_candidate_model(char const* input, bool require_sat = true, char const* scoped_integer = nullptr) {
         ast_manager m;
         reg_decl_plugins(m);
@@ -875,6 +960,7 @@ void tst_seq_eq_facet() {
     tst_depth_cutoff();
     tst_deq_trivial_sat();
     tst_deq_unit_nonempty_sat();
+    tst_deq_empty_length();
     tst_deq_trivial_unsat();
     tst_deq_reacts_to_eq_branch_sat();
     tst_eq_split_find_point();
@@ -886,6 +972,7 @@ void tst_seq_eq_facet() {
     tst_word_eq_split_char_eq_sat();
     tst_block_compression_sat();
     tst_nseq_length_model();
+    tst_nseq_empty_diseq();
     tst_nseq_candidate_model();
     std::cout << "seq_eq_facet: all tests passed\n";
 }

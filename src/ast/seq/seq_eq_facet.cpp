@@ -921,14 +921,22 @@ namespace seq {
                 }
             }
 
-            // Otherwise stuck: one side is empty with the other led by a
-            // variable (not yet resolved to epsilon or not), or the
-            // leading tokens are a variable vs. constant / two variables.
+            // Empty-side cases are reduced to arithmetic by deq_propagation.
+            // Otherwise the leading tokens are a variable vs. constant
+            // or two variables.
             // deq_facet never invents its own substitution (see module
             // comment) - it waits for eq_facet's split to narrow things
             // further and re-broadcast via apply_subst.
         }
         return changed;
+    }
+
+    // Sum the lengths of all tokens on one side.
+    static expr_ref mk_side_len(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks) {
+        expr_ref sum(a.mk_int(0), m);
+        for (expr* tok : toks)
+            sum = expr_ref(a.mk_add(sum, u.str.is_unit(tok) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(tok)), m);
+        return sum;
     }
 
     stx::simplify_result deq_propagation::propagate(eq_tree::node& n) {
@@ -942,20 +950,24 @@ namespace seq {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
         }
+        for (unsigned i = 0; i < f.disequations().size(); ++i) {
+            auto const& dq = f.disequations()[i];
+            if (!dq.active() || (!dq.m_lhs.empty() && !dq.m_rhs.empty()))
+                continue;
+            auto& sf = ac.solver_facet_ref();
+            auto& a = sf.get_arith_util();
+            expr_ref len = mk_side_len(u, a, m, dq.m_lhs.empty() ? dq.m_rhs : dq.m_lhs);
+            expr_ref zero(a.mk_int(0), m);
+            sf.add_constraint(a.mk_gt(len, zero), dq.m_dep);
+            f.remove_disequation_trailed(i);
+            changed = true;
+        }
         if (!changed)
             return stx::simplify_result::noop;
         return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
     // -- deq_split --
-
-    // Sum the lengths of all tokens on one side.
-    static expr_ref mk_side_len(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks) {
-        expr_ref sum(a.mk_int(0), m);
-        for (expr* tok : toks)
-            sum = expr_ref(a.mk_add(sum, u.str.is_unit(tok) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(tok)), m);
-        return sum;
-    }
 
     // Split the first unresolved disequation into two length-order cases
     // and one equal-length decomposition. Branch resumption backtracks to
