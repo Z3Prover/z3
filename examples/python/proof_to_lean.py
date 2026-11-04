@@ -286,6 +286,85 @@ private theorem _store_select {I E : Type} (a : I -> E) (i : I) : _store a i (_s
   funext _j
   by_cases _h : _j = i <;> simp [_store, _select, _h]
 """.strip("\n").split("\n")
+# A constant array over Int indices, ((as const (Array Int E)) v), is the
+# constant function _const_array. The array solver relates constant arrays to
+# others through their default value (default a), the value an array takes at
+# all but finitely many indices: (default (const v)) = v and (default (store a
+# i v)) = (default a). _default is a function on all of Int -> E with both
+# properties (_default_const, _default_store, theorems over any index type with
+# no finite exhaustive list, _int_unbounded): the value taken outside some
+# finite list if there is one, which is unique then, and otherwise one value
+# that a store does not change (Classical.choice of a Nonempty proof, and
+# proofs are irrelevant). Over a finite index sort no such function exists (a
+# store at every index turns one constant array into another), so the
+# exporter and the reconstructor reject uninterpreted index sorts. Real
+# indices are infinite as well but not implemented yet (they need an
+# unboundedness lemma over Rat), so constant arrays and defaults are admitted
+# over Int indices only.
+_CONSTANT_ARRAY_DEFINITIONS = """
+def _const_array (I : Type) {E : Type} (v : E) : I -> E := fun _ => v
+
+private theorem _select_const {I E : Type} (v : E) (i : I) : _select (_const_array I v) i = v := rfl
+
+private theorem _int_unbounded : forall l : List Int, Exists (fun x : Int => Not (List.Mem x l)) := by
+  intro l
+  have _b : Exists (fun b : Int => forall y : Int, List.Mem y l -> y < b) := by
+    induction l with
+    | nil => exact Exists.intro 0 (fun _ h => nomatch h)
+    | cons a t ih =>
+      obtain ⟨b, hb⟩ := ih
+      refine Exists.intro (max (a + 1) b) (fun y h => ?_)
+      cases h with
+      | head => omega
+      | tail _ h => have := hb y h; omega
+  obtain ⟨b, hb⟩ := _b
+  exact Exists.intro b (fun h => Int.lt_irrefl b (hb b h))
+
+noncomputable def _default {I E : Type} (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l)))
+    (a : I -> E) : E :=
+  @dite E (Exists (fun e : E => Exists (fun l : List I => forall x : I, Not (List.Mem x l) -> a x = e)))
+    (Classical.propDecidable _) (fun _e => Classical.choose _e)
+    (fun _ => Classical.choice (Nonempty.intro (a (Classical.choose (h [])))))
+
+private theorem _default_spec {I E : Type} (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l)))
+    (a : I -> E) (e : E) (l : List I) (_he : forall x : I, Not (List.Mem x l) -> a x = e) : _default h a = e := by
+  have _ex : Exists (fun e : E => Exists (fun l : List I => forall x : I, Not (List.Mem x l) -> a x = e)) :=
+    Exists.intro e (Exists.intro l _he)
+  unfold _default
+  rw [dite_eq_left _ex]
+  obtain ⟨l2, h2⟩ := Classical.choose_spec _ex
+  obtain ⟨x, hx⟩ := h (l ++ l2)
+  have _x1 : Not (List.Mem x l) := fun m => hx (List.mem_append.mpr (Or.inl m))
+  have _x2 : Not (List.Mem x l2) := fun m => hx (List.mem_append.mpr (Or.inr m))
+  rw [← h2 x _x2, _he x _x1]
+
+private theorem _default_const {I E : Type} (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l)))
+    (v : E) : _default h (_const_array I v) = v :=
+  _default_spec h _ v [] (fun _ _ => rfl)
+
+private theorem _default_store {I E : Type} (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l)))
+    (a : I -> E) (i : I) (v : E) : _default h (_store a i v) = _default h a := by
+  by_cases _ex : Exists (fun e : E => Exists (fun l : List I => forall x : I, Not (List.Mem x l) -> a x = e))
+  . obtain ⟨e, l, he⟩ := _ex
+    rw [_default_spec h a e l he]
+    refine _default_spec h _ e (i :: l) (fun x hx => ?_)
+    have _xi : Not (x = i) := fun q => hx (q ▸ List.Mem.head l)
+    have _xl : Not (List.Mem x l) := fun m => hx (List.Mem.tail i m)
+    simp only [_store, _xi, ite_false]
+    exact he x _xl
+  . have _ns : Not (Exists (fun e : E => Exists (fun l : List I =>
+        forall x : I, Not (List.Mem x l) -> _store a i v x = e))) := by
+      intro ⟨e, l, he⟩
+      apply _ex
+      refine Exists.intro e (Exists.intro (i :: l) (fun x hx => ?_))
+      have _xi : Not (x = i) := fun q => hx (q ▸ List.Mem.head l)
+      have _xl : Not (List.Mem x l) := fun m => hx (List.Mem.tail i m)
+      have := he x _xl
+      simp only [_store, _xi, ite_false] at this
+      exact this
+    unfold _default
+    rw [dite_eq_right _ex, dite_eq_right _ns]
+""".strip("\n").split("\n")
 _ARRAY_NAME = re.compile(r"\(Array ([^\s()|]+) ([^\s()|]+)\)")
 # Z3's array rewriter simplifies (store (store a i v) i w) to (store a i w)
 # and (store a i (select a i)) to a, which the clause-log replay then ties to
@@ -662,6 +741,15 @@ def _declaration(raw, sorts):
         if (name != "array-ext" or len(domain) != 2 or domain[0] != domain[1] or domain[0] not in sorts
                 or (_array_components(domain[0]) or ("",))[0] != raw["range"]):
             raise ReconstructionError("invalid array-ext declaration")
+    elif kind == z3.Z3_OP_ARRAY_DEFAULT:
+        # The default value of an array over Int indices (constant arrays).
+        if (name != "default" or len(domain) != 1 or domain[0] not in sorts
+                or _array_components(domain[0]) != ("Int", raw["range"])):
+            raise ReconstructionError("invalid default declaration")
+    elif kind == z3.Z3_OP_CONST_ARRAY:
+        # A constant array over Int indices.
+        if name != "const" or array is None or array[0] != "Int" or domain != (array[1],):
+            raise ReconstructionError("invalid constant array declaration")
     elif array is not None:
         # Array constants, ite, and store (QF_AX): no functions into arrays.
         if kind == z3.Z3_OP_ITE:
@@ -1114,6 +1202,10 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         return "(_store %s %s %s)" % tuple(args)
     if kind == z3.Z3_OP_ARRAY_EXT:
         return "(_array_diff %s %s %s)" % ((_nonempty(graph.decl(node).range),) + tuple(args))
+    if kind == z3.Z3_OP_CONST_ARRAY:
+        return "(@_const_array Int %s %s)" % (_array_types(graph.decl(node).range)[1], args[0])
+    if kind == z3.Z3_OP_ARRAY_DEFAULT:
+        return "(_default _int_unbounded %s)" % args[0]
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
     if kind == z3.Z3_OP_TO_REAL:
@@ -1716,9 +1808,10 @@ def _reachable(graph, conclusion):
 def _reachable_outside_applications(graph, formula):
     """The nodes reachable from a formula without entering the arguments of uninterpreted applications.
 
-    Reads of arrays, extensionality witnesses, and array terms are not
-    entered either: they are atoms of the linear forms, or contain only
-    such atoms, whatever the sorts of their indices and elements.
+    Reads of arrays, extensionality witnesses, default values, and array
+    terms are not entered either: they are atoms of the linear forms, or
+    contain only such atoms, whatever the sorts of their indices and
+    elements.
     """
     reachable, pending = set(), [formula]
     while pending:
@@ -1728,7 +1821,8 @@ def _reachable_outside_applications(graph, formula):
         reachable.add(node)
         if not _trivial_distinct(graph, node) and not (graph.kind(node) == z3.Z3_OP_UNINTERPRETED
                                                        and graph.arguments(node)) \
-                and graph.kind(node) not in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT) and not graph.is_array(node):
+                and graph.kind(node) not in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT, z3.Z3_OP_ARRAY_DEFAULT) \
+                and not graph.is_array(node):
             pending.extend(graph.arguments(node))
     return reachable
 
@@ -1923,6 +2017,9 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = reachable
     fallback = ["unfold " + " ".join(_definition_names(graph, remaining))] if remaining else []
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
+    if prefix == "rewrite" and graph.arrays:
+        fallback.extend(helper.strip() for helper in _constant_array_comparisons(
+            graph, reachable, atom_indices, variable_indices))
     fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
     fallback.append(_theory_tactic(graph))
     alternatives.append(fallback)
@@ -2305,19 +2402,93 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
     helpers = []
     for node in sorted(reachable):
         kind = graph.kind(node)
-        if graph.is_array(node) and kind in (z3.Z3_OP_STORE, z3.Z3_OP_ITE):
-            # Array terms stay folded (_definition_names); each store and
-            # ite over arrays is related to its body one level down.
+        if graph.is_array(node) and kind in (z3.Z3_OP_STORE, z3.Z3_OP_ITE, z3.Z3_OP_CONST_ARRAY):
+            # Array terms stay folded (_definition_names); each store, ite
+            # over arrays, and constant array is related to its body one
+            # level down.
             helpers.append("  have _t%d : %s = %s := rfl" % (
                 node, _term(graph, node), _term_body(graph, node, variable_indices, inline, inline)))
         elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_STORE:
             array, index, value = graph.arguments(graph.arguments(node)[0])
             helpers.append("  have _s%d := _store_apply %s %s %s %s" % (
                 node, inline(array), inline(index), inline(value), inline(graph.arguments(node)[1])))
+        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
+            array, index = graph.arguments(node)
+            helpers.append("  have _s%d := _select_const (I := Int) %s %s" % (
+                node, inline(graph.arguments(array)[0]), inline(index)))
         elif kind == z3.Z3_OP_ARRAY_EXT:
             helpers.append("  have _x%d := _array_ext %s %s %s" % (
                 node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
                 inline(graph.arguments(node)[1])))
+        elif kind == z3.Z3_OP_ARRAY_DEFAULT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
+            helpers.append("  have _d%d := _default_const (I := Int) _int_unbounded %s" % (
+                node, inline(graph.arguments(graph.arguments(node)[0])[0])))
+        elif kind == z3.Z3_OP_ARRAY_DEFAULT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_STORE:
+            helpers.append("  have _d%d := _default_store _int_unbounded %s" % (
+                node, " ".join(inline(argument) for argument in graph.arguments(graph.arguments(node)[0]))))
+    return helpers
+
+
+# At most this many read facts per rewrite in _constant_array_comparisons.
+_COMPARISON_READS = 64
+
+
+def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices):
+    """Default-value and read facts for a rewrite that compares Int-indexed arrays next to a constant array.
+
+    Z3's rewriter decides an equality between stores over constant arrays
+    by the arrays' default values ((= (store (const 0) 1 1) (const 1)) is
+    false) or by their values at the stored indices ((= (store (store a 0
+    1) 0 0) (store a 0 1)) is false over a = (const 0)); no default or read
+    term of the certificate names them. Each such equality implies that the
+    default values agree, and the values at each index stored into an array
+    of its sort; each store and constant array the rewrite reaches has its
+    default value and its value at those indices as facts (_default_store,
+    _default_const, _store_apply, _select_const). grind chains them. The
+    read facts are quadratic (indices times arrays), so above
+    _COMPARISON_READS of them only the default facts are stated.
+    """
+    if not any(graph.kind(node) == z3.Z3_OP_CONST_ARRAY for node in reachable):
+        return []
+
+    def inline(sub):
+        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
+
+    def int_indexed(node):
+        return graph.is_array(node) and _array_components(graph.decl(node).range)[0] == "Int"
+
+    equalities = [node for node in sorted(reachable)
+                  if graph.kind(node) == z3.Z3_OP_EQ and int_indexed(graph.arguments(node)[0])]
+    arrays = [node for node in sorted(reachable)
+              if graph.kind(node) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) and int_indexed(node)]
+    indices = {}  # array sort -> the indices stored into arrays of that sort
+    for node in arrays:
+        if graph.kind(node) == z3.Z3_OP_STORE:
+            indices.setdefault(graph.decl(node).range, set()).add(graph.arguments(node)[1])
+    reads = sum(len(indices.get(graph.decl(node).range, ())) for node in arrays) + sum(
+        len(indices.get(graph.decl(graph.arguments(node)[0]).range, ())) for node in equalities)
+    if reads > _COMPARISON_READS:
+        indices = {}
+    helpers = []
+    for node in equalities:
+        left, right = (inline(argument) for argument in graph.arguments(node))
+        helpers.append("  have _e%d : %s = %s -> _default _int_unbounded %s = _default _int_unbounded %s :="
+                       " congrArg (_default _int_unbounded)" % (node, left, right, left, right))
+        for index in sorted(indices.get(graph.decl(graph.arguments(node)[0]).range, ())):
+            helpers.append("  have _e%d_%d : %s = %s -> _select %s %s = _select %s %s :="
+                           " congrArg (fun _x => _select _x %s)" % (
+                               node, index, left, right, left, inline(index), right, inline(index), inline(index)))
+    for node in arrays:
+        if graph.kind(node) == z3.Z3_OP_STORE:
+            arguments = " ".join(inline(argument) for argument in graph.arguments(node))
+            helpers.append("  have _ds%d := _default_store _int_unbounded %s" % (node, arguments))
+            helpers.extend("  have _ds%d_%d := _store_apply %s %s" % (node, index, arguments, inline(index))
+                           for index in sorted(indices.get(graph.decl(node).range, ())))
+        else:
+            value = inline(graph.arguments(node)[0])
+            helpers.append("  have _dc%d := _default_const (I := Int) _int_unbounded %s" % (node, value))
+            helpers.extend("  have _dc%d_%d := _select_const (I := Int) %s %s" % (node, index, value, inline(index))
+                           for index in sorted(indices.get(graph.decl(node).range, ())))
     return helpers
 
 
@@ -2752,9 +2923,11 @@ def _linear_structure(graph, node):
     return structure
 
 
-# Reads of arrays and extensionality witnesses over Int or Real are atoms too.
+# Reads of arrays, extensionality witnesses, and default values over Int or
+# Real are atoms too.
 _LINEAR_ATOM_KINDS = (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
-                      z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT)
+                      z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT,
+                      z3.Z3_OP_ARRAY_DEFAULT)
 
 
 def _farkas_multipliers(forms, coefficients, equalities):
@@ -2837,7 +3010,8 @@ def _opaque_rewrite_tactic(graph):
 
 
 _OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED,
-                     z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT)
+                     z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT,
+                     z3.Z3_OP_ARRAY_DEFAULT)
 
 
 def _is_opaque_int_atom(graph, node):
@@ -5498,6 +5672,8 @@ def reconstruct(source, certificate):
     lines.extend(_interpretation_structure(graph))
     if graph.arrays:
         lines.extend(_ARRAY_DEFINITIONS + [""])
+    if any(decl.kind in (z3.Z3_OP_CONST_ARRAY, z3.Z3_OP_ARRAY_DEFAULT) for decl in graph.declarations):
+        lines.extend(_CONSTANT_ARRAY_DEFINITIONS + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
@@ -5506,7 +5682,8 @@ def reconstruct(source, certificate):
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
         if graph.is_term(node):
-            if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS, z3.Z3_OP_STORE, z3.Z3_OP_ARRAY_EXT) or any(
+            if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS, z3.Z3_OP_STORE, z3.Z3_OP_ARRAY_EXT,
+                                    z3.Z3_OP_ARRAY_DEFAULT) or any(
                     arg in classical for arg in graph.arguments(node)):
                 classical.add(node)
             lines.append("%sdef term_%d %s : %s := %s" % (

@@ -156,10 +156,11 @@ select, store, ite over arrays, and equality between arrays) join whichever
 UF fragment the rest of the input is in, their uninterpreted index and
 element sorts counting as its uninterpreted sorts and an Int or Real one as
 its arithmetic (an input with Int arrays alone is qf_uflia); functions and
-predicates may take arrays as arguments. Only the clause log certifies them
-(the legacy core rejects them explicitly); arrays over Bool or arrays,
-arrays with several indices, constant arrays, and functions returning
-arrays are rejected. Integer
+predicates may take arrays as arguments, and constant arrays ((as const
+(Array Int E)) v) are supported over Int indices. Only the clause log
+certifies them (the legacy core rejects them explicitly); arrays over Bool
+or arrays, arrays with several indices, constant arrays over other index
+sorts, map, as-array, and functions returning arrays are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -1014,6 +1015,26 @@ coefficients, so a real model has a rational one with the same equalities,
 and arrays over Rat are then defined by the reads at the (now rational)
 indices, the store relations and (dis)equalities of arrays included.
 
+A constant array over Int indices is _const_array Int v, the constant
+function (its reads are _select_const, rfl). The array solver relates
+constant arrays to other arrays through their default values, (default
+(const v)) = v and (default (store a i v)) = (default a), logged as array
+hints over (default a) terms, which are atoms of the linear forms like reads.
+_default is defined on every function Int -> E: the value it takes outside
+some finite list of indices if there is one (unique, since no finite list
+exhausts Int: _int_unbounded), and otherwise one value that a store does
+not change (Classical.choice of a Nonempty proof, which is proof-
+irrelevant). _default_const and _default_store are theorems over any index
+type that no finite list exhausts. Over a finite index sort no such function
+exists (storing at every index turns one constant array into another), so
+constant arrays and default terms over uninterpreted indices are rejected
+by the exporter and by the reconstructor. Real indices are infinite too,
+but are not implemented yet (they need an unboundedness lemma over Rat like
+_int_unbounded) and are rejected as well. Z3's rewriter decides an
+equality between stores over constant arrays by their default values or
+their values at the stored indices; a rewrite step reaching a constant
+array gets those facts for its array equalities.
+
 The equality rules of a legacy proof object are explicit Lean terms over the
 carrier, checked by Lean's type checker without grind: refl, symm, trans, and
 trans* between terms are Eq.refl, Eq.symm, and Eq.trans (between formulas
@@ -1155,7 +1176,8 @@ test_proof_to_lean_uflra.py the qf_uflra slice, and
 test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
-test_proof_to_lean_array.py arrays (QF_AX) end to end; all need the z3
+test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
+arrays) end to end; all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
 Python's recursion limit; its clause-log tests also need the z3 executable.

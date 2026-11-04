@@ -305,6 +305,7 @@ class _Terms:
         self.constants = {}
         self.functions = {}  # uninterpreted functions and predicates of the input, by name
         self.sorts = set()   # names of the input's uninterpreted sorts
+        self.array_sorts = {}  # the input's array sorts, by z3py's rendering
         # The log prints numerals without a sort; an integer input values them
         # in Int, so that the rebuilt atoms compare Int terms rather than
         # coercing them to Real. An input over both sorts (QF_LIRA, no
@@ -322,6 +323,7 @@ class _Terms:
             if is_uninterpreted_sort(expr.sort()):
                 self.sorts.add(expr.sort().name())
             elif is_array_sort(expr.sort()):
+                self.array_sorts[str(expr.sort())] = expr.sort()
                 # The log declares an array's uninterpreted index and element
                 # sorts even when no term of them occurs (QF_AX).
                 self.sorts.update(component.name() for component in (expr.sort().domain(), expr.sort().range())
@@ -383,6 +385,15 @@ class _Terms:
             if not (is_array_sort(left.sort()) and left.sort().eq(right.sort())):
                 raise ProofExportError("array-ext over unsupported or different sorts in the clause log")
             return z3.Ext(left, right)
+        if (isinstance(head, list) and len(head) == 3 and head[:2] == ["as", "const"] and len(sexpr) == 2
+                and isinstance(head[2], list) and len(head[2]) == 3 and head[2][0] == "Array"):
+            # A constant array ((as const (Array I E)) v), z3py's K, of an
+            # array sort of the input (the exporter admits Int indices only).
+            sort = self.array_sorts.get(_sort_text(head[2]))
+            value = self.build(sexpr[1], {"Int": True, "Real": False}.get(head[2][2]))
+            if sort is None or not value.sort().eq(sort.range()):
+                raise ProofExportError("constant array of an unsupported sort in the clause log")
+            return z3.K(sort.domain(), value)
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -437,6 +448,10 @@ class _Terms:
             return z3.Select(arguments[0], arguments[1])
         if head == "store" and count == 3 and is_array_sort(arguments[0].sort()):
             return z3.Store(arguments[0], arguments[1], arguments[2])
+        if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
+            # The array solver's default value of an array, the value it
+            # takes at all but finitely many indices (constant arrays).
+            return z3.Default(arguments[0])
         if head == "=" and count == 2:
             return arguments[0] == arguments[1]
         if head == "distinct" and count >= 2:
@@ -523,7 +538,12 @@ class _Terms:
 
 
 def _store_axiom(literal):
-    """Whether literal is (= (select (store a i v) i) v), either way round."""
+    """Whether literal is an array axiom the array solver propagates as an equality, either way round.
+
+    These are the store axiom (= (select (store a i v) i) v), a read of a
+    constant array (= (select (const v) i) v), and the default-value axioms
+    (= (default (const v)) v) and (= (default (store a i v)) (default a)).
+    """
     if not z3.is_eq(literal):
         return False
     for read, value in (literal.children(), reversed(literal.children())):
@@ -531,6 +551,13 @@ def _store_axiom(literal):
             store = read.arg(0)
             if store.num_args() == 3 and read.arg(1).eq(store.arg(1)) and value.eq(store.arg(2)):
                 return True
+        if z3.is_select(read) and z3.is_const_array(read.arg(0)) and value.eq(read.arg(0).arg(0)):
+            return True
+        if z3.is_default(read) and z3.is_const_array(read.arg(0)) and value.eq(read.arg(0).arg(0)):
+            return True
+        if (z3.is_default(read) and z3.is_store(read.arg(0)) and z3.is_default(value)
+                and value.arg(0).eq(read.arg(0).arg(0))):
+            return True
     return False
 
 
@@ -620,7 +647,8 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     An ite term is an opaque variable here, as in Z3's arithmetic solver: the
     clause log relates it to its branches through explicit gate clauses. So
     are an integer div, mod, or rem by a nonzero numeral, which the solver's
-    arith axioms relate to their operands, abs, and a read of an array.
+    arith axioms relate to their operands, abs, a read of an array, and an
+    array's default value.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
@@ -630,7 +658,7 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
     if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
-                z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT):
+                z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT, z3.Z3_OP_ARRAY_DEFAULT):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)
@@ -1379,10 +1407,11 @@ class _Replay:
             lemma_literals = (list(literals) if name == "smt"
                               else [_complement(literal) for _, literal in pairs])
             if name == "array" and len(pairs) == 1 and _store_axiom(pairs[0][1]):
-                # The store axiom (= (select (store a i v) i) v) lists the
-                # equality it propagates, not its complement (the array
-                # solver's propagate_axiom); the log may state it the other
-                # way round, as its one clause literal.
+                # The store axiom (= (select (store a i v) i) v), and the
+                # constant-array and default-value axioms, list the equality
+                # they propagate, not its complement (the array solver's
+                # propagate_axiom); the log may state it the other way round,
+                # as its one clause literal.
                 equality = pairs[0][1]
                 lemma_literals = (list(literals) if len(literals) == 1 and _same_equality(literals[0], equality)
                                   else [equality])

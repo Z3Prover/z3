@@ -1589,6 +1589,33 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Constant arrays over Int indices (2026-11-03)
+
+Constant arrays `((as const (Array I E)) v)` were rejected ("unsupported
+array operator: const"), so z3test `regressions/smt2/2549.smt2` and the six
+queries of `array.smt2` could not be certified. With constant arrays in the
+input, the sat.smt array solver relates arrays through their default values,
+logging `array` hints over `(default a)` terms: `(default (const v)) = v` and
+`(default (store a i v)) = (default a)` (index sorts it considers large).
+Both hold only over an infinite index sort, so uninterpreted index sorts
+(possibly finite) stay rejected by the exporter and the reconstructor. Real
+indices are infinite but not implemented yet (they need an unboundedness
+lemma over Rat like `_int_unbounded`), so constant arrays are now accepted
+over Int indices only, on the clause log only. Lean
+renders a constant array as `_const_array Int v` and a default value as
+`_default _int_unbounded a`, where `_default` is defined on every function
+(the value taken outside some finite list of indices, else a store-invariant
+choice) and `_default_const`, `_default_store` are theorems from
+`_int_unbounded` (no finite list exhausts Int). The replay reads `as const`
+and `default` terms (defaults are linear atoms), and the single-equality
+`array` hints of these axioms are the propagated equality, like the store
+axiom. Z3's rewriter decides an equality between stores over constant arrays
+by default values or values at the stored indices; rewrite steps reaching a
+constant array get those facts (`_constant_array_comparisons`). Result:
+`2549.smt2` and all six `array.smt2` queries export and verify in Lean.
+Tests: `CONSTANT_ARRAY_INPUTS` in
+`test_proof_to_lean_array.py`.
+
 ### Arrays over Int and Real, and functions over arrays (2026-11-03)
 
 Arrays were certified only between uninterpreted sorts, so all 13 of

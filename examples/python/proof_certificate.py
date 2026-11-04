@@ -799,7 +799,18 @@ def classify_fragment(assertions):
             for component in (expr.sort().domain(), expr.sort().range()):
                 real = real or component.kind() == z3.Z3_REAL_SORT
                 integer = integer or component.kind() == z3.Z3_INT_SORT
-            if decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE):
+            if decl.kind() == z3.Z3_OP_CONST_ARRAY:
+                # ((as const (Array Int E)) v): the array solver relates it
+                # to the other arrays through default values (the value an
+                # array takes at all but finitely many indices), which Lean
+                # proves over an infinite index type, Int (see
+                # proof_to_lean._default); a finite uninterpreted index sort
+                # would make those axioms unsound. Real indices are infinite
+                # too but not implemented yet (they need an unboundedness
+                # lemma over Rat like _int_unbounded).
+                if expr.sort().domain().kind() != z3.Z3_INT_SORT:
+                    raise ProofExportError("constant arrays are supported over Int indices only: %s" % expr.sort())
+            elif decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE):
                 raise ProofExportError("unsupported array operator: %s" % decl.name())
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
@@ -1168,6 +1179,8 @@ class DagBuilder:
                 name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
             elif decl.kind() == z3.Z3_OP_ARRAY_EXT and decl.params() == [0]:
                 pass  # The parameter is the index position, always 0 for one-index arrays.
+            elif decl.kind() == z3.Z3_OP_CONST_ARRAY and len(decl.params()) == 1 and decl.params()[0].eq(expr.sort()):
+                pass  # The parameter is the array sort, which is the declaration's range.
             elif decl.params():
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             domain = tuple(self.sort_name(decl.domain(i)) for i in range(decl.arity()))

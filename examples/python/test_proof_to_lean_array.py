@@ -1,8 +1,9 @@
 ############################################
 # Copyright (c) 2026 Microsoft Corporation
 #
-# Tests for the QF_AX slice of the Lean reconstruction: arrays from one
-# uninterpreted sort to another, certified through the sat.smt clause log.
+# Tests for the array slice of the Lean reconstruction: arrays over
+# uninterpreted sorts, Int, and Real, and constant arrays over Int indices,
+# certified through the sat.smt clause log.
 # An array is a function _m.U -> _m.U (array constants are the family
 # _m.arrs), select is _select, store the classical update _store, and the
 # array solver's extensionality witness (_ array-ext 0) is _array_diff, an
@@ -15,6 +16,7 @@
 import copy
 import hashlib
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -278,11 +280,72 @@ ARITHMETIC_ARRAY_INPUTS = {
 (check-sat)
 """,
 }
+# Constant arrays over Int indices, ((as const (Array Int E)) v): the
+# constant function _const_array. The array solver relates them to other
+# arrays through default values, (default (const v)) = v and (default (store
+# a i v)) = (default a), which are the theorems _default_const and
+# _default_store of _default over Int (an infinite index type).
+CONSTANT_ARRAY_INPUTS = {
+    # z3test regressions/smt2/2549.smt2: two different constant arrays stay
+    # different after the same store (the default-value axioms).
+    "z3test_2549": """(declare-const A0 (Array Int Int))
+(declare-const A1 (Array Int Int))
+(assert (= A0 ((as const (Array Int Int)) 0)))
+(assert (= A1 ((as const (Array Int Int)) 1)))
+(assert (= (store A0 2 3) (store A1 2 3)))
+(check-sat)
+""",
+    # A read of a constant array (_select_const) under a Farkas step.
+    "read_constant": "(set-logic QF_ALIA)\n" + _INT_ARRAYS + """(assert (= a ((as const (Array Int Int)) 5)))
+(assert (> (select a i) 5))
+(check-sat)
+""",
+    # Z3's rewriter decides the equality of a store over one constant array
+    # with another constant array by their default values: the rewrite step
+    # gets the default facts of the arrays it compares.
+    "store_over_constants": """(set-logic QF_ALIA)
+(assert (= (store ((as const (Array Int Int)) 0) 1 1) ((as const (Array Int Int)) 1)))
+(check-sat)
+""",
+    # z3test regressions/smt2/array.smt2, third query: the rewriter compares
+    # two store chains over one constant array at the stored indices (the
+    # rewrite step gets the reads at those indices).
+    "z3test_array_q2": """(define-fun a () (Array Int Int) ((as const (Array Int Int)) 0))
+(assert (= (store (store (store (store a 0 1) 1 2) 2 3) 0 0) (store (store (store a 0 1) 1 2) 2 3)))
+(check-sat)
+""",
+    # Real elements (qf_uflira).
+    "real_constants": """(set-logic QF_AUFLIRA)
+(declare-fun r () (Array Int Real))
+(declare-fun s () (Array Int Real))
+(declare-fun x () Real)
+(assert (= r (store ((as const (Array Int Real)) 0.5) 3 x)))
+(assert (= s (store ((as const (Array Int Real)) 1.5) 3 x)))
+(assert (= r s))
+(check-sat)
+""",
+    # Uninterpreted elements over Int indices: two stores cannot turn one
+    # constant array into another.
+    "element_constants": """(set-logic QF_AUFLIA)
+(declare-sort Element 0)
+(declare-fun e () Element)
+(declare-fun f () Element)
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun c () (Array Int Element))
+(assert (= c (store (store ((as const (Array Int Element)) e) i f) j f)))
+(assert (= c ((as const (Array Int Element)) f)))
+(assert (not (= e f)))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
+ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
-              "int_indices_real_elements": "qf_uflira"}
-_FRAGMENTS.update((name, "qf_uflia") for name in ARITHMETIC_ARRAY_INPUTS if name not in _FRAGMENTS)
+              "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira"}
+_FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
+                  if name not in _FRAGMENTS)
 
 
 def _export(source):
@@ -320,9 +383,13 @@ class TestArrayValidation(unittest.TestCase):
             "(assert (not (= (select (select a i) i) i)))": "unsupported array operator: select",
             "(declare-sort I 0)(declare-fun a () (Array I (Array I I)))(declare-fun b () (Array I (Array I I)))"
             "(assert (not (= a b)))": "only arrays over uninterpreted sorts",
+            # Constant arrays over a possibly finite index sort, or over Real.
             "(declare-sort I 0)(declare-fun e () I)(declare-fun i () I)"
-            "(assert (not (= (select ((as const (Array I I)) e) i) e)))": "unsupported array operator",
-            "(declare-fun a () (Array Int Int))(assert (= (select ((as const (Array Int Int)) 0) 1) 1))":
+            "(assert (not (= (select ((as const (Array I I)) e) i) e)))": "constant arrays are supported over Int",
+            "(declare-fun x () Real)(assert (= (select ((as const (Array Real Int)) 0) x) 1))":
+                "constant arrays are supported over Int",
+            # Array combinators of Z3's beyond SMT-LIB.
+            "(declare-fun g (Int) Int)(declare-fun a () (Array Int Int))(assert (= (select ((_ map g) a) 1) 1))":
                 "unsupported array operator",
             # A function into an array sort (functions over arrays are supported).
             "(declare-sort I 0)(declare-fun h (I) (Array I I))(declare-fun i () I)"
@@ -385,6 +452,79 @@ class TestArrayValidation(unittest.TestCase):
         for each in (text, mixed, real, lira, function, predicate):
             self.assertNotIn("sorry", each)
             self.assertNotIn("axiom ", each)
+
+    def test_constant_array_encoding(self):
+        """Constant arrays are _const_array over Int; default values are _default over Int's unboundedness."""
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["z3test_2549"], self.certificates["z3test_2549"])
+        self.assertIn(":= (@_const_array Int Int (term_", text)
+        self.assertIn(":= (_default _int_unbounded (term_", text)
+        self.assertIn(":= _default_store _int_unbounded ((term_", text)
+        self.assertIn(":= _default_const (I := Int) _int_unbounded (((1 : Int)))", text)
+        self.assertIn("private theorem _int_unbounded", text)
+        hints = [d["parameters"] for d in self.certificates["z3test_2549"]["declarations"] if d["name"] == "th-lemma"]
+        self.assertIn(["array"], hints)
+        read = proof_to_lean.reconstruct(ARRAY_INPUTS["read_constant"], self.certificates["read_constant"])
+        self.assertIn(":= _select_const (I := Int) (((5 : Int)))", read)
+        rewrite = proof_to_lean.reconstruct(ARRAY_INPUTS["store_over_constants"],
+                                            self.certificates["store_over_constants"])
+        self.assertIn(":= congrArg (_default _int_unbounded)", rewrite)
+        chains = proof_to_lean.reconstruct(ARRAY_INPUTS["z3test_array_q2"], self.certificates["z3test_array_q2"])
+        self.assertIn(":= congrArg (fun _x => _select _x (((2 : Int))))", chains)
+        self.assertIn(":= _select_const (I := Int) (((0 : Int))) (((2 : Int)))", chains)
+        elements = proof_to_lean.reconstruct(ARRAY_INPUTS["element_constants"], self.certificates["element_constants"])
+        self.assertIn("(@_const_array Int _m.U (_m.elems ", elements)
+        # Without a constant array there are no default definitions.
+        plain = proof_to_lean.reconstruct(ARRAY_INPUTS["int_store_commutes"], self.certificates["int_store_commutes"])
+        self.assertNotIn("_const_array", plain)
+        self.assertNotIn("_default", plain)
+        for each in (text, read, rewrite, chains, elements):
+            self.assertNotIn("sorry", each)
+            self.assertNotIn("axiom ", each)
+
+    def test_tampered_constant_arrays_are_rejected(self):
+        def declaration(certificate, kind):
+            return next(d for d in certificate["declarations"] if d["kind"] == kind)
+
+        def const_of_real(certificate):
+            declaration(certificate, z3.Z3_OP_CONST_ARRAY)["domain"] = ["Real"]
+
+        def renamed_const(certificate):
+            declaration(certificate, z3.Z3_OP_CONST_ARRAY)["name"] = "store"
+
+        def default_into_real(certificate):
+            declaration(certificate, z3.Z3_OP_ARRAY_DEFAULT)["range"] = "Real"
+
+        def uninterpreted_indices(certificate):
+            # Default values need an infinite index type: over Element
+            # indices (a sort that may be finite) the declarations are
+            # rejected, not proved.
+            for d in certificate["declarations"]:
+                d["domain"] = ["(Array Element Element)" if s == "(Array Int Element)" else s for s in d["domain"]]
+                if d["range"] == "(Array Int Element)":
+                    d["range"] = "(Array Element Element)"
+
+        self._rejects("z3test_2549", const_of_real, "invalid constant array declaration")
+        self._rejects("z3test_2549", renamed_const, "invalid constant array declaration")
+        self._rejects("z3test_2549", default_into_real, "invalid default declaration")
+        self._rejects("element_constants", uninterpreted_indices, "invalid (constant array|default) declaration")
+
+    def test_the_replay_reads_constant_arrays(self):
+        context = z3.Context()
+        assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS["read_constant"], context, integer=True)
+        terms = proof_clause_log._Terms(context, assertions)
+        terms.define("$1", ["Array", "Int", "Int"], [["as", "const", ["Array", "Int", "Int"]], "5"])
+        constant = terms.build("$1")
+        self.assertTrue(z3.is_const_array(constant))
+        self.assertTrue(z3.is_default(terms.build(["default", "a"])))
+        # The axioms the array solver propagates list their equality.
+        default = terms.build(["default", "$1"])
+        self.assertTrue(proof_clause_log._store_axiom(default == 5))
+        self.assertTrue(proof_clause_log._store_axiom(5 == terms.build(["select", "$1", "i"])))
+        self.assertFalse(proof_clause_log._store_axiom(default == 6))
+        for sort in (["Array", "Int", "Real"], ["Array", "Real", "Int"]):
+            with self.subTest(sort=sort):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "constant array of an unsupported"):
+                    terms.build([["as", "const", sort], "5"])
 
     def test_reads_of_int_arrays_are_linear_atoms(self):
         """A Farkas lemma over reads of an Int array is checked over the reads as atoms."""
@@ -586,13 +726,14 @@ class TestArrayLeanIntegration(unittest.TestCase):
         self.assertLessEqual({"array", "euf"}, hints)
 
     def test_array_facts_are_needed(self):
-        """Without the _store_apply and _array_ext facts grind cannot prove the array lemmas."""
-        for name in ("store_commutes", "int_store_commutes"):
+        """Without the _store_apply, _array_ext, and default-value facts grind cannot prove the array lemmas."""
+        for name in ("store_commutes", "int_store_commutes", "z3test_2549", "store_over_constants"):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
                 stripped = "\n".join(line for line in text.split("\n")
-                                     if ":= _store_apply " not in line and ":= _array_ext " not in line)
+                                     if ":= _store_apply " not in line and ":= _array_ext " not in line
+                                     and ":= _default_" not in line)
                 self.assertNotEqual(stripped, text)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
@@ -607,6 +748,27 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 self.assertTrue(errors, report)
                 for error in errors:
                     self.assertIn("`grind` failed", error)
+
+    def test_comparison_reads_are_needed(self):
+        """Without the read facts of _constant_array_comparisons grind cannot prove the rewrite of array.smt2's q2."""
+        source = ARRAY_INPUTS["z3test_array_q2"]
+        text = proof_to_lean.reconstruct(source, _export(source))
+        # The reads at the stored indices: _e<n>_<i> (congruence of an array
+        # equality), _ds<n>_<i> (_store_apply), _dc<n>_<i> (_select_const).
+        read = re.compile(r"^\s*have _(e|ds|dc)\d+_\d+ ")
+        lines = text.split("\n")
+        self.assertTrue({match.group(1) for match in map(read.match, lines) if match} >= {"e", "ds", "dc"}, text)
+        stripped = "\n".join(line for line in lines if not read.match(line))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "stripped.lean"
+            output.write_text(stripped)
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
+        report = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0, report)
+        errors = [line for line in report.split("\n") if "error:" in line]
+        self.assertTrue(errors, report)
+        for error in errors:
+            self.assertIn("`grind` failed", error)
 
 
 if __name__ == "__main__":
