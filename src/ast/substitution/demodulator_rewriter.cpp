@@ -969,10 +969,11 @@ bool demodulator_match_subst::match_args(app * lhs, expr * const * args) {
     if (m_all_args_eq) {
         if (m_subst.get_manager().proofs_enabled()) {
             match_args_aux_proc proc(m_subst);
+            expr_mark visited;
             try {
                 for (expr* arg : *lhs)
                     if (!is_ground(arg))
-                        for_each_expr(proc, arg);
+                        for_each_expr(proc, visited, arg);
             }
             catch (match_args_aux_proc::no_match const&) {
                 return false;
