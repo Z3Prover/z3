@@ -962,10 +962,9 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
     SASSERT(!lemma->is_background());
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
+    // Datatype normalization can introduce Boolean connectives within lemmas.
     CTRACE(spacer, !spacer::is_clause(m, l),
            tout << "Lemma not a clause: " << mk_pp(l, m) << "\n";);
-    SASSERT(!lemma->is_ground() || spacer::is_clause(m, l));
-    SASSERT(!is_quantifier(l) || spacer::is_clause(m, to_quantifier(l)->get_expr()));
 
     get_context().log_add_lemma(*this, *lemma);
 

@@ -2743,6 +2743,18 @@ extern "C" {
     /**
        \brief Create an AST node representing \ccode{arg1 ^ arg2}.
 
+       If both arguments are integers, the result is an integer and denotes
+       SMT-LIB integer exponentiation \ccode{(** arg1 arg2)}, including \ccode{(** 0 0) = 1}.
+       Negative integer exponents yield zero unless the base is 1 or -1,
+       in which case the usual parity-dependent value is returned.
+       Otherwise the arguments are coerced to reals and real exponentiation is used.
+       Real powers with exponent zero are also 1, including \ccode{0.0 ^ 0.0}.
+       Zero to any nonzero real exponent is zero. For a negative real base,
+       a reduced rational exponent p/q with odd positive q has the usual
+       real value (including reciprocals for negative p); all other real
+       exponents yield zero. Positive real bases have ordinary real powers.
+       Thus real \ccode{2.0 ^ -1.0 = 1/2}, unlike integer \ccode{(** 2 -1) = 0}.
+
        The arguments must have int or real type.
 
        def_API('Z3_mk_power', AST, (_in(CONTEXT), _in(AST), _in(AST)))

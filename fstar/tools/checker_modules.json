@@ -28,6 +28,9 @@
     "Z3LraFarkasTheory.fst", "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst",
     "Z3PulseLraCheckerTests.fst", "Z3FiniteFieldLemmaTests.fst", "Z3FiniteFieldPacTests.fst", "Z3BvExhaustiveTests.fst", "Z3BvAddNormalizeTests.fst", "Z3CoreModelTests.fst", "Z3GhostStandardModelTests.fst", "Z3QuantifierKernelTests.fst", "Z3BinderScopeTests.fst", "Z3BinderKernelTests.fst", "Z3BvFreshTests.fst",
     "Z3TypedRoot.fst", "Z3TypedRootTests.fst", "Z3SortedRoot.fst", "Z3SortedRootTests.fst", "Z3SortedRealRoot.fst", "Z3SortedRealTests.fst",
-    "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst", "Z3SortedRealDocumentTests.fst", "Z3NnfReplayTests.fst", "Z3NnfSkolemTests.fst", "Z3QuantIntroReplayTests.fst", "Z3QuantIntroCounterModelTests.fst", "Z3SortedRealReplayTests.fst"
+    "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst", "Z3SortedRealDocumentTests.fst", "Z3NnfReplayTests.fst", "Z3NnfSkolemTests.fst", "Z3QuantIntroReplayTests.fst", "Z3QuantIntroCounterModelTests.fst", "Z3SortedRealReplayTests.fst",
+    "Z3ArithRewriterPower.fst", "Z3SwinePower.fst", "Z3RealPower.fst",
+    "Z3RealPowerGraphs.fst", "Z3RealPowerCertificates.fst", "Z3RealPowerTests.fst",
+    "Z3RealPowerInteger.fst"
   ]
 }

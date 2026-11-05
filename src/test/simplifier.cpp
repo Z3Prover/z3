@@ -904,6 +904,50 @@ static void test_demodulator_simplifier_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_demodulator_quantified_proofs() {
+    for (bool proofs : {false, true}) {
+        for (bool nested : {false, true}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            arith_util a(m);
+            sort* integer = a.mk_int();
+            func_decl_ref f(m.mk_func_decl(symbol("demod-f"), integer, integer), m);
+            symbol name("x"), bool_name("b");
+            expr_ref x(m.mk_var(0, integer), m);
+            expr_ref fx(m.mk_app(f, x.get()), m);
+            expr_ref definition(m.mk_eq(fx, x), m);
+            expr_ref use(a.mk_gt(fx, x), m);
+            if (nested) {
+                expr_ref outer(m.mk_var(1, integer), m), one(a.mk_int(1), m);
+                expr_ref arg(a.mk_add(outer, one), m);
+                expr_ref farg(m.mk_app(f, arg.get()), m);
+                sort* boolean = m.mk_bool_sort();
+                expr_ref b(m.mk_var(0, boolean), m);
+                expr_ref comparison(a.mk_gt(farg, arg), m);
+                expr_ref body(m.mk_implies(b, comparison), m);
+                use = m.mk_forall(1, &boolean, &bool_name, body);
+            }
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_forall(1, &integer, &name, definition));
+            assertions.push_back(m.mk_forall(1, &integer, &name, use));
+            base_dependent_expr_state state(m);
+            demodulator_simplifier demod(m, params_ref(), state);
+            state.add(dependent_expr(m, assertions.get(0), proofs ? m.mk_asserted(assertions.get(0)) : nullptr, nullptr));
+            demod.reduce();
+            state.advance_qhead();
+            state.add(dependent_expr(m, assertions.get(1), proofs ? m.mk_asserted(assertions.get(1)) : nullptr, nullptr));
+            demod.reduce();
+            ENSURE(state[1].fml() != assertions.get(1));
+            ENSURE(!occurs(f, state[1].fml()));
+            if (!nested) {
+                ENSURE(m.is_false(state[1].fml()));
+            }
+            if (proofs)
+                check_simplifier_proofs(m, state, assertions);
+        }
+    }
+}
+
 static void test_pull_nested_quantifier_proofs() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -1063,4 +1107,5 @@ void tst_simplifier() {
     test_lambda_simplifier_proofs();
     test_pull_nested_quantifier_proofs();
     test_demodulator_simplifier_proofs();
+    test_demodulator_quantified_proofs();
 }
