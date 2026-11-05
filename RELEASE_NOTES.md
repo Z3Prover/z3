@@ -149,6 +149,14 @@ Version 5.4.0
   https://github.com/Z3Prover/z3/pull/11526, https://github.com/Z3Prover/z3/pull/11490,
   https://github.com/Z3Prover/z3/pull/11510
 
+**Acknowledgements:** Thanks to Gabriel Ebner (Cherry proof checking),
+Hiroshi Unno (OCaml bindings), Jason E. Aten (QBMC proof reconstruction),
+Jean-Frédéric Etienne (SMT branching and recursive-function unfolding),
+Lev Nachmanson (optimization, SAT fixes, and Lean/native proof checking),
+msuad (@msuadOf; floating-point enumeration probes),
+nieyuanhong (Java packaging and Maven integration), and Prajval Arora
+(MaxSMT fixes) for their contributions to this release.
+
 
 Version 5.3.3
 ==============
