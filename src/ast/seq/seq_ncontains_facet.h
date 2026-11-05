@@ -87,7 +87,8 @@ namespace seq {
         // First obligation not yet known to be at a fixed point for the
         // current node. `ncontains_propagation` scans only
         // `[m_qhead, m_ncs.size())`. `apply_subst` rewinds it to the
-        // earliest touched active obligation.
+        // earliest touched active obligation. Literal needles can also be
+        // revisited after model completion attempts on settled word equations.
         unsigned m_qhead = 0;
 
     public:
