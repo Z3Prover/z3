@@ -607,6 +607,86 @@ the two `pyex-retention-repeat` experiments, the rejected probes, and their
 source/binary/input hashes; invocations are logged to `z3agent.db`.
 No full post-fix PyEx or QF_SLIA score is extrapolated from these samples.
 
+### Additional PyEx gains: proved length-one alignment
+
+This follow-up compares against the exact tree merged through #11560,
+commit `b19247165ea8aeb6fd76fc05b4c4b9b042c74bd8`. Before Nielsen branching,
+it can align an ordinary string variable with a literal or symbolic unit
+at either end of a word equation. An arithmetic model only selects the
+query: `solver_facet::implies` must prove equal lengths, and the substitution
+joins the length proof's dependencies with the word equation's dependencies.
+Solver routing and budgets are unchanged.
+
+The shortcut is restricted to word-normalized equations: ordinary variables,
+units, internal Skolems, and powers. Compound heads and equations containing
+raw interpreted-selector tokens retain their original Nielsen treatment.
+The regression traces cut immediately before raw `str.substr` tails, unlike
+fast gains using normalized `seq.post` fragments. Preserving the original
+search on these interpreted-selector equations repairs the observed losses.
+This is deliberately narrower than arbitrary equal-length fragment alignment.
+
+Focused tests cover literal/symbolic units, suffix alignment, proof-core
+dependencies, push/pop restoration, both structural guards, and a model
+whose matching lengths are not proved. All 135 native modules pass in
+24.0 seconds. CLI and Python checks cover arithmetic, literal/symbolic
+alignment in both directions, unequal lengths, push/pop, replacement-prefix
+symmetry, selectors, and the required 257-character witness fallback.
+
+The matched comparison uses original inputs, five-second caps, model
+validation, and 32 interleaved workers. It includes every earlier alignment
+input and 512 new PyEx holdouts disjoint from the preceding 4,762-case
+experiment. Groups overlap:
+
+| Group | Inputs | Merged c3mv solved | New repair solved |
+|---|---:|---:|---:|
+| Existing entry-disposition sample | 512 | 139 | 163 |
+| Existing other-PyEx sample | 128 | 19 | 31 |
+| All original c3mv-only controls | 1,529 | 1,470 | 1,471 |
+| All former model errors | 290 | 272 | 272 |
+| New entry-disposition holdout | 384 | 107 | 123 |
+| New other-PyEx holdout | 128 | 32 | 40 |
+| Distinct inputs, all groups | **5,274** | **3,006** | **3,141** |
+
+The 10,548 invocations take 790.3 seconds: **138 gains and 3 losses**, a
+net gain of 135 solved inputs. There are 137 PyEx gains and one
+`redos_attack_detection` gain; gain answers are 135 SAT and 3 UNSAT.
+The untouched holdouts contribute **24 gains and zero losses**.
+PAR-2 mean improves from 4.554 to 4.415 seconds. There are no errors/invalid
+models, external watchdogs, or definite-answer contradictions against the
+paired baseline, published master, or 3,642 definite local report-master
+references. Each new UNSAT gain also matches a definite report-master UNSAT.
+
+Two further paired checks cover all gains/losses, all 18 losses of the
+preceding candidate, all 33 previous bounded-witness gains, and 11 sensitive
+controls: 203 distinct inputs per check. They reproduce 134 and 125 gains,
+with **120 primary PyEx gains remaining gains in both checks**. Every one
+of the **17 previously repeatable PyEx regressions is SAT in the primary
+comparison and both repeats**; all 33 earlier gains remain solved throughout.
+For example, `178055f7...`, formerly a five-second timeout under the rejected
+candidate, is now SAT in 1.139-1.150 seconds in three quiet checks, versus
+1.127-1.136 seconds for the merged baseline.
+
+The three primary losses (`e75e2388...`, `f0d6f054...`, and
+`str_replace52.smt2`) disappear as losses in both repeats. Repeat 1 has one
+different cutoff loss, `str_replace193.smt2`; repeat 2 has zero losses.
+Three quiet runs of each of these four cases are SAT for both binaries:
+candidate medians are 2.662, 2.761, 2.899, and 2.950 seconds respectively.
+Thus no repeatable loss remains on the tested sets; the primary result is
+not relabeled as a zero-loss measurement.
+
+The unrestricted 4,250-case experiment (149 gains, 19 losses) and the
+variable-only 4,762-case experiment (116 gains, 18 losses, including 17
+repeatable PyEx regressions) were rejected. Retaining Nielsen alternatives,
+charging speculative cases to the depth bound, isolating arithmetic queries,
+and preserving first-equation priority did not repair those regressions.
+None of their extra backend APIs or iterator machinery is retained.
+
+Artifacts retain `pyex-alignment-normalized-final-v1`, its two
+`pyex-alignment-normalized-repeat` checks, quiet timings, rejected experiments,
+and matching source/binary/input hashes; invocations are logged to
+`z3agent.db`. Changes remain local and unpublished. No full post-fix PyEx
+score is extrapolated from these samples.
+
 ## Baseline and scope
 
 Sources:

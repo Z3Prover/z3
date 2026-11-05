@@ -253,6 +253,8 @@ namespace seq {
         seq_util&    u;
         struct stats {
             unsigned m_num_splits = 0;
+            unsigned m_num_length_checks = 0;
+            unsigned m_num_length_alignments = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
@@ -278,7 +280,11 @@ namespace seq {
         word_eq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "nielsen-split"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-nielsen-split num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override {
+            st.update("seq-nielsen-split num splits", m_stats.m_num_splits);
+            st.update("seq-nielsen-split num length checks", m_stats.m_num_length_checks);
+            st.update("seq-nielsen-split num length alignments", m_stats.m_num_length_alignments);
+        }
         void reset_statistics() override { m_stats.reset(); }
     };
 
