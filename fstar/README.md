@@ -49,6 +49,14 @@ checker and the in-memory Pulse checkers:
 .\tools\build_ocaml_checker.ps1 -RunTests
 ```
 
+`-RunTests` selects the full scope: every module and test registered in
+`tools/checker_modules.json` is verified, then the native bridge, CLI, and
+(with `-BuildCherry`) Cherry tests run. Without it, the build verifies only
+the registered production modules in F*'s `--dep full` closure of the
+extracted checker modules, extracts and links the checker, and builds no test
+code. `-ReportDir <dir>` writes `scope-ocaml.json` and `scope-cherry.json`
+with the source revision, scope, and selected modules.
+
 The Windows installation is local to the build directory. The native
 OCaml producer is separately built and installed in WSL, then linked
 from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
@@ -91,6 +99,9 @@ python3 fstar/tools/build_cherry_checker.py \
 /path/to/cherry-checker/checker --stats input.smt2
 ```
 
+Without `--run-tests`, only the dependency closure of `Z3Cherry.fst` is
+verified and no Cherry test executable is built.
+
 The installed prefix must contain `bin/z3`, `include/z3.h`, and `lib/libz3.a`.
 Use `--sanitize` for an ASan/UBSan build. The generated kernel retains Cherry
 debug checks and guaranteed tail calls; neither verification nor runtime
@@ -105,30 +116,57 @@ reproduced nightly compiler bug in reference-counting unit-valued closures,
 reported as **FStarLang/FStar#4783**. The inhabitance algorithm and all its
 proof obligations remain verified.
 
-### GitHub Actions regression report
+### GitHub Actions workflows
+
+Two independent workflows build from the same pinned toolchains
+(`.github/scripts/install-pulse-checker-toolchains.sh`, F* `v2026.10.25` and
+OCaml `5.3.0` for the OCaml executable, the separately pinned nightly and
+GCC/G++ 15 for Cherry). Both run on pushes and pull requests changing
+`fstar/**`, their own workflow file, or that script, after a successful
+default-branch **Nightly Build**, and on manual dispatch. Neither waits for
+the other, so a failing test or specification module cannot delay the
+checker packages.
 
 **Build Pulse native checkers** (`.github/workflows/pulse-checker-build.yml`)
-runs automatically on pushes and pull requests changing `fstar/**` or either
-checker workflow, and can also be dispatched manually. It builds and installs
-that checkout's Z3, verifies the Pulse modules and their tests, extracts and
-links the native F* checker, and
-runs both executables' bridge/CLI self-tests. The Linux path uses the same
-`tools/checker_modules.json` lists as the Windows/WSL build,
-with pinned F* `v2026.10.25` and OCaml `5.3.0` for the OCaml executable,
-and the separately pinned nightly and GCC/G++ 15 for Cherry.
-F* and enabled OCaml compiler warnings fail the build. The OCaml checker is
-extracted in one whole-program Custard run (`--codegen OCaml --custard_split`)
-and linked in `ocamldep -sort` order; a call outside a refinement's domain
-raises `Match_failure` rather than returning a value.
+is the checker-only build. It builds and installs that checkout's Z3 and runs
+`build_ocaml_checker.ps1 -BuildCherry` without `-RunTests`. F* verifies only
+the registered production modules in its own dependency closure of the
+checker roots: every extracted OCaml module, `Z3Native.fsti` (implemented by
+the OCaml runtime), and `Z3Cherry.fst`. Dependencies are verified before
+erasure, including ghost-only modules; a repository module in that closure
+that is not a registered production module fails both workflows. The build
+then extracts and links both executables, packages them, and smoke-tests
+each package in a clean environment. It does **not** verify the `tests`
+list (the F*/Pulse regressions, Root and power specifications, and in-memory
+Pulse checkers), the kernel soundness modules outside the executable closure
+(`Z3CoreModel`, `Z3TypedQuantifier`, `Z3GhostStandardModel`,
+`Z3CoreKernel`, `Z3QuantifierKernel`, `Z3BinderKernel`; they remain
+registered production modules), `Z3CherryTests`, or the native bridge and
+CLI tests. F* and enabled OCaml compiler warnings fail the build. The OCaml
+checker is extracted in one whole-program Custard run
+(`--codegen OCaml --custard_split`) with the closure's implementation modules
+as entries, and linked in `ocamldep -sort` order; a call outside a
+refinement's domain raises `Match_failure` rather than returning a value.
 
-It also runs after a successful default-branch **Nightly Build**, building that
-nightly's exact source commit rather than the latest branch tip. On success,
-an isolated publication job attaches both checker tarballs and their SHA-256
-files to the GitHub release tagged **`Nightly`**. Publication is serialized with
-the nightly deploy and skipped explicitly if that release has advanced to a
-different commit. PR, push, and manual checker builds never modify the release.
+**Verify all Pulse checker files** (`.github/workflows/pulse-checker-full.yml`)
+runs `build_ocaml_checker.ps1 -RunTests -BuildCherry`: on both pinned F*
+versions it verifies every module and test registered in
+`tools/checker_modules.json` (plus `Z3Cherry` and `Z3CherryTests` for Cherry),
+then extracts with the same entries, links, and runs the native bridge,
+CLI, and Cherry test suites. It uploads only **`pulse-checker-full-report`**
+(`source.json`, `build.json`, the scope reports, and the log), never checker
+packages, and has no write permission.
 
-Successful builds upload **`pulse-checker-ocaml-linux-x86_64`**,
+The checker-only build also runs after a successful default-branch
+**Nightly Build**, building that nightly's exact source commit rather than
+the latest branch tip. On success, an isolated publication job attaches both
+checker tarballs and their SHA-256 files to the GitHub release tagged
+**`Nightly`**. Publication is serialized with the nightly deploy and skipped
+explicitly if that release has advanced to a different commit. The full
+workflow verifies the same nightly commit but publishes nothing. PR, push,
+and manual builds never modify the release.
+
+Successful checker-only builds upload **`pulse-checker-ocaml-linux-x86_64`**,
 **`pulse-checker-cherry-linux-x86_64`**, and **`pulse-checker-build-report`**.
 Each checker artifact contains a checksummed `.tar.gz` with an executable `checker`,
 build/toolchain metadata, runtime-library dependencies, licenses, and usage
@@ -136,9 +174,21 @@ instructions. Extract the tarball to preserve executable permissions.
 Neither executable needs a build-time F* or OCaml installation, an external
 `z3`, or Python to run. Standard Linux shared libraries are still required;
 the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
-with a clean environment.
+with a clean environment. Both report artifacts contain `build.json` with
+`mode` (`checker` or `full`) and the exit code, and `scope-ocaml.json` and
+`scope-cherry.json` with the selected and unselected registered modules. A
+checker-only report never claims test coverage; identical executables from
+the two workflows still have different verified scopes.
 
-Successful completion triggers **Pulse verification and native checker regressions**
+Either workflow can be started manually, for example
+`gh workflow run pulse-checker-build.yml --ref <branch>` or
+`gh workflow run pulse-checker-full.yml --ref <branch>`. The check name
+**Build Pulse native checkers / build** is unchanged, so a branch-protection
+rule naming it keeps applying to the checker-only build. Requiring the new
+**Verify all Pulse checker files / verify** check is a repository setting for
+an administrator.
+
+Successful checker-only builds trigger **Pulse verification and native checker regressions**
 (`.github/workflows/pulse-checker-regressions.yml`) through `workflow_run`.
 It downloads the packages and build report from that exact build run and
 checks out the source revision recorded in the build artifact, including for
@@ -158,7 +208,7 @@ and 25 QF_FF inputs**
 from the OCaml report artifact. It does not download the Zenodo archives again.
 Cherry coverage and timing reports are published separately.
 These executables run the extracted F* document-checker kernel; the
-in-memory Pulse checker regressions are also verified during the build,
+in-memory Pulse checker regressions are verified by the full workflow,
 not substituted for the document-checker CLI.
 
 The first default corpus is every `.smt2` file recursively under
@@ -272,8 +322,9 @@ available solve/marshal/check timings, and explicit outcome rates.
 `ACCEPT` alone counts as proof-checking success; `PARTIAL`, `REJECT`,
 `SAT`, unknowns, timeouts, and process errors remain separate categories.
 The report is a coverage measurement, not a pass rate for z3test's other
-proof backends. Pulse modules are verified, but the executable benchmarked
-on the corpus uses the extracted F* kernel, **not linked Pulse code**.
+proof backends. Pulse modules are verified by the full workflow, but the
+executable benchmarked on the corpus uses the extracted F* kernel,
+**not linked Pulse code**.
 Build/self-test failures and checker errors/crashes/protocol mismatches
 fail the job; unsupported proofs and timeouts are reported without failing
 this coverage-measurement job. In particular, checker exit code 1 with `REJECT`
