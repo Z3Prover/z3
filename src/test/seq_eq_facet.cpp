@@ -257,6 +257,117 @@ namespace {
         return tree.solve();
     }
 
+    static void tst_word_eq_proved_length_alignment(bool suffix = false, bool symbolic = false, bool compound = false, bool interpreted_tail = false) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        auto assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_assumption_id(assumption_id);
+        tree.set_ambient_context(&ac);
+        auto& ef = root->facet_as<seq::eq_facet>(eq_id);
+        auto& sf = root->facet_as<seq::solver_facet>(arith_id);
+        sort* s = u.str.mk_string_sort();
+        expr_ref x(m.mk_fresh_const("x", s), m), y = mk_unit_char(m, u, 'a');
+        expr_ref p(m.mk_fresh_const("p", s), m), q(m.mk_fresh_const("q", s), m);
+        if (interpreted_tail) {
+            expr_ref source(m.mk_fresh_const("s", s), m);
+            expr_ref one(a.mk_int(1), m), length(u.str.mk_length(source), m);
+            expr_ref rest(a.mk_sub(length, one), m);
+            p = u.str.mk_substr(source, one, rest);
+        }
+        if (compound) {
+            expr* args[] = { p };
+            x = u.mk_skolem(symbol("test.fragment"), 1, args, s);
+        }
+        if (symbolic) {
+            expr* ch = nullptr;
+            VERIFY(u.str.is_unit(y, ch));
+            expr_ref value(m.mk_fresh_const("c", ch->get_sort()), m);
+            y = u.str.mk_unit(value);
+        }
+        expr_ref lhs(u.str.mk_concat(x, p), m), rhs(u.str.mk_concat(y, q), m);
+        if (suffix) {
+            expr_ref k(m.mk_fresh_const("k", a.mk_int()), m);
+            expr_ref ca(u.str.mk_string("a"), m), cb(u.str.mk_string("b"), m);
+            expr_ref pa(u.str.mk_power(ca, k), m), pb(u.str.mk_power(cb, k), m);
+            lhs = u.str.mk_concat(pa, x);
+            rhs = u.str.mk_concat(pb, y);
+        }
+        ef.add_equation(lhs, rhs, tree.dep_mgr().mk_leaf(7));
+        expr_ref lx(u.str.mk_length(x), m);
+        expr_ref one(a.mk_int(1), m);
+        sf.add_constraint(a.mk_ge(lx, one));
+        seq::word_eq_split split(m, u);
+
+        rational xv;
+        ENSURE(sf.value(lx, xv) && xv.is_one());
+        tr.push_scope();
+        seq::eq_tree::edge model_edge;
+        bool model_more = false, model_committed = false;
+        auto model_it = split.split(*root, 0, model_edge, model_more, model_committed);
+        ENSURE(model_it && model_committed);
+        expr_ref_vector repl(m);
+        ENSURE(ef.get_subst(x, repl) && repl.empty());
+        tr.pop_scope(1);
+
+        tr.push_scope();
+        expr_ref c = mk_unit_char(m, u, 'a');
+        expr_ref left_part(suffix ? ef.equations()[0].m_lhs[0] : p.get(), m);
+        expr_ref right_part(suffix ? ef.equations()[0].m_rhs[0] : q.get(), m);
+        expr_ref other_lhs(u.str.mk_concat(left_part, c), m), other_rhs(u.str.mk_concat(c, right_part), m);
+        ef.add_equation(other_lhs, other_rhs, tree.dep_mgr().mk_leaf(9));
+        auto const& first = ef.equations()[0];
+        auto const& second = ef.equations()[1];
+        sf.add_length_constraint(first.m_lhs, first.m_rhs, first.m_dep);
+        sf.add_length_constraint(second.m_lhs, second.m_rhs, second.m_dep);
+        seq::eq_tree::edge edge;
+        bool more = false, committed = false;
+        expr_ref length_one(m.mk_eq(lx, one), m);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(sf.implies(length_one, &dep) == l_true);
+        unsigned_vector deps;
+        tree.dep_mgr().linearize(dep, deps);
+        ENSURE(deps.contains(7) && deps.contains(9));
+        tr.push_scope();
+        auto it = split.split(*root, 0, edge, more, committed);
+        if (compound || interpreted_tail) {
+            ENSURE(it && committed);
+            ENSURE(ef.get_subst(x, repl) && repl.empty());
+            tr.pop_scope(2);
+            return;
+        }
+        ENSURE(!it && more && committed);
+        dep = nullptr;
+        ENSURE(ef.get_subst(x, repl, &dep));
+        ENSURE(repl.size() == 1 && repl[0] == y);
+        deps.reset();
+        tree.dep_mgr().linearize(dep, deps);
+        ENSURE(deps.contains(7) && deps.contains(9));
+        tr.pop_scope(1);
+        repl.reset();
+        ENSURE(!ef.get_subst(x, repl));
+        ENSURE((suffix ? ef.equations()[0].m_lhs.back() : ef.equations()[0].m_lhs[0]) == x);
+
+        tr.pop_scope(1);
+        tr.push_scope();
+        it = split.split(*root, 0, edge, more, committed);
+        ENSURE(it && committed);
+        repl.reset();
+        ENSURE(ef.get_subst(x, repl) && repl.empty());
+        ENSURE(sf.has_conflict());
+        tr.pop_scope(1);
+    }
+
     static void tst_trivial_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1095,6 +1206,11 @@ void tst_seq_eq_facet() {
     tst_eq_approx_generic_sequences();
     tst_eq_approx_symbolic_predicate();
     tst_eq_approx_budget();
+    tst_word_eq_proved_length_alignment();
+    tst_word_eq_proved_length_alignment(true);
+    tst_word_eq_proved_length_alignment(false, true);
+    tst_word_eq_proved_length_alignment(false, false, true);
+    tst_word_eq_proved_length_alignment(false, false, false, true);
     tst_trivial_sat();
     tst_symbol_clash_unsat();
     tst_commute_sat();
