@@ -388,6 +388,57 @@ namespace {
         return 0;
     }
 
+    static void tst_large_length_witness_fallback(bool compatible) {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref letter(f.u.re.mk_to_re(a), f.m);
+        expr_ref language(f.u.re.mk_star(letter), f.m);
+        expr_ref length(f.u.str.mk_length(x), f.m);
+        unsigned required = compatible ? 1 : 257;
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& sf = f.root->facet_as<seq::solver_facet>(f.arith_id);
+        auto& af = f.root->facet_as<seq::assumption_facet>(f.assumption_id);
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        seq::mem_leaf_split leaf(f.m, f.u, f.rw, f.ac);
+        f.trail.push_scope();
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(language, f.m), f.tree.dep_mgr().mk_leaf(11)));
+        sf.add_constraint(f.m.mk_eq(length, f.a.mk_int(required)), f.tree.dep_mgr().mk_leaf(12));
+        ENSURE(f.solver.check() == l_true);
+        if (compatible)
+            mf.prefer_short_witness(true);
+        else
+            ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+        ENSURE(mf.short_witness_pending() && !mf.witness_extracted());
+        f.trail.push_scope();
+        seq::eq_tree::edge edge;
+        bool more = false, committed = false;
+        auto it = leaf.split(*f.root, 0, edge, more, committed);
+        ENSURE(it && more && committed && !mf.short_witness_pending());
+        ENSURE(sf.has_conflict() == !compatible);
+        if (compatible) {
+            ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+            ENSURE(mf.witness_extracted());
+        }
+        f.trail.pop_scope(1);
+        ENSURE(mf.short_witness_pending() && !mf.witness_extracted() && af.assumptions().empty());
+        f.trail.push_scope();
+        ENSURE(it->next(edge));
+        ENSURE(mf.model_witness_fallback() && !sf.has_conflict());
+        ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+        expr_ref word(f.m);
+        zstring str;
+        ENSURE(mf.get_witness(x, word));
+        th_rewriter normalize(f.m);
+        normalize(word);
+        ENSURE(f.u.str.is_string(word, str));
+        ENSURE(str == zstring(std::string(required, 'a').c_str()));
+        f.trail.pop_scope(1);
+        f.trail.pop_scope(1);
+        ENSURE(!mf.short_witness_pending() && !mf.model_witness_fallback());
+        ENSURE(!mf.witness_extracted() && mf.memberships().empty() && af.assumptions().empty());
+    }
+
     static void tst_root_witness_retention(bool disequation) {
         fixture f;
         f.ac.params.m_seq_monadic_leaf = true;
@@ -1040,6 +1091,8 @@ void tst_seq_mem_facet() {
     tst_single_var_sat();
     tst_two_var_monadic_sat();
     tst_root_refute_before_equation_substitution();
+    tst_large_length_witness_fallback(false);
+    tst_large_length_witness_fallback(true);
     tst_root_witness_retention(false);
     tst_root_witness_retention(true);
     tst_leaf_ground_prefix_cache(false);

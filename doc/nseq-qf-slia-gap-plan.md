@@ -543,6 +543,70 @@ and 2 unknowns. Continue tracing those shared decompositions and candidate
 feedback paths; the full PyEx gap, remaining inherited regressions, and
 overall coverage target are not claimed solved by this bounded follow-up.
 
+### Additional PyEx gains: bounded model-length witnesses
+
+The next follow-up compares against the published repair in commit
+`f221583e7ee6be9bad86b9077059c7550b9ac68a`, not against the older P3 baseline.
+Two remaining failure mechanisms are addressed:
+
+- When cheap model completion cannot construct any candidate, settled
+  literal negative-containment obligations can remain behind their cursor.
+  An explicit, trailed fallback now records that the attempt finished and
+  allows constructive propagation to resume.
+- Regex witness construction can eagerly adopt an incidental arithmetic-model
+  length of hundreds of thousands of characters. For a model length above
+  256, a speculative branch first bounds active membership variables to
+  length at most 16. These are dependency-tracked assumptions, not facts.
+  The original exact-length path remains the unchanged alternative.
+
+The length-choice phase is trailed and cloned with the membership facet.
+A pending choice is not considered a completed membership model. Focused
+tests cover successful and rejected short guesses, a required 257-character
+witness through the fallback, scope restoration, and empty completion
+attempts. Solver budgets and routing remain unchanged.
+
+A matched five-second, model-validated comparison uses 32 total workers and
+3,738 distinct inputs, including 512 fresh PyEx holdouts excluded from the
+earlier control subset. Groups overlap:
+
+| Group | Inputs | Published repair solved | New repair solved |
+|---|---:|---:|---:|
+| Existing entry-disposition sample | 512 | 134 | 139 |
+| Existing other-PyEx sample | 128 | 8 | 19 |
+| Fresh entry-disposition holdout | 384 | 97 | 104 |
+| Fresh other-PyEx holdout | 128 | 21 | 28 |
+| All original c3mv-only controls | 1,529 | 1,470 | 1,470 |
+| All former model errors | 290 | 272 | 272 |
+| Distinct inputs, all groups | **3,738** | **2,557** | **2,590** |
+
+The 7,476 invocations take 411.0 seconds: **33 gains, zero losses**, including
+**30 PyEx gains** (12 entry-disposition, 18 MongoClient) and 14 gains on the
+fresh holdouts. The other gains are two wordPattern cases and one
+StringFuzz `str-term-small-rw` case. PAR-2 mean improves from 3.388 to
+3.304 seconds. There are no errors/invalid models, external watchdogs, or
+definite-answer contradictions against the paired baseline or either master
+reference. Former-error outcomes, including the two independently unconfirmed
+UNSAT results, remain unchanged.
+
+Two further paired checks cover all 33 gains and the 11 sensitive prototype
+controls. Every new candidate remains model-validated SAT, with zero losses.
+The baseline recovers one different near-cutoff case in each check:
+wordPattern `00b9b0d...` and MongoClient `a1d2f3f...`. Thus 31 gains,
+including 29 PyEx gains, reproduce as wins in both checks; the primary
+33-gain result is not relabeled.
+
+The representative `2ba00d...` case previously asks for a 432,310-character
+witness. In the matched run it changes from timeout at 5.12 seconds and
+253 MB peak memory to validated SAT at 0.168 seconds and 21 MB. Three
+additional quiet timing runs take 82-88 ms.
+
+All 135 native modules pass. CLI arithmetic/help, Python selector/replacement
+model evaluation, and Python's actual required-257-character fallback and
+push/pop checks pass. Session artifacts retain `pyex-bounded-final-v1`,
+the two `pyex-retention-repeat` experiments, the rejected probes, and their
+source/binary/input hashes; invocations are logged to `z3agent.db`.
+No full post-fix PyEx or QF_SLIA score is extrapolated from these samples.
+
 ## Baseline and scope
 
 Sources:

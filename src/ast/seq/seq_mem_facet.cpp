@@ -347,6 +347,7 @@ namespace seq {
             if (is_single_var_plain(sm))
                 f->m_vw.add_untrailed(sm.m_str.get(0), sm.m_view, sm.m_dep);
         f->m_witness_extracted = m_witness_extracted;
+        f->m_witness_phase = m_witness_phase;
         for (auto const& [var, w] : m_witness) {
             f->m_witness_pin.push_back(w);
             f->m_witness.insert(var, w);
@@ -355,6 +356,8 @@ namespace seq {
     }
 
     bool mem_facet::is_satisfied() const {
+        if (short_witness_pending())
+            return false;
         for (auto const& sm : m_mems)
             if (sm.active() && !is_single_var_plain(sm))
                 return false;
@@ -401,6 +404,14 @@ namespace seq {
     void mem_facet::set_witness_extracted(bool v) {
         m_trail.push(value_trail<bool>(m_witness_extracted));
         m_witness_extracted = v;
+    }
+
+    void mem_facet::prefer_short_witness(bool prefer) {
+        auto phase = prefer ? witness_phase::short_first : witness_phase::model_fallback;
+        if (phase != m_witness_phase) {
+            m_trail.push(value_trail<witness_phase>(m_witness_phase));
+            m_witness_phase = phase;
+        }
     }
 
     void mem_facet::set_witness(expr* var, expr* w) {
@@ -728,6 +739,21 @@ namespace seq {
             ac.eq_facet_ref().is_satisfied() &&
             ac.deq_facet_ref().is_satisfied()) {
             if (!f.witness_extracted() && !f.memberships().empty()) {
+                // Try a bounded arithmetic model before materializing a large,
+                // incidental length. The leaf split retains the original
+                // exact-length construction as its unchanged fallback.
+                if (ac.fparams().m_seq_monadic_leaf && !f.model_witness_fallback()) {
+                    for (auto const& sm : f.memberships()) {
+                        if (!sm.active() || sm.m_str.size() != 1)
+                            continue;
+                        expr_ref length(u.str.mk_length(sm.m_str.get(0)), m);
+                        rational k;
+                        if (sf.value(length, k) && k > rational(256)) {
+                            f.prefer_short_witness(true);
+                            return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+                        }
+                    }
+                }
                 bool handled = false;
                 if (ac.fparams().m_seq_mem_monadic_endgame) {
                     eq_tree::dep_tracker mdep = nullptr;
@@ -1318,6 +1344,7 @@ namespace seq {
         // This is the unchanged branch, so the only mutation is the
         // trailed decline guard.
         ac.trail().push(value_trail<bool>(m_owner.m_declined_here, true));
+        ac.mem_facet_ref().prefer_short_witness(false);
         out = eq_tree::edge("mem-leaf-decline", m_dep, true, 0);
         return true;
     }
@@ -1353,6 +1380,30 @@ namespace seq {
         // not trailed, since it is meant to throttle across the whole
         // outer search rather than per-branch.
         bool eqs_done = ac.eq_facet_ref().is_satisfied() && ac.deq_facet_ref().is_satisfied();
+        auto& mf = ac.mem_facet_ref();
+        if (eqs_done && mf.short_witness_pending()) {
+            eq_tree::dep_tracker dep = nullptr;
+            auto& sf = ac.solver_facet_ref();
+            auto& af = ac.assumption_facet_ref();
+            expr_mark seen;
+            for (auto const& sm : mf.memberships()) {
+                if (!sm.active() || sm.m_str.size() != 1 || seen.is_marked(sm.m_str.get(0)))
+                    continue;
+                expr* var = sm.m_str.get(0);
+                seen.mark(var);
+                expr_ref length(u.str.mk_length(var), m);
+                expr_ref bound(sf.get_arith_util().mk_le(length, sf.get_arith_util().mk_int(16)), m);
+                auto bound_dep = af.add_assumption(bound, ac.context());
+                sf.add_constraint(bound, bound_dep);
+                dep = mf.dm().mk_join(dep, bound_dep);
+            }
+            mf.prefer_short_witness(false);
+            out = eq_tree::edge("mem-length-bounds", dep, true, 0);
+            has_more = true;
+            committed = true;
+            ++m_stats.m_num_committed;
+            return alloc(iterator, n, dep, *this);
+        }
         bool root_ask = false;
         if (!eqs_done && ac.fparams().m_seq_monadic_leaf_root) {
             unsigned period = ac.fparams().m_seq_monadic_leaf_root_period;
@@ -1361,7 +1412,6 @@ namespace seq {
         }
         if (!eqs_done && !root_ask)
             return nullptr;
-        auto& mf = ac.mem_facet_ref();
         eq_tree::dep_tracker dep = nullptr;
         expr_substitution witnesses(m);
         unsigned budget = (!eqs_done && root_ask) ? ac.fparams().m_seq_monadic_leaf_budget_root : m_budget;
