@@ -489,6 +489,147 @@ namespace {
         f.trail.pop_scope(1);
     }
 
+    static void tst_leaf_ground_prefix_cache(bool integers) {
+        fixture f;
+        f.ac.params.m_seq_monadic_leaf = true;
+        f.ac.params.m_seq_monadic_leaf_budget = 0;
+        f.ac.params.m_seq_monadic_leaf_budget_root = 50000;
+        sort_ref s(integers ? f.u.str.mk_seq(f.a.mk_int()) : f.u.str.mk_string_sort(), f.m);
+        auto word = [&](char const* text) -> expr_ref {
+            if (!integers)
+                return expr_ref(f.u.str.mk_string(text), f.m);
+            expr_ref_vector units(f.m);
+            for (char const* p = text; *p; ++p) {
+                expr_ref value(f.a.mk_int(*p), f.m);
+                units.push_back(f.u.str.mk_unit(value));
+            }
+            return expr_ref(f.u.str.mk_concat(units, s), f.m);
+        };
+        expr_ref x(f.m.mk_fresh_const("x", s), f.m);
+        expr_ref c = word("c"), d = word("d");
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& dm = f.tree.dep_mgr();
+        seq::mem_leaf_split leaf(f.m, f.u, f.rw, f.ac);
+        unsigned dep_id = 0;
+        for (char const* prefix : {"", "ab", "z"}) {
+            f.trail.push_scope();
+            ++dep_id;
+            expr_ref fixed = word(prefix);
+            expr_ref_vector tokens(f.m);
+            tokens.push_back(fixed).push_back(x).push_back(c).push_back(x);
+            expr_ref term(f.u.str.mk_concat(tokens, s), f.m);
+            expr_ref full = word((std::string(prefix) + "dcd").c_str());
+            expr_ref re(f.u.re.mk_to_re(full), f.m);
+            mf.add(seq::str_mem(f.m, term, seq::view::membership(re, f.m), dm.mk_leaf(dep_id)));
+            seq::eq_tree::dep_tracker dep = nullptr;
+            bool checked = false;
+            if (dep_id == 1) {
+                ENSURE(leaf.root_refute(mf, dep, checked) == l_undef && checked);
+                ENSURE(dm.contains(dep, dep_id));
+                ENSURE(ef.is_satisfied() && ef.equations().empty());
+            }
+            seq::eq_tree::edge out;
+            bool has_more = false, committed = false;
+            auto it = leaf.split(*f.root, 0, out, has_more, committed);
+            ENSURE(it && committed && has_more);
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == dep_id);
+            ENSURE(ef.equations().size() == 1);
+            auto const& eq = ef.equations()[0];
+            ENSURE(eq.active() && eq.m_lhs.size() == 1 && eq.m_lhs[0] == x);
+            expr_ref actual(f.u.str.mk_concat(eq.m_rhs, s), f.m);
+            th_rewriter normalize(f.m);
+            normalize(actual);
+            ENSURE(actual == d);
+            ENSURE(dm.contains(eq.m_dep, dep_id));
+            if (dep_id > 1)
+                ENSURE(!dm.contains(eq.m_dep, dep_id - 1));
+            ENSURE(mf.memberships()[0].m_view.m_state == re);
+            f.trail.pop_scope(1);
+            ENSURE(mf.memberships().empty() && ef.equations().empty());
+        }
+        f.trail.push_scope();
+        expr_ref empty(f.u.re.mk_empty(f.u.re.mk_re(s)), f.m);
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(empty, f.m), dm.mk_leaf(7)));
+        seq::eq_tree::dep_tracker seed_dep = nullptr;
+        bool checked = false;
+        ENSURE(leaf.root_refute(mf, seed_dep, checked) == l_false && checked);
+        ENSURE(leaf_stat(leaf, "seq-mem-leaf num refuted") == 1);
+        f.trail.pop_scope(1);
+        f.root->clear_status();
+        for (unsigned round = 0; round < 2; ++round) {
+            f.trail.push_scope();
+            expr_ref fixed = word(round ? "b" : "a");
+            expr_ref other = word(round ? "a" : "b");
+            expr_ref term(f.u.str.mk_concat(fixed, x), f.m);
+            expr_ref re(f.u.re.mk_to_re(other), f.m);
+            unsigned id = 10 + round;
+            mf.add(seq::str_mem(f.m, term, seq::view::membership(re, f.m), dm.mk_leaf(id)));
+            seq::eq_tree::edge out;
+            bool has_more = false, committed = false;
+            auto it = leaf.split(*f.root, 0, out, has_more, committed);
+            ENSURE(!it && !committed);
+            auto dep = f.root->conflict_dep();
+            ENSURE(dm.contains(dep, id) && !dm.contains(dep, id - 1));
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == 5 + round);
+            f.trail.pop_scope(1);
+            f.root->clear_status();
+        }
+    }
+
+    static void tst_leaf_ground_word() {
+        fixture f;
+        expr_ref word(f.u.str.mk_string("ab"), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& dm = f.tree.dep_mgr();
+        seq::mem_leaf_split leaf(f.m, f.u, f.rw, f.ac);
+        for (bool complement : {false, true})
+            for (bool match : {false, true}) {
+                f.trail.push_scope();
+                expr_ref re(f.u.re.mk_to_re(match ? word : a), f.m);
+                if (complement)
+                    re = f.u.re.mk_complement(re);
+                mf.add(seq::str_mem(f.m, word, seq::view::membership(re, f.m), dm.mk_leaf(1)));
+                seq::eq_tree::dep_tracker dep = nullptr;
+                bool checked = false;
+                ENSURE(leaf.root_refute(mf, dep, checked) == (match != complement ? l_undef : l_false));
+                ENSURE(checked && dm.contains(dep, 1));
+                ENSURE(!mf.witness_extracted());
+                f.trail.pop_scope(1);
+            }
+    }
+
+    static void tst_leaf_prefix_symbolic_and_cancelled() {
+        fixture f;
+        sort_ref s(f.u.str.mk_seq(f.a.mk_int()), f.m);
+        expr_ref value(f.a.mk_int(1), f.m);
+        expr_ref one(f.u.str.mk_unit(value), f.m);
+        expr_ref n(f.m.mk_fresh_const("n", f.a.mk_int()), f.m);
+        expr_ref symbolic(f.u.str.mk_unit(n), f.m);
+        expr_ref x(f.m.mk_fresh_const("x", s), f.m);
+        expr_ref re(f.u.re.mk_to_re(one), f.m);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& dm = f.tree.dep_mgr();
+        seq::mem_leaf_split leaf(f.m, f.u, f.rw, f.ac);
+        f.trail.push_scope();
+        expr_ref term(f.u.str.mk_concat(one, symbolic), f.m);
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(re, f.m), dm.mk_leaf(1)));
+        seq::eq_tree::dep_tracker dep = nullptr;
+        bool checked = false;
+        ENSURE(leaf.root_refute(mf, dep, checked) == l_undef && !checked);
+        f.trail.pop_scope(1);
+        term = f.u.str.mk_concat(one, x);
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(re, f.m), dm.mk_leaf(2)));
+        {
+            scoped_rlimit limit(f.m.limit(), 0);
+            f.m.limit().cancel();
+            ENSURE(leaf.root_refute(mf, dep, checked) == l_undef);
+        }
+        ENSURE(leaf.root_refute(mf, dep, checked) == l_undef && checked);
+        ENSURE(dm.contains(dep, 2));
+    }
+
     static void tst_symbolic_unit_derivative_not_rejected() {
         fixture f;
         sort* s = f.u.str.mk_string_sort();
@@ -884,6 +1025,10 @@ void tst_seq_mem_facet() {
     tst_root_refute_before_equation_substitution();
     tst_root_witness_retention(false);
     tst_root_witness_retention(true);
+    tst_leaf_ground_prefix_cache(false);
+    tst_leaf_ground_prefix_cache(true);
+    tst_leaf_ground_word();
+    tst_leaf_prefix_symbolic_and_cancelled();
     tst_symbolic_unit_derivative_not_rejected();
     tst_witness_waits_for_word_constraints(false);
     tst_witness_waits_for_word_constraints(true);

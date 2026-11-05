@@ -1165,18 +1165,49 @@ namespace seq {
     // ---- mem_leaf_split -----------------------------------------------------------
 
     lbool mem_leaf_split::ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses) {
+        lbool result = ask_core(mf, budget, all_dep, witnesses, false);
+        // Keep the cheap root query unchanged. Only a settled leaf retries
+        // an inconclusive query in its residual form.
+        if (result != l_undef || !witnesses)
+            return result;
+        if (witnesses)
+            witnesses->reset();
+        return ask_core(mf, budget, all_dep, witnesses, true);
+    }
+
+    lbool mem_leaf_split::ask_core(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep,
+                                 expr_substitution* witnesses, bool normalize_prefix) {
         all_dep = nullptr;
         struct fed_item { expr* term; expr* regex; eq_tree::dep_tracker dep; };
         std::vector<fed_item> fed;
+        expr_ref_vector pin(m);
+        bool changed = false;
         for (str_mem const& sm : mf.memberships()) {
             if (!sm.active() || !sm.is_plain() || sm.m_str.empty())
                 continue;
-            expr* term = u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), sm.m_str[0]->get_sort());
+            unsigned head = 0;
+            expr_ref regex(sm.m_view.m_state, m);
+            expr* elem = nullptr;
+            // Consume fixed prefixes before asking for a joint assignment
+            // to the remaining variables, without changing the memberships.
+            while (normalize_prefix && head < sm.m_str.size() &&
+                   u.str.is_unit(sm.m_str.get(head), elem) && m.is_value(elem)) {
+                if (!m.inc())
+                    return l_undef;
+                regex = m_rw.mk_derivative(elem, regex);
+                m_th_rw(regex);
+                ++head;
+            }
+            expr_ref term(u.str.mk_concat(sm.m_str.size() - head, sm.m_str.data() + head,
+                                          sm.m_str[0]->get_sort()), m);
             if (!m_mon.can_decide_term(term))
                 continue;
-            fed.push_back({term, sm.m_view.m_state.get(), sm.m_dep});
+            changed |= head != 0;
+            pin.push_back(term);
+            pin.push_back(regex);
+            fed.push_back({term, regex, sm.m_dep});
         }
-        if (fed.empty())
+        if (fed.empty() || (normalize_prefix && !changed))
             return l_undef;
 
         for (auto const& fi : fed)

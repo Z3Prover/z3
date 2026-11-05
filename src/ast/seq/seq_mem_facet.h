@@ -539,6 +539,8 @@ namespace seq {
     class mem_leaf_split : public eq_tree::split_plugin_i {
         ast_manager&        m;
         seq_util&           u;
+        seq_rewriter&       m_rw;
+        th_rewriter         m_th_rw;
         trail_stack         m_mon_trail;   // private scratch trail, scoped per check() via push/pop_scope
         seq::monadic        m_mon;
         unsigned            m_budget;
@@ -619,8 +621,11 @@ namespace seq {
         // memberships and `witnesses`, when requested, receives the joint
         // solution. Root asks also cache materialized candidates, without
         // applying them to the node. Returns `l_undef` when nothing was fed
-        // or the solver could not decide.
+        // or the solver could not decide. Inconclusive ordinary leaf queries
+        // are retried after consuming leading ground units.
         lbool ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses);
+        lbool ask_core(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep,
+                       expr_substitution* witnesses, bool normalize_prefix);
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
@@ -635,7 +640,7 @@ namespace seq {
 
     public:
         mem_leaf_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>& ac) :
-            m(m), u(u), m_mon(rw, m_mon_trail), m_budget(ac.fparams().m_seq_monadic_leaf_budget),
+            m(m), u(u), m_rw(rw), m_th_rw(m), m_mon(rw, m_mon_trail), m_budget(ac.fparams().m_seq_monadic_leaf_budget),
             m_budget_root(ac.fparams().m_seq_monadic_leaf_budget_root) {
             m_mon.set_gen_solution(true);
             m_mon.set_orientation(seq::monadic::orientation::retry);
