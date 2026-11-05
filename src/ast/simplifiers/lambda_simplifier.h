@@ -56,21 +56,33 @@ class lambda_simplifier : public dependent_expr_simplifier {
 
     // find (= c L) / (= L c) shaped assertions where c is a 0-ary uninterpreted
     // constant, L is (headed by) a lambda term, and c does not occur in L.
+    // raw_pr[c] is a proof of the equation, re-oriented (via symmetry if
+    // needed) so that its fact is always literally `(= c L)` -- regardless
+    // of which side `c` appeared on in the original assertion -- so it can
+    // be used uniformly as a demodulation antecedent later.
     void collect_macros(obj_map<func_decl, expr*>& raw_defs,
+                         obj_map<func_decl, proof*>& raw_pr,
                          obj_map<func_decl, unsigned>& def_idx,
-                         expr_ref_vector& pinned);
+                         expr_ref_vector& pinned,
+                         proof_ref_vector& pinned_pr);
 
     // remove candidates whose constant is used too widely to be safely inlined.
     void filter_by_occurrences(obj_map<func_decl, expr*>& raw_defs,
                                 obj_map<func_decl, unsigned>& def_idx);
 
     // resolve nested macro references to a fixpoint, guarding against cycles.
+    // resolved_pr[d] is a proof of `(= c resolved-body)`, obtained by
+    // chaining raw_pr[d] with a PR_DEMODULATION step (via transitivity)
+    // whenever other, already-resolved macro constants occur in the body.
     expr* resolve(func_decl* d,
                   obj_map<func_decl, expr*> const& raw_defs,
+                  obj_map<func_decl, proof*> const& raw_pr,
                   obj_map<func_decl, expr*>& resolved,
+                  obj_map<func_decl, proof*>& resolved_pr,
                   obj_hashtable<func_decl>& in_progress,
                   obj_hashtable<func_decl>& failed,
-                  expr_ref_vector& pinned);
+                  expr_ref_vector& pinned,
+                  proof_ref_vector& pinned_pr);
 
 public:
     lambda_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
@@ -80,6 +92,8 @@ public:
     }
 
     char const* name() const override { return "lambda-macros"; }
+
+    bool supports_proofs() const override { return true; }
 
     void reduce() override;
 

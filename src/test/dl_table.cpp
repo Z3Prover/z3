@@ -24,8 +24,7 @@ static void test_table(mk_table_fn mk_table) {
     sig.push_back(4);
     smt_params params;
     params_ref fp_params;
-    gparams::set("fp.engine", "datalog");
-    // fp_params.set_sym("fp.engine", symbol("datalog"));
+    fp_params.set_sym("engine", symbol("datalog"));
     ast_manager ast_m;
     reg_decl_plugins(ast_m);
     datalog::register_engine re;

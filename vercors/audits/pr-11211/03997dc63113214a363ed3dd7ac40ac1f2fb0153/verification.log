@@ -1,0 +1,3 @@
+VerCors 2.4.0
+Sanity draft SwinePower.cpp (int model of compute_power loop with intentional `assert false`): command `vercors --lang cpp --backend silicon --dev-total-timeout 60 SwinePower.cpp`; result: verification failed on the intentional assertion (frontend parsed and ran in 16s). Draft omitted from bundle and not used as evidence.
+No conclusive unit produced; no reverification performed.

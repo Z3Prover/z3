@@ -16,6 +16,8 @@ Description:
 
 #pragma once
 
+#include "math/lp/nla_lemma.h"
+
 namespace nla {
 
     typedef lp::constraint_index     lpci;
@@ -51,7 +53,13 @@ namespace nla {
     class lemma {
         vector<ineq>     m_ineqs;
         lp::explanation  m_expl;
+        bool m_nlsat_assumed = false;
+        std::shared_ptr<lemma_certificate const> m_certificate;
     public:
+        bool nlsat_assumed() const { return m_nlsat_assumed; }
+        void set_nlsat_assumed() { m_nlsat_assumed = true; m_certificate.reset(); }
+        auto const& certificate() const { return m_certificate; }
+        void set_certificate(std::shared_ptr<lemma_certificate const> p) { m_certificate = std::move(p); }
         void push_back(const ineq& i) { m_ineqs.push_back(i);}
         size_t size() const { return m_ineqs.size() + m_expl.size(); }
         const vector<ineq>& ineqs() const { return m_ineqs; }
@@ -78,7 +86,7 @@ namespace nla {
         
     public:
         lemma_builder(core& c, char const* name);
-        ~lemma_builder();
+        ~lemma_builder() noexcept(false);
         std::ostream& display(std::ostream& out) const;
         lemma_builder& operator&=(lp::explanation const& e);
         lemma_builder& operator&=(const monic& m);
@@ -86,6 +94,7 @@ namespace nla {
         lemma_builder& operator&=(const factorization& f);
         lemma_builder& operator&=(lpvar j);
         lemma_builder& operator|=(ineq const& i);
+        void assume_nlsat() { current().set_nlsat_assumed(); }
         lemma_builder& explain_fixed(lpvar j);
         lemma_builder& explain_equiv(lpvar u, lpvar v);
         lemma_builder& explain_var_separated_from_zero(lpvar j);

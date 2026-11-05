@@ -192,6 +192,37 @@ regressions and one borderline case remain open at five seconds.
 The larger subset is diagnostic evidence, not a claim that the full
 QF_SLIA gap is closed.
 
+### Validation after integration with c3mv
+
+Integrated the independent membership-witness deferral and root-witness
+cache updates, together with c3mv's newer master merge. The nested-sequence
+assumption regression explicitly selects `seq`: its strict SAT/UNSAT
+checks do not require unsupported nested alphabets in nseq's regex backend.
+The combined Release build passes all 135 native tests and CLI/Python
+smoke checks.
+
+The fixed, overlapping 786-input subset uses 32 workers, a five-second
+cap, and `model_validate=true`:
+
+| Group | Inputs | Original c3mv | Before regression repair | Integrated state |
+|---|---:|---:|---:|---:|
+| Proportional corpus sample | 512 | 377 | 378 | 395 |
+| Family-balanced master-only cases | 128 | 0 | 37 | 46 |
+| Family-balanced c3mv win controls | 64 | 61 | 52 | 60 |
+| Family-balanced former model errors | 64 | 0 | 47 | 46 |
+| Existing diagnostics | 37 | 3 | 13 | 21 |
+| Distinct inputs, all groups | 786 | 441 | 511 | 553 |
+
+The integrated run takes 37.6 seconds and reports no invalid models.
+It includes independent c3mv improvements, so the complete gain must not
+be attributed to this PR alone.
+
+The complete 290-input former-error sweep reports 271 validated SAT,
+2 UNSAT, 16 timeouts, and 1 unknown; no invalid models or errors.
+Both UNSAT cases, validWordAbbreviation/37 and /163, were master
+timeouts. Independent `seq` checks also time out at 30 seconds, so
+these UNSAT results remain independently unconfirmed.
+
 ## Baseline and scope
 
 Sources:

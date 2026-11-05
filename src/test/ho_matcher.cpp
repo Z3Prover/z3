@@ -110,13 +110,20 @@ namespace euf {
             expr_ref s(m.mk_app(sum.get(), one.get(), u.get(), m.mk_lambda(1, &int_s, &x, m.mk_app(f, m.mk_var(0, m_int)))), m);
             s = m_arith.mk_add(s, m.mk_app(f.get(), zero));
 
-
-            pat = m_arith.mk_add(m.mk_app(sum, (unsigned)3, args), m_array.mk_select(F, L1));
+            {
+                expr_ref lhs(m.mk_app(sum, (unsigned)3, args), m);
+                expr_ref rhs(m_array.mk_select(F, L1), m);
+                pat = m_arith.mk_add(lhs, rhs);
+            }
             IF_VERBOSE(0, verbose_stream() << "test5a: " << pat << " =?= " << s << "\n";);
             m_matcher.add_pattern(pat.get());
             m_matcher(pat, s, 4);
 
-            pat = m_arith.mk_add(m_array.mk_select(F, L1), m.mk_app(sum, (unsigned)3, args));
+            {
+                expr_ref lhs(m_array.mk_select(F, L1), m);
+                expr_ref rhs(m.mk_app(sum, (unsigned)3, args), m);
+                pat = m_arith.mk_add(lhs, rhs);
+            }
             IF_VERBOSE(0, verbose_stream() << "test5b: " << pat << " =?= " << s << "\n";);
             m_matcher.add_pattern(pat.get());
             m_matcher(pat, s, 4);
@@ -372,7 +379,9 @@ namespace euf {
             void test_missing_ho_quantifier() {
                 sort* sorts[1] = { m_int };
                 symbol names[1] = { symbol("x") };
-                expr_ref body(m.mk_eq(m.mk_var(0, m_int), m.mk_var(0, m_int)), m);
+                expr_ref lhs(m.mk_var(0, m_int), m);
+                expr_ref rhs(m.mk_var(0, m_int), m);
+                expr_ref body(m.mk_eq(lhs, rhs), m);
                 quantifier_ref q(m.mk_forall(1, sorts, names, body), m);
                 VERIFY(m_matcher.hoq2q(q) == nullptr);
             }

@@ -459,7 +459,9 @@ void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * ta
         auto fid = m_fpa_util.get_family_id();
         auto k = is_decl_of(f, fid, OP_FPA_MIN) ? OP_FPA_MIN_I : OP_FPA_MAX_I;
         func_decl_ref min_max_i(m.mk_func_decl(fid, k, 0, nullptr, 2, pn_args), m);
-        expr_ref else_value(m.mk_app(min_max_i, m.mk_var(0, srt), m.mk_var(1, srt)), m);
+        expr_ref arg0(m.mk_var(0, srt), m);
+        expr_ref arg1(m.mk_var(1, srt), m);
+        expr_ref else_value(m.mk_app(min_max_i, arg0.get(), arg1.get()), m);
         flt_fi->set_else(else_value);
 
         target_model->register_decl(f, flt_fi);

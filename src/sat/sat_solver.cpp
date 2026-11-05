@@ -430,7 +430,8 @@ namespace sat {
             }
             // if an input clause is simplified, then log the simplified version as learned
             if (m_config.m_drat && old_sz > num_lits) {
-                drat_log_clause(num_lits, lits, st);
+                drat_log_clause(num_lits, lits,
+                                !m_ext && st.is_asserted() ? status::redundant() : st);
                 logged = true;
             }
 
@@ -1830,7 +1831,8 @@ namespace sat {
         if (!m_ext || !m_ext->tracking_assumptions())
             return basic_search();
         while (true) {
-            pop_to_base_level();
+            // Private theory phases must preserve the caller's assumptions.
+            pop(scope_lvl());
             reinit_assumptions();
             lbool r = basic_search();
             if (r != l_false) 
@@ -2825,14 +2827,22 @@ namespace sat {
         }
         reset_unmark(old_size);
         if (m_core.size() > 1) {
+            // An assumption true at level 0 is implied by the clauses and is
+            // dropped. An assumption false at level 0 contradicts the clauses
+            // and stays in the core.
             unsigned j = 0;
-            for (unsigned i = 0; i < m_core.size(); ++i) {
-                if (lvl(m_core[i]) > 0) m_core[j++] = m_core[i];            
-            }
+            for (literal lit : m_core)
+                if (lvl(lit) > 0 || value(lit) == l_false)
+                    m_core[j++] = lit;
             m_core.shrink(j);
         }
 
         if (m_config.m_core_minimize) {
+            // Let the extension retry private phases before nested MUS checks
+            // replace its current assumptions and search state.
+            for (literal lit : m_core)
+                if (m_ext_assumption_set.contains(lit))
+                    return;
             if (m_min_core_valid && m_min_core.size() < m_core.size()) {
                 IF_VERBOSE(2, verbose_stream() << "(sat.updating core " << m_min_core.size() << " " << m_core.size() << ")\n";);
                 m_core.reset();
@@ -3780,6 +3790,7 @@ namespace sat {
     void solver::pop_to_base_level() {
         reset_assumptions();
         pop(scope_lvl());
+        m_model_is_current = false;
     }
 
     // -----------------------

@@ -1,7 +1,10 @@
 z3_add_component(proofs
   SOURCES
+    lp_proof.cpp
     proof_checker.cpp
     proof_utils.cpp
   COMPONENT_DEPENDENCIES
+    lp
     rewriter
+    ff_ast
 )

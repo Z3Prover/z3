@@ -599,6 +599,21 @@ namespace smt {
         }
     }
 
+    bool theory_nseq::assume_shared_equalities() {
+        ptr_vector<enode> shared;
+        for (unsigned v = 0, sz = get_num_vars(); v < sz; ++v) {
+            enode* n = get_enode(v);
+            if (!n->is_root() || !is_relevant_and_shared(n))
+                continue;
+            for (enode* other : shared)
+                if (n->get_expr()->get_sort() == other->get_expr()->get_sort() &&
+                    !ctx.is_diseq(n, other) && assume_eq(n, other))
+                    return true;
+            shared.push_back(n);
+        }
+        return false;
+    }
+
     // Mirrors theory_seq::propagate_eq: assign e1 = e2 directly into the
     // SMT core, justified by lit (already true - the caller is the
     // m_sk.is_eq branch of assign_eh, called only when is_true holds).
@@ -779,6 +794,16 @@ namespace smt {
 
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
+
+        // Registration alone must not replay unrelated theories into the
+        // arithmetic backend. Later sequence terms can still activate nseq.
+        if (get_num_vars() == 0 && m_num_unhandled == 0)
+            return FC_DONE;
+
+        // The facets must see an equality arrangement for terms shared with
+        // other theories before accepting a sequence model.
+        if (assume_shared_equalities())
+            return FC_CONTINUE;
 
         if (m_ambient->ho_facet(*m_root).propagate())
             return FC_CONTINUE;

@@ -19,6 +19,9 @@ Revision History:
 --*/
 #pragma once
 
+#include <mutex>
+#include <vector>
+
 #include "util/hashtable.h"
 #include "util/mutex.h"
 #include "util/event_handler.h"
@@ -64,13 +67,13 @@ namespace api {
         struct add_plugins {  add_plugins(ast_manager & m); };
         ast_context_params                m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
-#ifndef SINGLE_THREAD
         bool                       m_concurrent_dec_ref = false;
-#endif
         scoped_ptr<ast_manager>    m_manager;
         scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
         mutex                      m_mux;
+        // These queues are appended to by GC threads in SINGLE_THREAD builds too.
+        std::mutex                 m_dec_ref_mux;
 
         arith_util                 m_arith_util;
         bv_util                    m_bv_util;
@@ -84,10 +87,9 @@ namespace api {
         smt_params                 m_fparams;
         // -------------------------------
 
-#ifndef SINGLE_THREAD
-        ptr_vector<ast>            m_asts_to_flush, m_asts_to_flush2;
-        ptr_vector<api::object>    m_objects_to_flush, m_objects_to_flush2;
-#endif
+        // Use the system allocator rather than Z3's non-thread-safe memory manager.
+        std::vector<ast*>          m_asts_to_flush;
+        std::vector<api::object*>  m_objects_to_flush;
 
         ast_ref_vector             m_ast_trail;        
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
@@ -103,9 +105,12 @@ namespace api {
         family_id                  m_seq_fid;
         family_id                  m_char_fid;
         family_id                  m_special_relations_fid;
+        family_id                  m_ff_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
+        Z3_proof_check_eh*          m_proof_check_callback = nullptr;
+        void*                      m_proof_check_user_context = nullptr;
 
         Z3_error_code              m_error_code;
         Z3_error_handler *         m_error_handler;
@@ -135,6 +140,9 @@ namespace api {
 
         ast_context_params & params() { m_params.updt_params(); return m_params; }
         scoped_ptr<cmd_context>& cmd() { return m_cmd; }
+        void set_proof_check_callback(void* user_context, Z3_proof_check_eh callback);
+        cmd_context::proof_check_callback get_proof_check_callback();
+        std::string check_proof(proof* pr, Z3_ast_vector assertions);
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
@@ -161,6 +169,7 @@ namespace api {
         family_id get_char_fid() const { return m_char_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
         family_id get_special_relations_fid() const { return m_special_relations_fid; }
+        family_id get_ff_fid() const { return m_ff_fid; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
         void reset_error_code() { m_error_code = Z3_OK; }
@@ -169,10 +178,13 @@ namespace api {
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         
         void enable_concurrent_dec_ref() {
-#ifdef SINGLE_THREAD
-            set_error_code(Z3_EXCEPTION, "Can't use concurrent features with a single-thread build");
-#else
             m_concurrent_dec_ref = true;
+        }
+        bool should_check_dec_ref_count() const {
+#ifdef SINGLE_THREAD
+            return !m_concurrent_dec_ref;
+#else
+            return true;
 #endif
         }
         unsigned add_object(api::object* o);

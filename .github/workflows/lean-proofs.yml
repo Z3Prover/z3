@@ -1,0 +1,159 @@
+name: Lean proofs
+
+# On-demand check of Z3's native proofs in Lean: builds z3 (Release, clang, Python bindings) from the
+# selected branch, then runs scripts/ci_lean_proofs.sh, the same checks the CI workflow runs in its
+# releaseClang job. In parallel, two informational boundary-probe jobs (z3test's SMT-LIB sample;
+# the F* corpora, z3test's F* regressions and Z3's fstar/benchmarks SMT-LIB sample) run both Lean
+# cells and report how many inputs are certified and why the others are not. The run summary describes
+# what was checked, what is trusted, and where certification stops. Run from the Actions tab or with:
+#   gh workflow run lean-proofs.yml --ref <branch> -f z3test_ref=<ref>
+
+on:
+  workflow_dispatch:
+    inputs:
+      z3test_repository:
+        description: 'z3test repository (owner/name)'
+        type: string
+        default: 'Z3Prover/z3test'
+      z3test_ref:
+        description: 'z3test branch, tag, or commit'
+        type: string
+        default: 'master'
+      timeout:
+        description: 'Per-benchmark timeout in seconds for the proof matrices'
+        type: string
+        default: '30'
+      probe:
+        description: 'Run the boundary probe (informational; does not fail the run)'
+        type: boolean
+        default: true
+      probe_timeout:
+        description: 'Solver limit in seconds per probed benchmark'
+        type: string
+        default: '10'
+      probe_lean_timeout:
+        description: 'Reconstruction and Lean limit in seconds per probed benchmark'
+        type: string
+        default: '120'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lean-proofs:
+    name: "Lean proof checks"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout z3test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.z3test_repository }}
+          ref: ${{ inputs.z3test_ref }}
+          path: z3test
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.x'
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=True
+
+      - name: Build
+        run: ninja -C build
+
+      - name: Check native proofs in Lean
+        env:
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "$RUNNER_TEMP" \
+            --timeout "$TIMEOUT"
+
+      - name: Upload native and Lean proof artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lean-proof-certificates
+          path: |
+            ${{ runner.temp }}/lean-proof-artifacts/
+            ${{ runner.temp }}/lean-proof-matrix.jsonl
+            ${{ runner.temp }}/lean-proof-summary.md
+            ${{ runner.temp }}/lean-proof-logs/
+          if-no-files-found: warn
+
+  lean-probe:
+    name: "Lean boundary probe: ${{ matrix.corpus.name }}"
+    if: ${{ inputs.probe }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        corpus:
+          # paths: space-separated benchmark directories probed together in one job
+          - { name: 'SMT-LIB sample', id: smtlib-sample, paths: 'z3test/regressions/smtlib-sample' }
+          - { name: 'F* corpora', id: fstar, paths: 'z3test/regressions/fstar fstar/benchmarks/smtlib-sample' }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout z3test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.z3test_repository }}
+          ref: ${{ inputs.z3test_ref }}
+          path: z3test
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.x'
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=True
+
+      - name: Build
+        run: ninja -C build
+
+      - name: Probe Lean certification
+        env:
+          CORPORA: ${{ matrix.corpus.paths }}
+          PROBE_TIMEOUT: ${{ inputs.probe_timeout }}
+          PROBE_LEAN_TIMEOUT: ${{ inputs.probe_lean_timeout }}
+        run: |
+          probe=()
+          for dir in $CORPORA; do probe+=(--probe "$dir"); done
+          scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "$RUNNER_TEMP" \
+            --probe-only "${probe[@]}" --probe-timeout "$PROBE_TIMEOUT" --probe-lean-timeout "$PROBE_LEAN_TIMEOUT"
+
+      - name: Upload probe records and Lean files
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lean-probe-${{ matrix.corpus.id }}
+          path: |
+            ${{ runner.temp }}/lean-proof-summary.md
+            ${{ runner.temp }}/lean-proof-logs/
+            ${{ runner.temp }}/lean-probe.jsonl
+            ${{ runner.temp }}/lean-probe/
+          if-no-files-found: warn

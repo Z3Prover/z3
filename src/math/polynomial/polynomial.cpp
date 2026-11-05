@@ -36,6 +36,7 @@ Notes:
 #include "util/common_msgs.h"
 #include <memory>
 #include <numeric>
+#include <tuple>
 
 namespace polynomial {
 
@@ -118,7 +119,8 @@ namespace polynomial {
 
         struct lt_degree {
             bool operator()(power const & p1, power const & p2) {
-                return p1.degree() < p2.degree();
+                return std::tuple{p1.degree(), p1.get_var()} <
+                       std::tuple{p2.degree(), p2.get_var()};
             }
         };
     };
@@ -1871,6 +1873,7 @@ namespace polynomial {
         unsigned_vector          m_degree2pos;
         bool                     m_use_sparse_gcd;
         bool                     m_use_prs_gcd;
+        random_gen               m_rand;
 
         // Debugging method: check if the coefficients of p are in the numeral_manager.
         bool consistent_coeffs(polynomial const * p) {
@@ -4394,7 +4397,10 @@ namespace polynomial {
             SASSERT(m().modular()); // ensure we're in modular mode
             auto sz = vals.size();
             while (true) {
-                m().set(r, rand() % p);
+                // Combine two 15-bit draws in a fixed order to cover the field.
+                uint32_t hi = m_rand();
+                uint32_t lo = m_rand();
+                m().set(r, ((hi << 15) | lo) % p);
                 m().p_normalize(r.get()); // normalize the value to ensure it's in the correct range
                 SASSERT(m().is_p_normalized(r)); // verify normalization succeeded
                 // check if fresh value...
@@ -7323,7 +7329,10 @@ namespace polynomial {
                 if (v != x)
                     var_by_deg.push_back(std::make_pair(degree(p, v), v));
             std::sort(var_by_deg.begin(), var_by_deg.end(),
-                      [](auto const& a, auto const& b) { return a.first > b.first; });
+                      [](auto const& a, auto const& b) {
+                          return std::tuple{a.first, a.second} >
+                                 std::tuple{b.first, b.second};
+                      });
             for (auto const& [d, v] : var_by_deg)
                 if (d > 1) main_vars.push_back(v);
 

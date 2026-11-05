@@ -28,7 +28,7 @@ jobs:
     container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Python
         run: |
@@ -42,8 +42,12 @@ jobs:
         run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
+        env:
+          PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
         run: |
           source $PWD/env/bin/activate
+          mkdir -p "$PIP_CACHE_DIR"
+          echo "PIP_CACHE_DIR=$PIP_CACHE_DIR" >> "$GITHUB_ENV"
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel
@@ -60,6 +64,8 @@ jobs:
           pip install ./src/api/python/wheelhouse/*.whl
           python - <src/api/python/z3test.py z3
           python - <src/api/python/z3test.py z3num
+          python -m unittest discover -s examples/python -p test_proof_certificate.py
+          python -m unittest discover -s examples/python -p test_proof_to_lean.py
 
   manylinux-python-arm64:
     name: "Python bindings (manylinux Centos ARM64 cross) build"
@@ -68,7 +74,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -90,8 +96,12 @@ jobs:
         run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
+        env:
+          PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
         run: |
           source $PWD/env/bin/activate
+          mkdir -p "$PIP_CACHE_DIR"
+          echo "PIP_CACHE_DIR=$PIP_CACHE_DIR" >> "$GITHUB_ENV"
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel (cross-compile)
@@ -117,10 +127,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
         with:
           ocaml-compiler: '5'
           opam-disable-sandboxing: true
@@ -132,7 +142,7 @@ jobs:
         run: opam install zarith ocamlfind -y
 
       - name: Configure
-        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_OCAML_BINDINGS=ON
+        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=lib -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
@@ -141,11 +151,10 @@ jobs:
           cmake --build build --parallel $(nproc)
           cmake --build build --target test-z3 --parallel $(nproc)
 
-      - name: Install Z3 OCaml package
+      - name: Install and test OCaml bindings
         run: |
-          eval `opam config env`
-          ML=build/src/api/ml
-          ocamlfind install z3 "$ML"/META "$ML"/*.cmi "$ML"/*.cmx "$ML"/*.mli "$ML"/*.a "$ML"/*.cma "$ML"/*.cmxa "$ML"/*.cmxs src/api/ml/z3.mli -dll "$ML"/dllz3ml.so
+          eval "$(opam env)"
+          bash scripts/test_ocaml_install.sh build "$PWD/install"
 
       - name: Run unit tests
         run: |
@@ -172,10 +181,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
         with:
           ocaml-compiler: '5'
           opam-disable-sandboxing: true
@@ -284,10 +293,10 @@ jobs:
             runTests: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
@@ -295,13 +304,16 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ninja-build
 
       - name: Setup Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.20'
+          cache-dependency-path: |
+            src/api/go/go.mod
+            examples/go/go.mod
 
       - name: Setup Julia (if needed)
         if: matrix.name == 'debugClang'
-        uses: julia-actions/setup-julia@v3
+        uses: julia-actions/setup-julia@da908477b5db94c10ffce8cfea9f2b3b9d5db687 # v3.0.3
         with:
           version: '1'
 
@@ -313,7 +325,8 @@ jobs:
           set -e
           ${{ matrix.setupCmd1 }}
           ${{ matrix.setupCmd2 }}
-          ${{ matrix.buildCmd }}
+          python_install_dir=$(python -c 'import sysconfig; print("lib/python" + sysconfig.get_python_version() + "/site-packages")')
+          ${{ matrix.buildCmd }} -DCMAKE_INSTALL_PYTHON_PKG_DIR="$python_install_dir"
 
       - name: Build
         run: |
@@ -329,11 +342,40 @@ jobs:
           ./test-z3 -a
           cd ..
 
+      - name: Clone z3test
+        if: matrix.runTests
+        run: git clone https://github.com/z3prover/z3test z3test
+
       - name: Run the proof regression matrix tests
         if: matrix.runTests
         env:
           Z3_EXE: ${{ github.workspace }}/build/z3
-        run: python -m unittest discover -s examples/python -p test_proof_matrix.py -v
+        run: python -m unittest discover -s z3test/scripts/proofs -p test_proof_matrix.py -v
+
+      - name: Run proof canaries
+        if: matrix.name == 'releaseClang'
+        run: |
+          python z3test/scripts/proofs/proof_matrix.py \
+            --z3 build/z3 \
+            --benchmark-root z3test \
+            --timeout 30 \
+            --out "${{ runner.temp }}/proof-canaries.jsonl" \
+            z3test/regressions/proofs/canaries/*.txt
+
+      - name: Check native proofs in Lean
+        if: matrix.name == 'releaseClang'
+        run: scripts/ci_lean_proofs.sh --install-lean --z3 build/z3 --z3test z3test --out "${{ runner.temp }}"
+
+      - name: Upload native and Lean proof artifacts
+        if: always() && matrix.name == 'releaseClang'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lean-proof-certificates
+          path: |
+            ${{ runner.temp }}/lean-proof-artifacts/
+            ${{ runner.temp }}/lean-proof-matrix.jsonl
+            ${{ runner.temp }}/lean-proof-summary.md
+          if-no-files-found: warn
 
       - name: Run examples
         if: matrix.runTests
@@ -362,10 +404,6 @@ jobs:
           ninja test-go-examples
           cd ..
 
-      - name: Clone z3test
-        if: matrix.runTests
-        run: git clone https://github.com/z3prover/z3test z3test
-
       - name: Run regressions
         if: matrix.runTests
         run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
@@ -386,15 +424,15 @@ jobs:
             name: latest CMake
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
       - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v2
+        uses: jwlawson/actions-setup-cmake@0d6a7d60b009d01c9e7523be22153ff8f19460d3 # v2.2.0
         with:
           cmake-version: ${{ matrix.build_cmake }}
 
@@ -446,7 +484,7 @@ jobs:
           cmake --build build-python-only --target build_z3_python_bindings
 
       - name: Setup consumer CMake
-        uses: jwlawson/actions-setup-cmake@v2
+        uses: jwlawson/actions-setup-cmake@0d6a7d60b009d01c9e7523be22153ff8f19460d3 # v2.2.0
         with:
           cmake-version: ${{ matrix.consumer_cmake }}
 
@@ -507,10 +545,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
@@ -544,10 +582,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
@@ -564,31 +602,50 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
 
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install dependencies
         run: |
-          brew install ninja
-          brew install --cask julia
+          brew install ninja gmp pkg-config
+
+      - name: Setup OCaml
+        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
+        with:
+          ocaml-compiler: '5'
+
+      - name: Install OCaml dependencies
+        run: opam install zarith ocamlfind -y
 
       - name: Configure
         run: |
-          julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"
-          JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
           set -e
-          cmake -G "Ninja" -S . -B build -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False
+          eval "$(opam env)"
+          python_install_dir=$(python -c 'import sysconfig; print("lib/python" + sysconfig.get_python_version() + "/site-packages")')
+          cmake -G "Ninja" -S . -B build -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=lib -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -DZ3_BUILD_OCAML_BINDINGS=ON -DCMAKE_INSTALL_PYTHON_PKG_DIR="$python_install_dir"
 
       - name: Build
         run: |
+          eval "$(opam env)"
           cd build
           ninja
           ninja test-z3
           cd ..
+
+      - name: Install and test OCaml bindings
+        run: |
+          eval "$(opam env)"
+          bash scripts/test_ocaml_install.sh build "$PWD/install"
 
       - name: Run unit tests
         run: |

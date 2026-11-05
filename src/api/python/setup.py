@@ -11,6 +11,7 @@ from setuptools.command.build import build as _build
 from setuptools.command.sdist import sdist as _sdist
 from setuptools.command.bdist_wheel import bdist_wheel as _bdist_wheel
 from setuptools.command.develop import develop as _develop
+from setuptools.command.egg_info import egg_info as _egg_info, manifest_maker
 
 class LibError(Exception):
     pass
@@ -161,6 +162,7 @@ def _configure_z3():
         'Z3_SINGLE_THREADED' : IS_SINGLE_THREADED,      # avoid solving features that use threads
         'Z3_POLLING_TIMER' : IS_SINGLE_THREADED,         # avoid using timer threads
         'Z3_BUILD_PYTHON_BINDINGS' : True,
+        'Z3_INSTALL_PYTHON_BINDINGS' : False,
         # Build Options
         'CMAKE_BUILD_TYPE' : 'Release',
         # For Pyodide/emscripten builds, skip the z3 shell executable.  The
@@ -287,7 +289,7 @@ def _copy_sources():
 
     # Copy in src, but avoid recursion
     def ignore_python_setup_files(src, _):
-        if os.path.normpath(src).endswith('api/python'):
+        if os.path.normpath(src).endswith(os.path.join('api', 'python')):
             return ['core', 'dist', 'MANIFEST', 'MANIFEST.in', 'setup.py', 'z3_solver.egg-info']
         return []
     shutil.copytree(os.path.join(SRC_DIR_REPO, 'src'), os.path.join(SRC_DIR_LOCAL, 'src'),
@@ -308,6 +310,20 @@ class develop(_develop):
         self.execute(_copy_bins, (), msg="Copying binaries")
         _develop.run(self)
 
+class source_manifest(manifest_maker):
+    def read_template(self):
+        # Metadata is requested before sdist assembles the source-only core tree.
+        if os.path.isdir(SRC_DIR_LOCAL):
+            super().read_template()
+
+class egg_info(_egg_info):
+    def find_sources(self):
+        manifest = source_manifest(self.distribution)
+        manifest.ignore_egg_info_dir = self.ignore_egg_info_in_manifest
+        manifest.manifest = os.path.join(self.egg_info, "SOURCES.txt")
+        manifest.run()
+        self.filelist = manifest.filelist
+
 class sdist(_sdist):
     def run(self):
         self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
@@ -317,15 +333,17 @@ class sdist(_sdist):
 # The Azure Dev Ops pipelines use internal OS version tagging that don't correspond
 # to releases.
 
-internal_build_re = re.compile("(.+)_7")
-
 class bdist_wheel(_bdist_wheel):
 
     def remove_build_machine_os_version(self, platform, os_version_tag):
+        # Since macOS 11, pip only accepts macosx_<major>_0 platform tags, so a
+        # wheel built on e.g. macOS 13.3 must be tagged 13_0 to be installable.
         if platform in ["osx", "darwin", "sequoia"]:
-            m = internal_build_re.search(os_version_tag)
-            if m:
-                return m.group(1) + "_0"
+            parts = os_version_tag.split("_")
+            if parts[0].isdigit() and int(parts[0]) >= 11:
+                return parts[0] + "_0"
+            if len(parts) > 2:
+                return "_".join(parts[:2])
         return os_version_tag
             
             
@@ -390,5 +408,5 @@ setup(
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
     data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])] if not IS_PYODIDE else [],
-    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_wheel': bdist_wheel},
+    cmdclass={'build': build, 'develop': develop, 'egg_info': egg_info, 'sdist': sdist, 'bdist_wheel': bdist_wheel},
 )

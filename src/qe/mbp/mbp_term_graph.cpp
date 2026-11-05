@@ -1024,8 +1024,9 @@ void term_graph::to_lits(expr_ref_vector &lits, bool all_equalities,
 
     // TODO: use seen to prevent duplicate disequalities
     for (auto p : m_deq_pairs) {
-        lits.push_back(mk_neq(m, mk_app(p.first->get_expr()),
-                              mk_app(p.second->get_expr())));
+        expr_ref lhs = mk_app(p.first->get_expr());
+        expr_ref rhs = mk_app(p.second->get_expr());
+        lits.push_back(mk_neq(m, lhs, rhs));
     }
 
     for (auto t : m_deq_distinct) {
@@ -1146,7 +1147,9 @@ class term_graph::projector {
 
     struct term_depth {
         bool operator()(term const *t1, term const *t2) const {
-            return get_depth(t1->get_expr()) < get_depth(t2->get_expr());
+            unsigned d1 = get_depth(t1->get_expr());
+            unsigned d2 = get_depth(t2->get_expr());
+            return d1 != d2 ? d1 < d2 : t1->get_expr()->get_id() < t2->get_expr()->get_id();
         }
     };
 

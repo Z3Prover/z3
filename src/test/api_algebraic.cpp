@@ -278,5 +278,15 @@ void tst_api_algebraic() {
         ENSURE(sign2 == 0);
     }
 
+    // NULL arguments are rejected instead of dereferenced
+    {
+        Z3_ast one = Z3_mk_real(ctx, 1, 1);
+        ENSURE(!Z3_algebraic_is_value(ctx, nullptr));
+        ENSURE(Z3_algebraic_add(ctx, nullptr, one) == nullptr);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!Z3_algebraic_lt(ctx, one, nullptr));
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    }
+
     Z3_del_context(ctx);
 }

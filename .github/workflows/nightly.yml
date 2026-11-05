@@ -25,8 +25,8 @@ permissions:
 
 env:
   MAJOR: '5'
-  MINOR: '2'
-  PATCH: '0'
+  MINOR: '3'
+  PATCH: '4'
 
 jobs:
   # ============================================================================
@@ -41,10 +41,10 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
@@ -65,7 +65,7 @@ jobs:
           echo "OK: macOS x64 artifacts are x86_64"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: macOsBuild
           path: dist/*.zip
@@ -79,12 +79,19 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: aarch64
       
       - name: Build
         run: python scripts/mk_unix_dist.py --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64 --os=osx-13.3
@@ -102,11 +109,20 @@ jobs:
           done
           echo "OK: macOS arm64 artifacts are arm64"
 
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform osx-arm64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: MacArm64
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-*.json
           retention-days: 2
 
   # ============================================================================
@@ -120,10 +136,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: macOsBuild
           path: artifacts
@@ -179,10 +195,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Download macOS ARM64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: MacArm64
           path: artifacts
@@ -237,12 +253,19 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
       
       - name: Build
         run: python scripts/mk_unix_dist.py --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
@@ -253,11 +276,20 @@ jobs:
       - name: Test
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
 
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform linux-x64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UbuntuBuild
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-*.json
           retention-days: 2
 
   ubuntu-arm64:
@@ -266,12 +298,18 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
       
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -287,12 +325,21 @@ jobs:
           echo $PATH
           stat /tmp/arm-toolchain/bin/aarch64-none-linux-gnu-gcc
           python scripts/mk_unix_dist.py --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --nodotnet --arch=arm64
+
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist --out-dir dist
+          --platform linux-arm64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UbuntuArm64
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/receipt-linux-arm64.json
           retention-days: 2
 
   ubuntu-doc:
@@ -301,10 +348,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
@@ -341,7 +388,7 @@ jobs:
         run: zip -r z3doc.zip doc/api
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: UbuntuDoc
           path: z3doc.zip
@@ -354,7 +401,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Select Python
         run: |
@@ -379,7 +426,7 @@ jobs:
         run: pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ManyLinuxPythonBuildAMD64
           path: src/api/python/wheelhouse/*.whl
@@ -392,7 +439,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -434,7 +481,7 @@ jobs:
         run: python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ManyLinuxPythonBuildArm64
           path: src/api/python/wheelhouse/*.whl
@@ -447,7 +494,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Download RISC-V toolchain
         run: curl -L -o /tmp/riscv-toolchain.tar.gz 'https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2024.09.03/riscv64-glibc-ubuntu-20.04-gcc-nightly-2024.09.03-nightly.tar.gz'
@@ -496,7 +543,7 @@ jobs:
         run: python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ManyLinuxPythonBuildRiscv64
           path: src/api/python/wheelhouse/*.whl
@@ -508,12 +555,19 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
       
       - name: Build
         shell: cmd
@@ -521,12 +575,21 @@ jobs:
           for /f "usebackq delims=" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
           call "%VSPATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
+
+      - name: Record Java native input
+        run: >-
+          python scripts/java/workflow_inputs.py record --input-dir dist/x64 --out-dir dist/x64
+          --platform win-x64 --source-commit ${{ github.sha }} --repository ${{ github.repository }}
+          --run-id ${{ github.run_id }} --run-attempt ${{ github.run_attempt }}
+          --release-version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: WindowsBuild-x64
-          path: dist/x64/*.zip
+          path: |
+            dist/x64/*.zip
+            dist/x64/receipt-*.json
           retention-days: 2
 
   windows-build-x86:
@@ -535,10 +598,10 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
@@ -550,7 +613,7 @@ jobs:
           python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: WindowsBuild-x86
           path: dist/x86/*.zip
@@ -562,10 +625,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
@@ -577,7 +640,7 @@ jobs:
           python scripts\mk_win_dist.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: WindowsBuild-arm64
           path: dist/arm64/*.zip
@@ -586,6 +649,18 @@ jobs:
   # ============================================================================
   # PACKAGE STAGE
   # ============================================================================
+
+  java-package:
+    name: "Package and validate Java nightly artifacts"
+    needs: [ubuntu-build, ubuntu-arm64, windows-build-x64, mac-build-arm64]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/java-package-artifacts.yml
+    with:
+      linux-artifact: UbuntuBuild
+      linux-arm64-artifact: UbuntuArm64
+      windows-artifact: WindowsBuild-x64
+      macos-artifact: MacArm64
   
   nuget-package-x64:
     name: "NuGet 64 packaging"
@@ -593,51 +668,51 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: WindowsBuild-x64
           path: package
       
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: WindowsBuild-arm64
           path: package
       
       - name: Download Ubuntu Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: UbuntuBuild
           path: package
       
       - name: Download Ubuntu ARM64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: UbuntuArm64
           path: package
       
       - name: Download macOS Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: macOsBuild
           path: package
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: MacArm64
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v4
+        uses: nuget/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
         with:
           nuget-version: 'latest'
       
@@ -654,7 +729,7 @@ jobs:
           nuget pack out\Microsoft.Z3.sym.nuspec -Version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NuGet
           path: |
@@ -668,21 +743,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
       - name: Download artifacts
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: WindowsBuild-x86
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v4
+        uses: nuget/setup-nuget@fd55a6f3b34392fa83fde1454582407d8c714123 # v4.0
         with:
           nuget-version: 'latest'
       
@@ -699,7 +774,7 @@ jobs:
           nuget pack out\Microsoft.Z3.x86.sym.nuspec -Version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NuGet32
           path: |
@@ -713,57 +788,57 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.x'
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: macOsBuild
           path: artifacts
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: MacArm64
           path: artifacts
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: WindowsBuild-x64
           path: artifacts
       
       - name: Download Win32 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: WindowsBuild-x86
           path: artifacts
 
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: WindowsBuild-arm64
           path: artifacts
 
       - name: Download ManyLinux AMD64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ManyLinuxPythonBuildAMD64
           path: artifacts
       
       - name: Download ManyLinux Arm64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ManyLinuxPythonBuildArm64
           path: artifacts
       
       - name: Download ManyLinux RISC-V 64 Build
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ManyLinuxPythonBuildRiscv64
           path: artifacts
@@ -798,7 +873,7 @@ jobs:
           cp artifacts/*.whl src/api/python/dist/.
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: PythonPackages
           path: src/api/python/dist/*
@@ -823,13 +898,14 @@ jobs:
       nuget-package-x64,
       nuget-package-x86,
       validate-macos-headerpad-x64,
-      validate-macos-headerpad-arm64
+      validate-macos-headerpad-arm64,
+      java-package
     ]
     runs-on: ubuntu-latest
     steps:
       - name: Mint z3prover-ci-bot token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.Z3_CI_APP_CLIENT_ID }}
           private-key: ${{ secrets.Z3_CI_APP_PRIVATE_KEY }}
@@ -839,12 +915,12 @@ jobs:
           permission-workflows: write
 
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: tmp
       
@@ -891,7 +967,11 @@ jobs:
           fi
 
           ls
-          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+          # Maven rehearsal ZIPs are CI artifacts, not Nightly attachments.
+          find tmp -type f -not -path 'tmp/java-maven-*/*' \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+
+          # Attach only Java files that passed the shared native validation gate.
+          find tmp/java-release-packages -maxdepth 1 -type f \( -name "*.jar" -o -name "z3-*-java-*.json" -o -name "z3-*-java-SHA256SUMS" \) -print0 >> release_files.txt
           
           # Deduplicate files - keep only first occurrence of each basename
           # Use NUL-delimited input/output to handle spaces in filenames safely
@@ -934,7 +1014,7 @@ jobs:
       contents: read
     steps:
       - name: Download Python packages
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: PythonPackages
           path: dist
@@ -950,7 +1030,7 @@ jobs:
           ls -l dist
       
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist
           repository-url: https://test.pypi.org/legacy/

@@ -39,6 +39,7 @@ namespace smt {
             clear_solver(theory_finite_set_size &s) : s(s) {}
             void undo() override {
                 s.m_solver = nullptr;
+                s.m_solver_ran = false;
                 s.n2b.reset();
                 s.m_assumptions.reset();
                 s.bs.reset();
@@ -167,7 +168,9 @@ namespace smt {
 
                 // add size axiom |s| = 1
                 arith_util a(m);
-                auto l = th.mk_literal(m.mk_eq(u.mk_size(s->get_expr()), a.mk_int(1)));
+                expr_ref lhs(u.mk_size(s->get_expr()), m);
+                expr_ref rhs(a.mk_int(1), m);
+                auto l = th.mk_literal(m.mk_eq(lhs, rhs));
                 ctx.mk_th_axiom(th.get_id(), l);
             }
         }
@@ -357,7 +360,6 @@ namespace smt {
                         ctx.mk_th_axiom(th.get_id(), lemma);
                     }
                 }
-                ctx.push_trail(value_trail(m_solver_ran));
                 TRACE(finite_set, ctx.display(tout << "Core " << core << "\n"));
                 m_solver_ran = true;
                 return l_false;
@@ -512,7 +514,9 @@ namespace smt {
                 
                 ++unique_index;
                 for (auto e : m_slack_members[i]) {
-                    app *unique_value = u.mk_unique_set(a.mk_int(unique_index), a.mk_int(value), e->get_sort());                    
+                    expr_ref lhs(a.mk_int(unique_index), m);
+                    expr_ref rhs(a.mk_int(value), m);
+                    app *unique_value = u.mk_unique_set(lhs, rhs, e->get_sort());
                     if (m_unique_values.contains(e)) 
                         unique_value = u.mk_union(m_unique_values[e], unique_value);
                     m_unique_values.insert(e, unique_value);

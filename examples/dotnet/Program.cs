@@ -2132,6 +2132,29 @@ namespace test_mapi
         }
 
 
+        static void ComplexExample(Context ctx)
+        {
+            ComplexExpr z = ctx.MkComplexConst("complex_z");
+            ComplexExpr value = ctx.MkComplex(ctx.MkInt(1), ctx.MkReal(2));
+            ArithExpr square = ctx.MkMul(z, z);
+            if (!(square is ComplexExpr) || !(square.Sort is ComplexSort))
+                throw new Exception("Complex factory dispatch failed");
+            using (Solver solver = ctx.MkSolver())
+            {
+                BoolExpr assertion = ctx.MkEq(square, ctx.MkComplex(ctx.MkReal(-3), ctx.MkReal(4)));
+                solver.Assert(ctx.MkEq(z, value));
+                solver.Assert(ctx.MkNot(assertion));
+                if (solver.Check() != Status.UNSATISFIABLE)
+                    throw new Exception("Complex multiplication failed");
+                solver.Reset();
+                solver.Assert(ctx.MkEq(z, value));
+                if (solver.Check() != Status.SATISFIABLE ||
+                    !solver.Model.Evaluate(ctx.MkEq(ctx.MkRealPart(z), ctx.MkReal(1))).IsTrue ||
+                    !solver.Model.Evaluate(ctx.MkEq(ctx.MkImagPart(z), ctx.MkReal(2))).IsTrue)
+                    throw new Exception("Complex model or projections failed");
+            }
+        }
+
         static void Main(string[] args)
         {
             try
@@ -2153,6 +2176,7 @@ namespace test_mapi
                 using (Context ctx = new Context(new Dictionary<string, string>() { { "model", "true" } }))
                 {
                     BasicTests(ctx);
+                    ComplexExample(ctx);
                     CastingTest(ctx);
                     SudokuExample(ctx);
                     QuantifierExample1(ctx);

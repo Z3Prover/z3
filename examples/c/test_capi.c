@@ -2983,10 +2983,36 @@ void divides_example()
 
 
 
+void complex_example(void) {
+    Z3_config config = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(config);
+    Z3_del_config(config);
+    Z3_sort sort = Z3_mk_complex_sort(ctx);
+    Z3_ast one = Z3_mk_int(ctx, 1, Z3_mk_int_sort(ctx));
+    Z3_ast two = Z3_mk_real(ctx, 2, 1);
+    Z3_ast value = Z3_mk_complex(ctx, one, two);
+    Z3_ast factors[] = {value, value};
+    Z3_ast square = Z3_mk_mul(ctx, 2, factors);
+    Z3_ast minus_three = Z3_mk_real(ctx, -3, 1);
+    Z3_ast four = Z3_mk_real(ctx, 4, 1);
+    Z3_ast expected = Z3_mk_complex(ctx, minus_three, four);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_solver_assert(ctx, solver, Z3_mk_not(ctx, Z3_mk_eq(ctx, square, expected)));
+    if (Z3_get_sort_kind(ctx, sort) != Z3_COMPLEX_SORT ||
+        Z3_get_sort_kind(ctx, Z3_get_sort(ctx, Z3_mk_real_part(ctx, value))) != Z3_REAL_SORT ||
+        Z3_get_sort_kind(ctx, Z3_get_sort(ctx, Z3_mk_imag_part(ctx, value))) != Z3_REAL_SORT ||
+        Z3_solver_check(ctx, solver) != Z3_L_FALSE)
+        exitf("Complex C API failed");
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+}
+
 int main() {
 #ifdef LOG_Z3_CALLS
     Z3_open_log("z3.log");
 #endif
+    complex_example();
     divides_example();
     display_version();
     simple_example();

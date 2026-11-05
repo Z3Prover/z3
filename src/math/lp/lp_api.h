@@ -104,6 +104,7 @@ namespace lp_api {
 
     struct stats {
         unsigned m_assert_lower;
+        unsigned m_assert_redundant;
         unsigned m_assert_upper;
         unsigned m_bounds_propagations;
         unsigned m_num_iterations;
@@ -126,6 +127,7 @@ namespace lp_api {
         }
         void collect_statistics(statistics& st) const {
             st.update("arith-lower", m_assert_lower);
+            st.update("arith-assert-redundant", m_assert_redundant);
             st.update("arith-upper", m_assert_upper);
             st.update("arith-propagations", m_bounds_propagations);
             st.update("arith-iterations", m_num_iterations);

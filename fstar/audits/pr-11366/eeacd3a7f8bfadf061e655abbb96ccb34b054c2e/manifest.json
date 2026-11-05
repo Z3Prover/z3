@@ -1,0 +1,22 @@
+{
+  "pull_request": 11366,
+  "head_sha": "eeacd3a7f8bfadf061e655abbb96ccb34b054c2e",
+  "base_sha": "48a710a9c45882fd730a16477c8e2a1084acc77b",
+  "path_prefix": "fstar/audits/pr-11366/eeacd3a7f8bfadf061e655abbb96ccb34b054c2e/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40498677892",
+  "files": [
+    {
+      "name": "Z3SkolemVacuousAudit.fst",
+      "sha256": "8aaed83118c6843fd456fbff762716c9a6f977c5299e2d607999559f2a21d15d"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "fe8aa2e0746be6cce9a1f1d3c47e2c791d0d1019a4f8a251eb461a1c74b08997"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "2398901b79903be6230a6092237cfabf07f60ae0826af1ad0fa97a26f191a6af"
+    }
+  ]
+}

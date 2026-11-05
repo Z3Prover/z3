@@ -20,7 +20,7 @@ Notes:
 --*/
 #pragma once
 
-#include "opt/opt_value.h"
+#include "opt/opt_search.h"
 #include "ast/ast.h"
 #include "util/params.h"
 #include "solver/solver_na2as.h"
@@ -91,6 +91,9 @@ namespace opt {
         statistics          m_stats;
         bool                m_first;
         bool                m_was_unknown;
+        unsigned            m_dual_bound_rlimit;
+        unsigned            m_dual_bound_checks = 0;
+        unsigned            m_dual_bound_refutations = 0;
     public:
         opt_solver(ast_manager & m, params_ref const & p, generic_model_converter& fm);
 
@@ -171,19 +174,9 @@ namespace opt {
 
         void set_logic(symbol const& logic);
 
-        struct maximize_result {
-            // The no-model path accepts the hint without validating it.
-            bool bound_valid;
-            inf_eps hint;
-            // l_true: accepted; l_false: obj >= hint refuted; l_undef: undecided or unchecked.
-            lbool hint_status;
-            // Independent of hint attainability; justified by assertion-level LP premises.
-            std::optional<rational> upper_bound;
-        };
-
         smt::theory_var add_objective(app* term);
         void reset_objectives();
-        maximize_result maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds = false);
+        maximize_result maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds = false, bool probe_bound = true);
         bool maximize_objectives1(expr_ref_vector& blockers);
         bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
@@ -210,6 +203,7 @@ namespace opt {
                                symbol const& logic = symbol::null, char const * status = "unknown", char const * attributes = "");
 
     private:
+        lbool check_upper_bound(unsigned i, rational const& value);
         lbool bound_value(unsigned i, inf_eps& val);
         void set_model(unsigned i);
         lbool adjust_result(lbool r);

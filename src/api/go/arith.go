@@ -36,13 +36,13 @@ func (c *Context) MkReal(num, den int) *Expr {
 // MkIntConst creates an integer constant (variable) with the given name.
 func (c *Context) MkIntConst(name string) *Expr {
 	sym := c.MkStringSymbol(name)
-	return c.MkConst(sym, c.MkIntSort())
+	return newExpr(c, C.Z3_mk_const(c.ptr, sym.ptr, C.Z3_mk_int_sort(c.ptr)))
 }
 
 // MkRealConst creates a real constant (variable) with the given name.
 func (c *Context) MkRealConst(name string) *Expr {
 	sym := c.MkStringSymbol(name)
-	return c.MkConst(sym, c.MkRealSort())
+	return newExpr(c, C.Z3_mk_const(c.ptr, sym.ptr, C.Z3_mk_real_sort(c.ptr)))
 }
 
 // MkAdd creates an addition.

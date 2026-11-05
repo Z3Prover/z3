@@ -25,7 +25,7 @@ using System.Text;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Arithmetic expressions (int/real)
+    /// Arithmetic expressions (Int, Real, or Complex). Ordering requires Int or Real.
     /// </summary>
     public class ArithExpr : Expr
     {

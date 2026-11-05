@@ -67,31 +67,40 @@ struct solver::imp {
         m_skipped_constraints.reset();
     }
 
-    // Power of two dividing the denominator of r (capped at 64).
-    static unsigned dyadic_valuation_of_denominator(rational const& r) {
+    // True if the denominator of r is exactly 2^k with k >= threshold.
+    static bool has_large_dyadic_denominator(rational const& r, unsigned threshold) {
         rational den = denominator(r);
         unsigned k = 0;
         while (k < 64 && den.is_even()) {
             den /= 2;
             ++k;
         }
-        return k;
+        return k >= threshold && den.is_one();
     }
 
-    // Bounds derived by the eager bound squeeze reach the constraint set as
-    // asserted atoms whose values are LP-vertex/delta-rational artifacts with a
-    // huge power-of-two denominator (e.g. 1367758954463/2^39). They are implied
-    // by the constraints they were derived from, yet after clearing denominators
-    // they inject outsized coefficients into the nlsat polynomials and blow up
-    // the resultant computations. Decimal constants from the input have
-    // denominators 10^k = 2^k*5^k with small k, so a large dyadic valuation
-    // singles out the derived bounds.
+    // nla lemmas (e.g. monotonicity) bound a monomial by products of the current
+    // LP values of its factors. Those values are LP-vertex artifacts with huge
+    // power-of-two denominators (e.g. 124341723133/2^39), and the atoms created
+    // for such lemma literals reach the constraint set via theory_lra. After
+    // clearing denominators they inject outsized coefficients into the nlsat
+    // polynomials and blow up the resultant computations, so they are kept out
+    // of the nlsat problem. Two conditions must hold:
+    //  - the constraint is auxiliary, i.e. it was created for an nla lemma atom
+    //    (theory_lra::mk_literal(nla::ineq const&)); input constraints, however
+    //    their constants look, are never skipped;
+    //  - a constant has a denominator that is a pure power of two, 2^k with
+    //    k >= 24. Decimal constants have denominators 10^k = 2^k*5^k, so long
+    //    decimals (as printed by tools that print doubles exactly) do not match.
+    // Skipping only weakens the nlsat problem: unsat stays sound, and a model
+    // that violates a skipped constraint yields l_undef (see check()).
     bool is_dyadic_artifact(lp::lar_base_constraint const& c) const {
+        if (!c.is_auxiliary())
+            return false;
         unsigned const dyadic_artifact_threshold = 24;
-        if (dyadic_valuation_of_denominator(c.rhs()) >= dyadic_artifact_threshold)
+        if (has_large_dyadic_denominator(c.rhs(), dyadic_artifact_threshold))
             return true;
         for (auto const& [coeff, v] : c.coeffs())
-            if (dyadic_valuation_of_denominator(coeff) >= dyadic_artifact_threshold)
+            if (has_large_dyadic_denominator(coeff, dyadic_artifact_threshold))
                 return true;
         return false;
     }
@@ -155,7 +164,7 @@ struct solver::imp {
         for (auto ci : m_coi.constraints()) {
             auto &c = lra.constraints()[ci];
             if (is_dyadic_artifact(c)) {
-                // implied bound artifact: keep it out of the nlsat problem
+                // lemma-atom with LP-vertex constants: keep it out of the nlsat problem
                 m_skipped_constraints.insert(ci);
                 continue;
             }
@@ -190,7 +199,7 @@ struct solver::imp {
             TRACE(nra, tout << "constraint " << ci << ": " << p << " " << k << " 0\n";
             lra.constraints().display(tout, ci) << "\n");
         }
-        definitions.reset();
+        register_transcendentals_with_nlsat(definitions, denominators);
     }
 
     void setup_solver_terms() {
@@ -224,19 +233,41 @@ struct solver::imp {
     // of nla_core feeding it progressively-refined polynomial axioms from
     // outside. Requires "transcendentals" to also be set on m_nlsat (see
     // check()).
-    void register_transcendentals_with_nlsat() {
+    void register_transcendentals_with_nlsat(polynomial_ref_vector const& definitions, vector<rational> const& denominators) {
+        auto bind_var = [&](lp::lpvar v) {
+            auto x = lp2nl(v);
+            if (m_nla_core.emons().is_monic_var(v) || lra.column_has_term(v)) {
+                // Constraints inline these definitions, but transcendental
+                // applications refer to the variables themselves.
+                SASSERT(definitions.get(v) && denominators[v].is_pos());
+                auto& pm = m_nlsat->pm();
+                polynomial_ref p(pm.mk_polynomial(x), pm);
+                p = constant(denominators[v]) * p;
+                polynomial_ref def(definitions.get(v), pm);
+                p = p - def;
+                add_axiom(p, lp::lconstraint_kind::EQ);
+            }
+            return x;
+        };
         // nla::transcendental_op_kind is nlsat::transcendental_op_kind (see
         // nla_transcendentals.h): no translation needed, just forward a.op.
-        for (auto const& a : m_nla_core.get_transcendentals().apps())
-            m_nlsat->add_transcendental(a.op, lp2nl(a.arg), lp2nl(a.val));
+        for (auto const& a : m_nla_core.get_transcendentals().apps()) {
+            auto arg = bind_var(a.arg);
+            auto val = bind_var(a.val);
+            m_nlsat->add_transcendental(a.op, arg, val);
+        }
         // atan2(y, x) and pi are registered separately (see
         // nla::transcendentals::atan2_apps/pi_var): they do not fit the
         // single-argument (op, arg, val) shape above.
-        for (auto const& a : m_nla_core.get_transcendentals().atan2_apps())
-            m_nlsat->add_atan2(lp2nl(a.y), lp2nl(a.x), lp2nl(a.val));
+        for (auto const& a : m_nla_core.get_transcendentals().atan2_apps()) {
+            auto y = bind_var(a.y);
+            auto x = bind_var(a.x);
+            auto val = bind_var(a.val);
+            m_nlsat->add_atan2(y, x, val);
+        }
         lp::lpvar pi = m_nla_core.get_transcendentals().pi_var();
         if (pi != nla::null_lpvar)
-            m_nlsat->add_pi(lp2nl(pi));
+            m_nlsat->add_pi(bind_var(pi));
     }
 
     void add_axiom(polynomial::polynomial* p, lp::lconstraint_kind k) {
@@ -263,7 +294,6 @@ struct solver::imp {
         smt_params_helper p(m_params);
 
 	    setup_solver_poly();
-        register_transcendentals_with_nlsat();
 
         TRACE(nra, m_nlsat->display(tout));
 
@@ -323,6 +353,7 @@ struct solver::imp {
             lp::explanation ex;
             m_nlsat->get_core(core);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            lemma.assume_nlsat();
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp *>(c) - this);
                 ex.push_back(idx);
@@ -412,8 +443,7 @@ struct solver::imp {
             auto lit = add_constraint(p, ci, k);
             m_literal2constraint.setx(lit.index(), ci, lp::null_ci);
         }
-        definitions.reset();
-        register_transcendentals_with_nlsat();
+        register_transcendentals_with_nlsat(definitions, denominators);
     }
 
     void process_polynomial_check_assignment(polynomial::polynomial const* p, rational& bound, const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {
@@ -497,6 +527,7 @@ struct solver::imp {
         lbool result = l_false;
         {
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            lemma.assume_nlsat();
             for (nlsat::literal l : clause) {
                 if (m_literal2constraint.get((~l).index(), lp::null_ci) != lp::null_ci) {
                     auto ci = m_literal2constraint[(~l).index()];
@@ -728,6 +759,7 @@ struct solver::imp {
             for (auto ci : lv)
                 ex.push_back(ci);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            lemma.assume_nlsat();
             lemma &= ex;
             TRACE(nra, tout << lemma << "\n");
             break;

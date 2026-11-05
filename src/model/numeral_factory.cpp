@@ -20,6 +20,11 @@ Revision History:
 #include "model/numeral_factory.h"
 
 app * arith_factory::mk_value_core(rational const & val, sort * s) {
+    if (m_util.is_complex(s)) {
+        expr_ref re(m_util.mk_real(val), m_manager);
+        expr_ref im(m_util.mk_real(0), m_manager);
+        return m_util.mk_complex(re, im);
+    }
     return m_util.mk_numeral(val, s);
 }
 

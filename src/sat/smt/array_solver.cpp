@@ -105,6 +105,15 @@ namespace array {
         if (!check_lambdas())
             return sat::check_result::CR_GIVEUP;
 
+        switch (check_const_arrays()) {
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            return sat::check_result::CR_GIVEUP;
+        default:
+            break;
+        }
+
         // validate_check();
         return sat::check_result::CR_DONE;
     }
@@ -296,6 +305,16 @@ namespace array {
             hint = ctx.mk_smt_hint(m_array_hint, 0, nullptr, 1, &eq);
         }
         auto* jst = euf::th_explain::propagate(*this, euf::enode_pair_vector(), n1, n2, hint);
+        return ctx.propagate(n1, n2, jst->to_index());
+    }
+
+    bool solver::propagate_axiom(euf::enode_pair_vector const& eqs, euf::enode* n1, euf::enode* n2) {
+        if (n1->get_root() == n2->get_root())
+            return false;
+        euf::th_proof_hint const* hint = nullptr;
+        if (ctx.use_drat())
+            hint = ctx.mk_smt_hint(m_array_hint, eqs);
+        auto* jst = euf::th_explain::propagate(*this, eqs, n1, n2, hint);
         return ctx.propagate(n1, n2, jst->to_index());
     }
 

@@ -7,14 +7,23 @@ Copyright (c) 2016 Microsoft Corporation
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/proofs/proof_utils.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/split_clause_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
+#include "smt/smt_solver.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
 #include "tactic/fd_solver/fd_solver.h"
 #include <iostream>
+#include <string>
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);
@@ -183,9 +192,206 @@ static void test_bounded_int() {
     VERIFY(l_true == fd_solver->check_sat(0, nullptr));
 }
 
+static void test_cardinality_consequences_after_check() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p;
+    p.set_sym("phase", symbol("always_true"));
+    ref<solver> fd_solver = mk_fd_solver(m, p);
+    pb_util pb(m);
+
+    expr_ref_vector as(m), xs(m), clause(m);
+    for (unsigned i = 0; i < 5; ++i) {
+        as.push_back(mk_bool(m, ("a" + std::to_string(i)).c_str()));
+    }
+    for (unsigned i = 0; i < 8; ++i) {
+        xs.push_back(mk_bool(m, ("x" + std::to_string(i)).c_str()));
+    }
+    expr_ref y = mk_bool(m, "y");
+
+    fd_solver->assert_expr(pb.mk_at_most_k(as.size(), as.data(), 1));
+    fd_solver->assert_expr(m.mk_or(xs.size(), xs.data()));
+    fd_solver->assert_expr(pb.mk_at_most_k(xs.size(), xs.data(), 1));
+    for (unsigned i = 0; i < xs.size(); ++i) {
+        if (i != 5) clause.push_back(xs[i].get());
+    }
+    clause.push_back(m.mk_not(y));
+    fd_solver->assert_expr(m.mk_or(clause));
+    VERIFY(l_true == fd_solver->check_sat(0, nullptr));
+    model_ref mdl;
+    fd_solver->get_model(mdl);
+    model_evaluator eval(*mdl);
+    expr_ref value(m);
+    eval(y, value);
+    ENSURE(m.is_true(value));
+
+    expr_ref_vector asms(m), vars(m), conseq(m);
+    asms.push_back(xs[5].get());
+    vars.push_back(y);
+    VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
+    ENSURE(conseq.size() == 1);
+    ENSURE(m.are_equal(conseq[0].get(), m.mk_implies(xs[5].get(), m.mk_not(y))));
+
+    expr_ref_vector check_asms(m);
+    check_asms.push_back(xs[5].get());
+    check_asms.push_back(y);
+    VERIFY(l_false == fd_solver->check_sat(check_asms));
+}
+
+static void test_datatype_accessor_consequences() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datatype_util dt(m);
+    arith_util arith(m);
+    params_ref p;
+
+    accessor_decl* accessors[] = { mk_accessor_decl(m, symbol("val"), type_ref(arith.mk_int())) };
+    constructor_decl* constructors[] = {
+        mk_constructor_decl(symbol("none"), symbol("is-none"), 0, nullptr),
+        mk_constructor_decl(symbol("some"), symbol("is-some"), 1, accessors)
+    };
+    datatype_decl* option = mk_datatype_decl(dt, symbol("Option_Int"), 0, nullptr, 2, constructors);
+    sort_ref_vector sorts(m);
+    VERIFY(dt.plugin().mk_datatypes(1, &option, 0, nullptr, sorts));
+    sort* option_sort = sorts[0].get();
+    func_decl* val = (*dt.get_constructor_accessors((*dt.get_datatype_constructors(option_sort))[1]))[0];
+
+    expr_ref a = mk_const(m, "a", option_sort);
+    expr_ref b = mk_const(m, "b", option_sort);
+    expr_ref t0 = mk_bool(m, "t0");
+    expr_ref t1 = mk_bool(m, "t1");
+    expr_ref va(m.mk_app(val, a), m);
+    expr_ref vb(m.mk_app(val, b), m);
+    expr_ref two(arith.mk_int(2), m);
+    expr_ref nine(arith.mk_int(9), m);
+    ref<solver> smt_solver = mk_smt_solver(m, p, symbol::null);
+    smt_solver->assert_expr(m.mk_implies(t0, m.mk_eq(va, two)));
+    smt_solver->assert_expr(m.mk_implies(t1, m.mk_eq(vb, nine)));
+
+    expr_ref_vector assumptions(m), vars(m), consequences(m);
+    assumptions.push_back(t0);
+    assumptions.push_back(t1);
+    vars.push_back(va);
+    vars.push_back(vb);
+    VERIFY(l_true == smt_solver->get_consequences(assumptions, vars, consequences));
+    ENSURE(consequences.size() == 2);
+    expr_ref expected_a(m.mk_implies(t0, m.mk_eq(va, two)), m);
+    expr_ref expected_b(m.mk_implies(t1, m.mk_eq(vb, nine)), m);
+    bool found_a = false, found_b = false;
+    for (expr* consequence : consequences) {
+        found_a |= m.are_equal(consequence, expected_a);
+        found_b |= m.are_equal(consequence, expected_b);
+    }
+    ENSURE(found_a && found_b);
+}
+
+class tracking_proof_converter : public proof_converter {
+    unsigned& m_calls;
+    bool m_closed;
+public:
+    tracking_proof_converter(unsigned& calls, bool closed): m_calls(calls), m_closed(closed) {}
+
+    proof_ref operator()(ast_manager& m, unsigned num_source, proof* const* source) override {
+        ENSURE(num_source == 1 && source[0]);
+        ENSURE(proof_utils::is_closed(m, source[0]) == m_closed);
+        ++m_calls;
+        return proof_ref(source[0], m);
+    }
+
+    proof_converter* translate(ast_translation&) override {
+        return alloc(tracking_proof_converter, m_calls, m_closed);
+    }
+
+    void display(std::ostream& out) override { out << "(tracking-proof-converter)\n"; }
+};
+
+class register_proof_converter_tactic : public tactic {
+    unsigned& m_calls;
+    bool m_closed;
+public:
+    register_proof_converter_tactic(unsigned& calls, bool closed): m_calls(calls), m_closed(closed) {}
+
+    void operator()(goal_ref const& in, goal_ref_buffer& result) override {
+        if (in->proofs_enabled())
+            in->add(alloc(tracking_proof_converter, m_calls, m_closed));
+        result.push_back(in.get());
+    }
+
+    tactic* translate(ast_manager&) override {
+        return alloc(register_proof_converter_tactic, m_calls, m_closed);
+    }
+
+    void cleanup() override {}
+    char const* name() const override { return "register-proof-converter"; }
+};
+
+static void test_split_proof_converters() {
+    for (bool proofs : {false, true}) {
+        for (unsigned composition : {0u, 1u, 2u}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            unsigned parent_calls = 0, branch_calls = 0;
+            goal_ref input = alloc(goal, m, proofs, true, false);
+            expr_ref a = mk_bool(m, "split-a"), b = mk_bool(m, "split-b");
+            expr_ref clause(m.mk_or(a, b), m), not_a(m.mk_not(a), m), not_b(m.mk_not(b), m);
+            input->assert_expr(clause);
+            input->assert_expr(not_a);
+            input->assert_expr(not_b);
+            if (proofs)
+                input->add(alloc(tracking_proof_converter, parent_calls, true));
+
+            tactic_ref split = mk_split_clause_tactic();
+            tactic_ref register_pc = alloc(register_proof_converter_tactic, branch_calls, composition == 2);
+            tactic_ref smt = mk_smt_tactic(m);
+            tactic_ref solve_branch = and_then(register_pc.get(), smt.get());
+            tactic_ref pipeline;
+            if (composition == 0)
+                pipeline = and_then(split.get(), solve_branch.get());
+            else if (composition == 1) {
+                tactic_ref step = or_else(split.get(), solve_branch.get());
+                pipeline = repeat(step.get(), 4);
+            }
+            else
+                pipeline = solve_branch;
+
+            model_ref model;
+            labels_vec labels;
+            proof_ref proof(m);
+            expr_dependency_ref core(m);
+            std::string reason;
+            ENSURE(check_sat(*pipeline, input, model, labels, proof, core, reason) == l_false);
+            ENSURE(parent_calls == (proofs ? 1u : 0u));
+            ENSURE(branch_calls == (proofs ? (composition == 2 ? 1u : 2u) : 0u));
+            if (proofs) {
+                ENSURE(proof && m.is_false(m.get_fact(proof)) && proof_utils::is_closed(m, proof));
+                auto check_leaves = [&](expr* e) {
+                    if (m.is_asserted(e)) {
+                        expr* fact = m.get_fact(to_app(e));
+                        ENSURE(fact == clause || fact == not_a || fact == not_b);
+                    }
+                };
+                for_each_expr(check_leaves, proof);
+                proof_checker checker(m);
+                expr_ref_vector conditions(m);
+                ENSURE(checker.check(proof, conditions));
+                ENSURE(conditions.empty());
+                tactic_ref skip = mk_skip_tactic();
+                ENSURE(check_sat(*skip, input, model, labels, proof, core, reason) == l_false);
+                ENSURE(parent_calls == 1);
+                ENSURE(branch_calls == (composition == 2 ? 1u : 2u));
+            }
+            else
+                ENSURE(!proof);
+        }
+    }
+}
+
 void tst_get_consequences() {
     test1();
     test2();
     test_bounded_int();
     test_bounded_int_translation();
+    test_cardinality_consequences_after_check();
+    test_datatype_accessor_consequences();
+    test_split_proof_converters();
 }

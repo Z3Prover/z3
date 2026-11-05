@@ -208,6 +208,7 @@ static void tst_bug2() {
 static void tst_set64(unsigned N, unsigned prec) {
     mpff_manager fm(prec);
     scoped_mpff a(fm);
+    random_gen rng;
 
     fm.set(a, static_cast<int64_t>(INT64_MAX));
     ENSURE(fm.is_int64(a));
@@ -252,24 +253,24 @@ static void tst_set64(unsigned N, unsigned prec) {
 
     for (unsigned i = 0; i < N; ++i) {
         {
-            uint64_t v = (static_cast<uint64_t>(rand()) << 32) + static_cast<uint64_t>(rand()); 
+            uint64_t v = rng.next_uint64();
             fm.set(a, v);
             ENSURE(fm.is_uint64(a));
             
-            v = (static_cast<uint64_t>(rand() % 3) << 32) + static_cast<uint64_t>(rand()); 
+            v = rng.next_uint64() % (uint64_t{3} << 32);
             fm.set(a, v);
             ENSURE(fm.is_uint64(a));
         }
         {
-            int64_t v = (static_cast<uint64_t>(rand() % INT_MAX) << 32) + static_cast<uint64_t>(rand());
-            if (rand()%2 == 0)
+            int64_t v = static_cast<int64_t>(rng.next_uint64() & INT64_MAX);
+            if (rng(2) == 0)
                 v = -v;
             fm.set(a, v);
             ENSURE(fm.is_int64(a));
 
 
-            v = (static_cast<uint64_t>(rand() % 3) << 32) + static_cast<uint64_t>(rand());
-            if (rand()%2 == 0)
+            v = static_cast<int64_t>(rng.next_uint64() % (uint64_t{3} << 32));
+            if (rng(2) == 0)
                 v = -v;
             fm.set(a, v);
             ENSURE(fm.is_int64(a));

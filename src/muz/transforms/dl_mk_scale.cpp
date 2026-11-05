@@ -147,7 +147,11 @@ namespace datalog {
             }
             app_ref new_pred = mk_pred(num_vars, r.get_head());
             tail.append(m_eqs);
-            tail.push_back(a.mk_gt(m.mk_var(num_vars, a.mk_real()), a.mk_numeral(rational(0), false)));
+            {
+                expr_ref lhs(m.mk_var(num_vars, a.mk_real()), m);
+                expr_ref rhs(a.mk_numeral(rational(0), false), m);
+                tail.push_back(a.mk_gt(lhs, rhs));
+            }
             neg.resize(tail.size(), false);
             new_rule = rm.mk(new_pred, tail.size(), tail.data(), neg.data(), r.name(), true);
             result->add_rule(new_rule);

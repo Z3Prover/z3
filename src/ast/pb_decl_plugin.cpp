@@ -170,24 +170,8 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     return m.mk_app(m_fid, OP_PB_EQ, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
 }
 
-// ax + by < k
-// <=>
-// -ax - by >= -k + 1
-// <=>
-// a(1-x) + b(1-y) >= -k + a + b + 1
-app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const * _args, rational const& _k) {
-    normalize(num_args, _coeffs, _k);
-    expr_ref_vector args(m);
-    for (unsigned i = 0; i < num_args; ++i) {
-        args.push_back(mk_not(m, _args[i]));
-    }
-    m_k = floor(m_k);
-    m_k.neg();
-    m_k += rational::one();
-    for (unsigned i = 0; i < num_args; ++i) {
-        m_k += m_coeffs[i];
-    }
-    return mk_ge(num_args, m_coeffs.data(), args.data(), m_k);
+app * pb_util::mk_lt(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    return m.mk_not(mk_ge(num_args, coeffs, args, k));
 }
 
 

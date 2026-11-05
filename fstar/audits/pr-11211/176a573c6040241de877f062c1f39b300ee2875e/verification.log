@@ -1,0 +1,6 @@
+F* 2026.09.27; Z3 4.13.3
+exit code 0 (timeout 120, fresh cache)
+stdout:
+Verified module: SwineAudit6
+All verification conditions discharged successfully
+stderr: (empty)

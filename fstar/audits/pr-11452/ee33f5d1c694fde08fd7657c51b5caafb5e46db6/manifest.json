@@ -1,0 +1,22 @@
+{
+  "pull_request": 11452,
+  "head_sha": "ee33f5d1c694fde08fd7657c51b5caafb5e46db6",
+  "base_sha": "1b859b6bc7637a9c802a92a0dee72df9e843274d",
+  "path_prefix": "fstar/audits/pr-11452/ee33f5d1c694fde08fd7657c51b5caafb5e46db6/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41075452877",
+  "files": [
+    {
+      "name": "Z3OptNraFragment.fst",
+      "sha256": "a43ab520d17800c59a20303d7f31a0223bed6d31a0a62cdb6469c47ac9592b7f"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "7169386e45800ba2b80ca9d2bd6c0ed4d2c634f99f20a538187edb58515f1265"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "ce3f3b5b26e17abd691eefe0d0ea3f5c28e9f59a29ebd2867e810c175ebbb130"
+    }
+  ]
+}

@@ -1,7 +1,20 @@
 import assert from 'assert';
+import { readdirSync, readFileSync } from 'fs';
 import asyncToArray from 'iter-tools/methods/async-to-array';
+import { join, resolve } from 'path';
 import { init, killThreads } from '../jest';
-import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector, RCFNum } from './types';
+import {
+  Arith,
+  Bool,
+  Complex,
+  Context,
+  Model,
+  Quantifier,
+  Z3AssertionError,
+  Z3HighLevel,
+  AstVector,
+  RCFNum,
+} from './types';
 import { expectType } from 'ts-expect';
 
 // this should not be necessary but there may be a Jest bug
@@ -9,6 +22,21 @@ import { expectType } from 'ts-expect';
 afterEach(() => {
   global.gc && global.gc();
 });
+
+function declaredTacticNames(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const filename = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return entry.name === 'build' || entry.name === 'node_modules' ? [] : declaredTacticNames(filename);
+    }
+    if (!entry.isFile() || !/\.(h|cpp)$/.test(entry.name)) {
+      return [];
+    }
+    return [...readFileSync(filename, 'utf8').matchAll(/^\s*Z3_ADD_TACTIC\s*\(\s*\w+\s*,\s*"([^"]+)"/gm)].map(
+      match => match[1],
+    );
+  });
+}
 
 /**
  * Generate all possible solutions from given assumptions.
@@ -82,6 +110,37 @@ describe('high-level', () => {
 
   beforeAll(async () => {
     api = await init();
+  });
+
+  it('constructs Complex arithmetic, projections, and typed model values', async () => {
+    const ctx = new api.Context('complex');
+    const { Complex, Int, Real, Function, Array, Solver, Sum, Product, Sub, Div, Neg, simplify } = ctx;
+    const z = Complex.const('z');
+    const value = Complex.val(Int.val(1), Real.val(2));
+    expectType<Complex<'complex'>>(Sum(z, 1));
+    expectType<Complex<'complex'>>(Product(z, 2));
+    expectType<Complex<'complex'>>(Sub(z, 1));
+    expectType<Complex<'complex'>>(Div(z, 2));
+    expectType<Complex<'complex'>>(Neg(z));
+    expectType<Complex<'complex'>>(Real.val(1).add(z));
+    expectType<Complex<'complex'>>(Int.val(1).div(z));
+    expect(ctx.isComplex(Sum(Int.val(1), z))).toBe(true);
+    expect(ctx.isComplexSort(z.sort)).toBe(true);
+    expect(ctx.isComplex(Function.declare('f', Complex.sort(), Complex.sort()).call(z))).toBe(true);
+    expect(ctx.isComplex(Array.const('a', Int.sort(), Complex.sort()).select(0))).toBe(true);
+    const solver = new Solver();
+    solver.add(z.eq(value));
+    solver.add(z.mul(z).neq(Complex.val(-3, 4)));
+    expect(await solver.check()).toBe('unsat');
+    solver.reset();
+    solver.add(z.eq(value));
+    expect(await solver.check()).toBe('sat');
+    const modelValue = solver.model().eval(z);
+    assert(ctx.isComplex(modelValue));
+    expect((await simplify(modelValue.realPart())).toString()).toBe('1.0');
+    expect((await simplify(modelValue.imagPart())).toString()).toBe('2.0');
+    const other = new api.Context('complex');
+    expect(() => Complex.val(other.Real.val(1))).toThrow('Context mismatch');
   });
 
   afterAll(async () => {
@@ -752,6 +811,18 @@ describe('high-level', () => {
     });
   });
 
+  describe('sorts', () => {
+    it('cast accepts an expression of the same sort and rejects other sorts', () => {
+      const { Sort, Const, Int } = api.Context('main');
+      const A = Sort.declare('A');
+      const B = Sort.declare('B');
+      const a = Const('a', A);
+      expect(A.cast(a).eqIdentity(a)).toBeTruthy();
+      expect(() => B.cast(a)).toThrowError(Z3AssertionError);
+      expect(() => A.cast(Int.const('x'))).toThrowError(Z3AssertionError);
+    });
+  });
+
   describe('Solver', () => {
     it('can use push and pop', async () => {
       const { Solver, Int } = api.Context('main');
@@ -1327,9 +1398,16 @@ describe('high-level', () => {
   });
 
   describe('Tactic API', () => {
-    it('can create a tactic', () => {
-      const { Tactic } = api.Context('main');
-      const tactic = new Tactic('simplify');
+    // Per-tactic contexts can exhaust the fixed WASM heap before finalizers run.
+    let registrationContext: Context<'registered-tactics'>;
+    beforeAll(() => {
+      registrationContext = api.Context('registered-tactics');
+    });
+
+    // Derive expectations from native sources, not the potentially incomplete WASM registry.
+    const tacticNames = declaredTacticNames(resolve(__dirname, '..', '..', '..', '..')).sort();
+    it.each(tacticNames)('can create a %s tactic', name => {
+      const tactic = new registrationContext.Tactic(name);
       expect(tactic).toBeDefined();
     });
 
@@ -2126,7 +2204,7 @@ describe('high-level', () => {
 
       const result = await solver.check();
       expect(result).toBe('sat');
-      
+
       if (result === 'sat') {
         const model = solver.model();
         const xVal = model.eval(x);
@@ -2366,7 +2444,6 @@ describe('high-level', () => {
       const quot = a.div(b);
       expect(quot.isRational()).toBe(true);
       const decimal = quot.toDecimal(5);
-
     });
 
     it('should perform inversion', () => {
@@ -2439,7 +2516,7 @@ describe('high-level', () => {
       expect(roots.length).toBe(2);
 
       return;
-      
+
       // All roots should be algebraic
       roots.forEach((root: RCFNum<'rcf'>) => {
         expect(root.isAlgebraic()).toBe(true);

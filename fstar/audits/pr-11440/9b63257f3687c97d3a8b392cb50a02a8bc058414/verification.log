@@ -1,0 +1,7 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend)
+$ /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out FiniteSetSizeRan.fst
+stdout:
+Verified module: FiniteSetSizeRan
+All verification conditions discharged successfully
+exit 0
+stderr:

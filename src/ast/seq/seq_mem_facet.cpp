@@ -1227,8 +1227,15 @@ namespace seq {
                 else
                     cache_insert(key, l_true, witnesses);
             }
-            else
-                cache_insert(key, l_true, nullptr);
+            else {
+                // Retain the candidate before the scratch scope is popped;
+                // only the ordinary, phase-gated split may apply it.
+                expr_substitution cached_witnesses(m);
+                if (m_mon.materialize_all(cached_witnesses) == l_true)
+                    cache_insert(key, l_true, &cached_witnesses);
+                else
+                    cache_insert(key, l_true, nullptr);
+            }
         }
         m_mon_trail.pop_scope(1);
         return result;

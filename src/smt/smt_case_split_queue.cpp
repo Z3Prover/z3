@@ -127,6 +127,31 @@ namespace {
                     return;
             }
             
+            if (m_params.m_case_split_relevant_first && m_context.relevancy()) {
+                // Prefer relevant variables. A decision on an irrelevant variable still
+                // propagates through the Tseitin clauses of the irrelevant node and can
+                // force relevant atoms (e.g. the recognizers of a recursive datatype)
+                // into values that the relevant part of the search would not choose.
+                // The irrelevant variables are decided once no relevant one is left.
+                svector<bool_var> skipped;
+                bool found = false;
+                while (!m_queue.empty()) {
+                    next = m_queue.erase_min();
+                    if (m_context.get_assignment(next) != l_undef)
+                        continue;
+                    if (m_context.is_relevant(next)) {
+                        found = true;
+                        break;
+                    }
+                    skipped.push_back(next);
+                }
+                for (bool_var v : skipped)
+                    if (!m_queue.contains(v))
+                        m_queue.insert(v);
+                if (found)
+                    return;
+            }
+
             while (!m_queue.empty()) {
                 next = m_queue.erase_min();
                 if (m_context.get_assignment(next) == l_undef)
@@ -537,7 +562,7 @@ namespace {
         }
 
         void del_var_eh(bool_var v) override {
-            if (v >= m_bs_num_bool_vars && m_delayed_queue.contains(v))
+            if (m_delayed_queue.contains(v))
                 m_delayed_queue.erase(v);
         }
 
@@ -579,6 +604,7 @@ namespace {
         
         void init_search_eh() override {
             m_bs_num_bool_vars = m_context.get_num_bool_vars();
+            m_delayed_queue.reset();
         }
 
         void end_search_eh() override {

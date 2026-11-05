@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+#include <tuple>
 #include "math/hilbert/hilbert_basis.h"
 #include "util/heap.h"
 #include "util/map.h"
@@ -898,7 +899,8 @@ bool hilbert_basis::vector_lt(offset_t idx1, offset_t idx2) const {
         a += abs(v[i]);
         b += abs(w[i]);
     }
-    return a < b;
+    // Offsets are indices in m_store, independent of allocation addresses.
+    return std::tuple(a, idx1) < std::tuple(b, idx2);
 }
 
 lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {

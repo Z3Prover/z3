@@ -1447,9 +1447,41 @@ void iterate_args() {
 
 }
 
+void complex_example() {
+    context c;
+    expr z = c.complex_const("z");
+    expr value = c.complex_val("1/2", "2");
+    expr square = c.complex_val("-15/4", "2");
+    solver s(c);
+    s.add(z == value);
+    expr re = real_part(z);
+    expr im = imag_part(z);
+    expr half = c.real_val("1/2");
+    expr_vector failures(c);
+    failures.push_back(z * z != square);
+    failures.push_back(re != half);
+    failures.push_back(im != 2);
+    failures.push_back(z / z != 1);
+    failures.push_back(z + 1 - 1 != z);
+    failures.push_back(-z + z != 0);
+    s.add(mk_or(failures));
+    if (!z.is_complex() || !z.get_sort().is_complex() || s.check() != unsat)
+        throw exception("Complex arithmetic or projections failed");
+    s.reset();
+    s.add(z * z == -1);
+    if (s.check() != sat || !s.get_model().eval(z).is_complex())
+        throw exception("Complex model reconstruction failed");
+    expr symbolic_re = c.real_const("re");
+    expr symbolic_im = c.int_const("im");
+    expr pair = complex(symbolic_re, symbolic_im);
+    if (!(real_part(pair) == symbolic_re).simplify().is_true())
+        throw exception("Complex symbolic construction failed");
+}
+
 int main() {
 
     try {
+        complex_example();
         demorgan(); std::cout << "\n";
         find_model_example1(); std::cout << "\n";
         prove_example1(); std::cout << "\n";

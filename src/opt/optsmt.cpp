@@ -30,10 +30,13 @@ Notes:
 
 #include <typeinfo>
 #include <cstring>
+#include <optional>
 #include "util/common_msgs.h"
 #include "opt/optsmt.h"
 #include "opt/opt_geometric.h"
+#include "opt/opt_search.h"
 #include "opt/opt_nlsat.h"
+#include "opt/opt_curve_certificate.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_context.h"
 #include "ast/arith_decl_plugin.h"
@@ -182,7 +185,7 @@ namespace opt {
         }
     }
 
-    lbool optsmt::geometric_search(unsigned obj_index, bool is_maximize) {
+    lbool optsmt::geometric_search(unsigned obj_index, bool is_maximize, unsigned unbounded_check_rounds) {
         TRACE(opt, tout << "index: " << obj_index << " is-max: " << is_maximize << "\n";);
         arith_util arith(m);
         bool is_int = arith.is_int(m_objs.get(obj_index));
@@ -191,21 +194,16 @@ namespace opt {
 
         geometric_step step;
         scoped_pushes scopes(*m_s);
+        objective_search search(upper(obj_index));
         inf_eps last_objective = inf_eps(rational(-1), inf_rational(0));
         inf_eps const infty(rational(1), inf_rational(0));
-        // Upper bounds established along the way for a real-valued objective
-        // that the arithmetic solver could not optimize directly (nonlinear
-        // constraints, mod, to_int, ...): the least hint that check_bound
-        // refuted, and the value of the last model-derived step that turned
-        // out infeasible. Both are sound: 'obj >= value' has no model.
-        inf_eps refuted_hint = infty;
-        inf_eps step_bound = infty;
         bool last_bound_valid = true;
         unsigned climb_rounds = 0;
-        unsigned unbounded_check_rounds = 8;
         // initial budget: same constant as the bounded nlsat run in
         // nla_core::bounded_nlsat; the known unbounded proofs need 4k-23k
         unsigned unbounded_check_rlimit = 100000;
+        // the most recent models, for curve certificates of unboundedness
+        sref_vector<model> recent_models;
 
         while (m.inc()) {
             is_sat = m_s->check_sat(0, nullptr);
@@ -216,18 +214,21 @@ namespace opt {
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
-                auto result = m_s->maximize_objective(obj_index, bound, m_dual_bounds && !is_int);
+                // Once a finite cap is known, leave refinement to the normal
+                // search instead of perturbing it with more certification probes.
+                bool probe_bound = !search.upper().is_finite();
+                auto result = m_s->maximize_objective(obj_index, bound, m_dual_bounds && !is_int, probe_bound);
                 last_bound_valid = result.bound_valid;
-                // Search scopes only impose lower cuts on this objective. A
-                // finite LP optimum satisfies them, so excluded values cannot
-                // exceed its certified rational upper bound.
-                if (result.upper_bound && inf_eps(*result.upper_bound) < upper(obj_index))
-                    m_upper[obj_index] = inf_eps(*result.upper_bound);
-                step_bound = infty;
-                if (!result.bound_valid && result.hint_status == l_false && result.hint.is_finite())
-                    refuted_hint = std::min(refuted_hint, result.hint);
+                search.update(result);
+                m_upper[obj_index] = search.upper();
                 m_s->get_model(m_model);
                 SASSERT(m_model);
+                if (recent_models.size() > curve_certificate::max_degree) {
+                    for (unsigned i = 1; i < recent_models.size(); ++i)
+                        recent_models.set(i - 1, recent_models[i]);
+                    recent_models.pop_back();
+                }
+                recent_models.push_back(m_model.get());
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 TRACE(opt, tout << "saved objective: " << obj << "\n";);
                 update_lower_lex(obj_index, obj, is_maximize);
@@ -236,19 +237,23 @@ namespace opt {
                     break;
                 }
                 step.update(is_int && m_lower[obj_index].is_finite());
-                // A real objective may improve forever without refuting an
+                // An objective may improve forever without refuting an
                 // upper bound. After a streak, use prove_unbounded_above to
                 // commit +oo with the current model as a witness. Bounded
                 // objectives can show the same pattern, so limit the query by
                 // deterministic resource count and exponentially back off
                 // inconclusive retries.
-                if (is_int || refuted_hint.is_finite())
+                if (search.upper().is_finite())
                     climb_rounds = 0;
-                else if (m_optsmt_nlsat && ++climb_rounds >= unbounded_check_rounds) {
+                else if ((m_unbounded_curve || (m_optsmt_nlsat && !is_int)) && ++climb_rounds >= unbounded_check_rounds) {
                     climb_rounds = 0;
                     unbounded_check_rounds *= 2;
-                    if (prove_unbounded_above(obj_index, unbounded_check_rlimit)) {
+                    if (prove_unbounded_above(obj_index, unbounded_check_rlimit, recent_models)) {
                         set_best(obj_index, infty, is_maximize);
+                        break;
+                    }
+                    if (m.limit().is_canceled()) {
+                        is_sat = l_undef;
                         break;
                     }
                     // saturate: an overflow to 0 would make the budget
@@ -266,7 +271,7 @@ namespace opt {
                 if (!result.bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
                     scopes.push();
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
-                    step_bound = obj + inf_eps(step.value());
+                    search.enter_region(obj + inf_eps(step.value()));
                 }
                 last_objective = obj;
                 if (bound == last_bound) {
@@ -290,32 +295,38 @@ namespace opt {
                         // branch below with the best proven bound.
                         scopes.push();
                         bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
-                        step_bound = obj + inf_eps(step.value());
+                        search.enter_region(obj + inf_eps(step.value()));
                     }
                     if (bound == last_bound)
                         break;
                 }
+                // A validated blocker can discard better values than the
+                // enclosing trial cut without introducing another scope.
+                search.exclude_below(std::max(obj, lower(obj_index)));
                 m_s->assert_expr(bound);
                 last_bound = bound;
             }
             else if (is_sat == l_false && step.value() > rational::one()) {
                 step.reset();
                 scopes.pop();
+                search.leave_region(is_sat);
+                m_upper[obj_index] = search.upper();
             }
             else {
+                if (is_sat == l_false) {
+                    search.refute_region();
+                    m_upper[obj_index] = search.upper();
+                }
                 if (((is_sat == l_false && !last_bound_valid) || is_sat == l_undef) && !is_int && m_lower[obj_index].is_finite()) {
                     // A real-valued objective whose last step was the
                     // model-derived fallback: the failed step only shows
-                    // obj < step_bound, it does not make the model value
+                    // the trial region is empty, it does not make the model value
                     // optimal. Close or narrow the gap by bisection instead of
                     // reporting the lower bound as the optimum.
-                    // An undecided trial is not an upper-bound certificate.
-                    inf_eps hi = std::min(upper(obj_index), refuted_hint);
-                    if (is_sat == l_false)
-                        hi = std::min(hi, step_bound);
+                    inf_eps hi = search.upper();
                     if (lower(obj_index) < hi) {
                         scopes.reset();
-                        m_upper[obj_index] = hi;
+                        search.reset_regions();
                         bool smt_gave_up = is_sat == l_undef;
                         is_sat = refine_real_objective(obj_index, is_maximize, hi, smt_gave_up);
                     }
@@ -369,45 +380,59 @@ namespace opt {
 
     /**
        \brief Certify that objective idx is unbounded above over the current
-       assertions by projecting feasible nlsat regions onto the objective,
+       assertions: over real variables by projecting feasible nlsat regions
+       onto the objective, and otherwise along a polynomial curve through the
+       recent models, which also covers integer and mixed objectives,
        given a budget of rlimit_budget resource-counter ticks; bounds pushed
        by the climb hold in the current model and are harmless. The budget's
        expiry surfaces from the nlsat solver as a solver_exception, not a
        tactic_exception, so any z3_exception here means "no proof within
-       budget", never an error to propagate. A cancellation flag (a soft
-       timeout, ctrl-c) also lands in the same catch, and popping the budget
-       would erase it; it is probed while still set and re-raised so the
-       caller's m.inc() loop still observes it. An expired tighter enclosing
+       budget", never an error to propagate. Curve queries may instead
+       return l_undef on cancellation. Popping the budget would erase an
+       external cancellation (a soft timeout, ctrl-c), so it is always probed
+       while still set and re-raised for the caller. An expired tighter enclosing
        rlimit needs no such care: the counter stays above that ceiling after
        the pop and keeps failing on its own.
     */
-    bool optsmt::prove_unbounded_above(unsigned idx, unsigned rlimit_budget) {
+    bool optsmt::prove_unbounded_above(unsigned idx, unsigned rlimit_budget, sref_vector<model> const& recent_models) {
         if (!m_lower[idx].is_finite())
             return false;
         expr_ref_vector hard(m);
         for (unsigned i = 0; i < m_s->get_num_assertions(); ++i)
             hard.push_back(m_s->get_assertion(i));
         params_ref p;
-        nlsat_opt engine(m, p);
         lbool r = l_undef;
+        bool by_curve = false;
         uint64_t start = m.limit().count();
         uint64_t consumed = 0;
         bool external_cancel = false;
         {
             scoped_rlimit budget(m.limit(), rlimit_budget);
             try {
-                r = engine.prove_unbounded(hard, m_objs.get(idx), lower(idx).get_rational());
-            }
-            catch (z3_exception&) {
-                external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+                // returns l_undef at once when any term is an integer
+                if (m_optsmt_nlsat) {
+                    nlsat_opt engine(m, p);
+                    r = engine.prove_unbounded(hard, m_objs.get(idx), lower(idx).get_rational());
+                }
+                // The curve queries run on the remaining budget, so they
+                // cannot starve the projection of a real objective.
+                if (r != l_true && m_unbounded_curve && !recent_models.empty()) {
+                    curve_certificate curve(m, p);
+                    r = curve.prove_unbounded(hard, m_objs.get(idx), recent_models);
+                    by_curve = r == l_true;
+                    IF_VERBOSE(1, if (by_curve) verbose_stream() << "(optsmt unbounded above along a "
+                               << curve.kind_name() << ")\n");
+                }
+            } catch (z3_exception &) {
                 r = l_undef;
             }
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
             // read before the pop of the budget truncates the counter
             consumed = m.limit().count() - start;
         }
         if (external_cancel)
             m.limit().cancel();
-        IF_VERBOSE(1, if (r == l_true) verbose_stream() << "(optsmt nlsat unbounded above)\n");
+        IF_VERBOSE(1, if (r == l_true && !by_curve) verbose_stream() << "(optsmt nlsat unbounded above)\n");
         IF_VERBOSE(3, verbose_stream() << "(optsmt unbounded-check :result " << r
                    << " :rlimit-consumed " << consumed
                    << " :budget " << rlimit_budget << ")\n");
@@ -517,8 +542,9 @@ namespace opt {
        \brief Search the interval [m_lower[idx], hi] for the optimum of a
        real-valued objective when the arithmetic solver cannot push it
        (nonlinear constraints, mod, to_int, ...). Both endpoints are sound:
-       the lower bound is attained by m_best_model and no model satisfies
-       obj >= hi. Alternates two queries (GOMT F-Sat / F-Close / F-Split):
+       the lower bound is backed by m_best_model and hi is a certified upper
+       bound, not necessarily a refuted threshold. Alternates two queries
+       (GOMT F-Sat / F-Close / F-Split):
          - obj > lo: unsat proves lo optimal; sat raises lo to the new model;
          - obj >= (lo + hi)/2: unsat lowers hi; sat raises lo.
        Returns l_true with m_lower = m_upper when the optimum is proven, and
@@ -530,6 +556,7 @@ namespace opt {
         inf_eps lo = lower(idx);
         inf_eps const eps(rational(0), inf_rational(rational(0), rational(1)));
         SASSERT(lo.is_finite() && hi.is_finite() && lo < hi);
+        objective_search search(hi);
         IF_VERBOSE(2, verbose_stream() << "(optsmt bisect [" << lo << ", " << hi << "])\n");
         bool strict = true;
         lbool result = l_undef;
@@ -542,12 +569,16 @@ namespace opt {
             lbool is_sat;
             {
                 solver::scoped_push scope(*m_s);
+                search.enter_region(strict ? lo : bound);
                 m_s->assert_expr(m_s->mk_ge(idx, bound));
                 is_sat = m_s->check_sat(0, nullptr);
                 TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
                 if (is_sat == l_true)
                     m_s->get_model(m_model);
             }
+            search.leave_region(is_sat);
+            hi = search.upper();
+            m_upper[idx] = hi;
             // Publish an improved model only after removing the probe bound.
             if (is_sat == l_true) {
                 if (!m_model)
@@ -570,11 +601,9 @@ namespace opt {
             else if (is_sat == l_false) {
                 if (strict) {
                     // no model is strictly better than the best model.
-                    hi = lo;
                     result = l_true;
                     break;
                 }
-                hi = bound;
             }
             else
                 break;
@@ -737,9 +766,19 @@ namespace opt {
         }            
     }
 
+    // Seed the best model with the model of the initial satisfiability check,
+    // together with its labels: when the search never improves on it,
+    // get_model returns this pair, and labels left empty would replace the
+    // ones the context recorded for that same model.
+    void optsmt::get_base_model() {
+        m_context.get_base_model(m_best_model);
+        m_labels.reset();
+        m_context.get_labels(m_labels);
+    }
+
     lbool optsmt::lex(unsigned obj_index, bool is_maximize) {
         TRACE(opt, tout << "optsmt:lex\n";);
-        m_context.get_base_model(m_best_model);
+        get_base_model();
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
         if (is_maximize && m_optsmt_engine == symbol("symba"))
@@ -761,6 +800,175 @@ namespace opt {
         return result;
     }
 
+    // Under the current assertions, does objective idx still have the
+    // supremum +oo? All objective bounds are restored afterwards. On a
+    // positive answer, witness is a feasible model from the search.
+    lbool optsmt::reaches_infinity(unsigned idx, model_ref& witness) {
+        vector<objective_value> lower(m_lower), upper(m_upper);
+        model_ref best = m_best_model, model = m_model;
+        m_lower[idx] = inf_eps(rational(-1), inf_rational(0));
+        m_upper[idx] = inf_eps(rational(1), inf_rational(0));
+        // geometric_search reports infeasibility only while m_model is null.
+        m_model = nullptr;
+        lbool r;
+        {
+            solver::scoped_push _push(*m_s);
+            // The objective is known to be unbounded over F; one climb round
+            // precedes the proof attempt.
+            r = geometric_search(idx, true, 1);
+        }
+        bool unbounded = r == l_true && !m_upper[idx].is_finite();
+        if (unbounded)
+            witness = m_best_model;
+        m_lower = lower;
+        m_upper = upper;
+        m_best_model = best;
+        m_model = model;
+        if (r == l_undef)
+            return l_undef;
+        return unbounded ? l_true : l_false;
+    }
+
+    bool optsmt::model_objective_value(unsigned idx, model_ref& mdl, rational& value) {
+        if (!mdl)
+            return false;
+        arith_util arith(m);
+        expr_ref val = (*mdl)(m_objs.get(idx));
+        return model_value_bound(arith, val, true, value);
+    }
+
+    /**
+       Objective u = unbounded_index has the supremum +oo over the current
+       assertions F. Objective f = obj_index then takes the value
+
+           L = lim_{c -> +oo} sup { f : F and u > c }.
+
+       For a rational t: if F and f >= t keeps u unbounded, then t <= L;
+       if F and f > t leaves u bounded or infeasible, then L <= t, because
+       beyond some value of u no feasible point has f > t. A threshold with
+       both facts is L itself, attained at every feasible point with f = t
+       and arbitrarily large u. Thresholds come from model values and from
+       the arithmetic solver's hints, and every threshold is checked by the
+       unbounded objective's own search. A limit of +oo or -oo is not
+       certified: a streak of trials in the same direction ends the search.
+       Without a deciding threshold the objective keeps the sound interval
+       [lo, hi] and the result stays sat.
+    */
+    lbool optsmt::lex_after_unbounded(unsigned unbounded_index, unsigned idx, bool is_maximize) {
+        TRACE(opt, tout << "optsmt:lex after unbounded " << unbounded_index << " objective " << idx << "\n";);
+        if (!m_lex_after_unbounded)
+            return l_true;
+        arith_util arith(m);
+        app* obj = m_objs.get(idx);
+        bool is_int = arith.is_int(obj);
+        inf_eps const minus_infty(rational(-1), inf_rational(0));
+        inf_eps const infty(rational(1), inf_rational(0));
+        inf_eps lo = minus_infty, hi = infty;
+        std::optional<rational> candidate;
+        // f > lo keeps u unbounded, so lo is not the limit unless hi closes in.
+        bool above_lo_feasible = false;
+        model_ref witness, best;
+        geometric_step step;
+        scoped_pushes scopes(*m_s);
+        lbool result = l_undef;
+        bool decided = false;
+        unsigned const max_one_sided_rounds = 16;
+        unsigned one_sided_rounds = 0;
+        for (unsigned rounds = 0; m.inc() && rounds < m_bisect_rounds; ++rounds) {
+            if (is_int && lo.is_finite() && hi.is_finite() && hi.get_rational() <= lo.get_rational() + 1) {
+                decided = true;
+                break;
+            }
+            if (best && (!lo.is_finite() || !hi.is_finite()) && ++one_sided_rounds > max_one_sided_rounds)
+                break;
+            bool has_trial = true, strict = false;
+            rational t;
+            if (candidate && inf_eps(*candidate) > lo && inf_eps(*candidate) < hi)
+                t = *candidate;
+            else if (!best)
+                has_trial = false;
+            else if (!lo.is_finite())
+                t = hi.get_rational() - step.value();
+            else if (!hi.is_finite())
+                t = lo.get_rational() + step.value();
+            else if (!is_int && !above_lo_feasible) {
+                t = lo.get_rational();
+                strict = true;
+            }
+            else {
+                t = (lo.get_rational() + hi.get_rational()) / rational(2);
+                if (is_int)
+                    t = floor(t);
+            }
+            if (is_int && has_trial)
+                t = ceil(t);
+            candidate.reset();
+            scopes.push();
+            if (has_trial) {
+                expr_ref num(arith.mk_numeral(t, is_int), m);
+                expr_ref bound(strict ? arith.mk_gt(obj, num) : arith.mk_ge(obj, num), m);
+                TRACE(opt, tout << "trial " << bound << "\n";);
+                m_s->assert_expr(bound);
+            }
+            lbool r = reaches_infinity(unbounded_index, witness);
+            inf_eps hint;
+            bool has_hint = false;
+            if (r == l_true && m_s->check_sat(0, nullptr) == l_true) {
+                // The largest value of f the arithmetic solver sees under the
+                // trial is only a threshold to check, not a certified bound.
+                expr_ref blocker(m);
+                auto hint_result = m_s->maximize_objective(idx, blocker, false, false);
+                if (hint_result.bound_valid && hint_result.hint.is_finite()) {
+                    hint = hint_result.hint;
+                    has_hint = true;
+                }
+            }
+            scopes.pop();
+            if (r == l_undef) {
+                result = l_undef;
+                break;
+            }
+            result = l_true;
+            if (r == l_true) {
+                best = witness;
+                if (has_trial && strict)
+                    above_lo_feasible = true;
+                else if (has_trial) {
+                    lo = inf_eps(t);
+                    above_lo_feasible = false;
+                }
+                rational v;
+                if (model_objective_value(idx, best, v) && inf_eps(v) > lo)
+                    candidate = v;
+                if (has_hint && hint > lo && (!candidate || hint.get_rational() > *candidate))
+                    candidate = hint.get_rational();
+                step.update(true);
+                IF_VERBOSE(2, verbose_stream() << "(optsmt.lex-after-unbounded :lower " << lo << " :upper " << hi << ")\n";);
+            }
+            else {
+                if (!has_trial)
+                    break;
+                if (strict) {
+                    decided = true;
+                    break;
+                }
+                hi = inf_eps(t);
+                step.reset();
+                IF_VERBOSE(2, verbose_stream() << "(optsmt.lex-after-unbounded :lower " << lo << " :upper " << hi << ")\n";);
+            }
+        }
+        scopes.reset();
+        m_lower[idx] = lo;
+        m_upper[idx] = decided ? lo : hi;
+        IF_VERBOSE(1, verbose_stream() << "(optsmt " << (is_maximize ? "lower" : "upper") << " bound after unbounded objective: "
+                   << (is_maximize ? lo : -lo) << ")\n";);
+        if (best) {
+            m_model = best;
+            publish_best_model();
+        }
+        return result;
+    }
+
     /**
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
@@ -777,7 +985,7 @@ namespace opt {
         // m_optsmt_engine is "symba", because symba_opt and geometric_opt
         // optimize all objectives jointly, violating box mode semantics.
         //
-        m_context.get_base_model(m_best_model);
+        get_base_model();
         for (unsigned i = 0; i < m_vars.size() && m.inc(); ++i) {
             // Reset bounds for objective i so that update_lower_lex
             // contamination from earlier objectives does not affect it.
@@ -854,6 +1062,8 @@ namespace opt {
         m_optsmt_nlsat = _p.optsmt_nlsat();
         m_dual_bounds = _p.optsmt_dual_bounds();
         m_nlsat_supremum_rlimit = _p.optsmt_nlsat_supremum_rlimit();
+        m_lex_after_unbounded = _p.optsmt_lex_after_unbounded();
+        m_unbounded_curve = _p.optsmt_unbounded_curve();
     }
 
     void optsmt::reset() {

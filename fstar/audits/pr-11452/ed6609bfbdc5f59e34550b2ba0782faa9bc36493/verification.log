@@ -1,0 +1,8 @@
+F* 2026.09.27; Z3 version 4.13.3 - 64 bit
+Command (fresh cache, timeout 120): timeout 120 fstar.exe --smt z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache2 --odir out2 Z3OptCurveCertificate.fst
+exit: 0
+stdout:
+Verified module: Z3OptCurveCertificate
+All verification conditions discharged successfully
+
+stderr:

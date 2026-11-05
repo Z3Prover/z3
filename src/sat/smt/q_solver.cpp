@@ -342,7 +342,8 @@ namespace q {
         }
         if (m.is_not(arg, z) && m.is_iff(z, x, y) && is_literal(x) && is_literal(y)) {
             e1 = m.mk_or(x, y);
-            e2 = m.mk_or(mk_not(m, x), mk_not(m, y));
+            expr_ref not_x(mk_not(m, x), m);
+            e2 = m.mk_or(not_x, mk_not(m, y));
             return true;
         }
         return false;

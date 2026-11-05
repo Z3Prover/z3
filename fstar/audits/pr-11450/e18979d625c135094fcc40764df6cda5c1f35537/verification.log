@@ -1,0 +1,5 @@
+F* F* 2026.09.27; Z3 4.13.3 (pinned)
+cmd: fstar.exe --smt .../z3 --z3version 4.13.3 --include fstar --include . --z3rlimit 10 --cache_dir cache(fresh) --odir out AuditCanonicalOps.fst (timeout 120)
+exit: 0
+Verified module: AuditCanonicalOps
+All verification conditions discharged successfully

@@ -57,6 +57,76 @@ struct create_cut {
             m_ex->push_back(ci);
     }
 
+    void capture_evidence() {
+        if (!lia.lra.dep_manager().proofs_enabled())
+            return;
+        auto* proof = lia.lra.dep_manager().derive(m_dep, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::gomory;
+            r.conclusion.lhs = m_t.coeffs_as_vector();
+            r.conclusion.kind = GE;
+            r.conclusion.rhs = impq(m_k);
+            r.pivot = m_inf_col;
+            for (auto const& p : m_row) {
+                unsigned j = p.var();
+                r.equation.lhs.push_back({p.coeff(), j});
+                if (j == m_inf_col)
+                    continue;
+                evidence_manager::column_bounds bounds{j};
+                if (column_is_fixed(j) || ((!is_int(j) || !p.coeff().is_int()) && at_lower(j))) {
+                    bounds.lower = r.premises.size();
+                    r.premises.push_back({column_lower_bound_constraint(j), mpq(1)});
+                }
+                if (column_is_fixed(j) || ((!is_int(j) || !p.coeff().is_int()) && !at_lower(j))) {
+                    bounds.upper = r.premises.size();
+                    r.premises.push_back({column_upper_bound_constraint(j), mpq(1)});
+                }
+                if (bounds.lower != UINT_MAX || bounds.upper != UINT_MAX)
+                    r.bounds.push_back(bounds);
+            }
+            return r;
+        });
+        m_dep = proof;
+        if (m_t.is_empty())
+            proof = lia.lra.dep_manager().derive(proof, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::linear;
+                r.conclusion.contradiction = true;
+                r.premises.push_back({m_dep, mpq(1)});
+                return r;
+            });
+        m_ex->set_evidence(proof);
+    }
+
+    u_dependency* polarity_evidence(u_dependency* support, bool lower, mpq const& value) {
+        if (!lia.lra.dep_manager().proofs_enabled())
+            return support;
+        auto* linear = lia.lra.dep_manager().derive(support, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.lhs.push_back({mpq(1), m_inf_col});
+            r.conclusion.kind = lower ? GE : LE;
+            for (auto const& p : m_row) {
+                if (p.var() == m_inf_col)
+                    continue;
+                bool use_lower = lower != p.coeff().is_pos();
+                auto* dep = use_lower ? column_lower_bound_constraint(p.var()) : column_upper_bound_constraint(p.var());
+                r.premises.push_back({dep, abs(p.coeff())});
+                r.conclusion.rhs -= p.coeff() * (use_lower ? lower_bound(p.var()) : upper_bound(p.var()));
+            }
+            return r;
+        });
+        return lia.lra.dep_manager().derive(support, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::integer_tighten;
+            r.conclusion.lhs.push_back({mpq(1), m_inf_col});
+            r.conclusion.kind = lower ? GE : LE;
+            r.conclusion.rhs = impq(value);
+            r.premises.push_back({linear, mpq(1)});
+            return r;
+        });
+    }
+
     void int_case_in_gomory_cut(unsigned j) {
         SASSERT(is_int(j) && m_fj.is_pos());
         TRACE(gomory_cut_detail, 
@@ -135,6 +205,12 @@ struct create_cut {
 
     lia_move report_conflict_from_gomory_cut() {
         SASSERT(m_k.is_pos());
+        if (lia.lra.dep_manager().proofs_enabled()) {
+            m_dep = nullptr;
+            for (auto c : *m_ex)
+                m_dep = lia.lra.join_deps(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
+            capture_evidence();
+        }
         // conflict 0 >= k where k is positive
         return lia_move::conflict;
     }
@@ -324,6 +400,7 @@ public:
         m_dep = nullptr;
         for (auto c : *m_ex) 
          	m_dep = lia.lra.join_deps(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
+        capture_evidence();
 
         TRACE(gomory_cut_detail, dump_cut_and_constraints_as_smt_lemma(tout);
               lia.lra.display(tout));
@@ -516,9 +593,11 @@ public:
             }
             SASSERT(test_row_polarity(lia, row, j) == cc.m_polarity);
             if (cc.m_polarity == row_polarity::MAX) 
-                lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
+                lra.update_column_type_and_bound(j, lp::lconstraint_kind::LE, floor(lra.get_column_value(j).x),
+                                                cc.polarity_evidence(add_deps(cc.m_dep, row, j), false, floor(lra.get_column_value(j).x)));
             else if (cc.m_polarity == row_polarity::MIN)
-                lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x), add_deps(cc.m_dep, row, j));
+                lra.update_column_type_and_bound(j, lp::lconstraint_kind::GE, ceil(lra.get_column_value(j).x),
+                                                cc.polarity_evidence(add_deps(cc.m_dep, row, j), true, ceil(lra.get_column_value(j).x)));
             
             if (!is_small_cut(lia.get_term())) {
                 big_cuts.push_back({cc.m_t, cc.m_k, cc.m_dep});

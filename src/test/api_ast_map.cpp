@@ -22,6 +22,7 @@ Revision History:
 #include "api/api_context.h"
 #include "util/debug.h"
 #include <iostream>
+#include <thread>
 
 void test_ast_map_basic_operations() {
     // Test basic creation, insertion, and retrieval
@@ -231,6 +232,28 @@ void test_ast_map_ref_counting() {
     Z3_del_context(ctx);
 }
 
+void test_concurrent_dec_ref() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context_rc(cfg);
+    Z3_enable_concurrent_dec_ref(ctx);
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast ast = Z3_mk_int(ctx, 1, int_sort);
+    Z3_inc_ref(ctx, ast);
+    unsigned ref_count = to_ast(ast)->get_ref_count();
+
+    std::thread worker([=]() { Z3_dec_ref(ctx, ast); });
+    worker.join();
+
+    VERIFY(to_ast(ast)->get_ref_count() == ref_count);
+    Z3_inc_ref(ctx, ast);
+    VERIFY(to_ast(ast)->get_ref_count() == ref_count);
+    Z3_dec_ref(ctx, ast);
+
+    Z3_del_context(ctx);
+    Z3_del_config(cfg);
+}
+
 void test_ast_map_different_ast_types() {
     // Test with different AST types
     Z3_config cfg = Z3_mk_config();
@@ -301,6 +324,7 @@ void tst_api_ast_map() {
     test_ast_map_erase();
     test_ast_map_reset();
     test_ast_map_ref_counting();
+    test_concurrent_dec_ref();
     test_ast_map_to_string();
     // test_ast_map_keys();
     // test_ast_map_different_ast_types();

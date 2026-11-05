@@ -252,7 +252,11 @@ namespace sls {
                     expr_ref_vector args(m);
                     for (auto a : acc)
                         args.push_back(m.mk_app(a, t));
-                    m_axioms.push_back(m.mk_iff(m.mk_app(r, t), m.mk_eq(t, m.mk_app(c, args))));
+                    {
+                        expr_ref lhs(m.mk_app(r, t), m);
+                        expr_ref rhs(m.mk_eq(t, m.mk_app(c, args)), m);
+                        m_axioms.push_back(m.mk_iff(lhs, rhs));
+                    }
                 }
             }
         }

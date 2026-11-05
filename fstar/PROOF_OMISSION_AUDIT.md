@@ -1,0 +1,456 @@
+# Proof production/omission audit: `ast/rewriter`, `ast/simplifiers`, `tactic`, `smt`
+
+This report catalogues, layer by layer, where Z3 constructs proof terms for a
+transformation it performs and where it does not, and — for every "does not"
+case — whether that omission is (a) **deliberate**: the code explicitly
+refuses to run, or runs only outside any proof-producing pipeline, when
+`proofs_enabled()`/`supports_proofs()` is false; (b) a **genuine latent gap**:
+the code is reachable from a proof-producing pipeline yet still mutates a
+formula/goal with no justification (or an unrelated one); or (c) **benign**:
+proof-carrying work is correctly delegated elsewhere (e.g. to the generic
+rewriting engine audited by `PROOF_REWRITER_REPORT.md`) so there is nothing
+further to prove at this layer.
+
+Methodology: four independent passes (one per layer below), each reading the
+real C++ source and citing exact `file:line` locations; no code was changed
+as part of this report except where noted in "Findings" with a committed fix.
+
+## 1. `src/ast/rewriter` (specialized, non-generic-engine transforms)
+
+The generic engine (`rewriter.h`/`rewriter_def.h`/`rewriter_tpl`) already
+threads `proof_ref`s through every built-in rewrite step and is covered by
+`PROOF_REWRITER_REPORT.md`; this pass covers the ~30 *other*, more
+special-purpose transformation files that do not go through that mechanism
+for their top-level result.
+
+**Proof-aware, correctly delegated or explicit (benign, (c)):**
+`bit_blaster/bit_blaster_rewriter.{h,cpp}` (config of `rewriter_tpl`),
+`der.{h,cpp}` (chains `mk_transitivity` explicitly, `:135-165,236`),
+`expr_replacer.{h,cpp}` (proof-bearing substitutions, gated by a
+`proofs_enabled` constructor flag, `:93`), `factor_rewriter.{h,cpp}`
+(generic-engine config), `label_rewriter.{h,cpp}` (`mk_modus_ponens` over
+`mk_rewrite`, `:31-45`), `maximize_ac_sharing.{h,cpp}` (generic-engine
+config, `:116`), `th_rewriter.{h,cpp}` (`mk_rewrite`+`mk_transitivity`,
+`:648-688,849-960`), `dom_simplifier.{h,cpp}` (preserves/derives proofs via
+`mk_symmetry`/`mk_iff_false`/`mk_iff_true`, `:279-302`).
+
+**Deliberately proof-disabled ((a)):**
+`pb2bv_rewriter.cpp:1015-1017` explicitly short-circuits
+(`if (m().proofs_enabled()) { r = e; return; }`) and its internal rewriter is
+built with proofs off — the whole pass is a documented no-op under proofs.
+`macro_replacer.cpp:76,101,110` — pattern erasure does emit `mk_rewrite` when
+proofs are enabled, but the actual macro-substitution worker is explicitly
+instantiated with proof generation *disabled* and comments
+`// skip proof terms for simplifiers`.
+
+**Only a trusted "whole-transform" leaf, not a derivation ((b)-leaning but
+consistent with the rest of the codebase):**
+`bit2int.cpp:32-40`, `bv_elim.{h,cpp}:18,109` (explicitly instantiated with
+`m.proofs_enabled()` at `bv_elim.h:35,43`), `elim_bounds.{h,cpp}:115,184-197`
+(instantiated with proofs at `elim_bounds.h:68`), `enum2bv_rewriter.{h,cpp}
+:198-241`, `push_app_ite.{h,cpp}:59-80`. Each of these emits a single
+`m.mk_rewrite(original, result)` under `m.proofs_enabled()` instead of a
+composed derivation — the same "trusted leaf" pattern `PROOF_REWRITER_REPORT.
+md` already documents and accepts for `PR_REWRITE` throughout the codebase,
+so these are **not new gaps**, just more instances of an already-audited,
+accepted trust boundary.
+
+**No proof handling found at all, and no local guard excluding proof mode —
+candidates for a closer look:**
+`distribute_forall.{h,cpp}`, `factor_equivs.{h,cpp}`, `inj_axiom.{h,cpp}`,
+`quant_hoist.{h,cpp}`, `recfun_replace.{h,cpp}`, `seq_derive.{h,cpp}`,
+`expr_safe_replace.{h,cpp}`. None of these take a `proof_ref` output
+parameter or consult `proofs_enabled()`. **However**, cross-referencing
+against the `ast/simplifiers` pass below: `distribute_forall` is *also*
+implemented as an `ast/simplifiers` pass (`distribute_forall.cpp` under
+`ast/simplifiers`, distinct file from this one) that **does** claim
+`supports_proofs()==true` and does combine proofs correctly
+(`dependent_expr_state.h`-style `mp(d.pr(), pr)`); the bare
+`ast/rewriter/distribute_forall.{h,cpp}` entry point is a separate,
+lower-level, syntax-only helper that call sites must wrap with their own
+proof bookkeeping — i.e., it is a *library* routine, not a top-level
+proof-producing pass, so the omission is by design at this layer. The
+remaining five (`factor_equivs`, `inj_axiom`, `quant_hoist`, `recfun_replace`,
+`seq_derive`, `expr_safe_replace`) are used only by preprocessing/tactic call
+sites that are themselves gated off when proofs are required (confirmed for
+`recfun_replace`/`inj_axiom`'s only callers in `ast/simplifiers`, see below);
+no evidence of a *reachable*, proof-enabled, silent omission was found.
+Classification: **(a)**, modulo the caveat that this relies on every current
+and future caller continuing to gate these helpers off under proofs — worth
+a comment/assert at each of these entry points making that precondition
+explicit rather than implicit, but not a live bug today.
+
+## 2. `src/ast/simplifiers`
+
+Every simplifier here is driven by `dependent_expr_simplifier::
+supports_proofs()`, which **defaults to `false`**
+(`dependent_expr_state.h:250`); `dependent_expr_state_tactic` only runs a
+simplifier under a proof-producing goal if it overrides this to `true`
+(confirmed in the `tactic` layer below). Of 76 files surveyed:
+
+- Simplifiers that **do** claim `supports_proofs()==true`: `bit2int`,
+  `bv_divrem_bounds`, `der_simplifier`, `distribute_forall`, `elim_term_ite`,
+  `euf_completion`, `extract_eqs` (+ `solve_eqs`'s extension-filtering),
+  `pull_nested_quantifiers`, `rewriter_simplifier`, `solve_eqs` — all of
+  these were checked and correctly combine the incoming justification with
+  a newly produced one (typically `mp(d.pr(), new_pr)` or equivalent), so
+  **(a)/benign** with one exception below.
+- All other simplifiers inherit (or explicitly set) `supports_proofs() ==
+  false`, and are consequently skipped entirely by the proof-producing
+  orchestration layer (`dependent_expr_state_tactic.h:127-145`), even though
+  many of them internally pass `nullptr` as the proof when mutating a
+  `dependent_expr` (e.g. `bound_simplifier.cpp:151,489`,
+  `demodulator_simplifier.cpp:111`, `elim_unconstrained.cpp:389`,
+  `lambda_simplifier.cpp:173,184`, `leibniz_simplifier.cpp:167`,
+  `flatten_clauses.h:70-108`, `recfun_finder.cpp:157,514,519`,
+  `solve_context_eqs.cpp:285`, and more). None of this is reachable under
+  proofs, by construction of the orchestration gate — **(a)**.
+
+### Follow-up finding: `distribute_forall`'s `PR_PUSH_QUANT` — checker bug, confirmed and fixed
+
+`distribute_forall_simplifier` itself correctly combines its own new
+`mk_push_quant` proof with the dependent_expr's incoming proof via `mp`
+(`distribute_forall.cpp:103`), so it was initially classified clean here.
+However, a closer look at whether the proof it *produces* is actually
+well-formed (i.e. whether `proof_checker::check1_basic`'s `PR_PUSH_QUANT`
+case would accept it) found a genuine, independent bug in the checker
+itself: the success path had no `return true` at all (falling through
+unconditionally to the shared `UNREACHABLE(); return false;` tail), so
+*every* `PR_PUSH_QUANT` proof — even a textbook-correct one — was
+rejected; and the checker only ever matched the `and`-shaped
+`forall`/`and` conjunction, never the dual `exists`/`or` shape
+`distribute_forall_simplifier` also produces. **Fixed** in
+`src/ast/proofs/proof_checker.cpp`'s `PR_PUSH_QUANT` case (now accepts
+both shapes, checks quantifier-kind agreement too, and `return true`s on
+success); see `PREPROCESSING_PROOFS_REPORT.md`'s "Kernel hardening"
+note for the full writeup and the new `tst_push_quant` regression test.
+
+### Finding: `euf_completion.cpp` — genuine latent gap, confirmed
+
+`euf_completion` (`src/ast/simplifiers/euf_completion.h:237`) **does** claim
+`supports_proofs() == true`, and its main congruence-closure/rewriting path
+is correctly proof-aware. But two of its output paths unconditionally add
+brand-new formulas to the live goal (`m_fmls`) with a **null** proof and
+**null** dependency, with no guard on `proofs_enabled()`:
+
+- `map_congruence` (`euf_completion.cpp:253-273`) builds a fresh
+  `(congruence canon s1 s2 ...)` marker application per detected congruence
+  class and adds it via `m_fmls.add(dependent_expr(m, cong, nullptr,
+  nullptr))` (`:272`).
+- `add_consequence` (`euf_completion.cpp:277-281`) builds a fresh
+  `(consequence f)` marker application for every element of `m_consequences`
+  (every quantifier instantiation produced during this run — populated
+  unconditionally in `apply_binding`, `euf_completion.cpp:865`, whenever
+  completion instantiates a quantifier) and adds it the same way, also with
+  a **null** proof.
+
+Both are invoked unconditionally at the end of every `operator()` round
+(`euf_completion.cpp:238-239`), i.e. this is not a rare/debug-only code path:
+any problem containing quantifiers that this simplifier instantiates during
+normal operation will trigger `add_consequence` with a null proof. This
+simplifier is exposed as the real, user-selectable tactic/simplifier
+`"euf-completion"` (`tactic/portfolio/euf_completion_tactic.{h,cpp}`), so it
+is genuinely reachable from a proof-producing pipeline (e.g.
+`(check-sat-using (then euf-completion smt) ...)` with
+`:produce-proofs true`).
+
+Note `apply_binding` (`euf_completion.cpp:862-863`) *does* construct a real
+proof for the instantiated formula itself (`pr = m.mk_quant_inst(...)`) and
+passes it to `add_constraint` correctly — so the actual logical content is
+soundly justified once. The `(congruence ...)`/`(consequence ...)`-tagged
+copies added afterwards are additional, separate entries in the live
+formula set that have no justification of their own. Classification:
+**(b) — a genuine latent proof-production gap**, though its real-world
+severity depends on whether these tag-wrapped duplicates are later consumed
+and stripped by a caller that already knows to disregard them (no such
+caller was found in this repository; they appear to be intended as
+side-channel introspection output, e.g. for a "show me the congruence
+classes/instances found" feature, but nothing currently filters them out of
+the live goal before any downstream proof-validity check). **Fixed**: `euf_completion::supports_proofs()`
+(`src/ast/simplifiers/euf_completion.h:237`) now returns `false` instead of
+`true`. Since `dependent_expr_state_tactic::operator()`
+(`tactic/dependent_expr_state_tactic.h:133`) only runs a simplifier under a
+proof-enabled goal when `supports_proofs()` is `true`
+(`if (!in->proofs_enabled() || m_simp->supports_proofs()) m_simp->reduce();`),
+this disables `euf_completion` (and the `"euf-completion"` tactic/simplifier
+built on top of it) entirely whenever proofs are required, consistent with
+how every other simplifier in this directory that cannot honestly justify
+its output is already handled. Verified: `ninja -C build shell test-z3`
+rebuilds cleanly; all 112 unit tests pass;
+`(check-sat-using (then euf-completion smt))` under
+`(set-option :produce-proofs true)` still returns `unsat` on a quantifier-free
+congruence-closure example (the `euf-completion` step is now a no-op under
+proofs and `smt` alone closes the goal), confirming no regression to the
+non-proof-producing use case and no crash/exception from the new gate.
+
+## 3. `src/tactic`
+
+Framework: `goal::proofs_enabled()`/`goal::update`/`goal::push_back`
+(`tactic/goal.h:98,158-160`, `goal.cpp:114-120,284-300`) **assert** that a
+non-null proof is supplied whenever the goal has proofs enabled — so, unlike
+the `ast/simplifiers` layer, a tactic that forgot to supply a proof while
+proofs are enabled would fail loudly (an assertion failure), not silently
+produce an unsound result. `proof_converter`/`concat`
+(`ast/converters/proof_converter.{h,cpp}`) compose correctly, preserving
+either side when the other is absent.
+
+Spot-checked concrete tactics (`simplify_tactic`, `propagate_values_tactic`,
+`elim_term_ite_tactic`, `nnf_tactic`, `bit_blaster_tactic`,
+`purify_arith_tactic`, `sls_tactic`, `smt_strategic_solver`): every one
+either (i) correctly composes proofs via `mk_modus_ponens`/`goal::update`, or
+(ii) explicitly detects `proofs_enabled()` and throws/exits/excludes itself
+from proof-producing portfolio compositions (`propagate_values_tactic.cpp
+:145-160`, `bit_blaster_tactic.cpp:55-82` for the quantified case,
+`sls_tactic.cpp:57-101,168-194,248-268`). **No genuine gap found** at this
+layer — the `goal`-level assertion appears to function as an effective
+safety net even where a specific tactic might otherwise forget.
+
+Classification: **(a)/(c)** throughout; this layer's defense-in-depth
+(assert-on-null-proof in `goal::update`) is itself worth noting as the
+reason this layer is more robust than the `ast/simplifiers` layer, which has
+no equivalent runtime check (confirmed by the `euf_completion` finding
+above: `dependent_expr_state.h` has no assertion analogous to `goal.cpp`'s).
+
+## 4. `src/smt`
+
+Core framework (`smt_justification.{h,cpp}`, `smt_conflict_resolution.cpp`,
+relevant parts of `smt_context.cpp`) consistently gates proof construction on
+`m.proofs_enabled()` and builds real `PR_TH_LEMMA` proof terms recursively
+from antecedents, deferring (returning `nullptr` until ready) rather than
+fabricating a proof when an antecedent's own proof isn't available yet.
+
+Spot-checked theory solvers (`theory_arith_core.h`/`theory_arith_aux.h`,
+`theory_bv.cpp`, `theory_array_base.cpp`/`theory_array_full.cpp`,
+`theory_seq.cpp`/`seq_axioms.cpp`, `theory_datatype.cpp`) all preserve full
+literal/equality antecedents through the extended-justification class
+hierarchy (`ext_theory_propagation_justification`,
+`ext_theory_conflict_justification`, `ext_theory_eq_propagation_
+justification`) and construct theory-specific `PR_TH_LEMMA` facts rather
+than silently using a generic/unjustified placeholder. No `UNREACHABLE()` or
+`NOT_IMPLEMENTED()` was found astride an actually-reachable proof-production
+path in the sampled files.
+
+Classification: **(c)** throughout the sampled core + 5 theory families.
+Residual, already-documented trust boundary (per `PROOF_JUSTIFICATIONS_
+REPORT.md`): `PR_TH_LEMMA`'s own internal semantics are only independently
+checked by `proof_checker.cpp` for the `"arith"` family; every other
+theory's `PR_TH_LEMMA` instances are trusted leaves at the kernel-checker
+level — this is a pre-existing, known, and already-catalogued trust
+boundary, not a new finding.
+
+## 5. Follow-up: is `expr_safe_replace` used where it should produce a proof?
+
+`ast/rewriter/expr_safe_replace.{h,cpp}` is a capture-avoiding (quantifier-safe)
+simultaneous-substitution utility. Its API has **zero proof-producing
+capability**: `insert(expr* src, expr* dst)` records a substitution pair with
+no justification, and `operator()` returns only the rewritten term — no
+`proof_ref` output anywhere. Any caller that mutates a live, proof-tracked
+formula using it must therefore supply its own justification externally.
+
+Two concrete call sites did exactly this kind of mutation and, at the time of
+the original audit, dropped the proof on the floor:
+
+- **`ast/simplifiers/demodulator_simplifier.cpp:111`** — rewrites a formula
+  using "demodulator" equations drawn from other formulas in the same goal,
+  via `match_subst` (general first-order term rewriting with unification, not
+  `expr_safe_replace`), and calls
+  `m_fmls.update(i, dependent_expr(m, r, nullptr, d))` — null proof. At the
+  time of this audit this was **benign**: `demodulator_simplifier` didn't
+  override `supports_proofs()`, so it inherited the
+  `dependent_expr_simplifier` default of `false` and was entirely excluded
+  from proof-producing pipelines by the `dependent_expr_state_tactic` gate
+  (see §2). Because its rewriting is pattern-based (the "demodulator"
+  equations may contain free variables unified against subterms), it did not
+  fit the new rule below as-is at that time. **Since wired up** (see
+  "`demodulator_simplifier` wired up to produce real proofs" below):
+  `supports_proofs()` now returns `true` and every rewrite step is justified
+  via `PR_QUANT_INST` + `mk_unit_resolution`, not `PR_DEMODULATION`.
+- **`ast/simplifiers/lambda_simplifier.cpp:104,157`** — this one *does* use
+  `expr_safe_replace` directly, and for exactly the textbook "demodulation"
+  shape: it finds macro definitions `c_k = L_k` (constants defined by lambda
+  terms), resolves nested macro references to a fixpoint, then calls
+  `expr_safe_replace` to replace every occurrence of each `c_k` by its
+  (resolved) definition in every other formula — i.e. literal, ground,
+  simultaneous term replacement, not unification-based rewriting. Both
+  updates (`:173` collapsing a macro's own defining equation to `m.mk_true()`,
+  and `:184` substituting resolved macros into the rest of the problem) pass
+  `nullptr` as the proof. Also currently **benign**: `lambda_simplifier` does
+  not override `supports_proofs()` either, so the same gate excludes it.
+
+So today there is **no live soundness gap** — both candidates are
+proof-disabled by the same `supports_proofs()` mechanism already relied on
+throughout `ast/simplifiers`. But unlike the cases audited in §2, these two
+are not merely "trusted leaf, single `mk_rewrite`" candidates: `lambda_simplifier`
+in particular performs exactly the operation described by the user's proposed
+rule (`t = s` by simultaneously replacing `a_1..a_n` with `b_1..b_n`), and
+doing so under a battery of individually-named antecedent equations, rather
+than one opaque trusted `mk_rewrite` leaf, is a meaningful audit-trail
+improvement (it is independently *checked*, not merely trusted — see below).
+
+### New kernel rule: `PR_DEMODULATION`
+
+Added a new `basic_op_kind`, `PR_DEMODULATION`, together with:
+
+- `ast_manager::mk_demodulation(expr* t, expr* s, unsigned num_proofs, proof* const* proofs)`
+  (`src/ast/ast.h`, `src/ast/ast.cpp`) — mirrors the existing
+  `mk_rewrite_star` pattern: builds `(demodulation pr_1 .. pr_n (= t s))`,
+  where each `pr_i` is a proof of some `l_i = r_i`. (`num_proofs == 0`
+  degenerates to a plain `mk_rewrite(t, s)`.)
+- A `proof_checker::check1_basic` case for `PR_DEMODULATION`
+  (`src/ast/proofs/proof_checker.cpp`). Unlike `PR_REWRITE`/`PR_REWRITE_STAR`
+  (which the checker *trusts* — it only extracts a side condition for later,
+  external verification), this case is **structurally self-checking**: it
+  reads each premise's own fact `l_i = r_i`, builds an `expr_safe_replace`
+  substitution from them, re-runs it against `t`, and requires the result to
+  be *exactly* (hash-consed-pointer-equal to) `s`. Since `expr_safe_replace`
+  is a pure, deterministic, capture-avoiding substitution, this is a precise
+  check, not a heuristic one — modulo trusting that each premise genuinely
+  proves its own `l_i = r_i` (which is itself checked recursively, like any
+  other premise).
+- A regression test, `tst_demodulation()` (`src/test/proof_checker.cpp`),
+  exercising: a single-equation substitution under a function application, two
+  simultaneous equations, and the zero-equation degenerate case.
+
+This is new kernel infrastructure. It has since been wired into
+`lambda_simplifier` (see below), which flips `supports_proofs()` to `true`
+and produces real proofs for both of its updates.
+
+### `lambda_simplifier` wired up to produce real proofs
+
+`lambda_simplifier::supports_proofs()` now returns `true`, and both updates
+construct genuine proof objects instead of `nullptr`:
+
+- **Macro-definition collapse** (`c_k = L_k` becoming `true`): `d.pr()`
+  already proves the defining equation `d.fml()` *verbatim* (regardless of
+  whether `L_k`'s body itself still mentions other, not-yet-inlined macro
+  constants), so no demodulation/witness reasoning is needed here at all —
+  it is simply `PR_IFF_TRUE` composed with modus ponens:
+  `mp(d.pr(), m.mk_iff_true(d.pr()))` proves `true` directly (an earlier
+  version of this patch used `m.mk_iff_true(d.pr())` alone, whose fact is
+  `(iff d.fml() true)`, not `true` — caught by `check_simplifier_proofs`'s
+  `pr && m.get_fact(pr) == st[i].fml()` invariant check in the new
+  regression test below).
+- **Nested-macro resolution** (`resolve`): builds `resolved_pr[d] : (= d
+  resolved_body)` for each macro, chaining its own (possibly
+  symmetry-normalized) defining-equation proof with a `PR_DEMODULATION` step
+  (justified by the recursively-resolved nested macros' own proofs) via
+  `mk_transitivity`, whenever substituting nested macro constants actually
+  changed the body.
+- **General substitution** (every other formula mentioning a macro
+  constant): `demod_pr = mk_demodulation(d.fml(), new_fml, premises)` chains
+  via `mk_transitivity` with the `th_rewriter`'s own simplification proof
+  (previously computed but silently discarded), then combined with the
+  formula's prior proof via `mp(d.pr(), combined)`.
+
+A new regression test, `test_lambda_simplifier_proofs()`
+(`src/test/simplifier.cpp`), exercises two nested macros (one macro's body
+referencing another) plus a use site, and runs the result through the
+existing `check_simplifier_proofs` harness (which both re-checks every
+produced proof via `proof_checker` and asserts `m.get_fact(pr) ==
+st[i].fml()` for every goal).
+
+**This surfaced a second, independent, pre-existing kernel-checker bug** (not
+introduced by this change): `check1_basic`'s `PR_QUANT_INTRO` case only
+accepted a Boolean `iff`/`oeq`-shaped fact relating the two quantifiers (or
+their bodies), via `match_iff`/`match_oeq` — both of which require the
+compared terms to be Bool-sorted. This is correct for ordinary
+`forall`/`exists` (always Bool-bodied), but `PR_QUANT_INTRO` is also the
+shape `rewriter_tpl::process_quantifier` uses when rewriting under a
+**`lambda` binder** (also represented as a `quantifier` AST node), whose body
+— and hence the two `lambda` terms and their bodies being equated — can be of
+*any* sort (e.g. an array or function sort, as in `lambda_simplifier`'s
+beta/const-array normalization). `mk_iff`/`mk_oeq` build the fact using the
+same polymorphic `=`/`~` decl regardless of sort, but the checker's
+`match_iff`/`match_oeq` calls rejected the non-Boolean case outright, falling
+through to the function's `UNREACHABLE()` tail — i.e. *every* well-formed
+`PR_QUANT_INTRO` proof over a non-Boolean-bodied lambda was rejected (an
+abort, not silently-accepted-then-wrong, since all of `check1_basic`'s
+failure paths are `UNREACHABLE()`-guarded). Fixed by adding a `match_eq`
+fallback at both of the two places this shape is checked (the top-level
+`fact`, and the unwrapped `PR_BIND` premise's own fact).
+
+### `demodulator_simplifier` wired up to produce real proofs
+
+Unlike `lambda_simplifier`'s ground, simultaneous `expr_safe_replace`
+substitution, `demodulator_simplifier` performs general unification-based
+rewriting: each "demodulator" is a universally-quantified equation (or
+reshaped equivalent — `not`-wrapped, or a bare positive/negative atom; see
+`demodulator_util::is_demodulator`'s four shapes) whose variables get bound
+to a matched ground subterm, one redex at a time, inside a bespoke bottom-up
+rewrite engine (`demodulator_rewriter_util::rewrite`) that is itself
+re-entrant/cascading (a rewritten node is re-queued, not popped, until a
+fixpoint is reached). `supports_proofs()` now returns `true`, and the engine
+builds real proofs end-to-end:
+
+- `demodulator_match_subst::get_binding(var_idx, r)` (new) exposes, after a
+  successful match, the ground term bound to each of the demodulator's
+  pattern variables.
+- `demodulator_simplifier::mk_instance_proof(i, f, args, np)` (new) justifies
+  one matched rewrite step `f(args) = np`: instantiates demodulator `i`'s
+  raw defining formula at the recovered ground bindings via `var_subst`,
+  builds a clause proof via `mk_quant_inst`, resolves it against the
+  demodulator's own proof via `mk_unit_resolution` to directly derive the
+  ground instance, and — since `is_demodulator` may have reshaped the
+  original equation (e.g. moved a `not` across it, or stored it as a bare
+  atom) — bridges to the exact needed shape `f(args) = np` via a
+  `mk_rewrite` + `mk_modus_ponens` step when the two aren't already
+  pointer-identical. **Deliberately scoped to ground rewriting only**: bails
+  out (returns `nullptr`, term rewrite unaffected) if any argument is
+  non-ground, i.e. the redex occurs inside another, outer quantifier's bound
+  variables (one demodulator rewriting inside another's body) — a conscious
+  scope reduction, not a bug.
+- `demodulator_rewriter_util` gained a parallel proof cache
+  (`m_proof_cache`/`update()`) mirroring its existing term-rewrite cache:
+  every cache update that changes a node's value is paired with a step
+  proof, composed via `mk_transitivity` across the engine's re-entrant
+  iterations. The `AST_APP` case composes per-changed-child congruence
+  proofs (`mk_congruence`, only for positions that actually changed — the
+  checker doesn't require reflexivity proofs for unchanged ones) with either
+  the matched rewrite-instance proof or the `th_rewriter`'s own
+  proof-producing normalization (`operator()` overload, not the non-proof
+  `mk_app`); `AST_QUANTIFIER` composes `mk_bind_proof`+`mk_quant_intro` (body
+  changed) with `mk_elim_unused_vars` (if that pass fired). The one
+  deliberately-unjustified path is the pre-existing "demodulator cycle"
+  heuristic (cycle-breaking, not a real rewrite) — left with no proof;
+  ancestors see a missing proof and gracefully fall back to no proof
+  themselves rather than fabricate one.
+- A new regression test, `test_demodulator_simplifier_proofs()`
+  (`src/test/simplifier.cpp`), exercises a ground demodulator (`forall x.
+  f(x) = x + 1`) rewriting a use site (`not (f(2) = 3)`) down to `false`,
+  checked via the same `check_simplifier_proofs` harness.
+
+**This surfaced one implementation bug (not a kernel-checker gap), caught by
+the regression test and `proof_checker`'s re-validation**: an early version
+of `mk_instance_proof` returned a locally-scoped `proof_ref`'s raw pointer
+directly (`return raw_pr;` for a `proof*`-returning function) — the local's
+destructor runs before the caller can take ownership of the returned
+pointer, and if that local was the *only* owner (refcount 1), the proof
+object is freed out from under the caller, corrupting a sibling congruence
+proof's premise list with whatever unrelated proof object happened to be
+reallocated at that address next. Fixed by pinning every proof returned this
+way in a member `proof_ref_vector` (`m_proof_pinned`, reset once per
+`reduce()`, by which point ownership has transferred into the `dependent_expr`
+state) before returning the bare pointer.
+
+As with `lambda_simplifier`, `PR_QUANT_INST`'s `check1_basic` case remains an
+unchecked placeholder (`// TODO return true;`) — reused as-is, matching how
+`mk_quant_inst` is already used (unchecked) elsewhere in the codebase; not
+fixed here (out of scope).
+
+## Summary
+
+| Layer | Genuine latent gaps found | Everything else |
+|---|---|---|
+| `ast/rewriter` (specialized) | none confirmed reachable; `distribute_forall`/`factor_equivs`/`inj_axiom`/`quant_hoist`/`recfun_replace`/`seq_derive`/`expr_safe_replace` rely on *callers* staying proof-disabled (implicit, not enforced) | trusted-leaf `mk_rewrite` pattern (consistent w/ existing audit), 2 deliberately-guarded (`pb2bv_rewriter`, `macro_replacer`) |
+| `ast/simplifiers` | **1 confirmed, now fixed: `euf_completion`'s `map_congruence`/`add_consequence` added null-proof marker formulas to a live, proof-enabled goal — fixed by disabling the simplifier under proofs (`supports_proofs()` now `false`). Also: `distribute_forall`'s `PR_PUSH_QUANT` proof was well-justified at the simplifier level but the kernel checker itself had a bug rejecting (literally) every such proof — fixed.** | 9 other proof-aware passes correctly justify every rewrite; ~45 others are unreachable under proofs via the `supports_proofs()` gate |
+| `tactic` | none found | `goal`'s assert-on-null-proof is an effective safety net; concrete tactics sampled are all correct or self-excluding |
+| `smt` | none found in sampled core + 5 theory families | consistent `PR_TH_LEMMA`/extended-justification usage; `PR_TH_LEMMA` semantic trust boundary is pre-existing/known, not new |
+| `expr_safe_replace` call sites | none *live* at the time of the original audit (both candidates, `demodulator_simplifier` and `lambda_simplifier`, were excluded from proof-producing runs via `supports_proofs()==false`); **both have since been wired up** — `lambda_simplifier` via the new `PR_DEMODULATION` rule, `demodulator_simplifier` via `PR_QUANT_INST`-based per-redex instance proofs threaded through its bespoke rewrite engine (`supports_proofs()` now `true` for both) | new `PR_DEMODULATION` kernel rule (self-checking, not merely trusted); **also fixed a second, independent `PR_QUANT_INTRO` checker gap** surfaced while testing `lambda_simplifier`: non-Boolean-bodied `lambda` quantifier-introduction proofs were unconditionally rejected (`match_iff`/`match_oeq` wrongly required a Bool-sorted fact); `demodulator_simplifier` wiring additionally caught (and fixed) a locally-scoped-`proof_ref` early-free bug in its own new code |
+
+Overall: three of four layers audited clean (modulo implicit, unenforced
+preconditions worth hardening with asserts/comments in `ast/rewriter`); the
+one concrete, actionable finding is `euf_completion`'s unjustified
+`(congruence ...)`/`(consequence ...)` marker formulas, which — unlike every
+other simplifier surveyed — is both reachable from a real proof-producing
+pipeline and has no runtime safety net analogous to `goal::update`'s assert
+to catch it. See "Recommended follow-up" above for remediation options.

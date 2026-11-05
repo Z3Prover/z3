@@ -137,33 +137,24 @@ target_link_options(z3_internal_options INTERFACE
 target_link_options(z3_internal_options INTERFACE
   "$<${_z3_link_shared}:/SUBSYSTEM:WINDOWS>")
 
-# FIXME: The following linker flags are weird. They are set in all configurations
-# in the old build system except release x86_64. We try to emulate this here but
-# this is likely the wrong thing to do.
-string(TOUPPER "${available_build_types}" _build_types_as_upper)
-foreach (_build_type IN LISTS _build_types_as_upper)
-  if (TARGET_ARCHITECTURE STREQUAL "x86_64" AND
-      (_build_type STREQUAL "RELEASE" OR
-      _build_type  STREQUAL "RELWITHDEBINFO")
-      )
-    message(AUTHOR_WARNING "Skipping legacy linker MSVC options for x86_64 ${_build_type}")
-  else()
-    # Linker optimizations.
-    # See https://msdn.microsoft.com/en-us/library/bxwfs976.aspx
-    target_link_options(z3_internal_options INTERFACE
-      "$<$<AND:${_z3_link_binary},$<CONFIG:${_build_type}>>:/OPT:REF>"
-      "$<$<AND:${_z3_link_binary},$<CONFIG:${_build_type}>>:/OPT:ICF>")
+# Linker optimizations: drop unreferenced code and fold identical functions.
+# These are needed explicitly whenever /DEBUG is passed (e.g. RelWithDebInfo,
+# which the Windows distribution uses), as /DEBUG makes /OPT:NOREF,NOICF the
+# default; without them libz3.dll is over 50% larger. The old build system
+# passed them in all configurations, except release x86_64, which got them
+# implicitly through /PROFILE.
+# See https://msdn.microsoft.com/en-us/library/bxwfs976.aspx
+target_link_options(z3_internal_options INTERFACE
+  "$<${_z3_link_binary}:/OPT:REF>"
+  "$<${_z3_link_binary}:/OPT:ICF>")
 
-    # FIXME: This is not necessary. This is MSVC's default.
-    # See https://msdn.microsoft.com/en-us/library/b1kw34cb.aspx
-    target_link_options(z3_internal_options INTERFACE
-      "$<$<AND:${_z3_link_binary},$<CONFIG:${_build_type}>>:/TLBID:1>")
+# FIXME: This is not necessary. This is MSVC's default.
+# See https://msdn.microsoft.com/en-us/library/b1kw34cb.aspx
+target_link_options(z3_internal_options INTERFACE
+  "$<${_z3_link_binary}:/TLBID:1>")
 
-    # FIXME: This is not necessary. This is MSVC's default.
-    # Indicate that the executable is compatible with DEP
-    # See https://msdn.microsoft.com/en-us/library/ms235442.aspx
-    target_link_options(z3_internal_options INTERFACE
-      "$<$<AND:${_z3_link_executable},$<CONFIG:${_build_type}>>:/NXCOMPAT>")
-
-  endif()
-endforeach()
+# FIXME: This is not necessary. This is MSVC's default.
+# Indicate that the executable is compatible with DEP
+# See https://msdn.microsoft.com/en-us/library/ms235442.aspx
+target_link_options(z3_internal_options INTERFACE
+  "$<${_z3_link_executable}:/NXCOMPAT>")

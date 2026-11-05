@@ -194,6 +194,10 @@ namespace smt {
                     break;
                 }
             }
+            else if (e_internalized(k) && e_internalized(v) &&
+                     get_enode(k)->get_root() == get_enode(v)->get_root()) {
+                continue;
+            }
             else if (e_internalized(k) && m.are_distinct(v, get_enode(k)->get_root()->get_expr())) {
                 to_delete.push_back(k);
             }

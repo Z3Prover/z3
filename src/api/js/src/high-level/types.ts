@@ -32,6 +32,7 @@ export type AnySort<Name extends string = 'main'> =
   | Sort<Name>
   | BoolSort<Name>
   | ArithSort<Name>
+  | ComplexSort<Name>
   | BitVecSort<number, Name>
   | SMTArraySort<Name>
   | FPSort<Name>
@@ -43,6 +44,7 @@ export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
   | Bool<Name>
   | Arith<Name>
+  | Complex<Name>
   | IntNum<Name>
   | RatNum<Name>
   | BitVec<number, Name>
@@ -63,6 +65,8 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
   ? Bool<Name>
   : S extends ArithSort<Name>
   ? Arith<Name>
+  : S extends ComplexSort<Name>
+  ? Complex<Name>
   : S extends BitVecSort<infer Size, Name>
   ? BitVec<Size, Name>
   : S extends SMTArraySort<Name, infer DomainSort, infer RangeSort>
@@ -115,6 +119,9 @@ export type CoercibleToExpr<Name extends string = 'main'> =
 export type CoercibleToArith<Name extends string = 'main'> = number | string | bigint | CoercibleRational | Arith<Name>;
 
 /** @hidden */
+export type CoercibleToComplex<Name extends string = 'main'> = CoercibleToArith<Name> | Complex<Name>;
+
+/** @hidden */
 // prettier-ignore
 export type CoercibleToMap<T extends AnyExpr<Name>, Name extends string = 'main'> = T extends Bool<Name>
   ? boolean | Bool<Name>
@@ -124,6 +131,8 @@ export type CoercibleToMap<T extends AnyExpr<Name>, Name extends string = 'main'
   ? bigint | number | CoercibleRational | RatNum<Name>
   : T extends Arith<Name>
   ? CoercibleToArith<Name>
+  : T extends Complex<Name>
+  ? CoercibleToComplex<Name>
   : T extends BitVec<infer Size, Name>
   ? CoercibleToBitVec<Size, Name>
   : T extends FP<Name>
@@ -282,6 +291,12 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Functions */
   isRealSort(obj: unknown): boolean;
+
+  /** @category Functions */
+  isComplex(obj: unknown): obj is Complex<Name>;
+
+  /** @category Functions */
+  isComplexSort(obj: unknown): obj is ComplexSort<Name>;
 
   /** @category Functions */
   isRCFNum(obj: unknown): obj is RCFNum<Name>;
@@ -456,6 +471,7 @@ export interface Context<Name extends string = 'main'> {
   readonly Int: IntCreation<Name>;
   /** @category Expressions */
   readonly Real: RealCreation<Name>;
+  readonly Complex: ComplexCreation<Name>;
   /** @category Expressions */
   readonly RCFNum: RCFNumCreation<Name>;
   /** @category Expressions */
@@ -760,24 +776,33 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Operations */
   Sum(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+  Sum(arg0: Complex<Name>, ...args: CoercibleToComplex<Name>[]): Complex<Name>;
+  Sum(arg0: Arith<Name>, ...args: CoercibleToComplex<Name>[]): Arith<Name> | Complex<Name>;
 
   Sum<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
 
   Sub(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+  Sub(arg0: Complex<Name>, ...args: CoercibleToComplex<Name>[]): Complex<Name>;
+  Sub(arg0: Arith<Name>, ...args: CoercibleToComplex<Name>[]): Arith<Name> | Complex<Name>;
 
   Sub<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
 
   Product(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+  Product(arg0: Complex<Name>, ...args: CoercibleToComplex<Name>[]): Complex<Name>;
+  Product(arg0: Arith<Name>, ...args: CoercibleToComplex<Name>[]): Arith<Name> | Complex<Name>;
 
   Product<Bits extends number>(arg0: BitVec<Bits, Name>, ...args: CoercibleToBitVec<Bits, Name>[]): BitVec<Bits, Name>;
 
   Div(arg0: Arith<Name>, arg1: CoercibleToArith<Name>): Arith<Name>;
+  Div(arg0: Complex<Name>, arg1: CoercibleToComplex<Name>): Complex<Name>;
+  Div(arg0: Arith<Name>, arg1: Complex<Name>): Complex<Name>;
 
   Div<Bits extends number>(arg0: BitVec<Bits, Name>, arg1: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
   BUDiv<Bits extends number>(arg0: BitVec<Bits, Name>, arg1: CoercibleToBitVec<Bits, Name>): BitVec<Bits, Name>;
 
   Neg(a: Arith<Name>): Arith<Name>;
+  Neg(a: Complex<Name>): Complex<Name>;
 
   Neg<Bits extends number>(a: BitVec<Bits, Name>): BitVec<Bits, Name>;
 
@@ -902,7 +927,10 @@ export interface Context<Name extends string = 'main'> {
   Diff<SeqSortRef extends SeqSort<Name>>(a: Re<Name, SeqSortRef>, b: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
 
   /** @category RegularExpression */
-  Range<SeqSortRef extends SeqSort<Name>>(lo: Seq<Name, SeqSortRef> | string, hi: Seq<Name, SeqSortRef> | string): Re<Name, SeqSortRef>;
+  Range<SeqSortRef extends SeqSort<Name>>(
+    lo: Seq<Name, SeqSortRef> | string,
+    hi: Seq<Name, SeqSortRef> | string,
+  ): Re<Name, SeqSortRef>;
 
   /**
    * Create a bounded repetition regex
@@ -1447,7 +1475,7 @@ export interface Solver<Name extends string = 'main'> {
 
   /**
    * Convert the solver's assertions to SMT-LIB2 format as a benchmark.
-   * 
+   *
    * This exports the current set of assertions in the solver as an SMT-LIB2 string,
    * which can be used for bug reporting, sharing problems, or benchmarking.
    *
@@ -2079,6 +2107,7 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | 'Sort'
     | BoolSort['__typename']
     | ArithSort['__typename']
+    | ComplexSort['__typename']
     | BitVecSort['__typename']
     | SMTArraySort['__typename']
     | DatatypeSort['__typename']
@@ -2209,6 +2238,7 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | 'Expr'
     | Bool['__typename']
     | Arith['__typename']
+    | Complex['__typename']
     | BitVec['__typename']
     | FP['__typename']
     | FPRM['__typename']
@@ -2305,6 +2335,37 @@ export interface ArithSort<Name extends string = 'main'> extends Sort<Name> {
 }
 
 /** @category Arithmetic */
+export interface ComplexSort<Name extends string = 'main'> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'ComplexSort';
+  cast(other: CoercibleToExpr<Name>): Complex<Name>;
+}
+
+/** @category Arithmetic */
+export interface ComplexCreation<Name extends string> {
+  sort(): ComplexSort<Name>;
+  const(name: string): Complex<Name>;
+  consts(names: string | string[]): Complex<Name>[];
+  vector(prefix: string, count: number): Complex<Name>[];
+  fresh(prefix?: string): Complex<Name>;
+  /** Construct a Complex expression from Int or Real components. */
+  val(real: CoercibleToArith<Name>, imag?: CoercibleToArith<Name>): Complex<Name>;
+}
+
+/** Complex expressions have no ordering or exponentiation. @category Arithmetic */
+export interface Complex<Name extends string = 'main'> extends Expr<Name, ComplexSort<Name>, Z3_ast> {
+  /** @hidden */
+  readonly __typename: 'Complex';
+  add(other: CoercibleToComplex<Name>): Complex<Name>;
+  sub(other: CoercibleToComplex<Name>): Complex<Name>;
+  mul(other: CoercibleToComplex<Name>): Complex<Name>;
+  div(other: CoercibleToComplex<Name>): Complex<Name>;
+  neg(): Complex<Name>;
+  realPart(): Arith<Name>;
+  imagPart(): Arith<Name>;
+}
+
+/** @category Arithmetic */
 export interface IntCreation<Name extends string> {
   sort(): ArithSort<Name>;
 
@@ -2346,16 +2407,19 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
    * Adds two numbers together
    */
   add(other: CoercibleToArith<Name>): Arith<Name>;
+  add(other: Complex<Name>): Complex<Name>;
 
   /**
    * Multiplies two numbers together
    */
   mul(other: CoercibleToArith<Name>): Arith<Name>;
+  mul(other: Complex<Name>): Complex<Name>;
 
   /**
    * Subtract second number from the first one
    */
   sub(other: CoercibleToArith<Name>): Arith<Name>;
+  sub(other: Complex<Name>): Complex<Name>;
 
   /**
    * Applies power to the number
@@ -2373,6 +2437,7 @@ export interface Arith<Name extends string = 'main'> extends Expr<Name, ArithSor
    * Divides the number by the second one
    */
   div(other: CoercibleToArith<Name>): Arith<Name>;
+  div(other: Complex<Name>): Complex<Name>;
 
   /**
    * Returns a number modulo second one
@@ -3737,7 +3802,8 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
  * Regular expression sort
  * @category RegularExpression
  */
-export interface ReSort<Name extends string = 'main', SeqSortRef extends SeqSort<Name> = SeqSort<Name>> extends Sort<Name> {
+export interface ReSort<Name extends string = 'main', SeqSortRef extends SeqSort<Name> = SeqSort<Name>>
+  extends Sort<Name> {
   /** @hidden */
   readonly __typename: 'ReSort';
 

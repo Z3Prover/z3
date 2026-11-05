@@ -524,7 +524,7 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
 
 bool theory_seq::check_fixed_length(bool is_zero, bool check_long_strings) {
     bool found = false;    
-    for (unsigned i = 0; i < m_length.size(); ++i) {
+    for (unsigned i = 0; i < m_length.size() && m.inc(); ++i) {
         expr* e = m_length.get(i);
         if (fixed_length(e, is_zero, check_long_strings)) 
             found = true;        
@@ -556,9 +556,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
     if (!check_long_strings && lo > 20 && !is_zero)
         return false;
 
-    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
-    m_fixed.insert(e);
-
     expr_ref seq(e, m), head(m), tail(m);
 
     if (lo.is_zero()) {
@@ -568,12 +565,16 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
         unsigned _lo = lo.get_unsigned();
         expr_ref_vector elems(m);
         for (unsigned j = 0; j < _lo; ++j) {
+            if (!m.inc())
+                return false;
             m_sk.decompose(seq, head, tail);
             elems.push_back(head);
             seq = tail;
         }
         seq = mk_concat(elems.size(), elems.data());
     }
+    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
+    m_fixed.insert(e);
     literal b = mk_seq_eq(seq, e);
     if (ctx.get_assignment(b) == l_true)
         return false;
@@ -619,8 +620,9 @@ expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
 
 void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
     m_sk.decompose(e, head, tail);
-    add_axiom(~mk_eq_empty(e), mk_eq_empty(tail));;
-    add_axiom(mk_eq_empty(e), mk_eq(e, mk_concat(head, tail), false));
+    literal is_empty = mk_eq_empty(e);
+    add_axiom(~is_empty, mk_eq_empty(tail));
+    add_axiom(is_empty, mk_eq(e, mk_concat(head, tail), false));
 }
 
 /*
@@ -1315,11 +1317,14 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
         expr_ref len_s = mk_len(s);
         literal len_s_gt_l = m_ax.mk_ge(mk_sub(len_s, l), 1);
         switch (ctx.get_assignment(len_s_gt_l)) {
-        case l_true:
-            len = mk_sub(mk_sub(len_s, l), m_autil.mk_int(1));
+        case l_true: {
+            expr_ref remaining = mk_sub(len_s, l);
+            expr_ref one(m_autil.mk_int(1), m);
+            len = mk_sub(remaining, one);
             lits.push_back(len_s_gt_l);
             TRACE(seq, ctx.display_literals_verbose(tout << "tail length " << len << "\n", lits) << "\n";);
             return true;
+        }
         case l_false:
             len = m_autil.mk_int(0);
             lits.push_back(~len_s_gt_l);
@@ -1545,14 +1550,20 @@ bool theory_seq::explain_empty(expr_ref_vector& es, dependency*& dep) {
 
 bool theory_seq::simplify_and_solve_eqs() {
     m_new_solution = true;
-    while (m_new_solution && !ctx.inconsistent()) {
+    while (m_new_solution && !ctx.inconsistent() && m.inc()) {
         m_new_solution = false;
         solve_eqs(0);
     }
     return m_new_propagation || ctx.inconsistent();
 }
 
-void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
+void theory_seq::internalize_eq_eh(app * atom, bool_var) {
+    // Sequence-valued ITEs bypass sort constraints during internalization.
+    // Attach both sides so their branch equalities reach the sequence solver.
+    expr *lhs = nullptr, *rhs = nullptr;
+    VERIFY(m.is_eq(atom, lhs, rhs));
+    apply_sort_cnstr(ctx.get_enode(lhs), lhs->get_sort());
+    apply_sort_cnstr(ctx.get_enode(rhs), rhs->get_sort());
 }
 
 bool theory_seq::internalize_atom(app* a, bool) {
@@ -1649,41 +1660,52 @@ void theory_seq::init_length_limit_for_contains(expr* c) {
    Add length limit restrictions to sequence s.
  */
 void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
-    if (m_util.str.is_concat(s)) {
-        for (expr* e : *to_app(s))
-            add_length_limit(e, k, is_searching);
-        return;
-    }
-    if (m_util.str.is_unit(s))
-        return;
-    if (m_util.str.is_empty(s))
-        return;
+    // Walk s (and, through skolems, terms reachable from it) with an
+    // explicit worklist instead of recursing into str.++/skolem arguments:
+    // a sequence built from many concatenations (e.g. by repeated
+    // quantifier instantiation of `s ++ s`) could otherwise drive recursion
+    // deep enough to overflow the native stack (#11042).
+    ptr_vector<expr> todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (m_util.str.is_concat(e)) {
+            for (expr* arg : *to_app(e))
+                todo.push_back(arg);
+            continue;
+        }
+        if (m_util.str.is_unit(e))
+            continue;
+        if (m_util.str.is_empty(e))
+            continue;
 
-    if (m_sk.is_skolem(s)) {
-        for (expr* e : *to_app(s))
-            if (m_util.is_seq(e) || m_sk.is_skolem(e))
-                add_length_limit(e, k, is_searching);
-        return;        
-    }
+        if (m_sk.is_skolem(e)) {
+            for (expr* arg : *to_app(e))
+                if (m_util.is_seq(arg) || m_sk.is_skolem(arg))
+                    todo.push_back(arg);
+            continue;
+        }
 
-    expr_ref lim_e = m_ax.add_length_limit(s, k);
-    unsigned k0 = 0;
-    if (m_length_limit_map.find(s, k0)) {
-        SASSERT(k0 != 0);
-        if (k <= k0)
-            return;
-    }
-    m_length_limit_map.insert(s, k);
-    m_length_limit.push_back(lim_e);    
-    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length_limit));    
-    if (k0 != 0) {
-        m_trail_stack.push(remove_obj_map<expr, unsigned>(m_length_limit_map, s, k0));
-    }
-    m_trail_stack.push(insert_obj_map<expr, unsigned>(m_length_limit_map, s));
-    if (is_searching) {
-        expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
-        auto p0 = ~mk_literal(dlimit);
-        add_axiom(p0, mk_literal(lim_e));
+        expr_ref lim_e = m_ax.add_length_limit(e, k);
+        unsigned k0 = 0;
+        if (m_length_limit_map.find(e, k0)) {
+            SASSERT(k0 != 0);
+            if (k <= k0)
+                continue;
+        }
+        m_length_limit_map.insert(e, k);
+        m_length_limit.push_back(lim_e);
+        m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length_limit));
+        if (k0 != 0) {
+            m_trail_stack.push(remove_obj_map<expr, unsigned>(m_length_limit_map, e, k0));
+        }
+        m_trail_stack.push(insert_obj_map<expr, unsigned>(m_length_limit_map, e));
+        if (is_searching) {
+            expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
+            auto p0 = ~mk_literal(dlimit);
+            add_axiom(p0, mk_literal(lim_e));
+        }
     }
 }
 
@@ -2283,8 +2305,26 @@ app* theory_seq::mk_value(expr* e) {
     // value from the factory. See issue #9063.
     if (m_util.is_seq(result) && !m.is_value(result)) {
         expr_ref fresh(m_factory->get_fresh_value(result->get_sort()), m);
-        if (fresh)
+        if (fresh) {
+            // The fresh value is picked without regard to constraints that may
+            // already have been derived on the length of e (e.g. via solved
+            // equalities feeding into arithmetic bounds). If a positive length
+            // lower bound is known, pad the (string) fresh value so the model
+            // does not contradict it. This avoids producing models that fail
+            // str.len lower bound constraints established elsewhere (#7664).
+            zstring s;
+            rational lo;
+            unsigned const max_pad = 1 << 16;
+            if (m_util.str.is_string(fresh, s) && lower_bound2(e, lo) && lo.is_pos() &&
+                lo.is_unsigned() && lo.get_unsigned() <= max_pad && rational(s.length()) < lo) {
+                std::string padded = s.encode();
+                unsigned need = lo.get_unsigned();
+                while (padded.length() < need)
+                    padded += "a";
+                fresh = m_util.str.mk_string(zstring(padded.c_str()));
+            }
             result = fresh;
+        }
     }
     m_factory->add_trail(result);
     TRACE(seq, tout << mk_pp(e, m) << " -> " << result << "\n";);
@@ -2395,7 +2435,9 @@ expr_ref theory_seq::elim_skolem(expr* e) {
             y = cache[y];
             auto mk_max = [&](expr* x, expr* y) { return m.mk_ite(m_autil.mk_ge(x, y), x, y); };
             result = m_util.str.mk_length(x);
-            result = m_util.str.mk_substr(x, mk_max(y,m_autil.mk_int(0)), m_autil.mk_sub(result, y));
+            expr_ref offset(mk_max(y, m_autil.mk_int(0)), m);
+            expr_ref length(m_autil.mk_sub(result, y), m);
+            result = m_util.str.mk_substr(x, offset, length);
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();            
@@ -2429,7 +2471,13 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         }
         if (m_sk.is_first(a, x) && cache.contains(x)) {
             x = cache[x];
-            result = m_util.str.mk_substr(x, m_autil.mk_int(0), m_autil.mk_sub(m_util.str.mk_length(x), m_autil.mk_int(1)));
+            {
+                expr_ref rhs(m_autil.mk_int(0), m);
+                expr_ref lhs(m_util.str.mk_length(x), m);
+                expr_ref rhs1(m_autil.mk_int(1), m);
+                expr_ref third(m_autil.mk_sub(lhs, rhs1), m);
+                result = m_util.str.mk_substr(x, rhs, third);
+            }
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();
@@ -2437,7 +2485,11 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         }
         if (m_sk.is_last(a, x) && cache.contains(x)) {
             x = cache[x];
-            result = m_util.str.mk_nth(x, m_autil.mk_sub(m_util.str.mk_length(x), m_autil.mk_int(1)));
+            {
+                expr_ref lhs(m_util.str.mk_length(x), m);
+                expr_ref rhs(m_autil.mk_int(1), m);
+                result = m_util.str.mk_nth(x, m_autil.mk_sub(lhs, rhs));
+            }
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();
@@ -2446,7 +2498,11 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         if (m_sk.is_indexof_left(a, x, y) && cache.contains(x) && cache.contains(y)) {
             x = cache[x];
             y = cache[y];
-            result = m_util.str.mk_substr(x, m_autil.mk_int(0), m_util.str.mk_index(x, y, m_autil.mk_int(0)));
+            {
+                expr_ref rhs(m_autil.mk_int(0), m);
+                expr_ref third(m_util.str.mk_index(x, y, m_autil.mk_int(0)), m);
+                result = m_util.str.mk_substr(x, rhs, third);
+            }
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();
@@ -2455,7 +2511,9 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         if (m_sk.is_indexof_right(a, x, y) && cache.contains(x) && cache.contains(y)) {
             x = cache[x];
             y = cache[y];
-            expr_ref offset(m_autil.mk_add(m_util.str.mk_length(y), m_util.str.mk_index(x, y, m_autil.mk_int(0))), m);
+            expr_ref length(m_util.str.mk_length(y), m);
+            expr_ref index(m_util.str.mk_index(x, y, m_autil.mk_int(0)), m);
+            expr_ref offset(m_autil.mk_add(length, index), m);
             result = m_util.str.mk_substr(x, offset, m_util.str.mk_length(x));
             trail.push_back(result);
             cache.insert(a, result);
@@ -2597,6 +2655,8 @@ bool theory_seq::canonize(expr* e, expr_ref_vector& es, dependency*& eqs, bool& 
     expr* e1, *e2;
     expr_ref e3(e, m);
     while (true) {
+        if (!can_reduce_eqs())
+            return false;
         if (m_util.str.is_concat(e3, e1, e2)) {
             if (!canonize(e1, es, eqs, change)) {
                 return false;
@@ -2634,9 +2694,14 @@ bool theory_seq::expand(expr* e, dependency*& eqs, expr_ref& result) {
     unsigned sz = m_expand_todo.size();
     m_expand_todo.push_back(e);
     while (m_expand_todo.size() != sz) {
+        if (!can_reduce_eqs()) {
+            m_expand_todo.shrink(sz);
+            return false;
+        }
         expr* e = m_expand_todo.back();
         bool r = expand1(e, eqs, result);
         if (!r) {
+            m_expand_todo.shrink(sz);
             return false; 
         }
         if (result) {
@@ -2802,15 +2867,16 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
+    m_num_eager_eq_steps = 0;
     if (m_regex.can_propagate())
         m_regex.propagate();
-    while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
+    while (m_axioms_head < m_axioms.size() && !ctx.inconsistent() && m.inc()) {
         expr_ref e(m);
         e = m_axioms.get(m_axioms_head);
         deque_axiom(e);
         ++m_axioms_head;
     }
-    while (!m_replay.empty() && !ctx.inconsistent()) {
+    while (!m_replay.empty() && !ctx.inconsistent() && m.inc()) {
         TRACE(seq, tout << "replay at level: " << ctx.get_scope_level() << "\n";);
         apply& app = *m_replay[m_replay.size() - 1];
         app(*this);
@@ -2818,7 +2884,6 @@ void theory_seq::propagate() {
     }
     if (m_new_solution) {
         simplify_and_solve_eqs();
-        m_new_solution = false;
     }
 }
 

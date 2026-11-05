@@ -1,0 +1,114 @@
+{
+  "scope": "Additional native FiniteSet SLEEC strategies; 20-second per-invocation limits. Not a full 1362-input rerun.",
+  "provenance": {
+    "git_base": "aa71a62fdffbfede37f7558b52da4d52841e04ea",
+    "binary_sha256": "527f6727e30935fd82e03866a91e2b1fa24b2c5f796550b5255070e3b1a6a1eb",
+    "solver_patch_sha256": "643b73ca71f553efece3ce1ac562ca402e212663c86d378e6f3628d3063d52d7",
+    "solver_patch_hash_command": "git diff -- src\\smt src\\params",
+    "timeout_seconds": 20,
+    "external_failsafe_seconds": 22,
+    "workers": 8,
+    "reference": "Previously measured cvc5 1.4.2 results from comparison\\results.csv; cvc5 was not rerun.",
+    "timing_caveat": "Concurrent throughput measurements, not isolated latency. Earlier full-corpus cvc5 measurements used 16 workers."
+  },
+  "baseline": {
+    "artifact": ".z3-agent\\finite-sets\\native-local-defaults",
+    "selection": "All 138 cvc5-UNSAT inputs and 48 evenly sampled cvc5-SAT inputs.",
+    "counts": {"unsat": 103, "sat": 1, "timeout": 82},
+    "summed_wall_seconds": 1805.081789,
+    "final_default_pilot": {
+      "artifact": ".z3-agent\\finite-sets\\witness-final-default-pilot",
+      "counts": {"unsat": 3, "sat": 1, "timeout": 8},
+      "note": "The final binary reproduced the preserved baseline binary's answers on all 12 pilot inputs."
+    }
+  },
+  "existing_witnesses": {
+    "parameter": "smt.finite_set.reuse_witness=true",
+    "default": false,
+    "implementation": "Avoid a new extensionality witness when relevant assigned memberships already distinguish the sets, including a known member against empty. Inspect equivalence-class roots, ignore unassigned memberships, and retain disequalities for cardinality reasoning.",
+    "artifact": ".z3-agent\\finite-sets\\existing-witness-optin-subset",
+    "counts": {"unsat": 104, "sat": 1, "timeout": 81},
+    "disagreements": [],
+    "summed_wall_seconds": 1827.645739,
+    "solved_wall_seconds": 204.710028,
+    "median_solved_seconds": 0.576932,
+    "gains": [
+      {"file": "set_quantifiers_ALMI_ALMI_concern_01.smt2", "seconds": 12.102266},
+      {"file": "set_quantifiers_ASPEN_aspen_concern_00.smt2", "seconds": 8.891976},
+      {"file": "set_quantifiers_Autocar_Autocar-corrected_concern_01.smt2", "seconds": 2.177154},
+      {"file": "set_quantifiers_Autocar_Autocar-corrected_redundancy_27.smt2", "seconds": 19.626585},
+      {"file": "set_quantifiers_Autocar_Autocar-corrected_redundancy_36.smt2", "seconds": 4.140003},
+      {"file": "set_quantifiers_BSN_BSN-corrected_concern_07.smt2", "seconds": 0.315762},
+      {"file": "set_quantifiers_test1_redundancy_02.smt2", "seconds": 15.429568}
+    ],
+    "regressions_to_timeout": [
+      "set_quantifiers_ASPEN_aspen_concern_01.smt2",
+      "set_quantifiers_ASPEN_aspen_concern_02.smt2",
+      "set_quantifiers_BSN_BSN_concern_05.smt2",
+      "set_quantifiers_DAISY_Daisy_concern_03.smt2",
+      "set_quantifiers_buggy_conflict_11.smt2",
+      "set_quantifiers_test_redundancy_02.smt2"
+    ],
+    "statistics": {
+      "median_extensionality_skipped": 87.5,
+      "max_extensionality_skipped": 7886,
+      "array_default_lambda_axioms": 0,
+      "array_extensionality_axioms": 0
+    },
+    "decision": "Retained only as an opt-in strategy: net one additional answer, but six regressions and higher summed wall time."
+  },
+  "counterexample_encoding": {
+    "translator_option": "--universal-counterexamples",
+    "default": false,
+    "equivalence": "all(P,S) iff filter(not P,S) = empty",
+    "artifact": ".z3-agent\\finite-sets\\counterexample-final-pilot",
+    "solver_options": ["smt.finite_set.reuse_witness=true"],
+    "counts": {"unsat": 5, "timeout": 7},
+    "disagreements": [],
+    "additional_pilot_answers": [
+      {"file": "set_quantifiers_ASPEN_aspen-corrected_concern_00.smt2", "seconds": 5.165181},
+      {"file": "set_quantifiers_ASPEN_aspen-corrected_concern_05.smt2", "seconds": 4.576632}
+    ],
+    "regression": "set_quantifiers_test4_redundancy_02.smt2 changes from SAT to timeout.",
+    "decision": "Retained as an optional encoding, not the default. Results are for the 12-input pilot only."
+  },
+  "rejected_witness_equality_search": {
+    "early_artifact": ".z3-agent\\finite-sets\\witness-reuse-pilot",
+    "early_counts": {"unsat": 5, "timeout": 7},
+    "delayed_artifact": ".z3-agent\\finite-sets\\witness-reuse-delayed-pilot",
+    "delayed_counts": {"unsat": 3, "sat": 1, "timeout": 8},
+    "mechanism": "Backtrackable equality choices between extensionality witnesses and existing positive members; never unconditional merging.",
+    "decision": "Removed. Early choices regress a previously solved UNSAT and SAT; delayed choices add no pilot answers.",
+    "next_opportunity": "Use compatible tuple fields and candidate-model values to rank witness reuse, rather than trying every pair."
+  },
+  "remaining_bottleneck": {
+    "baseline_timeout_median_finite_set_axioms_created": 583887.5,
+    "baseline_timeout_median_final_checks": 75501.5,
+    "baseline_timeout_median_case_splits": 33299.5,
+    "baseline_timeout_median_max_memory_mb": 31.075,
+    "hypothesis_not_yet_implemented": "Instrument repeated raw-expression instantiations and retain unconditional membership lemmas across backtracking where AST and solver scopes permit. Do not deduplicate only by current roots without merge/unmerge handling."
+  },
+  "reference_cvc5_on_subset": {
+    "counts": {"unsat": 138, "sat": 48},
+    "summed_wall_seconds": 89.673889,
+    "median_seconds": 0.3165415
+  },
+  "validation": {
+    "unit_suite": "120 passed, 0 failed",
+    "focused_suites": ["finite_set", "finite_set_rewriter"],
+    "python_tests": "10 passed, including cvc5 reference checks for both universal encodings",
+    "reference_checks": "Eight formulas, each checked as original cvc5 input and both translated encodings: 24 cvc5 invocations.",
+    "default_translations_verified_unchanged": 1362,
+    "counterexample_translations_independently_verified": 1362,
+    "native_sets_only": true,
+    "sat_model_replay": "All 15 assertions validated with witness reuse disabled and enabled.",
+    "incremental_tests": "Witness disappearance after pop, fresh distinguishing witnesses, and escaping predicate defaults; both witness modes tested.",
+    "smoke_checks": ["SMT solving/model", "Python solving/model", "CLI help"],
+    "patch_whitespace": "git diff --check passed"
+  },
+  "limits": [
+    "No additional SAT cases were solved in the sampled set.",
+    "The alternative encodings and witness strategies have different solved sets; their union is not a single 20-second result.",
+    "No performance change was enabled by default."
+  ]
+}

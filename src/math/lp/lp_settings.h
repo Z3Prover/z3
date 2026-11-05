@@ -97,6 +97,7 @@ class lp_resource_limit {
 public:
     virtual ~lp_resource_limit() = default;
     virtual bool get_cancel_flag() = 0;
+    virtual bool get_cancel_flag(unsigned) { return get_cancel_flag(); }
 };
 
 struct statistics {
@@ -141,6 +142,12 @@ struct statistics {
     unsigned m_bounds_tightening_conflicts = 0;
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
+    unsigned m_pivots = 0;
+    unsigned m_pivot_row_updates = 0;   // rows rewritten by pivots
+    unsigned m_pivot_cells = 0;         // pivot-row cells visited while rewriting rows
+    unsigned m_bp_rows_analyzed = 0;
+    unsigned m_bp_bound_candidates = 0;
+    unsigned m_bp_bounds_interesting = 0;
     unsigned m_nla_transcendental_splits = 0;
 
     ::statistics m_st = {};
@@ -151,6 +158,12 @@ struct statistics {
     void collect_statistics(::statistics& st) const {
         st.update("arith-factorizations", m_num_factorizations);
         st.update("arith-make-feasible", m_make_feasible);
+        st.update("arith-pivots", m_pivots);
+        st.update("arith-pivot-row-updates", m_pivot_row_updates);
+        st.update("arith-pivot-cells", m_pivot_cells);
+        st.update("arith-bp-rows-analyzed", m_bp_rows_analyzed);
+        st.update("arith-bp-bound-candidates", m_bp_bound_candidates);
+        st.update("arith-bp-bounds-interesting", m_bp_bounds_interesting);
         st.update("arith-max-columns", m_max_cols);
         st.update("arith-max-rows", m_max_rows);
         st.update("arith-gcd-calls", m_gcd_calls);
@@ -286,6 +299,7 @@ public:
     bool & random_hammers() { return m_random_hammers; }
     bool print_external_var_name() const { return m_print_external_var_name; }
     bool propagate_eqs() const { return m_propagate_eqs;}
+    bool& propagate_eqs() { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
@@ -330,6 +344,7 @@ public:
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
     bool get_cancel_flag() const { return m_resource_limit->get_cancel_flag(); }
+    bool get_cancel_flag(unsigned cost) const { return m_resource_limit->get_cancel_flag(cost); }
 
     void set_debug_ostream(std::ostream* out) { m_debug_out = out; }
     void set_message_ostream(std::ostream* out) { m_message_out = out; }

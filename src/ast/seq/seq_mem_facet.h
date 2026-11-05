@@ -571,10 +571,17 @@ namespace seq {
             std::vector<std::pair<expr*, expr*>> key;   // sorted `(term, regex)` pairs
             lbool                                 result;
             bool                                   has_witnesses = false;
+            // Keys outlive both scratch checks and branch memberships.
+            expr_ref_vector                        key_refs;
             expr_ref_vector                        wit_vars;
             expr_ref_vector                        wit_words;
             leaf_cache_entry(ast_manager& m, std::vector<std::pair<expr*, expr*>> k, lbool r) :
-                key(std::move(k)), result(r), wit_vars(m), wit_words(m) {}
+                key(std::move(k)), result(r), key_refs(m), wit_vars(m), wit_words(m) {
+                for (auto const& [term, regex] : key) {
+                    key_refs.push_back(term);
+                    key_refs.push_back(regex);
+                }
+            }
         };
         std::vector<leaf_cache_entry> m_cache;
 
@@ -588,10 +595,17 @@ namespace seq {
         // Record a fresh verdict for `key`. When non-null, `witnesses` is
         // replayed on future `l_true` cache hits that also need witnesses.
         void cache_insert(std::vector<std::pair<expr*, expr*>> const& key, lbool result, expr_substitution* witnesses) {
-            m_cache.emplace_back(m, key, result);
-            leaf_cache_entry& e = m_cache.back();
+            leaf_cache_entry* existing = find_cache(key);
+            if (!existing) {
+                m_cache.emplace_back(m, key, result);
+                existing = &m_cache.back();
+            }
+            leaf_cache_entry& e = *existing;
+            e.result = result;
+            e.has_witnesses = witnesses != nullptr;
+            e.wit_vars.reset();
+            e.wit_words.reset();
             if (witnesses) {
-                e.has_witnesses = true;
                 for (auto const& entry : witnesses->sub()) {
                     e.wit_vars.push_back(&entry.get_key());
                     e.wit_words.push_back(entry.get_value());
@@ -603,8 +617,9 @@ namespace seq {
         // `mf`. On `l_false`, `all_dep` is replaced by the minimized core.
         // On `l_true`, `all_dep` is the joined dependency of the fed
         // memberships and `witnesses`, when requested, receives the joint
-        // solution. Returns `l_undef` when nothing was fed or the solver
-        // could not decide.
+        // solution. Root asks also cache materialized candidates, without
+        // applying them to the node. Returns `l_undef` when nothing was fed
+        // or the solver could not decide.
         lbool ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses);
 
         class iterator : public eq_tree::split_iterator_i {

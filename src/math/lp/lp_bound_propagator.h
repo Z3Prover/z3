@@ -79,7 +79,7 @@ private:
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
-        if (v1 == v2)
+        if (v1 == v2 || !eq_is_new(v1, v2))
             return;
 #if Z3DEBUG
         SASSERT(val(v1) == val(v2));
@@ -147,13 +147,26 @@ public:
     }
 
 
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
+    static lconstraint_kind bound_kind(bool is_low, bool strict) {
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
             kind = static_cast<lconstraint_kind>(kind / 2);
+        return kind;
+    }
 
-        if (!m_imp.bound_is_interesting(j, kind, v))
-            return;
+    // true if column j can still receive a useful bound, e.g. it has an unassigned atom
+    bool column_is_interesting(unsigned j) const {
+        return m_imp.column_is_interesting(j);
+    }
+
+    bool bound_is_interesting(unsigned j, bool is_low, bool strict, mpq const& v) const {
+        return m_imp.bound_is_interesting(j, bound_kind(is_low, strict), v);
+    }
+
+    // the caller is expected to have checked bound_is_interesting
+    template <typename Explain, typename WeightedExplain>
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, Explain const& explain_bound,
+                   WeightedExplain const& explain_weighted) {
         if (is_low) {
             unsigned k;
             if (m_improved_lower_bounds.find(j, k)) {
@@ -162,12 +175,12 @@ public:
 
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
-                    found_bound.set_explain(explain_bound);
+                    found_bound.set_explain(explain_bound, explain_weighted);
                     TRACE(add_bound, lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_lower_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
-                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
+                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound, explain_weighted));
                 TRACE(add_bound, lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
@@ -178,12 +191,12 @@ public:
 
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
-                    found_bound.set_explain(explain_bound);
+                    found_bound.set_explain(explain_bound, explain_weighted);
                     TRACE(add_bound, lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
-                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
+                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound, explain_weighted));
                 TRACE(add_bound, lp().print_implied_bound(m_ibounds.back(), tout););
             }
         }
@@ -208,6 +221,13 @@ public:
 
     bool is_equal(lpvar j, lpvar k) const {
         return m_imp.is_equal(col_to_imp(j), col_to_imp(k));
+    }
+
+    // an equality between columns is only worth explaining and reporting when both
+    // columns are known to the theory and are not already merged there
+    bool eq_is_new(lpvar j, lpvar k) const {
+        unsigned u = col_to_imp(j), v = col_to_imp(k);
+        return u != UINT_MAX && v != UINT_MAX && !m_imp.is_equal(u, v);
     }
 
     void clear_for_eq() {
@@ -294,6 +314,7 @@ public:
     unsigned extract_non_fixed(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
         unsigned nf = 0;  // number of non-fixed columns
         y = UINT_MAX;
+        y_sign = 0;
         const auto& row = lp().get_row(row_index);
         x = lp().get_base_column_in_row(row_index);
         if (!column_is_fixed(x)) {
@@ -343,6 +364,8 @@ public:
             try_add_equation_with_internal_fixed_tables(row_index);
             return;
         } 
+        if (!eq_is_new(j, v_j))
+            return;
         TRACE(eq,
               tout << "v_j = ";
               lp().print_column_info(v_j, tout) << std::endl;
@@ -404,6 +427,8 @@ public:
                 explanation ex;
                 unsigned base_of_found = lp().get_base_column_in_row(found_i);
                 if (is_int(x) != is_int(base_of_found) || ival(x).y != ival(base_of_found).y)
+                    continue;
+                if (!eq_is_new(x, base_of_found))
                     continue;
                 explain_fixed_in_row(found_i, ex);
                 explain_fixed_in_row(i, ex);

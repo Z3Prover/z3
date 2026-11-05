@@ -355,13 +355,19 @@ namespace smt {
     };
 
     class ext_theory_conflict_justification : public ext_theory_simple_justification {
+        proof* m_proof;
         void log(context& ctx);
     public:
         ext_theory_conflict_justification(family_id fid, context& ctx, unsigned num_lits, literal const * lits, 
                                           unsigned num_eqs, enode_pair const * eqs,
-                                          unsigned num_params = 0, parameter* params = nullptr):
-            ext_theory_simple_justification(fid, ctx, num_lits, lits, num_eqs, eqs, num_params, params) {
-            log(ctx);
+                                          unsigned num_params = 0, parameter* params = nullptr,
+                                          proof* pr = nullptr);
+
+        bool has_del_eh() const override { return m_proof || ext_theory_simple_justification::has_del_eh(); }
+        void del_eh(ast_manager& m) override {
+            m.dec_ref(m_proof);
+            m_proof = nullptr;
+            ext_theory_simple_justification::del_eh(m);
         }
 
         proof * mk_proof(conflict_resolution & cr) override;
@@ -424,5 +430,3 @@ namespace smt {
     };
       
 }
-
-

@@ -1,0 +1,11 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend)
+command (timeout 120, fresh cache): fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out Bit2IntModAudit.fst
+exit code: 0
+stdout:
+Verified module: Bit2IntModAudit
+All verification conditions discharged successfully
+
+stderr:
+
+Note: an earlier draft of lowering_exact timed out at rlimit 10 and was replaced by the explicit-quotient proof included here.
+Source hashes: head bit2int.cpp sha256 1d0b2a28708d053b87b022df72e946e4d5b73fe05fdb372bd69e4031b31ee3e3 (head 51d375f2), base sha256 aca582f96ec73fa119629928d12b330d85f4e5fa517bcc28f38d9b47c843ece1 (base 4629738b).

@@ -22,6 +22,7 @@ Notes:
 #include "util/common_msgs.h"
 #include "ast/ast_pp.h"
 #include "solver/solver.h"
+#include "solver/combined_solver.h"
 #include "solver/combined_solver_params.hpp"
 #include <atomic>
 #define PS_VB_LVL 15

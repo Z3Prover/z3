@@ -1,0 +1,3 @@
+F* 2026.09.27; Z3 4.13.3 (pinned). exit 0
+Verified module: AuditOrGuard
+All verification conditions discharged successfully

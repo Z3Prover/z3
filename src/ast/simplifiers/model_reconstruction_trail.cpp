@@ -46,7 +46,7 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
 
     ast_mark free_vars;
     m_intersects_with_model = false;
-    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
+    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, st.proofs_enabled());
     for (unsigned i = qhead; i < st.qtail(); ++i)        
         add_vars(st[i], free_vars);
     for (expr* a : assumptions)
@@ -76,7 +76,9 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         // loose entries that intersect with free vars are deleted from the trail
         // and their removed formulas are added to the resulting constraints.
 
-        if (t->is_loose_subst()) {                
+        // Caller assumptions do not carry proof converters. Restore proved
+        // equalities instead of silently changing an assumption's meaning.
+        if (t->is_loose_subst() || (st.proofs_enabled() && !assumptions.empty() && t->is_subst())) {
             for (auto const& [k, v] : t->m_subst->sub()) {
                 add_vars(v, free_vars);
                 proof* pr = nullptr;
@@ -121,6 +123,8 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         }        
         
         if (t->is_def()) {
+            if (st.proofs_enabled())
+                throw default_exception("cannot replay a macro definition without its proof");
             macro_replacer mrp(m);
             for (auto const& [d, def, dep] : t->m_defs) {
                 app_ref head(m);
@@ -168,7 +172,10 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         expr_ref_vector trail(m);
         for (unsigned i = qhead; i < st.qtail(); ++i) {
             auto [f, p, dep1] = st[i]();
-            auto [g, dep2] = rp->replace_with_dep(f);
+            expr_ref g(m);
+            proof_ref rewrite_pr(m);
+            expr_dependency_ref dep2(m);
+            (*rp)(f, g, rewrite_pr, dep2);
             if (dep1) {
                 dep_exprs.reset();
                 trail.reset();
@@ -184,7 +191,13 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
                 if (!trail.empty()) 
                     dep1 = m.mk_join(dep_exprs.size(), dep_exprs.data());                
             }
-            dependent_expr d(m, g, nullptr, m.mk_join(dep1, dep2));
+            proof_ref pr(p, m);
+            if (st.proofs_enabled() && f != g) {
+                if (!pr || !rewrite_pr)
+                    throw default_exception("cannot replay an assertion substitution without its proof");
+                pr = m.mk_modus_ponens(pr, rewrite_pr);
+            }
+            dependent_expr d(m, g, pr, m.mk_join(dep1, dep2));
             CTRACE(simplifier, f != g, tout << "updated " << mk_pp(g, m) << "\n");
             add_vars(d, free_vars);
             st.update(i, d);

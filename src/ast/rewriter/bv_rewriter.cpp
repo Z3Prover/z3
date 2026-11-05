@@ -449,8 +449,9 @@ br_status bv_rewriter::rw_leq_concats(bool is_signed, expr * _a, expr * _b, expr
             return BR_DONE;
         }
         if (common > 0) {
-            result = m_util.mk_ule(concat(numa - common, a->get_args() + common),
-                                   concat(numb - common, b->get_args() + common));
+            expr_ref lhs(concat(numa - common, a->get_args() + common), m);
+            expr_ref rhs(concat(numb - common, b->get_args() + common), m);
+            result = m_util.mk_ule(lhs, rhs);
             return BR_REWRITE2;
         }
     }
@@ -471,8 +472,9 @@ br_status bv_rewriter::rw_leq_concats(bool is_signed, expr * _a, expr * _b, expr
             return BR_DONE;
         }
         if (new_numa != numa) {
-            result = is_signed ? m_util.mk_sle(concat(new_numa, a->get_args()), concat(new_numb, b->get_args()))
-                               : m_util.mk_ule(concat(new_numa, a->get_args()), concat(new_numb, b->get_args()));
+            expr_ref lhs(concat(new_numa, a->get_args()), m);
+            expr_ref rhs(concat(new_numb, b->get_args()), m);
+            result = is_signed ? m_util.mk_sle(lhs, rhs) : m_util.mk_ule(lhs, rhs);
             return BR_REWRITE2;
         }
     }
@@ -2403,6 +2405,9 @@ br_status bv_rewriter::mk_bv_ext_rotate_left(expr * arg1, expr * arg2, expr_ref 
         result = x;
         return BR_DONE;
     }
+    // BV addition/subtraction preserves rotation amounts only when width divides 2^width.
+    if (!is_power_of_two(get_bv_size(arg1)))
+        return BR_FAILED;
     if (m_util.is_ext_rotate_left(arg1, x, y)) {
         result = m_util.mk_bv_rotate_left(x, m_util.mk_bv_add(y, arg2));
         return BR_REWRITE2;
@@ -2427,6 +2432,8 @@ br_status bv_rewriter::mk_bv_ext_rotate_right(expr * arg1, expr * arg2, expr_ref
         result = x;
         return BR_DONE;
     }
+    if (!is_power_of_two(get_bv_size(arg1)))
+        return BR_FAILED;
     if (m_util.is_ext_rotate_right(arg1, x, y)) {
         result = m_util.mk_bv_rotate_right(x, m_util.mk_bv_add(y, arg2));
         return BR_REWRITE2;

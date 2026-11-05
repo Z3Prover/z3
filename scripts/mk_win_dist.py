@@ -334,11 +334,15 @@ def cp_dotnet(arch):
         return
     if is_verbose():
         print("copy dotnet")
-    build_dir = get_build_dir(arch)
+    # Copy just the netstandard2.0 assembly into bin/, which is where
+    # mk_nuget_task.py picks it up. The rest of the dotnet build output (the
+    # net45 build and the nupkgs, which bundle another copy of libz3.dll)
+    # is not used by anything and only bloats the distribution.
+    asm_dir = os.path.join(get_build_dir(arch), "Microsoft.Z3", "netstandard2.0")
     dist_dir = get_bin_dist_path(arch)
-    shutil.copytree(os.path.join(build_dir, "Microsoft.Z3"),
-                    dist_dir,
-                    dirs_exist_ok=True)
+    mk_dir(dist_dir)
+    for f in ("Microsoft.Z3.dll", "Microsoft.Z3.pdb", "Microsoft.Z3.xml", "Microsoft.Z3.deps.json"):
+        shutil.copy2(os.path.join(asm_dir, f), dist_dir)
 
 def cp_into_bin(arch):
     if is_verbose():

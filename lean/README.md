@@ -1,0 +1,261 @@
+# Lean proof workspace
+
+This workspace pins **Lean 4.34.0** and supports the
+[proof integration plan](../doc/lean-proof-plan.md). A first native-certificate
+reconstructor now handles `asserted`, `unit-resolution`, `mp`, and Boolean
+`rewrite`, plus `refl`, `symm`, `trans`, `trans*`, `iff-true`, `iff-false`,
+Boolean `monotonicity`, `and-elim`, and `not-or-elim`, with scoped `hypothesis`
+and `lemma` proofs and supported Boolean `def-axiom` clauses. For quantifier-free
+linear real arithmetic it also handles `th-lemma` nodes carrying `farkas`,
+`bound`, `implied-eq`, `triangle-eq`, `euf`, `smt`, or `cnf` hints (with or
+without premises) and arithmetic rewrites,
+proved by `grind` over a `Rat` encoding of the Real variables, and Real-valued
+`ite` terms, whose gate clauses are proved with `ite_eq_left` and
+`ite_eq_right`. For quantifier-free uninterpreted functions (QF_UF) the
+uninterpreted sorts become one type variable with indexed families of
+constants, functions, and predicates over argument lists (one carrier for
+every sort is sound for unsatisfiability; the exporter README gives the
+argument), `ite` terms over a sort are
+Lean's `ite` with their gate clauses proved as for Real, and `grind`'s
+congruence closure proves the `euf` lemmas. Other native proof rules are
+still unsupported.
+
+## Check a native Z3 refutation
+
+The Boolean inputs live in
+[Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/regressions/proofs/lean)
+under `regressions/proofs/lean/`; the commands below assume a z3test checkout
+next to this repository. From the repository root:
+
+```sh
+PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
+  ../z3test/regressions/proofs/lean/unit_resolution.smt2 > /tmp/unit_resolution.json
+PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
+  ../z3test/regressions/proofs/lean/unit_resolution.smt2 /tmp/unit_resolution.json \
+  -o /tmp/unit_resolution.lean
+```
+
+For an example that also requires implication rewriting and `mp`, replace
+`unit_resolution` with `boolean_rewrite` in both commands. Use
+`boolean_structural` to also exercise transitivity, congruence, and
+negated-disjunction elimination. Use `boolean_branching` to exercise temporary
+hypotheses and learned clauses. Use `boolean_def_axiom` for clauses forcing both
+arguments of an xor to be true, requiring a Boolean gate clause after
+preprocessing.
+
+For linear real arithmetic the exporter rebuilds the `sat.smt` clause log and
+needs the z3 executable:
+
+```sh
+PYTHONPATH=build/python python3 examples/python/proof_certificate.py --z3 build/z3 \
+  ../z3test/regressions/proofs/lean/lra_farkas.smt2 > /tmp/lra_farkas.json
+PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
+  ../z3test/regressions/proofs/lean/lra_farkas.smt2 /tmp/lra_farkas.json \
+  -o /tmp/lra_farkas.lean
+```
+
+The resulting theorem quantifies over `_vars : Nat -> Rat` as well as the atom
+valuation and depends on the three standard axioms through Lean core's `Rat`
+library; the Boolean slice stays axiom-free. See the exporter documentation
+for the Real-as-Rat trust statement. A QF_UF input goes through the same two
+commands; its theorem quantifies over `(_m : Interpretation)` instead of
+`_vars`, a structure the file declares with the fields `U : Type`,
+`elems : Nat -> U`, `funs : Nat -> List U -> U`, `preds : Nat -> List U -> Prop`,
+and `bool : Prop -> U` (Boolean arguments of functions and predicates are
+injected into `_m.U` by `_m.bool`), and `grind`'s congruence
+proofs report the same three axioms. A QF_UF certificate from the legacy
+proof object (`proof_certificate.py --core legacy`) carries the smt core's
+own equality proofs instead of `euf` hints; its `trans`, `symm`, and
+`monotonicity` steps become `Eq.trans`, `Eq.symm`, and `congrArg` terms over
+`_m.U`, checked by Lean's type checker without `grind`; an input whose only
+uninterpreted symbols are predicates over Bool (no sort) takes the same
+structure, with `_m.U` holding nothing but the injected Boolean arguments, and
+is certified from the legacy proof object only. A QF_LRA certificate
+from the legacy proof object carries `theory_lra`'s Farkas coefficients as
+`th-lemma` parameters; each such step is stated as the implication from its
+premises, re-derived in Python and proved by `grind`, and congruence through
+an arithmetic operator is a `grind` lemma over the argument equalities. A
+QF_UFLRA input (uninterpreted sorts or functions mixed with linear real
+arithmetic) takes both the `_vars` valuation and the structure, with two more
+fields `real : Rat -> U` and `rfuns : Nat -> List U -> Rat`: a Real argument of a
+function or predicate is injected into `_m.U` by `_m.real`, and a function with a
+Real result is the family `_m.rfuns`, whose applications are the atoms of the
+linear forms; both cores certify it, predicates over Bool alone included. A
+QF_LIA input (linear integer arithmetic on its own) is certified from both
+cores; its theorem quantifies over `_vars : Nat -> Int`, its
+theory lemmas and arithmetic rewrites are proved by `first | omega | grind`,
+and the integer solver's `cut` steps, its `arith` axioms defining `div` and
+`mod` by a numeral, the legacy core's cuts (bare `arith` steps with
+premises) and lattice conflicts (`farkas` without coefficients), and Farkas
+steps whose coefficients rest on cuts, reach Lean with their shapes checked
+only, so that tactic is the check for them (`omega` reads `/` and `%` by a
+positive numeral; an `arith` axiom with a negative divisor falls to `grind`).
+Integer `div` and `mod` are Lean's Euclidean `/` and `%` (nonzero constant
+divisors only in the assertions; any other there is rejected) and `abs` is the classical `ite`
+SMT-LIB defines it as. A QF_UFLIA input (the same mixed with uninterpreted sorts
+or functions) takes the QF_UFLRA encoding over Int instead,
+`(_vars : Nat -> Int)` and the fields `int : Int -> U` and
+`ifuns : Nat -> List U -> Int`, and is certified from the clause log
+only, with `first | omega | grind` for its lemmas and helpers.
+
+The second command checks the generated proof with Lean before publishing it.
+It requires the original input separately and verifies that the certificate's
+assertion roots match that input. Unsupported rules and invalid certificates fail
+explicitly; the producer's `unsat` label is never enough.
+
+The generated theorem derives `False` from the encoded original assertions using
+Lean core proof terms, without any axioms or `sorry`. Boolean rewrites are checked
+independently of the assertions by a direct proof term: truth values propagate
+through the gates of both sides (one typed `have` per step) and, where that does
+not settle a side, the term splits on an atom with `Decidable.em`; the exhaustive
+truth table over the atoms is only the fallback for an equivalence the prover
+cannot settle. Structural rules use direct logical proof terms, without truth
+tables.
+Condensed transitivity (`trans*`) follows equivalence paths through its supplied
+premises, including reversed and redundant edges, and composes the result with
+`Iff.symm` and `Iff.trans`. It rejects disconnected endpoints and preserves the
+hypothesis dependencies of every premise.
+Each supported `def-axiom` clause is proved in a separate Lean theorem with no
+input assertions, not introduced as an axiom. Gate clauses for not, and/or,
+implication, equivalence, xor, and Boolean ite use direct proof terms over
+immediate operands; nested atoms are not enumerated. Invalid or unsupported
+clauses are rejected even when unused. Fresh-symbol definitions remain outside
+this slice.
+Open proof steps are functions of their temporary hypotheses. Each `lemma`
+discharges all hypotheses of its contradiction, including in nested and shared
+subproofs; a final proof with any open hypothesis is rejected.
+Temporary decidability witnesses for rewrites, double-negation cancellation,
+gate clauses, and learned clauses are eliminated constructively from the
+refutation, so they do not become extra theorem hypotheses. Refutations longer
+than 500 steps are split into separately checked `private theorem`s of at most
+500 nested steps each, in every fragment; propositional lemmas receive their
+witnesses as parameters so the split proof stays axiom-free. A rewrite that falls
+back to its truth table can exceed Lean's resource limits; failures never
+publish a proof.
+Parsing and SMT-to-Lean statement translation remain trusted frontend components.
+See [the exporter documentation](../examples/python/README) for the exact scope
+and trust boundary.
+
+## Audit preprocessing
+
+The opt-in harness distinguishes real preprocessing from a pass skipped in
+proof mode:
+
+```sh
+PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
+  ../z3test/regressions/proofs/lean/boolean_solve_eqs.smt2 --require-search
+```
+
+It compares the simplifier and tactic APIs with proofs off/on and reports native
+proofs, elimination/search statistics, and actual Lean replay results as JSON.
+For a preprocessing-only contradiction, use `../z3test/regressions/proofs/lean/unit_resolution.smt2`
+without `--require-search`. Refutations are checked against the original input,
+not a replacement goal.
+
+Both examples now succeed through both interfaces, with observed variable
+elimination and Lean-checked, axiom-free refutations. The native producer
+preserves equality-substitution evidence, including through incremental replay
+and tracked assertions. `iff-true` and `iff-false` justify replacing Boolean
+units by constants.
+
+Proof mode supports direct equalities and Boolean units; theory-specific and
+conditional extraction still await their own certificates and are skipped.
+See [the plan](../doc/lean-proof-plan.md#preprocessing-evidence-audit) for the
+boundary. The harness still rejects missing evidence and bypassed passes;
+successful solver output alone does not count as verification.
+
+## Recheck a proof artifact
+
+`check_lean.sh` still accepts Lean source files, not JSON. To recheck the artifact:
+
+```sh
+./scripts/check_lean.sh /tmp/unit_resolution.lean
+```
+
+## Check proofs
+
+From the repository root:
+
+```sh
+# Build and check the example library.
+./scripts/check_lean.sh
+
+# Check a file. The .txt extension is accepted as well as .lean.
+./scripts/check_lean.sh /tmp/l.txt
+
+# Check several files, stopping at the first failure.
+./scripts/check_lean.sh path/to/first.lean path/to/second.lean
+```
+
+The script can be invoked from other directories too. Relative file arguments
+are resolved against the caller's directory, not against the Lean workspace.
+Paths containing spaces must be quoted. Use `--help` for usage.
+
+The helper builds the local library before checking supplied files, so they can
+use `import Z3Proofs`. It selects the toolchain from `lean-toolchain` explicitly,
+independently of your default toolchain.
+
+Checks use `--trust=0` to recheck imported modules and
+`-DwarningAsError=true` to treat warnings, including ordinary `sorry`/`admit`
+placeholders, as errors. Every `lean` process, including the library build, runs
+with `--memory=8192`, so a proof that needs more than 8 GB fails with
+`excessive memory consumption detected` instead of exhausting the machine. A
+successful run prints `Lean checks passed.` and exits with status 0; build or
+checking failures return a nonzero status.
+
+This is a Lean source checker, not an audit of explicit axioms or other trusted
+features, and not a sandbox for executing untrusted Lean code.
+
+## Install the toolchain
+
+Install [elan](https://github.com/leanprover/elan), the Lean version manager.
+On macOS with Homebrew:
+
+```sh
+brew install elan-init
+elan toolchain install "$(cat lean/lean-toolchain)"
+```
+
+The helper finds `elan` on `PATH`, or at `~/.elan/bin/elan` after a standard elan
+installation. To make the pinned version your default outside this project:
+
+```sh
+elan default "$(cat lean/lean-toolchain)"
+lean --version
+```
+
+No Mathlib or other external Lean packages are needed. Lake build artifacts
+remain under the ignored `lean/.lake/` directory.
+
+## Automated Lean proof checks
+
+The Python script `scripts/proofs/proof_matrix.py` and its tests are in
+[Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs).
+The CI job uses the `z3test/` checkout from its default branch for both the
+Lean checks and the other Z3 tests.
+
+To run the same checks locally, clone z3test beside this Z3 checkout:
+
+```sh
+python3 ../z3test/scripts/proofs/proof_matrix.py \
+  --z3 "$PWD/build/z3" --z3-source "$PWD" \
+  --lean --cells legacy-proof-object --timeout 30 \
+  --lean-artifacts /tmp/lean-proof-artifacts --out /tmp/lean-proof-matrix.jsonl \
+  ../z3test/regressions/proofs/lean/*.smt2
+```
+
+This requires a POSIX CMake build with the executable, shared library, and
+Python bindings in `build/`. The producer uses those bindings to solve once;
+the separate checking process consumes the saved native JSON and original input,
+without solving again. Records identify the producer and retain input,
+certificate, and checked Lean artifacts with their hashes.
+
+Every input must have status `lean-verified` for success. Unsupported inputs,
+sat/unknown, missing evidence, checking errors, and timeouts cause failure.
+The `releaseClang` CI job runs the tests and checks all six Boolean examples
+after installing Lean. It uploads the proof files even when a check fails.
+
+The [planned additional test inputs](../doc/lean-proof-plan.md#additional-input-files-future-plan)
+include seven examples from `jreeves3/SMT-Skeleton-Check` and the larger
+collections named in its CSV result files. These are future additions, not
+part of the six Boolean examples currently checked automatically.

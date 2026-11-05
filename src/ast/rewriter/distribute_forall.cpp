@@ -108,7 +108,9 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
     //    2) All or-formulas are flat (or f1 (or f2 f3)) is encoded as (or f1 f2 f3)
 
     expr * e = get_cached(q->get_expr());
-    if (m_manager.is_not(e) && m_manager.is_or(to_app(e)->get_arg(0))) {
+    // A trigger for the original body need not be valid for each conjunct.
+    if (m_manager.is_not(e) && m_manager.is_or(to_app(e)->get_arg(0)) &&
+        !q->get_num_patterns() && !q->get_num_no_patterns()) {
         bool_rewriter br(m_manager);
 
         // found target for simplification

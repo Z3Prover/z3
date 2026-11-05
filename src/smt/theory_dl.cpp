@@ -253,7 +253,10 @@ namespace smt {
             get_rep(s, r, v);
             app_ref lt(m()), le(m());
             lt = u().mk_lt(x,y);
-            le = b().mk_ule(m().mk_app(r,y),m().mk_app(r,x)); 
+            {
+                app_ref ry(m().mk_app(r, y), m());
+                le = b().mk_ule(ry, m().mk_app(r, x));
+            }
             if (m().has_trace_stream()) {
                 app_ref body(m());
                 body = m().mk_eq(lt, le);

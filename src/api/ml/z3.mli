@@ -1248,6 +1248,21 @@ end
 (** Functions to manipulate arithmetic expressions *)
 module Arithmetic :
 sig
+  (** Complex arithmetic, using the arithmetic operators below.
+      Complex expressions do not support ordering or exponentiation. *)
+  module Complex :
+  sig
+    val mk_sort : context -> Sort.sort
+    val mk_const : context -> Symbol.symbol -> Expr.expr
+    val mk_const_s : context -> string -> Expr.expr
+    (** Construct a Complex expression from Int or Real components. *)
+    val mk : context -> Expr.expr -> Expr.expr -> Expr.expr
+    val mk_real_part : context -> Expr.expr -> Expr.expr
+    val mk_imag_part : context -> Expr.expr -> Expr.expr
+  end
+
+  val is_complex : Expr.expr -> bool
+
   (** Integer Arithmetic *)
   module Integer :
   sig

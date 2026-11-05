@@ -379,7 +379,8 @@ Notes:
         }
 
         literal eq(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
-            return mk_and(ge(k, n, ws, xs), le(k, n, ws, xs));
+            literal lower = ge(k, n, ws, xs);
+            return mk_and(lower, le(k, n, ws, xs));
 #if 0
             m_t = EQ;
             return cmp(k, n, ws, xs);
@@ -516,9 +517,12 @@ Notes:
                 // out[i] = c + x[i] + y[i]
                 // c' = c&x[i] | c&y[i] | x[i]&y[i];
                 literal_vector ors; 
-                ors.push_back(mk_and(c,    mk_not(x[i]), mk_not(y[i]))); 
-                ors.push_back(mk_and(x[i], mk_not(c),    mk_not(y[i])));
-                ors.push_back(mk_and(y[i], mk_not(c),    mk_not(x[i])));
+                literal not_x = mk_not(x[i]);
+                literal not_y = mk_not(y[i]);
+                ors.push_back(mk_and(c, not_x, not_y));
+                literal not_c = mk_not(c);
+                ors.push_back(mk_and(x[i], not_c, not_y));
+                ors.push_back(mk_and(y[i], not_c, not_x));
                 ors.push_back(mk_and(c, x[i], y[i]));
                 literal o = mk_or(4, ors.data());
                 out.push_back(o);
@@ -754,7 +758,9 @@ Notes:
             // result => xs[0] + ... + xs[n-1] <= 1
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
-                    add_clause(mk_not(result), mk_not(xs[i]), mk_not(xs[j]));
+                    literal not_result = mk_not(result);
+                    literal not_x = mk_not(xs[i]);
+                    add_clause(not_result, not_x, mk_not(xs[j]));
                 }
             }            
 
@@ -845,7 +851,9 @@ Notes:
             }
             for (unsigned i = 0; i + 1 < n; ++i) {
                 add_clause(mk_not(xs[i]), ys[i]);
-                add_clause(mk_not(r), mk_not(ys[i]), mk_not(xs[i + 1]));
+                literal not_r = mk_not(r);
+                literal not_y = mk_not(ys[i]);
+                add_clause(not_r, not_y, mk_not(xs[i + 1]));
             }
 
             if (is_eq) {
@@ -869,8 +877,11 @@ Notes:
                 }
                 if (is_eq) {
                     literal zero = fresh("zero");
-                    add_clause(mk_not(zero), mk_not(xs[n-1]));
-                    add_clause(mk_not(zero), mk_not(ys[n-2]));
+                    literal not_zero = mk_not(zero);
+                    literal not_x = mk_not(xs[n - 1]);
+                    add_clause(not_zero, not_x);
+                    literal not_y = mk_not(ys[n - 2]);
+                    add_clause(not_zero, not_y);
                     add_clause(r, zero, twos.back());
                 }
                 else {
@@ -907,7 +918,9 @@ Notes:
             for (unsigned i = 0; i < ors.size(); ++i) {
                 for (unsigned k = 0; k < nbits; ++k) {
                     bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
-                    add_clause(mk_not(result), mk_not(ors[i]), bit_set ? bits[k] : mk_not(bits[k]));
+                    literal not_result = mk_not(result);
+                    literal not_or = mk_not(ors[i]);
+                    add_clause(not_result, not_or, bit_set ? bits[k] : mk_not(bits[k]));
                 }
             }            
             return result;
@@ -1004,7 +1017,9 @@ Notes:
         void cmp_le(literal x1, literal x2, literal y1, literal y2) {
             add_clause(mk_not(x1), y1);
             add_clause(mk_not(x2), y1);
-            add_clause(mk_not(x1), mk_not(x2), y2);
+            literal not_x1 = mk_not(x1);
+            literal not_x2 = mk_not(x2);
+            add_clause(not_x1, not_x2, y2);
         }
 
         void cmp_eq(literal x1, literal x2, literal y1, literal y2) {
@@ -1383,7 +1398,9 @@ Notes:
                 }
                 for (unsigned i = 1; i <= a; ++i) {
                     for (unsigned j = 1; j <= b && i + j <= c; ++j) {
-                        add_clause(mk_not(as[i-1]),mk_not(bs[j-1]),out[i+j-1]);
+                        literal not_a = mk_not(as[i - 1]);
+                        literal not_b = mk_not(bs[j - 1]);
+                        add_clause(not_a, not_b, out[i + j - 1]);
                     }
                 }
             }

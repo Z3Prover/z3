@@ -61,13 +61,13 @@ jobs:
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
       - name: Checkout Z3
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.Z3_REF }}
           fetch-depth: 1
 
       - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v2
+        uses: jwlawson/actions-setup-cmake@0d6a7d60b009d01c9e7523be22153ff8f19460d3 # v2.2.0
 
       - name: Install dependencies
         run: |
@@ -227,7 +227,7 @@ jobs:
       - name: Upload FStar failure artifacts
         id: upload_artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fstar-artifacts-${{ github.run_id }}
           path: /tmp/gh-aw/agent/fstar-artifact
@@ -265,7 +265,7 @@ jobs:
 
       - name: Create discussion summary
         if: always()
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           FSTAR_BUILD_OUTCOME: ${{ steps.build_fstar.outcome }}

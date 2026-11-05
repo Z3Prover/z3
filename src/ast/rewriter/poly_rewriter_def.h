@@ -1065,7 +1065,9 @@ template<typename Config>
 expr* poly_rewriter<Config>::apply_hoist(expr* a, numeral const& g, obj_hashtable<expr> const& shared) {
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (M().is_ite(a, c, t, e)) {
-        return M().mk_ite(c, apply_hoist(t, g, shared), apply_hoist(e, g, shared));
+        expr_ref then_expr(apply_hoist(t, g, shared), M());
+        expr_ref else_expr(apply_hoist(e, g, shared), M());
+        return M().mk_ite(c, then_expr, else_expr);
     }
     rational k;
     if (is_nontrivial_gcd(g) && is_int_numeral(a, k)) {

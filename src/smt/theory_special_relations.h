@@ -94,7 +94,8 @@ namespace smt {
             ast_manager&           m;
             func_decl_ref          m_next;
             sr_property            m_property;
-            func_decl*             m_decl;
+            // Relations survive pop; keep their declarations alive with them.
+            func_decl_ref          m_decl;
             atoms                  m_asserted_atoms;   // set of asserted atoms
             unsigned               m_asserted_qhead;
             svector<scope>         m_scopes;
@@ -103,7 +104,7 @@ namespace smt {
             union_find_t           m_uf;
             literal_vector         m_explanation;
 
-            relation(sr_property p, func_decl* d, ast_manager& m): m(m), m_next(m), m_property(p), m_decl(d), m_asserted_qhead(0), m_uf(m_ufctx) {}
+            relation(sr_property p, func_decl* d, ast_manager& m): m(m), m_next(m), m_property(p), m_decl(d, m), m_asserted_qhead(0), m_uf(m_ufctx) {}
 
             func_decl* decl() { return m_decl; }
 

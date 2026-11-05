@@ -9,6 +9,54 @@ Abstract:
 
     Conversion from enumeration types to bit-vectors.
 
+Specification:
+
+    The admitted inputs are Boolean formulas whose selected enumeration terms
+    are nullary constructors, uninterpreted constants, or bound variables,
+    occurring in equality, distinct, or constructor recognizers. Universal and
+    existential binders over selected sorts are supported. An enumeration sort
+    is selected when datatype_util::is_enum_sort holds and the optional
+    set_is_fd predicate accepts it. This is not a general datatype elimination
+    pass: selected-sort terms produced by other applications, such as functions,
+    arrays, or term ITEs, are unsupported. Selected-sort lambda/choice binders
+    are outside the admitted fragment.
+
+    For a selected sort S = {C_0, ..., C_(n-1)}, the default encoding has width
+    w = max(1, ceil(log2(n))) and maps C_i to the unsigned w-bit numeral i.
+    Equality and distinct compare these codes; the recognizer for C_i becomes
+    equality with i. Each original constant c:S has one scoped fresh constant
+    b_c:BV_w, together with the domain constraint unsigned(b_c) < n. The bound
+    is omitted when every w-bit value is a constructor code.
+
+    Bound variables retain their de Bruijn indices and receive the encoded
+    sort. Quantification is restricted to constructor codes:
+        forall x:S. P  --> forall b:BV_w. valid(b) => R(P)
+        exists x:S. P  --> exists b:BV_w. valid(b) and R(P).
+    The internal unate alternative, disabled by default, uses n-1 bits and
+    code(C_i) = 2^i-1; adjacent-bit implications restrict values to these codes.
+
+    Model contract: write B for all emitted constant-domain constraints.
+    Extending an original model M with b_c = code(M(c)) gives an encoded model
+    N satisfying B, with M |= F iff N |= R(F). Conversely, any N satisfying B
+    decodes uniquely to constructor values for the original constants and
+    satisfies the same equivalence. Symbols outside the encoding are preserved.
+    enum2def supplies each constant's decoder as a constructor-valued ITE;
+    enum2bv and bv2enum expose the corresponding declaration maps. These maps
+    are model-reconstruction data, not a proof of equality across signatures.
+
+    Caller obligations: assert every constraint returned by
+    flush_side_constraints together with the rewritten formulas. Flushing
+    appends and clears pending constraints. Match push/pop scopes with the
+    caller's assertions; flush pending constraints before pop. Popping removes
+    newly introduced mappings and resets the rewrite cache. cleanup discards
+    all encoding state. translate requires an unscoped source and empty target.
+    Keep the selection predicate alive and unchanged while reusing that state.
+
+    Proof limitation: the returned proof reference does not provide complete
+    encoding transport. This module supplies neither a proof converter nor
+    derivations of the fresh-symbol correspondence and domain constraints.
+    Proof-capable callers must supply that evidence or refuse this encoding.
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2016-10-18

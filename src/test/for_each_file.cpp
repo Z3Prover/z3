@@ -75,6 +75,5 @@ bool for_each_file(for_each_file_proc& proc, const char* base, const char* suffi
     }
 
     return true;
-};
+}
 #endif
-

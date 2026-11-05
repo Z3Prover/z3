@@ -71,13 +71,23 @@ void tst_subst(ast_manager& m) {
     z = m.mk_var(2, s);
     u = m.mk_var(3, s);
     v = m.mk_var(4, s);
-    e1 = m.mk_and(m.mk_app(p, x.get(), y.get()), m.mk_app(p, z.get(), u.get()));
+    {
+        expr_ref lhs(m.mk_app(p, x.get(), y.get()), m);
+        expr_ref rhs(m.mk_app(p, z.get(), u.get()), m);
+        e1 = m.mk_and(lhs, rhs);
+    }
     e2 = m.mk_forall(1, ss, names, e1);
-    t1 = m.mk_forall(1, ss, names, 
-                     m.mk_and(m.mk_app(p, x.get(), z.get()), m.mk_app(p, y.get(), u.get())));
-    t2 = m.mk_forall(2, ss, names, 
-                     m.mk_and(m.mk_app(p, x.get(), y.get()), m.mk_app(p, u.get(), z.get())));
-    
+    {
+        expr_ref lhs(m.mk_app(p, x.get(), z.get()), m);
+        expr_ref rhs(m.mk_app(p, y.get(), u.get()), m);
+        t1 = m.mk_forall(1, ss, names, m.mk_and(lhs, rhs));
+    }
+    {
+        expr_ref lhs(m.mk_app(p, x.get(), y.get()), m);
+        expr_ref rhs(m.mk_app(p, u.get(), z.get()), m);
+        t2 = m.mk_forall(2, ss, names, m.mk_and(lhs, rhs));
+    }
+
     var_subst subst(m);
     expr_ref_vector sub1(m);
     sub1.push_back(x);

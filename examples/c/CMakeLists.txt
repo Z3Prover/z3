@@ -5,7 +5,7 @@
 # as a static library if we don't configure this project to also support
 # C++ we will use the C linker rather than the C++ linker and will not link
 # the C++ standard library in resulting in a link failure.
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.5...3.10)
 project(Z3_C_EXAMPLE C CXX)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 99)

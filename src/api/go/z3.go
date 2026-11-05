@@ -196,9 +196,9 @@ type Sort struct {
 // newSort creates a new Sort and manages its reference count.
 func newSort(ctx *Context, ptr C.Z3_sort) *Sort {
 	sort := &Sort{ctx: ctx, ptr: ptr}
-	C.Z3_inc_ref(ctx.ptr, C.Z3_sort_to_ast(ctx.ptr, ptr))
+	C.Z3_inc_ref(ctx.ptr, (C.Z3_ast)(unsafe.Pointer(ptr)))
 	runtime.SetFinalizer(sort, func(s *Sort) {
-		C.Z3_dec_ref(s.ctx.ptr, C.Z3_sort_to_ast(s.ctx.ptr, s.ptr))
+		C.Z3_dec_ref(s.ctx.ptr, (C.Z3_ast)(unsafe.Pointer(s.ptr)))
 	})
 	return sort
 }
@@ -403,7 +403,7 @@ func (c *Context) MkFreshConst(prefix string, sort *Sort) *Expr {
 // MkBoolConst creates a Boolean constant (variable) with the given name.
 func (c *Context) MkBoolConst(name string) *Expr {
 	sym := c.MkStringSymbol(name)
-	return c.MkConst(sym, c.MkBoolSort())
+	return newExpr(c, C.Z3_mk_const(c.ptr, sym.ptr, C.Z3_mk_bool_sort(c.ptr)))
 }
 
 // Boolean operations
@@ -521,9 +521,9 @@ type FuncDecl struct {
 // newFuncDecl creates a new FuncDecl and manages its reference count.
 func newFuncDecl(ctx *Context, ptr C.Z3_func_decl) *FuncDecl {
 	fd := &FuncDecl{ctx: ctx, ptr: ptr}
-	C.Z3_inc_ref(ctx.ptr, C.Z3_func_decl_to_ast(ctx.ptr, ptr))
+	C.Z3_inc_ref(ctx.ptr, (C.Z3_ast)(unsafe.Pointer(ptr)))
 	runtime.SetFinalizer(fd, func(f *FuncDecl) {
-		C.Z3_dec_ref(f.ctx.ptr, C.Z3_func_decl_to_ast(f.ctx.ptr, f.ptr))
+		C.Z3_dec_ref(f.ctx.ptr, (C.Z3_ast)(unsafe.Pointer(f.ptr)))
 	})
 	return fd
 }

@@ -32,6 +32,9 @@ namespace opt {
         virtual expr_ref mk_ge(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_le(unsigned i, model_ref& model) = 0;
         virtual void fix_model(model_ref& m) = 0;
+        // Replace model by a model of the assertions of s whose objective
+        // values are all at least those of model; keeping model is valid.
+        virtual void maximize_in_cone(solver& s, model_ref& model) {}
     };
     class pareto_base {
     protected:

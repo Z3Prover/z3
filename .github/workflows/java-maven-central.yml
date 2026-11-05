@@ -1,0 +1,90 @@
+name: Java Maven Central Deployment
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: disabled
+      group-id:
+        type: string
+        default: ''
+      artifact-id:
+        type: string
+        default: ''
+    secrets:
+      CENTRAL_USERNAME:
+        required: false
+      CENTRAL_PASSWORD:
+        required: false
+      MAVEN_GPG_KEY:
+        required: false
+      MAVEN_GPG_PASSPHRASE:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  disabled:
+    if: inputs.mode == 'disabled'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Maven Central deployment skipped; publication is disabled. Bundle preparation remains in the Java validation workflow."
+
+  deploy:
+    if: inputs.mode != 'disabled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: maven-central
+    concurrency:
+      group: maven-central-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      JAVA_MAVEN_MODE: ${{ inputs.mode }}
+      JAVA_MAVEN_GROUP_ID: ${{ inputs.group-id }}
+      JAVA_MAVEN_ARTIFACT_ID: ${{ inputs.artifact-id }}
+      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+      MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Require explicit publication configuration
+        run: >-
+          python scripts/java/maven_publication.py preflight --mode "$JAVA_MAVEN_MODE"
+          --group-id "$JAVA_MAVEN_GROUP_ID" --artifact-id "$JAVA_MAVEN_ARTIFACT_ID"
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-maven-test-packages
+          path: packages
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: java-maven-rehearsal-bundle
+          path: rehearsal
+      - name: Sign tested artifacts and deploy through the Central plugin
+        run: >-
+          python scripts/java/maven_publication.py deploy --mode "$JAVA_MAVEN_MODE"
+          --group-id "$JAVA_MAVEN_GROUP_ID" --artifact-id "$JAVA_MAVEN_ARTIFACT_ID"
+          --packages packages --rehearsal rehearsal --out-dir publication
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: java-maven-central-publication
+          path: |
+            publication/publication.json
+            publication/target/central-publishing/central-bundle.zip
+          if-no-files-found: warn
+          retention-days: 7

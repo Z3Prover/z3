@@ -168,7 +168,11 @@ static void test_derive_union_normalization() {
 
     expr_ref not_axx(u.re.mk_complement(axx), m);
     expr_ref complemented(u.re.mk_union(yz, not_axx), m);
-    expected = rw.mk_union(rw.mk_complement(xx), rw.mk_union(yy, zz));
+    {
+        auto lhs = rw.mk_complement(xx);
+        auto rhs = rw.mk_union(yy, zz);
+        expected = rw.mk_union(lhs, rhs);
+    }
     expr_ref derivative = rw.get_derive()(seq::derivative_kind::brzozowski_t, ch_a, complemented);
     ENSURE(derivative == expected);
 

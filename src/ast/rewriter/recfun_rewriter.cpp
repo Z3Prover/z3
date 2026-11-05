@@ -36,6 +36,26 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         if (!d.get_rhs())
             return BR_FAILED;
         auto r = d.get_rhs();
+        // Leave cycles through unconditional bodies to the resource-limited theory solver.
+        if (d.is_fun_macro()) {
+            ptr_vector<func_decl> todo;
+            ast_mark visited;
+            todo.push_back(f);
+            visited.mark(f, true);
+            for (unsigned i = 0; i < todo.size(); ++i) {
+                for (expr* t : subterms::all(expr_ref(m_rec.get_def(todo[i]).get_rhs(), m))) {
+                    if (!m_rec.is_defined(t))
+                        continue;
+                    func_decl* g = to_app(t)->get_decl();
+                    if (g == f)
+                        return BR_FAILED;
+                    if (m_rec.has_def(g) && m_rec.get_def(g).is_fun_macro() && !visited.is_marked(g)) {
+                        visited.mark(g, true);
+                        todo.push_back(g);
+                    }
+                }
+            }
+        }
         bool safe_to_subst = true;
         for (unsigned i = 0; i < num_args; ++i) 
             if (!m.is_value(args[i]))
@@ -97,6 +117,29 @@ bool recfun_rewriter::is_decreasing_arg(func_decl* f, unsigned i, bool allow_any
                     return false;
                 dec_fun = to_app(t)->get_decl();
             }
+        }
+    }
+    if (allow_any_accessor) {
+        // Using the argument only through accessors does not make the
+        // recursion decrease on it: the body may rebuild a constructor
+        // term for position i from other data and recurse on a different
+        // argument, e.g. (f (tail s) (mk (proj_1 t) ...)) recursing on a
+        // sequence s. Unfolding such a ground constructor argument never
+        // terminates. Require every recursive call to pass a strict
+        // accessor chain of the argument at position i.
+        if (!dec_fun)
+            return false;
+        for (auto t : subterms::all(expr_ref(r, m))) {
+            if (!is_app(t) || to_app(t)->get_decl() != f)
+                continue;
+            expr* a = to_app(t)->get_arg(i);
+            bool strict = false;
+            while (is_app(a) && u.is_accessor(a)) {
+                a = to_app(a)->get_arg(0);
+                strict = true;
+            }
+            if (!strict || !is_var(a) || to_var(a)->get_idx() != idx)
+                return false;
         }
     }
     return dec_fun != nullptr || !allow_any_accessor;

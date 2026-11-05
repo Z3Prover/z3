@@ -1,0 +1,22 @@
+{
+  "pull_request": 11512,
+  "head_sha": "a6faede1509095862a73aa90e6c3fccf8c14a882",
+  "base_sha": "dd4179a5500dfe5dea9ab923177f5a4339c4ffd1",
+  "path_prefix": "fstar/audits/pr-11512/a6faede1509095862a73aa90e6c3fccf8c14a882/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41320920790",
+  "files": [
+    {
+      "name": "FiniteSetEqGuard.fst",
+      "sha256": "ac5659bb674a4074cffe1c3d21979fb177187dc2b21cf6d519fab338e700e91c"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "3f5a8a6a2a15f64c5d78ace2d92c4942e871b9deb5bde999bebc325bf2b10ef6"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "04f5722113cffcdec3cdad40dd5f744803d3ed15a659c11590bd64bba1ea9707"
+    }
+  ]
+}

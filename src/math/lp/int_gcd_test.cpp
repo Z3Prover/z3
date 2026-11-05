@@ -162,6 +162,12 @@ namespace lp {
         if (!(m_consts / gcds).is_int()) {
             TRACE(gcd_test, tout << "row failed the GCD test:\n"; lia.display_row_info(tout, i););
             fill_explanation_from_fixed_columns(A.m_rows[i]);
+            if (lra.dep_manager().proofs_enabled()) {
+                lar_term identity;
+                for (auto const& c : row)
+                    identity.add_monomial(c.coeff(), c.var());
+                lia.expl()->set_evidence(lra.explain_integer_infeasibility(identity));
+            }
             return false;
         }
                 
@@ -229,6 +235,16 @@ namespace lp {
         
         if (u1 < l1) {
             fill_explanation_from_fixed_columns(row);
+            if (lra.dep_manager().proofs_enabled()) {
+                lar_term identity;
+                unsigned_vector boxed;
+                for (auto const& c : row) {
+                    identity.add_monomial(c.coeff(), c.var());
+                    if (!lra.column_is_fixed(c.var()) && abs(m_lcm_den * c.coeff()) == m_least_coeff)
+                        boxed.push_back(c.var());
+                }
+                lia.expl()->set_evidence(lra.explain_integer_infeasibility(identity, boxed));
+            }
             TRACE(gcd_test, tout << "row failed the GCD test:\n"; lia.display_row(tout, row););
             return false;
         }        
@@ -308,6 +324,21 @@ namespace lp {
             else {
                 fill_explanation_from_fixed_columns(r);
                 fill_explanation_from_fixed_columns(*p.m_row);
+                if (lra.dep_manager().proofs_enabled()) {
+                    lar_term identity;
+                    mpq left, right;
+                    for (auto const& c : r)
+                        if (c.var() == j)
+                            left = c.coeff();
+                    for (auto const& c : *p.m_row)
+                        if (c.var() == j)
+                            right = c.coeff();
+                    for (auto const& c : r)
+                        identity.add_monomial(right * c.coeff(), c.var());
+                    for (auto const& c : *p.m_row)
+                        identity.add_monomial(-left * c.coeff(), c.var());
+                    lia.expl()->set_evidence(lra.explain_integer_infeasibility(identity));
+                }
                 return false;
             }
         }

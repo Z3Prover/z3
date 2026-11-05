@@ -256,8 +256,9 @@ void finite_set_axioms::in_range_axiom(expr* r) {
     expr_ref lo_le_hi(a.mk_le(_seq0, _seq1), m);
     m_rewriter(lo_le_hi);
 
-    add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(lo, r));
-    add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(hi, r));
+    expr_ref not_lo_le_hi(m.mk_not(lo_le_hi), m);
+    add_binary("range-bounds", r, nullptr, not_lo_le_hi, u.mk_in(lo, r));
+    add_binary("range-bounds", r, nullptr, not_lo_le_hi, u.mk_in(hi, r));
     add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
     add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(lo, a.mk_int(-1)), r)));
 }
@@ -340,15 +341,26 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
     arith_util a(m);
     expr_ref ineq(m);
 
+    sort* elem_sort = nullptr;
+    VERIFY(u.is_finite_set(e->get_sort(), elem_sort));
+    auto const& domain_size = elem_sort->get_num_elements();
+    if (domain_size.is_finite()) {
+        expr_ref bound(a.mk_int(rational(domain_size.size())), m);
+        ineq = a.mk_le(sz, bound);
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+
     if (u.is_singleton(e, b)) 
         add_unit("size", e, m.mk_eq(sz, a.mk_int(1)));    
     else if (u.is_empty(e)) 
         add_unit("size", e, m.mk_eq(sz, a.mk_int(0)));    
     else if (u.is_union(e, x, y)) {
         // upper bound: |A ∪ B| ≤ |A| + |B|
-        auto szx = u.mk_size(x);
-        auto szy = u.mk_size(y);       
-        ineq = a.mk_le(sz, a.mk_add(szx, szy));        
+        expr_ref szx(u.mk_size(x), m);
+        expr_ref szy(u.mk_size(y), m);
+        expr_ref sum(a.mk_add(szx, szy), m);
+        ineq = a.mk_le(sz, sum);
         m_rewriter(ineq);
         add_unit("size", e, ineq);
         // lower bounds: |A ∪ B| ≥ |A|  and  |A ∪ B| ≥ |B|

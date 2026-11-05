@@ -762,6 +762,8 @@ class Formatter:
             return seq1("Seq", (self.pp_sort(s.basis()), ))
         elif isinstance(s, z3.CharSortRef):
             return to_format("Char")
+        elif isinstance(s, z3.FiniteFieldSortRef):
+            return seq1("FiniteField", (to_format(s.size()), ))
         elif isinstance(s, z3.FiniteSetSortRef):
             return seq1("FiniteSet", (self.pp_sort(s.element_sort()), ))
         else:
@@ -769,6 +771,8 @@ class Formatter:
 
     def pp_const(self, a):
         k = a.decl().kind()
+        if k == Z3_OP_FF_NUM:
+            return to_format(a.as_long())
         if k == Z3_OP_RE_EMPTY_SET:
             return self.pp_set("Empty", a)
         elif k == Z3_OP_SEQ_EMPTY:

@@ -24,7 +24,6 @@ Author:
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
 
-
 namespace euf {
 
     class theory_checker;
@@ -33,8 +32,16 @@ namespace euf {
     public:
         virtual ~theory_checker_plugin() = default;
         virtual bool check(app* jst) = 0;
+        // Evidence-bearing rules must not be replaced by a fresh SMT solve.
+        virtual bool requires_check() const { return false; }
         virtual expr_ref_vector clause(app* jst) = 0;
         virtual void register_plugins(theory_checker& pc) = 0;
+        // Verification condition for the SMT fallback: a clause whose validity
+        // implies the hint's clause (this->clause(jst)), appended to v. Returns
+        // true when the hint's clause is a tautology that needs no solver call.
+        // The condition speaks for the hint's clause, not for the logged clause;
+        // smt_proof_checker::infer uses it only after establishing that the
+        // logged clause follows from the hint's clause.
         virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { v.append(this->clause(jst)); return false; }
     };
 
@@ -47,9 +54,15 @@ namespace euf {
         theory_checker(ast_manager& m);
         void register_plugin(symbol const& rule, theory_checker_plugin*);
         bool check(expr* jst);
+        bool requires_check(expr* jst);
+        // A plugin is registered for the hint's rule; clause and vc need one.
+        bool has_rule(expr* jst) const;
         expr_ref_vector clause(expr* jst);
         bool vc(expr* jst, expr_ref_vector const& clause, expr_ref_vector& v);
-        bool check(expr_ref_vector const& clause, expr* e, expr_ref_vector& units);
+        // Every literal of clause occurs in hint_clause; units receives the
+        // negations of the remaining hint literals, which must be established
+        // separately (by RUP) for clause to follow from hint_clause.
+        bool clause_follows(expr_ref_vector const& clause, expr_ref_vector const& hint_clause, expr_ref_vector& units);
     };
 
     /**
@@ -85,6 +98,10 @@ namespace euf {
         sat::literal_vector m_units;
         sat::literal_vector m_clause;
         bool         m_check_rup = false;
+        // Literals are mapped to SAT variables by expression id, so every mapped
+        // expression is pinned to keep its id from being reused by another term.
+        expr_ref_vector m_pinned;
+        bool_vector  m_is_pinned;
 
         // for logging
 
@@ -102,6 +119,10 @@ namespace euf {
         void diagnose_rup_failure(expr_ref_vector const& clause);
 
         void ensure_solver();
+
+        bool units_are_rup(expr_ref_vector const& units, std::ostream& diag);
+
+        bool follows_from_hint(expr_ref_vector const& clause, app* proof_hint, std::ostream& diag);
         
     public:
         smt_proof_checker(ast_manager& m, params_ref const& p);
@@ -112,22 +133,27 @@ namespace euf {
                 proof_hint->get_name() == m_rup;        
         }
         
+        sat::literal mk_literal(expr* e) {
+            bool sign = false;
+            while (m.is_not(e, e))
+                sign = !sign;
+            unsigned id = e->get_id();
+            if (!m_is_pinned.get(id, false)) {
+                m_is_pinned.setx(id, true, false);
+                m_pinned.push_back(e);
+            }
+            return sat::literal(id, sign);
+        }
+
         void mk_clause(expr_ref_vector const& clause) {
             m_clause.reset();
-            for (expr* e : clause) {
-                bool sign = false;
-                while (m.is_not(e, e))
-                    sign = !sign;
-                m_clause.push_back(sat::literal(e->get_id(), sign));
-            }
+            for (expr* e : clause) 
+                m_clause.push_back(mk_literal(e));
         }
         
         void mk_clause(expr* e) {
             m_clause.reset();
-            bool sign = false;
-            while (m.is_not(e, e))
-                sign = !sign;
-            m_clause.push_back(sat::literal(e->get_id(), sign));
+            m_clause.push_back(mk_literal(e));
         }
         
         bool check_rup(expr_ref_vector const& clause);
@@ -149,11 +175,14 @@ namespace euf {
             m_solver->assert_expr(mk_or(clause));
         }
         
-        void del(expr_ref_vector const& clause) {            
+        void del(expr_ref_vector const& clause) {
         }
 
-        
-        void infer(expr_ref_vector& clause, app* proof_hint);
+        // Check one inferred clause against its hint, natively or with the SMT
+        // fallback, and record it for later RUP checks. Returns false when the
+        // clause did not verify; the diagnostics are printed and the clause is
+        // not recorded. Callers decide whether to stop.
+        bool infer(expr_ref_vector& clause, app* proof_hint);
 
         void collect_statistics(statistics& st) const;
         
@@ -161,4 +190,3 @@ namespace euf {
 
 
 }
-

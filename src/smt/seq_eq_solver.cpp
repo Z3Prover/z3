@@ -27,9 +27,25 @@ Author:
 using namespace smt;
 
 
+bool theory_seq::can_reduce_eqs() {
+    if (!m.inc()) {
+        m_new_solution = true;
+        return false;
+    }
+    if (m.limit().suspended()) {
+        // Bound normalization as well as reductions while cancellation is suspended.
+        if (m_num_eager_eq_steps >= 1024) {
+            m_new_solution = true;
+            return false;
+        }
+        ++m_num_eager_eq_steps;
+    }
+    return true;
+}
+
 bool theory_seq::solve_eqs(unsigned i) {
     bool change = false;
-    for (; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
+    for (; !ctx.inconsistent() && i < m_eqs.size() && can_reduce_eqs(); ++i) {
         if (solve_eq(i)) {
             m_eqs.erase_and_swap(i--);
             ++m_stats.m_num_reductions;
@@ -37,6 +53,8 @@ bool theory_seq::solve_eqs(unsigned i) {
         }
         TRACE(seq_verbose, display_equations(tout););
     }
+    if (!ctx.inconsistent() && i < m_eqs.size())
+        m_new_solution = true;
     return change || m_new_propagation || ctx.inconsistent();
 }
 
@@ -1007,25 +1025,24 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     }
     expr_ref len_e = mk_len(e);
     if (upper_bound(len_e, hi)) {
-        // len(e) <= hi => len(tail) <= hi - lo
+        // lo <= len(e) <= hi => len(seq) <= hi - lo
         expr_ref high1(m_autil.mk_le(len_e, m_autil.mk_numeral(hi, true)), m);
         if (hi == lo) {
             auto p0 = ~mk_literal(high1);
-            add_axiom(p0, mk_seq_eq(seq, emp));
+            add_axiom(~low, p0, mk_seq_eq(seq, emp));
             added = true;
         }
         else {
             expr_ref high2(m_autil.mk_le(mk_len(seq), m_autil.mk_numeral(hi-lo, true)), m);
             literal h2 = mk_literal(high2);
             if (ctx.get_assignment(h2) != l_true) {
-                add_axiom(~mk_literal(high1), h2);
+                add_axiom(~low, ~mk_literal(high1), h2);
                 added = true;
             }
         }
     }
     else {
-        assume_equality(seq, emp);
-        added = true;
+        added |= assume_equality(seq, emp);
     }
     return added;
 }

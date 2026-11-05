@@ -1,0 +1,13 @@
+z3_add_component(ff_tactics
+  SOURCES
+    ff2bv_tactic.cpp
+    ff_sat_tactic.cpp
+    ff_simplify_tactic.cpp
+    ff_solve_tactic.cpp
+    ff_unique_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    core_tactics
+    ff_ast
+    ff
+    sat
+)

@@ -194,7 +194,8 @@ expr_ref parikh::window(block const& b, unsigned level, expr_ref_vector& defs) {
         expr_ref fits(m_autil.mk_ge(length.get(), level_ref.get()), m);
         defs.push_back(m_autil.mk_ge(w.get(), zero.get()));
         push_impl(defs, fits.get(), m.mk_eq(w.get(), m_autil.mk_sub(length.get(), level_minus_one.get())));
-        push_impl(defs, mk_not(m, fits), m.mk_eq(w.get(), zero.get()));
+        expr_ref not_fits(mk_not(m, fits), m);
+        push_impl(defs, not_fits, m.mk_eq(w.get(), zero.get()));
     }
     return w;
 }
@@ -210,7 +211,8 @@ expr_ref parikh::indicator(expr* cond, expr_ref_vector& defs) {
         auto one = num(1);
         auto zero = num(0);
         defs.push_back(m.mk_implies(cond, m.mk_eq(v.get(), one.get())));
-        defs.push_back(m.mk_implies(mk_not(m, cond), m.mk_eq(v.get(), zero.get())));
+        expr_ref not_cond(mk_not(m, cond), m);
+        defs.push_back(m.mk_implies(not_cond, m.mk_eq(v.get(), zero.get())));
     }
     return v;
 }
@@ -252,8 +254,10 @@ void parikh::define_letters(block const& b, expr_ref_vector& defs) {
     }
     for (unsigned c = 0; c < m_p; ++c) {
         for (unsigned d = c + 1; d < m_p; ++d) {
-            defs.push_back(m.mk_or(m.mk_not(fs.get(c)), m.mk_not(fs.get(d))));
-            defs.push_back(m.mk_or(m.mk_not(ls.get(c)), m.mk_not(ls.get(d))));
+            expr_ref not_first(m.mk_not(fs.get(c)), m);
+            defs.push_back(m.mk_or(not_first, m.mk_not(fs.get(d))));
+            expr_ref not_last(m.mk_not(ls.get(c)), m);
+            defs.push_back(m.mk_or(not_last, m.mk_not(ls.get(d))));
         }
     }
     expr_ref emp = is_empty(b);
@@ -310,7 +314,8 @@ void parikh::define_level(block const& b, unsigned level, expr_ref_vector& defs)
             auto r_plus_one = num(r + 1);
             extra = indicator(m_autil.mk_ge(rem.get(), r_plus_one.get()), defs);
         }
-        defs.push_back(m.mk_eq(sum(row), m_autil.mk_add(q, extra)));
+        expr_ref row_sum = sum(row);
+        defs.push_back(m.mk_eq(row_sum, m_autil.mk_add(q, extra)));
     }
 }
 
@@ -345,11 +350,21 @@ void parikh::define_flow(block const& b, expr_ref_vector& defs) {
                 auto residue = num((r + 1) % m_mod);
                 at_end = m.mk_and(at_end, m.mk_eq(rem.get(), residue.get()));
             }
-            defs.push_back(m.mk_eq(sum(right), m_autil.mk_sub(count(b, 1, c, r), indicator(at_end, defs))));
+            expr_ref right_sum = sum(right);
+            {
+                auto lhs = count(b, 1, c, r);
+                auto rhs = indicator(at_end, defs);
+                defs.push_back(m.mk_eq(right_sum, m_autil.mk_sub(lhs, rhs)));
+            }
 
             // the first letter opens the first window, at residue 0
             expr_ref at_start = r == 0 ? first(b, c) : expr_ref(m.mk_false(), m);
-            defs.push_back(m.mk_eq(sum(left), m_autil.mk_sub(count(b, 1, c, r), indicator(at_start, defs))));
+            expr_ref left_sum = sum(left);
+            {
+                auto lhs = count(b, 1, c, r);
+                auto rhs = indicator(at_start, defs);
+                defs.push_back(m.mk_eq(left_sum, m_autil.mk_sub(lhs, rhs)));
+            }
         }
     }
 }
@@ -415,7 +430,8 @@ void parikh::totals(vector<block> const& blocks, unsigned level, expr_ref_vector
                 expr_ref rot = mk_sk("seq.parikh.rot", { b.m_e, level_ref.get(), gram_ref.get(), r_ref.get(), pre, mod_ref.get(), p_ref.get() }, m_autil.mk_int());
                 if (fresh(rot)) {
                     for (unsigned v = 0; v < m_mod; ++v) {
-                        push_impl(defs, clock_is(pre, v), m.mk_eq(rot, count(b, level, g, (r + m_mod - v) % m_mod)));
+                        expr_ref at_position = clock_is(pre, v);
+                        push_impl(defs, at_position, m.mk_eq(rot, count(b, level, g, (r + m_mod - v) % m_mod)));
                     }
                 }
                 acc[g * m_mod + r].push_back(rot);
@@ -696,7 +712,8 @@ expr_ref parikh::mk_count_var(expr_ref_vector& out, expr* str_key, expr* root_re
 
 void parikh::push_zero_guard(expr_ref_vector& out, expr* count, expr* c1) {
     // count = 0  ->  c1 = 0   (an unentered subterm produces nothing)
-    push_impl(out, m.mk_eq(count, num(0).get()), m.mk_eq(c1, num(0).get()));
+    expr_ref is_zero(m.mk_eq(count, num(0).get()), m);
+    push_impl(out, is_zero, m.mk_eq(c1, num(0).get()));
 }
 
 bool parikh::rec(expr* re, expr* count, expr* str_key, expr* root_re, unsigned& idx,

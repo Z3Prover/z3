@@ -270,6 +270,8 @@ public:
             }
         }
 
+        ctx.check_proof();
+
         if (p.get_bool("print_statistics", false))
             display_statistics(ctx, tref.get());
     }

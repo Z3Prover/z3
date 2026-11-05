@@ -490,9 +490,9 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
             // so fma(rm, ±0, y, z_const) = ite(not isNaN(y) and not isInf(y), z_const, NaN)
             scoped_mpf vz(m_fm);
             if (m_util.is_numeral(arg4, vz) && !m_fm.is_zero(vz) && !m_fm.is_nan(vz)) {
-                expr_ref finite_cond(m());
-                finite_cond = m().mk_not(m().mk_or(m_util.mk_is_nan(other_mul),
-                                                   m_util.mk_is_inf(other_mul)));
+                expr_ref is_nan(m_util.mk_is_nan(other_mul), m());
+                expr_ref is_inf(m_util.mk_is_inf(other_mul), m());
+                expr_ref finite_cond(m().mk_not(m().mk_or(is_nan, is_inf)), m());
                 result = m().mk_ite(finite_cond, arg4, nan);
                 return BR_REWRITE_FULL;
             }
@@ -508,9 +508,9 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
             else
                 product_zero = m().mk_ite(m_util.mk_is_negative(other_mul), nzero, pzero);
 
-            expr_ref finite_cond(m());
-            finite_cond = m().mk_not(m().mk_or(m_util.mk_is_nan(other_mul),
-                                               m_util.mk_is_inf(other_mul)));
+            expr_ref is_nan(m_util.mk_is_nan(other_mul), m());
+            expr_ref is_inf(m_util.mk_is_inf(other_mul), m());
+            expr_ref finite_cond(m().mk_not(m().mk_or(is_nan, is_inf)), m());
             result = m().mk_ite(finite_cond,
                                 m_util.mk_add(arg1, product_zero, arg4),
                                 nan);
@@ -1070,7 +1070,9 @@ expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, un
     auto abs_ge = [&](rational const& threshold) {
         expr_ref thr(au.mk_int(threshold), m());
         expr_ref neg_thr(au.mk_int(-threshold), m());
-        return expr_ref(m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr)), m());
+        expr_ref ge(au.mk_ge(int_expr, thr), m());
+        expr_ref le(au.mk_le(int_expr, neg_thr), m());
+        return expr_ref(m().mk_or(ge, le), m());
     };
 
     if (static_cast<mpf_exp_t>(sbits) > max_exp) {
