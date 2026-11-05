@@ -1,0 +1,22 @@
+{
+  "pull_request": 11554,
+  "head_sha": "acfa6e9493e8c1d24467009002da17e6b7376699",
+  "base_sha": "784b613b57cde61abf05fdbd52fa861195de9acb",
+  "path_prefix": "fstar/audits/pr-11554/acfa6e9493e8c1d24467009002da17e6b7376699/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41982520219",
+  "files": [
+    {
+      "name": "SwinePowAudit.fst",
+      "sha256": "649063118c308222f373ec3a994c787e3c6ac9fb487a0bf62754e31a9a9fc224"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "a243fc9d83f2e2edf62adea4e33806a8b51d2e0820bb97757a8fe80a4adc95e8"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "aa1015aed011a6ce18941af60091b61041a6d62adf1b3ec3ae55d4e304cde2bd"
+    }
+  ]
+}
