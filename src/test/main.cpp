@@ -89,6 +89,7 @@
     X(api_polynomial) \
     X(api_pb) \
     X(api_datalog) \
+    X(api_qbmc_recursive) \
     X(spacer) \
     X(parametric_datatype) \
     X(cube_clause) \
