@@ -543,6 +543,44 @@ namespace seq {
         auto& sf = ac.solver_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
+        // Keep literal exclusions in a settled variable's joint language instead
+        // of splitting it into unsupported symbolic-character heads.
+        if (ac.eq_facet_ref().is_satisfied() && f.is_satisfied()) {
+            auto& df = ac.deq_facet_ref();
+            for (unsigned i = 0; i < df.disequations().size(); ++i) {
+                auto const& d = df.disequations()[i];
+                if (!d.active())
+                    continue;
+                auto const* variable = &d.m_lhs;
+                auto const* value = &d.m_rhs;
+                if (value->size() == 1 && !u.str.is_unit(value->get(0)))
+                    std::swap(variable, value);
+                if (variable->size() != 1 || u.str.is_unit(variable->get(0)) ||
+                    !u.is_string(variable->get(0)->get_sort()))
+                    continue;
+                expr* v = variable->get(0);
+                if (!any_of(f.memberships(), [&](str_mem const& sm) {
+                        return sm.active() && sm.m_str.size() == 1 && sm.m_str.get(0) == v;
+                    }))
+                    continue;
+                svector<unsigned> characters;
+                for (expr* token : *value) {
+                    expr* ch = nullptr;
+                    unsigned c;
+                    if (!u.str.is_unit(token, ch) || !u.is_const_char(ch, c))
+                        break;
+                    characters.push_back(c);
+                }
+                if (characters.empty() || characters.size() != value->size())
+                    continue;
+                expr_ref literal(u.str.mk_string(zstring(characters.size(), characters.data())), m);
+                expr_ref re(u.re.mk_to_re(literal), m);
+                re = u.re.mk_complement(re);
+                f.add(str_mem(m, *variable, view::membership(re, m), d.m_dep));
+                df.remove_disequation_trailed(i);
+                changed = true;
+            }
+        }
         eq_tree::dep_tracker letter_dep = nullptr;
         if (f.check_letter_conflict(ac.eq_facet_ref(), letter_dep)) {
             ++m_stats.m_num_letter_refuted;
@@ -1142,13 +1180,13 @@ namespace seq {
         unsigned idx;
         if (!find_split_target(mf, idx))
             return nullptr;
-        has_more = true;
         str_mem const& sm = mf.memberships()[idx];
         eq_tree::dep_tracker dep0 = sm.m_dep;
         scoped_ptr<iterator> it(alloc(iterator, n, m_rw, m, u, mf.live(), idx, sm));
         if (!it->next(out)) {
             if (it->gave_up())
-                return nullptr;   // resource bound hit before deciding; not a conflict
+                // Neither the supported syntax nor the budget changes at higher costs.
+                return nullptr;
             // `mem_split` reasons about this membership in isolation, so if
             // it exhausts every branch, this membership's own dependency is
             // the precise conflict.

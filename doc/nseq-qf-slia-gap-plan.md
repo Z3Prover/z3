@@ -223,6 +223,68 @@ Both UNSAT cases, validWordAbbreviation/37 and /163, were master
 timeouts. Independent `seq` checks also time out at 30 seconds, so
 these UNSAT results remain independently unconfirmed.
 
+### P3: regular literal exclusions and retry termination
+
+Implemented on top of merged c3mv `bb451f2e0`. Once word equations settle,
+membership propagation converts `x != literal` into a dependency-tracked
+complement-of-singleton membership, provided `x` is a single String token
+already governed by regular memberships. Both removal of the disequation
+and installation of its replacement are trailed. This lets the joint
+language solver choose a witness before disequation splitting introduces
+unsupported symbolic-character heads.
+
+An initial eager translation at disequality notification recovered 18
+cases but regressed 11 Kaluza/PyEx cases. It was replaced by the guarded,
+post-substitution policy above; all 11 regressions recover. Compound
+strings, symbolic excluded values, and other sequence sorts retain their
+existing disequation handling.
+
+`mem_monadic_split` no longer advertises higher-cost offers after giving
+up: its supported syntax and fixed budget do not change with cost.
+Gave-up results remain unknown, not conflicts; successful iterators and
+other plugins' higher-cost offers retain their existing behavior.
+
+StringFuzz `regex-020-graft-graft.smt2` now returns validated SAT with
+witness `"aaa"`. Five repeated runs take 29-50 ms, median 30 ms, versus
+the saved baseline's three unknown runs at 182-381 ms, median 186 ms.
+DFS nodes fall from 114 to 1, final checks from 2 to 1, and monadic split
+attempts from 10,068 to zero.
+
+All comparisons retain the five-second cap, 32 workers, and model
+validation. Groups overlap:
+
+| Group | Inputs | Merged c3mv solved | After P3 solved |
+|---|---:|---:|---:|
+| Existing quick subset | 786 | 553 | 569 |
+| Transformed StringFuzz within that subset | 73 | 49 | 62 |
+| Fresh transformed StringFuzz master-only sample | 128 | 16 | 75 |
+| All published transformed StringFuzz c3mv wins | 146 | 146 | 146 |
+| Generated-regex/regex-length/arithmetic controls | 3 | 3 | 3 |
+
+The quick subset gains 16 solves with no losses in 36.2 seconds.
+The additional 277-input StringFuzz/control comparison gains 59 solves
+with no losses; baseline and modified runs take 6.8 and 5.7 seconds.
+Its fresh loss sample excludes the quick subset and uses fixed seed
+20261104. Across 1,281 distinct measured inputs there are no invalid
+models, solver errors, or definite-result contradictions against the
+baseline or published master where a definite comparison is available.
+The 290-input former-error sweep retains 271 validated SAT, 2 UNSAT,
+16 timeouts, and 1 unknown; the two previously unconfirmed UNSAT results
+remain subject to the limitation noted above.
+
+Focused regressions cover literal exclusions in both orientations and
+assertion orders, guarded conflict cores, push/pop and validated models,
+compound-string fallback, and a single failed split attempt for an
+unsupported symbolic head. All 135 native tests and rebuilt CLI/Python
+smoke checks pass. Per-input results, statistics, and the extra manifest
+are retained in `p3-quick-v2`, `p3-errors-v2`, `p3-stringfuzz-baseline`,
+`p3-stringfuzz-final`, and `p3-subset-manifest.json` session artifacts.
+
+General symbolic-prefix derivative support is not implemented: unsupported
+residual memberships still conservatively yield unknown. Broader P2
+PyEx sweeps, the P0 snapshot audit, three older IP-parsing regressions,
+and P4's full-corpus comparison remain open.
+
 ## Baseline and scope
 
 Sources:
