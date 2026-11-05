@@ -216,7 +216,8 @@ try {
 
   Write-Host "=== Phase 1b: extract to OCaml ==="
   # Custard extracts the whole program in one run. Every module of the checker's dependency
-  # closure is a root, so the hand-written OCaml driver can use any of its definitions;
+  # closure (every registered production module with -RunTests) is a root, so the hand-written
+  # OCaml driver can use any of its definitions;
   # --custard_split keeps one OCaml module per F* module, which the driver and the link
   # order below rely on.
   $entryModules = $scope.entries | ForEach-Object { "--custard_entry_module"; $_ -replace '\.fst$', '' }

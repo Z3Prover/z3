@@ -695,10 +695,11 @@ and the full verification
 [../.github/workflows/pulse-checker-full.yml](../.github/workflows/pulse-checker-full.yml)
 on pushes and pull requests that touch `fstar/**`, and
 [../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)
-on completed checker-only builds ([README.md](README.md#L119-L189)). By
+on completed checker-only builds ([README.md](README.md#L119-L191)). By
 convention, every `.fst` in `tools/checker_modules.json` is verified by the
-full workflow, every extracted module and its F* dependencies are verified
-before extraction, a semantic change comes with F* tests and native
+full workflow (which also extracts all of them, as before; the checker-only
+build extracts its closure and links the same modules), every extracted module
+and its F* dependencies are verified before extraction, a semantic change comes with F* tests and native
 regressions, and a change of scope or guarantee is described in a report in
 this directory.
 

@@ -110,11 +110,17 @@ class SelectionTests(unittest.TestCase):
             checker_scope.select(MANIFEST, "ocaml", False,
                                  closure(without=KERNEL + ["Z3SortedProof.fst"]), self.roots)
 
-    def test_extraction_entries_are_the_same_closure_implementations_in_both_scopes(self):
-        entries = checker_scope.extraction_entries(MANIFEST, closure())
+    def test_checker_extraction_entries_are_the_closure_implementations(self):
+        entries = checker_scope.extraction_entries(MANIFEST, closure(), False)
         self.assertEqual(entries, [m for m in MANIFEST["modules"]
                                    if m not in KERNEL and not m.endswith(".fsti")])
         self.assertNotIn("Z3Native.fsti", entries)
+
+    def test_full_extraction_entries_are_every_registered_implementation(self):
+        entries = checker_scope.extraction_entries(MANIFEST, closure(), True)
+        self.assertEqual(entries, [m for m in MANIFEST["modules"] if not m.endswith(".fsti")])
+        self.assertEqual(len(entries), 86)
+        self.assertTrue(set(KERNEL) <= set(entries))
 
 
 @unittest.skipUnless(os.name == "posix" and PWSH and shutil.which("git"),
@@ -191,8 +197,7 @@ class PowerShellWiringTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Native checker CLI tests failed", result.stdout + result.stderr)
         self.assertEqual(verified, MANIFEST["modules"] + MANIFEST["tests"])
-        self.assertEqual(entries, [m[:-4] for m in MANIFEST["modules"]
-                                   if m not in KERNEL and m.endswith(".fst")])
+        self.assertEqual(entries, [m[:-4] for m in MANIFEST["modules"] if m.endswith(".fst")])
         self.assertIn("--run-tests", native)
         self.assertIn("native-tests", native)
         self.assertEqual((report["mode"], report["registered_not_selected"]), ("full", []))

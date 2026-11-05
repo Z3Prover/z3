@@ -145,14 +145,16 @@ registered production modules), `Z3CherryTests`, or the native bridge and
 CLI tests. F* and enabled OCaml compiler warnings fail the build. The OCaml
 checker is extracted in one whole-program Custard run
 (`--codegen OCaml --custard_split`) with the closure's implementation modules
-as entries, and linked in `ocamldep -sort` order; a call outside a
+as entries (the full workflow keeps every registered production module as an
+entry), and linked in `ocamldep -sort` order; a call outside a
 refinement's domain raises `Match_failure` rather than returning a value.
 
 **Verify all Pulse checker files** (`.github/workflows/pulse-checker-full.yml`)
 runs `build_ocaml_checker.ps1 -RunTests -BuildCherry`: on both pinned F*
 versions it verifies every module and test registered in
 `tools/checker_modules.json` (plus `Z3Cherry` and `Z3CherryTests` for Cherry),
-then extracts with the same entries, links, and runs the native bridge,
+then extracts every registered production module as before, links the same
+modules as the checker-only build, and runs the native bridge,
 CLI, and Cherry test suites. It uploads only **`pulse-checker-full-report`**
 (`source.json`, `build.json`, the scope reports, and the log), never checker
 packages, and has no write permission.

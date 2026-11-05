@@ -66,9 +66,9 @@ def select(manifest, backend, full, closure, roots):
     return [module for module in production if module in closure], []
 
 
-def extraction_entries(manifest, closure):
+def extraction_entries(manifest, closure, full):
     return [module for module in manifest["modules"]
-            if module in closure and not module.endswith(".fsti")]
+            if (full or module in closure) and not module.endswith(".fsti")]
 
 
 def write_report(path, manifest, backend, full, fstar_version, roots, modules, tests):
@@ -112,7 +112,7 @@ def main():
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"ERROR {error}\n")
     print(json.dumps({"modules": modules, "tests": tests,
-                      "entries": extraction_entries(manifest, closure)}))
+                      "entries": extraction_entries(manifest, closure, args.full)}))
 
 
 if __name__ == "__main__":
