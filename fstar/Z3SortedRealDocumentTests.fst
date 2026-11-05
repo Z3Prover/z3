@@ -9,7 +9,8 @@ module Z3SortedRealDocumentTests
    certified and false in every root model; each mutant is a well-typed
    document whose Farkas step stays an open obligation (RootPending 1). The
    0 < x < 1 bounds are satisfiable at x = 1/2 in the standard root
-   (Z3SortedRealRoot.lemma_real_rounding_countermodel). *)
+   (Z3SortedRealRoot.lemma_real_rounding_countermodel). Section R6 runs the
+   ground ITE rewrite equations (SP.ite_rewrite) at every result sort. *)
 
 open Z3AstTheory
 open Z3ValueTheory
@@ -24,6 +25,10 @@ module PT = Z3SortedProofTests
 module RD = Z3SortedRootDocument
 module RL = Z3SortedReal
 module RR = Z3SortedRealRoot
+module SS = Z3SortedSemantics
+module BR = Z3BooleanRewrite
+module V = Z3DatatypeValue
+module D = Z3Definitions
 
 let real : sort = TR.real_s
 let integer : sort = TR.int_s
@@ -301,3 +306,178 @@ let r4_rewrite_document_false (u:TR.uninterpreted) (i:TR.interp u PT.core_schema
           (ensures not (RD.root_truths u PT.core_schema i rewrite_document.P.assertions)) =
   r4_rewrite_document ();
   RD.lemma_root_certified_epsilon u PT.core_schema rewrite_document i
+
+(* ---------------------------------------------------------------------- *)
+(* R6. Ground ITE rewrite equations (SP.ite_rewrite)                        *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's premise-free top-level `rewrite` steps of the three ITE
+   laws of Z3NnfReplay.ite_rewritten, at the result sorts Bool, Int, Real,
+   an uninterpreted sort, an array sort, a datatype (PT.schema's Box) and
+   with guards and branches under function applications. Each positive is
+   checked as a node and certifies the refutation of its negation (false in
+   every root model); each mutant (swapped branches, `or` for `and` and
+   back, the opposite guard, a counterfeit ite/and declaration, a
+   same-spelled twin branch) leaves the rewrite step open. No Real law is
+   read: the laws also certify on a schema whose Real gate is closed. *)
+
+let usort : sort = BaseSort "U"
+let ite_ (g x y:expr) : expr = App (SS.ite_decl (get_sort x)) [g; x; y]
+let and_ (a b:expr) : expr = App (BR.connective_decl BR.Conjunction [a; b]) [a; b]
+let or_ (a b:expr) : expr = App (BR.connective_decl BR.Disjunction [a; b]) [a; b]
+
+let g : expr = constant "g" bool_sort []
+let h : expr = constant "h" bool_sort []
+
+let else_merged (g h x y:expr) : expr & expr = (ite_ g (ite_ h x y) y, ite_ (and_ g h) x y)
+let then_merged (g h x y:expr) : expr & expr = (ite_ g x (ite_ h x y), ite_ (or_ g h) x y)
+let not_swapped (g x y:expr) : expr & expr = (ite_ (R.mk_not_expr g) x y, ite_ g y x)
+
+let laws (x y:expr) : list (expr & expr) = [else_merged g h x y; then_merged g h x y; not_swapped g x y]
+
+let at_sort (srt:sort) : list (expr & expr) = laws (constant "x" srt []) (constant "y" srt [])
+
+let pu : expr = App { decl_name = "P"; domain = [usort]; range = bool_sort; interp = None; int_params = [] }
+                    [constant "a" usort []]
+let qu : expr = App { decl_name = "Q"; domain = [usort]; range = bool_sort; interp = None; int_params = [] }
+                    [constant "a" usort []]
+let fu : expr = App { decl_name = "F"; domain = [usort]; range = integer; interp = None; int_params = [] }
+                    [constant "a" usort []]
+let gu : expr = App { decl_name = "G"; domain = [usort]; range = integer; interp = None; int_params = [] }
+                    [constant "a" usort []]
+
+let applied : list (expr & expr) = [else_merged pu qu fu gu; then_merged pu qu fu gu; not_swapped pu fu gu]
+
+let core_positives : list (expr & expr) =
+  L.concatMap at_sort [bool_sort; integer; real; usort; ArraySort [usort] integer] `L.append` applied
+
+let box_positives : list (expr & expr) = laws PT.x PT.y
+
+let ite_rewrite_node (lr:expr & expr) : U.proof_node = rewrite_node (fst lr) (snd lr)
+
+(* not (lhs = rhs), the rewrite lhs = rhs, and unit resolution to false. *)
+let ite_document (lr:expr & expr) : P.document =
+  let e = R.mk_eq_expr (fst lr) (snd lr) in
+  doc [R.mk_not_expr e]
+      [entry U.Asserted (R.mk_not_expr e) []; entry U.RewriteRule e []; entry U.UnitResolution R.false_expr [0; 1]]
+      2
+
+let node_checked (sch:S.checked_schema) (lr:expr & expr) : bool =
+  SP.ite_rewrite (ite_rewrite_node lr) && rewrite_pending sch (fst lr) (snd lr) = Some 0
+
+let certified (sch:S.checked_schema) (lr:expr & expr) : bool =
+  RD.check_root_document sch (ite_document lr) = RD.RootCertified
+
+let certified_epsilon (sch:S.checked_schema) (lr:expr & expr) : bool =
+  RD.check_root_document_epsilon sch (ite_document lr) = RD.RootCertified
+
+let r6_nodes ()
+  : Lemma (L.for_all (node_checked PT.core_schema) core_positives /\
+           L.for_all (node_checked PT.schema) box_positives) =
+  assert_norm (L.for_all (node_checked PT.core_schema) core_positives);
+  assert_norm (L.for_all (node_checked PT.schema) box_positives)
+
+let r6_certified ()
+  : Lemma (L.for_all (certified PT.core_schema) core_positives /\
+           L.for_all (certified PT.schema) box_positives /\
+           L.for_all (certified_epsilon PT.core_schema) (at_sort usort) /\
+           L.for_all (certified_epsilon PT.schema) box_positives) =
+  assert_norm (L.for_all (certified PT.core_schema) core_positives);
+  assert_norm (L.for_all (certified PT.schema) box_positives);
+  assert_norm (L.for_all (certified_epsilon PT.core_schema) (at_sort usort));
+  assert_norm (L.for_all (certified_epsilon PT.schema) box_positives)
+
+let rec lemma_for_all_memP (#a:Type) (f:a -> Tot bool) (l:list a) (x:a)
+  : Lemma (requires L.for_all f l /\ L.memP x l) (ensures f x) (decreases l) =
+  match l with
+  | [] -> ()
+  | _ :: rest -> FStar.Classical.move_requires (lemma_for_all_memP f rest) x
+
+let r6_false_in_every_root (u:TR.uninterpreted) (i:TR.interp u PT.core_schema) (j:TR.interp u PT.schema)
+  : Lemma (requires TR.root_model u PT.core_schema i /\ TR.root_model u PT.schema j)
+          (ensures (forall (lr:expr & expr). L.memP lr core_positives ==>
+                      falsified u PT.core_schema (ite_document lr) i) /\
+                   (forall (lr:expr & expr). L.memP lr box_positives ==>
+                      falsified u PT.schema (ite_document lr) j)) =
+  r6_certified ();
+  let core (lr:expr & expr)
+    : Lemma (requires L.memP lr core_positives) (ensures falsified u PT.core_schema (ite_document lr) i) =
+    lemma_for_all_memP (certified PT.core_schema) core_positives lr;
+    RD.lemma_root_certified u PT.core_schema (ite_document lr) i in
+  let box (lr:expr & expr)
+    : Lemma (requires L.memP lr box_positives) (ensures falsified u PT.schema (ite_document lr) j) =
+    lemma_for_all_memP (certified PT.schema) box_positives lr;
+    RD.lemma_root_certified u PT.schema (ite_document lr) j in
+  FStar.Classical.forall_intro (FStar.Classical.move_requires core);
+  FStar.Classical.forall_intro (FStar.Classical.move_requires box)
+
+(* Mutants at U: each equation is false at some interpretation of g, h, x, y
+   (x <> y), so its document is satisfiable and the rewrite step stays open. *)
+let xu : expr = constant "x" usort []
+let yu : expr = constant "y" usort []
+let fake_ite : func_decl = { SS.ite_decl usort with interp = None }
+let fake_and : func_decl = { BR.connective_decl BR.Conjunction [g; h] with interp = None }
+
+let mutants : list (expr & expr) = [
+  (ite_ g (ite_ h xu yu) yu, ite_ (and_ g h) yu xu);                    (* swapped branches *)
+  (ite_ g (ite_ h xu yu) yu, ite_ (or_ g h) xu yu);                     (* or for and *)
+  (ite_ g xu (ite_ h xu yu), ite_ (and_ g h) xu yu);                    (* and for or *)
+  (ite_ g (ite_ h xu yu) yu, ite_ (and_ g (R.mk_not_expr h)) xu yu);    (* opposite inner guard *)
+  (ite_ g xu yu, ite_ g yu xu);                                         (* swap without negation *)
+  (ite_ (R.mk_not_expr g) xu yu, ite_ g xu yu);                         (* negation, branches kept *)
+  (ite_ g (ite_ h xu yu) yu, App fake_ite [and_ g h; xu; yu]);          (* counterfeit ite *)
+  (ite_ g (ite_ h xu yu) yu, ite_ (App fake_and [g; h]) xu yu);         (* counterfeit and *)
+  (ite_ g (ite_ h xu yu) yu, ite_ (and_ g h) (constant "x" usort [7]) yu)  (* twin branch *)
+]
+
+let node_open (lr:expr & expr) : bool =
+  not (SP.ite_rewrite (ite_rewrite_node lr)) && rewrite_pending PT.core_schema (fst lr) (snd lr) = Some 1
+
+let document_open (lr:expr & expr) : bool =
+  RD.check_root_document PT.core_schema (ite_document lr) = RD.RootPending 1
+
+let r6_mutants_open ()
+  : Lemma (L.for_all node_open mutants /\ L.for_all document_open mutants) =
+  assert_norm (L.for_all node_open mutants);
+  assert_norm (L.for_all document_open mutants)
+
+(* The direct path reads closed equations with no premises and the
+   RewriteRule label only: an open side, a premise or another rule label is
+   refused by SP.ite_rewrite. *)
+let r6_shape_guards ()
+  : Lemma (not (SP.ite_rewrite (rewrite_node (ite_ g (ite_ h (Var 0 usort) yu) yu)
+                                             (ite_ (and_ g h) (Var 0 usort) yu))) /\
+           not (SP.ite_rewrite ({ ite_rewrite_node (else_merged g h xu yu) with
+                                  U.premises = [{ U.conclusion = U.Holds g; hypotheses = [] }] })) /\
+           not (SP.ite_rewrite ({ ite_rewrite_node (else_merged g h xu yu) with U.kind = U.LemmaRule }))) =
+  assert_norm (not (SP.ite_rewrite (rewrite_node (ite_ g (ite_ h (Var 0 usort) yu) yu)
+                                                 (ite_ (and_ g h) (Var 0 usort) yu))));
+  assert_norm (not (SP.ite_rewrite ({ ite_rewrite_node (else_merged g h xu yu) with
+                                      U.premises = [{ U.conclusion = U.Holds g; hypotheses = [] }] })));
+  assert_norm (not (SP.ite_rewrite ({ ite_rewrite_node (else_merged g h xu yu) with U.kind = U.LemmaRule })))
+
+(* The Real gate closed (RR.real_datatype_schema registers a datatype named
+   Real): the ITE laws still certify, and the document is false in EVERY
+   Sorted model of that schema, with no Real law and no binder law. *)
+let r6_real_gate_closed ()
+  : Lemma (not (RL.real_primitive RR.real_datatype_schema) /\
+           L.for_all (fun lr -> SP.check_document RR.real_datatype_schema (ite_document lr) = Some 0)
+             (L.append (at_sort usort) (at_sort bool_sort)) /\
+           not (SP.real_rewrite RR.real_datatype_schema (ite_rewrite_node (else_merged g h xu yu)))) =
+  RR.lemma_real_datatype_refused ();
+  assert_norm (L.for_all (fun lr -> SP.check_document RR.real_datatype_schema (ite_document lr) = Some 0)
+                 (L.append (at_sort usort) (at_sort bool_sort)));
+  assert_norm (not (SP.real_rewrite RR.real_datatype_schema (ite_rewrite_node (else_merged g h xu yu))))
+
+let gate_closed_document : P.document = ite_document (else_merged g h xu yu)
+
+let r6_real_gate_closed_false (#base:sort -> Type0) (bc:S.boolean_carrier base)
+                              (eq:SS.scalar_model base)
+                              (other:V.interpretation base (S.signature RR.real_datatype_schema))
+  : Lemma (not (SS.truths RR.real_datatype_schema bc eq other gate_closed_document.P.assertions)) =
+  assert_norm (SP.check_document RR.real_datatype_schema gate_closed_document == Some 0);
+  assert_norm (not (SP.needs_forall_semantics gate_closed_document.P.entries) /\
+               not (SP.needs_forall_truth gate_closed_document.P.entries) /\
+               not (SP.needs_binder_semantics gate_closed_document.P.entries) /\
+               not (SP.needs_real_semantics RR.real_datatype_schema gate_closed_document.P.entries));
+  SP.lemma_check_document RR.real_datatype_schema bc eq other gate_closed_document

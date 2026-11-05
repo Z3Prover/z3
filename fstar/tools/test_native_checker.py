@@ -426,6 +426,43 @@ SORTED_REAL_SATISFIABLE_CASES = (
     ("equal-bounds", "(declare-const x Real)(declare-const y Real)(assert (<= x y))(assert (<= y x))"),
 )
 
+# Sort-generic ITE laws on the Sorted route: the producer's premise-free closed `rewrite` steps
+# (ite c (ite d x y) y) = (ite (and c d) x y) and (ite c x (ite d x y)) = (ite (or c d) x y) (the direct
+# path Z3SortedProof.ite_rewrite) and the same laws as leaves of a `quant-intro` certificate, at an
+# uninterpreted sort, Int, Real and a datatype (whose metadata selects the sorted-datatype semantics on
+# the default route). The satisfiable mutants (`or` for `and` and back) stay SAT, and a valid merge
+# with a negated inner guard (not one of the laws) leaves its rewrite step pending.
+ITE_HEADER = "(declare-const c Bool)(declare-const d Bool)"
+ITE_UNINTERPRETED = "(declare-sort U 0)" + ITE_HEADER + "(declare-const x U)(declare-const y U)"
+ITE_DATATYPE = "(declare-datatypes ((B 0)) (((mk (f Int)))))" + ITE_HEADER
+SORTED_DIRECT_ITE_CASES = (
+    ("else-merge", ITE_UNINTERPRETED + "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))"),
+    ("then-merge", ITE_UNINTERPRETED + "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))"),
+    ("not-swap", ITE_UNINTERPRETED + "(assert (not (= (ite (not c) x y) (ite c y x))))"),
+    ("real-else-merge", ITE_HEADER + "(declare-const x Real)(declare-const y Real)"
+     "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))"),
+    ("int-flattened-else-merge", ITE_HEADER + "(declare-const e Bool)(declare-const x Int)(declare-const y Int)"
+     "(assert (not (= (ite c (ite (and d e) x y) y) (ite (and c d e) x y))))"),
+    ("datatype-else-merge", ITE_DATATYPE + "(declare-const x B)(declare-const y B)"
+     "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))"),
+    ("datatype-then-merge", ITE_DATATYPE + "(declare-const x B)(declare-const y B)"
+     "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))"),
+    ("quant-intro-then-merge", ITE_UNINTERPRETED + "(declare-fun P (U) Bool)"
+     "(assert (forall ((z U)) (P (ite c z (ite d z y)))))(assert (not (forall ((z U)) (P (ite (or c d) z y)))))"),
+    ("datatype-quant-intro-else-merge", ITE_DATATYPE + "(declare-const y B)(declare-fun P (B) Bool)"
+     "(assert (forall ((z B)) (P (ite c (ite d z y) y))))(assert (not (forall ((z B)) (P (ite (and c d) z y)))))"),
+)
+SORTED_DIRECT_ITE_SATISFIABLE_CASES = (
+    ("else-merge-by-or", ITE_UNINTERPRETED + "(assert (not (= (ite c (ite d x y) y) (ite (or c d) x y))))"),
+    ("then-merge-by-and", ITE_UNINTERPRETED + "(assert (not (= (ite c x (ite d x y)) (ite (and c d) x y))))"),
+    ("datatype-else-merge-by-or", ITE_DATATYPE + "(declare-const x B)(declare-const y B)"
+     "(assert (not (= (ite c (ite d x y) y) (ite (or c d) x y))))"),
+    ("datatype-quant-intro-else-merge-by-or", ITE_DATATYPE + "(declare-const y B)(declare-fun P (B) Bool)"
+     "(assert (forall ((z B)) (P (ite c (ite d z y) y))))(assert (not (forall ((z B)) (P (ite (or c d) z y)))))"),
+)
+SORTED_ITE_NEGATED_GUARD_MERGE = (ITE_UNINTERPRETED +
+                                  "(assert (not (= (ite c (ite d x y) x) (ite (and c (not d)) y x))))")
+
 # Term if-then-else definition axioms in the shapes of Pulse.Lib.Raise q5 (a Universe choice
 # under an Int bound), Pulse.C.Types.Fields q1 (a Term choice under a Boolean-box equation) and
 # an Int choice: `(or (not c) (= t (ite c t u)))` and `(or c (= u (ite c t u)))`, both
@@ -997,6 +1034,40 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("sat\n", interactive.stdout)
                 self.assertNotIn("unsat", interactive.stdout)
                 self.assertNotIn("proof-check", interactive.stdout)
+
+    def test_sorted_direct_ite_rewrites_in_both_modes(self):
+        for name, source in SORTED_DIRECT_ITE_CASES:
+            routes = [("--sorted-core",)] + ([()] if "declare-datatypes" in source else [])
+            for route in routes:
+                for interactive in (False, True):
+                    with self.subTest(case=name, route=route, interactive=interactive):
+                        args = ["--diagnostics", "--stats", *route]
+                        text = source
+                        if interactive:
+                            text += "(check-sat)"
+                            args.append("--interactive")
+                        result = self.run_checker(text, *args)
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        semantics = "sorted-datatype" if "declare-datatypes" in source else "sorted-core"
+                        if interactive:
+                            self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                            self.assertIn("semantics=" + semantics, result.stdout)
+                        else:
+                            self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+                            self.assertIn("semantics=" + semantics, result.stderr)
+                        self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+        for name, source in SORTED_DIRECT_ITE_SATISFIABLE_CASES:
+            for route in (("--sorted-core",), ()):
+                with self.subTest(case=name, route=route):
+                    result = self.run_checker(source, *route, "--diagnostics")
+                    self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                    interactive = self.run_checker(source + "(check-sat)", "--interactive", *route, "--diagnostics")
+                    self.assertIn("sat\n", interactive.stdout)
+                    self.assertNotIn("unsat", interactive.stdout)
+                    self.assertNotIn("proof-check", interactive.stdout)
+        result = self.run_checker(SORTED_ITE_NEGATED_GUARD_MERGE, "--sorted-core", "--diagnostics", "--stats")
+        self.assertEqual((result.returncode, result.stdout.strip()), (3, "PARTIAL 1"), result.stderr)
+        self.assertIn("obligation\trewrite\t", result.stderr)
 
     def test_sorted_term_choice_definition_axioms_in_both_modes(self):
         for name, source in SORTED_CHOICE_CASES:

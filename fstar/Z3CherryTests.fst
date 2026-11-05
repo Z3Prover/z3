@@ -489,6 +489,54 @@ let real_farkas_controls () : bool =
   check (fake_gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
   check (gt x zero) (le twin zero) [0; 1] [(1, 1); (1, 1)] = Some 1
 
+(* The producer's premise-free closed ITE rewrite steps on the forced Sorted
+   route (Z3SortedProof.ite_rewrite inside check_document_epsilon),
+   natively: the else-branch merge by `and`, the then-branch merge by `or`
+   and the negated-condition swap at an uninterpreted sort and at Real are
+   accepted, also on a schema registering a datatype named Real (the Real
+   gate closed); swapped branches, `or` for `and`, the opposite inner guard,
+   a counterfeit ite and a same-spelled twin branch stay pending. *)
+let ite_rewrite_document (schema:Z3DatatypeSignature.schema) (l r:A.expr) : C.marshaled =
+  let e = R.mk_eq_expr l r in
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr e];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr e; P.premise_ids = [] };
+                   { P.rule = U.RewriteRule; P.formula = e; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = schema }
+
+let direct_ite_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let real_box = { A.decl_name = "real-box"; A.domain = []; A.range = real_s;
+                   A.interp = Some Z3DatatypeLemma.op_constructor; A.int_params = [0; 0; 0] } in
+  let is_real_box = { A.decl_name = "is-real-box"; A.domain = [real_s]; A.range = A.bool_sort;
+                      A.interp = Some Z3DatatypeLemma.op_recognizer; A.int_params = [0; 0] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_s];
+                        Z3DatatypeSignature.cases = [{ Z3DatatypeSignature.constructor = real_box;
+                                                       Z3DatatypeSignature.recognizer = is_real_box;
+                                                       Z3DatatypeSignature.accessors = [] }] } in
+  let c = qi_atom "c" 0 in
+  let d = qi_atom "d" 0 in
+  let x = A.App { A.decl_name = "x"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } [] in
+  let twin = A.App { A.decl_name = "x"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [7] } [] in
+  let rx = real_constant "x" [] in
+  let ry = real_constant "y" [] in
+  let rite (g a b:A.expr) : A.expr = A.App (Z3SortedSemantics.ite_decl real_s) [g; a; b] in
+  let fake_ite = { Z3SortedSemantics.ite_decl qi_term with A.interp = None } in
+  let check schema l r = C.check true (ite_rewrite_document schema l r) in
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite c x (qi_ite d x qi_y)) (qi_ite (qi_or [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite (R.mk_not_expr c) x qi_y) (qi_ite c qi_y x) = Some 0 &&
+  check core (rite c (rite d rx ry) ry) (rite (qi_and [c; d]) rx ry) = Some 0 &&
+  check real_datatype (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) x qi_y) = Some 0 &&
+  check real_datatype (qi_ite c x (qi_ite d x qi_y)) (qi_ite (qi_or [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) qi_y x) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_or [c; d]) x qi_y) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; R.mk_not_expr d]) x qi_y) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (A.App fake_ite [qi_and [c; d]; x; qi_y]) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) twin qi_y) = Some 1
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -516,4 +564,5 @@ let run () : bool =
   qi_regroup_scale () &&
   qi_ite_scale () &&
   real_farkas_controls () &&
+  direct_ite_controls () &&
   name_pair_units_scale ()

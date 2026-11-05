@@ -248,10 +248,12 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    premise ids and its rule; there is no definition expansion and no
    normalization of entry terms before the kernels (SP.prepare_entry_from
    only checks D.scoped/in_context of e.formula and classifies it). Of the
-   rule it distinguishes exactly seven shapes (check_node_cached:
+   rule it distinguishes exactly eight shapes (check_node_cached:
    Asserted, Hypothesis, LemmaRule, PullQuantifier, QuantifierInstantiation
    with its argument list, ArithmeticFarkas WITH its coefficient list,
-   which SP.arithmetic_farkas and SP.real_farkas replay, and QuantifierIntroduction WITH its
+   which SP.arithmetic_farkas and SP.real_farkas replay, RewriteRule, which
+   SP.real_rewrite and SP.ite_rewrite read for premise-free closed equations,
+   and QuantifierIntroduction WITH its
    binder certificate, which the certificate replay (Z3NnfReplay,
    SP.nnf_verdict) reads when its root is nnf-neg, nnf-pos or quant-intro);
    the epsilon route (check_document_epsilon, section 6) also distinguishes
@@ -259,10 +261,10 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    certificates.
    Every other rule, with every other payload (Gomory, PAC, rule names), is
    judged identically; in particular the coefficient-free linear Int
-   consequence (SP.linear_consequence, the last check of check_node_cached)
-   reads only the entry formula and the premise propositions (the formulas
+   consequence (SP.linear_consequence) reads only the entry formula and the
+   premise propositions (the formulas
    of earlier entries) and recomputes its weights, never a payload. The read
-   view KEEPS the Farkas coefficients, the
+   view KEEPS the Farkas coefficients, the RewriteRule label, the
    binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision
    equals the decision on the read view, which drops the
@@ -304,6 +306,7 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
     assert (not (SP.arithmetic_farkas node) /\ not (SP.arithmetic_farkas node'));
     assert (not (SP.real_farkas s node) /\ not (SP.real_farkas s node'));
     assert (not (SP.real_rewrite s node) /\ not (SP.real_rewrite s node'));
+    assert (not (SP.ite_rewrite node) /\ not (SP.ite_rewrite node'));
     assert (not (SP.lemma_step node) /\ not (SP.lemma_step node'));
     assert (not (SP.quantifier_instantiation node) /\ not (SP.quantifier_instantiation node'));
     assert (not (SP.quantifier_flattening node) /\ not (SP.quantifier_flattening node'))

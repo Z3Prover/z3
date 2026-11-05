@@ -3363,6 +3363,69 @@ let sorted_quant_intro_ite_laws () =
   let l, r = swap big big in
   require (leaf l r 40 = NR.Unreplayed) "an exponential shared guard was replayed"
 
+(* The producer's premise-free closed ITE `rewrite` steps (Z3SortedProof.ite_rewrite): the
+   else-branch merge by `and` and the then-branch merge by `or` at an uninterpreted sort, at Int
+   and at a datatype are certified on the Sorted route (check_document_epsilon). On the marshalled
+   producer node itself, swapped branches, `or` for `and`, the opposite inner guard, a counterfeit
+   ite and a same-spelled twin branch stay pending, and the node is also checked on a schema
+   registering a datatype named Real (the Real gate closed: no Real law is read). *)
+let sorted_direct_ite_rewrites () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let header sort =
+    "(declare-const c Bool)(declare-const d Bool)(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")" in
+  let else_merge = "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))" in
+  let then_merge = "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))" in
+  let ite_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (l, r)) when e.P.rule = U.RewriteRule && NR.ite_rewritten l r -> Some (l, r)
+    | _ -> None in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (List.exists (fun e -> ite_step e <> None) doc.P.entries) (name ^ ": no closed ITE rewrite step");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the ITE refutation was not certified");
+    List.find_map ite_step doc.P.entries |> Option.get, schema in
+  let uninterpreted = "(declare-sort U 0)" ^ header "U" in
+  let (l, r), schema = certified "uninterpreted-else" (uninterpreted ^ else_merge) in
+  ignore (certified "uninterpreted-then" (uninterpreted ^ then_merge));
+  ignore (certified "int-else" (header "Int" ^ else_merge));
+  ignore (certified "datatype-then" ("(declare-datatypes ((B 0)) (((mk (f Int)))))" ^ header "B" ^ then_merge));
+  let node rhs = { U.kind = U.RewriteRule; conclusion = U.Equal (l, rhs); premises = [] } in
+  let pending schema rhs = match K.check_node schema [] (node rhs) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted ITE rewrite node was rejected" in
+  require (K.ite_rewrite (node r) && Z.equal (pending schema r) Z.zero) "the producer's ITE rewrite node was not checked";
+  let real_sort = A.BaseSort "Real" in
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype && not (Z3SortedReal.real_primitive real_datatype))
+    "the Real datatype schema does not close the Real gate";
+  require (Z.equal (pending real_datatype r) Z.zero) "the ITE rewrite node read the Real gate";
+  let f, guard, x, y = match r with
+    | A.App (f, [guard; x; y]) -> f, guard, x, y
+    | _ -> failwith "expected (ite (and c d) x y)" in
+  let conj, c, d = match guard with
+    | A.App (conj, [c; d]) -> conj, c, d
+    | _ -> failwith "expected (and c d)" in
+  let disj = { conj with A.decl_name = "or"; interp = Some Z3ValueTheory.op_or } in
+  let twin = match x with
+    | A.App (k, []) -> A.App ({ k with A.int_params = [Z.of_int 7] }, [])
+    | _ -> failwith "expected the constant x" in
+  List.iter (fun (rhs, name) ->
+      require (not (K.ite_rewrite (node rhs)) && Z.gt (pending schema rhs) Z.zero)
+        ("an ITE rewrite mutant was checked: " ^ name))
+    [A.App (f, [guard; y; x]), "swapped branches";
+     A.App (f, [A.App (disj, [c; d]); x; y]), "or for and";
+     A.App (f, [A.App (conj, [c; R.mk_not_expr d]); x; y]), "opposite inner guard";
+     A.App ({ f with A.interp = None }, [guard; x; y]), "counterfeit ite";
+     A.App (f, [guard; twin; y]), "twin branch"]
+
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
    only. For every pair below the units equal the previous charge name_length a + name_length b,
@@ -7168,6 +7231,7 @@ let () =
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
      "sorted-quant-intro-ite-laws", sorted_quant_intro_ite_laws;
+     "sorted-direct-ite-rewrites", sorted_direct_ite_rewrites;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
