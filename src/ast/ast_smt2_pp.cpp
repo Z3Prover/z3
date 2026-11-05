@@ -752,8 +752,6 @@ class smt2_printer {
     bool flat_assoc(app * t, frame const & fr) {
         if (!m_pp_flat_assoc)
             return false;
-        if (bv_util(m()).is_concat(t))
-            return false;
         func_decl * f = t->get_decl();
         if (f->is_associative() && m_frame_stack.size() >= 2 && !m_soccs.is_shared(t)) {
             frame const & prev_fr = m_frame_stack[m_frame_stack.size() - 2];
