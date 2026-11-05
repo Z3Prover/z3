@@ -8,8 +8,12 @@ Copyright (c) 2015 Microsoft Corporation
 // for SMT-LIB2.
 
 #include "api/z3.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
 #include "util/debug.h"
 #include <iostream>
+#include <sstream>
 
 void test_print(Z3_context ctx, Z3_ast_vector av) {
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
@@ -336,7 +340,50 @@ void test_logic_sort_namespace() {
     Z3_del_context(ctx);
 }
 
+void test_binary_concat_printing() {
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
+    char const* declarations =
+        "(declare-const x (_ BitVec 1))"
+        "(declare-const y (_ BitVec 1))"
+        "(declare-const z (_ BitVec 1))"
+        "(declare-const w (_ BitVec 3))";
+    Z3_ast_vector assertions = Z3_parse_smtlib2_string(
+        ctx, (std::string(declarations) + "(assert (= (concat x y z) w))").c_str(),
+        0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, assertions);
+    ENSURE(Z3_ast_vector_size(ctx, assertions) == 1);
+    std::string printed = Z3_ast_to_string(ctx, Z3_ast_vector_get(ctx, assertions, 0));
+    ENSURE(printed.find("(concat (concat x y) z)") != std::string::npos);
+    ENSURE(printed.find("(concat x y z)") == std::string::npos);
+
+    Z3_ast_vector reparsed = Z3_parse_smtlib2_string(
+        ctx, (std::string(declarations) + "(assert " + printed + ")").c_str(),
+        0, nullptr, nullptr, 0, nullptr, nullptr);
+    Z3_ast_vector_inc_ref(ctx, reparsed);
+    ENSURE(Z3_ast_vector_size(ctx, reparsed) == 1);
+    Z3_ast_vector_dec_ref(ctx, reparsed);
+    Z3_ast_vector_dec_ref(ctx, assertions);
+    Z3_del_context(ctx);
+}
+
+void test_internal_bv_division_printing() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    bv_util bv(m);
+    sort* bv4 = bv.mk_sort(4);
+    expr_ref x(m.mk_const("x", bv4), m);
+    expr_ref y(m.mk_const("y", bv4), m);
+    expr_ref div(bv.mk_bv_udiv_i(x, y), m);
+    std::ostringstream output;
+    output << mk_ismt2_pp(div, m);
+    ENSURE(output.str().find("bvudiv") != std::string::npos);
+    ENSURE(output.str().find("bvudiv_i") == std::string::npos);
+}
+
 void tst_smt2print_parse() {
+    test_binary_concat_printing();
+    test_internal_bv_division_printing();
 
     // test basic datatypes  
     char const* spec1 = 

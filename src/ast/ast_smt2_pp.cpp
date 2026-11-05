@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/shared_occs.h"
 #include "ast/pp.h"
@@ -70,6 +71,21 @@ format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const
         return mk_string(m, "ite");
     }
     else {
+        if (f->get_family_id() == bv_util(m).get_fid()) {
+            char const* name = nullptr;
+            switch (f->get_decl_kind()) {
+            case OP_BSDIV_I: name = "bvsdiv"; break;
+            case OP_BUDIV_I: name = "bvudiv"; break;
+            case OP_BSREM_I: name = "bvsrem"; break;
+            case OP_BUREM_I: name = "bvurem"; break;
+            case OP_BSMOD_I: name = "bvsmod"; break;
+            default: break;
+            }
+            if (name) {
+                len = static_cast<unsigned>(strlen(name));
+                return mk_string(m, name);
+            }
+        }
         symbol s = f->get_name();
         return pp_fdecl_name(s, len, f->is_skolem());
     }
@@ -736,6 +752,8 @@ class smt2_printer {
     bool flat_assoc(app * t, frame const & fr) {
         if (!m_pp_flat_assoc)
             return false;
+        if (bv_util(m()).is_concat(t))
+            return false;
         func_decl * f = t->get_decl();
         if (f->is_associative() && m_frame_stack.size() >= 2 && !m_soccs.is_shared(t)) {
             frame const & prev_fr = m_frame_stack[m_frame_stack.size() - 2];
@@ -773,6 +791,17 @@ class smt2_printer {
         }
         else if (m().is_pattern(t)) {
             f = mk_seq5<format**, f2f>(m(), it, end, f2f());
+        }
+        else if (bv_util(m()).is_concat(t) && t->get_num_args() > 2) {
+            format * children[] = { mk_string(m(), "(concat "), *it++, mk_string(m(), " "),
+                                    *it++, mk_string(m(), ")") };
+            format_ref concat(mk_compose(m(), 5, children), fm());
+            for (; it != end; ++it) {
+                format * children[] = { mk_string(m(), "(concat "), concat.get(),
+                                        mk_string(m(), " "), *it, mk_string(m(), ")") };
+                concat = mk_compose(m(), 5, children);
+            }
+            f = mk_group(m(), concat.get());
         }
         else {
             unsigned len;
