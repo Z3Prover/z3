@@ -1125,7 +1125,7 @@ let store_perm_leaf_ok (s t:expr) : bool =
 
 /// Evaluate a list of `(index,value)` expression pairs into the
 /// `(int & int)` pairs `Z3ArrayTheory.apply_updates` folds over.
-let rec eval_pairs (rho:env value) (us:list (expr & expr)) : Tot (list (int & int)) (decreases us) =
+let rec eval_pairs (rho:env value) (us:list (expr & expr)) : GTot (list (int & int)) (decreases us) =
   match us with
   | [] -> []
   | (i, x) :: rest ->

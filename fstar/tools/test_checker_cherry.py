@@ -35,7 +35,7 @@ class CherryBuildTests(unittest.TestCase):
     def test_shared_module_manifest_is_complete_and_dependency_ordered(self):
         root = Path(__file__).resolve().parents[1]
         manifest = json.loads((root / "tools/checker_modules.json").read_text(encoding="utf-8"))
-        modules = manifest["modules"] + manifest["tests"]
+        modules = manifest["modules"] + manifest["cherry_modules"] + manifest["tests"]
         self.assertEqual(len(modules), len(set(modules)))
         for module in modules:
             with self.subTest(module=module):

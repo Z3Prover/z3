@@ -58,6 +58,55 @@ let lemma_boolean_ite_eval (#a:Type) (rho:a -> bool) (c t e:formula a)
   = ()
 #pop-options
 
+(* The ghost twin of `eval`, for valuations that are themselves ghost,
+   such as the truth of an atom under `Z3AstTheory.eval`. `eval` stays the
+   executable evaluator that `check_rows` runs; `lemma_geval_eval` proves
+   the two agree on every executable valuation. *)
+let rec geval (#a:Type) (rho:a -> GTot bool) (e:formula a)
+  : GTot bool (decreases e)
+= match e with
+  | Atom a -> rho a
+  | Bool b -> b
+  | Nary op args -> geval_args rho op args
+  | Not x -> not (geval rho x)
+  | Implies x y -> not (geval rho x) || geval rho y
+  | Eq x y -> geval rho x = geval rho y
+
+and geval_args (#a:Type) (rho:a -> GTot bool) (op:nary_op)
+    (args:list (formula a)) : GTot bool (decreases args)
+= match args with
+  | [] -> neutral op
+  | x :: xs -> combine op (geval rho x) (geval_args rho op xs)
+
+let rec lemma_geval_eval (#a:Type) (rho:a -> bool) (e:formula a)
+  : Lemma (ensures geval rho e == eval rho e) (decreases e)
+= match e with
+  | Atom _ | Bool _ -> ()
+  | Nary op args -> lemma_geval_eval_args rho op args
+  | Not x -> lemma_geval_eval rho x
+  | Implies x y | Eq x y -> lemma_geval_eval rho x; lemma_geval_eval rho y
+
+and lemma_geval_eval_args (#a:Type) (rho:a -> bool) (op:nary_op) (args:list (formula a))
+  : Lemma (ensures geval_args rho op args == eval_args rho op args) (decreases args)
+= match args with
+  | [] -> ()
+  | x :: xs -> lemma_geval_eval rho x; lemma_geval_eval_args rho op xs
+
+let lemma_boolean_ite_geval (#a:Type) (rho:a -> GTot bool) (c t e:formula a)
+  : Lemma (geval rho (boolean_ite c t e) ==
+           (if geval rho c then geval rho t else geval rho e))
+  = match c, t, e with
+    | Bool _, _, _ -> ()
+    | _, Bool true, _ -> assert (geval rho (Nary Or [c; e]) == (geval rho c || geval_args rho Or [e]))
+    | _, Bool false, _ -> assert (geval rho (Nary And [Not c; e]) == (not (geval rho c) && geval_args rho And [e]))
+    | _, _, Bool true -> assert (geval rho (Nary Or [Not c; t]) == (not (geval rho c) || geval_args rho Or [t]))
+    | _, _, Bool false -> assert (geval rho (Nary And [c; t]) == (geval rho c && geval_args rho And [t]))
+    | _, _, _ ->
+      assert (geval rho (Nary And [c; t]) == (geval rho c && geval_args rho And [t]));
+      assert (geval rho (Nary And [Not c; e]) == (not (geval rho c) && geval_args rho And [e]));
+      assert (geval rho (Nary Or [Nary And [c; t]; Nary And [Not c; e]]) ==
+              (geval rho (Nary And [c; t]) || geval_args rho Or [Nary And [Not c; e]]))
+
 type bool_op =
   | BTrue
   | BFalse
@@ -317,7 +366,82 @@ and lemma_eval_args_agree (#a:eqtype) (rho sigma:a -> bool)
     lemma_eval_agree rho sigma x;
     lemma_eval_args_agree rho sigma op xs
 
-let agree_outside (atoms:list expr) (rho sigma:expr -> bool)
+(* An executable valuation and a ghost one that agree on the support. *)
+let rec lemma_geval_agree (#a:eqtype) (rho:a -> bool) (sigma:a -> GTot bool) (e:formula a)
+  : Lemma
+      (requires forall x. mem x (support e) ==> rho x == sigma x)
+      (ensures eval rho e == geval sigma e)
+      (decreases e)
+= match e with
+  | Atom _ -> ()
+  | Bool _ -> ()
+  | Nary op args -> lemma_geval_args_agree rho sigma op args
+  | Not x -> lemma_geval_agree rho sigma x
+  | Implies x y ->
+    lemma_mem_append (support x) (support y);
+    lemma_geval_agree rho sigma x;
+    lemma_geval_agree rho sigma y
+  | Eq x y ->
+    lemma_mem_append (support x) (support y);
+    lemma_geval_agree rho sigma x;
+    lemma_geval_agree rho sigma y
+
+and lemma_geval_args_agree (#a:eqtype) (rho:a -> bool) (sigma:a -> GTot bool)
+    (op:nary_op) (args:list (formula a))
+  : Lemma
+      (requires forall x. mem x (support_args args) ==> rho x == sigma x)
+      (ensures eval_args rho op args == geval_args sigma op args)
+      (decreases args)
+= match args with
+  | [] -> ()
+  | x :: xs ->
+    lemma_mem_append (support x) (support_args xs);
+    lemma_geval_agree rho sigma x;
+    lemma_geval_args_agree rho sigma op xs
+
+(* An executable valuation that agrees with a ghost one on finitely many
+   atoms: the ghost truth values are tabulated once, and the result looks
+   them up. It is computed in a ghost context (proofs only), so that the
+   lemmas about the executable `eval` apply to a ghost valuation. *)
+let rec lookup (#a:eqtype) (table:list (a & bool)) (x:a) : Tot bool (decreases table) =
+  match table with
+  | [] -> false
+  | (y, b) :: rest -> if y = x then b else lookup rest x
+
+let rec tabulate (#a:eqtype) (sigma:a -> GTot bool) (atoms:list a)
+  : GTot (list (a & bool)) (decreases atoms) =
+  match atoms with
+  | [] -> []
+  | x :: rest -> (x, sigma x) :: tabulate sigma rest
+
+let freeze (#a:eqtype) (sigma:a -> GTot bool) (atoms:list a) : GTot (a -> bool) =
+  let table = tabulate sigma atoms in
+  fun x -> lookup table x
+
+let rec lemma_tabulate (#a:eqtype) (sigma:a -> GTot bool) (atoms:list a) (x:a)
+  : Lemma (requires mem x atoms) (ensures lookup (tabulate sigma atoms) x == sigma x)
+          (decreases atoms)
+= match atoms with
+  | y :: rest -> if y = x then () else lemma_tabulate sigma rest x
+
+let lemma_freeze (#a:eqtype) (sigma:a -> GTot bool) (atoms:list a) (e:formula a)
+  : Lemma (requires forall x. mem x (support e) ==> mem x atoms)
+          (ensures eval (freeze sigma atoms) e == geval sigma e)
+= let rho = freeze sigma atoms in
+  let aux (x:a) : Lemma (mem x (support e) ==> rho x == sigma x) =
+    if mem x (support e) then lemma_tabulate sigma atoms x in
+  FStar.Classical.forall_intro aux;
+  lemma_geval_agree rho sigma e
+
+(* The usual instance: one executable valuation for two formulas. *)
+let lemma_freeze_pair (#a:eqtype) (sigma:a -> GTot bool) (s t:formula a)
+  : Lemma (eval (freeze sigma (append (support s) (support t))) s == geval sigma s /\
+           eval (freeze sigma (append (support s) (support t))) t == geval sigma t)
+= lemma_mem_append (support s) (support t);
+  lemma_freeze sigma (append (support s) (support t)) s;
+  lemma_freeze sigma (append (support s) (support t)) t
+
+let agree_outside (atoms:list expr) (rho:expr -> bool) (sigma:expr -> GTot bool)
     (s t:skeleton) : prop =
   forall x.
     (mem x (support s) \/ mem x (support t)) /\ not (mem x atoms)
@@ -339,11 +463,28 @@ let rec lemma_check_rows_sound (atoms:list expr) (rho sigma:expr -> bool)
     if sigma a then lemma_check_rows_sound tl next sigma s t
     else lemma_check_rows_sound tl next sigma s t
 
+(* The executable row check, for a ghost valuation. *)
+let rec lemma_check_rows_sound_ghost (atoms:list expr) (rho:expr -> bool) (sigma:expr -> GTot bool)
+    (s t:skeleton)
+  : Lemma
+      (requires check_rows atoms rho s t /\ agree_outside atoms rho sigma s t)
+      (ensures geval sigma s == geval sigma t)
+      (decreases atoms)
+= match atoms with
+  | [] ->
+    lemma_geval_agree rho sigma s;
+    lemma_geval_agree rho sigma t
+  | a :: tl ->
+    let next = update rho a (sigma a) in
+    assert (agree_outside tl next sigma s t);
+    if sigma a then lemma_check_rows_sound_ghost tl next sigma s t
+    else lemma_check_rows_sound_ghost tl next sigma s t
+
 (* Z3AstTheory intentionally leaves all operators' meanings abstract.
    This contract supplies Boolean representation and the usual one-layer
    connective laws, not equivalence of the inputs or correctness of the checker. *)
 let ast_valuation (#value:Type) (i:Ast.interpretation value)
-    (decode:value -> bool) (rho:Ast.env value) : expr -> bool =
+    (decode:value -> bool) (rho:Ast.env value) : expr -> GTot bool =
   fun a -> decode (Ast.eval i a rho)
 
 let boolean_semantics (#value:Type) (i:Ast.interpretation value)
@@ -352,7 +493,7 @@ let boolean_semantics (#value:Type) (i:Ast.interpretation value)
   (forall (e:expr).
     is_bool e ==>
     Ast.eval i e rho ==
-      encode (eval (ast_valuation i decode rho) (cut 1 e)))
+      encode (geval (ast_valuation i decode rho) (cut 1 e)))
 
 let rec lemma_sorted_bool_args (args:list expr) (domain:list Ast.sort)
   : Lemma
@@ -376,14 +517,14 @@ let rec lemma_cut_with_boundaries_sound (#value:Type)
   : Lemma
       (requires boolean_semantics i encode decode rho /\ is_bool e)
       (ensures
-        eval (ast_valuation i decode rho)
+        geval (ast_valuation i decode rho)
           (cut_with_boundaries boundaries depth e) ==
         decode (Ast.eval i e rho))
       (decreases e)
 = if mem e boundaries then ()
   else
   let sigma = ast_valuation i decode rho in
-  assert (Ast.eval i e rho == encode (eval sigma (cut 1 e)));
+  assert (Ast.eval i e rho == encode (geval sigma (cut 1 e)));
   match e with
   | Ast.Var _ _ -> ()
   | Ast.Quantifier _ _ _ _ -> ()
@@ -451,11 +592,11 @@ let rec lemma_cut_with_boundaries_sound (#value:Type)
            lemma_cut_with_boundaries_sound boundaries (depth - 1)
              i encode decode rho fe;
            lemma_cut_with_boundaries_sound [] 0 i encode decode rho fe;
-           lemma_boolean_ite_eval sigma
+           lemma_boolean_ite_geval sigma
              (cut_with_boundaries boundaries (depth - 1) c)
              (cut_with_boundaries boundaries (depth - 1) t)
              (cut_with_boundaries boundaries (depth - 1) fe);
-           lemma_boolean_ite_eval sigma (cut 0 c) (cut 0 t) (cut 0 fe)
+           lemma_boolean_ite_geval sigma (cut 0 c) (cut 0 t) (cut 0 fe)
          )
        | _ -> ())
     | Opaque -> ()
@@ -467,9 +608,9 @@ and lemma_cut_args_with_boundaries_sound (#value:Type)
   : Lemma
       (requires boolean_semantics i encode decode rho /\ bool_args args)
       (ensures
-        eval_args (ast_valuation i decode rho) op
+        geval_args (ast_valuation i decode rho) op
           (cut_args_with_boundaries boundaries depth args) ==
-        eval_args (ast_valuation i decode rho) op (cut_args 0 args))
+        geval_args (ast_valuation i decode rho) op (cut_args 0 args))
       (decreases args)
 = match args with
   | [] -> ()
@@ -484,7 +625,7 @@ let lemma_cut_sound (#value:Type) (depth:nat)
   : Lemma
       (requires boolean_semantics i encode decode rho /\ is_bool e)
       (ensures
-        eval (ast_valuation i decode rho) (cut depth e) ==
+        geval (ast_valuation i decode rho) (cut depth e) ==
         decode (Ast.eval i e rho))
 = lemma_cut_with_boundaries_sound [] depth i encode decode rho e
 
@@ -507,11 +648,11 @@ let lemma_bounded_bool_equiv_sound (#value:Type) (depth:nat) (width:nat)
     lemma_mem_append (support cs) (support ct);
     lemma_unique_mem (append (support cs) (support ct));
     assert (agree_outside atoms (fun _ -> false) sigma cs ct);
-    lemma_check_rows_sound atoms (fun _ -> false) sigma cs ct;
+    lemma_check_rows_sound_ghost atoms (fun _ -> false) sigma cs ct;
     lemma_cut_with_boundaries_sound boundaries depth i encode decode rho s;
     lemma_cut_with_boundaries_sound boundaries depth i encode decode rho t;
-    assert (Ast.eval i s rho == encode (eval sigma (cut 1 s)));
-    assert (Ast.eval i t rho == encode (eval sigma (cut 1 t)));
+    assert (Ast.eval i s rho == encode (geval sigma (cut 1 s)));
+    assert (Ast.eval i t rho == encode (geval sigma (cut 1 t)));
     lemma_cut_sound 1 i encode decode rho s;
     lemma_cut_sound 1 i encode decode rho t
   )
@@ -525,7 +666,7 @@ let rec fold_values (op:nary_op) (vs:list bool)
 (* A concrete family of native interpretations witnesses the semantic
    contract. All non-Boolean operators and quantifiers keep their fallback. *)
 let boolean_interp_app (fallback:Ast.interpretation bool)
-    (f:Ast.func_decl{Some? f.interp}) (vs:list bool) : bool =
+    (f:Ast.func_decl{Some? f.interp}) (vs:list bool) : GTot bool =
   match classify f (length vs) with
   | BTrue -> true
   | BFalse -> false
@@ -559,7 +700,7 @@ let rec lemma_ast_args_length (#value:Type) (i:Ast.interpretation value)
 let lemma_native_cut_zero (fallback:Ast.interpretation bool)
     (rho:Ast.env bool) (e:expr)
   : Lemma
-      (eval (ast_valuation (boolean_interpretation fallback) id_bool rho)
+      (geval (ast_valuation (boolean_interpretation fallback) id_bool rho)
         (cut 0 e) == Ast.eval (boolean_interpretation fallback) e rho)
 = match e with
   | Ast.Var _ _ -> ()
@@ -574,7 +715,7 @@ let lemma_native_cut_zero (fallback:Ast.interpretation bool)
 let rec lemma_native_cut_args (fallback:Ast.interpretation bool)
     (rho:Ast.env bool) (op:nary_op) (args:list expr)
   : Lemma
-      (eval_args
+      (geval_args
         (ast_valuation (boolean_interpretation fallback) id_bool rho)
         op (cut_args 0 args) ==
        fold_values op (Ast.eval_args (boolean_interpretation fallback) args rho))
@@ -589,7 +730,7 @@ let lemma_native_boolean_step (fallback:Ast.interpretation bool)
     (rho:Ast.env bool) (e:expr)
   : Lemma
       (Ast.eval (boolean_interpretation fallback) e rho ==
-       eval (ast_valuation (boolean_interpretation fallback) id_bool rho)
+       geval (ast_valuation (boolean_interpretation fallback) id_bool rho)
          (cut 1 e))
 = match e with
   | Ast.Var _ _ -> ()
@@ -620,7 +761,7 @@ let lemma_native_boolean_step (fallback:Ast.interpretation bool)
          lemma_native_cut_zero fallback rho c;
          lemma_native_cut_zero fallback rho t;
          lemma_native_cut_zero fallback rho e;
-         lemma_boolean_ite_eval
+         lemma_boolean_ite_geval
            (ast_valuation (boolean_interpretation fallback) id_bool rho)
            (cut 0 c) (cut 0 t) (cut 0 e)
        | _ -> ())

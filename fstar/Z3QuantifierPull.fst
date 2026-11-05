@@ -9,6 +9,7 @@ module D = Z3Definitions
 module QN = Z3QuantifierNnf
 module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
+module C = Z3CanonicalOps
 
 let rec lemma_eval_environments (i:interpretation value) (e:expr) (rho sigma:env value)
   : Lemma (requires quant_extensional i /\ (forall (n:nat). rho n == sigma n))
@@ -196,14 +197,14 @@ let rec boolean_args (args:list expr) : Tot bool (decreases args) =
 
 let context_truth (i:interpretation value) (rho:env value) (f:func_decl)
                   (prefix suffix:list expr) (p:prop) : prop =
-  if f.decl_name = "and"
+  if C.canonical_and f
   then conj_holds i rho prefix /\ p /\ conj_holds i rho suffix
   else clause_holds i rho prefix \/ p \/ clause_holds i rho suffix
 
 let rec lemma_context (i:interpretation value) (rho:env value) (f:func_decl)
                       (prefix suffix:list expr) (body:expr)
   : Lemma (requires and_sound i /\ or_sound i /\
-                    (f.decl_name = "and" \/ f.decl_name = "or"))
+                    (C.canonical_and f \/ C.canonical_or f))
           (ensures lit_true i rho (App f (prefix @ (body :: suffix))) <==>
                    context_truth i rho f prefix suffix (lit_true i rho body))
           (decreases prefix)
@@ -219,7 +220,7 @@ let lemma_pull_context (i:interpretation value) (rho:env value)
                        (kind:quantifier_kind) (sorts:list sort) (body:expr)
   : Lemma (requires quant_extensional i /\ QN.quantifier_model i /\ boolean_model i /\
                     and_sound i /\ or_sound i /\ f.range = bool_sort /\
-                    (f.decl_name = "and" \/ f.decl_name = "or") /\
+                    (C.canonical_and f \/ C.canonical_or f) /\
                     (kind = Forall_k \/ kind = Exists_k) /\ get_sort body = bool_sort)
           (ensures
             eval i (App f (prefix @ (Quantifier kind sorts bool_sort body :: suffix))) rho ==
@@ -306,7 +307,7 @@ let rec normalize (fuel:nat) (e:expr) : Tot (option expr) (decreases fuel) =
           | None -> None)
     else Some e
   | App f args ->
-    if (f.decl_name = "and" || f.decl_name = "or") &&
+    if (C.canonical_and f || C.canonical_or f) &&
        f.range = bool_sort && boolean_args args then
       (match split_quantifier args with
        | None -> Some e
@@ -344,7 +345,7 @@ let rec lemma_normalize_sound (fuel:nat) (i:interpretation value) (rho:env value
               lemma_merge i rho k bs b
             | None -> ())
     | App f args ->
-      if (f.decl_name = "and" || f.decl_name = "or") &&
+      if (C.canonical_and f || C.canonical_or f) &&
          f.range = bool_sort && boolean_args args then
         (match split_quantifier args with
          | None -> ()

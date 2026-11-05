@@ -5,6 +5,7 @@
 
 let length (l : 'a list) : Prims.int = Z.of_int (Stdlib.List.length l)
 let rev (l : 'a list) : 'a list = Stdlib.List.rev l
+let rev_acc (l : 'a list) (acc : 'a list) : 'a list = Stdlib.List.rev_append l acc
 let map (f : 'a -> 'b) (l : 'a list) : 'b list = Stdlib.List.map f l
 let fold_left (f : 'a -> 'b -> 'a) (initial : 'a) (l : 'b list) : 'a =
   Stdlib.List.fold_left f initial l

@@ -137,6 +137,90 @@ let exact_numerals () =
   require (q = (Z.of_string "-123456789012345678901234567890", Z.of_int 97))
     "foreign rational was rounded"
 
+let pretty_expressions () =
+  let c = context () in
+  let declarations =
+    "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)\
+     (declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let check source expected arithmetic =
+    let assertions = parse c
+        (declarations ^ "(assert " ^ (if arithmetic then "(= " ^ source ^ " 0)" else source) ^ ")") in
+    let st = B.marshal_expressions (B.empty_state ()) assertions in
+    let value = B.cached_expression st (List.hd assertions) in
+    let value = if arithmetic then match value with
+        | A.App (_, [left; _]) -> left
+        | _ -> failwith "expected equality"
+      else value in
+    let actual = Z3NativeMain.pretty_expr value in
+    require (actual = expected) ("pretty expression: " ^ actual ^ "; expected: " ^ expected) in
+  List.iter (fun (source, expected, arithmetic) -> check source expected arithmetic)
+    ["(and p (or q r))", "p and (q or r)", false;
+     "(or (and p q) r)", "p and q or r", false;
+     "(= p (= q r))", "p = (q = r)", false;
+     "(+ x (* y z))", "x + y * z", true;
+     "(* (+ x y) z)", "(x + y) * z", true;
+     "(- x (- y z))", "x - (y - z)", true;
+     "(- (- x))", "-(-x)", true;
+     "(not (<= (+ x (* y z)) 0))", "not (x + y * z <= 0)", false];
+  let fake = A.App ({ A.decl_name = "and"; domain = []; range = A.BaseSort "Bool";
+                     interp = None; int_params = [] }, []) in
+  require (Z3NativeMain.pretty_expr fake = "|and|") "uninterpreted connective was printed as logic";
+  (* Hand-built shapes shared with the Cherry driver's expression rows (cherry_runtime/tests.cpp pretty_regressions
+     expects the same strings): binders, numerals, names, sorts and bounds. *)
+  let module V = Z3ValueTheory in
+  let bool_s = A.BaseSort "Bool" and int_s = A.BaseSort "Int" and real_s = A.BaseSort "Real" in
+  let app name domain range interp args =
+    A.App ({ A.decl_name = name; domain; range; interp; int_params = [] }, args) in
+  let constant name range = app name [] range None [] in
+  let numeral n d range =
+    A.App ({ A.decl_name = "numeral"; domain = []; range; interp = Some V.op_num_rational;
+             int_params = [n; d] }, []) in
+  let var i s = A.Var (Z.of_int i, s) in
+  let x = constant "decl!3:x" int_s and p = constant "decl!1:p" bool_s and q = constant "decl!2:q" bool_s in
+  let binary kind token a b = app token [int_s; int_s] (if kind = V.op_eq then bool_s else int_s) (Some kind) [a; b] in
+  let disjunction a b = app "or" [bool_s; bool_s] bool_s (Some V.op_or) [a; b] in
+  let negation a = app "not" [bool_s] bool_s (Some V.op_not) [a] in
+  let ten n = Z.pow (Z.of_int 10) n in
+  let shared = [
+    "binders", A.Quantifier (A.Forall_k, [int_s; bool_s], bool_s,
+                             disjunction (binary V.op_eq "=" (var 1 int_s) x) (var 0 bool_s)),
+      "forall (#b0:Int, #b1:Bool). #b0 = x or #b1";
+    "negated binder", negation (A.Quantifier (A.Exists_k, [int_s], bool_s,
+      app ">" [int_s; int_s] bool_s (Some V.op_arith_gt) [var 0 int_s; numeral Z.zero Z.one int_s])),
+      "not (exists (#b0:Int). #b0 > 0)";
+    "rational summand", app "+" [int_s; real_s] real_s (Some V.op_arith_add) [x; numeral (Z.of_int (-7)) (Z.of_int 3) real_s],
+      "x + -7/3";
+    "negative factor", binary V.op_arith_mul "*" x (numeral (Z.of_int (-5)) Z.one int_s), "x * -5";
+    "negated negative numeral", app "-" [int_s] int_s (Some V.op_arith_sub) [numeral (Z.of_int (-5)) Z.one int_s], "-(-5)";
+    "64-character numeral", numeral (ten 63) Z.one int_s, Z.to_string (ten 63);
+    "65-character numeral", numeral (ten 64) Z.one int_s, "...:Int";
+    "65-character negative numeral", numeral (Z.neg (ten 63)) Z.one int_s, "...:Int";
+    "unbound variable", var 3 int_s, "#3";
+    "quoted name", constant "decl!2:a b" int_s, "|a b|";
+    "long name", constant ("decl!9:" ^ String.make 300 'a') int_s, "|" ^ String.make 256 'a' ^ "...|";
+    "uninterpreted keyword", constant "decl!4:or" bool_s, "|or|";
+    "non-numeric id", constant "decl!x:y" int_s, "|decl!x:y|";
+    "binder sorts", A.Quantifier (A.Lambda_k, [A.ArraySort ([int_s], bool_s); A.BaseSort "sort!5:T"],
+                                  A.ArraySort ([A.ArraySort ([int_s], bool_s); A.BaseSort "sort!5:T"], A.ArraySort ([int_s], bool_s)),
+                                  var 1 (A.ArraySort ([int_s], bool_s))),
+      "lambda (#b0:Array[Int; Bool], #b1:T). #b0";
+    "uninterpreted application", app "decl!7:f" [int_s; int_s] int_s None [x; numeral Z.one Z.one int_s], "f(x, 1)";
+    "argument limit", app "decl!7:f" (List.init 33 (fun _ -> int_s)) int_s None (List.init 33 (fun _ -> x)), "...:Int"] in
+  List.iter (fun (label, value, expected) ->
+      let actual = Z3NativeMain.pretty_expr value in
+      require (actual = expected) ("pretty " ^ label ^ ": " ^ actual ^ "; expected: " ^ expected)) shared;
+  let deep = ref p in
+  for _ = 1 to 13 do deep := negation !deep done;
+  let expected = ref "not ...:Bool" in
+  for _ = 1 to 11 do expected := "not (" ^ !expected ^ ")" done;
+  require (Z3NativeMain.pretty_expr !deep = !expected) "pretty depth limit";
+  List.iter (fun (label, judgment, expected) ->
+      let actual = Z3NativeMain.pretty_judgment judgment in
+      require (actual = expected) ("pretty " ^ label ^ ": " ^ actual ^ "; expected: " ^ expected))
+    ["equality judgment", U.Equal (x, binary V.op_arith_add "+" x (numeral Z.one Z.one int_s)), "x = x + 1";
+     "observational judgment", U.Observational (p, disjunction p q), "p ~ (p or q)";
+     "holds judgment", U.Holds (disjunction p q), "p or q"]
+
 let native_farkas () =
   let doc = document
       "(declare-const x Real)(declare-const y Real)\
@@ -275,7 +359,7 @@ let checked_gomory_cuts () =
   } in
   let step rule conclusion = {
     C.rule; conclusion; input = None; assumption = None; id = Z.zero;
-    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition1 = None;
+    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition = None;
     source = None; divisor = Z.one, Z.one; premises = []; bounds = []
   } in
   let q n d = Z.of_int n, Z.of_int d in
@@ -693,7 +777,537 @@ let typed_diagnostics () =
    | P.DocumentRejected (P.ProofEntry, Some index, _) ->
        require (Z.equal index Z.zero && P.check_document no_input = None)
          "input-membership diagnostic disagrees with the checker"
-   | _ -> failwith "input membership failure was not diagnosed")
+   | _ -> failwith "input membership failure was not diagnosed");
+  List.iter (fun fixture ->
+      List.iter (fun hash ->
+          let result, diagnostic = P.check_document_diagnosed_indexed hash fixture in
+          require (result = P.check_document_indexed hash fixture &&
+                   diagnostic = P.diagnose_document_indexed hash fixture)
+            "single-pass legacy checking changed a verdict or diagnostic")
+        [(fun _ -> Z.zero); Z3NativeMain.assertion_hash])
+    [doc; partial; malformed; no_input; { doc with root = Z.minus_one }];
+  List.iter (fun (diagnostic, expected) ->
+      let rejected =
+        try Z3NativeMain.report_diagnostics diagnostic expected; false
+        with N.Error _ -> true in
+      require rejected "single-pass diagnostics lost a mismatch guard")
+    [P.DocumentChecked (Z.one, []), Some Z.one;
+     P.DocumentChecked (Z.zero, []), Some Z.one;
+     P.DocumentRejected (P.ProofEntry, None, None), Some Z.zero]
+
+(* --readable renders what the checker saw, within explicit bounds. Expressions are built by hand,
+   so malformed metadata and shapes no solver produces (200,000 layers, 2^100 shared occurrences,
+   million-bit numerals) are covered next to the ordinary ones. *)
+let readable_conditions () =
+  let module R = Z3NativeMain.Readable in
+  let z = Z.of_int in
+  let base name = A.BaseSort name in
+  let int_sort = base "Int" and bool_sort = base "Bool" and real_sort = base "Real" in
+  let bv8 = base "BV8" and bv32 = base "BV32" in
+  let declaration ?interp ?(params = []) name domain range =
+    { A.decl_name = name; domain; range; interp; int_params = params } in
+  let constant ?interp ?params name range = A.App (declaration ?interp ?params name [] range, []) in
+  let numeral ?(range = int_sort) n d =
+    constant ~interp:Z3ValueTheory.op_num_rational ~params:[n; d] "numeral" range in
+  let bv_numeral width value =
+    constant ~interp:Z3BvLemma.op_numeral ~params:[z width; value]
+      "bv" (base (Printf.sprintf "BV%d" width)) in
+  let text e = fst (R.judgment_text (U.Holds e)) in
+  let expect label actual expected =
+    require (actual = expected) (Printf.sprintf "%s: %S, expected %S" label actual expected) in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  (* values and sorts *)
+  expect "integer numeral" (text (numeral (z 5) Z.one)) "holds(5)";
+  expect "rational numeral" (text (numeral ~range:real_sort (z (-7)) (z 3))) "holds(-7/3:Real)";
+  expect "integral real numeral" (text (numeral ~range:real_sort (z 2) Z.one)) "holds(2:Real)";
+  expect "bit-vector numeral" (text (bv_numeral 8 (z 255))) "holds((_ bv255 8))";
+  expect "wide bit-vector numeral"
+    (text (bv_numeral 64 (Z.of_string "18446744073709551615")))
+    "holds((_ bv18446744073709551615 64))";
+  let extract = declaration ~interp:Z3BvLemma.op_extract ~params:[z 32; z 15; z 8] "extract" [bv32] bv8 in
+  expect "extraction parameters" (text (A.App (extract, [A.Var (z 0, bv32)])))
+    "holds((extract[32,15,8]:BV8 #0:BV32))";
+  expect "multi-index array" (text (A.Var (z 0, A.ArraySort ([int_sort; int_sort], bool_sort))))
+    "holds(#0:(Array Int Int Bool))";
+  expect "nested array" (text (A.Var (z 1, A.ArraySort ([int_sort], A.ArraySort ([bv8], bool_sort)))))
+    "holds(#1:(Array Int (Array BV8 Bool)))";
+  let inner = A.Quantifier (A.Exists_k, [bv8], bool_sort, A.Var (z 1, int_sort)) in
+  expect "nested binders"
+    (text (A.Quantifier (A.Forall_k, [int_sort; A.ArraySort ([int_sort], bool_sort)], bool_sort, inner)))
+    "holds((forall [Int (Array Int Bool)] (exists [BV8] #1:Int)))";
+  expect "lambda"
+    (text (A.Quantifier (A.Lambda_k, [int_sort], A.ArraySort ([int_sort], bool_sort), A.Var (z 0, int_sort))))
+    "holds((lambda [Int] #0:Int))";
+  (* identity: same-named declarations stay apart, datatype operations are not connectives *)
+  let f7 = declaration "decl!7:f" [int_sort] int_sort and f9 = declaration "decl!9:f" [real_sort] int_sort in
+  let x = constant "decl!3:x" int_sort and y = constant "decl!4:y" real_sort in
+  expect "first same-named function" (text (A.App (f7, [x]))) "holds((f#7:Int x#3:Int))";
+  expect "second same-named function" (text (A.App (f9, [y]))) "holds((f#9:Int y#4:Real))";
+  expect "uninterpreted symbol without a native id" (text (constant "g" bool_sort)) "holds(g#-:Bool)";
+  expect "user sort" (text (constant "decl!6:t" (base "sort!5:T"))) "holds(t#6:T#5)";
+  let p = constant "decl!1:p" bool_sort and q = constant "decl!2:q" bool_sort in
+  let conjunction = declaration ~interp:Z3ValueTheory.op_and "and" [bool_sort; bool_sort] bool_sort in
+  expect "Boolean connective" (text (A.App (conjunction, [p; q]))) "holds((and p#1:Bool q#2:Bool))";
+  let owner = base "sort!5:T" in
+  let accessor = declaration ~interp:Z3DatatypeLemma.op_accessor ~params:[z 5; z 12; z 0] "and" [owner] bool_sort in
+  expect "accessor named like a connective"
+    (text (A.App (accessor, [constant "decl!6:t" owner]))) "holds((and@accessor[5,12,0]:Bool t#6:T#5))";
+  expect "constructor named like a constant"
+    (text (constant ~interp:Z3DatatypeLemma.op_constructor ~params:[z 5; z 13; z 0] "true" owner))
+    "holds(true@constructor[5,13,0]:T#5)";
+  (* names *)
+  expect "Unicode name" (text (constant "decl!3:h\xc3\xa9llo \xe2\x98\x83" int_sort)) "holds(|h\xc3\xa9llo \xe2\x98\x83|#3:Int)";
+  expect "bar, backslash and control bytes" (text (constant "decl!4:a|b\\c\n" int_sort))
+    "holds(|a\\x7cb\\x5cc\\x0a|#4:Int)";
+  expect "invalid UTF-8" (text (constant "decl!5:\xff\xc0\x80\xed\xa0\x80" int_sort))
+    "holds(|\\xff\\xc0\\x80\\xed\\xa0\\x80|#5:Int)";
+  expect "C1 control" (text (constant "decl!5:\xc2\x85" int_sort)) "holds(|\\xc2\\x85|#5:Int)";
+  expect "empty name" (text (constant "" int_sort)) "holds(||#-:Int)";
+  expect "name starting with a digit" (text (constant "1x" int_sort)) "holds(|1x|#-:Int)";
+  expect "long name" (text (constant ("decl!1:" ^ String.make 300 'a') int_sort))
+    ("holds(|" ^ String.make 96 'a' ^ "...<204 more bytes>|#1:Int)");
+  (* numerals are checked against 10^100 before they are converted *)
+  let nines = String.make 100 '9' in
+  expect "100-digit numeral" (text (numeral (Z.of_string nines) Z.one)) ("holds(" ^ nines ^ ")");
+  expect "negative 100-digit numeral" (text (numeral (Z.neg (Z.of_string nines)) Z.one)) ("holds(-" ^ nines ^ ")");
+  expect "101-digit numeral" (text (numeral (Z.pow (z 10) 100) Z.one))
+    "holds(<+huge integer: more than 100 digits omitted>)";
+  expect "negative huge numeral" (text (numeral (Z.neg (Z.pow (z 10) 400)) Z.one))
+    "holds(<-huge integer: more than 100 digits omitted>)";
+  let started = Sys.time () in
+  expect "million-bit numeral" (text (numeral (Z.shift_left Z.one 4_000_000) (z 3)))
+    "holds(<+huge integer: more than 100 digits omitted>/3)";
+  require (Sys.time () -. started < 5.0) "a huge numeral was converted before the size check";
+  (* malformed metadata is shown as reflected, never repaired *)
+  expect "rational without a denominator"
+    (text (constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5] "5" int_sort)) "holds(|5|[5]:Int)";
+  expect "bit-vector numeral without a value"
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8] "bv" bv8)) "holds(bv[8]:BV8)";
+  expect "bit-vector numeral with an extra parameter"
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[z 8; z 255; z 1] "bv" bv8)) "holds(bv[8,255,1]:BV8)";
+  expect "unknown interpretation" (text (constant ~interp:(z 999) "weird" bool_sort)) "holds(weird)";
+  expect "parameter limit" (text (constant ~params:(List.init 40 z) "decl!1:p" bool_sort))
+    ("holds(p#1[" ^ String.concat "," (List.init 16 string_of_int) ^ ",<24 more>]:Bool)");
+  (* limits leave explicit markers and stay cheap *)
+  let negation = declaration ~interp:Z3ValueTheory.op_not "not" [bool_sort] bool_sort in
+  let deep = ref p in
+  for _ = 1 to 200_000 do deep := A.App (negation, [!deep]) done;
+  let rendered, cut = R.judgment_text (U.Holds !deep) in
+  require (cut && contains rendered "<...depth>" && String.length rendered < 400) "deep expression was not cut";
+  let pair = declaration "decl!8:g" [int_sort; int_sort] int_sort in
+  let dag = ref x in
+  for _ = 1 to 100 do dag := A.App (pair, [!dag; !dag]) done;
+  let started = Sys.time () in
+  let rendered, cut = R.judgment_text (U.Holds !dag) in
+  require (Sys.time () -. started < 5.0) "a shared DAG was expanded";
+  require (cut && String.length rendered <= R.max_chars + 16) "shared DAG output was not bounded";
+  let rendered, cut =
+    R.judgment_text (U.Holds (A.App (declaration "decl!8:h" [] int_sort, List.init 5000 (fun _ -> numeral (z 5) Z.one)))) in
+  require (cut && contains rendered "<...nodes>") "node limit left no marker";
+  let rendered, cut =
+    R.judgment_text (U.Holds (A.Var (z 0, A.ArraySort (List.init 3000 (fun _ -> int_sort), bool_sort)))) in
+  require (cut && contains rendered "<...chars>" && String.length rendered <= R.max_chars + 16)
+    "character limit left no marker";
+  let nested = ref bool_sort in
+  for _ = 1 to 100 do nested := A.ArraySort ([int_sort], !nested) done;
+  let rendered, cut = R.judgment_text (U.Holds (A.Var (z 0, !nested))) in
+  require (cut && contains rendered "<...depth>") "sort depth limit left no marker";
+  (* the report: node index, premise ids, truncation, and no unrelated premises *)
+  let five = numeral (z 5) Z.one in
+  let conclusion = A.App (declaration ~interp:Z3ValueTheory.op_eq "=" [int_sort; int_sort] bool_sort, [x; five]) in
+  let leaf = { P.rule = U.Unverified "th-lemma"; formula = conclusion; premise_ids = [z 31; z 77] } in
+  let doc = { P.declarations = []; expressions = []; assertions = []; entries = [leaf; leaf]; root = z 1 } in
+  let obligation ?(rule = leaf.P.rule) ?(index = 1) ?(count = 2) conclusion =
+    { P.obligation_index = z index; obligation_rule = rule; obligation_conclusion = conclusion;
+      obligation_premises = [U.Holds p; U.Equal (x, x)]; obligation_source = leaf.P.formula;
+      obligation_count = z count } in
+  let checked ?(document = doc) obligations =
+    R.report_text 3 "PARTIAL 2" document (P.DocumentChecked (z 2, obligations)) in
+  expect "checked report" (checked [obligation (U.Holds conclusion)])
+    ("readable\tquery=3\tverdict=PARTIAL 2\tpending=2\tfamilies=1\tshown=1\n\
+      readable\tfamily=1/1\trule=th-lemma\tcount=2\tmembers=1\tnode=1\tnode-pending=2\n\
+     \  node 1: premises: #31 #77\n\
+     \  premise #31: holds(p#1:Bool)\n\
+     \  premise #77: equal(x#3:Int, x#3:Int)\n\
+     \  conclusion: holds((= x#3:Int 5))\n\
+     \  source formula: same as conclusion\n\
+      readable\tend\tquery=3\n");
+  let differing = checked [obligation (U.Equal (x, five))] in
+  require (contains differing "  conclusion: equal(x#3:Int, 5)\n  source formula: holds((= x#3:Int 5))\n")
+    "a differing source formula was hidden";
+  let unmatched = checked [obligation ~rule:(U.Unverified "other") (U.Holds conclusion)] in
+  require (contains unmatched
+             "  node 1: no source-node mapping (the document entry at this index has another rule or premise count): premise ids unavailable\n  premise [0]: holds(p#1:Bool)\n")
+    "premises were attached to a node of another rule";
+  require (not (contains unmatched "#31") && not (contains unmatched "#77")) "unrelated premise ids were shown";
+  let miscounted = checked [{ (obligation (U.Holds conclusion)) with P.obligation_premises = [U.Holds p] }] in
+  require (contains miscounted "no source-node mapping (the document entry at this index has another rule or premise count)" &&
+           not (contains miscounted "#31"))
+    "premises were attached to a node with another premise count";
+  require (contains (checked [obligation ~index:9 (U.Holds conclusion)])
+             "  node 9: no source-node mapping (no document entry at this index): premise ids unavailable\n")
+    "an obligation without a document entry got premise ids";
+  require (contains (R.report_text 7 "REJECT" doc (P.DocumentRejected (P.MissingPremise, Some (z 9), None)))
+             "  node 9: no source-node mapping (no document entry at this index)\n")
+    "a rejection without a document entry claimed premises";
+  let numbered = List.init 25 (fun i ->
+      obligation ~rule:(U.Unverified (Printf.sprintf "rule-%02d" i)) ~index:0 ~count:(i + 1) (U.Holds conclusion)) in
+  let limited = checked numbered in
+  require (contains limited "pending=2\tfamilies=25\tshown=20\n" &&
+           contains limited "readable\tomitted\tfamilies=5\treason=family-limit\n" &&
+           contains limited "readable\tfamily=20/25\trule=rule-05\tcount=6\t" &&
+           not (contains limited "rule=rule-04\t"))
+    "family limit";
+  let heavy = A.App (declaration "decl!8:h" [] int_sort, List.init 600 (fun _ -> x)) in
+  let big_premises = List.init 8 (fun _ -> U.Holds heavy) in
+  let big = List.init 6 (fun i ->
+      { (obligation ~rule:(U.Unverified (Printf.sprintf "big-%d" i)) (U.Holds heavy)) with
+        P.obligation_premises = big_premises; obligation_source = heavy }) in
+  let sized = checked big in
+  require (String.length sized < R.max_report_chars + 200 &&
+           contains sized "readable\tomitted\treason=report-size\nreadable\tend\tquery=3\n")
+    "report size limit";
+  expect "rejected report"
+    (R.report_text 4 "REJECT" doc (P.DocumentRejected (P.ProofEntry, Some (z 1), Some conclusion)))
+    ("readable\tquery=4\tverdict=REJECT\tstage=proof-entry\tindex=1\n\
+     \  node 1: rule=th-lemma premises: #31 #77\n\
+     \  source formula: holds((= x#3:Int 5))\n\
+      readable\tend\tquery=4\n");
+  expect "rejected report without a node"
+    (R.report_text 5 "REJECT" doc (P.DocumentRejected (P.MissingRoot, None, None)))
+    ("readable\tquery=5\tverdict=REJECT\tstage=missing-root\tindex=-\n\
+     \  source formula: none reported\n\
+      readable\tend\tquery=5\n");
+  require (not (contains (R.report_text 6 "REJECT" doc (P.DocumentRejected (P.OpenRoot, Some (z 1), None))) "  node "))
+    "a root-stage rejection claimed a proof node"
+
+(* The printer reads a finished diagnostic. On one fixed proof document: the check and diagnose results and the machine rows are the same
+   before and after readable output is rendered, neither the document nor the diagnostic is modified, and rendering performs no
+   checking (the hash the checker calls per judgment is not called). The CLI driver gives the same verdict, summary and machine rows
+   with and without --readable on the same native proof, and the readable records only extend them. *)
+let readable_same_proof () =
+  let module R = Z3NativeMain.Readable in
+  let capture_stderr f =
+    let path = Filename.temp_file "readable" ".stderr" in
+    let fd = Unix.openfile path [Unix.O_WRONLY; Unix.O_TRUNC] 0o600 in
+    let saved = Unix.dup Unix.stderr in
+    flush stderr;
+    Unix.dup2 fd Unix.stderr;
+    Fun.protect ~finally:(fun () -> flush stderr; Unix.dup2 saved Unix.stderr; Unix.close saved; Unix.close fd) f;
+    let text = In_channel.with_open_bin path In_channel.input_all in
+    Sys.remove path;
+    text in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  (* A chain of 20 asserted equalities (the checker indexes its inputs by hashing them from 17 asserted entries on, which is what the
+     call counter below observes) under a nonlinear conflict that leaves a pending theory lemma. *)
+  let declarations = String.concat "" (List.init 21 (fun i -> Printf.sprintf "(declare-const x%d Real)" i)) in
+  let chain = String.concat "" (List.init 20 (fun i -> Printf.sprintf "(assert (= x%d x%d))" i (i + 1))) in
+  let assertions, proof = unsat (declarations ^ chain ^ "(assert (= (* x20 x20) 2))(assert (= (* x0 x0 x0) 3))") in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (schema.Z3DatatypeSignature.cases = []) "expected the legacy checker";
+  let calls = ref 0 in
+  let hash value = incr calls; Z3NativeMain.assertion_hash value in
+  let document_bytes () = Marshal.to_string doc [] in
+  let before = document_bytes () in
+  let result, diagnostic = P.check_document_diagnosed_indexed hash doc in
+  let checks = !calls in
+  require (checks > 0) "the diagnosed check did not hash anything";
+  let pending = match diagnostic with
+    | P.DocumentChecked (n, _ :: _) -> n
+    | _ -> failwith "expected pending obligations" in
+  require (result = Some pending) "the diagnosed result disagrees with the diagnostic";
+  let rows_before = capture_stderr (fun () -> Z3NativeMain.report_diagnostics diagnostic result) in
+  require (contains rows_before "obligation\tth-lemma\t") "no machine row for the pending theory lemma";
+  let diagnostic_bytes = Marshal.to_string diagnostic [] in
+  let text = R.report_text 1 (Z3NativeMain.result_text result) doc diagnostic in
+  require (contains text "readable\tquery=1\tverdict=PARTIAL ") "no readable block for the pending proof";
+  require (!calls = checks) "rendering invoked the checker";
+  require (document_bytes () = before) "rendering changed the proof document";
+  require (Marshal.to_string diagnostic [] = diagnostic_bytes) "rendering changed the diagnostic";
+  require (R.report_text 1 (Z3NativeMain.result_text result) doc diagnostic = text)
+    "the readable block is not a function of the diagnostic";
+  require (capture_stderr (fun () -> Z3NativeMain.report_diagnostics diagnostic result) = rows_before)
+    "the machine rows changed after rendering";
+  let result', diagnostic' = P.check_document_diagnosed_indexed hash doc in
+  require (result' = result && diagnostic' = diagnostic) "the check result changed after rendering";
+  require (!calls = 2 * checks) "a diagnosed check is not a fixed amount of work";
+  require (P.check_document_indexed Z3NativeMain.assertion_hash doc = result) "diagnosed and plain verdicts differ";
+  (* the driver on the same native proof, with and without readable output *)
+  let run readable =
+    let outcome = ref (None, "") in
+    let stderr_text = capture_stderr (fun () ->
+        outcome := Z3NativeMain.check_proof false true readable 1 false 0.0 0.0 assertions proof) in
+    !outcome, stderr_text in
+  let (plain_result, plain_summary), plain_stderr = run false in
+  let (readable_result, readable_summary), readable_stderr = run true in
+  let untimed summary = String.concat " " (List.filteri (fun i _ -> i >= 3) (String.split_on_char ' ' summary)) in
+  require (plain_result = result && readable_result = result) "the driver verdict differs from the document check";
+  require (untimed plain_summary = untimed readable_summary) "--readable changed the driver summary";
+  require (plain_stderr = rows_before) "the driver's machine rows differ from the diagnostic rows";
+  require (String.starts_with ~prefix:plain_stderr readable_stderr &&
+           String.starts_with ~prefix:"readable\tquery=1\t"
+             (String.sub readable_stderr (String.length plain_stderr) (String.length readable_stderr - String.length plain_stderr)))
+    "the readable records do not simply extend the machine rows";
+  require (Marshal.to_string (fst (B.marshal_with_datatypes assertions proof)) [] = before)
+    "the proof document changed after the driver rendered it"
+
+(* Cases the golden renders of readable_conditions do not reach: bit-vector values as the checker reflected them (encoded signed,
+   malformed, wider than a machine word), wide extractions, malformed decl!/sort! identities, and the report branches that bound
+   premises or name a stage. Expectations come from the printer's contract, not from observed output: what the checker saw is shown
+   verbatim (never re-encoded, repaired or reduced), an unmatched native identity is a plain quoted name, and every limit leaves a
+   marker. tests.cpp repeats each expectation for the Cherry printer. *)
+let readable_edge_cases () =
+  let module R = Z3NativeMain.Readable in
+  let z = Z.of_int in
+  let base name = A.BaseSort name in
+  let int_sort = base "Int" and bool_sort = base "Bool" in
+  let declaration ?interp ?(params = []) name domain range =
+    { A.decl_name = name; domain; range; interp; int_params = params } in
+  let constant ?interp ?params name range = A.App (declaration ?interp ?params name [] range, []) in
+  let bv_numeral width value =
+    constant ~interp:Z3BvLemma.op_numeral ~params:[z width; value] "bv" (base (Printf.sprintf "BV%d" width)) in
+  let text e = fst (R.judgment_text (U.Holds e)) in
+  let expect label actual expected =
+    require (actual = expected) (Printf.sprintf "%s: %S, expected %S" label actual expected) in
+  let lines rows = String.concat "\n" rows ^ "\n" in
+  let huge sign = Printf.sprintf "<%shuge integer: more than 100 digits omitted>" sign in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  (* bit-vector values: encoded two's complement, negative or out of range as reflected, wide, beyond the digit limit *)
+  expect "minimum signed value, as encoded" (text (bv_numeral 8 (z 128))) "holds((_ bv128 8))";
+  expect "negative value is not re-encoded" (text (bv_numeral 8 (z (-1)))) "holds((_ bv-1 8))";
+  expect "value beyond the width is not reduced" (text (bv_numeral 8 (z 256))) "holds((_ bv256 8))";
+  expect "zero width" (text (bv_numeral 0 Z.zero)) "holds((_ bv0 0))";
+  let ones_256 = Z.pred (Z.shift_left Z.one 256) in
+  expect "256-bit all ones" (text (bv_numeral 256 ones_256)) ("holds((_ bv" ^ Z.to_string ones_256 ^ " 256))");
+  expect "value of 100 digits" (text (bv_numeral 333 (Z.pow (z 10) 99)))
+    ("holds((_ bv1" ^ String.make 99 '0' ^ " 333))");
+  expect "value of 101 digits" (text (bv_numeral 333 (Z.pow (z 10) 100))) ("holds((_ bv" ^ huge "+" ^ " 333))");
+  expect "512-bit value beyond the digit limit" (text (bv_numeral 512 (Z.shift_left Z.one 511)))
+    ("holds((_ bv" ^ huge "+" ^ " 512))");
+  expect "negative 512-bit value beyond the digit limit"
+    (text (bv_numeral 512 (Z.neg (Z.shift_left Z.one 511)))) ("holds((_ bv" ^ huge "-" ^ " 512))");
+  expect "width beyond the digit limit"
+    (text (constant ~interp:Z3BvLemma.op_numeral ~params:[Z.pow (z 10) 150; z 5] "bv" (base "BV0")))
+    ("holds((_ bv5 " ^ huge "+" ^ "))");
+  (* wide extractions: widths and bounds are shown as reflected, even beyond a machine word, with the range they give *)
+  let bv256 = base "BV256" and bv128 = base "BV128" and bv101 = base "BV101" in
+  let extract params domain range = declaration ~interp:Z3BvLemma.op_extract ~params "extract" [domain] range in
+  expect "wide extraction" (text (A.App (extract [z 256; z 200; z 100] bv256 bv101, [A.Var (z 0, bv256)])))
+    "holds((extract[256,200,100]:BV101 #0:BV256))";
+  expect "extraction of a wide numeral"
+    (text (A.App (extract [z 256; z 255; z 128] bv256 bv128, [bv_numeral 256 ones_256])))
+    ("holds((extract[256,255,128]:BV128 (_ bv" ^ Z.to_string ones_256 ^ " 256)))");
+  expect "extraction bound beyond a machine word"
+    (text (A.App (extract [z 256; Z.of_string "18446744073709551621"; z 100] bv256 bv101, [A.Var (z 0, bv256)])))
+    "holds((extract[256,18446744073709551621,100]:BV101 #0:BV256))";
+  (* declaration identities: only "decl!DIGITS:NAME" (at most 20 digits) is a native identity; any other name is kept quoted, with no id *)
+  List.iter (fun (name, shown) ->
+      expect ("declaration " ^ String.escaped name) (text (constant name int_sort)) ("holds(" ^ shown ^ ":Int)"))
+    ["decl!", "decl!#-"; "decl!:x", "|decl!:x|#-"; "decl!abc:x", "|decl!abc:x|#-"; "decl!12", "decl!12#-";
+     "decl!12:", "||#12"; "decl!7:f:g", "|f:g|#7"; "decl!7:decl!8:x", "|decl!8:x|#7"; "decl!007:x", "x#007";
+     "Decl!3:x", "|Decl!3:x|#-"; "sort!3:x", "|sort!3:x|#-"; "decl!\xd9\xa3:x", "|decl!\xd9\xa3:x|#-";
+     "decl!12345678901234567890:x", "x#12345678901234567890";
+     "decl!123456789012345678901:x", "|decl!123456789012345678901:x|#-"];
+  expect "interpreted head whose name looks like a native identity"
+    (text (constant ~interp:(z 999) "decl!3:x" bool_sort)) "holds(|decl!3:x|)";
+  let p = constant "decl!1:p" bool_sort and q = constant "decl!2:q" bool_sort in
+  expect "uninterpreted function named like a connective, without a native id"
+    (text (A.App (declaration "and" [bool_sort; bool_sort] bool_sort, [p; q])))
+    "holds((and#-:Bool p#1:Bool q#2:Bool))";
+  expect "uninterpreted function named like a connective, with a native id"
+    (text (A.App (declaration "decl!5:and" [bool_sort; bool_sort] bool_sort, [p; q])))
+    "holds((and#5:Bool p#1:Bool q#2:Bool))";
+  (* sort identities follow the same rule with "sort!DIGITS:NAME" *)
+  List.iter (fun (name, shown) ->
+      expect ("sort " ^ String.escaped name) (text (A.Var (z 0, base name))) ("holds(#0:" ^ shown ^ ")"))
+    ["sort!", "sort!"; "sort!:T", "|sort!:T|"; "sort!x:T", "|sort!x:T|"; "sort!5", "sort!5"; "sort!5:", "||#5";
+     "sort!5:two words", "|two words|#5"; "sort!4:Int", "Int#4"; "sort!8:Bool", "Bool#8";
+     "Sort!5:T", "|Sort!5:T|"; "decl!5:T", "|decl!5:T|"];
+  expect "array sort over malformed and native sorts"
+    (text (A.Var (z 0, A.ArraySort ([base "sort!x:T"; int_sort], base "sort!6:U"))))
+    "holds(#0:(Array |sort!x:T| Int U#6))";
+  (* The range of an interpreted head is printed after ':' unless it is Bool (connectives and predicates: an interpreted head without a
+     range is Bool) or the sort of its first argument, which that argument prints: so the sort of an expression is always printed or
+     follows from what is printed. A constant array needs it most: its domain sorts occur nowhere in its arguments, so without the
+     range arrays over different domains read the same. *)
+  let real_sort = base "Real" in
+  let zero = constant ~interp:Z3ValueTheory.op_num_rational ~params:[Z.zero; Z.one] "numeral" int_sort in
+  let truth = constant ~interp:Z3ValueTheory.op_true "true" bool_sort in
+  let const_array domains element value =
+    A.App (declaration ~interp:Z3ValueTheory.op_const_array "const" [element] (A.ArraySort (domains, element)), [value]) in
+  let over_int = text (const_array [int_sort] int_sort zero) and over_real = text (const_array [real_sort] int_sort zero) in
+  expect "constant array over Int" over_int "holds((const:(Array Int Int) 0))";
+  expect "constant array over Real" over_real "holds((const:(Array Real Int) 0))";
+  require (over_int <> over_real) "constant arrays over different domains read the same";
+  expect "constant array over two domains" (text (const_array [int_sort; real_sort] bool_sort truth))
+    "holds((const:(Array Int Real Bool) true))";
+  expect "constant array of constant arrays"
+    (text (const_array [int_sort] (A.ArraySort ([real_sort], bool_sort)) (const_array [real_sort] bool_sort truth)))
+    "holds((const:(Array Int (Array Real Bool)) (const:(Array Real Bool) true)))";
+  let arrays = A.ArraySort ([int_sort], int_sort) in
+  let store_of array_argument =
+    A.App (declaration ~interp:Z3ValueTheory.op_store "store" [arrays; int_sort; int_sort] arrays, [array_argument; zero; zero]) in
+  expect "store takes the sort of its array argument" (text (store_of (A.Var (z 0, arrays)))) "holds((store #0:(Array Int Int) 0 0))";
+  expect "store of a constant array" (text (store_of (const_array [int_sort] int_sort zero)))
+    "holds((store (const:(Array Int Int) 0) 0 0))";
+  expect "select shows its element sort"
+    (text (A.App (declaration ~interp:Z3ValueTheory.op_select "select" [arrays; int_sort] int_sort, [A.Var (z 0, arrays); zero])))
+    "holds((select:Int #0:(Array Int Int) 0))";
+  (* operators that keep the sort of their first argument, predicates, and operators that change the sort *)
+  let x_real = A.Var (z 1, real_sort) and y_int = A.Var (z 2, int_sort) and c_bool = A.Var (z 3, bool_sort) in
+  let five_real = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5; Z.one] "numeral" real_sort in
+  let operator ?(params = []) name op domain range args = A.App (declaration ~interp:op ~params name domain range, args) in
+  expect "sum keeps the sort of its first argument"
+    (text (operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [x_real; five_real])) "holds((+ #1:Real 5:Real))";
+  expect "sum of integers"
+    (text (operator "+" Z3ValueTheory.op_arith_add [int_sort; int_sort] int_sort [zero; y_int])) "holds((+ 0 #2:Int))";
+  expect "conversion to Real shows its range"
+    (text (operator "to_real" Z3ValueTheory.op_to_real [int_sort] real_sort [y_int])) "holds((to_real:Real #2:Int))";
+  expect "comparison is Bool"
+    (text (operator "<=" Z3ValueTheory.op_arith_le [real_sort; real_sort] bool_sort [x_real; five_real])) "holds((<= #1:Real 5:Real))";
+  expect "conditional over integers"
+    (text (operator "ite" Z3ValueTheory.op_ite [bool_sort; int_sort; int_sort] int_sort [c_bool; zero; y_int]))
+    "holds((ite:Int #3:Bool 0 #2:Int))";
+  expect "conditional over Bool"
+    (text (operator "ite" Z3ValueTheory.op_ite [bool_sort; bool_sort; bool_sort] bool_sort [c_bool; p; q]))
+    "holds((ite #3:Bool p#1:Bool q#2:Bool))";
+  let bv8 = base "BV8" and bv24 = base "BV24" and bv32 = base "BV32" in
+  expect "bit-vector sum keeps the sort of its first argument"
+    (text (operator ~params:[z 32] "bvadd" Z3BvLemma.op_add [bv32; bv32] bv32 [A.Var (z 0, bv32); A.Var (z 1, bv32)]))
+    "holds((bvadd[32] #0:BV32 #1:BV32))";
+  expect "concatenation shows its width"
+    (text (operator ~params:[z 24; z 8] "concat" Z3BvLemma.op_concat [bv24; bv8] bv32 [A.Var (z 0, bv24); A.Var (z 1, bv8)]))
+    "holds((concat[24,8]:BV32 #0:BV24 #1:BV8))";
+  expect "zero extension shows its width"
+    (text (operator ~params:[z 8; z 24] "zero_extend" Z3BvLemma.op_zero_extend [bv8] bv32 [A.Var (z 0, bv8)]))
+    "holds((zero_extend[8,24]:BV32 #0:BV8))";
+  let t5 = base "sort!5:T" and t6 = base "sort!6:T" in
+  expect "unknown interpreted head over one user sort"
+    (text (operator "weird" (z 999) [t5] t5 [constant "decl!6:t" t5])) "holds((weird t#6:T#5))";
+  expect "unknown interpreted head between two user sorts of one name"
+    (text (operator "weird" (z 999) [t6] t5 [constant "decl!6:t" t6])) "holds((weird:T#5 t#6:T#6))";
+  expect "unknown interpreted constant" (text (constant ~interp:(z 999) "weird" int_sort)) "holds(weird:Int)";
+  expect "unknown interpreted array constant" (text (constant ~interp:(z 999) "weird" arrays)) "holds(weird:(Array Int Int))";
+  expect "a user sort named Bool is not Bool" (text (constant ~interp:(z 999) "weird" (base "sort!8:Bool"))) "holds(weird:Bool#8)";
+  (* where the argument is cut by the depth limit the sort is printed; so are sorts too deep or too wide to be compared *)
+  let sum = ref x_real in
+  for _ = 1 to 100 do sum := operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [!sum; x_real] done;
+  let rendered, cut = R.judgment_text (U.Holds !sum) in
+  require (cut && String.starts_with ~prefix:"holds((+ (+ (+ " rendered && contains rendered "(+:Real <...depth> <...depth>)")
+    "a cut argument left the sum without its sort";
+  let nested_sort n = let s = ref bool_sort in for _ = 1 to n do s := A.ArraySort ([int_sort], !s) done; !s in
+  let store_over sort_value =
+    A.App (declaration ~interp:Z3ValueTheory.op_store "store" [sort_value] sort_value, [A.Var (z 0, sort_value)]) in
+  expect "store over a moderately nested sort" (let s = nested_sort 3 in text (store_over s))
+    "holds((store #0:(Array Int (Array Int (Array Int Bool)))))";
+  let rendered, cut = R.judgment_text (U.Holds (store_over (nested_sort 100))) in
+  require (cut && String.starts_with ~prefix:"holds((store:(Array Int (Array Int " rendered && contains rendered "<...depth>")
+    "sorts nested beyond the limit were compared";
+  let rec shared n = if n = 0 then int_sort else (let s = shared (n - 1) in A.ArraySort ([s; s], bool_sort)) in
+  let started = Sys.time () in
+  let rendered, cut = R.judgment_text (U.Holds (store_over (shared 40))) in
+  require (Sys.time () -. started < 5.0) "sorts sharing their parts were compared without a budget";
+  require (cut && String.starts_with ~prefix:"holds((store:(Array " rendered) "sorts sharing their parts were compared";
+  let nested = ref bool_sort in
+  for _ = 1 to 100 do nested := A.ArraySort ([int_sort], !nested) done;
+  let rendered, cut =
+    R.judgment_text (U.Holds (A.App (declaration ~interp:Z3ValueTheory.op_const_array "const" [bool_sort] !nested, [truth]))) in
+  require (cut && String.length rendered < 700 && String.starts_with ~prefix:"holds((const:(Array Int (Array Int " rendered)
+    "a deeply nested array range was not cut with a marker";
+  (* chains of heads: an omitted range follows from what is printed; what is cut, not compared or does not print its own sort keeps it *)
+  let over_bv = text (const_array [bv8] int_sort zero) in
+  expect "constant array over a bit-vector domain" over_bv "holds((const:(Array BV8 Int) 0))";
+  require (over_bv <> over_int && over_bv <> over_real) "constant arrays over Int, Real and bit-vector domains read alike";
+  let numeral_of range n = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z n; Z.one] "numeral" range in
+  expect "integral Real numeral under a sum"
+    (text (operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [numeral_of real_sort 2; x_real]))
+    "holds((+ 2:Real #1:Real))";
+  expect "integer literal under a sum"
+    (text (operator "+" Z3ValueTheory.op_arith_add [int_sort; int_sort] int_sort [numeral_of int_sort 2; y_int]))
+    "holds((+ 2 #2:Int))";
+  expect "select of a store of a constant array"
+    (text (A.App (declaration ~interp:Z3ValueTheory.op_select "select" [arrays; int_sort] int_sort,
+                  [store_of (const_array [int_sort] int_sort zero); zero])))
+    "holds((select:Int (store (const:(Array Int Int) 0) 0 0) 0))";
+  let ite_int a b = operator "ite" Z3ValueTheory.op_ite [bool_sort; int_sort; int_sort] int_sort [c_bool; a; b] in
+  expect "nested conditionals" (text (ite_int (ite_int zero y_int) y_int))
+    "holds((ite:Int #3:Bool (ite:Int #3:Bool 0 #2:Int) #2:Int))";
+  expect "a lambda argument does not print its sort"
+    (text (store_of (A.Quantifier (A.Lambda_k, [int_sort], arrays, A.Var (z 0, int_sort)))))
+    "holds((store:(Array Int Int) (lambda [Int] #0:Int) 0 0))";
+  let int_sum = ref y_int in
+  for _ = 1 to 100 do int_sum := operator "+" Z3ValueTheory.op_arith_add [int_sort; int_sort] int_sort [!int_sum; y_int] done;
+  let rendered, cut = R.judgment_text (U.Holds (operator "to_real" Z3ValueTheory.op_to_real [int_sort] real_sort [!int_sum])) in
+  require (cut && String.starts_with ~prefix:"holds((to_real:Real (+ (+ " rendered && contains rendered "(+:Int <...depth> <...depth>)")
+    "a conversion of a cut sum lost a sort";
+  let real_sum = operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort [x_real; x_real] in
+  let node_limited fillers =
+    R.judgment_text (U.Holds (A.App (declaration "decl!8:h" [] int_sort, List.init fillers (fun _ -> zero) @ [real_sum]))) in
+  let rendered, cut = node_limited 998 in
+  require (cut && contains rendered "(+:Real <...nodes>") "a head whose argument is cut at the node limit lost its sort";
+  let rendered, cut = node_limited 997 in
+  require (cut && contains rendered "(+ #1:Real <...nodes>") "a head whose first argument is printed printed a range";
+  let long_sort n = base (String.make n 'S') in
+  let rendered = text (store_over (long_sort 5000)) in
+  require (String.starts_with ~prefix:"holds((store:|S" rendered && contains rendered "<4904 more bytes>")
+    "sort names beyond the comparison limit were compared";
+  require (String.starts_with ~prefix:"holds((store #0:|S" (text (store_over (long_sort 100))))
+    "equal sort names of 100 bytes were not recognized";
+  let rendered, cut =
+    R.judgment_text (U.Holds (operator "+" Z3ValueTheory.op_arith_add [real_sort; real_sort] real_sort (x_real :: List.init 3000 (fun _ -> x_real)))) in
+  require (cut && String.starts_with ~prefix:"holds((+ #1:Real #1:Real" rendered && String.ends_with ~suffix:"<...chars>" rendered)
+    "output clipping hid where the text ends";
+  (* the report: premise limit, other stages, accepted proofs and huge counts *)
+  let five = constant ~interp:Z3ValueTheory.op_num_rational ~params:[z 5; Z.one] "numeral" int_sort in
+  let x = constant "decl!3:x" int_sort in
+  let conclusion = A.App (declaration ~interp:Z3ValueTheory.op_eq "=" [int_sort; int_sort] bool_sort, [x; five]) in
+  let ids = List.init 10 (fun i -> z (100 + i)) in
+  let leaf = { P.rule = U.Unverified "th-lemma"; formula = conclusion; premise_ids = ids } in
+  let doc = { P.declarations = []; expressions = []; assertions = []; entries = [leaf]; root = Z.zero } in
+  let obligation ?(premises = []) count =
+    { P.obligation_index = Z.zero; obligation_rule = leaf.P.rule; obligation_conclusion = U.Holds conclusion;
+      obligation_premises = premises; obligation_source = conclusion; obligation_count = count } in
+  let premises = List.init 10 (fun i -> if i mod 2 = 0 then U.Holds p else U.Equal (x, x)) in
+  expect "premise limit"
+    (R.report_text 1 "PARTIAL 1" doc (P.DocumentChecked (Z.one, [obligation ~premises Z.one])))
+    (lines ["readable\tquery=1\tverdict=PARTIAL 1\tpending=1\tfamilies=1\tshown=1";
+            "readable\tfamily=1/1\trule=th-lemma\tcount=1\tmembers=1\tnode=0\tnode-pending=1";
+            "  node 0: premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>";
+            "  premise #100: holds(p#1:Bool)"; "  premise #101: equal(x#3:Int, x#3:Int)";
+            "  premise #102: holds(p#1:Bool)"; "  premise #103: equal(x#3:Int, x#3:Int)";
+            "  premise #104: holds(p#1:Bool)"; "  premise #105: equal(x#3:Int, x#3:Int)";
+            "  premise #106: holds(p#1:Bool)"; "  premise #107: equal(x#3:Int, x#3:Int)";
+            "  ...<2 more premises omitted>";
+            "  conclusion: holds((= x#3:Int 5))"; "  source formula: same as conclusion";
+            "readable\tend\tquery=1"]);
+  expect "missing-premise rejection names the node and its premise ids"
+    (R.report_text 8 "REJECT" doc (P.DocumentRejected (P.MissingPremise, Some Z.zero, None)))
+    (lines ["readable\tquery=8\tverdict=REJECT\tstage=missing-premise\tindex=0";
+            "  node 0: rule=th-lemma premises: #100 #101 #102 #103 #104 #105 #106 #107 ...<2 more>";
+            "  source formula: none reported"; "readable\tend\tquery=8"]);
+  expect "entry rejection without an index"
+    (R.report_text 9 "REJECT" doc (P.DocumentRejected (P.ProofEntry, None, None)))
+    (lines ["readable\tquery=9\tverdict=REJECT\tstage=proof-entry\tindex=-"; "  source formula: none reported";
+            "readable\tend\tquery=9"]);
+  expect "accepted proof" (R.report_text 2 "ACCEPT" doc (P.DocumentChecked (Z.zero, [])))
+    (lines ["readable\tquery=2\tverdict=ACCEPT\tpending=0\tfamilies=0\tshown=0"; "readable\tend\tquery=2"]);
+  let bare = { doc with P.entries = [{ leaf with P.premise_ids = [] }] } in
+  let big = Z.pow (z 10) 200 in
+  expect "huge counts"
+    (R.report_text 1 "PARTIAL" bare (P.DocumentChecked (big, [obligation big])))
+    (lines ["readable\tquery=1\tverdict=PARTIAL\tpending=" ^ huge "+" ^ "\tfamilies=1\tshown=1";
+            "readable\tfamily=1/1\trule=th-lemma\tcount=" ^ huge "+" ^ "\tmembers=1\tnode=0\tnode-pending=" ^ huge "+";
+            "  node 0: premises: none"; "  conclusion: holds((= x#3:Int 5))"; "  source formula: same as conclusion";
+            "readable\tend\tquery=1"])
 
 let identity_and_binders () =
   let c = context () in
@@ -816,10 +1430,94 @@ let checked_binder_proofs () =
   require (not (U.binder_step_with_inputs [open_fact] leaf open_fact []))
     "open assertion was generalized across binder environments";
   let node = { U.kind = U.QuantifierIntroduction certificate;
-               conclusion1 = conclusion; premises = [] } in
+               conclusion = conclusion; premises = [] } in
   require (match U.check_node_with_inputs true [input] node with
       | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
-    "input-aware binder certificate was not integrated in the node checker"
+    "input-aware binder certificate was not integrated in the node checker";
+  (* Scope guard: binder entries are checked at the scopes the root uses them. *)
+  let int_s = A.BaseSort "Int" and bool_s = A.bool_sort in
+  let all bs b = A.Quantifier (A.Forall_k, bs, bool_s, b) in
+  let eqe = Z3ResolutionProofTheory.mk_eq_expr in
+  let tt = Z3ResolutionProofTheory.true_expr in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula;
+      binder_premises = List.map Z.of_int premises; binder_sorts = sorts } in
+  let pending entries root concl =
+    match U.check_node_with_inputs true []
+            { U.kind = U.QuantifierIntroduction
+                { U.binder_entries = entries; binder_root = Z.of_int root };
+              conclusion = concl; premises = [] } with
+    | Some (_, p) -> Z.to_int p | None -> -1 in
+  let refl_true = entry "refl" (eqe tt tt) [] None in
+  let p0 = A.Var (Z.zero, bool_s) and x0 = A.Var (Z.zero, int_s) in
+  let taut a = A.App (Z3CanonicalOps.or_decl (Z.of_int 2), [a; Z3ResolutionProofTheory.mk_not_expr a]) in
+  (* forall x:Int. (or p (not p)) = forall x:Int. true with p = Var 0 : Bool is false
+     in the standard model; the Boolean wrapper used to certify it. *)
+  let ill = all [int_s] (taut p0) and top = all [int_s] tt in
+  require (pending [refl_true; entry "quant-intro" (eqe ill top) [0] (Some [int_s])] 1
+             (U.Equal (ill, top)) = 1)
+    "ill-scoped binder certificate was certified";
+  (* A closed, well-scoped root over an ill-scoped inner rewrite. *)
+  let ok = all [int_s] (taut (eqe x0 x0)) in
+  require (pending [entry "rewrite" (eqe (taut p0) tt) [] None;
+                    entry "quant-intro" (eqe ok top) [0] (Some [int_s])] 1 (U.Equal (ok, top)) = 1)
+    "ill-scoped inner binder entry was certified";
+  (* The same open body, well scoped, stays certified. *)
+  require (pending [entry "refl" (eqe (taut (eqe x0 x0)) (taut (eqe x0 x0))) [] None;
+                    entry "quant-intro" (eqe ok ok) [0] (Some [int_s])] 1 (U.Equal (ok, ok)) = 0)
+    "well-scoped open binder body was rejected";
+  (* Bounds: 1024 binders pass, 1025 fail; a shared diamond needing 2^40 scopes fails fast. *)
+  let wide n = let bs = List.init n (fun _ -> int_s) in all bs tt in
+  let wide_cert n = [refl_true; entry "quant-intro" (eqe (wide n) (wide n)) [0]
+                                  (Some (List.init n (fun _ -> int_s)))] in
+  require (pending (wide_cert 1024) 1 (U.Equal (wide 1024, wide 1024)) = 0)
+    "binder scope at the length limit was rejected";
+  require (pending (wide_cert 1025) 1 (U.Equal (wide 1025, wide 1025)) = 1)
+    "binder scope over the length limit was accepted";
+  let diamond levels =
+    let q s p = entry "quant-intro" (eqe (all [s] tt) (all [s] tt)) [p] (Some [s]) in
+    let join l r = entry "monotonicity" (eqe tt tt) [l; r] None in
+    let rec go i acc = if i > levels then List.rev acc
+      else let a = 3 * (i - 1) in go (i + 1) (join (a + 1) (a + 2) :: q bool_s a :: q int_s a :: acc) in
+    go 1 [refl_true] in
+  require (pending (diamond 6) 18 (U.Equal (tt, tt)) = 0)
+    "shared binder proof at the per-entry scope limit was rejected";
+  let t0 = Unix.gettimeofday () in
+  require (pending (diamond 40) 120 (U.Equal (tt, tt)) = 1)
+    "exponential shared binder proof was accepted";
+  require (Unix.gettimeofday () -. t0 < 5.0) "exponential shared binder proof was not cut off";
+  (* Sort names are charged by U.name_length, which equals FStar.String.strlen,
+     before they are compared. It counts FStar.String.list_of_string, which the
+     runtime decodes like the Cherry runtime: code points on valid UTF-8, and at
+     least a quarter of the bytes on any byte string. *)
+  List.iter (fun (s, n) ->
+      require (Z.equal (FStar_String.strlen s) (Z.of_int n))
+        ("runtime strlen disagrees with the Cherry runtime: " ^ String.escaped s);
+      require (Z.equal (U.name_length s) (Z.of_int n))
+        ("guard name length disagrees with strlen: " ^ String.escaped s))
+    ["", 0; "Int", 3; "\xC3\xA9", 1; "\xE2\x82\xAC", 1; "\xF0\x9F\x98\x80", 1; "e\xCC\x81", 2;
+     "\x80\x80\x80\x80\x80\x80\x80\x80", 4; "\xC3", 1; "a\xE2\x82", 2; "\xFF\xFE", 1;
+     "\xC0\x80", 1; "\xED\xA0\x80", 1];
+  (* Decoded characters: scalar boundaries and malformed sequences (U+FFFD). *)
+  List.iter (fun (s, cs) ->
+      require (FStar_String.list_of_string s = cs)
+        ("runtime list_of_string decodes unexpectedly: " ^ String.escaped s))
+    ["a\xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80", [0x61; 0xE9; 0x20AC; 0x1F600];
+     "\xED\x9F\xBE\xED\x9F\xBF\xEE\x80\x80\xF4\x8F\xBF\xBF", [0xD7FE; 0xD7FF; 0xE000; 0x10FFFF];
+     "\xED\xA0\x80\xED\xBF\xBF\xF4\x90\x80\x80", [0xFFFD; 0xFFFD; 0xFFFD];
+     "\x80\x80\xC0\x80\xF5\x80\x80\x80", [0xFFFD; 0xFFFD; 0xFFFD];
+     "\xE0\x80\x80", [0]; "a\xF0\x9F\x98", [0x61; 0xFFFD]];
+  let named len c =
+    let s = A.BaseSort (String.make len c) in
+    let x = A.Var (Z.zero, s) in
+    let q = all [s] (eqe x x) in
+    pending [entry "refl" (eqe (eqe x x) (eqe x x)) [] None;
+             entry "quant-intro" (eqe q q) [0] (Some [s])] 1 (U.Equal (q, q)) in
+  require (named 1000 'S' = 0) "a binder sort with a 1000-character name was rejected";
+  require (named 1_000_000 '\x80' = 1)
+    "a long malformed sort name was compared without its length being charged";
+  require (named 1_000_000 'S' = 1)
+    "a long sort name was compared without its length being charged"
 
 let checked_binder_definitions () =
   let c = context () in
@@ -1146,7 +1844,8 @@ let checked_der_rules () =
   List.iter (fun (name, left, right, expected) ->
       let c = context () in
       let inputs = parse c (declarations ^
-          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))" ^
+          "(assert (= (forall ((z Int)) " ^ left ^ ") (forall ((z Int)) " ^ right ^ ")))") in
       let st = B.marshal_expressions (B.empty_state ()) inputs in
       let formula = match B.cached_expression st (List.hd inputs) with
         | A.Quantifier (_, _, _, body) -> body
@@ -1158,7 +1857,16 @@ let checked_der_rules () =
           { U.binder_name = "der"; binder_formula = formula;
             binder_premises = []; binder_sorts = None }];
           binder_root = Z.zero } in
-      require (U.check_binder certificate conclusion = expected)
+      (* The open step is decided under the binder of `z`; alone, its root is not
+         closed and stays an obligation. *)
+      require (U.check_binder certificate conclusion = (expected && Z3Definitions.scoped [] formula))
+        ("incorrect open hidden DER decision: " ^ name);
+      let closed = B.cached_expression st (List.nth inputs 1) in
+      let wrapped = { U.binder_entries = certificate.U.binder_entries @ [
+          { U.binder_name = "quant-intro"; binder_formula = closed;
+            binder_premises = [Z.zero]; binder_sorts = Some [A.BaseSort "Int"] }];
+          binder_root = Z.one } in
+      require (U.check_binder wrapped (Option.get (U.classify_fact closed)) = expected)
         ("incorrect hidden DER decision: " ^ name);
       if expected then
         require (not (U.check_step U.DestructiveEqualityResolution conclusion [conclusion]))
@@ -1314,6 +2022,85 @@ let checked_skolemization () =
   require (SK.order_context (Z.of_int 2) [independent; first] <> None)
     "acyclic Skolem definitions could not be reordered"
 
+let checked_vacuous_skolemization () =
+  let module SK = Z3Skolemization in
+  let declarations = "(declare-fun p (Int Int) Bool)" in
+  let relation left right =
+    let c = context () in
+    let inputs = parse c (declarations ^
+        "(assert (forall ((z Int) (w Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.Quantifier (_, _, _, A.App (_, [left; right])) -> left, right
+    | _ -> failwith "missing vacuous Skolem ambient binder" in
+  (* A block none of whose variables occurs in its body needs no choice context: the
+     instance is the body with the block removed and the ambient indices lowered. *)
+  let cases = [
+    "unused-existential", "(exists ((x Int)) (p z w))", "(p z w)", true;
+    "unused-multi-binder", "(exists ((x Int) (y Int)) (p z w))", "(p z w)", true;
+    "unused-mixed-sorts", "(exists ((x Int) (r Real) (b Bool)) (p z w))", "(p z w)", true;
+    "unused-nested-binder", "(exists ((x Int)) (forall ((y Int)) (p y z)))",
+      "(forall ((y Int)) (p y z))", true;
+    "unused-shadowed-binder", "(exists ((x Int)) (forall ((x Int)) (p x z)))",
+      "(forall ((x Int)) (p x z))", true;
+    "unused-negative-universal", "(not (forall ((x Int)) (p z w)))", "(not (p z w))", true;
+    "unused-negative-double-negation", "(not (forall ((x Int)) (not (p z w))))", "(p z w)", true;
+    "unused-negative-multi-binder", "(not (forall ((x Int) (r Real)) (p z w)))",
+      "(not (p z w))", true;
+    "body-mutation", "(exists ((x Int)) (p z w))", "(p w z)", false;
+    "body-extension", "(exists ((x Int)) (p z w))", "(and (p z w) true)", false;
+    "block-kept", "(exists ((x Int)) (p z w))", "(exists ((x Int)) (p z w))", false;
+    "partial-removal", "(exists ((x Int) (y Int)) (p z w))", "(exists ((x Int)) (p z w))", false;
+    "used-variable-dropped", "(exists ((x Int)) (p x w))", "(p z w)", false;
+    "used-variable-unlowered", "(exists ((x Int)) (p x w))", "(p w w)", false;
+    "partly-used-block", "(exists ((x Int) (y Int)) (p x w))", "(p z w)", false;
+    "used-under-nested-binder", "(exists ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((y Int)) (p z y))", false;
+    "positive-universal", "(forall ((x Int)) (p z w))", "(p z w)", false;
+    "negated-existential", "(not (exists ((x Int)) (p z w)))", "(not (p z w))", false;
+    "wrong-negative-target", "(not (forall ((x Int)) (p z w)))", "(p z w)", false;
+    "negative-body-mutation", "(not (forall ((x Int)) (p z w)))", "(not (p w z))", false;
+    "negative-used-variable", "(not (forall ((x Int)) (p x w)))", "(not (p w w))", false;
+    "no-quantifier", "(p z w)", "(p z w)", false
+  ] in
+  List.iter (fun (name, left, right, expected) ->
+      let left, right = relation left right in
+      let conclusion = U.Observational (left, right) in
+      require (U.skolem_step [] conclusion [] = expected)
+        ("incorrect vacuous Skolem decision: " ^ name);
+      if expected then (
+        require (Option.is_none (SK.definition_of left right))
+          ("an unused block received a choice definition: " ^ name);
+        require (SK.check [] left right) ("empty choice context rejected an unused block: " ^ name);
+        require (not (U.skolem_step [] (U.Equal (left, right)) []))
+          "an unused block was treated as ordinary equality";
+        require (not (U.skolem_step [] conclusion [conclusion]))
+          "an unused block ignored an unexpected premise";
+        let leaf = { U.binder_name = "sk";
+          binder_formula = Z3ObservationalEquality.mk_oeq_expr left right;
+          binder_premises = []; binder_sorts = None } in
+        require (U.binder_step_with_context [] [] leaf conclusion [])
+          ("an unused block was not available inside a binder: " ^ name);
+        let leaf = { leaf with U.binder_name = "refl" } in
+        require (not (U.binder_step_with_context [] [] leaf conclusion []))
+          ("an unused block was accepted under another rule name: " ^ name)))
+    cases;
+  (* Open and mis-lowered de Bruijn forms that SMT-LIB text cannot spell. *)
+  let integer = A.BaseSort "Int" in
+  let var n = A.Var (Z.of_int n, A.bool_sort) in
+  let exists sorts body = A.Quantifier (A.Exists_k, sorts, A.bool_sort, body) in
+  List.iter (fun (name, source, target, expected) ->
+      require (U.skolem_step [] (U.Observational (source, target)) [] = expected)
+        ("incorrect de Bruijn handling of an unused block: " ^ name))
+    ["ambient-index-lowered", exists [integer] (var 1), var 0, true;
+     "two-variable-block-lowered", exists [integer; integer] (var 2), var 0, true;
+     "open-index-lowered", exists [integer] (var 5), var 4, true;
+     "ambient-index-kept", exists [integer] (var 1), var 1, false;
+     "open-index-kept", exists [integer] (var 5), var 5, false;
+     "bound-variable-used", exists [integer] (var 0), var 0, false;
+     "second-variable-used", exists [integer; integer] (var 1), var 0, false;
+     "non-Boolean-body", exists [integer] (A.Var (Z.one, integer)), A.Var (Z.zero, integer), false]
+
 let checked_quantifier_pulling () =
   let declarations =
     "(declare-fun p (Int Int) Bool)(declare-fun q (Real) Bool)\
@@ -1377,7 +2164,8 @@ let checked_quantifier_pulling () =
   List.iter (fun (name, left, right, expected) ->
       let c = context () in
       let inputs = parse c (declarations ^
-          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))" ^
+          "(assert (= (forall ((z Int)) " ^ left ^ ") (forall ((z Int)) " ^ right ^ ")))") in
       let st = B.marshal_expressions (B.empty_state ()) inputs in
       let formula = match B.cached_expression st (List.hd inputs) with
         | A.Quantifier (_, _, _, body) -> body
@@ -1389,8 +2177,18 @@ let checked_quantifier_pulling () =
           { U.binder_name = "pull-quant"; binder_formula = formula;
             binder_premises = []; binder_sorts = None }];
           binder_root = Z.zero } in
-      require (U.check_binder certificate conclusion = expected)
+      (* A binder certificate's root is used at the closed top-level scope, so the
+         open step alone is now an obligation; under its binder it is decided. *)
+      require (U.check_binder certificate conclusion = (expected && Z3Definitions.scoped [] formula))
         ("incorrect open binder pull-quant decision: " ^ name);
+      let closed = B.cached_expression st (List.nth inputs 1) in
+      let closed_conclusion = Option.get (U.classify_fact closed) in
+      let wrapped = { U.binder_entries = certificate.U.binder_entries @ [
+          { U.binder_name = "quant-intro"; binder_formula = closed;
+            binder_premises = [Z.zero]; binder_sorts = Some [A.BaseSort "Int"] }];
+          binder_root = Z.one } in
+      require (U.check_binder wrapped closed_conclusion = expected)
+        ("incorrect binder pull-quant decision under its binder: " ^ name);
       if expected then begin
         require (not (U.check_step U.PullQuantifier conclusion [conclusion]))
           "pull-quant ignored an unexpected premise";
@@ -1407,7 +2205,7 @@ let checked_quantifier_pulling () =
               "pull-quant accepted exhausted normalization fuel";
             let bad = U.Equal (a, Z3ResolutionProofTheory.false_expr) in
             require (match U.check_node [] { U.kind = U.PullQuantifier;
-                conclusion1 = bad; premises = [] } with
+                conclusion = bad; premises = [] } with
                 | Some (_, n) -> Z.equal n Z.one | None -> false)
               "unsupported pull-quant did not retain an explicit obligation";
             require (A.get_sort a = A.get_sort b) "pull-quant changed the result sort"
@@ -1470,6 +2268,27 @@ let checked_quantifier_reductions () =
     U.PushQuantifier, "exists-or",
       "(exists ((x Int) (y Real)) (or (r x) (q y) c))",
       "(or (exists ((x Int)) (r x)) (exists ((y Real)) (q y)) c)", true;
+    U.PushQuantifier, "forall-and-demorgan",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (p x x)) (forall ((x Int)) (r x)))", true;
+    U.PushQuantifier, "exists-or-demorgan",
+      "(exists ((x Int)) (not (and (not (r x)) (not (p x x)))))",
+      "(or (exists ((x Int)) (p x x)) (exists ((x Int)) (r x)))", true;
+    U.PushQuantifier, "demorgan-mixed-quantifiers",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (exists ((x Int)) (p x x)))", false;
+    U.PushQuantifier, "demorgan-changed-binders",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (forall ((x Int) (y Int)) (p x y)))", false;
+    U.PushQuantifier, "demorgan-changed-binder-sort",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (forall ((x Real)) (q x)))", false;
+    U.PushQuantifier, "demorgan-dropped-body",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (forall ((x Int)) (r x)))", false;
+    U.PushQuantifier, "demorgan-wrong-connective",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(or (forall ((x Int)) (r x)) (forall ((x Int)) (p x x)))", false;
     U.PushQuantifier, "forall-or",
       "(forall ((x Int)) (or (r x) (not (r x))))",
       "(or (forall ((x Int)) (r x)) (forall ((x Int)) (not (r x))))", false;
@@ -1552,21 +2371,26 @@ let checked_quantifier_reductions () =
         ("incorrect quantified rewrite decision: " ^ name);
       require (not (U.check_step rule conclusion [conclusion]))
         ("quantified rewrite accepted unexpected premises: " ^ name);
-      require (match U.check_node [] { U.kind = rule; conclusion1 = conclusion; premises = [] } with
+      require (match U.check_node [] { U.kind = rule; conclusion = conclusion; premises = [] } with
           | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
           | None -> false)
         ("quantified rewrite lost its obligation: " ^ name)) cases
 
 let checked_nested_nnf_replacement () =
-  List.iter (fun (name, left, right) ->
+  (* A Boolean NNF step rewrites its premises inside binder bodies. The binder
+     scope guard reads each premise at the step's own scope, so a closed fact is
+     substituted under a binder, while an open fact (the body of `forall x`,
+     whose variable the step would read under a different binder) is not. *)
+  List.iter (fun (name, left, right, leaf_assertion, open_leaf) ->
       let c = context () in
       let inputs = parse c
           ("(declare-fun p (Int) Bool)(declare-const c Bool)\
-            (assert (forall ((x Int)) (= (+ x 0) x)))\
+            (assert " ^ leaf_assertion ^ ")\
             (assert (= " ^ left ^ " " ^ right ^ "))") in
       let st = B.marshal_expressions (B.empty_state ()) inputs in
-      let leaf_formula = match B.cached_expression st (List.hd inputs) with
-        | A.Quantifier (_, _, _, body) -> body
+      let leaf_formula = match B.cached_expression st (List.hd inputs), open_leaf with
+        | A.Quantifier (_, _, _, body), true -> body
+        | formula, false -> formula
         | _ -> failwith "missing arithmetic body" in
       let formula = B.cached_expression st (List.nth inputs 1) in
       let leaf = { U.binder_name = "rewrite"; binder_formula = leaf_formula;
@@ -1575,15 +2399,23 @@ let checked_nested_nnf_replacement () =
                    binder_premises = [Z.zero]; binder_sorts = None } in
       let certificate = { U.binder_entries = [leaf; root]; binder_root = Z.one } in
       let conclusion = Option.get (U.classify_fact formula) in
-      require (U.check_binder certificate conclusion)
-        ("NNF did not substitute a universally valid fact under a binder: " ^ name);
+      if open_leaf then
+        require (not (U.check_binder certificate conclusion))
+          ("NNF substituted an open fact under a binder outside its scope: " ^ name)
+      else
+        require (U.check_binder certificate conclusion)
+          ("NNF did not substitute a closed fact under a binder: " ^ name);
       require (not (U.check_binder { certificate with U.binder_entries =
           [{ leaf with U.binder_name = "hypothesis" }; root] } conclusion))
         "NNF generalized a hypothesis while rewriting a nested binder")
     ["nnf-pos", "(and (forall ((x Int)) (p (+ x 0))) c)",
-       "(and (forall ((x Int)) (p x)) c)";
+       "(and (forall ((x Int)) (p x)) c)", "(forall ((x Int)) (= (+ x 0) x))", true;
      "nnf-neg", "(not (and (forall ((x Int)) (p (+ x 0))) c))",
-       "(or (exists ((x Int)) (not (p x))) (not c))"]
+       "(or (exists ((x Int)) (not (p x))) (not c))", "(forall ((x Int)) (= (+ x 0) x))", true;
+     "nnf-pos", "(and (forall ((x Int)) (p (+ 1 0))) c)",
+       "(and (forall ((x Int)) (p 1)) c)", "(= (+ 1 0) 1)", false;
+     "nnf-neg", "(not (and (forall ((x Int)) (p (+ 1 0))) c))",
+       "(or (exists ((x Int)) (not (p 1))) (not c))", "(= (+ 1 0) 1)", false]
 
 let checked_theory_extensions () =
   let declarations =
@@ -1640,7 +2472,7 @@ let checked_theory_extensions () =
       require (U.check_step U.DefAxiom conclusion [] = expected)
         ("incorrect definition axiom decision: " ^ name);
       require (match U.check_node [] {
-          U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises = [] } with
+          U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises = [] } with
           | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
           | None -> false)
         ("theory lemma lost its explicit obligation: " ^ name)) cases;
@@ -1717,17 +2549,29 @@ let checked_theory_extensions () =
       "(assert (forall ((a Real) (b Real) (c Real))\
          (or (not (< a b)) (not (< b c)) (< a c))))" in
   let st = B.marshal_expressions (B.empty_state ()) inputs in
-  let formula = match B.cached_expression st (List.hd inputs) with
-    | A.Quantifier (_, _, _, body) -> body
+  let bound, formula = match B.cached_expression st (List.hd inputs) with
+    | A.Quantifier (_, bs, _, body) -> bs, body
     | _ -> failwith "missing quantified arithmetic clause" in
   let conclusion = Option.get (U.classify_fact formula) in
   let leaf = { U.binder_name = "th-lemma"; binder_formula = formula;
                binder_premises = []; binder_sorts = None } in
+  (* The open clause is the root only of an obligation; under its binders, through
+     iff-true and forall introduction, it is checked. *)
   let certificate = { U.binder_entries = [leaf]; binder_root = Z.zero } in
-  require (U.check_binder certificate conclusion)
+  require (not (U.check_binder certificate conclusion))
+    "an open binder root was certified at the top-level scope";
+  let tt = Z3ResolutionProofTheory.true_expr in
+  let iff = Z3ResolutionProofTheory.mk_iff_expr formula tt in
+  let all body = A.Quantifier (A.Forall_k, bound, A.bool_sort, body) in
+  let root = Z3ResolutionProofTheory.mk_eq_expr (all formula) (all tt) in
+  let closed leaf = { U.binder_entries = [leaf;
+      { U.binder_name = "iff-true"; binder_formula = iff; binder_premises = [Z.zero]; binder_sorts = None };
+      { U.binder_name = "quant-intro"; binder_formula = root; binder_premises = [Z.one];
+        binder_sorts = Some bound }]; binder_root = Z.of_int 2 } in
+  let closed_conclusion = Option.get (U.classify_fact root) in
+  require (U.check_binder (closed leaf) closed_conclusion)
     "an independently checked theory lemma was rejected inside a binder";
-  require (not (U.check_binder { certificate with U.binder_entries =
-      [{ leaf with U.binder_name = "assumed:nlsat" }] } conclusion))
+  require (not (U.check_binder (closed { leaf with U.binder_name = "assumed:nlsat" }) closed_conclusion))
     "a hidden NLSAT assumption was generalized"
 
 let concrete_datatype_model () =
@@ -1770,12 +2614,12 @@ let concrete_datatype_model () =
   require (S.recognizer_value schema fork fork_value &&
            not (S.recognizer_value schema branch fork_value))
     "concrete datatype recognizers did not distinguish constructors";
-  let fallback value =
-    if S.recognizer_value schema leaf value then nil_value else cons_value in
-  require (S.accessor_value schema branch Z.zero fallback leaf_value = nil_value &&
-           S.accessor_value schema branch Z.zero fallback fork_value = cons_value &&
-           S.accessor_value schema branch Z.zero fallback branch_value = cons_value)
-    "selectors did not preserve matching fields and argument-dependent wrong-constructor values";
+  (* `S.accessor_value` is ghost since the typed-root G1a change (023988e32) and is not
+     extracted. The three selector facts this test used to check at run time (the matched
+     field of `branch`, and the argument-dependent wrong-constructor fallback on `leaf` and
+     `fork`) are proved with their exact values, and wrong-value mutants refuted, in
+     `Z3DatatypeNativeModelTests.a1_leaf`, `a1_fork`, `a1_branch` and `a1_mutants`, on this
+     fixture. *)
   require (V.Constructor (fork.S.constructor, V.fields fork_value) = fork_value)
     "concrete datatype reconstruction failed";
   require (List.for_all (fun sort ->
@@ -1788,56 +2632,36 @@ let concrete_datatype_model () =
    | Some child -> require (child = nil_value && Z.lt (V.size child) (V.size branch_value))
        "recursive datatype subterms did not have smaller finite size"
    | None -> failwith "missing recursive datatype subterm");
-  let convert _ _ = false in
-  let leaf_bool, fork_bool, branch_bool, nil_bool, cons_bool =
-    V.map_base convert leaf_value, V.map_base convert fork_value,
-    V.map_base convert branch_value, V.map_base convert nil_value,
-    V.map_base convert cons_value in
   let children = List.hd branch.S.accessors in
   let opaque = { children with A.decl_name = "opaque"; interp = None; int_params = [] } in
-  let other = {
-    V.application = (fun f args ->
-      match args with
-      | [value] when f = children ->
-          if V.recognize leaf.S.constructor value then nil_bool else cons_bool
-      | [_] when f = opaque -> nil_bool
-      | _ -> failwith "canonical datatype operation escaped to the supplied interpretation");
-    quantification = (fun kind bound body_sort body ->
-      require (kind = A.Forall_k &&
-               bound = [A.BaseSort "Int"; A.BaseSort "Bool"] &&
-               body_sort = A.BaseSort "Bool")
-        "typed evaluator changed a quantifier signature";
-      let result = body [V.Scalar (A.BaseSort "Bool", true);
-                         V.Scalar (A.BaseSort "Int", false)] in
-      require (result = V.Scalar (A.BaseSort "Bool", true))
-        "typed quantifier evaluation reversed de Bruijn bindings incorrectly";
-      result);
-  } in
-  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b);
-                   boolean_isomorphism = () } in
-  let interpreted = S.interpretation schema booleans other in
-  let apply = interpreted.V.application in
-  require (apply fork.S.constructor [leaf_bool; leaf_bool] = fork_bool &&
-           apply fork.S.recognizer [fork_bool] = V.Scalar (A.BaseSort "Bool", true) &&
-           apply branch.S.recognizer [fork_bool] = V.Scalar (A.BaseSort "Bool", false))
+  (* `S.interpretation`/`S.application` and `V.evaluate` are ghost since the typed-root G1a
+     change (023988e32) and are not extracted. The facts this test used to check at run time
+     through the supplied interpretation `other` (canonical constructor and recognizer
+     dispatch, the matched `children` field, its argument-dependent fallback on `leaf` and
+     `fork`, `opaque` reaching `other`, selector evaluation of `children x` at `fork`, and the
+     quantifier evaluated with the supplied interpretation over the reversed typed binders
+     [Bool true; Int false]) are proved with their exact values, and wrong-value mutants
+     refuted, in `Z3DatatypeNativeModelTests.a2_*`, `a3_*` and `a4_*`, on this fixture and
+     this `other`. The executable dispatch decisions those facts rest on are checked here on
+     the native schema itself. *)
+  require (List.mem fork.S.constructor sigma &&
+           not (List.mem fork.S.recognizer sigma) && not (List.mem branch.S.recognizer sigma) &&
+           S.find_recognizer fork.S.recognizer schema.S.cases = Some fork &&
+           S.find_recognizer branch.S.recognizer schema.S.cases = Some branch)
     "native constructor or recognizer dispatch was not canonical";
-  require (apply children [branch_bool] = cons_bool &&
-           apply children [leaf_bool] = nil_bool &&
-           apply children [fork_bool] = cons_bool &&
-           apply opaque [fork_bool] = nil_bool)
-    "native selector dispatch lost matching fields or argument-dependent fallbacks";
+  require (not (List.mem children sigma) &&
+           S.find_recognizer children schema.S.cases = None &&
+           S.find_accessor children schema.S.cases = Some { S.matched_case = branch; field = Z.zero } &&
+           not (List.mem opaque sigma) &&
+           S.find_recognizer opaque schema.S.cases = None &&
+           S.find_accessor opaque schema.S.cases = None)
+    "native selector dispatch lost matching fields or reached an opaque symbol";
   let scope = [leaf.S.constructor.A.range] in
-  let rho _ = fork_bool in
   let expression = A.App (children, [A.Var (Z.zero, leaf.S.constructor.A.range)]) in
   require (Z3Definitions.scoped scope expression) "native evaluator fixture is not well sorted";
-  require (V.evaluate sigma interpreted scope rho expression = cons_bool)
-    "typed AST evaluator bypassed native selector dispatch";
   let quantified = A.Quantifier (A.Forall_k, [A.BaseSort "Int"; A.BaseSort "Bool"],
       A.BaseSort "Bool", A.Var (Z.zero, A.BaseSort "Bool")) in
   require (Z3Definitions.scoped [] quantified) "native quantifier fixture is not well sorted";
-  require (V.evaluate sigma interpreted [] (fun _ -> failwith "empty environment") quantified =
-           V.Scalar (A.BaseSort "Bool", true))
-    "typed AST evaluator did not preserve the supplied quantifier interpretation";
   let forged = { children with A.int_params = [Z.zero; Z.zero; Z.of_int 99] } in
   require (S.find_accessor forged schema.S.cases = None &&
            S.find_recognizer { fork.S.recognizer with A.range = A.BaseSort "Int" }
@@ -1866,14 +2690,39 @@ let concrete_datatype_model () =
   reject (replace branch { branch with
       S.constructor = { branch.S.constructor with A.domain = [nested] };
       accessors = List.map (fun accessor -> { accessor with A.range = nested }) branch.S.accessors })
-    "nested recursive array fields were silently treated as opaque scalars"
+    "nested recursive array fields were silently treated as opaque scalars";
+  let native_schema source =
+    let c = context () in
+    let formula = List.hd (parse c source) in
+    let root = match N.view_expression formula with
+      | N.Application (_, value :: _) -> Z3native.get_sort c value
+      | _ -> failwith "expected a native sort fixture" in
+    N.view_datatypes [root] in
+  List.iter (fun sort ->
+      let schema = native_schema
+          ("(declare-datatype T ((C) (D)))(declare-const x " ^ sort ^
+           ")(assert (= x x))") in
+      require (S.valid schema && List.length schema.S.sorts = 1 &&
+               List.length schema.S.cases = 2)
+        ("datatype signature was not collected through " ^ sort))
+    ["(Seq T)"; "(Seq (Seq T))"; "(Array (Seq T) Int)"; "(Seq (Array Int T))"];
+  List.iter (fun field ->
+      let rejected = try
+          ignore (native_schema
+            ("(declare-datatype T ((C) (D)))" ^
+             "(declare-datatype U ((empty) (node (items " ^ field ^ "))))" ^
+             "(declare-const x U)(assert (= x x))"));
+          false
+        with N.Error message -> message = "Nested datatype sequence fields are not supported" in
+      require rejected ("unsupported datatype sequence field was admitted: " ^ field))
+    ["(Seq T)"; "(Seq U)"; "(Array Int (Seq T))"; "(Array (Seq T) Int)"]
 
 let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
                farkas = Some [Z.one, Z.zero]; assumed = None; lp_data = None;
-               binding = None; instantiations = [] } in
+               binding = None; instantiations = []; ff_pac = None } in
   match B.native_rule view Z3ResolutionProofTheory.false_expr with
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
@@ -1883,35 +2732,75 @@ let sorted_datatype_checker () =
   let module S = Z3DatatypeSignature in
   let module DT = Z3SortedDatatype in
   let module R = Z3ResolutionProofTheory in
+  (* A `true` fixture must be fully checked: ACCEPT with no pending obligation. A datatype
+     whose constructors all lack fields is an enumeration, and since master #11506 the
+     producer proves enumeration-only goals through QF_FD/dt2bv. The sorted checker supports
+     none of the datatype-to-bit-vector `rewrite` steps of that route, so such a document is
+     only partly checked (or rejected). The `false` fixtures keep the original enumeration
+     inputs as dt2bv coverage: every constructor-logic and input-binding control below still
+     runs on them, but their verdict is deliberately not pinned, so a checker that later
+     certifies them is not a regression. Their certified counterparts give each constructor
+     an Int field; the producer then stays on the datatype theory (the exhaustiveness
+     refutations are one `th-lemma datatype` over the negated recognizers), and every direct
+     control keeps the same shape. *)
   let samples = [
-    "exhaustiveness",
+    "exhaustiveness", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)\
+       (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
+    "exhaustiveness-three", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int)) (E (third Int))))\
+       (declare-const x T)(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))\
+       (assert (not ((_ is E) x)))";
+    "enumeration-exhaustiveness-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
-    "exhaustiveness-three",
+    "enumeration-exhaustiveness-three-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D) (E)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))(assert (not ((_ is E) x)))";
-    "reconstruction",
+    "reconstruction", true,
       "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)\
        (assert ((_ is C) x))(assert (not (= x (C (field x)))))";
-    "injectivity",
+    "injectivity", true,
       "(declare-datatype T ((C (field Int)) (D)))\
        (declare-const a Int)(declare-const b Int)\
        (assert (= (C a) (C b)))(assert (not (= a b)))";
-    "disjointness",
+    "disjointness", true,
       "(declare-datatype T ((C (field Int)) (D)))(declare-const a Int)\
        (assert (= (C a) D))";
-    "conditional-constructor",
+    "conditional-constructor", true,
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (= x (ite false C D)))(assert (not (= x D)))";
-    "symmetric-equality",
+    "symmetric-equality", true,
+      "(declare-datatype T ((C (field Int)) (D (other Int))))(declare-const x T)\
+       (declare-const y T)(assert (= x (C 0)))(assert (= x y))(assert (not (= y x)))";
+    "enumeration-symmetric-equality-dt2bv-coverage", false,
       "(declare-datatype T ((C) (D)))(declare-const x T)(declare-const y T)\
        (assert (= x C))(assert (= x y))(assert (not (= y x)))";
   ] in
-  List.iter (fun (name, source) ->
+  let exhaustiveness_samples = ["exhaustiveness"; "exhaustiveness-three";
+    "enumeration-exhaustiveness-dt2bv-coverage"; "enumeration-exhaustiveness-three-dt2bv-coverage"] in
+  let three_constructor_samples = ["exhaustiveness-three";
+    "enumeration-exhaustiveness-three-dt2bv-coverage"] in
+  let int_sort = A.BaseSort "Int" in
+  (* A well-sorted instance of a constructor, each field an uninterpreted constant of its
+     sort: the direct controls below build constructor equalities from it, so a control that
+     expects a rejection cannot pass merely because its constructor application is ill-sorted. *)
+  let instance case =
+    let field sort =
+      if sort <> int_sort then failwith "datatype fixture constructor with a non-Int field";
+      A.App ({ A.decl_name = "field-value"; domain = []; range = sort; interp = None;
+               int_params = [] }, []) in
+    let value = A.App (case.S.constructor, List.map field case.S.constructor.A.domain) in
+    require (Z3Definitions.scoped [] value) "a datatype constructor instance was not well sorted";
+    value in
+  List.iter (fun (name, certified, source) ->
       let assertions, proof = unsat source in
       let doc, schema = B.marshal_with_datatypes assertions proof in
       require (schema.S.cases <> [] && S.valid schema) ("invalid sorted schema: " ^ name);
-      if name = "exhaustiveness" || name = "exhaustiveness-three" then (
+      require (certified || List.for_all (fun case -> case.S.constructor.A.domain = [])
+                 schema.S.cases)
+        ("a dt2bv coverage fixture is not an enumeration: " ^ name);
+      if List.mem name exhaustiveness_samples then (
         let last = List.hd (List.rev doc.P.assertions) in
         let premises = List.filter (fun e -> e <> last) doc.P.assertions in
         let tester, subject = match last with
@@ -1955,7 +2844,7 @@ let sorted_datatype_checker () =
           | Some c -> c
           | None -> failwith "missing recognizer case" in
         let negative = R.mk_not_expr (A.App (tester, [subject])) in
-        let witness = A.App (case.S.constructor, []) in
+        let witness = instance case in
         List.iter (fun facts ->
           require (DT.consequence schema facts R.false_expr)
             "constructor equality did not conflict with its negative recognizer")
@@ -1967,9 +2856,13 @@ let sorted_datatype_checker () =
           "constructor equality conflicted without a negative recognizer";
         let alternative = List.find (fun c -> c.S.constructor <> case.S.constructor) schema.S.cases in
         require (not (DT.consequence schema
-          [negative; R.mk_eq_expr (A.App (alternative.S.constructor, [])) subject] R.false_expr))
+          [negative; R.mk_eq_expr (instance alternative) subject] R.false_expr))
           "a constructor conflicted with a different negative recognizer";
-        if name = "exhaustiveness-three" then
+        require (DT.consequence schema
+          [R.mk_not_expr (A.App (alternative.S.recognizer, [subject]));
+           R.mk_eq_expr (instance alternative) subject] R.false_expr)
+          "a constructor did not conflict with its own negative recognizer";
+        if List.mem name three_constructor_samples then
           (require (not (DT.exhaustiveness_from schema [List.hd premises]
             (A.App (tester, [subject]))))
             "constructor was inferred without excluding every alternative";
@@ -1983,11 +2876,22 @@ let sorted_datatype_checker () =
             "a non-nullary constructor equality did not conflict with its negative recognizer"
         | _ -> failwith "expected a recognizer and negated reconstruction equality");
       let result = K.check_document schema doc in
-      require (result = Some Z.zero)
+      require (not certified || result = Some Z.zero)
         ("sorted datatype proof remained unchecked: " ^ name ^
          (match result with None -> " (rejected)" | Some n -> " (pending " ^ Z.to_string n ^ ")"));
       require (K.diagnostic_result (K.diagnose_document schema doc) = result)
         ("sorted diagnostics disagree: " ^ name);
+      List.iter (fun fixture ->
+          let actual, diagnostic = K.check_document_diagnosed schema fixture in
+          require (actual = K.check_document schema fixture &&
+                   diagnostic = K.diagnose_document schema fixture)
+            ("single-pass sorted checking changed a verdict or diagnostic: " ^ name))
+        [doc;
+         { doc with P.assertions = [] };
+         { doc with P.root = Z.minus_one };
+         { doc with P.entries = [
+             { P.rule = U.Unverified "th-lemma"; formula = Z3ResolutionProofTheory.false_expr;
+               premise_ids = [] }]; root = Z.zero }];
       require (K.check_document schema { doc with P.assertions = [] } <> Some Z.zero)
         ("sorted checker ignored original input binding: " ^ name);
       require (K.check_document schema { doc with P.entries = [
@@ -2005,6 +2909,714 @@ let sorted_datatype_checker () =
        (assert (not (= (field (D 0)) (field (D 1)))))" Z.zero = N.Sat)
     "wrong-constructor selectors were incorrectly forced to a shared default"
 
+let sorted_integer_farkas () =
+  let module K = Z3SortedProof in
+  let module AR = Z3SortedArithmetic in
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+    "(declare-datatype T ((C (field Int))))(declare-const t T)\
+     (declare-const r Real)(declare-const p Bool)\
+     (assert (> (field t) 0))(assert (< (field t) 1))\
+     (assert (> r 0.0))(assert (< r 0.0))(assert p)\
+     (assert (<= (field t) 0))(assert (>= (field t) 0))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let expressions = List.map (B.cached_expression st) native in
+  let x, y, real_x, real_y, p, le, ge = match expressions with
+    | [x; y; real_x; real_y; p; le; ge] -> x, y, real_x, real_y, p, le, ge
+    | _ -> failwith "expected integer Farkas regression formulas" in
+  let one = Z.one, Z.one in
+  let zero = Z.zero, Z.one in
+  let check expected formulas weights =
+    require (AR.check_contradiction formulas weights = expected)
+      "unexpected sorted integer Farkas certificate verdict" in
+  check true [true, x; true, y] [one; one];
+  check true [true, x; true, y] [Z.one, Z.of_int 2; Z.one, Z.of_int 2];
+  check false [true, x; true, y] [one; zero];
+  check false [true, x; true, y] [one];
+  check false [true, x; true, y] [one; one; one];
+  check false [true, real_x; true, real_y] [one; one];
+  check true [true, x; true, y; true, real_x; false, p] [one; one; zero; zero];
+  check false [true, le; true, ge] [one; one];
+  let fake = match x with
+    | A.App (f, args) -> A.App ({ f with A.interp = None }, args)
+    | _ -> failwith "expected an integer comparison" in
+  check false [true, fake; true, y] [one; one];
+  check false (List.init 5000 (fun _ -> true, p)) (List.init 5000 (fun _ -> zero));
+  (* polarity: the negated strict lower bound (field t) <= 0 with (field t) < 1 is satisfiable *)
+  check false [false, x; true, y] [one; one];
+  (* cancellation: (field t) > 0 and (field t) <= 0 sum to 0 > 0 *)
+  check true [true, x; true, le] [one; one];
+  (* the 4096-node expression budget, at its boundary: x and y have 4 nodes each, p one *)
+  let padded n = [true, x; true, y] @ List.init n (fun _ -> true, p) in
+  let padded_weights n = [one; one] @ List.init n (fun _ -> zero) in
+  check true (padded 4088) (padded_weights 4088);
+  check false (padded 4089) (padded_weights 4089);
+  let fact formula =
+    { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [p] } in
+  let node =
+    { U.kind = U.ArithmeticFarkas [one; one];
+      conclusion = Option.get (U.classify_fact R.false_expr);
+      premises = [fact x; fact y] } in
+  require (K.arithmetic_farkas node) "typed Farkas dispatch did not replay the certificate";
+  (match K.check_node schema [] node with
+   | Some (result, pending) ->
+       require (Z.equal pending Z.zero && result.U.hypotheses = [p])
+         "typed Farkas lost inherited hypotheses or retained an obligation"
+   | None -> failwith "typed Farkas rejected well-sorted premises");
+  let fake_or = A.App
+    ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort];
+       range = A.bool_sort; interp = None; int_params = [] }, [le; ge]) in
+  require (not (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact fake_or); premises = [] }))
+    "typed Farkas treated an uninterpreted or lookalike as a clause";
+  (* signed conclusion literals: a negated literal of the conclusion is assumed positive, from one premise
+     or from a canonical two-literal clause with no premise *)
+  let negated e = R.mk_not_expr e in
+  require (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact (negated y)); premises = [fact x] })
+    "typed Farkas ignored a negated conclusion literal";
+  let clause = A.App
+    ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort];
+       range = A.bool_sort; interp = Some Z3ValueTheory.op_or; int_params = [] }, [negated x; negated y]) in
+  require (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact clause); premises = [] })
+    "typed Farkas ignored the literals of a conclusion clause";
+  require (not (K.arithmetic_farkas
+    { node with U.conclusion = Option.get (U.classify_fact y); premises = [fact x] }))
+    "typed Farkas accepted a positive conclusion literal as an assumption"
+
+(* Typed Int/Real Farkas replay (Z3SortedRealLinear.check_numeric_contradiction and the dispatch
+   K.real_farkas, tried after the unchanged Int path): marshalled native expressions, exact supplied
+   weights. Real strict bounds stay strict (0 < x < 1 is satisfiable at x = 1/2), a zero weight never
+   supplies strictness, the weights must cancel, and a counterfeit operator, a same-spelled distinct
+   constant, a dropped premise or a datatype named Real are refused; a negative inequality weight is
+   read as its magnitude, as on the Int path. A real producer proof of x > 0, x <= 0 is certified on
+   the Sorted route. *)
+let sorted_real_farkas () =
+  let module K = Z3SortedProof in
+  let module LIN = Z3SortedRealLinear in
+  let module AR = Z3SortedArithmetic in
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+    "(declare-const x Real)(declare-const y Real)(declare-const n Int)\
+     (assert (> x 0.0))(assert (<= x 0.0))(assert (< 0.0 x))(assert (< x 1.0))\
+     (assert (< x y))(assert (<= y x))(assert (<= x y))\
+     (assert (> (to_real n) 0.0))(assert (<= n 0))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let expressions = List.map (B.cached_expression st) native in
+  let pos, nonpos, low, high, lt, ge_rev, le, mixed_pos, int_nonpos = match expressions with
+    | [a; b; c; d; e; f; g; h; i] -> a, b, c, d, e, f, g, h, i
+    | _ -> failwith "expected Real Farkas regression formulas" in
+  let w n d = Z.of_int n, Z.of_int d in
+  let one = w 1 1 in
+  let check expected formulas weights =
+    require (LIN.check_numeric_contradiction schema (List.map (fun e -> true, e) formulas) weights = expected)
+      "unexpected typed Real Farkas certificate verdict" in
+  check true [pos; nonpos] [one; one];
+  check false [low; high] [one; one];
+  check false [low; high] [w 2 3; w 2 3];
+  check true [lt; ge_rev] [one; one];
+  check false [le; ge_rev] [one; one];
+  check false [lt; ge_rev] [w 0 1; one];
+  check true [lt; ge_rev] [w 1 2; w 2 4];
+  check false [lt; ge_rev] [w 1 2; w 3 7];
+  check false [pos; nonpos] [w 2 1; one];
+  check true [lt; ge_rev] [w (-1) 2; w 1 2];
+  check false [pos] [one];
+  check true [mixed_pos; int_nonpos] [one; one];
+  require (not (AR.check_contradiction [true, pos; true, nonpos] [one; one]))
+    "the Int Farkas path accepted Real literals";
+  let rename f e = match e with A.App (g, args) -> A.App (f g, args) | _ -> failwith "expected an application" in
+  check false [rename (fun g -> { g with A.interp = None }) pos; nonpos] [one; one];
+  let real_sort, twin = match nonpos with
+    | A.App (g, [A.App (k, []); zero]) ->
+        k.A.range, A.App (g, [A.App ({ k with A.int_params = [Z.of_int 7] }, []); zero])
+    | _ -> failwith "expected x <= 0" in
+  check false [pos; twin] [one; one];
+  let fact formula = { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [] } in
+  let node weights premises =
+    { U.kind = U.ArithmeticFarkas weights; conclusion = Option.get (U.classify_fact R.false_expr);
+      premises = List.map fact premises } in
+  require (K.real_farkas schema (node [one; one] [pos; nonpos]) &&
+           not (K.arithmetic_farkas (node [one; one] [pos; nonpos])))
+    "typed Real Farkas dispatch did not replay the certificate";
+  (match K.check_node schema [] (node [one; one] [pos; nonpos]) with
+   | Some (_, pending) -> require (Z.equal pending Z.zero) "typed Real Farkas retained an obligation"
+   | None -> failwith "typed Real Farkas rejected well-sorted premises");
+  (match K.check_node schema [] (node [one; one] [low; high]) with
+   | Some (_, pending) -> require (Z.gt pending Z.zero) "satisfiable Real bounds were refuted"
+   | None -> failwith "typed Real Farkas rejected well-sorted premises");
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype) "the Real datatype schema is not a checked schema";
+  require (not (K.real_farkas real_datatype (node [one; one] [pos; nonpos])))
+    "typed Real Farkas ignored a datatype named Real";
+  let assertions, proof = unsat "(declare-const x Real)(assert (> x 0.0))(assert (<= x 0.0))" in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (K.check_document_epsilon schema doc = Some Z.zero)
+    "the producer's Real Farkas refutation was not certified on the Sorted route"
+
+(* The Sorted route replays the NNF certificates the producer emits (Z3NnfReplay): no
+   certificate rooted at nnf-neg/nnf-pos is left pending in these proofs (negated exists,
+   the synthetic ite/iff/xor/implication/nested-duality probes, a datatype binder; each
+   proof has such a certificate), and the replay's own walks are loops at the native stack:
+   a 200,000-step chain, a 100,000-ary disjunction and 200,000 nested negations (each
+   pending without enough work, replayed with it), a shared term with 2^60 tree nodes
+   (pending). The premise-id boundary is structural: forward, self, negative and missing ids
+   make the certificate malformed and reject its proof entry; valid earlier and shared ids
+   replay; an unsupported rule with valid ids stays pending. *)
+let sorted_nnf_replay () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let nnf_rooted rule = match rule with
+    | U.QuantifierIntroduction c -> NR.nnf_root c
+    | _ -> false in
+  let sources = [
+    "negated-exists", "(declare-fun p (Int) Bool)(assert (not (exists ((x Int)) (p x))))(assert (p 0))";
+    "ite", "(declare-fun p (Int) Bool)(declare-const c Bool)\
+      (assert (not (ite c (forall ((x Int)) (p x)) (exists ((y Int)) (p y)))))\
+      (assert (forall ((x Int)) (p x)))";
+    "iff", "(declare-fun p (Int) Bool)(declare-const a Bool)\
+      (assert (not (= a (forall ((x Int)) (p x)))))(assert (forall ((x Int)) (p x)))\
+      (assert (or a (p 1)))(assert (or a (not (p 2))))";
+    "xor", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)(declare-const a Bool)\
+      (assert (xor a (forall ((x Int) (r Real)) (q x r))))(assert (forall ((x Int) (r Real)) (q x r)))\
+      (assert (forall ((x Int)) (p x)))(assert (or a (not (p 2))))";
+    "xor-under-binder", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((z Int)) (xor (p z) (exists ((x Int) (r Real)) (q x r)))))\
+      (assert (forall ((x Int) (r Real)) (not (q x r))))(assert (not (p 3)))";
+    "implication", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((z Int)) (not (=> (p z) (exists ((y Int)) (q y 1.0))))))\
+      (assert (p 0))(assert (q 3 1.0))";
+    "nested-duality", "(declare-fun p (Int) Bool)(declare-fun q (Int Real) Bool)\
+      (assert (forall ((w Int)) (not (exists ((x Int) (r Real))\
+        (and (q x r) (exists ((x Int)) (and (p x) (p w))))))))(assert (q 1 2.0))(assert (p 3))";
+    "datatype-binder", "(declare-datatype T ((C (field Int)) (D)))(declare-fun p (T) Bool)\
+      (assert (not (exists ((x T)) (p x))))(assert (p D))";
+  ] in
+  List.iter (fun (name, source) ->
+      let assertions, proof = unsat source in
+      let doc, schema = B.marshal_with_datatypes assertions proof in
+      require (List.exists (fun e -> nnf_rooted e.P.rule) doc.P.entries)
+        ("no NNF certificate in the proof: " ^ name);
+      let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+      (match diagnostic with
+       | P.DocumentChecked (_, unmet) ->
+         List.iter (fun o ->
+             require (not (nnf_rooted o.P.obligation_rule))
+               ("an NNF certificate stayed pending: " ^ name)) unmet
+       | P.DocumentRejected _ -> failwith ("sorted NNF document rejected: " ^ name));
+      require (result <> None) ("sorted NNF document has no verdict: " ^ name))
+    sources;
+  let p = A.App ({ A.decl_name = "p"; domain = []; range = A.bool_sort; interp = None; int_params = [] }, []) in
+  let oeq = Z3ObservationalEquality.mk_oeq_expr in
+  let neg = R.mk_not_expr in
+  let entry name formula premises =
+    { U.binder_name = name; binder_formula = formula;
+      binder_premises = List.map Z.of_int premises; binder_sorts = None } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) []) in
+  let verdict entries root lhs rhs =
+    NR.replay [] { U.binder_entries = entries; binder_root = Z.of_int root } (U.Observational (lhs, rhs)) in
+  let twice e = neg (neg e) in
+  (* a chain: refl, 200,000 trans steps, the double-negation root *)
+  let steps = List.init 200000 (fun k -> entry "trans" (oeq p p) [k; 0]) in
+  let chain = entry "refl" (oeq p p) [] :: List.rev_append (List.rev steps) [entry "nnf-neg" (oeq (twice p) p) [200000]] in
+  require (verdict chain 200001 (twice p) p = NR.Replayed) "deep NNF chain was not replayed";
+  (* a 100,000-ary De Morgan step *)
+  let n = 100000 in
+  let bools = List.init n (fun _ -> A.bool_sort) in
+  let disjunction = A.App ({ A.decl_name = "or"; domain = bools; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_or; int_params = [] }, List.init n (fun _ -> p)) in
+  let conjunction = A.App ({ A.decl_name = "and"; domain = bools; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_and; int_params = [] }, List.init n (fun _ -> neg p)) in
+  let wide pad =
+    verdict (entry "refl" (oeq (neg p) (neg p)) [] ::
+             entry "nnf-neg" (oeq (neg disjunction) conjunction) (List.init n (fun _ -> 0)) :: padding pad)
+      1 (neg disjunction) conjunction in
+  require (wide 200 = NR.Replayed) "wide NNF step was not replayed";
+  require (wide 0 = NR.Unreplayed) "wide NNF step was replayed beyond the work budget";
+  (* 200,000 nested negations *)
+  let rec nested depth acc = if depth = 0 then acc else nested (depth - 1) (neg acc) in
+  let deep = nested 200000 p in
+  let deep_verdict pad =
+    verdict (entry "refl" (oeq deep deep) [] :: entry "nnf-neg" (oeq (twice deep) deep) [0] :: padding pad)
+      1 (twice deep) deep in
+  require (deep_verdict 800 = NR.Replayed) "deep NNF term was not replayed";
+  require (deep_verdict 0 = NR.Unreplayed) "deep NNF term was replayed beyond the work budget";
+  (* a DAG whose tree has 2^60 nodes *)
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let big = dag 60 p in
+  require (verdict [entry "refl" (oeq big big) []; entry "nnf-neg" (oeq (twice big) big) [0]] 1 (twice big) big
+           = NR.Unreplayed) "exponential NNF term was replayed";
+  (* the premise-id boundary on the double negation (not (not p)) ~ p *)
+  let double ids = verdict [entry "refl" (oeq p p) []; entry "nnf-neg" (oeq (twice p) p) ids] 1 (twice p) p in
+  require (double [0] = NR.Replayed) "valid earlier premise id was not replayed";
+  List.iter (fun ids -> require (double ids = NR.Malformed) "invalid premise id was not malformed")
+    [[1]; [-1]; [2]; [7]];
+  let disjunction2 = A.App ({ A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                              interp = Some Z3ValueTheory.op_or; int_params = [] }, [p; p]) in
+  let conjunction2 = A.App ({ A.decl_name = "and"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                              interp = Some Z3ValueTheory.op_and; int_params = [] }, [neg p; neg p]) in
+  require (verdict [entry "refl" (oeq (neg p) (neg p)) []; entry "nnf-neg" (oeq (neg disjunction2) conjunction2) [0; 0]]
+             1 (neg disjunction2) conjunction2 = NR.Replayed) "shared premise id was not replayed";
+  require (verdict [entry "apply-def" (oeq p p) []; entry "nnf-neg" (oeq (twice p) p) [0]] 1 (twice p) p = NR.Unreplayed)
+    "unsupported rule with valid premise ids was not left pending";
+  (* a forward premise id: malformed, and the document rejects that proof entry *)
+  let forward = { U.binder_entries = [entry "refl" (oeq p p) [1]; entry "nnf-neg" (oeq (twice p) p) [0]];
+                  binder_root = Z.one } in
+  require (NR.replay [] forward (U.Observational (twice p, p)) = NR.Malformed) "forward premise id was not malformed";
+  let document certificate = { P.declarations = []; expressions = []; assertions = [R.false_expr];
+    entries = [{ P.rule = U.QuantifierIntroduction certificate; formula = oeq (twice p) p; premise_ids = [] };
+               { P.rule = U.Asserted; formula = R.false_expr; premise_ids = [] }];
+    root = Z.one } in
+  let with_ids ids = { U.binder_entries = [entry "refl" (oeq p p) []; entry "nnf-neg" (oeq (twice p) p) ids];
+                       binder_root = Z.one } in
+  let empty = { Z3DatatypeSignature.sorts = []; cases = [] } in
+  List.iter (fun certificate ->
+      match K.check_document_epsilon_diagnosed empty (document certificate) with
+      | None, P.DocumentRejected (P.ProofEntry, Some index, _) ->
+        require (Z.equal index Z.zero) "malformed certificate rejected at the wrong entry"
+      | _ -> failwith "malformed NNF certificate was not a rejected proof entry")
+    [forward; with_ids [1]; with_ids [-1]; with_ids [7]];
+  (match K.check_document_epsilon_diagnosed empty (document (with_ids [0])) with
+   | Some n, P.DocumentChecked _ -> require (Z.equal n Z.zero) "valid NNF certificate document left pending"
+   | _ -> failwith "valid NNF certificate document was not checked")
+
+(* The regrouping check of quant-intro rewrite leaves (Z3NnfReplay.regrouped) at native scale.
+   The Pulse.Checker.Base-1 shape (or g1 g2 g3 deep) = (or (or g1 g2) (or g3 deep)), where `deep`
+   nests alternating and/or 71 levels: the depth-64 and depth-2 propositional checks and the Int
+   equivalence all refuse it (the two cuts put their boundaries inside `deep` at different depths),
+   the regrouping accepts it and the certificate replays; a 2,000-operand disjunction against its
+   left-nested binary form replays, 2,100 operands exceed the 4,096-pop operand walk and are
+   refused; an operand with 2^17 tree nodes replays with enough work and is pending without it;
+   an operand whose tree has 2^60 nodes is pending (the leaf's charge runs out first); a
+   200,000-deep or chain is refused by the walk's pop bound. Distinct deep operands f^d(a) and
+   f^d(b) (pointer equality cannot short-circuit them), on the ordered and the order-free path:
+   at d = 4,000 they are compared (refused when the leaves differ, accepted for an unshared equal
+   copy); at d = 200,000 the depth admission (4,096 levels) refuses them before any comparison. *)
+let sorted_quant_intro_regrouping () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module AR = Z3SortedArithmetic in
+  let constant name = A.App ({ A.decl_name = name; domain = []; range = A.bool_sort; interp = None; int_params = [] }, []) in
+  let connective name interp args =
+    A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+             interp = Some interp; int_params = [] }, args) in
+  let mk_or = connective "or" Z3ValueTheory.op_or and mk_and = connective "and" Z3ValueTheory.op_and in
+  let term = A.BaseSort "Term" in
+  let all body = A.Quantifier (A.Forall_k, [term], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all l) (all r)) [0] (Some [term]) ::
+                                      padding pad;
+                   binder_root = Z.one } (U.Equal (all l, all r)) in
+  let g i = constant ("g" ^ string_of_int i) in
+  let rec chain n =
+    let level = [constant ("y" ^ string_of_int n); constant ("z" ^ string_of_int n)] in
+    if n = 0 then mk_or level
+    else if n mod 2 = 0 then mk_or (level @ [chain (n - 1)]) else mk_and (level @ [chain (n - 1)]) in
+  let deep = chain 70 in
+  let a6_l = mk_or [g 1; g 2; g 3; deep] and a6_r = mk_or [mk_or [g 1; g 2]; mk_or [g 3; deep]] in
+  require (not (AR.equivalent a6_l a6_r)) "the Int equivalence accepted a Boolean regrouping";
+  require (not (NR.propositional_at (Z.of_int 64) a6_l a6_r)) "the depth-64 check accepted the deep regrouping";
+  require (not (NR.propositional_at (Z.of_int 2) a6_l a6_r)) "the depth-2 check accepted the deep regrouping";
+  require (NR.regrouped a6_l a6_r && NR.rewrite_ok a6_l a6_r) "the deep regrouping was refused";
+  require (leaf a6_l a6_r 0 = NR.Replayed) "the deep regrouping certificate was not replayed";
+  require (leaf (mk_and [g 1; mk_and [g 2; g 3]; g 4]) (mk_and [mk_and [g 1; g 2]; mk_and [g 3; g 4]]) 0
+           = NR.Replayed) "a nested conjunction was not replayed";
+  require (leaf (mk_or [g 1; g 2; g 3]) (mk_or [mk_or [g 1; g 2]; g 4]) 0 = NR.Unreplayed)
+    "a regrouping with a wrong operand was replayed";
+  let left_nested xs = List.fold_left (fun acc y -> mk_or [acc; y]) (List.hd xs) (List.tl xs) in
+  let wide n = let xs = List.init n (fun i -> constant ("p" ^ string_of_int i)) in mk_or xs, left_nested xs in
+  let l, r = wide 2000 in
+  require (NR.regrouped l r && leaf l r 0 = NR.Replayed) "a 2,000-operand regrouping was not replayed";
+  let l, r = wide 2100 in
+  require (not (NR.regrouped l r)) "a regrouping beyond the operand walk bound was accepted";
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let wide_dag = dag 16 (g 1) in
+  let l = mk_or [wide_dag; g 2; g 3] and r = mk_or [mk_or [wide_dag; g 2]; g 3] in
+  require (leaf l r 2000 = NR.Replayed) "a large operand was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large operand was replayed beyond the work budget";
+  let big = dag 60 (g 1) in
+  require (leaf (mk_or [big; g 2]) (mk_or [mk_or [big]; g 2]) 40 = NR.Unreplayed)
+    "an exponential operand was replayed";
+  let rec or_chain depth acc = if depth = 0 then acc else or_chain (depth - 1) (mk_or [acc; g 2]) in
+  require (not (NR.regrouped (or_chain 200000 (g 1)) (mk_or [g 1; g 2])))
+    "a 200,000-deep or chain was regrouped beyond the operand walk bound";
+  let f = { A.decl_name = "f"; domain = [A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = constant "a" and b = constant "b" in
+  let ordered x y = mk_or [x; g 2; g 3], mk_or [mk_or [y; g 2]; g 3] in
+  let unordered x y = mk_or [x; g 2; g 3], mk_or [g 3; mk_or [g 2; y]] in
+  List.iter (fun (shape, name) ->
+      let l, r = shape (applied 4000 a) (applied 4000 b) in
+      require (not (NR.regrouped l r) && leaf l r 0 = NR.Unreplayed)
+        ("distinct 4,000-deep operands were regrouped: " ^ name);
+      let l, r = shape (applied 4000 a) (applied 4000 a) in
+      require (NR.regrouped l r && leaf l r 0 = NR.Replayed)
+        ("unshared equal 4,000-deep operands were not regrouped: " ^ name);
+      let l, r = shape (applied 200000 a) (applied 200000 b) in
+      require (not (NR.regrouped l r)) ("distinct 200,000-deep operands were regrouped: " ^ name);
+      let l, r = shape (applied 200000 a) (applied 200000 a) in
+      require (not (NR.regrouped l r)) ("operands beyond the depth admission were regrouped: " ^ name))
+    [ordered, "ordered"; unordered, "order-free"]
+
+(* The ITE laws of quant-intro rewrite leaves (Z3NnfReplay.ite_rewritten) at native scale, on the
+   normal stack. At sort Term, under a congruence and a quant-intro over [Term], the negated
+   condition (both orientations), the then merge by `or` and the else merge by a flattened `and`
+   replay, and so do the laws at an array and an Int result sort; their mutants (the merged
+   branches swapped, the negation dropped, `and` for `or`, a counterfeit `if` and a counterfeit
+   `or`) are pending, and none of them is accepted by the Int equivalence. Distinct guards
+   f^d(a) and f^d(b), which pointer equality cannot short-circuit: at d = 4,000 they are compared
+   (refused when they differ, accepted for an unshared equal copy); at d = 200,000 the depth
+   admission (4,096 levels) refuses them before any comparison. A shared guard with 2^16 tree
+   nodes replays with enough work and is pending without it; a shared guard whose tree has 2^60
+   nodes is pending (the leaf's charge runs out first). *)
+let sorted_quant_intro_ite_laws () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module T = Z3SortedSemantics in
+  let module AR = Z3SortedArithmetic in
+  let term = A.BaseSort "Term" in
+  let constant name sort = A.App ({ A.decl_name = name; domain = []; range = sort; interp = None; int_params = [] }, []) in
+  let connective name interp args =
+    A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+             interp = Some interp; int_params = [] }, args) in
+  let mk_or = connective "or" Z3ValueTheory.op_or and mk_and = connective "and" Z3ValueTheory.op_and in
+  let ite c x y = A.App (T.ite_decl (A.get_sort x), [c; x; y]) in
+  let all body = A.Quantifier (A.Forall_k, [term], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    let h = constant "h" (A.get_sort l) in
+    let el = R.mk_eq_expr h l and er = R.mk_eq_expr h r in
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr el er) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all el) (all er)) [1] (Some [term]) ::
+                                      padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (all el, all er)) in
+  let c i = constant ("c" ^ string_of_int i) A.bool_sort in
+  let neg = R.mk_not_expr in
+  let x = A.Var (Z.zero, term) and y = constant "y" term in
+  let laws x y = [
+    ite (neg (c 1)) x y, ite (c 1) y x;
+    ite (c 1) x y, ite (neg (c 1)) y x;
+    ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) x y;
+    ite (mk_and [c 1; c 3]) (ite (mk_and [c 2; c 4]) x y) y, ite (mk_and [c 1; c 3; c 2; c 4]) x y] in
+  let arr = A.ArraySort ([A.BaseSort "Int"], term) and int_s = A.BaseSort "Int" in
+  List.iter (fun (l, r) ->
+      require (NR.ite_rewritten l r && NR.rewrite_ok l r) "an ITE law was refused";
+      require (A.get_sort l = int_s || not (AR.equivalent l r)) "the Int equivalence accepted a non-Int ITE law";
+      require (leaf l r 0 = NR.Replayed) "an ITE law certificate was not replayed")
+    (laws x y @ laws (constant "a1" arr) (constant "a2" arr) @ laws (constant "i1" int_s) (constant "i2" int_s));
+  let twin_if = { A.decl_name = "if"; domain = [A.bool_sort; term; term]; range = term; interp = None; int_params = [] } in
+  let fake_or = { A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  List.iter (fun (l, r, name) ->
+      require (not (NR.rewrite_ok l r) && leaf l r 0 = NR.Unreplayed) ("an ITE mutant was replayed: " ^ name))
+    [ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) y x, "swapped branches";
+     ite (neg (c 1)) x y, ite (c 1) x y, "opposite guard";
+     ite (c 1) x (ite (c 2) x y), ite (mk_and [c 1; c 2]) x y, "and for or";
+     A.App (twin_if, [neg (c 1); x; y]), A.App (twin_if, [c 1; y; x]), "counterfeit if";
+     ite (c 1) x (ite (c 2) x y), ite (A.App (fake_or, [c 1; c 2])) x y, "counterfeit or"];
+  let f = { A.decl_name = "f"; domain = [A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = c 10 and b = c 11 in
+  let swap g g' = ite (neg g) x y, ite g' y x in
+  let l, r = swap (applied 4000 a) (applied 4000 b) in
+  require (not (NR.ite_rewritten l r)) "distinct 4,000-deep guards were accepted";
+  require (leaf l r 200 = NR.Unreplayed) "distinct 4,000-deep guards were replayed";
+  let l, r = swap (applied 4000 a) (applied 4000 a) in
+  require (NR.ite_rewritten l r) "unshared equal 4,000-deep guards were refused";
+  require (leaf l r 200 = NR.Replayed) "unshared equal 4,000-deep guards were not replayed";
+  let l, r = swap (applied 200000 a) (applied 200000 b) in
+  require (not (NR.ite_rewritten l r)) "distinct 200,000-deep guards were accepted";
+  let l, r = swap (applied 200000 a) (applied 200000 a) in
+  require (not (NR.ite_rewritten l r)) "guards beyond the depth admission were accepted";
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let wide = dag 16 a in
+  let l, r = swap wide wide in
+  require (leaf l r 2000 = NR.Replayed) "a large shared guard was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large shared guard was replayed beyond the work budget";
+  let big = dag 60 a in
+  let l, r = swap big big in
+  require (leaf l r 40 = NR.Unreplayed) "an exponential shared guard was replayed"
+
+(* The producer's premise-free closed ITE `rewrite` steps (Z3SortedProof.ite_rewrite): the
+   else-branch merge by `and` and the then-branch merge by `or` at an uninterpreted sort, at Int
+   and at a datatype are certified on the Sorted route (check_document_epsilon). On the marshalled
+   producer node itself, swapped branches, `or` for `and`, the opposite inner guard, a counterfeit
+   ite and a same-spelled twin branch stay pending, and the node is also checked on a schema
+   registering a datatype named Real (the Real gate closed: no Real law is read). *)
+let sorted_direct_ite_rewrites () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let header sort =
+    "(declare-const c Bool)(declare-const d Bool)(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")" in
+  let else_merge = "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))" in
+  let then_merge = "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))" in
+  let ite_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (l, r)) when e.P.rule = U.RewriteRule && NR.ite_rewritten l r -> Some (l, r)
+    | _ -> None in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (List.exists (fun e -> ite_step e <> None) doc.P.entries) (name ^ ": no closed ITE rewrite step");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the ITE refutation was not certified");
+    List.find_map ite_step doc.P.entries |> Option.get, schema in
+  let uninterpreted = "(declare-sort U 0)" ^ header "U" in
+  let (l, r), schema = certified "uninterpreted-else" (uninterpreted ^ else_merge) in
+  ignore (certified "uninterpreted-then" (uninterpreted ^ then_merge));
+  ignore (certified "int-else" (header "Int" ^ else_merge));
+  ignore (certified "datatype-then" ("(declare-datatypes ((B 0)) (((mk (f Int)))))" ^ header "B" ^ then_merge));
+  let node rhs = { U.kind = U.RewriteRule; conclusion = U.Equal (l, rhs); premises = [] } in
+  let pending schema rhs = match K.check_node schema [] (node rhs) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted ITE rewrite node was rejected" in
+  require (K.ite_rewrite (node r) && Z.equal (pending schema r) Z.zero) "the producer's ITE rewrite node was not checked";
+  let real_sort = A.BaseSort "Real" in
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype && not (Z3SortedReal.real_primitive real_datatype))
+    "the Real datatype schema does not close the Real gate";
+  require (Z.equal (pending real_datatype r) Z.zero) "the ITE rewrite node read the Real gate";
+  let f, guard, x, y = match r with
+    | A.App (f, [guard; x; y]) -> f, guard, x, y
+    | _ -> failwith "expected (ite (and c d) x y)" in
+  let conj, c, d = match guard with
+    | A.App (conj, [c; d]) -> conj, c, d
+    | _ -> failwith "expected (and c d)" in
+  let disj = { conj with A.decl_name = "or"; interp = Some Z3ValueTheory.op_or } in
+  let twin = match x with
+    | A.App (k, []) -> A.App ({ k with A.int_params = [Z.of_int 7] }, [])
+    | _ -> failwith "expected the constant x" in
+  List.iter (fun (rhs, name) ->
+      require (not (K.ite_rewrite (node rhs)) && Z.gt (pending schema rhs) Z.zero)
+        ("an ITE rewrite mutant was checked: " ^ name))
+    [A.App (f, [guard; y; x]), "swapped branches";
+     A.App (f, [A.App (disj, [c; d]); x; y]), "or for and";
+     A.App (f, [A.App (conj, [c; R.mk_not_expr d]); x; y]), "opposite inner guard";
+     A.App ({ f with A.interp = None }, [guard; x; y]), "counterfeit ite";
+     A.App (f, [guard; twin; y]), "twin branch"]
+
+(* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
+   equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
+   only. For every pair below the units equal the previous charge name_length a + name_length b,
+   and the comparison of BaseSort a with BaseSort b returns the previous result and work left
+   with exactly enough work, one unit short (exhausted) and spare work. The pairs: equal names
+   (built separately, so the count-once branch rests on string equality, not identity), a
+   prefix, equal lengths that differ, empty names, 300,000-character names (equal, and differing
+   in the last character), valid non-ASCII UTF-8, and malformed bytes (a lone continuation byte,
+   a truncated lead byte, U+FFFD itself against a byte the decoder reads as U+FFFD). *)
+let name_pair_units_equivalence () =
+  let huge c = String.make 300000 'S' ^ String.make 1 c in
+  let pairs = [
+    "Term", "Te" ^ "rm"; "Term", "Term2"; "Term2", "Term"; "abc", "abd"; "", ""; "", "x";
+    huge 'S', huge 'S'; huge 'S', huge 'T';
+    "\xc3\xa9\xe5\x90\x8d", "\xc3\xa9" ^ "\xe5\x90\x8d"; "\xc3\xa9\xe5\x90\x8d", "\xc3\xa9\xe5\x90\x8e";
+    "\x80\xc3", "\x80" ^ "\xc3"; "\xc3", "\xc3\xa9"; "\xef\xbf\xbd", "\x80" ] in
+  List.iter (fun (a, b) ->
+      let previous = Z.add (U.name_length a) (U.name_length b) in
+      require (Z.equal (U.name_pair_units a b) previous) "name pair units differ from both names' lengths";
+      let units = Z.succ previous in
+      List.iter (fun w ->
+          let expected = if Z.lt w units then None else Some (a = b, Z.sub w units) in
+          require (U.sort_eq_within w (A.BaseSort a) (A.BaseSort b) = expected)
+            "the base-sort comparison changed its result or work left")
+        [Z.pred units; units; Z.add units (Z.of_int 7)])
+    pairs
+
+let sorted_epsilon_skolemization () =
+  let module K = Z3SortedProof in
+  let module E = Z3SortedSkolem in
+  let module R = Z3ResolutionProofTheory in
+  let declarations =
+    "(declare-datatype T ((C (field Int))))\
+     (declare-fun p (Int Int) Bool)(declare-fun q (T Int) Bool)\
+     (declare-const c Int)(declare-const h Int)(declare-const t T)\
+     (declare-fun k (Int) Int)" in
+  let fixture left right =
+    let c = context () in
+    let native = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let a, b = match B.cached_expression st (List.hd native) with
+      | A.App (_, [a; b]) -> a, b
+      | _ -> failwith "expected a Skolem test equation" in
+    let entry = { P.rule = U.Skolemization;
+      formula = Z3ObservationalEquality.mk_oeq_expr a b; premise_ids = [] } in
+    let doc = { P.declarations = []; expressions = [a; b]; assertions = [R.false_expr];
+      entries = [entry; { P.rule = U.Asserted; formula = R.false_expr; premise_ids = [] }];
+      root = Z.one } in
+    schema, doc, entry, a, b in
+  let cases = [
+    "(exists ((x Int)) (p x x))", "(p c c)", true;
+    "(not (forall ((x Int)) (p x x)))", "(not (p c c))", true;
+    "(not (forall ((x Int)) (not (p x x))))", "(p c c)", true;
+    "(exists ((x T) (y Int)) (q x y))", "(q t c)", true;
+    "(exists ((x Int) (y Int)) (not (= x y)))", "(not (= c h))", true;
+    "(exists ((x Int) (unused T)) (p x x))", "(p c c)", true;
+    "(exists ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((y Int)) (p c y))", true;
+    "(exists ((x Int)) (p x x))", "(p c h)", false;
+    "(exists ((x Int) (y Int)) (not (= x y)))", "(not (= c c))", false;
+    "(exists ((x Int)) (p x c))", "(p c c)", false;
+    "(forall ((x Int)) (p x x))", "(p c c)", false;
+    "(not (forall ((x Int)) (p x x)))", "(p c c)", false;
+    "(exists ((x Int)) (p x h))", "(p (k h) h)", false;
+  ] in
+  List.iter (fun (left, right, expected) ->
+    let schema, doc, entry, a, b = fixture left right in
+    let ds = K.epsilon_context schema doc in
+    require (K.epsilon_entry schema ds entry = expected)
+      ("incorrect typed epsilon eligibility: " ^ left ^ " -> " ^ right);
+    let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+    require (result = K.check_document_epsilon schema doc &&
+             diagnostic = K.diagnose_document_epsilon schema doc)
+      "typed epsilon checking and diagnostics disagree";
+    if expected then (
+      require (K.check_document schema doc = Some Z.one && result = Some Z.zero)
+        "typed epsilon did not discharge precisely the isolated Skolem obligation";
+      require (K.epsilon_context schema
+        { doc with P.assertions = R.mk_eq_expr b b :: doc.P.assertions } = [])
+        "typed epsilon reused a witness already present in original inputs";
+      require (not (K.epsilon_entry schema ds { entry with P.premise_ids = [Z.zero] }))
+        "typed epsilon ignored an unexpected premise";
+      require (not (K.epsilon_entry schema ds { entry with P.formula = R.mk_eq_expr a b }))
+        "typed epsilon admitted an ordinary equality lookalike";
+      let conflicting = List.hd ds in
+      require (not (E.eligible schema
+        { conflicting with Z3Skolemization.dependencies = [Z.zero, A.BaseSort "Int"] }))
+        "typed epsilon admitted a dependency-bearing certificate"))
+    cases;
+  let schema, doc, entry, _, _ = fixture
+    "(exists ((x Int)) (p x x))" "(p c c)" in
+  let _, _, conflict, _, _ = fixture
+    "(exists ((x Int)) (not (p x x)))" "(not (p c c))" in
+  require (K.epsilon_context schema { doc with P.entries = entry :: conflict :: doc.P.entries } = [])
+    "incompatible typed choice equations shared a witness";
+  require (List.length (K.epsilon_context schema { doc with P.entries = entry :: doc.P.entries }) = 1)
+    "duplicate identical typed choice equations were rejected";
+  let schema, doc, first, _, _ = fixture "(exists ((x Int)) (= x h))" "(= c h)" in
+  let _, _, second, _, _ = fixture "(exists ((x Int)) (= x c))" "(= h c)" in
+  require (K.epsilon_context schema { doc with P.entries = [first; second] } = [])
+    "cyclic typed choice equations were admitted";
+  List.iter (fun source ->
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (schema.Z3DatatypeSignature.cases <> []) "native epsilon test omitted datatypes";
+    require (K.epsilon_context schema doc <> []) "native epsilon test omitted a closed choice block";
+    let before, after = K.diagnose_document schema doc, K.diagnose_document_epsilon schema doc in
+    match before, after with
+    | P.DocumentChecked (old_pending, old_unmet), P.DocumentChecked (pending, unmet) ->
+      let sk = List.fold_left (fun n obligation ->
+        if obligation.P.obligation_rule = U.Skolemization
+        then Z.add n obligation.P.obligation_count else n) Z.zero old_unmet in
+      require (Z.sign sk > 0 && Z.equal (Z.add pending sk) old_pending &&
+               List.for_all (fun obligation -> obligation.P.obligation_rule <> U.Skolemization) unmet)
+        ("native typed epsilon did not discharge its Skolem steps: " ^ source)
+    | _ -> failwith "native typed epsilon rejected a previously checkable proof")
+    [
+      "(declare-datatype T ((C (field Int))))(declare-fun p (T) Bool)\
+       (assert (exists ((x T)) (p x)))(assert (forall ((x T)) (not (p x))))";
+      "(declare-datatype T ((C (field Int))))(declare-fun p (T) Bool)(declare-fun q (T) Bool)\
+       (assert (not (forall ((x T)) (p x))))(assert (forall ((x T)) (q x)))\
+       (assert (forall ((x T)) (=> (q x) (p x))))";
+    ];
+  let assertions, proof = unsat
+    "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))\
+     (assert (forall ((x Int)) (not (p x))))" in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (K.epsilon_context schema doc <> [] &&
+           K.check_document_epsilon schema doc = Some Z.zero)
+    "native typed integer epsilon refutation was not fully certified"
+
+(* Readable output on the epsilon route. The elaborated document keeps one entry per ORIGINAL entry (a used Skolem step only
+   changes its rule label to Asserted, and every choice equation is appended to the assertions), so an obligation or a
+   rejected entry names the same original entry and premise ids; an assertion-stage rejection carries no index at all. The
+   report is rendered from the one diagnosed check, which equals the plain epsilon check. *)
+let readable_epsilon_provenance () =
+  let module K = Z3SortedProof in
+  let module R = Z3NativeMain.Readable in
+  let module RT = Z3ResolutionProofTheory in
+  let contains text needle =
+    let n = String.length needle in
+    let rec from i = i + n <= String.length text && (String.sub text i n = needle || from (i + 1)) in
+    from 0 in
+  let c = context () in
+  let native = parse c
+    "(declare-fun p (Int Int) Bool)(declare-const c Int)\
+     (assert (= (exists ((x Int)) (p x x)) (p c c)))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let a, b = match B.cached_expression st (List.hd native) with
+    | A.App (_, [a; b]) -> a, b
+    | _ -> failwith "expected a Skolem test equation" in
+  let skolem = { P.rule = U.Skolemization; formula = Z3ObservationalEquality.mk_oeq_expr a b; premise_ids = [] } in
+  let document entries = { P.declarations = []; expressions = [a; b]; assertions = [RT.false_expr];
+                           entries; root = Z.one } in
+  let diagnosed doc =
+    let result, diagnostic = K.check_document_epsilon_diagnosed schema doc in
+    require (result = K.check_document_epsilon schema doc && diagnostic = K.diagnose_document_epsilon schema doc)
+      "epsilon check and diagnosis disagree";
+    result, diagnostic, R.report_text 1 (Z3NativeMain.result_text result) doc diagnostic in
+  (* an open step after the used Skolem step: its obligation names original entry 1 and its premise #0 *)
+  let doc = document [skolem; { P.rule = U.Unverified "open-step"; formula = RT.false_expr; premise_ids = [Z.zero] }] in
+  require (K.epsilon_context schema doc <> []) "the provenance fixture lost its choice block";
+  let result, diagnostic, text = diagnosed doc in
+  (match diagnostic with
+   | P.DocumentChecked (pending, [obligation]) ->
+       require (result = Some Z.one && Z.equal pending Z.one && Z.equal obligation.P.obligation_index Z.one &&
+                obligation.P.obligation_rule = U.Unverified "open-step")
+         "the epsilon obligation does not name its original entry"
+   | _ -> failwith "expected exactly one open step after epsilon elaboration");
+  require (contains text "\tnode=1\t" && contains text "  node 1: premises: #0\n")
+    "readable epsilon output lost the original node or premise ids";
+  require (not (contains text "no source-node mapping")) "readable epsilon output dropped a valid source mapping";
+  (* an ill-scoped entry after the used Skolem step is rejected at its own original index *)
+  let doc = document [skolem; { P.rule = U.Unverified "bad"; formula = A.Var (Z.zero, A.bool_sort); premise_ids = [] }] in
+  let result, diagnostic, text = diagnosed doc in
+  (match diagnostic with
+   | P.DocumentRejected (P.ProofEntry, Some index, _) ->
+       require (result = None && Z.equal index Z.one) "the epsilon rejection does not name its original entry"
+   | _ -> failwith "expected a proof-entry rejection after epsilon elaboration");
+  require (contains text "  node 1: rule=bad premises: none\n") "readable epsilon rejection lost its original entry";
+  (* a rejected original assertion is reported without any index (never an appended choice equation's) *)
+  let doc = { (document [skolem; { P.rule = U.Asserted; formula = RT.false_expr; premise_ids = [] }])
+              with P.assertions = [A.Var (Z.zero, A.bool_sort)] } in
+  let result, diagnostic, text = diagnosed doc in
+  require (result = None && diagnostic = P.DocumentRejected (P.OriginalAssertions, None, None))
+    "an epsilon assertion-stage rejection carried an index";
+  require (contains text "\tstage=original-assertions\tindex=-\n" && not (contains text "  node "))
+    "readable epsilon assertion rejection attached a node"
+
 let sorted_quantifier_rewrites () =
   let module K = Z3SortedProof in
   let module S = Z3DatatypeSignature in
@@ -2012,6 +3624,11 @@ let sorted_quantifier_rewrites () =
   let declarations =
     "(declare-datatype T ((C (field Int)) (D)))\
      (declare-fun P (T) Bool)(declare-fun Q (T Int) Bool)\
+     (declare-fun box (Bool) T)\
+     (declare-fun mix (Int Bool) T)\
+     (declare-fun fakeEq (Int Int) Bool)\
+     (declare-fun fakeAdd (Int Int) Int)\
+     (declare-fun fakeIte (Bool T T) T)\
      (declare-fun fake (Bool Bool) Bool)" in
   let check expected left right =
     let native = List.hd (parse c
@@ -2022,13 +3639,16 @@ let sorted_quantifier_rewrites () =
       "sorted quantifier regression did not retain its datatype signature";
     let formula = B.cached_expression st native in
     let conclusion = Option.get (U.classify_fact formula) in
-    let result = K.check_node schema []
-      { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } in
-    let checked = match result with
-      | Some (_, pending) -> Z.equal pending Z.zero
-      | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
-    require (checked = expected)
-      ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right);
+    List.iter (fun kind ->
+      let result = K.check_node schema []
+        { U.kind; conclusion = conclusion; premises = [] } in
+      let checked = match result with
+        | Some (_, pending) -> Z.equal pending Z.zero
+        | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
+      require (checked = expected)
+        ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right))
+      [U.RewriteRule; U.QuantifierIntroduction {
+        U.binder_entries = []; binder_root = Z.minus_one }];
     (match formula with
      | A.App (f, args) ->
          require (not (K.consequence schema [] (A.App ({ f with A.interp = None }, args))))
@@ -2044,12 +3664,242 @@ let sorted_quantifier_rewrites () =
   check true
     "(lambda ((x T)) (=> (P x) (Q x 0)))"
     "(lambda ((x T)) (or (not (P x)) (Q x 0)))";
+  check true
+    "(forall ((x T)) (= (box (and (P x) (Q x 0))) x))"
+    "(forall ((x T)) (= (box (not (or (not (P x)) (not (Q x 0))))) x))";
+  check true
+    "(forall ((x T)) (exists ((y Int)) (= (box (and (P x) (Q x y))) x)))"
+    "(forall ((x T)) (exists ((y Int)) (= (box (not (or (not (P x)) (not (Q x y))))) x)))";
+  check true
+    "(lambda ((x T)) (box (and (P x) (Q x 0))))"
+    "(lambda ((x T)) (box (not (or (not (P x)) (not (Q x 0))))))";
+  check true
+    "(forall ((x T)) (exists ((y Int)) (= 346 (field x))))"
+    "(forall ((x T)) (exists ((y Int)) (= (field x) 346)))";
+  check true
+    "(forall ((x T) (y Real)) (= 1.0 y))"
+    "(forall ((x T) (y Real)) (= y 1.0))";
+  check true
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (or (forall ((y Int)) (= (field x) 7)) (not (P x))))";
+  check true
+    "(forall ((x T)) (not (and (P x) (exists ((y Int)) (= 7 (field x))))))"
+    "(forall ((x T)) (or (not (P x)) (not (exists ((y Int)) (= (field x) 7)))))";
+  check true
+    "(forall ((x T)) (= (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (= (forall ((y Int)) (= (field x) 7)) (P x)))";
+  check false
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (=> (Q x y) (forall ((z Int)) (= 7 (field x)))))))"
+    "(forall ((x T)) (or (forall ((y Int)) (or (forall ((z Int)) (= (field x) 7)) (not (Q x y)))) (not (P x))))";
+  let rec duplicate depth body =
+    if depth = 0 then body
+    else duplicate (depth - 1) ("(let ((p " ^ body ^ ")) (and p p))")
+  in
+  let large_body = duplicate 8 "(forall ((y Int)) (= 7 (field x)))" in
+  check false
+    ("(forall ((x T)) " ^ large_body ^ ")")
+    "(forall ((x T)) (forall ((y Int)) (= (field x) 7)))";
+  check true
+    ("(forall ((x T)) (=> (P x) " ^ large_body ^ "))")
+    ("(forall ((x T)) (or (not (P x)) " ^ large_body ^ "))");
+  check false
+    "(forall ((x T)) (= (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (= (forall ((y Int)) (= (field x) 8)) (P x)))";
+  check true
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (P x)) D x))";
+  check true
+    "(lambda ((x T)) (ite (and (P x) (Q x 0)) x D))"
+    "(lambda ((x T)) (ite (or (not (P x)) (not (Q x 0))) D x))";
+  check false
+    "(forall ((x T)) (= 346 (field x)))"
+    "(forall ((x T)) (= (field x) 347))";
+  check false
+    "(forall ((x T)) (=> (P x) (forall ((y Int)) (= 7 (field x)))))"
+    "(forall ((x T)) (or (forall ((y Int)) (= (field x) 8)) (not (P x))))";
+  check false
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (P x)) x D))";
+  check false
+    "(lambda ((x T)) (ite (P x) x D))"
+    "(lambda ((x T)) (ite (not (Q x 0)) D x))";
+  check false
+    "(forall ((x T)) (fakeEq 346 (field x)))"
+    "(forall ((x T)) (fakeEq (field x) 346))";
+  check false
+    "(lambda ((x T)) (fakeIte (P x) x D))"
+    "(lambda ((x T)) (fakeIte (not (P x)) D x))";
+  check true
+    "(forall ((x T)) (= (+ (field x) 0) 7))"
+    "(forall ((x T)) (= (field x) 7))";
+  check true
+    "(lambda ((x T)) (+ (field x) 0))"
+    "(lambda ((x T)) (field x))";
+  check true
+    "(forall ((x T) (y Int)) (= (+ (field x) y) 7))"
+    "(forall ((x T) (y Int)) (= (+ y (field x)) 7))";
+  check true
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (>= (+ (field x) (* (- 1) y)) 0))";
+  check true
+    "(forall ((x T) (y Int)) (not (> (+ (field x) 3) y)))"
+    "(forall ((x T) (y Int)) (<= (+ (field x) (* (- 1) y)) (- 3)))";
+  check true
+    "(forall ((x T) (y Int)) (= (* 2 (- (field x) y)) 0))"
+    "(forall ((x T) (y Int)) (= (field x) y))";
+  check false
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (>= (+ (field x) (* (- 1) y)) 1))";
+  check false
+    "(forall ((x T) (y Int)) (>= (field x) y))"
+    "(forall ((x T) (y Int)) (> (field x) y))";
+  check false
+    "(lambda ((x T)) (fakeAdd (field x) 0))"
+    "(lambda ((x T)) (field x))";
+  check false
+    "(forall ((x T) (y Real)) (= (+ y 0.0) 7.0))"
+    "(forall ((x T) (y Real)) (= y 7.0))";
+  check false
+    ("(lambda ((x T)) (+ (field x) " ^
+      String.concat " " (List.init 256 (fun _ -> "0")) ^ "))")
+    "(lambda ((x T)) (field x))";
+  let clauses = List.init 30 (fun i ->
+    Printf.sprintf "(or (Q x %d) (Q x %d))" (2 * i) (2 * i + 1)) in
+  let conjunction xs = "(and " ^ String.concat " " xs ^ ")" in
+  check true
+    ("(forall ((x T)) " ^ conjunction clauses ^ ")")
+    ("(forall ((x T)) " ^ conjunction (List.rev clauses) ^ ")");
+  check true
+    ("(lambda ((x T)) (mix (+ (field x) 0) " ^ conjunction clauses ^ "))")
+    ("(lambda ((x T)) (mix (field x) " ^ conjunction (List.rev clauses) ^ "))");
+  check false
+    "(forall ((x T)) (= (box (and (P x) (Q x 0))) x))"
+    "(forall ((x T)) (= (box (or (P x) (Q x 0))) x))";
   check false "(forall ((x T)) (P x))" "(forall ((x T)) (not (P x)))";
   check false "(forall ((x T)) (P x))" "(exists ((x T)) (P x))";
   check false "(forall ((x T) (y T)) (P x))" "(forall ((x T) (y T)) (P y))";
   check false
     "(forall ((x T)) (fake (P x) (Q x 0)))"
     "(forall ((x T)) (or (not (P x)) (Q x 0)))"
+
+let sorted_constant_folding () =
+  let module K = Z3SortedProof in
+  let c = context () in
+  let declarations =
+    "(declare-datatype T ((C (field Int))))\
+     (declare-fun box (Bool) T)(declare-fun mix (Int Bool) T)\
+     (declare-fun fakeEq (Int Int) Bool)(declare-fun fakeAdd (Int Int) Int)" in
+  List.iter (fun (left, right, expected) ->
+    let native = List.hd (parse c
+      (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))")) in
+    let st = B.marshal_expressions (B.empty_state ()) [native] in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    require (schema.Z3DatatypeSignature.cases <> [])
+      "constant folding regression did not select datatype semantics";
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st native)) in
+    let result = K.check_node schema []
+      { U.kind = U.RewriteRule; conclusion; premises = [] } in
+    require (match result with Some (_, pending) ->
+        Z.equal pending (if expected then Z.zero else Z.one) | None -> false)
+      ("incorrect sorted constant folding: " ^ left ^ " -> " ^ right))
+    ["(box (= 12 23))", "(box false)", true;
+     "(box (= 12 12))", "(box true)", true;
+     "(box (= (+ 12 11) 23))", "(box true)", true;
+     "(box true)", "(box (= (* (- 12) 2) (- 24)))", true;
+     "(box (= (* 18446744073709551616 18446744073709551616)\
+       340282366920938463463374607431768211456))", "(box true)", true;
+     "(mix (+ 12 11) (= 12 23))", "(mix 23 false)", true;
+     "(box (< (+ 12 11) 23))", "(box false)", true;
+     "(box (and (= 12 23) (>= 23 12)))", "(box false)", true;
+     "(box (not (= 12 23)))", "(box true)", true;
+     "(box (=> (= 12 12) (= 12 23)))", "(box false)", true;
+     "(box (= (= 12 23) (< 23 12)))", "(box true)", true;
+     "(box (ite (= 12 23) false true))", "(box true)", true;
+     "(box (xor (= 12 23) true false))", "(box true)", true;
+     "(box (= 12 23))", "(box true)", false;
+     "(box (= 12 12))", "(box false)", false;
+     "(box (= (+ 12 11) 24))", "(box true)", false;
+     "(box (and (= 12 23) (>= 23 12)))", "(box true)", false;
+     "(box (fakeEq 12 23))", "(box false)", false;
+     "(mix (fakeAdd 12 11) false)", "(mix 23 false)", false]
+
+let sorted_quantifier_flattening () =
+  let module K = Z3SortedProof in
+  let module Q = Z3SortedQuantifier in
+  let declarations =
+    "(declare-datatype T ((A) (B)))(declare-const x T)\
+     (declare-fun k (Bool Bool) Bool)(declare-fun r (T Bool Int) Bool)" in
+  (* An independent small reproducer, not a copy of the corpus input. *)
+  let assertions, proof = unsat (declarations ^
+    "(assert (forall ((p Bool)) (forall ((q Bool)) (= (k p q) p))))\
+     (assert (k (= x A) true))(assert (not (= x A)))") in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  let pulls = List.filter (fun e -> e.P.rule = U.PullQuantifier) doc.P.entries in
+  require (schema.Z3DatatypeSignature.cases <> [] && pulls <> [])
+    "flattening regression did not exercise the sorted pull-quant path";
+  require (K.check_document schema doc = Some Z.zero)
+    "sorted universal flattening remained an obligation";
+  require (K.diagnostic_result (K.diagnose_document schema doc) = Some Z.zero)
+    "sorted flattening diagnostics disagree";
+  List.iter (fun e ->
+      require (e.P.premise_ids = [] && Q.check_flatten e.P.formula)
+        "native pull-quant did not have the expected binder certificate";
+      match e.P.formula with
+      | A.App (_, [A.Quantifier (A.Forall_k, outer, _,
+          A.Quantifier (A.Forall_k, inner, _, body));
+          A.Quantifier (A.Forall_k, combined, _, body')]) ->
+          require (outer = [A.bool_sort] && inner = [A.bool_sort] &&
+                   combined = outer @ inner && body = body')
+            "native Boolean binder blocks or body changed"
+      | _ -> failwith "unexpected native pull-quant shape") pulls;
+  let c = context () in
+  let check expected left right =
+    let native = List.hd (parse c
+      (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))")) in
+    let st = B.marshal_expressions (B.empty_state ()) [native] in
+    let formula = B.cached_expression st native in
+    require (Q.check_flatten formula = expected)
+      ("incorrect flattening certificate: " ^ left ^ " -> " ^ right);
+    let node = { U.kind = U.PullQuantifier;
+      conclusion = Option.get (U.classify_fact formula); premises = [] } in
+    let accepted = function Some (_, pending) -> Z.equal pending Z.zero | None -> false in
+    require (accepted (K.check_node schema [] node) = expected)
+      "sorted node dispatch disagrees with flattening check";
+    match formula with
+    | A.App (f, args) ->
+        require (not (Q.check_flatten (A.App ({ f with A.interp = None }, args))))
+          "uninterpreted equality lookalike justified flattening"
+    | _ -> failwith "expected equality in flattening fixture"
+  in
+  check true
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))"
+    "(forall ((a T) (b Bool) (n Int)) (r a b n))";
+  check true
+    "(forall ((a T) (b Bool) (n Int)) (r a b n))"
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))";
+  check true
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (exists ((z T)) (r z b n))))"
+    "(forall ((a T) (b Bool) (n Int)) (exists ((z T)) (r z b n)))";
+  check false
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))"
+    "(forall ((b Bool) (n Int) (a T)) (r a b n))";
+  check false
+    "(forall ((p Bool)) (forall ((q Bool)) (= (k p q) p)))"
+    "(forall ((p Bool) (q Bool)) (= (k q p) q))";
+  check false
+    "(forall ((a T)) (exists ((b Bool) (n Int)) (r a b n)))"
+    "(forall ((a T) (b Bool) (n Int)) (r a b n))";
+  let malformed = List.map (fun e ->
+      if e.P.rule = U.PullQuantifier then { e with P.formula =
+        Z3ResolutionProofTheory.mk_eq_expr
+          (A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+            A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+              A.Var (Z.of_int 2, A.bool_sort))))
+          (A.Quantifier (A.Forall_k, [A.bool_sort; A.bool_sort], A.bool_sort,
+            A.Var (Z.of_int 2, A.bool_sort))) }
+      else e) doc.P.entries in
+  require (K.check_document schema { doc with P.entries = malformed } = None)
+    "escaping flattening binders were accepted"
 
 let sorted_quantifier_instances () =
   let module K = Z3SortedProof in
@@ -2122,7 +3972,14 @@ let sorted_quantifier_instances () =
         let args = List.map (function A.App (_, [term; _]) -> term
           | _ -> failwith "malformed sorted test binding") bindings in
         require (Q.check args formula = expected)
-          ("unexpected sorted quantifier instance: " ^ clause)
+          ("unexpected sorted quantifier instance: " ^ clause);
+        let schema = N.view_datatypes st.B.retained_sorts in
+        let node = { U.kind = U.QuantifierInstantiation args;
+          conclusion = Option.get (U.classify_fact formula); premises = [] } in
+        require ((match K.check_node schema [] node with
+          | Some (_, pending) -> Z.equal pending Z.zero
+          | None -> false) = expected)
+          ("sorted node dispatch disagrees for nested instantiation: " ^ clause)
     | [] -> failwith "missing sorted instantiation fixture"
   in
   check_clause
@@ -2132,14 +3989,37 @@ let sorted_quantifier_instances () =
   check_clause
     "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
          (exists ((y T)) (R D y)))"
-    ["D"] false
+    ["D"] true;
+  check_clause
+    "(or (not (forall ((x T)) (forall ((y T)) (R x y))))\
+         (forall ((y T)) (R D y)))"
+    ["D"] true;
+  check_clause
+    "(or (not (forall ((x T) (n Int))\
+                (exists ((y T)) (and (Q x n) (R x y)))))\
+         (exists ((y T)) (and (Q D 7) (R D y))))"
+    ["D"; "7"] true;
+  check_clause
+    "(or (not (forall ((x T) (b Bool))\
+                (exists ((y T)) (or b (R x y)))))\
+         (exists ((y T)) (or (forall ((z T)) (P z)) (R D y))))"
+    ["D"; "(forall ((z T)) (P z))"] true;
+  check_clause
+    "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
+         (exists ((y T)) (R y D)))"
+    ["D"] false;
+  check_clause
+    "(or (not (forall ((x T) (n Int))\
+                (exists ((y T)) (and (Q x n) (R x y)))))\
+         (exists ((y T)) (and (Q D 7) (R D y))))"
+    ["7"; "D"] false
 
 let assumed_nlsat () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
                farkas = None; assumed = Some "nlsat"; lp_data = None;
-               binding = None; instantiations = [] } in
+               binding = None; instantiations = []; ff_pac = None } in
   let rule = B.native_rule view Z3ResolutionProofTheory.false_expr in
   require (rule = U.Unverified "assumed:nlsat")
     "native NLSAT assumption lost its origin";
@@ -2152,18 +4032,19 @@ let boolean_constant_resolution () =
   let module R = Z3ResolutionProofTheory in
   let c = context () in
   let native = parse c
-      "(declare-const p Bool)(assert (or false p))(assert (not p))(assert true)" in
+      "(declare-const p Bool)(assert (or false false p false (not true)))\
+       (assert (not p))(assert true)" in
   let st = B.marshal_expressions (B.empty_state ()) native in
   let formulas = List.map (B.cached_expression st) native in
   let clause, np, truth = match formulas with
     | [clause; np; truth] -> clause, np, truth
     | _ -> failwith "expected Boolean constant fixtures" in
   let p = match clause with
-    | A.App (_, [_; p]) -> p
+    | A.App (_, [_; _; p; _; _]) -> p
     | _ -> failwith "expected an unsimplified false-padded clause" in
   let view = { N.proof_name = "true-axiom"; premises = [];
                conclusion = List.nth native 2; farkas = None; assumed = None;
-               lp_data = None; binding = None; instantiations = [] } in
+               lp_data = None; binding = None; instantiations = []; ff_pac = None } in
   let truth_rule = B.native_rule view truth in
   require (truth_rule = U.DefAxiom && U.check_step truth_rule (U.Holds truth) [])
     "native true-axiom retained an obligation";
@@ -2253,6 +4134,54 @@ let typed_observations () =
     "non-Boolean proof conclusion was certified"
 
 let contextual_boolean_rewrites () =
+  let module F = Z3BoundedBoolEquiv in
+  let module N = Z3BooleanNormalForm in
+  let atom i = F.Atom (A.Var (Z.of_int i, A.bool_sort)) in
+  let rec equalities n =
+    if n = 0 then atom 0 else F.Eq (equalities (n - 1), atom n) in
+  let deep = equalities 48 in
+  require (N.forced_pair [] deep = (false, false))
+    "unassigned nested equalities acquired a forced truth value";
+  require (not (N.forced_polarity [] deep true) &&
+           not (N.forced_polarity [] deep false))
+    "single-polarity propagation changed unassigned nested equalities";
+  require (N.forced_pair (List.init 49 (fun i -> F.Not (atom i))) deep = (true, false))
+    "nested equality propagation lost the positive result";
+  require (N.forced_pair (atom 48 :: List.init 48 (fun i -> F.Not (atom i))) deep = (false, true))
+    "nested equality propagation ignored the changed final input";
+  require (N.forced_pair [atom 0; F.Not (atom 0)] (F.Eq (atom 0, atom 0)) = (true, true))
+    "paired propagation changed inconsistent-context behavior";
+  require (N.clause_tautology (F.Nary (F.Or, [F.Not deep; deep])))
+    "deep complementary clause was not certified";
+  require (not (N.clause_tautology (F.Nary (F.Or, [F.Not deep; atom 49]))))
+    "deep clause mutation became a tautology";
+  let module D = Z3SortedDatatype in
+  let wide_formula = F.Nary (F.Or, List.init 24 atom) in
+  let contextual = F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, wide_formula)]),
+      F.Nary (F.Or, [atom 0; F.Not wide_formula])) in
+  require (D.propositional contextual && D.bounded_propositional contextual)
+    "wide contextual equivalence was incorrectly restricted by its atom count";
+  require (not (D.propositional (F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, wide_formula)]),
+      F.Nary (F.Or, [atom 0; wide_formula])))))
+    "wide contextual mutation was certified";
+  let shared = ref (atom 0) in
+  for i = 1 to 12 do
+    shared := F.Eq (!shared, F.Not !shared)
+  done;
+  require (D.context_budget (Z.of_int 256) !shared = None)
+    "context limit counted shared nodes instead of tree occurrences";
+  let large_clause = F.Nary (F.Or, List.init 300 atom) in
+  require (D.propositional (F.Eq (
+      F.Nary (F.Or, [atom 0; F.Eq (atom 0, large_clause)]),
+      F.Nary (F.Or, [atom 0; F.Not large_clause]))))
+    "congruence context limit leaked into datatype certificates";
+  require (D.propositional (F.Nary (F.Or, [large_clause; F.Not large_clause])))
+    "context limit disabled large complementary clauses";
+  let reordered = F.Nary (F.Or, List.init 300 (fun i -> atom (299 - i))) in
+  require (D.propositional (F.Eq (large_clause, reordered)))
+    "context limit disabled large shape equivalences";
   let c = context () in
   let declarations = List.init 24 (fun i ->
       Printf.sprintf "(declare-const p%d Bool)" i) |> String.concat "" in
@@ -2325,6 +4254,21 @@ let unused_quantifier_rewrites () =
     "(not (exists ((n Int)) (> n 0)))";
   check true "(declare-fun P (Int) Bool)"
     "(forall ((x Int)) (exists ((y Int)) (P x)))" "(forall ((x Int)) (P x))";
+  (* The unused binder is removed first; the remaining Boolean bodies are then compared. Only the
+     quantifier reduction decides an elimination step, so this fixes that comparison. *)
+  let eliminate expected left right =
+    let declarations = "(declare-const p Bool)(declare-const q Bool)" in
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.ElimUnused conclusion [] = expected)
+      ("incorrect unused-binder elimination: " ^ left ^ " -> " ^ right)
+  in
+  eliminate true "(forall ((x Int)) (or q p))" "(or p q)";
+  eliminate true "(or p q)" "(exists ((x Int)) (or q p))";
+  eliminate true "(forall ((x Int)) (or q p))" "(or q p)";
+  eliminate false "(forall ((x Int)) (or q p))" "(and p q)";
+  eliminate false "(or p q)" "(exists ((x Int)) (and q p))";
   check false "(declare-fun P (Int Int) Bool)"
     "(forall ((x Int) (y Int)) (P x y))" "(forall ((x Int)) (P x x))";
   check false "(declare-fun P (Int) Bool)"
@@ -2348,7 +4292,8 @@ let bv_rewrites () =
      (declare-const w (_ BitVec 8))(declare-const z (_ BitVec 8))\
      (declare-const bit (_ BitVec 1))(declare-const other (_ BitVec 1))\
      (declare-const half (_ BitVec 4))\
-     (declare-const wide (_ BitVec 65))" in
+     (declare-const wide (_ BitVec 65))\
+     (declare-const maxwide (_ BitVec 4096))(declare-const too_wide (_ BitVec 4097))" in
   let check expected left right =
     let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
     let st = B.marshal_expressions (B.empty_state ()) inputs in
@@ -2447,6 +4392,21 @@ let bv_rewrites () =
   check true "(bvuge v w)" "(bvule w v)";
   check false "(bvult v w)" "(not (bvule v w))";
   check false "(bvuge v w)" "(bvule v w)";
+  check true "(bvult v v)" "false";
+  check true "(bvule v v)" "true";
+  check true "(bvuge v v)" "true";
+  check true "(bvult bit bit)" "false";
+  check true "(bvule wide wide)" "true";
+  check true "(bvule maxwide maxwide)" "true";
+  check false "(bvule too_wide too_wide)" "true";
+  check true "(bvule (bvadd v w) (bvadd v w))" "true";
+  check true "(bvult v v)" "(not (bvule v v))";
+  check true "(bvuge v v)" "(bvule v v)";
+  check false "(bvult v v)" "true";
+  check false "(bvule v v)" "false";
+  check false "(bvuge v v)" "false";
+  check false "(bvult v w)" "false";
+  check false "(bvule v w)" "true";
   check true "(bvule (mkbv p q) (mkbv r s))"
     "(ite (= q s) (ite (= p r) true (not p)) (not q))";
   check false "(bvule (mkbv p q) (mkbv r s))"
@@ -2492,6 +4452,18 @@ let bv_rewrites () =
     "(mkbv (not p) (xor q p) (and p q))";
   check true "(= (mkbv p q) (mkbv (not r) (not s)))"
     "(not (or (= r p) (= s q)))";
+  check true "((_ zero_extend 0) v)" "v";
+  check true "((_ zero_extend 24) v)" "(concat (_ bv0 24) v)";
+  check true "(concat (_ bv0 24) v)" "((_ zero_extend 24) v)";
+  check true "((_ zero_extend 1) bit)" "(concat #b0 bit)";
+  check true "((_ zero_extend 65) wide)" "(concat (_ bv0 65) wide)";
+  check true "((_ zero_extend 4095) bit)" "(concat (_ bv0 4095) bit)";
+  check true "((_ zero_extend 24) #xff)" "#x000000ff";
+  check true "((_ zero_extend 24) (ite p #x00 #xff))" "(concat (_ bv0 24) (ite p #x00 #xff))";
+  check false "((_ zero_extend 24) v)" "(concat (_ bv1 24) v)";
+  check false "((_ zero_extend 24) #xff)" "#xffffffff";
+  check false "((_ zero_extend 1) bit)" "(concat bit #b0)";
+  check false "((_ sign_extend 24) v)" "(concat (_ bv0 24) v)";
   check true "((_ extract 0 0) bit)" "bit";
   check true "((_ extract 7 0) v)" "v";
   check true "((_ extract 64 0) wide)" "wide";
@@ -2557,6 +4529,30 @@ let bv_rewrites () =
        require (Z3BvLemma.concat_parts (A.App ({ f with A.interp = None }, args)) = None)
          "an uninterpreted concatenation name was trusted"
    | _ -> failwith "expected native bit-vector concatenation");
+  let inputs = parse c (declarations ^
+    "(assert (= ((_ zero_extend 24) v) (concat (_ bv0 24) v)))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); target]) ->
+       require (f.A.interp = Some Z3BvLemma.op_zero_extend &&
+                f.A.int_params = List.map Z.of_int [8; 24])
+         "native zero-extension identity or widths were lost";
+       let reject f args =
+         let source = A.App (f, args) in
+         require (Z3BvLemma.zero_extend_parts source = None)
+           "malformed zero extension was recognized";
+         require (not (U.check_step U.RewriteRule (U.Equal (source, target)) []))
+           "malformed zero extension justified a rewrite" in
+       List.iter (fun parameters -> reject
+           { f with A.int_params = List.map Z.of_int parameters } args)
+         [[]; [8]; [8; 24; 0]; [0; 32]; [7; 25]; [8; -1]; [8; 4089]];
+       List.iter (fun malformed -> reject malformed args)
+         [{ f with A.interp = None }; { f with A.range = A.bool_sort };
+          { f with A.domain = [A.bool_sort] }];
+       reject f [];
+       reject f (args @ args);
+       reject f [Z3ResolutionProofTheory.true_expr]
+   | _ -> failwith "expected native bit-vector zero extension");
   let inputs = parse c (declarations ^ "(assert (bvule v w))") in
   let st = B.marshal_expressions (B.empty_state ()) inputs in
   (match B.cached_expression st (List.hd inputs) with
@@ -2575,7 +4571,16 @@ let bv_rewrites () =
           { f with A.range = Z3BvLemma.bv_sort (Z.of_int 8) };
           { f with A.domain = [A.bool_sort; A.bool_sort] }];
        require (Z3BvLemma.unsigned_parts (A.App (f, [List.hd args])) = None)
-         "an unsigned comparison with missing operands was trusted"
+         "an unsigned comparison with missing operands was trusted";
+       let self = [List.hd args; List.hd args] in
+       List.iter (fun malformed ->
+           require (Z3BvOrder.rewrite (A.App (malformed, self)) = None)
+             "a malformed reflexive comparison was rewritten")
+         [{ f with A.int_params = [Z.zero] };
+          { f with A.int_params = [Z.of_int 7] };
+          { f with A.interp = None };
+          { f with A.range = Z3BvLemma.bv_sort (Z.of_int 8) };
+          { f with A.domain = [A.bool_sort; A.bool_sort] }]
    | _ -> failwith "expected native unsigned comparison");
   let inputs = parse c (declarations ^ "(assert (= (concat v half bit) (concat w half bit)))") in
   let st = B.marshal_expressions (B.empty_state ()) inputs in
@@ -2654,10 +4659,11 @@ let fresh_bit_model_extension () =
     { reconstruction.F.constructor with A.interp = None } };
   check true [] { reconstruction with F.constructor =
     { reconstruction.F.constructor with A.decl_name = "not-a-trusted-word-name" } };
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n
-    | _ -> failwith "expected a numeric test-model value" in
-  List.iter (fun (width, values) ->
+  (* The model extension itself (`F.extend`) is ghost, like `Z3AstTheory.eval`, and is
+     not extracted: that it reconstructs the values 0,1 / 0,1,5,7 / 0,128,165,255 of these
+     words, satisfies the equation and leaves other symbols unchanged is checked by
+     evaluation in `Z3BvFreshTests.model_extension_{1,3,8}`. *)
+  List.iter (fun width ->
       let symbols = List.init width (fun n -> symbol ("ordinary-name-" ^ string_of_int n)) in
       let constructor = match Z3BvWord.word (F.atoms symbols) with
         | A.App (f, _) -> f | _ -> failwith "expected word constructor" in
@@ -2669,48 +4675,8 @@ let fresh_bit_model_extension () =
                         A.App (unrelated, [])] in
       check true assertions r;
       require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
-        "fresh-bit reconstruction became an unconditional rewrite";
-      List.iter (fun n ->
-          let base : Z3ValueTheory.value A.interpretation = {
-            A.interp_app = (fun f vs ->
-              match f.A.interp, vs with
-              | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
-                  let rec number = function
-                    | [] -> Z.zero
-                    | Z3ValueTheory.VBool b :: rest ->
-                        Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-                    | _ -> failwith "expected Boolean test-model bits" in
-                  Z3ValueTheory.VInt (number vs)
-              | Some op, [Z3ValueTheory.VInt a; Z3ValueTheory.VInt b]
-                  when Z.equal op Z3ValueTheory.op_eq ->
-                  Z3ValueTheory.VBool (Z.equal a b)
-              | _ -> failwith "unexpected interpreted test-model application");
-            A.uninterp_app = (fun f vs ->
-              if f = r.F.original then Z3ValueTheory.VInt (Z.of_int n)
-              else match vs with
-                | [] -> Z3ValueTheory.VBool false
-                | _ -> Z3ValueTheory.VInt (Z.of_int 37));
-            A.interp_quant = (fun _ _ _ -> failwith "unexpected test-model quantifier");
-          } in
-          let extended = F.extend r base project in
-          let rho _ = Z3ValueTheory.VInt Z.zero in
-          (match A.eval extended (F.source r) rho, A.eval extended (F.word r) rho with
-           | Z3ValueTheory.VInt a, Z3ValueTheory.VInt b ->
-               require (Z.equal a (Z.of_int n) && Z.equal a b)
-                 "fresh-bit extension did not reconstruct the original value"
-           | _ -> failwith "expected numeric reconstructed values");
-          (match A.eval extended (equation r) rho with
-           | Z3ValueTheory.VBool true -> ()
-           | _ -> failwith "reconstruction equality is false in the extension");
-          (match A.eval extended (A.App (unrelated, [])) rho with
-           | Z3ValueTheory.VBool false -> ()
-           | _ -> failwith "extension changed an unrelated symbol");
-          (match extended.A.uninterp_app (List.hd symbols) [Z3ValueTheory.VBool true] with
-           | Z3ValueTheory.VInt v ->
-               require (Z.equal v (Z.of_int 37)) "extension changed a non-nullary application"
-           | _ -> failwith "expected unchanged non-nullary interpretation"))
-        values)
-    [1, [0; 1]; 3, [0; 1; 5; 7]; 8, [0; 128; 165; 255]]
+        "fresh-bit reconstruction became an unconditional rewrite")
+    [1; 3; 8]
 
 let fresh_bit_context_extension () =
   let module F = Z3BvFresh in
@@ -2751,49 +4717,115 @@ let fresh_bit_context_extension () =
       require (M.check_context inputs [equation unsafe] = None)
         "semantic reserved-name collision was accepted")
     ["true"; "false"; "and"; "or"];
-  let base : Z3ValueTheory.value A.interpretation = {
-    A.interp_app = (fun f vs ->
-      match f.A.interp, vs with
-      | Some op, [] when Z.equal op Z3ValueTheory.op_true -> Z3ValueTheory.VBool true
-      | Some op, [] when Z.equal op Z3ValueTheory.op_false -> Z3ValueTheory.VBool false
-      | Some op, [a; b] when Z.equal op Z3ValueTheory.op_eq -> Z3ValueTheory.VBool (a = b)
-      | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
-          let rec number = function
-            | [] -> Z.zero
-            | Z3ValueTheory.VBool b :: rest ->
-                Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-            | _ -> failwith "expected Boolean context-model bits" in
-          Z3ValueTheory.VInt (number vs)
-      | _ -> failwith "unexpected context-model interpreted application");
-    A.uninterp_app = (fun f vs ->
-      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 5)
-      else if f = s.F.original then Z3ValueTheory.VInt (Z.of_int 2)
-      else match vs with [] -> Z3ValueTheory.VBool false | _ -> Z3ValueTheory.VInt (Z.of_int 37));
-    A.interp_quant = (fun _ bs body -> body (List.map (fun _ -> Z3ValueTheory.VBool true) bs));
-  } in
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected numeric context-model value" in
-  let rho _ = Z3ValueTheory.VInt Z.zero in
-  let extended = F.extend_context rs base project in
-  require (A.eval_args extended inputs rho = A.eval_args base inputs rho)
-    "batch extension changed original inputs";
-  List.iter (fun e ->
-      require (A.eval extended e rho = Z3ValueTheory.VBool true)
-        "batch extension did not satisfy all reconstruction orientations")
-    formulas;
-  let n = F.number r base project in
-  let one = F.extend r base project in
+  (* The extensions (`F.extend_context`, `F.extend`, `F.number`) are ghost, like
+     `Z3AstTheory.eval`, and are not extracted. That the batch extension keeps the
+     inputs and satisfies both orientations, that the bit value of `r` in this model is 5,
+     and that retraction preserves evaluation are checked by evaluation in
+     `Z3BvFreshTests.context_extension` and `retraction`, on this fixture. The
+     executable retraction is checked here with that bit value. *)
+  let n = Z.of_int 5 in
   require (M.retract r.F.symbols n first = R.true_expr)
     "fresh bit did not retract to its Boolean literal";
   let applied = A.App (List.hd r.F.symbols, [A.Var (Z.zero, A.bool_sort)]) in
   require (M.retract r.F.symbols n applied = applied)
     "retraction changed a non-nullary application or bound variable";
   require (M.retract r.F.symbols n (F.source r) = F.source r)
-    "retraction changed an original BV constant";
-  List.iter (fun e ->
-      require (A.eval one e rho = A.eval base (M.retract r.F.symbols n e) rho)
-        "literal retraction did not preserve extended evaluation")
-    [first; F.word r; applied; quantified]
+    "retraction changed an original BV constant"
+
+let fresh_bit_document_projections () =
+  let module F = Z3BvFresh in
+  let module W = Z3BvWord in
+  let module R = Z3ResolutionProofTheory in
+  let symbol name range = {
+    A.decl_name = name; domain = []; range; interp = None; int_params = [];
+  } in
+  let reconstruction name names =
+    let width = Z.of_int (List.length names) in
+    let symbols = List.map (fun n -> symbol n A.bool_sort) names in
+    let constructor = match W.word (F.atoms symbols) with
+      | A.App (f, _) -> f | _ -> failwith "expected projection word constructor" in
+    { F.width = width; original = symbol name (Z3BvLemma.bv_sort width);
+      constructor; symbols } in
+  let r = reconstruction "v" ["p"; "q"; "r"] in
+  let s = reconstruction "w" ["s"; "t"; "u"] in
+  let equation r = R.mk_eq_expr (F.source r) (F.word r) in
+  let entry rule formula = { P.rule; formula; premise_ids = [] } in
+  let make inputs equations = {
+    P.declarations = [];
+    expressions = inputs @ equations;
+    assertions = inputs;
+    entries = entry U.Asserted R.false_expr ::
+      List.map (entry U.RewriteRule) equations;
+    root = Z.zero;
+  } in
+  let hash _ = Z.zero in
+  let check pending doc =
+    let expected = Some (Z.of_int pending) in
+    let actual = P.check_document doc in
+    let show = function None -> "rejected" | Some n -> Z.to_string n in
+    require (actual = expected && P.check_document_indexed hash doc = expected)
+      (Printf.sprintf "incorrect fresh-bit document projection result: expected %s, got %s (%d entries)"
+         (show expected) (show actual) (List.length doc.P.entries));
+    let result, diagnostic = P.check_document_diagnosed_indexed hash doc in
+    require (result = expected && P.diagnostic_result diagnostic = expected)
+      "fresh-bit projection diagnostics disagreed with replay" in
+  check 0 (make [R.false_expr] [equation r; R.mk_eq_expr (F.word s) (F.source s)]);
+  check 0 (make [R.false_expr] [equation r; equation r]);
+  check 0 (make [R.false_expr] [equation (reconstruction "bit" ["p"])]);
+  check 0 (make [R.false_expr]
+    [equation (reconstruction "v" ["true"; "false"; "and"])]);
+  let first = A.App (List.hd r.F.symbols, []) in
+  check 1 (make [R.false_expr; first] [equation r]);
+  let quantified = A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+    R.mk_eq_expr first (A.Var (Z.zero, A.bool_sort))) in
+  check 1 (make [R.false_expr; quantified] [equation r]);
+  let shared = { s with F.symbols = List.hd r.F.symbols :: List.tl s.F.symbols } in
+  check 2 (make [R.false_expr] [equation r; equation shared]);
+  let duplicate = { r with F.symbols =
+    [List.hd r.F.symbols; List.hd r.F.symbols; List.nth r.F.symbols 2] } in
+  check 1 (make [R.false_expr] [equation duplicate]);
+  let interpreted = { (List.hd r.F.symbols) with A.interp = Some Z3ValueTheory.op_true } in
+  check 1 (make [R.false_expr]
+    [equation { r with F.symbols = interpreted :: List.tl r.F.symbols }]);
+  let pair = { (symbol "pair" A.bool_sort) with A.domain = [A.bool_sort; A.bool_sort] } in
+  let rec shared depth =
+    if depth = 0 then first
+    else let child = shared (depth - 1) in A.App (pair, [child; child]) in
+  let large = shared 20 in
+  let large_formula = R.mk_eq_expr large large in
+  let large_document = make [R.false_expr] [equation r] in
+  let large_document = { large_document with
+    P.expressions = large_formula :: large_document.P.expressions;
+    P.entries = large_document.P.entries @ [entry U.Reflexivity large_formula] } in
+  check 1 large_document;
+  let defs = F.projection_definitions [r] in
+  let expanded = match Z3Definitions.expand (Z.of_int (List.length defs)) defs (F.word r) with
+    | Some e -> e | None -> failwith "fresh-bit macro expansion failed" in
+  require (W.equivalent (F.source r) expanded && W.equivalent expanded (F.source r))
+    "projected reconstruction identity was not recognized";
+  require (not (W.equivalent (F.source r) (F.word r)))
+    "fresh bits became an unconditional reconstruction identity";
+  (match expanded with
+   | A.App (f, bits) ->
+     require (not (W.equivalent (F.source r) (A.App (f, List.rev bits))))
+       "reversed projection order was accepted";
+     let bad = W.projection r.F.width (F.source r) r.F.width in
+     require (not (W.equivalent (F.source r) (A.App (f, bad :: List.tl bits))))
+       "out-of-range projection was accepted";
+     let bad = W.projection (Z.of_int 4) (F.source r) Z.zero in
+     require (not (W.equivalent (F.source r) (A.App (f, bad :: List.tl bits))))
+       "wrong-width projection was accepted"
+   | _ -> failwith "expected an expanded word");
+  let variable = A.Var (Z.zero, Z3BvLemma.bv_sort r.F.width) in
+  require (not (W.equivalent variable
+    (W.word (W.projection_bits r.F.width variable Z.zero r.F.width))))
+    "projection identity accepted an unbound variable";
+  let with_premise = make [R.false_expr] [equation r] in
+  let with_premise = { with_premise with P.entries =
+    [List.hd with_premise.P.entries;
+     { (List.nth with_premise.P.entries 1) with P.premise_ids = [Z.zero] }] } in
+  require (P.document_definitions with_premise = Some [])
+    "non-leaf reconstruction introduced fresh definitions"
 
 let scoped_model_extension () =
   let module SM = Z3ScopedModel in
@@ -2801,20 +4833,18 @@ let scoped_model_extension () =
   let module M = Z3BvFreshModel in
   let module R = Z3ResolutionProofTheory in
   let scope = [A.bool_sort; SM.int_sort] in
-  let rho = SM.default_environment scope in
   let bvar = A.Var (Z.zero, A.bool_sort) in
-  let ivar = A.Var (Z.one, SM.int_sort) in
   require (not (Z3Definitions.scoped [] bvar) && Z3Definitions.scoped scope bvar)
     "scope checking accepted an unbound variable or rejected a typed one";
-  require (A.eval SM.witness bvar rho = Z3ValueTheory.VBool false &&
-           A.eval SM.witness ivar rho = Z3ValueTheory.VInt Z.zero)
-    "typed scalar environment did not preserve variable values";
+  (* `SM.witness`, `Z3AstTheory.eval` and the extension `F.extend_context` are ghost and
+     are not extracted. The evaluation facts this test used to check at run time (variable
+     values in the typed and in a mistyped environment, reconstruction of the source value,
+     the reversed equation, fresh atoms named like literals, the official literals, and
+     scalar typing of every evaluated term) are checked by evaluation in
+     `Z3BvFreshTests.scoped_witness` and `scoped_extension`, on this fixture. *)
   require (not (SM.scalar_typed A.bool_sort (Z3ValueTheory.VInt Z.zero)) &&
            not (SM.scalar_typed SM.int_sort (Z3ValueTheory.VBool false)))
     "scalar typing accepted a mismatched environment value";
-  require (A.eval SM.witness bvar (fun _ -> Z3ValueTheory.VInt Z.zero) =
-             Z3ValueTheory.VInt Z.zero)
-    "scoped contracts unexpectedly changed generic variable evaluation";
   require (SM.arguments_typed scope [Z3ValueTheory.VBool false; Z3ValueTheory.VInt Z.zero] &&
            not (SM.arguments_typed scope [Z3ValueTheory.VInt Z.zero; Z3ValueTheory.VBool false]) &&
            not (SM.arguments_typed scope [Z3ValueTheory.VBool false]))
@@ -2828,49 +4858,87 @@ let scoped_model_extension () =
   let r = { F.width = Z.of_int 4; original = symbol "v" (Z3BvLemma.bv_sort (Z.of_int 4));
             constructor; symbols } in
   let equations = [R.mk_eq_expr (F.word r) (F.source r)] in
-  let rs = match F.check_context [] equations with
-    | Some rs -> rs | None -> failwith "scoped structural context was rejected" in
+  require (Option.is_some (F.check_context [] equations))
+    "scoped structural context was rejected";
   require (M.check_context [] equations = None)
     "legacy model-safety guard unexpectedly accepted reserved fresh names";
-  let base : Z3ValueTheory.value A.interpretation = {
-    SM.witness with
-    A.interp_app = (fun f vs ->
-      if f.A.interp = Some Z3BvLemma.op_mkbv then (
-        let rec number = function
-          | [] -> Z.zero
-          | Z3ValueTheory.VBool b :: rest ->
-              Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
-          | _ -> failwith "expected scoped-model word bits" in
-        Z3ValueTheory.VInt (number vs))
-      else SM.witness.A.interp_app f vs);
-    A.uninterp_app = (fun f vs ->
-      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 6)
-      else SM.witness.A.uninterp_app f vs);
-  } in
-  let project _ = function
-    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected a numeric scoped-model value" in
-  let extended = F.extend_context rs base project in
-  let v = Z3ValueTheory.VInt (Z.of_int 6) in
-  require (A.eval extended (F.source r) rho = v && A.eval extended (F.word r) rho = v)
-    "scoped extension did not reconstruct the source value";
-  require (A.eval extended (List.hd equations) rho = Z3ValueTheory.VBool true)
-    "scoped extension did not satisfy reversed reconstruction";
-  require (A.eval extended (A.App (List.nth symbols 0, [])) rho = Z3ValueTheory.VBool false &&
-           A.eval extended (A.App (List.nth symbols 1, [])) rho = Z3ValueTheory.VBool true)
-    "fresh uninterpreted atoms were confused with official literals";
-  require (A.eval extended R.true_expr rho = Z3ValueTheory.VBool true &&
-           A.eval extended R.false_expr rho = Z3ValueTheory.VBool false)
-    "scoped extension changed official Boolean literals";
   let quantified = A.Quantifier (A.Forall_k, scope, A.bool_sort,
     R.mk_eq_expr (A.Var (Z.zero, SM.int_sort)) (A.Var (Z.zero, SM.int_sort))) in
   require (Z3Definitions.scoped [] quantified)
     "mixed-sort quantified test was not well-scoped";
-  List.iter (fun e ->
-      require (SM.scalar_typed (A.get_sort e) (A.eval extended e rho))
-        "extension broke scoped scalar typing")
-    [bvar; ivar; R.true_expr; R.false_expr; quantified; F.word r];
   require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
     "scoped-model theorem enabled unconditional reconstruction acceptance"
+
+let array_unequal_defaults () =
+  let c = context () in
+  let expression declarations text =
+    let inputs = parse c (declarations ^ "(assert " ^ text ^ ")") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    B.cached_expression st (List.hd inputs) in
+  let check expected declarations left right =
+    let a = expression declarations left in
+    let b = expression declarations right in
+    require (U.check_step U.RewriteRule (U.Equal (a, b)) [] = expected)
+      ("incorrect array rewrite: " ^ left ^ " -> " ^ right) in
+  let left = "(store ((as const (Array Int Int)) 0) 2 3)" in
+  let right = "(store ((as const (Array Int Int)) 1) 2 3)" in
+  let source = "(= " ^ left ^ " " ^ right ^ ")" in
+  let target = "(and (= 3 3) (= 3 3) (= 0 1))" in
+  check true "" source target;
+  check true "" target source;
+  check true "" source "false";
+  check false "" source "true";
+  check false "" source "(and (= 3 3) (= 3 3) (= 0 0))";
+  check false "" ("(= " ^ left ^ " " ^ left ^ ")") target;
+  check true "(declare-const i Int)(declare-const j Int)(declare-const v Int)"
+    ("(= (store (store " ^ left ^ " i 1) i 0) (store " ^ right ^ " j v))")
+    "false";
+  check true "" "(= ((as const (Array Int Int)) (- 8)) \
+                      (store ((as const (Array Int Int)) 5) (- 400) 17))" "false";
+  require (not (Z3ArrayEquality.unequal_defaults
+    (expression "" "(= ((as const (Array Real Int)) 0) \
+                        ((as const (Array Real Int)) 1))")))
+    "Int-only default rule accepted Real indices";
+  List.iter (fun (sort, first, second) ->
+      let chain n = Printf.sprintf
+        "(store (store ((as const (Array %s Int)) %d) %s 3) %s 3)"
+        sort n first second in
+      check false "" ("(= " ^ chain 0 ^ " " ^ chain 1 ^ ")") "false")
+    ["Bool", "false", "true"; "(_ BitVec 1)", "#b0", "#b1"];
+  let a = expression "" source in
+  let expect_no_rule e =
+    require (not (Z3ArrayEquality.unequal_defaults e))
+      "malformed declaration passed array default checker";
+    require (not (U.check_step U.RewriteRule
+                    (U.Equal (e, Z3ResolutionProofTheory.false_expr)) []))
+      "malformed declaration passed full rewrite checker" in
+  let mutate_decl f =
+    [{ f with A.interp = None };
+     { f with A.decl_name = "forged" };
+     { f with A.domain = [] };
+     { f with A.range = A.BaseSort "Wrong" };
+     { f with A.int_params = [Z.one] }] in
+  (match a with
+   | A.App (eq, [A.App (st, [A.App (co, [v]); k; w]); b]) ->
+     List.iter (fun f -> expect_no_rule (A.App (f, [
+       A.App (st, [A.App (co, [v]); k; w]); b]))) (mutate_decl eq);
+     List.iter (fun f -> expect_no_rule (A.App (eq, [
+       A.App (f, [A.App (co, [v]); k; w]); b]))) (mutate_decl st);
+     List.iter (fun f -> expect_no_rule (A.App (eq, [
+       A.App (st, [A.App (f, [v]); k; w]); b]))) (mutate_decl co);
+     expect_no_rule (A.App (eq, [
+       A.App (st, [A.App (co, [v]); Z3ResolutionProofTheory.true_expr; w]); b]));
+     expect_no_rule (A.App (eq, [
+       A.App (st, [A.App (co, [v]); k; Z3ResolutionProofTheory.true_expr]); b]))
+   | _ -> failwith "unexpected array test shape");
+  let doc = document ("(assert " ^ source ^ ")") in
+  require (P.check_document doc = Some Z.zero)
+    "native unequal-default array refutation retained an obligation";
+  require (List.exists (fun entry -> entry.P.rule = U.RewriteRule &&
+      match U.classify_fact entry.P.formula with
+      | Some (U.Equal (a, b)) -> Z3TheoryNormalize.equivalent a b
+      | _ -> false) doc.P.entries)
+    "array reproducer did not exercise a verified rewrite"
 
 let arithmetic_rewrites () =
   let c = context () in
@@ -2886,6 +4954,16 @@ let arithmetic_rewrites () =
   in
   let ints = "(declare-const x Int)(declare-const y Int)" in
   let reals = "(declare-const x Real)(declare-const y Real)" in
+  List.iter (fun sort ->
+    let declarations = Printf.sprintf
+      "(declare-const x %s)(declare-const y %s)(declare-const z %s)" sort sort sort in
+    check true declarations "(* x (+ y z))" "(+ (* x y) (* x z))";
+    check true declarations "(+ (* x y) (* x z))" "(* x (+ y z))";
+    check true declarations "(* (+ x y) z)" "(+ (* x z) (* y z))";
+    check true declarations "(+ (* x z) (* y z))" "(* (+ x y) z)";
+    check false declarations "(* x (+ y z))" "(+ (* x y) (* y z))";
+    check false declarations "(* x (- y z))" "(+ (* x y) (* x z))"
+  ) ["Int"; "Real"];
   check true ints "(<= x x)" "true";
   check true ints "(<= 0 x)" "(>= x 0)";
   check true reals "(< x y)" "(not (<= y x))";
@@ -3019,6 +5097,1006 @@ let arithmetic_rewrites () =
       (U.Equal (A.App (malformed, [x; x]), Z3ResolutionProofTheory.true_expr)) []))
     "uninterpreted comparison was treated as arithmetic"
 
+(* arith_rewriter::factor_le_ge_eq: p REL 0 with a common factor f of p and g = p / f.
+
+   The kernel does not REJECT a `rewrite` step because no rule certifies it. For a well-formed,
+   premise-free equation, the RewriteRule case of Z3UnifiedProof.check_node_with_membership
+   returns Some (_, 0) when check_step succeeds and Some (_, 1), a pending obligation, when it
+   fails; None (REJECT) is only for a structurally malformed node. An invalid step and a valid
+   step outside this rule's shape are therefore both left uncertified (PARTIAL), never
+   accepted. `pending` asserts that per node and `outcome` per refutation document, with the
+   verdict text of the checker CLI (Z3NativeMain.result_text: None prints REJECT, Some 0
+   ACCEPT, Some n PARTIAL n). *)
+let arithmetic_factor_rewrites () =
+  let module F = Z3ArithmeticFactor in
+  let module LA = Z3LinearArithmeticAst in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and unsupported = ref 0 in
+  let terms_accepted = ref 0 and terms_invalid = ref 0 in
+  (* The marshalled equation (= left right) as its declaration and both sides. With [binders]
+     it is the body of (forall binders (= left right)), so its atoms are de Bruijn variables. *)
+  let equation ?(binders = "") declarations left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (d, [a; b]) when binders = "" -> d, a, b
+    | A.Quantifier (_, _, _, A.App (d, [a; b])) when binders <> "" -> d, a, b
+    | _ -> failwith "expected a factor rewrite equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed factor rewrite conclusion" in
+  let step ?binders declarations left right =
+    let d, a, b = equation ?binders declarations left right in
+    conclusion_of d a b, a, b in
+  (* The kernel's verdict on the step as a node: its pending obligations, or None for REJECT. *)
+  let pending conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  (* The CLI verdict on a refutation whose only rewrite is the step: unit resolution of
+     (not (= left right)) with (= left right) derives false. *)
+  let outcome declarations left right =
+    let inputs = parse c (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                            declarations left right left right) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  (* Accepted: the factor rule decides the step, the rewrite kernel certifies it without an
+     obligation, and a refutation using it is ACCEPTed. *)
+  let accept ?binders declarations left right =
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (F.check a b) ("factor rewrite rejected: " ^ name);
+    require (U.check_step U.RewriteRule conclusion []) ("factor rewrite not certified: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [conclusion]))
+      ("factor rewrite ignored an unexpected premise: " ^ name);
+    require (not (U.check_step U.Commutativity conclusion []))
+      ("factor rewrite accepted under another rule: " ^ name);
+    require (pending conclusion = Some Z.zero) ("factor rewrite left an obligation: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "ACCEPT")
+        ("factor rewrite refutation was not ACCEPT: " ^ name) in
+  (* Not accepted: no rule certifies the step, the kernel leaves it as one pending obligation
+     (not REJECT), and a refutation using it is PARTIAL 1. *)
+  let uncertified ?binders what declarations left right =
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (not (F.check a b)) (what ^ " accepted by the factor rule: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) (what ^ " certified: " ^ name);
+    require (pending conclusion = Some Z.one) (what ^ " was not left pending: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "PARTIAL 1")
+        (what ^ " did not give a PARTIAL 1 refutation: " ^ name) in
+  (* Invalid steps: no rule may certify them. *)
+  let reject ?binders declarations left right =
+    incr invalid;
+    uncertified ?binders "invalid factor rewrite" declarations left right in
+  (* Valid steps outside the rule's exact shape: not accepted by this rule either. *)
+  let outside ?binders declarations left right =
+    incr unsupported;
+    uncertified ?binders "unsupported factor shape" declarations left right in
+  (* The same decisions for marshalled terms that are rebuilt with a changed atom or numeral. *)
+  let accept_terms what d a b =
+    incr terms_accepted;
+    let conclusion = conclusion_of d a b in
+    require (F.check a b) ("factor rewrite rejected: " ^ what);
+    require (U.check_step U.RewriteRule conclusion []) ("factor rewrite not certified: " ^ what);
+    require (pending conclusion = Some Z.zero) ("factor rewrite left an obligation: " ^ what) in
+  let reject_terms what d a b =
+    incr terms_invalid;
+    let conclusion = conclusion_of d a b in
+    require (not (F.check a b)) ("invalid factor terms accepted: " ^ what);
+    require (not (U.check_step U.RewriteRule conclusion [])) ("invalid factor terms certified: " ^ what);
+    require (pending conclusion <> Some Z.zero) ("invalid factor terms left no obligation: " ^ what) in
+  let rec map_term f e =
+    match f e with
+    | Some replacement -> replacement
+    | None ->
+        (match e with
+         | A.App (decl, args) -> A.App (decl, List.map (map_term f) args)
+         | A.Quantifier (kind, sorts, sort, body) -> A.Quantifier (kind, sorts, sort, map_term f body)
+         | A.Var _ -> e) in
+  (* The kernel REJECTs (None) only a malformed node, such as a rewrite with a premise; a
+     well-formed step that no rule certifies stays pending. *)
+  (let conclusion, _, _ = step "(declare-const p Bool)" "p" "p" in
+   require (pending conclusion = Some Z.zero) "a reflexive rewrite was not certified";
+   require (U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion;
+                              premises = [{ U.conclusion = conclusion; hypotheses = [] }] } = None)
+     "a rewrite with a premise was not rejected");
+  List.iter (fun (s, zero, one, two, minus) ->
+    let d = Printf.sprintf
+      "(declare-const x %s)(declare-const y %s)(declare-const z %s)(declare-fun h (%s) %s)"
+      s s s s s in
+    let f fmt = Printf.sprintf fmt in
+    (* z3test nl12: x*z + z <= 0, factor z, cofactor 1 + x. *)
+    let le_target g g' = f "(or (not (= (>= z %s) (>= %s %s))) (or (= z %s) (= %s %s)))"
+        zero g zero zero g' zero in
+    let le_source = f "(<= (+ (* x z) z) %s)" zero in
+    let one_x = f "(+ %s x)" one in
+    accept d le_source (le_target one_x one_x);
+    (* The two occurrences of the cofactor need only normalize alike. *)
+    accept d le_source (le_target (f "(+ x %s)" one) one_x);
+    (* z3test nl49: y*x - z*x = 0, factor x, cofactor z*(-1) + y. *)
+    let eq_source = f "(= (+ (* y x) (* %s (* z x))) %s)" minus zero in
+    let eq_cofactor = f "(+ (* z %s) y)" minus in
+    accept d eq_source (f "(or (= x %s) (= %s %s))" zero eq_cofactor zero);
+    (* z3test nl33: x - x*x >= 0, factor x, cofactor x*(-1) + 1. *)
+    let ge_target fx g = f "(or (= (>= %s %s) (>= %s %s)) (or (= %s %s) (= %s %s)))"
+        fx zero g zero fx zero g zero in
+    let ge_cofactor = f "(+ (* x %s) %s)" minus one in
+    accept d (f "(>= (+ x (* %s (* x x))) %s)" minus zero) (ge_target "x" ge_cofactor);
+    (* An uninterpreted factor is an opaque atom. *)
+    accept d (f "(>= (+ (* (h x) y) (h x)) %s)" zero) (ge_target "(h x)" (f "(+ y %s)" one));
+    (* Wrong polarity: a >= source with the <= target, and a <= source without the negation. *)
+    reject d (f "(>= (+ (* x z) z) %s)" zero) (le_target one_x one_x);
+    reject d le_source (ge_target "z" one_x);
+    (* Wrong cofactor, inconsistent cofactor occurrences, or an off-by-one source. *)
+    let two_x = f "(+ (+ %s %s) x)" one one in
+    reject d le_source (le_target two_x two_x);
+    reject d le_source (le_target two_x one_x);
+    reject d (f "(<= (+ (* x z) z %s) %s)" one zero) (le_target one_x one_x);
+    (* Nonzero comparands on either side. *)
+    reject d (f "(<= (+ (* x z) z) %s)" one) (le_target one_x one_x);
+    reject d eq_source (f "(or (= x %s) (= %s %s))" one eq_cofactor zero);
+    (* Wrong factor, and a false product rewrite that would refute a satisfiable formula. *)
+    reject d eq_source (f "(or (= z %s) (= %s %s))" zero eq_cofactor zero);
+    reject d (f "(>= (* x y) %s)" zero) (f "(or (= x %s) (= y %s))" zero zero);
+    reject d (f "(= (+ (* x z) z) %s)" zero) (f "(or (= z %s) (= x %s))" zero zero);
+    (* A missing source term, a zero factor, and a strict source relation. *)
+    reject d (f "(<= (* x z) %s)" zero) (le_target one_x one_x);
+    reject d eq_source (f "(or (= %s %s) (= %s %s))" zero zero eq_cofactor zero);
+    reject d (f "(< (+ (* x z) z) %s)" zero) (le_target one_x one_x);
+    (* Wrong Boolean connectives. *)
+    reject d le_source (f "(and (not (= (>= z %s) (>= %s %s))) (or (= z %s) (= %s %s)))"
+                          zero one_x zero zero one_x zero);
+    reject d eq_source (f "(and (= x %s) (= %s %s))" zero eq_cofactor zero);
+    (* Valid but outside the rule: flattened or reordered disjunctions, strict sign atoms,
+       and a numeral factor. *)
+    outside d le_source (f "(or (not (= (>= z %s) (>= %s %s))) (= z %s) (= %s %s))"
+                           zero one_x zero zero one_x zero);
+    outside d le_source (f "(or (or (= z %s) (= %s %s)) (not (= (>= z %s) (>= %s %s))))"
+                           zero one_x zero zero one_x zero);
+    outside d (f "(>= (+ x (* %s (* x x))) %s)" minus zero)
+      (f "(or (= (> x %s) (> %s %s)) (or (= x %s) (= %s %s)))"
+         zero ge_cofactor zero zero ge_cofactor zero);
+    outside d (f "(= (+ (* %s x) (* %s y)) %s)" two two zero)
+      (f "(or (= %s %s) (= (+ x y) %s))" two zero zero);
+    (* Atoms that are de Bruijn variables of an enclosing quantifier, so the rewrite is an open
+       term. The same variable on both sides is accepted; another variable is another atom. *)
+    let uf = f "(declare-fun h (%s) %s)" s s in
+    let binders = f "(x %s) (y %s) (z %s)" s s s in
+    let le_by fx g = f "(or (not (= (>= %s %s) (>= %s %s))) (or (= %s %s) (= %s %s)))"
+        fx zero g zero fx zero g zero in
+    accept ~binders uf le_source (le_target one_x one_x);
+    accept ~binders uf eq_source (f "(or (= x %s) (= %s %s))" zero eq_cofactor zero);
+    accept ~binders uf (f "(>= (+ (* (h x) y) (h x)) %s)" zero)
+      (ge_target "(h x)" (f "(+ y %s)" one));
+    reject ~binders uf le_source (le_by "y" one_x);
+    reject ~binders uf le_source (le_by "z" (f "(+ %s y)" one));
+    reject ~binders uf eq_source (f "(or (= y %s) (= %s %s))" zero eq_cofactor zero);
+    reject ~binders uf (f "(>= (+ (* (h x) y) (h x)) %s)" zero)
+      (ge_target "(h z)" (f "(+ y %s)" one));
+    (* Shifting every bound-variable index on both sides keeps the rewrite accepted; shifting
+       it on one side does not. *)
+    let open_d, open_a, open_b = equation ~binders uf le_source (le_target one_x one_x) in
+    let shift = map_term (function
+        | A.Var (index, sort) -> Some (A.Var (Z.succ index, sort))
+        | _ -> None) in
+    require (shift open_a <> open_a && shift open_b <> open_b)
+      "the factor rewrite body has no bound variables";
+    accept_terms (f "%s: bound variables shifted on both sides" s) open_d (shift open_a) (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the target" s) open_d open_a (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the source" s) open_d (shift open_a) open_b;
+    (* Right-hand zeros whose numeral metadata is not the canonical zero of this sort. Each one,
+       put in place of each zero of an accepted step, leaves the step uncertified. *)
+    let sort = A.BaseSort s in
+    let other = A.BaseSort (if s = "Int" then "Real" else "Int") in
+    let is_zero e = LA.numeral e = Some (Z.zero, Z.one) in
+    List.iter (fun (relation, source, target) ->
+      let zd, a, b = equation d source target in
+      require (F.check a b) ("step with canonical zeros rejected: " ^ source);
+      let zero_decl = match a with
+        | A.App (_, [_; A.App (numeral, [])]) -> numeral
+        | _ -> failwith "expected a zero numeral" in
+      let zeros = ref 0 in
+      ignore (map_term (fun e -> if is_zero e then (incr zeros; Some e) else None)
+                (A.App (zd, [a; b])));
+      List.iter (fun (kind, bad) ->
+        for index = 0 to !zeros - 1 do
+          let seen = ref (-1) in
+          let replace = map_term (fun e ->
+              if is_zero e then begin
+                incr seen;
+                Some (if !seen = index then A.App (bad, []) else e)
+              end else None) in
+          let a' = replace a in
+          let b' = replace b in
+          require (a' <> a || b' <> b) "the zero was not replaced";
+          reject_terms (f "%s %s: %s at zero %d" s relation kind index) zd a' b'
+        done)
+        [ "zero of the other sort", { zero_decl with A.range = other };
+          "0/2", { zero_decl with A.int_params = [Z.zero; Z.of_int 2] };
+          "zero without a denominator", { zero_decl with A.int_params = [Z.zero] };
+          "zero with an extra parameter", { zero_decl with A.int_params = [Z.zero; Z.one; Z.of_int 7] };
+          "uninterpreted zero with numeral parameters", { zero_decl with A.interp = None };
+          "zero with another declaration kind",
+            { zero_decl with A.interp = Some Z3ValueTheory.op_to_real };
+          "zero with a domain", { zero_decl with A.domain = [sort] };
+          "uninterpreted constant 0",
+            { A.decl_name = "0"; domain = []; range = sort; interp = None; int_params = [] } ])
+      ["<=", le_source, le_target one_x one_x;
+       "=", eq_source, f "(or (= x %s) (= %s %s))" zero eq_cofactor zero];
+    (* A declared constant named 0 is not the numeral. *)
+    let named = f "%s(declare-const |0| %s)" d s in
+    reject named (f "(<= (+ (* x z) z) |0|)") (le_target one_x one_x);
+    reject named le_source
+      (f "(or (not (= (>= z |0|) (>= %s |0|))) (or (= z |0|) (= %s |0|)))" one_x one_x);
+    reject named eq_source (f "(or (= x |0|) (= %s |0|))" eq_cofactor))
+    ["Int", "0", "1", "2", "(- 1)"; "Real", "0.0", "1.0", "2.0", "(- 1.0)"];
+  let ints = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  outside ints "(= (+ (* y x) (* (- 1) (* z x))) 0)"
+    "(or (= (to_real x) 0.0) (= (to_real (+ (* z (- 1)) y)) 0.0))";
+  (* Integer division is an opaque atom, so the factorization is a ring identity. *)
+  accept ints "(= (+ (* (div x 2) y) (div x 2)) 0)" "(or (= (div x 2) 0) (= (+ y 1) 0))";
+  let reals = "(declare-const x Real)(declare-const y Real)" in
+  accept reals "(>= (+ (* (/ x y) y) (/ x y)) 0.0)"
+    "(or (= (>= (/ x y) 0.0) (>= (+ y 1.0) 0.0)) (or (= (/ x y) 0.0) (= (+ y 1.0) 0.0)))";
+  (* (x / y) * y is not x: that would need a field law and y <> 0. *)
+  reject reals "(= x 0.0)" "(or (= (/ x y) 0.0) (= y 0.0))";
+  reject reals "(>= x 0.0)"
+    "(or (= (>= (/ x y) 0.0) (>= y 0.0)) (or (= (/ x y) 0.0) (= y 0.0)))";
+  (* The sort guard: to_real is opaque, so no identity of Int terms is pushed through it, and
+     every comparison of the rewrite has the sort of p. *)
+  let mixed =
+    "(declare-const x Int)(declare-const z Int)(declare-const n Int)(declare-const t Real)" in
+  let real_le fx g = Printf.sprintf
+      "(or (not (= (>= %s 0.0) (>= %s 0.0))) (or (= %s 0.0) (= %s 0.0)))" fx g fx g in
+  let int_le fx g = Printf.sprintf
+      "(or (not (= (>= %s 0) (>= %s 0))) (or (= %s 0) (= %s 0)))" fx g fx g in
+  (* A Real comparison of the Int p under to_real is one opaque atom, not x * z + z. *)
+  outside mixed "(<= (to_real (+ (* x z) z)) 0.0)" (real_le "(to_real z)" "(to_real (+ 1 x))");
+  (* A Real p whose cofactor has an Int term under to_real: to_real n and to_real (n + 1) are
+     unrelated atoms, so only the spelling that uses to_real n is accepted. *)
+  let real_p = "(<= (+ (* t (to_real n)) t) 0.0)" in
+  accept mixed real_p (real_le "t" "(+ (to_real n) 1.0)");
+  outside mixed real_p (real_le "t" "(to_real (+ n 1))");
+  reject mixed real_p (real_le "t" "(+ (to_real n) 2.0)");
+  reject mixed real_p (real_le "t" "(to_real (+ n 2))");
+  (* An Int source with Real comparisons, a Real source with Int comparisons, and one Real
+     comparison among Int ones. *)
+  outside mixed "(<= (+ (* x z) z) 0)" (real_le "(to_real z)" "(to_real (+ 1 x))");
+  outside mixed "(<= (+ (* (to_real x) (to_real z)) (to_real z)) 0.0)" (int_le "z" "(+ 1 x)");
+  outside mixed "(<= (+ (* x z) z) 0)"
+    "(or (not (= (>= z 0) (>= (+ 1 x) 0))) (or (= (to_real z) 0.0) (= (+ 1 x) 0)))";
+  (* Atoms are compared with their whole declaration: a Real and an Int function with the same
+     name and arguments are different atoms. The native view gives each declaration a unique
+     name (decl!<id>:<name>), so the two functions are renamed to one name to collide. *)
+  let overloaded =
+    "(declare-fun hr (Int) Real)(declare-fun hi (Int) Int)(declare-const x Int)\
+     (declare-const y Real)(declare-const k Int)" in
+  let named_like suffix decl = String.ends_with ~suffix decl.A.decl_name in
+  let rename = map_term (function
+      | A.App (decl, args) when named_like ":hr" decl || named_like ":hi" decl ->
+          Some (A.App ({ decl with A.decl_name = "h" }, args))
+      | _ -> None) in
+  let named_step left right =
+    let d, a, b = equation overloaded left right in
+    d, rename a, rename b in
+  (match named_step "(= (hr x) (to_real (hi x)))" "true" with
+   | _, A.App (_, [A.App (real_h, args); A.App (_, [A.App (int_h, args')])]), _ ->
+       require (real_h.A.decl_name = int_h.A.decl_name && args = args' && real_h <> int_h)
+         "the overloaded functions do not share a name and arguments"
+   | _ -> failwith "expected the overloaded function applications");
+  let retyped sort = map_term (function
+      | A.App (decl, args) when decl.A.decl_name = "h" ->
+          Some (A.App ({ decl with A.range = sort }, args))
+      | _ -> None) in
+  let ge_real fx g = Printf.sprintf
+      "(or (= (>= %s 0.0) (>= %s 0.0)) (or (= %s 0.0) (= %s 0.0)))" fx g fx g in
+  let ge_int fx g = Printf.sprintf
+      "(or (= (>= %s 0) (>= %s 0)) (or (= %s 0) (= %s 0)))" fx g fx g in
+  let real_atom = "(>= (+ (* (hr x) y) (hr x)) 0.0)" in
+  let d, a, b = named_step real_atom (ge_real "(hr x)" "(+ y 1.0)") in
+  accept_terms "Real function atom" d a b;
+  reject_terms "Real function atom in place of the Int one"
+    d a (retyped (A.BaseSort "Int") b);
+  let d, a, b = named_step real_atom (ge_real "(to_real (hi x))" "(+ y 1.0)") in
+  reject_terms "Int function atom under to_real for the Real one" d a b;
+  let int_atom = "(>= (+ (* (hi x) k) (hi x)) 0)" in
+  let d, a, b = named_step int_atom (ge_int "(hi x)" "(+ k 1)") in
+  accept_terms "Int function atom" d a b;
+  reject_terms "Int function atom in place of the Real one"
+    d a (retyped (A.BaseSort "Real") b);
+  let d, a, b = named_step int_atom (ge_int "(to_int (hr x))" "(+ k 1)") in
+  reject_terms "Real function atom under to_int for the Int one" d a b;
+  (* A declaration that differs only in its parameters is another atom, though its name and
+     arguments are the same. *)
+  let parameterized = map_term (function
+      | A.App (decl, args) when decl.A.decl_name = "h" ->
+          Some (A.App ({ decl with A.int_params = [Z.one] }, args))
+      | _ -> None) in
+  let d, a, b = named_step int_atom (ge_int "(hi x)" "(+ k 1)") in
+  reject_terms "Int function atom with another declaration parameter" d a (parameterized b);
+  let d, a, b = named_step real_atom (ge_real "(hr x)" "(+ y 1.0)") in
+  reject_terms "Real function atom with another declaration parameter" d a (parameterized b);
+  (* The expansion bound. Z3ArithmeticFactor.times compares the product of the operand sizes
+     with max_terms (4096) before it calls Z3NlaLemma.multiply, and product multiplies one
+     factor at a time through times, so every intermediate product is bounded too. A valid
+     rewrite whose expansion is too large is not accepted by F.check, which decides it without
+     expanding it. *)
+  let sum prefix n =
+    "(+ " ^ String.concat " " (List.init n (fun i -> Printf.sprintf "%s%d" prefix (i + 1))) ^ ")" in
+  let wide = String.concat "" (List.concat_map (fun (prefix, count) ->
+      List.init count (fun i -> Printf.sprintf "(declare-const %s%d Int)" prefix (i + 1)))
+      ["x", 65; "y", 240; "w", 65]) in
+  let sign_factors f g = Printf.sprintf
+      "(or (not (= (>= %s 0) (>= %s 0))) (or (= %s 0) (= %s 0)))" f g f g in
+  let decided what left right =
+    let _, a, b = step wide left right in
+    let start = Unix.gettimeofday () in
+    let result = F.check a b in
+    let elapsed = Unix.gettimeofday () -. start in
+    Printf.printf "  %s: F.check %b in %.3fs\n%!" what result elapsed;
+    result, elapsed in
+  (* Products of sums with 65 * 65 = 4225 monomials, and of three sums whose second
+     multiplication has 17 * 17 * 17 = 4913. The arithmetic rewriter's product rule still
+     certifies these steps without expanding, so only F.check is asserted. *)
+  List.iter (fun (what, left, right) ->
+      let result, elapsed = decided what left right in
+      require (not result) ("product beyond the expansion bound accepted: " ^ what);
+      require (elapsed < 10.0) ("expansion bound did not stop the check: " ^ what))
+    ["65 x 65 product",
+       Printf.sprintf "(= (* %s %s) 0)" (sum "x" 65) (sum "y" 65),
+       Printf.sprintf "(or (= %s 0) (= %s 0))" (sum "x" 65) (sum "y" 65);
+     "65 x 65 product (<=)",
+       Printf.sprintf "(<= (* %s %s) 0)" (sum "x" 65) (sum "y" 65),
+       sign_factors (sum "x" 65) (sum "y" 65);
+     "17 x 17 x 17 product",
+       Printf.sprintf "(= (* %s %s %s) 0)" (sum "x" 17) (sum "y" 17) (sum "w" 17),
+       Printf.sprintf "(or (= %s 0) (= (* %s %s) 0))" (sum "x" 17) (sum "y" 17) (sum "w" 17)];
+  (* With an extra term, no other rule factors the step, so the bound decides it:
+     X * Y + X * w1 = X * (Y + w1), where X * Y and X * (Y + w1) are expanded. The step is
+     accepted when the largest expansion has 4096 monomials and stays pending at 4097. *)
+  let extended m n =
+    Printf.sprintf "(= (+ (* %s %s) (* %s w1)) 0)" (sum "x" m) (sum "y" n) (sum "x" m),
+    Printf.sprintf "(or (= %s 0) (= (+ %s w1) 0))" (sum "x" m) (sum "y" n) in
+  let extended_le m n =
+    Printf.sprintf "(<= (+ (* %s %s) (* %s w1)) 0)" (sum "x" m) (sum "y" n) (sum "x" m),
+    sign_factors (sum "x" m) (Printf.sprintf "(+ %s w1)" (sum "y" n)) in
+  let extended3 n =
+    Printf.sprintf "(= (+ (* %s %s %s) (* %s w1)) 0)" (sum "x" n) (sum "y" n) (sum "w" n) (sum "x" n),
+    Printf.sprintf "(or (= %s 0) (= (+ (* %s %s) w1) 0))" (sum "x" n) (sum "y" n) (sum "w" n) in
+  List.iter (fun (what, (left, right), within_bound) ->
+      let result, elapsed = decided what left right in
+      require (result = within_bound) ("wrong decision at the expansion bound: " ^ what);
+      require (within_bound || elapsed < 10.0) ("expansion bound did not stop the check: " ^ what);
+      if within_bound then accept wide left right else outside wide left right)
+    ["64 x 63 + 64 x 1, f * g = 64 * 64 = 4096", extended 64 63, true;
+     "17 x 240 + 17 x 1, f * g = 17 * 241 = 4097", extended 17 240, false;
+     "65 x 65 + 65 x 1, X * Y = 4225", extended 65 65, false;
+     "65 x 65 + 65 x 1 (<=), X * Y = 4225", extended_le 65 65, false;
+     "15 x 15 x 15 + 15 x 1, f * g = 15 * 226 = 3390", extended3 15, true;
+     "17 x 17 x 17 + 17 x 1, 17 * (17 * 17) = 4913", extended3 17, false];
+  Printf.printf "  factor rewrites: %d accepted, %d invalid, %d outside the shape; \
+                 rebuilt terms: %d accepted, %d invalid\n%!"
+    !accepted !invalid !unsupported !terms_accepted !terms_invalid
+
+(* arith_rewriter::mk_le_ge_eq_core lifts a conditional with a numeral branch out of a
+   comparison with a numeral: (ite c t e) REL k becomes (or c (e REL k)) when t REL k holds and
+   (and (not c) (e REL k)) when it does not, with (not c) and c for a numeral else branch. After
+   cancel_monomials moved numeral addends, 1 + (ite c t e) >= k is rewritten through
+   (ite c t e) >= k - 1 in the same step. Z3ConditionalRewrite splits on the guard and folds
+   each branch: comparisons whose linear normal form is a constant become true or false, and
+   and/or drop their literal arguments. Pending and outcome are asserted as for the factor
+   rewrites above: an invalid step, and a valid step that is not in the checked shape, stays one
+   pending obligation (PARTIAL), never ACCEPT and never REJECT. *)
+let conditional_comparison_rewrites () =
+  let module CR = Z3ConditionalRewrite in
+  let module LA = Z3LinearArithmeticAst in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and unsupported = ref 0 in
+  let terms_accepted = ref 0 and terms_invalid = ref 0 in
+  let equation ?(binders = "") declarations left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (d, [a; b]) when binders = "" -> d, a, b
+    | A.Quantifier (_, _, _, A.App (d, [a; b])) when binders <> "" -> d, a, b
+    | _ -> failwith "expected a conditional comparison rewrite equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed conditional comparison rewrite conclusion" in
+  let step ?binders declarations left right =
+    let d, a, b = equation ?binders declarations left right in
+    conclusion_of d a b, a, b in
+  let pending conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  let outcome declarations left right =
+    let inputs = parse c (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                            declarations left right left right) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  let accept ?binders declarations left right =
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (CR.equivalent a b) ("conditional comparison rewrite rejected: " ^ name);
+    require (U.check_step U.RewriteRule conclusion [])
+      ("conditional comparison rewrite not certified: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [conclusion]))
+      ("conditional comparison rewrite ignored an unexpected premise: " ^ name);
+    require (pending conclusion = Some Z.zero)
+      ("conditional comparison rewrite left an obligation: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "ACCEPT")
+        ("conditional comparison refutation was not ACCEPT: " ^ name) in
+  let uncertified ?binders what declarations left right =
+    let name = left ^ " -> " ^ right in
+    let conclusion, a, b = step ?binders declarations left right in
+    require (not (CR.equivalent a b)) (what ^ " accepted by the conditional rule: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) (what ^ " certified: " ^ name);
+    require (pending conclusion = Some Z.one) (what ^ " was not left pending: " ^ name);
+    if binders = None then
+      require (outcome declarations left right = "PARTIAL 1")
+        (what ^ " did not give a PARTIAL 1 refutation: " ^ name) in
+  let reject ?binders declarations left right =
+    incr invalid;
+    uncertified ?binders "invalid conditional comparison rewrite" declarations left right in
+  let outside ?binders declarations left right =
+    incr unsupported;
+    uncertified ?binders "unsupported conditional comparison shape" declarations left right in
+  let accept_terms what d a b =
+    incr terms_accepted;
+    let conclusion = conclusion_of d a b in
+    require (CR.equivalent a b) ("conditional comparison terms rejected: " ^ what);
+    require (U.check_step U.RewriteRule conclusion []) ("conditional comparison terms not certified: " ^ what);
+    require (pending conclusion = Some Z.zero) ("conditional comparison terms left an obligation: " ^ what) in
+  let reject_terms what d a b =
+    incr terms_invalid;
+    let conclusion = conclusion_of d a b in
+    require (not (CR.equivalent a b)) ("invalid conditional comparison terms accepted: " ^ what);
+    require (not (U.check_step U.RewriteRule conclusion []))
+      ("invalid conditional comparison terms certified: " ^ what);
+    require (pending conclusion <> Some Z.zero)
+      ("invalid conditional comparison terms left no obligation: " ^ what) in
+  let rec map_term f e =
+    match f e with
+    | Some replacement -> replacement
+    | None ->
+        (match e with
+         | A.App (decl, args) -> A.App (decl, List.map (map_term f) args)
+         | A.Quantifier (kind, sorts, sort, body) -> A.Quantifier (kind, sorts, sort, map_term f body)
+         | A.Var _ -> e) in
+  List.iter (fun (s, zero, one, two, three, minus_one, minus_two) ->
+    let f fmt = Printf.sprintf fmt in
+    let d = f "(declare-const p Bool)(declare-const q Bool)(declare-const x %s)\
+               (declare-const y %s)(declare-fun h (%s) %s)" s s s s in
+    (* A then-branch numeral whose comparison is false gives (and (not c) ...), one whose
+       comparison is true gives (or c ...), for >=, <=, <, > and =. *)
+    let source = f "(>= (ite p %s x) %s)" zero one in
+    let target = f "(and (not p) (>= x %s))" one in
+    accept d source target;
+    accept d (f "(>= (ite p %s x) %s)" three one) (f "(or p (>= x %s))" one);
+    accept d (f "(<= (ite p %s x) %s)" one two) (f "(or p (<= x %s))" two);
+    accept d (f "(<= (ite p %s x) %s)" three one) (f "(and (not p) (<= x %s))" one);
+    accept d (f "(< (ite p %s x) %s)" zero one) (f "(or p (< x %s))" one);
+    accept d (f "(> (ite p %s x) %s)" zero one) (f "(and (not p) (> x %s))" one);
+    accept d (f "(= (ite p %s x) %s)" three one) (f "(and (not p) (= x %s))" one);
+    (* A numeral else branch: the guard's polarity is swapped. *)
+    accept d (f "(>= (ite p x %s) %s)" zero one) (f "(and p (>= x %s))" one);
+    accept d (f "(>= (ite p x %s) %s)" three one) (f "(or (not p) (>= x %s))" one);
+    (* Negative numerals, the conditional on the right, and a negated comparison. *)
+    accept d (f "(>= (ite p %s x) %s)" minus_two minus_one) (f "(and (not p) (>= x %s))" minus_one);
+    accept d (f "(<= %s (ite p %s x))" one zero) (f "(and (not p) (<= %s x))" one);
+    accept d (f "(not (>= (ite p %s x) %s))" zero one) (f "(or p (not (>= x %s)))" one);
+    (* z3test issue-963: both branches numerals under a compound guard, with the raw comparison
+       of the else branch on the right; and the shifted form 1 + (ite ...) >= -1. *)
+    let guard = f "(and (= %s %s) (= x y))" zero zero in
+    accept d (f "(>= (ite %s %s %s) %s)" guard zero minus_one zero)
+      (f "(or %s (>= %s %s))" guard minus_one zero);
+    accept d (f "(>= (+ %s (ite %s %s %s)) %s)" one guard zero minus_one minus_one)
+      (f "(or %s (>= %s %s))" guard minus_one minus_two);
+    (* The shifted form with an opaque else branch: (or false (>= x -1)) and (>= (+ 1 x) 0)
+       are compared after the literal false is dropped. *)
+    accept d (f "(>= (+ %s (ite p %s x)) %s)" one zero zero) (f "(or p (>= x %s))" minus_one);
+    (* z3test string6: a conditional else branch stays inside the comparison. *)
+    accept d (f "(>= (ite p %s (ite q %s %s)) %s)" zero one minus_one zero)
+      (f "(or p (>= (ite q %s %s) %s))" one minus_one zero);
+    accept d (f "(>= (ite p %s (ite q %s x)) %s)" zero three one)
+      (f "(and (not p) (or q (>= x %s)))" one);
+    (* The split guard inside the compound guard of a nested conditional: its absorbing
+       literal decides that guard. *)
+    accept d (f "(>= (ite p %s (ite (and p q) %s x)) %s)" zero three one) target;
+    accept d (f "(>= (ite p (ite (or p q) %s %s) x) %s)" zero three one) target;
+    (* Wrong guard polarity, reversed branches, or and and against the ground comparison, and a
+       true ground comparison taken as false. *)
+    reject d source (f "(and p (>= x %s))" one);
+    reject d (f "(>= (ite p x %s) %s)" zero one) target;
+    reject d source (f "(or p (>= x %s))" one);
+    reject d source (f "(or (not p) (>= x %s))" one);
+    reject d (f "(>= (ite p %s x) %s)" three one) (f "(and (not p) (>= x %s))" one);
+    reject d (f "(<= (ite p %s x) %s)" one two) (f "(and (not p) (<= x %s))" two);
+    (* Another rest argument or bound, both mutated, and an off-by-one shift. *)
+    reject d source (f "(and (not p) (>= y %s))" one);
+    reject d source (f "(and (not p) (>= x %s))" two);
+    reject d source (f "(or p (>= y %s))" one);
+    reject d (f "(>= (+ %s (ite p %s x)) %s)" one zero zero) (f "(or p (>= x %s))" zero);
+    reject d (f "(>= (+ %s (ite %s %s %s)) %s)" one guard zero minus_one one)
+      (f "(or %s (>= %s %s))" guard minus_one minus_two);
+    (* Another relation, strict for non-strict, and a strict source. *)
+    reject d source (f "(and (not p) (<= x %s))" one);
+    reject d source (f "(and (not p) (> x %s))" one);
+    reject d (f "(> (ite p %s x) %s)" zero one) target;
+    reject d (f "(= (ite p %s x) %s)" zero one) (f "(and (not p) (>= x %s))" one);
+    (* A branch that is not a numeral has no ground comparison. *)
+    reject d (f "(>= (ite p y x) %s)" one) target;
+    reject d (f "(>= (ite p (h x) x) %s)" one) target;
+    let named = f "%s(declare-const |%s| %s)" d zero s in
+    reject named (f "(>= (ite p |%s| x) %s)" zero one) target;
+    (* Wrong conclusions: an extra disjunct, a dropped guard, a dropped comparison, false. *)
+    reject d (f "(>= (ite p %s x) %s)" three one) (f "(or p (>= x %s) q)" one);
+    reject d source (f "(>= x %s)" one);
+    reject d source "(not p)";
+    reject d source "false";
+    (* Atoms and guards that are bound variables of an enclosing quantifier: the same variables
+       on both sides are accepted; another variable is another atom or guard. *)
+    let binders = f "(x %s) (y %s)" s s in
+    let bound_source = f "(>= (ite (> y %s) %s x) %s)" two zero one in
+    let bound_target = f "(and (not (> y %s)) (>= x %s))" two one in
+    accept ~binders d bound_source bound_target;
+    reject ~binders d bound_source (f "(and (not (> x %s)) (>= x %s))" two one);
+    reject ~binders d bound_source (f "(and (not (> y %s)) (>= y %s))" two one);
+    let open_d, open_a, open_b = equation ~binders d bound_source bound_target in
+    let shift = map_term (function
+        | A.Var (index, sort) -> Some (A.Var (Z.succ index, sort))
+        | _ -> None) in
+    require (shift open_a <> open_a && shift open_b <> open_b)
+      "the conditional comparison body has no bound variables";
+    accept_terms (f "%s: bound variables shifted on both sides" s) open_d (shift open_a) (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the target" s) open_d open_a (shift open_b);
+    reject_terms (f "%s: bound variables shifted in the source" s) open_d (shift open_a) open_b;
+    (* A guard under a binder of the rewritten terms is not replaced, so this valid step stays
+       pending. *)
+    outside d (f "(forall ((z %s)) (>= (ite (> z %s) %s x) %s))" s two zero one)
+      (f "(forall ((z %s)) (and (not (> z %s)) (>= x %s)))" s two one);
+    (* Each numeral of an accepted step, replaced by a numeral of another value or sort, a
+       malformed numeral, or an uninterpreted constant, leaves the step uncertified. *)
+    let sort = A.BaseSort s in
+    let other = A.BaseSort (if s = "Int" then "Real" else "Int") in
+    let is_numeral e = LA.numeral e <> None in
+    let zd, a, b = equation d source target in
+    require (CR.equivalent a b) ("step with canonical numerals rejected: " ^ source);
+    let numerals = ref [] in
+    ignore (map_term (fun e -> if is_numeral e then (numerals := e :: !numerals; Some e) else None)
+              (A.App (zd, [a; b])));
+    let numerals = List.rev !numerals in
+    require (List.length numerals = 3) "expected three numerals in the step";
+    List.iteri (fun index numeral ->
+        let decl, n, denominator = match numeral with
+          | A.App (decl, []) ->
+              (match decl.A.int_params with
+               | [n; denominator] -> decl, n, denominator
+               | _ -> failwith "expected numeral parameters")
+          | _ -> failwith "expected a numeral" in
+        List.iter (fun (kind, bad) ->
+            let seen = ref (-1) in
+            let replace = map_term (fun e ->
+                if is_numeral e then begin
+                  incr seen;
+                  Some (if !seen = index then A.App (bad, []) else e)
+                end else None) in
+            let a' = replace a in
+            let b' = replace b in
+            require (a' <> a || b' <> b) "the numeral was not replaced";
+            reject_terms (f "%s: %s at numeral %d" s kind index) zd a' b')
+          [ "the next numeral", { decl with A.int_params = [Z.succ n; denominator] };
+            "a numeral of the other sort", { decl with A.range = other };
+            "an uninterpreted numeral", { decl with A.interp = None };
+            "a numeral without a denominator", { decl with A.int_params = [n] };
+            "a numeral with a domain", { decl with A.domain = [sort] };
+            "an uninterpreted constant with the numeral's name",
+              { A.decl_name = decl.A.decl_name; domain = []; range = sort; interp = None;
+                int_params = [] } ])
+      numerals)
+    ["Int", "0", "1", "2", "3", "(- 1)", "(- 2)";
+     "Real", "0.0", "1.0", "2.0", "3.0", "(- 1.0)", "(- 2.0)"];
+  (* z3test z3.12: a guarded division, and Real fractions decided exactly. *)
+  let reals = "(declare-const a Real)(declare-const b Real)" in
+  accept reals "(>= (ite (= b 0.0) 0.0 (/ a b)) 1.0)" "(and (not (= b 0.0)) (>= (/ a b) 1.0))";
+  accept reals "(<= (ite (= b 0.0) 0.5 a) 0.25)" "(and (not (= b 0.0)) (<= a 0.25))";
+  accept reals "(<= (ite (= b 0.0) (/ 1.0 4.0) a) 0.25)" "(or (= b 0.0) (<= a 0.25))";
+  reject reals "(<= (ite (= b 0.0) 0.5 a) 0.25)" "(or (= b 0.0) (<= a 0.25))";
+  (* A division by zero is not a numeral. *)
+  reject reals "(>= (ite (= b 0.0) (/ 1.0 0.0) a) 1.0)" "(and (not (= b 0.0)) (>= a 1.0))";
+  Printf.printf "  conditional comparison rewrites: %d accepted, %d invalid, %d outside the shape; \
+                 rebuilt terms: %d accepted, %d invalid\n%!"
+    !accepted !invalid !unsupported !terms_accepted !terms_invalid
+
+let bv_extract_rewrites () =
+  let module BX = Z3BvExtract in
+  let module BV = Z3BvLemma in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and unsupported = ref 0 and terms_invalid = ref 0 in
+  let declarations =
+    "(declare-const p Bool)(declare-const q Bool)(declare-fun f ((_ BitVec 8)) Bool)\
+     (declare-const x (_ BitVec 8))(declare-const y (_ BitVec 8))(declare-const z (_ BitVec 8))\
+     (declare-const u (_ BitVec 16))(declare-const k (_ BitVec 7))(declare-const bit (_ BitVec 1))\
+     (declare-const m (_ BitVec 66))(declare-const n (_ BitVec 66))\
+     (declare-const big (_ BitVec 4096))(declare-const big2 (_ BitVec 4096))" in
+  let equation ?(binders = "") left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (d, [a; b]) when binders = "" -> d, a, b
+    | A.Quantifier (_, _, _, A.App (d, [a; b])) when binders <> "" -> d, a, b
+    | _ -> failwith "expected a bit-vector extraction rewrite equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed bit-vector extraction rewrite conclusion" in
+  let pending conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises = [] } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  let outcome left right =
+    let inputs = parse c (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                            declarations left right left right) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  let accept left right =
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation left right in
+    let conclusion = conclusion_of d a b in
+    require (BX.check a b) ("extraction rewrite rejected: " ^ name);
+    require (U.check_step U.RewriteRule conclusion []) ("extraction rewrite not certified: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [conclusion]))
+      ("extraction rewrite ignored an unexpected premise: " ^ name);
+    require (pending conclusion = Some Z.zero) ("extraction rewrite left an obligation: " ^ name);
+    require (outcome left right = "ACCEPT") ("extraction refutation was not ACCEPT: " ^ name) in
+  let uncertified ?binders what left right =
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation ?binders left right in
+    let conclusion = conclusion_of d a b in
+    require (not (BX.check a b)) (what ^ " accepted by the extraction rule: " ^ name);
+    require (not (U.check_step U.RewriteRule conclusion [])) (what ^ " certified: " ^ name);
+    require (pending conclusion = Some Z.one) (what ^ " was not left pending: " ^ name);
+    if binders = None then
+      require (outcome left right = "PARTIAL 1")
+        (what ^ " did not give a PARTIAL 1 refutation: " ^ name) in
+  let reject left right =
+    incr invalid;
+    uncertified "invalid extraction rewrite" left right in
+  let outside ?binders left right =
+    incr unsupported;
+    uncertified ?binders "unsupported extraction shape" left right in
+  let reject_terms what d a b =
+    incr terms_invalid;
+    let conclusion = conclusion_of d a b in
+    require (not (BX.check a b)) ("invalid extraction terms accepted: " ^ what);
+    require (not (U.check_step U.RewriteRule conclusion []))
+      ("invalid extraction terms certified: " ^ what);
+    require (pending conclusion <> Some Z.zero)
+      ("invalid extraction terms left no obligation: " ^ what) in
+  (* Low bits of sums and products, binary and n-ary, up to the full width and at 4096 bits. *)
+  accept "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  accept "((_ extract 3 0) (bvmul x y))" "(bvmul ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  accept "((_ extract 3 0) (bvadd x y z))"
+    "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y) ((_ extract 3 0) z))";
+  accept "((_ extract 5 0) (bvmul x y z))"
+    "(bvmul ((_ extract 5 0) x) ((_ extract 5 0) y) ((_ extract 5 0) z))";
+  accept "((_ extract 0 0) (bvadd x y))" "(bvadd ((_ extract 0 0) x) ((_ extract 0 0) y))";
+  accept "((_ extract 7 0) (bvadd x y))" "(bvadd ((_ extract 7 0) x) ((_ extract 7 0) y))";
+  accept "((_ extract 0 0) (bvadd big big2))"
+    "(bvadd ((_ extract 0 0) big) ((_ extract 0 0) big2))";
+  (* The shapes of z3test 6079-8: a numeral plus a conditional, at widths 7 and 66. *)
+  accept "((_ extract 4 0) (bvadd (_ bv1 7) (ite (= k (_ bv0 7)) k (_ bv0 7))))"
+    "(bvadd ((_ extract 4 0) (_ bv1 7)) ((_ extract 4 0) (ite (= k (_ bv0 7)) k (_ bv0 7))))";
+  accept "((_ extract 6 0) (bvadd (_ bv2 66) (ite (= m n) m (_ bv0 66))))"
+    "(bvadd ((_ extract 6 0) (_ bv2 66)) ((_ extract 6 0) (ite (= m n) m (_ bv0 66))))";
+  (* An argument that is itself an extraction is extracted from its operand, as by
+     mk_extract_proc. *)
+  accept "((_ extract 3 0) (bvmul ((_ extract 11 4) u) x))"
+    "(bvmul ((_ extract 7 4) u) ((_ extract 3 0) x))";
+  accept "((_ extract 2 0) (bvadd ((_ extract 15 8) u) ((_ extract 7 0) u)))"
+    "(bvadd ((_ extract 10 8) u) ((_ extract 2 0) u))";
+  (* Any slice of a conditional, with the same guard. *)
+  accept "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  accept "((_ extract 3 0) (ite (f x) (ite q x y) z))"
+    "(ite (f x) ((_ extract 3 0) (ite q x y)) ((_ extract 3 0) z))";
+  accept "((_ extract 1 1) (ite p ((_ extract 9 2) u) x))"
+    "(ite p ((_ extract 3 3) u) ((_ extract 1 1) x))";
+  accept "((_ extract 7 7) (ite (bvule x y) x y))"
+    "(ite (bvule x y) ((_ extract 7 7) x) ((_ extract 7 7) y))";
+  accept "((_ extract 6 0) (ite (= m n) (_ bv1 66) (_ bv0 66)))"
+    "(ite (= m n) ((_ extract 6 0) (_ bv1 66)) ((_ extract 6 0) (_ bv0 66)))";
+  accept "((_ extract 4095 4094) (ite p big big2))"
+    "(ite p ((_ extract 4095 4094) big) ((_ extract 4095 4094) big2))";
+  (* Bits above the lowest depend on the carries out of the discarded bits:
+     ((_ extract 1 1) (bvadd #b01 #b01)) is #b1, the distributed sum is #b0. *)
+  reject "((_ extract 1 1) (bvadd x y))" "(bvadd ((_ extract 1 1) x) ((_ extract 1 1) y))";
+  reject "((_ extract 1 1) (bvadd #b01 #b01))"
+    "(bvadd ((_ extract 1 1) #b01) ((_ extract 1 1) #b01))";
+  reject "((_ extract 3 2) (bvmul x y))" "(bvmul ((_ extract 3 2) x) ((_ extract 3 2) y))";
+  reject "((_ extract 7 4) (bvadd x y z))"
+    "(bvadd ((_ extract 7 4) x) ((_ extract 7 4) y) ((_ extract 7 4) z))";
+  reject "((_ extract 5 1) (bvadd (_ bv1 7) (ite (= k (_ bv0 7)) k (_ bv0 7))))"
+    "(bvadd ((_ extract 5 1) (_ bv1 7)) ((_ extract 5 1) (ite (= k (_ bv0 7)) k (_ bv0 7))))";
+  (* Another slice, argument, operation or arity, division, and a composed extraction
+     without its offset. *)
+  reject "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) x) ((_ extract 4 1) y))";
+  reject "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) z))";
+  reject "((_ extract 3 0) (bvadd x y))" "(bvmul ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  reject "((_ extract 3 0) (bvadd x y z))" "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  reject "((_ extract 3 0) (bvadd x y))"
+    "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y) ((_ extract 3 0) z))";
+  reject "((_ extract 3 0) (bvudiv x y))" "(bvudiv ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  reject "((_ extract 3 0) (bvmul ((_ extract 11 4) u) x))"
+    "(bvmul ((_ extract 3 0) u) ((_ extract 3 0) x))";
+  (* A negated, swapped or other guard, another slice or term in a branch, and a composed
+     extraction without its offset. *)
+  reject "((_ extract 5 2) (ite p x y))" "(ite (not p) ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) y) ((_ extract 5 2) x))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite q ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) x) ((_ extract 6 3) y))";
+  reject "((_ extract 5 2) (ite p x y))" "(ite p ((_ extract 5 2) x) ((_ extract 5 2) z))";
+  reject "((_ extract 1 1) (ite p ((_ extract 9 2) u) x))"
+    "(ite p ((_ extract 1 1) u) ((_ extract 1 1) x))";
+  (* Valid steps outside the shape stay pending: bitwise or, subtraction, reordered or
+     evaluated arguments, two steps at once, and terms with variables bound outside them
+     (Z3BvExtract checks closed terms only). The bounded evaluation of Z3BvExhaustive does not
+     decide them either: bvor, bvsub and ite terms are opaque leaves, and the other leaves have
+     more than 12 bits; the evaluated-numeral step over a 7-bit leaf is certified by that
+     evaluation (checked-bounded-bit-vector-evaluation), so it is tested here at 66 bits. *)
+  outside "((_ extract 5 2) (bvor x y))" "(bvor ((_ extract 5 2) x) ((_ extract 5 2) y))";
+  outside "((_ extract 3 0) (bvsub x y))" "(bvsub ((_ extract 3 0) x) ((_ extract 3 0) y))";
+  outside "((_ extract 3 0) (bvadd x y))" "(bvadd ((_ extract 3 0) y) ((_ extract 3 0) x))";
+  outside "((_ extract 4 0) (bvadd (_ bv1 66) m))" "(bvadd #b00001 ((_ extract 4 0) m))";
+  outside "((_ extract 3 0) (bvadd x (ite p y z)))"
+    "(bvadd ((_ extract 3 0) x) (ite p ((_ extract 3 0) y) ((_ extract 3 0) z)))";
+  outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
+    "((_ extract 3 0) (bvadd a b))" "(bvadd ((_ extract 3 0) a) ((_ extract 3 0) b))";
+  (* Bits of a binary concatenation of x (the high bits) and y (the low bits), as mk_extract
+     splits it: within y, within x, or a concatenation of low bits of x and high bits of y,
+     keeping an argument whose bits are all taken; at the boundary (bit 7 of y, bit 0 of x),
+     for the full width, and at 4096 bits. *)
+  accept "((_ extract 7 0) (concat x y))" "y";
+  accept "((_ extract 5 2) (concat x y))" "((_ extract 5 2) y)";
+  accept "((_ extract 7 7) (concat x y))" "((_ extract 7 7) y)";
+  accept "((_ extract 15 8) (concat x y))" "x";
+  accept "((_ extract 8 8) (concat x y))" "((_ extract 0 0) x)";
+  accept "((_ extract 14 9) (concat x y))" "((_ extract 6 1) x)";
+  accept "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) x) ((_ extract 7 4) y))";
+  accept "((_ extract 8 7) (concat x y))" "(concat ((_ extract 0 0) x) ((_ extract 7 7) y))";
+  accept "((_ extract 15 4) (concat x y))" "(concat x ((_ extract 7 4) y))";
+  accept "((_ extract 9 0) (concat x y))" "(concat ((_ extract 1 0) x) y)";
+  accept "((_ extract 15 0) (concat x y))" "(concat x y)";
+  accept "((_ extract 3 1) (concat x ((_ extract 11 4) u)))" "((_ extract 7 5) u)";
+  accept "((_ extract 4095 4095) (concat bit ((_ extract 4094 0) big)))" "bit";
+  accept "((_ extract 4095 1) (concat bit ((_ extract 4094 0) big)))"
+    "(concat bit ((_ extract 4094 1) big))";
+  (* The shapes of z3test 6079-8: a bit below an extraction, and a numeral bit above a
+     conditional. *)
+  accept "((_ extract 14 14) (concat ((_ extract 15 2) u) bit))" "((_ extract 15 15) u)";
+  accept "((_ extract 6 3) (concat ((_ extract 15 10) u) bit))" "((_ extract 15 12) u)";
+  accept "((_ extract 2 0) (concat ((_ extract 7 2) u) bit))" "(concat ((_ extract 3 2) u) bit)";
+  accept "((_ extract 0 0) (concat ((_ extract 7 2) u) bit))" "bit";
+  accept "((_ extract 8 8) (concat #b0 (ite p x y)))" "#b0";
+  accept "((_ extract 7 0) (concat #b0 (ite p x y)))" "(ite p x y)";
+  accept "((_ extract 8 1) (concat #b0 (ite p x y)))" "(concat #b0 ((_ extract 7 1) (ite p x y)))";
+  (* Another argument, offset, order or split, a dropped or an extra argument, another
+     constant, and a composed extraction without its offset. *)
+  reject "((_ extract 3 0) (concat x y))" "((_ extract 3 0) x)";
+  reject "((_ extract 11 8) (concat x y))" "((_ extract 3 0) y)";
+  reject "((_ extract 14 9) (concat x y))" "((_ extract 7 2) x)";
+  reject "((_ extract 14 9) (concat x y))" "((_ extract 6 1) y)";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 7 4) y) ((_ extract 1 0) x))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) y) ((_ extract 7 4) x))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 2 0) x) ((_ extract 7 5) y))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 2 1) x) ((_ extract 7 4) y))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) x) ((_ extract 6 3) y))";
+  reject "((_ extract 9 4) (concat x y))" "(concat ((_ extract 1 0) x) ((_ extract 7 4) z))";
+  reject "((_ extract 11 4) (concat x y))" "x";
+  reject "((_ extract 11 4) (concat x y))"
+    "(concat ((_ extract 3 0) x) ((_ extract 7 6) y) ((_ extract 5 4) z))";
+  reject "((_ extract 15 0) (concat x y))" "(concat y x)";
+  reject "((_ extract 8 1) (concat #b0 (ite p x y)))" "(concat #b1 ((_ extract 7 1) (ite p x y)))";
+  reject "((_ extract 14 14) (concat ((_ extract 15 2) u) bit))" "((_ extract 13 13) u)";
+  (* Valid steps outside the shape stay pending: a concatenation of three arguments on either
+     side, and terms with variables bound outside them. *)
+  outside "((_ extract 11 4) (concat x y))"
+    "(concat ((_ extract 3 0) x) ((_ extract 7 6) y) ((_ extract 5 4) y))";
+  outside "((_ extract 11 4) (concat x y z))" "(concat ((_ extract 3 0) y) ((_ extract 7 4) z))";
+  outside ~binders:"(a (_ BitVec 8)) (b (_ BitVec 8))"
+    "((_ extract 9 4) (concat a b))" "(concat ((_ extract 1 0) a) ((_ extract 7 4) b))";
+  (* Declarations of an accepted step replaced by malformed or other ones. *)
+  let with_decl e g = match e with
+    | A.App (decl, args) -> A.App (g decl, args)
+    | _ -> failwith "expected an application" in
+  let first_argument e g = match e with
+    | A.App (decl, arg :: rest) -> A.App (decl, with_decl arg g :: rest)
+    | _ -> failwith "expected an application with arguments" in
+  let params ps decl = { decl with A.int_params = List.map Z.of_int ps } in
+  let interp op decl = { decl with A.interp = op } in
+  let domain s decl = { decl with A.domain = [A.BaseSort s] } in
+  let d, a, b = equation "((_ extract 3 0) (bvadd x y))"
+                  "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))" in
+  require (BX.check a b) "the unmodified sum step was rejected";
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "source extraction of bits 3..1", with_decl a (params [8; 3; 1]), b;
+      "source extraction from width 9", with_decl a (params [9; 3; 0]), b;
+      "source extraction from width 0", with_decl a (params [0; 3; 0]), b;
+      "source extraction of bits 8..5 of width 8", with_decl a (params [8; 8; 5]), b;
+      "source extraction with low bit 4 above high bit 3", with_decl a (params [8; 3; 4]), b;
+      "source extraction with two parameters", with_decl a (params [8; 3]), b;
+      "source extraction with domain BV9", with_decl a (domain "BV9"), b;
+      "uninterpreted source extraction", with_decl a (interp None), b;
+      "source extraction of two arguments",
+        (match a with A.App (e, [s]) -> A.App (e, [s; s]) | _ -> failwith "expected an extraction"), b;
+      "source subtraction named bvadd", first_argument a (interp (Some BV.op_sub)), b;
+      "uninterpreted source sum", first_argument a (interp None), b;
+      "binary source sum of three arguments",
+        (match a with
+         | A.App (e, [A.App (g, [x1; x2])]) -> A.App (e, [A.App (g, [x1; x2; x2])])
+         | _ -> failwith "expected an extracted sum"), b;
+      "target sum of width 5", a, with_decl b (params [5]);
+      "target sum of width 0", a, with_decl b (params [0]);
+      "target product", a, with_decl b (interp (Some BV.op_mul));
+      "uninterpreted target sum", a, with_decl b (interp None);
+      "binary target sum of three arguments", a,
+        (match b with A.App (g, [y1; y2]) -> A.App (g, [y1; y2; y2]) | _ -> failwith "expected a sum");
+      "target extraction of bits 4..1", a, first_argument b (params [8; 4; 1]);
+      "target extraction from width 9", a, first_argument b (params [9; 3; 0]);
+      "target extraction of bits 8..5 of width 8", a, first_argument b (params [8; 8; 5]);
+      "target extraction with low bit 4 above high bit 3", a, first_argument b (params [8; 3; 4]);
+      "uninterpreted target extraction", a, first_argument b (interp None);
+      "target extraction of no argument", a,
+        (match b with
+         | A.App (g, A.App (e, [_]) :: rest) -> A.App (g, A.App (e, []) :: rest)
+         | _ -> failwith "expected a sum of extractions") ];
+  (* The same step with x a bound variable (de Bruijn index 0) is outside the closed-term
+     rule, and with index 0 in the source but 1 in the target it is invalid. *)
+  let rec map_term g e =
+    match g e with
+    | Some replacement -> replacement
+    | None ->
+        (match e with
+         | A.App (decl, args) -> A.App (decl, List.map (map_term g) args)
+         | A.Quantifier (kind, sorts, sort, body) -> A.Quantifier (kind, sorts, sort, map_term g body)
+         | A.Var _ -> e) in
+  let x = match b with
+    | A.App (_, A.App (_, [x]) :: _) -> x
+    | _ -> failwith "expected a sum of extractions" in
+  let bind index = map_term (fun e ->
+      if e = x then Some (A.Var (Z.of_int index, A.BaseSort "BV8")) else None) in
+  require (bind 0 a <> a && bind 0 b <> b) "x was not replaced by a bound variable";
+  List.iter (fun (what, a', b') -> reject_terms what d a' b')
+    [ "x bound on both sides", bind 0 a, bind 0 b;
+      "x bound with index 0 in the source and 1 in the target", bind 0 a, bind 1 b ];
+  let d, a, b = equation "((_ extract 5 2) (ite p x y))"
+                  "(ite p ((_ extract 5 2) x) ((_ extract 5 2) y))" in
+  require (BX.check a b) "the unmodified conditional step was rejected";
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "uninterpreted source conditional", first_argument a (interp None), b;
+      "uninterpreted target conditional", a, with_decl b (interp None);
+      "target conditional with a parameter", a, with_decl b (params [8]);
+      "source extraction of bits 5..3", with_decl a (params [8; 5; 3]), b;
+      "target branch extraction of bits 6..3", a, (match b with
+        | A.App (g, [guard; t; e]) -> A.App (g, [guard; with_decl t (params [8; 6; 3]); e])
+        | _ -> failwith "expected a conditional");
+      "target conditional of two arguments", a, (match b with
+        | A.App (g, [guard; t; _]) -> A.App (g, [guard; t])
+        | _ -> failwith "expected a conditional");
+      "source conditional of four arguments", (match a with
+        | A.App (e, [A.App (g, [guard; t; u])]) -> A.App (e, [A.App (g, [guard; t; u; u])])
+        | _ -> failwith "expected an extracted conditional"), b ];
+  (* A concatenation step with malformed or other declarations, and with x bound. *)
+  let d, a, b = equation "((_ extract 9 4) (concat x y))"
+                  "(concat ((_ extract 1 0) x) ((_ extract 7 4) y))" in
+  require (BX.check a b) "the unmodified concatenation step was rejected";
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "source concatenation of widths 8 and 9", first_argument a (params [8; 9]), b;
+      "source concatenation of widths 9 and 7", first_argument a (params [9; 7]), b;
+      "source concatenation of widths 0 and 8", first_argument a (params [0; 8]), b;
+      "source concatenation with one parameter", first_argument a (params [16]), b;
+      "source concatenation with domain BV8", first_argument a (domain "BV8"), b;
+      "uninterpreted source concatenation", first_argument a (interp None), b;
+      "source bitwise or named concat", first_argument a (interp (Some BV.op_or)), b;
+      "source concatenation of three arguments",
+        (match a with
+         | A.App (e, [A.App (g, [x1; x2])]) -> A.App (e, [A.App (g, [x1; x2; x2])])
+         | _ -> failwith "expected an extracted concatenation"), b;
+      "source extraction of bits 10..4", with_decl a (params [16; 10; 4]), b;
+      "source extraction from width 17", with_decl a (params [17; 9; 4]), b;
+      "source extraction of bits 16..11 of width 16", with_decl a (params [16; 16; 11]), b;
+      "source extraction with low bit 10 above high bit 9", with_decl a (params [16; 9; 10]), b;
+      "target concatenation of widths 3 and 3", a, with_decl b (params [3; 3]);
+      "target concatenation of widths 0 and 6", a, with_decl b (params [0; 6]);
+      "uninterpreted target concatenation", a, with_decl b (interp None);
+      "target concatenation of three arguments", a,
+        (match b with A.App (g, [y1; y2]) -> A.App (g, [y1; y2; y2])
+         | _ -> failwith "expected a concatenation");
+      "target concatenation of one argument", a,
+        (match b with A.App (g, [y1; _]) -> A.App (g, [y1])
+         | _ -> failwith "expected a concatenation");
+      "target extraction of bits 2..1", a, first_argument b (params [8; 2; 1]);
+      "target extraction of bits 8..7 of width 8", a, first_argument b (params [8; 8; 7]);
+      "target extraction with low bit 2 above high bit 1", a, first_argument b (params [8; 1; 2]);
+      "uninterpreted target extraction", a, first_argument b (interp None) ];
+  let x = match a with
+    | A.App (_, [A.App (_, [x; _])]) -> x
+    | _ -> failwith "expected an extracted concatenation" in
+  let bind index = map_term (fun e ->
+      if e = x then Some (A.Var (Z.of_int index, A.BaseSort "BV8")) else None) in
+  require (bind 0 a <> a && bind 0 b <> b) "x was not replaced by a bound variable";
+  List.iter (fun (what, a', b') -> reject_terms what d a' b')
+    [ "x bound on both sides of a concatenation step", bind 0 a, bind 0 b;
+      "x bound with index 0 in the concatenation and 1 in the target", bind 0 a, bind 1 b ];
+  (* An argument kept whole for an extraction of fewer bits: the source extraction declared
+     with the parameters and range of bits 3..0 (or 15..9) of the concatenation. The rule
+     rejects the terms, and the kernel does not classify an equation of a 4-bit (7-bit) and
+     an 8-bit term. *)
+  let range s decl = { decl with A.range = A.BaseSort s } in
+  let narrower what d a' b =
+    incr terms_invalid;
+    require (not (BX.check a' b)) ("invalid extraction terms accepted: " ^ what);
+    require (U.classify_fact (A.App (d, [a'; b])) = None)
+      ("an equation of terms of different widths was classified: " ^ what) in
+  let d, a, b = equation "((_ extract 7 0) (concat x y))" "y" in
+  require (BX.check a b) "the unmodified low-argument step was rejected";
+  narrower "y as the bits 3..0 of the concatenation" d
+    (with_decl a (fun e -> range "BV4" (params [16; 3; 0] e))) b;
+  let d, a, b = equation "((_ extract 15 8) (concat x y))" "x" in
+  require (BX.check a b) "the unmodified high-argument step was rejected";
+  narrower "x as the bits 15..9 of the concatenation" d
+    (with_decl a (fun e -> range "BV7" (params [16; 15; 9] e))) b;
+  Printf.printf "  bit-vector extraction rewrites: %d accepted, %d invalid, %d outside the shape; \
+                 %d malformed or open rebuilt terms\n%!"
+    !accepted !invalid !unsupported !terms_invalid
+
 let arithmetic_triangle_clauses () =
   let c = context () in
   let check expected clause =
@@ -3057,10 +6135,10 @@ let arithmetic_implication source premises target expected =
       ("incorrect arithmetic implication: " ^ source);
     require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") conclusion facts))
       "arithmetic implication accepted assumed-origin evidence";
-    let premises = List.map (fun conclusion1 ->
-        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    let premises = List.map (fun conclusion ->
+        { U.conclusion = conclusion; hypotheses = [] }) facts in
     require (match U.check_node [] {
-        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises } with
         | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
         | None -> false)
       "arithmetic implication lost its explicit obligation"
@@ -3107,15 +6185,598 @@ let arithmetic_inferred_splits () =
   check "Int" ["(>= (- (* 10 x) (* 10 y)) 1)";
                "(<= (- (* 10 x) (* 10 y)) 10)"] "false" false
 
+(* Integer rounding (Chvatal-Gomory) cuts. Each accepted refutation holds over the integers but its rational
+   relaxation is satisfiable, so no Farkas vector exists; each rejected case is satisfiable (a wrong rounding
+   direction, constant or premise set would "refute" it) or needs reasoning beyond one rounding step. The expected
+   value is the kernel's decision on the actual premise ASTs. *)
+let arithmetic_integer_rounding () =
+  let ints = "(declare-const a Int)(declare-const b Int)(declare-const t Int)(declare-const s Int)\
+              (declare-const v Int)(declare-const w Int)(declare-const z Int)" in
+  let reals = "(declare-const a Real)(declare-const b Real)(declare-const t Real)(declare-const s Real)\
+               (declare-const v Real)(declare-const w Real)(declare-const z Real)" in
+  let mixed = "(declare-const a Int)(declare-const r Real)" in
+  let check source premises expected = arithmetic_implication source premises "false" expected in
+  (* The shape of the QF_LIA ring benchmarks: z is fixed to 0, v >= 0, and the carry term 256 t + 256 s + z is
+     positive but every variable coefficient of it is a multiple of 256, so it is at least 256 and
+     v + 256 t + 256 s exceeds 255. No row has two atoms, so the continued-fraction splits of Z3LpGomory
+     do not apply. *)
+  let ring = ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] in
+  check ints ring true;
+  check ints ["(not (>= (+ v (* 256 t) (* 256 s)) 256))"; "(>= v 0)"; "(not (<= (+ (* 256 t) (* 256 s) z) 0))";
+              "(<= z 0)"; "(>= z 0)"] true;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(= z 0)"] true;
+  check ints ["(= w t)"; "(<= (+ v (* 256 w) (* 256 s)) 255)"; "(>= v 0)"; "(>= (* 256 (+ t s)) 1)"] true;
+  (* A fractional two-sided bound on a multiple of a coefficient gcd. *)
+  check ints ["(>= (* 256 a) 1)"; "(<= (* 256 a) 255)"] true;
+  check ints ["(>= (- (* 6 a) (* 9 b)) 1)"; "(<= (- (* 6 a) (* 9 b)) 2)"] true;
+  check ints ["(>= (* 3 a) (- 1))"; "(<= (* 3 a) (- 1))"] true;
+  (* The premises may come in any order. *)
+  check ints ["(<= z 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(>= z 0)"; "(>= v 0)";
+              "(<= (+ v (* 256 t) (* 256 s)) 255)"] true;
+  check ints ["(>= v 0)"; "(<= z 0)"; "(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= z 0)";
+              "(>= (+ (* 256 t) (* 256 s) z) 1)"] true;
+  (* Over the reals the same systems have a model; real-valued refutations are still accepted. *)
+  check reals ["(>= (* 256 a) 1)"; "(<= (* 256 a) 255)"] false;
+  check reals ring false;
+  check reals ["(>= a 1)"; "(<= a 0)"] true;
+  check reals ["(< a 0)"; "(> a 0)"] true;
+  check reals ["(>= (* 2 a) 1)"; "(<= (+ a b) 0)"; "(>= b 0)"] true;
+  (* Satisfiable near misses: a wrong rounding direction or constant would refute them. *)
+  check ints ["(>= (* 3 a) (- 3))"; "(<= (* 3 a) (- 3))"] false;
+  check ints ["(>= (* 3 a) 1)"; "(<= a 1)"] false;
+  check ints ["(>= (* 256 a) 0)"; "(<= (* 256 a) 255)"] false;
+  check ints ["(>= (* 256 a) 1)"; "(<= (* 256 a) 256)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 256)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] false;
+  (* Dropped, swapped or weakened premises of the accepted ring refutation. *)
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= v 0)"; "(>= (+ (* 256 t) (* 256 s) z) 1)";
+              "(<= w 0)"; "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 256 t) (* 256 s)) 255)"; "(>= (+ (* 256 t) (* 256 s) z) 1)"; "(<= z 0)";
+              "(>= z 0)"] false;
+  check ints ["(<= (+ v (* 255 t) (* 255 s)) 255)"; "(>= v 0)"; "(>= (+ (* 255 t) (* 255 s) z) 1)";
+              "(<= z 0)"; "(>= z 0)"] false;
+  (* A Real atom in the row: integer rounding is not available. *)
+  check mixed ["(>= (+ (* 2 a) (* 2 r)) 1)"; "(<= (+ a r) (/ 3 4))"] false;
+  (* Integer-unsatisfiable systems that need more than one rounding step stay pending. The two-variable
+     case 5a + 7b = 1 is decided by the existing continued-fraction split of Z3LpGomory; with three
+     variables no row has a common factor and no split applies. *)
+  check ints ["(= (+ (* 5 a) (* 7 b)) 1)"; "(>= a 0)"; "(>= b 0)"] true;
+  check ints ["(= (+ (* 5 a) (* 7 b) (* 11 t)) 1)"; "(>= a 0)"; "(>= b 0)"; "(>= t 0)"] false
+
+(* Bounded exhaustive evaluation of premise-free bit-vector theory lemmas and rewrites over opaque leaves
+   (Z3BvExhaustive). The accepted cases are valid for every value of their leaves, with at most 12 leaf bits in
+   total; the rejected ones are false for some value of a leaf, or valid but outside the evaluated fragment or
+   bounds (and decided by no other kernel rule). The expected value is the kernel's decision on the marshaled
+   ASTs. The first cases are the three obligations of SMT-LIB QF_ABV/egt/egt-0160. *)
+let bv_bounded_evaluation () =
+  let c = context () in
+  let declarations =
+    "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const x (_ BitVec 8))\
+     (declare-const y (_ BitVec 4))(declare-const y5 (_ BitVec 5))(declare-const z (_ BitVec 12))\
+     (declare-const v (_ BitVec 32))(declare-const k (_ BitVec 7))(declare-const p Bool)(declare-const q Bool)\
+     (declare-fun f ((_ BitVec 8)) (_ BitVec 8))" in
+  let judgment formula =
+    let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [input] in
+    Option.get (U.classify_fact (B.cached_expression st input)) in
+  let pending kind j premises =
+    match U.check_node [] { U.kind = kind; conclusion = j; premises } with
+    | Some (_, pending) -> Some pending
+    | None -> None in
+  (* Keep the premise independent: p already entails the tested disjunction containing p. *)
+  let premise = { U.conclusion = judgment "q"; hypotheses = [] } in
+  let lemma expected formula =
+    let j = judgment formula in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") j [] = expected)
+      ("incorrect bounded bit-vector theory lemma: " ^ formula);
+    require (pending (U.Unverified "th-lemma") j [] = Some (if expected then Z.zero else Z.one))
+      ("bounded bit-vector theory lemma lost its obligation: " ^ formula);
+    (* Only premise-free `th-lemma` steps are evaluated. *)
+    require (not (U.checked_theory_lemma (U.Unverified "th-lemma") j [premise.U.conclusion]))
+      ("bounded evaluation ignored a premise: " ^ formula);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") j []))
+      ("bounded evaluation accepted an assumed origin: " ^ formula) in
+  let rewrite expected left right =
+    let name = left ^ " -> " ^ right in
+    let j = judgment ("(= " ^ left ^ " " ^ right ^ ")") in
+    require (U.check_step U.RewriteRule j [] = expected) ("incorrect bounded bit-vector rewrite: " ^ name);
+    require (pending U.RewriteRule j [] = Some (if expected then Z.zero else Z.one))
+      ("bounded bit-vector rewrite lost its obligation: " ^ name);
+    (match j with
+     | U.Equal (a, b) ->
+       require (U.check_step U.RewriteRule (U.Observational (a, b)) [] = expected)
+         ("incorrect observational bounded bit-vector rewrite: " ^ name);
+       require (not (U.check_step U.ApplyDefinition j [])) ("bounded evaluation decided a definition step: " ^ name)
+     | _ -> failwith ("expected an equation: " ^ name));
+    require (not (U.check_step U.RewriteRule j [premise.U.conclusion]))
+      ("bounded rewrite accepted a premise: " ^ name);
+    require (pending U.RewriteRule j [premise] = None) ("rewrite with a premise was not rejected: " ^ name);
+    require (not (U.check_step U.Commutativity j [])) ("bounded evaluation decided a commutativity step: " ^ name) in
+  let sel = "(select packet #x000000f1)" and other = "(select packet #x000000f2)" in
+  let t = "(concat #x000000 " ^ sel ^ ")" in
+  let s = "(bvadd #x000000f2 " ^ t ^ ")" in
+  (* egt-0160: the bound split rewrite and the two range lemmas. *)
+  rewrite true ("(bvule " ^ s ^ " #x00000223)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x00000223)))");
+  lemma true ("(= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22))");
+  lemma true ("(or (bvule (bvadd (_ bv242 10) (concat #b00 " ^ sel ^ ")) (_ bv547 10)) false)");
+  (* egt-7033: constant re-association with a 32-bit zero-extended 8-bit leaf. *)
+  rewrite true ("(bvadd (bvadd #x00000002 " ^ t ^ ") #x00000001)") ("(bvadd #x00000003 " ^ t ^ ")");
+  (* The bound split holds for every constant below 2^10; mutated numerals and a wrong extract range make the
+     claims false for some leaf value. *)
+  rewrite true ("(bvule " ^ s ^ " #x000001f0)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x000001f0)))");
+  rewrite false ("(bvule " ^ s ^ " #x00000423)")
+    ("(and (= ((_ extract 31 10) " ^ s ^ ") (_ bv0 22)) (bvule ((_ extract 9 0) " ^ s ^ ") ((_ extract 9 0) #x00000423)))");
+  rewrite false ("(bvadd (bvadd #x00000002 " ^ t ^ ") #x00000001)") ("(bvadd #x00000004 " ^ t ^ ")");
+  lemma false ("(= ((_ extract 31 10) (bvadd #x000003f2 " ^ t ^ ")) (_ bv0 22))");
+  lemma false ("(or (bvule (bvadd (_ bv242 10) (concat #b00 " ^ sel ^ ")) (_ bv496 10)) false)");
+  lemma false ("(= ((_ extract 31 8) " ^ s ^ ") (_ bv0 24))");
+  lemma false "false";
+  (* Carry: x + 1 wraps at 255 in 8 bits but not after zero extension to 9 bits. *)
+  lemma false "(bvule x (bvadd x #x01))";
+  lemma true "(bvule ((_ zero_extend 1) x) (bvadd ((_ zero_extend 1) x) #b000000001))";
+  lemma true "(or (not (bvult x #x10)) (bvule x #x0f))";
+  lemma false "(or (not (bvult x #x11)) (bvule x #x0f))";
+  (* Unsigned comparisons on values with the top bit set. *)
+  lemma true "(or (not (bvuge x #x80)) (bvult #x7f x))";
+  lemma false "(bvule #x80 x)";
+  (* A repeated leaf takes one value; distinct leaves are independent and never alias. *)
+  lemma true "(= (bvadd x x) (concat ((_ extract 6 0) x) #b0))";
+  lemma true ("(bvule ((_ zero_extend 4) ((_ extract 3 0) " ^ sel ^ ")) " ^ sel ^ ")");
+  lemma false ("(= " ^ sel ^ " " ^ other ^ ")");
+  lemma false ("(bvule " ^ sel ^ " " ^ other ^ ")");
+  lemma false "(= (f x) (f #x00))";
+  (* A closed uninterpreted constant is a leaf, never a fixed value. *)
+  lemma false "(= x #x05)";
+  (* The leaf-width bound: 4 + 8 = 12 bits are enumerated, 5 + 8 = 13 bits are not. *)
+  lemma true "(= (concat y x) (bvadd (concat y #x00) (concat #x0 x)))";
+  lemma true "(bvule ((_ zero_extend 4) z) #x0fff)";
+  lemma false "(= (concat y5 x) (bvadd (concat y5 #x00) (concat #b00000 x)))";
+  (* A valid step over a 32-bit leaf is beyond the bound: the bound split holds for every v. (The
+     re-association (bvadd (bvadd #x00000002 v) #x00000001) -> (bvadd #x00000003 v) used to be the
+     example here; Z3BvAddNormalize now certifies it, see checked-bit-vector-sum-normalization.) *)
+  rewrite false "(bvule v #x00000223)"
+    "(and (= ((_ extract 31 10) v) (_ bv0 22)) (bvule ((_ extract 9 0) v) ((_ extract 9 0) #x00000223)))";
+  (* An extraction step outside the shapes of Z3BvExtract (the numeral is evaluated) over a 7-bit leaf. *)
+  rewrite true "((_ extract 4 0) (bvadd (_ bv1 7) k))" "(bvadd #b00001 ((_ extract 4 0) k))";
+  (* Operators outside the evaluated fragment: bvmul and bvudiv terms are opaque leaves, and Boolean terms such
+     as the signed comparison bvsle (opaque in the native bridge) or a Boolean constant are not evaluated. *)
+  lemma false "(= (bvmul #x02 x) (bvadd x x))";
+  lemma false "(= (bvudiv x #x02) ((_ zero_extend 1) ((_ extract 7 1) x)))";
+  lemma false "(or (bvsle x x) (bvult x #x00))";
+  lemma false "(or p (bvult x #x00))"
+
+(* The connectives are dispatched on the typed canonical declarations of Z3CanonicalOps (name, kind tag,
+   domain, range, parameters). Z3 lets user datatypes have accessors and constructors named like
+   connectives; the bridge marshals them with Z3's name and the datatype kind tags, so they must never
+   be evaluated as connectives. The canonical connectives the bridge marshals are evaluated as before. *)
+let canonical_dispatch () =
+  let c = context () in
+  (* A constructor may share a connective's name only with argument sorts the builtin does not take; it is
+     declared apart from the accessors of the same names, which Z3 would not disambiguate. *)
+  let accessors =
+    "(declare-datatypes ((T 0)) (((mk (|and| Bool) (|or| Bool) (|not| Bool) (bits (_ BitVec 2))))))\
+     (declare-const t T)(declare-const x (_ BitVec 2))(declare-const p Bool)" in
+  let constructors =
+    "(declare-datatypes ((S 0)) (((|or| (left Int) (right Int)) (|not| (inner Int)))))(declare-const s S)" in
+  let parsed declarations formula =
+    let input = List.hd (parse c (declarations ^ "(assert " ^ formula ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [input] in
+    B.cached_expression st input in
+  let expression = parsed accessors in
+  let judgment formula = Option.get (U.classify_fact (expression formula)) in
+  (* `checked` is the whole premise-free `th-lemma` check, `bounded` the bounded bit-vector evaluation alone. *)
+  let lemma checked bounded formula =
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (judgment formula) [] = checked)
+      ("incorrect theory lemma check: " ^ formula);
+    require (Z3BvExhaustive.valid (expression formula) = bounded)
+      ("incorrect bounded evaluation: " ^ formula) in
+  let head formula = match expression formula with
+    | A.App (d, _) -> d
+    | _ -> failwith ("expected an application: " ^ formula) in
+  (* The declaration of the right-hand side of an equation. *)
+  let right formula = match parsed constructors formula with
+    | A.App (_, [_; A.App (d, _)]) -> d
+    | _ -> failwith ("expected an equation with an application: " ^ formula) in
+  let datatype name tag formula d =
+    require (d.A.decl_name = name &&
+             (match d.A.interp with Some k -> Z.equal k (Z.of_int tag) | None -> false))
+      ("datatype declaration not marshaled with its name and kind tag: " ^ formula);
+    require (not (Z3CanonicalOps.canonical_connective d))
+      ("datatype declaration taken as a connective: " ^ formula) in
+  List.iter (fun (name, formula) -> datatype name 202 formula (head formula))
+    ["and", "(|and| t)"; "or", "(|or| t)"; "not", "(|not| t)"];
+  List.iter (fun (name, formula) -> datatype name 200 formula (right formula))
+    ["or", "(= s (|or| 1 2))"; "not", "(= s (|not| 3))"];
+  require (Z3CanonicalOps.canonical_and (head "(and p (|and| t))"))
+    "the native conjunction is not canonical";
+  require (Z3CanonicalOps.canonical_or (head "(or p (|or| t))")) "the native disjunction is not canonical";
+  require (Z3CanonicalOps.canonical_not (head "(not (|not| t))")) "the native negation is not canonical";
+  require (Z3CanonicalOps.canonical_eq (head "(= x #b01)")) "the native equation is not canonical";
+  (* The accessors are datatype operations: atoms of the Boolean structure and evaluated by the datatype
+     rules, so true claims about them are checked and false ones are not, and the bounded evaluation never
+     reads them as connectives. *)
+  lemma false false "(|and| t)";
+  lemma true false "(or (|and| t) (not (|and| t)))";
+  lemma false false "(or (|and| t) (|or| t))";
+  lemma false false "(and (|and| t) (not (|and| t)))";
+  lemma true false "(|and| (mk true true true #b01))";
+  lemma false false "(|and| (mk false true true #b01))";
+  lemma true false "(not (|and| (mk false true true #b01)))";
+  lemma true false "(not (|not| (mk true true false #b01)))";
+  lemma true false "(= (bits (mk true true true #b01)) #b01)";
+  lemma false false "(= (bits (mk true true true #b01)) #b10)";
+  (* An accessor of bit-vector sort is an opaque leaf of the bounded evaluation; a clause with a Boolean
+     disjunct it does not evaluate is not decided by it, even when another disjunct is true. *)
+  lemma true true "(= (bvadd (bits t) #b00) (bits t))";
+  lemma false false "(= (bits t) #b01)";
+  lemma true false "(or (|and| t) (not (bvult (bits t) #b00)))";
+  lemma true true "(or (not (bvult (bits t) #b10)) (bvule (bits t) #b01))";
+  lemma false false "(or (not (bvult (bits t) #b11)) (bvule (bits t) #b01))";
+  (* Accessors named `true`, `false` and `=>`, and constructors with arguments named `true` and `false` (Z3
+     rejects nullary constructors with those names, whose argument sorts are the builtin constants'). Each
+     datatype is declared alone, because Z3 then reads the bare symbols `true` and `false` as its accessors. *)
+  let named_accessors =
+    "(declare-datatypes ((U 0)) (((mkU (|true| Bool) (|false| Bool) (|=>| Bool)))))(declare-const v U)" in
+  let named_constructors =
+    "(declare-datatypes ((R 0)) (((|true| (val Int)) (|false| (other Int)))))(declare-const r R)" in
+  let head_in declarations formula = match parsed declarations formula with
+    | A.App (d, _) -> d
+    | _ -> failwith ("expected an application: " ^ formula) in
+  let right_in declarations formula = match parsed declarations formula with
+    | A.App (_, [_; A.App (d, _)]) -> d
+    | _ -> failwith ("expected an equation with an application: " ^ formula) in
+  List.iter (fun (name, formula) -> datatype name 202 formula (head_in named_accessors formula))
+    ["true", "(|true| v)"; "false", "(|false| v)"; "=>", "(|=>| v)"];
+  List.iter (fun (name, formula) -> datatype name 200 formula (right_in named_constructors formula))
+    ["true", "(= r (|true| 1))"; "false", "(= r (|false| 2))"];
+  require (Z3CanonicalOps.canonical_true (head "true")) "the native constant true is not canonical";
+  require (Z3CanonicalOps.canonical_false (head "false")) "the native constant false is not canonical";
+  require (Z3CanonicalOps.canonical_implies (head "(=> p (|and| t))")) "the native implication is not canonical";
+  (* Read as the constants, `(not (|false| v))` and `(or (|true| v) (|false| v))` would be tautologies; they
+     are datatype accessors whose fields may both be false, so neither is checked. *)
+  let lemma_in declarations checked bounded formula =
+    let e = parsed declarations formula in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (Option.get (U.classify_fact e)) [] = checked)
+      ("incorrect theory lemma check: " ^ formula);
+    require (Z3BvExhaustive.valid e = bounded) ("incorrect bounded evaluation: " ^ formula) in
+  lemma_in named_accessors false false "(|true| v)";
+  lemma_in named_accessors false false "(not (|false| v))";
+  lemma_in named_accessors false false "(or (|true| v) (|false| v))";
+  lemma_in named_accessors false false "(|=>| v)";
+  lemma_in named_accessors true false "(or (|true| v) (not (|true| v)))"
+
+(* Modular normalization of bit-vector sums over opaque summands (Z3BvAddNormalize): the constant
+   re-association rewrites of the QF_ABV pulse reports, bvadd(bvadd(c1, t), c2) = bvadd(c3, t) with
+   c3 = c1 + c2 modulo 2^w over any term t, and the n-ary forms of the same flattening. The accepted cases
+   have, on both sides, the same sequence of non-numeral summands (any closed term of the sum's sort, taken
+   as an opaque atom) and numerals with the same total modulo 2^w. The rejected ones differ in a numeral, an
+   atom, the sort or the width, or are valid but outside the normal form (reordered atoms, equal atoms
+   merged into a product), or have a malformed declaration of a numeral or a sum; none of them is decided
+   by another rule. The expected value is the kernel's decision on the marshaled ASTs. *)
+let bv_sum_normalization () =
+  let module BN = Z3BvAddNormalize in
+  let module BV = Z3BvLemma in
+  let c = context () in
+  let accepted = ref 0 and invalid = ref 0 and outside = ref 0 and terms_invalid = ref 0 in
+  (* Every case is run and all failures are reported together. *)
+  let failures = ref [] in
+  let guard f = try f () with exn -> failures := Printexc.to_string exn :: !failures in
+  let declarations =
+    "(declare-const packet (Array (_ BitVec 32) (_ BitVec 8)))(declare-const t (_ BitVec 32))\
+     (declare-const u (_ BitVec 32))(declare-const v (_ BitVec 32))(declare-const x (_ BitVec 8))\
+     (declare-const y (_ BitVec 8))(declare-const b (_ BitVec 1))(declare-const m (_ BitVec 66))\
+     (declare-const big (_ BitVec 4096))(declare-const p Bool)(declare-const k (_ BitVec 7))\
+     (declare-fun f ((_ BitVec 32)) (_ BitVec 32))(declare-fun g ((_ BitVec 8)) (_ BitVec 32))\
+     (declare-fun g ((_ BitVec 32)) (_ BitVec 32))" in
+  let marshal text =
+    let inputs = parse c text in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    List.map (B.cached_expression st) inputs in
+  let equation ?(binders = "") left right =
+    let source =
+      if binders = "" then Printf.sprintf "%s(assert (= %s %s))" declarations left right
+      else Printf.sprintf "%s(assert (forall (%s) (= %s %s)))" declarations binders left right in
+    match marshal source with
+    | [A.App (d, [a; b])] when binders = "" -> d, a, b
+    | [A.Quantifier (_, _, _, A.App (d, [a; b]))] when binders <> "" -> d, a, b
+    | _ -> failwith "expected a bit-vector sum equation" in
+  let conclusion_of d a b =
+    match U.classify_fact (A.App (d, [a; b])) with
+    | Some conclusion -> conclusion
+    | None -> failwith "expected a typed bit-vector sum conclusion" in
+  let pending ?(premises = []) conclusion =
+    match U.check_node [] { U.kind = U.RewriteRule; conclusion = conclusion; premises } with
+    | Some (_, obligations) -> Some obligations
+    | None -> None in
+  let outcome left right =
+    match marshal (Printf.sprintf "%s(assert (= %s %s))(assert (not (= %s %s)))"
+                     declarations left right left right) with
+    | [rewrite; negation] ->
+        let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+        Z3NativeMain.result_text (P.check_document {
+          P.declarations = []; expressions = []; assertions = [negation];
+          entries = [entry U.Asserted negation []; entry U.RewriteRule rewrite [];
+                     entry U.UnitResolution Z3ResolutionProofTheory.false_expr [Z.zero; Z.one]];
+          root = Z.of_int 2 })
+    | _ -> failwith "expected a rewrite and its negation" in
+  let premise =
+    match marshal (declarations ^ "(assert p)") with
+    | [e] -> { U.conclusion = Option.get (U.classify_fact e); hypotheses = [] }
+    | _ -> failwith "expected a Boolean premise" in
+  (* A step is certified by the rewrite rule only, without premises: not with a premise, under another rule
+     label, or as a theory lemma. *)
+  let only_as_rewrite ?(narrow = false) name j =
+    require (not (U.check_step U.RewriteRule j [premise.U.conclusion]))
+      ("sum normalization accepted a premise: " ^ name);
+    require (pending ~premises:[premise] j = None) ("a rewrite with a premise was not rejected: " ^ name);
+    require (not (U.check_step U.ApplyDefinition j []))
+      ("sum normalization decided a definition step: " ^ name);
+    require (not (U.check_step U.Commutativity j []))
+      ("sum normalization decided a commutativity step: " ^ name);
+    (* The bounded evaluation of Z3BvExhaustive decides a theory lemma over at most 12 leaf bits by itself;
+       the sum normalization decides none. *)
+    if not narrow then
+      require (not (U.checked_theory_lemma (U.Unverified "th-lemma") j []))
+        ("sum normalization decided a theory lemma: " ^ name) in
+  let accept ?(narrow = false) left right = guard @@ fun () ->
+    incr accepted;
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation left right in
+    let j = conclusion_of d a b in
+    require (U.check_step U.RewriteRule j []) ("sum normalization did not certify: " ^ name);
+    require (pending j = Some Z.zero) ("sum normalization left an obligation: " ^ name);
+    require (U.check_step U.RewriteRule (U.Observational (a, b)) [])
+      ("sum normalization did not certify the observational rewrite: " ^ name);
+    only_as_rewrite ~narrow name j;
+    require (outcome left right = "ACCEPT") ("sum normalization refutation was not ACCEPT: " ^ name);
+    require (BN.equivalent a b) ("sum normalization rejected: " ^ name) in
+  let uncertified what left right = guard @@ fun () ->
+    let name = left ^ " -> " ^ right in
+    let d, a, b = equation left right in
+    let j = conclusion_of d a b in
+    require (not (U.check_step U.RewriteRule j [])) (what ^ " certified: " ^ name);
+    require (not (U.check_step U.RewriteRule (U.Observational (a, b)) []))
+      (what ^ " certified as an observational rewrite: " ^ name);
+    require (pending j = Some Z.one) (what ^ " was not left pending: " ^ name);
+    only_as_rewrite name j;
+    require (outcome left right = "PARTIAL 1") (what ^ " did not give a PARTIAL 1 refutation: " ^ name);
+    require (not (BN.equivalent a b)) (what ^ " accepted by sum normalization: " ^ name) in
+  let reject left right = incr invalid; uncertified "invalid sum" left right in
+  let beyond left right = incr outside; uncertified "sum outside the normal form" left right in
+  let reject_terms what d a b = guard @@ fun () ->
+    incr terms_invalid;
+    (* A conclusion that is not a typed judgment (the sides disagree in sort) is no step at all. *)
+    (match U.classify_fact (A.App (d, [a; b])) with
+     | Some j ->
+         require (not (U.check_step U.RewriteRule j [])) ("malformed sum terms certified: " ^ what);
+         require (pending j <> Some Z.zero) ("malformed sum terms left no obligation: " ^ what)
+     | None -> ());
+    require (not (BN.equivalent a b)) ("malformed sum terms accepted: " ^ what) in
+  (* The report family at 32 bits: the numerals fold modulo 2^32 (4294967292 is -4), t is an
+     uninterpreted constant. *)
+  accept "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000003 t)";
+  accept "(bvadd (bvadd #xfffffffc t) #xfffffffc)" "(bvadd #xfffffff8 t)";
+  accept "(bvadd (bvadd #xfffffff8 t) #x00000003)" "(bvadd #xfffffffb t)";
+  accept "(bvadd (bvadd #xffffffff t) #x00000002)" "(bvadd #x00000001 t)";
+  (* The numerals cancel: the other side is the bare atom, either way round, or a zero addend. *)
+  accept "(bvadd (bvadd #xfffffffc t) #x00000004)" "t";
+  accept "t" "(bvadd (bvadd #x00000004 t) #xfffffffc)";
+  (* The n-ary forms of the reports: a ternary inner sum; two inner sums into a ternary sum; a numeral to
+     the left of an outer sum with a ternary inner sum; several numerals among the atoms. *)
+  accept "(bvadd (bvadd #x00000007 t u) #x00000009)" "(bvadd #x00000010 t u)";
+  accept "(bvadd (bvadd #x00000001 t) (bvadd #x00000002 u))" "(bvadd #x00000003 t u)";
+  accept "(bvadd #x00000004 (bvadd #x00000005 t u))" "(bvadd #x00000009 t u)";
+  accept "(bvadd #x00000001 t #x00000002 u #x00000003)" "(bvadd #x00000006 (bvadd t u))";
+  accept "(bvadd (bvadd #xfffffffe t u v) #x00000003)" "(bvadd #x00000001 t u v)";
+  (* Other widths, each with an atom of that width. At 8, 1 and 7 bits the atom has at most 12 bits, which the
+     bounded evaluation of Z3BvExhaustive decides as well. *)
+  accept ~narrow:true "(bvadd (bvadd #x02 x) #x01)" "(bvadd #x03 x)";
+  accept ~narrow:true "(bvadd (bvadd #xff x) #x01)" "x";
+  accept ~narrow:true "(bvadd (bvadd #b1 b) #b1)" "b";
+  accept ~narrow:true "(bvadd (bvadd (_ bv1 7) k) (_ bv1 7))" "(bvadd (_ bv2 7) k)";
+  accept "(bvadd (bvadd (_ bv5 66) m) (_ bv7 66))" "(bvadd (_ bv12 66) m)";
+  let two_pow n = Z.shift_left Z.one n in
+  let numeral width n = Printf.sprintf "(_ bv%s %d)" (Z.to_string n) width in
+  let top66 = numeral 66 (Z.pred (two_pow 66)) in
+  accept (Printf.sprintf "(bvadd (bvadd %s m) %s)" top66 top66)
+    (Printf.sprintf "(bvadd %s m)" (numeral 66 (Z.sub (two_pow 66) (Z.of_int 2))));
+  accept (Printf.sprintf "(bvadd (bvadd %s m) (_ bv1 66))" top66) "m";
+  accept "(bvadd (bvadd (_ bv5 4096) big) (_ bv7 4096))" "(bvadd (_ bv12 4096) big)";
+  let top4096 = numeral 4096 (Z.pred (two_pow 4096)) in
+  accept (Printf.sprintf "(bvadd (bvadd %s big) %s)" top4096 top4096)
+    (Printf.sprintf "(bvadd %s big)" (numeral 4096 (Z.sub (two_pow 4096) (Z.of_int 2))));
+  accept (Printf.sprintf "(bvadd (bvadd %s big) (_ bv1 4096))" top4096) "big";
+  (* An atom is any closed term of the sort of the sum: an array read, a product (egt-3244), a
+     concatenation of reads (xstrcoll), a difference, an application, a conditional. The same atom
+     occurring twice is one atom. *)
+  let sel n = Printf.sprintf "(select packet #x%08x)" n in
+  let product = Printf.sprintf "(bvmul #x00000002 (concat #x000000 %s))" (sel 241) in
+  accept (Printf.sprintf "(bvadd (bvadd #x00000004 %s) #x00000001)" product)
+    (Printf.sprintf "(bvadd #x00000005 %s)" product);
+  let reads = Printf.sprintf "(concat %s %s %s %s)" (sel 241) (sel 242) (sel 243) (sel 244) in
+  accept (Printf.sprintf "(bvadd (bvadd #xfffffffc %s) #xfffffffc)" reads)
+    (Printf.sprintf "(bvadd #xfffffff8 %s)" reads);
+  accept "(bvadd (bvadd #x00000001 (bvsub t u)) #x00000002)" "(bvadd #x00000003 (bvsub t u))";
+  accept "(bvadd (bvadd #x00000001 (f t)) #x00000002)" "(bvadd #x00000003 (f t))";
+  accept "(bvadd (bvadd #x00000001 (ite p t u)) #x00000002)" "(bvadd #x00000003 (ite p t u))";
+  accept "(bvadd (bvadd #x00000001 (bvadd (bvmul #x00000003 t) u)) #x00000002)"
+    "(bvadd #x00000003 (bvmul #x00000003 t) u)";
+  accept "(bvadd (bvadd #x00000001 t) t)" "(bvadd #x00000001 t t)";
+  (* A wrong numeral total, modulo 2^w and not as integers; a dropped, extra or replaced atom; a numeral
+     total on a side without atoms. *)
+  reject "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000004 t)";
+  reject "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000002 t)";
+  reject "(bvadd (bvadd #xfffffffc t) #xfffffffc)" "(bvadd #xfffffff9 t)";
+  reject "(bvadd (bvadd #xfffffffc t) #xfffffffc)" "(bvadd #x00000008 t)";
+  reject "(bvadd (bvadd #xfffffffc t) #x00000003)" "t";
+  reject "(bvadd (bvadd #xff x) #x01)" "(bvadd #x01 x)";
+  reject "(bvadd (bvadd #b1 b) #b1)" "(bvadd #b1 b)";
+  reject "(bvadd (bvadd (_ bv5 66) m) (_ bv7 66))" "(bvadd (_ bv13 66) m)";
+  reject (Printf.sprintf "(bvadd (bvadd %s m) %s)" top66 top66)
+    (Printf.sprintf "(bvadd %s m)" (numeral 66 (Z.sub (two_pow 66) (Z.of_int 3))));
+  reject "(bvadd (bvadd (_ bv5 4096) big) (_ bv7 4096))" "(bvadd (_ bv13 4096) big)";
+  reject (Printf.sprintf "(bvadd (bvadd %s big) %s)" top4096 top4096)
+    (Printf.sprintf "(bvadd %s big)" (numeral 4096 (Z.sub (two_pow 4096) (Z.of_int 3))));
+  reject (Printf.sprintf "(bvadd (bvadd %s big) (_ bv1 4096))" top4096) "(bvadd (_ bv1 4096) big)";
+  reject "(bvadd (bvadd #x00000001 t) #x00000002)" "#x00000003";
+  reject "(bvadd #x00000003 #x00000001)" "(bvadd #x00000003 t)";
+  reject "(bvadd (bvadd #x00000001 t) u)" "(bvadd #x00000001 t)";
+  reject "(bvadd (bvadd #x00000001 t) #x00000002)" "(bvadd #x00000003 t u)";
+  reject "(bvadd (bvadd #x00000001 t) #x00000002)" "(bvadd #x00000003 u)";
+  reject "(bvadd (bvadd #x00000001 t) u)" "(bvadd #x00000001 t t)";
+  reject "(bvadd (bvadd #x00000007 t u) #x00000009)" "(bvadd #x00000011 t u)";
+  reject "(bvadd (bvadd #x00000007 t u) #x00000009)" "(bvadd #x00000010 t u v)";
+  reject "(bvadd (bvadd #x00000001 t) (bvadd #x00000002 u))" "(bvadd #x00000003 t)";
+  reject "(bvadd #x00000004 (bvadd #x00000005 t u))" "(bvadd #x00000009 t t)";
+  (* Distinct atoms stay distinct: other reads of one array, other applications, a constant and an
+     application, overloaded functions of one name, other operands of a difference or a product. *)
+  let read32 n = Printf.sprintf "(concat #x000000 %s)" (sel n) in
+  reject (Printf.sprintf "(bvadd (bvadd #x00000002 %s) #x00000001)" (read32 241))
+    (Printf.sprintf "(bvadd #x00000003 %s)" (read32 242));
+  reject "(bvadd (bvadd #x00000002 (f t)) #x00000001)" "(bvadd #x00000003 (f u))";
+  reject "(bvadd (bvadd #x00000002 (f t)) #x00000001)" "(bvadd #x00000003 t)";
+  reject "(bvadd (bvadd #x00000002 (g t)) #x00000001)" "(bvadd #x00000003 (g ((_ extract 7 0) t)))";
+  reject "(bvadd (bvadd #x00000002 (ite p t u)) #x00000001)" "(bvadd #x00000003 (ite p u t))";
+  reject "(bvadd (bvadd #x00000002 (bvsub t u)) #x00000001)" "(bvadd #x00000003 (bvsub u t))";
+  reject "(bvadd (bvadd #x00000002 (bvmul #x00000002 t)) #x00000001)"
+    "(bvadd #x00000003 (bvmul #x00000003 t))";
+  (* Valid steps outside the normal form stay pending: the order of the atoms is kept (the reports never
+     reorder them), equal atoms are not merged into a product, a product is not distributed. Invalid:
+     a high slice of a sum, whose carries differ from the sum of the slices. *)
+  beyond "(bvadd (bvadd #x00000001 t) u)" "(bvadd #x00000001 u t)";
+  beyond "(bvadd (bvadd #x00000002 t) t)" "(bvadd #x00000002 (bvmul #x00000002 t))";
+  beyond "(bvadd #x00000001 (bvadd t t))" "(bvadd #x00000001 (bvmul #x00000002 t))";
+  beyond "(bvadd #x00000001 (bvsub t #x00000001))" "t";
+  reject "((_ extract 3 2) (bvadd x y))" "(bvadd ((_ extract 3 2) x) ((_ extract 3 2) y))";
+  reject "((_ extract 1 1) (bvadd #b01 #b01))" "(bvadd ((_ extract 1 1) #b01) ((_ extract 1 1) #b01))";
+  (* Steps under a binder are not decided (closed terms only). *)
+  (let d, a, b = equation ~binders:"(a (_ BitVec 32))" "(bvadd (bvadd #x00000002 a) #x00000001)" "(bvadd #x00000003 a)" in
+   incr outside;
+   require (not (BN.equivalent a b)) "sum normalization accepted a bound variable";
+   require (not (U.check_step U.RewriteRule (conclusion_of d a b) []))
+     "sum normalization certified a bound variable");
+  (* The size bound is tested first: a chain of 200 sums (401 occurrences) is certified, a chain of 300 (601
+     occurrences) stays pending. Shared subterms count on the tree: a let-chain of depth 40 has 2^40
+     occurrences and is refused without being traversed. *)
+  let chain n = String.concat "" (List.init n (fun _ -> "(bvadd #x00000001 ")) ^ "t" ^ String.make n ')' in
+  let count n = Printf.sprintf "#x%08x" n in
+  accept (chain 200) (Printf.sprintf "(bvadd %s t)" (count 200));
+  beyond (chain 300) (Printf.sprintf "(bvadd %s t)" (count 300));
+  (let shared =
+     "(let ((s0 (bvadd t u)))" ^
+     String.concat "" (List.init 40 (fun i -> Printf.sprintf "(let ((s%d (bvadd s%d s%d)))" (i + 1) i i)) ^
+     "s40" ^ String.make 41 ')' in
+   let _, a, b = equation shared shared in
+   incr outside;
+   require (not (BN.equivalent a b)) "sum normalization traversed a shared tree of 2^40 occurrences");
+  (* Declarations of an accepted step replaced by malformed or other ones: an out-of-range or negative
+     numeral that is correct modulo 2^32 if it were reduced, a numeral of another width or sort, a width
+     above 4096 or above 2^32, sums of another width, arity or kind. *)
+  let with_decl e g = match e with
+    | A.App (decl, args) -> A.App (g decl, args)
+    | _ -> failwith "expected an application" in
+  let nth_argument e n g = match e with
+    | A.App (decl, args) -> A.App (decl, List.mapi (fun i x -> if i = n then with_decl x g else x) args)
+    | _ -> failwith "expected an application with arguments" in
+  let params ps decl = { decl with A.int_params = ps } in
+  let ints ps = params (List.map Z.of_int ps) in
+  let interp op decl = { decl with A.interp = op } in
+  let range s decl = { decl with A.range = A.BaseSort s } in
+  let domain ss decl = { decl with A.domain = List.map (fun s -> A.BaseSort s) ss } in
+  let d, a, b = equation "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000003 t)" in
+  guard (fun () ->
+      require (U.check_step U.RewriteRule (conclusion_of d a b) []) "the unmodified sum step was not certified");
+  (* a = (bvadd (bvadd c1 t) c2) and b = (bvadd c3 t); the numerals have the parameters [width; value]. *)
+  let in_inner g e = match e with
+    | A.App (decl, [i; c2]) -> A.App (decl, [g i; c2])
+    | _ -> failwith "expected a sum" in
+  let first_numeral g e = in_inner (fun i -> nth_argument i 0 g) e in
+  let modulus = two_pow 32 in
+  let w32 = Z.of_int 32 in
+  List.iter (fun (what, a', b') ->
+      require (a' <> a || b' <> b) ("the step was not modified: " ^ what);
+      reject_terms what d a' b')
+    [ "source numeral 2 + 2^32 (not below 2^32)", first_numeral (params [w32; Z.add (Z.of_int 2) modulus]) a, b;
+      "source numeral 2 - 2^32 (negative)", first_numeral (params [w32; Z.sub (Z.of_int 2) modulus]) a, b;
+      "source numeral -2 where the step needs 2^32 - 2", first_numeral (params [w32; Z.of_int (-2)]) a, b;
+      "source numeral of width 33 in a BV32 sum", first_numeral (ints [33; 2]) a, b;
+      "source numeral of width 0", first_numeral (ints [0; 2]) a, b;
+      "source numeral of width 2^32", first_numeral (params [two_pow 32; Z.of_int 2]) a, b;
+      "source numeral of width 2^40", first_numeral (params [two_pow 40; Z.of_int 2]) a, b;
+      "source numeral of width 4097", first_numeral (ints [4097; 2]) a, b;
+      "source numeral with one parameter", first_numeral (ints [2]) a, b;
+      "source numeral with three parameters", first_numeral (ints [32; 2; 0]) a, b;
+      "source numeral with range BV33", first_numeral (range "BV33") a, b;
+      "source numeral with a domain", first_numeral (domain ["BV32"]) a, b;
+      "uninterpreted source numeral", first_numeral (interp None) a, b;
+      "source numeral c2 of 2^32 + 1", (match a with
+         | A.App (g, [i; c2]) -> A.App (g, [i; with_decl c2 (params [w32; Z.succ modulus])])
+         | _ -> failwith "expected a sum"), b;
+      "target numeral 3 + 2^32", a, nth_argument b 0 (params [w32; Z.add (Z.of_int 3) modulus]);
+      "target numeral 3 - 2^32", a, nth_argument b 0 (params [w32; Z.sub (Z.of_int 3) modulus]);
+      "target numeral of width 2^40", a, nth_argument b 0 (params [two_pow 40; Z.of_int 3]);
+      "source outer sum of width 31", with_decl a (ints [31]), b;
+      "source outer sum of width 0", with_decl a (ints [0]), b;
+      "source outer sum of width 33", with_decl a (ints [33]), b;
+      "source outer sum of width 2^32", with_decl a (params [two_pow 32]), b;
+      "source outer sum of width 4097", with_decl a (ints [4097]), b;
+      "source outer sum without width", with_decl a (ints []), b;
+      "source outer sum with two parameters", with_decl a (ints [32; 32]), b;
+      "source outer sum with range BV31", with_decl a (range "BV31"), b;
+      "source outer sum with domain BV32 and BV31", with_decl a (domain ["BV32"; "BV31"]), b;
+      "uninterpreted source outer sum", with_decl a (interp None), b;
+      "source outer subtraction named bvadd", with_decl a (interp (Some BV.op_sub)), b;
+      "source outer product named bvadd", with_decl a (interp (Some BV.op_mul)), b;
+      "source outer sum of one argument", (match a with
+         | A.App (g, [i; _]) -> A.App (g, [i])
+         | _ -> failwith "expected a sum"), b;
+      "source outer sum of no argument", (match a with
+         | A.App (g, _) -> A.App (g, [])
+         | _ -> failwith "expected a sum"), b;
+      "source inner sum of width 31", in_inner (fun i -> with_decl i (ints [31])) a, b;
+      "source inner sum of width 2^32", in_inner (fun i -> with_decl i (params [two_pow 32])) a, b;
+      "source inner sum of width 4097", in_inner (fun i -> with_decl i (ints [4097])) a, b;
+      "uninterpreted source inner sum", in_inner (fun i -> with_decl i (interp None)) a, b;
+      "source inner subtraction named bvadd", in_inner (fun i -> with_decl i (interp (Some BV.op_sub))) a, b;
+      "source inner sum of one argument", in_inner (fun i -> match i with
+         | A.App (g, [c1; _]) -> A.App (g, [c1])
+         | _ -> failwith "expected a sum") a, b;
+      "target sum of width 31", a, with_decl b (ints [31]);
+      "target sum of width 8", a, with_decl b (ints [8]);
+      "target sum of width 2^40", a, with_decl b (params [two_pow 40]);
+      "target sum of width 4097", a, with_decl b (ints [4097]);
+      "target sum without width", a, with_decl b (ints []);
+      "uninterpreted target sum", a, with_decl b (interp None);
+      "target product named bvadd", a, with_decl b (interp (Some BV.op_mul));
+      "target sum of one argument", a, (match b with
+         | A.App (g, [_; y]) -> A.App (g, [y])
+         | _ -> failwith "expected a sum");
+      "target sum with range BV31", a, with_decl b (range "BV31") ];
+  (* An atom of another sort in a sum: the Int constant n for t. *)
+  let n_decl = { A.decl_name = "n"; domain = []; range = A.BaseSort "Int"; interp = None; int_params = [] } in
+  let t_atom = match b with A.App (_, [_; t]) -> t | _ -> failwith "expected a sum" in
+  let rec replace e = if e = t_atom then A.App (n_decl, [])
+    else match e with
+      | A.App (decl, args) -> A.App (decl, List.map replace args)
+      | _ -> e in
+  require (replace a <> a && replace b <> b) "t was not replaced by an Int constant";
+  reject_terms "an Int constant as the atom on both sides" d (replace a) (replace b);
+  reject_terms "an Int constant as the atom on the source side" d (replace a) b;
+  Printf.printf "  bit-vector sum normalization: %d accepted, %d invalid, %d outside the normal form; \
+                 rebuilt terms: %d invalid\n%!" !accepted !invalid !outside !terms_invalid;
+  if !failures <> [] then failwith (String.concat "\n  " (List.rev !failures))
+
+(* Custard leaves out the match cases that a refinement rules out, so a call
+   outside the domain fails instead of returning a value. *)
 let erased_refinement_guards () =
-  require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
-    "constructor projector changed on its valid domain";
-  (match A.__proj__BaseSort__item__name (A.ArraySort ([], A.bool_sort)) with
-   | _ -> failwith "invalid constructor projector returned a value"
-   | exception Invalid_argument _ -> ());
   (match Z3SeqTheory.nth [] Z.zero with
    | _ -> failwith "out-of-range sequence access returned a value"
-   | exception Invalid_argument _ -> ())
+   | exception Match_failure _ -> ())
 
 let proof_check_callback () =
   let c = context () in
@@ -3140,6 +6801,22 @@ let proof_check_callback () =
   Z3native.clear_proof_check_callback c;
   require (Z3native.eval_smtlib2_string c "(check-sat)" = "unsat\n")
     "cleared callback was still invoked";
+  ignore (Sys.opaque_identity registration);
+  let c = context () in
+  let registration = Z3native.set_proof_check_callback c (fun proof assertions ->
+      let inputs = List.init (Z3native.ast_vector_size c assertions)
+          (Z3native.ast_vector_get c assertions) in
+      require (P.check_document (B.marshal inputs proof) = Some Z.zero)
+        "static tactic proof did not check";
+      "checked tactic") in
+  require (Z3native.eval_smtlib2_string c
+      "(set-option :produce-proofs true)(set-logic QF_NRA)\
+       (check-sat-using ctx-solver-simplify)\
+       (push)(assert false)(check-sat-using ctx-solver-simplify)\
+       (pop)(check-sat-using ctx-solver-simplify)" =
+      "sat\nunsat\nchecked tactic\nsat\n")
+    "static tactic registration or scoped callback was lost";
+  Z3native.clear_proof_check_callback c;
   ignore (Sys.opaque_identity registration)
 
 let proof_callback_exceptions () =
@@ -3201,6 +6878,313 @@ let proof_callback_ownership () =
   ignore (Sys.opaque_identity token);
   ignore (Sys.opaque_identity replacement)
 
+(* Finite-field sorts and operators are marshaled as interpreted terms, so rewrite
+   steps taken from the QF_FF certificates are decided by polynomial arithmetic. *)
+let ff_rewrites () =
+  let c = context () in
+  let declarations =
+    "(set-logic QF_FF)(define-sort F17 () (_ FiniteField 17))\
+     (define-sort F5 () (_ FiniteField 5))(define-sort F3 () (_ FiniteField 3))\
+     (define-sort F2 () (_ FiniteField 2))(define-sort F7 () (_ FiniteField 7))\
+     (declare-const x F17)(declare-const y F17)(declare-const t F3)\
+     (declare-const u F5)(declare-const w F2)\
+     (declare-const a F3)(declare-const b F3)(declare-const m F7)(declare-const n F7)" in
+  let check expected left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      ("incorrect finite-field rewrite: " ^ left ^ " -> " ^ right)
+  in
+  (* The sort name and numerals carry the modulus and the canonical residue. *)
+  let inputs = parse c (declarations ^ "(assert (= (as ff-1 F17) (ff.neg (as ff1 F17))))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (numeral, []); A.App (negation, [A.App (one, [])])]) ->
+       require (numeral.A.range = A.BaseSort "FF17" &&
+                numeral.A.int_params = [Z.of_int 17; Z.of_int 16] &&
+                numeral.A.interp = Some Z3FiniteFieldLemma.op_ff_num)
+         "a finite-field numeral lost its modulus or canonical residue";
+       require (one.A.int_params = [Z.of_int 17; Z.one] &&
+                negation.A.int_params = [Z.of_int 17] &&
+                negation.A.interp = Some Z3FiniteFieldLemma.op_ff_neg)
+         "a finite-field operator lost its modulus"
+   | _ -> failwith "expected a native finite-field equality");
+  check true "(ff.bitsum (as ff7 F17) (as ff2 F17))" "(as ff11 F17)";
+  check true "(= (as ff11 F17) (as ff2 F17))" "false";
+  check true "(= (as ff1 F2) (as ff0 F2))" "false";
+  check true "(= (as ff3 F2) (as ff1 F2))" "true";
+  check true "(ff.neg (as ff1 F17))" "(as ff16 F17)";
+  check true "(ff.neg (as ff1 F17))" "(as ff-1 F17)";
+  check true "(ff.add (as ff3 F5) (as ff3 F5))" "(as ff1 F5)";
+  check true "(ff.mul (as ff3 F5) (as ff4 F5))" "(as ff2 F5)";
+  check true "(ff.add x (as ff5 F17))" "(ff.add (as ff5 F17) x)";
+  check true "(ff.neg y)" "(ff.mul (as ff16 F17) y)";
+  check true "(ff.add x x)" "(ff.mul (as ff2 F17) x)";
+  check true "(ff.mul (ff.add x y) (ff.mul x y))" "(ff.mul x y (ff.add x y))";
+  check true "(ff.add (ite (= y x) y (as ff0 F17)) (ff.mul (as ff2 F17) x))"
+    "(ff.add (ff.mul (as ff2 F17) x) (ite (= y x) y (as ff0 F17)))";
+  check true "(ff.mul (ff.mul u u) (ff.mul (as ff4 F5) u))" "(ff.mul (as ff4 F5) u u u)";
+  check true "(= (ff.mul (as ff16 F17) (ff.add (as ff5 F17) y)) (ff.mul (as ff16 F17) y))" "false";
+  check true "(= (ff.add (as ff8 F17) (ff.bitsum x (as ff2 F17))) (ff.add (ff.mul (as ff6 F17) x) y))"
+    "(= y (ff.add (as ff8 F17) (ff.mul (as ff11 F17) x) (ff.bitsum x (as ff2 F17))))";
+  check true "(= (ff.mul (as ff12 F17) y (ff.add (as ff12 F17) y)) (as ff8 F17))"
+    "(= (ff.mul y (ff.add (as ff12 F17) y)) (as ff12 F17))";
+  check true "(= t (ff.mul (as ff2 F3) t))" "(= t (as ff0 F3))";
+  check true "(= (as ff3 F5) (ff.mul (as ff4 F5) u u u))" "(= (ff.mul u u u) (as ff2 F5))";
+  (* An ite compared with a numeral (QF_FF field-3/case-02 and field-7/case-01): a branch that
+     differs from the numeral by a nonzero constant is dropped and the condition selects the
+     other branch. *)
+  check true "(= (ite (= a b) (as ff2 F3) (ff.bitsum b b)) (as ff1 F3))"
+    "(and (= (ff.bitsum b b) (as ff1 F3)) (not (= a b)))";
+  check true "(= (ite (= n m) (as ff5 F7) (as ff1 F7)) (as ff3 F7))" "(and false (= n m))";
+  check true "(= (ite (= a b) b (as ff2 F3)) (as ff1 F3))" "(and (= b (as ff1 F3)) (= a b))";
+  check true "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check true "(= (ite (= a b) (as ff2 F3) (ff.mul (as ff2 F3) b)) (as ff0 F3))"
+    "(and (= b (as ff0 F3)) (not (= a b)))";
+  (* Steps that are not ring identities modulo the prime stay unmet. *)
+  check false "(ff.add x (as ff1 F17))" "(ff.add x (as ff2 F17))";
+  check false "(ff.bitsum (as ff7 F17) (as ff2 F17))" "(as ff12 F17)";
+  check false "(= (as ff11 F17) (as ff2 F17))" "true";
+  check false "(= (as ff3 F2) (as ff1 F2))" "false";
+  check false "(ff.mul w w)" "w";
+  check false "(= (ff.mul (as ff2 F3) t) (as ff1 F3))" "(= t (as ff1 F3))";
+  check false "(= x (as ff0 F17))" "true";
+  check false "(= x (as ff0 F17))" "false";
+  check false "(ff.add x y)" "(ff.add x x)";
+  (* An ite compared with a numeral: the wrong polarity, constant, condition or conclusion is
+     unmet, as is a branch that equals the numeral or is not a constant different from it. *)
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (= a b))";
+  check false "(= (ite (= a b) b (as ff2 F3)) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff2 F3)) (not (= a b)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= b a)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and false (not (= a b)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "false";
+  check false "(= (ite (= a b) (as ff1 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check false "(= (ite (= a b) (as ff1 F3) (as ff1 F3)) (as ff1 F3))" "(and false (= a b))";
+  check false "(= (ite (= a b) a b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check false "(= (ite (= n m) (as ff5 F7) (as ff1 F7)) (as ff3 F7))" "(and false (= m n))";
+  check false "(= (ite (= n m) (as ff5 F7) (as ff1 F7)) (as ff3 F7))" "(and true (= n m))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(= b (as ff1 F3))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) true)"
+
+(* Finite-field theory lemmas (the `th-lemma` steps of the QF_FF certificates) are decided by
+   evaluating the clause under every assignment of residues to its leaves, at most 4096 of
+   them; the producer's certificate parameters are not read. *)
+let ff_theory_lemmas () =
+  let c = context () in
+  let bits = List.init 13 (Printf.sprintf "x%d") in
+  let declarations =
+    "(set-logic QF_FF)(define-sort F2 () (_ FiniteField 2))(define-sort F3 () (_ FiniteField 3))\
+     (define-sort F17 () (_ FiniteField 17))(define-sort F4099 () (_ FiniteField 4099))\
+     (declare-const x F17)(declare-const y F17)(declare-const a F3)(declare-const b F3)\
+     (declare-const t F4099)(declare-fun g (F3) F3)" ^
+    String.concat "" (List.map (Printf.sprintf "(declare-const %s F2)") bits) in
+  let check ?(premises = []) expected clause =
+    let inputs = parse c (declarations ^
+      String.concat "" (List.map (fun e -> "(assert " ^ e ^ ")") (premises @ [clause]))) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let judgments = List.map (fun e ->
+        Option.get (U.classify_fact (B.cached_expression st e))) inputs in
+    let conclusion = List.hd (List.rev judgments) in
+    let facts = List.rev (List.tl (List.rev judgments)) in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
+      ("incorrect finite-field theory lemma: " ^ clause);
+    let premises = List.map (fun conclusion ->
+        { U.conclusion = conclusion; hypotheses = [] }) facts in
+    require (match U.check_node [] {
+        U.kind = U.Unverified "th-lemma"; conclusion = conclusion; premises } with
+        | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
+        | None -> false)
+      ("finite-field theory lemma lost its obligation: " ^ clause)
+  in
+  let ors lits = "(or " ^ String.concat " " lits ^ ")" in
+  (* field-3/case-04: a conditional term selected by (= b a). *)
+  let sel = "(ite (= b a) (as ff2 F3) (as ff1 F3))" in
+  let lit_sel = "(not (= " ^ sel ^ " (as ff1 F3)))" in
+  let lit_prod = "(not (= (ff.mul a b " ^ sel ^ ") (ff.add (as ff2 F3) a)))" in
+  let lit_bits k =
+    Printf.sprintf "(not (= (ff.bitsum (as ff0 F3) a) (ff.add (as ff%d F3) (ff.mul a b))))" k in
+  (* field-17/case-03: 17^2 assignments. *)
+  let sel17 = "(ite (= x y) y x)" in
+  let lits17 =
+    ["(not (= y " ^ sel17 ^ "))"; "(not (= x " ^ sel17 ^ "))";
+     "(not (= (ff.bitsum (ff.mul (as ff16 F17) y) (ff.mul (as ff2 F17) x)) (as ff11 F17)))";
+     "(not (= (ff.bitsum " ^ sel17 ^ " (as ff16 F17)) (ff.mul (ff.add (as ff6 F17) x) (ff.add y x))))"] in
+  let quadratic17 k =
+    Printf.sprintf "(or (not (= (ff.mul y (ff.add (as ff12 F17) y)) (as ff%d F17))))" k in
+  (* In F_2 a product of bits is 1 only if each bit is 1: 2^12 assignments are at the bound. *)
+  let product vars =
+    "(or (not (= (ff.mul " ^ String.concat " " vars ^ ") (as ff1 F2))) (= x0 (as ff1 F2)))" in
+  check true (ors [lit_sel; lit_prod; lit_bits 1]);
+  check true (ors lits17);
+  check true (quadratic17 12);
+  check true (product (List.filteri (fun i _ -> i < 12) bits));
+  check true "(or (= (g a) (as ff0 F3)) (= (g a) (as ff1 F3)) (= (g a) (as ff2 F3)))";
+  (* A mutated numeral or a dropped literal makes the clause false. *)
+  check false (ors [lit_sel; lit_prod; lit_bits 2]);
+  check false (ors [lit_sel; lit_bits 1]);
+  check false (quadratic17 13);
+  check false (ors (List.filteri (fun i _ -> i < 3) lits17));
+  (* The then branch is taken when the condition holds. *)
+  check false "(or (not (= x y)) (= (ite (= x y) (as ff0 F17) x) y))";
+  check true "(or (not (= x y)) (= (ite (= x y) x (as ff0 F17)) y))";
+  (* Another field: the field-3 clause is false over F_17, and mixed moduli are not evaluated. *)
+  check false (ors [
+      "(not (= (ite (= y x) (as ff2 F17) (as ff1 F17)) (as ff1 F17)))";
+      "(not (= (ff.mul x y (ite (= y x) (as ff2 F17) (as ff1 F17))) (ff.add (as ff2 F17) x)))";
+      "(not (= (ff.bitsum (as ff0 F17) x) (ff.add (as ff1 F17) (ff.mul x y))))"]);
+  check false "(or (= x0 (as ff0 F2)) (= x0 (as ff1 F2)) (= a (as ff0 F3)))";
+  (* Over the bound: 2^13 assignments, or a single leaf over F_4099. *)
+  check false (product bits);
+  check false "(or (not (= (ff.mul t t) (as ff1 F4099))) (= t (as ff1 F4099)) (= t (as ff4098 F4099)))";
+  (* An unsupported connective is not evaluated. *)
+  check false "(=> (= a (as ff0 F3)) (= (ff.mul a b) (as ff0 F3)))";
+  (* Premises are not used: a clause that holds only under its premise stays unmet, and the
+     rule does not apply to a step with premises. *)
+  check ~premises:["(= (ff.mul a a) (as ff1 F3))"] false "(or (= a (as ff1 F3)) (= a (as ff2 F3)))";
+  check ~premises:["(= a b)"] false (ors [lit_sel; lit_prod; lit_bits 1])
+
+(* Recorded finite-field ideal certificates (`ff-pac`), replayed by
+   Z3FiniteFieldPac for any modulus when only definitions and positive
+   premises are used. Every mutation of a real certificate is rejected, the
+   inverse witness of a disequality is never used, the replay bounds hold,
+   and the native flattening rejects malformed or oversized DAGs. *)
+let ff_certificates () =
+  let module FP = Z3FiniteFieldPac in
+  let finite_field prime assertions =
+    Printf.sprintf "(set-logic QF_FF)(define-sort F () (_ FiniteField %s))\
+                    (declare-const x F)(declare-const y F)%s" prime assertions in
+  let unit_ideal prime = finite_field prime
+      "(assert (and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F)))))" in
+  let certificates doc = List.filter_map (fun e ->
+      match e.P.rule with
+      | U.FiniteFieldPac c -> Some (Option.get (U.classify_fact e.P.formula), c)
+      | _ -> None) doc.P.entries in
+  let checked (conclusion, c) = U.checked_theory_lemma (U.FiniteFieldPac c) conclusion [] in
+  let formula = function U.Holds e -> e | _ -> failwith "expected a proposition" in
+  List.iter (fun prime ->
+      let doc = document (unit_ideal prime) in
+      let found = certificates doc in
+      require (found <> [] && List.for_all checked found)
+        ("recorded finite-field certificate was not replayed over " ^ prime);
+      require (P.check_document doc = Some Z.zero)
+        ("finite-field refutation was not fully checked over " ^ prime))
+    ["2147483647"; "2305843009213693951"; "170141183460469231731687303715884105727"];
+  let conclusion, c = List.hd (certificates (document (unit_ideal "2147483647"))) in
+  let rejected why c' conclusion' =
+    require (not (U.checked_theory_lemma (U.FiniteFieldPac c') conclusion' []))
+      ("mutated finite-field certificate accepted: " ^ why) in
+  let map_nodes f = { c with FP.pac_nodes = List.mapi f c.FP.pac_nodes } in
+  let coefficient = List.hd (List.filter_map (function
+      | FP.PacMul (_, k, _) -> Some k | _ -> None) c.FP.pac_nodes) in
+  let first_mul = ref true in
+  rejected "coefficient" (map_nodes (fun _ n -> match n with
+      | FP.PacMul (s, A.App (d, []), f) when !first_mul ->
+          first_mul := false;
+          let v = match d.A.int_params with [_; v] -> v | _ -> failwith "numeral" in
+          let p = Z.of_string "2147483647" in
+          FP.PacMul (s, A.App ({ d with A.int_params = [p; Z.rem (Z.succ v) p] }, []), f)
+      | n -> n)) conclusion;
+  rejected "input index" (map_nodes (fun _ n -> match n with
+      | FP.PacInput i -> FP.PacInput (Z.add i (Z.of_int 1000)) | n -> n)) conclusion;
+  rejected "future reference" (map_nodes (fun i n -> match n with
+      | FP.PacAdd (_, r) -> FP.PacAdd (Z.of_int i, r) | n -> n)) conclusion;
+  rejected "root" { c with FP.pac_root = Z.pred c.FP.pac_root } conclusion;
+  rejected "missing support" { c with FP.pac_support = List.tl c.FP.pac_support } conclusion;
+  rejected "extra support" { c with FP.pac_support = c.FP.pac_support @ [Z.of_int 2] } conclusion;
+  rejected "reordered support" { c with FP.pac_support = List.rev c.FP.pac_support } conclusion;
+  rejected "missing premise" { c with FP.pac_premises = List.tl c.FP.pac_premises } conclusion;
+  (match formula conclusion with
+   | A.App (d, first :: rest) ->
+       rejected "dropped literal" c (U.Holds (A.App (d, rest)));
+       (match first with
+        | A.App (_, [premise]) ->
+            rejected "unnegated literal" c (U.Holds (A.App (d, premise :: rest)));
+            rejected "negated premise" { c with FP.pac_premises =
+                List.map (fun p -> if p = premise then Z3ResolutionProofTheory.mk_not_expr p else p)
+                  c.FP.pac_premises } conclusion
+        | _ -> failwith "expected a negated premise literal")
+   | _ -> failwith "expected a clause");
+  (* Bounds: unreferenced padding after a valid certificate is still replayed,
+     so the certificate is accepted up to each bound and rejected beyond it. *)
+  let base = List.length c.FP.pac_nodes in
+  let padded extra = { c with FP.pac_nodes = c.FP.pac_nodes @ extra } in
+  let accepted why c' =
+    require (U.checked_theory_lemma (U.FiniteFieldPac c') conclusion [])
+      ("padded finite-field certificate rejected: " ^ why) in
+  let inputs n = List.init n (fun _ -> FP.PacInput Z.zero) in
+  accepted "node bound" (padded (inputs (100000 - base)));
+  rejected "node bound" (padded (inputs (100001 - base))) conclusion;
+  (* Each step multiplies by (1 + k*v) for a cycling variable v. *)
+  let growth steps = FP.PacInput Z.zero :: List.concat (List.init steps (fun k ->
+      let previous = Z.of_int (base + 2 * k) in
+      [FP.PacMul (previous, coefficient, [Z.of_int (k mod 6)]);
+       FP.PacAdd (previous, Z.of_int (base + 2 * k + 1))])) in
+  accepted "polynomial bound" (padded (growth 6));
+  rejected "polynomial bound" (padded (growth 24)) conclusion;
+  let last = base + 2 * 6 in
+  let repeated n = List.init n (fun k -> FP.PacAdd (Z.of_int (last + k), Z.of_int last)) in
+  accepted "work bound" (padded (growth 6 @ repeated 20));
+  rejected "work bound" (padded (growth 6 @ repeated 20000)) conclusion;
+  (* Theory-lemma steps with premises keep their obligation. *)
+  require (not (U.checked_theory_lemma (U.FiniteFieldPac c) conclusion
+                 [U.Holds (List.hd c.FP.pac_premises)]))
+    "finite-field certificate replayed for a step with premises";
+  (* The inverse witness of a disequality needs a field: residual obligations. *)
+  let residual = document (finite_field "2147483647"
+      "(assert (= (ff.mul x x) (as ff0 F)))(assert (not (= x (as ff0 F))))") in
+  require (List.exists (fun cert -> not (checked cert)) (certificates residual) &&
+           P.check_document residual = Some Z.one) "inverse-witness certificate was replayed";
+  let mixed = document (finite_field "2147483647"
+      "(assert (= (ff.mul x y) (as ff1 F)))(assert (= (ff.mul x x) (as ff0 F)))") in
+  require (List.length (List.filter checked (certificates mixed)) = 1 &&
+           P.check_document mixed = Some Z.one) "mixed finite-field refutation changed";
+  (* Native flattening of hand-built DAGs. *)
+  let cx = context () in
+  let symbol = Z3native.mk_string_symbol cx in
+  let proof = Z3native.mk_uninterpreted_sort cx (symbol "P") in
+  let integer = Z3native.mk_int_sort cx in
+  let numeral, premise = match parse cx "(define-sort F () (_ FiniteField 7))(declare-const z F)\
+                                         (assert (= z (as ff3 F)))" with
+    | [e] -> List.nth (N.app_args cx (Z3native.to_app cx e)) 1, e
+    | _ -> failwith "parse" in
+  let decl name domain = Z3native.mk_func_decl cx (symbol name) (List.length domain) domain proof in
+  let app d args = Z3native.mk_app cx d (List.length args) args in
+  let index n = Z3native.mk_numeral cx n integer in
+  let input i = app (decl "ff-input" [integer]) [index i] in
+  let add l r = app (decl "ff-add" [proof; proof]) [l; r] in
+  let mul s k f = app (decl "ff-mul" [proof; Z3native.get_sort cx k; integer]) [s; k; index f] in
+  let pac ?(premises = [premise]) root =
+    app (decl "ff-pac" [proof; proof; proof])
+      [app (decl "ff-premises" (List.map (Z3native.get_sort cx) premises)) premises; root;
+       app (decl "ff-support" [integer]) [index "0"]] in
+  let view root = N.view_ff_pac cx (pac root) in
+  (match view (mul (add (input "0") (input "1")) numeral "2") with
+   | Some v ->
+       require (match v.N.pac_nodes with
+                | [N.PacInput i; N.PacInput j; N.PacAdd (l, r); N.PacMul (s, k, f)] ->
+                    Z.equal i Z.zero && Z.equal j Z.one && Z.equal l Z.zero && Z.equal r Z.one &&
+                    Z.equal s (Z.of_int 2) && Z3native.is_eq_ast cx k numeral &&
+                    List.equal Z.equal f [Z.of_int 2]
+                | _ -> false) "native finite-field certificate flattening";
+       require (Z.equal v.N.pac_root (Z.of_int 3) && List.equal Z.equal v.N.pac_support [Z.zero] &&
+                List.length v.N.pac_premises = 1)
+         "native finite-field certificate root and support"
+   | None -> failwith "well-formed native finite-field certificate rejected");
+  let rec shared k node = if k = 0 then node else shared (k - 1) (add node node) in
+  (match view (shared 60 (input "0")) with
+   | Some v -> require (List.length v.N.pac_nodes = 61) "shared certificate nodes were duplicated"
+   | None -> failwith "shared native certificate rejected");
+  let rec chain k node = if k = 0 then node else chain (k - 1) (add node (input "0")) in
+  require (Option.is_none (view (chain 200000 (input "1")))) "oversized native certificate accepted";
+  List.iter (fun (why, root) -> require (Option.is_none (view root)) ("malformed native certificate: " ^ why))
+    ["negative index", input "-1"; "huge index", input "4294967296";
+     "non-field coefficient", mul (input "0") (index "3") "0";
+     "unknown node", app (decl "ff-sub" [proof; proof]) [input "0"; input "1"]];
+  require (Option.is_none (N.view_ff_pac cx (pac ~premises:[numeral] (input "0"))))
+    "non-Boolean native certificate premise accepted"
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
@@ -3223,6 +7207,10 @@ let () =
      "cached-definition-expansion", cached_definition_expansion;
      "ordered-congruence-matching", ordered_congruence_matching;
      "typed-obligation-diagnostics", typed_diagnostics;
+     "precedence-aware-expression-printer", pretty_expressions;
+     "readable-obligation-diagnostics", readable_conditions;
+     "readable-same-proof-document", readable_same_proof;
+     "readable-edge-conditions", readable_edge_cases;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "definition-expanded-binder-certificates", checked_binder_definitions;
@@ -3231,12 +7219,24 @@ let () =
      "certified-quantifier-pulling", checked_quantifier_pulling;
      "certified-destructive-equality-resolution", checked_der_rules;
      "certified-Hilbert-choice-Skolemization", checked_skolemization;
+     "certified-unused-block-Skolemization", checked_vacuous_skolemization;
      "certified-quantifier-reductions-and-lambdas", checked_quantifier_reductions;
      "certified-nested-NNF-replacement", checked_nested_nnf_replacement;
      "certified-theory-lemmas-and-definition-axioms", checked_theory_extensions;
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
+     "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-real-Farkas", sorted_real_farkas;
+     "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
+     "sorted-NNF-certificate-replay", sorted_nnf_replay;
+     "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
+     "sorted-quant-intro-ite-laws", sorted_quant_intro_ite_laws;
+     "sorted-direct-ite-rewrites", sorted_direct_ite_rewrites;
+     "scope-guard-name-pair-units", name_pair_units_equivalence;
+     "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
+     "sorted-constant-folding-rewrites", sorted_constant_folding;
+     "sorted-native-universal-flattening", sorted_quantifier_flattening;
      "sorted-native-quantifier-instances", sorted_quantifier_instances;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
@@ -3244,9 +7244,14 @@ let () =
      "checked-integer-division-axioms", integer_division_axioms;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
+     "checked-arithmetic-factor-rewrites", arithmetic_factor_rewrites;
+     "checked-conditional-comparison-rewrites", conditional_comparison_rewrites;
+     "checked-array-unequal-defaults", array_unequal_defaults;
      "checked-bit-vector-rewrites", bv_rewrites;
+     "checked-bit-vector-extraction-rewrites", bv_extract_rewrites;
      "checked-fresh-bit-model-extension", fresh_bit_model_extension;
      "checked-fresh-bit-context-extension", fresh_bit_context_extension;
+     "fresh-bit-document-projections", fresh_bit_document_projections;
      "scoped-model-extension", scoped_model_extension;
      "contextual-boolean-rewrites", contextual_boolean_rewrites;
      "unused-quantifier-rewrites", unused_quantifier_rewrites;
@@ -3254,7 +7259,14 @@ let () =
      "checked-implied-arithmetic-equalities", arithmetic_implied_equalities;
      "checked-implied-arithmetic-bounds", arithmetic_implied_bounds;
      "checked-inferred-integer-splits", arithmetic_inferred_splits;
+     "checked-integer-rounding-cuts", arithmetic_integer_rounding;
+     "checked-bounded-bit-vector-evaluation", bv_bounded_evaluation;
+     "canonical-connective-dispatch", canonical_dispatch;
+     "checked-bit-vector-sum-normalization", bv_sum_normalization;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;
-     "proof-callback-ownership", proof_callback_ownership]
+     "proof-callback-ownership", proof_callback_ownership;
+     "checked-finite-field-rewrites", ff_rewrites;
+     "checked-finite-field-theory-lemmas", ff_theory_lemmas;
+     "checked-finite-field-certificates", ff_certificates]

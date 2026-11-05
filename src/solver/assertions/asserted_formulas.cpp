@@ -388,15 +388,25 @@ void asserted_formulas::find_macros_core() {
 }
 
 /**
-   \brief rewrite (a or (b & c)) to (a or b), (a or c) if the conjunction (b & c) 
-   occurs as a disjunct of a single top-level clause.
+   \brief rewrite (a or (b & c)) to (a or b), (a or c) if the conjunction (b & c)
+   occurs as a disjunct of a single top-level clause and nowhere else.
    This avoids the literal for (b & c).
 
    A conjunction that is a disjunct of several clauses is left alone: distributing
-   it would copy its conjuncts into every clause. Without the check, 
-   (or (and a1 .. an) (and b1 .. bm)) is first rewritten to the m clauses 
-   (or (and a1 .. an) (not bj)), and a second round would then distribute 
+   it would copy its conjuncts into every clause. Without the check,
+   (or (and a1 .. an) (and b1 .. bm)) is first rewritten to the m clauses
+   (or (and a1 .. an) (not bj)), and a second round would then distribute
    (and a1 .. an) into each of them, producing n*m clauses.
+
+   The occurrence count only sees the clauses that are pending in the current
+   round. The conjunction e = (not d), d = (or b1 .. bn), can also be shared with
+   a formula asserted in an earlier round, which the context has internalized,
+   or occur elsewhere, as in (or d x) after splitting (ite d x y). Then d has,
+   or gets, a literal, and distributing e would copy the conjuncts next to it,
+   once per assertion in incremental use. This sharing shows in the reference
+   count of d: it is 1 when the negation e is its only parent. The reference
+   count of e is not used; it is also raised by the rewriter caches and by the
+   assertion that the caller keeps alive.
 */
 void asserted_formulas::flatten_clauses() {
     if (m.proofs_enabled()) return;
@@ -420,9 +430,10 @@ void asserted_formulas::flatten_clauses() {
             if (is_conjunction(b))
                 occurrences.insert_if_not_there(b, 0)++;
         }
-        auto can_distribute = [&](expr* e) { 
+        auto can_distribute = [&](expr* e) {
             unsigned n = 0;
-            return occurrences.find(e, n) && n == 1; 
+            expr* d = nullptr;
+            return occurrences.find(e, n) && n == 1 && m.is_not(e, d) && d->get_ref_count() == 1;
         };
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto const& j = m_formulas.get(i);

@@ -199,7 +199,7 @@ struct solver::imp {
             TRACE(nra, tout << "constraint " << ci << ": " << p << " " << k << " 0\n";
             lra.constraints().display(tout, ci) << "\n");
         }
-        definitions.reset();
+        register_transcendentals_with_nlsat(definitions, denominators);
     }
 
     void setup_solver_terms() {
@@ -233,19 +233,41 @@ struct solver::imp {
     // of nla_core feeding it progressively-refined polynomial axioms from
     // outside. Requires "transcendentals" to also be set on m_nlsat (see
     // check()).
-    void register_transcendentals_with_nlsat() {
+    void register_transcendentals_with_nlsat(polynomial_ref_vector const& definitions, vector<rational> const& denominators) {
+        auto bind_var = [&](lp::lpvar v) {
+            auto x = lp2nl(v);
+            if (m_nla_core.emons().is_monic_var(v) || lra.column_has_term(v)) {
+                // Constraints inline these definitions, but transcendental
+                // applications refer to the variables themselves.
+                SASSERT(definitions.get(v) && denominators[v].is_pos());
+                auto& pm = m_nlsat->pm();
+                polynomial_ref p(pm.mk_polynomial(x), pm);
+                p = constant(denominators[v]) * p;
+                polynomial_ref def(definitions.get(v), pm);
+                p = p - def;
+                add_axiom(p, lp::lconstraint_kind::EQ);
+            }
+            return x;
+        };
         // nla::transcendental_op_kind is nlsat::transcendental_op_kind (see
         // nla_transcendentals.h): no translation needed, just forward a.op.
-        for (auto const& a : m_nla_core.get_transcendentals().apps())
-            m_nlsat->add_transcendental(a.op, lp2nl(a.arg), lp2nl(a.val));
+        for (auto const& a : m_nla_core.get_transcendentals().apps()) {
+            auto arg = bind_var(a.arg);
+            auto val = bind_var(a.val);
+            m_nlsat->add_transcendental(a.op, arg, val);
+        }
         // atan2(y, x) and pi are registered separately (see
         // nla::transcendentals::atan2_apps/pi_var): they do not fit the
         // single-argument (op, arg, val) shape above.
-        for (auto const& a : m_nla_core.get_transcendentals().atan2_apps())
-            m_nlsat->add_atan2(lp2nl(a.y), lp2nl(a.x), lp2nl(a.val));
+        for (auto const& a : m_nla_core.get_transcendentals().atan2_apps()) {
+            auto y = bind_var(a.y);
+            auto x = bind_var(a.x);
+            auto val = bind_var(a.val);
+            m_nlsat->add_atan2(y, x, val);
+        }
         lp::lpvar pi = m_nla_core.get_transcendentals().pi_var();
         if (pi != nla::null_lpvar)
-            m_nlsat->add_pi(lp2nl(pi));
+            m_nlsat->add_pi(bind_var(pi));
     }
 
     void add_axiom(polynomial::polynomial* p, lp::lconstraint_kind k) {
@@ -272,7 +294,6 @@ struct solver::imp {
         smt_params_helper p(m_params);
 
 	    setup_solver_poly();
-        register_transcendentals_with_nlsat();
 
         TRACE(nra, m_nlsat->display(tout));
 
@@ -422,8 +443,7 @@ struct solver::imp {
             auto lit = add_constraint(p, ci, k);
             m_literal2constraint.setx(lit.index(), ci, lp::null_ci);
         }
-        definitions.reset();
-        register_transcendentals_with_nlsat();
+        register_transcendentals_with_nlsat(definitions, denominators);
     }
 
     void process_polynomial_check_assignment(polynomial::polynomial const* p, rational& bound, const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {

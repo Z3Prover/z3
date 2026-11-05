@@ -131,6 +131,7 @@ tptp_benchmarks/
 # Finite-field benchmark downloads, raw runs, and rendered report products.
 # Sources, manifests, small test fixtures, and compact paper evidence are tracked.
 /tests/finite_field/__pycache__/
+/tests/finite_set/__pycache__/
 /tests/finite_field/results/
 /tests/finite_field/fixtures/real-circuits/*.zip
 /tests/finite_field/fixtures/real-circuits/picus/
@@ -138,6 +139,8 @@ tptp_benchmarks/
 /output/pdf/
 /tmp/pdfs/
 /tmp-bibtex.log
+# Written by inputs that set :trace true when run from the repository root
+/z3.log
 /doc/qf-ff-round6-performance.svg
 /doc/qf-ff-round7-performance.svg
 

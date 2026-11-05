@@ -1,0 +1,22 @@
+{
+  "pull_request": 11489,
+  "head_sha": "c38dce1b8a5f8ff2963856b209df6405ee671cd6",
+  "base_sha": "deef01f5b899f47fdbeccb0f408b57324cbb1ffe",
+  "path_prefix": "fstar/audits/pr-11489/c38dce1b8a5f8ff2963856b209df6405ee671cd6/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41198186879",
+  "files": [
+    {
+      "name": "DtEnumScope.fst",
+      "sha256": "fede60fc4b2531ab7fd02e1ef79f0d889913ecd46abb33bdd14360a9896d77f3"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "91524a33d45a767c0c1aca772e7fdc35e03d738953d8ecd56d051a2a41379b6a"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "598184c853e0980a1dbe810b4f8f06f65a1d502f39e9a06a8a3a300e668ef4ac"
+    }
+  ]
+}

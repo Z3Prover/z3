@@ -1,0 +1,7 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend). Fresh cache/out dirs, --z3rlimit 10, timeout 120s.
+exit code: 0
+stdout:
+Verified module: Pr11419NanCongruence
+All verification conditions discharged successfully
+
+stderr:

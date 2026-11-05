@@ -37,6 +37,7 @@ open Z3AstTheory
 open Z3SeqTheory
 open Z3RegexTheory
 open Z3BasicExprTheory
+module T = Z3AstTotEval
 module Classical = FStar.Classical
 
 (* ----------------------------------------------------------------- *)
@@ -134,7 +135,9 @@ let is_re_op (f:func_decl) (op:re_op) : bool =
    incorrectly reported as if it were always literal. *)
 noeq type seq_lit (a:eqtype) = {
   classify    : expr -> option (seq a);
-  leaf_interp : interpretation (seq a);
+  (* `Tot`: evaluating a leaf is part of the computation (`compute_info`);
+     `Z3AstTheory.interpretation` is ghost. See `Z3AstTotEval`. *)
+  leaf_interp : T.tot_interpretation (seq a);
   (* A total order on elements, standing in for the 8-bit bit-vector
      numeral order `seq_decl_plugin.cpp` uses to interpret `re.range`'s
      two character-literal endpoints; `a` carries no built-in order of
@@ -154,8 +157,8 @@ noeq type seq_lit (a:eqtype) = {
      uninterpreted Boolean constant, or an opaque predicate/equality
      over some other sort entirely -- is treated as atomic and
      assigned its truth value directly by `cond_interp`
-     (`uninterp_app`/`interp_app`). *)
-  cond_interp : interpretation bool;
+     (`t_uninterp`/`t_app`). *)
+  cond_interp : T.tot_interpretation bool;
 }
 
 (* Evaluate a leaf expression to the sequence it denotes: a
@@ -165,7 +168,7 @@ noeq type seq_lit (a:eqtype) = {
 let eval_leaf (#a:eqtype) (sl:seq_lit a) (e:expr) : seq a =
   match sl.classify e with
   | Some w -> w
-  | None -> eval sl.leaf_interp e (fun _ -> empty)
+  | None -> T.teval sl.leaf_interp e (fun _ -> empty)
 
 (* `e` is a ground (literal, model-independent) leaf under `sl`. *)
 let is_ground_leaf (#a:eqtype) (sl:seq_lit a) (e:expr) : bool =
@@ -199,7 +202,7 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
    missing piece `cond_interp`'s doc comment above flagged: without
    it, `=`/`distinct` between `seq a`-sorted arguments cannot be told
    apart from equality/distinctness between any other (opaque) sort,
-   since `Z3BasicExprTheory.eval_bool` is monomorphic in a single
+   since `Z3AstTotEval.teval_bool` is monomorphic in a single
    `value:eqtype` for an entire condition tree and so cannot itself
    recurse into real `seq a` semantics mid-tree. *)
 let seq_sort : sort = BaseSort "Seq"
@@ -217,7 +220,7 @@ let rec eval_leaf_list (#a:eqtype) (sl:seq_lit a) (args:list expr) : list (seq a
    condition expression, used to pick the actual branch of an
    `(ite c t f)` node -- see `cond_interp`'s doc comment above.
 
-   This mirrors `Z3BasicExprTheory.eval_bool`'s own structural
+   This mirrors `Z3AstTotEval.teval_bool`'s own structural
    recursion over the propositional connectives (`and`/`or`/`not`/
    `implies`/`xor`/`ite`/`true`/`false`), but additionally recognizes
    `(= x y)`/`(distinct x1 ... xn)` nodes whose arguments are
@@ -227,10 +230,10 @@ let rec eval_leaf_list (#a:eqtype) (sl:seq_lit a) (args:list expr) : list (seq a
    itself recognize (an `=`/`distinct` between non-sequence-sorted
    arguments, an arity mismatch, an uninterpreted Boolean atom, or an
    application from another family entirely) falls back to
-   `cond_interp` via `eval_bool`, exactly as the previous, simpler
-   definition of `eval_cond` always did. *)
+   `cond_interp` via `Z3AstTotEval.teval_bool`, as before. Both
+   interpretation fields in `seq_lit` use the executable Tot interface. *)
 let rec eval_cond (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot bool (decreases e) =
-  let fallback () = eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false) in
+  let fallback () = T.teval_bool sl.cond_interp (fun b -> b) e (fun _ -> false) in
   match e with
   | Var _ _ | Quantifier _ _ _ _ -> fallback ()
   | App f args ->

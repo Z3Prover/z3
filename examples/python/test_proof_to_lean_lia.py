@@ -5,7 +5,9 @@
 # arithmetic through the clause log): validation without Lean, and
 # end-to-end checks that need the z3 executable and the pinned Lean toolchain.
 ############################################
+import contextlib
 import copy
+from fractions import Fraction
 import hashlib
 from pathlib import Path
 import random
@@ -189,6 +191,20 @@ LIA_INPUTS = {
 (assert (>= x -2))
 (check-sat)
 """,
+    # Z3's rem, of a sum so that the rewriter keeps it (it rewrites
+    # (rem x k) to (mod x k), or its negation for k < 0): the arithmetic
+    # solver relates it to mod by two arith axioms, (or (not (>= k 0))
+    # (= (rem t k) (mod t k))) and (or (>= k 0) (= (rem t k) (- (mod t k)))).
+    # Lean states rem at its numeral divisor, t % 3 and -(t % -3).
+    "lia_rem": """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (> (rem (+ x y) (- 3)) 0))
+(assert (> (rem (+ x y) 3) 0))
+(assert (= (mod (+ x y) 3) 1))
+(check-sat)
+""",
     # Division of a sum, with the remainder fixed, inside a bound conflict.
     "lia_div_sum": """\
 (set-logic QF_LIA)
@@ -325,6 +341,51 @@ def random_division_instance(seed, variables=4, constraints=10, functions=False)
     return source if solver.check() == z3.unsat else None
 
 
+def random_remainder_instance(seed, variables=3, constraints=8):
+    """A random QF_LIA problem over rem atoms (and mod next to them), or None when it is satisfiable.
+
+    Z3's rewriter turns (rem t k) into (mod t k), or its negation for a
+    negative k, unless t is a sum or a product, so most rem terms here
+    take a sum or a scaled variable and reach the arithmetic solver, which
+    relates them to mod by its two rem axioms. Divisors are -4, -3, -2, 2,
+    3, and 4.
+    """
+    generator = random.Random(seed)
+    lines = ["(set-logic QF_LIA)"] + ["(declare-const x%d Int)" % i for i in range(variables)]
+
+    def term(v):
+        roll = generator.random()
+        k = generator.choice([-4, -3, -2, 2, 3, 4])
+        other = generator.randrange(variables)
+        if roll < 0.35:
+            return "(rem (+ x%d x%d) %d)" % (v, other, k)
+        if roll < 0.5:
+            return "(rem (* %d x%d) %d)" % (generator.choice([2, 3, -2]), v, k)
+        if roll < 0.6:
+            return "(rem x%d %d)" % (v, k)
+        if roll < 0.75:
+            return "(mod (+ x%d x%d) %d)" % (v, other, k)
+        return "x%d" % v
+
+    def atom():
+        chosen = generator.sample(range(variables), generator.randint(1, 2))
+        terms = " ".join("(* %d %s)" % (generator.choice([-2, -1, 1, 2]), term(v)) for v in chosen)
+        return "(%s (+ %s 0) %d)" % (generator.choice(["<=", ">=", "<", ">", "="]), terms,
+                                     generator.randint(-4, 4))
+
+    for _ in range(constraints):
+        if generator.random() < 0.4:
+            lines.append("(assert (or %s %s))" % (atom(), atom()))
+        else:
+            lines.append("(assert %s)" % atom())
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
 def wide_rewrite_instance(variables=9, term="{0}", logic="QF_LIA", declarations=()):
     """Every variable in [5, 7] and one clause asking for one of them outside.
 
@@ -380,6 +441,11 @@ PINNED_SEEDS = (9, 78, 97)
 # hints (seed 23 also an implied equality) next to the arith axioms and the
 # Farkas steps; 250 to 400 proof steps each when they were pinned.
 DIVISION_SEEDS = (19, 23, 27)
+# Seeds of random_remainder_instance with rem by both signs of sums and
+# scaled variables: seeds 23 and 39 refute through cuts, seed 48 through a
+# cut, bound propagations, and an implied equality (30 to 94 clause-log
+# proof steps when they were pinned).
+REMAINDER_SEEDS = (23, 39, 48)
 # Seed of random_division_instance(variables=6, constraints=18) from the
 # iter-027 stress run: 547 theory lemmas over div, mod, and abs atoms by
 # negative numerals, among them a Farkas step and four cuts over a dozen
@@ -387,6 +453,17 @@ DIVISION_SEEDS = (19, 23, 27)
 # t % -3 as an atom and grind splits every abs); proved over the atoms
 # generalized to integers since 2026-10-21.
 WIDE_DIVISION_SEED = 67
+
+
+def untrimmed_log():
+    """Export the whole clause log instead of the native trimmer's core.
+
+    The tests of the wide division seeds are about particular lemmas of
+    their full refutations, which the trimmer, crashing on every division
+    log until 2026-10-27, left untrimmed. The trimmed cores leave them out
+    (WIDE_DIVISION_SEED's keeps cuts and bounds but no Farkas step).
+    """
+    return patch.object(proof_clause_log, "_TRIM_THRESHOLD", float("inf"))
 
 
 def _z3_available():
@@ -498,9 +575,14 @@ class TestIntegerValidation(unittest.TestCase):
         generalized = {}
         for name, source in [(name, LIA_INPUTS[name]) for name in ("lia_div", "lia_mod_sum", "lia_abs", "lia_gcd")] + [
                 ("wide", random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18))]:
-            certificate = proof_certificate.export_clause_log_certificate(source)
+            with untrimmed_log():
+                certificate = proof_certificate.export_clause_log_certificate(source)
             graph = proof_to_lean._validate_graph(source, certificate)
             text = proof_to_lean.reconstruct(source, certificate)
+            if name == "wide":
+                # Its wide Farkas lemmas have small coefficients and stay with
+                # omega, whose proofs keep it under Lean's memory cap.
+                self.assertNotIn("have _sum : ", text)
             generalized[name] = set()
             for node in _th_lemma_nodes(certificate):
                 parameters = _parameters(certificate, node)
@@ -512,10 +594,20 @@ class TestIntegerValidation(unittest.TestCase):
                         self.assertEqual(tactic, "omega" if len(parameters) > 1 else "grind (splits := 64)")
                     else:
                         self.assertIsNone(tactic)
+                    combination = proof_to_lean._farkas_combination(graph, node)
+                    if combination is not None:
+                        # A lemma of many bounds tries its combination first (_farkas_combination).
+                        self.assertIn("  first\n    | (have _sum : ", block)
+                    split = proof_to_lean._split_combination(graph, node)
+                    if split is not None:
+                        # A lattice lemma tries its split first (_split_combination).
+                        self.assertIn("  first\n    | (have _sum0 : ", block)
+                        combination = split
                     if not (tactic and atoms):
                         self.assertNotIn("generalize", block)
-                        self.assertNotIn("first\n", block)
-                        self.assertTrue(block.endswith("first | omega | grind (splits := 64)"), block[-200:])
+                        self.assertEqual("first\n" in block, combination is not None)
+                        self.assertTrue(block.endswith("first | omega | grind (splits := 64)"
+                                                       + (")" if combination else "")), block[-200:])
                         continue
                     generalized[name].add(parameters[0])
                     self.assertIn("  first\n    | (", block)
@@ -696,6 +788,85 @@ class TestIntegerValidation(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not refute"):
                     proof_to_lean.reconstruct(LIA_INPUTS["lia_branching"], tampered)
 
+    def test_leaf_keys_identify_atoms_up_to_orientation_scaling_and_complement(self):
+        # The cnf lemmas' propagation proofs bridge two theory atoms that
+        # denote one constraint, or complementary ones (see _leaf_bridges):
+        # (< x y) and (>= x y) are complements over Int (the strict side
+        # tightened), (<= (* 2 x) (* 2 y)) is (<= x y) scaled, (= y x) is
+        # (= x y) reoriented, and (= (* -2 x) (* -2 y)) the same equality
+        # with a negative leading coefficient.
+        source = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (or (< x y) (>= x y)))
+(assert (or (<= (* 2 x) (* 2 y)) (<= x y)))
+(assert (or (= y x) (= x y) (= (* -2 x) (* -2 y))))
+(assert false)
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        # The atoms as the input states them (the log adds normalized forms).
+        atoms = {}
+        for assertion in graph.assertions:
+            for node in graph.arguments(assertion):
+                atoms.setdefault(graph.kind(node), []).append(node)
+        (less,), (at_least,) = atoms[z3.Z3_OP_LT], atoms[z3.Z3_OP_GE]
+        less_key, less_complement = proof_to_lean._leaf_key(graph, less)
+        at_least_key, at_least_complement = proof_to_lean._leaf_key(graph, at_least)
+        self.assertEqual(less_key, at_least_complement)
+        self.assertEqual(less_complement, at_least_key)
+        self.assertNotEqual(less_key, at_least_key)
+        self.assertEqual(len(atoms[z3.Z3_OP_LE]), 2)
+        self.assertEqual(len({proof_to_lean._leaf_key(graph, node) for node in atoms[z3.Z3_OP_LE]}), 1)
+        equalities = atoms[z3.Z3_OP_EQ]
+        self.assertEqual(len(equalities), 3)
+        self.assertEqual(len({proof_to_lean._leaf_key(graph, node) for node in equalities}), 1)
+        self.assertIsNone(proof_to_lean._leaf_key(graph, equalities[0])[1])  # no complement for a disequality
+        leaves = {}
+        for node in [less, at_least] + atoms[z3.Z3_OP_LE] + equalities:
+            proof_to_lean._boolean_structure(graph, node, {}, {}, leaves)
+        bridges = proof_to_lean._leaf_bridges(graph, leaves)
+        rendered = sorted(proof_to_lean._render_structure(bridge) for bridge, _ in bridges)
+        self.assertEqual(len(rendered), 1 + 1 + 2)  # complement, scaling, the equality chain
+        self.assertIn("(Iff (formula_%d _atoms _vars) (Not (formula_%d _atoms _vars)))" % (
+            min(less, at_least), max(less, at_least)), rendered)
+        self.assertEqual(sum("Not" in bridge for bridge in rendered), 1)
+        for _, definitions in bridges:
+            self.assertTrue(all(name.startswith(("formula_", "term_")) for name in definitions))
+
+    def test_complementary_leaf_groups_are_joined_by_one_bridge(self):
+        # Two groups of two complementary leaves each: a chain through each
+        # group and one bridge between the groups' first leaves, which the
+        # chains carry to the other members.
+        source = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (or (< x y) (> y x) (>= x y) (<= y x)))
+(assert false)
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        (clause,) = [assertion for assertion in graph.assertions if graph.kind(assertion) == z3.Z3_OP_OR]
+        leaves = {}
+        proof_to_lean._boolean_structure(graph, clause, {}, {}, leaves)
+        self.assertEqual(len(leaves), 4)
+        self.assertEqual(len({proof_to_lean._leaf_key(graph, leaf)[0] for leaf in leaves}), 2)
+        bridges = [bridge for bridge, _ in proof_to_lean._leaf_bridges(graph, leaves)]
+        self.assertEqual(len(bridges), 1 + 1 + 1)
+        self.assertEqual(sum(bridge[2][0] == "not" for bridge in bridges), 1)
+        groups = {}
+        for leaf in sorted(leaves):
+            groups.setdefault(proof_to_lean._leaf_key(graph, leaf)[0], []).append(leaf)
+        first, second = sorted(groups.values())
+        self.assertEqual(sorted((bridge[1][1], bridge[2][1]) for bridge in bridges if bridge[2][0] != "not"),
+                         [tuple(first), tuple(second)])
+        (joint,) = [bridge for bridge in bridges if bridge[2][0] == "not"]
+        self.assertEqual((joint[1][1], joint[2][1][1]), (first[0], second[0]))
+
     def test_fragment_and_sort_consistency(self):
         source = LIA_INPUTS["lia_gomory"]
         for fragment in ("qf_lra", "qf_uflra"):
@@ -797,6 +968,62 @@ class TestIntegerValidation(unittest.TestCase):
             negative_source, proof_certificate.export_clause_log_certificate(negative_source))
         self.assertRegex(negative_text, r": Int := \(-\(term_\d+ _atoms _vars\)\)")
         self.assertRegex(negative_text, r": Int := \(\(term_\d+ _atoms _vars\) % \(term_\d+ _atoms _vars\)\)")
+
+    def test_rem_is_stated_at_its_numeral_divisor(self):
+        # Z3's rem is (ite (>= k 0) (mod t k) (- (mod t k))); at a numeral k
+        # Lean states it as t % k, or -(t % k) for a negative k, and each rem
+        # term reaches the certificate with its two axioms as arith hints.
+        source = LIA_INPUTS["lia_rem"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        declarations, nodes = certificate["declarations"], certificate["nodes"]
+        rem = next(index for index, d in enumerate(declarations) if d["kind"] == z3.Z3_OP_REM)
+        self.assertEqual((declarations[rem]["name"], declarations[rem]["domain"], declarations[rem]["range"]),
+                         ("rem", ["Int", "Int"], "Int"))
+
+        def rem_axiom(node):
+            clause = nodes[nodes[node]["arguments"][-1]]
+            return declarations[clause["declaration"]]["name"] == "or" and any(
+                declarations[nodes[literal]["declaration"]]["name"] == "="
+                and nodes[nodes[literal]["arguments"][0]]["declaration"] == rem for literal in clause["arguments"])
+
+        arith = [node for node in _th_lemma_nodes(certificate) if _parameters(certificate, node) == ["arith"]]
+        self.assertEqual(sum(map(rem_axiom, arith)), 4)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("-- Int rem by a numeral k is Z3's (ite (>= k 0) (mod t k) (- (mod t k)))", text)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        signs = []
+        for node in range(len(graph.nodes)):
+            if graph.kind(node) != z3.Z3_OP_REM:
+                continue
+            divisor = proof_to_lean._integer_divisor(graph, node)
+            signs.append(divisor > 0)
+            remainder = r"\(term_\d+ _atoms _vars\) % \(term_\d+ _atoms _vars\)"
+            self.assertRegex(text, r"def term_%d \(_atoms : Nat -> Prop\) \(_vars : Nat -> Int\) : Int := %s\n" % (
+                node, r"\(%s\)" % remainder if divisor > 0 else r"\(-\(%s\)\)" % remainder))
+        self.assertEqual(sorted(signs), [False, True])
+        rem_node = next(index for index, raw in enumerate(nodes) if raw["declaration"] == rem)
+        for mutate, message in [
+            (lambda c: c["declarations"][rem].update(name="mod"), "unsupported arithmetic declaration: mod"),
+            (lambda c: c["declarations"][rem].update(domain=["Int"]), "invalid arithmetic declaration arity"),
+            (lambda c: c["nodes"][rem_node]["arguments"].__setitem__(1, c["nodes"][rem_node]["arguments"][0]),
+             "integer rem by a nonconstant or zero"),
+            # mod for rem agrees with rem at a positive divisor, but the
+            # theorem would no longer state the input.
+            (lambda c: c["declarations"][rem].update(kind=z3.Z3_OP_MOD, name="mod"), "do not match the original input"),
+        ]:
+            tampered = copy.deepcopy(certificate)
+            mutate(tampered)
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, message):
+                    proof_to_lean.reconstruct(source, tampered)
+        # A Real certificate never declares rem.
+        from test_proof_to_lean_arith import Z3TEST_LRA_INPUTS
+        real_source = Z3TEST_LRA_INPUTS["lra_farkas"]
+        real = proof_certificate.export_clause_log_certificate(real_source)
+        addition = next(index for index, d in enumerate(real["declarations"]) if d["kind"] == z3.Z3_OP_ADD)
+        real["declarations"][addition].update(kind=z3.Z3_OP_REM, name="rem")
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported arithmetic declaration: rem"):
+            proof_to_lean.reconstruct(real_source, real)
 
     def test_legacy_axioms_resolve_with_true_and_dead_branches_may_divide_by_zero(self):
         # The legacy core states the div and mod axioms as (or false l) and
@@ -911,7 +1138,8 @@ class TestIntegerValidation(unittest.TestCase):
             (lambda c: c["nodes"][div_node]["arguments"].__setitem__(1, c["nodes"][div_node]["arguments"][0]),
              "integer div by a nonconstant or zero"),
             (lambda c: c["declarations"][div].update(kind=z3.Z3_OP_DIV, name="/"), "unsupported arithmetic declaration"),
-            (lambda c: c["declarations"][div].update(kind=z3.Z3_OP_REM, name="rem"), "unsupported arithmetic declaration"),
+            # rem is an Int operator too, but no longer the input's.
+            (lambda c: c["declarations"][div].update(kind=z3.Z3_OP_REM, name="rem"), "do not match the original input"),
             (lambda c: c["declarations"][mod].update(name="div"), "unsupported arithmetic declaration"),
             (lambda c: c["declarations"][div].update(domain=["Int"]), "invalid arithmetic declaration arity"),
             (lambda c: c["declarations"][div].update(domain=["Int", "Real"]), "arithmetic declarations take Int"),
@@ -936,12 +1164,18 @@ class TestIntegerValidation(unittest.TestCase):
         real["declarations"][addition].update(kind=z3.Z3_OP_IDIV, name="div")
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported arithmetic declaration: div"):
             proof_to_lean.reconstruct(real_source, real)
-        # The replay keys div and mod atoms by identity, so the arith axioms'
-        # literals are linear constraints over them.
+        # The replay keys div, mod, and rem atoms by identity, so the arith
+        # axioms' literals are linear constraints over them.
         context = z3.Context()
         x = z3.Int("x", context)
         relation, terms, constant = proof_clause_log._constraint(3 * (x / 3) + x % 3 == x)
         self.assertEqual((relation, constant, sorted(terms.values())), ("=", 0, [-1, 1, 3]))
+        remainder = z3.ArithRef(z3.Z3_mk_rem(context.ref(), x.as_ast(), z3.IntVal(-3, context).as_ast()), context)
+        relation, terms, constant = proof_clause_log._constraint(remainder == -(x % -3))
+        self.assertEqual((relation, constant, sorted(terms.values())), ("=", 0, [1, 1]))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "integer rem is supported only by a nonzero"):
+            proof_clause_log._constraint(
+                z3.ArithRef(z3.Z3_mk_rem(context.ref(), x.as_ast(), x.as_ast()), context) == x)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "nonzero constant"):
             proof_clause_log._constraint(x / 0 == x)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "nonzero constant"):
@@ -963,6 +1197,145 @@ class TestIntegerValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint without literals"):
             proof_clause_log.check_linear_hint("cut", [])
 
+    def test_farkas_multipliers_cancel_the_variables(self):
+        # Facts 0 <= form, form = (terms, constant); equalities hold both ways.
+        multipliers = proof_to_lean._farkas_multipliers
+        x, y = 1, 2
+        # x >= 1 and x <= 0: the hint's coefficients as they are.
+        self.assertEqual(multipliers([({x: 1}, -1), ({x: -1}, 0)], [1, 1], [False, False]), [1, 1])
+        # x <= -1 and 2x = 0: the equality's multiplier is solved for (its
+        # hint coefficient, 7, is ignored), here positive...
+        self.assertEqual(multipliers([({x: -1}, -1), ({x: 2}, 0)], [1, 7], [False, True]),
+                         [1, Fraction(1, 2)])
+        # ...and here negative (x >= 1 and x = 0): the caller turns it around.
+        self.assertEqual(multipliers([({x: 1}, -1), ({x: 1}, 0)], [1, 1], [False, True]), [1, -1])
+        # Through two equalities: x >= y + 1, x = 2y (0 <= 2y - x), y = 0 (0 <= y).
+        self.assertEqual(multipliers([({x: 1, y: -1}, -1), ({x: -1, y: 2}, 0), ({y: 1}, 0)], [3, 1, 1],
+                                     [False, True, True]), [3, 3, -3])
+        # Equalities inconsistent on their own (x = 0, x = 1) refute alone,
+        # whatever the inequalities: the combination's constant is -1.
+        self.assertEqual(multipliers([({y: 1}, 0), ({x: 1}, 0), ({x: 1}, -1)], [5, 1, 1], [False, True, True]),
+                         [0, -1, 1])
+        # A negative inequality coefficient, or variables that do not cancel, give nothing.
+        self.assertIsNone(multipliers([({x: 1}, -1), ({x: -1}, 0)], [1, -1], [False, False]))
+        self.assertIsNone(multipliers([({x: 1}, -1), ({y: -1}, 0)], [1, 1], [False, False]))
+
+    def test_wide_farkas_conflicts_with_large_coefficients_get_their_combination(self):
+        # At the shipped thresholds, the two 21-literal lemmas with seven- and
+        # eight-digit coefficients of QF_LIA cut_lemma_03_012 are proved by
+        # their combination first; its 3- and 4-literal lemmas are left to omega.
+        source = (_EXAMPLES / "data" / "QF_LIA_cut_lemma_03_012.smt2").read_text()
+        text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertEqual(text.count("have _sum : "), 2)
+
+    def test_split_certificates_refute_bounds_without_an_integer_point(self):
+        # Facts 0 <= form, form = (terms, constant); an equality holds both ways.
+        certificate = proof_to_lean._split_certificate
+        x, y = 1, 2
+        # 2x >= 1 and 2x <= 1 hold at x = 1/2: no combination refutes them,
+        # the split on x does, each side a combination with the split's fact.
+        split, bound, below, above = certificate([({x: 2}, -1), ({x: -2}, 1)], [False, False], 1)
+        self.assertEqual(set(split), {x})
+        self.assertTrue(all(multiplier >= 0 for multiplier in below + above))
+        # 2x = 2y + 1 (lia_gcd) as one equality, whose multipliers take any sign.
+        self.assertIsNotNone(certificate([({x: 2, y: -2}, -1)], [True]))
+        # Bounds with an integer point (x = 0 or 1), and the empty clause
+        # (no bound at all), have none.
+        self.assertIsNone(certificate([({x: 1}, 0), ({x: -1}, 1)], [False, False]))
+        self.assertIsNone(certificate([], []))
+        # A split with no atom is no split: 2x = 1 needs one.
+        self.assertIsNone(certificate([({x: 2}, -1), ({x: -2}, 1)], [False, False], 0))
+        # Nor is there one when z3 runs out of its budget.
+        with patch.object(proof_to_lean, "_SPLIT_RLIMIT", 1):
+            self.assertIsNone(certificate([({x: 2}, -1), ({x: -2}, 1)], [False, False]))
+        with patch.object(proof_to_lean, "_SPLIT_BOUNDED_RLIMIT", 1):
+            self.assertIsNone(certificate([({x: 2}, -1), ({x: -2}, 1)], [False, False], 1))
+        # Only an equality's fact may be summed with a negative multiplier.
+        bound = ("x", "y", False, "_h", False, ({x: -1, y: 1}, 1), set())
+        self.assertIsNone(proof_to_lean._combination_sum([bound], [Fraction(-1)]))
+        self.assertIsNotNone(proof_to_lean._combination_sum([bound[:4] + (True,) + bound[5:]], [Fraction(-1)]))
+
+    def test_lattice_lemmas_over_twenty_variables_get_a_split(self):
+        # QF_LIA cut_lemma_02_002 (z3test smtlib-sample, 2.6 KB): 188 cut,
+        # coefficient-free bound, and farkas lemmas over twenty variables,
+        # which omega and grind redo the search for (over a minute or six
+        # gigabytes each), and Farkas lemmas of 20 and 21 dense bounds with
+        # coefficients below _FARKAS_COMBINATION_COEFFICIENT, as costly
+        # through omega. Each lattice lemma gets a split (_split_combination),
+        # each wide Farkas lemma its combination, and the file is elaborated
+        # serially.
+        source = (_EXAMPLES / "data" / "QF_LIA_cut_lemma_02_002.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        lattice = [node for node in _th_lemma_nodes(certificate) if proof_to_lean._lattice_step(graph, node)]
+        wide = [node for node in _th_lemma_nodes(certificate) if proof_to_lean._combination_certified(graph, node)
+                and len(_parameters(certificate, node)) > proof_to_lean._FARKAS_COMBINATION_BOUNDS]
+        self.assertGreater(len(lattice), 100)
+        self.assertGreater(len(wide), 50)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("(Int.lt_or_le "), len(lattice))
+        self.assertEqual(text.count("have _sum : "), len(wide))
+        self.assertTrue(any(max(abs(Fraction(value)) for value in _parameters(certificate, node)[1:])
+                            < proof_to_lean._FARKAS_COMBINATION_COEFFICIENT for node in wide))
+        self.assertIn("set_option Elab.async false", text)
+        # The split states each side as a fact over the atoms: 0 <= s - (k + 1) and 0 <= k - s.
+        lemma = text.split("private theorem th_lemma_%d " % lattice[0], 1)[1].split("\n\n", 1)[0]
+        self.assertIn("  first\n    | (have _sum0 : ", lemma)
+        self.assertIn("\n       have _sum1 : ", lemma)
+        self.assertIn("(Int.sub_nonneg_of_le (Int.lt_iff_add_one_le.mp _s))", lemma)
+        self.assertIn("(Int.sub_nonneg_of_le _s)", lemma)
+
+
+@contextlib.contextmanager
+def _combination_only(test):
+    """Prove every Int farkas or bound th-lemma with coefficients by its direct combination alone.
+
+    However few its bounds and small its coefficients (_FARKAS_COMBINATION_BOUNDS
+    and _FARKAS_COMBINATION_COEFFICIENT are lowered), and with
+    the omega and unfolded alternatives dropped, so a combination that does
+    not elaborate fails the check instead of falling through to them.
+    Yields the list of the th-lemma nodes so proved.
+    """
+    original = proof_to_lean._grind_lemma
+    proved = []
+
+    def grind_lemma(graph, node, prefix, *arguments, structural=None, **options):
+        lines, term = original(graph, node, prefix, *arguments, structural=structural, **options)
+        if prefix == "th_lemma" and proof_to_lean._combination_certified(graph, node):
+            test.assertIsNotNone(structural, "th-lemma %d has no direct combination" % node)
+            lines = lines[:lines.index("  first")] + ["  " + line for line in structural]
+            proved.append(node)
+        return lines, term
+
+    with patch.object(proof_to_lean, "_grind_lemma", grind_lemma), \
+            patch.object(proof_to_lean, "_FARKAS_COMBINATION_BOUNDS", 0), \
+            patch.object(proof_to_lean, "_FARKAS_COMBINATION_COEFFICIENT", 0):
+        yield proved
+
+
+@contextlib.contextmanager
+def _split_only():
+    """Prove every Int lattice th-lemma that has a split (_split_combination) by it alone.
+
+    The generalized and unfolded alternatives are dropped, so a split that
+    does not elaborate fails the check instead of falling through to them.
+    Yields the lists of the lattice th-lemma nodes so proved and of all of them.
+    """
+    original = proof_to_lean._grind_lemma
+    proved, lattice = [], []
+
+    def grind_lemma(graph, node, prefix, *arguments, structural=None, **options):
+        lines, term = original(graph, node, prefix, *arguments, structural=structural, **options)
+        if prefix == "th_lemma" and proof_to_lean._lattice_step(graph, node):
+            lattice.append(node)
+            if structural is not None:
+                lines = lines[:lines.index("  first")] + ["  " + line for line in structural]
+                proved.append(node)
+        return lines, term
+
+    with patch.object(proof_to_lean, "_grind_lemma", grind_lemma):
+        yield proved, lattice
+
 
 class TestIntegerLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
@@ -977,6 +1350,11 @@ class TestIntegerLeanIntegration(unittest.TestCase):
             certificate = proof_certificate.export_clause_log_certificate(source)
         else:
             certificate = proof_certificate.export_certificate(source)
+        self.checked_text(source, certificate, core)
+        return certificate
+
+    def checked_text(self, source, certificate, core="clause-log"):
+        """Check the certificate's Lean file under the standard axioms and return its text."""
         self.assertEqual(certificate["fragment"], "qf_lia")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"
@@ -998,7 +1376,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                 # A legacy refutation by rewriting and resolution alone may
                 # need no axiom; otherwise the standard ones.
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
-            return certificate
+        return text
 
     def test_documented_lia_inputs_verify_under_the_standard_axioms(self):
         hints = set()
@@ -1012,7 +1390,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                     self.assertEqual(certificate["rule_counts"]["rewrite"], 1)
                 else:
                     self.assertIn("th-lemma", certificate["rule_counts"])
-                if name in ("lia_div", "lia_mod_sum", "lia_negative_divisor", "lia_div_sum"):
+                if name in ("lia_div", "lia_mod_sum", "lia_negative_divisor", "lia_div_sum", "lia_rem"):
                     self.assertIn("arith", _hints(certificate))
                 if name == "lia_mod_sum":
                     self.assertIn("cut", _hints(certificate))
@@ -1035,11 +1413,25 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                 hints |= _hints(self.check(source))
         self.assertLessEqual({"arith", "farkas", "bound", "cut", "euf"}, hints)
 
+    def test_pinned_remainder_instances_verify_on_both_cores(self):
+        hints = set()
+        for seed in REMAINDER_SEEDS:
+            source = random_remainder_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            for core in ("clause-log", "legacy"):
+                with self.subTest(seed=seed, core=core):
+                    certificate = self.check(source, core)
+                    self.assertIn("rem", {d["name"] for d in certificate["declarations"]})
+                    if core == "clause-log":
+                        hints |= _hints(certificate)
+        self.assertLessEqual({"arith", "farkas", "cut", "implied-eq"}, hints)
+
     def test_wide_division_instance_verifies_over_generalized_atoms(self):
         source = random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18)
         self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % WIDE_DIVISION_SEED)
         self.assertIn("(mod x4 -3)", source)
-        certificate = self.check(source)
+        with untrimmed_log():
+            certificate = self.check(source)
         self.assertLessEqual({"farkas", "bound", "cut"}, _hints(certificate))
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("rw [Int.emod_neg]; exact Int.emod_lt_of_pos _ (by decide)", text)
@@ -1082,6 +1474,143 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # The legacy core rewrites each abs term to its ite on its own.
         self.assertEqual(text.count("revert _e"), 12)
         self.assertRegex(text, r"private theorem rewrite_\d+ .*\n.*\n.*\n  first\n    \| \(have _e")
+
+    def test_bounded_model_checking_circuit_verifies_through_one_cnf_lemma(self):
+        # SMT-LIB QF_IDL Averest/buble_sort/BubbleSort_safe_bgmc007: one
+        # assertion, a 13,000-node Boolean circuit (and, or, not, iff over
+        # Boolean variables and a few difference bounds) that Z3 simplifies
+        # before logging, so the whole refutation rests on one cnf lemma
+        # tying an assumed clause to the assertion. Its propagation proof
+        # has about ten thousand steps: as one nested term it exhausted the
+        # heartbeats (first in the unfold of the 13,000 definitions, then in
+        # the term itself, which Lean elaborates in time quadratic in the
+        # nesting), and the export spent two minutes sorting nested keys.
+        # Now the proof is a tactic script naming the gates by their
+        # definitions, with nothing unfolded, and the whole file verifies
+        # (about a minute of Lean at a peak of about 4.5 GB resident: mind
+        # the runner's memory before adding a larger input).
+        source = (_EXAMPLES / "data" / "BubbleSort_safe_bgmc007.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = self.checked_text(source, certificate)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertEqual(len(cnf), 1)
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1)
+        self.assertGreater(len(graph.nodes), 13000)
+        lemma = text.split("private theorem th_lemma_%d " % cnf[0], 1)[1].split("\n\n", 1)[0]
+        head, _, attempts = lemma.partition("\n  first\n")
+        self.assertNotIn("unfold", head)
+        structural, fallback = attempts.split("\n    | (")
+        self.assertIn("refine Classical.byContradiction ?_\n       refine (fun (_f", structural)
+        self.assertGreater(structural.count("\n       have _f"), 5000)
+        self.assertNotIn("let _s", structural)
+        self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+        self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+
+    def test_nested_conjunction_model_checking_input_exports_with_few_solver_checks(self):
+        # SMT-LIB QF_IDL mathsat/fischer/FISCHER6-4-ninc: one assertion
+        # nesting a thousand ands (a CVC Lite translation). Seven assumed
+        # clauses are tied to it by the solver search, and each was checked
+        # for equivalence against all 1,743 conjuncts sharing a symbol before
+        # the whole assertion was found to imply it: 12,207 solver calls,
+        # each asserting a suffix of the conjunction, and a 459 s export.
+        # Only conjuncts over exactly the clause's symbols and leaf
+        # conjuncts over at least them are checked for equivalence now
+        # (_equivalence_candidates): 55 calls on single leaves, seven
+        # implications, a few seconds of export, and the certificate
+        # verifies in Lean.
+        source = (_EXAMPLES / "data" / "QF_IDL_FISCHER6-4-ninc.smt2").read_text()
+        calls = []
+        original = proof_clause_log._Replay._valid
+
+        def valid(replay, claim):
+            calls.append(claim.decl().kind())
+            return original(replay, claim)
+
+        with patch.object(proof_clause_log._Replay, "_valid", valid):
+            certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(calls.count(z3.Z3_OP_IMPLIES), 7)
+        self.assertLess(calls.count(z3.Z3_OP_EQ), 100)
+        self.assertEqual(len(calls), calls.count(z3.Z3_OP_IMPLIES) + calls.count(z3.Z3_OP_EQ))
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertEqual(len(cnf), 7)
+        self.checked_text(source, certificate)
+
+    def test_wide_farkas_conflicts_with_large_coefficients_verify(self):
+        # SMT-LIB QF_LIA cut_lemmas/20-vars/cut_lemma_03_012 (2.8 KB): two
+        # farkas lemmas of 21 literals over twenty variables with coefficients
+        # of seven and eight digits. omega, searching for the combination with all
+        # 21 bounds in scope, ran for ten minutes on each; the coefficients
+        # the reconstructor re-derived prove them in under a second.
+        source = (_EXAMPLES / "data" / "QF_LIA_cut_lemma_03_012.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        wide = [node for node in _th_lemma_nodes(certificate) if _parameters(certificate, node)[0] == "farkas"
+                and len(graph.clause(graph.conclusion(node))) > 20
+                and max(Fraction(value) for value in _parameters(certificate, node)[1:]) > 10 ** 6]
+        self.assertEqual(len(wide), 2)
+        with _combination_only(self) as proved:
+            text = self.checked_text(source, certificate)
+        self.assertTrue(set(wide) <= set(proved), (wide, proved))
+        self.assertEqual(text.count("have _sum : "), len(proved))
+
+    def test_farkas_lemmas_are_proved_by_their_combination_alone(self):
+        # Every Int farkas and bound th-lemma with coefficients of the
+        # documented inputs, through both cores (the legacy core states its
+        # premises as hypotheses, the clause log only a clause), and of a
+        # conflict among equalities alone (seed 26), is proved by the
+        # combination with no fallback behind it.
+        inputs = [(name, source, core) for name, source in LIA_INPUTS.items() for core in ("clause-log", "legacy")]
+        inputs.append(("random26", random_instance(26), "clause-log"))
+        proved_by_core = {"clause-log": 0, "legacy": 0}
+        for name, source, core in inputs:
+            with self.subTest(name=name, core=core), _combination_only(self) as proved:
+                self.check(source, core)
+                proved_by_core[core] += len(proved)
+        self.assertGreater(proved_by_core["clause-log"], 10)
+        self.assertGreater(proved_by_core["legacy"], 10)
+
+    def test_lattice_lemmas_are_proved_by_their_split_alone(self):
+        # Every cut, and coefficient-free farkas or bound, of the inputs below
+        # (gcd conflicts, cuts over mod atoms, the legacy core's unexplained
+        # LP conflicts with their premises) has a split, and Lean checks it
+        # with no fallback behind it.
+        inputs = [(name, LIA_INPUTS[name], "clause-log") for name in (
+            "lia_gcd", "lia_equality_elimination", "lia_mod_sum", "lia_lattice_conflict", "lia_lattice_bounds")]
+        inputs += [(name, LIA_INPUTS[name], "legacy") for name in LEGACY_UNSUPPORTED_INPUTS]
+        inputs += [("random%d" % seed, random_instance(seed), "clause-log") for seed in PINNED_SEEDS]
+        inputs += [("division%d" % seed, random_division_instance(seed), "clause-log") for seed in (19, 23)]
+        for name, source, core in inputs:
+            with self.subTest(name=name, core=core), _split_only() as (proved, lattice):
+                self.check(source, core)
+                self.assertTrue(lattice)
+                self.assertEqual(proved, lattice)
+
+    def test_cut_lemmas_over_twenty_variables_verify(self):
+        # QF_LIA cut_lemma_02_002 (see
+        # test_lattice_lemmas_over_twenty_variables_get_a_split) failed with
+        # Lean at 13 GB in under a minute; with its 188 lattice lemmas proved
+        # by their splits alone, its wide Farkas lemmas by their
+        # combinations, and serial elaboration, it peaks at 6.7 GB in under
+        # three minutes. Lean runs once here (self.check would run it twice).
+        source = (_EXAMPLES / "data" / "QF_LIA_cut_lemma_02_002.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        with _split_only() as (proved, lattice):
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertGreater(len(lattice), 100)
+        self.assertEqual(proved, lattice)
+        self.assertIn("\nset_option Elab.async false\n", text)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout[-5000:] + result.stderr[-5000:])
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, " ".join(result.stdout.split()))
 
     def test_arith_lemmas_over_real_atoms_verify(self):
         # The arith hint is accepted in Real certificates too, where grind
@@ -1295,6 +1824,7 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
     """End-to-end through the smt core's proof object: certificate, Lean reconstruction, kernel check."""
 
     check = TestIntegerLeanIntegration.check
+    checked_text = TestIntegerLeanIntegration.checked_text
 
     def test_documented_lia_inputs_verify_through_the_legacy_core(self):
         hints = set()

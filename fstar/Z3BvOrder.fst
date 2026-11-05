@@ -278,7 +278,8 @@ let lemma_split_rewrite (i:interpretation value) (rho:env value)
 let order_rewrite (e:expr) : option expr =
   match BV.unsigned_parts e with
   | Some c ->
-    if c.relation = BV.op_ult then Some (mk_not_expr (unsigned c.width BV.op_ule c.rhs c.lhs))
+    if c.lhs = c.rhs then Some (if c.relation = BV.op_ult then false_expr else true_expr)
+    else if c.relation = BV.op_ult then Some (mk_not_expr (unsigned c.width BV.op_ule c.rhs c.lhs))
     else if c.relation = BV.op_uge then Some (unsigned c.width BV.op_ule c.rhs c.lhs)
     else if BV.numeral c.lhs = Some (c.width, 0) then Some true_expr
     else (match W.parts c.lhs, W.parts c.rhs with
@@ -294,7 +295,8 @@ let lemma_order_rewrite (i:interpretation value) (rho:env value)
           (ensures eval i e rho == eval i result rho)
   = let c = Some?.v (BV.unsigned_parts e) in
     lemma_unsigned_parts i rho project e c;
-    if c.relation = BV.op_ult || c.relation = BV.op_uge then (
+    if c.lhs = c.rhs then ()
+    else if c.relation = BV.op_ult || c.relation = BV.op_uge then (
       lemma_unsigned_shape c.width BV.op_ule c.rhs c.lhs;
       lemma_unsigned_parts i rho project (unsigned c.width BV.op_ule c.rhs c.lhs)
         { BV.width = c.width; BV.relation = BV.op_ule; BV.lhs = c.rhs; BV.rhs = c.lhs };

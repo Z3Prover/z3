@@ -5,17 +5,18 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
-#include "ast/ast_util.h"
+#include "smt/smt_case_split_queue.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/proofs/proof_checker.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
-#include "sat/sat_solver/sat_smt_solver.h"
 #include "model/model.h"
+#include "qe/qsat.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -26,6 +27,51 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/smtlogics/smt_tactic.h"
 #include <cstring>
 #include <sstream>
+#include "ast/ast_util.h"
+#include "sat/sat_solver/sat_smt_solver.h"
+
+static void check_case_split_relevant_first() {
+    for (unsigned strategy : {0u, 1u, 2u}) {
+        for (unsigned relevancy : {0u, 2u}) {
+            for (unsigned setting : {0u, 1u, 2u}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                params_ref p;
+                p.set_bool("auto_config", false);
+                p.set_uint("case_split", strategy);
+                p.set_uint("relevancy", relevancy);
+                if (setting != 0)
+                    p.set_bool("case_split_relevant_first", setting == 2);
+                smt_params params;
+                params.updt_params(p);
+                params.m_random_var_freq = 0;
+                smt::context ctx(m, params, p);
+                ctx.push();
+                app_ref irrelevant(m.mk_const("irrelevant", m.mk_bool_sort()), m);
+                app_ref relevant(m.mk_const("relevant", m.mk_bool_sort()), m);
+                ctx.internalize(irrelevant, false);
+                ctx.internalize(relevant, false);
+                ctx.mark_as_relevant(relevant.get());
+                smt::bool_var vi = ctx.get_bool_var(irrelevant);
+                smt::bool_var vr = ctx.get_bool_var(relevant);
+                ctx.set_activity(vi, 2);
+                ctx.set_activity(vr, 1);
+                scoped_ptr<smt::case_split_queue> queue(smt::mk_case_split_queue(ctx, params));
+                queue->mk_var_eh(vi);
+                queue->mk_var_eh(vr);
+                bool relevant_first = setting == 2 && relevancy != 0;
+                smt::bool_var next;
+                lbool phase;
+                queue->next_case_split(next, phase);
+                VERIFY(next == (relevant_first ? vr : vi));
+                queue->next_case_split(next, phase);
+                VERIFY(next == (relevant_first ? vi : vr));
+                queue->next_case_split(next, phase);
+                VERIFY(next == smt::null_bool_var);
+            }
+        }
+    }
+}
 
 static void check_sat_smt_recfun(char const* input)
 {
@@ -613,6 +659,166 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_integer_power(bool euf) {
+    struct example { char const* input; lbool expected; };
+    example examples[] = {
+        {"(declare-const x Real)(assert (< x 0.0))"
+         "(assert (distinct (^ x (/ 1.0 2.0)) 0.0))", l_false},
+        {"(declare-const x Real)(assert (= x (- 8.0)))"
+         "(assert (= (^ x (/ 1.0 3.0)) (- 2.0)))", l_true},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x (- 1.0)))(assert (>= x (- 1.0)))"
+         "(assert (<= y (/ 1.0 2.0)))(assert (>= y (/ 1.0 2.0)))"
+         "(assert (distinct (^ x y) 0.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x (- 1.0)))(assert (>= x (- 1.0)))"
+         "(assert (<= y (/ 1.0 2.0)))(assert (>= y (/ 1.0 2.0)))"
+         "(assert (= (^ x y) 0.0))", l_true},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x (- 8.0)))(assert (>= x (- 8.0)))"
+         "(assert (<= y (/ (- 1.0) 3.0)))(assert (>= y (/ (- 1.0) 3.0)))"
+         "(assert (distinct (^ x y) (/ (- 1.0) 2.0)))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (< x 0.0))(assert (= (* y y) 2.0))"
+         "(assert (distinct (^ x y) 0.0))", l_false},
+        {"(assert (= (^ 0.0 0.0) 1.0))", l_true},
+        {"(assert (distinct (^ 0.0 0.0) 1.0))", l_false},
+        {"(declare-const x Real)(assert (distinct (^ x 0.0) 1.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x 0.0))(assert (>= x 0.0))"
+         "(assert (<= y 0.0))(assert (>= y 0.0))"
+         "(assert (distinct (^ x y) 1.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x 0.0))(assert (>= x 0.0))"
+         "(assert (<= y 0.0))(assert (>= y 0.0))"
+         "(assert (= (^ x y) 1.0))", l_true},
+        {"(set-logic QF_NIA)(assert (= (mod (** 2 (- 3)) 3) 0))", l_true},
+        {"(set-logic QF_NIA)(assert (= (** 0 0) 1))(assert (= (** 0 (- 3)) 0))"
+         "(assert (= (** (- 1) (- 3)) (- 1)))(assert (= (** (- 1) (- 4)) 1))"
+         "(assert (= (** 2 (- 1000000000000000000000000000000)) 0))"
+         "(assert (= (** (- 1) (- 1000000000000000000000000000000)) 1))", l_true},
+        {"(declare-const n Int)(assert (>= n 0))(assert (= (** 2 n) 3))", l_false},
+        {"(set-logic QF_NIA)(declare-const n Int)(assert (> n 10))(assert (= (** 2 n) 2048))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> x y))(assert (>= y 1))(assert (<= (** 2 x) (** 2 y)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
+         "(assert (= (** x y) (- 8)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
+         "(assert (= (** x y) 0))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> y 0))(assert (= (** 2 x) (** 3 y)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x 0))(assert (< y 0))(assert (= (** 2 x) (** 3 y)))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< y 0))(assert (= (** x y) 0))(assert (= (* x x) 1))", l_false},
+        {"(declare-const n Int)(declare-const f Int)(assert (>= n 1))"
+         "(assert (distinct (* (+ f n) (** 2 n))"
+         " (+ (* 2 (+ f n (- 1)) (** 2 (- n 1))) (** 2 n))))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> (* x x) 4))(assert (> (* y y) 4))"
+         "(assert (= (** (** x y) y) (** x (** y y))))", l_false},
+        {"(declare-const x Int)(assert (= (** x 0) 1))(assert (= x 0))", l_true},
+        {"(declare-const n Int)(declare-const r Real)"
+         "(assert (= (* r r) 2.0))(assert (> r 0.0))"
+         "(assert (>= n 1))(assert (<= n 4))(assert (= (** 2 n) 8))", l_true},
+        {"(declare-const n Int)(declare-const r Real)"
+         "(assert (= (* r r) 2.0))(assert (> r 0.0))"
+         "(assert (>= n 1))(assert (<= n 4))(assert (= (** 2 n) 3))", l_false},
+    };
+    for (auto const& example : examples) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(example.input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_uint("timeout", 10000);
+        if (euf) {
+            p.set_bool("smt", true);
+            p.set_bool("euf", true);
+        }
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        lbool result = slv->check_sat(0, nullptr);
+        if (result != example.expected) {
+            std::cerr << "integer power: " << example.input << "\nresult: " << result
+                      << "\nreason: " << slv->reason_unknown() << "\n";
+            statistics st;
+            slv->collect_statistics(st);
+            std::cerr << st << "\n";
+        }
+        ENSURE(result == example.expected);
+        if (result == l_true) {
+            model_ref mdl;
+            slv->get_model(mdl);
+            for (expr* assertion : cmd.assertions()) {
+                expr_ref value(m);
+                ENSURE(mdl->eval_expr(assertion, value, true) && m.is_true(value));
+            }
+        }
+        slv->push();
+        slv->assert_expr(m.mk_false());
+        ENSURE(slv->check_sat(0, nullptr) == l_false);
+        slv->pop(1);
+        ENSURE(slv->check_sat(0, nullptr) == example.expected);
+    }
+    {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+        expr_ref p(m.mk_const(symbol("p"), m.mk_bool_sort()), m);
+        expr_ref q(m.mk_const(symbol("q"), m.mk_bool_sort()), m);
+        expr_ref ten(a.mk_int(10), m), two(a.mk_int(2), m), target(a.mk_int(2048), m);
+        expr_ref positive(a.mk_gt(n, ten), m), power(a.mk_power(two, n), m);
+        expr_ref equality(m.mk_eq(power, target), m), witness(m.mk_and(positive, equality), m);
+        expr_ref zero(a.mk_int(0), m), negative(a.mk_lt(n, zero), m);
+        expr_ref first(m.mk_implies(p, witness), m), second(m.mk_implies(q, negative), m);
+        params_ref params;
+        params.set_bool("unsat_core", true);
+        if (euf) {
+            params.set_bool("smt", true);
+            params.set_bool("euf", true);
+        }
+        ref<solver> slv = mk_smt2_solver(m, params, symbol::null);
+        slv->assert_expr(first);
+        slv->assert_expr(second);
+        expr* assumptions[] = {p, q};
+        ENSURE(slv->check_sat(1, assumptions) == l_true);
+        ENSURE(slv->check_sat(2, assumptions) == l_false);
+        expr_ref_vector core(m);
+        slv->get_unsat_core(core);
+        ENSURE(core.size() == 2 && core.contains(p) && core.contains(q));
+        params.set_uint("rlimit", 20);
+        slv->updt_params(params);
+        ENSURE(slv->check_sat(1, assumptions) != l_false);
+        params.set_uint("rlimit", 0);
+        slv->updt_params(params);
+        ENSURE(slv->check_sat(1, assumptions) == l_true);
+
+        params.set_bool("core.minimize", true);
+        slv = mk_smt2_solver(m, params, symbol::null);
+        expr_ref one(a.mk_int(1), m);
+        positive = a.mk_ge(n, one);
+        expr_ref is_one(m.mk_eq(n, one), m);
+        expr_ref not_one(m.mk_not(is_one), m);
+        first = m.mk_implies(p, positive);
+        second = m.mk_implies(q, not_one);
+        slv->assert_expr(first);
+        slv->assert_expr(second);
+        slv->assert_expr(a.mk_gt(power, zero));
+        ENSURE(slv->check_sat(2, assumptions) == l_true);
+        model_ref mdl;
+        slv->get_model(mdl);
+        expr_ref result(m);
+        ENSURE(mdl->eval_expr(p, result, true) && m.is_true(result));
+        ENSURE(mdl->eval_expr(q, result, true) && m.is_true(result));
+    }
+}
+
 static void check_special_relation_logic() {
     for (char const* logic : {"UFDTLIA", "ALL", ""}) {
         for (bool external : {false, true}) {
@@ -638,6 +844,150 @@ static void check_special_relation_logic() {
                 ENSURE(assertion->get_family_id() ==
                        (restricted ? null_family_id : cmd.m().get_family_id("specrels")));
             }
+        }
+    }
+}
+
+static void check_qsat_proofs() {
+    struct {
+        char const* input;
+        lbool expected;
+        bool quantified = false;
+    } cases[] = {
+        {"(declare-fun a () (Array Int (Array Int Int)))\n"
+         "(assert (= a (store a 0 (store (select a 0) 0 0))))\n", l_true},
+        {"(declare-const x Int)\n"
+         "(assert (> x 0))\n"
+         "(assert (< x 0))\n", l_false},
+        {"(assert (forall ((a Real)) (exists ((b Real))\n"
+         " (and (>= (+ a b) 0.0) (<= b 0.0)))))\n", l_false, true}
+    };
+    for (bool proofs : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(test.input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            tactic_ref t = mk_qsat_tactic(m, params_ref());
+            goal_ref g = alloc(goal, m, proofs, true, false);
+            for (expr* a : cmd.assertions())
+                g->assert_expr(a);
+            model_ref md;
+            labels_vec labels;
+            proof_ref pr(m);
+            expr_dependency_ref core(m);
+            std::string reason_unknown;
+            lbool expected = proofs && test.quantified ? l_undef : test.expected;
+            VERIFY(expected == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+            if (expected == l_undef) {
+                VERIFY(reason_unknown == "qsat does not support proof production");
+                VERIFY(!pr);
+            }
+            else if (expected == l_true) {
+                VERIFY(md);
+                for (expr* a : cmd.assertions()) {
+                    expr_ref value(m);
+                    VERIFY(md->eval_expr(a, value) && m.is_true(value));
+                }
+            }
+            else if (proofs) {
+                VERIFY(pr && m.is_false(m.get_fact(pr)));
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(checker.check(pr, side_conditions));
+            }
+        }
+    }
+}
+
+static void check_qe_rec_proofs() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const p Bool)\n"
+            "(assert (not (exists ((x Int)) p)))\n"
+            "(assert p)\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        tactic_ref t = mk_qe_rec_tactic(m, params_ref());
+        goal_ref g = alloc(goal, m, proofs, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        tactic_ref solve = proofs ? t.get() : and_then(t.get(), mk_smt_tactic(m));
+        VERIFY(l_false == check_sat(*solve, g, md, labels, pr, core, reason_unknown));
+        if (proofs) {
+            VERIFY(pr && m.is_false(m.get_fact(pr)));
+            proof_checker checker(m);
+            expr_ref_vector side_conditions(m);
+            VERIFY(checker.check(pr, side_conditions));
+        }
+
+        std::istringstream quantified(
+            "(assert (forall ((a Real)) (exists ((b Real))\n"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))\n");
+        cmd.reset_assertions();
+        VERIFY(parse_smt2_commands(cmd, quantified));
+        g = alloc(goal, m, proofs, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        if (proofs) {
+            VERIFY(l_undef == check_sat(*t, g, md, labels, pr, core, reason_unknown));
+            VERIFY(reason_unknown == "qsat does not support proof production");
+            VERIFY(!pr);
+        }
+        else {
+            goal_ref_buffer result;
+            (*t)(g, result);
+            VERIFY(result.size() == 1);
+            for (unsigned i = 0; i < result[0]->size(); ++i)
+                VERIFY(!has_quantifiers(result[0]->form(i)));
+        }
+    }
+}
+
+static void check_intblast_signed_mod() {
+    for (int x = 0; x < 8; ++x) {
+        for (int y = 0; y < 8; ++y) {
+            int sx = x < 4 ? x : x - 8;
+            int sy = y < 4 ? y : y - 8;
+            int expected = sx;
+            if (sy != 0) {
+                expected = sx % sy;
+                if (expected != 0 && (expected < 0) != (sy < 0))
+                    expected += sy;
+            }
+            expected = (expected + 8) % 8;
+            std::ostringstream spec;
+            spec << "(declare-const x (_ BitVec 3))\n"
+                 << "(declare-const y (_ BitVec 3))\n"
+                 << "(assert (bvule (_ bv" << x << " 3) x))\n"
+                 << "(assert (bvule x (_ bv" << x << " 3)))\n"
+                 << "(assert (bvule (_ bv" << y << " 3) y))\n"
+                 << "(assert (bvule y (_ bv" << y << " 3)))\n"
+                 << "(assert (= (ubv_to_int (bvsmod x y)) " << expected << "))\n";
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(spec.str());
+            ENSURE(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_uint("bv.solver", 2);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i + 1 < cmd.assertions().size(); ++i)
+                slv->assert_expr(cmd.assertions()[i]);
+            slv->push();
+            slv->assert_expr(m.mk_not(cmd.assertions().back()));
+            ENSURE(l_false == slv->check_sat(0, nullptr));
+            slv->pop(1);
+            slv->assert_expr(cmd.assertions().back());
+            ENSURE(l_true == slv->check_sat(0, nullptr));
         }
     }
 }
@@ -793,6 +1143,12 @@ void tst_smt_context()
 {
     check_sat_smt_array_beta_proof();
     check_mbqi_function_instances();
+    check_integer_power(false);
+    check_integer_power(true);
+    check_case_split_relevant_first();
+    check_intblast_signed_mod();
+    check_qsat_proofs();
+    check_qe_rec_proofs();
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
     check_recfun_rlimits();

@@ -187,8 +187,8 @@ steps:
     timeout-minutes: 40
     env:
       OPAMROOT: /tmp/gh-aw/opam
-      FSTAR_SHA256: cafbbb8960efeb26f5d30bc447b61ab8a507968948507a2580585afd1397781d
-      CHERRY_SHA256: 396bf9063bf9261b2e353d725c63666cda68e0d17c5d787ebe3d9a63913f7ec7
+      FSTAR_SHA256: a716153960545bc26b9d093f55614fedc716a202e4daa1665e5c63e4a2fb04e4
+      CHERRY_SHA256: 7910823f077f66d516d6901fafc78659a3c6a8f300caa7981cc56809a9f37994
     run: |
       set -euo pipefail
       sudo apt-get update -y
@@ -197,13 +197,13 @@ steps:
       sudo apt-get update -y
       sudo apt-get install -y cmake ninja-build g++ gcc-15 g++-15 libgmp-dev opam pkg-config python3 curl
       curl --fail --location --retry 3 \
-        https://github.com/FStarLang/FStar/releases/download/v2026.09.27/fstar-v2026.09.27-Linux-x86_64.tar.gz \
+        https://github.com/FStarLang/FStar/releases/download/v2026.10.25/fstar-v2026.10.25-Linux-x86_64.tar.gz \
         --output "$RUNNER_TEMP/fstar.tar.gz"
       printf '%s  %s\n' "$FSTAR_SHA256" "$RUNNER_TEMP/fstar.tar.gz" | sha256sum --check
       mkdir -p /tmp/gh-aw/fstar
       tar -xzf "$RUNNER_TEMP/fstar.tar.gz" -C /tmp/gh-aw/fstar --strip-components=2
       curl --fail --location --retry 3 \
-        https://github.com/FStarLang/FStar-nightly/releases/download/nightly-2026-10-23/fstar-Linux-x86_64.tar.gz \
+        https://github.com/FStarLang/FStar-nightly/releases/download/nightly-2026-10-30/fstar-Linux-x86_64.tar.gz \
         --output "$RUNNER_TEMP/cherry.tar.gz"
       printf '%s  %s\n' "$CHERRY_SHA256" "$RUNNER_TEMP/cherry.tar.gz" | sha256sum --check
       mkdir -p /tmp/gh-aw/fstar-cherry

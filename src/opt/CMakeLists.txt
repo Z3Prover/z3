@@ -6,7 +6,9 @@ z3_add_component(z3_opt
     opt_cmds.cpp
     opt_context.cpp
     opt_cores.cpp
+    opt_curve_certificate.cpp
     opt_lns.cpp
+    opt_lp_relaxation.cpp
     opt_nlsat.cpp
     opt_pareto.cpp
     opt_pareto_solver.cpp

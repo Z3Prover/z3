@@ -679,8 +679,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a fresh function declaration with a name prefixed with
      * {@code prefix}. 
-     * @see #mkFuncDecl(String,Sort,Sort)
-     * @see #mkFuncDecl(String,Sort[],Sort)
+     * @see Context#mkFuncDecl
      **/
     public final <R extends Sort> FuncDecl<R> mkFreshFuncDecl(String prefix, Sort[] domain, R range)
 
@@ -712,8 +711,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates a fresh constant function declaration with a name prefixed with
      * {@code prefix}. 
-     * @see #mkFuncDecl(String,Sort,Sort)
-     * @see #mkFuncDecl(String,Sort[],Sort)
+     * @see Context#mkFuncDecl
      **/
     public final <R extends Sort> FuncDecl<R> mkFreshConstDecl(String prefix, R range)
 
@@ -1933,8 +1931,8 @@ public class Context implements AutoCloseable {
      * {@code [domain -> range]}, and {@code i} must have the sort
      * {@code domain}. The sort of the result is {@code range}.
      *
-     * @see #mkArraySort(Sort[], R)
-     * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
+     * @see Context#mkArraySort
+     * @see Context#mkStore
      **/
     public final <D extends Sort, R extends Sort> Expr<R> mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
     {
@@ -1955,8 +1953,8 @@ public class Context implements AutoCloseable {
      * {@code [domains -> range]}, and {@code args} must have the sorts
      * {@code domains}. The sort of the result is {@code range}.
      *
-     * @see #mkArraySort(Sort[], R)
-     * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
+     * @see Context#mkArraySort
+     * @see Context#mkStore
      **/
     public final <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<Sort, R>> a, Expr<?>[] args)
     {
@@ -1979,8 +1977,8 @@ public class Context implements AutoCloseable {
      * {@code select}) on all indices except for {@code i}, where it
      * maps to {@code v} (and the {@code select} of {@code a}
      * with respect to {@code i} may be a different value). 
-     * @see #mkArraySort(Sort[], R)
-     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
+     * @see Context#mkArraySort
+     * @see Context#mkSelect
 
      **/
     public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
@@ -2004,8 +2002,8 @@ public class Context implements AutoCloseable {
      * {@code select}) on all indices except for {@code args}, where it
      * maps to {@code v} (and the {@code select} of {@code a}
      * with respect to {@code args} may be a different value). 
-     * @see #mkArraySort(Sort[], R)
-     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
+     * @see Context#mkArraySort
+     * @see Context#mkSelect
 
      **/
     public final <R extends Sort> ArrayExpr<Sort, R> mkStore(Expr<ArraySort<Sort, R>> a, Expr<?>[] args, Expr<R> v)
@@ -2022,8 +2020,8 @@ public class Context implements AutoCloseable {
      * Remarks:  The resulting term is an array, such
      * that a {@code select} on an arbitrary index produces the value
      * {@code v}. 
-     * @see #mkArraySort(Sort[], R)
-     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
+     * @see Context#mkArraySort
+     * @see Context#mkSelect
      *
      **/
     public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkConstArray(D domain, Expr<R> v)
@@ -2042,9 +2040,9 @@ public class Context implements AutoCloseable {
      * {@code f} must have type {@code  range_1 .. range_n -> range}.
      * {@code v} must have sort range. The sort of the result is
      * {@code [domain_i -> range]}. 
-     * @see #mkArraySort(Sort[], R)
-     * @see #mkSelect(Expr<ArraySort<D, R>> a, Expr<D> i)
-     * @see #mkStore(Expr<ArraySort<D, R>> a, Expr<D> i, Expr<R> v)
+     * @see Context#mkArraySort
+     * @see Context#mkSelect
+     * @see Context#mkStore
 
      **/
     @SafeVarargs
@@ -2074,8 +2072,8 @@ public class Context implements AutoCloseable {
      * Create an as-array expression from a function declaration.
      * @param f the function declaration to lift into an array.
      *          Must have exactly one domain sort.
-     * @see #mkTermArray(Expr)
-     * @see #mkMap(FuncDecl, Expr[])
+     * @see Context#mkTermArray
+     * @see Context#mkMap
      **/
     public final <D extends Sort, R extends Sort> ArrayExpr<D, R> mkAsArray(FuncDecl<R> f)
     {
@@ -2930,7 +2928,7 @@ public class Context implements AutoCloseable {
      *
      * @return A Term with value {@code num}/{@code den}
      *         and sort Real 
-     * @see #mkNumeral(String v, R ty)
+     * @see Context#mkNumeral
      **/
     public RatNum mkReal(int num, int den)
     {
@@ -3066,11 +3064,12 @@ public class Context implements AutoCloseable {
      * 'names' of the bound variables, and {@code body} is the body
      * of the quantifier. Quantifiers are associated with weights indicating the
      * importance of using the quantifier during instantiation.
-     * Note that the bound variables are de-Bruijn indices created using {#mkBound}.
+     * Note that the bound variables are de-Bruijn indices created using {@code mkBound}.
      * Z3 applies the convention that the last element in {@code names} and 
      * {@code sorts} refers to the variable with index 0, the second to last element 
      * of {@code names} and {@code sorts} refers to the variable 
      * with index 1, etc. 
+     * @see Context#mkBound
      **/
     public Quantifier mkForall(Sort[] sorts, Symbol[] names, Expr<BoolSort> body,
                                int weight, Pattern[] patterns, Expr<?>[] noPatterns,
@@ -3082,7 +3081,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates a universal quantifier using a list of constants that will form the set of bound variables. 
-     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
+     * @see Context#mkForall
      **/
     public Quantifier mkForall(Expr<?>[] boundConstants, Expr<BoolSort> body, int weight,
                                Pattern[] patterns, Expr<?>[] noPatterns, Symbol quantifierID,
@@ -3095,7 +3094,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates an existential quantifier using de-Bruijn indexed variables.
-     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
+     * @see Context#mkForall
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr<BoolSort> body,
                                int weight, Pattern[] patterns, Expr<?>[] noPatterns,
@@ -3108,7 +3107,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates an existential quantifier using a list of constants that will form the set of bound variables. 
-     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
+     * @see Context#mkForall
      **/
     public Quantifier mkExists(Expr<?>[] boundConstants, Expr<BoolSort> body, int weight,
                                Pattern[] patterns, Expr<?>[] noPatterns, Symbol quantifierID,
@@ -3121,7 +3120,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a Quantifier.
-     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
+     * @see Context#mkForall
      **/
     public Quantifier mkQuantifier(boolean universal, Sort[] sorts,
                                    Symbol[] names, Expr<BoolSort> body, int weight, Pattern[] patterns,
@@ -3139,7 +3138,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a Quantifier
-     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
+     * @see Context#mkForall
      **/
     public Quantifier mkQuantifier(boolean universal, Expr<?>[] boundConstants,
                                    Expr<BoolSort> body, int weight, Pattern[] patterns, Expr<?>[] noPatterns,
@@ -3161,7 +3160,7 @@ public class Context implements AutoCloseable {
      * with the sorts of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body of the
      * lambda. 
-     * Note that the bound variables are de-Bruijn indices created using {#mkBound}
+     * Note that the bound variables are de-Bruijn indices created using {@code mkBound}
      * Z3 applies the convention that the last element in {@code names} and
      * {@code sorts} refers to the variable with index 0, the second to last element
      * of {@code names} and {@code sorts} refers to the variable
@@ -3170,6 +3169,7 @@ public class Context implements AutoCloseable {
      * @param sorts the sorts of the bound variables.
      * @param names names of the bound variables.
      * @param body the body of the quantifier.
+     * @see Context#mkBound
      **/
      public final <R extends Sort> Lambda<R> mkLambda(Sort[] sorts, Symbol[] names, Expr<R> body)
      {
@@ -3258,7 +3258,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Parse the given file using the SMT-LIB2 parser. 
-     * @see #parseSMTLIB2String
+     * @see Context#parseSMTLIB2String
      **/
     public BoolExpr[] parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl<?>[] decls)
@@ -3867,7 +3867,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates a new (incremental) solver. 
-     * @see #mkSolver(Symbol)
+     * @see Context#mkSolver
      **/
     public Solver mkSolver(String logic)
     {
@@ -4592,17 +4592,17 @@ public class Context implements AutoCloseable {
      * @param rm RoundingMode term.
      * @param t term of bit-vector sort.
      * @param s FloatingPoint sort.
-     * @param signed flag indicating whether t is interpreted as signed or unsigned bit-vector.
+     * @param isSigned flag indicating whether t is interpreted as signed or unsigned bit-vector.
      * Remarks:
      * Produces a term that represents the conversion of the bit-vector term t into a
      * floating-point term of sort s. The bit-vector t is taken to be in signed 
-     * 2's complement format (when signed==true, otherwise unsigned). If necessary, the 
+     * 2's complement format (when isSigned==true, otherwise unsigned). If necessary, the
      * result will be rounded according to rounding mode rm.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(Expr<FPRMSort> rm, Expr<BitVecSort> t, FPSort s, boolean signed)
+    public FPExpr mkFPToFP(Expr<FPRMSort> rm, Expr<BitVecSort> t, FPSort s, boolean isSigned)
     {
-        if (signed)
+        if (isSigned)
             return new FPExpr(this, Native.mkFpaToFpSigned(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
         else
             return new FPExpr(this, Native.mkFpaToFpUnsigned(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
@@ -4628,16 +4628,16 @@ public class Context implements AutoCloseable {
      * @param rm RoundingMode term.
      * @param t FloatingPoint term
      * @param sz Size of the resulting bit-vector.
-     * @param signed Indicates whether the result is a signed or unsigned bit-vector.
+     * @param isSigned Indicates whether the result is a signed or unsigned bit-vector.
      * Remarks:
      * Produces a term that represents the conversion of the floating-point term t into a
-     * bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary, 
+     * bit-vector term of size sz in 2's complement format (signed when isSigned==true). If necessary,
      * the result will be rounded according to rounding mode rm.        
      * @throws Z3Exception
      **/
-    public BitVecExpr mkFPToBV(Expr<FPRMSort> rm, Expr<FPSort> t, int sz, boolean signed)
+    public BitVecExpr mkFPToBV(Expr<FPRMSort> rm, Expr<FPSort> t, int sz, boolean isSigned)
     {
-        if (signed)
+        if (isSigned)
             return new BitVecExpr(this, Native.mkFpaToSbv(nCtx(), rm.getNativeObject(), t.getNativeObject(), sz));
         else
             return new BitVecExpr(this, Native.mkFpaToUbv(nCtx(), rm.getNativeObject(), t.getNativeObject(), sz));
@@ -4795,7 +4795,7 @@ public class Context implements AutoCloseable {
      * must be a native object obtained from Z3 (e.g., through 
      * {@code UnwrapAST}) and that it must have a correct reference count.
      * @see Native#incRef
-     * @see #unwrapAST
+     * @see Context#unwrapAST
      * @param nativeObject The native pointer to wrap.
      **/
     public AST wrapAST(long nativeObject)
@@ -4812,7 +4812,7 @@ public class Context implements AutoCloseable {
      * that is returned must be handled externally and through native calls (see
      * e.g., 
      * @see Native#incRef
-     * @see #wrapAST
+     * @see Context#wrapAST
      * @param a The AST to unwrap.
      **/
     public long unwrapAST(AST a)

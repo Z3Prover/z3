@@ -244,7 +244,12 @@ let rec lemma_linearize (fuel:nat) (e:expr) (p:A.poly)
               | None -> ())
            | A.Sub, _ -> lemma_subtract ps xs p r
            | A.Div, [a; b] ->
-             (match xs with [x; y] -> lemma_divide a b p x y (nu (eval i e rho)) r | _ -> ())
+             (match A.divide a b with
+              | Some q ->
+                (match xs with
+                 | [x; y] -> lemma_divide a b q x y (nu (eval i e rho)) r
+                 | _ -> ())
+              | None -> ())
            | A.ToReal, [_] -> ()
            | _, _ -> ()))
      | _ -> ())

@@ -23,3 +23,7 @@ void checker_drop_asts(Prims_list__ast value) {
 void checker_drop_result(FStar_Pervasives_Native_option__int value) {
     cherry_dec_FStar_Pervasives_Native_option__int(value);
 }
+
+void checker_drop_ff_pac(FStar_Pervasives_Native_option__ff_pac_view value) {
+    cherry_dec_FStar_Pervasives_Native_option__ff_pac_view(value);
+}

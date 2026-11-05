@@ -1,0 +1,4 @@
+VerCors 2.4.0, backend silicon (bundled Z3), Java as in runner.
+Command: timeout 120 /tmp/gh-aw/vercors/vercors --lang cpp --backend silicon --dev-total-timeout 60 /tmp/gh-aw/agent/fresh/Diff.cpp
+Earlier attempts failed on annotation syntax (resource used as boolean; fixed by using ** and ;). 
+Final fresh-dir run: [INFO] Verification completed successfully. exit 0 (duration 42s). Only trigger warnings emitted.

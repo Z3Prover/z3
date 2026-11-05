@@ -27,6 +27,21 @@ let atoms (symbols:list func_decl) : list expr =
 let source (r:reconstruction) : expr = App r.original []
 let word (r:reconstruction) : expr = App r.constructor (atoms r.symbols)
 
+let rec bit_definitions (width:pos) (original:expr) (start:nat) (symbols:list func_decl)
+  : Tot (list D.definition) (decreases symbols) =
+  match symbols with
+  | [] -> []
+  | f :: rest ->
+    { D.symbol = f; D.variables = []; D.body = W.projection width original start } ::
+      bit_definitions width original (start + 1) rest
+
+let rec projection_definitions (rs:list reconstruction)
+  : Tot (list D.definition) (decreases rs) =
+  match rs with
+  | [] -> []
+  | r :: rest ->
+    L.append (bit_definitions r.width (source r) 0 r.symbols) (projection_definitions rest)
+
 let rec witnesses (start:nat) (symbols:list func_decl)
   : Tot (list SK.witness) (decreases symbols) =
   match symbols with
@@ -88,17 +103,16 @@ let rec lookup (f:func_decl) (symbols:list func_decl) (n:nat)
   | g :: rest -> if f = g then Some (n % 2 <> 0) else lookup f rest (n / 2)
 
 let number (r:reconstruction) (i:interpretation value) (project:pos -> value -> int)
-  : U.uint_t r.width =
+  : GTot (U.uint_t r.width) =
   U.to_uint_t r.width (project r.width (eval i (source r) (fun _ -> VInt 0)))
 
 (* Only nullary fresh Boolean applications are changed. *)
 let extend (r:reconstruction) (i:interpretation value) (project:pos -> value -> int)
   : interpretation value =
-  let n = number r i project in
   { i with uninterp_app = (fun f vs ->
       match vs with
       | [] ->
-        (match lookup f r.symbols n with
+        (match lookup f r.symbols (number r i project) with
          | Some b -> VBool b
          | None -> i.uninterp_app f vs)
       | _ -> i.uninterp_app f vs) }

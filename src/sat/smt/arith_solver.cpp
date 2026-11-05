@@ -27,6 +27,7 @@ namespace arith {
         m_resource_limit(*this),
         m_bp(*this, m_implied_bounds),
         a(m),
+        m_swine(m),
         m_bound_terms(m),
         m_bound_predicate(m)
     {
@@ -76,6 +77,9 @@ namespace arith {
                 result->m_new_bounds.push_back(b2);
             }
         }
+
+        for (expr* e : m_power_terms)
+            result->m_power_terms.push_back(ctx.copy(dst_ctx, ctx.get_enode(e))->get_expr());
 
         // clone rows into m_solver, m_nla, m_lia
         // NOT_IMPLEMENTED_YET();
@@ -859,11 +863,11 @@ namespace arith {
     }
 
     void solver::init_model() {
+        m_model_is_initialized = false;
         if (m.inc() && m_solver.get() && get_num_vars() > 0) {
             TRACE(arith, display(tout << "update variable values\n"););
             ctx.push(value_trail<bool>(m_model_is_initialized));
-            m_model_is_initialized = true;
-            lp().init_model();
+            m_model_is_initialized = lp().init_model();
         }
     }
 
@@ -1030,6 +1034,122 @@ namespace arith {
         }
     }
 
+    void solver::add_assumptions(sat::literal_set& assumptions) {
+        ptr_vector<expr> powers;
+        for (expr* e : m_power_terms)
+            if (a.is_int(e))
+                powers.push_back(e);
+        expr_ref_vector extra(m), lemmas(m);
+        m_swine.add_assumptions(powers, extra, lemmas);
+        for (expr* lemma : lemmas)
+            add_unit(mk_literal(lemma));
+        for (expr* assumption : extra) {
+            literal lit = mk_literal(assumption);
+            assumptions.insert(lit);
+            s().assign_scoped(lit);
+        }
+    }
+
+    bool solver::should_research(sat::literal_vector const& core) {
+        expr_ref_vector expressions(m);
+        for (literal lit : core) {
+            expr_ref e = ctx.literal2expr(lit);
+            if (e)
+                expressions.push_back(e);
+        }
+        return m_swine.should_research(expressions);
+    }
+
+    bool solver::get_power_value(expr* e, rational& value) {
+        SASSERT(a.is_int(e));
+        if (a.is_numeral(e, value))
+            return true;
+        bool nra_model = use_nra_model();
+        // NRA values do not require LP model initialization.
+        if (!nra_model && !m_model_is_initialized)
+            return false;
+        enode* n = ctx.get_enode(e);
+        if (!n)
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (!is_registered_var(v))
+            return false;
+        if (nra_model) {
+            auto& am = m_nla->am();
+            auto const& av = nl_value(v, m_nla->tmp1());
+            return am.to_rational(av, value) && value.is_int();
+        }
+        value = get_value(v);
+        return value.is_int();
+    }
+
+    sat::check_result solver::check_integer_powers() {
+        ptr_vector<expr> powers;
+        for (expr* e : m_power_terms)
+            if (a.is_int(e) && ctx.is_relevant(ctx.get_enode(e)))
+                powers.push_back(e);
+        expr_ref_vector lemmas(m);
+        auto value = [&](expr* e, rational& v) { return get_power_value(e, v); };
+        switch (m_swine.check(powers, value, lemmas)) {
+        case l_true:
+            return sat::check_result::CR_DONE;
+        case l_false:
+            for (expr* lemma : lemmas)
+                add_unit(mk_literal(lemma));
+            return sat::check_result::CR_CONTINUE;
+        default:
+            return sat::check_result::CR_GIVEUP;
+        }
+    }
+
+    bool solver::get_real_power_value(expr* e, expr_ref& value) {
+        if (a.is_numeral(e) || a.is_irrational_algebraic_numeral(e)) {
+            value = e;
+            return true;
+        }
+        bool nra_model = use_nra_model();
+        if (!nra_model && !m_model_is_initialized)
+            return false;
+        enode* n = ctx.get_enode(e);
+        if (!n || !is_registered_var(n->get_th_var(get_id())))
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (nra_model)
+            value = a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), false);
+        else
+            value = a.mk_real(get_value(v));
+        return true;
+    }
+
+    sat::check_result solver::check_real_powers() {
+        // Adding a refinement can internalize more powers and invalidate iterators.
+        ptr_vector<expr> powers(m_power_terms);
+        bool incomplete = false;
+        for (expr* e : powers) {
+            if (!a.is_real(e) || !ctx.is_relevant(ctx.get_enode(e)))
+                continue;
+            expr* x = to_app(e)->get_arg(0), * y = to_app(e)->get_arg(1);
+            expr_ref xv(m), yv(m), rv(m);
+            expr_ref_vector lemmas(m);
+            if (!get_real_power_value(x, xv) || !get_real_power_value(y, yv) || !get_real_power_value(e, rv)) {
+                incomplete = true;
+                continue;
+            }
+            switch (m_swine.check_real_power(e, xv, yv, rv, lemmas)) {
+            case l_false:
+                for (expr* lemma : lemmas)
+                    add_unit(mk_literal(lemma));
+                return sat::check_result::CR_CONTINUE;
+            case l_undef:
+                incomplete = true;
+                break;
+            default:
+                break;
+            }
+        }
+        return incomplete ? sat::check_result::CR_GIVEUP : sat::check_result::CR_DONE;
+    }
+
     sat::check_result solver::check() {
         unsigned level = 2;
         force_push();
@@ -1097,6 +1217,15 @@ namespace arith {
 
         if (ctx.get_config().m_arith_ignore_int && int_undef)
             return sat::check_result::CR_GIVEUP;
+        if (!m_power_terms.empty()) {
+            init_model();
+            auto power_status = check_integer_powers();
+            if (power_status != sat::check_result::CR_DONE)
+                return power_status;
+            power_status = check_real_powers();
+            if (power_status != sat::check_result::CR_DONE)
+                return power_status;
+        }
         if (m_not_handled != nullptr) {
             TRACE(arith, tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);
             return sat::check_result::CR_GIVEUP;

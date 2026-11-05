@@ -8,8 +8,10 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/proofs/proof_checker.h"
 #include "model/model.h"
+#include "ast/rewriter/arith_swine.h"
 #include "parsers/smt2/smt2parser.h"
 #include <iostream>
 
@@ -47,6 +49,193 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
     ENSURE(!ctx.assertions().empty());
     result = ctx.assertions().get(0);
     return result;
+}
+
+static void check_integer_power_syntax() {
+    for (char const* term : {"(** 2 3)", "((as ** Int) 2 3)",
+                             "(select ((_ map **) ((as const (Array Int Int)) 2)"
+                             " ((as const (Array Int Int)) 3)) 0)",
+                             "(^ 2.0 3.0)", "(^ 2 3.0)"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context ctx(false, &m);
+        std::istringstream input(std::string("(assert (= ") + term + " 8))");
+        ENSURE(parse_smt2_commands(ctx, input));
+    }
+    for (char const* term : {"(** 2.0 3)", "(** 2 3.0)", "(** true 2)",
+                             "(** 2)", "(** 2 3 4)", "((_ ** 2) 3 4)",
+                             "((as ** Real) 2 3)",
+                             "(select ((_ map **) ((as const (Array Int Real)) 2.0)"
+                             " ((as const (Array Int Real)) 3.0)) 0)"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        std::ostringstream errors;
+        cmd_context ctx(false, &m);
+        ctx.set_regular_stream(errors);
+        ctx.set_diagnostic_stream(errors);
+        std::istringstream input(std::string("(assert (= ") + term + " 0))");
+        ENSURE(!parse_smt2_commands(ctx, input));
+        ENSURE(!errors.str().empty());
+    }
+}
+
+static void check_power_declarations() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    auto reject = [](auto&& construct) {
+        bool rejected = false;
+        try {
+            construct();
+        }
+        catch (ast_exception&) {
+            rejected = true;
+        }
+        ENSURE(rejected);
+    };
+    expr_ref i(a.mk_int(2), m), r(a.mk_real(2), m);
+    expr* args[3] = { i, i, i };
+    sort* integers[3] = { a.mk_int(), a.mk_int(), a.mk_int() };
+    sort* reals[2] = { a.mk_real(), a.mk_real() };
+    sort* invalid[2] = { a.mk_int(), m.mk_bool_sort() };
+    for (unsigned arity : {1u, 3u}) {
+        reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, arity, integers); });
+        reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 0, nullptr, arity, args); });
+    }
+    parameter index(2);
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 1, &index, 2, integers); });
+    reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 1, &index, 2, args); });
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, invalid); });
+    reject([&] { a.mk_power(i, m.mk_true()); });
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, integers, a.mk_real()); });
+    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, reals, a.mk_int()); });
+    for (bool coercions : {false, true}) {
+        m.enable_int_real_coercions(coercions);
+        for (expr* base : {i.get(), r.get()}) {
+            for (expr* exponent : {i.get(), r.get()}) {
+                if (!coercions && base->get_sort() != exponent->get_sort()) {
+                    reject([&] { a.mk_power(base, exponent); });
+                    continue;
+                }
+                app_ref p(a.mk_power(base, exponent), m);
+                sort* expected = a.is_real(base) || a.is_real(exponent) ? a.mk_real() : a.mk_int();
+                ENSURE(p->get_sort() == expected);
+                ENSURE(p->get_arg(0)->get_sort() == expected);
+                ENSURE(p->get_arg(1)->get_sort() == expected);
+            }
+        }
+        cmd_context ctx(false, &m);
+        ctx.init_manager();
+        func_decl_ref f(ctx.find_func_decl(symbol("**"), 0, nullptr, 2, integers, a.mk_int()), m);
+        ENSURE(a.is_int(f->get_range()));
+        bool rejected = false;
+        try {
+            ctx.find_func_decl(symbol("**"), 0, nullptr, 2, integers, a.mk_real());
+        }
+        catch (cmd_exception&) {
+            rejected = true;
+        }
+        ENSURE(rejected);
+    }
+}
+
+static void check_real_zero_power() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m), zero(a.mk_real(0), m);
+    for (expr* base : {x.get(), zero.get()}) {
+        expr_ref input(a.mk_power(base, zero), m), result(m);
+        proof_ref proof(m);
+        rw(input, result, proof);
+        ENSURE(a.is_one(result) && a.is_real(result));
+        ENSURE(proof && m.get_fact(proof) == m.mk_eq(input, result));
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(proof, side_conditions));
+        func_decl_ref uninterpreted(m);
+        ENSURE(!a.is_considered_uninterpreted(to_app(input)->get_decl(), 2, to_app(input)->get_args(), uninterpreted));
+    }
+}
+
+static void check_total_real_power() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    th_rewriter rw(m);
+    for (char const* formula : {
+            "(= (^ (- 1.0) (/ 1.0 2.0)) 0.0)",
+            "(= (^ (- 1.0) (/ (- 3.0) 2.0)) 0.0)",
+            "(= (^ (- 8.0) (/ 2.0 6.0)) (- 2.0))",
+            "(= (^ (- 8.0) (/ 2.0 3.0)) 4.0)",
+            "(= (^ (- 8.0) (/ (- 1.0) 3.0)) (/ (- 1.0) 2.0))",
+            "(= (^ (- (^ 2.0 (/ 1.0 2.0))) (/ 1.0 2.0)) 0.0)",
+            "(= (^ (- 2.0) (^ 2.0 (/ 1.0 2.0))) 0.0)",
+            "(= (^ 0.0 y) (ite (= y 0.0) 1.0 0.0))",
+            "(= (^ 2.0 (- 1.0)) (/ 1.0 2.0))",
+            "(distinct (* (^ (- 1.0) (/ 1.0 2.0)) (^ (- 1.0) (/ 1.0 2.0)))"
+            " (^ (- 1.0) (+ (/ 1.0 2.0) (/ 1.0 2.0))))"}) {
+        expr_ref input = parse_fml(m, formula), result(m);
+        proof_ref proof(m);
+        rw(input, result, proof);
+        ENSURE(m.is_true(result));
+        ENSURE(proof && m.get_fact(proof) == m.mk_eq(input, result));
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(proof, side_conditions));
+    }
+}
+
+static void check_integer_power_lemmas() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_int()), m), y(m.mk_const(symbol("y"), a.mk_int()), m);
+    expr_ref z(m.mk_const(symbol("z"), a.mk_int()), m), w(m.mk_const(symbol("w"), a.mk_int()), m);
+    expr_ref p(a.mk_power(x, y), m), q(a.mk_power(z, w), m);
+    struct sample { int x, y, value, z, w, other; bool pair; };
+    sample samples[] = {
+        {-3, -2, 8, 0, 0, 0, false},
+        {-1, -3, 1, 0, 0, 0, false},
+        {1, -3, 0, 0, 0, 0, false},
+        {0, -3, 1, 0, 0, 0, false},
+        {-3, 2, 8, 0, 0, 0, false},
+        {3, 4, 2, 2, 3, 8, true},
+        {3, 4, 1, 0, 0, 0, false},
+        {2, 3, 8, 2, 4, 17, true},
+        {3, 9, 19684, 0, 0, 0, false},
+        {3, 9, 19682, 0, 0, 0, false},
+    };
+    arith_swine swine(m);
+    for (auto const& s : samples) {
+        vector<arith_swine::power> powers;
+        powers.push_back({p, x, y, rational(s.x), rational(s.y), rational(s.value)});
+        if (s.pair)
+            powers.push_back({q, z, w, rational(s.z), rational(s.w), rational(s.other)});
+        expr_ref_vector lemmas(m);
+        auto value = [&](expr* e, rational& r) { return a.is_numeral(e, r); };
+        ENSURE(swine.check(powers, value, lemmas) == l_false);
+        for (int base : {-3, -1, 0, 1, 2, 3, 4, 7}) {
+            for (int exponent : {-4, -3, -1, 0, 1, 2, 4, 8, 9, 10}) {
+                for (int other_base : {-3, -1, 0, 1, 2, 3, 7}) {
+                    for (int other_exponent : {-3, -1, 0, 1, 3, 4, 10}) {
+                        model mdl(m);
+                        expr_ref xv(a.mk_int(base), m), yv(a.mk_int(exponent), m);
+                        expr_ref zv(a.mk_int(other_base), m), wv(a.mk_int(other_exponent), m);
+                        mdl.register_decl(to_app(x)->get_decl(), xv);
+                        mdl.register_decl(to_app(y)->get_decl(), yv);
+                        mdl.register_decl(to_app(z)->get_decl(), zv);
+                        mdl.register_decl(to_app(w)->get_decl(), wv);
+                        for (expr* lemma : lemmas) {
+                            expr_ref result(m);
+                            ENSURE(mdl.eval_expr(lemma, result));
+                            ENSURE(m.is_true(result));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 static void tst_proof_associative_flattening() {
@@ -90,9 +279,130 @@ static void test_complex_logic_names() {
     }
 }
 
+static void tst_modular_inverse() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    th_rewriter rw(m);
+    cmd_context ctx(false, &m);
+    ctx.set_ignore_check(true);
+    std::istringstream declarations("(declare-const I Int)(declare-const S Int)(declare-const T Int)");
+    VERIFY(parse_smt2_commands(ctx, declarations));
+    auto parse = [&](char const* text) {
+        std::istringstream input(std::string("(assert ") + text + ")");
+        VERIFY(parse_smt2_commands(ctx, input));
+        return expr_ref(ctx.assertions().back(), m);
+    };
+    // Issue #11360: invert a coefficient after multiplication has distributed.
+    for (char const* input : {
+            "(= (mod (* 8691641 (+ I (* 1000 S) (* 1000000 T))) 100000007) 1)",
+            "(= (mod (+ (* 8691641 I) (* 8691641000 S)) 100000007) 1)",
+            "(= (mod (+ 3 (* 8691641 I) (* 8691641000 S)) 100000007) 4)",
+            "(= 1 (mod (* 8691641 (+ I (* 1000 S))) 100000007))" }) {
+        expr_ref fml = parse(input);
+        rw(fml);
+        char const* expected_text = std::string(input).find("1000000 T") != std::string::npos ?
+            "(= (mod (+ I (* 1000 S) (* 1000000 T)) 100000007) 31337042)" :
+            "(= (mod (+ I (* 1000 S)) 100000007) 31337042)";
+        expr_ref expected = parse(expected_text);
+        rw(expected);
+        ENSURE(fml == expected);
+    }
+
+    arith_util a(m);
+    expr_ref i(m.mk_const(ctx.find_func_decl(symbol("I"))), m);
+    expr_ref s(m.mk_const(ctx.find_func_decl(symbol("S"))), m);
+    for (char const* input : {
+            "(= (mod (* 3 I) 7) 2)",
+            "(= 2 (mod (* 3 I) 7))",
+            "(= (mod (+ (* 2 I) (* 2 S)) 5) 1)",
+            "(= (mod (+ (* 3 I) (* 6 S)) 7) 2)",
+            "(= (mod (+ 2 (* (- 3) I) (* 6 S)) 7) 0)",
+            "(= (mod (+ (* 3 I S) (* 6 I)) 7) 2)",
+            "(= (mod (+ (* 5 I) (* 10 S)) 12) 11)",
+            "(= (mod (+ (* 2 I) (* 4 S)) 6) 1)",
+            "(= (mod (+ (* 3 I) (* 6 S)) (- 7)) 2)",
+            "(= (mod (+ (* 3 I) (* 6 S)) 0) 2)" }) {
+        expr_ref original = parse(input);
+        expr_ref rewritten(original, m);
+        rw(rewritten);
+        expr_ref again(rewritten, m);
+        rw(again);
+        ENSURE(again == rewritten);
+        for (int x = -12; x <= 12; ++x) {
+            for (int y = -12; y <= 12; ++y) {
+                expr_safe_replace subst(m);
+                subst.insert(i, a.mk_int(x));
+                subst.insert(s, a.mk_int(y));
+                expr_ref eq(m.mk_eq(original, rewritten), m);
+                subst(eq);
+                rw(eq);
+                ENSURE(m.is_true(eq));
+            }
+        }
+    }
+}
+
+static void tst_inverse_trig_domains() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    arith_rewriter ar(m);
+    th_rewriter rw(m);
+    struct {
+        decl_kind outer, inner;
+    } const compositions[] = {
+        {OP_SIN, OP_ASIN}, {OP_COS, OP_ACOS}, {OP_SIN, OP_ACOS},
+        {OP_COSH, OP_ACOSH}, {OP_TANH, OP_ATANH}
+    };
+    for (auto const& c : compositions) {
+        for (rational const& k : {rational(-2), rational(-1), rational(-3, 4), rational(0),
+                                  rational(3, 4), rational(1), rational(2)}) {
+            expr_ref x(a.mk_numeral(k, false), m);
+            expr_ref inverse(m.mk_app(a.get_family_id(), c.inner, x.get()), m);
+            expr_ref term(m.mk_app(a.get_family_id(), c.outer, inverse.get()), m);
+            expr_ref result(m);
+            bool in_domain = c.inner == OP_ACOSH ? k >= rational(1) :
+                c.inner == OP_ATANH ? k > rational(-1) && k < rational(1) :
+                k >= rational(-1) && k <= rational(1);
+            br_status status = ar.mk_app_core(to_app(term)->get_decl(), 1, to_app(term)->get_args(), result);
+            ENSURE((status != BR_FAILED) == in_domain);
+            if (in_domain) {
+                expr_ref expected(x, m);
+                if (c.outer == OP_SIN && c.inner == OP_ACOS) {
+                    expected = a.mk_numeral(rational(1) - k * k, false);
+                    expected = a.mk_power(expected, a.mk_numeral(rational(1, 2), false));
+                }
+                rw(expected);
+                rw(result);
+                expr_ref eq(m.mk_eq(result, expected), m);
+                rw(eq);
+                ENSURE(m.is_true(eq));
+            }
+            else {
+                expr_ref diseq(m.mk_not(m.mk_eq(term, x)), m);
+                rw(diseq);
+                ENSURE(!m.is_false(diseq));
+            }
+        }
+        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+        expr_ref inverse(m.mk_app(a.get_family_id(), c.inner, x.get()), m);
+        expr_ref term(m.mk_app(a.get_family_id(), c.outer, inverse.get()), m);
+        expr_ref result(term, m);
+        rw(result);
+        ENSURE(result == term);
+    }
+}
+
 void tst_arith_rewriter() {
+    check_integer_power_syntax();
+    check_power_declarations();
+    check_real_zero_power();
+    check_total_real_power();
+    check_integer_power_lemmas();
     test_complex_logic_names();
     tst_proof_associative_flattening();
+    tst_modular_inverse();
+    tst_inverse_trig_domains();
     ast_manager m;
     reg_decl_plugins(m);
     arith_rewriter ar(m);
@@ -106,6 +416,99 @@ void tst_arith_rewriter() {
 
     
     th_rewriter rw(m);
+    {
+        expr_ref i(m.mk_const(symbol("i"), au.mk_int()), m);
+        expr_ref j(m.mk_const(symbol("j"), au.mk_int()), m);
+        expr_ref k(m.mk_const(symbol("k"), au.mk_int()), m);
+        expr_ref p(au.mk_power(i, j), m);
+        ENSURE(au.is_int(p));
+        expr_ref two(au.mk_int(2), m), minus_one(au.mk_int(-1), m), zero(au.mk_int(0), m);
+        expr_ref square(au.mk_power(i, two), m), squared(au.mk_mul(i, i), m);
+        rw(square);
+        rw(squared);
+        ENSURE(square == squared);
+        expr_ref parity_power(au.mk_power(minus_one, j), m), zero_power(au.mk_power(zero, j), m);
+        rw(parity_power);
+        rw(zero_power);
+        for (int exponent : {-4, -3, 0, 1, 2, 3}) {
+            model mdl(m);
+            expr_ref value(au.mk_int(exponent), m);
+            mdl.register_decl(to_app(j)->get_decl(), value);
+            expr_ref parity_value(m), zero_value(m);
+            ENSURE(mdl.eval_expr(parity_power, parity_value));
+            ENSURE(mdl.eval_expr(zero_power, zero_value));
+            rational actual;
+            ENSURE(au.is_numeral(parity_value, actual) && actual == (exponent % 2 == 0 ? 1 : -1));
+            ENSURE(au.is_numeral(zero_value, actual) && actual == (exponent == 0 ? 1 : 0));
+        }
+        for (int base : {-3, -1, 0, 1, 2}) {
+            for (int exponent : {-3, -1, 0, 1, 4}) {
+                expr_ref b(au.mk_int(base), m), e(au.mk_int(exponent), m);
+                expr_ref power_expr(au.mk_power(b, e), m);
+                rw(power_expr);
+                rational value;
+                ENSURE(au.is_numeral(power_expr, value));
+                rational expected = exponent < 0 && base != 1 && base != -1 ? rational(0) :
+                    power(rational(base), static_cast<unsigned>(exponent < 0 ? -exponent : exponent));
+                ENSURE(value == expected);
+                ENSURE(au.is_int(power_expr));
+                vector<arith_swine::power> powers;
+                powers.push_back({p, i, j, rational(base), rational(exponent), expected});
+                arith_swine swine(m);
+                ENSURE(swine.check_model(powers) == l_true);
+                powers[0].value += rational(1);
+                ENSURE(swine.check_model(powers) == l_false);
+            }
+        }
+        expr_ref nested(au.mk_power(p, k), m);
+        expr_ref product(au.mk_mul(j, k), m);
+        expr_ref negative_j(au.mk_lt(j, zero), m), negative_k(au.mk_lt(k, zero), m);
+        expr_ref both_negative(m.mk_and(negative_j, negative_k), m), negated(au.mk_uminus(product), m);
+        expr_ref corrected(m.mk_ite(both_negative, negated, product), m);
+        expr_ref flattened(au.mk_power(i, corrected), m);
+        rw(nested);
+        rw(flattened);
+        ENSURE(nested == flattened);
+
+        expr_ref q(au.mk_power(k, j), m);
+        expr_ref lhs(au.mk_mul(p, q), m);
+        expr_ref bases(au.mk_mul(i, k), m);
+        expr_ref rhs(au.mk_power(bases, j), m);
+        rw(lhs);
+        rw(rhs);
+        ENSURE(lhs == rhs);
+
+        expr_ref other(au.mk_power(i, k), m), same_base(au.mk_mul(p, other), m);
+        rw(same_base);
+        for (int base : {-3, -1, 0, 1, 2}) {
+            for (int y : {-3, -1, 0, 1, 2}) {
+                for (int z : {-3, -1, 0, 1, 2}) {
+                    model mdl(m);
+                    expr_ref bv(au.mk_int(base), m), yv(au.mk_int(y), m), zv(au.mk_int(z), m);
+                    mdl.register_decl(to_app(i)->get_decl(), bv);
+                    mdl.register_decl(to_app(j)->get_decl(), yv);
+                    mdl.register_decl(to_app(k)->get_decl(), zv);
+                    auto ipow = [](int x, int n) {
+                        return n < 0 && x != 1 && x != -1 ? rational(0) :
+                            power(rational(x), static_cast<unsigned>(n < 0 ? -n : n));
+                    };
+                    expr_ref evaluated(m);
+                    ENSURE(mdl.eval_expr(nested, evaluated));
+                    rational value;
+                    rational inner = ipow(base, y);
+                    ENSURE(au.is_numeral(evaluated, value) && value == ipow(inner.get_int32(), z));
+                    ENSURE(mdl.eval_expr(same_base, evaluated));
+                    ENSURE(au.is_numeral(evaluated, value) && value == ipow(base, y) * ipow(base, z));
+                }
+            }
+        }
+
+        expr_ref real_base(au.mk_real(2), m), real_exponent(au.mk_real(-3), m);
+        expr_ref real_power(au.mk_power(real_base, real_exponent), m);
+        rw(real_power);
+        rational value;
+        ENSURE(au.is_real(real_power) && au.is_numeral(real_power, value) && value == rational(1, 8));
+    }
     {
         expr_ref one(au.mk_real(1), m), two(au.mk_real(2), m);
         expr_ref zero(au.mk_real(0), m), minus_one(au.mk_real(-1), m);

@@ -1,5 +1,5 @@
-(* Extracted modules open Prims, so these operators must implement F*'s
-   unbounded integers rather than OCaml's wrapping machine arithmetic. *)
+(* The build opens Prims in extracted modules, so these operators must implement
+   F*'s unbounded integers rather than OCaml's wrapping machine arithmetic. *)
 type int = Z.t
 type nonrec bool = bool
 type nonrec string = string
@@ -26,6 +26,18 @@ let ( < ) a b = Z.compare a b < 0
 let ( <= ) a b = Z.compare a b <= 0
 let ( > ) a b = Z.compare a b > 0
 let ( >= ) a b = Z.compare a b >= 0
+
+(* Custard's names for the Prims operators. *)
+let op_Plus = ( + )
+let op_Minus = ( - )
+let op_Star = ( * )
+let op_Slash = ( / )
+let op_Percent = ( mod )
+let op_Tilde_Minus = ( ~- )
+let op_Less = ( < )
+let op_Less_Equals = ( <= )
+let op_Greater = ( > )
+let op_Greater_Equals = ( >= )
 
 let not (b : bool) : bool = Stdlib.not b
 

@@ -1690,7 +1690,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         auto b1 = m_autil.mk_le(c, str().mk_length(a));
         auto cond = m().mk_and(a1, b1);
         result = m().mk_ite(cond, c, minus_one());
-        return BR_REWRITE2;
+        return BR_REWRITE_FULL;
     }
 
     

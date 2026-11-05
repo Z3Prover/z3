@@ -79,8 +79,18 @@ class proof_trim {
         return arg->get_id();
     }
         
+    /**
+     * A Boolean term under an uninterpreted function, such as (not q) in
+     * (pb (not q)), is its own variable in the solver, but the log prints
+     * its positive literal as the term itself. The literal (not q) is then
+     * printed the same whether it is that variable or q negated, and its
+     * negation as (not (not q)). Strip every negation, so both readings
+     * land on the variable of q.
+     */
     void add_literal(expr* arg) {
-        bool sign = m.is_not(arg, arg);
+        bool sign = false;
+        while (m.is_not(arg, arg))
+            sign = !sign;
         trim.add_literal(mk_var(arg), sign);
     }
 
@@ -127,7 +137,9 @@ public:
         if (m_empty)
             return;
 
-        if (hint && !is_rup(hint)) {
+        // A hint without a checker plugin has no clause of its own: the
+        // logged clause is assumed, as for any theory axiom.
+        if (hint && !is_rup(hint) && m_checker.has_rule(hint)) {
             auto clause1 = m_checker.clause(hint);
             if (clause1.size() != clause.size()) {
                 mk_clause(clause1);

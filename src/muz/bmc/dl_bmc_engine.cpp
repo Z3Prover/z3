@@ -292,7 +292,7 @@ namespace datalog {
 
                 // extract values for the variables in the rule.
                 for (unsigned j = 0; j < sub.size(); ++j) {
-                    expr_ref vl = eval_q(md, sub[j].get(), i);
+		    expr_ref vl = eval_q(md, sub[j].get(), level); // note: not i
                     if (vl) {
                         // vl can be 0 if the interpretation does not assign a value to it.
                         sub[j] = vl;
@@ -324,7 +324,7 @@ namespace datalog {
                     }
                     proof* premises[2] = { pr, p };
 
-                    positions.push_back(std::make_pair(0, 1));
+                    positions.push_back(std::make_pair(1, 0));
 
                     substs.push_back(sub1);
                     substs.push_back(sub);
@@ -349,10 +349,10 @@ namespace datalog {
                     r0 = r2;
                 }
 
-                if (level == 0) {
-                    SASSERT(r->get_uninterpreted_tail_size() == 0);
-                    break;
+                if (r->get_uninterpreted_tail_size() == 0) {
+                    break;  // fact: accepted at any level
                 }
+                VERIFY(level > 0); // non-fact: level must be positive
                 --level;
                 SASSERT(r->get_uninterpreted_tail_size() == 1);
                 pred = r->get_decl(0);

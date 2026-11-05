@@ -57,13 +57,13 @@ namespace smt {
             e = m_util.mk_mod0(n->get_arg(0), z);
             n = m_util.mk_mod(n->get_arg(0), z);
         }
-        else if (m_util.is_power(n)) {                
-            e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
-        }
         if (e) {
             literal lit = mk_eq(e, n, false);
             ctx.mark_as_relevant(lit);
-            ctx.assign(lit, nullptr);
+            if (m.proofs_enabled())
+                ctx.mk_th_axiom(get_id(), lit);
+            else
+                ctx.assign(lit, nullptr);
         }
 
     }
@@ -3270,7 +3270,6 @@ namespace smt {
         return 
             m_util.is_div0(f) ||
             m_util.is_idiv0(f) ||
-            m_util.is_power0(f) ||
             m_util.is_rem0(f) ||
             m_util.is_mod0(f);
     }

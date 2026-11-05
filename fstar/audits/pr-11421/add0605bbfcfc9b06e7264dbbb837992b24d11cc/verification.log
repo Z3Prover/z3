@@ -1,0 +1,4 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend)
+fresh-cache run, exit 0, timeout 120s per run
+Verified module: Pr11421Linear
+All verification conditions discharged successfully

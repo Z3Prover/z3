@@ -40,6 +40,6 @@ for file in "$@"; do
         *) file="$caller_dir/$file" ;;
     esac
     printf 'Checking %s\n' "$file"
-    "$elan_command" run "$toolchain" lake env lean --trust=0 -DwarningAsError=true "$file"
+    "$elan_command" run "$toolchain" lake env lean --trust=0 -DwarningAsError=true --memory=8192 "$file"
 done
 printf 'Lean checks passed.\n'

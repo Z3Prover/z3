@@ -272,10 +272,22 @@ let closed (e:expr) : bool = closed_at 0 e
    symbols. Bound variables are evaluated against an explicit
    environment (`env`), a list of values indexed exactly as `Var`'s de
    Bruijn index, innermost-first -- the semantic analogue of
-   substituting a quantifier's bound variables. *)
+   substituting a quantifier's bound variables.
+
+   The interpretation is a proof-only (ghost) object: its fields, and
+   `eval`/`eval_args` below, are `GTot`. A model may therefore decide
+   classical propositions, e.g. give `forall`/`exists` over an infinite
+   domain their standard truth value or decide the identity of two array
+   (function) values, with `FStar.IndefiniteDescription.
+   strong_excluded_middle`. Ghost results never reach executable code.
+   Every field that is a `Tot` function is still accepted (a `Tot`
+   arrow is a `GTot` arrow), but the body passed to `interp_quant` is a
+   ghost function: a quantifier field written for a `Tot` body cannot be
+   reused here. Executable code that needs an evaluator uses its own
+   `Tot` one (for example `Z3AstTotEval`, outside the checker). *)
 noeq type interpretation (value:Type) = {
-  interp_app    : f:func_decl{Some? f.interp} -> list value -> value;
-  uninterp_app  : f:func_decl{is_uninterp_decl f} -> list value -> value;
+  interp_app    : f:func_decl{Some? f.interp} -> list value -> GTot value;
+  uninterp_app  : f:func_decl{is_uninterp_decl f} -> list value -> GTot value;
   (* Denotation of a quantifier node, given the (already-shifted)
      denotation of its body as a function of one bound-variable
      assignment per `bound_sorts` entry. Left abstract: this module
@@ -283,7 +295,7 @@ noeq type interpretation (value:Type) = {
      (e.g. Boolean-valued forall/exists over a domain of values, or
      lambda-as-function), since none of it is needed by the
      regex/sequence track that motivates this file. *)
-  interp_quant  : quantifier_kind -> bound_sorts:list sort -> body_sem:(list value -> value) -> value;
+  interp_quant  : quantifier_kind -> bound_sorts:list sort -> body_sem:(list value -> GTot value) -> GTot value;
 }
 
 (* `env` is a de Bruijn environment: `env i` is the value bound to
@@ -300,8 +312,8 @@ let shift (#value:Type) (vs:list value) (e:env value) : env value =
 (* `eval e env` denotes `e` under the given variable environment and
    interpretation; only defined (total) on well-sorted expressions,
    matching that only well-formed `expr*` nodes are ever produced by
-   `ast_manager`. *)
-let rec eval (#value:Type) (i:interpretation value) (e:expr) (rho:env value) : value =
+   `ast_manager`. It is ghost, like the interpretation. *)
+let rec eval (#value:Type) (i:interpretation value) (e:expr) (rho:env value) : GTot value (decreases e) =
   match e with
   | Var idx _ -> rho idx
   | App f args ->
@@ -310,7 +322,7 @@ let rec eval (#value:Type) (i:interpretation value) (e:expr) (rho:env value) : v
   | Quantifier qk bound_sorts _ body ->
     i.interp_quant qk bound_sorts (fun vs -> eval i body (shift vs rho))
 
-and eval_args (#value:Type) (i:interpretation value) (args:list expr) (rho:env value) : list value =
+and eval_args (#value:Type) (i:interpretation value) (args:list expr) (rho:env value) : GTot (list value) (decreases args) =
   match args with
   | [] -> []
   | a :: args' -> eval i a rho :: eval_args i args' rho
@@ -339,7 +351,7 @@ let lemma_expr_kinds_disjoint (e:expr)
    sensible kind), so it is recorded here as an explicit hypothesis
    on `i` rather than baked into `interpretation` itself. *)
 let quant_extensional (#value:Type) (i:interpretation value) : prop =
-  forall (qk:quantifier_kind) (bound_sorts:list sort) (f g:(list value -> value)).
+  forall (qk:quantifier_kind) (bound_sorts:list sort) (f g:(list value -> GTot value)).
     (forall (vs:list value{List.Tot.length vs = List.Tot.length bound_sorts}). f vs == g vs)
     ==> i.interp_quant qk bound_sorts f == i.interp_quant qk bound_sorts g
 

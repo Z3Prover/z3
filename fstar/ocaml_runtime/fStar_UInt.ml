@@ -36,6 +36,8 @@ let udiv (_n : Prims.int) (a : Prims.int) (b : Prims.int) : Prims.int = Z.ediv a
 let mod1 (_n : Prims.int) (a : Prims.int) (b : Prims.int) : Prims.int =
   Z.erem a b
 
+let mod_ = mod1
+
 let shift_left (n : Prims.int) (a : Prims.int) (s : Prims.int) : Prims.int =
   if Z.geq s n then Z.zero else Z.logand (Z.shift_left a (Z.to_int s)) (mask n)
 

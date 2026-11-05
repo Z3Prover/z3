@@ -1,0 +1,9 @@
+Command: fstar.exe --smt z3-4.13.3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir out/cache --odir out InjAxiomAudit.fst
+F* 2026.09.27, Z3 4.13.3
+exit 0 (fresh cache)
+Verified module: InjAxiomAudit
+All verification conditions discharged successfully
+
+real	0m0.430s
+user	0m0.359s
+sys	0m0.074s

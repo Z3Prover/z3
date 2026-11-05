@@ -341,6 +341,16 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
     arith_util a(m);
     expr_ref ineq(m);
 
+    sort* elem_sort = nullptr;
+    VERIFY(u.is_finite_set(e->get_sort(), elem_sort));
+    auto const& domain_size = elem_sort->get_num_elements();
+    if (domain_size.is_finite()) {
+        expr_ref bound(a.mk_int(rational(domain_size.size())), m);
+        ineq = a.mk_le(sz, bound);
+        m_rewriter(ineq);
+        add_unit("size", e, ineq);
+    }
+
     if (u.is_singleton(e, b)) 
         add_unit("size", e, m.mk_eq(sz, a.mk_int(1)));    
     else if (u.is_empty(e)) 

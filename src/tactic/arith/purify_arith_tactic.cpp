@@ -62,9 +62,7 @@ For clarity reasons, I write the constraints using ad-hoc notation.
 
 
 Rules
-  (^ t 0) --> k  |  t != 0 implies k = 1,   t = 0 implies k = 0^0 
-  where k is fresh
-  0^0 is a constant used to capture the meaning of (^ 0 0).
+  (^ t 0) --> 1
        
   (^ t (/ 1 n)) --> k  | t = k^n  
   when n is odd
@@ -197,7 +195,6 @@ struct purify_arith_proc {
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
         svector<bin_def>     m_divs, m_idivs, m_mods;
-        expr_ref             m_ipower0, m_rpower0;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;
@@ -207,8 +204,6 @@ struct purify_arith_proc {
             m_pinned(o.m()),
             m_new_cnstrs(o.m()),
             m_new_cnstr_prs(o.m()),
-            m_ipower0(o.m()),
-            m_rpower0(o.m()),
             m_subst(o.m()),           
             m_subst_pr(o.m()),
             m_new_vars(o.m()) {
@@ -439,78 +434,54 @@ struct purify_arith_proc {
         }
    
         br_status process_power(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
+            if (u().is_int(f->get_range()))
+                return BR_FAILED;
+            expr * x = args[0];
+            SASSERT(!u().is_int(x));
             rational y;
             if (!u().is_numeral(args[1], y))
                 return BR_FAILED;
-            if (y.is_int() && !y.is_zero())
+            if (y.is_zero()) {
+                result = u().mk_real(1);
+                if (m().proofs_enabled())
+                    result_pr = m().mk_rewrite(m().mk_app(f, num, args), result);
+                return BR_DONE;
+            }
+            // Only normalized roots are supported; reject before creating a definition.
+            if (y.is_int() || !numerator(y).is_one())
                 return BR_FAILED;
+            rational n = denominator(y);
             app_ref t(m());
             t = m().mk_app(f, num, args);
             if (already_processed(t, result, result_pr))
                 return BR_DONE;
 
-            expr * x = args[0];
-            bool is_int = u().is_int(x);
-
-            expr * k = mk_fresh_var(false);
+            expr * k = mk_fresh_real_var();
             result = k;
             mk_def_proof(k, t, result_pr);
             cache_result(t, result, result_pr);
-            
-            expr_ref zero(u().mk_numeral(rational(0), is_int), m());
-            expr_ref one(u().mk_numeral(rational(1), is_int), m());
-            if (y.is_zero()) {
-                expr* p0;
-                if (is_int) {
-                    if (!m_ipower0) m_ipower0 = mk_fresh_var(false);
-                    p0 = m_ipower0;
-                }
-                else {
-                    if (!m_rpower0) m_rpower0 = mk_fresh_var(false);
-                    p0 = m_rpower0;
-                }
 
-                // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
-                expr_ref x_is_zero(EQ(x, zero), m());
-                push_cnstr(OR(x_is_zero, EQ(k, one)));
+            expr_ref degree(u().mk_real(n), m());
+            expr_ref power(u().mk_power(k, degree), m());
+            expr_ref root_eq(EQ(x, power), m());
+            if (!n.is_even()) {
+                // Odd roots are uniquely defined by x = k^n.
+                push_cnstr(root_eq);
                 push_cnstr_pr(result_pr);
-                expr_ref x_is_nonzero(NOT(x_is_zero), m());
-                push_cnstr(OR(x_is_nonzero, EQ(k, p0)));
-                push_cnstr_pr(result_pr);
-            }
-            else if (!is_int) {
-                SASSERT(!y.is_int());
-                SASSERT(numerator(y).is_one());
-                rational n = denominator(y);
-                if (!n.is_even()) {
-                    // (^ x (/ 1 n)) --> k  | x = k^n  
-                    // when n is odd
-                    push_cnstr(EQ(x, u().mk_power(k, u().mk_numeral(n, false))));
-                    push_cnstr_pr(result_pr);
-                }
-                else {
-                    SASSERT(n.is_even());
-                    // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
-                    // when n is even
-                    expr_ref x_ge_zero(u().mk_ge(x, zero), m());
-                    expr_ref x_lt_zero(NOT(x_ge_zero), m());
-                    expr_ref root_eq(EQ(x, u().mk_power(k, u().mk_numeral(n, false))), m());
-                    push_cnstr(OR(x_lt_zero, AND(root_eq, u().mk_ge(k, zero))));
-                    push_cnstr_pr(result_pr);
-
-                    push_cnstr(OR(x_ge_zero,
-                                  EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
-                    push_cnstr_pr(result_pr);
-                }
-//                else {
-//                    return BR_FAILED;
-//                }
             }
             else {
-                // root not supported for integers.
-                SASSERT(is_int);
-                SASSERT(!y.is_int());
-                return BR_FAILED;
+                // Even roots are nonnegative; negative bases have value zero.
+                expr_ref zero(mk_real_zero(), m());
+                expr_ref x_ge_zero(u().mk_ge(x, zero), m());
+                expr_ref x_lt_zero(NOT(x_ge_zero), m());
+                expr_ref k_ge_zero(u().mk_ge(k, zero), m());
+                expr_ref nonnegative_root(AND(root_eq, k_ge_zero), m());
+                push_cnstr(OR(x_lt_zero, nonnegative_root));
+                push_cnstr_pr(result_pr);
+
+                expr_ref value_eq(EQ(k, zero), m());
+                push_cnstr(OR(x_ge_zero, value_eq));
+                push_cnstr_pr(result_pr);
             }
             return BR_DONE;
         }
@@ -524,40 +495,8 @@ struct purify_arith_proc {
             mk_def_proof(k, s, result_pr);
             cache_result(s, result, result_pr);
 
-            anum_manager & am = u().am();
-            anum const & a = u().to_irrational_algebraic_numeral(s);
-            scoped_mpz_vector p(am.qm());
-            am.get_polynomial(a, p);
-            rational lower, upper;
-            am.get_lower(a, lower);
-            am.get_upper(a, upper);
-            unsigned sz = p.size();
-            SASSERT(sz > 2);
-            ptr_buffer<expr> args;
-            for (unsigned i = 0; i < sz; ++i) {
-                if (am.qm().is_zero(p[i]))
-                    continue;
-                rational coeff = rational(p[i]);
-                if (i == 0) {
-                    args.push_back(u().mk_numeral(coeff, false));
-                }
-                else {
-                    expr * m;
-                    if (i == 1)
-                        m = k;
-                    else
-                        m = u().mk_power(k, u().mk_numeral(rational(i), false));
-                    args.push_back(u().mk_mul(u().mk_numeral(coeff, false), m));
-                }
-            }
-            SASSERT(args.size() >= 2);
-            expr_ref sum(u().mk_add(args.size(), args.data()), m());
-            expr_ref zero(mk_real_zero(), m());
-            push_cnstr(EQ(sum, zero));
-            push_cnstr_pr(result_pr);
-            push_cnstr(u().mk_lt(u().mk_numeral(lower, false), k));
-            push_cnstr_pr(result_pr);
-            push_cnstr(u().mk_lt(k, u().mk_numeral(upper, false)));
+            expr_ref definition = u().mk_algebraic_eq(k, s);
+            push_cnstr(definition);
             push_cnstr_pr(result_pr);
         }
 
@@ -897,12 +836,6 @@ struct purify_arith_proc {
                 }
                 fmc->add(u().mk_idiv0(), body);
             }
-            if (r.cfg().m_ipower0) {
-                fmc->add(u().mk_ipower0(), r.cfg().m_ipower0);
-            }
-            if (r.cfg().m_rpower0) {
-                fmc->add(u().mk_rpower0(), r.cfg().m_rpower0);
-            }
         }
         if (produce_models && !m_sin_cos.empty()) {
             generic_model_converter* emc = alloc(generic_model_converter, m(), "purify_sin_cos");
@@ -942,7 +875,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         r.insert("complete", CPK_BOOL, 
-                 "add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root", "true");
+                 "add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, neg-root", "true");
         r.insert("elim_root_objects", CPK_BOOL,
                  "eliminate root objects.", "true");
         r.insert("elim_inverses", CPK_BOOL,

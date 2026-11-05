@@ -489,11 +489,14 @@ protected:
 #endif
 
     void inc_ref() {
-        SASSERT(m_ref_count < UINT_MAX);
-        m_ref_count ++;
+        if (m_ref_count == UINT_MAX)
+            return;        
+        ++m_ref_count;
     }
 
     void dec_ref() {
+        if (m_ref_count == UINT_MAX)
+            return;
         SASSERT(m_ref_count > 0);
         --m_ref_count;
     }
@@ -1062,8 +1065,12 @@ public:
 struct builtin_name {
     decl_kind m_kind;
     symbol    m_name;
-    builtin_name(char const * name, decl_kind k) : m_kind(k), m_name(name) {}
-    builtin_name(const std::string &name, decl_kind k) : m_kind(k), m_name(name) {}
+    // Optional plugin-owned declaration selecting a fixed overload.
+    func_decl* m_decl;
+    builtin_name(char const * name, decl_kind k, func_decl* decl = nullptr) :
+        m_kind(k), m_name(name), m_decl(decl) {}
+    builtin_name(const std::string &name, decl_kind k, func_decl* decl = nullptr) :
+        m_kind(k), m_name(name), m_decl(decl) {}
 };
 
 /**

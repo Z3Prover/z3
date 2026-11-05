@@ -1,0 +1,6 @@
+cmd: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --cache_dir cache --odir out --z3rlimit 10 Z3FiniteSetForcedDistinct.fst
+fresh cache/out dirs; exit code: 0
+stdout: Verified module: Z3FiniteSetForcedDistinct / All verification conditions discharged successfully
+stderr: only warning 241 (cache for Z3FiniteSetTheory not present; rechecked)
+F* 2026.09.27; Z3 4.13.3
+module sha256 f7db2087d5454a457ad12403f10aaaf27885ee9554b6d23096ff1b6e49dae9d7

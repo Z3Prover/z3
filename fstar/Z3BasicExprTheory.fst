@@ -144,7 +144,7 @@ let rec lemma_all_distinct_spec (#a:eqtype) (xs:list a)
    modeled as Z3 actually represents them, n-ary (not fixed arity 2),
    via the sibling `eval_and`/`eval_or`. *)
 let rec eval_bool (#value:eqtype) (i:interpretation value) (to_bool:value -> bool) (e:expr) (rho:env value)
-  : Tot bool (decreases e)
+  : GTot bool (decreases e)
   = match e with
     | Var _ _ -> to_bool (eval i e rho)
     | Quantifier _ _ _ _ -> to_bool (eval i e rho)
@@ -177,13 +177,13 @@ let rec eval_bool (#value:eqtype) (i:interpretation value) (to_bool:value -> boo
       else to_bool (eval i e rho)
 
 and eval_and (#value:eqtype) (i:interpretation value) (to_bool:value -> bool) (args:list expr) (rho:env value)
-  : Tot bool (decreases args)
+  : GTot bool (decreases args)
   = match args with
     | [] -> true
     | a :: rest -> eval_bool i to_bool a rho && eval_and i to_bool rest rho
 
 and eval_or (#value:eqtype) (i:interpretation value) (to_bool:value -> bool) (args:list expr) (rho:env value)
-  : Tot bool (decreases args)
+  : GTot bool (decreases args)
   = match args with
     | [] -> false
     | a :: rest -> eval_bool i to_bool a rho || eval_or i to_bool rest rho

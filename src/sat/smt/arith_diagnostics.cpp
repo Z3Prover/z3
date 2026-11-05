@@ -103,6 +103,7 @@ namespace arith {
 
     void solver::collect_statistics(statistics& st) const {
         m_stats.collect_statistics(st);
+        m_swine.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
     }
 

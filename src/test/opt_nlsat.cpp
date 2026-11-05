@@ -21,6 +21,7 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "math/polynomial/algebraic_numbers.h"
+#include "util/common_msgs.h"
 #include "util/rlimit.h"
 #include <initializer_list>
 
@@ -195,70 +196,60 @@ static void tst_open_sup() {
     ensure_exact(m, a.mk_le(res.m_sup, a.mk_numeral(res.m_sup_upper, false)));
 }
 
-// Approachability is separate from being an upper bound, and requires values
-// strictly below the candidate even when the candidate itself is feasible.
-static void tst_can_approach_from_below() {
-    std::cout << "opt_nlsat: can_approach_from_below\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    scoped_rlimit budget(m.limit(), 1000000);
+// Maximize obj within [lo, hi] and require a certified open supremum: a
+// strict upper bound that feasible values approach, above the witness.
+static void ensure_open_sup(ast_manager& m, expr_ref_vector const& hard, expr* obj,
+                            rational const& lo, rational const& hi, expr* expected) {
     arith_util a(m);
-    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
-    expr_ref zero(a.mk_real(0), m), one(a.mk_real(1), m), two(a.mk_real(2), m);
-    expr_ref root = exact_root(m, 2);
     params_ref p;
     opt::nlsat_opt opt(m, p);
-    expr_ref_vector hard(m);
-    hard.push_back(a.mk_lt(a.mk_mul(x, x), two));
-    // The algebraic limit is approachable; the lo cutoff remains part of the query.
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), root) == l_true);
-    ENSURE(opt.can_approach_from_below(hard, x, rational(2), root) == l_false);
-    // A loose upper bound has a gap below it and is not approachable.
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), two) == l_false);
-    // The interior value 1 is approachable but is not an upper bound: 5/4 is feasible.
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), one) == l_true);
-    expr_ref above(a.mk_real(rational(5, 4)), m);
-    ensure_exact(m, a.mk_gt(above, one));
-    ensure_exact(m, a.mk_lt(a.mk_mul(above, above), two));
-
-    expr_ref_vector rational_limit(m);
-    {
-        expr_ref lhs(a.mk_mul(x, x), m);
-        expr_ref rhs(a.mk_real(4), m);
-        rational_limit.push_back(a.mk_lt(lhs, rhs));
-    }
-    ENSURE(opt.can_approach_from_below(rational_limit, x, rational(0), two) == l_true);
-
-    expr_ref negative_root = exact_root(m, 2, 2, true);
-    expr_ref_vector negative(m);
-    negative.push_back(a.mk_gt(a.mk_mul(x, x), two));
-    negative.push_back(a.mk_lt(x, zero));
-    ENSURE(opt.can_approach_from_below(negative, x, rational(-2), negative_root) == l_true);
-
-    // An isolated feasible root is attained, but no feasible values approach it.
-    expr_ref_vector isolated(m);
-    isolated.push_back(m.mk_eq(a.mk_mul(x, x), two));
-    isolated.push_back(a.mk_gt(x, zero));
-    ENSURE(opt.can_approach_from_below(isolated, x, rational(0), root) == l_false);
+    opt::nlsat_opt::result res(m);
+    ENSURE(opt.maximize(hard, obj, lo, hi, 8, res) == l_true);
+    ENSURE(res.m_open && res.m_has_sup && !res.m_attained && !res.m_unbounded);
+    ensure_exact(m, m.mk_eq(res.m_sup, expected));
+    ensure_witness(m, hard, obj, lo, res);
+    ensure_exact(m, a.mk_lt(res.m_value, res.m_sup));
 }
 
-static void tst_projected_limits() {
-    std::cout << "opt_nlsat: projected limits with moving witnesses\n";
+// Open suprema certified by the approachability query inside maximize: a
+// rational limit, a negative algebraic limit, and a limit whose witnesses
+// move off to infinity in an eliminated variable. Arbitrary candidates (a
+// loose bound, an isolated root) are covered by nlsat's check_limit tests.
+static void tst_open_limits() {
+    std::cout << "opt_nlsat: open limits\n";
     ast_manager m;
     reg_decl_plugins(m);
     scoped_rlimit budget(m.limit(), 1000000);
     arith_util a(m);
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
     expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
-    expr_ref one(a.mk_real(1), m), zero(a.mk_real(0), m), two(a.mk_real(2), m);
+    expr_ref zero(a.mk_real(0), m), one(a.mk_real(1), m), two(a.mk_real(2), m), four(a.mk_real(4), m);
+
+    expr_ref_vector rational_limit(m);
+    rational_limit.push_back(a.mk_lt(a.mk_mul(x, x), four));
+    ensure_open_sup(m, rational_limit, x, rational(0), rational(3), two);
+
+    expr_ref_vector negative(m);
+    negative.push_back(a.mk_gt(a.mk_mul(x, x), two));
+    negative.push_back(a.mk_lt(x, zero));
+    expr_ref negative_root = exact_root(m, 2, 2, true);
+    ensure_open_sup(m, negative, x, rational(-2), rational(0), negative_root);
+
+    // (1 - x) y = 1 with y > 0: x < 1, and y grows without bound as x nears 1.
+    expr_ref_vector moving(m);
+    moving.push_back(m.mk_eq(a.mk_mul(a.mk_sub(one, x), y), one));
+    moving.push_back(a.mk_gt(y, zero));
+    ensure_open_sup(m, moving, x, rational(0), rational(2), one);
     params_ref p;
     opt::nlsat_opt opt(m, p);
+    ENSURE(opt.prove_unbounded(moving, x, rational(0)) == l_false);
+
+    // The lo cutoff is part of the problem: nothing feasible reaches 2.
     expr_ref_vector hard(m);
-    hard.push_back(m.mk_eq(a.mk_mul(a.mk_sub(one, x), y), one));
-    hard.push_back(a.mk_gt(y, zero));
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), one) == l_true);
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), two) == l_false);
-    ENSURE(opt.prove_unbounded(hard, x, rational(0)) == l_false);
+    hard.push_back(a.mk_lt(a.mk_mul(x, x), two));
+    opt::nlsat_opt::result res(m);
+    ENSURE(opt.maximize(hard, x, rational(2), rational(3), 8, res) == l_false);
+    ENSURE(!res.m_model && !res.m_open && !res.m_has_sup);
 
     // The disconnected point must not prevent discovering the separate feasible ray.
     expr_ref point(m.mk_eq(x, zero), m);
@@ -268,8 +259,35 @@ static void tst_projected_limits() {
     hard.reset();
     hard.push_back(m.mk_or(point, ray));
     ENSURE(opt.prove_unbounded(hard, x, rational(0)) == l_true);
-    ENSURE(opt.can_approach_from_below(hard, x, rational(-1), zero) == l_false);
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), two) == l_true);
+}
+
+// Relaxing n to a real would make 2 the supremum of x; with integer n < 2 the
+// supremum is 1. nlsat's limit check gives up on integer variables, so
+// maximize must not certify an open supremum, and the query must not load a
+// solver: beyond its own m.inc() it costs no ticks.
+static void tst_open_limit_integer() {
+    std::cout << "opt_nlsat: open limit with an integer variable\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    scoped_rlimit budget(m.limit(), 1000000);
+    arith_util a(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+    expr_ref_vector mixed(m);
+    mixed.push_back(a.mk_lt(x, a.mk_to_real(n)));
+    mixed.push_back(a.mk_lt(n, a.mk_int(2)));
+    mixed.push_back(a.mk_lt(a.mk_mul(x, x), a.mk_real(4)));
+    params_ref p;
+    opt::nlsat_opt opt(m, p);
+    opt::nlsat_opt::result res(m);
+    uint64_t start = m.limit().count();
+    ENSURE(opt.maximize(mixed, x, rational(0), rational(2), 8, res, 0) == l_undef);
+    uint64_t without_query = m.limit().count() - start;
+    ENSURE(res.m_has_sup && !res.m_open);
+    start = m.limit().count();
+    ENSURE(opt.maximize(mixed, x, rational(0), rational(2), 8, res) == l_undef);
+    ENSURE(res.m_has_sup && !res.m_open);
+    ENSURE(m.limit().count() - start <= without_query + 1);
 }
 
 // The shared equality encoding must select one root, not just its polynomial.
@@ -378,81 +396,83 @@ static void tst_result_reuse() {
     ENSURE(res.m_rounds == 0);
 }
 
-// Integer variables, UF applications, and nonnumeral candidates must not be
-// accepted by the real-arithmetic approachability certificate.
-static void tst_approach_outside_fragment() {
-    std::cout << "opt_nlsat: approachability outside fragment\n";
+// The approachability query runs under a private budget inside maximize. It
+// may expire, but must not lift an enclosing limit or swallow cancellation.
+// Use resource ticks rather than asynchronous timers.
+static void tst_open_limit_resource_scopes() {
+    std::cout << "opt_nlsat: open limit resource scopes\n";
     ast_manager m;
     reg_decl_plugins(m);
     scoped_rlimit budget(m.limit(), 1000000);
     arith_util a(m);
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
-    expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
-    expr_ref two(a.mk_real(2), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_lt(a.mk_mul(x, x), a.mk_real(2)));
     params_ref p;
     opt::nlsat_opt opt(m, p);
-    expr_ref_vector hard(m);
-    hard.push_back(a.mk_lt(a.mk_mul(x, x), two));
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), x) == l_undef);
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), nullptr) == l_undef);
-
-    sort_ref rhs(a.mk_real(), m);
-    sort_ref third(a.mk_real(), m);
-    func_decl_ref f(m.mk_func_decl(symbol("f"), rhs, third), m);
-    expr_ref fx(m.mk_app(f, x.get()), m);
-    ENSURE(opt.can_approach_from_below(hard, fx, rational(0), two) == l_undef);
-    hard.push_back(a.mk_lt(fx, two));
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), two) == l_undef);
-
-    // Relaxing n to a real would incorrectly make 2 approachable; integer n < 2 cannot.
-    expr_ref_vector mixed(m);
-    mixed.push_back(a.mk_lt(x, a.mk_to_real(n)));
-    mixed.push_back(a.mk_lt(n, a.mk_int(2)));
-    {
-        expr_ref lhs(a.mk_mul(x, x), m);
-        expr_ref rhs(a.mk_real(4), m);
-        mixed.push_back(a.mk_lt(lhs, rhs));
-    }
-    ENSURE(opt.can_approach_from_below(mixed, x, rational(0), two) == l_undef);
-    ENSURE(opt.can_approach_from_below(mixed, n, rational(0), two) == l_undef);
-}
-
-// Private proof budgets may expire, but must not disable enclosing limits
-// or swallow cancellation. Use resource ticks rather than asynchronous timers.
-static void tst_approach_resource_scopes() {
-    std::cout << "opt_nlsat: approachability resource scopes\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    scoped_rlimit budget(m.limit(), 1000000);
-    arith_util a(m);
-    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
-    expr_ref root = exact_root(m, 2);
-    expr_ref_vector hard(m);
-    {
-        expr_ref lhs(a.mk_mul(x, x), m);
-        expr_ref rhs(a.mk_real(2), m);
-        hard.push_back(a.mk_lt(lhs, rhs));
-    }
-    params_ref p;
-    opt::nlsat_opt opt(m, p);
+    opt::nlsat_opt::result res(m);
+    // The search and the upper-bound proof alone, with the query disabled.
     uint64_t start = m.limit().count();
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), root, 0) == l_undef);
-    ENSURE(m.limit().count() == start);
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), root, 1) == l_undef);
-    ENSURE(m.inc());
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), root) == l_true);
+    ENSURE(opt.maximize(hard, x, rational(0), rational(2), 8, res, 0) == l_undef);
+    uint64_t search = m.limit().count() - start;
     {
-        scoped_rlimit enclosing(m.limit(), 1);
-        ENSURE(opt.can_approach_from_below(hard, x, rational(0), root) == l_undef);
+        // Room for the search and the query's own m.inc(), and one tick more:
+        // the enclosing ceiling expires inside the query.
+        scoped_rlimit enclosing(m.limit(), static_cast<unsigned>(search + 2));
+        ENSURE(opt.maximize(hard, x, rational(0), rational(2), 8, res) == l_undef);
+        ENSURE(res.m_has_sup && !res.m_open);
         // pop clamps the count to the ceiling; the next tick must still fail.
         ENSURE(!m.inc());
     }
     ENSURE(m.inc());
     m.limit().cancel();
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), root) == l_undef);
+    ENSURE(opt.maximize(hard, x, rational(0), rational(2), 8, res) == l_undef);
+    ENSURE(!res.m_open);
     ENSURE(m.limit().is_canceled());
     m.limit().reset_cancel();
-    ENSURE(opt.can_approach_from_below(hard, x, rational(0), root) == l_true);
+    ENSURE(opt.maximize(hard, x, rational(0), rational(2), 8, res) == l_true);
+    ENSURE(res.m_open);
+}
+
+// The guards of the private budget, called directly: maximize offers no
+// point to cancel between its search and the query. Pushing and popping a
+// resource scope both clear the cancellation flag.
+static void tst_bounded_limit_query_cancel() {
+    std::cout << "opt_nlsat: bounded limit query cancellation\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    scoped_rlimit budget(m.limit(), 1000000);
+    bool called = false;
+    auto query = [&]() { called = true; return l_true; };
+    // Already canceled: the query must not start, and the flag must survive.
+    m.limit().cancel();
+    ENSURE(opt::bounded_limit_query(m, 1000, query) == l_undef);
+    ENSURE(!called);
+    ENSURE(m.limit().is_canceled() && m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+    m.limit().reset_cancel();
+    ENSURE(opt::bounded_limit_query(m, 1000, query) == l_true);
+    ENSURE(called);
+    // Canceled during the query, with a normal return or an exception: the
+    // pop clears the flag, so it is raised again for the caller.
+    for (bool raise : {false, true}) {
+        lbool r = opt::bounded_limit_query(m, 1000, [&]() {
+            m.limit().cancel();
+            if (raise)
+                throw default_exception(Z3_CANCELED_MSG);
+            return l_true;
+        });
+        ENSURE(r == (raise ? l_undef : l_true));
+        ENSURE(m.limit().is_canceled() && m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+        m.limit().reset_cancel();
+    }
+    // An expired private budget is not an external cancellation.
+    lbool r = opt::bounded_limit_query(m, 10, [&]() -> lbool {
+        while (m.inc())
+            ;
+        throw default_exception(Z3_MAX_RESOURCE_MSG);
+    });
+    ENSURE(r == l_undef);
+    ENSURE(m.inc());
 }
 
 // maximize x s.t. x^3 = 2*x within [-2, 2]: the feasible set is the three
@@ -541,13 +561,13 @@ void tst_opt_nlsat() {
     tst_unbounded();
     tst_prove_unbounded();
     tst_open_sup();
-    tst_can_approach_from_below();
-    tst_projected_limits();
+    tst_open_limits();
+    tst_open_limit_integer();
     tst_algebraic_eq();
     tst_open_proof_budget();
     tst_result_reuse();
-    tst_approach_outside_fragment();
-    tst_approach_resource_scopes();
+    tst_open_limit_resource_scopes();
+    tst_bounded_limit_query_cancel();
     tst_outside_fragment();
     tst_infeasible();
 }

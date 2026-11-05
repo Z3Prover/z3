@@ -67,7 +67,7 @@ open Z3SimplifierTheory
 /// `get_model_converter`/`append`, and ultimately
 /// `generic_model_converter::convert`'s per-symbol model update).
 let update_interp (#value:Type) (i:interpretation value)
-    (f:func_decl{is_uninterp_decl f}) (g:list value -> value)
+    (f:func_decl{is_uninterp_decl f}) (g:list value -> GTot value)
   : interpretation value =
   { i with uninterp_app = (fun f' args -> if f' = f then g args else i.uninterp_app f' args) }
 
@@ -76,7 +76,7 @@ let update_interp (#value:Type) (i:interpretation value)
 /// regardless of what `i` said about `f` -- the basic "write, then
 /// read back" fact about the update.
 let lemma_update_interp_same (#value:Type) (i:interpretation value)
-    (f:func_decl{is_uninterp_decl f}) (g:list value -> value) (rho:env value)
+    (f:func_decl{is_uninterp_decl f}) (g:list value -> GTot value) (rho:env value)
   : Lemma (eval (update_interp i f g) (App f []) rho == g [])
   = ()
 
@@ -85,7 +85,7 @@ let lemma_update_interp_same (#value:Type) (i:interpretation value)
 /// entries" fact, needed below to push the update through the
 /// structural cases of `eval` that do not touch `f`.
 let lemma_update_interp_other (#value:Type) (i:interpretation value)
-    (f:func_decl{is_uninterp_decl f}) (g:list value -> value)
+    (f:func_decl{is_uninterp_decl f}) (g:list value -> GTot value)
     (f':func_decl{is_uninterp_decl f'}) (args:list value)
   : Lemma (requires f' <> f)
           (ensures (update_interp i f g).uninterp_app f' args == i.uninterp_app f' args)
@@ -120,7 +120,7 @@ let lemma_sorts_match_nil (args:list expr)
 /// top-level `expr*`, with no free/dangling de Bruijn indices), so in
 /// practice the choice of `rho` never matters (see
 /// `lemma_macro_interp_env_irrelevant` below).
-let macro_interp (#value:Type) (i0:interpretation value) (def:expr) (rho:env value) : (list value -> value) =
+let macro_interp (#value:Type) (i0:interpretation value) (def:expr) (rho:env value) : (list value -> GTot value) =
   fun (_:list value) -> eval i0 def rho
 
 /// `macro_interp`'s value does not actually depend on the ambient
@@ -503,7 +503,7 @@ and lemma_expand_macro_closed_args (f:func_decl{is_uninterp_decl f}) (def:expr) 
 /// `n` formal parameters (`Var 0 .. Var (n-1)`) bound to `vs` via
 /// `shift`, matching `inst`'s own convention for how `def`'s formal
 /// parameters are indexed.
-let macro_interp_n (#value:Type) (i0:interpretation value) (def:expr) (rho0:env value) : (list value -> value) =
+let macro_interp_n (#value:Type) (i0:interpretation value) (def:expr) (rho0:env value) : (list value -> GTot value) =
   fun (vs:list value) -> eval i0 def (shift vs rho0)
 
 /// The arity-`n` model-reconstruction theorem: let `f` be uninterpreted

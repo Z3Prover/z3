@@ -794,12 +794,23 @@ class TestProofToLean(unittest.TestCase):
         ])
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual(text.count("private theorem rewrite_"), 4)
-        self.assertEqual(text.count("  exact (Iff.intro (fun (_f1 : "), 4)
+        # The proof is a tactic script on the folded goal: the gates are
+        # named by their definitions (no let, no unfold), and each direction
+        # is a bullet under Iff.intro.
+        self.assertEqual(text.count("  refine Iff.intro (fun (_f1 : (formula_"), 3)
+        self.assertEqual(text.count("  refine Iff.intro (fun (_f1 : (Not (Not (_atoms 0)))) => ?_) (fun (_f3 : (_atoms 0)) => ?_)\n"
+                                    "  · have _f2 : (_atoms 0) := (Decidable.byContradiction (fun _g => _f1 _g))\n"
+                                    "    exact _f2\n"), 1)
+        self.assertEqual(text.count("  refine Iff.intro (fun (_f1 : "), 4)
+        self.assertNotIn("let _s0", text)
+        self.assertNotIn("unfold", text)
         self.assertNotIn("cases _d", text)
         self.assertNotIn("of_decide_eq_true", text)
         self.assertEqual(text.count("  refute_with_decidable"), 1)
         self.assertEqual(text.count("    [_d0 : Decidable (_atoms 0)]"), 2)
-        self.assertEqual(text.count("Decidable.em (_atoms 0)"), 2)
+        # The clause's direction is case analysis on the clause (Or.elim),
+        # not a split; only the implication's direction splits on p.
+        self.assertEqual(text.count("Decidable.em (_atoms 0)"), 1)
         self.assertEqual(text.count("Decidable.byContradiction"), 1)
         for atom in ("_d1", "_d2", "_d3"):
             self.assertNotIn(atom, text)
@@ -820,7 +831,7 @@ class TestProofToLean(unittest.TestCase):
             ("rewrite", [], "(= (or p q) (and p q))"), ("asserted", [], "false"),
         ])
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertNotIn("exact (Iff.intro", text)
+        self.assertNotIn("Iff.intro", text)
         self.assertEqual((text.count("cases _d0"), text.count("cases _d1")), (1, 1))
         self.assertIn("all_goals exact of_decide_eq_true rfl", text)
         self.assertEqual(text.count("  refute_with_decidable"), 2)
@@ -832,12 +843,12 @@ class TestProofToLean(unittest.TestCase):
             text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual((text.count("cases _d0"), text.count("cases _d1")), (1, 1))
         # Parity (xor-chain reassociation) is settled only by splitting on
-        # every atom, and each split restates the chain's expansion, which
-        # doubles per xor: six atoms stay within the size budget (Lean checks
-        # the 700 KB term in seconds), eight would render over ten megabytes
-        # that Lean rejects on heartbeats only after minutes, so the truth
-        # table is emitted instead and fails fast.
-        for count, direct in ((6, True), (8, False)):
+        # every atom, so the term doubles per xor: eight atoms stay within
+        # the budgets (a 380 KB term with the structures let-named, where
+        # each step restating its proposition rendered ten megabytes), nine
+        # exhaust the step budget, so the truth table is emitted instead and
+        # fails fast.
+        for count, direct in ((6, True), (8, True), (9, False)):
             with self.subTest(atoms=count):
                 atoms = ["a%d" % index for index in range(count)]
                 left, right = atoms[0], atoms[-1]
@@ -851,7 +862,7 @@ class TestProofToLean(unittest.TestCase):
                     ("rewrite", [], "(= %s %s)" % (left, right)), ("asserted", [], "false"),
                 ])
                 text = proof_to_lean.reconstruct(source, certificate)
-                self.assertEqual("exact (Iff.intro" in text, direct)
+                self.assertEqual("Iff.intro" in text, direct)
                 self.assertEqual(text.count("cases _d"), 0 if direct else count)
                 self.assertLess(len(text), 2 * proof_to_lean._STRUCTURAL_REWRITE_CHARS)
 
@@ -888,6 +899,92 @@ class TestProofToLean(unittest.TestCase):
                 inlined = proof_to_lean._inline(graph, left, atom_indices, {})
                 self.assertEqual(proof_to_lean._render_structure(structure).replace("(", "").replace(")", ""),
                                  inlined.replace("(", "").replace(")", ""))
+
+    def test_classical_prover_refutes_over_opaque_leaves(self):
+        # The cnf lemmas of theory certificates (see _cnf_lemma) refute the
+        # negated clause over the Boolean structure with the theory atoms as
+        # opaque leaves rendered by name. Classically, a double negation of
+        # any structure is cancelled by Classical.byContradiction, a split
+        # is Classical.em on an atom or a leaf, and no decidability
+        # instance is needed; a bridge between two leaves is an Iff fact in
+        # scope that propagation reads like any other gate.
+        a, b, c = (("leaf", node, "(formula_%d _atoms _vars)" % node) for node in (3, 5, 7))
+        p = ("atom", 0)
+
+        def prove(structure, facts=()):
+            prover = proof_to_lean._PropositionalProver(structure, *[fact for fact, _ in facts], classical=True)
+            lines = prover.refutation(structure, facts)
+            self.assertEqual(prover.needed, set())
+            return None if lines is None else "\n".join(lines)
+
+        # (not S) or c from S = (or a b) and (or (not a) b), with c bridged
+        # to b: propagation alone, so no split.
+        source = ("and", ("or", a, b), ("or", ("not", a), b))
+        clause = ("or", ("not", source), c)
+        term = prove(("not", clause), [(("iff", b, c), "_bridge")])
+        self.assertIsNotNone(term)
+        # Without names from the caller, the and, or and iff structures are
+        # bound by tactic lets, children first, and the hypothesis is stated
+        # over the names; the proof is a tactic script ending in exact.
+        self.assertTrue(term.startswith(
+            "let _s0 : Prop := (Or (formula_3 _atoms _vars) (formula_5 _atoms _vars))\n"
+            "let _s1 : Prop := (Or (Not (formula_3 _atoms _vars)) (formula_5 _atoms _vars))\n"
+            "let _s2 : Prop := (And _s0 _s1)\nlet _s3 : Prop := (Or (Not _s2) (formula_7 _atoms _vars))\n"
+            "let _s4 : Prop := (Iff (formula_5 _atoms _vars) (formula_7 _atoms _vars))\n"
+            "refine (fun (_f1 : (Not _s3)) => ?_)\nhave _f2 := "), term)
+        self.assertTrue(term.endswith(")"), term)
+        self.assertIn("\nexact (False.elim (", term)
+        self.assertNotIn(";", term)
+        self.assertIn("Classical.byContradiction (fun _g => ", term)
+        self.assertIn("(Iff.mp _bridge _g)", term)  # c false gives b false through the bridge
+        self.assertNotIn("Classical.em", term)
+        self.assertNotIn("Decidable", term)
+        self.assertNotIn("have _bridge", term)
+        # Without the bridge, c is unrelated to b, and the prover reaches a
+        # satisfying assignment after splitting.
+        self.assertIsNone(prove(("not", clause)))
+        # An unsatisfiable conjunction of clauses over a leaf and an atom is
+        # refuted by case analysis on a true disjunction with two undetermined
+        # disjuncts (Or.elim on its proof), each case closing by propagation;
+        # no excluded middle is needed, and none for two leaves either.
+        mixed = ("and", ("or", a, p), ("or", ("not", a), ("not", p)), ("or", a, ("not", p)), ("or", ("not", a), p))
+        term = prove(("not", ("not", mixed)))
+        self.assertIsNotNone(term)
+        self.assertIn("(Or.elim _f", term)
+        self.assertNotIn("Classical.em", term)
+        self.assertNotIn("Decidable", term)
+        source = ("and", ("or", a, b), ("or", ("not", a), ("not", b)), ("or", a, ("not", b)), ("or", ("not", a), b))
+        term = prove(("not", ("not", source)))
+        self.assertIsNotNone(term)
+        self.assertNotIn("Classical.em", term)
+        prover = proof_to_lean._PropositionalProver(mixed, ("false",))
+        lines = prover.implication(mixed, ("false",))
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertNotIn("Decidable", term)
+        self.assertEqual(prover.needed, set())
+        # A target that no assumed disjunction settles splits on an atom:
+        # Decidable.em on the atom (a leaf is never split), recorded as
+        # needed, or Classical.em on an atom or a leaf in classical mode.
+        # The split is a refine with one hole per case and a bullet each.
+        for structure, split in ((("or", p, ("not", p)), "Decidable.em (_atoms 0)"),):
+            prover = proof_to_lean._PropositionalProver(("true",), structure)
+            lines = prover.implication(("true",), structure)
+            self.assertIsNotNone(lines)
+            term = "\n".join(lines)
+            self.assertIn("\nrefine (Or.elim (%s) (fun _f3 => ?_) (fun _f6 => ?_))\n· have " % split, term)
+            self.assertEqual(sum(line.startswith("· ") for line in lines), 2)
+            self.assertEqual(lines[-1], "  exact _f7")
+            self.assertEqual(prover.needed, {0})
+        for structure, split in ((("or", p, ("not", p)), "(_atoms 0)"), (("or", a, ("not", a)), "(formula_3 _atoms _vars)")):
+            prover = proof_to_lean._PropositionalProver(("true",), structure, classical=True)
+            lines = prover.implication(("true",), structure)
+            self.assertIsNotNone(lines)
+            term = "\n".join(lines)
+            self.assertIn("\nrefine (Or.elim (Classical.em %s)" % split, term)
+            self.assertEqual(prover.needed, set())
+        self.assertIsNone(proof_to_lean._PropositionalProver(("true",), ("or", a, ("not", a))).implication(
+            ("true",), ("or", a, ("not", a))))  # a leaf is not split without classical mode
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"

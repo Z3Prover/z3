@@ -66,7 +66,7 @@ let combine (op:operation) (ps:list poly) (e:expr) : option poly =
   | Add, _ -> Some (P.sum ps)
   | Mul, _ -> (match P.product ps with Some p -> Some p | None -> Some (P.variable e))
   | Sub, _ -> subtract ps
-  | Div, [p; q] -> divide p q
+  | Div, [p; q] -> (match divide p q with Some r -> Some r | None -> Some (P.variable e))
   | ToReal, [p] -> Some p
   | _, _ -> None
 

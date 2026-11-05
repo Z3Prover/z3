@@ -33,6 +33,7 @@ Notes:
 #include "model/model_evaluator_params.hpp"
 #include "smt/smt_kernel.h"
 #include "smt/smt_solver.h"
+#include "smt/tactic/smt_tactic_core.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
 #include "qe/qsat.h"
@@ -40,6 +41,8 @@ Notes:
 #include "qe/qe.h"
 #include "ast/rewriter/label_rewriter.h"
 #include "util/params.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/tactical.h"
 
 namespace qe {
 
@@ -1275,6 +1278,7 @@ namespace qe {
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
             tactic_report report("qsat-tactic", *in);
+            fail_if_proof_generation("qsat", in);
             model_evaluator_params mp(m_params);
             if (!mp.array_equalities())
                 throw tactic_exception("array equalities cannot be disabled for qsat");
@@ -1286,7 +1290,6 @@ namespace qe {
             
             // for now:
             // fail if cores.  (TBD)
-            // fail if proofs. (TBD)
             
             TRACE(qe, tout << fml << "\n";);
 
@@ -1330,6 +1333,27 @@ namespace qe {
                 in->inc_depth();
                 if (m_mode == qsat_qe) {
                     fml = ::mk_and(m_answer);
+                    for (unsigned i = m_vars.size(); i-- > 1;) {
+                        app_ref_vector vars(m);
+                        for (app* v : m_vars[i]) {
+                            if (occurs(v, fml))
+                                vars.push_back(v);
+                        }
+                        if (!vars.empty()) {
+                            fml = is_exists(i) ?
+                                ::mk_forall(m, vars.size(), vars.data(), fml) :
+                                ::mk_exists(m, vars.size(), vars.data(), fml);
+                        }
+                    }
+                    unsigned j = 0;
+                    for (app* v : m_free_vars) {
+                        if (occurs(v, fml))
+                            m_free_vars[j++] = v;
+                    }
+                    m_free_vars.shrink(j);
+                    if (!m_free_vars.empty()) {
+                        fml = ::mk_exists(m, m_free_vars.size(), m_free_vars.data(), fml);
+                    }
                     in->assert_expr(fml);
                 }
                 else {
@@ -1506,7 +1530,9 @@ namespace qe {
 }
 
 tactic * mk_qsat_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(qe::qsat, m, p, qe::qsat_sat);
+    return cond(mk_and(mk_produce_proofs_probe(), mk_not(mk_has_quantifier_probe())),
+                mk_smt_tactic_core(m, p),
+                alloc(qe::qsat, m, p, qe::qsat_sat));
 }
 
 tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {   
@@ -1514,9 +1540,7 @@ tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {
 }
 
 tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {   
-    return alloc(qe::qsat, m, p, qe::qsat_qe_rec);
+    tactic_ref t = alloc(qe::qsat, m, p, qe::qsat_qe_rec);
+    return cond(mk_produce_proofs_probe(),
+                and_then(mk_simplify_tactic(m, p), t.get()), t.get());
 }
-
-
-
-

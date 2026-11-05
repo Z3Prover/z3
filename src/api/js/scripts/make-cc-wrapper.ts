@@ -140,6 +140,10 @@ extern "C" void async_${fn.name}(${fn.params
 
 #include "../../z3.h"
 
+extern "C" void z3_register_builtins();
+// Pull the registration translation unit out of libz3.a without whole-archive linking.
+static const int register_builtins = (z3_register_builtins(), 0);
+
 template<typename Fn, Fn fn, typename... Args>
 void wrapper(Args&&... args) {
   unsigned int call_id = EM_ASM_INT({ return current_async_call_id; });

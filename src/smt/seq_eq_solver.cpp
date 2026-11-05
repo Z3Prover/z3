@@ -27,9 +27,25 @@ Author:
 using namespace smt;
 
 
+bool theory_seq::can_reduce_eqs() {
+    if (!m.inc()) {
+        m_new_solution = true;
+        return false;
+    }
+    if (m.limit().suspended()) {
+        // Bound normalization as well as reductions while cancellation is suspended.
+        if (m_num_eager_eq_steps >= 1024) {
+            m_new_solution = true;
+            return false;
+        }
+        ++m_num_eager_eq_steps;
+    }
+    return true;
+}
+
 bool theory_seq::solve_eqs(unsigned i) {
     bool change = false;
-    for (; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
+    for (; !ctx.inconsistent() && i < m_eqs.size() && can_reduce_eqs(); ++i) {
         if (solve_eq(i)) {
             m_eqs.erase_and_swap(i--);
             ++m_stats.m_num_reductions;
@@ -37,6 +53,8 @@ bool theory_seq::solve_eqs(unsigned i) {
         }
         TRACE(seq_verbose, display_equations(tout););
     }
+    if (!ctx.inconsistent() && i < m_eqs.size())
+        m_new_solution = true;
     return change || m_new_propagation || ctx.inconsistent();
 }
 

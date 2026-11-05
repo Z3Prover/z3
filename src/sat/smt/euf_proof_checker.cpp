@@ -111,6 +111,33 @@ namespace euf {
             return false;
         }
 
+        // the truth value of a Boolean term: its class's, or for (not x) the
+        // negation of x's. A Boolean term under a function, such as (not q)
+        // in (f (not q)), has no class of its own when only q is a literal.
+        lbool value(expr* e) {
+            bool sign = false;
+            while (true) {
+                if (are_equal(e, m.mk_true()))
+                    return sign ? l_false : l_true;
+                if (are_equal(e, m.mk_false()))
+                    return sign ? l_true : l_false;
+                if (!m.is_not(e, e))
+                    return l_undef;
+                sign = !sign;
+            }
+        }
+
+        // arguments are equal if they share a class or are Boolean terms
+        // with the same known truth value.
+        bool are_equal_args(expr* x, expr* y) {
+            if (are_equal(x, y))
+                return true;
+            if (!m.is_bool(x))
+                return false;
+            lbool v = value(x);
+            return v != l_undef && v == value(y);
+        }
+
         bool congruence(bool comm, app* x, app* y) {
             if (x->get_decl() != y->get_decl())
                 return false;
@@ -119,15 +146,15 @@ namespace euf {
             if (comm) {
                 if (x->get_num_args() != 2)
                     return false;
-                if (!are_equal(x->get_arg(0), y->get_arg(1)))
+                if (!are_equal_args(x->get_arg(0), y->get_arg(1)))
                     return false;
-                if (!are_equal(y->get_arg(0), x->get_arg(1)))
+                if (!are_equal_args(y->get_arg(0), x->get_arg(1)))
                     return false;
                 merge(x, y);
             }
             else {
                 for (unsigned i = 0; i < x->get_num_args(); ++i)
-                    if (!are_equal(x->get_arg(i), y->get_arg(i)))
+                    if (!are_equal_args(x->get_arg(i), y->get_arg(i)))
                         return false;
                 merge(x, y);
             }
@@ -350,8 +377,12 @@ namespace euf {
         return e && is_app(e) && m_map.find(to_app(e)->get_name(), p) && p->requires_check();
     }
 
+    bool theory_checker::has_rule(expr* e) const {
+        return e && is_app(e) && m_map.contains(to_app(e)->get_name());
+    }
+
     expr_ref_vector theory_checker::clause(expr* e) {
-        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
+        SASSERT(has_rule(e));
         expr_ref_vector r = m_map[to_app(e)->get_name()]->clause(to_app(e));
         return r;
     }

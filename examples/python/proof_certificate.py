@@ -4,11 +4,12 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_UF, QF_UFLRA, or QF_UFLIA SMT-LIB problem.
+"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_LIRA, QF_UF, QF_UFLRA, or QF_UFLIA SMT-LIB problem.
 
 Two proof sources: the legacy proof object of the smt core and the sat.smt
 clause log, both for every fragment; the integer ones (QF_LIA, QF_UFLIA,
-including div and mod by a numeral and abs) are opt-in on both, since the
+including div and mod by a numeral and abs, and QF_LIRA, Int and Real
+variables without conversions) are opt-in on both, since the
 integer solver's cuts are certified by Lean alone. An incremental script
 (push, pop, reset, several check-sat queries, assumptions) is certified one
 query at a time: the certificate is about the assertions in scope at the
@@ -25,6 +26,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 
 import z3
 
@@ -88,20 +90,36 @@ _BOOLEAN_OPERATORS = {
     z3.Z3_OP_IMPLIES, z3.Z3_OP_XOR, z3.Z3_OP_IFF, z3.Z3_OP_EQ,
     z3.Z3_OP_DISTINCT, z3.Z3_OP_ITE,
 }
+# Pseudo-Boolean constraints over Boolean literals: ((_ at-most k) l1 ... ln)
+# and ((_ at-least k) ...) count the true literals, ((_ pble k c1 ... cn) l1
+# ... ln), pbge, and pbeq compare the sum of the coefficients of the true
+# literals with k. Propositional input only, through the legacy proof object:
+# theory_pb proves its propagations and conflicts as (_ th-lemma pb) steps,
+# which Lean proves over the literals' 0/1 values, while the sat.smt core
+# compiles the constraints away before its clause log starts (the log cites
+# none of them, only bare smt clauses it would rest on).
+_PSEUDO_BOOLEAN = {z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST, z3.Z3_OP_PB_LE, z3.Z3_OP_PB_GE, z3.Z3_OP_PB_EQ}
 # Linear real arithmetic: atoms over Real terms built from variables, numerals,
 # sums, differences, negation, scaling by a numeral, division by a numeral,
-# and Real-valued ite, whose value is a linear term under either branch.
+# and Real-valued ite, whose value is a linear term under either branch, and
+# abs, which SMT-LIB defines on Int only but Z3 accepts over Real with the
+# same definition (ite (>= t 0) t (- t)).
 # Linear integer arithmetic is the same fragment over Int without Real
-# division, plus the integer div and mod by a nonzero numeral and abs, which
-# are opaque atoms of the linear forms (Z3's arithmetic solver axiomatizes
-# div and mod by explicit clauses, see proof_clause_log, and rewrites abs to
-# an ite); to_real and to_int are rejected, and Int never mixes with Real.
+# division, plus the integer div, mod, and rem by a nonzero numeral and abs,
+# which are opaque atoms of the linear forms (Z3's arithmetic solver
+# axiomatizes div, mod, and rem by explicit clauses, see proof_clause_log, and
+# rewrites abs to an ite; rem, a Z3 extension, is mod by a positive divisor
+# and its negation by a negative one). Int and Real meet in qf_lira, where
+# to_real injects Int terms into Real, to_int takes the floor of a Real term
+# (an opaque Int atom, which Z3's arithmetic solver bounds by two axioms),
+# and is_int tests a Real term (an integer numeral Z3 coerces to Real is
+# read as a Real numeral, see _parse_snapshot).
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
     z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">",
     z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*",
-    z3.Z3_OP_DIV: "/", z3.Z3_OP_IDIV: "div", z3.Z3_OP_MOD: "mod", z3.Z3_OP_ABS: "abs",
+    z3.Z3_OP_DIV: "/", z3.Z3_OP_IDIV: "div", z3.Z3_OP_MOD: "mod", z3.Z3_OP_REM: "rem", z3.Z3_OP_ABS: "abs",
 }
 # Clause-log hint encodings; replay handles each hint's clause convention.
 # cut is the integer solver's hint for a Gomory cut or a gcd conflict: its
@@ -111,7 +129,7 @@ _ARITH_NAMES = {
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # The fragments over Int, certified through the clause log and Lean alone
 # (see parse_assertions).
-_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia")
+_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira")
 # arith is the hint of the arithmetic solver's own axioms (the div and mod
 # definitions): like euf it lists jointly contradictory literals, and like cut
 # it is shape-checked here and proved by Lean alone.
@@ -375,6 +393,86 @@ def _assertion_commands(source, query=None):
     return query_snapshot(source, query)[0]
 
 
+# The Int operators _real_counterpart rebuilds over Real, by their Z3 API constructors.
+_REAL_COUNTERPARTS = {
+    z3.Z3_OP_ADD: z3.Z3_mk_add, z3.Z3_OP_SUB: z3.Z3_mk_sub, z3.Z3_OP_MUL: z3.Z3_mk_mul,
+    z3.Z3_OP_UMINUS: lambda reference, size, array: z3.Z3_mk_unary_minus(reference, array[0]),
+    z3.Z3_OP_ABS: lambda reference, size, array: z3.Z3_mk_abs(reference, array[0]),
+}
+
+
+def _parse_snapshot(source, context, query=None):
+    """Parse the assertion snapshot of a query, with integer numerals coerced to Real read as Real numerals.
+
+    Under a logic with both Int and Real (none declared, or ALL), Z3 reads an
+    integer numeral where a Real is expected as an Int term under to_real,
+    around the largest Int subterm: (* 2 x) over a Real x is
+    (* (to_real 2) x), (/ 1 5) is (/ (to_real 1) (to_real 5)), and (- 5 1) is
+    (to_real (- 5 1)), where QF_LRA reads 2.0, (/ 1.0 5.0), and (- 5.0 1.0).
+    SMT-LIB defines to_real as the injection of the integers into the reals,
+    so (to_real t) of a term t built from numerals is replaced by t over Real
+    (_real_counterpart) before anything else reads the assertions: the
+    fragment, the exporter's solver and replay, and the reconstructor's
+    statement all see the input as QF_LRA reads it, and the z3 executable's
+    rewriter folds such a coercion to a Real numeral before logging. A
+    to_real of such a term written explicitly, under any logic, is read the
+    same way. to_real of any other Int term (a variable, an application, an
+    ite, whose coercion the log keeps) stays: the input relates the sorts
+    (qf_lira).
+    """
+    assertions = list(z3.parse_smt2_string(_assertion_commands(source, query), ctx=context))
+    pending, seen, coerced = list(assertions), set(), []
+    while pending:
+        expr = pending.pop()
+        if not z3.is_app(expr) or expr.get_id() in seen:
+            continue
+        seen.add(expr.get_id())
+        if expr.decl().kind() == z3.Z3_OP_TO_REAL and z3.is_int(expr.arg(0)):
+            counterpart = _real_counterpart(expr.arg(0), context)
+            if counterpart is not None:
+                coerced.append((expr, counterpart))
+                continue
+        pending.extend(expr.children())
+    if not coerced:
+        return assertions
+    return [z3.substitute(assertion, *coerced) for assertion in assertions]
+
+
+def _real_counterpart(expr, context):
+    """The Real term QF_LRA reads for (to_real expr), or None unless expr is built from numerals.
+
+    Numerals become Real numerals of the same value, and sums, differences,
+    products, negations, and abs over such terms the same operation over
+    their counterparts (the injection commutes with each, abs included:
+    QF_LRA reads (abs 3) as the Real abs of 3.0), so the statement keeps the
+    input's structure. Any other Int term (a variable, an application, an
+    ite, div, mod) has none.
+    """
+    counterparts = {}
+    pending = [(expr, False)]
+    while pending:
+        node, expanded = pending.pop()
+        if node.get_id() in counterparts:
+            continue
+        kind = node.decl().kind()
+        if kind == z3.Z3_OP_ANUM:
+            counterparts[node.get_id()] = z3.RealVal(node.as_long(), ctx=context)
+        elif kind not in _REAL_COUNTERPARTS:
+            counterparts[node.get_id()] = None
+        elif not expanded:
+            pending.append((node, True))
+            pending.extend((child, False) for child in node.children())
+        else:
+            children = [counterparts[child.get_id()] for child in node.children()]
+            if any(child is None for child in children):
+                counterparts[node.get_id()] = None
+            else:
+                array = (z3.Ast * len(children))(*(child.as_ast() for child in children))
+                counterparts[node.get_id()] = z3.ArithRef(
+                    _REAL_COUNTERPARTS[kind](context.ref(), len(children), array), context)
+    return counterparts[expr.get_id()]
+
+
 def _is_numeral(expr):
     return z3.is_app(expr) and expr.decl().kind() == z3.Z3_OP_ANUM
 
@@ -415,7 +513,7 @@ def constant_value(expr):
 
 
 def integer_divisor(expr):
-    """Return the nonzero constant divisor of an Int div or mod term, rejecting any other.
+    """Return the nonzero constant divisor of an Int div, mod, or rem term, rejecting any other.
 
     SMT-LIB leaves div and mod by zero uninterpreted, while Lean's Int
     division and remainder are total functions (x / 0 = 0), so a proof over
@@ -432,15 +530,16 @@ def integer_divisor(expr):
 def _require_linear_arithmetic(expr):
     """Reject Real or Int terms outside the linear fragment with constant coefficients.
 
-    Real division is accepted by a nonzero constant, integer div and mod by a
-    nonzero constant, and abs over Int; rem and the conversions between Int
-    and Real are distinct operators that fall through to the rejection.
+    Real division is accepted by a nonzero constant, integer div, mod, and rem
+    by a nonzero constant, abs over Int or Real, to_real of an Int term
+    (the injection, linear in its argument), and to_int of a Real term (the
+    floor, an atom of the linear forms like div). is_int, a predicate, is
+    accepted by classify_fragment.
     """
     kind = expr.decl().kind()
-    if kind == z3.Z3_OP_ABS and not z3.is_int(expr):
-        # SMT-LIB defines abs on Int only. Z3 accepts a Real abs, which the
-        # reconstructor rejects, so the exporter rejects it as unsupported.
-        raise ProofExportError("unsupported arithmetic operator: abs over Real")
+    # abs over Real is accepted too: SMT-LIB defines abs on Int only, but Z3
+    # reads a Real abs by the same definition, (ite (>= t 0) t (- t)), which
+    # the reconstructor states over Rat.
     if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM, z3.Z3_OP_ABS):
         pass  # Variables, applications of uninterpreted functions, and abs are the atoms of linear forms.
     elif kind == z3.Z3_OP_MUL:
@@ -450,10 +549,66 @@ def _require_linear_arithmetic(expr):
         divisor = constant_value(expr.arg(1))
         if divisor is None or divisor == 0:
             raise ProofExportError("division is supported only by a nonzero constant")
-    elif kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+    elif kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
+    elif kind in (z3.Z3_OP_TO_REAL, z3.Z3_OP_TO_INT):
+        pass  # Its argument is checked like any other term.
     elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_ITE):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
+
+
+def pseudo_boolean_parameters(decl):
+    """Return a pseudo-Boolean declaration's bound and coefficients as decimal strings.
+
+    at-most and at-least take the bound alone; pble, pbge, and pbeq take the
+    bound and one coefficient per argument. Z3's parser accepts numerals
+    only, but its rewriter could produce other rationals; anything but
+    integers is rejected.
+    """
+    parameters = decl.params()
+    expected = 1 if decl.kind() in (z3.Z3_OP_PB_AT_MOST, z3.Z3_OP_PB_AT_LEAST) else 1 + decl.arity()
+    if len(parameters) != expected:
+        raise ProofExportError("invalid pseudo-Boolean declaration: %s" % decl.name())
+    values = []
+    for parameter in parameters:
+        try:
+            value = Fraction(str(parameter))
+        except (ValueError, ZeroDivisionError):
+            value = None
+        if isinstance(parameter, (bool, float)) or value is None or value.denominator != 1:
+            raise ProofExportError("pseudo-Boolean coefficients must be integers: %s" % decl.name())
+        values.append(str(value.numerator))
+    return values
+
+
+def _require_pseudo_boolean(expr):
+    """Check a pseudo-Boolean constraint: integer parameters over Boolean variables and their negations.
+
+    Lean reads each argument as its 0/1 value and proves the constraint's
+    steps by integer arithmetic over the variables' values (see
+    proof_to_lean), so an argument may not be any other formula.
+    """
+    pseudo_boolean_parameters(expr.decl())
+    for argument in expr.children():
+        # One negation at most: the legacy core rewrites (not (not a)) inside
+        # the constraint by a congruence step the reconstruction does not take.
+        if z3.is_not(argument):
+            argument = argument.arg(0)
+        if not (z3.is_const(argument) and argument.decl().kind() == z3.Z3_OP_UNINTERPRETED):
+            raise ProofExportError("pseudo-Boolean arguments must be Boolean variables or their negations: %s" % expr)
+
+
+def _mentions_pseudo_boolean(assertions):
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen or not z3.is_app(expr):
+            continue
+        seen.add(expr.get_id())
+        if expr.decl().kind() in _PSEUDO_BOOLEAN:
+            return True
+        pending.extend(expr.children())
+    return False
 
 
 def is_uninterpreted_sort(sort):
@@ -513,9 +668,10 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
+    """Return "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
+    pseudo_boolean = False
     while pending:
         expr = pending.pop()
         if expr.get_id() in seen:
@@ -533,6 +689,12 @@ def classify_fragment(assertions):
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 pass
+            elif decl.kind() == z3.Z3_OP_IS_INT:
+                # (is_int t) is (= (to_real (to_int t)) t) by SMT-LIB's definition.
+                real = integer = True
+            elif decl.kind() in _PSEUDO_BOOLEAN:
+                _require_pseudo_boolean(expr)
+                pseudo_boolean = True
             elif decl.kind() not in _ARITH_PREDICATES and decl.kind() not in _BOOLEAN_OPERATORS:
                 raise ProofExportError("unsupported propositional operator: %s" % decl.name())
             if decl.kind() in _ARITH_PREDICATES or decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
@@ -551,15 +713,22 @@ def classify_fragment(assertions):
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
+    if pseudo_boolean and (integer or real or sorts or functions):
+        raise ProofExportError("pseudo-Boolean constraints are supported in propositional input only")
     if integer:
         # Linear integer arithmetic: the Lean encoding values the variables in
         # Int and the integer solver's rounding steps are proved there, on its
         # own (QF_LIA) or next to uninterpreted sorts and functions (QF_UFLIA,
         # the Int valuation next to the carrier, into which Int arguments are
-        # injected like Bool ones). Mixed Int/Real input (QF_LIRA) has no
+        # injected like Bool ones). Int and Real side by side (QF_LIRA) are
+        # two valuations, one per sort, related by to_real, to_int, and
+        # is_int. Uninterpreted functions next to both sorts have no
         # encoding yet.
         if real:
-            raise ProofExportError("mixing integer and real arithmetic is not supported")
+            if sorts or functions:
+                raise ProofExportError("mixing integer and real arithmetic with uninterpreted functions "
+                                       "is not supported")
+            return "qf_lira"
         return "qf_uflia" if sorts or functions else "qf_lia"
     if sorts or functions:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
@@ -592,7 +761,7 @@ def _require_legacy_fragment(assertions, integer=False):
 
 def parse_legacy_assertions(source, context, integer=False, query=None):
     """Parse the assertion snapshot for the legacy proof object, with its fragment name."""
-    assertions = z3.parse_smt2_string(_assertion_commands(source, query), ctx=context)
+    assertions = _parse_snapshot(source, context, query)
     return assertions, _require_legacy_fragment(assertions, integer)
 
 
@@ -609,14 +778,14 @@ def parse_assertions(source, context, integer=False, query=None):
 
     The snapshot is that of the script's only check-sat query, or of the
     query selected by its zero-based index (see query_snapshot). The integer
-    fragments (qf_lia, qf_uflia) are opt-in: the integer solver's
+    fragments (qf_lia, qf_uflia, qf_lira) are opt-in: the integer solver's
     cut steps (and Farkas steps resting on cuts) carry no coefficient
     certificate that the replay can re-derive, so they are certified by Lean
     alone and a consumer accepts them explicitly. The exporter and the
     reconstructor do; a harness that classifies input for other proof
     checkers keeps the previous fragments.
     """
-    assertions = z3.parse_smt2_string(_assertion_commands(source, query), ctx=context)
+    assertions = _parse_snapshot(source, context, query)
     fragment = classify_fragment(assertions)
     if fragment in _INTEGER_FRAGMENTS and not integer:
         raise ProofExportError("integer arithmetic (%s) is certified through the clause log and Lean alone; "
@@ -652,6 +821,11 @@ def _th_lemma_parameters(decl, premise_count, conclusion=None, integer=False):
     Z3 could not check stays rejected, as does the nla variant.
     """
     parameters = decl.params()
+    if parameters == ["pb"]:
+        # theory_pb's propagations, conflicts, and constraint axioms: the
+        # premises and the clause are literals and pseudo-Boolean constraints
+        # over Boolean variables, which Lean decides over their 0/1 values.
+        return ["pb"]
     if integer and len(parameters) == 1 and parameters[0] == "arith":
         return ["arith"]
     if integer and len(parameters) == 2 and parameters[0] == "arith" and parameters[1] == "unsupported":
@@ -797,6 +971,8 @@ def _encode_proof(assertions, proof, integer=False):
             if integer and parameters[0] in ("farkas", "bound") and len(parameters) > 1 and \
                     not _integer_coefficients_certify(expr, parameters[0], [Fraction(c) for c in parameters[1:]]):
                 parameters = parameters[:1]  # One declaration per step shape: Lean alone proves this one.
+        elif decl.kind() in _PSEUDO_BOOLEAN:
+            parameters = pseudo_boolean_parameters(decl)
         elif decl.params():
             raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
         key = (decl.get_id(), tuple(parameters))
@@ -1103,7 +1279,7 @@ def _certificate_from_proof(source, assertions, proof, query=0):
     return certificate
 
 
-def export_certificate(source, query=None):
+def export_certificate(source, query=None, timeout=None, memory=None):
     """Return a native proof bundle, not an independently verified verdict.
 
     The source is an SMT-LIB script; the certificate is about the assertion
@@ -1114,7 +1290,12 @@ def export_certificate(source, query=None):
     supports every fragment; theory_lra's th-lemma steps carry their Farkas
     coefficients as declaration parameters, except over Int, where cuts, the
     div/mod axioms, and lattice conflicts carry none and Lean proves them.
+    timeout (seconds) and memory (megabytes) bound the solver run, by default
+    as in export_clause_log_certificate; hitting either raises
+    ProofExportError naming it.
     """
+    import proof_clause_log
+    seconds, megabytes = proof_clause_log._limits(timeout, memory)
     context = z3.Context(proof=True)
     assertions, _ = parse_legacy_assertions(source, context, integer=True, query=query)
     _, index, _ = query_snapshot(source, query)
@@ -1124,12 +1305,33 @@ def export_certificate(source, query=None):
     # by intro-def steps over fresh k!N constants, which the certificate
     # rejects. Send the assertions to the smt core directly.
     solver.set("combined_solver.ignore_solver1", True)
+    solver.set("timeout", seconds * 1000)
     solver.add(assertions)
-    result = solver.check()
+    # The solve runs in this process, so the memory limit is z3's high
+    # watermark: a global parameter the smt core polls during the search,
+    # stopping with "memout" once z3's allocations in this process exceed it.
+    # (memory_max_size would throw from the allocator and leave z3 marked out
+    # of memory for the rest of the process.) It is restored afterwards.
+    previous = z3.get_param("memory_high_watermark_mb")
+    z3.set_param("memory_high_watermark_mb", megabytes)
+    start = time.monotonic()
+    try:
+        result = solver.check()
+    finally:
+        elapsed = time.monotonic() - start
+        z3.set_param("memory_high_watermark_mb", previous)
     if result == z3.sat:
         raise ProofExportError("sat: no unsat proof exists")
     if result == z3.unknown:
-        raise ProofExportError("unknown: %s" % solver.reason_unknown())
+        reason = solver.reason_unknown()
+        # The smt core reports its timer as "canceled", as it does an
+        # external interrupt; only a check that lasted the limit hit the timer.
+        if reason in ("canceled", "timeout") and elapsed >= seconds:
+            raise ProofExportError("the legacy solver run exceeded the time limit of %d s" % seconds)
+        if reason == "memout":
+            raise ProofExportError("z3's memory in this process exceeded the limit of %d MB during the legacy "
+                                   "solver run" % megabytes)
+        raise ProofExportError("unknown: %s" % reason)
     return _certificate_from_proof(source, assertions, solver.proof(), index)
 
 
@@ -1145,7 +1347,7 @@ def default_z3_executable():
     return "z3"
 
 
-def export_clause_log_certificate(source, z3_executable=None, timeout=None, query=None):
+def export_clause_log_certificate(source, z3_executable=None, timeout=None, query=None, memory=None):
     """Return a native-style proof bundle built from a sat.smt clause log.
 
     The z3 executable solves the assertions of the selected query (see
@@ -1154,20 +1356,28 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None, quer
     logging every assumed, inferred, and deleted clause. The log is rebuilt
     into the proof DAG format: theory hints become th-lemma nodes and
     reverse-unit-propagation steps become explicit resolution chains. The
-    bundle is unverified; the Lean reconstructor must check it.
+    bundle is unverified; the Lean reconstructor must check it. timeout
+    (seconds) and memory (megabytes) bound each z3 run, the solver's and the
+    trimmer's (default: 600 s and 8192 MB), and timeout also bounds the
+    replay of the log; a stage that hits either limit raises
+    ProofExportError naming it.
     """
     import proof_clause_log
     context = z3.Context()
     assertions, fragment = parse_assertions(source, context, integer=True, query=query)
+    if _mentions_pseudo_boolean(assertions):
+        raise ProofExportError("pseudo-Boolean constraints are certified through the legacy proof object only: "
+                               "the sat.smt clause log does not record them")
     commands, index, _ = query_snapshot(source, query)
+    executable = z3_executable or default_z3_executable()
     try:
-        text = proof_clause_log.run_clause_log(z3_executable or default_z3_executable(), commands, timeout)
-        text = proof_clause_log.trim_clause_log(z3_executable or default_z3_executable(), text, timeout)
-        certificate = proof_clause_log.build_certificate(source, fragment, assertions, text, context)
+        text = proof_clause_log.run_clause_log(executable, commands, timeout, memory)
+        text = proof_clause_log.trim_clause_log(executable, text, timeout, memory)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, text, context, timeout)
         certificate["query"] = index
         return certificate
-    except subprocess.TimeoutExpired:
-        raise ProofExportError("native proof trimming timed out") from None
+    except subprocess.TimeoutExpired as error:
+        raise ProofExportError("native proof trimming exceeded the time limit of %d s" % error.timeout) from None
     except proof_clause_log.ProofExportError as error:
         # Running this file as a script imports it twice; unify the error class.
         raise ProofExportError(str(error)) from None
@@ -1181,11 +1391,23 @@ def main():
                              "input) or the sat.smt clause log via the z3 executable (default: legacy when "
                              "propositional, clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
-    parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
+    parser.add_argument("--timeout", type=float,
+                        help="seconds allowed for the legacy solver run, or for each stage of the clause log: "
+                             "the solver run, the trimmer run, and the replay (default: 600)")
+    parser.add_argument("--memory", type=int,
+                        help="megabytes allowed for each z3 run of the clause log, or for z3's memory in this "
+                             "process during the legacy solver run (default: 8192)")
     parser.add_argument("--query", type=int,
                         help="zero-based index of the check-sat query to certify in an incremental script "
                              "(push, pop, reset, several queries); default: the script's only query")
     args = parser.parse_args()
+    import proof_clause_log
+    if args.timeout is not None and not 0 < args.timeout <= proof_clause_log._MAX_TIME_LIMIT:
+        parser.error("--timeout must be a positive number of seconds, at most %d"
+                     % proof_clause_log._MAX_TIME_LIMIT)
+    if args.memory is not None and not 0 < args.memory <= proof_clause_log._MAX_MEMORY_LIMIT:
+        parser.error("--memory must be a positive number of megabytes, at most %d"
+                     % proof_clause_log._MAX_MEMORY_LIMIT)
     try:
         if args.file == "-":
             source = sys.stdin.read()
@@ -1197,9 +1419,9 @@ def main():
             _, fragment = parse_assertions(source, z3.Context(), integer=True, query=args.query)
             core = "legacy" if fragment == "propositional" else "clause-log"
         if core == "legacy":
-            certificate = export_certificate(source, args.query)
+            certificate = export_certificate(source, args.query, args.timeout, args.memory)
         else:
-            certificate = export_clause_log_certificate(source, args.z3, args.timeout, args.query)
+            certificate = export_clause_log_certificate(source, args.z3, args.timeout, args.query, args.memory)
         json.dump(certificate, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     except (ProofExportError, z3.Z3Exception, OSError, UnicodeError) as error:

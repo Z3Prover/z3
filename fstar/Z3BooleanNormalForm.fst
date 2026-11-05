@@ -261,57 +261,66 @@ and lemma_normalize_args_sound (rho:Z3AstTheory.expr -> bool) (negative:bool)
 
 (* Set matching proves associativity/commutativity/idempotence without
    enumerating assignments. Fuel bounds recursive contextual comparison. *)
-let rec shape_equal (fuel:nat) (s t:formula)
+let rec shape_equal_by (same:Z3AstTheory.expr -> Z3AstTheory.expr -> Tot bool)
+                      (fuel:nat) (s t:formula)
   : Tot bool (decreases %[fuel; 0]) =
   if s = t then true
   else if fuel = 0 then false
   else match s, t with
-  | B.Not a, B.Not b -> shape_equal (fuel - 1) a b
+  | B.Atom a, B.Atom b -> same a b
+  | B.Not a, B.Not b -> shape_equal_by same (fuel - 1) a b
   | B.Eq a b, B.Eq c d ->
-    (shape_equal (fuel - 1) a c && shape_equal (fuel - 1) b d) ||
-    (shape_equal (fuel - 1) a d && shape_equal (fuel - 1) b c)
+    (shape_equal_by same (fuel - 1) a c && shape_equal_by same (fuel - 1) b d) ||
+    (shape_equal_by same (fuel - 1) a d && shape_equal_by same (fuel - 1) b c)
   | B.Nary op xs, B.Nary other ys ->
     op = other && op <> B.Xor &&
-    shape_included (fuel - 1) xs ys && shape_included (fuel - 1) ys xs
+    shape_included_by same (fuel - 1) xs ys && shape_included_by same (fuel - 1) ys xs
   | _, _ -> false
 
-and shape_included (fuel:nat) (xs ys:list formula)
+and shape_included_by (same:Z3AstTheory.expr -> Z3AstTheory.expr -> Tot bool)
+                      (fuel:nat) (xs ys:list formula)
   : Tot bool (decreases %[fuel; length xs + length ys + 1]) =
   match xs with
   | [] -> true
-  | x :: rest -> shape_member fuel x ys && shape_included fuel rest ys
+  | x :: rest -> shape_member_by same fuel x ys && shape_included_by same fuel rest ys
 
-and shape_member (fuel:nat) (x:formula) (ys:list formula)
+and shape_member_by (same:Z3AstTheory.expr -> Z3AstTheory.expr -> Tot bool)
+                    (fuel:nat) (x:formula) (ys:list formula)
   : Tot bool (decreases %[fuel; length ys]) =
   match ys with
   | [] -> false
   | y :: rest ->
-    (fuel > 0 && shape_equal (fuel - 1) x y) || shape_member fuel x rest
+    (fuel > 0 && shape_equal_by same (fuel - 1) x y) || shape_member_by same fuel x rest
 
-let rec lemma_shape_equal_sound (rho:Z3AstTheory.expr -> bool)
-                               (fuel:nat) (s t:formula)
-  : Lemma (requires shape_equal fuel s t)
+let rec lemma_shape_equal_by_sound (rho:Z3AstTheory.expr -> bool)
+                                  (same:Z3AstTheory.expr -> Z3AstTheory.expr -> Tot bool)
+                                  (fuel:nat) (s t:formula)
+  : Lemma (requires shape_equal_by same fuel s t /\
+                    (forall (a b:Z3AstTheory.expr). same a b ==> rho a == rho b))
           (ensures B.eval rho s == B.eval rho t)
           (decreases %[fuel; 0]) =
   if s = t || fuel = 0 then ()
   else match s, t with
-  | B.Not a, B.Not b -> lemma_shape_equal_sound rho (fuel - 1) a b
+  | B.Atom _, B.Atom _ -> ()
+  | B.Not a, B.Not b -> lemma_shape_equal_by_sound rho same (fuel - 1) a b
   | B.Eq a b, B.Eq c d ->
-    if shape_equal (fuel - 1) a c && shape_equal (fuel - 1) b d then (
-      lemma_shape_equal_sound rho (fuel - 1) a c;
-      lemma_shape_equal_sound rho (fuel - 1) b d)
+    if shape_equal_by same (fuel - 1) a c && shape_equal_by same (fuel - 1) b d then (
+      lemma_shape_equal_by_sound rho same (fuel - 1) a c;
+      lemma_shape_equal_by_sound rho same (fuel - 1) b d)
     else (
-      lemma_shape_equal_sound rho (fuel - 1) a d;
-      lemma_shape_equal_sound rho (fuel - 1) b c)
+      lemma_shape_equal_by_sound rho same (fuel - 1) a d;
+      lemma_shape_equal_by_sound rho same (fuel - 1) b c)
   | B.Nary op xs, B.Nary other ys ->
-    lemma_shape_included_sound rho (fuel - 1) xs ys;
-    lemma_shape_included_sound rho (fuel - 1) ys xs;
+    lemma_shape_included_by_sound rho same (fuel - 1) xs ys;
+    lemma_shape_included_by_sound rho same (fuel - 1) ys xs;
     (match op with B.And | B.Or | B.Xor -> ())
   | _, _ -> ()
 
-and lemma_shape_included_sound (rho:Z3AstTheory.expr -> bool)
-                              (fuel:nat) (xs ys:list formula)
-  : Lemma (requires shape_included fuel xs ys)
+and lemma_shape_included_by_sound (rho:Z3AstTheory.expr -> bool)
+                                 (same:Z3AstTheory.expr -> Z3AstTheory.expr -> Tot bool)
+                                 (fuel:nat) (xs ys:list formula)
+  : Lemma (requires shape_included_by same fuel xs ys /\
+                    (forall (a b:Z3AstTheory.expr). same a b ==> rho a == rho b))
           (ensures
             (B.eval_args rho B.And ys ==> B.eval_args rho B.And xs) /\
             (B.eval_args rho B.Or xs ==> B.eval_args rho B.Or ys))
@@ -319,12 +328,14 @@ and lemma_shape_included_sound (rho:Z3AstTheory.expr -> bool)
   match xs with
   | [] -> ()
   | x :: rest ->
-    lemma_shape_member_sound rho fuel x ys;
-    lemma_shape_included_sound rho fuel rest ys
+    lemma_shape_member_by_sound rho same fuel x ys;
+    lemma_shape_included_by_sound rho same fuel rest ys
 
-and lemma_shape_member_sound (rho:Z3AstTheory.expr -> bool)
-                            (fuel:nat) (x:formula) (ys:list formula)
-  : Lemma (requires shape_member fuel x ys)
+and lemma_shape_member_by_sound (rho:Z3AstTheory.expr -> bool)
+                               (same:Z3AstTheory.expr -> Z3AstTheory.expr -> Tot bool)
+                               (fuel:nat) (x:formula) (ys:list formula)
+  : Lemma (requires shape_member_by same fuel x ys /\
+                    (forall (a b:Z3AstTheory.expr). same a b ==> rho a == rho b))
           (ensures
             (B.eval_args rho B.And ys ==> B.eval rho x) /\
             (B.eval rho x ==> B.eval_args rho B.Or ys))
@@ -332,9 +343,39 @@ and lemma_shape_member_sound (rho:Z3AstTheory.expr -> bool)
   match ys with
   | [] -> ()
   | y :: rest ->
-    if fuel > 0 && shape_equal (fuel - 1) x y
-    then lemma_shape_equal_sound rho (fuel - 1) x y
-    else lemma_shape_member_sound rho fuel x rest
+    if fuel > 0 && shape_equal_by same (fuel - 1) x y
+    then lemma_shape_equal_by_sound rho same (fuel - 1) x y
+    else lemma_shape_member_by_sound rho same fuel x rest
+
+let shape_equal (fuel:nat) (s t:formula) : bool =
+  shape_equal_by (fun a b -> a = b) fuel s t
+
+let shape_included (fuel:nat) (xs ys:list formula) : bool =
+  shape_included_by (fun a b -> a = b) fuel xs ys
+
+let shape_member (fuel:nat) (x:formula) (ys:list formula) : bool =
+  shape_member_by (fun a b -> a = b) fuel x ys
+
+let lemma_shape_equal_sound (rho:Z3AstTheory.expr -> bool) (fuel:nat) (s t:formula)
+  : Lemma (requires shape_equal fuel s t)
+          (ensures B.eval rho s == B.eval rho t) =
+  lemma_shape_equal_by_sound rho (fun a b -> a = b) fuel s t
+
+let lemma_shape_included_sound (rho:Z3AstTheory.expr -> bool)
+                              (fuel:nat) (xs ys:list formula)
+  : Lemma (requires shape_included fuel xs ys)
+          (ensures
+            (B.eval_args rho B.And ys ==> B.eval_args rho B.And xs) /\
+            (B.eval_args rho B.Or xs ==> B.eval_args rho B.Or ys)) =
+  lemma_shape_included_by_sound rho (fun a b -> a = b) fuel xs ys
+
+let lemma_shape_member_sound (rho:Z3AstTheory.expr -> bool)
+                            (fuel:nat) (x:formula) (ys:list formula)
+  : Lemma (requires shape_member fuel x ys)
+          (ensures
+            (B.eval_args rho B.And ys ==> B.eval rho x) /\
+            (B.eval rho x ==> B.eval_args rho B.Or ys)) =
+  lemma_shape_member_by_sound rho (fun a b -> a = b) fuel x ys
 
 let normal_equivalent (s t:formula) : bool =
   shape_equal 32 (normalize false s) (normalize false t)
@@ -445,16 +486,158 @@ and lemma_forced_any_sound (rho:Z3AstTheory.expr -> bool)
     if forced negative a truth then lemma_forced_sound rho negative a truth
     else lemma_forced_any_sound rho negative truth rest
 
+(* Compute both polarities once; separate recursive queries duplicate nested equalities. *)
+let rec forced_pair (negative:list formula) (s:formula)
+  : Tot (bool & bool) (decreases s) =
+  let positive, negative_result =
+    match s with
+    | B.Atom _ -> false, false
+    | B.Bool b -> b, not b
+    | B.Not a ->
+      let p, n = forced_pair negative a in n, p
+    | B.Nary B.Xor [a; b] ->
+      let ap, an = forced_pair negative a in
+      let bp, bn = forced_pair negative b in
+      (ap && bn) || (an && bp), (ap && bp) || (an && bn)
+    | B.Nary op args ->
+      if op = B.Xor then false, false else forced_pair_args negative op args
+    | B.Implies a b ->
+      let ap, an = forced_pair negative a in
+      let bp, bn = forced_pair negative b in
+      an || bp, ap && bn
+    | B.Eq a b ->
+      let ap, an = forced_pair negative a in
+      let bp, bn = forced_pair negative b in
+      (ap && bp) || (an && bn), (ap && bn) || (an && bp) in
+  has_complement s negative || positive, mem s negative || negative_result
+
+and forced_pair_args (negative:list formula) (op:B.nary_op{op <> B.Xor}) (args:list formula)
+  : Tot (bool & bool) (decreases args) =
+  match args with
+  | [] -> B.neutral op, not (B.neutral op)
+  | a :: rest ->
+    let ap, an = forced_pair negative a in
+    let bp, bn = forced_pair_args negative op rest in
+    if op = B.And then ap && bp, an || bn else ap || bp, an && bn
+
+let rec lemma_forced_pair (negative:list formula) (s:formula)
+  : Lemma (
+      let p, n = forced_pair negative s in
+      p == forced negative s true /\ n == forced negative s false)
+      (decreases s) =
+  match s with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Not a -> lemma_forced_pair negative a
+  | B.Nary B.Xor [a; b] ->
+    lemma_forced_pair negative a;
+    lemma_forced_pair negative b
+  | B.Nary op args ->
+    if op <> B.Xor then lemma_forced_pair_args negative op args
+  | B.Implies a b | B.Eq a b ->
+    lemma_forced_pair negative a;
+    lemma_forced_pair negative b
+
+and lemma_forced_pair_args (negative:list formula) (op:B.nary_op{op <> B.Xor})
+                           (args:list formula)
+  : Lemma (
+      let p, n = forced_pair_args negative op args in
+      p == (if op = B.And then forced_all negative true args else forced_any negative true args) /\
+      n == (if op = B.And then forced_any negative false args else forced_all negative false args))
+      (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_forced_pair negative a;
+    lemma_forced_pair_args negative op rest
+
+(* Retain single-polarity short circuits outside equality and XOR. *)
+let rec forced_polarity (negative:list formula) (s:formula) (truth:bool)
+  : Tot bool (decreases s) =
+  (if truth then has_complement s negative else mem s negative) ||
+  (match s with
+   | B.Atom _ -> false
+   | B.Bool b -> b = truth
+   | B.Not a -> forced_polarity negative a (not truth)
+   | B.Nary B.And args ->
+     if truth then forced_polarity_all negative true args else forced_polarity_any negative false args
+   | B.Nary B.Or args ->
+     if truth then forced_polarity_any negative true args else forced_polarity_all negative false args
+   | B.Nary B.Xor [a; b] ->
+     let ap, an = forced_pair negative a in
+     if not (ap || an) then false else
+     let bp, bn = forced_pair negative b in
+     if truth then (ap && bn) || (an && bp) else (ap && bp) || (an && bn)
+   | B.Nary B.Xor _ -> false
+   | B.Implies a b ->
+     if truth then forced_polarity negative a false || forced_polarity negative b true
+     else forced_polarity negative a true && forced_polarity negative b false
+   | B.Eq a b ->
+     let ap, an = forced_pair negative a in
+     if not (ap || an) then false else
+     let bp, bn = forced_pair negative b in
+     if truth then (ap && bp) || (an && bn) else (ap && bn) || (an && bp))
+
+and forced_polarity_all (negative:list formula) (truth:bool) (args:list formula)
+  : Tot bool (decreases args) =
+  match args with
+  | [] -> true
+  | a :: rest -> forced_polarity negative a truth && forced_polarity_all negative truth rest
+
+and forced_polarity_any (negative:list formula) (truth:bool) (args:list formula)
+  : Tot bool (decreases args) =
+  match args with
+  | [] -> false
+  | a :: rest -> forced_polarity negative a truth || forced_polarity_any negative truth rest
+
+let rec lemma_forced_polarity (negative:list formula) (s:formula) (truth:bool)
+  : Lemma (forced_polarity negative s truth == forced negative s truth)
+          (decreases s) =
+  match s with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Not a -> lemma_forced_polarity negative a (not truth)
+  | B.Nary B.And args ->
+    if truth then lemma_forced_polarity_all negative true args
+    else lemma_forced_polarity_any negative false args
+  | B.Nary B.Or args ->
+    if truth then lemma_forced_polarity_any negative true args
+    else lemma_forced_polarity_all negative false args
+  | B.Nary B.Xor [a; b] | B.Eq a b ->
+    lemma_forced_pair negative a;
+    lemma_forced_pair negative b
+  | B.Nary B.Xor _ -> ()
+  | B.Implies a b ->
+    lemma_forced_polarity negative a (not truth);
+    lemma_forced_polarity negative b truth
+
+and lemma_forced_polarity_all (negative:list formula) (truth:bool) (args:list formula)
+  : Lemma (forced_polarity_all negative truth args == forced_all negative truth args)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_forced_polarity negative a truth;
+    lemma_forced_polarity_all negative truth rest
+
+and lemma_forced_polarity_any (negative:list formula) (truth:bool) (args:list formula)
+  : Lemma (forced_polarity_any negative truth args == forced_any negative truth args)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_forced_polarity negative a truth;
+    lemma_forced_polarity_any negative truth rest
+
 let disjuncts (s:formula) : list formula =
   match s with B.Nary B.Or args -> args | _ -> [s]
 
 let clause_tautology (s:formula) : bool =
-  forced (disjuncts s) s true
+  forced_polarity (disjuncts s) s true
 
 let lemma_clause_tautology_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
   : Lemma (requires clause_tautology s)
           (ensures B.eval rho s) =
   FStar.Classical.excluded_middle (B.eval rho s);
+  lemma_forced_polarity (disjuncts s) s true;
   if not (B.eval rho s) then (
     (match s with B.Nary B.Or _ -> () | _ -> ());
     lemma_forced_sound rho (disjuncts s) s true)
@@ -472,8 +655,8 @@ let lemma_neutral_assumption (rho:Z3AstTheory.expr -> bool) (op:B.nary_op) (s:fo
    formula. Keep negated compound terms intact to expose complements. *)
 let rec specialize (negative:list formula) (s:formula)
   : Tot formula (decreases s) =
-  if forced negative s true then B.Bool true
-  else if forced negative s false then B.Bool false
+  if forced_polarity negative s true then B.Bool true
+  else if forced_polarity negative s false then B.Bool false
   else match s with
   | B.Atom _ | B.Bool _ -> s
   | B.Not a -> make_not (specialize negative a)
@@ -506,6 +689,8 @@ let rec lemma_specialize_sound (rho:Z3AstTheory.expr -> bool)
   : Lemma (requires not (B.eval_args rho B.Or negative))
           (ensures B.eval rho (specialize negative s) == B.eval rho s)
           (decreases s) =
+  lemma_forced_polarity negative s true;
+  lemma_forced_polarity negative s false;
   if forced negative s true then lemma_forced_sound rho negative s true
   else if forced negative s false then lemma_forced_sound rho negative s false
   else match s with
@@ -680,14 +865,50 @@ let lemma_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
     lemma_normalize_context_sound rho 2 t;
     lemma_contextual_equivalent_sound rho (normalize_context 2 s) (normalize_context 2 t))
 
+(* The first atom of [B.support e] (lemma_first_atom), without building the support. *)
+let rec first_atom (#a:Type) (e:B.formula a) : Tot (option a) (decreases e) =
+  match e with
+  | B.Atom x -> Some x
+  | B.Bool _ -> None
+  | B.Nary _ args -> first_atom_args args
+  | B.Not x -> first_atom x
+  | B.Implies x y | B.Eq x y -> (match first_atom x with None -> first_atom y | r -> r)
+and first_atom_args (#a:Type) (args:list (B.formula a)) : Tot (option a) (decreases args) =
+  match args with
+  | [] -> None
+  | x :: xs -> (match first_atom x with None -> first_atom_args xs | r -> r)
+
+let first_of (#a:Type) (xs:list a) : option a = match xs with [] -> None | x :: _ -> Some x
+
+let lemma_first_of_append (#a:Type) (xs ys:list a)
+  : Lemma (first_of (xs @ ys) == (match first_of xs with None -> first_of ys | r -> r)) =
+  match xs with [] -> () | _ -> ()
+
+let rec lemma_first_atom (#a:Type) (e:B.formula a)
+  : Lemma (ensures first_atom e == first_of (B.support e)) (decreases e) =
+  match e with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Nary _ args -> lemma_first_atom_args args
+  | B.Not x -> lemma_first_atom x
+  | B.Implies x y | B.Eq x y ->
+    lemma_first_atom x; lemma_first_atom y;
+    lemma_first_of_append (B.support x) (B.support y)
+and lemma_first_atom_args (#a:Type) (args:list (B.formula a))
+  : Lemma (ensures first_atom_args args == first_of (B.support_args args)) (decreases args) =
+  match args with
+  | [] -> ()
+  | x :: xs ->
+    lemma_first_atom x; lemma_first_atom_args xs;
+    lemma_first_of_append (B.support x) (B.support_args xs)
+
 let rec shannon (fuel:nat) (s t:formula) : Tot bool (decreases fuel) =
   if normal_equivalent s t then true
   else if fuel = 0 then false
   else
     let _ = assert (fuel > 0) in
-    match B.support s @ B.support t with
-    | [] -> false
-    | atom :: _ ->
+    match (match first_atom s with None -> first_atom t | atom -> atom) with
+    | None -> false
+    | Some atom ->
       shannon (fuel - 1) (specialize [B.Atom atom] s) (specialize [B.Atom atom] t) &&
       shannon (fuel - 1) (specialize [B.Not (B.Atom atom)] s)
                          (specialize [B.Not (B.Atom atom)] t)
@@ -698,9 +919,9 @@ let rec lemma_shannon_sound (rho:Z3AstTheory.expr -> bool) (fuel:nat) (s t:formu
           (decreases fuel) =
   if normal_equivalent s t then lemma_normal_equivalent_sound rho s t
   else if fuel > 0 then
-    match B.support s @ B.support t with
-    | [] -> ()
-    | atom :: _ ->
+    match (match first_atom s with None -> first_atom t | atom -> atom) with
+    | None -> ()
+    | Some atom ->
       let negative = if rho atom then [B.Not (B.Atom atom)] else [B.Atom atom] in
       lemma_specialize_sound rho negative s;
       lemma_specialize_sound rho negative t;

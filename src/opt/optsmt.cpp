@@ -36,6 +36,7 @@ Notes:
 #include "opt/opt_geometric.h"
 #include "opt/opt_search.h"
 #include "opt/opt_nlsat.h"
+#include "opt/opt_curve_certificate.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_context.h"
 #include "ast/arith_decl_plugin.h"
@@ -201,6 +202,8 @@ namespace opt {
         // initial budget: same constant as the bounded nlsat run in
         // nla_core::bounded_nlsat; the known unbounded proofs need 4k-23k
         unsigned unbounded_check_rlimit = 100000;
+        // the most recent models, for curve certificates of unboundedness
+        sref_vector<model> recent_models;
 
         while (m.inc()) {
             is_sat = m_s->check_sat(0, nullptr);
@@ -220,6 +223,12 @@ namespace opt {
                 m_upper[obj_index] = search.upper();
                 m_s->get_model(m_model);
                 SASSERT(m_model);
+                if (recent_models.size() > curve_certificate::max_degree) {
+                    for (unsigned i = 1; i < recent_models.size(); ++i)
+                        recent_models.set(i - 1, recent_models[i]);
+                    recent_models.pop_back();
+                }
+                recent_models.push_back(m_model.get());
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 TRACE(opt, tout << "saved objective: " << obj << "\n";);
                 update_lower_lex(obj_index, obj, is_maximize);
@@ -228,19 +237,23 @@ namespace opt {
                     break;
                 }
                 step.update(is_int && m_lower[obj_index].is_finite());
-                // A real objective may improve forever without refuting an
+                // An objective may improve forever without refuting an
                 // upper bound. After a streak, use prove_unbounded_above to
                 // commit +oo with the current model as a witness. Bounded
                 // objectives can show the same pattern, so limit the query by
                 // deterministic resource count and exponentially back off
                 // inconclusive retries.
-                if (is_int || search.upper().is_finite())
+                if (search.upper().is_finite())
                     climb_rounds = 0;
-                else if (m_optsmt_nlsat && ++climb_rounds >= unbounded_check_rounds) {
+                else if ((m_unbounded_curve || (m_optsmt_nlsat && !is_int)) && ++climb_rounds >= unbounded_check_rounds) {
                     climb_rounds = 0;
                     unbounded_check_rounds *= 2;
-                    if (prove_unbounded_above(obj_index, unbounded_check_rlimit)) {
+                    if (prove_unbounded_above(obj_index, unbounded_check_rlimit, recent_models)) {
                         set_best(obj_index, infty, is_maximize);
+                        break;
+                    }
+                    if (m.limit().is_canceled()) {
+                        is_sat = l_undef;
                         break;
                     }
                     // saturate: an overflow to 0 would make the budget
@@ -367,45 +380,59 @@ namespace opt {
 
     /**
        \brief Certify that objective idx is unbounded above over the current
-       assertions by projecting feasible nlsat regions onto the objective,
+       assertions: over real variables by projecting feasible nlsat regions
+       onto the objective, and otherwise along a polynomial curve through the
+       recent models, which also covers integer and mixed objectives,
        given a budget of rlimit_budget resource-counter ticks; bounds pushed
        by the climb hold in the current model and are harmless. The budget's
        expiry surfaces from the nlsat solver as a solver_exception, not a
        tactic_exception, so any z3_exception here means "no proof within
-       budget", never an error to propagate. A cancellation flag (a soft
-       timeout, ctrl-c) also lands in the same catch, and popping the budget
-       would erase it; it is probed while still set and re-raised so the
-       caller's m.inc() loop still observes it. An expired tighter enclosing
+       budget", never an error to propagate. Curve queries may instead
+       return l_undef on cancellation. Popping the budget would erase an
+       external cancellation (a soft timeout, ctrl-c), so it is always probed
+       while still set and re-raised for the caller. An expired tighter enclosing
        rlimit needs no such care: the counter stays above that ceiling after
        the pop and keeps failing on its own.
     */
-    bool optsmt::prove_unbounded_above(unsigned idx, unsigned rlimit_budget) {
+    bool optsmt::prove_unbounded_above(unsigned idx, unsigned rlimit_budget, sref_vector<model> const& recent_models) {
         if (!m_lower[idx].is_finite())
             return false;
         expr_ref_vector hard(m);
         for (unsigned i = 0; i < m_s->get_num_assertions(); ++i)
             hard.push_back(m_s->get_assertion(i));
         params_ref p;
-        nlsat_opt engine(m, p);
         lbool r = l_undef;
+        bool by_curve = false;
         uint64_t start = m.limit().count();
         uint64_t consumed = 0;
         bool external_cancel = false;
         {
             scoped_rlimit budget(m.limit(), rlimit_budget);
             try {
-                r = engine.prove_unbounded(hard, m_objs.get(idx), lower(idx).get_rational());
-            }
-            catch (z3_exception&) {
-                external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+                // returns l_undef at once when any term is an integer
+                if (m_optsmt_nlsat) {
+                    nlsat_opt engine(m, p);
+                    r = engine.prove_unbounded(hard, m_objs.get(idx), lower(idx).get_rational());
+                }
+                // The curve queries run on the remaining budget, so they
+                // cannot starve the projection of a real objective.
+                if (r != l_true && m_unbounded_curve && !recent_models.empty()) {
+                    curve_certificate curve(m, p);
+                    r = curve.prove_unbounded(hard, m_objs.get(idx), recent_models);
+                    by_curve = r == l_true;
+                    IF_VERBOSE(1, if (by_curve) verbose_stream() << "(optsmt unbounded above along a "
+                               << curve.kind_name() << ")\n");
+                }
+            } catch (z3_exception &) {
                 r = l_undef;
             }
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
             // read before the pop of the budget truncates the counter
             consumed = m.limit().count() - start;
         }
         if (external_cancel)
             m.limit().cancel();
-        IF_VERBOSE(1, if (r == l_true) verbose_stream() << "(optsmt nlsat unbounded above)\n");
+        IF_VERBOSE(1, if (r == l_true && !by_curve) verbose_stream() << "(optsmt nlsat unbounded above)\n");
         IF_VERBOSE(3, verbose_stream() << "(optsmt unbounded-check :result " << r
                    << " :rlimit-consumed " << consumed
                    << " :budget " << rlimit_budget << ")\n");
@@ -739,9 +766,19 @@ namespace opt {
         }            
     }
 
+    // Seed the best model with the model of the initial satisfiability check,
+    // together with its labels: when the search never improves on it,
+    // get_model returns this pair, and labels left empty would replace the
+    // ones the context recorded for that same model.
+    void optsmt::get_base_model() {
+        m_context.get_base_model(m_best_model);
+        m_labels.reset();
+        m_context.get_labels(m_labels);
+    }
+
     lbool optsmt::lex(unsigned obj_index, bool is_maximize) {
         TRACE(opt, tout << "optsmt:lex\n";);
-        m_context.get_base_model(m_best_model);
+        get_base_model();
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
         if (is_maximize && m_optsmt_engine == symbol("symba"))
@@ -948,7 +985,7 @@ namespace opt {
         // m_optsmt_engine is "symba", because symba_opt and geometric_opt
         // optimize all objectives jointly, violating box mode semantics.
         //
-        m_context.get_base_model(m_best_model);
+        get_base_model();
         for (unsigned i = 0; i < m_vars.size() && m.inc(); ++i) {
             // Reset bounds for objective i so that update_lower_lex
             // contamination from earlier objectives does not affect it.
@@ -1026,6 +1063,7 @@ namespace opt {
         m_dual_bounds = _p.optsmt_dual_bounds();
         m_nlsat_supremum_rlimit = _p.optsmt_nlsat_supremum_rlimit();
         m_lex_after_unbounded = _p.optsmt_lex_after_unbounded();
+        m_unbounded_curve = _p.optsmt_unbounded_curve();
     }
 
     void optsmt::reset() {

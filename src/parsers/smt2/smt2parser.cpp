@@ -1573,14 +1573,23 @@ namespace smt2 {
             // ensure that bound variables are adjusted to vars
             
             func_decl* f = nullptr;
-            try {
-                f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
-            }
-            catch (cmd_exception &) {
-                if (!vars.empty()) {
-                    throw;
+            if (dtutil().is_datatype(srt)) {
+                for (func_decl* c : *dtutil().get_datatype_constructors(srt)) {
+                    if (c->get_name() == C) {
+                        f = c;
+                        break;
+                    }
                 }
-            }            
+            }
+            if (!f) {
+                try {
+                    f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
+                }
+                catch (cmd_exception &) {
+                    if (!vars.empty())
+                        throw;
+                }
+            }
             if (!f && !vars.empty()) {
                 throw parser_exception("expecting a constructor that has been declared");
             }

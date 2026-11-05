@@ -681,7 +681,8 @@ namespace seq {
         expr_ref len_e = mk_len(e);
 
         rational iv;
-        if (a.is_numeral(i, iv) && iv.is_unsigned()) {
+        // Large numeral indices use the symbolic split instead of expanding every preceding element.
+        if (a.is_numeral(i, iv) && iv.is_unsigned() && iv <= 1024) {
             expr_ref_vector es(m);
             expr_ref nth(m);
             unsigned k = iv.get_unsigned();

@@ -374,6 +374,12 @@ declarations, and missing operator identity. The existing unconditional
 rewrite checker still rejects an arbitrary variable-to-fresh-word
 equality.
 
+After the ghost-semantics migration, the width 1/3/8 reconstruction and
+evaluation-preservation assertions run as checked F* computations in
+[`Z3BvFreshTests.fst`](Z3BvFreshTests.fst). The native group retains its
+executable context, freshness and kernel checks. Its PASS no longer means
+those semantic evaluations execute natively.
+
 Re-diagnosing the three completed partial BV proofs gives:
 
 | Input | Pending | Passing single-word extension conditions |
@@ -437,6 +443,11 @@ native test groups, and all 26 CLI tests pass. The new native group checks
 simultaneous reconstruction, reversed equality, global bit collisions,
 input freshness under binders, reserved-name rejection, and literal
 retraction/evaluation correspondence.
+
+The context-extension and retraction evaluation checks now run as F*
+proofs in [`Z3BvFreshTests.fst`](Z3BvFreshTests.fst). Native tests still
+execute the structural context, retraction and step checks; they do not
+execute the erased interpretation records.
 
 The actual partial proofs pass the complete, model-safe context guard:
 
@@ -514,9 +525,11 @@ The scoped theorem uses the structural `Z3BvFresh.check_context`.
 Fresh uninterpreted atoms named `true`, `false`, `and`, or `or` are safe
 under these prerequisites: they remain distinct from the interpreted
 operators. The earlier reserved-name guard remains only for the legacy
-Boolean-model transfer helper. Native regressions deliberately assign
-false to an uninterpreted atom named `true`, and true to one named
-`false`, while preserving both official literals.
+Boolean-model transfer helper. The regression that assigns false to an
+uninterpreted atom named `true`, and true to one named `false`, while
+preserving both official literals now runs as a checked F* computation
+in [`Z3BvFreshTests.fst`](Z3BvFreshTests.fst), not as native semantic
+evaluation.
 
 Strict verification (including all three legacy-contract counterexamples),
 extraction, all 48 native test groups, and all 26 CLI tests pass. The
@@ -532,6 +545,365 @@ theorem does not claim preservation of the complete Boolean rewrite
 laws or the full unified model, and it does not provide a concrete
 combined theory model. Simply proving closure of the old full model
 would be vacuous and would not discharge this gate.
+
+### Follow-up: typed canonical core model and kernel theorem
+
+`Z3CoreModel.core_model i dom` replaces, for the default kernel's Boolean,
+equality and congruence rules, the legacy contracts that have no model.
+The model owns its sort domains `dom`. `typing` fixes only `Bool`, to
+`VBool`, but the domains are not arbitrary: integer `+`/`*` must return
+`VInt` (`Z3Commutativity.arithmetic_model`), so the Int domain contains
+those images, and canonical equality must decide value identity on every
+carrier where it is applied (the interpretation fields are ghost, so a
+model may decide this classically; see the ghost-semantics follow-up
+below). Environments are typed against an
+explicit scope of sorts, with the de
+Bruijn convention of `Z3Definitions.scoped`. Applications map typed
+arguments into the range domain, `forall`/`exists` give Boolean values and
+a lambda gives a value of its array sort when its body maps typed argument
+lists (innermost first) into the body sort. `lemma_typed_eval` proves that
+every term scoped in `scope` takes a value of its sort under every
+environment typed for `scope`, including open terms and binder bodies.
+The connective contracts are keyed only by the typed canonical predicates
+of `Z3CanonicalOps`; equality is canonical and is required to decide value
+identity only on scoped terms under typed environments. Integer `+`/`*`
+and the ground bit-vector contracts are included.
+
+`lemma_core_inhabited` proves `exists i dom. core_model i dom` without
+hypotheses: the witness is `Z3StandardModel.standard` with integer `+`
+and `*` computed, and `Z3StandardModel.fits` as its domains (a lambda now
+evaluates to the opaque value of its array sort there).
+
+`Z3CoreKernel.lemma_core_check_node_sound` is about the kernel's own
+`check_node_with_context`. For every node for which it returns `Some` and
+whose rule is assertion, hypothesis, lemma, reflexivity, symmetry,
+transitivity, transitivity path, congruence, commutativity, `iff~`, `mp`,
+`mp~`, unit resolution, and-elimination, not-or-elimination, iff-true or
+iff-false, or a theory lemma or rewrite whose conclusion `Z3BvExhaustive`
+decides, the returned checked fact holds in every core model, under every
+environment typed for a scope its judgments and premises are scoped in,
+given that its premises and the assertions hold there. `Some` is not the
+same as zero obligations: the kernel returns `Some` for well-formed
+theory-lemma and rewrite nodes (which may have premises) with a pending
+obligation, even for a false conclusion; for those nodes the guarantee
+comes from the `core_rule` condition that the bounded evaluator decides
+the conclusion, and the theorem ignores the obligation count. It is a
+theorem about one node, not about a proof DAG; no document-level theorem
+is claimed. Its scope hypothesis is not established for documents by any
+F* lemma: `Z3ProofDocument.prepare_entry_using` rejects unscoped entry
+formulas only for documents with binders, while for a document whose
+expression table is ground, F* checks no entry scope and closedness rests
+on the native side listing every subexpression in the table.
+
+`Z3CoreModelTests` instantiates the theorem on accepted and-elimination,
+not-or-elimination and unit-resolution nodes and on bit-vector theory-lemma
+and rewrite nodes, and on a unit resolution over the open `Var 0 Bool` with
+scope `[Bool]`, and shows that the premises are satisfiable in witness core
+models. It also shows that the typed environment is needed (an accepted
+hypothesis discharge over `Var 0 Bool` has true premises and a false
+conclusion in a core model under an untyped environment, and under an
+environment typed for the binder-swapped scope `[Int; Bool]`), and that a
+contingent bit-vector equation is returned as `Some` but is not a core
+rule and is false in a core model.
+
+The kernel's Boolean dispatch accepts only canonical connectives:
+`Z3ProofTheory.is_not`, resolution complements, clauses and consequences,
+the resolution proof terms, `mp`, and/not-or elimination, and the
+recognizers of `Z3QuantifierInstantiation`, `Z3QuantifierPull`,
+`Z3QuantifierReduce`, `Z3QuantifierDer`, `Z3FiniteFieldLemma`,
+`Z3FiniteFieldPac`, `Z3IntegerDivision` and `Z3ArithmeticFactor`. A user
+declaration that merely carries a connective's name is an ordinary atom.
+Native connectives are canonical: the native `canonical_dispatch` test
+checks this on recorded formulas, it is not an F* lemma about marshaling,
+and native acceptance on the measured inputs was unchanged.
+
+The seven connective conjuncts of the legacy `model_sound`
+(`not`/`and`/`or`/`implies`/`eq`/`true`/`false_sound`) are keyed by the
+same `Z3CanonicalOps` predicates, and their consumers were migrated to
+them. The Boolean clauses no longer capture the former foreign-name
+instances: `=` tagged `bvult`, BV numerals named `true`, and datatype
+operations named `and` or `=>`. Every core model satisfies the six
+non-equality contracts (`legacy_connectives`) and its typed canonical
+equality. This does not imply the re-keyed `eq_sound`, which still
+quantifies over every environment. The witness core model fails that
+untyped contract: an Int variable mapped to an array value makes its
+canonical `x = x` false (`core_without_untyped_equality`). The closed
+foreign-name instances nevertheless take their own theory's values in
+the witness (`clash_eq_excluded`, `true_numerals_excluded`,
+`datatype_and_excluded`).
+
+Not covered and still blocking a global theorem: quantifier introduction
+and the other binder rules, definitions, the array, arithmetic, datatype,
+finite-field and normalization checkers, Skolemization, and the document
+layer. Checked quantifier instantiation is the exception: the theorem
+below uses the inhabited typed quantifier contract. The legacy
+`model_sound` remains without a model: the quantification in its
+open-environment typing contracts (`boolean_model`, the Int conjunct of
+`numeric_model`, and `array_model`) is unchanged. The re-keyed `eq_sound`
+also retains untyped environment quantification. `Z3CoreModelTests`
+records two further obstructions as finite clause instances with
+satisfiable drop-one controls.
+O1: the store clause of `array_model` at the closed, well-sorted
+`(store a 0 1/2)` over `(Array Int Real)`, the numeral clause of
+`numeric_operators` at `1/2` and its clause `nu (VInt n) = n` are jointly
+unsatisfiable; no environment is involved, so typed environments cannot
+repair it. O2: the untyped `quantifier_model` clause at the value list
+`[true]`, the `arithmetic_model` clause and the untyped `eq_sound` clause
+make the valid `forall x:Int. x + 0 = x` false, so every model of these
+three contracts, if one exists, falsifies it; the typed restriction of the
+quantifier clause holds in a witness core model.
+
+### Follow-up: ghost semantics and a classical standard model
+
+The fields of `Z3AstTheory.interpretation` and `eval`/`eval_args` are now
+ghost (`GTot`); the body passed to `interp_quant` is a ghost function. The
+production `value` type is unchanged: `VBool` carries an ordinary `bool`
+and `VArr` a `Tot` function. A model may therefore decide classical
+propositions with `FStar.IndefiniteDescription.strong_excluded_middle`;
+no axiom is added. Ghost results cannot reach executable code (F* rejects
+a ghost computation in a `Tot` context), so every executable checker
+function is unchanged. Where a proof needs an executable evaluator on a
+ghost valuation (`Z3BoundedBoolEquiv`), the executable evaluator and row
+check stay as they are and a ghost twin (`geval`) is proved to agree with
+them; lemmas about the executable normal forms are applied to a ghost
+valuation through `freeze`, an ordinary valuation computed in a ghost
+context that agrees with it on the finitely many atoms. Spec-only helpers
+that compute with `eval` (for example `Z3BvLemma.bit_values`,
+`Z3FiniteFieldLemma.projections`) became ghost.
+
+`Z3GhostStandardModel.ghost_standard` is a second, hypothesis-free core
+model built with that decision. One interpretation, with one choice of
+domains and the projection `Z3StandardModel.std_project`, satisfies
+`core_model` (including the ground bit-vector contracts), the legacy
+untyped canonical `eq_sound` (identity of any two values under every
+environment, two arrays being equal exactly when they agree at every
+index), typed `forall`/`exists` over exactly the value lists typed for
+the reversed binder list, standard domains (Bool, every integer, every
+`(Array Int Int)` array, the `2^w` bit-vectors of width `w <= 4096`) and
+integer numerals (`op_num_rational` with parameters `[n; 1]` and range
+Int). `Z3GhostStandardModelTests` evaluates actual terms: `forall x:Int.
+x + 0 = x` is true and `x + 0 = x + 1` false; `exists x:Int. x + 1 = 0`
+is true and `x + 1 = x` false; with binders `[Int; Bool]`, `forall x, p.
+p => x + 0 = x` and `exists x, p. p and x = -1` are true and the
+binder-swapped form false; `1 = 0` is false (the first witness gives every
+numeral the value 0); fractions and Real numerals stay opaque leaves;
+array identity equalities hold and shifted or stored-different ones fail;
+`forall a. store a 0 (select a 0) = a` holds and its `+1` mutation fails.
+Each opposite claim is rejected as a mutation control. The first witness
+remains a core model that does not satisfy the untyped `eq_sound`;
+`eq_sound` is not a consequence of `core_model`.
+
+The second witness does not model lambdas (an opaque value of the array
+sort: a ghost body cannot become a `Tot` `VArr` payload), real
+arithmetic, datatypes, finite fields, sequences, nested or non-integer
+arrays, or quantification over those carriers. It does not satisfy the
+untyped legacy `boolean_model`, so `model_sound` still has no model
+(`ghost_boolean_model_fails`). Apart from quantifier instantiation
+(below), no kernel rule outside `core_rule` is proved sound from it, and
+there is no document-level theorem.
+
+`Z3QuantifierKernel` proves the kernel's quantifier-instantiation nodes
+from the typed contract `Z3TypedQuantifier.quantifier_model`: `core_model`,
+typed `forall`/`exists` over the value lists typed by the reversed binder
+list, and quantifier extensionality, for one interpretation and one
+domain assignment. `core_model` is unchanged. The classical model
+satisfies all three jointly (`lemma_quantifier_model`); extensionality is
+proved from its quantifier field, including the opaque lambda branch, and
+is not a beta law. The executable decision `Z3QuantifierInstantiation.check`
+is unchanged. `lemma_check_typed` proves its accepted clauses true in
+every quantifier model under every environment: the evaluated closed
+arguments are typed by `L.rev bs`, the `forall` is eliminated at exactly
+those values, and `Z3BinderSubstitution.lemma_substitute` relates the body
+there to the instance. `Some` is not certification: an instantiation node
+is returned with pending 0 exactly when `check_step` accepts it, and with
+pending 1 otherwise, including false conclusions and every `Equal`
+conclusion. `lemma_instantiation_node_sound` requires pending 0, and
+`lemma_typed_check_node_sound` extends the core node theorem to core rules
+plus checked instantiations. The legacy `lemma_check_sound` still needs the
+untyped `boolean_model` and `forall_elimination_model`; the classical
+model falsifies the latter, and neither is used. `Z3QuantifierKernelTests`
+computes accepted and rejected actual nodes, Int, Bool, `[Int; Bool]`,
+two Int binders, nested binders and `BV2`, and checks them in the classical
+model, including false conclusions returned with pending 1 and capture,
+shadowing and unscoped-argument mutations. Quantifier introduction and
+the other binder rules, definitions, Skolemization and the document layer
+are not covered.
+
+The instantiation result also applies to the document layer's
+`check_node_with_membership` entry point: this rule never reads the
+supplied membership predicate. The bridge requires zero pending
+obligations and makes no agreement assumption on that predicate. It is
+still a node-level statement, not a document theorem. A separate test
+isolates the closed-argument condition: an open Int argument passes the
+other instantiation checks but can produce a false conclusion under an
+ill-typed environment, and remains pending.
+
+### Binder certificates: scope guard and typed quantifier introduction
+
+A `QuantifierIntroduction` node carries a certificate of binder entries
+at different binder depths. Before this change the kernel checked no
+entry's scope, so it accepted, with zero pending obligations, a node whose
+bound variable is annotated `Bool` under an `Int` binder:
+`forall x:Int. (or p (not p)) = forall x:Int. true` with `p` the variable
+0. The Boolean wrapper of `binder_quantifier_step` treats `p` as a Boolean
+atom, but in the classical model `p` takes the integer value of the
+binder, so the left side is false. This is an abstract kernel term. The
+document layer rejects its formula when the expression table is not ground
+(`D.scoped []`), but a document with an empty or ground table skips that
+check, and inner certificate entries are never checked by the document.
+No native input producing it is known.
+
+`check_binder_with_context` now also requires `binder_scoped`. Entries
+are assigned the scopes at which the root uses them: the root at the
+closed scope `[]`; an entry with binder sorts `bs` used at `S` reads its
+premises at `L.rev bs @ S`, any other entry at `S`. Premises must be
+earlier entries. Each entry's judgment must be scoped
+(`Z3Definitions.scoped`) at every scope assigned to it, so a closed
+subproof can be shared inside and outside binders. A `QuantifierIntroduction`
+node whose conclusion is not closed and well sorted is now returned with
+pending 1. The guard is bounded: at most 1024 sorts per assigned scope, 64
+scopes per entry, `4n + 1024` assignments for `n` entries, and a work
+budget of `65536 (n + 1)` units charged before each step. Each unit is an
+entry, index lookup, list cell, expression node, sort node, name character
+or scope cell. The units are an abstract count, not a time bound: an index
+lookup takes up to `log2 n + 1` steps, and the two names of a comparison
+are counted before they are charged (`name_length`, proved equal to
+`FStar.String.strlen`: a tail-recursive count of `list_of_string`, so no
+stack in the name's length; both runtimes decode one character per UTF-8
+lead byte, at least a quarter of the bytes even for malformed names, and
+materialize about twice as many transient list cells as characters). The
+uncharged work is that of the two names of the one comparison whose charge
+exceeds the remaining budget. Exceeding a bound rejects the certificate,
+also a legitimate one: the budget grows with the number of entries, and a
+two-entry certificate (196,608 units) already stays pending with a sort
+tree of 4,095 unfolded nodes, a 10,000-character sort name or a
+10,000-argument application under one binder. On native inputs, the
+certificates for a sort name of 10,000 characters are accepted, and
+those for 100,000 characters or more stay pending. `Z3BinderScope` proves
+that an accepted certificate has a root scoped at `[]` and that every
+premise used at an assigned scope is scoped under the user's reversed
+binder sorts. The
+bounded primitives compute exactly `D.scoped`, list length, scope
+membership and sort equality.
+
+The guard's walks are loops on both backends. The scope under binders
+(`scope_under`, equal to `L.rev bs @ S`), the expression walk
+(`scoped_frames_within`) and the sort comparison (`sort_tasks_within`)
+keep their pending work on explicit worklists, with at most two new
+worklist cells per step; every step on a sort task or an expression node,
+but a failing last one, is charged at least one unit, and popping a
+finished expression frame is free (one pop per frame, and frames are
+pushed only by the walk's start and by charged steps); the list and name
+counts are loops.
+`Z3BinderScope` proves each equal to the recursive function it replaced
+(the guard of `0ebb92579`), on every input, for the result and the work
+left (`lemma_scope_under`, `lemma_scoped_same`, `lemma_sort_same`,
+`lemma_premise_scope_same`), so no decision, charge or bound changed. The
+recursive versions overflowed the default 8 MiB native stack of the
+Cherry checker on certificates whose used internal entries hold a
+quantifier over 180,000 binders (`L.append` of the binder list),
+40,000 nested applications, or a sort nested 50,000 deep in an array
+domain, all accepted by the checker without the guard. The Cherry
+regression `Z3CherryTests.binder_guard_stack` decides such certificates
+(200,000 binders, 200,000 negations, depth 50,000). This concerns the
+guard's own stack only. With the pinned F* (v2026.10.25, nightly
+2026-10-30) and the inlined option binds of `Z3ProofIndex`,
+`check_binder_entries`, which runs before the guard, is a loop as well
+(at the earlier pins it recursed once per entry and overflowed near
+20,000 `refl` entries, also without the guard), and `List.Tot.length`
+compiles to a loop under Cherry; the expression and sort recursion
+elsewhere in the checker is unchanged.
+
+`Z3BinderKernel` proves, from `Z3TypedQuantifier.quantifier_model`, that
+an introduction node checked with pending 0 has a true conclusion under
+every environment at which the node's assertions hold, provided every
+entry of its certificate is in the following fragment:
+- a closed `asserted` input, true everywhere by closedness;
+- a core rule at its own scope;
+- a forall or exists introduction whose body edge is exactly the two
+  bodies, so its normalization wrappers hold by reflexivity.
+
+The invariant, over the checker's own cache, is "every entry's judgment is
+scoped and true under every environment typed for each scope assigned to
+it". It does not use `model_sound` or a cache claim about all
+environments. In the classical model, the open premise `x + 0 = x` is
+false when `x` is a Boolean.
+
+The following are not covered: lambda introduction, Boolean `nnf` steps
+without sorts (which rewrite premises inside binder bodies), `nnf-neg`,
+Skolemization, `rewrite`, `th-lemma` and other leaves, and introductions
+through non-reflexive normalization. Such certificates can still be
+accepted, and their acceptance rests on the legacy model.
+`Z3BinderScopeTests` and `Z3BinderKernelTests` check red/green actual
+nodes (previously certified false and ill-scoped certificates, the
+abstract document entry, bound boundaries), positive certificates whose
+conclusions follow through the theorem, mutations, and the uncovered
+kinds. These are node theorems; there is no document theorem.
+
+Development code outside the checker that computes with the values of
+expressions uses its own executable evaluator, `Z3AstTotEval`
+(`tot_interpretation`, `teval`, and `teval_bool`, a copy of
+`Z3BasicExprTheory.eval_bool`): the regular-expression track
+(`Z3RegexExprTheory`, used by `Z3RegexInfo.compute_info`). It agrees with
+`eval` of the corresponding ghost interpretation on quantifier-free
+expressions only; a `Tot` quantifier field cannot be given a ghost body.
+
+### Follow-up: fresh-bit elimination by scoped projections
+
+The document checker can avoid extending the interpretation at all.
+After collecting ordinary definitions, it collects premise-free native
+reconstruction rewrites and checks their simultaneous structural freshness,
+including original assertions, definition bodies, binders, and cross-word
+bit collisions. Each fresh bit is expanded throughout the proof to
+`bvule #b1 ((_ extract j j) original)`, in little-endian order. For a
+one-bit original, the redundant extract is omitted. These forms survive
+the existing normalization pipeline.
+
+The expanded reconstruction is an ordinary word/projection identity, not
+an axiom about independent Boolean symbols. `Z3BvWord.lemma_projection_equivalent`
+proves its value equality from the closed-term BV contract alone, without
+legacy Boolean/numeric assumptions or a Boolean model-extension theorem.
+The existing document-wide expansion, acyclicity, and final original-input
+freshness checks remain mandatory. Reconstruction nodes still replay, and
+diagnostics use the same definition collection as the checker. Invalid
+contexts retain their original obligations rather than gaining assumptions.
+The optional substitution path has a 65,536-node per-expression tree
+budget, checked before freshness and expansion. Oversized shared proof
+DAGs keep the original replay path and pending counts; no existing solver,
+normalization, or case resource limit is raised.
+
+Paired replays use the same checkout solver, Z3 5.3.2 at `48a710a9c`,
+and the frozen, hash-verified 25-input cohort with the existing 10-second
+solver, 60-second case, and 4 GiB limits:
+
+| Input | Previous pending | New pending | New verdict |
+|---|---:|---:|---|
+| `QF_BV_bv_bv_h_TicTacToe_cc_reg_max.smt2` | 1 | 0 | ACCEPT |
+| `bitops3.smt2` | 3 | 0 | ACCEPT |
+| `rand_40_200_1235844018_0_k=4_unsat.gph.smt2` | 40 | 0 | ACCEPT |
+
+The full cohort changes from **2 ACCEPT, 5 PARTIAL, 11 UNKNOWN, 7 TIMEOUT**
+to **5 ACCEPT, 2 PARTIAL, 11 UNKNOWN, 7 TIMEOUT**, with no other verdict
+or pending-count changes. These same-solver totals supersede comparisons
+with the older 5.3.1 checker binary.
+
+These remove all **44** targeted reconstruction obligations. Substitution
+has a measurable cost: graph checking increases from 5.14 to 47.52 seconds
+(52.95 seconds total wall time), still within the unchanged case limit.
+The two oversized completed partial proofs retain 93 and 96 obligations,
+with checking times of about 41 and 110 milliseconds, respectively.
+
+Strict verification of all 62 production modules and 15 formal test
+modules, all 58 native test groups, all 40 CLI tests, and basic solver/Python
+smoke checks pass. New native mutations cover input-visible bits (including
+under binders), duplicate and cross-word bits, interpreted atoms, malformed
+projection widths/indices/order, unbound variables, non-leaf rewrites,
+and bounded fallback for heavily shared DAGs.
+
+This is a syntactic alternative to full model extension, not a migration
+of the legacy unified semantics. It leaves the original interpretation
+unchanged and does not provide a concrete combined theory model;
+`semantics=legacy` retains its existing limitation described above.
 
 ### Upstream merge compatibility: datatype exclusions
 
@@ -776,6 +1148,149 @@ ones being `th-lemma`. The unchanged 710-input replay retains all
 counts and no other changed pending counts. Frozen evidence is under
 `C:\smtlib-benchmarks\proof_gomory_20261018\final`.
 
+### Integer rounding cuts for `th-lemma arith unsupported` (2026-10-28)
+
+Z3 exports an LP derivation for a linear conflict when it can; when part of
+the derivation lacks a recipe, `theory_lra.cpp` labels the `false` lemma
+`th-lemma arith unsupported` and records no certificate. The two QF_LIA
+ring benchmarks of the SMT-LIB 2025 sample (`ring_2exp4_6vars_3ite_unsat`,
+`ring_2exp8_6vars_2ite_unsat`, kept verbatim in `benchmarks/repair`) left
+18 and 19 such steps pending. Every one has a satisfiable rational
+relaxation, so no Farkas vector exists, but is integer-infeasible after
+one rounding: variables fixed to constants are substituted, a row whose
+Int coefficients share a factor `g >= 2` that does not divide its constant
+is rounded (`g*L + c <= 0` gives `L <= floor(-c/g)`), and the remaining
+system has a Farkas refutation.
+
+`Z3LpIntegerCut.fst` checks exactly that shape. Its certificate lists the
+rounded bounds and the final weights; every bound and the refutation are
+replayed with `Z3LinearArithmeticAst.check` against the actual premises
+and earlier bounds, so premise binding, signs, denominators, strictness,
+and the Int-only rounding are enforced by the existing proved kernel. The
+soundness lemma needs the same hypotheses as `Z3LpGomory.lemma_check_sound`
+and the kernel call site discharges them from the unchanged
+`model_sound`. The module sets only the repository-standard
+`--smtencoding.elim_box true --smtencoding.nl_arith_repr native`; no
+rlimit, fuel, or admit is changed. The candidate search is untrusted and
+bounded (32 premises, 8 bounds of at most 64 terms, 128 rows, 64
+eliminations, 4096 row pairs overall, magnitudes at most 2^128), and every
+cap leaves the step pending, never rejected.
+
+Out of scope and still pending: lemmas that need a genuine Gomory or
+branching cut (the two `cut_lemma_01_011` steps), more than one rounding
+step, conclusions other than `false`, and rows with Real atoms.
+
+### Bounded bit-vector evaluation for QF_ABV `th-lemma` and `rewrite` steps (2026-10-29)
+
+In the QF_ABV PARTIAL inputs of the pulse checker reports, the smallest
+`egt` benchmarks leave `rewrite` steps and bit-vector `th-lemma` steps over
+a single 8-bit array read pending: the bound split
+`bvule(t, 547) = (extract[31:10](t) = 0 and bvule(extract[9:0](t), 547))`,
+the range lemmas `extract[31:10](242 + concat(0, x)) = 0` and
+`bvule(242 + concat(0, x), 547)` over 10 bits, and the constant
+re-association `bvadd(bvadd(2, t), 1) = bvadd(3, t)`, with
+`x = (select packet #x000000f1)` and `t = concat(0_24, x)`. Each is valid
+for every value of `x`.
+
+`Z3BvExhaustive.fst` decides such premise-free steps by evaluating the
+conclusion under every assignment of its leaves. The evaluated operators
+(Boolean connectives, `=`, `bvult`/`bvule`/`bvuge`, numerals, binary
+`concat`, `extract`, `zero_extend`, binary `bvadd`) are recognized by
+declaration kind and parameters (the connectives by the typed canonical
+predicates of `Z3CanonicalOps.fst`: name, kind tag, domain, range and
+parameters, never the name alone) and evaluated exactly as the
+corresponding contracts of `Z3StandardModel.ground_model` state; a leaf is
+a closed bit-vector term outside that set, identified by structure and
+width and enumerated over `[0, 2^w)`, which the first `ground_model`
+bit-vector contract shows covers every model. No array read, uninterpreted
+constant or opaque operator is ever given a value, and the signed
+comparisons and `bit2bool`, which the native bridge leaves opaque, are not
+evaluated, so `egt-6871` (and the matching lemma of `egt-7033` and
+`egt-6792`) stays pending. A datatype accessor or constructor named `and`,
+`or`, `not`, `=>`, `true` or `false` (the native bridge keeps the user's
+name and the datatype kind tag) is never evaluated as a connective.
+
+The evaluator's decision functions are proved sound from `ground_model`,
+the ground Boolean and bit-vector contracts on closed ground terms (the
+projection contract up to width 4096). These contracts have models:
+`Z3StandardModel.lemma_standard_model` constructs `standard leaf` for every
+leaf function. The witness computes canonical connectives and BV-tagged
+heads with matching parameters, coercing results to their range sorts;
+remaining heads use the leaf function on their argument values. The
+direct `lemma_valid_standard` proves accepted evaluator clauses true in
+each such model. The legacy kernel theorem still reaches the evaluator
+only through the uninhabited `model_sound` contract (see "Removing
+impossible environment assumptions" above). `Z3CoreKernel` proves
+theory-lemma and rewrite nodes whose conclusion this evaluator decides
+sound from the inhabited `Z3CoreModel.core_model` (see "Typed canonical
+core model" above); no
+document-level theorem is claimed. Arrays,
+arithmetic, datatypes, finite fields and quantifiers have no theory
+semantics in this ground model. Before anything is enumerated the conclusion must have at
+most 512 occurrences counted on the tree, no variable or binder, and leaves
+of at most 12 bits in total (at most 4096 assignments); these guards are
+conditionals, so the order holds under normalization too. Every bound
+leaves the step pending, never rejected.
+
+`egt-0160` (bench report) and `egt-0218` and `egt-4297` (z3 report), kept
+verbatim in `benchmarks/repair`, certify. Out of scope and still pending:
+steps over more than 12 leaf bits (for example the same re-association
+over a 32-bit leaf, and the two-read sums of `egt-1341` and `egt-1513`),
+steps with premises, and every operator outside the evaluated set.
+
+### Modular normalization of bit-vector sums for QF_ABV `rewrite` steps (2026-10-29)
+
+The largest `rewrite` family left pending in the QF_ABV PARTIAL inputs of the
+pulse checker reports is the constant re-association of the bit-vector
+rewriter, `bvadd(bvadd(c1, t), c2) = bvadd(c3, t)` with `c3 = c1 + c2` modulo
+`2^32` and `t` an uninterpreted 32-bit constant or other wide term (the `dwp`
+inputs of the two reports; a numeral total of 0 gives the bare `t`), together
+with the n-ary forms `bvadd(bvadd(c1, t0, t1), c2) = bvadd(c3, t0, t1)`,
+`bvadd(bvadd(c1, t0), bvadd(c2, t1)) = bvadd(c3, t0, t1)` and
+`bvadd(c1, bvadd(c2, t0, t1)) = bvadd(c3, t0, t1)` of `egt-1341`, `egt-1513`
+and `egt-4119`. The terms `t` are far beyond the 12 leaf bits of the bounded
+evaluation, and the identity holds for every `t`.
+
+`Z3BvAddNormalize.fst` reads both sides of a premise-free rewrite `a = b`
+as sums of sort `BV<w>`. A summand is a numeral, a nested `bvadd` (binary, or
+n-ary as the `bv_model` conjunct for `nary_operation` states it, recognized
+by `Z3BvExtract.arith` from the declaration kind, its width parameter and
+its argument sorts), or any other closed term of sort `BV<w>`, which is an
+opaque atom. A side is the sum of its numerals, taken modulo `2^w`, and the
+sequence of its atoms in the order in which they occur; the step is accepted
+when both sides have the same numeral total modulo `2^w` and the same atoms
+in the same order. Atoms are identified by their whole declaration and
+arguments, never given a value (equal atoms have equal values whatever the
+value is), and never reordered or merged: the step `bvadd(bvadd(2, t), t) =
+bvadd(2, bvmul(2, t))` and a swap of two atoms stay pending. A numeral or
+`bvadd` declaration that fails its recognizer (a numeral outside `[0, 2^w)`,
+a negative one, a wrong width or sort, a sum of one argument, a width above
+4096) is neither read nor an atom. The soundness lemma `lemma_summands` shows
+by induction on the term that the value of a side in the model is
+`(n + sum of the atom values) % 2^w`, from the `bv_model` conjuncts for
+numerals, `operation` and `nary_operation` and the range conjunct of
+`lemma_word`; the kernel call site discharges the one hypothesis,
+`exists project. bv_model i project`, from the unchanged `model_sound`. No
+model contract, assume, admit or lax mode is added, the module sets only the
+repository-standard options, and no budget changes: the tree has at most 512
+occurrences, counted on the tree so that a shared DAG cannot hide its size,
+and both sides must be closed (`D.scoped []`), before anything is read.
+Everything outside the shape leaves the step pending, never rejected.
+
+Scope: the rule is one more alternative of the `rewrite` step (not of
+`ApplyDefinition`) and decides no `th-lemma`; only acceptance grows. It does
+not touch the `bvadd` steps that merge equal summands (`t + t` into
+`bvmul(2, t)`, `egt-3244`), the `th-lemma` expansions of the `csplit` inputs
+or the signed comparison lemmas, and it does not close any QF_ABV input by
+itself. On the merged baseline (OCaml checker, `--stats --timeout-ms 10000`)
+105 pending steps of eight inputs are decided: `PARTIAL 295` to `264`
+(bench `try5` `fse-bfs`), `264` to `247` (bench `try4`
+`get_type_indicator`), `54` to `39` (z3 `hash_pjw`), `168` to `135` (z3
+`xstrcoll_atime`), `egt-1341` `8` to `4`, `egt-1513` `5` to `4`, `egt-3244`
+`4` to `3` and `egt-4119` `6` to `3`. The `dwp` inputs keep hundreds of other
+pending steps, and the `egt` inputs keep their `th-lemma` obligations (and
+the `t + t` step of `egt-3244`).
+
 ### QF_DT benchmark coverage (2026-10-18)
 
 A fixed 100-input QF_DT sample comes from the SMT-LIB 2025 archive
@@ -922,22 +1437,37 @@ the surrounding interpretation.
 
 **Production integration:** `Z3SortedSemantics.fst` supplies canonical
 Boolean operations, polymorphic equality and conditionals over the typed
-carrier. Scalar equality is supplied with a correctness proof; recursive
+carrier. Its semantic definitions (application, evaluation, truth) are
+ghost (`GTot`) specifications; the executable classifiers and
+`cut_with_boundaries` are unchanged. Scalar equality is a ghost decision
+supplied with a correctness proof (no executable equality on reals,
+functions or uninterpreted carrier elements is assumed); recursive
 datatype equality is derived. `Z3SortedDatatype.fst` derives constructor
 rewrites, exhaustive recognizer splits, and recognizer-guarded selector
 reconstruction from the actual checked schema. Equality commutativity,
 constant-branch conditionals, direct modus ponens, and literal resolution
 also have proofs in this interpretation. Bounded Boolean reflection
 preserves shared expression boundaries instead of expanding every nested
-conditional. Constructor-equality propagation uses the derived laws,
-not assumed legacy datatype axioms.
+conditional. Proofs apply the executable propositional decisions to the
+ghost truth through `Z3BoundedBoolEquiv.geval` and an executable valuation
+frozen on the formula's atoms (`freeze`). Constructor-equality propagation
+uses the derived laws, not assumed legacy datatype axioms.
 
 `Z3SortedProof.fst` checks raw proof DAGs against their **original
 assertions** using topological premise lookup, checked declaration
 membership, closed well-sorted facts, hypothesis inheritance/discharge,
 and explicit pending counts. Its `lemma_check_document` proves that a
 zero-obligation result rules out any typed interpretation satisfying the
-original assertions and the quantifier laws required by the document.
+original assertions and the quantifier laws required by the document
+(`Z3SortedQuantifier.forall_model`/`forall_elimination_model`, stated over
+ghost bodies). On the typed-root prototype branch,
+`Z3SortedRootDocument.fst` derives those quantifier laws from R1 of every
+`Z3TypedRoot.root_model` and restates the theorem in the root model's own
+truth (the Sorted layers agree with every root model,
+`Z3SortedRoot.fst`); its off-route gate `check_root_document` certifies a
+zero-obligation document only when the schema, the original assertions,
+every entry formula and every instantiation argument are typed and inside
+the root's supported fragment (scope and limits below).
 A concrete total interpretation witness ensures
 that the interpretation type itself is inhabited; the theorem does not
 assume the legacy `model_sound` or global all-environments contracts.
@@ -950,24 +1480,81 @@ document. The standalone node-checking wrapper still validates supplied
 premises. Hypothesis discharge checks canonical negations and handles
 both clause literals and the complement of the whole conclusion.
 
-Boolean-body congruence beneath `forall`, `exists`, and Boolean-valued
-lambdas uses evaluation in arbitrary typed binder environments. Canonical
+**Typed-root gate: scope, counts and limits (prototype branch).** The gate
+checks every *document* term the checker reads: the original assertions,
+the entry formulas and the instantiation arguments. The canonical false,
+equality and Boolean wrappers and the instances the kernels build
+internally are not gated; they need not be, because the falsity theorem
+holds in every root model for every zero-obligation document, covered or
+not. Coverage only restricts which certified documents are read as SMT
+queries; it is not used by the abstract root-class falsity proof.
+`Z3SortedRootDocumentTests.fst` certifies 9 positive documents (B1–B9),
+each proved false in every root model, plus 4 certified variants (the D8
+and D10 minimal pairs, F1 and F2) checked for their verdict only, and 10
+negative controls. The ghost checks that `concrete_datatype_model` in
+`tools/test_native_bridge.ml` could no longer run (7 removed `require`s
+carrying 13 value checks, plus the quantifier-signature check and the
+escape guard of its `other`) are F\* lemmas with exact values and 11 refuted
+wrong-value mutants in `Z3DatatypeNativeModelTests.fst`, on a fixture with
+symbolic ids; the harness keeps every executable check and adds two
+dispatch `require`s with 11 conjuncts on the real native schema. No route
+calls the gate: a native Sorted ACCEPT is not `RootCertified`, every other
+legacy ACCEPT is untouched, the default route is unchanged, and the legacy
+`model_sound` still has no model. Trust points: the native front end's
+translation of assertions, schema and `define-fun` definitions; native
+datatype id and tag fidelity; and the parameterization by full
+function-space arrays and lambdas and by `FStar.Real`, which is a
+metatheoretic assumption, not an F\* theorem that every SMT model is a
+root model (non-standard or axiomatic array structures are not claimed).
+
+Congruence beneath `forall`, `exists`, and lambdas uses evaluation in
+arbitrary typed binder environments. It also descends through typed
+applications, so Boolean normalization inside a non-Boolean argument is
+no longer opaque. For example, `box (and p q)` and
+`box (not (or (not p) (not q)))` have equal values, including beneath
+nested binders or inside non-Boolean lambda bodies. Canonical
 restricted-domain closures turn pointwise body equality into equality of
 quantifier values without imposing a truth interpretation on quantifiers.
+The new structural search is bounded to 64 levels and uses the existing
+bounded propositional reflection; it does not justify binder permutations,
+quantifier-kind changes, or arithmetic identities.
 
-`Z3SortedQuantifier.fst` adds universal instantiation for quantifier-free
-bodies and closed, correctly sorted actual arguments. Actual arguments
-may themselves contain quantifiers. The checker reuses
-`Z3BinderSubstitution.substitute`, reverses declaration-order arguments for
-de Bruijn indexing, and requires canonical disjunction and negation
-declarations. Typed substitution preservation is proved over the concrete
-datatype evaluator. Documents containing `QuantifierInstantiation` entries
+`Z3SortedQuantifier.fst` supports universal instantiation beneath arbitrary
+nested binders with closed, correctly sorted actual arguments, including
+quantified arguments. The quantifier-free fast path retains
+`Z3BinderSubstitution.substitute`; the general path reuses the
+capture-avoiding `Z3Definitions.instantiate` with declaration-order
+arguments reversed for de Bruijn indexing. Both require canonical
+disjunction and negation declarations. Typed substitution preservation
+is proved over the concrete datatype evaluator, including extended
+environments beneath binders. Closure of arbitrary actual arguments is
+derived using empty substitution, not added as a semantic assumption.
+Documents containing `QuantifierInstantiation` entries
 require the standard forall-elimination law: a true universal closure has
 a true body at every correctly sorted bound-value tuple. This law
 constrains the supplied quantifier operator, not a certificate's validity;
 it is an explicit premise of the document soundness theorem, not an
-additional axiom. Documents without instantiation entries retain their
-quantifier-oracle-independent theorem.
+additional axiom.
+
+Universal block flattening also has a sort-indexed bridge. A premise-free
+`pull-quant` equality may merge two adjacent `forall` blocks with a
+Boolean body that may itself contain binders. Both sides must be closed
+and well-sorted,
+the combined declaration-order sorts must be exactly `outer @ inner`,
+and the bodies must be identical, including all de Bruijn indices.
+Either orientation of the equality is supported; permuting binders,
+changing bodies or quantifier kinds, escaping variables, and equality
+lookalikes do not pass this check. The proof splits/combines typed value
+tuples in the reversed scope order and proves pointwise equality of the
+extended environments; it does not rename variables or trust a rule tag.
+Documents containing `PullQuantifier` entries now require `forall_model`,
+the standard equivalence between universal truth and truth at every
+sort-indexed assignment. Introduction is needed here; elimination alone
+does not justify flattening for an arbitrary quantifier oracle. This is
+an explicit semantic premise, not an axiom or an assumed flattening law.
+Documents containing neither instantiation nor pulling entries retain
+their quantifier-oracle-independent theorem. Existential block flattening
+remains unsupported by this bridge.
 
 The native CLI selects this kernel whenever marshaling finds datatype
 metadata. It never falls back to the legacy checker on this path.
@@ -975,20 +1562,22 @@ Documents without datatypes retain the existing unified checker.
 This is not a migration of every theory: arithmetic, arrays, bit-vectors,
 and quantifier truth remain abstract unless handled by the typed core.
 Definition expansion, Skolemization, and other quantifier-specific proof
-semantics are not imported from the legacy model. Instantiation of bodies
-containing nested binders remains unsupported; these and other unsupported
-steps remain obligations. The native API's correspondence to checked metadata
+semantics are not imported from the legacy model. Unsupported steps remain
+obligations. The native API's correspondence to checked metadata
 and original assertions remains in the foreign trust boundary.
 
-The strict F*/Pulse, OCaml extraction, native bridge (53 groups), and CLI
-(31 tests) checks pass. Regressions include heterogeneous fields,
+The extension passes strict F* production verification, the affected F*
+semantic regression modules, OCaml extraction, all 66 native bridge groups,
+and all 49 CLI tests. Regressions include heterogeneous fields,
 mutual recursion, nonproductive or malformed schemas, matching and
 argument-dependent wrong-constructor selectors, canonical native
 dispatch, typed AST evaluation, quantifier binding order, and invalid
 accessor indices and recognizer result sorts. Contextual proof regressions
 also cover mixed-sort and same-sort multi-variable instantiation, closed
-quantified arguments, and rejection of missing, extra, permuted, or
-escaping bindings, forged logical declarations, and incorrect instances.
+quantified arguments beneath nested binders, mixed-sort nested instances,
+non-Boolean application/lambda congruence, and rejection of missing,
+extra, permuted, or escaping bindings, forged logical declarations, and
+incorrect instances.
 Contextual proof regressions
 certify native exhaustiveness, reconstruction, injectivity, and
 disjointness, conditional branches, and equality symmetry, while rejecting
@@ -999,6 +1588,77 @@ atom bound, wrong resolution units, and spoofed negations.
 CLI regressions exercise both batch and interactive contextual checking,
 and require mixed datatype/arithmetic proofs to retain obligations
 rather than falling back to the legacy arithmetic contracts.
+
+### F* build collection: verified quantifier extensions (2026-10-29)
+
+Replayed all 583 original `C:\bench\inputs\fstar-build` sessions against
+the saved baseline at `70f966a79844ea3b18fe35e5711d55754e80460e`.
+Both runs used interactive diagnostics, a 10,000-ms initial solver timeout,
+a 60-second wall limit per file, 4 GiB per worker, and eight workers.
+The installed Z3 executable and static library remained byte-identical.
+The baseline checker and its original results were preserved.
+
+| Whole collection, observed results | Baseline | Extended checker |
+|---|---:|---:|
+| ACCEPT queries | 17 | 18 |
+| PARTIAL queries | 10,630 | 10,920 |
+| UNKNOWN queries | 361 | 422 |
+| Fully ACCEPT sessions | 0 | 1 |
+| PARTIAL sessions | 522 | 520 |
+| TIMEOUT sessions | 50 | 51 |
+| UNKNOWN sessions | 11 | 11 |
+| REJECT, crash, or protocol-error sessions | 0 | 0 |
+
+The raw PARTIAL total did **not** decrease. Time-limited runs observed
+different query prefixes: 191 queries were observed only in the baseline
+and 543 only in the new run. These missing/additional observations are not
+counted as checker improvements. On aligned `(file, query)` pairs, exactly
+one PARTIAL became ACCEPT: `queries-FStar.Stubs.Reflection.Types.smt2`,
+whose three obligations became zero. All 17 prior ACCEPTs were observed
+again and remained ACCEPT. There were also 44 PARTIAL-to-UNKNOWN and
+31 UNKNOWN-to-PARTIAL transitions; these are solver-answer changes, not
+certification improvements.
+
+For rule-family comparisons, restrict to the 495 sessions that completed
+within the wall limit in both runs and returned identical sequences of
+solver answers. This avoids incomplete timeout diagnostic tails.
+
+| Comparable completed sessions | Baseline | Extended checker |
+|---|---:|---:|
+| ACCEPT queries | 15 | 16 |
+| PARTIAL queries | 6,965 | 6,964 |
+| UNKNOWN queries | 122 | 122 |
+| Pending `quant-inst` obligations | 6,076 | 0 |
+| Pending `quant-intro` obligations | 23,573 | 15,499 |
+| Total pending obligations | 88,481 | 73,682 |
+
+Total pending obligations on this subset fell by 14,799 (**16.7%**).
+No `quant-inst` obligations were recorded anywhere in the new run,
+although diagnostics of wall-limited files remain lower bounds.
+Across all 10,430 aligned queries that were UNSAT in both runs, pending
+counts changed from 164,228 to 143,165 (**12.8%** fewer). These are
+paired-query measurements, not replay of identical proof documents:
+time-limited solver searches can produce different proofs. There were
+896 aligned UNSAT queries with increased pending counts, all with changed
+proof-size metadata. Among the 5,653 queries with matching structural
+proof-size metadata, there were no pending-count increases; their total
+changed from 45,953 to 39,270. Matching sizes are not proof identity.
+
+This is substantial progress on individual rules but modest end-to-end
+coverage: only one additional query/session is fully certified. Typed
+Skolem/model-extension support and arithmetic/theory bridges remain
+major gaps; unsupported steps have not been trusted or redirected to the
+legacy kernel.
+
+The new replay took 832.197 seconds. Local artifacts are under
+`build\fstar-build-improvements-20261029`: `comparison.json` and
+`aligned-queries.csv` contain the paired results; `results\proof-results.log`
+contains 10,938 normalized `; ACCEPT` / `; PARTIAL` lines, all verified
+against the raw per-file stdout and structured query records.
+`results\proof-comments.log` preserves native status/statistics comments.
+`source.patch` records the exact compiled source changes and its SHA-256
+matches `build-info.json`; `build.log` records strict verification,
+extraction, and the passing native/CLI tests.
 
 The frozen 100-input QF_DT replay uses the existing manifests and driver,
 eight workers, a 30-second producer timeout, a 120-second end-to-end
@@ -1108,6 +1768,84 @@ normalization budgets. The abstract quantifier
 semantics still ranges over arity-correct value lists rather than verified
 sort-indexed SMT-LIB domains. NLSAT and other previously unsupported theory
 rules remain partial.
+
+#### Quantifier pushing through normalized Boolean bodies (2026-10-26)
+
+`Z3QuantifierReduce.push_check` retains its forward recognizer and additionally
+reconstructs a pre-push candidate from a conjunction of universal quantifiers
+or a disjunction of existential quantifiers. An exact `push` round trip checks
+the connective, quantifier kinds, binder lists, and sorts; the existing bounded
+equivalence checker then compares the source with this candidate. This covers
+De Morgan bodies and reordered conjuncts/disjuncts without adding semantic
+assumptions or increasing normalization budgets. The existing push and
+equivalence lemmas prove the extended recognizer's unchanged soundness contract.
+
+Native regressions cover both quantifier kinds and reject mixed kinds, changed
+binders or sorts, dropped bodies, and wrong connectives. An interactive
+quantified-arithmetic regression requires certification after explicit `bv`,
+explicit `smt`, and default solving.
+
+#### Quantifier-equivalence proof compilation
+
+The soundness proof for `equivalent` separates Boolean base cases,
+argument-list induction, and a single fuel-induction step. The step receives
+the recursively proved semantic hypothesis; it is not a new model assumption.
+The public soundness statements and executable recognizers are unchanged.
+All helpers are erased lemmas, and verification budgets remain unchanged.
+Fresh-module timing comparisons include the helper proofs, not just the
+smaller recursive wrapper.
+
+#### Unsigned bit-vector self-comparisons
+
+`Z3BvOrder` reduces unsigned strict self-comparisons to false and non-strict
+self-comparisons to true. The existing validated comparison recognizer checks
+operator identity, arity, Boolean result, matching operand/domain sorts, and
+widths from 1 through 4096 before comparing the operands structurally. The
+soundness proof derives reflexivity from the existing unsigned integer
+projection semantics; model assumptions and verification budgets are unchanged.
+Signed division and its internal producer aliases are not covered by this rule.
+
+Native regressions include width boundaries, compound operands, previous
+comparison encodings, wrong targets, distinct operands, and malformed metadata.
+CLI regressions require full certification in batch and interactive modes.
+
+#### Bit-vector concatenation proof compilation
+
+The binary and ternary concatenation model-extension proofs separate
+model-independent retraction of validated AST shapes from semantic transport.
+The shape helpers preserve the recognizer result and closedness; the existing
+value lemmas then prove concatenation under the extended interpretation.
+Public contracts, executable definitions, model assumptions, and verification
+budgets are unchanged. Fresh-module timing comparisons include both erased
+shape helpers as well as the two replacement semantic proofs.
+
+#### Boolean model-extension proof compilation
+
+The Boolean model-extension proof separates literals and negation, n-ary
+connectives, binary connectives, Boolean conditionals, and exclusive-or.
+A model-independent shape lemma preserves Boolean argument typing under
+retraction. The original model-extension contract is unchanged; all new
+helpers are erased proofs, with unchanged executable definitions, model
+assumptions, and verification budgets.
+
+Three fresh-module checks reduced median affected proof work from 4651 ms
+to 4117 ms, including all six helpers and the assembly wrapper. The largest
+replacement declaration took 1382 ms. These are local proof-compilation
+measurements, not whole-build or checker-runtime speedups.
+
+#### Scoped-context proof compilation
+
+Matched reconstruction equations are discharged by a separate reusable
+lemma requiring only matching, value equalities, and reflexive equality in
+the current interpretation. Scoped model-extension assembly uses its
+already-proved reflexivity without unfolding original/extended model
+fields. The original theorem contract, executable definitions, model
+assumptions, and verification options are unchanged.
+
+Three fresh-module checks reduced median affected proof work from 2319 ms
+to 519 ms, including the erased helper and the replacement wrapper. The
+largest replacement declaration took 356 ms. These are local
+proof-compilation measurements, not whole-build or runtime speedups.
 
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
@@ -1249,6 +1987,44 @@ Skolem proofs, signed NNF composition, missing premises/dependencies,
 inconsistent occurrences, aliased components, input freshness,
 self-reference, conflicting definitions, cycles, acyclic reordering,
 wrong polarity, and attempted conversion to ordinary equality.
+
+#### Unused Skolem blocks
+
+A binding block none of whose variables occurs in its body introduces no
+Skolem symbol and needs no choice tuple. `Z3Skolemization.vacuous` accepts
+the `sk` conclusion `exists xs. P ~ P'`, or `not (forall xs. P) ~ negate P'`,
+when `substitute` with no witnesses succeeds on `P`: that fails exactly when
+a variable of the block occurs in `P` and otherwise only lowers the ambient
+de Bruijn indices, so `P'` must be that lowered body. The check shares
+`block_parts`, the shape test of `definition_of`, so polarity, double-negation
+normalization, and Boolean sorts agree with the choice-based path. Nothing is
+collected from the proof and no choice context is consulted, so the
+`skolem-collection`, `skolem-cycle`, and `skolem-freshness` stages are
+unchanged. The judgment stays observational, is accepted only under the `sk`
+label without premises, and a partly used block still needs its
+`definition_of` choice definition.
+
+`lemma_vacuous_sound` has the hypotheses of `lemma_check_sound` and adds no
+semantic assumption. It uses `Z3QuantifierNnf.quantifier_model`, which
+quantifies over every assignment of the block's length, and the inhabitant
+`Z3QuantifierPull.sample_values`, exactly as `Z3BinderSubstitution.lemma_eliminate`
+does for unused-variable elimination. Both polarities need that inhabitant
+(`exists x. true ~ true` included), so the rule carries the same legacy-model
+inhabitance gap documented above. Instances that Z3 constant-folded, such as
+`not (forall x. true) ~ false`, do not match the shape and remain obligations.
+
+Native regressions accept eight SMT-LIB shapes (multi-binder, mixed sorts,
+nested and shadowed binders, three negative-universal forms) and reject
+fourteen: body mutation, a kept or partly removed block, a used variable
+dropped or left unlowered, a partly used block, positive-universal and
+negated-existential polarity, wrong negative targets, and a non-quantifier.
+Accepted shapes are also rejected as ordinary equality, with an unexpected
+premise, or under another rule name, and direct de Bruijn terms cover lowered,
+open, unlowered, and non-Boolean forms. CLI tests certify seven `nnf`
+refutations in the interactive OCaml and Cherry checkers: six with free
+constants, including `(assert (exists ((a Int)) false))`, and one whose
+block sits under an ambient `forall` bound variable (a hidden binder
+certificate).
 
 #### Negative NNF checking and evaluation
 
@@ -1722,15 +2498,80 @@ marshaling/checking or guarantee a process-wide memory/time limit.
 declaration, and proof-node counts to stderr, without proof artifacts.
 `checker --version` reports the linked producer version.
 
-`--diagnostics` adds an optional second checking pass and writes typed
-unmet obligations to stderr, without changing stdout, exit status, or the
-default fast path. Each `obligation` TSV row contains the rule, count, first
+The OCaml checker's `--diagnostics` collects typed unmet obligations in the
+checking traversal and writes them to stderr, without changing stdout,
+exit status, or the default fast path. F* proves that the paired result
+equals the ordinary checker's result in both legacy and sorted modes.
+Result agreement and obligation-count checks remain enabled.
+With diagnostics, `check_ms` includes collection and `diagnose_ms` measures
+formatting, rather than a second checking pass (in the Cherry checker too,
+since 2026-10-28).
+Each `obligation` TSV row contains the rule, count, first
 proof-node index, and a bounded sort-aware expression fingerprint; a
 `diagnostic` row records the pending total or the rejection stage. Fingerprint
 keys preserve operator structure, operand sorts, and small exact rationals,
 while alpha-aliasing opaque declarations. They are coarse diagnostic
 groupings, not semantic-equivalence tests or proof evidence. Counts sum to
 the same pending total as the ordinary checker.
+
+`--readable` (both checkers; implies `--diagnostics`) additionally writes bounded readable
+blocks to stderr, after the unchanged `diagnostic` and `obligation` rows. Where the fingerprint
+alias-names declarations and drops bit-vector values, parameters, and binder sorts, a block shows
+one representative (the first obligation) of each of the first twenty families, in the order of
+the `obligation` rows. Header rows are tab-separated, bodies are indented:
+
+```
+readable    query=Q  verdict=PARTIAL 1  pending=1  families=1  shown=1
+readable    family=1/1  rule=arith/farkas  count=1  members=1  node=24  node-pending=1
+  node 24: premises: #14 #23
+  premise #14: holds((not (<= a!2#2147483817:Real 1:Real)))
+  premise #23: holds((not (>= (* x#2147483796:Real x#2147483796:Real) 1:Real)))
+  conclusion: holds((not (>= (+ x#2147483796:Real (* -1:Real (* a!2#2147483817:Real a!2#2147483817:Real))) 0:Real)))
+  source formula: same as conclusion
+readable    end  query=Q
+```
+
+(An illustration of the format, not captured output.) `query` counts the process's proof
+callbacks, so it matches the n-th `; proof-check` line of the interactive protocol. `node` is the
+position of the obligation in the document's proof entries; the premise ids are that entry's
+`premise_ids`, and each premise is the judgment the checker had derived for it. They are shown
+only if the entry has the same rule and premise count as the obligation. Otherwise (no entry at
+that index, or an entry of another rule or arity) the block says `no source-node mapping`, with the
+reason, and numbers the premises `[0]`, `[1]`, ... instead, never attaching another node's. The
+conclusion is the judgment the checker computed (after definition expansion); the source formula
+is the entry's formula as marshaled from Z3. Neither is a reason: a pending obligation may be
+unsupported rather than invalid, and the checker reports no reason. Expressions are written as
+S-expressions: `#I:S` is a bound variable with its de Bruijn index and sort, `(forall [S ...]
+body)` lists the binder sorts, numerals are `5`, `-7/3:Real`, and `(_ bv255 8)`, an
+uninterpreted declaration is `NAME#ID` with its native id (so same-named declarations stay
+apart), a datatype operation is marked `@constructor`, `@recognizer`, or `@accessor` (an
+accessor named `and` is not a connective), any other interpreted operation shows its range after
+`:` (`(const:(Array Int Int) 0)`, `(select:Int a i)`, `(extract[32,15,8]:BV8 x)`, `(to_real:Real n)`;
+the domain sorts of a constant array occur nowhere in its arguments) except when the range is Bool
+(connectives and predicates: no range means Bool) or the sort of its first argument, which that
+argument prints (`(+ x:Real 5:Real)`, `(bvadd[32] x y)`, `(store a i v)`).
+The comparison is bounded, and the range is printed when it cannot be completed or the
+argument is cut. `[...]` lists the reflected integer parameters. This is a diagnostic view,
+not a lossless AST serialization: character cuts can hide an implied sort, interpreted tags
+are not dumped, and malformed parameter/range disagreements are not necessarily shown.
+Sequence element sorts are limited by the bridge's reflected sort identity. Explicit cut
+markers distinguish omitted text from the complete condition. In interactive mode, `query`
+counts proof callbacks, not all `check-sat` commands; SAT and UNKNOWN produce no proof callback.
+Names are quoted as `|...|` with `\xNN` for control, invalid-UTF-8, `|`, and `\` bytes. Depth
+(48), nodes (1000) and characters (4096) per expression, name bytes (96), numeral digits (100,
+tested before conversion), parameters (16), premises per block (8), families (20) and
+characters per query (131072) are bounded; each cut leaves a marker such as `<...depth>`,
+`<...nodes>`, `<...chars>`, `<+huge integer: more than 100 digits omitted>`, or `...<N more bytes>`.
+A rejected document prints its stage, index, and source formula, and for `proof-entry` and
+`missing-premise` the rule and premise ids of that entry. The flag only reads the diagnostic
+result, after the single diagnosed check: for a given proof the verdict, stdout, exit status, and
+machine rows are unchanged (a same-proof OCaml bridge test, a Cherry test, and a textual guard that
+the printers reference no checking entry point cover this). It does write more, and in the
+OCaml-linked checker the proof Z3 finds for a later query of an incremental session depends on the
+process's allocation pattern (as the existing `--stats` already shows on the unmodified checker),
+so a log replayed with and without `--readable` (or with another binary) can get different proofs
+for some queries; results are comparable per proof, not per input. The Cherry checker is not
+sensitive in this way.
 
 ### Coverage extensions (2026-10-16)
 
@@ -1820,6 +2661,290 @@ this standard numeric-value model law; it is not an axiom asserting that a
 particular rewrite, certificate, or proof is valid. The existing untyped
 environment/inhabitance gap described above remains unresolved. No
 unconditional end-to-end SMT-LIB soundness claim is made.
+
+### Factored sign rewrites (2026-10-27)
+
+Z3's `arith_rewriter::factor_le_ge_eq` rewrites `p REL 0` when a
+non-numeral term `f` divides every monomial of `p`. With `g = p / f` it
+produces `f = 0 or g = 0` for `=`, `((f >= 0) = (g >= 0)) or (f = 0 or g = 0)`
+for `>=`, and the same with the first disjunct negated for `<=`. These steps
+were unchecked `rewrite` obligations; in the 951-file interactive z3test
+sweep of the `48a710a9c` checkers they were the only obligations of `nl12`,
+`nl33`-`nl36`, `nl39`, `nl49`, and `nl57` on both backends.
+
+`Z3ArithmeticFactor.check` accepts a rewrite only in these exact shapes,
+with the source relation matching the target (polarity included), every
+comparison of the sort of `p`, and a zero numeral on every right-hand side.
+It expands `p`, both occurrences of `f`, both occurrences of `g`, and
+`f * g` into integer-coefficient polynomials over an atom table, using the
+multiplication of `Z3NlaLemma`. It requires `p` and `f * g` to have the same
+normal form, the two occurrences of each factor to normalize alike, and
+both factors to be non-constant. Only `+`, `*`, `-`, and integer numerals
+are interpreted. Division, `div`, `to_real`, rational numerals, and
+uninterpreted terms are opaque atoms, so no field law and no division
+semantics are used. Products whose expansion would exceed 4096 monomials
+stay unchecked.
+
+`lemma_check_sound` has the hypotheses the unified kernel already
+supplies for `Z3ArithmeticRewrite`: some `numeric_model`, the Boolean
+model, and `not`, `=`, and `or` soundness. It needs no new semantic
+premise. Over the reals, `x * y = 0` iff `x = 0` or `y = 0`, and the sign
+cases of `x * y` are those of `lemma_product_sign_numbers`. The rule is
+tried directly after `Z3ArithmeticRewrite.equivalent` for `rewrite` steps
+without premises, in the legacy kernel only.
+
+`Z3ArithmeticFactorTests.fst` decides six accepted and nine rejected closed
+instances by normalization, including right-hand zeros that are an Int
+numeral in a Real comparison, an uninterpreted constant, or the rational
+`0/2`. The native regression accepts twenty-one SMT-LIB steps, including
+uninterpreted, `div`, and real-division factors as atoms, the variant
+where the two cofactor occurrences are spelled differently, atoms that are
+bound variables of an enclosing quantifier, and products expanding to
+exactly 4096 monomials. It rejects forty-eight invalid steps over Int and
+Real: swapped polarity, a missing negation, a strict source, wrong or
+inconsistent cofactors (including another bound variable), a missing or
+extra source term, nonzero comparands on either side (including constants
+named like zero), a wrong or zero factor, `and` in place of `or`, false
+product rewrites, `to_real` cofactors that are not the source's, and
+factorizations that would need `(x / y) * y = x`. No rule certifies these.
+Eighteen valid steps outside the shape (flattened or reordered
+disjunctions, strict sign atoms, a numeral factor, mixed Int/Real
+comparisons, `to_real` of an Int product, and products of 4097 or more
+monomials) are not accepted by this rule. The kernel leaves an invalid or
+out-of-shape `rewrite` as one pending obligation, so a refutation using it
+is `PARTIAL 1`: it is never `ACCEPT`, and `REJECT` is reserved for a
+malformed node. A further 138 rebuilt terms (shifted bound-variable
+indices, ill-sorted or differently parameterized atoms with a shared name,
+and eight kinds of non-canonical zero numeral at every zero position) are
+neither accepted nor certified. CLI tests certify four interactive
+refutations from `nl12`, `nl49`,
+`nl33`, and `nl57` with no obligation, and check that a satisfiable variant
+is reported `sat`.
+
+### Conditionals lifted out of numeric comparisons (2026-10-27)
+
+Z3's `arith_rewriter::mk_le_ge_eq_core` rewrites `(ite c t e) REL k`, with
+a numeral branch `t` and a numeral `k`, to `c or (e REL k)` when `t REL k`
+holds and to `(not c) and (e REL k)` when it does not, with `c` and `not c`
+swapped for a numeral else branch. After `cancel_monomials` has moved a
+numeral addend, `1 + (ite c t e) >= k` is rewritten the same way against
+`k - 1` in one step. The comparison on the right is not simplified, so
+steps such as `(>= (ite g 0 -1) 0) = (or g (>= -1 0))` occur. These were
+unchecked `rewrite` obligations: the only one of z3test `z3.12`, 64 of the
+182 of `issue-963`, and 3 of the 13 of `string6`, on both backends of the
+`811f70ac4` checkers.
+
+`Z3ConditionalRewrite` already checked such steps by replacing the first
+guard with `true` and `false` on both sides outside binders and folding
+the result, but its fold decided only conditionals with a literal guard
+and constant equations. It now also folds a comparison whose linear normal
+form is a constant, such as a comparison of two numerals, to `true` or
+`false` with `Z3ArithmeticRewrite.boolean_equivalent`, and drops literal
+arguments of `and` and `or` (an absorbing literal replaces the
+application). The second fold is kept only when
+`Z3BooleanRewrite.boolean_equiv` proves it equivalent. Both reuse existing
+lemmas, `lemma_equivalent_with_numeric_model` and
+`lemma_boolean_equiv_sound`, whose hypotheses are part of
+`Z3ConditionalRewrite.rewrite_model`, so the kernel call site and its model
+contracts are unchanged. No numeral is trusted by name: an Int numeral
+needs denominator 1, a comparison needs both sides of one numeric sort,
+and a division by zero stays an opaque atom.
+
+The native regression accepts forty-three steps over Int and Real: then
+and else numeral branches, `>=`, `<=`, `<`, `>`, and `=`, negative
+numerals, the conditional on the right, a negated comparison, the `z3.12`,
+`issue-963`, and `string6` shapes, both shifted forms, nested conditional
+tails, the split guard inside the `and`/`or` guard of a nested conditional,
+and guards that are bound variables of an enclosing quantifier. It
+leaves fifty invalid steps pending: wrong guard polarity, reversed
+branches, `and` for `or` and the reverse, a ground comparison of the wrong
+truth value, another rest argument or bound, off-by-one shifts, another or
+strict relation, a branch that is not a numeral, an extra disjunct, a
+dropped guard or comparison, and division by zero. Two valid steps whose
+guard is under a binder of the rewritten terms also stay pending. Forty
+rebuilt terms are not certified: bound-variable indices shifted on one
+side, and each numeral of an accepted step replaced by the next numeral, a
+numeral of the other sort, a malformed numeral, or an uninterpreted
+constant. CLI tests certify eight interactive refutations, including
+`z3.12`, with no obligation, and check that a satisfiable variant is
+reported `sat`.
+
+### Extractions moved into sums, products, and conditionals (2026-10-28)
+
+Z3's `bv_rewriter::mk_extract` moves an extraction into its argument:
+
+    ((_ extract h 0) (bvadd x1 ... xn))  ~>  (bvadd ((_ extract h 0) x1) ... ((_ extract h 0) xn))
+    ((_ extract h 0) (bvmul x1 ... xn))  ~>  (bvmul ((_ extract h 0) x1) ... ((_ extract h 0) xn))
+    ((_ extract h l) (ite c t e))        ~>  (ite c ((_ extract h l) t) ((_ extract h l) e))
+
+The inner extractions are built by `mk_extract_proc`, which composes an
+extraction of an extraction: an argument `((_ extract h2 l2) z)` becomes
+`((_ extract (h + l2) (l + l2)) z)`. These steps were unchecked `rewrite`
+obligations. In z3test `6079-8`, an `fp`/`to_fp` refutation over 66-bit
+words, they were 462 of the 585 obligations of the interactive OCaml check
+(236 sums and products, 226 conditionals); the Cherry check of that file
+exceeds the 60 s limit.
+
+`Z3BvExtract.check` accepts exactly these steps. Sums and products are
+distributed only over the low bits (`l = 0`): the other bits depend on
+carries out of the discarded bits, so `((_ extract 1 1) (bvadd #b01 #b01))`
+is `#b1` while the distributed sum is `#b0`. The target must be the same
+operation, binary or n-ary, with as many arguments, of width `h + 1`. A
+conditional keeps the same guard term, which is not interpreted. Every
+width and index comes from the native declarations, which
+`Z3BvLemma.extract_parts` and `Z3BvLemma.operation` check against the
+sorts and the 4096-bit bound, and is compared as an integer with the
+corresponding width on the other side. Both sides must be closed terms;
+steps under binders stay pending. The check only compares subterms, so it
+allocates nothing.
+
+`lemma_check_sound` uses only `Z3BvLemma.bv_model`, which already gives
+the value of an extraction as `(x / 2^l) mod 2^(h-l+1)` and of `bvadd` and
+`bvmul` as sums and products modulo `2^w`, and
+`Z3ArrayRewrite.term_ite_sound`. Both are part of the unified kernel's
+`model_sound`, so no model hypothesis is added. The proof reduces
+`(a + b) mod 2^w mod 2^k` and `(a * b) mod 2^w mod 2^k` to the
+corresponding operations on `a mod 2^k` and `b mod 2^k` for `k <= w`, by
+induction over n-ary arguments, and composes nested extractions with
+`FStar.Math.Lemmas`. The rule is tried after `Z3ArithmeticFactor.check`
+for `rewrite` steps without premises, in the legacy kernel only.
+
+The native regression accepts seventeen steps: binary and ternary sums
+and products, the lowest bit, the full width, 4096-bit operands, the
+`6079-8` shapes at widths 7 and 66, composed inner extractions, and
+conditionals with atomic, opaque, comparison and nested guards. It
+leaves eighteen invalid steps pending: high slices of sums and products,
+including `((_ extract 1 1) (bvadd #b01 #b01))` and the `6079-8` shape
+with `l = 1`, another slice or argument, another operation, a dropped or
+extra argument, division, a negated, swapped or other guard, another
+branch, and composed extractions without their offset. No rule certifies
+these, and a refutation using one is `PARTIAL 1`. Six valid steps outside
+the shape (bitwise `or`, subtraction, reordered or evaluated arguments,
+two steps at once, bound variables) are not accepted by this rule.
+Thirty-two rebuilt terms are not certified: extraction parameters of
+width 0, with the high bit at or beyond the width, the low bit above the
+high bit, or another source width; declarations with another domain,
+width, operation, parameter list or number of arguments, or without
+interpretation; and the constant `x` replaced by a bound variable on both
+sides, or with different de Bruijn indices on the two sides. Mutants of
+the extracted rule that accept any operation, any guard, any operand,
+another operation in the target, composed extractions without offsets,
+open terms, or high slices of single bits fail the regression. Dropping
+only the `l = 0` test does not, since the target width `h + 1` already
+forces `l = 0`. CLI tests certify seven interactive refutations with no
+obligation and check that a high-slice variant is reported `sat`.
+
+### Boolean normalization is computed once per rewrite step (2026-10-28)
+
+This changes how long a step takes, not which steps are accepted. In
+`6079-8` three pending Boolean `rewrite` steps over terms of 1.5 to 3
+million nodes (as trees) account for 31 of the 37 seconds of OCaml checking
+time. Each of them computed the full Boolean normal form of the same pair
+`(a, b)` three times: as the separate alternative `boolean_equiv 8 10 a b`
+of `relational_step`, and twice more inside `Z3QuantifierReduce.equivalent
+64 a b`, whose first test is that same call and whose second test repeats
+it on the normalized pair, which for a quantifier-free step is the pair
+itself. Two edits remove the repetition:
+
+- `Z3QuantifierReduce.equivalent` skips `boolean_equiv 8 10 x y` when the
+  normalized pair `(x, y)` equals `(a, b)`, since that test has just failed.
+  `lemma_equivalent_unchanged` proves, for every fuel and every pair of
+  terms, that the new `equivalent` equals `equivalent_reference`, the
+  previous definition (kept as a non-extracted function for this statement
+  only).
+- `relational_step` no longer lists `boolean_equiv 8 10 a b` before
+  `Z3QuantifierReduce.equivalent 64 a b`. `lemma_boolean_equiv_subsumed`
+  proves that the test implies `equivalent 64 a b`, so the same pairs are
+  accepted. `lemma_relational_step_sound` loses one branch and keeps its
+  statement.
+
+The bridge group `unused-quantifier-rewrites` now fixes the comparison of
+the Boolean bodies after an unused binder is removed, which only
+`ElimUnused` steps reach without another alternative also accepting them.
+
+With `--diagnostics` the Cherry checker checked every document twice, once
+for the verdict and once to collect obligations, as the OCaml checker never
+did. It now diagnoses once: `Z3Cherry.lemma_diagnose_is_check` proves that
+the result recorded by the diagnosis equals `Z3Cherry.check` for the same
+document and sorted mode (in the legacy path through
+`Z3ProofDocument.lemma_diagnose_document_indexed`, in the sorted path
+through `Z3SortedProof.lemma_diagnose_document`), and the native wrapper
+reads the verdict from the diagnosis. The agreement test between two passes
+is replaced by that theorem; the count of the grouped obligations against
+the pending total is still checked natively. Under `--diagnostics`,
+`check_ms` is therefore the single pass including collection, and
+`diagnose_ms` is the formatting of the report, as for the OCaml checker;
+`Z3CherryTests` checks the agreement on accepted, pending and rejected
+documents in both sorted modes. Without `--diagnostics` nothing changes.
+
+On `6079-8`, with the harness flags and limits, one development run each
+took the OCaml checker from `check_ms` 36.4 s to 20.4 s and the Cherry
+checker from a timeout at 60 s (108 s without the limit, 53.7 s of it
+`check_ms`) to `PARTIAL 123` in 30.5 s. The pending obligations are the
+same 123.
+
+### Extractions of concatenations (2026-10-28)
+
+`bv_rewriter::mk_extract` also splits an extraction of a concatenation.
+For a binary concatenation of `x` (width `m`, the high bits) and `y`
+(width `n`, the low bits), the bits `[h:l]` are
+
+    the bits [h:l] of y                              if h < n
+    the bits [h-n:l-n] of x                          if n <= l
+    (concat (the bits [h-n:0] of x) (the bits [n-1:l] of y))   otherwise
+
+where the bits of an argument are the argument itself when they are all of
+its bits, and otherwise an extraction built by `mk_extract_proc`, which
+composes an extraction of an extraction argument. In `6079-8` these were 13
+of the 123 remaining obligations (9 fingerprint lines), all over binary
+concatenations: three keep the low argument, three the high argument, four
+extract from the high argument (three of them composed), and three cross
+the boundary. The arguments that are kept whole are already handled by
+`Z3BvLemma.extract_rewrite`, but the theory normalizer does not reach these
+steps because their terms exceed its 4096-node budget.
+
+`Z3BvExtract.concatenated` accepts exactly these steps. The concatenation
+must be the interpreted bit-vector `concat` of two arguments
+(`Z3BvLemma.concat_parts`, which checks its parameters `[m; n]` against
+the domain, the range, the argument sorts and the 4096-bit bound), and
+the source width of the extraction must be `m + n`. Across the boundary
+the target must be such a concatenation with widths exactly `h - n + 1`
+and `n - l`. Every index is compared as an integer; the arguments must be
+the same terms in the same order; both sides must be closed. A
+concatenation of three or more arguments on either side is not handled.
+The rule needs no normalization and no expression budget: it compares the
+root shapes and subterms.
+
+The proof uses the existing `bv_model` value of a concatenation,
+`x * 2^n + y`, and of an extraction, and proves with `FStar.Math.Lemmas`
+that the bits `[h:l]` of `x * 2^n + y` are those of `y` for `h < n`, those
+of `x` shifted by `n` for `n <= l`, and otherwise
+`(x mod 2^(h-n+1)) * 2^(n-l) + y / 2^l`. No model hypothesis, option push
+or rlimit change is added.
+
+The bridge group now accepts 21 more steps: within the low argument,
+within the high argument and across the boundary, a single bit at each
+side of the boundary, the full width, arguments kept whole, composed
+extractions, 4096-bit concatenations, and the `6079-8` shapes (a bit
+below a composed extraction, a numeral bit above a conditional). Fifteen
+more invalid steps stay one pending obligation: the bits of the other
+argument, an offset off by one, the parts in the other order or of the
+other arguments, another split, a wrong low part across the boundary, a
+dropped argument, an extra argument, another constant, and a composed
+extraction without its offset. Three valid steps outside the shape (a
+concatenation of three arguments on either side, bound variables) are not
+accepted by this rule, and 25 more rebuilt terms are not certified:
+concatenations with other or zero widths, one parameter, another domain,
+no interpretation, another operation, or another number of arguments;
+extractions from another width, with the high bit at or beyond the width,
+or the low bit above the high bit; an argument kept whole for an
+extraction declared with fewer bits; and the constant `x` replaced by a
+bound variable. CLI tests certify six
+interactive refutations, including the three `6079-8` shapes, with no
+obligation, and check that variants with an offset off by one or with the
+parts reordered are reported `sat`. In a development build, `6079-8` went
+from `PARTIAL 123` to `PARTIAL 110` on both checkers; exactly the 13
+extraction-of-concatenation obligations were removed.
 
 ### Warning-free verification and extraction (2026-10-17)
 
@@ -1954,7 +3079,7 @@ opam/OCaml are otherwise unavailable natively on Windows:
 | `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |
 | `fStar_UInt32.ml` | Native integer character-facing representation; `v` converts to exact `Prims.int` |
 | `fStar_UInt.ml` | Fixed-width modular arithmetic, masks, shifts, rotations, and bitwise operations via Zarith |
-| `fStar_String.ml` | `strlen`/`list_of_string`/`string_of_list`, byte-wise via `Stdlib.String`/`Stdlib.Char` (sufficient: the JSON proof format is pure ASCII) |
+| `fStar_String.ml` | `list_of_string` (code points as `int`, decoded like the Cherry runtime by UTF-8 lead byte, U+FFFD for malformed sequences; it differs from the Cherry runtime only at U+D7FF, which the Cherry runtime maps to U+FFFD) and `strlen` (the length of that list, without building it); loops, no Batteries. The checker uses only the length (`Z3UnifiedProof.name_length`). F*'s Custard extraction realizes `FStar.String.list_of_string` inline with Batteries (ulib `FStar.String-ocaml.fst`), which this build does not link: `build_ocaml_checker.ps1` replaces that realization, at its one use in `name_length`, by this function, and stops if the realization changed, occurs elsewhere or any other Batteries name remains. This is a trusted runtime binding. It agrees with the Cherry runtime by construction (the same lead-byte step widths) and the extracted `name_length` of both backends was equal on the tested corpora (120,069 byte strings, including malformed ones); both count names of 1,000,000 characters in a loop. This is not a proof of conformance on arbitrary bytes |
 | `fStar_FunctionalExtensionality.ml` | `restricted_t` as a plain function-type alias (type-level only; never invoked at runtime by this checker) |
 | `pulse_Lib_Reference.ml` | `ref`/`alloc`/`read`/`write` over a native OCaml `ref`, matching the exact (ghost-argument-padded) call shapes the extracted code uses: `alloc () v`, `read r () ()`, `write r v` |
 | `pulse_Lib_Dv.ml` | `unreachable () = Stdlib.failwith "..."` |
@@ -2856,3 +3981,1047 @@ unlike `Z3PulseProofCheckerJson.fst` itself, nothing machine-checks that
 the specifications the Pulse-verified code was proved against; this is a
 standard (and, for a code-extraction trust chain, unavoidable) gap also
 present whenever F*'s own prebuilt `fstar.cmxa` runtime is used instead.
+
+## F* build collection: quantifier-introduction follow-up (2026-10-29)
+
+This pass extends the typed `Z3SortedProof` kernel used by the F* Fuel
+datatype inputs. Its comparison baseline is the preceding verified
+quantifier-extension checker in `build\fstar-build-improvements-20261029`,
+not the original interactive checker.
+
+The new independently checked equivalences are:
+
+* Equality symmetry inside applications and nested binders, including
+  equalities over Int and Real values.
+* Conditional reversal: `ite c x y = ite (not c) y x`, with propositional
+  normalization of the complementary guards, including De Morgan forms.
+* Boolean normalization across recursively equivalent quantified atoms,
+  such as changing an implication to a disjunction while swapping equality
+  operands inside a nested universal. The shared Boolean normal-form
+  matcher now accepts a sound atom-comparison callback; its existing
+  equality-based interface retains the original behavior.
+
+F* proves these equivalences for every well-scoped typed environment,
+using canonical equality, Boolean, conditional, and quantifier semantics.
+The atom callback checks scope and derives semantic agreement recursively;
+it does not assume the target rewrite. Fake operator identities, mutated
+operands/guards/branches, changed quantifiers, and escaped variables do not
+become certificates. No new semantic assumptions or legacy-kernel fallback
+were added.
+
+Binder-local Boolean set matching may try many candidate pairs. Each candidate
+gets at most eight structural-congruence levels, within the existing enclosing
+fuel bound. Before normalization or candidate matching, an explicit conditional
+uses the existing `expression_budget` helper to limit each input to 256 tree
+occurrences, including occurrences shared in the native DAG. The earlier
+structural and propositional paths remain available for larger expressions.
+Another explicit conditional stops opaque atom pairs from re-entering the same
+comparison; this also avoids eager F* normalization of a recursive callback.
+Candidate comparisons may follow applications and nested binders and use the
+existing Boolean reflection, equality symmetry, and conditional reversal, but
+cannot recursively start another Boolean candidate-pair search. This
+non-reentrant mode avoids multiplying candidate searches at successive binders.
+Exhaustion leaves a pending obligation, not an accepted step.
+Alternate operand-order searches apply only to non-Boolean values:
+Boolean equality and conditionals already have reflected Boolean semantics.
+Searching both orders recursively on Boolean equivalences adds redundant branching.
+Earlier less restricted implementations caused replay slowdowns and were
+discarded; their results are preserved under `results-slow-matcher`,
+`results-bounded-8`, `results-pre-bool-guard`, and `results-tree-budget`,
+separately from the final replay.
+
+Depth limits alone did not prevent repeated nested candidate searches:
+`Pulse.Recursion-1` reproducibly exceeded the 60-second wall limit before
+emitting its first verdict, versus about 2.8 seconds for the comparison baseline.
+Fresh native stack sampling located nested Boolean shape matching and repeated
+context normalization. With the tree-occurrence guard, the strictly verified
+checker completes the same original session in **2.842 seconds**, versus
+**2.843 seconds** for the baseline, with identical solver answers and structural
+proof-size metadata. Its `quant-intro` obligations fall from **24 to 12** and
+total pending obligations from **85 to 73**. An earlier experimental support-width
+precheck did not solve this regression and was removed; the shared propositional
+checker remains unchanged.
+
+The tree budget alone still caused reproducible timeouts on `FStar.Math.Euclid-3`
+and `FStar.UInt-3`. The non-reentrant mode restores completion: the final checker
+runs `Euclid-3` in 27.025 seconds versus 26.725 seconds for the baseline, and
+`UInt-3` in 54.475 seconds. On that last comparison the baseline itself timed out
+at 60.063 seconds, rather than its earlier 54.065 seconds, so no speedup is
+inferred from this near-limit session.
+
+Strict verification of all production modules and the affected semantic
+test modules passed, followed by OCaml extraction/compilation with warnings
+as errors, **66 native bridge groups and 49 CLI tests**. Focused native
+regressions exercise both rewrite and quantifier-introduction dispatch,
+including invalid hidden certificates whose conclusions must still be
+established independently. Additional cases ensure oversized or recursively
+branching candidate searches stay pending while previously supported
+propositional normalization still works on large expressions.
+The unchanged native solver and help smoke
+tests pass. The existing Windows Python-binding smoke test also passes;
+that library is from an earlier build and is not the source-matched native
+library used by the OCaml checker.
+
+Nine complete original pilot sessions, run sequentially through both
+final checkers at the unchanged limits, show:
+
+| Pilot session | `quant-intro` before | After | Total pending before | After |
+|---|---:|---:|---:|---:|
+| `Pulse.Checker.Bind` | 11 | 7 | 20 | 16 |
+| `Pulse.Lib.BoundedIntegers-2` | 18 | 18 | 151 | 150 |
+| `Pulse.Checker.Defer` | 15 | 6 | 29 | 20 |
+| `Pulse.Checker.ImpureSpec` | 3 | 2 | 7 | 6 |
+| `Pulse.Checker.Comp` | 7 | 1 | 51 | 45 |
+| `Pulse.Lib.GhostSet` | 8 | 2 | 19 | 13 |
+| `Pulse.Lib.Loc` | 1 | 1 | 3 | 3 |
+| `FStar.Class.Eq` | 1 | 0 | 3 | 2 |
+| `Pulse.C.Typestring` | 1 | 1 | 3 | 3 |
+
+All nine still return PARTIAL because other rules remain unsupported.
+Their solver-answer sequences match. Proof-size metadata can change
+(`BoundedIntegers-2`), so these are not byte-identical proof replays.
+`Bind` and `Defer`, which timed out in an earlier discarded implementation,
+now finish in 2.040 and 3.595 seconds respectively, compared with 2.040 and
+3.343 seconds for the baseline.
+
+### Final complete collection replay
+
+The final non-reentrant checker replayed all **583 unchanged original sessions**
+in **819.215 seconds**, using the same interactive protocol, diagnostics,
+10,000 ms solver timeout, 60-second wall limit, 4 GiB per worker, and eight
+workers as the preceding improvement baseline. Executable and input hashes
+were checked, and both immutable comparison baselines were preserved.
+
+On **507 completed sessions with identical solver-answer sequences**:
+
+| Metric | Previous checker | Final checker | Change |
+|---|---:|---:|---:|
+| Pending `quant-intro` obligations | 17,693 | 11,128 | -6,565 (-37.1%) |
+| Total pending obligations | 86,148 | 79,470 | -6,678 (-7.8%) |
+| ACCEPT queries | 18 | 18 | unchanged |
+| PARTIAL queries | 7,440 | 7,440 | unchanged |
+| UNKNOWN queries | 146 | 146 | unchanged |
+
+This is a rule-coverage improvement, **not additional full certification**.
+No new queries become ACCEPT, and all 18 previous ACCEPT queries remain
+observed and accepted.
+
+Across the entire collection, including incomplete timeout prefixes:
+
+| Outcome | Previous checker | Final checker |
+|---|---:|---:|
+| ACCEPT queries | 18 | 18 |
+| PARTIAL queries | 10,920 | 10,882 |
+| UNKNOWN queries | 422 | 412 |
+| Fully ACCEPT sessions | 1 | 1 |
+| PARTIAL sessions | 520 | 524 |
+| UNKNOWN sessions | 11 | 11 |
+| TIMEOUT sessions | 51 | 47 |
+| REJECT, crash, or protocol-error sessions | 0 | 0 |
+
+Seven formerly timed-out sessions complete, while three different sessions
+reach the wall limit: `Pulse.Lib.LinkedList`, `PulseCore.IndirectionTheorySep-3`,
+and `FStar.UInt-3`. All three complete with the final checker when rerun
+sequentially at the unchanged limit, in 49.436, 49.788, and 54.475 seconds.
+The corresponding latest baseline timings are 53.202, 49.786, and 60.063
+seconds respectively (the last is TIMEOUT). Solver-answer sequences can
+change near resource limits; the full replay retains the actual timeouts
+rather than replacing them with these isolated outcomes.
+
+There are **10,805 shared UNSAT query positions**, with total pending obligations
+149,051 -> 139,769. Among **5,933** with matching structural proof-size metadata,
+pending obligations fall from **42,335 to 39,493**, with no increases.
+Matching size metadata does not establish proof identity. Across all aligned
+UNSAT queries, 978 pending-count increases have changed structural metadata.
+There are also 112 baseline-only and 64 new-run-only query observations.
+These differences are why raw PARTIAL counts are not used to measure the
+rule-level improvement. Aggregate check time for the matching-size subset is
+919.240 -> 922.944 seconds, about 0.4% higher in this concurrent replay;
+this is not an isolated timing estimate.
+
+The final artifacts are under `build\fstar-quant-intro-20261029`:
+
+* `build-info.json`, `source.patch`, and `build-nonreentrant.log` record the
+  verified checker, source snapshot, toolchain, unchanged solver hashes,
+  extraction, and tests.
+* `results\results.jsonl`, `results\summary.json`, and `results\logs` contain
+  structured observations and complete raw output.
+* `results\proof-results.log` contains **10,900 independently verified**
+  `; ACCEPT` / `; PARTIAL` lines. `results\proof-comments.log` retains the
+  original proof-check and statistics comments.
+* `comparison.json`, `aligned-queries.csv`, and `cohort-details.json` record
+  coverage comparisons, observation differences, and timing/timeout transitions.
+* `performance-probe`, `timeout-probe`, `followup-timeout-probe`, and `pilot`
+  preserve the sequential original-input comparisons. The saved first timeout
+  probe was revalidated after its overstrict baseline-completion assertion
+  encountered the baseline `UInt-3` timeout; both new-checker sessions completed.
+
+The largest remaining `quant-intro` families normalize arithmetic under
+binders. In this sorted model, arithmetic applications still use the
+abstract interpretation supplied by the caller. Commutativity, subtraction
+normalization, and comparison normalization therefore require a typed
+arithmetic semantic bridge; accepting them using the legacy arithmetic
+contracts would not prove the typed statement.
+
+## Typed integer semantic bridge
+
+The preceding quantifier-introduction baseline left arithmetic abstract in the
+sorted model. The checker now gives **Int** canonical arithmetic semantics and
+connects the arithmetic normalizer to that typed model, including environments
+under quantifiers and lambdas. This does not yet provide canonical Real
+semantics or certify every remaining arithmetic theory lemma.
+
+### Model and supported rules
+
+`Z3SortedInteger` defines an explicit integer carrier isomorphism: encoding and
+decoding are mutual inverses, but the carrier need not be definitionally equal
+to F* integers. `Z3SortedSemantics.scalar_model` combines that carrier with
+(ghost) scalar equality reflection. Canonical integer numerals, addition,
+multiplication, subtraction, and comparisons are interpreted mathematically;
+unsupported operations retain the existing datatype/uninterpreted
+interpretation. Checked datatype schemas cannot claim the built-in Int sort.
+The integer read-back `Z3SortedArithmetic.integer` is ghost; the polynomial
+valuation stays a total `expr -> real` because `FStar.Real.real` is erasable.
+
+`Z3SortedArithmetic` proves scoped polynomial denotation and the soundness of
+integer-term, comparison, and equation equivalence. It uses the existing
+normal-form computations and mathematical polynomial lemmas, but **does not
+borrow the legacy `numeric_model` rewrite contract** to justify typed
+evaluation. Equality is connected through the integer isomorphism and scalar
+reflection. The resulting equivalences support arithmetic argument reordering,
+sum/subtraction normalization, comparison orientation and negation, and
+proportional equation normalization inside sorted congruence.
+
+The previous equality search remains the first path, followed by a separately
+bounded arithmetic extension. The extension has a 4,096-expression-occurrence
+enclosing limit and 256-occurrence arithmetic/Boolean limits. Its atom matching
+remains non-reentrant. Expensive contextual Boolean equivalence in the original
+congruence path is limited to 256 Boolean-tree occurrences, while cheap shape
+equivalence and complementary clauses remain available for larger inputs.
+**That contextual limit does not apply to the existing datatype-certificate
+path.** A global limit was tested and rejected because it lost previously
+supported `def-axiom` checks.
+
+Boolean forced-value propagation now computes both polarities together inside
+nested equality/XOR reasoning, while preserving single-polarity short circuits
+for conjunctions, disjunctions, and implications. Both evaluators are proved
+exactly equal to the original forced-value definitions, including inconsistent
+contexts. This avoids exponential repeated equality queries without eagerly
+evaluating an unnecessary polarity throughout every Boolean gate.
+
+### Verification and regression tests
+
+The final production modules and semantic tests pass strict F* verification
+with all warnings treated as errors. Both extraction roots,
+`Z3NativeProof.fst` and `Z3SortedProof.fst`, were extracted and compiled. All
+**66 native test groups and 49 CLI tests pass**.
+
+New cases cover integer identities and comparisons under nested binders and
+lambdas, incorrect constants and strictness, forged operator declarations,
+unsupported Real rewrites, and over-budget sums. A concrete nonidentity carrier
+encodes `n` as `n + 17`: canonical `2 + 3` evaluates to carrier representation
+22. A schema falsely registering Int as a datatype is rejected.
+
+Boolean regressions cover deep equality chains, inconsistent contexts,
+wide contextual equivalences and mutations, shared-DAG occurrence limits,
+and large clauses/shape equivalences. A 300-atom contextual certificate also
+checks that the congruence limit does not leak into datatype checking.
+The bounded-bit-vector negative fixture now uses an unrelated premise `q`,
+rather than `p`, because `p` already entails its tested `(or p ...)` conclusion.
+The old entailment and the corrected counterexample were independently checked
+with the source-matched solver; no checker rule was disabled to satisfy the test.
+
+The exact-checkout solver's version, basic integer model, and command-line help
+were checked again. The existing Windows Python-binding smoke test also passes;
+it is separate from the source-matched Linux installation used by the checker.
+
+### Final original-input replay
+
+The final checker replayed all **583 unchanged original `fstar-build` sessions**
+against the immutable `build\fstar-quant-intro-20261029` baseline. Settings remain
+interactive mode with diagnostics, a 10,000 ms solver timeout, a 60-second
+session wall limit, 4 GiB per worker, and eight workers. Executable, solver,
+input, and all 87 executable-source-file hashes were validated.
+
+On **507 completed sessions with identical solver-answer sequences**:
+
+| Metric | Quant-intro baseline | Integer bridge | Change |
+|---|---:|---:|---:|
+| Pending `quant-intro` obligations | 11,545 | 5,843 | -5,702 (-49.4%) |
+| Pending `rewrite` obligations | 19,344 | 3,328 | -16,016 (-82.8%) |
+| Total pending obligations | 81,025 | 59,675 | -21,350 (-26.3%) |
+| ACCEPT queries | 17 | 17 | unchanged |
+| PARTIAL queries | 7,705 | 7,705 | unchanged |
+| UNKNOWN queries | 159 | 159 | unchanged |
+
+This is improved rule coverage, **not additional full certification**. Across
+the entire collection, all **18 previous ACCEPT queries remain observed and
+accepted**, with no new ACCEPT queries.
+
+There are **10,788 aligned UNSAT queries**, with total pending obligations
+139,420 -> 97,884. Among **5,867** with matching structural proof-size metadata,
+pending obligations fall from **38,487 to 29,270**, with **no pending-count
+increases**. Matching metadata does not establish byte-identical proofs.
+All 309 increases across other aligned UNSAT queries have changed structural
+metadata. Some matched-session rule totals therefore rise slightly, including
+`def-axiom` 8,956 -> 9,028; these are not fixed-proof comparisons.
+
+Across the full collection, including incomplete timeout prefixes:
+
+| Session outcome | Quant-intro baseline | Integer bridge |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 1 |
+| PARTIAL | 524 | 531 |
+| UNKNOWN | 11 | 11 |
+| TIMEOUT | 47 | 40 |
+| REJECT, crash, or protocol error | 0 | 0 |
+
+Raw query observations are ACCEPT 18 -> 18, PARTIAL 10,882 -> 11,115, and
+UNKNOWN 412 -> 415. There are 86 baseline-only and 322 new-run-only query
+observations; additional completed sessions and solver variation mean these
+raw counts must not be used as the rule-coverage denominator.
+All **11,133 normalized `; ACCEPT` / `; PARTIAL` records** were independently
+reparsed and checked against the structured results.
+
+### Performance limits and remaining gaps
+
+The original problematic Heap-1, UInt128-11, and UInt-2 probes now complete in
+22.915, 23.672, and 34.053 seconds respectively. Six of seven additional
+arithmetic/performance pilots complete; the strict pilot driver still fails
+its final UInt-3 completion assertion at 60.066 seconds. UInt-3 also times out
+in both full-collection runs. The diagnostic relink of the same compiled
+modules completes before its 55-second alarm, but this does not replace the
+actual production-checker timeout.
+
+Nine baseline timeout sessions finish in the final full replay, and two
+different sessions newly time out: `Pulse.Lib.ForEvery-2` and
+`Pulse.Lib.FractionalAnchoredPreorder`. Sequential follow-up retains the
+original full-replay outcomes and records:
+
+| Session | Fresh baseline | Integer bridge |
+|---|---:|---:|
+| `Pulse.Lib.ForEvery-2` | PARTIAL, 50.258 s | PARTIAL, 54.373 s |
+| `Pulse.Lib.FractionalAnchoredPreorder` | PARTIAL, 50.554 s | TIMEOUT, 60.052 s |
+
+**Performance validation is not uniformly passing.** FractionalAnchoredPreorder
+remains a reproducible session-level regression in this setup, and UInt-3
+remains near the wall limit. Their proof/answer sequences can differ, so the
+isolated cause is not established by these timings. Matching-size aggregate
+checker time falls from 918.308 to 518.699 seconds in the concurrent replay;
+this is not a guarantee of an isolated speedup or of per-session parity.
+
+Real arithmetic remains abstract. General nonlinear factor
+permutation/distributivity, division/modulo laws, and integer strict-bound
+shifting are not added by this bridge. Nonlinear products unsupported by the
+normalizer remain opaque atoms. Unsupported or resource-limited obligations
+stay PARTIAL rather than being certified using a stronger unproved contract.
+
+### Preserved artifacts
+
+Final artifacts are under `build\fstar-arithmetic-bridge-20261030`:
+
+* `build.log`, `build-info.json`, `source.patch`, and `source-snapshot` record
+  strict verification, dual-root extraction, compilation, tests, and source
+  provenance, including the two new modules. The checker SHA-256 is
+  `4f262da2dbbf2b9f784b8387f63079ee2fa8de2e45d9896cfa291174c30cc33d`.
+* `results\results.jsonl`, `results\summary.json`, and `results\logs` preserve
+  the complete collection observations and raw output.
+* `results\proof-results.log` contains the verified normalized proof-status
+  records; `results\proof-comments.log` retains the original checker comments.
+* `comparison.json`, `aligned-queries.csv`, and `cohort-details.json` contain
+  matched-session coverage, matching-size comparisons, and timeout transitions.
+* `timeout-probe`, `pilot`, `bounded-probes.log`, `performance-followup`, and
+  `performance-followup.log` retain the passing probes and performance failures,
+  rather than silently replacing them with successful reruns.
+
+Earlier direct-arithmetic, bounded-continuation, width-guard, paired-propagation,
+global-context-limit, and congruence-only paired experiments are archived under
+separately named paths. Their coverage figures are not the final figures above.
+Temporary profiling object files were removed; sources, logs, diagnostic
+executables, and all immutable benchmark baselines were retained.
+
+## Typed integer Farkas bridge after merging master (2026-10-31)
+
+The sorted kernel now replays supplied Farkas coefficients against typed
+integer semantics. It checks closed Boolean assumptions, exact coefficient
+arity, canonical integer comparisons and negations, polynomial contributions,
+and the strict-integer-bound adjustment. Zero-weight assumptions may have
+unsupported arithmetic semantics, but must still be scoped Boolean formulas.
+A 4,096-expression-occurrence budget precedes certificate normalization.
+
+The kernel forms negative conclusion literals through the canonical
+`Z3SortedDatatype.literals` boundary, not the legacy name-based clause parser.
+Premise hypotheses remain inherited; an arithmetic contradiction is proved
+under those hypotheses, not by treating local premises as unconditional facts.
+The proof reuses mathematical weighted-polynomial soundness, not the legacy
+`numeric_model` contract. Nonzero Real or mixed arithmetic contributions remain
+unsupported in this typed bridge.
+
+### Source-matched rebuild and verification
+
+Master was merged into the working branch as
+`535285c1ebe7f041dbb2a8c453fe4255173b540b`; the Farkas changes remain uncommitted.
+Both the SMT executable used by F* and the static library/OCaml bindings used
+by the checker were rebuilt and installed separately from all baseline binaries.
+The rebuilt solver is **Z3 5.3.4**, reporting that merge commit.
+
+Validation passed:
+
+* All **77 production modules** and **24 manifest F*/Pulse test modules** verify
+  strictly, with warnings treated as errors and a fresh checked-module cache.
+* All four official OCaml extraction roots were regenerated, constructor
+  projectors made exhaustive, and the native checker compiled with warnings
+  treated as errors.
+* **68 native test groups**, **50 CLI tests**, and **122 solver unit tests** pass.
+  The solver unit-test target was explicitly rebuilt before its final run.
+* A separate source-matched shared-library/Python build passes basic integer
+  solving, positive-model evaluation, and command-line-help smoke tests.
+* Hashes of **116 executable-source/test/tool files**, installed solver files,
+  and preserved baseline solver binaries were checked.
+
+Focused Farkas regressions exercise integer strictness, fractional weights,
+coefficient mutations and length mismatches, unsupported Real contributions,
+zero-weight ignored assumptions, forged comparison/disjunction declarations,
+occurrence limits, and inherited hypotheses.
+
+### Full original-input coverage
+
+All **583 unchanged original `fstar-build` sessions** were replayed with the
+same interactive/diagnostic protocol, 10,000 ms solver timeout, 60-second
+session wall limit, 4 GiB per worker, and eight workers. The immutable comparison
+baseline remains the published integer bridge in
+`build\fstar-arithmetic-bridge-20261030`.
+
+On **513 completed sessions with identical solver-answer sequences**:
+
+| Metric | Integer baseline | Merged Farkas checker | Change |
+|---|---:|---:|---:|
+| Pending `arith/farkas` obligations | 9,099 | 1,128 | -7,971 (-87.6%) |
+| Total pending obligations | 61,912 | 53,750 | -8,162 (-13.2%) |
+
+Across **6,450 aligned UNSAT queries with matching structural proof-size
+metadata**, pending obligations fall **34,417 -> 30,459**, with no pending-count
+increases. Matching metadata does not establish byte-identical proofs.
+All **18 baseline ACCEPT queries** remain observed and accepted; there are
+**no additional fully ACCEPT queries**. No rejection, crash, protocol error, or
+aligned SAT/UNSAT contradiction was observed.
+
+| Session outcome | Integer baseline | Merged Farkas checker |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 1 |
+| PARTIAL | 531 | 533 |
+| UNKNOWN | 11 | 11 |
+| TIMEOUT | 40 | 38 |
+
+Raw query observations are ACCEPT 18 -> 18, PARTIAL 11,115 -> 11,208, and UNKNOWN
+415 -> 443. These include different timeout prefixes and solver-generated
+proofs, so they are not the rule-coverage denominator. All **11,226 normalized
+`; ACCEPT` / `; PARTIAL` records** were independently reparsed and validated.
+
+The pre-merge Farkas run is preserved separately in
+`build\fstar-farkas-bridge-20261030`. Against it, **515** completed sessions have
+matching solver answers; total pending is **54,318 -> 54,337**. On **6,814**
+aligned UNSAT queries with matching structural metadata, pending totals are
+exactly **35,700 -> 35,700**, with no increases. Thus the measured coverage gain
+comes from the Farkas extension, not an additional fixed-metadata improvement
+from merging master. The solver changed from 5.3.3 to 5.3.4, so broader proof
+and timing differences must not be attributed solely to checker changes.
+
+### Performance failures and remaining blockers
+
+**Performance validation is not uniformly passing.** The strict sequential
+pilot fails its completion assertion for UInt-3: the fresh baseline completes
+in **54.813 s**, while the merged checker times out at **60.052 s**. The original
+full-replay outcomes are retained; UInt-3 times out in both full collections.
+
+`FStar.Math.Lemmas-1` is the one newly timed-out session in the full comparison.
+A separate sequential probe reproduces baseline PARTIAL **48.078 s** versus
+merged TIMEOUT **60.042 s**. The answer/proof observations differ, so this does
+not isolate a checker-only cause. Three baseline timeout sessions finish in
+the merged full replay: `Pulse.Lib.ForEvery-2`,
+`PulseCore.IndirectionTheorySep-3`, and `FStar.Matrix-4`. Successful diagnostic
+or pilot runs do not replace any recorded production timeout.
+
+Among completed, non-timeout sessions, queries with exactly one pending
+obligation have these remaining rules:
+
+| Rule | Queries | Distinct input files |
+|---|---:|---:|
+| `sk` | 2,321 | 223 |
+| `nnf-neg` | 27 | 22 |
+| `elim-unused` | 12 | 2 |
+| `nnf-pos` | 3 | 3 |
+
+Skolemization remains the dominant last-rule blocker. This extension reduces
+unchecked arithmetic obligations, but does not yet increase complete proof
+certification.
+
+### Artifacts
+
+Merged artifacts are under `build\fstar-farkas-merged-20261031`.
+`build.log`, `unit-tests.log`, `python-build.log`, `smoke-results.json`,
+`build-info.json`, `verified-modules.json`, `source.patch`, and `source-snapshot`
+record rebuild, strict verification, tests, and provenance. The checker SHA-256
+is `8a637ef09c6bdf249966ad48e131330d807cb3f868fa8283cf076a98743826c8`.
+`results` retains all structured results, raw logs, and normalized proof records.
+`comparison-integer-baseline.json`, `comparison-premerge-farkas.json`,
+their aligned-query CSVs, and `progress-details.json` retain both comparisons
+and exact last-rule diagnostics. `pilot.log`, `pilot\results.json`,
+`timeout-probe.log`, and `timeout-probe\results.json` preserve the performance
+failures and sequential follow-up without overwriting original replay results.
+
+## Typed Hilbert-epsilon Skolem bridge (2026-10-31)
+
+`Z3SortedSkolem` connects recognized closed Skolem blocks to the sort-indexed
+semantics. It chooses one tuple over the complete reversed binder-sort list,
+then projects its coordinates into fresh constant interpretations. Existential
+blocks choose a satisfying tuple; negated universal blocks choose a
+counterexample tuple. Separate independent choices are not used, since their
+coordinates need not satisfy a joint predicate.
+
+The verified construction preserves expressions fresh for the introduced
+constants, including nested quantifiers, and therefore preserves all original
+assertions. Ordered extensions preserve older choice equations. Canonical
+Boolean, integer, and datatype interpretations remain fixed.
+
+The sorted document path elaborates only certified, premise-free `sk` entries
+with observational conclusions into asserted choice equations. The unchanged
+sorted kernel checks the resulting document. `lemma_check_document_epsilon`
+proves inconsistency of the **original** assertions, not merely inconsistency
+after arbitrary extra assumptions. Its explicit semantic parameters are a
+typed Hilbert-choice operator and full typed universal/existential truth laws.
+This is a conditional model-extension theorem; it does not establish an
+unconditional standard model for every supported sort. Epsilon is a semantic
+parameter, not a trusted runtime witness search. No admits or new axioms were
+added, and the existing `lemma_check_document` contract is unchanged.
+
+### Supported boundary and validation
+
+The initial bridge supports closed blocks introducing uninterpreted constants
+with no ambient dependencies. Joint mixed-sort witnesses, unused tuple
+coordinates, nested body quantifiers, and canonical double-negation targets
+are supported. Recognition, sort checks, substitution agreement, witness
+freshness, safe context ordering, and original-input freshness are required.
+Duplicate identical definitions are allowed; conflicting or cyclic contexts
+disable the extension and leave unsupported steps to ordinary pending-rule
+diagnostics. Dependency-bearing functions and Skolem steps inside binder
+certificates remain outside this extension. (Closed Skolem steps inside the NNF certificates that the Sorted kernel now replays are collected since 2026-11-01; see the NNF section below.) A 4,096-occurrence budget precedes
+recognition of each candidate entry.
+
+Fresh-cache strict verification passed for **78 production modules** and all
+**25 manifest F*/Pulse test modules**. All four extraction roots were
+regenerated; the checker and tests compile with OCaml warnings treated as
+errors. **69 native groups** and **51 CLI tests** pass. Tests cover coordinated
+witnesses, target/polarity mutations, input-symbol reuse, incompatible and
+cyclic definitions, duplicate definitions, unexpected premises, ordinary
+equality lookalikes, unsupported dependencies, and fully certified typed-core
+refutations in batch and interactive modes. The semantic regression proves
+that joint epsilon selection chooses distinct coordinates together when the
+predicate requires them to differ.
+
+The datatype-native examples discharge their Skolem obligations while
+preserving an existing pending constructor-reconstruction theory lemma.
+They are not reported as fully certified datatype proofs. The exact unchanged
+source-matched Z3 5.3.4 installation was reused after hash checks; integer SMT,
+model, command-line-help, and Python-binding smoke checks pass.
+
+### Full original-input comparison
+
+All **583 unchanged sessions** were replayed with the previous protocol:
+interactive diagnostics, a 10,000 ms solver timeout, a 60-second session wall
+limit, 4 GiB per worker, and eight workers. The immediate immutable baseline is
+`build\fstar-farkas-merged-20261031`.
+
+On **514 completed sessions with identical solver-answer sequences**:
+
+| Metric | Merged Farkas baseline | Epsilon checker | Change |
+|---|---:|---:|---:|
+| Pending `sk` obligations | 7,542 | 48 | -7,494 (-99.36%) |
+| Total pending obligations | 54,085 | 46,236 | -7,849 (-14.51%) |
+| ACCEPT queries | 18 | 2,010 | +1,992 |
+
+Across **6,095 aligned UNSAT queries with matching structural metadata**,
+pending totals fall **27,722 -> 21,904**, with **no pending-count increases**.
+Matching metadata does not establish byte-identical proofs. Across all raw
+aligned observations there are **2,694 PARTIAL -> ACCEPT transitions** and
+**522 pending-count increases**, all of the latter outside the matching-metadata
+cohort. All **18 previous ACCEPT queries** remain observed and accepted.
+There are no rejections, crashes, protocol errors, or aligned SAT/UNSAT
+contradictions. All **11,229 normalized `; ACCEPT` / `; PARTIAL` records** were
+independently reparsed and checked.
+
+| Session outcome | Merged Farkas baseline | Epsilon checker |
+|---|---:|---:|
+| Fully ACCEPT | 1 | 18 |
+| PARTIAL | 533 | 515 |
+| UNKNOWN | 11 | 12 |
+| TIMEOUT | 38 | 38 |
+
+The additional whole-session ACCEPTs include `Pulse.C.Types.Array.Base`,
+`Pulse.Checker.Pure`, `Pulse.Lib.Primitives`, `Pulse.Readback-1`,
+`PulseCore.Action`, `FStar.All`, `FStar.Tactics.NamedView`, and
+`FStar.Tactics.PrettifyType`. Raw query counts are ACCEPT **18 -> 2,722**,
+PARTIAL **11,208 -> 8,507**, and UNKNOWN **443 -> 438**; these include differing
+solver observations and timeout prefixes and are not the matched denominator.
+
+No completed session now has a query whose sole pending rule is `sk`
+(**2,321 -> 0**). The exposed last-rule blockers are `nnf-neg` (358 queries),
+`nnf-pos` (316), `quant-intro` (235), `def-axiom` (88), `rewrite` (73),
+`th-lemma` (52), and `elim-unused` (12). These are last-rule counts, not
+increases in total obligations of those families.
+
+### Performance caveats and artifacts
+
+Performance validation is **not uniformly passing**. The full epsilon replay
+newly times out on `Pulse.Lib.PCM.FractionalPreorder` and `FStar.Matrix-4`;
+the baseline timeouts `FStar.Math.Lemmas-1` and `FStar.UInt-3` instead complete.
+The original outcomes remain unchanged. Sequential probes complete the two
+new timeout cases, but are slower: FractionalPreorder **32.937 -> 54.705 s**
+and Matrix-4 **53.858 -> 55.355 s**. Their solver-answer sequences differ, so
+these runs do not isolate a checker-only regression and do not replace the
+full-replay timeouts. The separate sequential UInt-3 pilot times out in both
+versions (**60.055 / 60.054 s**); its successful full-replay completion is not
+reported as a performance fix.
+
+Artifacts are under `build\fstar-epsilon-20261031`. `build.log` preserves the
+initial native-test compilation failure; `native-target*.log` preserves the
+fixture/debugging attempts. `build-retry.log` records the successful strict
+build and baseline preservation. `full` holds the independent cache,
+generated sources, checker, source snapshot and hashes, full `results`,
+`comparison.json`, `aligned-queries.csv`, and `progress-details.json`.
+The checker SHA-256 is
+`00913ef722145249032d705d0f8f8fff24b1828153e6cd2165ae7e25a558166c`.
+`full\results\proof-results.log` retains the requested normalized proof output.
+`pilot.log`, `full\pilot\results.json`, `timeout-probe.log`, and
+`full\timeout-probe\results.json` retain all sequential observations.
+This report records validation before publication of the changes.
+
+## Typed bridges after the latest master merge (2026-10-31)
+
+(These counts are for the `8fbb275ab` merge `0200d3b49`; the current state is in the 2026-11-01
+reconciliation section below.)
+
+Master `8fbb275ab` was merged without conflicts as `0200d3b49`.
+The source-matched Z3 5.3.4 solver and static OCaml bindings were rebuilt and
+installed independently under `build\fstar-epsilon-master-20261031`.
+The complete solver unit suite passed (**122 passed, 0 failed**), as did
+SMT/model, Python-binding, and command-line help smoke checks.
+
+Master's whole-program Custard extraction requires the workflow-pinned
+F* **v2026.10.25**; the older local compiler lacks `custard_inline`.
+The two new Farkas native fixtures were updated from the legacy generated
+field `conclusion1` to Custard's `conclusion`, in commit `443084f53`.
+The remote partial-scope audit addition `64bf52c67` was then fast-forwarded
+without changing executable checker inputs.
+
+Cherry's wrappers now call `check_document_epsilon` and
+`diagnose_document_epsilon`, with the corresponding diagnostic-equivalence
+lemma, matching the OCaml sorted frontend. The workflow-pinned Cherry
+**nightly-2026-10-30** initially timed out in the application case of
+`Z3SortedSkolem.lemma_fresh`. Factoring application preservation into
+`lemma_application_fresh` makes the unchanged freshness theorem verify on
+both compilers without increasing resource limits or adding assumptions.
+
+Completed validation of the exact source patch on top of `64bf52c67`:
+
+- Stable F*: **83 production manifest entries** and **27 F*/Pulse test
+  entries** verified; whole-program Custard extraction, warning-as-error
+  native compilation, **69 native regression groups**, and **52 CLI tests**
+  passed.
+- Cherry: all production, Cherry-specific, and manifest test entries,
+  including `Z3Cherry` and `Z3CherryTests`, verified; extraction, GCC 15
+  compilation with runtime debug checks enabled, C++ native self-tests,
+  and the same **52 CLI tests** passed, including closed epsilon refutations.
+- Both build wrappers checked unchanged HEAD, source patch and input hashes,
+  and installed solver hashes. The OCaml rebuild also checked preservation
+  of the original epsilon baseline and results.
+
+The final OCaml executable is byte-identical to the earlier post-merge
+pilot executable, SHA-256
+`8b5acc83040c6238a77aec134b311be6be360f18242170242e697584233e1dee`.
+The proof-only freshness helper changes no extracted OCaml behavior.
+
+### Targeted post-merge collection pilot
+
+Nine unchanged saved sessions were replayed sequentially against the
+preserved pre-merge epsilon results, with the same 60-second session limit.
+All six selected whole-session ACCEPTs remain ACCEPT and all **61 previously
+ACCEPTed queries** in the nine files are retained. The selected PARTIAL
+sessions `Pulse.Recursion-1` and `Pulse.Lib.Swap.Spec` remain PARTIAL; the former
+still has one pending `sk`. All eight completed baseline sessions have
+identical solver-answer sequences after the merge.
+
+`FStar.UInt-3` changes from a **60.066 s TIMEOUT** in the preserved full replay
+to **42.477 s PARTIAL** in this sequential pilot. Its answer sequence differs,
+so this observation neither replaces the historical timeout nor establishes
+a performance fix. This is **not a new full 583-session comparison**:
+the coverage tables and performance caveats above remain pre-merge results.
+
+Artifacts are under `build\fstar-epsilon-master-20261031`:
+`checker-proof-hardening.log`, `build-info.json`, `source.patch`,
+`skolem-nightly.log`, `cherry-build-initial-failure.log`,
+`cherry-build-retry.log`, `cherry\verified-source-info.json`, and the preserved
+source snapshots. `pilot.log` and `pilot\results.json` preserve the nine-file
+observations; `pilot\build-info.json` and `pilot\checker` preserve their exact
+original executable provenance. These local successes do not establish
+green GitHub CI; the remote audit head's workflows require approval.
+
+## Reconciliation with master 66273b16f and dd4179a55 (2026-11-01)
+
+This branch now contains master through `dd4179a55`: merge `35c3d005d`
+brings in `66273b16f` (#11498 typed root and ghost Sorted semantics,
+#11503 readable diagnostics, #11497 constant folding and `expression`
+rows, #11499 documentation, #11478 pinned toolchains), and merge
+`62e4ef4ec` brings in `dd4179a55` (relevant-first case splitting made
+opt-in, Java packaging). The counts in the 2026-10-31 sections above
+describe the earlier `8fbb275ab` merge and the pre-merge collection at
+`48d452072`; they are not results of this reconciliation.
+
+**Conflicts.** `Z3SortedArithmetic.fst` keeps master's constant folding and
+appends the Farkas replay unchanged; `tools/checker_modules.json` keeps
+both test sets; `tools/test_native_checker.py` keeps both new tests.
+
+**Ghost semantics.** Master made the Sorted semantics ghost. The proof-side
+Farkas assumptions (`Z3SortedArithmetic.satisfied`, `assumptions_hold`) are
+now `GTot`; the executable `certificate_inputs` and `check_contradiction` are
+unchanged. `Z3SortedSkolem.hilbert_choice.epsilon` is a `GTot` choice of ONE
+joint witness tuple over the reversed binder sorts, never one choice per
+coordinate. `ghost_choice` builds an instance from the installed
+`FStar.IndefiniteDescription` (`strong_excluded_middle`,
+`indefinite_description_ghost`) and a typed default tuple; no axiom, admit
+or assumption is added. `selected` and `build` are ghost, freshness uses the
+ghost extensionality of master's restricted bodies, and the existential law
+is stated per case over ghost bodies.
+
+**Composition with the typed root model** (`Z3SortedRootDocument.fst`, off
+every route):
+
+* `lemma_exists_model` derives the existential law from R1 of a root model
+  `i`, next to master's universal laws for the same `i`. `root_choice` is
+  `ghost_choice` over the root carriers; `lemma_root_selected` shows that the
+  production `selected` tuple satisfies the whole Skolem body jointly in `i`
+  whenever the definition's source holds there.
+* `lemma_root_check_document_epsilon`: for every root model `i`, **if**
+  `Z3SortedProof.check_document_epsilon` returns `Some 0`, the ORIGINAL
+  assertions are not all true in `i`. The statement is conditional on that
+  zero-obligation verdict; a root model alone proves nothing. Master's
+  `TR.lemma_standard_root` makes the root-model hypothesis hold for the
+  standard model of every carrier and symbol choice.
+* `lemma_root_override`, `lemma_root_build` and
+  `lemma_root_epsilon_extension`: every choice extension of a root model is
+  again a root model (all six root laws), keeps the truth of the original
+  assertions, and makes every generated choice equation true.
+* `check_root_document_epsilon` is a pure gate that no route calls. Its
+  `RootCertified` verdict also requires a supported schema and root coverage
+  of the ORIGINAL document's terms (assertions, entry formulas including each
+  Skolem entry's source, body, binders and witnesses, instantiation
+  arguments); the generated equations are proved closed and covered.
+* The read view of the document theorem now keeps the payloads the checker
+  consumes: `ArithmeticFarkas` with its coefficient list and the
+  `Skolemization` label; master's other payload erasure is unchanged, and the
+  read-view equalities are proved for both routes.
+
+**Scope that does not change.** A native `ACCEPT` is not `RootCertified`, and
+the default route is unchanged. The legacy default `model_sound` still has
+no model; nothing here repairs it or claims every-theory soundness.
+Top-level dependency-bearing Skolem steps stay pending; Skolem steps inside
+consumed NNF certificates are handled by the closed and dependent contexts
+described under the NNF certificate replay below. Master's trust points remain:
+the native front end's translation of assertions, schema and definitions,
+native datatype id and tag fidelity, and the full-function-space array,
+lambda and `FStar.Real` parameterization of the root class.
+
+**Readable diagnostics.** The elaborated epsilon document keeps one entry per
+original entry (`Z3SortedProof.lemma_epsilon_entries_aligned`): a used Skolem
+step only becomes `Asserted` and every choice equation is appended to the
+assertions, so obligations and rejections name the original node, and an
+assertion-stage rejection carries no index. Both frontends render the one
+diagnosed result; no second checker call is made.
+
+**Cherry `expression` rows (master #11497 defect).** #11497 added an
+`expression` row after each `obligation` row to the OCaml driver and a shared
+CLI assertion that every obligation row has one, but not to the Cherry
+driver, so `test_diagnostics_preserve_results_and_count_typed_obligations`
+fails on Cherry for every PARTIAL proof (hosted master run `41303493755`, and
+local master builds with the `8fbb275ab` and `dd4179a55` producers). The
+Cherry driver now prints the same rows with a bounded C++ port of
+`pretty_judgment` (same precedences, binder names, numeral, name and sort
+rules and bounds). Verdicts, pending counts, stdout and exit codes are
+unchanged. The C++ and OCaml printer tests expect the same strings for the
+same hand-built shapes, and a textual test compares the operator tags with
+`Z3ValueTheory.fst`. The printer guard of #11503 now counts the ordinary or
+epsilon diagnosed-check token (still exactly two call sites).
+On the 25 PARTIAL control inputs where both checkers report the same verdict
+and diagnostic rows, they print the same 529 expression rows (rule, count,
+node and text); in 4 of these files equal-count families come in another order,
+because families are ordered by their obligation fingerprint, whose symbol
+numbering already differs between the two drivers on master. On direct
+fixtures (batch and interactive, default and `--sorted-core`, `--diagnostics`
+and `--readable`) the rows are identical, stdout differs only in the
+`*_ms` timings, and the `--readable` stderr extends the `--diagnostics` stderr.
+
+### Validation of the frozen candidate `6c6603471`
+
+One Z3 producer, built from `dd4179a55` with default parameters, serves both
+the master baseline and the candidate: an incremental rebuild of a validated
+`8fbb275ab` producer recompiled 300 of 903 translation units (317 s), and a
+per-unit depfile check found no reused object with a changed input. Both
+checkers embed the producer stamp `dd4179a55`, not their own commit. Each
+side ran `build_ocaml_checker.ps1 -RunTests -BuildCherry` from an LF `git
+archive` with fresh F* caches, on the workflow pins F* `v2026.10.25` (OCaml)
+and `nightly-2026-10-30` (Cherry); the F* proofs were therefore re-checked
+against the `dd4179a55` solver, and no C++ object was recompiled.
+
+| | master `dd4179a55` | candidate `6c6603471` |
+|---|---|---|
+| F* manifest, v2026.10.25 | 82 production + 33 test entries, all verified | 83 + 34, all verified |
+| F* manifest + Cherry modules, nightly-2026-10-30 | all verified | all verified |
+| OCaml native groups | 72 pass | 75 pass (adds `sorted-integer-Farkas`, `sorted-typed-epsilon-Skolemization`, `readable-epsilon-provenance`) |
+| Cherry self-tests (`tests.cpp`) | pass | pass, including the expression-row regressions |
+| CLI suite, OCaml checker | 71/71 | 74/74 |
+| CLI suite, Cherry checker | **70/71: fails the #11497 expression-row assertion** | 74/74 |
+| QF_FF workflow inputs (25), both checkers | 25 ACCEPT | 25 ACCEPT |
+| `run_checker_regressions.py run` on z3test `regressions/proofs` (17), both checkers | 16 ACCEPT, 1 UNKNOWN | 16 ACCEPT, 1 UNKNOWN |
+| Harness tests `test_checker_*.py` (private venv with `zstandard` 0.25.0, Python 3.14) | 43/43 | 43/43 |
+
+**Matched controls** (base and candidate measured at the same time with the
+same harness, lists, inputs and limits: 10 s solver timeout, 60 s wall,
+4 GiB). Per-query sets, both checkers: `targets` (3), `proofs.all` (17),
+`abv-all` (50), `bench-sample.all` (225) and `z3-sample.all` (225) give
+**0 rows that differ** between base and candidate (outcome, verdict, pending
+count, obligations); for example `z3-sample.all` is 194 ACCEPT, 5 PARTIAL,
+6 TIMEOUT, 20 UNKNOWN on both. Interactive z3test sets: `accept59-extra` is
+70 ACCEPT on both. In `sample46` one file differs, on OCaml only:
+`2956.smt2` keeps its proof sizes (151 and 382 nodes) and its 7 pending
+`arith/farkas` obligations are discharged (pending 91 -> 84). The Cherry
+checker crashes on that file in both base and candidate (pre-existing). The
+TIMEOUT, UNKNOWN, `command-error`, `outer-timeout` and crash classes are not
+passes, and they are identical on both sides.
+
+**11-session pilot** (original `fstar-build` sessions, interactive with
+diagnostics, same limits; an 11-session pilot, not a re-run of the 583-session
+collection). The task-private copy of the reviewed sweep harness differs
+only in its manifest-size check. On Cherry every query has the same
+proof-size metadata in base and candidate (metadata-matched, not proof-byte
+identity): ACCEPT queries 0 -> 65, and eight sessions become fully accepted
+(`Pulse.C.Types.Array.Base`, `Pulse.Checker.Pure`, `Pulse.Lib.Primitives`,
+`Pulse.Readback-1`, `PulseCore.Action`, `FStar.All`,
+`FStar.Tactics.NamedView`, `FStar.Tactics.PrettifyType`). Total pending falls
+822 -> 453: `sk` 137 -> 1 and `arith/farkas` 233 -> 0, with every other family
+unchanged, no pending increase, no ACCEPT lost and no REJECT.
+`Pulse.Recursion-1`, `Pulse.Lib.Swap.Spec` and `FStar.UInt-3` stay PARTIAL.
+The OCaml checker gives the same eight accepted sessions, but its proofs for
+later queries of a session depend on the process's allocation pattern (see
+`--readable` above), so only part of its queries are metadata-matched; on those
+there is no pending increase. `FStar.UInt-3` sits at the 60 s limit: in the
+counted run the OCaml base completed in 57.5 s and the OCaml candidate hit the
+limit at 60.1 s after 75 queries. In three reruns per build the base completed
+3 times (54.4-58.3 s) and the candidate twice (54.7 and 55.5 s) and timed out
+once, with varying numbers of solver `unknown` answers; Cherry completes on both
+(about 45-50 s). This is recorded as a time-limit caveat, not as an isolated
+checker regression or a fix.
+
+**Upstream drift.** Compared with the same control sets on the earlier
+`8fbb275ab` master checker, master `dd4179a55` gains one `z3-sample` ACCEPT
+(one UNKNOWN fewer) and changes the `sample46` pending totals (OCaml 122 -> 133,
+Cherry 31 -> 42). Base and candidate agree on all of these, so they come from
+master (checker and producer changes after `8fbb275ab`) or from run conditions
+(that wave used two workers per side, this one four), not from this branch.
+
+GitHub CI is not claimed: the latest remote head (`7aae2a68c`, a bot audit
+commit) only has workflow runs waiting for approval. Earlier failures of the
+`Run regressions` step (z3test `3477.smt2`, `3559.smt2`, Windows
+`opt_nlsat_*`) also occur on master `8fbb275ab` and do not involve `fstar/`;
+macOS was not run locally.
+
+## NNF certificate replay on the Sorted route (2026-11-01)
+
+Route and diagnostic contract change. On the Sorted datatype route
+(`check_document_epsilon_diagnosed`, used by both front ends with one diagnosed
+check), a premise-free `QuantifierIntroduction` node whose certificate root is
+`nnf-neg` or `nnf-pos` is now replayed by `Z3NnfReplay` before the previous
+propositional fallback; see [NNF certificate replay](PROOF_CHECKING.md#nnf-certificate-replay-sorted-route)
+for the rules, the certificate protocol (the unchanged marshalled certificate),
+the model boundary and the coverage table. A replayed node reports no pending
+obligation. A certificate outside the calculus stays a pending obligation with
+the same label as before (the front ends name the certificate's root entry).
+A certificate whose premise ids are not earlier entries now rejects the document
+at that proof entry (`proof-entry` stage) instead of counting as pending; the
+native marshal never produces such ids. The epsilon context additionally
+collects closed, eligible inner `sk` steps of replayed certificates, through
+the unchanged gates; if the merged context fails a gate, the previous
+top-level context is used. Open (dependent) `sk` steps of replayed certificates
+form a dependent context on top of it (`Z3SortedDependentSkolem`): each certified
+step's universal closure over its dependency scope is appended to the assertions
+and holds in the joint dependent choice extension of the original model (one
+witness tuple per argument tuple); see
+[dependent Skolem functions](PROOF_CHECKING.md#nnf-certificate-replay-sorted-route).
+Quant-intro-rooted certificates and naming/rewrite steps inside certificates stay
+pending.
+
+F* evidence (CI pin v2026.10.25 and nightly-2026-10-30): `Z3NnfReplay`,
+`Z3SortedProof`, `Z3SortedRootDocument` and their tests verify, and
+`Z3NnfReplayTests` replays two previously pending corpus certificates
+(FStar.Nonempty query 2 node 11 and FStar.Class.TotalOrder.Raw query 1 node 43)
+in documents certified by the root gates.
+
+### Native validation and the fstar-build replay (b3c1e0bac producer)
+
+Both builds use one Z3 producer built from b3c1e0bac (z3 `3ac509ee…`, libz3.a
+`f66d5e53…`) and fresh F* caches on both pins: baseline = b3c1e0bac, candidate =
+5ff246341 (the replay plus its corrected native tests).
+
+- Both pipelines are RED at the same place, caused by master #11506 (enumeration
+  goals routed through QFFP/dt2bv), not by this change: OCaml `native-tests` stops
+  at `contextual-sorted-datatype-proof-kernel` (exhaustiveness fixture `PARTIAL 7`,
+  seven dt2bv `rewrite` obligations), and both CLI suites fail only
+  `test_contextual_datatype_proofs_in_both_modes`. The same candidate sources
+  linked against the dd4179a55 producer accept the fixture. With every group run,
+  the baseline has 74 PASS / 1 FAIL and the candidate 75 PASS / 1 FAIL (the new
+  `sorted-NNF-certificate-replay` passes); Cherry `checker-tests` pass on both;
+  QF_FF 25/25 on both backends of both builds.
+- The 15 NNF CLI cases (8 negative, 7 Sorted probes; batch and interactive; OCaml
+  and Cherry): baseline `PARTIAL 1` with one `nnf-neg` or `nnf-pos` obligation on
+  every run, candidate `ACCEPT` on every run, same proof metadata.
+- All 583 incremental F* query logs (`C:\bench\inputs\fstar-build`, exact bytes,
+  10 s solver, 60 s per file, 4 GiB, both backends). Pending obligations over all
+  answered queries, baseline -> candidate: OCaml `nnf-neg` 5,655 -> 213, `nnf-pos`
+  5,948 -> 5,820; Cherry `nnf-neg` 5,570 -> 211, `nnf-pos` 5,841 -> 5,670. On the
+  10,776 structurally matched Cherry queries (proof metadata and non-NNF obligation
+  groups equal), `nnf-neg` 5,411 -> 210 and `nnf-pos` 5,693 -> 5,564, 385
+  queries become `ACCEPT`, no obligation is added and no other family changes;
+  OCaml (5,897 structurally matched queries): `nnf-neg` 2,735 -> 119, `nnf-pos` 1,604 -> 1,560.
+  Timeouts, crashes and unexecuted tails (OCaml candidate: 43 files at 60 s, 2,474
+  queries not answered) are not counted as checked and may hide further NNF
+  obligations.
+- The remaining NNF obligations, classified by re-running the replay steps on the
+  actual certificates (5,962 diagnosed nodes): 5,892 stop at an open `sk` step, a
+  Skolem FUNCTION of the enclosing binders (99.8 % of the `nnf-pos` and 71 % of the
+  `nnf-neg` residue); 47 at a closed `sk` step over the 4,096-node definition budget;
+  14 at the scope guard; 9 at `intro-def`/`apply-def` naming steps. No residue stops
+  at a local NNF rule, so the remaining gap is the dependent Skolem functions, which
+  need an argument-dependent choice extension of the epsilon model (not a new NNF
+  rule). That extension is now implemented and verified on both pins (next phase);
+  its effect on these counts has not been re-measured yet.
+- Throughput: the candidate first answered fewer queries in time (OCaml 11,733 ->
+  11,556; 6 OCaml and 2 Cherry files went from complete to the 60 s limit). On the
+  same documents the cost was `Z3Skolemization.order_context`, cubic in the number of
+  definitions, now fed every closed inner `sk` step in document order (243
+  definitions: 17 s). `Z3SortedProof.certified_context` now orders the reversed
+  collection, which is already ordered in that case (0.2 s); the context set and every
+  gate are unchanged. The corpus numbers above were measured before this fix.
+
+### Dependent Skolem functions: native validation and the NNF-bearing re-sweep
+
+Candidate 3499ebf14 (dependent Skolem functions, `Z3SortedDependentSkolem`) against the
+same b3c1e0bac producer and baseline, fresh F* caches on both pins: the suites have the
+same single producer-caused RED as the baseline (OCaml `native-tests` stop, 75/76 groups
+with every group run, one CLI test on each backend), Cherry `checker-tests` pass, QF_FF
+25/25 on both backends; the 15 NNF CLI probes are `PARTIAL 1` on the baseline and
+`ACCEPT` on the candidate in all 60 runs with identical proof metadata; the datatype
+fixture stays `PARTIAL 7` on both.
+
+Re-sweep of the 359 NNF-bearing files (every file with an NNF obligation left by the
+previous candidate on either backend, the discordant files, every file that previously
+timed out or crashed), baseline and candidate with the same flags and limits:
+
+- Pending NNF obligations over the answered queries, baseline -> candidate: OCaml
+  `nnf-neg` 4,321 -> 73, `nnf-pos` 5,945 -> 10; Cherry `nnf-neg` 4,214 -> 70, `nnf-pos`
+  5,846 -> 10. On the 8,518 structurally matched Cherry queries (proof metadata
+  and non-NNF obligation groups equal): 5,750 `nnf-pos` and 4,074 `nnf-neg` obligations
+  discharged, 80 remain, none added, 713 queries become `ACCEPT`, no `ACCEPT` becomes
+  `PARTIAL`; OCaml (4,177 structurally matched queries): 1,526 / 1,774 discharged, 29 remain, none
+  added. Structural matching does not establish byte-identical proofs; the original
+  per-query observations and unmatched prefixes remain separate from this cohort.
+- The remaining NNF obligations (83 OCaml, 80 Cherry), classified by a separate
+  diagnostic rerun of the same files (the replay steps and the scope guard's forward
+  pass re-run step by step with the candidate's own extracted functions, checked
+  against the production result) and matched to the counted residue: 54 OCaml / 53
+  Cherry stop at a closed `sk` step whose formula exceeds the 4,096-node definition
+  budget (4,110-24,844 nodes; zero dependencies, so not a dependent Skolem step); 9 /
+  9 at `intro-def`/`apply-def` naming steps inside `nnf-pos` certificates; 20 / 17 at
+  the binder scope guard, every one by EXHAUSTING the guard's work budget
+  (`binder_work_limit`, 65,536 units per entry) in its forward pass, never by a scope,
+  sort, index or premise failure: with an unbounded budget the same guard passes,
+  needing 1.02-14.2 times the budget, and 81-92 % of the units are the characters of
+  base-sort names (every uninterpreted sort is marshalled as `sort!<id>:<name>`, here
+  20 characters, and both names are charged before each sort comparison, once per
+  variable and per argument). Behind the guard, 19 of these 20 certificates would
+  still stop at an `sk` step over the 4,096-node budget; only one (PulseCore.Action-1
+  query 1) would replay. No residue stops at a dependent Skolem step, a local NNF
+  rule, or a malformed certificate. Matching: 30 OCaml / 22 Cherry obligations have a
+  diagnosed node in a structurally matched proof (same metadata and NNF groups); 53 / 57 have
+  the same NNF obligation (same rule, source/target fingerprint and count) in the same
+  query of another OCaml proof of it (OCaml proofs vary between runs); one Cherry
+  obligation (FStar.Math.Lemmas-2 query 35) has no exact counterpart (the closest
+  OCaml proofs differ in one arithmetic comparison and stop at the scope guard's
+  budget). An earlier version of this classification supported "guard budget" with the
+  work left after the guard's backward pass, which is the budget handed to its forward
+  pass, not what remained when it failed; the class is unchanged, the evidence above is
+  the failing branch (the forward pass's scope check of one entry running out of work)
+  and the total charge per certificate. The unbounded repeats are diagnostic
+  measurements only, not a checker pass and not a production budget. The guard's
+  accounting and limits are unchanged.
+- Follow-up (not implemented): a cheaper sort-identity or shared-certificate accounting
+  for the guard, without a budget raise, would discharge only the PulseCore.Action-1
+  node (the other 19 also stop at an `sk` step over the 4,096-node budget).
+  It needs a proved bijection between the representation and the AST sorts, binders
+  and metadata it stands for (equal representations exactly for equal sorts), native
+  sort ids treated as untrusted, no stripping of name prefixes and no collapsing of
+  distinct names, a bounded table construction charged to the same budget, and
+  adversarial tests (different names with one native id, one name with different ids).
+- The 224 files outside the selection were last run in this report's sweep with the
+  previous candidate (5ff246341). A separate, later run (not part of the 359-file
+  re-sweep) replayed exactly those 224 files with the frozen 3499ebf14 binaries (an
+  independent reviewer's run, label `rev-out224-cand-3499ebf14`, OCaml checker
+  `2388389168cf500d`, Cherry checker `943dcb2f2ea51d1b`; same harness, flags and limits;
+  accounting re-checked from its own records): 448/448 files COMPLETE, 2,553 answered
+  queries per backend (every query of those files; OCaml 905 `ACCEPT` / 1,557 `PARTIAL` /
+  91 `UNKNOWN`, Cherry 905 / 1,562 / 86), no `nnf-neg` or `nnf-pos` obligation, no
+  `REJECT`. It has no baseline twin.
+- Check time on structurally matched queries: Cherry +10.6 % (8,518 queries), OCaml +8.4 % (4,177);
+  the largest matched-file increases are FStar.Reflection.TermEq-1 (+26 %), FStar.Math.Euclid-3
+  (+21 %) and FStar.Tactics.CanonCommSemiring-1 (+21.6 %). These cohort timings do not
+  establish identical proof bytes. Separately, on the same frozen marshalled documents of
+  TermEq-1 the candidate's decision takes 18.1 s against the baseline's 16.5 s (query 24)
+  and 11.2 s against 10.8 s (query 49); the added time is the certification of the closed
+  context, the dependent context (including one redundant re-check of the closed order)
+  and the NNF replay. The observed 60 s boundary crossings are retained; the matched
+  timing analysis did not attribute them to checking overhead. Timeouts, crashes and
+  unexecuted tails are not counted as checked.
+- Not checked: the unanswered tails of the timed-out and crashed files (OCaml 2,227
+  queries in 37 files at 60 s; Cherry 2,493 queries in 32 files at 60 s and 7 crashed
+  files). They may hold further NNF obligations. A bounded follow-up would replay each
+  tail query on its own (the file's commands up to that `check-sat`, earlier
+  `check-sat`s removed, declarations, assertions, options and push/pop kept), with the
+  same 10 s solver and 60 s limits; such inputs are derived, so their proofs need not
+  equal the in-sequence ones. Estimated cost at the files' observed per-query rates,
+  about 0.7 CPU-hours (OCaml) and 1.6 (Cherry) plus the repeated prefix processing,
+  at most 37 and 41.5 CPU-hours if every query used the full 60 s; not run.
+
+### Datatype test fixtures after master #11506 (build repair)
+
+Master #11506 makes the producer prove enumeration-only datatype goals (every constructor
+without fields) through QFFP/dt2bv. Its datatype-to-bit-vector `rewrite` steps are not
+supported by the sorted checker, so the old exhaustiveness fixture (`T ((C) (D))`) is only
+partly checked (`PARTIAL 7`) and the three-constructor one is rejected; no checker rule,
+producer tactic, budget or model changed. The failing expectation was a full certificate
+for an input the checker does not claim to certify, not a datatype-checking defect.
+
+- The certified exhaustiveness, three-constructor exhaustiveness and symmetric-equality
+  fixtures now give each constructor an `Int` field (`T ((C (field Int)) (D (other Int)))`).
+  The producer then stays on the datatype theory (the exhaustiveness refutations are one
+  `th-lemma datatype` over the negated recognizers) and both backends `ACCEPT` them with no
+  pending obligation, in batch and
+  interactive mode. The native group builds every constructor witness of its direct
+  controls from well-sorted arguments and checks that they are well sorted, so the
+  negative controls (a constructor against a different negative recognizer, equalities
+  without the matching recognizer) cannot pass by ill-sortedness; a positive control with
+  the same witness shape (a constructor against its own negative recognizer) must still
+  conflict.
+- The original enumeration inputs stay as separate `dt2bv-coverage` fixtures. The native
+  group runs every direct control and input-binding negative on them and requires the
+  fixture to be an enumeration, but does not pin their verdict (a later checker that
+  certifies them is not a regression); the CLI test accepts exactly `ACCEPT` or
+  `PARTIAL n` (never `SAT`, `REJECT` or a crash) with `semantics=sorted-datatype` in
+  both modes, without pinning `n`. `PARTIAL` there is not a certified verdict.

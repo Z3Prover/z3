@@ -16,13 +16,20 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
+#include "ast/simplifiers/bit2int.h"
 #include "ast/simplifiers/recfun_finder.h"
+#include "ast/occurs.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/pull_nested_quantifiers.h"
 #include "ast/simplifiers/lambda_simplifier.h"
 #include "ast/array_decl_plugin.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
+#include "qe/qe_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/smtlogics/smt_tactic.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -427,6 +434,55 @@ static void test_recfun_finder() {
     ENSURE(!ru.has_defs());
 }
 
+// A definition whose recursive call already sits under an ite with a
+// recursion-free test is registered as is: the sibling conjunct p(x) of the
+// recursive call stays in the body of the case instead of becoming a case guard.
+static void test_recfun_finder_guarded_body() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* int_sort = a.mk_int();
+    sort* domain[1] = { int_sort };
+    func_decl_ref f(m.mk_func_decl(symbol("f"), 1, domain, m.mk_bool_sort()), m);
+    func_decl_ref p(m.mk_func_decl(symbol("p"), 1, domain, m.mk_bool_sort()), m);
+    var_ref x(m.mk_var(0, int_sort), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref fx(m.mk_app(f, x.get()), m);
+    expr_ref px(m.mk_app(p, x.get()), m);
+    expr_ref xm1(a.mk_sub(x, one), m);
+    expr_ref rec(m.mk_app(f, xm1.get()), m);
+    expr_ref condition(m.mk_eq(x, zero), m);
+    expr_ref else_value(m.mk_and(rec, px), m);
+    expr_ref body(m.mk_ite(condition, m.mk_true(), else_value), m);
+    expr_ref eq(m.mk_eq(fx, body), m);
+    symbol x_name("x");
+    quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
+    base_dependent_expr_state st(m);
+    st.push();
+    st.add(dependent_expr(m, q, nullptr, nullptr));
+    expr_ref three(a.mk_int(3), m);
+    expr_ref f3(m.mk_app(f, three.get()), m);
+    st.add(dependent_expr(m, f3, nullptr, nullptr));
+    recfun_finder rf(m, params_ref(), st);
+    rf.push();
+    rf.reduce();
+    st.flatten_suffix();
+    recfun::util ru(m);
+    ENSURE(ru.has_defs());
+    recfun::def* d = nullptr;
+    for (func_decl* g : ru.get_rec_funs())
+        if (g->get_name() == symbol("f"))
+            d = &ru.get_def(g);
+    ENSURE(d);
+    ENSURE(d->get_cases().size() == 2);
+    for (recfun::case_def const& c : d->get_cases())
+        for (expr* g : c.get_guards())
+            ENSURE(!occurs(p, g));
+    st.pop(1);
+    rf.pop(1);
+}
+
 static void test_incremental_demodulator() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -466,8 +522,18 @@ static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& s
         expr_ref_vector side_conditions(m);
         ENSURE(checker.check(pr, side_conditions));
         for (expr* condition : side_conditions) {
+            expr_ref closed(condition, m);
+            expr_free_vars variables(condition);
+            if (!variables.empty()) {
+                // PR_BIND bodies can contribute conditions with free de Bruijn variables.
+                expr_ref_vector values(m);
+                for (unsigned j = 0; j < variables.size(); ++j)
+                    values.push_back(m.mk_fresh_const("proof-var", variables[j] ? variables[j] : m.mk_bool_sort()));
+                var_subst substitute(m, false);
+                closed = substitute(condition, values);
+            }
             solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
-            check->assert_expr(m.mk_not(condition));
+            check->assert_expr(m.mk_not(closed));
             ENSURE(check->check_sat(0, nullptr) == l_false);
         }
         for (expr* e : subterms::all(expr_ref(pr, m))) {
@@ -478,6 +544,112 @@ static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& s
                 found |= f == m.get_fact(to_app(e));
             ENSURE(found);
         }
+    }
+}
+
+static void test_bit2int_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    bv_util bv(m);
+    expr_ref u(m.mk_const("mod-u", bv.mk_sort(3)), m);
+    expr_ref v(m.mk_const("mod-v", bv.mk_sort(3)), m);
+    expr_ref ui(bv.mk_ubv2int(u), m), vi(bv.mk_ubv2int(v), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref negative(a.mk_uminus(ui), m);
+    expr_ref neg_v(a.mk_uminus(vi), m);
+    expr_ref difference(a.mk_add(ui, neg_v), m);
+    expr_ref three(bv.mk_numeral(3, 3), m);
+    expr_ref nonzero(bv.mk_ubv2int(three), m);
+    expr_ref_vector dividends(m), divisors(m);
+    dividends.push_back(ui);
+    dividends.push_back(negative);
+    dividends.push_back(difference);
+    divisors.push_back(zero);
+    divisors.push_back(vi);
+    divisors.push_back(nonzero);
+    bit2int rewrite(m);
+    expr_ref result(m);
+    proof_ref pr(m);
+    for (expr* dividend : dividends) {
+        for (expr* divisor : divisors) {
+            expr_ref original(a.mk_mod(dividend, divisor), m);
+            rewrite(original, result, pr);
+            if (divisor == nonzero) {
+                ENSURE(bv.is_ubv2int(result));
+            }
+            else {
+                ENSURE(a.is_mod(result));
+            }
+            solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
+            expr_ref equality(m.mk_eq(original, result), m);
+            check->assert_expr(m.mk_not(equality));
+            ENSURE(check->check_sat(0, nullptr) == l_false);
+            if (pr) {
+                ENSURE(m.get_fact(pr) == equality);
+                base_dependent_expr_state state(m);
+                state.add(dependent_expr(m, equality, pr, nullptr));
+                expr_ref_vector assertions(m);
+                check_simplifier_proofs(m, state, assertions);
+            }
+        }
+    }
+
+    expr_ref one(a.mk_int(1), m);
+    expr_ref converted(m.mk_eq(ui, one), m);
+    rewrite(converted, result, pr);
+    ENSURE(result != converted && pr);
+    expr_ref x(m.mk_const("mod-x", a.mk_int()), m);
+    expr_ref unchanged(a.mk_gt(x, zero), m);
+    rewrite(unchanged, result, pr);
+    ENSURE(result == unchanged && !pr);
+
+    base_dependent_expr_state state(m);
+    expr_ref_vector assertions(m);
+    assertions.push_back(converted);
+    assertions.push_back(unchanged);
+    assertions.push_back(a.mk_lt(x, zero));
+    for (expr* assertion : assertions)
+        state.add(dependent_expr(m, assertion, m.mk_asserted(assertion), nullptr));
+    bit2int_simplifier simplify(m, params_ref(), state);
+    simplify.reduce();
+    check_simplifier_proofs(m, state, assertions);
+}
+
+static void test_bit2int_zero_divisor_qe() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        bv_util bv(m);
+        expr_ref u(m.mk_const("qe-u", bv.mk_sort(4)), m);
+        expr_ref v(m.mk_const("qe-v", bv.mk_sort(4)), m);
+        expr_ref ui(bv.mk_ubv2int(u), m), vi(bv.mk_ubv2int(v), m);
+        sort* integer = a.mk_int();
+        symbol name("x");
+        expr_ref x(m.mk_var(0, integer), m);
+        expr_ref mod(a.mk_mod(ui, vi), m);
+        expr_ref one(bv.mk_numeral(1, 4), m), zero(bv.mk_numeral(0, 4), m);
+        expr_ref u_value(m.mk_eq(u, one), m), v_value(m.mk_eq(v, zero), m);
+        expr_ref x_value(m.mk_eq(x, mod), m);
+        expr_ref different(m.mk_not(m.mk_eq(x, ui)), m);
+        expr* conjuncts[] = {u_value, v_value, x_value, different};
+        expr_ref body(m.mk_and(conjuncts), m);
+        expr_ref original(m.mk_exists(1, &integer, &name, body), m);
+        solver_ref plain(mk_smt_solver(m, params_ref(), symbol()));
+        plain->assert_expr(original);
+        ENSURE(plain->check_sat(0, nullptr) == l_true);
+        goal_ref input = alloc(goal, m, proofs, true, false);
+        input->assert_expr(original);
+        tactic_ref qe = mk_qe_tactic(m);
+        tactic_ref smt = mk_smt_tactic(m);
+        tactic_ref pipeline = and_then(qe.get(), smt.get());
+        model_ref model;
+        labels_vec labels;
+        proof_ref proof(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*pipeline, input, model, labels, proof, core, reason) == l_true);
     }
 }
 
@@ -732,6 +904,94 @@ static void test_demodulator_simplifier_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_demodulator_quantified_proofs() {
+    for (bool proofs : {false, true}) {
+        for (bool nested : {false, true}) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            arith_util a(m);
+            sort* integer = a.mk_int();
+            func_decl_ref f(m.mk_func_decl(symbol("demod-f"), integer, integer), m);
+            symbol name("x"), bool_name("b");
+            expr_ref x(m.mk_var(0, integer), m);
+            expr_ref fx(m.mk_app(f, x.get()), m);
+            expr_ref definition(m.mk_eq(fx, x), m);
+            expr_ref use(a.mk_gt(fx, x), m);
+            if (nested) {
+                expr_ref outer(m.mk_var(1, integer), m), one(a.mk_int(1), m);
+                expr_ref arg(a.mk_add(outer, one), m);
+                expr_ref farg(m.mk_app(f, arg.get()), m);
+                sort* boolean = m.mk_bool_sort();
+                expr_ref b(m.mk_var(0, boolean), m);
+                expr_ref comparison(a.mk_gt(farg, arg), m);
+                expr_ref body(m.mk_implies(b, comparison), m);
+                use = m.mk_forall(1, &boolean, &bool_name, body);
+            }
+            expr_ref_vector assertions(m);
+            assertions.push_back(m.mk_forall(1, &integer, &name, definition));
+            assertions.push_back(m.mk_forall(1, &integer, &name, use));
+            base_dependent_expr_state state(m);
+            demodulator_simplifier demod(m, params_ref(), state);
+            state.add(dependent_expr(m, assertions.get(0), proofs ? m.mk_asserted(assertions.get(0)) : nullptr, nullptr));
+            demod.reduce();
+            state.advance_qhead();
+            state.add(dependent_expr(m, assertions.get(1), proofs ? m.mk_asserted(assertions.get(1)) : nullptr, nullptr));
+            demod.reduce();
+            ENSURE(state[1].fml() != assertions.get(1));
+            ENSURE(!occurs(f, state[1].fml()));
+            if (!nested) {
+                ENSURE(m.is_false(state[1].fml()));
+            }
+            if (proofs)
+                check_simplifier_proofs(m, state, assertions);
+        }
+    }
+}
+
+static void test_pull_nested_quantifier_proofs() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        sort* boolean = m.mk_bool_sort();
+        symbol x_name("x"), y_name("y");
+        expr_ref x(m.mk_var(0, boolean), m), outer(m.mk_var(1, boolean), m);
+        func_decl_ref predicate(m.mk_func_decl(symbol("quant-p"), boolean, boolean), m);
+        expr_ref px(m.mk_app(predicate.get(), x), m);
+        expr_ref not_px(m.mk_not(px), m), double_not_px(m.mk_not(not_px), m);
+        sort* domains[] = {boolean, boolean};
+        func_decl_ref relation(m.mk_func_decl(symbol("quant-r"), 2, domains, boolean), m);
+        expr_ref rxy(m.mk_app(relation.get(), outer, x), m);
+        expr_ref inner_exists(m.mk_exists(1, &boolean, &y_name, rxy), m);
+        expr_ref inner_forall(m.mk_forall(1, &boolean, &y_name, rxy), m);
+        expr_ref_vector originals(m);
+        originals.push_back(m.mk_exists(1, &boolean, &x_name, px));
+        originals.push_back(m.mk_exists(1, &boolean, &x_name, double_not_px));
+        originals.push_back(m.mk_forall(1, &boolean, &x_name, inner_exists));
+        originals.push_back(m.mk_exists(1, &boolean, &x_name, inner_forall));
+        pull_nested_quant rewrite(m);
+        for (expr* original : originals) {
+            expr_ref result(m);
+            proof_ref pr(m);
+            rewrite(original, result, pr);
+            ENSURE(result != original);
+            if (proofs) {
+                expr_ref equality(m.mk_eq(original, result), m);
+                ENSURE(pr && m.get_fact(pr) == equality);
+            }
+            base_dependent_expr_state state(m);
+            state.add(dependent_expr(m, original, proofs ? m.mk_asserted(original) : nullptr, nullptr));
+            pull_nested_quantifiers_simplifier simplify(m, params_ref(), state);
+            simplify.reduce();
+            ENSURE(state[0].fml() == result);
+            if (proofs) {
+                expr_ref_vector assertions(m);
+                assertions.push_back(original);
+                check_simplifier_proofs(m, state, assertions);
+            }
+        }
+    }
+}
+
 static void test_quantified_bool_literals() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -783,8 +1043,52 @@ static void test_quantified_bool_literals() {
     }
 }
 
+static void test_nested_symbolic_rotations() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    for (unsigned width : { 3u, 4u, 24u }) {
+        unsigned mask = (1u << width) - 1;
+        Z3_sort sort = Z3_mk_bv_sort(ctx, width);
+        Z3_ast vars[] = {
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), sort),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), sort),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "z"), sort)
+        };
+        auto rotate = [&](unsigned value, unsigned amount, bool left) {
+            unsigned shift = amount % width;
+            if (!left)
+                shift = (width - shift) % width;
+            return ((value << shift) | (value >> (width - shift))) & mask;
+        };
+        for (bool inner_left : { false, true }) {
+            Z3_ast inner = inner_left ? Z3_mk_ext_rotate_left(ctx, vars[0], vars[1]) :
+                                       Z3_mk_ext_rotate_right(ctx, vars[0], vars[1]);
+            for (bool outer_left : { false, true }) {
+                Z3_ast nested = outer_left ? Z3_mk_ext_rotate_left(ctx, inner, vars[2]) :
+                                            Z3_mk_ext_rotate_right(ctx, inner, vars[2]);
+                Z3_ast simplified = Z3_simplify(ctx, nested);
+                for (unsigned amount : { 0u, mask }) {
+                    Z3_ast values[] = {
+                        Z3_mk_unsigned_int(ctx, 1, sort),
+                        Z3_mk_unsigned_int(ctx, amount, sort),
+                        Z3_mk_unsigned_int(ctx, 1, sort)
+                    };
+                    unsigned expected = rotate(rotate(1, amount, inner_left), 1, outer_left);
+                    Z3_ast actual = Z3_substitute(ctx, simplified, 3, vars, values);
+                    expect_simplifies_to(ctx, actual, Z3_mk_unsigned_int(ctx, expected, sort));
+                }
+            }
+        }
+    }
+    Z3_del_context(ctx);
+}
+
 void tst_simplifier() {
 
+    test_bit2int_proofs();
+    test_bit2int_zero_divisor_qe();
+    test_nested_symbolic_rotations();
     test_quantified_bool_literals();
     test_array();
     test_const_array_lambda();
@@ -794,11 +1098,14 @@ void tst_simplifier() {
     test_fpa();
     test_incremental_demodulator();
     test_recfun_finder();
+    test_recfun_finder_guarded_body();
     test_solve_eqs_proofs();
     test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
     test_lambda_simplifier_proofs();
+    test_pull_nested_quantifier_proofs();
     test_demodulator_simplifier_proofs();
+    test_demodulator_quantified_proofs();
 }

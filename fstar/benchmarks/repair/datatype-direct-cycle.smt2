@@ -1,0 +1,5 @@
+(set-logic QF_DT)
+(declare-datatype Chain ((empty) (link (head Chain) (tail Chain))))
+(declare-const x Chain)
+(assert (= (link empty x) x))
+(check-sat)

@@ -1,0 +1,9 @@
+VerCors 2.4.0; OpenJDK 17.0.21 Temurin; Z3 bundled with the VerCors release (version not separately recorded); no preprocessor.
+Earlier attempts failed and were fixed: parse errors from // line comments, NULL not in scope, (pointer/redacted) with && instead of **, missing permission return in ensures.
+Final, fresh directory:
+$ /tmp/gh-aw/vercors/vercors --lang cpp --backend silicon --dev-total-timeout 60 /tmp/gh-aw/agent/fresh/ForcedDistinct.cpp
+exit=0
+[INFO] Verification completed successfully. (35s)
+$ ... ForcedDistinctWitness.cpp
+exit=0 (verification completed successfully, 10s)
+stderr: JAVA_TOOL_OPTIONS proxy notice only. 5 quantifier-no-trigger warnings on ForcedDistinct.cpp.

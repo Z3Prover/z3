@@ -159,6 +159,8 @@ void reslimit::inc_cancel(unsigned k) {
 
 void reslimit::auto_cancel() {
     --m_num_timers;
+    if (m_num_timers == 0)
+        pop_timeout();
     dec_cancel();
 }
 

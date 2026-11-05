@@ -41,6 +41,8 @@ class CheckerSamplingTests(unittest.TestCase):
         runner.verify_manifest(corpus, ".", manifest, paths)
         for path in paths:
             self.assertRegex(path.read_bytes(), sampler.STATUS)
+            # Leave room for the checkout directory under Windows MAX_PATH (260).
+            self.assertLessEqual(len(path.relative_to(root).as_posix()), 180)
         workflow = (root / ".github" / "workflows" / "pulse-checker-regressions.yml").read_text()
         self.assertIn(f"--expected-cases {sum(counts.values()) - counts['QF_BV']} ", workflow)
         self.assertIn("--skip-logic QF_BV ", workflow)

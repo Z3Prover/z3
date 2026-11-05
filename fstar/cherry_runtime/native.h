@@ -30,6 +30,9 @@ public:
     Z3_ast keep(Z3_ast ast);
 };
 
+// The flattened `ff-pac` certificate of a finite-field theory lemma, or None.
+FStar_Pervasives_Native_option__ff_pac_view view_ff_pac(Z3_ast certificate);
+
 std::string text(cherry_string value);
 std::string integer(cherry_int value);
 [[noreturn]] void fail(cherry_string message);
@@ -78,4 +81,5 @@ void checker_drop_sort(Z3AstTheory_sort value);
 void checker_drop_native_sorts(Prims_list__native_sort value);
 void checker_drop_asts(Prims_list__ast value);
 void checker_drop_result(checker::Result value);
+void checker_drop_ff_pac(FStar_Pervasives_Native_option__ff_pac_view value);
 }

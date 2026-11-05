@@ -65,7 +65,7 @@ def build(args):
         "--smt", z3, "--z3version", match.group(1),
     ]
     manifest = json.loads((ROOT / "tools/checker_modules.json").read_text(encoding="utf-8"))
-    modules = manifest["modules"] + ["Z3Cherry.fst"]
+    modules = manifest["modules"] + manifest["cherry_modules"] + ["Z3Cherry.fst"]
     if args.run_tests:
         modules += manifest["tests"] + ["Z3CherryTests.fst"]
     for module in modules:

@@ -125,6 +125,7 @@ struct smt_params : public preprocessor_params,
     //
     // -----------------------------------
     case_split_strategy m_case_split_strategy = case_split_strategy::CS_ACTIVITY_DELAY_NEW;
+    bool                m_case_split_relevant_first = false;
     unsigned            m_rel_case_split_order = 0;
     bool                m_lookahead_diseq = false;
     bool                m_theory_case_split = false;
@@ -313,4 +314,3 @@ struct smt_params : public preprocessor_params,
     void setup_LRA();
             
 };
-

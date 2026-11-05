@@ -195,6 +195,33 @@ class seq_monadic_test {
                   << "  got=" << s(got) << " expected=" << s(expected) << "\n";
     }
 
+    void check_deep_concat() {
+        expr_ref empty = sword("");
+        expr_ref left = sword("a"), right = sword("b");
+        expr_ref x = var("deep-x");
+        for (unsigned i = 0; i < 40000; ++i) {
+            left = sconcat(left, empty);
+            right = sconcat(empty, right);
+            x = sconcat(x, empty);
+        }
+        ENSURE(m_mon.can_decide_term(left));
+        ENSURE(m_mon.can_decide_term(right));
+        ENSURE(m_mon.can_decide_term(x));
+        expr_ref term = sconcat(left, right);
+        check("deep concat preserves order", term, word("ab"), l_true);
+        check("deep concat rejects reversed word", term, word("ba"), l_false);
+        expr_ref shared = sconcat(term, term);
+        check("deep concat preserves shared occurrences", shared, word("abab"), l_true);
+        check("deep concat does not deduplicate", shared, word("ab"), l_false);
+
+        arith_util ar(m);
+        expr_ref zero(ar.mk_int(0), m);
+        expr_ref unsupported(u.str.mk_at(x, zero), m);
+        term = sconcat(left, unsupported);
+        ENSURE(!m_mon.can_decide_term(term));
+        check("deep concat rejects unsupported leaf", term, word("ab"), l_undef);
+    }
+
     // assert the membership list: the primary (term in R) plus one (var in R') per extra
     // constraint, decided jointly by check().
     void add_extra(expr* term, expr* R, obj_map<expr, expr*> const& ve) {
@@ -601,6 +628,7 @@ public:
 
     void run() {
         std::cout << "=== seq_monadic mode: " << mode_name() << " ===\n";
+        check_deep_concat();
         if (m_mode == seq::transition_mode::light_antimirov_tm)
             check_ant_cofactors();
         expr_ref x  = var("x");

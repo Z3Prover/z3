@@ -73,9 +73,14 @@ class TestCheckLean(unittest.TestCase):
         self.assertEqual(self.calls(), [
             ["run", _TOOLCHAIN, "lake", "build"],
             ["run", _TOOLCHAIN, "lake", "env", "lean",
-             "--trust=0", "-DwarningAsError=true", str(self.proof)],
+             "--trust=0", "-DwarningAsError=true", "--memory=8192", str(self.proof)],
         ])
         self.assertEqual(self.cwd_log.read_text().splitlines(), [str(_ROOT / "lean")] * 2)
+
+    def test_library_build_has_the_same_flags(self):
+        lakefile = (_ROOT / "lean" / "lakefile.toml").read_text()
+        self.assertIn('moreLeanArgs = ["--trust=0", "-DwarningAsError=true", "--memory=8192"]',
+                      lakefile.splitlines())
 
     def test_absolute_paths_and_multiple_files(self):
         second = self.root / "second.lean"

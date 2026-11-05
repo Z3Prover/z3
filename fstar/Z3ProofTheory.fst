@@ -71,22 +71,22 @@
 module Z3ProofTheory
 
 open Z3AstTheory
+module C = Z3CanonicalOps
 
 (* ----------------------------------------------------------------- *)
 (* The `not` connective, recognized structurally                      *)
 (* ----------------------------------------------------------------- *)
 
 (* `mk_transitivity`'s double-negation fixup (see below) needs to
-   recognize `(not (not e))`; `not` itself is just an ordinary
-   (always-interpreted) unary `func_decl`, identified here by its
-   `decl_name` exactly as `ast_manager::is_not` identifies it by
-   `m_basic_fid`/`OP_NOT` in the real code (both are "look at the
-   declaration's identity", just with a cheaper stand-in for identity
-   here, consistent with `Z3AstTheory.fst`'s own `sort_eq`/name-based
-   style). *)
+   recognize `(not (not e))`. Like `ast_manager::is_not`, which checks
+   the basic family and `OP_NOT`, this recognizes only the canonical
+   `not` of `Z3CanonicalOps`: its name, kind tag, `[Bool]` domain,
+   `Bool` range and empty parameters. A user declaration that merely
+   carries the name `not`, such as a datatype accessor, is not a
+   negation. *)
 let is_not (e:expr) : option expr =
   match e with
-  | App f [a] -> if f.decl_name = "not" then Some a else None
+  | App f [a] -> if C.canonical_not f then Some a else None
   | _ -> None
 
 let is_not_not (e:expr) : option expr =

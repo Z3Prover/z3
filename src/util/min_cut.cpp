@@ -163,7 +163,7 @@ void min_cut::augment_path() {
             }
         }
         if (!already_exists) {
-            m_edges[k].push_back(edge(1, max));
+            m_edges[k].push_back(edge(l, max));
         }
         k = l;
     }

@@ -60,7 +60,7 @@ bool update_bound(const expr *lit, rational num, expr_ref &res,
     if (!is_arith_comp(lit, lhs, val, is_int, m)) return false;
 
     res = m.mk_app(to_app(lit)->get_decl(), lhs, arith.mk_numeral(num, is_int));
-    if (negate) { m.mk_not(res); }
+    if (negate) { res = m.mk_not(res); }
     return true;
 }
 
