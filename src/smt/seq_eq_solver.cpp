@@ -1198,7 +1198,7 @@ struct remove_obj_pair_map : public trail {
 /**
    nth(x,idx) = rhs => 
    x = pre(x, idx) ++ unit(rhs) ++ post(x, idx + 1)
-   NB: need 0 <= idx < len(rhs)   
+   NB: requires 0 <= idx < len(x).
 */
 bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
     expr* s = nullptr, *idx = nullptr;
@@ -1210,6 +1210,17 @@ bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& 
         // Decomposing s can recreate this equation without solving the element.
         if (is_explicit_word)
             return add_solution(ls[0], rhs, deps);
+
+        expr_ref len_s = mk_len(s);
+        literal idx_ge_0 = mk_literal(m_autil.mk_ge(idx, m_autil.mk_int(0)));
+        literal idx_lt_len = ~mk_literal(m_autil.mk_le(len_s, idx));
+        if (ctx.get_assignment(idx_ge_0) != l_true ||
+            ctx.get_assignment(idx_lt_len) != l_true)
+            return add_solution(ls[0], rhs, deps);
+        if (idx_ge_0 != true_literal)
+            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(idx_ge_0)));
+        deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(idx_lt_len)));
+
         rational r;
         bool idx_is_zero = m_autil.is_numeral(idx, r) && r.is_zero();
         expr_ref_vector ls1(m), rs1(m); 
