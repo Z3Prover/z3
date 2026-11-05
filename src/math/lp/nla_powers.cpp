@@ -91,8 +91,7 @@ namespace nla {
         lemmas.reset();
 
         auto x_exp_0 = [&]() {
-            lemma_builder lemma(c, "x != 0 => x^0 = 1");
-            lemma |= ineq(x, llc::EQ, rational::zero());
+            lemma_builder lemma(c, "x^0 = 1");
             lemma |= ineq(y, llc::NE, rational::zero());
             lemma |= ineq(r, llc::EQ, rational::one());
             return l_false;
@@ -165,8 +164,8 @@ namespace nla {
         }
 
         if (use_rational) {
-            if (xval != 0 && yval == 0 && rval != 1)
-                return x_exp_0();
+            if (yval == 0)
+                return rval == 1 ? l_true : x_exp_0();
             else if (xval == 0 && yval != 0 && rval != 0)
                 return zero_exp_y();
             else if (xval > 0 && rval <= 0)
@@ -235,8 +234,8 @@ namespace nla {
             am.set(xval, c.m_nra.value(x));
             am.set(yval, c.m_nra.value(y));
             am.set(rval, c.m_nra.value(r));
-            if (xval != 0 && yval == 0 && rval != 1)
-                return x_exp_0();
+            if (yval == 0)
+                return rval == 1 ? l_true : x_exp_0();
             else if (xval == 0 && yval != 0 && rval != 0)
                 return zero_exp_y();
             else if (xval > 0 && rval <= 0)

@@ -29,7 +29,7 @@ permissions:
   contents: write
 
 env:
-  RELEASE_VERSION: '5.3.4'
+  RELEASE_VERSION: '5.4.0'
 
 jobs:
   # ============================================================================

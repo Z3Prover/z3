@@ -23,6 +23,9 @@ module SK = Z3Skolemization
 module NR = Z3NnfReplay
 module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
+module RL = Z3SortedReal
+module LIN = Z3SortedRealLinear
+module RX = Z3SortedRealExtension
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -1505,6 +1508,40 @@ let arithmetic_farkas (node:U.proof_node) : bool =
   | U.ArithmeticFarkas cs -> AR.check_contradiction (arithmetic_assumptions node) cs
   | _ -> false
 
+(* The SAME supplied weights against the SAME literals, replayed by the typed
+   Int/Real check (Z3SortedRealLinear.check_numeric_contradiction): enabled
+   only when the executed schema check RL.real_primitive s holds (Real is not
+   a datatype sort of the schema), Int literals rounded as on the Int path,
+   Real strict literals kept strict. Tried after the unchanged Int path. *)
+let real_farkas (s:S.checked_schema) (node:U.proof_node) : bool =
+  match node.kind with
+  | U.ArithmeticFarkas cs -> LIN.check_numeric_contradiction s (arithmetic_assumptions node) cs
+  | _ -> false
+
+(* A premise-free rewrite step whose closed equation the Real normal forms
+   (Z3SortedRealLinear.real_equivalent: Real and Int-with-to_real linear
+   renormalization, comparison orientation and strictness, binary Real
+   product commutation) prove, enabled by the same schema gate. *)
+let real_rewrite (s:S.checked_schema) (node:U.proof_node) : bool =
+  RL.real_primitive s && node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && LIN.real_equivalent a b
+   | U.Holds _ -> false)
+
+(* A premise-free rewrite step whose closed equation is one of the ITE laws
+   of Z3NnfReplay.ite_rewritten (negated-condition swap, then-branch merge by
+   `or`, else-branch merge by `and`, one canonical ite declaration at any
+   result sort): the same check as on the quant-intro rewrite leaves, read
+   at the scope []. No schema gate: the laws hold in every Sorted model. *)
+let ite_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.ite_rewritten a b
+   | U.Holds _ -> false)
+
+(* The node kernels that read the Sorted Real laws. *)
+let real_node (s:S.checked_schema) (node:U.proof_node) : bool = real_farkas s node || real_rewrite s node
+
 let rec lemma_arithmetic_assumptions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                     (facts lits:list expr)
@@ -1624,10 +1661,11 @@ let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
    keeps the previous treatment. *)
-let nnf_verdict (assertions:list expr) (node:U.proof_node) : NR.verdict =
+let nnf_verdict (s:S.checked_schema) (assertions:list expr) (node:U.proof_node) : NR.verdict =
   match node.U.kind with
   | U.QuantifierIntroduction c ->
-    if Nil? node.U.premises then NR.replay assertions c node.U.conclusion else NR.Unreplayed
+    if Nil? node.U.premises then NR.replay_with (RL.real_primitive s) assertions c node.U.conclusion
+    else NR.Unreplayed
   | _ -> NR.Unreplayed
 
 let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1644,7 +1682,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     then Some ({ U.conclusion = node.conclusion; hypotheses = [conclusion] }, 0)
     else None
   | _ ->
-    let nnf = nnf_verdict assertions node in
+    let nnf = nnf_verdict s assertions node in
     (* A certificate whose premise ids are not earlier entries is a malformed
        proof entry, reported as a rejection rather than as a pending step. *)
     if nnf = NR.Malformed then None else
@@ -1656,11 +1694,13 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
-      arithmetic_farkas node || quantifier_instantiation node || quantifier_flattening node || lemma_step node ||
+      arithmetic_farkas node || real_farkas s node || quantifier_instantiation node || quantifier_flattening node ||
+      lemma_step node || real_rewrite s node ||
       nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
-      (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) in
+      (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
+      ite_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1690,12 +1730,13 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
                    (assertions:list expr) (node:U.proof_node)
   : Lemma (requires T.truths s bc eq other assertions /\
                     Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (RL.real_primitive s ==> RL.real_model s bc eq other) /\
                     boolean_expression s (proposition node.conclusion) /\
-                    nnf_verdict assertions node == NR.Replayed)
+                    nnf_verdict s assertions node == NR.Replayed)
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.kind with
   | U.QuantifierIntroduction c ->
-    NR.lemma_replay s bc eq other assertions c node.conclusion;
+    NR.lemma_replay_with s bc eq other (RL.real_primitive s) assertions c node.conclusion;
     (match node.conclusion with
      | U.Equal a b | U.Observational a b ->
        V.lemma_sort_eq (get_sort b) (get_sort a);
@@ -1704,6 +1745,51 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
      | U.Holds _ -> ())
   | _ -> ()
 
+(* An accepted typed Int/Real certificate refutes its literals in every
+   Sorted model satisfying the Real laws (RL.real_model: SOME Real carrier). *)
+let lemma_real_contradiction (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (xs:list (bool & expr)) (cs:list LA.coefficient)
+  : Lemma (requires RL.real_model s bc eq other /\ LIN.check_numeric_contradiction s xs cs /\
+                    AR.assumptions_hold s bc eq other xs)
+          (ensures False) =
+  FStar.Classical.exists_elim False #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+    (fun reals -> LIN.lemma_check_numeric_contradiction s bc eq other reals xs cs)
+
+(* An accepted Real rewrite equation is true in every Sorted model
+   satisfying the Real laws. *)
+let lemma_real_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (node:U.proof_node)
+  : Lemma (requires RL.real_model s bc eq other /\ boolean_expression s (proposition node.conclusion) /\
+                    real_rewrite s node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    FStar.Classical.exists_elim (T.evaluate s bc eq other a == T.evaluate s bc eq other b)
+      #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+      (fun reals -> LIN.lemma_real_equivalent s bc eq other reals [] (T.empty_environment (S.signature s)) a b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted ITE rewrite equation is true in every Sorted model: the ITE
+   laws at the scope [] and the empty environment. *)
+let lemma_ite_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ ite_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_ite_rewritten_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
 let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
@@ -1711,7 +1797,10 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                     facts_valid s node.premises /\
                     (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
                     (quantifier_flattening node ==> Q.forall_model s bc other) /\
-                    (U.QuantifierIntroduction? node.kind ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (U.QuantifierIntroduction? node.kind ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (real_node s node ==> RL.real_model s bc eq other) /\
                     check_node_cached s assertions node == Some (fact, 0))
           (ensures fact_holds s bc eq other fact) =
   lemma_check_node_context s assertions node fact 0;
@@ -1729,6 +1818,15 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | U.ArithmeticFarkas cs ->
           AR.lemma_check_contradiction s bc eq other (arithmetic_assumptions node) cs
         | _ -> ()))
+    else if real_farkas s node then (
+      if T.truths s bc eq other fact.hypotheses && not (T.truth s bc eq other conclusion) then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        DT.lemma_literals s bc eq other conclusion;
+        lemma_arithmetic_assumptions s bc eq other (propositions node.premises) (DT.literals conclusion);
+        match node.kind with
+        | U.ArithmeticFarkas cs -> lemma_real_contradiction s bc eq other (arithmetic_assumptions node) cs
+        | _ -> ()))
+    else if real_rewrite s node then lemma_real_rewrite s bc eq other node
     else if quantifier_instantiation node then (
       match node.kind, node.conclusion with
       | U.QuantifierInstantiation args, U.Holds formula ->
@@ -1744,7 +1842,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
           assert_norm (T.cut 1 R.false_expr == B.Bool false);
           T.lemma_cut s bc eq other 1 R.false_expr)
       | _ -> ())
-    else if nnf_verdict assertions node = NR.Replayed then
+    else if nnf_verdict s assertions node = NR.Replayed then
       lemma_nnf_node s bc eq other assertions node
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
@@ -1754,10 +1852,11 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       lemma_scoped_propositions s bc eq other node.premises;
       DT.lemma_consequence s bc eq other (scoped_propositions node.premises) (scoped_proposition fact);
       lemma_scoped_proposition s bc eq other fact)
-    else (
+    else if node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion then (
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
+    else lemma_ite_rewrite s bc eq other node
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =
@@ -1865,6 +1964,27 @@ let rec needs_binder_semantics (entries:list P.entry) : Tot bool (decreases entr
   | [] -> false
   | e :: rest -> U.QuantifierIntroduction? e.P.rule || needs_binder_semantics rest
 
+(* A Farkas or rewrite entry over a Real-primitive schema: the typed Int/Real
+   replay (real_farkas) and the Real rewrite check (real_rewrite) read the
+   Real laws. *)
+let real_rule (r:U.rule) : bool = U.ArithmeticFarkas? r || r = U.RewriteRule
+
+let rec needs_real_semantics (s:S.checked_schema) (entries:list P.entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> false
+  | e :: rest -> (RL.real_primitive s && real_rule e.P.rule) || needs_real_semantics s rest
+
+let rec lemma_needs_real_primitive (s:S.checked_schema) (entries:list P.entry)
+  : Lemma (requires needs_real_semantics s entries) (ensures RL.real_primitive s) (decreases entries) =
+  match entries with
+  | [] -> ()
+  | e :: rest -> if not (RL.real_primitive s && real_rule e.P.rule) then lemma_needs_real_primitive s rest
+
+let lemma_real_node_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
+                          (node:U.proof_node)
+  : Lemma (requires prepare_entry s cache e == Some node /\ real_node s node)
+          (ensures RL.real_primitive s /\ real_rule e.P.rule) = ()
+
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (assertions:list expr) (cache:I.index_tree U.checked_fact)
@@ -1872,7 +1992,10 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
                     (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth entries ==> Q.forall_model s bc other) /\
-                    (needs_binder_semantics entries ==> Q.forall_model s bc other /\ E.exists_model s bc other) /\
+                    (needs_binder_semantics entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (needs_real_semantics s entries ==> RL.real_model s bc eq other) /\
                     check_entries s assertions cache next pending entries == Some (result, 0))
           (ensures cache_sound s bc eq other result)
           (decreases entries) =
@@ -1884,6 +2007,7 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     lemma_pending s assertions (I.index_put cache next fact) (next + 1) (pending + local) rest result 0;
     lemma_premise_lookup s bc eq other cache e.premise_ids node.premises;
     lemma_check_node_context s assertions node fact local;
+    if real_node s node then lemma_real_node_entry s cache e node;
     lemma_check_node_cached s bc eq other assertions node fact;
     lemma_cache_insert s bc eq other cache next fact;
     lemma_entries s bc eq other assertions (I.index_put cache next fact) (next + 1)
@@ -1895,7 +2019,10 @@ let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   : Lemma (requires check_document s doc == Some 0 /\
                     (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other) /\
                     (needs_forall_truth doc.entries ==> Q.forall_model s bc other) /\
-                    (needs_binder_semantics doc.entries ==> Q.forall_model s bc other /\ E.exists_model s bc other))
+                    (needs_binder_semantics doc.entries ==>
+                       Q.forall_model s bc other /\ E.exists_model s bc other /\
+                       (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
+                    (needs_real_semantics s doc.entries ==> RL.real_model s bc eq other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let cache, _ = Some?.v (check_entries s doc.assertions I.Empty 0 0 doc.entries) in
@@ -2405,14 +2532,40 @@ let lemma_full_extension (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolea
   lemma_truths_append s bc eq j doc.assertions (epsilon_equations s ds doc.entries);
   lemma_truths_append s bc eq j (elaborate_epsilon s ds doc).P.assertions (DS.closures s dds)
 
+(* The same extension keeps the Real laws of `other` (a witness is never a
+   classified Real operator), so the Real hypothesis transfers from the
+   original model to the elaborated one. *)
+let lemma_full_extension_real (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                              (doc:P.document) (other:V.interpretation base (S.signature s))
+                              (reals:RL.carrier base)
+  : Lemma (requires RL.real_laws s bc eq other reals)
+          (ensures RL.real_laws s bc eq (full_extension s bc eq choice doc other) reals) =
+  let ds = epsilon_context s doc in
+  RX.lemma_build_real s bc eq choice ds other reals;
+  RX.lemma_dbuild_real s bc eq choice (dependent_context s doc ds) (E.build s bc eq choice ds other) reals
+
+let lemma_full_extension_real_model (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                    (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
+                                    (doc:P.document) (other:V.interpretation base (S.signature s))
+  : Lemma (requires RL.real_model s bc eq other)
+          (ensures RL.real_model s bc eq (full_extension s bc eq choice doc other)) =
+  FStar.Classical.exists_elim (RL.real_model s bc eq (full_extension s bc eq choice doc other))
+    #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+    (fun reals -> lemma_full_extension_real s bc eq choice doc other reals)
+
 let lemma_check_document_epsilon (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (choice:E.hilbert_choice base s)
                                  (other:V.interpretation base (S.signature s)) (doc:P.document)
   : Lemma (requires check_document_epsilon s doc == Some 0 /\
-                    Q.forall_model s bc other /\ E.exists_model s bc other)
+                    Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (RL.real_primitive s ==> RL.real_model s bc eq other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let j = full_extension s bc eq choice doc other in
     lemma_full_extension s bc eq choice doc other;
     lemma_full_forall_elimination s bc j;
+    if RL.real_primitive s then lemma_full_extension_real_model s bc eq choice doc other;
+    if needs_real_semantics s (elaborate_full s doc).P.entries then
+      lemma_needs_real_primitive s (elaborate_full s doc).P.entries;
     lemma_check_document s bc eq j (elaborate_full s doc))

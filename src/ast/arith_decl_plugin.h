@@ -57,7 +57,6 @@ enum arith_op_kind {
     OP_IS_INT,
     OP_ABS,
     OP_POWER,
-    OP_POWER0,
     // hyperbolic and trigonometric functions
     OP_SIN,
     OP_COS,
@@ -247,7 +246,6 @@ public:
         case OP_DIV0:
         case OP_IDIV0:
         case OP_MOD0:
-        case OP_POWER0:
             return true;
         default:
             return false;
@@ -293,7 +291,6 @@ public:
     bool is_idiv0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_IDIV0); }
     bool is_rem0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_MOD0); }
     bool is_mod0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_MOD0); }
-    bool is_power0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER0); }
     bool is_power(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER); }
     bool is_add(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_ADD); }
     bool is_mul(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_MUL); }
@@ -322,7 +319,6 @@ public:
     bool is_to_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_TO_INT); }
     bool is_is_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_IS_INT); }
     bool is_power(expr const * n) const { return is_app_of(n, arith_family_id, OP_POWER); }
-    bool is_power0(expr const * n) const { return is_app_of(n, arith_family_id, OP_POWER0); }
     bool is_abs(expr const* n) const { return is_app_of(n, arith_family_id, OP_ABS); }
 
     bool is_int(sort const * s) const { return is_sort_of(s, arith_family_id, INT_SORT); }
@@ -405,7 +401,6 @@ public:
     MATCH_BINARY(is_div0);
     MATCH_BINARY(is_idiv0);
     MATCH_BINARY(is_power);
-    MATCH_BINARY(is_power0);
 
     MATCH_UNARY(is_sin);
     MATCH_UNARY(is_asin);
@@ -482,8 +477,6 @@ public:
     func_decl* mk_div0();
     func_decl* mk_idiv0();
     func_decl* mk_mod0();
-    func_decl* mk_ipower0();
-    func_decl* mk_rpower0();
 
 
     app * mk_numeral(rational const & val, bool is_int) const {
@@ -554,7 +547,6 @@ public:
     app * mk_to_int(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_TO_INT, arg1); }
     app * mk_is_int(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_IS_INT, arg1); }
     app * mk_power(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER, arg1, arg2); }
-    app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER0, arg1, arg2); }
 
     app* mk_band(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, 2, args); }
     app* mk_band(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, static_cast<unsigned>(args.size()), args.begin()); }
@@ -621,6 +613,8 @@ public:
     bool is_bounded(expr* e) const;
 
     bool is_extended_numeral(expr* e, rational& r) const;
+
+    expr_ref mk_algebraic_eq(expr* term, expr* value);
 
 };
 
@@ -721,4 +715,3 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
     arith_util a(x.get_manager());
     return app_ref(a.mk_gt(x, y), x.get_manager());
 }
-
