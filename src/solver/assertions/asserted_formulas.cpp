@@ -308,6 +308,8 @@ void asserted_formulas::reduce() {
     if (!invoke(m_max_bv_sharing_fn)) return;
     if (!invoke(m_elim_bvs_from_quantifiers)) return;
     if (!invoke(m_reduce_asserted_formulas)) return;
+    // Rewriting array/lambda equalities can introduce quantifiers after NNF.
+    if (has_quantifiers() && !invoke(m_nnf_cnf)) return;
     if (!invoke(m_flatten_clauses)) return;
 //    if (!invoke(m_propagate_values)) return;
 

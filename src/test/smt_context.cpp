@@ -251,6 +251,44 @@ static void check_array_domain(char const* input, lbool expected) {
     VERIFY(expected == slv->check_sat(0, nullptr));
 }
 
+static void check_quantified_array_ite() {
+    auto check = [](char const* input, bool unsat) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == (unsat ? "unsat\n" : "sat\n"));
+    };
+    for (char const* branch : {"", "(assert b)\n", "(assert (not b))\n"}) {
+        for (bool distinct : {false, true}) {
+            std::ostringstream spec;
+            spec << "(set-logic ALL)\n"
+                 << "(declare-const M (Array Int Int))\n"
+                 << "(declare-const Zero (Array Int Int))\n"
+                 << "(declare-const X (Array Int Int))\n"
+                 << "(declare-const b Bool)\n"
+                 << "(assert (forall ((k Int)) (= (select Zero k) 0)))\n"
+                 << "(assert (forall ((k Int)) (= (select M k) (mod (select M k) 2))))\n"
+                 << "(assert (forall ((k Int))\n"
+                 << " (= (select X k) (mod (select (ite b M Zero) k) 2))))\n"
+                 << branch
+                 << (distinct ? "(assert (not (= (ite b M Zero) X)))\n"
+                              : "(assert (= (ite b M Zero) X))\n");
+            check(spec.str().c_str(), distinct);
+        }
+    }
+    check(
+        "(declare-const M (Array Int Int))\n"
+        "(declare-const b Bool)\n"
+        "(assert (not (= (ite b M ((as const (Array Int Int)) 0))\n"
+        "                (lambda ((k Int)) (ite b (select M k) 0)))))\n", true);
+}
+
 static void check_stored_lambdas() {
     auto check = [](char const* input, lbool expected) {
         ast_manager m;
@@ -1007,6 +1045,7 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_sequence_last_index();
     check_array_index_dependencies();
+    check_quantified_array_ite();
     check_stored_lambdas();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
