@@ -1,0 +1,5 @@
+cmd: fstar.exe --smt .../z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3PR11550NthVar.fst (timeout 120)
+F* 2026.09.27; Z3 4.13.3
+Verified module: Z3PR11550NthVar
+All verification conditions discharged successfully
+exit 0
