@@ -67,7 +67,8 @@ def build(args):
         "--smt", z3, "--z3version", match.group(1),
     ]
     manifest = json.loads((ROOT / "tools/checker_modules.json").read_text(encoding="utf-8"))
-    closure = checker_scope.dependency_closure(common + ["--dep", "full", ROOT / "Z3Cherry.fst"])
+    closure = checker_scope.dependency_closure(
+        checker_scope.dependency_command(args.fstar, ["Z3Cherry.fst"]))
     modules, tests = checker_scope.select(manifest, "cherry", args.run_tests, closure, ["Z3Cherry.fst"])
     print(f"Verification scope {'full' if args.run_tests else 'checker-only'}: "
           f"{len(modules)} modules, {len(tests)} tests", flush=True)
@@ -126,6 +127,7 @@ def build(args):
     metadata = {
         "backend": "Cherry", "mode": "full" if args.run_tests else "checker",
         "verified_modules": len(modules + tests), "fstar": fstar_version.strip(), "z3": version.strip(),
+        "cc": compiler.strip(),
         "cxx": run([args.cxx, "--version"], capture_output=True, text=True).stdout.strip(),
         "commit": run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip(),
         "system": platform.platform(), "sanitizers": args.sanitize,

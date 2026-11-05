@@ -28,6 +28,11 @@ def dependency_files(output, directory):
     return names
 
 
+def dependency_command(fstar, roots):
+    """F* dependency discovery takes no verification flags: they only make it fail on library paths."""
+    return [fstar, "--dep", "full", *roots]
+
+
 def dependency_closure(command, directory=ROOT):
     command = [str(arg) for arg in command]
     print("+", shlex.join(command), file=sys.stderr, flush=True)
@@ -98,7 +103,7 @@ def main():
     args = parser.parse_args()
     try:
         manifest = json.loads((ROOT / "tools/checker_modules.json").read_text(encoding="utf-8"))
-        closure = dependency_closure([args.fstar, "--dep", "full", *args.roots])
+        closure = dependency_closure(dependency_command(args.fstar, args.roots))
         modules, tests = select(manifest, args.backend, args.full, closure, args.roots)
         if args.report:
             version = subprocess.check_output([str(args.fstar), "--version"], text=True)

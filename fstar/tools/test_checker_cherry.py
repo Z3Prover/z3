@@ -91,8 +91,9 @@ class CherryScopeWiringTests(unittest.TestCase):
              patch.object(build_cherry_checker.platform, "system", return_value="Linux"), \
              patch.object(build_cherry_checker.platform, "machine", return_value="x86_64"):
             build_cherry_checker.build(args)
-        self.assertIn("--dep", dependencies.call_args.args[0])
-        self.assertEqual(Path(dependencies.call_args.args[0][-1]).name, "Z3Cherry.fst")
+        self.dependency_command = [str(arg) for arg in dependencies.call_args.args[0]]
+        self.assertIn("--dep", self.dependency_command)
+        self.assertEqual(Path(self.dependency_command[-1]).name, "Z3Cherry.fst")
         verified = [Path(c[-1]).name for c in commands if "--cache_checked_modules" in c]
         extraction = next(c for c in commands if "--codegen" in c)
         metadata = json.loads((output / "build.json").read_text(encoding="utf-8"))
@@ -110,6 +111,24 @@ class CherryScopeWiringTests(unittest.TestCase):
         self.assertFalse(any("test_native_checker.py" in " ".join(c) for c in commands))
         self.assertEqual((metadata["mode"], metadata["verified_modules"]), ("checker", len(verified)))
         self.assertEqual((report["mode"], report["selected_modules"]), ("checker", verified))
+
+    def test_dependency_discovery_takes_no_verification_flags(self):
+        for run_tests in (False, True):
+            with self.subTest(run_tests=run_tests):
+                commands, verified, _, _, _ = self.build(run_tests)
+                for flag in ("--warn_error", "--cache_dir", "--cache_checked_modules",
+                             "--include", "--smt", "--z3version", "--timing"):
+                    self.assertNotIn(flag, self.dependency_command)
+                verification = [c for c in commands if "--cache_checked_modules" in c]
+                self.assertEqual(len(verification), len(verified))
+                for command in verification:
+                    self.assertEqual(command[command.index("--warn_error") + 1], "@1..999")
+
+    def test_build_metadata_keeps_the_compiler_version(self):
+        for run_tests in (False, True):
+            with self.subTest(run_tests=run_tests):
+                metadata = self.build(run_tests)[3]
+                self.assertEqual(metadata["cc"], "tool 15.2.0")
 
     def test_run_tests_verifies_every_module_and_test_then_runs_both_suites(self):
         commands, verified, extraction, metadata, report = self.build(True)
