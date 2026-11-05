@@ -123,6 +123,8 @@ public:
         if (vars.empty())
             return;
 
+        // Splitting also visits inactive branches whose conditions may be undefined.
+        model::scoped_model_completion completion(mdl, true);
         init(vars, fml, mdl);
         // Apply MBP rules till saturation
 

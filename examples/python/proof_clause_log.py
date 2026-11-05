@@ -1,0 +1,1545 @@
+############################################
+# Copyright (c) 2026 Microsoft Corporation
+#
+# Rebuild sat.smt clause logs as native-style proof DAG certificates.
+############################################
+"""Turn a Z3 sat.smt clause log into the z3-native-proof-dag certificate format.
+
+The log records the assumed clauses after simplification, every inferred
+clause with its justification hint, and deletions. This module replays it
+with exact bookkeeping: each assumption is tied back to an original assertion
+by an explicit rewrite or conjunct selection, each hint becomes one theory
+lemma over its own literals, and each reverse-unit-propagation step becomes a
+resolution chain under temporary hypotheses. Nothing here verifies the
+inferences; the Lean reconstructor does.
+"""
+
+from fractions import Fraction
+import math
+import numbers
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+import time
+import warnings
+
+import z3
+
+from proof_certificate import (
+    DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
+    _NO_PREPROCESSING, _TOKEN, _real_counterpart, bound_combination_refutes, constant_value, integer_divisor,
+    integer_tightened, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+)
+
+_NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
+# The sort a log term's arguments take, for their numerals: an arithmetic
+# operator passes its own on, div, mod, rem, and to_real take Int arguments,
+# to_int and is_int Real ones (see _Terms.build).
+_SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
+_INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
+_REAL_ARGUMENT_HEADS = ("to_int", "is_int")
+_RESULTS = ("sat", "unsat", "unknown")
+# What z3 prints when it stops at its -memory limit.
+_OUT_OF_MEMORY = '(error "out of memory")'
+# Logs of at least this many characters are trimmed before the replay. Trimming
+# shrinks every real log measured (a 32 KB QF_UF log from 2,254 nodes to 389, a
+# 695 KB one from 204,582 to 6,625) and costs one process launch; below it the
+# log has a few dozen commands and the replay is instant.
+_TRIM_THRESHOLD = 4096
+# Resource limit of the bounded solver calls that tie assumed clauses to assertions.
+_RLIMIT = 200000
+# Up to this many assertion conjuncts, an assumed clause is checked against all
+# of them; above it, only against those sharing a symbol (_candidate_sources).
+_SEARCH_ALL_SOURCES = 64
+# Limits of every z3 run below unless the caller passes its own: seconds (-T)
+# and megabytes (-memory). Z3 stops itself at either; a run that outlives its
+# time limit by _LIMIT_GRACE seconds anyway is killed.
+_TIME_LIMIT = 600
+_MEMORY_LIMIT = 8192
+_LIMIT_GRACE = 30
+# Largest limits accepted (about 11.6 days and 4 TB). Above them the deadline
+# overflows subprocess.run, -T overflows z3's 32-bit long on Windows, and
+# -memory overflows z3's unsigned parameter (4294967295 MB already makes z3
+# report out of memory at once).
+_MAX_TIME_LIMIT = 10 ** 6
+_MAX_MEMORY_LIMIT = 2 ** 22
+
+
+def _limits(timeout, memory):
+    """Return the whole seconds and megabytes of a z3 run, defaults filled in."""
+    if timeout is None:
+        seconds = _TIME_LIMIT
+    elif isinstance(timeout, numbers.Real) and not isinstance(timeout, bool) and 0 < timeout <= _MAX_TIME_LIMIT:
+        seconds = math.ceil(timeout)
+    else:
+        raise ValueError("timeout must be a positive number of seconds, at most %d" % _MAX_TIME_LIMIT)
+    if memory is None:
+        megabytes = _MEMORY_LIMIT
+    elif isinstance(memory, numbers.Integral) and not isinstance(memory, bool) and 0 < memory <= _MAX_MEMORY_LIMIT:
+        megabytes = int(memory)
+    else:
+        raise ValueError("memory must be a positive integer number of megabytes, at most %d" % _MAX_MEMORY_LIMIT)
+    return seconds, megabytes
+
+
+def _run_limited(z3_executable, arguments, timeout, memory, task):
+    """Run z3 with arguments under time and memory limits.
+
+    Raises subprocess.TimeoutExpired, carrying the time limit, when Z3 stops
+    at it (it prints "timeout") or outlives it and is killed, and
+    ProofExportError naming the limit when Z3 runs out of memory.
+    """
+    seconds, megabytes = _limits(timeout, memory)
+    command = [str(z3_executable), "-T:%d" % seconds, "-memory:%d" % megabytes] + arguments
+    try:
+        run = subprocess.run(command, capture_output=True, text=True, timeout=seconds + _LIMIT_GRACE)
+    except subprocess.TimeoutExpired:
+        raise subprocess.TimeoutExpired(command, seconds) from None
+    except OSError as error:
+        raise ProofExportError("cannot run %s with %s: %s" % (task, z3_executable, error)) from error
+    lines = [line.strip() for line in run.stdout.splitlines() if line.strip()]
+    if lines and lines[-1] == "timeout":
+        raise subprocess.TimeoutExpired(command, seconds)
+    if _OUT_OF_MEMORY in run.stderr or _OUT_OF_MEMORY in lines:
+        raise ProofExportError("%s exceeded the memory limit of %d MB" % (task, megabytes))
+    return run
+
+
+def run_clause_log(z3_executable, assertion_text, timeout=None, memory=None):
+    """Solve with the sat.smt core and return the clause log text.
+
+    timeout (seconds) and memory (megabytes) bound the z3 run, by default
+    _TIME_LIMIT and _MEMORY_LIMIT; hitting either raises ProofExportError.
+    """
+    with tempfile.TemporaryDirectory(prefix="z3_clause_log_") as directory:
+        log = os.path.join(directory, "proof.log")
+        problem = os.path.join(directory, "input.smt2")
+        Path(problem).write_text(
+            '(set-option :sat.smt true)\n(set-option :solver.proof.log "%s")\n' % log
+            + _NO_PREPROCESSING + assertion_text + "\n(check-sat)\n", encoding="utf-8")
+        task = "the clause-log solver run"
+        try:
+            run = _run_limited(z3_executable, [problem], timeout, memory, task)
+        except subprocess.TimeoutExpired as error:
+            raise ProofExportError("%s exceeded the time limit of %d s" % (task, error.timeout)) from None
+        lines = [line.strip() for line in run.stdout.splitlines() if line.strip()]
+        result = lines[-1] if lines else ""
+        if result == "sat":
+            raise ProofExportError("sat: no unsat proof exists")
+        if result != "unsat":
+            detail = result if result in _RESULTS else (run.stderr.strip() or result or "no output")[-500:]
+            raise ProofExportError("the solver did not report unsat: %s" % detail)
+        if not os.path.exists(log):
+            raise ProofExportError("the solver did not write a clause log")
+        return Path(log).read_text(encoding="utf-8")
+
+
+def _sexpressions(text):
+    """Parse the log into nested lists of tokens, one per top-level command."""
+    stack, position = [[]], 0
+    while position < len(text):
+        match = _TOKEN.match(text, position)
+        if match is None:
+            raise ProofExportError("unsupported token in the clause log at character %d" % position)
+        position = match.end()
+        token = match.group()
+        if token.isspace() or token.startswith(";"):
+            continue
+        if token == "(":
+            stack.append([])
+        elif token == ")":
+            if len(stack) == 1:
+                raise ProofExportError("unbalanced clause log")
+            closed = stack.pop()
+            stack[-1].append(closed)
+        else:
+            stack[-1].append(token)
+    if len(stack) != 1:
+        raise ProofExportError("unterminated clause log")
+    return stack[0]
+
+
+def _dependency_numbers(sexpr):
+    if (not isinstance(sexpr, list) or len(sexpr) < 2 or sexpr[0] != "deps"
+            or any(not isinstance(value, str) or not value.isdecimal() for value in sexpr[1:])):
+        raise ProofExportError("malformed clause dependency annotation")
+    return int(sexpr[1]), tuple(int(value) for value in sexpr[2:])
+
+
+def _dependency_core(text):
+    """Select the final empty clause's dependency closure, keeping proof hints."""
+    commands = _sexpressions(text)
+    definitions, entries = {}, {}
+    last = None
+    for command in commands:
+        if not command:
+            raise ProofExportError("empty command in trimmed clause log")
+        if command[0] == "define-const":
+            if len(command) != 4 or not isinstance(command[1], str) or command[1] in definitions:
+                raise ProofExportError("malformed or duplicate trimmed-log definition")
+            definitions[command[1]] = command
+        elif command[0] in ("assume", "infer"):
+            if len(command) < 2 or not isinstance(command[-1], str):
+                raise ProofExportError("missing trimmed-log dependency annotation")
+            definition = definitions.get(command[-1])
+            if definition is None or definition[2] != "Proof":
+                raise ProofExportError("undefined trimmed-log dependency annotation")
+            ident, dependencies = _dependency_numbers(definition[3])
+            if ident in entries:
+                raise ProofExportError("duplicate clause dependency identifier")
+            entries[ident] = command, dependencies
+            last = ident
+        elif command[0] not in ("declare-sort", "declare-fun"):
+            raise ProofExportError("unsupported trimmed-log command: %s" % command[0])
+    if last is None or entries[last][0][0] != "infer" or len(entries[last][0]) != 3:
+        raise ProofExportError("trimmed clause log has no final empty clause")
+    needed, visiting, ordered, pending = set(), set(), [], [(last, False)]
+    while pending:
+        ident, expanded = pending.pop()
+        if expanded:
+            visiting.remove(ident)
+            needed.add(ident)
+            ordered.append(ident)
+        elif ident not in needed:
+            if ident not in entries:
+                raise ProofExportError("undefined clause dependency: %d" % ident)
+            if ident in visiting:
+                raise ProofExportError("cyclic clause dependencies")
+            visiting.add(ident)
+            pending.append((ident, True))
+            pending.extend((dep, False) for dep in reversed(entries[ident][1]))
+    required, pending = set(), [entries[ident][0] for ident in needed]
+    while pending:
+        part = pending.pop()
+        if isinstance(part, list):
+            pending.extend(part)
+        elif part in definitions and part not in required:
+            required.add(part)
+            pending.append(definitions[part][3])
+
+    def render(expr):
+        return "(" + " ".join(render(arg) if isinstance(arg, list) else arg for arg in expr) + ")"
+
+    result = []
+    for command in commands:
+        if command[0] in ("declare-sort", "declare-fun"):
+            result.append(render(command))
+        elif command[0] == "define-const" and command[1] in required:
+            result.append(render(command))
+    result.extend(render(entries[ident][0]) for ident in ordered)
+    return "\n".join(result) + "\n"
+
+
+def trim_clause_log(z3_executable, text, timeout=None, memory=None):
+    """Reduce large logs with untrusted native dependencies; replay checks every retained step.
+
+    Trimming only shortens the replay. When the trimmer reports an error (it
+    rejects an inference it cannot derive by unit propagation) or writes a
+    dependency graph the replay cannot use, the untrimmed log is returned
+    with a warning, and the replay checks every step of it instead. timeout
+    (seconds) and memory (megabytes) bound the trimmer, by default
+    _TIME_LIMIT and _MEMORY_LIMIT; it stopping at the time limit raises
+    subprocess.TimeoutExpired, at the memory limit ProofExportError.
+    """
+    if len(text) < _TRIM_THRESHOLD:
+        return text
+    with tempfile.TemporaryDirectory(prefix="z3_clause_trim_") as directory:
+        source = Path(directory) / "proof.smt2"
+        source.write_text(text, encoding="utf-8")
+        run = _run_limited(z3_executable, ["-smt2", "solver.proof.trim=true", str(source)], timeout, memory,
+                           "native proof trimming")
+        if run.returncode or "(error" in run.stdout:
+            failure = "exited with status %d" % run.returncode if run.returncode else "reported an error"
+            warnings.warn("native proof trimming %s, replaying the untrimmed log: %s"
+                          % (failure, (run.stderr + run.stdout)[-2000:]), RuntimeWarning)
+            return text
+        if run.stderr.strip():
+            warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
+        try:
+            return _dependency_core(run.stdout)
+        except ProofExportError as error:
+            warnings.warn("native proof trimming wrote an unusable log, replaying the untrimmed log: %s"
+                          % error, RuntimeWarning)
+            return text
+
+
+def _symbol(token):
+    if token.startswith("|") and token.endswith("|") and len(token) >= 2:
+        return token[1:-1]
+    return token
+
+
+def _number(sexpr):
+    if isinstance(sexpr, str):
+        if not _NUMERAL.match(sexpr):
+            raise ProofExportError("unsupported numeral in the clause log: %s" % sexpr)
+        return Fraction(sexpr)
+    if len(sexpr) == 2 and sexpr[0] == "-":
+        return -_number(sexpr[1])
+    if len(sexpr) == 3 and sexpr[0] == "/":
+        divisor = _number(sexpr[2])
+        if divisor == 0:
+            raise ProofExportError("division by zero in the clause log")
+        return _number(sexpr[1]) / divisor
+    raise ProofExportError("unsupported numeral in the clause log")
+
+
+class _Terms:
+    """Build z3 expressions for log terms inside the context of the parsed input."""
+
+    def __init__(self, context, assertions):
+        self.context = context
+        self.defined = {}
+        self.hints = {}
+        self.constants = {}
+        self.functions = {}  # uninterpreted functions and predicates of the input, by name
+        self.sorts = set()   # names of the input's uninterpreted sorts
+        # The log prints numerals without a sort; an integer input values them
+        # in Int, so that the rebuilt atoms compare Int terms rather than
+        # coercing them to Real. An input over both sorts (QF_LIRA, no
+        # conversions) reads them by their spelling: Z3 prints a Real numeral
+        # with a decimal point (2.0, (/ 3.0 2.0)) and an Int one without. A
+        # numeral read with the wrong sort is coerced by z3py into a to_real
+        # term or fails to build, which no input atom matches.
+        self.integer = self.real = False
+        pending, seen = list(assertions), set()
+        while pending:
+            expr = pending.pop()
+            if expr.get_id() in seen:
+                continue
+            seen.add(expr.get_id())
+            if is_uninterpreted_sort(expr.sort()):
+                self.sorts.add(expr.sort().name())
+            if z3.is_int(expr):
+                self.integer = True
+            elif z3.is_real(expr):
+                self.real = True
+            if expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
+                if z3.is_const(expr):
+                    self.constants[str(expr.decl().name())] = expr
+                else:
+                    self.functions[str(expr.decl().name())] = expr.decl()
+            pending.extend(expr.children())
+
+    def _subtract(self, arguments):
+        if len(arguments) == 2:
+            return arguments[0] - arguments[1]
+        array = (z3.Ast * len(arguments))(*[argument.as_ast() for argument in arguments])
+        return z3.ArithRef(z3.Z3_mk_sub(self.context.ref(), len(arguments), array), self.context)
+
+    def build(self, sexpr, integer=None):
+        """Build a log term; integer, when known, is whether it is Int-valued (for its numerals).
+
+        Definitions of an arithmetic sort pass it down (define). Once an
+        assertion folds to false, Z3 logs the remaining assertions
+        unprocessed, with Int numerals and their to_real coercions even in a
+        QF_LRA input under logic ALL ((define-const $17 Int (- 2)),
+        (to_real 3)), where the input reads (- 2.0) and 3.0 (see
+        proof_certificate._parse_snapshot).
+        """
+        if isinstance(sexpr, str):
+            if sexpr in self.defined:
+                return self.defined[sexpr]
+            if sexpr == "true":
+                return z3.BoolVal(True, self.context)
+            if sexpr == "false":
+                return z3.BoolVal(False, self.context)
+            if _NUMERAL.match(sexpr):
+                value = Fraction(sexpr)
+                if integer is None:
+                    integer = self.integer and not (self.real and "." in sexpr)
+                if not integer:
+                    return z3.RealVal(str(value), self.context)
+                if value.denominator != 1:
+                    raise ProofExportError("fractional numeral in an integer clause log: %s" % sexpr)
+                return z3.IntVal(value.numerator, self.context)
+            name = _symbol(sexpr)
+            if name in self.constants:
+                return self.constants[name]
+            raise ProofExportError("the clause log uses an undeclared or fresh symbol: %s" % sexpr)
+        if not sexpr:
+            raise ProofExportError("empty application in the clause log")
+        head = sexpr[0]
+        if not isinstance(head, str):
+            raise ProofExportError("unsupported application head in the clause log")
+        sorts = [None] * (len(sexpr) - 1)
+        if head in _SAME_SORT_HEADS:
+            sorts = [integer] * len(sorts)
+        elif head in _INT_ARGUMENT_HEADS:
+            sorts = [True] * len(sorts)
+        elif head in _REAL_ARGUMENT_HEADS:
+            sorts = [False] * len(sorts)
+        elif head == "ite":
+            sorts = [None] + [integer] * (len(sorts) - 1)
+        arguments = [self.build(argument, sort) for argument, sort in zip(sexpr[1:], sorts)]
+        count = len(arguments)
+        function = self.functions.get(_symbol(head))
+        if function is not None and function.arity() != count:
+            raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
+        try:
+            return function(*arguments) if function is not None else self._apply(head, count, arguments)
+        except z3.Z3Exception:
+            raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
+
+    def _apply(self, head, count, arguments):
+        if head == "to_real" and count == 1 and z3.is_int(arguments[0]):
+            # The injection of a term built from numerals is that term over
+            # Real numerals, as the input snapshot reads it; to_real of any
+            # other Int term is the injection itself (QF_LIRA conversions).
+            counterpart = _real_counterpart(arguments[0], self.context)
+            return counterpart if counterpart is not None else z3.ToReal(arguments[0])
+        if head == "to_int" and count == 1 and z3.is_real(arguments[0]):
+            # The floor of a Real term (QF_LIRA conversions).
+            return z3.ToInt(arguments[0])
+        if head == "is_int" and count == 1 and z3.is_real(arguments[0]):
+            return z3.IsInt(arguments[0])
+        if head == "not" and count == 1:
+            return z3.Not(arguments[0])
+        if head == "or":
+            return z3.Or(*arguments) if count != 1 else z3.Or(arguments)
+        if head == "and":
+            return z3.And(*arguments) if count != 1 else z3.And(arguments)
+        if head == "=>" and count == 2:
+            return z3.Implies(arguments[0], arguments[1])
+        if head == "xor" and count == 2:
+            return z3.Xor(arguments[0], arguments[1])
+        if head == "xor" and count == 1:
+            # Z3 accepts (xor p) and reads it as p; the input may state it.
+            # Live sat.smt logs simplify the node away before logging, so
+            # this branch serves constructed or future logs (see ensure_gates).
+            return _unary_xor(arguments[0])
+        if head == "ite" and count == 3:
+            return z3.If(arguments[0], arguments[1], arguments[2])
+        if head == "=" and count == 2:
+            return arguments[0] == arguments[1]
+        if head == "distinct" and count >= 2:
+            return z3.Distinct(*arguments)
+        if head == "+" and count >= 2:
+            return z3.Sum(*arguments)
+        if head == "*" and count >= 2:
+            return z3.Product(*arguments)
+        if head == "-" and count == 1:
+            return -arguments[0]
+        if head == "-" and count >= 2:
+            return self._subtract(arguments)
+        if head == "/" and count == 2:
+            return arguments[0] / arguments[1]
+        if head in ("div", "mod") and count == 2 and all(z3.is_int(argument) for argument in arguments):
+            # z3py builds the integer operators for Int operands: div for /, mod for %.
+            return arguments[0] / arguments[1] if head == "div" else arguments[0] % arguments[1]
+        if head == "rem" and count == 2 and all(z3.is_int(argument) for argument in arguments):
+            return z3.ArithRef(z3.Z3_mk_rem(self.context.ref(), arguments[0].as_ast(), arguments[1].as_ast()),
+                               self.context)
+        if head == "abs" and count == 1 and z3.is_arith(arguments[0]):
+            # The abs application itself, as logged: z3py's Abs builds
+            # (ite (> t 0) t (- t)), a different term from the input's abs.
+            return z3.ArithRef(z3.Z3_mk_abs(self.context.ref(), arguments[0].as_ast()), self.context)
+        if head in ("<=", "<", ">=", ">") and count == 2:
+            left, right = arguments
+            return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
+        raise ProofExportError("unsupported operator in the clause log: %s" % head)
+
+    def define(self, name, sort, sexpr):
+        if name in self.defined or name in self.hints:
+            raise ProofExportError("duplicate definition in the clause log: %s" % name)
+        # Definitions stay referenced for the whole replay, so their identifiers are stable.
+        if sort == "Proof":
+            self.hints[name] = sexpr
+            return
+        expr = self.build(sexpr, {"Int": True, "Real": False}.get(sort))
+        if str(expr.sort()) != _symbol(sort):  # The log quotes sort names the way it quotes symbols.
+            raise ProofExportError("definition %s has sort %s, declared %s" % (name, expr.sort(), sort))
+        self.defined[name] = expr
+
+    def hint(self, sexpr):
+        """Return (name, [(coefficient, literal)]) for a theory hint or None for rup."""
+        if sexpr == "rup":
+            return None
+        if isinstance(sexpr, str):
+            if sexpr not in self.hints:
+                raise ProofExportError("undefined proof hint in the clause log: %s" % sexpr)
+            sexpr = self.hints[sexpr]
+        if not sexpr or not isinstance(sexpr[0], str):
+            raise ProofExportError("malformed proof hint in the clause log")
+        name, arguments = sexpr[0], sexpr[1:]
+        if name in _COEFFICIENT_HINTS:
+            if len(arguments) % 2:
+                raise ProofExportError("%s hint needs coefficient-literal pairs" % name)
+            pairs = [(_number(arguments[index]), self.build(arguments[index + 1]))
+                     for index in range(0, len(arguments), 2)]
+        elif name in _LITERAL_HINTS:
+            pairs = []
+            for argument in arguments:
+                auxiliary = self.hints.get(argument) if isinstance(argument, str) else argument
+                if name == "euf" and isinstance(auxiliary, list) and auxiliary[:1] in (["cc"], ["comm"]):
+                    if len(auxiliary) != 2 or not z3.is_eq(self.build(auxiliary[1])):
+                        raise ProofExportError("malformed euf congruence hint")
+                    # These are proof annotations, not premises. Lean must derive
+                    # the contradiction from the Boolean literals alone.
+                    continue
+                pairs.append((Fraction(1), self.build(argument)))
+        else:
+            raise ProofExportError("unsupported clause-log hint: %s" % name)
+        if not pairs and name != "smt":
+            raise ProofExportError("%s hint has no literals" % name)
+        for _, literal in pairs:
+            if not z3.is_bool(literal):
+                raise ProofExportError("%s hint literal is not Boolean" % name)
+        return name, pairs
+
+    def dependencies(self, sexpr):
+        if isinstance(sexpr, str) and sexpr in self.hints:
+            hint = self.hints[sexpr]
+            if isinstance(hint, list) and hint[:1] == ["deps"]:
+                return _dependency_numbers(hint)
+        return None
+
+
+def _unary_xor(argument):
+    """The one-argument application of xor, which z3py's Xor does not build."""
+    # Z3 shares one OP_XOR declaration (binary domain) between its arities;
+    # the throwaway binary application is only a way to obtain it.
+    decl = z3.Xor(argument, argument).decl()
+    return z3.BoolRef(z3.Z3_mk_app(argument.ctx.ref(), decl.ast, 1, (z3.Ast * 1)(argument.as_ast())),
+                      argument.ctx)
+
+
+def _strip(literal):
+    """Return (atom, polarity) for a literal with any number of negations."""
+    polarity = True
+    while z3.is_not(literal):
+        literal, polarity = literal.arg(0), not polarity
+    return literal, polarity
+
+
+def _key(literal):
+    atom, polarity = _strip(literal)
+    return atom.get_id(), polarity
+
+
+def _complement(literal):
+    return literal.arg(0) if z3.is_not(literal) else z3.Not(literal)
+
+
+def _distinct_gate(literals):
+    """Whether a clause is a gate clause of a distinct over terms, valid on its own.
+
+    The sat.smt core relates a distinct below the root to the disjunction of
+    its pairwise equalities by two alldiff clauses, (or d some_eq) and
+    (or (not d) (not some_eq)). The positive clause holds when every pair of
+    arguments of d is equated by a disjunct; the negated one when every
+    disjunct equates two arguments of d. Both are required here, as in Z3's
+    own checker; the reconstructor proves exactly these shapes.
+    """
+    if len(literals) != 2:
+        return False
+    for first, second in ((literals[0], literals[1]), (literals[1], literals[0])):
+        distinct, polarity = _strip(first)
+        if not z3.is_distinct(distinct) or distinct.num_args() < 2 or z3.is_bool(distinct.arg(0)):
+            continue
+        some_eq, other_polarity = _strip(second)
+        if polarity != other_polarity:
+            return False
+        arguments = distinct.children()
+        pairs = {frozenset((left.get_id(), right.get_id()))
+                 for index, left in enumerate(arguments) for right in arguments[index + 1:]}
+        disjuncts = some_eq.children() if z3.is_or(some_eq) else [some_eq]
+        covered = set()
+        for disjunct in disjuncts:
+            if not z3.is_eq(disjunct):
+                return False
+            pair = frozenset(argument.get_id() for argument in disjunct.children())
+            if pair not in pairs:
+                return False
+            covered.add(pair)
+        return not polarity or covered == pairs
+    return False
+
+
+def _tautology(literals):
+    """A clause with true, not false, or complementary literals needs no source."""
+    seen = {}
+    for literal in literals:
+        atom, polarity = _strip(literal)
+        if z3.is_true(atom) and polarity or z3.is_false(atom) and not polarity:
+            return True
+        if seen.setdefault(atom.get_id(), polarity) != polarity:
+            return True
+    return False
+
+
+def _linear(expr, terms=None, scale=Fraction(1)):
+    """Return (variables -> coefficient, constant) for a linear Real or Int term.
+
+    An ite term is an opaque variable here, as in Z3's arithmetic solver: the
+    clause log relates it to its branches through explicit gate clauses. So
+    are an integer div, mod, or rem by a nonzero numeral, which the solver's
+    arith axioms relate to their operands, and abs.
+    """
+    terms = {} if terms is None else terms
+    kind = expr.decl().kind()
+    value = constant_value(expr)
+    if value is not None:
+        return terms, scale * value
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
+        integer_divisor(expr)
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
+                z3.Z3_OP_TO_INT):
+        terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
+        return terms, Fraction(0)
+    constant = Fraction(0)
+    if kind == z3.Z3_OP_ADD:
+        for child in expr.children():
+            terms, part = _linear(child, terms, scale)
+            constant += part
+    elif kind == z3.Z3_OP_SUB:
+        terms, constant = _linear(expr.arg(0), terms, scale)
+        for child in expr.children()[1:]:
+            terms, part = _linear(child, terms, -scale)
+            constant += part
+    elif kind == z3.Z3_OP_UMINUS:
+        terms, constant = _linear(expr.arg(0), terms, -scale)
+    elif kind == z3.Z3_OP_MUL:
+        factor, variable = Fraction(1), None
+        for child in expr.children():
+            child_value = constant_value(child)
+            if child_value is not None:
+                factor *= child_value
+            elif variable is None:
+                variable = child
+            else:
+                raise ProofExportError("nonlinear multiplication is not supported")
+        terms, constant = _linear(variable, terms, scale * factor)
+    elif kind == z3.Z3_OP_DIV:
+        divisor = constant_value(expr.arg(1))
+        if divisor is None or divisor == 0:
+            raise ProofExportError("division is supported only by a nonzero constant")
+        terms, constant = _linear(expr.arg(0), terms, scale / divisor)
+    elif kind == z3.Z3_OP_TO_REAL:
+        # The injection of Int into Real commutes with sums and numeral
+        # products, so (to_real t) has t's linear form: Int and Real
+        # constraints over shared Int terms combine over the rationals.
+        terms, constant = _linear(expr.arg(0), terms, scale)
+    else:
+        raise ProofExportError("unsupported arithmetic term: %s" % expr.decl().name())
+    return terms, constant
+
+
+def _constraint(literal):
+    """Return (relation, terms, constant) with sum(terms) + constant <relation> 0.
+
+    Over Int a strict constraint is tightened to its non-strict form, as Z3's
+    checker does, so the canonical keys identify (< t 5), (<= t 4), and
+    (not (<= 5 t)) and the Farkas combinations work with the rounded bounds.
+    """
+    atom, polarity = _strip(literal)
+    kind = atom.decl().kind()
+    if kind not in _ARITH_PREDICATES and kind != z3.Z3_OP_EQ:
+        raise ProofExportError("hint literal is not an arithmetic atom")
+    left, right = atom.arg(0), atom.arg(1)
+    if not z3.is_arith(left):
+        raise ProofExportError("hint literal is not an arithmetic atom")
+    if kind == z3.Z3_OP_EQ:
+        if not polarity:
+            raise ProofExportError("negated equalities cannot enter a linear combination")
+        relation, first, second = "=", left, right
+    else:
+        if kind in (z3.Z3_OP_GE, z3.Z3_OP_GT):
+            left, right, kind = right, left, {z3.Z3_OP_GE: z3.Z3_OP_LE, z3.Z3_OP_GT: z3.Z3_OP_LT}[kind]
+        strict = kind == z3.Z3_OP_LT
+        if polarity:
+            relation, first, second = ("<" if strict else "<="), left, right
+        else:
+            relation, first, second = ("<=" if strict else "<"), right, left
+    terms, constant = _linear(first)
+    terms, offset = _linear(second, terms, Fraction(-1))
+    terms = {k: v for k, v in terms.items() if v != 0}
+    if z3.is_int(left):
+        return integer_tightened(relation, terms, constant + offset)
+    return relation, terms, constant + offset
+
+
+def _integer_valued(expr):
+    """Whether the atoms of an arithmetic term's linear form are all Int: an Int term, or Real over to_real.
+
+    A Real atom over the injections of Int terms and numerals alone, such
+    as (= (to_real n) (/ 9.0 4.0)), is an integer constraint in disguise,
+    which the integer solver's cuts round like an Int atom.
+    """
+    if z3.is_int(expr) or constant_value(expr) is not None:
+        return True
+    kind = expr.decl().kind()
+    if kind == z3.Z3_OP_TO_REAL:
+        return True
+    if kind in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV):
+        return all(_integer_valued(child) for child in expr.children())
+    return False
+
+
+def _mentions_int(expr):
+    """Whether an arithmetic term's linear form (see _linear) has an Int atom.
+
+    That is an Int term, or a Real one reaching an Int term through sums,
+    numeral products and quotients, and to_real; an ite, a variable, or any
+    other atom of Real sort has none, whatever it contains (an Int term
+    under a Real ite is opaque to the cut, as in proof_to_lean). Atoms that
+    cancel are still counted; the reconstructor rejects such a cut.
+    Numerals, Int ones included, are constants, not atoms.
+    """
+    if constant_value(expr) is not None:
+        return False
+    if z3.is_int(expr):
+        return True
+    if expr.decl().kind() in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV,
+                              z3.Z3_OP_TO_REAL):
+        return any(_mentions_int(child) for child in expr.children())
+    return False
+
+
+def check_linear_hint(name, pairs):
+    """Check Farkas combinations and the shapes of implied-equality and cut hints.
+
+    Returns whether the hint's coefficients certify the lemma. Over Real they
+    must: a farkas or bound combination that does not refute its literals is
+    rejected. Over Int the solver's explanations may rest on cuts it made
+    along the way (Z3's own checker fails on those too, "maybe follows from a
+    cut"), so a farkas or bound whose coefficients do not refute the
+    tightened and, for bound, rounded literals is kept without coefficients,
+    and a cut hint never carries any: the clause is shape-checked here
+    (linear atoms, some reaching an Int term) and proved by Lean alone, as
+    for euf.
+    """
+    if name == "implied-eq":
+        atom, polarity = _strip(pairs[-1][1])
+        if polarity or not z3.is_eq(atom) or not z3.is_arith(atom.arg(0)):
+            raise ProofExportError("implied-eq hint must end in an arithmetic disequality")
+        _constraint(atom)
+        pairs = pairs[:-1]
+    constraints, integer = [], False
+    for coefficient, literal in pairs:
+        relation, terms, constant = _constraint(literal)
+        constraints.append((coefficient, relation, terms, constant))
+        integer = integer or all(_integer_valued(side) for side in _strip(literal)[0].children())
+    if name == "cut":
+        if not pairs:
+            raise ProofExportError("cut hint without literals")
+        # A cut rounds by integrality, so some literal must reach an Int
+        # term: an Int atom, or a Real one through to_real or to_int, whose
+        # floor is an Int term over a Real one (x = 5 against (/ x 2.0) =
+        # (to_real (to_int (/ x 2.0))), see proof_to_lean's _projection_facts).
+        if not integer and not any(_mentions_int(side) for _, literal in pairs
+                                   for side in _strip(literal)[0].children()):
+            raise ProofExportError("cut hint over Real atoms")
+        return False
+    if name == "implied-eq":
+        # Not a Farkas contradiction: Lean proves that the preceding literals
+        # imply the equality complementary to the last literal.
+        return False
+    if linear_combination_refutes(constraints) or (
+            name == "bound" and integer and bound_combination_refutes(constraints)):
+        return True
+    if not integer:
+        raise ProofExportError("%s hint coefficients do not refute its literals" % name)
+    return False
+
+
+def check_arith_hint(pairs):
+    """Shape-check the arithmetic solver's axiom hints: every literal is a linear arithmetic atom.
+
+    The sat.smt arithmetic solver labels the clauses it adds on its own arith
+    (the definitions of an integer div and mod by a numeral k: k * (div t k)
+    + (mod t k) = t, 0 <= mod t k, and mod t k <= |k| - 1; and of rem:
+    k < 0 or rem t k = mod t k, k >= 0 or rem t k = -(mod t k); of to_int:
+    (to_real (to_int t)) <= t < (to_real (to_int t)) + 1; and of is_int:
+    (is_int t) iff (= (to_real (to_int t)) t)). The literals are not a
+    Farkas combination, so only their shape is checked (an arithmetic
+    equality or inequality whose sides are linear, with div, mod, and rem by
+    a nonzero numeral and to_int as atoms, or is_int of a linear term); Lean
+    proves the clause. Each literal is
+    checked as its atom, whatever its polarity: the equality axiom reaches
+    the hint as a negated equality, which the combination paths (cut among
+    them) refuse because a disequality cannot be summed, while here nothing
+    is summed and Lean must prove the clause under either polarity.
+    """
+    for _, literal in pairs:
+        atom, _ = _strip(literal)
+        if z3.is_app_of(atom, z3.Z3_OP_IS_INT):
+            _linear(atom.arg(0))
+        else:
+            _constraint(atom)
+
+
+class _Normalizer:
+    """Canonical keys for Boolean formulas over linear atoms, used to match assumptions.
+
+    A key is an integer naming a canonical form; two formulas get one key
+    exactly when their canonical forms are equal. The forms are interned
+    (`ids`): a form is a tuple over the keys of its children, so building,
+    hashing, and sorting the forms is linear in the formula read as a DAG.
+    With the forms nested, a parent's form repeated every child's form and
+    the children were sorted by `repr`, which cost two minutes on the
+    13,000-node circuit of a QF_IDL bounded model checking input.
+    """
+
+    def __init__(self):
+        self.cache = {}  # (AST identifier, polarity) -> (expression kept alive, key)
+        self.failed = {}  # (AST identifier, polarity) -> (expression kept alive, the error its form raised)
+        self.traces = {}  # identifier of a failed error -> its traceback where it was first caught
+        self.ids = {}  # canonical form -> key
+        self.forms = []  # key -> canonical form
+
+    def key(self, expr):
+        return self._key(expr, True)
+
+    def _key(self, expr, polarity):
+        """The key of expr under polarity, its subformulas' keys computed first without recursion.
+
+        A conjunction a thousand levels deep (QF_IDL FISCHER6-4-ninc, a
+        CVC Lite translation) exceeded Python's recursion limit when every
+        form computed its children's keys recursively. The children are
+        visited bottom up on an explicit stack instead (_requests names the
+        ones _compute_form asks for), so _compute_form finds them cached. A
+        child whose form raises is not raised at once: its error is kept
+        and raised when _compute_form asks for it, as when the keys were
+        computed on demand (a conjunction stops at a false conjunct and
+        never asks for the later ones).
+        """
+        index = expr.get_id(), polarity
+        if index not in self.cache and index not in self.failed:
+            pending = [(expr, polarity, False)]
+            while pending:
+                node, truth, expanded = pending.pop()
+                position = node.get_id(), truth
+                if position in self.cache or position in self.failed:
+                    continue
+                if not expanded:
+                    pending.append((node, truth, True))
+                    pending.extend((child, sign, False) for child, sign in reversed(self._requests(node, truth)))
+                    continue
+                try:
+                    self.cache[position] = (node, self._intern(self._compute_form(node, truth)))
+                except Exception as error:  # noqa: BLE001 - raised again when the form is asked for
+                    self.failed[position] = (node, error)
+                    self.traces.setdefault(id(error), error.__traceback__)
+        if index in self.failed:
+            # From the traceback where it was first caught: every failing
+            # ancestor raises the same error, which would gather all their frames.
+            error = self.failed[index][1]
+            raise error.with_traceback(self.traces[id(error)])
+        return self.cache[index][1]
+
+    def _requests(self, expr, polarity):
+        """The (subformula, polarity) pairs whose keys _compute_form asks for, in its order."""
+        kind = expr.decl().kind()
+        if kind == z3.Z3_OP_NOT:
+            return [(expr.arg(0), not polarity)]
+        if kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
+            return [(child, polarity) for child in expr.children()]
+        if kind == z3.Z3_OP_IMPLIES:
+            return [(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)]
+        if kind in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE) or kind in _ARITH_PREDICATES or (
+                kind == z3.Z3_OP_EQ and z3.is_arith(expr.arg(0))) or (
+                kind == z3.Z3_OP_DISTINCT and z3.is_arith(expr.arg(0)) and expr.num_args() == 2):
+            return []
+        return [(child, True) for child in expr.children()]
+
+    def _intern(self, form):
+        key = self.ids.get(form)
+        if key is None:
+            key = self.ids[form] = len(self.forms)
+            self.forms.append(form)
+        return key
+
+    def _compute_form(self, expr, polarity):
+        kind = expr.decl().kind()
+        if kind == z3.Z3_OP_NOT:
+            return self.forms[self._key(expr.arg(0), not polarity)]
+        if kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
+            if (kind == z3.Z3_OP_AND) == polarity:
+                tag = "and"
+            else:
+                tag = "or"
+            parts = set()
+            identity = ("true",) if tag == "and" else ("false",)
+            absorbing = ("false",) if tag == "and" else ("true",)
+            for child in expr.children():
+                child_key = self._key(child, polarity)
+                child_form = self.forms[child_key]
+                if child_form == absorbing:
+                    return absorbing
+                if child_form == identity:
+                    continue
+                if child_form[0] == tag:
+                    parts.update(child_form[1])
+                else:
+                    parts.add(child_key)
+            if not parts:
+                return identity
+            if len(parts) == 1:
+                return self.forms[next(iter(parts))]
+            return (tag, tuple(sorted(parts)))
+        if kind == z3.Z3_OP_IMPLIES:
+            return self.forms[self._key(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)]
+        if kind == z3.Z3_OP_TRUE:
+            return ("true",) if polarity else ("false",)
+        if kind == z3.Z3_OP_FALSE:
+            return ("false",) if polarity else ("true",)
+        if kind in _ARITH_PREDICATES or (kind == z3.Z3_OP_EQ and z3.is_arith(expr.arg(0))):
+            return self._atom(expr, polarity)
+        if kind == z3.Z3_OP_DISTINCT and z3.is_arith(expr.arg(0)) and expr.num_args() == 2:
+            return self._atom(expr.arg(0) == expr.arg(1), not polarity)
+        # Structural form: a numeral (as a function argument) is identified by
+        # its value, an uninterpreted symbol by its name.
+        positive = (kind, tuple(self._key(child, True) for child in expr.children()),
+                    str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED
+                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM else "")
+        return positive if polarity else ("not", positive)
+
+    def _atom(self, expr, polarity):
+        relation, terms, constant = _constraint(expr)
+        if not polarity and relation == "<=" and z3.is_int(expr.arg(0)):
+            # Over Int the complement of t <= 0 is -t + 1 <= 0, so (not (<= 5 x))
+            # and (<= x 4) get one key, as the tightened constraints are equal.
+            relation, polarity = "<=", True
+            terms, constant = {variable: -value for variable, value in terms.items()}, -constant + 1
+        if not terms:
+            holds = {"<=": constant <= 0, "<": constant < 0, "=": constant == 0}[relation]
+            return ("true",) if holds == polarity else ("false",)
+        first = min(terms)
+        scale = abs(terms[first])
+        if relation == "=" and terms[first] < 0:
+            scale = -scale
+        body = (tuple(sorted((variable, str(value / scale)) for variable, value in terms.items())),
+                str(constant / scale))
+        if relation == "=":
+            key = ("eq", body)
+            return key if polarity else ("not", key)
+        if relation == "<=":
+            return ("le", body) if polarity else ("not", ("le", body))
+        # p < 0 is the negation of -p <= 0.
+        negated = (tuple(sorted((variable, str(-value / scale)) for variable, value in terms.items())),
+                   str(-constant / scale))
+        return ("not", ("le", negated)) if polarity else ("le", negated)
+
+
+def _conjuncts(expr, path=()):
+    """Yield (formula, and-elim path) for every conjunct reachable through nested ands.
+
+    Depth first, parents before their conjuncts, without recursion: a
+    QF_IDL model checking input (FISCHER6-4-ninc) nests a thousand ands.
+    """
+    pending = [(expr, path)]
+    while pending:
+        expr, path = pending.pop()
+        yield expr, path
+        if expr.decl().kind() == z3.Z3_OP_AND:
+            pending.extend((child, path + (child,)) for child in reversed(expr.children()))
+
+
+def _symbols(expr):
+    """Return the identifiers of the uninterpreted declarations occurring in expr.
+
+    One traversal of the DAG with its own visited set: nothing is kept per
+    subterm, so memory stays linear on deep terms such as ite chains.
+    """
+    symbols, seen, pending = set(), set(), [expr]
+    while pending:
+        node = pending.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if node.decl().kind() == z3.Z3_OP_UNINTERPRETED:
+            symbols.add(node.decl().get_id())
+        pending.extend(node.children())
+    return symbols
+
+
+class _Replay:
+    def __init__(self, source, fragment, assertions, context, timeout=None):
+        self.source, self.fragment, self.context = source, fragment, context
+        self.time_limit, _ = _limits(timeout, None)
+        self.deadline = time.monotonic() + self.time_limit
+        self.assertions = list(assertions)
+        self.dag = DagBuilder()
+        self.assertion_nodes = [self.dag.expression(expr) for expr in self.assertions]
+        self.normalizer = _Normalizer()
+        self.assertions_by_id = {expr.get_id(): expr for expr in self.assertions}
+        self.assumption_sources = [(assertion, conjunct, path) for assertion in self.assertions
+                                   for conjunct, path in _conjuncts(assertion)]
+        self.assumptions_by_key = None
+        self.sources_by_symbol = None  # declaration id (None: no symbol) -> source positions
+        self.symbol_signatures = None  # conjunct AST id -> hash of its symbol set, with the index
+        self.clauses = {}        # entry id -> (proof node, literal expressions)
+        self.clause_keys = {}    # entry id -> precomputed literal keys for propagation
+        self.literal_keys = {}   # AST id -> (literal kept alive, key)
+        self.by_key = {}         # frozenset of literal keys -> [entry ids]
+        self.occurrences = {}    # atom id -> set of entry ids
+        self.units = {}          # atom id -> entry id of a unit clause
+        self.empty = set()       # entry ids of empty clauses
+        self.next_entry = 0
+        self.root = None
+        self.logged_clauses = {}
+        self.trimmed = False
+        self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
+        self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
+        self.lemma = self.dag.rule(z3.Z3_OP_PR_LEMMA, "lemma", 1)
+        self.mp = self.dag.rule(z3.Z3_OP_PR_MODUS_PONENS, "mp", 2)
+        self.rewrite = self.dag.rule(z3.Z3_OP_PR_REWRITE, "rewrite", 0)
+        self.and_elim = self.dag.rule(z3.Z3_OP_PR_AND_ELIM, "and-elim", 1)
+        self.def_axiom = self.dag.rule(z3.Z3_OP_PR_DEF_AXIOM, "def-axiom", 0)
+        self.gates = {}          # atom id -> atom, kept alive because z3 reuses identifiers
+        self.gate_entries = {}   # atom id -> independently justified gate clauses
+        self.alive = []          # every literal referenced by identifier-keyed tables
+
+    # -- Boolean gate definitions ----------------------------------------
+
+    def ensure_gates(self, literal):
+        """Add the Tseitin clauses of every compound Boolean atom inside a literal.
+
+        Z3's clause-log checker propagates through such definitions implicitly,
+        so the log's rup steps may rely on them. Each gate clause is justified
+        as a def-axiom, which the reconstructor proves independently. A Real
+        or uninterpreted-sort ite term inside an atom gets the two clauses
+        relating it to its branches, which the log also records as tseitin
+        inferences.
+        """
+        pending = [literal]
+        while pending:
+            atom, _ = _strip(pending.pop())
+            if atom.get_id() in self.gates:
+                continue
+            self.gates[atom.get_id()] = atom
+            kind, args = atom.decl().kind(), atom.children()
+            if not z3.is_bool(atom):
+                clauses = []
+                if kind == z3.Z3_OP_ITE:
+                    clauses = [[z3.Not(args[0]), atom == args[1]], [args[0], atom == args[2]]]
+                pending.extend(args)
+                for clause in clauses:
+                    node = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(clause))])
+                    self.add_clause(node, clause)
+                continue
+            if (kind in _ARITH_PREDICATES or kind == z3.Z3_OP_UNINTERPRETED
+                    or (kind in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and not z3.is_bool(args[0]))):
+                pending.extend(args)  # Theory atoms: look for ite terms inside.
+                continue
+            if kind == z3.Z3_OP_OR:
+                clauses = [[z3.Not(atom)] + args] + [[atom, z3.Not(arg)] for arg in args]
+            elif kind == z3.Z3_OP_AND:
+                clauses = [[atom] + [z3.Not(arg) for arg in args]] + [[z3.Not(atom), arg] for arg in args]
+            elif kind == z3.Z3_OP_IMPLIES:
+                clauses = [[z3.Not(atom), z3.Not(args[0]), args[1]], [atom, args[0]], [atom, z3.Not(args[1])]]
+            elif kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF) and z3.is_bool(args[0]):
+                clauses = [[z3.Not(atom), z3.Not(args[0]), args[1]], [z3.Not(atom), args[0], z3.Not(args[1])],
+                           [atom, args[0], args[1]], [atom, z3.Not(args[0]), z3.Not(args[1])]]
+            elif kind == z3.Z3_OP_XOR and len(args) == 1:
+                # Z3 reads (xor p) as p. Its simplifier removes the node before
+                # logging, so only a constructed (or future) log reaches here.
+                clauses = [[atom, z3.Not(args[0])], [z3.Not(atom), args[0]]]
+            elif kind == z3.Z3_OP_XOR:
+                clauses = [[atom, z3.Not(args[0]), args[1]], [atom, args[0], z3.Not(args[1])],
+                           [z3.Not(atom), args[0], args[1]], [z3.Not(atom), z3.Not(args[0]), z3.Not(args[1])]]
+            elif kind == z3.Z3_OP_ITE:
+                clauses = [[z3.Not(atom), z3.Not(args[0]), args[1]], [z3.Not(atom), args[0], args[2]],
+                           [atom, z3.Not(args[0]), z3.Not(args[1])], [atom, args[0], z3.Not(args[2])]]
+            else:
+                continue
+            pending.extend(args)
+            entries = self.gate_entries[atom.get_id()] = []
+            for clause in clauses:
+                node = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(clause))])
+                entries.append(self.add_clause(node, clause))
+
+    # -- clause database -------------------------------------------------
+
+    def clause_formula(self, literals):
+        if not literals:
+            return z3.BoolVal(False, self.context)
+        if len(literals) == 1:
+            return literals[0]
+        return z3.Or(*literals)
+
+    def literal_key(self, literal):
+        ident = literal.get_id()
+        cached = self.literal_keys.get(ident)
+        if cached is None:
+            cached = self.literal_keys[ident] = literal, _key(literal)
+        return cached[1]
+
+    def add_clause(self, node, literals):
+        entry = self.next_entry
+        self.next_entry += 1
+        self.alive.extend(literals)
+        self.clauses[entry] = (node, literals)
+        self.clause_keys[entry] = tuple(self.literal_key(literal) for literal in literals)
+        keys = frozenset(self.clause_keys[entry])
+        self.by_key.setdefault(keys, []).append(entry)
+        for atom, _ in keys:
+            self.occurrences.setdefault(atom, set()).add(entry)
+        if len(keys) == 1 and len(literals) == 1:
+            self.units.setdefault(next(iter(keys))[0], entry)
+        if not literals:
+            self.empty.add(entry)
+        return entry
+
+    def delete_clause(self, literals):
+        keys = frozenset(self.literal_key(literal) for literal in literals)
+        entries = self.by_key.get(keys)
+        if not entries:
+            return  # Deleting an absent clause does not affect soundness.
+        entry = entries.pop()
+        _, stored = self.clauses.pop(entry)
+        self.clause_keys.pop(entry)
+        self.empty.discard(entry)
+        for atom, _ in keys:
+            self.occurrences[atom].discard(entry)
+        if self.units.get(next(iter(keys))[0]) == entry:
+            del self.units[next(iter(keys))[0]]
+            for other in entries:
+                if len(self.clauses[other][1]) == 1:
+                    self.units[next(iter(keys))[0]] = other
+                    break
+
+    # -- assumptions -----------------------------------------------------
+
+    def assume(self, literals):
+        """Tie an assumed clause to an original assertion.
+
+        In order of preference: the identical formula, an equivalent formula
+        or conjunct (by canonical key, then by a bounded solver check) bridged
+        with a rewrite, or an implying formula or conjunct bridged with a cnf
+        theory lemma, for assertions that preprocessing split into clauses.
+        Tautological clauses need no source and become def-axiom nodes.
+        """
+        formula = self.clause_formula(literals)
+        if _tautology(literals):
+            return self.dag.node(self.def_axiom, [self.dag.expression(formula)])
+        assertion = self.assertions_by_id.get(formula.get_id())
+        if assertion is not None:
+            return self.dag.node(self.asserted, [self.dag.expression(assertion)])
+        target = self.normalizer.key(formula)
+        if self.assumptions_by_key is None:
+            self.assumptions_by_key = {}
+            for source in self.assumption_sources:
+                self.assumptions_by_key.setdefault(self.normalizer.key(source[1]), source)
+        source = self.assumptions_by_key.get(target)
+        if source is not None:
+            assertion, conjunct, path = source
+            return self._derive_assumption(assertion, path, conjunct, formula)
+        candidates = self._candidate_sources(formula)
+        for assertion, conjunct, path in self._equivalence_candidates(formula, candidates):
+            if self._valid(conjunct == formula):
+                return self._derive_assumption(assertion, path, conjunct, formula)
+        for assertion, conjunct, path in candidates:
+            if self._valid(z3.Implies(conjunct, formula)):
+                source = self._derive_assumption(assertion, path, conjunct, conjunct)
+                return self._cnf_lemma([(source, conjunct)], literals)
+        # Preprocessing may combine several assertions, for example into the
+        # empty clause, or simplify an ite inside one assertion under a unit
+        # asserted by another.
+        sources = self._implying_assertions(formula)
+        if sources is not None:
+            return self._cnf_lemma(sources, literals)
+        raise ProofExportError("assumed clause does not match any original assertion: %s" % formula)
+
+    def _candidate_sources(self, formula):
+        """Return the assumption sources that can be equivalent to formula or imply it.
+
+        A satisfiable conjunct implies a non-valid clause only if the two share
+        an uninterpreted symbol (an interpolant over no shared symbol is true
+        or false), so the per-source solver checks skip the other conjuncts;
+        a source or clause without symbols is always a candidate. The order
+        of the sources is kept. Nothing is trusted by skipping: a clause no
+        candidate ties to an assertion goes to the unsat-core fallback. A
+        few sources are all searched: indexing them traverses every
+        assertion, which costs more than the checks it saves.
+        """
+        if len(self.assumption_sources) <= _SEARCH_ALL_SOURCES:
+            return self.assumption_sources
+        if self.sources_by_symbol is None:
+            self.sources_by_symbol = {}
+            self.symbol_signatures = {}
+            # Sources list an and before its conjuncts, so in reverse an and
+            # takes the union of its conjuncts' sets instead of a traversal.
+            # The sets are dropped once the index is built; a hash of each
+            # stays for _equivalence_candidates.
+            symbols_of = {}
+            for position in reversed(range(len(self.assumption_sources))):
+                conjunct = self.assumption_sources[position][1]
+                if conjunct.decl().kind() == z3.Z3_OP_AND:
+                    symbols = set().union(*(symbols_of[child.get_id()] for child in conjunct.children()))
+                else:
+                    symbols = _symbols(conjunct)
+                symbols_of[conjunct.get_id()] = symbols
+                self.symbol_signatures[conjunct.get_id()] = hash(frozenset(symbols))
+                for symbol in symbols or (None,):
+                    self.sources_by_symbol.setdefault(symbol, []).append(position)
+        symbols = _symbols(formula)
+        if not symbols:
+            return self.assumption_sources
+        positions = set(self.sources_by_symbol.get(None, ()))
+        for symbol in symbols:
+            positions.update(self.sources_by_symbol.get(symbol, ()))
+        return [self.assumption_sources[position] for position in sorted(positions)]
+
+    def _equivalence_candidates(self, formula, candidates):
+        """Return the candidates worth a solver check for equivalence with formula.
+
+        Those are the conjuncts over exactly its symbols, and the leaf
+        conjuncts (not ands) over at least them: Z3's preprocessing may
+        simplify a symbol away, as (f (* 0 y)) to (f 0). The skipped ones
+        are the ands over more symbols, which were only ever refuted, one
+        solver call each over the whole conjunct: a QF_IDL model checking
+        input (FISCHER6-4-ninc) nesting a thousand ands checked seven
+        clauses against every suffix conjunction, 12,207 calls of a 459 s
+        export, before the first candidate, the whole assertion, implied
+        each. A leaf is checked at most once per clause, so the checks stay
+        linear in the size of the assertions. A conjunct equivalent to
+        formula also implies it, so the implication pass of assume still
+        ties a skipped one (through a cnf lemma rather than a rewrite);
+        nothing is trusted by skipping. Symbol sets are compared by hash
+        (_candidate_sources); a collision costs one check. A few sources are
+        not indexed and are all checked.
+        """
+        if self.symbol_signatures is None:
+            return candidates
+        symbols = _symbols(formula)
+        signature = hash(frozenset(symbols))
+        if symbols:
+            positions = set(self.sources_by_symbol.get(next(iter(symbols)), ()))
+            for symbol in symbols:
+                positions.intersection_update(self.sources_by_symbol.get(symbol, ()))
+            covering = {self.assumption_sources[position][1].get_id() for position in positions}
+        else:
+            covering = None  # every source covers no symbols
+        return [source for source in candidates
+                if self.symbol_signatures[source[1].get_id()] == signature
+                or (source[1].decl().kind() != z3.Z3_OP_AND
+                    and (covering is None or source[1].get_id() in covering))]
+
+    def _implying_assertions(self, formula):
+        """Return (asserted node, assertion) pairs for an unsat core of assertions implying formula, or None.
+
+        The core keeps the cnf lemma small: Lean must prove it, and for an
+        unsatisfiable input every clause follows from all assertions together.
+        """
+        assertions = list(dict.fromkeys(self.assertions, None))
+        if not assertions:
+            return None
+        self._check_deadline()
+        solver = z3.Solver(ctx=self.context)
+        solver.set("rlimit", _RLIMIT)
+        tracking = [z3.FreshBool("cnf_source", self.context) for _ in assertions]
+        for literal, assertion in zip(tracking, assertions):
+            solver.assert_and_track(assertion, literal)
+        solver.add(z3.Not(formula))
+        result = solver.check()
+        if result == z3.unknown:
+            # This is the last resort, so a cut-off check must not read as a mismatch.
+            raise ProofExportError("resource limit reached while tying an assumed clause to the assertions: %s"
+                                   % formula)
+        if result != z3.unsat:
+            return None
+        core = {literal.get_id() for literal in solver.unsat_core()}
+        return [(self.dag.node(self.asserted, [self.dag.expression(assertion)]), assertion)
+                for literal, assertion in zip(tracking, assertions) if literal.get_id() in core]
+
+    def _cnf_lemma(self, sources, literals):
+        """Derive a clause from source formulas that imply it, through a cnf theory lemma."""
+        # A source whose negation is already a literal of the clause stays a
+        # literal: resolving it away would also remove it from the clause.
+        clause_keys = {_key(literal) for literal in literals}
+        sources = [(node, formula) for node, formula in sources if _key(z3.Not(formula)) not in clause_keys]
+        declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [_CNF_HINT])
+        lemma_literals = [z3.Not(formula) for _, formula in sources] + list(literals)
+        lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
+        self.alive.extend(lemma_literals)
+        return self._resolve(lemma, [node for node, _ in sources], lemma_literals, list(literals))
+
+    def _check_deadline(self):
+        """Stop the replay once it has run for its time limit.
+
+        Checked before every log command and every bounded solver call (the
+        assumption search makes thousands on a deeply nested assertion), so
+        the replay overruns its limit by at most one of either.
+        """
+        if time.monotonic() > self.deadline:
+            raise ProofExportError("the clause-log replay exceeded the time limit of %d s" % self.time_limit)
+
+    def _valid(self, claim):
+        self._check_deadline()
+        solver = z3.Solver(ctx=self.context)
+        solver.set("rlimit", _RLIMIT)
+        solver.add(z3.Not(claim))
+        return solver.check() == z3.unsat
+
+    def _derive_assumption(self, assertion, path, conjunct, formula):
+        node = self.dag.node(self.asserted, [self.dag.expression(assertion)])
+        for step in path:
+            node = self.dag.node(self.and_elim, [node, self.dag.expression(step)])
+        if conjunct.get_id() != formula.get_id():
+            equivalence = self.dag.node(self.rewrite, [self.dag.expression(conjunct == formula)])
+            node = self.dag.node(self.mp, [node, equivalence, self.dag.expression(formula)])
+        return node
+
+    # -- inferences ------------------------------------------------------
+
+    def infer(self, literals, hint, dependencies=None):
+        """Justify one logged clause.
+
+        farkas, bound, implied-eq, euf, and arith hints list literals that are
+        jointly contradictory, so the lemma is the clause of their complements.
+        tseitin hints list the gate clause itself and become def-axiom nodes.
+        alldiff hints list one of the two gate clauses relating a distinct
+        below the root to the disjunction of its pairwise equalities; those
+        of the right shape (_distinct_gate) become def-axiom nodes too. Any
+        other alldiff clause (a root distinct, logged as assumed clauses since
+        2026-10-20 but as alldiff inferences by older logs) is tied to the
+        original assertions, never taken from the hint. A bare smt hint
+        claims the logged clause is a theory tautology.
+        Whenever the lemma differs from the logged clause, the latter is
+        derived from the lemma and the clause database by unit propagation.
+        """
+        if hint is None:
+            return self.rup(literals, dependencies)
+        name, pairs = hint
+        if name in ("tseitin", "alldiff"):
+            lemma_literals = [literal for _, literal in pairs]
+            if name == "alldiff" and not _distinct_gate(lemma_literals):
+                lemma = self.assume(lemma_literals)
+            else:
+                lemma = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))])
+        else:
+            # The arithmetic solver's axiom for a Real division by a numeral,
+            # q = 0 or q * (p / q) = p, reaches the log with its first literal
+            # as the constant true (the negation of the false disequality
+            # (= q 0), elided from the clause). A true literal adds nothing to
+            # a jointly contradictory set, so it is dropped before the shape
+            # checks, which read linear atoms; a hint of nothing else stays
+            # rejected.
+            pairs = [(coefficient, literal) for coefficient, literal in pairs if not z3.is_true(literal)]
+            if not pairs and name != "smt":
+                raise ProofExportError("%s hint has no literals besides true" % name)
+            if name == "arith":
+                check_arith_hint(pairs)
+            certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
+            parameters = [name]
+            if certified or name == "implied-eq":
+                # Coefficients that re-derive the lemma are kept for the
+                # reconstructor to check again (implied-eq keeps its
+                # placeholders); an integer lemma whose coefficients do not,
+                # and a cut, carry none, which marks it as Lean's alone.
+                parameters.extend(str(coefficient) for coefficient, _ in pairs)
+            lemma_literals = (list(literals) if name == "smt"
+                              else [_complement(literal) for _, literal in pairs])
+            declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
+            lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
+        if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
+            return lemma, lemma_literals
+        entry = self.add_clause(lemma, lemma_literals)
+        try:
+            return self.rup(literals, None if dependencies is None else dependencies + [entry])
+        finally:
+            self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
+
+    def rup(self, literals, dependencies=None):
+        """Derive a clause by unit propagation, as hypotheses, resolutions, and a lemma."""
+        assigned = {}  # atom id -> (polarity, proof node)
+        queue = []
+        units, empty, occurrences = self.units, self.empty, self.occurrences
+        if dependencies is not None:
+            units, empty, occurrences = {}, set(), {}
+            selected = set(dependencies)
+            pending = ([self.literal_key(literal)[0] for literal in literals]
+                       + [key[0] for entry in selected for key in self.clause_keys[entry]])
+            seen = set()
+            while pending:
+                atom = pending.pop()
+                if atom in seen:
+                    continue
+                seen.add(atom)
+                for entry in self.gate_entries.get(atom, ()):
+                    if entry not in selected:
+                        selected.add(entry)
+                        pending.extend(key[0] for key in self.clause_keys[entry])
+            for entry in sorted(selected):
+                _, stored = self.clauses[entry]
+                if not stored:
+                    empty.add(entry)
+                elif len(stored) == 1:
+                    units.setdefault(self.clause_keys[entry][0][0], entry)
+                for atom, _ in self.clause_keys[entry]:
+                    occurrences.setdefault(atom, set()).add(entry)
+
+        def assign(atom, polarity, node):
+            assigned[atom] = (polarity, node)
+            queue.append(atom)
+
+        conflict = None
+        if empty:
+            conflict = self.clauses[min(empty)][0]
+        for literal in literals:
+            if conflict is not None:
+                break
+            complement = _complement(literal)
+            atom, polarity = self.literal_key(complement)
+            node = self.dag.node(self.hypothesis, [self.dag.expression(complement)])
+            if atom in assigned:
+                if assigned[atom][0] != polarity:
+                    # The clause contains complementary literals.
+                    conflict = self._resolve(node, [assigned[atom][1]], [complement], [])
+                    break
+                continue
+            assign(atom, polarity, node)
+        for atom, entry in list(units.items()):
+            if conflict is not None:
+                break
+            node, stored = self.clauses[entry]
+            polarity = self.clause_keys[entry][0][1]
+            if atom not in assigned:
+                assign(atom, polarity, node)
+            elif assigned[atom][0] != polarity:
+                conflict = self._resolve(node, [assigned[atom][1]], stored, [])
+        while conflict is None and queue:
+            atom = queue.pop()
+            for entry in list(occurrences.get(atom, ())):
+                node, stored = self.clauses[entry]
+                false_nodes, open_literal, open_key = [], None, None
+                for literal, key in zip(stored, self.clause_keys[entry]):
+                    state = assigned.get(key[0])
+                    if state is None:
+                        if open_key is not None and open_key != key:
+                            open_literal = None
+                            break
+                        open_literal, open_key = literal, key
+                    elif state[0] == key[1]:
+                        break  # satisfied clause
+                    else:
+                        false_nodes.append(state[1])
+                else:
+                    if open_key is None:
+                        conflict = self._resolve(node, false_nodes, stored, [])
+                        break
+                    if open_literal is not None and false_nodes:
+                        derived = self._resolve(node, false_nodes, stored, [open_literal])
+                        assign(open_key[0], open_key[1], derived)
+                    continue
+                if conflict is not None:
+                    break
+        if conflict is None:
+            raise ProofExportError("inferred clause is not derivable by unit propagation: %s"
+                                   % self.clause_formula(literals))
+        formula = self.clause_formula(literals)
+        return self.dag.node(self.lemma, [conflict, self.dag.expression(formula)]), literals
+
+    def _resolve(self, clause_node, unit_nodes, clause_literals, remaining):
+        units = list(dict.fromkeys(unit_nodes))
+        declaration = self.dag.rule(z3.Z3_OP_PR_UNIT_RESOLUTION, "unit-resolution", 1 + len(units))
+        conclusion = self.clause_formula(remaining)
+        return self.dag.node(declaration, [clause_node] + units + [self.dag.expression(conclusion)])
+
+    # -- driver ----------------------------------------------------------
+
+    def run(self, text):
+        terms = _Terms(self.context, self.assertions)
+        # Boolean variables of the sat core that have no expression are logged
+        # as fresh constants k!<n>, for example goal2sat's internal true literal
+        # when a Boolean unit is asserted. The clauses assuming them are not
+        # tied to any assertion and are dropped; dropping a clause only
+        # removes support for later propagation steps, so every remaining
+        # inference is still justified, and any inference mentioning such a
+        # literal is rejected when it is built.
+        phantoms = set()
+        for command in _sexpressions(text):
+            self._check_deadline()
+            if not command or not isinstance(command[0], str):
+                raise ProofExportError("malformed clause log command")
+            head = command[0]
+            annotation, dependencies = None, None
+            if head in ("assume", "infer") and len(command) > 1:
+                annotation = terms.dependencies(command[-1])
+                if annotation is not None:
+                    self.trimmed = True
+                    ident, ids = annotation
+                    if ident in self.logged_clauses or any(i not in self.logged_clauses for i in ids):
+                        raise ProofExportError("duplicate or forward clause dependency")
+                    dependencies = [self.logged_clauses[i] for i in ids]
+                    command = command[:-1]
+            if head == "declare-fun":
+                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], list):
+                    raise ProofExportError("malformed declaration in the clause log")
+                if command[3] == "Proof":
+                    continue
+                name = _symbol(command[1])
+                if command[2] == []:
+                    declared = name in terms.constants
+                else:
+                    declared = name in terms.functions and terms.functions[name].arity() == len(command[2])
+                if not declared and command[2] == [] and command[3] == "Bool" and name.startswith("k!"):
+                    phantoms.add(name)
+                    continue
+                if not declared:
+                    raise ProofExportError("the clause log declares a symbol absent from the input: %s"
+                                           % command[1])
+            elif head == "declare-sort":
+                if len(command) != 3 or not isinstance(command[1], str) or command[2] != "0":
+                    raise ProofExportError("malformed sort declaration in the clause log")
+                if _symbol(command[1]) not in terms.sorts:
+                    raise ProofExportError("the clause log declares a sort absent from the input: %s"
+                                           % command[1])
+            elif head == "define-const":
+                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], str):
+                    raise ProofExportError("malformed definition in the clause log")
+                terms.define(command[1], command[2], command[3])
+            elif head in ("assume", "del") and phantoms and any(
+                    isinstance(part, str) and _symbol(part) in phantoms
+                    or isinstance(part, list) and part[:1] == ["not"] and len(part) == 2
+                    and isinstance(part[1], str) and _symbol(part[1]) in phantoms
+                    for part in command[1:]):
+                continue  # a clause over a phantom literal is never tied to an assertion
+            elif head == "assume":
+                literals = [terms.build(part) for part in command[1:]]
+                node = self.assume(literals)
+                for literal in literals:
+                    self.ensure_gates(literal)
+                entry = self.add_clause(node, literals)
+            elif head == "infer":
+                if len(command) < 2:
+                    raise ProofExportError("malformed inference in the clause log")
+                hint = terms.hint(command[-1])
+                literals = [terms.build(part) for part in command[1:-1]]
+                for literal in literals + ([pair[1] for pair in hint[1]] if hint else []):
+                    self.ensure_gates(literal)
+                node, stored = self.infer(literals, hint, dependencies)
+                if not literals:
+                    self.root = node
+                entry = self.add_clause(node, stored)
+            elif head == "del":
+                self.delete_clause([terms.build(part) for part in command[1:]])
+            elif head in ("proofs", "set-option", "set-info", "set-logic"):
+                continue
+            else:
+                raise ProofExportError("unsupported clause log command: %s" % head)
+            if annotation is not None:
+                self.logged_clauses[annotation[0]] = entry
+        if self.root is None:
+            # A contradiction found while asserting or during preprocessing is not
+            # logged as an inference, and the log may even be empty. Derive the
+            # empty clause by propagation, or tie it to the assertions directly.
+            try:
+                self.root, _ = self.rup([])
+            except ProofExportError:
+                self.root = self.assume([])
+        return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
+                                    compact=self.trimmed)
+
+
+def build_certificate(source, fragment, assertions, text, context, timeout=None):
+    """Rebuild a clause log as an unverified z3-native-proof-dag bundle.
+
+    timeout (seconds, default _TIME_LIMIT) bounds the replay's wall-clock
+    time; exceeding it raises ProofExportError.
+    """
+    return _Replay(source, fragment, assertions, context, timeout).run(text)

@@ -26,10 +26,22 @@ Notes:
 #include "smt/smt_theory.h"
 #include "smt/theory_wmaxsat.h"
 #include "opt/opt_solver.h"
+#include <algorithm>
 
 namespace opt {
 
     typedef vector<rational> const weights_t;
+
+    struct core_lt {
+        template <typename Core>
+        bool operator()(Core const& a, Core const& b) const {
+            if (a.size() != b.size())
+                return a.size() < b.size();
+            // Equal-size cores can overlap, so their selection order matters.
+            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+                [](expr* x, expr* y) { return x->get_id() < y->get_id(); });
+        }
+    };
 
     struct weighted_core {
         ptr_vector<expr>  m_core;

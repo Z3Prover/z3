@@ -106,9 +106,6 @@ namespace arith {
             n = a.mk_mod(x, a.mk_int(0));
             e = a.mk_mod0(x, a.mk_int(0));
         }
-        else if (a.is_power(n, x, y)) {
-            e = a.mk_power0(x, y);
-        }
         if (e) {
             literal lit = eq_internalize(n, e);
             add_unit(lit);
@@ -265,8 +262,12 @@ namespace arith {
                     st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_power(n, n1, n2)) {
-                    found_unsupported(n);
-                    mk_power_axiom(n, n1, n2);
+                    ctx.push(push_back_vector(m_power_terms));
+                    m_power_terms.push_back(n);
+                    if (a.is_real(n)) {
+                        ensure_nla();
+                        mk_power_axiom(n, n1, n2);
+                    }
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }
@@ -276,7 +277,8 @@ namespace arith {
                     mk_bv_axiom(to_app(n));
                     ensure_arg_vars(to_app(n));
                 }
-                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n)) {
+                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) &&
+                         !a.is_real_part(n) && !a.is_imag_part(n)) {
                     found_unsupported(n);
                     ensure_arg_vars(to_app(n));
                 }
@@ -313,6 +315,14 @@ namespace arith {
     void solver::eq_internalized(enode* n) {
         internalize_term(n->get_arg(0)->get_expr());
         internalize_term(n->get_arg(1)->get_expr());
+        if (a.is_complex(n->get_arg(0)->get_expr())) {
+            expr_ref rhs(n->get_expr(), m);
+            ctx.get_rewriter()(rhs);
+            literal lhs = ctx.expr2literal(n->get_expr());
+            literal r = mk_literal(rhs);
+            add_clause(~lhs, r);
+            add_clause(lhs, ~r);
+        }
     }
 
     expr* solver::mk_sub(expr* x, expr* y) {
@@ -403,9 +413,41 @@ namespace arith {
     }
 
     bool solver::internalize_term(expr* term) {
+        if (a.is_complex(term)) {
+            internalize_complex(term);
+            return true;
+        }
         if (!has_var(term))
             register_theory_var_in_lar_solver(internalize_def(term));
         return true;
+    }
+
+    void solver::apply_sort_cnstr(euf::enode* n, sort*) {
+        if (a.is_complex(n->get_expr()))
+            internalize_complex(n->get_expr());
+    }
+
+    void solver::internalize_complex(expr* term) {
+        if (has_var(term))
+            return;
+        mk_evar(term);
+        expr_ref re(a.mk_real_part(term), m);
+        expr_ref im(a.mk_imag_part(term), m);
+        internalize_term(re);
+        internalize_term(im);
+        if (a.is_complex_constructor(term)) {
+            for (unsigned i = 0; i < 2; ++i) {
+                expr* p = i ? im.get() : re.get();
+                add_unit(eq_internalize(p, to_app(term)->get_arg(i)));
+            }
+        }
+        else {
+            expr_ref value(term, m);
+            ctx.get_rewriter()(value);
+            if (value == term)
+                value = a.mk_complex(re, im);
+            add_unit(eq_internalize(term, value));
+        }
     }
 
     theory_var solver::internalize_def(expr* term, scoped_internalize_state& st) {
@@ -458,7 +500,7 @@ namespace arith {
         theory_var w = mk_evar(n);
 
         if (p == 0) {
-            mk_power0_axioms(t, n);
+            add_unit(eq_internalize(t, a.mk_numeral(rational(1), a.is_int(t))));
         }
         else {
             svector<lpvar> vars;
@@ -634,7 +676,8 @@ namespace arith {
     }
 
     bool solver::reflect(expr* n) const {
-        return get_config().m_arith_reflect || a.is_underspecified(n) || !a.is_arith_expr(n);
+        return get_config().m_arith_reflect || a.is_underspecified(n) || !a.is_arith_expr(n) ||
+            a.is_complex(n) || a.is_real_part(n) || a.is_imag_part(n);
     }
 
     lpvar solver::get_lpvar(theory_var v) const {

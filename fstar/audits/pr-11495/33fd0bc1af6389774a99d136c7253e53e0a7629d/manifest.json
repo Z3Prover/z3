@@ -1,0 +1,22 @@
+{
+  "pull_request": 11495,
+  "head_sha": "33fd0bc1af6389774a99d136c7253e53e0a7629d",
+  "base_sha": "dd4179a5500dfe5dea9ab923177f5a4339c4ffd1",
+  "path_prefix": "fstar/audits/pr-11495/33fd0bc1af6389774a99d136c7253e53e0a7629d/",
+  "verdict": "inconclusive",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41321741951",
+  "files": [
+    {
+      "name": "SkolemComponentAudit.fst",
+      "sha256": "01e0dc4e4d7b8037656e2b026db79e60b0bb98b1118204ad00970b75bf8702b7"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "fd073b690fa2231067b1e7182909440ee6f893c601b76b09e051d268bdae4b9e"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "204d81d73505f78a697ffc4137d2397d62ccf4fa75274462142a684a25f26c33"
+    }
+  ]
+}

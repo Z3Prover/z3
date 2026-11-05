@@ -61,7 +61,7 @@ void sls_engine::updt_params(params_ref const & _p) {
     m_vns_mc = p.vns_mc();
     m_vns_repick = p.vns_repick();
 
-    m_restart_base = p.restart_base();
+    m_restart_base = std::max(1u, p.restart_base());
     m_restart_next = m_restart_base;
     m_restart_init = p.restart_init();
 
@@ -299,7 +299,7 @@ double sls_engine::find_best_move(
 
     // Andreas: Introducting a bit of randomization by using a random offset and a random direction to go through the candidate list.
     unsigned sz = to_evaluate.size();
-    unsigned offset = (m_random_offset) ? m_tracker.get_random_uint(16) % sz : 0;
+    unsigned offset = (m_random_offset && sz > 0) ? m_tracker.get_random_uint(16) % sz : 0;
     for (unsigned j = 0; j < sz; ++j) {
         unsigned i = j + offset;
         if (i >= sz) i -= sz;
@@ -357,7 +357,7 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
 
     // Andreas: Introducting a bit of randomization by using a random offset and a random direction to go through the candidate list.
     unsigned sz = to_evaluate.size();
-    unsigned offset = (m_random_offset) ? m_tracker.get_random_uint(16) % sz : 0;
+    unsigned offset = (m_random_offset && sz > 0) ? m_tracker.get_random_uint(16) % sz : 0;
     for (unsigned j = 0; j < sz; ++j) {
         unsigned i = j + offset;
         if (i >= sz) i -= sz;

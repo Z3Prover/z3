@@ -1,0 +1,22 @@
+{
+  "pull_request": 11455,
+  "head_sha": "7664a1d6921c26f80ce76fe69ac24cd6fc01b3ac",
+  "base_sha": "dad37c85122de03ec838d3d8528de1f341ead036",
+  "path_prefix": "fstar/audits/pr-11455/7664a1d6921c26f80ce76fe69ac24cd6fc01b3ac/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41006809794",
+  "files": [
+    {
+      "name": "Z3FiniteSetSizeBound.fst",
+      "sha256": "b39602d9041d326045107e891eef0dc888abcf67160ca1c95954e06434ab0912"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "a52e631e906050f5b6f3a6de46927802e08539174a4cc0d9b2f4040a1318ffcd"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "cd01dde5bc5111f9c1bfea0fc22a7f920e56f73373c49cceed09faff2eb9f597"
+    }
+  ]
+}

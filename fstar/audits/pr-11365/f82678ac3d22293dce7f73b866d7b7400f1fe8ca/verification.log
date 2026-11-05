@@ -1,0 +1,7 @@
+F* 2026.09.27; z3 4.13.3
+cmd: timeout 120 fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out ModInvSum.fst
+exit: exit 0
+stdout:
+Verified module: ModInvSum
+All verification conditions discharged successfully
+stderr:

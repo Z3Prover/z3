@@ -105,6 +105,7 @@ namespace smt {
         proof_ref_vector               m_new_proofs;
         ast_ref_vector                 m_trail;
         proof_ref                      m_lemma_proof;
+        bool                           m_clause_proof_hypotheses = false;
 
         literal_vector                 m_assumptions;
 
@@ -158,7 +159,9 @@ namespace smt {
         void mk_proof(enode * lhs, enode * rhs, ptr_buffer<proof> & result);
         void mk_proof(enode * lhs, enode * rhs);
         void reset();
+        void process_proof_todo();
         void mk_conflict_proof(b_justification conflict, literal not_l);
+        proof_ref mk_clause_proof(justification* js);
 
     protected:
         template<bool Set>
@@ -277,5 +280,3 @@ namespace smt {
 
 
 }
-
-

@@ -631,15 +631,21 @@ namespace datalog {
         relation_signature const& sig = get_signature();
         for (unsigned i = 0; i < sig.size(); ++i) {
             if (i != find(i)) {
-                conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), m.mk_var(find(i), sig[find(i)])));
+                expr_ref lhs(m.mk_var(i, sig[i]), m);
+                expr_ref rhs(m.mk_var(find(i), sig[find(i)]), m);
+                conjs.push_back(m.mk_eq(lhs, rhs));
                 continue;
             }
             uint_set2 const& upper = (*this)[i];
             for (unsigned idx : upper.lt) {
-                conjs.push_back(arith.mk_lt(m.mk_var(i, sig[i]), m.mk_var(idx, sig[idx])));
+                expr_ref lhs(m.mk_var(i, sig[i]), m);
+                expr_ref rhs(m.mk_var(idx, sig[idx]), m);
+                conjs.push_back(arith.mk_lt(lhs, rhs));
             }
             for (unsigned idx : upper.le) {
-                conjs.push_back(arith.mk_le(m.mk_var(i, sig[i]), m.mk_var(idx, sig[idx])));
+                expr_ref lhs(m.mk_var(i, sig[i]), m);
+                expr_ref rhs(m.mk_var(idx, sig[idx]), m);
+                conjs.push_back(arith.mk_le(lhs, rhs));
             }
         }
         bsimp.mk_and(conjs.size(), conjs.data(), fml);

@@ -2471,6 +2471,26 @@ class JavaExample
         System.out.println("IsLambdaExample passed.");
     }
 
+    public void complexExample(Context ctx) throws TestFailedException
+    {
+        ComplexExpr z = ctx.mkComplexConst("complex_z");
+        ComplexExpr value = ctx.mkComplex(ctx.mkInt(1), ctx.mkReal(2));
+        ArithExpr<ComplexSort> square = ctx.mkMul(z, z);
+        if (!(square instanceof ComplexExpr) || !(square.getSort() instanceof ComplexSort))
+            throw new TestFailedException();
+        Solver solver = ctx.mkSolver();
+        solver.add(ctx.mkEq(z, value));
+        solver.add(ctx.mkNot(ctx.mkEq(square, ctx.mkComplex(ctx.mkReal(-3), ctx.mkReal(4)))));
+        if (solver.check() != Status.UNSATISFIABLE)
+            throw new TestFailedException();
+        solver.reset();
+        solver.add(ctx.mkEq(z, value));
+        if (solver.check() != Status.SATISFIABLE ||
+            !solver.getModel().eval(ctx.mkEq(ctx.mkRealPart(z), ctx.mkReal(1)), true).isTrue() ||
+            !solver.getModel().eval(ctx.mkEq(ctx.mkImagPart(z), ctx.mkReal(2)), true).isTrue())
+            throw new TestFailedException();
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2498,6 +2518,7 @@ class JavaExample
         
                 p.optimizeExample(ctx);
                 p.basicTests(ctx);
+                p.complexExample(ctx);
                 p.castingTest(ctx);
                 p.sudokuExample(ctx);
                 p.quantifierExample1(ctx);

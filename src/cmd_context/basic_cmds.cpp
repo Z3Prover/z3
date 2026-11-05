@@ -523,8 +523,11 @@ class set_option_cmd : public set_get_option_cmd {
             ctx.set_produce_assignments(to_bool(value));
         }
         else if (m_option == m_global_decls || m_option == m_global_declarations) {
-            check_not_initialized(ctx, m_global_decls);
-            ctx.set_global_decls(to_bool(value));
+            auto global_decls = to_bool(value);
+            if (global_decls != ctx.global_decls()) {
+                check_not_initialized(ctx, m_global_decls);
+                ctx.set_global_decls(global_decls);
+            }
         }
         else if (m_option == m_numeral_as_real) {
             ctx.set_numeral_as_real(to_bool(value));

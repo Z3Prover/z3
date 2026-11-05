@@ -19,12 +19,11 @@ Abstract:
 
 namespace seq {
 
-    view_witness::view_witness(trail_stack& t, seq_rewriter& rw, live_states& live,
+    view_witness::view_witness(trail_stack& t, seq_rewriter& rw, live_states&,
                                transition_mode mode) :
         m(rw.m()),
         m_rw(rw),
         m_trail(t),
-        m_live(live),
         m_mode(mode),
         m_pin(m),
         m_witness_pin(m),

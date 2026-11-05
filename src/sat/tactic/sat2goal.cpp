@@ -73,7 +73,8 @@ void sat2goal::mc::flush_gmc() {
             for (unsigned i = 1; i < clause.size(); ++i) {
                 tail.push_back(lit2expr(~clause[i]));
             }
-            def = m.mk_or(lit2expr(lit0), mk_and(tail));
+            expr_ref head = lit2expr(lit0);
+            def = m.mk_or(head, mk_and(tail));
             if (lit0.sign()) {
                 lit0.neg();
                 def = m.mk_not(def);
@@ -252,7 +253,9 @@ struct sat2goal::imp {
         s.collect_bin_clauses(bin_clauses, m_learned, false);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();
-            r.assert_expr(m.mk_or(lit2expr(mc, bc.first), lit2expr(mc, bc.second)));
+            expr* lhs = lit2expr(mc, bc.first);
+            expr* rhs = lit2expr(mc, bc.second);
+            r.assert_expr(m.mk_or(lhs, rhs));
         }
         // collect clauses
         assert_clauses(mc, s, s.clauses(), r, true);

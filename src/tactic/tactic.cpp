@@ -264,6 +264,19 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         goal * final = r[0];
         SASSERT(m.is_false(final->form(0)));
         pr = final->pr(0);
+        proof_converter_ref pc = final->pc();
+        if (pc) {
+            try {
+                pr = apply(m, pc.get());
+                final->set(static_cast<proof_converter*>(nullptr));
+                final->update(0, m.mk_false(), pr, final->dep(0));
+            }
+            catch (z3_exception const& ex) {
+                reason_unknown = ex.what();
+                pr = nullptr;
+                return l_undef;
+            }
+        }
         if (cores_enabled)  core = final->dep(0);
         return l_false;
     }

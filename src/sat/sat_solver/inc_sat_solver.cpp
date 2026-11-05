@@ -303,8 +303,11 @@ public:
         SASSERT(n <= m_num_scopes);
         m_goal2sat.user_pop(n);
         m_solver.user_pop(n);
+        // The SAT solver reuses the numbers of the popped variables.
+        if (m_sat_mc)
+            m_sat_mc->shrink(m_solver.num_vars());
         m_num_scopes -= n;
-        // ? m_internalized_converted = false;
+        m_internalized_converted = false;
         m_has_uninterpreted.pop(n);
         while (n > 0) {
             m_mcs.pop_back();

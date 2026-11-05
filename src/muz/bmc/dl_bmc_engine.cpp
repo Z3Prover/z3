@@ -231,7 +231,8 @@ namespace datalog {
         expr_ref eval_q(model_ref& model, func_decl* f, unsigned i) {
             func_decl_ref fn = mk_q_func_decl(f);
             expr_ref t(m);
-            t = m.mk_app(mk_q_func_decl(f).get(), mk_q_num(i));
+            expr_ref index = mk_q_num(i);
+            t = m.mk_app(fn.get(), index.get());
             return (*model)(t);
         }
 
@@ -273,7 +274,11 @@ namespace datalog {
                 rule* r = nullptr;
                 unsigned i = 0;
                 for (; i < rls.size(); ++i) {
-                    rule_i = m.mk_app(mk_q_rule(pred, i), mk_q_num(level).get());
+                    {
+                        auto lhs = mk_q_rule(pred, i);
+                        expr_ref rhs(mk_q_num(level).get(), m);
+                        rule_i = m.mk_app(lhs.get(), rhs);
+                    }
                     TRACE(bmc, rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                     if (m.is_true(eval_q(md, rule_i, level))) {
                         r = rls[i];
@@ -287,7 +292,7 @@ namespace datalog {
 
                 // extract values for the variables in the rule.
                 for (unsigned j = 0; j < sub.size(); ++j) {
-                    expr_ref vl = eval_q(md, sub[j].get(), i);
+		    expr_ref vl = eval_q(md, sub[j].get(), level); // note: not i
                     if (vl) {
                         // vl can be 0 if the interpretation does not assign a value to it.
                         sub[j] = vl;
@@ -319,7 +324,7 @@ namespace datalog {
                     }
                     proof* premises[2] = { pr, p };
 
-                    positions.push_back(std::make_pair(0, 1));
+                    positions.push_back(std::make_pair(1, 0));
 
                     substs.push_back(sub1);
                     substs.push_back(sub);
@@ -344,10 +349,10 @@ namespace datalog {
                     r0 = r2;
                 }
 
-                if (level == 0) {
-                    SASSERT(r->get_uninterpreted_tail_size() == 0);
-                    break;
+                if (r->get_uninterpreted_tail_size() == 0) {
+                    break;  // fact: accepted at any level
                 }
+                VERIFY(level > 0); // non-fact: level must be positive
                 --level;
                 SASSERT(r->get_uninterpreted_tail_size() == 1);
                 pred = r->get_decl(0);

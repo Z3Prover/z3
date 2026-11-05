@@ -23,6 +23,8 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ff_decl_plugin.h"
+#include "solver/smt_logics.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/var_subst.h"
@@ -635,6 +637,17 @@ namespace smt2 {
             next();
             symbol id = check_identifier_next("invalid indexed sort, symbol expected");
             psort_decl * d = m_ctx.find_psort_decl(id);
+            if (id == symbol("FiniteField")) {
+                if (m_ctx.has_logic() && !smt_logics::logic_has_ff(m_ctx.get_logic()))
+                    throw parser_exception("logic does not support finite fields");
+                check_int("FiniteField expects a prime integer modulus");
+                rational prime = curr_numeral();
+                next();
+                if (!curr_is_rparen()) throw parser_exception("FiniteField expects exactly one modulus");
+                sort* field = ff_util(m()).mk_sort(prime);
+                next();
+                return field;
+            }
             if (d == nullptr)
                 unknown_sort(id);
             sbuffer<unsigned> args;
@@ -1560,14 +1573,23 @@ namespace smt2 {
             // ensure that bound variables are adjusted to vars
             
             func_decl* f = nullptr;
-            try {
-                f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
-            }
-            catch (cmd_exception &) {
-                if (!vars.empty()) {
-                    throw;
+            if (dtutil().is_datatype(srt)) {
+                for (func_decl* c : *dtutil().get_datatype_constructors(srt)) {
+                    if (c->get_name() == C) {
+                        f = c;
+                        break;
+                    }
                 }
-            }            
+            }
+            if (!f) {
+                try {
+                    f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
+                }
+                catch (cmd_exception &) {
+                    if (!vars.empty())
+                        throw;
+                }
+            }
             if (!f && !vars.empty()) {
                 throw parser_exception("expecting a constructor that has been declared");
             }

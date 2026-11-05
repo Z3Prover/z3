@@ -682,6 +682,8 @@ namespace sat {
         }
         if (m_out)
             dump(sz, lits, st);
+        if (m_bout)
+            bdump(sz, lits, st);
 
         if (m_clause_eh)
             m_clause_eh->on_clause(sz, lits, st);

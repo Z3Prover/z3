@@ -49,11 +49,11 @@ namespace sls {
     }
 
     void solver::set_has_new_best_phase(bool b) {
-
+        ctx.s().set_has_new_best_phase(b);
     }
 
     bool solver::get_best_phase(sat::bool_var v) {
-        return false;
+        return ctx.s().get_best_phase(v);
     }
 
     expr* solver::bool_var2expr(sat::bool_var v) {

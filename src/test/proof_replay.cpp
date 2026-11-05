@@ -1,0 +1,1249 @@
+/*++
+Copyright (c) 2026 Microsoft Corporation
+
+Module Name:
+
+    proof_replay.cpp
+
+Abstract:
+
+    Regression tests for replaying sat.smt clause proof logs through the
+    built-in checkers: numerals as the SMT-LIB printer emits them, and the
+    n-ary arithmetic shapes the arithmetic checker linearizes.
+
+--*/
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/extra_cmds/proof_cmds.h"
+#include "parsers/smt2/smt2parser.h"
+#include "sat/sat_proof_trim.h"
+#include "sat/smt/arith_theory_checker.h"
+#include "sat/smt/distinct_theory_checker.h"
+#include "sat/smt/euf_proof_checker.h"
+#include "sat/smt/tseitin_theory_checker.h"
+#include "util/gparams.h"
+#include "util/z3_exception.h"
+#include <cstdlib>
+#include <iostream>
+#include <sstream>
+
+// The replay frontend calls exit(0) when a step does not verify. That would end
+// the test binary successfully with the remaining checks unrun; turn it into a
+// failure instead.
+static bool g_replaying = false;
+static std::ostringstream* g_captured = nullptr;
+
+static void replay_exit_guard() {
+    if (!g_replaying)
+        return;
+    std::cerr << "proof replay exited before completing:\n" << g_captured->str();
+    std::_Exit(1);
+}
+
+struct scoped_replay {
+    std::streambuf* saved;
+    scoped_replay(std::ostringstream& captured) : saved(std::cout.rdbuf(captured.rdbuf())) {
+        g_captured = &captured;
+        g_replaying = true;
+    }
+    ~scoped_replay() {
+        std::cout.rdbuf(saved);
+        g_replaying = false;
+        g_captured = nullptr;
+    }
+};
+
+// Replay a clause proof log and return what the checker printed.
+static std::string replay(char const* log) {
+    static int const registered = std::atexit(replay_exit_guard);
+    ENSURE(registered == 0);
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context ctx(false, &m);
+    install_proof_cmds(ctx);
+    std::istringstream is(log);
+    std::ostringstream captured;
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        ok = parse_smt2_commands(ctx, is);
+    }
+    VERIFY(ok);
+    return captured.str();
+}
+
+// Turn on native proof trimming for the replay and restore the previous value.
+struct scoped_trim {
+    std::string saved = gparams::get_value("solver.proof.trim");
+    scoped_trim() { gparams::set("solver.proof.trim", "true"); }
+    ~scoped_trim() { gparams::set("solver.proof.trim", saved.c_str()); }
+};
+
+static void check_verified_natively(std::string const& out, char const* hint) {
+    std::cout << out;
+    ENSURE(out.find("(verified-smt") == std::string::npos);
+    ENSURE(out.find("did not verify") == std::string::npos);
+    ENSURE(out.find("is not rup") == std::string::npos);
+    ENSURE(out.find(std::string("+") + hint) != std::string::npos);
+}
+
+// The log z3 writes under sat.smt=true for
+//   (declare-const x Real) (declare-const y Real)
+//   (assert (>= (- x y) (/ 1.0 3.0))) (assert (<= (- x y) (/ 1.0 4.0)))
+// The Real constants come back from the printer as divisions.
+static char const* farkas_real_log =
+    "(declare-fun k!1 () Real)\n"
+    "(define-const $24 Bool (>= k!1 (/ 1.0 3.0)))\n"
+    "(assume $24)\n"
+    "(define-const $27 Bool (<= k!1 (/ 1.0 4.0)))\n"
+    "(assume $27)\n"
+    "(declare-fun farkas (Int Bool Int Bool) Proof)\n"
+    "(define-const $31 Proof (farkas 1 $27 1 $24))\n"
+    "(infer $31)\n"
+    "(declare-fun rup () Proof)\n"
+    "(infer rup)\n";
+
+// Negative integers are printed as (- n).
+static char const* farkas_int_log =
+    "(declare-fun k!1 () Int)\n"
+    "(define-const $1 Bool (>= k!1 (- 2)))\n"
+    "(assume $1)\n"
+    "(define-const $2 Bool (<= k!1 (- 3)))\n"
+    "(assume $2)\n"
+    "(declare-fun farkas (Int Bool Int Bool) Proof)\n"
+    "(define-const $3 Proof (farkas 1 $2 1 $1))\n"
+    "(infer $3)\n"
+    "(declare-fun rup () Proof)\n"
+    "(infer rup)\n";
+
+static char const* farkas_to_int_log =
+    "(declare-fun x () Int)\n"
+    "(define-const $1 Bool (>= x (to_int (/ (- 7.0) 3.0))))\n"
+    "(assume $1)\n"
+    "(define-const $2 Bool (<= x (- 4)))\n"
+    "(assume $2)\n"
+    "(declare-fun farkas (Int Bool Int Bool) Proof)\n"
+    "(define-const $3 Proof (farkas 1 $2 1 $1))\n"
+    "(infer $3)\n"
+    "(declare-fun rup () Proof)\n"
+    "(infer rup)\n";
+
+// The same problem logged with smt.solve_eqs, smt.propagate_values, and
+// smt.elim_unconstrained off. The literals contain (* (- 1.0) y), so folding
+// produces terms that exist nowhere else in the log; the RUP checker must keep
+// them alive, or their ids are reused and the units are reported as not RUP.
+static char const* farkas_nopp_log =
+    "(declare-fun y () Real)\n"
+    "(declare-fun x () Real)\n"
+    "(define-const $16 Real (* (- 1.0) y))\n"
+    "(define-const $17 Real (+ x $16))\n"
+    "(define-const $21 Bool (>= $17 (/ 1.0 3.0)))\n"
+    "(assume $21)\n"
+    "(define-const $19 Bool (<= $17 (/ 1.0 4.0)))\n"
+    "(assume $19)\n"
+    "(declare-fun farkas (Int Bool Int Bool) Proof)\n"
+    "(define-const $25 Proof (farkas 1 $19 1 $21))\n"
+    "(infer $25)\n"
+    "(declare-fun rup () Proof)\n"
+    "(infer rup)\n";
+
+static void tst_replay_folds_printed_numerals() {
+    check_verified_natively(replay(farkas_real_log), "farkas 1");
+    check_verified_natively(replay(farkas_int_log), "farkas 1");
+    check_verified_natively(replay(farkas_to_int_log), "farkas 1");
+    check_verified_natively(replay(farkas_nopp_log), "farkas 1");
+}
+
+// Parse the assertions of text, unsimplified, in order.
+static expr_ref_vector parse_lits(ast_manager& m, char const* text) {
+    cmd_context ctx(false, &m);
+    ctx.set_ignore_check(true);
+    std::istringstream is(text);
+    VERIFY(parse_smt2_commands(ctx, is));
+    expr_ref_vector lits(m);
+    for (expr* e : ctx.assertions())
+        lits.push_back(e);
+    return lits;
+}
+
+static app_ref mk_arith_hint(ast_manager &m, char const *name, expr_ref_vector const &coeffs,
+                             expr_ref_vector const &lits) {
+    ENSURE(coeffs.size() == lits.size());
+    expr_ref_vector args(m);
+    for (unsigned i = 0; i < lits.size(); ++i) {
+        args.push_back(coeffs.get(i));
+        args.push_back(lits.get(i));
+    }
+    return app_ref(m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort()), m);
+}
+
+static expr_ref_vector ints(ast_manager& m, std::initializer_list<int> ns) {
+    arith_util a(m);
+    expr_ref_vector r(m);
+    for (int n : ns)
+        r.push_back(a.mk_int(n));
+    return r;
+}
+
+// (* 2 3 x) is 6x: numeral factors of an n-ary product fold into the coefficient.
+static void tst_checker_nary_mul() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    expr_ref_vector lits = parse_lits(m,
+        "(declare-const x Real)"
+        "(assert (>= (* 2.0 3.0 x) 1.0))(assert (<= x 0.0))");
+    ENSURE(lits.size() == 2);
+    ENSURE(to_app(to_app(lits.get(0))->get_arg(0))->get_num_args() == 3);
+    arith::theory_checker checker(m);
+    ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 6}), lits)));
+    // x * y is nonlinear; the product stays one opaque term and the hint is not proven.
+    lits = parse_lits(m,
+        "(declare-const x Real)(declare-const y Real)"
+        "(assert (>= (* 2.0 x y) 1.0))(assert (<= x 0.0))");
+    ENSURE(!checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 2}), lits)));
+}
+
+// Printed numerals in literals and in hint coefficients are accepted without a replay fold.
+static void tst_checker_printed_numerals() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref_vector lits = parse_lits(m,
+        "(declare-const x Real)"
+        "(assert (>= x (/ 1.0 3.0)))(assert (<= x (- (/ 1.0 4.0))))");
+    ENSURE(a.is_div(to_app(lits.get(0))->get_arg(1)));
+    expr_ref_vector coeffs(m);
+    coeffs.push_back(a.mk_uminus(a.mk_int(1)));
+    coeffs.push_back(a.mk_uminus(a.mk_int(1)));
+    arith::theory_checker checker(m);
+    ENSURE(checker.check(mk_arith_hint(m, "farkas", coeffs, lits)));
+}
+
+static void tst_checker_zero_weight_strictness() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    for (char const *atom : {"(< x 0)", "(> x 0)", "(not (<= x 0))", "(not (>= x 0))"}) {
+        std::string source = std::string("(declare-const x Real)(assert ") + atom + ")";
+        auto lits = parse_lits(m, source.c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "farkas", ints(m, {0}), lits)));
+        lits.push_back(mk_not(m, lits.get(0)));
+        ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 1}), lits)));
+    }
+
+    auto lits = parse_lits(m, "(declare-const x Real)(declare-const y Real)"
+                              "(assert (< x 0))(assert (<= y 0))(assert (>= y 0))");
+    for (char const *name : {"farkas", "bound"})
+        ENSURE(!checker.check(mk_arith_hint(m, name, ints(m, {0, 1, 1}), lits)));
+
+    // A zero-weight premise must not discard a genuine strict contradiction.
+    lits = parse_lits(m, "(declare-const x Real)(declare-const y Real)"
+                         "(assert (< x 0))(assert (< y 0))(assert (>= y 0))");
+    for (char const *name : {"farkas", "bound"})
+        ENSURE(checker.check(mk_arith_hint(m, name, ints(m, {0, 1, 1}), lits)));
+
+    lits = parse_lits(m, "(declare-const x Real)(assert (<= x 1))(assert (> x 0))");
+    ENSURE(!checker.check(mk_arith_hint(m, "bound", ints(m, {1, 0}), lits)));
+}
+
+static void tst_checker_bound_row_strictness() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    // Both literals hold at x = -1. The premise's strictness cannot make
+    // the separate consequent row 0 <= 0 contradictory.
+    auto lits = parse_lits(m, "(declare-const x Real)"
+                              "(assert (< x 0))(assert (<= (- x x) 0))");
+    ENSURE(!checker.check(mk_arith_hint(m, "bound", ints(m, {1, 1}), lits)));
+
+    lits = parse_lits(m, "(declare-const x Real)"
+                         "(assert (< x 0))(assert (not (<= (- x x) 0)))");
+    ENSURE(checker.check(mk_arith_hint(m, "bound", ints(m, {1, 1}), lits)));
+
+    lits = parse_lits(m, "(declare-const x Real)"
+                         "(assert (< (- x x) 0))(assert (<= (- x x) 0))");
+    ENSURE(checker.check(mk_arith_hint(m, "bound", ints(m, {1, 1}), lits)));
+
+    // Combining rows must retain strictness from either participating row.
+    for (char const *source : {"(declare-const x Real)(assert (< x 0))(assert (>= x 0))",
+                               "(declare-const x Real)(assert (<= x 0))(assert (> x 0))",
+                               "(declare-const x Real)(declare-const y Real)"
+                               "(assert (= x y))(assert (< x 0))(assert (>= y 0))"}) {
+        lits = parse_lits(m, source);
+        auto coeffs = lits.size() == 2 ? ints(m, {1, 1}) : ints(m, {1, 1, 1});
+        for (char const *name : {"farkas", "bound"})
+            ENSURE(checker.check(mk_arith_hint(m, name, coeffs, lits)));
+    }
+}
+
+static void tst_checker_implied_eq_conclusion() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    for (char const *sort : {"Real", "Int"}) {
+        std::string decls = std::string("(declare-const x ") + sort + ")(declare-const y " + sort + ")";
+        auto lits = parse_lits(m, (decls + "(assert (not (= x y)))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {0}), lits)));
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+
+        lits = parse_lits(m, (decls + "(assert (<= x 0))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+        lits = parse_lits(m, (decls + "(assert (= x y))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+
+        lits = parse_lits(m, (decls + "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))").c_str());
+        for (int coeff : {1, -1})
+            ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, coeff}), lits)));
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 0}), lits)));
+    }
+
+    expr_ref_vector empty(m);
+    ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", empty, empty)));
+    auto args = ints(m, {1});
+    app_ref incomplete(m.mk_app(symbol("implied-eq"), args.size(), args.data(), m.mk_proof_sort()), m);
+    ENSURE(!checker.check(incomplete));
+}
+
+static void tst_checker_implied_eq_constant_rows() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    for (char const *sort : {"Real", "Int"}) {
+        std::string decls = std::string("(declare-const x ") + sort + ")(declare-const y " + sort +
+                           ")(declare-const z " + sort + ")";
+        for (char const *tautology : {"(<= 0 1)", "(< 0 1)", "(<= 0 0)"}) {
+            std::string premise = decls + "(assert " + tautology + ")";
+            auto lits = parse_lits(m, (premise + "(assert (<= x y))(assert (>= x y))"
+                                               "(assert (not (= x y)))").c_str());
+            ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1, 1}), lits)));
+
+            lits = parse_lits(m, (premise + "(assert (not (= x y)))").c_str());
+            ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1}), lits)));
+        }
+
+        // Equality substitution and elimination can also leave constant rows.
+        auto lits = parse_lits(m, (decls + "(assert (= z 0))(assert (<= z 1))"
+                                         "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))").c_str());
+        ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1, 1, 1}), lits)));
+        lits = parse_lits(m, (decls + "(assert (<= z 1))(assert (>= z 0))"
+                                    "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))").c_str());
+        ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1, 1, 1}), lits)));
+
+        for (char const *contradiction : {"(<= 1 0)", "(< 0 0)"}) {
+            lits = parse_lits(m, (decls + "(assert (<= 0 0))(assert " + contradiction +
+                                        ")(assert (not (= x y)))").c_str());
+            ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1}), lits)));
+
+            // An early contradiction must not leave tight rows for the next hint.
+            lits = parse_lits(m, (decls + "(assert (not (= x y)))").c_str());
+            ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+        }
+        lits = parse_lits(m, (decls + "(assert (<= z 0))(assert (>= z 1))"
+                                    "(assert (not (= x y)))").c_str());
+        ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1}), lits)));
+
+        lits = parse_lits(m, (decls + "(assert (< 0 0))(assert (not (= x y)))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {0, 1}), lits)));
+    }
+}
+
+static void tst_replay_implied_eq_constant_row() {
+    check_verified_natively(replay(
+        "(declare-const x Real)(declare-const y Real)"
+        "(assume (<= 0.0 1.0))(assume (<= x y))(assume (>= x y))(assume (not (= x y)))"
+        "(declare-fun implied-eq (Int Bool Int Bool Int Bool Int Bool) Proof)"
+        "(infer (implied-eq 1 (<= 0.0 1.0) 1 (<= x y) 1 (>= x y) 1 (not (= x y))))"
+        "(declare-fun rup () Proof)(infer rup)"), "implied-eq 1");
+}
+
+// A tseitin hint lists the gate clause itself.
+static bool check_tseitin(ast_manager& m, expr_ref_vector const& lits) {
+    app_ref hint(m.mk_app(symbol("tseitin"), lits.size(), lits.data(), m.mk_proof_sort()), m);
+    tseitin::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+static bool check_tseitin(ast_manager& m, char const* source) {
+    return check_tseitin(m, parse_lits(m, source));
+}
+
+// An xor gate clause is a tautology only when every argument of the xor is
+// fixed by a clause literal and the xor then takes the value the clause needs:
+// an odd number of true arguments for a positive gate literal, an even number
+// for a negated one.
+static void tst_checker_tseitin_xor() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls = "(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)";
+    auto check = [&](char const* clause) {
+        return check_tseitin(m, (std::string(decls) + clause).c_str());
+    };
+    // The four clauses defining (xor a b).
+    ENSURE(check("(assert (xor a b))(assert a)(assert (not b))"));
+    ENSURE(check("(assert (xor a b))(assert (not a))(assert b)"));
+    ENSURE(check("(assert (not (xor a b)))(assert a)(assert b)"));
+    ENSURE(check("(assert (not (xor a b)))(assert (not a))(assert (not b))"));
+    // Each wrong-polarity clause has a falsifying assignment.
+    ENSURE(!check("(assert (xor a b))(assert a)(assert b)"));
+    ENSURE(!check("(assert (xor a b))(assert (not a))(assert (not b))"));
+    ENSURE(!check("(assert (not (xor a b)))(assert a)(assert (not b))"));
+    ENSURE(!check("(assert (not (xor a b)))(assert (not a))(assert b)"));
+    // An argument the clause leaves free can take either value.
+    ENSURE(!check("(assert (not (xor a b)))(assert a)"));
+    ENSURE(!check("(assert (not (xor a b)))(assert (not a))"));
+    ENSURE(!check("(assert (xor a b))(assert (not a))"));
+    // Repeated and constant arguments.
+    ENSURE(!check("(assert (xor a a))(assert a)"));
+    ENSURE(!check("(assert (xor a a))(assert (not a))"));
+    ENSURE(check("(assert (not (xor a a)))(assert a)"));
+    ENSURE(check("(assert (xor a true))(assert a)"));
+    ENSURE(!check("(assert (xor a true))(assert (not a))"));
+    ENSURE(check("(assert (xor a false))(assert (not a))"));
+    ENSURE(!check("(assert (xor a false))(assert a)"));
+    // xor is binary in the AST, (xor a b c) is (xor a (xor b c)): the inner
+    // gate is an argument the clause does not fix.
+    ENSURE(!check("(assert (xor a b c))(assert a)(assert b)(assert (not c))"));
+    ENSURE(check("(assert (xor a b c))(assert a)(assert (not (xor b c)))"));
+    ENSURE(!check("(assert (xor a b c))(assert a)(assert (xor b c))"));
+    // Other gates are unaffected.
+    ENSURE(check("(assert (and a b))(assert (not a))(assert (not b))"));
+    ENSURE(!check("(assert (and a b))(assert (not a))(assert b)"));
+}
+
+// Both polarities of the gate verify natively in a replayed log.
+static void tst_replay_tseitin_xor() {
+    check_verified_natively(replay(
+        "(declare-fun a () Bool)(declare-fun b () Bool)(declare-fun p () Bool)"
+        "(define-const $1 Bool (xor a b))"
+        "(declare-fun tseitin (Bool Bool Bool) Proof)"
+        "(infer (not a) (not b) (not $1) (tseitin (not $1) (not a) (not b)))"
+        "(infer a b (not $1) (tseitin (not $1) a b))"
+        "(infer a (not b) $1 (tseitin $1 a (not b)))"
+        "(infer (not a) b $1 (tseitin $1 (not a) b))"
+        "(assume p $1)(assume (not p))(assume a)(assume b)"
+        "(declare-fun rup () Proof)(infer $1 rup)(infer rup)"), "tseitin 4");
+}
+
+// Constants in a gate clause have their value under every assignment: Z3 logs
+// a gate over true with a separate false literal standing for (not true), and
+// a clause with a literal that is constantly true, or with a literal and its
+// negation, is a tautology whatever its gate.
+static void tst_checker_tseitin_constants() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls =
+        "(declare-sort U 0)(declare-const a U)(declare-const b U)"
+        "(declare-const p Bool)(declare-const q Bool)(declare-fun r (Bool) Bool)";
+    auto check = [&](char const* clause) {
+        return check_tseitin(m, (std::string(decls) + clause).c_str());
+    };
+    ENSURE(check("(assert true)(assert false)(assert false)"));
+    ENSURE(check("(assert false)(assert (not (not true)))"));
+    ENSURE(check("(assert (not (r p)))(assert (not p))(assert p)"));
+    ENSURE(check("(assert (not (r true)))(assert (not (ite p q true)))(assert (r true))"));
+    ENSURE(check("(assert false)(assert (or (= a b) true))"));
+    ENSURE(check("(assert (not (= true q)))(assert q)(assert false)"));
+    ENSURE(check("(assert (= true q))(assert (not q))(assert false)"));
+    ENSURE(check("(assert (ite p q true))(assert p)(assert false)"));
+    ENSURE(check("(assert (not (ite (not q) (not true) (r q))))(assert q)(assert false)"));
+    ENSURE(check("(assert (= (ite p a a) a))"));
+    // The same shapes with the constant on the wrong side are falsifiable.
+    ENSURE(!check("(assert false)"));
+    ENSURE(!check("(assert (not true))(assert false)"));
+    ENSURE(!check("(assert (or (= a b) false))(assert false)"));
+    ENSURE(!check("(assert (not (= true q)))(assert (not q))(assert false)"));
+    ENSURE(!check("(assert (= true q))(assert q)(assert false)"));
+    ENSURE(!check("(assert (ite p q true))(assert (not p))(assert false)"));
+    ENSURE(!check("(assert (not (ite (not q) (not true) (r q))))(assert (not q))(assert false)"));
+    ENSURE(!check("(assert (= (ite p a b) a))"));
+    ENSURE(!check("(assert (= (ite p a a) b))"));
+}
+
+// An euf hint lists the negated clause literals, then the congruence steps.
+static bool check_euf(ast_manager& m, std::string const& decls, char const* lits, char const* congruences) {
+    expr_ref_vector args = parse_lits(m, (decls + lits).c_str());
+    expr_ref_vector eqs = parse_lits(m, (decls + congruences).c_str());
+    for (expr* eq : eqs)
+        args.push_back(m.mk_app(symbol("cc"), 1, &eq, m.mk_proof_sort()));
+    app_ref hint(m.mk_app(symbol("euf"), args.size(), args.data(), m.mk_proof_sort()), m);
+    euf::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// A Boolean term under a function, (pb (not q)), is congruent to (pb true)
+// when the literals fix q to false; (not q) itself need not be a literal.
+static void tst_checker_euf_negated_arguments() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    std::string decls = "(declare-const q Bool)(declare-const s Bool)(declare-fun pb (Bool) Bool)";
+    ENSURE(check_euf(m, decls, "(assert (not q))(assert (pb true))(assert (not (pb (not q))))",
+                     "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(check_euf(m, decls, "(assert s)(assert (pb (not s)))(assert (not (pb false)))",
+                     "(assert (= (pb (not s)) (pb false)))"));
+    ENSURE(check_euf(m, decls, "(assert q)(assert (pb (not (not q))))(assert (not (pb true)))",
+                     "(assert (= (pb (not (not q))) (pb true)))"));
+    ENSURE(check_euf(m, decls, "(assert (not q))(assert (pb (not q)))(assert (not (pb (not s))))(assert (not s))",
+                     "(assert (= (pb (not q)) (pb (not s))))"));
+    // q true, or q unconstrained, does not make (not q) true.
+    ENSURE(!check_euf(m, decls, "(assert q)(assert (pb true))(assert (not (pb (not q))))",
+                      "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(!check_euf(m, decls, "(assert (pb true))(assert (not (pb (not q))))",
+                      "(assert (= (pb (not q)) (pb true)))"));
+    ENSURE(!check_euf(m, decls, "(assert (not q))(assert (pb (not q)))(assert (not (pb (not s))))(assert s)",
+                      "(assert (= (pb (not q)) (pb (not s))))"));
+    // The congruence step is still required.
+    ENSURE(!check_euf(m, decls, "(assert (not q))(assert (pb true))(assert (not (pb (not q))))", ""));
+}
+
+// Z3's logs for such clauses verify natively, without the SMT fallback.
+static void tst_replay_boolean_constants_and_arguments() {
+    check_verified_natively(replay(
+        "(declare-fun s () Bool)(declare-fun pb (Bool) Bool)"
+        "(define-const $1 Bool (not s))(define-const $2 Bool (pb $1))(define-const $3 Bool (pb false))"
+        "(assume s)(assume $2)(assume (not $3))"
+        "(declare-fun cc (Bool) Proof)(declare-fun euf (Bool Bool Bool Proof) Proof)"
+        "(infer $1 $3 (not $2) (euf $2 s (not $3) (cc (= $2 $3))))"
+        "(declare-fun rup () Proof)(infer rup)"), "euf 1");
+    check_verified_natively(replay(
+        "(declare-sort U 0)(declare-fun a () U)(declare-fun p () Bool)(declare-fun q () Bool)"
+        "(define-const $1 Bool (= (ite p a a) a))(define-const $2 Bool (= true q))"
+        "(declare-fun tseitin (Bool) Proof)(infer $1 (tseitin $1))"
+        "(declare-fun tseitin (Bool Bool Bool) Proof)(infer (not $2) q false (tseitin (not $2) q false))"
+        "(assume (not $1) $2)(assume (not q))(assume (not false))"
+        "(declare-fun rup () Proof)(infer rup)"), "tseitin 2");
+}
+
+// A bare arith hint (an axiom of sat.smt's arith solver) lists the negated
+// clause literals; a leading true stands for a literal the log omits.
+static bool check_arith_axiom(ast_manager& m, char const* source, bool leading_true = false) {
+    auto lits = parse_lits(m, source);
+    expr_ref_vector args(m);
+    if (leading_true)
+        args.push_back(m.mk_true());
+    for (expr* lit : lits)
+        args.push_back(mk_not(m, lit));
+    app_ref hint(m.mk_app(symbol("arith"), args.size(), args.data(), m.mk_proof_sort()), m);
+    arith::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// The arith solver's axioms (arith_axioms.cpp) for div, mod and / by a numeral
+// and for abs went to the SMT fallback (5,213 steps over the division
+// generators of test_proof_to_lean_lia.py, 18 over test_proof_to_lean_uflra.py),
+// and so did the rem axiom with the false guard (280 steps over
+// random_remainder_instance seeds 1 to 40). They are checked against the
+// defining identities and bounds now.
+static void tst_checker_arith_axioms() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls = "(declare-const x Int)(declare-const y Int)(declare-const r Real)";
+    auto check = [&](char const* clause, bool leading_true = false) {
+        return check_arith_axiom(m, (std::string(decls) + clause).c_str(), leading_true);
+    };
+    ENSURE(check("(assert (= (+ (* 3 (div x 3)) (mod x 3)) x))"));
+    ENSURE(check("(assert (= (+ (* (- 3) (div (+ x y) (- 3))) (mod (+ x y) (- 3))) (+ x y)))"));
+    ENSURE(check("(assert (>= (mod x 3) 0))"));
+    ENSURE(check("(assert (<= (mod x 3) 2))"));
+    ENSURE(check("(assert (<= (mod (* 2 x) (- 3)) 2))"));
+    ENSURE(check("(assert (< (mod x 3) 3))"));
+    ENSURE(check("(assert (not (< (mod x 3) 0)))"));
+    ENSURE(check("(assert (= (* 2.0 (/ 1.0 2.0)) 1.0))", true));
+    ENSURE(check("(assert (= (* 2.0 (/ r 2.0)) r))", true));
+    ENSURE(check("(assert (not (>= x 0)))(assert (= (abs x) x))"));
+    ENSURE(check("(assert (>= x 0))(assert (= (abs x) (- x)))"));
+    ENSURE(check("(assert (not (>= x 1)))(assert (= (abs x) x))"));
+    ENSURE(check("(assert (> r 0.0))(assert (= (- r) (abs r)))"));
+    // The two rem axioms of each sign of the divisor (arith_axioms.cpp's
+    // mk_rem_axiom): one guard is valid, the other leaves the rem identity.
+    ENSURE(check("(assert (not (>= 3 0)))(assert (= (rem (+ x y) 3) (mod (+ x y) 3)))"));
+    ENSURE(check("(assert (>= 3 0))(assert (= (rem (+ x y) 3) (- (mod (+ x y) 3))))"));
+    ENSURE(check("(assert (>= (- 3) 0))(assert (= (rem (+ x y) (- 3)) (- (mod (+ x y) (- 3)))))"));
+    ENSURE(check("(assert (not (>= (- 3) 0)))(assert (= (rem (+ x y) (- 3)) (mod (+ x y) (- 3))))"));
+    ENSURE(check("(assert (= (- (mod (* 2 x) (- 4))) (rem (* 2 x) (- 4))))"));
+    ENSURE(check("(assert (= (+ (* 3 (div x 3)) (rem x 3)) x))"));
+    ENSURE(check("(assert (= (+ (* 3 (div x (- 3))) (rem x (- 3))) (- x)))"));
+    // Wrong multiplier, term, divisor or bound, division by zero, the wrong
+    // abs case, and a hint of nothing are falsifiable.
+    ENSURE(!check("(assert (= (+ (* 2 (div x 3)) (mod x 3)) x))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x 3)) (mod y 3)) x))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x 3)) (mod x 2)) x))"));
+    ENSURE(!check("(assert (= (+ (* 0 (div x 0)) (mod x 0)) x))"));
+    ENSURE(!check("(assert (>= (mod x 0) 0))"));
+    ENSURE(!check("(assert (>= (mod x 3) 1))"));
+    ENSURE(!check("(assert (<= (mod x 3) 1))"));
+    ENSURE(!check("(assert (< (mod x (- 3)) 2))"));
+    ENSURE(!check("(assert (not (= (+ (* 3 (div x 3)) (mod x 3)) x)))"));
+    ENSURE(!check("(assert (= (* 0.0 (/ r 0.0)) r))", true));
+    ENSURE(!check("(assert (= (* 3.0 (/ r 2.0)) r))", true));
+    ENSURE(!check("(assert (>= x 0))(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (not (>= x 0)))(assert (= (abs x) (- x)))"));
+    ENSURE(!check("(assert (not (>= x (- 1))))(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (= (abs x) x))"));
+    ENSURE(!check("(assert (= (abs x) (+ x 1)))(assert (not (>= x 0)))"));
+    // rem with the identity of the other sign, another dividend, a zero or
+    // term divisor, and bounds, which no rem axiom states.
+    ENSURE(!check("(assert (not (>= 3 0)))(assert (= (rem x 3) (- (mod x 3))))"));
+    ENSURE(!check("(assert (>= (- 3) 0))(assert (= (rem x (- 3)) (mod x (- 3))))"));
+    ENSURE(!check("(assert (= (rem x 3) (mod y 3)))"));
+    ENSURE(!check("(assert (= (rem x 0) (mod x 0)))"));
+    ENSURE(!check("(assert (= (rem x y) (mod x y)))"));
+    ENSURE(!check("(assert (= (+ (* 3 (div x (- 3))) (rem x (- 3))) x))"));
+    ENSURE(!check("(assert (>= (rem x (- 3)) 0))"));
+    ENSURE(!check("", true));
+    ENSURE(check("(assert (not (= 1 2)))"));
+    ENSURE(!check("(assert (= 1 2))"));
+}
+
+// Z3's log for (> (mod x 3) 2) under sat.smt (shapes of liad1.log),
+// with abs, rem and a numeral division: every axiom verifies natively, and the
+// trimmer keeps the axiom whose true argument the logged clause omits.
+static char const* arith_axioms_log =
+    "(declare-fun x () Int)(declare-fun y () Int)"
+    "(define-const $1 Int (mod x 3))(define-const $2 Int (div x 3))"
+    "(define-const $3 Bool (= (+ (* 3 $2) $1) x))(define-const $4 Bool (>= $1 0))"
+    "(define-const $5 Bool (<= $1 2))"
+    "(declare-fun arith (Bool) Proof)"
+    "(infer $3 (arith (not $3)))(infer $4 (arith (not $4)))(infer $5 (arith (not $5)))"
+    "(define-const $6 Bool (>= y 0))(define-const $7 Bool (= (abs y) y))(define-const $8 Bool (= (abs y) (- y)))"
+    "(declare-fun arith (Bool Bool) Proof)"
+    "(infer (not $6) $7 (arith $6 (not $7)))(infer $6 $8 (arith (not $6) (not $8)))"
+    "(define-const $10 Int (+ x y))(define-const $11 Int (mod $10 (- 3)))(define-const $12 Int (rem $10 (- 3)))"
+    "(define-const $13 Bool (>= (- 3) 0))(define-const $14 Bool (= $12 $11))(define-const $15 Bool (= $12 (- $11)))"
+    "(infer (not $13) $14 (arith $13 (not $14)))(infer $13 $15 (arith (not $13) (not $15)))"
+    "(define-const $9 Bool (= (* 2.0 (/ 1.0 2.0)) 1.0))"
+    "(infer $9 (arith true (not $9)))"
+    "(assume (not $5) (not $9))(assume (not $7) (not $8))"
+    "(declare-fun rup () Proof)(infer rup)";
+
+static void tst_replay_arith_axioms() {
+    check_verified_natively(replay(arith_axioms_log), "arith 8");
+    std::string out;
+    {
+        scoped_trim trim;
+        out = replay(arith_axioms_log);
+    }
+    std::cout << out;
+    ENSURE(out.find("not derivable") == std::string::npos);
+    ENSURE(out.find("(infer rup") != std::string::npos);
+}
+
+// An alldiff hint lists the clause itself.
+static bool check_alldiff(ast_manager& m, char const* source) {
+    auto lits = parse_lits(m, source);
+    app_ref hint(m.mk_app(symbol("alldiff"), lits.size(), lits.data(), m.mk_proof_sort()), m);
+    distinct::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// The only alldiff hints Z3 emits are the two gate clauses relating a distinct
+// below the root to the disjunction of its pairwise equalities. Anything else,
+// in particular the clauses of a distinct asserted at the root (which the log
+// records as input), is not a theory tautology and is rejected.
+static void tst_checker_alldiff() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls =
+        "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)(declare-const d U)"
+        "(declare-const q Bool)(declare-const x Int)";
+    auto check = [&](char const* clause) {
+        return check_alldiff(m, (std::string(decls) + clause).c_str());
+    };
+    // Z3's two gate clauses, with three arguments and with two.
+    ENSURE(check("(assert (distinct a b c))(assert (or (= a b) (= a c) (= b c)))"));
+    ENSURE(check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c))))"));
+    ENSURE(check("(assert (or (= a b) (= a c) (= b c)))(assert (distinct a b c))"));
+    ENSURE(check("(assert (distinct a b))(assert (= a b))"));
+    ENSURE(check("(assert (not (distinct a b)))(assert (not (= a b)))"));
+    // Equalities are matched up to symmetry.
+    ENSURE(check("(assert (distinct a b c))(assert (or (= b a) (= c a) (= c b)))"));
+    ENSURE(check("(assert (not (distinct a b c)))(assert (not (or (= b a) (= c a) (= c b))))"));
+    // Mixed polarities are falsifiable.
+    ENSURE(!check("(assert (distinct a b c))(assert (not (or (= a b) (= a c) (= b c))))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (or (= a b) (= a c) (= b c)))"));
+    ENSURE(!check("(assert (distinct a b))(assert (not (= a b)))"));
+    // The positive clause needs every pair; the negated clause needs every
+    // disjunct to be an equality of two arguments.
+    ENSURE(!check("(assert (distinct a b c))(assert (or (= a b) (= a c)))"));
+    ENSURE(!check("(assert (distinct a b c))(assert (or (= a b) (= a c) (= b d)))"));
+    ENSURE(!check("(assert (distinct a b c))(assert (= a b))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) (= a d))))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) q)))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) (= a a))))"));
+    ENSURE(!check("(assert (not (distinct a b)))(assert (not q))"));
+    // An extra disjunct only weakens what the positive clause demands.
+    ENSURE(check("(assert (distinct a b c))(assert (or (= a b) (= a c) (= b c) q))"));
+    ENSURE(check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) false)))"));
+    // A repeated argument makes the distinct false: its equality is true.
+    ENSURE(check("(assert (distinct a b a))(assert (or true (= a b)))"));
+    ENSURE(check("(assert (not (distinct a b a)))(assert (not (or true (= a b))))"));
+    ENSURE(!check("(assert (not (distinct a b)))(assert (not (or true (= a b))))"));
+    ENSURE(!check("(assert (distinct a b a))(assert (= a b))"));
+    ENSURE(check("(assert (distinct a b a))(assert (or (= a a) (= a b)))"));
+    // Numerals that are distinct values never need an equality.
+    ENSURE(check("(assert (distinct 1 2 x))(assert (or (= 1 x) (= 2 x)))"));
+    ENSURE(!check("(assert (distinct 1 x))(assert (= 2 x))"));
+    // The clauses of a root distinct are not tautologies.
+    ENSURE(!check("(assert (= a b))(assert (= a c))(assert (= b c))"));
+    ENSURE(!check("(assert (not (= a b)))"));
+    ENSURE(!check("(assert (= a b))"));
+    ENSURE(!check(""));
+    ENSURE(!check("(assert (distinct a b c))(assert q)(assert (or (= a b) (= a c) (= b c)))"));
+    ENSURE(!check("(assert q)(assert (or (= a b) (= a c) (= b c)))"));
+}
+
+// Z3's log for (or p (distinct a b c)), (or (not p) (distinct a b c)), (= a c):
+// both gate clauses verify natively.
+static void tst_replay_alldiff_gates() {
+    check_verified_natively(replay(
+        "(declare-sort U 0)(declare-fun a () U)(declare-fun b () U)(declare-fun c () U)"
+        "(define-const $15 Bool (= a b))(define-const $16 Bool (= b c))(define-const $13 Bool (= a c))"
+        "(define-const $14 Bool (or $15 $13 $16))"
+        "(declare-fun tseitin (Bool Bool) Proof)"
+        "(infer (not $15) $14 (tseitin (not $15) $14))"
+        "(infer (not $13) $14 (tseitin (not $13) $14))"
+        "(infer (not $16) $14 (tseitin (not $16) $14))"
+        "(declare-fun tseitin (Bool Bool Bool Bool) Proof)"
+        "(infer $15 $13 $16 (not $14) (tseitin $15 $13 $16 (not $14)))"
+        "(define-const $9 Bool (distinct a b c))"
+        "(declare-fun alldiff (Bool Bool) Proof)"
+        "(infer (not $9) (not $14) (alldiff (not $9) (not $14)))"
+        "(infer $9 $14 (alldiff $9 $14))"
+        "(declare-fun p () Bool)"
+        "(assume p $9)(assume (not p) $9)(assume $13)"
+        "(declare-fun rup () Proof)"
+        "(infer $14 rup)(infer (not $9) rup)(infer p rup)(infer rup)"), "alldiff 2");
+}
+
+static void tst_is_extended_numeral() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    rational n;
+    expr_ref t(m);
+    t = a.mk_real(7);
+    ENSURE(a.is_extended_numeral(t, n) && n == 7);
+    {
+        expr_ref lhs(a.mk_uminus(a.mk_real(1)), m);
+        expr_ref lhs1(a.mk_real(2), m);
+        expr_ref rhs(a.mk_uminus(a.mk_real(4)), m);
+        expr_ref rhs1(a.mk_div(lhs1, rhs), m);
+        t = a.mk_div(lhs, rhs1);
+    }
+    ENSURE(a.is_extended_numeral(t, n) && n == 2);
+    t = a.mk_to_real(a.mk_uminus(a.mk_int(3)));
+    ENSURE(a.is_extended_numeral(t, n) && n == -3);
+    {
+        expr_ref lhs(a.mk_real(-7), m);
+        expr_ref rhs(a.mk_real(3), m);
+        t = a.mk_to_int(a.mk_div(lhs, rhs));
+    }
+    ENSURE(a.is_extended_numeral(t, n) && n == -3);
+    {
+        expr_ref lhs(a.mk_real(7), m);
+        expr_ref rhs(a.mk_real(3), m);
+        t = a.mk_to_real(a.mk_to_int(a.mk_div(lhs, rhs)));
+    }
+    ENSURE(a.is_extended_numeral(t, n) && n == 2);
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref rhs(a.mk_real(0), m);
+        t = a.mk_div(lhs, rhs);
+    }
+    ENSURE(!a.is_extended_numeral(t, n));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref rhs(a.mk_uminus(a.mk_real(0)), m);
+        t = a.mk_div(lhs, rhs);
+    }
+    ENSURE(!a.is_extended_numeral(t, n));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref lhs1(a.mk_real(1), m);
+        expr_ref rhs(a.mk_real(0), m);
+        expr_ref rhs1(a.mk_div(lhs1, rhs), m);
+        t = a.mk_div(lhs, rhs1);
+    }
+    ENSURE(!a.is_extended_numeral(t, n));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref lhs1(a.mk_real(1), m);
+        expr_ref rhs(a.mk_real(-1), m);
+        expr_ref rhs1(a.mk_add(lhs1, rhs), m);
+        t = a.mk_div(lhs, rhs1);
+    }
+    ENSURE(!a.is_extended_numeral(t, n));
+    {
+        expr_ref lhs(a.mk_real(2), m);
+        expr_ref rhs(a.mk_real(3), m);
+        expr_ref lhs1(a.mk_mul(lhs, rhs), m);
+        expr_ref lhs2(a.mk_real(1), m);
+        expr_ref rhs1(a.mk_real(2), m);
+        expr_ref rhs2(a.mk_add(lhs2, rhs1), m);
+        t = a.mk_sub(lhs1, rhs2);
+    }
+    ENSURE(a.is_extended_numeral(t, n) && n == 3);
+    t = a.mk_uminus(m.mk_const(symbol("x"), a.mk_real()));
+    ENSURE(!a.is_extended_numeral(t, n));
+
+    // A numeral under many wrappers must not overflow the stack.
+    t = a.mk_real(1);
+    for (unsigned i = 0; i < 200000; ++i)
+        t = a.mk_uminus(t);
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
+    for (unsigned i = 0; i < 20000; ++i)
+        t = a.mk_div(t, a.mk_real(1));
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
+    t = a.mk_real(1);
+    for (unsigned i = 0; i < 20000; ++i) {
+        expr_ref lhs(a.mk_add(t, a.mk_real(0)), m);
+        expr_ref rhs(a.mk_real(1), m);
+        t = a.mk_div(lhs, rhs);
+    }
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
+    for (unsigned i = 0; i < 20000; ++i)
+        t = a.mk_to_real(a.mk_to_int(t));
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
+
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref_vector lits(m);
+    {
+        expr_ref lhs(a.mk_mul(t, x), m);
+        expr_ref rhs(a.mk_real(1), m);
+        lits.push_back(a.mk_ge(lhs, rhs));
+    }
+    lits.push_back(a.mk_le(x, a.mk_real(0)));
+    arith::theory_checker checker(m);
+    ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 1}), lits)));
+}
+
+// Drive euf::smt_proof_checker directly, since the replay frontend ends the
+// process when a step does not verify. The assertions of text are, in order,
+// n_assume unit assumptions, the n_clause literals of the inferred clause, and
+// the arguments of the hint named hint. Returns whether the inference verified
+// and stores what the checker printed in out.
+static bool infer_verifies(std::string const& text, unsigned n_assume, unsigned n_clause, char const* hint, std::string& out) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    auto lits = parse_lits(m, text.c_str());
+    ENSURE(lits.size() >= n_assume + n_clause);
+    params_ref p;
+    euf::smt_proof_checker checker(m, p);
+    expr_ref_vector clause(m), args(m);
+    unsigned i = 0;
+    for (; i < n_assume; ++i) {
+        clause.reset();
+        clause.push_back(lits.get(i));
+        checker.assume(clause);
+    }
+    clause.reset();
+    for (; i < n_assume + n_clause; ++i)
+        clause.push_back(lits.get(i));
+    for (; i < lits.size(); ++i)
+        args.push_back(lits.get(i));
+    app_ref jst(m.mk_app(symbol(hint), args.size(), args.data(), m.mk_proof_sort()), m);
+    std::ostringstream captured;
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        try {
+            ok = checker.infer(clause, jst);
+        }
+        catch (default_exception const& ex) {
+            if (std::string(ex.what()) != "SMT proof verification failed")
+                throw;
+            ok = false;
+        }
+    }
+    out = captured.str();
+    return ok;
+}
+
+// The SMT fallback proves the logged clause, or the hint's clause when the
+// logged clause follows from it (dropped literals false by RUP). It used to
+// negate the hint's clause together with the logged clause, so a hint whose
+// clause is a tautology made any logged clause pass as verified-smt.
+static void tst_fallback_proves_logged_clause() {
+    std::string decls = "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)";
+    std::string gate = "(assert (distinct a b c))(assert (or (= a b) (= a c) (= b c)))";
+    std::string out;
+    // (distinct a b c) from its negation, under the valid gate hint
+    // (or (distinct a b c) some_eq): the dropped some_eq is not false by RUP,
+    // so the fallback refutes the logged unit alone and finds it satisfiable.
+    ENSURE(!infer_verifies(decls + "(assert (not (distinct a b c)))(assert (distinct a b c))" + gate, 1, 1, "alldiff", out));
+    ENSURE(out.find("is not rup") != std::string::npos);
+    ENSURE(out.find("did not verify") != std::string::npos);
+    ENSURE(out.find("(verified-smt") == std::string::npos);
+    // Without a hint plugin the logged clause is refuted on its own as well.
+    ENSURE(!infer_verifies(decls + "(assert (not (distinct a b c)))(assert (distinct a b c))" + gate, 1, 1, "nohint", out));
+    ENSURE(out.find("did not verify") != std::string::npos);
+    // The same step with some_eq assumed false verifies natively.
+    ENSURE(infer_verifies(decls + "(assert (not (or (= a b) (= a c) (= b c))))(assert (distinct a b c))" + gate, 1, 1, "alldiff", out));
+    ENSURE(out.find("+alldiff 1") != std::string::npos);
+    ENSURE(out.find("(verified-smt") == std::string::npos);
+    // A hint the plugin cannot check but whose clause is valid: the array
+    // plugin's clause is the negation of the arguments, here
+    // (or (= a b) (not (= b a))). With (= b a) assumed the dropped literal is
+    // false by RUP and the fallback proves the hint's clause.
+    ENSURE(infer_verifies(decls + "(assert (= b a))(assert (= a b))(assert (not (= a b)))(assert (= b a))", 1, 1, "array", out));
+    ENSURE(out.find("(verified-smt") != std::string::npos);
+    // Without the assumption the dropped literal is not RUP; the logged unit
+    // (= a b) alone is satisfiable and the step is rejected.
+    ENSURE(!infer_verifies(decls + "(assert (= a b))(assert (not (= a b)))(assert (= b a))", 0, 1, "array", out));
+    ENSURE(out.find("is not rup") != std::string::npos);
+    ENSURE(out.find("did not verify") != std::string::npos);
+    // When the dropped literal is not RUP but the logged clause is valid on its
+    // own, the fallback proves it; the output must not say "is not rup", which
+    // z3test's proof_matrix.py reads as a rejection.
+    ENSURE(infer_verifies(decls + "(assert (= a a))(assert (not (= a a)))(assert (= b a))", 0, 1, "array", out));
+    ENSURE(out.find("(verified-smt") != std::string::npos);
+    ENSURE(out.find("is not rup") == std::string::npos);
+    // A logged clause outside the hint's clause is proved on its own.
+    ENSURE(infer_verifies(decls + "(assert (= a b))(assert (= b a))(assert (= a a))", 1, 1, "array", out));
+    ENSURE(out.find("(verified-smt") != std::string::npos);
+    ENSURE(!infer_verifies(decls + "(assert (= b a))(assert (= a a))", 0, 1, "array", out));
+    ENSURE(out.find("did not verify") != std::string::npos);
+}
+
+static void tst_trim_satisfied_clause() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal p(trim.mk_var(), false), q(trim.mk_var(), false), r(trim.mk_var(), false);
+    auto assume = [&](unsigned id, std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+        trim.assume(id);
+    };
+    assume(0, {p});
+    assume(1, {~q});
+    assume(2, {p, q, r}); // Already satisfied: it must not propagate r.
+    assume(3, {~r});
+    assume(4, {~p});
+    trim.init_clause();
+    trim.infer(5);
+    auto core = trim.trim();
+    ENSURE(core.size() == 3);
+    ENSURE(core[0].first == 0);
+    ENSURE(core[1].first == 4);
+    ENSURE(core[2].first == 5);
+}
+
+// The literal a binary clause implies is justified by the clause's literals
+// alone, so the copies of one binary clause share that justification. When
+// the trimmer removed the last-added copy on its way back through the log it
+// unassigned the literal although earlier copies remained, and with it every
+// fact derived from it. A fact whose own clause had been deleted in the
+// meantime (u below, implied by a since-deleted clause and also asserted as a
+// unit) could not be re-derived by propagation, so the probe of a later
+// inference that relied on it found no conflict and its dependencies were
+// garbage (z3test hard16.smt2 and hard20.smt2, iter-032).
+static void tst_trim_duplicate_binary_keeps_implied_literal() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false), u(trim.mk_var(), false),
+        c(trim.mk_var(), false), d(trim.mk_var(), false), e(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({a}); trim.assume(0);
+    clause({~a, b}); trim.assume(1);       // implies b
+    clause({~b, ~a, u}); trim.assume(2);   // implies u
+    clause({~b, ~a, u}); trim.del();       // u stays a fact of the solver
+    clause({u}); trim.infer(3);            // already true: justified by clause 2
+    clause({~u, ~d, c, ~e}); trim.assume(4);
+    clause({~u, ~d, c, e}); trim.assume(5);
+    clause({~d, c}); trim.infer(6);        // rup from 4 and 5: needs u
+    clause({~a, b}); trim.assume(7);       // a second copy, satisfied
+    clause({d}); trim.assume(8);           // implies c through 6 alone
+    clause({~c}); trim.assume(9);
+    clause({}); trim.infer(10);
+    auto core = trim.trim();
+    unsigned_vector ids;
+    unsigned_vector const* deps6 = nullptr;
+    for (auto const& [id, deps] : core) {
+        ids.push_back(id);
+        if (id == 6)
+            deps6 = &deps;
+    }
+    for (unsigned id : {1u, 2u, 4u, 5u, 6u, 8u, 9u, 10u})
+        ENSURE(ids.contains(id));
+    ENSURE(!ids.contains(7));
+    ENSURE(deps6 && deps6->contains(4) && deps6->contains(5) && deps6->contains(2));
+    for (unsigned dep : *deps6)
+        ENSURE(dep < 6);
+}
+
+// An inference that unit propagation over the preceding clauses cannot derive
+// is an error, not a step with made-up dependencies.
+static void tst_trim_rejects_underivable_inference() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({a}); trim.assume(0);
+    clause({b}); trim.infer(1);            // not derivable from {a}
+    clause({~b}); trim.assume(2);
+    clause({}); trim.infer(3);
+    bool rejected = false;
+    try {
+        trim.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("not derivable by unit propagation") != std::string::npos;
+    }
+    ENSURE(rejected);
+}
+
+// The trimmer's unit propagation finds the conflict as soon as the clause set
+// is inconsistent, often thousands of steps before the solver logs the empty
+// clause. The clauses added in between are ignored, but their deletions were
+// recorded, so the backward pass revived a clause the proof never had: it took
+// part in the probes and, being registered nowhere, a core that chased a
+// literal it implied failed with "used by the proof was never added" (z3test
+// LassoRanker HarrisLalNoriRajamani-..._4-pieceTemplate.smt2, iter-032). The
+// same happens for a deletion before the conflict of a clause never added (a
+// theory lemma logged under literals the trimmer did not assume). Both are
+// ignored now, and the core below is the one of the log without them.
+static void tst_trim_ignores_deletions_of_clauses_never_added() {
+    for (bool before_conflict : {false, true}) {
+        params_ref params;
+        reslimit limit;
+        sat::proof_trim trim(params, limit);
+        // In the probe of step 5 the never-added resolvent {~b, c, d} implies
+        // d in the first propagation round, before the registered binary 3
+        // can, so the conflict's dependencies chase it.
+        sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false), c(trim.mk_var(), false),
+            x(trim.mk_var(), false), d(trim.mk_var(), false);
+        auto clause = [&](std::initializer_list<sat::literal> literals) {
+            trim.init_clause();
+            for (auto literal : literals)
+                trim.add_literal(literal.var(), literal.sign());
+        };
+        clause({a}); trim.assume(0);
+        clause({~a, b}); trim.assume(1);          // implies b
+        clause({~b, c, x}); trim.assume(2);
+        clause({~x, d}); trim.assume(3);
+        clause({~x, ~d}); trim.assume(4);
+        clause({c}); trim.infer(5);               // rup from 2, 3, and 4
+        if (before_conflict) {
+            clause({~b, c, d}); trim.del();       // never added
+        }
+        clause({~c}); trim.assume(6);             // the conflict
+        if (!before_conflict) {
+            clause({~b, c, d}); trim.assume(7);   // ignored: after the conflict
+            clause({~b, c, d}); trim.del();
+        }
+        clause({}); trim.infer(8);
+        auto core = trim.trim();
+        unsigned_vector ids;
+        unsigned_vector const* deps5 = nullptr;
+        for (auto const& [id, deps] : core) {
+            ids.push_back(id);
+            if (id == 5)
+                deps5 = &deps;
+        }
+        for (unsigned id : {0u, 1u, 2u, 3u, 4u, 5u, 6u, 8u})
+            ENSURE(ids.contains(id));
+        ENSURE(!ids.contains(7));
+        ENSURE(deps5 && deps5->contains(2) && deps5->contains(3) && deps5->contains(4));
+        for (unsigned dep : *deps5)
+            ENSURE(dep < 5);
+    }
+}
+
+// At base level the solver watches a clause's first two literals as given.
+// The trimmer added {~a, ~b, c, d} in that (sorted) order after a and b, so
+// both watches were false, ~c and ~d never woke the clause, and the conflict
+// went unnoticed: the core of the empty clause was the empty clause alone,
+// depending on itself (random_instance(1, 10, 30, ite=True) of
+// test_proof_to_lean_arith.py, iter-040). An empty clause that propagation
+// cannot derive is an error, and an assumed empty clause is a conflict.
+static void tst_trim_watches_literals_that_are_not_false() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false), c(trim.mk_var(), false),
+        d(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({a}); trim.assume(0);
+    clause({b}); trim.assume(1);
+    clause({~a, ~b, c, d}); trim.assume(2);
+    clause({~c}); trim.assume(3);
+    clause({~d}); trim.assume(4);
+    clause({}); trim.infer(5);
+    auto core = trim.trim();
+    ENSURE(core.size() == 6);
+    for (unsigned i = 0; i < core.size(); ++i) {
+        ENSURE(core[i].first == i);
+        for (unsigned dep : core[i].second)
+            ENSURE(dep < i);
+    }
+    ENSURE(core[5].second.size() == 5);
+
+    sat::proof_trim trim2(params, limit);
+    sat::literal p(trim2.mk_var(), false), q(trim2.mk_var(), false);
+    auto clause2 = [&](std::initializer_list<sat::literal> literals) {
+        trim2.init_clause();
+        for (auto literal : literals)
+            trim2.add_literal(literal.var(), literal.sign());
+    };
+    clause2({p}); trim2.assume(0);
+    clause2({~p, q}); trim2.assume(1);
+    clause2({}); trim2.infer(2);           // not derivable: p and q hold
+    bool rejected = false;
+    try {
+        trim2.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("empty clause is not derivable") != std::string::npos;
+    }
+    ENSURE(rejected);
+
+    // An input that asserts false is logged as an assumed empty clause; it
+    // is the conflict itself, and the inferred empty clause depends on it.
+    sat::proof_trim trim3(params, limit);
+    sat::literal r(trim3.mk_var(), false);
+    trim3.init_clause(); trim3.add_literal(r.var(), r.sign()); trim3.assume(0);
+    trim3.init_clause(); trim3.assume(1);
+    trim3.init_clause(); trim3.infer(2);
+    auto core3 = trim3.trim();
+    ENSURE(core3.size() == 2);
+    ENSURE(core3[0].first == 1 && core3[0].second.empty());
+    ENSURE(core3[1].first == 2 && core3[1].second.size() == 1 && core3[1].second[0] == 1);
+}
+
+// An empty clause inferred under a theory hint is assumed (proof_cmds treats
+// theory axioms as assumptions). When nothing before it conflicts, its core
+// would be itself; trim() rejects it. An assumed empty clause that follows a
+// conflict is not part of the core.
+static void tst_trim_assumed_empty_clauses() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal x(trim.mk_var(), false), y(trim.mk_var(), false);
+    trim.init_clause(); trim.add_literal(x.var(), x.sign()); trim.assume(0);
+    trim.init_clause(); trim.add_literal(y.var(), y.sign()); trim.assume(1);
+    trim.init_clause(); trim.assume(2);    // (infer (arith ...)) of the empty clause
+    bool rejected = false;
+    try {
+        trim.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("theory axiom whose premises are unknown") != std::string::npos;
+    }
+    ENSURE(rejected);
+
+    sat::proof_trim trim2(params, limit);
+    sat::literal a(trim2.mk_var(), false), b(trim2.mk_var(), false);
+    trim2.init_clause(); trim2.add_literal(a.var(), a.sign()); trim2.assume(0);
+    trim2.init_clause(); trim2.add_literal(a.var(), !a.sign()); trim2.assume(1);
+    trim2.init_clause(); trim2.assume(2);
+    trim2.init_clause(); trim2.add_literal(b.var(), b.sign()); trim2.assume(3);
+    trim2.init_clause(); trim2.infer(4);
+    auto core = trim2.trim();
+    ENSURE(core.size() == 3);
+    ENSURE(core[0].first == 0 && core[1].first == 1 && core[2].first == 4);
+    ENSURE(core[2].second.size() == 2);
+}
+
+// A Boolean term under an uninterpreted function, x = (not q) in (pb (not q)),
+// is a solver variable of its own, and the log prints its literals as (not q)
+// and (not (not q)), the same text as q negated and q. The trimmer stripped
+// one negation per literal, so (not (not q)) became a variable unrelated to
+// q, the final conflict over it was not found, and the export replayed the
+// untrimmed log (random_bool_argument_instance seeds 347 and 2088 of
+// test_proof_to_lean_uf.py, iter-041). Every negation is stripped now.
+static void tst_trim_double_negation() {
+    char const* log =
+        "(declare-fun q () Bool)\n"
+        "(declare-fun pb (Bool) Bool)\n"
+        "(assume (not q))\n"
+        "(assume (not (not q)) (pb true))\n"
+        "(assume (not (pb true)))\n"
+        "(declare-fun rup () Proof)\n"
+        "(infer rup)\n";
+    std::string out;
+    {
+        scoped_trim trim;
+        out = replay(log);
+    }
+    std::cout << out;
+    ENSURE(out.find("not derivable") == std::string::npos);
+    // The empty clause depends on all three assumptions.
+    for (char const* deps : {"(deps 0)", "(deps 1)", "(deps 2)", "(deps 3 "})
+        ENSURE(out.find(deps) != std::string::npos);
+}
+
+// A logged clause can repeat a literal: (not $6) q a with $6 = (not q) is
+// q q a to the trimmer, which stores it as q a. Its deletion must remove it
+// too; it was ignored, so the empty clause below got a core over the deleted
+// clause. Without it the empty clause is not derivable from (not q) and
+// (not a), and the trimmer rejects the log.
+static void tst_trim_deletes_clauses_with_repeated_literals() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal q(trim.mk_var(), false), a(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({q, q, a}); trim.assume(0);
+    clause({q, q, a}); trim.del();
+    clause({~q}); trim.assume(1);
+    clause({~a}); trim.assume(2);
+    clause({}); trim.infer(3);
+    bool rejected = false;
+    try {
+        trim.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("empty clause is not derivable") != std::string::npos;
+    }
+    ENSURE(rejected);
+}
+
+void tst_proof_replay() {
+    tst_trim_double_negation();
+    tst_trim_deletes_clauses_with_repeated_literals();
+    tst_trim_satisfied_clause();
+    tst_trim_watches_literals_that_are_not_false();
+    tst_trim_assumed_empty_clauses();
+    tst_trim_duplicate_binary_keeps_implied_literal();
+    tst_trim_rejects_underivable_inference();
+    tst_trim_ignores_deletions_of_clauses_never_added();
+    tst_is_extended_numeral();
+    tst_checker_nary_mul();
+    tst_checker_printed_numerals();
+    tst_checker_zero_weight_strictness();
+    tst_checker_bound_row_strictness();
+    tst_checker_implied_eq_conclusion();
+    tst_checker_implied_eq_constant_rows();
+    tst_replay_implied_eq_constant_row();
+    tst_checker_tseitin_xor();
+    tst_replay_tseitin_xor();
+    tst_checker_tseitin_constants();
+    tst_checker_euf_negated_arguments();
+    tst_replay_boolean_constants_and_arguments();
+    tst_checker_arith_axioms();
+    tst_replay_arith_axioms();
+    tst_checker_alldiff();
+    tst_replay_alldiff_gates();
+    tst_fallback_proves_logged_clause();
+    tst_replay_folds_printed_numerals();
+}

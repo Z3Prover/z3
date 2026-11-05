@@ -1381,7 +1381,12 @@ class parallel_solver {
             return false;
         }
 
-        lbool probe_literal(expr* e, bool is_retry) {
+        lbool probe_literal(expr* lit, bool is_retry) {
+            // Callers pass freshly created literals that nobody else references yet
+            // (mk_not can return a node with reference count 0). Keep an owning
+            // reference for the whole call: otherwise popping the assumption below
+            // can delete the node that is still used afterwards.
+            expr_ref e(lit, m);
             lbool r = l_undef;
             try {
                 asms.push_back(e);
@@ -1454,7 +1459,11 @@ class parallel_solver {
                         unsigned old_max_conflicts = s->get_max_conflicts();
                         s->set_max_conflicts(10);
 
-                        for (expr* lit : chunk_lits) {
+                        // The retry call below passes the same vector for both arguments.
+                        // Erasing from bb_candidate_lits while iterating chunk_lits would
+                        // then invalidate the loop bounds, so iterate over a snapshot.
+                        expr_ref_vector chunk(chunk_lits);
+                        for (expr* lit : chunk) {
                             if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
                                 s->set_max_conflicts(old_max_conflicts);
                                 return;
@@ -1781,7 +1790,12 @@ class parallel_solver {
                     return;
                 }
 
-                expr* lit = unknown.back();
+                // Hold an owning reference: popping `unknown` can drop the last
+                // reference to the literal (the solver only keeps internalized
+                // assumptions alive until its assumption scope is popped, and
+                // `not_lit` does not reference `lit` when `lit` is a negation).
+                // `lit` is still used after the check_sat below.
+                expr_ref lit(unknown.back(), m);
                 unknown.pop_back();
                 expr_ref not_lit(mk_not(m, lit), m);
 

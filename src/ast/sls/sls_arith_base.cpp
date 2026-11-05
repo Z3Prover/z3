@@ -995,7 +995,7 @@ namespace sls {
             add_arg(term, coeff, mk_op(arith_op_kind::OP_DIV, e, x, y));
         else if (a.is_rem(e, x, y))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_REM, e, x, y));
-        else if (a.is_power(e, x, y) || a.is_power0(e, x, y))
+        else if (a.is_power(e, x, y))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_POWER, e, x, y));
         else if (a.is_abs(e, x))
             add_arg(term, coeff, mk_op(arith_op_kind::OP_ABS, e, x, x));
@@ -2756,8 +2756,8 @@ namespace sls {
         //m_config.ucb_noise = p.ucb_noise();
         //m_config.ucb_forget = p.ucb_forget();
         m_config.wp = p.wp();
-        m_config.restart_base = p.restart_base();
-        m_config.restart_next = p.restart_base();
+        m_config.restart_base = std::max(1u, p.restart_base());
+        m_config.restart_next = m_config.restart_base;
         //m_config.max_moves_base = p.max_moves_base();
         //m_config.max_moves = p.max_moves();
         m_config.use_lookahead = p.arith_use_lookahead();

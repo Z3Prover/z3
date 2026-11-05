@@ -21,6 +21,7 @@ Notes:
 #include "api/z3.h"
 #include "util/trace.h"
 #include "util/debug.h"
+#include <cstring>
 
 //
 // Test that the ackermannize_bv tactic runs correctly on a BV formula with
@@ -159,6 +160,12 @@ static void test_ackr_bound_probe() {
 
     Z3_probe pr = Z3_mk_probe(ctx, "ackr-bound-probe");
     Z3_probe_inc_ref(ctx, pr);
+
+    ENSURE(Z3_probe_get_descr(ctx, "ackr-bound-probe")[0] != '\0');
+    bool found = false;
+    for (unsigned i = 0; i < Z3_get_num_probes(ctx); ++i)
+        found |= std::strcmp(Z3_get_probe_name(ctx, i), "ackr-bound-probe") == 0;
+    ENSURE(found);
 
     double bound = Z3_probe_apply(ctx, pr, g);
     // Two occurrences of f → C(2,2) = 1 Ackermann lemma required.

@@ -196,6 +196,9 @@ namespace opt {
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
         expr_ref_vector              m_core;
+        obj_map<expr, expr*>         m_elim_quantifiers_cache;
+        expr_ref_vector              m_elim_quantifiers_pinned;
+        unsigned                     m_elim_quantifiers_budget = 0;
         tactic_ref                   m_simplify;
         bool                         m_enable_sat = true;
         bool                         m_enable_sls = false;
@@ -305,6 +308,7 @@ namespace opt {
         lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);        
         lbool execute_maxsat(symbol const& s, bool committed, bool scoped);
         lbool execute_lex();
+        lbool execute_lex_after_unbounded(unsigned unbounded_index);
         lbool execute_box();
         lbool execute_pareto();
         solver* mk_pareto_solver();
@@ -315,6 +319,8 @@ namespace opt {
         void reset_maxsmts();
         void import_scoped_state();
         void normalize(expr_ref_vector const& asms);
+        bool eliminate_quantifiers(expr_ref_vector& fmls);
+        expr_ref eliminate_quantifiers(expr* f);
         void internalize();
         bool is_objective(expr* fml);
         bool is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
@@ -375,6 +381,9 @@ namespace opt {
 
         // pareto
         void publish_pareto_result();
+        void maximize_in_cone(solver& s, model_ref& mdl) override;
+        bool maximize_objective_in_cone(expr_ref_vector const& assertions, unsigned index, model_ref& mdl);
+        bool maximize_objective_in_cone_smt(expr_ref_vector const& assertions, unsigned index, model_ref& mdl);
         expr_ref mk_ge(expr* t, expr* s);
         expr_ref mk_cmp(bool is_ge, model_ref& mdl, objective const& obj);
 

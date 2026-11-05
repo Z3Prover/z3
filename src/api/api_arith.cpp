@@ -49,6 +49,15 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    Z3_sort Z3_API Z3_mk_complex_sort(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_mk_complex_sort(c);
+        RESET_ERROR_CODE();
+        Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), COMPLEX_SORT));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_ast Z3_API Z3_mk_real_int64(Z3_context c, int64_t num, int64_t den) {
         Z3_TRY;
         LOG_Z3_mk_real_int64(c, num, den);
@@ -80,6 +89,9 @@ extern "C" {
     START_DISABLE_EXTRA_SEMI_WARNING;
     MK_ARITH_OP(Z3_mk_add, OP_ADD);
     MK_ARITH_OP(Z3_mk_mul, OP_MUL);
+    MK_BINARY_ARITH_OP(Z3_mk_complex, OP_COMPLEX);
+    MK_UNARY(Z3_mk_real_part, mk_c(c)->get_arith_fid(), OP_REAL_PART, SKIP);
+    MK_UNARY(Z3_mk_imag_part, mk_c(c)->get_arith_fid(), OP_IMAG_PART, SKIP);
     MK_BINARY_ARITH_OP(Z3_mk_power, OP_POWER);
     MK_BINARY_ARITH_OP(Z3_mk_mod, OP_MOD);
     MK_BINARY_ARITH_OP(Z3_mk_rem, OP_REM);
@@ -92,7 +104,8 @@ extern "C" {
         decl_kind k = OP_IDIV;
         sort* ty = to_expr(n1)->get_sort();
         sort* real_ty = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
-        if (ty == real_ty) {
+        if (ty == real_ty || arith_util(mk_c(c)->m()).is_complex(ty) ||
+            arith_util(mk_c(c)->m()).is_complex(to_expr(n2))) {
             k = OP_DIV;
         }
         expr * args[2] = { to_expr(n1), to_expr(n2) };

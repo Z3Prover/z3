@@ -141,6 +141,8 @@ public class Sort extends AST
             return new IntSort(ctx, obj);
         case Z3_REAL_SORT:
             return new RealSort(ctx, obj);
+        case Z3_COMPLEX_SORT:
+            return new ComplexSort(ctx, obj);
         case Z3_UNINTERPRETED_SORT:
             return new UninterpretedSort(ctx, obj);
         case Z3_FINITE_DOMAIN_SORT:

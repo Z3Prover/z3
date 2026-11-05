@@ -44,6 +44,7 @@ Proof checker for clauses created during search.
 #include "ast/ast_util.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
@@ -78,8 +79,18 @@ class proof_trim {
         return arg->get_id();
     }
         
+    /**
+     * A Boolean term under an uninterpreted function, such as (not q) in
+     * (pb (not q)), is its own variable in the solver, but the log prints
+     * its positive literal as the term itself. The literal (not q) is then
+     * printed the same whether it is that variable or q negated, and its
+     * negation as (not (not q)). Strip every negation, so both readings
+     * land on the variable of q.
+     */
     void add_literal(expr* arg) {
-        bool sign = m.is_not(arg, arg);
+        bool sign = false;
+        while (m.is_not(arg, arg))
+            sign = !sign;
         trim.add_literal(mk_var(arg), sign);
     }
 
@@ -126,7 +137,9 @@ public:
         if (m_empty)
             return;
 
-        if (hint && !is_rup(hint)) {
+        // A hint without a checker plugin has no clause of its own: the
+        // logged clause is assumed, as for any theory axiom.
+        if (hint && !is_rup(hint) && m_checker.has_rule(hint)) {
             auto clause1 = m_checker.clause(hint);
             if (clause1.size() != clause.size()) {
                 mk_clause(clause1);
@@ -236,10 +249,42 @@ public:
     
 };
 
+/**
+ * Numerals in a proof log arrive as the SMT-LIB printer wrote them: negative
+ * values as (- n), non-integers as (/ n d), and casts such as (to_real n)
+ * and (to_int n). The parser keeps these as applications. Fold them into
+ * numerals once, before literals and hints reach the checkers, so every
+ * checker plugin sees plain numerals and the same literal is represented
+ * the same way in every clause it occurs in.
+ */
+struct numeral_folder_cfg : public default_rewriter_cfg {
+    ast_manager& m;
+    arith_util a;
+    numeral_folder_cfg(ast_manager& m): m(m), a(m) {}
+
+    br_status reduce_app(func_decl* f, unsigned num, expr* const* args, expr_ref& result, proof_ref& result_pr) {
+        if (f->get_family_id() != a.get_family_id() || f->get_decl_kind() == OP_NUM)
+            return BR_FAILED;
+        expr_ref term(m.mk_app(f, num, args), m);
+        rational n;
+        if (a.is_extended_numeral(term, n)) {
+            result = a.mk_numeral(n, f->get_range());
+            return BR_DONE;
+        }
+        return BR_FAILED;
+    }
+};
+
+struct numeral_folder : public rewriter_tpl<numeral_folder_cfg> {
+    numeral_folder_cfg m_cfg;
+    numeral_folder(ast_manager& m): rewriter_tpl<numeral_folder_cfg>(m, false, m_cfg), m_cfg(m) {}
+};
+
 class proof_cmds_imp : public proof_cmds {
     cmd_context&    ctx;
     ast_manager&    m;
     arith_util      m_arith;
+    numeral_folder  m_fold;
     expr_ref_vector m_lits;
     app_ref         m_proof_hint;
     unsigned_vector m_deps;
@@ -286,6 +331,7 @@ public:
         ctx(ctx), 
         m(ctx.m()),
         m_arith(m),
+        m_fold(m),
         m_lits(m), 
         m_proof_hint(m), 
         m_assumption(m), 
@@ -293,7 +339,9 @@ public:
         updt_params(gparams::get_module("solver"));
     }
 
-    void add_literal(expr* e) override {
+    void add_literal(expr* _e) override {
+        expr_ref e(m);
+        m_fold(_e, e);
         if (m.is_proof(e)) {
             if (is_dep(e))
                 get_deps(e);
@@ -321,8 +369,8 @@ public:
     }
 
     void end_infer() override {
-        if (m_check)
-            checker().infer(m_lits, m_proof_hint);
+        if (m_check && !checker().infer(m_lits, m_proof_hint))
+            exit(0);
         if (m_save)
             saver().infer(m_lits, m_proof_hint);
         if (m_trim)

@@ -33,8 +33,12 @@ namespace smt {
         virtual ~theory_opt() = default;
         virtual inf_eps value(theory_var) = 0;
         virtual inf_eps maximize(theory_var v, expr_ref& blocker) = 0;
-        // A bound here must follow from the assertions, not just the current branch.
-        virtual inf_eps maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<rational>& upper) {
+        struct upper_bound {
+            rational value;
+            // Otherwise the certificate depends on the current Boolean branch.
+            bool is_global;
+        };
+        virtual inf_eps maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<upper_bound>& upper) {
             upper.reset();
             return maximize(v, blocker);
         }

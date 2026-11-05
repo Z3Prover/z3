@@ -354,6 +354,34 @@ static void tst_tuple_enumeration() {
     std::cout << "Enumerated " << count << " tuples\n";
 }
 
+// Regression: costs of produced terms may skip levels (e.g., no term of cost 2
+// when leaves have cost 0, g : Int -> S and h : S x S -> S). The term bank must
+// tolerate such gaps.
+static void tst_cost_gap_enumeration() {
+    std::cout << "=== test enumeration with cost gaps ===\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+
+    term_enumeration te(m);
+    sort* int_sort = a.mk_int();
+    sort_ref s(m.mk_uninterpreted_sort(symbol("S")), m);
+    func_decl_ref g(m.mk_func_decl(symbol("g"), int_sort, s), m);
+    func_decl_ref h(m.mk_func_decl(symbol("h"), s, s, s), m);
+    expr_ref zero(a.mk_int(0), m);
+    te.add_production(zero);
+    te.add_production(g);
+    te.add_production(h);
+
+    unsigned count = 0;
+    for (expr* e : te.enum_terms(s)) {
+        std::cout << "  S Term: " << mk_pp(e, m) << "\n";
+        ENSURE(e->get_sort() == s.get());
+        if (++count >= 5) break;
+    }
+    ENSURE(count >= 3);
+}
+
 void tst_term_enumeration() {
     tst_basic_enumeration();
     tst_enumeration_with_operators();
@@ -363,5 +391,6 @@ void tst_term_enumeration() {
     tst_multiple_sorts();
     tst_nested_array_enumeration();
     tst_tuple_enumeration();
+    tst_cost_gap_enumeration();
     std::cout << "All term_enumeration tests passed!\n";
 }

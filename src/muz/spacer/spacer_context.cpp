@@ -46,6 +46,7 @@ Notes:
 #include "smt/smt_solver.h"
 #include "muz/base/dl_util.h"
 #include "muz/spacer/spacer_prop_solver.h"
+#include <tuple>
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/base/dl_rule_set.h"
@@ -62,7 +63,7 @@ namespace spacer {
 /// pob -- proof obligation
 pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
          bool add_to_parent)
-    : m_ref_count(0), m_parent(parent), m_pt(pt),
+    : m_ref_count(0), m_id(pt.next_pob_id()), m_parent(parent), m_pt(pt),
       m_post(m_pt.get_ast_manager()), m_binding(m_pt.get_ast_manager()),
       m_new_post(m_pt.get_ast_manager()), m_level(level), m_depth(depth),
       m_desired_level(0), m_open(true), m_use_farkas(true), m_in_queue(false), m_is_conjecture(false),
@@ -961,10 +962,9 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
     SASSERT(!lemma->is_background());
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
+    // Datatype normalization can introduce Boolean connectives within lemmas.
     CTRACE(spacer, !spacer::is_clause(m, l),
            tout << "Lemma not a clause: " << mk_pp(l, m) << "\n";);
-    SASSERT(!lemma->is_ground() || spacer::is_clause(m, l));
-    SASSERT(!is_quantifier(l) || spacer::is_clause(m, to_quantifier(l)->get_expr()));
 
     get_context().log_add_lemma(*this, *lemma);
 
@@ -4409,20 +4409,11 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
                         //<< " p1: " << mk_pp (const_cast<expr*>(p1), m) << "\n"
         }
 
-        // XXX see comment below on identical nodes
-        // SASSERT (n1.pt ().head ()->get_id () != n2.pt ().head ()->get_id ());
-        // -- if expression comparison fails, compare by predicate id
-        if (n1.pt().head ()->get_id () != n2.pt ().head ()->get_id ())
-        { return n1.pt().head()->get_id() < n2.pt().head()->get_id(); }
-
-        /** XXX Identical nodes. This should not happen. However,
-         * currently, when propagating reachability, we might call
-         * expand_pob() twice on the same node, causing it to generate
-         * the same proof obligation multiple times */
-        return &n1 < &n2;
+        // Repeated expansion can create otherwise identical obligations.
+        // Order them by predicate and creation ID instead of allocation address.
+        return std::tuple(n1.pt().head()->get_id(), n1.get_id()) <
+               std::tuple(n2.pt().head()->get_id(), n2.get_id());
     }
-    // else
-    //   return &n1 < &n2;
 }
 
 

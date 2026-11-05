@@ -88,6 +88,7 @@ namespace smt {
         void add_recognizer(theory_var v, enode * recognizer);
         void add_subterm_predicate(theory_var v, enode *predicate);
         void propagate_subterm(enode * n, bool is_true);
+        void add_subterm_guards(enode* root, ptr_vector<enode> const& candidates, literal_vector& lits);
         void propagate_is_subterm(enode * n);
         void propagate_not_is_subterm(enode *n);
         void split_leaf_root(smt::enode *arg2);
@@ -117,7 +118,7 @@ namespace smt {
         void oc_push_stack(enode * n);
         ptr_vector<enode> m_args, m_todo;
         ptr_vector<enode> const& get_array_args(enode* n);
-        ptr_vector<enode> const& get_seq_args(enode* n, enode*& sibling);
+        ptr_vector<enode> const& get_seq_args(enode* n, enode_pair_vector* used_eqs = nullptr);
         ptr_vector<enode> const& get_finite_set_args(enode *n);
 
         // class for managing state of final_check
@@ -216,5 +217,3 @@ namespace smt {
 
     };
 }
-
-

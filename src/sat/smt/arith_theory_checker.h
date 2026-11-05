@@ -20,6 +20,10 @@ The module assumes a limited repertoire of arithmetic proof rules.
 - farkas - inequalities, equalities and disequalities with coefficients
 - implied-eq - last literal is a disequality. The literals before imply the complementary equality.
 - bound - last literal is a bound. It is implied by prior literals.
+- arith - a theory axiom without coefficients; the arguments are the negated clause literals.
+  The clause is accepted when one literal is valid by linear arithmetic over the defining
+  identities and bounds of div, mod, rem and / by nonzero numerals, or when it is one of the two
+  case splits of abs.
 
 --*/
 #pragma once
@@ -41,15 +45,18 @@ namespace arith {
             farkas_t,
             implied_eq_t,
             bound_t,
+            axiom_t,
             none_t
         };
         
         struct row {
             obj_map<expr, rational> m_coeffs;
             rational m_coeff;
+            bool m_strict = false;
             void reset() {
                 m_coeffs.reset();
                 m_coeff = 0;
+                m_strict = false;
             }
             bool is_zero() const {
                 return m_coeffs.empty() && m_coeff == 0;
@@ -58,8 +65,7 @@ namespace arith {
        
         ast_manager& m;
         arith_util   a;
-        vector<std::pair<rational, expr*>> m_todo;
-        bool         m_strict = false;
+        vector<std::pair<rational, expr *>> m_todo;
         row          m_ineq;
         row          m_conseq;
         vector<row>  m_eqs, m_ineqs;
@@ -67,10 +73,14 @@ namespace arith {
         symbol       m_implied_eq = symbol("implied-eq");
         symbol       m_bound = symbol("bound");
         symbol       m_cut = symbol("cut");
+        symbol       m_axiom = symbol("arith");
+        expr_ref_vector m_pinned;
 
         rule_type_t rule_type(app* jst) const {
             if (jst->get_name() == m_cut)
                 return cut_t;
+            if (jst->get_name() == m_axiom)
+                return axiom_t;
             if (jst->get_name() == m_bound)
                 return bound_t;
             if (jst->get_name() == m_implied_eq)
@@ -99,6 +109,7 @@ namespace arith {
         void mul(row& r, rational const& coeff) {
             if (coeff == 1)
                 return;
+            r.m_strict &= !coeff.is_zero();
             for (auto & [v, c] : r.m_coeffs)
                 c *= coeff;
             r.m_coeff *= coeff;
@@ -106,6 +117,7 @@ namespace arith {
         
         // dst <- dst + mul*src
         void add(row& dst, row const& src, rational const& mul) {
+            dst.m_strict |= src.m_strict && !mul.is_zero();
             for (auto const& [v, c] : src.m_coeffs)
                 add(dst, v, c*mul);
             dst.m_coeff += mul*src.m_coeff;
@@ -173,10 +185,8 @@ namespace arith {
             expr* e1, *e2;
             for (unsigned i = 0; i < m_todo.size(); ++i) {
                 auto [coeff, e] = m_todo[i];
-                if (a.is_mul(e, e1, e2) && is_numeral(e1, coeff1))
-                    m_todo.push_back({coeff*coeff1, e2});
-                else if (a.is_mul(e, e1, e2) && is_numeral(e2, coeff1))
-                    m_todo.push_back({ coeff * coeff1, e1 });
+                if (a.is_mul(e))
+                    linearize_mul(r, coeff, to_app(e));
                 else if (a.is_add(e))
                     for (expr* arg : *to_app(e))
                         m_todo.push_back({coeff, arg});
@@ -194,18 +204,37 @@ namespace arith {
             m_todo.reset();
         }
 
-        bool is_numeral(expr* e, rational& n) {
-            if (a.is_numeral(e, n))
-                return true;
-            if (a.is_uminus(e, e) && a.is_numeral(e, n))
-                return n.neg(), true;
-            return false;
+        /**
+         * \brief add mul * (* t1 .. tn) to r, folding the numeral factors into the coefficient.
+         * A product with two or more non-numeral factors is nonlinear and is kept as one opaque term.
+         */
+        void linearize_mul(row& r, rational const& mul, app* e) {
+            rational coeff(mul), coeff1;
+            expr* x = nullptr;
+            for (expr* arg : *e) {
+                if (is_numeral(arg, coeff1))
+                    coeff *= coeff1;
+                else if (!x)
+                    x = arg;
+                else {
+                    add(r, e, mul);
+                    return;
+                }
+            }
+            if (x)
+                m_todo.push_back({coeff, x});
+            else
+                r.m_coeff += coeff;
+        }
+
+        bool is_numeral(expr* e, rational& n) const {
+            return a.is_extended_numeral(e, n);
         }
         
         bool check_ineq(row& r) {
             if (r.m_coeffs.empty() && r.m_coeff > 0)
                 return true;
-            if (r.m_coeffs.empty() && m_strict && r.m_coeff == 0)
+            if (r.m_coeffs.empty() && r.m_strict && r.m_coeff == 0)
                 return true;
             return false;
         }
@@ -247,7 +276,7 @@ namespace arith {
                 if (a.is_int(e1))
                     r.m_coeff += coeff;
                 else
-                    m_strict = true;
+                    r.m_strict |= !coeff.is_zero();
             }
             else if ((a.is_lt(e, e1, e2) || a.is_gt(e, e2, e1)) && !sign) {
                 linearize(r, coeff, e1);
@@ -255,7 +284,7 @@ namespace arith {
                 if (a.is_int(e1))
                     r.m_coeff += coeff;
                 else
-                    m_strict = true;
+                    r.m_strict |= !coeff.is_zero();
             }
             else
                 return false;
@@ -282,7 +311,7 @@ namespace arith {
         bool check_bound() {
             if (!reduce_eq())
                 return true;
-            if (check_ineq(m_conseq))
+            if (check_ineq(m_ineq) || check_ineq(m_conseq))
                 return true;
             if (m_ineq.m_coeffs.empty() ||
                 m_conseq.m_coeffs.empty())
@@ -330,8 +359,11 @@ namespace arith {
             m_deps.reserve(orig_size);
             for (unsigned i = 0; i < m_ineqs.size(); ++i) {
                 row& r = m_ineqs[i];
-                if (r.is_zero()) {
-                    m_tight_inequalities.push_back(i);                    
+                if (r.m_coeffs.empty()) {
+                    if (check_ineq(r))
+                        return true;
+                    if (r.is_zero())
+                        m_tight_inequalities.push_back(i);
                     continue;
                 }
                 auto const& [v, coeff] = *r.m_coeffs.begin();
@@ -396,7 +428,7 @@ namespace arith {
 
         void display_ineq(std::ostream& out, row const& r) {
             display_row(out, r);
-            if (m_strict)
+            if (r.m_strict)
                 out << " < 0\n";
             else 
                 out << " <= 0\n";
@@ -406,18 +438,164 @@ namespace arith {
             rows.push_back(row());
             return rows.back();
         }
-        
+
+        /**
+         * Theory axioms (rule arith) are the defining facts of the operations the
+         * linear solver treats as opaque terms. For a nonzero numeral k:
+         *   u = k * (div u k) + (mod u k),  0 <= (mod u k) <= |k| - 1,  k * (u / k) = u,
+         *   (rem u k) = (mod u k) when k >= 0 and (rem u k) = -(mod u k) otherwise,
+         * and (abs u) is u when u >= 0 and -u when u <= 0.
+         */
+
+        // (mod u k) for an integer numeral k other than 0.
+        bool is_mod_by_numeral(expr* e, expr*& u, expr*& k, rational& n) const {
+            return a.is_mod(e, u, k) && is_numeral(k, n) && n.is_int() && !n.is_zero();
+        }
+
+        // Replace every (mod u k) by u - k * (div u k), every (rem u k) by
+        // s * (u - k * (div u k)) with s the sign of k, and every (u / k) by u / k
+        // for nonzero numerals k.
+        void expand_definitions(row& r) {
+            vector<std::pair<expr*, rational>> terms;
+            for (auto const& [v, c] : r.m_coeffs)
+                terms.push_back({ v, c });
+            expr* u, * k;
+            rational n;
+            for (auto const& [v, c] : terms) {
+                bool is_rem = a.is_rem(v, u, k) && is_numeral(k, n) && n.is_int() && !n.is_zero();
+                if (is_rem || is_mod_by_numeral(v, u, k, n)) {
+                    // (rem u k) is (mod u k) when k >= 0 and -(mod u k) otherwise
+                    rational s = is_rem && n.is_neg() ? rational(-1) : rational(1);
+                    expr* d = a.mk_idiv(u, k);
+                    m_pinned.push_back(d);
+                    add(r, v, -c);
+                    linearize(r, c * s, u);
+                    add(r, d, -c * s * n);
+                }
+                else if (a.is_div(v, u, k) && is_numeral(k, n) && !n.is_zero()) {
+                    add(r, v, -c);
+                    linearize(r, c / n, u);
+                }
+            }
+        }
+
+        // r <= 0 (r < 0 if strict) has no solution. The only term may be one
+        // (mod u k), which ranges over 0 .. |k| - 1.
+        bool is_infeasible(row const& r) {
+            row s;
+            s.m_coeff = r.m_coeff;
+            s.m_strict = r.m_strict;
+            if (r.m_coeffs.size() == 1) {
+                auto const& [v, c] = *r.m_coeffs.begin();
+                expr* u, * k;
+                rational n;
+                if (!is_mod_by_numeral(v, u, k, n))
+                    return false;
+                if (c < 0)
+                    s.m_coeff += c * (abs(n) - 1);
+            }
+            else if (!r.m_coeffs.empty())
+                return false;
+            return check_ineq(s);
+        }
+
+        // The negation of the literal (sign ? (not e) : e) as r <= 0 or r < 0.
+        bool negate_literal(row& r, expr* e, bool sign) {
+            return add_literal(r, rational(1), e, !sign);
+        }
+
+        bool is_valid_literal(expr* e, bool sign) {
+            expr* x, * y;
+            if (m.is_true(e) || m.is_false(e))
+                return m.is_true(e) != sign;
+            if (m.is_eq(e, x, y) && a.is_int_real(x)) {
+                row r;
+                linearize(r, rational(1), x);
+                linearize(r, rational(-1), y);
+                expand_definitions(r);
+                return sign ? r.m_coeffs.empty() && r.m_coeff != 0 : r.is_zero();
+            }
+            row r;
+            return negate_literal(r, e, sign) && is_infeasible(r);
+        }
+
+        // The negation of the literal (sign ? (not e) : e) and a * u < 0 cannot
+        // both hold: a positive multiple of a * u plus the negation's row is a
+        // constant that is not negative.
+        bool implies_nonnegative(expr* e, bool sign, rational const& a_coeff, expr* u) {
+            row r, t;
+            if (!negate_literal(r, e, sign))
+                return false;
+            linearize(t, a_coeff, u);
+            if (t.m_coeffs.empty())
+                return false;
+            auto const& [v, c] = *t.m_coeffs.begin();
+            rational rc;
+            if (!r.m_coeffs.find(v, rc))
+                return false;
+            rational lambda = -rc / c;
+            if (!lambda.is_pos())
+                return false;
+            add(r, t, lambda);
+            return r.m_coeffs.empty() && !r.m_coeff.is_neg();
+        }
+
+        // (abs u) = u or (abs u) = -u, with the case condition u >= 0 or u <= 0
+        // implied by the negation of another literal of the clause.
+        bool is_abs_case(vector<std::pair<expr*, bool>> const& lits) {
+            for (unsigned i = 0; i < lits.size(); ++i) {
+                auto [e, sign] = lits[i];
+                expr* x, * y, * u;
+                if (sign || !m.is_eq(e, x, y))
+                    continue;
+                if (!a.is_abs(x, u)) {
+                    std::swap(x, y);
+                    if (!a.is_abs(x, u))
+                        continue;
+                }
+                for (int s : { 1, -1 }) {
+                    row r;
+                    linearize(r, rational(1), y);
+                    linearize(r, rational(-s), u);
+                    if (!r.is_zero())
+                        continue;
+                    for (unsigned j = 0; j < lits.size(); ++j)
+                        if (j != i && implies_nonnegative(lits[j].first, lits[j].second, rational(s), u))
+                            return true;
+                }
+            }
+            return false;
+        }
+
+        bool check_axiom(app* jst) {
+            vector<std::pair<expr*, bool>> lits;
+            for (expr* arg : *jst) {
+                if (!m.is_bool(arg))
+                    return false;
+                if (m.is_true(arg))
+                    continue;
+                expr* e = arg;
+                bool sign = !m.is_not(arg, e);
+                if (is_valid_literal(e, sign))
+                    return true;
+                lits.push_back({ e, sign });
+            }
+            return is_abs_case(lits);
+        }
+
     public:
         theory_checker(ast_manager& m): 
-            m(m), 
-            a(m) {}
+            m(m),
+            a(m),
+            m_pinned(m) {}
 
         void reset() {
+            m_pinned.reset();
             m_ineq.reset();
             m_conseq.reset();
             m_eqs.reset();
             m_ineqs.reset();
-            m_strict = false;
+            m_tight_inequalities.reset();
         }
         
         bool add_ineq(rule_type_t rt, rational const& coeff, expr* e, bool sign) {
@@ -457,10 +635,12 @@ namespace arith {
             return out;
         }
 
+        // A true argument stands for a literal false at the base level that the
+        // logged clause omits (the q = 0 of a division axiom by a numeral q).
         expr_ref_vector clause(app* jst) override {
             expr_ref_vector result(m);
-            for (expr* arg : *jst) 
-                if (m.is_bool(arg))
+            for (expr* arg : *jst)
+                if (m.is_bool(arg) && !m.is_true(arg))
                     result.push_back(mk_not(m, arg));
             return result;
         }
@@ -475,7 +655,7 @@ namespace arith {
             expr* arg1 = jst->get_arg(n - 2);
             expr* arg2 = jst->get_arg(n - 1);
             rational coeff;
-            if (!a.is_numeral(arg1, coeff))
+            if (!is_numeral(arg1, coeff) || coeff.is_zero())
                 return false;
             if (!m.is_not(arg2, arg2))
                 return false;
@@ -496,6 +676,8 @@ namespace arith {
             switch (rt) {
             case cut_t:
                 return false;
+            case axiom_t:
+                return check_axiom(jst);
             case none_t:
                 IF_VERBOSE(0, verbose_stream() << "unhandled inference " << mk_pp(jst, m) << "\n");
                 return false;
@@ -510,7 +692,7 @@ namespace arith {
             for (expr* arg : *jst) {
                 
                 if (even) {
-                    if (!a.is_numeral(arg, coeff)) {
+                    if (!is_numeral(arg, coeff)) {
                         IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
                         return false;
                     }
@@ -543,7 +725,8 @@ namespace arith {
                 even = !even;
                 ++j;
             }
-            return check(rt);
+            // Only the final disequality above may discharge an implied-eq hint.
+            return rt != implied_eq_t && check(rt);
         }
 
         void register_plugins(euf::theory_checker& pc) override {
@@ -551,6 +734,7 @@ namespace arith {
             pc.register_plugin(m_bound, this);
             pc.register_plugin(m_implied_eq, this);
             pc.register_plugin(m_cut, this);
+            pc.register_plugin(m_axiom, this);
         }
         
     };

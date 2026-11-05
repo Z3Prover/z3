@@ -1,0 +1,7 @@
+VerCors 2.4.0 (bundled Z3/Silicon), openjdk 17.0.21
+Initial attempts: syntax errors (spec placement, NULL, Perm on scalar), then loop-invariant permission failure; all fixed in final unit.
+$ /tmp/gh-aw/vercors/vercors --lang cpp --backend silicon --dev-total-timeout 60 /tmp/gh-aw/agent/fresh/OptsmtBaseModel.cpp
+[WARN] quantifier triggers (x2)
+[INFO] Verification completed successfully.
+exit code 0 (run twice, second in a fresh directory)
+Witness attempt (caller unit with local arrays): exit 2, "It is not possible to call this object" -> omitted from bundle.

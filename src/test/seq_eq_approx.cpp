@@ -139,9 +139,21 @@ class seq_eq_approx_test {
         expr_ref two(u.str.mk_unit(m_arith.mk_int(2)), m);
 
         report("[int] 1 = 2", m_eq.check(one, two), l_false);
-        report("[int] 1.x = 2.y", m_eq.check(sconcat(one, x), sconcat(two, y)), l_false);
-        report("[int] 1.x = y.2", m_eq.check(sconcat(one, x), sconcat(y, two)), l_true);
-        report("[int] x.1 = y.2", m_eq.check(sconcat(x, one), sconcat(y, two)), l_false);
+        {
+            auto lhs = sconcat(one, x);
+            auto rhs = sconcat(two, y);
+            report("[int] 1.x = 2.y", m_eq.check(lhs, rhs), l_false);
+        }
+        {
+            auto lhs = sconcat(one, x);
+            auto rhs = sconcat(y, two);
+            report("[int] 1.x = y.2", m_eq.check(lhs, rhs), l_true);
+        }
+        {
+            auto lhs = sconcat(x, one);
+            auto rhs = sconcat(y, two);
+            report("[int] x.1 = y.2", m_eq.check(lhs, rhs), l_false);
+        }
     }
 
     // terms that are neither a variable nor a constant: an application and a unit of a
@@ -152,7 +164,11 @@ class seq_eq_approx_test {
         expr_ref x = var("x");
         expr_ref fx(m.mk_app(f, x.get()), m);
         check("f(x) = abc", fx, sword("abc"), l_true);
-        check("a.f(x) = b", sconcat(sword("a"), fx), sword("b"), l_false);
+        {
+            auto rhs = sconcat(sword("a"), fx);
+            auto third = sword("b");
+            check("a.f(x) = b", rhs, third, l_false);
+        }
         check_member("f(x) accepts abc", fx, "abc", l_true);
 
         expr_ref i(m.mk_const("i", m_arith.mk_int()), m);
@@ -166,8 +182,11 @@ class seq_eq_approx_test {
     void check_unsupported() {
         expr_ref x = var("x");
         report("check(x = abc)", m_eq.check(m.mk_eq(x, sword("abc"))), l_true);
-        report("check(x.a = x.b)", m_eq.check(m.mk_eq(sconcat(x, sword("a")),
-                                                      sconcat(x, sword("b")))), l_false);
+        {
+            auto lhs = sconcat(x, sword("a"));
+            auto rhs = sconcat(x, sword("b"));
+            report("check(x.a = x.b)", m_eq.check(m.mk_eq(lhs, rhs)), l_false);
+        }
         report("check(true)", m_eq.check(m.mk_true()), l_undef);
     }
 
@@ -196,9 +215,17 @@ class seq_eq_approx_test {
     void check_state_bound() {
         unsigned const saved = m_eq.max_states();
         m_eq.set_max_states(1);
-        report("abc = abd, max_states=1", m_eq.check(sword("abc"), sword("abd")), l_undef);
+        {
+            auto lhs = sword("abc");
+            auto rhs = sword("abd");
+            report("abc = abd, max_states=1", m_eq.check(lhs, rhs), l_undef);
+        }
         m_eq.set_max_states(saved);
-        report("abc = abd, bound restored", m_eq.check(sword("abc"), sword("abd")), l_false);
+        {
+            auto lhs = sword("abc");
+            auto rhs = sword("abd");
+            report("abc = abd, bound restored", m_eq.check(lhs, rhs), l_false);
+        }
     }
 
     // reach views: the runs between two states, which no regex denotes
@@ -217,10 +244,16 @@ class seq_eq_approx_test {
         report("x reaches ab-after-a: x = b", m_eq.check(x, sword("b")), l_false);
         report("x reaches ab-after-a: x = ab", m_eq.check(x, sword("ab")), l_false);
         report("x reaches ab-after-a: x = eps", m_eq.check(x, sword("")), l_false);
-        report("x reaches ab-after-a: x.b = ab", m_eq.check(sconcat(x, sword("b")),
-                                                            sword("ab")), l_true);
-        report("x reaches ab-after-a: x.b = aa", m_eq.check(sconcat(x, sword("b")),
-                                                            sword("aa")), l_false);
+        {
+            auto lhs = sconcat(x, sword("b"));
+            auto rhs = sword("ab");
+            report("x reaches ab-after-a: x.b = ab", m_eq.check(lhs, rhs), l_true);
+        }
+        {
+            auto lhs = sconcat(x, sword("b"));
+            auto rhs = sword("aa");
+            report("x reaches ab-after-a: x.b = aa", m_eq.check(lhs, rhs), l_false);
+        }
         m_eq.reset_views();
 
         // a* loops onto itself, so the empty word already reaches the target
@@ -242,8 +275,11 @@ class seq_eq_approx_test {
         m_eq.add_view(x, seq::view::reach(ab, after_a, m));
         m_eq.add_view(y, seq::view::reach(ab, after_a, m));
         report("x = y, both reach ab-after-a", m_eq.check(x, y), l_true);
-        report("x.b = y.c, both reach", m_eq.check(sconcat(x, sword("b")),
-                                                   sconcat(y, sword("c"))), l_false);
+        {
+            auto lhs = sconcat(x, sword("b"));
+            auto rhs = sconcat(y, sword("c"));
+            report("x.b = y.c, both reach", m_eq.check(lhs, rhs), l_false);
+        }
         m_eq.reset_views();
     }
 
@@ -525,43 +561,142 @@ public:
         expr_ref a = word("a"), b = word("b"), ab = word("ab");
 
         std::cout << "=== seq_eq_approx: constants and free variables ===\n";
-        check("abc = abc", sword("abc"), sword("abc"), l_true);
-        check("abc = abd", sword("abc"), sword("abd"), l_false);
-        check("abc = ab", sword("abc"), sword("ab"), l_false);
+        {
+            auto rhs = sword("abc");
+            auto third = sword("abc");
+            check("abc = abc", rhs, third, l_true);
+        }
+        {
+            auto rhs = sword("abc");
+            auto third = sword("abd");
+            check("abc = abd", rhs, third, l_false);
+        }
+        {
+            auto rhs = sword("abc");
+            auto third = sword("ab");
+            check("abc = ab", rhs, third, l_false);
+        }
         check("x = abc", x, sword("abc"), l_true);
-        check("a.x = b.y", sconcat(sword("a"), x), sconcat(sword("b"), y), l_false);
-        check("x.a = y.b", sconcat(x, sword("a")), sconcat(y, sword("b")), l_false);
-        check("x.a = y.a", sconcat(x, sword("a")), sconcat(y, sword("a")), l_true);
-        check("a.x.b = a.y.b", sconcat(sword("a"), x, sword("b")),
-              sconcat(sword("a"), y, sword("b")), l_true);
-        check("a.x.b = a.y.c", sconcat(sword("a"), x, sword("b")),
-              sconcat(sword("a"), y, sword("c")), l_false);
+        {
+            auto rhs = sconcat(sword("a"), x);
+            auto third = sconcat(sword("b"), y);
+            check("a.x = b.y", rhs, third, l_false);
+        }
+        {
+            auto rhs = sconcat(x, sword("a"));
+            auto third = sconcat(y, sword("b"));
+            check("x.a = y.b", rhs, third, l_false);
+        }
+        {
+            auto rhs = sconcat(x, sword("a"));
+            auto third = sconcat(y, sword("a"));
+            check("x.a = y.a", rhs, third, l_true);
+        }
+        {
+            auto lhs = sword("a");
+            auto third = sword("b");
+            auto rhs = sconcat(lhs, x, third);
+            auto lhs1 = sword("a");
+            auto third1 = sword("b");
+            auto third2 = sconcat(lhs1, y, third1);
+            check("a.x.b = a.y.b", rhs, third2, l_true);
+        }
+        {
+            auto lhs = sword("a");
+            auto third = sword("b");
+            auto rhs = sconcat(lhs, x, third);
+            auto lhs1 = sword("a");
+            auto third1 = sword("c");
+            auto third2 = sconcat(lhs1, y, third1);
+            check("a.x.b = a.y.c", rhs, third2, l_false);
+        }
         // segments are constrained apart, so a repeated variable carries no information
-        check("x.x = a", sconcat(x, x), sword("a"), l_true);
+        {
+            auto rhs = sconcat(x, x);
+            auto third = sword("a");
+            check("x.x = a", rhs, third, l_true);
+        }
 
         std::cout << "=== seq_eq_approx: constraining the variables ===\n";
-        check_with_regex("x in a*: x = b", x, star(a), x, sword("b"), l_false);
-        check_with_regex("x in a*: x = aaa", x, star(a), x, sword("aaa"), l_true);
-        check_with_regex("x in (ab)*: x = abab", x, star(ab), x, sword("abab"), l_true);
-        check_with_regex("x in (ab)*: x = aba", x, star(ab), x, sword("aba"), l_false);
+        {
+            auto third = star(a);
+            auto fifth = sword("b");
+            check_with_regex("x in a*: x = b", x, third, x, fifth, l_false);
+        }
+        {
+            auto third = star(a);
+            auto fifth = sword("aaa");
+            check_with_regex("x in a*: x = aaa", x, third, x, fifth, l_true);
+        }
+        {
+            auto third = star(ab);
+            auto fifth = sword("abab");
+            check_with_regex("x in (ab)*: x = abab", x, third, x, fifth, l_true);
+        }
+        {
+            auto third = star(ab);
+            auto fifth = sword("aba");
+            check_with_regex("x in (ab)*: x = aba", x, third, x, fifth, l_false);
+        }
         // two occurrences of Sigma^2 make the left side even
-        check_with_regex("x in Sigma^2: x.x = abc", x, loop(dot(), 2, 2), sconcat(x, x),
-                         sword("abc"), l_false);
-        check_with_regex("x in Sigma^2: x.x = abcd", x, loop(dot(), 2, 2), sconcat(x, x),
-                         sword("abcd"), l_true);
-        check_with_regexes("x in a*, y in b*: x = y", x, star(a), y, star(b), x, y, l_true);
-        check_with_regexes("x in a+, y in b*: x = y", x, plus(a), y, star(b), x, y, l_false);
-        check_with_regexes("x in a+, y in b+: x.y = y.x", x, plus(a), y, plus(b),
-                           sconcat(x, y), sconcat(y, x), l_false);
-        check_with_regexes("x in a*, y in b*: x.y = y.x", x, star(a), y, star(b),
-                           sconcat(x, y), sconcat(y, x), l_true);
-        check_with_regexes("x in a*, y in a*: x.b.y = x.a.y", x, star(a), y, star(a),
-                           sconcat(x, sword("b"), y), sconcat(x, sword("a"), y), l_false);
+        {
+            auto fourth = sconcat(x, x);
+            auto fifth = sword("abc");
+            check_with_regex("x in Sigma^2: x.x = abc", x, loop(dot(), 2, 2), fourth, fifth, l_false);
+        }
+        {
+            auto fourth = sconcat(x, x);
+            auto fifth = sword("abcd");
+            check_with_regex("x in Sigma^2: x.x = abcd", x, loop(dot(), 2, 2), fourth, fifth, l_true);
+        }
+        {
+            auto third = star(a);
+            auto fifth = star(b);
+            check_with_regexes("x in a*, y in b*: x = y", x, third, y, fifth, x, y, l_true);
+        }
+        {
+            auto third = plus(a);
+            auto fifth = star(b);
+            check_with_regexes("x in a+, y in b*: x = y", x, third, y, fifth, x, y, l_false);
+        }
+        {
+            auto third = plus(a);
+            auto fifth = plus(b);
+            auto sixth = sconcat(x, y);
+            auto arg7 = sconcat(y, x);
+            check_with_regexes("x in a+, y in b+: x.y = y.x", x, third, y, fifth, sixth, arg7, l_false);
+        }
+        {
+            auto third = star(a);
+            auto fifth = star(b);
+            auto sixth = sconcat(x, y);
+            auto arg7 = sconcat(y, x);
+            check_with_regexes("x in a*, y in b*: x.y = y.x", x, third, y, fifth, sixth, arg7, l_true);
+        }
+        {
+            auto third = star(a);
+            auto fifth = star(a);
+            auto sixth = sconcat(x, sword("b"), y);
+            auto arg7 = sconcat(x, sword("a"), y);
+            check_with_regexes("x in a*, y in a*: x.b.y = x.a.y", x, third, y, fifth, sixth, arg7, l_false);
+        }
         // the same equation with an unconstrained variable: Sigma^* absorbs the difference
-        check_with_regex("x in a*: x.b.z = x.a.z", x, star(a),
-                         sconcat(x, sword("b"), z), sconcat(x, sword("a"), z), l_true);
-        check_with_regex("x in ~(a*): x = aa", x, comp(star(a)), x, sword("aa"), l_false);
-        check_with_regex("x in ~(a*): x = ab", x, comp(star(a)), x, sword("ab"), l_true);
+        {
+            auto third = star(a);
+            auto fourth = sconcat(x, sword("b"), z);
+            auto fifth = sconcat(x, sword("a"), z);
+            check_with_regex("x in a*: x.b.z = x.a.z", x, third, fourth, fifth, l_true);
+        }
+        {
+            auto third = comp(star(a));
+            auto fifth = sword("aa");
+            check_with_regex("x in ~(a*): x = aa", x, third, x, fifth, l_false);
+        }
+        {
+            auto third = comp(star(a));
+            auto fifth = sword("ab");
+            check_with_regex("x in ~(a*): x = ab", x, third, x, fifth, l_true);
+        }
         // several views on one term are conjunctive
         {
             m_eq.add_view(x, seq::view::membership(star(alt(a, b)), m));
@@ -576,18 +711,45 @@ public:
 
         std::cout << "=== seq_eq_approx: segments ===\n";
         // the segments keep their order and drop nothing
-        check_member("a.x.b accepts ab", sconcat(sword("a"), x, sword("b")), "ab", l_true);
-        check_member("a.x.b accepts azzb", sconcat(sword("a"), x, sword("b")), "azzb", l_true);
-        check_member("a.x.b rejects ba", sconcat(sword("a"), x, sword("b")), "ba", l_false);
-        check_member("a.x.b rejects a", sconcat(sword("a"), x, sword("b")), "a", l_false);
+        {
+            auto lhs = sword("a");
+            auto third = sword("b");
+            check_member("a.x.b accepts ab", sconcat(lhs, x, third), "ab", l_true);
+        }
+        {
+            auto lhs = sword("a");
+            auto third = sword("b");
+            check_member("a.x.b accepts azzb", sconcat(lhs, x, third), "azzb", l_true);
+        }
+        {
+            auto lhs = sword("a");
+            auto third = sword("b");
+            check_member("a.x.b rejects ba", sconcat(lhs, x, third), "ba", l_false);
+        }
+        {
+            auto lhs = sword("a");
+            auto third = sword("b");
+            check_member("a.x.b rejects a", sconcat(lhs, x, third), "a", l_false);
+        }
         check_member("x.y.z accepts abc", sconcat(x, sconcat(y, z)), "abc", l_true);
         check_member("empty accepts eps", u.str.mk_empty(m_str), "", l_true);
         check_member("empty rejects a", u.str.mk_empty(m_str), "a", l_false);
-        check("eps = eps", u.str.mk_empty(m_str), sword(""), l_true);
-        check("eps = a", u.str.mk_empty(m_str), sword("a"), l_false);
+        {
+            expr_ref rhs(u.str.mk_empty(m_str), m);
+            auto third = sword("");
+            check("eps = eps", rhs, third, l_true);
+        }
+        {
+            expr_ref rhs(u.str.mk_empty(m_str), m);
+            auto third = sword("a");
+            check("eps = a", rhs, third, l_false);
+        }
         check("x = eps", x, u.str.mk_empty(m_str), l_true);
-        check("eps.x = x.eps", sconcat(u.str.mk_empty(m_str), x),
-              sconcat(x, u.str.mk_empty(m_str)), l_true);
+        {
+            auto rhs = sconcat(u.str.mk_empty(m_str), x);
+            auto third = sconcat(x, u.str.mk_empty(m_str));
+            check("eps.x = x.eps", rhs, third, l_true);
+        }
 
         std::cout << "=== seq_eq_approx: opaque terms ===\n";
         check_opaque_terms();
@@ -608,7 +770,11 @@ public:
             report("used: x in a*: x = c", m_eq.check(x, sword("c")), l_false);
             bool ok = m_eq.used().size() == 1 && m_eq.used()[0] == x.get();
             report("used reports x alone", ok ? l_true : l_false, l_true);
-            report("used: x.x = b", m_eq.check(sconcat(x, x), sword("b")), l_false);
+            {
+                auto lhs = sconcat(x, x);
+                auto rhs = sword("b");
+                report("used: x.x = b", m_eq.check(lhs, rhs), l_false);
+            }
             ok = m_eq.used().size() == 1;                 // one entry per term, not per use
             report("used counts a term once", ok ? l_true : l_false, l_true);
             m_eq.reset_views();
@@ -627,7 +793,11 @@ public:
 
         std::ostringstream buffer;                  // display must survive both states
         m_eq.display(buffer);
-        m_eq.check(sconcat(x, sword("a")), sconcat(y, sword("b")));
+        {
+            auto lhs = sconcat(x, sword("a"));
+            auto rhs = sconcat(y, sword("b"));
+            m_eq.check(lhs, rhs);
+        }
         m_eq.display(buffer);
         report("display", buffer.str().empty() ? l_false : l_true, l_true);
 

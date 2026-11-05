@@ -40,12 +40,16 @@ struct qi_params {
     bool               m_qi_lazy_quick_checker = true;
     bool               m_qi_promote_unsat = true;
     unsigned           m_qi_max_instances = UINT_MAX;
+    bool               m_qi_persist_instances = false;        // re-assert MBQI instances at base level on a re-search
+    unsigned           m_qi_max_persistent_instances = 1000; // pattern-based instances re-asserted alongside
     bool               m_qi_lazy_instantiation = false;
     bool               m_qi_conservative_final_check = false;
+    bool               m_qi_update_generation = true;
     bool               m_qe_lite = false;
 
     bool               m_mbqi = true;
     unsigned           m_mbqi_max_cexs = 1;
+    bool               m_mbqi_instances_after_giveup = true; // internal: let MBQI continue after a theory gave up (disabled in MBQI's auxiliary context)
     unsigned           m_mbqi_max_cexs_incr = 1;
     unsigned           m_mbqi_max_iterations = 1000;
     bool               m_mbqi_trace = false;

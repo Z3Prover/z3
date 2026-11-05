@@ -210,6 +210,42 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
             result_stack().push_back(m_r);
             return true;
         }
+        if (ProofGen && max_depth == RW_UNBOUNDED_DEPTH &&
+            (m().is_and(t) || m().is_or(t)) && flat_assoc(to_app(t)->get_decl())) {
+            func_decl* f = to_app(t)->get_decl();
+            ptr_buffer<expr> todo, args;
+            todo.push_back(t);
+            unsigned flattened = 0;
+            while (!todo.empty()) {
+                expr* e = todo.back();
+                todo.pop_back();
+                expr* replacement = nullptr;
+                proof* replacement_pr = nullptr;
+                if (e == t ||
+                    (is_app_of(e, f) && e->get_ref_count() == 1 &&
+                     m_cfg.pre_visit(e) && !m_cfg.get_subst(e, replacement, replacement_pr))) {
+                    flattened += e != t;
+                    app* a = to_app(e);
+                    for (unsigned i = a->get_num_args(); i > 0; --i)
+                        todo.push_back(a->get_arg(i - 1));
+                }
+                else {
+                    args.push_back(e);
+                }
+            }
+            if (flattened >= 32) {
+                app_ref flat(m().mk_app(f, args), m());
+                proof_ref pr(m().mk_rewrite(t, flat), m());
+                // Avoid quadratic proofs for long chains, leaving the rewriting
+                // order of small applications unchanged.
+                push_frame(t, c, max_depth);
+                frame_stack().back().m_state = REWRITE_BUILTIN;
+                result_stack().push_back(flat);
+                result_pr_stack().push_back(pr);
+                push_frame(flat, false, max_depth);
+                return false;
+            }
+        }
         if (max_depth != RW_UNBOUNDED_DEPTH)
             max_depth--;
         push_frame(t, c, max_depth);

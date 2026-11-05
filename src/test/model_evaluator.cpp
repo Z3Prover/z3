@@ -39,7 +39,11 @@ void tst_model_evaluator() {
     func_interp* fi = alloc(func_interp, m, 2);
     func_interp* gi = alloc(func_interp, m, 2);
     func_interp* hi = alloc(func_interp, m, 2);
-    hi->set_else(m.mk_ite(vB1p, m.mk_app(f, vI0p, vB1p), m.mk_app(g, vI0p, vB1p)));
+    {
+        expr_ref then_value(m.mk_app(f, vI0p, vB1p), m);
+        expr_ref else_value(m.mk_app(g, vI0p, vB1p), m);
+        hi->set_else(m.mk_ite(vB1p, then_value, else_value));
+    }
     mdl.register_decl(h, hi);
     
 
@@ -49,8 +53,16 @@ void tst_model_evaluator() {
 
     {
         symbol nI("N");
-        fi->set_else(m.mk_ite(m.mk_exists(1, &sI, &nI, a.mk_le(vI0p, m.mk_app(F, vI1p, vB2p))), vI0p, a.mk_int(1)));
-        gi->set_else(m.mk_ite(m.mk_exists(1, &sI, &nI, a.mk_le(vI0p, m.mk_app(G, vI1p, vB2p))), a.mk_int(2), vI0p));
+        {
+            expr_ref condition(m.mk_exists(1, &sI, &nI, a.mk_le(vI0p, m.mk_app(F, vI1p, vB2p))), m);
+            expr_ref else_value(a.mk_int(1), m);
+            fi->set_else(m.mk_ite(condition, vI0p, else_value));
+        }
+        {
+            expr_ref condition(m.mk_exists(1, &sI, &nI, a.mk_le(vI0p, m.mk_app(G, vI1p, vB2p))), m);
+            expr_ref then_value(a.mk_int(2), m);
+            gi->set_else(m.mk_ite(condition, then_value, vI0p));
+        }
         mdl.register_decl(g, gi);
         mdl.register_decl(f, fi);
         model_pp(std::cout, mdl);

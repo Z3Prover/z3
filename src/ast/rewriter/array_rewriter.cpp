@@ -518,10 +518,14 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     }
     if (lam) {
         expr_ref_vector args1(m());
+        var_shifter sh(m());
+        unsigned num_decls = lam->get_num_decls();
         for (unsigned i = 0; i < num_args; ++i) {
             expr* a = args[i];
             if (m_util.is_const(a)) {
-                args1.push_back(to_app(a)->get_arg(0));
+                expr_ref v(m());
+                sh(to_app(a)->get_arg(0), num_decls, v);
+                args1.push_back(v);
             }
             else if (is_lambda(a)) {
                 lam = to_quantifier(a);
@@ -841,13 +845,11 @@ expr_ref array_rewriter::expand_store(expr* s) {
     svector<symbol> names;
     sh(s, arity, tmp);
     args.push_back(tmp);
-    for (unsigned i = arity; i-- > 0; ) {
-        args.push_back(m().mk_var(i, get_array_domain(srt, i)));
+    for (unsigned i = 0; i < arity; ++i) {
+        args.push_back(m().mk_var(arity - i - 1, get_array_domain(srt, i)));
         sorts.push_back(get_array_domain(srt, i));
         names.push_back(symbol(i));
     }
-    names.reverse();
-    sorts.reverse();
     result = m_util.mk_select(args);
     for (app* st : stores) {
         eqs.reset();
@@ -878,7 +880,10 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     }
     if (m_util.is_const(lhs, v) && is_lambda(rhs)) {
         quantifier* lam = to_quantifier(rhs);
-        expr_ref e(m().mk_eq(lam->get_expr(), v), m());
+        var_shifter sh(m());
+        expr_ref e(m());
+        sh(v, lam->get_num_decls(), e);
+        e = m().mk_eq(lam->get_expr(), e);
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }
@@ -906,6 +911,8 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         uint64_t dsz = 1;
         for (unsigned i = 0; i < sz; ++i) {
             sort* d = get_array_domain(s, i);
+            if (m().is_uninterp(d))
+                continue;
             if (d->is_infinite() || d->is_very_big())
                 return true;
             auto const& n = d->get_num_elements();
@@ -923,6 +930,8 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         rational dsz(1);
         for (unsigned i = 0; i < sz; ++i) {
             sort* d = get_array_domain(s, i);
+            if (m().is_uninterp(d))
+                continue;
             if (d->is_infinite())
                 return true;
             if (d->is_very_big())
@@ -955,6 +964,30 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         return BR_REWRITE_FULL;
     }
 
+    // Stores indexed by model values are evaluated in a fixed finite universe;
+    // expanding them into lambdas would only produce quantifiers.
+    auto has_value_indices = [&](expr* e) {
+        for (; m_util.is_store(e); e = to_app(e)->get_arg(0)) {
+            app* st = to_app(e);
+            for (unsigned i = 1; i + 1 < st->get_num_args(); ++i)
+                if (!m().is_value(st->get_arg(i)))
+                    return false;
+        }
+        return true;
+    };
+
+    if (m_util.is_const(lhs1) && m_util.is_const(rhs1) &&
+        !(has_value_indices(lhs) && has_value_indices(rhs))) {
+        for (unsigned i = 0; i < get_array_arity(lhs->get_sort()); ++i) {
+            if (m().is_uninterp(get_array_domain(lhs->get_sort(), i))) {
+                // The stores may cover the entire uninterpreted domain.
+                expr_ref l = expand_store(lhs), r = expand_store(rhs);
+                result = m().mk_eq(l, r);
+                return BR_REWRITE_FULL;
+            }
+        }
+    }
+
 
     if (m_expand_store_eq) {
         if (lhs1 == rhs1) {
@@ -965,7 +998,7 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         }
 
         if (m_util.is_const(lhs1, v) && m_util.is_const(rhs1, w) &&
-            has_large_domain(lhs->get_sort(), std::max(num_lhs, num_rhs))) {
+            has_large_domain(lhs->get_sort(), num_lhs + num_rhs)) {
             mk_eq(lhs, lhs, rhs, fmls);
             mk_eq(rhs, lhs, rhs, fmls);
             fmls.push_back(m().mk_eq(v, w));

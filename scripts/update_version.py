@@ -63,6 +63,35 @@ def update_bazel_module(version):
         print(f"Error updating MODULE.bazel: {e}")
 
 
+def update_bazel_build(version):
+    """Update the versioned shared library names in BUILD.bazel."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    build_file = os.path.join(os.path.dirname(script_dir), 'BUILD.bazel')
+
+    try:
+        with open(build_file, 'r') as f:
+            content = f.read()
+
+        # BUILD.bazel derives every versioned library name from this one constant.
+        # CMake uses the full VERSION.txt value, so don't trim it like MODULE.bazel.
+        content, count = re.subn(
+            r'^(_Z3_VERSION\s*=\s*")[^"]*(")',
+            r'\g<1>' + version + r'\g<2>',
+            content,
+            flags=re.MULTILINE
+        )
+        if count != 1:
+            print(f"Error updating BUILD.bazel: expected one _Z3_VERSION assignment, found {count}")
+            sys.exit(1)
+
+        with open(build_file, 'w') as f:
+            f.write(content)
+
+        print(f"Updated BUILD.bazel version to {version}")
+    except IOError as e:
+        print(f"Error updating BUILD.bazel: {e}")
+
+
 def update_github_nightly_yml(version):
     """Update .github/workflows/nightly.yml with the version."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -232,6 +261,7 @@ def main():
     print("\nUpdating files that cannot auto-read VERSION.txt...")
     
     update_bazel_module(version)
+    update_bazel_build(version)
     update_github_nightly_yml(version)
     update_github_release_yml(version)
     update_github_nuget_build_yml(version)

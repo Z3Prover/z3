@@ -1,10 +1,10 @@
 module(
     name = "z3",
-    version = "5.2.0",  # TODO: Read from VERSION.txt - currently manual sync required
+    version = "5.3.4",  # TODO: Read from VERSION.txt - currently manual sync required
     bazel_compatibility = [">=7.0.0"],
 )
 
-bazel_dep(name = "rules_foreign_cc", version = "0.14.0")
+bazel_dep(name = "rules_foreign_cc", version = "0.16.0")
 bazel_dep(name = "rules_license", version = "1.0.0")
 
 # Enables formatting all Bazel files (.bazel, .bzl) by running:

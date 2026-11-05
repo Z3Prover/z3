@@ -29,6 +29,7 @@ Revision History:
 #include "cmd_context/extra_cmds/proof_cmds.h"
 #include "opt/opt_cmds.h"
 #include "cmd_context/extra_cmds/polynomial_cmds.h"
+#include "cmd_context/extra_cmds/ff_certificate_cmds.h"
 #include "cmd_context/extra_cmds/subpaving_cmds.h"
 #include "smt/smt2_extra_cmds.h"
 #include "smt/smt_solver.h"
@@ -164,6 +165,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     install_dl_cmds(ctx);
     install_dbg_cmds(ctx);
     install_polynomial_cmds(ctx);
+    install_ff_certificate_cmds(ctx);
     install_subpaving_cmds(ctx);
     install_opt_cmds(ctx);
     install_smt2_extra_cmds(ctx);

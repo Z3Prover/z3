@@ -39,5 +39,6 @@ proof_converter * proof2proof_converter(ast_manager & m, proof * pr);
 
 void apply(ast_manager & m, proof_converter * pc, proof_ref & pr);
 
-proof_ref apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_buffer & pc2s);
+proof_ref apply(ast_manager & m, proof_converter * pc);
 
+proof_ref apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_buffer & pc2s);

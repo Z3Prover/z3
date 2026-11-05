@@ -247,8 +247,7 @@ namespace smt {
             app_ref acc_own(m.mk_app(acc1, own), m);
             assert_eq_axiom(arg, acc_own, is_con); 
         }
-        // update_field is identity if 'n' is not created by a matching constructor.        
-        app_ref imp(m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_expr(), arg1)), m);
+        // update_field is identity if 'n' is not created by a matching constructor.
         assert_eq_axiom(n, arg1, ~is_con);
 
         app_ref n_is_con(m.mk_app(rec, own), m);
@@ -326,6 +325,14 @@ namespace smt {
             bool_var bv = ctx.mk_bool_var(term);
             ctx.set_var_theory(bv, get_id());
             ctx.set_enode_flag(bv, true);
+            if (is_recognizer(term)) {
+                // prefer non-recursive constructors when the SAT solver decides on a
+                // recognizer of a recursive datatype, as mk_split does for the recognizers
+                // it introduces itself: smallest models first.
+                auto c = m_util.get_recognizer_constructor(term->get_decl());
+                if (m_util.is_recursive(c->get_range()) && m_util.is_non_rec_constructor(c))
+                    ctx.set_true_first_flag(bv);
+            }
         }
         if (is_constructor(term) || is_update_field(term)) {
             SASSERT(!is_attached_to_var(e));
@@ -387,7 +394,18 @@ namespace smt {
                 mk_var(arg2);
             SASSERT(is_attached_to_var(arg1));
             SASSERT(is_attached_to_var(arg2));
-            // Axiom generation logic for subterm can be added here.
+            if (arg1 != arg2) {
+                app_ref reverse(m.mk_app(term->get_decl(), arg2->get_expr(), arg1->get_expr()), m);
+                literal rev = mk_literal(reverse);
+                literal eq = mk_eq(arg1->get_expr(), arg2->get_expr(), true);
+                ctx.mark_as_relevant(eq);
+                literal lits[3] = {~literal(ctx.get_bool_var(term)), ~rev, eq};
+                ctx.mk_th_axiom(get_id(), 3, lits);
+            }
+            if (!ctx.relevancy()) {
+                add_subterm_predicate(arg1->get_th_var(get_id()), e);
+                add_subterm_predicate(arg2->get_th_var(get_id()), e);
+            }
         }
         else {
             SASSERT(is_accessor(term) || is_recognizer(term));
@@ -518,6 +536,24 @@ namespace smt {
         }
     }
 
+    void theory_datatype::add_subterm_guards(
+        enode* root, ptr_vector<enode> const& candidates, literal_vector& lits) {
+        auto add_guard = [&](enode* n) {
+            if (n != n->get_root()) {
+                literal eq = mk_eq(n->get_expr(), n->get_root()->get_expr(), true);
+                ctx.mark_as_relevant(eq);
+                lits.push_back(~eq);
+            }
+        };
+        add_guard(root);
+        for (enode* n : candidates) {
+            add_guard(n);
+            if (is_constructor(n))
+                for (enode* arg : enode::args(n))
+                    add_guard(arg);
+        }
+    }
+
     void theory_datatype::propagate_is_subterm(enode *n) {
         SASSERT(is_subterm_predicate(n));
         enode *arg1 = n->get_arg(0);
@@ -540,6 +576,7 @@ namespace smt {
         bool has_leaf_root = false;
 
         ptr_vector<enode> candidates = list_subterms(arg2);
+        add_subterm_guards(arg2, candidates, lits);
 
         for (enode *s : candidates) {
             bool is_leaf = !m_util.is_constructor(s->get_expr());
@@ -550,7 +587,9 @@ namespace smt {
                 // trying to be smarter about this causes other problems
                 TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m)
                                      << " == " << mk_pp(s->get_expr(), m) << "\n";);
-                lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
+                literal eq = mk_eq(arg1->get_expr(), s->get_expr(), false);
+                ctx.mark_as_relevant(eq);
+                lits.push_back(eq);
                 found_possible = true;
             }
 
@@ -570,7 +609,7 @@ namespace smt {
                     if (sub_decl) {
                         TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ "
                                              << mk_pp(s->get_expr(), m) << "\n";);
-                        auto tmp = m.mk_not(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()));
+                        auto tmp = m.mk_app(sub_decl, arg1->get_expr(), s->get_expr());
                         lits.push_back(mk_literal(tmp));
                         found_possible = true;
                     }
@@ -605,7 +644,8 @@ namespace smt {
         if (arg1->get_root() == arg2->get_root()) {
             // ~ (a ⊑ a) is a conflict
             literal l(ctx.enode2bool_var(n));
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 1, &l, 0, nullptr)));
+            enode_pair eq(arg1, arg2);
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 1, &l, 1, &eq)));
             return;
         }
 
@@ -615,6 +655,9 @@ namespace smt {
         bool has_leaf_root = false;
 
         ptr_vector<enode> candidates = list_subterms(arg2);
+        literal_vector guards;
+        guards.push_back(antecedent);
+        add_subterm_guards(arg2, candidates, guards);
 
         for (enode *s : candidates) {
             bool is_leaf = !m_util.is_constructor(s->get_expr());
@@ -623,8 +666,10 @@ namespace smt {
                 TRACE(datatype,
                       tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
                 literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
-                literal lits[2] = {antecedent, ~eq};
-                ctx.mk_th_axiom(get_id(), 2, lits);
+                ctx.mark_as_relevant(eq);
+                literal_vector lits(guards);
+                lits.push_back(~eq);
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
             }
 
             if (is_leaf) {
@@ -640,8 +685,9 @@ namespace smt {
                                              << mk_pp(s->get_expr(), m) << "\n";);
                         auto sub_app = m.mk_app(sub_decl, arg1->get_expr(), s->get_expr());
                         literal sub_lit = mk_literal(sub_app);
-                        literal lits[2] = {antecedent, ~sub_lit};
-                        ctx.mk_th_axiom(get_id(), 2, lits);
+                        literal_vector lits(guards);
+                        lits.push_back(~sub_lit);
+                        ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                     }
                 }
             }
@@ -825,11 +871,7 @@ namespace smt {
                 add_args(get_finite_set_args(arg));
             }
             if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                enode *sibling = nullptr;
-                add_args(get_seq_args(arg, sibling));
-                if (sibling && sibling != arg)
-                    m_used_eqs.push_back(enode_pair(arg, sibling));
-
+                add_args(get_seq_args(arg, &m_used_eqs));
             }
         }
         VERIFY(found);
@@ -909,8 +951,7 @@ namespace smt {
                 oc_push_stack(arg);
             }
             else if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                enode* sibling;
-                for (enode* sarg : get_seq_args(arg, sibling)) {
+                for (enode* sarg : get_seq_args(arg)) {
                     if (process_arg(sarg)) 
                         return true;
                 }
@@ -956,35 +997,35 @@ namespace smt {
     }
 
 
-    ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n, enode*& sibling) {
+    ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n, enode_pair_vector* used_eqs) {
         m_args.reset();
         m_todo.reset();
         auto add_todo = [&](enode* n) {
-            if (!n->is_marked()) {
-                n->set_mark();
+            if (!n->get_root()->is_marked()) {
+                n->get_root()->set_mark();
                 m_todo.push_back(n);
             }
         };
-        
-        for (enode* sib : *n) {
-            if (m_sutil.str.is_concat_of_units(sib->get_expr())) {
-                add_todo(sib);
-                sibling = sib;
-                break;
-            }
-        }
-            
+        add_todo(n);
+
         for (unsigned i = 0; i < m_todo.size(); ++i) {
             enode* n = m_todo[i];
-            expr* e = n->get_expr();
-            if (m_sutil.str.is_unit(e))
-                m_args.push_back(n->get_arg(0));
-            else if (m_sutil.str.is_concat(e)) 
-                for (expr* arg : *to_app(e)) 
-                    add_todo(ctx.get_enode(arg));
+            for (enode* sibling : *n) {
+                expr* e = sibling->get_expr();
+                if (m_sutil.str.is_unit(e))
+                    m_args.push_back(sibling->get_arg(0));
+                else if (m_sutil.str.is_concat(e)) {
+                    for (enode* arg : enode::args(sibling))
+                        add_todo(arg);
+                }
+                else
+                    continue;
+                if (used_eqs && n != sibling)
+                    used_eqs->push_back(enode_pair(n, sibling));
+            }
         }
         for (enode* n : m_todo)
-            n->unset_mark();
+            n->get_root()->unset_mark();
 
         return m_args;
     }
@@ -1263,6 +1304,9 @@ namespace smt {
 
         m_trail_stack.push(restore_vector(d->m_subterms));
         d->m_subterms.push_back(predicate);
+        lbool value = ctx.get_assignment(predicate);
+        if (d->m_constructor && value != l_undef)
+            propagate_subterm(predicate, value == l_true);
     }
 
     /**

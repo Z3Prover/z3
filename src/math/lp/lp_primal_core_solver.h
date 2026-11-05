@@ -317,8 +317,8 @@ namespace lp {
         this->add_delta_to_x(entering, delta);
         for (const auto &c : this->m_A.m_columns[entering])
             if (leaving != this->m_basis[c.var()])
-                this->add_delta_to_x_and_track_feasibility(
-                    this->m_basis[c.var()], -delta * this->m_A.get_val(c));
+                this->submul_from_x_and_track_feasibility(
+                    this->m_basis[c.var()], delta, this->m_A.get_val(c));
     }
 
     void update_basis_and_x_tableau_rows(int entering, int leaving, X const &tt) {
@@ -385,6 +385,14 @@ namespace lp {
             this->m_basis_heading[leaving], a_ent);
         if (entering == -1) {
             this->set_status(lp_status::INFEASIBLE);
+            return;
+        }
+        // Charge pivot-cell work before changing the tableau so cancellation leaves the basis intact.
+        uint64_t cost = static_cast<uint64_t>(this->m_A.m_rows[this->m_basis_heading[leaving]].size()) *
+                        this->m_A.m_columns[entering].size();
+        if (this->m_settings.get_cancel_flag(static_cast<unsigned>(
+                std::min<uint64_t>(cost, std::numeric_limits<unsigned>::max())))) {
+            this->set_status(lp_status::CANCELLED);
             return;
         }
         const X &new_val_for_leaving = get_val_for_leaving(leaving);

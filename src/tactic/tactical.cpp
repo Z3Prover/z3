@@ -156,7 +156,8 @@ public:
                 proof_ref pr(m);
                 expr_dependency_ref core(m);
                 if (proofs_enabled) {
-                    apply(m, in->pc(), pr);
+                    pr = apply(m, in->pc());
+                    in->set(static_cast<proof_converter*>(nullptr));
                 }
                 dependency_converter* dc = in->dc();
                 if (cores_enabled && dc) {
@@ -824,7 +825,8 @@ public:
                 in->reset_all();
                 proof_ref pr(m);
                 if (proofs_enabled) {
-                    apply(m, in->pc(), pr);
+                    pr = apply(m, in->pc());
+                    in->set(static_cast<proof_converter*>(nullptr));
                 }
                 dependency_converter* dc = in->dc();
                 if (cores_enabled && dc) {
@@ -967,7 +969,8 @@ class repeat_tactical : public unary_tactical {
 			proof_ref pr(m);
 			expr_dependency_ref core(m);
 			if (proofs_enabled) {
-				apply(m, g->pc(), pr);
+				pr = apply(m, g->pc());
+				g->set(static_cast<proof_converter*>(nullptr));
 			}
 			if (cores_enabled && g->dc()) {
 				core = (*g->dc())();
@@ -1293,4 +1296,3 @@ tactic * if_no_models(tactic * t) {
 tactic * skip_if_failed(tactic * t) {
     return or_else(t, mk_skip_tactic());
 }
-

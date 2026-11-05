@@ -1,0 +1,6 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend)
+Command: timeout 120 fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out FactorSignAudit.fst (fresh cache)
+Exit: 0
+stdout: Verified module: FactorSignAudit / All verification conditions discharged successfully
+stderr: (empty)
+Note: an earlier draft using '=' on real failed hasEq typing (exit 1) and was replaced by '==' ; no proof relaxations.

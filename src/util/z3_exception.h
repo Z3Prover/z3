@@ -23,7 +23,7 @@ Notes:
 
 class z3_exception : public std::exception {
 public:
-    virtual ~z3_exception() = default;
+    ~z3_exception() override = default;
     virtual unsigned error_code() const;
     bool has_error_code() const;
 };
@@ -44,4 +44,3 @@ public:
     default_exception(fmt, char const* msg, ...);
     char const * what() const noexcept override;
 };
-

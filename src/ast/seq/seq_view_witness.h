@@ -81,7 +81,6 @@ namespace seq {
         ast_manager&      m;
         seq_rewriter&     m_rw;
         trail_stack&      m_trail;
-        live_states&      m_live;
         transition_mode   m_mode;
         vector<assertion> m_assertions;
         ptr_vector<void>  m_core;

@@ -40,11 +40,11 @@ namespace opt {
 
         struct scoped_update;
 
-        bool improve();
+        bool improve(model_ref& mdl);
         void rotate_rec(obj_hashtable<expr> const& mss, obj_map<expr, ptr_vector<expr>>& backbone2core, unsigned depth);
         bool rotate(obj_hashtable<expr> const& mss, expr* excl, unsigned depth);
         void saturate_core(expr_ref_vector& core);
-        void local_mss();
+        void local_mss(model& mdl);
         void hitting_set(obj_hashtable<expr>& hs);
         rational core_weight(expr_ref_vector const& core) { return core_weight(core.size(), core.data()); }
         rational core_weight(ptr_vector<expr> const& core) { return core_weight(core.size(), core.data()); }

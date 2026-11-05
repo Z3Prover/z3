@@ -282,7 +282,7 @@ struct pull_quant::imp {
                 result = mk_not(m, new_body);
                 result = m.mk_not(m.update_quantifier(old_q, forall_k, result));
                 if (m.proofs_enabled()) 
-                    m.mk_rewrite(old_q, result);
+                    result_pr = m.mk_rewrite(old_q, result);
                 return true;
             }
 

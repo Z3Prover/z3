@@ -1,0 +1,8 @@
+fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3IntegerBridgeAudit.fst (timeout 120)
+Verified module: Z3IntegerBridgeAudit
+All verification conditions discharged successfully
+
+real	0m0.189s
+user	0m0.131s
+sys	0m0.059s
+exit=0

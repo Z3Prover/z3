@@ -1,0 +1,22 @@
+{
+  "pull_request": 11438,
+  "head_sha": "ba170e9d96da994fc7186e342b0924b496e7e215",
+  "base_sha": "70f966a79844ea3b18fe35e5711d55754e80460e",
+  "path_prefix": "fstar/audits/pr-11438/ba170e9d96da994fc7186e342b0924b496e7e215/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40841359625",
+  "files": [
+    {
+      "name": "Z3InverseTrigGuards.fst",
+      "sha256": "74f3f99b9c7e1680f44455cc912db7964c10df14635f4ddbc583c44768a731e4"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "80418c81024fcb98ff51ef1cefe6184ebc090d72934fd35dc0cff4a0251abc27"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "85482acdc26ad2062ae9b8d4674f3466a4e468233270751955ec96f21f09cac2"
+    }
+  ]
+}

@@ -6,11 +6,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "api/z3_private.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include <iostream>
 #include "util/util.h"
 #include "util/trace.h"
 #include <map>
 #include <string>
+#include <vector>
 #include "util/trace.h"
 
 static void test_solver_model_completion() {
@@ -388,11 +391,362 @@ void test_strict_real_maximize_disjunction() {
     Z3_del_context(ctx);
 }
 
+static Z3_context g_last_error_ctx = nullptr;
+static Z3_error_code g_last_error_code = Z3_OK;
+static int g_error_handler_calls = 0;
+
+static void custom_test_error_handler(Z3_context c, Z3_error_code e) {
+    g_last_error_ctx = c;
+    g_last_error_code = e;
+    g_error_handler_calls++;
+}
+
+static void test_error_handler() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Test 1: Disabling error handler with nullptr prevents exit(1) and records error code
+    Z3_set_error_handler(ctx, nullptr);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
+    // Provoke an invalid argument error (asserting null formula triggers CHECK_FORMULA)
+    Z3_solver_assert(ctx, s, nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    // Explicit error setting also works with nullptr handler
+    Z3_set_error(ctx, Z3_PARSER_ERROR);
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+
+    // Test 2: Custom error handler is invoked with expected arguments
+    g_last_error_ctx = nullptr;
+    g_last_error_code = Z3_OK;
+    g_error_handler_calls = 0;
+
+    Z3_set_error_handler(ctx, custom_test_error_handler);
+    Z3_solver_assert(ctx, s, nullptr);
+    ENSURE(g_error_handler_calls == 1);
+    ENSURE(g_last_error_ctx == ctx);
+    ENSURE(g_last_error_code == Z3_INVALID_ARG);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+}
+
+static void test_apply_result_subgoal_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+    Z3_goal_inc_ref(ctx, goal);
+    Z3_tactic tactic = Z3_mk_tactic(ctx, "skip");
+    Z3_tactic_inc_ref(ctx, tactic);
+    Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+    Z3_apply_result_inc_ref(ctx, result);
+    unsigned size = Z3_apply_result_get_num_subgoals(ctx, result);
+    ENSURE(size == 1);
+    for (unsigned i : { size, size + 1 }) {
+        ENSURE(!Z3_apply_result_get_subgoal(ctx, result, i));
+        ENSURE(Z3_get_error_code(ctx) == Z3_IOB);
+    }
+    Z3_goal subgoal = Z3_apply_result_get_subgoal(ctx, result, 0);
+    ENSURE(subgoal);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    Z3_goal_inc_ref(ctx, subgoal);
+    ENSURE(Z3_goal_size(ctx, subgoal) == 0);
+    Z3_goal_dec_ref(ctx, subgoal);
+
+    Z3_apply_result_dec_ref(ctx, result);
+    Z3_tactic_dec_ref(ctx, tactic);
+    Z3_goal_dec_ref(ctx, goal);
+    Z3_del_context(ctx);
+}
+
+static void test_query_constructor_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, nullptr);
+
+    Z3_symbol field_names[] = {
+        Z3_mk_string_symbol(ctx, "fst"), Z3_mk_string_symbol(ctx, "snd")
+    };
+    Z3_sort field_sorts[] = { Z3_mk_int_sort(ctx), Z3_mk_int_sort(ctx) };
+    unsigned sort_refs[] = { 0, 0 };
+    for (unsigned arity : { 0u, 1u, 2u }) {
+        Z3_constructor ctor = Z3_mk_constructor(
+            ctx, Z3_mk_string_symbol(ctx, "mk"), Z3_mk_string_symbol(ctx, "is_mk"),
+            arity, field_names, field_sorts, sort_refs);
+        ENSURE(Z3_mk_datatype(ctx, Z3_mk_string_symbol(ctx, "P"), 1, &ctor));
+        Z3_func_decl constructor = nullptr, tester = nullptr;
+        Z3_func_decl accessors[3] = {};
+        Z3_query_constructor(ctx, ctor, arity + 1, &constructor, &tester, accessors);
+        ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+        ENSURE(!constructor && !tester);
+        for (auto accessor : accessors)
+            ENSURE(!accessor);
+
+        Z3_query_constructor(ctx, ctor, arity, &constructor, &tester, accessors);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        ENSURE(constructor && tester);
+        ENSURE(Z3_get_arity(ctx, constructor) == arity);
+        for (unsigned i = 0; i < arity; ++i)
+            ENSURE(accessors[i]);
+        ENSURE(!accessors[arity]);
+
+        for (unsigned count = 0; count < arity; ++count) {
+            Z3_func_decl partial[2] = {};
+            Z3_query_constructor(ctx, ctor, count, nullptr, nullptr, partial);
+            ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+            for (unsigned i = 0; i < count; ++i)
+                ENSURE(partial[i] == accessors[i]);
+            ENSURE(!partial[count]);
+        }
+        Z3_del_constructor(ctx, ctor);
+    }
+    Z3_del_context(ctx);
+}
+
+struct proof_callback_state {
+    Z3_context context = nullptr;
+    std::vector<std::vector<std::string>> inputs;
+    std::string report = "client proof report";
+    bool null_report = false;
+    bool ast_report = false;
+    bool unregister = false;
+};
+
+static Z3_string test_proof_callback(void* user_context, Z3_context c, Z3_ast pr, Z3_ast_vector assertions) {
+    auto& state = *static_cast<proof_callback_state*>(user_context);
+    ENSURE(c == state.context);
+    Z3_mk_ast_vector(c);
+    Z3_mk_true(c);
+    ENSURE(Z3_get_ast_kind(c, pr) == Z3_APP_AST);
+    std::vector<std::string> inputs;
+    for (unsigned i = 0; i < Z3_ast_vector_size(c, assertions); ++i) {
+        Z3_ast input = Z3_ast_vector_get(c, assertions, i);
+        ENSURE(Z3_get_sort_kind(c, Z3_get_sort(c, input)) == Z3_BOOL_SORT);
+        inputs.emplace_back(Z3_ast_to_string(c, input));
+    }
+    state.inputs.push_back(std::move(inputs));
+    if (state.unregister)
+        Z3_set_proof_check_callback(c, nullptr, nullptr);
+    if (state.null_report)
+        return nullptr;
+    if (state.ast_report)
+        return Z3_ast_to_string(c, pr);
+    return state.report.c_str();
+}
+
+static void test_command_proof_check_callback() {
+    Z3_context ctx = Z3_mk_context_rc(nullptr);
+    Z3_set_error_handler(ctx, nullptr);
+    proof_callback_state state;
+    state.context = ctx;
+    Z3_set_proof_check_callback(ctx, &state, test_proof_callback);
+    auto eval = [&](char const* commands) {
+        std::string result = Z3_eval_smtlib2_string(ctx, commands);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        return result;
+    };
+    ENSURE(eval("(set-option :produce-proofs true)"
+                "(declare-const p Bool)(assert p)(check-sat)"
+                "(check-sat-assuming ((not p)))") == "sat\nunsat\nclient proof report\n");
+    ENSURE(state.inputs.size() == 1);
+    ENSURE(state.inputs.back() == (std::vector<std::string>{"p", "(not p)"}));
+    ENSURE(eval("(push)(assert (not p))(check-sat)(pop)(check-sat)") ==
+           "unsat\nclient proof report\nsat\n");
+    ENSURE(state.inputs.size() == 2);
+    ENSURE(state.inputs.back() == (std::vector<std::string>{"p", "(not p)"}));
+    ENSURE(eval("(check-sat-using skip)") == "unknown\n");
+    ENSURE(state.inputs.size() == 2);
+    ENSURE(eval("(assert (not p))(check-sat-using smt)") == "unsat\nclient proof report\n");
+    ENSURE(state.inputs.size() == 3);
+    ENSURE(eval("(reset-assertions)(assert false)(check-sat)") == "unsat\nclient proof report\n");
+    ENSURE(state.inputs.back() == std::vector<std::string>{"false"});
+    state.ast_report = true;
+    ENSURE(eval("(check-sat)") == "unsat\n(asserted false)\n");
+    state.ast_report = false;
+    state.report.clear();
+    ENSURE(eval("(check-sat)") == "unsat\n");
+    state.report = "client proof report";
+    ENSURE(eval("(reset)(set-option :produce-proofs true)"
+                "(set-option :produce-unsat-cores true)"
+                "(declare-const p Bool)(assert (! p :named A))"
+                "(assert (! (not p) :named B))(check-sat)") == "unsat\nclient proof report\n");
+    ENSURE(state.inputs.back() == (std::vector<std::string>{"(=> A p)", "A", "(=> B (not p))", "B"}));
+
+    proof_callback_state replacement;
+    replacement.context = ctx;
+    replacement.report = "new report\n";
+    Z3_set_proof_check_callback(ctx, &replacement, test_proof_callback);
+    ENSURE(eval("(check-sat)") == "unsat\nnew report\n");
+    ENSURE(replacement.inputs.size() == 1);
+    Z3_set_proof_check_callback(ctx, nullptr, nullptr);
+    ENSURE(eval("(check-sat)") == "unsat\n");
+    ENSURE(replacement.inputs.size() == 1);
+    replacement.unregister = true;
+    Z3_set_proof_check_callback(ctx, &replacement, test_proof_callback);
+    ENSURE(eval("(check-sat)(check-sat)") == "unsat\nnew report\nunsat\n");
+    ENSURE(replacement.inputs.size() == 2);
+    replacement.unregister = false;
+    replacement.null_report = true;
+    Z3_set_proof_check_callback(ctx, &replacement, test_proof_callback);
+    std::string error = Z3_eval_smtlib2_string(ctx, "(check-sat)");
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+    ENSURE(error.find("proof checking callback returned null") != std::string::npos);
+    Z3_del_context(ctx);
+
+    ctx = Z3_mk_context_rc(nullptr);
+    Z3_set_error_handler(ctx, nullptr);
+    ENSURE(std::string(Z3_eval_smtlib2_string(ctx, "(assert false)(check-sat)")) == "unsat\n");
+    state.context = ctx;
+    state.inputs.clear();
+    Z3_set_proof_check_callback(ctx, &state, test_proof_callback);
+    error = Z3_eval_smtlib2_string(ctx, "(check-sat)");
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+    ENSURE(error.find("proof checking callback requires") != std::string::npos);
+    ENSURE(state.inputs.empty());
+    Z3_del_context(ctx);
+
+    cmd_context commands;
+    std::ostringstream regular, diagnostic;
+    commands.set_regular_stream(regular);
+    commands.set_diagnostic_stream(diagnostic);
+    commands.set_solver_factory(mk_smt_strategic_solver_factory());
+    commands.set_proof_check_callback([](proof* pr, expr_ref_vector const& inputs) {
+        ENSURE(pr && inputs.size() == 1 && inputs.m().is_false(inputs[0]));
+        return "diagnostic proof report";
+    });
+    std::istringstream script("(set-option :produce-proofs true)(assert false)(check-sat)");
+    ENSURE(parse_smt2_commands(commands, script));
+    ENSURE(regular.str() == "unsat\n");
+    ENSURE(diagnostic.str() == "diagnostic proof report\n");
+}
+
 // The QF_NRA regression for #10505 lives in tst_upolynomial(). Driving it
 // through Z3_solver_check is not reproducible: the QF_NRA portfolio is a
 // sequence of try_for() tactics guarded by wall-clock timeouts and a probe on
 // process-global allocated memory, so the work reaching the factorizer depends
 // on machine load and on whatever ran earlier in the same process.
+
+static void test_apply_result_nonempty_subgoal_bounds() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), int_sort);
+    Z3_goal g = Z3_mk_goal(ctx, true, false, false);
+    Z3_goal_inc_ref(ctx, g);
+    Z3_goal_assert(ctx, g, Z3_mk_gt(ctx, x, Z3_mk_int(ctx, 1, int_sort)));
+    Z3_tactic t = Z3_mk_tactic(ctx, "skip");
+    Z3_tactic_inc_ref(ctx, t);
+    Z3_apply_result r = Z3_tactic_apply(ctx, t, g);
+    Z3_apply_result_inc_ref(ctx, r);
+
+    unsigned n = Z3_apply_result_get_num_subgoals(ctx, r);
+    ENSURE(n == 1);
+    ENSURE(Z3_apply_result_get_subgoal(ctx, r, n - 1) != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    // the valid indices are 0 .. n-1
+    ENSURE(Z3_apply_result_get_subgoal(ctx, r, n) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_IOB);
+
+    Z3_apply_result_dec_ref(ctx, r);
+    Z3_tactic_dec_ref(ctx, t);
+    Z3_goal_dec_ref(ctx, g);
+    Z3_del_context(ctx);
+}
+
+static void test_query_constructor_num_fields() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+
+    // (declare-datatype P ((mk (fst Int))))
+    Z3_symbol field_names[1] = { Z3_mk_string_symbol(ctx, "fst") };
+    Z3_sort field_sorts[1] = { Z3_mk_int_sort(ctx) };
+    unsigned sort_refs[1] = { 0 };
+    Z3_constructor con = Z3_mk_constructor(ctx, Z3_mk_string_symbol(ctx, "mk"), Z3_mk_string_symbol(ctx, "is_mk"),
+                                           1, field_names, field_sorts, sort_refs);
+    Z3_mk_datatype(ctx, Z3_mk_string_symbol(ctx, "P"), 1, &con);
+
+    Z3_func_decl cd = nullptr, tester = nullptr;
+    Z3_func_decl accs[3] = { nullptr, nullptr, nullptr };
+    Z3_query_constructor(ctx, con, 1, &cd, &tester, accs);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(accs[0] != nullptr);
+
+    // asking for more accessors than the constructor has must not read past them
+    Z3_func_decl more[3] = { nullptr, nullptr, nullptr };
+    Z3_query_constructor(ctx, con, 3, &cd, &tester, more);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(more[0] == nullptr && more[1] == nullptr && more[2] == nullptr);
+
+    Z3_del_constructor(ctx, con);
+    Z3_del_context(ctx);
+}
+
+// A zero value for these "every N" parameters used to crash with a modulo
+// by zero: smt.qi.profile_freq, smt.arith.branch_cut_ratio (old arithmetic
+// solver) and smt.arith.nl.horner_frequency.
+static void test_zero_frequency_params() {
+    char const* specs[] = {
+        "(set-option :smt.qi.profile true)\n"
+        "(set-option :smt.qi.profile_freq 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const a Int)\n"
+        "(assert (forall ((x Int)) (! (> (f x) x) :pattern ((f x)))))\n"
+        "(assert (> (f a) (f (+ a 1))))\n"
+        "(assert (> (f (f a)) 0))\n"
+        "(check-sat)\n",
+
+        "(set-option :smt.arith.solver 2)\n"
+        "(set-option :smt.arith.branch_cut_ratio 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-const z Int)\n"
+        "(assert (= (f x) (+ (* 13 x) (* 17 y) (* 19 z))))\n"
+        "(assert (= (f x) 1001))\n"
+        "(assert (and (>= x 0) (>= y 0) (>= z 0) (<= x 100) (<= y 100) (<= z 100)))\n"
+        "(assert (> (* 2 x) (+ y 5)))\n"
+        "(assert (< (* 3 z) (+ x 7)))\n"
+        "(check-sat)\n",
+
+        "(set-option :smt.arith.nl.horner_frequency 0)\n"
+        "(set-option :timeout 2000)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-const z Int)\n"
+        "(assert (= (* x y z) 1000003))\n"
+        "(assert (> x 1))\n"
+        "(assert (> y 1))\n"
+        "(assert (> z 1))\n"
+        "(check-sat)\n",
+    };
+    for (char const* spec : specs) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string response = Z3_eval_smtlib2_string(ctx, spec);
+        bool ok = response.find("error") == std::string::npos &&
+                  (response.find("sat\n") != std::string::npos || response.find("unknown\n") != std::string::npos);
+        if (!ok)
+            std::cout << spec << response << "\n";
+        ENSURE(ok);
+        Z3_del_context(ctx);
+    }
+}
 
 void tst_api() {
     test_solver_model_completion();
@@ -405,6 +759,13 @@ void tst_api() {
     test_optimize_arith_params();
     test_strict_real_maximize();
     test_strict_real_maximize_disjunction();
+    test_error_handler();
+    test_apply_result_subgoal_bounds();
+    test_query_constructor_bounds();
+    test_command_proof_check_callback();
+    test_apply_result_nonempty_subgoal_bounds();
+    test_query_constructor_num_fields();
+    test_zero_frequency_params();
 }
 
 void test_max_rev() {

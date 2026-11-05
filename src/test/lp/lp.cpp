@@ -180,6 +180,27 @@ void test_nex_order() {
 
 void test_simplify() {
 #ifdef Z3DEBUG
+    nex_creator bounded_creator;
+    bounded_creator.set_number_of_vars(3);
+    nex_var* bound_a = bounded_creator.mk_var(0);
+    nex_var* bound_b = bounded_creator.mk_var(1);
+    nex_var* bound_c = bounded_creator.mk_var(2);
+    nex* bab = bounded_creator.mk_mul(bound_a, bound_b);
+    nex* bac = bounded_creator.mk_mul(bound_a, bound_c);
+    nex* common_factor_sum = bounded_creator.mk_sum(bab, bac);
+    auto common_factor_expr = to_sum(bounded_creator.simplify(common_factor_sum));
+    reslimit bounded_limit;
+    unsigned callback_count = 0;
+    scoped_rlimit budget(bounded_limit, 1);
+    cross_nested bounded_cn(
+        [&](const nex*) { ++callback_count; return false; },
+        [](unsigned) { return false; },
+        bounded_limit,
+        1,
+        bounded_creator);
+    bounded_cn.run(common_factor_expr);
+    ENSURE(callback_count == 0);
+
     nex_creator r;
     reslimit limit;
     cross_nested cn(
@@ -1093,16 +1114,22 @@ void test_int_set() {
     std::cout << "done test_int_set\n";
 }
 
+static rational random_rational() {
+    unsigned num = my_random() % 100;
+    unsigned den = 1 + my_random() % 100;
+    return rational(num, den);
+}
+
 void test_rationals_no_numeric_pairs() {
     stopwatch sw;
 
     vector<mpq> c;
     for (unsigned j = 0; j < 10; ++j)
-        c.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        c.push_back(random_rational());
 
     vector<mpq> x;
     for (unsigned j = 0; j < 10; ++j)
-        x.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        x.push_back(random_rational());
 
     unsigned k = 500000;
     mpq r = zero_of_type<mpq>();
@@ -1128,11 +1155,11 @@ void test_rationals_no_numeric_pairs_plus() {
 
     vector<mpq> c;
     for (unsigned j = 0; j < 10; ++j)
-        c.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        c.push_back(random_rational());
 
     vector<mpq> x;
     for (unsigned j = 0; j < 10; ++j)
-        x.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        x.push_back(random_rational());
 
     unsigned k = 500000;
     mpq r = zero_of_type<mpq>();
@@ -1158,12 +1185,12 @@ void test_rationals() {
 
     vector<rational> c;
     for (unsigned j = 0; j < 10; ++j)
-        c.push_back(rational(my_random() % 100, 1 + my_random() % 100));
+        c.push_back(random_rational());
 
     vector<numeric_pair<rational>> x;
     for (unsigned j = 0; j < 10; ++j)
         x.push_back(numeric_pair<rational>(
-            rational(my_random() % 100, 1 + my_random() % 100)));
+            random_rational()));
 
     std::cout << "x = ";
     print_vector(x, std::cout);
@@ -1737,6 +1764,36 @@ void test_gomory_cut() {
     test_gomory_cut_1();
 }
 
+    void test_transpose_rows() {
+        static_matrix<mpq, impq> matrix;
+        matrix.init_empty_matrix(3, 3);
+        mpq big("18446744073709551617/4294967297");
+        matrix.set(0, 0, big);
+        matrix.set(0, 1, mpq(2));
+        matrix.set(1, 2, mpq(3));
+        auto* row0 = matrix.m_rows[0].data();
+        auto* row1 = matrix.m_rows[1].data();
+        matrix.transpose_rows(0, 1);
+        ENSURE(matrix.m_rows[0].data() == row1);
+        ENSURE(matrix.m_rows[1].data() == row0);
+        ENSURE(matrix.get_elem(0, 2) == 3);
+        ENSURE(matrix.get_elem(1, 0) == big);
+        ENSURE(matrix.get_elem(1, 1) == 2);
+        matrix.transpose_rows(1, 2);
+        ENSURE(matrix.m_rows[1].empty());
+        ENSURE(matrix.get_elem(2, 0) == big);
+        matrix.transpose_rows(2, 2);
+        ENSURE(matrix.get_elem(2, 1) == 2);
+        for (unsigned i = 0; i < matrix.m_rows.size(); ++i) {
+            auto const& row = matrix.m_rows[i];
+            for (unsigned k = 0; k < row.size(); ++k) {
+                auto const& c = row[k];
+                auto const& cc = matrix.m_columns[c.var()][c.offset()];
+                ENSURE(cc.var() == i && cc.offset() == k);
+            }
+        }
+    }
+
     void test_add_rows() {
 // Create a static_matrix object
         lp::static_matrix<mpq, impq> matrix;
@@ -2023,6 +2080,9 @@ void test_lp_local(int argn, char **argv) {
 }  // namespace lp
 void tst_lp(char **argv, int argc, int &i) {
     lp::test_lp_local(argc - 2, argv + 2);
+}
+void tst_lp_matrix() {
+    lp::test_transpose_rows();
 }
 // clang-format on
 bool coprime(int a, int b) {

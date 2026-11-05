@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include "ast/ast_smt2_pp.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/shared_occs.h"
 #include "ast/pp.h"
 #include "ast/ast_ll_pp.h"
@@ -401,6 +402,10 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
     // This method is redefined in cmd_context::pp_env: support for parametric sorts.
     // Here, we just pretty print builtin sorts: Bool, Int, Real, BitVec and Array.
     ast_manager & m = get_manager();
+    if (ff_util(m).is_ff(s)) {
+        std::string text = "(_ FiniteField " + ff_util(m).modulus(s).to_string() + ")";
+        return mk_string(m, text);
+    }
     if (m.is_bool(s))
         return mk_string(m, "Bool");
     if (get_autil().is_int(s))
@@ -636,6 +641,13 @@ class smt2_printer {
         else if (m_env.get_futil().is_numeral(c)) {
             f = m_env.pp_float_literal(c, m_pp_bv_lits, m_pp_float_real_lits);
         }
+        else if (ff_util(m()).is_numeral(c)) {
+            ff_util u(m());
+            rational value;
+            u.is_numeral(c, value);
+            std::string text = "(as ff" + value.to_string() + " (_ FiniteField " + u.modulus(c->get_sort()).to_string() + "))";
+            f = mk_string(m(), text);
+        }
         else if (m_env.get_dlutil().is_numeral(c)) {
             f = m_env.pp_datalog_literal(c);
         }
@@ -766,24 +778,22 @@ class smt2_printer {
             unsigned len;
             SASSERT(it < end);
             format * fname = m_env.pp_fdecl(t->get_decl(), len);
+            format_ref heading(mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)), fm());
+            format_ref body(fm());
             if (len > MAX_INDENT) {
-                f = mk_group(m(), mk_compose(m(),
-                                             mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
-                                             mk_indent(m(), SMALL_INDENT, mk_compose(m(),
-                                                                                     mk_seq<format**, f2f>(m(), it, end, f2f()),
-                                                                                     mk_string(m(), ")")))));
+                format_ref rest(mk_seq<format**, f2f>(m(), it, end, f2f()), fm());
+                format_ref close(mk_string(m(), ")"), fm());
+                body = mk_indent(m(), SMALL_INDENT, mk_compose(m(), rest, close));
             }
             else {
                 format * first = *it;
                 ++it;
-                f = mk_group(m(), mk_compose(m(),
-                                             mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
-                                             mk_indent(m(), len + 2, mk_compose(m(),
-                                                                                mk_string(m(), " "),
-                                                                                first,
-                                                                                mk_seq<format**, f2f>(m(), it, end, f2f()),
-                                                                                mk_string(m(), ")")))));
+                format_ref space(mk_string(m(), " "), fm());
+                format_ref rest(mk_seq<format**, f2f>(m(), it, end, f2f()), fm());
+                format_ref close(mk_string(m(), ")"), fm());
+                body = mk_indent(m(), len + 2, mk_compose(m(), space, first, rest, close));
             }
+            f = mk_group(m(), mk_compose(m(), heading, body));
         }
         info f_info(0, 1, 1);
         info * it2  = m_info_stack.begin() + fr.m_spos;

@@ -226,6 +226,10 @@ func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters,
     if (bv_size == 0) {
         m_manager->raise_exception("bit-vector size must be greater than zero");
     }
+    if (bv_size + 1 == 0) {
+        // a negative int parameter arrives here as UINT_MAX; bv_size + 1 would wrap
+        m_manager->raise_exception("bit-vector size is too large");
+    }
 
     force_ptr_array_size(m_int2bv, bv_size + 1);
 
@@ -484,7 +488,8 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
 
 func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                                         unsigned arity, sort * const * domain) {
-    if (!(num_parameters == 1 && parameters[0].is_int() && arity == 1 && parameters[0].get_int() < static_cast<int>(bv_size))) {
+    if (!(num_parameters == 1 && parameters[0].is_int() && arity == 1 &&
+          parameters[0].get_int() >= 0 && parameters[0].get_int() < static_cast<int>(bv_size))) {
         m_manager->raise_exception("invalid bit2bool declaration");
         return nullptr;
     }

@@ -619,12 +619,22 @@ public:
         // simplification still leaves an occurrence of it in fml. Such a
         // variable is a fresh, undeclared constant in the result (issue #10172).
         app_ref_vector orig_vars(vars);
+        expr_ref orig_fml(fml, m);
 
         do_qel(vars, fml);
         qel_project(vars, mdl, fml, m_reduce_all_selects);
         flatten_and(fml);
         m_rw(fml);
         rewrite_as_const_arr(fml, mdl, fml);
+
+        eval.reset();
+        if (eval.is_false(fml)) {
+            fml = orig_fml;
+            vars.reset();
+            vars.append(orig_vars);
+            spacer_qe_lite(vars, mdl, fml);
+            return;
+        }
 
         for (app* v : vars) {
             SASSERT(!arr_u.is_array(v) && !dt_u.is_datatype(v->get_sort()));

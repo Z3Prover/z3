@@ -127,10 +127,6 @@ namespace smt {
                 th->updt_params();
     }
 
-    unsigned context::relevancy_lvl() const {
-        return std::min(m_relevancy_lvl, m_fparams.m_relevancy_lvl);
-    }
-
     void context::copy(context& src_ctx, context& dst_ctx, bool override_base) {
         ast_manager& dst_m = dst_ctx.get_manager();
         ast_manager& src_m = src_ctx.get_manager();
@@ -285,6 +281,13 @@ namespace smt {
         bool_var_data & d          = get_bdata(l.var());
         set_justification(l.var(), d, j);
         d.m_scope_lvl              = m_scope_lvl;
+        if (m_fparams.m_clause_proof && j.get_kind() == b_justification::JUSTIFICATION) {
+            literal_vector antecedents;
+            justification* reason = j.get_justification();
+            if (!m.proofs_enabled())
+                m_conflict_resolution->justification2literals(reason, antecedents);
+            m_clause_proof.propagate(l, reason, antecedents);
+        }
         if (m_fparams.m_restart_adaptive && d.m_phase_available) {
             m_agility             *= m_fparams.m_agility_factor;
             if (!decision && d.m_phase == l.sign())
@@ -590,12 +593,11 @@ namespace smt {
             // Restore trail size since procedure was interrupted in the middle.
             // If the add_eq_trail remains on the trail stack, then Z3 may crash when the destructor is invoked.
             TRACE(add_eq, tout << "add_eq interrupted. This is unsafe " << m.limit().is_canceled() << "\n";);
-            // These helpers leave parent marks and m_r1_parent_generations
-            // outside the trail stack. If add_eq is interrupted between
-            // them, clear both before unwinding.
+            // Parent marks and the generation cache are not tracked by the trail stack.
             if (r1) {
                 for (enode * parent : enode::parents(r1))
-                    parent->unset_mark();
+                    if (parent->is_marked())
+                        parent->unset_mark();
             }
             m_r1_parent_generations.reset();
             m_trail_stack.shrink(old_trail_size);
@@ -701,8 +703,6 @@ namespace smt {
                 // Look up the generation cache
                 unsigned parent_generation = 0; // Just use generation 0 for equalities
                 if (!parent->is_eq()) {
-                    // The cache is consumed in insertion order. Guard the
-                    // index so a transient desync falls back safely.
                     if (generation_cache_idx < m_r1_parent_generations.size()) {
                         auto [p, g] = m_r1_parent_generations[generation_cache_idx++];
                         SASSERT(p == parent);
@@ -1833,8 +1833,9 @@ namespace smt {
 
     /**
        \brief unit propagation.
-       Cancelation is not safe during propagation at base level because
+       Cancelation is not safe during Boolean and equality propagation at base level because
        congruences cannot be retracted to a consistent state.
+       Theory propagation must remain interruptible.
      */
     bool context::propagate() {
         TRACE(propagate, tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n");
@@ -1861,9 +1862,9 @@ namespace smt {
                 propagate_th_diseqs();
                 if (inconsistent())
                     return false;
-                if (!propagate_theories())
-                    return false;
             }
+            if (!propagate_theories())
+                return false;
             if (!get_cancel_flag()) {
 //                scoped_suspend_rlimit _suspend_cancel(m.limit(), at_base_level());
                 m_qmanager->propagate();
@@ -1901,9 +1902,9 @@ namespace smt {
 
     bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, //expr* def, 
         unsigned max_generation,
-                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
+                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes, bool mbqi_instance) {
         return m_qmanager->add_instance(q, pat, num_bindings, bindings, 
-            max_generation, min_top_generation, max_top_generation, used_enodes);
+            max_generation, min_top_generation, max_top_generation, used_enodes, mbqi_instance);
     }
 
     void context::rescale_bool_var_activity() {
@@ -1934,15 +1935,18 @@ namespace smt {
             return true;
         switch (m_fparams.m_phase_selection) {
         case PS_THEORY:
-            if (m_phase_cache_on && d.m_phase_available) {
-                return m_bdata[var].m_phase;
-            }
-            if (!m_phase_cache_on && d.is_theory_atom()) {
+            // A theory atom takes the phase that holds in the current theory model, so that
+            // the decision does not disturb the model (for arithmetic: no pivots, no conflict).
+            // Other variables use their saved phase.
+            if (d.is_theory_atom()) {
                 theory * th = m_theories.get_plugin(d.get_theory());
                 lbool th_phase = th->get_phase(var);
                 if (th_phase != l_undef) {
                     return th_phase == l_true;
                 }
+            }
+            if (d.m_phase_available) {
+                return m_bdata[var].m_phase;
             }
             if (track_occs()) {
                 if (m_lit_occs[l.index()] == 0) {
@@ -2610,6 +2614,7 @@ namespace smt {
 
             m_scope_lvl = new_lvl;
             if (new_lvl < m_base_lvl) {
+                m_clause_proof.pop(m_base_lvl - new_lvl);
                 m_base_lvl = new_lvl;
                 m_search_lvl = new_lvl; // Remark: not really necessary
             }
@@ -2675,7 +2680,7 @@ namespace smt {
             literal l = cls[i];
             switch(get_assignment(l)) {
             case l_false:
-                if (m.proofs_enabled())
+                if (m.proofs_enabled() && !m_fparams.m_clause_proof)
                     simp_lits.push_back(~l);
                 dec_ref(l);
                 break;
@@ -2701,7 +2706,7 @@ namespace smt {
             return true;
         }
 
-        if (m.proofs_enabled() && !simp_lits.empty()) {
+        if (m.proofs_enabled() && !m_fparams.m_clause_proof && !simp_lits.empty()) {
             SASSERT(m_scope_lvl == m_base_lvl);
             justification * js = cls.get_justification();
             justification * new_js = nullptr;
@@ -2748,7 +2753,11 @@ namespace smt {
                         // it is safe to replace with axiom, we are at the base level.
                         SASSERT(m_scope_lvl == m_base_lvl);
                         bool_var v0 = l0.var();
-                        if (m.proofs_enabled()) {
+                        if (m_fparams.m_clause_proof) {
+                            m_clause_proof.add(l0, CLS_LEARNED, nullptr);
+                            m_bdata[v0].set_axiom();
+                        }
+                        else if (m.proofs_enabled()) {
                             SASSERT(m_search_lvl == m_base_lvl);
                             literal_buffer simp_lits;
                             unsigned num_lits = cls->get_num_literals();
@@ -3160,6 +3169,7 @@ namespace smt {
             VERIFY(!resolve_conflict()); // build the proof
         }
         push_scope();
+        m_clause_proof.push();
         m_base_scopes.push_back(base_scope());
         base_scope & bs = m_base_scopes.back();
         bs.m_lemmas_lim = m_lemmas.size();
@@ -3816,9 +3826,11 @@ namespace smt {
     }
 
     void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
-        for (theory* th : m_theory_set) {
+        unsigned sz = theory_assumptions.size();
+        for (theory* th : m_theory_set) {            
             th->add_theory_assumptions(theory_assumptions);
         }
+        m_has_research_theories |= sz < theory_assumptions.size();
     }
 
     lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
@@ -3832,8 +3844,25 @@ namespace smt {
             return p(asms);
         }
         lbool r = l_undef;
+        // Quantifier instances derived during a search are asserted at the search level and
+        // are lost when a theory asks to research (e.g. theory_recfun after raising its
+        // unfolding depth). They are consequences of the asserted quantifiers, so they can be
+        // re-asserted at base level for the next search; otherwise model-based quantifier
+        // instantiation starts from scratch and may never converge.
+        vector<std::pair<expr_ref, app_ref>> saved_instances;
+        bool research = false;
         do {
             pop_to_base_lvl();
+            if (!saved_instances.empty()) {
+                IF_VERBOSE(10, verbose_stream() << "(smt.research :re-asserting-instances " << saved_instances.size() << ")\n";);
+                for (auto const& [lemma, pr] : saved_instances) {
+                    if (pr)
+                        m_asserted_formulas.assert_expr(lemma, pr.get());
+                    else
+                        m_asserted_formulas.assert_expr(lemma);
+                }
+                saved_instances.reset();
+            }
             expr_ref_vector asms(m, num_assumptions, assumptions);
             try {
                 internalize_assertions();
@@ -3846,8 +3875,11 @@ namespace smt {
             TRACE(before_search, display(tout););
             r = search();
             r = mk_unsat_core(r);        
+            research = should_research(r);
+            if (research) 
+                m_qmanager->collect_instances(saved_instances);
         }
-        while (should_research(r));
+        while (research);
         r = check_finalize(r);
         return r;
     }
@@ -4044,8 +4076,29 @@ namespace smt {
 
         reset_model();
 
-        if (m_last_search_failure != OK) 
-            return false;
+        bool force_restart = false;
+        if (m_last_search_failure != OK) {
+            // A theory gave up (e.g. the array theory on a lambda passed to an uninterpreted
+            // function), so the candidate model is not trusted for a sat answer. Quantifiers may
+            // nevertheless be refuted by instances obtained from that (approximate) model:
+            // let model-based quantifier instantiation produce them before giving up.
+            if (m_last_search_failure == THEORY && status != l_false && !inconsistent() &&
+                m_fparams.m_mbqi_instances_after_giveup &&
+                m_qmanager->has_quantifiers() && m_qmanager->model_based()) {
+                mk_proto_model();
+                if (m_proto_model.get() &&
+                    m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value()) == quantifier_manager::RESTART) {
+                    IF_VERBOSE(2, verbose_stream() << "(smt.mbqi :instances-after-theory-giveup)\n";);
+                    m_last_search_failure = OK;
+                    status = l_undef;
+                    force_restart = true;
+                }
+                else 
+                    return false;
+            }
+            else
+                return false;
+        }
         if (status == l_false) 
             return false;
         if (status == l_true && !m_qmanager->has_quantifiers() && !has_lambda()) 
@@ -4076,7 +4129,7 @@ namespace smt {
             return false;
         }
         inc_limits();
-        if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
+        if (force_restart || status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
             SASSERT(!inconsistent());
             log_stats();
             // execute the restart
@@ -4440,7 +4493,7 @@ namespace smt {
             }
 #endif
             proof * pr = nullptr;
-            if (m.proofs_enabled()) {
+            if (m.proofs_enabled() && !m_fparams.m_clause_proof) {
                 pr = m_conflict_resolution->get_lemma_proof();
                 // check_proof(pr);
                 TRACE(context_proof, tout << mk_ll_pp(pr, m););
@@ -4513,7 +4566,7 @@ namespace smt {
             }
 #endif
             justification * js = nullptr;
-            if (m.proofs_enabled()) {
+            if (m.proofs_enabled() && !m_fparams.m_clause_proof) {
                 js = alloc(justification_proof_wrapper, *this, pr, false);
             }
 #if 0
@@ -4561,7 +4614,7 @@ namespace smt {
             update_phase_cache_counter();
             return true;
         }
-        else if (m_fparams.m_clause_proof && !m.proofs_enabled()) {
+        else if (m_fparams.m_clause_proof) {
             m_unsat_proof = m_clause_proof.get_proof(inconsistent());
         }
         else if (m.proofs_enabled()) {
@@ -4911,6 +4964,11 @@ namespace smt {
     }
 
     proof * context::get_proof() {        
+        if (m_fparams.m_clause_proof && m_unsat_proof &&
+            !is_app_of(m_unsat_proof, basic_family_id, PR_CLAUSE_TRAIL)) {
+            m_clause_proof.add(m_unsat_proof);
+            m_unsat_proof = m_clause_proof.get_proof(inconsistent());
+        }
         if (!m_unsat_proof) {
             m_unsat_proof = m_clause_proof.get_proof(inconsistent());
         }

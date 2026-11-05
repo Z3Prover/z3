@@ -1087,8 +1087,10 @@ namespace lp {
 
         void find_changed_terms_and_more_changed_rows() {
             for (unsigned j : m_changed_f_columns) {
-                if (auto terms = try_get_value(m_columns_to_terms, j)) {
-                    for (unsigned k : *terms) {
+                if (auto it = m_columns_to_terms.find(j); it != m_columns_to_terms.end()) {
+                    std_vector<unsigned> terms(it->second.begin(), it->second.end());
+                    std::sort(terms.begin(), terms.end());
+                    for (unsigned k : terms) {
                         mark_term_change(k);
                     }
                 }
@@ -1675,7 +1677,9 @@ namespace lp {
             // Sort by term_weight descending
             std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
                       [this](unsigned j1, unsigned j2) {
-                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
+                          unsigned w1 = term_weight(lra.get_term(j1));
+                          unsigned w2 = term_weight(lra.get_term(j2));
+                          return w1 != w2 ? w1 > w2 : j1 < j2;
                       });
         
             lia_move r = lia_move::undef;
@@ -1896,6 +1900,34 @@ namespace lp {
                 ex.push_back(ci);
         }
 
+        u_dependency* explain_constant_conflict(unsigned j, bool upper, u_dependency* source, u_dependency* support) {
+            if (!lra.dep_manager().proofs_enabled())
+                return support;
+            auto opened = open_ml(m_lspace.m_data);
+            auto* identity = lra.dep_manager().derive(nullptr, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::linear;
+                for (auto const& p : opened)
+                    r.conclusion.lhs.push_back({p.coeff(), p.var()});
+                return r;
+            });
+            return lra.dep_manager().derive(support, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::linear;
+                r.conclusion.contradiction = true;
+                r.premises.push_back({identity, mpq(upper ? 1 : -1)});
+                r.premises.push_back({source, mpq(1)});
+                for (auto const& p : opened) {
+                    if (p.var() == j || !lra.column_is_fixed(p.var()))
+                        continue;
+                    bool lower = upper == p.coeff().is_pos();
+                    r.premises.push_back({lower ? lra.get_column_lower_bound_witness(p.var()) :
+                                                 lra.get_column_upper_bound_witness(p.var()), abs(p.coeff())});
+                }
+                return r;
+            });
+        }
+
         void handle_constant_term(unsigned j) {
             if (m_c.is_zero()) {
                 return;
@@ -1913,6 +1945,8 @@ namespace lp {
                     for (constraint_index ci : lra.flatten(dep)) {
                         m_infeas_explanation.push_back(ci);
                     }
+                    if (lra.dep_manager().proofs_enabled())
+                        m_infeas_explanation.set_evidence(explain_constant_conflict(j, true, b_dep, dep));
                     return;
                 }
             }
@@ -1926,6 +1960,8 @@ namespace lp {
                     for (constraint_index ci : lra.flatten(dep)) {
                         m_infeas_explanation.push_back(ci);
                     }
+                    if (lra.dep_manager().proofs_enabled())
+                        m_infeas_explanation.set_evidence(explain_constant_conflict(j, false, b_dep, dep));
                 }
             }
         }
@@ -2031,6 +2067,38 @@ namespace lp {
                   print_deps(tout, dep) << std::endl;);
             if (lra.settings().get_cancel_flag())
                 return false;
+            if (lra.dep_manager().proofs_enabled())
+                dep = lra.dep_manager().derive(dep, [&] {
+                    evidence_manager::recipe r;
+                    r.kind = evidence_manager::rule::integer_lattice;
+                    r.pivot = j;
+                    r.divisor = g;
+                    r.conclusion.lhs.push_back({mpq(1), j});
+                    r.conclusion.kind = kind;
+                    r.conclusion.rhs = impq(bound);
+                    auto opened = open_ml(m_lspace.m_data);
+                    for (auto const& p : opened)
+                        r.equation.lhs.push_back({p.coeff(), p.var()});
+                    evidence_manager::column_bounds source{j};
+                    if (upper)
+                        source.upper = 0;
+                    else
+                        source.lower = 0;
+                    r.premises.push_back({upper ? lra.get_column_upper_bound_witness(j) :
+                                                lra.get_column_lower_bound_witness(j), mpq(1)});
+                    r.bounds.push_back(source);
+                    for (auto const& p : fixed_part_of_the_term) {
+                        if (p.var() == j || (p.coeff() / g).is_int())
+                            continue;
+                        evidence_manager::column_bounds b{p.var()};
+                        b.lower = r.premises.size();
+                        r.premises.push_back({lra.get_column_lower_bound_witness(p.var()), mpq(1)});
+                        b.upper = r.premises.size();
+                        r.premises.push_back({lra.get_column_upper_bound_witness(p.var()), mpq(1)});
+                        r.bounds.push_back(b);
+                    }
+                    return r;
+                });
             lra.update_column_type_and_bound(j, kind, bound, dep);
             lp_status st = lra.find_feasible_solution();
             if (is_sat(st) || st == lp::lp_status::CANCELLED)
@@ -2726,10 +2794,20 @@ namespace lp {
                 TRACE(dio, print_entry(m_normalize_conflict_index, tout << "conflict:", true) << std::endl;);
                 for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_normalize_conflict_index], m_normalize_conflict_gcd)))
                     ex.push_back(ci);
+                if (lra.dep_manager().proofs_enabled()) {
+                    auto opened = open_ml(m_l_matrix.m_rows[m_normalize_conflict_index]);
+                    lar_term identity;
+                    for (auto const& p : opened)
+                        identity.add_monomial(p.coeff(), p.var());
+                    ex.set_evidence(lra.explain_integer_infeasibility(identity));
+                }
             } 
             else {
-                for (auto ci : m_infeas_explanation) 
-                    ex.push_back(ci.ci());                
+                if (lra.dep_manager().proofs_enabled())
+                    ex = m_infeas_explanation;
+                else
+                    for (auto ci : m_infeas_explanation)
+                        ex.push_back(ci.ci());
             }
             TRACE(dio, lra.print_expl(tout, ex););
         }

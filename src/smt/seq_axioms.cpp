@@ -112,7 +112,8 @@ void seq_axioms::ensure_digit_axiom() {
     if (!m_digits_initialized) {
         for (unsigned i = 0; i < 10; ++i) {
             expr_ref cnst(seq.mk_char('0'+i), m);
-            add_axiom(mk_eq(m_sk.mk_digit2int(cnst), a.mk_int(i)));
+            expr_ref digit(m_sk.mk_digit2int(cnst), m);
+            add_axiom(mk_eq(digit, a.mk_int(i)));
         }
         ctx().push_trail(value_trail<bool>(m_digits_initialized));
         m_digits_initialized = true;

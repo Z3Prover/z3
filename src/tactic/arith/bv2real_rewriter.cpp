@@ -133,7 +133,8 @@ void bv2real_util::mk_bv2real_reduced(expr* s, expr* t, rational const& d, ratio
     mk_sbv2real(t, t1);
     mk_div(s1, d, s1);
     mk_div(t1, d, t1);
-    r1 = a().mk_power(a().mk_numeral(r, false), a().mk_numeral(rational(1,2),false));
+    expr_ref root(a().mk_numeral(r, false), m());
+    r1 = a().mk_power(root, a().mk_numeral(rational(1,2),false));
     t1 = a().mk_mul(t1, r1);
     result = a().mk_add(s1, t1);
 }    
@@ -443,10 +444,14 @@ bool bv2real_rewriter::mk_le(expr* s, expr* t, bool is_pos, bool is_neg, expr_re
         expr_ref gt_proxy(m().mk_not(le_proxy), m());
         expr_ref s2_is_nonpos(m_bv.mk_sle(s2, m_bv.mk_numeral(rational(0), s2_size)), m());
         
-        expr_ref under(u().mk_bv_add(u().mk_bv_mul(rational(4), s1), u().mk_bv_mul(rational(5), s2)), m());
+        expr_ref under_lhs(u().mk_bv_mul(rational(4), s1), m());
+        expr_ref under_rhs(u().mk_bv_mul(rational(5), s2), m());
+        expr_ref under(u().mk_bv_add(under_lhs, under_rhs), m());
         expr_ref z1(m_bv.mk_numeral(rational(0), m_bv.get_bv_size(under)), m());
         expr_ref le_under(m_bv.mk_sle(under, z1), m());
-        expr_ref over(u().mk_bv_add(u().mk_bv_mul(rational(2), s1), u().mk_bv_mul(rational(3), s2)), m());
+        expr_ref over_lhs(u().mk_bv_mul(rational(2), s1), m());
+        expr_ref over_rhs(u().mk_bv_mul(rational(3), s2), m());
+        expr_ref over(u().mk_bv_add(over_lhs, over_rhs), m());
         expr_ref z2(m_bv.mk_numeral(rational(0), m_bv.get_bv_size(over)), m());
         expr_ref le_over(m_bv.mk_sle(over, z2), m());
 
@@ -462,9 +467,11 @@ bool bv2real_rewriter::mk_le(expr* s, expr* t, bool is_pos, bool is_neg, expr_re
         // predicate may occur in negative polarity.
         if (is_neg) {
             // s1 + s2*sqrt(2) > 0  <== s2 > 0 & s1 + s2*(5/4) > 0;  4*s1 + 5*s2 > 0
-            expr* e3 = m().mk_implies(m().mk_and(gt_proxy, m().mk_not(s2_is_nonpos)), m().mk_not(le_under));
+            expr_ref under_guard(m().mk_and(gt_proxy, m().mk_not(s2_is_nonpos)), m());
+            expr* e3 = m().mk_implies(under_guard, m().mk_not(le_under));
             // s1 + s2*sqrt(2) > 0  <== s2 <= 0 & s1 + s2*(3/2) > 0 <=> 2*s1 + 3*s2 > 0
-            expr* e4 = m().mk_implies(m().mk_and(gt_proxy, s2_is_nonpos), m().mk_not(le_over));
+            expr_ref over_guard(m().mk_and(gt_proxy, s2_is_nonpos), m());
+            expr* e4 = m().mk_implies(over_guard, m().mk_not(le_over));
             u().add_side_condition(e3);
             u().add_side_condition(e4);
         }
@@ -543,8 +550,12 @@ br_status bv2real_rewriter::mk_le(expr * s, expr * t, expr_ref & result) {
         expr* ge  = m_bv.mk_sle(t22, t12);
         expr* le  = m_bv.mk_sle(t12, t22);
         expr* e1  = m().mk_or(gz1, gz2);
-        expr* e2  = m().mk_or(m().mk_not(gz1), m().mk_not(lz2), ge);
-        expr* e3  = m().mk_or(m().mk_not(gz2), m().mk_not(lz1), le);
+        expr_ref ngz1(m().mk_not(gz1), m());
+        expr_ref nlz2(m().mk_not(lz2), m());
+        expr* e2  = m().mk_or(ngz1, nlz2, ge);
+        expr_ref ngz2(m().mk_not(gz2), m());
+        expr_ref nlz1(m().mk_not(lz1), m());
+        expr* e3  = m().mk_or(ngz2, nlz1, le);
         result    = m().mk_and(e1, e2, e3);
         TRACE(bv2real_rewriter, tout << "\n";);
         return BR_DONE;
@@ -573,7 +584,9 @@ br_status bv2real_rewriter::mk_ite(expr* c, expr* s, expr* t, expr_ref& result) 
         u().align_divisors(s1, s2, t1, t2, d1, d2);
         u().align_sizes(s1, t1);
         u().align_sizes(s2, t2);
-        if (u().mk_bv2real(m().mk_ite(c, s1, t1), m().mk_ite(c, s2, t2), d1, r1, result)) {
+        s1 = m().mk_ite(c, s1, t1);
+        s2 = m().mk_ite(c, s2, t2);
+        if (u().mk_bv2real(s1, s2, d1, r1, result)) {
             return BR_DONE;
         }
     }
@@ -587,7 +600,9 @@ br_status bv2real_rewriter::mk_eq(expr * s, expr * t, expr_ref & result) {
         u().align_divisors(s1, s2, t1, t2, d1, d2);
         u().align_sizes(s1, t1);
         u().align_sizes(s2, t2);
-        result = m().mk_and(m().mk_eq(s1, t1), m().mk_eq(s2, t2));
+        expr_ref eq1(m().mk_eq(s1, t1), m());
+        expr_ref eq2(m().mk_eq(s2, t2), m());
+        result = m().mk_and(eq1, eq2);
         return BR_DONE;
     }
     return BR_FAILED;
@@ -599,7 +614,9 @@ br_status bv2real_rewriter::mk_uminus(expr * s, expr_ref & result) {
     if (u().is_bv2real(s, s1, s2, d1, r1)) {
         s1 = u().mk_extend(1, s1);
         s2 = u().mk_extend(1, s2);
-        if (u().mk_bv2real(m_bv.mk_bv_neg(s1), m_bv.mk_bv_neg(s2), d1, r1, result)) {
+        s1 = m_bv.mk_bv_neg(s1);
+        s2 = m_bv.mk_bv_neg(s2);
+        if (u().mk_bv2real(s1, s2, d1, r1, result)) {
             return BR_DONE;
         }
     }
@@ -621,7 +638,9 @@ br_status bv2real_rewriter::mk_add(expr* s, expr* t, expr_ref& result) {
     rational d1, d2, r1, r2;
     if (u().is_bv2real(s, s1, s2, d1, r1) && u().is_bv2real(t, t1, t2, d2, r2) && r1 == r2) {
         u().align_divisors(s1, s2, t1, t2, d1, d2);
-        if (u().mk_bv2real(u().mk_bv_add(s1, t1), u().mk_bv_add(t2, s2), d1, r1, result)) {
+        s1 = u().mk_bv_add(s1, t1);
+        s2 = u().mk_bv_add(t2, s2);
+        if (u().mk_bv2real(s1, s2, d1, r1, result)) {
             return BR_DONE;
         }
     }
@@ -650,8 +669,12 @@ br_status bv2real_rewriter::mk_mul(expr* s, expr* t, expr_ref& result) {
     if (u().is_bv2real(s, s1, s2, d1, r1) && u().is_bv2real(t, t1, t2, d2, r2) && r1 == r2) {
         // s1*t1 + r1*(s2*t2) + (s1*t2 + s2*t2)*r1
         expr_ref u1(m()), u2(m());
-        u1 = u().mk_bv_add(u().mk_bv_mul(s1, t1), u().mk_bv_mul(r1, u().mk_bv_mul(t2, s2)));
-        u2 = u().mk_bv_add(u().mk_bv_mul(s1, t2), u().mk_bv_mul(s2, t1));
+        u1 = u().mk_bv_mul(s1, t1);
+        expr_ref rhs1(u().mk_bv_mul(r1, u().mk_bv_mul(t2, s2)), m());
+        u1 = u().mk_bv_add(u1, rhs1);
+        u2 = u().mk_bv_mul(s1, t2);
+        expr_ref rhs2(u().mk_bv_mul(s2, t1), m());
+        u2 = u().mk_bv_add(u2, rhs2);
         rational tmp = d1*d2;
         if (u().mk_bv2real(u1, u2, tmp, r1, result)) {
             return BR_DONE;
@@ -676,7 +699,9 @@ br_status bv2real_rewriter::mk_sub(expr* s, expr* t, expr_ref& result) {
     rational d1, d2, r1, r2;
     if (u().is_bv2real(s, s1, s2, d1, r1) && u().is_bv2real(t, t1, t2, d2, r2) && r1 == r2) {
         u().align_divisors(s1, s2, t1, t2, d1, d2);
-        if (u().mk_bv2real(u().mk_bv_sub(s1, t1), u().mk_bv_sub(s2, t2), d1, r1, result)) {
+        s1 = u().mk_bv_sub(s1, t1);
+        s2 = u().mk_bv_sub(s2, t2);
+        if (u().mk_bv2real(s1, s2, d1, r1, result)) {
             return BR_DONE;
         }
     }

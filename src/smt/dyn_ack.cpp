@@ -153,7 +153,9 @@ namespace smt {
             p4 = m.mk_hypothesis(m.mk_not(m_eq3));
             p5 = m.mk_unit_resolution({ p3, p4 });
             SASSERT(m.get_fact(p5) == m.mk_false());
-            expr_ref conclusion(m.mk_or(m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3), m);
+            expr_ref lhs(m.mk_not(m_eq1), m);
+            expr_ref rhs(m.mk_not(m_eq2), m);
+            expr_ref conclusion(m.mk_or(lhs, rhs, m_eq3), m);
             p6 = m.mk_lemma(p5, conclusion);
             return p6;
         }
@@ -485,10 +487,10 @@ namespace smt {
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
         justification * js = nullptr;
         if (m.proofs_enabled()) {
-            js = alloc(dyn_ack_eq_justification, n1, n2, r, 
-                       m.mk_eq(n1, r),
-                       m.mk_eq(n2, r),
-                       m.mk_eq(n1, n2));
+            app_ref eq1(m.mk_eq(n1, r), m);
+            app_ref eq2(m.mk_eq(n2, r), m);
+            app_ref eq3(m.mk_eq(n1, n2), m);
+            js = alloc(dyn_ack_eq_justification, n1, n2, r, eq1.get(), eq2.get(), eq3.get());
         }
         ctx.mark_as_relevant(eq1);
         ctx.mark_as_relevant(eq2);

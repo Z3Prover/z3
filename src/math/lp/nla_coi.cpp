@@ -21,10 +21,11 @@ namespace nla {
       m_var_set.reset();
       auto& lra = c.lra_solver();
 
+      // Auxiliary constraints (atoms of nla lemmas) stay in the cone of
+      // influence: a case-split literal is not implied by the other constraints,
+      // so nlsat needs it. nra_solver filters the dyadic artifacts among them.
       for (auto ci : lra.constraints().indices()) {
           auto const& c = lra.constraints()[ci];
-          if (c.is_auxiliary())
-              continue;
           for (auto const& [coeff, v] : c.coeffs()) {
               var2occurs.reserve(v + 1);
               var2occurs[v].constraints.push_back(ci);

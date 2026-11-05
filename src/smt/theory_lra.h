@@ -62,6 +62,8 @@ namespace smt {
         void relevant_eh(expr* e) override;
 
         void init_search_eh() override;
+        void add_theory_assumptions(expr_ref_vector& assumptions) override;
+        bool should_research(expr_ref_vector& core) override;
 
         final_check_status final_check_eh(unsigned) override;
 
@@ -117,7 +119,7 @@ namespace smt {
         expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val);
         inf_eps value(theory_var) override;
         inf_eps maximize(theory_var v, expr_ref& blocker) override;
-        inf_eps maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<rational>& upper) override;
+        inf_eps maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<upper_bound>& upper) override;
         theory_var add_objective(app* term) override;
     };
 

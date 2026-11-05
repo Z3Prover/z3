@@ -1,0 +1,22 @@
+{
+  "pull_request": 11481,
+  "head_sha": "dcc95dc59f948824ed8a4e40b7deaa53bf2719b7",
+  "base_sha": "d687b6a18d03834ec2bfaa72647890c444748a09",
+  "path_prefix": "fstar/audits/pr-11481/dcc95dc59f948824ed8a4e40b7deaa53bf2719b7/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41166195161",
+  "files": [
+    {
+      "name": "Z3SatPopShrink.fst",
+      "sha256": "4c6c1cf52be701e3d30a798e353d9223c2fffd5208ef0ea46dcada2b50b28e4d"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "b2a3b661efeebd2cde22407005a7981c01ced9b23706e9e7f71b652ab77350c9"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "2d1fa8359ebf20209c996c772e425eb7e356fc3fa57caab9595220682df9d959"
+    }
+  ]
+}

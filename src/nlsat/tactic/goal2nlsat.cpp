@@ -310,35 +310,54 @@ struct goal2nlsat::imp {
         return v;
     }
 
+    // Registering a transcendental application's argument may itself
+    // reference a transcendental application that was not otherwise
+    // reachable from the goal's literals (e.g. exp(exp(1)) - exp()'s
+    // argument is never visited by the generic to_polynomial traversal,
+    // see visit_arith_app's default case above), so expr2var_axiom may
+    // insert brand new entries into m_t2x for such nested applications
+    // while we are registering the ones found so far. We therefore need
+    // to repeat the scan until a fixed point is reached (no new
+    // transcendental/atan2/pi application is discovered), instead of a
+    // single pass over a snapshot of m_t2x taken up-front.
     void register_transcendentals() {
-        vector<std::pair<app*, polynomial::var>> found;
-        vector<std::pair<app*, polynomial::var>> atan2_found;
         std::pair<expr*, polynomial::var> pi_found{ nullptr, polynomial::null_var };
-        for (auto const & kv : m_t2x) {
-            expr * e = &kv.get_key();
-            if (!is_app(e) || to_app(e)->get_family_id() != m_util.get_family_id())
-                continue;
-            app * t = to_app(e);
-            nlsat::transcendental_op_kind op;
-            if (get_transcendental_op(t, op))
-                found.push_back({ t, kv.get_value() });
-            else if (m_util.is_atan2(e))
-                atan2_found.push_back({ t, kv.get_value() });
-            else if (m_util.is_pi(e))
-                pi_found = { e, kv.get_value() };
-        }
-        if (found.empty() && atan2_found.empty() && pi_found.first == nullptr)
-            return;
-        for (auto const & [t, val] : found) {
-            nlsat::transcendental_op_kind op;
-            VERIFY(get_transcendental_op(t, op));
-            polynomial::var arg = expr2var_axiom(t->get_arg(0));
-            m_solver.add_transcendental(op, arg, val);
-        }
-        for (auto const & [t, val] : atan2_found) {
-            polynomial::var y = expr2var_axiom(t->get_arg(0));
-            polynomial::var x = expr2var_axiom(t->get_arg(1));
-            m_solver.add_atan2(y, x, val);
+        obj_hashtable<expr> seen;
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            vector<std::pair<app*, polynomial::var>> found;
+            vector<std::pair<app*, polynomial::var>> atan2_found;
+            for (auto const & kv : m_t2x) {
+                expr * e = &kv.get_key();
+                if (seen.contains(e))
+                    continue;
+                if (!is_app(e) || to_app(e)->get_family_id() != m_util.get_family_id())
+                    continue;
+                app * t = to_app(e);
+                nlsat::transcendental_op_kind op;
+                if (get_transcendental_op(t, op))
+                    found.push_back({ t, kv.get_value() });
+                else if (m_util.is_atan2(e))
+                    atan2_found.push_back({ t, kv.get_value() });
+                else if (m_util.is_pi(e))
+                    pi_found = { e, kv.get_value() };
+            }
+            for (auto const & [t, val] : found) {
+                seen.insert(t);
+                nlsat::transcendental_op_kind op;
+                VERIFY(get_transcendental_op(t, op));
+                polynomial::var arg = expr2var_axiom(t->get_arg(0));
+                m_solver.add_transcendental(op, arg, val);
+                changed = true;
+            }
+            for (auto const & [t, val] : atan2_found) {
+                seen.insert(t);
+                polynomial::var y = expr2var_axiom(t->get_arg(0));
+                polynomial::var x = expr2var_axiom(t->get_arg(1));
+                m_solver.add_atan2(y, x, val);
+                changed = true;
+            }
         }
         if (pi_found.first != nullptr)
             m_solver.add_pi(pi_found.second);

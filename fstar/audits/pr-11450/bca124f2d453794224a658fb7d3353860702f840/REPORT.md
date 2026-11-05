@@ -1,0 +1,6 @@
+Scope: PARTIAL. PR #11450 touches ~70 files; only the new instantiation-clause logic of fstar/Z3QuantifierKernel.fst (head bca124f2d453794224a658fb7d3353860702f840, base 30daf835d2c23b71298e83451ce03d7fa203376b; blob 6be8f410895c0482c163e13a39a40492ed914458, 10945 bytes) was examined: lemma_check_typed, lemma_instantiation_step_sound, lemma_equal_never_checked.
+Obligations (abstract model, F* 2026.09.27, Z3 4.13.3 pinned): O1 clause (not forall) or body[t] holds for any well-sorted t - proved; O2 Eq conclusion is never an Or clause - proved (trivial shape model).
+Correspondence: abstract sorted values stand for Z3TypedQuantifier typed environments; this is a toy re-derivation, NOT the PR's definitions. Substitution capture-avoidance, evalargs reversal, Q.check and the dispatcher were not mechanized here.
+Assumptions: none beyond F* standard library. No counterexample was sought beyond reading the guards; none found.
+Excluded: all other 69 files incl. Z3CoreKernel, Z3StandardModel, Z3GhostStandardModel, Z3TypedQuantifier, tests, tooling, docs, and prior audit directories. Not verified: C++ execution, memory safety.
+Reproduce: cd fstar-audit; fstar.exe --smt z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out AuditInstClause.fst

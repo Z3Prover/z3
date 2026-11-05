@@ -15,16 +15,84 @@ Abstract:
 --*/
 #include "api/z3.h"
 #include "ast/reg_decl_plugins.h"
+#include "cmd_context/cmd_context.h"
+#include "opt/opt_cmds.h"
 #include "opt/opt_context.h"
+#include "opt/opt_curve_certificate.h"
 #include "opt/opt_geometric.h"
+#include "opt/opt_nlsat.h"
+#include "opt/opt_search.h"
+#include "parsers/smt2/smt2parser.h"
 #include "smt/smt_context.h"
+#include "util/common_msgs.h"
 #include "util/debug.h"
+#include "util/gparams.h"
 #include <climits>
 #include <cstring>
 #include <initializer_list>
 #include <iostream>
+#include <sstream>
 
 namespace {
+
+static void tst_objective_search() {
+    using opt::inf_eps;
+    inf_eps infinity(rational(1), inf_rational(0));
+    opt::objective_search search(infinity);
+    opt::maximize_result result{false, inf_eps(rational(3)), l_undef, {}};
+    search.update(result);
+    ENSURE(search.upper() == infinity);
+    result.bound_valid = true;
+    result.hint_status = l_true;
+    search.update(result);
+    ENSURE(search.upper() == infinity);
+    result.upper_bound = rational(10);
+    search.update(result);
+    ENSURE(search.upper() == inf_eps(rational(10)));
+    result = {false, inf_eps(rational(7)), l_false, {}};
+    search.update(result);
+    ENSURE(search.upper() == inf_eps(rational(7)));
+    result.hint = infinity;
+    search.update(result);
+    ENSURE(search.upper() == inf_eps(rational(7)));
+
+    search.enter_region(inf_eps(rational(2)));
+    search.enter_region(inf_eps(rational(5)));
+    search.tighten_upper(inf_eps(rational(4)));
+    ENSURE(search.upper() == inf_eps(rational(5)));
+    search.leave_region(l_undef);
+    search.tighten_upper(inf_eps(rational(3)));
+    ENSURE(search.upper() == inf_eps(rational(3)));
+    search.reset_regions();
+    ENSURE(search.upper() == inf_eps(rational(3)));
+
+    for (lbool status : {l_true, l_false, l_undef}) {
+        opt::objective_search trial(infinity);
+        trial.enter_region(inf_eps(rational(2)));
+        trial.enter_region(inf_eps(rational(1)));
+        trial.leave_region(status);
+        ENSURE(trial.upper() == (status == l_false ? inf_eps(rational(2)) : infinity));
+        trial.leave_region(l_undef);
+        ENSURE(trial.upper() == (status == l_false ? inf_eps(rational(2)) : infinity));
+    }
+    opt::objective_search bounded(inf_eps(rational(1)));
+    bounded.enter_region(inf_eps(rational(2)));
+    bounded.leave_region(l_false);
+    ENSURE(bounded.upper() == inf_eps(rational(1)));
+
+    opt::objective_search blockers(infinity);
+    blockers.exclude_below(inf_eps(rational(1)));
+    blockers.enter_region(inf_eps(rational(2)));
+    blockers.exclude_below(inf_eps(rational(6)));
+    blockers.leave_region(l_false);
+    ENSURE(blockers.upper() == inf_eps(rational(6)));
+    blockers.tighten_upper(inf_eps(rational(3)));
+    ENSURE(blockers.upper() == inf_eps(rational(3)));
+    blockers.enter_region(inf_eps(rational(10)));
+    blockers.reset_regions();
+    blockers.refute_region();
+    ENSURE(blockers.upper() == inf_eps(rational(1)));
+}
 
 // Solve two independent maximization problems over real x and y, both under
 // the constraints x <= 3 and y <= 7: first maximize x, then maximize y.
@@ -104,7 +172,11 @@ static void tst_arithmetic_scope_exits() {
             expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
             expr_ref zero(a.mk_numeral(rational(0), false), m);
             s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
-            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            {
+                expr_ref lhs(a.mk_mul(x, x), m);
+                expr_ref rhs(a.mk_numeral(rational(2), false), m);
+                s.assert_expr(a.mk_le(lhs, rhs));
+            }
             solver::scoped_push caller_scope(s);
             s.assert_expr(a.mk_ge(x, zero));
             ENSURE(s.check_sat(0, nullptr) == l_true);
@@ -178,7 +250,11 @@ static void tst_dual_bound_premises() {
             s.assert_expr(a.mk_ge(x, zero));
             s.assert_expr(a.mk_ge(y, zero));
             s.assert_expr(a.mk_le(y, one));
-            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(3), false)));
+            {
+                expr_ref lhs(a.mk_mul(x, x), m);
+                expr_ref rhs(a.mk_numeral(rational(3), false), m);
+                s.assert_expr(a.mk_le(lhs, rhs));
+            }
             expr_ref cap(equality ? m.mk_eq(x, y) : a.mk_le(x, one), m);
             // With conditional=false, cap is a hard constraint and max x = 1.
             if (conditional) {
@@ -195,7 +271,11 @@ static void tst_dual_bound_premises() {
                 // Therefore the accepted hint 1 must not be returned as a
                 // global upper bound: it depends on the temporary assumption b.
                 s.assert_expr(m.mk_implies(b, cap));
-                s.assert_expr(m.mk_implies(m.mk_not(b), equality ? m.mk_eq(x, a.mk_mul(two, y)) : a.mk_le(x, two)));
+                {
+                    expr_ref lhs(m.mk_not(b), m);
+                    expr_ref rhs(equality ? m.mk_eq(x, a.mk_mul(two, y)) : a.mk_le(x, two), m);
+                    s.assert_expr(m.mk_implies(lhs, rhs));
+                }
             }
             else
                 s.assert_expr(cap);
@@ -223,9 +303,13 @@ static void tst_dual_bound_premises() {
 // optimum is sqrt(2), but the exact linear relaxation proves x+y <= 2.
 // Cancel hint validation after its bound is asserted: feasibility remains
 // undecided, yet the independent dual certificate must survive. Disabling
-// dual bounds leaves +oo, making the improvement independent of timeouts.
+// dual bounds leaves +oo unless the caller already supplied a finite cap.
 static void tst_dual_bound_cancellation() {
+    for (unsigned region : {0u, 1u, 2u})
+    for (unsigned probe_budget : {0u, 1u, 1000u})
+    for (bool known_upper : {false, true})
     for (bool enabled : {false, true}) {
+        bool conditional = region != 0;
         ast_manager m;
         reg_decl_plugins(m);
         arith_util a(m);
@@ -233,6 +317,7 @@ static void tst_dual_bound_cancellation() {
         params_ref p;
         p.set_uint("arith.solver", 6);
         p.set_bool("optsmt_dual_bounds", enabled);
+        p.set_uint("optsmt_dual_bound_rlimit", probe_budget);
         generic_model_converter fm(m, "dual cancellation");
         struct cancel_bound_solver : opt::opt_solver {
             using opt_solver::opt_solver;
@@ -241,7 +326,10 @@ static void tst_dual_bound_cancellation() {
 
             void assert_expr_core(expr* e) override {
                 opt_solver::assert_expr_core(e);
-                if (armed) {
+                arith_util a(get_manager());
+                expr *lhs, *rhs;
+                rational value;
+                if (armed && a.is_ge(e, lhs, rhs) && a.is_numeral(rhs, value) && value == rational(2)) {
                     armed = false;
                     stopped = true;
                     get_manager().limit().cancel();
@@ -256,9 +344,23 @@ static void tst_dual_bound_cancellation() {
         expr_ref sum(a.mk_add(x, y), m);
         s.assert_expr(a.mk_ge(x, zero));
         s.assert_expr(a.mk_ge(y, zero));
-        s.assert_expr(a.mk_le(x, one));
+        if (conditional) {
+            expr_ref b(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
+            s.assert_expr(m.mk_implies(b, region == 2 ? m.mk_eq(x, y) : a.mk_le(x, one)));
+            {
+                expr_ref lhs1(m.mk_not(b), m);
+                expr_ref rhs1(region == 2 ? m.mk_eq(x, one) : a.mk_le(x, y), m);
+                s.assert_expr(m.mk_implies(lhs1, rhs1));
+            }
+        }
+        else
+            s.assert_expr(a.mk_le(x, one));
         s.assert_expr(a.mk_le(y, one));
-        s.assert_expr(a.mk_le(a.mk_add(a.mk_mul(x, x), a.mk_mul(y, y)), one));
+        {
+            expr_ref lhs1(a.mk_mul(x, x), m);
+            expr_ref rhs1(a.mk_mul(y, y), m);
+            s.assert_expr(a.mk_le(a.mk_add(lhs1, rhs1), one));
+        }
         solver::scoped_push caller_scope(s);
         ENSURE(s.check_sat(0, nullptr) == l_true);
         model_ref mdl;
@@ -270,8 +372,20 @@ static void tst_dual_bound_cancellation() {
         rational initial;
         ENSURE(opt::model_value_bound(a, (*mdl)(sum), true, initial));
         optimizer.update_lower(h, opt::inf_eps(initial));
+        if (known_upper)
+            optimizer.update_upper(h, opt::inf_eps(rational(2)));
+        auto probe_count = [&]() {
+            statistics st;
+            s.collect_statistics(st);
+            for (unsigned i = 0; i < st.size(); ++i)
+                if (std::strcmp(st.get_key(i), "opt-dual-bound-checks") == 0)
+                    return st.get_uint_value(i);
+            return 0u;
+        };
         unsigned base_level = s.get_context().get_base_level();
         unsigned assertions = s.get_num_assertions();
+        // Ignore smaller branch candidates: interrupt the query at the box
+        // endpoint, after any strict probe of sum > 2 has had a chance to run.
         s.armed = true;
         ENSURE(optimizer.lex(h, true) == l_undef);
         ENSURE(s.stopped && m.limit().is_canceled());
@@ -283,7 +397,16 @@ static void tst_dual_bound_cancellation() {
         auto upper = optimizer.get_upper(h).rational_bound();
         ENSURE(lower.is_finite() && lower.get_rational() >= rational(0));
         ENSURE(lower.get_rational() * lower.get_rational() <= rational(2));
-        ENSURE(enabled ? upper == opt::inf_eps(rational(2)) : !upper.is_finite() && upper.is_pos());
+        bool certified = known_upper || (enabled && (!conditional || probe_budget >= 1000));
+        if (certified ? upper != opt::inf_eps(rational(2)) : upper.is_finite() || !upper.is_pos())
+            std::cerr << "dual bound: region=" << region << " budget=" << probe_budget
+                      << " enabled=" << enabled << " upper=" << upper << "\n";
+        ENSURE(certified ? upper == opt::inf_eps(rational(2)) : !upper.is_finite() && upper.is_pos());
+        unsigned probes = probe_count();
+        if (known_upper || !enabled || probe_budget == 0)
+            ENSURE(probes == 0);
+        if (conditional && !known_upper && enabled && probe_budget != 0)
+            ENSURE(probes > 0);
         svector<symbol> labels;
         optimizer.get_model(mdl, labels);
         rational value;
@@ -293,6 +416,89 @@ static void tst_dual_bound_cancellation() {
         ENSURE(optimizer.lex(h, true) == l_true);
         ENSURE(optimizer.get_lower(h).exact_finite());
         ENSURE(optimizer.get_lower(h) == optimizer.get_upper(h));
+        if (certified)
+            ENSURE(probe_count() == probes);
+    }
+}
+
+// Interrupt the cross-branch probe itself. Its private resource budget must
+// not erase an external cancellation, and neither it nor a thrown error may
+// leave a strict threshold in the caller's assertions.
+static void tst_dual_bound_probe_exits() {
+    for (unsigned interruption : {0u, 1u, 2u, 3u}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        params_ref p;
+        p.set_uint("arith.solver", 6);
+        generic_model_converter fm(m, "dual probe exits");
+        struct probe_exit_solver : opt::opt_solver {
+            using opt_solver::opt_solver;
+            bool armed = false;
+            unsigned interruption = 0;
+
+            void assert_expr_core(expr* e) override {
+                opt_solver::assert_expr_core(e);
+                if (!armed)
+                    return;
+                armed = false;
+                if (interruption == 2) {
+                    get_manager().limit().inc(2000);
+                    throw default_exception(Z3_MAX_RESOURCE_MSG);
+                }
+                get_manager().limit().cancel();
+                if (interruption == 1)
+                    throw default_exception("dual probe test");
+                if (interruption == 3)
+                    throw default_exception(Z3_CANCELED_MSG);
+            }
+        } s(m, p, fm);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+        expr_ref b(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
+        expr_ref zero(a.mk_numeral(rational(0), false), m);
+        expr_ref one(a.mk_numeral(rational(1), false), m);
+        expr_ref two(a.mk_numeral(rational(2), false), m);
+        s.assert_expr(a.mk_ge(x, zero));
+        s.assert_expr(a.mk_le(a.mk_mul(x, x), two));
+        s.assert_expr(m.mk_implies(b, a.mk_le(x, one)));
+        {
+            expr_ref lhs(m.mk_not(b), m);
+            expr_ref rhs(a.mk_le(x, two), m);
+            s.assert_expr(m.mk_implies(lhs, rhs));
+        }
+        solver::scoped_push caller_scope(s);
+        expr* assumption = b;
+        ENSURE(s.check_sat(1, &assumption) == l_true);
+        s.add_objective(to_app(x));
+        unsigned base_level = s.get_context().get_base_level();
+        unsigned assertions = s.get_num_assertions();
+        s.armed = true;
+        s.interruption = interruption;
+        expr_ref blocker(m);
+        bool threw = false;
+        try {
+            auto result = s.maximize_objective(0, blocker, true);
+            ENSURE(!result.upper_bound);
+            ENSURE(result.bound_valid == (interruption == 2));
+        }
+        catch (default_exception const& ex) {
+            ENSURE(std::strcmp(ex.what(), "dual probe test") == 0);
+            threw = true;
+        }
+        ENSURE(threw == (interruption == 1) && !s.armed);
+        ENSURE(m.limit().is_canceled() == (interruption != 2));
+        m.limit().reset_cancel();
+        ENSURE(s.get_scope_level() == 1);
+        ENSURE(s.get_context().get_base_level() == base_level);
+        ENSURE(s.get_num_assertions() == assertions);
+        {
+            solver::scoped_push scope(s);
+            s.assert_expr(m.mk_eq(x, zero));
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+        }
+        ENSURE(s.check_sat(1, &assumption) == l_true);
+        auto result = s.maximize_objective(0, blocker, true);
+        ENSURE(result.bound_valid && !result.upper_bound);
     }
 }
 
@@ -493,6 +699,7 @@ static void ensure_vector(opt_fixture& f, unsigned h, bool lower, int infinity,
 // Under a fixed work budget retain the exact relaxation bound sum <= 4,
 // including offset/sign conversion in both scalar and coefficient-vector APIs.
 static void tst_dual_bound_api() {
+    for (bool conditional : {false, true})
     for (bool maximize : {false, true}) {
         opt_fixture f;
         Z3_params p = Z3_mk_params(f.ctx);
@@ -504,7 +711,13 @@ static void tst_dual_bound_api() {
         for (char const* name : {"x", "y", "z", "w"}) {
             Z3_ast x = f.real(name);
             f.add(Z3_mk_ge(f.ctx, x, f.num(0)));
-            f.add(Z3_mk_le(f.ctx, x, f.num(1)));
+            if (conditional && std::strcmp(name, "x") == 0) {
+                Z3_ast b = Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+                f.add(Z3_mk_implies(f.ctx, b, Z3_mk_le(f.ctx, x, f.num(1))));
+                f.add(Z3_mk_implies(f.ctx, Z3_mk_not(f.ctx, b), Z3_mk_le(f.ctx, x, f.real("y"))));
+            }
+            else
+                f.add(Z3_mk_le(f.ctx, x, f.num(1)));
             sum = f.sum(sum, x);
             squares = f.sum(squares, f.square(x));
         }
@@ -538,6 +751,30 @@ static void tst_dual_bound_api() {
     ENSURE(Z3_algebraic_is_value(f.ctx, hi));
     ENSURE(Z3_algebraic_le(f.ctx, root(f), hi));
     ENSURE(Z3_algebraic_le(f.ctx, hi, f.num(2)));
+
+    // Cross-branch probes can leave the enclosing budget exhausted during
+    // the next arithmetic maximization. Model evaluation must not turn that
+    // interruption into an API error.
+    for (char const* constraints : {
+            "(assert (and (>= x 0) (>= y 0) (<= y 2) (< (* x x) 2)"
+            " (=> b (<= x 2)) (=> (not b) (<= x y))))",
+            "(assert (and (> x 0) (> y 0) (= (* x y) 1) (=> b (<= x 1))))"}) {
+        opt_fixture interrupted;
+        Z3_params params = Z3_mk_params(interrupted.ctx);
+        Z3_params_inc_ref(interrupted.ctx, params);
+        Z3_params_set_uint(interrupted.ctx, params, interrupted.symbol("rlimit"), 2000);
+        Z3_optimize_set_params(interrupted.ctx, interrupted.opt, params);
+        Z3_params_dec_ref(interrupted.ctx, params);
+        std::string problem = "(declare-const x Real)(declare-const y Real)(declare-const b Bool)";
+        problem += constraints;
+        problem += "(maximize x)";
+        Z3_optimize_from_string(interrupted.ctx, interrupted.opt, problem.c_str());
+        ENSURE(Z3_get_error_code(interrupted.ctx) == Z3_OK);
+        ENSURE(interrupted.check() == Z3_L_UNDEF);
+        ENSURE(std::strcmp(Z3_optimize_get_reason_unknown(interrupted.ctx, interrupted.opt), "unknown") != 0);
+        ENSURE(Z3_algebraic_is_value(interrupted.ctx, scalar_bound(interrupted, 0, true)));
+        ENSURE(scalar_bound(interrupted, 0, false));
+    }
 }
 
 // All four getters must agree on an attained finite optimum.
@@ -762,6 +999,46 @@ static void tst_multiobjective(bool box) {
     }
 }
 
+// set-option assigns the global parameter auto_config; later tests in this
+// process create contexts that read it.
+struct scoped_auto_config {
+    std::string saved = gparams::get_value("auto_config");
+    ~scoped_auto_config() { gparams::set("auto_config", saved.c_str()); }
+};
+
+static void tst_labels_after_maximize() {
+    scoped_auto_config restore_auto_config;
+    // The search cannot improve on the model of the initial check here, so
+    // the reported model is that base model. Its labels must come with it:
+    // optsmt used to return the base model with an empty label list, which
+    // replaced the labels the context had recorded for it.
+    char const* input =
+        "(set-option :auto_config false)\n"
+        "(declare-fun x () Int)\n"
+        "(declare-fun f (Int) Bool)\n"
+        "(declare-fun l1 () Bool)\n"
+        "(declare-fun l2 () Bool)\n"
+        "(declare-fun l3 () Bool)\n"
+        "(declare-fun l4 () Bool)\n"
+        "(assert (not\n"
+        "  (let ((ok (=> (! (and l1 true) :lblpos L1) (! (or l2 (f x)) :lblneg L2))))\n"
+        "    (=> (! (and l3 true) :lblpos L3)\n"
+        "        (and (=> (= x 2) ok) (=> (= x 1) (=> (! (and l4 true) :lblpos L4) ok)))))))\n"
+        "(maximize x)\n"
+        "(check-sat)\n";
+    cmd_context cmd(false);
+    install_opt_cmds(cmd);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    check_sat_result* result = cmd.get_check_sat_result();
+    ENSURE(result && result->status() == l_true);
+    svector<symbol> labels;
+    result->get_labels(labels);
+    for (char const* name : {"L1", "L2", "L3"})
+        ENSURE(labels.contains(symbol(name)));
+    ENSURE(!labels.contains(symbol("L4")));
+}
+
 // For x >= 0, y >= 0, x + y <= 5, lexicographic maximization gives (5, 0).
 // Box optimization instead gives max(x) = max(y) = 5 in different models.
 // Call optsmt directly: the public context also fixes earlier objectives,
@@ -793,7 +1070,11 @@ static void tst_lex_box_search() {
     s.assert_expr(a.mk_ge(x, zero));
     s.assert_expr(a.mk_ge(y, zero));
     solver::scoped_push problem_scope(s);
-    s.assert_expr(a.mk_le(a.mk_add(x, y), a.mk_numeral(rational(5), false)));
+    {
+        expr_ref lhs(a.mk_add(x, y), m);
+        expr_ref rhs(a.mk_numeral(rational(5), false), m);
+        s.assert_expr(a.mk_le(lhs, rhs));
+    }
     ENSURE(s.check_sat(0, nullptr) == l_true);
     model_ref mdl;
     s.get_model(mdl);
@@ -1120,6 +1401,169 @@ private:
     }
 };
 
+// Objects shared by the steps of one run of tst_refuted_hint_exits. The
+// helpers below take it by reference so the driver reads step by step.
+struct refuted_hint_run {
+    ast_manager& m;
+    arith_util& a;
+    search_exit_solver& s;
+    opt::optsmt& optimizer;
+    expr_ref x;
+    expr_ref zero;
+    unsigned h = 0;            // optsmt handle of the objective x
+    unsigned assertions = 0;   // solver assertion count before the search
+};
+
+// Make the LP hint the only source of an upper bound: no exact nlsat
+// optimization and no dual-bound certificates. arith.solver 6 is the
+// arithmetic core whose relaxation produces the hint.
+static params_ref refuted_hint_params() {
+    params_ref p;
+    p.set_bool("optsmt_nlsat", false);
+    p.set_bool("optsmt_dual_bounds", false);
+    p.set_uint("arith.solver", 6);
+    return p;
+}
+
+// Assert the problem. The linear bound x <= 3 keeps the LP relaxation
+// bounded, so maximize_objective proposes the hint x = 3. The nonlinear
+// constraint x*x <= 2 makes that hint unattainable: validating x >= 3
+// against it is refuted, which by itself proves the cap x <= 3. The true
+// maximum is sqrt(2).
+static void assert_refuted_hint_problem(refuted_hint_run& r) {
+    r.s.assert_expr(r.a.mk_le(r.x, r.a.mk_numeral(rational(3), false)));
+    {
+        expr_ref lhs(r.a.mk_mul(r.x, r.x), r.m);
+        expr_ref rhs(r.a.mk_numeral(rational(2), false), r.m);
+        r.s.assert_expr(r.a.mk_le(lhs, rhs));
+    }
+}
+
+// Register x as the objective and seed its lower bound from the model of an
+// initial check, as the optimization entry point does. On return the solver
+// is in the state optsmt::lex expects: satisfiable, with a model available.
+static void seed_objective(refuted_hint_run& r, params_ref& p, opt::context& ctx) {
+    ENSURE(r.s.check_sat(0, nullptr) == l_true);
+    model_ref mdl;
+    r.s.get_model(mdl);
+    ctx.set_model(mdl);
+    r.h = r.optimizer.add(to_app(r.x));
+    r.optimizer.setup(r.s);
+    r.optimizer.updt_params(p);
+    rational initial;
+    ENSURE(opt::model_value_bound(r.a, (*mdl)(r.x), true, initial));
+    r.optimizer.update_lower(r.h, opt::inf_eps(initial));
+}
+
+// Run one maximization with the forced stop armed. UNKNOWN and cancellation
+// make lex return l_undef; the test exception must escape unchanged. Either
+// way the stop must have fired, and a cancellation request must still be
+// pending afterwards: cleanup may not swallow it. Clear it only so the
+// remaining checks can use the solver.
+static void run_interrupted_lex(refuted_hint_run& r, search_exit exit) {
+    bool threw = false;
+    try {
+        ENSURE(r.optimizer.lex(r.h, true) == l_undef);
+    }
+    catch (default_exception const& ex) {
+        ENSURE(std::strcmp(ex.what(), "search scope test") == 0);
+        threw = true;
+    }
+    ENSURE(r.s.stopped);
+    ENSURE(threw == (exit == search_exit::exception));
+    if (exit == search_exit::cancel) {
+        ENSURE(r.m.limit().is_canceled());
+        r.m.limit().reset_cancel();
+    }
+}
+
+// The cap proven by refuting the hint must survive the interrupted trial:
+// the upper bound is finite and at most 3, also when a looser cap was known
+// before the search. It must also stay sound. The interrupted trial
+// x >= best + 1 was never decided, so treating it as refuted would push the
+// cap below sqrt(2), the true maximum; hence upper * upper >= 2.
+static void check_refuted_cap(refuted_hint_run const& r) {
+    auto upper = r.optimizer.get_upper(r.h).rational_bound();
+    ENSURE(upper.is_finite() && upper <= opt::inf_eps(rational(3)));
+    ENSURE(upper.get_rational() * upper.get_rational() >= rational(2));
+}
+
+// Only the caller's scope may remain open and the assertion count must be
+// unchanged: every search scope and trial bound has been removed.
+static void check_solver_state_restored(refuted_hint_run const& r) {
+    ENSURE(r.s.get_scope_level() == 1);
+    ENSURE(r.s.get_num_assertions() == r.assertions);
+}
+
+// x = 0 satisfies the original constraints but violates every trial bound
+// x >= best + step. A leaked bound would make this check UNSAT.
+static void check_no_leaked_trial_bound(refuted_hint_run& r) {
+    solver::scoped_push check_scope(r.s);
+    r.s.assert_expr(r.m.mk_eq(r.x, r.zero));
+    ENSURE(r.s.check_sat(0, nullptr) == l_true);
+}
+
+// The model the optimizer reports must witness the lower bound it reports.
+static void check_best_model_matches_lower(refuted_hint_run& r) {
+    model_ref mdl;
+    svector<symbol> labels;
+    r.optimizer.get_model(mdl, labels);
+    rational value;
+    ENSURE(mdl && opt::model_value_bound(r.a, (*mdl)(r.x), true, value));
+    ENSURE(value == r.optimizer.get_lower(r.h).rational_bound().get_rational());
+}
+
+// Maximize real x subject to x <= 3 and x*x <= 2 with exact nlsat
+// optimization and LP dual-bound certificates disabled. The arithmetic
+// relaxation proposes the hint x = 3; validating x >= 3 fails because of
+// x*x <= 2. Rejecting that hint already proves the cap x <= 3. The search
+// then opens a trial scope with x >= best + 1, and the test forces an exit
+// there: an UNKNOWN answer, a cancellation, or an exception. Expect the cap
+// to survive the interruption and stay sound, and the solver and optimizer
+// to remain reusable with no leaked scopes or bounds.
+static void tst_refuted_hint_exits() {
+    for (search_exit exit : {search_exit::unknown, search_exit::cancel, search_exit::exception})
+    for (bool known_upper : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        opt::context ctx(m);
+        params_ref p = refuted_hint_params();
+        generic_model_converter fm(m, "refuted hint");
+        // stop_at = 1: stop at the first scope opened below the caller's and
+        // optsmt::lex's own. Validating the hint uses push_core directly and
+        // does not raise the scope level, so the first such scope is the
+        // geometric trial x >= best + 1 that follows the refuted hint.
+        search_exit_solver s(m, p, fm, exit, 1);
+        opt::optsmt optimizer(m, ctx);
+        refuted_hint_run r{m, a, s, optimizer,
+                           expr_ref(m.mk_const(symbol("x"), a.mk_real()), m),
+                           expr_ref(a.mk_numeral(rational(0), false), m)};
+        assert_refuted_hint_problem(r);
+        // Put x >= 0 in a scope that must survive the optimization call.
+        solver::scoped_push caller_scope(s);
+        s.assert_expr(a.mk_ge(r.x, r.zero));
+        seed_objective(r, p, ctx);
+        // A looser cap known before the search must be tightened to the
+        // refuted hint, not kept.
+        if (known_upper)
+            optimizer.update_upper(r.h, opt::inf_eps(rational(5)));
+        r.assertions = s.get_num_assertions();
+
+        run_interrupted_lex(r, exit);
+        check_refuted_cap(r);
+        check_solver_state_restored(r);
+        check_best_model_matches_lower(r);
+        check_no_leaked_trial_bound(r);
+
+        // The forced stop fires only once. Rerun on the same objects: with
+        // exact optimization disabled the rational bounds still leave a gap
+        // around sqrt(2), so UNKNOWN is expected, again without leaks.
+        ENSURE(optimizer.lex(r.h, true) == l_undef);
+        check_solver_state_restored(r);
+    }
+}
+
 // Maximize the real variable x subject to x >= 0 and x*x <= 2.
 // The feasible interval is [0, sqrt(2)], so the true maximum is sqrt(2).
 // With exact nlsat optimization disabled, this search keeps rational lower
@@ -1156,7 +1600,11 @@ static void tst_search_scope_exits() {
             opt::optsmt optimizer(m, ctx);
             expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
             expr_ref zero(a.mk_numeral(rational(0), false), m);
-            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            {
+                expr_ref lhs(a.mk_mul(x, x), m);
+                expr_ref rhs(a.mk_numeral(rational(2), false), m);
+                s.assert_expr(a.mk_le(lhs, rhs));
+            }
             // Put x >= 0 in a scope that must survive the optimization call.
             // After the search, this must still be the only open scope.
             solver::scoped_push caller_scope(s);
@@ -1303,6 +1751,40 @@ static void tst_reset_and_invalid_indices(bool open) {
     ensure_finite_bounds(f, replacement, f.num(-1), Z3_INT_SORT);
 }
 
+static void tst_nested_objective() {
+    for (bool maximize : {false, true})
+    for (bool reverse : {false, true}) {
+        opt_fixture f;
+        Z3_ast p = Z3_mk_const(f.ctx, f.symbol("p"), Z3_mk_bool_sort(f.ctx));
+        Z3_ast q = Z3_mk_const(f.ctx, f.symbol("q"), Z3_mk_bool_sort(f.ctx));
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast zero = Z3_mk_int(f.ctx, 0, ints);
+        Z3_ast one = Z3_mk_int(f.ctx, 1, ints);
+        Z3_ast two = Z3_mk_int(f.ctx, 2, ints);
+        Z3_ast sum = f.sum(Z3_mk_ite(f.ctx, p, one, zero), Z3_mk_ite(f.ctx, q, two, zero));
+        // Preprocessing removes p, but verification still evaluates the original objective.
+        Z3_ast objective = Z3_mk_ite(f.ctx, Z3_mk_ge(f.ctx, one, sum),
+                                   reverse ? zero : one, reverse ? one : zero);
+        Z3_ast expected = maximize ? one : zero;
+        Z3_ast forced = reverse ? one : zero;
+        unsigned h = f.objective(objective, maximize);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, expected, Z3_INT_SORT);
+        ensure_model_value(f, objective, expected);
+
+        Z3_optimize_push(f.ctx, f.opt);
+        f.add(q);
+        f.add(Z3_mk_not(f.ctx, p));
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, forced, Z3_INT_SORT);
+        ensure_model_value(f, objective, forced);
+        Z3_optimize_pop(f.ctx, f.opt);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, expected, Z3_INT_SORT);
+        ensure_model_value(f, objective, expected);
+    }
+}
+
 // Check max 7/3, min -5/2, and max 2 under x^2 <= 4.
 // Fractional bounds use Real numerals; the integral bound 2 uses Int numerals.
 static void tst_rational_bounds() {
@@ -1374,6 +1856,373 @@ static void tst_infinity_and_epsilon() {
     }
 }
 
+// After an unbounded lexicographic objective, a later objective takes the
+// limit of its optima as the unbounded objective grows. With y <= 10 and
+// x >= y the limit of y is 10 and the next objective z <= y - 3 gives 7.
+// A limit that is itself infinite keeps a sound interval and the sat status.
+static void tst_lex_after_unbounded() {
+    for (bool minimize_first : {false, true}) {
+        opt_fixture f;
+        Z3_ast x = f.real("x"), y = f.real("y"), z = f.real("z");
+        f.add(Z3_mk_le(f.ctx, y, f.num(10)));
+        f.add(minimize_first ? Z3_mk_le(f.ctx, f.sum(x, y), f.num(0)) : Z3_mk_ge(f.ctx, x, y));
+        f.add(Z3_mk_le(f.ctx, z, f.sub(y, f.num(3))));
+        unsigned hx = f.objective(x, !minimize_first);
+        unsigned hy = f.objective(y);
+        unsigned hz = f.objective(z);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, minimize_first ? -1 : 1, 0, 0);
+        ensure_finite_bounds(f, hy, f.num(10), Z3_INT_SORT);
+        ensure_finite_bounds(f, hz, f.num(7), Z3_INT_SORT);
+        ensure_model_value(f, y, f.num(10));
+        ensure_model_value(f, z, f.num(7));
+    }
+    {
+        // A region with a larger y but bounded x does not raise the limit.
+        opt_fixture f;
+        Z3_ast x = f.real("x"), y = f.real("y");
+        Z3_ast b = Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+        Z3_ast capped[] = {Z3_mk_le(f.ctx, y, f.num(20)), Z3_mk_le(f.ctx, x, f.num(100))};
+        f.add(Z3_mk_implies(f.ctx, b, Z3_mk_and(f.ctx, 2, capped)));
+        f.add(Z3_mk_implies(f.ctx, Z3_mk_not(f.ctx, b), Z3_mk_le(f.ctx, y, f.num(10))));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, f.num(10), Z3_INT_SORT);
+    }
+    {
+        // Integer objectives: the strict trial is the next integer.
+        opt_fixture f;
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), ints);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), ints);
+        f.add(Z3_mk_le(f.ctx, y, Z3_mk_int(f.ctx, 10, ints)));
+        f.add(Z3_mk_ge(f.ctx, x, y));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, Z3_mk_int(f.ctx, 10, ints), Z3_INT_SORT);
+    }
+    {
+        // y >= x grows with x: the limit +oo is not certified, the interval stays sound.
+        opt_fixture f;
+        Z3_ast x = f.real("x"), y = f.real("y");
+        f.add(Z3_mk_ge(f.ctx, y, x));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        Z3_ast lo = scalar_bound(f, hy, true);
+        ENSURE(Z3_is_numeral_ast(f.ctx, lo) && Z3_algebraic_is_pos(f.ctx, lo));
+        Z3_ast_vector v = Z3_optimize_get_upper_as_vector(f.ctx, f.opt, hy);
+        ENSURE(v && Z3_get_error_code(f.ctx) == Z3_OK);
+        Z3_ast_vector_inc_ref(f.ctx, v);
+        ensure_value(f, Z3_ast_vector_get(f.ctx, v, 0), f.num(1));
+        Z3_ast_vector_dec_ref(f.ctx, v);
+    }
+}
+
+static void set_unbounded_curve(opt_fixture& f, bool enabled) {
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_bool(f.ctx, p, f.symbol("optsmt_unbounded_curve"), enabled);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+}
+
+static void tst_unbounded_curve_cancellation() {
+    for (bool throw_after_cancel : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit budget(m.limit(), 1000000);
+        arith_util a(m);
+        opt::context ctx(m);
+        params_ref p;
+        p.set_uint("arith.solver", 6);
+        generic_model_converter fm(m, "curve cancellation");
+        struct completion_model : model {
+            expr_ref value;
+            bool &canceled;
+            bool throw_after_cancel;
+
+            completion_model(ast_manager &m, expr *value, bool &canceled, bool throw_after_cancel)
+                : model(m), value(value, m), canceled(canceled), throw_after_cancel(throw_after_cancel) {}
+
+            expr *get_some_value(sort *s) override {
+                if (s != value->get_sort())
+                    return model::get_some_value(s);
+                if (!canceled) {
+                    canceled = true;
+                    m.limit().cancel();
+                    if (throw_after_cancel)
+                        throw default_exception(Z3_CANCELED_MSG);
+                }
+                return value;
+            }
+        };
+        struct completion_solver : opt::opt_solver {
+            using opt_solver::opt_solver;
+            func_decl *missing = nullptr;
+            bool canceled = false;
+            bool throw_after_cancel = false;
+
+            void get_model_core(model_ref &mdl) override {
+                opt_solver::get_model_core(mdl);
+                ENSURE(mdl);
+                expr *value = mdl->get_const_interp(missing);
+                ENSURE(value);
+                model_ref copy = alloc(completion_model, get_manager(), value, canceled, throw_after_cancel);
+                copy->copy_const_interps(*mdl);
+                copy->copy_func_interps(*mdl);
+                copy->copy_usort_interps(*mdl);
+                copy->unregister_decl(missing);
+                mdl = copy;
+            }
+        } s(m, p, fm);
+        opt::optsmt optimizer(m, ctx);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+        expr_ref y(m.mk_const(symbol("y"), a.mk_int()), m);
+        expr_ref z(m.mk_const(symbol("z"), a.mk_real()), m);
+        expr_ref one(a.mk_int(1), m), two(a.mk_real(2), m);
+        s.missing = to_app(z)->get_decl();
+        s.throw_after_cancel = throw_after_cancel;
+        s.assert_expr(a.mk_ge(a.mk_mul(x, y), one));
+        s.assert_expr(a.mk_ge(y, one));
+        // Completing z cancels inside the probe's private budget. Its algebraic
+        // value makes the curve check return l_undef without a solver exception.
+        s.assert_expr(m.mk_eq(a.mk_mul(z, z), two));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+        model_ref mdl;
+        s.get_model(mdl);
+        ctx.set_model(mdl);
+        unsigned h = optimizer.add(to_app(x));
+        optimizer.setup(s);
+        optimizer.updt_params(p);
+        rational initial;
+        ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
+        optimizer.update_lower(h, opt::inf_eps(initial));
+        ENSURE(optimizer.lex(h, true) == l_undef);
+        ENSURE(s.canceled && m.limit().is_canceled());
+        ENSURE(m.limit().get_cancel_msg() == Z3_CANCELED_MSG);
+        m.limit().reset_cancel();
+        solver::scoped_push scope(s);
+        s.assert_expr(m.mk_eq(x, one));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+    }
+}
+
+// nlsat's limit check gives up on integer variables, so a real objective over
+// an integer variable is rejected before preprocessing spends any budget.
+static void tst_nlsat_unbounded_reals_only() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+    expr_ref r(a.mk_to_real(n), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_ge(x, a.mk_mul(r, r)));
+    uint64_t start = m.limit().count();
+    {
+        opt::nlsat_opt engine(m, p);
+        ENSURE(engine.prove_unbounded(hard, x, rational(0)) == l_undef);
+    }
+    ENSURE(m.limit().count() == start);
+    hard.reset();
+    hard.push_back(a.mk_ge(x, a.mk_mul(y, y)));
+    opt::nlsat_opt engine(m, p);
+    ENSURE(engine.prove_unbounded(hard, x, rational(0)) == l_true);
+}
+
+// Integer and mixed objectives cannot use the nlsat projection. A polynomial
+// curve through the recent models certifies unboundedness instead: a ray,
+// a quadratic, a cubic, or a unit direction of an objective variable.
+static void tst_unbounded_curve() {
+    {
+        // x*y >= 1, y >= 1: the ray through the last two models
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 1, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    for (unsigned degree : {2u, 3u}) {
+        // x = y^2 and x = y^3 with y >= 0: curves through three or four models
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast ys[] = {y, y, y};
+        f.add(Z3_mk_eq(f.ctx, x, Z3_mk_mul(f.ctx, degree, ys)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 0, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    {
+        // minimize x = -y^2: unbounded below
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        f.add(Z3_mk_eq(f.ctx, x, Z3_mk_unary_minus(f.ctx, f.square(y))));
+        unsigned h = f.objective(x, false);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, -1, 0, 0);
+    }
+    {
+        // mixed sorts: integer x, real y with x*y >= 1, y >= 1
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = f.real("y");
+        Z3_ast xy[] = {Z3_mk_int2real(f.ctx, x), y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), f.num(1)));
+        f.add(Z3_mk_ge(f.ctx, y, f.num(1)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+    {
+        // bounded control: x*y <= 12 with x, y >= 1 has the maximum 12
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_le(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 12, integer)));
+        f.add(Z3_mk_ge(f.ctx, x, Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_ge(f.ctx, y, Z3_mk_int(f.ctx, 1, integer)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, Z3_mk_int(f.ctx, 12, integer), Z3_INT_SORT);
+    }
+    {
+        // lexicographic: after the unbounded x, y takes its limit 10
+        opt_fixture f;
+        Z3_sort integer = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), integer);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), integer);
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), Z3_mk_int(f.ctx, 1, integer)));
+        f.add(Z3_mk_le(f.ctx, y, Z3_mk_int(f.ctx, 10, integer)));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, Z3_mk_int(f.ctx, 10, integer), Z3_INT_SORT);
+    }
+    for (bool curve : {true, false}) {
+        // a real objective keeps the nlsat projection when the curve is disabled
+        opt_fixture f;
+        set_unbounded_curve(f, curve);
+        Z3_ast x = f.real("x"), y = f.real("y");
+        Z3_ast xy[] = {x, y};
+        f.add(Z3_mk_ge(f.ctx, Z3_mk_mul(f.ctx, 2, xy), f.num(1)));
+        f.add(Z3_mk_ge(f.ctx, y, f.num(1)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, h, 1, 0, 0);
+    }
+}
+
+// maximize y with y = x*x, x >= 0 over the models (5, 25), (6, 36), (7, 49).
+// The backward differences at (7, 49) are (1, 13) and (0, 2). The ray
+// x = 7 + t, y = 49 + 13 t leaves the parabola at t = 1; the quadratic
+// x = 7 + t, y = 49 + 13 t + 2 t (t + 1) / 2 = (7 + t)^2 stays on it.
+// With only the last two models neither the ray nor a unit direction holds.
+static void tst_unbounded_curve_parabola() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    app_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+    app_ref y(m.mk_const(symbol("y"), a.mk_int()), m);
+    expr_ref_vector hard(m);
+    hard.push_back(a.mk_ge(x, a.mk_int(0)));
+    hard.push_back(m.mk_eq(y, a.mk_mul(x, x)));
+    sref_vector<model> models;
+    for (int v : {5, 6, 7}) {
+        model_ref mdl = alloc(model, m);
+        mdl->register_decl(x->get_decl(), a.mk_int(v));
+        mdl->register_decl(y->get_decl(), a.mk_int(v * v));
+        models.push_back(mdl.get());
+    }
+    opt::curve_certificate curve(m, p);
+    ENSURE(curve.prove_unbounded(hard, y, models) == l_true);
+    ENSURE(std::strcmp(curve.kind_name(), "quadratic") == 0);
+    sref_vector<model> last_two;
+    last_two.push_back(models.get(1));
+    last_two.push_back(models.get(2));
+    opt::curve_certificate ray(m, p);
+    ENSURE(ray.prove_unbounded(hard, y, last_two) == l_undef);
+}
+
+static void set_lp_relaxation(opt_fixture& f, bool relax) {
+    Z3_params p = Z3_mk_params(f.ctx);
+    Z3_params_inc_ref(f.ctx, p);
+    Z3_params_set_bool(f.ctx, p, f.symbol("maxres.lp_relaxation"), relax);
+    Z3_optimize_set_params(f.ctx, f.opt, p);
+    ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+    Z3_params_dec_ref(f.ctx, p);
+}
+
+// A cardinality constraint over the soft literals has an integral linear
+// relaxation, so the relaxation bound n - k meets the first rounded
+// assignment. A vertex cover of K4 has relaxation bound 2 and optimum 3, so
+// the cores still decide it. Both answers are the same without the relaxation.
+static void tst_maxsmt_lp_relaxation() {
+    for (bool relax : {true, false}) {
+        {
+            opt_fixture f;
+            set_lp_relaxation(f, relax);
+            unsigned const n = 12, k = 5;
+            Z3_ast xs[n];
+            for (unsigned i = 0; i < n; ++i) {
+                std::string name = "x" + std::to_string(i);
+                xs[i] = Z3_mk_const(f.ctx, f.symbol(name.c_str()), Z3_mk_bool_sort(f.ctx));
+            }
+            f.add(Z3_mk_atmost(f.ctx, n, xs, k));
+            unsigned cost = 0;
+            for (unsigned i = 0; i < n; ++i)
+                cost = Z3_optimize_assert_soft(f.ctx, f.opt, xs[i], "1", f.symbol("cost"));
+            ENSURE(cost == 0);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_finite_bounds(f, cost, f.num(n - k), Z3_INT_SORT);
+        }
+        {
+            opt_fixture f;
+            set_lp_relaxation(f, relax);
+            Z3_ast xs[4];
+            for (unsigned i = 0; i < 4; ++i) {
+                std::string name = "v" + std::to_string(i);
+                xs[i] = Z3_mk_const(f.ctx, f.symbol(name.c_str()), Z3_mk_bool_sort(f.ctx));
+            }
+            for (unsigned i = 0; i < 4; ++i)
+                for (unsigned j = i + 1; j < 4; ++j) {
+                    Z3_ast edge[] = {xs[i], xs[j]};
+                    f.add(Z3_mk_or(f.ctx, 2, edge));
+                }
+            unsigned cost = 0;
+            for (unsigned i = 0; i < 4; ++i)
+                cost = Z3_optimize_assert_soft(f.ctx, f.opt, Z3_mk_not(f.ctx, xs[i]), "1", f.symbol("cost"));
+            ENSURE(cost == 0);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_finite_bounds(f, cost, f.num(3), Z3_INT_SORT);
+        }
+    }
+}
+
 static void tst_symba_bounds() {
     // An integer slack selects theory_inf_arith instead of the pure-LRA
     // shortcut, so these cases exercise SYMBA's vector-bound updates.
@@ -1430,6 +2279,7 @@ static void tst_bitvector_bounds() {
 
 // Run all the optimization tests defined above.
 void tst_opt_bounds() {
+    tst_objective_search();
     std::cout << "opt_bounds: per-call arithmetic results\n";
     tst_maximize_result();
     std::cout << "opt_bounds: arithmetic scope exits\n";
@@ -1437,6 +2287,7 @@ void tst_opt_bounds() {
     std::cout << "opt_bounds: certified nonlinear dual bounds\n";
     tst_dual_bound_premises();
     tst_dual_bound_cancellation();
+    tst_dual_bound_probe_exits();
     tst_dual_bound_api();
     std::cout << "opt_bounds: geometric step schedule\n";
     tst_geometric_step();
@@ -1446,6 +2297,17 @@ void tst_opt_bounds() {
     tst_multiobjective(false);
     tst_multiobjective(true);
     tst_lex_box_search();
+    std::cout << "opt_bounds: labels of the reported model\n";
+    tst_labels_after_maximize();
+    std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
+    tst_lex_after_unbounded();
+    std::cout << "opt_bounds: unbounded integer objectives along polynomial curves\n";
+    tst_nlsat_unbounded_reals_only();
+    tst_unbounded_curve_cancellation();
+    tst_unbounded_curve();
+    tst_unbounded_curve_parabola();
+    std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
+    tst_maxsmt_lp_relaxation();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
     tst_open_bounds();
     tst_open_polynomial_objectives();
@@ -1461,11 +2323,13 @@ void tst_opt_bounds() {
     tst_open_proof_budget();
     tst_fallback_intervals();
     tst_search_scope_exits();
+    tst_refuted_hint_exits();
     tst_open_integer_fallback();
     std::cout << "opt_bounds: reset and invalid indices\n";
     tst_reset_and_invalid_indices(false);
     tst_reset_and_invalid_indices(true);
     std::cout << "opt_bounds: rational, infinity, epsilon, and BV compatibility\n";
+    tst_nested_objective();
     tst_rational_bounds();
     tst_infinity_and_epsilon();
     tst_symba_bounds();

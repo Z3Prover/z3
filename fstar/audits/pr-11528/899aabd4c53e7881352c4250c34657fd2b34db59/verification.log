@@ -1,0 +1,8 @@
+cmd: timeout 120 fstar.exe --smt z3-4.13.3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3PR11528ProofConverter.fst
+F* 2026.09.27; Z3 4.13.3
+exit: 0
+stdout:
+Verified module: Z3PR11528ProofConverter
+All verification conditions discharged successfully
+stderr:
+(empty)

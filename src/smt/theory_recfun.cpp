@@ -136,7 +136,8 @@ namespace smt {
         if (m_qhead == m_propagation_queue.size())
             return;
         ctx.push_trail(value_trail<unsigned>(m_qhead));
-        for (; m_qhead < m_propagation_queue.size() && !ctx.inconsistent(); ++m_qhead) {
+        // Yield to the context's resource checks before processing newly queued expansions.
+        for (unsigned end = m_propagation_queue.size(); m_qhead < end && !ctx.inconsistent(); ++m_qhead) {
             auto& p = *m_propagation_queue[m_qhead];
             if (p.is_guard()) 
                 activate_guard(p.guard(), *m_guard2pending[p.guard()]);
@@ -396,7 +397,7 @@ namespace smt {
         expr_ref lhs(u().mk_fun_defined(d, args), m);
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
         if (has_real_quantifiers(rhs)) {
-            expr_ref fn(m.mk_fresh_const("rec-eq", m.mk_bool_sort()), m);
+            expr_ref fn(m.mk_fresh_const("rec-eq", rhs->get_sort()), m);
             expr_ref eq(m.mk_eq(fn, rhs), m);
             ctx.assert_expr(eq);
             ctx.internalize_assertions();
@@ -440,44 +441,48 @@ namespace smt {
         }
     }
 
-    // if `dlimit` or a disabled guard occurs in unsat core, return 'true'
+    /**
+     * if `dlimit` or a disabled guard occurs in unsat core, return 'true' and
+     * enable guards for the next round.
+     *
+     * Every disabled guard named by the core blocked the refutation of the
+     * current round, so all of them are enabled at once: enabling one guard per
+     * round costs one re-search per guard, which is prohibitive for models that
+     * need hundreds of unfoldings (e.g. well-formedness predicates over long
+     * lists and nested datatypes).
+     *
+     * When the core names no guard (the conflict used the clause
+     * `round_k => ~guard` of a guard disabled during this round, which is not
+     * yet an assumption), the most recently disabled guard is enabled, as before.
+     */
     bool theory_recfun::should_research(expr_ref_vector & unsat_core) {
         bool found = false;
-        expr* to_delete = nullptr;
-        unsigned n = 0;
-        unsigned current_depth = UINT_MAX;
+        ptr_vector<expr> to_enable;
         for (auto * ne : unsat_core) {
             expr* e = nullptr;
             if (m.is_not(ne, e) && is_disabled_guard(e)) {
                 found = true;
-                unsigned depth = get_depth(e);
-                if (depth < current_depth) 
-                    n = 0;
-                if (depth <= current_depth && (ctx.get_random_value() % (++n)) == 0) {
-                    to_delete = e;
-                    current_depth = depth;
-                }
+                to_enable.push_back(e);
             }
             else if (u().is_num_rounds(ne)) 
                 found = true;
         }
-        if (found) {
-            m_num_rounds++;
-            if (!to_delete && !m_disabled_guards.empty()) 
-                to_delete = m_disabled_guards.back();
-            if (to_delete) {
-                m_disabled_guards.erase(to_delete);
-                m_enabled_guards.push_back(to_delete);
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
-            }
-            else {
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round " << m_num_rounds << ")\n");
-            }
-            for (expr* g : m_enabled_guards)
-                push_guard(g);
+        if (!found)
+            return false;
+        m_num_rounds++;
+        if (to_enable.empty() && !m_disabled_guards.empty())
+            to_enable.push_back(m_disabled_guards.back());
+        for (expr* g : to_enable) {
+            m_disabled_guards.erase(g);
+            m_enabled_guards.push_back(g);
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(g, m) << ")\n");
         }
+        if (to_enable.empty())
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round " << m_num_rounds << ")\n");
+        for (expr* g : m_enabled_guards)
+            push_guard(g);
         TRACEFN("should research " << found);
-        return found;
+        return true;
     }
 
     /**

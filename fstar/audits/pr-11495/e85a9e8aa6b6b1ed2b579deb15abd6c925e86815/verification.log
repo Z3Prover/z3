@@ -1,0 +1,9 @@
+F* 2026.09.27, Z3 4.13.3 (independent pinned backend).
+
+$ ... --include /home/runner/work/z3/z3/fstar ... Z3SortedArithmetic.fst (head)
+exit 1
+
+$ ... FarkasMappingAudit.fst
+exit 0
+Verified module: FarkasMappingAudit
+All verification conditions discharged successfully

@@ -29,6 +29,8 @@ namespace lp {
 
     inline void addmul(double& r, double a, double b) { r += a*b; }
     inline void addmul(mpq& r, mpq const& a, mpq const& b) { r.addmul(a, b); }
+    inline void mul(double a, double b, double& r) { r = a*b; }
+    inline void mul(mpq const& a, mpq const& b, mpq& r) { mpq::mul(a, b, r); }
 
     template <typename T, typename X>
     void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
@@ -59,17 +61,19 @@ namespace lp {
         scan_row_strip_to_work_vector(rowii);
         unsigned prev_size_ii = static_cast<unsigned>(rowii.size());
         // run over the pivot row and update row ii
+        m_cancelled = 0;
         for (const auto & iv : m_rows[i]) {
             unsigned j = iv.var();
             if (j == pivot_col) continue;
             SASSERT(!is_zero(iv.coeff()));
             int j_offs = m_work_vector_of_row_offsets[j];
-            if (j_offs == -1) { // it is a new element
-                T alv = alpha * iv.coeff();
-                add_new_element(ii, j, alv);
-            }
+            if (j_offs == -1)   // it is a new element, its coefficient is computed in place
+                mul(alpha, iv.coeff(), add_new_element(ii, j));
             else {
-                addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
+                T& c = rowii[j_offs].coeff();
+                addmul(c, iv.coeff(), alpha);
+                if (is_zero(c))
+                    ++m_cancelled;
             }
         }
         // clean the work vector
@@ -77,10 +81,15 @@ namespace lp {
             m_work_vector_of_row_offsets[rowii[k].var()] = -1;
         }
 
-        // remove zeroes
-        for (unsigned k = static_cast<unsigned>(rowii.size()); k-- > 0;  ) {
-            if (is_zero(rowii[k].coeff()))
-                remove_element(rowii, rowii[k]);
+        // remove the cancelled cells: only the cells that existed before this update can be
+        // cancelled, the new cells are non-zero, so the scan is skipped unless a cancellation was seen
+        if (m_cancelled > 0) {
+            for (unsigned k = prev_size_ii; k-- > 0 && m_cancelled > 0;  ) {
+                if (is_zero(rowii[k].coeff())) {
+                    remove_element(rowii, rowii[k]);
+                    --m_cancelled;
+                }
+            }
         }
         SASSERT(!rowii.empty());
     }
@@ -95,10 +104,8 @@ namespace lp {
         for (const auto & iv : m_rows[i]) {
             unsigned j = iv.var();
             int j_offs = m_work_vector_of_row_offsets[j];
-            if (j_offs == -1) { // it is a new element
-                T alv = alpha * iv.coeff();
-                add_new_element(k, j, alv);
-            }
+            if (j_offs == -1)   // it is a new element, its coefficient is computed in place
+                mul(alpha, iv.coeff(), add_new_element(k, j));
             else {
                 addmul(rowk[j_offs].coeff(), iv.coeff(), alpha);
             }
@@ -133,10 +140,8 @@ namespace lp {
             if (j == pivot_col) continue;
             SASSERT(!is_zero(iv.coeff()));
             int j_offs = m_work_vector_of_row_offsets[j];
-            if (j_offs == -1) { // it is a new element
-                T alv = alpha * iv.coeff();
-                add_new_element(ii, j, alv);
-            }
+            if (j_offs == -1)   // it is a new element, its coefficient is computed in place
+                mul(alpha, iv.coeff(), add_new_element(ii, j));
             else {
                 addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
             }
@@ -167,8 +172,7 @@ namespace lp {
             int j_offs = m_work_vector_of_row_offsets[j];
             if (j_offs == -1) { // it is a new element
                 add_columns_up_to(j);
-                T alv = alpha * iv.coeff();
-                add_new_element(ii, j, alv);
+                mul(alpha, iv.coeff(), add_new_element(ii, j));
             }
             else {
                 addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
@@ -202,10 +206,8 @@ namespace lp {
             if (j == pivot_col) continue;
             SASSERT(!is_zero(iv.coeff()));
             int j_offs = m_work_vector_of_row_offsets[j];
-            if (j_offs == -1) { // it is a new element
-                T alv = alpha * iv.coeff();
-                add_new_element(ii, j, alv);
-            }
+            if (j_offs == -1)   // it is a new element, its coefficient is computed in place
+                mul(alpha, iv.coeff(), add_new_element(ii, j));
             else {
                 addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
             }
@@ -484,6 +486,18 @@ namespace lp {
 
         column_vals.pop_back();
         row_vals.pop_back();
+    }
+
+    // appends a cell with a zero coefficient and returns a reference to the coefficient
+    template <typename T, typename X>
+    T& static_matrix<T, X>::add_new_element(unsigned row, unsigned col) {
+        auto & row_vals = m_rows[row];
+        auto & col_vals = m_columns[col];
+        unsigned row_el_offs = static_cast<unsigned>(row_vals.size());
+        unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
+        row_vals.emplace_back(col, col_el_offs);
+        col_vals.push_back(column_cell(row, row_el_offs));
+        return row_vals.back().coeff();
     }
 
     template <typename T, typename X>

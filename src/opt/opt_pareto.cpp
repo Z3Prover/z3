@@ -35,13 +35,23 @@ namespace opt {
             {
                 m_solver->get_model(m_model);
                 solver::scoped_push _s(*m_solver.get());
+                unsigned num_improvements = 0;
                 while (is_sat == l_true) {
                     if (!m.inc()) {
                         return l_undef;
                     }
                     if (!m_model)
                         return l_undef;
-                    m_solver->get_labels(m_labels);                    
+                    // The first model is dominated; on a continuous front
+                    // single improvements can continue indefinitely.
+                    if (num_improvements++ == 1) {
+                        cb.maximize_in_cone(*m_solver, m_model);
+                        // A timeout or cancel during the step is re-raised
+                        // after it; report it as unknown, not as an error.
+                        if (!m.inc())
+                            return l_undef;
+                    }
+                    m_solver->get_labels(m_labels);
                     m_model->set_model_completion(true);
                     IF_VERBOSE(1,
                                model_ref mdl(m_model);

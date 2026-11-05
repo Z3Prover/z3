@@ -79,8 +79,570 @@ static void test_significand_out_of_range() {
     Z3_del_context(ctx);
 }
 
+static void test_inexact_symbolic_to_fp_real() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Converting a symbolic real to a float is inexact in general; requiring an
+    // exact round-trip used to produce a spurious unsat.
+    char const* inexact_spec =
+        "(set-logic ALL)\n"
+        "(declare-const x Real)\n"
+        "(declare-const rounded (_ FloatingPoint 5 11))\n"
+        "(assert (not (fp.isNaN rounded)))\n"
+        "(assert (not (fp.isInfinite rounded)))\n"
+        "(assert (fp.eq rounded ((_ to_fp 5 11) RNE x)))\n"
+        "(assert (distinct (fp.to_real rounded) x))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, inexact_spec);
+    if (response.find("sat") == std::string::npos || response.find("unsat") != std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    // The rounding of a symbolic real still has to agree with the rounding of the
+    // corresponding numeral, for every rounding mode.
+    char const* rounding_spec =
+        "(reset)\n"
+        "(declare-const y Real)\n"
+        "(assert (= y (/ 23.0 128.0)))\n"
+        "(assert (or (not (= ((_ to_fp 3 4) RNE y) ((_ to_fp 3 4) RNE (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RNA y) ((_ to_fp 3 4) RNA (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RTP y) ((_ to_fp 3 4) RTP (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RTN y) ((_ to_fp 3 4) RTN (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RTZ y) ((_ to_fp 3 4) RTZ (/ 23.0 128.0))))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, rounding_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+    Z3_del_context(ctx);
+}
+
+static void test_to_fp_real_zero_sign() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Converting the mathematical real 0 must always yield +0, never -0,
+    // regardless of rounding mode: a real number carries no sign bit for
+    // the rounding mode to act on. This used to produce an invalid model
+    // (issue #7431) because the old encoding allowed either +0 or -0 when
+    // the input was exactly 0.
+    char const* zero_spec =
+        "(set-logic ALL)\n"
+        "(declare-const v Real)\n"
+        "(assert (= v 0.0))\n"
+        "(assert (= ((_ to_fp 2 6) RTZ v) (fp (_ bv1 1) (_ bv0 2) (_ bv0 5))))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, zero_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    // The original #7431 reproducer uses a *symbolic* free real `v`; whether
+    // that query is `sat` in general additionally depends on the (separate,
+    // still-open) symbolic-rounding completeness bug tracked by issues
+    // #10881/#10931. This test only re-checks the invalid-model regression
+    // above. As a sanity check that negative-zero results are still
+    // reachable at all post-fix, a concrete small negative numeral (which
+    // goes through the unrelated, already-correct numeral-rounding code
+    // path) must still round to -0 under RTZ.
+    char const* numeral_spec =
+        "(reset)\n"
+        "(set-logic ALL)\n"
+        "(assert (= ((_ to_fp 2 6) RTZ (- 0.0001)) (fp (_ bv1 1) (_ bv0 2) (_ bv0 5))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, numeral_spec);
+    if (response.find("unsat") != std::string::npos || response.find("sat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    // Rounding toward zero saturates at the largest finite value.
+    char const* overflow_spec =
+        "(reset)\n"
+        "(declare-const z Real)\n"
+        "(assert (= z 1000.0))\n"
+        "(assert (not (= ((_ to_fp 3 4) RTZ z) ((_ to_fp 3 4) RTZ 15.0))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, overflow_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
+static void test_to_fp_real_int_symbolic_rtn() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* equivalence_spec =
+        "(set-logic ALL)\n"
+        "(declare-const m RoundingMode)\n"
+        "(assert (not (= ((_ to_fp 5 11) m (- 0.1))\n"
+        "                ((_ to_fp 5 11) m (- 0.1) 0))))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, equivalence_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    char const* rtn_spec =
+        "(reset)\n"
+        "(set-logic ALL)\n"
+        "(declare-const m RoundingMode)\n"
+        "(assert (distinct m RNE RNA RTP RTZ))\n"
+        "(assert (= ((_ to_fp 5 11) m (- 0.1) 0)\n"
+        "           (fp #b1 #b01011 #b1001100111)))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, rtn_spec);
+    if (response.find("sat") == std::string::npos || response.find("unsat") != std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
+static void test_mbqi_nan_arrays() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Equal array elements can have different user-supplied NaN payloads.
+    char const* spec = R"(
+(set-option :smt.mbqi.max_iterations 10)
+(set-option :rlimit 1000000)
+(declare-const len Int)
+(declare-const a (Array Int (_ FloatingPoint 5 11)))
+(declare-const b (Array Int (_ FloatingPoint 5 11)))
+(declare-fun nanbits-a ((Array Int (_ FloatingPoint 5 11)) Int) (_ BitVec 16))
+(declare-fun nanbits-b ((Array Int (_ FloatingPoint 5 11)) Int) (_ BitVec 16))
+(assert (<= 0 len))
+(assert (<= len 9223372036854775807))
+(assert (forall ((i Int))
+  (! (=> (and (<= 0 i) (< i len)) (= (select a i) (select b i)))
+     :pattern ((select a i) (select b i)))))
+(assert (not (forall ((i Int))
+  (! (let ((pa (nanbits-a a i)) (pb (nanbits-b b i)))
+       (let ((sa (ite (= ((_ extract 9 0) pa) #b0000000000)
+                      #b0000000001 ((_ extract 9 0) pa)))
+             (sb (ite (= ((_ extract 9 0) pb) #b0000000000)
+                      #b0000000001 ((_ extract 9 0) pb))))
+         (let ((va (ite (fp.isNaN (select a i))
+                        (concat ((_ extract 15 15) pa) #b11111 sa)
+                        (fp.to_ieee_bv (select a i))))
+               (vb (ite (fp.isNaN (select b i))
+                        (concat ((_ extract 15 15) pb) #b11111 sb)
+                        (fp.to_ieee_bv (select b i)))))
+           (=> (and (<= 0 i) (< i len)) (= (ubv_to_int va) (ubv_to_int vb))))))
+     :pattern ((select a i) (select b i))))))
+(check-sat)
+)";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "sat\n")
+        std::cout << response << "\n";
+    ENSURE(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_wrapped_rounding_mode_uf() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* spec = R"(
+(declare-fun mode (Int) RoundingMode)
+(assert (= (mode 0) RTP))
+(assert (not (= (fp.add (mode 0) ((_ to_fp 5 11) #x3c00) ((_ to_fp 5 11) #x1000))
+                ((_ to_fp 5 11) #x3c01))))
+(check-sat)
+)";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "unsat\n")
+        std::cout << response << "\n";
+    ENSURE(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_nan_datatype_congruence() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* spec = R"(
+(set-option :rlimit 1000000)
+(declare-datatype Expr ((Flt (get-float (_ FloatingPoint 8 24)))))
+(declare-const x Expr)
+(assert (distinct x (Flt (_ NaN 8 24))))
+(assert (fp.isNaN (get-float x)))
+(check-sat)
+)";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "unsat\n")
+        std::cout << response << "\n";
+    ENSURE(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_to_fp_real_without_rounding_mode() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // (_ to_fp eb sb) applied to a single Real is not a supported form; it is
+    // rejected with the list of supported forms (it used to read domain[1]).
+    char const* no_rm_spec =
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) r)))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, no_rm_spec);
+    ENSURE(response.find("Unexpected argument combination") != std::string::npos);
+    ENSURE(response.find("sort mismatch") == std::string::npos);
+
+    char const* rm_spec =
+        "(reset)\n"
+        "(declare-const r Real)\n"
+        "(assert (fp.isZero ((_ to_fp 8 24) RNE r)))\n"
+        "(check-sat)\n";
+    response = Z3_eval_smtlib2_string(ctx, rm_spec);
+    ENSURE(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
+static void test_incremental_symbolic_to_fp_real() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* input =
+        "(set-option :timeout 30000)\n"
+        "(set-logic QF_FPLRA)\n"
+        "(declare-const rm RoundingMode)\n"
+        "(declare-const q Real)\n"
+        "(declare-const r Float32)\n"
+        "(assert (= r ((_ to_fp 8 24) rm q)))\n"
+        "(push)\n(assert (= rm RNE))\n(assert (= q 1.0))\n"
+        "(assert (fp.gt r ((_ to_fp 8 24) RNE 2.0)))\n"
+        "(check-sat)\n(pop)\n"
+        "(check-sat-assuming ((= rm RNE) (= q 1.0)"
+        " (not (fp.eq r ((_ to_fp 8 24) RNE 1.0)))))\n"
+        "(push)\n(assert (= rm RTZ))\n(assert (= q (/ 1.0 3.0)))\n"
+        "(assert (= r ((_ to_fp 8 24) RTZ (/ 1.0 3.0))))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != "unsat\nunsat\nsat\n")
+        std::cout << input << "\n" << response;
+    ENSURE(response == "unsat\nunsat\nsat\n");
+    for (char const* mode : {"RNE", "RNA", "RTP", "RTN", "RTZ"}) {
+        std::string spec =
+            "(reset)\n(set-option :timeout 30000)\n(set-logic QF_FPLRA)\n"
+            "(declare-const rm RoundingMode)\n(declare-const q Real)\n"
+            "(declare-const r (_ FloatingPoint 3 4))\n"
+            "(assert (= r ((_ to_fp 3 4) rm q)))\n";
+        std::string expected;
+        for (char const* value : {"0.0", "(/ 1.0 64.0)", "(- (/ 1.0 128.0))",
+                                 "(/ 15.0 64.0)", "(/ 31.0 32.0)", "(/ 17.0 16.0)",
+                                 "(/ 31.0 2.0)", "(- 1000.0)"}) {
+            std::string rounded = std::string("((_ to_fp 3 4) ") + mode + " " + value + ")";
+            spec += std::string("(push)\n(assert (= rm ") + mode + "))\n(assert (= q " + value + "))\n"
+                "(push)\n(assert (distinct r " + rounded + "))\n(check-sat)\n(pop)\n"
+                "(assert (= r " + rounded + "))\n(check-sat)\n(pop)\n";
+            expected += "unsat\nsat\n";
+        }
+        response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response != expected)
+            std::cout << spec << "\n" << response;
+        ENSURE(response == expected);
+    }
+}
+
+static void check_fp_commands(char const* input, char const* expected) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string response = Z3_eval_smtlib2_string(ctx, input);
+    if (response != expected)
+        std::cout << input << "\n" << response;
+    ENSURE(response == expected);
+    Z3_del_context(ctx);
+}
+
+static void test_qffp_enumeration_probe() {
+    struct test_case {
+        char const* input;
+        bool expected;
+    };
+    test_case tests[] = {
+        {"(assert (= mode A))\n", true},
+        {"(assert (= mode (ite p A B)))\n", true},
+        {"(assert ((_ is A) mode))\n", true},
+        {"(declare-fun f (Mode) Mode)\n(assert (= (f mode) A))\n", false},
+        {"(declare-const a (Array Mode Mode))\n(assert (= (select a mode) A))\n", false},
+        {"(declare-datatype NodeList ((nil) (cons (tail NodeList))))\n"
+         "(declare-const l NodeList)\n(assert ((_ is nil) l))\n", false},
+        {"(assert (forall ((m Mode)) (= m A)))\n", false},
+    };
+    for (auto const& test : tests) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string input =
+            "(declare-datatype Mode ((A) (B)))\n"
+            "(declare-const mode Mode)\n"
+            "(declare-const p Bool)\n";
+        input += test.input;
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, input.c_str(), 0, nullptr, nullptr, 0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        Z3_goal goal = Z3_mk_goal(ctx, true, false, false);
+        Z3_goal_inc_ref(ctx, goal);
+        for (unsigned i = 0; i < Z3_ast_vector_size(ctx, assertions); ++i)
+            Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, i));
+        for (char const* name : {"is-qffp", "is-qffpbv"}) {
+            Z3_probe probe = Z3_mk_probe(ctx, name);
+            Z3_probe_inc_ref(ctx, probe);
+            ENSURE(Z3_probe_apply(ctx, probe, goal) == (test.expected ? 1.0 : 0.0));
+            Z3_probe_dec_ref(ctx, probe);
+        }
+        Z3_goal_dec_ref(ctx, goal);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_del_context(ctx);
+    }
+}
+
+static void test_default_fp_enumeration_modes() {
+    for (unsigned mode : {0u, 1u, 2u}) {
+        Z3_config cfg = Z3_mk_config();
+        if (mode == 2)
+            Z3_set_param_value(cfg, "proof", "true");
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_tactic tactic = Z3_mk_tactic(ctx, "default");
+        Z3_tactic_inc_ref(ctx, tactic);
+        Z3_solver solver = Z3_mk_solver_from_tactic(ctx, tactic);
+        Z3_solver_inc_ref(ctx, solver);
+        if (mode == 1) {
+            Z3_params params = Z3_mk_params(ctx);
+            Z3_params_inc_ref(ctx, params);
+            Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "unsat_core"), true);
+            Z3_solver_set_params(ctx, solver, params);
+            Z3_params_dec_ref(ctx, params);
+        }
+        char const* input =
+            "(declare-datatype Mode ((A) (B)))\n"
+            "(declare-const u Mode)\n"
+            "(declare-const v Mode)\n"
+            "(declare-const w Mode)\n"
+            "(declare-const x (_ FloatingPoint 5 11))\n"
+            "(assert (fp.isNaN (fp.sqrt RNE x)))\n"
+            "(assert (distinct u v))\n"
+            "(assert (distinct v w))\n"
+            "(assert (distinct u w))\n";
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, input, 0, nullptr, nullptr, 0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        char const* names[] = {"uv", "vw", "uw"};
+        auto assert_formula = [&](unsigned i) {
+            Z3_ast a = Z3_ast_vector_get(ctx, assertions, i);
+            if (mode == 1 && i > 0) {
+                Z3_ast label = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, names[i - 1]), Z3_mk_bool_sort(ctx));
+                Z3_solver_assert_and_track(ctx, solver, a, label);
+            }
+            else
+                Z3_solver_assert(ctx, solver, a);
+        };
+        for (unsigned i = 0; i < 3; ++i)
+            assert_formula(i);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+        Z3_solver_push(ctx, solver);
+        assert_formula(3);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+        if (mode == 1)
+            ENSURE(Z3_ast_vector_size(ctx, Z3_solver_get_unsat_core(ctx, solver)) == 3);
+        if (mode == 2)
+            ENSURE(Z3_solver_get_proof(ctx, solver) != nullptr);
+        Z3_solver_pop(ctx, solver, 1);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_solver_dec_ref(ctx, solver);
+        Z3_tactic_dec_ref(ctx, tactic);
+        Z3_del_context(ctx);
+    }
+}
+
+static void test_default_fp_with_finite_enumeration() {
+    // An independent enum constraint must not hide the floating-point fragment
+    // from the default strategy. Use a resource budget, not a wall-clock bound.
+    check_fp_commands(R"(
+(set-option :rlimit 2000000)
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (= mode F))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "sat\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (= mode F))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+(get-value (mode))
+)", "sat\n((mode F))\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 5 11))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (distinct mode A B C D E))
+(assert (fp.isNaN x))
+(check-sat-using qffp)
+(get-value (mode))
+)", "sat\n((mode F))\n");
+
+    // No fixed constructor: UNSAT requires the enum's finite domain, including
+    // exclusion of the two unused three-bit encodings for this six-value sort.
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (distinct mode A B C D E F))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "unsat\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 5 11))
+(declare-datatype Mode ((A) (B)))
+(declare-const mode Mode)
+(assert (= mode (ite (fp.isNaN x) A B)))
+(assert ((_ is A) mode))
+(assert (not (fp.isNaN x)))
+(check-sat-using default)
+)", "unsat\n");
+
+    check_fp_commands(R"(
+(declare-const x (_ FloatingPoint 8 24))
+(declare-datatypes () ((Mode A B C D E F)))
+(declare-const mode Mode)
+(assert (= mode F))
+(assert (= x ((_ to_fp 8 24) #x3f800000)))
+(assert (fp.isNaN (fp.sqrt roundNearestTiesToAway x)))
+(check-sat-using default)
+)", "unsat\n");
+}
+
+static void test_fma_small_significand() {
+    char const* input =
+        "(set-logic QF_FP)\n"
+        "(declare-const x (_ FloatingPoint 2 3))\n"
+        "(declare-const y (_ FloatingPoint 2 3))\n"
+        "(declare-const z (_ FloatingPoint 2 3))\n"
+        "(push)\n"
+        "(assert (= x (fp.neg ((_ to_fp 2 3) RNE 3.0))))\n"
+        "(assert (= y ((_ to_fp 2 3) RNE 1.0)))\n"
+        "(assert (= z ((_ to_fp 2 3) RNE 0.5)))\n"
+        "(assert (= (fp.fma RNE x y z) (fp.neg ((_ to_fp 2 3) RNE 2.5))))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (= x (fp.neg ((_ to_fp 2 3) RNE 3.0))))\n"
+        "(assert (= y ((_ to_fp 2 3) RNE 1.0)))\n"
+        "(assert (= z ((_ to_fp 2 3) RNE 0.5)))\n"
+        "(assert (= (fp.fma RNE x y z) (_ -oo 2 3)))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (= x ((_ to_fp 2 3) RNE 0.25)))\n"
+        "(assert (= y ((_ to_fp 2 3) RNE 0.25)))\n"
+        "(assert (= z ((_ to_fp 2 3) RNE 0.25)))\n"
+        "(assert (= (fp.fma RNE x y z) ((_ to_fp 2 3) RNE 1.25)))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+    check_fp_commands(input, "sat\nunsat\nunsat\n");
+}
+
+static void test_raw_nan_congruence() {
+    char const* prelude =
+        "(set-logic ALL)\n"
+        "(declare-const b (_ BitVec 16))\n"
+        "(declare-const c (_ BitVec 16))\n"
+        "(declare-fun f ((_ FloatingPoint 5 11)) (_ BitVec 8))\n"
+        "(declare-const a (Array (_ FloatingPoint 5 11) Int))\n";
+    for (char const* mismatch : {
+            "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n",
+            "(assert (distinct (select a ((_ to_fp 5 11) b)) (select a (_ NaN 5 11))))\n",
+            "(assert (distinct (f (fp ((_ extract 15 15) b) ((_ extract 14 10) b) ((_ extract 9 0) b)))"
+            " (f (_ NaN 5 11))))\n"}) {
+        std::string input = std::string(prelude) +
+            "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+            "(assert (fp.isNaN ((_ to_fp 5 11) c)))\n" + mismatch + "(check-sat)\n";
+        check_fp_commands(input.c_str(), "unsat\n");
+    }
+    std::string input = std::string(prelude) +
+        "(assert (fp.isNaN ((_ to_fp 5 11) b)))\n"
+        "(assert (= (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n"
+        "(push)\n(assert (= b #xffff))\n(assert (= c #x7e02))\n(check-sat)\n(pop)\n"
+        "(push)\n(assert (= b #x7c01))\n(assert (= c #xfe00))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\nsat\n");
+    input = std::string(prelude) +
+        "(assert (= b #x3c00))\n(assert (= c #x4000))\n"
+        "(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))\n(check-sat)\n";
+    check_fp_commands(input.c_str(), "sat\n");
+}
+
+static void test_null_fp_arguments() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(ctx, ignore_error);
+
+    // NULL arguments are rejected with Z3_INVALID_ARG instead of dereferenced
+    Z3_sort fp_sort = Z3_mk_fpa_sort_32(ctx);
+    Z3_ast f = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "f"), fp_sort);
+    ENSURE(!Z3_fpa_is_numeral_nan(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(!Z3_fpa_is_numeral_inf(ctx, nullptr));
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, nullptr, f, f) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, nullptr) == nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    ENSURE(Z3_mk_fpa_add(ctx, Z3_mk_fpa_rne(ctx), f, f) != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
+    test_qffp_enumeration_probe();
+    test_default_fp_enumeration_modes();
+    test_default_fp_with_finite_enumeration();
+    test_fma_small_significand();
+    test_incremental_symbolic_to_fp_real();
+    test_raw_nan_congruence();
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
+    test_to_fp_real_zero_sign();
+    test_inexact_symbolic_to_fp_real();
+    test_to_fp_real_int_symbolic_rtn();
+    test_mbqi_nan_arrays();
+    test_wrapped_rounding_mode_uf();
+    test_nan_datatype_congruence();
+    test_to_fp_real_without_rounding_mode();
+    test_null_fp_arguments();
 }

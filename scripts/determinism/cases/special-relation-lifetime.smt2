@@ -1,0 +1,13 @@
+; Cached relations must retain declarations after their atoms are popped.
+(set-info :status sat)
+(set-option :model_validate true)
+(push)
+(assert ((_ linear-order 123) 0 1))
+(assert (not ((_ linear-order 123) 1 0)))
+(check-sat)
+(get-value (((_ linear-order 123) 0 1) ((_ linear-order 123) 1 0)))
+(pop)
+(assert ((_ piecewise-linear-order 123) 0 1))
+(assert (not ((_ piecewise-linear-order 123) 1 0)))
+(check-sat)
+(get-value (((_ piecewise-linear-order 123) 0 1) ((_ piecewise-linear-order 123) 1 0)))

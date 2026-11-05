@@ -17,6 +17,7 @@ add_executable(test-z3
   api_polynomial.cpp
   api_pb.cpp
   api_datalog.cpp
+  api_qbmc_recursive.cpp
   parametric_datatype.cpp
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
@@ -29,6 +30,7 @@ add_executable(test-z3
   chashtable.cpp
   check_assumptions.cpp
   cnf_backbones.cpp
+  context_params.cpp
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
@@ -60,9 +62,11 @@ add_executable(test-z3
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp
+  flatten_clauses.cpp
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
+  grobner.cpp
   hashtable.cpp
   heap.cpp
   heap_trie.cpp
@@ -72,16 +76,19 @@ add_executable(test-z3
   horn_subsume_model_converter.cpp
   horner.cpp
   hwf.cpp
+  inc_sat_solver_pop.cpp
   inf_rational.cpp
   interval.cpp
   karr.cpp
   lcube.cpp
+  lp_evidence.cpp
   len_abs.cpp
   list.cpp
   main.cpp
   map.cpp
   matcher.cpp
   memory.cpp
+  min_cut.cpp
   model2expr.cpp
   model_based_opt.cpp
   mod_factor.cpp
@@ -104,6 +111,7 @@ add_executable(test-z3
   opt_bounds.cpp
   opt_nlsat.cpp
   opt_pareto.cpp
+  opt_quantifiers.cpp
   opt_value.cpp
   optional.cpp
   parray.cpp
@@ -111,6 +119,11 @@ add_executable(test-z3
   pdd.cpp
   pdd_solver.cpp
   permutation.cpp
+  ff_domain.cpp
+  ff_solver.cpp
+  ff_euf.cpp
+  ff_native_proof.cpp
+  finite_field.cpp
   polynomial.cpp
   polynomial_factorization.cpp
   polynorm.cpp
@@ -118,6 +131,7 @@ add_executable(test-z3
   psmt.cpp
   seq_regex_bisim.cpp
   proof_checker.cpp
+  proof_replay.cpp
   qe_arith.cpp
   qe_lite.cpp
   mbp_qel.cpp
@@ -130,10 +144,16 @@ add_executable(test-z3
   region.cpp
   regex_range_collapse.cpp
   sat_local_search.cpp
+  sat_config.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
+  sat_smt_proof_scope.cpp
+  sat_unsat_core.cpp
+  smt_proof_checker.cpp
+  smt_proof_weakening.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_limits.cpp
   seq_power.cpp
   seq_rewriter.cpp
   seq_parikh.cpp
@@ -160,6 +180,7 @@ add_executable(test-z3
   smt_context.cpp
   solver_pool.cpp
   sorting_network.cpp
+  spacer.cpp
   stack.cpp
   string_buffer.cpp
   stx_search_tree.cpp
@@ -183,9 +204,26 @@ add_executable(test-z3
   value_sweep.cpp
   var_subst.cpp
   vector.cpp
+  lp/bound_propagation.cpp
   lp/lp.cpp
   lp/nla_solver_test.cpp
   zstring.cpp
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
+
+# External finite-field regressions live in z3test. The dedicated CI job pins
+# its checkout and supplies this path; ordinary Z3 builds need no test checkout.
+set(Z3_FF_TEST_DIR "" CACHE PATH "z3test/regressions/finite_field directory")
+if (Z3_FF_TEST_DIR)
+  if (NOT EXISTS "${Z3_FF_TEST_DIR}/api_smoke.cpp")
+    message(FATAL_ERROR "Z3_FF_TEST_DIR must contain api_smoke.cpp")
+  endif()
+  add_executable(test-ff-api EXCLUDE_FROM_ALL "${Z3_FF_TEST_DIR}/api_smoke.cpp")
+  target_link_libraries(test-ff-api PRIVATE libz3)
+  if (MSVC)
+    target_compile_options(test-ff-api PRIVATE /UNDEBUG)
+  else()
+    target_compile_options(test-ff-api PRIVATE -UNDEBUG)
+  endif()
+endif()

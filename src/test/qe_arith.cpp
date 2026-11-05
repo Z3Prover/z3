@@ -571,7 +571,11 @@ static void test_project() {
     lits.reset();
     vars.reset();
     vars.push_back(y);
-    lits.push_back(m.mk_eq(a.mk_mod(y, a.mk_int(3)), a.mk_int(1)));
+    {
+        expr_ref lhs(a.mk_mod(y, a.mk_int(3)), m);
+        expr_ref rhs(a.mk_int(1), m);
+        lits.push_back(m.mk_eq(lhs, rhs));
+    }
     lits.push_back(m.mk_eq(2*y, z));
     plugin.project(mdl, vars, lits);
     std::cout << lits << "\n";

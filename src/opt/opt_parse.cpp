@@ -859,7 +859,11 @@ private:
             if (c.m_bvar != symbol::null) {
                 term = mk_var(c.m_bvar);
                 bool is_int = c.m_bval.is_int() && a.is_int(term);
-                term = m.mk_eq(mk_var(c.m_bvar), a.mk_numeral(c.m_bval, is_int));
+                {
+                    auto lhs = mk_var(c.m_bvar);
+                    expr_ref rhs(a.mk_numeral(c.m_bval, is_int), m);
+                    term = m.mk_eq(lhs, rhs);
+                }
                 fml = m.mk_implies(term, fml);
             }
             opt.add_hard_constraint(fml);

@@ -1,0 +1,8 @@
+F* 2026.09.27; Z3 4.13.3 (pinned independent backend)
+PR head eeacd3a7f8bfadf061e655abbb96ccb34b054c2e base 48a710a9c45882fd730a16477c8e2a1084acc77b
+sha256 head Z3Skolemization.fst 038234fa366f38fe45aca21f04e2d2fa3980865a63c85347a738c9d3de58465c; base 7d2b0aed9b1a0383ff4dbd3de292778412f76f4f4809917f9c3fedbf3a4a0e0f
+Cmd 1 (full head Z3Skolemization.fst, base deps, fresh cache): fstar.exe --smt .../z3 --z3version 4.13.3 --z3rlimit 10 --include . --cache_dir ../cache --odir ../out Z3Skolemization.fst
+exit 0; stdout: Verified module: Z3Skolemization All verification conditions discharged successfully
+Cmd 2 (audit module, base deps incl. base Z3Skolemization, fresh cache): same flags on Z3SkolemVacuousAudit.fst
+exit 0; stdout: Verified module: Z3SkolemVacuousAudit All verification conditions discharged successfully
+stderr only contained warning 241 (missing cache, will recheck).

@@ -740,6 +740,7 @@ namespace sat {
         void user_pop(unsigned num_scopes) override;
         void pop_to_base_level();
         unsigned num_user_scopes() const override { return m_user_scope_literals.size(); }
+        literal user_scope_literal(unsigned i) const { return m_user_scope_literals[i]; }
         unsigned num_scopes() const override { return m_scopes.size(); }
         reslimit& rlimit() { return m_rlimit; }
         params_ref const& params() { return m_params; }

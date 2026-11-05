@@ -364,6 +364,19 @@ public:
         return ((m_data = m_data * 214013L + 2531011L) >> 16) & 0x7fff; 
     }
 
+    // Assemble 32 bits from three 15-bit draws, most significant bits first.
+    uint32_t next_uint32() {
+        uint32_t r = (*this)();
+        r = (r << 15) | (*this)();
+        return (r << 2) | ((*this)() & 3);
+    }
+
+    // Draw the high half before the low half.
+    uint64_t next_uint64() {
+        uint64_t r = next_uint32();
+        return (r << 32) | next_uint32();
+    }
+
     unsigned operator()(unsigned u) {
         SASSERT(u > 0);
         if (u == 0)

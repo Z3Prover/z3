@@ -23,6 +23,7 @@ Notes:
 #include "util/region.h"
 #include "util/map.h"
 #include "util/rational.h"
+#include <charconv>
 
 static DECLARE_MUTEX(gparams_mux);
 
@@ -355,8 +356,16 @@ public:
             throw_unknown_parameter(_param_name, d, mod_name);
         }
         else if (k == CPK_UINT) {
-            long val = strtol(value, nullptr, 10);
-            ps.set_uint(param_name, static_cast<unsigned>(val));
+            // Parse directly as unsigned: long is only 32 bits on Windows.
+            unsigned val;
+            char const* end = value + strlen(value);
+            auto [ptr, ec] = std::from_chars(value, end, val);
+            if (ec != std::errc() || ptr != end) {
+                std::stringstream strm;
+                strm << "invalid value '" << value << "' for unsigned int parameter '" << param_name << "'";
+                throw default_exception(std::move(strm).str());
+            }
+            ps.set_uint(param_name, val);
         }
         else if (k == CPK_DOUBLE) {
             rational r(value);

@@ -29,6 +29,8 @@ Author:
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
 #include "params/solver_params.hpp"
+#include "ast/ff/ff_evidence.h"
+#include <sstream>
 
 namespace euf {
 
@@ -81,16 +83,59 @@ namespace euf {
 
         void merge_numeral(expr* x) {
             rational n;
-            expr* y;
-            if (m_arith.is_uminus(x, y) && m_arith.is_numeral(y, n)) {
-                y = m_arith.mk_numeral(-n, x->get_sort());
-                m_trail.push_back(y);
-                m_uf.merge(expr2id(x), expr2id(y));
-            }
+            if (m_arith.is_numeral(x) || !m_arith.is_extended_numeral(x, n))
+                return;
+            expr* y = m_arith.mk_numeral(n, x->get_sort());
+            m_trail.push_back(y);
+            m_uf.merge(expr2id(x), expr2id(y));
         }
 
         bool are_equal(expr* x, expr* y) {
             return m_uf.find(expr2id(x)) == m_uf.find(expr2id(y));
+        }
+
+        bool has_id(expr* e) const {
+            return m_expr2id.get(e->get_id(), {0, 0}).first == m_ts;
+        }
+
+        // a Boolean term (not x) that occurs inside an equality is interpreted:
+        // x and (not x) cannot share a class, including via true or false.
+        bool negation_violated() {
+            for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
+                expr* e = m_id2expr[v], *x = nullptr;
+                if (!m.is_not(e, x) || !has_id(x))
+                    continue;
+                if (are_equal(e, x))
+                    return true;
+            }
+            return false;
+        }
+
+        // the truth value of a Boolean term: its class's, or for (not x) the
+        // negation of x's. A Boolean term under a function, such as (not q)
+        // in (f (not q)), has no class of its own when only q is a literal.
+        lbool value(expr* e) {
+            bool sign = false;
+            while (true) {
+                if (are_equal(e, m.mk_true()))
+                    return sign ? l_false : l_true;
+                if (are_equal(e, m.mk_false()))
+                    return sign ? l_true : l_false;
+                if (!m.is_not(e, e))
+                    return l_undef;
+                sign = !sign;
+            }
+        }
+
+        // arguments are equal if they share a class or are Boolean terms
+        // with the same known truth value.
+        bool are_equal_args(expr* x, expr* y) {
+            if (are_equal(x, y))
+                return true;
+            if (!m.is_bool(x))
+                return false;
+            lbool v = value(x);
+            return v != l_undef && v == value(y);
         }
 
         bool congruence(bool comm, app* x, app* y) {
@@ -101,15 +146,15 @@ namespace euf {
             if (comm) {
                 if (x->get_num_args() != 2)
                     return false;
-                if (!are_equal(x->get_arg(0), y->get_arg(1)))
+                if (!are_equal_args(x->get_arg(0), y->get_arg(1)))
                     return false;
-                if (!are_equal(y->get_arg(0), x->get_arg(1)))
+                if (!are_equal_args(y->get_arg(0), x->get_arg(1)))
                     return false;
                 merge(x, y);
             }
             else {
                 for (unsigned i = 0; i < x->get_num_args(); ++i)
-                    if (!are_equal(x->get_arg(i), y->get_arg(i)))
+                    if (!are_equal_args(x->get_arg(i), y->get_arg(i)))
                         return false;
                 merge(x, y);
             }
@@ -193,6 +238,9 @@ namespace euf {
             for (auto const& [a, b] : m_diseqs)
                 if (are_equal(a, b))
                     return true;
+
+            if (negation_violated())
+                return true;
 
             // check if some equivalence class contains two distinct values.            
             for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
@@ -284,6 +332,16 @@ namespace euf {
         }
     };
 
+    class ff_theory_checker : public theory_checker_plugin {
+        ast_manager& m;
+    public:
+        explicit ff_theory_checker(ast_manager& m) : m(m) {}
+        bool requires_check() const override { return true; }
+        bool check(app* proof) override { return ff::check_refutation(m, proof); }
+        expr_ref_vector clause(app* proof) override { return ff::refutation_clause(m, proof); }
+        void register_plugins(theory_checker& pc) override { pc.register_plugin(symbol("ff-pac"), this); }
+    };
+
     theory_checker::theory_checker(ast_manager& m):
         m(m) {
         add_plugin(alloc(arith::theory_checker, m));
@@ -294,6 +352,7 @@ namespace euf {
         add_plugin(alloc(smt_theory_checker_plugin, m)); 
         add_plugin(alloc(tseitin::theory_checker, m));
         add_plugin(alloc(bv::theory_checker, m));
+        add_plugin(alloc(ff_theory_checker, m));
     }
 
     void theory_checker::add_plugin(theory_checker_plugin* p) {
@@ -313,8 +372,17 @@ namespace euf {
         return m_map.find(a->get_decl()->get_name(), p) && p->check(a);
     }
 
+    bool theory_checker::requires_check(expr* e) {
+        theory_checker_plugin* p = nullptr;
+        return e && is_app(e) && m_map.find(to_app(e)->get_name(), p) && p->requires_check();
+    }
+
+    bool theory_checker::has_rule(expr* e) const {
+        return e && is_app(e) && m_map.contains(to_app(e)->get_name());
+    }
+
     expr_ref_vector theory_checker::clause(expr* e) {
-        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
+        SASSERT(has_rule(e));
         expr_ref_vector r = m_map[to_app(e)->get_name()]->clause(to_app(e));
         return r;
     }
@@ -329,31 +397,19 @@ namespace euf {
         return false;
     }
    
-    bool theory_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
-        if (!check(e))
-            return false;
+    // The clause log prints a negated literal whose atom is itself a negation as
+    // (not (not x)), while proof hints collapse the same literal to x.
+    // Literals are therefore compared modulo double negation.
+    bool theory_checker::clause_follows(expr_ref_vector const& clause1, expr_ref_vector const& clause2, expr_ref_vector& units) {
         units.reset();
         expr_mark literals;
-        auto clause2 = clause(e);
 
-        // check that all literals in clause1 are in clause2
-        for (expr* arg : clause2)
-            literals.mark(arg, true);
+        // A certified clause C entails any weakening C or D. If an emitted
+        // clause drops a literal from C, its complement must be RUP.
         for (expr* arg : clause1)
-            if (!literals.is_marked(arg)) {
-                if (m.is_not(arg, arg) && m.is_not(arg, arg) && literals.is_marked(arg)) // kludge
-                    continue;
-                IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(arg, m) << " not in " << clause2 << "\n");
-                return false;
-            }
-
-        // extract negated units for literals in clause2 but not in clause1
-        // the literals should be rup
-        literals.reset();
-        for (expr* arg : clause1)
-            literals.mark(arg, true);
+            literals.mark(m.strip_double_not(arg), true);
         for (expr* arg : clause2)
-            if (!literals.is_marked(arg))
+            if (!literals.is_marked(m.strip_double_not(arg)))
                 units.push_back(mk_not(m, arg));
 
         return true;
@@ -378,7 +434,8 @@ namespace euf {
         m_params(p),
         m_checker(m),
         m_sat_solver(m_params, m.limit()), 
-        m_drat(m_sat_solver) 
+        m_drat(m_sat_solver),
+        m_pinned(m)
     {
         m_params.set_bool("drat.check_unsat", true);
         m_params.set_bool("euf", false);
@@ -432,30 +489,74 @@ namespace euf {
         return m_drat.is_drup(m_clause.size(), m_clause.data(), m_units);
     }
 
-    void smt_proof_checker::infer(expr_ref_vector& clause, app* proof_hint) {
-            
+    // Units that are not RUP are reported to diag rather than printed: the step
+    // may still verify through the SMT fallback, and the replay output must
+    // mention "is not rup" only when the step is rejected.
+    bool smt_proof_checker::units_are_rup(expr_ref_vector const& units, std::ostream& diag) {
+        bool result = true;
+        for (expr* u : units) {
+            if (!m.is_true(u) && !check_rup(u)) {
+                diag << "unit " << mk_bounded_pp(u, m) << " is not rup\n";
+                result = false;
+            }
+        }
+        return result;
+    }
+
+    // The logged clause follows from the hint's clause when every logged literal
+    // occurs in the hint's clause and the negations of the remaining hint
+    // literals are RUP, exactly as the native check demands.
+    bool smt_proof_checker::follows_from_hint(expr_ref_vector const& clause, app* proof_hint, std::ostream& diag) {
+        expr_ref_vector units(m);
+        return m_checker.clause_follows(clause, m_checker.clause(proof_hint), units) && units_are_rup(units, diag);
+    }
+
+    bool smt_proof_checker::infer(expr_ref_vector& clause, app* proof_hint) {
+
         if (is_rup(proof_hint) && check_rup(clause)) {
             if (m_check_rup) {
                 log_verified(proof_hint, true);
                 add_clause(clause);
             }
-            return;
+            return true;
         }
-        
-        expr_ref_vector units(m);
-        if (m_checker.check(clause, proof_hint, units)) {
-            bool units_are_rup = true;
-            for (expr* u : units) {
-                if (!m.is_true(u) && !check_rup(u)) {
-                    std::cout << "unit " << mk_bounded_pp(u, m) << " is not rup\n";
-                    units_are_rup = false;
-                }
+
+        // The plugin verifies the hint's clause; the logged clause must follow from it.
+        std::ostringstream rup_diag;
+        bool hint_checked = m_checker.check(proof_hint);
+        bool follows = hint_checked && follows_from_hint(clause, proof_hint, rup_diag);
+        if (hint_checked && follows) {
+            log_verified(proof_hint, true);
+            add_clause(clause);
+            return true;
+        }
+
+        // Fall back to the SMT solver. By default it refutes the negation of the
+        // logged clause under the assumptions. A plugin may supply a simplified
+        // verification condition for the clause of its hint instead: quantifier
+        // instantiation claims (forall x . phi(x)) => psi using x -> t, and the
+        // condition is phi(t) => psi; when psi is the instantiation itself, the
+        // hint's clause is a tautology and no solver call is needed. Such a
+        // condition proves the hint's clause, not the logged clause, so it is
+        // used only when the logged clause follows from the hint's clause (its
+        // literals occur there and the dropped literals are false by RUP).
+        // Negating the hint's clause together with the logged clause, as the
+        // fallback once did, accepted any logged clause under a hint whose
+        // clause is a tautology.
+        expr_ref_vector vc(m);
+        bool hint_is_tautology = proof_hint && m_checker.vc(proof_hint, clause, vc);
+        if (hint_is_tautology || !vc.empty()) {
+            if (!hint_checked)
+                follows = follows_from_hint(clause, proof_hint, rup_diag);
+            if (!follows) {
+                hint_is_tautology = false;
+                vc.reset();
             }
-            if (units_are_rup) {
-                log_verified(proof_hint, true);
-                add_clause(clause);
-                return;
-            }
+        }
+
+        if (m_checker.requires_check(proof_hint)) {
+            log_verified(proof_hint, false);
+            throw default_exception("required theory certificate did not verify");
         }
         
         // extract a simplified verification condition in case proof validation does not work.
@@ -464,24 +565,26 @@ namespace euf {
         // then check the simplified VC: phi(t) => psi.
         // in case psi is the literal instantiation, then the clause is a propositional tautology.
         // The VC function is a no-op if the proof hint does not have an associated vc generator.
-        expr_ref_vector vc(clause);
-        if (m_checker.vc(proof_hint, clause, vc)) {
+        if (hint_is_tautology) {
             log_verified(proof_hint, true);
             add_clause(clause);
-            return;
+            return true;
         }
-        
+        if (vc.empty())
+            vc.append(clause);
+
         log_verified(proof_hint, false);
 
         ensure_solver();
-        m_solver->push();
+        solver::scoped_push scope(*m_solver);
         for (expr* lit : vc)
             m_solver->assert_expr(m.mk_not(lit));
         lbool is_sat = m_solver->check_sat();
         if (is_sat != l_false) {
+            std::cout << rup_diag.str();
             std::cout << "did not verify: " << is_sat << " " << clause << "\n";
             std::cout << "vc:\n" << vc << "\n";
-            if (proof_hint) 
+            if (proof_hint)
                 std::cout << "hint: " << mk_bounded_pp(proof_hint, m, 4) << "\n";
             m_solver->display(std::cout);
             if (is_sat == l_true) {
@@ -490,9 +593,11 @@ namespace euf {
                 mdl->evaluate_constants();
                 std::cout << *mdl << "\n";
             }                
-            exit(0);
+            throw default_exception("SMT proof verification failed");            
+            std::cout.flush();
+            m_solver->pop(1);
+            return false;
         }
-        m_solver->pop(1);
         std::cout << "(verified-smt"; 
         if (proof_hint) std::cout << "\n" << mk_bounded_pp(proof_hint, m, 4);
         for (expr* arg : clause)
@@ -500,10 +605,11 @@ namespace euf {
         std::cout << ")\n";
         std::cout.flush();
 
-        if (false && is_rup(proof_hint)) 
+        if (false && is_rup(proof_hint))
             diagnose_rup_failure(clause);
-            
+
         add_clause(clause);
+        return true;
     }
 
     void smt_proof_checker::diagnose_rup_failure(expr_ref_vector const& clause) {
@@ -534,4 +640,3 @@ namespace euf {
     }
     
 }
-

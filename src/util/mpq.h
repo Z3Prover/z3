@@ -105,6 +105,7 @@ class mpq_manager : public mpz_manager<SYNCH> {
     void lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3);
 
     void rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2);
+    bool small_addmul(mpq const& a, mpq const& b, mpq const& c, mpq& d);
 
 public:
     typedef mpq numeral;
@@ -324,7 +325,11 @@ public:
 
     // d <- a + b*c
     void addmul(mpq const & a, mpq const & b, mpq const & c, mpq & d) {
-        if (is_one(b)) {
+        if (is_int(a) && is_int(b) && is_int(c)) {
+            mpz_manager<SYNCH>::addmul(a.m_num, b.m_num, c.m_num, d.m_num);
+            reset_denominator(d);
+        }
+        else if (is_one(b)) {
             add(a, c, d);
         }
         else if (is_minus_one(b)) {
@@ -334,6 +339,8 @@ public:
             set(d, a);
         }
         else {
+            if (is_small(a) && is_small(b) && is_small(c) && small_addmul(a, b, c, d))
+                return;
             if (SYNCH) {
                 mpq tmp;
                 mul(b,c,tmp);
@@ -375,7 +382,11 @@ public:
 
     // d <- a - b*c
     void submul(mpq const & a, mpq const & b, mpq const & c, mpq & d) {
-        if (is_one(b)) {
+        if (is_int(a) && is_int(b) && is_int(c)) {
+            mpz_manager<SYNCH>::submul(a.m_num, b.m_num, c.m_num, d.m_num);
+            reset_denominator(d);
+        }
+        else if (is_one(b)) {
             sub(a, c, d);
         }
         else if (is_minus_one(b)) {

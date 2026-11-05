@@ -863,8 +863,13 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         }
         else {
             ptr_buffer<format> b;
-            for (auto arg : m_args)
-                b.push_back(m.pp(env, arg));
+            for (auto arg : m_args) {
+                // Native indexed sorts such as FiniteField may have no parser
+                // declaration metadata. Use the environment's builtin fallback
+                // instead of passing a null format to the compound sort printer.
+                format * f = m.pp(env, arg);
+                b.push_back(f ? f : env.pp_sort(arg));
+            }
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), name);
         }
     }

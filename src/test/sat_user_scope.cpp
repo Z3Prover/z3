@@ -19,7 +19,9 @@ static unsigned s_num_clauses_per_frame = 8;
 static unsigned s_num_frames = 7;
 
 static void add_literal(random_gen& r, clause_t& c) {
-    c.push_back(sat::literal(r(s_num_vars) + 1, r(2) == 0));
+    unsigned var = r(s_num_vars) + 1;
+    bool sign = r(2) == 0;
+    c.push_back(sat::literal(var, sign));
 }
 
 static clause_t& last_clause(trail_t& t) {

@@ -16,13 +16,21 @@ namespace nla {
     class core;
     class monomial_bounds : common {
         dep_intervals& dep;
+        struct bound_proof {
+            monic const& product;
+            lpvar source = UINT_MAX;
+            lp::lar_term const* term = nullptr;
+        };
 
-        bool tighten_lp_bound(dep_interval const &range, lpvar v, unsigned p);
-        bool tighten_lp_upper_bound(dep_interval const& range, lpvar v, unsigned p);
-        bool tighten_lp_lower_bound(dep_interval const& range, lpvar v, unsigned p);
-        bool tighten_lp_bound(dep_interval &mi, lpvar v, unsigned power, dep_interval &product);
+        bool tighten_lp_bound(bound_proof const& proof, dep_interval const &range, lpvar v, unsigned p);
+        bool tighten_lp_upper_bound(bound_proof const& proof, dep_interval const& range, lpvar v, unsigned p);
+        bool tighten_lp_lower_bound(bound_proof const& proof, dep_interval const& range, lpvar v, unsigned p);
+        bool tighten_lp_bound(bound_proof const& proof, dep_interval &mi, lpvar v, unsigned power, dep_interval &product);
  
-        void propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d);
+        void propagate_lp_bound(bound_proof const& proof, lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d);
+        u_dependency* capture_monomial(monic const& m, lp::evidence_manager::rule kind,
+                                      lp::evidence_manager::fact const& conclusion, u_dependency* support, lpvar target,
+                                      lpvar source = UINT_MAX, lp::lar_term const* term = nullptr);
 
 
         bool should_propagate_lower(dep_interval const& range, lpvar v, unsigned p);

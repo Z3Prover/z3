@@ -95,7 +95,7 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
 }
 
 void special_relations_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    if (logic == symbol::null) {
+    if (logic == symbol::null || logic == "ALL") {
         op_names.push_back(builtin_name(m_po.str(), OP_SPECIAL_RELATION_PO));
         op_names.push_back(builtin_name(m_lo.str(), OP_SPECIAL_RELATION_LO));
         op_names.push_back(builtin_name(m_plo.str(), OP_SPECIAL_RELATION_PLO));

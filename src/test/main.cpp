@@ -58,6 +58,7 @@
     X(seq_power_facet) \
     X(seq_solver_facet) \
     X(heap) \
+    X(min_cut) \
     X(hashtable) \
     X(rational) \
     X(inf_rational) \
@@ -76,8 +77,10 @@
     X(list) \
     X(len_abs) \
     X(small_object_allocator) \
+    X(context_params) \
     X(timeout) \
     X(proof_checker) \
+    X(proof_replay) \
     X(simplifier) \
     X(bit_blaster) \
     X(var_subst) \
@@ -94,10 +97,13 @@
     X(api_polynomial) \
     X(api_pb) \
     X(api_datalog) \
+    X(api_qbmc_recursive) \
+    X(spacer) \
     X(parametric_datatype) \
     X(cube_clause) \
     X(old_interval) \
     X(get_implied_equalities) \
+    X(grobner) \
     X(arith_simplifier_plugin) \
     X(matcher) \
     X(object_allocator) \
@@ -127,6 +133,7 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_limits) \
     X(seq_parikh) \
     X(seq_power) \
     X(seq_eq_approx) \
@@ -136,6 +143,8 @@
     X(seq_profile_abs) \
     X(check_assumptions) \
     X(smt_context) \
+    X(sat_config) \
+    X(sat_unsat_core) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
@@ -143,6 +152,13 @@
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
+    X(inc_sat_solver_pop) \
+    X(ff_domain) \
+    X(ff_solver) \
+    X(ff_euf) \
+    X(ff_native_proof) \
+    X(finite_field) \
+    X(flatten_clauses) \
     X(polynomial) \
     X(polynomial_factorization) \
     X(upolynomial) \
@@ -152,6 +168,8 @@
     X(monomial_bounds) \
     X(nla_transcendentals) \
     X(nla_intervals) \
+    X(lp_bound_propagation) \
+    X(lp_matrix) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
@@ -159,6 +177,7 @@
     X(opt_bounds) \
     X(opt_nlsat) \
     X(opt_pareto) \
+    X(opt_quantifiers) \
     X(opt_value) \
     X(13) \
     X(zstring)
@@ -203,6 +222,9 @@
     X(theory_pb) \
     X(simplex) \
     X(sat_user_scope) \
+    X(sat_smt_proof_scope) \
+    X(smt_proof_checker) \
+    X(smt_proof_weakening) \
     X_ARGV(ddnf) \
     X(ddnf1) \
     X(model_evaluator) \
@@ -233,6 +255,7 @@
     X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube) \
+    X(lp_evidence) \
     X(psmt)
 
 #define FOR_EACH_TEST(X, X_ARGV) \

@@ -1228,14 +1228,14 @@ namespace nlsat {
                       m_pm.display(m_am.display_decimal(tout << "    [" << j << "] val=", root_vals[perm[j]].first, 5) << " poly=", root_vals[perm[j]].second) << "\n";
                 );
             
-            std::set<std::pair<poly*, poly*>> added_pairs;
+            std::set<std::pair<unsigned, unsigned>> added_pairs;
             for (unsigned j = 0; j + 1 < perm.size(); ++j) {
                 poly* p1 = root_vals[perm[j]].second;
                 poly* p2 = root_vals[perm[j + 1]].second;
                 if (!p1 || !p2 || p1 == p2)
                     continue;
-                if (p1 > p2) std::swap(p1, p2);
-                if (!added_pairs.insert({p1, p2}).second)
+                if (m_pm.id(p1) > m_pm.id(p2)) std::swap(p1, p2);
+                if (!added_pairs.insert({m_pm.id(p1), m_pm.id(p2)}).second)
                     continue;
                 TRACE(lws,
                       m_pm.display(m_pm.display(tout << "  Adjacent resultant pair: ", p1) << " and ", p2) << "\n";

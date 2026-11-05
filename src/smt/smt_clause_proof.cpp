@@ -14,6 +14,7 @@ Revision History:
 --*/
 #include "smt/smt_clause_proof.h"
 #include "smt/smt_context.h"
+#include "smt/smt_conflict_resolution.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include <iostream>
@@ -26,7 +27,21 @@ namespace smt {
         
         auto proof_log = ctx.get_fparams().m_proof_log;
         m_has_log = proof_log.is_non_empty_string();
-        m_enabled = ctx.get_fparams().m_clause_proof || m_has_log;        
+        m_enabled = m_has_log;
+    }
+
+    bool clause_proof::is_enabled() const {
+        return m_enabled || ctx.get_fparams().m_clause_proof;
+    }
+
+    void clause_proof::push() {
+        m_scope_limits.push_back(m_trail.size());
+    }
+
+    void clause_proof::pop(unsigned num_scopes) {
+        unsigned new_size = m_scope_limits.size() - num_scopes;
+        m_trail.shrink(m_scope_limits[new_size]);
+        m_scope_limits.shrink(new_size);
     }
 
     void clause_proof::init_pp_out() {
@@ -59,9 +74,23 @@ namespace smt {
     }
 
     proof_ref clause_proof::justification2proof(status st, justification* j) {
-        proof* r = nullptr;
-        if (j)
-            r = j->mk_proof(ctx.get_cr());
+        proof_ref r(m);
+        if (j) {
+            if (ctx.get_fparams().m_clause_proof && m.proofs_enabled()) {
+                expr_ref fact(mk_or(m_lits), m);
+                r = ctx.get_cr().mk_clause_proof(j);
+                expr* clause = m.get_fact(r);
+                if (clause != fact) {
+                    m_lits.reset();
+                    if (m.is_or(clause))
+                        m_lits.append(to_app(clause)->get_num_args(), to_app(clause)->get_args());
+                    else if (!m.is_false(clause))
+                        m_lits.push_back(clause);
+                }
+            }
+            else
+                r = j->mk_proof(ctx.get_cr());
+        }
         if (r) 
             return proof_ref(r, m);
         if (!is_enabled())
@@ -94,20 +123,17 @@ namespace smt {
             return;
         justification* j = c.get_justification();
         auto st = kind2st(c.get_kind());
-        auto pr = justification2proof(st, j);
-        CTRACE(mk_clause, pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
-        update(c, st, pr, simp_lits);        
+        update(c, st, j, simp_lits);
     }
 
     void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
         if (!is_enabled())
             return;
         auto st = kind2st(k);
-        auto pr = justification2proof(st, j);
-        CTRACE(mk_clause, pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
         m_lits.reset();
         for (unsigned i = 0; i < n; ++i) 
             m_lits.push_back(ctx.literal2expr(lits[i]));
+        auto pr = justification2proof(st, j);
         update(st, m_lits, pr);
     }
 
@@ -130,7 +156,8 @@ namespace smt {
         if (!is_enabled())
             return;
         m_lits.reset();
-        m_lits.push_back(ctx.literal2expr(lit));
+        if (lit != false_literal)
+            m_lits.push_back(ctx.literal2expr(lit));
         auto st = kind2st(k);
         auto pr = justification2proof(st, j);
         update(st, m_lits, pr);
@@ -156,14 +183,27 @@ namespace smt {
         m_lits.reset();
         for (literal l : ante)
             m_lits.push_back(ctx.literal2expr(~l));
-        m_lits.push_back(ctx.literal2expr(lit));
+        if (lit != false_literal)
+            m_lits.push_back(ctx.literal2expr(lit));
         auto st = clause_proof::status::th_lemma;
         auto pr = justification2proof(st, jst);
         update(st, m_lits, pr);
     }
 
     void clause_proof::del(clause& c) {
-        update(c, status::deleted, justification2proof(status::deleted, nullptr), nullptr);
+        update(c, status::deleted, nullptr, nullptr);
+    }
+
+    void clause_proof::add(proof* certificate) {
+        if (!is_enabled() || !certificate)
+            return;
+        m_lits.reset();
+        expr* fact = m.get_fact(certificate);
+        if (m.is_or(fact))
+            m_lits.append(to_app(fact)->get_num_args(), to_app(fact)->get_args());
+        else if (!m.is_false(fact))
+            m_lits.push_back(fact);
+        update(status::assumption, m_lits, certificate);
     }
 
     std::ostream& clause_proof::display_literals(std::ostream& out, expr_ref_vector const& v) {
@@ -222,7 +262,7 @@ namespace smt {
         }
     }
 
-    void clause_proof::update(clause& c, status st, proof* p, literal_buffer const* simp_lits) {
+    void clause_proof::update(clause& c, status st, justification* j, literal_buffer const* simp_lits) {
         if (!is_enabled())
             return;
         m_lits.reset();
@@ -231,7 +271,8 @@ namespace smt {
         if (simp_lits) 
             for (auto lit : *simp_lits)
                 m_lits.push_back(ctx.literal2expr(~lit));
-        update(st, m_lits, p);        
+        auto pr = justification2proof(st, j);
+        update(st, m_lits, pr);
     }
 
     proof_ref clause_proof::get_proof(bool inconsistent) {
@@ -240,24 +281,23 @@ namespace smt {
             return proof_ref(m);
         expr_ref_vector ps(m);
         for (auto& info : m_trail) {
-            expr_ref fact = mk_or(info.m_clause);
+            // Preserve a disjunction used as a single Boolean literal.
+            expr_ref fact(info.m_clause.empty() ? m.mk_false() : m.mk_or(info.m_clause), m);
             proof* pr = info.m_proof;
-            expr* args[2] = { pr, fact };
-            unsigned num_args = 2, offset = 0;
-            if (!pr) 
-                offset = 1;
+            if (pr == m_assumption || pr == m_rup || pr == m_smt || pr == m_del)
+                pr = nullptr;
             switch (info.m_status) {
             case status::assumption:
-                ps.push_back(m.mk_app(symbol("assumption"), num_args - offset, args + offset, m.mk_proof_sort()));
+                ps.push_back(m.mk_assumption_add(pr, fact));
                 break;
             case status::lemma:
-                ps.push_back(m.mk_app(symbol("lemma"), num_args - offset, args + offset, m.mk_proof_sort()));
+                ps.push_back(m.mk_lemma_add(pr, fact));
                 break;
             case status::th_assumption:
-                ps.push_back(m.mk_app(symbol("th-assumption"), num_args - offset, args + offset, m.mk_proof_sort()));
+                ps.push_back(m.mk_th_assumption_add(pr, fact));
                 break;
             case status::th_lemma:
-                ps.push_back(m.mk_app(symbol("th-lemma"), num_args - offset, args + offset, m.mk_proof_sort()));
+                ps.push_back(m.mk_th_lemma_add(pr, fact));
                 break;
             case status::deleted:
                 ps.push_back(m.mk_redundant_del(fact));
@@ -288,4 +328,3 @@ namespace smt {
     }
 
 }
-

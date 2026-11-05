@@ -11,17 +11,17 @@ import "C"
 // MkBVConst creates a bit-vector constant with the given name and size.
 func (c *Context) MkBVConst(name string, size uint) *Expr {
 	sym := c.MkStringSymbol(name)
-	return c.MkConst(sym, c.MkBvSort(size))
+	return newExpr(c, C.Z3_mk_const(c.ptr, sym.ptr, C.Z3_mk_bv_sort(c.ptr, C.uint(size))))
 }
 
 // MkBV creates a bit-vector numeral from an integer.
 func (c *Context) MkBV(value int, size uint) *Expr {
-	return newExpr(c, C.Z3_mk_int(c.ptr, C.int(value), c.MkBvSort(size).ptr))
+	return newExpr(c, C.Z3_mk_int(c.ptr, C.int(value), C.Z3_mk_bv_sort(c.ptr, C.uint(size))))
 }
 
 // MkBVFromInt64 creates a bit-vector from an int64.
 func (c *Context) MkBVFromInt64(value int64, size uint) *Expr {
-	return newExpr(c, C.Z3_mk_int64(c.ptr, C.int64_t(value), c.MkBvSort(size).ptr))
+	return newExpr(c, C.Z3_mk_int64(c.ptr, C.int64_t(value), C.Z3_mk_bv_sort(c.ptr, C.uint(size))))
 }
 
 // MkBVAdd creates a bit-vector addition.

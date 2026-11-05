@@ -141,23 +141,23 @@ namespace nla {
             if (do_propagate_down && (num_free == 0 || free_var == v)) {
                 dep.set<dep_intervals::with_deps>(other_product, product);
                 compute_product(i, m, other_product);
-                if (tighten_lp_bound(mi, v, power, other_product))
+                if (tighten_lp_bound({m}, mi, v, power, other_product))
                     tightened = true;
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
         if (!do_propagate_up)
             return tightened;
-        return tighten_lp_bound(product, m.var(), 1) || tightened;
+        return tighten_lp_bound({m}, product, m.var(), 1) || tightened;
     }
 
-    bool monomial_bounds::tighten_lp_bound(dep_interval &mi, lpvar v, unsigned power,
+    bool monomial_bounds::tighten_lp_bound(bound_proof const& proof, dep_interval &mi, lpvar v, unsigned power,
                                            dep_interval &product) {
         if (!dep.separated_from_zero(product))
             return false;
         scoped_dep_interval range(dep);
         dep.div<dep_intervals::with_deps>(mi, product, range);
-        return tighten_lp_bound(range, v, power);
+        return tighten_lp_bound(proof, range, v, power);
     }
 
     bool monomial_bounds::is_free(lpvar v) const {
@@ -338,13 +338,68 @@ namespace nla {
         c().lra.dep_manager().linearize(dep, cs);
         for (auto d : cs)
             exp.add_pair(d, mpq(1));
+        if (c().lra.dep_manager().proofs_enabled())
+            exp.set_evidence(dep);
         return exp;
+    }
+
+    u_dependency* monomial_bounds::capture_monomial(monic const& m, lp::evidence_manager::rule kind,
+                                                   lp::evidence_manager::fact const& conclusion,
+                                                   u_dependency* support, lpvar target,
+                                                   lpvar source, lp::lar_term const* term) {
+        auto& manager = c().lra.dep_manager();
+        if (!manager.proofs_enabled())
+            return support;
+        lp::evidence_manager::recipe r;
+        r.kind = kind;
+        r.conclusion = conclusion;
+        r.definition = manager.monomial_definition(m.var());
+        r.pivot = target;
+        r.source = source;
+        if (term) {
+            r.equation.lhs.push_back({rational(1), source});
+            for (auto const& p : *term)
+                r.equation.lhs.push_back({-p.coeff(), p.j()});
+        }
+        unsigned_vector columns;
+        if (source != UINT_MAX)
+            columns.push_back(source);
+        columns.push_back(m.var());
+        for (auto j : m.vars()) {
+            bool seen = false;
+            for (auto k : columns)
+                seen |= j == k;
+            if (!seen)
+                columns.push_back(j);
+        }
+        for (auto j : columns) {
+            lp::evidence_manager::column_bounds bounds{j};
+            if (c().has_lower_bound(j)) {
+                auto* dep = c().lra.get_column_lower_bound_witness(j);
+                bounds.lower = r.premises.size();
+                r.premises.push_back({dep, rational(1)});
+                support = manager.mk_join(support, dep);
+            }
+            if (c().has_upper_bound(j)) {
+                auto* dep = c().lra.get_column_upper_bound_witness(j);
+                bounds.upper = r.premises.size();
+                r.premises.push_back({dep, rational(1)});
+                support = manager.mk_join(support, dep);
+            }
+            r.bounds.push_back(bounds);
+        }
+        return manager.derive(support, [&] { return std::move(r); });
     }
     
     bool monomial_bounds::propagate_fixed_to_zero(monic const& m, lpvar fixed_to_zero) {
         if (c().var_is_fixed_to_zero(m.var()))
             return false;
         auto* dep = c().lra.get_bound_constraint_witnesses_for_column(fixed_to_zero);
+        if (c().lra.dep_manager().proofs_enabled()) {
+            lp::evidence_manager::fact f;
+            f.lhs.push_back({rational(1), m.var()});
+            dep = capture_monomial(m, lp::evidence_manager::rule::monomial_substitute, f, dep, m.var());
+        }
         TRACE(nla_solver, tout << "propagate fixed " << m << " =  0, fixed_to_zero = " << fixed_to_zero << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
         
@@ -357,6 +412,12 @@ namespace nla {
         if (c().var_is_fixed(m.var()) && c().get_lower_bound(m.var()) == k)
             return false;
         auto* dep = explain_fixed(m, k);
+        if (c().lra.dep_manager().proofs_enabled()) {
+            lp::evidence_manager::fact f;
+            f.lhs.push_back({rational(1), m.var()});
+            f.rhs = lp::impq(k);
+            dep = capture_monomial(m, lp::evidence_manager::rule::monomial_substitute, f, dep, m.var());
+        }
         TRACE(nla_solver, tout << "propagate fixed " << m << " = " << k << "\n";);
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         
@@ -374,6 +435,11 @@ namespace nla {
         coeffs.push_back({rational::one(), m.var()});
         lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
+        if (c().lra.dep_manager().proofs_enabled()) {
+            lp::evidence_manager::fact f;
+            f.lhs = coeffs;
+            dep = capture_monomial(m, lp::evidence_manager::rule::monomial_substitute, f, dep, m.var());
+        }
         TRACE(nla_solver, tout << "propagate nonfixed " << m << " = " << k << " " << w << "\n";);
         c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, mpq(0), dep);
 
@@ -513,7 +579,7 @@ namespace nla {
                       << " m=" << m.var() << " v=" << v << " u=" << u
                       << " a_m=" << a_m << " a_v=" << a_v << "\n";);
 
-                if (tighten_lp_bound(u_int, u, 1))
+                if (tighten_lp_bound({m, basic, &term}, u_int, u, 1))
                     return true;  // one lemma per call to keep the channel quiet
             }
             return false;
@@ -635,7 +701,7 @@ namespace nla {
      * Only exact rational roots are used, so bounds that are not obtained from
      * propagation are out of scope.
      */
-    bool monomial_bounds::tighten_lp_upper_bound(dep_interval const &range, lpvar v, unsigned p) {
+    bool monomial_bounds::tighten_lp_upper_bound(bound_proof const& proof, dep_interval const &range, lpvar v, unsigned p) {
         SASSERT(p > 0);
         auto improves_upper = [&](rational const& cand) {
             return !c().has_upper_bound(v) || cand < c().get_upper_bound(v);
@@ -647,7 +713,7 @@ namespace nla {
             rational U(dep.upper(range));
             if (U.root(p, r) && improves_upper(r)) {
                 auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
-                propagate_lp_bound(v, cmp, r, dep.get_upper_dep(range));
+                propagate_lp_bound(proof, v, cmp, r, dep.get_upper_dep(range));
                 tightened = true;
             }
         }
@@ -659,7 +725,7 @@ namespace nla {
                 auto cmp = dep.lower_is_open(range) ? llc::LT : llc::LE;
                 u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
                                                     c().lra.get_column_upper_bound_witness(v));
-                propagate_lp_bound(v, cmp, -r, d);
+                propagate_lp_bound(proof, v, cmp, -r, d);
                 tightened = true;
             }
         }
@@ -678,7 +744,7 @@ namespace nla {
      *   range.lower = L, p even, v known >= 0:
      *     v >= root(p, L)                              (resolves the disjunction)
      */
-    bool monomial_bounds::tighten_lp_lower_bound(dep_interval const &range, lpvar v, unsigned p) {
+    bool monomial_bounds::tighten_lp_lower_bound(bound_proof const& proof, dep_interval const &range, lpvar v, unsigned p) {
         SASSERT(p > 0);
         auto improves_lower = [&](rational const& cand) {
             return !c().has_lower_bound(v) || cand > c().get_lower_bound(v);
@@ -691,7 +757,7 @@ namespace nla {
                 rational L(dep.lower(range));
                 if (L.root(p, r) && improves_lower(r)) {
                     auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
-                    propagate_lp_bound(v, cmp, r, dep.get_lower_dep(range));
+                    propagate_lp_bound(proof, v, cmp, r, dep.get_lower_dep(range));
                     tightened = true;
                 }
             }
@@ -702,7 +768,7 @@ namespace nla {
             rational U(dep.upper(range));
             if (!U.is_neg() && U.root(p, r) && improves_lower(-r)) {
                 auto cmp = dep.upper_is_open(range) ? llc::GT : llc::GE;
-                propagate_lp_bound(v, cmp, -r, dep.get_upper_dep(range));
+                propagate_lp_bound(proof, v, cmp, -r, dep.get_upper_dep(range));
                 tightened = true;
             }
         }
@@ -714,7 +780,7 @@ namespace nla {
                 auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
                 u_dependency* d = c().lra.join_deps(dep.get_lower_dep(range),
                                                     c().lra.get_column_lower_bound_witness(v));
-                propagate_lp_bound(v, cmp, r, d);
+                propagate_lp_bound(proof, v, cmp, r, d);
                 tightened = true;
             }
         }
@@ -724,29 +790,51 @@ namespace nla {
     /**
      * Ensure that bounds are integral when the variable is integer.
      */
-    void monomial_bounds::propagate_lp_bound(lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
+    void monomial_bounds::propagate_lp_bound(bound_proof const& proof, lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
+        if (c().lra.dep_manager().proofs_enabled()) {
+            lp::evidence_manager::fact f;
+            f.lhs.push_back({rational(1), v});
+            f.kind = cmp;
+            f.rhs = lp::impq(q);
+            d = capture_monomial(proof.product, lp::evidence_manager::rule::monomial_interval, f, d, v,
+                                 proof.source, proof.term);
+        }
+        auto update = [&](lp::lconstraint_kind kind, rational const& value) {
+            auto* proof = d;
+            if (c().lra.dep_manager().proofs_enabled() && (kind != cmp || value != q))
+                proof = c().lra.dep_manager().derive(d, [&] {
+                    lp::evidence_manager::recipe r;
+                    r.kind = lp::evidence_manager::rule::integer_tighten;
+                    r.conclusion.lhs.push_back({rational(1), v});
+                    r.conclusion.kind = kind;
+                    r.conclusion.rhs = lp::impq(value);
+                    r.premises.push_back({d, rational(1)});
+                    return r;
+                });
+            c().lra.update_column_type_and_bound(v, kind, value, proof);
+        };
         if (!c().var_is_int(v))
-            c().lra.update_column_type_and_bound(v, cmp, q, d);
+            update(cmp, q);
         else if (q.is_int()) {
             if (cmp == llc::GT)
-                c().lra.update_column_type_and_bound(v, llc::GE, q + 1, d);
+                update(llc::GE, q + 1);
             else if (cmp == llc::LT)
-                c().lra.update_column_type_and_bound(v, llc::LE, q - 1, d);
+                update(llc::LE, q - 1);
             else
-                c().lra.update_column_type_and_bound(v, cmp, q, d);
+                update(cmp, q);
         }
         else if (cmp == llc::GE || cmp == llc::GT)
-            c().lra.update_column_type_and_bound(v, llc::GE, ceil(q), d);
+            update(llc::GE, ceil(q));
         else
-            c().lra.update_column_type_and_bound(v, llc::LE, floor(q), d);
+            update(llc::LE, floor(q));
     }
 
-    bool monomial_bounds::tighten_lp_bound(dep_interval const &range, lpvar v, unsigned power) {
+    bool monomial_bounds::tighten_lp_bound(bound_proof const& proof, dep_interval const &range, lpvar v, unsigned power) {
         bool propagated = false;
-        if (tighten_lp_upper_bound(range, v, power))
+        if (tighten_lp_upper_bound(proof, range, v, power))
             propagated = true;
-        if (tighten_lp_lower_bound(range, v, power))
+        if (tighten_lp_lower_bound(proof, range, v, power))
             propagated = true;
         return propagated;
     }
@@ -1110,7 +1198,28 @@ namespace nla {
                 dep = s.join_deps(dep, s.get_column_lower_bound_witness(k));
             }
         }
-        return dep;
+        return s.dep_manager().derive(dep, [&] {
+            lp::evidence_manager::recipe r;
+            r.kind = lp::evidence_manager::rule::linear;
+            r.conclusion.lhs.push_back({rational(1), v});
+            r.conclusion.kind = maximize ? llc::LE : llc::GE;
+            for (auto const& e : row) {
+                if (e.var() == v)
+                    continue;
+                rational coefficient = -e.coeff() / a_v;
+                if (coefficient.is_zero())
+                    continue;
+                bool upper = maximize ? coefficient.is_pos() : coefficient.is_neg();
+                auto* witness = upper ? s.get_column_upper_bound_witness(e.var()) : s.get_column_lower_bound_witness(e.var());
+                r.premises.push_back({witness, abs(coefficient)});
+                r.conclusion.rhs += coefficient * (upper ? s.get_upper_bound(e.var()) : s.get_lower_bound(e.var()));
+            }
+            if ((maximize && r.conclusion.rhs.y.is_neg()) || (!maximize && r.conclusion.rhs.y.is_pos())) {
+                r.conclusion.kind = maximize ? llc::LT : llc::GT;
+                r.conclusion.rhs.y = rational(0);
+            }
+            return r;
+        });
     }
 
     u_dependency* monomial_bounds::improve_bound(lpvar j, bool is_lower, rational& bound) {
@@ -1130,6 +1239,21 @@ namespace nla {
         else {
             if (s.column_has_upper_bound(j) && bound >= s.column_upper_bound(j).x)
                 return nullptr;
+        }
+        if (s.dep_manager().proofs_enabled()) {
+            auto const& fact = lp::evidence_manager::get_recipe(dep)->conclusion;
+            auto kind = is_lower ? llc::GE : llc::LE;
+            if (fact.rhs.x != bound || fact.kind != kind)
+                dep = s.dep_manager().derive(dep, [&] {
+                    lp::evidence_manager::recipe r;
+                    r.kind = s.column_is_int(j) ? lp::evidence_manager::rule::integer_tighten :
+                                                 lp::evidence_manager::rule::linear;
+                    r.conclusion.lhs.push_back({rational(1), j});
+                    r.conclusion.kind = kind;
+                    r.conclusion.rhs = lp::impq(bound);
+                    r.premises.push_back({dep, rational(1)});
+                    return r;
+                });
         }
         return dep;
     }

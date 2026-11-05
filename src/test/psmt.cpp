@@ -22,6 +22,7 @@ Abstract:
 #include "smt/tactic/smt_tactic_core.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
+#include "tactic/smtlogics/qfbv_tactic.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 #include <iostream>
@@ -181,8 +182,60 @@ static void tst_psmt_worker() {
     std::cout << "psmt tests passed\n";
 }
 
+// Regression test for GitHub issue #11158:
+//
+// (check-sat-using qfbv) on a quantified array formula does not match the
+// QF_BV probes, so qfbv falls back to the smt tactic, which with
+// parallel.enable=true becomes the parallel (cube-and-conquer) solver.  That
+// configuration spawns CDCL workers, a core-minimizer worker and backbone
+// workers, and used to crash intermittently.
+//
+// The formula below is the one from the issue.  It is UNSAT; the test mainly
+// guards against crashes, hangs, and unsoundness in that fallback path, so a
+// resource-limited l_undef is tolerated but l_true is not.
+static void tst_parallel_qfbv() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream input(R"(
+(declare-fun a (Int Int) Int)
+(declare-fun b ((Array Int (Array Int Int))) (Array Int (Array Int Int)))
+(declare-fun c (Int Int Int) (Array Int (Array Int Int)))
+(assert (forall ((d Int) (e Int))
+    (= (<= d e) (= (select (select (c 0 (a e e) e) d) e) e))))
+(assert (forall ((f Int) (g Int) (h (Array Int (Array Int Int))) (i Int))
+    (let ((j (b h)))
+    (= (or (<= f i) (<= g i)) (= 0 (select (j g) f))))))
+)");
+    VERIFY(parse_smt2_commands(cmd, input));
+
+    for (unsigned seed = 0; seed < 6; ++seed) {
+        params_ref p;
+        p.set_bool("enable", true);
+        p.set_uint("random_seed", seed);
+        p.set_uint("num_bb_threads", seed % 3);
+        tactic_ref t = mk_qfbv_tactic(m, p);
+        goal_ref g = alloc(goal, m, false, true, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason_unknown;
+        cancel_eh<reslimit> eh(m.limit());
+        scoped_timer timer(60000, &eh);
+        lbool r = check_sat(*t, g, md, labels, pr, core, reason_unknown);
+        m.limit().reset_cancel();
+        ENSURE(r != l_true);
+        std::cout << "psmt qfbv fallback (seed=" << seed << "): " << r << "\n";
+    }
+}
+
 void tst_psmt() {
     tst_psmt_worker();
+    tst_parallel_qfbv();
 }
 
 #else

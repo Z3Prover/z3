@@ -203,24 +203,27 @@ namespace smt {
             return true;
         };
 
-        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices) {
+        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
+            if (n1 != n2) {
+                SASSERT(n1->get_root() == n2->get_root());
+                eqs.push_back({ n1, n2 });
+            }
+        };
+
+        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices, enode_pair_vector& eqs) {
             for (; path->m_store; path = path->m_parent) {
                 enode* store = path->m_store;
                 bool found = false;
                 for (enode* old : indices)
                     if (same_index(store, old)) {
+                        // The reduced index count depends on these equalities in the current branch.
+                        for (unsigned k = 1; k + 1 < store->get_num_args(); ++k)
+                            add_eq(store->get_arg(k), old->get_arg(k), eqs);
                         found = true;
                         break;
                     }
                 if (!found)
                     indices.push_back(store);
-            }
-        };
-
-        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
-            if (n1 != n2) {
-                SASSERT(n1->get_root() == n2->get_root());
-                eqs.push_back({ n1, n2 });
             }
         };
 
@@ -281,8 +284,9 @@ namespace smt {
                     continue;
 
                 ptr_vector<enode> indices;
-                add_indices(path1, indices);
-                add_indices(path2, indices);
+                enode_pair_vector eqs;
+                add_indices(path1, indices, eqs);
+                add_indices(path2, indices, eqs);
 
                 sort* array_sort = const_arrays[i]->get_sort();
                 bool domain_exceeds_indices = false;
@@ -306,7 +310,6 @@ namespace smt {
                     domain_exceeds_indices || domain_size > indices.size();
 
                 if (has_common_uncovered_index) {
-                    enode_pair_vector eqs;
                     add_path_eqs(const_arrays[i], path1, eqs);
                     add_path_eqs(const_arrays[j], path2, eqs);
                     justification* js =
@@ -398,7 +401,6 @@ namespace smt {
         ptr_vector<enode> & lambdas = m_var_data_full[v]->m_lambdas;
         m_trail_stack.push(push_back_trail<enode *, false>(lambdas));
         lambdas.push_back(lam);
-        instantiate_default_lambda_def_axiom(lam);        
     }
 
     void theory_array_full::add_as_array(theory_var v, enode* arr) {
@@ -459,7 +461,6 @@ namespace smt {
             d->m_as_arrays.push_back(n);
         }
         else if (is_lambda(n->get_expr())) {
-            instantiate_default_lambda_def_axiom(n);
             d->m_lambdas.push_back(n);
             m_lambdas.push_back(n);
             ctx.push_trail(push_back_vector(m_lambdas));
@@ -997,6 +998,8 @@ namespace smt {
     }
 
     final_check_status theory_array_full::assert_delayed_axioms() {        
+        if (instantiate_lambda_defaults())
+            return FC_CONTINUE;
         final_check_status r = FC_DONE;
         if (!m_params.m_array_delay_exp_axiom) {
             r = FC_DONE;
@@ -1021,10 +1024,62 @@ namespace smt {
             case l_undef: r = FC_GIVEUP; break;
             }
         }
+        if (r == FC_DONE && assert_lambda_congruence())
+            r = FC_CONTINUE;
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;
         return r;
+    }
+
+    bool theory_array_full::instantiate_lambda_defaults() {
+        unsigned sz = m_lambdas.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            enode* n = m_lambdas[i];
+            if (!ctx.is_relevant(n))
+                continue;
+            bool local = n->get_root()->get_class_size() == 1;
+            bool has_parent = false;
+            for (enode* p : n->get_root()->get_parents()) {
+                if (!ctx.is_relevant(p))
+                    continue;
+                has_parent = true;
+                if (p->get_family_id() == get_id() || !ctx.is_beta_redex(p, n)) {
+                    local = false;
+                    break;
+                }
+            }
+            // Pointwise consumers do not observe the predicate's array default.
+            if (local && has_parent)
+                continue;
+            if (instantiate_default_lambda_def_axiom(n))
+                return true;
+        }
+        return false;
+    }
+
+    bool theory_array_full::assert_lambda_congruence() {
+        ptr_vector<enode> todo;
+        obj_hashtable<enode> visited;
+        todo.append(m_lambdas);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            enode* n = todo[i];
+            enode* root = n->get_root();
+            if (visited.contains(root))
+                continue;
+            visited.insert(root);
+            for (enode* other = root->get_next(); other != root; other = other->get_next())
+                assert_congruent(root, other);
+            // Stores and maps over lambdas need congruence even when the
+            // lambda itself is not an operand of the array equality.
+            for (enode* p : root->get_parents()) {
+                if (!ctx.is_relevant(p))
+                    continue;
+                if ((is_store(p) && p->get_arg(0)->get_root() == root) || is_map(p))
+                    todo.push_back(p);
+            }
+        }
+        return can_propagate();
     }
 
     bool theory_array_full::has_non_beta_as_array() {
@@ -1039,7 +1094,7 @@ namespace smt {
         }
         for (enode* n : m_lambdas) 
             for (enode* p : n->get_parents())
-                if (ctx.is_relevant(p) && !is_default(p) && !is_select(p) && !is_array_ext(p->get_expr()) && !ctx.is_beta_redex(p, n) && !is_supported_array_eq(p)) {
+                if (ctx.is_relevant(p) && !is_uninterp(p->get_expr()) && !is_default(p) && !is_select(p) && !is_array_ext(p->get_expr()) && !ctx.is_beta_redex(p, n) && !is_supported_array_eq(p)) {
                     TRACE(array, tout << "lambda is not a beta redex " << enode_pp(p, ctx) << "\n");
                     return true;
                 }

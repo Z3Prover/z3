@@ -57,13 +57,13 @@ namespace smt {
             e = m_util.mk_mod0(n->get_arg(0), z);
             n = m_util.mk_mod(n->get_arg(0), z);
         }
-        else if (m_util.is_power(n)) {                
-            e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
-        }
         if (e) {
             literal lit = mk_eq(e, n, false);
             ctx.mark_as_relevant(lit);
-            ctx.assign(lit, nullptr);
+            if (m.proofs_enabled())
+                ctx.mk_th_axiom(get_id(), lit);
+            else
+                ctx.assign(lit, nullptr);
         }
 
     }
@@ -565,7 +565,10 @@ namespace smt {
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
             one        = m_util.mk_int(1);
-            abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
+            {
+                expr_ref negative(m_util.mk_lt(divisor, zero), m);
+                abs_divisor = m_util.mk_sub(m.mk_ite(negative, m_util.mk_sub(zero, divisor), divisor), one);
+            }
             s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
             qr          = m_util.mk_add(m_util.mk_mul(divisor, div), mod);
@@ -1169,8 +1172,8 @@ namespace smt {
             CTRACE(arith, atoms.size() > 1, for (auto* a : atoms) a->display(*this, tout) << "\n";);
             ptr_vector<atom> occs(m_var_occs[v]);
 
-            std::sort(atoms.begin(), atoms.end(), compare_atoms());
-            std::sort(occs.begin(), occs.end(), compare_atoms());
+            std::stable_sort(atoms.begin(), atoms.end(), compare_atoms());
+            std::stable_sort(occs.begin(), occs.end(), compare_atoms());
 
             typename atoms::iterator begin1 = occs.begin();
             typename atoms::iterator begin2 = occs.begin();
@@ -3267,7 +3270,6 @@ namespace smt {
         return 
             m_util.is_div0(f) ||
             m_util.is_idiv0(f) ||
-            m_util.is_power0(f) ||
             m_util.is_rem0(f) ||
             m_util.is_mod0(f);
     }

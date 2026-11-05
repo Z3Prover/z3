@@ -154,6 +154,7 @@ namespace euf {
     class th_proof_hint : public sat::proof_hint {
     public:
         virtual expr* get_hint(euf::solver& s) const = 0;
+        virtual bool is_assumed() const { return false; }
     };
 
     class th_euf_solver : public th_solver {

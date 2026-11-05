@@ -270,8 +270,11 @@ class fm_tactic : public tactic {
                     if (val_upper_e && has_upper)
                         val_upper_e = mk_min(val_upper_e, u.mk_numeral(upper, false));
                     
-                    if (val_lower_e && val_upper_e)
-                        x_val = u.mk_div(u.mk_add(val_lower_e, val_upper_e), u.mk_real(2));
+                    if (val_lower_e && val_upper_e) {
+                        expr_ref sum(u.mk_add(val_lower_e, val_upper_e), m);
+                        expr_ref two(u.mk_real(2), m);
+                        x_val = u.mk_div(sum, two);
+                    }
                     else if (val_lower_e)
                         x_val = u.mk_add(val_lower_e, u.mk_real(1));
                     else if (val_upper_e)
@@ -736,7 +739,7 @@ class fm_tactic : public tactic {
             for (unsigned i = 0; i < c1.m_num_lits; ++i) {
                 literal l = c1.m_lits[i];
                 bvar b    = lit2bvar(l);
-                char s    = sign(l) ? -1 : 1;
+                int s     = sign(l) ? -1 : 1;
                 if (m_bvar2sign[b] != s) {
                     failed = true;
                     break;

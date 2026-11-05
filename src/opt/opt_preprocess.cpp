@@ -33,6 +33,7 @@ Notes:
 
 #include "opt/opt_preprocess.h"
 #include "util/max_cliques.h"
+#include <tuple>
 
 namespace opt {
 
@@ -187,7 +188,8 @@ namespace opt {
         obj_map<expr, rational> const& m_soft;
         maxsmt_compare_soft(obj_map<expr, rational> const& soft): m_soft(soft) {}
         bool operator()(expr* a, expr* b) const {
-            return m_soft.find(a) > m_soft.find(b);
+            return std::tuple<rational const&, unsigned>{m_soft.find(a), a->get_id()} >
+                   std::tuple<rational const&, unsigned>{m_soft.find(b), b->get_id()};
         }
     };
 

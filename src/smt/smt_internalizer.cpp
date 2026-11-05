@@ -102,6 +102,8 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
+        if (!m_fparams.m_qi_update_generation)
+            return;
         // We don't support patterns with equality so there is no need to track generations for them.
         if (e->is_eq())
             return;
@@ -566,6 +568,9 @@ namespace smt {
             mk_enode(n, true, true, false);
             set_enode_flag(v, true);
             SASSERT(get_assignment(v) == l_undef || get_assignment(l_def) != l_undef);
+            // v may have been assigned by the definition clauses before the enode was created.
+            if (get_assignment(v) != l_undef)
+                propagate_bool_var_enode(v);
         }
     }
 
@@ -735,6 +740,11 @@ namespace smt {
             mk_enode(n, suppress_args, merge_tf, true);
             set_enode_flag(v, is_new_var);
             SASSERT(has_enode(v));
+        }
+        else if (!gate_ctx && e_internalized(n)) {
+            // n was internalized in a gate context while its children were internalized
+            // (e.g., ite-term axioms), but it now occurs outside a gate and must be merged with true/false.
+            set_merge_tf(get_enode(n), v, is_new_var);
         }
 
         // The constraints associated with node 'n' should be asserted
@@ -1534,7 +1544,8 @@ namespace smt {
                 else if (get_assignment(l2) == l_false) {
                     assign(l1, b_justification(~l2));
                 }
-                m_clause_proof.add(l1, l2, k, j, &simp_lits);
+                if (!m_fparams.m_clause_proof)
+                    m_clause_proof.add(l1, l2, k, j, &simp_lits);
                 m_stats.m_num_mk_bin_clause++;
                 return nullptr;
             }
@@ -1547,7 +1558,8 @@ namespace smt {
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
             clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.data());
-            m_clause_proof.add(*cls, &simp_lits);
+            if (!m_fparams.m_clause_proof)
+                m_clause_proof.add(*cls, &simp_lits);
             if (lemma) {
                 cls->set_activity(activity);
                 if (k == CLS_LEARNED) {
