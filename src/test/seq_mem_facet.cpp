@@ -504,6 +504,23 @@ namespace {
         }) == stx::search_result::sat);
     }
 
+    static void tst_symbolic_unit_no_cost_retry() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", x->get_sort()), f.m);
+        expr_ref zero(f.a.mk_int(0), f.m);
+        expr_ref ch(f.u.str.mk_nth_i(x, zero), f.m);
+        expr_ref unit(f.u.str.mk_unit(ch), f.m);
+        expr_ref str(f.u.str.mk_concat(unit, y), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref re(f.u.re.mk_to_re(a), f.m);
+        re = f.u.re.mk_star(re);
+        f.root->facet_as<seq::mem_facet>(f.mem_id).add(
+            seq::str_mem(f.m, str, seq::view::membership(re, f.m)));
+        ENSURE(f.tree.solve() == stx::search_result::unknown);
+        ENSURE(f.tree.get_stats().m_split_counts.at("mem-monadic") == 1);
+    }
+
     static void tst_witness_waits_for_word_constraints(bool disequation) {
         fixture f;
         expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
@@ -885,6 +902,7 @@ void tst_seq_mem_facet() {
     tst_root_witness_retention(false);
     tst_root_witness_retention(true);
     tst_symbolic_unit_derivative_not_rejected();
+    tst_symbolic_unit_no_cost_retry();
     tst_witness_waits_for_word_constraints(false);
     tst_witness_waits_for_word_constraints(true);
     tst_pending_equation_membership_refutation();

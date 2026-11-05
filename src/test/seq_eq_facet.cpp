@@ -859,6 +859,30 @@ namespace {
         char const* cases[] = {
             R"(
                 (declare-const x String)
+                (assert (str.in_re x (re.* (str.to_re "a"))))
+                (assert (= (str.len x) 3))
+                (assert (not (= x "abb")))
+                (assert (not (= "bab" x)))
+                (assert (not (= x "aab")))
+                (assert (not (= x "aaa")))
+            )",
+            R"(
+                (declare-const x String)
+                (assert (not (= "abb" x)))
+                (assert (not (= x "bab")))
+                (assert (not (= x "aab")))
+                (assert (= (str.len x) 3))
+                (assert (str.in_re x (re.* (str.to_re "a"))))
+                (assert (not (= "aaa" x)))
+            )",
+            R"(
+                (declare-const x String)
+                (assert (str.in_re x (re.union (str.to_re "a") (str.to_re "b"))))
+                (assert (not (= (str.++ x "b") "bb")))
+                (assert (not (= x "a")))
+            )",
+            R"(
+                (declare-const x String)
                 (assert (str.in_re x (re.union (str.to_re "a")
                     (re.++ (str.to_re "b") (re.* re.allchar)))))
                 (assert (not (str.in_re x (re.++ re.all (str.to_re "b") re.all))))
@@ -891,13 +915,19 @@ namespace {
             params_ref p;
             p.set_sym("string_solver", symbol("nseq"));
             p.set_bool("model", true);
+            p.set_bool("unsat_core", true);
             ref<solver> s = mk_smt2_solver(m, p, symbol("QF_SLIA"));
             unsigned last = cmd.assertions().size() - 1;
             for (unsigned i = 0; i < last; ++i)
                 s->assert_expr(cmd.assertions().get(i));
             s->push();
-            s->assert_expr(cmd.assertions().get(last));
-            ENSURE(s->check_sat(0, nullptr) == l_false);
+            expr_ref guard(m.mk_fresh_const("guard", m.mk_bool_sort()), m);
+            s->assert_expr(m.mk_implies(guard, cmd.assertions().get(last)));
+            expr* assumptions[] = {guard};
+            ENSURE(s->check_sat(1, assumptions) == l_false);
+            expr_ref_vector core(m);
+            s->get_unsat_core(core);
+            ENSURE(core.size() == 1 && core.get(0) == guard);
             s->pop(1);
             ENSURE(s->check_sat(0, nullptr) == l_true);
             model_ref md;
