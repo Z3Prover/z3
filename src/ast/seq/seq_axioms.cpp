@@ -840,6 +840,11 @@ namespace seq {
         // stoi(s) >= -1
         add_clause(mk_ge(e, -1));
 
+        // Bound short conversions before a concrete argument length is chosen.
+        unsigned max_length = seq.str.max_length(s);
+        if (max_length <= 1)
+            add_clause(mk_le(e, max_length == 0 ? -1 : 9));
+
         // stoi("") = -1
         {
             expr_ref empty_s(seq.str.mk_empty(s->get_sort()), m);

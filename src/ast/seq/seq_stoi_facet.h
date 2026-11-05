@@ -89,8 +89,10 @@ namespace seq {
         // the upper bound `len(s)=k && stoi(s)>=0 => stoi(s)<=10^k-1`,
         // which positional unfolding alone does not provide for symbolic
         // digits. Returns true if no new axioms were added.
+        // Early checks cover fixed values of arguments with at most two characters;
+        // other conversions wait for word refutation or a provisional SAT leaf.
         template <typename dep_tracker_t>
-        bool check_stoi_coherence(ambient_context_i<dep_tracker_t>& ac) {
+        bool check_stoi_coherence(ambient_context_i<dep_tracker_t>& ac, bool early_only = false) {
             if (m_terms.empty())
                 return true;
 
@@ -100,10 +102,25 @@ namespace seq {
                 auto const& [stoi_e, prev_k] = m_terms[idx];
                 expr* s = nullptr;
                 VERIFY(u.str.is_stoi(stoi_e, s));
+                unsigned bound = u.str.max_length(s);
+                if (early_only) {
+                    rational lo, hi;
+                    dep_tracker_t dep = nullptr;
+                    if (bound > 2 || !ac.lower_bound(stoi_e, lo, dep) ||
+                        !ac.upper_bound(stoi_e, hi, dep) || lo != hi)
+                        continue;
+                }
+
+                // Invalid conversions are completely characterized by the basic digit-language axiom.
+                rational conversion;
+                if (ac.current_value(stoi_e, conversion) && conversion.is_minus_one())
+                    continue;
 
                 expr_ref len_expr(u.str.mk_length(s), m);
                 rational val;
-                if (!ac.current_value(len_expr, val) || !val.is_unsigned())
+                if (bound <= 1 || (early_only && bound == 2))
+                    val = rational(bound);
+                else if (!ac.current_value(len_expr, val) || !val.is_unsigned())
                     continue;
 
                 unsigned k = val.get_unsigned();
