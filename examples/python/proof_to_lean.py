@@ -258,7 +258,10 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # of its own (_array_family), and an extensionality witness over Int or Rat
 # indices is chosen with the type's own inhabitant (_nonempty). Functions into
 # an array sort are one more family per Lean array type (_array_functions).
-_ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r"}
+# A Bool element sort is Prop (Prop : Type, so the definitions apply as they
+# are): a set (Array I Bool) is a predicate I -> Prop, true exactly at the
+# model's members in I, a read is a formula, and a stored value a formula.
+_ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r", "Prop": "b"}
 _NONEMPTY_FIELDS = (("nonempty", "Nonempty U"),)
 _ARRAY_DEFINITIONS = """
 def _select {I E : Type} (a : I -> E) (i : I) : E := a i
@@ -418,8 +421,8 @@ def _array_components(name):
 
 
 def _component_type(sort):
-    """The Lean type of an array's index or element sort: Int, Rat, or the carrier _m.U."""
-    return _NUMBER_TYPES.get(sort, "_m.U")
+    """The Lean type of an array's index or element sort: Int, Rat, Prop (Bool elements), or the carrier _m.U."""
+    return "Prop" if sort == "Bool" else _NUMBER_TYPES.get(sort, "_m.U")
 
 
 def _array_types(name):
@@ -775,10 +778,13 @@ def _uninterpreted_sorts(raws):
         if components is None and ("(" in sort or ")" in sort):
             raise ReconstructionError("unsupported sort: %s" % sort)
         if components is not None:
-            # Index and element sorts are uninterpreted, Int, or Real.
-            if any(component in _RESERVED_SORTS and component not in _ARITH_SORTS for component in components):
+            # Index and element sorts are uninterpreted, Int, or Real; the
+            # element sort may be Bool too (a read is a formula).
+            index, element = components
+            if ((index in _RESERVED_SORTS and index not in _ARITH_SORTS)
+                    or (element in _RESERVED_SORTS and element not in _ARITH_SORTS + ("Bool",))):
                 raise ReconstructionError("unsupported array sort: %s" % sort)
-            sorts.update(component for component in components if component not in _ARITH_SORTS)
+            sorts.update(component for component in components if component not in _RESERVED_SORTS)
     if "" in sorts:
         raise ReconstructionError("invalid uninterpreted sort name")
     return tuple(sorted(sorts))
@@ -1140,7 +1146,7 @@ def _bind_input(source, graph, fragment=None, query=0):
             original_sorts.add(range_name)
         elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
             original_sorts.update(sort for sort in (range_name,) + _array_components(range_name)
-                                  if sort not in _ARITH_SORTS)
+                                  if sort not in _RESERVED_SORTS)
         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
             name = str(decl.name())
             table = _symbol_table(range_name, decl.arity(), graph.sorts)
@@ -1264,7 +1270,8 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         # The instance's proposition is inferred from the condition.
         return "(@ite %s %s (Classical.propDecidable _) %s %s)" % (
             graph.lean_type(node), formula(arguments[0]), term(arguments[1]), term(arguments[2]))
-    args = [term(arg) for arg in arguments]
+    # The value of a store or constant array with Bool elements is a formula.
+    args = [term(arg) if graph.is_term(arg) else formula(arg) for arg in arguments]
     if kind == z3.Z3_OP_SELECT:
         return "(_select %s %s)" % tuple(args)
     if kind == z3.Z3_OP_STORE:
@@ -1306,6 +1313,9 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     if kind == z3.Z3_OP_UNINTERPRETED and arguments:
         return "_m.preds %d %s" % (atom_indices[graph.nodes[node].declaration],
                                    _application_arguments(graph, arguments, term, formula))
+    if kind in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT):
+        # A read or the default value of an array with Bool elements (I -> Prop).
+        return _term_body(graph, node, None, term, formula)
     if arguments and graph.is_term(arguments[0]):
         args = [term(arg) for arg in arguments]
         if kind in _ARITH_PREDICATE_NAMES and graph.is_arith(arguments[0]):
@@ -2455,6 +2465,28 @@ def _theory_helpers(graph, reachable, atom_indices, variable_indices):
     return helpers
 
 
+def _numeral_value(graph, node):
+    """The value of an arithmetic node that is a constant (a numeral, -2 or 1/3 too), or None."""
+    if not graph.is_arith(node):
+        return None
+    terms = {}
+    try:
+        constant = _linear_term(graph, node, Fraction(1), terms)
+    except ReconstructionError:
+        return None
+    return None if any(terms.values()) else constant
+
+
+def _distinct_numerals(graph, left, right):
+    """Whether two index nodes are numerals of different values (Z3's are_distinct on arithmetic values).
+
+    A negative numeral is (- n) and a Real fraction (/ n d) in a
+    certificate, which Z3's rewriter compares as the values -n and n/d.
+    """
+    left, right = _numeral_value(graph, left), _numeral_value(graph, right)
+    return left is not None and right is not None and left != right
+
+
 def _array_helpers(graph, reachable, atom_indices, variable_indices):
     """Instantiate the array facts for the reads of stores and the extensionality witnesses a lemma reaches.
 
@@ -2479,14 +2511,44 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             # congruence closure then compares applications by arguments).
             helpers.append("  have _t%d : %s = %s := rfl" % (
                 node, _term(graph, node), _term_body(graph, node, variable_indices, inline, inline)))
-        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_STORE:
-            array, index, value = graph.arguments(graph.arguments(node)[0])
-            helpers.append("  have _s%d := _store_apply %s %s %s %s" % (
-                node, inline(array), inline(index), inline(value), inline(graph.arguments(node)[1])))
-        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
-            array, index = graph.arguments(node)
-            helpers.append("  have _s%d := _select_const (I := %s) %s %s" % (
-                node, _array_types(graph.decl(array).range)[0], inline(graph.arguments(array)[0]), inline(index)))
+        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) in (z3.Z3_OP_STORE,
+                                                                                  z3.Z3_OP_CONST_ARRAY):
+            # A read of a store: its value one level down. A read of stores
+            # over a constant array gets every level and the constant at the
+            # bottom: Z3's rewriter evaluates such a read ((select (store
+            # (const v) y w) x) is (ite (= x y) w v)) with no read term of
+            # the levels below in the certificate.
+            array, read = graph.arguments(node)
+            levels = [array]
+            while graph.kind(levels[-1]) == z3.Z3_OP_STORE:
+                levels.append(graph.arguments(levels[-1])[0])
+            if graph.kind(levels[-1]) != z3.Z3_OP_CONST_ARRAY:
+                # Over a plain array the rewriter skips the stores at a
+                # numeral index other than the read's ((select (store (store
+                # a 1 v) 2 w) 3) is (select a 3)) and goes on with the read
+                # of the level where the skip stops, a store at the read's
+                # own index evaluated in the same step ((select (store
+                # (store a 3 5) 2 7) 3) is 5), so those levels get their
+                # facts too; other reads keep the single fact of their own
+                # level (long store chains over plain arrays at symbolic
+                # indices, as in z3test's swap files, would otherwise get one
+                # fact per level and read).
+                skipped = 0
+                while (skipped + 1 < len(levels)
+                       and _distinct_numerals(graph, graph.arguments(levels[skipped])[1], read)):
+                    skipped += 1
+                # The skipped levels and the store where the skip stops (not
+                # the plain array at the bottom).
+                levels = levels[:min(skipped + 1, len(levels) - 1)]
+            for level, store in enumerate(levels):
+                name = "_s%d" % node if level == 0 else "_s%d_%d" % (node, level)
+                if graph.kind(store) == z3.Z3_OP_STORE:
+                    helpers.append("  have %s := _store_apply %s %s" % (
+                        name, " ".join(inline(argument) for argument in graph.arguments(store)), inline(read)))
+                elif graph.kind(store) == z3.Z3_OP_CONST_ARRAY:
+                    helpers.append("  have %s := _select_const (I := %s) %s %s" % (
+                        name, _array_types(graph.decl(store).range)[0], inline(graph.arguments(store)[0]),
+                        inline(read)))
         elif kind == z3.Z3_OP_ARRAY_EXT:
             helpers.append("  have _x%d := _array_ext %s %s %s" % (
                 node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
@@ -5323,14 +5385,14 @@ def _check_th_lemma(graph, node):
         # of an array, index, or element sort, without premises.
         if premises or not literals or not graph.arrays:
             raise ReconstructionError("array th-lemma must be a clause over arrays without premises at node %d" % node)
-        # Int or Real terms are compared only if some array is indexed by or
-        # holds that sort.
+        # Int, Real, or Bool terms are compared only if some array is indexed
+        # by or holds that sort (Bool: the elements of a set, the store
+        # axiom's (= v (select (store a i v) i)) over formulas).
         components = {component for sort in graph.arrays for component in _array_components(sort)}
         for literal in literals:
             atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
-            if (graph.kind(atom) != z3.Z3_OP_EQ or not graph.is_term(graph.arguments(atom)[0])
-                    or (graph.is_arith(graph.arguments(atom)[0])
-                        and graph.decl(graph.arguments(atom)[0]).range not in components)):
+            if (graph.kind(atom) != z3.Z3_OP_EQ
+                    or graph.decl(graph.arguments(atom)[0]).range not in components | set(graph.sorts)):
                 raise ReconstructionError("array th-lemma literals must be equalities over arrays and their sorts "
                                           "at node %d" % node)
         return

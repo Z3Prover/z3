@@ -150,7 +150,8 @@ qf_uflira fragment is qf_lira next to uninterpreted sorts and functions:
 functions and predicates may take and return Int and Real (both in one
 signature too), and an input whose signatures and atoms mention both sorts
 is qf_uflira; it shares the opt-in, and both cores certify it. Arrays
-whose index and element sorts are uninterpreted, Int, or Real (QF_AX,
+whose index and element sorts are uninterpreted, Int, or Real, the element
+sort Bool too (sets, (Array Int Bool)) (QF_AX,
 QF_ALIA, QF_AUFLIA: (Array Index Element) or (Array Int Int) constants,
 select, store, ite over arrays, and equality between arrays) join whichever
 UF fragment the rest of the input is in, their uninterpreted index and
@@ -159,8 +160,9 @@ its arithmetic (an input with Int arrays alone is qf_uflia); functions and
 predicates may take arrays as arguments, functions may return them, and
 constant arrays ((as const (Array I E)) v) are supported over Int and Real
 indices. Only the clause log certifies them (the legacy core rejects them
-explicitly); arrays over Bool or arrays, arrays with several indices,
-constant arrays over other index sorts, map, and as-array are rejected. Integer
+explicitly); arrays over Bool indices, arrays of arrays, arrays with
+several indices, constant arrays over other index sorts, map, and as-array
+are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -982,7 +984,12 @@ of I, and every model's carriers are nonempty, so each model is again an
 instance. The array solver's axiom instances (array hints: the store
 axiom, select over store, extensionality) are clauses of equalities that
 grind proves after each lemma states _store_apply for every read of a
-store and _array_ext for every witness it reaches. Array terms stay
+store and _array_ext for every witness it reaches. A read the rewriter
+evaluates through several stores gets a fact per level it skips: the
+stores at numerals other than the read's ((select (store (store a 1 5) 2
+7) 3) is (select a 3)) and the store where that skip stops ((select (store
+(store a 3 5) 2 7) 3) is 5), and every store above a constant array (with
+_select_const at the bottom). Array terms stay
 folded in those lemmas (term_N, related to its store or ite by an rfl
 fact): written out, the shared store chains of the swap and storecomm
 benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
@@ -1020,6 +1027,16 @@ reads, applications, and variables left are a linear system with rational
 coefficients, so a real model has a rational one with the same equalities,
 and arrays over Rat are then defined by the reads at the (now rational)
 indices, the store relations and (dis)equalities of arrays included.
+
+A Bool element sort is Prop: (Array Int Bool) is Int -> Prop (the family
+arrs_ib, arrs_ub over an uninterpreted index), a read is a formula,
+(_select a i) : Prop, and a store's value or a constant array's value is a
+formula too. The definitions above are generic in the element type, Prop
+included, and a model's set I -> Bool embeds as the predicate true exactly
+at its members in I, so the same facts prove the array lemmas; the store
+axiom over a Boolean value is a Bool equality (Iff), admitted in an array
+lemma only when some array has Bool elements. Bool indices are rejected
+(a finite index sort, like constant arrays over uninterpreted indices).
 
 A constant array over Int or Real indices is _const_array Int v (or
 _const_array Rat v), the constant function (its reads are _select_const,

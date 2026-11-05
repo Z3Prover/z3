@@ -2,8 +2,9 @@
 # Copyright (c) 2026 Microsoft Corporation
 #
 # Tests for the array slice of the Lean reconstruction: arrays over
-# uninterpreted sorts, Int, and Real, constant arrays over Int and Real
-# indices, and functions into arrays, certified through the sat.smt clause log.
+# uninterpreted sorts, Int, and Real (elements also Bool), constant arrays
+# over Int and Real indices, and functions into arrays, certified through the
+# sat.smt clause log.
 # An array is a function _m.U -> _m.U (array constants are the family
 # _m.arrs), select is _select, store the classical update _store, and the
 # array solver's extensionality witness (_ array-ext 0) is _array_diff, an
@@ -279,6 +280,30 @@ ARITHMETIC_ARRAY_INPUTS = {
 (assert (not (= e_222 e_223)))
 (check-sat)
 """,
+    # Z3's rewriter skips the stores at numerals other than the read's,
+    # (select (store (store a 1 5) 2 7) 3) is (select a 3), with no read of
+    # the level in between in the certificate, so the read gets the
+    # _store_apply fact of every skipped level (missing before 2026-11-05).
+    "read_through_numeral_stores": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Int))
+(assert (not (= (select (store (store a 1 5) 2 7) 3) (select a 3))))
+(check-sat)
+""",
+    # The skip stops at a store at the read's own numeral, whose read the
+    # rewriter evaluates in the same step: (select (store (store a 3 5) 2 7)
+    # 3) is 5, so that level gets its fact too (missing before 2026-11-05).
+    "read_through_numeral_stores_to_own_index": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Int))
+(assert (not (= (select (store (store a 3 5) 2 7) 3) 5)))
+(check-sat)
+""",
+    # Negative numerals are (- n) in the certificate; the rewriter skips the
+    # stores at -1 and -2 in a read at 3 all the same.
+    "read_through_negative_numeral_stores": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Int))
+(assert (not (= (select (store (store a (- 1) 5) (- 2) 7) 3) (select a 3))))
+(check-sat)
+""",
 }
 # Constant arrays over Int indices, ((as const (Array Int E)) v): the
 # constant function _const_array. The array solver relates them to other
@@ -336,6 +361,18 @@ CONSTANT_ARRAY_INPUTS = {
 (assert (= c (store (store ((as const (Array Int Element)) e) i f) j f)))
 (assert (= c ((as const (Array Int Element)) f)))
 (assert (not (= e f)))
+(check-sat)
+""",
+    # Z3's rewriter evaluates a read of a store over a constant array,
+    # (select (store (const 0) y 1) x), to (ite (= x y) 1 0); no read of the
+    # constant array at x is in the certificate, so the read gets the
+    # _store_apply and _select_const facts of every level down to the
+    # constant (they were missing before 2026-11-04).
+    "read_of_store_over_constant": """(set-logic QF_ALIA)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= (select (store ((as const (Array Int Int)) 0) y 1) x) 1))
+(assert (not (= x y)))
 (check-sat)
 """,
 }
@@ -522,10 +559,181 @@ ARRAY_FUNCTION_INPUTS = {
 (check-sat)
 """,
 }
+# Arrays with Bool elements (sets), (Array I Bool) over an uninterpreted,
+# Int, or Real index sort: the Lean element type is Prop, so an array is a
+# predicate I -> Prop (the families _m.arrs_ub, _m.arrs_ib, _m.arrs_rb), a
+# read is a formula, (_select a i) : Prop, a store's value a formula, and
+# the array axioms' (= v (select (store a i v) i)) Bool equalities (Iff).
+# The definitions are generic in the element type, Prop included, so the
+# array lemmas are proved by grind from the same facts as over other sorts.
+BOOL_ELEMENT_INPUTS = {
+    # The store axiom over a Boolean value: (select (store a i p) i) is p.
+    "bool_read_own_write": """(set-logic QF_AX)
+(declare-sort Index 0)
+(declare-fun a () (Array Index Bool))
+(declare-fun b () (Array Index Bool))
+(declare-fun i () Index)
+(declare-fun p () Bool)
+(assert (= b (store a i p)))
+(assert (select b i))
+(assert (not p))
+(check-sat)
+""",
+    # A set of Int: inserting at i leaves membership at j > i unchanged
+    # (the read-over-write axiom at another index, then a Farkas step).
+    "set_insert_elsewhere": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (< i j))
+(assert (= b (store a i true)))
+(assert (not (= (select b j) (select a j))))
+(check-sat)
+""",
+    # Inserting an element that is already a member leaves the set
+    # unchanged: extensionality over a predicate (the array-ext witness).
+    "bool_insert_member": """(set-logic QF_AX)
+(declare-sort Index 0)
+(declare-fun a () (Array Index Bool))
+(declare-fun i () Index)
+(assert (select a i))
+(assert (not (= (store a i true) a)))
+(check-sat)
+""",
+    # Writes of two Boolean values at different indices commute.
+    "bool_store_commutes": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun p () Bool)
+(declare-fun q () Bool)
+(assert (not (= i j)))
+(assert (not (= (store (store a i p) j q) (store (store a j q) i p))))
+(check-sat)
+""",
+    # Membership after two inserts elsewhere: reads through a store chain.
+    "bool_store_chain": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Bool))
+(declare-fun x () Int)
+(declare-fun y () Int)
+(declare-fun z () Int)
+(assert (not (select a z)))
+(assert (select (store (store a x true) y true) z))
+(assert (not (= x z)))
+(assert (not (= y z)))
+(check-sat)
+""",
+    # The empty set has no member (_select_const at False).
+    "empty_set": """(set-logic QF_ALIA)
+(declare-fun x () Int)
+(assert (select ((as const (Array Int Bool)) false) x))
+(check-sat)
+""",
+    # A singleton {y} has no member x other than y: the rewriter evaluates
+    # the read of the store over the constant array.
+    "singleton_set": """(set-logic QF_ALIA)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (select (store ((as const (Array Int Bool)) false) y true) x))
+(assert (not (= x y)))
+(check-sat)
+""",
+    # No insert turns the full set into the empty one: Bool default values
+    # (formulas, _default over I -> Prop).
+    "full_is_not_empty": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun x () Int)
+(assert (= a ((as const (Array Int Bool)) true)))
+(assert (= b (store a x false)))
+(assert (= b ((as const (Array Int Bool)) false)))
+(check-sat)
+""",
+    # A set of Real numbers (qf_uflra).
+    "real_set": """(set-logic QF_AUFLRA)
+(declare-fun s () (Array Real Bool))
+(declare-fun t () (Array Real Bool))
+(declare-fun x () Real)
+(assert (= t (store s x false)))
+(assert (select t (+ x 0.0)))
+(check-sat)
+""",
+    # An ite over sets.
+    "ite_over_sets": """(set-logic QF_ALIA)
+(declare-fun s () (Array Int Bool))
+(declare-fun t () (Array Int Bool))
+(declare-fun c () Bool)
+(declare-fun x () Int)
+(assert (select s x))
+(assert (select t x))
+(assert (not (select (ite c s t) x)))
+(check-sat)
+""",
+    # A membership as the Boolean argument of a function, and a stored
+    # value that is an equality over the uninterpreted sort.
+    "membership_as_argument": """(set-logic QF_AUF)
+(declare-sort Index 0)
+(declare-fun f (Bool) Index)
+(declare-fun a () (Array Index Bool))
+(declare-fun i () Index)
+(declare-fun j () Index)
+(assert (= a (store a i (= (f (select a j)) i))))
+(assert (not (= (f (select a j)) i)))
+(assert (select a i))
+(check-sat)
+""",
+    # Memberships as conditions of Int ites: counting two members.
+    "membership_count": """(set-logic QF_ALIA)
+(declare-fun s () (Array Int Bool))
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= y (+ (ite (select s x) 1 0) (ite (select s (+ x 1)) 1 0))))
+(assert (> y 1))
+(assert (not (and (select s x) (select s (+ x 1)))))
+(check-sat)
+""",
+    # A function into sets (the family _m.arrs_ub_funs).
+    "function_into_sets": """(set-logic QF_AUF)
+(declare-sort Index 0)
+(declare-fun h (Index) (Array Index Bool))
+(declare-fun i () Index)
+(declare-fun j () Index)
+(assert (= i j))
+(assert (select (h i) j))
+(assert (not (select (h j) i)))
+(check-sat)
+""",
+    # A function over sets (the injection _m.arrs_ib_inj).
+    "function_over_sets": """(set-logic QF_AUFLIA)
+(declare-fun g ((Array Int Bool)) Int)
+(declare-fun s () (Array Int Bool))
+(declare-fun x () Int)
+(assert (select s x))
+(assert (not (= (g s) (g (store s x true)))))
+(check-sat)
+""",
+    # Membership through inserts at other numerals: the rewriter skips the
+    # stores at 1, 2, and 4 in a read at 3 (read_through_numeral_stores).
+    "set_read_through_numeral_stores": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Bool))
+(assert (select (store (store (store a 1 true) 2 true) 4 false) 3))
+(assert (not (select a 3)))
+(check-sat)
+""",
+    # Membership after an insert at 3 and removals at 2 and 1: the skip
+    # stops at the insert (read_through_numeral_stores_to_own_index).
+    "set_read_through_numeral_stores_to_own_index": """(set-logic QF_ALIA)
+(declare-fun a () (Array Int Bool))
+(assert (not (select (store (store (store a 3 true) 2 false) 1 false) 3)))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(ARRAY_FUNCTION_INPUTS)
+ARRAY_INPUTS.update(BOOL_ELEMENT_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
               "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira",
@@ -534,7 +742,10 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "real_index_elements": "qf_uflra", "int_function_into_arrays": "qf_uflia",
               "real_function_into_arrays": "qf_uflra", "function_into_constant_arrays": "qf_uflira",
               "predicate_over_application": "qf_uflia", "nested_applications": "qf_uflia",
-              "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia"}
+              "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia",
+              "real_set": "qf_uflra"}
+_FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
+                  if "Array Int Bool" in source)
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   if name not in _FRAGMENTS)
 
@@ -564,10 +775,13 @@ class TestArrayValidation(unittest.TestCase):
     def test_unsupported_arrays_are_rejected(self):
         context = z3.Context()
         rejected = {
-            "(declare-sort I 0)(declare-fun a () (Array I Bool))(declare-fun i () I)(assert (select a i))":
-                "unsupported propositional operator: select",
+            # Bool elements are supported (BOOL_ELEMENT_INPUTS), Bool indices not.
             "(declare-fun a () (Array Bool Int))(declare-fun b () (Array Bool Int))(assert (not (= a b)))":
                 "only arrays over uninterpreted sorts, Int, and Real",
+            "(declare-fun a () (Array Bool Bool))(assert (select a true))":
+                "only arrays over uninterpreted sorts, Int, and Real",
+            "(declare-fun a () (Array Int (Array Int Bool)))(assert (select (select a 0) 1))":
+                "unsupported array operator: select",
             "(declare-sort I 0)(declare-fun a () (Array I I I))(declare-fun i () I)"
             "(assert (not (= (select a i i) (select a i i))))": "only arrays over uninterpreted sorts",
             "(declare-sort I 0)(declare-fun a () (Array I (Array I I)))(declare-fun i () I)"
@@ -583,11 +797,11 @@ class TestArrayValidation(unittest.TestCase):
                 "unsupported array operator",
             # Functions over and into arrays are supported, but not into or
             # over arrays of an unsupported sort.
-            "(declare-sort I 0)(declare-fun h (I) (Array I Bool))(declare-fun i () I)"
+            "(declare-sort I 0)(declare-fun h (I) (Array Bool I))(declare-fun i () I)"
             "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
             "(declare-sort I 0)(declare-fun h (I) (Array I (Array I I)))(declare-fun i () I)"
             "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
-            "(declare-fun h ((Array Int Bool)) Int)(declare-fun a () (Array Int Bool))"
+            "(declare-fun h ((Array Bool Int)) Int)(declare-fun a () (Array Bool Int))"
             "(assert (> (h a) (h a)))": "uninterpreted functions over",
             # A quoted sort name that imitates the certificate's array sort names.
             "(declare-sort I 0)(declare-sort |(Array I I)| 0)(declare-fun x () |(Array I I)|)"
@@ -817,6 +1031,103 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("two_functions_into_arrays", renamed_function,
                       "certificate (source|assertions) do(es)? not match the original input")
 
+    def test_bool_element_encoding(self):
+        """An array with Bool elements is a predicate I -> Prop; reads, defaults, and stored values are formulas."""
+        sets = proof_to_lean.reconstruct(ARRAY_INPUTS["set_insert_elsewhere"],
+                                         self.certificates["set_insert_elsewhere"])
+        self.assertIn("  arrs_ib : Nat -> Int -> Prop", sets)
+        self.assertIn('-- Array sorts "(Array Int Bool)" are functions Int -> Prop (_m.arrs_ib)', sets)
+        self.assertRegex(sets, r"def formula_[0-9]+ \(_atoms : Nat -> Prop\) \(_vars : Nat -> Int\) "
+                               r"\(_m : Interpretation\) : Prop := \(_select \(term_")
+        # The stored value true is the formula True.
+        self.assertRegex(sets, r":= \(_store \(term_[0-9]+ [^)]*\) \(term_[0-9]+ [^)]*\) \(formula_")
+        self.assertRegex(sets, r"have _s[0-9]+ := _store_apply \(\(term_[0-9]+ [^)]*\)\) \(_vars 0\) \(True\)")
+        carrier = proof_to_lean.reconstruct(ARRAY_INPUTS["bool_read_own_write"],
+                                            self.certificates["bool_read_own_write"])
+        self.assertIn("  arrs_ub : Nat -> U -> Prop", carrier)
+        defaults = proof_to_lean.reconstruct(ARRAY_INPUTS["full_is_not_empty"], self.certificates["full_is_not_empty"])
+        self.assertRegex(defaults, r": Prop := \(_default _int_unbounded \(term_")
+        self.assertIn("(@_const_array Int Prop (formula_", defaults)
+        functions = proof_to_lean.reconstruct(ARRAY_INPUTS["function_into_sets"],
+                                              self.certificates["function_into_sets"])
+        self.assertIn("  arrs_ub_funs : Nat -> List U -> U -> Prop", functions)
+        over = proof_to_lean.reconstruct(ARRAY_INPUTS["function_over_sets"], self.certificates["function_over_sets"])
+        self.assertIn("  arrs_ib_inj : (Int -> Prop) -> U", over)
+        real = proof_to_lean.reconstruct(ARRAY_INPUTS["real_set"], self.certificates["real_set"])
+        self.assertIn("  arrs_rb : Nat -> Rat -> Prop", real)
+        # The array solver's store axiom over a Boolean value is a Bool
+        # equality, admitted in an array lemma only next to Bool elements.
+        certificate = self.certificates["bool_read_own_write"]
+        graph = proof_to_lean._validate_graph(ARRAY_INPUTS["bool_read_own_write"], certificate)
+        lemmas = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_TH_LEMMA
+                  and graph.decl(node).parameters[0] == "array"]
+        self.assertTrue(any(graph.decl(graph.arguments(graph.conclusion(node))[0]).range == "Bool"
+                            for node in lemmas))
+        for each in (sets, carrier, defaults, functions, over, real):
+            self.assertNotIn("sorry", each)
+            self.assertNotIn("axiom ", each)
+
+    def test_store_level_facts(self):
+        """Reads get facts for the store levels the rewriter skips, and only for those, over plain arrays."""
+        def levels(name):
+            text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+            return re.findall(r"have (_s\d+(?:_\d+)?) := (_store_apply|_select_const) ", text)
+
+        # (select (store (store a 1 5) 2 7) 3): the levels at 2 and at 1.
+        facts = levels("read_through_numeral_stores")
+        self.assertTrue(any(name.count("_") == 2 and name.endswith("_1") for name, _ in facts), facts)
+        self.assertFalse(any(name.count("_") == 2 and not name.endswith("_1") for name, _ in facts), facts)
+        # Stores at 4, 2, 1 over a plain set read at 3: levels 0 to 2.
+        facts = levels("set_read_through_numeral_stores")
+        self.assertTrue(any(name.endswith("_2") for name, _ in facts), facts)
+        self.assertFalse(any(name.endswith("_3") for name, _ in facts), facts)
+        # Stores at 2 and 3 read at 3: the skipped level and the one at 3.
+        facts = levels("read_through_numeral_stores_to_own_index")
+        self.assertTrue(any(name.endswith("_1") for name, _ in facts), facts)
+        self.assertFalse(any(name.endswith("_2") for name, _ in facts), facts)
+        # Stores at 1, 2 over a set read at 3, the skip stopping at 3: levels 0 to 2.
+        facts = levels("set_read_through_numeral_stores_to_own_index")
+        self.assertTrue(any(name.endswith("_2") for name, _ in facts), facts)
+        self.assertFalse(any(name.endswith("_3") for name, _ in facts), facts)
+        # Stores at -2 and -1 read at 3: both levels, not the plain array.
+        facts = levels("read_through_negative_numeral_stores")
+        self.assertTrue(any(name.endswith("_1") for name, _ in facts), facts)
+        self.assertFalse(any(name.endswith("_2") for name, _ in facts), facts)
+        # Stores at symbolic indices over a plain array: one level per read.
+        facts = levels("bool_store_chain")
+        self.assertTrue(facts)
+        self.assertEqual([name for name, _ in facts if name.count("_") == 2], [])
+        # Stores over a constant array: every level and the constant.
+        facts = levels("read_of_store_over_constant")
+        self.assertIn("_select_const", [fact for _, fact in facts])
+
+    def test_tampered_bool_element_arrays_are_rejected(self):
+        def relabelled(source, target):
+            def mutate(certificate):
+                for d in certificate["declarations"]:
+                    d["domain"] = [target if s == source else s for s in d["domain"]]
+                    if d["range"] == source:
+                        d["range"] = target
+            return mutate
+
+        def select_into_int(certificate):
+            next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_SELECT)["range"] = "Int"
+
+        def store_of_index(certificate):
+            store = next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_STORE)
+            store["domain"] = store["domain"][:2] + ["Int"]
+
+        # Bool indices are not supported (a finite index sort).
+        self._rejects("set_insert_elsewhere", relabelled("(Array Int Bool)", "(Array Bool Bool)"),
+                      "unsupported array sort")
+        self._rejects("set_insert_elsewhere", relabelled("(Array Int Bool)", "(Array Int Int)"),
+                      "invalid select declaration|invalid store declaration|wrong argument sort")
+        self._rejects("set_insert_elsewhere", select_into_int, "invalid select declaration|wrong argument sort")
+        self._rejects("set_insert_elsewhere", store_of_index, "invalid store declaration")
+        # The input's sort is bound: Bool elements over another index sort.
+        self._rejects("bool_read_own_write", relabelled("(Array Index Bool)", "(Array Index Index)"),
+                      "invalid select declaration|invalid store declaration|wrong argument sort")
+
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()
         assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS["read_constant"], context, integer=True)
@@ -867,11 +1178,13 @@ class TestArrayValidation(unittest.TestCase):
         def select_into_real(certificate):
             declaration(certificate, z3.Z3_OP_SELECT)["range"] = "Real"
 
-        def bool_elements(certificate):
-            for d in certificate["declarations"]:
-                d["domain"] = ["(Array Int Bool)" if s == "(Array Int Int)" else s for s in d["domain"]]
-                if d["range"] == "(Array Int Int)":
-                    d["range"] = "(Array Int Bool)"
+        def relabelled_arrays(target):
+            def mutate(certificate):
+                for d in certificate["declarations"]:
+                    d["domain"] = [target if s == "(Array Int Int)" else s for s in d["domain"]]
+                    if d["range"] == "(Array Int Int)":
+                        d["range"] = target
+            return mutate
 
         def farkas_as_array_lemma(certificate):
             # A Farkas lemma over reads of Int arrays: its inequalities are
@@ -881,7 +1194,10 @@ class TestArrayValidation(unittest.TestCase):
                     d["parameters"] = ["array"]
 
         self._rejects("int_read_other_index", select_into_real, "invalid select declaration|wrong argument sort")
-        self._rejects("int_read_other_index", bool_elements, "unsupported array sort")
+        # Bool elements are supported, but the reads stay Int-valued.
+        self._rejects("int_read_other_index", relabelled_arrays("(Array Int Bool)"),
+                      "invalid (select|store) declaration|wrong argument sort")
+        self._rejects("int_read_other_index", relabelled_arrays("(Array Bool Int)"), "unsupported array sort")
         self._rejects("int_read_other_index", farkas_as_array_lemma, "array th-lemma literals must be equalities")
 
     def test_array_lemmas_are_equality_clauses(self):
@@ -1087,6 +1403,37 @@ class TestArrayLeanIntegration(unittest.TestCase):
         self.assertTrue(errors, report)
         for error in errors:
             self.assertIn("`grind` failed", error)
+
+    def test_reads_down_to_constant_arrays_are_needed(self):
+        """Without the lower-level facts of a read the rewriter evaluates grind cannot prove its rewrite.
+
+        The read is of stores over a constant array, or of stores at
+        numerals other than the read's over a plain array.
+        """
+        for name, fact in (("read_of_store_over_constant", "_select_const"), ("singleton_set", "_select_const"),
+                           ("read_through_numeral_stores", "_store_apply"),
+                           ("set_read_through_numeral_stores", "_store_apply"),
+                           ("read_through_numeral_stores_to_own_index", "_store_apply"),
+                           ("read_through_negative_numeral_stores", "_store_apply")):
+            with self.subTest(name=name):
+                source = ARRAY_INPUTS[name]
+                text = proof_to_lean.reconstruct(source, _export(source))
+                # _s<n> is the read's store level, _s<n>_<k> the levels below.
+                level = re.compile(r"^\s*have _s\d+_\d+ := %s " % fact)
+                lines = text.split("\n")
+                self.assertTrue(any(map(level.match, lines)), text)
+                stripped = "\n".join(line for line in lines if not level.match(line))
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "stripped.lean"
+                    output.write_text(stripped)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                            capture_output=True)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
 
     def test_comparison_reads_are_needed(self):
         """Without the read facts of _constant_array_comparisons grind cannot prove the rewrite of array.smt2's q2."""

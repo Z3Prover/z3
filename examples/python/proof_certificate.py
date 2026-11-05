@@ -632,11 +632,14 @@ def is_array_sort(sort):
     Lean renders such an array as a function between the types of its index
     and element sorts (_m.U for every uninterpreted sort, Int, Rat), so
     select is application, store a classical update, and extensionality
-    funext (QF_AX, QF_ALIA, QF_AUFLIA). Arrays over Bool or array sorts,
-    and arrays of several indices, are not supported (see array_sort_name).
+    funext (QF_AX, QF_ALIA, QF_AUFLIA). The element sort may also be Bool
+    (sets, I -> Prop in Lean; a read is a formula). Bool indices, arrays
+    over array sorts, and arrays of several indices are not supported (see
+    array_sort_name).
     """
     return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
-            and _is_array_component(sort.domain()) and _is_array_component(sort.range()))
+            and _is_array_component(sort.domain())
+            and (_is_array_component(sort.range()) or sort.range().kind() == z3.Z3_BOOL_SORT))
 
 
 def array_sort_name(sort, sorts=None):
@@ -646,12 +649,13 @@ def array_sort_name(sort, sorts=None):
     checked and recorded as uninterpreted sorts of the input.
     """
     if not is_array_sort(sort):
-        raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, and Real)" % sort)
+        raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, and Real, "
+                               "with Bool elements too)" % sort)
     names = []
     for component in (sort.domain(), sort.range()):
         name = component.name()
         if not is_uninterpreted_sort(component):
-            names.append(name)  # Int or Real.
+            names.append(name)  # Int, Real, or (elements only) Bool.
             continue
         if name in _RESERVED_SORTS or re.search(r"[\s()|]", name):
             raise ProofExportError("unsupported array index or element sort name: %s" % name)
@@ -764,6 +768,10 @@ def classify_fragment(assertions):
                 real, integer = real or signature_real, integer or signature_integer
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
+                pass
+            elif decl.kind() == z3.Z3_OP_SELECT:
+                # A read of an array with Bool elements (checked as the array
+                # is visited): an atom, a proposition in Lean.
                 pass
             elif decl.kind() == z3.Z3_OP_IS_INT:
                 # (is_int t) is (= (to_real (to_int t)) t) by SMT-LIB's definition.
