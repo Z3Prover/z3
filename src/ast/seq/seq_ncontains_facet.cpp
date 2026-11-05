@@ -17,6 +17,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_ncontains_facet.h"
+#include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
 #include <algorithm>
@@ -244,6 +245,29 @@ namespace seq {
                 changed = true;
                 ++head; // the shortened replacement, appended past `head`,
                         // is picked up later in this same forward scan.
+                continue;
+            }
+
+            // Let word substitutions and cheap refutations settle before constructing a witness language.
+            svector<unsigned> characters;
+            for (expr* token : nc.m_needle) {
+                expr* character = nullptr;
+                unsigned ch;
+                if (!u.str.is_unit(token, character) || !u.is_const_char(character, ch))
+                    break;
+                characters.push_back(ch);
+            }
+            if (characters.size() == nc.m_needle.size() && ef.is_satisfied()) {
+                expr_ref literal(u.str.mk_string(zstring(characters.size(), characters.data())), m);
+                expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
+                expr_ref needle(u.re.mk_to_re(literal), m);
+                expr_ref tail(u.re.mk_concat(needle, all), m);
+                expr_ref containing(u.re.mk_concat(all, tail), m);
+                expr_ref avoiding(u.re.mk_complement(containing), m);
+                ac.mem_facet_ref().add(str_mem(m, nc.m_haystack, view::membership(avoiding, m), nc.m_dep));
+                f.remove(head);
+                changed = true;
+                ++head;
                 continue;
             }
 

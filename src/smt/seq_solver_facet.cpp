@@ -171,14 +171,41 @@ namespace seq {
         model_ref md = m_model;
         if (!md && !m_solver.get_model(md))
             return false;
-        expr_ref r = (*md)(e);
+        if (a.is_numeral(e, v))
+            return true;
+
+        // The arithmetic backend interprets sequence operations as functions.
+        // Consult their graphs before rewriting: substr(s, i, 1) can otherwise
+        // become an unassigned str.at on an abstract string model value.
+        expr_ref input(e, m);
+        expr_safe_replace values(m);
+        for (expr* t : subterms_postorder::ground(input)) {
+            if (!is_app(t) || m.is_value(t))
+                continue;
+            expr_ref term(t, m), value(m);
+            values(term);
+            app* app_term = to_app(term);
+            func_decl* f = app_term->get_decl();
+            if (app_term->get_num_args() == 0)
+                value = md->get_const_interp(f);
+            else if (func_interp* fi = md->get_func_interp(f)) {
+                if (func_entry* entry = fi->get_entry(app_term->get_args()))
+                    value = entry->get_result();
+                else if (all_of(*app_term, [&](expr* arg) { return m.is_value(arg); }))
+                    fi->eval_else(app_term->get_args(), value);
+            }
+            if (!value)
+                value = (*md)(term);
+            values.insert(t, value);
+        }
+        values(input);
         expr_safe_replace sub(m);
         expr* x, *y;
-        for (expr* t : subterms::all(r))
+        for (expr* t : subterms::all(input))
             if (m.is_eq(t, x, y) && x != y && m.is_value(x) && m.is_value(y) && (m.is_model_value(x) || m.is_model_value(y)))
                 sub.insert(t, m.mk_false());
-        sub(r);
-        return a.is_numeral((*md)(r), v);
+        sub(input);
+        return a.is_numeral((*md)(input), v);
     }
 
     bool solver_facet::value(expr* e, expr_ref& v) const {
