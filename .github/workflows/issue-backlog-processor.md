@@ -5,6 +5,12 @@ on:
   schedule: every 2 days
   workflow_dispatch:
 
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
+
 permissions:
   contents: read
   issues: read

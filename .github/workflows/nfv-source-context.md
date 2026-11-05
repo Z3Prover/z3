@@ -16,7 +16,9 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  model: ${{ vars.NFV_MODEL }}
+  model-routing:
+    goal: cost
+    mode: auto
 timeout-minutes: 20
 checkout: false
 network:
