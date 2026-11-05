@@ -7,9 +7,9 @@ module Z3QuantIntroCounterModelTests
    B7 swapped congruence premises) or, for a corrupted OPEN leaf, at a
    concrete typed environment of the scope the guard assigns it (B12 under
    a VALID closed root, B2 wrong Int target, B3 de Bruijn shift, B13
-   iff/negation leaves with the wrong sign, B14 regrouping mutants). So a
-   replay that accepted any of them would be unsound; the refusals are the
-   checker's own verdicts, proved by normalization in
+   iff/negation leaves with the wrong sign, B14 regrouping mutants, B16 ITE
+   law mutants). So a replay that accepted any of them would be unsound;
+   the refusals are the checker's own verdicts, proved by normalization in
    Z3QuantIntroReplayTests. D9 also reads the A6 regrouping (the
    Pulse.Checker.Base-1 shape) in every root model.
 
@@ -776,3 +776,237 @@ let d9_a6_root (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
   NR.lemma_same_at PT.core_schema (TR.booleans u) (SR.root_scalars u) i [QT.term] rho QT.a6_l QT.a6_r;
   SR.lemma_truth_agreement u PT.core_schema i [QT.term] rho QT.a6_l;
   SR.lemma_truth_agreement u PT.core_schema i [QT.term] rho QT.a6_r
+
+(* ---------------------------------------------------------------------- *)
+(* D10 B16 (ITE law mutants): opposite values at an environment of [Term; Term] *)
+(* ---------------------------------------------------------------------- *)
+
+(* The model: every uninterpreted sort has the two values of bool (`two`),
+   the B16 leaf scope [Term; Term] reads x = Var 0 as true and y = Var 1 as
+   false, and the free Boolean atoms named in `names` are true. The sides'
+   values are read with the Sorted ITE semantics (NR.lemma_value_ite, the
+   interpretation the replay theorem uses) over the root scalars of the
+   standard root model; each refused, well-typed canonical mutant has its
+   two sides at OPPOSITE values there, so its leaf equation is false. The
+   counterfeit-`if` mutants of B16 are not read here: a free `if` is a
+   model choice, so only their refusal (B16) is asserted. *)
+let two : TR.uninterpreted = { TR.sort_carrier = (fun _ -> bool); TR.inhabitant = (fun _ -> false) }
+
+let s2 : list sort = QT.scope2 @ []
+
+let tval (b:bool) : V.value (TR.carrier two) (S.signature PT.core_schema) QT.term =
+  assert_norm (not (V.datatype_sort (S.signature PT.core_schema) QT.term));
+  assert_norm (TR.carrier two QT.term == bool);
+  TR.make #two #(S.signature PT.core_schema) QT.term b
+
+let env2 : V.environment (TR.carrier two) (S.signature PT.core_schema) s2 =
+  assert_norm (V.fields_have_sorts (S.signature PT.core_schema) QT.scope2 [tval true; tval false]);
+  V.extend (S.signature PT.core_schema) [] QT.scope2 [tval true; tval false] (RD.empty_root two PT.core_schema)
+
+let ev (names:list string) (e:expr) : GTot (option (V.tree (TR.carrier two))) =
+  if D.scoped s2 e
+  then Some (T.evaluate_at PT.core_schema (TR.booleans two) (SR.root_scalars two) (model two (among names)) s2 env2 e)
+  else None
+
+let st10 (names:list string) (e:expr) : GTot bool = st two (among names) s2 env2 e
+
+let it (c x y:expr) : expr = App (T.ite_decl QT.term) [c; x; y]
+
+let d10_facts ()
+  : Lemma (s2 == [QT.term; QT.term] /\ T.classify (T.ite_decl QT.term) == T.Choice QT.term /\
+           TR.classify (S.signature PT.core_schema) (QT.symbol "c1" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) (QT.symbol "c2" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) (QT.symbol "c3" [] bool_sort) == TR.Other /\
+           TR.classify (S.signature PT.core_schema) QT.fake_or == TR.Other /\
+           TR.classify (S.signature PT.core_schema) QT.fake_not == TR.Other /\
+           T.classify (BR.connective_decl BR.Disjunction [QT.mc1; QT.mc2]) == T.Nary B.Or /\
+           T.classify (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc2]) == T.Nary B.And /\
+           T.classify (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc3]) == T.Nary B.And /\
+           T.classify QT.xor_d == T.Nary B.Xor /\ T.classify R.not_decl == T.Negation /\
+           QT.b16_swapped == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (QT.mk_or [QT.mc1; QT.mc2]) QT.t1 QT.t0) /\
+           QT.b16_guard == (it (QT.neg QT.mc1) QT.t0 QT.t1, it QT.mc1 QT.t0 QT.t1) /\
+           QT.b16_then_and == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (QT.mk_and [QT.mc1; QT.mc2]) QT.t0 QT.t1) /\
+           QT.b16_else_or == (it QT.mc1 (it QT.mc2 QT.t0 QT.t1) QT.t1, it (QT.mk_or [QT.mc1; QT.mc2]) QT.t0 QT.t1) /\
+           QT.b16_xor == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (App QT.xor_d [QT.mc1; QT.mc2]) QT.t0 QT.t1) /\
+           QT.b16_twin_or == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (App QT.fake_or [QT.mc1; QT.mc2]) QT.t0 QT.t1) /\
+           QT.b16_twin_not == (it (App QT.fake_not [QT.mc1]) QT.t0 QT.t1, it QT.mc1 QT.t1 QT.t0) /\
+           QT.b16_dropped == (it (QT.mk_and [QT.mc1; QT.mc3]) (it QT.mc2 QT.t0 QT.t1) QT.t1,
+                              it (QT.mk_and [QT.mc1; QT.mc2]) QT.t0 QT.t1) /\
+           QT.b16_capture == (it (QT.neg QT.mc1) QT.t0 QT.t1, it QT.mc1 QT.t1 QT.t1) /\
+           D.scoped s2 (fst QT.b16_swapped) /\ D.scoped s2 (snd QT.b16_swapped) /\
+           D.scoped s2 (fst QT.b16_guard) /\ D.scoped s2 (snd QT.b16_guard) /\
+           D.scoped s2 (snd QT.b16_then_and) /\ D.scoped s2 (fst QT.b16_else_or) /\ D.scoped s2 (snd QT.b16_else_or) /\
+           D.scoped s2 (snd QT.b16_xor) /\ D.scoped s2 (snd QT.b16_twin_or) /\
+           D.scoped s2 (fst QT.b16_twin_not) /\ D.scoped s2 (snd QT.b16_twin_not) /\
+           D.scoped s2 (fst QT.b16_dropped) /\ D.scoped s2 (snd QT.b16_dropped) /\ D.scoped s2 (snd QT.b16_capture)) =
+  assert_norm (s2 == [QT.term; QT.term] /\ T.classify (T.ite_decl QT.term) == T.Choice QT.term);
+  assert_norm (TR.classify (S.signature PT.core_schema) (QT.symbol "c1" [] bool_sort) == TR.Other /\
+               TR.classify (S.signature PT.core_schema) (QT.symbol "c2" [] bool_sort) == TR.Other /\
+               TR.classify (S.signature PT.core_schema) (QT.symbol "c3" [] bool_sort) == TR.Other);
+  assert_norm (TR.classify (S.signature PT.core_schema) QT.fake_or == TR.Other /\
+               TR.classify (S.signature PT.core_schema) QT.fake_not == TR.Other);
+  assert_norm (T.classify (BR.connective_decl BR.Disjunction [QT.mc1; QT.mc2]) == T.Nary B.Or /\
+               T.classify (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc2]) == T.Nary B.And /\
+               T.classify (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc3]) == T.Nary B.And);
+  assert_norm (T.classify QT.xor_d == T.Nary B.Xor /\ T.classify R.not_decl == T.Negation);
+  assert_norm (QT.b16_swapped == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (QT.mk_or [QT.mc1; QT.mc2]) QT.t1 QT.t0));
+  assert_norm (QT.b16_guard == (it (QT.neg QT.mc1) QT.t0 QT.t1, it QT.mc1 QT.t0 QT.t1));
+  assert_norm (QT.b16_then_and == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (QT.mk_and [QT.mc1; QT.mc2]) QT.t0 QT.t1));
+  assert_norm (QT.b16_else_or == (it QT.mc1 (it QT.mc2 QT.t0 QT.t1) QT.t1, it (QT.mk_or [QT.mc1; QT.mc2]) QT.t0 QT.t1));
+  assert_norm (QT.b16_xor == (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (App QT.xor_d [QT.mc1; QT.mc2]) QT.t0 QT.t1));
+  assert_norm (QT.b16_twin_or ==
+               (it QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1), it (App QT.fake_or [QT.mc1; QT.mc2]) QT.t0 QT.t1));
+  assert_norm (QT.b16_twin_not == (it (App QT.fake_not [QT.mc1]) QT.t0 QT.t1, it QT.mc1 QT.t1 QT.t0));
+  assert_norm (QT.b16_dropped == (it (QT.mk_and [QT.mc1; QT.mc3]) (it QT.mc2 QT.t0 QT.t1) QT.t1,
+                                  it (QT.mk_and [QT.mc1; QT.mc2]) QT.t0 QT.t1));
+  assert_norm (QT.b16_capture == (it (QT.neg QT.mc1) QT.t0 QT.t1, it QT.mc1 QT.t1 QT.t1));
+  assert_norm (D.scoped s2 (fst QT.b16_swapped) /\ D.scoped s2 (snd QT.b16_swapped) /\
+               D.scoped s2 (fst QT.b16_guard) /\ D.scoped s2 (snd QT.b16_guard));
+  assert_norm (D.scoped s2 (snd QT.b16_then_and) /\ D.scoped s2 (fst QT.b16_else_or) /\
+               D.scoped s2 (snd QT.b16_else_or) /\ D.scoped s2 (snd QT.b16_xor) /\ D.scoped s2 (snd QT.b16_twin_or));
+  assert_norm (D.scoped s2 (fst QT.b16_twin_not) /\ D.scoped s2 (snd QT.b16_twin_not) /\
+               D.scoped s2 (fst QT.b16_dropped) /\ D.scoped s2 (snd QT.b16_dropped) /\ D.scoped s2 (snd QT.b16_capture))
+
+let lemma_vars2 (names:list string)
+  : Lemma (ev names QT.t0 == Some (tval true) /\ ev names QT.t1 == Some (tval false)) =
+  assert_norm (D.scoped s2 QT.t0 /\ D.scoped s2 QT.t1);
+  assert_norm (env2 0 == tval true /\ env2 1 == tval false)
+
+let lemma_c10 (names:list string) (name:string)
+  : Lemma (requires TR.classify (S.signature PT.core_schema) (QT.symbol name [] bool_sort) == TR.Other)
+          (ensures st10 names (QT.c_ name) == L.mem name names) =
+  assert_norm (D.scoped s2 (QT.c_ name));
+  lemma_atom two (among names) s2 env2 (QT.symbol name [] bool_sort) []
+
+let value_it (names:list string) (c x y:expr)
+  : Lemma (requires D.scoped s2 (it c x y))
+          (ensures D.scoped s2 c /\ D.scoped s2 x /\ D.scoped s2 y /\
+                   ev names (it c x y) == (if st10 names c then ev names x else ev names y)) =
+  assert_norm (T.classify (T.ite_decl QT.term) == T.Choice QT.term);
+  NR.lemma_value_ite PT.core_schema (TR.booleans two) (SR.root_scalars two) (model two (among names)) s2 env2
+    (T.ite_decl QT.term) c x y
+
+let binary (names:list string) (f:func_decl) (a b:expr) (op:B.nary_op)
+  : Lemma (requires D.scoped s2 (App f [a; b]) /\ T.classify f == T.Nary op)
+          (ensures st10 names (App f [a; b]) == B.combine op (st10 names a) (B.combine op (st10 names b) (B.neutral op))) =
+  NR.lemma_truth_or2 PT.core_schema (TR.booleans two) (SR.root_scalars two) (model two (among names)) s2 env2 f a b op
+
+let negation (names:list string) (a:expr)
+  : Lemma (requires D.scoped s2 (QT.neg a))
+          (ensures st10 names (QT.neg a) == not (st10 names a)) =
+  assert_norm (T.classify R.not_decl == T.Negation);
+  NR.lemma_truth_not PT.core_schema (TR.booleans two) (SR.root_scalars two) (model two (among names)) s2 env2 R.not_decl a
+
+(* The leaf equation is false where its sides have opposite values. *)
+let lemma_opposite (names:list string) (l r:expr) (a:bool)
+  : Lemma (requires D.scoped s2 l /\ D.scoped s2 r /\ get_sort l == get_sort r /\
+                    ev names l == Some (tval a) /\ ev names r == Some (tval (not a)))
+          (ensures not (st10 names (QT.eq l r))) =
+  T.lemma_equality_at PT.core_schema (TR.booleans two) (SR.root_scalars two) (model two (among names)) s2 env2 l r
+
+let d10_swapped ()
+  : Lemma (not (st10 ["c1"] (QT.eq (fst QT.b16_swapped) (snd QT.b16_swapped)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c1"] == true /\ L.mem "c2" ["c1"] == false);
+  lemma_vars2 ["c1"]; lemma_c10 ["c1"] "c1"; lemma_c10 ["c1"] "c2";
+  value_it ["c1"] QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1);
+  value_it ["c1"] (QT.mk_or [QT.mc1; QT.mc2]) QT.t1 QT.t0;
+  binary ["c1"] (BR.connective_decl BR.Disjunction [QT.mc1; QT.mc2]) QT.mc1 QT.mc2 B.Or;
+  lemma_opposite ["c1"] (fst QT.b16_swapped) (snd QT.b16_swapped) true
+
+let d10_then_and ()
+  : Lemma (not (st10 ["c1"] (QT.eq (fst QT.b16_then_and) (snd QT.b16_then_and)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c1"] == true /\ L.mem "c2" ["c1"] == false);
+  lemma_vars2 ["c1"]; lemma_c10 ["c1"] "c1"; lemma_c10 ["c1"] "c2";
+  value_it ["c1"] QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1);
+  value_it ["c1"] (QT.mk_and [QT.mc1; QT.mc2]) QT.t0 QT.t1;
+  binary ["c1"] (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc2]) QT.mc1 QT.mc2 B.And;
+  lemma_opposite ["c1"] (fst QT.b16_then_and) (snd QT.b16_then_and) true
+
+let d10_else_or ()
+  : Lemma (not (st10 ["c2"] (QT.eq (fst QT.b16_else_or) (snd QT.b16_else_or)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c2"] == false /\ L.mem "c2" ["c2"] == true);
+  lemma_vars2 ["c2"]; lemma_c10 ["c2"] "c1"; lemma_c10 ["c2"] "c2";
+  value_it ["c2"] QT.mc1 (it QT.mc2 QT.t0 QT.t1) QT.t1;
+  value_it ["c2"] (QT.mk_or [QT.mc1; QT.mc2]) QT.t0 QT.t1;
+  binary ["c2"] (BR.connective_decl BR.Disjunction [QT.mc1; QT.mc2]) QT.mc1 QT.mc2 B.Or;
+  lemma_opposite ["c2"] (fst QT.b16_else_or) (snd QT.b16_else_or) false
+
+let d10_xor ()
+  : Lemma (not (st10 ["c1"; "c2"] (QT.eq (fst QT.b16_xor) (snd QT.b16_xor)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c1"; "c2"] == true /\ L.mem "c2" ["c1"; "c2"] == true);
+  lemma_vars2 ["c1"; "c2"]; lemma_c10 ["c1"; "c2"] "c1"; lemma_c10 ["c1"; "c2"] "c2";
+  value_it ["c1"; "c2"] QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1);
+  value_it ["c1"; "c2"] (App QT.xor_d [QT.mc1; QT.mc2]) QT.t0 QT.t1;
+  binary ["c1"; "c2"] QT.xor_d QT.mc1 QT.mc2 B.Xor;
+  lemma_opposite ["c1"; "c2"] (fst QT.b16_xor) (snd QT.b16_xor) true
+
+let d10_twin_or ()
+  : Lemma (not (st10 ["c1"] (QT.eq (fst QT.b16_twin_or) (snd QT.b16_twin_or)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c1"] == true /\ among ["c1"] QT.fake_or == false);
+  lemma_vars2 ["c1"]; lemma_c10 ["c1"] "c1";
+  value_it ["c1"] QT.mc1 QT.t0 (it QT.mc2 QT.t0 QT.t1);
+  value_it ["c1"] (App QT.fake_or [QT.mc1; QT.mc2]) QT.t0 QT.t1;
+  lemma_atom two (among ["c1"]) s2 env2 QT.fake_or [QT.mc1; QT.mc2];
+  lemma_opposite ["c1"] (fst QT.b16_twin_or) (snd QT.b16_twin_or) true
+
+let d10_twin_not ()
+  : Lemma (not (st10 [] (QT.eq (fst QT.b16_twin_not) (snd QT.b16_twin_not)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" [] == false /\ among [] QT.fake_not == false);
+  lemma_vars2 []; lemma_c10 [] "c1";
+  value_it [] (App QT.fake_not [QT.mc1]) QT.t0 QT.t1;
+  value_it [] QT.mc1 QT.t1 QT.t0;
+  lemma_atom two (among []) s2 env2 QT.fake_not [QT.mc1];
+  lemma_opposite [] (fst QT.b16_twin_not) (snd QT.b16_twin_not) false
+
+let d10_guard ()
+  : Lemma (not (st10 ["c1"] (QT.eq (fst QT.b16_guard) (snd QT.b16_guard)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c1"] == true);
+  lemma_vars2 ["c1"]; lemma_c10 ["c1"] "c1";
+  value_it ["c1"] (QT.neg QT.mc1) QT.t0 QT.t1;
+  value_it ["c1"] QT.mc1 QT.t0 QT.t1;
+  negation ["c1"] QT.mc1;
+  lemma_opposite ["c1"] (fst QT.b16_guard) (snd QT.b16_guard) false
+
+let d10_dropped ()
+  : Lemma (not (st10 ["c1"; "c2"] (QT.eq (fst QT.b16_dropped) (snd QT.b16_dropped)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" ["c1"; "c2"] == true /\ L.mem "c2" ["c1"; "c2"] == true /\ L.mem "c3" ["c1"; "c2"] == false);
+  lemma_vars2 ["c1"; "c2"];
+  lemma_c10 ["c1"; "c2"] "c1"; lemma_c10 ["c1"; "c2"] "c2"; lemma_c10 ["c1"; "c2"] "c3";
+  value_it ["c1"; "c2"] (QT.mk_and [QT.mc1; QT.mc3]) (it QT.mc2 QT.t0 QT.t1) QT.t1;
+  value_it ["c1"; "c2"] (QT.mk_and [QT.mc1; QT.mc2]) QT.t0 QT.t1;
+  binary ["c1"; "c2"] (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc3]) QT.mc1 QT.mc3 B.And;
+  binary ["c1"; "c2"] (BR.connective_decl BR.Conjunction [QT.mc1; QT.mc2]) QT.mc1 QT.mc2 B.And;
+  lemma_opposite ["c1"; "c2"] (fst QT.b16_dropped) (snd QT.b16_dropped) false
+
+let d10_capture ()
+  : Lemma (not (st10 [] (QT.eq (fst QT.b16_capture) (snd QT.b16_capture)))) =
+  d10_facts ();
+  assert_norm (L.mem "c1" [] == false);
+  lemma_vars2 []; lemma_c10 [] "c1";
+  value_it [] (QT.neg QT.mc1) QT.t0 QT.t1;
+  value_it [] QT.mc1 QT.t1 QT.t1;
+  negation [] QT.mc1;
+  lemma_opposite [] (fst QT.b16_capture) (snd QT.b16_capture) true
+
+(* Hence every refused, well-typed canonical B16 leaf equation is FALSE at
+   that environment of its scope [Term; Term]. *)
+let d10_ite_mutants ()
+  : Lemma (not (st10 ["c1"] (QT.eq (fst QT.b16_swapped) (snd QT.b16_swapped))) /\
+           not (st10 ["c1"] (QT.eq (fst QT.b16_guard) (snd QT.b16_guard))) /\
+           not (st10 ["c1"] (QT.eq (fst QT.b16_then_and) (snd QT.b16_then_and))) /\
+           not (st10 ["c2"] (QT.eq (fst QT.b16_else_or) (snd QT.b16_else_or))) /\
+           not (st10 ["c1"; "c2"] (QT.eq (fst QT.b16_xor) (snd QT.b16_xor))) /\
+           not (st10 ["c1"] (QT.eq (fst QT.b16_twin_or) (snd QT.b16_twin_or))) /\
+           not (st10 [] (QT.eq (fst QT.b16_twin_not) (snd QT.b16_twin_not))) /\
+           not (st10 ["c1"; "c2"] (QT.eq (fst QT.b16_dropped) (snd QT.b16_dropped))) /\
+           not (st10 [] (QT.eq (fst QT.b16_capture) (snd QT.b16_capture)))) =
+  d10_swapped (); d10_guard (); d10_then_and (); d10_else_or (); d10_xor (); d10_twin_or (); d10_twin_not ();
+  d10_dropped (); d10_capture ()

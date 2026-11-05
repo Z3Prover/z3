@@ -35,10 +35,29 @@
                     scope where both sides are typed: the typed Int
                     equivalence Z3SortedArithmetic.equivalent (linear
                     normal forms over the Int carrier; opaque Int-valued
-                    terms are atoms); for Boolean sides, a regrouping of
-                    nested canonical and/or (equal operand lists, or, for
-                    at most 12 operands per side, lists included in each
-                    other; operands compared by exact identity); or the
+                    terms are atoms); one of the three ITE laws of
+                    bool_rewriter::mk_ite_core at EVERY result sort (Bool,
+                    Int, Real, uninterpreted, datatype, array), with one
+                    canonical `ite` declaration (T.classify = Choice s,
+                    i.e. exactly T.ite_decl s) on both sides and on the
+                    nested ite, canonical not/or/and, and conditions and
+                    branches compared by exact identity:
+                      (ite (not c) x y) ~ (ite c y x), also oriented
+                        (ite c x y) ~ (ite (not c) y x);
+                      (ite c1 x (ite c2 x y)) ~ (ite (or c1 c2) x y);
+                      (ite c1 (ite c2 x y) y) ~ (ite (and c1 c2) x y),
+                    where the `or`/`and` is binary or flattened one level
+                    (its operands are the operands of c1 followed by those
+                    of c2, each opened only if it is the same canonical
+                    connective, as the producer's mk_and builds it); their
+                    meaning is the choice the Sorted semantics already
+                    gives every `ite` (lemma_ite_rewritten_at), never the
+                    values of the branches, so a Real or other theory
+                    subterm stays an opaque operand; for Boolean sides, a
+                    regrouping of nested canonical and/or (equal operand
+                    lists, or, for at most 12 operands per side, lists
+                    included in each other; operands compared by exact
+                    identity); or the
                     propositional equivalence of the Boolean cuts (T.cut
                     64, else the coarser T.cut 2, decided by
                     Z3SortedDatatype.bounded_propositional, the check the
@@ -115,14 +134,15 @@
    charged m times, so the comparisons stay linear in the budget), and one
    unit per assertion for each `sk` step. A `rewrite` leaf is decided only
    after its formula's node count is charged, so its local check reads a
-   tree of at most the remaining budget. The regrouping is linear in that
-   charge: each operand walk pops at most 4096 stack entries (else refused)
-   and pushes every argument of an opened connective once; a depth walk
-   (at most 2^20 pops per side) admits only sides of depth at most 4096;
-   equal operand lists are compared once (at most the smaller side's
-   nodes); the order-free inclusion runs only for at most 12 operands per
-   side, so it makes at most 2 * 12 * 12 operand comparisons, together at
-   most 12 times the charged size. Operands are compared by the kernel's
+   tree of at most the remaining budget. The regrouping and the ITE laws
+   are linear in that charge: each operand walk pops at most 4096 stack
+   entries (else refused) and pushes every argument of an opened
+   connective once; a depth walk (at most 2^20 pops per side) admits only
+   sides of depth at most 4096; equal operand lists, ITE conditions and
+   branches are compared once (at most the smaller side's nodes); the
+   order-free inclusion runs only for at most 12 operands per side, so it
+   makes at most 2 * 12 * 12 operand comparisons, together at most 12
+   times the charged size. Operands are compared by the kernel's
    structural equality (exact declarations, sorts and arguments), never by
    native ids, and never more than 4096 levels deep. The node charge does
    not count the bytes of declaration names; those comparisons are bounded
@@ -139,6 +159,17 @@
    certificate MALFORMED, which the Sorted route reports as a rejected
    proof entry, not as a pending obligation (for an NNF and a quant-intro
    root alike).
+
+   Real leaves. `replay_with real` takes a Real gate from its caller:
+   Z3SortedProof passes `Z3SortedReal.real_primitive` of its checked schema
+   (Real is not a datatype sort there), and `replay` is `replay_with false`.
+   Under the gate, a `rewrite` leaf the checks above refuse is replayed when
+   `Z3SortedRealLinear.real_equivalent` decides it (at most 256 nodes per
+   side): linear Real and Int-with-to_real renormalization, comparison
+   orientation and strictness, binary Real product commutation. Its lemma
+   requires `real ==> Z3SortedReal.real_model` of the same Sorted
+   interpretation (which contains the gate), so the flag alone proves
+   nothing. The ITE laws do not read the gate.
 *)
 module Z3NnfReplay
 
@@ -160,6 +191,8 @@ module SK = Z3Skolemization
 module DS = Z3SortedDependentSkolem
 module AR = Z3SortedArithmetic
 module DT = Z3SortedDatatype
+module RL = Z3SortedReal
+module LIN = Z3SortedRealLinear
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -368,9 +401,56 @@ let regrouped_by (op:B.nary_op) (lhs rhs:expr) : bool =
 
 let regrouped (lhs rhs:expr) : bool = regrouped_by B.Or lhs rhs || regrouped_by B.And lhs rhs
 
+(* The operands of a canonical `op` application, one level; any other
+   expression is its own single operand. *)
+let junctands (op:B.nary_op) (e:expr) : list expr =
+  match e with
+  | App f args -> if T.classify f = T.Nary op then args else [e]
+  | _ -> [e]
+
+(* `c` is the canonical `op` (and, or) of c1 and c2: the binary application
+   (op c1 c2), or one application over the operands of c1 followed by those
+   of c2, each opened one level (bool_rewriter's flattening mk_and). *)
+let joined (op:B.nary_op) (c c1 c2:expr) : bool =
+  match c with
+  | App f args -> T.classify f = T.Nary op && (args = [c1; c2] || args = L.append (junctands op c1) (junctands op c2))
+  | _ -> false
+
+(* The ITE laws of bool_rewriter::mk_ite_core on (ite c x y) ~ (ite c' x' y')
+   with one canonical ite declaration f: the negated condition with swapped
+   branches (either side carries the negation), and the merge of a nested
+   (ite c2 ..) of the same f into the then branch (by `or`) or into the else
+   branch (by `and`). *)
+let ite_swapped (c x y c' x' y':expr) : bool =
+  x' = y && y' = x && (negation_of c' c || negation_of c c')
+
+let ite_merged_then (f:func_decl) (c x y c' x' y':expr) : bool =
+  match y with
+  | App g [c2; x2; y2] -> g = f && x2 = x && x' = x && y' = y2 && joined B.Or c' c c2
+  | _ -> false
+
+let ite_merged_else (f:func_decl) (c x y c' x' y':expr) : bool =
+  match x with
+  | App g [c2; x2; y2] -> g = f && y2 = y && y' = y && x' = x2 && joined B.And c' c c2
+  | _ -> false
+
+(* Both sides apply the same declaration f with T.classify f = Choice s
+   (exactly T.ite_decl s, so every branch and the result have sort s) and
+   are shallow (as for the regrouping, which bounds the structural
+   comparisons below), and one law relates them. *)
+let ite_rewritten (lhs rhs:expr) : bool =
+  match lhs, rhs with
+  | App f [c; x; y], App g [c'; x'; y'] ->
+    if f = g && T.Choice? (T.classify f) && shallow lhs && shallow rhs
+    then ite_swapped c x y c' x' y' || ite_merged_then f c x y c' x' y' || ite_merged_else f c x y c' x' y'
+    else false
+  | _, _ -> false
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
-   equivalence; or, for Boolean sides, a regrouping of nested canonical
-   and/or over the same operands (the n-ary re-association leaves of
+   equivalence; an ITE law at any result sort (the term-ITE leaves of
+   Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); or, for Boolean
+   sides, a regrouping of nested canonical and/or over the same operands
+   (the n-ary re-association leaves of
    Pulse.Checker.Base-1, e.g. (or d1 d2 d3 d4) = (or (or d1 d2) (or d3 d4))
    with 80-94 KB operands), or the propositional equivalence of the Boolean
    cuts, first at depth 64 and otherwise at depth 2 (the same check over the
@@ -388,13 +468,24 @@ let propositional_at (fuel:nat) (lhs rhs:expr) : bool =
    checks; the executable result is the same. *)
 let rewrite_ok (lhs rhs:expr) : bool =
   AR.equivalent lhs rhs ||
-  (get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
-   (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
+  (if ite_rewritten lhs rhs then true
+   else get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
+        (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
+
+(* `real`: the caller's schema-derived Real gate (Z3SortedProof passes
+   Z3SortedReal.real_primitive of its checked schema). Under it, a leaf the
+   Real normal forms decide (Z3SortedRealLinear.real_equivalent: Real and
+   Int-with-to_real linear renormalization, comparison orientation and
+   strictness, binary Real product commutation) is replayed too, after every
+   check above. *)
+let real_rewrite_ok (real:bool) (lhs rhs:expr) : bool =
+  if rewrite_ok lhs rhs then true else real && LIN.real_equivalent lhs rhs
 
 (* `scoped`: the certificate has a quant-intro root, whose body proofs may
    use quant-intro congruences and rewrite leaves; an NNF certificate
    (scoped = false) is replayed by exactly the previous rules. *)
-let entry_ok (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgment) (facts:list U.judgment) : bool =
+let entry_ok (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgment)
+             (facts:list U.judgment) : bool =
   match edge j with
   | None -> false
   | Some (lhs, rhs) ->
@@ -422,7 +513,7 @@ let entry_ok (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgme
       (match lhs, rhs with
        | App f xs, App g ys -> f = g && arguments_ok xs ys facts
        | _, _ -> false)
-    else if name = "rewrite" then scoped && Nil? facts && rewrite_ok lhs rhs
+    else if name = "rewrite" then scoped && Nil? facts && real_rewrite_ok real lhs rhs
     else if name = "sk" then
       Nil? facts && U.Observational? j &&
       (L.mem (R.mk_eq_expr lhs rhs) assertions || Some? (find_closure lhs rhs assertions))
@@ -494,13 +585,14 @@ let rec judgments_of (entries:list U.binder_entry) (cache:I.index_tree U.judgmen
 
 (* The local rule of every entry the guard assigned a scope, within the work;
    entries without a scope are not used by the root and are skipped. *)
-let rec steps_ok (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_demands) (cache:I.index_tree U.judgment)
+let rec steps_ok (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_demands)
+                 (cache:I.index_tree U.judgment)
                  (sizes:I.index_tree nat) (k:nat) (entries:list U.binder_entry) (work:nat)
   : Tot bool (decreases entries) =
   match entries with
   | [] -> true
   | e :: rest ->
-    if Nil? (U.scope_demanded t k) then steps_ok scoped assertions count t cache sizes (k + 1) rest work
+    if Nil? (U.scope_demanded t k) then steps_ok real scoped assertions count t cache sizes (k + 1) rest work
     else match nodes_within work [e.U.binder_formula] with
     | None -> false
     | Some w1 ->
@@ -511,8 +603,8 @@ let rec steps_ok (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_dem
          let w3 = if e.U.binder_name = "sk" then (if count <= w2 then Some (w2 - count) else None) else Some w2 in
          (match w3, I.index_find cache k, I.opt_map_tail (I.index_find cache) e.U.binder_premises with
           | Some w, Some j, Some facts ->
-            if entry_ok scoped assertions e j facts && skolem_scopes_ok e j (U.scope_demanded t k)
-            then steps_ok scoped assertions count t cache (I.index_put sizes k size) (k + 1) rest w
+            if entry_ok real scoped assertions e j facts && skolem_scopes_ok e j (U.scope_demanded t k)
+            then steps_ok real scoped assertions count t cache (I.index_put sizes k size) (k + 1) rest w
             else false
           | _, _, _ -> false))
 
@@ -542,7 +634,7 @@ type verdict =
   | Unreplayed   (* not a consumed certificate, outside the calculus, or over budget: PENDING *)
   | Malformed    (* a premise id is not an earlier entry: a rejected proof entry *)
 
-let replay (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment) : verdict =
+let replay_with (real:bool) (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment) : verdict =
   if not (consumed_root c) then Unreplayed
   else if not (well_indexed c.U.binder_entries 0) then Malformed
   else
@@ -557,9 +649,13 @@ let replay (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment) : 
       | Some (t, w) ->
         if L.mem [] (U.scope_demanded t root) &&
            Some? (U.scope_entries_checked t cache 0 c.U.binder_entries w) &&
-           steps_ok (quant_intro_root c) assertions (U.count_cells 0 assertions) t cache I.Empty 0
+           steps_ok real (quant_intro_root c) assertions (U.count_cells 0 assertions) t cache I.Empty 0
              c.U.binder_entries (U.binder_work_limit n)
         then Replayed else Unreplayed
+
+(* The replay without the Real gate (every previous caller). *)
+let replay (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment) : verdict =
+  replay_with false assertions c concl
 
 (* The scope guard alone, on the classified certificate (used by the root
    coverage gate). *)
@@ -1284,11 +1380,148 @@ let lemma_regrouped_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
   else lemma_regrouped_by s bc eq other scope rho B.And lhs rhs;
   lemma_same_truth s bc eq other scope rho lhs rhs
 
+(* ITE laws. The value of a canonical ite at ANY sort, at ANY scope where it
+   is typed and ANY typed environment of it, is the value of the branch its
+   condition chooses (T.application, `Choice`): the interpretation the
+   Sorted semantics already gives every ite, no Real or other theory law. *)
+let choose (#base:sort -> Type0) (b:bool) (v w:V.tree base) : V.tree base = if b then v else w
+
+let lemma_value_ite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                    (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                    (f:func_decl) (c x y:expr)
+  : Lemma (requires D.scoped scope (App f [c; x; y]) /\ T.Choice? (T.classify f))
+          (ensures D.scoped scope c /\ D.scoped scope x /\ D.scoped scope y /\
+                   get_sort c == bool_sort /\ get_sort x == f.range /\ get_sort y == f.range /\
+                   T.evaluate_at s bc eq other scope rho (App f [c; x; y]) ==
+                   choose (T.truth_at s bc eq other scope rho c)
+                     (T.evaluate_at s bc eq other scope rho x) (T.evaluate_at s bc eq other scope rho y)) =
+  let r = T.Choice?._0 (T.classify f) in
+  assert (f == T.ite_decl r);
+  V.lemma_sort_eq (get_sort c) bool_sort;
+  V.lemma_sort_eq (get_sort x) r;
+  V.lemma_sort_eq (get_sort y) r;
+  T.lemma_evaluate_core_at s bc eq other scope rho f [c; x; y];
+  assert_norm (T.evaluate_arguments_at s bc eq other scope rho [c; x; y] [bool_sort; r; r] ==
+               [T.evaluate_at s bc eq other scope rho c; T.evaluate_at s bc eq other scope rho x;
+                T.evaluate_at s bc eq other scope rho y])
+
+let rec lemma_fold_append (t:expr -> GTot bool) (op:B.nary_op) (xs ys:list expr)
+  : Lemma (ensures fold_truth t op (L.append xs ys) == B.combine op (fold_truth t op xs) (fold_truth t op ys))
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | _ :: rest -> lemma_fold_append t op rest ys
+
+(* The one-level operands of a typed Boolean term fold to its truth. *)
+let lemma_junctands (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                    (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                    (op:B.nary_op) (e:expr)
+  : Lemma (requires D.scoped scope e /\ get_sort e == bool_sort)
+          (ensures fold_truth (T.truth_at s bc eq other scope rho) op (junctands op e) ==
+                   T.truth_at s bc eq other scope rho e) =
+  match e with
+  | App f args ->
+    if T.classify f = T.Nary op then (
+      lemma_truth_nary s bc eq other scope rho f args op;
+      lemma_fold_atoms (T.truth_at s bc eq other scope rho) op args)
+  | _ -> ()
+
+(* A joined condition is the `op` of the truths of c1 and c2. *)
+let lemma_joined (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                 (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                 (op:B.nary_op) (c c1 c2:expr)
+  : Lemma (requires joined op c c1 c2 /\ D.scoped scope c /\ D.scoped scope c1 /\ D.scoped scope c2 /\
+                    get_sort c1 == bool_sort /\ get_sort c2 == bool_sort)
+          (ensures T.truth_at s bc eq other scope rho c ==
+                   B.combine op (T.truth_at s bc eq other scope rho c1) (T.truth_at s bc eq other scope rho c2)) =
+  match c with
+  | App f args ->
+    let t = T.truth_at s bc eq other scope rho in
+    lemma_truth_nary s bc eq other scope rho f args op;
+    lemma_fold_atoms t op args;
+    if args = [c1; c2] then ()
+    else (
+      lemma_fold_append t op (junctands op c1) (junctands op c2);
+      lemma_junctands s bc eq other scope rho op c1;
+      lemma_junctands s bc eq other scope rho op c2)
+  | _ -> ()
+
+(* Each ITE law has one value on both sides at ANY scope where both sides
+   are typed, at ANY typed environment of it: every side is the choice of
+   its condition (lemma_value_ite); a negated condition swaps the choice
+   (lemma_truth_not), and a joined condition chooses the then branch of
+   (ite c1 x (ite c2 x y)) exactly when c1 or c2 holds, and the then
+   branch of (ite c1 (ite c2 x y) y) exactly when c1 and c2 hold
+   (lemma_joined). *)
+let lemma_ite_swapped_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                         (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\ ite_swapped c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  lemma_value_ite s bc eq other scope rho f c x y;
+  lemma_value_ite s bc eq other scope rho f c' x' y';
+  (match c with
+   | App n [a] -> if T.classify n = T.Negation then lemma_truth_not s bc eq other scope rho n a
+   | _ -> ());
+  (match c' with
+   | App n [a] -> if T.classify n = T.Negation then lemma_truth_not s bc eq other scope rho n a
+   | _ -> ());
+  lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+
+let lemma_ite_merged_then_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\ ite_merged_then f c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  lemma_value_ite s bc eq other scope rho f c x y;
+  lemma_value_ite s bc eq other scope rho f c' x' y';
+  (match y with
+   | App h [c2; x2; y2] ->
+     lemma_value_ite s bc eq other scope rho h c2 x2 y2;
+     lemma_joined s bc eq other scope rho B.Or c' c c2
+   | _ -> ());
+  lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+
+let lemma_ite_merged_else_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (f:func_decl) (c x y c' x' y':expr)
+  : Lemma (requires T.Choice? (T.classify f) /\ D.scoped scope (App f [c; x; y]) /\
+                    D.scoped scope (App f [c'; x'; y']) /\ ite_merged_else f c x y c' x' y')
+          (ensures same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])) =
+  lemma_value_ite s bc eq other scope rho f c x y;
+  lemma_value_ite s bc eq other scope rho f c' x' y';
+  (match x with
+   | App h [c2; x2; y2] ->
+     lemma_value_ite s bc eq other scope rho h c2 x2 y2;
+     lemma_joined s bc eq other scope rho B.And c' c c2
+   | _ -> ());
+  lemma_same_at s bc eq other scope rho (App f [c; x; y]) (App f [c'; x'; y'])
+
+let lemma_ite_rewritten_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                           (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
+  : Lemma (requires ite_rewritten lhs rhs /\ D.scoped scope lhs /\ D.scoped scope rhs)
+          (ensures same_at s bc eq other scope rho lhs rhs) =
+  match lhs, rhs with
+  | App f [c; x; y], App _ [c'; x'; y'] ->
+    if ite_swapped c x y c' x' y' then lemma_ite_swapped_at s bc eq other scope rho f c x y c' x' y'
+    else if ite_merged_then f c x y c' x' y' then lemma_ite_merged_then_at s bc eq other scope rho f c x y c' x' y'
+    else lemma_ite_merged_else_at s bc eq other scope rho f c x y c' x' y'
+  | _, _ -> ()
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
-   is Z3SortedArithmetic.lemma_equivalent at that scope; the regrouping is
-   lemma_regrouped_at; the propositional equivalences are
-   lemma_propositional_at. *)
+   is Z3SortedArithmetic.lemma_equivalent at that scope; the ITE laws are
+   lemma_ite_rewritten_at; the regrouping is lemma_regrouped_at; the
+   propositional equivalences are lemma_propositional_at. *)
 let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
@@ -1297,9 +1530,29 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   if AR.equivalent lhs rhs then (
     AR.lemma_equivalent s bc eq other scope rho lhs rhs;
     lemma_same_at s bc eq other scope rho lhs rhs)
+  else if ite_rewritten lhs rhs then lemma_ite_rewritten_at s bc eq other scope rho lhs rhs
   else if regrouped lhs rhs then lemma_regrouped_at s bc eq other scope rho lhs rhs
   else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
   else lemma_propositional_at s bc eq other scope rho 2 lhs rhs
+
+(* A gated Real leaf: both sides have one value at every typed environment of
+   every Sorted model that satisfies the Real laws (RL.real_model, which
+   contains the schema gate RL.real_primitive itself). The flag alone proves
+   nothing: with real = true the hypothesis is the Real laws. *)
+let lemma_real_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (real:bool) (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                          (lhs rhs:expr)
+  : Lemma (requires real_rewrite_ok real lhs rhs /\ (real ==> RL.real_model s bc eq other) /\
+                    D.scoped scope lhs /\ D.scoped scope rhs)
+          (ensures same_at s bc eq other scope rho lhs rhs) =
+  if rewrite_ok lhs rhs then lemma_rewrite_at s bc eq other scope rho lhs rhs
+  else (
+    FStar.Classical.exists_elim
+      (T.evaluate_at s bc eq other scope rho lhs == T.evaluate_at s bc eq other scope rho rhs)
+      #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+      (fun reals -> LIN.lemma_real_equivalent s bc eq other reals scope rho lhs rhs);
+    lemma_same_at s bc eq other scope rho lhs rhs)
 
 (* ---------------------------------------------------------------------- *)
 (* 6. One entry at one assigned scope                                       *)
@@ -1307,11 +1560,13 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
 
 let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                   (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgment) (facts:list U.judgment)
+                   (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgment)
+                   (facts:list U.judgment)
                    (scope:list sort) (rho:V.environment base (S.signature s) scope)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (real ==> RL.real_model s bc eq other) /\
                     T.truths s bc eq other assertions /\
-                    entry_ok scoped assertions e j facts /\ BS.binder_judgment_scoped scope j /\
+                    entry_ok real scoped assertions e j facts /\ BS.binder_judgment_scoped scope j /\
                     all_valid s bc eq other (BS.premise_scope_of e scope) facts)
           (ensures holds_at s bc eq other scope rho j) =
   match edge j with
@@ -1360,7 +1615,7 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
           lemma_arguments_ok s bc eq other scope rho xs ys f.domain facts;
           lemma_same_at s bc eq other scope rho lhs rhs
         | _, _ -> ())
-      else if name = "rewrite" then lemma_rewrite_at s bc eq other scope rho lhs rhs
+      else if name = "rewrite" then lemma_real_rewrite_at s bc eq other real scope rho lhs rhs
       else if L.mem (R.mk_eq_expr lhs rhs) assertions then
         lemma_assertion_edge s bc eq other assertions scope rho lhs rhs
       else (
@@ -1370,15 +1625,17 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
 
 let lemma_entry_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                      (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgment) (facts:list U.judgment)
+                      (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry) (j:U.judgment)
+                      (facts:list U.judgment)
                       (scope:list sort)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (real ==> RL.real_model s bc eq other) /\
                     T.truths s bc eq other assertions /\
-                    entry_ok scoped assertions e j facts /\ BS.binder_judgment_scoped scope j /\
+                    entry_ok real scoped assertions e j facts /\ BS.binder_judgment_scoped scope j /\
                     all_valid s bc eq other (BS.premise_scope_of e scope) facts)
           (ensures valid s bc eq other scope j) =
   let at (rho:V.environment base (S.signature s) scope) : Lemma (holds_at s bc eq other scope rho j) =
-    lemma_entry_at s bc eq other scoped assertions e j facts scope rho in
+    lemma_entry_at s bc eq other real scoped assertions e j facts scope rho in
   FStar.Classical.forall_intro at
 
 (* ---------------------------------------------------------------------- *)
@@ -1431,13 +1688,15 @@ let lemma_prefix_extend (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
 
 let lemma_step (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-               (scoped:bool) (assertions:list expr) (t:U.scope_demands) (cache:I.index_tree U.judgment)
+               (real:bool) (scoped:bool) (assertions:list expr) (t:U.scope_demands)
+               (cache:I.index_tree U.judgment)
                (k:nat) (e:U.binder_entry) (j:U.judgment) (facts:list U.judgment)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (real ==> RL.real_model s bc eq other) /\
                     T.truths s bc eq other assertions /\
                     I.index_find cache k == Some j /\
                     I.opt_map (I.index_find cache) e.U.binder_premises == Some facts /\
-                    entry_ok scoped assertions e j facts /\
+                    entry_ok real scoped assertions e j facts /\
                     BS.entry_scoped t k e j (U.scope_demanded t k) /\
                     prefix_valid s bc eq other t cache k)
           (ensures entry_valid s bc eq other t cache k) =
@@ -1446,7 +1705,7 @@ let lemma_step (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier 
             (ensures valid s bc eq other sc j) =
     BS.lemma_entry_scoped t k e j (U.scope_demanded t k) sc;
     lemma_premises s bc eq other t cache k e.U.binder_premises facts (BS.premise_scope_of e sc);
-    lemma_entry_valid s bc eq other scoped assertions e j facts sc in
+    lemma_entry_valid s bc eq other real scoped assertions e j facts sc in
   FStar.Classical.forall_intro (FStar.Classical.move_requires here);
   lemma_entry_valid_def s bc eq other t cache k
 
@@ -1459,11 +1718,13 @@ let lemma_unused (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
 
 let rec lemma_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                    (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_demands) (cache:I.index_tree U.judgment)
+                    (real:bool) (scoped:bool) (assertions:list expr) (count:nat) (t:U.scope_demands)
+                    (cache:I.index_tree U.judgment)
                     (sizes:I.index_tree nat) (k:nat) (entries:list U.binder_entry) (work:nat)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    (real ==> RL.real_model s bc eq other) /\
                     T.truths s bc eq other assertions /\
-                    steps_ok scoped assertions count t cache sizes k entries work /\
+                    steps_ok real scoped assertions count t cache sizes k entries work /\
                     BS.entries_scoped t cache k entries /\
                     prefix_valid s bc eq other t cache k)
           (ensures prefix_valid s bc eq other t cache (k + L.length entries))
@@ -1474,7 +1735,7 @@ let rec lemma_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
     if Nil? (U.scope_demanded t k) then (
       lemma_unused s bc eq other t cache k;
       lemma_prefix_extend s bc eq other t cache k;
-      lemma_steps s bc eq other scoped assertions count t cache sizes (k + 1) rest work)
+      lemma_steps s bc eq other real scoped assertions count t cache sizes (k + 1) rest work)
     else match nodes_within work [e.U.binder_formula] with
     | None -> ()
     | Some w1 ->
@@ -1485,9 +1746,9 @@ let rec lemma_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
          let w3 = if e.U.binder_name = "sk" then (if count <= w2 then Some (w2 - count) else None) else Some w2 in
          (match w3, I.index_find cache k, I.opt_map_tail (I.index_find cache) e.U.binder_premises with
           | Some w, Some j, Some facts ->
-            lemma_step s bc eq other scoped assertions t cache k e j facts;
+            lemma_step s bc eq other real scoped assertions t cache k e j facts;
             lemma_prefix_extend s bc eq other t cache k;
-            lemma_steps s bc eq other scoped assertions count t cache (I.index_put sizes k size) (k + 1) rest w
+            lemma_steps s bc eq other real scoped assertions count t cache (I.index_put sizes k size) (k + 1) rest w
           | _, _, _ -> ()))
 
 (* ---------------------------------------------------------------------- *)
@@ -1501,11 +1762,12 @@ let rec lemma_steps (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
    every used entry, at every scope the guard assigns it, holds at every
    typed environment of that scope (prefix_valid), derived from its local
    check and its premises at their own assigned scopes only. *)
-let lemma_replay (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                 (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment)
+let lemma_replay_with (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (real:bool) (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment)
   : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
-                    T.truths s bc eq other assertions /\ replay assertions c concl == Replayed)
+                    (real ==> RL.real_model s bc eq other) /\
+                    T.truths s bc eq other assertions /\ replay_with real assertions c concl == Replayed)
           (ensures BS.binder_judgment_scoped [] concl /\
                    holds_at s bc eq other [] (T.empty_environment (S.signature s)) concl) =
   let entries = c.U.binder_entries in
@@ -1520,9 +1782,19 @@ let lemma_replay (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
        assert (U.binder_scoped_within (U.binder_demand_limit n) (U.binder_work_limit n) c cache);
        BS.lemma_guard (U.binder_demand_limit n) (U.binder_work_limit n) c cache;
        BS.lemma_count_cells 0 entries;
-       lemma_steps s bc eq other (quant_intro_root c) assertions (U.count_cells 0 assertions) t cache I.Empty 0
+       lemma_steps s bc eq other real (quant_intro_root c) assertions (U.count_cells 0 assertions) t cache I.Empty 0
          entries (U.binder_work_limit n);
        let key : nat = root in
        assert (entry_valid s bc eq other t cache key);
        lemma_entry_valid_def s bc eq other t cache key;
        BS.lemma_scoped_at t cache entries key [])
+
+(* The ungated replay: the quantifier laws alone. *)
+let lemma_replay (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                 (assertions:list expr) (c:U.binder_certificate) (concl:U.judgment)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    T.truths s bc eq other assertions /\ replay assertions c concl == Replayed)
+          (ensures BS.binder_judgment_scoped [] concl /\
+                   holds_at s bc eq other [] (T.empty_environment (S.signature s)) concl) =
+  lemma_replay_with s bc eq other false assertions c concl

@@ -447,6 +447,871 @@ let b15_depth_admission ()
   assert_norm (NR.regrouped (fst (b15_shape 4094)) (snd (b15_shape 4094)));
   assert_norm (not (NR.regrouped (fst (b15_shape 4095)) (snd (b15_shape 4095))))
 
+(* A7 the ITE laws of bool_rewriter::mk_ite_core (NR.ite_rewritten) at every
+   result sort. First the captured term-ITE leaves of the 9af capture,
+   reconstructed from its certdump (declarations keep their marshalled
+   names; their signatures are inferred from the leaf itself, U_zero is a
+   Universe and BoxReal takes a Real; s1 receipt, to_fstar.py), each as the
+   leaf of a certificate at its captured binder list:
+     Pulse.Checker.Base-1 q1 node 3021 entry 25, the negated condition at
+       sort Term (39/38 tree nodes, scope [Term; Term; Fuel]);
+     Pulse.Checker.Base-1 q1 node 3010 entry 0, the then merge by a binary
+       `or` (599/598 tree nodes, the same scope);
+     Pulse.Lib.AnchoredReference q13 node 447 entry 0, the else merge whose
+       condition the producer flattened, (and A B) and (and C D) into
+       (and A B C D), with a Real numeral inside a branch (its whole
+       captured certificate: rewrite, monotonicity, quant-intro over
+       [Universe; Term x 6]).
+   At 9af the three leaves are pending: the sides are Term-sorted, so the
+   Int equivalence and the Boolean checks refuse them; the ITE laws accept
+   them (and nothing reads the Real numeral). *)
+let term_s : sort = BaseSort "sort!2147483829:Term"
+let universe_s : sort = BaseSort "sort!2147483800:Universe"
+let fuel_s : sort = BaseSort "sort!2147483833:Fuel"
+let real_s : sort = TR.real_s
+
+let ite_ (c x y:expr) : expr = App (T.ite_decl (get_sort x)) [c; x; y]
+
+let native_num (name:string) (n:int) : expr =
+  App { decl_name = name; domain = []; range = integer; interp = Some op_num_rational; int_params = [n; 1] } []
+
+let real_num (name:string) (n:int) : expr =
+  App { decl_name = name; domain = []; range = real_s; interp = Some op_num_rational; int_params = [n; 1] } []
+
+(* Pulse.Checker.Base-1 q1 node 3021, entry 25 (base1-q1-n3021.certdump.jsonl): lhs 39 / rhs 38 tree nodes *)
+let n3021_x_U_zero_3801 : func_decl =
+  symbol "decl!2147483801:U_zero" [] universe_s
+let n3021_x_Term_constr_id_3830 : func_decl =
+  symbol "decl!2147483830:Term_constr_id" [term_s] integer
+let n3021_x_Tm_unit_3922 : func_decl =
+  symbol "decl!2147483922:Tm_unit" [] term_s
+let n3021_x_Some_4048 : func_decl =
+  symbol "decl!2147484048:FStar.Pervasives.Native.Some" [universe_s; term_s; term_s] term_s
+let n3021_x_Some__0_4049 : func_decl =
+  symbol "decl!2147484049:FStar.Pervasives.Native.Some_@0" [term_s] universe_s
+let n3021_x_Some__a_4050 : func_decl =
+  symbol "decl!2147484050:FStar.Pervasives.Native.Some_@a" [term_s] term_s
+let n3021_x_Some__v_4051 : func_decl =
+  symbol "decl!2147484051:FStar.Pervasives.Native.Some_@v" [term_s] term_s
+let n3021_x_fuel_instrumented_4137 : func_decl =
+  symbol "decl!2147484137:FStar.Reflection.Typing.subst_match_returns.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3021_x_inspect_ln_4182 : func_decl =
+  symbol "decl!2147484182:FStar.Stubs.Reflection.V2.Builtins.inspect_ln" [term_s] term_s
+let n3021_x_Tv_Match__ret_4290 : func_decl =
+  symbol "decl!2147484290:FStar.Stubs.Reflection.V2.Data.Tv_Match_@ret" [term_s] term_s
+let n3021_x_match_returns_ascription_4351 : func_decl =
+  symbol "decl!2147484351:FStar.Stubs.Syntax.Syntax.match_returns_ascription" [] term_s
+let n3021_lhs : expr =
+  (ite_ (neg (mk_or [(neg (eq (App n3021_x_Term_constr_id_3830 [(App n3021_x_Tv_Match__ret_4290 [(App
+    n3021_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113))); (neg (eq (App
+    n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3021_x_Some_4048 [(App
+    n3021_x_Some__0_4049 [(App n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3021_x_Some__a_4050 [(App n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182
+    [(Var 1 term_s)])])]); (App n3021_x_Some__v_4051 [(App n3021_x_Tv_Match__ret_4290 [(App
+    n3021_x_inspect_ln_4182 [(Var 1 term_s)])])])])))])) (App n3021_x_Some_4048 [(App n3021_x_U_zero_3801
+    []); (App n3021_x_match_returns_ascription_4351 []); (App n3021_x_fuel_instrumented_4137 [(Var 2 fuel_s);
+    (App n3021_x_Some__v_4051 [(App n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (Var 0 term_s)])]) (App n3021_x_Tm_unit_3922 []))
+let n3021_rhs : expr =
+  (ite_ (mk_or [(neg (eq (App n3021_x_Term_constr_id_3830 [(App n3021_x_Tv_Match__ret_4290 [(App
+    n3021_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113))); (neg (eq (App
+    n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3021_x_Some_4048 [(App
+    n3021_x_Some__0_4049 [(App n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3021_x_Some__a_4050 [(App n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182
+    [(Var 1 term_s)])])]); (App n3021_x_Some__v_4051 [(App n3021_x_Tv_Match__ret_4290 [(App
+    n3021_x_inspect_ln_4182 [(Var 1 term_s)])])])])))]) (App n3021_x_Tm_unit_3922 []) (App n3021_x_Some_4048
+    [(App n3021_x_U_zero_3801 []); (App n3021_x_match_returns_ascription_4351 []); (App
+    n3021_x_fuel_instrumented_4137 [(Var 2 fuel_s); (App n3021_x_Some__v_4051 [(App
+    n3021_x_Tv_Match__ret_4290 [(App n3021_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])]))
+
+(* Pulse.Lib.AnchoredReference q13 node 447, entry 0 (anchoredref-q13-n447.certdump.jsonl): lhs 89 / rhs 86 tree nodes *)
+let n447_x_U_zero_3801 : func_decl =
+  symbol "decl!2147483801:U_zero" [] universe_s
+let n447_x_Term_constr_id_3830 : func_decl =
+  symbol "decl!2147483830:Term_constr_id" [term_s] integer
+let n447_x_Tm_unit_3922 : func_decl =
+  symbol "decl!2147483922:Tm_unit" [] term_s
+let n447_x_BoxReal_3966 : func_decl =
+  symbol "decl!2147483966:BoxReal" [real_s] term_s
+let n447_x_Mktuple2_4034 : func_decl =
+  symbol "decl!2147484034:FStar.Pervasives.Native.Mktuple2" [universe_s; universe_s; term_s; term_s; term_s; term_s] term_s
+let n447_x_Mktuple2___1_4037 : func_decl =
+  symbol "decl!2147484037:FStar.Pervasives.Native.Mktuple2_@_1" [term_s] term_s
+let n447_x_Mktuple2___2_4038 : func_decl =
+  symbol "decl!2147484038:FStar.Pervasives.Native.Mktuple2_@_2" [term_s] term_s
+let n447_x_Some_4044 : func_decl =
+  symbol "decl!2147484044:FStar.Pervasives.Native.Some" [universe_s; term_s; term_s] term_s
+let n447_x_Some__0_4045 : func_decl =
+  symbol "decl!2147484045:FStar.Pervasives.Native.Some_@0" [term_s] universe_s
+let n447_x_Some__a_4046 : func_decl =
+  symbol "decl!2147484046:FStar.Pervasives.Native.Some_@a" [term_s] term_s
+let n447_x_Some__v_4047 : func_decl =
+  symbol "decl!2147484047:FStar.Pervasives.Native.Some_@v" [term_s] term_s
+let n447_x_option_4053 : func_decl =
+  symbol "decl!2147484053:FStar.Pervasives.Native.option" [universe_s; term_s] term_s
+let n447_x_Owns_4135 : func_decl =
+  symbol "decl!2147484135:Pulse.Lib.FractionalAnchoredPreorder.Owns" [universe_s; term_s; term_s; term_s; term_s] term_s
+let n447_x_Owns__0_4136 : func_decl =
+  symbol "decl!2147484136:Pulse.Lib.FractionalAnchoredPreorder.Owns_@0" [term_s] universe_s
+let n447_x_Owns___0_4137 : func_decl =
+  symbol "decl!2147484137:Pulse.Lib.FractionalAnchoredPreorder.Owns_@_0" [term_s] term_s
+let n447_x_Owns__anchors_4138 : func_decl =
+  symbol "decl!2147484138:Pulse.Lib.FractionalAnchoredPreorder.Owns_@anchors" [term_s] term_s
+let n447_x_Owns__p_4139 : func_decl =
+  symbol "decl!2147484139:Pulse.Lib.FractionalAnchoredPreorder.Owns_@p" [term_s] term_s
+let n447_x_Owns__v_4140 : func_decl =
+  symbol "decl!2147484140:Pulse.Lib.FractionalAnchoredPreorder.Owns_@v" [term_s] term_s
+let n447_x_permission_4168 : func_decl =
+  symbol "decl!2147484168:Pulse.Lib.FractionalAnchoredPreorder.permission" [universe_s; term_s] term_s
+let n447_x_perm_4175 : func_decl =
+  symbol "decl!2147484175:PulseCore.FractionalPermission.perm" [] term_s
+let n447_x_vhist_4189 : func_decl =
+  symbol "decl!2147484189:PulseCore.Preorder.vhist" [universe_s; term_s; term_s] term_s
+let n447_x_op_Slash_Dot_6280 : func_decl =
+  symbol "decl!2147486280:FStar.Real.op_Slash_Dot" [term_s; term_s] term_s
+let n447_lhs : expr =
+  (ite_ (mk_and [(eq (App n447_x_Term_constr_id_3830 [(Var 0 term_s)]) (native_num "136" 136)); (eq (Var 0
+    term_s) (App n447_x_Owns_4135 [(App n447_x_Owns__0_4136 [(Var 0 term_s)]); (App n447_x_Owns__v_4140 [(Var
+    0 term_s)]); (App n447_x_Owns__p_4139 [(Var 0 term_s)]); (App n447_x_Owns__anchors_4138 [(Var 0
+    term_s)]); (App n447_x_Owns___0_4137 [(Var 0 term_s)])]))]) (ite_ (mk_and [(eq (App
+    n447_x_Term_constr_id_3830 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037 [(App
+    n447_x_Owns___0_4137 [(Var 0 term_s)])])])]) (native_num "113" 113)); (eq (App n447_x_Mktuple2___1_4037
+    [(App n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])]) (App n447_x_Some_4044
+    [(App n447_x_Some__0_4045 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037 [(App
+    n447_x_Owns___0_4137 [(Var 0 term_s)])])])]); (App n447_x_Some__a_4046 [(App n447_x_Mktuple2___1_4037
+    [(App n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])])]); (App
+    n447_x_Some__v_4047 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037 [(App
+    n447_x_Owns___0_4137 [(Var 0 term_s)])])])])]))]) (App n447_x_Owns_4135 [(Var 6 universe_s); (Var 5
+    term_s); (Var 4 term_s); (Var 3 term_s); (App n447_x_Mktuple2_4034 [(Var 6 universe_s); (Var 6
+    universe_s); (App n447_x_permission_4168 [(Var 6 universe_s); (Var 5 term_s)]); (App n447_x_vhist_4189
+    [(Var 6 universe_s); (Var 5 term_s); (Var 4 term_s)]); (App n447_x_Mktuple2_4034 [(App n447_x_U_zero_3801
+    []); (Var 6 universe_s); (App n447_x_option_4053 [(App n447_x_U_zero_3801 []); (App n447_x_perm_4175
+    [])]); (App n447_x_option_4053 [(Var 6 universe_s); (Var 5 term_s)]); (App n447_x_Some_4044 [(App
+    n447_x_U_zero_3801 []); (App n447_x_perm_4175 []); (App n447_x_op_Slash_Dot_6280 [(Var 2 term_s); (App
+    n447_x_BoxReal_3966 [(real_num "2.0" 2)])])]); (App n447_x_Mktuple2___2_4038 [(App
+    n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])])]); (App
+    n447_x_Mktuple2___2_4038 [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])])]) (App n447_x_Tm_unit_3922 []))
+    (App n447_x_Tm_unit_3922 []))
+let n447_rhs : expr =
+  (ite_ (mk_and [(eq (App n447_x_Term_constr_id_3830 [(Var 0 term_s)]) (native_num "136" 136)); (eq (Var 0
+    term_s) (App n447_x_Owns_4135 [(App n447_x_Owns__0_4136 [(Var 0 term_s)]); (App n447_x_Owns__v_4140 [(Var
+    0 term_s)]); (App n447_x_Owns__p_4139 [(Var 0 term_s)]); (App n447_x_Owns__anchors_4138 [(Var 0
+    term_s)]); (App n447_x_Owns___0_4137 [(Var 0 term_s)])])); (eq (App n447_x_Term_constr_id_3830 [(App
+    n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137 [(Var 0
+    term_s)])])])]) (native_num "113" 113)); (eq (App n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037
+    [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])]) (App n447_x_Some_4044 [(App n447_x_Some__0_4045 [(App
+    n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137 [(Var 0
+    term_s)])])])]); (App n447_x_Some__a_4046 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037
+    [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])])]); (App n447_x_Some__v_4047 [(App
+    n447_x_Mktuple2___1_4037 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137 [(Var 0
+    term_s)])])])])]))]) (App n447_x_Owns_4135 [(Var 6 universe_s); (Var 5 term_s); (Var 4 term_s); (Var 3
+    term_s); (App n447_x_Mktuple2_4034 [(Var 6 universe_s); (Var 6 universe_s); (App n447_x_permission_4168
+    [(Var 6 universe_s); (Var 5 term_s)]); (App n447_x_vhist_4189 [(Var 6 universe_s); (Var 5 term_s); (Var 4
+    term_s)]); (App n447_x_Mktuple2_4034 [(App n447_x_U_zero_3801 []); (Var 6 universe_s); (App
+    n447_x_option_4053 [(App n447_x_U_zero_3801 []); (App n447_x_perm_4175 [])]); (App n447_x_option_4053
+    [(Var 6 universe_s); (Var 5 term_s)]); (App n447_x_Some_4044 [(App n447_x_U_zero_3801 []); (App
+    n447_x_perm_4175 []); (App n447_x_op_Slash_Dot_6280 [(Var 2 term_s); (App n447_x_BoxReal_3966 [(real_num
+    "2.0" 2)])])]); (App n447_x_Mktuple2___2_4038 [(App n447_x_Mktuple2___1_4037 [(App n447_x_Owns___0_4137
+    [(Var 0 term_s)])])])]); (App n447_x_Mktuple2___2_4038 [(App n447_x_Owns___0_4137 [(Var 0 term_s)])])])])
+    (App n447_x_Tm_unit_3922 []))
+
+(* Pulse.Checker.Base-1 q1 node 3010, entry 0 (base1-q1-n3010.certdump.jsonl): lhs 599 / rhs 598 tree nodes *)
+let n3010_x_U_zero_3801 : func_decl =
+  symbol "decl!2147483801:U_zero" [] universe_s
+let n3010_x_Term_constr_id_3830 : func_decl =
+  symbol "decl!2147483830:Term_constr_id" [term_s] integer
+let n3010_x_Tm_unit_3922 : func_decl =
+  symbol "decl!2147483922:Tm_unit" [] term_s
+let n3010_x_BoxBool_3940 : func_decl =
+  symbol "decl!2147483940:BoxBool" [bool_sort] term_s
+let n3010_x_Mktuple2_4028 : func_decl =
+  symbol "decl!2147484028:FStar.Pervasives.Native.Mktuple2" [universe_s; universe_s; term_s; term_s; term_s; term_s] term_s
+let n3010_x_None_4045 : func_decl =
+  symbol "decl!2147484045:FStar.Pervasives.Native.None" [universe_s; term_s] term_s
+let n3010_x_None__0_4046 : func_decl =
+  symbol "decl!2147484046:FStar.Pervasives.Native.None_@0" [term_s] universe_s
+let n3010_x_None__a_4047 : func_decl =
+  symbol "decl!2147484047:FStar.Pervasives.Native.None_@a" [term_s] term_s
+let n3010_x_Some_4048 : func_decl =
+  symbol "decl!2147484048:FStar.Pervasives.Native.Some" [universe_s; term_s; term_s] term_s
+let n3010_x_Some__0_4049 : func_decl =
+  symbol "decl!2147484049:FStar.Pervasives.Native.Some_@0" [term_s] universe_s
+let n3010_x_Some__a_4050 : func_decl =
+  symbol "decl!2147484050:FStar.Pervasives.Native.Some_@a" [term_s] term_s
+let n3010_x_Some__v_4051 : func_decl =
+  symbol "decl!2147484051:FStar.Pervasives.Native.Some_@v" [term_s] term_s
+let n3010_x_fst_4054 : func_decl =
+  symbol "decl!2147484054:FStar.Pervasives.Native.fst" [universe_s; universe_s; term_s; term_s; term_s] term_s
+let n3010_x_snd_4058 : func_decl =
+  symbol "decl!2147484058:FStar.Pervasives.Native.snd" [universe_s; universe_s; term_s; term_s; term_s] term_s
+let n3010_x_shift_subst_4121 : func_decl =
+  symbol "decl!2147484121:FStar.Reflection.Typing.shift_subst" [term_s] term_s
+let n3010_x_fuel_instrumented_4130 : func_decl =
+  symbol "decl!2147484130:FStar.Reflection.Typing.subst_binder.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3010_x_fuel_instrumented_4132 : func_decl =
+  symbol "decl!2147484132:FStar.Reflection.Typing.subst_branches.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3010_x_fuel_instrumented_4133 : func_decl =
+  symbol "decl!2147484133:FStar.Reflection.Typing.subst_comp.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3010_x_subst_ctx_uvar_and_subst_4134 : func_decl =
+  symbol "decl!2147484134:FStar.Reflection.Typing.subst_ctx_uvar_and_subst" [term_s; term_s] term_s
+let n3010_x_subst_db_4135 : func_decl =
+  symbol "decl!2147484135:FStar.Reflection.Typing.subst_db" [term_s; term_s] term_s
+let n3010_x_fuel_instrumented_4137 : func_decl =
+  symbol "decl!2147484137:FStar.Reflection.Typing.subst_match_returns.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3010_x_fuel_instrumented_4141 : func_decl =
+  symbol "decl!2147484141:FStar.Reflection.Typing.subst_term.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3010_x_fuel_instrumented_4142 : func_decl =
+  symbol "decl!2147484142:FStar.Reflection.Typing.subst_terms.fuel_instrumented" [fuel_s; term_s; term_s] term_s
+let n3010_x_subst_var_4143 : func_decl =
+  symbol "decl!2147484143:FStar.Reflection.Typing.subst_var" [term_s; term_s] term_s
+let n3010_x_term_4174 : func_decl =
+  symbol "decl!2147484174:FStar.Stubs.Reflection.Types.term" [] term_s
+let n3010_x_inspect_ln_4182 : func_decl =
+  symbol "decl!2147484182:FStar.Stubs.Reflection.V2.Builtins.inspect_ln" [term_s] term_s
+let n3010_x_pack_ln_4188 : func_decl =
+  symbol "decl!2147484188:FStar.Stubs.Reflection.V2.Builtins.pack_ln" [term_s] term_s
+let n3010_x_Tv_Abs_4257 : func_decl =
+  symbol "decl!2147484257:FStar.Stubs.Reflection.V2.Data.Tv_Abs" [term_s; term_s] term_s
+let n3010_x_Tv_Abs__body_4258 : func_decl =
+  symbol "decl!2147484258:FStar.Stubs.Reflection.V2.Data.Tv_Abs_@body" [term_s] term_s
+let n3010_x_Tv_Abs__bv_4259 : func_decl =
+  symbol "decl!2147484259:FStar.Stubs.Reflection.V2.Data.Tv_Abs_@bv" [term_s] term_s
+let n3010_x_Tv_App_4260 : func_decl =
+  symbol "decl!2147484260:FStar.Stubs.Reflection.V2.Data.Tv_App" [term_s; term_s] term_s
+let n3010_x_Tv_App__a_4261 : func_decl =
+  symbol "decl!2147484261:FStar.Stubs.Reflection.V2.Data.Tv_App_@a" [term_s] term_s
+let n3010_x_Tv_App__hd_4262 : func_decl =
+  symbol "decl!2147484262:FStar.Stubs.Reflection.V2.Data.Tv_App_@hd" [term_s] term_s
+let n3010_x_Tv_Arrow_4263 : func_decl =
+  symbol "decl!2147484263:FStar.Stubs.Reflection.V2.Data.Tv_Arrow" [term_s; term_s] term_s
+let n3010_x_Tv_Arrow__bv_4264 : func_decl =
+  symbol "decl!2147484264:FStar.Stubs.Reflection.V2.Data.Tv_Arrow_@bv" [term_s] term_s
+let n3010_x_Tv_Arrow__c_4265 : func_decl =
+  symbol "decl!2147484265:FStar.Stubs.Reflection.V2.Data.Tv_Arrow_@c" [term_s] term_s
+let n3010_x_Tv_AscribedC_4266 : func_decl =
+  symbol "decl!2147484266:FStar.Stubs.Reflection.V2.Data.Tv_AscribedC" [term_s; term_s; term_s; term_s] term_s
+let n3010_x_Tv_AscribedC__c_4267 : func_decl =
+  symbol "decl!2147484267:FStar.Stubs.Reflection.V2.Data.Tv_AscribedC_@c" [term_s] term_s
+let n3010_x_Tv_AscribedC__e_4268 : func_decl =
+  symbol "decl!2147484268:FStar.Stubs.Reflection.V2.Data.Tv_AscribedC_@e" [term_s] term_s
+let n3010_x_Tv_AscribedC__tac_4269 : func_decl =
+  symbol "decl!2147484269:FStar.Stubs.Reflection.V2.Data.Tv_AscribedC_@tac" [term_s] term_s
+let n3010_x_Tv_AscribedC__use_eq_4270 : func_decl =
+  symbol "decl!2147484270:FStar.Stubs.Reflection.V2.Data.Tv_AscribedC_@use_eq" [term_s] term_s
+let n3010_x_Tv_AscribedT_4271 : func_decl =
+  symbol "decl!2147484271:FStar.Stubs.Reflection.V2.Data.Tv_AscribedT" [term_s; term_s; term_s; term_s] term_s
+let n3010_x_Tv_AscribedT__e_4272 : func_decl =
+  symbol "decl!2147484272:FStar.Stubs.Reflection.V2.Data.Tv_AscribedT_@e" [term_s] term_s
+let n3010_x_Tv_AscribedT__t_4273 : func_decl =
+  symbol "decl!2147484273:FStar.Stubs.Reflection.V2.Data.Tv_AscribedT_@t" [term_s] term_s
+let n3010_x_Tv_AscribedT__tac_4274 : func_decl =
+  symbol "decl!2147484274:FStar.Stubs.Reflection.V2.Data.Tv_AscribedT_@tac" [term_s] term_s
+let n3010_x_Tv_AscribedT__use_eq_4275 : func_decl =
+  symbol "decl!2147484275:FStar.Stubs.Reflection.V2.Data.Tv_AscribedT_@use_eq" [term_s] term_s
+let n3010_x_Tv_BVar_4276 : func_decl =
+  symbol "decl!2147484276:FStar.Stubs.Reflection.V2.Data.Tv_BVar" [term_s] term_s
+let n3010_x_Tv_BVar__v_4277 : func_decl =
+  symbol "decl!2147484277:FStar.Stubs.Reflection.V2.Data.Tv_BVar_@v" [term_s] term_s
+let n3010_x_Tv_Let_4282 : func_decl =
+  symbol "decl!2147484282:FStar.Stubs.Reflection.V2.Data.Tv_Let" [term_s; term_s; term_s; term_s; term_s] term_s
+let n3010_x_Tv_Let__attrs_4283 : func_decl =
+  symbol "decl!2147484283:FStar.Stubs.Reflection.V2.Data.Tv_Let_@attrs" [term_s] term_s
+let n3010_x_Tv_Let__b_4284 : func_decl =
+  symbol "decl!2147484284:FStar.Stubs.Reflection.V2.Data.Tv_Let_@b" [term_s] term_s
+let n3010_x_Tv_Let__body_4285 : func_decl =
+  symbol "decl!2147484285:FStar.Stubs.Reflection.V2.Data.Tv_Let_@body" [term_s] term_s
+let n3010_x_Tv_Let__def_4286 : func_decl =
+  symbol "decl!2147484286:FStar.Stubs.Reflection.V2.Data.Tv_Let_@def" [term_s] term_s
+let n3010_x_Tv_Let__recf_4287 : func_decl =
+  symbol "decl!2147484287:FStar.Stubs.Reflection.V2.Data.Tv_Let_@recf" [term_s] term_s
+let n3010_x_Tv_Match_4288 : func_decl =
+  symbol "decl!2147484288:FStar.Stubs.Reflection.V2.Data.Tv_Match" [term_s; term_s; term_s] term_s
+let n3010_x_Tv_Match__brs_4289 : func_decl =
+  symbol "decl!2147484289:FStar.Stubs.Reflection.V2.Data.Tv_Match_@brs" [term_s] term_s
+let n3010_x_Tv_Match__ret_4290 : func_decl =
+  symbol "decl!2147484290:FStar.Stubs.Reflection.V2.Data.Tv_Match_@ret" [term_s] term_s
+let n3010_x_Tv_Match__scrutinee_4291 : func_decl =
+  symbol "decl!2147484291:FStar.Stubs.Reflection.V2.Data.Tv_Match_@scrutinee" [term_s] term_s
+let n3010_x_Tv_Refine_4292 : func_decl =
+  symbol "decl!2147484292:FStar.Stubs.Reflection.V2.Data.Tv_Refine" [term_s; term_s] term_s
+let n3010_x_Tv_Refine__b_4293 : func_decl =
+  symbol "decl!2147484293:FStar.Stubs.Reflection.V2.Data.Tv_Refine_@b" [term_s] term_s
+let n3010_x_Tv_Refine__ref_4294 : func_decl =
+  symbol "decl!2147484294:FStar.Stubs.Reflection.V2.Data.Tv_Refine_@ref" [term_s] term_s
+let n3010_x_Tv_Unknown_4300 : func_decl =
+  symbol "decl!2147484300:FStar.Stubs.Reflection.V2.Data.Tv_Unknown" [] term_s
+let n3010_x_Tv_Unsupp_4302 : func_decl =
+  symbol "decl!2147484302:FStar.Stubs.Reflection.V2.Data.Tv_Unsupp" [] term_s
+let n3010_x_Tv_Uvar_4304 : func_decl =
+  symbol "decl!2147484304:FStar.Stubs.Reflection.V2.Data.Tv_Uvar" [term_s; term_s] term_s
+let n3010_x_Tv_Uvar___0_4305 : func_decl =
+  symbol "decl!2147484305:FStar.Stubs.Reflection.V2.Data.Tv_Uvar_@_0" [term_s] term_s
+let n3010_x_Tv_Uvar___1_4306 : func_decl =
+  symbol "decl!2147484306:FStar.Stubs.Reflection.V2.Data.Tv_Uvar_@_1" [term_s] term_s
+let n3010_x_Tv_Var_4307 : func_decl =
+  symbol "decl!2147484307:FStar.Stubs.Reflection.V2.Data.Tv_Var" [term_s] term_s
+let n3010_x_Tv_Var__v_4308 : func_decl =
+  symbol "decl!2147484308:FStar.Stubs.Reflection.V2.Data.Tv_Var_@v" [term_s] term_s
+let n3010_x_aqualv_4333 : func_decl =
+  symbol "decl!2147484333:FStar.Stubs.Reflection.V2.Data.aqualv" [] term_s
+let n3010_x_match_returns_ascription_4351 : func_decl =
+  symbol "decl!2147484351:FStar.Stubs.Syntax.Syntax.match_returns_ascription" [] term_s
+let n3010_lhs : expr =
+  (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])
+    (native_num "499" 499)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Unsupp_4302
+    []))]) (Var 1 term_s) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]) (native_num "497" 497)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App
+    n3010_x_Tv_Unknown_4300 []))]) (Var 1 term_s) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "422" 422)); (eq (App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)]) (App n3010_x_Tv_Var_4307 [(App n3010_x_Tv_Var__v_4308 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])]))]) (App n3010_x_subst_var_4143 [(App n3010_x_Tv_Var__v_4308 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]) (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "427" 427));
+    (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_BVar_4276 [(App
+    n3010_x_Tv_BVar__v_4277 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_subst_db_4135
+    [(App n3010_x_Tv_BVar__v_4277 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]) (ite_
+    (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])
+    (native_num "442" 442)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_App_4260
+    [(App n3010_x_Tv_App__hd_4262 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_App__a_4261 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188
+    [(App n3010_x_Tv_App_4260 [(App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App
+    n3010_x_Tv_App__hd_4262 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App
+    n3010_x_Mktuple2_4028 [(App n3010_x_U_zero_3801 []); (App n3010_x_U_zero_3801 []); (App n3010_x_term_4174
+    []); (App n3010_x_aqualv_4333 []); (App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App
+    n3010_x_fst_4054 [(App n3010_x_U_zero_3801 []); (App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []);
+    (App n3010_x_aqualv_4333 []); (App n3010_x_Tv_App__a_4261 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (Var 0 term_s)]); (App n3010_x_snd_4058 [(App n3010_x_U_zero_3801 []); (App
+    n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []); (App n3010_x_aqualv_4333 []); (App
+    n3010_x_Tv_App__a_4261 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])])])]) (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "447" 447));
+    (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Abs_4257 [(App n3010_x_Tv_Abs__bv_4259
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Abs__body_4258 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Abs_4257
+    [(App n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Abs__bv_4259 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App n3010_x_fuel_instrumented_4141 [(Var
+    2 fuel_s); (App n3010_x_Tv_Abs__body_4258 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "452" 452)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Arrow_4263 [(App n3010_x_Tv_Arrow__bv_4264
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Arrow__c_4265 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Arrow_4263
+    [(App n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Arrow__bv_4264 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App n3010_x_fuel_instrumented_4133 [(Var
+    2 fuel_s); (App n3010_x_Tv_Arrow__c_4265 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "462" 462)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Refine_4292 [(App n3010_x_Tv_Refine__b_4293
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Refine__ref_4294 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Refine_4292
+    [(App n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Refine__b_4293 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App n3010_x_fuel_instrumented_4141 [(Var
+    2 fuel_s); (App n3010_x_Tv_Refine__ref_4294 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "472" 472)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Uvar_4304 [(App n3010_x_Tv_Uvar___0_4305 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Uvar___1_4306 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Uvar_4304 [(App
+    n3010_x_Tv_Uvar___0_4305 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_subst_ctx_uvar_and_subst_4134 [(App n3010_x_Tv_Uvar___1_4306 [(App n3010_x_inspect_ln_4182 [(Var
+    1 term_s)])]); (Var 0 term_s)])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "477" 477)); (eq (App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)]) (App n3010_x_Tv_Let_4282 [(App n3010_x_Tv_Let__recf_4287 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]); (App n3010_x_Tv_Let__attrs_4283 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]);
+    (App n3010_x_Tv_Let__b_4284 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Let__def_4286 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Let__body_4285 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_Let_4282 [(App n3010_x_Tv_Let__recf_4287 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_fuel_instrumented_4142 [(Var 2 fuel_s); (App
+    n3010_x_Tv_Let__attrs_4283 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App
+    n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Let__b_4284 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]); (Var 0 term_s)]); (ite_ (eq (App n3010_x_Tv_Let__recf_4287 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_BoxBool_3940 [R.true_expr])) (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Tv_Let__def_4286 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_shift_subst_4121 [(Var 0 term_s)])]) (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Tv_Let__def_4286 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)])); (App n3010_x_fuel_instrumented_4141 [(Var
+    2 fuel_s); (App n3010_x_Tv_Let__body_4285 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "482" 482)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Match_4288 [(App
+    n3010_x_Tv_Match__scrutinee_4291 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Match__brs_4289 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_Match_4288 [(App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s);
+    (App n3010_x_Tv_Match__scrutinee_4291 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0
+    term_s)]); (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_Match__ret_4290 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "108" 108)); (eq (App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_None_4045 [(App
+    n3010_x_None__0_4046 [(App n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3010_x_None__a_4047 [(App n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])])]))]) (App n3010_x_None_4045 [(App n3010_x_U_zero_3801 []); (App
+    n3010_x_match_returns_ascription_4351 [])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113));
+    (eq (App n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App
+    n3010_x_Some_4048 [(App n3010_x_Some__0_4049 [(App n3010_x_Tv_Match__ret_4290 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__a_4050 [(App n3010_x_Tv_Match__ret_4290
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])]))]) (App
+    n3010_x_Some_4048 [(App n3010_x_U_zero_3801 []); (App n3010_x_match_returns_ascription_4351 []); (App
+    n3010_x_fuel_instrumented_4137 [(Var 2 fuel_s); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])]) (App
+    n3010_x_Tm_unit_3922 []))); (App n3010_x_fuel_instrumented_4132 [(Var 2 fuel_s); (App
+    n3010_x_Tv_Match__brs_4289 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)])])]) (ite_
+    (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])
+    (native_num "487" 487)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App
+    n3010_x_Tv_AscribedT_4271 [(App n3010_x_Tv_AscribedT__e_4272 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])]); (App n3010_x_Tv_AscribedT__t_4273 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedT__use_eq_4275 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_AscribedT_4271 [(App n3010_x_fuel_instrumented_4141 [(Var 2
+    fuel_s); (App n3010_x_Tv_AscribedT__e_4272 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0
+    term_s)]); (App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Tv_AscribedT__t_4273 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]) (native_num "108" 108)); (eq (App n3010_x_Tv_AscribedT__tac_4274 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_None_4045 [(App n3010_x_None__0_4046 [(App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App
+    n3010_x_None__a_4047 [(App n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])])]))]) (App n3010_x_None_4045 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 [])])
+    (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedT__tac_4274 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113)); (eq (App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_Some_4048
+    [(App n3010_x_Some__0_4049 [(App n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3010_x_Some__a_4050 [(App n3010_x_Tv_AscribedT__tac_4274 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])]))]) (App
+    n3010_x_Some_4048 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []); (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])])
+    (App n3010_x_Tm_unit_3922 []))); (App n3010_x_Tv_AscribedT__use_eq_4275 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]) (native_num "492" 492)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App
+    n3010_x_Tv_AscribedC_4266 [(App n3010_x_Tv_AscribedC__e_4268 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])]); (App n3010_x_Tv_AscribedC__c_4267 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedC__use_eq_4270 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_AscribedC_4266 [(App n3010_x_fuel_instrumented_4141 [(Var 2
+    fuel_s); (App n3010_x_Tv_AscribedC__e_4268 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0
+    term_s)]); (App n3010_x_fuel_instrumented_4133 [(Var 2 fuel_s); (App n3010_x_Tv_AscribedC__c_4267 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]) (native_num "108" 108)); (eq (App n3010_x_Tv_AscribedC__tac_4269 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_None_4045 [(App n3010_x_None__0_4046 [(App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App
+    n3010_x_None__a_4047 [(App n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])])]))]) (App n3010_x_None_4045 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 [])])
+    (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedC__tac_4269 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113)); (eq (App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_Some_4048
+    [(App n3010_x_Some__0_4049 [(App n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3010_x_Some__a_4050 [(App n3010_x_Tv_AscribedC__tac_4269 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])]))]) (App
+    n3010_x_Some_4048 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []); (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])])
+    (App n3010_x_Tm_unit_3922 []))); (App n3010_x_Tv_AscribedC__use_eq_4270 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])])]) (App n3010_x_Tm_unit_3922 []))))))))))))))
+let n3010_rhs : expr =
+  (ite_ (mk_or [(mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])]) (native_num "499" 499)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App
+    n3010_x_Tv_Unsupp_4302 []))]); (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "497" 497)); (eq (App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)]) (App n3010_x_Tv_Unknown_4300 []))])]) (Var 1 term_s) (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "422" 422));
+    (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Var_4307 [(App n3010_x_Tv_Var__v_4308
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_subst_var_4143 [(App
+    n3010_x_Tv_Var__v_4308 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]) (ite_ (mk_and
+    [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "427"
+    427)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_BVar_4276 [(App
+    n3010_x_Tv_BVar__v_4277 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_subst_db_4135
+    [(App n3010_x_Tv_BVar__v_4277 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]) (ite_
+    (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])
+    (native_num "442" 442)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_App_4260
+    [(App n3010_x_Tv_App__hd_4262 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_App__a_4261 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188
+    [(App n3010_x_Tv_App_4260 [(App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App
+    n3010_x_Tv_App__hd_4262 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App
+    n3010_x_Mktuple2_4028 [(App n3010_x_U_zero_3801 []); (App n3010_x_U_zero_3801 []); (App n3010_x_term_4174
+    []); (App n3010_x_aqualv_4333 []); (App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App
+    n3010_x_fst_4054 [(App n3010_x_U_zero_3801 []); (App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []);
+    (App n3010_x_aqualv_4333 []); (App n3010_x_Tv_App__a_4261 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (Var 0 term_s)]); (App n3010_x_snd_4058 [(App n3010_x_U_zero_3801 []); (App
+    n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []); (App n3010_x_aqualv_4333 []); (App
+    n3010_x_Tv_App__a_4261 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])])])]) (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "447" 447));
+    (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Abs_4257 [(App n3010_x_Tv_Abs__bv_4259
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Abs__body_4258 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Abs_4257
+    [(App n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Abs__bv_4259 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App n3010_x_fuel_instrumented_4141 [(Var
+    2 fuel_s); (App n3010_x_Tv_Abs__body_4258 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "452" 452)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Arrow_4263 [(App n3010_x_Tv_Arrow__bv_4264
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Arrow__c_4265 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Arrow_4263
+    [(App n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Arrow__bv_4264 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App n3010_x_fuel_instrumented_4133 [(Var
+    2 fuel_s); (App n3010_x_Tv_Arrow__c_4265 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "462" 462)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Refine_4292 [(App n3010_x_Tv_Refine__b_4293
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Refine__ref_4294 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Refine_4292
+    [(App n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Refine__b_4293 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App n3010_x_fuel_instrumented_4141 [(Var
+    2 fuel_s); (App n3010_x_Tv_Refine__ref_4294 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "472" 472)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Uvar_4304 [(App n3010_x_Tv_Uvar___0_4305 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_Tv_Uvar___1_4306 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])]))]) (App n3010_x_pack_ln_4188 [(App n3010_x_Tv_Uvar_4304 [(App
+    n3010_x_Tv_Uvar___0_4305 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_subst_ctx_uvar_and_subst_4134 [(App n3010_x_Tv_Uvar___1_4306 [(App n3010_x_inspect_ln_4182 [(Var
+    1 term_s)])]); (Var 0 term_s)])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "477" 477)); (eq (App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)]) (App n3010_x_Tv_Let_4282 [(App n3010_x_Tv_Let__recf_4287 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]); (App n3010_x_Tv_Let__attrs_4283 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]);
+    (App n3010_x_Tv_Let__b_4284 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Let__def_4286 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Let__body_4285 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_Let_4282 [(App n3010_x_Tv_Let__recf_4287 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_fuel_instrumented_4142 [(Var 2 fuel_s); (App
+    n3010_x_Tv_Let__attrs_4283 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (App
+    n3010_x_fuel_instrumented_4130 [(Var 2 fuel_s); (App n3010_x_Tv_Let__b_4284 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]); (Var 0 term_s)]); (ite_ (eq (App n3010_x_Tv_Let__recf_4287 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_BoxBool_3940 [R.true_expr])) (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Tv_Let__def_4286 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App n3010_x_shift_subst_4121 [(Var 0 term_s)])]) (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Tv_Let__def_4286 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)])); (App n3010_x_fuel_instrumented_4141 [(Var
+    2 fuel_s); (App n3010_x_Tv_Let__body_4285 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_shift_subst_4121 [(Var 0 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (native_num "482" 482)); (eq (App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App n3010_x_Tv_Match_4288 [(App
+    n3010_x_Tv_Match__scrutinee_4291 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_Match__brs_4289 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_Match_4288 [(App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s);
+    (App n3010_x_Tv_Match__scrutinee_4291 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0
+    term_s)]); (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_Match__ret_4290 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "108" 108)); (eq (App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_None_4045 [(App
+    n3010_x_None__0_4046 [(App n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3010_x_None__a_4047 [(App n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])])]))]) (App n3010_x_None_4045 [(App n3010_x_U_zero_3801 []); (App
+    n3010_x_match_returns_ascription_4351 [])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113));
+    (eq (App n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App
+    n3010_x_Some_4048 [(App n3010_x_Some__0_4049 [(App n3010_x_Tv_Match__ret_4290 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__a_4050 [(App n3010_x_Tv_Match__ret_4290
+    [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])]))]) (App
+    n3010_x_Some_4048 [(App n3010_x_U_zero_3801 []); (App n3010_x_match_returns_ascription_4351 []); (App
+    n3010_x_fuel_instrumented_4137 [(Var 2 fuel_s); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_Match__ret_4290 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])]) (App
+    n3010_x_Tm_unit_3922 []))); (App n3010_x_fuel_instrumented_4132 [(Var 2 fuel_s); (App
+    n3010_x_Tv_Match__brs_4289 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)])])]) (ite_
+    (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])
+    (native_num "487" 487)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App
+    n3010_x_Tv_AscribedT_4271 [(App n3010_x_Tv_AscribedT__e_4272 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])]); (App n3010_x_Tv_AscribedT__t_4273 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedT__use_eq_4275 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_AscribedT_4271 [(App n3010_x_fuel_instrumented_4141 [(Var 2
+    fuel_s); (App n3010_x_Tv_AscribedT__e_4272 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0
+    term_s)]); (App n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Tv_AscribedT__t_4273 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]) (native_num "108" 108)); (eq (App n3010_x_Tv_AscribedT__tac_4274 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_None_4045 [(App n3010_x_None__0_4046 [(App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App
+    n3010_x_None__a_4047 [(App n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])])]))]) (App n3010_x_None_4045 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 [])])
+    (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedT__tac_4274 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113)); (eq (App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_Some_4048
+    [(App n3010_x_Some__0_4049 [(App n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3010_x_Some__a_4050 [(App n3010_x_Tv_AscribedT__tac_4274 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])]))]) (App
+    n3010_x_Some_4048 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []); (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedT__tac_4274 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])])
+    (App n3010_x_Tm_unit_3922 []))); (App n3010_x_Tv_AscribedT__use_eq_4275 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])])]) (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])]) (native_num "492" 492)); (eq (App n3010_x_inspect_ln_4182 [(Var 1 term_s)]) (App
+    n3010_x_Tv_AscribedC_4266 [(App n3010_x_Tv_AscribedC__e_4268 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])]); (App n3010_x_Tv_AscribedC__c_4267 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (App
+    n3010_x_Tv_AscribedC__use_eq_4270 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]))]) (App
+    n3010_x_pack_ln_4188 [(App n3010_x_Tv_AscribedC_4266 [(App n3010_x_fuel_instrumented_4141 [(Var 2
+    fuel_s); (App n3010_x_Tv_AscribedC__e_4268 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0
+    term_s)]); (App n3010_x_fuel_instrumented_4133 [(Var 2 fuel_s); (App n3010_x_Tv_AscribedC__c_4267 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]); (Var 0 term_s)]); (ite_ (mk_and [(eq (App
+    n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]) (native_num "108" 108)); (eq (App n3010_x_Tv_AscribedC__tac_4269 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_None_4045 [(App n3010_x_None__0_4046 [(App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App
+    n3010_x_None__a_4047 [(App n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])])]))]) (App n3010_x_None_4045 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 [])])
+    (ite_ (mk_and [(eq (App n3010_x_Term_constr_id_3830 [(App n3010_x_Tv_AscribedC__tac_4269 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]) (native_num "113" 113)); (eq (App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])]) (App n3010_x_Some_4048
+    [(App n3010_x_Some__0_4049 [(App n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1
+    term_s)])])]); (App n3010_x_Some__a_4050 [(App n3010_x_Tv_AscribedC__tac_4269 [(App
+    n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])])]))]) (App
+    n3010_x_Some_4048 [(App n3010_x_U_zero_3801 []); (App n3010_x_term_4174 []); (App
+    n3010_x_fuel_instrumented_4141 [(Var 2 fuel_s); (App n3010_x_Some__v_4051 [(App
+    n3010_x_Tv_AscribedC__tac_4269 [(App n3010_x_inspect_ln_4182 [(Var 1 term_s)])])]); (Var 0 term_s)])])
+    (App n3010_x_Tm_unit_3922 []))); (App n3010_x_Tv_AscribedC__use_eq_4270 [(App n3010_x_inspect_ln_4182
+    [(Var 1 term_s)])])])]) (App n3010_x_Tm_unit_3922 [])))))))))))))
+
+(* The certificate of a leaf `l ~ r` read at the body scope of bs: the leaf,
+   the congruence (= h l) ~ (= h r) and the quant-intro over bs (the shape
+   of the captured n447 certificate, entry for entry). *)
+let ite_cert (bs:list sort) (h l r:expr) : U.binder_certificate =
+  cert [be "rewrite" (eq l r) [];
+        be "monotonicity" (eq (eq h l) (eq h r)) [0];
+        bq "quant-intro" bs (eq (forall_ bs (eq h l)) (forall_ bs (eq h r))) [1]] 2
+
+let ite_replays (bs:list sort) (h l r:expr) : bool =
+  replays (ite_cert bs h l r) (forall_ bs (eq h l)) (forall_ bs (eq h r))
+
+let ite_pending (bs:list sort) (h l r:expr) : bool =
+  pending (ite_cert bs h l r) (forall_ bs (eq h l)) (forall_ bs (eq h r))
+
+let base1_bs : list sort = [fuel_s; term_s; term_s]
+let n447_bs : list sort = [universe_s; term_s; term_s; term_s; term_s; term_s; term_s]
+let n447_half_frac : func_decl =
+  symbol "decl!2147486341:Pulse.Lib.FractionalAnchoredPreorder.half_frac" n447_bs term_s
+let n447_h : expr =
+  App n447_half_frac [Var 6 universe_s; Var 5 term_s; Var 4 term_s; Var 3 term_s; Var 2 term_s; Var 1 term_s;
+                      Var 0 term_s]
+let n447_cert : U.binder_certificate = ite_cert n447_bs n447_h n447_lhs n447_rhs
+let n447_root_l : expr = forall_ n447_bs (eq n447_h n447_lhs)
+let n447_root_r : expr = forall_ n447_bs (eq n447_h n447_rhs)
+
+let a7_captured_pending_at_9af ()
+  : Lemma (get_sort n3021_lhs == term_s /\ get_sort n3010_lhs == term_s /\ get_sort n447_lhs == term_s /\
+           not (Z3SortedArithmetic.equivalent n3021_lhs n3021_rhs) /\
+           not (Z3SortedArithmetic.equivalent n3010_lhs n3010_rhs) /\
+           not (Z3SortedArithmetic.equivalent n447_lhs n447_rhs)) =
+  assert_norm (get_sort n3021_lhs == term_s /\ get_sort n3010_lhs == term_s /\ get_sort n447_lhs == term_s);
+  assert_norm (not (Z3SortedArithmetic.equivalent n3021_lhs n3021_rhs));
+  assert_norm (not (Z3SortedArithmetic.equivalent n3010_lhs n3010_rhs));
+  assert_norm (not (Z3SortedArithmetic.equivalent n447_lhs n447_rhs))
+
+let a7_captured_n3021 ()
+  : Lemma (NR.ite_rewritten n3021_lhs n3021_rhs /\ NR.rewrite_ok n3021_lhs n3021_rhs /\
+           ite_replays base1_bs (Var 0 term_s) n3021_lhs n3021_rhs) =
+  assert_norm (NR.ite_rewritten n3021_lhs n3021_rhs /\ NR.rewrite_ok n3021_lhs n3021_rhs);
+  assert_norm (ite_replays base1_bs (Var 0 term_s) n3021_lhs n3021_rhs)
+
+let a7_captured_n3010 ()
+  : Lemma (NR.ite_rewritten n3010_lhs n3010_rhs /\ NR.rewrite_ok n3010_lhs n3010_rhs /\
+           ite_replays base1_bs (Var 0 term_s) n3010_lhs n3010_rhs) =
+  assert_norm (NR.ite_rewritten n3010_lhs n3010_rhs /\ NR.rewrite_ok n3010_lhs n3010_rhs);
+  assert_norm (ite_replays base1_bs (Var 0 term_s) n3010_lhs n3010_rhs)
+
+let a7_captured_n447 ()
+  : Lemma (NR.ite_rewritten n447_lhs n447_rhs /\ NR.rewrite_ok n447_lhs n447_rhs /\
+           replays n447_cert n447_root_l n447_root_r) =
+  assert_norm (NR.ite_rewritten n447_lhs n447_rhs /\ NR.rewrite_ok n447_lhs n447_rhs);
+  assert_norm (replays n447_cert n447_root_l n447_root_r)
+
+(* The captured equations in EVERY Sorted model, at EVERY typed environment
+   of their scopes (NR.lemma_rewrite_at). *)
+let a7_captured_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (rho:V.environment base (S.signature s) [term_s; term_s; fuel_s])
+                      (rho':V.environment base (S.signature s) [term_s; term_s; term_s; term_s; term_s; term_s; universe_s])
+  : Lemma (NR.same_at s bc eq other [term_s; term_s; fuel_s] rho n3021_lhs n3021_rhs /\
+           NR.same_at s bc eq other [term_s; term_s; fuel_s] rho n3010_lhs n3010_rhs /\
+           NR.same_at s bc eq other [term_s; term_s; term_s; term_s; term_s; term_s; universe_s] rho' n447_lhs n447_rhs) =
+  a7_captured_n3021 (); a7_captured_n3010 (); a7_captured_n447 ();
+  assert_norm (D.scoped [term_s; term_s; fuel_s] n3021_lhs /\ D.scoped [term_s; term_s; fuel_s] n3021_rhs);
+  assert_norm (D.scoped [term_s; term_s; fuel_s] n3010_lhs /\ D.scoped [term_s; term_s; fuel_s] n3010_rhs);
+  assert_norm (D.scoped [term_s; term_s; term_s; term_s; term_s; term_s; universe_s] n447_lhs /\
+               D.scoped [term_s; term_s; term_s; term_s; term_s; term_s; universe_s] n447_rhs);
+  NR.lemma_rewrite_at s bc eq other [term_s; term_s; fuel_s] rho n3021_lhs n3021_rhs;
+  NR.lemma_rewrite_at s bc eq other [term_s; term_s; fuel_s] rho n3010_lhs n3010_rhs;
+  NR.lemma_rewrite_at s bc eq other [term_s; term_s; term_s; term_s; term_s; term_s; universe_s] rho' n447_lhs n447_rhs
+
+(* The Real boundary: the n447 leaf with the branches of its merged side
+   swapped (the Real numeral still inside) is refused by every disjunct of
+   the rewrite check and its certificate is pending; its acceptance above
+   read no Real law, and its refusal here reads none either. *)
+let n447_swapped_rhs : expr =
+  match n447_rhs with App f [c; x; y] -> App f [c; y; x] | e -> e
+
+let a7_real_boundary_mutant ()
+  : Lemma (not (NR.rewrite_ok n447_lhs n447_swapped_rhs) /\
+           pending (ite_cert n447_bs n447_h n447_lhs n447_swapped_rhs)
+                   n447_root_l (forall_ n447_bs (eq n447_h n447_swapped_rhs))) =
+  assert_norm (not (NR.rewrite_ok n447_lhs n447_swapped_rhs));
+  assert_norm (pending (ite_cert n447_bs n447_h n447_lhs n447_swapped_rhs)
+                       n447_root_l (forall_ n447_bs (eq n447_h n447_swapped_rhs)))
+
+(* Each law at every result sort, at the scope [Term] (c1 reads the
+   binder): Bool, Int, Real (opaque values: Real numerals), the
+   uninterpreted Term, the datatype Box of Z3SortedProofTests and an array
+   sort; the negated condition in both orientations, the then merge, and
+   the else merge by a binary `and`, with c1 flattened, with c1 and c2
+   flattened (the n447 shape), and by a binary `and` over a conjunction. *)
+let ic1 : expr = p_ t0
+let ic2 : expr = c_ "c2"
+let ic3 : expr = c_ "c3"
+let ic4 : expr = c_ "c4"
+
+let ite_laws (x y:expr) : list (expr & expr) = [
+  ite_ (neg ic1) x y, ite_ ic1 y x;
+  ite_ ic1 x y, ite_ (neg ic1) y x;
+  ite_ ic1 x (ite_ ic2 x y), ite_ (mk_or [ic1; ic2]) x y;
+  ite_ ic1 (ite_ ic2 x y) y, ite_ (mk_and [ic1; ic2]) x y;
+  ite_ (mk_and [ic1; ic3]) (ite_ ic2 x y) y, ite_ (mk_and [ic1; ic3; ic2]) x y;
+  ite_ (mk_and [ic1; ic3]) (ite_ (mk_and [ic2; ic4]) x y) y, ite_ (mk_and [ic1; ic3; ic2; ic4]) x y;
+  ite_ (mk_and [ic1; ic3]) (ite_ ic2 x y) y, ite_ (mk_and [mk_and [ic1; ic3]; ic2]) x y]
+
+let arr_s : sort = ArraySort [integer] term
+
+let ite_branches : list (expr & expr) = [
+  g_ "g1", g_ "g2";
+  num 1, num 2;
+  real_num "1.0" 1, real_num "2.0" 2;
+  t0, App (symbol "a" [] term) [];
+  App PT.empty [], App PT.pair [num 1; R.true_expr];
+  App (symbol "arr1" [] arr_s) [], App (symbol "arr2" [] arr_s) []]
+
+let ite_cases : list (expr & expr) = L.flatten (L.map (fun (xy:expr & expr) -> ite_laws (fst xy) (snd xy)) ite_branches)
+
+let ite_h (l:expr) : expr = App (symbol "h" [] (get_sort l)) []
+
+let a7_ok (lr:expr & expr) : bool =
+  NR.ite_rewritten (fst lr) (snd lr) && NR.rewrite_ok (fst lr) (snd lr) &&
+  ite_replays [term] (ite_h (fst lr)) (fst lr) (snd lr)
+
+let a7_every_sort ()
+  : Lemma (L.length ite_cases == 42 /\ L.for_all a7_ok ite_cases /\ L.for_all scoped_pair ite_cases) =
+  assert_norm (L.length ite_cases == 42);
+  assert_norm (L.for_all a7_ok ite_cases);
+  assert_norm (L.for_all scoped_pair ite_cases)
+
+(* ... and their equations in EVERY Sorted model, at EVERY typed
+   environment of [Term] (NR.lemma_ite_rewritten_at). *)
+let a7_valid (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+             (rho:V.environment base (S.signature s) [term])
+  : Lemma (forall (lr:expr & expr). L.memP lr ite_cases ==> NR.same_at s bc eq other [term] rho (fst lr) (snd lr)) =
+  a7_every_sort ();
+  let at (lr:expr & expr)
+    : Lemma (requires L.memP lr ite_cases) (ensures NR.same_at s bc eq other [term] rho (fst lr) (snd lr)) =
+    lemma_for_all_memP a7_ok ite_cases lr;
+    lemma_for_all_memP scoped_pair ite_cases lr;
+    NR.lemma_ite_rewritten_at s bc eq other [term] rho (fst lr) (snd lr) in
+  FStar.Classical.forall_intro (FStar.Classical.move_requires at)
+
+(* Nested binders: the negated-condition leaf (ite (not (Q x y)) y x) =
+   (ite (Q x y) x y) at the inner scope [Term; Term] (y = Var 0, x = Var 1)
+   under two nested quant-intros replays; reading Q's arguments one binder
+   off (Q y x) on the right is refused and pending. *)
+let nb_l : expr = ite_ (neg (q_ t1 t0)) t0 t1
+let nb_r : expr = ite_ (q_ t1 t0) t1 t0
+let nb_shifted : expr = ite_ (q_ t0 t1) t1 t0
+let nb_h : expr = App (symbol "h" [] term) []
+let nested_cert (l r:expr) : U.binder_certificate =
+  cert [be "rewrite" (eq l r) [];
+        be "monotonicity" (eq (eq nb_h l) (eq nb_h r)) [0];
+        bq "quant-intro" [term] (eq (forall_ [term] (eq nb_h l)) (forall_ [term] (eq nb_h r))) [1];
+        bq "quant-intro" [term] (eq (forall_ [term] (forall_ [term] (eq nb_h l)))
+                                    (forall_ [term] (forall_ [term] (eq nb_h r)))) [2]] 3
+
+let a7_nested_binders ()
+  : Lemma (replays (nested_cert nb_l nb_r) (forall_ [term] (forall_ [term] (eq nb_h nb_l)))
+                                           (forall_ [term] (forall_ [term] (eq nb_h nb_r))) /\
+           not (NR.rewrite_ok nb_l nb_shifted) /\
+           pending (nested_cert nb_l nb_shifted) (forall_ [term] (forall_ [term] (eq nb_h nb_l)))
+                                                 (forall_ [term] (forall_ [term] (eq nb_h nb_shifted)))) =
+  assert_norm (replays (nested_cert nb_l nb_r) (forall_ [term] (forall_ [term] (eq nb_h nb_l)))
+                                               (forall_ [term] (forall_ [term] (eq nb_h nb_r))));
+  assert_norm (not (NR.rewrite_ok nb_l nb_shifted));
+  assert_norm (pending (nested_cert nb_l nb_shifted) (forall_ [term] (forall_ [term] (eq nb_h nb_l)))
+                                                     (forall_ [term] (forall_ [term] (eq nb_h nb_shifted))))
+
+(* Binder order: the negated-condition leaf over x:Int, t:Term (body scope
+   [Term; Int]: Var 0 is t, Var 1 is x) replays under the quant-intro over
+   [Int; Term]; under the reversed list [Term; Int] the same body is not
+   typed (Var 1 would be the Term) and the certificate is pending. *)
+let rb_cond : expr = gt (Var 1 integer) (num 0)
+let rb_a : expr = App (symbol "a" [] term) []
+let rb_l : expr = ite_ (neg rb_cond) t0 rb_a
+let rb_r : expr = ite_ rb_cond rb_a t0
+
+let a7_binder_order ()
+  : Lemma (ite_replays [integer; term] (ite_h rb_l) rb_l rb_r /\ ite_pending [term; integer] (ite_h rb_l) rb_l rb_r) =
+  assert_norm (ite_replays [integer; term] (ite_h rb_l) rb_l rb_r);
+  assert_norm (ite_pending [term; integer] (ite_h rb_l) rb_l rb_r)
+
+(* The depth admission of the ITE laws is the regrouping's `NR.shallow`
+   (B15 normalizes its 4096-level boundary); the deep and shared guards of
+   the ITE laws run natively on both backends (test_native_bridge.ml
+   `sorted_quant_intro_ite_laws`, Z3CherryTests `qi_ite_scale`). *)
+
+(* B16 ITE law mutants over two Term binders (x = Var 0, y = Var 1) and
+   closed Boolean atoms c1, c2, c3, each refused by the whole rewrite check
+   and pending as a certificate: the merged branches swapped, the negation
+   dropped (opposite guard), `and` in place of `or` and `or` in place of
+   `and`, xor (another canonical operator), a counterfeit `or` and a
+   counterfeit `not` (same name and signature, no interpretation), a
+   dropped conjunct of a flattened `and`, a branch reading the other
+   binder (capture), a counterfeit `if` on both sides, on one side, and as
+   the nested ite; all well typed (opposite-value counter-models at an
+   environment of [Term; Term] are D10 of Z3QuantIntroCounterModelTests).
+   Finally a nested ite at ANOTHER sort is ill typed: refused by the law
+   (another declaration) and by the scope guard. *)
+let mc1 : expr = c_ "c1"
+let mc2 : expr = c_ "c2"
+let mc3 : expr = c_ "c3"
+let fake_not : func_decl = symbol "not" [bool_sort] bool_sort
+let twin_if : func_decl = symbol "if" [bool_sort; term; term] term
+let term2 : sort = BaseSort "Term2"
+
+let b16_swapped : expr & expr = ite_ mc1 t0 (ite_ mc2 t0 t1), ite_ (mk_or [mc1; mc2]) t1 t0
+let b16_guard : expr & expr = ite_ (neg mc1) t0 t1, ite_ mc1 t0 t1
+let b16_then_and : expr & expr = ite_ mc1 t0 (ite_ mc2 t0 t1), ite_ (mk_and [mc1; mc2]) t0 t1
+let b16_else_or : expr & expr = ite_ mc1 (ite_ mc2 t0 t1) t1, ite_ (mk_or [mc1; mc2]) t0 t1
+let b16_xor : expr & expr = ite_ mc1 t0 (ite_ mc2 t0 t1), ite_ (App xor_d [mc1; mc2]) t0 t1
+let b16_twin_or : expr & expr = ite_ mc1 t0 (ite_ mc2 t0 t1), ite_ (App fake_or [mc1; mc2]) t0 t1
+let b16_twin_not : expr & expr = ite_ (App fake_not [mc1]) t0 t1, ite_ mc1 t1 t0
+let b16_dropped : expr & expr = ite_ (mk_and [mc1; mc3]) (ite_ mc2 t0 t1) t1, ite_ (mk_and [mc1; mc2]) t0 t1
+let b16_capture : expr & expr = ite_ (neg mc1) t0 t1, ite_ mc1 t1 t1
+let b16_twin_if : expr & expr = App twin_if [neg mc1; t0; t1], App twin_if [mc1; t1; t0]
+let b16_mixed_if : expr & expr = ite_ (neg mc1) t0 t1, App twin_if [mc1; t1; t0]
+let b16_inner_twin : expr & expr = ite_ mc1 t0 (App twin_if [mc2; t0; t1]), ite_ (mk_or [mc1; mc2]) t0 t1
+let b16_inner_sort : expr & expr =
+  ite_ mc1 t0 (App (T.ite_decl term2) [mc2; t0; t1]), ite_ (mk_or [mc1; mc2]) t0 t1
+
+let b16_mutants : list (expr & expr) = [
+  b16_swapped; b16_guard; b16_then_and; b16_else_or; b16_xor; b16_twin_or; b16_twin_not; b16_dropped;
+  b16_capture; b16_twin_if; b16_mixed_if; b16_inner_twin]
+
+let scope2 : list sort = [term; term]
+
+let ite_refused (lr:expr & expr) : bool =
+  not (NR.ite_rewritten (fst lr) (snd lr)) && not (NR.rewrite_ok (fst lr) (snd lr)) &&
+  ite_pending scope2 nb_h (fst lr) (snd lr)
+
+let scoped2 (lr:expr & expr) : bool = D.scoped scope2 (fst lr) && D.scoped scope2 (snd lr)
+
+let b16_ite_mutants ()
+  : Lemma (L.for_all ite_refused b16_mutants /\ L.for_all scoped2 b16_mutants /\
+           ite_refused b16_inner_sort /\ not (D.scoped scope2 (fst b16_inner_sort))) =
+  assert_norm (L.for_all ite_refused b16_mutants);
+  assert_norm (L.for_all scoped2 b16_mutants);
+  assert_norm (ite_refused b16_inner_sort /\ not (D.scoped scope2 (fst b16_inner_sort)))
+
 (* ---------------------------------------------------------------------- *)
 (* B. Mutants: the actual replay verdicts                                   *)
 (* ---------------------------------------------------------------------- *)
@@ -859,3 +1724,45 @@ let c4_coverage ()
                       (U.QuantifierIntroduction (cert (L.append a1_entries [be "refl" (eq zero_index zero_index) []]) 5))));
   assert_norm (RD.certificate_covered (S.signature PT.core_schema)
                  (U.QuantifierIntroduction (cert (L.append a1_entries [be "refl" (eq zero_index zero_index) []]) 6)))
+
+(* C5 the term-ITE node and its document: the captured AnchoredReference
+   q13 node 447 certificate (the else merge by a flattened `and`, a Real
+   numeral inside a branch) is outside every other disjunct of
+   check_node_cached and the replay checks it; the refutation of its
+   negated equation is RootCertified (the Root gate reads and covers the
+   consumed certificate) and the same document over the mutant with the
+   merged branches swapped is pending. Hence the captured equation holds in
+   every root model and in the standard root model of every u and every
+   free choice uf (NR.lemma_replay through the document theorem; no Real
+   law is assumed or derived). *)
+let n447_mutant_cert : U.binder_certificate = ite_cert n447_bs n447_h n447_lhs n447_swapped_rhs
+let n447_mutant_root : expr = forall_ n447_bs (eq n447_h n447_swapped_rhs)
+
+let c5_ite_node ()
+  : Lemma (not (old_paths (qi_node n447_cert n447_root_l n447_root_r)) /\
+           SP.check_node PT.core_schema [] (qi_node n447_cert n447_root_l n447_root_r) ==
+             checked n447_root_l n447_root_r /\
+           RD.certificate_covered (S.signature PT.core_schema) (U.QuantifierIntroduction n447_cert) /\
+           RD.check_root_document PT.core_schema (refutation n447_cert n447_root_l n447_root_r) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (refutation n447_mutant_cert n447_root_l n447_mutant_root) ==
+             RD.RootPending 1) =
+  assert_norm (not (old_paths (qi_node n447_cert n447_root_l n447_root_r)));
+  assert_norm (SP.check_node PT.core_schema [] (qi_node n447_cert n447_root_l n447_root_r) ==
+               checked n447_root_l n447_root_r);
+  assert_norm (RD.certificate_covered (S.signature PT.core_schema) (U.QuantifierIntroduction n447_cert));
+  assert_norm (RD.check_root_document PT.core_schema (refutation n447_cert n447_root_l n447_root_r) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (refutation n447_mutant_cert n447_root_l n447_mutant_root) ==
+               RD.RootPending 1)
+
+let c5_valid (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures RD.root_holds u PT.core_schema i (eq n447_root_l n447_root_r)) =
+  c5_ite_node ();
+  RD.lemma_root_certified u PT.core_schema (refutation n447_cert n447_root_l n447_root_r) i;
+  assert_norm (D.scoped [] (neg (eq n447_root_l n447_root_r)));
+  lemma_not_holds u i (eq n447_root_l n447_root_r)
+
+let c5_standard (u:TR.uninterpreted) (uf:TR.symbols u PT.core_schema)
+  : Lemma (RD.root_holds u PT.core_schema (TR.standard u PT.core_schema uf) (eq n447_root_l n447_root_r)) =
+  TR.lemma_standard_root u PT.core_schema uf;
+  c5_valid u (TR.standard u PT.core_schema uf)

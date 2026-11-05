@@ -1,0 +1,7 @@
+F* 2026.09.27; Z3 4.13.3 (pinned /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3)
+head sha256 Z3RealPower.fst 4df1e4a1368203d880d59ccac77c00b0bde186c4100d2b03e80e68e50fef0198 (425 lines)
+base sha256 7819bb44d7f26e4e83cdbcc3f6e7d4166dc5f96a91c81a30b6ad2f317ee1dc5f (422 lines)
+Command (head, base analog): cd (snap)/fstar && timeout 120 fstar.exe --smt .../z3 --z3version 4.13.3 --include dep --z3rlimit 10 --cache_dir (fresh) --odir (fresh) Z3RealPower.fst
+head exit 1: Error 19 Z3RealPower.fst(213,4-213,10) SMT query timed out, in negative_rational (before the PR-changed lemma at 302)
+base exit 1: Error 19 Z3RealPower.fst(210,4-210,10) same failure
+Model: fstar.exe --smt ... --z3version 4.13.3 --z3rlimit 10 --cache_dir fresh --odir fresh PR11557ZeroBase.fst -> exit 0, all VCs discharged.

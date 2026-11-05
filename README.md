@@ -44,9 +44,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) | [![Pyodide Wheel (PyPI)](https://github.com/Z3Prover/z3/actions/workflows/pyodide-pypi.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pyodide-pypi.yml) |
 
 ### Specialized Workflows
-| Nightly Validation | Copilot Setup | Agentics Maintenance | Dispatch NFV Formal Audit |
-|--------------------|---------------|----------------------|----------------------------|
-| [![Nightly Build Validation](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml) | [![Copilot Setup Steps](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml) | [![Agentics Maintenance](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml) | [![Dispatch NFV formal audit](https://github.com/Z3Prover/z3/actions/workflows/nfv-formal-audit-dispatcher.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nfv-formal-audit-dispatcher.yml) |
+| Nightly Validation | Copilot Setup | Agentics Maintenance |
+|--------------------|---------------|----------------------|
+| [![Nightly Build Validation](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml) | [![Copilot Setup Steps](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml) | [![Agentics Maintenance](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml) |
 
 ### Follow-up / Comment Workflows
 | Determinism Linter PR Comment | Solver Determinism PR Comment | Pulse Checker Regressions |

@@ -1,8 +1,9 @@
+#include "ast/datatype_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "muz/spacer/spacer_global_generalizer.h"
 
 void tst_spacer() {
-    ast_manager m;
+    ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
     arith_util a(m);
     fp_params params;
@@ -49,4 +50,17 @@ void tst_spacer() {
 
     mdl = nullptr;
     ENSURE(!generalizer.mk_concretize_pob(*n, mdl));
+
+    datatype_util dt(m);
+    func_decl_ref fst(m), snd(m), pair(m);
+    sort_ref pair_sort = dt.mk_pair_datatype(a.mk_int(), a.mk_int(), fst, snd, pair);
+    expr_ref lhs(m.mk_app(pair.get(), x, y), m);
+    expr_ref rhs(m.mk_app(pair.get(), one, two), m);
+    expr_ref_vector lemma_cube(m);
+    lemma_cube.push_back(m.mk_not(m.mk_eq(lhs, rhs)));
+    spacer::pob_ref blocked = pt.mk_pob(nullptr, 1, 0, lemma_cube.get(0));
+    spacer::lemma_ref lem = alloc(spacer::lemma, blocked, lemma_cube, 1);
+    ENSURE(m.is_and(lem->get_expr()));
+    ENSURE(pt.add_lemma(lem.get()));
+    ENSURE(pt.get_formulas(1) == lem->get_expr());
 }

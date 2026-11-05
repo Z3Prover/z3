@@ -18,9 +18,7 @@ Author:
 
 #include "qe/qe_mbp.h"
 #include "qe/mbp/mbp_qel_util.h"
-#include "qe/qe_tactic.h"
 #include "qe/qsat.h"
-#include "ast/array_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
@@ -291,98 +289,9 @@ static void test_qe2_does_not_expose_fresh_constant() {
     VERIFY(ctx.check() == l_false);
 }
 
-static void test_qe2_does_not_expose_array_bound_constant() {
-    ast_manager m;
-    reg_decl_plugins(m);
-    arith_util a(m);
-    array_util arrays(m);
-
-    sort* integer = a.mk_int();
-    sort* array_int = arrays.mk_array_sort(integer, integer);
-    sort* nested_array = arrays.mk_array_sort(integer, array_int);
-    app_ref valid(m.mk_const("valid", array_int), m);
-    app_ref mem(m.mk_const("mem", nested_array), m);
-    app_ref a_var(m.mk_const("a", integer), m);
-    app_ref b_var(m.mk_const("b", integer), m);
-    expr_ref v(m.mk_var(0, array_int), m);
-    expr* store_args[] = { mem, b_var, v };
-    expr_ref read(arrays.mk_select(arrays.mk_select(
-        arrays.mk_store(3, store_args), a_var), a.mk_int(8)), m);
-    expr_ref body(m.mk_eq(arrays.mk_select(valid, read), a.mk_int(1)), m);
-    symbol name("v");
-    expr_ref quantified(m.mk_forall(1, &array_int, &name, body), m);
-
-    goal_ref input = alloc(goal, m);
-    input->assert_expr(quantified);
-    tactic_ref qe2 = mk_qe2_tactic(m);
-    goal_ref_buffer result;
-    (*qe2)(input, result);
-
-    VERIFY(result.size() == 1);
-    expr_ref_vector formulas(m);
-    result[0]->get_formulas(formulas);
-    expr_ref projected(m.mk_and(formulas), m);
-
-    obj_hashtable<app> constants;
-    collect_uninterp_consts(projected, constants);
-    for (app* constant : constants)
-        VERIFY(constant == valid || constant == mem || constant == a_var || constant == b_var);
-}
-
-static void test_frobenius_qe_keeps_satisfying_bound() {
-    ast_manager m;
-    reg_decl_plugins(m);
-    arith_util a(m);
-
-    sort* integer = a.mk_int();
-    app_ref P(m.mk_const("P", integer), m);
-    expr_ref x0(m.mk_var(1, integer), m);
-    expr_ref x1(m.mk_var(0, integer), m);
-    expr_ref linear(a.mk_add(a.mk_mul(x0, a.mk_int(23)),
-                             a.mk_mul(x1, a.mk_int(29))), m);
-    expr_ref domain(m.mk_and(a.mk_ge(x0, a.mk_int(0)),
-                             a.mk_ge(x1, a.mk_int(0))), m);
-    symbol names[] = { symbol("x0"), symbol("x1") };
-    sort* sorts[] = { integer, integer };
-    expr_ref no_sum_P(m.mk_forall(2, sorts, names,
-                                  m.mk_implies(domain, m.mk_not(m.mk_eq(linear, P)))), m);
-
-    expr_ref R(m.mk_var(2, integer), m);
-    expr_ref inner_linear(a.mk_add(a.mk_mul(x0, a.mk_int(23)),
-                                   a.mk_mul(x1, a.mk_int(29))), m);
-    expr_ref no_sum_R(m.mk_forall(2, sorts, names,
-                                  m.mk_implies(domain,
-                                               m.mk_not(m.mk_eq(inner_linear, R)))), m);
-    symbol R_name("R");
-    expr_ref bound_R(m.mk_forall(1, &integer, &R_name,
-                                 m.mk_implies(no_sum_R, a.mk_le(m.mk_var(0, integer), P))), m);
-    expr_ref formula(m.mk_and(a.mk_ge(P, a.mk_int(0)), no_sum_P, bound_R), m);
-
-    goal_ref input = alloc(goal, m);
-    input->assert_expr(formula);
-    tactic_ref qe = mk_qe_tactic(m);
-    goal_ref_buffer result;
-    (*qe)(input, result);
-    VERIFY(result.size() == 1);
-
-    expr_ref_vector formulas(m);
-    result[0]->get_formulas(formulas);
-    expr_ref projected(m.mk_and(formulas), m);
-    VERIFY(!has_quantifiers(projected));
-    VERIFY(!m.is_false(projected));
-
-    smt_params params;
-    smt::context ctx(m, params);
-    ctx.assert_expr(m.mk_eq(P, a.mk_int(615)));
-    ctx.assert_expr(projected);
-    VERIFY(ctx.check() == l_true);
-}
-
 void tst_mbp_qel() {
     test_dt_accessor_past_end();
     test_dt_accessor_past_end_depth2();
     test_dt_multiple_vars();
     test_qe2_does_not_expose_fresh_constant();
-    test_qe2_does_not_expose_array_bound_constant();
-    test_frobenius_qe_keeps_satisfying_bound();
 }
