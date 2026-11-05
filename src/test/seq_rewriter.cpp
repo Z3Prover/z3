@@ -64,6 +64,8 @@ static void tst_nested_sequence_assumptions() {
             expr_ref empty_outer(su.str.mk_empty(seq_seq_int), m);
             smt_params sp;
             sp.m_random_seed = seed;
+            // nseq's regex backend does not support nested sequence alphabets.
+            sp.m_string_solver = symbol("seq");
             smt::context ctx(m, sp);
 
             ctx.assert_expr(m.mk_not(m.mk_eq(

@@ -53,7 +53,7 @@ are recorded in the session artifacts and benchmark database.
 
 Remaining P0 work includes recovering the timeout/unknown cases and auditing
 snapshot invalidation beyond the covered scope transitions. The broader
-negative-containment, regex-bound, and symbolic-head
+negative-containment and symbolic-head
 work below remains open.
 
 ### P1a: empty-side disequations
@@ -110,7 +110,87 @@ tests and rebuilt CLI/Python smoke tests pass.
 The sampled add_binary and restoreIpAddresses cases remain timeout or
 unknown under nseq; wider character/conversion consistency is still open.
 The scheduling yield requested alongside P1b was already implemented
-in P0. The next independent plan item is P1c's persistent regex bounds.
+in P0. Persistent regex-bound work is recorded below.
+
+### P1c: persistent bounds before regex witnesses
+
+Membership bound propagation now runs before membership witness search.
+Previously, a failed exact-length guess could report a conditional
+conflict before the persistent bound plugin ever ran. Denghang 53910
+therefore excluded individual lengths instead of using its proven lower
+bound to refute the joint regex language.
+
+Reduced ChunkSplit 12 separately. Its empty-side disequality already
+implied positive length in the local arithmetic facet, but the outer
+arithmetic solver only knew nonnegativity. Forwarding that weaker outer
+interval still allowed repeated unsuccessful guesses. Empty-side
+disequality notification now also installs the dependency-tracked local
+membership `x in re.+(re.allchar)` for strings. This excludes empty
+witnesses without adding outer arithmetic decisions. Other sequence
+sorts retain the existing arithmetic handling; the current nseq regex
+backend does not support nested sequence alphabets.
+
+| Target | After P1b | After P1c |
+|---|---|---|
+| Denghang instance53910 | Five-second timeout | UNSAT, 0.035 seconds |
+| Norn ChunkSplit 12 | Five-second timeout | UNSAT, 0.027 seconds |
+
+Both original inputs now require one final check and one DFS node.
+Three separately logged runs take 30-43 ms for Denghang and 28-34 ms
+for ChunkSplit. The 37-input diagnostic matrix has 7 SAT, 6 UNSAT,
+9 timeouts, and 15 unknowns: these two recoveries are the only outcome
+changes from P1b. All three winning controls remain solved in
+0.026-0.037 seconds, with no invalid models or errors.
+
+The broader 290-input former-invalid-model sweep has 274 validated SAT,
+15 timeouts, and 1 unknown; zero invalid models or errors. The additional
+timeout versus the recorded P0 sweep is validWordAbbreviation/37, whose
+earlier UNSAT remains independently unconfirmed. The saved pre-P1c
+P1b executable also times out on this input at five seconds, so this
+outcome change predates P1c.
+
+Three focused regressions cover lower and upper regex length bounds,
+and the reduced ChunkSplit case with its weak outer bound. Each checks
+UNSAT within a generous deterministic resource budget, then pops the
+conflicting constraint and validates the SAT model. Negative controls
+isolate both fixes: the lower-bound case exhausts its budget without
+the ordering change; ChunkSplit still exhausts it with only that change.
+A separate assumption/core check confirms the nonempty assumption is
+necessary and that dropping it restores a valid empty-string model.
+All 116 native tests and rebuilt CLI/Python smoke tests pass.
+
+This increment does not change the existing one-shot bound cache or
+close P0's broader snapshot audit.
+
+### Broader regression repair and P2
+
+A 786-input, five-second comparison against the original c3mv executable
+exposed four regressions from the initial outer nonempty clause, and six
+reproducible regressions predating P1b. Replacing the outer clause with
+local string membership recovers the four P1c regressions. Deferring
+membership witnesses until equations and disequations settle, and
+avoiding eager conversion unfolding before cheap word refutations,
+recovers three more older regressions.
+
+Conversion refinement retains early handling for fixed values of short
+arguments, including leading-zero and two-digit conversions. Otherwise
+a finite word-search batch precedes numeric refinement; SAT leaves are
+still checked for conversion coherence. Invalid conversions need no
+positional expansion because the basic digit-language axiom already
+characterizes value -1.
+
+P2 now converts unresolved constant-character needles into local
+complement-of-contains regex memberships once word equations settle.
+Cheap matching and refutation run first, and symbolic needles retain
+their conservative handling. Substitution dependencies and scope
+rollback are preserved. Tests cover joint witnesses, occurrences across
+token boundaries, dependency cores, needle substitutions, and pop.
+
+The diagnostic set improves from 13 to 21 validated solves while
+retaining the seven recovered regressions. Three older IP-parsing
+regressions and one borderline case remain open at five seconds.
+The larger subset is diagnostic evidence, not a claim that the full
+QF_SLIA gap is closed.
 
 ## Baseline and scope
 

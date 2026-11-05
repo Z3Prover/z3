@@ -186,8 +186,9 @@ namespace seq {
         parikh          m_lengths;
         th_rewriter     m_th_rw;
         // Optional end-game witness solver, gated by
-        // smt.seq.mem_monadic_endgame. Once `f.is_satisfied()` holds, it
-        // decides all active plain memberships jointly with `seq::monadic`
+        // smt.seq.mem_monadic_endgame. Once memberships, equations and
+        // disequations are settled, it decides all active plain memberships
+        // jointly with `seq::monadic`
         // instead of asking `view_witness` for per-variable witnesses.
         // Uses a private scratch trail scoped per call.
         trail_stack     m_mon_trail;
