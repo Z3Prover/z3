@@ -166,6 +166,21 @@ namespace seq {
         m_stats.m_num_propagate++;
 
         bool changed = false;
+        // Try cheap model completion before revisiting obligations that word
+        // equations deferred without a substitution touching them.
+        if (ef.is_satisfied() && ac.assumption_facet_ref().model_completion_blocked()) {
+            for (unsigned i = 0; i < f.qhead(); ++i) {
+                auto const& nc = f.ncontains()[i];
+                if (nc.active() && all_of(nc.m_needle, [&](expr* token) {
+                        expr* character = nullptr;
+                        unsigned ch;
+                        return u.str.is_unit(token, character) && u.is_const_char(character, ch);
+                    })) {
+                    f.rewind_qhead(i);
+                    break;
+                }
+            }
+        }
         // Incremental scan over `[qhead, ncontains().size())`. Replacements
         // are appended past the current position and picked up later in the
         // same scan; `apply_subst` rewinds `qhead` when needed.
@@ -264,7 +279,26 @@ namespace seq {
                 expr_ref tail(u.re.mk_concat(needle, all), m);
                 expr_ref containing(u.re.mk_concat(all, tail), m);
                 expr_ref avoiding(u.re.mk_complement(containing), m);
-                ac.mem_facet_ref().add(str_mem(m, nc.m_haystack, view::membership(avoiding, m), nc.m_dep));
+                if (characters.size() == 1) {
+                    // A single character cannot straddle concatenation boundaries.
+                    expr* forbidden = to_app(nc.m_needle[0])->get_arg(0);
+                    for (expr* token : nc.m_haystack) {
+                        expr* character = nullptr;
+                        if (u.str.is_unit(token, character)) {
+                            if (!m.are_distinct(character, forbidden)) {
+                                expr_ref different(m.mk_not(m.mk_eq(character, forbidden)), m);
+                                ac.add_assumption(different, nc.m_dep);
+                            }
+                        }
+                        else {
+                            expr_ref_vector term(m);
+                            term.push_back(token);
+                            ac.mem_facet_ref().add(str_mem(m, term, view::membership(avoiding, m), nc.m_dep));
+                        }
+                    }
+                }
+                else
+                    ac.mem_facet_ref().add(str_mem(m, nc.m_haystack, view::membership(avoiding, m), nc.m_dep));
                 f.remove(head);
                 changed = true;
                 ++head;

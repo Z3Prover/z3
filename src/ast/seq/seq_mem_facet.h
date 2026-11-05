@@ -108,6 +108,8 @@ namespace seq {
         unsigned          m_bounds_qhead = 0;
 
         bool              m_witness_extracted = false;
+        enum class witness_phase { model_lengths, short_first, model_fallback };
+        witness_phase     m_witness_phase = witness_phase::model_lengths;
         obj_map<expr, expr*> m_witness;
         expr_ref_vector   m_witness_pin;
         ambient_context_i<eq_tree::dep_tracker>& m_ac;
@@ -152,6 +154,9 @@ namespace seq {
 
         // See m_witness/m_witness_extracted's comment above.
         bool witness_extracted() const { return m_witness_extracted; }
+        bool short_witness_pending() const { return m_witness_phase == witness_phase::short_first; }
+        bool model_witness_fallback() const { return m_witness_phase == witness_phase::model_fallback; }
+        void prefer_short_witness(bool prefer);
         void set_witness_extracted(bool v = true);
         void set_witness(expr* var, expr* w);
         bool get_witness(expr* var, expr_ref& w) const;

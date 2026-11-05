@@ -281,9 +281,331 @@ are retained in `p3-quick-v2`, `p3-errors-v2`, `p3-stringfuzz-baseline`,
 `p3-stringfuzz-final`, and `p3-subset-manifest.json` session artifacts.
 
 General symbolic-prefix derivative support is not implemented: unsupported
-residual memberships still conservatively yield unknown. Broader P2
-PyEx sweeps, the P0 snapshot audit, three older IP-parsing regressions,
-and P4's full-corpus comparison remain open.
+residual memberships still conservatively yield unknown. At P3 publication,
+broader P2 PyEx sweeps, the P0 snapshot audit, three older IP-parsing
+regressions, and P4's full-corpus comparison remained open.
+
+### P4: full-corpus evaluation and routing review
+
+The corpus evaluation and routing review are complete; the coverage and
+win-retention acceptance criteria are **not met**. No solver code or
+default routing was changed during this evaluation.
+
+The candidate is P3 commit `757648a43539c833cdf60b2390ce0392624edf3d`
+(default `nseq`). The reference is the original comparison report's master,
+`9af2dac2eed3ff805f228ef481e2105b53767b19` (default `seq`), not today's
+latest master. Both were built with MSVC 14.51.36231, CMake/Ninja Release,
+and `/O2 /Ob2 /DNDEBUG`, then frozen with recorded executable SHA-256 hashes.
+
+All 84,411 input paths match both reports. Input hashes were recorded and
+checked, and original bytes were supplied on stdin without Windows text-mode
+newline translation. Both variants used `-in -st -T:5 model_validate=true`.
+The 168,822 invocations were deterministically interleaved with seed
+20261105 across **32 total workers**, not 32 workers per variant.
+The primary sweep took 5,817.5 seconds (96 minutes 58 seconds); no external
+20-second watchdog fired. This is a matched local comparison, not a
+direct speedup comparison with the published runner or a full-corpus
+ablation of P3 alone.
+
+| Result | Current c3mv/P3 | Report master |
+|---|---:|---:|
+| SAT | 29,681 | 43,241 |
+| UNSAT | 32,402 | 32,159 |
+| Solved | **62,083** | **75,400** |
+| Timeout | 20,803 | 8,832 |
+| Unknown | 1,525 | 179 |
+| Errors / invalid models | 0 | 0 |
+| PAR-2 mean seconds | 2.745 | 1.331 |
+| Maximum reported memory, MB | 794.55 | 1,171.11 |
+
+PAR-2 uses measured per-process wall time for solved cases and ten seconds
+for every unsolved case. There are zero definite-result contradictions
+against either the local reference or the published master where definite
+answers are available. The former 290 invalid-model inputs now give
+270 validated SAT, 2 UNSAT, 17 timeouts, and 1 unknown. Model validation
+does not independently certify UNSAT; the two validWordAbbreviation
+results retain the earlier independent-confirmation limitation.
+
+There are 60,252 common solves, **1,831 current-only** solves, and
+**15,148 master-only** solves: a net deficit of **13,317**.
+The measured union is 77,231, with 7,180 unsolved by both. Neither the
+matched master's 75,400 nor the published target of 76,514 is reached.
+
+#### Retention and attribution
+
+The candidate retains **1,467 of the 1,529 original c3mv-only wins
+(95.9%)**. All 62 lost controls time out in the primary sweep.
+Each was rerun twice with the original local c3mv binary, the saved
+pre-P3 merged baseline, and the P3 candidate, with model validation:
+
+- 37 solve in both original-binary repeats but time out in both pre-P3
+  and P3 repeats: repeatable losses already present before P3.
+- 16 are not solved by the local original binary in either repeat, so
+  the published/local difference does not establish a source regression.
+- 8 are mixed or recovered results at the cutoff.
+- `20230403-webapp\str-rep\str_replace52.smt2` solves in the two pre-P3
+  repeats at 5.04-5.12 seconds of wall time but times out in the two P3
+  repeats at 5.06-5.09 seconds.
+
+The last case and `str_replace193.smt2` were additionally checked three
+times per baseline/candidate with an eight-second cap. All 12 runs solve
+in 3.0-3.3 seconds under the lower contention of these 12 jobs, with
+identical per-input resource counts, 6,120 DFS nodes, and 16 final checks.
+These checks do not establish a stable P3 search regression, and do not
+restore the 62 lost primary controls or clear the 37 inherited regressions.
+Keep all 62 in the acceptance set rather than dismissing them as noise.
+
+#### Remaining workload
+
+| Family | Master-only solves |
+|---|---:|
+| PyEx | 12,932 |
+| CVC4 Conbyte | 825 |
+| Trau Conbyte | 546 |
+| Transformed StringFuzz | 364 |
+| Z3seq Conbyte | 247 |
+| Z3str Conbyte | 97 |
+| Noetzli str-term | 36 |
+| Other families | 101 |
+
+PyEx alone accounts for 85.4% of the remaining master-only solves:
+the candidate solves 7,771/23,845 versus master's 20,424. Within PyEx,
+`httplib2-entry-disposition` contributes 12,042 master-only cases,
+`pymongo-mongoclient` 476, and `httplib2-normalize-headers` 325.
+
+Lexical operator-presence bins identify where to investigate, not proven
+causes or production routing predicates. The largest exact bin combines
+containment, selectors, and replacement: 12,734 inputs, 1,038 candidate
+solves versus 10,136 master solves, with 9,143 master-only and 45
+current-only results. The containment-plus-selectors bin adds 3,909
+master-only results. Replacement alone has not been established as the
+cause. Conversely, pure-regex inputs contribute 820 current-only solves,
+and word/length-only inputs contribute 288, with no master-only losses
+in the latter bin.
+
+A separate replay requested `:reason-unknown` for all 1,704 primary
+unknown outcomes, inserting the query before exit. It reproduced 1,524
+candidate unknowns reporting incomplete `theory nseq` and all 179
+reference unknowns reporting incomplete `theory seq`; one candidate
+replay timed out. These generic reasons do not identify a particular
+unsupported facet. Diagnostic replays do not replace primary outcomes.
+
+#### Routing decision
+
+A 288-input pilot compared default `nseq` with explicit
+`smt.string_solver=seq` on the **same frozen candidate executable**.
+It used the same five-second cap and model validation, and reported
+zero errors or definite-result contradictions:
+
+| Sample | Inputs | Default nseq solved | Explicit seq solved |
+|---|---:|---:|---:|
+| PyEx master-only cases | 128 | 0 | 128 |
+| Non-PyEx conversion master-only cases | 64 | 0 | 64 |
+| Original c3mv-only controls | 64 | 61 | 0 |
+| Pure-regex c3mv-only controls | 32 | 32 | 0 |
+
+All 96 explicit-seq failures are timeouts. Its statistics show the seq
+backend, not nseq final checks. Explicit seq is therefore a demonstrated
+workaround for these sampled gaps, but a blanket switch discards the
+sampled c3mv advantages.
+
+Offline proxies using the separate reference executable reinforce that
+tradeoff: routing selectors/conversions to the reference projects 76,412
+solves but retains only 1,020 original wins. A one-second nseq-first,
+reference-remainder portfolio projects 76,852 solves and 1,395 original
+wins. These are **not measured routing or portfolio implementations**:
+independent full-run timings do not establish a five-second combined
+budget including restarts and parsing. Do not change defaults based on
+these projections.
+
+Next, resume bounded P2 work on representative entry-disposition failures,
+tracing shared selector/replacement witnesses and their outer coherence
+constraints. Use the 37 repeatable older losses and all original wins as
+gating controls, preserving the model-coherence invariant. Any fallback
+proposal needs a separately measured same-candidate, fixed-budget pilot
+before a routing decision; it is not a substitute for the underlying fixes.
+
+The session's `p4` artifacts retain `manifest.json`, frozen binaries,
+`p4-full-v1-summary.json`, compressed per-file results, and `analysis.json`.
+Every primary run is also in `z3agent.db`, with input hashes, statistics,
+and compressed stdout/stderr. The retention, longer-cutoff, routing, and
+unknown-reason experiments have separate manifests and results; none
+overwrites the primary measurements.
+
+### P2 follow-up: deferred character avoidance
+
+The next bounded repair targets constructive negative containment in the
+shared selector/replacement decompositions, without changing defaults,
+length reconciliation, numeric-conversion scheduling, or search budgets.
+
+An obligation can be scanned while word equations are pending and left
+behind `ncontains_facet`'s cursor. If those equations later settle without
+substituting into that obligation, the constructive regex conversion is
+never revisited. Literal obligations are now rescheduled once the equations
+are settled and cheap model completion has been attempted.
+
+For a one-character needle, negative containment distributes exactly over
+the haystack's concatenation: each sequence token excludes that character,
+and each symbolic unit contributes a character disequality. The sequence
+constraints retain the original dependency; character constraints are also
+exported as assumptions so the outer model agrees. This avoids giving the
+joint regex solver unsupported symbolic-character heads. Multi-character
+needles retain the whole-haystack constraint, preserving matches across
+token boundaries; symbolic needles retain their existing handling.
+
+An initial unconditional rescan gained 211 solves on a 3,226-input paired
+comparison but introduced 11 stable MongoDB/wordPattern losses. Changing
+only the regex representation did not repair them. The guarded scheduling
+policy keeps the cheap model-completion attempt ahead of rescanning and
+restores all 11 losses. The results below measure that guarded policy,
+not the rejected prototype.
+
+Focused regressions cover deferred rescheduling without a substitution,
+preserving the initial model-completion opportunity, dependency tracking,
+scope restoration, and ASCII/non-BMP character exclusions. The existing
+multi-character cross-boundary conflict remains a required control.
+The earlier P4 table describes its frozen P3 candidate, not an extrapolated
+full-corpus score for this follow-up.
+
+The pre-integration paired comparison uses the frozen P3 executable and the patched
+Release executable, recorded binary/source-patch hashes, original input
+bytes, `-T:5 model_validate=true`, and 32 total workers. Groups overlap:
+
+| Group | Inputs | Before solved | After solved |
+|---|---:|---:|---:|
+| Fresh entry-disposition master-only sample | 512 | 0 | 134 |
+| Other PyEx master-only sample | 128 | 0 | 8 |
+| Existing quick subset | 786 | 568 | 601 |
+| P3 StringFuzz/control subset | 277 | 224 | 224 |
+| All original c3mv-only controls | 1,529 | 1,466 | 1,470 |
+| All former model errors | 290 | 272 | 272 |
+| Distinct inputs, all groups | **3,226** | **2,261** | **2,439** |
+
+The 6,452 invocations take 300.6 seconds and give **178 gains, zero losses**,
+zero errors/invalid models, zero external watchdogs, and zero definite-result
+contradictions against the paired baseline, local report-master executable,
+or published master where definite. Subset PAR-2 mean falls from 3.158 to
+2.674 seconds. Former-error outcomes remain 270 validated SAT, 2 UNSAT,
+17 timeouts, and 1 unknown, with the earlier UNSAT-confirmation limitation.
+
+The representative `d369e85...` entry-disposition case changes from unknown
+at 936 ms / 661 DFS nodes to validated SAT at 161 ms / 36 nodes, with six
+final checks in both cases. This repair addresses missed constructive
+propagation, not just a timeout boundary.
+
+Three of the 37 repeatable inherited losses, all MongoDB controls
+(`29fe624...`, `caa9e0c...`, `cf2ac74...`), recover. Two additional paired
+15-input checks reproduce all three recoveries at 1.77-1.81 seconds while
+the baseline times out, and retain all 11 repaired prototype-loss controls.
+The fourth original-win gain, ReDOS `28_attack.smt2`, is cutoff-sensitive:
+the baseline also solves it in those lower-contention checks. Do not treat
+that one result as a stable algorithmic recovery.
+
+All 135 native modules pass, including the new scoped regressions.
+CLI arithmetic/help checks and Python arithmetic, selector/replacement
+model evaluation, and push/pop checks pass. The session's `p2-followup`
+artifacts retain `p2-witness-v2` manifests/results/summary, exact source
+patch and executable, native-test output, rejected probes, and repeated
+retention checks; all paired invocations are logged to `z3agent.db`.
+
+Before publication, the patch was integrated onto merged `c3mv` commit
+`6cce6af3a59fd45a752d5f369f7c6b5959a5a1af`, including its independent
+normalized-ground-prefix regex retry. Clean-base and patched Release
+executables were rebuilt, frozen, and compared on the same 3,226 inputs
+with the same five-second caps, model validation, and 32 total workers.
+This comparison isolates the follow-up from the independent base changes:
+
+| Group | Inputs | Current c3mv solved | Patched solved |
+|---|---:|---:|---:|
+| Entry-disposition sample | 512 | 0 | 134 |
+| Other PyEx sample | 128 | 0 | 8 |
+| Original c3mv-only controls | 1,529 | 1,467 | 1,469 |
+| Former model errors | 290 | 272 | 272 |
+| Distinct inputs, all groups | **3,226** | **2,262** | **2,438** |
+
+The 6,452 invocations take 300.1 seconds: **177 gains and one loss**
+(net +176), with zero errors/invalid models, external watchdogs, or
+definite-result contradictions against the paired baseline, local
+report-master, or published master. PAR-2 mean falls from 3.155 to
+2.672 seconds. All 142 sampled PyEx recoveries remain.
+
+The sole observed loss is the already cutoff-sensitive `str_replace52.smt2`.
+Three additional paired eight-second rechecks, without benchmark contention,
+all return model-validated SAT in 2.85-2.89 seconds. Both binaries use
+6,120 DFS nodes and 16 final checks; no repeatable search regression is
+established. The loss is retained in the primary five-second results.
+All 135 native modules and CLI/Python smoke checks pass again on the
+integrated tree. The `p2-publication-v1` artifacts record this comparison
+and its reference audit; `p2-publication-cutoff-v2` records the rechecks.
+
+The remaining 378/512 sampled entry-disposition failures are 376 timeouts
+and 2 unknowns. Continue tracing those shared decompositions and candidate
+feedback paths; the full PyEx gap, remaining inherited regressions, and
+overall coverage target are not claimed solved by this bounded follow-up.
+
+### Additional PyEx gains: bounded model-length witnesses
+
+The next follow-up compares against the published repair in commit
+`f221583e7ee6be9bad86b9077059c7550b9ac68a`, not against the older P3 baseline.
+Two remaining failure mechanisms are addressed:
+
+- When cheap model completion cannot construct any candidate, settled
+  literal negative-containment obligations can remain behind their cursor.
+  An explicit, trailed fallback now records that the attempt finished and
+  allows constructive propagation to resume.
+- Regex witness construction can eagerly adopt an incidental arithmetic-model
+  length of hundreds of thousands of characters. For a model length above
+  256, a speculative branch first bounds active membership variables to
+  length at most 16. These are dependency-tracked assumptions, not facts.
+  The original exact-length path remains the unchanged alternative.
+
+The length-choice phase is trailed and cloned with the membership facet.
+A pending choice is not considered a completed membership model. Focused
+tests cover successful and rejected short guesses, a required 257-character
+witness through the fallback, scope restoration, and empty completion
+attempts. Solver budgets and routing remain unchanged.
+
+A matched five-second, model-validated comparison uses 32 total workers and
+3,738 distinct inputs, including 512 fresh PyEx holdouts excluded from the
+earlier control subset. Groups overlap:
+
+| Group | Inputs | Published repair solved | New repair solved |
+|---|---:|---:|---:|
+| Existing entry-disposition sample | 512 | 134 | 139 |
+| Existing other-PyEx sample | 128 | 8 | 19 |
+| Fresh entry-disposition holdout | 384 | 97 | 104 |
+| Fresh other-PyEx holdout | 128 | 21 | 28 |
+| All original c3mv-only controls | 1,529 | 1,470 | 1,470 |
+| All former model errors | 290 | 272 | 272 |
+| Distinct inputs, all groups | **3,738** | **2,557** | **2,590** |
+
+The 7,476 invocations take 411.0 seconds: **33 gains, zero losses**, including
+**30 PyEx gains** (12 entry-disposition, 18 MongoClient) and 14 gains on the
+fresh holdouts. The other gains are two wordPattern cases and one
+StringFuzz `str-term-small-rw` case. PAR-2 mean improves from 3.388 to
+3.304 seconds. There are no errors/invalid models, external watchdogs, or
+definite-answer contradictions against the paired baseline or either master
+reference. Former-error outcomes, including the two independently unconfirmed
+UNSAT results, remain unchanged.
+
+Two further paired checks cover all 33 gains and the 11 sensitive prototype
+controls. Every new candidate remains model-validated SAT, with zero losses.
+The baseline recovers one different near-cutoff case in each check:
+wordPattern `00b9b0d...` and MongoClient `a1d2f3f...`. Thus 31 gains,
+including 29 PyEx gains, reproduce as wins in both checks; the primary
+33-gain result is not relabeled.
+
+The representative `2ba00d...` case previously asks for a 432,310-character
+witness. In the matched run it changes from timeout at 5.12 seconds and
+253 MB peak memory to validated SAT at 0.168 seconds and 21 MB. Three
+additional quiet timing runs take 82-88 ms.
+
+All 135 native modules pass. CLI arithmetic/help, Python selector/replacement
+model evaluation, and Python's actual required-257-character fallback and
+push/pop checks pass. Session artifacts retain `pyex-bounded-final-v1`,
+the two `pyex-retention-repeat` experiments, the rejected probes, and their
+source/binary/input hashes; invocations are logged to `z3agent.db`.
+No full post-fix PyEx or QF_SLIA score is extrapolated from these samples.
 
 ## Baseline and scope
 

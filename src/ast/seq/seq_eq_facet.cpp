@@ -1227,8 +1227,17 @@ namespace seq {
             rw(replaced, reduced);
             add_model_candidate(var, reduced);
         }
-        if (candidates.empty())
+        if (candidates.empty()) {
+            if (!ac.eq_facet_ref().is_satisfied() || ac.ncontains_facet_ref().is_satisfied())
+                return nullptr;
+            // Deferred exclusions must also resume when the local model
+            // cannot supply a concrete completion candidate.
+            asf.block_model_completion();
+            out = eq_tree::edge("model-completion-fallback", nullptr, true, 0);
+            has_more = true;
+            committed = true;
             return nullptr;
+        }
 
         // A model candidate is attempted at most once per path. If it does
         // not close the leaf, the explicit fallback preserves unknown
