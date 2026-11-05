@@ -693,9 +693,11 @@ CI runs the checker-only build
 [../.github/workflows/pulse-checker-build.yml](../.github/workflows/pulse-checker-build.yml)
 and the full verification
 [../.github/workflows/pulse-checker-full.yml](../.github/workflows/pulse-checker-full.yml)
-on pushes and pull requests that touch `fstar/**`, and
-[../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)
-on completed checker-only builds ([README.md](README.md#L119-L191)). By
+on pushes and pull requests that touch `fstar/**` (the checker-only build
+also for changes to
+[../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)),
+and [../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)
+on completed checker-only builds ([README.md](README.md#L119-L192)). By
 convention, every `.fst` in `tools/checker_modules.json` is verified by the
 full workflow (which also extracts all of them, as before; the checker-only
 build extracts its closure and links the same modules), every extracted module

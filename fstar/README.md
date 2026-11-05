@@ -122,10 +122,11 @@ Two independent workflows build from the same pinned toolchains
 (`.github/scripts/install-pulse-checker-toolchains.sh`, F* `v2026.10.25` and
 OCaml `5.3.0` for the OCaml executable, the separately pinned nightly and
 GCC/G++ 15 for Cherry). Both run on pushes and pull requests changing
-`fstar/**`, their own workflow file, or that script, after a successful
-default-branch **Nightly Build**, and on manual dispatch. Neither waits for
-the other, so a failing test or specification module cannot delay the
-checker packages.
+`fstar/**`, their own workflow file, or that script; the checker-only build
+also runs for changes to `pulse-checker-regressions.yml`, which consumes its
+artifacts. Both also run after a successful default-branch **Nightly Build**,
+and on manual dispatch. Neither waits for the other, so a failing test or
+specification module cannot delay the checker packages.
 
 **Build Pulse native checkers** (`.github/workflows/pulse-checker-build.yml`)
 is the checker-only build. It builds and installs that checkout's Z3 and runs
