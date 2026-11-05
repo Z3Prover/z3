@@ -107,6 +107,9 @@ let negate (r:fraction) : fraction =
 let negate_value (r:fraction)
   : Lemma (value (negate r) == zero -. value r) = ()
 
+let negation_nonzero (y:real{y =!= zero})
+  : Lemma (zero -. y =!= zero) = ()
+
 (* Constructor exhaustiveness needs one layer of inductive inversion.
    Keep the preceding field/gcd proofs at ifuel 0; this is not an increase
    of the solver resource limit or recursive-definition fuel. *)
@@ -298,7 +301,7 @@ let reciprocal_at_zero_exponent (c:classifier) (x:real)
 
 let reciprocal_at_zero_base (c:classifier) (y:real{y =!= zero})
   : Lemma (power c zero (zero -. y) == inverse (power c zero y)) =
-  assert (zero -. y =!= zero);
+  negation_nonzero y;
   zero_base c y;
   zero_base c (zero -. y);
   inverse_zero ()
