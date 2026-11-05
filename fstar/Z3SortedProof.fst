@@ -275,6 +275,19 @@ and congruent_atom (arithmetic:bool) (scope:list sort) (fuel:nat) (a b:expr)
   if D.scoped scope a && D.scoped scope b
   then congruent arithmetic false scope (atom_fuel fuel) a b else false
 
+let lemma_scoped_binary (scope:list sort) (f:func_decl) (x y:expr)
+  : Lemma (requires D.scoped scope (App f [x; y]))
+          (ensures D.scoped scope x /\ D.scoped scope y) =
+  assert (D.scoped_args scope [x; y]);
+  assert (D.scoped_args scope [y])
+
+let lemma_scoped_ternary (scope:list sort) (f:func_decl) (c x y:expr)
+  : Lemma (requires D.scoped scope (App f [c; x; y]))
+          (ensures D.scoped scope c /\ D.scoped scope x /\ D.scoped scope y) =
+  assert (D.scoped_args scope [c; x; y]);
+  assert (D.scoped_args scope [x; y]);
+  assert (D.scoped_args scope [y])
+
 let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                         (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -300,6 +313,8 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
         lemma_congruent_arguments s bc eq other scope rho arithmetic search_atoms (fuel - 1) xs ys f.domain
       else (match xs, ys with
       | [x; y], [u; v] ->
+        lemma_scoped_binary scope f x y;
+        lemma_scoped_binary scope g u v;
         assert (f = R.eq_decl (get_sort x));
         V.lemma_sort_eq (get_sort y) (get_sort x);
         V.lemma_sort_eq (get_sort u) (get_sort x);
@@ -311,6 +326,8 @@ let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
         T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho a);
         T.lemma_boolean s bc (T.evaluate_at s bc eq other scope rho b)
       | [c; x; y], [d; u; v] ->
+        lemma_scoped_ternary scope f c x y;
+        lemma_scoped_ternary scope g d u v;
         assert (T.classify f = T.Choice (get_sort x));
         assert (f = T.ite_decl (get_sort x));
         V.lemma_sort_eq (get_sort c) bool_sort;
@@ -727,13 +744,21 @@ let quantifier_equality (conclusion:expr) : bool =
     DT.propositional (B.Eq (T.cut 64 a) (T.cut 64 b))
   | _ -> false
 
+let lemma_scoped_quantifier_pair (f:func_decl) (k k':quantifier_kind) (bs bs':list sort) (t t':sort) (a b:expr)
+  : Lemma (requires D.scoped [] (App f [Quantifier k bs t a; Quantifier k' bs' t' b]))
+          (ensures D.scoped [] (Quantifier k bs t a) /\ D.scoped [] (Quantifier k' bs' t' b) /\
+                   D.scoped (L.rev bs @ []) a /\ D.scoped (L.rev bs' @ []) b) =
+  assert (D.scoped_args [] [Quantifier k bs t a; Quantifier k' bs' t' b]);
+  assert (D.scoped_args [] [Quantifier k' bs' t' b])
+
 let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (conclusion:expr)
   : Lemma (requires D.scoped [] conclusion /\ quantifier_equality conclusion)
           (ensures T.truth s bc eq other conclusion) =
   match conclusion with
-  | App _ [Quantifier k bs t a; Quantifier k' bs' t' b] ->
+  | App f [Quantifier k bs t a; Quantifier k' bs' t' b] ->
+    lemma_scoped_quantifier_pair f k k' bs bs' t t' a b;
     let sigma = S.signature s in
     let scope = L.rev bs in
     let body_scope = L.append scope [] in

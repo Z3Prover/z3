@@ -243,6 +243,13 @@ let unrelated_boolean_fact_is_rejected ()
     (Tac.norm [nbe; delta; iota; zeta; primops];
      Tac.trivial ())
 
+[@@expect_failure]
+let nbe_normalization_rejects_unrelated_boolean_fact ()
+  : Lemma (DT.boolean_consequence [shared] (App is_empty [x])) =
+  assert (DT.boolean_consequence [shared] (App is_empty [x])) by
+    (Tac.norm [nbe; delta; iota; zeta; primops];
+     Tac.trivial ())
+
 let conditional_and_shared_boolean_facts ()
   : Lemma (ensures DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y /\
                    DT.boolean_consequence
@@ -857,10 +864,13 @@ let checked_gate_clauses ()
   : Lemma (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
            K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested /\
            K.consequence core_schema [] or_intro_nested /\ K.consequence core_schema [] or_elim_two) =
-  assert_norm (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
-               K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested);
-  assert_norm (K.consequence core_schema [] or_intro_nested);
-  assert_norm (K.consequence core_schema [] or_elim_two)
+  assert (K.gate_clause or_intro_nested /\ K.gate_clause or_intro_swapped /\
+               K.gate_clause or_intro_negated /\ K.gate_clause or_elim_two /\ K.gate_clause or_elim_nested) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ());
+  assert (K.consequence core_schema [] or_intro_nested) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ());
+  assert (K.consequence core_schema [] or_elim_two) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
 (* The bounded propositional route alone refuses the nested or-intro: the
    shared h is cut at two depths into two different skeletons over more than
