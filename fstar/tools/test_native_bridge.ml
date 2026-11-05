@@ -2987,6 +2987,84 @@ let sorted_integer_farkas () =
     { node with U.conclusion = Option.get (U.classify_fact y); premises = [fact x] }))
     "typed Farkas accepted a positive conclusion literal as an assumption"
 
+(* Typed Int/Real Farkas replay (Z3SortedRealLinear.check_numeric_contradiction and the dispatch
+   K.real_farkas, tried after the unchanged Int path): marshalled native expressions, exact supplied
+   weights. Real strict bounds stay strict (0 < x < 1 is satisfiable at x = 1/2), a zero weight never
+   supplies strictness, the weights must cancel, and a counterfeit operator, a same-spelled distinct
+   constant, a dropped premise or a datatype named Real are refused; a negative inequality weight is
+   read as its magnitude, as on the Int path. A real producer proof of x > 0, x <= 0 is certified on
+   the Sorted route. *)
+let sorted_real_farkas () =
+  let module K = Z3SortedProof in
+  let module LIN = Z3SortedRealLinear in
+  let module AR = Z3SortedArithmetic in
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+    "(declare-const x Real)(declare-const y Real)(declare-const n Int)\
+     (assert (> x 0.0))(assert (<= x 0.0))(assert (< 0.0 x))(assert (< x 1.0))\
+     (assert (< x y))(assert (<= y x))(assert (<= x y))\
+     (assert (> (to_real n) 0.0))(assert (<= n 0))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let expressions = List.map (B.cached_expression st) native in
+  let pos, nonpos, low, high, lt, ge_rev, le, mixed_pos, int_nonpos = match expressions with
+    | [a; b; c; d; e; f; g; h; i] -> a, b, c, d, e, f, g, h, i
+    | _ -> failwith "expected Real Farkas regression formulas" in
+  let w n d = Z.of_int n, Z.of_int d in
+  let one = w 1 1 in
+  let check expected formulas weights =
+    require (LIN.check_numeric_contradiction schema (List.map (fun e -> true, e) formulas) weights = expected)
+      "unexpected typed Real Farkas certificate verdict" in
+  check true [pos; nonpos] [one; one];
+  check false [low; high] [one; one];
+  check false [low; high] [w 2 3; w 2 3];
+  check true [lt; ge_rev] [one; one];
+  check false [le; ge_rev] [one; one];
+  check false [lt; ge_rev] [w 0 1; one];
+  check true [lt; ge_rev] [w 1 2; w 2 4];
+  check false [lt; ge_rev] [w 1 2; w 3 7];
+  check false [pos; nonpos] [w 2 1; one];
+  check true [lt; ge_rev] [w (-1) 2; w 1 2];
+  check false [pos] [one];
+  check true [mixed_pos; int_nonpos] [one; one];
+  require (not (AR.check_contradiction [true, pos; true, nonpos] [one; one]))
+    "the Int Farkas path accepted Real literals";
+  let rename f e = match e with A.App (g, args) -> A.App (f g, args) | _ -> failwith "expected an application" in
+  check false [rename (fun g -> { g with A.interp = None }) pos; nonpos] [one; one];
+  let real_sort, twin = match nonpos with
+    | A.App (g, [A.App (k, []); zero]) ->
+        k.A.range, A.App (g, [A.App ({ k with A.int_params = [Z.of_int 7] }, []); zero])
+    | _ -> failwith "expected x <= 0" in
+  check false [pos; twin] [one; one];
+  let fact formula = { U.conclusion = Option.get (U.classify_fact formula); hypotheses = [] } in
+  let node weights premises =
+    { U.kind = U.ArithmeticFarkas weights; conclusion = Option.get (U.classify_fact R.false_expr);
+      premises = List.map fact premises } in
+  require (K.real_farkas schema (node [one; one] [pos; nonpos]) &&
+           not (K.arithmetic_farkas (node [one; one] [pos; nonpos])))
+    "typed Real Farkas dispatch did not replay the certificate";
+  (match K.check_node schema [] (node [one; one] [pos; nonpos]) with
+   | Some (_, pending) -> require (Z.equal pending Z.zero) "typed Real Farkas retained an obligation"
+   | None -> failwith "typed Real Farkas rejected well-sorted premises");
+  (match K.check_node schema [] (node [one; one] [low; high]) with
+   | Some (_, pending) -> require (Z.gt pending Z.zero) "satisfiable Real bounds were refuted"
+   | None -> failwith "typed Real Farkas rejected well-sorted premises");
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype) "the Real datatype schema is not a checked schema";
+  require (not (K.real_farkas real_datatype (node [one; one] [pos; nonpos])))
+    "typed Real Farkas ignored a datatype named Real";
+  let assertions, proof = unsat "(declare-const x Real)(assert (> x 0.0))(assert (<= x 0.0))" in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  require (K.check_document_epsilon schema doc = Some Z.zero)
+    "the producer's Real Farkas refutation was not certified on the Sorted route"
+
 (* The Sorted route replays the NNF certificates the producer emits (Z3NnfReplay): no
    certificate rooted at nnf-neg/nnf-pos is left pending in these proofs (negated exists,
    the synthetic ite/iff/xor/implication/nested-duality probes, a datatype binder; each
@@ -3200,6 +3278,153 @@ let sorted_quant_intro_regrouping () =
       let l, r = shape (applied 200000 a) (applied 200000 a) in
       require (not (NR.regrouped l r)) ("operands beyond the depth admission were regrouped: " ^ name))
     [ordered, "ordered"; unordered, "order-free"]
+
+(* The ITE laws of quant-intro rewrite leaves (Z3NnfReplay.ite_rewritten) at native scale, on the
+   normal stack. At sort Term, under a congruence and a quant-intro over [Term], the negated
+   condition (both orientations), the then merge by `or` and the else merge by a flattened `and`
+   replay, and so do the laws at an array and an Int result sort; their mutants (the merged
+   branches swapped, the negation dropped, `and` for `or`, a counterfeit `if` and a counterfeit
+   `or`) are pending, and none of them is accepted by the Int equivalence. Distinct guards
+   f^d(a) and f^d(b), which pointer equality cannot short-circuit: at d = 4,000 they are compared
+   (refused when they differ, accepted for an unshared equal copy); at d = 200,000 the depth
+   admission (4,096 levels) refuses them before any comparison. A shared guard with 2^16 tree
+   nodes replays with enough work and is pending without it; a shared guard whose tree has 2^60
+   nodes is pending (the leaf's charge runs out first). *)
+let sorted_quant_intro_ite_laws () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module T = Z3SortedSemantics in
+  let module AR = Z3SortedArithmetic in
+  let term = A.BaseSort "Term" in
+  let constant name sort = A.App ({ A.decl_name = name; domain = []; range = sort; interp = None; int_params = [] }, []) in
+  let connective name interp args =
+    A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+             interp = Some interp; int_params = [] }, args) in
+  let mk_or = connective "or" Z3ValueTheory.op_or and mk_and = connective "and" Z3ValueTheory.op_and in
+  let ite c x y = A.App (T.ite_decl (A.get_sort x), [c; x; y]) in
+  let all body = A.Quantifier (A.Forall_k, [term], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    let h = constant "h" (A.get_sort l) in
+    let el = R.mk_eq_expr h l and er = R.mk_eq_expr h r in
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr el er) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all el) (all er)) [1] (Some [term]) ::
+                                      padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (all el, all er)) in
+  let c i = constant ("c" ^ string_of_int i) A.bool_sort in
+  let neg = R.mk_not_expr in
+  let x = A.Var (Z.zero, term) and y = constant "y" term in
+  let laws x y = [
+    ite (neg (c 1)) x y, ite (c 1) y x;
+    ite (c 1) x y, ite (neg (c 1)) y x;
+    ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) x y;
+    ite (mk_and [c 1; c 3]) (ite (mk_and [c 2; c 4]) x y) y, ite (mk_and [c 1; c 3; c 2; c 4]) x y] in
+  let arr = A.ArraySort ([A.BaseSort "Int"], term) and int_s = A.BaseSort "Int" in
+  List.iter (fun (l, r) ->
+      require (NR.ite_rewritten l r && NR.rewrite_ok l r) "an ITE law was refused";
+      require (A.get_sort l = int_s || not (AR.equivalent l r)) "the Int equivalence accepted a non-Int ITE law";
+      require (leaf l r 0 = NR.Replayed) "an ITE law certificate was not replayed")
+    (laws x y @ laws (constant "a1" arr) (constant "a2" arr) @ laws (constant "i1" int_s) (constant "i2" int_s));
+  let twin_if = { A.decl_name = "if"; domain = [A.bool_sort; term; term]; range = term; interp = None; int_params = [] } in
+  let fake_or = { A.decl_name = "or"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  List.iter (fun (l, r, name) ->
+      require (not (NR.rewrite_ok l r) && leaf l r 0 = NR.Unreplayed) ("an ITE mutant was replayed: " ^ name))
+    [ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) y x, "swapped branches";
+     ite (neg (c 1)) x y, ite (c 1) x y, "opposite guard";
+     ite (c 1) x (ite (c 2) x y), ite (mk_and [c 1; c 2]) x y, "and for or";
+     A.App (twin_if, [neg (c 1); x; y]), A.App (twin_if, [c 1; y; x]), "counterfeit if";
+     ite (c 1) x (ite (c 2) x y), ite (A.App (fake_or, [c 1; c 2])) x y, "counterfeit or"];
+  let f = { A.decl_name = "f"; domain = [A.bool_sort]; range = A.bool_sort; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = c 10 and b = c 11 in
+  let swap g g' = ite (neg g) x y, ite g' y x in
+  let l, r = swap (applied 4000 a) (applied 4000 b) in
+  require (not (NR.ite_rewritten l r)) "distinct 4,000-deep guards were accepted";
+  require (leaf l r 200 = NR.Unreplayed) "distinct 4,000-deep guards were replayed";
+  let l, r = swap (applied 4000 a) (applied 4000 a) in
+  require (NR.ite_rewritten l r) "unshared equal 4,000-deep guards were refused";
+  require (leaf l r 200 = NR.Replayed) "unshared equal 4,000-deep guards were not replayed";
+  let l, r = swap (applied 200000 a) (applied 200000 b) in
+  require (not (NR.ite_rewritten l r)) "distinct 200,000-deep guards were accepted";
+  let l, r = swap (applied 200000 a) (applied 200000 a) in
+  require (not (NR.ite_rewritten l r)) "guards beyond the depth admission were accepted";
+  let shared = { A.decl_name = "shared"; domain = [A.bool_sort; A.bool_sort]; range = A.bool_sort;
+                 interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let wide = dag 16 a in
+  let l, r = swap wide wide in
+  require (leaf l r 2000 = NR.Replayed) "a large shared guard was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large shared guard was replayed beyond the work budget";
+  let big = dag 60 a in
+  let l, r = swap big big in
+  require (leaf l r 40 = NR.Unreplayed) "an exponential shared guard was replayed"
+
+(* The producer's premise-free closed ITE `rewrite` steps (Z3SortedProof.ite_rewrite): the
+   else-branch merge by `and` and the then-branch merge by `or` at an uninterpreted sort, at Int
+   and at a datatype are certified on the Sorted route (check_document_epsilon). On the marshalled
+   producer node itself, swapped branches, `or` for `and`, the opposite inner guard, a counterfeit
+   ite and a same-spelled twin branch stay pending, and the node is also checked on a schema
+   registering a datatype named Real (the Real gate closed: no Real law is read). *)
+let sorted_direct_ite_rewrites () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let header sort =
+    "(declare-const c Bool)(declare-const d Bool)(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")" in
+  let else_merge = "(assert (not (= (ite c (ite d x y) y) (ite (and c d) x y))))" in
+  let then_merge = "(assert (not (= (ite c x (ite d x y)) (ite (or c d) x y))))" in
+  let ite_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (l, r)) when e.P.rule = U.RewriteRule && NR.ite_rewritten l r -> Some (l, r)
+    | _ -> None in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (List.exists (fun e -> ite_step e <> None) doc.P.entries) (name ^ ": no closed ITE rewrite step");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the ITE refutation was not certified");
+    List.find_map ite_step doc.P.entries |> Option.get, schema in
+  let uninterpreted = "(declare-sort U 0)" ^ header "U" in
+  let (l, r), schema = certified "uninterpreted-else" (uninterpreted ^ else_merge) in
+  ignore (certified "uninterpreted-then" (uninterpreted ^ then_merge));
+  ignore (certified "int-else" (header "Int" ^ else_merge));
+  ignore (certified "datatype-then" ("(declare-datatypes ((B 0)) (((mk (f Int)))))" ^ header "B" ^ then_merge));
+  let node rhs = { U.kind = U.RewriteRule; conclusion = U.Equal (l, rhs); premises = [] } in
+  let pending schema rhs = match K.check_node schema [] (node rhs) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted ITE rewrite node was rejected" in
+  require (K.ite_rewrite (node r) && Z.equal (pending schema r) Z.zero) "the producer's ITE rewrite node was not checked";
+  let real_sort = A.BaseSort "Real" in
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype && not (Z3SortedReal.real_primitive real_datatype))
+    "the Real datatype schema does not close the Real gate";
+  require (Z.equal (pending real_datatype r) Z.zero) "the ITE rewrite node read the Real gate";
+  let f, guard, x, y = match r with
+    | A.App (f, [guard; x; y]) -> f, guard, x, y
+    | _ -> failwith "expected (ite (and c d) x y)" in
+  let conj, c, d = match guard with
+    | A.App (conj, [c; d]) -> conj, c, d
+    | _ -> failwith "expected (and c d)" in
+  let disj = { conj with A.decl_name = "or"; interp = Some Z3ValueTheory.op_or } in
+  let twin = match x with
+    | A.App (k, []) -> A.App ({ k with A.int_params = [Z.of_int 7] }, [])
+    | _ -> failwith "expected the constant x" in
+  List.iter (fun (rhs, name) ->
+      require (not (K.ite_rewrite (node rhs)) && Z.gt (pending schema rhs) Z.zero)
+        ("an ITE rewrite mutant was checked: " ^ name))
+    [A.App (f, [guard; y; x]), "swapped branches";
+     A.App (f, [A.App (disj, [c; d]); x; y]), "or for and";
+     A.App (f, [A.App (conj, [c; R.mk_not_expr d]); x; y]), "opposite inner guard";
+     A.App ({ f with A.interp = None }, [guard; x; y]), "counterfeit ite";
+     A.App (f, [guard; twin; y]), "twin branch"]
 
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
@@ -7001,9 +7226,12 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-real-Farkas", sorted_real_farkas;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
+     "sorted-quant-intro-ite-laws", sorted_quant_intro_ite_laws;
+     "sorted-direct-ite-rewrites", sorted_direct_ite_rewrites;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;

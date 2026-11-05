@@ -299,6 +299,69 @@ let qi_regroup_scale () : bool =
   qi_distinct_deep true &&
   qi_distinct_deep false
 
+(* The ITE laws of quant-intro rewrite leaves (Z3NnfReplay.ite_rewritten) at
+   native scale in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_quant_intro_ite_laws`): at sort Term the
+   negated condition, the then merge by `or` and the else merge by a
+   flattened `and` replay, and the then merge with its branches swapped is
+   pending. Distinct guards f^d(a) and f^d(b), which pointer equality
+   cannot short-circuit: at d = 4,000 the generated (recursive) C equality
+   compares them at the normal stack (refused when they differ, accepted
+   for an unshared equal copy); at d = 200,000 the depth admission (4,096
+   levels) refuses them before any comparison. A shared guard with 2^16
+   tree nodes replays with enough work and is pending without it; one with
+   2^60 tree nodes is pending. *)
+let qi_ite (c x y:A.expr) : A.expr = A.App (Z3SortedSemantics.ite_decl qi_term) [c; x; y]
+
+let qi_y : A.expr = A.App { A.decl_name = "y"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } []
+
+let qi_ite_leaf (l r:A.expr) (pad:nat) : Z3NnfReplay.verdict =
+  let h = A.App { A.decl_name = "h"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } [] in
+  let el = R.mk_eq_expr h l in
+  let er = R.mk_eq_expr h r in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr el er) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qi_all el) (qi_all er);
+        U.binder_premises = [1]; U.binder_sorts = Some [qi_term] } ::
+      padding pad [];
+    U.binder_root = 2 }) (U.Equal (qi_all el) (qi_all er))
+
+let qi_ite_swap (g g':A.expr) : A.expr & A.expr =
+  (qi_ite (R.mk_not_expr g) (A.Var 0 qi_term) qi_y, qi_ite g' qi_y (A.Var 0 qi_term))
+
+let qi_ite_deep () : bool =
+  let a = qi_atom "a" 0 in
+  let b = qi_atom "b" 0 in
+  let (l1, r1) = qi_ite_swap (qi_applied 4000 a) (qi_applied 4000 b) in
+  let (l2, r2) = qi_ite_swap (qi_applied 4000 a) (qi_applied 4000 a) in
+  let (l3, r3) = qi_ite_swap (qi_applied 200000 a) (qi_applied 200000 b) in
+  let (l4, r4) = qi_ite_swap (qi_applied 200000 a) (qi_applied 200000 a) in
+  not (Z3NnfReplay.ite_rewritten l1 r1) && qi_ite_leaf l1 r1 200 = Z3NnfReplay.Unreplayed &&
+  Z3NnfReplay.ite_rewritten l2 r2 && qi_ite_leaf l2 r2 200 = Z3NnfReplay.Replayed &&
+  not (Z3NnfReplay.ite_rewritten l3 r3) &&
+  not (Z3NnfReplay.ite_rewritten l4 r4)
+
+let qi_ite_scale () : bool =
+  let x = A.Var 0 qi_term in
+  let c1 = qi_atom "c" 1 in
+  let c2 = qi_atom "c" 2 in
+  let c3 = qi_atom "c" 3 in
+  let c4 = qi_atom "c" 4 in
+  let (l1, r1) = qi_ite_swap c1 c1 in
+  let l2 = qi_ite c1 x (qi_ite c2 x qi_y) in
+  let l3 = qi_ite (qi_and [c1; c3]) (qi_ite (qi_and [c2; c4]) x qi_y) qi_y in
+  let (w1, w2) = qi_ite_swap (shared_expression 16 c1) (shared_expression 16 c1) in
+  let (b1, b2) = qi_ite_swap (shared_expression 60 c1) (shared_expression 60 c1) in
+  qi_ite_leaf l1 r1 0 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf l2 (qi_ite (qi_or [c1; c2]) x qi_y) 0 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf l3 (qi_ite (qi_and [c1; c3; c2; c4]) x qi_y) 0 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf l2 (qi_ite (qi_or [c1; c2]) qi_y x) 0 = Z3NnfReplay.Unreplayed &&
+  qi_ite_deep () &&
+  qi_ite_leaf w1 w2 2000 = Z3NnfReplay.Replayed &&
+  qi_ite_leaf w1 w2 0 = Z3NnfReplay.Unreplayed &&
+  qi_ite_leaf b1 b2 40 = Z3NnfReplay.Unreplayed
+
 (* The premise-id boundary of the NNF replay is structural: forward, self,
    negative and missing (past the last entry) ids make a certificate
    Malformed and its document is rejected; a valid earlier id and one id
@@ -376,6 +439,104 @@ let name_pair_units_scale () : bool =
   pair_units_exact huge_s huge_s' && pair_units_exact huge_s huge_t &&
   pair_units_exact "é名" "é名" && pair_units_exact "é名" "é吊"
 
+(* Typed Int/Real Farkas certificates on the forced Sorted route
+   (Z3SortedProof.real_farkas inside check_document_epsilon), natively: the
+   strict conflict {x > 0, x <= 0} and {x < y, y <= x} with rational weights
+   are accepted; the satisfiable {0 < x, x < 1} (x = 1/2) and {x <= y, y <= x}
+   (x = y), a zero weight on the strict premise, non-cancelling weights, a
+   dropped premise, a counterfeit > and a same-spelled distinct constant stay
+   pending. *)
+let real_s : A.sort = A.BaseSort "Real"
+
+let real_constant (name:string) (params:list int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = real_s; A.interp = None; A.int_params = params } []
+
+let real_numeral (n:int) (d:pos) : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = real_s; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [n; d] } []
+
+let real_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = op; A.int_params = [] }
+    [a; b]
+
+let real_farkas_document (a b:A.expr) (ids:list int) (cs:list Z3LinearArithmeticAst.coefficient) : C.marshaled =
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [a; b];
+      P.entries = [{ P.rule = U.Asserted; P.formula = a; P.premise_ids = [] };
+                   { P.rule = U.Asserted; P.formula = b; P.premise_ids = [] };
+                   { P.rule = U.ArithmeticFarkas cs; P.formula = R.false_expr; P.premise_ids = ids }];
+      P.root = 2 };
+    C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let real_farkas_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let twin = real_constant "x" [7] in
+  let zero = real_numeral 0 1 in
+  let one = real_numeral 1 1 in
+  let gt = real_compare ">" (Some Z3ValueTheory.op_arith_gt) in
+  let fake_gt = real_compare ">" None in
+  let lt = real_compare "<" (Some Z3ValueTheory.op_arith_lt) in
+  let le = real_compare "<=" (Some Z3ValueTheory.op_arith_le) in
+  let check a b ids cs = C.check true (real_farkas_document a b ids cs) in
+  check (gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 0 &&
+  check (lt x y) (le y x) [0; 1] [(1, 2); (2, 4)] = Some 0 &&
+  check (lt zero x) (lt x one) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (le x y) (le y x) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (lt x y) (le y x) [0; 1] [(0, 1); (1, 1)] = Some 1 &&
+  check (lt x y) (le y x) [0; 1] [(1, 2); (3, 7)] = Some 1 &&
+  check (gt x zero) (le x zero) [0] [(1, 1)] = Some 1 &&
+  check (fake_gt x zero) (le x zero) [0; 1] [(1, 1); (1, 1)] = Some 1 &&
+  check (gt x zero) (le twin zero) [0; 1] [(1, 1); (1, 1)] = Some 1
+
+(* The producer's premise-free closed ITE rewrite steps on the forced Sorted
+   route (Z3SortedProof.ite_rewrite inside check_document_epsilon),
+   natively: the else-branch merge by `and`, the then-branch merge by `or`
+   and the negated-condition swap at an uninterpreted sort and at Real are
+   accepted, also on a schema registering a datatype named Real (the Real
+   gate closed); swapped branches, `or` for `and`, the opposite inner guard,
+   a counterfeit ite and a same-spelled twin branch stay pending. *)
+let ite_rewrite_document (schema:Z3DatatypeSignature.schema) (l r:A.expr) : C.marshaled =
+  let e = R.mk_eq_expr l r in
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr e];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr e; P.premise_ids = [] };
+                   { P.rule = U.RewriteRule; P.formula = e; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = schema }
+
+let direct_ite_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let real_box = { A.decl_name = "real-box"; A.domain = []; A.range = real_s;
+                   A.interp = Some Z3DatatypeLemma.op_constructor; A.int_params = [0; 0; 0] } in
+  let is_real_box = { A.decl_name = "is-real-box"; A.domain = [real_s]; A.range = A.bool_sort;
+                      A.interp = Some Z3DatatypeLemma.op_recognizer; A.int_params = [0; 0] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_s];
+                        Z3DatatypeSignature.cases = [{ Z3DatatypeSignature.constructor = real_box;
+                                                       Z3DatatypeSignature.recognizer = is_real_box;
+                                                       Z3DatatypeSignature.accessors = [] }] } in
+  let c = qi_atom "c" 0 in
+  let d = qi_atom "d" 0 in
+  let x = A.App { A.decl_name = "x"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [] } [] in
+  let twin = A.App { A.decl_name = "x"; A.domain = []; A.range = qi_term; A.interp = None; A.int_params = [7] } [] in
+  let rx = real_constant "x" [] in
+  let ry = real_constant "y" [] in
+  let rite (g a b:A.expr) : A.expr = A.App (Z3SortedSemantics.ite_decl real_s) [g; a; b] in
+  let fake_ite = { Z3SortedSemantics.ite_decl qi_term with A.interp = None } in
+  let check schema l r = C.check true (ite_rewrite_document schema l r) in
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite c x (qi_ite d x qi_y)) (qi_ite (qi_or [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite (R.mk_not_expr c) x qi_y) (qi_ite c qi_y x) = Some 0 &&
+  check core (rite c (rite d rx ry) ry) (rite (qi_and [c; d]) rx ry) = Some 0 &&
+  check real_datatype (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) x qi_y) = Some 0 &&
+  check real_datatype (qi_ite c x (qi_ite d x qi_y)) (qi_ite (qi_or [c; d]) x qi_y) = Some 0 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) qi_y x) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_or [c; d]) x qi_y) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; R.mk_not_expr d]) x qi_y) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (A.App fake_ite [qi_and [c; d]; x; qi_y]) = Some 1 &&
+  check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) twin qi_y) = Some 1
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -401,4 +562,7 @@ let run () : bool =
   nnf_replay_scale () &&
   nnf_premise_boundary () &&
   qi_regroup_scale () &&
+  qi_ite_scale () &&
+  real_farkas_controls () &&
+  direct_ite_controls () &&
   name_pair_units_scale ()
