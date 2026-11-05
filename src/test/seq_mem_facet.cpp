@@ -20,16 +20,22 @@ Abstract:
 #include "util/rlimit.h"
 #include "util/z3_exception.h"
 #include <iostream>
+#include <string>
 
 namespace {
 
     struct fixture {
+        struct ambient_context : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
+            using null_ambient_context::null_ambient_context;
+            theory_seq_params params;
+            theory_seq_params const& fparams() const override { return params; }
+        };
         ast_manager      m;
         seq_util         u;
         arith_util       a;
         seq_rewriter     rw;
         trail_stack      trail;
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
+        ambient_context  ac;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
         seq::sub_solver  solver;
@@ -370,6 +376,117 @@ namespace {
         bool checked = false;
         ENSURE(precheck.root_refute(mf, dep, checked) == l_false);
         ENSURE(checked);
+    }
+
+    static unsigned leaf_stat(seq::mem_leaf_split const& leaf, char const* key) {
+        statistics st;
+        leaf.collect_statistics(st);
+        for (unsigned i = 0; i < st.size(); ++i)
+            if (std::string(st.get_key(i)) == key)
+                return st.get_uint_value(i);
+        ENSURE(false);
+        return 0;
+    }
+
+    static void tst_root_witness_retention(bool disequation) {
+        fixture f;
+        f.ac.params.m_seq_monadic_leaf = true;
+        f.ac.params.m_seq_monadic_leaf_budget = 0;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", x->get_sort()), f.m);
+        expr_ref z(f.m.mk_fresh_const("z", x->get_sort()), f.m);
+        expr_ref term(f.u.str.mk_concat(x, y), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m), b(f.u.str.mk_string("b"), f.m);
+        expr_ref ab(f.u.str.mk_string("ab"), f.m), ba(f.u.str.mk_string("ba"), f.m);
+        expr_ref re_a(f.u.re.mk_to_re(a), f.m);
+        expr_ref re_ab(f.u.re.mk_to_re(ab), f.m), re_ba(f.u.re.mk_to_re(ba), f.m);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& df = f.root->facet_as<seq::deq_facet>(f.deq_id);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& af = f.root->facet_as<seq::assumption_facet>(f.assumption_id);
+        auto& dm = f.tree.dep_mgr();
+        seq::mem_leaf_split leaf(f.m, f.u, f.rw, f.ac);
+        auto settle = [&]() {
+            if (disequation)
+                df.remove_disequation_trailed(0);
+            else
+                ef.remove_equation_trailed(0);
+        };
+        for (unsigned round = 0; round < 2; ++round) {
+            f.trail.push_scope();
+            term = f.u.str.mk_concat(x, y);
+            seq::str_mem joint(f.m, term, seq::view::membership(re_ab, f.m), dm.mk_leaf(10 * round + 1));
+            seq::str_mem single(f.m, x, seq::view::membership(re_a, f.m), dm.mk_leaf(10 * round + 2));
+            mf.add(round ? single : joint);
+            mf.add(round ? joint : single);
+            term = nullptr;
+            if (disequation) {
+                expr_ref_vector lhs(f.m), rhs(f.m);
+                lhs.push_back(x);
+                rhs.push_back(z);
+                df.add_disequation(lhs, rhs);
+            }
+            else
+                ef.add_equation(x, z);
+            seq::eq_tree::dep_tracker dep = nullptr;
+            bool checked = false;
+            ENSURE(leaf.root_refute(mf, dep, checked) == l_undef && checked);
+            ENSURE(dm.contains(dep, 10 * round + 1) && dm.contains(dep, 10 * round + 2));
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == 1);
+            ENSURE(!mf.witness_extracted() && af.assumptions().empty());
+            seq::eq_tree::edge out;
+            bool has_more = false, committed = false;
+            auto pending = leaf.split(*f.root, 0, out, has_more, committed);
+            ENSURE(!pending && !committed);
+            ENSURE(ef.equations().size() == (disequation ? 0u : 1u));
+
+            f.trail.push_scope();
+            settle();
+            auto it = leaf.split(*f.root, 0, out, has_more, committed);
+            ENSURE(it && committed && has_more);
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == 1);
+            unsigned assignments = 0;
+            for (auto const& eq : ef.equations()) {
+                if (!eq.active())
+                    continue;
+                ENSURE(eq.m_lhs.size() == 1);
+                expr_ref word(f.u.str.mk_concat(eq.m_rhs.size(), eq.m_rhs.data(), x->get_sort()), f.m);
+                th_rewriter normalize(f.m);
+                normalize(word);
+                ENSURE((eq.m_lhs[0] == x && word == a) || (eq.m_lhs[0] == y && word == b));
+                ENSURE(dm.contains(eq.m_dep, 10 * round + 1) && dm.contains(eq.m_dep, 10 * round + 2));
+                if (round)
+                    ENSURE(!dm.contains(eq.m_dep, 1) && !dm.contains(eq.m_dep, 2));
+                ++assignments;
+            }
+            ENSURE(assignments == 2);
+            f.trail.pop_scope(1);
+            ENSURE(ef.equations().size() == (disequation ? 0u : 1u));
+            ENSURE(disequation ? !df.is_satisfied() : !ef.is_satisfied());
+
+            f.trail.push_scope();
+            settle();
+            ENSURE(it->next(out));
+            auto declined = leaf.split(*f.root, 0, out, has_more, committed);
+            ENSURE(!declined && !committed && ef.is_satisfied());
+            f.trail.pop_scope(1);
+            f.trail.pop_scope(1);
+            ENSURE(mf.memberships().empty() && ef.is_satisfied() && df.is_satisfied());
+            ENSURE(!mf.witness_extracted() && af.assumptions().empty());
+        }
+        ENSURE(leaf_stat(leaf, "seq-mem-leaf num committed") == 2);
+        ENSURE(leaf_stat(leaf, "seq-mem-leaf num cache hits") >= 3);
+
+        f.trail.push_scope();
+        term = f.u.str.mk_concat(x, y);
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(re_ba, f.m), dm.mk_leaf(21)));
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(re_a, f.m), dm.mk_leaf(22)));
+        seq::eq_tree::dep_tracker dep = nullptr;
+        bool checked = false;
+        ENSURE(leaf.root_refute(mf, dep, checked) == l_false && checked);
+        ENSURE(dm.contains(dep, 21) && dm.contains(dep, 22));
+        ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == 2);
+        f.trail.pop_scope(1);
     }
 
     static void tst_symbolic_unit_derivative_not_rejected() {
@@ -765,6 +882,8 @@ void tst_seq_mem_facet() {
     tst_single_var_sat();
     tst_two_var_monadic_sat();
     tst_root_refute_before_equation_substitution();
+    tst_root_witness_retention(false);
+    tst_root_witness_retention(true);
     tst_symbolic_unit_derivative_not_rejected();
     tst_witness_waits_for_word_constraints(false);
     tst_witness_waits_for_word_constraints(true);
