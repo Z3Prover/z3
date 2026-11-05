@@ -123,6 +123,10 @@ public:
 
     void operator()(goal_ref const & in,
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         (*m_imp)(in, result);
     }
 
@@ -136,5 +140,5 @@ public:
 };
 
 tactic * mk_quasi_macros_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(quasi_macros_tactic, m, p));
+    return alloc(quasi_macros_tactic, m, p);
 }

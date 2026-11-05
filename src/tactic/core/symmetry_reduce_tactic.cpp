@@ -607,7 +607,10 @@ symmetry_reduce_tactic::~symmetry_reduce_tactic() {
     
 void symmetry_reduce_tactic::operator()(goal_ref const & g, 
                                         goal_ref_buffer & result) {
-    fail_if_proof_generation("symmetry_reduce", g);
+    if (g->proofs_enabled()) {
+        result.push_back(g.get());
+        return;
+    }
     fail_if_unsat_core_generation("symmetry_reduce", g);
     fail_if_has_quantifiers("symmetry_reduce", g);
     result.reset();
@@ -621,5 +624,5 @@ void symmetry_reduce_tactic::cleanup() {
 }
 
 tactic * mk_symmetry_reduce_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(symmetry_reduce_tactic, m));
+    return alloc(symmetry_reduce_tactic, m);
 }

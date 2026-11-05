@@ -182,9 +182,11 @@ namespace {
             m_calls = 0;
         }
         void operator()(goal_ref const &g, goal_ref_buffer &result) override {
+            if (g->proofs_enabled()) {
+                result.push_back(g.get());
+                return;
+            }
             ++m_calls;
-            if (g->proofs_enabled())
-                throw tactic_exception("QF_FF certificates are not supported in v1");
             ff_encoder encoder(m);
             // Build a separate goal so unsupported input leaves the original intact.
             goal_ref out = alloc(goal, *g, true);
@@ -216,7 +218,7 @@ namespace {
     };
 }  // namespace
 tactic *mk_ff2bv_tactic(ast_manager &m, params_ref const &) {
-    return if_no_proofs(alloc(ff2bv_tactic, m));
+    return alloc(ff2bv_tactic, m);
 }
 probe *mk_has_ff_probe() {
     return alloc(has_ff_probe);

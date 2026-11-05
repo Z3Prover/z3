@@ -321,9 +321,8 @@ tactic * mk_qfnra_mixed_solver(ast_manager& m, params_ref const& p) {
 }
 
 tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
-    tactic_ref t = and_then(mk_simplify_tactic(m, p),
+    return and_then(mk_simplify_tactic(m, p),
                     mk_propagate_values_tactic(m, p),
-                    mk_qfnra_mixed_solver(m, p)
-                );
-    return cond(mk_produce_proofs_probe(), mk_smt_tactic(m, p), t.get());
+                    cond(mk_produce_proofs_probe(), mk_smt_tactic(m, p),
+                         mk_qfnra_mixed_solver(m, p)));
 }

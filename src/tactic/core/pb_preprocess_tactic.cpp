@@ -95,6 +95,10 @@ public:
     void operator()(
         goal_ref const & g, 
         goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         tactic_report report("pb-preprocess", *g);
         g->inc_depth();        
         result.push_back(g.get());       
@@ -633,5 +637,5 @@ private:
 
 
 tactic * mk_pb_preprocess_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(pb_preprocess_tactic, m));
+    return alloc(pb_preprocess_tactic, m);
 }

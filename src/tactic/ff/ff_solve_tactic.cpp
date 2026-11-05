@@ -213,6 +213,10 @@ namespace {
             m_stats.reset();
         }
         void operator()(goal_ref const &g, goal_ref_buffer &result) override {
+            if (g->proofs_enabled()) {
+                result.push_back(g.get());
+                return;
+            }
             try { solve_goal(g, result); }
             catch (tactic_exception const &) {
                 if (!m_encoding_size_failure || !smt_params_helper(p).ff_compact_retry() ||
@@ -239,8 +243,6 @@ namespace {
         void solve_goal(goal_ref const &g, goal_ref_buffer &result) {
             m_encoding_size_failure = false;
             m_encoding_work = 0;
-            if (g->proofs_enabled())
-                throw tactic_exception("QF_FF certificates are not supported in v1");
             ff_util ff(m);
             model_ref bit_model;
             lbool bit_status = l_undef;
@@ -352,5 +354,5 @@ namespace {
     };
 }  // namespace
 tactic *mk_ff_solve_tactic(ast_manager &m, params_ref const &p) {
-    return if_no_proofs(alloc(ff_solve_tactic, m, p));
+    return alloc(ff_solve_tactic, m, p);
 }

@@ -2133,7 +2133,10 @@ public:
     char const* name() const override { return "parallel_tactic"; }
 
     void operator()(const goal_ref& g, goal_ref_buffer& result) override {
-        fail_if_proof_generation("parallel_tactic", g);
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         ast_manager& m = g->m();
 
         if (m.has_trace_stream())
@@ -2225,7 +2228,7 @@ public:
 };
 
 tactic* mk_parallel_tactic(solver* s, params_ref const& p) {
-    return if_no_proofs(alloc(parallel_tactic, s, p));
+    return alloc(parallel_tactic, s, p);
 }
 
 #endif

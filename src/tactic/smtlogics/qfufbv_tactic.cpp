@@ -54,10 +54,13 @@ public:
     char const* name() const override { return "qfufbv_ackr"; }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
         fail_if_unsat_core_generation("qfufbv_ackr", g);
-        fail_if_proof_generation("qfufbv_ackr", g);
 
         TRACE(goal, g->display(tout););
         // running implementation
@@ -199,6 +202,6 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
     tactic * const preamble_t = mk_qfufbv_preamble1(m, p);
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
-    return if_no_proofs(and_then(preamble_t,
-                                cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m, p))));
+    return and_then(preamble_t,
+                    cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m, p)));
 }

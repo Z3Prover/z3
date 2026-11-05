@@ -23,11 +23,19 @@ Sequential SMT retains ordinary proof production, but leaves the goal unchanged
 instead of fabricating an asserted-false certificate when its backend refutation
 is missing or does not conclude false.
 
-The existing `if_no_proofs` tactical guards entire unsupported pipelines,
-including their preambles. Simplifier tactic adapters preserve the original
-goal, and sequential simplifier pipelines skip unsupported children, including
-inside nested custom solver pipelines. Proof-capable portfolio fallbacks remain
-available; `nra` and `qfnra` select SMT in proof mode.
+Unsupported tactic implementations check proof mode at their execution entry
+and return the unchanged goal; their factories do not wrap complete pipelines
+in `if_no_proofs`. Proof-capable preambles and subsequent stages therefore
+continue to run. `par-then` executes its children sequentially in proof mode
+instead of suppressing the chain. Simplifier tactic adapters preserve the
+original goal, and sequential simplifier pipelines skip unsupported children,
+including inside nested custom solver pipelines. Proof-capable portfolio
+fallbacks remain available; `nra` and `qfnra` run their proof-capable preambles
+before selecting SMT in proof mode.
+
+SLS remains enabled in proof mode. Its search can establish SAT or give up,
+but does not produce an UNSAT refutation or transform retained formulas;
+proof-capable transformations in its preamble remain enabled.
 
 Demodulation was repaired by #11531 and remains enabled, as do the repaired
 quantifier-pulling, bit2int and QE paths. These guards do not add proof support

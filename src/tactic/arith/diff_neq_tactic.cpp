@@ -317,7 +317,6 @@ class diff_neq_tactic : public tactic {
             m_produce_models = g->models_enabled();
             result.reset();
             tactic_report report("diff-neq", *g);
-            fail_if_proof_generation("diff-neq", g);
             fail_if_unsat_core_generation("diff-neq", g);
             if (g->inconsistent()) {
                 result.push_back(g.get());
@@ -382,6 +381,10 @@ public:
     */
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         (*m_imp)(in, result);
     }
     
@@ -395,7 +398,6 @@ public:
 };
 
 tactic * mk_diff_neq_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(diff_neq_tactic, m, p)));
+    return clean(alloc(diff_neq_tactic, m, p));
 }
-
 

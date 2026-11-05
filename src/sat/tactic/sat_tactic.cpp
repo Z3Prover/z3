@@ -57,7 +57,6 @@ class sat_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) { 
-            fail_if_proof_generation("sat", g);
             bool produce_models = g->models_enabled();
             bool produce_core = g->unsat_core_enabled();
             TRACE(before_sat_solver, g->display(tout););
@@ -235,6 +234,10 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         imp proc(g->m(), m_params, m_var2value);
         scoped_set_imp set(this, &proc);
         try {
@@ -276,7 +279,7 @@ protected:
 };
 
 tactic * mk_sat_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(sat_tactic, m, p)));
+    return clean(alloc(sat_tactic, m, p));
 }
 
 tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p) {
@@ -287,4 +290,3 @@ tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p) {
     t->updt_params(p);
     return t;
 }
-

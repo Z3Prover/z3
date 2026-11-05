@@ -457,6 +457,10 @@ public:
     char const* name() const override { return "reduce_args"; }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         fail_if_unsat_core_generation("reduce-args", g);
         result.reset();
         if (!m.proofs_enabled()) {
@@ -479,5 +483,5 @@ public:
 }
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(reduce_args_tactic, m)));
+    return clean(alloc(reduce_args_tactic, m));
 }

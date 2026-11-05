@@ -32,9 +32,12 @@ public:
     char const* name() const override { return "ackermannize_bv"; }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         tactic_report report("ackermannize_bv", *g);
         fail_if_unsat_core_generation("ackermannize", g);
-        fail_if_proof_generation("ackermannize", g);
         TRACE(goal, g->display(tout << "in\n"););
 
         ptr_vector<expr> flas;
@@ -89,5 +92,5 @@ private:
 };
 
 tactic * mk_ackermannize_bv_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(ackermannize_bv_tactic, m, p));
+    return alloc(ackermannize_bv_tactic, m, p);
 }

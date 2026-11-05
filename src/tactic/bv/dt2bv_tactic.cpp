@@ -117,6 +117,10 @@ public:
     }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();
@@ -165,5 +169,5 @@ public:
 };
 
 tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(dt2bv_tactic, m, p));
+    return alloc(dt2bv_tactic, m, p);
 }

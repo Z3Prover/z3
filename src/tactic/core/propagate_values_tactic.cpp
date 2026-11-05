@@ -234,6 +234,10 @@ public:
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         try {
             run(in, result);
         }
@@ -252,5 +256,5 @@ public:
 }
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(propagate_values_tactic, m, p));
+    return alloc(propagate_values_tactic, m, p);
 }

@@ -420,7 +420,10 @@ public:
 
 void bv_size_reduction_tactic::operator()(goal_ref const & g, 
                                           goal_ref_buffer & result) {
-    fail_if_proof_generation("bv-size-reduction", g);
+    if (g->proofs_enabled()) {
+        result.push_back(g.get());
+        return;
+    }
     fail_if_unsat_core_generation("bv-size-reduction", g);
     TRACE(goal, g->display(tout););
     result.reset();
@@ -433,5 +436,5 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
 }
 
 tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(bv_size_reduction_tactic, m)));
+    return clean(alloc(bv_size_reduction_tactic, m));
 }

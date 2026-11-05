@@ -255,8 +255,11 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         tactic_report report("elim-small-bv", *g);
-        fail_if_proof_generation("elim-small-bv", g);
         fail_if_unsat_core_generation("elim-small-bv", g);
         m_rw.cfg().m_produce_models = g->models_enabled();
 
@@ -286,5 +289,5 @@ public:
 }
 
 tactic * mk_elim_small_bv_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(elim_small_bv_tactic, m, p)));
+    return clean(alloc(elim_small_bv_tactic, m, p));
 }

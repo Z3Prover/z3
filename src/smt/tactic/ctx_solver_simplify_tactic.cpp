@@ -82,6 +82,10 @@ public:
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         reduce(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
@@ -323,5 +327,5 @@ protected:
 };
 
 tactic * mk_ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(ctx_solver_simplify_tactic, m, p)));
+    return clean(alloc(ctx_solver_simplify_tactic, m, p));
 }

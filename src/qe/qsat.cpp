@@ -1277,8 +1277,11 @@ namespace qe {
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
+            if (in->proofs_enabled()) {
+                result.push_back(in.get());
+                return;
+            }
             tactic_report report("qsat-tactic", *in);
-            fail_if_proof_generation("qsat", in);
             model_evaluator_params mp(m_params);
             if (!mp.array_equalities())
                 throw tactic_exception("array equalities cannot be disabled for qsat");
@@ -1511,13 +1514,13 @@ namespace qe {
 tactic * mk_qsat_tactic(ast_manager& m, params_ref const& p) {
     return cond(mk_and(mk_produce_proofs_probe(), mk_not(mk_has_quantifier_probe())),
                 mk_smt_tactic_core(m, p),
-                if_no_proofs(alloc(qe::qsat, m, p, qe::qsat_sat)));
+                alloc(qe::qsat, m, p, qe::qsat_sat));
 }
 
 tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {   
-    return if_no_proofs(alloc(qe::qsat, m, p, qe::qsat_qe));
+    return alloc(qe::qsat, m, p, qe::qsat_qe);
 }
 
 tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {   
-    return if_no_proofs(alloc(qe::qsat, m, p, qe::qsat_qe_rec));
+    return alloc(qe::qsat, m, p, qe::qsat_qe_rec);
 }

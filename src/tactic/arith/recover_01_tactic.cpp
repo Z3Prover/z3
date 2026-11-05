@@ -310,7 +310,6 @@ class recover_01_tactic : public tactic {
     
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            fail_if_proof_generation("recover-01", g);
             fail_if_unsat_core_generation("recover-01", g);
             m_produce_models      = g->models_enabled();
             result.reset();
@@ -412,6 +411,10 @@ public:
 
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         try {
             (*m_imp)(g, result);
         }
@@ -428,5 +431,5 @@ public:
 };
 
 tactic * mk_recover_01_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(recover_01_tactic, m, p)));
+    return clean(alloc(recover_01_tactic, m, p));
 }

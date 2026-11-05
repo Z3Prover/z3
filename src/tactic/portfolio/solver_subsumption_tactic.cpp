@@ -145,6 +145,10 @@ public:
     }
 
     void operator()(goal_ref const& g, goal_ref_buffer& result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         TRACE(tactic, tout << "params: " << m_params << "\n"; g->display(tout););
         tactic_report report("subsumption", *g);
 
@@ -177,5 +181,5 @@ public:
 };
 
 tactic* mk_solver_subsumption_tactic(ast_manager& m, params_ref const& p) {
-    return if_no_proofs(alloc(solver_subsumption_tactic, m, p));
+    return alloc(solver_subsumption_tactic, m, p);
 }

@@ -616,16 +616,12 @@ public:
     char const* name() const override { return "par_then"; }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
-        bool use_seq;
-        use_seq = false;
-        if (use_seq) {
+        if (in->proofs_enabled()) {
             // execute tasks sequentially
             and_then_tactical::operator()(in, result);
             return;
         }
 
-        // enabling proofs is possible, but requires translating subgoals back.
-        fail_if_proof_generation("par_and_then", in);
         bool proofs_enabled = in->proofs_enabled();
         bool cores_enabled  = in->unsat_core_enabled();
 
@@ -846,7 +842,7 @@ public:
 
 // Similar to and_then combinator, but t2 is applied in parallel to all subgoals produced by t1
 tactic * par_and_then(tactic * t1, tactic * t2) {
-    return if_no_proofs(alloc(par_and_then_tactical, t1, t2));
+    return alloc(par_and_then_tactical, t1, t2);
 }
 #endif
 

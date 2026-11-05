@@ -101,6 +101,10 @@ public:
 
     void operator()(/* in */  goal_ref const & in, 
                     /* out */ goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -197,4 +201,4 @@ public:
     }
 };
 
-tactic* mk_solver2tactic(solver* s) { return if_no_proofs(alloc(solver2tactic, s)); }
+tactic* mk_solver2tactic(solver* s) { return alloc(solver2tactic, s); }

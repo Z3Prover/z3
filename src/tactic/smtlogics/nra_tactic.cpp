@@ -35,18 +35,16 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
     p2.set_uint("seed", 13);
     p2.set_bool("factor", false);
 
-    tactic_ref t = and_then(
+    return and_then(
         mk_simplify_tactic(m, p),
         mk_propagate_values_tactic(m, p),
         mk_qe_lite_tactic(m),
         mk_simplify_tactic(m, p),
-        cond(mk_is_qfnra_probe(),
-             or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
-                     try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
-                     mk_qfnra_nlsat_tactic(m, p2)),
-             or_else(mk_nlqsat_tactic(m, p),
-                     mk_smt_tactic(m, p))
-             ));
-    return cond(mk_produce_proofs_probe(), mk_smt_tactic(m, p), t.get());
+        cond(mk_produce_proofs_probe(), mk_smt_tactic(m, p),
+             cond(mk_is_qfnra_probe(),
+                  or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
+                          try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
+                          mk_qfnra_nlsat_tactic(m, p2)),
+                  or_else(mk_nlqsat_tactic(m, p),
+                          mk_smt_tactic(m, p)))));
 }
-

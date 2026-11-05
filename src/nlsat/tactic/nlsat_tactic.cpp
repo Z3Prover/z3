@@ -203,8 +203,6 @@ class nlsat_tactic : public tactic {
                 return;
             }
 
-            fail_if_proof_generation("nlsat", g);
-
             TRACE(nlsat, g->display(tout););
             expr2var  a2b(m);
             expr2var  t2x(m);
@@ -300,6 +298,10 @@ public:
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
@@ -329,5 +331,5 @@ public:
 };
 
 tactic * mk_nlsat_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(nlsat_tactic, p)));
+    return clean(alloc(nlsat_tactic, p));
 }

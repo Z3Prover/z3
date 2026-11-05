@@ -185,7 +185,6 @@ class lia2pb_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
             result.reset();
@@ -321,6 +320,10 @@ public:
 
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         try {
             (*m_imp)(in, result);
         }
@@ -338,5 +341,5 @@ public:
 };
 
 tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(lia2pb_tactic, m, p)));
+    return clean(alloc(lia2pb_tactic, m, p));
 }

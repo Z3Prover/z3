@@ -904,7 +904,6 @@ private:
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
             TRACE(pb2bv, g->display(tout););
-            fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
             result.reset();
@@ -1024,6 +1023,10 @@ public:
 
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         (*m_imp)(in, result);
     }
     
@@ -1038,7 +1041,7 @@ public:
 };
 
 tactic * mk_pb2bv_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(pb2bv_tactic, m, p)));
+    return clean(alloc(pb2bv_tactic, m, p));
 }
 
 struct is_pb_probe : public probe {

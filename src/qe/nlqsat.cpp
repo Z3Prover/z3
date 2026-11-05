@@ -855,6 +855,10 @@ namespace qe {
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
+            if (in->proofs_enabled()) {
+                result.push_back(in.get());
+                return;
+            }
 
             tactic_report report("nlqsat-tactic", *in);
 
@@ -962,10 +966,9 @@ namespace qe {
 }
 
 tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p) {
-    return if_no_proofs(alloc(qe::nlqsat, m, qe::qsat_t, p));
+    return alloc(qe::nlqsat, m, qe::qsat_t, p);
 }
 
 tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p) {
-    return if_no_proofs(alloc(qe::nlqsat, m, qe::elim_t, p));
+    return alloc(qe::nlqsat, m, qe::elim_t, p);
 }
-

@@ -885,6 +885,10 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         try {
             tactic_report report("purify-arith", *g);
             TRACE(goal, g->display(tout););
@@ -917,8 +921,8 @@ tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p) {
     params_ref skolemize_p;
     skolemize_p.set_bool("skolemize", false);
 
-    return if_no_proofs(and_then(using_params(mk_snf_tactic(m, skolemize_p), skolemize_p),
-                                using_params(mk_simplify_tactic(m, elim_rem_p), elim_rem_p),
-                                alloc(purify_arith_tactic, m, p),
-                                mk_simplify_tactic(m, p)));
+    return and_then(using_params(mk_snf_tactic(m, skolemize_p), skolemize_p),
+                    using_params(mk_simplify_tactic(m, elim_rem_p), elim_rem_p),
+                    alloc(purify_arith_tactic, m, p),
+                    mk_simplify_tactic(m, p));
 }

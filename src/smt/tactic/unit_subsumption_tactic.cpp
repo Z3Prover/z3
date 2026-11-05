@@ -45,8 +45,11 @@ struct unit_subsumption_tactic : public tactic {
 
     void operator()(/* in */  goal_ref const & in, 
                     /* out */ goal_ref_buffer & result) override {  
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         tactic_report report("unit-subsume-simplify", *in);
-        fail_if_proof_generation("unit-subsume-simplify", in);
         reduce_core(in, result);
     }
 
@@ -139,5 +142,5 @@ struct unit_subsumption_tactic : public tactic {
 };
 
 tactic * mk_unit_subsumption_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(unit_subsumption_tactic, m, p));
+    return alloc(unit_subsumption_tactic, m, p);
 }

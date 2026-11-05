@@ -165,6 +165,10 @@ public:
 
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         try {
             (*m_imp)(in, result);
         }
@@ -182,5 +186,5 @@ public:
 };
 
 tactic * mk_normalize_bounds_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(clean(alloc(normalize_bounds_tactic, m, p)));
+    return clean(alloc(normalize_bounds_tactic, m, p));
 }

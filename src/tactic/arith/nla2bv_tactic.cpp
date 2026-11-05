@@ -453,7 +453,10 @@ public:
     */
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        fail_if_proof_generation("nla2bv", g);
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         fail_if_unsat_core_generation("nla2bv", g);
         result.reset();
         
@@ -470,9 +473,8 @@ public:
 };
 
 tactic * mk_nla2bv_tactic(ast_manager & m, params_ref const & p) {
-    return if_no_proofs(alloc(nla2bv_tactic, p));
+    return alloc(nla2bv_tactic, p);
 }
-
 
 
 

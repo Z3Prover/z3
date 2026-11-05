@@ -107,7 +107,10 @@ public:
     }
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        fail_if_proof_generation("aig", g);
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         tactic_report report("aig", *g);
         operator()(g);
         g->inc_depth();
@@ -119,5 +122,5 @@ public:
 };
 
 tactic * mk_aig_tactic(params_ref const & p) {
-    return if_no_proofs(clean(alloc(aig_tactic, p)));
+    return clean(alloc(aig_tactic, p));
 }

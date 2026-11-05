@@ -976,12 +976,12 @@ static void check_proof_mode_noops() {
     ENSURE(parse_smt2_commands(cmd, input));
     for (char const* name : {
         "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
-        "dt2bv", "elim-small-bv", "eq2bv", "ff-sat", "ff-solve", "ff2bv", "fix-dl-var",
-        "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
+        "dt2bv", "elim-small-bv", "eq2bv", "ff-solve", "ff2bv", "fix-dl-var",
+        "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
         "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
-        "pqffd", "psat", "psmt", "purify-arith", "qe2", "qe_rec", "qfbv-sls",
-        "qffd", "qfnra-nlsat", "qfufbv_ackr", "qsat", "quasi-macros",
-        "recover-01", "reduce-args", "reduce-bv-size", "sat", "sat-preprocess", "sls-smt",
+        "pqffd", "psat", "psmt", "qe2", "qe_rec",
+        "qffd", "qsat", "quasi-macros",
+        "recover-01", "reduce-args", "reduce-bv-size", "sat", "sat-preprocess",
         "smtfd", "solver-subsumption", "symmetry-reduce", "tseitin-cnf",
         "tseitin-cnf-core", "unit-subsume-simplify", "ctx-solver-simplify", "propagate-values",
         "blast-term-ite", "bv-slice", "bv1-blast", "bvarray2uf", "card2bv",
@@ -1058,6 +1058,114 @@ static void check_proof_mode_noops() {
             changed = result[0]->form(i) != before->form(i);
         ENSURE(changed);
         t->cleanup();
+    }
+}
+
+static void check_proof_mode_compositions() {
+    for (char const* name : {"fm", "purify-arith", "qfnra-nlsat", "nra", "qfnra", "qfufbv_ackr", "ff-sat", "par-then"}) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        tactic_manager tactics;
+        install_tactics(tactics);
+        cmd_context cmd(false, &m);
+        std::istringstream input(
+            !strcmp(name, "ff-sat") ?
+            "(define-sort F () (_ FiniteField 5))"
+            "(declare-const b Bool) (declare-const x F)"
+            "(assert (= (ite b (as ff1 F) (as ff2 F)) x))" :
+            "(declare-const x Real)"
+            "(assert (> (+ x 0.0) 0.0)) (assert (< x 0.0))");
+        ENSURE(parse_smt2_commands(cmd, input));
+        goal_ref g = alloc(goal, m, true, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        goal_ref before = alloc(goal, *g);
+        tactic_ref t = !strcmp(name, "par-then") ?
+            par_and_then(mk_simplify_tactic(m), mk_bit_blaster_tactic(m)) :
+            tactics.find_tactic_cmd(symbol(name))->mk(m);
+        goal_ref_buffer result;
+        (*t)(g, result);
+        ENSURE(result.size() == 1);
+        bool changed = result[0]->size() != before->size();
+        for (unsigned i = 0; !changed && i < before->size(); ++i)
+            changed = result[0]->form(i) != before->form(i);
+        ENSURE(changed);
+        for (unsigned i = 0; i < result[0]->size(); ++i) {
+            proof* pr = result[0]->pr(i);
+            ENSURE(pr && m.get_fact(pr) == result[0]->form(i));
+            for (expr* e : subterms::all(expr_ref(pr, m))) {
+                if (!m.is_asserted(e))
+                    continue;
+                bool original = false;
+                for (expr* a : cmd.assertions())
+                    original |= a == m.get_fact(to_app(e));
+                ENSURE(original);
+            }
+        }
+    }
+
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref zero(a.mk_real(0), m), sum(a.mk_add(x, zero), m);
+    expr_ref lower(a.mk_gt(sum, zero), m), upper(a.mk_lt(x, zero), m);
+    goal_ref g = alloc(goal, m, true, false, false);
+    g->assert_expr(lower);
+    g->assert_expr(upper);
+    tactic_ref t = and_then(mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+    model_ref md;
+    labels_vec labels;
+    proof_ref pr(m);
+    expr_dependency_ref core(m);
+    std::string reason;
+    ENSURE(check_sat(*t, g, md, labels, pr, core, reason) == l_false);
+    ENSURE(pr && m.is_false(m.get_fact(pr)));
+    proof_checker checker(m);
+    expr_ref_vector side_conditions(m);
+    ENSURE(checker.check(pr, side_conditions));
+}
+
+static void check_proof_mode_sls() {
+    for (char const* name : {"qfbv-sls", "sls-smt"}) {
+        for (bool satisfiable : {false, true}) {
+            ast_manager m(PGM_ENABLED);
+            reg_decl_plugins(m);
+            tactic_manager tactics;
+            install_tactics(tactics);
+            cmd_context cmd(false, &m);
+            std::istringstream input(
+                satisfiable ?
+                "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x1))" :
+                "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x2))");
+            ENSURE(parse_smt2_commands(cmd, input));
+            goal_ref g = alloc(goal, m, true, true, false);
+            for (expr* a : cmd.assertions())
+                g->assert_expr(a);
+            tactic_ref t = tactics.find_tactic_cmd(symbol(name))->mk(m);
+            model_ref md;
+            labels_vec labels;
+            proof_ref pr(m);
+            expr_dependency_ref core(m);
+            std::string reason;
+            lbool status;
+            {
+                scoped_rlimit limit(m.limit(), 50000);
+                status = check_sat(*t, g, md, labels, pr, core, reason);
+            }
+            ENSURE(status == (satisfiable ? l_true : l_undef));
+            if (satisfiable) {
+                ENSURE(md);
+                for (expr* assertion : cmd.assertions()) {
+                    expr_ref value(m);
+                    ENSURE(md->eval_expr(assertion, value, true));
+                    ENSURE(m.is_true(value));
+                }
+            }
+            else
+                ENSURE(!g->is_decided_unsat());
+            t->cleanup();
+        }
     }
 }
 
@@ -1157,6 +1265,8 @@ static void check_intblast_signed_mod() {
 void tst_smt_context()
 {
     check_proof_mode_noops();
+    check_proof_mode_compositions();
+    check_proof_mode_sls();
     check_proof_mode_fallbacks();
     check_integer_power(false);
     check_integer_power(true);
