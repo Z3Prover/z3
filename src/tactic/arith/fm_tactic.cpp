@@ -1575,6 +1575,7 @@ class fm_tactic : public tactic {
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
             tactic_report report("fm", *g);
+            fail_if_proof_generation("fm", g);
             m_produce_models = g->models_enabled();
             
             init(*g);
@@ -1692,10 +1693,6 @@ public:
 
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
-        if (in->proofs_enabled()) {
-            result.push_back(in.get());
-            return;
-        }
         (*m_imp)(in, result);
     }
 };

@@ -904,6 +904,7 @@ private:
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
             TRACE(pb2bv, g->display(tout););
+            fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
             result.reset();
@@ -1023,10 +1024,6 @@ public:
 
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
-        if (in->proofs_enabled()) {
-            result.push_back(in.get());
-            return;
-        }
         (*m_imp)(in, result);
     }
     

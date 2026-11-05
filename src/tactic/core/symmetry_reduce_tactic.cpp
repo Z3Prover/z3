@@ -607,10 +607,7 @@ symmetry_reduce_tactic::~symmetry_reduce_tactic() {
     
 void symmetry_reduce_tactic::operator()(goal_ref const & g, 
                                         goal_ref_buffer & result) {
-    if (g->proofs_enabled()) {
-        result.push_back(g.get());
-        return;
-    }
+    fail_if_proof_generation("symmetry_reduce", g);
     fail_if_unsat_core_generation("symmetry_reduce", g);
     fail_if_has_quantifiers("symmetry_reduce", g);
     result.reset();

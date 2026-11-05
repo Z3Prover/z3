@@ -54,13 +54,10 @@ public:
     char const* name() const override { return "qfufbv_ackr"; }
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        if (g->proofs_enabled()) {
-            result.push_back(g.get());
-            return;
-        }
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
         fail_if_unsat_core_generation("qfufbv_ackr", g);
+        fail_if_proof_generation("qfufbv_ackr", g);
 
         TRACE(goal, g->display(tout););
         // running implementation

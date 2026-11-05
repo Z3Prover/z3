@@ -835,6 +835,7 @@ class tseitin_cnf_tactic : public tactic {
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
             tactic_report report("tseitin-cnf", *g);
+            fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled(); 
 
@@ -912,10 +913,6 @@ public:
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
-        if (in->proofs_enabled()) {
-            result.push_back(in.get());
-            return;
-        }
         (*m_imp)(in, result);
         report_tactic_progress(":cnf-aux-vars", m_imp->m_num_aux_vars);
     }

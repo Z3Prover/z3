@@ -17,7 +17,6 @@ Author:
 
 #include "ast/ast_util.h"
 #include "smt/tactic/unit_subsumption_tactic.h"
-#include "tactic/tactical.h"
 #include "smt/smt_context.h"
 
 struct unit_subsumption_tactic : public tactic {
@@ -45,11 +44,8 @@ struct unit_subsumption_tactic : public tactic {
 
     void operator()(/* in */  goal_ref const & in, 
                     /* out */ goal_ref_buffer & result) override {  
-        if (in->proofs_enabled()) {
-            result.push_back(in.get());
-            return;
-        }
         tactic_report report("unit-subsume-simplify", *in);
+        fail_if_proof_generation("unit-subsume-simplify", in);
         reduce_core(in, result);
     }
 

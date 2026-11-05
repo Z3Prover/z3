@@ -249,7 +249,7 @@ static tactic * mk_preamble(ast_manager & m, params_ref const & p, bool add_nnf)
             mk_propagate_values_tactic(m),
             using_params(mk_solve_eqs_tactic(m), gaussian_p),
             mk_elim_uncnstr_tactic(m),
-            mk_bv_size_reduction_tactic(m),
+            if_no_proofs(mk_bv_size_reduction_tactic(m)),
             using_params(mk_simplify_tactic(m), simp2_p)),
         using_params(mk_simplify_tactic(m), hoist_p),
         mk_max_bv_sharing_tactic(m),

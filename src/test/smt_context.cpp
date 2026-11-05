@@ -881,8 +881,8 @@ static void check_qsat_proofs() {
             lbool expected = proofs && test.quantified ? l_undef : test.expected;
             VERIFY(expected == check_sat(*t, g, md, labels, pr, core, reason_unknown));
             if (expected == l_undef) {
-                VERIFY(reason_unknown == "unknown");
-                VERIFY(pr && m.get_fact(pr) == cmd.assertions().get(0));
+                VERIFY(reason_unknown == "qsat does not support proof production");
+                VERIFY(!pr);
             }
             else if (expected == l_true) {
                 VERIFY(md);
@@ -920,7 +920,7 @@ static void check_qe_rec_proofs() {
         proof_ref pr(m);
         expr_dependency_ref core(m);
         std::string reason_unknown;
-        tactic_ref solve = and_then(t.get(), mk_smt_tactic(m));
+        tactic_ref solve = proofs ? t.get() : and_then(t.get(), mk_smt_tactic(m));
         VERIFY(l_false == check_sat(*solve, g, md, labels, pr, core, reason_unknown));
         if (proofs) {
             VERIFY(pr && m.is_false(m.get_fact(pr)));
@@ -939,8 +939,8 @@ static void check_qe_rec_proofs() {
             g->assert_expr(a);
         if (proofs) {
             VERIFY(l_undef == check_sat(*t, g, md, labels, pr, core, reason_unknown));
-            VERIFY(reason_unknown == "unknown");
-            VERIFY(pr && m.get_fact(pr) == cmd.assertions().get(0));
+            VERIFY(reason_unknown == "qsat does not support proof production");
+            VERIFY(!pr);
         }
         else {
             goal_ref_buffer result;
@@ -952,7 +952,7 @@ static void check_qe_rec_proofs() {
     }
 }
 
-static void check_proof_mode_noops() {
+static void check_proof_mode_guards() {
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
     tactic_manager tactics;
@@ -977,10 +977,10 @@ static void check_proof_mode_noops() {
     for (char const* name : {
         "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
         "dt2bv", "elim-small-bv", "eq2bv", "ff-solve", "ff2bv", "fix-dl-var",
-        "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
+        "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
         "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
         "pqffd", "psat", "psmt", "qe2", "qe_rec",
-        "qffd", "qsat", "quasi-macros",
+        "qffd", "qfnra-nlsat", "qsat", "quasi-macros",
         "recover-01", "reduce-args", "reduce-bv-size", "sat", "sat-preprocess",
         "smtfd", "solver-subsumption", "symmetry-reduce", "tseitin-cnf",
         "tseitin-cnf-core", "unit-subsume-simplify", "ctx-solver-simplify", "propagate-values",
@@ -990,6 +990,15 @@ static void check_proof_mode_noops() {
         "injectivity", "max-bv-sharing", "propagate-bv-bounds2", "propagate-ineqs",
         "qe-light", "reduce-args2", "special-relations"
     }) {
+        bool rejects = false;
+        for (char const* rejecting : {
+            "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv", "fm",
+            "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
+            "qe2", "qe_rec", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
+            "sat", "sat-preprocess", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
+            "unit-subsume-simplify"
+        })
+            rejects |= !strcmp(name, rejecting);
         tactic_cmd* factory = tactics.find_tactic_cmd(symbol(name));
         if (!factory)
             std::cerr << "Missing proof-mode test tactic: " << name << "\n";
@@ -1008,7 +1017,21 @@ static void check_proof_mode_noops() {
             g->add(alloc(generic_model_converter, m, "proof-noop"));
             goal_ref before = alloc(goal, *g);
             goal_ref_buffer result;
-            (*t)(g, result);
+            bool rejected = false;
+            try {
+                (*t)(g, result);
+            }
+            catch (tactic_exception const& ex) {
+                ENSURE(rejects);
+                ENSURE(strstr(ex.what(), "does not support proof production") ||
+                       (cores && strstr(ex.what(), "does not support unsat core production")));
+                rejected = true;
+            }
+            ENSURE(rejected == rejects);
+            if (rejected) {
+                t->cleanup();
+                continue;
+            }
             ENSURE(result.size() == 1 && result[0] == g.get());
             ENSURE(g->size() == before->size() && g->depth() == before->depth());
             ENSURE(g->prec() == before->prec());
@@ -1021,6 +1044,25 @@ static void check_proof_mode_noops() {
             t->cleanup();
         }
     }
+
+#ifndef SINGLE_THREAD
+    {
+        goal_ref g = alloc(goal, m, true, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = par_and_then(mk_skip_tactic(), mk_skip_tactic());
+        goal_ref_buffer result;
+        bool rejected = false;
+        try {
+            (*t)(g, result);
+        }
+        catch (tactic_exception const& ex) {
+            ENSURE(!strcmp(ex.what(), "par_and_then does not support proof production"));
+            rejected = true;
+        }
+        ENSURE(rejected);
+    }
+#endif
 
     struct {
         char const* name;
@@ -1062,7 +1104,7 @@ static void check_proof_mode_noops() {
 }
 
 static void check_proof_mode_compositions() {
-    for (char const* name : {"fm", "purify-arith", "qfnra-nlsat", "nra", "qfnra", "qfufbv_ackr", "ff-sat", "par-then"}) {
+    for (char const* name : {"purify-arith", "nra", "qfnra", "qfufbv_ackr", "ff-sat"}) {
         ast_manager m(PGM_ENABLED);
         reg_decl_plugins(m);
         tactic_manager tactics;
@@ -1080,9 +1122,7 @@ static void check_proof_mode_compositions() {
         for (expr* a : cmd.assertions())
             g->assert_expr(a);
         goal_ref before = alloc(goal, *g);
-        tactic_ref t = !strcmp(name, "par-then") ?
-            par_and_then(mk_simplify_tactic(m), mk_bit_blaster_tactic(m)) :
-            tactics.find_tactic_cmd(symbol(name))->mk(m);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(name))->mk(m);
         goal_ref_buffer result;
         (*t)(g, result);
         ENSURE(result.size() == 1);
@@ -1264,7 +1304,7 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
-    check_proof_mode_noops();
+    check_proof_mode_guards();
     check_proof_mode_compositions();
     check_proof_mode_sls();
     check_proof_mode_fallbacks();

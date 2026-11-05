@@ -420,10 +420,7 @@ public:
 
 void bv_size_reduction_tactic::operator()(goal_ref const & g, 
                                           goal_ref_buffer & result) {
-    if (g->proofs_enabled()) {
-        result.push_back(g.get());
-        return;
-    }
+    fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
     TRACE(goal, g->display(tout););
     result.reset();

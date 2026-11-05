@@ -15,19 +15,24 @@ are skipped before changing a proof-enabled goal. This includes `dt2bv`,
 `bit-blast`, `fpa2bv`, `fix-dl-var`, `normalize-bounds`, `lia2card`,
 `purify-arith`, `quasi-macros`, and the Horn transformations. The historical
 `dt2bv` class-1 entry below does not authorize its current certificate.
-Unsupported solver-to-tactic and parallel backends are likewise skipped.
+Unsupported solver-to-tactic backends are likewise skipped. Tactics that already
+rejected proof production with `fail_if_proof_generation` retain that behavior,
+including SAT, NLSAT, QSAT, unit subsumption and parallel backends. `par-then`
+retains its proof-mode rejection in multi-threaded builds; the single-threaded
+implementation remains ordinary sequential composition. `qe_rec` retains its
+proof-capable simplification preamble before the unsupported QSAT stage.
 `add-bounds` is skipped rather than introducing artificial asserted premises,
 even though its under-approximation precision already prevents original UNSAT
 claims.
-Sequential SMT retains ordinary proof production, but leaves the goal unchanged
-instead of fabricating an asserted-false certificate when its backend refutation
-is missing or does not conclude false.
+Sequential SMT retains ordinary proof production, but throws a tactic exception
+before changing the goal when its backend refutation is missing or does not
+conclude false. It does not fabricate an asserted-false certificate.
 
-Unsupported tactic implementations check proof mode at their execution entry
+Newly disabled tactic implementations check proof mode at their execution entry
 and return the unchanged goal; their factories do not wrap complete pipelines
 in `if_no_proofs`. Proof-capable preambles and subsequent stages therefore
-continue to run. `par-then` executes its children sequentially in proof mode
-instead of suppressing the chain. Simplifier tactic adapters preserve the
+continue to run unless a stage retains its pre-existing rejection behavior.
+Simplifier tactic adapters preserve the
 original goal, and sequential simplifier pipelines skip unsupported children,
 including inside nested custom solver pipelines. Proof-capable portfolio
 fallbacks remain available; `nra` and `qfnra` run their proof-capable preambles
@@ -35,7 +40,9 @@ before selecting SMT in proof mode.
 
 SLS remains enabled in proof mode. Its search can establish SAT or give up,
 but does not produce an UNSAT refutation or transform retained formulas;
-proof-capable transformations in its preamble remain enabled.
+proof-capable transformations in its preamble remain enabled. Only its optional
+BV-size-reduction stage is explicitly skipped, preserving that stage's existing
+proof-mode rejection when invoked directly.
 
 Demodulation was repaired by #11531 and remains enabled, as do the repaired
 quantifier-pulling, bit2int and QE paths. These guards do not add proof support

@@ -251,8 +251,7 @@ public:
             }
             case l_false: {
                 if (in->proofs_enabled() && (!pr || !m.is_false(m.get_fact(pr)))) {
-                    result.push_back(in.get());
-                    return;
+                    throw tactic_exception("smt tactic failed to produce a proof of false");
                 }
                 if (m_fail_if_inconclusive && !in->unsat_preserved()) {
                     TRACE(smt_tactic, tout << "failed to show to be unsat...\n";);

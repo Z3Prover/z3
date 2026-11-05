@@ -107,10 +107,7 @@ public:
     }
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
-        if (g->proofs_enabled()) {
-            result.push_back(g.get());
-            return;
-        }
+        fail_if_proof_generation("aig", g);
         tactic_report report("aig", *g);
         operator()(g);
         g->inc_depth();

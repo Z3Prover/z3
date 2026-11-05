@@ -186,10 +186,7 @@ bv_bound_chk_tactic::~bv_bound_chk_tactic() {
 }
 
 void bv_bound_chk_tactic::operator()(goal_ref const & g, goal_ref_buffer & result) {
-    if (g->proofs_enabled()) {
-        result.push_back(g.get());
-        return;
-    }
+    fail_if_proof_generation("bv-bound-chk", g);
     fail_if_unsat_core_generation("bv-bound-chk", g);
     result.reset();
     m_imp->operator()(g);

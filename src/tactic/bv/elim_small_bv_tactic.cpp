@@ -255,11 +255,8 @@ public:
 
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        if (g->proofs_enabled()) {
-            result.push_back(g.get());
-            return;
-        }
         tactic_report report("elim-small-bv", *g);
+        fail_if_proof_generation("elim-small-bv", g);
         fail_if_unsat_core_generation("elim-small-bv", g);
         m_rw.cfg().m_produce_models = g->models_enabled();
 

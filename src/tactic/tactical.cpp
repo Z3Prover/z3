@@ -616,12 +616,16 @@ public:
     char const* name() const override { return "par_then"; }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
-        if (in->proofs_enabled()) {
+        bool use_seq;
+        use_seq = false;
+        if (use_seq) {
             // execute tasks sequentially
             and_then_tactical::operator()(in, result);
             return;
         }
 
+        // enabling proofs is possible, but requires translating subgoals back.
+        fail_if_proof_generation("par_and_then", in);
         bool proofs_enabled = in->proofs_enabled();
         bool cores_enabled  = in->unsat_core_enabled();
 

@@ -27,7 +27,6 @@ Author:
 #include "solver/parallel_params.hpp"
 #include "util/search_tree.h"
 #include "tactic/tactic.h"
-#include "tactic/tactical.h"
 #include "solver/solver2tactic.h"
 
 #include <algorithm>
@@ -2133,10 +2132,7 @@ public:
     char const* name() const override { return "parallel_tactic"; }
 
     void operator()(const goal_ref& g, goal_ref_buffer& result) override {
-        if (g->proofs_enabled()) {
-            result.push_back(g.get());
-            return;
-        }
+        fail_if_proof_generation("parallel_tactic", g);
         ast_manager& m = g->m();
 
         if (m.has_trace_stream())
