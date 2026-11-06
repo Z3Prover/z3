@@ -4,7 +4,8 @@
 description: Prototype NFV PR reviewer — sandboxed foreground Dafny analysis, posted as a PR comment
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # Pushes cancel obsolete runs through workflow concurrency; they never start inference.
+    types: [opened, synchronize, ready_for_review]
     paths:
       - "**.[cC]"
       - "**.[hH]"
@@ -22,7 +23,7 @@ on:
       - "**.[tT][sS][xX]"
       - "**.[pP][yY]"
       - "**.[rR][sS]"
-if: github.event.pull_request.draft == false
+if: github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
 permissions:
   contents: read
   pull-requests: read
@@ -45,7 +46,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   repository_context:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
     permissions:
       # gh-aw uses this only to mark an incomplete workflow run failed.
       actions: write
@@ -66,6 +67,8 @@ safe-outputs:
   add-comment:
     max: 1
     hide-older-comments: true
+  noop:
+    report-as-issue: false
 steps:
   - name: Validate trusted release pin
     env:
@@ -128,7 +131,27 @@ steps:
     run: |
       set -euo pipefail
       bundle="$RUNNER_TEMP/gh-aw/nfv/bundle.json"
-      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src
+      collection="$RUNNER_TEMP/gh-aw/nfv/collection-status.json"
+      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src --status-out "$collection"
+      ready=$(python - "$collection" <<'PY'
+      import sys
+      from nfv_workflow.cli import collection_status, load, save
+      from nfv_workflow.github import Abstain
+      status = collection_status(sys.argv[1])
+      context = load("nfv-context/context.json")
+      if status["status"] == "superseded":
+          print("false")
+      elif context.get("status") == "superseded":
+          context = collection_status("nfv-context/context.json")
+          if context["identity"] != status["identity"]:
+              raise Abstain("Invalid superseded source-context handoff")
+          save(sys.argv[1], context)
+          print("false")
+      else:
+          print("true")
+      PY
+      )
+      if [[ "$ready" == true ]]; then
       nfv-workflow enrich --bundle "$bundle" --manifest nfv-context/context.json --out "$bundle" --sources-dir nfv-src
       python - "$bundle" <<'PY'
       import json
@@ -139,8 +162,10 @@ steps:
       index = input_index(bundle)
       Path("nfv-input.json").write_text(json.dumps(index, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
       PY
+      fi
       {
         echo "NFV_BUNDLE=$bundle"
+        echo "NFV_COLLECTION_STATUS=$collection"
         echo "NFV_MODEL=$NFV_MODEL"
         # Optional repair/time budget; empty values keep the audit defaults.
         echo "NFV_SYNTAX_ROUNDS=$NFV_SYNTAX_ROUNDS"
@@ -160,7 +185,7 @@ post-steps:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
       if-no-files-found: warn
-source: microsoft/neuro-formal-verification/workflow@aa2cd9d44a445d5d0a2dd8bb36cdedb2db00a23f
+source: microsoft/neuro-formal-verification/workflow@31f0c6809a7e93eec460d12c29bd6293b82bc954
 ---
 
 # NFV PR reviewer
@@ -184,6 +209,9 @@ exhaustion and property type-check/audit failures. These are report data, not
 infrastructure failures. The driver records attempt completion or infrastructure
 failure separately in `review-status.json`; it never fabricates a completed
 review after a failed pipeline stage.
+An explicitly superseded collection is a skipped attempt, not a completed audit
+or property outcome. The driver submits only `noop`, retains the diagnostic in
+`review-status.json`, and never creates an empty proposal array or report.
 
 Findings are conditional MODEL refutations, never source-confirmed bugs.
 Verification applies only to the translated model under its stated assumptions.

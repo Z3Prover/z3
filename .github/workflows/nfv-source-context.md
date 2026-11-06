@@ -16,9 +16,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  model-routing:
-    goal: cost
-    mode: auto
+  model: ${{ vars.NFV_MODEL }}
 timeout-minutes: 20
 checkout: false
 network:
@@ -41,7 +39,7 @@ safe-outputs:
   report-failed-jobs: false
   jobs:
     handoff-context:
-      description: Hand off the validated source-context manifest to NFV analysis
+      description: Hand off validated source context or an explicitly superseded collection
       runs-on: ubuntu-slim
       permissions:
         actions: read
@@ -93,28 +91,44 @@ steps:
     run: |
       set -euo pipefail
       bundle="$RUNNER_TEMP/gh-aw/nfv-context/bundle.json"
-      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src
-      python - "$bundle" <<'PY'
+      collection="$RUNNER_TEMP/gh-aw/nfv-context/collection-status.json"
+      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src --status-out "$collection"
+      python - "$bundle" "$collection" <<'PY'
       import json
       import sys
       from pathlib import Path
+      from nfv_workflow.cli import collection_status
       from nfv_workflow.repository_context import context_input
-      bundle = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-      index = context_input(bundle)
+      status = collection_status(sys.argv[2])
+      if status["status"] == "superseded":
+          index = status
+      else:
+          captured = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          index = context_input(captured)
       Path("nfv-context-input.json").write_text(json.dumps(index), encoding="utf-8")
       PY
 post-steps:
   - name: Validate source-context manifest
     run: |
-      nfv-workflow context-manifest \
-        --bundle "$RUNNER_TEMP/gh-aw/nfv-context/bundle.json" \
-        --manifest nfv-context.json --hints-only --out nfv-context-validated/context.json
+      python - <<'PY'
+      import os
+      from pathlib import Path
+      from nfv_workflow.cli import collection_status, load, save
+      from nfv_workflow.repository_context import sanitize_manifest
+      root = Path(os.environ["RUNNER_TEMP"]) / "gh-aw" / "nfv-context"
+      status = collection_status(root / "collection-status.json")
+      if status["status"] == "superseded":
+          save("nfv-context-validated/context.json", status)
+      else:
+          sanitize_manifest(load(root / "bundle.json"), "nfv-context.json",
+                            "nfv-context-validated/context.json", hints_only=True)
+      PY
   - uses: actions/upload-artifact@v7.0.1
     with:
       name: nfv-source-context-validated
       path: nfv-context-validated/context.json
       if-no-files-found: error
-source: microsoft/neuro-formal-verification/workflow@aa2cd9d44a445d5d0a2dd8bb36cdedb2db00a23f
+source: microsoft/neuro-formal-verification/workflow@31f0c6809a7e93eec460d12c29bd6293b82bc954
 ---
 
 # Source-context session
@@ -133,6 +147,10 @@ related functions, types, constants, invariants and contracts across the repo.
 Never check out the PR head. Base code may differ from head code: your output is
 only a set of lookup hints. The main workflow recaptures selected source by the
 immutable PR-head blob hashes, rather than trusting your prose as semantics.
+If the input explicitly has `status: superseded`, do not inspect source or
+write a manifest. Call `handoff_context` once, then stop. Trusted post-steps and
+the handoff job transfer the captured skipped status, never an empty successful
+context.
 
 Write `nfv-context.json` in the workspace:
 
