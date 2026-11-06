@@ -71,21 +71,6 @@ format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const
         return mk_string(m, "ite");
     }
     else {
-        if (f->get_family_id() == bv_family_id) {
-            char const* name = nullptr;
-            switch (f->get_decl_kind()) {
-            case OP_BSDIV_I: name = "bvsdiv"; break;
-            case OP_BUDIV_I: name = "bvudiv"; break;
-            case OP_BSREM_I: name = "bvsrem"; break;
-            case OP_BUREM_I: name = "bvurem"; break;
-            case OP_BSMOD_I: name = "bvsmod"; break;
-            default: break;
-            }
-            if (name) {
-                len = static_cast<unsigned>(strlen(name));
-                return mk_string(m, name);
-            }
-        }
         symbol s = f->get_name();
         return pp_fdecl_name(s, len, f->is_skolem());
     }
