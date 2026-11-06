@@ -287,7 +287,13 @@ namespace euf {
             return;       
         sort* srt = e->get_arg(0)->get_sort();
         auto sort_sz = srt->get_num_elements();
-        if (sort_sz.is_finite() && sort_sz.size() < sz)
+        // More arguments than the sort has elements: the distinct is false by
+        // counting alone, which no clause hint can carry (an empty tseitin
+        // hint certifies nothing, and logging it crashed the proof log). With
+        // proofs the pairwise clauses below are added instead, as for any
+        // distinct, and the theory solver of the sort refutes them with its
+        // own hints (the datatype solver's case splits over the constructors).
+        if (sort_sz.is_finite() && sort_sz.size() < sz && !use_drat())
             s().add_clause(0, nullptr, mk_tseitin_status(0, nullptr));
         else if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
