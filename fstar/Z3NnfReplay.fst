@@ -87,17 +87,21 @@
      der (no sorts, no premise):
                     `(forall bs. (or l1 .. ln)) ~ (forall bs. b')` (der.cpp
                     reduce1, ast_manager::mk_der exports iff(q, e)) with one
-                    eliminated binder: li is the first literal
-                    `(not (= x t))` or `(not (= t x))` with x a binder of bs
-                    not occurring in t, and b' is the disjunction of the
-                    other literals (ast_util mk_or: false, the single
-                    literal, or the canonical `or`) with x replaced by t
-                    lifted under nested binders; the binder list is kept
-                    (elim-unused drops x in a separate step). True at every
-                    typed environment of every scope where both sides are
-                    typed (lemma_der_at), from the universal law alone: the
+                    eliminated binder: the literals are read in the order of
+                    z3's flatten_or, which reduce1 applies to the body (ln
+                    l1 .. ln-1 when no literal is itself opened), or in
+                    source order; li is the first literal `(not (= x t))`
+                    or `(not (= t x))` with x a binder of bs not occurring
+                    in t, and b' is the disjunction of the other literals in
+                    that order (ast_util mk_or: false, the single literal,
+                    or the canonical `or`) with x replaced by t lifted under
+                    nested binders; the binder list is kept (elim-unused
+                    drops x in a separate step). True at every typed
+                    environment of every scope where both sides are typed
+                    (lemma_der_at), from the universal law alone: the
                     witness for x is t's own value, no carrier is assumed
-                    inhabited.
+                    inhabited, and both orders have the truth of the
+                    source disjunction (lemma_flat_order).
      pull-quant (no sorts, no premise):
                     `e ~ q` (pull_quant.cpp, ast_manager::mk_pull_quant
                     exports iff(e, q)): either e is a canonical and/or with
@@ -714,14 +718,33 @@ let or_of (args:list expr) : expr =
   | [a] -> a
   | _ -> App (BRW.connective_decl BRW.Disjunction args) args
 
-(* der (one eliminated variable, forall over an `or` of at most 4096
-   literals, so that the literal removal and the rebuilt `or` read at most
-   that many): the first defining disequality removed, the rest
-   substituted, the binder list kept. *)
-let der_body (n:nat) (lits:list expr) (body':expr) : bool =
+(* The literal order of z3's flatten_or (ast_util.cpp), which der::reduce1
+   applies to the body, on a disjunction none of whose literals it opens:
+   the last literal takes the place of the `or`, the others follow in
+   order. *)
+let rec split_last (x:expr) (rest:list expr) : Tot (expr & list expr) (decreases rest) =
+  match rest with
+  | [] -> (x, [])
+  | y :: tail -> let (l, ys) = split_last y tail in (l, x :: ys)
+
+let flat_order (lits:list expr) : list expr =
+  match lits with
+  | [] -> []
+  | x :: rest -> let (l, ys) = split_last x rest in l :: ys
+
+(* The first defining disequality of lits removed, the rest substituted. *)
+let der_order (n:nat) (lits:list expr) (body':expr) : bool =
   match first_def n lits 0 with
   | Some (i, j, t) -> subst_var j t 0 (or_of (remove_at i lits)) = Some body'
   | None -> false
+
+(* der (one eliminated variable, forall over an `or` of at most 4096
+   literals, so that the literal removal and the rebuilt `or` read at most
+   that many): the literals in z3's flatten_or order or in source order,
+   the first defining disequality removed, the rest substituted, the
+   binder list kept. *)
+let der_body (n:nat) (lits:list expr) (body':expr) : bool =
+  der_order n (flat_order lits) body' || der_order n lits body'
 
 let der_step (q e:expr) : bool =
   match q, e with
@@ -2251,9 +2274,13 @@ let lemma_bodies (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation b
     : Lemma (related_at sigma marks n kept 0 (ss @ scope) (ss' @ scope)
                (V.extend sigma scope ss vs rho) (V.extend sigma scope ss' ws rho) p) =
     DS.lemma_extend_index sigma scope ss vs rho p;
-    match moved marks n kept p with
-    | Some q -> DS.lemma_extend_index sigma scope ss' ws rho q
-    | None -> () in
+    if p < n then
+      (match rank_from marks p 0 with
+       | Some q ->
+         assert (q < kept /\ (E.tuple_at sigma ss vs p <: V.tree base) == (E.tuple_at sigma ss' ws q <: V.tree base));
+         DS.lemma_extend_index sigma scope ss' ws rho q
+       | None -> ())
+    else DS.lemma_extend_index sigma scope ss' ws rho (p - n + kept) in
   FStar.Classical.forall_intro at;
   lemma_thin_eval sigma i marks n kept 0 (ss @ scope) (ss' @ scope)
     (V.extend sigma scope ss vs rho) (V.extend sigma scope ss' ws rho) body body'
@@ -2563,6 +2590,38 @@ let rec lemma_fold_remove (t:expr -> GTot bool) (xs:list expr) (k:nat{k < L.leng
   match xs with
   | _ :: rest -> if k > 0 then lemma_fold_remove t rest (k - 1)
 
+(* z3's flatten_or order keeps the disjunction: or is associative and
+   commutative. *)
+let rec lemma_split_last (t:expr -> GTot bool) (x:expr) (rest:list expr)
+  : Lemma (ensures fold_truth t B.Or (fst (split_last x rest) :: snd (split_last x rest)) ==
+                   fold_truth t B.Or (x :: rest))
+          (decreases rest) =
+  match rest with
+  | [] -> ()
+  | y :: tail -> lemma_split_last t y tail
+
+let lemma_flat_order (t:expr -> GTot bool) (lits:list expr)
+  : Lemma (ensures fold_truth t B.Or (flat_order lits) == fold_truth t B.Or lits) =
+  match lits with
+  | [] -> ()
+  | x :: rest -> lemma_split_last t x rest
+
+let rec lemma_split_last_scoped (scope:list sort) (x:expr) (rest:list expr)
+  : Lemma (requires D.scoped_args scope (x :: rest) /\ T.boolean_sorts (L.map get_sort (x :: rest)))
+          (ensures D.scoped_args scope (fst (split_last x rest) :: snd (split_last x rest)) /\
+                   T.boolean_sorts (L.map get_sort (fst (split_last x rest) :: snd (split_last x rest))))
+          (decreases rest) =
+  match rest with
+  | [] -> ()
+  | y :: tail -> lemma_split_last_scoped scope y tail
+
+let lemma_flat_order_scoped (scope:list sort) (lits:list expr)
+  : Lemma (requires D.scoped_args scope lits /\ T.boolean_sorts (L.map get_sort lits))
+          (ensures D.scoped_args scope (flat_order lits) /\ T.boolean_sorts (L.map get_sort (flat_order lits))) =
+  match lits with
+  | [] -> ()
+  | x :: rest -> lemma_split_last_scoped scope x rest
+
 let rec lemma_remove_scoped (scope:list sort) (xs:list expr) (k:nat)
   : Lemma (requires D.scoped_args scope xs /\ T.boolean_sorts (L.map get_sort xs))
           (ensures D.scoped_args scope (remove_at k xs) /\ T.boolean_sorts (L.map get_sort (remove_at k xs)))
@@ -2641,9 +2700,17 @@ let rec lemma_index_scoped (scope:list sort) (xs:list expr) (k:nat{k < L.length 
 (* The der law                                                               *)
 (* ---------------------------------------------------------------------- *)
 
+(* Either literal order der_body reads has the truth of the source
+   disjunction. *)
+let lemma_order_fold (t:expr -> GTot bool) (lits ord:list expr)
+  : Lemma (requires ord == flat_order lits \/ ord == lits)
+          (ensures fold_truth t B.Or ord == fold_truth t B.Or lits) =
+  lemma_flat_order t lits
+
 (* der at ANY scope where both sides are typed, at ANY typed environment:
-   (forall bs. (or l1 .. ln)) and (forall bs. (or l1 .. ln without li)[x := t])
-   have one truth when li = (not (= x t)), x a binder of bs not in t. *)
+   (forall bs. (or l1 .. ln)) and (forall bs. (or ord without li)[x := t])
+   have one truth when li = (not (= x t)), x a binder of bs not in t, and
+   ord is the source literal list or z3's flatten_or order of it. *)
 let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                  (scope:list sort) (rho:V.environment base (S.signature s) scope) (q e:expr)
@@ -2656,17 +2723,21 @@ let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
     let n = L.length bs in
     let ss = L.rev bs in
     let s0 = ss @ scope in
-    let (k, j, t) = Some?.v (first_def n lits 0) in
-    lemma_first_def n lits 0 k j t;
-    let lit = L.index lits k in
-    let rem = remove_at k lits in
+    let ord = if der_order n (flat_order lits) body' then flat_order lits else lits in
+    assert (der_order n ord body' /\ (ord == flat_order lits \/ ord == lits));
+    let (k, j, t) = Some?.v (first_def n ord 0) in
+    lemma_first_def n ord 0 k j t;
+    let lit = L.index ord k in
+    let rem = remove_at k ord in
     LP.rev_length bs;
     LP.append_length ss scope;
     assert (D.scoped s0 (App f lits) /\ D.scoped s0 body');
     assert (T.classify f == T.Nary B.Or);
     lemma_sorts_bool lits f.domain;
-    lemma_remove_scoped s0 lits k;
-    lemma_index_scoped s0 lits k;
+    lemma_flat_order_scoped s0 lits;
+    assert (D.scoped_args s0 ord /\ T.boolean_sorts (L.map get_sort ord));
+    lemma_remove_scoped s0 ord k;
+    lemma_index_scoped s0 ord k;
     let ext (vs:V.arguments base sigma ss) : V.environment base sigma s0 = V.extend sigma scope ss vs rho in
     let tq (vs:V.arguments base sigma ss) : GTot bool = T.truth_at s bc eq other s0 (ext vs) (App f lits) in
     let te (vs:V.arguments base sigma ss) : GTot bool = T.truth_at s bc eq other s0 (ext vs) body' in
@@ -2697,12 +2768,14 @@ let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
       T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho_v body');
       lemma_truth_nary s bc eq other s0 rho' f lits B.Or;
       lemma_fold_atoms (T.truth_at s bc eq other s0 rho') B.Or lits;
-      lemma_fold_remove (T.truth_at s bc eq other s0 rho') lits k;
+      lemma_order_fold (T.truth_at s bc eq other s0 rho') lits ord;
+      lemma_fold_remove (T.truth_at s bc eq other s0 rho') ord k;
       lemma_diseq s bc eq other s0 rho' n lit t j;
       assert (tq vs' == te vs);
       lemma_truth_nary s bc eq other s0 rho_v f lits B.Or;
       lemma_fold_atoms (T.truth_at s bc eq other s0 rho_v) B.Or lits;
-      lemma_fold_remove (T.truth_at s bc eq other s0 rho_v) lits k;
+      lemma_order_fold (T.truth_at s bc eq other s0 rho_v) lits ord;
+      lemma_fold_remove (T.truth_at s bc eq other s0 rho_v) ord k;
       lemma_or_of s bc eq other s0 rho_v rem;
       if not (tl vs) then (
         DS.lemma_extend_index sigma scope ss vs rho j;

@@ -740,12 +740,24 @@ let direct_elim_controls () : bool =
 (* der natively in the Cherry checker (the OCaml counterpart is
    test_native_bridge.ml `sorted_der`): a quant-intro leaf under an Int
    binder (Z3NnfReplay.der_step) replays for the captured shape
-   (forall [Int] (or (not (= #1 #0)) (pi #0))) = (forall [Int] (pi #1)) and
-   stays pending for an unsubstituted target; closed premise-free
-   DestructiveEquality documents (Z3SortedProof.der_rewrite) certify the
-   step with a constant and stay pending for a wrong substitution and under
-   the RewriteRule label. *)
+   (forall [Int] (or (not (= #1 #0)) (pi #0))) = (forall [Int] (pi #1)) and,
+   in the producer's flatten_or order (the last literal first),
+   (forall [Int] (or (not (= #1 #0)) (pi #0) (forall [Int] (pi #1)))) =
+   (forall [Int] (or (forall [Int] (pi #2)) (pi #1))); it stays pending for
+   an unsubstituted, an unlifted or a literal-dropping target; closed
+   premise-free DestructiveEquality documents (Z3SortedProof.der_rewrite)
+   certify the step with a constant in both orders and stay pending for a
+   wrong substitution, a different operator and under the RewriteRule
+   label. *)
 let qd_neq (a b:A.expr) : A.expr = R.mk_not_expr (R.mk_eq_expr a b)
+
+let qd_or3 (a b c:A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [a; b; c]
+
+let qd_and (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "and"; A.domain = [A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_and; A.int_params = [] } [a; b]
 
 let qd_leaf (q e:A.expr) : Z3NnfReplay.verdict =
   let i0 = A.Var 0 qp_int in
@@ -761,15 +773,27 @@ let qd_leaf (q e:A.expr) : Z3NnfReplay.verdict =
 let der_controls () : bool =
   let i0 = A.Var 0 qp_int in
   let i1 = A.Var 1 qp_int in
+  let i2 = A.Var 2 qp_int in
   let k = qp_atom "k" 0 in
   let m = qp_atom "m" 0 in
   let open_q = qe_forall [qp_int] (qe_or (qd_neq i1 i0) (qe_pi i0)) in
   let closed_q = qe_forall [qp_int] (qe_or (qd_neq i0 k) (qe_pi i0)) in
+  let flat_q = qe_forall [qp_int] (qd_or3 (qd_neq i1 i0) (qe_pi i0) (qe_forall [qp_int] (qe_pi i1))) in
+  let closed3 = qe_forall [qp_int] (qd_or3 (qd_neq i0 k) (qe_pi i0) (qe_pi (qp_atom "n" 0))) in
   qd_leaf open_q (qe_forall [qp_int] (qe_pi i1)) = Z3NnfReplay.Replayed &&
   qd_leaf open_q (qe_forall [qp_int] (qe_pi i0)) = Z3NnfReplay.Unreplayed &&
+  qd_leaf flat_q (qe_forall [qp_int] (qe_or (qe_forall [qp_int] (qe_pi i2)) (qe_pi i1))) = Z3NnfReplay.Replayed &&
+  qd_leaf flat_q (qe_forall [qp_int] (qe_or (qe_forall [qp_int] (qe_pi i1)) (qe_pi i1))) = Z3NnfReplay.Unreplayed &&
+  qd_leaf flat_q (qe_forall [qp_int] (qe_forall [qp_int] (qe_pi i2))) = Z3NnfReplay.Unreplayed &&
   C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi k))) = Some 0 &&
   C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi m))) = Some 1 &&
-  C.check true (elim_document U.RewriteRule closed_q (qe_forall [qp_int] (qe_pi k))) = Some 1
+  C.check true (elim_document U.RewriteRule closed_q (qe_forall [qp_int] (qe_pi k))) = Some 1 &&
+  C.check true (elim_document U.DestructiveEquality closed3
+                  (qe_forall [qp_int] (qe_or (qe_pi (qp_atom "n" 0)) (qe_pi k)))) = Some 0 &&
+  C.check true (elim_document U.DestructiveEquality closed3
+                  (qe_forall [qp_int] (qe_or (qe_pi k) (qe_pi (qp_atom "n" 0))))) = Some 0 &&
+  C.check true (elim_document U.DestructiveEquality closed3
+                  (qe_forall [qp_int] (qd_and (qe_pi (qp_atom "n" 0)) (qe_pi k)))) = Some 1
 
 (* pull-quant natively in the Cherry checker (the OCaml counterpart is
    test_native_bridge.ml `sorted_pull_quant`): a quant-intro leaf under an

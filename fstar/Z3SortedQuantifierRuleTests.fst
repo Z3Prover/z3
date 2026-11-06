@@ -291,9 +291,8 @@ let u4_false_claim (u:TR.uninterpreted)
 (* The producer's der step keeps the binder list (der.cpp reduce1,
    update_quantifier): (forall bs. (or l1 .. ln)) = (forall bs. rest[x := t])
    with li = (not (= x t)) the first defining disequality, x a binder not
-   occurring in t, the other literals kept in order. The captured
-   Pulse.Checker.ForwardJumpLabel q3 node 477 leaves have this shape with
-   x = #0 and t = #12, an index of the enclosing scope. *)
+   occurring in t. Here the other literals stay in source order; the
+   producer's own flatten_or order is D4. *)
 let neq (a b:expr) : expr = QT.neg (QT.eq a b)
 let qt_ (x:expr) : expr = App (QT.symbol "qt" [term] bool_sort) [x]
 let rt (x y:expr) : expr = App (QT.symbol "rt" [term; term] bool_sort) [x; y]
@@ -415,6 +414,97 @@ let d3_direct ()
                RD.RootCertified);
   assert_norm (RD.check_root_document PT.core_schema (der_document U.DestructiveEquality der_closed_q (forall_ [term] (pt dterm))) ==
                RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* D4. der: z3's flatten_or literal order                                   *)
+(* ---------------------------------------------------------------------- *)
+
+(* der::reduce1 reads the body through flatten_or, which moves the last
+   literal into the place of the `or`. The captured
+   Pulse.Checker.ForwardJumpLabel q3 node 477 entries 77, 98 and 187 have
+   the shape (forall [Term] (or (not (= #k #0)) A B)) =
+   (forall [Term] (or B[#0 := #k] A[#0 := #k])), B a nested forall (so #k
+   is lifted under it) and, in entry 187, t a closed application on the
+   right of the disequality. *)
+let flat_ders : list (expr & expr) = [
+  (* entries 77 and 98 at the scope [Term] *)
+  (forall_ [term] (QT.mk_or [neq x1 x0; pt x0; forall_ [term] (rt x1 x0)]),
+   forall_ [term] (QT.mk_or [forall_ [term] (rt x2 x0); pt x1]));
+  (* entry 187: x on the left, t closed *)
+  (forall_ [term] (QT.mk_or [neq x0 (fterm cterm); pt x0; forall_ [term] (rt x1 x0)]),
+   forall_ [term] (QT.mk_or [forall_ [term] (rt (fterm cterm) x0); pt (fterm cterm)]));
+  (* four literals, a later defining literal *)
+  (forall_ [term] (QT.mk_or [pt x0; neq cterm x0; qt_ x0; rt x0 x0]),
+   forall_ [term] (QT.mk_or [rt cterm cterm; pt cterm; qt_ cterm]));
+  (* heterogeneous binders *)
+  (forall_ [term; integer] (QT.mk_or [neq x1 cterm; pr2 (Var 0 integer) x1; pt x1]),
+   forall_ [term; integer] (QT.mk_or [pt cterm; pr2 (Var 0 integer) cterm]))
+]
+
+let d4_ders () : Lemma (L.for_all (fun (qe:expr & expr) -> NR.der_step (fst qe) (snd qe)) flat_ders) =
+  assert_norm (L.for_all (fun (qe:expr & expr) -> NR.der_step (fst qe) (snd qe)) flat_ders)
+
+(* Every refused claim differs in truth from the source in some model
+   (or is outside the producer's typed shape): the source is
+   forall x. x != c \/ pt x \/ qt x, i.e. pt c \/ qt c. *)
+let flat_q : expr = forall_ [term] (QT.mk_or [neq x0 cterm; pt x0; qt_ x0])
+let flat_e : expr = forall_ [term] (QT.mk_or [qt_ cterm; pt cterm])
+let nested_q : expr = forall_ [term] (QT.mk_or [neq x1 x0; pt x0; forall_ [term] (rt x1 x0)])
+
+let flat_mutants : list (expr & expr) = [
+  (flat_q, forall_ [term] (QT.mk_or [qt_ cterm; pt dterm]));                    (* different operand *)
+  (flat_q, forall_ [term] (qt_ cterm));                                          (* missing literal *)
+  (flat_q, forall_ [term] (QT.mk_or [qt_ cterm; qt_ cterm]));                   (* duplicated literal *)
+  (flat_q, forall_ [term] (QT.mk_and [qt_ cterm; pt cterm]));                   (* different operator *)
+  (flat_q, forall_ [term] (QT.mk_or [qt_ cterm; QT.neg (pt cterm)]));           (* literal polarity *)
+  (forall_ [term] (QT.mk_or [QT.eq x0 cterm; pt x0; qt_ x0]), flat_e);          (* equality, not disequality *)
+  (exists_ [term] (QT.mk_or [neq x0 cterm; pt x0; qt_ x0]),
+   exists_ [term] (QT.mk_or [qt_ cterm; pt cterm]));                             (* exists *)
+  (nested_q, forall_ [term] (QT.mk_or [forall_ [term] (rt x1 x0); pt x1]));     (* not lifted *)
+  (nested_q, forall_ [term] (QT.mk_or [forall_ [term] (rt x0 x0); pt x1]));     (* captured by the nested binder *)
+  (nested_q, forall_ [term] (QT.mk_or [forall_ [term] (rt x2 x0); pt x0]));     (* one literal not substituted *)
+  (forall_ [term; integer] (QT.mk_or [neq x1 cterm; pr2 (Var 0 integer) x1; pt x1]),
+   forall_ [integer; term] (QT.mk_or [pt cterm; pr2 (Var 0 integer) cterm]));  (* binders swapped *)
+  (flat_e, flat_q)                                                               (* reversed orientation *)
+]
+
+let d4_mutants () : Lemma (L.for_all (fun (qe:expr & expr) -> not (NR.der_step (fst qe) (snd qe))) flat_mutants) =
+  assert_norm (L.for_all (fun (qe:expr & expr) -> not (NR.der_step (fst qe) (snd qe))) flat_mutants)
+
+(* The captured order on the quant-intro path and on the direct path. *)
+let flat_nested_e : expr = forall_ [term] (QT.mk_or [forall_ [term] (rt x2 x0); pt x1])
+let unlifted_e : expr = forall_ [term] (QT.mk_or [forall_ [term] (rt x1 x0); pt x1])
+
+let d4_replay ()
+  : Lemma (not (QT.old_paths (QT.qi_node (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e))) /\
+           QT.replays (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e) /\
+           QT.pending (der_cert "der" nested_q unlifted_e) (troot nested_q) (troot unlifted_e) /\
+           QT.pending (der_cert "elim-unused" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e) /\
+           RD.check_root_document PT.core_schema
+             (QT.refutation (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e)) ==
+             RD.RootCertified /\
+           der_pending U.DestructiveEquality flat_q flat_e == Some 0 /\
+           der_pending U.DestructiveEquality flat_q (forall_ [term] (QT.mk_or [qt_ cterm; pt dterm])) == Some 1 /\
+           RD.check_root_document PT.core_schema (der_document U.DestructiveEquality flat_q flat_e) ==
+             RD.RootCertified) =
+  assert_norm (not (QT.old_paths (QT.qi_node (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e))));
+  assert_norm (QT.replays (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e));
+  assert_norm (QT.pending (der_cert "der" nested_q unlifted_e) (troot nested_q) (troot unlifted_e));
+  assert_norm (QT.pending (der_cert "elim-unused" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e));
+  assert_norm (RD.check_root_document PT.core_schema
+                 (QT.refutation (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e)) ==
+               RD.RootCertified);
+  assert_norm (der_pending U.DestructiveEquality flat_q flat_e == Some 0);
+  assert_norm (der_pending U.DestructiveEquality flat_q (forall_ [term] (QT.mk_or [qt_ cterm; pt dterm])) == Some 1);
+  assert_norm (RD.check_root_document PT.core_schema (der_document U.DestructiveEquality flat_q flat_e) == RD.RootCertified)
+
+let d4_valid (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures RD.root_holds u PT.core_schema i (QT.eq (troot nested_q) (troot flat_nested_e))) =
+  d4_replay ();
+  RD.lemma_root_certified u PT.core_schema (QT.refutation (der_cert "der" nested_q flat_nested_e) (troot nested_q) (troot flat_nested_e)) i;
+  assert_norm (D.scoped [] (QT.neg (QT.eq (troot nested_q) (troot flat_nested_e))));
+  QT.lemma_not_holds u i (QT.eq (troot nested_q) (troot flat_nested_e))
 
 (* ---------------------------------------------------------------------- *)
 (* Q1. pull-quant: the executable check                                     *)
