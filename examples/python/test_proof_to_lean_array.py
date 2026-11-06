@@ -729,11 +729,217 @@ BOOL_ELEMENT_INPUTS = {
 (check-sat)
 """,
 }
+# Boolean combinators over sets: maps of not, and, or, => ((_ map f) a b)
+# and Z3's set operators (union, intersection, setminus, complement). Lean's
+# _map1/_map2 apply a function over Prop pointwise; a read of one is the
+# connective over the reads by rfl (the array solver's select-map axiom),
+# stated per read down through nested maps and into the stores and constant
+# arrays below them, since the rewriter evaluates such reads. The identities
+# the euf solver and the rewriter apply to maps (commutativity, idempotence,
+# double complement, maps of stores and of constant arrays) are theorems,
+# instantiated per map node (proof_to_lean._map_identities).
+SET_COMBINATOR_INPUTS = {
+    # z3test regressions/smt2/t8.smt2: De Morgan over sets (extensionality,
+    # then the select-map axiom through three nested maps).
+    "z3test_t8": """(declare-const s1 (Array Int Bool))
+(declare-const s2 (Array Int Bool))
+(set-info :status unsat)
+(assert (not (= ((_ map and) s1 s2)
+                ((_ map not) ((_ map or) ((_ map not) s1) ((_ map not) s2))))))
+(check-sat)
+""",
+    # z3test regressions/smt2/issue-1665.smt2, its second and third queries
+    # (the first, over an uninterpreted index sort, takes default values
+    # there and stays rejected): refuted while preprocessing, by the read of
+    # the map the rewriter evaluates; default values in the input.
+    "z3test_issue_1665": """(declare-fun s1_1796 () (Array Int Bool))
+(declare-fun s2_1797 () (Array Int Bool))
+(declare-fun x_1795 () Int)
+(assert (not (default s1_1796)))
+(assert (not (default s2_1797)))
+(assert (select ((_ map (and (Bool Bool) Bool))
+          s1_1796
+          ((_ map (not (Bool) Bool)) s2_1797))
+        x_1795))
+(assert (not (select s1_1796 x_1795)))
+(check-sat)
+""",
+    # Set operators, read through by the rewriter.
+    "union_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun x () Int)
+(assert (select (union a b) x))
+(assert (not (select a x)))
+(assert (not (select (intersection (complement a) b) x)))
+(check-sat)
+""",
+    "setminus_disjoint": """(declare-sort E 0)
+(declare-fun a () (Array E Bool))
+(declare-fun b () (Array E Bool))
+(declare-fun x () E)
+(assert (select (setminus a b) x))
+(assert (select b x))
+(check-sat)
+""",
+    # A set difference kept as a term: the rewriter turns it into the map of
+    # and over the complement, a different Lean function (the _md identity).
+    "setminus_named": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun x () Int)
+(assert (= c (setminus a b)))
+(assert (select c x))
+(assert (select b x))
+(check-sat)
+""",
+    "setminus_as_intersection": """(declare-sort E 0)
+(declare-fun a () (Array E Bool))
+(declare-fun b () (Array E Bool))
+(assert (not (= (setminus a b) (intersection a (complement b)))))
+(check-sat)
+""",
+    "setminus_under_function": """(declare-fun f ((Array Int Bool)) Int)
+(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (not (= (f (setminus a b)) (f (intersection a (complement b))))))
+(check-sat)
+""",
+    "real_intersection": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(declare-fun x () Real)
+(assert (select (intersection a b) (+ x 1.0)))
+(assert (not (select b (+ 1.0 x))))
+(check-sat)
+""",
+    # The select-map axiom as an array lemma, over an uninterpreted index.
+    "map_equal_sets": """(declare-sort E 0)
+(declare-fun a () (Array E Bool))
+(declare-fun b () (Array E Bool))
+(declare-fun c () (Array E Bool))
+(declare-fun x () E)
+(assert (= c ((_ map or) a b)))
+(assert (select c x))
+(assert (not (select a x)))
+(assert (not (select b x)))
+(check-sat)
+""",
+    "union_of_variable_sets": """(declare-sort E 0)
+(declare-fun a () (Array E Bool))
+(declare-fun b () (Array E Bool))
+(declare-fun c () (Array E Bool))
+(declare-fun x () E)
+(declare-fun y () E)
+(assert (= c (union a b)))
+(assert (select c x))
+(assert (= x y))
+(assert (not (select a y)))
+(assert (not (select b y)))
+(check-sat)
+""",
+    "map_under_function": """(declare-sort E 0)
+(declare-fun f ((Array E Bool)) Int)
+(declare-fun a () (Array E Bool))
+(declare-fun b () (Array E Bool))
+(assert (= a b))
+(assert (not (= (f ((_ map or) a b)) (f a))))
+(check-sat)
+""",
+    "implication_map": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun x () Int)
+(assert (= c ((_ map =>) a b)))
+(assert (select c x))
+(assert (select a x))
+(assert (not (select b x)))
+(check-sat)
+""",
+    "map_of_store_read": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (not (= i j)))
+(assert (select ((_ map and) (store a i false) b) j))
+(assert (not (select a j)))
+(check-sat)
+""",
+    "complement_conflict": """(declare-fun a () (Array Int Bool))
+(declare-fun x () Int)
+(assert (select ((_ map and) a ((_ map not) a)) x))
+(check-sat)
+""",
+    "flattened_and": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun x () Int)
+(assert (select ((_ map and) ((_ map and) a b) c) x))
+(assert (not (select b x)))
+(check-sat)
+""",
+    # Reads the rewriter evaluates into stores and constant arrays below a map.
+    "read_of_map_over_stores": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(assert (not (select ((_ map and) (store a i true) (store b i true)) i)))
+(check-sat)
+""",
+    "read_of_map_over_constants": """(declare-fun x () Int)
+(assert (select ((_ map and) ((as const (Array Int Bool)) true) ((as const (Array Int Bool)) false)) x))
+(check-sat)
+""",
+    # The identities (_map_identities): euf's commutativity of maps of or,
+    # the rewriter's double complement, idempotence, maps of stores, maps of
+    # stores next to a constant array, and maps of constant arrays.
+    "union_commutes": """(declare-sort E 0)
+(declare-fun a () (Array E Bool))
+(declare-fun b () (Array E Bool))
+(assert (not (= (union a b) (union b a))))
+(check-sat)
+""",
+    "complement_twice": """(declare-fun a () (Array Int Bool))
+(assert (not (= (complement (complement a)) a)))
+(check-sat)
+""",
+    "default_of_double_complement": """(declare-fun a () (Array Int Bool))
+(assert (default a))
+(assert (not (default ((_ map not) ((_ map not) a)))))
+(check-sat)
+""",
+    "intersection_idempotent": """(declare-fun a () (Array Int Bool))
+(assert (not (= ((_ map and) a a) a)))
+(check-sat)
+""",
+    "map_of_stores": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun p () Bool)
+(assert (not (= ((_ map and) (store a i p) (store b i true)) (store ((_ map and) a b) i p))))
+(check-sat)
+""",
+    "complement_of_store": """(declare-fun a () (Array Int Bool))
+(declare-fun i () Int)
+(assert (not (= (complement (store a i true)) (store (complement a) i false))))
+(check-sat)
+""",
+    "map_of_store_and_constant": """(declare-fun a () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun c () (Array Int Bool))
+(assert (= c ((_ map or) (store a i false) ((as const (Array Int Bool)) false))))
+(assert (not (= c (store ((_ map or) a ((as const (Array Int Bool)) false)) i false))))
+(check-sat)
+""",
+    "map_of_constants": """(assert (not (= ((_ map or) ((as const (Array Int Bool)) false)
+                               ((as const (Array Int Bool)) true))
+                ((as const (Array Int Bool)) true))))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(ARRAY_FUNCTION_INPUTS)
 ARRAY_INPUTS.update(BOOL_ELEMENT_INPUTS)
+ARRAY_INPUTS.update(SET_COMBINATOR_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
               "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira",
@@ -746,6 +952,12 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "real_set": "qf_uflra"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
+# Set combinators are over Int indices (qf_uflia) except these, named
+# explicitly rather than guessed from the source text.
+_SET_COMBINATOR_FRAGMENTS = {"setminus_disjoint": "qf_uf", "setminus_as_intersection": "qf_uf",
+                             "map_equal_sets": "qf_uf", "union_of_variable_sets": "qf_uf",
+                             "union_commutes": "qf_uf", "real_intersection": "qf_uflra"}
+_FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for name in SET_COMBINATOR_INPUTS)
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   if name not in _FRAGMENTS)
 
@@ -792,9 +1004,19 @@ class TestArrayValidation(unittest.TestCase):
             "(declare-sort I 0)(declare-fun e () I)(declare-fun i () I)"
             "(assert (not (= (select ((as const (Array I I)) e) i) e)))":
                 "constant arrays are supported over Int and Real indices only",
-            # Array combinators of Z3's beyond SMT-LIB.
+            # Maps are supported over the connectives not, and, or, => and
+            # sets (SET_COMBINATOR_INPUTS); not of other functions or sorts.
             "(declare-fun g (Int) Int)(declare-fun a () (Array Int Int))(assert (= (select ((_ map g) a) 1) 1))":
-                "unsupported array operator",
+                "maps are supported over the connectives",
+            "(declare-fun a () (Array Int Bool))(declare-fun b () (Array Int Bool))"
+            "(assert (select ((_ map xor) a b) 0))": "maps are supported over the connectives",
+            "(declare-fun g (Bool) Bool)(declare-fun a () (Array Int Bool))(assert (select ((_ map g) a) 0))":
+                "maps are supported over the connectives",
+            # Default values over a possibly finite index sort (issue-1665.smt2's first query).
+            "(declare-sort I 0)(declare-fun a () (Array I Bool))(assert (default a))":
+                "default values are supported over Int and Real indices only",
+            "(declare-sort I 0)(declare-fun a () (Array I Int))(assert (> (default a) 0))":
+                "default values are supported over Int and Real indices only",
             # Functions over and into arrays are supported, but not into or
             # over arrays of an unsupported sort.
             "(declare-sort I 0)(declare-fun h (I) (Array Bool I))(declare-fun i () I)"
@@ -1128,6 +1350,95 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("bool_read_own_write", relabelled("(Array Index Bool)", "(Array Index Index)"),
                       "invalid select declaration|invalid store declaration|wrong argument sort")
 
+    def test_set_combinator_encoding(self):
+        """Maps and set operators are _map1/_map2 of a function over Prop; reads of them get pointwise facts."""
+        certificate = self.certificates["z3test_t8"]
+        maps = _declarations(certificate, z3.Z3_OP_ARRAY_MAP)
+        self.assertEqual(sorted(d["parameters"][0] for d in maps), ["and", "not", "or"])
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["z3test_t8"], certificate)
+        self.assertRegex(text, r":= \(_map2 And \(term_\d+ [^)]*\) \(term_\d+ [^)]*\)\)")
+        self.assertRegex(text, r":= \(_map1 Not \(term_\d+ [^)]*\)\)")
+        # The read of the outer complement, then the three maps below it.
+        self.assertRegex(text, r"have _m\d+_3 : _select ")
+        self.assertRegex(text, r"have _mc\d+ := _map2_or_comm ")
+        sets = proof_to_lean.reconstruct(ARRAY_INPUTS["union_member"], self.certificates["union_member"])
+        self.assertIn("(_map2 Or (term_", sets)
+        self.assertIn("(_map1 Not (term_", sets)
+        difference = proof_to_lean.reconstruct(ARRAY_INPUTS["setminus_disjoint"],
+                                               self.certificates["setminus_disjoint"])
+        self.assertIn("(_map2 (fun _p _q : Prop => And _p (Not _q)) (term_", difference)
+        # Every set operator either shares its Lean function with the map
+        # Z3's rewriter turns it into or, for setminus, states the identity.
+        self.assertEqual({kind: proof_to_lean._SET_OPERATOR_FUNCTIONS[kind] for kind in
+                          (z3.Z3_OP_SET_UNION, z3.Z3_OP_SET_INTERSECT, z3.Z3_OP_SET_COMPLEMENT)},
+                         {z3.Z3_OP_SET_UNION: proof_to_lean._MAP_CONNECTIVES["or"][0],
+                          z3.Z3_OP_SET_INTERSECT: proof_to_lean._MAP_CONNECTIVES["and"][0],
+                          z3.Z3_OP_SET_COMPLEMENT: proof_to_lean._MAP_CONNECTIVES["not"][0]})
+        self.assertEqual(set(proof_to_lean._SET_OPERATOR_FUNCTIONS), set(proof_certificate.SET_OPERATORS))
+        named = proof_to_lean.reconstruct(ARRAY_INPUTS["setminus_named"], self.certificates["setminus_named"])
+        self.assertRegex(named, r"have _md\d+ : .+ = _map2 And .+ \(_map1 Not .+\) := rfl")
+        implication = proof_to_lean.reconstruct(ARRAY_INPUTS["implication_map"], self.certificates["implication_map"])
+        self.assertIn("(_map2 (fun _p _q : Prop => _p -> _q) (term_", implication)
+        constants = proof_to_lean.reconstruct(ARRAY_INPUTS["map_of_store_and_constant"],
+                                              self.certificates["map_of_store_and_constant"])
+        self.assertRegex(constants, r"have _mk\d+_1 := _const_store_self ")
+        self.assertRegex(constants, r"have _ms\d+ := _map2_store Or ")
+        for each in (text, sets, difference, implication, constants):
+            self.assertNotIn("sorry", each)
+            self.assertNotIn("axiom ", each)
+        # The array solver's default values of maps over an uninterpreted
+        # index sort occur in gate clauses the refutation does not use; the
+        # certificate leaves them out (the reconstructor rejects such defaults).
+        for name in ("map_equal_sets", "map_under_function"):
+            self.assertEqual(_declarations(self.certificates[name], z3.Z3_OP_ARRAY_DEFAULT), [])
+
+    def test_default_values_of_maps_are_rejected(self):
+        """The default-map axiom holds only for arrays constant almost everywhere, which Lean cannot assume."""
+        source = """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun x () Int)
+(assert (= ((_ map =>) a b) ((as const (Array Int Bool)) true)))
+(assert (select a x))
+(assert (not (select b x)))
+(check-sat)
+"""
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "the default value of a map is not certified"):
+            _export(source)
+
+    def test_tampered_set_combinators_are_rejected(self):
+        def parameter(value):
+            def mutate(certificate):
+                next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_MAP
+                     and d["parameters"] == ["and"])["parameters"] = value
+            return mutate
+
+        def relabelled(source, target, name):
+            def mutate(certificate):
+                declaration = next(d for d in certificate["declarations"] if d["kind"] == source)
+                declaration["kind"], declaration["name"] = target, name
+            return mutate
+
+        def map_into_int(certificate):
+            declaration = next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_MAP
+                               and d["parameters"] == ["not"])
+            declaration["domain"] = ["(Array Int Int)"]
+            declaration["range"] = "(Array Int Int)"
+
+        def unary_and(certificate):
+            declaration = next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_MAP
+                               and d["parameters"] == ["and"])
+            declaration["domain"] = declaration["domain"][:1]
+
+        # A different connective proves another statement than the input's.
+        self._rejects("z3test_t8", parameter(["or"]), "certificate assertions do not match the original input")
+        self._rejects("z3test_t8", parameter(["xor"]), "a map takes one supported connective")
+        self._rejects("z3test_t8", parameter([]), "a map takes one supported connective")
+        self._rejects("z3test_t8", parameter(["and", "or"]), "a map takes one supported connective")
+        self._rejects("z3test_t8", unary_and, "invalid map or set operator declaration")
+        self._rejects("z3test_t8", map_into_int, "invalid map or set operator declaration|unsupported array sort")
+        self._rejects("union_member", relabelled(z3.Z3_OP_SET_INTERSECT, z3.Z3_OP_SET_UNION, "union"),
+                      "certificate assertions do not match the original input")
+
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()
         assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS["read_constant"], context, integer=True)
@@ -1449,6 +1760,33 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 self.assertTrue({match.group(1) for match in map(read.match, lines) if match} >= {"e", "ds", "dc"},
                                 text)
                 stripped = "\n".join(line for line in lines if not read.match(line))
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "stripped.lean"
+                    output.write_text(stripped)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                            capture_output=True)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
+
+    def test_map_facts_are_needed(self):
+        """Without the read facts below a map, or the map identities, grind cannot prove the steps over maps."""
+        for name, fact in (("z3test_t8", r"have _m\d+_\d+ : "), ("read_of_map_over_constants", r"have _m\d+_\d+ := "),
+                           ("union_commutes", r"have _mc\d+ := "), ("complement_twice", r"have _mn\d+ := "),
+                           ("intersection_idempotent", r"have _mi\d+ := "), ("map_of_stores", r"have _ms\d+ := "),
+                           ("setminus_named", r"have _md\d+ : "),
+                           ("map_of_store_and_constant", r"have _mk\d+_\d+ := "),
+                           ("map_of_constants", r"have _mk\d+ : ")):
+            with self.subTest(name=name):
+                source = ARRAY_INPUTS[name]
+                text = proof_to_lean.reconstruct(source, _export(source))
+                pattern = re.compile(r"^\s*" + fact)
+                lines = text.split("\n")
+                self.assertTrue(any(map(pattern.match, lines)), text)
+                stripped = "\n".join(line for line in lines if not pattern.match(line))
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)

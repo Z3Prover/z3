@@ -31,6 +31,7 @@ from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, bound_combination_refutes, constant_value, integer_divisor,
     integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+    SET_OPERATORS, set_combinator,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -40,6 +41,8 @@ _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _REAL_ARGUMENT_HEADS = ("to_int", "is_int")
+# The connectives a logged map ((_ map f) a ...) may apply (set_combinator).
+_MAP_HEADS = ("not", "and", "or", "=>")
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -306,6 +309,9 @@ class _Terms:
         self.functions = {}  # uninterpreted functions and predicates of the input, by name
         self.sorts = set()   # names of the input's uninterpreted sorts
         self.array_sorts = {}  # the input's array sorts, by z3py's rendering
+        # Whether the log takes a default value over an index sort other than
+        # Int and Real, which Lean's _default does not cover (_Replay.run).
+        self.uncertified_defaults = False
         # The log prints numerals without a sort; an integer input values them
         # in Int, so that the rebuilt atoms compare Int terms rather than
         # coercing them to Real. An input over both sorts (QF_LIRA, no
@@ -395,6 +401,21 @@ class _Terms:
             if sort is None or not value.sort().eq(sort.range()):
                 raise ProofExportError("constant array of an unsupported sort in the clause log")
             return z3.K(sort.domain(), value)
+        if isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "map"] and head[2] in _MAP_HEADS:
+            # A map of a connective over sets ((_ map and) a b), z3py's Map of
+            # the connective's declaration at the arrays' count; the exporter
+            # admits sets of one sort (set_combinator).
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+            if not arguments or not all(is_array_sort(argument.sort()) for argument in arguments):
+                raise ProofExportError("map over unsupported sorts in the clause log")
+            atoms = [z3.Bool("_p%d" % index, self.context) for index in range(len(arguments))]
+            try:
+                function = self._apply(head[2], len(atoms), atoms).decl()
+                result = z3.Map(function, *arguments)
+                set_combinator(result)
+            except z3.Z3Exception:
+                raise ProofExportError("ill-sorted map in the clause log") from None
+            return result
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -452,6 +473,8 @@ class _Terms:
         if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
             # The array solver's default value of an array, the value it
             # takes at all but finitely many indices (constant arrays).
+            if arguments[0].sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
+                self.uncertified_defaults = True
             return z3.Default(arguments[0])
         if head == "=" and count == 2:
             return arguments[0] == arguments[1]
@@ -559,7 +582,16 @@ def _store_axiom(literal):
         if (z3.is_default(read) and z3.is_store(read.arg(0)) and z3.is_default(value)
                 and value.arg(0).eq(read.arg(0).arg(0))):
             return True
+        if z3.is_select(read) and _is_set_combinator(read.arg(0)):
+            # A read of a map, equal to the connective over the reads of the
+            # mapped arrays as the rewriter simplifies it (Lean checks that).
+            return True
     return False
+
+
+def _is_set_combinator(expr):
+    """Whether expr applies a map or one of Z3's set operators (proof_certificate.set_combinator)."""
+    return z3.is_app(expr) and (expr.decl().kind() == z3.Z3_OP_ARRAY_MAP or expr.decl().kind() in SET_OPERATORS)
 
 
 def _same_equality(left, right):
@@ -1397,6 +1429,12 @@ class _Replay:
                 raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
+            if name == "array" and any(z3.is_default(side) and _is_set_combinator(side.arg(0))
+                                       for _, literal in pairs for side in _strip(literal)[0].children()):
+                # (= (default (map f a b)) (f (default a) (default b))) holds
+                # only for arrays constant at all but finitely many indices,
+                # which Lean's _default cannot assume of a map's arguments.
+                raise ProofExportError("the default value of a map is not certified")
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
             if certified or name == "implied-eq":
@@ -1614,8 +1652,13 @@ class _Replay:
                 self.root, _ = self.rup([])
             except ProofExportError:
                 self.root = self.assume([])
+        # A trimmed log keeps only the nodes the refutation uses; so does an
+        # untrimmed one whose unused clauses mention default values over an
+        # index sort the certificate cannot carry (the gates of the default
+        # values the array solver introduces for maps over any index sort).
+        # If the refutation uses one, the reconstructor rejects it.
         return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
-                                    compact=self.trimmed)
+                                    compact=self.trimmed or terms.uncertified_defaults)
 
 
 def build_certificate(source, fragment, assertions, text, context, timeout=None):

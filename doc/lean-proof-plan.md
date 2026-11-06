@@ -1603,7 +1603,8 @@ constant value is a formula, and a Bool default value is `_default ... :
 Prop`. The array solver's store axiom over a Boolean value, `(= v (select
 (store a i v) i))`, is a Bool equality (Iff); an `array` lemma may compare
 Bool terms only when some array has Bool elements. Bool indices stay
-rejected (a finite index sort), as do arrays of arrays and `map`.
+rejected (a finite index sort), as do arrays of arrays; `map` over sets is
+supported since 2026-11-05 (below).
 Along the way a gap for every element sort was closed: Z3's rewriter
 evaluates a read of a store over a constant array, `(select (store (const
 v) y w) x)`, without any read of the constant array at `x` in the
@@ -1624,6 +1625,32 @@ No z3test input is newly certified (its Bool-array files also need `map`,
 nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
+
+### Maps and set operators over sets (2026-11-05)
+
+`((_ map f) a b)` was rejected ("unsupported array operator: map"), which
+blocked z3test `t8.smt2` and `issue-1665.smt2`. Maps of `not`, `and`, `or`,
+`=>` over sets of one sort and Z3's set operators (`union`, `intersection`,
+`setminus`, `complement`) are now certified through the clause log: the
+certificate's map declaration carries the connective as its parameter, the
+replay reads `(_ map f)` heads, and Lean's `_map1`/`_map2` apply a function
+over `Prop` pointwise. The select-map axiom (an `array` hint stating the
+propagated equality, as for the store axiom) is rfl per read, stated through
+nested maps and into the stores and constant arrays below them, which Z3's
+rewriter evaluates in one step. The identities euf and the rewriter apply
+(commutativity and idempotence of `and`/`or` maps, double complement, maps of
+stores at one index, maps of constant arrays) are funext theorems
+instantiated per map node, and a `setminus` node is stated equal, by rfl, to
+the map of `and` over the complement that the rewriter turns it into
+(`setminus_named`; the other set operators share their Lean function with
+the map they become); each is shown necessary by
+`test_map_facts_are_needed`. The default-map axiom is not valid for
+`_default` (a map's arguments need not be constant almost everywhere) and is
+rejected explicitly ("the default value of a map is not certified"); input
+`default` terms are admitted over Int and Real indices. z3test `t8.smt2` and
+`issue-1665.smt2` queries 1 and 2 verify in Lean (query 0 takes default
+values over an uninterpreted index and stays rejected). Maps of other
+functions (uninterpreted, arithmetic) stay rejected.
 
 ### Functions into arrays (2026-11-04)
 

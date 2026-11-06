@@ -157,12 +157,14 @@ select, store, ite over arrays, and equality between arrays) join whichever
 UF fragment the rest of the input is in, their uninterpreted index and
 element sorts counting as its uninterpreted sorts and an Int or Real one as
 its arithmetic (an input with Int arrays alone is qf_uflia); functions and
-predicates may take arrays as arguments, functions may return them, and
-constant arrays ((as const (Array I E)) v) are supported over Int and Real
-indices. Only the clause log certifies them (the legacy core rejects them
-explicitly); arrays over Bool indices, arrays of arrays, arrays with
-several indices, constant arrays over other index sorts, map, and as-array
-are rejected. Integer
+predicates may take arrays as arguments, functions may return them,
+constant arrays ((as const (Array I E)) v) and default values (default a)
+are supported over Int and Real indices, and sets combine by maps of not,
+and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
+setminus, complement). Only the clause log certifies them (the legacy core
+rejects them explicitly); arrays over Bool indices, arrays of arrays, arrays
+with several indices, constant arrays and default values over other index
+sorts, maps of other functions, and as-array are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -1056,6 +1058,30 @@ by the exporter and by the reconstructor. Z3's rewriter decides an
 equality between stores over constant arrays by their default values or
 their values at the stored indices; a rewrite step reaching a constant
 array gets those facts for its array equalities.
+
+Maps of not, and, or, => over sets and Z3's set operators (union,
+intersection, setminus, complement; Z3 nests n-ary ones into binary ones)
+are _map1 f a and _map2 f a b, the pointwise application of a function over
+Prop (Not, And, Or, an implication, a difference). A read of one is that
+function of the reads by rfl, which is the array solver's select-map axiom,
+logged as an array hint stating the propagated equality; each read of a map
+gets that fact, and so do the maps, stores, and constant arrays below it,
+since Z3's rewriter evaluates a read through all of them with no read term of
+the levels in between. The identities the euf solver and the rewriter apply to
+maps are theorems instantiated per map node: maps of and and or commute (euf
+compares them as commutative) and are idempotent, a double complement
+cancels, a map of stores at one index is the store of the map (a constant
+array counting as a store of its value), and a map of constant arrays is
+constant. The rewriter turns setminus a b into the map of and over a and the
+complement of b, a different Lean function, so each setminus node is stated
+equal to that map by rfl; union, intersection, and complement share their
+Lean function with the map they become. The array solver's other map axiom, (default (map f a b)) = (f
+(default a) (default b)), holds only for arrays constant at all but finitely
+many indices, which _default cannot assume of a map's arguments; the replay
+rejects it explicitly. The solver also introduces default values of maps over
+any index sort in gate clauses; an untrimmed log's certificate keeps only the
+nodes the refutation uses when it has such defaults over an uninterpreted
+index, which the reconstructor would otherwise reject.
 
 The equality rules of a legacy proof object are explicit Lean terms over the
 carrier, checked by Lean's type checker without grind: refl, symm, trans, and
