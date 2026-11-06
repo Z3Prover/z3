@@ -537,6 +537,137 @@ let direct_ite_controls () : bool =
   check core (qi_ite c (qi_ite d x qi_y) qi_y) (A.App fake_ite [qi_and [c; d]; x; qi_y]) = Some 1 &&
   check core (qi_ite c (qi_ite d x qi_y) qi_y) (qi_ite (qi_and [c; d]) twin qi_y) = Some 1
 
+(* The Int product factor permutation natively in the Cherry checker (the
+   OCaml counterparts are test_native_bridge.ml
+   `sorted_int_factor_permutation` and `sorted_direct_product_rewrites`):
+   quant-intro rewrite leaves under two Int binders (Z3NnfReplay.
+   product_permuted) replay for the captured Euclid shape p1 * p0 ~ p0 * p1
+   and a regrouped repeat, and stay pending for x*y ~ x*x and a shifted
+   index; 64 factors are accepted in reverse order, 65 and a 100,000-factor
+   product are refused by the factor bound, and a product candidate with a
+   100,000-sort domain by its bounded admission; 64 unshared copies of a
+   4,000-deep factor are accepted, and refused when one copy differs.
+   Distinct factors f^d(a) and
+   f^d(b), which pointer equality cannot short-circuit: at d = 4,000 the
+   generated (recursive) C equality compares them at the normal stack
+   (refused when they differ, accepted for an unshared equal copy); at
+   d = 200,000 the depth admission (4,096 levels) refuses them before any
+   comparison. A shared factor with 2^16 tree nodes replays with enough work
+   and is pending without it; one with 2^60 tree nodes is pending. Closed
+   premise-free RewriteRule documents (Z3SortedProof.product_rewrite on the
+   forced Sorted route): x * y = y * x and a regrouped three-factor product
+   are certified; x * y = x * x, a same-spelled twin factor and a look-alike
+   `*` stay pending. *)
+let qp_int : A.sort = A.BaseSort "Int"
+
+let qp_mul (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = Some Z3ValueTheory.op_mul;
+          A.int_params = [] } [a; b]
+
+let rec qp_ints (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreases xs) =
+  match xs with [] -> acc | _ :: rest -> qp_ints rest (qp_int :: acc)
+
+let qp_times (args:list A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = qp_ints args []; A.range = qp_int; A.interp = Some Z3ValueTheory.op_arith_mul;
+          A.int_params = [] } args
+
+let qp_atom (name:string) (k:int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = qp_int; A.interp = None; A.int_params = [k] } []
+
+let rec qp_atoms (n:nat) (acc:list A.expr) : Tot (list A.expr) (decreases n) =
+  if n = 0 then acc else qp_atoms (n - 1) (qp_atom "v" n :: acc)
+
+let qp_zero : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = qp_int; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [0; 1] } []
+
+let qp_nonpositive (a:A.expr) : A.expr =
+  A.App { A.decl_name = "<="; A.domain = [qp_int; qp_int]; A.range = A.bool_sort; A.interp = Some Z3ValueTheory.op_arith_le;
+          A.int_params = [] } [a; qp_zero]
+
+let qp_all (body:A.expr) : A.expr = A.Quantifier A.Forall_k [qp_int; qp_int] A.bool_sort body
+
+let qp_leaf (l r:A.expr) (pad:nat) : Z3NnfReplay.verdict =
+  let bl = qp_nonpositive l in
+  let br = qp_nonpositive r in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr bl br) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qp_all bl) (qp_all br);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int; qp_int] } ::
+      padding pad [];
+    U.binder_root = 2 }) (U.Equal (qp_all bl) (qp_all br))
+
+let qp_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [qp_int]; A.range = qp_int; A.interp = None; A.int_params = [] }
+
+let rec qp_applied (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else qp_applied (depth - 1) (A.App qp_f [acc])
+
+let qp_shared : A.func_decl =
+  { A.decl_name = "shared"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = None; A.int_params = [] }
+
+let rec qp_dag (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else qp_dag (depth - 1) (A.App qp_shared [acc; acc])
+
+let qp_swap (p q:A.expr) : A.expr & A.expr = (qp_mul p (qp_atom "y" 0), qp_mul (qp_atom "y" 0) q)
+
+let rec qp_sorts (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
+  if n = 0 then acc else qp_sorts (n - 1) (qp_int :: acc)
+
+(* n unshared 4,000-deep factors f^4000(a), the one at position k f^4000(b). *)
+let rec qp_copies (n k:nat) (a b:A.expr) (acc:list A.expr) : Tot (list A.expr) (decreases n) =
+  if n = 0 then acc else qp_copies (n - 1) k a b (qp_applied 4000 (if n - 1 = k then b else a) :: acc)
+
+let qi_product_scale () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  let a = qp_atom "a" 0 in
+  let b = qp_atom "b" 0 in
+  let vs64 = qp_atoms 64 [] in
+  let vs65 = qp_atoms 65 [] in
+  let wide = qp_times (qp_atoms 100000 []) in
+  let long = A.App { A.decl_name = "*"; A.domain = qp_sorts 100000 []; A.range = qp_int;
+                     A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b] in
+  let (d1, e1) = qp_swap (qp_applied 4000 a) (qp_applied 4000 b) in
+  let (d2, e2) = qp_swap (qp_applied 4000 a) (qp_applied 4000 a) in
+  let (d3, e3) = qp_swap (qp_applied 200000 a) (qp_applied 200000 b) in
+  let (d4, e4) = qp_swap (qp_applied 200000 a) (qp_applied 200000 a) in
+  let (w1, w2) = qp_swap (qp_dag 16 a) (qp_dag 16 a) in
+  let (b1, b2) = qp_swap (qp_dag 60 a) (qp_dag 60 a) in
+  qp_leaf (qp_mul i1 i0) (qp_mul i0 i1) 0 = Z3NnfReplay.Replayed &&
+  qp_leaf (qp_mul (qp_mul i1 i0) i1) (qp_mul i1 (qp_mul i0 i1)) 0 = Z3NnfReplay.Replayed &&
+  qp_leaf (qp_mul i1 i0) (qp_mul i1 i1) 0 = Z3NnfReplay.Unreplayed &&
+  qp_leaf (qp_mul i1 i0) (qp_mul i0 i0) 0 = Z3NnfReplay.Unreplayed &&
+  Z3NnfReplay.product_permuted (qp_times vs64) (qp_times (FStar.List.Tot.rev vs64)) &&
+  not (Z3NnfReplay.product_permuted (qp_times vs65) (qp_times (FStar.List.Tot.rev vs65))) &&
+  not (Z3NnfReplay.product_permuted wide wide) &&
+  not (Z3NnfReplay.product_permuted long long) &&
+  Z3NnfReplay.product_permuted (qp_times (qp_copies 64 64 a b [])) (qp_times (qp_copies 64 64 a b [])) &&
+  not (Z3NnfReplay.product_permuted (qp_times (qp_copies 64 64 a b [])) (qp_times (qp_copies 64 63 a b []))) &&
+  not (Z3NnfReplay.product_permuted d1 e1) && qp_leaf d1 e1 200 = Z3NnfReplay.Unreplayed &&
+  Z3NnfReplay.product_permuted d2 e2 && qp_leaf d2 e2 200 = Z3NnfReplay.Replayed &&
+  not (Z3NnfReplay.product_permuted d3 e3) &&
+  not (Z3NnfReplay.product_permuted d4 e4) &&
+  qp_leaf w1 w2 2000 = Z3NnfReplay.Replayed &&
+  qp_leaf w1 w2 0 = Z3NnfReplay.Unreplayed &&
+  qp_leaf b1 b2 40 = Z3NnfReplay.Unreplayed
+
+let direct_product_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = qp_atom "x" 0 in
+  let y = qp_atom "y" 0 in
+  let z = qp_atom "z" 0 in
+  let twin = qp_atom "x" 7 in
+  let look_alike = A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int;
+                           A.interp = Some Z3ValueTheory.op_mul; A.int_params = [0] } [y; x] in
+  let check l r = C.check true (ite_rewrite_document core l r) in
+  check (qp_mul x y) (qp_mul y x) = Some 0 &&
+  check (qp_mul (qp_mul x y) z) (qp_times [x; y; z]) = Some 0 &&
+  check (qp_mul x y) (qp_mul x x) = Some 1 &&
+  check (qp_mul x y) (qp_mul y twin) = Some 1 &&
+  check (qp_mul x y) look_alike = Some 1
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -565,4 +696,6 @@ let run () : bool =
   qi_ite_scale () &&
   real_farkas_controls () &&
   direct_ite_controls () &&
+  qi_product_scale () &&
+  direct_product_controls () &&
   name_pair_units_scale ()

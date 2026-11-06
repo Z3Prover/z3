@@ -1564,6 +1564,17 @@ let ite_rewrite (node:U.proof_node) : bool =
    | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.ite_rewritten a b
    | U.Holds _ -> false)
 
+(* A premise-free rewrite step whose closed Int equation permutes and
+   regroups the factors of canonical Int products
+   (Z3NnfReplay.product_permuted, the check of the quant-intro rewrite
+   leaves, read at the scope []). No schema gate: the Int product is the
+   one the Sorted semantics gives `*` in every Sorted model. *)
+let product_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.product_permuted a b
+   | U.Holds _ -> false)
+
 (* The node kernels that read the Sorted Real laws. *)
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool = real_farkas s node || real_rewrite s node
 
@@ -1725,7 +1736,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
-      ite_rewrite node in
+      ite_rewrite node || product_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1815,6 +1826,23 @@ let lemma_ite_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     T.lemma_equality s bc eq other a b
   | U.Holds _ -> ()
 
+(* An accepted Int factor permutation equation is true in every Sorted
+   model: the law at the scope [] and the empty environment. *)
+let lemma_product_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ product_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_product_permuted_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
 let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
@@ -1881,7 +1909,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
-    else lemma_ite_rewrite s bc eq other node
+    else if ite_rewrite node then lemma_ite_rewrite s bc eq other node
+    else lemma_product_rewrite s bc eq other node
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =

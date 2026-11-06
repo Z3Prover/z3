@@ -3426,6 +3426,212 @@ let sorted_direct_ite_rewrites () =
      A.App ({ f with A.interp = None }, [guard; x; y]), "counterfeit ite";
      A.App (f, [guard; twin; y]), "twin branch"]
 
+(* The Int product factor permutation (Z3NnfReplay.product_permuted) at native scale, on the normal
+   stack, on both Sorted paths. Quant-intro leaves under two Int binders: the captured
+   FStar.Math.Euclid-1 leaf p1 * p0 ~ p0 * p1, nested reorders and regroupings, repeated
+   factors and numerals replay; x*y ~ x*x, a wrong repeated factor, coefficient and sign changes,
+   a shifted index, a same-spelled twin and look-alike `*` declarations are pending. 64 factors
+   (one n-ary node, or a left-nested binary chain) are accepted in reverse order; 65 factors and a
+   100,000-argument product are refused by the factor bound, and a product candidate with a
+   100,000-sort domain by its bounded admission; 5,000 nested unary products exceed the 4,096-pop
+   walk. A 100,000-argument opaque factor (one factor, its lists never read by the admission), a
+   factor over a 1,000-deep array sort, and 64 unshared copies of a 4,000-deep factor (one copy
+   changed: refused) are compared exactly; a look-alike `*` over array sorts is not opened. The
+   inputs' sizes bound the work, not the leaf charge, for declaration names and sort lists.
+   Distinct factors f^d(a) and f^d(b), which pointer equality cannot
+   short-circuit: at d = 4,000 they are compared (refused when they differ, accepted for an
+   unshared equal copy); at d = 200,000 the depth admission (4,096 levels) refuses them. A shared
+   factor with 2^16 tree nodes replays with enough work and is pending without it; one with 2^60
+   tree nodes is pending (the leaf's charge runs out first) and is refused by the depth walk's pop
+   bound. Closed premise-free RewriteRule nodes (Z3SortedProof.product_rewrite) of the closed laws
+   and of the 4,000-deep equal factors are checked with no obligation; x*y = x*x keeps one. *)
+let sorted_int_factor_permutation () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module K = Z3SortedProof in
+  let int_s = A.BaseSort "Int" and real_s = A.BaseSort "Real" in
+  let constant ?(params = []) ?(sort = int_s) name =
+    A.App ({ A.decl_name = name; domain = []; range = sort; interp = None; int_params = List.map Z.of_int params }, []) in
+  let native_mul = { A.decl_name = "*"; domain = [int_s; int_s]; range = int_s; interp = Some Z3ValueTheory.op_mul;
+                     int_params = [] } in
+  let mul a b = A.App (native_mul, [a; b]) in
+  let times args = A.App ({ A.decl_name = "*"; domain = List.map (fun _ -> int_s) args; range = int_s;
+                            interp = Some Z3ValueTheory.op_arith_mul; int_params = [] }, args) in
+  let num n = A.App ({ A.decl_name = "num"; domain = []; range = int_s; interp = Some Z3ValueTheory.op_num_rational;
+                       int_params = [Z.of_int n; Z.one] }, []) in
+  let le a b = A.App ({ A.decl_name = "<="; domain = [int_s; int_s]; range = A.bool_sort;
+                        interp = Some Z3ValueTheory.op_arith_le; int_params = [] }, [a; b]) in
+  let all body = A.Quantifier (A.Forall_k, [int_s; int_s], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    let bl = le l (num 0) and br = le r (num 0) in
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr bl br) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all bl) (all br)) [1] (Some [int_s; int_s]) ::
+                                      padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (all bl, all br)) in
+  let node l r = { U.kind = U.RewriteRule; conclusion = U.Equal (l, r); premises = [] } in
+  let core = { Z3DatatypeSignature.sorts = []; cases = [] } in
+  let pending l r = match K.check_node core [] (node l r) with
+    | Some (_, n) -> Z.to_int n
+    | None -> failwith "a well-sorted product rewrite node was rejected" in
+  let i0 = A.Var (Z.zero, int_s) and i1 = A.Var (Z.one, int_s) in
+  let x = constant "x" and y = constant "y" and z = constant "z" in
+  let open_laws = [
+    mul i1 i0, mul i0 i1;
+    mul (mul i1 i0) i1, mul i1 (mul i0 i1);
+    times [i1; i0; num 3], mul (mul (num 3) i0) i1 ] in
+  let closed_laws = [
+    mul x y, mul y x;
+    mul (mul x y) z, times [z; y; x];
+    mul x (mul y z), mul (mul x y) z;
+    mul (mul x x) y, mul x (mul y x);
+    mul (num (-1)) (mul x y), mul (mul y (num (-1))) x ] in
+  List.iter (fun (l, r) ->
+      require (NR.product_permuted l r && NR.rewrite_ok l r) "a factor permutation was refused";
+      require (leaf l r 0 = NR.Replayed) "a factor permutation certificate was not replayed")
+    (open_laws @ closed_laws);
+  List.iter (fun (l, r) ->
+      require (K.product_rewrite (node l r) && pending l r = 0) "a closed factor permutation node was not checked")
+    closed_laws;
+  let mul_param a b = A.App ({ native_mul with A.int_params = [Z.zero] }, [a; b]) in
+  let mul_free a b = A.App ({ native_mul with A.interp = None }, [a; b]) in
+  let rmul a b = A.App ({ A.decl_name = "*"; domain = [real_s; real_s]; range = real_s;
+                          interp = Some Z3ValueTheory.op_arith_mul; int_params = [] }, [a; b]) in
+  let c = constant ~sort:real_s "c" and d = constant ~sort:real_s "d" in
+  List.iter (fun (l, r, name) ->
+      require (not (NR.product_permuted l r)) ("a factor permutation mutant was accepted: " ^ name);
+      require (A.get_sort l <> int_s || A.get_sort r <> int_s || leaf l r 0 = NR.Unreplayed)
+        ("a factor permutation mutant was replayed: " ^ name))
+    [mul i1 i0, mul i1 i1, "x*y ~ x*x";
+     mul (mul i1 i1) i0, mul (mul i1 i0) i0, "wrong repeated factor";
+     mul (num 2) (mul i1 i0), mul (num 3) (mul i0 i1), "coefficient changed";
+     mul (num (-1)) (mul i1 i0), mul i0 i1, "sign dropped";
+     mul i1 i0, mul i0 i0, "shifted index";
+     mul x y, mul y (constant ~params:[7] "x"), "twin constant";
+     mul_param x y, mul_param y x, "look-alike * with a parameter";
+     mul_free x y, mul_free y x, "uninterpreted look-alike *";
+     rmul c d, rmul d c, "Real product"];
+  require (pending (mul x y) (mul x x) = 1 && not (K.product_rewrite (node (mul x y) (mul x x))))
+    "the closed x*y = x*x node was checked";
+  let vs n = List.init n (fun k -> constant ~params:[k] "v") in
+  let chain xs = List.fold_left mul (List.hd xs) (List.tl xs) in
+  require (NR.product_permuted (times (vs 64)) (times (List.rev (vs 64)))) "64 factors were refused";
+  require (NR.product_permuted (chain (vs 64)) (chain (List.rev (vs 64)))) "a 64-factor chain was refused";
+  require (not (NR.product_permuted (times (vs 65)) (times (List.rev (vs 65))))) "65 factors were accepted";
+  require (not (NR.product_permuted (chain (vs 65)) (chain (List.rev (vs 65))))) "a 65-factor chain was accepted";
+  let wide = times (vs 100000) in
+  require (not (NR.product_permuted wide wide)) "a 100,000-factor product was accepted";
+  let rec unary depth acc = if depth = 0 then acc else unary (depth - 1) (times [acc]) in
+  require (NR.product_permuted (unary 4000 x) x) "4,000 nested unary products were refused";
+  require (not (NR.product_permuted (unary 5000 x) x)) "5,000 nested unary products exceeded no bound";
+  let long_domain = { native_mul with A.domain = List.init 100000 (fun _ -> int_s) } in
+  require (not (NR.product_permuted (A.App (long_domain, [x; y])) (A.App (long_domain, [y; x]))))
+    "a product candidate with a 100,000-sort domain was opened";
+  let g = { A.decl_name = "g"; domain = List.init 100000 (fun _ -> int_s); range = int_s; interp = None; int_params = [] } in
+  let opaque () = A.App (g, List.init 100000 (fun k -> constant ~params:[k] "w")) in
+  require (NR.product_permuted (mul (opaque ()) y) (mul y (opaque ())))
+    "an unshared 100,000-argument opaque factor was refused";
+  let rec nested depth acc = if depth = 0 then acc else nested (depth - 1) (A.ArraySort ([int_s], acc)) in
+  let deep_sort = nested 1000 int_s in
+  let arr k = constant ~sort:deep_sort ~params:[k] "arr" in
+  let h = { A.decl_name = "h"; domain = [deep_sort]; range = int_s; interp = None; int_params = [] } in
+  require (NR.product_permuted (mul (A.App (h, [arr 0])) y) (mul y (A.App (h, [arr 0]))))
+    "a factor over a 1,000-deep array sort was refused";
+  let array_mul = { native_mul with A.domain = [deep_sort; deep_sort] } in
+  require (not (NR.product_permuted (A.App (array_mul, [arr 0; arr 1])) (A.App (array_mul, [arr 1; arr 0]))))
+    "a look-alike * over array sorts was opened";
+  let f = { A.decl_name = "f"; domain = [int_s]; range = int_s; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = constant "a" and b = constant "b" in
+  let copies k = times (List.init 64 (fun i -> applied 4000 (if i = k then b else a))) in
+  require (NR.product_permuted (copies 64) (copies 64))
+    "64 unshared equal 4,000-deep factors were refused";
+  require (not (NR.product_permuted (copies 64) (copies 63)))
+    "a multiset of deep factors with one changed copy was accepted";
+  let swap p q = mul p y, mul y q in
+  let l, r = swap (applied 4000 a) (applied 4000 b) in
+  require (not (NR.product_permuted l r) && leaf l r 200 = NR.Unreplayed) "distinct 4,000-deep factors were accepted";
+  let l, r = swap (applied 4000 a) (applied 4000 a) in
+  require (NR.product_permuted l r && leaf l r 200 = NR.Replayed) "unshared equal 4,000-deep factors were refused";
+  require (pending l r = 0) "a closed node with equal 4,000-deep factors was not checked";
+  let l, r = swap (applied 200000 a) (applied 200000 b) in
+  require (not (NR.product_permuted l r)) "distinct 200,000-deep factors were accepted";
+  let l, r = swap (applied 200000 a) (applied 200000 a) in
+  require (not (NR.product_permuted l r)) "factors beyond the depth admission were accepted";
+  let shared = { A.decl_name = "shared"; domain = [int_s; int_s]; range = int_s; interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let l, r = swap (dag 16 a) (dag 16 a) in
+  require (leaf l r 2000 = NR.Replayed) "a large shared factor was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large shared factor was replayed beyond the work budget";
+  let l, r = swap (dag 60 a) (dag 60 a) in
+  require (leaf l r 40 = NR.Unreplayed) "an exponential shared factor was replayed";
+  require (not (NR.product_permuted l r)) "an exponential shared factor passed the depth walk"
+
+(* The producer's own steps: Z3 rewrites y * x to x * y and (x * y) * z to the ternary x * y * z
+   as premise-free closed `rewrite` nodes under a congruence (the first two sources below), and a
+   product leaf inside a quant-intro certificate (the third: the body of a universal over Int
+   binders). Each refutation is certified on the Sorted route (check_document_epsilon); every
+   closed product rewrite node is checked by Z3SortedProof.product_rewrite and by no other kernel
+   of check_node_cached; on the marshalled node, x*y ~ x*x, a twin factor and a look-alike `*`
+   stay pending. *)
+let sorted_direct_product_rewrites () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let product_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (l, r)) when e.P.rule = U.RewriteRule && NR.product_permuted l r && l <> r -> Some (l, r)
+    | _ -> None in
+  let product_leaf b = b.U.binder_name = "rewrite" &&
+    (match U.classify_fact b.U.binder_formula with
+     | Some (U.Equal (l, r)) -> NR.product_permuted l r && l <> r
+     | _ -> false) in
+  let quantified_leaf e = match e.P.rule with
+    | U.QuantifierIntroduction c -> List.exists product_leaf c.U.binder_entries
+    | _ -> false in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the product refutation was not certified");
+    List.filter_map product_step doc.P.entries, List.exists quantified_leaf doc.P.entries, schema in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let steps_a, _, schema = certified "commuted" (header ^ "(assert (not (= (* x y) (* y x))))") in
+  let steps_b, _, _ = certified "regrouped" (header ^ "(assert (not (= (* x (* z y)) (* (* y x) z))))") in
+  let _, leaf_c, _ = certified "quantified"
+      "(declare-fun f (Int Int) Bool)(assert (forall ((p0 Int) (p1 Int)) (f p0 (* p1 p0))))\
+       (assert (not (forall ((p0 Int) (p1 Int)) (f p0 (* p0 p1)))))" in
+  require (steps_a <> [] && steps_b <> []) "no closed product rewrite step was produced";
+  require leaf_c "no quant-intro certificate with a product leaf was produced";
+  let node l r = { U.kind = U.RewriteRule; conclusion = U.Equal (l, r); premises = [] } in
+  List.iter (fun (l, r) ->
+      let n = node l r in
+      require (K.product_rewrite n) "a producer product rewrite node was refused";
+      require (not (K.ite_rewrite n) && not (K.real_rewrite schema n) &&
+               not (K.consequence schema [] (K.proposition n.U.conclusion)))
+        "a producer product rewrite node was already checked by another kernel";
+      match K.check_node schema [] n with
+      | Some (_, pending) -> require (Z.equal pending Z.zero) "a producer product rewrite node stayed open"
+      | None -> failwith "a producer product rewrite node was rejected")
+    (steps_a @ steps_b);
+  let l, r = List.hd steps_a in
+  let x, y, mul = match r with
+    | A.App (mul, [x; y]) -> x, y, mul
+    | _ -> failwith "expected (* x y)" in
+  let twin = match x with
+    | A.App (k, []) -> A.App ({ k with A.int_params = [Z.of_int 7] }, [])
+    | _ -> failwith "expected the constant x" in
+  List.iter (fun (rhs, name) ->
+      match K.check_node schema [] (node l rhs) with
+      | Some (_, pending) ->
+          require (not (K.product_rewrite (node l rhs)) && Z.gt pending Z.zero)
+            ("a product rewrite mutant was checked: " ^ name)
+      | None -> failwith "a well-sorted product rewrite mutant was rejected")
+    [A.App (mul, [x; x]), "x*y ~ x*x";
+     A.App (mul, [twin; y]), "twin factor";
+     A.App ({ mul with A.int_params = [Z.zero] }, [x; y]), "look-alike *"]
+
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
    only. For every pair below the units equal the previous charge name_length a + name_length b,
@@ -7232,6 +7438,8 @@ let () =
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
      "sorted-quant-intro-ite-laws", sorted_quant_intro_ite_laws;
      "sorted-direct-ite-rewrites", sorted_direct_ite_rewrites;
+     "sorted-int-factor-permutation", sorted_int_factor_permutation;
+     "sorted-direct-product-rewrites", sorted_direct_product_rewrites;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;

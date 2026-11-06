@@ -53,7 +53,15 @@
                     meaning is the choice the Sorted semantics already
                     gives every `ite` (lemma_ite_rewritten_at), never the
                     values of the branches, so a Real or other theory
-                    subterm stays an opaque operand; for Boolean sides, a
+                    subterm stays an opaque operand; at Int, a permutation
+                    and regrouping of the factors of nested canonical Int
+                    products (product_permuted: a node is opened only when
+                    its declaration is Z3SortedInteger's `Calculate Mul`;
+                    every other expression, numerals included, is one
+                    factor; equal factor multisets by exact identity, at
+                    most 64 factors per side), true by the integer product
+                    the Sorted semantics gives `*` (lemma_product_permuted_at);
+                    for Boolean sides, a
                     regrouping of nested canonical and/or (equal operand
                     lists, or, for at most 12 operands per side, lists
                     included in each other; operands compared by exact
@@ -147,6 +155,16 @@
    native ids, and never more than 4096 levels deep. The node charge does
    not count the bytes of declaration names; those comparisons are bounded
    by the leaf's own bytes (12 times on the order-free path).
+   The Int factor permutation walks each side with at most 4096 pops and
+   stops at the 65th factor; it reads a declaration's argument and domain
+   lists only after its tags name a canonical product, and then at most 65
+   elements of each (a longer candidate is refused). Both sides are
+   shallow before any comparison, and the multiset check removes each left
+   factor from the right list, so it makes at most 64 * 64 factor
+   comparisons, together at most 64 times the charged size of the right
+   side. As above, the node charge does not count declaration-name bytes
+   or sort lists; those comparisons are bounded by the leaf's own bytes
+   (64 times), not by the charge.
    The other checks (existing Sorted-route code, not one of the loops above)
    are not themselves linear in the charge: the Int equivalence reads at
    most 256 nodes per side, and each of the (at most two) bounded
@@ -193,6 +211,9 @@ module AR = Z3SortedArithmetic
 module DT = Z3SortedDatatype
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
+module SI = Z3SortedInteger
+module LA = Z3LinearArithmeticAst
+module RW = Z3ArithmeticRewrite
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -446,9 +467,62 @@ let ite_rewritten (lhs rhs:expr) : bool =
     else false
   | _, _ -> false
 
+(* Int product factor permutation. A node is opened only when its
+   declaration is a canonical Int multiplication (SI.classify = Calculate
+   Mul: exactly `*` over an Int domain with Int range, op_arith_mul, or
+   op_mul with two arguments, no parameters); every other expression, a
+   numeral, an opaque Int application or a look-alike `*`, is one factor.
+   A loop over an explicit stack: at most `fuel` pops and at most `room`
+   factors, otherwise None. Admission is bounded before any list is read:
+   the declaration's tags (name, range, parameters, interpretation) decide
+   whether it can be a product at all; a candidate's argument and domain
+   lists are then read only up to `room + 1` elements (a longer one is
+   refused), so neither SI.classify nor the push of the arguments ever
+   walks more than `room` elements. *)
+let product_tags (f:func_decl) : bool =
+  f.decl_name = "*" && f.range = LA.int_s && f.int_params = [] &&
+  (f.interp = Some Z3ValueTheory.op_arith_mul || f.interp = Some Z3ValueTheory.op_mul)
+
+let rec length_within (#a:Type) (n:nat) (xs:list a) : Tot bool (decreases xs) =
+  match xs with [] -> true | _ :: rest -> if n = 0 then false else length_within (n - 1) rest
+
+let rec factors_within (fuel room:nat) (pending acc:list expr)
+  : Tot (option (list expr)) (decreases fuel) =
+  match pending with
+  | [] -> Some acc
+  | e :: rest ->
+    if fuel = 0 then None
+    else match e with
+      | App f args ->
+        if product_tags f then
+          (if length_within room args && length_within room f.domain then
+             (if SI.classify f = SI.Calculate LA.Mul then factors_within (fuel - 1) room (prepend args rest) acc
+              else if room = 0 then None
+              else factors_within (fuel - 1) (room - 1) rest (e :: acc))
+           else None)
+        else if room = 0 then None
+        else factors_within (fuel - 1) (room - 1) rest (e :: acc)
+      | _ -> if room = 0 then None else factors_within (fuel - 1) (room - 1) rest (e :: acc)
+
+let int_factors (e:expr) : option (list expr) = factors_within 4096 64 [e] []
+
+(* Both sides are Int, shallow (bounding the structural comparisons, as for
+   the ITE laws), and their factors are the same multiset: each left factor
+   is removed from the right list by exact identity (multiplicity counts,
+   so x*x and x*y differ, and so do numerals that differ in value or sign).
+   `if`, not `&&`: a normalized check of a non-Int leaf reads no factors. *)
+let product_permuted (lhs rhs:expr) : bool =
+  if get_sort lhs = LA.int_s && get_sort rhs = LA.int_s then
+    (match int_factors lhs, int_factors rhs with
+     | Some xs, Some ys -> if shallow lhs && shallow rhs then RW.factor_permutation xs ys else false
+     | _, _ -> false)
+  else false
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
    equivalence; an ITE law at any result sort (the term-ITE leaves of
-   Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); or, for Boolean
+   Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); an Int product
+   factor permutation (the nonlinear Int leaves, e.g. FStar.Math.Euclid
+   p1 * p0 ~ p0 * p1); or, for Boolean
    sides, a regrouping of nested canonical and/or over the same operands
    (the n-ary re-association leaves of
    Pulse.Checker.Base-1, e.g. (or d1 d2 d3 d4) = (or (or d1 d2) (or d3 d4))
@@ -469,6 +543,7 @@ let propositional_at (fuel:nat) (lhs rhs:expr) : bool =
 let rewrite_ok (lhs rhs:expr) : bool =
   AR.equivalent lhs rhs ||
   (if ite_rewritten lhs rhs then true
+   else if product_permuted lhs rhs then true
    else get_sort lhs = bool_sort && get_sort rhs = bool_sort &&
         (if regrouped lhs rhs then true else propositional_at 64 lhs rhs || propositional_at 2 lhs rhs))
 
@@ -1530,10 +1605,139 @@ let lemma_ite_rewritten_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
     else lemma_ite_merged_else_at s bc eq other scope rho f c x y c' x' y'
   | _, _ -> ()
 
+(* Int product factor permutation. The value of a canonical Int product at
+   ANY scope where it is typed, at ANY typed environment of it, is the
+   integer product of the values of its factors (the `Calculate Mul` case
+   of Z3SortedInteger.application, read back through the Int carrier of
+   the same scalar model); equal factor multisets have equal products.
+   No Real or other theory law is read. *)
+let rec gproduct (v:expr -> GTot int) (xs:list expr) : GTot int (decreases xs) =
+  match xs with [] -> 1 | x :: rest -> v x * gproduct v rest
+
+let lemma_mul_swap (a b c:int) : Lemma (a * (b * c) == b * (a * c)) =
+  FStar.Math.Lemmas.paren_mul_right a b c;
+  FStar.Math.Lemmas.swap_mul a b;
+  FStar.Math.Lemmas.paren_mul_right b a c
+
+let lemma_mul_rotate (a b c:int) : Lemma (a * (b * c) == (b * a) * c) =
+  lemma_mul_swap a b c;
+  FStar.Math.Lemmas.paren_mul_right b a c
+
+let rec lemma_remove_product (v:expr -> GTot int) (x:expr) (xs ys:list expr)
+  : Lemma (requires RW.remove_factor x xs == Some ys)
+          (ensures gproduct v xs == v x * gproduct v ys)
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | y :: rest ->
+    if x <> y then (
+      let tail = Some?.v (RW.remove_factor x rest) in
+      lemma_remove_product v x rest tail;
+      lemma_mul_swap (v y) (v x) (gproduct v tail))
+
+let rec lemma_permuted_product (v:expr -> GTot int) (xs ys:list expr)
+  : Lemma (requires RW.factor_permutation xs ys)
+          (ensures gproduct v xs == gproduct v ys)
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    let tail = Some?.v (RW.remove_factor x ys) in
+    lemma_remove_product v x ys tail;
+    lemma_permuted_product v rest tail
+
+let rec lemma_prepend_product (v:expr -> GTot int) (scope:list sort) (xs acc:list expr)
+  : Lemma (ensures gproduct v (prepend xs acc) == gproduct v xs * gproduct v acc /\
+                   ((D.scoped_args scope xs /\ D.scoped_args scope acc) ==> D.scoped_args scope (prepend xs acc)) /\
+                   ((LA.same_sort LA.int_s xs /\ LA.same_sort LA.int_s acc) ==> LA.same_sort LA.int_s (prepend xs acc)))
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    lemma_prepend_product v scope rest (x :: acc);
+    lemma_mul_rotate (gproduct v rest) (v x) (gproduct v acc)
+
+let rec lemma_numbers_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                              (args:list expr) (ss:list sort)
+  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ SI.integer_sorts ss)
+          (ensures SI.product (SI.numbers s eq.T.integers ss (T.evaluate_arguments_at s bc eq other scope rho args ss)) ==
+                   gproduct (AR.integer s bc eq other scope rho) args)
+          (decreases args) =
+  match args, ss with
+  | a :: rest, t :: tail ->
+    V.lemma_sort_eq (get_sort a) t;
+    lemma_numbers_product s bc eq other scope rho rest tail
+  | _, _ -> ()
+
+let lemma_product_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                       (f:func_decl) (args:list expr)
+  : Lemma (requires D.scoped scope (App f args) /\ SI.classify f == SI.Calculate LA.Mul)
+          (ensures D.scoped_args scope args /\ LA.same_sort LA.int_s args /\
+                   AR.integer s bc eq other scope rho (App f args) ==
+                   gproduct (AR.integer s bc eq other scope rho) args) =
+  SI.lemma_argument_sorts args f.domain;
+  AR.lemma_application s bc eq other scope rho f args;
+  lemma_numbers_product s bc eq other scope rho args f.domain
+
+let rec lemma_factors_within (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (fuel room:nat) (pending acc fs:list expr)
+  : Lemma (requires D.scoped_args scope pending /\ LA.same_sort LA.int_s pending /\
+                    factors_within fuel room pending acc == Some fs)
+          (ensures gproduct (AR.integer s bc eq other scope rho) fs ==
+                   gproduct (AR.integer s bc eq other scope rho) pending *
+                   gproduct (AR.integer s bc eq other scope rho) acc)
+          (decreases fuel) =
+  let v = AR.integer s bc eq other scope rho in
+  match pending with
+  | [] -> ()
+  | e :: rest ->
+    match e with
+    | App f args ->
+      if product_tags f && length_within room args && length_within room f.domain &&
+         SI.classify f = SI.Calculate LA.Mul then (
+        lemma_product_node s bc eq other scope rho f args;
+        lemma_prepend_product v scope args rest;
+        lemma_factors_within s bc eq other scope rho (fuel - 1) room (prepend args rest) acc fs)
+      else (
+        lemma_factors_within s bc eq other scope rho (fuel - 1) (room - 1) rest (e :: acc) fs;
+        lemma_mul_rotate (gproduct v rest) (v e) (gproduct v acc))
+    | _ ->
+      lemma_factors_within s bc eq other scope rho (fuel - 1) (room - 1) rest (e :: acc) fs;
+      lemma_mul_rotate (gproduct v rest) (v e) (gproduct v acc)
+
+let lemma_single_product (v:expr -> GTot int) (e:expr)
+  : Lemma (gproduct v [e] * gproduct v [] == v e) =
+  assert (gproduct v [] == 1);
+  assert (gproduct v [e] == v e * 1)
+
+let lemma_product_permuted_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (scope:list sort) (rho:V.environment base (S.signature s) scope) (lhs rhs:expr)
+  : Lemma (requires product_permuted lhs rhs /\ D.scoped scope lhs /\ D.scoped scope rhs)
+          (ensures same_at s bc eq other scope rho lhs rhs) =
+  let v = AR.integer s bc eq other scope rho in
+  let xs = Some?.v (int_factors lhs) in
+  let ys = Some?.v (int_factors rhs) in
+  lemma_factors_within s bc eq other scope rho 4096 64 [lhs] [] xs;
+  lemma_factors_within s bc eq other scope rho 4096 64 [rhs] [] ys;
+  lemma_single_product v lhs;
+  lemma_single_product v rhs;
+  lemma_permuted_product v xs ys;
+  assert (v lhs == v rhs);
+  AR.lemma_integer_equality s bc eq other scope rho lhs rhs;
+  lemma_same_at s bc eq other scope rho lhs rhs
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
    is Z3SortedArithmetic.lemma_equivalent at that scope; the ITE laws are
-   lemma_ite_rewritten_at; the regrouping is lemma_regrouped_at; the
+   lemma_ite_rewritten_at; the Int factor permutation is
+   lemma_product_permuted_at; the regrouping is lemma_regrouped_at; the
    propositional equivalences are lemma_propositional_at. *)
 let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -1544,6 +1748,7 @@ let lemma_rewrite_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     AR.lemma_equivalent s bc eq other scope rho lhs rhs;
     lemma_same_at s bc eq other scope rho lhs rhs)
   else if ite_rewritten lhs rhs then lemma_ite_rewritten_at s bc eq other scope rho lhs rhs
+  else if product_permuted lhs rhs then lemma_product_permuted_at s bc eq other scope rho lhs rhs
   else if regrouped lhs rhs then lemma_regrouped_at s bc eq other scope rho lhs rhs
   else if propositional_at 64 lhs rhs then lemma_propositional_at s bc eq other scope rho 64 lhs rhs
   else lemma_propositional_at s bc eq other scope rho 2 lhs rhs
