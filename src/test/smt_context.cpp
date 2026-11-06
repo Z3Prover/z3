@@ -289,6 +289,85 @@ static void check_quantified_array_ite() {
         "                (lambda ((k Int)) (ite b (select M k) 0)))))\n", true);
 }
 
+static void check_quantifier_polarities() {
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(assert (forall ((x Int)) (= x x)))\n", l_true},
+        {"(assert (not (forall ((x Int)) (= x x))))\n", l_false},
+        {"(assert (not (forall ((x Int)) (= x 0))))\n", l_true},
+        {"(assert (= (forall ((x Int)) (= x x)) false))\n", l_false},
+        {"(assert (= (forall ((x Int)) (= x 0)) false))\n", l_true},
+        {"(assert (= (forall ((x Int)) (=> (= x 0) (= x 0))) false))\n", l_false},
+        {"(assert (ite (forall ((x Int)) (= x x)) false true))\n", l_false},
+        {"(declare-fun p (Int) Bool)\n"
+         "(assert (forall ((x Int)) (p x)))\n"
+         "(assert (not (forall ((x Int)) (or (p x) (= x 0)))))\n", l_false},
+        {"(declare-fun f (Bool) Bool)\n"
+         "(assert (f (forall ((x Int)) (= x x))))\n"
+         "(assert (not (f true)))\n", l_false},
+        {"(declare-fun f (Bool) Bool)\n"
+         "(assert (f (forall ((x Int)) (= x 0))))\n"
+         "(assert (not (f false)))\n", l_false},
+        {"(assert (forall ((x Int)) (not (forall ((y Int)) (= y x)))))\n", l_true}
+    };
+    for (bool proofs : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(test.input);
+            VERIFY(parse_smt2_commands(cmd, input));
+            smt_params params;
+            params.m_preprocess = false;
+            params.m_auto_config = false;
+            smt::context ctx(m, params);
+            ctx.push();
+            for (expr* assertion : cmd.assertions()) {
+                proof_ref pr(m.mk_asserted(assertion), m);
+                ctx.internalize_assertion(assertion, pr, 0);
+            }
+            VERIFY(ctx.check() == test.expected);
+            if (proofs && test.expected == l_false) {
+                proof_ref pr(ctx.get_proof(), m);
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(pr && checker.check(pr, side_conditions));
+            }
+        }
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream input(
+            "(declare-fun p (Int) Bool)\n"
+            "(assert (forall ((x Int)) (p x)))\n"
+            "(assert (not (forall ((x Int)) (or (p x) (= x 0)))))\n");
+        VERIFY(parse_smt2_commands(cmd, input));
+        smt_params params;
+        params.m_preprocess = false;
+        params.m_auto_config = false;
+        struct polarity_context : smt::context {
+            using smt::context::context;
+            using smt::context::internalize_formula;
+        };
+        polarity_context ctx(m, params);
+        expr* q = to_app(cmd.assertions()[1])->get_arg(0);
+        ctx.push();
+        proof_ref pr(m.mk_asserted(cmd.assertions()[0]), m);
+        ctx.internalize_assertion(cmd.assertions()[0], pr, 0);
+        ctx.internalize_formula(q, true, l_true);
+        for (unsigned i = 0; i < 2; ++i) {
+            ctx.push();
+            pr = m.mk_asserted(cmd.assertions()[1]);
+            ctx.internalize_assertion(cmd.assertions()[1], pr, 0);
+            VERIFY(ctx.check() == l_false);
+            ctx.pop(1);
+            VERIFY(ctx.check() == l_true);
+        }
+    }
+}
+
 static void check_stored_lambdas() {
     auto check = [](char const* input, lbool expected) {
         ast_manager m;
@@ -1046,6 +1125,7 @@ void tst_smt_context()
     check_sequence_last_index();
     check_array_index_dependencies();
     check_quantified_array_ite();
+    check_quantifier_polarities();
     check_stored_lambdas();
     check_sat_array_lambdas();
     check_singleton_array_defaults();

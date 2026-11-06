@@ -1504,8 +1504,7 @@ namespace smt {
                        display(tout););
                 SASSERT(is_quantifier(m_bool_var2expr[v]));
                 if (get_assignment(v) == l_true) {
-                    // All universal quantifiers have positive polarity in the input formula.
-                    // So, we can ignore quantifiers assigned to false.
+                    // Negative occurrences are handled by Skolem clauses during internalization.
                     assign_quantifier(to_quantifier(m_bool_var2expr[v]));
                 }
             }
