@@ -1021,6 +1021,131 @@ Invocations are logged to `z3agent.db`. This improvement and the
 finite-length fallback are submitted together to `c3mv`. No full post-repair PyEx
 score is extrapolated from these subsets.
 
+### Additional PyEx gains: share indexed containment witnesses
+
+The next structural bottleneck is duplicate positive-containment
+decompositions. `indexof(s,t,0)` already uses `seq.idx.l(s,t)` and
+`seq.idx.r(s,t)` to describe its first occurrence, but nseq's positive
+`contains(s,t)` assignment independently introduces two fresh fragments.
+Nielsen search then has to align the two descriptions of the same
+occurrence before it can construct a coherent model.
+
+The candidate reuses the indexof fragments when the zero-offset index is
+already internalized and the source is an uninterpreted constant. The
+containment dependency and ordinary equation trailing are unchanged.
+Otherwise the original fresh-fragment path is preserved. No new index
+term is internalized, no model value becomes an unconditional fact, and
+neither the backend routing nor the finite-length head start changes.
+
+There is a second scheduling guard: retain the original decompositions
+when another uninterpreted source has an internalized zero-offset search
+for the same needle. This preserves the order of parallel delimiter
+pipelines. The check scans the needle's equivalence-class root parents;
+it does not assert any additional semantic restriction.
+
+The atomic-source restriction is important. Sharing on interpreted
+selectors as well produced a 929-input pilot with 38 gains/four losses,
+but quiet checks exposed genuine slowdowns: MongoClient `81656a27`
+increased from 2.442 to 3.021 seconds, and entry-disposition `95ac7403`
+from 2.712 to 4.491 seconds. That broader rule is rejected. Restricting
+sharing to atomic sources restores these controls near baseline while
+retaining the large diagnostic improvements.
+
+The atomic-only prototype completed 7,824 inputs with 4,158 to 4,219
+solved (64 gains/three losses), plus one gain/no losses on a disjoint
+384-input entry-disposition holdout. Two protected repeats left 53
+repeat-consistent PyEx gains. All 12 quiet controls solved below five
+seconds, but the Leetcode `numUniqueEmails` control `a05695bb` slowed
+from 2.378 to 2.756 seconds. This fails the 10% median guard and is not
+accepted. The parallel-source guard restores its original 2,285-node
+search and 539 expansions: matched quiet medians are 2.618/2.605 seconds.
+
+| Diagnostic | Published source | Both sharing guards |
+|---|---|---|
+| Entry-disposition `8066c768` | Eight-second timeout | Validated SAT, 2.665 seconds |
+| Header normalization `a7f9d65a` | SAT, 4.261 seconds | Validated SAT, 0.358 seconds |
+| URL authentication `ff8a7323` | SAT, 1.463 seconds | Validated SAT, 1.467 seconds |
+| MongoClient `c6ee2cf4` | Eight-second timeout | Eight-second timeout |
+| WWW authentication `bddfe21d` | Eight-second timeout | Eight-second timeout |
+
+These are diagnostic timings, not a full PyEx score. The normalization
+case drops from 2,331 to 171 DFS nodes without finite-length expansion.
+A reduced normalization regression returns unknown in the published
+solver at one million resource increments and validated SAT with sharing
+at about 712,000. Native tests cover that budgeted regression, repeated
+and overlapping occurrences, distinct offsets, and model validity after
+push/pop. All 135 native modules, the 75 positional semantic checks,
+the alignment/index-suffix suites, and CLI/Python smoke tests pass.
+
+Other tested alternatives are not retained: preserving the arithmetic
+base cache across temporary-assumption queries had six gains/seven
+losses on 929 inputs; model-guided fixed-length ordering regressed two
+diagnostics severely; moving empty Nielsen alternatives behind fresh-tail
+extensions exhausted an existing native-test resource budget. Restricting
+that reordering to finite block prefixes produced only eight gains/four
+cutoff losses in its pilot, with modest search reductions. Constraint
+hashing and avoiding unchanged token-vector trails produced only small
+diagnostic overhead reductions and are also omitted from this change.
+Deferring containment entirely to the existing indexof axioms did not
+repair the email slowdown. Restricting sharing to sources with assigned
+negative-containment parents lost the budgeted normalization regression;
+that restriction is also rejected.
+
+The guarded candidate's 441-input protected pilot has 42 gains/two
+cutoff losses. All 36 quiet inputs (216 invocations) agree, finish below
+five seconds, and stay within the 10% median guard, including every
+missed protected gain.
+
+Final acceptance against the published `f68efde30` executable:
+
+| Selection | Inputs | Before solved | After solved | Gains | Losses |
+|---|---:|---:|---:|---:|---:|
+| Full measured union | 7,824 | 4,109 | 4,156 | 50 | 3 |
+| Newly preselected entry-disposition holdout | 384 | 125 | 127 | 2 | 0 |
+
+These are matched five-second runs with model validation, not a full
+PyEx score. The primary net gain is 47. Two 427-input protected matched
+repeats retain 35 consistent new PyEx SAT gains. The holdout's two UNSAT
+cutoff gains do not repeat and are not included in that count. All six
+primary UNSAT gains and both holdout UNSAT gains agree with independent
+definite results from the frozen report-master.
+
+The final quiet audit covers 41 inputs and 246 invocations, including
+every primary/repeat loss, missed protected gain, and prior witness-sharing
+control. All answers agree, all runs finish below five seconds (maximum
+3.812 seconds), and the worst candidate median increase is 2.74%.
+After quiet recovery, all 17 required repairs, 33 bounded gains, 120
+alignment gains, 105 suffix gains, 24 suffix controls, 57 length gains,
+18 positional gains, and 11 sensitive controls are retained. The 1,471
+previously solved original c3mv-only controls are also retained: 1,470
+in the primary run and `28_attack` recovered quietly. There are no
+errors, invalid models, answer contradictions, or external watchdogs.
+All 135 native modules, semantic suites, and CLI/Python smoke tests pass.
+
+Artifacts retain `pyex-contains-index-distinct-sources-final-v1`, its
+two protected repeats, `pyex-contains-index-distinct-sources-fresh-v1`,
+the final-evidence, protection-recovery, and original-win-recovery JSON
+audits. The source-patch SHA256 against `f68efde30` is
+`7045adaf42e3d23eac396e0c2173094b2f7b665c79b500f7724dabb2a5bdadb3`;
+the executable SHA256 is
+`f655dc08c1157b698ba34e4a8e9164e9fccdcf5027704e08c128d0ec4f872552`.
+Benchmark invocations are logged to `z3agent.db`. Full PyEx parity with
+report-master remains unestablished.
+
+The two remaining hard diagnostics still illustrate why node count
+alone is a poor effort bound: ordinary search can spend eight seconds
+below the existing 2,176-node finite-length head start.
+With the guarded candidate, MongoClient `c6ee2cf4` consumes about
+14.85 million resource increments at 1,486 nodes; WWW authentication
+`bddfe21d` consumes 7.90 million at 1,562 nodes. Neither expands lengths.
+A next experiment should use a soft resource-count ceiling at search-tree
+yield points, alongside the node ceiling, and accumulate ordinary-search
+work across final checks. `reslimit::count()` provides that measure
+without pushing a nested cancellation limit. Reaching the soft ceiling
+must remain an unresolved search result, never an UNSAT fact, and must
+not reset outer cancellation. This is a proposed experiment, not part of
+the current change.
+
 ## Baseline and scope
 
 Sources:

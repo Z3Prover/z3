@@ -1212,6 +1212,53 @@ namespace {
         }
     }
 
+    static void tst_nseq_contains_index() {
+        std::ostringstream input;
+        input << R"(
+            (declare-const key1 String)
+            (declare-const key2 String)
+            (define-fun i1 () Int (str.indexof key1 "A" 0))
+            (define-fun i2 () Int (str.indexof key2 "O" 0))
+            (define-fun tail1 () String (str.substr key1 (+ i1 1) (- (str.len key1) (+ i1 1))))
+            (define-fun tail2 () String (str.substr key2 (+ i2 1) (- (str.len key2) (+ i2 1))))
+            (define-fun folded () String
+                (str.++ (str.replace (str.substr key2 0 (+ i2 1)) "O" "o") tail2))
+            (assert (str.contains tail1 "A"))
+            (assert (str.contains key1 "A"))
+        )";
+        for (char c = 'Z'; c > 'O'; --c)
+            input << "(assert (not (str.contains folded \"" << c << "\")))\n";
+        input << R"(
+            (assert (not (str.contains tail2 "O")))
+            (assert (str.contains key2 "O"))
+        )";
+        for (char c = 'N'; c >= 'A'; --c)
+            input << "(assert (not (str.contains key2 \"" << c << "\")))\n";
+        input << R"(
+            (assert (>= i1 (- 1)))
+            (assert (>= (- (str.len key1) i1) 1))
+            (assert (>= i2 (- 1)))
+            (assert (>= (- (str.len key2) i2) 1))
+        )";
+        check_nseq_candidate_model(input.str().c_str());
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (str.contains s "aa"))
+            (assert (= (str.indexof s "aa" 0) 1))
+            (assert (= (str.len s) 5))
+            (assert (str.contains (str.substr s 3 2) "aa"))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (str.contains s "aa"))
+            (assert (= (str.indexof s "aa" 0) 0))
+            (assert (= (str.indexof s "aa" 1) 1))
+            (assert (= (str.len s) 3))
+        )");
+    }
+
     static void tst_nseq_fixed_lengths() {
         char const* input = R"(
             (declare-const s String)
@@ -1423,6 +1470,7 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
     tst_nseq_short_stoi_bounds();
     std::cout << "seq_eq_facet: all tests passed\n";

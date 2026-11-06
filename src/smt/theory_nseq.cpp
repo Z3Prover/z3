@@ -421,11 +421,36 @@ namespace smt {
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             if (is_true) {
                 // contains(e1,e2) => e1 = x ++ e2 ++ y
-                expr* x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
-                expr* y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
+                expr_ref index(m);
+                if (is_uninterp_const(e1)) {
+                    expr_ref zero(m_autil.mk_int(0), m);
+                    index = m_seq.str.mk_index(e1, e2, zero);
+                }
+                bool share = index && ctx.e_internalized(index);
+                if (share) {
+                    // Preserve the order of parallel same-needle searches on independent sources.
+                    for (enode* parent : ctx.get_enode(e2)->get_root()->get_parents()) {
+                        expr* source = nullptr, *needle = nullptr, *offset = nullptr;
+                        if (m_seq.str.is_index(parent->get_expr(), source, needle, offset) &&
+                            source != e1 && is_uninterp_const(source) &&
+                            needle == e2 && m_autil.is_zero(offset)) {
+                            share = false;
+                            break;
+                        }
+                    }
+                }
+                expr_ref x(m), y(m);
+                if (share) {
+                    x = m_sk.mk_indexof_left(e1, e2);
+                    y = m_sk.mk_indexof_right(e1, e2);
+                }
+                else {
+                    x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
+                    y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
+                }
                 expr_ref_vector lhs = tokenize(dep, e1);
                 expr_ref_vector rhs(m);
-                rhs.push_back(x); // fresh existentials
+                rhs.push_back(x);
                 rhs.append(tokenize(dep, e2));
                 rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
