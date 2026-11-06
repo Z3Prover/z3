@@ -89,6 +89,7 @@ const family_id last_builtin_family_id = 4;
 
 const family_id arith_family_id = 5;
 const family_id poly_family_id = 6;
+const family_id bv_family_id = 7;
 
 // -----------------------------------
 //
@@ -489,11 +490,14 @@ protected:
 #endif
 
     void inc_ref() {
-        SASSERT(m_ref_count < UINT_MAX);
-        m_ref_count ++;
+        if (m_ref_count == UINT_MAX)
+            return;        
+        ++m_ref_count;
     }
 
     void dec_ref() {
+        if (m_ref_count == UINT_MAX)
+            return;
         SASSERT(m_ref_count > 0);
         --m_ref_count;
     }

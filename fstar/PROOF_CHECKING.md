@@ -122,9 +122,11 @@ F* verification, Pulse tests, and extraction explicitly use the installed
 version checks. `-Z3WindowsBuildDir` and `-Z3InstallDir` change the build
 directory and installation prefix; `-CacheDir` selects the proof cache.
 The WSL producer and official OCaml bindings are also rebuilt and installed
-before linking from that installation. `-RunTests` verifies the F*/Pulse
-regressions and runs native bridge and CLI tests after these installation
-steps. See the [toolchain instructions](OCAML_CHECKER_REPORT.md).
+before linking from that installation. `-RunTests` verifies every registered
+module and F*/Pulse regression and runs native bridge and CLI tests after these
+installation steps; without it, only the registered production modules in the
+F* dependency closure of the extracted checker are verified and no test is
+built. See the [toolchain instructions](OCAML_CHECKER_REPORT.md).
 
 [`Z3NativeProof.fst`](Z3NativeProof.fst) uses native AST identities for
 expression/sort caches; declaration caches also include application arity.

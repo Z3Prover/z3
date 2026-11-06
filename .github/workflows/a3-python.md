@@ -2,6 +2,11 @@
 on:
   schedule: weekly on sunday
   workflow_dispatch:  # Allow manual trigger
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
 permissions:
   contents: read
   issues: read
