@@ -29,8 +29,9 @@ import z3
 
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
-    _NO_PREPROCESSING, _TOKEN, _real_counterpart, bound_combination_refutes, constant_value, integer_divisor,
-    integer_tightened, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+    _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
+    integer_divisor, integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+    SET_OPERATORS, map_parameters,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -286,6 +287,28 @@ def _number(sexpr):
     raise ProofExportError("unsupported numeral in the clause log")
 
 
+def _map_head(sexpr):
+    """The function of a logged (_ map f) head: f's token and, when the log gives one, its signature.
+
+    The signature (f (D1 ... Dn) R) is returned as z3py's renderings of the
+    domain and range sorts.
+    """
+    if isinstance(sexpr, str):
+        return sexpr, None
+    if len(sexpr) == 3 and isinstance(sexpr[0], str) and isinstance(sexpr[1], list) and sexpr[1]:
+        return sexpr[0], ([_sort_text(sort) for sort in sexpr[1]], _sort_text(sexpr[2]))
+    raise ProofExportError("unsupported map function in the clause log")
+
+
+def _sort_text(sexpr):
+    """z3py's rendering of a logged sort: a name, or (Array I E) as Array(I, E), I and E nested arrays too."""
+    if isinstance(sexpr, str):
+        return _symbol(sexpr)
+    if len(sexpr) == 3 and sexpr[0] == "Array":
+        return "Array(%s, %s)" % (_sort_text(sexpr[1]), _sort_text(sexpr[2]))
+    raise ProofExportError("unsupported sort in the clause log")
+
+
 class _Terms:
     """Build z3 expressions for log terms inside the context of the parsed input."""
 
@@ -296,6 +319,10 @@ class _Terms:
         self.constants = {}
         self.functions = {}  # uninterpreted functions and predicates of the input, by name
         self.sorts = set()   # names of the input's uninterpreted sorts
+        self.array_sorts = {}  # the input's array sorts, by z3py's rendering
+        # Whether the log takes a default value over an index sort other than
+        # Int and Real, which Lean's _default does not cover (_Replay.run).
+        self.uncertified_defaults = False
         # The log prints numerals without a sort; an integer input values them
         # in Int, so that the rebuilt atoms compare Int terms rather than
         # coercing them to Real. An input over both sorts (QF_LIRA, no
@@ -312,6 +339,13 @@ class _Terms:
             seen.add(expr.get_id())
             if is_uninterpreted_sort(expr.sort()):
                 self.sorts.add(expr.sort().name())
+            elif is_array_sort(expr.sort()):
+                self.array_sorts[str(expr.sort())] = expr.sort()
+                # The log declares an array's uninterpreted index and element
+                # sorts even when no term of them occurs (QF_AX), through
+                # nested arrays.
+                self.sorts.update(component.name() for component in array_leaf_sorts(expr.sort())
+                                  if is_uninterpreted_sort(component))
             if z3.is_int(expr):
                 self.integer = True
             elif z3.is_real(expr):
@@ -321,6 +355,9 @@ class _Terms:
                     self.constants[str(expr.decl().name())] = expr
                 else:
                     self.functions[str(expr.decl().name())] = expr.decl()
+            elif expr.decl().kind() == z3.Z3_OP_ARRAY_MAP and map_parameters(expr)[:1] == ("declared",):
+                # A function the input maps, possibly never applied to elements.
+                self.functions[str(expr.decl().params()[0].name())] = expr.decl().params()[0]
             pending.extend(expr.children())
 
     def _subtract(self, arguments):
@@ -362,6 +399,57 @@ class _Terms:
         if not sexpr:
             raise ProofExportError("empty application in the clause log")
         head = sexpr[0]
+        if head == ["_", "array-ext", "0"] and len(sexpr) == 3:
+            # The array solver's Skolem function for extensionality: an index
+            # where two distinct arrays differ (z3py's Ext).
+            left, right = (self.build(argument) for argument in sexpr[1:])
+            if not (is_array_sort(left.sort()) and left.sort().eq(right.sort())):
+                raise ProofExportError("array-ext over unsupported or different sorts in the clause log")
+            return z3.Ext(left, right)
+        if (isinstance(head, list) and len(head) == 3 and head[:2] == ["as", "const"] and len(sexpr) == 2
+                and isinstance(head[2], list) and len(head[2]) == 3 and head[2][0] == "Array"):
+            # A constant array ((as const (Array I E)) v), z3py's K, of an
+            # array sort of the input (the exporter admits Int and Real indices
+            # only).
+            sort = self.array_sorts.get(_sort_text(head[2]))
+            element = head[2][2]  # a sort name, or an array sort of nested arrays
+            value = self.build(sexpr[1], {"Int": True, "Real": False}.get(element) if isinstance(element, str)
+                               else None)
+            if sort is None or not value.sort().eq(sort.range()):
+                raise ProofExportError("constant array of an unsupported sort in the clause log")
+            return z3.K(sort.domain(), value)
+        if isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "map"]:
+            # A map ((_ map f) a b), z3py's Map of f's declaration: an
+            # uninterpreted function of the input, or the built-in f applies
+            # to fresh elements of the arrays' element sorts; the exporter's
+            # map_parameters admits the result or rejects it. Z3 prints a
+            # built-in with its signature, (_ map (<= (Int Int) Bool)), which
+            # must then be the signature of that application (logs before
+            # 2026-11-06 print (_ map <=) without one).
+            name, signature = _map_head(head[2])
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+            if not arguments or not all(is_array_sort(argument.sort()) for argument in arguments):
+                raise ProofExportError("map over unsupported sorts in the clause log")
+            function = self.functions.get(_symbol(name))
+            try:
+                if function is None:
+                    elements = [z3.Const("_p%d" % index, argument.sort().range())
+                                for index, argument in enumerate(arguments)]
+                    application = self._apply(name, len(elements), elements)
+                    if not (z3.is_app(application) and len(application.children()) == len(elements)
+                            and all(child.eq(element) for child, element in zip(application.children(), elements))):
+                        raise ProofExportError("unsupported map function in the clause log: %s" % name)
+                    function = application.decl()
+                if signature is not None and signature != ([str(function.domain(index)) for index
+                                                            in range(function.arity())], str(function.range())):
+                    raise ProofExportError("map function with another signature in the clause log: %s" % name)
+                result = z3.Map(function, *arguments)
+            except (z3.Z3Exception, TypeError):
+                # z3py raises TypeError for an operator it does not define
+                # on the elements (unary - of Bool, <= of an uninterpreted sort).
+                raise ProofExportError("ill-sorted map in the clause log") from None
+            map_parameters(result)
+            return result
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -412,6 +500,16 @@ class _Terms:
             return _unary_xor(arguments[0])
         if head == "ite" and count == 3:
             return z3.If(arguments[0], arguments[1], arguments[2])
+        if head == "select" and count == 2 and is_array_sort(arguments[0].sort()):
+            return z3.Select(arguments[0], arguments[1])
+        if head == "store" and count == 3 and is_array_sort(arguments[0].sort()):
+            return z3.Store(arguments[0], arguments[1], arguments[2])
+        if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
+            # The array solver's default value of an array, the value it
+            # takes at all but finitely many indices (constant arrays).
+            if arguments[0].sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
+                self.uncertified_defaults = True
+            return z3.Default(arguments[0])
         if head == "=" and count == 2:
             return arguments[0] == arguments[1]
         if head == "distinct" and count >= 2:
@@ -448,8 +546,8 @@ class _Terms:
         if sort == "Proof":
             self.hints[name] = sexpr
             return
-        expr = self.build(sexpr, {"Int": True, "Real": False}.get(sort))
-        if str(expr.sort()) != _symbol(sort):  # The log quotes sort names the way it quotes symbols.
+        expr = self.build(sexpr, {"Int": True, "Real": False}.get(sort) if isinstance(sort, str) else None)
+        if str(expr.sort()) != _sort_text(sort):  # The log quotes sort names the way it quotes symbols.
             raise ProofExportError("definition %s has sort %s, declared %s" % (name, expr.sort(), sort))
         self.defined[name] = expr
 
@@ -495,6 +593,46 @@ class _Terms:
             if isinstance(hint, list) and hint[:1] == ["deps"]:
                 return _dependency_numbers(hint)
         return None
+
+
+def _store_axiom(literal):
+    """Whether literal is an array axiom the array solver propagates as an equality, either way round.
+
+    These are the store axiom (= (select (store a i v) i) v), a read of a
+    constant array (= (select (const v) i) v), and the default-value axioms
+    (= (default (const v)) v) and (= (default (store a i v)) (default a)).
+    """
+    if not z3.is_eq(literal):
+        return False
+    for read, value in (literal.children(), reversed(literal.children())):
+        if z3.is_select(read) and z3.is_store(read.arg(0)):
+            store = read.arg(0)
+            if store.num_args() == 3 and read.arg(1).eq(store.arg(1)) and value.eq(store.arg(2)):
+                return True
+        if z3.is_select(read) and z3.is_const_array(read.arg(0)) and value.eq(read.arg(0).arg(0)):
+            return True
+        if z3.is_default(read) and z3.is_const_array(read.arg(0)) and value.eq(read.arg(0).arg(0)):
+            return True
+        if (z3.is_default(read) and z3.is_store(read.arg(0)) and z3.is_default(value)
+                and value.arg(0).eq(read.arg(0).arg(0))):
+            return True
+        if z3.is_select(read) and _is_set_combinator(read.arg(0)):
+            # A read of a map, equal to the function over the reads of the
+            # mapped arrays as the rewriter simplifies it (Lean checks that).
+            return True
+    return False
+
+
+def _is_set_combinator(expr):
+    """Whether expr applies a map or one of Z3's set operators (proof_certificate.map_parameters)."""
+    return z3.is_app(expr) and (expr.decl().kind() == z3.Z3_OP_ARRAY_MAP or expr.decl().kind() in SET_OPERATORS)
+
+
+def _same_equality(left, right):
+    """Whether two equalities compare the same two terms, in either order."""
+    if not (z3.is_eq(left) and z3.is_eq(right)):
+        return False
+    return {child.get_id() for child in left.children()} == {child.get_id() for child in right.children()}
 
 
 def _unary_xor(argument):
@@ -576,7 +714,8 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     An ite term is an opaque variable here, as in Z3's arithmetic solver: the
     clause log relates it to its branches through explicit gate clauses. So
     are an integer div, mod, or rem by a nonzero numeral, which the solver's
-    arith axioms relate to their operands, and abs.
+    arith axioms relate to their operands, abs, a read of an array, and an
+    array's default value.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
@@ -586,7 +725,7 @@ def _linear(expr, terms=None, scale=Fraction(1)):
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM):
         integer_divisor(expr)
     if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_REM, z3.Z3_OP_ABS,
-                z3.Z3_OP_TO_INT):
+                z3.Z3_OP_TO_INT, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT, z3.Z3_OP_ARRAY_DEFAULT):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)
@@ -1324,6 +1463,12 @@ class _Replay:
                 raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
+            if name == "array" and any(z3.is_default(side) and _is_set_combinator(side.arg(0))
+                                       for _, literal in pairs for side in _strip(literal)[0].children()):
+                # (= (default (map f a b)) (f (default a) (default b))) holds
+                # only for arrays constant at all but finitely many indices,
+                # which Lean's _default cannot assume of a map's arguments.
+                raise ProofExportError("the default value of a map is not certified")
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
             if certified or name == "implied-eq":
@@ -1334,6 +1479,15 @@ class _Replay:
                 parameters.extend(str(coefficient) for coefficient, _ in pairs)
             lemma_literals = (list(literals) if name == "smt"
                               else [_complement(literal) for _, literal in pairs])
+            if name == "array" and len(pairs) == 1 and _store_axiom(pairs[0][1]):
+                # The store axiom (= (select (store a i v) i) v), and the
+                # constant-array and default-value axioms, list the equality
+                # they propagate, not its complement (the array solver's
+                # propagate_axiom); the log may state it the other way round,
+                # as its one clause literal.
+                equality = pairs[0][1]
+                lemma_literals = (list(literals) if len(literals) == 1 and _same_equality(literals[0], equality)
+                                  else [equality])
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
         if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
@@ -1490,7 +1644,7 @@ class _Replay:
                     raise ProofExportError("the clause log declares a sort absent from the input: %s"
                                            % command[1])
             elif head == "define-const":
-                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], str):
+                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], (str, list)):
                     raise ProofExportError("malformed definition in the clause log")
                 terms.define(command[1], command[2], command[3])
             elif head in ("assume", "del") and phantoms and any(
@@ -1532,8 +1686,13 @@ class _Replay:
                 self.root, _ = self.rup([])
             except ProofExportError:
                 self.root = self.assume([])
+        # A trimmed log keeps only the nodes the refutation uses; so does an
+        # untrimmed one whose unused clauses mention default values over an
+        # index sort the certificate cannot carry (the gates of the default
+        # values the array solver introduces for maps over any index sort).
+        # If the refutation uses one, the reconstructor rejects it.
         return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
-                                    compact=self.trimmed)
+                                    compact=self.trimmed or terms.uncertified_defaults)
 
 
 def build_certificate(source, fragment, assertions, text, context, timeout=None):

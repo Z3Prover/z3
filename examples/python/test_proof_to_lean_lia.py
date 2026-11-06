@@ -24,6 +24,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_certificate import _proof_nodes
 
@@ -1356,29 +1357,22 @@ class TestIntegerLeanIntegration(unittest.TestCase):
     def checked_text(self, source, certificate, core="clause-log"):
         """Check the certificate's Lean file under the standard axioms and return its text."""
         self.assertEqual(certificate["fragment"], "qf_lia")
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertIn("(_vars : Nat -> Int)", statement)
-            self.assertNotIn("Rat", text)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            report = " ".join(result.stdout.split())
-            if core == "clause-log":
-                self.assertIn(_STANDARD_AXIOMS, report)
-            else:
-                # A legacy refutation by rewriting and resolution alone may
-                # need no axiom; otherwise the standard ones.
-                self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertIn("(_vars : Nat -> Int)", statement)
+        self.assertNotIn("Rat", text)
+        if core == "clause-log":
+            self.assertIn(_STANDARD_AXIOMS, report)
+        else:
+            # A legacy refutation by rewriting and resolution alone may
+            # need no axiom; otherwise the standard ones.
+            self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
         return text
 
     def test_documented_lia_inputs_verify_under_the_standard_axioms(self):
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in LIA_INPUTS.values())
         hints = set()
         for name, source in LIA_INPUTS.items():
             with self.subTest(name=name):
@@ -1426,6 +1420,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                         hints |= _hints(certificate)
         self.assertLessEqual({"arith", "farkas", "cut", "implied-eq"}, hints)
 
+    @lean_test_support.slow("a 6-variable, 18-constraint division instance, about 100 s")
     def test_wide_division_instance_verifies_over_generalized_atoms(self):
         source = random_division_instance(WIDE_DIVISION_SEED, variables=6, constraints=18)
         self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % WIDE_DIVISION_SEED)
@@ -1475,6 +1470,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertEqual(text.count("revert _e"), 12)
         self.assertRegex(text, r"private theorem rewrite_\d+ .*\n.*\n.*\n  first\n    \| \(have _e")
 
+    @lean_test_support.slow("a 13,000-node circuit, about a minute at 4.5 GB")
     def test_bounded_model_checking_circuit_verifies_through_one_cnf_lemma(self):
         # SMT-LIB QF_IDL Averest/buble_sort/BubbleSort_safe_bgmc007: one
         # assertion, a 13,000-node Boolean circuit (and, or, not, iff over
@@ -1587,6 +1583,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                 self.assertTrue(lattice)
                 self.assertEqual(proved, lattice)
 
+    @lean_test_support.slow("QF_LIA cut_lemma_02_002, 6.5 MB of Lean, about 3 minutes at 6.7 GB")
     def test_cut_lemmas_over_twenty_variables_verify(self):
         # QF_LIA cut_lemma_02_002 (see
         # test_lattice_lemmas_over_twenty_variables_get_a_split) failed with
@@ -1827,6 +1824,7 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
     checked_text = TestIntegerLeanIntegration.checked_text
 
     def test_documented_lia_inputs_verify_through_the_legacy_core(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source)) for source in LIA_INPUTS.values())
         hints = set()
         for name, source in LIA_INPUTS.items():
             with self.subTest(name=name):

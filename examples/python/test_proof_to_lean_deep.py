@@ -24,6 +24,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_uf import _z3_available
 
@@ -155,14 +156,7 @@ class TestDeepCaseSplits(unittest.TestCase):
 class _LeanChecked(unittest.TestCase):
     def check_lean(self, source, certificate):
         """Check the certificate with Lean and return the Lean text."""
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            try:
-                proof_to_lean.check_and_write(source, certificate, output)
-            except subprocess.CalledProcessError as error:
-                errors = [line for line in (error.stdout + error.stderr).splitlines() if "error" in line]
-                raise self.failureException("Lean rejected the certificate:\n%s" % "\n".join(errors[:5])) from None
-            text = output.read_text()
+        text, _ = lean_test_support.check(self, source, certificate)
         namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
         self.assertIn("namespace " + namespace, text)
         return text

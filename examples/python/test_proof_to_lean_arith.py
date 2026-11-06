@@ -7,7 +7,6 @@
 ############################################
 import copy
 from fractions import Fraction
-import hashlib
 import json
 from pathlib import Path
 import random
@@ -23,6 +22,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 
 # Verbatim copies of the QF_LRA inputs documented for Z3Prover/z3test under
@@ -859,23 +859,17 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
             certificate = proof_certificate.export_clause_log_certificate(source)
         else:
             certificate = proof_certificate.export_certificate(source)
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertNotIn("_hyp", statement)
-            if certificate["fragment"] == "qf_lra":
-                self.assertIn("(_vars : Nat -> Rat)", statement)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            return certificate, " ".join(result.stdout.split())
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertNotIn("_hyp", statement)
+        if certificate["fragment"] == "qf_lra":
+            self.assertIn("(_vars : Nat -> Rat)", statement)
+        return certificate, report
 
     def test_documented_lra_inputs_verify_under_the_standard_axioms(self):
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in Z3TEST_LRA_INPUTS.values())
         for name, source in Z3TEST_LRA_INPUTS.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source)
@@ -1597,6 +1591,8 @@ class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
             self.assertFalse(output.exists())
 
     def test_documented_lra_inputs_verify_through_the_legacy_core(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source)) for source in
+                                    {**Z3TEST_LRA_INPUTS, **ITE_INPUTS, **ITE_REWRITTEN_INPUTS}.values())
         # Real ite terms included: the smt core reached directly keeps them
         # (no intro-def) and proves their gate clauses as def-axioms.
         inputs = {**Z3TEST_LRA_INPUTS, **ITE_INPUTS, **ITE_REWRITTEN_INPUTS}

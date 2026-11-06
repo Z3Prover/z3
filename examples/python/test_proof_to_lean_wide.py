@@ -9,12 +9,9 @@
 # literals); every operand count Z3 solves must be certified, not only the
 # small ones.
 ############################################
-import hashlib
 from pathlib import Path
 import re
-import subprocess
 import sys
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -22,6 +19,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_uf import _z3_available
 
@@ -93,27 +91,17 @@ class _WideLeanIntegration(unittest.TestCase):
         return proof_certificate.export_clause_log_certificate(source)
 
     def check(self, source, core, fragment, width=WIDTH):
-        """Export, publish only after Lean accepts, and return (certificate, axioms of unsat)."""
+        """Export, kernel-check once, and return (certificate, axioms of unsat)."""
         certificate = self.export(source, core)
         self.assertEqual(certificate["fragment"], fragment)
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            try:
-                proof_to_lean.check_and_write(source, certificate, output)
-            except subprocess.CalledProcessError as error:
-                errors = [line for line in (error.stdout + error.stderr).splitlines() if "error" in line]
-                raise self.failureException("Lean rejected the %s certificate of a %d-operand connective:\n%s"
-                                            % (core, width, "\n".join(errors[:5]))) from None
-            text = output.read_text()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertNotIn("_hyp", statement)
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = " ".join(result.stdout.split())
+        try:
+            text, report = lean_test_support.check(self, source, certificate)
+        except self.failureException as error:
+            raise self.failureException("the %s certificate of a %d-operand connective: %s"
+                                        % (core, width, error)) from None
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertNotIn("_hyp", statement)
         if ".unsat' does not depend on any axioms" in report:
             return certificate, set()
         axioms = report.split("depends on axioms: [", 1)[1].split("]", 1)[0]
