@@ -528,8 +528,10 @@ namespace smt {
             m_ax.add_last_indexof_axiom(n);
         else if (m_seq.str.is_replace(n))
             m_ax.add_replace_axiom(n);
-        else if (m_seq.str.is_extract(n))
-            m_ax.add_extract_axiom(n);
+        else if (m_seq.str.is_extract(n)) {
+            if (!add_index_suffix_axiom(n))
+                m_ax.add_extract_axiom(n);
+        }
         else if (m_seq.str.is_at(n))
             m_ax.add_at_axiom(n);
         else if (m_seq.str.is_nth_i(n))
@@ -549,6 +551,72 @@ namespace smt {
             m_ax.add_str_from_code_axiom(n);
         else if (m_seq.str.is_to_code(n))
             m_ax.add_str_to_code_axiom(n);
+    }
+
+    bool theory_nseq::add_index_suffix_axiom(expr* e) {
+        expr* s = nullptr, *i = nullptr, *l = nullptr;
+        VERIFY(m_seq.str.is_extract(e, s, i, l));
+        if (!m_autil.is_add(i) || to_app(i)->get_num_args() != 2)
+            return false;
+        expr* one = to_app(i)->get_arg(0);
+        expr* index = to_app(i)->get_arg(1);
+        rational r;
+        if (!m_autil.is_numeral(one, r) || !r.is_one())
+            std::swap(one, index);
+        if (!m_autil.is_numeral(one, r) || !r.is_one())
+            return false;
+        expr* source = nullptr, *needle = nullptr, *offset = nullptr;
+        if ((!m_seq.str.is_index(index, source, needle, offset) &&
+             !m_seq.str.is_index(index, source, needle)) || source != s || !is_uninterp_const(s))
+            return false;
+        zstring str;
+        if (!m_seq.str.is_string(needle, str) || str.length() != 1 ||
+            (offset && (!m_autil.is_numeral(offset, r) || !r.is_zero())))
+            return false;
+        // Keep selector paths, including those through concatenation, unchanged.
+        ptr_vector<enode> pending;
+        obj_hashtable<enode> visited;
+        pending.push_back(ctx.get_enode(e)->get_root());
+        bool word_use = false;
+        for (unsigned j = 0; j < pending.size(); ++j) {
+            enode* n = pending[j];
+            if (!visited.insert_if_not_there(n))
+                continue;
+            for (enode* p : n->get_parents()) {
+                expr* parent = p->get_expr(), *x = nullptr, *y = nullptr;
+                if (m_seq.str.is_concat(parent)) {
+                    word_use = true;
+                    pending.push_back(p->get_root());
+                }
+                else if (m_seq.str.is_contains(parent) || m_sk.is_eq(parent, x, y) || m.is_eq(parent))
+                    word_use = true;
+                else if (to_app(parent)->get_family_id() == m_seq.get_family_id() &&
+                         !m_seq.str.is_length(parent))
+                    return false;
+            }
+        }
+        if (!word_use)
+            return false;
+        expr_ref end(m_autil.mk_add(i, l), m);
+        m_th_rewriter(end);
+        if (!m_seq.str.is_length(end, source) || source != s)
+            return false;
+
+        // A missing one-character needle makes start = -1 + 1 = 0.
+        expr_ref right = m_sk.mk_indexof_right(s, needle);
+        expr_ref found(m_seq.str.mk_contains(s, needle), m);
+        expr_ref found_eq = m_sk.mk_eq(e, right);
+        expr_ref absent_eq = m_sk.mk_eq(e, s);
+        expr_ref_vector clause(m);
+        clause.push_back(m.mk_not(found));
+        clause.push_back(found_eq);
+        m_ax.add_axiom_clause(clause);
+        clause.reset();
+        clause.push_back(found);
+        clause.push_back(absent_eq);
+        m_ax.add_axiom_clause(clause);
+        ++m_num_index_suffix_axioms;
+        return true;
     }
 
     bool theory_nseq::can_propagate() {
@@ -989,6 +1057,7 @@ namespace smt {
 
     void theory_nseq::collect_statistics(::statistics& st) const {
         st.update("nseq final checks", m_num_final_checks);
+        st.update("nseq index suffix axioms", m_num_index_suffix_axioms);
         st.update("nseq conflicts", m_num_conflicts);
         st.update("nseq root letter-count refutations", m_num_letter_refuted);
         seq::ho_facet const& hf = m_ambient->ho_facet(*m_root);

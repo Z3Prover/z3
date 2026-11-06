@@ -123,6 +123,7 @@ namespace smt {
         unsigned m_num_final_checks = 0;
         unsigned m_num_letter_refuted = 0;
         unsigned m_num_unhandled = 0;
+        unsigned m_num_index_suffix_axioms = 0;
 
         // required virtual methods
         bool internalize_atom(app* atom, bool gate_ctx) override;
@@ -177,6 +178,7 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
+        bool add_index_suffix_axiom(expr* e);
         void add_ubv_string(expr* e);
         bool check_ubv_strings();
         bool add_ho_eq(expr* lhs, expr* rhs);

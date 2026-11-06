@@ -352,7 +352,50 @@ namespace seq {
         committed = false;
         auto ac = get_ambient(n);
         auto& f = ac.eq_facet_ref();
-
+        auto& sf = ac.solver_facet_ref();
+        for (auto const& eq : f.equations()) {
+            if (!eq.active() || eq.m_lhs.size() < 2 || eq.m_rhs.size() < 2)
+                continue;
+            // Preserve the established search order for interpreted selectors.
+            auto normalized = [&](expr* t) {
+                return is_uninterp_const(t) || u.str.is_unit(t) || u.is_skolem(t) || u.str.is_power(t);
+            };
+            if (!all_of(eq.m_lhs, normalized) || !all_of(eq.m_rhs, normalized))
+                break;
+            for (unsigned dir = 0; dir < 2; ++dir) {
+                expr* lhs = dir == 0 ? eq.m_lhs[0] : eq.m_lhs.back();
+                expr* rhs = dir == 0 ? eq.m_rhs[0] : eq.m_rhs.back();
+                bool lu = u.str.is_unit(lhs), ru = u.str.is_unit(rhs);
+                if (lu == ru)
+                    continue;
+                expr* var = lu ? rhs : lhs;
+                expr* value = lu ? lhs : rhs;
+                if (!is_uninterp_const(var) || occurs(var, value))
+                    continue;
+                arith_util& a = sf.get_arith_util();
+                expr_ref llen(lu ? a.mk_int(1) : u.str.mk_length(lhs), m);
+                expr_ref rlen(ru ? a.mk_int(1) : u.str.mk_length(rhs), m);
+                rational lval, rval;
+                // Model agreement selects a query, not a justification.
+                if (!sf.value(llen, lval) || !sf.value(rlen, rval) ||
+                    lval != rval || lval.is_zero())
+                    continue;
+                expr_ref same_length(m.mk_eq(llen, rlen), m);
+                eq_tree::dep_tracker length_dep = nullptr;
+                ++m_stats.m_num_length_checks;
+                if (sf.implies(same_length, &length_dep) != l_true)
+                    continue;
+                auto dep = f.dm().mk_join(eq.m_dep, length_dep);
+                expr_ref_vector repl(m);
+                repl.push_back(value);
+                broadcast_subst(n, var, repl, dep);
+                out = eq_tree::edge(dir == 0 ? "length-prefix" : "length-suffix", dep, true, 0);
+                has_more = committed = true;
+                ++m_stats.m_num_length_alignments;
+                return nullptr;
+            }
+            break;
+        }
         for (auto const& eq : f.equations()) {
             if (!eq.active())
                 continue;
