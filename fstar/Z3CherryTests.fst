@@ -737,6 +737,40 @@ let direct_elim_controls () : bool =
   C.check true (elim_document U.ElimUnused R.true_expr captured) = Some 1 &&
   C.check true (elim_document U.RewriteRule captured R.true_expr) = Some 1
 
+(* der natively in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_der`): a quant-intro leaf under an Int
+   binder (Z3NnfReplay.der_step) replays for the captured shape
+   (forall [Int] (or (not (= #1 #0)) (pi #0))) = (forall [Int] (pi #1)) and
+   stays pending for an unsubstituted target; closed premise-free
+   DestructiveEquality documents (Z3SortedProof.der_rewrite) certify the
+   step with a constant and stay pending for a wrong substitution and under
+   the RewriteRule label. *)
+let qd_neq (a b:A.expr) : A.expr = R.mk_not_expr (R.mk_eq_expr a b)
+
+let qd_leaf (q e:A.expr) : Z3NnfReplay.verdict =
+  let i0 = A.Var 0 qp_int in
+  let lq = qe_or (qe_pi i0) q in
+  let le = qe_or (qe_pi i0) e in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "der" (R.mk_eq_expr q e) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr lq le) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qe_forall [qp_int] lq) (qe_forall [qp_int] le);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int] } :: [];
+    U.binder_root = 2 }) (U.Equal (qe_forall [qp_int] lq) (qe_forall [qp_int] le))
+
+let der_controls () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  let k = qp_atom "k" 0 in
+  let m = qp_atom "m" 0 in
+  let open_q = qe_forall [qp_int] (qe_or (qd_neq i1 i0) (qe_pi i0)) in
+  let closed_q = qe_forall [qp_int] (qe_or (qd_neq i0 k) (qe_pi i0)) in
+  qd_leaf open_q (qe_forall [qp_int] (qe_pi i1)) = Z3NnfReplay.Replayed &&
+  qd_leaf open_q (qe_forall [qp_int] (qe_pi i0)) = Z3NnfReplay.Unreplayed &&
+  C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi k))) = Some 0 &&
+  C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi m))) = Some 1 &&
+  C.check true (elim_document U.RewriteRule closed_q (qe_forall [qp_int] (qe_pi k))) = Some 1
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -769,4 +803,5 @@ let run () : bool =
   direct_product_controls () &&
   qi_elim_scale () &&
   direct_elim_controls () &&
+  der_controls () &&
   name_pair_units_scale ()

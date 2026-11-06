@@ -84,6 +84,20 @@
                     (lemma_unused_eliminated_at): a removed binder ranges
                     over a carrier the interpretation itself inhabits (the
                     value of a nullary symbol), so no hypothesis is added.
+     der (no sorts, no premise):
+                    `(forall bs. (or l1 .. ln)) ~ (forall bs. b')` (der.cpp
+                    reduce1, ast_manager::mk_der exports iff(q, e)) with one
+                    eliminated binder: li is the first literal
+                    `(not (= x t))` or `(not (= t x))` with x a binder of bs
+                    not occurring in t, and b' is the disjunction of the
+                    other literals (ast_util mk_or: false, the single
+                    literal, or the canonical `or`) with x replaced by t
+                    lifted under nested binders; the binder list is kept
+                    (elim-unused drops x in a separate step). True at every
+                    typed environment of every scope where both sides are
+                    typed (lemma_der_at), from the universal law alone: the
+                    witness for x is t's own value, no carrier is assumed
+                    inhabited.
    With `refl`, `trans` and `monotonicity` these replay the body proofs of
    a quant-intro root; nothing is read from the rule names alone.
 
@@ -177,6 +191,13 @@
    side. As above, the node charge does not count declaration-name bytes
    or sort lists; those comparisons are bounded by the leaf's own bytes
    (64 times), not by the charge.
+   The binder rules (elim-unused, der) admit at most 64 binders and, for der,
+   at most 4096 literals; both sides must be shallow, so every recursive
+   walk (occurrences, renumbering, substitution) descends at most 4096
+   levels; argument lists are walked by tail-recursive loops; the
+   occurrence marks cost one walk of the body per binder, and the final
+   comparison is the kernel's structural equality of the recomputed and
+   the given side.
    The other checks (existing Sorted-route code, not one of the loops above)
    are not themselves linear in the charge: the Int equivalence reads at
    most 256 nodes per side, and each of the (at most two) bounded
@@ -227,6 +248,7 @@ module SI = Z3SortedInteger
 module LA = Z3LinearArithmeticAst
 module RW = Z3ArithmeticRewrite
 module LP = FStar.List.Tot.Properties
+module BRW = Z3BooleanRewrite
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -621,6 +643,82 @@ let unused_eliminated (q e:expr) : bool =
     else false
   | _ -> false
 
+(* der (z3 der.cpp reduce1; ast_manager::mk_der exports iff(q, e)) for one
+   eliminated variable of a universal over a disjunction. Var j (of the block
+   that starts at depth d) is replaced by t lifted over the d binders above
+   it; every other variable is kept. *)
+let rec subst_var (j:nat) (t:expr) (d:nat) (e:expr) : Tot (option expr) (decreases e) =
+  match e with
+  | Var i s ->
+    if i = d + j then (if get_sort t = s then thin [] 0 d 0 t else None) else Some e
+  | App f args ->
+    (match subst_args j t d args [] with Some xs -> Some (App f xs) | None -> None)
+  | Quantifier k bs s b ->
+    (match subst_var j t (d + L.length bs) b with Some b' -> Some (Quantifier k bs s b') | None -> None)
+
+and subst_args (j:nat) (t:expr) (d:nat) (args:list expr) (acc:list expr)
+  : Tot (option (list expr)) (decreases args) =
+  match args with
+  | [] -> Some (L.rev acc)
+  | a :: rest ->
+    (match subst_var j t d a with
+     | Some b -> subst_args j t d rest (b :: acc)
+     | None -> None)
+
+(* A binder of the block of n (not a free variable). *)
+let bound_var (n:nat) (e:expr) : option nat =
+  match e with Var i _ -> if i < n then Some i else None | _ -> None
+
+(* (not (= x t)) or (not (= t x)) with x = Var j a binder of the block (the
+   left side preferred when it is one, as der::is_var_diseq) and t free of
+   Var j. *)
+let diseq_def (n:nat) (lit:expr) : option (nat & expr) =
+  match lit with
+  | App ng [App eqd [a; b]] ->
+    if T.classify ng = T.Negation && T.classify eqd = T.Equality (get_sort a) then
+      (match bound_var n a with
+       | Some i -> if occurs i 0 b then None else Some (i, b)
+       | None ->
+         (match bound_var n b with
+          | Some k -> if occurs k 0 a then None else Some (k, a)
+          | None -> None))
+    else None
+  | _ -> None
+
+let rec first_def (n:nat) (lits:list expr) (i:nat) : Tot (option (nat & nat & expr)) (decreases lits) =
+  match lits with
+  | [] -> None
+  | l :: rest -> (match diseq_def n l with Some (j, t) -> Some (i, j, t) | None -> first_def n rest (i + 1))
+
+let rec remove_at (i:nat) (xs:list expr) : Tot (list expr) (decreases xs) =
+  match xs with [] -> [] | x :: rest -> if i = 0 then rest else x :: remove_at (i - 1) rest
+
+(* ast_util mk_or: false, the single operand, or the canonical `or`. *)
+let or_of (args:list expr) : expr =
+  match args with
+  | [] -> R.false_expr
+  | [a] -> a
+  | _ -> App (BRW.connective_decl BRW.Disjunction args) args
+
+(* der (one eliminated variable, forall over an `or` of at most 4096
+   literals, so that the literal removal and the rebuilt `or` read at most
+   that many): the first defining disequality removed, the rest
+   substituted, the binder list kept. *)
+let der_body (n:nat) (lits:list expr) (body':expr) : bool =
+  match first_def n lits 0 with
+  | Some (i, j, t) -> subst_var j t 0 (or_of (remove_at i lits)) = Some body'
+  | None -> false
+
+let der_step (q e:expr) : bool =
+  match q, e with
+  | Quantifier Forall_k bs s body, Quantifier Forall_k bs' s' body' ->
+    if bs = bs' && s = bool_sort && s' = bool_sort && length_within 64 bs && shallow q && shallow e then
+      (match body with
+       | App f lits -> T.classify f = T.Nary B.Or && length_within 4096 lits && der_body (L.length bs) lits body'
+       | _ -> false)
+    else false
+  | _, _ -> false
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
    equivalence; an ITE law at any result sort (the term-ITE leaves of
    Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); an Int product
@@ -693,6 +791,7 @@ let entry_ok (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry)
        | _, _ -> false)
     else if name = "rewrite" then scoped && Nil? facts && real_rewrite_ok real lhs rhs
     else if name = "elim-unused" then scoped && Nil? facts && unused_eliminated lhs rhs
+    else if name = "der" then scoped && Nil? facts && der_step lhs rhs
     else if name = "sk" then
       Nil? facts && U.Observational? j &&
       (L.mem (R.mk_eq_expr lhs rhs) assertions || Some? (find_closure lhs rhs assertions))
@@ -2191,6 +2290,360 @@ let lemma_unused_eliminated_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
           (ensures same_at s bc eq other scope rho q e) =
   lemma_eliminated_at s bc eq other scope rho q e
 
+(* ---------------------------------------------------------------------- *)
+(* Lifting, substitution and avoidance at typed environments                *)
+(* ---------------------------------------------------------------------- *)
+
+(* t lifted over d binders (thin with no removed binder) has, at an
+   environment whose positions from d on are those of eta0, t's value. *)
+let lemma_lift_eval (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                    (d:nat) (s0 a:list sort) (eta0:V.environment base sigma s0) (eta:V.environment base sigma a)
+                    (t t':expr)
+  : Lemma (requires D.scoped s0 t /\ D.scoped a t' /\ thin [] 0 d 0 t == Some t' /\
+                    (forall (p:nat{p < L.length s0}). p + d < L.length a /\
+                       (eta0 p <: V.tree base) == (eta (p + d) <: V.tree base)))
+          (ensures (V.evaluate sigma i s0 eta0 t <: V.tree base) == (V.evaluate sigma i a eta t' <: V.tree base)) =
+  let at (p:nat{p < L.length s0}) : Lemma (related_at sigma [] 0 d 0 s0 a eta0 eta p) = () in
+  FStar.Classical.forall_intro at;
+  lemma_thin_eval sigma i [] 0 d 0 s0 a eta0 eta t t'
+
+let subst_rel_at (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (s0 a:list sort)
+                 (eta0:V.environment base sigma s0) (tv:V.tree base)
+                 (rho eta:V.environment base sigma a) (p:nat{p < L.length a}) : prop =
+  (p <> d + j ==> (rho p <: V.tree base) == (eta p <: V.tree base)) /\
+  (p == d + j ==> (rho p <: V.tree base) == tv) /\
+  (p >= d ==> p - d < L.length s0 /\ (eta p <: V.tree base) == (eta0 (p - d) <: V.tree base))
+
+let subst_rel (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (s0 a:list sort)
+              (eta0:V.environment base sigma s0) (tv:V.tree base)
+              (rho eta:V.environment base sigma a) : prop =
+  L.length a == d + L.length s0 /\
+  (forall (p:nat{p < L.length a}). subst_rel_at sigma j d s0 a eta0 tv rho eta p)
+
+let lemma_subst_extend (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (s0 a bound:list sort)
+                       (eta0:V.environment base sigma s0) (tv:V.tree base)
+                       (vs:V.arguments base sigma bound) (rho eta:V.environment base sigma a)
+  : Lemma (requires subst_rel sigma j d s0 a eta0 tv rho eta)
+          (ensures subst_rel sigma j (d + L.length bound) s0 (bound @ a) eta0 tv
+                     (V.extend sigma a bound vs rho) (V.extend sigma a bound vs eta)) =
+  LP.append_length bound a;
+  let m = L.length bound in
+  let at (p:nat{p < L.length (bound @ a)})
+    : Lemma (subst_rel_at sigma j (d + m) s0 (bound @ a) eta0 tv
+               (V.extend sigma a bound vs rho) (V.extend sigma a bound vs eta) p) =
+    DS.lemma_extend_index sigma a bound vs rho p;
+    DS.lemma_extend_index sigma a bound vs eta p;
+    if p >= m then assert (subst_rel_at sigma j d s0 a eta0 tv rho eta (p - m)) in
+  FStar.Classical.forall_intro at
+
+let rec subst_list (j:nat) (t:expr) (d:nat) (args:list expr) : Tot (option (list expr)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match subst_var j t d a, subst_list j t d rest with
+     | Some b, Some bs -> Some (b :: bs)
+     | _, _ -> None)
+
+let rec lemma_subst_args (j:nat) (t:expr) (d:nat) (args acc:list expr)
+  : Lemma (ensures subst_args j t d args acc ==
+                   (match subst_list j t d args with Some ys -> Some (L.rev acc @ ys) | None -> None))
+          (decreases args) =
+  match args with
+  | [] -> LP.append_l_nil (L.rev acc)
+  | a :: rest ->
+    (match subst_var j t d a with
+     | Some b ->
+       lemma_subst_args j t d rest (b :: acc);
+       LP.rev_append [b] acc;
+       (match subst_list j t d rest with
+        | Some ys -> LP.append_assoc (L.rev acc) [b] ys
+        | None -> ())
+     | None -> ())
+
+let rec lemma_subst_eval (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                         (j:nat) (t:expr) (d:nat) (s0 a:list sort) (eta0:V.environment base sigma s0)
+                         (rho eta:V.environment base sigma a) (e e':expr)
+  : Lemma (requires D.scoped s0 t /\ D.scoped a e /\ D.scoped a e' /\ subst_var j t d e == Some e' /\
+                    subst_rel sigma j d s0 a eta0 (V.evaluate sigma i s0 eta0 t) rho eta)
+          (ensures (V.evaluate sigma i a rho e <: V.tree base) == (V.evaluate sigma i a eta e' <: V.tree base))
+          (decreases e) =
+  match e with
+  | Var p _ ->
+    assert (subst_rel_at sigma j d s0 a eta0 (V.evaluate sigma i s0 eta0 t) rho eta p);
+    if p = d + j then (
+      let at (q:nat{q < L.length s0})
+        : Lemma (q + d < L.length a /\ (eta0 q <: V.tree base) == (eta (q + d) <: V.tree base)) =
+        assert (subst_rel_at sigma j d s0 a eta0 (V.evaluate sigma i s0 eta0 t) rho eta (q + d)) in
+      FStar.Classical.forall_intro at;
+      lemma_lift_eval sigma i d s0 a eta0 eta t e')
+  | App f args ->
+    lemma_subst_args j t d args [];
+    let ys = Some?.v (subst_list j t d args) in
+    lemma_subst_list_eval sigma i j t d s0 a eta0 rho eta args ys f.domain
+  | Quantifier k bound _ body ->
+    let body' = Some?.v (subst_var j t (d + L.length bound) body) in
+    let pointwise (vs:V.arguments base sigma (L.rev bound))
+      : Lemma (V.evaluate sigma i (L.rev bound @ a) (V.extend sigma a (L.rev bound) vs rho) body ==
+               V.evaluate sigma i (L.rev bound @ a) (V.extend sigma a (L.rev bound) vs eta) body') =
+      LP.rev_length bound;
+      lemma_subst_extend sigma j d s0 a (L.rev bound) eta0 (V.evaluate sigma i s0 eta0 t) vs rho eta;
+      lemma_subst_eval sigma i j t (d + L.length bound) s0 (L.rev bound @ a) eta0
+        (V.extend sigma a (L.rev bound) vs rho) (V.extend sigma a (L.rev bound) vs eta) body body' in
+    FStar.Classical.forall_intro pointwise;
+    V.lemma_quantifier_environments sigma i a a rho eta k bound (get_sort body) body body'
+
+and lemma_subst_list_eval (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                          (j:nat) (t:expr) (d:nat) (s0 a:list sort) (eta0:V.environment base sigma s0)
+                          (rho eta:V.environment base sigma a) (args ys:list expr) (ss:list sort)
+  : Lemma (requires D.scoped s0 t /\ D.scoped_args a args /\ D.scoped_args a ys /\
+                    sorts_match args ss /\ sorts_match ys ss /\ subst_list j t d args == Some ys /\
+                    subst_rel sigma j d s0 a eta0 (V.evaluate sigma i s0 eta0 t) rho eta)
+          (ensures V.evaluate_args sigma i a rho args ss == V.evaluate_args sigma i a eta ys ss)
+          (decreases args) =
+  match args, ys, ss with
+  | x :: rest, y :: tail, _ :: stail ->
+    lemma_subst_eval sigma i j t d s0 a eta0 rho eta x y;
+    lemma_subst_list_eval sigma i j t d s0 a eta0 rho eta rest tail stail
+  | _, _, _ -> ()
+
+let agree_at (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (a:list sort)
+             (rho rho':V.environment base sigma a) (p:nat{p < L.length a}) : prop =
+  p <> d + j ==> (rho p <: V.tree base) == (rho' p <: V.tree base)
+
+let agree (#base:sort -> Type0) (sigma:V.signature) (j d:nat) (a:list sort)
+          (rho rho':V.environment base sigma a) : prop =
+  forall (p:nat{p < L.length a}). agree_at sigma j d a rho rho' p
+
+(* A term that does not mention Var j has one value at two environments
+   that differ only there. *)
+let rec lemma_avoid (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                    (j d:nat) (a:list sort) (rho rho':V.environment base sigma a) (e:expr)
+  : Lemma (requires D.scoped a e /\ not (occurs j d e) /\ agree sigma j d a rho rho')
+          (ensures (V.evaluate sigma i a rho e <: V.tree base) == (V.evaluate sigma i a rho' e <: V.tree base))
+          (decreases e) =
+  match e with
+  | Var p _ -> assert (agree_at sigma j d a rho rho' p)
+  | App f args -> lemma_avoid_args sigma i j d a rho rho' args f.domain
+  | Quantifier k bound _ body ->
+    let pointwise (vs:V.arguments base sigma (L.rev bound))
+      : Lemma (V.evaluate sigma i (L.rev bound @ a) (V.extend sigma a (L.rev bound) vs rho) body ==
+               V.evaluate sigma i (L.rev bound @ a) (V.extend sigma a (L.rev bound) vs rho') body) =
+      LP.rev_length bound;
+      LP.append_length (L.rev bound) a;
+      let at (p:nat{p < L.length (L.rev bound @ a)})
+        : Lemma (agree_at sigma j (d + L.length bound) (L.rev bound @ a)
+                   (V.extend sigma a (L.rev bound) vs rho) (V.extend sigma a (L.rev bound) vs rho') p) =
+        DS.lemma_extend_index sigma a (L.rev bound) vs rho p;
+        DS.lemma_extend_index sigma a (L.rev bound) vs rho' p;
+        if p >= L.length bound then assert (agree_at sigma j d a rho rho' (p - L.length bound)) in
+      FStar.Classical.forall_intro at;
+      lemma_avoid sigma i j (d + L.length bound) (L.rev bound @ a)
+        (V.extend sigma a (L.rev bound) vs rho) (V.extend sigma a (L.rev bound) vs rho') body in
+    FStar.Classical.forall_intro pointwise;
+    V.lemma_quantifier_environments sigma i a a rho rho' k bound (get_sort body) body body
+
+and lemma_avoid_args (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                     (j d:nat) (a:list sort) (rho rho':V.environment base sigma a) (args:list expr) (ss:list sort)
+  : Lemma (requires D.scoped_args a args /\ sorts_match args ss /\ not (occurs_args j d args) /\
+                    agree sigma j d a rho rho')
+          (ensures V.evaluate_args sigma i a rho args ss == V.evaluate_args sigma i a rho' args ss)
+          (decreases args) =
+  match args, ss with
+  | x :: rest, _ :: tail ->
+    lemma_avoid sigma i j d a rho rho' x;
+    lemma_avoid_args sigma i j d a rho rho' rest tail
+  | _, _ -> ()
+
+(* ---------------------------------------------------------------------- *)
+(* Typed tuples with one position replaced                                  *)
+(* ---------------------------------------------------------------------- *)
+
+let rec replace (#base:sort -> Type0) (sigma:V.signature) (ss:list sort) (vs:V.arguments base sigma ss)
+                (j:nat{j < L.length ss}) (v:V.value base sigma (L.index ss j))
+  : Tot (V.arguments base sigma ss) (decreases ss) =
+  match ss, vs with
+  | _ :: srest, w :: wrest -> if j = 0 then v :: wrest else w :: replace sigma srest wrest (j - 1) v
+  | _, _ -> FStar.Pervasives.false_elim ()
+
+let rec lemma_replace_at (#base:sort -> Type0) (sigma:V.signature) (ss:list sort) (vs:V.arguments base sigma ss)
+                         (j:nat{j < L.length ss}) (v:V.value base sigma (L.index ss j)) (p:nat{p < L.length ss})
+  : Lemma (ensures (E.tuple_at sigma ss (replace sigma ss vs j v) p <: V.tree base) ==
+                   (if p = j then (v <: V.tree base) else (E.tuple_at sigma ss vs p <: V.tree base)))
+          (decreases ss) =
+  match ss, vs with
+  | _ :: srest, _ :: wrest -> if j > 0 && p > 0 then lemma_replace_at sigma srest wrest (j - 1) v (p - 1)
+  | _, _ -> ()
+
+let rec lemma_replace_same (#base:sort -> Type0) (sigma:V.signature) (ss:list sort) (vs:V.arguments base sigma ss)
+                           (j:nat{j < L.length ss}) (v:V.value base sigma (L.index ss j))
+  : Lemma (requires (v <: V.tree base) == (E.tuple_at sigma ss vs j <: V.tree base))
+          (ensures replace sigma ss vs j v == vs)
+          (decreases ss) =
+  match ss, vs with
+  | _ :: srest, _ :: wrest -> if j > 0 then lemma_replace_same sigma srest wrest (j - 1) v
+  | _, _ -> ()
+
+(* ---------------------------------------------------------------------- *)
+(* Disjunctions                                                             *)
+(* ---------------------------------------------------------------------- *)
+
+let rec lemma_fold_remove (t:expr -> GTot bool) (xs:list expr) (k:nat{k < L.length xs})
+  : Lemma (ensures fold_truth t B.Or xs == (t (L.index xs k) || fold_truth t B.Or (remove_at k xs)))
+          (decreases xs) =
+  match xs with
+  | _ :: rest -> if k > 0 then lemma_fold_remove t rest (k - 1)
+
+let rec lemma_remove_scoped (scope:list sort) (xs:list expr) (k:nat)
+  : Lemma (requires D.scoped_args scope xs /\ T.boolean_sorts (L.map get_sort xs))
+          (ensures D.scoped_args scope (remove_at k xs) /\ T.boolean_sorts (L.map get_sort (remove_at k xs)))
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | _ :: rest -> if k > 0 then lemma_remove_scoped scope rest (k - 1)
+
+let rec lemma_boolean_domain (xs:list expr)
+  : Lemma (requires T.boolean_sorts (L.map get_sort xs))
+          (ensures sorts_match xs (BRW.boolean_domain xs) /\ T.boolean_sorts (BRW.boolean_domain xs))
+          (decreases xs) =
+  match xs with [] -> () | _ :: rest -> lemma_boolean_domain rest
+
+let rec lemma_sorts_bool (xs:list expr) (ss:list sort)
+  : Lemma (requires sorts_match xs ss /\ T.boolean_sorts ss) (ensures T.boolean_sorts (L.map get_sort xs))
+          (decreases xs) =
+  match xs, ss with
+  | _ :: rest, t :: tail -> V.lemma_sort_eq (get_sort (L.hd xs)) t; lemma_sorts_bool rest tail
+  | _, _ -> ()
+
+let lemma_or_of (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                (scope:list sort) (rho:V.environment base (S.signature s) scope) (xs:list expr)
+  : Lemma (requires D.scoped_args scope xs /\ T.boolean_sorts (L.map get_sort xs))
+          (ensures D.scoped scope (or_of xs) /\ get_sort (or_of xs) == bool_sort /\
+                   T.truth_at s bc eq other scope rho (or_of xs) ==
+                   fold_truth (T.truth_at s bc eq other scope rho) B.Or xs) =
+  match xs with
+  | [] -> lemma_truth_constant s bc eq other scope rho R.false_expr false
+  | [a] -> ()
+  | _ ->
+    lemma_boolean_domain xs;
+    let f = BRW.connective_decl BRW.Disjunction xs in
+    assert (T.classify f == T.Nary B.Or);
+    lemma_truth_nary s bc eq other scope rho f xs B.Or;
+    lemma_fold_atoms (T.truth_at s bc eq other scope rho) B.Or xs
+
+(* ---------------------------------------------------------------------- *)
+(* The defining disequality                                                  *)
+(* ---------------------------------------------------------------------- *)
+
+let rec lemma_first_def (n:nat) (lits:list expr) (i k j:nat) (t:expr)
+  : Lemma (requires first_def n lits i == Some (k, j, t))
+          (ensures i <= k /\ k - i < L.length lits /\ diseq_def n (L.index lits (k - i)) == Some (j, t))
+          (decreases lits) =
+  match lits with
+  | l :: rest -> (match diseq_def n l with Some _ -> () | None -> lemma_first_def n rest (i + 1) k j t)
+
+(* The literal's truth at a scope where it is typed: the binder's value
+   differs from t's. *)
+let lemma_diseq (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                (scope:list sort) (rho:V.environment base (S.signature s) scope) (n:nat) (lit t:expr) (j:nat)
+  : Lemma (requires D.scoped scope lit /\ diseq_def n lit == Some (j, t))
+          (ensures j < n /\ not (occurs j 0 t) /\ D.scoped scope t /\ j < L.length scope /\
+                   get_sort t == L.index scope j /\ get_sort lit == bool_sort /\
+                   (T.truth_at s bc eq other scope rho lit <==>
+                    ~((rho j <: V.tree base) == (T.evaluate_at s bc eq other scope rho t <: V.tree base)))) =
+  match lit with
+  | App ng [App eqd [a; b]] ->
+    lemma_truth_not s bc eq other scope rho ng (App eqd [a; b]);
+    assert (eqd == R.eq_decl (get_sort a));
+    assert (D.scoped_args scope [a; b]);
+    assert (D.scoped_args scope [b]);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    assert (App eqd [a; b] == R.mk_eq_expr a b);
+    T.lemma_equality_at s bc eq other scope rho a b
+  | _ -> ()
+
+let rec lemma_index_scoped (scope:list sort) (xs:list expr) (k:nat{k < L.length xs})
+  : Lemma (requires D.scoped_args scope xs) (ensures D.scoped scope (L.index xs k)) (decreases xs) =
+  match xs with _ :: rest -> if k > 0 then lemma_index_scoped scope rest (k - 1)
+
+(* ---------------------------------------------------------------------- *)
+(* The der law                                                               *)
+(* ---------------------------------------------------------------------- *)
+
+(* der at ANY scope where both sides are typed, at ANY typed environment:
+   (forall bs. (or l1 .. ln)) and (forall bs. (or l1 .. ln without li)[x := t])
+   have one truth when li = (not (= x t)), x a binder of bs not in t. *)
+let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                 (scope:list sort) (rho:V.environment base (S.signature s) scope) (q e:expr)
+  : Lemma (requires Q.forall_model s bc other /\ der_step q e /\ D.scoped scope q /\ D.scoped scope e)
+          (ensures same_at s bc eq other scope rho q e) =
+  match q, e with
+  | Quantifier _ bs _ (App f lits), Quantifier _ _ _ body' ->
+    let sigma = S.signature s in
+    let i = T.interpretation s bc eq other in
+    let n = L.length bs in
+    let ss = L.rev bs in
+    let s0 = ss @ scope in
+    let (k, j, t) = Some?.v (first_def n lits 0) in
+    lemma_first_def n lits 0 k j t;
+    let lit = L.index lits k in
+    let rem = remove_at k lits in
+    LP.rev_length bs;
+    LP.append_length ss scope;
+    assert (D.scoped s0 (App f lits) /\ D.scoped s0 body');
+    assert (T.classify f == T.Nary B.Or);
+    lemma_sorts_bool lits f.domain;
+    lemma_remove_scoped s0 lits k;
+    lemma_index_scoped s0 lits k;
+    let ext (vs:V.arguments base sigma ss) : V.environment base sigma s0 = V.extend sigma scope ss vs rho in
+    let tq (vs:V.arguments base sigma ss) : GTot bool = T.truth_at s bc eq other s0 (ext vs) (App f lits) in
+    let te (vs:V.arguments base sigma ss) : GTot bool = T.truth_at s bc eq other s0 (ext vs) body' in
+    let tl (vs:V.arguments base sigma ss) : GTot bool = T.truth_at s bc eq other s0 (ext vs) lit in
+    let step (vs:V.arguments base sigma ss)
+      : Lemma ((exists (ws:V.arguments base sigma ss). te vs == tq ws) /\ (tq vs == (tl vs || te vs))) =
+      let rho_v = ext vs in
+      lemma_diseq s bc eq other s0 rho_v n lit t j;
+      DS.lemma_index_split ss scope j;
+      let tv = T.evaluate_at s bc eq other s0 rho_v t in
+      let v : V.value base sigma (L.index ss j) = tv in
+      let vs' = replace sigma ss vs j v in
+      let rho' = ext vs' in
+      let at (p:nat{p < L.length s0})
+        : Lemma (agree_at sigma j 0 s0 rho_v rho' p /\ agree_at sigma j 0 s0 rho' rho_v p /\
+                 (p == j ==> (rho' p <: V.tree base) == (tv <: V.tree base))) =
+        DS.lemma_extend_index sigma scope ss vs rho p;
+        DS.lemma_extend_index sigma scope ss vs' rho p;
+        if p < n then lemma_replace_at sigma ss vs j v p in
+      FStar.Classical.forall_intro at;
+      lemma_avoid sigma i j 0 s0 rho_v rho' t;
+      lemma_or_of s bc eq other s0 rho' rem;
+      let at2 (p:nat{p < L.length s0}) : Lemma (subst_rel_at sigma j 0 s0 s0 rho_v tv rho' rho_v p) =
+        at p in
+      FStar.Classical.forall_intro at2;
+      lemma_subst_eval sigma i j t 0 s0 s0 rho_v rho' rho_v (or_of rem) body';
+      T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho' (or_of rem));
+      T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho_v body');
+      lemma_truth_nary s bc eq other s0 rho' f lits B.Or;
+      lemma_fold_atoms (T.truth_at s bc eq other s0 rho') B.Or lits;
+      lemma_fold_remove (T.truth_at s bc eq other s0 rho') lits k;
+      lemma_diseq s bc eq other s0 rho' n lit t j;
+      assert (tq vs' == te vs);
+      lemma_truth_nary s bc eq other s0 rho_v f lits B.Or;
+      lemma_fold_atoms (T.truth_at s bc eq other s0 rho_v) B.Or lits;
+      lemma_fold_remove (T.truth_at s bc eq other s0 rho_v) lits k;
+      lemma_or_of s bc eq other s0 rho_v rem;
+      if not (tl vs) then (
+        DS.lemma_extend_index sigma scope ss vs rho j;
+        lemma_replace_same sigma ss vs j v)
+    in
+    FStar.Classical.forall_intro step;
+    Q.lemma_forall_truth s bc eq other scope rho bs (App f lits);
+    Q.lemma_forall_truth s bc eq other scope rho bs body';
+    lemma_same_truth s bc eq other scope rho q e
+  | _, _ -> ()
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
    is Z3SortedArithmetic.lemma_equivalent at that scope; the ITE laws are
@@ -2293,6 +2746,7 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
         | _, _ -> ())
       else if name = "rewrite" then lemma_real_rewrite_at s bc eq other real scope rho lhs rhs
       else if name = "elim-unused" then lemma_unused_eliminated_at s bc eq other scope rho lhs rhs
+      else if name = "der" then lemma_der_at s bc eq other scope rho lhs rhs
       else if L.mem (R.mk_eq_expr lhs rhs) assertions then
         lemma_assertion_edge s bc eq other assertions scope rho lhs rhs
       else (

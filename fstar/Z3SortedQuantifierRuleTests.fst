@@ -283,3 +283,135 @@ let u4_false_claim (u:TR.uninterpreted)
   QCM.lemma_numeral u QCM.none s1 rho 0;
   QCM.lemma_compare u QCM.none s1 rho (TR.le_decl TR.int_s) LA.Le (Var 0 integer) (QT.num 0);
   assert_norm (TR.icompare LA.Le 1 0 == false)
+
+(* ---------------------------------------------------------------------- *)
+(* D1. der: the executable check                                            *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's der step keeps the binder list (der.cpp reduce1,
+   update_quantifier): (forall bs. (or l1 .. ln)) = (forall bs. rest[x := t])
+   with li = (not (= x t)) the first defining disequality, x a binder not
+   occurring in t, the other literals kept in order. The captured
+   Pulse.Checker.ForwardJumpLabel q3 node 477 leaves have this shape with
+   x = #0 and t = #12, an index of the enclosing scope. *)
+let neq (a b:expr) : expr = QT.neg (QT.eq a b)
+let qt_ (x:expr) : expr = App (QT.symbol "qt" [term] bool_sort) [x]
+let rt (x y:expr) : expr = App (QT.symbol "rt" [term; term] bool_sort) [x; y]
+let fterm (x:expr) : expr = App (QT.symbol "ft" [term] term) [x]
+let dterm : expr = App (QT.symbol "d" [] term) []
+let x0 : expr = Var 0 term
+let x1 : expr = Var 1 term
+let x2 : expr = Var 2 term
+
+let ders : list (expr & expr) = [
+  (* captured shape at the scope [Term]: the free index #1 substituted *)
+  (forall_ [term] (QT.mk_or [neq x1 x0; pt x0; qt_ x0]), forall_ [term] (QT.mk_or [pt x1; qt_ x1]));
+  (* closed: one literal remains *)
+  (forall_ [term] (QT.mk_or [neq x0 cterm; pt x0]), forall_ [term] (pt cterm));
+  (* a later literal defines x, the remaining literal keeps its place *)
+  (forall_ [term] (QT.mk_or [pt x0; neq cterm x0; qt_ x0]), forall_ [term] (QT.mk_or [pt cterm; qt_ cterm]));
+  (* the definition lifted under a nested binder *)
+  (forall_ [term] (QT.mk_or [neq x0 x1; exists_ [term] (rt x1 x0)]), forall_ [term] (exists_ [term] (rt x2 x0)));
+  (* heterogeneous binders: x is the Term binder, the Int binder stays *)
+  (forall_ [term; integer] (QT.mk_or [neq x1 cterm; pr2 (Var 0 integer) x1]),
+   forall_ [term; integer] (pr2 (Var 0 integer) cterm))
+]
+
+let d1_ders () : Lemma (L.for_all (fun (qe:expr & expr) -> NR.der_step (fst qe) (snd qe)) ders) =
+  assert_norm (L.for_all (fun (qe:expr & expr) -> NR.der_step (fst qe) (snd qe)) ders)
+
+let der_mutants : list (expr & expr) = [
+  (forall_ [term] (QT.mk_or [neq x0 cterm; pt x0]), forall_ [term] (pt dterm));            (* wrong substitution *)
+  (forall_ [term] (QT.mk_or [neq x0 cterm; pt x0]), forall_ [term] (QT.mk_or [neq cterm cterm; pt cterm]));  (* literal kept *)
+  (forall_ [term] (QT.mk_or [neq x0 cterm; pt x0]), pt cterm);                               (* binder dropped *)
+  (forall_ [term] (QT.mk_or [neq x0 (fterm x0); pt x0]), forall_ [term] (pt (fterm x0)));   (* x occurs in t *)
+  (forall_ [term] (QT.mk_or [QT.eq x0 cterm; pt x0]), forall_ [term] (pt cterm));           (* equality, not disequality *)
+  (exists_ [term] (QT.mk_or [neq x0 cterm; pt x0]), exists_ [term] (pt cterm));             (* exists *)
+  (forall_ [term] (QT.mk_or [neq x1 x0; pt x0; qt_ x0]), forall_ [term] (QT.mk_or [pt x0; qt_ x0]));  (* not substituted *)
+  (forall_ [term] (QT.mk_or [neq x0 x1; exists_ [term] (rt x1 x0)]),
+   forall_ [term] (exists_ [term] (rt x1 x0)));                                               (* not lifted *)
+  (forall_ [term] (pt cterm), forall_ [term] (QT.mk_or [neq x0 cterm; pt x0]))               (* reversed orientation *)
+]
+
+let d1_mutants () : Lemma (L.for_all (fun (qe:expr & expr) -> not (NR.der_step (fst qe) (snd qe))) der_mutants) =
+  assert_norm (L.for_all (fun (qe:expr & expr) -> not (NR.der_step (fst qe) (snd qe))) der_mutants)
+
+(* ---------------------------------------------------------------------- *)
+(* D2. der: the quant-intro path                                           *)
+(* ---------------------------------------------------------------------- *)
+
+(* forall y:Term. (or (pt y) <der q>) = forall y:Term. (or (pt y) <der e>):
+   the captured shape at the scope [Term]. *)
+let der_q : expr = forall_ [term] (QT.mk_or [neq x1 x0; pt x0; qt_ x0])
+let der_e : expr = forall_ [term] (QT.mk_or [pt x1; qt_ x1])
+let tinner (e:expr) : expr = QT.mk_or [pt x0; e]
+let troot (e:expr) : expr = forall_ [term] (tinner e)
+
+let der_cert (name:string) (q e:expr) : U.binder_certificate =
+  QT.cert [QT.be name (QT.eq q e) [];
+           QT.be "monotonicity" (QT.eq (tinner q) (tinner e)) [0];
+           QT.bq "quant-intro" [term] (QT.eq (troot q) (troot e)) [1]] 2
+
+let wrong_der_e : expr = forall_ [term] (QT.mk_or [pt cterm; qt_ cterm])
+
+let d2_replay ()
+  : Lemma (not (QT.old_paths (QT.qi_node (der_cert "der" der_q der_e) (troot der_q) (troot der_e))) /\
+           QT.replays (der_cert "der" der_q der_e) (troot der_q) (troot der_e) /\
+           QT.pending (der_cert "der" der_q wrong_der_e) (troot der_q) (troot wrong_der_e) /\
+           QT.pending (der_cert "rewrite" der_q der_e) (troot der_q) (troot der_e) /\
+           QT.pending (der_cert "elim-unused" der_q der_e) (troot der_q) (troot der_e) /\
+           RD.check_root_document PT.core_schema
+             (QT.refutation (der_cert "der" der_q der_e) (troot der_q) (troot der_e)) == RD.RootCertified) =
+  assert_norm (not (QT.old_paths (QT.qi_node (der_cert "der" der_q der_e) (troot der_q) (troot der_e))));
+  assert_norm (QT.replays (der_cert "der" der_q der_e) (troot der_q) (troot der_e));
+  assert_norm (QT.pending (der_cert "der" der_q wrong_der_e) (troot der_q) (troot wrong_der_e));
+  assert_norm (QT.pending (der_cert "rewrite" der_q der_e) (troot der_q) (troot der_e));
+  assert_norm (QT.pending (der_cert "elim-unused" der_q der_e) (troot der_q) (troot der_e));
+  assert_norm (RD.check_root_document PT.core_schema
+                 (QT.refutation (der_cert "der" der_q der_e) (troot der_q) (troot der_e)) == RD.RootCertified)
+
+let d2_valid (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures RD.root_holds u PT.core_schema i (QT.eq (troot der_q) (troot der_e))) =
+  d2_replay ();
+  RD.lemma_root_certified u PT.core_schema (QT.refutation (der_cert "der" der_q der_e) (troot der_q) (troot der_e)) i;
+  assert_norm (D.scoped [] (QT.neg (QT.eq (troot der_q) (troot der_e))));
+  QT.lemma_not_holds u i (QT.eq (troot der_q) (troot der_e))
+
+(* ---------------------------------------------------------------------- *)
+(* D3. der: the direct premise-free closed DestructiveEquality path        *)
+(* ---------------------------------------------------------------------- *)
+
+let der_node (kind:U.rule) (q e:expr) : U.proof_node = { U.kind = kind; conclusion = U.Equal q e; premises = [] }
+
+let der_pending (kind:U.rule) (q e:expr) : option nat =
+  match SP.check_node_cached PT.core_schema [] (der_node kind q e) with
+  | Some (_, n) -> Some n
+  | None -> None
+
+let der_closed_q : expr = forall_ [term] (QT.mk_or [neq x0 cterm; pt x0])
+let der_closed_e : expr = forall_ [term] (pt cterm)
+
+let der_document (kind:U.rule) (q e:expr) : P.document =
+  let f = QT.eq q e in
+  QT.doc [QT.neg f] [QT.entry U.Asserted (QT.neg f) []; QT.entry kind f []; QT.entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let d3_direct ()
+  : Lemma (SP.der_rewrite (der_node U.DestructiveEquality der_closed_q der_closed_e) /\
+           not (QT.old_paths (der_node U.DestructiveEquality der_closed_q der_closed_e)) /\
+           der_pending U.DestructiveEquality der_closed_q der_closed_e == Some 0 /\
+           der_pending U.DestructiveEquality der_closed_q (forall_ [term] (pt dterm)) == Some 1 /\
+           der_pending U.RewriteRule der_closed_q der_closed_e == Some 1 /\
+           RD.check_root_document PT.core_schema (der_document U.DestructiveEquality der_closed_q der_closed_e) ==
+             RD.RootCertified /\
+           RD.check_root_document PT.core_schema (der_document U.DestructiveEquality der_closed_q (forall_ [term] (pt dterm))) ==
+             RD.RootPending 1) =
+  assert_norm (SP.der_rewrite (der_node U.DestructiveEquality der_closed_q der_closed_e));
+  assert_norm (not (QT.old_paths (der_node U.DestructiveEquality der_closed_q der_closed_e)));
+  assert_norm (der_pending U.DestructiveEquality der_closed_q der_closed_e == Some 0);
+  assert_norm (der_pending U.DestructiveEquality der_closed_q (forall_ [term] (pt dterm)) == Some 1);
+  assert_norm (der_pending U.RewriteRule der_closed_q der_closed_e == Some 1);
+  assert_norm (RD.check_root_document PT.core_schema (der_document U.DestructiveEquality der_closed_q der_closed_e) ==
+               RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (der_document U.DestructiveEquality der_closed_q (forall_ [term] (pt dterm))) ==
+               RD.RootPending 1)

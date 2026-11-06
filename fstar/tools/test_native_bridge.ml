@@ -3718,6 +3718,90 @@ let sorted_elim_unused () =
         require (pending U.ElimUnused q R.true_expr = 1) "an elim-unused node with a used binder dropped was checked")
     (steps_d @ steps_h)
 
+(* der (Z3NnfReplay.der_step) at native scale, on the normal stack, on both Sorted paths. Quant-intro
+   leaves under a Term binder: the captured shape (forall [Term] (or (not (= #1 #0)) (pt #0) (qt #0)))
+   = (forall [Term] (or (pt #1) (qt #1))), a closed one-literal remainder, a definition lifted under
+   a nested binder and a 4,000-deep remaining literal replay; a 4,096-literal disjunction is
+   accepted, 4,097 literals and a 200,000-deep literal are refused by the admissions; a wrong
+   substitution, an unlifted definition, a kept disequality, a dropped binder, a definition that
+   mentions its variable and the reversed orientation are pending. The producer's own closed der
+   step (der.cpp on (forall x y. (or (not (= x 5)) (p x)))) is checked as a premise-free
+   DestructiveEquality node by Z3SortedProof.der_rewrite and by no other kernel; under the
+   RewriteRule label or with a wrong target the node stays open. *)
+let sorted_der () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module K = Z3SortedProof in
+  let term = A.BaseSort "Term" in
+  let forall_ bs body = A.Quantifier (A.Forall_k, bs, A.bool_sort, body) in
+  let exists_ bs body = A.Quantifier (A.Exists_k, bs, A.bool_sort, body) in
+  let decl name domain range = { A.decl_name = name; domain; range; interp = None; int_params = [] } in
+  let pt x = A.App (decl "pt" [term] A.bool_sort, [x]) and qt x = A.App (decl "qt" [term] A.bool_sort, [x]) in
+  let rt x y = A.App (decl "rt" [term; term] A.bool_sort, [x; y]) in
+  let c = A.App (decl "c" [] term, []) and d = A.App (decl "d" [] term, []) in
+  let mk_or args = A.App ({ A.decl_name = "or"; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+                            interp = Some Z3ValueTheory.op_or; int_params = [] }, args) in
+  let neq a b = R.mk_not_expr (R.mk_eq_expr a b) in
+  let v n = A.Var (Z.of_int n, term) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf q e pad =
+    let inner x = mk_or [pt (v 0); x] in
+    NR.replay [] { U.binder_entries = entry "der" (R.mk_eq_expr q e) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr (inner q) (inner e)) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (forall_ [term] (inner q)) (forall_ [term] (inner e)))
+                                        [1] (Some [term]) :: padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (forall_ [term] (inner q), forall_ [term] (inner e))) in
+  let f = decl "f" [term] term in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  List.iter (fun (q, e, pad, name) ->
+      require (NR.der_step q e && leaf q e pad = NR.Replayed) ("a der leaf was not replayed: " ^ name))
+    [forall_ [term] (mk_or [neq (v 1) (v 0); pt (v 0); qt (v 0)]), forall_ [term] (mk_or [pt (v 1); qt (v 1)]), 0, "captured";
+     forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), forall_ [term] (pt c), 0, "one literal left";
+     forall_ [term] (mk_or [neq (v 0) (v 1); exists_ [term] (rt (v 1) (v 0))]),
+     forall_ [term] (exists_ [term] (rt (v 2) (v 0))), 0, "lifted under a binder";
+     forall_ [term] (mk_or [neq (v 0) c; pt (applied 4000 (v 0))]), forall_ [term] (pt (applied 4000 c)), 200, "4,000-deep literal"];
+  let wide n = List.init n (fun k -> A.App (decl ("w" ^ string_of_int k) [term] A.bool_sort, [v 0])) in
+  let subst_wide n = List.init n (fun k -> A.App (decl ("w" ^ string_of_int k) [term] A.bool_sort, [c])) in
+  require (NR.der_step (forall_ [term] (mk_or (neq (v 0) c :: wide 4095))) (forall_ [term] (mk_or (subst_wide 4095))))
+    "a 4,096-literal der step was refused";
+  require (not (NR.der_step (forall_ [term] (mk_or (neq (v 0) c :: wide 4096))) (forall_ [term] (mk_or (subst_wide 4096)))))
+    "a 4,097-literal der step was accepted";
+  require (not (NR.der_step (forall_ [term] (mk_or [neq (v 0) c; pt (applied 200000 (v 0))]))
+                  (forall_ [term] (pt (applied 200000 c)))))
+    "a der step beyond the depth admission was accepted";
+  List.iter (fun (q, e, name) ->
+      require (not (NR.der_step q e)) ("a der mutant was accepted: " ^ name);
+      require (leaf q e 0 = NR.Unreplayed) ("a der mutant was replayed: " ^ name))
+    [forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), forall_ [term] (pt d), "wrong substitution";
+     forall_ [term] (mk_or [neq (v 0) (v 1); exists_ [term] (rt (v 1) (v 0))]),
+     forall_ [term] (exists_ [term] (rt (v 1) (v 0))), "definition not lifted";
+     forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), forall_ [term] (mk_or [neq c c; pt c]), "disequality kept";
+     forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), pt c, "binder dropped";
+     forall_ [term] (mk_or [neq (v 0) (A.App (f, [v 0])); pt (v 0)]), forall_ [term] (pt (A.App (f, [v 0]))), "x in t";
+     forall_ [term] (pt c), forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), "reversed orientation"];
+  let assertions, proof =
+    unsat "(declare-fun p (Int) Bool)(assert (forall ((x Int) (y Int)) (or (not (= x 5)) (p x))))(assert (not (p 5)))" in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  let der_steps = List.filter_map (fun e -> match U.classify_fact e.P.formula with
+      | Some (U.Equal (q, r)) when e.P.rule = U.DestructiveEquality -> Some (q, r)
+      | _ -> None) doc.P.entries in
+  require (der_steps <> []) "no closed der step was produced";
+  let node kind q r = { U.kind = kind; conclusion = U.Equal (q, r); premises = [] } in
+  let pending kind q r = match K.check_node schema [] (node kind q r) with
+    | Some (_, n) -> Z.to_int n
+    | None -> failwith "a well-sorted der node was rejected" in
+  List.iter (fun (q, r) ->
+      require (K.der_rewrite (node U.DestructiveEquality q r) && pending U.DestructiveEquality q r = 0)
+        "a producer der node was not checked";
+      require (not (K.consequence schema [] (K.proposition (node U.DestructiveEquality q r).U.conclusion)))
+        "a producer der node was already checked by another kernel";
+      require (pending U.RewriteRule q r = 1) "a der equation was checked under the rewrite label";
+      require (pending U.DestructiveEquality q R.true_expr = 1) "a der node with a wrong target was checked")
+    der_steps
+
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
    only. For every pair below the units equal the previous charge name_length a + name_length b,
@@ -7527,6 +7611,7 @@ let () =
      "sorted-int-factor-permutation", sorted_int_factor_permutation;
      "sorted-direct-product-rewrites", sorted_direct_product_rewrites;
      "sorted-elim-unused", sorted_elim_unused;
+     "sorted-der", sorted_der;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;

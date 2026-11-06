@@ -1586,9 +1586,21 @@ let unused_elimination (node:U.proof_node) : bool =
    | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.unused_eliminated a b
    | U.Holds _ -> false)
 
+(* A premise-free closed der step (q = e, exported as iff(q, e)): the check
+   of the quant-intro der entries (Z3NnfReplay.der_step: one eliminated
+   binder of a universal over a disjunction, the binder list kept), read at
+   the scope []. *)
+let der_rewrite (node:U.proof_node) : bool =
+  node.kind = U.DestructiveEquality && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.der_step a b
+   | U.Holds _ -> false)
+
 (* The rules whose checks read the universal and existential laws: a binder
-   certificate (the NNF and quant-intro replay) and an ElimUnused step. *)
-let binder_rule (r:U.rule) : bool = U.QuantifierIntroduction? r || r = U.ElimUnused
+   certificate (the NNF and quant-intro replay), an ElimUnused step and a
+   der step. *)
+let binder_rule (r:U.rule) : bool =
+  U.QuantifierIntroduction? r || r = U.ElimUnused || r = U.DestructiveEquality
 
 (* The node kernels that read the Sorted Real laws. *)
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool = real_farkas s node || real_rewrite s node
@@ -1751,7 +1763,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
-      ite_rewrite node || product_rewrite node || unused_elimination node in
+      ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1877,6 +1889,24 @@ let lemma_unused_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
     T.lemma_equality s bc eq other a b
   | U.Holds _ -> ()
 
+(* An accepted der equation is true in every Sorted model satisfying the
+   universal law: the law at the scope [] and the empty environment. *)
+let lemma_der_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (node:U.proof_node)
+  : Lemma (requires Q.forall_model s bc other /\
+                    boolean_expression s (proposition node.conclusion) /\ der_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_der_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
 let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
@@ -1945,7 +1975,8 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
     else if ite_rewrite node then lemma_ite_rewrite s bc eq other node
     else if product_rewrite node then lemma_product_rewrite s bc eq other node
-    else lemma_unused_elimination s bc eq other node
+    else if unused_elimination node then lemma_unused_elimination s bc eq other node
+    else lemma_der_rewrite s bc eq other node
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =
