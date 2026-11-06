@@ -41,6 +41,7 @@ class elim_uncnstr_tactic : public tactic {
 
     struct rw_cfg : public default_rewriter_cfg {
         bool                   m_produce_proofs;
+        bool                   m_seq_concat_only;
         obj_hashtable<expr> &  m_vars;
         obj_hashtable<expr>&   m_nonvars;  
         expr_mark &            m_disabled;
@@ -59,8 +60,9 @@ class elim_uncnstr_tactic : public tactic {
         rw_cfg(ast_manager & m, bool produce_proofs, obj_hashtable<expr> & vars, 
             obj_hashtable<expr> & nonvars, expr_mark& disabled,
             mc * _m, 
-               unsigned long long max_memory, unsigned max_steps):
+               unsigned long long max_memory, unsigned max_steps, bool seq_concat_only):
             m_produce_proofs(produce_proofs),
+            m_seq_concat_only(seq_concat_only),
             m_vars(vars),
             m_nonvars(nonvars), 
             m_disabled(disabled),
@@ -811,6 +813,8 @@ class elim_uncnstr_tactic : public tactic {
             case _OP_STRING_CONCAT:
             case OP_SEQ_CONCAT: {
                 expr* x, *y;
+                if (m_seq_concat_only && !uncnstr(num, args))
+                    return nullptr;
                 if (uncnstr(args[0]) && num == 2 &&
                     args[1]->get_ref_count() == 1 && 
                     m_seq_util.str.is_concat(args[1], x, y) &&
@@ -867,6 +871,10 @@ class elim_uncnstr_tactic : public tactic {
             if (num == 0)
                 return BR_FAILED;
             family_id fid = f->get_family_id();
+            if (m_seq_concat_only &&
+                (fid != m_seq_util.get_family_id() ||
+                 (f->get_decl_kind() != OP_SEQ_CONCAT && f->get_decl_kind() != _OP_STRING_CONCAT)))
+                return BR_FAILED;
             if (fid == null_family_id)
                 return BR_FAILED;
             
@@ -909,9 +917,9 @@ class elim_uncnstr_tactic : public tactic {
     public:
         rw(ast_manager & m, bool produce_proofs, obj_hashtable<expr> & vars, obj_hashtable<expr>& nonvars, 
             expr_mark& disabled, mc * _m,
-            unsigned long long max_memory, unsigned max_steps):
+            unsigned long long max_memory, unsigned max_steps, bool seq_concat_only):
             rewriter_tpl<rw_cfg>(m, produce_proofs, m_cfg),
-            m_cfg(m, produce_proofs, vars, nonvars, disabled, _m, max_memory, max_steps) {
+            m_cfg(m, produce_proofs, vars, nonvars, disabled, _m, max_memory, max_steps, seq_concat_only) {
         }
     };
     
@@ -925,6 +933,7 @@ class elim_uncnstr_tactic : public tactic {
     unsigned                         m_num_elim_apps = 0;
     unsigned long long               m_max_memory;
     unsigned                         m_max_steps;
+    bool const                       m_seq_concat_only;
     
     ast_manager & m() { return m_manager; }
     
@@ -935,7 +944,8 @@ class elim_uncnstr_tactic : public tactic {
     }
     
     void init_rw(bool produce_proofs) {
-        m_rw = alloc(rw, m(), produce_proofs, m_vars, m_nonvars, m_disabled, m_mc.get(), m_max_memory, m_max_steps);            
+        m_rw = alloc(rw, m(), produce_proofs, m_vars, m_nonvars, m_disabled, m_mc.get(), m_max_memory, m_max_steps,
+                     m_seq_concat_only);
     }
 
     // The manager-wide has_type_vars() flag is a coarse over-approximation: it becomes
@@ -957,11 +967,21 @@ class elim_uncnstr_tactic : public tactic {
         bool produce_proofs = g->proofs_enabled();
         TRACE(goal, g->display(tout););
         statistics_report sreport([&](statistics& st) { collect_statistics(st); });
-        tactic_report report("elim-uncnstr", *g);
+        tactic_report report(m_seq_concat_only ? "elim-uncnstr-seq-concat" : "elim-uncnstr", *g);
         m_vars.reset();
         collect_occs p;
         p(*g, m_vars);
         disable_quantified(g);
+        if (m_seq_concat_only) {
+            seq_util seq(m());
+            bool candidate = false;
+            for (expr* var : m_vars)
+                candidate |= seq.is_seq(var->get_sort()) && !m_nonvars.contains(var) && !m_disabled.is_marked(var);
+            if (!candidate) {
+                result.push_back(g.get());
+                return;
+            }
+        }
         if (m_vars.empty() || recfun::util(m()).has_rec_defs() || goal_has_type_vars(g)) {
             result.push_back(g.get());
             // did not increase depth since it didn't do anything.
@@ -1058,15 +1078,15 @@ class elim_uncnstr_tactic : public tactic {
     
     params_ref m_params;
 public:
-   elim_uncnstr_tactic(ast_manager & m, params_ref const & p):
-        m_manager(m), m_pinned(m), m_params(p) {
+   elim_uncnstr_tactic(ast_manager & m, params_ref const & p, bool seq_concat_only = false):
+        m_manager(m), m_pinned(m), m_seq_concat_only(seq_concat_only), m_params(p) {
         updt_params(p);
     }
 
    char const* name() const override { return "elim_uncstr"; }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(elim_uncnstr_tactic, m, m_params);
+        return alloc(elim_uncnstr_tactic, m, m_params, m_seq_concat_only);
     }
 
     void updt_params(params_ref const & p) override {
@@ -1113,4 +1133,8 @@ public:
 
 tactic * mk_elim_uncnstr_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(elim_uncnstr_tactic, m, p));
+}
+
+tactic * mk_elim_uncnstr_seq_concat_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(elim_uncnstr_tactic, m, p, true));
 }

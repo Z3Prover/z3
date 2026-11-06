@@ -26,4 +26,6 @@ class ast_manager;
 
 tactic * mk_elim_uncnstr_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+tactic * mk_elim_uncnstr_seq_concat_tactic(ast_manager & m, params_ref const & p = params_ref());
+
 Z3_ADD_TACTIC(elim_uncnstr, "elim-uncnstr", "eliminate application containing unconstrained variables.", mk_elim_uncnstr_tactic(m, p));

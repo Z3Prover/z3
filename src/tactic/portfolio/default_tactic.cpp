@@ -25,6 +25,7 @@ Notes:
 #include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/ff/ff2bv_tactic.h"
 #include "tactic/core/simplify_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "tactic/smtlogics/qflia_tactic.h"
 #include "tactic/smtlogics/qflra_tactic.h"
@@ -58,7 +59,8 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
                                         cond(mk_is_qffp_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qffp_tactic(m, p); }),
                                         cond(mk_is_qffplra_probe(), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_qffplra_tactic(m, p); }),
                                         //cond(mk_is_qfufnra_probe(), mk_qfufnra_tactic(m, p),
-                                             and_then(mk_preamble_tactic(m), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_smt_tactic(m, p);}))))))))))))))),
+                                             // Keep private concatenations intact until unconstrained elimination.
+                                             and_then(mk_elim_uncnstr_seq_concat_tactic(m, p), mk_preamble_tactic(m), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_smt_tactic(m, p);}))))))))))))))),
                                p);
     // Preserve native equality/Boolean reasoning on residual field goals;
     // the field theory itself supplies exact BV fallback when needed.

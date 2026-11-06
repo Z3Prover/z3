@@ -384,7 +384,6 @@ namespace {
         for (unsigned i = 0; i < st.size(); ++i)
             if (std::string(st.get_key(i)) == key)
                 return st.get_uint_value(i);
-        ENSURE(false);
         return 0;
     }
 
@@ -625,6 +624,64 @@ namespace {
             ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == 5 + round);
             f.trail.pop_scope(1);
             f.root->clear_status();
+        }
+    }
+
+    static void tst_leaf_order_retry(bool union_word, bool fits_budget) {
+        fixture f;
+        f.ac.params.m_seq_monadic_leaf = true;
+        f.ac.params.m_seq_monadic_leaf_budget = 1000;
+        f.ac.params.m_seq_monadic_leaf_budget_root = 0;
+        unsigned n = fits_budget ? 16 : 32;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref y(f.m.mk_fresh_const("y", x->get_sort()), f.m);
+        expr_ref a(f.u.str.mk_string(std::string(n, 'a').c_str()), f.m);
+        expr_ref b(f.u.str.mk_string("b"), f.m);
+        expr_ref word(f.u.str.mk_string((std::string(n, 'a') + "b" + std::string(n, 'a')).c_str()), f.m);
+        expr_ref re_word(f.u.re.mk_to_re(word), f.m);
+        expr_ref re_x(f.u.re.mk_to_re(a), f.m);
+        if (union_word) {
+            expr_ref other(f.u.str.mk_string(std::string(n, 'b').c_str()), f.m);
+            expr_ref re_other(f.u.re.mk_to_re(other), f.m);
+            re_x = f.u.re.mk_union(re_x, re_other);
+        }
+        expr_ref xy(f.u.str.mk_concat(x, y), f.m);
+        expr_ref term(f.u.str.mk_concat(xy, x), f.m);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        auto& dm = f.tree.dep_mgr();
+        seq::mem_leaf_split leaf(f.m, f.u, f.rw, f.ac);
+        for (unsigned round = 0; round < (fits_budget ? 2u : 1u); ++round) {
+            f.trail.push_scope();
+            unsigned id = 10 * round + 1;
+            seq::str_mem joint(f.m, term, seq::view::membership(re_word, f.m), dm.mk_leaf(id));
+            seq::str_mem single(f.m, x, seq::view::membership(re_x, f.m), dm.mk_leaf(id + 1));
+            mf.add(round ? single : joint);
+            mf.add(round ? joint : single);
+            seq::eq_tree::dep_tracker dep = nullptr;
+            bool checked = false;
+            ENSURE(leaf.root_refute(mf, dep, checked) == l_undef && checked);
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num ordered asked") == round);
+            ENSURE(ef.equations().empty());
+            seq::eq_tree::edge edge;
+            bool more = false, committed = false;
+            auto it = leaf.split(*f.root, 0, edge, more, committed);
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num ordered asked") == 1);
+            ENSURE(leaf_stat(leaf, "seq-mem-leaf num asked") == 3);
+            ENSURE(static_cast<bool>(it) == fits_budget && committed == fits_budget);
+            ENSURE(ef.equations().size() == (fits_budget ? 2u : 0u));
+            for (auto const& eq : ef.equations()) {
+                ENSURE(eq.active() && eq.m_lhs.size() == 1);
+                expr_ref actual(f.u.str.mk_concat(eq.m_rhs, x->get_sort()), f.m);
+                th_rewriter normalize(f.m);
+                normalize(actual);
+                ENSURE((eq.m_lhs[0] == x && actual == a) || (eq.m_lhs[0] == y && actual == b));
+                ENSURE(dm.contains(eq.m_dep, id) && dm.contains(eq.m_dep, id + 1));
+                if (round)
+                    ENSURE(!dm.contains(eq.m_dep, 1) && !dm.contains(eq.m_dep, 2));
+            }
+            f.trail.pop_scope(1);
+            ENSURE(mf.memberships().empty() && ef.equations().empty());
         }
     }
 
@@ -1097,6 +1154,9 @@ void tst_seq_mem_facet() {
     tst_root_witness_retention(true);
     tst_leaf_ground_prefix_cache(false);
     tst_leaf_ground_prefix_cache(true);
+    for (bool union_word : {false, true})
+        for (bool fits_budget : {false, true})
+            tst_leaf_order_retry(union_word, fits_budget);
     tst_leaf_ground_word();
     tst_leaf_prefix_symbolic_and_cancelled();
     tst_symbolic_unit_derivative_not_rejected();

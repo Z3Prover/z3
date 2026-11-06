@@ -82,6 +82,7 @@
     X(proof_checker) \
     X(proof_replay) \
     X(simplifier) \
+    X(elim_uncnstr) \
     X(bit_blaster) \
     X(var_subst) \
     X(simple_parser) \

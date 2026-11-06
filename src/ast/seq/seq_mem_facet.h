@@ -567,6 +567,7 @@ namespace seq {
             unsigned m_num_cache_hits = 0;
             unsigned m_num_root_asked = 0;
             unsigned m_num_root_refuted = 0;
+            unsigned m_num_ordered_asked = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
@@ -627,10 +628,11 @@ namespace seq {
         // solution. Root asks also cache materialized candidates, without
         // applying them to the node. Returns `l_undef` when nothing was fed
         // or the solver could not decide. Inconclusive ordinary leaf queries
-        // are retried after consuming leading ground units.
+        // are retried after consuming leading ground units, then in stable
+        // structural orders.
         lbool ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses);
         lbool ask_core(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep,
-                       expr_substitution* witnesses, bool normalize_prefix);
+                       expr_substitution* witnesses, bool normalize_prefix, unsigned order = 0);
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
@@ -670,6 +672,7 @@ namespace seq {
             st.update("seq-mem-leaf num cache hits", m_stats.m_num_cache_hits);
             st.update("seq-mem-leaf num root asked", m_stats.m_num_root_asked);
             st.update("seq-mem-leaf num root refuted", m_stats.m_num_root_refuted);
+            st.update("seq-mem-leaf num ordered asked", m_stats.m_num_ordered_asked);
         }
         void reset_statistics() override { m_stats.reset(); }
     };

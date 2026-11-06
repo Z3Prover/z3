@@ -33,10 +33,12 @@ constraints actually used.
 
 --*/
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/for_each_expr.h"
 #include "ast/seq/seq_profile_abs.h"
 #include "ast/ast_pp.h"
 #include "util/z3_exception.h"
 #include <algorithm>
+#include <tuple>
 
 namespace seq {
 
@@ -1236,13 +1238,25 @@ namespace seq {
             return result;
         if (witnesses)
             witnesses->reset();
-        return ask_core(mf, budget, all_dep, witnesses, true);
+        result = ask_core(mf, budget, all_dep, witnesses, true);
+        // Constraint order changes the bounded joint search, not its meaning.
+        // Keep the original attempts first and reorder only inconclusive leaves.
+        for (unsigned order = 1; result == l_undef && order <= 2; ++order) {
+            witnesses->reset();
+            result = ask_core(mf, budget, all_dep, witnesses, false, order);
+        }
+        return result;
     }
 
     lbool mem_leaf_split::ask_core(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep,
-                                 expr_substitution* witnesses, bool normalize_prefix) {
+                                 expr_substitution* witnesses, bool normalize_prefix, unsigned order) {
         all_dep = nullptr;
-        struct fed_item { expr* term; expr* regex; eq_tree::dep_tracker dep; };
+        struct fed_item {
+            expr* term;
+            expr* regex;
+            eq_tree::dep_tracker dep;
+            unsigned variables, distinct, size, index;
+        };
         std::vector<fed_item> fed;
         expr_ref_vector pin(m);
         bool changed = false;
@@ -1269,10 +1283,39 @@ namespace seq {
             changed |= head != 0;
             pin.push_back(term);
             pin.push_back(regex);
-            fed.push_back({term, regex, sm.m_dep});
+            unsigned variables = 0, size = 0;
+            obj_hashtable<expr> distinct;
+            if (order) {
+                for (expr* atom : sm.m_str) {
+                    if (!u.str.is_unit(atom)) {
+                        ++variables;
+                        distinct.insert(atom);
+                    }
+                }
+                for (auto* e : subterms::ground(regex))
+                    ++size;
+            }
+            fed.push_back({term, regex, sm.m_dep, variables, distinct.size(), size, static_cast<unsigned>(fed.size())});
         }
         if (fed.empty() || (normalize_prefix && !changed))
             return l_undef;
+
+        if (order) {
+            auto small_regex_first = [](fed_item const& a, fed_item const& b) {
+                return std::tie(a.size, a.distinct, a.variables) < std::tie(b.size, b.distinct, b.variables);
+            };
+            std::stable_sort(fed.begin(), fed.end(), [&](fed_item const& a, fed_item const& b) {
+                return order == 1 ? small_regex_first(a, b) :
+                                    std::tie(a.variables, a.distinct, a.size) < std::tie(b.variables, b.distinct, b.size);
+            });
+            if (order == 2 && std::is_sorted(fed.begin(), fed.end(), small_regex_first))
+                return l_undef;
+            bool reordered = false;
+            for (unsigned i = 0; i < fed.size(); ++i)
+                reordered |= fed[i].index != i;
+            if (!reordered)
+                return l_undef;
+        }
 
         for (auto const& fi : fed)
             all_dep = mf.dm().mk_join(all_dep, fi.dep);
@@ -1308,6 +1351,8 @@ namespace seq {
         m_mon.set_budget(budget);
         lbool result = m_mon.check();
         m_stats.m_num_asked++;
+        if (order)
+            ++m_stats.m_num_ordered_asked;
         if (result == l_false) {
             eq_tree::dep_tracker core_dep = nullptr;
             for (void* d : m_mon.core())

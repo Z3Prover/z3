@@ -46,6 +46,7 @@ add_executable(test-z3
   doc.cpp  
   dlist.cpp
   egraph.cpp
+  elim_uncnstr.cpp
   escaped.cpp
   euf_assoc_plugin.cpp
   euf_bv_plugin.cpp
