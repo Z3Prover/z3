@@ -977,6 +977,17 @@ let lemma_and_of_ors (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     lemma_truth_or2 s bc eq other scope rho o2 x2 y2 B.Or
   | _ -> ()
 
+let lemma_all_hold_four (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                        (j1 j2 j3 j4:U.judgment)
+  : Lemma (requires all_hold s bc eq other scope rho [j1; j2; j3; j4])
+          (ensures holds_at s bc eq other scope rho j1 /\ holds_at s bc eq other scope rho j2 /\
+                   holds_at s bc eq other scope rho j3 /\ holds_at s bc eq other scope rho j4) =
+  assert (all_hold s bc eq other scope rho [j2; j3; j4]);
+  assert (all_hold s bc eq other scope rho [j3; j4]);
+  assert (all_hold s bc eq other scope rho [j4])
+
 let lemma_ite_ok (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                  (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -991,6 +1002,7 @@ let lemma_ite_ok (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
   lemma_truth_ite s bc eq other scope rho f c x y;
   match and_of_ors t, facts with
   | Some (nc', x', c', y'), [jc; jn; jx; jy] ->
+    lemma_all_hold_four s bc eq other scope rho jc jn jx jy;
     lemma_and_of_ors s bc eq other scope rho t nc' x' c' y';
     lemma_positive s bc eq other scope rho c c' jc;
     lemma_negative s bc eq other scope rho c nc' jn;
@@ -1012,6 +1024,7 @@ let lemma_iff_ok (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
                     else T.truth_at s bc eq other scope rho a <> T.truth_at s bc eq other scope rho b)) =
   match and_of_ors t, facts with
   | Some (x1, y1, x2, y2), [ja; jna; jb; jnb] ->
+    lemma_all_hold_four s bc eq other scope rho ja jna jb jnb;
     lemma_and_of_ors s bc eq other scope rho t x1 y1 x2 y2;
     lemma_positive s bc eq other scope rho b y1 jb;
     lemma_negative s bc eq other scope rho b y2 jnb;
