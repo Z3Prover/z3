@@ -7,13 +7,10 @@
 # Lean toolchain.
 ############################################
 import copy
-import hashlib
 import json
 from pathlib import Path
 import random
-import subprocess
 import sys
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -23,6 +20,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_uf import _unsat_core_size, _z3_available, outlined_lemma_sizes, _proof_steps
 
@@ -511,21 +509,12 @@ class _LeanIntegration(unittest.TestCase):
         else:
             certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertEqual(certificate["fragment"], "qf_uflra")
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertIn(proof_to_lean._UFLRA_BINDERS, statement)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            report = " ".join(result.stdout.split())
-            self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
-            return certificate, text
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertIn(proof_to_lean._UFLRA_BINDERS, statement)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        return certificate, text
 
 
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
@@ -533,6 +522,8 @@ class TestMixedLeanIntegration(_LeanIntegration):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
 
     def test_documented_inputs_verify_under_the_standard_axioms(self):
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in UFLRA_INPUTS.values())
         for name, source in UFLRA_INPUTS.items():
             with self.subTest(name=name):
                 certificate, text = self.check(source)
@@ -592,6 +583,8 @@ class TestLegacyMixedLeanIntegration(_LeanIntegration):
     core = "legacy"
 
     def test_documented_inputs_verify_through_the_legacy_core(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source))
+                                    for source in UFLRA_INPUTS.values())
         for name, source in UFLRA_INPUTS.items():
             with self.subTest(name=name):
                 certificate, text = self.check(source)

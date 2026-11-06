@@ -334,6 +334,20 @@ Lean source, not JSON. The separate `examples/python/proof_to_lean.py` consumer
 validates JSON and invokes the helper before publishing generated Lean source.
 Installation and usage are documented in `lean/README.md`.
 
+The reconstruction tests (`examples/python/test_proof_to_lean*.py`) check
+Lean through `examples/python/lean_test_support.py`. Most of their
+certificates check in a tenth of a second, while each run of the helper
+spends about half a second starting Lean, so the tests check each
+certificate once, with its `#print axioms` report in the same run; build
+the project once per process (`Z3_LEAN_SKIP_BUILD=1` makes the helper skip
+`lake build`); and check the documented inputs of a test in a few
+concatenated files (`prefetch`). Five stress tests, whose inputs exercise
+the size and memory limits of the reconstruction (QF_LIA
+cut_lemma_02_002, QF_UF NEQ004_size4, the 13,000-node BubbleSort circuit,
+and two wide random division instances), run only with
+`Z3_LEAN_SLOW_TESTS=1`. On a 16-core Darwin arm64 machine these
+changes took the suite from 30 minutes to under 10.
+
 ## Current reconstruction slice
 
 - Require the original SMT-LIB input separately from the certificate. Match

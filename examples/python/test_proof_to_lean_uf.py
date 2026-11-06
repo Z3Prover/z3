@@ -24,6 +24,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 
 _STANDARD_AXIOMS = "[propext, Classical.choice, Quot.sound]"
@@ -1648,19 +1649,11 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
     def check(self, source):
         certificate = proof_certificate.export_certificate(source)
         self.assertEqual(certificate["fragment"], "qf_uf")
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertIn(proof_to_lean._UF_BINDERS, statement)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            return certificate, " ".join(result.stdout.split())
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertIn(proof_to_lean._UF_BINDERS, statement)
+        return certificate, report
 
     def assert_standard_axioms(self, report):
         if ".unsat' does not depend on any axioms" in report:
@@ -1670,6 +1663,8 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
                         axioms)
 
     def test_documented_uf_inputs_verify_through_the_legacy_core(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source))
+                                    for source in {**UF_INPUTS, **LEGACY_UF_INPUTS}.values())
         for name, source in {**UF_INPUTS, **LEGACY_UF_INPUTS}.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source)
@@ -1778,20 +1773,12 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
     def check(self, source, query=None):
         certificate = proof_certificate.export_clause_log_certificate(source, query=query)
         self.assertEqual(certificate["fragment"], "qf_uf")
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertNotIn("_hyp", statement)
-            self.assertIn(proof_to_lean._UF_BINDERS, statement)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            return certificate, " ".join(result.stdout.split())
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertNotIn("_hyp", statement)
+        self.assertIn(proof_to_lean._UF_BINDERS, statement)
+        return certificate, report
 
     def test_trimmed_logs_over_a_declared_sort_verify(self):
         # Logs from 4 KB up are trimmed natively; the trimmer prints the
@@ -1843,6 +1830,7 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertLess(3 * len(certificate["nodes"]), len(untrimmed["nodes"]))
         self.assertLess(certificate["rule_counts"]["th-lemma"], untrimmed["rule_counts"]["th-lemma"])
 
+    @lean_test_support.slow("QF_UF NEQ004_size4, 21 MB of Lean, about 90 s at 5.5 GB")
     def test_large_certificates_verify_under_the_memory_cap(self):
         # SMT-LIB QF_UF NEQ/NEQ004_size4 (16 KB): 20,634 proof steps, 13,700
         # declarations, 21 MB of Lean. With the interpretation as five
@@ -1894,6 +1882,8 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, " ".join(result.stdout.split()))
 
     def test_documented_uf_inputs_verify_under_the_standard_axioms(self):
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in UF_INPUTS.values())
         for name, source in UF_INPUTS.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source)

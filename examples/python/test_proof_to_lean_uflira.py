@@ -11,13 +11,10 @@
 # toolchain.
 ############################################
 import copy
-import hashlib
 from pathlib import Path
 import random
 import re
-import subprocess
 import sys
-import tempfile
 import unittest
 
 import z3
@@ -25,6 +22,7 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import _STANDARD_AXIOMS, _hints, _z3_available
 from test_proof_to_lean_lira import LIRA_INPUTS
@@ -321,19 +319,11 @@ def _check_in_lean(test, source, core):
     """Export, reconstruct, and kernel-check a qf_uflira input; return the certificate."""
     certificate = _export(source, core)
     test.assertEqual(certificate["fragment"], "qf_uflira")
-    with tempfile.TemporaryDirectory() as directory:
-        output = Path(directory) / "checked.lean"
-        proof_to_lean.check_and_write(source, certificate, output)
-        text = output.read_text()
-        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-        statement = _statement(text)
-        test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-        test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int) (_m : Interpretation)", statement)
-        output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-        result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-        test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = " ".join(result.stdout.split())
-        test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+    text, report = lean_test_support.check(test, source, certificate)
+    statement = _statement(text)
+    test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+    test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int) (_m : Interpretation)", statement)
+    test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
     return certificate
 
 
@@ -346,6 +336,8 @@ class TestUFLIRALeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def test_documented_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in UFLIRA_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints = set()
         for name, source in UFLIRA_INPUTS.items():
             for core in ("clause-log", "legacy"):

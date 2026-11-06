@@ -15,7 +15,6 @@
 # toolchain.
 ############################################
 import copy
-import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -29,6 +28,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import _STANDARD_AXIOMS, _hints, _z3_available
 
@@ -2579,16 +2579,8 @@ def _check_in_lean(test, source, fragment):
     """Export through the clause log, reconstruct, and kernel-check; return the certificate."""
     certificate = _export(source)
     test.assertEqual(certificate["fragment"], fragment)
-    with tempfile.TemporaryDirectory() as directory:
-        output = Path(directory) / "checked.lean"
-        proof_to_lean.check_and_write(source, certificate, output)
-        text = output.read_text()
-        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-        output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-        result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-        test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = " ".join(result.stdout.split())
-        test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+    _, report = lean_test_support.check(test, source, certificate)
+    test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
     return certificate
 
 
@@ -2601,6 +2593,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def test_documented_inputs_verify(self):
+        lean_test_support.prefetch((source, _export(source)) for source in ARRAY_INPUTS.values())
         hints = set()
         for name, source in ARRAY_INPUTS.items():
             with self.subTest(name=name):

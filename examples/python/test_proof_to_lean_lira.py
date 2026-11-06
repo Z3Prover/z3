@@ -10,13 +10,10 @@
 ############################################
 import collections
 import copy
-import hashlib
 from pathlib import Path
 import random
 import re
-import subprocess
 import sys
-import tempfile
 import unittest
 from unittest import mock
 
@@ -26,6 +23,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import LIA_INPUTS, _STANDARD_AXIOMS, _hints, _parameters, _th_lemma_nodes, _z3_available
 
@@ -543,19 +541,11 @@ def _check_in_lean(test, source, core):
     """Export, reconstruct, and kernel-check a qf_lira input; return the certificate and the Lean text."""
     certificate = _export(source, core)
     test.assertEqual(certificate["fragment"], "qf_lira")
-    with tempfile.TemporaryDirectory() as directory:
-        output = Path(directory) / "checked.lean"
-        proof_to_lean.check_and_write(source, certificate, output)
-        text = output.read_text()
-        namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-        test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-        test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", statement)
-        output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-        result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-        test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        report = " ".join(result.stdout.split())
-        test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+    text, report = lean_test_support.check(test, source, certificate)
+    statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+    test.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+    test.assertIn("(_vars : Nat -> Rat) (_ivars : Nat -> Int)", statement)
+    test.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
     return certificate, text
 
 
@@ -571,6 +561,8 @@ class TestMixedLeanIntegration(unittest.TestCase):
         return _check_in_lean(self, source, core)[0]
 
     def test_documented_lira_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in LIRA_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints = set()
         for name, source in LIRA_INPUTS.items():
             for core in ("clause-log", "legacy"):
@@ -920,6 +912,8 @@ class TestFloorLeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def test_documented_floor_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in FLOOR_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints, congruences = set(), 0
         for name, source in FLOOR_INPUTS.items():
             for core in ("clause-log", "legacy"):
@@ -954,6 +948,8 @@ class TestCastLeanIntegration(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
     def test_documented_cast_inputs_verify_on_both_cores(self):
+        lean_test_support.prefetch((source, _export(source, core)) for source in CAST_INPUTS.values()
+                                    for core in ("clause-log", "legacy"))
         hints = set()
         for name, source in CAST_INPUTS.items():
             for core in ("clause-log", "legacy"):

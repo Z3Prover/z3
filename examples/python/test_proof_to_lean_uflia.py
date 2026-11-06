@@ -7,7 +7,6 @@
 # z3 executable and the pinned Lean toolchain.
 ############################################
 import copy
-import hashlib
 from pathlib import Path
 import random
 import re
@@ -23,6 +22,7 @@ _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
+import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_uf import _unsat_core_size, _z3_available, outlined_lemma_sizes, _proof_steps
 from test_proof_to_lean_uflra import _th_lemma_nodes
@@ -673,30 +673,23 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
         else:
             certificate = proof_certificate.export_certificate(source, query)
         self.assertEqual(certificate["fragment"], "qf_uflia")
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertIn(proof_to_lean._UFLIA_BINDERS, statement)
-            self.assertNotIn("Rat", text)
-            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
-            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
-                                    text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            report = " ".join(result.stdout.split())
-            if core == "clause-log":
-                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
-            else:
-                # A legacy refutation by congruence and resolution alone
-                # needs no axiom; otherwise the standard ones.
-                self.assertTrue(".unsat' depends on axioms: " + _STANDARD_AXIOMS in report
-                                or ".unsat' does not depend on any axioms" in report, report)
-            return certificate, text
+        text, report = lean_test_support.check(self, source, certificate)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertIn(proof_to_lean._UFLIA_BINDERS, statement)
+        self.assertNotIn("Rat", text)
+        if core == "clause-log":
+            self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        else:
+            # A legacy refutation by congruence and resolution alone
+            # needs no axiom; otherwise the standard ones.
+            self.assertTrue(".unsat' depends on axioms: " + _STANDARD_AXIOMS in report
+                            or ".unsat' does not depend on any axioms" in report, report)
+        return certificate, text
 
     def test_documented_inputs_verify_under_the_standard_axioms(self):
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in UFLIA_INPUTS.values())
         hints = set()
         for name, source in UFLIA_INPUTS.items():
             with self.subTest(name=name):
@@ -798,6 +791,7 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
     # until 2026-10-27, and the lemma is not in the trimmed core.
     WIDE_FARKAS_SEED = 75
 
+    @lean_test_support.slow("a 12-variable, 36-constraint division instance, about 75 s")
     def test_wide_farkas_lemmas_over_mod_atoms_omit_the_redundant_bounds(self):
         from test_proof_to_lean_lia import random_division_instance, untrimmed_log
         source = random_division_instance(self.WIDE_FARKAS_SEED, variables=12, constraints=36, functions=True)
@@ -972,6 +966,8 @@ class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
     check = TestIntegerMixedLeanIntegration.check
 
     def test_documented_inputs_verify_through_the_legacy_core(self):
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source, None))
+                                    for source in UFLIA_INPUTS.values())
         hints, rules = set(), set()
         for name, source in UFLIA_INPUTS.items():
             with self.subTest(name=name):
