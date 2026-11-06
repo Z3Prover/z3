@@ -657,22 +657,30 @@ def enumeration_constructors(sort):
 # (OP_DT_RECOGNISER) are two declarations of one predicate; the certificate
 # and the replay keys write both as OP_DT_IS, named by the constructor.
 RECOGNIZER_KINDS = (z3.Z3_OP_DT_IS, z3.Z3_OP_DT_RECOGNISER)
-# The most constructors of an enumeration under a distinct with more
-# arguments than constructors. Z3 refutes such a distinct by counting, which
+# The largest distinct with more arguments than its enumeration has
+# constructors (a pigeonhole). Z3 refutes such a distinct by counting, which
 # no clause hint carries, so with proofs it searches the pigeonhole instead
-# (src/sat/smt/euf_internalize.cpp, add_distinct_axiom), and the search grows
-# exponentially: with 32 arguments, 7 constructors log 8 MB in 0.7 s and 8
-# constructors 96 MB in 8 s.
-_PIGEONHOLE_MAX_CONSTRUCTORS = 7
+# (src/sat/smt/euf_internalize.cpp, add_distinct_axiom). The bounds are set
+# by the Lean check (scripts/check_lean.sh, 8 GB), which costs more than Z3's
+# search. The constructors make the search grow exponentially: 6 constructors
+# and 7 arguments give 6.5 MB of Lean (18 s, 2 GB), and 7 and 8 give 59 MB,
+# which exhausts the kernel's memory. Each clause that uses the distinct
+# unfolds all of its pairwise disequalities, so the arguments matter as well:
+# with 5 constructors, 16 arguments check in 7 s (1.5 GB) and 32 exhaust the
+# kernel's memory. With 4 constructors, 32 arguments take 76 s (4.3 GB).
+_PIGEONHOLE_MAX_CONSTRUCTORS = 5
+_PIGEONHOLE_MAX_ARGUMENTS = 16
 
 
 def _require_small_pigeonhole(distinct):
-    """Reject a distinct over an enumeration whose refutation by proof is an expensive pigeonhole search."""
+    """Reject a distinct over an enumeration whose refutation by proof is too expensive to check in Lean."""
     count = distinct.arg(0).sort().num_constructors()
-    if distinct.num_args() > count > _PIGEONHOLE_MAX_CONSTRUCTORS:
+    if distinct.num_args() > count and (count > _PIGEONHOLE_MAX_CONSTRUCTORS
+                                        or distinct.num_args() > _PIGEONHOLE_MAX_ARGUMENTS):
         raise ProofExportError("a distinct of %d terms over an enumeration of %d constructors is a pigeonhole "
-                               "search under proofs; at most %d constructors are supported"
-                               % (distinct.num_args(), count, _PIGEONHOLE_MAX_CONSTRUCTORS))
+                               "search under proofs; at most %d constructors and %d terms are supported"
+                               % (distinct.num_args(), count, _PIGEONHOLE_MAX_CONSTRUCTORS,
+                                  _PIGEONHOLE_MAX_ARGUMENTS))
 
 
 def _is_array_component(sort):

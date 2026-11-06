@@ -179,8 +179,10 @@ and ite over the enumeration, its constructors, and its recognizers
 ((_ is c) t or SMT-LIB 2.5's (is-c t), which is (= t c)) are accepted,
 through the clause log only (the legacy core rejects them explicitly); any
 other datatype, an array over an enumeration, and a distinct with more
-arguments than an enumeration of over seven constructors has values (with
-proofs Z3 refutes it by an exponential pigeonhole search) are rejected.
+arguments than its enumeration has constructors (with proofs Z3 refutes it
+by an exponential pigeonhole search) over more than five constructors or
+with more than sixteen arguments, past which Lean runs out of memory, are
+rejected.
 Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int

@@ -289,7 +289,7 @@ namespace euf {
         auto sort_sz = srt->get_num_elements();
         // More arguments than the sort has elements: the distinct is false by
         // counting alone, which no clause hint can carry (an empty tseitin
-        // hint certifies nothing, and logging it crashed the proof log). With
+        // hint certifies nothing: the clause-log exporter rejects it). With
         // proofs the pairwise clauses below are added instead, as for any
         // distinct, and the theory solver of the sort refutes them with its
         // own hints (the datatype solver's case splits over the constructors).

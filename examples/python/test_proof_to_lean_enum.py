@@ -35,8 +35,9 @@ _COLOR = "(declare-datatypes ((Color 0)) (((red) (green) (blue))))\n"
 ENUM_INPUTS = {
     # Four pairwise distinct values of a three-constructor enumeration. Z3
     # used to refute a root distinct with more arguments than the sort has
-    # values by an empty clause with an empty tseitin hint, which crashed the
-    # clause log; with proofs it now adds the pairwise disequalities and the
+    # values by an empty clause with an empty tseitin hint, which certifies
+    # nothing (the exporter rejected the log; an earlier build crashed writing
+    # it); with proofs it now adds the pairwise disequalities and the
     # datatype solver's case splits refute them.
     "pigeonhole": _COLOR + """(declare-const a Color)
 (declare-const b Color)
@@ -158,7 +159,7 @@ ENUM_INPUTS = {
 
 
 # z3test regressions/smt2/z3.14.smt2: the second query, four distinct values
-# of a three-constructor enumeration, crashed the clause log (see pigeonhole).
+# of a three-constructor enumeration, had no certifiable proof (see pigeonhole).
 Z3_14 = """(set-option :auto-config true)
 (set-option :produce-models true)
 
@@ -266,6 +267,13 @@ ENUM_SEEDS = (({}, 24), ({}, 125), ({}, 181), ({"integer": True}, 133), ({"integ
               (_SMALL, 89), (_SMALL, 110))
 
 
+def _pigeonhole(constructors, terms):
+    """A distinct of terms constants over an enumeration of constructors constructors (no check-sat)."""
+    return ("(declare-datatypes () ((E %s)))\n" % " ".join("c%d" % i for i in range(constructors))
+            + "".join("(declare-const v%d E)\n" % i for i in range(terms))
+            + "(assert (distinct %s))" % " ".join("v%d" % i for i in range(terms)))
+
+
 def _statement(text):
     return text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
 
@@ -303,24 +311,26 @@ class TestEnumerationExport(unittest.TestCase):
             # axioms assume an infinite index sort; none of it is encoded).
             _COLOR + "(declare-const a (Array Color Int))\n"
             "(assert (not (= (select (store a red 1) red) 1)))": "unsupported sort",
-            # A pigeonhole over eight constructors: with proofs Z3 searches it
-            # exponentially (see _PIGEONHOLE_MAX_CONSTRUCTORS).
-            "(declare-datatypes () ((E c0 c1 c2 c3 c4 c5 c6 c7)))\n"
-            + "".join("(declare-const v%d E)\n" % i for i in range(9))
-            + "(assert (distinct %s))" % " ".join("v%d" % i for i in range(9)):
-            "pigeonhole search under proofs",
+            # Pigeonholes past the bounds Lean checks: six constructors (the
+            # search grows exponentially), and 17 terms over three (each
+            # clause over the distinct unfolds its pairwise disequalities; see
+            # _PIGEONHOLE_MAX_CONSTRUCTORS).
+            _pigeonhole(6, 7): "pigeonhole search under proofs",
+            _pigeonhole(3, 17): "pigeonhole search under proofs",
         }
         for source, message in cases.items():
             with self.subTest(source=source):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     proof_certificate.parse_assertions(source + "\n(check-sat)\n", z3.Context(), integer=True)
 
-    def test_pigeonholes_up_to_seven_constructors_are_accepted(self):
-        source = ("(declare-datatypes () ((E c0 c1 c2 c3 c4 c5 c6)))\n"
-                  + "".join("(declare-const v%d E)\n" % i for i in range(32))
-                  + "(assert (distinct %s))\n(check-sat)\n" % " ".join("v%d" % i for i in range(32)))
-        _, found = proof_certificate.parse_assertions(source, z3.Context(), integer=True)
-        self.assertEqual(found, "qf_uf")
+    def test_pigeonholes_within_the_bounds_are_accepted(self):
+        # At the bounds, and a distinct that is not a pigeonhole (no more
+        # terms than constructors) whatever its width.
+        for constructors, terms in ((5, 16), (8, 8), (3, 3)):
+            with self.subTest(constructors=constructors, terms=terms):
+                _, found = proof_certificate.parse_assertions(_pigeonhole(constructors, terms) + "\n(check-sat)\n",
+                                                              z3.Context(), integer=True)
+                self.assertEqual(found, "qf_uf")
 
     def test_the_legacy_core_rejects_enumerations_explicitly(self):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "through the clause log only"):
@@ -355,9 +365,9 @@ class TestEnumerationExport(unittest.TestCase):
 
     def test_root_distinct_over_too_few_values_logs_case_splits(self):
         # The C++ fix: with proofs, a root distinct with more arguments than
-        # the enumeration has values is clausified pairwise (z3 crashed
-        # writing the clause log before), and the datatype solver's case
-        # splits refute it.
+        # the enumeration has values is clausified pairwise (before, z3 logged
+        # an empty clause with an empty tseitin hint), and the datatype
+        # solver's case splits refute it.
         if not _z3_available():
             self.skipTest("the z3 executable is required for the clause log")
         commands, _, _ = proof_certificate.query_snapshot(ENUM_INPUTS["pigeonhole"])
@@ -493,6 +503,12 @@ class TestEnumerationLeanIntegration(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof exists"):
             proof_certificate.export_clause_log_certificate(Z3_14, query=0)
         _check_in_lean(self, Z3_14, query=1)
+
+    @lean_test_support.slow("the largest pigeonhole the exporter accepts (about 2 MB of Lean, 1.5 GB)")
+    def test_the_largest_accepted_pigeonhole_verifies(self):
+        source = _pigeonhole(proof_certificate._PIGEONHOLE_MAX_CONSTRUCTORS,
+                             proof_certificate._PIGEONHOLE_MAX_ARGUMENTS) + "\n(check-sat)\n"
+        _check_in_lean(self, source)
 
     def test_pinned_random_instances_verify(self):
         sources = []
