@@ -778,8 +778,9 @@ tested sets; the six primary losses are not relabeled as zero losses.
 Artifacts retain `pyex-index-suffix-guarded-final-v1`, both
 `pyex-index-suffix-guarded-repeat` checks, the two quiet audits, native
 and semantic validation, and all rejected experiments. Invocations are
-logged to `z3agent.db`. The guarded specialization remains local and
-unpublished. No full post-fix PyEx score is extrapolated from these samples.
+logged to `z3agent.db`. The guarded specialization is published through
+#11572 targeting `c3mv`. No full post-fix PyEx score is extrapolated from
+these samples.
 
 ## Baseline and scope
 
