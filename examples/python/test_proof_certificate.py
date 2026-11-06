@@ -3657,6 +3657,29 @@ class TestClauseLogDependencies(unittest.TestCase):
                                                 trimmed.replace("(_ map (- (Int) Int))", "(_ map (- (Int Int) Int))"),
                                                 context)
 
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for clause logs")
+    def test_clause_logs_print_datatype_heads_without_signatures(self):
+        # Only a map's function gets its signature in the clause log; testers
+        # and field updates keep the standard (_ is C) and (_ update-field a).
+        executable = proof_certificate.default_z3_executable()
+        log = proof_clause_log.run_clause_log(executable, """(declare-datatypes ((L 0)) (((nil) (cons (hd Int) (tl L)))))
+(declare-const x L)
+(assert (not ((_ is nil) x)))
+(assert (not ((_ is cons) x)))
+""", 60)
+        self.assertIn("((_ is nil) x)", log)
+        self.assertNotIn("(_ is (", log)
+        log = proof_clause_log.run_clause_log(executable, """(declare-datatypes ((R 0)) (((mk (a Int) (b Int)))))
+(declare-const r R)
+(declare-const s R)
+(declare-const k Int)
+(assert (= s ((_ update-field a) r k)))
+(assert (not (= (a s) k)))
+""", 60)
+        self.assertIn("((_ update-field a) r k)", log)
+        self.assertIn("((_ is mk) r)", log)
+        self.assertNotIn("(_ update-field (", log)
+
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
     def test_native_trimming_ignores_deletions_of_clauses_it_never_added(self):
         # The trimmer's propagation finds the conflict at (assume (not c)),

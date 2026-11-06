@@ -1709,14 +1709,18 @@ as `(_ map <=)`, without the signature the SMT-LIB parser requires
 map log of 4 KB or more was replayed untrimmed, and inputs whose search
 derived the default-value axiom of a map were rejected even when the
 refutation does not use it. `decl_collector` now collects a map's function,
-and the clause-log printer (`mk_ismt2_func`, used only by
-`ast_pp_util::define_expr`) prints built-in function parameters with their
-signature, `((_ map (<= (Int Int) Bool)) a b)`; Z3's other output is
-unchanged. The replay accepts both forms and rejects a logged signature that
+so every printer that uses it (clause logs, but also `to_smt2` and
+`Solver.sexpr()`) declares a mapped uninterpreted function. The clause-log
+printer (`mk_ismt2_func`, used only by `ast_pp_util::define_expr`) prints the
+built-in function of a map with its signature,
+`((_ map (<= (Int Int) Bool)) a b)`; other indexed heads such as `(_ is C)`
+and `(_ update-field a)` keep their standard form, and Z3's general printer
+still prints `(_ map <=)`. The replay accepts both map forms and rejects a logged signature that
 is not the rebuilt application's. All 92 unsat seeds of the iter-078 random
 map sweep now export with trimming (the 2 previously rejected by the
 default-map axiom included) and the 305 documented array inputs trim
 without fallback at threshold 0. Tests: `test_native_trimming_reads_map_logs`
+and `test_clause_logs_print_datatype_heads_without_signatures`
 (`test_proof_certificate.py`), signature heads in
 `test_the_replay_reads_maps`.
 

@@ -134,12 +134,14 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f, boo
 }
 
 /**
-   \brief Like pp_fdecl, but a built-in function given as a parameter is printed
+   \brief Like pp_fdecl, but the built-in function of an array map is printed
    with its signature, which the SMT-LIB parser requires to read it back:
    ((_ map (<= (Int Int) Bool)) a b) instead of ((_ map <=) a b).
+   Other indexed declarations, such as (_ is C) and (_ update-field a), keep
+   their standard form.
 */
 format * smt2_pp_environment::pp_fdecl_with_signatures(func_decl * f, unsigned & len) {
-    if (f->get_family_id() != null_family_id && !is_sort_param(f) && is_indexed_fdecl(f)) {
+    if (get_arutil().is_map(f) && is_indexed_fdecl(f)) {
         format * fname = pp_fdecl_name(f, len);
         len = UINT_MAX;
         return pp_fdecl_params(fname, f, true);
