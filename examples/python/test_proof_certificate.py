@@ -3594,9 +3594,11 @@ class TestClauseLogDependencies(unittest.TestCase):
         # it back; the trimmer rejected every such log ("unknown function f",
         # "must provide signature for builtin symbol <="), and each map log of
         # 4 KB or more was replayed untrimmed (iter-078 sweep, 2026-11-05).
-        # This input's search also derives the default-value axiom of a map,
-        # which the replay rejects; the refutation does not need it, so only
-        # the trimmed log certifies.
+        # On macOS this input's search also derives the default-value axiom
+        # of a map, which the replay rejects; the refutation does not need
+        # it, so only the trimmed log certifies. Z3's search differs by
+        # platform (on Linux the untrimmed log has no such axiom), so the
+        # rejection is checked only where the untrimmed replay fails.
         source = """(declare-fun f (Int) Int)
 (declare-fun g (Int Int) Int)
 (declare-fun i () Int)
@@ -3625,8 +3627,10 @@ class TestClauseLogDependencies(unittest.TestCase):
         self.assertNotIn("(_ map <=)", log)
         context = z3.Context()
         assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "default value of a map is not certified"):
+        try:
             proof_clause_log.build_certificate(source, fragment, assertions, log, context)
+        except proof_certificate.ProofExportError as error:
+            self.assertIn("default value of a map is not certified", str(error))
         with warnings.catch_warnings():
             warnings.simplefilter("error")  # a fallback to the untrimmed log would hide a printer defect
             certificate = proof_certificate.export_clause_log_certificate(source, timeout=60)
