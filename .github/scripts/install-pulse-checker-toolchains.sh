@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 sudo apt-get update -y
-sudo apt-get install -y software-properties-common
+sudo apt-get install --no-install-recommends -y software-properties-common
 sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
 sudo apt-get update -y
-sudo apt-get install -y cmake ninja-build g++ gcc-15 g++-15 libgmp-dev opam pkg-config python3 curl
+sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
+  install --no-install-recommends -y cmake ninja-build g++ gcc-15 g++-15 libgmp-dev opam pkg-config python3 curl
 archive="$RUNNER_TEMP/fstar.tar.gz"
 curl --fail --location --retry 3 \
   "https://github.com/FStarLang/FStar/releases/download/$FSTAR_VERSION/fstar-$FSTAR_VERSION-Linux-x86_64.tar.gz" \
