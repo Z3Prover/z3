@@ -2378,7 +2378,8 @@ namespace smt {
                 }
             }
             else if (is_quantifier(n) && b_internalized(n)) {
-                m_cached_generation.insert(n, m_qmanager->get_generation(to_quantifier(n)));
+                if (is_forall(n))
+                    m_cached_generation.insert(n, m_qmanager->get_generation(to_quantifier(n)));
                 todo.push_back(to_quantifier(n)->get_expr());
             }
         }

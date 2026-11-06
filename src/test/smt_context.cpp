@@ -290,49 +290,57 @@ static void check_quantified_array_ite() {
 }
 
 static void check_quantifier_polarities() {
-    for (unsigned entry_point = 0; entry_point < 6; ++entry_point) {
-        for (lbool polarity : {l_true, l_false, l_undef}) {
-            if (entry_point >= 3 && polarity != l_undef)
-                continue;
-            ast_manager m;
-            reg_decl_plugins(m);
-            cmd_context cmd(false, &m);
-            std::istringstream input(polarity == l_true
-                ? "(assert (forall ((x Int)) (= x 0)))\n"
-                : "(assert (forall ((x Int)) (= x x)))\n");
-            VERIFY(parse_smt2_commands(cmd, input));
-            smt_params params;
-            params.m_preprocess = false;
-            params.m_auto_config = false;
-            smt::context ctx(m, params);
-            ctx.push();
-            expr* q = cmd.assertions()[0];
-            switch (entry_point) {
-            case 0:
-                ctx.internalize(q, true, polarity);
-                break;
-            case 1:
-                ctx.internalize(&q, 1, true, polarity);
-                break;
-            case 2:
-                ctx.internalize(q, true, 1, polarity);
-                break;
-            case 3:
-                ctx.internalize(q, true);
-                break;
-            case 4:
-                ctx.internalize(&q, 1, true);
-                break;
-            case 5:
-                ctx.internalize(q, true, 1u);
-                break;
+    for (bool existential : {false, true}) {
+        for (unsigned entry_point = 0; entry_point < 6; ++entry_point) {
+            for (lbool polarity : {l_true, l_false, l_undef}) {
+                if (entry_point >= 3 && polarity != l_undef)
+                    continue;
+                ast_manager m;
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::istringstream input(existential
+                    ? (polarity == l_true
+                        ? "(assert (exists ((x Int)) (not (= x x))))\n"
+                        : "(assert (exists ((x Int)) (= x x)))\n")
+                    : (polarity == l_true
+                        ? "(assert (forall ((x Int)) (= x 0)))\n"
+                        : "(assert (forall ((x Int)) (= x x)))\n"));
+                VERIFY(parse_smt2_commands(cmd, input));
+                smt_params params;
+                params.m_preprocess = false;
+                params.m_auto_config = false;
+                smt::context ctx(m, params);
+                ctx.push();
+                expr* q = cmd.assertions()[0];
+                switch (entry_point) {
+                case 0:
+                    ctx.internalize(q, true, polarity);
+                    break;
+                case 1:
+                    ctx.internalize(&q, 1, true, polarity);
+                    break;
+                case 2:
+                    ctx.internalize(q, true, 1, polarity);
+                    break;
+                case 3:
+                    ctx.internalize(q, true);
+                    break;
+                case 4:
+                    ctx.internalize(&q, 1, true);
+                    break;
+                case 5:
+                    ctx.internalize(q, true, 1u);
+                    break;
+                }
+                smt::literal lit = ctx.get_literal(q);
+                if (polarity != l_true)
+                    lit.neg();
+                ctx.assign(lit, smt::b_justification::mk_axiom());
+                ctx.mark_as_relevant(lit);
+                VERIFY(ctx.check() == l_false);
+                ctx.pop(1);
+                VERIFY(ctx.check() == l_true);
             }
-            smt::literal lit = ctx.get_literal(q);
-            if (polarity != l_true)
-                lit.neg();
-            ctx.assign(lit, smt::b_justification::mk_axiom());
-            ctx.mark_as_relevant(lit);
-            VERIFY(ctx.check() == l_false);
         }
     }
     struct {
@@ -342,6 +350,18 @@ static void check_quantifier_polarities() {
         {"(assert (forall ((x Int)) (= x x)))\n", l_true},
         {"(assert (not (forall ((x Int)) (= x x))))\n", l_false},
         {"(assert (not (forall ((x Int)) (= x 0))))\n", l_true},
+        {"(assert (exists ((x Int)) (= x 0)))\n", l_true},
+        {"(assert (exists ((x Int)) (not (= x x))))\n", l_false},
+        {"(assert (not (exists ((x Int)) (= x x))))\n", l_false},
+        {"(assert (not (exists ((x Int)) (not (= x x)))))\n", l_true},
+        {"(assert (= (exists ((x Int)) (= x x)) false))\n", l_false},
+        {"(assert (= (exists ((x Int)) (not (= x x))) false))\n", l_true},
+        {"(declare-fun p (Int) Bool)\n"
+         "(assert (forall ((x Int)) (not (p x))))\n"
+         "(assert (exists ((x Int)) (p x)))\n", l_false},
+        {"(declare-fun p (Int) Bool)\n"
+         "(assert (p 0))\n"
+         "(assert (= (exists ((x Int)) (p x)) false))\n", l_false},
         {"(assert (= (forall ((x Int)) (= x x)) false))\n", l_false},
         {"(assert (= (forall ((x Int)) (= x 0)) false))\n", l_true},
         {"(assert (= (forall ((x Int)) (=> (= x 0) (= x 0))) false))\n", l_false},
@@ -355,7 +375,14 @@ static void check_quantifier_polarities() {
         {"(declare-fun f (Bool) Bool)\n"
          "(assert (f (forall ((x Int)) (= x 0))))\n"
          "(assert (not (f false)))\n", l_false},
-        {"(assert (forall ((x Int)) (not (forall ((y Int)) (= y x)))))\n", l_true}
+        {"(declare-fun f (Bool) Bool)\n"
+         "(assert (f (exists ((x Int)) (= x x))))\n"
+         "(assert (not (f true)))\n", l_false},
+        {"(assert (forall ((x Int)) (not (forall ((y Int)) (= y x)))))\n", l_true},
+        {"(assert (forall ((x Int)) (exists ((y Int)) (= y x))))\n", l_true},
+        {"(declare-fun p (Int Int) Bool)\n"
+         "(assert (p 0 0))\n"
+         "(assert (forall ((x Int)) (not (exists ((y Int)) (p x y)))))\n", l_false}
     };
     for (bool proofs : {false, true}) {
         for (auto const& test : cases) {
@@ -380,6 +407,8 @@ static void check_quantifier_polarities() {
                 expr_ref_vector side_conditions(m);
                 VERIFY(pr && checker.check(pr, side_conditions));
             }
+            ctx.pop(1);
+            VERIFY(ctx.check() == l_true);
         }
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
         reg_decl_plugins(m);

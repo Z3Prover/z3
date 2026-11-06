@@ -655,21 +655,21 @@ namespace smt {
     void context::internalize_quantifier(quantifier * q, lbool polarity) {
         TRACE(internalize_quantifier, tout << mk_pp(q, m) << "\n";);
         CTRACE(internalize_quantifier_zero, q->get_weight() == 0, tout << mk_pp(q, m) << "\n";);
-        if (!is_forall(q))
-            throw default_exception("internalization of exists is not supported");
-        SASSERT(is_forall(q));
+        SASSERT(is_forall(q) || is_exists(q));
         SASSERT(check_patterns(q));
         if (!b_internalized(q)) {
             bool_var v = mk_bool_var(q);
-            unsigned generation = m_generation;
-            unsigned _generation;
-            if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation))
-                generation = _generation;
-            bool_var_data & d = get_bdata(v);
-            d.set_quantifier_flag();
-            m_qmanager->add(q, generation);
+            if (is_forall(q)) {
+                unsigned generation = m_generation;
+                unsigned _generation;
+                if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation))
+                    generation = _generation;
+                bool_var_data & d = get_bdata(v);
+                d.set_quantifier_flag();
+                m_qmanager->add(q, generation);
+            }
         }
-        if (polarity == l_undef)
+        if (is_exists(q) && polarity != l_false)
             internalize_quantifier_polarity(q, true);
         if (polarity != l_true)
             internalize_quantifier_polarity(q, false);
@@ -1115,7 +1115,7 @@ namespace smt {
         TRACE(mk_var_bug, tout << "undo_mk_bool: " << v << "\n";);
         // bool_var_data & d     = m_bdata[v];
         m_case_split_queue->del_var_eh(v);
-        if (is_quantifier(n))
+        if (is_forall(n))
             m_qmanager->del(to_quantifier(n));
         set_bool_var(n_id, null_bool_var);
         m_b_internalized_stack.pop_back();
