@@ -2589,6 +2589,45 @@ failed Lean before the per-sort grouping. Known gap, shared with
 outside a function argument, makes its theory step "over both Int and Real
 atoms", which is rejected.
 
+### Enumeration datatypes through the clause log (2026-11-06)
+
+Every `declare-datatype(s)` was rejected by the frontend. Enumerations
+(all constructors nullary, not parametric) are now accepted as sorts of the
+UF fragments, through the clause log only (the legacy core rejects them
+explicitly; its datatype steps are not encoded); any other datatype, and an
+array over an enumeration, is rejected. In Lean an enumeration joins the
+carrier `_m.U`, its constructors are `_m.ctors k`, a recognizer
+`((_ is c) t)` is `t = _m.ctors k`, and the `Interpretation` gains fields
+read from the input's declarations: `enum_distinct` (constructors of one
+enumeration differ) and, per constant or function of an enumeration sort,
+`enum_cases_i` / `enum_fcases_j` (its value is one of the sort's
+constructors, all of them, for every argument list). The clause log's
+`datatype` hints become th-lemmas over enumeration equalities and
+recognizers, proved by grind with those fields instantiated; the
+reconstructor checks every constructor and recognizer against the input's
+enumeration and interns constructors by name. This redoes fork PR #67
+(iteration 67, never merged) on top of the array work. Three defects found
+there and kept fixed: the z3 executable crashed (exit 139) writing the
+clause log of a root `distinct` with more arguments than the sort has
+values (the `add_distinct_axiom` shortcut logged an empty clause with an
+empty `tseitin` hint; with proofs the pairwise clauses are now added and
+the datatype solver refutes them); the replay's structural keys ignored
+constructor names, so `(= x red)` and `(= x blue)` shared a key; and a
+datatype hint may state an equality the other way around from its logged
+clause, so the lemma is the logged clause. z3test
+`regressions/smt2/t198.smt2` (recognizers) and the second query of
+`z3.14.smt2` (the crash; the first is sat) now certify;
+SMT-LIB 2.5's `is-c` recognizers (`OP_DT_RECOGNISER`) are written as
+`(_ is c)` (`OP_DT_IS`). The pigeonhole search grows exponentially (with 32
+arguments, 7 constructors log 8 MB in 0.7 s and 8 constructors 96 MB in
+8 s), so the exporter rejects a `distinct` with more arguments than an
+enumeration of over seven constructors has values; parametric datatypes
+are rejected in both the 2.6 (`par`) and 2.5 (`(declare-datatypes (T) ...)`)
+syntax. Follow-up: a counting lemma for the `distinct` shortcut. Tests:
+`test_proof_to_lean_enum.py` (twelve documented inputs, z3.14, seven
+`random_enum_instance` seeds, the encoding, constructor and recognizer
+tampering, the crash, the keys, a dropped enumeration fact failing Lean).
+
 ### Native checks of the rem axioms (2026-10-31)
 
 Z3's own replay of a clause log checked only the `rem` axiom whose guard

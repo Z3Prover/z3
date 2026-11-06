@@ -171,8 +171,17 @@ Int), see below), and an index or element sort may itself be such an array
 depth); arrays
 with several indices, constant arrays and default values over other index
 sorts, default values that are arrays, maps of other functions (*, conversions,
-uninterpreted functions of four or more arguments) or over arrays of arrays, and as-array are rejected. Integer
-div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
+uninterpreted functions of four or more arguments) or over arrays of arrays, and as-array are rejected.
+Enumeration datatypes (declare-datatype or declare-datatypes whose
+constructors are all nullary, not parametric) count as uninterpreted sorts,
+so an input with one is in a UF fragment: constants, functions, predicates,
+and ite over the enumeration, its constructors, and its recognizers
+((_ is c) t or SMT-LIB 2.5's (is-c t), which is (= t c)) are accepted,
+through the clause log only (the legacy core rejects them explicitly); any
+other datatype, an array over an enumeration, and a distinct with more
+arguments than an enumeration of over seven constructors has values (with
+proofs Z3 refutes it by an exponential pigeonhole search) are rejected.
+Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
 mixed with Real next to uninterpreted functions (also through a function
@@ -979,6 +988,27 @@ Python only checks shapes for these hints, so a false euf lemma is caught by
 Lean alone and the file is not published. grind's proofs here report the same
 three standard axioms as the arithmetic slice.
 
+An enumeration datatype joins the disjoint union _m.U like any other sort,
+and its constructors are one more family of the interpretation, _m.ctors k,
+numbered over the input's enumerations (by sort name, each in declaration
+order); a recognizer (_ is c) t is t = _m.ctors k. What makes the sort an
+enumeration is stated by fields of the structure, read from the input's
+datatype declarations and never from the certificate: enum_distinct, that
+two constructors of one enumeration differ, and for every constant of an
+enumeration sort (enum_cases_i, over _m.elems i) and every function with an
+enumeration result (enum_fcases_j, over every argument list of _m.funs j),
+that its value is one of the constructors of that sort, all of them whether
+the proof names them or not. A model of the input is an instance: the
+enumeration's values are the constructors' own, and a function is valued
+outside its domain by some constructor of its range. The clause log's
+datatype hints (the datatype solver's case splits and constructor clashes)
+become th-lemmas over enumeration equalities and recognizers; they, the euf
+lemmas, and the cnf fallbacks over such terms are proved by grind after the
+fields are instantiated for the constants and applications they reach. The
+reconstructor checks every constructor and recognizer of the certificate
+against the input's enumeration of that sort and tells constructors apart by
+name.
+
 An array sort (Array I E) of the clause log is the Lean function type
 _m.U -> _m.U, and the array constants are one more field of the
 interpretation, arrs : Nat -> U -> U. Each file defines select as _select
@@ -1285,7 +1315,8 @@ test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
-arrays) end to end; all need the z3
+arrays), and test_proof_to_lean_enum.py enumeration datatypes end to end;
+all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
 Python's recursion limit; its clause-log tests also need the z3 executable.
