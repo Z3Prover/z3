@@ -191,8 +191,10 @@ def check_receipt_data(packages, report, repository_sha, consumers, smokes):
             raise ValueError('Invalid native smoke receipt')
         for key, result in receipt['artifacts'].items():
             name = report['artifacts'][published.get(key, key)]
+            # Smoke runs on the packer's JARs, named by internal platform key; bytes are identical.
+            smoke_name = report['maven']['artifactId'] + '-' + report['maven']['version'] + '-' + key + '.jar'
             if (result.get('passed') is not True or set(result['modes']) != MODES
-                    or result['jar_name'] != name or result['jar_sha256'] != report['jar_sha256'][name]):
+                    or result['jar_name'] != smoke_name or result['jar_sha256'] != report['jar_sha256'][name]):
                 raise ValueError('Native smoke did not validate the exact prepared JAR')
         # Fast CI tests several Java versions on each platform; validate them all.
         smoke_results.setdefault(platform, []).append(receipt)
