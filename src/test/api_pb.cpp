@@ -25,6 +25,7 @@ Notes:
 #include "api/z3.h"
 #include "util/trace.h"
 #include "util/debug.h"
+#include <string>
 
 void tst_api_pb() {
     Z3_config cfg = Z3_mk_config();
@@ -193,6 +194,15 @@ void tst_api_pb() {
 
         Z3_solver_dec_ref(ctx, s);
         Z3_tactic_dec_ref(ctx, sat_tactic);
+    }
+
+    {
+        std::string result = Z3_eval_smtlib2_string(
+            ctx,
+            "(declare-const a Bool)"
+            "(assert (= (ite a 0.5 0.0) 2147483648.0))"
+            "(check-sat-using (then (using-params lia2card :compile_equality false) smt))");
+        ENSURE(result == "unsat\n");
     }
 
     Z3_del_context(ctx);
