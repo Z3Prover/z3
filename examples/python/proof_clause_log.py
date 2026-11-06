@@ -30,8 +30,9 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
-    integer_divisor, integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
-    SET_OPERATORS, map_parameters,
+    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort, is_uninterpreted_sort,
+    linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
+    map_parameters,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -169,6 +170,10 @@ def _dependency_numbers(sexpr):
     return int(sexpr[1]), tuple(int(value) for value in sexpr[2:])
 
 
+# Commands of a trimmed log kept whatever the dependency closure.
+_DECLARATION_COMMANDS = ("declare-sort", "declare-datatypes", "declare-fun")
+
+
 def _dependency_core(text):
     """Select the final empty clause's dependency closure, keeping proof hints."""
     commands = _sexpressions(text)
@@ -192,7 +197,7 @@ def _dependency_core(text):
                 raise ProofExportError("duplicate clause dependency identifier")
             entries[ident] = command, dependencies
             last = ident
-        elif command[0] not in ("declare-sort", "declare-fun"):
+        elif command[0] not in _DECLARATION_COMMANDS:
             raise ProofExportError("unsupported trimmed-log command: %s" % command[0])
     if last is None or entries[last][0][0] != "infer" or len(entries[last][0]) != 3:
         raise ProofExportError("trimmed clause log has no final empty clause")
@@ -225,7 +230,7 @@ def _dependency_core(text):
 
     result = []
     for command in commands:
-        if command[0] in ("declare-sort", "declare-fun"):
+        if command[0] in _DECLARATION_COMMANDS:
             result.append(render(command))
         elif command[0] == "define-const" and command[1] in required:
             result.append(render(command))
@@ -318,7 +323,9 @@ class _Terms:
         self.hints = {}
         self.constants = {}
         self.functions = {}  # uninterpreted functions and predicates of the input, by name
-        self.sorts = set()   # names of the input's uninterpreted sorts
+        self.sorts = set()   # names of the input's uninterpreted sorts and enumerations
+        self.enumerations = set()  # names of the input's enumerations
+        self.recognizers = {}  # the recognizer of each enumeration constructor, by the constructor's name
         self.array_sorts = {}  # the input's array sorts, by z3py's rendering
         # Whether the log takes a default value over an index sort other than
         # Int and Real, which Lean's _default does not cover (_Replay.run).
@@ -337,8 +344,15 @@ class _Terms:
             if expr.get_id() in seen:
                 continue
             seen.add(expr.get_id())
-            if is_uninterpreted_sort(expr.sort()):
+            if is_carrier_sort(expr.sort()):
                 self.sorts.add(expr.sort().name())
+                if is_enumeration_sort(expr.sort()) and expr.sort().name() not in self.enumerations:
+                    # The log names every constructor of an enumeration, used
+                    # by the input or not (the datatype solver's case splits).
+                    self.enumerations.add(expr.sort().name())
+                    for index, constructor in enumerate(enumeration_constructors(expr.sort())):
+                        self.constants[str(constructor.name())] = constructor()
+                        self.recognizers[str(constructor.name())] = expr.sort().recognizer(index)
             elif is_array_sort(expr.sort()):
                 self.array_sorts[str(expr.sort())] = expr.sort()
                 # The log declares an array's uninterpreted index and element
@@ -450,6 +464,13 @@ class _Terms:
                 raise ProofExportError("ill-sorted map in the clause log") from None
             map_parameters(result)
             return result
+        if (isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "is"] and isinstance(head[2], str)
+                and _symbol(head[2]) in self.recognizers and len(sexpr) == 2):
+            # ((_ is c) t), the recognizer of an enumeration constructor.
+            try:
+                return self.recognizers[_symbol(head[2])](self.build(sexpr[1]))
+            except z3.Z3Exception:
+                raise ProofExportError("ill-sorted recognizer application in the clause log") from None
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -1030,9 +1051,13 @@ class _Normalizer:
         if kind == z3.Z3_OP_DISTINCT and z3.is_arith(expr.arg(0)) and expr.num_args() == 2:
             return self._atom(expr.arg(0) == expr.arg(1), not polarity)
         # Structural form: a numeral (as a function argument) is identified by
-        # its value, an uninterpreted symbol by its name.
+        # its value, an uninterpreted symbol or an enumeration constructor by
+        # its name, and a recognizer by its constructor's.
+        if kind in RECOGNIZER_KINDS:
+            kind = z3.Z3_OP_DT_IS  # is-c and (_ is c) are one predicate
         positive = (kind, tuple(self._key(child, True) for child in expr.children()),
-                    str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED
+                    str(expr.decl().name()) if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_DT_CONSTRUCTOR)
+                    else str(expr.decl().params()[0].name()) if kind == z3.Z3_OP_DT_IS
                     else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM else "")
         return positive if polarity else ("not", positive)
 
@@ -1437,7 +1462,8 @@ class _Replay:
         other alldiff clause (a root distinct, logged as assumed clauses since
         2026-10-20 but as alldiff inferences by older logs) is tied to the
         original assertions, never taken from the hint. A bare smt hint
-        claims the logged clause is a theory tautology.
+        claims the logged clause is a theory tautology, and so does a
+        datatype hint (an enumeration's case split or constructor clash).
         Whenever the lemma differs from the logged clause, the latter is
         derived from the lemma and the clause database by unit propagation.
         """
@@ -1459,7 +1485,7 @@ class _Replay:
             # checks, which read linear atoms; a hint of nothing else stays
             # rejected.
             pairs = [(coefficient, literal) for coefficient, literal in pairs if not z3.is_true(literal)]
-            if not pairs and name != "smt":
+            if not pairs and name not in ("smt", "datatype"):
                 raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
@@ -1477,7 +1503,11 @@ class _Replay:
                 # placeholders); an integer lemma whose coefficients do not,
                 # and a cut, carry none, which marks it as Lean's alone.
                 parameters.extend(str(coefficient) for coefficient, _ in pairs)
-            lemma_literals = (list(literals) if name == "smt"
+            # A datatype hint lists the clause's complements, but may state
+            # an equality the other way around ((= c0 blue) for the logged
+            # (= blue c0)); Lean proves the logged clause from the
+            # enumeration fields whichever way it is written.
+            lemma_literals = (list(literals) if name in ("smt", "datatype")
                               else [_complement(literal) for _, literal in pairs])
             if name == "array" and len(pairs) == 1 and _store_axiom(pairs[0][1]):
                 # The store axiom (= (select (store a i v) i) v), and the
@@ -1643,6 +1673,17 @@ class _Replay:
                 if _symbol(command[1]) not in terms.sorts:
                     raise ProofExportError("the clause log declares a sort absent from the input: %s"
                                            % command[1])
+            elif head == "declare-datatypes":
+                # (declare-datatypes ((S 0) ...) (constructors ...)): only the
+                # input's enumerations, whose constructors _Terms already knows.
+                if (len(command) != 3 or not isinstance(command[1], list)
+                        or any(not isinstance(entry, list) or len(entry) != 2 or not isinstance(entry[0], str)
+                               or entry[1] != "0" for entry in command[1])):
+                    raise ProofExportError("malformed datatype declaration in the clause log")
+                for entry in command[1]:
+                    if _symbol(entry[0]) not in terms.enumerations:
+                        raise ProofExportError("the clause log declares a datatype that is not an enumeration "
+                                               "of the input: %s" % entry[0])
             elif head == "define-const":
                 if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], (str, list)):
                     raise ProofExportError("malformed definition in the clause log")
