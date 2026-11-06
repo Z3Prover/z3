@@ -8,7 +8,7 @@ module B = Z3BooleanRewrite
 module N = Z3TheoryNormalize
 module T = Z3ArrayTheory
 
-let int_s = BaseSort "Int"
+let int_s = (SortApp IntSymbol [])
 let zero = A.integer 0
 let one = A.integer 1
 let two = A.integer 2
@@ -53,7 +53,7 @@ let lemma_same_default_not_decided ()
   = assert_norm (~(A.unequal_defaults (mk_eq_expr left left)) /\
                  ~(N.equivalent source true_expr))
 
-let finite_array = ArraySort [BaseSort "BV1"] int_s
+let finite_array = ArraySort [(SortApp (BvSymbol 1) [])] int_s
 let finite = mk_eq_expr (constant finite_array zero) (constant finite_array one)
 let bool_array = ArraySort [bool_sort] int_s
 

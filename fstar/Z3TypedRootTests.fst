@@ -1433,7 +1433,7 @@ let support_negative ()
   assert_norm (not (TR.supported_expression lsigma (Var 0 dt_idx)))
 
 (* The schema gate is NOT implied by S.valid. *)
-let r_s : sort = BaseSort "Real"
+let r_s : sort = (SortApp RealSymbol [])
 let mk_real_decl : func_decl =
   { decl_name = "mk"; domain = []; range = r_s; interp = Some DL.op_constructor; int_params = [0; 0; 0] }
 let is_mk_decl : func_decl =
@@ -1471,7 +1471,7 @@ let array_datatype_valid_but_unsupported ()
 
 let mk (name:string) (k:decl_kind) (dom:list sort) (rng:sort) (ps:list int) : func_decl =
   { decl_name = name; domain = dom; range = rng; interp = Some k; int_params = ps }
-let bv8 : sort = BaseSort "BV8"
+let bv8 : sort = (SortApp (BvSymbol 8) [])
 
 (* distinct, op_num_int numerals, Int div/mod (Z3IntegerDivision op_idiv = 33,
    op_mod = 34), const-array, array-ext, op_oeq, n-ary =, bvand and "/" at

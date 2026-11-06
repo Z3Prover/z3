@@ -101,10 +101,10 @@ let lemma_value_eq_sym_symmetric (a b:value)
    any well-sorted choice of witness works; picking one fixed default
    per sort is the simplest one that type-checks. *)
 let default_value (s:sort) : value =
-  if sort_eq s (BaseSort "Bool") then VBool false
-  else if sort_eq s (BaseSort "BV32") then VBV 0
-  else if sort_eq s (BaseSort "SeqInt") then VSeq []
-  else if sort_eq s (ArraySort [BaseSort "Int"] (BaseSort "Int")) then VArr (on int (fun _ -> 0))
+  if sort_eq s ((SortApp BoolSymbol [])) then VBool false
+  else if sort_eq s ((SortApp (BvSymbol 32) [])) then VBV 0
+  else if sort_eq s ((SortApp SeqSymbol [SortApp IntSymbol []])) then VSeq []
+  else if sort_eq s (ArraySort [(SortApp IntSymbol [])] ((SortApp IntSymbol []))) then VArr (on int (fun _ -> 0))
   else (* "Int" and anything else *) VInt 0
 
 (* Each "core" decl_kind (bool/arith/`eq`/literal ops with no dedicated
@@ -203,7 +203,7 @@ let interp_app (f:func_decl{Some? f.interp}) (args:list value) : value =
    extension. *)
 let uninterp_app (f:func_decl{is_uninterp_decl f}) (args:list value) : value =
   match args with
-  | [] -> if sort_eq f.range (BaseSort "Int") then VInt (string_key f.decl_name) else default_value f.range
+  | [] -> if sort_eq f.range ((SortApp IntSymbol [])) then VInt (string_key f.decl_name) else default_value f.range
   | _ -> default_value f.range
 
 (* `interp_quant` is never exercised by any fact proved in this file
@@ -229,11 +229,10 @@ let lemma_quant_extensional ()
 (* proofs below -- stated explicitly here only for documentation.      *)
 (* ----------------------------------------------------------------- *)
 
-let s (n:string) : sort = BaseSort n
-let int_s = s "Int"
-let bool_s = s "Bool"
-let bv_s = s "BV32"
-let seq_s = s "SeqInt"
+let int_s = SortApp IntSymbol []
+let bool_s = bool_sort
+let bv_s = SortApp (BvSymbol 32) []
+let seq_s = SortApp SeqSymbol [int_s]
 let arr_s = ArraySort [int_s] int_s
 
 let konst (name:string) (rng:sort) : func_decl =

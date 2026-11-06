@@ -148,7 +148,7 @@ let same_name ()
 
 (* Widths and sorts: sides of different widths, an atom of another width or of the sort Int in a sum, and an
    argument whose sort disagrees with the declaration of its sum are not certified. *)
-let int_const : expr = constant (BaseSort "Int") "t"
+let int_const : expr = constant ((SortApp IntSymbol [])) "t"
 
 let sorts ()
   : Lemma (not (E.equivalent (add 32 (num 32 1) t32) (add 8 (num 8 1) t8)) /\

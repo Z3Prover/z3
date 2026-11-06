@@ -129,6 +129,20 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
                       script)
         self.assertNotRegex(script, r"[0-9a-f]{64}")
 
+    def test_toolchain_install_avoids_recommended_system_ocaml_and_bounds_download_stalls(self):
+        script = (_REPO_ROOT / _INSTALL).read_text(encoding="utf-8")
+        commands = re.findall(r"sudo apt-get ([^\n]+)", script.replace("\\\n", " "))
+        for command in commands:
+            self.assertIn('"${apt_options[@]}"', command)
+            if "install" in command:
+                self.assertIn("--no-install-recommends", command)
+        options = re.search(r"^apt_options=\((.+)\)$", script, re.MULTILINE).group(1)
+        for option in ("Acquire::Retries=3", "Acquire::http::Timeout=30", "Acquire::https::Timeout=30"):
+            self.assertIn(option, options)
+        self.assertIn("sudo add-apt-repository --yes --no-update ", script)
+        self.assertIn("'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt",
+                      script)
+
     def test_regressions_consume_only_checker_build_artifacts(self):
         regressions = _read("pulse-checker-regressions.yml")
         self.assertIn("    workflows: [Build Pulse native checkers]\n", regressions)

@@ -15,16 +15,16 @@ module LA = Z3LinearArithmeticAst
 module AR = Z3SortedArithmetic
 
 let box = BaseSort "Box"
-let integer = BaseSort "Int"
+let integer = (SortApp IntSymbol [])
 
 let primitive (s:sort) : Type0 =
-  match s with BaseSort "Int" -> int | BaseSort "Bool" -> bool | _ -> unit
+  match s with (SortApp IntSymbol []) -> int | (SortApp BoolSymbol []) -> bool | _ -> unit
 
 let primitive_default (s:sort) : primitive s =
-  match s with BaseSort "Int" -> 0 | BaseSort "Bool" -> false | _ -> ()
+  match s with (SortApp IntSymbol []) -> 0 | (SortApp BoolSymbol []) -> false | _ -> ()
 
 let primitive_equal (s:sort) (x y:primitive s) : bool =
-  match s with BaseSort "Int" -> x = y | BaseSort "Bool" -> x = y | _ -> true
+  match s with (SortApp IntSymbol []) -> x = y | (SortApp BoolSymbol []) -> x = y | _ -> true
 
 let equality : T.scalar_model primitive =
   { T.reflection = T.Mkscalar_equality #primitive primitive_equal ();
@@ -1023,7 +1023,7 @@ let linear_conflict_unsatisfiable (#base:sort -> Type0) (bc:S.boolean_carrier ba
    twin declaration and a counterfeit `<=` without its interpretation tag. *)
 let lin_plus_one (a b:expr) : expr = App iadd [a; App imul [ione; b]]
 let lin_minus_two (a b:expr) : expr = App iadd [a; App imul [integer_literal (-2); b]]
-let real = BaseSort "Real"
+let real = (SortApp RealSymbol [])
 let to_real (e:expr) : expr =
   App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3ValueTheory.op_to_real;
         int_params = [] } [e]

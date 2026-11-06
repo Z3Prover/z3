@@ -14,9 +14,13 @@ module Z3TypedRoot
      (Array d1 .. dn r) -> func_space (d1 * .. * dn) r: restricted ghost
                            functions over the index carriers (all functions,
                            no finite-store or constant-array restriction)
-     any other base sort -> u.sort_carrier s, an arbitrary nonempty Type0 chosen by
-                           the model (uninterpreted sorts; BV/FF/Seq/FP/String/... are
-                           NOT interpreted in this prototype)
+     Char  -> integer code points from 0 through 196607 (native Unicode encoding;
+              the bridges keep non-Unicode character sorts opaque)
+     BV w  -> the width-indexed bit-vector carrier
+     FF p  -> residues modulo p (field laws require a separate checked contract)
+     Seq s -> lists over the carrier of s, including array-valued elements
+     other sorts -> u.sort_carrier s, an arbitrary nonempty Type0 chosen by
+                    the model; structured identity does not supply theory laws
    Datatype sorts never use their carrier: their values are the existing
    checked constructor trees (V.has_sort rejects a Scalar at a datatype sort).
    Arrays whose sort mentions a datatype (V.contains_datatype) are OUTSIDE the
@@ -55,8 +59,8 @@ module Z3TypedRoot
    u and uf over every checked schema (constructibility). The STANDARD (SMT)
    meaning is claimed only for `supported` schemas and expressions passing
    `supported_expression`; both are pure executable checks that no production
-   route enforces in G1. Front-end obligation (not checked here): BaseSort
-   "Bool"/"Int"/"Real" in the AST denote the SMT theory sorts. *)
+   route enforces in G1. Built-in sort symbols are imported structurally;
+   BaseSort identities never acquire interpreted meaning from their names. *)
 
 open Z3AstTheory
 open Z3ValueTheory
@@ -86,17 +90,21 @@ noeq type uninterpreted = {
 (* Unrestricted total ghost functions, restricted to their domain so that
    pointwise equality implies equality (FE.extensionality_g). Named, so
    that every use refers to one closure. *)
-let func_space (a b:Type0) : Type0 = FE.restricted_g_t a (fun _ -> b)
+let func_space (a b:Type0) : Type0 = Z3ArrayTheory.semantic_arr a b
 
-let lambda_value (#a #b:Type0) (f:a -> GTot b) : func_space a b = FE.on_dom_g a f
+let lambda_value (#a #b:Type0) (f:a -> GTot b) : func_space a b = Z3ArrayTheory.semantic_lambda f
 
 let rec carrier (u:uninterpreted) (s:sort) : Tot Type0 (decreases s) =
   match s with
-  | BaseSort "Bool" -> bool
-  | BaseSort "Int" -> int
-  | BaseSort "Real" -> real
-  | BaseSort _ -> u.sort_carrier s
+  | (SortApp BoolSymbol []) -> bool
+  | (SortApp IntSymbol []) -> int
+  | (SortApp RealSymbol []) -> real
+  | SortApp CharSymbol [] -> n:int{0 <= n /\ n <= 196607}
+  | SortApp (BvSymbol w) [] -> if w > 0 then Z3BvTheory.bv w else u.sort_carrier s
+  | SortApp (FiniteFieldSymbol p) [] -> if p > 1 then n:int{0 <= n /\ n < p} else u.sort_carrier s
+  | SortApp SeqSymbol [element] -> list (carrier u element)
   | ArraySort ds r -> func_space (indices u ds) (carrier u r)
+  | _ -> u.sort_carrier s
 
 and indices (u:uninterpreted) (ds:list sort) : Tot Type0 (decreases ds) =
   match ds with
@@ -127,14 +135,18 @@ let lemma_indices_cons (u:uninterpreted) (d:sort) (rest:list sort)
 (* Every carrier is inhabited (a Tot witness, no choice). *)
 let rec default_value (u:uninterpreted) (s:sort) : Tot (carrier u s) (decreases s) =
   match s with
-  | BaseSort "Bool" -> false
-  | BaseSort "Int" -> 0
-  | BaseSort "Real" -> 0.0R
-  | BaseSort _ -> u.inhabitant s
+  | (SortApp BoolSymbol []) -> false
+  | (SortApp IntSymbol []) -> 0
+  | (SortApp RealSymbol []) -> 0.0R
+  | SortApp CharSymbol [] -> 0
+  | SortApp (BvSymbol w) [] -> if w > 0 then 0 else u.inhabitant s
+  | SortApp (FiniteFieldSymbol p) [] -> if p > 1 then 0 else u.inhabitant s
+  | SortApp SeqSymbol [element] -> ([] <: list (carrier u element))
   | ArraySort ds r ->
     lemma_array_carrier u ds r;
     coerce_eq #(func_space (indices u ds) (carrier u r)) #(carrier u s) ()
       (lambda_value #(indices u ds) #(carrier u r) (fun _ -> default_value u r))
+  | _ -> u.inhabitant s
 
 (* The only classical choice used by the standard model. *)
 let decide (p:prop) : GTot (b:bool{b <==> p}) = ID.strong_excluded_middle p
@@ -481,10 +493,10 @@ let rec split_store (#u:uninterpreted) (#sigma:V.signature)
     (coerce_eq #(carrier u d & indices u rest) #(indices u ds) () (scalar #u #sigma d x, fst p), snd p)
   | _, _ -> FStar.Pervasives.false_elim ()
 
-let read (#a #b:Type0) (fn:func_space a b) (i:a) : GTot b = fn i
+let read (#a #b:Type0) (fn:func_space a b) (i:a) : GTot b = Z3ArrayTheory.semantic_select fn i
 
 let write (#a #b:Type0) (fn:func_space a b) (i:a) (v:b) : func_space a b =
-  lambda_value #a #b (fun j -> if decide (j == i) then v else fn j)
+  Z3ArrayTheory.semantic_store fn i v
 
 (* The standard meaning of every interpreted operator, independent of the
    free choices. None exactly when SMT-LIB leaves the value unconstrained
@@ -601,7 +613,11 @@ let standard (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch)
 (* ---------------------------------------------------------------------- *)
 
 let rec base_owned (sigma:V.signature) : Tot bool (decreases sigma) =
-  match sigma with [] -> true | f :: rest -> BaseSort? f.range && base_owned rest
+  match sigma with
+  | [] -> true
+  | f :: rest ->
+    (match f.range with BaseSort _ | SortApp (DatatypeSymbol _) _ -> true | _ -> false) &&
+    base_owned rest
 
 (* SMT-LIB shape of a sort: every array sort, at ANY depth (index sorts and
    result sort), has at least one index. `ArraySort [] r` has a carrier
@@ -610,6 +626,7 @@ let rec base_owned (sigma:V.signature) : Tot bool (decreases sigma) =
 let rec smt_shaped (s:sort) : Tot bool (decreases s) =
   match s with
   | BaseSort _ -> true
+  | SortApp _ args -> valid_sort s && smt_shaped_all args
   | ArraySort ds r -> Cons? ds && smt_shaped_all ds && smt_shaped r
 
 and smt_shaped_all (ss:list sort) : Tot bool (decreases ss) =
@@ -1593,7 +1610,7 @@ let node_ready (sigma:V.signature) (x:expr) : prop =
 
 let lemma_sort_ready (sch:supported_schema) (s:sort)
   : Lemma (requires supported_sort (S.signature sch) s) (ensures sort_ready (S.signature sch) s) =
-  match s with ArraySort ds r -> lemma_base_owned (S.signature sch) ds r | BaseSort _ -> ()
+  match s with ArraySort ds r -> lemma_base_owned (S.signature sch) ds r | _ -> ()
 
 let rec lemma_sorts_ready (sch:supported_schema) (ss:list sort)
   : Lemma (requires supported_sorts (S.signature sch) ss)

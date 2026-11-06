@@ -85,13 +85,13 @@ let bounded_conditional_rewrite () : bool =
    50,000 deep in an array domain); the guard-free checker accepted them. Inputs
    are built by tail-recursive accumulators. *)
 let rec int_sorts (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
-  if n = 0 then acc else int_sorts (n - 1) (A.BaseSort "Int" :: acc)
+  if n = 0 then acc else int_sorts (n - 1) ((A.SortApp A.IntSymbol []) :: acc)
 
 let rec nested_not (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
   if depth = 0 then acc else nested_not (depth - 1) (R.mk_not_expr acc)
 
 let rec domain_nested (depth:nat) (acc:A.sort) : Tot A.sort (decreases depth) =
-  if depth = 0 then acc else domain_nested (depth - 1) (A.ArraySort [acc] (A.BaseSort "Int"))
+  if depth = 0 then acc else domain_nested (depth - 1) (A.ArraySort [acc] ((A.SortApp A.IntSymbol [])))
 
 let binder_entry (name:string) (formula:A.expr) (premises:list int) : U.binder_entry =
   { U.binder_name = name; U.binder_formula = formula; U.binder_premises = premises; U.binder_sorts = None }
@@ -116,14 +116,14 @@ let hidden_term_pending (q:A.expr) (pad:nat) : int =
   | None -> -1
 
 let binder_guard_stack () : bool =
-  let deep_sort = domain_nested 50000 (A.BaseSort "Int") in
+  let deep_sort = domain_nested 50000 ((A.SortApp A.IntSymbol [])) in
   let x = A.Var 0 deep_sort in
   let deep_sort_q = A.Quantifier A.Forall_k [deep_sort] A.bool_sort (R.mk_eq_expr x x) in
   hidden_term_pending (A.Quantifier A.Forall_k (int_sorts 200000 []) A.bool_sort R.true_expr) 42 = 0 &&
   hidden_term_pending (nested_not 200000 R.true_expr) 308 = 0 &&
   hidden_term_pending deep_sort_q 200 = 0 &&
-  (* the same certificate with less work: the guard's budget leaves it pending *)
-  hidden_term_pending deep_sort_q 79 = 1
+  (* Structural Int comparisons need less work than the old name comparisons. *)
+  hidden_term_pending deep_sort_q 40 = 1
 
 (* The NNF certificate replay (Z3NnfReplay) at native scale: its walks are
    loops. A chain of 200,000 transitivity steps, a 100,000-ary disjunction,
@@ -446,7 +446,7 @@ let name_pair_units_scale () : bool =
    (x = y), a zero weight on the strict premise, non-cancelling weights, a
    dropped premise, a counterfeit > and a same-spelled distinct constant stay
    pending. *)
-let real_s : A.sort = A.BaseSort "Real"
+let real_s : A.sort = (A.SortApp A.RealSymbol [])
 
 let real_constant (name:string) (params:list int) : A.expr =
   A.App { A.decl_name = name; A.domain = []; A.range = real_s; A.interp = None; A.int_params = params } []

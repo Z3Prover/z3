@@ -162,6 +162,8 @@ let rec sort_eq_within_rec (work:nat) (s t:sort) : Tot (option (bool & nat)) (de
        (match sort_list_eq_within_rec w d1 d2 with
         | Some (true, w') -> sort_eq_within_rec w' r1 r2
         | r -> r)
+     | SortApp k1 a1, SortApp k2 a2 ->
+       if k1 = k2 then sort_list_eq_within_rec w a1 a2 else Some (false, w)
      | _, _ -> Some (false, w))
 
 and sort_list_eq_within_rec (work:nat) (l1 l2:list sort) : Tot (option (bool & nat)) (decreases l1) =
@@ -209,6 +211,8 @@ let rec lemma_sort_tasks (work:nat) (tasks:list sort_task)
             (match sort_list_eq_within_rec w d1 d2 with
              | Some (true, w') -> ()
              | _ -> ())
+          | SortApp k1 a1, SortApp k2 a2 ->
+            if k1 = k2 then lemma_sort_tasks w (SortListPair a1 a2 :: rest)
           | _, _ -> ()))
     | SortListPair l1 l2 :: rest ->
       (match scope_charge work 1 with
@@ -243,6 +247,8 @@ let rec lemma_sort_eq_within_rec (work:nat) (s t:sort)
       (match sort_list_eq_within_rec w d1 d2 with
        | Some (true, w') -> lemma_sort_eq_within_rec w' r1 r2
        | _ -> ())
+    | SortApp k1 a1, SortApp k2 a2 ->
+      if k1 = k2 then lemma_sort_list_eq_within_rec w a1 a2
     | _, _ -> ()
 
 and lemma_sort_list_eq_within_rec (work:nat) (l1 l2:list sort)
