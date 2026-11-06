@@ -232,6 +232,7 @@ namespace seq {
         struct stats {
             unsigned m_num_propagate = 0;
             unsigned m_num_progress  = 0;
+            unsigned m_num_positional_bounds = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
@@ -242,6 +243,7 @@ namespace seq {
         void collect_statistics(::statistics& st) const override {
             st.update("seq-eq-propagate num calls", m_stats.m_num_propagate);
             st.update("seq-eq-propagate num progress", m_stats.m_num_progress);
+            st.update("seq-eq-propagate num positional bounds", m_stats.m_num_positional_bounds);
         }
         void reset_statistics() override { m_stats.reset(); }
     };

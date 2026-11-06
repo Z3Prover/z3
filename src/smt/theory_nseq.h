@@ -89,6 +89,7 @@ namespace smt {
         unsigned            m_axioms_head = 0; // index of first axiom still to add
         expr_ref_vector     m_ubv_strings;     // relevant ubv2s terms
         obj_hashtable<expr> m_ubv_done;        // ubv2s terms with added axioms
+        obj_hashtable<expr> m_fixed_length_guards;
 
         // Index of the first assigned literal not yet forwarded to
         // flush_assigned_literals(). Trailed so backtracking rewinds it.
@@ -124,6 +125,7 @@ namespace smt {
         unsigned m_num_letter_refuted = 0;
         unsigned m_num_unhandled = 0;
         unsigned m_num_index_suffix_axioms = 0;
+        unsigned m_num_fixed_length_axioms = 0;
 
         // required virtual methods
         bool internalize_atom(app* atom, bool gate_ctx) override;
@@ -178,6 +180,7 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
+        bool check_fixed_lengths(bool instantiate = true);
         bool add_index_suffix_axiom(expr* e);
         void add_ubv_string(expr* e);
         bool check_ubv_strings();

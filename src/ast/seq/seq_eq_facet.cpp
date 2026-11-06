@@ -302,6 +302,30 @@ namespace seq {
         eq_tree::dep_tracker conflict_dep = nullptr;
         m_stats.m_num_propagate++;
         bool changed = f.simplify(n, ac.context(), conflict, conflict_dep);
+        if (!conflict && ac.context().has_solver_facet(n)) {
+            auto& sf = ac.solver_facet_ref();
+            // Do not bypass the leading equation selected by word_eq_split.
+            for (auto const& eq : f.equations()) {
+                if (!eq.active())
+                    continue;
+                if (eq.m_lhs.size() < 3 || eq.m_rhs.size() < 3)
+                    break;
+                expr* x = eq.m_lhs[0], *p = eq.m_rhs[0];
+                expr* a = nullptr, *b = nullptr;
+                if (!ac.is_var(x) || !ac.is_var(p) || !u.is_seq(x->get_sort()) ||
+                    !u.str.is_unit(eq.m_lhs[1], a) || !u.str.is_unit(eq.m_rhs[1], b) ||
+                    !m.are_distinct(a, b))
+                    break;
+                // Different unit delimiters cannot occupy the same position.
+                expr_ref lx(u.str.mk_length(x), m), lp(u.str.mk_length(p), m);
+                expr_ref different(m.mk_not(m.mk_eq(lx, lp)), m);
+                if (sf.add_constraint(different, eq.m_dep)) {
+                    changed = true;
+                    ++m_stats.m_num_positional_bounds;
+                }
+                break;
+            }
+        }
         if (changed)
             m_stats.m_num_progress++;
         if (conflict) {

@@ -860,6 +860,75 @@ namespace smt {
         return proc;
     }
 
+    bool theory_nseq::check_fixed_lengths(bool instantiate) {
+        for (unsigned v = 0; v < get_num_vars() && m.inc(); ++v) {
+            expr* e = get_expr(v);
+            if ((!is_uninterp_const(e) && !m_seq.str.is_extract(e) && !m_seq.str.is_at(e)) ||
+                !m_seq.is_string(e->get_sort()) ||
+                !ctx.is_relevant(get_enode(v)))
+                continue;
+            if (is_uninterp_const(e)) {
+                bool selected = false;
+                for (enode* p : get_enode(v)->get_root()->get_parents()) {
+                    app* t = to_app(p->get_expr());
+                    if (ctx.is_relevant(p) &&
+                        (m_seq.str.is_at(t) || m_seq.str.is_extract(t) || m_seq.str.is_index(t)) &&
+                        ctx.get_enode(t->get_arg(0))->get_root() == get_enode(v)->get_root()) {
+                        selected = true;
+                        break;
+                    }
+                }
+                if (!selected)
+                    continue;
+            }
+            expr_ref len(m_seq.str.mk_length(e), m), guard(m);
+            rational lo(0), hi;
+            lower_bound(len, lo);
+            if (!lo.is_unsigned() || lo > rational(20))
+                continue;
+            unsigned end = 20;
+            if (upper_bound(len, hi) && hi.is_unsigned() && hi < rational(end))
+                end = hi.get_unsigned();
+            unsigned length = lo.get_unsigned();
+            for (; length <= end; ++length) {
+                guard = m.mk_eq(len, m_autil.mk_int(length));
+                if (!m_fixed_length_guards.contains(guard) &&
+                    (!ctx.b_internalized(guard) || ctx.get_assignment(ctx.get_literal(guard)) != l_false))
+                    break;
+            }
+            if (length > end)
+                continue;
+            if (!instantiate)
+                return true;
+            expr_ref seq(e, m), head(m), tail(m);
+            expr_ref_vector units(m);
+            for (unsigned i = 0; i < length; ++i) {
+                m_sk.decompose(seq, head, tail);
+                units.push_back(head);
+                seq = tail;
+            }
+            seq = m_seq.str.mk_concat(units.size(), units.data(), e->get_sort());
+            expr_ref eq(m_sk.mk_eq(e, seq), m);
+            // A short length is a guarded choice, never an unconditional equality.
+            expr_ref value(m_autil.mk_int(length), m);
+            expr_ref lower(m_autil.mk_ge(len, value), m), upper(m_autil.mk_le(len, value), m);
+            // Use bounds, as in SAT-snapshot reconciliation, to avoid equality re-internalization loops.
+            literal lo_lit = mk_literal(lower), hi_lit = mk_literal(upper);
+            literal clause[] = { ~lo_lit, ~hi_lit, mk_literal(eq) };
+            ctx.mk_th_axiom(get_id(), 3, clause);
+            ctx.mark_as_relevant(lo_lit);
+            ctx.mark_as_relevant(hi_lit);
+            ctx.force_phase(lo_lit);
+            ctx.force_phase(hi_lit);
+            pin(guard);
+            m_fixed_length_guards.insert(guard);
+            ctx.push_trail(insert_obj_trail<expr>(m_fixed_length_guards, guard));
+            ++m_num_fixed_length_axioms;
+            return true;
+        }
+        return false;
+    }
+
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
 
@@ -915,15 +984,25 @@ namespace smt {
             m_mem_leaf->reset_root_ask(root_asked);
         if (!m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient, true))
             return FC_CONTINUE;
+        bool conversions = !m_ambient->stoi_facet(*m_root).terms().empty();
+        unsigned const fixed_length_head_start = 2048 + 128;
+        // Keep the head start cumulative across final checks; conversion coherence takes precedence.
+        if (!conversions && m_tree.get_stats().m_num_dfs_nodes >= fixed_length_head_start && check_fixed_lengths())
+            return FC_CONTINUE;
         // Skip depth bounds that cannot cover the freshly flushed work.
         m_tree.set_min_search_depth(m_lits_qhead);
+        bool fixed_lengths = !conversions && check_fixed_lengths(false);
         stx::search_result res;
         try {
-            bool conversions = !m_ambient->stoi_facet(*m_root).terms().empty();
-            if (conversions)
-                m_tree.set_max_nodes(m_tree.get_stats().m_num_dfs_nodes + 128);
+            if (conversions || fixed_lengths)
+                m_tree.set_max_nodes(conversions || !m_fixed_length_guards.empty() ?
+                                     m_tree.get_stats().m_num_dfs_nodes + 128 : fixed_length_head_start);
             res = m_tree.solve();
             m_tree.set_max_nodes(0);
+            if (fixed_lengths &&
+                (res == stx::search_result::unknown || res == stx::search_result::depth_cutoff) &&
+                check_fixed_lengths())
+                return FC_CONTINUE;
             if (conversions &&
                 (res == stx::search_result::unknown || res == stx::search_result::depth_cutoff)) {
                 // Refute cheap word constraints first, but do not strand numeric conversions behind search.
@@ -931,6 +1010,9 @@ namespace smt {
                     return FC_CONTINUE;
                 res = m_tree.solve();
             }
+            else if (fixed_lengths &&
+                     (res == stx::search_result::unknown || res == stx::search_result::depth_cutoff))
+                res = m_tree.solve();
         }
         catch (const std::exception&) {
             m_tree.set_max_nodes(0);
@@ -1058,6 +1140,7 @@ namespace smt {
     void theory_nseq::collect_statistics(::statistics& st) const {
         st.update("nseq final checks", m_num_final_checks);
         st.update("nseq index suffix axioms", m_num_index_suffix_axioms);
+        st.update("nseq fixed length axioms", m_num_fixed_length_axioms);
         st.update("nseq conflicts", m_num_conflicts);
         st.update("nseq root letter-count refutations", m_num_letter_refuted);
         seq::ho_facet const& hf = m_ambient->ho_facet(*m_root);
