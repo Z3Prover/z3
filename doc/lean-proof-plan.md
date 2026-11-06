@@ -1589,6 +1589,33 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Arrays over Bool indices (2026-11-05)
+
+`(Array Bool E)` was rejected by the exporter ("only arrays over
+uninterpreted sorts, Int, and Real") and the reconstructor ("unsupported
+array sort"), which blocked z3test `5798.smt2`. Both now admit Bool as the
+index sort over every element sort (uninterpreted, Int, Real, Bool), with
+store, ite, extensionality, functions into and over such arrays, and maps
+over sets of them; the clause-log replay needed no change. Lean's index type
+is `Prop` (`_m.arrs_bi : Nat -> Prop -> Int`): an index is a formula, two
+indices are equal as propositions, and the extensionality witness is a
+formula chosen with `True`. A model's array over Bool embeds as `fun p => a
+(decide p)` (injective, and commuting with select and store by propext), so
+the generic array facts apply. Two gaps showed up: the rewriter skips a
+store at `false` in a read at `true` as it skips stores at other numerals,
+so `_distinct_values` now compares `true`/`false` too
+(`bool_index_read_through_value_stores`, shown necessary in Lean); and the
+gate clause `(or (not (= (not p) p)) (not (not p)) p)` of the index equality
+of stores at `p` and `(not p)` is resolved by the SAT solver to `p` (the
+double negation is one literal there), which the reconstructor rejected
+("incorrect unit-resolution conclusion"). `_resolution` now concludes a kept
+`(not (not x))` as `x` when `x` is kept or concluded, by
+`Decidable.byContradiction` with `x`'s decidability witness
+(`bool_index_negated_stores`). Constant arrays and default values over Bool
+indices stay rejected (a finite index sort), as do arrays of arrays. z3test
+`5798.smt2` and eleven synthetic inputs (`BOOL_INDEX_INPUTS` in
+`test_proof_to_lean_array.py`) verify in Lean.
+
 ### Arrays with Bool elements (2026-11-04)
 
 Sets, `(Array I Bool)`, were the commonest remaining array rejection
@@ -1602,9 +1629,9 @@ Nat -> Int -> Prop`), a read `(_select a i)` is a formula, a stored or
 constant value is a formula, and a Bool default value is `_default ... :
 Prop`. The array solver's store axiom over a Boolean value, `(= v (select
 (store a i v) i))`, is a Bool equality (Iff); an `array` lemma may compare
-Bool terms only when some array has Bool elements. Bool indices stay
-rejected (a finite index sort), as do arrays of arrays; `map` over sets is
-supported since 2026-11-05 (below).
+Bool terms only when some array has Bool elements. Bool indices and arrays
+of arrays were still rejected then (Bool indices are admitted since
+2026-11-05, above); `map` over sets is supported since 2026-11-05 (below).
 Along the way a gap for every element sort was closed: Z3's rewriter
 evaluates a read of a store over a constant array, `(select (store (const
 v) y w) x)`, without any read of the constant array at `x` in the

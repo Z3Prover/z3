@@ -162,7 +162,8 @@ constant arrays ((as const (Array I E)) v) and default values (default a)
 are supported over Int and Real indices, and sets combine by maps of not,
 and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
 setminus, complement). Only the clause log certifies them (the legacy core
-rejects them explicitly); arrays over Bool indices, arrays of arrays, arrays
+rejects them explicitly); arrays may also be indexed by Bool ((Array Bool
+Int), see below); arrays of arrays, arrays
 with several indices, constant arrays and default values over other index
 sorts, maps of other functions, and as-array are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
@@ -1037,8 +1038,21 @@ formula too. The definitions above are generic in the element type, Prop
 included, and a model's set I -> Bool embeds as the predicate true exactly
 at its members in I, so the same facts prove the array lemmas; the store
 axiom over a Boolean value is a Bool equality (Iff), admitted in an array
-lemma only when some array has Bool elements. Bool indices are rejected
-(a finite index sort, like constant arrays over uninterpreted indices).
+lemma only when some array has Bool elements or Bool indices.
+
+A Bool index sort is Prop too: (Array Bool Int) is Prop -> Int (the family
+arrs_bi), an index is a formula, and the extensionality witness of two such
+arrays is a formula chosen with True ((_array_diff (Nonempty.intro True) a
+b)). A model's array a over Bool embeds as fun p => a (decide p), which is
+injective and commutes with select and store because equal propositions are
+equal (propext), so the generic facts prove the array lemmas. The rewriter
+skips a store at false in a read at true as it skips stores at other
+numerals, so such reads get every skipped level's _store_apply fact; the SAT
+solver identifies (not (not p)) with p, so a unit resolution of the gate
+clause (or (not (= (not p) p)) (not (not p)) p) of an index equality
+concludes p, which the reconstruction proves by contradiction. Constant
+arrays and default values over Bool indices stay rejected (a finite index
+sort, like constant arrays over uninterpreted indices).
 
 A constant array over Int or Real indices is _const_array Int v (or
 _const_array Rat v), the constant function (its reads are _select_const,

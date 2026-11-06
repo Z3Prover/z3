@@ -316,7 +316,7 @@ class TestProofCertificate(unittest.TestCase):
         # one defined in a popped scope is gone, as Z3 scopes it.
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported sort"):
             proof_certificate.export_certificate(
-                "(define-sort A () (Array Bool Bool))(declare-const x A)(assert (= x x))(assert false)")
+                "(define-sort A () (Array Bool (Array Bool Bool)))(declare-const x A)(assert (= x x))(assert false)")
         with self.assertRaises(z3.Z3Exception):
             proof_certificate.export_certificate(
                 "(push)(define-sort B () Bool)(pop)(declare-const p B)(assert p)(assert (not p))")

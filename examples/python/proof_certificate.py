@@ -627,19 +627,23 @@ def _is_array_component(sort):
 
 
 def is_array_sort(sort):
-    """Whether sort is an array sort with one index, over uninterpreted, Int, or Real index and element sorts.
+    """Whether sort is an array sort with one index, over uninterpreted, Int, Real, or Bool index and element sorts.
 
     Lean renders such an array as a function between the types of its index
     and element sorts (_m.U for every uninterpreted sort, Int, Rat), so
     select is application, store a classical update, and extensionality
     funext (QF_AX, QF_ALIA, QF_AUFLIA). The element sort may also be Bool
-    (sets, I -> Prop in Lean; a read is a formula). Bool indices, arrays
-    over array sorts, and arrays of several indices are not supported (see
-    array_sort_name).
+    (sets, I -> Prop in Lean; a read is a formula), and so may the index
+    sort (Prop -> E; an index is a formula, and two indices are equal as
+    propositions). Arrays over array sorts and arrays of several indices
+    are not supported (see array_sort_name); constant arrays and default
+    values need an infinite index sort (Int or Real).
     """
+    def component(candidate):
+        return _is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
+
     return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
-            and _is_array_component(sort.domain())
-            and (_is_array_component(sort.range()) or sort.range().kind() == z3.Z3_BOOL_SORT))
+            and component(sort.domain()) and component(sort.range()))
 
 
 # Boolean combinators over sets (arrays with Bool elements): ((_ map f) a ...)
@@ -696,13 +700,13 @@ def array_sort_name(sort, sorts=None):
     checked and recorded as uninterpreted sorts of the input.
     """
     if not is_array_sort(sort):
-        raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, and Real, "
-                               "with Bool elements too)" % sort)
+        raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, Real, "
+                               "and Bool)" % sort)
     names = []
     for component in (sort.domain(), sort.range()):
         name = component.name()
         if not is_uninterpreted_sort(component):
-            names.append(name)  # Int, Real, or (elements only) Bool.
+            names.append(name)  # Int, Real, or Bool.
             continue
         if name in _RESERVED_SORTS or re.search(r"[\s()|]", name):
             raise ProofExportError("unsupported array index or element sort name: %s" % name)

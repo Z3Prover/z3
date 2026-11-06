@@ -262,6 +262,12 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # A Bool element sort is Prop (Prop : Type, so the definitions apply as they
 # are): a set (Array I Bool) is a predicate I -> Prop, true exactly at the
 # model's members in I, a read is a formula, and a stored value a formula.
+# A Bool index sort is Prop too: an array over Bool is a function Prop -> E,
+# into which a model's array a embeds as fun p => a (decide p) (injective,
+# and commuting with select and store since equal propositions are equal,
+# propext); an index and the extensionality witness are formulas, the
+# witness chosen with True. Constant arrays and default values over Bool
+# indices are rejected like those over uninterpreted sorts (_UNBOUNDED).
 _ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r", "Prop": "b"}
 _NONEMPTY_FIELDS = (("nonempty", "Nonempty U"),)
 _ARRAY_DEFINITIONS = """
@@ -578,6 +584,8 @@ def _array_family_fields(graph):
 def _nonempty(sort):
     """The inhabitant of an array index sort the extensionality witness chooses with."""
     lean = _component_type(sort)
+    if lean == "Prop":
+        return "(Nonempty.intro True)"
     return "_m.nonempty" if lean == "_m.U" else "(Nonempty.intro (0 : %s))" % lean
 _UFLRA_BINDERS = " (_vars : Nat -> Rat)" + _UF_BINDERS
 _UFLRA_ARGUMENTS = " _vars" + _UF_ARGUMENTS
@@ -850,10 +858,10 @@ def _uninterpreted_sorts(raws):
         if components is None and ("(" in sort or ")" in sort):
             raise ReconstructionError("unsupported sort: %s" % sort)
         if components is not None:
-            # Index and element sorts are uninterpreted, Int, or Real; the
-            # element sort may be Bool too (a read is a formula).
+            # Index and element sorts are uninterpreted, Int, Real, or Bool
+            # (a read of a set is a formula, an index over Bool too).
             index, element = components
-            if ((index in _RESERVED_SORTS and index not in _ARITH_SORTS)
+            if ((index in _RESERVED_SORTS and index not in _ARITH_SORTS + ("Bool",))
                     or (element in _RESERVED_SORTS and element not in _ARITH_SORTS + ("Bool",))):
                 raise ReconstructionError("unsupported array sort: %s" % sort)
             sorts.update(component for component in components if component not in _RESERVED_SORTS)
@@ -1398,8 +1406,10 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     if kind == z3.Z3_OP_UNINTERPRETED and arguments:
         return "_m.preds %d %s" % (atom_indices[graph.nodes[node].declaration],
                                    _application_arguments(graph, arguments, term, formula))
-    if kind in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT):
-        # A read or the default value of an array with Bool elements (I -> Prop).
+    if kind in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT, z3.Z3_OP_ARRAY_EXT):
+        # A read or the default value of an array with Bool elements (I ->
+        # Prop), or the extensionality witness of two arrays with Bool
+        # indices (Prop -> E).
         return _term_body(graph, node, None, term, formula)
     if arguments and graph.is_term(arguments[0]):
         args = [term(arg) for arg in arguments]
@@ -2562,12 +2572,16 @@ def _numeral_value(graph, node):
     return None if any(terms.values()) else constant
 
 
-def _distinct_numerals(graph, left, right):
-    """Whether two index nodes are numerals of different values (Z3's are_distinct on arithmetic values).
+def _distinct_values(graph, left, right):
+    """Whether two index nodes are values that differ (Z3's are_distinct): numerals, or true and false.
 
     A negative numeral is (- n) and a Real fraction (/ n d) in a
-    certificate, which Z3's rewriter compares as the values -n and n/d.
+    certificate, which Z3's rewriter compares as the values -n and n/d. A
+    Bool index is a value if it is true or false.
     """
+    booleans = {z3.Z3_OP_TRUE, z3.Z3_OP_FALSE}
+    if graph.kind(left) in booleans and graph.kind(right) in booleans:
+        return graph.kind(left) != graph.kind(right)
     left, right = _numeral_value(graph, left), _numeral_value(graph, right)
     return left is not None and right is not None and left != right
 
@@ -2663,7 +2677,8 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
                 levels.append(graph.arguments(levels[-1])[0])
             if graph.kind(levels[-1]) != z3.Z3_OP_CONST_ARRAY:
                 # Over a plain array the rewriter skips the stores at a
-                # numeral index other than the read's ((select (store (store
+                # value index (a numeral, or true or false over Bool
+                # indices) other than the read's ((select (store (store
                 # a 1 v) 2 w) 3) is (select a 3)) and goes on with the read
                 # of the level where the skip stops, a store at the read's
                 # own index evaluated in the same step ((select (store
@@ -2674,7 +2689,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
                 # fact per level and read).
                 skipped = 0
                 while (skipped + 1 < len(levels)
-                       and _distinct_numerals(graph, graph.arguments(levels[skipped])[1], read)):
+                       and _distinct_values(graph, graph.arguments(levels[skipped])[1], read)):
                     skipped += 1
                 # The skipped levels and the store where the skip stops (not
                 # the plain array at the bottom).
@@ -5560,7 +5575,8 @@ def _check_th_lemma(graph, node):
             raise ReconstructionError("array th-lemma must be a clause over arrays without premises at node %d" % node)
         # Int, Real, or Bool terms are compared only if some array is indexed
         # by or holds that sort (Bool: the elements of a set, the store
-        # axiom's (= v (select (store a i v) i)) over formulas).
+        # axiom's (= v (select (store a i v) i)) over formulas, or the
+        # indices of an array over Bool, (= i j) between formulas).
         components = {component for sort in graph.arrays for component in _array_components(sort)}
         for literal in literals:
             atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
@@ -5711,8 +5727,24 @@ def _resolution(graph, terms, node):
                 matched_units.add(unit)
     if set(units) != matched_units:
         raise ReconstructionError("unit-resolution has an unmatched unit at node %d" % node)
-    remaining = {terms[lit] for pos, lit in enumerate(literals)
-                 if pos not in eliminations and graph.kind(lit) != z3.Z3_OP_FALSE}
+    kept = [pos for pos, lit in enumerate(literals) if pos not in eliminations and graph.kind(lit) != z3.Z3_OP_FALSE]
+    # Z3's SAT solver identifies a literal (not (not x)) with x: the gate
+    # clause (or (not (= (not p) p)) (not (not p)) p) of an equality between
+    # Bool terms (an index equality the array solver creates over Bool
+    # indices) resolves to p. A kept (not (not x)) whose x is also kept or
+    # concluded (and which is not concluded itself) stands for x, proved by
+    # contradiction with x's decidability witness.
+    concluded = {terms[lit] for lit in conclusion} | {terms[graph.conclusion(node)]}
+    candidates = concluded | {terms[literals[pos]] for pos in kept}
+    doubles = {}
+    for position in kept:
+        literal = literals[position]
+        if (graph.kind(literal) == z3.Z3_OP_NOT and graph.kind(graph.arguments(literal)[0]) == z3.Z3_OP_NOT
+                and terms[literal] not in concluded):
+            inner = graph.arguments(graph.arguments(literal)[0])[0]
+            if terms[inner] in candidates:
+                doubles[position] = inner
+    remaining = {terms[doubles.get(pos, literals[pos])] for pos in kept}
     if len(conclusion) > 1 and remaining == {terms[graph.conclusion(node)]}:
         conclusion = (graph.conclusion(node),)
     positions = {}
@@ -5740,10 +5772,14 @@ def _resolution(graph, terms, node):
             return "(False.elim %s)" % contradiction
         if graph.kind(literal) == z3.Z3_OP_FALSE:
             return "(False.elim %s)" % value
+        if position in doubles:
+            literal = doubles[position]
+            value = "(@Decidable.byContradiction %s _df%d %s)" % (_formula(graph, literal), literal, value)
         return _inject(positions[terms[literal]], len(conclusion), value)
 
+    support = set(doubles.values())
     if not literals:
-        return "(False.elim _step_%d)" % first
+        return "(False.elim _step_%d)" % first, support
     # Eliminated literals are cut off the clause by field notation,
     # `(h.resolve_left n)` (Or.resolve_left), which elaborates inside out from
     # the known type of the clause; only kept literals open an Or.elim case
@@ -5757,7 +5793,7 @@ def _resolution(graph, terms, node):
             continue
         cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
         subject = "_tail"
-    return "".join(cases) + branch(len(literals) - 1, subject) + "))" * len(cases)
+    return "".join(cases) + branch(len(literals) - 1, subject) + "))" * len(cases), support
 
 
 def _lemma(graph, terms, node, hypotheses):
@@ -6102,7 +6138,8 @@ def reconstruct(source, certificate):
             if formula is not None:
                 decidable_formulas.add(formula)
         elif graph.kind(node) == z3.Z3_OP_PR_UNIT_RESOLUTION:
-            term = _resolution(graph, terms, node)
+            term, support = _resolution(graph, terms, node)
+            decidable_formulas.update(support)
         else:
             raise ReconstructionError("unsupported native proof rule: %s" % graph.decl(node).name)
         # Abstract open DAG nodes so shared subproofs can be discharged independently.

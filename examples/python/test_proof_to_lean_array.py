@@ -934,12 +934,122 @@ SET_COMBINATOR_INPUTS = {
 (check-sat)
 """,
 }
+# Arrays over Bool indices, (Array Bool E): Prop -> E in Lean, an index is a
+# formula and two indices are equal as propositions (propext). A model's
+# array over Bool is an instance through p |-> a(p), so select, store, and
+# extensionality (whose witness is itself a formula) need nothing new.
+# Constant arrays and default values stay rejected over Bool indices (a
+# finite index sort).
+BOOL_INDEX_INPUTS = {
+    # z3test regressions/smt2/5798.smt2: a read at an index formula the
+    # rewriter decides (|r6| = ||r6||) against the read at true.
+    "z3test_5798": """(declare-fun r () (Array Bool Bool))
+(declare-fun r6 () Int)
+(assert (and (select r true) (not (select r (= (abs r6) (abs (abs r6)))))))
+(check-sat)
+""",
+    "bool_index_store_self": """(declare-sort E 0)
+(declare-fun a () (Array Bool E))
+(declare-fun p () Bool)
+(declare-fun e () E)
+(assert (= (store a p e) a))
+(assert (not (= (select a p) e)))
+(check-sat)
+""",
+    # Read over write at another index: p = q or the read sees a.
+    "bool_index_read_other": """(declare-fun a () (Array Bool Int))
+(declare-fun p () Bool)
+(declare-fun q () Bool)
+(assert (not (= p q)))
+(assert (not (= (select (store a p 1) q) (select a q))))
+(check-sat)
+""",
+    # Arrays agreeing at true and false are equal: the extensionality
+    # witness is a formula, and Lean decides it.
+    "bool_index_extensionality": """(declare-fun a () (Array Bool Int))
+(declare-fun b () (Array Bool Int))
+(assert (= (select a true) (select b true)))
+(assert (= (select a false) (select b false)))
+(assert (not (= a b)))
+(check-sat)
+""",
+    # Indices that are arithmetic atoms, equal after the rewriter's
+    # normalization.
+    "bool_index_arithmetic_atoms": """(declare-fun a () (Array Bool Bool))
+(declare-fun x () Int)
+(assert (select a (> x 0)))
+(assert (not (select a (>= x 1))))
+(check-sat)
+""",
+    # The rewriter skips a store at false in a read at true, as at distinct
+    # numerals (read_through_numeral_stores).
+    "bool_index_read_through_value_stores": """(declare-fun a () (Array Bool Int))
+(assert (not (= (select (store (store a true 1) false 2) true) 1)))
+(check-sat)
+""",
+    "function_into_bool_indexed_arrays": """(declare-sort U 0)
+(declare-fun h (U) (Array Bool U))
+(declare-fun x () U)
+(declare-fun y () U)
+(declare-fun p () Bool)
+(assert (= x y))
+(assert (not (= (select (h x) p) (select (h y) p))))
+(check-sat)
+""",
+    # A function over Bool-indexed arrays: (h a) applies h to the array's
+    # injection (_m.arrs_bi_inj).
+    "function_over_bool_indexed_arrays": """(declare-fun h ((Array Bool Int)) Int)
+(declare-fun a () (Array Bool Int))
+(declare-fun b () (Array Bool Int))
+(assert (= a b))
+(assert (not (= (h a) (h b))))
+(check-sat)
+""",
+    "bool_index_map":"""(declare-fun a () (Array Bool Bool))
+(declare-fun b () (Array Bool Bool))
+(declare-fun p () Bool)
+(assert (select ((_ map and) a b) p))
+(assert (not (select a p)))
+(check-sat)
+""",
+    # An index that is a read of a set.
+    "membership_as_index": """(declare-fun a () (Array Bool Bool))
+(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= i j))
+(assert (select a (select s i)))
+(assert (not (select a (select s j))))
+(check-sat)
+""",
+    # Stores at p and (not p): the array solver's index equality (= (not p)
+    # p) has the gate clause (or (not (= (not p) p)) (not (not p)) p), which
+    # the SAT solver resolves to p (the double negation is one literal there).
+    "bool_index_negated_stores": """(declare-fun a () (Array Bool Int))
+(declare-fun b () (Array Bool Int))
+(declare-fun p () Bool)
+(assert (= (store a p 0) (store b (not p) 0)))
+(assert (not (= (select a (not p)) (select b p))))
+(check-sat)
+""",
+    "bool_index_ite": """(declare-fun a () (Array Bool Int))
+(declare-fun b () (Array Bool Int))
+(declare-fun c () (Array Bool Int))
+(declare-fun p () Bool)
+(assert (= (select a true) (select c true)))
+(assert (= (select a false) (select c false)))
+(assert (= b (ite p a c)))
+(assert (not (= b a)))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(ARRAY_FUNCTION_INPUTS)
 ARRAY_INPUTS.update(BOOL_ELEMENT_INPUTS)
 ARRAY_INPUTS.update(SET_COMBINATOR_INPUTS)
+ARRAY_INPUTS.update(BOOL_INDEX_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
               "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira",
@@ -960,6 +1070,10 @@ _SET_COMBINATOR_FRAGMENTS = {"setminus_disjoint": "qf_uf", "setminus_as_intersec
 _FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for name in SET_COMBINATOR_INPUTS)
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   if name not in _FRAGMENTS)
+# Bool-indexed arrays over Int elements, or next to Int terms, are qf_uflia.
+_FRAGMENTS.update((name, "qf_uf") for name in ("bool_index_store_self", "function_into_bool_indexed_arrays",
+                                                "bool_index_map"))
+_FRAGMENTS.update((name, "qf_uflia") for name in BOOL_INDEX_INPUTS if name not in _FRAGMENTS)
 
 
 def _export(source):
@@ -987,11 +1101,15 @@ class TestArrayValidation(unittest.TestCase):
     def test_unsupported_arrays_are_rejected(self):
         context = z3.Context()
         rejected = {
-            # Bool elements are supported (BOOL_ELEMENT_INPUTS), Bool indices not.
-            "(declare-fun a () (Array Bool Int))(declare-fun b () (Array Bool Int))(assert (not (= a b)))":
-                "only arrays over uninterpreted sorts, Int, and Real",
-            "(declare-fun a () (Array Bool Bool))(assert (select a true))":
-                "only arrays over uninterpreted sorts, Int, and Real",
+            # Bool elements and Bool indices are supported (BOOL_ELEMENT_INPUTS,
+            # BOOL_INDEX_INPUTS), but not constant arrays or default values
+            # over Bool indices (a finite index sort), nor arrays of arrays.
+            "(assert (not (select ((as const (Array Bool Bool)) true) false)))":
+                "constant arrays are supported over Int and Real indices only",
+            "(declare-fun a () (Array Bool Int))(assert (> (default a) 0))":
+                "default values are supported over Int and Real indices only",
+            "(declare-fun a () (Array Bool (Array Bool Bool)))(assert (select (select a true) true))":
+                "unsupported array operator: select",
             "(declare-fun a () (Array Int (Array Int Bool)))(assert (select (select a 0) 1))":
                 "unsupported array operator: select",
             "(declare-sort I 0)(declare-fun a () (Array I I I))(declare-fun i () I)"
@@ -1019,11 +1137,11 @@ class TestArrayValidation(unittest.TestCase):
                 "default values are supported over Int and Real indices only",
             # Functions over and into arrays are supported, but not into or
             # over arrays of an unsupported sort.
-            "(declare-sort I 0)(declare-fun h (I) (Array Bool I))(declare-fun i () I)"
+            "(declare-sort I 0)(declare-fun h (I) (Array Bool (Array Bool I)))(declare-fun i () I)"
             "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
             "(declare-sort I 0)(declare-fun h (I) (Array I (Array I I)))(declare-fun i () I)"
             "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
-            "(declare-fun h ((Array Bool Int)) Int)(declare-fun a () (Array Bool Int))"
+            "(declare-fun h ((Array (Array Bool Int) Int)) Int)(declare-fun a () (Array (Array Bool Int) Int))"
             "(assert (> (h a) (h a)))": "uninterpreted functions over",
             # A quoted sort name that imitates the certificate's array sort names.
             "(declare-sort I 0)(declare-sort |(Array I I)| 0)(declare-fun x () |(Array I I)|)"
@@ -1289,6 +1407,72 @@ class TestArrayValidation(unittest.TestCase):
             self.assertNotIn("sorry", each)
             self.assertNotIn("axiom ", each)
 
+    def test_bool_index_encoding(self):
+        """An array over Bool indices is a function Prop -> E; indices and the extensionality witness are formulas."""
+        def text(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        extensionality = text("bool_index_extensionality")
+        self.assertIn("  arrs_bi : Nat -> Prop -> Int", extensionality)
+        self.assertIn('-- Array sorts "(Array Bool Int)" are functions Prop -> Int (_m.arrs_bi)', extensionality)
+        # The witness is a formula, chosen with Prop's inhabitant True.
+        self.assertRegex(extensionality, r"def formula_[0-9]+ \(_atoms : Nat -> Prop\) \(_vars : Nat -> Int\) "
+                                         r"\(_m : Interpretation\) : Prop := \(_array_diff \(Nonempty.intro True\) ")
+        self.assertRegex(extensionality, r"have _x[0-9]+ := _array_ext \(Nonempty.intro True\) ")
+        self.assertNotIn("nonempty :", extensionality)
+        self.assertRegex(extensionality, r": Int := \(_select \(term_[0-9]+ [^)]*\) \(formula_")
+        self.assertIn("  arrs_bu : Nat -> Prop -> U", text("bool_index_store_self"))
+        self.assertIn("  arrs_bb : Nat -> Prop -> Prop", text("z3test_5798"))
+        self.assertIn("  arrs_bu_funs : Nat -> List U -> Prop -> U", text("function_into_bool_indexed_arrays"))
+        # A function over such arrays applies to the array's injection into U.
+        over = text("function_over_bool_indexed_arrays")
+        self.assertIn("  arrs_bi_inj : (Prop -> Int) -> U", over)
+        self.assertRegex(over, r":= _m\.ifuns 0 \[\(_m\.arrs_bi_inj \(term_[0-9]+ ")
+        # Both levels of a read at true through a store at false.
+        through = text("bool_index_read_through_value_stores")
+        self.assertRegex(through, r"have _s[0-9]+ := _store_apply \(\(term_[0-9]+ [^)]*\)\) \(False\) "
+                                  r"\(\(\(2 : Int\)\)\) \(True\)\n")
+        self.assertRegex(through, r"have _s[0-9]+_1 := _store_apply \(\(term_[0-9]+ [^)]*\)\) \(True\) "
+                                  r"\(\(\(1 : Int\)\)\) \(True\)\n")
+        # The gate clause's (not (not p)) is concluded as p by contradiction.
+        negated = text("bool_index_negated_stores")
+        self.assertRegex(negated, r"\(fun _literal => \(@Decidable\.byContradiction \(formula_([0-9]+) "
+                                  r"[^)]*\) _df\1 _literal\)\) \(fun _tail => _tail\)")
+        for each in (extensionality, through, negated):
+            self.assertNotIn("sorry", each)
+            self.assertNotIn("axiom ", each)
+
+    def test_tampered_bool_index_arrays_are_rejected(self):
+        def witness_into_int(certificate):
+            next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_EXT)["range"] = "Int"
+
+        def const_over_bool(certificate):
+            # The read at true (a Bool-indexed array constant) relabelled a constant array.
+            array = next(d for d in certificate["declarations"]
+                         if d["kind"] == z3.Z3_OP_UNINTERPRETED and d["range"] == "(Array Bool Int)")
+            array.update(kind=z3.Z3_OP_CONST_ARRAY, name="const", domain=["Int"])
+
+        def double_negation_concluded_negated(certificate):
+            # The unit resolution concluding p from the gate clause (or (not
+            # (= (not p) p)) (not (not p)) p) concludes (not p) instead.
+            graph = proof_to_lean._validate_graph(ARRAY_INPUTS["bool_index_negated_stores"], certificate)
+            for node in range(len(graph.nodes)):
+                if graph.kind(node) != z3.Z3_OP_PR_UNIT_RESOLUTION:
+                    continue
+                literals = graph.clause(graph.conclusion(graph.arguments(node)[0]))
+                doubles = [literal for literal in literals if graph.kind(literal) == z3.Z3_OP_NOT
+                           and graph.kind(graph.arguments(literal)[0]) == z3.Z3_OP_NOT]
+                if doubles and graph.kind(graph.conclusion(node)) == z3.Z3_OP_UNINTERPRETED:
+                    negation = graph.arguments(doubles[0])[0]
+                    certificate["nodes"][node]["arguments"][-1] = negation
+                    return
+            self.fail("no unit resolution over a double negation")
+
+        self._rejects("bool_index_extensionality", witness_into_int, "invalid array-ext declaration")
+        self._rejects("bool_index_read_other", const_over_bool, "invalid constant array declaration")
+        self._rejects("bool_index_negated_stores", double_negation_concluded_negated,
+                      "incorrect unit-resolution conclusion")
+
     def test_store_level_facts(self):
         """Reads get facts for the store levels the rewriter skips, and only for those, over plain arrays."""
         def levels(name):
@@ -1339,9 +1523,9 @@ class TestArrayValidation(unittest.TestCase):
             store = next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_STORE)
             store["domain"] = store["domain"][:2] + ["Int"]
 
-        # Bool indices are not supported (a finite index sort).
+        # Bool indices are supported, but the stores and reads stay at Int indices.
         self._rejects("set_insert_elsewhere", relabelled("(Array Int Bool)", "(Array Bool Bool)"),
-                      "unsupported array sort")
+                      "invalid select declaration|invalid store declaration|wrong argument sort")
         self._rejects("set_insert_elsewhere", relabelled("(Array Int Bool)", "(Array Int Int)"),
                       "invalid select declaration|invalid store declaration|wrong argument sort")
         self._rejects("set_insert_elsewhere", select_into_int, "invalid select declaration|wrong argument sort")
@@ -1508,7 +1692,9 @@ class TestArrayValidation(unittest.TestCase):
         # Bool elements are supported, but the reads stay Int-valued.
         self._rejects("int_read_other_index", relabelled_arrays("(Array Int Bool)"),
                       "invalid (select|store) declaration|wrong argument sort")
-        self._rejects("int_read_other_index", relabelled_arrays("(Array Bool Int)"), "unsupported array sort")
+        self._rejects("int_read_other_index", relabelled_arrays("(Array Bool Int)"),
+                      "invalid (select|store) declaration|wrong argument sort")
+        self._rejects("int_read_other_index", relabelled_arrays("(Array Proof Int)"), "unsupported array sort")
         self._rejects("int_read_other_index", farkas_as_array_lemma, "array th-lemma literals must be equalities")
 
     def test_array_lemmas_are_equality_clauses(self):
@@ -1725,7 +1911,8 @@ class TestArrayLeanIntegration(unittest.TestCase):
                            ("read_through_numeral_stores", "_store_apply"),
                            ("set_read_through_numeral_stores", "_store_apply"),
                            ("read_through_numeral_stores_to_own_index", "_store_apply"),
-                           ("read_through_negative_numeral_stores", "_store_apply")):
+                           ("read_through_negative_numeral_stores", "_store_apply"),
+                           ("bool_index_read_through_value_stores", "_store_apply")):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
