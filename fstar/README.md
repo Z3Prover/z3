@@ -8,12 +8,6 @@ This directory contains three related activities:
 | **2. Neuro-Formal audits of Z3 source code** | Examine selected C++ implementations against the formalized semantics, verify their semantic obligations, and document findings and scope limits. | [Source audits](SOURCE_AUDITS.md) |
 | **3. Proof checking of Z3 proofs** | Build verified checkers that validate proof steps and certificates using the formalized semantics and lemmas. | [Proof checking](PROOF_CHECKING.md) |
 
-The independent [SQL equivalence formalization](FSTAR_SQL_REPORT.md) defines
-bag/NULL-aware query semantics, aggregation, and verified BIRD/Spider-derived
-equivalence examples and counterexamples in the `Sql.*.fst` modules.
-The [Cherry SQL rewrite solver](sql_solver/README.md) applies a proved
-optimizer repertoire using Z3 user-propagator callbacks and e-graph matching.
-
 The formalization is the shared foundation. **Source audits and proof
 checking are independent activities**: both depend on the formalization,
 but neither depends on the other.
