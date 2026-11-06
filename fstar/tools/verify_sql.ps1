@@ -32,8 +32,10 @@ if ($Refresh) { $flags += "--z3refresh" }
 & $FstarExe --version
 if ($LASTEXITCODE -ne 0) { throw "Cannot execute F*: $FstarExe" }
 Write-Host "SMT backend: $Z3Exe ($version)"
-foreach ($module in @("Sql.Core", "Sql.Query", "Sql.Laws", "Sql.Examples", "Sql.Tests")) {
-    & $FstarExe @flags (Join-Path $sources "$module.fst")
+foreach ($module in @("Sql.Core.fst", "Sql.Query.fst", "Sql.Laws.fst",
+                     "Sql.Examples.fst", "Sql.Tests.fst", "Sql.Optimize.fst",
+                     "Sql.Native.fsti", "Sql.Cherry.fst")) {
+    & $FstarExe @flags (Join-Path $sources $module)
     if ($LASTEXITCODE -ne 0) { throw "F* verification failed: $module" }
 }
 & python (Join-Path $PSScriptRoot "test_sql_semantics.py")

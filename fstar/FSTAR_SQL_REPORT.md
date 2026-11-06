@@ -2,7 +2,7 @@
 
 ## Result
 
-The five `Sql.*.fst` modules formalize a pure, terminating SQL query model.
+The original five `Sql.*.fst` modules formalize a pure, terminating SQL query model.
 **All five modules verify in F* 2026.09.27 with checkout Z3 5.3.2 and 5.3.4.**
 The study contains **22 query-equivalence problems: 10 proven equivalent
 and 12 refuted by mechanically checked, concrete counterexamples**.
@@ -23,6 +23,11 @@ not official BIRD/Spider equivalence labels or a measured accuracy score.
 BIRD and Spider provide text-to-SQL examples, not a catalog of proven
 equivalence pairs. A negative result refutes our proposed rewrite, not the
 dataset's reference query.
+
+The later [Cherry SQL optimizer and solver](sql_solver/README.md) extend
+this foundation with an executable, verified optimization repertoire and
+Z3 user-propagator saturation. See the final section of this report for
+its architecture, validation, and local executable artifacts.
 
 ## Files and reproduction
 
@@ -348,3 +353,144 @@ movement remains valid through aggregation, but an analogous LEFT JOIN
 movement fails. COUNT and AVG rewrites require tracking which operands
 are NULL; DISTINCT and UNION cannot be erased without constraints; and
 top-1 selection is not a substitute for returning all extrema.
+
+## Extension: proved optimizer repertoire and Cherry/Z3 solver
+
+The optimizer adds `Sql.Optimize.fst`, `Sql.Native.fsti`, and
+`Sql.Cherry.fst`. The updated PowerShell verifier checks all eight SQL
+modules/interfaces. The original 22 equivalence-study results above
+remain unchanged.
+
+### Proof obligation and commercial optimizer transformations
+
+The executable function `Sql.Optimize.rewrite` is accompanied by:
+
+```text
+forall interpretation, source.
+  rewrite source = Some target
+  ==> denote interpretation source = denote interpretation target
+```
+
+`denote` is defined using the existing SQL core: NULL-aware selection,
+projection, bag union, joins, and aggregates. The theorem covers arbitrary
+finite tables and arbitrary pure scalar/predicate interpretations.
+It proves exact output-list equality, stronger than unordered bag equality.
+No key, foreign-key, uniqueness, or non-NULL condition is silently assumed.
+
+The catalogue has 27 tested concrete rule shapes:
+
+| Family | Rules |
+|---|---|
+| Filter elimination | TRUE, FALSE, empty input, repeated identical filter |
+| Predicate movement / view simplification | Fuse nested filters; push through projection with preimage substitution; distribute over UNION ALL; move WHERE into INNER JOIN ON |
+| Projection simplification | Empty input, identity, compose nested projections, distribute over UNION ALL |
+| UNION ALL simplification | Eliminate either empty operand; reassociate rightward |
+| Join simplification | Empty left/right operands for CROSS and INNER JOIN; FALSE ON; TRUE ON to CROSS JOIN |
+| Join distribution | CROSS/INNER JOIN distribute over a UNION ALL left operand |
+| Aggregate normalization | COUNT(1) to COUNT(*); COUNT(expr) to filtered COUNT(*); COUNT(CASE WHEN p THEN 1 END) to filtered COUNT(*) |
+| Partial aggregation | COUNT(A UNION ALL B) to addition of partial COUNTs |
+
+These are relational specializations of optimization families used by
+commercial databases. For example, Oracle documents view merging and
+predicate pushing in its
+[Query Transformations](https://docs.oracle.com/en/database/oracle/oracle-database/19/tgsql/query-transformations.html)
+guide. This implementation supplies correctness transformations, not an
+Oracle-compatible optimizer, cost model, or performance claim.
+Bag-only join permutations and key-dependent elimination require further
+proofs and metadata; they are not installed as arbitrary SMT equalities.
+
+### SMT-LIB and user-propagator execution
+
+`sql_solver\signature.smt2` gives the textual declarations for SQL query,
+predicate, projection, and scalar constructors. Native `String` and `Int`
+sorts carry names, constants, and column identifiers. The builder derives
+the declaration table from this file. The frontend creates the functions
+with `Z3_solver_propagate_declare` and preloads those exact declarations
+into Z3's SMT-LIB parser.
+
+The `created` callback discovers query terms; `eq` receives equality
+events. The `final` callback traverses argument equivalence classes with
+Z3's `congruence_root` and circular `congruence_next`. It considers
+Cartesian combinations of argument representatives, including matches
+that need more than one argument substitution. Candidates are decoded
+and rewritten by the **actual Cherry-extracted F* function**.
+
+An e-class match is propagated as
+`(arg1=alternative1 AND ...) => source=target`.
+Branch-local equalities are never used to justify unconditional rewrites.
+User-propagator declarations suppress ordinary argument congruence, so the
+callback also emits guarded functional-congruence equalities for all
+registered constructors. This includes scalar and projection constructors,
+and propagates inner query rewrites through their enclosing contexts.
+After a successful propagation, the callback yields; Z3 internalizes new
+terms/equalities and returns to final-check. Saturation finishes when no
+additional enabled instance makes progress. Consequence caches are
+cleared on pop and between checks. Matching/tree/instance resource
+exhaustion returns UNKNOWN, including for cyclic e-classes.
+
+This is an incomplete equational SQL solver. Asserting that two queries
+are distinct and obtaining UNSAT proves their equality under the
+constraints and the trusted implementation boundary. SAT is only a
+model of instantiated rewrite equations, not an actual database witness.
+The signature does not expose every operation in `Sql.Core`.
+SQL text parsing, ordered/outer-join rewrites, general SUM/AVG pushdown,
+and row-dependent scalar-theory reasoning remain outside this executable.
+
+### Native build, package, and measured examples
+
+The native build used WSL Linux x86-64, GCC/G++ 15.2.0, F* `v2026.10.25`
+(commit `362e792b3aa882f1766b95c7450e3fe63081163d`), and a freshly built,
+installed static checkout Z3 5.3.4. Every dependency was verified with
+verification warnings treated as errors before Cherry extraction.
+The kernel and runtime retain Cherry debug checks; C++ compilation uses
+`-Wall -Wextra -Werror`. No lax checking or proof admission is used.
+
+`tools\build_sql_solver.py` produces the native executable, metadata,
+and a checksummed tar package containing the signature, documentation,
+and Z3/F* licenses. Z3 is linked statically: `ldd` lists only standard
+Linux runtime libraries, not libz3, F*, or OCaml.
+
+Validation includes all 27 rule instances, multiple final-check rounds,
+one- and multi-argument e-class matching, contextual congruence, push/pop,
+native Int/String reasoning, non-theorems, malformed input, explicit budget exhaustion,
+and genuinely cyclic e-classes. The packaged binary was extracted and
+run with a clean environment. Archive checksum verification passed.
+
+| Example | Result | Final callbacks | Accepted rewrites | E-class-dependent rewrites | Congruence steps |
+|---|---|---:|---:|---:|---:|
+| `aggregate.smt2` | UNSAT | 2 | 2 | 0 | 0 |
+| `bird297.smt2` | UNSAT | 2 | 1 | 0 | 1 |
+| `egraph.smt2` | UNSAT | 1 | 1 | 1 | 0 |
+| `builtins.smt2` | UNSAT | 0 | 0 | 0 | 0 |
+| `non-equivalent.smt2` | SAT, not a database witness | 1 | 0 | 0 | 0 |
+
+The BIRD 297 example encodes E01's source/date filter fusion underneath
+the original notes projection. It also checks that a successful inner
+rewrite closes through an enclosing query constructor. Eleven native
+test groups pass, including constructor congruence driven by arithmetic
+equalities rather than only syntactically identical parameters.
+
+The cyclic test `x = UNION ALL(x,a)`, at a ten-instance bound, returned
+UNKNOWN after ten final callbacks, not a false SAT/saturation result.
+
+Local persistent artifacts are:
+
+```text
+build\sql-solver\sql-solver
+build\sql-solver\build.json
+build\sql-solver\sql-solver-linux-x86_64.tar.gz
+build\sql-solver\sql-solver-linux-x86_64.tar.gz.sha256
+```
+
+The binary is a Linux ELF executable, usable on this Windows machine
+through WSL:
+
+```powershell
+wsl --exec bash -lc '/mnt/c/z3/build/sql-solver/sql-solver --stats /mnt/c/z3/fstar/sql_solver/examples/aggregate.smt2'
+```
+
+See `sql_solver\README.md` for the portable build and run commands.
+The bridge's declaration/opcode fidelity, native AST marshalling,
+callback integration, compiler/extraction toolchain, Cherry runtime,
+and Z3 remain trusted. The F* theorem proves the optimizer's denotation
+law, not the C++ marshaller or a certificate for the entire Z3 proof.
