@@ -4,7 +4,12 @@
 # Structure tests for the checker-only and full Pulse checker workflows.
 ############################################
 from pathlib import Path
+import json
+import os
 import re
+import subprocess
+import tempfile
+import textwrap
 import unittest
 
 
@@ -109,8 +114,8 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
                     for path in ("fstar/**", f".github/workflows/{name}", _INSTALL):
                         self.assertIn(f"- '{path}'", paths)
                 self.assertIn(_NIGHTLY_GUARD, job)
-                self.assertIn("ref: ${{ github.event.workflow_run.head_sha || "
-                              "github.event.pull_request.head.sha || github.sha }}", job)
+                self.assertIn("ref: ${{ github.event.workflow_run.head_sha || github.sha }}", job)
+                self.assertNotIn("github.event.pull_request.head.sha", job)
                 self.assertIn("persist-credentials: false", job)
                 self.assertNotIn("permissions:", job)
                 self.assertIn(f"run: bash {_INSTALL}", job)
@@ -128,6 +133,82 @@ class TestPulseCheckerWorkflows(unittest.TestCase):
         self.assertIn('printf \'%s  %s\\n\' "$CHERRY_FSTAR_SHA256" "$cherry_archive" | sha256sum --check',
                       script)
         self.assertNotRegex(script, r"[0-9a-f]{64}")
+
+    def test_toolchain_install_avoids_recommended_system_ocaml_and_bounds_download_stalls(self):
+        script = (_REPO_ROOT / _INSTALL).read_text(encoding="utf-8")
+        installs = re.findall(r"sudo apt-get ([^\n]+)", script.replace("\\\n", " "))
+        for command in installs:
+            if "install" in command:
+                self.assertIn("--no-install-recommends", command)
+        packages = next(command for command in installs if "libgmp-dev" in command)
+        for option in ("Acquire::Retries=3", "Acquire::http::Timeout=30", "Acquire::https::Timeout=30"):
+            self.assertIn(option, packages)
+
+    def test_source_metadata_accepts_only_the_triggering_pr_merge_or_original_commit(self):
+        job = _jobs(_read("pulse-checker-regressions.yml"))["checker-build"]
+        script = textwrap.dedent(job.rsplit("          script: |\n", 1)[1])
+        harness = """\
+const fs = require('node:fs');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
+const github = {rest: {repos: {getCommit: async ({ref}) => {
+  if (ref !== input.source) throw new Error('Unexpected source query');
+  return {data: {parents: input.parents.map(sha => ({sha}))}};
+}}}};
+const core = {setOutput: (name, value) => console.log(JSON.stringify({[name]: value})),
+  summary: {addRaw: () => ({write: async () => {}})}};
+new AsyncFunction('github', 'context', 'core', input.script)(
+  github, {repo: {owner: 'Z3Prover', repo: 'z3'}}, core
+).catch(error => {console.error(error.message); process.exitCode = 1;});
+"""
+        head, base, merge = "a" * 40, "b" * 40, "c" * 40
+        cases = [
+            ("push", head, [], True),
+            ("pull_request", head, [], True),
+            ("pull_request", merge, [base, head], True),
+            ("pull_request", merge, [head], False),
+            ("pull_request", merge, [base, base], False),
+            ("push", merge, [base, head], False),
+            ("workflow_run", base, [], True),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            source_file = Path(directory) / "source.json"
+            for event, source, parents, accepted in cases:
+                with self.subTest(event=event, source=source, parents=parents):
+                    source_file.write_text(json.dumps({"source_sha": source}), encoding="utf-8")
+                    env = dict(os.environ, SOURCE_FILE=str(source_file),
+                               RUN_HEAD_SHA=head, PRODUCER_EVENT=event)
+                    result = subprocess.run(
+                        ["node", "-e", harness], input=json.dumps({
+                            "script": script, "source": source, "parents": parents
+                        }).encode("utf-8"), env=env, capture_output=True)
+                    self.assertEqual(result.returncode == 0, accepted, result.stderr.decode())
+                    if accepted:
+                        self.assertEqual(json.loads(result.stdout)["source_sha"], source)
+
+    def test_fixed_qfbv_budget_matches_across_backends_and_fits_step_limits(self):
+        workflow = _read("pulse-checker-regressions.yml")
+        default = int(re.search(r"qfbv_total_timeout_seconds:\n.*?\n        default: (\d+)",
+                                workflow, re.DOTALL).group(1))
+        solver_timeout = int(re.search(r"solver_timeout_ms:\n.*?\n        default: (\d+)",
+                                       workflow, re.DOTALL).group(1))
+        self.assertGreaterEqual(default * 1000, 300 * solver_timeout)
+        jobs = _jobs(workflow)
+        ocaml = jobs["build-test-report"].split(
+            "- name: Run native checker on 300 fixed QF_BV certificates", 1)[1].split(
+                "\n      - name:", 1)[0]
+        cherry = jobs["cherry-regressions"].split(
+            "- name: Replay the proof corpus, identical SMT-LIB samples", 1)[1].split(
+                "\n      - name:", 1)[0]
+        self.assertIn(f'${{TOTAL_TIMEOUT_SECONDS:-{default}}}', ocaml)
+        self.assertIn(f'${{QFBV_TIMEOUT_SECONDS:-{default}}}', cherry)
+        self.assertIn("--expected-cases 300", ocaml)
+        self.assertIn("count=300", cherry)
+        self.assertGreater(int(re.search(r"timeout-minutes: (\d+)", ocaml).group(1)) * 60,
+                           default)
+        self.assertGreaterEqual(int(re.search(r"timeout-minutes: (\d+)",
+                                             jobs["cherry-regressions"]).group(1)),
+                                int(re.search(r"timeout-minutes: (\d+)", cherry).group(1)) + 80)
 
     def test_regressions_consume_only_checker_build_artifacts(self):
         regressions = _read("pulse-checker-regressions.yml")

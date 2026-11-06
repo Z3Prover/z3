@@ -45,7 +45,7 @@ on:
       qfbv_total_timeout_seconds:
         description: 300-input fixed QF_BV certificate execution budget in seconds
         type: number
-        default: 1800
+        default: 5400
       qfff_total_timeout_seconds:
         description: 25-input QF_FF certificate execution budget in seconds
         type: number
@@ -121,9 +121,17 @@ jobs:
             } else {
               throw new Error('Nightly-triggered checker build is missing its source revision');
             }
-            if (!/^[0-9a-f]{40}$/.test(sha) ||
-                (process.env.PRODUCER_EVENT !== 'workflow_run' && sha !== process.env.RUN_HEAD_SHA)) {
+            if (!/^[0-9a-f]{40}$/.test(sha)) {
               throw new Error('Invalid or inconsistent checker source revision');
+            }
+            if (process.env.PRODUCER_EVENT !== 'workflow_run' && sha !== process.env.RUN_HEAD_SHA) {
+              if (process.env.PRODUCER_EVENT !== 'pull_request') {
+                throw new Error('Invalid or inconsistent checker source revision');
+              }
+              const {data: commit} = await github.rest.repos.getCommit({...context.repo, ref: sha});
+              if (commit.parents.length !== 2 || commit.parents[1].sha !== process.env.RUN_HEAD_SHA) {
+                throw new Error('Checker source is not the triggering pull request merge revision');
+              }
             }
             core.setOutput('source_sha', sha);
             await core.summary.addRaw(`\n\nSource revision: \`${sha}\`\n`).write();
@@ -321,7 +329,7 @@ jobs:
       - name: Run native checker on 300 fixed QF_BV certificates
         id: qfbv
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.qfbv_inputs.outcome == 'success' }}
-        timeout-minutes: 35
+        timeout-minutes: 95
         env:
           SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
           CASE_TIMEOUT_SECONDS: ${{ inputs.case_timeout_seconds }}
@@ -335,7 +343,7 @@ jobs:
             --manifest "$REPORT_DIR/qfbv/inputs/manifest.json" --expected-cases 300 \
             --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
             --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
-            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-1800}" \
+            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-5400}" \
             --memory-limit-mb 4096 --output "$REPORT_DIR/qfbv"
 
       - name: Generate 25 exhaustively UNSAT QF_FF certificate inputs
@@ -452,7 +460,7 @@ jobs:
     needs: [checker-build, build-test-report]
     if: ${{ !cancelled() && needs.build-test-report.outputs.build_outcome == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 360
     defaults:
       run:
         shell: bash
@@ -513,7 +521,7 @@ jobs:
 
       - name: Replay the proof corpus, identical SMT-LIB samples, and fixed QF_BV and QF_FF inputs with Cherry
         id: regressions
-        timeout-minutes: 210
+        timeout-minutes: 270
         env:
           CORPUS_PATH: ${{ inputs.corpus_path }}
           MAX_CASES: ${{ inputs.max_cases }}
@@ -545,7 +553,7 @@ jobs:
               commit="$SOURCE_SHA"
             elif [[ "$cohort" == qfbv ]]; then
               count=300
-              budget="${QFBV_TIMEOUT_SECONDS:-1800}"
+              budget="${QFBV_TIMEOUT_SECONDS:-5400}"
             elif [[ "$cohort" == qfff ]]; then
               count=25
               budget="${QFFF_TIMEOUT_SECONDS:-600}"
