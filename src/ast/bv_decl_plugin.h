@@ -296,25 +296,22 @@ public:
 };
 
 class bv_recognizers {
-    family_id m_afid;
 public:
-    bv_recognizers(family_id fid):m_afid(fid) {}
-
-    family_id get_fid() const { return m_afid; }
-    family_id get_family_id() const { return get_fid(); }
+    family_id get_fid() const { return bv_family_id; }
+    family_id get_family_id() const { return bv_family_id; }
 
     bool is_numeral(expr const * n, rational & val) const;
     bool is_numeral(expr const * n, rational & val, unsigned & bv_size) const;
-    bool is_numeral(expr const * n) const { return is_app_of(n, get_fid(), OP_BV_NUM); }
+    bool is_numeral(expr const * n) const { return is_app_of(n, bv_family_id, OP_BV_NUM); }
     bool is_allone(expr const * e) const;
     bool is_zero(expr const * e) const;
     bool is_one(expr const* e) const;
     bool is_bv_sort(sort const * s) const;
     bool is_bv(expr const* e) const {  return is_bv_sort(e->get_sort()); }
 
-    bool is_concat(expr const * e) const { return is_app_of(e, get_fid(), OP_CONCAT); }
-    bool is_extract(func_decl const * f) const { return is_decl_of(f, get_fid(), OP_EXTRACT); }
-    bool is_extract(expr const * e) const { return is_app_of(e, get_fid(), OP_EXTRACT); }
+    bool is_concat(expr const * e) const { return is_app_of(e, bv_family_id, OP_CONCAT); }
+    bool is_extract(func_decl const * f) const { return is_decl_of(f, bv_family_id, OP_EXTRACT); }
+    bool is_extract(expr const * e) const { return is_app_of(e, bv_family_id, OP_EXTRACT); }
     unsigned get_extract_high(func_decl const * f) const { return f->get_parameter(0).get_int(); }
     unsigned get_extract_low(func_decl const * f) const { return f->get_parameter(1).get_int(); }
     unsigned get_extract_high(expr const * n) const { SASSERT(is_extract(n)); return get_extract_high(to_app(n)->get_decl()); }
@@ -323,62 +320,62 @@ public:
     bool is_repeat(expr const * e, expr*& arg, unsigned& n) const;
     bool is_ubv2int(expr const * e, expr * & r) const;
     bool is_sbv2int(expr const * e, expr * & r) const;
-    bool is_bv_add(expr const * e) const { return is_app_of(e, get_fid(), OP_BADD); }
-    bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }
-    bool is_bv_mul(expr const * e) const { return is_app_of(e, get_fid(), OP_BMUL); }
-    bool is_bv_neg(expr const * e) const { return is_app_of(e, get_fid(), OP_BNEG); }
+    bool is_bv_add(expr const * e) const { return is_app_of(e, bv_family_id, OP_BADD); }
+    bool is_bv_sub(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSUB); }
+    bool is_bv_mul(expr const * e) const { return is_app_of(e, bv_family_id, OP_BMUL); }
+    bool is_bv_neg(expr const * e) const { return is_app_of(e, bv_family_id, OP_BNEG); }
 
-    bool is_bv_sdiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV); }
-    bool is_bv_udiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV); }
-    bool is_bv_srem(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM); }
-    bool is_bv_urem(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM); }
-    bool is_bv_smod(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD); }
+    bool is_bv_sdiv(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSDIV); }
+    bool is_bv_udiv(expr const * e) const { return is_app_of(e, bv_family_id, OP_BUDIV); }
+    bool is_bv_srem(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSREM); }
+    bool is_bv_urem(expr const * e) const { return is_app_of(e, bv_family_id, OP_BUREM); }
+    bool is_bv_smod(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSMOD); }
 
-    bool is_bv_sdiv0(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV0); }
-    bool is_bv_udiv0(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV0); }
-    bool is_bv_srem0(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM0); }
-    bool is_bv_urem0(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM0); }
-    bool is_bv_smod0(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD0); }
+    bool is_bv_sdiv0(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSDIV0); }
+    bool is_bv_udiv0(expr const * e) const { return is_app_of(e, bv_family_id, OP_BUDIV0); }
+    bool is_bv_srem0(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSREM0); }
+    bool is_bv_urem0(expr const * e) const { return is_app_of(e, bv_family_id, OP_BUREM0); }
+    bool is_bv_smod0(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSMOD0); }
 
-    bool is_bv_sdivi(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV_I); }
-    bool is_bv_udivi(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV_I); }
-    bool is_bv_sremi(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM_I); }
-    bool is_bv_uremi(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM_I); }
-    bool is_bv_smodi(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD_I); }
+    bool is_bv_sdivi(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSDIV_I); }
+    bool is_bv_udivi(expr const * e) const { return is_app_of(e, bv_family_id, OP_BUDIV_I); }
+    bool is_bv_sremi(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSREM_I); }
+    bool is_bv_uremi(expr const * e) const { return is_app_of(e, bv_family_id, OP_BUREM_I); }
+    bool is_bv_smodi(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSMOD_I); }
 
-    bool is_bv_and(expr const * e) const { return is_app_of(e, get_fid(), OP_BAND); }
-    bool is_bv_or(expr const * e) const { return is_app_of(e, get_fid(), OP_BOR); }
-    bool is_bv_xor(expr const * e) const { return is_app_of(e, get_fid(), OP_BXOR); }
-    bool is_bv_nand(expr const * e) const { return is_app_of(e, get_fid(), OP_BNAND); }
-    bool is_bv_nor(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOR); }
-    bool is_bv_not(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOT); }
-    bool is_bv_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
-    bool is_bv_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
-    bool is_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
-    bool is_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
-    bool is_ult(expr const * e) const { return is_app_of(e, get_fid(), OP_ULT); }
-    bool is_slt(expr const * e) const { return is_app_of(e, get_fid(), OP_SLT); }
-    bool is_ugt(expr const * e) const { return is_app_of(e, get_fid(), OP_UGT); }
-    bool is_sgt(expr const * e) const { return is_app_of(e, get_fid(), OP_SGT); }
-    bool is_uge(expr const * e) const { return is_app_of(e, get_fid(), OP_UGEQ); }
-    bool is_sge(expr const * e) const { return is_app_of(e, get_fid(), OP_SGEQ); }
-    bool is_bit2bool(expr const * e) const { return is_app_of(e, get_fid(), OP_BIT2BOOL); }
-    bool is_ubv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_UBV2INT); }
-    bool is_sbv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_SBV2INT); }
-    bool is_int2bv(expr const* e) const { return is_app_of(e, get_fid(), OP_INT2BV); }
-    bool is_mkbv(expr const * e) const { return is_app_of(e, get_fid(), OP_MKBV); }
-    bool is_bv_ashr(expr const * e) const { return is_app_of(e, get_fid(), OP_BASHR); }
-    bool is_bv_lshr(expr const * e) const { return is_app_of(e, get_fid(), OP_BLSHR); }
-    bool is_bv_shl(expr const * e) const { return is_app_of(e, get_fid(), OP_BSHL); }
-    bool is_sign_ext(expr const * e) const { return is_app_of(e, get_fid(), OP_SIGN_EXT); }
-    bool is_bv_umul_no_ovfl(expr const* e) const { return is_app_of(e, get_fid(), OP_BUMUL_NO_OVFL); }
-    bool is_redand(expr const* e) const { return is_app_of(e, get_fid(), OP_BREDAND); }
-    bool is_redor(expr const* e) const { return is_app_of(e, get_fid(), OP_BREDOR); }
-    bool is_comp(expr const* e) const { return is_app_of(e, get_fid(), OP_BCOMP); }
-    bool is_rotate_left(expr const* e) const { return is_app_of(e, get_fid(), OP_ROTATE_LEFT); }
-    bool is_rotate_right(expr const* e) const { return is_app_of(e, get_fid(), OP_ROTATE_RIGHT); }
-    bool is_ext_rotate_left(expr const* e) const { return is_app_of(e, get_fid(), OP_EXT_ROTATE_LEFT); }
-    bool is_ext_rotate_right(expr const* e) const { return is_app_of(e, get_fid(), OP_EXT_ROTATE_RIGHT); }
+    bool is_bv_and(expr const * e) const { return is_app_of(e, bv_family_id, OP_BAND); }
+    bool is_bv_or(expr const * e) const { return is_app_of(e, bv_family_id, OP_BOR); }
+    bool is_bv_xor(expr const * e) const { return is_app_of(e, bv_family_id, OP_BXOR); }
+    bool is_bv_nand(expr const * e) const { return is_app_of(e, bv_family_id, OP_BNAND); }
+    bool is_bv_nor(expr const * e) const { return is_app_of(e, bv_family_id, OP_BNOR); }
+    bool is_bv_not(expr const * e) const { return is_app_of(e, bv_family_id, OP_BNOT); }
+    bool is_bv_ule(expr const * e) const { return is_app_of(e, bv_family_id, OP_ULEQ); }
+    bool is_bv_sle(expr const * e) const { return is_app_of(e, bv_family_id, OP_SLEQ); }
+    bool is_ule(expr const * e) const { return is_app_of(e, bv_family_id, OP_ULEQ); }
+    bool is_sle(expr const * e) const { return is_app_of(e, bv_family_id, OP_SLEQ); }
+    bool is_ult(expr const * e) const { return is_app_of(e, bv_family_id, OP_ULT); }
+    bool is_slt(expr const * e) const { return is_app_of(e, bv_family_id, OP_SLT); }
+    bool is_ugt(expr const * e) const { return is_app_of(e, bv_family_id, OP_UGT); }
+    bool is_sgt(expr const * e) const { return is_app_of(e, bv_family_id, OP_SGT); }
+    bool is_uge(expr const * e) const { return is_app_of(e, bv_family_id, OP_UGEQ); }
+    bool is_sge(expr const * e) const { return is_app_of(e, bv_family_id, OP_SGEQ); }
+    bool is_bit2bool(expr const * e) const { return is_app_of(e, bv_family_id, OP_BIT2BOOL); }
+    bool is_ubv2int(expr const* e) const { return is_app_of(e, bv_family_id, OP_UBV2INT); }
+    bool is_sbv2int(expr const* e) const { return is_app_of(e, bv_family_id, OP_SBV2INT); }
+    bool is_int2bv(expr const* e) const { return is_app_of(e, bv_family_id, OP_INT2BV); }
+    bool is_mkbv(expr const * e) const { return is_app_of(e, bv_family_id, OP_MKBV); }
+    bool is_bv_ashr(expr const * e) const { return is_app_of(e, bv_family_id, OP_BASHR); }
+    bool is_bv_lshr(expr const * e) const { return is_app_of(e, bv_family_id, OP_BLSHR); }
+    bool is_bv_shl(expr const * e) const { return is_app_of(e, bv_family_id, OP_BSHL); }
+    bool is_sign_ext(expr const * e) const { return is_app_of(e, bv_family_id, OP_SIGN_EXT); }
+    bool is_bv_umul_no_ovfl(expr const* e) const { return is_app_of(e, bv_family_id, OP_BUMUL_NO_OVFL); }
+    bool is_redand(expr const* e) const { return is_app_of(e, bv_family_id, OP_BREDAND); }
+    bool is_redor(expr const* e) const { return is_app_of(e, bv_family_id, OP_BREDOR); }
+    bool is_comp(expr const* e) const { return is_app_of(e, bv_family_id, OP_BCOMP); }
+    bool is_rotate_left(expr const* e) const { return is_app_of(e, bv_family_id, OP_ROTATE_LEFT); }
+    bool is_rotate_right(expr const* e) const { return is_app_of(e, bv_family_id, OP_ROTATE_RIGHT); }
+    bool is_ext_rotate_left(expr const* e) const { return is_app_of(e, bv_family_id, OP_EXT_ROTATE_LEFT); }
+    bool is_ext_rotate_right(expr const* e) const { return is_app_of(e, bv_family_id, OP_EXT_ROTATE_RIGHT); }
 
     bool is_rotate_left(expr const* e, unsigned& n, expr*& x) const {
         return is_rotate_left(e) && (n = to_app(e)->get_parameter(0).get_int(), x = to_app(e)->get_arg(0), true);
@@ -475,34 +472,34 @@ public:
     unsigned get_int2bv_size(parameter const& p);
 
 
-    app * mk_ule(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULEQ, arg1, arg2); }
-    app * mk_ult(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULT, arg1, arg2); }
-    app * mk_sle(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLEQ, arg1, arg2); }
-    app * mk_slt(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLT, arg1, arg2); }
+    app * mk_ule(expr * arg1, expr * arg2) { return m_manager.mk_app(bv_family_id, OP_ULEQ, arg1, arg2); }
+    app * mk_ult(expr * arg1, expr * arg2) { return m_manager.mk_app(bv_family_id, OP_ULT, arg1, arg2); }
+    app * mk_sle(expr * arg1, expr * arg2) { return m_manager.mk_app(bv_family_id, OP_SLEQ, arg1, arg2); }
+    app * mk_slt(expr * arg1, expr * arg2) { return m_manager.mk_app(bv_family_id, OP_SLT, arg1, arg2); }
     app * mk_extract(unsigned high, unsigned low, expr * n) {
         parameter params[2] = { parameter(high), parameter(low) };
-        return m_manager.mk_app(get_fid(), OP_EXTRACT, 2, params, 1, &n);
+        return m_manager.mk_app(bv_family_id, OP_EXTRACT, 2, params, 1, &n);
     }
-    app * mk_concat(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_CONCAT, num, args);  }
-    app * mk_concat(std::initializer_list<expr*> args) { return m_manager.mk_app(get_fid(), OP_CONCAT, static_cast<unsigned>(args.size()), args.begin());  }
-    app * mk_concat(expr_ref_vector const& es) { return m_manager.mk_app(get_fid(), OP_CONCAT, es.size(), es.data());  }
-    app * mk_concat(expr_ref_buffer const& es) { return m_manager.mk_app(get_fid(), OP_CONCAT, es.size(), es.data());  }
-    app * mk_concat(ptr_buffer<expr> const& es) { return m_manager.mk_app(get_fid(), OP_CONCAT, es.size(), es.data());  }
-    app * mk_concat(ptr_vector<expr> const& es) { return m_manager.mk_app(get_fid(), OP_CONCAT, es.size(), es.data());  }
-    app * mk_bv_or(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BOR, num, args);  }
-    app * mk_bv_or(std::initializer_list<expr*> args) { return m_manager.mk_app(get_fid(), OP_BOR, static_cast<unsigned>(args.size()), args.begin());  }
-    app * mk_bv_and(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BAND, num, args);  }
-    app * mk_bv_and(std::initializer_list<expr*> args) { return m_manager.mk_app(get_fid(), OP_BAND, static_cast<unsigned>(args.size()), args.begin());  }
-    app * mk_bv_xor(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BXOR, num, args);  }
-    app * mk_bv_xor(std::initializer_list<expr*> args) { return m_manager.mk_app(get_fid(), OP_BXOR, static_cast<unsigned>(args.size()), args.begin());  }
+    app * mk_concat(unsigned num, expr * const * args) { return m_manager.mk_app(bv_family_id, OP_CONCAT, num, args);  }
+    app * mk_concat(std::initializer_list<expr*> args) { return m_manager.mk_app(bv_family_id, OP_CONCAT, static_cast<unsigned>(args.size()), args.begin());  }
+    app * mk_concat(expr_ref_vector const& es) { return m_manager.mk_app(bv_family_id, OP_CONCAT, es.size(), es.data());  }
+    app * mk_concat(expr_ref_buffer const& es) { return m_manager.mk_app(bv_family_id, OP_CONCAT, es.size(), es.data());  }
+    app * mk_concat(ptr_buffer<expr> const& es) { return m_manager.mk_app(bv_family_id, OP_CONCAT, es.size(), es.data());  }
+    app * mk_concat(ptr_vector<expr> const& es) { return m_manager.mk_app(bv_family_id, OP_CONCAT, es.size(), es.data());  }
+    app * mk_bv_or(unsigned num, expr * const * args) { return m_manager.mk_app(bv_family_id, OP_BOR, num, args);  }
+    app * mk_bv_or(std::initializer_list<expr*> args) { return m_manager.mk_app(bv_family_id, OP_BOR, static_cast<unsigned>(args.size()), args.begin());  }
+    app * mk_bv_and(unsigned num, expr * const * args) { return m_manager.mk_app(bv_family_id, OP_BAND, num, args);  }
+    app * mk_bv_and(std::initializer_list<expr*> args) { return m_manager.mk_app(bv_family_id, OP_BAND, static_cast<unsigned>(args.size()), args.begin());  }
+    app * mk_bv_xor(unsigned num, expr * const * args) { return m_manager.mk_app(bv_family_id, OP_BXOR, num, args);  }
+    app * mk_bv_xor(std::initializer_list<expr*> args) { return m_manager.mk_app(bv_family_id, OP_BXOR, static_cast<unsigned>(args.size()), args.begin());  }
 
     app * mk_concat(expr * arg1, expr * arg2) { expr * args[2] = { arg1, arg2 }; return mk_concat(2, args); }
     app * mk_bv_and(expr* x, expr* y) { expr* args[2] = { x, y }; return mk_bv_and(2, args); }
     app * mk_bv_or(expr* x, expr* y) { expr* args[2] = { x, y }; return mk_bv_or(2, args); }
     app * mk_bv_xor(expr* x, expr* y) { expr* args[2] = { x, y }; return mk_bv_xor(2, args); }
 
-    app * mk_bv_not(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNOT, arg); }
-    app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
+    app * mk_bv_not(expr * arg) { return m_manager.mk_app(bv_family_id, OP_BNOT, arg); }
+    app * mk_bv_neg(expr * arg) { return m_manager.mk_app(bv_family_id, OP_BNEG, arg); }
     // absolute value: ite(arg <s 0, -arg, arg). Note mk_abs(INT_MIN) = INT_MIN.
     // Uses ¬(0 ≤s arg) instead of (arg <s 0) so that the ITE condition is OP_NOT(OP_SLEQ)
     // (handled by theory_bv::internalize_atom) rather than OP_SLT (not handled).
@@ -526,69 +523,69 @@ public:
                is_bv_sdiv(t) || is_bv_sdivi(t);
     }
     void mk_bv_divrem_bound(expr* t, expr_ref_vector& clause);
-    app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
-    app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
-    app * mk_bv_smod(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD, arg1, arg2); }
-    app * mk_bv_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
-    app * mk_bv_add(ptr_buffer<expr> const & args) const { return m_manager.mk_app(get_fid(), OP_BADD, args.size(), args.data()); }
-    app * mk_bv_add(ptr_vector<expr> const & args) const { return m_manager.mk_app(get_fid(), OP_BADD, args.size(), args.data()); }
-    app * mk_bv_add(expr_ref_vector const & args) const { return m_manager.mk_app(get_fid(), OP_BADD, args.size(), args.data()); }
-    app * mk_bv_add(expr_ref_buffer const & args) const { return m_manager.mk_app(get_fid(), OP_BADD, args.size(), args.data()); }
-    app * mk_bv_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
-    app * mk_bv_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }
-    app * mk_bv_mul(unsigned n, expr* const* args) const { return m_manager.mk_app(get_fid(), OP_BMUL, n, args); }
-    app* mk_bv_mul(ptr_buffer<expr> const& args) const { return m_manager.mk_app(get_fid(), OP_BMUL, args.size(), args.data()); }
-    app* mk_bv_mul(ptr_vector<expr> const& args) const { return m_manager.mk_app(get_fid(), OP_BMUL, args.size(), args.data()); }
-    app* mk_bv_mul(expr_ref_vector const& args) const { return m_manager.mk_app(get_fid(), OP_BMUL, args.size(), args.data()); }
-    app* mk_bv_mul(expr_ref_buffer const& args) const { return m_manager.mk_app(get_fid(), OP_BMUL, args.size(), args.data()); }
-    app * mk_bv_udiv(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUDIV, arg1, arg2); }
-    app * mk_bv_udiv_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUDIV_I, arg1, arg2); }
-    app * mk_bv_udiv0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BUDIV0, arg); }
-    app * mk_bv_sdiv(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSDIV, arg1, arg2); }
-    app * mk_bv_sdiv_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSDIV_I, arg1, arg2); }
-    app * mk_bv_sdiv0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BSDIV0, arg); }
-    app * mk_bv_srem_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM_I, arg1, arg2); }
-    app * mk_bv_srem0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BSREM0, arg); }
-    app * mk_bv_urem_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM_I, arg1, arg2); }
-    app * mk_bv_urem0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BUREM0, arg); }
-    app * mk_bv_smod_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD_I, arg1, arg2); }
-    app * mk_bv_smod0(expr * arg) const { return m_manager.mk_app(get_fid(), OP_BSMOD0, arg); }
+    app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BUREM, arg1, arg2); }
+    app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSREM, arg1, arg2); }
+    app * mk_bv_smod(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSMOD, arg1, arg2); }
+    app * mk_bv_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BADD, arg1, arg2); }
+    app * mk_bv_add(ptr_buffer<expr> const & args) const { return m_manager.mk_app(bv_family_id, OP_BADD, args.size(), args.data()); }
+    app * mk_bv_add(ptr_vector<expr> const & args) const { return m_manager.mk_app(bv_family_id, OP_BADD, args.size(), args.data()); }
+    app * mk_bv_add(expr_ref_vector const & args) const { return m_manager.mk_app(bv_family_id, OP_BADD, args.size(), args.data()); }
+    app * mk_bv_add(expr_ref_buffer const & args) const { return m_manager.mk_app(bv_family_id, OP_BADD, args.size(), args.data()); }
+    app * mk_bv_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSUB, arg1, arg2); }
+    app * mk_bv_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BMUL, arg1, arg2); }
+    app * mk_bv_mul(unsigned n, expr* const* args) const { return m_manager.mk_app(bv_family_id, OP_BMUL, n, args); }
+    app* mk_bv_mul(ptr_buffer<expr> const& args) const { return m_manager.mk_app(bv_family_id, OP_BMUL, args.size(), args.data()); }
+    app* mk_bv_mul(ptr_vector<expr> const& args) const { return m_manager.mk_app(bv_family_id, OP_BMUL, args.size(), args.data()); }
+    app* mk_bv_mul(expr_ref_vector const& args) const { return m_manager.mk_app(bv_family_id, OP_BMUL, args.size(), args.data()); }
+    app* mk_bv_mul(expr_ref_buffer const& args) const { return m_manager.mk_app(bv_family_id, OP_BMUL, args.size(), args.data()); }
+    app * mk_bv_udiv(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BUDIV, arg1, arg2); }
+    app * mk_bv_udiv_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BUDIV_I, arg1, arg2); }
+    app * mk_bv_udiv0(expr * arg) const { return m_manager.mk_app(bv_family_id, OP_BUDIV0, arg); }
+    app * mk_bv_sdiv(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSDIV, arg1, arg2); }
+    app * mk_bv_sdiv_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSDIV_I, arg1, arg2); }
+    app * mk_bv_sdiv0(expr * arg) const { return m_manager.mk_app(bv_family_id, OP_BSDIV0, arg); }
+    app * mk_bv_srem_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSREM_I, arg1, arg2); }
+    app * mk_bv_srem0(expr * arg) const { return m_manager.mk_app(bv_family_id, OP_BSREM0, arg); }
+    app * mk_bv_urem_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BUREM_I, arg1, arg2); }
+    app * mk_bv_urem0(expr * arg) const { return m_manager.mk_app(bv_family_id, OP_BUREM0, arg); }
+    app * mk_bv_smod_i(expr * arg1, expr * arg2) const { return m_manager.mk_app(bv_family_id, OP_BSMOD_I, arg1, arg2); }
+    app * mk_bv_smod0(expr * arg) const { return m_manager.mk_app(bv_family_id, OP_BSMOD0, arg); }
     app * mk_zero_extend(unsigned n, expr* e) {
         parameter p(n);
-        return m_manager.mk_app(get_fid(), OP_ZERO_EXT, 1, &p, 1, &e);
+        return m_manager.mk_app(bv_family_id, OP_ZERO_EXT, 1, &p, 1, &e);
     }
     app * mk_sign_extend(unsigned n, expr* e) {
         parameter p(n);
-        return m_manager.mk_app(get_fid(), OP_SIGN_EXT, 1, &p, 1, &e);
+        return m_manager.mk_app(bv_family_id, OP_SIGN_EXT, 1, &p, 1, &e);
     }
-    app * mk_bv_shl(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BSHL, arg1, arg2); }
-    app * mk_bv_ashr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BASHR, arg1, arg2); }
-    app * mk_bv_lshr(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_BLSHR, arg1, arg2); }
+    app * mk_bv_shl(expr* arg1, expr* arg2) { return m_manager.mk_app(bv_family_id, OP_BSHL, arg1, arg2); }
+    app * mk_bv_ashr(expr* arg1, expr* arg2) { return m_manager.mk_app(bv_family_id, OP_BASHR, arg1, arg2); }
+    app * mk_bv_lshr(expr* arg1, expr* arg2) { return m_manager.mk_app(bv_family_id, OP_BLSHR, arg1, arg2); }
 
     app * mk_ubv2int(expr* e) const;
     app * mk_sbv2int(expr* e) const;
     app * mk_sbv2int_as_ubv2int(expr* e);
     app * mk_int2bv(unsigned sz, expr* e) const;
 
-    app* mk_bv_rotate_left(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_LEFT, arg1, arg2); }
-    app* mk_bv_rotate_right(expr* arg1, expr* arg2) { return m_manager.mk_app(get_fid(), OP_EXT_ROTATE_RIGHT, arg1, arg2); }
+    app* mk_bv_rotate_left(expr* arg1, expr* arg2) { return m_manager.mk_app(bv_family_id, OP_EXT_ROTATE_LEFT, arg1, arg2); }
+    app* mk_bv_rotate_right(expr* arg1, expr* arg2) { return m_manager.mk_app(bv_family_id, OP_EXT_ROTATE_RIGHT, arg1, arg2); }
     app* mk_bv_rotate_left(expr* arg, unsigned n);
     app* mk_bv_rotate_right(expr* arg, unsigned n);
 
     // TODO: all these binary ops commute (right?) but it'd be more logical to swap `n` & `m` in the `return`
-    app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_OVFL, m, n); }
-    app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, m, n); }
-    app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, m, n); }
-    app * mk_bvsmul_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_OVFL, m, n); }
-    app * mk_bvumul_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_OVFL, m, n); }
-    app * mk_bvsdiv_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSDIV_OVFL, m, n); }
-    app * mk_bvneg_ovfl(expr* m) { return m_manager.mk_app(get_fid(), OP_BNEG_OVFL, m); }
-    app * mk_bvuadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUADD_OVFL, m, n); }
-    app * mk_bvsadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSADD_OVFL, m, n); }
-    app * mk_bvusub_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUSUB_OVFL, m, n); }
-    app * mk_bvssub_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSSUB_OVFL, m, n); }
+    app * mk_bvsmul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BSMUL_NO_OVFL, m, n); }
+    app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BSMUL_NO_UDFL, m, n); }
+    app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BUMUL_NO_OVFL, m, n); }
+    app * mk_bvsmul_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BSMUL_OVFL, m, n); }
+    app * mk_bvumul_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BUMUL_OVFL, m, n); }
+    app * mk_bvsdiv_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BSDIV_OVFL, m, n); }
+    app * mk_bvneg_ovfl(expr* m) { return m_manager.mk_app(bv_family_id, OP_BNEG_OVFL, m); }
+    app * mk_bvuadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BUADD_OVFL, m, n); }
+    app * mk_bvsadd_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BSADD_OVFL, m, n); }
+    app * mk_bvusub_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BUSUB_OVFL, m, n); }
+    app * mk_bvssub_ovfl(expr* m, expr* n) { return m_manager.mk_app(bv_family_id, OP_BSSUB_OVFL, m, n); }
 
-    app * mk_bit2bool(expr* e, unsigned idx) { parameter p(idx); return m_manager.mk_app(get_fid(), OP_BIT2BOOL, 1, &p, 1, &e); }
+    app * mk_bit2bool(expr* e, unsigned idx) { parameter p(idx); return m_manager.mk_app(bv_family_id, OP_BIT2BOOL, 1, &p, 1, &e); }
 
     private:
     void log_bv_from_exprs(app * r, unsigned n, expr* const* es) {
@@ -631,7 +628,7 @@ public:
 
 public:
     app * mk_bv(unsigned n, expr* const* es) {
-        app * r = m_manager.mk_app(get_fid(), OP_MKBV, n, es);
+        app * r = m_manager.mk_app(bv_family_id, OP_MKBV, n, es);
 
         log_bv_from_exprs(r, n, es);
 
@@ -639,4 +636,3 @@ public:
     }
 
 };
-
