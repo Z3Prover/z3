@@ -71,7 +71,7 @@ format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const
         return mk_string(m, "ite");
     }
     else {
-        if (f->get_family_id() == bv_util(m).get_fid()) {
+        if (f->get_family_id() == bv_family_id) {
             char const* name = nullptr;
             switch (f->get_decl_kind()) {
             case OP_BSDIV_I: name = "bvsdiv"; break;
@@ -790,7 +790,7 @@ class smt2_printer {
         else if (m().is_pattern(t)) {
             f = mk_seq5<format**, f2f>(m(), it, end, f2f());
         }
-        else if (bv_util(m()).is_concat(t) && t->get_num_args() > 2) {
+        else if (is_app_of(t, bv_family_id, OP_CONCAT) && t->get_num_args() > 2) {
             format * children[] = { mk_string(m(), "(concat "), *it++, mk_string(m(), " "),
                                     *it++, mk_string(m(), ")") };
             format_ref concat(mk_compose(m(), 5, children), fm());
