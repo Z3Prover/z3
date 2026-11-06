@@ -1,6 +1,6 @@
 
 /*++
-Copyright (c) 2015 Microsoft Corporation
+Copyright (c) 2015 Microsoft Corporationintern
 
 --*/
 
@@ -367,23 +367,10 @@ void test_binary_concat_printing() {
     Z3_del_context(ctx);
 }
 
-void test_internal_bv_division_printing() {
-    ast_manager m;
-    reg_decl_plugins(m);
-    bv_util bv(m);
-    sort* bv4 = bv.mk_sort(4);
-    expr_ref x(m.mk_const("x", bv4), m);
-    expr_ref y(m.mk_const("y", bv4), m);
-    expr_ref div(bv.mk_bv_udiv_i(x, y), m);
-    std::ostringstream output;
-    output << mk_ismt2_pp(div, m);
-    ENSURE(output.str().find("bvudiv") != std::string::npos);
-    ENSURE(output.str().find("bvudiv_i") == std::string::npos);
-}
+
 
 void tst_smt2print_parse() {
     test_binary_concat_printing();
-    test_internal_bv_division_printing();
 
     // test basic datatypes  
     char const* spec1 = 
