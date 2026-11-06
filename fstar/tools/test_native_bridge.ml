@@ -3632,6 +3632,92 @@ let sorted_direct_product_rewrites () =
      A.App (mul, [twin; y]), "twin factor";
      A.App ({ mul with A.int_params = [Z.zero] }, [x; y]), "look-alike *"]
 
+(* elim-unused (Z3NnfReplay.unused_eliminated) at native scale, on the normal stack, on both
+   Sorted paths. Quant-intro leaves under an Int binder: the captured (forall [Term^k] true) = true
+   for k = 1, 21 and 64, an unused Term binder over a use of the outer Int binder (lowered), a kept
+   binder renumbered and a 4,000-deep body replay, and a 100,000-argument body is accepted; a
+   200,000-deep body is refused by the depth admission; 65 binders, a dropped used binder, nothing
+   removed, a changed kind and the reversed orientation are pending. The producer's own closed
+   elim-unused steps (z3 elim_unused_vars on asserted quantifiers with unused binders) are checked
+   as premise-free ElimUnused nodes by Z3SortedProof.unused_elimination and by no other kernel of
+   check_node_cached; under the RewriteRule label, reversed, or with the target true, they stay
+   open. *)
+let sorted_elim_unused () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module K = Z3SortedProof in
+  let int_s = A.BaseSort "Int" and term = A.BaseSort "Term" in
+  let forall_ bs body = A.Quantifier (A.Forall_k, bs, A.bool_sort, body) in
+  let exists_ bs body = A.Quantifier (A.Exists_k, bs, A.bool_sort, body) in
+  let pred name sort x = A.App ({ A.decl_name = name; domain = [sort]; range = A.bool_sort; interp = None;
+                                  int_params = [] }, [x]) in
+  let pi = pred "pi" int_s and pt = pred "pt" term in
+  let mk_or args = A.App ({ A.decl_name = "or"; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+                            interp = Some Z3ValueTheory.op_or; int_params = [] }, args) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let i0 = A.Var (Z.zero, int_s) in
+  let leaf q e pad =
+    let inner x = mk_or [pi i0; x] in
+    NR.replay [] { U.binder_entries = entry "elim-unused" (R.mk_eq_expr q e) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr (inner q) (inner e)) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (forall_ [int_s] (inner q)) (forall_ [int_s] (inner e)))
+                                        [1] (Some [int_s]) :: padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (forall_ [int_s] (inner q), forall_ [int_s] (inner e))) in
+  let terms k = List.init k (fun _ -> term) in
+  let f = { A.decl_name = "f"; domain = [int_s]; range = int_s; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let wide = A.App ({ A.decl_name = "w"; domain = List.init 100000 (fun _ -> int_s); range = A.bool_sort; interp = None;
+                      int_params = [] }, List.init 100000 (fun _ -> A.Var (Z.one, int_s))) in
+  List.iter (fun (q, e, pad, name) ->
+      require (NR.unused_eliminated q e && leaf q e pad = NR.Replayed) ("an elim-unused leaf was not replayed: " ^ name))
+    [forall_ [term] R.true_expr, R.true_expr, 0, "captured, one binder";
+     forall_ (terms 21) R.true_expr, R.true_expr, 0, "captured, 21 binders";
+     forall_ (terms 64) R.true_expr, R.true_expr, 0, "64 binders";
+     forall_ [term] (pi (A.Var (Z.one, int_s))), pi i0, 0, "free index lowered";
+     exists_ [int_s; term] (pt (A.Var (Z.zero, term))), exists_ [term] (pt (A.Var (Z.zero, term))), 0, "kept binder";
+     forall_ [term] (pi (applied 4000 (A.Var (Z.one, int_s)))), pi (applied 4000 i0), 200, "4,000-deep body"];
+  require (NR.unused_eliminated (forall_ [term] wide)
+             (A.App ((match wide with A.App (w, _) -> w | _ -> failwith "w"), List.init 100000 (fun _ -> i0))))
+    "an elim-unused step over a 100,000-argument body was refused";
+  require (not (NR.unused_eliminated (forall_ [term] (pi (applied 200000 (A.Var (Z.one, int_s))))) (pi (applied 200000 i0))))
+    "an elim-unused step beyond the depth admission was accepted";
+  List.iter (fun (q, e, name) ->
+      require (not (NR.unused_eliminated q e)) ("an elim-unused mutant was accepted: " ^ name);
+      require (leaf q e 0 = NR.Unreplayed) ("an elim-unused mutant was replayed: " ^ name))
+    [forall_ (terms 65) R.true_expr, R.true_expr, "65 binders";
+     forall_ [int_s] (pi (A.Var (Z.zero, int_s))), R.true_expr, "dropped used binder";
+     forall_ [term] (pi (A.Var (Z.one, int_s))), forall_ [term] (pi (A.Var (Z.one, int_s))), "nothing removed";
+     exists_ [int_s; term] (pt (A.Var (Z.zero, term))), forall_ [term] (pt (A.Var (Z.zero, term))), "kind changed";
+     R.true_expr, forall_ [term] R.true_expr, "reversed orientation"];
+  let elim_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (q, r)) when e.P.rule = U.ElimUnused -> Some (q, r)
+    | _ -> None in
+  let steps source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    List.filter_map elim_step doc.P.entries, schema in
+  let steps_d, schema = steps "(declare-fun p (Int) Bool)(declare-sort U 0)\
+                               (assert (forall ((x Int) (u U) (y Int)) (p y)))(assert (not (p 0)))" in
+  let steps_h, _ = steps "(declare-fun p (Int) Bool)(assert (forall ((x Int) (z Int)) (p z)))(assert (not (p 1)))" in
+  require (steps_d <> [] && steps_h <> []) "no closed elim-unused step was produced";
+  let node kind q r = { U.kind = kind; conclusion = U.Equal (q, r); premises = [] } in
+  let pending kind q r = match K.check_node schema [] (node kind q r) with
+    | Some (_, n) -> Z.to_int n
+    | None -> failwith "a well-sorted elim-unused node was rejected" in
+  List.iter (fun (q, r) ->
+      let n = node U.ElimUnused q r in
+      require (K.unused_elimination n && pending U.ElimUnused q r = 0) "a producer elim-unused node was not checked";
+      require (not (K.consequence schema [] (K.proposition n.U.conclusion)))
+        "a producer elim-unused node was already checked by another kernel";
+      require (pending U.RewriteRule q r = 1) "an elim-unused equation was checked under the rewrite label";
+      require (pending U.ElimUnused r q = 1) "a reversed elim-unused node was checked";
+      if r <> R.true_expr then
+        require (pending U.ElimUnused q R.true_expr = 1) "an elim-unused node with a used binder dropped was checked")
+    (steps_d @ steps_h)
+
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
    only. For every pair below the units equal the previous charge name_length a + name_length b,
@@ -7440,6 +7526,7 @@ let () =
      "sorted-direct-ite-rewrites", sorted_direct_ite_rewrites;
      "sorted-int-factor-permutation", sorted_int_factor_permutation;
      "sorted-direct-product-rewrites", sorted_direct_product_rewrites;
+     "sorted-elim-unused", sorted_elim_unused;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;

@@ -72,6 +72,18 @@
                     Sorted route uses for top-level rewrites; atoms are
                     compared syntactically, so a de Bruijn index is read at
                     the one scope of the step).
+     elim-unused (no sorts, no premise):
+                    `(Q bs. body) ~ e` (ast_manager::mk_elim_unused_vars
+                    exports iff(q, e)) with Q forall or exists, accepted
+                    only when e is z3's elim_unused_vars result recomputed
+                    from the left side: the same quantifier over the used
+                    binders in order with the body renumbered, or the bare
+                    renumbered body when no binder is used (at most 64
+                    binders, both sides shallow). True at every typed
+                    environment of every scope where both sides are typed
+                    (lemma_unused_eliminated_at): a removed binder ranges
+                    over a carrier the interpretation itself inhabits (the
+                    value of a nullary symbol), so no hypothesis is added.
    With `refl`, `trans` and `monotonicity` these replay the body proofs of
    a quant-intro root; nothing is read from the rule names alone.
 
@@ -214,6 +226,7 @@ module LIN = Z3SortedRealLinear
 module SI = Z3SortedInteger
 module LA = Z3LinearArithmeticAst
 module RW = Z3ArithmeticRewrite
+module LP = FStar.List.Tot.Properties
 
 (* ---------------------------------------------------------------------- *)
 (* 1. The local rules (executable)                                          *)
@@ -518,6 +531,96 @@ let product_permuted (lhs rhs:expr) : bool =
      | _, _ -> false)
   else false
 
+(* elim-unused (z3 elim_unused_vars; ast_manager::mk_elim_unused_vars
+   exports iff(q, e)): q = (Q bs. body) with Q forall or exists and e the
+   same quantifier over the binders the body uses, in order, with the body
+   renumbered (removed binders gone, free indices lowered), or the bare
+   renumbered body when no binder is used. The check recomputes e from q
+   and compares by exact identity; nothing is read from the rule name. A
+   binder position j of the block that starts at depth d occurs in e: *)
+let rec occurs (j d:nat) (e:expr) : Tot bool (decreases e) =
+  match e with
+  | Var i _ -> i = d + j
+  | App _ args -> occurs_args j d args
+  | Quantifier _ bs _ b -> occurs j (d + L.length bs) b
+
+and occurs_args (j d:nat) (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> false
+  | a :: rest -> if occurs j d a then true else occurs_args j d rest
+
+let rec marks_below (k:nat) (body:expr) (acc:list bool) : Tot (list bool) (decreases k) =
+  if k = 0 then acc else marks_below (k - 1) body (occurs (k - 1) 0 body :: acc)
+
+(* The used binders of a block of n, innermost (Var 0) first. *)
+let binder_marks (n:nat) (body:expr) : list bool = marks_below n body []
+
+let rec count_kept (marks:list bool) : Tot nat (decreases marks) =
+  match marks with [] -> 0 | m :: rest -> (if m then 1 else 0) + count_kept rest
+
+let rec kept_items (#a:Type) (marks:list bool) (xs:list a) : Tot (list a) (decreases marks) =
+  match marks, xs with
+  | m :: rest, x :: tail -> if m then x :: kept_items rest tail else kept_items rest tail
+  | _, _ -> []
+
+(* The rank among the kept binders of position j, plus acc. *)
+let rec rank_from (marks:list bool) (j acc:nat) : Tot (option nat) (decreases marks) =
+  match marks with
+  | [] -> None
+  | m :: rest ->
+    if j = 0 then (if m then Some acc else None)
+    else rank_from rest (j - 1) (if m then acc + 1 else acc)
+
+(* The new position of scope position p below a block of n binders of which
+   `kept` stay. *)
+let moved (marks:list bool) (n kept p:nat) : option nat =
+  if p < n then rank_from marks p 0 else Some (p - n + kept)
+
+(* The body renumbered (None if a removed binder occurs); the argument list
+   is a loop with an accumulator. *)
+let rec thin (marks:list bool) (n kept d:nat) (e:expr) : Tot (option expr) (decreases e) =
+  match e with
+  | Var i s ->
+    if i < d then Some e
+    else (match moved marks n kept (i - d) with Some j -> Some (Var (d + j) s) | None -> None)
+  | App f args ->
+    (match thin_args marks n kept d args [] with Some xs -> Some (App f xs) | None -> None)
+  | Quantifier k bs s b ->
+    (match thin marks n kept (d + L.length bs) b with Some b' -> Some (Quantifier k bs s b') | None -> None)
+
+and thin_args (marks:list bool) (n kept d:nat) (args:list expr) (acc:list expr)
+  : Tot (option (list expr)) (decreases args) =
+  match args with
+  | [] -> Some (L.rev acc)
+  | a :: rest ->
+    (match thin marks n kept d a with
+     | Some b -> thin_args marks n kept d rest (b :: acc)
+     | None -> None)
+
+let eliminated (q:expr) : option expr =
+  match q with
+  | Quantifier k bs s body ->
+    if (k = Forall_k || k = Exists_k) && s = bool_sort then
+      let n = L.length bs in
+      let marks = binder_marks n body in
+      let kept = count_kept marks in
+      if kept = n then None
+      else (match thin marks n kept 0 body with
+            | Some b -> Some (if kept = 0 then b else Quantifier k (L.rev (kept_items marks (L.rev bs))) bool_sort b)
+            | None -> None)
+    else None
+  | _ -> None
+
+(* At most 64 binders (the occurrence walks cost one body walk per binder),
+   both sides shallow (bounding every walk and the final comparison). *)
+let unused_eliminated (q e:expr) : bool =
+  match q with
+  | Quantifier _ bs _ _ ->
+    if length_within 64 bs && shallow q && shallow e then
+      (match eliminated q with Some r -> r = e | None -> false)
+    else false
+  | _ -> false
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
    equivalence; an ITE law at any result sort (the term-ITE leaves of
    Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); an Int product
@@ -589,6 +692,7 @@ let entry_ok (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry)
        | App f xs, App g ys -> f = g && arguments_ok xs ys facts
        | _, _ -> false)
     else if name = "rewrite" then scoped && Nil? facts && real_rewrite_ok real lhs rhs
+    else if name = "elim-unused" then scoped && Nil? facts && unused_eliminated lhs rhs
     else if name = "sk" then
       Nil? facts && U.Observational? j &&
       (L.mem (R.mk_eq_expr lhs rhs) assertions || Some? (find_closure lhs rhs assertions))
@@ -1733,6 +1837,360 @@ let lemma_product_permuted_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
   AR.lemma_integer_equality s bc eq other scope rho lhs rhs;
   lemma_same_at s bc eq other scope rho lhs rhs
 
+(* ---------------------------------------------------------------------- *)
+(* elim-unused: thinning, typed tuples and the law                         *)
+(* ---------------------------------------------------------------------- *)
+
+
+let rec lemma_marks_below (k:nat) (body:expr) (acc:list bool)
+  : Lemma (ensures L.length (marks_below k body acc) == k + L.length acc) (decreases k) =
+  if k > 0 then lemma_marks_below (k - 1) body (occurs (k - 1) 0 body :: acc)
+
+let rec lemma_kept_length (#a:Type) (marks:list bool) (xs:list a)
+  : Lemma (requires L.length marks == L.length xs)
+          (ensures L.length (kept_items marks xs) == count_kept marks) (decreases marks) =
+  match marks, xs with
+  | _ :: rest, _ :: tail -> lemma_kept_length rest tail
+  | _, _ -> ()
+
+let rec lemma_count_kept (marks:list bool)
+  : Lemma (ensures count_kept marks <= L.length marks) (decreases marks) =
+  match marks with [] -> () | _ :: rest -> lemma_count_kept rest
+
+let rec lemma_none_kept (marks:list bool) (j acc:nat)
+  : Lemma (requires count_kept marks == 0) (ensures rank_from marks j acc == None) (decreases marks) =
+  match marks with
+  | [] -> ()
+  | _ :: rest -> if j > 0 then lemma_none_kept rest (j - 1) acc
+
+let rec lemma_none_kept_items (#a:Type) (marks:list bool) (xs:list a)
+  : Lemma (requires count_kept marks == 0) (ensures kept_items marks xs == []) (decreases marks) =
+  match marks, xs with
+  | _ :: rest, _ :: tail -> lemma_none_kept_items rest tail
+  | _, _ -> ()
+
+let rec lemma_rank_bound (marks:list bool) (j acc q:nat)
+  : Lemma (requires rank_from marks j acc == Some q)
+          (ensures acc <= q /\ q - acc < count_kept marks /\ j < L.length marks) (decreases marks) =
+  match marks with
+  | m :: rest -> if j > 0 then lemma_rank_bound rest (j - 1) (if m then acc + 1 else acc) q
+
+(* ---------------------------------------------------------------------- *)
+(* Typed tuples: projection onto the kept binders and completion            *)
+(* ---------------------------------------------------------------------- *)
+
+let rec project (#base:sort -> Type0) (sigma:V.signature) (marks:list bool) (ss:list sort)
+                (vs:V.arguments base sigma ss)
+  : Tot (V.arguments base sigma (kept_items marks ss)) (decreases marks) =
+  match marks, ss, vs with
+  | m :: rest, _ :: srest, v :: vrest ->
+    if m then v :: project sigma rest srest vrest else project sigma rest srest vrest
+  | _, _, _ -> []
+
+let rec merge (#base:sort -> Type0) (sigma:V.signature) (fill:(t:sort -> GTot (V.value base sigma t)))
+              (marks:list bool) (ss:list sort) (ws:V.arguments base sigma (kept_items marks ss))
+  : GTot (V.arguments base sigma ss) (decreases ss) =
+  match ss with
+  | [] -> []
+  | t :: srest ->
+    (match marks with
+     | [] -> fill t :: merge sigma fill [] srest []
+     | m :: mrest ->
+       if m then (match ws with
+                  | w :: wrest -> w :: merge sigma fill mrest srest wrest
+                  | [] -> FStar.Pervasives.false_elim ())
+       else fill t :: merge sigma fill mrest srest ws)
+
+let rec lemma_project_at (#base:sort -> Type0) (sigma:V.signature) (marks:list bool) (ss:list sort)
+                         (vs:V.arguments base sigma ss) (p acc q:nat)
+  : Lemma (requires L.length marks == L.length ss /\ rank_from marks p acc == Some q)
+          (ensures p < L.length ss /\ acc <= q /\ q - acc < L.length (kept_items marks ss) /\
+                   (E.tuple_at sigma (kept_items marks ss) (project sigma marks ss vs) (q - acc) <: V.tree base) ==
+                   (E.tuple_at sigma ss vs p <: V.tree base))
+          (decreases marks) =
+  lemma_rank_bound marks p acc q;
+  lemma_kept_length marks ss;
+  match marks, ss, vs with
+  | m :: rest, _ :: srest, _ :: vrest ->
+    if p > 0 then lemma_project_at sigma rest srest vrest (p - 1) (if m then acc + 1 else acc) q
+  | _, _, _ -> ()
+
+let rec lemma_merge_at (#base:sort -> Type0) (sigma:V.signature) (fill:(t:sort -> GTot (V.value base sigma t)))
+                       (marks:list bool) (ss:list sort) (ws:V.arguments base sigma (kept_items marks ss)) (p acc q:nat)
+  : Lemma (requires L.length marks == L.length ss /\ rank_from marks p acc == Some q)
+          (ensures p < L.length ss /\ acc <= q /\ q - acc < L.length (kept_items marks ss) /\
+                   (E.tuple_at sigma ss (merge sigma fill marks ss ws) p <: V.tree base) ==
+                   (E.tuple_at sigma (kept_items marks ss) ws (q - acc) <: V.tree base))
+          (decreases ss) =
+  lemma_rank_bound marks p acc q;
+  lemma_kept_length marks ss;
+  match ss, marks with
+  | _ :: srest, m :: mrest ->
+    if m then (match ws with
+               | _ :: wrest -> if p > 0 then lemma_merge_at sigma fill mrest srest wrest (p - 1) (acc + 1) q
+               | [] -> ())
+    else if p > 0 then lemma_merge_at sigma fill mrest srest ws (p - 1) acc q
+  | _, _ -> ()
+
+(* ---------------------------------------------------------------------- *)
+(* Thinning preserves values between related environments                   *)
+(* ---------------------------------------------------------------------- *)
+
+let related_at (#base:sort -> Type0) (sigma:V.signature) (marks:list bool) (n kept d:nat)
+               (a b:list sort) (rho:V.environment base sigma a) (eta:V.environment base sigma b)
+               (p:nat{p < L.length a}) : prop =
+  (p < d ==> p < L.length b /\ (rho p <: V.tree base) == (eta p <: V.tree base)) /\
+  (p >= d ==> (match moved marks n kept (p - d) with
+               | Some q -> d + q < L.length b /\ (rho p <: V.tree base) == (eta (d + q) <: V.tree base)
+               | None -> True))
+
+let related (#base:sort -> Type0) (sigma:V.signature) (marks:list bool) (n kept d:nat)
+            (a b:list sort) (rho:V.environment base sigma a) (eta:V.environment base sigma b) : prop =
+  forall (p:nat{p < L.length a}). related_at sigma marks n kept d a b rho eta p
+
+let lemma_related_extend (#base:sort -> Type0) (sigma:V.signature) (marks:list bool) (n kept d:nat)
+                         (a b bound:list sort) (vs:V.arguments base sigma bound)
+                         (rho:V.environment base sigma a) (eta:V.environment base sigma b)
+  : Lemma (requires related sigma marks n kept d a b rho eta)
+          (ensures related sigma marks n kept (d + L.length bound) (bound @ a) (bound @ b)
+                     (V.extend sigma a bound vs rho) (V.extend sigma b bound vs eta)) =
+  LP.append_length bound a;
+  LP.append_length bound b;
+  let m = L.length bound in
+  let at (p:nat{p < L.length (bound @ a)})
+    : Lemma (related_at sigma marks n kept (d + m) (bound @ a) (bound @ b)
+               (V.extend sigma a bound vs rho) (V.extend sigma b bound vs eta) p) =
+    DS.lemma_extend_index sigma a bound vs rho p;
+    if p < m then DS.lemma_extend_index sigma b bound vs eta p
+    else if p < d + m then (
+      DS.lemma_extend_index sigma b bound vs eta p;
+      assert (related_at sigma marks n kept d a b rho eta (p - m)))
+    else (
+      assert (related_at sigma marks n kept d a b rho eta (p - m));
+      match moved marks n kept (p - (d + m)) with
+      | Some q -> DS.lemma_extend_index sigma b bound vs eta (d + m + q)
+      | None -> ()) in
+  FStar.Classical.forall_intro at
+
+let lemma_thin_sort (marks:list bool) (n kept d:nat) (e e':expr)
+  : Lemma (requires thin marks n kept d e == Some e') (ensures get_sort e' == get_sort e) =
+  match e with
+  | Var _ _ -> ()
+  | App f args -> ()
+  | Quantifier k bs s b -> ()
+
+(* The argument list of thin_args, without the accumulator. *)
+let rec thin_list (marks:list bool) (n kept d:nat) (args:list expr) : Tot (option (list expr)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match thin marks n kept d a, thin_list marks n kept d rest with
+     | Some b, Some bs -> Some (b :: bs)
+     | _, _ -> None)
+
+let rec lemma_thin_args (marks:list bool) (n kept d:nat) (args acc:list expr)
+  : Lemma (ensures thin_args marks n kept d args acc ==
+                   (match thin_list marks n kept d args with Some ys -> Some (L.rev acc @ ys) | None -> None))
+          (decreases args) =
+  match args with
+  | [] -> LP.append_l_nil (L.rev acc)
+  | a :: rest ->
+    (match thin marks n kept d a with
+     | Some b ->
+       lemma_thin_args marks n kept d rest (b :: acc);
+       LP.rev_append [b] acc;
+       (match thin_list marks n kept d rest with
+        | Some ys -> LP.append_assoc (L.rev acc) [b] ys
+        | None -> ())
+     | None -> ())
+
+let rec lemma_thin_eval (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                        (marks:list bool) (n kept d:nat) (a b:list sort)
+                        (rho:V.environment base sigma a) (eta:V.environment base sigma b) (e e':expr)
+  : Lemma (requires D.scoped a e /\ D.scoped b e' /\ thin marks n kept d e == Some e' /\
+                    related sigma marks n kept d a b rho eta)
+          (ensures (V.evaluate sigma i a rho e <: V.tree base) == (V.evaluate sigma i b eta e' <: V.tree base))
+          (decreases e) =
+  match e with
+  | Var p _ ->
+    assert (related_at sigma marks n kept d a b rho eta p);
+    if p < d then assert (e' == e)
+    else (match moved marks n kept (p - d) with
+          | Some q -> assert (e' == Var (d + q) (get_sort e))
+          | None -> ())
+  | App f args ->
+    lemma_thin_args marks n kept d args [];
+    let ys = Some?.v (thin_list marks n kept d args) in
+    lemma_thin_list_eval sigma i marks n kept d a b rho eta args ys f.domain
+  | Quantifier k bound t body ->
+    let body' = Some?.v (thin marks n kept (d + L.length bound) body) in
+    lemma_thin_sort marks n kept (d + L.length bound) body body';
+    let pointwise (vs:V.arguments base sigma (L.rev bound))
+      : Lemma (V.evaluate sigma i (L.rev bound @ a) (V.extend sigma a (L.rev bound) vs rho) body ==
+               V.evaluate sigma i (L.rev bound @ b) (V.extend sigma b (L.rev bound) vs eta) body') =
+      LP.rev_length bound;
+      lemma_related_extend sigma marks n kept d a b (L.rev bound) vs rho eta;
+      lemma_thin_eval sigma i marks n kept (d + L.length bound) (L.rev bound @ a) (L.rev bound @ b)
+        (V.extend sigma a (L.rev bound) vs rho) (V.extend sigma b (L.rev bound) vs eta) body body' in
+    FStar.Classical.forall_intro pointwise;
+    V.lemma_quantifier_environments sigma i a b rho eta k bound (get_sort body) body body'
+
+and lemma_thin_list_eval (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                         (marks:list bool) (n kept d:nat) (a b:list sort)
+                         (rho:V.environment base sigma a) (eta:V.environment base sigma b)
+                         (args ys:list expr) (ss:list sort)
+  : Lemma (requires D.scoped_args a args /\ D.scoped_args b ys /\ sorts_match args ss /\ sorts_match ys ss /\
+                    thin_list marks n kept d args == Some ys /\ related sigma marks n kept d a b rho eta)
+          (ensures V.evaluate_args sigma i a rho args ss == V.evaluate_args sigma i b eta ys ss)
+          (decreases args) =
+  match args, ys, ss with
+  | x :: rest, y :: tail, _ :: stail ->
+    lemma_thin_eval sigma i marks n kept d a b rho eta x y;
+    lemma_thin_list_eval sigma i marks n kept d a b rho eta rest tail stail
+  | _, _, _ -> ()
+
+(* ---------------------------------------------------------------------- *)
+(* The elim-unused law                                                      *)
+(* ---------------------------------------------------------------------- *)
+
+let lemma_marks (n:nat) (body:expr) : Lemma (L.length (binder_marks n body) == n) =
+  lemma_marks_below n body []
+
+(* A value of every sort, from the interpretation itself: every carrier of
+   a Sorted interpretation is inhabited by its constants (a ghost value,
+   never executed). *)
+let inhabitant_of (#base:sort -> Type0) (s:S.checked_schema) (other:V.interpretation base (S.signature s))
+         (t:sort) : GTot (V.value base (S.signature s) t) =
+  other.V.application (inhabitant_decl t) []
+
+(* Two binder tuples that agree on every kept position give the body and
+   its thinned copy one value. *)
+let lemma_bodies (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                 (marks:list bool) (n kept:nat) (scope ss ss':list sort) (rho:V.environment base sigma scope)
+                 (body body':expr) (vs:V.arguments base sigma ss) (ws:V.arguments base sigma ss')
+  : Lemma (requires L.length marks == n /\ L.length ss == n /\ L.length ss' == kept /\
+                    thin marks n kept 0 body == Some body' /\
+                    D.scoped (ss @ scope) body /\ D.scoped (ss' @ scope) body' /\
+                    (forall (p q:nat). rank_from marks p 0 == Some q ==>
+                       p < n /\ q < kept /\
+                       (E.tuple_at sigma ss vs p <: V.tree base) == (E.tuple_at sigma ss' ws q <: V.tree base)))
+          (ensures (V.evaluate sigma i (ss @ scope) (V.extend sigma scope ss vs rho) body <: V.tree base) ==
+                   (V.evaluate sigma i (ss' @ scope) (V.extend sigma scope ss' ws rho) body' <: V.tree base)) =
+  LP.append_length ss scope;
+  LP.append_length ss' scope;
+  let at (p:nat{p < L.length (ss @ scope)})
+    : Lemma (related_at sigma marks n kept 0 (ss @ scope) (ss' @ scope)
+               (V.extend sigma scope ss vs rho) (V.extend sigma scope ss' ws rho) p) =
+    DS.lemma_extend_index sigma scope ss vs rho p;
+    match moved marks n kept p with
+    | Some q -> DS.lemma_extend_index sigma scope ss' ws rho q
+    | None -> () in
+  FStar.Classical.forall_intro at;
+  lemma_thin_eval sigma i marks n kept 0 (ss @ scope) (ss' @ scope)
+    (V.extend sigma scope ss vs rho) (V.extend sigma scope ss' ws rho) body body'
+
+let lemma_projected (#base:sort -> Type0) (sigma:V.signature) (marks:list bool) (ss:list sort)
+                    (vs:V.arguments base sigma ss)
+  : Lemma (requires L.length marks == L.length ss)
+          (ensures forall (p q:nat). rank_from marks p 0 == Some q ==>
+                    p < L.length ss /\ q < L.length (kept_items marks ss) /\
+                     (E.tuple_at sigma ss vs p <: V.tree base) ==
+                     (E.tuple_at sigma (kept_items marks ss) (project sigma marks ss vs) q <: V.tree base)) =
+  lemma_kept_length marks ss;
+  let at (p q:nat) : Lemma (rank_from marks p 0 == Some q ==>
+                             p < L.length ss /\ q < L.length (kept_items marks ss) /\
+                              (E.tuple_at sigma ss vs p <: V.tree base) ==
+                              (E.tuple_at sigma (kept_items marks ss) (project sigma marks ss vs) q <: V.tree base)) =
+    if rank_from marks p 0 = Some q then lemma_project_at sigma marks ss vs p 0 q in
+  FStar.Classical.forall_intro_2 at
+
+let lemma_merged (#base:sort -> Type0) (sigma:V.signature) (fill:(t:sort -> GTot (V.value base sigma t)))
+                 (marks:list bool) (ss:list sort) (ws:V.arguments base sigma (kept_items marks ss))
+  : Lemma (requires L.length marks == L.length ss)
+          (ensures forall (p q:nat). rank_from marks p 0 == Some q ==>
+                    p < L.length ss /\ q < L.length (kept_items marks ss) /\
+                     (E.tuple_at sigma ss (merge sigma fill marks ss ws) p <: V.tree base) ==
+                     (E.tuple_at sigma (kept_items marks ss) ws q <: V.tree base)) =
+  lemma_kept_length marks ss;
+  let at (p q:nat) : Lemma (rank_from marks p 0 == Some q ==>
+                             p < L.length ss /\ q < L.length (kept_items marks ss) /\
+                              (E.tuple_at sigma ss (merge sigma fill marks ss ws) p <: V.tree base) ==
+                              (E.tuple_at sigma (kept_items marks ss) ws q <: V.tree base)) =
+    if rank_from marks p 0 = Some q then lemma_merge_at sigma fill marks ss ws p 0 q in
+  FStar.Classical.forall_intro_2 at
+
+(* elim-unused at ANY scope where both sides are typed, at ANY typed
+   environment: (Q bs. body) and its reduced form have one truth. The
+   removed binders range over carriers inhabited by the interpretation
+   (fill); the universal and existential laws are those of the root model. *)
+let lemma_eliminated_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                        (scope:list sort) (rho:V.environment base (S.signature s) scope) (q e:expr)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    eliminated q == Some e /\ D.scoped scope q /\ D.scoped scope e)
+          (ensures same_at s bc eq other scope rho q e) =
+  match q with
+  | Quantifier k bs _ body ->
+    let sigma = S.signature s in
+    let i = T.interpretation s bc eq other in
+    let n = L.length bs in
+    let marks = binder_marks n body in
+    let kept = count_kept marks in
+    let body' = Some?.v (thin marks n kept 0 body) in
+    let ss = L.rev bs in
+    let ss' = kept_items marks ss in
+    lemma_marks n body;
+    LP.rev_length bs;
+    lemma_kept_length marks ss;
+    LP.rev_involutive ss';
+    let filler = inhabitant_of s other in
+    let tq (vs:V.arguments base sigma ss) : GTot bool =
+      T.truth_at s bc eq other (ss @ scope) (V.extend sigma scope ss vs rho) body in
+    let te (ws:V.arguments base sigma ss') : GTot bool =
+      T.truth_at s bc eq other (ss' @ scope) (V.extend sigma scope ss' ws rho) body' in
+    assert (D.scoped (ss @ scope) body);
+    if kept = 0 then (
+      lemma_none_kept_items marks ss;
+      assert (e == body');
+      assert (D.scoped (ss' @ scope) body')
+    ) else (
+      assert (e == Quantifier k (L.rev ss') bool_sort body');
+      assert (D.scoped (ss' @ scope) body')
+    );
+    let down (vs:V.arguments base sigma ss) : Lemma (tq vs == te (project sigma marks ss vs)) =
+      lemma_projected sigma marks ss vs;
+      lemma_bodies sigma i marks n kept scope ss ss' rho body body' vs (project sigma marks ss vs) in
+    let up (ws:V.arguments base sigma ss') : Lemma (te ws == tq (merge sigma filler marks ss ws)) =
+      lemma_merged sigma filler marks ss ws;
+      lemma_bodies sigma i marks n kept scope ss ss' rho body body' (merge sigma filler marks ss ws) ws in
+    FStar.Classical.forall_intro down;
+    FStar.Classical.forall_intro up;
+    (match k with
+     | Forall_k -> Q.lemma_forall_truth s bc eq other scope rho bs body
+     | _ -> lemma_exists_truth s bc eq other scope rho bs body);
+    if kept = 0 then (
+      let w0 : V.arguments base sigma ss' = [] in
+      up w0;
+      assert (V.extend sigma scope ss' w0 rho == rho);
+      assert (te w0 == T.truth_at s bc eq other scope rho e)
+    ) else (
+      match k with
+      | Forall_k -> Q.lemma_forall_truth s bc eq other scope rho (L.rev ss') body'
+      | _ -> lemma_exists_truth s bc eq other scope rho (L.rev ss') body'
+    );
+    lemma_same_truth s bc eq other scope rho q e
+  | _ -> ()
+
+(* An elim-unused entry at ANY scope where both sides are typed, at ANY
+   typed environment of it (the check reads no environment). *)
+let lemma_unused_eliminated_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (scope:list sort) (rho:V.environment base (S.signature s) scope) (q e:expr)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    unused_eliminated q e /\ D.scoped scope q /\ D.scoped scope e)
+          (ensures same_at s bc eq other scope rho q e) =
+  lemma_eliminated_at s bc eq other scope rho q e
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
    is Z3SortedArithmetic.lemma_equivalent at that scope; the ITE laws are
@@ -1834,6 +2292,7 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
           lemma_same_at s bc eq other scope rho lhs rhs
         | _, _ -> ())
       else if name = "rewrite" then lemma_real_rewrite_at s bc eq other real scope rho lhs rhs
+      else if name = "elim-unused" then lemma_unused_eliminated_at s bc eq other scope rho lhs rhs
       else if L.mem (R.mk_eq_expr lhs rhs) assertions then
         lemma_assertion_edge s bc eq other assertions scope rho lhs rhs
       else (

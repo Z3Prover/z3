@@ -668,6 +668,75 @@ let direct_product_controls () : bool =
   check (qp_mul x y) (qp_mul y twin) = Some 1 &&
   check (qp_mul x y) look_alike = Some 1
 
+(* elim-unused natively in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_elim_unused`): quant-intro leaves under an
+   Int binder (Z3NnfReplay.unused_eliminated) replay for the captured
+   (forall [Term^k] true) = true (k = 1, 64), a lowered free index and a
+   4,000-deep body; 65 binders, a dropped used binder and the reversed
+   orientation stay pending, and a 200,000-deep body is refused by the depth
+   admission. Closed premise-free ElimUnused documents
+   (Z3SortedProof.unused_elimination on the forced Sorted route): the
+   captured step is certified; a dropped used binder, the reversed
+   orientation and the RewriteRule label stay pending. *)
+let qe_term : A.sort = A.BaseSort "Term"
+
+let qe_forall (bs:list A.sort) (body:A.expr) : A.expr = A.Quantifier A.Forall_k bs A.bool_sort body
+
+let qe_pi (x:A.expr) : A.expr =
+  A.App { A.decl_name = "pi"; A.domain = [qp_int]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [x]
+
+let rec qe_terms (n:nat) (acc:list A.sort) : Tot (list A.sort) (decreases n) =
+  if n = 0 then acc else qe_terms (n - 1) (qe_term :: acc)
+
+let qe_or (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = [A.bool_sort; A.bool_sort]; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } [a; b]
+
+let qe_leaf (q e:A.expr) (pad:nat) : Z3NnfReplay.verdict =
+  let i0 = A.Var 0 qp_int in
+  let lq = qe_or (qe_pi i0) q in
+  let le = qe_or (qe_pi i0) e in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "elim-unused" (R.mk_eq_expr q e) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr lq le) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qe_forall [qp_int] lq) (qe_forall [qp_int] le);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int] } ::
+      padding pad [];
+    U.binder_root = 2 }) (U.Equal (qe_forall [qp_int] lq) (qe_forall [qp_int] le))
+
+let rec qe_applied (depth:nat) (acc:A.expr) : Tot A.expr (decreases depth) =
+  if depth = 0 then acc else qe_applied (depth - 1) (A.App qp_f [acc])
+
+let qi_elim_scale () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  qe_leaf (qe_forall [qe_term] R.true_expr) R.true_expr 0 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall (qe_terms 64 []) R.true_expr) R.true_expr 0 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall [qe_term] (qe_pi i1)) (qe_pi i0) 0 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall [qe_term] (qe_pi (qe_applied 4000 i1))) (qe_pi (qe_applied 4000 i0)) 200 = Z3NnfReplay.Replayed &&
+  qe_leaf (qe_forall (qe_terms 65 []) R.true_expr) R.true_expr 0 = Z3NnfReplay.Unreplayed &&
+  qe_leaf (qe_forall [qp_int] (qe_pi (A.Var 0 qp_int))) R.true_expr 0 = Z3NnfReplay.Unreplayed &&
+  qe_leaf R.true_expr (qe_forall [qe_term] R.true_expr) 0 = Z3NnfReplay.Unreplayed &&
+  not (Z3NnfReplay.unused_eliminated (qe_forall [qe_term] (qe_pi (qe_applied 200000 i1))) (qe_pi (qe_applied 200000 i0)))
+
+let elim_document (rule:U.rule) (q e:A.expr) : C.marshaled =
+  let f = R.mk_eq_expr q e in
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr f];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr f; P.premise_ids = [] };
+                   { P.rule = rule; P.formula = f; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let direct_elim_controls () : bool =
+  let captured = qe_forall [qe_term] R.true_expr in
+  let used = qe_forall [qp_int] (qe_pi (A.Var 0 qp_int)) in
+  C.check true (elim_document U.ElimUnused captured R.true_expr) = Some 0 &&
+  C.check true (elim_document U.ElimUnused used R.true_expr) = Some 1 &&
+  C.check true (elim_document U.ElimUnused R.true_expr captured) = Some 1 &&
+  C.check true (elim_document U.RewriteRule captured R.true_expr) = Some 1
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -698,4 +767,6 @@ let run () : bool =
   direct_ite_controls () &&
   qi_product_scale () &&
   direct_product_controls () &&
+  qi_elim_scale () &&
+  direct_elim_controls () &&
   name_pair_units_scale ()
