@@ -3,7 +3,8 @@
 # Licensed under the MIT License.
 description: Prototype NFV PR reviewer — sandboxed foreground Dafny analysis, posted as a PR comment
 on:
-  pull_request:
+  # Run trusted base-branch workflow code; fork PR contents remain untrusted data.
+  pull_request_target:
     # Pushes cancel obsolete runs through workflow concurrency; they never start inference.
     types: [opened, synchronize, ready_for_review]
     paths:
@@ -23,7 +24,8 @@ on:
       - "**.[tT][sS][xX]"
       - "**.[pP][yY]"
       - "**.[rR][sS]"
-if: github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+  roles: all
+if: github.event.pull_request.base.ref == github.event.repository.default_branch && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
 permissions:
   contents: read
   pull-requests: read
@@ -46,7 +48,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   repository_context:
-    if: github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+    if: github.event.pull_request.base.ref == github.event.repository.default_branch && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
     permissions:
       # gh-aw uses this only to mark an incomplete workflow run failed.
       actions: write
@@ -185,7 +187,7 @@ post-steps:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
       if-no-files-found: warn
-source: microsoft/neuro-formal-verification/workflow@31f0c6809a7e93eec460d12c29bd6293b82bc954
+source: microsoft/neuro-formal-verification/workflow@918fa6eb4a1e51e5dcb682b2548245e9fabf2169
 ---
 
 # NFV PR reviewer
