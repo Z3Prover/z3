@@ -23,8 +23,8 @@
      restricted to closed ground terms. The first conjunct (projection
      range and injectivity) is further restricted to widths of at most
      4096, the bound that every bit-vector recognizer already imposes.
-     Above that bound the sort `BV<w>` cannot be decoded, because F*
-     cannot prove `string_of_int` injective in general.
+     The bound is the executable recognizers' resource policy; widths
+     themselves are structural integer parameters, not decoded names.
 
    `standard leaf` is an interpretation for every function `leaf`. A
    bit-vector of width `w` and residue `r` is the value `VSeq [w; r]`, so
@@ -187,48 +187,16 @@ let ground_bv (i:interpretation value) (project:pos -> value -> int) : prop =
 let ground_model (i:interpretation value) (project:pos -> value -> int) : prop =
   ground_boolean i /\ ground_bv i project
 
-(* --- Decoding the width of a bit-vector sort --------------------------- *)
-
-noextract let digit (c:FStar.Char.char) : option nat =
-  if c = '0' then Some 0 else if c = '1' then Some 1 else if c = '2' then Some 2
-  else if c = '3' then Some 3 else if c = '4' then Some 4 else if c = '5' then Some 5
-  else if c = '6' then Some 6 else if c = '7' then Some 7 else if c = '8' then Some 8
-  else if c = '9' then Some 9 else None
-
-noextract let rec decimal (acc:nat) (cs:list FStar.Char.char) : Tot (option nat) (decreases cs) =
-  match cs with
-  | [] -> Some acc
-  | c :: rest -> (match digit c with Some d -> decimal (10 * acc + d) rest | None -> None)
-
-noextract let width_of_name (cs:list FStar.Char.char) : option pos =
-  match cs with
-  | 'B' :: 'V' :: d :: rest ->
-    if d = '0' then None
-    else (match decimal 0 (d :: rest) with
-          | Some w -> if w > 0 && w <= max_width then Some w else None
-          | None -> None)
-  | _ -> None
+(* --- Structural bit-vector width and the executable resource bound ---- *)
 
 noextract let width_of_sort (s:sort) : option pos =
   match s with
-  | BaseSort name -> width_of_name (FStar.String.list_of_string name)
+  | SortApp (BvSymbol w) [] -> if w > 0 && w <= max_width then Some w else None
   | _ -> None
-
-noextract let rec decoded (n:nat) : Tot bool (decreases n) =
-  if n = 0 then true else width_of_sort (BV.bv_sort n) = Some n && decoded (n - 1)
-
-(* Checked by evaluation, once for each of the 4096 widths. *)
-let lemma_decoded_all () : Lemma (decoded max_width) = assert_norm (decoded max_width)
-
-let rec lemma_decoded (n:nat) (w:pos)
-  : Lemma (requires decoded n /\ w <= n) (ensures width_of_sort (BV.bv_sort w) == Some w)
-          (decreases n)
-  = if w = n then () else lemma_decoded (n - 1) w
 
 let lemma_width (w:pos)
   : Lemma (requires w <= max_width) (ensures width_of_sort (BV.bv_sort w) == Some w)
-  = lemma_decoded_all ();
-    lemma_decoded max_width w
+  = ()
 
 let lemma_bool_width () : Lemma (width_of_sort bool_sort == None)
   = assert_norm (width_of_sort bool_sort == None)

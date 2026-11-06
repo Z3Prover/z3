@@ -14,8 +14,8 @@ type coefficient = int & pos
 type relation = | Le | Lt | Ge | Gt | Eq
 type operation = | Add | Mul | Sub | Div | ToReal
 
-let int_s : sort = BaseSort "Int"
-let real_s : sort = BaseSort "Real"
+let int_s : sort = (SortApp IntSymbol [])
+let real_s : sort = (SortApp RealSymbol [])
 let numeric_sort (s:sort) : bool = s = int_s || s = real_s
 
 let rec same_sort (s:sort) (args:list expr) : Tot bool (decreases args) =

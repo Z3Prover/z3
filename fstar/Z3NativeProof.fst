@@ -50,7 +50,29 @@ let map_prepend (#a:Type) (#b:Type) (f:a -> Tot b) (xs:list a) (tail:list b)
   : Tot (list b) =
   L.fold_left (fun acc x -> f x :: acc) tail (L.rev xs)
 
-let rec marshal_sort (st:state) (s:N.native_sort) : ML (sort & state) =
+type sort_work =
+  | SortNode : sort -> sort_work
+  | SortArguments : list sort -> sort_work
+
+let rec sort_structure_within (fuel:nat) (work:list sort_work)
+  : Tot bool (decreases fuel) =
+  match work with
+  | [] -> true
+  | task :: rest ->
+    if fuel = 0 then false
+    else match task with
+    | SortNode (BaseSort _) -> sort_structure_within (fuel - 1) rest
+    | SortNode (ArraySort ds r) ->
+      sort_structure_within (fuel - 1) (SortArguments ds :: SortNode r :: rest)
+    | SortNode (SortApp _ args) ->
+      sort_structure_within (fuel - 1) (SortArguments args :: rest)
+    | SortArguments [] -> sort_structure_within (fuel - 1) rest
+    | SortArguments (s :: ss) ->
+      sort_structure_within (fuel - 1) (SortNode s :: SortArguments ss :: rest)
+
+let rec marshal_sort_within (fuel:nat) (st:state) (s:N.native_sort) : ML (sort & state) =
+  if fuel = 0 then N.fail "Native sort nesting limit exceeded"
+  else
   let id = N.sort_id s in
   match index_get st.sorts id with
   | Some value -> value, st
@@ -60,23 +82,35 @@ let rec marshal_sort (st:state) (s:N.native_sort) : ML (sort & state) =
       match view with
       | N.Base name -> BaseSort name, st
       | N.Array domains range ->
-        let domains, st = marshal_sorts st domains in
-        let range, st = marshal_sort st range in
+        let domains, st = marshal_sorts_within (fuel - 1) st domains in
+        let range, st = marshal_sort_within (fuel - 1) st range in
         ArraySort domains range, st
+      | N.Applied symbol arguments ->
+        let arguments, st = marshal_sorts_within (fuel - 1) st arguments in
+        SortApp symbol arguments, st
     in
+    let _ = if sort_structure_within 8192 [SortNode value] then ()
+            else N.fail "Native sort traversal limit exceeded" in
+    let _ = if valid_sort value then () else N.fail "Malformed native sort" in
     value, { st with sorts = index_put st.sorts id value;
                      retained_sorts = s :: st.retained_sorts }
 
-and marshal_sorts (st:state) (ss:list N.native_sort) : ML (list sort & state) =
+and marshal_sorts_within (fuel:nat) (st:state) (ss:list N.native_sort) : ML (list sort & state) =
   match ss with
   | [] -> [], st
   | s :: rest ->
-    let s, st = marshal_sort st s in
-    let ss, st = marshal_sorts st rest in
+    let s, st = marshal_sort_within fuel st s in
+    let ss, st = marshal_sorts_within fuel st rest in
     s :: ss, st
 
+let marshal_sort (st:state) (s:N.native_sort) : ML (sort & state) =
+  marshal_sort_within 512 st s
+
+let marshal_sorts (st:state) (ss:list N.native_sort) : ML (list sort & state) =
+  marshal_sorts_within 512 st ss
+
 let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind =
-  let binary_int = dom = [BaseSort "Int"; BaseSort "Int"] && range = BaseSort "Int" in
+  let binary_int = dom = [(SortApp IntSymbol []); (SortApp IntSymbol [])] && range = (SortApp IntSymbol []) in
   match op with
   | N.Not -> Some op_not | N.And -> Some op_and | N.Or -> Some op_or
   | N.Implies -> Some op_implies | N.Eq -> Some op_eq | N.Oeq -> Some op_oeq

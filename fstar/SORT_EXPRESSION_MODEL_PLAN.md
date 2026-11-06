@@ -422,3 +422,91 @@ all declaration metadata. It does not require runtime evaluation of arbitrary
 semantic equality, a rewrite of the expression language, or immediate support
 for every native theory. Its objective is a faithful, extensible representation
 whose advertised semantic coverage is both verified and enforced.
+
+## 6. Implementation checkpoint (November 6, 2026)
+
+The implementation is staged; the entire plan is **not complete**.
+
+| Area | Implemented scope |
+|---|---|
+| Sort syntax | Structural symbols for built-ins, BV widths, field moduli, sequence/regex/finite-set bases, FP formats, datatype instance identities, and extension applications; recursive arrays remain distinct from multi-index arrays. |
+| Import and identity | Both native bridges preserve structural parameters and opaque native identities. Import checks syntactic validity and bounds uncached nesting and structural traversal. |
+| Arrays | Shared ghost function-space semantics allow arbitrary index and element carriers. Store-permutation hypotheses use propositional membership; finite-chain lemmas no longer require decidable equality on elements. |
+| Sequences | Equality-free operations accept arbitrary element types. Ghost prefix/suffix/contains/replace specifications compose with array values, with agreement lemmas for executable equality-specialized operations. |
+| Typed-root carriers | Structural Bool/Int/Real, width-indexed BV values, modular residues, Unicode characters, and recursively composed sequences and arrays. Non-Unicode native character sorts stay opaque. |
+
+These are representation and semantic-foundation changes, not permission to
+certify additional native theory rules. `valid_sort` checks syntax, not field
+primality, extension registration, or datatype positivity.
+
+Remaining implementation obligations:
+
+- Phase 4: connect the generalized array laws to production sorted replay,
+  enforce root coverage there, and replace the legacy concrete array contract.
+- Phase 5: connect character/string literals and string-specific operators to
+  their carriers; a compositional sequence carrier alone does not interpret
+  those operators.
+- Phase 6: import explicit datatype declaration parameters (the current bridge
+  preserves instantiated native sort identity), construct the admitted mixed
+  recursive datatype carriers, and supply checked interpreted extension
+  contracts, including finite-support/cardinality laws for finite sets.
+
+The typed-root modules remain in the test scope. Unsupported mixed recursive
+datatype combinations remain excluded, and the production theory recognizers
+are not broadened on the strength of the new carriers alone.
+
+### Validation results
+
+| Check | Result |
+|---|---|
+| F* verification, pinned 2026.10.25 toolchain | All 88 production modules and 51 registered test modules verified on Windows; modified standalone formalizations also verified. |
+| OCaml extraction and native bridge regressions | Passed, including structured native sorts, opaque-name collisions, deep sort limits, and non-Unicode character fallback. |
+| OCaml native CLI regressions | 83 passed. |
+| Cherry verification, extraction, and native regressions | Full registered F* scope verified; regenerated C and both C++ drivers compiled; kernel/native regressions and all 83 CLI tests passed. |
+| Windows Z3 unit tests | 127 passed; command-line SAT/model, help, and Python binding smoke cases passed. |
+
+The corpus is `z3prover/bench` at
+`04e82cc1003bb8de9586bd04d37e09e2a403f6c2`, containing 583 SMT2 files
+under `inputs\fstar-build`. The baseline F* sources are from `848353ff5`.
+Both checker versions link the same checkout-built Linux Z3 static library.
+
+Separate solver runs showed proof-generation and timeout variation, also
+observed when rerunning the baseline against itself. The decisive comparison
+therefore loads the baseline and updated OCaml checkers as separate packed
+modules in one process and passes **the same native proof and assertions**
+to both before the producer continues.
+
+Across all 583 attempted inputs, 7,777 identical native proofs were compared:
+7,770 results were unchanged and seven improved. Baseline classifications
+were 7,195 ACCEPT / 582 PARTIAL; updated classifications were
+7,197 ACCEPT / 580 PARTIAL. There were no errors, rejections, increased
+pending counts, or ACCEPT-to-PARTIAL changes in the completed comparisons.
+
+| Input relative to `inputs\fstar-build` | Baseline | Updated |
+|---|---|---|
+| `pulse\queries-Pulse.Checker.Match-2.smt2` | PARTIAL 3 | PARTIAL 2 |
+| `pulse\queries-Pulse.Checker.Match-5.smt2` | PARTIAL 6 | PARTIAL 5 |
+| `pulse\queries-Pulse.Recursion-1.smt2` | PARTIAL 3 | PARTIAL 2 |
+| `pulse\queries-PulseCore.Heap.smt2` | PARTIAL 4 | PARTIAL 3 |
+| `pulse\queries-PulseCore.Heap2-8.smt2` | PARTIAL 1 | ACCEPT |
+| `queries-FStar.Tactics.Typeclasses-1.smt2` | PARTIAL 4 | PARTIAL 2 |
+| `queries-FStar.UInt-2.smt2` | PARTIAL 1 | ACCEPT |
+
+The comparison uses four workers, a 1,000 ms producer timeout per query,
+and a 10-second wall limit per file. **127 files reached the wall limit**;
+their completed comparisons are included, but this is not exhaustive
+coverage of every query in those files. Logs, per-file results, and executable
+hashes are retained in the session artifacts (`paired-corpus.jsonl` and
+`paired-corpus.metadata.json`).
+
+Intentional diagnostic changes include structural sequence labels such as
+`(Seq Int)`, datatype labels based on instance identity, and bit-vector
+fingerprints that distinguish widths. These can split previously merged
+diagnostic families without changing the pending proof count. Long opaque
+sort names remain supported: the native traversal limit counts structural
+nodes rather than charging the bytes of their display names.
+
+The Cherry scope-guard scale fixture was adjusted to keep its negative case
+genuinely under budget: comparing structural `Int` symbols is cheaper than
+comparing their former string names. The guard itself and its positive
+acceptance cases were unchanged.

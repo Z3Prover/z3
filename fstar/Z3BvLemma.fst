@@ -31,7 +31,7 @@ let op_shl : decl_kind = 117
 let op_lshr : decl_kind = 118
 let op_zero_extend : decl_kind = 119
 
-let bv_sort (width:int) : sort = BaseSort ("BV" ^ Prims.string_of_int width)
+let bv_sort (width:int) : sort = SortApp (BvSymbol width) []
 
 let numeral (e:expr) : option (pos & int) =
   match e with

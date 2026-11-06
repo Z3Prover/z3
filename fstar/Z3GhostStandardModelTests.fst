@@ -274,7 +274,7 @@ let numeral_mutation (base:leaf) (rho:env value)
 let fraction : expr =
   App { decl_name = "num"; domain = []; range = int_s; interp = Some op_num_rational; int_params = [1; 2] } []
 let real_one : expr =
-  App { decl_name = "num"; domain = []; range = BaseSort "Real"; interp = Some op_num_rational; int_params = [1; 1] } []
+  App { decl_name = "num"; domain = []; range = (SortApp RealSymbol []); interp = Some op_num_rational; int_params = [1; 1] } []
 let short_numeral : expr =
   App { decl_name = "num"; domain = []; range = int_s; interp = Some op_num_rational; int_params = [1] } []
 
@@ -284,7 +284,7 @@ let opaque_numerals (rho:env value)
            eval (g (fun _ _ -> 5)) short_numeral rho == VInt 5)
   = GS.lemma_int_carried ();
     SM.lemma_bool_width ();
-    assert_norm (SM.width_of_sort (BaseSort "Real") == None);
+    assert_norm (SM.width_of_sort ((SortApp RealSymbol [])) == None);
     assert_norm (~(C.canonical_connective (match fraction with App f _ -> f | _ -> num_decl 0)))
 
 (* --- Extensional equality of production arrays ---------------------------------------- *)

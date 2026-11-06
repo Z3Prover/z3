@@ -41,8 +41,8 @@ let op_ff_mul : decl_kind = 302
 let op_ff_neg : decl_kind = 303
 let op_ff_bitsum : decl_kind = 304
 
-(* The native bridge names the sort of a finite field by its decimal modulus. *)
-let ff_sort (p:int) : sort = BaseSort ("FF" ^ Prims.string_of_int p)
+(* The native bridge preserves the modulus as a structural sort parameter. *)
+let ff_sort (p:int) : sort = SortApp (FiniteFieldSymbol p) []
 
 (* `ff` numeral with parameters [p; n]: a canonical residue 0 <= n < p. *)
 let numeral (e:expr) : option (int & int) =
@@ -431,11 +431,16 @@ let lemma_combine (v:nat -> int) (p:pos) (op:decl_kind) (qs:list poly) (xs:list 
 (* Soundness of the translation                                        *)
 (* ----------------------------------------------------------------- *)
 
-let lemma_sort_eq_base (x:sort) (n:string)
-  : Lemma (requires sort_eq x (BaseSort n)) (ensures x == BaseSort n)
+let lemma_sort_eq_field (x:sort) (p:int)
+  : Lemma (requires sort_eq x (ff_sort p)) (ensures x == ff_sort p)
   = match x with
-    | BaseSort m -> ()
-    | ArraySort _ _ -> ()
+    | SortApp symbol args ->
+      assert (sort_eq x (ff_sort p) ==
+              (symbol = FiniteFieldSymbol p && sort_list_eq args []));
+      (match args with
+       | [] -> ()
+       | head :: tail -> assert_norm (sort_list_eq (head :: tail) [] == false))
+    | BaseSort _ | ArraySort _ _ -> ()
 
 let rec lemma_args_sort (args:list expr) (p:int)
   : Lemma (requires sorts_match args (ff_domain p args))
@@ -444,7 +449,7 @@ let rec lemma_args_sort (args:list expr) (p:int)
   = match args with
     | [] -> ()
     | a :: rest ->
-      lemma_sort_eq_base (get_sort a) ("FF" ^ Prims.string_of_int p);
+      lemma_sort_eq_field (get_sort a) p;
       lemma_args_sort rest p
 
 let rec lemma_map_length (#a #b:Type) (f:a -> Tot b) (xs:list a)
