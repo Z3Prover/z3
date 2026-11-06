@@ -415,3 +415,71 @@ let d3_direct ()
                RD.RootCertified);
   assert_norm (RD.check_root_document PT.core_schema (der_document U.DestructiveEquality der_closed_q (forall_ [term] (pt dterm))) ==
                RD.RootPending 1)
+
+(* ---------------------------------------------------------------------- *)
+(* Q1. pull-quant: the executable check                                     *)
+(* ---------------------------------------------------------------------- *)
+
+(* The producer's pull-quant (pull_quant.cpp, iff(e, q)): one quantified
+   child of a canonical and/or pulled out, every other child lifted over the
+   pulled binders (the captured ForwardJumpLabel q3 node 509 entry 213,
+   (or A B C (forall [Term] D)) = (forall [Term] (or A' B' C' D))), or a
+   nested forall flattened (entry 215). All at the scope [Term]. *)
+let mk_and2 (a b:expr) : expr = QT.mk_and [a; b]
+
+let pulls : list (expr & expr) = [
+  (QT.mk_or [pt x0; qt_ x0; forall_ [term] (rt x1 x0)], forall_ [term] (QT.mk_or [pt x1; qt_ x1; rt x1 x0]));
+  (QT.mk_or [exists_ [term] (rt x1 x0); pt x0], exists_ [term] (QT.mk_or [rt x1 x0; pt x1]));
+  (mk_and2 (pt x0) (forall_ [term] (rt x1 x0)), forall_ [term] (mk_and2 (pt x1) (rt x1 x0)));
+  (mk_and2 (pt x0) (exists_ [integer] (pr2 (Var 0 integer) x1)), exists_ [integer] (mk_and2 (pt x1) (pr2 (Var 0 integer) x1)));
+  (forall_ [term] (forall_ [integer] (pr2 (Var 0 integer) x2)), forall_ [term; integer] (pr2 (Var 0 integer) x2))
+]
+
+let q1_pulls () : Lemma (L.for_all (fun (eq:expr & expr) -> NR.pull_ok (fst eq) (snd eq)) pulls) =
+  assert_norm (L.for_all (fun (eq:expr & expr) -> NR.pull_ok (fst eq) (snd eq)) pulls)
+
+let pull_mutants : list (expr & expr) = [
+  (QT.mk_or [pt x0; forall_ [term] (rt x1 x0)], forall_ [term] (QT.mk_or [pt x0; rt x1 x0]));            (* not lifted *)
+  (QT.mk_or [forall_ [term] (pt x0); forall_ [term] (qt_ x0)], forall_ [term] (QT.mk_or [pt x0; qt_ x0]));  (* two quantified children *)
+  (QT.mk_or [pt x0; forall_ [term] (rt x1 x0)], exists_ [term] (QT.mk_or [pt x1; rt x1 x0]));             (* kind changed *)
+  (forall_ [term] (QT.mk_or [pt x1; rt x1 x0]), QT.mk_or [pt x0; forall_ [term] (rt x1 x0)]);             (* reversed orientation *)
+  (QT.mk_or [pt x0; forall_ [term] (rt x1 x0)], forall_ [integer] (QT.mk_or [pt x1; rt x1 (Var 0 integer)]));  (* binder sort *)
+  (QT.implies (pt x0) (forall_ [term] (rt x1 x0)), forall_ [term] (QT.implies (pt x1) (rt x1 x0)));       (* not and/or *)
+  (exists_ [term] (exists_ [term] (rt x1 x0)), exists_ [term; term] (rt x1 x0));                          (* exists flatten *)
+  (forall_ [term] (forall_ [integer] (pr2 (Var 0 integer) x2)), forall_ [integer; term] (pr2 (Var 0 integer) x2))  (* binders swapped *)
+]
+
+let q1_mutants () : Lemma (L.for_all (fun (eq:expr & expr) -> not (NR.pull_ok (fst eq) (snd eq))) pull_mutants) =
+  assert_norm (L.for_all (fun (eq:expr & expr) -> not (NR.pull_ok (fst eq) (snd eq))) pull_mutants)
+
+(* ---------------------------------------------------------------------- *)
+(* Q2. pull-quant: the quant-intro path                                     *)
+(* ---------------------------------------------------------------------- *)
+
+let pull_e : expr = QT.mk_or [pt x0; qt_ x0; forall_ [term] (rt x1 x0)]
+let pull_q : expr = forall_ [term] (QT.mk_or [pt x1; qt_ x1; rt x1 x0])
+let unlifted_q : expr = forall_ [term] (QT.mk_or [pt x0; qt_ x0; rt x1 x0])
+
+let q2_replay ()
+  : Lemma (not (QT.old_paths (QT.qi_node (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q))) /\
+           QT.replays (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q) /\
+           QT.pending (der_cert "pull-quant" pull_e unlifted_q) (troot pull_e) (troot unlifted_q) /\
+           QT.pending (der_cert "pull-quant" pull_q pull_e) (troot pull_q) (troot pull_e) /\
+           QT.pending (der_cert "rewrite" pull_e pull_q) (troot pull_e) (troot pull_q) /\
+           RD.check_root_document PT.core_schema
+             (QT.refutation (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q)) == RD.RootCertified) =
+  assert_norm (not (QT.old_paths (QT.qi_node (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q))));
+  assert_norm (QT.replays (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q));
+  assert_norm (QT.pending (der_cert "pull-quant" pull_e unlifted_q) (troot pull_e) (troot unlifted_q));
+  assert_norm (QT.pending (der_cert "pull-quant" pull_q pull_e) (troot pull_q) (troot pull_e));
+  assert_norm (QT.pending (der_cert "rewrite" pull_e pull_q) (troot pull_e) (troot pull_q));
+  assert_norm (RD.check_root_document PT.core_schema
+                 (QT.refutation (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q)) == RD.RootCertified)
+
+let q2_valid (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
+  : Lemma (requires TR.root_model u PT.core_schema i)
+          (ensures RD.root_holds u PT.core_schema i (QT.eq (troot pull_e) (troot pull_q))) =
+  q2_replay ();
+  RD.lemma_root_certified u PT.core_schema (QT.refutation (der_cert "pull-quant" pull_e pull_q) (troot pull_e) (troot pull_q)) i;
+  assert_norm (D.scoped [] (QT.neg (QT.eq (troot pull_e) (troot pull_q))));
+  QT.lemma_not_holds u i (QT.eq (troot pull_e) (troot pull_q))

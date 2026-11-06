@@ -3802,6 +3802,63 @@ let sorted_der () =
       require (pending U.DestructiveEquality q R.true_expr = 1) "a der node with a wrong target was checked")
     der_steps
 
+(* pull-quant (Z3NnfReplay.pull_ok) at native scale, on the normal stack, in quant-intro certificates.
+   Leaves under a Term binder: the captured ForwardJumpLabel shape (or A B (forall [Term] D)) =
+   (forall [Term] (or A' B' D)) with the other children lifted, forall under `and`, exists under
+   `or`, the nested forall flattened, a 4,000-deep child and 64 pulled binders replay; 65 binders
+   and a 200,000-deep child are refused by the admissions; an unlifted child, two quantified
+   children, a changed kind, the reversed orientation and an exists flatten are pending. *)
+let sorted_pull_quant () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let term = A.BaseSort "Term" in
+  let forall_ bs body = A.Quantifier (A.Forall_k, bs, A.bool_sort, body) in
+  let exists_ bs body = A.Quantifier (A.Exists_k, bs, A.bool_sort, body) in
+  let decl name domain range = { A.decl_name = name; domain; range; interp = None; int_params = [] } in
+  let pt x = A.App (decl "pt" [term] A.bool_sort, [x]) and qt x = A.App (decl "qt" [term] A.bool_sort, [x]) in
+  let rt x y = A.App (decl "rt" [term; term] A.bool_sort, [x; y]) in
+  let nary name interp args = A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args;
+                                       range = A.bool_sort; interp = Some interp; int_params = [] }, args) in
+  let mk_or = nary "or" Z3ValueTheory.op_or and mk_and = nary "and" Z3ValueTheory.op_and in
+  let v n = A.Var (Z.of_int n, term) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf e q pad =
+    let inner x = mk_or [pt (v 0); x] in
+    NR.replay [] { U.binder_entries = entry "pull-quant" (R.mk_eq_expr e q) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr (inner e) (inner q)) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (forall_ [term] (inner e)) (forall_ [term] (inner q)))
+                                        [1] (Some [term]) :: padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (forall_ [term] (inner e), forall_ [term] (inner q))) in
+  let f = decl "f" [term] term in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let terms k = List.init k (fun _ -> term) in
+  List.iter (fun (e, q, pad, name) ->
+      require (NR.pull_ok e q && leaf e q pad = NR.Replayed) ("a pull-quant leaf was not replayed: " ^ name))
+    [mk_or [pt (v 0); qt (v 0); forall_ [term] (rt (v 1) (v 0))],
+     forall_ [term] (mk_or [pt (v 1); qt (v 1); rt (v 1) (v 0)]), 0, "captured";
+     mk_and [pt (v 0); forall_ [term] (rt (v 1) (v 0))], forall_ [term] (mk_and [pt (v 1); rt (v 1) (v 0)]), 0, "forall under and";
+     mk_or [exists_ [term] (rt (v 1) (v 0)); pt (v 0)], exists_ [term] (mk_or [rt (v 1) (v 0); pt (v 1)]), 0, "exists under or";
+     forall_ [term] (forall_ [term] (rt (v 2) (v 0))), forall_ [term; term] (rt (v 2) (v 0)), 0, "flatten";
+     mk_or [pt (applied 4000 (v 0)); forall_ [term] (rt (v 1) (v 0))],
+     forall_ [term] (mk_or [pt (applied 4000 (v 1)); rt (v 1) (v 0)]), 200, "4,000-deep child";
+     mk_or [pt (v 0); forall_ (terms 64) (pt (v 64))], forall_ (terms 64) (mk_or [pt (v 64); pt (v 64)]), 0, "64 binders"];
+  require (not (NR.pull_ok (mk_or [pt (v 0); forall_ (terms 65) (pt (v 65))]) (forall_ (terms 65) (mk_or [pt (v 65); pt (v 65)]))))
+    "a pull-quant step over 65 binders was accepted";
+  require (not (NR.pull_ok (mk_or [pt (applied 200000 (v 0)); forall_ [term] (rt (v 1) (v 0))])
+                  (forall_ [term] (mk_or [pt (applied 200000 (v 1)); rt (v 1) (v 0)]))))
+    "a pull-quant step beyond the depth admission was accepted";
+  List.iter (fun (e, q, name) ->
+      require (not (NR.pull_ok e q)) ("a pull-quant mutant was accepted: " ^ name);
+      require (leaf e q 0 = NR.Unreplayed) ("a pull-quant mutant was replayed: " ^ name))
+    [mk_or [pt (v 0); forall_ [term] (rt (v 1) (v 0))], forall_ [term] (mk_or [pt (v 0); rt (v 1) (v 0)]), "not lifted";
+     mk_or [forall_ [term] (pt (v 0)); forall_ [term] (qt (v 0))], forall_ [term] (mk_or [pt (v 0); qt (v 0)]), "two quantified children";
+     mk_or [pt (v 0); forall_ [term] (rt (v 1) (v 0))], exists_ [term] (mk_or [pt (v 1); rt (v 1) (v 0)]), "kind changed";
+     forall_ [term] (mk_or [pt (v 1); rt (v 1) (v 0)]), mk_or [pt (v 0); forall_ [term] (rt (v 1) (v 0))], "reversed orientation";
+     exists_ [term] (exists_ [term] (rt (v 2) (v 0))), exists_ [term; term] (rt (v 2) (v 0)), "exists flatten"]
+
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
    only. For every pair below the units equal the previous charge name_length a + name_length b,
@@ -7612,6 +7669,7 @@ let () =
      "sorted-direct-product-rewrites", sorted_direct_product_rewrites;
      "sorted-elim-unused", sorted_elim_unused;
      "sorted-der", sorted_der;
+     "sorted-pull-quant", sorted_pull_quant;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;

@@ -771,6 +771,36 @@ let der_controls () : bool =
   C.check true (elim_document U.DestructiveEquality closed_q (qe_forall [qp_int] (qe_pi m))) = Some 1 &&
   C.check true (elim_document U.RewriteRule closed_q (qe_forall [qp_int] (qe_pi k))) = Some 1
 
+(* pull-quant natively in the Cherry checker (the OCaml counterpart is
+   test_native_bridge.ml `sorted_pull_quant`): a quant-intro leaf under an
+   Int binder (Z3NnfReplay.pull_ok) replays for (or (pi #0) (forall [Int]
+   (pi #1))) = (forall [Int] (or (pi #1) (pi #1))) and for a flattened
+   nested forall, and stays pending for an unlifted child and the reversed
+   orientation. *)
+let qpq_leaf (e q:A.expr) : Z3NnfReplay.verdict =
+  let i0 = A.Var 0 qp_int in
+  let le = qe_or (qe_pi i0) e in
+  let lq = qe_or (qe_pi i0) q in
+  Z3NnfReplay.replay [] ({ U.binder_entries =
+      binder_entry "pull-quant" (R.mk_eq_expr e q) [] ::
+      binder_entry "monotonicity" (R.mk_eq_expr le lq) [0] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (qe_forall [qp_int] le) (qe_forall [qp_int] lq);
+        U.binder_premises = [1]; U.binder_sorts = Some [qp_int] } :: [];
+    U.binder_root = 2 }) (U.Equal (qe_forall [qp_int] le) (qe_forall [qp_int] lq))
+
+let pull_controls () : bool =
+  let i0 = A.Var 0 qp_int in
+  let i1 = A.Var 1 qp_int in
+  let i2 = A.Var 2 qp_int in
+  let e = qe_or (qe_pi i0) (qe_forall [qp_int] (qe_pi i1)) in
+  let q = qe_forall [qp_int] (qe_or (qe_pi i1) (qe_pi i1)) in
+  let nested = qe_forall [qp_int] (qe_forall [qp_int] (qe_or (qe_pi i0) (qe_pi i2))) in
+  let flat = qe_forall [qp_int; qp_int] (qe_or (qe_pi i0) (qe_pi i2)) in
+  qpq_leaf e q = Z3NnfReplay.Replayed &&
+  qpq_leaf nested flat = Z3NnfReplay.Replayed &&
+  qpq_leaf e (qe_forall [qp_int] (qe_or (qe_pi i0) (qe_pi i1))) = Z3NnfReplay.Unreplayed &&
+  qpq_leaf q e = Z3NnfReplay.Unreplayed
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -804,4 +834,5 @@ let run () : bool =
   qi_elim_scale () &&
   direct_elim_controls () &&
   der_controls () &&
+  pull_controls () &&
   name_pair_units_scale ()

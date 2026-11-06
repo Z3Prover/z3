@@ -98,6 +98,20 @@
                     typed (lemma_der_at), from the universal law alone: the
                     witness for x is t's own value, no carrier is assumed
                     inhabited.
+     pull-quant (no sorts, no premise):
+                    `e ~ q` (pull_quant.cpp, ast_manager::mk_pull_quant
+                    exports iff(e, q)): either e is a canonical and/or with
+                    exactly one forall/exists child (Q bs. b) and q is
+                    (Q bs. (op c1' .. b .. cn')) with every other child
+                    lifted over bs (pulled), or e is a nested forall and q
+                    its flattening (Z3SortedQuantifier.flatten); at most 64
+                    pulled binders, both sides shallow. True at every typed
+                    environment of every scope where both sides are typed
+                    (lemma_pull_ok_at): forall under `and` and exists under
+                    `or` read the inhabited carriers of the interpretation
+                    (inhabitant_of), the other cases and the flattening
+                    need none. Top-level pull-quant nodes keep the existing
+                    closed flattening check (SP.quantifier_flattening).
    With `refl`, `trans` and `monotonicity` these replay the body proofs of
    a quant-intro root; nothing is read from the rule names alone.
 
@@ -719,6 +733,61 @@ let der_step (q e:expr) : bool =
     else false
   | _, _ -> false
 
+(* pull-quant (pull_quant.cpp pull_quant1_core; ast_manager::mk_pull_quant
+   exports iff(e, q)). *)
+let binder_quantifier (e:expr) : bool =
+  match e with Quantifier k _ _ _ -> k = Forall_k || k = Exists_k | _ -> false
+
+(* The position of the only forall/exists child, if exactly one. *)
+let rec single_quantified (cs:list expr) (i:nat) (found:option nat) : Tot (option nat) (decreases cs) =
+  match cs with
+  | [] -> found
+  | c :: rest ->
+    if binder_quantifier c then (if Some? found then None else single_quantified rest (i + 1) (Some i))
+    else single_quantified rest (i + 1) found
+
+(* The children after pulling the quantified child at position p: its body
+   in its place, every other child lifted over the n pulled binders. *)
+let rec pulled_children (n p:nat) (b:expr) (cs:list expr) (i:nat) (acc:list expr)
+  : Tot (option (list expr)) (decreases cs) =
+  match cs with
+  | [] -> Some (L.rev acc)
+  | c :: rest ->
+    if i = p then pulled_children n p b rest (i + 1) (b :: acc)
+    else (match thin [] 0 n 0 c with
+          | Some c' -> pulled_children n p b rest (i + 1) (c' :: acc)
+          | None -> None)
+
+(* The child at position p (a loop; FStar.List.Tot.nth has no native
+   counterpart in the OCaml runtime). *)
+let rec child_at (cs:list expr) (p:nat) : Tot (option expr) (decreases cs) =
+  match cs with [] -> None | c :: rest -> if p = 0 then Some c else child_at rest (p - 1)
+
+(* pull_quant (iff(e, q)) for one quantified child of a canonical and/or:
+   (op c1 .. (Q bs. b) .. cn) ~ (Q bs. (op c1' .. b .. cn')), ci' lifted
+   over bs (pull_quant::pull_quant1_core with one nested quantifier: its
+   body shifts by 0). *)
+let pulled (e q:expr) : bool =
+  match e, q with
+  | App f cs, Quantifier k bs s (App g cs') ->
+    if (T.classify f = T.Nary B.Or || T.classify f = T.Nary B.And) && g = f && s = bool_sort &&
+       length_within 64 bs && shallow e && shallow q then
+      (match single_quantified cs 0 None with
+       | Some p ->
+         (match child_at cs p with
+          | Some (Quantifier k' bs' s' b) ->
+            k' = k && bs' = bs && s' = bool_sort && pulled_children (L.length bs) p b cs 0 [] = Some cs'
+          | _ -> false)
+       | None -> false)
+    else false
+  | _, _ -> false
+
+(* One quantified child of a canonical and/or pulled out (pulled), or a
+   nested forall flattened (Z3SortedQuantifier.flatten); both sides
+   shallow before any comparison. *)
+let pull_ok (e q:expr) : bool =
+  if pulled e q then true else shallow e && shallow q && Q.flatten e q
+
 (* A scoped rewrite leaf `lhs ~ rhs` (quant-intro roots only): the typed Int
    equivalence; an ITE law at any result sort (the term-ITE leaves of
    Pulse.Checker.Base-1 q1, e.g. node 3010 at sort Term); an Int product
@@ -792,6 +861,7 @@ let entry_ok (real:bool) (scoped:bool) (assertions:list expr) (e:U.binder_entry)
     else if name = "rewrite" then scoped && Nil? facts && real_rewrite_ok real lhs rhs
     else if name = "elim-unused" then scoped && Nil? facts && unused_eliminated lhs rhs
     else if name = "der" then scoped && Nil? facts && der_step lhs rhs
+    else if name = "pull-quant" then scoped && Nil? facts && pull_ok lhs rhs
     else if name = "sk" then
       Nil? facts && U.Observational? j &&
       (L.mem (R.mk_eq_expr lhs rhs) assertions || Some? (find_closure lhs rhs assertions))
@@ -2644,6 +2714,235 @@ let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
     lemma_same_truth s bc eq other scope rho q e
   | _, _ -> ()
 
+
+(* pulled_children without the accumulator. *)
+let rec pulled_list (n p:nat) (b:expr) (cs:list expr) (i:nat) : Tot (option (list expr)) (decreases cs) =
+  match cs with
+  | [] -> Some []
+  | c :: rest ->
+    if i = p then (match pulled_list n p b rest (i + 1) with Some ys -> Some (b :: ys) | None -> None)
+    else (match thin [] 0 n 0 c, pulled_list n p b rest (i + 1) with
+          | Some c', Some ys -> Some (c' :: ys)
+          | _, _ -> None)
+
+let rec lemma_pulled_children (n p:nat) (b:expr) (cs:list expr) (i:nat) (acc:list expr)
+  : Lemma (ensures pulled_children n p b cs i acc ==
+                   (match pulled_list n p b cs i with Some ys -> Some (L.rev acc @ ys) | None -> None))
+          (decreases cs) =
+  match cs with
+  | [] -> LP.append_l_nil (L.rev acc)
+  | c :: rest ->
+    let step (x:expr) : Lemma (L.rev (x :: acc) == L.rev acc @ [x]) = LP.rev_append [x] acc in
+    if i = p then (
+      lemma_pulled_children n p b rest (i + 1) (b :: acc);
+      step b;
+      match pulled_list n p b rest (i + 1) with
+      | Some ys -> LP.append_assoc (L.rev acc) [b] ys
+      | None -> ())
+    else (match thin [] 0 n 0 c with
+          | Some c' ->
+            lemma_pulled_children n p b rest (i + 1) (c' :: acc);
+            step c';
+            (match pulled_list n p b rest (i + 1) with
+             | Some ys -> LP.append_assoc (L.rev acc) [c'] ys
+             | None -> ())
+          | None -> ())
+
+let rec lemma_fold_remove_op (t:expr -> GTot bool) (op:B.nary_op{op = B.And \/ op = B.Or}) (xs:list expr)
+                          (k:nat{k < L.length xs})
+  : Lemma (ensures fold_truth t op xs == B.combine op (t (L.index xs k)) (fold_truth t op (remove_at k xs)))
+          (decreases xs) =
+  match xs with
+  | _ :: rest -> if k > 0 then lemma_fold_remove_op t op rest (k - 1)
+
+(* The value of a child lifted over the pulled binders, at an extension of
+   the environment, is its value at the environment. *)
+let lemma_lifted (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation base sigma)
+                 (scope ss:list sort) (rho:V.environment base sigma scope) (vs:V.arguments base sigma ss)
+                 (c c':expr)
+  : Lemma (requires D.scoped scope c /\ D.scoped (ss @ scope) c' /\ thin [] 0 (L.length ss) 0 c == Some c')
+          (ensures (V.evaluate sigma i scope rho c <: V.tree base) ==
+                   (V.evaluate sigma i (ss @ scope) (V.extend sigma scope ss vs rho) c' <: V.tree base)) =
+  LP.append_length ss scope;
+  let at (p:nat{p < L.length scope})
+    : Lemma (related_at sigma [] 0 (L.length ss) 0 scope (ss @ scope) rho (V.extend sigma scope ss vs rho) p) =
+    DS.lemma_extend_index sigma scope ss vs rho (p + L.length ss) in
+  FStar.Classical.forall_intro at;
+  lemma_thin_eval sigma i [] 0 (L.length ss) 0 scope (ss @ scope) rho (V.extend sigma scope ss vs rho) c c'
+
+(* The folded truth of the pulled children at an extension: the pulled body
+   combined with the other children at the environment. *)
+let rec lemma_fold_pulled (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (scope ss:list sort) (rho:V.environment base (S.signature s) scope)
+                          (vs:V.arguments base (S.signature s) ss)
+                          (op:B.nary_op{op = B.And \/ op = B.Or}) (p:nat) (b:expr) (cs cs':list expr) (i:nat)
+  : Lemma (requires i <= p /\ p - i < L.length cs /\
+                    D.scoped_args scope (remove_at (p - i) cs) /\ D.scoped_args (ss @ scope) cs' /\
+                    pulled_list (L.length ss) p b cs i == Some cs')
+          (ensures fold_truth (T.truth_at s bc eq other (ss @ scope) (V.extend (S.signature s) scope ss vs rho)) op cs' ==
+                   B.combine op (T.truth_at s bc eq other (ss @ scope) (V.extend (S.signature s) scope ss vs rho) b)
+                     (fold_truth (T.truth_at s bc eq other scope rho) op (remove_at (p - i) cs)))
+          (decreases cs) =
+  match cs, cs' with
+  | c :: rest, c' :: rest' ->
+    if i = p then lemma_fold_lifted s bc eq other scope ss rho vs op p b rest rest' (i + 1)
+    else (
+      lemma_lifted (S.signature s) (T.interpretation s bc eq other) scope ss rho vs c c';
+      lemma_fold_pulled s bc eq other scope ss rho vs op p b rest rest' (i + 1))
+  | _, _ -> ()
+
+and lemma_fold_lifted (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (scope ss:list sort) (rho:V.environment base (S.signature s) scope)
+                      (vs:V.arguments base (S.signature s) ss)
+                      (op:B.nary_op{op = B.And \/ op = B.Or}) (p:nat) (b:expr) (cs cs':list expr) (i:nat)
+  : Lemma (requires D.scoped_args scope cs /\ D.scoped_args (ss @ scope) cs' /\
+                    pulled_list (L.length ss) p b cs i == Some cs' /\ p < i)
+          (ensures fold_truth (T.truth_at s bc eq other (ss @ scope) (V.extend (S.signature s) scope ss vs rho)) op cs' ==
+                   fold_truth (T.truth_at s bc eq other scope rho) op cs)
+          (decreases cs) =
+  match cs, cs' with
+  | c :: rest, c' :: rest' ->
+    lemma_lifted (S.signature s) (T.interpretation s bc eq other) scope ss rho vs c c';
+    lemma_fold_lifted s bc eq other scope ss rho vs op p b rest rest' (i + 1)
+  | _, _ -> ()
+
+let rec lemma_remove_scoped_args (scope:list sort) (xs:list expr) (k:nat)
+  : Lemma (requires D.scoped_args scope xs) (ensures D.scoped_args scope (remove_at k xs)) (decreases xs) =
+  match xs with [] -> () | _ :: rest -> if k > 0 then lemma_remove_scoped_args scope rest (k - 1)
+
+let rec lemma_child_at (xs:list expr) (p:nat) (x:expr)
+  : Lemma (requires child_at xs p == Some x) (ensures p < L.length xs /\ L.index xs p == x) (decreases xs) =
+  match xs with _ :: rest -> if p > 0 then lemma_child_at rest (p - 1) x
+
+(* pull-quant at ANY scope where both sides are typed, at ANY typed
+   environment: (op c1 .. (Q bs. b) .. cn) and (Q bs. (op c1' .. b .. cn'))
+   have one truth. For forall under `and` and exists under `or` the pulled
+   binders range over carriers the interpretation inhabits. *)
+let lemma_pulled_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                    (scope:list sort) (rho:V.environment base (S.signature s) scope) (e q:expr)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    pulled e q /\ D.scoped scope e /\ D.scoped scope q)
+          (ensures same_at s bc eq other scope rho e q) =
+  match e, q with
+  | App f cs, Quantifier k bs _ (App _ cs') ->
+    let sigma = S.signature s in
+    let op : (op:B.nary_op{op = B.And \/ op = B.Or}) = if T.classify f = T.Nary B.Or then B.Or else B.And in
+    let p = Some?.v (single_quantified cs 0 None) in
+    let child = Some?.v (child_at cs p) in
+    lemma_child_at cs p child;
+    let b = Quantifier?.body child in
+    let ss = L.rev bs in
+    let n = L.length bs in
+    LP.rev_length bs;
+    lemma_pulled_children n p b cs 0 [];
+    assert (pulled_list n p b cs 0 == Some cs');
+    assert (D.scoped_args scope cs);
+    lemma_remove_scoped_args scope cs p;
+    lemma_index_scoped scope cs p;
+    assert (D.scoped (ss @ scope) b);
+    assert (D.scoped (ss @ scope) (App f cs'));
+    lemma_truth_nary s bc eq other scope rho f cs op;
+    lemma_fold_atoms (T.truth_at s bc eq other scope rho) op cs;
+    lemma_fold_remove_op (T.truth_at s bc eq other scope rho) op cs p;
+    let r = fold_truth (T.truth_at s bc eq other scope rho) op (remove_at p cs) in
+    let ext (vs:V.arguments base sigma ss) : V.environment base sigma (ss @ scope) = V.extend sigma scope ss vs rho in
+    let pointwise (vs:V.arguments base sigma ss)
+      : Lemma (T.truth_at s bc eq other (ss @ scope) (ext vs) (App f cs') ==
+               B.combine op (T.truth_at s bc eq other (ss @ scope) (ext vs) b) r) =
+      lemma_truth_nary s bc eq other (ss @ scope) (ext vs) f cs' op;
+      lemma_fold_atoms (T.truth_at s bc eq other (ss @ scope) (ext vs)) op cs';
+      lemma_fold_pulled s bc eq other scope ss rho vs op p b cs cs' 0 in
+    FStar.Classical.forall_intro pointwise;
+    let vs0 = merge sigma (inhabitant_of s other) [] ss [] in
+    pointwise vs0;
+    (match k with
+     | Forall_k ->
+       Q.lemma_forall_truth s bc eq other scope rho bs b;
+       Q.lemma_forall_truth s bc eq other scope rho bs (App f cs')
+     | _ ->
+       lemma_exists_truth s bc eq other scope rho bs b;
+       lemma_exists_truth s bc eq other scope rho bs (App f cs'));
+    lemma_same_truth s bc eq other scope rho e q
+  | _, _ -> ()
+
+(* The nested forall flattened (pull_quant::pull_quant1_core over a forall
+   body; Z3SortedQuantifier.flatten) at ANY scope and ANY typed environment:
+   Z3SortedQuantifier.lemma_flatten at the scope [] generalized. *)
+let lemma_flatten_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope) (a b:expr)
+  : Lemma (requires Q.forall_model s bc other /\ D.scoped scope a /\ D.scoped scope b /\ Q.flatten a b)
+          (ensures same_at s bc eq other scope rho a b) =
+  match a, b with
+  | Quantifier Forall_k outer _ (Quantifier Forall_k inner _ body),
+    Quantifier Forall_k _ _ _ ->
+    let sigma = S.signature s in
+    let xs = L.rev inner in
+    let ys = L.rev outer in
+    LP.rev_append outer inner;
+    LP.append_assoc xs ys scope;
+    Q.lemma_forall_truth s bc eq other scope rho outer (Quantifier Forall_k inner bool_sort body);
+    Q.lemma_forall_truth s bc eq other scope rho (outer @ inner) body;
+    let outside (ws:V.arguments base sigma ys)
+      : Lemma (T.truth_at s bc eq other (ys @ scope) (V.extend sigma scope ys ws rho)
+                 (Quantifier Forall_k inner bool_sort body) <==>
+               (forall (vs:V.arguments base sigma xs).
+                 T.truth_at s bc eq other ((xs @ ys) @ scope)
+                   (V.extend sigma scope (xs @ ys) (Q.append_arguments sigma xs ys vs ws) rho) body)) =
+      Q.lemma_forall_truth s bc eq other (ys @ scope) (V.extend sigma scope ys ws rho) inner body;
+      let inside (vs:V.arguments base sigma xs)
+        : Lemma (T.truth_at s bc eq other ((xs @ ys) @ scope)
+                   (V.extend sigma scope (xs @ ys) (Q.append_arguments sigma xs ys vs ws) rho) body ==
+                 T.truth_at s bc eq other (xs @ (ys @ scope))
+                   (V.extend sigma (ys @ scope) xs vs (V.extend sigma scope ys ws rho)) body) =
+        let indices (n:nat{n < L.length ((xs @ ys) @ scope)})
+          : Lemma (V.extend sigma scope (xs @ ys) (Q.append_arguments sigma xs ys vs ws) rho n ==
+                   V.extend sigma (ys @ scope) xs vs (V.extend sigma scope ys ws rho) n) =
+          Q.lemma_extend_append sigma scope xs ys vs ws rho n in
+        FStar.Classical.forall_intro indices;
+        Q.lemma_free_environments sigma (T.interpretation s bc eq other) ((xs @ ys) @ scope)
+          (V.extend sigma scope (xs @ ys) (Q.append_arguments sigma xs ys vs ws) rho)
+          (V.extend sigma (ys @ scope) xs vs (V.extend sigma scope ys ws rho)) body in
+      FStar.Classical.forall_intro inside in
+    FStar.Classical.forall_intro outside;
+    let forward (_:squash (T.truth_at s bc eq other scope rho a))
+      : Lemma (T.truth_at s bc eq other scope rho b) =
+      let combined (vs:V.arguments base sigma (xs @ ys))
+        : Lemma (T.truth_at s bc eq other ((xs @ ys) @ scope) (V.extend sigma scope (xs @ ys) vs rho) body) =
+        let left, right = Q.split_arguments sigma xs ys vs in
+        outside right in
+      FStar.Classical.forall_intro combined in
+    FStar.Classical.impl_intro forward;
+    let backward (_:squash (T.truth_at s bc eq other scope rho b))
+      : Lemma (T.truth_at s bc eq other scope rho a) =
+      let outside' (ws:V.arguments base sigma ys)
+        : Lemma (T.truth_at s bc eq other (ys @ scope) (V.extend sigma scope ys ws rho)
+                   (Quantifier Forall_k inner bool_sort body)) =
+        let inside' (vs:V.arguments base sigma xs)
+          : Lemma (T.truth_at s bc eq other ((xs @ ys) @ scope)
+                     (V.extend sigma scope (xs @ ys) (Q.append_arguments sigma xs ys vs ws) rho) body) =
+          () in
+        FStar.Classical.forall_intro inside';
+        outside ws in
+      FStar.Classical.forall_intro outside' in
+    FStar.Classical.impl_intro backward;
+    lemma_same_truth s bc eq other scope rho a b
+  | _, _ -> ()
+
+(* A pull-quant entry at ANY scope where both sides are typed, at ANY typed
+   environment of it. *)
+let lemma_pull_ok_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope) (e q:expr)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    pull_ok e q /\ D.scoped scope e /\ D.scoped scope q)
+          (ensures same_at s bc eq other scope rho e q) =
+  if pulled e q then lemma_pulled_at s bc eq other scope rho e q
+  else lemma_flatten_at s bc eq other scope rho e q
+
 (* A rewrite leaf at ANY scope where both sides are typed, at ANY typed
    environment of it: rewrite_ok reads no environment. The Int equivalence
    is Z3SortedArithmetic.lemma_equivalent at that scope; the ITE laws are
@@ -2747,6 +3046,7 @@ let lemma_entry_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
       else if name = "rewrite" then lemma_real_rewrite_at s bc eq other real scope rho lhs rhs
       else if name = "elim-unused" then lemma_unused_eliminated_at s bc eq other scope rho lhs rhs
       else if name = "der" then lemma_der_at s bc eq other scope rho lhs rhs
+      else if name = "pull-quant" then lemma_pull_ok_at s bc eq other scope rho lhs rhs
       else if L.mem (R.mk_eq_expr lhs rhs) assertions then
         lemma_assertion_edge s bc eq other assertions scope rho lhs rhs
       else (
