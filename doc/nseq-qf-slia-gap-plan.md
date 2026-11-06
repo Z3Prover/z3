@@ -684,8 +684,102 @@ None of their extra backend APIs or iterator machinery is retained.
 Artifacts retain `pyex-alignment-normalized-final-v1`, its two
 `pyex-alignment-normalized-repeat` checks, quiet timings, rejected experiments,
 and matching source/binary/input hashes; invocations are logged to
-`z3agent.db`. Changes remain local and unpublished. No full post-fix PyEx
-score is extrapolated from these samples.
+`z3agent.db`. Published through #11565 and squash-merged into `c3mv` as
+`4f804bd483f1a41b2c90c09b3239d69b690881b7`; the merged tree matches the
+validated feature tree. No full post-fix PyEx score is extrapolated from
+these samples. GitHub CI is not fully green: native modules pass, but
+investigated failures include an inherited `Solver.solutions` doctest
+ordering difference, model-definition ordering, and the inherited
+`4015.smt2` timeout.
+
+### Additional PyEx gains: reuse indexof's right fragment
+
+The next follow-up compares against the exact tree merged through #11565.
+For an ordinary string variable `s` and a one-character literal `c`, let
+`i = str.indexof(s, c, 0) + 1`. An extract `str.substr(s, i, len(s) - i)`
+can reuse the existing `seq.idx.r(s, c)` when `str.contains(s, c)` holds.
+Otherwise indexof is -1, so the extract is `s`. These two guarded
+equalities replace the generic extract decomposition, avoiding another
+prefix Skolem and a redundant word equation. The shared sequence axioms,
+solver routing, and search budgets are unchanged.
+
+The specialization is limited to word-level consumers. Length-only tails,
+compound sources, and interpreted consumers retain their original
+encoding. The consumer check follows concatenation parents transitively:
+an immediate concat parent does not make a downstream extract, indexof,
+or replacement safe for search scheduling. These guards protect search,
+not the mathematical validity of the tail identity.
+
+The less restricted direct specialization was rejected despite 269 gains
+and four losses on 5,786 inputs. Three losses were repeatable: baseline
+quiet medians 0.446/1.430/1.430 seconds became eight-second timeouts.
+One tail had only length consumers; the other two fed interpreted
+operations through concatenation. Removing forced equality phases,
+reusing the existing contains predicate, and adding the exact tail-length
+equation did not repair them. The final consumer-path and word-use guards
+restore SAT in three quiet repetitions each, at candidate medians
+0.450/1.460/1.453 seconds. The broader shared `seq.post` aliases and
+one-way equality experiments were also rejected; none is retained.
+
+Native tests cover early found/absent propagation, Unicode characters,
+push/pop, compound sources, direct and indirect selector consumers, and
+length-only consumers. All 135 native modules pass. Python checks cover
+found/absent/end/empty tails, Unicode, nonzero offsets, multi-character
+and empty needles, nonmatching cuts, incremental models, and bounded
+decomposition/absence UNSAT checks. Prior alignment, selector,
+replacement, and 257-character witness checks also pass.
+
+The final matched comparison preserves all 5,786 preceding inputs and
+adds 502 untouched PyEx inputs, disjoint from every earlier experiment
+manifest. Only 118 eligible other-PyEx inputs remained, so the fresh
+groups contain 384 entry-disposition and 118 other inputs rather than
+the targeted 384/128. Original input bytes, five-second caps, model
+validation, and 32 interleaved workers are unchanged. Groups overlap:
+
+| Group | Inputs | Merged c3mv solved | Guarded repair solved |
+|---|---:|---:|---:|
+| Existing entry-disposition sample | 512 | 156 | 167 |
+| Existing other-PyEx sample | 128 | 30 | 42 |
+| All original c3mv-only controls | 1,529 | 1,472 | 1,471 |
+| All former model errors | 290 | 272 | 272 |
+| Untouched entry-disposition holdout | 384 | 112 | 114 |
+| Untouched other-PyEx holdout | 118 | 31 | 43 |
+| Distinct inputs, all groups | **6,288** | **3,416** | **3,577** |
+
+The 12,576 invocations take 1,014.6 seconds: **167 gains and six losses**,
+a net gain of 161 solved inputs. All gains are PyEx: 166 SAT and one
+UNSAT, with the UNSAT matching the independent report-master run.
+The untouched holdouts contribute **14 gains and zero losses**.
+PAR-2 mean improves from 4.939 to 4.612 seconds. There are no errors,
+invalid models, external watchdogs, or definite-answer contradictions,
+including against 4,656 definite local report-master references.
+Frozen source, binary, and input hashes match.
+
+Two paired repeats cover all primary gains/losses, 120 prior
+repeat-consistent alignment gains, the 17 repaired PyEx regressions,
+all 33 previous bounded-witness gains, and 24 suffix regression controls:
+343 distinct inputs per repeat. They produce 118 gains/zero losses and
+114 gains/three losses, with **105 primary PyEx gains remaining gains
+in both repeats**. Both repeats solve all 17 repaired PyEx cases, all
+33 earlier gains, and all 24 suffix controls. The broad run retains
+118/120 earlier alignment wins under the parallel cap; the two missed
+cases are included in the quiet audit.
+
+All six primary losses disappear as losses in repeat 1. Repeat 2 loses
+`49e0625b...`, the previously cutoff-sensitive `f1d731d1...`, and
+`str_replace193.smt2`. Three quiet runs per binary cover the union of
+these losses and the two missed prior alignment wins: eight inputs.
+Every run returns the same definite answer as the baseline, with
+candidate medians 2.686-3.656 seconds. The two missed prior alignment
+wins remain UNSAT, at 2.857/2.934 seconds versus baseline
+2.898/2.886 seconds. Thus no repeatable regression remains on the
+tested sets; the six primary losses are not relabeled as zero losses.
+
+Artifacts retain `pyex-index-suffix-guarded-final-v1`, both
+`pyex-index-suffix-guarded-repeat` checks, the two quiet audits, native
+and semantic validation, and all rejected experiments. Invocations are
+logged to `z3agent.db`. The guarded specialization remains local and
+unpublished. No full post-fix PyEx score is extrapolated from these samples.
 
 ## Baseline and scope
 

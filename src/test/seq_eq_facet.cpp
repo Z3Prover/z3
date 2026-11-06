@@ -25,7 +25,9 @@ Author:
 #include "ast/seq/seq_assumption_facet.h"
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
+#include "ast/seq/seq_skolem.h"
 #include "smt/seq_solver_facet.h"
+#include "smt/smt_context.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "cmd_context/cmd_context.h"
@@ -906,6 +908,72 @@ namespace {
         ENSURE(root->facet_as<seq::assumption_facet>(assumption_id).assumptions().empty());
     }
 
+    static void tst_nseq_index_suffix_axiom(bool compound = false, bool selector = false, unsigned ch = '=',
+                                           bool indirect = false, bool length_only = false) {
+        struct propagation_context : smt::context {
+            using smt::context::context;
+            using smt::context::propagate;
+        };
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        th_rewriter rw(m);
+        seq::skolem sk(m, rw);
+        smt_params params;
+        params.m_string_solver = symbol("nseq");
+        propagation_context ctx(m, params);
+        expr_ref s(m.mk_const("source", u.str.mk_string_sort()), m);
+        if (compound) {
+            expr_ref prefix(m.mk_const("prefix", s->get_sort()), m);
+            s = u.str.mk_concat(prefix, s);
+        }
+        expr_ref needle(u.str.mk_string(zstring(1, &ch)), m);
+        expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+        expr_ref index(u.str.mk_index(s, needle, zero), m);
+        expr_ref start(a.mk_add(one, index), m);
+        expr_ref len(u.str.mk_length(s), m);
+        expr_ref remaining(a.mk_sub(len, start), m);
+        expr_ref suffix(u.str.mk_substr(s, start, remaining), m);
+        rw(suffix);
+        expr_ref right = sk.mk_indexof_right(s, needle);
+        expr_ref found(u.str.mk_contains(s, needle), m);
+        for (bool present : {false, true, false}) {
+            if (!present && (compound || selector || length_only))
+                continue;
+            ctx.push();
+            ctx.internalize(found, false);
+            ctx.mark_as_relevant(found.get());
+            smt::literal lit = ctx.get_literal(found);
+            ctx.assign(present ? lit : ~lit, smt::b_justification::mk_axiom());
+            ctx.internalize(suffix, false);
+            ctx.mark_as_relevant(suffix.get());
+            expr_ref consumer(u.str.mk_length(suffix), m);
+            if (!length_only)
+                consumer = u.str.mk_contains(suffix, u.str.mk_string("x"));
+            ctx.internalize(consumer, false);
+            ctx.mark_as_relevant(consumer.get());
+            if (selector) {
+                expr_ref selected(suffix, m);
+                if (indirect)
+                    selected = u.str.mk_concat(needle, suffix);
+                expr_ref at(u.str.mk_at(selected, zero), m);
+                ctx.internalize(at, false);
+                ctx.mark_as_relevant(at.get());
+            }
+            ENSURE(ctx.propagate());
+            if (present) {
+                ENSURE(ctx.e_internalized(right));
+                bool same = ctx.get_enode(suffix)->get_root() == ctx.get_enode(right)->get_root();
+                ENSURE(same == (!compound && !selector && !length_only));
+            }
+            else {
+                ENSURE(ctx.get_enode(suffix)->get_root() == ctx.get_enode(s)->get_root());
+            }
+            ctx.pop(1);
+        }
+    }
+
     static void check_length_model(ast_manager& m, expr* element, unsigned length, bool word_equation) {
         seq_util u(m);
         arith_util a(m);
@@ -1230,6 +1298,12 @@ void tst_seq_eq_facet() {
     tst_deq_split_multiple_units_sat();
     tst_word_eq_split_char_eq_sat();
     tst_block_compression_sat();
+    tst_nseq_index_suffix_axiom();
+    tst_nseq_index_suffix_axiom(true);
+    tst_nseq_index_suffix_axiom(false, true);
+    tst_nseq_index_suffix_axiom(false, false, 0x1f642);
+    tst_nseq_index_suffix_axiom(false, true, '=', true);
+    tst_nseq_index_suffix_axiom(false, false, '=', false, true);
     tst_nseq_length_model();
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
