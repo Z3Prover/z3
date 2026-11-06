@@ -47,8 +47,8 @@ static void check_case_split_relevant_first() {
                 ctx.push();
                 app_ref irrelevant(m.mk_const("irrelevant", m.mk_bool_sort()), m);
                 app_ref relevant(m.mk_const("relevant", m.mk_bool_sort()), m);
-                ctx.internalize(irrelevant, false);
-                ctx.internalize(relevant, false);
+                ctx.internalize(irrelevant, false, l_undef);
+                ctx.internalize(relevant, false, l_undef);
                 ctx.mark_as_relevant(relevant.get());
                 smt::bool_var vi = ctx.get_bool_var(irrelevant);
                 smt::bool_var vr = ctx.get_bool_var(relevant);
@@ -164,7 +164,7 @@ static void check_arithmetic_propagation_cancellation() {
         expr_ref sum(a.mk_add(x, y), m);
         expr_ref one(a.mk_int(1), m);
         expr_ref bound(a.mk_ge(sum, one), m);
-        ctx.internalize(bound, false);
+        ctx.internalize(bound, false, l_undef);
         ctx.mark_as_relevant(bound.get());
         ctx.assign(ctx.get_literal(bound), smt::b_justification::mk_axiom());
         {
@@ -290,6 +290,40 @@ static void check_quantified_array_ite() {
 }
 
 static void check_quantifier_polarities() {
+    for (unsigned entry_point = 0; entry_point < 3; ++entry_point) {
+        for (lbool polarity : {l_true, l_false, l_undef}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(polarity == l_true
+                ? "(assert (forall ((x Int)) (= x 0)))\n"
+                : "(assert (forall ((x Int)) (= x x)))\n");
+            VERIFY(parse_smt2_commands(cmd, input));
+            smt_params params;
+            params.m_preprocess = false;
+            params.m_auto_config = false;
+            smt::context ctx(m, params);
+            ctx.push();
+            expr* q = cmd.assertions()[0];
+            switch (entry_point) {
+            case 0:
+                ctx.internalize(q, true, polarity);
+                break;
+            case 1:
+                ctx.internalize(&q, 1, true, polarity);
+                break;
+            case 2:
+                ctx.internalize(q, true, polarity, 1);
+                break;
+            }
+            smt::literal lit = ctx.get_literal(q);
+            if (polarity != l_true)
+                lit.neg();
+            ctx.assign(lit, smt::b_justification::mk_axiom());
+            ctx.mark_as_relevant(lit);
+            VERIFY(ctx.check() == l_false);
+        }
+    }
     struct {
         char const* input;
         lbool expected;

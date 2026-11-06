@@ -127,7 +127,7 @@ namespace smt {
         else {            
             for (unsigned i = 0; i < seq.num_bits(); ++i) 
                 ebits.push_back(seq.mk_char_bit(e, i));
-            ctx.internalize(ebits.data(), ebits.size(), true);
+            ctx.internalize(ebits.data(), ebits.size(), true, l_undef);
             for (expr* arg : ebits)
                 bits.push_back(literal(ctx.get_bool_var(arg)));            
             for (literal bit : bits)

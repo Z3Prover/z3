@@ -86,7 +86,7 @@ namespace smt {
             throw default_exception(Z3_CANCELED_MSG);
         if (m.is_true(axiom))
             return;
-        ctx.internalize(axiom, false);
+        ctx.internalize(axiom, false, l_true);
         literal lit = ctx.get_literal(axiom);
         ctx.mark_as_relevant(lit);
         if (m.proofs_enabled()) {
@@ -131,7 +131,7 @@ namespace smt {
     }
 
     bool theory_ff::internalize_term(app *e) {
-        ctx.internalize(e->get_args(), e->get_num_args(), false);
+        ctx.internalize(e->get_args(), e->get_num_args(), false, l_undef);
         // Keep field operators out of the EUF congruence table (as arithmetic
         // internalizers do); foreign terms retain normal congruence closure.
         enode *n = ctx.e_internalized(e) ? ctx.get_enode(e) : ctx.mk_enode(e, false, false, false);

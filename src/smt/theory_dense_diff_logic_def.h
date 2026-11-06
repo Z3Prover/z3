@@ -108,7 +108,7 @@ namespace smt {
         }
         else if (!m_autil.is_arith_expr(n)) {
             if (!ctx.e_internalized(n))
-                ctx.internalize(n, false);
+                ctx.internalize(n, false, l_undef);
             enode * e    = ctx.get_enode(n);
             if (!is_attached_to_var(e))
                 return mk_var(e);
@@ -874,7 +874,7 @@ namespace smt {
                 e = ctx.get_enode(to_app(n));                
             }
             else {
-                ctx.internalize(n, false);
+                ctx.internalize(n, false, l_undef);
                 e = ctx.get_enode(n);
             }            
             v = e->get_th_var(get_id());

@@ -63,10 +63,10 @@ namespace smt {
             auto n = ctx.get_enode(e);
             auto x = n->get_arg(0)->get_expr();
             auto bv2int = bv.mk_ubv2int(e);
-            ctx.internalize(bv2int, false);
+            ctx.internalize(bv2int, false, l_undef);
             auto N = rational::power_of_two(bv.get_bv_size(e));
             auto xModN = a.mk_mod(x, a.mk_int(N));
-            ctx.internalize(xModN, false);
+            ctx.internalize(xModN, false, l_undef);
             auto nBv2int = ctx.get_enode(bv2int);
             auto nxModN = ctx.get_enode(xModN);
             if (nBv2int->get_root() != nxModN->get_root()) {
@@ -161,7 +161,7 @@ namespace smt {
     
     bool theory_intblast::internalize_term(app* term) {
         
-        ctx.internalize(term->get_args(), term->get_num_args(), false);
+        ctx.internalize(term->get_args(), term->get_num_args(), false, l_undef);
         m_translator.internalize_bv(term);
         enode* n;
         if (!ctx.e_internalized(term)) 

@@ -55,7 +55,7 @@ namespace smt {
             return false;
         }
         for (expr * arg : *atom) 
-            ctx.internalize(arg, false);
+            ctx.internalize(arg, false, l_undef);
         if (!ctx.e_internalized(atom)) 
             ctx.mk_enode(atom, false, true, true);
         if (!ctx.b_internalized(atom)) 
@@ -72,7 +72,7 @@ namespace smt {
             return false;
         }
         for (expr* e : *term) {
-            ctx.internalize(e, false);
+            ctx.internalize(e, false, l_undef);
         }
         if (!ctx.e_internalized(term)) {            
             ctx.mk_enode(term, false, false, true);
@@ -234,7 +234,7 @@ namespace smt {
         
     literal theory_recfun::mk_literal(expr* e) {
         bool is_not = m.is_not(e, e);
-        ctx.internalize(e, false);
+        ctx.internalize(e, false, l_undef);
         literal lit = ctx.get_literal(e);
         ctx.mark_as_relevant(lit);
         if (is_not)

@@ -162,7 +162,7 @@ namespace smt {
 
     theory_var theory_special_relations::mk_var(expr* e) {
         if (!ctx.e_internalized(e)) 
-            ctx.internalize(e, false);
+            ctx.internalize(e, false, l_undef);
         enode * n = ctx.get_enode(e);
         theory_var v = n->get_th_var(get_id());
         if (null_theory_var == v) {
@@ -224,7 +224,7 @@ namespace smt {
 
     enode* theory_special_relations::ensure_enode(expr* e) {
         if (!ctx.e_internalized(e)) {
-            ctx.internalize(e, false);
+            ctx.internalize(e, false, l_undef);
         }
         enode* n = ctx.get_enode(e);
         ctx.mark_as_relevant(n);

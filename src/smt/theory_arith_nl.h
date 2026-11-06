@@ -709,7 +709,7 @@ bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {
     {
         std::function<expr*(void)> fn = [&]() { return m.mk_or(bound, m.mk_not(bound)); };
         scoped_trace_stream _sts(*this, fn);
-        ctx.internalize(bound, true);
+        ctx.internalize(bound, true, l_undef);
     }
     ctx.mark_as_relevant(bound.get());
     literal l     = ctx.get_literal(bound);
@@ -813,7 +813,7 @@ bool theory_arith<Ext>::propagate_linear_monomial(theory_var v) {
         expr * rhs   = m_util.mk_add(m, k_x_n);
         TRACE(non_linear_bug, tout << "rhs: " << mk_bounded_pp(rhs, get_manager(),5) << "\ninternalized: " << ctx.e_internalized(rhs) << "\n";);
         if (!has_var(rhs)) {
-            ctx.internalize(rhs, false);
+            ctx.internalize(rhs, false, l_undef);
             ctx.mark_as_relevant(rhs);
         }
         TRACE(non_linear_bug, tout << "enode: " << ctx.get_enode(rhs) << " enode_id: " << ctx.get_enode(rhs)->get_owner_id() << "\n";);
@@ -2120,7 +2120,7 @@ bool theory_arith<Ext>::internalize_gb_eq(grobner::equation const * eq) {
     s(pol, s_pol, pr);
     if (!has_var(s_pol)) {
         TRACE(spol_bug, tout << "internalizing...\n" << mk_ll_pp(s_pol, get_manager()) << "\n";);
-        ctx.internalize(s_pol, false);
+        ctx.internalize(s_pol, false, l_undef);
         ctx.mark_as_relevant(s_pol.get());
     }
     SASSERT(has_var(s_pol.get()));

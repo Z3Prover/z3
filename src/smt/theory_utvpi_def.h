@@ -119,7 +119,7 @@ namespace smt {
             v = e->get_th_var(get_id());
         }
         else {
-            ctx.internalize(n, false);
+            ctx.internalize(n, false, l_undef);
             e = ctx.get_enode(n);
         }
         if (v == null_theory_var) {
@@ -540,7 +540,7 @@ namespace smt {
         }
         for (expr* arg : *n) {
             if (!ctx.e_internalized(arg))
-                ctx.internalize(arg, false);
+                ctx.internalize(arg, false, l_undef);
         }
         th_var target = mk_var(ctx.mk_enode(n, false, false, true));
         coeffs.push_back(std::make_pair(target, rational(-1)));
@@ -569,7 +569,7 @@ namespace smt {
         else {
             for (expr* arg : *n) {
                 if (!ctx.e_internalized(arg))
-                    ctx.internalize(arg, false);
+                    ctx.internalize(arg, false, l_undef);
             }
             v = mk_var(ctx.mk_enode(n, false, false, true));
             // v = k: v <= k k <= v

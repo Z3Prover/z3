@@ -2447,7 +2447,7 @@ namespace smt {
                         // and force expression to be reinternalized.
                         // Otherwise I set gate_ctx to true
                         bool gate_ctx = !m.is_not(atom);
-                        internalize(atom, gate_ctx);
+                        internalize(atom, gate_ctx, sign ? l_false : l_true);
                         SASSERT(b_internalized(atom));
                         bool_var v      = get_bool_var(atom);
                         DEBUG_CODE({
@@ -2524,7 +2524,7 @@ namespace smt {
         for (; i < sz; ++i) {
             auto [unit, sign, is_relevant] = m_units_to_reassert[i];
             bool gate_ctx = true;
-            internalize(unit, gate_ctx);
+            internalize(unit, gate_ctx, sign ? l_false : l_true);
             bool_var v    = get_bool_var(unit);
             literal l(v, sign);
             assign(l, b_justification::mk_axiom());
@@ -3464,7 +3464,7 @@ namespace smt {
     void context::init_clause(expr_ref_vector const& _clause) {
         literal_vector lits;
         for (expr* lit : _clause) {
-            internalize_formula(lit, true);
+            internalize_formula(lit, true, l_true);
             mark_as_relevant(lit);
             lits.push_back(get_literal(lit));
         }
@@ -4518,7 +4518,7 @@ namespace smt {
                         // are nested in terms. Example: let f be a uninterpreted function from Bool -> Int.
                         // Then, given the term (f (not a)), Z3 will create a boolean variable for (not a) when internalizing (f (not a)).
                         expr * atom     = atoms[i];
-                        internalize(atom, true);
+                        internalize(atom, true, l.sign() ? l_false : l_true);
                         // If atom is actually a negative literal (not a), then get_bool_var will return return null_bool_var.
                         // Thus, we must use get_literal instead. This was a bug/crash in Z3 <= 4.0
                         literal new_l = get_literal(atom);
@@ -4780,7 +4780,7 @@ namespace smt {
         }
         bool r = false;
         if (!b_internalized(eq)) {
-            // I do not invoke internalize(eq, true), because I want to
+            // I do not invoke internalize(eq, true, l_undef), because I want to
             // mark the try_true_first flag before invoking theory::internalize_eq_eh.
             // Reason: Theories like arithmetic should be able to know if the try_true_first flag is
             // marked or not. They use this information to also mark auxiliary atoms such as:
@@ -4799,7 +4799,7 @@ namespace smt {
                     th->internalize_eq_eh(to_app(eq), v);
             }
             else {
-                internalize(eq, true);
+                internalize(eq, true, l_undef);
             }
             r = true;
             m_stats.m_num_interface_eqs++;

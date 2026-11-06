@@ -130,7 +130,7 @@ namespace smt {
         }
         else {
             TRACE(mk_var_bug, tout << "mk_sel: " << sel->get_id() << "\n";);
-            ctx.internalize(sel, false);
+            ctx.internalize(sel, false, l_undef);
             ctx.assign_eq(ctx.get_enode(sel), ctx.get_enode(val), eq_justification::mk_axiom());
             ctx.mark_as_relevant(sel.get());
         }
@@ -430,7 +430,7 @@ namespace smt {
             q = q2;
         }
         if (!ctx.b_internalized(q)) {
-            ctx.internalize(q, true);
+            ctx.internalize(q, true, l_true);
         }
         literal fa_eq = ctx.get_literal(q);
         ctx.mark_as_relevant(fa_eq);
@@ -600,7 +600,7 @@ namespace smt {
                     TRACE(array_bug, tout << "mk_interface_eqs: adding: " << eq << "\n";);
                     if (!ctx.b_internalized(eq.get()) || !ctx.is_relevant(eq.get())) {
                         result++;
-                        ctx.internalize(eq, true);
+                        ctx.internalize(eq, true, l_undef);
                         ctx.mark_as_relevant(eq.get());
                     }
                 }

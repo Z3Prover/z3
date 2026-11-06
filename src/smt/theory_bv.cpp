@@ -56,7 +56,7 @@ namespace smt {
 
         for (unsigned i = 0; i < bv_size; ++i) 
             m_bits_expr.push_back(mk_bit2bool(owner, i));
-        ctx.internalize(m_bits_expr.data(), bv_size, true);
+        ctx.internalize(m_bits_expr.data(), bv_size, true, l_undef);
 
         for (unsigned i = 0; i < bv_size; ++i) {
             bool_var b = ctx.get_bool_var(m_bits_expr[i]);
@@ -96,7 +96,7 @@ namespace smt {
             // clause that is being reinitialized, and x was not reinitialized
             // yet.
             // So, we internalize x (i.e., arg)
-            ctx.internalize(first_arg, false);
+            ctx.internalize(first_arg, false, l_undef);
             SASSERT(ctx.e_internalized(first_arg));
             // In most cases, when x is internalized, its bits are created.
             // They are created because x is a bit-vector operation or apply_sort_cnstr is invoked.
@@ -151,7 +151,7 @@ namespace smt {
     }
 
     void theory_bv::process_args(app * n) {
-        ctx.internalize(n->get_args(), n->get_num_args(), false);
+        ctx.internalize(n->get_args(), n->get_num_args(), false, l_undef);
     }
 
     enode * theory_bv::mk_enode(app * n) {
@@ -329,7 +329,7 @@ namespace smt {
         SASSERT(get_bv_size(n) == sz);
         m_bits[v].reset();
 
-        ctx.internalize(bits.data(), sz, true);
+        ctx.internalize(bits.data(), sz, true, l_undef);
 
         for (unsigned i = 0; i < sz; ++i) {
             expr * bit          = bits.get(i);
@@ -996,7 +996,7 @@ namespace smt {
         m_bb.OP(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), out);                                   \
         expr_ref s_out(m);                                                                                      \
         simplify_bit(out, s_out);                                                                               \
-        ctx.internalize(s_out, true);                                                                           \
+        ctx.internalize(s_out, true, l_undef);                                                                  \
         literal def = ctx.get_literal(s_out);                                                                   \
         literal l(ctx.mk_bool_var(n));                                                                          \
         ctx.set_var_theory(l.var(), get_id());                                                                  \
@@ -1036,7 +1036,7 @@ namespace smt {
             m_bb.mk_ule(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
         expr_ref s_le(m);
         simplify_bit(le, s_le);
-        ctx.internalize(s_le, true);
+        ctx.internalize(s_le, true, l_undef);
         literal def = ctx.get_literal(s_le);
         literal l(ctx.mk_bool_var(n));
         ctx.set_var_theory(l.var(), get_id());
@@ -1050,7 +1050,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_carry(app * n, bool gate_ctx) {
-        ctx.internalize(n->get_args(), 3, true);
+        ctx.internalize(n->get_args(), 3, true, l_undef);
         bool is_new_var = false;
         bool_var v;
         if (!ctx.b_internalized(n)) {
@@ -1081,7 +1081,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_xor3(app * n, bool gate_ctx) {
-        ctx.internalize(n->get_args(), 3, true);
+        ctx.internalize(n->get_args(), 3, true, l_undef);
         bool is_new_var = false;
         bool_var v;
         if (!ctx.b_internalized(n)) {
@@ -1244,7 +1244,7 @@ namespace smt {
             ctx.literal2expr(*it1, l1);
             ctx.literal2expr(*it2, l2);
             m_bb.mk_xor(l1, l2, diff);
-            ctx.internalize(diff, true);
+            ctx.internalize(diff, true, l_undef);
             literal arg = ctx.get_literal(diff);
             lits.push_back(arg);
         }

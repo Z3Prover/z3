@@ -842,7 +842,7 @@ namespace smt {
 
         void top_sort_expr(expr* const* exprs, unsigned num_exprs, svector<expr_bool_pair> & sorted_exprs);
 
-        void internalize_rec(expr * n, bool gate_ctx, lbool polarity = l_undef);
+        void internalize_rec(expr * n, bool gate_ctx, lbool polarity);
 
         void internalize_deep(expr * n);
         void internalize_deep(expr* const* n, unsigned num_exprs);
@@ -851,7 +851,7 @@ namespace smt {
 
         void assert_distinct(app * n, proof * pr);
 
-        void internalize_formula(expr * n, bool gate_ctx, lbool polarity = l_undef);
+        void internalize_formula(expr * n, bool gate_ctx, lbool polarity);
 
         void internalize_eq(app * n, bool gate_ctx);
 
@@ -984,10 +984,10 @@ namespace smt {
 
         void ensure_internalized(expr* e);
 
-        void internalize(expr * n, bool gate_ctx, lbool polarity = l_undef);
-        void internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx);
+        void internalize(expr * n, bool gate_ctx, lbool polarity);
+        void internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx, lbool polarity);
 
-        void internalize(expr * n, bool gate_ctx, unsigned generation);
+        void internalize(expr * n, bool gate_ctx, lbool polarity, unsigned generation);
 
         enode *non_ground_internalize(expr *e);
 

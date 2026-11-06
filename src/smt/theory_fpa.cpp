@@ -219,7 +219,7 @@ namespace smt {
         if (m.is_true(e)) return;
         TRACE(t_fpa_detail, tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
         if (m.has_trace_stream()) log_axiom_instantiation(e);
-        ctx.internalize(e, false);
+        ctx.internalize(e, false, l_undef);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
@@ -242,7 +242,7 @@ namespace smt {
         literal l(ctx.mk_bool_var(atom));
         ctx.set_var_theory(l.var(), get_id());
 
-        ctx.internalize(atom->get_args(), atom->get_num_args(), false);
+        ctx.internalize(atom->get_args(), atom->get_num_args(), false, l_undef);
 
         expr_ref bv_atom(m_rw.convert_atom(m_th_rw, atom));
         expr_ref bv_atom_w_side_c(m), atom_eq(m);
@@ -258,7 +258,7 @@ namespace smt {
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!ctx.e_internalized(term));
 
-        ctx.internalize(term->get_args(), term->get_num_args(), false);
+        ctx.internalize(term->get_args(), term->get_num_args(), false, l_undef);
 
         enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) :
                                                  ctx.mk_enode(term, false, false, true);

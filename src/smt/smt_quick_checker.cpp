@@ -188,7 +188,7 @@ namespace smt {
             for (unsigned j = 0; j < num_candidates; ++j) {
                 if (candidates[j]->get_sort() == s) {
                     expr * n = candidates[j];
-                    m_context.internalize(n, false);
+                    m_context.internalize(n, false, l_undef);
                     enode * e = m_context.get_enode(n);
                     m_candidate_vectors[i].push_back(e);
                 }

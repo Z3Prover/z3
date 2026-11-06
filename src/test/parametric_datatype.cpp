@@ -371,7 +371,7 @@ static void test_non_recursive_recognizer_phases() {
     smt_ctx.push();
     unsigned i = 0;
     for (expr* a : ctx.assertions()) {
-        smt_ctx.internalize(a, false);
+        smt_ctx.internalize(a, false, l_undef);
         ENSURE(smt_ctx.try_true_first(smt_ctx.get_bool_var(a)) == (i < 2));
         ++i;
     }

@@ -611,7 +611,7 @@ namespace smt {
                     expr * b = m_pinned_exprs.get(offset + i);
                     if (!m_context->e_internalized(b)) {
                         TRACE(model_checker, tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);
-                        m_context->internalize(b, false, gen);
+                        m_context->internalize(b, false, l_undef, gen);
                     }
                     bindings.push_back(m_context->get_enode(b));
                 }

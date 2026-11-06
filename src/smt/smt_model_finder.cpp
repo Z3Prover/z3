@@ -2723,7 +2723,7 @@ namespace smt {
             for (unsigned i = 0; i < sz; ++i) {
                 expr* c = m_new_constraints.get(i);
                 TRACE(model_finder_bug_detail, tout << "asserting new constraint: " << mk_pp(c, m) << "\n";);
-                m_context->internalize(c, true);
+                m_context->internalize(c, true, l_true);
                 literal l(m_context->get_literal(c));
                 m_context->mark_as_relevant(l);
                 // asserting it as an AXIOM
