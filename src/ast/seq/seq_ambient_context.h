@@ -183,6 +183,7 @@ namespace seq {
         template <typename node_t> seq::mem_facet& mem_facet(node_t& n) const { return n.template facet_as<seq::mem_facet>(mem_id()); }
         template <typename node_t> seq::ncontains_facet& ncontains_facet(node_t& n) const { return n.template facet_as<seq::ncontains_facet>(ncontains_id()); }
         template <typename node_t> seq::solver_facet_i& solver_facet(node_t& n) const { return n.template facet_as<seq::solver_facet_i>(arith_id()); }
+        template <typename node_t> bool has_solver_facet(node_t const& n) const { return n.has_facet(arith_id()); }
         template <typename node_t> seq::assumption_facet& assumption_facet(node_t& n) const { return n.template facet_as<seq::assumption_facet>(assumption_id()); }
         template <typename node_t> seq::req_facet& req_facet(node_t& n) const { return n.template facet_as<seq::req_facet>(req_id()); }
         template <typename node_t> seq::lex_facet& lex_facet(node_t& n) const { return n.template facet_as<seq::lex_facet>(lex_id()); }

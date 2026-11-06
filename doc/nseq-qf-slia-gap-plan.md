@@ -782,6 +782,370 @@ logged to `z3agent.db`. The guarded specialization is published through
 #11572 targeting `c3mv`. No full post-fix PyEx score is extrapolated from
 these samples.
 
+### Additional PyEx gains: guarded finite-length expansion
+
+Source-labelled traces of eight remaining PyEx gaps distinguish missing
+active rules from delayed ones. Report-master solves all eight as SAT
+in 32-144 milliseconds; the merged #11572 executable's explicit `seq`
+backend reproduces these times. Before this change, default `nseq`
+returns unknown on one and exceeds eight seconds on the other seven.
+Master uses fixed-length character
+expansion and length coherence throughout, one ternary alignment for
+the MongoClient parsing case, eight quaternary alignments for header
+normalization, and two guarded model-length cuts for authentication.
+These are not all instances of the same model-based branching rule.
+
+Supplying only source-string lengths from the validated master models
+makes seven cases SAT in `nseq` in 42-510 milliseconds, without supplying
+characters. Authentication still exceeds eight seconds in three runs;
+supplying intermediate string-term lengths makes it SAT in 2.99-3.00
+seconds. These stronger oracle-guided inputs diagnose search and
+length-coherence gaps, not improvements on the original inputs.
+
+The first implementation adds guarded finite-length expansion, without
+changing backend routing or adding the general ternary/quaternary rules.
+For lengths up to 20, a string is conditionally equated to its sequence
+of indexed characters. The length cap limits this heuristic, not the
+language accepted by the solver. Ordinary sources must feed a relevant
+at, extract, or indexof; relevant at/extract terms are also eligible.
+Only string alphabets are expanded.
+
+The new fallback leaves a cumulative 2,176-node head start to the
+existing search: 2,048 nodes plus one 128-node grace round, across final
+checks rather than per SAT snapshot.
+An unresolved leaf can request expansion earlier. Subsequent expansion
+rounds yield after 128 nodes. String/integer conversions retain their
+existing coherence-first scheduling instead of taking this fallback.
+Length choices remain backtrackable SAT decisions, and the expansion
+clauses are valid under their explicit length guards. The deduplication
+cache and its retained expressions are trailed.
+
+Eager expansion was rejected: the pilot gained 22 inputs but lost 43,
+including established witness repairs. Arithmetic equality guards also
+exposed an incremental re-internalization loop. Using paired lower and
+upper guards, as in SAT-snapshot reconciliation, repairs that loop.
+The first fallback scheduler displaced conversion coherence on
+`leetcode_int-restoreIpAddresses/3055.smt2`; excluding conversion
+workloads restores UNSAT at a quiet three-run median of 319 milliseconds.
+The broad run of that rejected scheduler was stopped and is not an
+acceptance result.
+
+The 2,048-node scheduler's first complete 6,672-input comparison gained
+74 inputs and lost two, with 60 PyEx gains remaining gains in two paired
+repeats. Quiet testing exposed a real MongoClient slowdown: baseline
+search finishes at 2,155 nodes, but premature expansion emits 107
+axioms and increases its median from 2.405 to 2.978 seconds. Thus the
+repeated parallel cutoff loss is not dismissed as timing noise.
+A single grace round preserves the ordinary solve in the revised pilot.
+Larger 3,072/4,096-node delays were rejected because the reduced trim
+regression exceeds its resource budget. The native test budget is
+unchanged; no diagnostic instrumentation remains.
+
+All 135 native modules pass on the revised scheduler, including new
+model and push/pop regressions. Previous suffix, Unicode, selector,
+replacement, arithmetic, and 257-character semantic checks pass.
+The revised 368-input pilot has 61 gains and one cutoff loss. Final
+measurement freezes this exact source and preserves the original input
+bytes, five-second limits, model validation, and 32 interleaved workers:
+
+| Group | Inputs | Merged #11572 solved | Finite-length fallback solved |
+|---|---:|---:|---:|
+| Reused matched comparison | 6,672 | 3,693 | 3,755 |
+| Additional unused entry-disposition holdout | 384 | 130 | 132 |
+| Distinct inputs, combined | **7,056** | **3,823** | **3,887** |
+
+The combined result is **69 gains and five losses**, net **+64 solved**.
+There are 65 observed PyEx gains, including two on the unused holdout;
+the remaining four gains are outside PyEx. Combined PAR-2 improves
+from 4.875 to 4.815 seconds. There are no errors, invalid models,
+external watchdogs, or answer contradictions, including against 5,424
+definite local report-master references. Source, executable, and input
+hashes match.
+
+The first 384 added inputs were reused during scheduler tuning and are
+not presented as an untouched final holdout. The additional 384 are
+selected before seeing the revised broad result, disjoint from every
+earlier follow-up manifest. No eligible unused other-PyEx cases remain.
+
+Two paired repeats cover 362 inputs: all primary gains/losses, the
+17 repaired PyEx regressions, 33 bounded-witness gains, 120 prior
+alignment gains, 105 prior suffix gains, 24 suffix controls, and
+11 sensitive controls. They produce 60 gains/one loss and 59 gains/one
+loss. **55 primary PyEx gains remain gains in both repeats.** Both fresh
+gains also remain gains in two additional repeats, giving **57
+repeat-consistent PyEx gains**. All 17 repaired cases, 33 earlier
+witness gains, and 105 suffix gains solve in every primary/protected run.
+
+The primary run retains 119/120 prior alignment wins under the parallel
+cap; the repeats retain 118/120. All five primary losses emit zero
+fixed-length axioms. The original c3mv-only controls are 1,472/1,529
+before and 1,471/1,529 after under this cap; the single lost control is
+included in the quiet audit, rather than hidden by aggregate counts.
+
+Three quiet runs per binary cover the union of primary/repeat losses,
+missed prior wins, and the earlier MongoClient slowdown: nine inputs,
+54 invocations. Every run returns the same definite answer, below five
+seconds. Candidate medians are 2.584-3.312 seconds. MongoClient returns
+SAT at 2.660/2.672-second baseline/candidate medians, with identical
+2,155-node searches and zero expansion axioms. Thus its real slowdown
+is repaired, and no repeatable loss of a definite answer remains on
+the audited inputs. The five primary cutoff losses remain reported.
+
+The exact final executable also solves five of the eight traced gaps
+in three quiet repeats, with medians of 46 milliseconds, 1.966 seconds,
+6.931 seconds, 2.110 seconds, and 1.604 seconds. Header normalization
+still exceeds the report's five-second limit; the larger MongoClient,
+remaining entry-disposition, and authentication representatives still
+exceed eight seconds. General ternary/quaternary alignment and
+model-directed length cuts remain unimplemented.
+
+Artifacts retain `pyex-length-expand-final-v3`, its protected repeats,
+`pyex-length-expand-fresh-v3` and fresh-gain repeats, the nine-case
+quiet audit, `length-expand-exact-v3` representative measurements,
+and `pyex-length-expand-final-v3-final-evidence.json`. Invocations are
+logged to `z3agent.db`. This improvement is submitted together with
+the delimiter-position cuts below. No full post-repair PyEx score is
+extrapolated from these subsets.
+
+### Additional PyEx gains: delimiter-position arithmetic
+
+The next rule extracts a length consequence of master-style quaternary
+alignment without introducing a fresh word witness or guessing an order:
+
+```
+x ++ unit(a) ++ y = p ++ unit(b) ++ q, a != b
+    implies len(x) != len(p).
+```
+
+Different elements cannot occupy the same position in the equal words.
+The AST manager must establish element distinctness; equal or merely
+incomparable symbolic delimiters do not trigger this rule. It also
+applies to generic sequences, not only strings.
+
+Equation propagation adds the arithmetic fact after simplification and
+before arithmetic propagation, with the originating equation's
+dependency. Existing solver-facet deduplication and trailing manage its
+lifetime. Only the first active equation is considered, preserving the
+equation priority used by Nielsen splitting. No fresh string, backend
+change, speculative substitution, or change to the finite-length
+fallback's 2,176-node head start is involved.
+
+Several stronger or earlier-scheduled alternatives were rejected.
+Deterministic ternary-style substitution did not improve the large
+MongoClient gap and could delay finite-length fallback. Fresh-variable
+quaternary splitting looked promising in a 742-input pilot, with
+16 gains and no losses. Its complete 7,056-input comparison instead
+had **45 gains and 116 losses**. Proof-gated fresh alignment still had
+14 gains and 115 losses in an expanded 885-input pilot. These are not
+accepted improvements, despite attractive diagnostic timings.
+
+Even the arithmetic rule needs disciplined scheduling. Scanning every
+active equation produced 63 gains and four losses on 7,440 inputs,
+including an unused 384-input holdout. Two matched repeats retained
+43 primary gains. But quiet testing exposed a real MongoClient
+regression: `3fabffc1` changed from a 2.412-second baseline median to
+three eight-second timeouts. This global version was rejected.
+
+Restricting the rule to the leading equation repairs that regression:
+three quiet runs give baseline/candidate medians of **2.400/2.384
+seconds**, identical **1,666-node searches**, and no finite-length
+expansion. All six primary/repeat loss controls from the global version
+solve in three runs per binary, each below five seconds.
+
+The revised 923-input pilot has 28 gains and one non-PyEx cutoff loss.
+It retains all 17 required repairs, 33 bounded-witness gains,
+120 alignment gains, 105 suffix gains, 24 suffix controls, and
+57 finite-length gains. All 116 losses from the rejected fresh-variable
+version also solve. The exact revised source passes all 135 native
+modules, 75 positional SAT/UNSAT/model/push-pop checks, and the existing
+alignment and guarded-suffix semantic suites. Focused native tests
+check equation dependencies, rollback, incomparable delimiters, and
+deferral behind an earlier equation.
+
+Final measurement compares against the accepted finite-length
+executable, not the published suffix baseline. It freezes original
+inputs, five-second caps, model validation, and 32 interleaved workers:
+
+| Group | Inputs | Finite-length baseline solved | Leading-equation cuts solved |
+|---|---:|---:|---:|
+| Expanded matched comparison | 7,440 | 4,001 | 4,031 |
+| Additional unused entry-disposition holdout | 384 | 128 | 132 |
+| Distinct inputs, combined | **7,824** | **4,129** | **4,163** |
+
+This is **35 gains and one cutoff loss**, net **+34 solved**.
+There are 33 observed PyEx gains and two non-PyEx cutoff gains.
+Combined PAR-2 improves from 5.045 to 5.019 seconds. There are no
+errors, invalid models, external watchdogs, or answer contradictions,
+including against 6,192 definite local report-master references.
+Earlier accepted main/holdout definite answers also agree. Source,
+executable, and input hashes match.
+
+The expanded comparison includes the rejected global rule's 384-input
+holdout; those inputs are now reused, not presented as untouched.
+The new holdout is selected before the revised broad result, disjoint
+from all earlier follow-up manifests. No eligible unused other-PyEx
+cases remain.
+
+Two paired repeats cover 380 inputs: every new primary/fresh gain and
+loss, plus all protected repairs and prior gain families. They have
+23 gains/two losses and 28 gains/one loss. **16 primary PyEx gains and
+two fresh gains remain gains in both repeats**, giving **18
+repeat-consistent PyEx gains**. All 18 are UNSAT, with the new inference
+active; these are not claimed as new SAT witness gains.
+
+All 17 required repairs, 33 bounded-witness gains, 120 alignment gains,
+105 suffix gains, 24 suffix controls, and 11 sensitive controls solve
+in the primary run and both repeats. Under the parallel cap, the
+finite-length gain controls retain 56/57, 53/57, and 55/57; every miss
+is included in quiet verification rather than hidden by the net gain.
+The original c3mv-only controls improve from 1,470/1,529 to 1,472/1,529
+in the broad run.
+
+Three quiet runs per binary cover the union of final primary/repeat
+losses, missed protected controls, and losses from the rejected global
+version: **11 inputs, 66 invocations**. Every run returns the same
+definite answer below five seconds; the slowest individual run is
+3.470 seconds. Candidate medians range from 2.400 to 3.446 seconds,
+with none more than 10% slower than baseline. The former real
+MongoClient regression now has 2.424/2.400-second medians and identical
+1,666-node searches. The single primary cutoff loss remains reported.
+
+Artifacts retain `pyex-positional-first-bounds-final-v2`, its two
+protected repeats, `pyex-positional-first-bounds-fresh-v2`, the quiet
+audit, and `pyex-positional-first-bounds-final-v2-final-evidence.json`.
+The source-patch SHA256 is
+`65e190d3afb9892318e23d0d4fa37743dd4c590859b49f7dab8d4a014f38a6ef`;
+the executable SHA256 is
+`440158a741715d39c6f0974626ca088a1eaed27260cf54f776dd8f4511a490ce`.
+Invocations are logged to `z3agent.db`. This improvement and the
+finite-length fallback are submitted together to `c3mv`. No full post-repair PyEx
+score is extrapolated from these subsets.
+
+### Additional PyEx gains: share indexed containment witnesses
+
+The next structural bottleneck is duplicate positive-containment
+decompositions. `indexof(s,t,0)` already uses `seq.idx.l(s,t)` and
+`seq.idx.r(s,t)` to describe its first occurrence, but nseq's positive
+`contains(s,t)` assignment independently introduces two fresh fragments.
+Nielsen search then has to align the two descriptions of the same
+occurrence before it can construct a coherent model.
+
+The candidate reuses the indexof fragments when the zero-offset index is
+already internalized and the source is an uninterpreted constant. The
+containment dependency and ordinary equation trailing are unchanged.
+Otherwise the original fresh-fragment path is preserved. No new index
+term is internalized, no model value becomes an unconditional fact, and
+neither the backend routing nor the finite-length head start changes.
+
+There is a second scheduling guard: retain the original decompositions
+when another uninterpreted source has an internalized zero-offset search
+for the same needle. This preserves the order of parallel delimiter
+pipelines. The check scans the needle's equivalence-class root parents;
+it does not assert any additional semantic restriction.
+
+The atomic-source restriction is important. Sharing on interpreted
+selectors as well produced a 929-input pilot with 38 gains/four losses,
+but quiet checks exposed genuine slowdowns: MongoClient `81656a27`
+increased from 2.442 to 3.021 seconds, and entry-disposition `95ac7403`
+from 2.712 to 4.491 seconds. That broader rule is rejected. Restricting
+sharing to atomic sources restores these controls near baseline while
+retaining the large diagnostic improvements.
+
+The atomic-only prototype completed 7,824 inputs with 4,158 to 4,219
+solved (64 gains/three losses), plus one gain/no losses on a disjoint
+384-input entry-disposition holdout. Two protected repeats left 53
+repeat-consistent PyEx gains. All 12 quiet controls solved below five
+seconds, but the Leetcode `numUniqueEmails` control `a05695bb` slowed
+from 2.378 to 2.756 seconds. This fails the 10% median guard and is not
+accepted. The parallel-source guard restores its original 2,285-node
+search and 539 expansions: matched quiet medians are 2.618/2.605 seconds.
+
+| Diagnostic | Published source | Both sharing guards |
+|---|---|---|
+| Entry-disposition `8066c768` | Eight-second timeout | Validated SAT, 2.665 seconds |
+| Header normalization `a7f9d65a` | SAT, 4.261 seconds | Validated SAT, 0.358 seconds |
+| URL authentication `ff8a7323` | SAT, 1.463 seconds | Validated SAT, 1.467 seconds |
+| MongoClient `c6ee2cf4` | Eight-second timeout | Eight-second timeout |
+| WWW authentication `bddfe21d` | Eight-second timeout | Eight-second timeout |
+
+These are diagnostic timings, not a full PyEx score. The normalization
+case drops from 2,331 to 171 DFS nodes without finite-length expansion.
+A reduced normalization regression returns unknown in the published
+solver at one million resource increments and validated SAT with sharing
+at about 712,000. Native tests cover that budgeted regression, repeated
+and overlapping occurrences, distinct offsets, and model validity after
+push/pop. All 135 native modules, the 75 positional semantic checks,
+the alignment/index-suffix suites, and CLI/Python smoke tests pass.
+
+Other tested alternatives are not retained: preserving the arithmetic
+base cache across temporary-assumption queries had six gains/seven
+losses on 929 inputs; model-guided fixed-length ordering regressed two
+diagnostics severely; moving empty Nielsen alternatives behind fresh-tail
+extensions exhausted an existing native-test resource budget. Restricting
+that reordering to finite block prefixes produced only eight gains/four
+cutoff losses in its pilot, with modest search reductions. Constraint
+hashing and avoiding unchanged token-vector trails produced only small
+diagnostic overhead reductions and are also omitted from this change.
+Deferring containment entirely to the existing indexof axioms did not
+repair the email slowdown. Restricting sharing to sources with assigned
+negative-containment parents lost the budgeted normalization regression;
+that restriction is also rejected.
+
+The guarded candidate's 441-input protected pilot has 42 gains/two
+cutoff losses. All 36 quiet inputs (216 invocations) agree, finish below
+five seconds, and stay within the 10% median guard, including every
+missed protected gain.
+
+Final acceptance against the published `f68efde30` executable:
+
+| Selection | Inputs | Before solved | After solved | Gains | Losses |
+|---|---:|---:|---:|---:|---:|
+| Full measured union | 7,824 | 4,109 | 4,156 | 50 | 3 |
+| Newly preselected entry-disposition holdout | 384 | 125 | 127 | 2 | 0 |
+
+These are matched five-second runs with model validation, not a full
+PyEx score. The primary net gain is 47. Two 427-input protected matched
+repeats retain 35 consistent new PyEx SAT gains. The holdout's two UNSAT
+cutoff gains do not repeat and are not included in that count. All six
+primary UNSAT gains and both holdout UNSAT gains agree with independent
+definite results from the frozen report-master.
+
+The final quiet audit covers 41 inputs and 246 invocations, including
+every primary/repeat loss, missed protected gain, and prior witness-sharing
+control. All answers agree, all runs finish below five seconds (maximum
+3.812 seconds), and the worst candidate median increase is 2.74%.
+After quiet recovery, all 17 required repairs, 33 bounded gains, 120
+alignment gains, 105 suffix gains, 24 suffix controls, 57 length gains,
+18 positional gains, and 11 sensitive controls are retained. The 1,471
+previously solved original c3mv-only controls are also retained: 1,470
+in the primary run and `28_attack` recovered quietly. There are no
+errors, invalid models, answer contradictions, or external watchdogs.
+All 135 native modules, semantic suites, and CLI/Python smoke tests pass.
+
+Artifacts retain `pyex-contains-index-distinct-sources-final-v1`, its
+two protected repeats, `pyex-contains-index-distinct-sources-fresh-v1`,
+the final-evidence, protection-recovery, and original-win-recovery JSON
+audits. The source-patch SHA256 against `f68efde30` is
+`7045adaf42e3d23eac396e0c2173094b2f7b665c79b500f7724dabb2a5bdadb3`;
+the executable SHA256 is
+`f655dc08c1157b698ba34e4a8e9164e9fccdcf5027704e08c128d0ec4f872552`.
+Benchmark invocations are logged to `z3agent.db`. Full PyEx parity with
+report-master remains unestablished.
+
+The two remaining hard diagnostics still illustrate why node count
+alone is a poor effort bound: ordinary search can spend eight seconds
+below the existing 2,176-node finite-length head start.
+With the guarded candidate, MongoClient `c6ee2cf4` consumes about
+14.85 million resource increments at 1,486 nodes; WWW authentication
+`bddfe21d` consumes 7.90 million at 1,562 nodes. Neither expands lengths.
+A next experiment should use a soft resource-count ceiling at search-tree
+yield points, alongside the node ceiling, and accumulate ordinary-search
+work across final checks. `reslimit::count()` provides that measure
+without pushing a nested cancellation limit. Reaching the soft ceiling
+must remain an unresolved search result, never an UNSAT fact, and must
+not reset outer cancellation. This is a proposed experiment, not part of
+the current change.
+
 ## Baseline and scope
 
 Sources:

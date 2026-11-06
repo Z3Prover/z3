@@ -259,6 +259,61 @@ namespace {
         return tree.solve();
     }
 
+    static void tst_word_eq_positional_bound(bool overlap, bool symbolic = false, bool deferred = false) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        tree.set_ambient_context(&ac);
+        auto& ef = root->facet_as<seq::eq_facet>(eq_id);
+        auto& sf = root->facet_as<seq::solver_facet>(arith_id);
+        sort* s = u.str.mk_string_sort();
+        expr_ref x(m.mk_fresh_const("x", s), m), y(m.mk_fresh_const("y", s), m);
+        expr_ref z(m.mk_fresh_const("z", s), m), p(m.mk_fresh_const("p", s), m);
+        expr_ref q(m.mk_fresh_const("q", s), m), r(m.mk_fresh_const("r", s), m);
+        expr_ref decoy_l(u.str.mk_concat(p, q), m), decoy_r(u.str.mk_concat(r, z), m);
+        expr_ref block(u.str.mk_string("a"), m);
+        expr_ref delim(u.str.mk_string(overlap ? "a" : "b"), m);
+        if (symbolic) {
+            expr_ref c(m.mk_fresh_const("c", u.mk_char_sort()), m);
+            delim = u.str.mk_unit(c);
+        }
+        expr_ref left_inner(u.str.mk_concat(x, block), m), right_inner(u.str.mk_concat(y, delim), m);
+        expr_ref lhs(u.str.mk_concat(left_inner, z), m), rhs(u.str.mk_concat(right_inner, r), m);
+        if (deferred)
+            ef.add_equation(decoy_l, decoy_r, tree.dep_mgr().mk_leaf(3));
+        ef.add_equation(lhs, rhs, tree.dep_mgr().mk_leaf(7));
+        if (!deferred)
+            ef.add_equation(decoy_l, decoy_r, tree.dep_mgr().mk_leaf(3));
+        expr_ref ly(u.str.mk_length(y), m), lx(u.str.mk_length(x), m);
+        expr_ref different(m.mk_not(m.mk_eq(lx, ly)), m);
+        for (auto const& eq : ef.equations())
+            sf.add_length_constraint(eq.m_lhs, eq.m_rhs, eq.m_dep);
+        seq::eq_propagation prop(m, u);
+        tr.push_scope();
+        prop.propagate(*root);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        if (overlap || symbolic || deferred) {
+            ENSURE(sf.implies(different, &dep) != l_true);
+        }
+        else {
+            ENSURE(sf.implies(different, &dep) == l_true);
+            ENSURE(tree.dep_mgr().contains(dep, 7));
+            ENSURE(!tree.dep_mgr().contains(dep, 3));
+        }
+        tr.pop_scope(1);
+        ENSURE(sf.implies(different, &dep) != l_true);
+    }
+
     static void tst_word_eq_proved_length_alignment(bool suffix = false, bool symbolic = false, bool compound = false, bool interpreted_tail = false) {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1117,10 +1172,11 @@ namespace {
         }
     }
 
-    static void check_nseq_candidate_model(char const* input, bool require_sat = true, char const* scoped_integer = nullptr) {
+    static void check_nseq_candidate_model(char const* input, bool require_sat = true, char const* scoped_integer = nullptr,
+                                          unsigned budget = 1000000) {
         ast_manager m;
         reg_decl_plugins(m);
-        scoped_rlimit limit(m.limit(), 1000000);
+        scoped_rlimit limit(m.limit(), budget);
         cmd_context cmd(false, &m);
         std::istringstream is(input);
         ENSURE(parse_smt2_commands(cmd, is));
@@ -1154,6 +1210,108 @@ namespace {
             s->pop(1);
             check_model();
         }
+    }
+
+    static void tst_nseq_contains_index() {
+        std::ostringstream input;
+        input << R"(
+            (declare-const key1 String)
+            (declare-const key2 String)
+            (define-fun i1 () Int (str.indexof key1 "A" 0))
+            (define-fun i2 () Int (str.indexof key2 "O" 0))
+            (define-fun tail1 () String (str.substr key1 (+ i1 1) (- (str.len key1) (+ i1 1))))
+            (define-fun tail2 () String (str.substr key2 (+ i2 1) (- (str.len key2) (+ i2 1))))
+            (define-fun folded () String
+                (str.++ (str.replace (str.substr key2 0 (+ i2 1)) "O" "o") tail2))
+            (assert (str.contains tail1 "A"))
+            (assert (str.contains key1 "A"))
+        )";
+        for (char c = 'Z'; c > 'O'; --c)
+            input << "(assert (not (str.contains folded \"" << c << "\")))\n";
+        input << R"(
+            (assert (not (str.contains tail2 "O")))
+            (assert (str.contains key2 "O"))
+        )";
+        for (char c = 'N'; c >= 'A'; --c)
+            input << "(assert (not (str.contains key2 \"" << c << "\")))\n";
+        input << R"(
+            (assert (>= i1 (- 1)))
+            (assert (>= (- (str.len key1) i1) 1))
+            (assert (>= i2 (- 1)))
+            (assert (>= (- (str.len key2) i2) 1))
+        )";
+        check_nseq_candidate_model(input.str().c_str());
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (str.contains s "aa"))
+            (assert (= (str.indexof s "aa" 0) 1))
+            (assert (= (str.len s) 5))
+            (assert (str.contains (str.substr s 3 2) "aa"))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (str.contains s "aa"))
+            (assert (= (str.indexof s "aa" 0) 0))
+            (assert (= (str.indexof s "aa" 1) 1))
+            (assert (= (str.len s) 3))
+        )");
+    }
+
+    static void tst_nseq_fixed_lengths() {
+        char const* input = R"(
+            (declare-const s String)
+            (assert (not (str.contains s "A")))
+            (assert (= (str.indexof s ":" 0) (- 1)))
+            (assert (not (= (str.at s 0) "[")))
+            (assert (not (= (str.len s) 0)))
+            (assert (not (str.contains s ",")))
+            (assert (not (str.contains s "://")))
+        )";
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 1000000);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("model", true);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        auto check = [&]() {
+            ENSURE(slv->check_sat(0, nullptr) == l_true);
+            model_ref md;
+            slv->get_model(md);
+            ENSURE(md);
+            for (expr* assertion : cmd.assertions())
+                ENSURE(md->is_true(assertion));
+        };
+        check();
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref s(m.mk_const(cmd.find_func_decl(symbol("s"))), m);
+        expr_ref length_two(m.mk_eq(u.str.mk_length(s), a.mk_int(2)), m);
+        slv->push();
+        slv->assert_expr(length_two);
+        check();
+        model_ref md;
+        slv->get_model(md);
+        ENSURE(md->is_true(length_two));
+        slv->pop(1);
+        check();
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (define-fun t () String (str.substr s 1 (- (str.len s) 1)))
+            (assert (= (str.at s 0) " "))
+            (assert (= (str.at t (- (str.len t) 1)) " "))
+            (assert (not (= (str.at t 0) " ")))
+            (assert (not (= (str.len t) 0)))
+            (assert (= (str.indexof s "=" 0) (- 1)))
+            (assert (not (str.contains s ",")))
+        )", true, nullptr, 10000000);
     }
 
     static void tst_nseq_short_stoi_bounds() {
@@ -1274,6 +1432,10 @@ void tst_seq_eq_facet() {
     tst_eq_approx_generic_sequences();
     tst_eq_approx_symbolic_predicate();
     tst_eq_approx_budget();
+    tst_word_eq_positional_bound(false);
+    tst_word_eq_positional_bound(true);
+    tst_word_eq_positional_bound(false, true);
+    tst_word_eq_positional_bound(false, false, true);
     tst_word_eq_proved_length_alignment();
     tst_word_eq_proved_length_alignment(true);
     tst_word_eq_proved_length_alignment(false, true);
@@ -1308,6 +1470,8 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_contains_index();
+    tst_nseq_fixed_lengths();
     tst_nseq_short_stoi_bounds();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
