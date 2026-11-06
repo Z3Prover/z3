@@ -211,6 +211,42 @@ test("successful builds and already published attempts do not start repair work"
     }
 });
 
+test("full verification runs provide only their own current report and no packages", async t => {
+    const { args, run, reports } = fixture(t);
+    run.path = ".github/workflows/pulse-checker-full.yml@refs/heads/master";
+    reports.length = 0;
+    reports.push(
+        { id: 30, name: "pulse-checker-full-report", expired: false, created_at: "2026-10-24T10:00:00Z" },
+        { id: 31, name: "pulse-checker-full-report", expired: false, created_at: "2026-10-25T10:01:00Z" },
+        { id: 32, name: "pulse-checker-build-report", expired: false, created_at: "2026-10-25T10:01:00Z" },
+        { id: 33, name: "pulse-checker-ocaml-linux-x86_64", expired: false, created_at: "2026-10-25T10:01:00Z" },
+    );
+    assert.deepEqual((await evidence({ ...args, run })).map(item => item.id), [31]);
+    run.path = ".github/workflows/pulse-checker-build.yml";
+    assert.deepEqual((await evidence({ ...args, run })).map(item => item.id), [32]);
+});
+
+test("failed full verification runs start repair work and successful ones do not", async t => {
+    for (const conclusion of ["failure", "success"]) {
+        const { args, run } = fixture(t);
+        run.path = ".github/workflows/pulse-checker-full.yml";
+        run.conclusion = conclusion;
+        await prepare(args);
+        const context = JSON.parse(fs.readFileSync(path.join(args.directory, "context.json")));
+        assert.equal(context.actionable, conclusion === "failure");
+        if (conclusion === "success")
+            await assert.rejects(stageBundle(args), /Successful/);
+    }
+});
+
+test("look-alike workflow paths are not Pulse producers", async t => {
+    for (const workflow of ["pulse-checker-full-copy.yml", "pulse-checker-full.yaml", "pulse-checker-fullyml"]) {
+        const { args, run } = fixture(t);
+        run.path = `.github/workflows/${workflow}`;
+        await assert.rejects(producer(args), /Expected a completed Pulse workflow run/);
+    }
+});
+
 test("missing reports remain explicit and ambiguous or incomplete API results fail", async t => {
     const { args, run, reports } = fixture(t);
     reports.length = 0;

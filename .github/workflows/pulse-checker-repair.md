@@ -4,14 +4,14 @@ description: Develop sound F* checker improvements from Pulse run evidence and p
 intent: Turn partial proofs and checker failures into reproducible, reviewable F* improvements for maintainer-directed integration.
 on:
   workflow_run:
-    workflows: [Pulse verification and native checker regressions, Build Pulse native checkers]
+    workflows: [Pulse verification and native checker regressions, Build Pulse native checkers, Verify all Pulse checker files]
     types: [completed]
     # Every producer branch is a data input; executable code comes only from the trusted workflow SHA.
     branches: ["**"]
   workflow_dispatch:
     inputs:
       run_id:
-        description: Completed Pulse regression or failed native-checker build run ID
+        description: Completed Pulse regression, or failed native-checker build or full verification run ID
         required: true
         type: string
   roles: all
@@ -21,6 +21,8 @@ if: >-
   (github.event_name == 'workflow_dispatch' ||
    github.event.workflow_run.path == '.github/workflows/pulse-checker-regressions.yml' ||
    (github.event.workflow_run.path == '.github/workflows/pulse-checker-build.yml' &&
+    github.event.workflow_run.conclusion != 'success') ||
+   (github.event.workflow_run.path == '.github/workflows/pulse-checker-full.yml' &&
     github.event.workflow_run.conclusion != 'success'))
 permissions:
   contents: read
