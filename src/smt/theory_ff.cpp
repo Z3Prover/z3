@@ -131,7 +131,7 @@ namespace smt {
     }
 
     bool theory_ff::internalize_term(app *e) {
-        ctx.internalize(e->get_args(), e->get_num_args(), false, l_undef);
+        ctx.internalize(e->get_args(), e->get_num_args(), false);
         // Keep field operators out of the EUF congruence table (as arithmetic
         // internalizers do); foreign terms retain normal congruence closure.
         enode *n = ctx.e_internalized(e) ? ctx.get_enode(e) : ctx.mk_enode(e, false, false, false);

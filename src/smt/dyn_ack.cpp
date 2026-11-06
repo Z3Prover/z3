@@ -399,7 +399,7 @@ namespace smt {
 
     literal dyn_ack_manager::mk_eq(expr * n1, expr * n2) {
 		app_ref eq(m.mk_eq(n1, n2), m);
-        m_context.internalize(eq, true, l_undef);
+        m_context.internalize(eq, true);
         literal l = m_context.get_literal(eq);
         TRACE(dyn_ack, tout << "eq:\n" << mk_pp(eq, m) << "\nliteral: "; 
               m_context.display_literal(tout, l); tout << "\n";);

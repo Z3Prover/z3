@@ -215,7 +215,7 @@ namespace smt {
         
         // Internalize all arguments first
         for (expr* arg : *term) 
-            ctx.internalize(arg, false, l_undef);
+            ctx.internalize(arg, false);
         
         // Create boolean variable for Boolean terms
         if (m.is_bool(term) && !ctx.b_internalized(term)) {

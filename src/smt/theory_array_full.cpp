@@ -244,7 +244,7 @@ namespace smt {
             args.append(num_indices, indices);
             app* select = mk_select(args.size(), args.data());
             bool is_new = !ctx.e_internalized(select);
-            ctx.internalize(select, false, l_undef);
+            ctx.internalize(select, false);
             enode* select_node = ctx.get_enode(select);
             if (!ctx.is_relevant(select_node)) {
                 ctx.mark_as_relevant(select_node);
@@ -727,8 +727,8 @@ namespace smt {
         sel1 = mk_select(args1.size(), args1.data());
         sel2 = m.mk_app(f, args2.size(), args2.data());
         ctx.get_rewriter()(sel2);
-        ctx.internalize(sel1, false, l_undef);
-        ctx.internalize(sel2, false, l_undef);
+        ctx.internalize(sel1, false);
+        ctx.internalize(sel2, false);
         
         TRACE(array_map_bug,
               tout << "select-map axiom\n" << mk_ismt2_pp(sel1, m) << "\n=\n" << mk_ismt2_pp(sel2,m) << "\n";);
@@ -763,8 +763,8 @@ namespace smt {
         expr_ref def2(m.mk_app(f, args2.size(), args2.data()), m);
         ctx.get_rewriter()(def2);
         expr_ref def1(mk_default(map), m);
-        ctx.internalize(def1, false, l_undef);
-        ctx.internalize(def2, false, l_undef);
+        ctx.internalize(def1, false);
+        ctx.internalize(def2, false);
         return try_assign_eq(def1, def2);
     }
 
@@ -778,7 +778,7 @@ namespace smt {
         TRACE(array, tout << mk_bounded_pp(cnst->get_expr(), m) << "\n";);
         expr* val = cnst->get_arg(0)->get_expr();
         expr_ref def(mk_default(cnst->get_expr()), m);
-        ctx.internalize(def, false, l_undef);
+        ctx.internalize(def, false);
         return try_assign_eq(val, def);
     }
 
@@ -864,7 +864,7 @@ namespace smt {
               tout << "#" << sel->get_id() << " = #" << val->get_id() << "\n";
               );
         
-        ctx.internalize(sel, false, l_undef);
+        ctx.internalize(sel, false);
         return try_assign_eq(sel,val);
     }
 
@@ -899,8 +899,8 @@ namespace smt {
               tout << "#" << sel->get_id() << " = #" << val->get_id() << "\n";
               );
         
-        ctx.internalize(sel, false, l_undef);
-        ctx.internalize(val.get(), false, l_undef);
+        ctx.internalize(sel, false);
+        ctx.internalize(val.get(), false);
         return try_assign_eq(sel,val);
     }
 
@@ -957,8 +957,8 @@ namespace smt {
             app_ref sel1(m), sel2(m);
             sel1 = mk_select(args1);
             sel2 = mk_select(args2);
-            ctx.internalize(def1, false, l_undef);
-            ctx.internalize(def2, false, l_undef);
+            ctx.internalize(def1, false);
+            ctx.internalize(def2, false);
             is_new = try_assign_eq(def1, sel1) || try_assign_eq(def2, sel2);
             sel1 = mk_select(args3);
             sel2 = mk_select(args4);
@@ -967,8 +967,8 @@ namespace smt {
             return is_new;
         }
 
-        ctx.internalize(def1, false, l_undef);
-        ctx.internalize(def2, false, l_undef);
+        ctx.internalize(def1, false);
+        ctx.internalize(def2, false);
         return try_assign_eq(def1, def2) || is_new;
     }
 

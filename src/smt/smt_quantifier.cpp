@@ -713,7 +713,7 @@ namespace smt {
                 if (has_free_vars(e))
                     return;
                 if (!m_context->e_internalized(e)) {
-                    m_context->internalize(e, false, l_undef);
+                    m_context->internalize(e, false);
                 }
                 enode* n = m_context->get_enode(e);
                 new_bindings.push_back(n);

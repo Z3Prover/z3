@@ -503,8 +503,8 @@ namespace smt {
             // a(1-x) + b(1-y) + c(1-z) >= a + b + c - k
             expr_ref le(pb.mk_ge(num_args, coeffs.data(), nargs.data(), sum - k), m);
             expr_ref ge(pb.mk_ge(num_args, coeffs.data(), args.data(), k), m);
-            ctx.internalize(le, false, l_undef);
-            ctx.internalize(ge, false, l_undef);
+            ctx.internalize(le, false);
+            ctx.internalize(ge, false);
             literal le_lit = ctx.get_literal(le);
             literal ge_lit = ctx.get_literal(ge);
             ctx.mark_as_relevant(le_lit);
@@ -609,7 +609,7 @@ namespace smt {
         bool negate = m.is_not(arg, arg);
         SASSERT(!m.is_not(arg));
         if (!ctx.b_internalized(arg)) {
-            ctx.internalize(arg, false, l_undef);
+            ctx.internalize(arg, false);
         }
         if (ctx.b_internalized(arg)) {
             bv = ctx.get_bool_var(arg);
@@ -637,7 +637,7 @@ namespace smt {
             tmp = pb.mk_fresh_bool();
             fml = m.mk_iff(tmp, arg);
             TRACE(pb, tout << "create proxy " << fml << "\n";);
-            ctx.internalize(fml, false, l_undef);
+            ctx.internalize(fml, false);
             SASSERT(ctx.b_internalized(tmp));
             bv = ctx.get_bool_var(tmp);
             SASSERT(get_id() == ctx.get_var_theory(bv));

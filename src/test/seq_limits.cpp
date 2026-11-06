@@ -72,7 +72,7 @@ static void check_propagation_recovery() {
         expr_ref empty(seq.str.mk_empty(seq_int), m);
         ctx.push();
         ENSURE(ctx.at_base_level());
-        ctx.internalize(eq, false, l_undef);
+        ctx.internalize(eq, false);
         ctx.mark_as_relevant(eq.get());
         ctx.assign(ctx.get_literal(eq), smt::b_justification::mk_axiom());
         {
@@ -145,7 +145,7 @@ static void check_eager_reduction_recovery() {
         expr_ref unit(seq.str.mk_unit(a.mk_int(i)), m);
         expr_ref rhs(seq.str.mk_concat(unit, y), m);
         expr_ref eq(m.mk_eq(x, rhs), m);
-        ctx.internalize(eq, false, l_undef);
+        ctx.internalize(eq, false);
         ctx.mark_as_relevant(eq.get());
         ctx.assign(ctx.get_literal(eq), smt::b_justification::mk_axiom());
         last = x;
@@ -188,7 +188,7 @@ static void check_normalization_recovery(bool cancel) {
     expr_ref rhs(seq.str.mk_concat(units, seq_int), m);
     expr_ref eq(m.mk_eq(x, rhs), m);
     ctx.push();
-    ctx.internalize(eq, false, l_undef);
+    ctx.internalize(eq, false);
     ctx.mark_as_relevant(eq.get());
     ctx.assign(ctx.get_literal(eq), smt::b_justification::mk_axiom());
     {

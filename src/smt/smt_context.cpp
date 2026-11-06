@@ -4780,7 +4780,7 @@ namespace smt {
         }
         bool r = false;
         if (!b_internalized(eq)) {
-            // I do not invoke internalize(eq, true, l_undef), because I want to
+            // I do not invoke internalize(eq, true), because I want to
             // mark the try_true_first flag before invoking theory::internalize_eq_eh.
             // Reason: Theories like arithmetic should be able to know if the try_true_first flag is
             // marked or not. They use this information to also mark auxiliary atoms such as:
@@ -4799,7 +4799,7 @@ namespace smt {
                     th->internalize_eq_eh(to_app(eq), v);
             }
             else {
-                internalize(eq, true, l_undef);
+                internalize(eq, true);
             }
             r = true;
             m_stats.m_num_interface_eqs++;

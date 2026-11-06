@@ -109,7 +109,7 @@ namespace smt {
             }
         }
         else {
-            ctx.internalize(rhs, false, l_undef);
+            ctx.internalize(rhs, false);
             TRACE(datatype, tout << "adding axiom:\n" << pp(lhs, m) << "\n=\n" << mk_pp(rhs, m) << "\n";);
             if (antecedent == null_literal) {
                 ctx.assign_eq(lhs, ctx.get_enode(rhs), eq_justification::mk_axiom());
@@ -232,7 +232,7 @@ namespace smt {
         ptr_vector<func_decl> const & accessors = *m_util.get_constructor_accessors(con);
         app_ref rec_app(m.mk_app(rec, arg1), m);
         app_ref acc_app(m);
-        ctx.internalize(rec_app, false, l_undef);
+        ctx.internalize(rec_app, false);
         literal is_con(ctx.get_bool_var(rec_app));        
         for (func_decl* acc1 : accessors) {
             enode* arg;
@@ -241,7 +241,7 @@ namespace smt {
             }
             else {
                 acc_app = m.mk_app(acc1, arg1);
-                ctx.internalize(acc_app, false, l_undef);
+                ctx.internalize(acc_app, false);
                 arg = ctx.get_enode(acc_app);
             }
             app_ref acc_own(m.mk_app(acc1, own), m);
@@ -251,7 +251,7 @@ namespace smt {
         assert_eq_axiom(n, arg1, ~is_con);
 
         app_ref n_is_con(m.mk_app(rec, own), m);
-        ctx.internalize(n_is_con, false, l_undef);
+        ctx.internalize(n_is_con, false);
         literal lits[2] = { ~is_con, literal(ctx.get_bool_var(n_is_con)) };
         ctx.mark_as_relevant(lits[0]);
         ctx.mark_as_relevant(lits[1]);
@@ -267,7 +267,7 @@ namespace smt {
             if (sub_decl) {
                 TRACE(datatype, tout << "asserting reflexivity for #" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
                 app_ref reflex(m.mk_app(sub_decl, n->get_expr(), n->get_expr()), m);
-                ctx.internalize(reflex, false, l_undef);
+                ctx.internalize(reflex, false);
                 literal l(ctx.get_bool_var(reflex));
                 ctx.mark_as_relevant(l);
                 ctx.mk_th_axiom(get_id(), 1, &l);
@@ -316,7 +316,7 @@ namespace smt {
         TRACE(datatype, tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; ++i)
-            ctx.internalize(term->get_arg(i), m.is_bool(term) && has_quantifiers(term), l_undef);
+            ctx.internalize(term->get_arg(i), m.is_bool(term) && has_quantifiers(term));
         // the internalization of the arguments may trigger the internalization of term.
         if (ctx.e_internalized(term))
             return true;
@@ -365,14 +365,14 @@ namespace smt {
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                     app_ref def(m_autil.mk_default(arg->get_expr()), m);
                     if (!ctx.e_internalized(def)) {
-                        ctx.internalize(def, false, l_undef);
+                        ctx.internalize(def, false);
                     }
                     arg = ctx.get_enode(def);       
                 }
                 if (m_fsutil.is_finite_set(s, e_sort) && m_util.is_datatype(e_sort)) {
                     app_ref def(m_fsutil.mk_empty(s), m);
                     if (!ctx.e_internalized(def)) {
-                        ctx.internalize(def, false, l_undef);
+                        ctx.internalize(def, false);
                     }
                     arg = ctx.get_enode(def);      
                 }
@@ -1451,7 +1451,7 @@ namespace smt {
         SASSERT(r != nullptr);
         app_ref r_app(m.mk_app(r, n->get_expr()), m);
         TRACE(datatype, tout << "creating split: " << mk_pp(r_app, m) << "\n";);
-        ctx.internalize(r_app, false, l_undef);
+        ctx.internalize(r_app, false);
         bool_var bv     = ctx.get_bool_var(r_app);
         ctx.set_true_first_flag(bv);
         ctx.mark_as_relevant(bv);

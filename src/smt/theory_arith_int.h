@@ -223,7 +223,7 @@ namespace smt {
             scoped_trace_stream _sts(*this, fn);
             IF_VERBOSE(10, verbose_stream() << "branch " << bound << "\n");
             TRACE(arith_int, tout << mk_bounded_pp(bound, m) << "\n";);
-            ctx.internalize(bound, true, l_undef);
+            ctx.internalize(bound, true);
             ctx.mark_as_relevant(bound.get());
         }
     }
@@ -382,8 +382,8 @@ namespace smt {
         {
             std::function<expr*(void)> fn = [&]() { return m.mk_or(p1, p2); };
             scoped_trace_stream _sts(*this, fn);
-            ctx.internalize(p1, false, l_undef);
-            ctx.internalize(p2, false, l_undef);
+            ctx.internalize(p1, false);
+            ctx.internalize(p2, false);
             literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
             ctx.mark_as_relevant(p1.get());
             ctx.mark_as_relevant(p2.get());
@@ -420,7 +420,7 @@ namespace smt {
                 {
                     std::function<expr*(void)> fn = [&]() { return bound; };
                     scoped_trace_stream _sts(*this, fn);
-                    ctx.internalize(bound, true, l_undef);
+                    ctx.internalize(bound, true);
                 }
                 IF_VERBOSE(10, verbose_stream() << "free " << bound << "\n");
                 ctx.mark_as_relevant(bound.get());
@@ -665,7 +665,7 @@ namespace smt {
         {
             std::function<expr*(void)> fn = [&]() { return bound; };
             scoped_trace_stream _sts(*this, fn);
-            ctx.internalize(bound, true, l_undef);
+            ctx.internalize(bound, true);
         }
         l = ctx.get_literal(bound);
         IF_VERBOSE(10, verbose_stream() << "cut " << bound << "\n");

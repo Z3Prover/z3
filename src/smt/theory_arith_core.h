@@ -435,8 +435,8 @@ namespace smt {
         SASSERT(n->get_num_args() == 2);
         if (ctx.e_internalized(n))
             return expr2var(n);
-        ctx.internalize(n->get_arg(0), false, l_undef);
-        ctx.internalize(n->get_arg(1), false, l_undef);
+        ctx.internalize(n->get_arg(0), false);
+        ctx.internalize(n->get_arg(1), false);
         enode * e         = mk_enode(n);
         return mk_var(e);
     }
@@ -457,7 +457,7 @@ namespace smt {
         theory_var s      = mk_binary_op(n);
         if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         app * mod         = m_util.mk_mod(n->get_arg(0), n->get_arg(1));
-        ctx.internalize(mod, false, l_undef);
+        ctx.internalize(mod, false);
         if (ctx.relevancy())
             ctx.add_relevancy_dependency(n, mod);
         return s;
@@ -498,7 +498,7 @@ namespace smt {
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_ante, s_ante_n);
         if (negated) s_ante = s_ante_n;
-        ctx.internalize(s_ante, false, l_undef);
+        ctx.internalize(s_ante, false);
         literal l_ante = ctx.get_literal(s_ante);
         if (negated) l_ante.neg();
 
@@ -507,7 +507,7 @@ namespace smt {
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_conseq, s_conseq_n);
         if (negated) s_conseq = s_conseq_n;
-        ctx.internalize(s_conseq, false, l_undef);
+        ctx.internalize(s_conseq, false);
         literal l_conseq = ctx.get_literal(s_conseq);
         if (negated) l_conseq.neg();
 
@@ -596,7 +596,7 @@ namespace smt {
             s(qr1);
             if (qr != qr1) {
                 expr_ref eq(m.mk_eq(qr, qr1), m);
-                ctx.internalize(eq, false, l_undef);
+                ctx.internalize(eq, false);
                 literal qeq = ctx.get_literal(eq);
                 ctx.mark_as_relevant(qeq);
                 ctx.mk_th_axiom(get_id(), 1, &qeq);
@@ -625,7 +625,7 @@ namespace smt {
                 while(j < k) {
                     mod_j = m.mk_eq(mod, m_util.mk_numeral(j, true));
                     if (m.has_trace_stream()) log_axiom_instantiation(mod_j);
-                    ctx.internalize(mod_j, false, l_undef);
+                    ctx.internalize(mod_j, false);
                     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
                     literal lit(ctx.get_literal(mod_j));
                     lits.push_back(lit);
@@ -843,14 +843,14 @@ namespace smt {
             if (ctx.e_internalized(n))
                 return expr2var(n);
             for (unsigned i = 0; i < n->get_num_args(); ++i) {
-                ctx.internalize(n->get_arg(i), false, l_undef);
+                ctx.internalize(n->get_arg(i), false);
             }
             return mk_var(mk_enode(n));
         }
 
         TRACE(arith_internalize_detail, tout << "before:\n" << mk_pp(n, m) << "\n";);
         if (!ctx.e_internalized(n))
-            ctx.internalize(n, false, l_undef);
+            ctx.internalize(n, false);
         TRACE(arith_internalize_detail, tout << "after:\n" << mk_pp(n, m) << "\n";);
         enode * e    = ctx.get_enode(n);
         if (!is_attached_to_var(e))
@@ -1429,7 +1429,7 @@ namespace smt {
                 sort * st       = n1->get_expr()->get_sort();
                 app * minus_one = m_util.mk_numeral(rational::minus_one(), st);
                 app * s         = m_util.mk_add(n1->get_expr(), m_util.mk_mul(minus_one, n2->get_expr()));
-                ctx.internalize(s, false, l_undef);
+                ctx.internalize(s, false);
                 enode * e_s     = ctx.get_enode(s);
                 ctx.mark_as_relevant(e_s);
                 SASSERT(is_attached_to_var(e_s));

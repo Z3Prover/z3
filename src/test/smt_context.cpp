@@ -47,8 +47,8 @@ static void check_case_split_relevant_first() {
                 ctx.push();
                 app_ref irrelevant(m.mk_const("irrelevant", m.mk_bool_sort()), m);
                 app_ref relevant(m.mk_const("relevant", m.mk_bool_sort()), m);
-                ctx.internalize(irrelevant, false, l_undef);
-                ctx.internalize(relevant, false, l_undef);
+                ctx.internalize(irrelevant, false);
+                ctx.internalize(relevant, false);
                 ctx.mark_as_relevant(relevant.get());
                 smt::bool_var vi = ctx.get_bool_var(irrelevant);
                 smt::bool_var vr = ctx.get_bool_var(relevant);
@@ -164,7 +164,7 @@ static void check_arithmetic_propagation_cancellation() {
         expr_ref sum(a.mk_add(x, y), m);
         expr_ref one(a.mk_int(1), m);
         expr_ref bound(a.mk_ge(sum, one), m);
-        ctx.internalize(bound, false, l_undef);
+        ctx.internalize(bound, false);
         ctx.mark_as_relevant(bound.get());
         ctx.assign(ctx.get_literal(bound), smt::b_justification::mk_axiom());
         {

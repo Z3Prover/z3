@@ -226,7 +226,7 @@ namespace smt {
                         break;
                     }
                     if (!ctx.e_internalized(e))
-                        ctx.internalize(e, false, l_undef);
+                        ctx.internalize(e, false);
                     enode* n = ctx.get_enode(e);
                     nodes.push_back(n);
                     generation = std::max(generation, ctx.get_generation(n));

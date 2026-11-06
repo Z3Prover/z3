@@ -452,7 +452,7 @@ class theory_lra::imp {
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     app_ref mod(a.mk_mod(n1, n2), m);
-                    ctx().internalize(mod, false, l_undef);
+                    ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
                     if (m_nla && !a.is_numeral(n2)) {
                         // shortcut to create non-linear division axioms.
@@ -484,7 +484,7 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);
                     if (m_nla && a.is_numeral(n2) && !r.is_zero()) {
                         app_ref div(a.mk_idiv(n1, n2), m);
-                        ctx().internalize(div, false, l_undef);
+                        ctx().internalize(div, false);
                         internalize_term(to_app(div));
                         internalize_term(to_app(n1));
                         internalize_term(to_app(n2));
@@ -504,7 +504,7 @@ class theory_lra::imp {
                         ensure_nla();
                         if (m_nla) {
                             app_ref div(a.mk_idiv(n1, n2), m);
-                            ctx().internalize(div, false, l_undef);
+                            ctx().internalize(div, false);
                             internalize_term(to_app(div));
                             internalize_term(to_app(n1));
                             internalize_term(to_app(n2));
@@ -636,7 +636,7 @@ class theory_lra::imp {
             return;
         for (expr* arg : *t) {
             if (!ctx().e_internalized(arg)) {
-                ctx().internalize(arg, false, l_undef);
+                ctx().internalize(arg, false);
             }
         }
     }
@@ -737,7 +737,7 @@ class theory_lra::imp {
 
     theory_var mk_var(expr* n) {
         if (!ctx().e_internalized(n)) 
-            ctx().internalize(n, false, l_undef);
+            ctx().internalize(n, false);
         enode* e = get_enode(n);
         theory_var v;
         if (th.is_attached_to_var(e))
@@ -1084,7 +1084,7 @@ public:
             return;
         if (!ctx().e_internalized(term)) {
             for (expr* arg : *to_app(term))
-                ctx().internalize(arg, false, l_undef);
+                ctx().internalize(arg, false);
             ctx().mk_enode(to_app(term), false, false, true);
         }
         mk_var(term);
@@ -1421,7 +1421,7 @@ public:
         }
         expr_ref mod_r(a.mk_add(a.mk_mul(q, div), mod), m);
         expr_ref eq_r(th.mk_eq_atom(mod_r, p), m);
-        ctx().internalize(eq_r, false, l_undef);
+        ctx().internalize(eq_r, false);
         literal eq = ctx().get_literal(eq_r);
 
         rational k(0);
@@ -1616,7 +1616,7 @@ public:
         expr_ref pinned(e, m);
         TRACE(mk_bool_var, tout << pinned << " " << pinned->get_id() << "\n";);
         if (!ctx().e_internalized(e)) 
-            ctx().internalize(e, false, l_undef);
+            ctx().internalize(e, false);
         return ctx().get_literal(e);
     }
 
@@ -2065,7 +2065,7 @@ public:
         }
         else {
             app_ref atom(m.mk_eq(t, s), m);
-            ctx().internalize(atom, true, l_undef);
+            ctx().internalize(atom, true);
             ctx().mark_as_relevant(atom.get());
             return atom;
         }
@@ -2136,7 +2136,7 @@ public:
         // corresponding to (div x 24) is not constrained.
         TRACE(arith, tout << t << ": " << atom << "\n";
               lp().print_term(term, tout << "bound atom: ") << (lower_bound?" >= ":" <= ") << k << "\n";);
-        ctx().internalize(atom, true, l_undef);
+        ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
         return atom;
     }

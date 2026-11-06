@@ -122,8 +122,8 @@ namespace smt {
             case datalog::OP_DL_LT: {
                 app* a = to_app(atom->get_arg(0));
                 app* b = to_app(atom->get_arg(1));
-                ctx.internalize(a, false, l_undef);
-                ctx.internalize(b, false, l_undef);
+                ctx.internalize(a, false);
+                ctx.internalize(b, false);
                 literal l(ctx.mk_bool_var(atom));
                 ctx.set_var_theory(l.var(), get_id());                
                 mk_lt(a,b);
@@ -219,7 +219,7 @@ namespace smt {
             enode * e = nullptr;
             if (is_app(n)) {
                 for (auto arg : *to_app(n))
-                    ctx.internalize(arg, false, l_undef);
+                    ctx.internalize(arg, false);
             }
             if (ctx.e_internalized(n)) {
                 e = ctx.get_enode(n);
@@ -262,8 +262,8 @@ namespace smt {
                 body = m().mk_eq(lt, le);
                 log_axiom_instantiation(body);
             }
-            ctx.internalize(lt, false, l_undef);
-            ctx.internalize(le, false, l_undef);
+            ctx.internalize(lt, false);
+            ctx.internalize(le, false);
             literal lit1(ctx.get_literal(lt));
             literal lit2(ctx.get_literal(le));
             ctx.mark_as_relevant(lit1);
@@ -278,7 +278,7 @@ namespace smt {
         void assert_cnstr(expr* e) {
             TRACE(theory_dl, tout << mk_pp(e, m()) << "\n";);
             if (m().has_trace_stream()) log_axiom_instantiation(e);
-            ctx.internalize(e, false, l_undef);
+            ctx.internalize(e, false);
             if (m().has_trace_stream()) m().trace_stream() << "[end-of-instance]\n";
             literal lit(ctx.get_literal(e));
             ctx.mark_as_relevant(lit);

@@ -630,7 +630,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
         le = m.mk_not(le);
     }
     if (m.has_trace_stream())log_axiom_instantiation(le);
-    ctx.internalize(le, false, l_undef);
+    ctx.internalize(le, false);
     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     ctx.mark_as_relevant(le.get());
     literal lit(ctx.get_literal(le));
@@ -755,7 +755,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
             expr* arg = n->get_arg(i);
             if (!ctx.e_internalized(arg)) {
-                ctx.internalize(arg, false, l_undef);
+                ctx.internalize(arg, false);
             }
         }
         e = ctx.mk_enode(n, false, false, true);
@@ -837,7 +837,7 @@ theory_var theory_diff_logic<Ext>::mk_var(app* n) {
     enode* e = nullptr;
     theory_var v = null_theory_var;
     if (!ctx.e_internalized(n)) {
-        ctx.internalize(n, false, l_undef);
+        ctx.internalize(n, false);
     }
     e = ctx.get_enode(n);
     v = e->get_th_var(get_id());

@@ -263,12 +263,12 @@ namespace smt {
             return literal(get_bool_var(e), m.is_true(val));
         }
         else if (m.is_bool(e)) {
-            internalize_formula(e, false, l_undef);
+            internalize_formula(e, false);
             return literal(get_bool_var(e), !m.is_true(val));
         }
         else {
             expr_ref eq(mk_eq_atom(e, val), m);
-            internalize_formula(eq, false, l_undef);
+            internalize_formula(eq, false);
             return literal(get_bool_var(eq), true);
         }
     }
@@ -334,7 +334,7 @@ namespace smt {
                 assumptions.push_back(c);                
             }
             expr* e = assumptions.back();
-            if (!e_internalized(e)) internalize(e, false, l_undef);
+            if (!e_internalized(e)) internalize(e, false);
             literal lit = get_literal(e);
             _assumptions.insert(lit.var());
             m_assumption2orig.insert(lit.var(), a);

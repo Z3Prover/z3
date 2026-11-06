@@ -275,7 +275,7 @@ namespace smt {
         TRACE(deep_internalize, for (auto & [e, b] : sorted_exprs) tout << "#" << e->get_id() << " " << b << "\n"; );
         for (auto & [e, b] : sorted_exprs) {
             SASSERT(should_internalize_rec(e));
-            internalize_rec(e, b, l_undef);
+            internalize_rec(e, b);
         }
     }
     void context::internalize_deep(expr* n) {
@@ -320,8 +320,8 @@ namespace smt {
             case OP_EQ: {
                 expr * lhs = to_app(n)->get_arg(0);
                 expr * rhs = to_app(n)->get_arg(1);
-                internalize_rec(lhs, true, l_undef);
-                internalize_rec(rhs, true, l_undef);
+                internalize_rec(lhs, true);
+                internalize_rec(rhs, true);
                 literal l1 = get_literal(lhs);
                 literal l2 = get_literal(rhs);
                 mk_root_clause(l1, ~l2, pr);
@@ -332,7 +332,7 @@ namespace smt {
                 expr * c = to_app(n)->get_arg(0);
                 expr * t = to_app(n)->get_arg(1);
                 expr * e = to_app(n)->get_arg(2);
-                internalize_rec(c, true, l_undef);
+                internalize_rec(c, true);
                 internalize_rec(t, true, l_true);
                 internalize_rec(e, true, l_true);
                 literal cl = get_literal(c);
@@ -405,7 +405,7 @@ namespace smt {
 
     void context::ensure_internalized(expr* e) {
         if (!e_internalized(e)) 
-            internalize(e, false, l_undef);
+            internalize(e, false);
         if (is_app(e) && !m.is_bool(e))
             internalize_term(to_app(e));
     }
@@ -427,7 +427,7 @@ namespace smt {
         if (e_internalized(e))
             return get_enode(e);
         if (is_ground(e)) {
-            internalize(e, false, l_undef);
+            internalize(e, false);
             return get_enode(e);
         }
         for (auto arg : subterms::ground(expr_ref(e, m))) {
@@ -437,11 +437,11 @@ namespace smt {
                 assert_expr(eq);
                 internalize_assertions();
                 if (!e_internalized(fn)) 
-                    internalize(fn, false, l_undef);
+                    internalize(fn, false);
                 return get_enode(fn);
             }
         }
-        internalize(e, false, l_undef);
+        internalize(e, false);
         return get_enode(e);
     }
 
@@ -558,7 +558,7 @@ namespace smt {
         bool_var v = mk_bool_var(n);
         literal l(v);
         expr_ref def(m.mk_distinct_expanded(n->get_num_args(), n->get_args()), m);
-        internalize_rec(def, true, l_undef);
+        internalize_rec(def, true);
         literal l_def = get_literal(def);
         mk_gate_clause(~l, l_def);
         mk_gate_clause(l, ~l_def);
@@ -760,7 +760,7 @@ namespace smt {
         // process args
         // Gates have two-way definitions, so their children need both polarities.
         for (expr * arg : *n) {
-            internalize_rec(arg, _is_gate, l_undef);
+            internalize_rec(arg, _is_gate);
         }
         
         CTRACE(internalize_bug, b_internalized(n), tout << mk_ll_pp(n, m) << "\n";);
@@ -984,11 +984,11 @@ namespace smt {
                  true /* suppress arguments, I don't want to apply CC on ite terms */,
                  false /* it is a term, so it should not be merged with true/false */,
                  false /* CC is not enabled */);
-        internalize_rec(c, true, l_undef);
-        internalize_rec(t, false, l_undef);
-        internalize_rec(e, false, l_undef);
-        internalize_rec(eq1, true, l_undef);
-        internalize_rec(eq2, true, l_undef);
+        internalize_rec(c, true);
+        internalize_rec(t, false);
+        internalize_rec(e, false);
+        internalize_rec(eq1, true);
+        internalize_rec(eq2, true);
         literal c_lit   = get_literal(c);
         literal eq1_lit = get_literal(eq1);
         literal eq2_lit = get_literal(eq2);
@@ -1032,7 +1032,7 @@ namespace smt {
         SASSERT(!e_internalized(n));
         // process args
         for (expr * arg : *n) {
-            internalize_rec(arg, false, l_undef);
+            internalize_rec(arg, false);
             SASSERT(e_internalized(arg));
         }
         if (e_internalized(n))
