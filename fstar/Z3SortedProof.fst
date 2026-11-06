@@ -1564,6 +1564,44 @@ let ite_rewrite (node:U.proof_node) : bool =
    | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.ite_rewritten a b
    | U.Holds _ -> false)
 
+(* A premise-free rewrite step whose closed Int equation permutes and
+   regroups the factors of canonical Int products
+   (Z3NnfReplay.product_permuted, the check of the quant-intro rewrite
+   leaves, read at the scope []). No schema gate: the Int product is the
+   one the Sorted semantics gives `*` in every Sorted model. *)
+let product_rewrite (node:U.proof_node) : bool =
+  node.kind = U.RewriteRule && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.product_permuted a b
+   | U.Holds _ -> false)
+
+(* A premise-free closed ElimUnused step (q = e, exported as iff(q, e)):
+   the check of the quant-intro elim-unused entries
+   (Z3NnfReplay.unused_eliminated, z3's elim_unused_vars recomputed from q),
+   read at the scope []. It reads the universal and existential laws, and
+   the removed binders' carriers are inhabited by the interpretation. *)
+let unused_elimination (node:U.proof_node) : bool =
+  node.kind = U.ElimUnused && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.unused_eliminated a b
+   | U.Holds _ -> false)
+
+(* A premise-free closed der step (q = e, exported as iff(q, e)): the check
+   of the quant-intro der entries (Z3NnfReplay.der_step: one eliminated
+   binder of a universal over a disjunction, the binder list kept), read at
+   the scope []. *)
+let der_rewrite (node:U.proof_node) : bool =
+  node.kind = U.DestructiveEquality && Nil? node.premises &&
+  (match node.conclusion with
+   | U.Equal a b | U.Observational a b -> D.scoped [] a && D.scoped [] b && NR.der_step a b
+   | U.Holds _ -> false)
+
+(* The rules whose checks read the universal and existential laws: a binder
+   certificate (the NNF and quant-intro replay), an ElimUnused step and a
+   der step. *)
+let binder_rule (r:U.rule) : bool =
+  U.QuantifierIntroduction? r || r = U.ElimUnused || r = U.DestructiveEquality
+
 (* The node kernels that read the Sorted Real laws. *)
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool = real_farkas s node || real_rewrite s node
 
@@ -1725,7 +1763,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
-      ite_rewrite node in
+      ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
 let check_node (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
@@ -1815,6 +1853,60 @@ let lemma_ite_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     T.lemma_equality s bc eq other a b
   | U.Holds _ -> ()
 
+(* An accepted Int factor permutation equation is true in every Sorted
+   model: the law at the scope [] and the empty environment. *)
+let lemma_product_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\ product_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_product_permuted_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted ElimUnused equation is true in every Sorted model satisfying
+   the universal and existential laws: the law at the scope [] and the empty
+   environment. *)
+let lemma_unused_elimination (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (node:U.proof_node)
+  : Lemma (requires Q.forall_model s bc other /\ E.exists_model s bc other /\
+                    boolean_expression s (proposition node.conclusion) /\ unused_elimination node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_unused_eliminated_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
+(* An accepted der equation is true in every Sorted model satisfying the
+   universal law: the law at the scope [] and the empty environment. *)
+let lemma_der_rewrite (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                      (node:U.proof_node)
+  : Lemma (requires Q.forall_model s bc other /\
+                    boolean_expression s (proposition node.conclusion) /\ der_rewrite node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    let rho = T.empty_environment (S.signature s) in
+    NR.lemma_der_at s bc eq other [] rho a b;
+    NR.lemma_same_at s bc eq other [] rho a b;
+    assert (T.evaluate s bc eq other a == T.evaluate s bc eq other b);
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b
+  | U.Holds _ -> ()
+
 let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
@@ -1822,7 +1914,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                     facts_valid s node.premises /\
                     (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
                     (quantifier_flattening node ==> Q.forall_model s bc other) /\
-                    (U.QuantifierIntroduction? node.kind ==>
+                    (binder_rule node.kind ==>
                        Q.forall_model s bc other /\ E.exists_model s bc other /\
                        (RL.real_primitive s ==> RL.real_model s bc eq other)) /\
                     (real_node s node ==> RL.real_model s bc eq other) /\
@@ -1881,7 +1973,10 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
-    else lemma_ite_rewrite s bc eq other node
+    else if ite_rewrite node then lemma_ite_rewrite s bc eq other node
+    else if product_rewrite node then lemma_product_rewrite s bc eq other node
+    else if unused_elimination node then lemma_unused_elimination s bc eq other node
+    else lemma_der_rewrite s bc eq other node
 
 let prepare_entry_from (s:S.checked_schema) (premises:option (list U.checked_fact)) (e:P.entry)
   : option U.proof_node =
@@ -1982,12 +2077,12 @@ let rec needs_forall_truth (entries:list P.entry) : Tot bool (decreases entries)
   | e :: rest ->
     e.P.rule = U.PullQuantifier || needs_forall_truth rest
 
-(* An entry with a binder certificate: the NNF replay reads the universal and
-   existential laws (Z3NnfReplay.lemma_replay). *)
+(* An entry with a binder certificate (the NNF replay reads the universal and
+   existential laws, Z3NnfReplay.lemma_replay) or an ElimUnused step. *)
 let rec needs_binder_semantics (entries:list P.entry) : Tot bool (decreases entries) =
   match entries with
   | [] -> false
-  | e :: rest -> U.QuantifierIntroduction? e.P.rule || needs_binder_semantics rest
+  | e :: rest -> binder_rule e.P.rule || needs_binder_semantics rest
 
 (* A Farkas or rewrite entry over a Real-primitive schema: the typed Int/Real
    replay (real_farkas) and the Real rewrite check (real_rewrite) read the
