@@ -163,6 +163,12 @@ not Z3's custom sorting routines. See the [libc++ design document](https://libcx
 the seed macro above follows the installed headers, whose spelling differs from
 some versions of that document.
 
+The libstdc++ and libc++ profiles also exercise different destruction orders for
+owning `std::tuple` elements. Randomized sorting does not change tuple destruction
+order, so changing its seed does not add coverage for that issue. The tuple-order
+linter warns about the corresponding ownership pattern without needing a corpus
+case to execute it.
+
 ## GitHub Actions
 
 `.github/workflows/determinism.yml` runs on every PR, pushes to master, and manual dispatch.
