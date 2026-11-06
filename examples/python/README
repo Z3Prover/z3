@@ -163,9 +163,12 @@ are supported over Int and Real indices, and sets combine by maps of not,
 and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
 setminus, complement). Only the clause log certifies them (the legacy core
 rejects them explicitly); arrays may also be indexed by Bool ((Array Bool
-Int), see below); arrays of arrays, arrays
+Int), see below), and an index or element sort may itself be such an array
+((Array Int (Array Int Int)), (Array (Array Int Int) Bool), nested to any
+depth); arrays
 with several indices, constant arrays and default values over other index
-sorts, maps of other functions, and as-array are rejected. Integer
+sorts, default values that are arrays, maps of other functions, and
+as-array are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -1053,6 +1056,32 @@ clause (or (not (= (not p) p)) (not (not p)) p) of an index equality
 concludes p, which the reconstruction proves by contradiction. Constant
 arrays and default values over Bool indices stay rejected (a finite index
 sort, like constant arrays over uninterpreted indices).
+
+Nested arrays are functions into or over functions: (Array Int (Array Int
+Int)) is Int -> (Int -> Int) (the family arrs_iaii: a nested component is
+coded a, then its own two codes), (Array (Array Int Int) Bool) is (Int ->
+Int) -> Prop (arrs_aiib). A model embeds its inner arrays first (an
+injective embedding that commutes with select and store, as above), then
+each outer array as the function equal to it on the embedded indices and
+one fixed value elsewhere: two outer arrays that differ do so at an
+embedded index, and store (at an embedded index) and ite commute off the
+image too, so the same generic facts prove the array lemmas. A pointwise
+connective does not commute off the image (the complement of the fixed
+value is another value), so maps and set operators over sets indexed by
+arrays are rejected by the exporter and by the reconstructor; constant
+arrays are admitted over Int and Real indices only, where the embedding
+is onto. A read of a row is an array term, and so is the
+extensionality witness of two arrays over array indices, chosen with a
+constant function from the element type's inhabitant ((Nonempty.elim
+(Nonempty.intro (0 : Int)) (fun _e => Nonempty.intro (fun (_ : Int) =>
+_e)))), and the default row of a constant array of rows (which the array
+solver introduces although the input may not use default). All three are
+unfolded in the lemmas, unlike stores and other array terms, which stay
+folded, so grind sees them as reads, witnesses, and default values. The
+rewriter evaluates a read through a stored row ((select (select (store a i
+(store r j v)) i) j) is v) with no read term of the stored row, so every
+row stored along the outer store chain gets the facts of a read of it at
+the read's index too.
 
 A constant array over Int or Real indices is _const_array Int v (or
 _const_array Rat v), the constant function (its reads are _select_const,

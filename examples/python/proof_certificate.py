@@ -635,15 +635,30 @@ def is_array_sort(sort):
     funext (QF_AX, QF_ALIA, QF_AUFLIA). The element sort may also be Bool
     (sets, I -> Prop in Lean; a read is a formula), and so may the index
     sort (Prop -> E; an index is a formula, and two indices are equal as
-    propositions). Arrays over array sorts and arrays of several indices
-    are not supported (see array_sort_name); constant arrays and default
-    values need an infinite index sort (Int or Real).
+    propositions). Either may itself be such an array sort, at any depth
+    (nested arrays: a read of (Array I (Array J E)) is an array, a function
+    I -> (J -> E) in Lean). Arrays of several indices are not supported (see
+    array_sort_name); constant arrays and default values need an infinite
+    index sort (Int or Real).
     """
     def component(candidate):
-        return _is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
+        return (_is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
+                or (candidate.kind() == z3.Z3_ARRAY_SORT and is_array_sort(candidate)))
 
     return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
             and component(sort.domain()) and component(sort.range()))
+
+
+def array_leaf_sorts(sort):
+    """The index and element sorts of an array sort that are not arrays themselves, through nested arrays."""
+    leaves, pending = [], [sort]
+    while pending:
+        candidate = pending.pop()
+        if candidate.kind() == z3.Z3_ARRAY_SORT:
+            pending.extend((candidate.range(), candidate.domain()))
+        else:
+            leaves.append(candidate)
+    return leaves
 
 
 # Boolean combinators over sets (arrays with Bool elements): ((_ map f) a ...)
@@ -680,6 +695,12 @@ def set_combinator(expr):
             not child.sort().eq(expr.sort()) for child in expr.children()):
         raise ProofExportError("unsupported map or set operator (%d arrays of one set sort are supported): %s" % (
             arity, decl.name()))
+    if expr.sort().domain().kind() == z3.Z3_ARRAY_SORT:
+        # A model's sets over array indices embed in Lean as functions fixed
+        # off the embedded indices, which a connective does not commute with
+        # (proof_to_lean's nested arrays).
+        raise ProofExportError("maps and set operators over sets indexed by arrays are not supported: %s"
+                               % expr.sort())
     return name
 
 
@@ -697,14 +718,19 @@ def array_sort_name(sort, sorts=None):
     """The certificate's name of a supported array sort, (Array I E); reject any other array sort.
 
     With sorts (a set), the uninterpreted index and element sorts are
-    checked and recorded as uninterpreted sorts of the input.
+    checked and recorded as uninterpreted sorts of the input. An index or
+    element sort that is an array is named the same way, (Array Int (Array
+    Int Int)).
     """
     if not is_array_sort(sort):
         raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, Real, "
-                               "and Bool)" % sort)
+                               "Bool, and such arrays)" % sort)
     names = []
     for component in (sort.domain(), sort.range()):
         name = component.name()
+        if component.kind() == z3.Z3_ARRAY_SORT:
+            names.append(array_sort_name(component, sorts))
+            continue
         if not is_uninterpreted_sort(component):
             names.append(name)  # Int, Real, or Bool.
             continue
@@ -765,7 +791,7 @@ def _require_uninterpreted_signature(decl, sorts):
             # numeric one) or result (a family of array-valued functions,
             # like the numeric ones).
             array_sort_name(candidate, sorts)
-            components = (candidate.domain().kind(), candidate.range().kind())
+            components = [leaf.kind() for leaf in array_leaf_sorts(candidate)]
             real, integer = real or z3.Z3_REAL_SORT in components, integer or z3.Z3_INT_SORT in components
             continue
         if candidate.kind() == z3.Z3_REAL_SORT:
@@ -863,7 +889,7 @@ def classify_fragment(assertions):
             # functions into each array sort).
             array_sort_name(expr.sort(), sorts)
             arrays = True
-            for component in (expr.sort().domain(), expr.sort().range()):
+            for component in array_leaf_sorts(expr.sort()):
                 real = real or component.kind() == z3.Z3_REAL_SORT
                 integer = integer or component.kind() == z3.Z3_INT_SORT
             if decl.kind() == z3.Z3_OP_CONST_ARRAY:
@@ -878,7 +904,9 @@ def classify_fragment(assertions):
                                            % expr.sort())
             elif decl.kind() == z3.Z3_OP_ARRAY_MAP or decl.kind() in SET_OPERATORS:
                 set_combinator(expr)  # A pointwise connective over sets.
-            elif decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE):
+            elif decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE, z3.Z3_OP_SELECT):
+                # A read is an array only of an array whose elements are
+                # arrays (nested arrays, a function into functions in Lean).
                 raise ProofExportError("unsupported array operator: %s" % decl.name())
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())

@@ -3,8 +3,8 @@
 #
 # Tests for the array slice of the Lean reconstruction: arrays over
 # uninterpreted sorts, Int, and Real (elements also Bool), constant arrays
-# over Int and Real indices, and functions into arrays, certified through the
-# sat.smt clause log.
+# over Int and Real indices, functions into arrays, and nested arrays,
+# certified through the sat.smt clause log.
 # An array is a function _m.U -> _m.U (array constants are the family
 # _m.arrs), select is _select, store the classical update _store, and the
 # array solver's extensionality witness (_ array-ext 0) is _array_diff, an
@@ -1043,6 +1043,270 @@ BOOL_INDEX_INPUTS = {
 (check-sat)
 """,
 }
+# Nested arrays: an index or element sort that is an array itself, a
+# function type in Lean (I -> (J -> E), (J -> E) -> V). A read of a row is
+# an array term; reads and extensionality witnesses are unfolded in the
+# lemmas even when their values are arrays (proof_to_lean._folded_array).
+NESTED_ARRAY_INPUTS = {
+    # A matrix equal to another with one row replaced agrees elsewhere.
+    "nested_equal_rows": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun b () (Array Int (Array Int Int)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun k () Int)
+(assert (= a (store b i (select b j))))
+(assert (not (= (select (select a k) 0) (select (select b k) 0))))
+(assert (not (= k i)))
+(check-sat)
+""",
+    "nested_store_row": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun r () (Array Int Int))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= (select (store a i r) j) (select a j)))
+(assert (= i j))
+(assert (not (= r (select a i))))
+(check-sat)
+""",
+    # Read over write in both dimensions.
+    "nested_read_own_write": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun i2 () Int)
+(declare-fun j2 () Int)
+(declare-fun v () Int)
+(assert (= i i2))
+(assert (= j j2))
+(assert (not (= (select (select (store a i (store (select a i) j v)) i2) j2) v)))
+(check-sat)
+""",
+    "nested_uninterpreted": """(declare-sort U 0)
+(declare-fun a () (Array U (Array U U)))
+(declare-fun b () (Array U (Array U U)))
+(declare-fun i () U)
+(declare-fun j () U)
+(assert (= a b))
+(assert (not (= (select (select a i) j) (select (select b i) j))))
+(check-sat)
+""",
+    # A row stored at j and read back at i: the row read at i stays.
+    "nested_rows_differ": """(declare-sort U 0)
+(declare-fun a () (Array U (Array U U)))
+(declare-fun i () U)
+(declare-fun j () U)
+(assert (not (= (select a i) (select (store a j (select a i)) i))))
+(check-sat)
+""",
+    "outer_store_inner_store": """(declare-sort U 0)
+(declare-fun m () (Array U (Array U U)))
+(declare-fun i () U)
+(declare-fun j () U)
+(declare-fun k () U)
+(declare-fun v () U)
+(assert (not (= i k)))
+(assert (not (= (select (select (store m i (store (select m i) j v)) k) j) (select (select m k) j))))
+(check-sat)
+""",
+    "swap_rows": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun b () (Array Int (Array Int Int)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= b (store (store a i (select a j)) j (select a i))))
+(assert (not (= (select (select b j) 0) (select (select a i) 0))))
+(check-sat)
+""",
+    "three_levels": """(declare-fun a () (Array Int (Array Int (Array Int Int))))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun k () Int)
+(assert (= (select (select (select a i) j) k) 3))
+(assert (= i 0))
+(assert (not (= (select (select (select a 0) j) k) 3)))
+(check-sat)
+""",
+    # Rows agreeing at true and false are equal: the extensionality witness
+    # of the rows, which are reads.
+    "row_extensionality": """(declare-fun a () (Array Int (Array Bool Int)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= (select (select a i) true) (select (select a j) true)))
+(assert (= (select (select a i) false) (select (select a j) false)))
+(assert (not (= (select a i) (select a j))))
+(check-sat)
+""",
+    "nested_ite": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun b () (Array Int (Array Int Int)))
+(declare-fun p () Bool)
+(declare-fun i () Int)
+(assert (= (select a i) (select b i)))
+(assert (not (= (select (ite p a b) i) (select a i))))
+(check-sat)
+""",
+    "nested_distinct": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun r () (Array Int Int))
+(declare-fun i () Int)
+(assert (distinct (select (store a i r) i) r (select a 1)))
+(check-sat)
+""",
+    "nested_constant": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= a ((as const (Array Int (Array Int Int))) ((as const (Array Int Int)) 5))))
+(assert (not (= (select (select a i) j) 5)))
+(check-sat)
+""",
+    # The array solver relates constant arrays of rows through their default
+    # rows, array-valued default terms of its own, unfolded in the lemmas.
+    "const_rows_default": """(declare-fun r () (Array Int Int))
+(declare-fun s () (Array Int Int))
+(declare-fun a () (Array Int (Array Int Int)))
+(assert (= a ((as const (Array Int (Array Int Int))) r)))
+(assert (= (store a 3 s) ((as const (Array Int (Array Int Int))) s)))
+(assert (not (= r s)))
+(check-sat)
+""",
+    # Reads the rewriter evaluates through a stored row: the row read back,
+    # then the read of the stored row (its _store_apply or _select_const
+    # facts at the read's index, _n facts), two and three levels deep.
+    "nested_sets": """(declare-fun s () (Array Int (Array Int Bool)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (not (select (select (store s i (store (select s i) j true)) i) j)))
+(check-sat)
+""",
+    "nested_read_own_write_evaluated": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun v () Int)
+(assert (not (= (select (select (store a i (store (select a i) j v)) i) j) v)))
+(check-sat)
+""",
+    "nested_constant_evaluated": """(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (not (= (select (select ((as const (Array Int (Array Int Int)))
+                                 (store ((as const (Array Int Int)) 5) 3 4)) i) j)
+                (ite (= j 3) 4 5))))
+(check-sat)
+""",
+    "three_levels_evaluated": """(declare-fun a () (Array Int (Array Int (Array Int Int))))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun k () Int)
+(declare-fun v () Int)
+(assert (not (= (select (select (select (store a i (store (select a i) j (store (select (select a i) j) k v))) i) j) k)
+                v)))
+(check-sat)
+""",
+    "array_of_sets_union": """(declare-fun s () (Array Int (Array Int Bool)))
+(declare-fun i () Int)
+(declare-fun x () Int)
+(assert (select (union (select s i) (select s (+ i 1))) x))
+(assert (not (select (select s i) x)))
+(assert (not (select (select s (+ i 1)) x)))
+(check-sat)
+""",
+    "real_nested": """(declare-fun a () (Array Real (Array Int Real)))
+(declare-fun x () Real)
+(declare-fun i () Int)
+(assert (> (select (select a x) i) 1.0))
+(assert (< (select (select (store a x (select a x)) x) i) 0.5))
+(check-sat)
+""",
+    "function_into_nested": """(declare-fun h (Int) (Array Int (Array Int Int)))
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= x y))
+(assert (not (= (select (select (h x) 1) 2) (select (select (h y) 1) 2))))
+(check-sat)
+""",
+    "function_over_nested": """(declare-fun h ((Array Int (Array Int Int))) Int)
+(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun r () (Array Int Int))
+(assert (= (select a 0) r))
+(assert (not (= (h a) (h (store a 0 r)))))
+(check-sat)
+""",
+    # Arrays indexed by arrays.
+    "array_index": """(declare-fun a () (Array (Array Int Int) Int))
+(declare-fun b () (Array Int Int))
+(declare-fun c () (Array Int Int))
+(declare-fun i () Int)
+(assert (= (select b i) (select c i)))
+(assert (= b (store c i (select b i))))
+(assert (not (= (select a b) (select a c))))
+(check-sat)
+""",
+    "array_index_store": """(declare-fun a () (Array (Array Int Int) Int))
+(declare-fun b () (Array Int Int))
+(declare-fun c () (Array Int Int))
+(assert (not (= b c)))
+(assert (not (= (select (store a b 1) c) (select a c))))
+(check-sat)
+""",
+    # The extensionality witness is an array, chosen with a constant function.
+    "array_index_extensionality": """(declare-fun a () (Array (Array Int Int) Int))
+(declare-fun b () (Array (Array Int Int) Int))
+(declare-fun c () (Array Int Int))
+(assert (not (= a b)))
+(assert (= a (store b c (select a c))))
+(assert (= (select a c) (select b c)))
+(check-sat)
+""",
+    # The same over an uninterpreted element sort: the constant function
+    # starts from _m.nonempty.
+    "uninterpreted_array_index_extensionality": """(declare-sort U 0)
+(declare-fun a () (Array (Array U U) Bool))
+(declare-fun b () (Array (Array U U) Bool))
+(declare-fun c () (Array U U))
+(assert (not (= a b)))
+(assert (= a (store b c (select a c))))
+(assert (= (select a c) (select b c)))
+(check-sat)
+""",
+    # z3test regressions/smt2/segfault2.smt2's sorts (that query is sat).
+    "segfault2_sorts": """(define-sort bStack () (Array Int (Array Int Bool)))
+(define-sort iStack () (Array Int (Array Int Int)))
+(define-sort iArray () (Array Int Int))
+(declare-fun bs () bStack)
+(declare-fun bs2 () bStack)
+(declare-fun is () iStack)
+(declare-fun is2 () iStack)
+(declare-fun p () iArray)
+(declare-fun p2 () iArray)
+(assert (= bs bs2))
+(assert (= is is2))
+(assert (= p p2))
+(assert (not (and (= (select bs 1) (select bs2 1)) (= (select (select is 2) 3) (select (select is2 2) 3)))))
+(check-sat)
+""",
+    # A read that is both an opaque Int atom of a lemma and the value of a
+    # store, which stays folded: the fallback unfolds it from the atom
+    # (random nested seed 12; stored_read_atom is the flat case).
+    "stored_nested_read_atom": """(declare-fun a () (Array Int (Array Int Int)))
+(declare-fun b () (Array Int (Array Int Int)))
+(declare-fun r () (Array Int Int))
+(declare-fun s () (Array Int Int))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun k () Int)
+(assert (= (select (select b 0) i) (select (store (select b 1) j (select (select a 0) k)) j)))
+(assert (not (= r s)))
+(assert (not (= a a)))
+(assert (= s (store s j (select (select a i) 1))))
+(assert (not (= (ite (= 1 0) (ite (= 0 1) b a) a) b)))
+(assert (not (= k (select (store (select a k) j k) 1))))
+(check-sat)
+""",
+    "stored_read_atom": """(declare-fun r () (Array Int Int))
+(declare-fun s () (Array Int Int))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun k () Int)
+(assert (= (select s i) (select (store r j (select s k)) j)))
+(assert (not (= (select s i) (select s k))))
+(check-sat)
+""",
+}
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
@@ -1050,6 +1314,7 @@ ARRAY_INPUTS.update(ARRAY_FUNCTION_INPUTS)
 ARRAY_INPUTS.update(BOOL_ELEMENT_INPUTS)
 ARRAY_INPUTS.update(SET_COMBINATOR_INPUTS)
 ARRAY_INPUTS.update(BOOL_INDEX_INPUTS)
+ARRAY_INPUTS.update(NESTED_ARRAY_INPUTS)
 # The fragment of each documented input (the others are qf_uf).
 _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": "qf_uflra",
               "int_indices_real_elements": "qf_uflira", "real_constants": "qf_uflira",
@@ -1074,6 +1339,11 @@ _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) +
 _FRAGMENTS.update((name, "qf_uf") for name in ("bool_index_store_self", "function_into_bool_indexed_arrays",
                                                 "bool_index_map"))
 _FRAGMENTS.update((name, "qf_uflia") for name in BOOL_INDEX_INPUTS if name not in _FRAGMENTS)
+# Nested arrays over Int (and a Real index) are qf_uflia (qf_uflira) except these.
+_FRAGMENTS.update((name, "qf_uf") for name in ("nested_uninterpreted", "nested_rows_differ",
+                                                "outer_store_inner_store", "uninterpreted_array_index_extensionality"))
+_FRAGMENTS["real_nested"] = "qf_uflira"
+_FRAGMENTS.update((name, "qf_uflia") for name in NESTED_ARRAY_INPUTS if name not in _FRAGMENTS)
 
 
 def _export(source):
@@ -1103,21 +1373,31 @@ class TestArrayValidation(unittest.TestCase):
         rejected = {
             # Bool elements and Bool indices are supported (BOOL_ELEMENT_INPUTS,
             # BOOL_INDEX_INPUTS), but not constant arrays or default values
-            # over Bool indices (a finite index sort), nor arrays of arrays.
+            # over Bool indices (a finite index sort).
             "(assert (not (select ((as const (Array Bool Bool)) true) false)))":
                 "constant arrays are supported over Int and Real indices only",
             "(declare-fun a () (Array Bool Int))(assert (> (default a) 0))":
                 "default values are supported over Int and Real indices only",
-            "(declare-fun a () (Array Bool (Array Bool Bool)))(assert (select (select a true) true))":
-                "unsupported array operator: select",
-            "(declare-fun a () (Array Int (Array Int Bool)))(assert (select (select a 0) 1))":
-                "unsupported array operator: select",
+            # Arrays of several indices, also inside a nested array.
             "(declare-sort I 0)(declare-fun a () (Array I I I))(declare-fun i () I)"
             "(assert (not (= (select a i i) (select a i i))))": "only arrays over uninterpreted sorts",
-            "(declare-sort I 0)(declare-fun a () (Array I (Array I I)))(declare-fun i () I)"
-            "(assert (not (= (select (select a i) i) i)))": "unsupported array operator: select",
-            "(declare-sort I 0)(declare-fun a () (Array I (Array I I)))(declare-fun b () (Array I (Array I I)))"
-            "(assert (not (= a b)))": "only arrays over uninterpreted sorts",
+            "(declare-fun a () (Array Int (Array Int Int Int)))(assert (not (= a a)))":
+                "only arrays over uninterpreted sorts",
+            # Nested arrays are supported (NESTED_ARRAY_INPUTS), but not
+            # constant arrays over array indices (no unboundedness proof)
+            # nor default values that are arrays.
+            "(assert (not (select ((as const (Array (Array Int Int) Bool)) true) ((as const (Array Int Int)) 0))))":
+                "constant arrays are supported over Int and Real indices only",
+            "(declare-fun a () (Array Int (Array Int Int)))(assert (= (select (default a) 0) 1))":
+                "unsupported array operator: default",
+            # Nor connectives over sets indexed by arrays (the embedding of
+            # a model's outer arrays does not commute with them).
+            "(declare-fun s () (Array (Array Int Int) Bool))(declare-fun x () (Array Int Int))"
+            "(assert (select s x))(assert (select (complement s) x))":
+                "maps and set operators over sets indexed by arrays",
+            "(declare-fun s () (Array (Array Bool Bool) Bool))(declare-fun t () (Array (Array Bool Bool) Bool))"
+            "(declare-fun x () (Array Bool Bool))(assert (select (union s t) x))(assert (not (select s x)))"
+            "(assert (not (select t x)))": "maps and set operators over sets indexed by arrays",
             # Constant arrays over a possibly finite index sort.
             "(declare-sort I 0)(declare-fun e () I)(declare-fun i () I)"
             "(assert (not (= (select ((as const (Array I I)) e) i) e)))":
@@ -1135,13 +1415,11 @@ class TestArrayValidation(unittest.TestCase):
                 "default values are supported over Int and Real indices only",
             "(declare-sort I 0)(declare-fun a () (Array I Int))(assert (> (default a) 0))":
                 "default values are supported over Int and Real indices only",
-            # Functions over and into arrays are supported, but not into or
-            # over arrays of an unsupported sort.
-            "(declare-sort I 0)(declare-fun h (I) (Array Bool (Array Bool I)))(declare-fun i () I)"
+            # Functions over and into arrays are supported, nested arrays
+            # too, but not into or over arrays of an unsupported sort.
+            "(declare-sort I 0)(declare-fun h (I) (Array Bool (Array Bool I I)))(declare-fun i () I)"
             "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
-            "(declare-sort I 0)(declare-fun h (I) (Array I (Array I I)))(declare-fun i () I)"
-            "(assert (not (= (h i) (h i))))": "uninterpreted functions over",
-            "(declare-fun h ((Array (Array Bool Int) Int)) Int)(declare-fun a () (Array (Array Bool Int) Int))"
+            "(declare-fun h ((Array (Array Bool Int Int) Int)) Int)(declare-fun a () (Array (Array Bool Int Int) Int))"
             "(assert (> (h a) (h a)))": "uninterpreted functions over",
             # A quoted sort name that imitates the certificate's array sort names.
             "(declare-sort I 0)(declare-sort |(Array I I)| 0)(declare-fun x () |(Array I I)|)"
@@ -1472,6 +1750,103 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("bool_index_read_other", const_over_bool, "invalid constant array declaration")
         self._rejects("bool_index_negated_stores", double_negation_concluded_negated,
                       "incorrect unit-resolution conclusion")
+
+    def test_nested_array_encoding(self):
+        """A nested array is a function into or over functions; witnesses over array indices are constant functions."""
+        def text(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        over = text("function_over_nested")
+        self.assertIn('-- Array sorts "(Array Int (Array Int Int))", "(Array Int Int)" are functions '
+                      'Int -> (Int -> Int) (_m.arrs_iaii), Int -> Int (_m.arrs_ii);', over)
+        self.assertIn("  arrs_iaii : Nat -> Int -> (Int -> Int)", over)
+        self.assertIn("  arrs_iaii_inj : (Int -> (Int -> Int)) -> U", over)
+        # A row is a read of an array-valued type.
+        self.assertRegex(text("nested_store_row"), r"def term_[0-9]+ \(_atoms : Nat -> Prop\) \(_vars : Nat -> Int\) "
+                                                   r"\(_m : Interpretation\) : \(Int -> Int\) := \(_select \(term_")
+        self.assertIn("  arrs_iaiaii : Nat -> Int -> (Int -> (Int -> Int))", text("three_levels"))
+        self.assertIn("  arrs_iaib : Nat -> Int -> (Int -> Prop)", text("nested_sets"))
+        self.assertIn("  arrs_uauu : Nat -> U -> (U -> U)", text("nested_uninterpreted"))
+        self.assertIn("  arrs_iaii_funs : Nat -> List U -> Int -> (Int -> Int)", text("function_into_nested"))
+        self.assertIn("  arrs_rair : Nat -> Rat -> (Int -> Rat)", text("real_nested"))
+        # Over array indices the witness is an array, chosen with a constant
+        # function from the element type's inhabitant.
+        index = text("array_index_extensionality")
+        self.assertIn("  arrs_aiii : Nat -> (Int -> Int) -> Int", index)
+        inhabitant = "(Nonempty.elim (Nonempty.intro (0 : Int)) (fun _e => Nonempty.intro (fun (_ : Int) => _e)))"
+        self.assertIn(": (Int -> Int) := (_array_diff %s (term_" % inhabitant, index)
+        self.assertIn(":= _array_ext %s " % inhabitant, index)
+        self.assertNotIn("nonempty :", index)
+        carrier = text("uninterpreted_array_index_extensionality")
+        self.assertIn("  nonempty : Nonempty U", carrier)
+        self.assertIn("  arrs_auub : Nat -> (U -> U) -> Prop", carrier)
+        self.assertIn(":= _array_ext (Nonempty.elim _m.nonempty (fun _e => Nonempty.intro (fun (_ : _m.U) => _e))) ",
+                      carrier)
+        for each in (over, index, carrier):
+            self.assertNotIn("sorry", each)
+            self.assertNotIn("axiom ", each)
+
+    def test_array_sort_names(self):
+        """Certificate array sort names parse into their components, nested arrays too; malformed ones do not."""
+        components = proof_to_lean._array_components
+        self.assertEqual(components("(Array Int Bool)"), ("Int", "Bool"))
+        self.assertEqual(components("(Array Int (Array U Bool))"), ("Int", "(Array U Bool)"))
+        self.assertEqual(components("(Array (Array Int Int) (Array Bool (Array U Real)))"),
+                         ("(Array Int Int)", "(Array Bool (Array U Real))"))
+        for name in ("Int", "(Array Int)", "(Array Int Int Int)", "(Array Int (Array Int))", "(Array Int Int",
+                     "(Array (Int) Int)", "(Array  Int Int)", "(Array Int (Array Int Int)))", "(Array |a b| Int)",
+                     "(Array Int (Array Int Int) )", "(Array Int )(Array Int Int)"):
+            with self.subTest(name=name):
+                self.assertIsNone(components(name))
+        self.assertEqual(proof_to_lean._array_family("(Array (Array Int Int) (Array Bool U))"), "arrs_aiiabu")
+        # A tampered name nested past the cap is no sort name (not a RecursionError).
+        deep = "Int"
+        for _ in range(2000):
+            deep = "(Array Int %s)" % deep
+        self.assertIsNone(components(deep))
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported sort"):
+            proof_to_lean._uninterpreted_sorts([{"range": deep}])
+
+    def test_connectives_over_array_indexed_sets_are_rejected(self):
+        """The reconstructor rejects maps and set operators over sets indexed by arrays, not over rows of sets."""
+        def declaration(kind, name, sort, arity):
+            return {"kind": kind, "name": name, "domain": [sort] * arity, "range": sort, "parameters": []}
+
+        rows = "(Array Int Bool)"
+        proof_to_lean._declaration(declaration(z3.Z3_OP_SET_UNION, "union", rows, 2), (rows,))
+        for sort in ("(Array (Array Int Int) Bool)", "(Array (Array Bool Bool) Bool)"):
+            for kind, name, arity in ((z3.Z3_OP_SET_UNION, "union", 2), (z3.Z3_OP_SET_COMPLEMENT, "complement", 1)):
+                with self.subTest(sort=sort, name=name):
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                                "invalid map or set operator declaration"):
+                        proof_to_lean._declaration(declaration(kind, name, sort, arity), (sort,))
+
+    def test_tampered_nested_arrays_are_rejected(self):
+        def row_read_into_element(certificate):
+            # The read of a row relabelled as a read of one element.
+            next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_SELECT
+                 and d["range"] == "(Array Int Int)")["range"] = "Int"
+
+        def malformed_inner_sort(certificate):
+            for d in certificate["declarations"]:
+                d["domain"] = ["(Array Int (Array Int))" if s == "(Array Int (Array Int Int))" else s
+                               for s in d["domain"]]
+                if d["range"] == "(Array Int (Array Int Int))":
+                    d["range"] = "(Array Int (Array Int))"
+
+        def witness_into_element(certificate):
+            # The witness over array indices relabelled an Int.
+            next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_EXT)["range"] = "Int"
+
+        def proof_element(certificate):
+            for d in certificate["declarations"]:
+                if d["range"] == "(Array Int (Array Int Int))":
+                    d["range"] = "(Array Int (Array Int Proof))"
+
+        self._rejects("nested_store_row", row_read_into_element, "invalid select declaration|wrong argument sort")
+        self._rejects("nested_store_row", malformed_inner_sort, "unsupported sort")
+        self._rejects("array_index_extensionality", witness_into_element, "invalid array-ext declaration")
+        self._rejects("nested_store_row", proof_element, "unsupported array sort")
 
     def test_store_level_facts(self):
         """Reads get facts for the store levels the rewriter skips, and only for those, over plain arrays."""
@@ -1921,6 +2296,28 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 lines = text.split("\n")
                 self.assertTrue(any(map(level.match, lines)), text)
                 stripped = "\n".join(line for line in lines if not level.match(line))
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "stripped.lean"
+                    output.write_text(stripped)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                            capture_output=True)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
+
+    def test_stored_row_facts_are_needed(self):
+        """Without the _n facts of a read through a stored row grind cannot prove the rewriter's evaluation."""
+        for name in ("nested_sets", "nested_constant_evaluated", "three_levels_evaluated"):
+            with self.subTest(name=name):
+                source = ARRAY_INPUTS[name]
+                text = proof_to_lean.reconstruct(source, _export(source))
+                fact = re.compile(r"^\s*have _n\d+_\d+ := _(store_apply|select_const) ")
+                lines = text.split("\n")
+                self.assertTrue(any(map(fact.match, lines)), text)
+                stripped = "\n".join(line for line in lines if not fact.match(line))
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)

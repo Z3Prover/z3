@@ -268,6 +268,21 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # propext); an index and the extensionality witness are formulas, the
 # witness chosen with True. Constant arrays and default values over Bool
 # indices are rejected like those over uninterpreted sorts (_UNBOUNDED).
+# Nested arrays: an index or element sort that is an array is that array's
+# Lean function type, (Array Int (Array Int Int)) is Int -> (Int -> Int).
+# A model embeds its inner arrays first (injectively, commuting with select
+# and store), then each outer array as the function agreeing with it on the
+# embedded indices and one fixed value elsewhere (so store, at an embedded
+# index, and ite commute outside the image too, and two outer arrays that
+# differ do so at an embedded index); constant arrays are admitted over Int
+# and Real indices only, whose embedding is onto. A pointwise connective
+# does not commute with that embedding outside the image (not of the fixed
+# value is another value), so maps and set operators over sets indexed by
+# arrays are rejected (_declaration, proof_certificate's set_combinator);
+# maps over rows of nested arrays (a set Int -> Prop read from a row of an
+# Int -> (Int -> Prop)) are over Int indices. A read of a row and an extensionality
+# witness over array indices are array terms that lemmas unfold
+# (_folded_array); the witness is chosen with a constant function (_nonempty).
 _ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r", "Prop": "b"}
 _NONEMPTY_FIELDS = (("nonempty", "Nonempty U"),)
 _ARRAY_DEFINITIONS = """
@@ -452,7 +467,10 @@ private theorem _map2_store {I : Type} (f : Prop -> Prop -> Prop) (a b : I -> Pr
   funext _j
   by_cases _h : _j = i <;> simp [_map2, _store, _h]
 """.strip("\n").split("\n")
-_ARRAY_NAME = re.compile(r"\(Array ([^\s()|]+) ([^\s()|]+)\)")
+_ARRAY_COMPONENT_NAME = re.compile(r"[^\s()|]+")
+# The deepest nesting of array sort names _array_components parses (each
+# level one recursion of it and of the functions over its components).
+_ARRAY_NESTING = 64
 # Z3's array rewriter simplifies (store (store a i v) i w) to (store a i w)
 # and (store a i (select a i)) to a, which the clause-log replay then ties to
 # the assertion by a rewrite; a lemma reaching a store may need these
@@ -487,15 +505,48 @@ def _set_function(graph, node):
     return _SET_OPERATOR_FUNCTIONS.get(kind)
 
 
+@functools.lru_cache(maxsize=None)
 def _array_components(name):
-    """The index and element sort names of a certificate array sort name, None for any other sort name."""
-    match = _ARRAY_NAME.fullmatch(name)
-    return match.groups() if match else None
+    """The index and element sort names of a certificate array sort name, None for any other sort name.
+
+    Either component is a sort name without spaces or parentheses or,
+    for nested arrays, an array sort name itself: (Array Int (Array Int
+    Int)) has the components Int and (Array Int Int).
+    """
+    if not (name.startswith("(Array ") and name.endswith(")")):
+        return None
+    body, components, depth, start = name[len("(Array "):-1], [], 0, 0
+    for position, character in enumerate(body + " "):
+        if character == "(":
+            depth += 1
+            if depth > _ARRAY_NESTING:
+                return None  # A rejection, not a RecursionError, for a tampered name.
+        elif character == ")":
+            depth -= 1
+            if depth < 0:
+                return None
+        elif character == " " and depth == 0:
+            components.append(body[start:position])
+            start = position + 1
+    if depth != 0 or len(components) != 2:
+        return None
+    for component in components:
+        if not (_ARRAY_COMPONENT_NAME.fullmatch(component) or _array_components(component)):
+            return None
+    return tuple(components)
 
 
 def _component_type(sort):
-    """The Lean type of an array's index or element sort: Int, Rat, Prop (Bool elements), or the carrier _m.U."""
+    """The Lean type of an array's index or element sort: Int, Rat, Prop (Bool), a function (an array), or _m.U."""
+    if _array_components(sort):
+        return "(%s -> %s)" % _array_types(sort)
     return "Prop" if sort == "Bool" else _NUMBER_TYPES.get(sort, "_m.U")
+
+
+def _array_sort_names(name):
+    """The sort name itself and, for an array sort, the names of its components, through nested arrays."""
+    components = _array_components(name) or ()
+    return (name,) + tuple(inner for component in components for inner in _array_sort_names(component))
 
 
 def _array_types(name):
@@ -534,10 +585,21 @@ def _array_family(name):
     """The interpretation's family of the array constants of an array sort, one per Lean array type.
 
     Arrays between uninterpreted sorts keep the family arrs; the others are
-    named by their index and element types (arrs_ii for (Array Int Int)).
+    named by their index and element types (arrs_ii for (Array Int Int)),
+    a nested array component by a, then its own two codes, a prefix code
+    (arrs_iaii for (Array Int (Array Int Int)), arrs_aiii for (Array (Array
+    Int Int) Int)).
     """
-    codes = "".join(_ARRAY_TYPE_CODES[lean] for lean in _array_types(name))
+    codes = "".join(_array_type_code(component) for component in _array_components(name))
     return "arrs" if codes == "uu" else "arrs_" + codes
+
+
+def _array_type_code(sort):
+    """The family-name code of an array index or element sort (_array_family)."""
+    components = _array_components(sort)
+    if components:
+        return "a" + "".join(_array_type_code(component) for component in components)
+    return _ARRAY_TYPE_CODES[_component_type(sort)]
 
 
 def _array_injection(name):
@@ -582,11 +644,26 @@ def _array_family_fields(graph):
 
 
 def _nonempty(sort):
-    """The inhabitant of an array index sort the extensionality witness chooses with."""
+    """The inhabitant of an array index sort the extensionality witness chooses with.
+
+    An index sort that is an array is inhabited by a constant function,
+    mapped from an inhabitant of its element sort.
+    """
+    components = _array_components(sort)
+    if components:
+        return "(Nonempty.elim %s (fun _e => Nonempty.intro (fun (_ : %s) => _e)))" % (
+            _nonempty(components[1]), _component_type(components[0]))
     lean = _component_type(sort)
     if lean == "Prop":
         return "(Nonempty.intro True)"
     return "_m.nonempty" if lean == "_m.U" else "(Nonempty.intro (0 : %s))" % lean
+
+
+def _inhabitant_sort(sort):
+    """The sort whose inhabitant _nonempty starts from: sort itself, or an array's innermost element sort."""
+    while _array_components(sort):
+        sort = _array_components(sort)[1]
+    return sort
 _UFLRA_BINDERS = " (_vars : Nat -> Rat)" + _UF_BINDERS
 _UFLRA_ARGUMENTS = " _vars" + _UF_ARGUMENTS
 _UFLIA_BINDERS = " (_vars : Nat -> Int)" + _UF_BINDERS
@@ -853,18 +930,23 @@ def _uninterpreted_sorts(raws):
         if type(raw) is dict:
             sorts.update(sort for sort in [raw.get("range")] + _list(raw.get("domain", []), "declaration domain")
                          if type(sort) is str and sort not in _RESERVED_SORTS)
-    for sort in list(sorts):
+    pending = list(sorts)
+    while pending:
+        sort = pending.pop()
         components = _array_components(sort)
         if components is None and ("(" in sort or ")" in sort):
             raise ReconstructionError("unsupported sort: %s" % sort)
         if components is not None:
-            # Index and element sorts are uninterpreted, Int, Real, or Bool
-            # (a read of a set is a formula, an index over Bool too).
-            index, element = components
-            if ((index in _RESERVED_SORTS and index not in _ARITH_SORTS + ("Bool",))
-                    or (element in _RESERVED_SORTS and element not in _ARITH_SORTS + ("Bool",))):
+            # Index and element sorts are uninterpreted, Int, Real, Bool (a
+            # read of a set is a formula, an index over Bool too), or arrays
+            # themselves (nested arrays, sorts of the certificate in turn).
+            if any(component in _RESERVED_SORTS and component not in _ARITH_SORTS + ("Bool",)
+                   for component in components):
                 raise ReconstructionError("unsupported array sort: %s" % sort)
-            sorts.update(component for component in components if component not in _RESERVED_SORTS)
+            for component in components:
+                if component not in _RESERVED_SORTS and component not in sorts:
+                    sorts.add(component)
+                    pending.append(component)
     if "" in sorts:
         raise ReconstructionError("invalid uninterpreted sort name")
     return tuple(sorted(sorts))
@@ -886,7 +968,8 @@ def _declaration(raw, sorts):
     argument_sorts = sorts + ("Bool", "Real", "Int")
     array = _array_components(raw["range"]) if raw["range"] in sorts else None
     if kind == z3.Z3_OP_SELECT:
-        # A read of an array, of its element sort: uninterpreted, Int, or Real.
+        # A read of an array, of its element sort: uninterpreted, Int, Real,
+        # Bool, or an array (a row of nested arrays).
         if (name != "select" or len(domain) != 2 or domain[0] not in sorts
                 or _array_components(domain[0]) != (domain[1], raw["range"])):
             raise ReconstructionError("invalid select declaration")
@@ -908,7 +991,11 @@ def _declaration(raw, sorts):
         # A pointwise connective over sets of one sort (_set_combinator).
         expected = ("map", _MAP_CONNECTIVES[parameters[0]][1]) if kind == z3.Z3_OP_ARRAY_MAP \
             else _SET_OPERATOR_NAMES[kind]
-        if array is None or array[1] != "Bool" or (name, domain) != (expected[0], (raw["range"],) * expected[1]):
+        # Not over sets indexed by arrays: the embedding of a model's outer
+        # arrays (fixed off the embedded indices) does not commute with a
+        # connective there (see _ARRAY_TYPE_CODES).
+        if (array is None or array[1] != "Bool" or _array_components(array[0]) is not None
+                or (name, domain) != (expected[0], (raw["range"],) * expected[1])):
             raise ReconstructionError("invalid map or set operator declaration: %s" % name)
     elif array is not None:
         # Array constants, functions into arrays (the family of their Lean
@@ -1233,8 +1320,7 @@ def _bind_input(source, graph, fragment=None, query=0):
         if is_uninterpreted_sort(expr.sort()):
             original_sorts.add(range_name)
         elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
-            original_sorts.update(sort for sort in (range_name,) + _array_components(range_name)
-                                  if sort not in _RESERVED_SORTS)
+            original_sorts.update(sort for sort in _array_sort_names(range_name) if sort not in _RESERVED_SORTS)
         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
             name = str(decl.name())
             table = _symbol_table(range_name, decl.arity(), graph.sorts)
@@ -1295,7 +1381,8 @@ def _interpretation_structure(graph):
         return []
     fields = _UF_FIELDS + (_NUMERIC_FIELDS[graph.numeric] if graph.arithmetic else ())
     fields += _array_family_fields(graph)
-    if any(decl.kind == z3.Z3_OP_ARRAY_EXT and decl.range in graph.carriers for decl in graph.declarations):
+    if any(decl.kind == z3.Z3_OP_ARRAY_EXT and _inhabitant_sort(decl.range) in graph.carriers
+           for decl in graph.declarations):
         fields += _NONEMPTY_FIELDS
     return ["structure Interpretation where"] + ["  %s : %s" % field for field in fields] + [""]
 
@@ -2013,7 +2100,7 @@ def _inline(graph, node, atom_indices, variable_indices):
     """
     def child(sub):
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
-    if graph.is_array(node):
+    if _folded_array(graph, node):
         return _term(graph, node)
     if graph.is_term(node):
         return _term_body(graph, node, variable_indices, child, child)
@@ -2189,7 +2276,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = inside
     else:
         remaining = reachable
-    fallback = ["unfold " + " ".join(_definition_names(graph, remaining))] if remaining else []
+    fallback = ["unfold " + " ".join(_definition_names(graph, remaining, atoms))] if remaining else []
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
     if prefix == "rewrite" and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
@@ -2522,12 +2609,30 @@ def _integrality_fact(graph, atom, atom_indices, variable_indices):
             "have _q%d := %s (%s) ((0 : Int))" % (atom, _CAST_LEMMA_OF[relation], form)]
 
 
-def _definition_names(graph, nodes):
+def _folded_array(graph, node):
+    """Whether node is an array term that lemmas keep folded (_definition_names, _inline).
+
+    Reads, extensionality witnesses, and default values are not, even when
+    their values are arrays (a row of nested arrays, an index that is an
+    array, the default row of a constant array of rows): grind must see them
+    as reads, witnesses, and default values of the arrays, which stay folded
+    (the atoms _reachable stops at).
+    """
+    return graph.is_array(node) and graph.kind(node) not in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT,
+                                                             z3.Z3_OP_ARRAY_DEFAULT)
+
+
+def _definition_names(graph, nodes, roots=None):
     """The definitions of nodes in unfolding order: parents before children (ids are topological).
 
     Array terms are left folded: written out, a chain of stores sharing
     subterms (z3test's swap and storecomm benchmarks) grows exponentially,
     and grind needs only the one-step facts _array_helpers states about them.
+    Reads and extensionality witnesses are unfolded even when their values
+    are arrays (_folded_array). roots, when given, are nodes of the goal
+    the walk starts from besides those no other node has as an argument:
+    an atom of the goal that is also stored in an array (the value of a
+    folded store) is otherwise never reached.
     """
     if graph.arrays:
         # Only the nodes unfold reaches from the roots of nodes (those no
@@ -2535,10 +2640,10 @@ def _definition_names(graph, nodes):
         # walk stays inside nodes, which some callers cut below given atoms
         # (_reachable_outside).
         children = {child for node in nodes for child in graph.arguments(node)}
-        pending, visible = [node for node in nodes if node not in children], set()
+        pending, visible = [node for node in nodes if node not in children] + list(roots or ()), set()
         while pending:
             node = pending.pop()
-            if node in nodes and node not in visible and not graph.is_array(node):
+            if node in nodes and node not in visible and not _folded_array(graph, node):
                 visible.add(node)
                 pending.extend(graph.arguments(node))
         nodes = visible
@@ -2639,6 +2744,67 @@ def _map_identities(graph, node, inline):
     return helpers
 
 
+def _read_levels(graph, array, read):
+    """The store and constant-array levels of a read of a store or constant array that get facts (_array_helpers).
+
+    A read of stores over a constant array gets every level and the
+    constant at the bottom: Z3's rewriter evaluates such a read ((select
+    (store (const v) y w) x) is (ite (= x y) w v)) with no read term of the
+    levels below in the certificate.
+    """
+    levels = [array]
+    while graph.kind(levels[-1]) == z3.Z3_OP_STORE:
+        levels.append(graph.arguments(levels[-1])[0])
+    if graph.kind(levels[-1]) != z3.Z3_OP_CONST_ARRAY:
+        # Over a plain array the rewriter skips the stores at a value index
+        # (a numeral, or true or false over Bool indices) other than the
+        # read's ((select (store (store a 1 v) 2 w) 3) is (select a 3)) and
+        # goes on with the read of the level where the skip stops, a store
+        # at the read's own index evaluated in the same step ((select (store
+        # (store a 3 5) 2 7) 3) is 5), so those levels get their facts too;
+        # other reads keep the single fact of their own level (long store
+        # chains over plain arrays at symbolic indices, as in z3test's swap
+        # files, would otherwise get one fact per level and read).
+        skipped = 0
+        while skipped + 1 < len(levels) and _distinct_values(graph, graph.arguments(levels[skipped])[1], read):
+            skipped += 1
+        # The skipped levels and the store where the skip stops (not the
+        # plain array at the bottom).
+        levels = levels[:min(skipped + 1, len(levels) - 1)]
+    return levels
+
+
+def _stored_rows(graph, row):
+    """The stores and constant arrays a read of a row of nested arrays may evaluate to, in order.
+
+    They are the rows stored along the store chain of the array read (and a
+    constant array's row at its bottom); when that array is a row read
+    itself (three levels or more), the rows stored in the rows it may
+    evaluate to.
+    """
+    arrays, rows = [graph.arguments(row)[0]], []
+    if graph.kind(arrays[0]) == z3.Z3_OP_SELECT and graph.is_array(arrays[0]):
+        arrays = _stored_rows(graph, arrays[0])
+    for outer in arrays:
+        while graph.kind(outer) == z3.Z3_OP_STORE:
+            rows.append(graph.arguments(outer)[2])
+            outer = graph.arguments(outer)[0]
+        if graph.kind(outer) == z3.Z3_OP_CONST_ARRAY:
+            rows.append(graph.arguments(outer)[0])
+    seen = set()
+    return [value for value in rows if graph.kind(value) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY)
+            and not (value in seen or seen.add(value))]
+
+
+def _level_fact(graph, name, store, read, inline):
+    """The fact of a read at read of one store or constant-array level (_read_levels)."""
+    if graph.kind(store) == z3.Z3_OP_STORE:
+        return "  have %s := _store_apply %s %s" % (
+            name, " ".join(inline(argument) for argument in graph.arguments(store)), inline(read))
+    return "  have %s := _select_const (I := %s) %s %s" % (
+        name, _array_types(graph.decl(store).range)[0], inline(graph.arguments(store)[0]), inline(read))
+
+
 def _array_helpers(graph, reachable, atom_indices, variable_indices):
     """Instantiate the array facts for the reads of stores and the extensionality witnesses a lemma reaches.
 
@@ -2666,43 +2832,29 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
                 node, _term(graph, node), _term_body(graph, node, variable_indices, inline, inline)))
         elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) in (z3.Z3_OP_STORE,
                                                                                   z3.Z3_OP_CONST_ARRAY):
-            # A read of a store: its value one level down. A read of stores
-            # over a constant array gets every level and the constant at the
-            # bottom: Z3's rewriter evaluates such a read ((select (store
-            # (const v) y w) x) is (ite (= x y) w v)) with no read term of
-            # the levels below in the certificate.
+            # A read of a store: its value one level down, and the levels
+            # below that the rewriter evaluates (_read_levels).
             array, read = graph.arguments(node)
-            levels = [array]
-            while graph.kind(levels[-1]) == z3.Z3_OP_STORE:
-                levels.append(graph.arguments(levels[-1])[0])
-            if graph.kind(levels[-1]) != z3.Z3_OP_CONST_ARRAY:
-                # Over a plain array the rewriter skips the stores at a
-                # value index (a numeral, or true or false over Bool
-                # indices) other than the read's ((select (store (store
-                # a 1 v) 2 w) 3) is (select a 3)) and goes on with the read
-                # of the level where the skip stops, a store at the read's
-                # own index evaluated in the same step ((select (store
-                # (store a 3 5) 2 7) 3) is 5), so those levels get their
-                # facts too; other reads keep the single fact of their own
-                # level (long store chains over plain arrays at symbolic
-                # indices, as in z3test's swap files, would otherwise get one
-                # fact per level and read).
-                skipped = 0
-                while (skipped + 1 < len(levels)
-                       and _distinct_values(graph, graph.arguments(levels[skipped])[1], read)):
-                    skipped += 1
-                # The skipped levels and the store where the skip stops (not
-                # the plain array at the bottom).
-                levels = levels[:min(skipped + 1, len(levels) - 1)]
-            for level, store in enumerate(levels):
+            for level, store in enumerate(_read_levels(graph, array, read)):
                 name = "_s%d" % node if level == 0 else "_s%d_%d" % (node, level)
-                if graph.kind(store) == z3.Z3_OP_STORE:
-                    helpers.append("  have %s := _store_apply %s %s" % (
-                        name, " ".join(inline(argument) for argument in graph.arguments(store)), inline(read)))
-                elif graph.kind(store) == z3.Z3_OP_CONST_ARRAY:
-                    helpers.append("  have %s := _select_const (I := %s) %s %s" % (
-                        name, _array_types(graph.decl(store).range)[0], inline(graph.arguments(store)[0]),
-                        inline(read)))
+                helpers.append(_level_fact(graph, name, store, read, inline))
+        elif (kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_SELECT
+              and graph.is_array(graph.arguments(node)[0])):
+            # A read of a row of nested arrays: Z3's rewriter evaluates the
+            # row read of a store at its own index to the stored row, then
+            # the read of that row ((select (select (store a i (store r j
+            # v)) i) j) is v) with no read term of the stored row in the
+            # certificate. Each row stored along the outer store chain (or a
+            # constant array's row) that is a store or a constant array gets
+            # the facts of a read of it at the read's index (its levels as
+            # for a read of a store); grind relates them to this read
+            # through the row read's own fact.
+            row, read = graph.arguments(node)
+            count = 0
+            for value in _stored_rows(graph, row):
+                for store in _read_levels(graph, value, read):
+                    helpers.append(_level_fact(graph, "_n%d_%d" % (node, count), store, read, inline))
+                    count += 1
         if graph.is_array(node) and _set_function(graph, node) is not None:
             helpers.extend(_map_identities(graph, node, inline))
         if kind == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(node)[0]) is not None:
@@ -2885,7 +3037,8 @@ def _atom_bridge_facts(graph, atoms):
     lines, names = [], []
     for members in groups.values():
         for first, second in zip(members, members[1:]):
-            definitions = _definition_names(graph, _reachable(graph, first)[0] | _reachable(graph, second)[0])
+            definitions = _definition_names(graph, _reachable(graph, first)[0] | _reachable(graph, second)[0],
+                                            (first, second))
             lines.append("have _e%d_%d : %s = %s := by unfold %s; %s" % (
                 first, second, _term(graph, first), _term(graph, second), " ".join(definitions),
                 _theory_tactic(graph)))
@@ -4511,7 +4664,8 @@ def _leaf_bridges(graph, leaves):
             bridges.append((leaf, by_key[complement][0], True))
     result = []
     for leaf, other, negated in bridges:
-        definitions = _definition_names(graph, _reachable(graph, leaf)[0] | _reachable(graph, other)[0])
+        definitions = _definition_names(graph, _reachable(graph, leaf)[0] | _reachable(graph, other)[0],
+                                        (leaf, other))
         right = ("not", leaves[other]) if negated else leaves[other]
         result.append((("iff", leaves[leaf], right), definitions))
     return result

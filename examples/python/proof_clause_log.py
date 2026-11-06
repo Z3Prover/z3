@@ -29,8 +29,8 @@ import z3
 
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
-    _NO_PREPROCESSING, _TOKEN, _real_counterpart, bound_combination_refutes, constant_value, integer_divisor,
-    integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+    _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
+    integer_divisor, integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
     SET_OPERATORS, set_combinator,
 )
 
@@ -290,11 +290,11 @@ def _number(sexpr):
 
 
 def _sort_text(sexpr):
-    """z3py's rendering of a logged sort: a name, or (Array I E) as Array(I, E)."""
+    """z3py's rendering of a logged sort: a name, or (Array I E) as Array(I, E), I and E nested arrays too."""
     if isinstance(sexpr, str):
         return _symbol(sexpr)
-    if len(sexpr) == 3 and sexpr[0] == "Array" and all(isinstance(part, str) for part in sexpr[1:]):
-        return "Array(%s, %s)" % (_symbol(sexpr[1]), _symbol(sexpr[2]))
+    if len(sexpr) == 3 and sexpr[0] == "Array":
+        return "Array(%s, %s)" % (_sort_text(sexpr[1]), _sort_text(sexpr[2]))
     raise ProofExportError("unsupported sort in the clause log")
 
 
@@ -331,8 +331,9 @@ class _Terms:
             elif is_array_sort(expr.sort()):
                 self.array_sorts[str(expr.sort())] = expr.sort()
                 # The log declares an array's uninterpreted index and element
-                # sorts even when no term of them occurs (QF_AX).
-                self.sorts.update(component.name() for component in (expr.sort().domain(), expr.sort().range())
+                # sorts even when no term of them occurs (QF_AX), through
+                # nested arrays.
+                self.sorts.update(component.name() for component in array_leaf_sorts(expr.sort())
                                   if is_uninterpreted_sort(component))
             if z3.is_int(expr):
                 self.integer = True
@@ -397,7 +398,9 @@ class _Terms:
             # array sort of the input (the exporter admits Int and Real indices
             # only).
             sort = self.array_sorts.get(_sort_text(head[2]))
-            value = self.build(sexpr[1], {"Int": True, "Real": False}.get(head[2][2]))
+            element = head[2][2]  # a sort name, or an array sort of nested arrays
+            value = self.build(sexpr[1], {"Int": True, "Real": False}.get(element) if isinstance(element, str)
+                               else None)
             if sort is None or not value.sort().eq(sort.range()):
                 raise ProofExportError("constant array of an unsupported sort in the clause log")
             return z3.K(sort.domain(), value)
