@@ -1,0 +1,10 @@
+{
+  "name": "Z3-pulse-loop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "link": "J=${JUNCO:-$HOME/git/junco}; mkdir -p node_modules/@earendil-works && ln -sfn $J node_modules/junco && for p in dataflow-engine dataflow-engine-opik; do ln -sfn $J/packages/$p node_modules/$p; done && for p in opik typebox typescript @types; do ln -sfn $J/node_modules/$p node_modules/$p; done && for p in pi-agent-core pi-ai pi-coding-agent; do ln -sfn $J/node_modules/@earendil-works/$p node_modules/@earendil-works/$p; done",
+    "check": "bun run wf.check.ts && node_modules/typescript/bin/tsc -p tsconfig.json",
+    "loop": "until bun run wf.ts; do echo 'Z3-pulse-loop: restarting in 60 s' >&2; sleep 60; done"
+  }
+}
