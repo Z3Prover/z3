@@ -661,47 +661,72 @@ def array_leaf_sorts(sort):
     return leaves
 
 
-# Boolean combinators over sets (arrays with Bool elements): ((_ map f) a ...)
-# for a connective f, and Z3's set operators, which its rewriter turns into
-# maps. Each is the pointwise connective, by its name in the certificate and
-# its number of arguments; Lean defines them as _map1/_map2 over I -> Prop
-# (proof_to_lean). Maps of other functions (uninterpreted, arithmetic, or
-# over other element sorts) are rejected; Z3 nests n-ary unions and
-# intersections into binary ones as it parses them.
-MAP_CONNECTIVES = {z3.Z3_OP_NOT: ("not", 1), z3.Z3_OP_AND: ("and", 2), z3.Z3_OP_OR: ("or", 2),
-                   z3.Z3_OP_IMPLIES: ("=>", 2)}
+# Maps ((_ map f) a ...) apply a function pointwise to arrays of one index
+# sort; Z3's set operators are maps of connectives over sets (arrays with
+# Bool elements), which its rewriter turns into maps. Lean defines them as
+# _map1/_map2/_map3 of a Lean function (proof_to_lean). The functions, by
+# kind: the certificate's name and the numbers of arguments it takes, the
+# Boolean connectives, equality and distinct of two elements of one sort,
+# Int or Real addition, subtraction, negation, and comparison, and ite;
+# besides these, uninterpreted functions and predicates of up to
+# MAP_ARITY arguments, named ("declared", name) in the certificate. Their
+# element sorts are uninterpreted, Int, Real, or Bool (not arrays). Other
+# functions (multiplication, conversions, n-ary connectives) are rejected;
+# Z3 nests n-ary unions and intersections into binary ones as it parses them.
+MAP_FUNCTIONS = {z3.Z3_OP_NOT: ("not", (1,)), z3.Z3_OP_AND: ("and", (2,)), z3.Z3_OP_OR: ("or", (2,)),
+                 z3.Z3_OP_IMPLIES: ("=>", (2,)), z3.Z3_OP_XOR: ("xor", (2,)), z3.Z3_OP_EQ: ("=", (2,)),
+                 z3.Z3_OP_DISTINCT: ("distinct", (2,)), z3.Z3_OP_ADD: ("+", (2,)), z3.Z3_OP_SUB: ("-", (2,)),
+                 z3.Z3_OP_UMINUS: ("-", (1,)), z3.Z3_OP_LE: ("<=", (2,)), z3.Z3_OP_LT: ("<", (2,)),
+                 z3.Z3_OP_GE: (">=", (2,)), z3.Z3_OP_GT: (">", (2,)), z3.Z3_OP_ITE: ("ite", (3,))}
+MAP_ARITY = 3
 SET_OPERATORS = {z3.Z3_OP_SET_UNION: ("union", 2), z3.Z3_OP_SET_INTERSECT: ("intersection", 2),
                  z3.Z3_OP_SET_DIFFERENCE: ("setminus", 2), z3.Z3_OP_SET_COMPLEMENT: ("complement", 1)}
 
 
-def set_combinator(expr):
-    """The connective name of a supported map or set operator application over sets; reject any other.
+def map_parameters(expr):
+    """The certificate parameters of a supported map or set operator application; reject any other.
 
-    For (_ map f) it is f's name (not, and, or, =>), the certificate's
-    declaration parameter; for a set operator its own name.
+    For (_ map f) they name f: (name,) for a function of MAP_FUNCTIONS,
+    ("declared", name) for an uninterpreted one; a set operator has none
+    (its parameter, if any, is its own sort).
     """
     decl = expr.decl()
     if decl.kind() == z3.Z3_OP_ARRAY_MAP:
         parameters = decl.params()
         function = parameters[0] if len(parameters) == 1 and isinstance(parameters[0], z3.FuncDeclRef) else None
-        name, arity = MAP_CONNECTIVES.get(function.kind() if function is not None else None, (None, None))
-        if name is None or function.arity() != arity:
-            raise ProofExportError("maps are supported over the connectives not, and, or, => only: %s" % expr.sexpr())
+        kind = function.kind() if function is not None else None
+        if kind == z3.Z3_OP_UNINTERPRETED and 1 <= function.arity() <= MAP_ARITY:
+            result = ("declared", str(function.name()))
+        elif kind in MAP_FUNCTIONS and function.arity() in MAP_FUNCTIONS[kind][1]:
+            result = (MAP_FUNCTIONS[kind][0],)
+        else:
+            raise ProofExportError("maps are supported over connectives, equality, distinct, linear arithmetic, "
+                                   "comparisons, ite, and uninterpreted functions only: %s" % expr.sexpr())
+        arity = function.arity()
+        elements = [function.domain(index) for index in range(arity)] + [function.range()]
     else:
         name, arity = SET_OPERATORS[decl.kind()]
         if len(decl.params()) > 1 or (decl.params() and not decl.params()[0].eq(expr.sort())):
             raise ProofExportError("unsupported set operator parameters: %s" % decl.name())
-    if expr.num_args() != arity or expr.sort().range().kind() != z3.Z3_BOOL_SORT or any(
-            not child.sort().eq(expr.sort()) for child in expr.children()):
-        raise ProofExportError("unsupported map or set operator (%d arrays of one set sort are supported): %s" % (
+        if expr.sort().range().kind() != z3.Z3_BOOL_SORT:
+            raise ProofExportError("unsupported set operator over %s: %s" % (expr.sort(), name))
+        result, elements = (), [expr.sort().range()] * (arity + 1)
+    arrays = list(expr.children()) + [expr]
+    if expr.num_args() != arity or any(
+            not is_array_sort(array.sort()) or not array.sort().domain().eq(expr.sort().domain())
+            or not array.sort().range().eq(element)
+            for array, element in zip(arrays, elements)):
+        raise ProofExportError("unsupported map or set operator (%d arrays of one index sort are supported): %s" % (
             arity, decl.name()))
+    if any(element.kind() == z3.Z3_ARRAY_SORT for element in elements):
+        raise ProofExportError("maps over arrays of arrays are not supported: %s" % expr.sexpr())
     if expr.sort().domain().kind() == z3.Z3_ARRAY_SORT:
-        # A model's sets over array indices embed in Lean as functions fixed
-        # off the embedded indices, which a connective does not commute with
-        # (proof_to_lean's nested arrays).
-        raise ProofExportError("maps and set operators over sets indexed by arrays are not supported: %s"
+        # A model's arrays over array indices embed in Lean as functions
+        # fixed off the embedded indices, which a pointwise function does not
+        # commute with (proof_to_lean's nested arrays).
+        raise ProofExportError("maps and set operators over arrays indexed by arrays are not supported: %s"
                                % expr.sort())
-    return name
+    return result
 
 
 def _require_default(expr):
@@ -903,7 +928,14 @@ def classify_fragment(assertions):
                     raise ProofExportError("constant arrays are supported over Int and Real indices only: %s"
                                            % expr.sort())
             elif decl.kind() == z3.Z3_OP_ARRAY_MAP or decl.kind() in SET_OPERATORS:
-                set_combinator(expr)  # A pointwise connective over sets.
+                if map_parameters(expr)[:1] == ("declared",):
+                    # A map of an uninterpreted function: a symbol of the
+                    # input like an applied one, with the same signatures.
+                    function = decl.params()[0]
+                    _require_unique_symbol(function, symbols)
+                    functions = True
+                    signature_real, signature_integer = _require_uninterpreted_signature(function, sorts)
+                    real, integer = real or signature_real, integer or signature_integer
             elif decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE, z3.Z3_OP_SELECT):
                 # A read is an array only of an array whose elements are
                 # arrays (nested arrays, a function into functions in Lean).
@@ -1278,9 +1310,9 @@ class DagBuilder:
             elif decl.kind() == z3.Z3_OP_CONST_ARRAY and len(decl.params()) == 1 and decl.params()[0].eq(expr.sort()):
                 pass  # The parameter is the array sort, which is the declaration's range.
             elif decl.kind() == z3.Z3_OP_ARRAY_MAP:
-                parameters = (set_combinator(expr),)  # The mapped connective's name.
+                parameters = map_parameters(expr)  # The mapped function's name.
             elif decl.kind() in SET_OPERATORS:
-                set_combinator(expr)  # A parameter (union's) is the array sort, the declaration's range.
+                map_parameters(expr)  # A parameter (union's) is the array sort, the declaration's range.
             elif decl.params():
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             domain = tuple(self.sort_name(decl.domain(i)) for i in range(decl.arity()))

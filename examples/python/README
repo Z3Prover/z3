@@ -161,14 +161,17 @@ predicates may take arrays as arguments, functions may return them,
 constant arrays ((as const (Array I E)) v) and default values (default a)
 are supported over Int and Real indices, and sets combine by maps of not,
 and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
-setminus, complement). Only the clause log certifies them (the legacy core
+setminus, complement); maps of xor, = and distinct, Int and Real +, -, and
+comparisons, ite, and uninterpreted functions and predicates of up to three
+arguments apply over elements of an uninterpreted sort, Int, Real, or Bool.
+Only the clause log certifies them (the legacy core
 rejects them explicitly); arrays may also be indexed by Bool ((Array Bool
 Int), see below), and an index or element sort may itself be such an array
 ((Array Int (Array Int Int)), (Array (Array Int Int) Bool), nested to any
 depth); arrays
 with several indices, constant arrays and default values over other index
-sorts, default values that are arrays, maps of other functions, and
-as-array are rejected. Integer
+sorts, default values that are arrays, maps of other functions (*, conversions,
+uninterpreted functions of four or more arguments) or over arrays of arrays, and as-array are rejected. Integer
 div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -1110,7 +1113,8 @@ function of the reads by rfl, which is the array solver's select-map axiom,
 logged as an array hint stating the propagated equality; each read of a map
 gets that fact, and so do the maps, stores, and constant arrays below it,
 since Z3's rewriter evaluates a read through all of them with no read term of
-the levels in between. The identities the euf solver and the rewriter apply to
+the levels in between; a read of a store at another numeral over a map gets
+the map's facts too, the rewriter skipping the store. The identities the euf solver and the rewriter apply to
 maps are theorems instantiated per map node: maps of and and or commute (euf
 compares them as commutative) and are idempotent, a double complement
 cancels, a map of stores at one index is the store of the map (a constant
@@ -1118,7 +1122,15 @@ array counting as a store of its value), and a map of constant arrays is
 constant. The rewriter turns setminus a b into the map of and over a and the
 complement of b, a different Lean function, so each setminus node is stated
 equal to that map by rfl; union, intersection, and complement share their
-Lean function with the map they become. The array solver's other map axiom, (default (map f a b)) = (f
+Lean function with the map they become. A map of any other function is
+_map1, _map2, or _map3 of a lambda over the element types whose body is the
+application as the term and formula renderers write it ((fun (_v0 : Int)
+(_v1 : Int) => (_v0 + _v1)), an uninterpreted f as (_m.ifuns k [(_m.int
+_v0)])), so the read facts, beta-reduced, match the lemmas' terms. A mapped
+function is a symbol of the input even if never applied: the certificate
+names it ("declared", f) and the reconstructor binds it to the input's
+signature. Maps of commutative functions (xor, =, distinct, +) commute, by
+_map2_comm with the pointwise swap proved by grind. The array solver's other map axiom, (default (map f a b)) = (f
 (default a) (default b)), holds only for arrays constant at all but finitely
 many indices, which _default cannot assume of a map's arguments; the replay
 rejects it explicitly. The solver also introduces default values of maps over

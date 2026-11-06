@@ -31,7 +31,7 @@ from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
     integer_divisor, integer_tightened, is_array_sort, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
-    SET_OPERATORS, set_combinator,
+    SET_OPERATORS, map_parameters,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -41,8 +41,6 @@ _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _REAL_ARGUMENT_HEADS = ("to_int", "is_int")
-# The connectives a logged map ((_ map f) a ...) may apply (set_combinator).
-_MAP_HEADS = ("not", "and", "or", "=>")
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -344,6 +342,9 @@ class _Terms:
                     self.constants[str(expr.decl().name())] = expr
                 else:
                     self.functions[str(expr.decl().name())] = expr.decl()
+            elif expr.decl().kind() == z3.Z3_OP_ARRAY_MAP and map_parameters(expr)[:1] == ("declared",):
+                # A function the input maps, possibly never applied to elements.
+                self.functions[str(expr.decl().params()[0].name())] = expr.decl().params()[0]
             pending.extend(expr.children())
 
     def _subtract(self, arguments):
@@ -404,20 +405,31 @@ class _Terms:
             if sort is None or not value.sort().eq(sort.range()):
                 raise ProofExportError("constant array of an unsupported sort in the clause log")
             return z3.K(sort.domain(), value)
-        if isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "map"] and head[2] in _MAP_HEADS:
-            # A map of a connective over sets ((_ map and) a b), z3py's Map of
-            # the connective's declaration at the arrays' count; the exporter
-            # admits sets of one sort (set_combinator).
+        if isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "map"] and isinstance(head[2], str):
+            # A map ((_ map f) a b), z3py's Map of f's declaration: an
+            # uninterpreted function of the input, or the built-in f applies
+            # to fresh elements of the arrays' element sorts (the log prints
+            # (_ map +) without a signature); the exporter's map_parameters
+            # admits the result or rejects it.
             arguments = [self.build(argument) for argument in sexpr[1:]]
             if not arguments or not all(is_array_sort(argument.sort()) for argument in arguments):
                 raise ProofExportError("map over unsupported sorts in the clause log")
-            atoms = [z3.Bool("_p%d" % index, self.context) for index in range(len(arguments))]
+            function = self.functions.get(_symbol(head[2]))
             try:
-                function = self._apply(head[2], len(atoms), atoms).decl()
+                if function is None:
+                    elements = [z3.Const("_p%d" % index, argument.sort().range())
+                                for index, argument in enumerate(arguments)]
+                    application = self._apply(head[2], len(elements), elements)
+                    if not (z3.is_app(application) and len(application.children()) == len(elements)
+                            and all(child.eq(element) for child, element in zip(application.children(), elements))):
+                        raise ProofExportError("unsupported map function in the clause log: %s" % head[2])
+                    function = application.decl()
                 result = z3.Map(function, *arguments)
-                set_combinator(result)
-            except z3.Z3Exception:
+            except (z3.Z3Exception, TypeError):
+                # z3py raises TypeError for an operator it does not define
+                # on the elements (unary - of Bool, <= of an uninterpreted sort).
                 raise ProofExportError("ill-sorted map in the clause log") from None
+            map_parameters(result)
             return result
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
@@ -586,14 +598,14 @@ def _store_axiom(literal):
                 and value.arg(0).eq(read.arg(0).arg(0))):
             return True
         if z3.is_select(read) and _is_set_combinator(read.arg(0)):
-            # A read of a map, equal to the connective over the reads of the
+            # A read of a map, equal to the function over the reads of the
             # mapped arrays as the rewriter simplifies it (Lean checks that).
             return True
     return False
 
 
 def _is_set_combinator(expr):
-    """Whether expr applies a map or one of Z3's set operators (proof_certificate.set_combinator)."""
+    """Whether expr applies a map or one of Z3's set operators (proof_certificate.map_parameters)."""
     return z3.is_app(expr) and (expr.decl().kind() == z3.Z3_OP_ARRAY_MAP or expr.decl().kind() in SET_OPERATORS)
 
 

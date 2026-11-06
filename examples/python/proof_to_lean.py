@@ -33,7 +33,7 @@ import z3
 from proof_certificate import (
     SET_OPERATORS, ProofExportError, _rounded, array_sort_name, bound_combination_refutes, integer_tightened,
     is_uninterpreted_sort, linear_combination_refutes, numeral_value, parse_assertions, pseudo_boolean_parameters,
-    query_snapshot, set_combinator,
+    query_snapshot, MAP_ARITY, map_parameters,
 )
 
 
@@ -278,7 +278,7 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # and Real indices only, whose embedding is onto. A pointwise connective
 # does not commute with that embedding outside the image (not of the fixed
 # value is another value), so maps and set operators over sets indexed by
-# arrays are rejected (_declaration, proof_certificate's set_combinator);
+# arrays are rejected (_declaration, proof_certificate's map_parameters);
 # maps over rows of nested arrays (a set Int -> Prop read from a row of an
 # Int -> (Int -> Prop)) are over Int indices. A read of a row and an extensionality
 # witness over array indices are array terms that lemmas unfold
@@ -409,17 +409,44 @@ private theorem _default_store {I E : Type} (h : forall l : List I, Exists (fun 
     unfold _default
     rw [dite_eq_right _ex, dite_eq_right _ns]
 """.strip("\n").split("\n")
-# Boolean combinators over sets (I -> Prop): a map of a connective, ((_ map f)
-# a b), and Z3's set operators are the pointwise connective, _map1 or _map2 of
-# a Lean function over Prop. A read of one is that connective over the reads,
-# by rfl (the array solver's select-map axiom, stated per read by
-# _array_helpers). Its default value is not determined by the arguments' (an
-# argument need not be constant at all but finitely many indices), so the
-# default-map axiom is rejected (the exporter's replay). The connective of a
-# map or set operator by name (map parameter) or by kind: the Lean function,
-# then the number of arrays.
+# Maps ((_ map f) a b) and Z3's set operators (maps of connectives over sets,
+# I -> Prop) are the pointwise function, _map1, _map2, or _map3 of a Lean
+# function. A read of one is that function over the reads, by rfl (the array
+# solver's select-map axiom, stated per read by _array_helpers). Its default
+# value is not determined by the arguments' (an argument need not be constant
+# at all but finitely many indices), so the default-map axiom is rejected (the
+# exporter's replay). The connective of a map or set operator by name (map
+# parameter) or by kind: the Lean function, then the number of arrays.
 _MAP_CONNECTIVES = {"not": ("Not", 1), "and": ("And", 2), "or": ("Or", 2),
                     "=>": ("(fun _p _q : Prop => _p -> _q)", 2)}
+# The other functions a map may apply (proof_certificate.MAP_FUNCTIONS), by
+# name: the element sorts they admit, their arities, and their body over
+# the rendered arguments and Lean argument types, as the formula and term
+# renderers write the application (_formula_body, _term_body), so that the
+# beta-reduced read facts match the lemmas' terms. "same" admits two
+# arguments of one sort; "numeric" Int or Real; "bool" Bool alone; the
+# result follows. Uninterpreted functions ("declared") are rendered as
+# their family applied to the injected arguments (_map_application).
+_MAP_BUILTINS = {
+    "xor": ("bool", (2,), lambda args, types: "(Or (And %s (Not %s)) (And (Not %s) %s))" % (
+        args[0], args[1], args[0], args[1])),
+    "=": ("same", (2,), lambda args, types: ("(Iff %s %s)" if types[0] == "Prop" else "(%s = %s)") % tuple(args)),
+    "distinct": ("same", (2,), lambda args, types: (
+        "(Not (Iff %s %s))" if types[0] == "Prop" else "(Not (%s = %s))") % tuple(args)),
+    "+": ("numeric", (2,), lambda args, types: "(%s + %s)" % tuple(args)),
+    "-": ("numeric", (1, 2), lambda args, types: "(-%s)" % args[0] if len(args) == 1 else "(%s - %s)" % tuple(args)),
+    "<=": ("numeric", (2,), lambda args, types: "(%s <= %s)" % tuple(args)),
+    "<": ("numeric", (2,), lambda args, types: "(%s < %s)" % tuple(args)),
+    ">=": ("numeric", (2,), lambda args, types: "(%s >= %s)" % tuple(args)),
+    ">": ("numeric", (2,), lambda args, types: "(%s > %s)" % tuple(args)),
+    "ite": ("ite", (3,), lambda args, types: (
+        "(Or (And %s %s) (And (Not %s) %s))" % (args[0], args[1], args[0], args[2]) if types[1] == "Prop"
+        else "(@ite %s %s (Classical.propDecidable _) %s %s)" % (types[1], args[0], args[1], args[2]))),
+}
+# Maps whose function commutes, which Z3's congruence closure may use
+# (array_decl_plugin inherits commutativity from the function).
+_COMMUTATIVE_MAPS = ("xor", "=", "distinct", "+")
+_DECLARED_MAP = "declared"
 _SET_OPERATOR_NAMES = dict(SET_OPERATORS)
 _SET_OPERATOR_FUNCTIONS = {z3.Z3_OP_SET_UNION: "Or", z3.Z3_OP_SET_INTERSECT: "And",
                            z3.Z3_OP_SET_DIFFERENCE: "(fun _p _q : Prop => And _p (Not _q))",
@@ -440,15 +467,21 @@ _SET_FUNCTION_BODIES = {"Not": "(Not %s)", "And": "(And %s %s)", "Or": "(Or %s %
                         "(fun _p _q : Prop => _p -> _q)": "(%s -> %s)",
                         "(fun _p _q : Prop => And _p (Not _q))": "(And %s (Not %s))"}
 _SET_DEFINITIONS = """
-def _map1 {I : Type} (f : Prop -> Prop) (a : I -> Prop) : I -> Prop := fun _i => f (a _i)
+def _map1 {I E G : Type} (f : E -> G) (a : I -> E) : I -> G := fun _i => f (a _i)
 
-def _map2 {I : Type} (f : Prop -> Prop -> Prop) (a b : I -> Prop) : I -> Prop := fun _i => f (a _i) (b _i)
+def _map2 {I E F G : Type} (f : E -> F -> G) (a : I -> E) (b : I -> F) : I -> G := fun _i => f (a _i) (b _i)
+
+def _map3 {I E F H G : Type} (f : E -> F -> H -> G) (a : I -> E) (b : I -> F) (c : I -> H) : I -> G :=
+  fun _i => f (a _i) (b _i) (c _i)
 
 private theorem _map2_and_comm {I : Type} (a b : I -> Prop) : _map2 And a b = _map2 And b a :=
   funext (fun _i => propext And.comm)
 
 private theorem _map2_or_comm {I : Type} (a b : I -> Prop) : _map2 Or a b = _map2 Or b a :=
   funext (fun _i => propext Or.comm)
+
+private theorem _map2_comm {I E G : Type} (f : E -> E -> G) (h : forall x y, f x y = f y x) (a b : I -> E) :
+    _map2 f a b = _map2 f b a := funext (fun _i => h (a _i) (b _i))
 
 private theorem _map1_not_not {I : Type} (a : I -> Prop) : _map1 Not (_map1 Not a) = a :=
   funext (fun _i => propext Classical.not_not)
@@ -457,15 +490,21 @@ private theorem _map2_and_self {I : Type} (a : I -> Prop) : _map2 And a a = a :=
 
 private theorem _map2_or_self {I : Type} (a : I -> Prop) : _map2 Or a a = a := funext (fun _i => or_self _)
 
-private theorem _map1_store {I : Type} (f : Prop -> Prop) (a : I -> Prop) (i : I) (v : Prop) :
+private theorem _map1_store {I E G : Type} (f : E -> G) (a : I -> E) (i : I) (v : E) :
     _map1 f (_store a i v) = _store (_map1 f a) i (f v) := by
   funext _j
   by_cases _h : _j = i <;> simp [_map1, _store, _h]
 
-private theorem _map2_store {I : Type} (f : Prop -> Prop -> Prop) (a b : I -> Prop) (i : I) (v w : Prop) :
+private theorem _map2_store {I E F G : Type} (f : E -> F -> G) (a : I -> E) (b : I -> F) (i : I) (v : E) (w : F) :
     _map2 f (_store a i v) (_store b i w) = _store (_map2 f a b) i (f v w) := by
   funext _j
   by_cases _h : _j = i <;> simp [_map2, _store, _h]
+
+private theorem _map3_store {I E F H G : Type} (f : E -> F -> H -> G) (a : I -> E) (b : I -> F) (c : I -> H)
+    (i : I) (u : E) (v : F) (w : H) :
+    _map3 f (_store a i u) (_store b i v) (_store c i w) = _store (_map3 f a b c) i (f u v w) := by
+  funext _j
+  by_cases _h : _j = i <;> simp [_map3, _store, _h]
 """.strip("\n").split("\n")
 _ARRAY_COMPONENT_NAME = re.compile(r"[^\s()|]+")
 # The deepest nesting of array sort names _array_components parses (each
@@ -498,11 +537,90 @@ def _store_identity_instance(graph, nodes):
 
 
 def _set_function(graph, node):
-    """The Lean function over Prop of a map or set operator node, or None for any other node."""
+    """The Lean function of a map or set operator node, or None for any other node.
+
+    A connective is named (Not, And, ...); any other function is a lambda
+    over the elements, its body that of _map_application.
+    """
     kind = graph.kind(node)
-    if kind == z3.Z3_OP_ARRAY_MAP:
-        return _MAP_CONNECTIVES[graph.decl(node).parameters[0]][0]
-    return _SET_OPERATOR_FUNCTIONS.get(kind)
+    if kind != z3.Z3_OP_ARRAY_MAP:
+        return _SET_OPERATOR_FUNCTIONS.get(kind)
+    name = graph.decl(node).parameters[0]
+    if name in _MAP_CONNECTIVES:
+        return _MAP_CONNECTIVES[name][0]
+    types = [_array_types(sort)[1] for sort in graph.decl(node).domain]
+    variables = ["_v%d" % index for index in range(len(types))]
+    return "(fun %s => %s)" % (" ".join("(%s : %s)" % pair for pair in zip(variables, types)),
+                               _map_application(graph, node, variables))
+
+
+def _map_application(graph, node, args):
+    """The function of a map or set operator node applied to rendered elements, beta-reduced.
+
+    An uninterpreted function is its family and index (_Graph.map_heads)
+    applied to the elements injected into the carrier, as _term_body and
+    _formula_body render an application of it.
+    """
+    kind, decl = graph.kind(node), graph.decl(node)
+    if kind != z3.Z3_OP_ARRAY_MAP:
+        return _SET_FUNCTION_BODIES[_SET_OPERATOR_FUNCTIONS[kind]] % tuple(args)
+    name = decl.parameters[0]
+    if name in _MAP_CONNECTIVES:
+        return _SET_FUNCTION_BODIES[_MAP_CONNECTIVES[name][0]] % tuple(args)
+    elements = [_array_components(sort)[1] for sort in decl.domain]
+    if name == _DECLARED_MAP:
+        head = graph.map_heads.get(graph.nodes[node].declaration)
+        if head is None:
+            raise ReconstructionError("map of an unbound function: %s" % decl.parameters[1])
+        return "(%s [%s])" % (head, ", ".join(
+            "(%s %s)" % (_INJECTIONS[sort], arg) if sort in _ARITH_SORTS else "(_m.bool %s)" % arg if sort == "Bool"
+            else arg for sort, arg in zip(elements, args)))
+    return _MAP_BUILTINS[name][2](args, [_component_type(sort) for sort in elements])
+
+
+def _map_signature(parameters, elements, result):
+    """Whether the function a map's parameters name takes elements of these sorts to one of result's.
+
+    Element sorts are uninterpreted, Int, Real, or Bool, not arrays. A
+    declared function's own signature is bound to the input's (_bind_input).
+    """
+    if any(_array_components(sort) for sort in list(elements) + [result]):
+        return False
+    name = parameters[0]
+    if name in _MAP_CONNECTIVES:
+        return list(elements) == ["Bool"] * _MAP_CONNECTIVES[name][1] and result == "Bool"
+    if name == _DECLARED_MAP:
+        return 1 <= len(elements) <= MAP_ARITY
+    shape, arities, _ = _MAP_BUILTINS[name]
+    if len(elements) not in arities:
+        return False
+    if shape == "bool":
+        return all(sort == "Bool" for sort in elements) and result == "Bool"
+    if shape == "same":
+        return elements[0] == elements[1] and result == "Bool"
+    if shape == "numeric":
+        comparison = name not in ("+", "-")
+        return (elements[0] in _ARITH_SORTS and all(sort == elements[0] for sort in elements)
+                and result == ("Bool" if comparison else elements[0]))
+    return elements[0] == "Bool" and elements[1] == elements[2] == result  # ite
+
+
+def _map_symbol(graph, declaration):
+    """The (name, element domain, element range) of the uninterpreted function a map declaration applies, or None."""
+    decl = graph.declarations[declaration]
+    if decl.kind != z3.Z3_OP_ARRAY_MAP or decl.parameters[0] != _DECLARED_MAP:
+        return None
+    return (decl.parameters[1], tuple(_array_components(sort)[1] for sort in decl.domain),
+            _array_components(decl.range)[1])
+
+
+def _symbol_signature(graph, declaration):
+    """The (domain, range) of a symbol table entry: a declaration, or a map of an uninterpreted function."""
+    symbol = _map_symbol(graph, declaration)
+    if symbol is not None:
+        return symbol[1:]
+    decl = graph.declarations[declaration]
+    return decl.domain, decl.range
 
 
 @functools.lru_cache(maxsize=None)
@@ -774,6 +892,9 @@ class _Graph:
     numeric: str = "Real"  # the arithmetic sort of the certificate: Real, Int, or _MIXED (qf_lira, qf_uflira)
     # The arithmetic sort of each qf_lira theory step, by node (_lemma_numeric).
     lemma_sorts: dict = field(default_factory=dict, compare=False, repr=False)
+    # The family and index of each uninterpreted function a map applies, by
+    # the map's declaration (_map_application), once the symbols are numbered.
+    map_heads: dict = field(default_factory=dict, compare=False, repr=False)
 
     @property
     def fragment(self):
@@ -889,13 +1010,14 @@ class _Graph:
 def _parameters(kind, name, parameters):
     """Validate declaration parameters: th-lemma carries a hint and its coefficients, a pseudo-Boolean
     constraint its bound and coefficients (integers; their count is checked against the domain by _declaration),
-    a map over sets its connective."""
+    a map its function (a built-in's name, or "declared" and an uninterpreted function's)."""
     parameters = _list(parameters, "declaration parameters")
     if any(type(parameter) is not str for parameter in parameters):
         raise ReconstructionError("declaration parameters must be strings")
     if kind == z3.Z3_OP_ARRAY_MAP:
-        if len(parameters) != 1 or parameters[0] not in _MAP_CONNECTIVES:
-            raise ReconstructionError("a map takes one supported connective: %s" % name)
+        if not ((len(parameters) == 1 and (parameters[0] in _MAP_CONNECTIVES or parameters[0] in _MAP_BUILTINS))
+                or (len(parameters) == 2 and parameters[0] == _DECLARED_MAP and parameters[1])):
+            raise ReconstructionError("a map takes one supported function: %s" % name)
         return tuple(parameters)
     if kind in _PSEUDO_BOOLEAN:
         if any(re.fullmatch(r"-?(0|[1-9][0-9]*)", parameter) is None for parameter in parameters):
@@ -988,14 +1110,21 @@ def _declaration(raw, sorts):
         if name != "const" or array is None or array[0] not in _UNBOUNDED or domain != (array[1],):
             raise ReconstructionError("invalid constant array declaration")
     elif kind == z3.Z3_OP_ARRAY_MAP or kind in _SET_OPERATOR_NAMES:
-        # A pointwise connective over sets of one sort (_set_combinator).
-        expected = ("map", _MAP_CONNECTIVES[parameters[0]][1]) if kind == z3.Z3_OP_ARRAY_MAP \
-            else _SET_OPERATOR_NAMES[kind]
-        # Not over sets indexed by arrays: the embedding of a model's outer
-        # arrays (fixed off the embedded indices) does not commute with a
-        # connective there (see _ARRAY_TYPE_CODES).
-        if (array is None or array[1] != "Bool" or _array_components(array[0]) is not None
-                or (name, domain) != (expected[0], (raw["range"],) * expected[1])):
+        # A pointwise function over arrays of one index sort (map_parameters),
+        # a set operator over sets of one sort. Not over arrays indexed by
+        # arrays: the embedding of a model's outer arrays (fixed off the
+        # embedded indices) does not commute with a function there (see
+        # _ARRAY_TYPE_CODES).
+        components = [_array_components(sort) if sort in sorts else None for sort in domain]
+        if kind == z3.Z3_OP_ARRAY_MAP:
+            valid = (name == "map" and array is not None and domain and None not in components
+                     and all(component[0] == array[0] for component in components)
+                     and _map_signature(parameters, [component[1] for component in components], array[1]))
+        else:
+            expected = _SET_OPERATOR_NAMES[kind]
+            valid = (array is not None and array[1] == "Bool"
+                     and (name, domain) == (expected[0], (raw["range"],) * expected[1]))
+        if not valid or _array_components(array[0]) is not None:
             raise ReconstructionError("invalid map or set operator declaration: %s" % name)
     elif array is not None:
         # Array constants, functions into arrays (the family of their Lean
@@ -1279,6 +1408,22 @@ def _bind_input(source, graph, fragment=None, query=0):
         key = (kind, name, range_name, tuple(children))
         return interned.setdefault(key, len(interned))
 
+    def register(name, declaration):
+        domain, range_name = _symbol_signature(graph, declaration)
+        table = _symbol_table(range_name, len(domain), graph.sorts)
+        if table is None:
+            raise ReconstructionError("unsupported symbol signature: %s" % name)
+        if name in tables[table] and (tables[table][name] != declaration if _map_symbol(graph, declaration) is None
+                                      else _symbol_signature(graph, tables[table][name]) != (domain, range_name)):
+            raise ReconstructionError("ambiguous %s symbol identity: %s" % (
+                {"atoms": "Boolean", "variables": "arithmetic" if graph.numeric == _MIXED else graph.numeric,
+                 "numeric_functions": "arithmetic function" if graph.numeric == _MIXED
+                 else graph.numeric + " function"}.get(table, table[:-1]), name))
+        if any(name in other for key, other in tables.items() if key != table):
+            raise ReconstructionError("symbol used with two sorts: %s" % name)
+        tables[table].setdefault(name, declaration)
+
+    maps = []  # map declarations of uninterpreted functions, registered after the applied symbols
     for index, node in enumerate(graph.nodes):
         decl = graph.decl(index)
         if decl.range == "Proof":
@@ -1286,24 +1431,20 @@ def _bind_input(source, graph, fragment=None, query=0):
         name = ""
         if decl.kind == z3.Z3_OP_UNINTERPRETED:
             name = decl.name
-            table = _symbol_table(decl.range, len(decl.domain), graph.sorts)
-            if table is None:
-                raise ReconstructionError("unsupported symbol signature: %s" % name)
-            if name in tables[table] and tables[table][name] != node.declaration:
-                raise ReconstructionError("ambiguous %s symbol identity: %s" % (
-                    {"atoms": "Boolean", "variables": "arithmetic" if graph.numeric == _MIXED else graph.numeric,
-                     "numeric_functions": "arithmetic function" if graph.numeric == _MIXED
-                     else graph.numeric + " function"}.get(table, table[:-1]), name))
-            if any(name in other for key, other in tables.items() if key != table):
-                raise ReconstructionError("symbol used with two sorts: %s" % name)
-            tables[table][name] = node.declaration
+            register(name, node.declaration)
         elif decl.kind == z3.Z3_OP_ANUM:
             name = str(Fraction(decl.name))
         elif decl.kind in _PSEUDO_BOOLEAN:
             name = " ".join(decl.parameters)  # the bound and coefficients are part of the constraint
         elif decl.kind == z3.Z3_OP_ARRAY_MAP:
-            name = decl.parameters[0]  # the mapped connective
+            name = " ".join(decl.parameters)  # the mapped function
+            if _map_symbol(graph, node.declaration) is not None:
+                maps.append(node.declaration)
         terms[index] = intern(decl.kind, name, decl.range, (terms[arg] for arg in node.arguments))
+    for declaration in maps:
+        # The function a map applies is a symbol of the input like an
+        # applied one; if it is applied too, both must agree on its signature.
+        register(_map_symbol(graph, declaration)[0], declaration)
 
     original_terms, original_sorts = {}, set()
     original_symbols = {table: {} for table in tables}  # name -> (domain, range)
@@ -1321,20 +1462,25 @@ def _bind_input(source, graph, fragment=None, query=0):
             original_sorts.add(range_name)
         elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
             original_sorts.update(sort for sort in _array_sort_names(range_name) if sort not in _RESERVED_SORTS)
-        if decl.kind() == z3.Z3_OP_UNINTERPRETED:
-            name = str(decl.name())
-            table = _symbol_table(range_name, decl.arity(), graph.sorts)
+        parameters = map_parameters(expr) if decl.kind() == z3.Z3_OP_ARRAY_MAP else ()
+        function = decl if decl.kind() == z3.Z3_OP_UNINTERPRETED else (
+            decl.params()[0] if parameters[:1] == (_DECLARED_MAP,) else None)
+        if function is not None:
+            # An applied or mapped uninterpreted function, by its own signature.
+            name = str(function.name())
+            signature = (tuple(_sort_name(function.domain(i)) for i in range(function.arity())),
+                         _sort_name(function.range()))
+            table = _symbol_table(signature[1], function.arity(), graph.sorts)
             if table is None:
                 raise ReconstructionError("certificate sort does not match the original input")
-            signature = (tuple(_sort_name(decl.domain(i)) for i in range(decl.arity())), range_name)
             if original_symbols[table].setdefault(name, signature) != signature:
                 raise ReconstructionError("symbol declared with several signatures: %s" % name)
         elif decl.kind() == z3.Z3_OP_ANUM:
             name = str(numeral_value(expr))
         elif decl.kind() in _PSEUDO_BOOLEAN:
             name = " ".join(pseudo_boolean_parameters(decl))
-        elif decl.kind() == z3.Z3_OP_ARRAY_MAP:
-            name = set_combinator(expr)
+        if decl.kind() == z3.Z3_OP_ARRAY_MAP:
+            name = " ".join(parameters)
         original_terms[expr.get_id()] = intern(
             decl.kind(), name, range_name, (original_terms[child.get_id()] for child in expr.children()))
     if original_sorts != set(graph.sorts):
@@ -1343,8 +1489,7 @@ def _bind_input(source, graph, fragment=None, query=0):
         raise ReconstructionError("certificate assertions do not match the original input")
     for table, symbols in tables.items():
         for name, declaration in symbols.items():
-            decl = graph.declarations[declaration]
-            if (decl.domain, decl.range) != original_symbols[table][name]:
+            if _symbol_signature(graph, declaration) != original_symbols[table][name]:
                 raise ReconstructionError("certificate symbol signature does not match the original input: %s" % name)
     if [terms[arg] for arg in graph.assertions] != [original_terms[expr.get_id()] for expr in original]:
         raise ReconstructionError("certificate assertions do not match the original input")
@@ -2695,9 +2840,10 @@ def _map_identities(graph, node, inline):
     """The identities of a map or set operator node that Z3's euf solver or rewriter may apply.
 
     Maps of and and or commute (euf's congruence closure) and are
-    idempotent, a double complement cancels, a set difference is the map of
+    idempotent, maps of the other commutative functions (_COMMUTATIVE_MAPS)
+    commute too, a double complement cancels, a set difference is the map of
     and over the first set and the complement of the second (by rfl), a map
-    of constant arrays is the constant array of the connective's value, and
+    of constant arrays is the constant array of the function's value, and
     a map of stores at one
     index (constant arrays count as stores of their value there) is the
     store of the map of the arrays below (array_rewriter::mk_map_core).
@@ -2714,6 +2860,10 @@ def _map_identities(graph, node, inline):
             helpers.append("  have _mi%d := %s %s" % (node, idempotent, inline(arguments[0])))
     if function == "Not" and _set_function(graph, arguments[0]) == "Not":
         helpers.append("  have _mn%d := _map1_not_not %s" % (node, inline(graph.arguments(arguments[0])[0])))
+    if graph.kind(node) == z3.Z3_OP_ARRAY_MAP and graph.decl(node).parameters[0] in _COMMUTATIVE_MAPS:
+        # Z3's congruence closure treats a map of a commutative function as
+        # commutative; the swap holds pointwise, which grind proves.
+        helpers.append("  have _mc%d := _map2_comm %s (by intro _x _y; grind) %s" % (node, function, rendered))
     if graph.kind(node) == z3.Z3_OP_SET_DIFFERENCE:
         # The rewriter turns (setminus a b) into ((_ map and) a ((_ map not)
         # b)) (array_rewriter::mk_set_difference), a different Lean function;
@@ -2722,9 +2872,9 @@ def _map_identities(graph, node, inline):
             node, inline(node), inline(arguments[0]), inline(arguments[1])))
     kinds = [graph.kind(argument) for argument in arguments]
     if all(kind == z3.Z3_OP_CONST_ARRAY for kind in kinds):
-        helpers.append("  have _mk%d : %s = @_const_array %s Prop %s := rfl" % (
-            node, inline(node), _array_types(graph.decl(node).range)[0], _SET_FUNCTION_BODIES[function] % tuple(
-                inline(graph.arguments(argument)[0]) for argument in arguments)))
+        helpers.append("  have _mk%d : %s = @_const_array %s %s %s := rfl" % (
+            (node, inline(node)) + _array_types(graph.decl(node).range) + (_map_application(graph, node, [
+                inline(graph.arguments(argument)[0]) for argument in arguments]),)))
     elif all(kind in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) for kind in kinds):
         indices = {graph.arguments(argument)[1] for argument in arguments if graph.kind(argument) == z3.Z3_OP_STORE}
         if len(indices) == 1:
@@ -2805,6 +2955,58 @@ def _level_fact(graph, name, store, read, inline):
         name, _array_types(graph.decl(store).range)[0], inline(graph.arguments(store)[0]), inline(read))
 
 
+def _skipped_to_map(graph, levels, read):
+    """The map below a store chain whose every store the rewriter skips at read, or None (_read_levels).
+
+    Z3's rewriter skips stores at a value index other than the read's and
+    evaluates the read of the map it reaches ((select (store ((_ map -) a)
+    1 2) 0) is (- (select a 0))) with no read term of the map in the
+    certificate.
+    """
+    bottom = levels[-1]
+    if graph.kind(bottom) != z3.Z3_OP_STORE or not all(
+            graph.kind(store) == z3.Z3_OP_STORE and _distinct_values(graph, graph.arguments(store)[1], read)
+            for store in levels):
+        return None
+    below = graph.arguments(bottom)[0]
+    return below if _set_function(graph, below) is not None else None
+
+
+def _map_read_facts(graph, prefix, array, read, inline):
+    """The facts of a read at read of a map or set operator array, named prefix, prefix_1, ...
+
+    The function over the reads of its arrays (the select-map axiom), at
+    every map below it too, since Z3's rewriter evaluates a read through
+    nested maps ((select (map not (map or a b)) i) is (not (or (select a i)
+    (select b i)))) with no read term of the levels in between, and on into
+    the stores (their levels as for a read of a store, and a map those reach)
+    and constant arrays below them.
+    """
+    helpers, pending, seen = [], [array], set()
+    while pending:
+        current = pending.pop(0)
+        if current in seen:
+            continue
+        seen.add(current)
+        if graph.kind(current) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY):
+            levels = _read_levels(graph, current, read)
+            for store in levels:
+                helpers.append(_level_fact(graph, prefix if not helpers else "%s_%d" % (prefix, len(helpers)),
+                                           store, read, inline))
+            below = _skipped_to_map(graph, levels, read)
+            if below is not None:
+                pending.append(below)
+            continue
+        reads = tuple("(_select %s %s)" % (inline(argument), inline(read)) for argument in graph.arguments(current))
+        helpers.append("  have %s : _select %s %s = %s := rfl" % (
+            prefix if not helpers else "%s_%d" % (prefix, len(helpers)), inline(current), inline(read),
+            _map_application(graph, current, reads)))
+        pending.extend(argument for argument in graph.arguments(current)
+                       if _set_function(graph, argument) is not None
+                       or graph.kind(argument) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY))
+    return helpers
+
+
 def _array_helpers(graph, reachable, atom_indices, variable_indices):
     """Instantiate the array facts for the reads of stores and the extensionality witnesses a lemma reaches.
 
@@ -2835,9 +3037,13 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             # A read of a store: its value one level down, and the levels
             # below that the rewriter evaluates (_read_levels).
             array, read = graph.arguments(node)
-            for level, store in enumerate(_read_levels(graph, array, read)):
+            levels = _read_levels(graph, array, read)
+            for level, store in enumerate(levels):
                 name = "_s%d" % node if level == 0 else "_s%d_%d" % (node, level)
                 helpers.append(_level_fact(graph, name, store, read, inline))
+            below = _skipped_to_map(graph, levels, read)
+            if below is not None:
+                helpers.extend(_map_read_facts(graph, "_sm%d" % node, below, read, inline))
         elif (kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_SELECT
               and graph.is_array(graph.arguments(node)[0])):
             # A read of a row of nested arrays: Z3's rewriter evaluates the
@@ -2864,31 +3070,8 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             # ((select (map not (map or a b)) i) is (not (or (select a i)
             # (select b i)))) with no read term of the levels in between,
             # and on into the stores and constant arrays below them.
-            read, level = graph.arguments(node)[1], 0
-            pending, seen = [graph.arguments(node)[0]], set()
-            while pending:
-                array = pending.pop(0)
-                if array in seen:
-                    continue
-                seen.add(array)
-                name = "_m%d" % node if level == 0 else "_m%d_%d" % (node, level)
-                level += 1
-                if graph.kind(array) == z3.Z3_OP_STORE:
-                    helpers.append("  have %s := _store_apply %s %s" % (
-                        name, " ".join(inline(argument) for argument in graph.arguments(array)), inline(read)))
-                    continue
-                if graph.kind(array) == z3.Z3_OP_CONST_ARRAY:
-                    helpers.append("  have %s := _select_const (I := %s) %s %s" % (
-                        name, _array_types(graph.decl(array).range)[0], inline(graph.arguments(array)[0]),
-                        inline(read)))
-                    continue
-                reads = tuple("(_select %s %s)" % (inline(argument), inline(read))
-                              for argument in graph.arguments(array))
-                helpers.append("  have %s : _select %s %s = %s := rfl" % (
-                    name, inline(array), inline(read), _SET_FUNCTION_BODIES[_set_function(graph, array)] % reads))
-                pending.extend(argument for argument in graph.arguments(array)
-                               if _set_function(graph, argument) is not None
-                               or graph.kind(argument) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY))
+            helpers.extend(_map_read_facts(graph, "_m%d" % node, graph.arguments(node)[0],
+                                           graph.arguments(node)[1], inline))
         elif kind == z3.Z3_OP_ARRAY_EXT:
             helpers.append("  have _x%d := _array_ext %s %s %s" % (
                 node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
@@ -6103,6 +6286,16 @@ def reconstruct(source, certificate):
     atom_indices = {**indices["atoms"], **indices["predicates"]}
     variable_indices = {**indices["variables"], **indices["elements"], **indices["functions"],
                         **indices["numeric_functions"], **indices["arrays"], **indices["array_functions"]}
+    for declaration, decl in enumerate(graph.declarations):
+        symbol = _map_symbol(graph, declaration)
+        if symbol is not None:
+            # The family of the mapped function by its element result sort,
+            # and its index in the table _bind_input entered it in.
+            name, domain, range_name = symbol
+            table = _symbol_table(range_name, len(domain), graph.sorts)
+            family = ("_m.preds" if table == "predicates" else _NUMERIC_FUNCTIONS[range_name]
+                      if table == "numeric_functions" else "_m.funs")
+            graph.map_heads[declaration] = "%s %d" % (family, indices[table][tables[table][name]])
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     namespace = "Z3Proofs.NativeCertificate.p" + digest
     lines = ["import Init", "", "-- Original input SHA-256: " + digest]
@@ -6113,7 +6306,7 @@ def reconstruct(source, certificate):
                      "the ones in scope there, assumptions included." % (query + 1, queries, query))
     for table, label in _TABLE_LABELS.items():
         for name, decl in sorted(tables[table].items(), key=lambda item: indices[table][item[1]]):
-            shown = label % graph.declarations[decl].range if table == "numeric_functions" else label
+            shown = label % _symbol_signature(graph, decl)[1] if table == "numeric_functions" else label
             lines.append("-- %s %d: %s" % (shown, indices[table][decl], json.dumps(name, ensure_ascii=True)))
     if graph.arithmetic and graph.numeric == "Int":
         lines.append("-- Int variables are encoded as Int; the integer lemmas are proved by omega, else grind.")
@@ -6195,7 +6388,8 @@ def reconstruct(source, certificate):
         if graph.is_term(node):
             if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS, z3.Z3_OP_STORE, z3.Z3_OP_ARRAY_EXT,
                                     z3.Z3_OP_ARRAY_DEFAULT) or any(
-                    arg in classical for arg in graph.arguments(node)):
+                    arg in classical for arg in graph.arguments(node)) or (
+                    graph.kind(node) == z3.Z3_OP_ARRAY_MAP and graph.decl(node).parameters[0] == "ite"):
                 classical.add(node)
             lines.append("%sdef term_%d %s : %s := %s" % (
                 "noncomputable " if node in classical else "", node, signature,

@@ -1685,6 +1685,41 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Maps of other functions (2026-11-05)
+
+Maps of anything but `not`, `and`, `or`, `=>` were rejected ("maps are
+supported over the connectives not, and, or, => only"), although Z3 solves
+such inputs. Maps of `xor`, `=` and `distinct`, Int and Real `+`, `-`
+(binary and unary), and comparisons, `ite`, and uninterpreted functions and
+predicates of up to three arguments, over elements of an uninterpreted sort,
+Int, Real, or Bool, are now certified through the clause log. The
+certificate names a built-in by its SMT-LIB name and an uninterpreted
+function as `("declared", f)`; the replay rebuilds `(_ map +)` (logged
+without a signature) from the arrays' element sorts; the reconstructor binds
+a mapped function to the input's symbol and signature even when it is never
+applied, and checks each built-in's element signature. Lean's
+`_map1`/`_map2`/`_map3` are polymorphic in the element types and take a
+lambda whose body is the application as the term and formula renderers
+write it, so the select-map read facts (beta-reduced by rfl) match the
+lemmas' terms; maps of stores and constants reuse the set theorems, and
+maps of commutative functions get `_map2_comm` with the pointwise swap
+proved by `grind`. A random sweep found one more gap, which set operators
+already had: Z3's rewriter skips a store at another numeral index and
+evaluates the read of a map below it (`(select (store ((_ map not) s) 1
+false) 0)` is `(not (select s 0))`) with no read term of the map, so such
+a read now gets the map's read facts too (`_skipped_to_map`), and a read
+of a map goes on through the stores below it the same way.
+Multiplication, conversions, uninterpreted functions of four or more
+arguments, connectives of three or more arguments, and maps over arrays of
+arrays stay rejected. Tests: `MAP_FUNCTION_INPUTS` (29 inputs, Lean), `test_map_function_encoding`,
+`test_tampered_map_functions_are_rejected`, `test_the_replay_reads_maps`,
+and seven more cases in `test_map_facts_are_needed`; of 200 random map
+inputs from a one-off sweep (not part of the repository), all 90 unsat ones
+that export verify in Lean, and 2 more are rejected explicitly (they need the
+default-map axiom). z3test's maps of
+arithmetic (`t155.smt2`, `t154.smt2`) are sat or use `eval`/options, so no
+z3test file newly certifies.
+
 ### Maps and set operators over sets (2026-11-05)
 
 `((_ map f) a b)` was rejected ("unsupported array operator: map"), which
@@ -1709,7 +1744,7 @@ rejected explicitly ("the default value of a map is not certified"); input
 `default` terms are admitted over Int and Real indices. z3test `t8.smt2` and
 `issue-1665.smt2` queries 1 and 2 verify in Lean (query 0 takes default
 values over an uninterpreted index and stays rejected). Maps of other
-functions (uninterpreted, arithmetic) stay rejected.
+functions (uninterpreted, arithmetic) stayed rejected until the entry above.
 
 ### Functions into arrays (2026-11-04)
 
