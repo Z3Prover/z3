@@ -3588,6 +3588,76 @@ class TestClauseLogDependencies(unittest.TestCase):
         self.assertEqual(len(certificate["assertions"]), 7)
 
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimming_reads_map_logs(self):
+        # Z3 logged ((_ map f) a) without declaring f, and a built-in as
+        # (_ map <=), without the signature the SMT-LIB parser needs to read
+        # it back; the trimmer rejected every such log ("unknown function f",
+        # "must provide signature for builtin symbol <="), and each map log of
+        # 4 KB or more was replayed untrimmed (iter-078 sweep, 2026-11-05).
+        # This input's search also derives the default-value axiom of a map,
+        # which the replay rejects; the refutation does not need it, so only
+        # the trimmed log certifies.
+        source = """(declare-fun f (Int) Int)
+(declare-fun g (Int Int) Int)
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun a0 () (Array Int Int))
+(declare-fun a1 () (Array Int Int))
+(declare-fun a2 () (Array Int Int))
+(declare-fun a3 () (Array Int Int))
+(declare-fun p0 () (Array Int Bool))
+(declare-fun p1 () (Array Int Bool))
+(assert (not (select ((_ map (<= (Int Int) Bool)) ((_ map (ite (Bool Int Int) Int)) p1 a0 a3) a3) i)))
+(assert (not (select p0 0)))
+(assert (= a1 ((_ map f) ((_ map g) a1 a2))))
+(assert (not (select ((_ map (<= (Int Int) Bool)) ((_ map (ite (Bool Int Int) Int)) p1 a2 a1)
+                      ((_ map (- (Int) Int)) a1)) i)))
+(assert (select ((_ map (<= (Int Int) Bool)) (store a3 1 0) (store a0 1 2)) i))
+(assert (> (select (store a3 1 0) i) (select (store a0 1 2) i)))
+(check-sat)
+"""
+        executable = proof_certificate.default_z3_executable()
+        log = proof_clause_log.run_clause_log(executable, source, 60)
+        self.assertGreater(len(log), proof_clause_log._TRIM_THRESHOLD)
+        self.assertLess(log.index("(declare-fun f (Int) Int)"), log.index("((_ map f) "))
+        self.assertLess(log.index("(declare-fun g (Int Int) Int)"), log.index("((_ map g) "))
+        self.assertIn("((_ map (<= (Int Int) Bool)) ", log)
+        self.assertNotIn("(_ map <=)", log)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "default value of a map is not certified"):
+            proof_clause_log.build_certificate(source, fragment, assertions, log, context)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # a fallback to the untrimmed log would hide a printer defect
+            certificate = proof_certificate.export_clause_log_certificate(source, timeout=60)
+        self.assertEqual(certificate["fragment"], "qf_uflia")
+        # The trimmer prints the maps its core keeps the same way, and the
+        # replay checks a logged signature against the application.
+        source = """(declare-fun f (Int) Int)
+(declare-fun a1 () (Array Int Int))
+(declare-fun a2 () (Array Int Int))
+(assert (= a1 ((_ map f) ((_ map (- (Int) Int)) a2))))
+(assert (not (= (select a1 1) (select ((_ map f) ((_ map (- (Int) Int)) a2)) 1))))
+(check-sat)
+"""
+        log = proof_clause_log.run_clause_log(executable, source, 60)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            trimmed = proof_clause_log.trim_clause_log(executable, log, 60)
+        self.assertNotEqual(trimmed, log)
+        self.assertLess(trimmed.index("(declare-fun f (Int) Int)"), trimmed.index("((_ map f) "))
+        self.assertIn("((_ map (- (Int) Int)) a2)", trimmed)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
+        self.assertEqual(sorted(declaration["parameters"] for declaration in certificate["declarations"]
+                                if declaration["kind"] == z3.Z3_OP_ARRAY_MAP), [["-"], ["declared", "f"]])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "map function with another signature"):
+            proof_clause_log.build_certificate(source, fragment, assertions,
+                                                trimmed.replace("(_ map (- (Int) Int))", "(_ map (- (Int Int) Int))"),
+                                                context)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
     def test_native_trimming_ignores_deletions_of_clauses_it_never_added(self):
         # The trimmer's propagation finds the conflict at (assume (not c)),
         # before the solver logs its empty clause; the resolvent it derives

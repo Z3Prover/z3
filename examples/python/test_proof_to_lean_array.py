@@ -2352,6 +2352,28 @@ class TestArrayValidation(unittest.TestCase):
         self.assertEqual(proof_certificate.map_parameters(mapped), ("declared", "f"))
         self.assertEqual(proof_certificate.map_parameters(terms.build([["_", "map", "+"], "a", "b"])), ("+",))
         self.assertEqual(proof_certificate.map_parameters(terms.build([["_", "map", "-"], "a"])), ("-",))
+        # Z3 logs a built-in with its signature, which the trimmer needs to
+        # parse the log back; the signature must be the application's.
+        for head, arguments, parameters in (
+                (["+", ["Int", "Int"], "Int"], ["a", "b"], ("+",)),
+                (["-", ["Int"], "Int"], ["a"], ("-",)),
+                (["<=", ["Int", "Int"], "Bool"], ["a", "b"], ("<=",)),
+                (["f", ["Int"], "Int"], ["a"], ("declared", "f"))):
+            with self.subTest(head=head):
+                self.assertEqual(proof_certificate.map_parameters(terms.build([["_", "map", head]] + arguments)),
+                                 parameters)
+        for head, arguments, message in (
+                (["+", ["Real", "Real"], "Real"], ["a", "b"], "another signature"),
+                (["+", ["Int", "Int"], "Bool"], ["a", "b"], "another signature"),
+                (["-", ["Int", "Int"], "Int"], ["a"], "another signature"),
+                (["f", ["Int", "Int"], "Int"], ["a"], "another signature"),
+                (["+", [], "Int"], ["a", "b"], "unsupported map function"),
+                (["+", ["Int", "Int"]], ["a", "b"], "unsupported map function"),
+                ([["+"], ["Int", "Int"], "Int"], ["a", "b"], "unsupported map function"),
+                (["+", ["Int", ["Seq", "Int"]], "Int"], ["a", "b"], "unsupported sort")):
+            with self.subTest(head=head):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    terms.build([["_", "map", head]] + arguments)
         for head, arguments, message in (("*", ["a", "b"], "maps are supported over"),
                                          ("abs", ["a"], "unsupported map function|maps are supported over"),
                                          ("frobnicate", ["a"], "unsupported operator"),

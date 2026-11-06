@@ -1137,6 +1137,11 @@ rejects it explicitly. The solver also introduces default values of maps over
 any index sort in gate clauses; an untrimmed log's certificate keeps only the
 nodes the refutation uses when it has such defaults over an uninterpreted
 index, which the reconstructor would otherwise reject.
+Z3 logs a map of a built-in with its signature, ((_ map (<= (Int Int) Bool))
+a b), and declares a mapped function before the map, so the trimmer reads
+map logs back; the replay checks a logged signature against the
+application it rebuilds. Logs written before this change print (_ map <=)
+and are still read.
 
 The equality rules of a legacy proof object are explicit Lean terms over the
 carrier, checked by Lean's type checker without grind: refl, symm, trans, and

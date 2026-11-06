@@ -287,6 +287,19 @@ def _number(sexpr):
     raise ProofExportError("unsupported numeral in the clause log")
 
 
+def _map_head(sexpr):
+    """The function of a logged (_ map f) head: f's token and, when the log gives one, its signature.
+
+    The signature (f (D1 ... Dn) R) is returned as z3py's renderings of the
+    domain and range sorts.
+    """
+    if isinstance(sexpr, str):
+        return sexpr, None
+    if len(sexpr) == 3 and isinstance(sexpr[0], str) and isinstance(sexpr[1], list) and sexpr[1]:
+        return sexpr[0], ([_sort_text(sort) for sort in sexpr[1]], _sort_text(sexpr[2]))
+    raise ProofExportError("unsupported map function in the clause log")
+
+
 def _sort_text(sexpr):
     """z3py's rendering of a logged sort: a name, or (Array I E) as Array(I, E), I and E nested arrays too."""
     if isinstance(sexpr, str):
@@ -405,25 +418,31 @@ class _Terms:
             if sort is None or not value.sort().eq(sort.range()):
                 raise ProofExportError("constant array of an unsupported sort in the clause log")
             return z3.K(sort.domain(), value)
-        if isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "map"] and isinstance(head[2], str):
+        if isinstance(head, list) and len(head) == 3 and head[:2] == ["_", "map"]:
             # A map ((_ map f) a b), z3py's Map of f's declaration: an
             # uninterpreted function of the input, or the built-in f applies
-            # to fresh elements of the arrays' element sorts (the log prints
-            # (_ map +) without a signature); the exporter's map_parameters
-            # admits the result or rejects it.
+            # to fresh elements of the arrays' element sorts; the exporter's
+            # map_parameters admits the result or rejects it. Z3 prints a
+            # built-in with its signature, (_ map (<= (Int Int) Bool)), which
+            # must then be the signature of that application (logs before
+            # 2026-11-06 print (_ map <=) without one).
+            name, signature = _map_head(head[2])
             arguments = [self.build(argument) for argument in sexpr[1:]]
             if not arguments or not all(is_array_sort(argument.sort()) for argument in arguments):
                 raise ProofExportError("map over unsupported sorts in the clause log")
-            function = self.functions.get(_symbol(head[2]))
+            function = self.functions.get(_symbol(name))
             try:
                 if function is None:
                     elements = [z3.Const("_p%d" % index, argument.sort().range())
                                 for index, argument in enumerate(arguments)]
-                    application = self._apply(head[2], len(elements), elements)
+                    application = self._apply(name, len(elements), elements)
                     if not (z3.is_app(application) and len(application.children()) == len(elements)
                             and all(child.eq(element) for child, element in zip(application.children(), elements))):
-                        raise ProofExportError("unsupported map function in the clause log: %s" % head[2])
+                        raise ProofExportError("unsupported map function in the clause log: %s" % name)
                     function = application.decl()
+                if signature is not None and signature != ([str(function.domain(index)) for index
+                                                            in range(function.arity())], str(function.range())):
+                    raise ProofExportError("map function with another signature in the clause log: %s" % name)
                 result = z3.Map(function, *arguments)
             except (z3.Z3Exception, TypeError):
                 # z3py raises TypeError for an operator it does not define

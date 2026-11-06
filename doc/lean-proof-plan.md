@@ -1699,6 +1699,27 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Trimmed map logs (2026-11-06)
+
+The trimmer could not read back any clause log with a map: Z3 printed
+`((_ map f) a)` without ever declaring `f` (the declaration collector did not
+follow a map's function parameter, as it does for `as-array`) and a built-in
+as `(_ map <=)`, without the signature the SMT-LIB parser requires
+("unknown function f", "must provide signature for builtin symbol <="). Every
+map log of 4 KB or more was replayed untrimmed, and inputs whose search
+derived the default-value axiom of a map were rejected even when the
+refutation does not use it. `decl_collector` now collects a map's function,
+and the clause-log printer (`mk_ismt2_func`, used only by
+`ast_pp_util::define_expr`) prints built-in function parameters with their
+signature, `((_ map (<= (Int Int) Bool)) a b)`; Z3's other output is
+unchanged. The replay accepts both forms and rejects a logged signature that
+is not the rebuilt application's. All 92 unsat seeds of the iter-078 random
+map sweep now export with trimming (the 2 previously rejected by the
+default-map axiom included) and the 305 documented array inputs trim
+without fallback at threshold 0. Tests: `test_native_trimming_reads_map_logs`
+(`test_proof_certificate.py`), signature heads in
+`test_the_replay_reads_maps`.
+
 ### Maps of other functions (2026-11-05)
 
 Maps of anything but `not`, `and`, `or`, `=>` were rejected ("maps are
