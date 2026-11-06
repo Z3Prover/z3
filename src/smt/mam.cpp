@@ -372,7 +372,7 @@ namespace {
     // ------------------------------------
 
     inline enode * mk_enode(context & ctx, quantifier * qa, app * n) {
-        ctx.internalize(n, false, l_undef, ctx.get_generation(qa));
+        ctx.internalize(n, false, ctx.get_generation(qa));
         enode * e = ctx.get_enode(n);
         SASSERT(e);
         return e;

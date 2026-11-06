@@ -2447,7 +2447,7 @@ namespace smt {
                         // and force expression to be reinternalized.
                         // Otherwise I set gate_ctx to true
                         bool gate_ctx = !m.is_not(atom);
-                        internalize(atom, gate_ctx, sign ? l_false : l_true);
+                        internalize(atom, gate_ctx, to_lbool(!sign));
                         SASSERT(b_internalized(atom));
                         bool_var v      = get_bool_var(atom);
                         DEBUG_CODE({
@@ -2524,7 +2524,7 @@ namespace smt {
         for (; i < sz; ++i) {
             auto [unit, sign, is_relevant] = m_units_to_reassert[i];
             bool gate_ctx = true;
-            internalize(unit, gate_ctx, sign ? l_false : l_true);
+            internalize(unit, gate_ctx, to_lbool(!sign));
             bool_var v    = get_bool_var(unit);
             literal l(v, sign);
             assign(l, b_justification::mk_axiom());
@@ -4518,7 +4518,7 @@ namespace smt {
                         // are nested in terms. Example: let f be a uninterpreted function from Bool -> Int.
                         // Then, given the term (f (not a)), Z3 will create a boolean variable for (not a) when internalizing (f (not a)).
                         expr * atom     = atoms[i];
-                        internalize(atom, true, l.sign() ? l_false : l_true);
+                        internalize(atom, true, to_lbool(!l.sign()));
                         // If atom is actually a negative literal (not a), then get_bool_var will return return null_bool_var.
                         // Thus, we must use get_literal instead. This was a bug/crash in Z3 <= 4.0
                         literal new_l = get_literal(atom);

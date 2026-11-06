@@ -290,8 +290,10 @@ static void check_quantified_array_ite() {
 }
 
 static void check_quantifier_polarities() {
-    for (unsigned entry_point = 0; entry_point < 3; ++entry_point) {
+    for (unsigned entry_point = 0; entry_point < 6; ++entry_point) {
         for (lbool polarity : {l_true, l_false, l_undef}) {
+            if (entry_point >= 3 && polarity != l_undef)
+                continue;
             ast_manager m;
             reg_decl_plugins(m);
             cmd_context cmd(false, &m);
@@ -313,7 +315,16 @@ static void check_quantifier_polarities() {
                 ctx.internalize(&q, 1, true, polarity);
                 break;
             case 2:
-                ctx.internalize(q, true, polarity, 1);
+                ctx.internalize(q, true, 1, polarity);
+                break;
+            case 3:
+                ctx.internalize(q, true);
+                break;
+            case 4:
+                ctx.internalize(&q, 1, true);
+                break;
+            case 5:
+                ctx.internalize(q, true, 1u);
                 break;
             }
             smt::literal lit = ctx.get_literal(q);

@@ -397,7 +397,7 @@ namespace smt {
         }
     }
 
-    void context::internalize(expr * n, bool gate_ctx, lbool polarity, unsigned generation) {
+    void context::internalize(expr * n, bool gate_ctx, unsigned generation, lbool polarity) {
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
         internalize_rec(n, gate_ctx, polarity);
