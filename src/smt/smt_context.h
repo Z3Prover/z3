@@ -842,7 +842,7 @@ namespace smt {
 
         void top_sort_expr(expr* const* exprs, unsigned num_exprs, svector<expr_bool_pair> & sorted_exprs);
 
-        void internalize_rec(expr * n, bool gate_ctx);
+        void internalize_rec(expr * n, bool gate_ctx, lbool polarity = l_undef);
 
         void internalize_deep(expr * n);
         void internalize_deep(expr* const* n, unsigned num_exprs);
@@ -851,7 +851,7 @@ namespace smt {
 
         void assert_distinct(app * n, proof * pr);
 
-        void internalize_formula(expr * n, bool gate_ctx);
+        void internalize_formula(expr * n, bool gate_ctx, lbool polarity = l_undef);
 
         void internalize_eq(app * n, bool gate_ctx);
 
@@ -859,7 +859,11 @@ namespace smt {
 
         bool internalize_theory_atom(app * n, bool gate_ctx);
 
-        void internalize_quantifier(quantifier * q, bool gate_ctx);
+        void internalize_quantifier(quantifier * q, lbool polarity);
+        void internalize_quantifier_polarity(quantifier * q, bool positive);
+
+        obj_hashtable<expr> m_quantifier_positive;
+        obj_hashtable<expr> m_quantifier_negative;
 
         obj_map<enode, quantifier*> m_lambdas;
 
@@ -980,10 +984,10 @@ namespace smt {
 
         void ensure_internalized(expr* e);
 
-        void internalize(expr * n, bool gate_ctx);
-        void internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx);
+        void internalize(expr * n, bool gate_ctx, lbool polarity = l_undef);
+        void internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx, lbool polarity = l_undef);
 
-        void internalize(expr * n, bool gate_ctx, unsigned generation);
+        void internalize(expr * n, bool gate_ctx, unsigned generation, lbool polarity = l_undef);
 
         enode *non_ground_internalize(expr *e);
 

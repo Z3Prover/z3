@@ -737,7 +737,7 @@ class theory_lra::imp {
 
     theory_var mk_var(expr* n) {
         if (!ctx().e_internalized(n)) 
-            ctx().internalize(n, false);                
+            ctx().internalize(n, false);
         enode* e = get_enode(n);
         theory_var v;
         if (th.is_attached_to_var(e))
@@ -1616,7 +1616,7 @@ public:
         expr_ref pinned(e, m);
         TRACE(mk_bool_var, tout << pinned << " " << pinned->get_id() << "\n";);
         if (!ctx().e_internalized(e)) 
-            ctx().internalize(e, false);        
+            ctx().internalize(e, false);
         return ctx().get_literal(e);
     }
 

@@ -1,0 +1,22 @@
+{
+  "pull_request": 11562,
+  "head_sha": "f66a77aec068354a90307d8aba41468e0b757cba",
+  "base_sha": "5bab89972dc48c2d5560b1e6e0df8297bd85e2ea",
+  "path_prefix": "fstar/audits/pr-11562/f66a77aec068354a90307d8aba41468e0b757cba/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42253698767",
+  "files": [
+    {
+      "name": "QuantPolarityInternalize.fst",
+      "sha256": "8c43018a38fa7388b6a978330faac2aa8738771da1f3d7ecbec19b70360629b5"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "e22b9d6cf23994fa505ff74c942eedaee98a0267b4a7b7d3031229433c94f205"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "87c47771bb33322b73eab80f3cfc478e69452980f13677ccd9a8122839e760fd"
+    }
+  ]
+}

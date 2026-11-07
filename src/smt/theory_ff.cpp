@@ -86,7 +86,7 @@ namespace smt {
             throw default_exception(Z3_CANCELED_MSG);
         if (m.is_true(axiom))
             return;
-        ctx.internalize(axiom, false);
+        ctx.internalize(axiom, false, l_true);
         literal lit = ctx.get_literal(axiom);
         ctx.mark_as_relevant(lit);
         if (m.proofs_enabled()) {

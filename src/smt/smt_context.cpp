@@ -1504,8 +1504,7 @@ namespace smt {
                        display(tout););
                 SASSERT(is_quantifier(m_bool_var2expr[v]));
                 if (get_assignment(v) == l_true) {
-                    // All universal quantifiers have positive polarity in the input formula.
-                    // So, we can ignore quantifiers assigned to false.
+                    // Negative occurrences are handled by Skolem clauses during internalization.
                     assign_quantifier(to_quantifier(m_bool_var2expr[v]));
                 }
             }
@@ -2379,7 +2378,8 @@ namespace smt {
                 }
             }
             else if (is_quantifier(n) && b_internalized(n)) {
-                m_cached_generation.insert(n, m_qmanager->get_generation(to_quantifier(n)));
+                if (is_forall(n))
+                    m_cached_generation.insert(n, m_qmanager->get_generation(to_quantifier(n)));
                 todo.push_back(to_quantifier(n)->get_expr());
             }
         }
@@ -2448,7 +2448,7 @@ namespace smt {
                         // and force expression to be reinternalized.
                         // Otherwise I set gate_ctx to true
                         bool gate_ctx = !m.is_not(atom);
-                        internalize(atom, gate_ctx);
+                        internalize(atom, gate_ctx, to_lbool(!sign));
                         SASSERT(b_internalized(atom));
                         bool_var v      = get_bool_var(atom);
                         DEBUG_CODE({
@@ -2525,7 +2525,7 @@ namespace smt {
         for (; i < sz; ++i) {
             auto [unit, sign, is_relevant] = m_units_to_reassert[i];
             bool gate_ctx = true;
-            internalize(unit, gate_ctx);
+            internalize(unit, gate_ctx, to_lbool(!sign));
             bool_var v    = get_bool_var(unit);
             literal l(v, sign);
             assign(l, b_justification::mk_axiom());
@@ -3465,7 +3465,7 @@ namespace smt {
     void context::init_clause(expr_ref_vector const& _clause) {
         literal_vector lits;
         for (expr* lit : _clause) {
-            internalize_formula(lit, true);
+            internalize_formula(lit, true, l_true);
             mark_as_relevant(lit);
             lits.push_back(get_literal(lit));
         }
@@ -4519,7 +4519,7 @@ namespace smt {
                         // are nested in terms. Example: let f be a uninterpreted function from Bool -> Int.
                         // Then, given the term (f (not a)), Z3 will create a boolean variable for (not a) when internalizing (f (not a)).
                         expr * atom     = atoms[i];
-                        internalize(atom, true);
+                        internalize(atom, true, to_lbool(!l.sign()));
                         // If atom is actually a negative literal (not a), then get_bool_var will return return null_bool_var.
                         // Thus, we must use get_literal instead. This was a bug/crash in Z3 <= 4.0
                         literal new_l = get_literal(atom);

@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_model_finder.h"
 #include "ast/for_each_expr.h"
+#include "ast/normal_forms/nnf.h"
 
 #include <iostream>
 
@@ -300,7 +301,7 @@ namespace smt {
             switch(to_app(n)->get_decl_kind()) {
             case OP_AND: {
                 for (expr * arg : *to_app(n)) {
-                    internalize_rec(arg, true);
+                    internalize_rec(arg, true, l_true);
                     literal lit = get_literal(arg);
                     mk_root_clause(1, &lit, pr);
                 }
@@ -309,7 +310,7 @@ namespace smt {
             case OP_OR: {
                 literal_buffer lits;
                 for (expr * arg : *to_app(n)) { 
-                    internalize_rec(arg, true);
+                    internalize_rec(arg, true, l_true);
                     lits.push_back(get_literal(arg));
                 }
                 mk_root_clause(lits.size(), lits.data(), pr);
@@ -332,8 +333,8 @@ namespace smt {
                 expr * t = to_app(n)->get_arg(1);
                 expr * e = to_app(n)->get_arg(2);
                 internalize_rec(c, true);
-                internalize_rec(t, true);
-                internalize_rec(e, true);
+                internalize_rec(t, true, l_true);
+                internalize_rec(e, true, l_true);
                 literal cl = get_literal(c);
                 literal tl = get_literal(t);
                 literal el = get_literal(e);
@@ -357,7 +358,7 @@ namespace smt {
     }
 
     void context::assert_default(expr * n, proof * pr) {
-        internalize(n, true);
+        internalize(n, true, l_true);
         literal l = get_literal(n);
         if (l == false_literal) 
             set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
@@ -396,10 +397,10 @@ namespace smt {
         }
     }
 
-    void context::internalize(expr * n, bool gate_ctx, unsigned generation) {
+    void context::internalize(expr * n, bool gate_ctx, unsigned generation, lbool polarity) {
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
-        internalize_rec(n, gate_ctx);
+        internalize_rec(n, gate_ctx, polarity);
     }
 
     void context::ensure_internalized(expr* e) {
@@ -413,12 +414,13 @@ namespace smt {
        \brief Internalize the given expression into the logical context.
        
        - gate_ctx is true if the expression is in the context of a logical gate.
+       - polarity is l_undef when the expression can occur with either polarity.
     */
-    void context::internalize(expr * n, bool gate_ctx) {
+    void context::internalize(expr * n, bool gate_ctx, lbool polarity) {
         if (memory::above_high_watermark())
             throw oom_exception();
         internalize_deep(n);
-        internalize_rec(n, gate_ctx);
+        internalize_rec(n, gate_ctx, polarity);
     }
 
     enode *context::non_ground_internalize(expr *e) {
@@ -443,13 +445,13 @@ namespace smt {
         return get_enode(e);
     }
 
-    void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
+    void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx, lbool polarity) {
         internalize_deep(exprs, num_exprs);
         for (unsigned i = 0; i < num_exprs; ++i) 
-            internalize_rec(exprs[i], gate_ctx);
+            internalize_rec(exprs[i], gate_ctx, polarity);
     }
 
-    void context::internalize_rec(expr * n, bool gate_ctx) {
+    void context::internalize_rec(expr * n, bool gate_ctx, lbool polarity) {
         TRACE(internalize, tout << "internalizing:\n" << mk_pp(n, m) << "\n";);
         TRACE(internalize_bug, tout << "internalizing:\n" << mk_bounded_pp(n, m) << "\n";);
         if (is_var(n)) {
@@ -457,7 +459,7 @@ namespace smt {
         }
         if (m.is_bool(n)) {
             SASSERT(is_quantifier(n) || is_app(n));
-            internalize_formula(n, gate_ctx);
+            internalize_formula(n, gate_ctx, polarity);
         }
         else if (is_lambda(n)) {
             internalize_lambda(to_quantifier(n));
@@ -471,7 +473,7 @@ namespace smt {
     /**
        \brief Internalize the given formula into the logical context.
     */
-    void context::internalize_formula(expr * n, bool gate_ctx) {
+    void context::internalize_formula(expr * n, bool gate_ctx, lbool polarity) {
         TRACE(internalize_bug, tout << "internalize formula: #" << n->get_id() << ", gate_ctx: " << gate_ctx << "\n" << mk_pp(n, m) << "\n";);
         SASSERT(m.is_bool(n));
         if (m.is_true(n) || m.is_false(n))
@@ -480,9 +482,12 @@ namespace smt {
         if (m.is_not(n) && gate_ctx) {
             // a boolean variable does not need to be created if n a NOT gate is in
             // the context of a gate.
-            internalize_rec(to_app(n)->get_arg(0), true);
+            internalize_rec(to_app(n)->get_arg(0), true, ~polarity);
             return;
         }
+
+        if (is_quantifier(n))
+            internalize_quantifier(to_quantifier(n), polarity);
 
         if (b_internalized(n)) {
             // n was already internalized as a boolean.
@@ -494,15 +499,15 @@ namespace smt {
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
             // n is not in the context of a gate and is an application.
-            if (!gate_ctx && is_app(n)) {
+            if (!gate_ctx && (is_app(n) || is_quantifier(n))) {
                 if (e_internalized(n)) {
                     TRACE(internalize_bug, tout << "forcing enode #" << n->get_id() << " to merge with t/f\n";);
-                    enode * e = get_enode(to_app(n));
+                    enode * e = get_enode(n);
                     set_merge_tf(e, v, false);
                 }
                 else {
                     TRACE(internalize_bug, tout << "creating enode for #" << n->get_id() << "\n";);
-                    mk_enode(to_app(n), 
+                    mk_enode(n,
                              true, /* suppress arguments, we not not use CC for this kind of enode */
                              true, /* bool enode must be merged with true/false, since it is not in the context of a gate */
                              false /* CC is not enabled */ );
@@ -521,8 +526,6 @@ namespace smt {
             internalize_distinct(to_app(n), gate_ctx);
         else if (is_app(n) && internalize_theory_atom(to_app(n), gate_ctx))
             return;
-        else if (is_quantifier(n)) 
-            internalize_quantifier(to_quantifier(n), gate_ctx);
         else
             internalize_formula_core(to_app(n), gate_ctx);
     }
@@ -649,25 +652,73 @@ namespace smt {
        \brief Internalize the given quantifier into the logical
        context. 
     */
-    void context::internalize_quantifier(quantifier * q, bool gate_ctx) {
+    void context::internalize_quantifier(quantifier * q, lbool polarity) {
         TRACE(internalize_quantifier, tout << mk_pp(q, m) << "\n";);
         CTRACE(internalize_quantifier_zero, q->get_weight() == 0, tout << mk_pp(q, m) << "\n";);
-        SASSERT(gate_ctx); // limitation of the current implementation
-        SASSERT(!b_internalized(q));
-        if (!is_forall(q))
-            throw default_exception("internalization of exists is not supported");
-        SASSERT(is_forall(q));
+        SASSERT(is_forall(q) || is_exists(q));
         SASSERT(check_patterns(q));
-        bool_var v             = mk_bool_var(q);
-        unsigned generation    = m_generation;
-        unsigned _generation;
-        if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation)) {
-            generation = _generation;
+        if (!b_internalized(q)) {
+            bool_var v = mk_bool_var(q);
+            // Registration follows the Boolean variable's lifetime, not its first polarity.
+            if (is_forall(q)) {
+                unsigned generation = m_generation;
+                unsigned _generation;
+                if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation))
+                    generation = _generation;
+                bool_var_data & d = get_bdata(v);
+                d.set_quantifier_flag();
+                m_qmanager->add(q, generation);
+            }
         }
-        // TODO: do we really need this flag?
-        bool_var_data & d      = get_bdata(v);
-        d.set_quantifier_flag();
-        m_qmanager->add(q, generation);
+        if (is_exists(q) && polarity != l_false)
+            internalize_quantifier_polarity(q, true);
+        if (polarity != l_true)
+            internalize_quantifier_polarity(q, false);
+    }
+
+    void context::internalize_quantifier_polarity(quantifier * q, bool positive) {
+        auto& seen = positive ? m_quantifier_positive : m_quantifier_negative;
+        if (seen.contains(q))
+            return;
+        seen.insert(q);
+        push_trail(insert_obj_trail<expr>(seen, q));
+        bool complete = false;
+        auto cleanup = on_scope_exit([&]() { if (!complete) seen.remove(q); });
+
+        defined_names names(m);
+        nnf normalize(m, names);
+        expr_ref source(positive ? static_cast<expr*>(q) : m.mk_not(q), m);
+        expr_ref result(m);
+        proof_ref pr(m);
+        expr_ref_vector defs(m);
+        proof_ref_vector def_prs(m);
+        normalize(source, defs, def_prs, result, pr);
+        for (unsigned i = 0; i < defs.size(); ++i)
+            internalize_assertion(defs.get(i), m.proofs_enabled() ? def_prs.get(i) : nullptr, m_generation);
+        if (source == result) {
+            complete = true;
+            return;
+        }
+
+        internalize_formula(result, true, l_true);
+        literal premise(get_bool_var(q), !positive);
+        literal consequence = get_literal(result);
+        proof_ref clause_pr(m);
+        if (m.proofs_enabled()) {
+            proof_ref hyp(m.mk_hypothesis(source), m);
+            proof_ref step(m.mk_modus_ponens(hyp, pr), m);
+            expr_ref neg_result(m.mk_not(result), m);
+            proof_ref neg_hyp(m.mk_hypothesis(neg_result), m);
+            step = m.mk_unit_resolution({step, neg_hyp});
+            expr_ref neg_source(positive ? m.mk_not(q) : static_cast<expr*>(q), m);
+            expr_ref clause(m.mk_or(neg_source, result), m);
+            clause_pr = m.mk_lemma(step, clause);
+        }
+        // The NNF result may be a temporary negation; watch its internalized atom.
+        add_rel_watch(premise, bool_var2expr(consequence.var()));
+        mk_clause(~premise, consequence,
+                  mk_justification(justification_proof_wrapper(*this, clause_pr)));
+        complete = true;
     }
 
 
@@ -708,6 +759,7 @@ namespace smt {
 
         bool _is_gate  = is_gate(m, n) || m.is_not(n);
         // process args
+        // Gates have two-way definitions, so their children need both polarities.
         for (expr * arg : *n) {
             internalize_rec(arg, _is_gate);
         }
@@ -935,7 +987,7 @@ namespace smt {
                  false /* CC is not enabled */);
         internalize_rec(c, true);
         internalize_rec(t, false);
-        internalize_rec(e, false);        
+        internalize_rec(e, false);
         internalize_rec(eq1, true);
         internalize_rec(eq2, true);
         literal c_lit   = get_literal(c);
@@ -1064,7 +1116,7 @@ namespace smt {
         TRACE(mk_var_bug, tout << "undo_mk_bool: " << v << "\n";);
         // bool_var_data & d     = m_bdata[v];
         m_case_split_queue->del_var_eh(v);
-        if (is_quantifier(n))
+        if (is_forall(n))
             m_qmanager->del(to_quantifier(n));
         set_bool_var(n_id, null_bool_var);
         m_b_internalized_stack.pop_back();
