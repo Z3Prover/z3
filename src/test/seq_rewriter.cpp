@@ -1097,6 +1097,43 @@ void tst_seq_rewriter() {
         ENSURE(ctx.check() == l_false);
     }
 
+    // 30. Regression for issue #11545: extracting the suffix after the first
+    //     element of x ++ unit(empty) is satisfiable even when x is empty.
+    {
+        arith_util a_util(m);
+        sort* seq_int_sort = su.str.mk_seq(a_util.mk_int());
+        sort* element_sorts[] = { str_sort, seq_int_sort };
+        expr_ref one(a_util.mk_int(1), m);
+        expr_ref zero(a_util.mk_int(0), m);
+        smt_params sp;
+
+        for (sort* element_sort : element_sorts) {
+            sort* sequence_sort = su.str.mk_seq(element_sort);
+            expr_ref empty_element(su.str.mk_empty(element_sort), m);
+            expr_ref empty_sequence(su.str.mk_empty(sequence_sort), m);
+            app_ref a(m.mk_fresh_const("a", sequence_sort), m);
+            app_ref b(m.mk_fresh_const("b", sequence_sort), m);
+            app_ref c(m.mk_fresh_const("c", sequence_sort), m);
+
+            auto t = [&](expr* x) {
+                expr_ref base(su.str.mk_concat(x, su.str.mk_unit(empty_element)), m);
+                return expr_ref(su.str.mk_substr(base, one, su.str.mk_length(x)), m);
+            };
+
+            expr_ref ta = t(a);
+            expr_ref tb = t(b);
+            expr_ref tc = t(c);
+            smt::context ctx(m, sp);
+            ctx.assert_expr(m.mk_eq(ta, empty_sequence));
+            ctx.assert_expr(m.mk_eq(ta, tb));
+            ctx.assert_expr(m.mk_eq(ta, tc));
+            expr_ref nth_b(su.str.mk_nth(b, zero), m);
+            expr_ref nth_c(su.str.mk_nth(c, zero), m);
+            ctx.assert_expr(m.mk_eq(nth_b, nth_c));
+            ENSURE(ctx.check() == l_true);
+        }
+    }
+
     // A sequence of length at most one contains only itself and the empty sequence.
     {
         arith_util a_util(m);
