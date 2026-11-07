@@ -217,4 +217,3 @@ public:
 tactic * mk_occf_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(occf_tactic, m));
 }
-

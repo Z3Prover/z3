@@ -28,6 +28,7 @@ and V is a value (true or false) and x is a subterm
 --*/
 
 #include "smt/tactic/ctx_solver_simplify_tactic.h"
+#include "tactic/tactical.h"
 #include "ast/arith_decl_plugin.h"
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
@@ -81,6 +82,10 @@ public:
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         reduce(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());

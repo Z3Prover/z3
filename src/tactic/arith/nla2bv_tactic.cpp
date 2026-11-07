@@ -475,6 +475,3 @@ tactic * mk_nla2bv_tactic(ast_manager & m, params_ref const & p) {
 
 
 
-
-
-

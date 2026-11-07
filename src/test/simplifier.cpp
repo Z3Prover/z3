@@ -24,9 +24,13 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/simplifiers/solve_eqs.h"
 #include "ast/simplifiers/pull_nested_quantifiers.h"
 #include "ast/simplifiers/lambda_simplifier.h"
+#include "ast/simplifiers/randomizer.h"
+#include "ast/simplifiers/rewriter_simplifier.h"
+#include "ast/simplifiers/then_simplifier.h"
 #include "ast/array_decl_plugin.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
+#include "solver/simplifier_solver.h"
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
@@ -543,6 +547,64 @@ static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& s
             for (expr* f : assertions)
                 found |= f == m.get_fact(to_app(e));
             ENSURE(found);
+        }
+    }
+}
+
+static void test_proof_mode_simplifier_pipeline() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref x(m.mk_const("pipeline-x", a.mk_int()), m);
+        expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+        expr_ref sum(a.mk_add(x, zero), m);
+        expr_ref original(m.mk_eq(sum, one), m);
+        expr_ref expected(m.mk_eq(x, one), m);
+        base_dependent_expr_state st(m);
+        proof_ref pr(proofs ? m.mk_asserted(original) : nullptr, m);
+        st.add(dependent_expr(m, original, pr, nullptr));
+        then_simplifier outer(m, params_ref(), st);
+        auto* inner = alloc(then_simplifier, m, params_ref(), st);
+        inner->add_simplifier(alloc(randomizer_simplifier, m, params_ref(), st));
+        inner->add_simplifier(alloc(rewriter_simplifier, m, params_ref(), st));
+        outer.add_simplifier(inner);
+        outer.reduce();
+        ENSURE(st.qtail() == 1 && st[0].fml() != original);
+        ENSURE(occurs(x, st[0].fml()) == proofs);
+        if (proofs) {
+            ENSURE(st[0].fml() == expected);
+            expr_ref_vector assertions(m);
+            assertions.push_back(original);
+            check_simplifier_proofs(m, st, assertions);
+        }
+
+        for (bool nested : {false, true}) {
+            simplifier_factory factory = [nested](ast_manager& m, params_ref const& p, dependent_expr_state& s) {
+                dependent_expr_simplifier* simp = alloc(randomizer_simplifier, m, p, s);
+                if (nested) {
+                    auto* seq = alloc(then_simplifier, m, p, s);
+                    seq->add_simplifier(simp);
+                    simp = seq;
+                }
+                return simp;
+            };
+            solver_ref backend(mk_smt_solver(m, params_ref(), symbol()));
+            solver_ref solver(mk_simplifier_solver(backend.get(), &factory));
+            expr_ref positive(a.mk_gt(x, zero), m), negative(a.mk_lt(x, zero), m);
+            solver->assert_expr(positive);
+            solver->assert_expr(negative);
+            ENSURE(solver->check_sat(0, nullptr) == l_false);
+            if (proofs) {
+                proof_ref refutation(solver->get_proof(), m);
+                ENSURE(refutation && m.is_false(m.get_fact(refutation)));
+                base_dependent_expr_state result(m);
+                result.add(dependent_expr(m, m.mk_false(), refutation, nullptr));
+                expr_ref_vector assertions(m);
+                assertions.push_back(positive);
+                assertions.push_back(negative);
+                check_simplifier_proofs(m, result, assertions);
+            }
         }
     }
 }
@@ -1086,6 +1148,7 @@ static void test_nested_symbolic_rotations() {
 
 void tst_simplifier() {
 
+    test_proof_mode_simplifier_pipeline();
     test_bit2int_proofs();
     test_bit2int_zero_divisor_qe();
     test_nested_symbolic_rotations();

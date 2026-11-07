@@ -66,4 +66,3 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
                          main_p),
             mk_nlsat_tactic(m, p)));
 }
-

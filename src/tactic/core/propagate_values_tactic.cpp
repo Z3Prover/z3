@@ -234,6 +234,10 @@ public:
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        if (in->proofs_enabled()) {
+            result.push_back(in.get());
+            return;
+        }
         try {
             run(in, result);
         }

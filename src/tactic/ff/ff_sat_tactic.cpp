@@ -59,8 +59,10 @@ namespace {
             t->collect_param_descrs(ds);
         }
         void operator()(goal_ref const &g, goal_ref_buffer &result) override {
-            if (g->proofs_enabled())
-                throw tactic_exception("QF_FF certificates are not supported in v1");
+            if (g->proofs_enabled()) {
+                result.push_back(g.get());
+                return;
+            }
             ff_util ff(m);
             params_ref sp;
             sat::solver sat(sp, m.limit());

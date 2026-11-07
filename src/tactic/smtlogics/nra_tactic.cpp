@@ -40,13 +40,11 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
         mk_propagate_values_tactic(m, p),
         mk_qe_lite_tactic(m),
         mk_simplify_tactic(m, p),
-        cond(mk_is_qfnra_probe(),
-             or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
-                     try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
-                     mk_qfnra_nlsat_tactic(m, p2)),
-             or_else(mk_nlqsat_tactic(m, p),
-                     mk_smt_tactic(m, p))
-             ));
+        cond(mk_produce_proofs_probe(), mk_smt_tactic(m, p),
+             cond(mk_is_qfnra_probe(),
+                  or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
+                          try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
+                          mk_qfnra_nlsat_tactic(m, p2)),
+                  or_else(mk_nlqsat_tactic(m, p),
+                          mk_smt_tactic(m, p)))));
 }
-
-
