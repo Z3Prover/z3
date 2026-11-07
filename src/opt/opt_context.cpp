@@ -1648,7 +1648,7 @@ namespace opt {
         (*m_simplify)(g, result); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
-        m_model_converter = r->mc();
+        m_model_converter = concat(m_model_converter.get(), r->mc());
         CTRACE(opt, r->mc(), r->mc()->display(tout););
         fmls.reset();
         expr_ref tmp(m);
@@ -1764,13 +1764,15 @@ namespace opt {
                 return false;
             if (x != term)
                 return false;
+            if (mark.is_marked(y))
+                return false;
             bool is_zo = is_zero_one(y);
             if (!is_zo && !a.is_add(y))
                 return false;
             if (!is_zo && !all_of(*to_app(y), is_zero_one))
                 return false;
-            cardinalities.push_back(x);
-            max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(x)->get_num_args());
+            cardinalities.push_back(y);
+            max_cardinality = std::max(max_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
             min_cardinality = std::min(min_cardinality, is_zo ? 1 : to_app(y)->get_num_args());
             return true;
         };
@@ -1790,10 +1792,12 @@ namespace opt {
             return false;
         expr_ref_vector new_fmls(m);
         expr_ref_vector soft(m);
-        for (unsigned k = 1; k <= min_cardinality; ++k) {
+        unsigned num_thresholds = is_max ? min_cardinality : max_cardinality;
+        for (unsigned k = 1; k <= num_thresholds; ++k) {
             auto p_k = m.mk_fresh_const("p", m.mk_bool_sort());
-            expr_ref one(a.mk_int(1), m);
-            soft.push_back(m.mk_ite(p_k, one, a.mk_int(0)));
+            expr_ref one(a.mk_numeral(rational(1), term->get_sort()), m);
+            expr_ref zero(a.mk_numeral(rational(0), term->get_sort()), m);
+            soft.push_back(m.mk_ite(p_k, one, zero));
             for (auto c : cardinalities)
                 // p_k => c >= k
                 if (is_max)
@@ -1805,6 +1809,7 @@ namespace opt {
         // min x | x >= c_i, min sum p_k : /\_i c_i >= k => p_k
         // max x | x <= c_i, max sum p_k : /\_i p_k => c_i >= k 
         app_ref sum(a.mk_add(soft.size(), soft.data()), m);
+        new_fmls.push_back(m.mk_eq(term, sum));
         if (is_max)
             new_fmls.push_back(mk_maximize(index, sum));
         else
