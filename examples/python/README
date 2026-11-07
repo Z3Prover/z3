@@ -177,12 +177,18 @@ constructors are all nullary, not parametric) count as uninterpreted sorts,
 so an input with one is in a UF fragment: constants, functions, predicates,
 and ite over the enumeration, its constructors, and its recognizers
 ((_ is c) t or SMT-LIB 2.5's (is-c t), which is (= t c)) are accepted,
-through the clause log only (the legacy core rejects them explicitly); any
-other datatype, an array over an enumeration, and a distinct with more
-arguments than its enumeration has constructors (with proofs Z3 refutes it
-by an exponential pigeonhole search) over more than five constructors or
-with more than sixteen arguments, past which Lean runs out of memory, are
-rejected.
+through the clause log only (the legacy core rejects them explicitly), and
+so are arrays whose element sort is an enumeration, (Array I Color) over the
+index sorts above: their constants, functions into and over them, store,
+ite, select, equality, and extensionality, and over Int or Real indices
+constant arrays of an enumeration and the default values of arrays built
+from them by store and ite. Any other datatype, an array indexed by an
+enumeration, an array of an enumeration nested in another array (as its
+rows or indices), maps of arrays of an enumeration and the default value of
+an array constant or application of one, and a distinct with more arguments than its
+enumeration has constructors (with proofs Z3 refutes it by an exponential
+pigeonhole search) over more than five constructors or with more than
+sixteen arguments, past which Lean runs out of memory, are rejected.
 Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -339,7 +345,8 @@ step:
     atoms opaque (two atoms denoting one constraint, or complementary ones,
     are bridged by an equivalence the theory tactic proves; a distinct over
     terms is the conjunction of its pairs' negated equalities when Z3 logged
-    each pair as an equality node); a clause that needs a theory fact falls
+    some pair as an equality node, a pair without a node being a synthetic
+    leaf rendered as the distinct's conjunct); a clause that needs a theory fact falls
     back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
@@ -749,7 +756,12 @@ relates no atoms of the two sorts in one arithmetic lemma, so the
 reconstructor reads each th-lemma's sort off its atoms: an Int lemma takes
 the integer path (tightening, the generalized attempt, the combination and
 split proofs), a Real one the Real path, and a lemma over both sorts is
-rejected. A lemma reaching to_real is checked as a rational combination with
+rejected. An arithmetic ite is one atom of the linear forms, tied to its
+branches by gate clauses, so the atoms of its condition are not the
+lemma's: an Int ite over a Real comparison (as the rewriter makes of a
+read of a store into an (Array Real Int)) keeps a lemma over Int atoms
+Int, and a to_real inside such a condition does not make the lemma a cast
+lemma. A lemma reaching to_real is checked as a rational combination with
 each Int atom tightened on its own (its coefficients, when it has any, must
 refute the literals; a cut must round Int atoms and Real atoms over Int
 terms only) and proved by grind after two kinds of facts: every Int atom
@@ -958,7 +970,8 @@ argument is injected by _m.int and a Real one by _m.real, an application
 with an Int result is _m.ifuns i [...] and one with a Real result
 _m.rfuns i [...] (one numbering for both families), and each theory lemma
 takes the sort of its atoms as in qf_lira, an application being one atom
-whatever the sorts of its arguments. The argument-equality helpers relate
+whatever the sorts of its arguments (and an arithmetic ite one atom
+whatever the sorts of its condition's atoms). The argument-equality helpers relate
 arguments of one sort only: an Int (ite c 1 0) and a Real (ite c 1.0 0.0)
 share a linear form but are injected by different maps. Nothing
 states that _m.real is injective and no inference needs it: euf lemmas use
@@ -1009,7 +1022,20 @@ lemmas, and the cnf fallbacks over such terms are proved by grind after the
 fields are instantiated for the constants and applications they reach. The
 reconstructor checks every constructor and recognizer of the certificate
 against the input's enumeration of that sort and tells constructors apart by
-name.
+name. An array of an enumeration, (Array I Color), has a field per array
+constant (enum_acases_i, over every index of the Lean index type) and per
+function into such arrays (enum_afcases_j, over every argument list and
+index): each of its reads is a constructor. A model is still an instance, its
+arrays extended by a constructor outside the index sort (as in the array
+embedding below). A read of a store or of an ite over arrays is a
+constructor by the cases of what it may evaluate to (the theorems
+_cases_store and _cases_ite); each lemma that reaches a read gets that proof,
+built along the read's array down to array constants and applications. A
+read of a constant array is its value (_cases_const), and so is the default
+value of one (_cases_default_const); the default value of a store is that
+of the array below it (_cases_default_store), and the default value of an
+ite is that of one of its branches, so it is a constructor if both
+branches' default values are (_cases_ite).
 
 An array sort (Array I E) of the clause log is the Lean function type
 _m.U -> _m.U, and the array constants are one more field of the
@@ -1025,19 +1051,39 @@ of I, and every model's carriers are nonempty, so each model is again an
 instance. The array solver's axiom instances (array hints: the store
 axiom, select over store, extensionality) are clauses of equalities that
 grind proves after each lemma states _store_apply for every read of a
-store and _array_ext for every witness it reaches. A read the rewriter
+store and _array_ext for every witness it reaches, with _array_diff_comm
+(the witness of a and b is the witness of b and a: Z3's congruence
+closure takes (_ array-ext 0) as commutative). A read the rewriter
 evaluates through several stores gets a fact per level it skips: the
 stores at numerals other than the read's ((select (store (store a 1 5) 2
 7) 3) is (select a 3)) and the store where that skip stops ((select (store
 (store a 3 5) 2 7) 3) is 5), and every store above a constant array (with
-_select_const at the bottom). Array terms stay
+_select_const at the bottom); a read of an ite over arrays, which the
+rewriter pushes into the branches, gets the facts of a read of each store
+or constant-array branch. Array terms stay
 folded in those lemmas (term_N, related to its store or ite by an rfl
 fact): written out, the shared store chains of the swap and storecomm
 benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
 (store (store a i v) i w) into (store a i w) and (store a i (select a i))
 into a, and a cnf step over a predicate of such a store relies on it) may
-also use _store_store and _store_select. All four are theorems
-proved in the file, so no array fact is assumed.
+also use _store_store and _store_select, and next to constant arrays
+_select_const, _const_store_self ((store (const c) i c) is (const c)), and
+_const_eq_store and _store_eq_const ((= (const c) (store (const c) i v)) is
+(= c v)), and ite_self (the rewriter drops (ite p c c) first). The
+rewriter decides an equality between store chains over two constant arrays
+by their values at the stored indices and the constants' values; next to
+the facts of that direction, a rewrite or cnf step gets the converse
+(extensionality) as a proved fact with one premise per stored index (funext,
+a case split on the stored indices, and _store_off down to the constants).
+When a side is an ite of different such chains (Z3 logs an asserted
+(= (ite p S S') T) as the outcome of comparing each branch with T), each
+pair of a leaf of one side with a different leaf of the other gets that
+converse over the leaves' terms, for at most 16 pairs per equality.
+Each store and constant array a side of such an equality reaches is also
+read at every index read from its sort (_store_apply, _select_const): a
+cnf lemma may read an array equated to a constant array, (or (not (= a
+(const 1))) (not (= 3 (select a k)))), with no read of the constant array.
+These reads are stated up to 64 per lemma. All of them are theorems proved in the file, so no array fact is assumed.
 
 An Int or Real index or element sort is Int or Rat itself: (Array Int Int)
 is Int -> Int, (Array Int Element) is Int -> _m.U, and each Lean array type
@@ -1317,7 +1363,8 @@ test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
-arrays), and test_proof_to_lean_enum.py enumeration datatypes end to end;
+arrays), and test_proof_to_lean_enum.py enumeration datatypes and arrays
+of them end to end;
 all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than

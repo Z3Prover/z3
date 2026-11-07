@@ -1603,6 +1603,207 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Distincts of more than 32 terms (2026-11-07)
+
+Every input with a root `distinct` of more than 32 arguments, in any
+fragment, failed to export through the clause log: the sat.smt core
+encoded it over a fresh sort and function (`distinct-elems`, `dist-f`, and
+an at-least-2 constraint for a negated one), which the replay rejects ("the
+clause log declares a sort absent from the input"). With proofs
+(`use_drat()`) `add_distinct_axiom` and `add_not_distinct_axiom` in
+`src/sat/smt/euf_internalize.cpp` now log the pairwise clauses at any width,
+as they did up to 32 arguments; without proofs nothing changes. Second, the
+certificate keeps only the pair equalities the proof uses, and a distinct
+with any pair missing was one opaque leaf in the cnf lemmas tying a logged
+`(not (= a b))` to it, so those lemmas fell back to omega and grind over the
+unfolded distinct, which ran out of heartbeats over Int from 30 arguments
+(435 pairs). A missing pair is now a synthetic leaf rendered as the
+distinct's conjunct (`_distinct_pair_leaves`), and the propagation proof
+projects the logged pairs. Wide distincts over U and Int verify in about a
+second. Tests: `test_wide_distincts_are_clausified_pairwise_under_proofs`
+(`test_proof_certificate.py`), `test_cnf_lemmas_project_the_logged_pairs_of_a_wide_distinct`
+and `test_wide_distincts_verify_through_their_logged_pairs`
+(`test_proof_to_lean_lia.py`), `test_distincts_of_more_than_32_terms_verify`
+(`test_proof_to_lean_uf.py`). Still open: a negated wide distinct whose
+every pair the proof refutes exports, but its Lean text is quadratic (528
+pairs under a strict order give 25 MB; the 528-literal clause is projected
+by `Or.inr` chains, and over Int the rewrite of the negated distinct into
+the disjunction goes to grind). Also open, and older than this change: a
+wide distinct with an ite argument whose clauses Z3 simplified under a unit
+(34 `f` applications, `(+ x 1)`, and `(ite (> x 0) (f 3) (f 4))` with
+`x = 2`) still sends the cnf lemmas over the ite's value to grind over the
+unfolded distinct, which runs out of heartbeats from about 30 arguments; the
+base reconstructor emits the same text at 30 arguments. Clausifying pairwise
+under proofs is quadratic in the width (1000 arguments: about 8 s and 34 MB
+of clause log, against 0.02 s without a log); the encoding is not capped,
+as the fresh-symbol encoding above the cap could not be certified anyway.
+
+### Arrays of enumerations (2026-11-06)
+
+Every array sort with an enumeration component was rejected ("unsupported
+sort"). Arrays whose element sort is an enumeration, `(Array I Color)` over
+Int, Real, Bool, uninterpreted, or array index sorts, are now certified
+through the clause log: array constants, functions into and over them,
+store, ite, select, equality, and extensionality. The datatype solver splits
+on reads of such arrays, so Lean must know that every read is a constructor:
+the interpretation gains a field per array constant (`enum_acases_i`, over
+every index of the Lean index type) and per function into such arrays
+(`enum_afcases_j`, over every argument list and index), sound because a
+model's arrays embed with a constructor as their value outside the index
+sort. A read of a store or of an ite over arrays is a constructor by the
+cases of what it may evaluate to; each lemma reaching a read gets that fact
+as a proof term built along the read's array (`_cases_store`,
+`_cases_ite`, theorems of the prelude, down to the fields), so grind gets
+the read's disjunction ready-made. Still rejected, explicitly: arrays
+indexed by an enumeration (extensionality would have to range over its
+finitely many values, which the Lean function type over `_m.U` does not
+have), arrays of an enumeration nested in other arrays, constant arrays,
+default values, and maps over them. Random sweeps
+(`random_enum_array_instance`, seeds 1-150 over Int and over uninterpreted
+indices, 1-100 of `variables=3, constraints=16, depth=3`): 200
+unsatisfiable seeds, all verify. They are not complete: in the review's
+sweep of `index="U", constraints=14, depth=3`, 4 of 37 unsatisfiable seeds
+(200-259: 219, 223, 224, 251) fail Lean with grind errors. The cause
+predates this section and affects `(Array Int Int)` alike: `_array_helpers`
+states `_store_apply` only for a read whose array is itself a store, so a
+read through an ite over a store, `(select (ite p (store a1 k c) a0) k)`,
+which Z3's rewriter evaluates to `(ite p c (select a0 k))`, gets no value
+(done 2026-11-06: the `_si` facts walk the ite branches, see "Constant
+arrays of enumerations, and the rewriter's constant-array evaluations";
+seeds 219 and 251 are pinned). The read cases are built on an explicit stack, so a
+read through 1,100 nested stores is reconstructed without RecursionError
+(`test_proof_to_lean_deep.py`, reconstruction only: its 1,100 enumeration
+constants are 1,100 fields, a structure that alone runs out of heartbeats;
+the same chain 200 levels deep passes Lean). Tests: `test_proof_to_lean_enum.py` (eight
+documented inputs `ENUM_ARRAY_INPUTS`, four pinned seeds, the fields, the
+rejections, the replay's constructors of element sorts, and the read cases
+failing Lean when dropped).
+
+### Store chains over two constant arrays compared (2026-11-06)
+
+A random QF_ALIA sweep with constant arrays, default values, stores, and ite
+of arrays over Int elements (`random_constant_array_instance` in
+`test_proof_to_lean_array.py`) found two more of the rewriter's evaluations
+Lean could not follow. `array_rewriter::mk_eq_core` decides `(= S T)`, for
+store chains S and T over constant arrays `(const v)` and `(const w)` with an
+infinite index sort, as the conjunction of `(= (select S i) (select T i))`
+over the stored indices i and `(= v w)`, after dropping an ite of an array
+with itself. The direction from S = T was already stated (`_e` facts of
+`_constant_array_comparisons`); the converse is extensionality, which grind
+does not do, and `_const_eq_store` covered only one store over one constant
+array. `_constant_chain_extensionality` now states and proves the converse
+per such equality (`_x` facts: funext, a case split on the stored indices,
+and the new prelude theorem `_store_off` down to the constants). Second,
+`(store (const c) i (ite p c c))` folds into `(const c)`: the array rewrite
+alternative's simp set has `ite_self`, so simp drops the ite before
+`_const_store_self` folds the store (rewrite steps with a store always get
+that alternative; on the 528 seeds no other step needed it). Seeds 131, 139, and 246 failed Lean
+before and are pinned (`CONSTANT_ARRAY_SEEDS`); 528 unsatisfiable seeds of
+four sweep configurations verify, none rejected. Five documented inputs (one
+over Real indices) fail Lean with grind errors only without the new facts
+(`test_constant_chain_facts_are_needed`).
+
+Long chains (2026-11-06, later). The read facts of
+`_constant_array_comparisons` are every store and constant array of the sort
+read at every index stored into it, quadratic; above `_COMPARISON_READS` (64)
+they were all dropped, so the `_x` facts lost the evaluations of their
+premises and two chains of five numeral stores already failed Lean. Above the
+cap the facts are now the reads the rewriter evaluates in each comparison of
+store chains over constant arrays (`_chain_comparison_reads`): each side read
+at the indices stored into either side, down to the outermost store at that
+index or to the constant. A random sweep of such comparisons
+(`random_chain_comparison_instance`, three chains of 3 to 10 stores over Int
+or Real indices) went from 20 of 45 unsat seeds verified to 145 of 145 (seeds
+1-300, 91 above the cap, at most 122 targeted reads). Seeds 13 and 14 are
+pinned, and the documented input `long_store_chains_over_two_constants` fails
+Lean without its read facts. The targeted reads are still quadratic, about
+n(n+2) for two n-store chains, and each is repeated in every case of the
+rewrite's proof, so they have a cap of their own, `_CHAIN_COMPARISON_READS`
+(640), above which no read facts are stated, as before. Two 24-store chains
+(624 reads) check in 2.8 s and 1.5 GB; uncapped, 32 stores took 3.5 GB, 40
+stores 7.6 GB, and two 64-store chains over `(const 0)` and `(const 1)`, which
+checked in 1.2 s without read facts, exceeded the 12 GB watchdog
+(`test_chain_comparison_reads_are_bounded`).
+
+Real sorts (2026-11-06, iteration 86). `random_constant_array_instance` now
+takes the index and element sorts (Real numerals are integers or halves in
+lowest terms). Two gaps showed, neither specific to Real. First, a clause
+the exporter ties to the assertions through an unsat core may get a cnf lemma
+that reads an array equated to a constant array, with no read of the
+constant array: for `(= a (const 1))` and `(distinct 3 (select a k) (select a
+0))` the split clause `(not (= 3 (select a k)))` is implied by the equality
+alone, so the lemma is `(not (= a (const 1))) \/ (not (= 3 (select a k)))`,
+which grind cannot prove from the stored-index reads. Each store and constant
+array a side of an array equality reaches now also gets its value at every
+index read from the sort (`_compared_side_reads`, within
+`_COMPARISON_READS`). Second, Z3's congruence closure takes `(_ array-ext 0)`
+as commutative (a `comm` claim of an euf hint merges the witnesses of
+`(= a b)` and `(= b a)`); `_array_diff` is an epsilon over a predicate that is
+propositionally symmetric, so the new prelude theorem `_array_diff_comm`
+proves it and each witness gets it as a fact. Over Real/Real, seeds 1-300
+went from 188 to 190 of 190 unsat seeds verified; Int/Real and Real/Int seeds
+1-150 verify, except one Real/Int seed rejected ("arithmetic step over both
+Int and Real atoms"); Int/Int seeds 1-200 still verify (133 of 133). The
+documented inputs `read_of_an_array_equated_to_a_constant` (Int and Real)
+and `commuted_extensionality_witnesses` fail Lean without the new facts.
+Still open: an index written as an unnormalized numeral expression, `(/ 2 2)`
+next to `1.0`, which the rewriter evaluates before applying a store identity
+while grind keeps `2 * 2⁻¹` and `1` apart as array indices.
+Update (2026-11-07): closed. `_store_identity_instance` compares indices and
+values as numeral expressions (`+ - * /` and `to_real` over numerals, no
+division by zero), and the store-identity simp alternative first rewrites
+each outermost numeral expression to its value with a grind-proved fact
+(`_numeral_facts`, pre-order `↓`, so an expression shared with an enclosing
+one cannot block it). With `random_constant_array_instance(unnormalized=0.8)`,
+671 of 673 unsat seeds verified before and 672 after; six documented inputs
+(`NUMERAL_EXPRESSION_INPUTS`) failed before. The remaining seed
+compares an ite of store chains with a store chain over constant arrays,
+which still fails Lean with plain numerals too.
+Update (2026-11-07, iteration 89): closed. The sat.smt core logs an asserted
+`(= (ite p S S') T)`, for store chains over constant arrays, as the outcome of
+comparing each branch with T (`x0 = x1` for `(= (ite p (store (const x0) k
+x1) (const x0)) (store (const x1) 1 x0))`), and the replay ties the two by a
+rewrite step. grind splits the ite but `_x` facts existed only for sides that
+are chains, so the branch comparisons had no converse. Each pair of a leaf of
+one side's ite tree with a different leaf of the other now gets one
+(`_ite_chain_extensionality`, over the leaves' terms, at most 16 pairs), and
+the reads above the cap walk every leaf (`_chain_comparison_reads`). Seed 102
+(Real/Int) now verifies and is pinned; three documented Int inputs (an ite on
+one side, on both, nested) failed Lean before and fail with grind errors
+without the new facts. The leaf walk visits each ite once (a shared ite DAG
+took exponential time otherwise), and an equality above the 16-pair cap gets
+no chain-comparison reads, so it cannot push the others over
+`_CHAIN_COMPARISON_READS`.
+
+### Constant arrays of enumerations, and the rewriter's constant-array evaluations (2026-11-06)
+
+Constant arrays of an enumeration, `((as const (Array Int Color)) c)` over
+Int or Real indices, are certified through the clause log, and so are default
+values of arrays built from constant arrays by store and ite. A read of a
+constant array is its value (`_cases_const`), the default value of one is
+too (`_cases_default_const`), and the default value of a store is that of
+the array below (`_cases_default_store`), so `_read_cases` walks on through
+them. The default value of an array constant or application is rejected
+explicitly by the exporter: `_default` of an array that is not constant
+almost everywhere is an arbitrary value of `_m.U`, not provably a
+constructor. Random sweeps of `random_enum_array_instance(constant=True)`
+(seeds 1-300, 178 unsatisfiable) exposed four gaps that are not specific to
+enumerations and fail `(Array Int Int)` inputs alike; each is closed:
+the exporter's cnf th-lemmas now get the default and read facts of
+constant-array comparisons that rewrites get (the old backlog item
+"constant-array comparisons outside rewrites"); the array rewrite
+alternative's simp set evaluates reads of constant arrays (`_select_const`),
+folds `(store (const c) i c)` into `(const c)` (`_const_store_self`, moved
+from the map prelude into the constant-array prelude), and decides `(= (const
+c) (store (const c) i v))` as `(= c v)` either way round (`_const_eq_store`,
+`_store_eq_const`); and a read of an ite over arrays gets the facts of a read
+of each store or constant-array branch (`_si` facts), which also closes the
+iter-082 review's failures of seeds 219, 223, 224, and 251 (all 37
+unsatisfiable seeds of that sweep verify). All 178 unsatisfiable constant
+seeds verify. Tests: `test_proof_to_lean_enum.py` (`ENUM_CONSTANT_INPUTS`,
+`ENUM_CONSTANT_SEEDS`, seeds 219 and 251) and `test_proof_to_lean_array.py`
+(five QF_ALIA inputs, one per gap).
+
 ### Nested arrays (2026-11-05)
 
 Arrays of arrays, and arrays indexed by arrays, were rejected ("unsupported
@@ -1698,6 +1899,27 @@ No z3test input is newly certified (its Bool-array files also need `map`,
 nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
+
+### Replay keys of maps and constant arrays (2026-11-06)
+
+The replay ties a clause the log assumes to an input conjunct by its
+structural key, which named uninterpreted symbols, numerals, and
+constructors but not the parameters of built-in heads: `((_ map and) a b)`
+and `((_ map or) a b)`, maps of two declared functions, or of `+` and `-`
+over the same arrays shared one key. When preprocessing split a conjunction,
+a conjunct with one map was derived from the input's conjunct with the
+other, and Lean rejected the step (`grind` failed). The key of a map now
+names its function by signature (`(declare-fun f (Int) Int)`, built-ins
+alike), and that of a constant array its sort. A random sweep of maps of
+several functions over the same arrays inside guarded conjunctions (200
+seeds, not kept in the repository) had 5 of 41 unsat seeds fail in Lean
+before and 41 of 41 verify after. Other parameterized heads (datatype
+accessors, bit-vector `extract`, `as-array`) still key without their
+parameters; the export rejects them today, so they must be keyed when
+they become supported. Tests:
+`test_replay_keys_tell_maps_and_constant_arrays_apart` and the documented
+inputs `conjuncts_map_and_or`, `conjuncts_map_f_g`,
+`conjuncts_map_plus_minus` (`test_proof_to_lean_array.py`).
 
 ### Trimmed map logs (2026-11-06)
 
@@ -2588,6 +2810,21 @@ failed Lean before the per-sort grouping. Known gap, shared with
 `qf_lira`: an Int ite whose condition compares Reals (or the reverse),
 outside a function argument, makes its theory step "over both Int and Real
 atoms", which is rejected.
+
+Update (2026-11-06): that gap is closed. An arithmetic ite is an atom of the
+linear forms, tied to its branches by gate clauses, so `_lemma_numeric` no
+longer counts the atoms of its condition among the step's (the step takes
+the ite's sort; a lemma whose own literals are over both sorts is still
+rejected). The case also arises without an ite in the input: Z3's rewriter
+turns a read of a store into `(Array Real Int)` into an Int ite over a Real
+index equality. Tests: `lira_int_ite_over_real_condition` and
+`lira_real_ite_over_int_condition` on both cores,
+`int_read_of_a_store_at_real_indices`, `random_constant_array_instance`
+seed 103 over Real indices and Int elements (seeds 1-300: 192 of 192
+unsatisfiable seeds verify in Lean), and `random_mixed_instance` with
+`ites=0.3` (ites over conditions of the other sort; seeds 1-150: 13 of 35
+unsatisfiable seeds were rejected, now 70 of 70 runs on both cores verify;
+three are pinned).
 
 ### Enumeration datatypes through the clause log (2026-11-06)
 

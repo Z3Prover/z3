@@ -950,13 +950,29 @@ class TestUninterpretedValidation(unittest.TestCase):
             literals = graph.clause(graph.conclusion(node))
             self.assertLess(len(literals), len(graph.assertions) + 1)
         text = proof_to_lean.reconstruct(source, certificate)
-        # These clauses rest on the value of the ite under the distinct, not
-        # on the Boolean structure over opaque atoms: no propagation proof
-        # is found and the lemmas go to grind alone (see _cnf_lemma).
-        self.assertNotIn("Classical.byContradiction", text)
+        # The clauses over a pair with the ite rest on the value of the ite
+        # under the distinct, not on the Boolean structure over opaque
+        # atoms: no propagation proof is found and the lemmas go to grind
+        # alone (see _cnf_lemma). The clause over the pair ((g c a), c),
+        # whose equality is logged, is a projection of the distinct (its
+        # other pairs synthetic leaves) and gets a propagation proof.
+        (distinct,) = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_DISTINCT]
+        arguments = graph.arguments(distinct)
+        logged = {graph.equalities.get((left, right))
+                  for index, left in enumerate(arguments) for right in arguments[index + 1:]} - {None}
+        self.assertEqual(len(logged), 1)
+        projections = 0
         for node in cnf:
-            self.assertTrue(text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
-                            .endswith("\n  grind (splits := 64)"))
+            lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            negated = {graph.arguments(literal)[0] for literal in graph.clause(graph.conclusion(node))
+                       if graph.kind(literal) == z3.Z3_OP_NOT}
+            if negated & logged:
+                projections += 1
+                self.assertIn("\n  first\n    | (refine Classical.byContradiction ?_\n", lemma)
+            else:
+                self.assertNotIn("Classical.byContradiction", lemma)
+                self.assertTrue(lemma.endswith("\n  grind (splits := 64)"))
+        self.assertEqual(projections, 1)
 
     def test_cnf_fallback_unfolds_a_formula_shared_with_a_leaf(self):
         # The predicate application (P (and a b)) is an opaque leaf of the
@@ -1002,9 +1018,11 @@ class TestUninterpretedValidation(unittest.TestCase):
         self.assertEqual(len(cnf), 4)
         (distinct,) = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_DISTINCT]
         a, b, c = graph.arguments(distinct)
-        pairs = proof_to_lean._distinct_pair_equalities(graph, distinct)
+        leaves = {}
+        pairs = [leaf[1] for leaf in proof_to_lean._distinct_pair_leaves(graph, distinct, leaves)]
         self.assertEqual([graph.arguments(pair) for pair in pairs], [(a, b), (a, c), (b, c)])
         self.assertTrue(all(graph.kind(pair) == z3.Z3_OP_EQ for pair in pairs))
+        self.assertEqual(sorted(leaves), sorted(pairs))
         leaves = {}
         structure = proof_to_lean._boolean_structure(graph, distinct, {}, {}, leaves)
         self.assertEqual(structure, ("and",) + tuple(("not", leaves[pair]) for pair in pairs))
@@ -1021,14 +1039,25 @@ class TestUninterpretedValidation(unittest.TestCase):
         self.assertRegex(text, r"\n       have _f\d+ := %s%s\.1\n" % (tail, r"\.2" * 9))  # conjunct 41 of 43
         self.assertNotIn(".2" * 33, text)
         # Kept as one leaf, the distinct leaves the prover nothing to propagate.
-        with patch.object(proof_to_lean, "_distinct_pair_equalities", lambda graph, node: None):
+        with patch.object(proof_to_lean, "_distinct_pair_leaves", lambda graph, node, leaves: None):
             self.assertNotIn("Classical.byContradiction", proof_to_lean.reconstruct(source, certificate))
         # A pair whose equality Z3 logged with the sides swapped reads otherwise
-        # than the distinct's conjunct (Not (a = b)), so the distinct stays a leaf.
+        # than the distinct's conjunct (Not (a = b)): it is a synthetic leaf
+        # rendered as that conjunct, not recorded among the leaves.
         tampered = copy.deepcopy(certificate)
         tampered["nodes"][pairs[1]]["arguments"].reverse()
         graph = proof_to_lean._validate_graph(source, tampered)
-        self.assertIsNone(proof_to_lean._distinct_pair_equalities(graph, distinct))
+        leaves = {}
+        structure = proof_to_lean._boolean_structure(graph, distinct, {}, {}, leaves)
+        synthetic = ("leaf", -(1 + a * len(graph.nodes) + c),
+                     "(%s = %s)" % (proof_to_lean._term(graph, a), proof_to_lean._term(graph, c)))
+        self.assertEqual(structure, ("and", ("not", leaves[pairs[0]]), ("not", synthetic), ("not", leaves[pairs[2]])))
+        self.assertEqual(sorted(leaves), [pairs[0], pairs[2]])
+        # With no pair in its order, the distinct stays a leaf.
+        for pair in (pairs[0], pairs[2]):
+            tampered["nodes"][pair]["arguments"].reverse()
+        graph = proof_to_lean._validate_graph(source, tampered)
+        self.assertIsNone(proof_to_lean._distinct_pair_leaves(graph, distinct, {}))
         leaves = {}
         self.assertEqual(proof_to_lean._boolean_structure(graph, distinct, {}, {}, leaves)[:2], ("leaf", distinct))
 
@@ -1919,6 +1948,15 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             text = proof_to_lean.reconstruct(source, certificate)
             self.assertIn("refine Classical.byContradiction ?_\n       refine (fun (_h : ", text)
             self.check(source)
+
+    def test_distincts_of_more_than_32_terms_verify(self):
+        # Above 32 arguments the sat.smt core encoded the distinct over a
+        # fresh sort and function, which the export rejected; with proofs it
+        # now logs the pairwise disequalities, of which the proof uses a few.
+        from test_proof_certificate import wide_distinct_source
+        certificate, report = self.check(wide_distinct_source(40, "U"))
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "U", "Proof"})
 
     def test_cnf_lemmas_over_a_distinct_verify_by_propagation_alone(self):
         # The cnf lemmas whose literal is a pair of the asserted distinct,
