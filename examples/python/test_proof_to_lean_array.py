@@ -515,6 +515,30 @@ CONSTANT_ARRAY_INPUTS = {
 (assert (= u0 y))
 (check-sat)
 """,
+    # The clause (not (= 3 (select a k))) split from the distinct is tied
+    # to the assertions through (= a (const 1)), which implies it: a cnf
+    # lemma reading a, with no read of the constant array
+    # (_compared_side_reads).
+    "read_of_an_array_equated_to_a_constant": """(set-logic ALL)
+(declare-const a (Array Int Int))
+(declare-const k Int)
+(assert (= a ((as const (Array Int Int)) 1)))
+(assert (distinct 3 (select a k) (select a 0)))
+(check-sat)
+""",
+    # Z3's congruence closure takes (_ array-ext 0) as commutative: the
+    # witnesses of (= K (ite p K b)) and (= (ite p K b) K) are merged by a
+    # comm claim of an euf hint (_array_diff_comm).
+    "commuted_extensionality_witnesses": """(set-logic ALL)
+(declare-const p Bool)
+(declare-const a0 (Array Int Int))
+(declare-const k0 Int)
+(declare-const k1 Int)
+(declare-const x0 Int)
+(assert (not (= ((as const (Array Int Int)) x0) (ite p ((as const (Array Int Int)) x0) (store a0 k0 x0)))))
+(assert (= a0 (store ((as const (Array Int Int)) x0) k1 x0)))
+(check-sat)
+""",
 }
 # Constant arrays over Real indices: the same encoding over Rat, whose
 # default values rest on _rat_unbounded (no finite list exhausts Rat).
@@ -572,6 +596,15 @@ REAL_INDEX_CONSTANT_ARRAY_INPUTS = {
 (assert (or p (not (= (store ((as const (Array Real Int)) x) k y) ((as const (Array Real Int)) y)))))
 (assert (not p))
 (assert (= x y))
+(check-sat)
+""",
+    # read_of_an_array_equated_to_a_constant over Rat, with a fractional
+    # value (random_constant_array_instance seed 87 over Real sorts).
+    "real_read_of_an_array_equated_to_a_constant": """(set-logic ALL)
+(declare-const a (Array Real Real))
+(declare-const k Real)
+(assert (= a ((as const (Array Real Real)) (/ 1 2))))
+(assert (distinct (/ 3 2) (select a k) (select a 0.0)))
 (check-sat)
 """,
 }
@@ -1778,7 +1811,8 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "real_function_into_arrays": "qf_uflra", "function_into_constant_arrays": "qf_uflira",
               "predicate_over_application": "qf_uflia", "nested_applications": "qf_uflia",
               "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia",
-              "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira"}
+              "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira",
+              "real_read_of_an_array_equated_to_a_constant": "qf_uflra"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
 # Set combinators are over Int indices (qf_uflia) except these, named
@@ -2047,6 +2081,37 @@ class TestArrayValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_of_an_ite_over_a_constant"],
                                          self.certificates["read_of_an_ite_over_a_constant"])
         self.assertRegex(text, r"have _si\d+_0 := _select_const \(I := Int\) \(_vars \d+\) ")
+
+    def test_reads_of_arrays_compared_with_constant_arrays(self):
+        """A cnf lemma reading an array equated to a constant array gets the constant array's reads.
+
+        The cnf lemmas (not (= a K)) \\/ (not (= 3 (select a i))), for i = k
+        and i = 0, read only a; each gets the read of the constant array K
+        at its i (_compared_side_reads), none above _COMPARISON_READS.
+        """
+        for name, index_type in (("read_of_an_array_equated_to_a_constant", "Int"),
+                                 ("real_read_of_an_array_equated_to_a_constant", "Rat")):
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                cnf = [lemma.split("\n\n")[0] for lemma in text.split("private theorem th_lemma_")[1:]
+                       if re.search(r"have _e\d+ : ", lemma.split("\n\n")[0])]
+                self.assertEqual(len(cnf), 2, text)
+                for lemma in cnf:
+                    reads = re.findall(r"have _dc\d+_\d+ := _select_const \(I := %s\) " % index_type, lemma)
+                    self.assertEqual(len(reads), 1, lemma)
+        with mock.patch.object(proof_to_lean, "_COMPARISON_READS", 0):
+            text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_of_an_array_equated_to_a_constant"],
+                                             self.certificates["read_of_an_array_equated_to_a_constant"])
+        self.assertNotRegex(text, r"have _dc\d+_\d+ ")
+
+    def test_extensionality_witnesses_commute(self):
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["commuted_extensionality_witnesses"],
+                                         self.certificates["commuted_extensionality_witnesses"])
+        self.assertIn("private theorem _array_diff_comm ", text)
+        witnesses = re.findall(r"have _x(\d+) := _array_ext ", text)
+        self.assertEqual(len(set(witnesses)), 2, text)
+        for node in witnesses:
+            self.assertIn("have _xc%s := _array_diff_comm " % node, text)
 
     def test_chain_comparison_reads_are_bounded(self):
         """Above _CHAIN_COMPARISON_READS the compared chains' reads are dropped too.
@@ -2923,31 +2988,42 @@ class TestArrayValidation(unittest.TestCase):
             terms.build([["_", "array-ext", "0"], "i", "j"])
 
 
-def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, constant=0.3, default=0.2):
-    """A random input over (Array Int Int) with constant arrays, or None if sat.
+def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, constant=0.3, default=0.2,
+                                   index="Int", element="Int"):
+    """A random input over (Array index element) with constant arrays, or None if sat.
 
-    Array constants a0, a1, ..., constant arrays of Int terms (with
-    probability constant), stores, and ite over arrays; Int terms are
-    constants, numerals, reads at index constants and numerals, increments,
-    ite, and default values of arrays built from constant arrays by store
-    and ite (the default values the exporter admits next to array
-    constants, with probability default also compared as atoms). Atoms are
-    equalities, comparisons, distinct, and array equalities.
+    index and element are Int or Real. Array constants a0, a1, ..., constant
+    arrays of element terms (with probability constant), stores, and ite
+    over arrays; element terms are constants, numerals, reads at index
+    constants and numerals, increments, ite, and default values of arrays
+    built from constant arrays by store and ite (the default values the
+    exporter admits next to array constants, with probability default also
+    compared as atoms). Atoms are equalities, comparisons, distinct, and
+    array equalities. Real numerals are integers or halves in lowest terms,
+    1.0 or (/ 3 2). Over Int sorts the inputs are those of the generator
+    before it took sorts, seed for seed.
     """
     rng = random.Random(seed)
+    sort = "(Array %s %s)" % (index, element)
     lines = ["(set-logic ALL)", "(declare-const p Bool)", "(declare-const q Bool)"]
-    lines += ["(declare-const a%d (Array Int Int))" % i for i in range(variables)]
-    lines += ["(declare-const k%d Int)" % i for i in range(variables + 1)]
-    lines += ["(declare-const x%d Int)" % i for i in range(variables)]
+    lines += ["(declare-const a%d %s)" % (i, sort) for i in range(variables)]
+    lines += ["(declare-const k%d %s)" % (i, index) for i in range(variables + 1)]
+    lines += ["(declare-const x%d %s)" % (i, element) for i in range(variables)]
+
+    def numeral(numeral_sort):
+        number = rng.randrange(3)
+        if numeral_sort == "Int":
+            return str(number)
+        return rng.choice(["%d.0" % number, "(/ %d 2)" % (2 * number + 1)])
 
     def position():
         if rng.random() < 0.3:
-            return str(rng.randrange(3))
+            return numeral(index)
         return "k%d" % rng.randrange(variables + 1)
 
     def array(d=depth):
         if rng.random() < constant:
-            return "((as const (Array Int Int)) %s)" % value(max(d - 1, 0))
+            return "((as const %s) %s)" % (sort, value(max(d - 1, 0)))
         roll = rng.random()
         if d == 0 or roll < 0.4:
             return "a%d" % rng.randrange(variables)
@@ -2958,7 +3034,7 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
     def constant_built(d=depth):
         roll = rng.random()
         if d == 0 or roll < 0.4:
-            return "((as const (Array Int Int)) %s)" % value(max(d - 1, 0))
+            return "((as const %s) %s)" % (sort, value(max(d - 1, 0)))
         if roll < 0.8:
             return "(store %s %s %s)" % (constant_built(d - 1), position(), value(d - 1))
         return "(ite %s %s %s)" % (rng.choice(["p", "q"]), constant_built(d - 1), constant_built(d - 1))
@@ -2968,13 +3044,13 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
         if d == 0 or roll < 0.25:
             return "x%d" % rng.randrange(variables)
         if roll < 0.4:
-            return str(rng.randrange(3))
+            return numeral(element)
         if roll < 0.8:
             return "(select %s %s)" % (array(d - 1), position())
         if roll < 0.85:
             return "(default %s)" % constant_built(d - 1)
         if roll < 0.92:
-            return "(+ %s 1)" % value(d - 1)
+            return "(+ %s %s)" % (value(d - 1), "1" if element == "Int" else "1.0")
         return "(ite %s %s %s)" % (rng.choice(["p", "q"]), value(d - 1), value(d - 1))
 
     def atom():
@@ -3017,7 +3093,16 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
 # with the default options, 1-120 with variables=3, constraints=12,
 # depth=3, 201-500 with constant=0.5, default=0.1, and 501-620 with
 # constraints=12, depth=3, constant=0.4 then verify: 528 of 528.)
-CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246))
+# Over (Array Real Real), 87 failed Lean on iteration 86's macOS build
+# before a cnf lemma reading an array equated to a constant array got that
+# constant array's reads (_compared_side_reads), and 48 before the
+# extensionality witnesses of two arrays either way round were equal
+# (_array_diff_comm). (Seeds 1-300 over Real/Real and 1-150 over Int/Real
+# and Real/Int then verify, but for one Real/Int seed rejected for an
+# arithmetic step over both Int and Real atoms.)
+_REAL_SORTS = {"index": "Real", "element": "Real"}
+CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246), (_REAL_SORTS, 48),
+                        (_REAL_SORTS, 87))
 
 
 def random_chain_comparison_instance(seed):
@@ -3108,12 +3193,16 @@ class TestArrayLeanIntegration(unittest.TestCase):
         for arguments, seed in CONSTANT_ARRAY_SEEDS:
             source = random_constant_array_instance(seed, **arguments)
             self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
-            self.assertIn("(as const (Array Int Int))", source)
-            sources.append((seed, source, _export(source)))
-        lean_test_support.prefetch((source, certificate) for _, source, certificate in sources)
-        for seed, source, certificate in sources:
+            sorts = {arguments.get("index", "Int"), arguments.get("element", "Int")}
+            self.assertIn("(as const (Array %s %s))" % (arguments.get("index", "Int"), arguments.get("element", "Int")),
+                          source)
+            fragment = {frozenset({"Int"}): "qf_uflia", frozenset({"Real"}): "qf_uflra"}.get(frozenset(sorts),
+                                                                                             "qf_uflira")
+            sources.append((seed, source, fragment, _export(source)))
+        lean_test_support.prefetch((source, certificate) for _, source, _, certificate in sources)
+        for seed, source, fragment, certificate in sources:
             with self.subTest(seed=seed):
-                self.assertEqual(certificate["fragment"], "qf_uflia")
+                self.assertEqual(certificate["fragment"], fragment)
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
 

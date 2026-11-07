@@ -1690,6 +1690,31 @@ stores 7.6 GB, and two 64-store chains over `(const 0)` and `(const 1)`, which
 checked in 1.2 s without read facts, exceeded the 12 GB watchdog
 (`test_chain_comparison_reads_are_bounded`).
 
+Real sorts (2026-11-06, iteration 86). `random_constant_array_instance` now
+takes the index and element sorts (Real numerals are integers or halves in
+lowest terms). Two gaps showed, neither specific to Real. First, a clause
+the exporter ties to the assertions through an unsat core may get a cnf lemma
+that reads an array equated to a constant array, with no read of the
+constant array: for `(= a (const 1))` and `(distinct 3 (select a k) (select a
+0))` the split clause `(not (= 3 (select a k)))` is implied by the equality
+alone, so the lemma is `(not (= a (const 1))) \/ (not (= 3 (select a k)))`,
+which grind cannot prove from the stored-index reads. Each store and constant
+array a side of an array equality reaches now also gets its value at every
+index read from the sort (`_compared_side_reads`, within
+`_COMPARISON_READS`). Second, Z3's congruence closure takes `(_ array-ext 0)`
+as commutative (a `comm` claim of an euf hint merges the witnesses of
+`(= a b)` and `(= b a)`); `_array_diff` is an epsilon over a predicate that is
+propositionally symmetric, so the new prelude theorem `_array_diff_comm`
+proves it and each witness gets it as a fact. Over Real/Real, seeds 1-300
+went from 188 to 190 of 190 unsat seeds verified; Int/Real and Real/Int seeds
+1-150 verify, except one Real/Int seed rejected ("arithmetic step over both
+Int and Real atoms"); Int/Int seeds 1-200 still verify (133 of 133). The
+documented inputs `read_of_an_array_equated_to_a_constant` (Int and Real)
+and `commuted_extensionality_witnesses` fail Lean without the new facts.
+Still open: an index written as an unnormalized numeral expression, `(/ 2 2)`
+next to `1.0`, which the rewriter evaluates before applying a store identity
+while grind keeps `2 * 2⁻¹` and `1` apart as array indices.
+
 ### Constant arrays of enumerations, and the rewriter's constant-array evaluations (2026-11-06)
 
 Constant arrays of an enumeration, `((as const (Array Int Color)) c)` over

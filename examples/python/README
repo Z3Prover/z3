@@ -1044,7 +1044,9 @@ of I, and every model's carriers are nonempty, so each model is again an
 instance. The array solver's axiom instances (array hints: the store
 axiom, select over store, extensionality) are clauses of equalities that
 grind proves after each lemma states _store_apply for every read of a
-store and _array_ext for every witness it reaches. A read the rewriter
+store and _array_ext for every witness it reaches, with _array_diff_comm
+(the witness of a and b is the witness of b and a: Z3's congruence
+closure takes (_ array-ext 0) as commutative). A read the rewriter
 evaluates through several stores gets a fact per level it skips: the
 stores at numerals other than the read's ((select (store (store a 1 5) 2
 7) 3) is (select a 3)) and the store where that skip stops ((select (store
@@ -1066,7 +1068,11 @@ by their values at the stored indices and the constants' values; next to
 the facts of that direction, a rewrite or cnf step gets the converse
 (extensionality) as a proved fact with one premise per stored index (funext,
 a case split on the stored indices, and _store_off down to the constants).
-All of them are theorems proved in the file, so no array fact is assumed.
+Each store and constant array a side of such an equality reaches is also
+read at every index read from its sort (_store_apply, _select_const): a
+cnf lemma may read an array equated to a constant array, (or (not (= a
+(const 1))) (not (= 3 (select a k)))), with no read of the constant array.
+These reads are stated up to 64 per lemma. All of them are theorems proved in the file, so no array fact is assumed.
 
 An Int or Real index or element sort is Int or Rat itself: (Array Int Int)
 is Int -> Int, (Array Int Element) is Int -> _m.U, and each Lean array type

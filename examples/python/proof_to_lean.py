@@ -307,6 +307,12 @@ private theorem _array_ext {I E : Type} (h : Nonempty I) (a b : I -> E) :
   . exact Or.inr (Classical.epsilon_spec _e)
   . exact Or.inl (funext (fun _j => Classical.byContradiction (fun _n => _e (Exists.intro _j _n))))
 
+private theorem _array_diff_comm {I E : Type} (h : Nonempty I) (a b : I -> E) :
+    _array_diff h a b = _array_diff h b a := by
+  have _p : (fun _j => Not (a _j = b _j)) = (fun _j => Not (b _j = a _j)) :=
+    funext (fun _j => propext (Iff.intro (fun _n _e => _n _e.symm) (fun _n _e => _n _e.symm)))
+  exact congrArg (@Classical.epsilon I h) _p
+
 private theorem _store_store {I E : Type} (a : I -> E) (i : I) (v w : E) :
     _store (_store a i v) i w = _store a i w := by
   funext _j
@@ -3483,9 +3489,13 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             helpers.extend(_map_read_facts(graph, "_m%d" % node, graph.arguments(node)[0],
                                            graph.arguments(node)[1], inline))
         elif kind == z3.Z3_OP_ARRAY_EXT:
-            helpers.append("  have _x%d := _array_ext %s %s %s" % (
-                node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
-                inline(graph.arguments(node)[1])))
+            # Z3's congruence closure takes the witness as commutative (an
+            # euf hint's (comm (= (array-ext b a) (array-ext a b))) claim);
+            # _array_diff_comm states it for grind.
+            arguments = (_nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
+                         inline(graph.arguments(node)[1]))
+            helpers.append("  have _x%d := _array_ext %s %s %s" % ((node,) + arguments))
+            helpers.append("  have _xc%d := _array_diff_comm %s %s %s" % ((node,) + arguments))
         elif kind == z3.Z3_OP_ARRAY_DEFAULT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
             array = graph.arguments(node)[0]
             helpers.append("  have _d%d := _default_const %s %s" % (
@@ -3533,7 +3543,9 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     (_chain_comparison_reads): each side's chain read at the indices stored
     into either side, which the converse's premises need. Those are still
     quadratic in the chains' length, so above _CHAIN_COMPARISON_READS of
-    them no read facts are stated at all.
+    them no read facts are stated at all. The sides of each equality are
+    also read at the indices read from their sort (_compared_side_reads),
+    unless those reads alone exceed _COMPARISON_READS.
     """
     if not any(graph.kind(node) == z3.Z3_OP_CONST_ARRAY for node in reachable):
         return []
@@ -3562,6 +3574,9 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
         # Every equality and array at every index stored into its sort.
         compared = {node: indices.get(graph.decl(graph.arguments(node)[0]).range, ()) for node in equalities}
         levels = {node: indices.get(graph.decl(node).range, ()) for node in arrays}
+    sides = _compared_side_reads(graph, reachable, equalities)
+    if _read_count(sides) <= _COMPARISON_READS:
+        levels = {node: set(levels.get(node, ())) | sides.get(node, set()) for node in set(levels) | set(sides)}
     helpers = []
     for node in equalities:
         left, right = (inline(argument) for argument in graph.arguments(node))
@@ -3590,6 +3605,44 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
                 node, index, index_type, value, inline(index))
                            for index in sorted(levels.get(node, ())))
     return helpers
+
+
+def _compared_side_reads(graph, reachable, equalities):
+    """The reads of the store and constant-array sides of equalities at the indices read from their sort.
+
+    An assumed clause tied to the assertions through an unsat core may get
+    a cnf lemma that reads an array constant equated to a constant array
+    ((or (not (= a (const 1))) (not (= 3 (select a 0))))), with no read term
+    of the constant array: the core holds the equality rather than the
+    assertion the solver split the clause from. So each store and constant
+    array a side of an equality reaches (through ites and down its store
+    chain, stopping at a store at that same index term) gets its value at
+    every index read from an array of the equality's sort; grind relates
+    the read to it by congruence. Returned as a map from those levels to
+    their sets of indices, like _chain_comparison_reads's levels.
+    """
+    read = {}  # array sort -> the indices read from arrays of that sort
+    for node in reachable:
+        if graph.kind(node) == z3.Z3_OP_SELECT:
+            array, index = graph.arguments(node)[:2]
+            read.setdefault(graph.decl(array).range, set()).add(index)
+    levels = {}
+    for node in equalities:
+        for index in read.get(graph.decl(graph.arguments(node)[0]).range, ()):
+            pending, seen = list(graph.arguments(node)), set()
+            while pending:
+                current = pending.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                kind, arguments = graph.kind(current), graph.arguments(current)
+                if kind == z3.Z3_OP_ITE:
+                    pending.extend(arguments[1:])
+                elif kind in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY):
+                    levels.setdefault(current, set()).add(index)
+                    if kind == z3.Z3_OP_STORE and arguments[1] != index:
+                        pending.append(arguments[0])
+    return levels
 
 
 def _chain_comparison_reads(graph, equalities):
