@@ -438,7 +438,6 @@ namespace seq {
             !seq.str.is_string(a) &&
             !seq.str.is_unit(a) &&
             !seq.str.is_itos(a) &&
-            !seq.str.is_nth_i(a) &&
             !seq.str.is_map(a) &&
             !seq.str.is_mapi(a) &&
             !seq.str.is_foldl(a) &&
