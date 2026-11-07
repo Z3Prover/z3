@@ -343,6 +343,37 @@ static void check_quantifier_polarities() {
             }
         }
     }
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream input(
+            "(declare-fun p (Int) Bool)\n"
+            "(assert (forall ((x Int)) (p x)))\n"
+            "(assert (not (p 0)))\n");
+        VERIFY(parse_smt2_commands(cmd, input));
+        smt_params params;
+        params.m_preprocess = false;
+        params.m_auto_config = false;
+        smt::context ctx(m, params);
+        ctx.internalize(cmd.assertions()[0], true, l_false);
+        for (unsigned i = 0; i < 2; ++i) {
+            ctx.push();
+            for (expr* assertion : cmd.assertions()) {
+                proof_ref pr(m.mk_asserted(assertion), m);
+                ctx.internalize_assertion(assertion, pr, 0);
+            }
+            VERIFY(ctx.check() == l_false);
+            if (proofs) {
+                proof_ref pr(ctx.get_proof(), m);
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(pr && checker.check(pr, side_conditions));
+            }
+            ctx.pop(1);
+            VERIFY(ctx.check() == l_true);
+        }
+    }
     struct {
         char const* input;
         lbool expected;

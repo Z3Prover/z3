@@ -4,14 +4,22 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
 
+import build_cherry_checker
 from build_cherry_checker import failure_stubs
 import package_checker
+
+
+MANIFEST = json.loads((Path(__file__).resolve().parents[1] / "tools/checker_modules.json")
+                      .read_text(encoding="utf-8"))
+KERNEL = ["Z3CoreModel.fst", "Z3TypedQuantifier.fst", "Z3GhostStandardModel.fst",
+          "Z3CoreKernel.fst", "Z3QuantifierKernel.fst", "Z3BinderKernel.fst"]
 
 
 class CherryBuildTests(unittest.TestCase):
@@ -43,6 +51,94 @@ class CherryBuildTests(unittest.TestCase):
         self.assertLess(modules.index("Z3ProofDocument.fst"), modules.index("Z3NativeProof.fst"))
         self.assertLess(modules.index("Z3SortedProof.fst"), modules.index("Z3NativeProof.fst"))
         self.assertEqual(manifest["modules"][-2:], ["Z3Native.fsti", "Z3NativeProof.fst"])
+
+
+class CherryScopeWiringTests(unittest.TestCase):
+    """Drive build() with recorded commands and a fixture dependency closure, not real tools."""
+
+    def build(self, run_tests):
+        temporary = Path(tempfile.mkdtemp(prefix="cherry-scope-"))
+        self.addCleanup(shutil.rmtree, temporary)
+        for path in ("install/bin/z3", "install/lib/libz3.a", "fstar/ulib/c/cherry.c"):
+            (temporary / path).parent.mkdir(parents=True, exist_ok=True)
+            (temporary / path).touch()
+        output = temporary / "build"
+        commands = []
+
+        def run(command, **kwargs):
+            command = [str(arg) for arg in command]
+            commands.append(command)
+            stdout = {"-version": "Z3 version 5.4.0 - 64 bit", "-dumpfullversion": "15.2.0",
+                      "--locate_lib": str(temporary / "fstar")}.get(command[-1], "tool 15.2.0")
+            if "--codegen" in command:
+                (output / "generated/Z3Cherry.c").write_text(
+                    "extern cherry_int Z3Native_fail__int(cherry_string);\n", encoding="utf-8")
+            elif "-o" in command:
+                Path(command[command.index("-o") + 1]).write_bytes(b"binary")
+            return subprocess.CompletedProcess(command, 0, stdout, "")
+
+        closure = ({m for m in MANIFEST["modules"] + MANIFEST["cherry_modules"] if m not in KERNEL}
+                   | {"Z3Cherry.fst"})
+        args = argparse.Namespace(
+            fstar=temporary / "fstar/bin/fstar.exe", z3_install=temporary / "install",
+            build_dir=output, cache_dir=None, cc="gcc-15", cxx="g++-15",
+            run_tests=run_tests, sanitize=False, report=temporary / "scope-cherry.json")
+        with patch.object(build_cherry_checker, "run", side_effect=run), \
+             patch.object(build_cherry_checker.checker_scope, "dependency_closure",
+                          return_value=closure) as dependencies, \
+             patch.object(build_cherry_checker.checker_scope.subprocess, "check_output",
+                          return_value="source\n"), \
+             patch.object(build_cherry_checker.platform, "system", return_value="Linux"), \
+             patch.object(build_cherry_checker.platform, "machine", return_value="x86_64"):
+            build_cherry_checker.build(args)
+        self.dependency_command = [str(arg) for arg in dependencies.call_args.args[0]]
+        self.assertIn("--dep", self.dependency_command)
+        self.assertEqual(Path(self.dependency_command[-1]).name, "Z3Cherry.fst")
+        verified = [Path(c[-1]).name for c in commands if "--cache_checked_modules" in c]
+        extraction = next(c for c in commands if "--codegen" in c)
+        metadata = json.loads((output / "build.json").read_text(encoding="utf-8"))
+        report = json.loads(args.report.read_text(encoding="utf-8"))
+        self.assertEqual((report["source_sha"], report["backend"]), ("source", "cherry"))
+        return commands, verified, extraction, metadata, report
+
+    def test_checker_scope_verifies_the_closure_and_builds_no_tests(self):
+        commands, verified, extraction, metadata, report = self.build(False)
+        self.assertEqual(verified, [m for m in MANIFEST["modules"] if m not in KERNEL]
+                         + MANIFEST["cherry_modules"] + ["Z3Cherry.fst"])
+        self.assertEqual(Path(extraction[-1]).name, "Z3Cherry.fst")
+        self.assertNotIn("Z3CherryTests.run", extraction)
+        self.assertFalse(any(c[-1].endswith("checker-tests") for c in commands))
+        self.assertFalse(any("test_native_checker.py" in " ".join(c) for c in commands))
+        self.assertEqual((metadata["mode"], metadata["verified_modules"]), ("checker", len(verified)))
+        self.assertEqual((report["mode"], report["selected_modules"]), ("checker", verified))
+
+    def test_dependency_discovery_takes_no_verification_flags(self):
+        for run_tests in (False, True):
+            with self.subTest(run_tests=run_tests):
+                commands, verified, _, _, _ = self.build(run_tests)
+                for flag in ("--warn_error", "--cache_dir", "--cache_checked_modules",
+                             "--include", "--smt", "--z3version", "--timing"):
+                    self.assertNotIn(flag, self.dependency_command)
+                verification = [c for c in commands if "--cache_checked_modules" in c]
+                self.assertEqual(len(verification), len(verified))
+                for command in verification:
+                    self.assertEqual(command[command.index("--warn_error") + 1], "@1..999")
+
+    def test_build_metadata_keeps_the_compiler_version(self):
+        for run_tests in (False, True):
+            with self.subTest(run_tests=run_tests):
+                metadata = self.build(run_tests)[3]
+                self.assertEqual(metadata["cc"], "tool 15.2.0")
+
+    def test_run_tests_verifies_every_module_and_test_then_runs_both_suites(self):
+        commands, verified, extraction, metadata, report = self.build(True)
+        self.assertEqual(verified, MANIFEST["modules"] + MANIFEST["cherry_modules"] + ["Z3Cherry.fst"]
+                         + MANIFEST["tests"] + ["Z3CherryTests.fst"])
+        self.assertEqual(Path(extraction[-1]).name, "Z3CherryTests.fst")
+        self.assertIn("Z3CherryTests.run", extraction)
+        self.assertTrue(any(c[-1].endswith("checker-tests") for c in commands))
+        self.assertTrue(any("test_native_checker.py" in " ".join(c) for c in commands))
+        self.assertEqual((metadata["mode"], report["registered_not_selected"]), ("full", []))
 
 
 class CheckerPackageTests(unittest.TestCase):

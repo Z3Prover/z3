@@ -659,7 +659,8 @@ namespace smt {
         SASSERT(check_patterns(q));
         if (!b_internalized(q)) {
             bool_var v = mk_bool_var(q);
-            if (is_forall(q) && polarity != l_false) {
+            // Registration follows the Boolean variable's lifetime, not its first polarity.
+            if (is_forall(q)) {
                 unsigned generation = m_generation;
                 unsigned _generation;
                 if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation))
