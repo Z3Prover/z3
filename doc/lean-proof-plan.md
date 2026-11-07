@@ -2751,6 +2751,21 @@ failed Lean before the per-sort grouping. Known gap, shared with
 outside a function argument, makes its theory step "over both Int and Real
 atoms", which is rejected.
 
+Update (2026-11-06): that gap is closed. An arithmetic ite is an atom of the
+linear forms, tied to its branches by gate clauses, so `_lemma_numeric` no
+longer counts the atoms of its condition among the step's (the step takes
+the ite's sort; a lemma whose own literals are over both sorts is still
+rejected). The case also arises without an ite in the input: Z3's rewriter
+turns a read of a store into `(Array Real Int)` into an Int ite over a Real
+index equality. Tests: `lira_int_ite_over_real_condition` and
+`lira_real_ite_over_int_condition` on both cores,
+`int_read_of_a_store_at_real_indices`, `random_constant_array_instance`
+seed 103 over Real indices and Int elements (seeds 1-300: 192 of 192
+unsatisfiable seeds verify in Lean), and `random_mixed_instance` with
+`ites=0.3` (ites over conditions of the other sort; seeds 1-150: 13 of 35
+unsatisfiable seeds were rejected, now 70 of 70 runs on both cores verify;
+three are pinned).
+
 ### Enumeration datatypes through the clause log (2026-11-06)
 
 Every `declare-datatype(s)` was rejected by the frontend. Enumerations

@@ -2597,7 +2597,11 @@ def _reachable_outside_applications(graph, formula):
     Reads of arrays, extensionality witnesses, default values, and array
     terms are not entered either: they are atoms of the linear forms, or
     contain only such atoms, whatever the sorts of their indices and
-    elements.
+    elements. Neither is the condition of an arithmetic ite: the ite is
+    an atom of the linear forms tied to its branches (of its own sort) by
+    gate clauses, so the atoms of its condition are not the step's (the
+    rewriter turns a read of a store into a Real-indexed array of Int
+    elements into an Int ite over a Real index equality).
     """
     reachable, pending = set(), [formula]
     while pending:
@@ -2609,7 +2613,10 @@ def _reachable_outside_applications(graph, formula):
                                                        and graph.arguments(node)) \
                 and graph.kind(node) not in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_EXT, z3.Z3_OP_ARRAY_DEFAULT) \
                 and not graph.is_array(node):
-            pending.extend(graph.arguments(node))
+            arguments = graph.arguments(node)
+            if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node):
+                arguments = arguments[1:]
+            pending.extend(arguments)
     return reachable
 
 
@@ -3864,7 +3871,9 @@ def _lemma_numeric(graph, node):
     together (_cast_facts). In a qf_uflira certificate an application of
     an uninterpreted function is an opaque atom of the linear forms, so
     its arguments (of either sort) are not the step's: an Int argument of
-    a function with a Real result keeps a step over Real atoms Real.
+    a function with a Real result keeps a step over Real atoms Real. Nor
+    are the atoms of an arithmetic ite's condition: an Int ite over a Real
+    comparison keeps a step over Int atoms Int.
     Several checks ask about one step, so the answer is kept per node.
     """
     if graph.numeric != _MIXED:

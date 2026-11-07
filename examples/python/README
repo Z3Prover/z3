@@ -755,7 +755,12 @@ relates no atoms of the two sorts in one arithmetic lemma, so the
 reconstructor reads each th-lemma's sort off its atoms: an Int lemma takes
 the integer path (tightening, the generalized attempt, the combination and
 split proofs), a Real one the Real path, and a lemma over both sorts is
-rejected. A lemma reaching to_real is checked as a rational combination with
+rejected. An arithmetic ite is one atom of the linear forms, tied to its
+branches by gate clauses, so the atoms of its condition are not the
+lemma's: an Int ite over a Real comparison (as the rewriter makes of a
+read of a store into an (Array Real Int)) keeps a lemma over Int atoms
+Int, and a to_real inside such a condition does not make the lemma a cast
+lemma. A lemma reaching to_real is checked as a rational combination with
 each Int atom tightened on its own (its coefficients, when it has any, must
 refute the literals; a cut must round Int atoms and Real atoms over Int
 terms only) and proved by grind after two kinds of facts: every Int atom
@@ -964,7 +969,8 @@ argument is injected by _m.int and a Real one by _m.real, an application
 with an Int result is _m.ifuns i [...] and one with a Real result
 _m.rfuns i [...] (one numbering for both families), and each theory lemma
 takes the sort of its atoms as in qf_lira, an application being one atom
-whatever the sorts of its arguments. The argument-equality helpers relate
+whatever the sorts of its arguments (and an arithmetic ite one atom
+whatever the sorts of its condition's atoms). The argument-equality helpers relate
 arguments of one sort only: an Int (ite c 1 0) and a Real (ite c 1.0 0.0)
 share a linear form but are injected by different maps. Nothing
 states that _m.real is injective and no inference needs it: euf lemmas use

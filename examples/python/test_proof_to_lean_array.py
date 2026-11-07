@@ -607,6 +607,19 @@ REAL_INDEX_CONSTANT_ARRAY_INPUTS = {
 (assert (distinct (/ 3 2) (select a k) (select a 0.0)))
 (check-sat)
 """,
+    # The rewriter turns the read into (ite (= k0 k2) x1 x0), an Int ite
+    # over a Real condition: the farkas lemma over it is an Int step
+    # (random_constant_array_instance seed 103 over Real indices and Int
+    # elements).
+    "int_read_of_a_store_at_real_indices": """(set-logic ALL)
+(declare-const k0 Real)
+(declare-const k2 Real)
+(declare-const x0 Int)
+(declare-const x1 Int)
+(assert (= (+ x0 1) (select (store ((as const (Array Real Int)) x0) k0 x1) k2)))
+(assert (< x1 (+ x0 1)))
+(check-sat)
+""",
 }
 # Functions into arrays: one family per Lean array type (_m.arrs_funs,
 # _m.arrs_ii_funs, ...) taking the argument list like _m.funs. Their
@@ -1812,7 +1825,8 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "predicate_over_application": "qf_uflia", "nested_applications": "qf_uflia",
               "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia",
               "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira",
-              "real_read_of_an_array_equated_to_a_constant": "qf_uflra"}
+              "real_read_of_an_array_equated_to_a_constant": "qf_uflra",
+              "int_read_of_a_store_at_real_indices": "qf_uflira"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
 # Set combinators are over Int indices (qf_uflia) except these, named
@@ -3098,11 +3112,13 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
 # constant array's reads (_compared_side_reads), and 48 before the
 # extensionality witnesses of two arrays either way round were equal
 # (_array_diff_comm). (Seeds 1-300 over Real/Real and 1-150 over Int/Real
-# and Real/Int then verify, but for one Real/Int seed rejected for an
-# arithmetic step over both Int and Real atoms.)
+# then verify.) Over (Array Real Int), 103 was rejected for an arithmetic
+# step over both Int and Real atoms before the condition of an Int ite
+# (a read of a store, rewritten) no longer counted among the step's atoms;
+# seeds 1-300 then verify (192 of 192 on iteration 87's macOS build).
 _REAL_SORTS = {"index": "Real", "element": "Real"}
 CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246), (_REAL_SORTS, 48),
-                        (_REAL_SORTS, 87))
+                        (_REAL_SORTS, 87), ({"index": "Real", "element": "Int"}, 103))
 
 
 def random_chain_comparison_instance(seed):
