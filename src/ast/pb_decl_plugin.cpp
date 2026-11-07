@@ -147,8 +147,8 @@ app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * 
         all_ones &= m_coeffs[i].is_one();
         m_params.push_back(parameter(m_coeffs[i]));
     }
-    if (all_ones && k.is_unsigned()) {
-        m_params[0] = parameter(ceil(m_k).get_unsigned());
+    if (all_ones && k.is_unsigned() && ceil(m_k).is_int32()) {
+        m_params[0] = parameter(ceil(m_k).get_int32());
         return m.mk_app(m_fid, OP_AT_LEAST_K, 1, m_params.data(), num_args, args, m.mk_bool_sort());
     }
     return m.mk_app(m_fid, OP_PB_GE, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());

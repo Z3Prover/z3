@@ -1,0 +1,95 @@
+name: Verify all Pulse checker files
+
+on:
+  push:
+    paths:
+      - 'fstar/**'
+      - '.github/workflows/pulse-checker-full.yml'
+      - '.github/scripts/install-pulse-checker-toolchains.sh'
+  pull_request:
+    paths:
+      - 'fstar/**'
+      - '.github/workflows/pulse-checker-full.yml'
+      - '.github/scripts/install-pulse-checker-toolchains.sh'
+  workflow_run:
+    workflows: [Nightly Build]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-checker-full-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.path == '.github/workflows/nightly.yml' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+       (github.event.workflow_run.event == 'schedule' ||
+        github.event.workflow_run.event == 'workflow_dispatch'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    env:
+      FSTAR_VERSION: v2026.10.25
+      FSTAR_SHA256: a716153960545bc26b9d093f55614fedc716a202e4daa1665e5c63e4a2fb04e4
+      CHERRY_FSTAR_VERSION: nightly-2026-10-30
+      CHERRY_FSTAR_SHA256: 7910823f077f66d516d6901fafc78659a3c6a8f300caa7981cc56809a9f37994
+      OPAM_SWITCH: fstar53
+    steps:
+      - name: Checkout Z3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Prepare verification report directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/pulse-checker-full-report"
+          echo "REPORT_DIR=$RUNNER_TEMP/pulse-checker-full-report" >> "$GITHUB_ENV"
+          printf '{"source_sha":"%s"}\n' "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/pulse-checker-full-report/source.json"
+
+      - name: Install pinned F*, Cherry, and OCaml toolchains
+        timeout-minutes: 30
+        run: bash .github/scripts/install-pulse-checker-toolchains.sh
+
+      - name: Build Z3, verify every registered Pulse module and test, and run the native suites
+        timeout-minutes: 120
+        run: |
+          set -euo pipefail
+          eval "$(opam env --switch="$OPAM_SWITCH")"
+          start=$SECONDS
+          if pwsh -NoProfile -File fstar/tools/build_ocaml_checker.ps1 \
+            -FstarExe "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" \
+            -Z3WindowsBuildDir "$RUNNER_TEMP/full-z3-build" \
+            -Z3InstallDir "$RUNNER_TEMP/full-z3-install" \
+            -CacheDir "$RUNNER_TEMP/full-fstar-cache" \
+            -WslBuildDir "$RUNNER_TEMP/full-native-checker" -ReportDir "$REPORT_DIR" \
+            -OpamSwitch "$OPAM_SWITCH" -BuildJobs 4 -RunTests -BuildCherry \
+            -CherryFstarExe "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
+            2>&1 | tee "$REPORT_DIR/build.log"; then
+            status=0
+          else
+            status=$?
+          fi
+          printf '{"mode":"full","wall_seconds":%d,"exit_code":%d,"fstar_version":"%s","ocaml_version":"5.3.0"}\n' \
+            "$((SECONDS - start))" "$status" "$FSTAR_VERSION" > "$REPORT_DIR/build.json"
+          exit "$status"
+
+      - name: Upload verification logs, scope, and timing
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulse-checker-full-report
+          path: ${{ runner.temp }}/pulse-checker-full-report
+          if-no-files-found: error
+          retention-days: 14

@@ -316,7 +316,7 @@ class TestProofCertificate(unittest.TestCase):
         # one defined in a popped scope is gone, as Z3 scopes it.
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported sort"):
             proof_certificate.export_certificate(
-                "(define-sort A () (Array Bool Bool))(declare-const x A)(assert (= x x))(assert false)")
+                "(define-sort A () (Array Bool Bool Bool))(declare-const x A)(assert (= x x))(assert false)")
         with self.assertRaises(z3.Z3Exception):
             proof_certificate.export_certificate(
                 "(push)(define-sort B () Bool)(pop)(declare-const p B)(assert p)(assert (not p))")
@@ -564,11 +564,11 @@ class TestProofCertificate(unittest.TestCase):
 
     def test_unsupported_input_is_rejected_even_with_false(self):
         problems = [
-            "(declare-fun f (Int) Int)(declare-const y Real)(assert (= (f 1) (to_int y)))",
+            "(declare-fun f (Int) Int)(declare-const y Real)(assert (= (f 1) (to_int (* y y))))",
             "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
-            "(declare-fun f (Int) Bool)(declare-const x Real)(assert (and (f 1) (> x 1.0)))",
+            "(declare-fun f (Int) Bool)(declare-const x Real)(assert (and (f (div 1 0)) (> x 1.0)))",
             "(assert (forall ((p Bool)) p))",
             "(declare-const p Bool)(declare-const q Bool)(assert ((_ at-most 1) (and p q)))",
         ]
@@ -1410,7 +1410,7 @@ class TestFragmentClassification(unittest.TestCase):
         # to_real of an Int variable, of div, or of an Int ite relates the
         # sorts: qf_lira, the z3 executable keeps (to_real (ite p 1 2)) over
         # an Int ite in its log. Next to an uninterpreted function it is
-        # rejected like both sorts are.
+        # qf_uflira.
         for source in [
             "(declare-const x Real)(declare-const p Bool)(assert (= x (ite p 1 2)))",
             "(declare-const x Real)(declare-const i Int)(assert (= x (+ i 1)))",
@@ -1418,9 +1418,8 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_lira")
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "mixing integer and real arithmetic with "
-                                    "uninterpreted functions"):
-            self.classify("(declare-fun g (Real) Int)(declare-const x Real)(assert (= x (g 1)))")
+        self.assertEqual(self.classify("(declare-fun g (Real) Int)(declare-const x Real)(assert (= x (g 1)))"),
+                         "qf_uflira")
 
     def test_linear_integer_inputs_are_classified(self):
         self.assertEqual(self.classify("(declare-const x Int)(assert (> x 1))"), "qf_lia")
@@ -1498,32 +1497,33 @@ class TestFragmentClassification(unittest.TestCase):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError,
                                             r"\(qf_lira\).*accept the fragment explicitly"):
                     parse(mixed, z3.Context())
-        for source, message in [
-            # Both sorts next to uninterpreted symbols have no encoding,
-            # through a conversion or not.
-            ("(declare-fun f (Int) Int)(declare-const x Int)(declare-const y Real)(assert (and (> (f x) 1) (> y 1.0)))",
-             "mixing integer and real arithmetic with uninterpreted functions"),
-            ("(declare-fun f (Int) Int)(declare-const y Real)(assert (> (f (to_int y)) 1))",
-             "mixing integer and real arithmetic with uninterpreted functions"),
-            ("(declare-fun p (Real) Bool)(declare-const y Real)(assert (and (p y) (is_int y)))",
-             "mixing integer and real arithmetic with uninterpreted functions"),
+
+    def test_both_arithmetic_sorts_with_uninterpreted_symbols_are_qf_uflira(self):
+        # Both sorts next to uninterpreted symbols, through a conversion, a
+        # signature over both sorts, or neither.
+        for source in [
+            "(declare-fun f (Int) Int)(declare-const x Int)(declare-const y Real)(assert (and (> (f x) 1) (> y 1.0)))",
+            "(declare-fun f (Int) Int)(declare-const y Real)(assert (> (f (to_int y)) 1))",
+            "(declare-fun p (Real) Bool)(declare-const y Real)(assert (and (p y) (is_int y)))",
+            "(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))",
+            # Z3's parser coerces a Real argument of an Int-domain function with to_int.
+            "(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))",
+            "(declare-fun f (Real) Int)(declare-const x Real)(assert (> (f x) 1))",
+            "(declare-sort U 0)(declare-fun p (Int Real U) Bool)(declare-const u U)(assert (p 1 1.0 u))",
         ]:
             with self.subTest(source=source):
-                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
-                    self.classify(source)
+                self.assertEqual(self.classify(source), "qf_uflira")
+        source = "(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))"
+        for parse in (proof_certificate.parse_assertions, proof_certificate.parse_legacy_assertions):
+            with self.subTest(parse=parse.__name__):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                            r"\(qf_uflira\).*accept the fragment explicitly"):
+                    parse(source, z3.Context())
 
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
         for source, message in [
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
-            # Integer arithmetic never mixes with Real, not even through a
-            # function signature; no conversions.
-            ("(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))", "mixing integer and real"),
-            # Z3's parser coerces a Real argument of an Int-domain function with to_int.
-            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "mixing integer and real"),
-            ("(declare-fun f (Real) Int)(declare-const x Real)(assert (> (f x) 1))", "mixing integer and real"),
-            ("(declare-fun f (Int) Int)(declare-const x Real)(declare-const y Int)(assert (and (> (f y) 1) (> x 1.0)))",
-             "mixing integer and real"),
             ("(declare-const y Real)(assert (> (to_int (* y y)) 1))", "nonlinear"),
             # Integer div and mod by zero are uninterpreted in SMT-LIB and
             # total in Lean, by a term nonlinear; so is Z3's rem.
@@ -1605,9 +1605,10 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uflra")
+        self.assertEqual(self.classify(
+            declarations + "(declare-fun h (U) Int)(declare-const x Real)(assert (and (= (h a) (h a)) (> x 1.0)))"),
+            "qf_uflira")
         for source, message in [
-            (declarations + "(declare-fun h (U) Int)(declare-const x Real)(assert (and (= (h a) (h a)) (> x 1.0)))",
-             "mixing integer and real"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* (f x) (f x)) 1.0))", "nonlinear"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
             # Z3 accepts one name declared with several signatures and tells the
@@ -3585,6 +3586,103 @@ class TestClauseLogDependencies(unittest.TestCase):
         certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
         self.assertNotIn("th-lemma", certificate["rule_counts"])
         self.assertEqual(len(certificate["assertions"]), 7)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimming_reads_map_logs(self):
+        # Z3 logged ((_ map f) a) without declaring f, and a built-in as
+        # (_ map <=), without the signature the SMT-LIB parser needs to read
+        # it back; the trimmer rejected every such log ("unknown function f",
+        # "must provide signature for builtin symbol <="), and each map log of
+        # 4 KB or more was replayed untrimmed (iter-078 sweep, 2026-11-05).
+        # On macOS this input's search also derives the default-value axiom
+        # of a map, which the replay rejects; the refutation does not need
+        # it, so only the trimmed log certifies. Z3's search differs by
+        # platform (on Linux the untrimmed log has no such axiom), so the
+        # rejection is checked only where the untrimmed replay fails.
+        source = """(declare-fun f (Int) Int)
+(declare-fun g (Int Int) Int)
+(declare-fun i () Int)
+(declare-fun j () Int)
+(declare-fun a0 () (Array Int Int))
+(declare-fun a1 () (Array Int Int))
+(declare-fun a2 () (Array Int Int))
+(declare-fun a3 () (Array Int Int))
+(declare-fun p0 () (Array Int Bool))
+(declare-fun p1 () (Array Int Bool))
+(assert (not (select ((_ map (<= (Int Int) Bool)) ((_ map (ite (Bool Int Int) Int)) p1 a0 a3) a3) i)))
+(assert (not (select p0 0)))
+(assert (= a1 ((_ map f) ((_ map g) a1 a2))))
+(assert (not (select ((_ map (<= (Int Int) Bool)) ((_ map (ite (Bool Int Int) Int)) p1 a2 a1)
+                      ((_ map (- (Int) Int)) a1)) i)))
+(assert (select ((_ map (<= (Int Int) Bool)) (store a3 1 0) (store a0 1 2)) i))
+(assert (> (select (store a3 1 0) i) (select (store a0 1 2) i)))
+(check-sat)
+"""
+        executable = proof_certificate.default_z3_executable()
+        log = proof_clause_log.run_clause_log(executable, source, 60)
+        self.assertGreater(len(log), proof_clause_log._TRIM_THRESHOLD)
+        self.assertLess(log.index("(declare-fun f (Int) Int)"), log.index("((_ map f) "))
+        self.assertLess(log.index("(declare-fun g (Int Int) Int)"), log.index("((_ map g) "))
+        self.assertIn("((_ map (<= (Int Int) Bool)) ", log)
+        self.assertNotIn("(_ map <=)", log)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
+        try:
+            proof_clause_log.build_certificate(source, fragment, assertions, log, context)
+        except proof_certificate.ProofExportError as error:
+            self.assertIn("default value of a map is not certified", str(error))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # a fallback to the untrimmed log would hide a printer defect
+            certificate = proof_certificate.export_clause_log_certificate(source, timeout=60)
+        self.assertEqual(certificate["fragment"], "qf_uflia")
+        # The trimmer prints the maps its core keeps the same way, and the
+        # replay checks a logged signature against the application.
+        source = """(declare-fun f (Int) Int)
+(declare-fun a1 () (Array Int Int))
+(declare-fun a2 () (Array Int Int))
+(assert (= a1 ((_ map f) ((_ map (- (Int) Int)) a2))))
+(assert (not (= (select a1 1) (select ((_ map f) ((_ map (- (Int) Int)) a2)) 1))))
+(check-sat)
+"""
+        log = proof_clause_log.run_clause_log(executable, source, 60)
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0), warnings.catch_warnings():
+            warnings.simplefilter("error")
+            trimmed = proof_clause_log.trim_clause_log(executable, log, 60)
+        self.assertNotEqual(trimmed, log)
+        self.assertLess(trimmed.index("(declare-fun f (Int) Int)"), trimmed.index("((_ map f) "))
+        self.assertIn("((_ map (- (Int) Int)) a2)", trimmed)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
+        self.assertEqual(sorted(declaration["parameters"] for declaration in certificate["declarations"]
+                                if declaration["kind"] == z3.Z3_OP_ARRAY_MAP), [["-"], ["declared", "f"]])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "map function with another signature"):
+            proof_clause_log.build_certificate(source, fragment, assertions,
+                                                trimmed.replace("(_ map (- (Int) Int))", "(_ map (- (Int Int) Int))"),
+                                                context)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for clause logs")
+    def test_clause_logs_print_datatype_heads_without_signatures(self):
+        # Only a map's function gets its signature in the clause log; testers
+        # and field updates keep the standard (_ is C) and (_ update-field a).
+        executable = proof_certificate.default_z3_executable()
+        log = proof_clause_log.run_clause_log(executable, """(declare-datatypes ((L 0)) (((nil) (cons (hd Int) (tl L)))))
+(declare-const x L)
+(assert (not ((_ is nil) x)))
+(assert (not ((_ is cons) x)))
+""", 60)
+        self.assertIn("((_ is nil) x)", log)
+        self.assertNotIn("(_ is (", log)
+        log = proof_clause_log.run_clause_log(executable, """(declare-datatypes ((R 0)) (((mk (a Int) (b Int)))))
+(declare-const r R)
+(declare-const s R)
+(declare-const k Int)
+(assert (= s ((_ update-field a) r k)))
+(assert (not (= (a s) k)))
+""", 60)
+        self.assertIn("((_ update-field a) r k)", log)
+        self.assertIn("((_ is mk) r)", log)
+        self.assertNotIn("(_ update-field (", log)
 
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
     def test_native_trimming_ignores_deletions_of_clauses_it_never_added(self):

@@ -50,7 +50,7 @@ let open_bool (i:interpretation value) (dom:CO.domains) (rho:env value)
   = CO.lemma_typed_eval i dom [bool_sort] (Var 0 bool_sort) rho
 
 (* A lambda body is typed by the innermost-first argument list. *)
-let int_s : sort = BaseSort "Int"
+let int_s : sort = (SortApp IntSymbol [])
 let open_lambda : expr = Quantifier Lambda_k [int_s; bool_sort] (ArraySort [int_s; bool_sort] bool_sort) (Var 0 bool_sort)
 
 let lambda_typed (i:interpretation value) (dom:CO.domains) (rho:env value)
@@ -73,10 +73,10 @@ let content (i:interpretation value) (dom:CO.domains) (s:sort) (rho:env value)
 (* --- Canonical keys: look-alike declarations are ordinary atoms ----------- *)
 
 let clash_eq : func_decl =
-  { decl_name = "="; domain = [BaseSort "BV2"; BaseSort "BV2"]; range = bool_sort;
+  { decl_name = "="; domain = [(SortApp (BvSymbol 2) []); (SortApp (BvSymbol 2) [])]; range = bool_sort;
     interp = Some 114; int_params = [2] }
 let clash_true : func_decl =
-  { decl_name = "true"; domain = []; range = BaseSort "BV1"; interp = Some 108; int_params = [1; 1] }
+  { decl_name = "true"; domain = []; range = (SortApp (BvSymbol 1) []); interp = Some 108; int_params = [1; 1] }
 let accessor_and : func_decl =
   { decl_name = "and"; domain = [BaseSort "D"]; range = bool_sort; interp = Some 202; int_params = [0; 0; 0] }
 let constructor_implies : func_decl =

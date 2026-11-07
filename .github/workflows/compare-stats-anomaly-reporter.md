@@ -6,6 +6,12 @@ on:
     - cron: "0 */12 * * *"
   workflow_dispatch:
 
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
+
 permissions: read-all
 
 strict: false

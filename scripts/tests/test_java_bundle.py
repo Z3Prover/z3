@@ -84,7 +84,7 @@ class MavenBundleTests(unittest.TestCase):
             'unsupported_rejected': True}
         self.smoke = {'source_commit': 'a' * 40, 'generator_sha256': 'generator', 'loader_sha256': 'loader',
                       'platform': 'win-x64', 'passed': True,
-                      'artifacts': {kind: {'passed': True, 'jar_name': artifacts[published if kind == 'win-x64' else kind],
+                      'artifacts': {kind: {'passed': True, 'jar_name': self.identity['artifactId'] + '-' + self.identity['version'] + '-' + kind + '.jar',
                           'jar_sha256': self.report['jar_sha256'][artifacts[published if kind == 'win-x64' else kind]],
                           'modes': sorted(bundle.MODES)}
                           for kind in ('win-x64', 'all')}}

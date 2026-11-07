@@ -3,6 +3,11 @@ description: Analyzes Z3 codebase for consistent coding conventions and opportun
 on:
   schedule: daily
   workflow_dispatch:
+engine:
+  id: copilot
+  model-routing:
+    goal: cost
+    mode: auto
 permissions: read-all
 tools:
   cache-memory: true

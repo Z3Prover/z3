@@ -42,7 +42,7 @@ protected:
     format_ns::format * mk_neg(format_ns::format * f) const;
     format_ns::format * mk_float(rational const & val) const;
     bool is_indexed_fdecl(func_decl * f) const;
-    format_ns::format * pp_fdecl_params(format_ns::format * fname, func_decl * f);
+    format_ns::format * pp_fdecl_params(format_ns::format * fname, func_decl * f, bool signatures = false);
     bool is_sort_param(func_decl * f) const;
     format_ns::format * pp_as(format_ns::format * fname, sort * s);
     format_ns::format * pp_signature(format_ns::format * f_name, func_decl * f);
@@ -66,6 +66,7 @@ public:
     virtual format_ns::format * pp_string_literal(app * t);
     virtual format_ns::format * pp_sort(sort * s);
     virtual format_ns::format * pp_fdecl_ref(func_decl * f);
+    format_ns::format * pp_fdecl_with_signatures(func_decl * f, unsigned & len);
     format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len, bool is_skolem) const;
     format_ns::format * pp_fdecl_name(func_decl * f, unsigned & len) const;
 };

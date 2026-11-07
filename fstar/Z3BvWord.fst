@@ -432,6 +432,8 @@ let rec lemma_add_values (carry:bool) (xs ys:list bool)
       assert (L.length xs == L.length rest + 1);
       assert (BV.bits_number xs == bit_number a + 2 * BV.bits_number rest);
       assert (BV.bits_number ys == bit_number b + 2 * BV.bits_number tail);
+      assert (BV.bits_number (((a <> b) <> carry) :: sums) ==
+                bit_number ((a <> b) <> carry) + 2 * BV.bits_number sums);
       lemma_carry_arithmetic (L.length rest) (bit_number a) (bit_number b) (bit_number carry)
         (bit_number ((a <> b) <> carry)) (bit_number next) (bit_number overflow)
         (BV.bits_number rest) (BV.bits_number tail) (BV.bits_number sums)

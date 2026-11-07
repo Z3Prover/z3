@@ -11,6 +11,8 @@ import shlex
 import subprocess
 import sys
 
+import checker_scope
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,10 +67,15 @@ def build(args):
         "--smt", z3, "--z3version", match.group(1),
     ]
     manifest = json.loads((ROOT / "tools/checker_modules.json").read_text(encoding="utf-8"))
-    modules = manifest["modules"] + manifest["cherry_modules"] + ["Z3Cherry.fst"]
-    if args.run_tests:
-        modules += manifest["tests"] + ["Z3CherryTests.fst"]
-    for module in modules:
+    closure = checker_scope.dependency_closure(
+        checker_scope.dependency_command(args.fstar, ["Z3Cherry.fst"]))
+    modules, tests = checker_scope.select(manifest, "cherry", args.run_tests, closure, ["Z3Cherry.fst"])
+    print(f"Verification scope {'full' if args.run_tests else 'checker-only'}: "
+          f"{len(modules)} modules, {len(tests)} tests", flush=True)
+    if args.report:
+        checker_scope.write_report(args.report, manifest, "cherry", args.run_tests, fstar_version,
+                                   ["Z3Cherry.fst"], modules, tests)
+    for module in modules + tests:
         run(common + ["--cache_checked_modules", ROOT / module])
     entries = ["Z3Cherry.marshal", "Z3Cherry.check", "Z3Cherry.diagnose",
                "Z3Cherry.constructor_op", "Z3Cherry.recognizer_op",
@@ -118,7 +125,8 @@ def build(args):
         environment.pop("Z3_FSTAR_WSL_DISTRO", None)
         run([sys.executable, ROOT / "tools/test_native_checker.py"], env=environment)
     metadata = {
-        "backend": "Cherry", "fstar": fstar_version.strip(), "z3": version.strip(),
+        "backend": "Cherry", "mode": "full" if args.run_tests else "checker",
+        "verified_modules": len(modules + tests), "fstar": fstar_version.strip(), "z3": version.strip(),
         "cc": compiler.strip(),
         "cxx": run([args.cxx, "--version"], capture_output=True, text=True).stdout.strip(),
         "commit": run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip(),
@@ -138,6 +146,7 @@ def main():
     parser.add_argument("--cc", default="gcc-15")
     parser.add_argument("--cxx", default="g++-15")
     parser.add_argument("--run-tests", action="store_true")
+    parser.add_argument("--report", type=Path)
     parser.add_argument("--sanitize", action="store_true")
     args = parser.parse_args()
     try:

@@ -534,9 +534,10 @@ dependency order. The Cherry backend generates C for the kernel and a C++
 driver; it needs a Cherry-capable F* and GCC/G++ 15. Both executables link
 static Z3 and solve, marshal and check in one process; their options,
 incremental protocol, diagnostics and exit codes are the same
-([README.md](README.md#L56-L66)). CI pins F* `v2026.10.25` for OCaml and
+([README.md](README.md#L64-L74)). CI pins F* `v2026.10.25` for OCaml and
 `nightly-2026-10-30` for Cherry, OCaml 5.3.0 and GCC 15
-([../.github/workflows/pulse-checker-build.yml](../.github/workflows/pulse-checker-build.yml#L40-L91)).
+([../.github/workflows/pulse-checker-build.yml](../.github/workflows/pulse-checker-build.yml#L43-L48),
+[../.github/scripts/install-pulse-checker-toolchains.sh](../.github/scripts/install-pulse-checker-toolchains.sh)).
 
 **#11478 (merged).** This change bumped F*, inlined the option binds with
 `[@@custard_inline]` ([Z3ProofIndex.fst](Z3ProofIndex.fst#L3-L10)), made list
@@ -649,8 +650,8 @@ Build and test from this directory in a Windows C++20 developer PowerShell
 ```
 
 Add the Cherry backend with `-BuildCherry -CherryFstarExe <Linux-path-to-fstar.exe>`
-([README.md](README.md#L77-L81)). A Cherry-only Linux build after installing
-static Z3 from this checkout ([README.md](README.md#L83-L92)):
+([README.md](README.md#L85-L89)). A Cherry-only Linux build after installing
+static Z3 from this checkout ([README.md](README.md#L91-L100)):
 
 ```sh
 python3 fstar/tools/build_cherry_checker.py \
@@ -688,13 +689,21 @@ The development printer is used the same way with `--readable` added. It
 works only with a checker built from `ddaca4d0a`; it is a development
 candidate and not an option of master.
 
-CI runs [../.github/workflows/pulse-checker-build.yml](../.github/workflows/pulse-checker-build.yml)
-on pushes and pull requests that touch `fstar/**`, and
-[../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)
-on completed builds ([README.md](README.md#L108-L139)). By convention, every
-`.fst` in `tools/checker_modules.json` is verified before extraction, a
-semantic change comes with F* tests and native regressions, and a change of
-scope or guarantee is described in a report in this directory.
+CI runs the checker-only build
+[../.github/workflows/pulse-checker-build.yml](../.github/workflows/pulse-checker-build.yml)
+and the full verification
+[../.github/workflows/pulse-checker-full.yml](../.github/workflows/pulse-checker-full.yml)
+on pushes and pull requests that touch `fstar/**` (the checker-only build
+also for changes to
+[../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)),
+and [../.github/workflows/pulse-checker-regressions.yml](../.github/workflows/pulse-checker-regressions.yml)
+on completed checker-only builds ([README.md](README.md#L119-L192)). By
+convention, every `.fst` in `tools/checker_modules.json` is verified by the
+full workflow (which also extracts all of them, as before; the checker-only
+build extracts its closure and links the same modules), every extracted module
+and its F* dependencies are verified before extraction, a semantic change comes with F* tests and native
+regressions, and a change of scope or guarantee is described in a report in
+this directory.
 
 ## 9. Limitations
 

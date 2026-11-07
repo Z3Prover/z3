@@ -5,6 +5,26 @@ module U = Z3UnifiedProof
 module A = Z3AstTheory
 module C = Z3LpCertificate
 
+let fixture_sort = function
+  | "Bool" -> A.SortApp (A.BoolSymbol, [])
+  | "Int" -> A.SortApp (A.IntSymbol, [])
+  | "Real" -> A.SortApp (A.RealSymbol, [])
+  | "SeqInt" -> A.SortApp (A.SeqSymbol, [A.SortApp (A.IntSymbol, [])])
+  | name ->
+      let indexed prefix symbol =
+        if String.starts_with ~prefix name then
+          let suffix = String.sub name (String.length prefix) (String.length name - String.length prefix) in
+          try
+            let n = Z.of_string suffix in
+            if Z.to_string n = suffix then Some (A.SortApp (symbol n, [])) else None
+          with Invalid_argument _ -> None
+        else None in
+      match indexed "BV" (fun w -> A.BvSymbol w) with
+      | Some sort -> sort
+      | None ->
+          (match indexed "FF" (fun p -> A.FiniteFieldSymbol p) with
+           | Some sort -> sort | None -> A.BaseSort name)
+
 let require condition message = if not condition then failwith message
 
 let context () =
@@ -162,13 +182,13 @@ let pretty_expressions () =
      "(- x (- y z))", "x - (y - z)", true;
      "(- (- x))", "-(-x)", true;
      "(not (<= (+ x (* y z)) 0))", "not (x + y * z <= 0)", false];
-  let fake = A.App ({ A.decl_name = "and"; domain = []; range = A.BaseSort "Bool";
+  let fake = A.App ({ A.decl_name = "and"; domain = []; range = (A.SortApp (A.BoolSymbol, []));
                      interp = None; int_params = [] }, []) in
   require (Z3NativeMain.pretty_expr fake = "|and|") "uninterpreted connective was printed as logic";
   (* Hand-built shapes shared with the Cherry driver's expression rows (cherry_runtime/tests.cpp pretty_regressions
      expects the same strings): binders, numerals, names, sorts and bounds. *)
   let module V = Z3ValueTheory in
-  let bool_s = A.BaseSort "Bool" and int_s = A.BaseSort "Int" and real_s = A.BaseSort "Real" in
+  let bool_s = (A.SortApp (A.BoolSymbol, [])) and int_s = (A.SortApp (A.IntSymbol, [])) and real_s = (A.SortApp (A.RealSymbol, [])) in
   let app name domain range interp args =
     A.App ({ A.decl_name = name; domain; range; interp; int_params = [] }, args) in
   let constant name range = app name [] range None [] in
@@ -302,8 +322,8 @@ let distinct_reflexivity () =
   check false "(declare-const x Int)(declare-const y Int)" "(distinct x y)" "(= x y)";
   check false "(declare-const x Int)(declare-const y Int)(declare-const z Int)"
     "(distinct x y z)" "(and (not (= x y)) (not (= y z)))";
-  let x = A.Var (Z.zero, A.BaseSort "Int") in
-  let declaration = Z3DistinctAst.distinct_decl (A.BaseSort "Int") (Z.of_int 2) in
+  let x = A.Var (Z.zero, (A.SortApp (A.IntSymbol, []))) in
+  let declaration = Z3DistinctAst.distinct_decl ((A.SortApp (A.IntSymbol, []))) (Z.of_int 2) in
   let malformed = A.App ({ declaration with A.interp = None }, [x; x]) in
   require (not (U.check_step U.RewriteRule
       (U.Equal (malformed, Z3ResolutionProofTheory.false_expr)) []))
@@ -638,7 +658,7 @@ let indexed_assertion_membership () =
 
 let cached_definition_expansion () =
   let module D = Z3Definitions in
-  let bool_sort = A.BaseSort "Bool" in
+  let bool_sort = (A.SortApp (A.BoolSymbol, [])) in
   let declaration name = {
     A.decl_name = name; domain = []; range = bool_sort;
     interp = None; int_params = [];
@@ -727,7 +747,7 @@ let cached_definition_expansion () =
 
 let ordered_congruence_matching () =
   let atom name = A.App ({
-    A.decl_name = name; domain = []; range = A.BaseSort "Bool";
+    A.decl_name = name; domain = []; range = (A.SortApp (A.BoolSymbol, []));
     interp = None; int_params = [];
   }, []) in
   let x, y, z = atom "x", atom "y", atom "z" in
@@ -801,7 +821,7 @@ let typed_diagnostics () =
 let readable_conditions () =
   let module R = Z3NativeMain.Readable in
   let z = Z.of_int in
-  let base name = A.BaseSort name in
+  let base name = fixture_sort name in
   let int_sort = base "Int" and bool_sort = base "Bool" and real_sort = base "Real" in
   let bv8 = base "BV8" and bv32 = base "BV32" in
   let declaration ?interp ?(params = []) name domain range =
@@ -1065,7 +1085,7 @@ let readable_same_proof () =
 let readable_edge_cases () =
   let module R = Z3NativeMain.Readable in
   let z = Z.of_int in
-  let base name = A.BaseSort name in
+  let base name = fixture_sort name in
   let int_sort = base "Int" and bool_sort = base "Bool" in
   let declaration ?interp ?(params = []) name domain range =
     { A.decl_name = name; domain; range; interp; int_params = params } in
@@ -1098,6 +1118,11 @@ let readable_edge_cases () =
   expect "width beyond the digit limit"
     (text (constant ~interp:Z3BvLemma.op_numeral ~params:[Z.pow (z 10) 150; z 5] "bv" (base "BV0")))
     ("holds((_ bv5 " ^ huge "+" ^ "))");
+  let wide_sort n = A.SortApp (A.BvSymbol (Z.mul (z n) (Z.pow (z 10) 150)), []) in
+  require (not (Z3NativeMain.Readable.same_sort (wide_sort 1) (wide_sort 2)))
+    "truncated sort parameters compared equal";
+  expect "sort parameter beyond the digit limit" (text (A.Var (Z.zero, wide_sort 1)))
+    ("holds(#0:BV" ^ huge "+" ^ ")");
   (* wide extractions: widths and bounds are shown as reflected, even beyond a machine word, with the range they give *)
   let bv256 = base "BV256" and bv128 = base "BV128" and bv101 = base "BV101" in
   let extract params domain range = declaration ~interp:Z3BvLemma.op_extract ~params "extract" [domain] range in
@@ -1372,7 +1397,7 @@ let checked_binder_proofs () =
     ["asserted"; "hypothesis"; "unknown"; "assumed:nlsat"];
   fail { certificate with U.binder_entries =
       List.map (fun e -> if e.U.binder_name = "quant-intro" then
-          { e with U.binder_sorts = Some [A.BaseSort "Real"] } else e)
+          { e with U.binder_sorts = Some [(A.SortApp (A.RealSymbol, []))] } else e)
         certificate.U.binder_entries }
     "binder generalized across mismatched bound sorts";
   fail { certificate with U.binder_entries =
@@ -1413,7 +1438,7 @@ let checked_binder_proofs () =
       { U.binder_name = "monotonicity"; binder_formula = List.nth forms 1;
         binder_premises = [Z.zero]; binder_sorts = None };
       { U.binder_name = "quant-intro"; binder_formula = List.nth forms 2;
-        binder_premises = [Z.one]; binder_sorts = Some [A.BaseSort "Int"] }
+        binder_premises = [Z.one]; binder_sorts = Some [(A.SortApp (A.IntSymbol, []))] }
     ]; binder_root = Z.of_int 2 } in
   require (U.check_binder_with_inputs [input] certificate conclusion)
     "closed original input was not available inside a binder proof";
@@ -1423,7 +1448,7 @@ let checked_binder_proofs () =
   require (not (U.check_binder_with_inputs [conclusion] certificate conclusion))
     "unrelated input authorized a hidden assertion";
   let open_formula = Z3ResolutionProofTheory.mk_eq_expr
-      (A.Var (Z.zero, A.BaseSort "Int")) (A.Var (Z.one, A.BaseSort "Int")) in
+      (A.Var (Z.zero, (A.SortApp (A.IntSymbol, [])))) (A.Var (Z.one, (A.SortApp (A.IntSymbol, [])))) in
   let open_fact = Option.get (U.classify_fact open_formula) in
   let leaf = { U.binder_name = "asserted"; binder_formula = open_formula;
                binder_premises = []; binder_sorts = None } in
@@ -1435,7 +1460,7 @@ let checked_binder_proofs () =
       | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
     "input-aware binder certificate was not integrated in the node checker";
   (* Scope guard: binder entries are checked at the scopes the root uses them. *)
-  let int_s = A.BaseSort "Int" and bool_s = A.bool_sort in
+  let int_s = (A.SortApp (A.IntSymbol, [])) and bool_s = A.bool_sort in
   let all bs b = A.Quantifier (A.Forall_k, bs, bool_s, b) in
   let eqe = Z3ResolutionProofTheory.mk_eq_expr in
   let tt = Z3ResolutionProofTheory.true_expr in
@@ -1537,7 +1562,7 @@ let checked_binder_definitions () =
           { U.binder_name = "refl"; binder_formula = leaf;
             binder_premises = []; binder_sorts = None };
           { U.binder_name = "nnf-neg"; binder_formula = formula;
-            binder_premises = [Z.zero]; binder_sorts = Some [A.BaseSort "Int"] }
+            binder_premises = [Z.zero]; binder_sorts = Some [(A.SortApp (A.IntSymbol, []))] }
         ]; binder_root = Z.one } in
       let entry = { P.rule = U.QuantifierIntroduction certificate;
                     formula; premise_ids = [] } in
@@ -1567,7 +1592,7 @@ let checked_binder_definitions () =
       require (not (checks entry []))
         "definition expansion authorized a missing hidden assertion";
       let recursive = [{ Z3Definitions.symbol; variables = [Z.zero];
-                         body = A.App (symbol, [A.Var (Z.zero, A.BaseSort "Int")]) }] in
+                         body = A.App (symbol, [A.Var (Z.zero, (A.SortApp (A.IntSymbol, [])))]) }] in
       require (P.expand_rule recursive entry.P.rule = None)
         "failed hidden definition expansion was silently ignored"
   | _ -> failwith "unexpected binder-definition regression formulas"
@@ -1728,7 +1753,7 @@ let checked_negative_nnf () =
     require (not (U.check_binder mutated conclusion)) message
   in
   mutate { original with U.binder_name = "nnf-pos" } "negative NNF ignored its polarity";
-  mutate { original with U.binder_sorts = Some [A.BaseSort "Real"] }
+  mutate { original with U.binder_sorts = Some [(A.SortApp (A.RealSymbol, []))] }
     "negative NNF ignored its binding sorts";
   mutate { original with U.binder_sorts = None } "negative NNF ignored a missing binder";
   mutate { original with U.binder_premises = [] } "negative NNF ignored its body proof";
@@ -1787,7 +1812,7 @@ let checked_negative_nnf () =
                        binder_premises = []; binder_sorts = None } in
           let quantified = { U.binder_name = "nnf-neg"; binder_formula = quantum;
                              binder_premises = [Z.zero];
-                             binder_sorts = Some [A.BaseSort "Int"] } in
+                             binder_sorts = Some [(A.SortApp (A.IntSymbol, []))] } in
           List.iter (fun (name, formula) ->
               let root = { U.binder_name = name; binder_formula = formula;
                            binder_premises = [Z.one]; binder_sorts = None } in
@@ -1864,7 +1889,7 @@ let checked_der_rules () =
       let closed = B.cached_expression st (List.nth inputs 1) in
       let wrapped = { U.binder_entries = certificate.U.binder_entries @ [
           { U.binder_name = "quant-intro"; binder_formula = closed;
-            binder_premises = [Z.zero]; binder_sorts = Some [A.BaseSort "Int"] }];
+            binder_premises = [Z.zero]; binder_sorts = Some [(A.SortApp (A.IntSymbol, []))] }];
           binder_root = Z.one } in
       require (U.check_binder wrapped (Option.get (U.classify_fact closed)) = expected)
         ("incorrect hidden DER decision: " ^ name);
@@ -2086,7 +2111,7 @@ let checked_vacuous_skolemization () =
           ("an unused block was accepted under another rule name: " ^ name)))
     cases;
   (* Open and mis-lowered de Bruijn forms that SMT-LIB text cannot spell. *)
-  let integer = A.BaseSort "Int" in
+  let integer = (A.SortApp (A.IntSymbol, [])) in
   let var n = A.Var (Z.of_int n, A.bool_sort) in
   let exists sorts body = A.Quantifier (A.Exists_k, sorts, A.bool_sort, body) in
   List.iter (fun (name, source, target, expected) ->
@@ -2185,7 +2210,7 @@ let checked_quantifier_pulling () =
       let closed_conclusion = Option.get (U.classify_fact closed) in
       let wrapped = { U.binder_entries = certificate.U.binder_entries @ [
           { U.binder_name = "quant-intro"; binder_formula = closed;
-            binder_premises = [Z.zero]; binder_sorts = Some [A.BaseSort "Int"] }];
+            binder_premises = [Z.zero]; binder_sorts = Some [(A.SortApp (A.IntSymbol, []))] }];
           binder_root = Z.one } in
       require (U.check_binder wrapped closed_conclusion = expected)
         ("incorrect binder pull-quant decision under its binder: " ^ name);
@@ -2597,7 +2622,7 @@ let concrete_datatype_model () =
   let sigma = S.signature schema in
   let witness sort = match S.shape_witness sigma sort with
     | Some value -> value | None -> failwith "productive datatype lacked a concrete witness" in
-  let number, marked = witness (A.BaseSort "Int"), witness (A.BaseSort "Bool") in
+  let number, marked = witness ((A.SortApp (A.IntSymbol, []))), witness ((A.SortApp (A.BoolSymbol, []))) in
   let leaf_value = S.constructor_value schema leaf [number; marked] in
   let nil_value = S.constructor_value schema nil [] in
   let cons_value = S.constructor_value schema cons [leaf_value; nil_value] in
@@ -2659,12 +2684,12 @@ let concrete_datatype_model () =
   let scope = [leaf.S.constructor.A.range] in
   let expression = A.App (children, [A.Var (Z.zero, leaf.S.constructor.A.range)]) in
   require (Z3Definitions.scoped scope expression) "native evaluator fixture is not well sorted";
-  let quantified = A.Quantifier (A.Forall_k, [A.BaseSort "Int"; A.BaseSort "Bool"],
-      A.BaseSort "Bool", A.Var (Z.zero, A.BaseSort "Bool")) in
+  let quantified = A.Quantifier (A.Forall_k, [(A.SortApp (A.IntSymbol, [])); (A.SortApp (A.BoolSymbol, []))],
+      (A.SortApp (A.BoolSymbol, [])), A.Var (Z.zero, (A.SortApp (A.BoolSymbol, [])))) in
   require (Z3Definitions.scoped [] quantified) "native quantifier fixture is not well sorted";
   let forged = { children with A.int_params = [Z.zero; Z.zero; Z.of_int 99] } in
   require (S.find_accessor forged schema.S.cases = None &&
-           S.find_recognizer { fork.S.recognizer with A.range = A.BaseSort "Int" }
+           S.find_recognizer { fork.S.recognizer with A.range = (A.SortApp (A.IntSymbol, [])) }
              schema.S.cases = None)
     "native dispatch admitted invalid accessor indices or recognizer result sorts";
   let st = B.marshal_expressions (B.empty_state ()) inputs in
@@ -2686,7 +2711,7 @@ let concrete_datatype_model () =
     "reordered datatype accessors were admitted";
   reject (replace leaf { leaf with S.accessors = [] })
     "missing datatype accessors were admitted";
-  let nested = A.ArraySort ([A.BaseSort "Int"], leaf.S.constructor.A.range) in
+  let nested = A.ArraySort ([(A.SortApp (A.IntSymbol, []))], leaf.S.constructor.A.range) in
   reject (replace branch { branch with
       S.constructor = { branch.S.constructor with A.domain = [nested] };
       accessors = List.map (fun accessor -> { accessor with A.range = nested }) branch.S.accessors })
@@ -2781,7 +2806,7 @@ let sorted_datatype_checker () =
     "enumeration-exhaustiveness-dt2bv-coverage"; "enumeration-exhaustiveness-three-dt2bv-coverage"] in
   let three_constructor_samples = ["exhaustiveness-three";
     "enumeration-exhaustiveness-three-dt2bv-coverage"] in
-  let int_sort = A.BaseSort "Int" in
+  let int_sort = (A.SortApp (A.IntSymbol, [])) in
   (* A well-sorted instance of a constructor, each field an uninterpreted constant of its
      sort: the direct controls below build constructor equalities from it, so a control that
      expects a rejection cannot pass merely because its constructor application is ill-sorted. *)
@@ -3323,7 +3348,7 @@ let sorted_quant_intro_ite_laws () =
     ite (c 1) x y, ite (neg (c 1)) y x;
     ite (c 1) x (ite (c 2) x y), ite (mk_or [c 1; c 2]) x y;
     ite (mk_and [c 1; c 3]) (ite (mk_and [c 2; c 4]) x y) y, ite (mk_and [c 1; c 3; c 2; c 4]) x y] in
-  let arr = A.ArraySort ([A.BaseSort "Int"], term) and int_s = A.BaseSort "Int" in
+  let arr = A.ArraySort ([(A.SortApp (A.IntSymbol, []))], term) and int_s = (A.SortApp (A.IntSymbol, [])) in
   List.iter (fun (l, r) ->
       require (NR.ite_rewritten l r && NR.rewrite_ok l r) "an ITE law was refused";
       require (A.get_sort l = int_s || not (AR.equivalent l r)) "the Int equivalence accepted a non-Int ITE law";
@@ -3396,7 +3421,7 @@ let sorted_direct_ite_rewrites () =
     | Some (_, pending) -> pending
     | None -> failwith "a well-sorted ITE rewrite node was rejected" in
   require (K.ite_rewrite (node r) && Z.equal (pending schema r) Z.zero) "the producer's ITE rewrite node was not checked";
-  let real_sort = A.BaseSort "Real" in
+  let real_sort = (A.SortApp (A.RealSymbol, [])) in
   let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
                    interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
   let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
@@ -3425,6 +3450,484 @@ let sorted_direct_ite_rewrites () =
      A.App (f, [A.App (conj, [c; R.mk_not_expr d]); x; y]), "opposite inner guard";
      A.App ({ f with A.interp = None }, [guard; x; y]), "counterfeit ite";
      A.App (f, [guard; twin; y]), "twin branch"]
+
+(* The Int product factor permutation (Z3NnfReplay.product_permuted) at native scale, on the normal
+   stack, on both Sorted paths. Quant-intro leaves under two Int binders: the captured
+   FStar.Math.Euclid-1 leaf p1 * p0 ~ p0 * p1, nested reorders and regroupings, repeated
+   factors and numerals replay; x*y ~ x*x, a wrong repeated factor, coefficient and sign changes,
+   a shifted index, a same-spelled twin and look-alike `*` declarations are pending. 64 factors
+   (one n-ary node, or a left-nested binary chain) are accepted in reverse order; 65 factors and a
+   100,000-argument product are refused by the factor bound, and a product candidate with a
+   100,000-sort domain by its bounded admission; 5,000 nested unary products exceed the 4,096-pop
+   walk. A 100,000-argument opaque factor (one factor, its lists never read by the admission), a
+   factor over a 1,000-deep array sort, and 64 unshared copies of a 4,000-deep factor (one copy
+   changed: refused) are compared exactly; a look-alike `*` over array sorts is not opened. The
+   inputs' sizes bound the work, not the leaf charge, for declaration names and sort lists.
+   Distinct factors f^d(a) and f^d(b), which pointer equality cannot
+   short-circuit: at d = 4,000 they are compared (refused when they differ, accepted for an
+   unshared equal copy); at d = 200,000 the depth admission (4,096 levels) refuses them. A shared
+   factor with 2^16 tree nodes replays with enough work and is pending without it; one with 2^60
+   tree nodes is pending (the leaf's charge runs out first) and is refused by the depth walk's pop
+   bound. Closed premise-free RewriteRule nodes (Z3SortedProof.product_rewrite) of the closed laws
+   and of the 4,000-deep equal factors are checked with no obligation; x*y = x*x keeps one. *)
+let sorted_int_factor_permutation () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module K = Z3SortedProof in
+  let int_s = A.BaseSort "Int" and real_s = A.BaseSort "Real" in
+  let constant ?(params = []) ?(sort = int_s) name =
+    A.App ({ A.decl_name = name; domain = []; range = sort; interp = None; int_params = List.map Z.of_int params }, []) in
+  let native_mul = { A.decl_name = "*"; domain = [int_s; int_s]; range = int_s; interp = Some Z3ValueTheory.op_mul;
+                     int_params = [] } in
+  let mul a b = A.App (native_mul, [a; b]) in
+  let times args = A.App ({ A.decl_name = "*"; domain = List.map (fun _ -> int_s) args; range = int_s;
+                            interp = Some Z3ValueTheory.op_arith_mul; int_params = [] }, args) in
+  let num n = A.App ({ A.decl_name = "num"; domain = []; range = int_s; interp = Some Z3ValueTheory.op_num_rational;
+                       int_params = [Z.of_int n; Z.one] }, []) in
+  let le a b = A.App ({ A.decl_name = "<="; domain = [int_s; int_s]; range = A.bool_sort;
+                        interp = Some Z3ValueTheory.op_arith_le; int_params = [] }, [a; b]) in
+  let all body = A.Quantifier (A.Forall_k, [int_s; int_s], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf l r pad =
+    let bl = le l (num 0) and br = le r (num 0) in
+    NR.replay [] { U.binder_entries = entry "rewrite" (R.mk_eq_expr l r) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr bl br) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (all bl) (all br)) [1] (Some [int_s; int_s]) ::
+                                      padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (all bl, all br)) in
+  let node l r = { U.kind = U.RewriteRule; conclusion = U.Equal (l, r); premises = [] } in
+  let core = { Z3DatatypeSignature.sorts = []; cases = [] } in
+  let pending l r = match K.check_node core [] (node l r) with
+    | Some (_, n) -> Z.to_int n
+    | None -> failwith "a well-sorted product rewrite node was rejected" in
+  let i0 = A.Var (Z.zero, int_s) and i1 = A.Var (Z.one, int_s) in
+  let x = constant "x" and y = constant "y" and z = constant "z" in
+  let open_laws = [
+    mul i1 i0, mul i0 i1;
+    mul (mul i1 i0) i1, mul i1 (mul i0 i1);
+    times [i1; i0; num 3], mul (mul (num 3) i0) i1 ] in
+  let closed_laws = [
+    mul x y, mul y x;
+    mul (mul x y) z, times [z; y; x];
+    mul x (mul y z), mul (mul x y) z;
+    mul (mul x x) y, mul x (mul y x);
+    mul (num (-1)) (mul x y), mul (mul y (num (-1))) x ] in
+  List.iter (fun (l, r) ->
+      require (NR.product_permuted l r && NR.rewrite_ok l r) "a factor permutation was refused";
+      require (leaf l r 0 = NR.Replayed) "a factor permutation certificate was not replayed")
+    (open_laws @ closed_laws);
+  List.iter (fun (l, r) ->
+      require (K.product_rewrite (node l r) && pending l r = 0) "a closed factor permutation node was not checked")
+    closed_laws;
+  let mul_param a b = A.App ({ native_mul with A.int_params = [Z.zero] }, [a; b]) in
+  let mul_free a b = A.App ({ native_mul with A.interp = None }, [a; b]) in
+  let rmul a b = A.App ({ A.decl_name = "*"; domain = [real_s; real_s]; range = real_s;
+                          interp = Some Z3ValueTheory.op_arith_mul; int_params = [] }, [a; b]) in
+  let c = constant ~sort:real_s "c" and d = constant ~sort:real_s "d" in
+  List.iter (fun (l, r, name) ->
+      require (not (NR.product_permuted l r)) ("a factor permutation mutant was accepted: " ^ name);
+      require (A.get_sort l <> int_s || A.get_sort r <> int_s || leaf l r 0 = NR.Unreplayed)
+        ("a factor permutation mutant was replayed: " ^ name))
+    [mul i1 i0, mul i1 i1, "x*y ~ x*x";
+     mul (mul i1 i1) i0, mul (mul i1 i0) i0, "wrong repeated factor";
+     mul (num 2) (mul i1 i0), mul (num 3) (mul i0 i1), "coefficient changed";
+     mul (num (-1)) (mul i1 i0), mul i0 i1, "sign dropped";
+     mul i1 i0, mul i0 i0, "shifted index";
+     mul x y, mul y (constant ~params:[7] "x"), "twin constant";
+     mul_param x y, mul_param y x, "look-alike * with a parameter";
+     mul_free x y, mul_free y x, "uninterpreted look-alike *";
+     rmul c d, rmul d c, "Real product"];
+  require (pending (mul x y) (mul x x) = 1 && not (K.product_rewrite (node (mul x y) (mul x x))))
+    "the closed x*y = x*x node was checked";
+  let vs n = List.init n (fun k -> constant ~params:[k] "v") in
+  let chain xs = List.fold_left mul (List.hd xs) (List.tl xs) in
+  require (NR.product_permuted (times (vs 64)) (times (List.rev (vs 64)))) "64 factors were refused";
+  require (NR.product_permuted (chain (vs 64)) (chain (List.rev (vs 64)))) "a 64-factor chain was refused";
+  require (not (NR.product_permuted (times (vs 65)) (times (List.rev (vs 65))))) "65 factors were accepted";
+  require (not (NR.product_permuted (chain (vs 65)) (chain (List.rev (vs 65))))) "a 65-factor chain was accepted";
+  let wide = times (vs 100000) in
+  require (not (NR.product_permuted wide wide)) "a 100,000-factor product was accepted";
+  let rec unary depth acc = if depth = 0 then acc else unary (depth - 1) (times [acc]) in
+  require (NR.product_permuted (unary 4000 x) x) "4,000 nested unary products were refused";
+  require (not (NR.product_permuted (unary 5000 x) x)) "5,000 nested unary products exceeded no bound";
+  let long_domain = { native_mul with A.domain = List.init 100000 (fun _ -> int_s) } in
+  require (not (NR.product_permuted (A.App (long_domain, [x; y])) (A.App (long_domain, [y; x]))))
+    "a product candidate with a 100,000-sort domain was opened";
+  let g = { A.decl_name = "g"; domain = List.init 100000 (fun _ -> int_s); range = int_s; interp = None; int_params = [] } in
+  let opaque () = A.App (g, List.init 100000 (fun k -> constant ~params:[k] "w")) in
+  require (NR.product_permuted (mul (opaque ()) y) (mul y (opaque ())))
+    "an unshared 100,000-argument opaque factor was refused";
+  let rec nested depth acc = if depth = 0 then acc else nested (depth - 1) (A.ArraySort ([int_s], acc)) in
+  let deep_sort = nested 1000 int_s in
+  let arr k = constant ~sort:deep_sort ~params:[k] "arr" in
+  let h = { A.decl_name = "h"; domain = [deep_sort]; range = int_s; interp = None; int_params = [] } in
+  require (NR.product_permuted (mul (A.App (h, [arr 0])) y) (mul y (A.App (h, [arr 0]))))
+    "a factor over a 1,000-deep array sort was refused";
+  let array_mul = { native_mul with A.domain = [deep_sort; deep_sort] } in
+  require (not (NR.product_permuted (A.App (array_mul, [arr 0; arr 1])) (A.App (array_mul, [arr 1; arr 0]))))
+    "a look-alike * over array sorts was opened";
+  let f = { A.decl_name = "f"; domain = [int_s]; range = int_s; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let a = constant "a" and b = constant "b" in
+  let copies k = times (List.init 64 (fun i -> applied 4000 (if i = k then b else a))) in
+  require (NR.product_permuted (copies 64) (copies 64))
+    "64 unshared equal 4,000-deep factors were refused";
+  require (not (NR.product_permuted (copies 64) (copies 63)))
+    "a multiset of deep factors with one changed copy was accepted";
+  let swap p q = mul p y, mul y q in
+  let l, r = swap (applied 4000 a) (applied 4000 b) in
+  require (not (NR.product_permuted l r) && leaf l r 200 = NR.Unreplayed) "distinct 4,000-deep factors were accepted";
+  let l, r = swap (applied 4000 a) (applied 4000 a) in
+  require (NR.product_permuted l r && leaf l r 200 = NR.Replayed) "unshared equal 4,000-deep factors were refused";
+  require (pending l r = 0) "a closed node with equal 4,000-deep factors was not checked";
+  let l, r = swap (applied 200000 a) (applied 200000 b) in
+  require (not (NR.product_permuted l r)) "distinct 200,000-deep factors were accepted";
+  let l, r = swap (applied 200000 a) (applied 200000 a) in
+  require (not (NR.product_permuted l r)) "factors beyond the depth admission were accepted";
+  let shared = { A.decl_name = "shared"; domain = [int_s; int_s]; range = int_s; interp = None; int_params = [] } in
+  let rec dag depth acc = if depth = 0 then acc else dag (depth - 1) (A.App (shared, [acc; acc])) in
+  let l, r = swap (dag 16 a) (dag 16 a) in
+  require (leaf l r 2000 = NR.Replayed) "a large shared factor was not replayed";
+  require (leaf l r 0 = NR.Unreplayed) "a large shared factor was replayed beyond the work budget";
+  let l, r = swap (dag 60 a) (dag 60 a) in
+  require (leaf l r 40 = NR.Unreplayed) "an exponential shared factor was replayed";
+  require (not (NR.product_permuted l r)) "an exponential shared factor passed the depth walk"
+
+(* The producer's own steps: Z3 rewrites y * x to x * y and (x * y) * z to the ternary x * y * z
+   as premise-free closed `rewrite` nodes under a congruence (the first two sources below), and a
+   product leaf inside a quant-intro certificate (the third: the body of a universal over Int
+   binders). Each refutation is certified on the Sorted route (check_document_epsilon); every
+   closed product rewrite node is checked by Z3SortedProof.product_rewrite and by no other kernel
+   of check_node_cached; on the marshalled node, x*y ~ x*x, a twin factor and a look-alike `*`
+   stay pending. *)
+let sorted_direct_product_rewrites () =
+  let module K = Z3SortedProof in
+  let module NR = Z3NnfReplay in
+  let product_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (l, r)) when e.P.rule = U.RewriteRule && NR.product_permuted l r && l <> r -> Some (l, r)
+    | _ -> None in
+  let product_leaf b = b.U.binder_name = "rewrite" &&
+    (match U.classify_fact b.U.binder_formula with
+     | Some (U.Equal (l, r)) -> NR.product_permuted l r && l <> r
+     | _ -> false) in
+  let quantified_leaf e = match e.P.rule with
+    | U.QuantifierIntroduction c -> List.exists product_leaf c.U.binder_entries
+    | _ -> false in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the product refutation was not certified");
+    List.filter_map product_step doc.P.entries, List.exists quantified_leaf doc.P.entries, schema in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let steps_a, _, schema = certified "commuted" (header ^ "(assert (not (= (* x y) (* y x))))") in
+  let steps_b, _, _ = certified "regrouped" (header ^ "(assert (not (= (* x (* z y)) (* (* y x) z))))") in
+  let _, leaf_c, _ = certified "quantified"
+      "(declare-fun f (Int Int) Bool)(assert (forall ((p0 Int) (p1 Int)) (f p0 (* p1 p0))))\
+       (assert (not (forall ((p0 Int) (p1 Int)) (f p0 (* p0 p1)))))" in
+  require (steps_a <> [] && steps_b <> []) "no closed product rewrite step was produced";
+  require leaf_c "no quant-intro certificate with a product leaf was produced";
+  let node l r = { U.kind = U.RewriteRule; conclusion = U.Equal (l, r); premises = [] } in
+  List.iter (fun (l, r) ->
+      let n = node l r in
+      require (K.product_rewrite n) "a producer product rewrite node was refused";
+      require (not (K.ite_rewrite n) && not (K.real_rewrite schema n) &&
+               not (K.consequence schema [] (K.proposition n.U.conclusion)))
+        "a producer product rewrite node was already checked by another kernel";
+      match K.check_node schema [] n with
+      | Some (_, pending) -> require (Z.equal pending Z.zero) "a producer product rewrite node stayed open"
+      | None -> failwith "a producer product rewrite node was rejected")
+    (steps_a @ steps_b);
+  let l, r = List.hd steps_a in
+  let x, y, mul = match r with
+    | A.App (mul, [x; y]) -> x, y, mul
+    | _ -> failwith "expected (* x y)" in
+  let twin = match x with
+    | A.App (k, []) -> A.App ({ k with A.int_params = [Z.of_int 7] }, [])
+    | _ -> failwith "expected the constant x" in
+  List.iter (fun (rhs, name) ->
+      match K.check_node schema [] (node l rhs) with
+      | Some (_, pending) ->
+          require (not (K.product_rewrite (node l rhs)) && Z.gt pending Z.zero)
+            ("a product rewrite mutant was checked: " ^ name)
+      | None -> failwith "a well-sorted product rewrite mutant was rejected")
+    [A.App (mul, [x; x]), "x*y ~ x*x";
+     A.App (mul, [twin; y]), "twin factor";
+     A.App ({ mul with A.int_params = [Z.zero] }, [x; y]), "look-alike *"]
+
+(* elim-unused (Z3NnfReplay.unused_eliminated) at native scale, on the normal stack, on both
+   Sorted paths. Quant-intro leaves under an Int binder: the captured (forall [Term^k] true) = true
+   for k = 1, 21 and 64, an unused Term binder over a use of the outer Int binder (lowered), a kept
+   binder renumbered and a 4,000-deep body replay, and a 100,000-argument body is accepted; a
+   200,000-deep body is refused by the depth admission; 65 binders, a dropped used binder, nothing
+   removed, a changed kind and the reversed orientation are pending. The producer's own closed
+   elim-unused steps (z3 elim_unused_vars on asserted quantifiers with unused binders) are checked
+   as premise-free ElimUnused nodes by Z3SortedProof.unused_elimination and by no other kernel of
+   check_node_cached; under the RewriteRule label, reversed, or with the target true, they stay
+   open. *)
+let sorted_elim_unused () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module K = Z3SortedProof in
+  let int_s = A.BaseSort "Int" and term = A.BaseSort "Term" in
+  let forall_ bs body = A.Quantifier (A.Forall_k, bs, A.bool_sort, body) in
+  let exists_ bs body = A.Quantifier (A.Exists_k, bs, A.bool_sort, body) in
+  let pred name sort x = A.App ({ A.decl_name = name; domain = [sort]; range = A.bool_sort; interp = None;
+                                  int_params = [] }, [x]) in
+  let pi = pred "pi" int_s and pt = pred "pt" term in
+  let mk_or args = A.App ({ A.decl_name = "or"; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+                            interp = Some Z3ValueTheory.op_or; int_params = [] }, args) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let i0 = A.Var (Z.zero, int_s) in
+  let leaf q e pad =
+    let inner x = mk_or [pi i0; x] in
+    NR.replay [] { U.binder_entries = entry "elim-unused" (R.mk_eq_expr q e) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr (inner q) (inner e)) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (forall_ [int_s] (inner q)) (forall_ [int_s] (inner e)))
+                                        [1] (Some [int_s]) :: padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (forall_ [int_s] (inner q), forall_ [int_s] (inner e))) in
+  let terms k = List.init k (fun _ -> term) in
+  let f = { A.decl_name = "f"; domain = [int_s]; range = int_s; interp = None; int_params = [] } in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let wide = A.App ({ A.decl_name = "w"; domain = List.init 100000 (fun _ -> int_s); range = A.bool_sort; interp = None;
+                      int_params = [] }, List.init 100000 (fun _ -> A.Var (Z.one, int_s))) in
+  List.iter (fun (q, e, pad, name) ->
+      require (NR.unused_eliminated q e && leaf q e pad = NR.Replayed) ("an elim-unused leaf was not replayed: " ^ name))
+    [forall_ [term] R.true_expr, R.true_expr, 0, "captured, one binder";
+     forall_ (terms 21) R.true_expr, R.true_expr, 0, "captured, 21 binders";
+     forall_ (terms 64) R.true_expr, R.true_expr, 0, "64 binders";
+     forall_ [term] (pi (A.Var (Z.one, int_s))), pi i0, 0, "free index lowered";
+     exists_ [int_s; term] (pt (A.Var (Z.zero, term))), exists_ [term] (pt (A.Var (Z.zero, term))), 0, "kept binder";
+     forall_ [term] (pi (applied 4000 (A.Var (Z.one, int_s)))), pi (applied 4000 i0), 200, "4,000-deep body"];
+  require (NR.unused_eliminated (forall_ [term] wide)
+             (A.App ((match wide with A.App (w, _) -> w | _ -> failwith "w"), List.init 100000 (fun _ -> i0))))
+    "an elim-unused step over a 100,000-argument body was refused";
+  require (not (NR.unused_eliminated (forall_ [term] (pi (applied 200000 (A.Var (Z.one, int_s))))) (pi (applied 200000 i0))))
+    "an elim-unused step beyond the depth admission was accepted";
+  List.iter (fun (q, e, name) ->
+      require (not (NR.unused_eliminated q e)) ("an elim-unused mutant was accepted: " ^ name);
+      require (leaf q e 0 = NR.Unreplayed) ("an elim-unused mutant was replayed: " ^ name))
+    [forall_ (terms 65) R.true_expr, R.true_expr, "65 binders";
+     forall_ [int_s] (pi (A.Var (Z.zero, int_s))), R.true_expr, "dropped used binder";
+     forall_ [term] (pi (A.Var (Z.one, int_s))), forall_ [term] (pi (A.Var (Z.one, int_s))), "nothing removed";
+     exists_ [int_s; term] (pt (A.Var (Z.zero, term))), forall_ [term] (pt (A.Var (Z.zero, term))), "kind changed";
+     R.true_expr, forall_ [term] R.true_expr, "reversed orientation"];
+  let elim_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (q, r)) when e.P.rule = U.ElimUnused -> Some (q, r)
+    | _ -> None in
+  let steps source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    List.filter_map elim_step doc.P.entries, schema in
+  let steps_d, schema = steps "(declare-fun p (Int) Bool)(declare-sort U 0)\
+                               (assert (forall ((x Int) (u U) (y Int)) (p y)))(assert (not (p 0)))" in
+  let steps_h, _ = steps "(declare-fun p (Int) Bool)(assert (forall ((x Int) (z Int)) (p z)))(assert (not (p 1)))" in
+  require (steps_d <> [] && steps_h <> []) "no closed elim-unused step was produced";
+  let node kind q r = { U.kind = kind; conclusion = U.Equal (q, r); premises = [] } in
+  let pending kind q r = match K.check_node schema [] (node kind q r) with
+    | Some (_, n) -> Z.to_int n
+    | None -> failwith "a well-sorted elim-unused node was rejected" in
+  List.iter (fun (q, r) ->
+      let n = node U.ElimUnused q r in
+      require (K.unused_elimination n && pending U.ElimUnused q r = 0) "a producer elim-unused node was not checked";
+      require (not (K.consequence schema [] (K.proposition n.U.conclusion)))
+        "a producer elim-unused node was already checked by another kernel";
+      require (pending U.RewriteRule q r = 1) "an elim-unused equation was checked under the rewrite label";
+      require (pending U.ElimUnused r q = 1) "a reversed elim-unused node was checked";
+      if r <> R.true_expr then
+        require (pending U.ElimUnused q R.true_expr = 1) "an elim-unused node with a used binder dropped was checked")
+    (steps_d @ steps_h)
+
+(* der (Z3NnfReplay.der_step) at native scale, on the normal stack, on both Sorted paths. Quant-intro
+   leaves under a Term binder: a source-order remainder (forall [Term] (or (not (= #1 #0)) (pt #0)
+   (qt #0))) = (forall [Term] (or (pt #1) (qt #1))), the captured ForwardJumpLabel q3 node 477
+   shapes in the producer's flatten_or order (the last literal first: (forall [Term] (or (not
+   (= #1 #0)) (pt #0) (forall [Term] (rt #1 #0)))) = (forall [Term] (or (forall [Term] (rt #2 #0))
+   (pt #1))), also with x on the left and t closed), a closed one-literal remainder, a definition
+   lifted under a nested binder and a 4,000-deep remaining literal replay; 4,096-literal
+   disjunctions are accepted in both orders, 4,097 literals and a 200,000-deep literal are refused
+   by the admissions; a wrong substitution, an unlifted definition, a kept disequality, a dropped
+   binder, a definition that mentions its variable and the reversed orientation are pending, and in
+   the flatten_or order a different operand, a missing or duplicated literal, `and` for `or`, a
+   negated literal, an unlifted definition and a definition captured by the nested binder are
+   pending. The producer's own closed der steps (der.cpp on (forall x y. (or (not (= x 5)) (p x))),
+   (... (or (not (= x 5)) (p x) (q x))) and (... (or (p x) (not (= x 5)) (q x) (r x)))) are checked
+   as premise-free DestructiveEquality nodes by Z3SortedProof.der_rewrite and by no other kernel;
+   the 3- and 4-literal ones are in the flatten_or order, which the source-order reading refuses;
+   under the RewriteRule label or with a wrong target the node stays open. *)
+let sorted_der () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let module K = Z3SortedProof in
+  let term = A.BaseSort "Term" in
+  let forall_ bs body = A.Quantifier (A.Forall_k, bs, A.bool_sort, body) in
+  let exists_ bs body = A.Quantifier (A.Exists_k, bs, A.bool_sort, body) in
+  let decl name domain range = { A.decl_name = name; domain; range; interp = None; int_params = [] } in
+  let pt x = A.App (decl "pt" [term] A.bool_sort, [x]) and qt x = A.App (decl "qt" [term] A.bool_sort, [x]) in
+  let rt x y = A.App (decl "rt" [term; term] A.bool_sort, [x; y]) in
+  let c = A.App (decl "c" [] term, []) and d = A.App (decl "d" [] term, []) in
+  let mk_or args = A.App ({ A.decl_name = "or"; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+                            interp = Some Z3ValueTheory.op_or; int_params = [] }, args) in
+  let neq a b = R.mk_not_expr (R.mk_eq_expr a b) in
+  let v n = A.Var (Z.of_int n, term) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf q e pad =
+    let inner x = mk_or [pt (v 0); x] in
+    NR.replay [] { U.binder_entries = entry "der" (R.mk_eq_expr q e) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr (inner q) (inner e)) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (forall_ [term] (inner q)) (forall_ [term] (inner e)))
+                                        [1] (Some [term]) :: padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (forall_ [term] (inner q), forall_ [term] (inner e))) in
+  let f = decl "f" [term] term in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let fc = A.App (f, [c]) in
+  let flat_order xs = match List.rev xs with [] -> [] | l :: rest -> l :: List.rev rest in
+  List.iter (fun (q, e, pad, name) ->
+      require (NR.der_step q e && leaf q e pad = NR.Replayed) ("a der leaf was not replayed: " ^ name))
+    [forall_ [term] (mk_or [neq (v 1) (v 0); pt (v 0); qt (v 0)]), forall_ [term] (mk_or [pt (v 1); qt (v 1)]), 0, "source order";
+     forall_ [term] (mk_or [neq (v 1) (v 0); pt (v 0); forall_ [term] (rt (v 1) (v 0))]),
+     forall_ [term] (mk_or [forall_ [term] (rt (v 2) (v 0)); pt (v 1)]), 0, "captured flatten_or order (node 477 e77, e98)";
+     forall_ [term] (mk_or [neq (v 0) fc; pt (v 0); forall_ [term] (rt (v 1) (v 0))]),
+     forall_ [term] (mk_or [forall_ [term] (rt fc (v 0)); pt fc]), 0, "captured flatten_or order (node 477 e187)";
+     forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), forall_ [term] (pt c), 0, "one literal left";
+     forall_ [term] (mk_or [neq (v 0) (v 1); exists_ [term] (rt (v 1) (v 0))]),
+     forall_ [term] (exists_ [term] (rt (v 2) (v 0))), 0, "lifted under a binder";
+     forall_ [term] (mk_or [neq (v 0) c; pt (applied 4000 (v 0))]), forall_ [term] (pt (applied 4000 c)), 200, "4,000-deep literal"];
+  let wide n = List.init n (fun k -> A.App (decl ("w" ^ string_of_int k) [term] A.bool_sort, [v 0])) in
+  let subst_wide n = List.init n (fun k -> A.App (decl ("w" ^ string_of_int k) [term] A.bool_sort, [c])) in
+  require (NR.der_step (forall_ [term] (mk_or (neq (v 0) c :: wide 4095))) (forall_ [term] (mk_or (subst_wide 4095))))
+    "a 4,096-literal der step was refused";
+  require (NR.der_step (forall_ [term] (mk_or (neq (v 0) c :: wide 4095)))
+             (forall_ [term] (mk_or (flat_order (subst_wide 4095)))))
+    "a 4,096-literal der step in the flatten_or order was refused";
+  require (not (NR.der_step (forall_ [term] (mk_or (neq (v 0) c :: wide 4096))) (forall_ [term] (mk_or (subst_wide 4096)))))
+    "a 4,097-literal der step was accepted";
+  require (not (NR.der_step (forall_ [term] (mk_or (neq (v 0) c :: wide 4096)))
+                  (forall_ [term] (mk_or (flat_order (subst_wide 4096))))))
+    "a 4,097-literal der step in the flatten_or order was accepted";
+  require (not (NR.der_step (forall_ [term] (mk_or [neq (v 0) c; pt (applied 200000 (v 0))]))
+                  (forall_ [term] (pt (applied 200000 c)))))
+    "a der step beyond the depth admission was accepted";
+  let mk_and args = A.App ({ A.decl_name = "and"; domain = List.map (fun _ -> A.bool_sort) args; range = A.bool_sort;
+                             interp = Some Z3ValueTheory.op_and; int_params = [] }, args) in
+  let flat_q = forall_ [term] (mk_or [neq (v 0) c; pt (v 0); qt (v 0)]) in
+  let nested_q = forall_ [term] (mk_or [neq (v 1) (v 0); pt (v 0); forall_ [term] (rt (v 1) (v 0))]) in
+  List.iter (fun (q, e, name) ->
+      require (not (NR.der_step q e)) ("a der mutant was accepted: " ^ name);
+      require (leaf q e 0 = NR.Unreplayed) ("a der mutant was replayed: " ^ name))
+    [forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), forall_ [term] (pt d), "wrong substitution";
+     forall_ [term] (mk_or [neq (v 0) (v 1); exists_ [term] (rt (v 1) (v 0))]),
+     forall_ [term] (exists_ [term] (rt (v 1) (v 0))), "definition not lifted";
+     forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), forall_ [term] (mk_or [neq c c; pt c]), "disequality kept";
+     forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), pt c, "binder dropped";
+     forall_ [term] (mk_or [neq (v 0) (A.App (f, [v 0])); pt (v 0)]), forall_ [term] (pt (A.App (f, [v 0]))), "x in t";
+     forall_ [term] (pt c), forall_ [term] (mk_or [neq (v 0) c; pt (v 0)]), "reversed orientation";
+     flat_q, forall_ [term] (mk_or [qt c; pt d]), "flatten_or order: different operand";
+     flat_q, forall_ [term] (qt c), "flatten_or order: missing literal";
+     flat_q, forall_ [term] (mk_or [qt c; qt c]), "flatten_or order: duplicated literal";
+     flat_q, forall_ [term] (mk_and [qt c; pt c]), "flatten_or order: and for or";
+     flat_q, forall_ [term] (mk_or [qt c; R.mk_not_expr (pt c)]), "flatten_or order: negated literal";
+     nested_q, forall_ [term] (mk_or [forall_ [term] (rt (v 1) (v 0)); pt (v 1)]), "flatten_or order: not lifted";
+     nested_q, forall_ [term] (mk_or [forall_ [term] (rt (v 0) (v 0)); pt (v 1)]), "flatten_or order: captured"];
+  let node kind q r = { U.kind = kind; conclusion = U.Equal (q, r); premises = [] } in
+  let produced text =
+    let assertions, proof = unsat text in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    let der_steps = List.filter_map (fun e -> match U.classify_fact e.P.formula with
+        | Some (U.Equal (q, r)) when e.P.rule = U.DestructiveEquality -> Some (q, r)
+        | _ -> None) doc.P.entries in
+    require (der_steps <> []) "no closed der step was produced";
+    let pending kind q r = match K.check_node schema [] (node kind q r) with
+      | Some (_, n) -> Z.to_int n
+      | None -> failwith "a well-sorted der node was rejected" in
+    List.iter (fun (q, r) ->
+        require (K.der_rewrite (node U.DestructiveEquality q r) && pending U.DestructiveEquality q r = 0)
+          "a producer der node was not checked";
+        require (not (K.consequence schema [] (K.proposition (node U.DestructiveEquality q r).U.conclusion)))
+          "a producer der node was already checked by another kernel";
+        require (pending U.RewriteRule q r = 1) "a der equation was checked under the rewrite label";
+        require (pending U.DestructiveEquality q R.true_expr = 1) "a der node with a wrong target was checked")
+      der_steps;
+    der_steps in
+  ignore (produced "(declare-fun p (Int) Bool)(assert (forall ((x Int) (y Int)) (or (not (= x 5)) (p x))))(assert (not (p 5)))");
+  List.iter (fun text ->
+      List.iter (fun (q, r) -> match q, r with
+          | A.Quantifier (_, bs, _, A.App (_, lits)), A.Quantifier (_, _, _, body') ->
+            let n = Z.of_int (List.length bs) in
+            require (List.length lits >= 3 && NR.der_order n (NR.flat_order lits) body' && not (NR.der_order n lits body'))
+              "a producer der step was not in the flatten_or order"
+          | _ -> failwith "a producer der step is not a quantified disjunction")
+        (produced text))
+    ["(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)\
+      (assert (forall ((x Int) (y Int)) (or (not (= x 5)) (p x) (q x))))(assert (not (p 5)))(assert (not (q 5)))";
+     "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)(declare-fun r (Int) Bool)\
+      (assert (forall ((x Int) (y Int)) (or (p x) (not (= x 5)) (q x) (r x))))\
+      (assert (not (p 5)))(assert (not (q 5)))(assert (not (r 5)))"]
+
+(* pull-quant (Z3NnfReplay.pull_ok) at native scale, on the normal stack, in quant-intro certificates.
+   Leaves under a Term binder: the captured ForwardJumpLabel shape (or A B (forall [Term] D)) =
+   (forall [Term] (or A' B' D)) with the other children lifted, forall under `and`, exists under
+   `or`, the nested forall flattened, a 4,000-deep child and 64 pulled binders replay; 65 binders
+   and a 200,000-deep child are refused by the admissions; an unlifted child, two quantified
+   children, a changed kind, the reversed orientation and an exists flatten are pending. *)
+let sorted_pull_quant () =
+  let module NR = Z3NnfReplay in
+  let module R = Z3ResolutionProofTheory in
+  let term = A.BaseSort "Term" in
+  let forall_ bs body = A.Quantifier (A.Forall_k, bs, A.bool_sort, body) in
+  let exists_ bs body = A.Quantifier (A.Exists_k, bs, A.bool_sort, body) in
+  let decl name domain range = { A.decl_name = name; domain; range; interp = None; int_params = [] } in
+  let pt x = A.App (decl "pt" [term] A.bool_sort, [x]) and qt x = A.App (decl "qt" [term] A.bool_sort, [x]) in
+  let rt x y = A.App (decl "rt" [term; term] A.bool_sort, [x; y]) in
+  let nary name interp args = A.App ({ A.decl_name = name; domain = List.map (fun _ -> A.bool_sort) args;
+                                       range = A.bool_sort; interp = Some interp; int_params = [] }, args) in
+  let mk_or = nary "or" Z3ValueTheory.op_or and mk_and = nary "and" Z3ValueTheory.op_and in
+  let v n = A.Var (Z.of_int n, term) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let padding n = List.init n (fun _ -> entry "refl" (R.mk_eq_expr R.true_expr R.true_expr) [] None) in
+  let leaf e q pad =
+    let inner x = mk_or [pt (v 0); x] in
+    NR.replay [] { U.binder_entries = entry "pull-quant" (R.mk_eq_expr e q) [] None ::
+                                      entry "monotonicity" (R.mk_eq_expr (inner e) (inner q)) [0] None ::
+                                      entry "quant-intro" (R.mk_eq_expr (forall_ [term] (inner e)) (forall_ [term] (inner q)))
+                                        [1] (Some [term]) :: padding pad;
+                   binder_root = Z.of_int 2 } (U.Equal (forall_ [term] (inner e), forall_ [term] (inner q))) in
+  let f = decl "f" [term] term in
+  let rec applied depth acc = if depth = 0 then acc else applied (depth - 1) (A.App (f, [acc])) in
+  let terms k = List.init k (fun _ -> term) in
+  List.iter (fun (e, q, pad, name) ->
+      require (NR.pull_ok e q && leaf e q pad = NR.Replayed) ("a pull-quant leaf was not replayed: " ^ name))
+    [mk_or [pt (v 0); qt (v 0); forall_ [term] (rt (v 1) (v 0))],
+     forall_ [term] (mk_or [pt (v 1); qt (v 1); rt (v 1) (v 0)]), 0, "captured";
+     mk_and [pt (v 0); forall_ [term] (rt (v 1) (v 0))], forall_ [term] (mk_and [pt (v 1); rt (v 1) (v 0)]), 0, "forall under and";
+     mk_or [exists_ [term] (rt (v 1) (v 0)); pt (v 0)], exists_ [term] (mk_or [rt (v 1) (v 0); pt (v 1)]), 0, "exists under or";
+     forall_ [term] (forall_ [term] (rt (v 2) (v 0))), forall_ [term; term] (rt (v 2) (v 0)), 0, "flatten";
+     mk_or [pt (applied 4000 (v 0)); forall_ [term] (rt (v 1) (v 0))],
+     forall_ [term] (mk_or [pt (applied 4000 (v 1)); rt (v 1) (v 0)]), 200, "4,000-deep child";
+     mk_or [pt (v 0); forall_ (terms 64) (pt (v 64))], forall_ (terms 64) (mk_or [pt (v 64); pt (v 64)]), 0, "64 binders"];
+  require (not (NR.pull_ok (mk_or [pt (v 0); forall_ (terms 65) (pt (v 65))]) (forall_ (terms 65) (mk_or [pt (v 65); pt (v 65)]))))
+    "a pull-quant step over 65 binders was accepted";
+  require (not (NR.pull_ok (mk_or [pt (applied 200000 (v 0)); forall_ [term] (rt (v 1) (v 0))])
+                  (forall_ [term] (mk_or [pt (applied 200000 (v 1)); rt (v 1) (v 0)]))))
+    "a pull-quant step beyond the depth admission was accepted";
+  List.iter (fun (e, q, name) ->
+      require (not (NR.pull_ok e q)) ("a pull-quant mutant was accepted: " ^ name);
+      require (leaf e q 0 = NR.Unreplayed) ("a pull-quant mutant was replayed: " ^ name))
+    [mk_or [pt (v 0); forall_ [term] (rt (v 1) (v 0))], forall_ [term] (mk_or [pt (v 0); rt (v 1) (v 0)]), "not lifted";
+     mk_or [forall_ [term] (pt (v 0)); forall_ [term] (qt (v 0))], forall_ [term] (mk_or [pt (v 0); qt (v 0)]), "two quantified children";
+     mk_or [pt (v 0); forall_ [term] (rt (v 1) (v 0))], exists_ [term] (mk_or [pt (v 1); rt (v 1) (v 0)]), "kind changed";
+     forall_ [term] (mk_or [pt (v 1); rt (v 1) (v 0)]), mk_or [pt (v 0); forall_ [term] (rt (v 1) (v 0))], "reversed orientation";
+     exists_ [term] (exists_ [term] (rt (v 2) (v 0))), exists_ [term; term] (rt (v 2) (v 0)), "exists flatten"]
 
 (* The base-sort name charge of the scope guard (Z3UnifiedProof.sort_tasks_within) counts two
    equal names once and doubles the count (Z3UnifiedProof.name_pair_units): a cost reduction
@@ -3513,7 +4016,7 @@ let sorted_epsilon_skolemization () =
         "typed epsilon admitted an ordinary equality lookalike";
       let conflicting = List.hd ds in
       require (not (E.eligible schema
-        { conflicting with Z3Skolemization.dependencies = [Z.zero, A.BaseSort "Int"] }))
+        { conflicting with Z3Skolemization.dependencies = [Z.zero, (A.SortApp (A.IntSymbol, []))] }))
         "typed epsilon admitted a dependency-bearing certificate"))
     cases;
   let schema, doc, entry, _, _ = fixture
@@ -4108,7 +4611,7 @@ let typed_observations () =
                   op = N.Oeq; range = Z3native.mk_bool_sort c;
                   numeral = None; native_kind = Z.zero; parameters = [] } in
   let d, _ = B.marshal_declaration st foreign [x; x] in
-  require (d.domain = [A.BaseSort "Int"; A.BaseSort "Int"])
+  require (d.domain = [(A.SortApp (A.IntSymbol, [])); (A.SortApp (A.IntSymbol, []))])
     "non-Boolean observational equality was relabeled";
   let formula = A.App (d, [x; x]) in
   require (U.classify_fact formula = Some (U.Observational (x, x)) &&
@@ -4127,8 +4630,8 @@ let typed_observations () =
   require (P.check_document doc = None) "observational root certified a refutation";
   require (P.logical_decl d && not (P.logical_decl { d with interp = None }))
     "observational declaration validation lost the native tag";
-  let lambda = A.Quantifier (A.Lambda_k, [A.BaseSort "Int"],
-      A.ArraySort ([A.BaseSort "Int"], A.BaseSort "Int"), x) in
+  let lambda = A.Quantifier (A.Lambda_k, [(A.SortApp (A.IntSymbol, []))],
+      A.ArraySort ([(A.SortApp (A.IntSymbol, []))], (A.SortApp (A.IntSymbol, []))), x) in
   require (P.check_document { doc with declarations = []; expressions = [lambda];
       entries = [{ entry with formula = lambda }] } = None)
     "non-Boolean proof conclusion was certified"
@@ -4277,7 +4780,7 @@ let unused_quantifier_rewrites () =
   check false "(declare-fun P (Int Int) Bool)"
     "(forall ((x Int) (y Int)) (exists ((z Int)) (P x z)))"
     "(forall ((x Int)) (exists ((z Int)) (P z z)))";
-  let source = A.Quantifier (A.Forall_k, [A.BaseSort "Int"], A.bool_sort,
+  let source = A.Quantifier (A.Forall_k, [(A.SortApp (A.IntSymbol, []))], A.bool_sort,
       A.Var (Z.one, A.bool_sort)) in
   require (U.check_step U.RewriteRule (U.Equal (source, A.Var (Z.zero, A.bool_sort))) [])
     "an outer de Bruijn variable was not lowered";
@@ -5090,8 +5593,8 @@ let arithmetic_rewrites () =
   check false ints "(div (* 10 x) 0)" "(div (* x 5) 2)";
   check false ints "(div (* 10 x) 4)"
     "(ite (= 0 0) (div (* 10 x) 0) (div (* x 5) 2))";
-  let x = A.Var (Z.zero, A.BaseSort "Int") in
-  let malformed = { (Z3ResolutionProofTheory.eq_decl (A.BaseSort "Int"))
+  let x = A.Var (Z.zero, (A.SortApp (A.IntSymbol, []))) in
+  let malformed = { (Z3ResolutionProofTheory.eq_decl ((A.SortApp (A.IntSymbol, []))))
     with decl_name = "<="; interp = None } in
   require (not (U.check_step U.RewriteRule
       (U.Equal (A.App (malformed, [x; x]), Z3ResolutionProofTheory.true_expr)) []))
@@ -5301,8 +5804,8 @@ let arithmetic_factor_rewrites () =
     reject_terms (f "%s: bound variables shifted in the source" s) open_d (shift open_a) open_b;
     (* Right-hand zeros whose numeral metadata is not the canonical zero of this sort. Each one,
        put in place of each zero of an accepted step, leaves the step uncertified. *)
-    let sort = A.BaseSort s in
-    let other = A.BaseSort (if s = "Int" then "Real" else "Int") in
+    let sort = fixture_sort s in
+    let other = fixture_sort (if s = "Int" then "Real" else "Int") in
     let is_zero e = LA.numeral e = Some (Z.zero, Z.one) in
     List.iter (fun (relation, source, target) ->
       let zd, a, b = equation d source target in
@@ -5411,14 +5914,14 @@ let arithmetic_factor_rewrites () =
   let d, a, b = named_step real_atom (ge_real "(hr x)" "(+ y 1.0)") in
   accept_terms "Real function atom" d a b;
   reject_terms "Real function atom in place of the Int one"
-    d a (retyped (A.BaseSort "Int") b);
+    d a (retyped ((A.SortApp (A.IntSymbol, []))) b);
   let d, a, b = named_step real_atom (ge_real "(to_real (hi x))" "(+ y 1.0)") in
   reject_terms "Int function atom under to_real for the Real one" d a b;
   let int_atom = "(>= (+ (* (hi x) k) (hi x)) 0)" in
   let d, a, b = named_step int_atom (ge_int "(hi x)" "(+ k 1)") in
   accept_terms "Int function atom" d a b;
   reject_terms "Int function atom in place of the Real one"
-    d a (retyped (A.BaseSort "Real") b);
+    d a (retyped ((A.SortApp (A.RealSymbol, []))) b);
   let d, a, b = named_step int_atom (ge_int "(to_int (hr x))" "(+ k 1)") in
   reject_terms "Real function atom under to_int for the Int one" d a b;
   (* A declaration that differs only in its parameters is another atom, though its name and
@@ -5687,8 +6190,8 @@ let conditional_comparison_rewrites () =
       (f "(forall ((z %s)) (and (not (> z %s)) (>= x %s)))" s two one);
     (* Each numeral of an accepted step, replaced by a numeral of another value or sort, a
        malformed numeral, or an uninterpreted constant, leaves the step uncertified. *)
-    let sort = A.BaseSort s in
-    let other = A.BaseSort (if s = "Int" then "Real" else "Int") in
+    let sort = fixture_sort s in
+    let other = fixture_sort (if s = "Int" then "Real" else "Int") in
     let is_numeral e = LA.numeral e <> None in
     let zd, a, b = equation d source target in
     require (CR.equivalent a b) ("step with canonical numerals rejected: " ^ source);
@@ -5955,7 +6458,7 @@ let bv_extract_rewrites () =
     | _ -> failwith "expected an application with arguments" in
   let params ps decl = { decl with A.int_params = List.map Z.of_int ps } in
   let interp op decl = { decl with A.interp = op } in
-  let domain s decl = { decl with A.domain = [A.BaseSort s] } in
+  let domain s decl = { decl with A.domain = [fixture_sort s] } in
   let d, a, b = equation "((_ extract 3 0) (bvadd x y))"
                   "(bvadd ((_ extract 3 0) x) ((_ extract 3 0) y))" in
   require (BX.check a b) "the unmodified sum step was rejected";
@@ -6007,7 +6510,7 @@ let bv_extract_rewrites () =
     | A.App (_, A.App (_, [x]) :: _) -> x
     | _ -> failwith "expected a sum of extractions" in
   let bind index = map_term (fun e ->
-      if e = x then Some (A.Var (Z.of_int index, A.BaseSort "BV8")) else None) in
+      if e = x then Some (A.Var (Z.of_int index, (A.SortApp (A.BvSymbol (Z.of_int 8), [])))) else None) in
   require (bind 0 a <> a && bind 0 b <> b) "x was not replaced by a bound variable";
   List.iter (fun (what, a', b') -> reject_terms what d a' b')
     [ "x bound on both sides", bind 0 a, bind 0 b;
@@ -6070,7 +6573,7 @@ let bv_extract_rewrites () =
     | A.App (_, [A.App (_, [x; _])]) -> x
     | _ -> failwith "expected an extracted concatenation" in
   let bind index = map_term (fun e ->
-      if e = x then Some (A.Var (Z.of_int index, A.BaseSort "BV8")) else None) in
+      if e = x then Some (A.Var (Z.of_int index, (A.SortApp (A.BvSymbol (Z.of_int 8), [])))) else None) in
   require (bind 0 a <> a && bind 0 b <> b) "x was not replaced by a bound variable";
   List.iter (fun (what, a', b') -> reject_terms what d a' b')
     [ "x bound on both sides of a concatenation step", bind 0 a, bind 0 b;
@@ -6079,7 +6582,7 @@ let bv_extract_rewrites () =
      with the parameters and range of bits 3..0 (or 15..9) of the concatenation. The rule
      rejects the terms, and the kernel does not classify an equation of a 4-bit (7-bit) and
      an 8-bit term. *)
-  let range s decl = { decl with A.range = A.BaseSort s } in
+  let range s decl = { decl with A.range = fixture_sort s } in
   let narrower what d a' b =
     incr terms_invalid;
     require (not (BX.check a' b)) ("invalid extraction terms accepted: " ^ what);
@@ -6686,8 +7189,8 @@ let bv_sum_normalization () =
   let params ps decl = { decl with A.int_params = ps } in
   let ints ps = params (List.map Z.of_int ps) in
   let interp op decl = { decl with A.interp = op } in
-  let range s decl = { decl with A.range = A.BaseSort s } in
-  let domain ss decl = { decl with A.domain = List.map (fun s -> A.BaseSort s) ss } in
+  let range s decl = { decl with A.range = fixture_sort s } in
+  let domain ss decl = { decl with A.domain = List.map (fun s -> fixture_sort s) ss } in
   let d, a, b = equation "(bvadd (bvadd #x00000002 t) #x00000001)" "(bvadd #x00000003 t)" in
   guard (fun () ->
       require (U.check_step U.RewriteRule (conclusion_of d a b) []) "the unmodified sum step was not certified");
@@ -6758,7 +7261,7 @@ let bv_sum_normalization () =
          | _ -> failwith "expected a sum");
       "target sum with range BV31", a, with_decl b (range "BV31") ];
   (* An atom of another sort in a sum: the Int constant n for t. *)
-  let n_decl = { A.decl_name = "n"; domain = []; range = A.BaseSort "Int"; interp = None; int_params = [] } in
+  let n_decl = { A.decl_name = "n"; domain = []; range = (A.SortApp (A.IntSymbol, [])); interp = None; int_params = [] } in
   let t_atom = match b with A.App (_, [_; t]) -> t | _ -> failwith "expected a sum" in
   let rec replace e = if e = t_atom then A.App (n_decl, [])
     else match e with
@@ -6901,7 +7404,7 @@ let ff_rewrites () =
   let st = B.marshal_expressions (B.empty_state ()) inputs in
   (match B.cached_expression st (List.hd inputs) with
    | A.App (_, [A.App (numeral, []); A.App (negation, [A.App (one, [])])]) ->
-       require (numeral.A.range = A.BaseSort "FF17" &&
+       require (numeral.A.range = (A.SortApp (A.FiniteFieldSymbol (Z.of_int 17), [])) &&
                 numeral.A.int_params = [Z.of_int 17; Z.of_int 16] &&
                 numeral.A.interp = Some Z3FiniteFieldLemma.op_ff_num)
          "a finite-field numeral lost its modulus or canonical residue";
@@ -7185,11 +7688,74 @@ let ff_certificates () =
   require (Option.is_none (N.view_ff_pac cx (pac ~premises:[numeral] (input "0"))))
     "non-Boolean native certificate premise accepted"
 
+let structured_sorts () =
+  let c = context () in
+  let formulas = parse c
+      "(declare-const ints (Seq Int))(declare-const bools (Seq Bool))\
+       (declare-const chars String)(declare-const nested (Array Int (Array Int Real)))\
+       (declare-const indexed (Array (Array Int Int) Bool))\
+       (declare-const multi (Array Int Bool Real))\
+       (declare-const fp (_ FloatingPoint 8 24))(declare-const field (_ FiniteField 7))\
+       (assert (= ints ints))(assert (= bools bools))(assert (= chars chars))\
+       (assert (= nested nested))(assert (= indexed indexed))(assert (= multi multi))\
+       (assert (= fp fp))(assert (= field field))" in
+  let st = B.marshal_expressions (B.empty_state ()) formulas in
+  let actual = List.map (fun formula ->
+      match B.cached_expression st formula with
+      | A.App (_, [a; _]) -> A.get_sort a
+      | _ -> failwith "expected a sort fixture equality") formulas in
+  let integer = A.SortApp (A.IntSymbol, []) in
+  let expected =
+    [A.SortApp (A.SeqSymbol, [integer]);
+     A.SortApp (A.SeqSymbol, [A.bool_sort]);
+     A.SortApp (A.SeqSymbol, [A.SortApp (A.CharSymbol, [])]);
+     A.ArraySort ([integer], A.ArraySort ([integer], A.SortApp (A.RealSymbol, [])));
+     A.ArraySort ([A.ArraySort ([integer], integer)], A.bool_sort);
+     A.ArraySort ([integer; A.bool_sort], A.SortApp (A.RealSymbol, []));
+     A.SortApp (A.FloatSymbol (Z.of_int 8, Z.of_int 24), []);
+     A.SortApp (A.FiniteFieldSymbol (Z.of_int 7), [])] in
+  require (actual = expected) "native sort import lost structural parameters";
+  require (List.for_all A.valid_sort actual) "native sort import produced a malformed sort";
+  require (integer <> A.BaseSort "Int" &&
+           A.SortApp (A.BvSymbol (Z.of_int 8), []) <> A.BaseSort "BV8")
+    "opaque names were interpreted as builtin sorts";
+  let imported native = fst (B.marshal_sort (B.empty_state ()) native) in
+  require
+    (imported (Z3native.mk_finite_set_sort c (Z3native.mk_int_sort c)) =
+     A.SortApp (A.FiniteSetSymbol, [integer]))
+    "native finite-set basis was not preserved";
+  List.iter (fun name ->
+      let native = Z3native.mk_uninterpreted_sort c (Z3native.mk_string_symbol c name) in
+      match imported native with
+      | A.BaseSort _ -> ()
+      | _ -> failwith ("native opaque sort was interpreted by name: " ^ name))
+    ["Int"; "BV8"; "SeqInt"];
+  let rec nested n sort =
+    if n = 0 then sort else nested (n - 1) (Z3native.mk_seq_sort c sort) in
+  let deep = imported (nested 200 (Z3native.mk_int_sort c)) in
+  require (A.valid_sort deep) "bounded nested sequence sort was not imported";
+  require
+    (try ignore (imported (nested 600 (Z3native.mk_int_sort c))); false
+     with N.Error message -> message = "Native sort nesting limit exceeded")
+    "native sort nesting was not bounded";
+  let encoding = Z3native.global_param_get "encoding" in
+  Fun.protect
+    ~finally:(fun () ->
+      Z3native.global_param_set "encoding" (match encoding with true, value -> value | _ -> "unicode"))
+    (fun () ->
+      List.iter (fun encoding ->
+          Z3native.global_param_set "encoding" encoding;
+          match imported (Z3native.mk_char_sort c) with
+          | A.BaseSort _ -> ()
+          | _ -> failwith "non-Unicode characters were assigned the Unicode carrier")
+        ["ascii"; "bmp"])
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
       test (); Printf.printf "PASS %s\n%!" name)
-    ["shared-expression-identity", shared_expressions;
+    ["structured-sort-identity", structured_sorts;
+     "shared-expression-identity", shared_expressions;
      "checked-clausal-refutations", clausal_proofs;
      "deep-expression-worklist", deep_expression;
      "proof-DAG-cache", proof_cache;
@@ -7232,6 +7798,11 @@ let () =
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;
      "sorted-quant-intro-ite-laws", sorted_quant_intro_ite_laws;
      "sorted-direct-ite-rewrites", sorted_direct_ite_rewrites;
+     "sorted-int-factor-permutation", sorted_int_factor_permutation;
+     "sorted-direct-product-rewrites", sorted_direct_product_rewrites;
+     "sorted-elim-unused", sorted_elim_unused;
+     "sorted-der", sorted_der;
+     "sorted-pull-quant", sorted_pull_quant;
      "scope-guard-name-pair-units", name_pair_units_equivalence;
      "readable-epsilon-provenance", readable_epsilon_provenance;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;

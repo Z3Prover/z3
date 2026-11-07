@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/shared_occs.h"
 #include "ast/pp.h"
@@ -107,7 +108,7 @@ format * smt2_pp_environment::pp_as(format * fname, sort * s) {
     return mk_seq1<format**, f2f>(get_manager(), buf, buf + 2, f2f(), "as");
 }
 
-format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
+format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f, bool signatures) {
     SASSERT(is_indexed_fdecl(f));
     unsigned num = f->get_num_parameters();
     ptr_buffer<format> fs;
@@ -122,12 +123,31 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
             std::string str = f->get_parameter(i).get_rational().to_string();
             fs.push_back(mk_string(get_manager(), str));
         }
+        else if (signatures) {
+            fs.push_back(pp_fdecl_ref(to_func_decl(f->get_parameter(i).get_ast())));
+        }
         else {
             unsigned len;
             fs.push_back(pp_fdecl_name(to_func_decl(f->get_parameter(i).get_ast()), len));
         }
     }
     return mk_seq1(get_manager(), fs.begin(), fs.end(), f2f(), "_");
+}
+
+/**
+   \brief Like pp_fdecl, but the built-in function of an array map is printed
+   with its signature, which the SMT-LIB parser requires to read it back:
+   ((_ map (<= (Int Int) Bool)) a b) instead of ((_ map <=) a b).
+   Other indexed declarations, such as (_ is C) and (_ update-field a), keep
+   their standard form.
+*/
+format * smt2_pp_environment::pp_fdecl_with_signatures(func_decl * f, unsigned & len) {
+    if (get_arutil().is_map(f) && is_indexed_fdecl(f)) {
+        format * fname = pp_fdecl_name(f, len);
+        len = UINT_MAX;
+        return pp_fdecl_params(fname, f, true);
+    }
+    return pp_fdecl(f, len);
 }
 
 format * smt2_pp_environment::pp_fdecl(func_decl * f, unsigned & len) {
@@ -774,6 +794,17 @@ class smt2_printer {
         else if (m().is_pattern(t)) {
             f = mk_seq5<format**, f2f>(m(), it, end, f2f());
         }
+        else if (is_app_of(t, bv_family_id, OP_CONCAT) && t->get_num_args() > 2) {
+            format * children[] = { mk_string(m(), "(concat "), *it++, mk_string(m(), " "),
+                                    *it++, mk_string(m(), ")") };
+            format_ref concat(mk_compose(m(), 5, children), fm());
+            for (; it != end; ++it) {
+                format * children[] = { mk_string(m(), "(concat "), concat.get(),
+                                        mk_string(m(), " "), *it, mk_string(m(), ")") };
+                concat = mk_compose(m(), 5, children);
+            }
+            f = mk_group(m(), concat.get());
+        }
         else {
             unsigned len;
             SASSERT(it < end);
@@ -1375,7 +1406,7 @@ std::ostream& operator<<(std::ostream& out, mk_ismt2_func const& p) {
     smt2_pp_environment_dbg env(p.m);        
     format_ref r(fm(p.m));
     unsigned len = 0;
-    r = env.pp_fdecl(p.m_fn, len);
+    r = env.pp_fdecl_with_signatures(p.m_fn, len);
     params_ref pa;
     pp(out, r.get(), p.m, pa);
     return out;

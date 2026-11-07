@@ -334,6 +334,20 @@ Lean source, not JSON. The separate `examples/python/proof_to_lean.py` consumer
 validates JSON and invokes the helper before publishing generated Lean source.
 Installation and usage are documented in `lean/README.md`.
 
+The reconstruction tests (`examples/python/test_proof_to_lean*.py`) check
+Lean through `examples/python/lean_test_support.py`. Most of their
+certificates check in a tenth of a second, while each run of the helper
+spends about half a second starting Lean, so the tests check each
+certificate once, with its `#print axioms` report in the same run; build
+the project once per process (`Z3_LEAN_SKIP_BUILD=1` makes the helper skip
+`lake build`); and check the documented inputs of a test in a few
+concatenated files (`prefetch`). Five stress tests, whose inputs exercise
+the size and memory limits of the reconstruction (QF_LIA
+cut_lemma_02_002, QF_UF NEQ004_size4, the 13,000-node BubbleSort circuit,
+and two wide random division instances), run only with
+`Z3_LEAN_SLOW_TESTS=1`. On a 16-core Darwin arm64 machine these
+changes took the suite from 30 minutes to under 10.
+
 ## Current reconstruction slice
 
 - Require the original SMT-LIB input separately from the certificate. Match
@@ -1589,6 +1603,310 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Nested arrays (2026-11-05)
+
+Arrays of arrays, and arrays indexed by arrays, were rejected ("unsupported
+array operator: select", "only arrays over uninterpreted sorts"); z3test
+`3006`, `segfault2`, `3141`, `3529`, `3728` declare them (all sat, so none
+certifies). The exporter, the clause-log replay (sort names `(Array Int
+(Array Int Int))`, nested in constant arrays too), and the reconstructor
+now admit an index or element sort that is itself a supported array sort,
+at any depth. Lean renders it as a function type (`Int -> (Int -> Int)`,
+family `arrs_iaii`); the extensionality witness over array indices is
+chosen with a constant function. Reads, witnesses, and default values
+whose values are arrays are unfolded in lemmas (`_folded_array`; the array
+solver introduces the default row of a constant array of rows itself,
+`const_rows_default`); only stores, ites, constants, maps, and
+applications stay folded. Maps and set operators over sets indexed by
+arrays are rejected: the embedding of a model's outer arrays is fixed off
+the embedded indices, and a connective does not commute with it there.
+The rewriter evaluates a
+read through a stored row, `(select (select (store a i (store r j v)) i)
+j)` to `v`, with no read term of the stored row, so each row stored along
+the outer chain (recursively, three levels deep too) gets the read facts of
+its own levels at the read's index (`_n` facts, `_stored_rows`; shown
+necessary in Lean). A gap present before for
+plain Int arrays showed up in a random sweep: a read that is both an opaque
+Int atom of a lemma and the value of a folded store was never unfolded in
+the generalization fallback, so grind failed (`stored_read_atom`, 7 lines
+of QF_ALIA); `_definition_names` now takes the atoms as roots. Constant
+arrays over array indices and array-valued default values stay rejected.
+28 documented inputs (`NESTED_ARRAY_INPUTS`) verify in Lean, as do the 104
+unsat seeds among 350 random two-dimensional Int array instances (stores,
+reads, and ites of matrices and rows).
+
+### Arrays over Bool indices (2026-11-05)
+
+`(Array Bool E)` was rejected by the exporter ("only arrays over
+uninterpreted sorts, Int, and Real") and the reconstructor ("unsupported
+array sort"), which blocked z3test `5798.smt2`. Both now admit Bool as the
+index sort over every element sort (uninterpreted, Int, Real, Bool), with
+store, ite, extensionality, functions into and over such arrays, and maps
+over sets of them; the clause-log replay needed no change. Lean's index type
+is `Prop` (`_m.arrs_bi : Nat -> Prop -> Int`): an index is a formula, two
+indices are equal as propositions, and the extensionality witness is a
+formula chosen with `True`. A model's array over Bool embeds as `fun p => a
+(decide p)` (injective, and commuting with select and store by propext), so
+the generic array facts apply. Two gaps showed up: the rewriter skips a
+store at `false` in a read at `true` as it skips stores at other numerals,
+so `_distinct_values` now compares `true`/`false` too
+(`bool_index_read_through_value_stores`, shown necessary in Lean); and the
+gate clause `(or (not (= (not p) p)) (not (not p)) p)` of the index equality
+of stores at `p` and `(not p)` is resolved by the SAT solver to `p` (the
+double negation is one literal there), which the reconstructor rejected
+("incorrect unit-resolution conclusion"). `_resolution` now concludes a kept
+`(not (not x))` as `x` when `x` is kept or concluded, by
+`Decidable.byContradiction` with `x`'s decidability witness
+(`bool_index_negated_stores`). Constant arrays and default values over Bool
+indices stay rejected (a finite index sort), as do arrays of arrays. z3test
+`5798.smt2` and eleven synthetic inputs (`BOOL_INDEX_INPUTS` in
+`test_proof_to_lean_array.py`) verify in Lean.
+
+### Arrays with Bool elements (2026-11-04)
+
+Sets, `(Array I Bool)`, were the commonest remaining array rejection
+("unsupported propositional operator: select"). The exporter and the
+reconstructor now admit Bool as an array's element sort over every
+supported index sort (uninterpreted, Int, Real), with constant arrays,
+default values, functions into and over such arrays, and ite; the clause-log
+replay needed no change. Lean's element type is `Prop` (`Prop : Type`, so the
+array definitions apply unchanged): an array is a predicate (`_m.arrs_ib :
+Nat -> Int -> Prop`), a read `(_select a i)` is a formula, a stored or
+constant value is a formula, and a Bool default value is `_default ... :
+Prop`. The array solver's store axiom over a Boolean value, `(= v (select
+(store a i v) i))`, is a Bool equality (Iff); an `array` lemma may compare
+Bool terms only when some array has Bool elements. Bool indices and arrays
+of arrays were still rejected then (Bool indices are admitted since
+2026-11-05, above); `map` over sets is supported since 2026-11-05 (below).
+Along the way a gap for every element sort was closed: Z3's rewriter
+evaluates a read of a store over a constant array, `(select (store (const
+v) y w) x)`, without any read of the constant array at `x` in the
+certificate, so grind failed on the rewrite; a read of a store chain ending
+at a constant array now gets `_store_apply` at every level and
+`_select_const` at the bottom (`test_reads_down_to_constant_arrays_are_needed`).
+On 2026-11-05 the same was found over plain arrays: the rewriter skips the
+stores at numerals other than the read's, `(select (store (store a 1 5) 2 7)
+3)` is `(select a 3)`, so those levels get their `_store_apply` facts too
+(`read_through_numeral_stores`), and so does the store where the skip stops,
+whose read at the read's own numeral the rewriter evaluates in the same step
+(`(select (store (store a 3 5) 2 7) 3)` is `5`,
+`read_through_numeral_stores_to_own_index`). Numerals are compared by value,
+negative ones `(- n)` and Real fractions `(/ n d)` included
+(`read_through_negative_numeral_stores`). Reads through stores at symbolic
+indices keep one fact, so z3test's swap files are unaffected.
+No z3test input is newly certified (its Bool-array files also need `map`,
+nested arrays, quantifiers, or unsupported commands); sixteen synthetic
+inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
+Int-element `read_of_store_over_constant` verify in Lean.
+
+### Trimmed map logs (2026-11-06)
+
+The trimmer could not read back any clause log with a map: Z3 printed
+`((_ map f) a)` without ever declaring `f` (the declaration collector did not
+follow a map's function parameter, as it does for `as-array`) and a built-in
+as `(_ map <=)`, without the signature the SMT-LIB parser requires
+("unknown function f", "must provide signature for builtin symbol <="). Every
+map log of 4 KB or more was replayed untrimmed, and inputs whose search
+derived the default-value axiom of a map were rejected even when the
+refutation does not use it. `decl_collector` now collects a map's function,
+so every printer that uses it (clause logs, but also `to_smt2` and
+`Solver.sexpr()`) declares a mapped uninterpreted function. The clause-log
+printer (`mk_ismt2_func`, used only by `ast_pp_util::define_expr`) prints the
+built-in function of a map with its signature,
+`((_ map (<= (Int Int) Bool)) a b)`; other indexed heads such as `(_ is C)`
+and `(_ update-field a)` keep their standard form, and Z3's general printer
+still prints `(_ map <=)`. The replay accepts both map forms and rejects a logged signature that
+is not the rebuilt application's. All 92 unsat seeds of the iter-078 random
+map sweep now export with trimming (the 2 previously rejected by the
+default-map axiom included) and the 305 documented array inputs trim
+without fallback at threshold 0. Tests: `test_native_trimming_reads_map_logs`
+and `test_clause_logs_print_datatype_heads_without_signatures`
+(`test_proof_certificate.py`), signature heads in
+`test_the_replay_reads_maps`.
+
+### Maps of other functions (2026-11-05)
+
+Maps of anything but `not`, `and`, `or`, `=>` were rejected ("maps are
+supported over the connectives not, and, or, => only"), although Z3 solves
+such inputs. Maps of `xor`, `=` and `distinct`, Int and Real `+`, `-`
+(binary and unary), and comparisons, `ite`, and uninterpreted functions and
+predicates of up to three arguments, over elements of an uninterpreted sort,
+Int, Real, or Bool, are now certified through the clause log. The
+certificate names a built-in by its SMT-LIB name and an uninterpreted
+function as `("declared", f)`; the replay rebuilds `(_ map +)` (logged
+without a signature) from the arrays' element sorts; the reconstructor binds
+a mapped function to the input's symbol and signature even when it is never
+applied, and checks each built-in's element signature. Lean's
+`_map1`/`_map2`/`_map3` are polymorphic in the element types and take a
+lambda whose body is the application as the term and formula renderers
+write it, so the select-map read facts (beta-reduced by rfl) match the
+lemmas' terms; maps of stores and constants reuse the set theorems, and
+maps of commutative functions get `_map2_comm` with the pointwise swap
+proved by `grind`. A random sweep found one more gap, which set operators
+already had: Z3's rewriter skips a store at another numeral index and
+evaluates the read of a map below it (`(select (store ((_ map not) s) 1
+false) 0)` is `(not (select s 0))`) with no read term of the map, so such
+a read now gets the map's read facts too (`_skipped_to_map`), and a read
+of a map goes on through the stores below it the same way.
+Multiplication, conversions, uninterpreted functions of four or more
+arguments, connectives of three or more arguments, and maps over arrays of
+arrays stay rejected. Tests: `MAP_FUNCTION_INPUTS` (29 inputs, Lean), `test_map_function_encoding`,
+`test_tampered_map_functions_are_rejected`, `test_the_replay_reads_maps`,
+and seven more cases in `test_map_facts_are_needed`; of 200 random map
+inputs from a one-off sweep (not part of the repository), all 90 unsat ones
+that export verify in Lean, and 2 more are rejected explicitly (they need the
+default-map axiom). z3test's maps of
+arithmetic (`t155.smt2`, `t154.smt2`) are sat or use `eval`/options, so no
+z3test file newly certifies.
+
+### Maps and set operators over sets (2026-11-05)
+
+`((_ map f) a b)` was rejected ("unsupported array operator: map"), which
+blocked z3test `t8.smt2` and `issue-1665.smt2`. Maps of `not`, `and`, `or`,
+`=>` over sets of one sort and Z3's set operators (`union`, `intersection`,
+`setminus`, `complement`) are now certified through the clause log: the
+certificate's map declaration carries the connective as its parameter, the
+replay reads `(_ map f)` heads, and Lean's `_map1`/`_map2` apply a function
+over `Prop` pointwise. The select-map axiom (an `array` hint stating the
+propagated equality, as for the store axiom) is rfl per read, stated through
+nested maps and into the stores and constant arrays below them, which Z3's
+rewriter evaluates in one step. The identities euf and the rewriter apply
+(commutativity and idempotence of `and`/`or` maps, double complement, maps of
+stores at one index, maps of constant arrays) are funext theorems
+instantiated per map node, and a `setminus` node is stated equal, by rfl, to
+the map of `and` over the complement that the rewriter turns it into
+(`setminus_named`; the other set operators share their Lean function with
+the map they become); each is shown necessary by
+`test_map_facts_are_needed`. The default-map axiom is not valid for
+`_default` (a map's arguments need not be constant almost everywhere) and is
+rejected explicitly ("the default value of a map is not certified"); input
+`default` terms are admitted over Int and Real indices. z3test `t8.smt2` and
+`issue-1665.smt2` queries 1 and 2 verify in Lean (query 0 takes default
+values over an uninterpreted index and stays rejected). Maps of other
+functions (uninterpreted, arithmetic) stayed rejected until the entry above.
+
+### Functions into arrays (2026-11-04)
+
+Uninterpreted functions returning an array, `(declare-fun h (I) (Array I
+E))`, were rejected by the exporter ("uninterpreted functions over
+Array(I, E)") and the reconstructor ("unsupported array declaration"),
+although functions over arrays were certified. Both now accept them on the
+clause log, for every array sort already supported (index and element sorts
+uninterpreted, Int, or Real); the result may be the array sort of an
+argument too. Lean renders each as one more family per Lean array type
+(`_m.arrs_funs`, `_m.arrs_ii_funs : Nat -> List U -> Int -> Int`, ...),
+taking the injected argument list like `_m.funs`, so a model's function
+into arrays is an instance through the embedding of its array values that
+the array constants use. Applications stay folded in the array lemmas like
+stores and are each stated equal to their body (a `_t` fact), so grind's
+congruence closure compares them by arguments; without those facts grind
+fails (`test_application_facts_are_needed`). Arrays over Bool or arrays stay
+rejected as results as well as arguments. No z3test input is newly
+certified (the fuzzsmt `t168`/`t170` regressions with such functions are
+satisfiable); eleven synthetic inputs (`ARRAY_FUNCTION_INPUTS` in
+`test_proof_to_lean_array.py`: store, extensionality, ite, constant arrays,
+predicates over applications, Int/Real/mixed sorts, arrays to arrays, two
+functions sharing one family) verify in Lean.
+
+### Constant arrays over Int and Real indices (2026-11-03, 2026-11-04)
+
+Constant arrays `((as const (Array I E)) v)` were rejected ("unsupported
+array operator: const"), so z3test `regressions/smt2/2549.smt2` and the six
+queries of `array.smt2` could not be certified. With constant arrays in the
+input, the sat.smt array solver relates arrays through their default values,
+logging `array` hints over `(default a)` terms: `(default (const v)) = v` and
+`(default (store a i v)) = (default a)` (index sorts it considers large).
+Both hold only over an infinite index sort, so uninterpreted index sorts
+(possibly finite) stay rejected by the exporter and the reconstructor. Real
+indices are infinite but not implemented yet (they need an unboundedness
+lemma over Rat like `_int_unbounded`), so constant arrays are now accepted
+over Int indices only, on the clause log only. Lean
+renders a constant array as `_const_array Int v` and a default value as
+`_default _int_unbounded a`, where `_default` is defined on every function
+(the value taken outside some finite list of indices, else a store-invariant
+choice) and `_default_const`, `_default_store` are theorems from
+`_int_unbounded` (no finite list exhausts Int). The replay reads `as const`
+and `default` terms (defaults are linear atoms), and the single-equality
+`array` hints of these axioms are the propagated equality, like the store
+axiom. Z3's rewriter decides an equality between stores over constant arrays
+by default values or values at the stored indices; rewrite steps reaching a
+constant array get those facts (`_constant_array_comparisons`). Result:
+`2549.smt2` and all six `array.smt2` queries export and verify in Lean.
+Tests: `CONSTANT_ARRAY_INPUTS` in
+`test_proof_to_lean_array.py`.
+
+Real indices (2026-11-04): constant arrays and default values over
+Real indices are accepted too. Lean proves `_rat_unbounded` (no finite list
+exhausts Rat, bounded by `max (a + 1) b` per element, grind over Rat) and
+instantiates the same `_default_const`, `_default_store`, and
+`_select_const` at `Rat`; the reconstructor maps each admitted index sort to
+its unboundedness theorem (`_UNBOUNDED`), proves only the theorems of the
+index sorts of the file's array sorts (Int-indexed output is unchanged), and
+still rejects uninterpreted index sorts. No z3test file uses Real-indexed constant arrays; the five
+`REAL_INDEX_CONSTANT_ARRAY_INPUTS` (2549 and array.smt2's third query over
+Real indices, a Farkas read, stores at Real terms, uninterpreted elements)
+verify in Lean, and grind fails on the Real 2549 and comparison inputs once
+the default or read facts are removed.
+
+### Arrays over Int and Real, and functions over arrays (2026-11-03)
+
+Arrays were certified only between uninterpreted sorts, so all 13 of
+z3test's 25 smtlib-sample QF_AUFLIA files that use arrays (`(Array Int
+Int)`) were rejected ("only arrays from one uninterpreted sort to
+another"), and 10 of them also by their Skolem function `sk : (Array Int Int) (Array Int Int)
+-> Int` ("uninterpreted functions over Array(Int, Int)"). Index and element
+sorts may now be Int or Real as well, on the clause log only: Lean renders
+them as Int and Rat (`(Array Int Int)` is `Int -> Int`, one family of
+constants per Lean array type, `_m.arrs_ii`), and the array definitions
+and theorems are generic in both types. A read of an Int or Real array is
+an atom of the linear forms on both sides (exporter `_linear`,
+reconstructor `_LINEAR_ATOM_KINDS` and the generalized opaque atoms, never
+inside a folded array term), the qf_lira sort of a step does not look into
+array terms, and an extensionality witness over Int or Rat chooses with
+`Nonempty.intro 0`. An `array` lemma may compare Int or Real terms only if
+some array of the certificate has that sort. Functions and predicates may
+take arrays: an array argument is injected into the carrier by one field per
+Lean array type (`_m.arrs_ii_inj`), as Int and Real arguments are. No map
+from `U -> U` or `U -> Int` into `U` is injective, so a model is an instance
+because only finitely many array values are denoted: `U` gets one fresh
+point per denoted array, which the injection picks and the functions read
+back. Any theory step reaching a store, not only a rewrite, is offered the
+store identities as a last alternative: a `th-lemma cnf` over a predicate
+of `(store c n (select c n))` needs `_store_select`. The
+unused-simp-argument lint is off for the one store-identity `simp` (it is an
+error under `warningAsError` when simp needs only one identity). Result: of
+the 13 QF_AUFLIA files with arrays, 8 verify (the largest, a 9.2 MB file,
+in 2 minutes); the 4 swap files with `sk` reconstruct to 66 to 243 MB of
+Lean, too large to check, and `cvc/dlx-regfile` exhausts the exporter's
+memory. Tests: `ARITHMETIC_ARRAY_INPUTS` in `test_proof_to_lean_array.py`.
+
+### Arrays over uninterpreted sorts through the clause log (2026-11-03)
+
+Any array sort was rejected ("unsupported sort"), so none of z3test's 25
+smtlib-sample QF_AX benchmarks (storecomm, storeinv, swap) could be
+certified. Arrays from one uninterpreted sort to another (array constants,
+`select`, `store`, `ite`, equality) now join the UF fragments on the clause
+log; the legacy core rejects them explicitly. The replay reads array sorts
+in definitions, `select`, `store`, and the extensionality witness
+`(_ array-ext 0)` (z3py `Ext`). An `array` lemma is the complement of its
+hint, like `euf`, except for the store axiom: that hint lists the
+equality it propagates (`propagate_axiom`), so the lemma is that equality.
+Lean renders an array as a function `_m.U -> _m.U` (constants `_m.arrs`),
+`select` as `_select`, `store` as the classical update `_store`, and the
+witness as `_array_diff`, an epsilon choice that needs `_m.nonempty`. A
+model's arrays embed injectively, commuting with `select` and `store`, so
+every model is an instance. grind proves the array lemmas with two kinds of
+per-lemma fact, `_store_apply` for each read of a store and `_array_ext`
+for each witness. Array terms stay folded in those lemmas (`term_N`, tied to
+its body by `rfl`): inlined, the shared store chains grow exponentially and
+exhausted the kernel. Rewrites over stores may also use `_store_store` and
+`_store_select`, the identities Z3's rewriter applies. All array facts are
+theorems in the file. Result: 23 of the 25 QF_AX files verify (the slowest
+in 88 s). `storecomm_t2_np_nf_ai_00050_007` and `swap_t2_np_sf_ai_00009_002`
+(17 and 29 MB of Lean) still hit "(kernel) excessive memory consumption".
+That happens in outlined proof steps, not in array lemmas. Tests:
+`test_proof_to_lean_array.py`.
+
 ### Pseudo-Boolean constraints through the legacy core (2026-11-02)
 
 Propositional input may now use `at-most`, `at-least`, `pble`, `pbge`, and
@@ -2231,6 +2549,93 @@ Fourier-Motzkin), each projected constraint stated over Int through the
 `8b - 12a - 15 = 0`), which grind's Int module refutes. All 162 runs of the
 81 unsatisfiable seeds verify; without the facts six of the eight runs of
 the new test inputs fail.
+
+### Uninterpreted functions next to both sorts: qf_uflira (2026-11-03)
+
+Input with uninterpreted sorts or functions next to both Int and Real
+(a function `Int -> Real`, a predicate over both sorts, or `qf_uflia` and
+`qf_uflra` symbols side by side) was rejected ("mixing integer and real
+arithmetic with uninterpreted functions"). It is now the `qf_uflira`
+fragment (opt-in with the integer ones, both cores), conversions included.
+The statement takes both valuations of `qf_lira` next to `_m`, and the
+`Interpretation` structure has both numeric pairs: `_m.int`/`_m.ifuns` and
+`_m.real`/`_m.rfuns`, each argument injected and each result valued by the
+fields of its own sort (`_Graph.injection(node)`,
+`_Graph.numeric_functions(node)`). The one reconstructor change beyond the
+encoding: `_lemma_numeric` no longer walks into the arguments of an
+application (an atom of the linear forms), so a farkas lemma over `(f n)`
+with `f : Int -> Real` is a Real lemma, and `_farkas_combination` checks
+the hint before asking for the sort, so an `euf` congruence relating
+`(= 3 n)` to `(= (f n) (f 3))` is not mistaken for an arithmetic step over
+both sorts; a coefficient step over atoms of both sorts without a
+conversion is still rejected. The argument-equality helpers
+(`_real_argument_helpers`) group function arguments by sort as well as by
+linear form: review found that an Int `(ite c 1 0)` and a Real
+`(ite c 1.0 0.0)` got an ill-sorted `Int = Rat` helper that failed Lean.
+Tests: `test_proof_to_lean_uflira.py` (five
+documented inputs and five `random_uflira_instance` seeds, one with ite
+arguments of both sorts, with farkas,
+implied-eq, cut, bound, and euf hints on both cores, the encoding, label
+tampering, the per-lemma sort, no helper across sorts), classification cases in
+`test_proof_certificate.py`. Sweeps of `random_uflira_instance` (with and
+without `to_real`, 2-3 variables of each sort, depth 2-3): all 392 runs on
+both cores of 196 unsatisfiable seeds verified in Lean, plus hand probes
+with `to_int` under a function argument, `is_int` next to a predicate, and
+the floor of an application. With ite arguments (`ites=True`, seeds 1-300,
+2/10/3) all 168 runs of 84 unsatisfiable seeds verify; 42 of them have Int
+and Real arguments with one linear form, and three of those (105, 128, 279)
+failed Lean before the per-sort grouping. Known gap, shared with
+`qf_lira`: an Int ite whose condition compares Reals (or the reverse),
+outside a function argument, makes its theory step "over both Int and Real
+atoms", which is rejected.
+
+### Enumeration datatypes through the clause log (2026-11-06)
+
+Every `declare-datatype(s)` was rejected by the frontend. Enumerations
+(all constructors nullary, not parametric) are now accepted as sorts of the
+UF fragments, through the clause log only (the legacy core rejects them
+explicitly; its datatype steps are not encoded); any other datatype, and an
+array over an enumeration, is rejected. In Lean an enumeration joins the
+carrier `_m.U`, its constructors are `_m.ctors k`, a recognizer
+`((_ is c) t)` is `t = _m.ctors k`, and the `Interpretation` gains fields
+read from the input's declarations: `enum_distinct` (constructors of one
+enumeration differ) and, per constant or function of an enumeration sort,
+`enum_cases_i` / `enum_fcases_j` (its value is one of the sort's
+constructors, all of them, for every argument list). The clause log's
+`datatype` hints become th-lemmas over enumeration equalities and
+recognizers, proved by grind with those fields instantiated; the
+reconstructor checks every constructor and recognizer against the input's
+enumeration and interns constructors by name. This redoes fork PR #67
+(iteration 67, never merged) on top of the array work. Three defects found
+there and kept fixed: a root `distinct` with more arguments than the sort
+has values had no certifiable proof (the `add_distinct_axiom` shortcut
+logged an empty clause with an empty `tseitin` hint, which the exporter
+rejects as not derivable by unit propagation, and on iteration 67's build
+z3 crashed, exit 139, writing it; with proofs the pairwise clauses are now
+added and the datatype solver refutes them); the replay's structural keys ignored
+constructor names, so `(= x red)` and `(= x blue)` shared a key; and a
+datatype hint may state an equality the other way around from its logged
+clause, so the lemma is the logged clause. z3test
+`regressions/smt2/t198.smt2` (recognizers) and the second query of
+`z3.14.smt2` (the pigeonhole; the first is sat) now certify;
+SMT-LIB 2.5's `is-c` recognizers (`OP_DT_RECOGNISER`) are written as
+`(_ is c)` (`OP_DT_IS`). The pigeonhole search grows exponentially in the
+constructors (with 32 arguments, 7 constructors log 8 MB in 0.7 s and 8
+constructors 96 MB in 8 s), and the Lean check costs more than the search:
+6 constructors and 7 arguments give 6.5 MB of Lean (18 s, 2 GB), 7 and 8
+give 59 MB, which exhausts the kernel's 8 GB. Every clause over the
+`distinct` unfolds all its pairwise disequalities, so the arguments count
+too: with 5 constructors, 16 arguments check in 7 s (1.5 GB) and 32 exhaust
+the kernel's memory; 4 constructors and 32 arguments take 76 s (4.3 GB).
+So the exporter rejects a pigeonhole `distinct` (more arguments than
+constructors) over more than five constructors or with more than sixteen
+arguments; parametric datatypes
+are rejected in both the 2.6 (`par`) and 2.5 (`(declare-datatypes (T) ...)`)
+syntax. Follow-up: a counting lemma for the `distinct` shortcut. Tests:
+`test_proof_to_lean_enum.py` (twelve documented inputs, z3.14, seven
+`random_enum_instance` seeds, the encoding, constructor and recognizer
+tampering, the pigeonhole and its bounds (a slow-tier check of the largest
+accepted one), the keys, a dropped enumeration fact failing Lean).
 
 ### Native checks of the rem axioms (2026-10-31)
 

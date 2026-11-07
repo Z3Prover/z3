@@ -34,9 +34,12 @@ namespace api {
 
     object::object(context& c): m_ref_count(0), m_context(c) { this->m_id = m_context.add_object(this); }
 
-    void object::inc_ref() { ++m_ref_count; }
+    void object::inc_ref() {
+        if (m_ref_count != UINT_MAX)
+            ++m_ref_count;
+    }
 
-    void object::dec_ref() { SASSERT(m_ref_count > 0); if (--m_ref_count == 0) m_context.del_object(this); }
+    void object::dec_ref() { if (m_ref_count == UINT_MAX) return; SASSERT(m_ref_count > 0); if (--m_ref_count == 0) m_context.del_object(this); }
     
     unsigned context::add_object(api::object* o) {
         flush_objects();

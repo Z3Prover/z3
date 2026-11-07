@@ -34,13 +34,11 @@ open Z3AstTheory
 (* (`Z3ArrayTheory.arr int int`, matching SMT-LIB's `(Array Int Int)`), *)
 (* a sequence of Int (`Z3SeqTheory.seq int`, matching `(Seq Int)`), and *)
 (* a 32-bit bitvector (`Z3BvTheory.bv 32`). Kept at `int`/`int`         *)
-(* element/index types rather than the fully generic `value` itself,   *)
-(* deliberately: embedding `value` as an array/sequence *element* type  *)
-(* would make `value` need to be an `eqtype` (`Z3SeqTheory.seq`         *)
-(* requires `a:eqtype`), which a function-typed constructor (`VArr`)    *)
-(* can never satisfy (no decidable equality on functions) -- so this    *)
-(* domain is deliberately first-order/non-recursive, matching exactly   *)
-(* the sorts the example leaves below actually use.                     *)
+(* element/index types for the legacy example interpretation. This is *)
+(* not the compositional SMT carrier: the sort-indexed datatype/value *)
+(* framework and Z3TypedRoot supply that separate semantic family.     *)
+(* Generic sequence operations and semantic arrays accept arbitrary   *)
+(* element types without requiring executable equality on functions.  *)
 (* ----------------------------------------------------------------- *)
 
 noeq

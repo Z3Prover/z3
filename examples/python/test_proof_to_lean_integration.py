@@ -21,6 +21,7 @@ sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
 import proof_preprocessing
+import lean_test_support
 import proof_to_lean
 from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
@@ -31,28 +32,19 @@ from test_proof_to_lean import (
 
 class TestProofToLeanIntegration(unittest.TestCase):
     def check(self, source, certificate):
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "checked proof.lean"
-            proof_to_lean.check_and_write(source, certificate, output)
-            text = output.read_text()
-            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
-            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
-            self.assertNotIn("_hyp", statement)
-            self.assertNotIn("Decidable", statement)
-            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            theorem_rules = {z3.Z3_OP_PR_REWRITE: "rewrite", z3.Z3_OP_PR_DEF_AXIOM: "def_axiom"}
-            theorems = ["unsat"]
-            for node, raw in enumerate(certificate["nodes"]):
-                rule = certificate["declarations"][raw["declaration"]]["kind"]
-                if rule in theorem_rules:
-                    theorems.append("%s_%d" % (theorem_rules[rule], node))
-            output.write_text(text + "".join(
-                "\n#print axioms %s.%s\n" % (namespace, theorem) for theorem in theorems))
-            result = subprocess.run(
-                [str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(result.stdout.count("does not depend on any axioms"), len(theorems))
-            return text
+        theorem_rules = {z3.Z3_OP_PR_REWRITE: "rewrite", z3.Z3_OP_PR_DEF_AXIOM: "def_axiom"}
+        theorems = ["unsat"]
+        for node, raw in enumerate(certificate["nodes"]):
+            rule = certificate["declarations"][raw["declaration"]]["kind"]
+            if rule in theorem_rules:
+                theorems.append("%s_%d" % (theorem_rules[rule], node))
+        text, report = lean_test_support.check(self, source, certificate, theorems=theorems)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+        self.assertNotIn("_hyp", statement)
+        self.assertNotIn("Decidable", statement)
+        self.assertEqual(report.count("does not depend on any axioms"), len(theorems))
+        return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
         for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED, UNARY_XOR,

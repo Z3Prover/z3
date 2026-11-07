@@ -145,8 +145,45 @@ too; it shares qf_lia's opt-in on both cores. The qf_lira fragment has
 Int and Real atoms side by side (the qf_lia and qf_lra shapes, Boolean
 structure tying them together), to_real of Int terms (variables, sums,
 ite, div, mod, abs) inside Real atoms, and to_int and is_int of linear Real
-terms; it shares the opt-in too, and both cores certify it. Integer
-div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
+terms; it shares the opt-in too, and both cores certify it. The
+qf_uflira fragment is qf_lira next to uninterpreted sorts and functions:
+functions and predicates may take and return Int and Real (both in one
+signature too), and an input whose signatures and atoms mention both sorts
+is qf_uflira; it shares the opt-in, and both cores certify it. Arrays
+whose index and element sorts are uninterpreted, Int, or Real, the element
+sort Bool too (sets, (Array Int Bool)) (QF_AX,
+QF_ALIA, QF_AUFLIA: (Array Index Element) or (Array Int Int) constants,
+select, store, ite over arrays, and equality between arrays) join whichever
+UF fragment the rest of the input is in, their uninterpreted index and
+element sorts counting as its uninterpreted sorts and an Int or Real one as
+its arithmetic (an input with Int arrays alone is qf_uflia); functions and
+predicates may take arrays as arguments, functions may return them,
+constant arrays ((as const (Array I E)) v) and default values (default a)
+are supported over Int and Real indices, and sets combine by maps of not,
+and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
+setminus, complement); maps of xor, = and distinct, Int and Real +, -, and
+comparisons, ite, and uninterpreted functions and predicates of up to three
+arguments apply over elements of an uninterpreted sort, Int, Real, or Bool.
+Only the clause log certifies them (the legacy core
+rejects them explicitly); arrays may also be indexed by Bool ((Array Bool
+Int), see below), and an index or element sort may itself be such an array
+((Array Int (Array Int Int)), (Array (Array Int Int) Bool), nested to any
+depth); arrays
+with several indices, constant arrays and default values over other index
+sorts, default values that are arrays, maps of other functions (*, conversions,
+uninterpreted functions of four or more arguments) or over arrays of arrays, and as-array are rejected.
+Enumeration datatypes (declare-datatype or declare-datatypes whose
+constructors are all nullary, not parametric) count as uninterpreted sorts,
+so an input with one is in a UF fragment: constants, functions, predicates,
+and ite over the enumeration, its constructors, and its recognizers
+((_ is c) t or SMT-LIB 2.5's (is-c t), which is (= t c)) are accepted,
+through the clause log only (the legacy core rejects them explicitly); any
+other datatype, an array over an enumeration, and a distinct with more
+arguments than its enumeration has constructors (with proofs Z3 refutes it
+by an exponential pigeonhole search) over more than five constructors or
+with more than sixteen arguments, past which Lean runs out of memory, are
+rejected.
+Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
 mixed with Real next to uninterpreted functions (also through a function
@@ -173,7 +210,8 @@ Bundle format, version 2
     format          "z3-native-proof-dag"
     format_version  2
     z3_version      producer's full Z3 version
-    fragment        "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia"
+    fragment        "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", "qf_uflia",
+                    or "qf_uflira"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
@@ -218,11 +256,12 @@ distinct declarations over one of the sorts; the certificate stays
 many-sorted even though Lean sees one type (see below). The qf_uflra
 fragment combines both and additionally allows Real in the domain of
 functions and predicates and function declarations with range Real and a
-nonempty domain; qf_uflia does the same with Int. A certificate declaring
-an uninterpreted sort or function must be labelled qf_uf, qf_uflra, or
-qf_uflia according to whether it contains arithmetic and over which sort,
-and the reconstructor rejects any other combination; only a qf_lira
-certificate declares both Int and Real symbols, and it must; to_real, from
+nonempty domain; qf_uflia does the same with Int, and qf_uflira with
+both. A certificate declaring an uninterpreted sort or function must be
+labelled qf_uf, qf_uflra, qf_uflia, or qf_uflira according to whether it
+contains arithmetic and over which sorts, and the reconstructor rejects any
+other combination; only a qf_lira or qf_uflira certificate declares both
+Int and Real symbols, and it must; to_real, from
 Int to Real, to_int, from Real to Int, and is_int, over Real, are its
 conversion declarations.
 Other native shapes are rejected, never serialized incompletely. The root is
@@ -490,7 +529,8 @@ th-lemma whose hint is none of these (nla, gomory-cut, gcd-test) is rejected
 at export, and so is a bare (_ th-lemma arith) over Real, which records no
 evidence.
 
-Integer input (qf_lia, qf_uflia, opt-in as for the clause log) is certified
+Integer input (qf_lia, qf_uflia, qf_lira, qf_uflira, opt-in as for the
+clause log) is certified
 on this path too, since 2026-10-16. theory_lra emits the same farkas, bound,
 implied-eq, and triangle-eq steps over Int, and three shapes of its own: a
 bare (_ th-lemma arith) with premises is a cut (the bound literal a Gomory
@@ -912,7 +952,15 @@ qf_uflia certificate takes the same shape over Int: (_vars : Nat -> Int)
 and the fields int : Int -> U and ifuns : Nat -> List U -> Int, with every theory
 lemma, rewrite, and argument-equality helper proved by first | omega | grind
 as for qf_lia (omega reads applications as atoms; grind proves the
-congruences). Nothing
+congruences). A qf_uflira certificate takes both valuations as qf_lira,
+(_vars : Nat -> Rat) (_ivars : Nat -> Int), and all four fields: an Int
+argument is injected by _m.int and a Real one by _m.real, an application
+with an Int result is _m.ifuns i [...] and one with a Real result
+_m.rfuns i [...] (one numbering for both families), and each theory lemma
+takes the sort of its atoms as in qf_lira, an application being one atom
+whatever the sorts of its arguments. The argument-equality helpers relate
+arguments of one sort only: an Int (ite c 1 0) and a Real (ite c 1.0 0.0)
+share a linear form but are injected by different maps. Nothing
 states that _m.real is injective and no inference needs it: euf lemmas use
 only the congruence x = y -> _m.real x = _m.real y, and a model of the input is
 again one instance (its Real carrier is the Rat component). grind compares
@@ -941,6 +989,191 @@ are proved by grind, whose congruence closure handles the list applications;
 Python only checks shapes for these hints, so a false euf lemma is caught by
 Lean alone and the file is not published. grind's proofs here report the same
 three standard axioms as the arithmetic slice.
+
+An enumeration datatype joins the disjoint union _m.U like any other sort,
+and its constructors are one more family of the interpretation, _m.ctors k,
+numbered over the input's enumerations (by sort name, each in declaration
+order); a recognizer (_ is c) t is t = _m.ctors k. What makes the sort an
+enumeration is stated by fields of the structure, read from the input's
+datatype declarations and never from the certificate: enum_distinct, that
+two constructors of one enumeration differ, and for every constant of an
+enumeration sort (enum_cases_i, over _m.elems i) and every function with an
+enumeration result (enum_fcases_j, over every argument list of _m.funs j),
+that its value is one of the constructors of that sort, all of them whether
+the proof names them or not. A model of the input is an instance: the
+enumeration's values are the constructors' own, and a function is valued
+outside its domain by some constructor of its range. The clause log's
+datatype hints (the datatype solver's case splits and constructor clashes)
+become th-lemmas over enumeration equalities and recognizers; they, the euf
+lemmas, and the cnf fallbacks over such terms are proved by grind after the
+fields are instantiated for the constants and applications they reach. The
+reconstructor checks every constructor and recognizer of the certificate
+against the input's enumeration of that sort and tells constructors apart by
+name.
+
+An array sort (Array I E) of the clause log is the Lean function type
+_m.U -> _m.U, and the array constants are one more field of the
+interpretation, arrs : Nat -> U -> U. Each file defines select as _select
+(application, kept folded so grind's congruence closure compares reads of
+different arrays), store as _store (the classical update at one index),
+and the array solver's extensionality witness (_ array-ext 0) as
+_array_diff, Classical.epsilon of an index where the two arrays differ,
+which needs the field nonempty : Nonempty U (present only then). A model's
+array a : I -> E is the function equal to a on I and constant elsewhere;
+that embedding is injective and commutes with select and store at indices
+of I, and every model's carriers are nonempty, so each model is again an
+instance. The array solver's axiom instances (array hints: the store
+axiom, select over store, extensionality) are clauses of equalities that
+grind proves after each lemma states _store_apply for every read of a
+store and _array_ext for every witness it reaches. A read the rewriter
+evaluates through several stores gets a fact per level it skips: the
+stores at numerals other than the read's ((select (store (store a 1 5) 2
+7) 3) is (select a 3)) and the store where that skip stops ((select (store
+(store a 3 5) 2 7) 3) is 5), and every store above a constant array (with
+_select_const at the bottom). Array terms stay
+folded in those lemmas (term_N, related to its store or ite by an rfl
+fact): written out, the shared store chains of the swap and storecomm
+benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
+(store (store a i v) i w) into (store a i w) and (store a i (select a i))
+into a, and a cnf step over a predicate of such a store relies on it) may
+also use _store_store and _store_select. All four are theorems
+proved in the file, so no array fact is assumed.
+
+An Int or Real index or element sort is Int or Rat itself: (Array Int Int)
+is Int -> Int, (Array Int Element) is Int -> _m.U, and each Lean array type
+has its own family of constants (arrs_ii : Nat -> Int -> Int; arrs keeps
+the arrays between uninterpreted sorts). A read of an Int or Real array is
+an atom of the linear forms, like an application of an uninterpreted
+function, so Farkas lemmas over reads are checked over them, and an index
+is any linear term. The extensionality witness over Int or Rat indices
+chooses with Nonempty.intro 0 instead of the nonempty field. An array
+argument of a function or predicate is injected into the carrier by one
+more field per Lean array type (arrs_ii_inj : (Int -> Int) -> U), like the
+numeric injections; lemmas use only its congruence. A model is still an
+instance, although no map from U -> U or U -> Int into U is injective
+(Cantor): only finitely many array values are denoted by the input's terms,
+so U is taken to be the model's carriers plus one fresh point per such
+value (arrays over U extended as above, constant off their index sort), the
+injection sends each denoted array to its point, and the functions and
+predicates read their array arguments back from those points. A function
+into an array sort is one more family per Lean array type (arrs_ii_funs :
+Nat -> List U -> Int -> Int), taking its argument list like funs and the
+numeric families; a model's function into arrays returns its arrays through
+the same embedding as the array constants. Its applications stay folded in
+the array lemmas like stores, each stated equal to its body (an _t fact), so
+grind's congruence closure compares them by their arguments. A Real array is
+Rat -> Rat under the argument that values Real variables in Rat: fix the
+equalities among the input's terms and the truth values of its atoms; the
+reads, applications, and variables left are a linear system with rational
+coefficients, so a real model has a rational one with the same equalities,
+and arrays over Rat are then defined by the reads at the (now rational)
+indices, the store relations and (dis)equalities of arrays included.
+
+A Bool element sort is Prop: (Array Int Bool) is Int -> Prop (the family
+arrs_ib, arrs_ub over an uninterpreted index), a read is a formula,
+(_select a i) : Prop, and a store's value or a constant array's value is a
+formula too. The definitions above are generic in the element type, Prop
+included, and a model's set I -> Bool embeds as the predicate true exactly
+at its members in I, so the same facts prove the array lemmas; the store
+axiom over a Boolean value is a Bool equality (Iff), admitted in an array
+lemma only when some array has Bool elements or Bool indices.
+
+A Bool index sort is Prop too: (Array Bool Int) is Prop -> Int (the family
+arrs_bi), an index is a formula, and the extensionality witness of two such
+arrays is a formula chosen with True ((_array_diff (Nonempty.intro True) a
+b)). A model's array a over Bool embeds as fun p => a (decide p), which is
+injective and commutes with select and store because equal propositions are
+equal (propext), so the generic facts prove the array lemmas. The rewriter
+skips a store at false in a read at true as it skips stores at other
+numerals, so such reads get every skipped level's _store_apply fact; the SAT
+solver identifies (not (not p)) with p, so a unit resolution of the gate
+clause (or (not (= (not p) p)) (not (not p)) p) of an index equality
+concludes p, which the reconstruction proves by contradiction. Constant
+arrays and default values over Bool indices stay rejected (a finite index
+sort, like constant arrays over uninterpreted indices).
+
+Nested arrays are functions into or over functions: (Array Int (Array Int
+Int)) is Int -> (Int -> Int) (the family arrs_iaii: a nested component is
+coded a, then its own two codes), (Array (Array Int Int) Bool) is (Int ->
+Int) -> Prop (arrs_aiib). A model embeds its inner arrays first (an
+injective embedding that commutes with select and store, as above), then
+each outer array as the function equal to it on the embedded indices and
+one fixed value elsewhere: two outer arrays that differ do so at an
+embedded index, and store (at an embedded index) and ite commute off the
+image too, so the same generic facts prove the array lemmas. A pointwise
+connective does not commute off the image (the complement of the fixed
+value is another value), so maps and set operators over sets indexed by
+arrays are rejected by the exporter and by the reconstructor; constant
+arrays are admitted over Int and Real indices only, where the embedding
+is onto. A read of a row is an array term, and so is the
+extensionality witness of two arrays over array indices, chosen with a
+constant function from the element type's inhabitant ((Nonempty.elim
+(Nonempty.intro (0 : Int)) (fun _e => Nonempty.intro (fun (_ : Int) =>
+_e)))), and the default row of a constant array of rows (which the array
+solver introduces although the input may not use default). All three are
+unfolded in the lemmas, unlike stores and other array terms, which stay
+folded, so grind sees them as reads, witnesses, and default values. The
+rewriter evaluates a read through a stored row ((select (select (store a i
+(store r j v)) i) j) is v) with no read term of the stored row, so every
+row stored along the outer store chain gets the facts of a read of it at
+the read's index too.
+
+A constant array over Int or Real indices is _const_array Int v (or
+_const_array Rat v), the constant function (its reads are _select_const,
+rfl). The array solver relates
+constant arrays to other arrays through their default values, (default
+(const v)) = v and (default (store a i v)) = (default a), logged as array
+hints over (default a) terms, which are atoms of the linear forms like reads.
+_default is defined on every function I -> E: the value it takes outside
+some finite list of indices if there is one (unique, since no finite list
+exhausts Int or Rat: _int_unbounded, _rat_unbounded), and otherwise one value that a store does
+not change (Classical.choice of a Nonempty proof, which is proof-
+irrelevant). _default_const and _default_store are theorems over any index
+type that no finite list exhausts. Over a finite index sort no such function
+exists (storing at every index turns one constant array into another), so
+constant arrays and default terms over uninterpreted indices are rejected
+by the exporter and by the reconstructor. Z3's rewriter decides an
+equality between stores over constant arrays by their default values or
+their values at the stored indices; a rewrite step reaching a constant
+array gets those facts for its array equalities.
+
+Maps of not, and, or, => over sets and Z3's set operators (union,
+intersection, setminus, complement; Z3 nests n-ary ones into binary ones)
+are _map1 f a and _map2 f a b, the pointwise application of a function over
+Prop (Not, And, Or, an implication, a difference). A read of one is that
+function of the reads by rfl, which is the array solver's select-map axiom,
+logged as an array hint stating the propagated equality; each read of a map
+gets that fact, and so do the maps, stores, and constant arrays below it,
+since Z3's rewriter evaluates a read through all of them with no read term of
+the levels in between; a read of a store at another numeral over a map gets
+the map's facts too, the rewriter skipping the store. The identities the euf solver and the rewriter apply to
+maps are theorems instantiated per map node: maps of and and or commute (euf
+compares them as commutative) and are idempotent, a double complement
+cancels, a map of stores at one index is the store of the map (a constant
+array counting as a store of its value), and a map of constant arrays is
+constant. The rewriter turns setminus a b into the map of and over a and the
+complement of b, a different Lean function, so each setminus node is stated
+equal to that map by rfl; union, intersection, and complement share their
+Lean function with the map they become. A map of any other function is
+_map1, _map2, or _map3 of a lambda over the element types whose body is the
+application as the term and formula renderers write it ((fun (_v0 : Int)
+(_v1 : Int) => (_v0 + _v1)), an uninterpreted f as (_m.ifuns k [(_m.int
+_v0)])), so the read facts, beta-reduced, match the lemmas' terms. A mapped
+function is a symbol of the input even if never applied: the certificate
+names it ("declared", f) and the reconstructor binds it to the input's
+signature. Maps of commutative functions (xor, =, distinct, +) commute, by
+_map2_comm with the pointwise swap proved by grind. The array solver's other map axiom, (default (map f a b)) = (f
+(default a) (default b)), holds only for arrays constant at all but finitely
+many indices, which _default cannot assume of a map's arguments; the replay
+rejects it explicitly. The solver also introduces default values of maps over
+any index sort in gate clauses; an untrimmed log's certificate keeps only the
+nodes the refutation uses when it has such defaults over an uninterpreted
+index, which the reconstructor would otherwise reject.
+Z3 logs a map of a built-in with its signature, ((_ map (<= (Int Int) Bool))
+a b), and declares a mapped function before the map, so the trimmer reads
+map logs back; the replay checks a logged signature against the
+application it rebuilds. Logs written before this change print (_ map <=)
+and are still read.
 
 The equality rules of a legacy proof object are explicit Lean terms over the
 carrier, checked by Lean's type checker without grind: refl, symm, trans, and
@@ -1080,8 +1313,12 @@ Include the real Lean integration tests when the pinned toolchain is installed:
 test_proof_to_lean_arith.py covers the qf_lra slice, test_proof_to_lean_lia.py
 the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice,
 test_proof_to_lean_uflra.py the qf_uflra slice, and
-test_proof_to_lean_uflia.py the qf_uflia slice, and
-test_proof_to_lean_lira.py the qf_lira slice end to end; all need the z3
+test_proof_to_lean_uflia.py the qf_uflia slice,
+test_proof_to_lean_lira.py the qf_lira slice, and
+test_proof_to_lean_uflira.py the qf_uflira slice, and
+test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
+arrays), and test_proof_to_lean_enum.py enumeration datatypes end to end;
+all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
 Python's recursion limit; its clause-log tests also need the z3 executable.

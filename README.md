@@ -21,9 +21,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | ------------|---------------|----------------------|-------------------------|
 | [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) | [![Windows](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml) | [![CI](https://github.com/Z3Prover/z3/actions/workflows/ci.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ci.yml) | [![Finite-field regressions](https://github.com/Z3Prover/z3/actions/workflows/finite-field.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/finite-field.yml) |
 
-| Determinism Linter | Solver Determinism | Pulse Native Checker Build |
-|---------------------|---------------------|----------------------------|
-| [![Determinism Linter](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml) | [![Solver determinism](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml) | [![Build Pulse native checkers](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-build.yml) |
+| Determinism Linter | Solver Determinism | Pulse Native Checker Build | Pulse Full Verification |
+|---------------------|---------------------|----------------------------|-------------------------|
+| [![Determinism Linter](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml) | [![Solver determinism](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml) | [![Build Pulse native checkers](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-build.yml) | [![Verify all Pulse checker files](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-full.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-full.yml) |
 
 ### Scheduled Workflows
 | Android Build | Nightly Build | Cross Build | F* Master Build |
@@ -257,3 +257,4 @@ and efforts to address them takes time away from such activities.
 With rapidly increasing quality of coding agents for diagnostics and fixes 
 it is now a reasonable ask that fuzz bug reports make a solid effort on diagnostics and fix. 
 To help focus efforts on what matters, fuzz bugs without further analysis than a repro may be closed without further consideration. 
+__Thus, include a fix and test in your issue or make it a PR. Fuzz spam based on no particular core application will be closed to save bandwidth__

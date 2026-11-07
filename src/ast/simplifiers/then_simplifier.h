@@ -67,7 +67,7 @@ public:
     void add_simplifier(dependent_expr_simplifier* s) {
         m_simplifiers.push_back(s);
     }
-        
+
     void reduce() override {
         TRACE(simplifier, tout << m_fmls);
         for (auto* s : m_simplifiers) {

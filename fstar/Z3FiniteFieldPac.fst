@@ -517,7 +517,7 @@ let rec lemma_term_polys (i:interpretation value) (rho:env value) (project:int -
   = match args, qs with
     | a :: rest, q :: qs' ->
       FF.lemma_scoped_cons a rest;
-      FF.lemma_sort_eq_base (get_sort a) ("FF" ^ Prims.string_of_int p);
+      FF.lemma_sort_eq_field (get_sort a) p;
       lemma_term_poly i rho project p tbl final a q;
       lemma_term_polys i rho project p tbl final rest qs'
     | _, _ -> ()

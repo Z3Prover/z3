@@ -994,8 +994,8 @@ static void check_proof_mode_guards() {
         for (char const* rejecting : {
             "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv", "fm",
             "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
-            "qe2", "qe_rec", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
-            "sat", "sat-preprocess", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
+            "qe2", "qe_rec", "qffd", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
+            "sat", "sat-preprocess", "smtfd", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
             "unit-subsume-simplify"
         })
             rejects |= !strcmp(name, rejecting);
@@ -1021,9 +1021,10 @@ static void check_proof_mode_guards() {
             try {
                 (*t)(g, result);
             }
-            catch (tactic_exception const& ex) {
+            catch (z3_exception const& ex) {
                 ENSURE(rejects);
                 ENSURE(strstr(ex.what(), "does not support proof production") ||
+                       strstr(ex.what(), "generation of proof objects is not supported") ||
                        (cores && strstr(ex.what(), "does not support unsat core production")));
                 rejected = true;
             }

@@ -2177,6 +2177,111 @@ static void set_lp_relaxation(opt_fixture& f, bool relax) {
     Z3_params_dec_ref(f.ctx, p);
 }
 
+static void tst_bounded_integer_ite() {
+    for (unsigned arith_solver : {2u, 6u})
+    for (bool relax : {true, false}) {
+        opt_fixture f;
+        set_lp_relaxation(f, relax);
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+        Z3_params_dec_ref(f.ctx, p);
+
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), ints);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), ints);
+        Z3_ast zero = Z3_mk_int(f.ctx, 0, ints);
+        Z3_ast one = Z3_mk_int(f.ctx, 1, ints);
+        Z3_ast three = Z3_mk_int(f.ctx, 3, ints);
+        f.add(Z3_mk_ge(f.ctx, x, zero));
+        f.add(Z3_mk_le(f.ctx, x, one));
+        f.add(Z3_mk_ge(f.ctx, y, zero));
+        f.add(Z3_mk_le(f.ctx, y, three));
+        Z3_ast objective = Z3_mk_ite(f.ctx, Z3_mk_eq(f.ctx, x, zero), f.sub(y, one), x);
+        unsigned h = f.objective(objective);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, f.num(2), Z3_INT_SORT);
+        ensure_model_value(f, objective, f.num(2));
+        ensure_model_value(f, x, zero);
+        ensure_model_value(f, y, three);
+    }
+}
+
+static void tst_min_max_ite_sums() {
+    struct test_case {
+        char const* constraints;
+        bool maximize;
+        int expected;
+        bool is_real = false;
+    };
+    test_case const cases[] = {
+        {"(assert (or a b))"
+         "(assert (>= x (+ (ite a 1 0) (ite b 1 0))))", false, 1},
+        {"(assert (or a b))"
+         "(assert (>= x (ite a 1 0)))", false, 0},
+        {"(assert (or a b))"
+         "(assert (>= x (ite a 1 0)))"
+         "(assert (>= x (+ (ite a 0 1) (ite b 1 0) (ite c 1 0))))", false, 1},
+        {"(assert (or a b))(assert (or a c))(assert (or b c))"
+         "(assert (>= x (ite a 1 0)))"
+         "(assert (>= x (+ (ite a 1 0) (ite b 1 0) (ite c 1 0))))", false, 2},
+        {"(assert (or a b))"
+         "(assert (<= x (+ (ite a 1 0) (ite b 1 0))))", true, 2},
+        {"(assert (or a b))"
+         "(assert (<= x (ite a 1 0)))"
+         "(assert (<= x (+ (ite a 0 1) (ite b 1 0) (ite c 1 0))))", true, 1},
+        {"(assert (>= x (ite (= x 0) 1 0)))", false, 1},
+        {"(assert (or a b))"
+         "(assert (>= x (+ (ite a 1 0) (ite b 1 0))))"
+         "(assert (>= x (ite (= x 1) 1 0)))", false, 1},
+        {"(assert (<= x (ite (= x 0) 1 0)))", true, 0},
+        {"(assert (or a b))"
+         "(assert (>= x (+ (ite a 1 0) (ite b 1 0))))"
+         "(assert (= y (+ x 7)))", false, 1},
+        {"(assert (or a b))"
+         "(assert (>= x (+ (ite a 1.0 0.0) (ite b 1.0 0.0))))", false, 1, true},
+        {"(assert (or a b))"
+         "(assert (<= x (+ (ite a 1.0 0.0) (ite b 1.0 0.0))))", true, 2, true}
+    };
+    for (unsigned arith_solver : {2u, 6u})
+    for (bool elim_01 : {false, true})
+    for (auto const& t : cases) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_uint(f.ctx, p, f.symbol("smt.arith.solver"), arith_solver);
+        Z3_params_set_bool(f.ctx, p, f.symbol("elim_01"), elim_01);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        Z3_params_dec_ref(f.ctx, p);
+        std::string problem =
+            "(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)"
+            "(declare-const y Int)";
+        problem += t.is_real ? "(declare-const x Real)" : "(declare-const x Int)";
+        problem += t.constraints;
+        problem += t.maximize ? "(maximize x)" : "(minimize x)";
+        Z3_optimize_from_string(f.ctx, f.opt, problem.c_str());
+        ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, 0, f.num(t.expected), Z3_INT_SORT);
+        Z3_sort sort = t.is_real ? Z3_mk_real_sort(f.ctx) : Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), sort);
+        ensure_model_value(f, x, f.num(t.expected));
+        Z3_model model = Z3_optimize_get_model(f.ctx, f.opt);
+        Z3_model_inc_ref(f.ctx, model);
+        Z3_ast_vector hard = Z3_optimize_get_assertions(f.ctx, f.opt);
+        Z3_ast_vector_inc_ref(f.ctx, hard);
+        for (unsigned i = 0; i < Z3_ast_vector_size(f.ctx, hard); ++i) {
+            Z3_ast value = nullptr;
+            ENSURE(Z3_model_eval(f.ctx, model, Z3_ast_vector_get(f.ctx, hard, i), false, &value));
+            ENSURE(Z3_get_bool_value(f.ctx, value) == Z3_L_TRUE);
+        }
+        Z3_ast_vector_dec_ref(f.ctx, hard);
+        Z3_model_dec_ref(f.ctx, model);
+    }
+}
+
 // A cardinality constraint over the soft literals has an integral linear
 // relaxation, so the relaxation bound n - k meets the first rounded
 // assignment. A vertex cover of K4 has relaxation bound 2 and optimum 3, so
@@ -2308,6 +2413,8 @@ void tst_opt_bounds() {
     tst_unbounded_curve_parabola();
     std::cout << "opt_bounds: linear relaxation bounds for MaxSMT\n";
     tst_maxsmt_lp_relaxation();
+    tst_bounded_integer_ite();
+    tst_min_max_ite_sums();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
     tst_open_bounds();
     tst_open_polynomial_objectives();

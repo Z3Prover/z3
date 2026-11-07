@@ -41,7 +41,7 @@ _TOKEN = re.compile(
 )
 _ASSERTION_COMMANDS = {
     "set-logic", "set-info", "declare-sort", "define-sort", "declare-const", "declare-fun", "define-fun",
-    "assert",
+    "assert", "declare-datatype", "declare-datatypes",
 }
 # The queries a certificate can be about; a script may have several (see
 # query_snapshot), and Z3 reads the arguments of check-sat as assumptions.
@@ -129,11 +129,17 @@ _ARITH_NAMES = {
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # The fragments over Int, certified through the clause log and Lean alone
 # (see parse_assertions).
-_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira")
+_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia", "qf_lira", "qf_uflira")
 # arith is the hint of the arithmetic solver's own axioms (the div and mod
 # definitions): like euf it lists jointly contradictory literals, and like cut
-# it is shape-checked here and proved by Lean alone.
-_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff", "arith")
+# it is shape-checked here and proved by Lean alone. array is the array
+# solver's hint (QF_AX): its select-store and extensionality axioms list the
+# complements of their clause like euf, while its store axiom lists the
+# equality it propagates (see proof_clause_log._Replay.infer). datatype is the
+# hint of the datatype solver over an enumeration: its case splits and
+# constructor clashes, clauses of equalities between its terms and
+# constructors, proved by Lean from the enumeration's fields.
+_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff", "arith", "array", "datatype")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
 _CNF_HINT = "cnf"
@@ -374,6 +380,14 @@ def query_snapshot(source, query=None):
                 raise ProofExportError("only uninterpreted sorts of arity 0 are supported")
             if name == "define-sort":
                 _check_sort_definition(tokens)
+            if name in ("declare-datatype", "declare-datatypes") and (
+                    "par" in tokens or (name == "declare-datatypes" and tokens[3:4] not in (["("], [")"]))):
+                # An instance of a parametric datatype keeps the datatype's own
+                # name, so (E Int) and (E Bool) would share one certificate sort.
+                # SMT-LIB 2.6 writes the parameters with par; 2.5 lists them
+                # first, (declare-datatypes (T) ((E A B))), where the
+                # non-parametric form starts with () and 2.6 with ((E 0) ...).
+                raise ProofExportError("parametric datatypes are not supported")
             scopes[-1].append((name, text))
         else:
             raise ProofExportError("unsupported SMT-LIB command: %s" % name)
@@ -540,8 +554,11 @@ def _require_linear_arithmetic(expr):
     # abs over Real is accepted too: SMT-LIB defines abs on Int only, but Z3
     # reads a Real abs by the same definition, (ite (>= t 0) t (- t)), which
     # the reconstructor states over Rat.
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM, z3.Z3_OP_ABS):
-        pass  # Variables, applications of uninterpreted functions, and abs are the atoms of linear forms.
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM, z3.Z3_OP_ABS, z3.Z3_OP_SELECT):
+        # Variables, applications of uninterpreted functions, reads of arrays
+        # (their arrays are checked as they are visited), and abs are the
+        # atoms of linear forms.
+        pass
     elif kind == z3.Z3_OP_MUL:
         if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
             raise ProofExportError("nonlinear multiplication is not supported")
@@ -615,32 +632,254 @@ def is_uninterpreted_sort(sort):
     return sort.kind() == z3.Z3_UNINTERPRETED_SORT
 
 
+def is_enumeration_sort(sort):
+    """Whether a sort is a datatype all of whose constructors are nullary (an enumeration)."""
+    return (sort.kind() == z3.Z3_DATATYPE_SORT
+            and all(sort.constructor(i).arity() == 0 for i in range(sort.num_constructors())))
+
+
+def is_carrier_sort(sort):
+    """Whether Lean renders a sort's values in the carrier _m.U: an uninterpreted sort or an enumeration.
+
+    An enumeration is one more sort of the disjoint union: its constructors
+    are distinct elements and every value is one of them, which the Lean
+    encoding states as fields of the interpretation (see proof_to_lean).
+    """
+    return is_uninterpreted_sort(sort) or is_enumeration_sort(sort)
+
+
+def enumeration_constructors(sort):
+    """The constructor declarations of an enumeration sort, in declaration order."""
+    return [sort.constructor(i) for i in range(sort.num_constructors())]
+
+
+# The recognizer of a constructor: (_ is c) (OP_DT_IS) and SMT-LIB 2.5's is-c
+# (OP_DT_RECOGNISER) are two declarations of one predicate; the certificate
+# and the replay keys write both as OP_DT_IS, named by the constructor.
+RECOGNIZER_KINDS = (z3.Z3_OP_DT_IS, z3.Z3_OP_DT_RECOGNISER)
+# The largest distinct with more arguments than its enumeration has
+# constructors (a pigeonhole). Z3 refutes such a distinct by counting, which
+# no clause hint carries, so with proofs it searches the pigeonhole instead
+# (src/sat/smt/euf_internalize.cpp, add_distinct_axiom). The bounds are set
+# by the Lean check (scripts/check_lean.sh, 8 GB), which costs more than Z3's
+# search. The constructors make the search grow exponentially: 6 constructors
+# and 7 arguments give 6.5 MB of Lean (18 s, 2 GB), and 7 and 8 give 59 MB,
+# which exhausts the kernel's memory. Each clause that uses the distinct
+# unfolds all of its pairwise disequalities, so the arguments matter as well:
+# with 5 constructors, 16 arguments check in 7 s (1.5 GB) and 32 exhaust the
+# kernel's memory. With 4 constructors, 32 arguments take 76 s (4.3 GB).
+_PIGEONHOLE_MAX_CONSTRUCTORS = 5
+_PIGEONHOLE_MAX_ARGUMENTS = 16
+
+
+def _require_small_pigeonhole(distinct):
+    """Reject a distinct over an enumeration whose refutation by proof is too expensive to check in Lean."""
+    count = distinct.arg(0).sort().num_constructors()
+    if distinct.num_args() > count and (count > _PIGEONHOLE_MAX_CONSTRUCTORS
+                                        or distinct.num_args() > _PIGEONHOLE_MAX_ARGUMENTS):
+        raise ProofExportError("a distinct of %d terms over an enumeration of %d constructors is a pigeonhole "
+                               "search under proofs; at most %d constructors and %d terms are supported"
+                               % (distinct.num_args(), count, _PIGEONHOLE_MAX_CONSTRUCTORS,
+                                  _PIGEONHOLE_MAX_ARGUMENTS))
+
+
+def _is_array_component(sort):
+    """Whether sort may index an array or be its element sort: an uninterpreted sort, Int, or Real."""
+    return is_uninterpreted_sort(sort) or sort.kind() in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT)
+
+
+def is_array_sort(sort):
+    """Whether sort is an array sort with one index, over uninterpreted, Int, Real, or Bool index and element sorts.
+
+    Lean renders such an array as a function between the types of its index
+    and element sorts (_m.U for every uninterpreted sort, Int, Rat), so
+    select is application, store a classical update, and extensionality
+    funext (QF_AX, QF_ALIA, QF_AUFLIA). The element sort may also be Bool
+    (sets, I -> Prop in Lean; a read is a formula), and so may the index
+    sort (Prop -> E; an index is a formula, and two indices are equal as
+    propositions). Either may itself be such an array sort, at any depth
+    (nested arrays: a read of (Array I (Array J E)) is an array, a function
+    I -> (J -> E) in Lean). Arrays of several indices are not supported (see
+    array_sort_name); constant arrays and default values need an infinite
+    index sort (Int or Real).
+    """
+    def component(candidate):
+        return (_is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
+                or (candidate.kind() == z3.Z3_ARRAY_SORT and is_array_sort(candidate)))
+
+    return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
+            and component(sort.domain()) and component(sort.range()))
+
+
+def array_leaf_sorts(sort):
+    """The index and element sorts of an array sort that are not arrays themselves, through nested arrays."""
+    leaves, pending = [], [sort]
+    while pending:
+        candidate = pending.pop()
+        if candidate.kind() == z3.Z3_ARRAY_SORT:
+            pending.extend((candidate.range(), candidate.domain()))
+        else:
+            leaves.append(candidate)
+    return leaves
+
+
+# Maps ((_ map f) a ...) apply a function pointwise to arrays of one index
+# sort; Z3's set operators are maps of connectives over sets (arrays with
+# Bool elements), which its rewriter turns into maps. Lean defines them as
+# _map1/_map2/_map3 of a Lean function (proof_to_lean). The functions, by
+# kind: the certificate's name and the numbers of arguments it takes, the
+# Boolean connectives, equality and distinct of two elements of one sort,
+# Int or Real addition, subtraction, negation, and comparison, and ite;
+# besides these, uninterpreted functions and predicates of up to
+# MAP_ARITY arguments, named ("declared", name) in the certificate. Their
+# element sorts are uninterpreted, Int, Real, or Bool (not arrays). Other
+# functions (multiplication, conversions, n-ary connectives) are rejected;
+# Z3 nests n-ary unions and intersections into binary ones as it parses them.
+MAP_FUNCTIONS = {z3.Z3_OP_NOT: ("not", (1,)), z3.Z3_OP_AND: ("and", (2,)), z3.Z3_OP_OR: ("or", (2,)),
+                 z3.Z3_OP_IMPLIES: ("=>", (2,)), z3.Z3_OP_XOR: ("xor", (2,)), z3.Z3_OP_EQ: ("=", (2,)),
+                 z3.Z3_OP_DISTINCT: ("distinct", (2,)), z3.Z3_OP_ADD: ("+", (2,)), z3.Z3_OP_SUB: ("-", (2,)),
+                 z3.Z3_OP_UMINUS: ("-", (1,)), z3.Z3_OP_LE: ("<=", (2,)), z3.Z3_OP_LT: ("<", (2,)),
+                 z3.Z3_OP_GE: (">=", (2,)), z3.Z3_OP_GT: (">", (2,)), z3.Z3_OP_ITE: ("ite", (3,))}
+MAP_ARITY = 3
+SET_OPERATORS = {z3.Z3_OP_SET_UNION: ("union", 2), z3.Z3_OP_SET_INTERSECT: ("intersection", 2),
+                 z3.Z3_OP_SET_DIFFERENCE: ("setminus", 2), z3.Z3_OP_SET_COMPLEMENT: ("complement", 1)}
+
+
+def map_parameters(expr):
+    """The certificate parameters of a supported map or set operator application; reject any other.
+
+    For (_ map f) they name f: (name,) for a function of MAP_FUNCTIONS,
+    ("declared", name) for an uninterpreted one; a set operator has none
+    (its parameter, if any, is its own sort).
+    """
+    decl = expr.decl()
+    if decl.kind() == z3.Z3_OP_ARRAY_MAP:
+        parameters = decl.params()
+        function = parameters[0] if len(parameters) == 1 and isinstance(parameters[0], z3.FuncDeclRef) else None
+        kind = function.kind() if function is not None else None
+        if kind == z3.Z3_OP_UNINTERPRETED and 1 <= function.arity() <= MAP_ARITY:
+            result = ("declared", str(function.name()))
+        elif kind in MAP_FUNCTIONS and function.arity() in MAP_FUNCTIONS[kind][1]:
+            result = (MAP_FUNCTIONS[kind][0],)
+        else:
+            raise ProofExportError("maps are supported over connectives, equality, distinct, linear arithmetic, "
+                                   "comparisons, ite, and uninterpreted functions only: %s" % expr.sexpr())
+        arity = function.arity()
+        elements = [function.domain(index) for index in range(arity)] + [function.range()]
+    else:
+        name, arity = SET_OPERATORS[decl.kind()]
+        if len(decl.params()) > 1 or (decl.params() and not decl.params()[0].eq(expr.sort())):
+            raise ProofExportError("unsupported set operator parameters: %s" % decl.name())
+        if expr.sort().range().kind() != z3.Z3_BOOL_SORT:
+            raise ProofExportError("unsupported set operator over %s: %s" % (expr.sort(), name))
+        result, elements = (), [expr.sort().range()] * (arity + 1)
+    arrays = list(expr.children()) + [expr]
+    if expr.num_args() != arity or any(
+            not is_array_sort(array.sort()) or not array.sort().domain().eq(expr.sort().domain())
+            or not array.sort().range().eq(element)
+            for array, element in zip(arrays, elements)):
+        raise ProofExportError("unsupported map or set operator (%d arrays of one index sort are supported): %s" % (
+            arity, decl.name()))
+    if any(element.kind() == z3.Z3_ARRAY_SORT for element in elements):
+        raise ProofExportError("maps over arrays of arrays are not supported: %s" % expr.sexpr())
+    if expr.sort().domain().kind() == z3.Z3_ARRAY_SORT:
+        # A model's arrays over array indices embed in Lean as functions
+        # fixed off the embedded indices, which a pointwise function does not
+        # commute with (proof_to_lean's nested arrays).
+        raise ProofExportError("maps and set operators over arrays indexed by arrays are not supported: %s"
+                               % expr.sort())
+    return result
+
+
+def _require_default(expr):
+    """Check an input's (default a): the array solver's value of a at all but finitely many indices.
+
+    Lean proves the default-value axioms over an infinite index type only
+    (proof_to_lean._default), as for constant arrays: Int and Real indices.
+    """
+    if expr.arg(0).sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
+        raise ProofExportError("default values are supported over Int and Real indices only: %s" % expr.arg(0).sort())
+
+
+def array_sort_name(sort, sorts=None):
+    """The certificate's name of a supported array sort, (Array I E); reject any other array sort.
+
+    With sorts (a set), the uninterpreted index and element sorts are
+    checked and recorded as uninterpreted sorts of the input. An index or
+    element sort that is an array is named the same way, (Array Int (Array
+    Int Int)).
+    """
+    if not is_array_sort(sort):
+        raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, Real, "
+                               "Bool, and such arrays)" % sort)
+    names = []
+    for component in (sort.domain(), sort.range()):
+        name = component.name()
+        if component.kind() == z3.Z3_ARRAY_SORT:
+            names.append(array_sort_name(component, sorts))
+            continue
+        if not is_uninterpreted_sort(component):
+            names.append(name)  # Int, Real, or Bool.
+            continue
+        if name in _RESERVED_SORTS or re.search(r"[\s()|]", name):
+            raise ProofExportError("unsupported array index or element sort name: %s" % name)
+        if sorts is not None:
+            _require_uninterpreted_sort(component, sorts)
+        names.append(name)
+    return "(Array %s %s)" % tuple(names)
+
+
+def mentions_arrays(assertions):
+    """Whether any assertion has a subterm of an array sort."""
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen or not z3.is_app(expr):
+            continue
+        seen.add(expr.get_id())
+        if expr.sort().kind() == z3.Z3_ARRAY_SORT:
+            return True
+        pending.extend(expr.children())
+    return False
+
+
 def _require_uninterpreted_sort(candidate, sorts):
     """Check an uninterpreted sort's name and record it in sorts.
 
     Any number of uninterpreted sorts is accepted: the Lean encoding renders
     them all as one type, which is sound for unsatisfiability (see the
     exporter README), while the certificate keeps every sort name so the
-    reconstructor can check that the proof is well-sorted.
+    reconstructor can check that the proof is well-sorted. A name with a
+    parenthesis (a quoted symbol) is rejected: the certificate names an
+    array sort (Array I E), which such a name could imitate.
     """
-    if candidate.name() in _RESERVED_SORTS:
+    if candidate.name() in _RESERVED_SORTS or "(" in candidate.name() or ")" in candidate.name():
         raise ProofExportError("unsupported uninterpreted sort name: %s" % candidate.name())
     sorts.add(candidate.name())
 
 
 def _require_uninterpreted_signature(decl, sorts):
-    """Check that a function or predicate ranges over uninterpreted sorts, Bool, Real, and Int only.
+    """Check that a function or predicate ranges over uninterpreted sorts, Bool, Real, Int, and arrays only.
 
-    Arguments may be Bool, Real, or Int as well as uninterpreted sorts (Lean
-    injects a Boolean or numeric argument into the carrier); the result is
-    Bool, Real, Int, or a sort. Returns (real, integer): whether the signature
+    Arguments may be Bool, Real, Int, or a supported array sort as well as
+    uninterpreted sorts (Lean injects a Boolean, numeric, or array argument
+    into the carrier); the result is Bool, Real, Int, a sort, or a supported
+    array sort. Returns (real, integer): whether the signature
     mentions Real, which makes the input QF_UFLRA, or Int, which makes it
-    QF_UFLIA (never both: a signature mixing them is rejected by the caller).
+    QF_UFLIA (both, in one signature or across several, make it QF_UFLIRA).
     """
     candidates = [decl.domain(i) for i in range(decl.arity())] + [decl.range()]
     real = integer = False
     for candidate in candidates:
         if candidate.kind() == z3.Z3_BOOL_SORT:
+            continue
+        if candidate.kind() == z3.Z3_ARRAY_SORT and is_array_sort(candidate):
+            # An array argument (Lean injects it into the carrier like a
+            # numeric one) or result (a family of array-valued functions,
+            # like the numeric ones).
+            array_sort_name(candidate, sorts)
+            components = [leaf.kind() for leaf in array_leaf_sorts(candidate)]
+            real, integer = real or z3.Z3_REAL_SORT in components, integer or z3.Z3_INT_SORT in components
             continue
         if candidate.kind() == z3.Z3_REAL_SORT:
             real = True
@@ -648,7 +887,7 @@ def _require_uninterpreted_signature(decl, sorts):
         if candidate.kind() == z3.Z3_INT_SORT:
             integer = True
             continue
-        if not is_uninterpreted_sort(candidate):
+        if not is_carrier_sort(candidate):
             raise ProofExportError("uninterpreted functions over %s are not supported: %s" % (
                 candidate, decl.name()))
         _require_uninterpreted_sort(candidate, sorts)
@@ -668,9 +907,17 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
+    """Return the fragment name, rejecting everything else.
+
+    The fragments are "propositional", "qf_lra", "qf_lia", "qf_lira", "qf_uf",
+    "qf_uflra", "qf_uflia", and "qf_uflira". An enumeration datatype counts as
+    an uninterpreted sort (with its constructors as elements), so an input
+    with one is in a UF fragment.
+    """
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
+    enumerations = {}  # the enumeration sorts of the input, by name
     functions = False  # whether any uninterpreted function or predicate is applied
+    arrays = False  # whether any term has an array sort
     pseudo_boolean = False
     while pending:
         expr = pending.pop()
@@ -680,6 +927,12 @@ def classify_fragment(assertions):
         if not z3.is_app(expr):
             raise ProofExportError("only quantifier-free expressions are supported")
         decl = expr.decl()
+        if decl.kind() in (z3.Z3_OP_DT_ACCESSOR, z3.Z3_OP_DT_UPDATE_FIELD):
+            # An enumeration has no fields, so this datatype is not one.
+            raise ProofExportError("only enumeration datatypes (nullary constructors) are supported: %s"
+                                   % expr.arg(0).sort())
+        if decl.kind() == z3.Z3_OP_DISTINCT and is_enumeration_sort(expr.arg(0).sort()):
+            _require_small_pigeonhole(expr)
         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
             _require_unique_symbol(decl, symbols)
             if decl.arity() != 0:
@@ -689,9 +942,20 @@ def classify_fragment(assertions):
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 pass
+            elif decl.kind() == z3.Z3_OP_SELECT:
+                # A read of an array with Bool elements (checked as the array
+                # is visited): an atom, a proposition in Lean.
+                pass
+            elif decl.kind() == z3.Z3_OP_ARRAY_DEFAULT:
+                _require_default(expr)  # The default value of a set, an atom too.
             elif decl.kind() == z3.Z3_OP_IS_INT:
                 # (is_int t) is (= (to_real (to_int t)) t) by SMT-LIB's definition.
                 real = integer = True
+            elif decl.kind() in RECOGNIZER_KINDS:
+                # ((_ is c) t) over an enumeration is (= t c).
+                if not is_enumeration_sort(expr.arg(0).sort()):
+                    raise ProofExportError("only enumeration datatypes (nullary constructors) are supported: %s"
+                                           % expr.arg(0).sort())
             elif decl.kind() in _PSEUDO_BOOLEAN:
                 _require_pseudo_boolean(expr)
                 pseudo_boolean = True
@@ -702,18 +966,77 @@ def classify_fragment(assertions):
                 integer = integer or z3.is_int(expr.arg(0))
         elif z3.is_arith(expr):
             real, integer = real or z3.is_real(expr), integer or z3.is_int(expr)
-            _require_linear_arithmetic(expr)
+            if decl.kind() == z3.Z3_OP_ARRAY_DEFAULT:
+                _require_default(expr)  # An atom of the linear forms, like a read.
+            else:
+                _require_linear_arithmetic(expr)
         elif is_uninterpreted_sort(expr.sort()):
             # Constants, function applications, and ite, whose branches are
-            # terms of the sort and whose condition is any formula.
-            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
+            # terms of the sort and whose condition is any formula, and reads
+            # of arrays (QF_AX, checked as the array is visited).
+            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT):
+                if decl.kind() == z3.Z3_OP_ARRAY_DEFAULT:
+                    _require_default(expr)
                 _require_uninterpreted_sort(expr.sort(), sorts)
             else:
                 raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
+        elif is_enumeration_sort(expr.sort()):
+            # Constants, function applications, and ite of the sort, and its
+            # constructors; arrays over enumerations are not supported.
+            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_DT_CONSTRUCTOR):
+                _require_uninterpreted_sort(expr.sort(), sorts)
+                enumerations[expr.sort().name()] = expr.sort()
+            else:
+                raise ProofExportError("unsupported operator over an enumeration: %s" % decl.name())
+        elif expr.sort().kind() == z3.Z3_DATATYPE_SORT:
+            raise ProofExportError("only enumeration datatypes (nullary constructors) are supported: %s"
+                                   % expr.sort())
+        elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
+            # Arrays over uninterpreted sorts, Int, and Real (QF_AX, QF_ALIA,
+            # QF_AUFLIA): array constants, store, and ite; select is read
+            # above, and equality and distinct compare arrays. Their
+            # uninterpreted index and element sorts join the input's sorts,
+            # and arrays put the input in a UF fragment (Lean's array
+            # constants are a family of the interpretation, and so are the
+            # functions into each array sort).
+            array_sort_name(expr.sort(), sorts)
+            arrays = True
+            for component in array_leaf_sorts(expr.sort()):
+                real = real or component.kind() == z3.Z3_REAL_SORT
+                integer = integer or component.kind() == z3.Z3_INT_SORT
+            if decl.kind() == z3.Z3_OP_CONST_ARRAY:
+                # ((as const (Array I E)) v): the array solver relates it to
+                # the other arrays through default values (the value an
+                # array takes at all but finitely many indices), which Lean
+                # proves over an infinite index type, Int or Real (see
+                # proof_to_lean._default); a finite uninterpreted index sort
+                # would make those axioms unsound.
+                if expr.sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
+                    raise ProofExportError("constant arrays are supported over Int and Real indices only: %s"
+                                           % expr.sort())
+            elif decl.kind() == z3.Z3_OP_ARRAY_MAP or decl.kind() in SET_OPERATORS:
+                if map_parameters(expr)[:1] == ("declared",):
+                    # A map of an uninterpreted function: a symbol of the
+                    # input like an applied one, with the same signatures.
+                    function = decl.params()[0]
+                    _require_unique_symbol(function, symbols)
+                    functions = True
+                    signature_real, signature_integer = _require_uninterpreted_signature(function, sorts)
+                    real, integer = real or signature_real, integer or signature_integer
+            elif decl.kind() not in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_STORE, z3.Z3_OP_SELECT):
+                # A read is an array only of an array whose elements are
+                # arrays (nested arrays, a function into functions in Lean).
+                raise ProofExportError("unsupported array operator: %s" % decl.name())
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
-    if pseudo_boolean and (integer or real or sorts or functions):
+    for sort in enumerations.values():
+        # Every constructor is a symbol of the input, used or not: the
+        # certificate and the clause log name them, and the Lean encoding
+        # states that the sort has exactly these values.
+        for constructor in enumeration_constructors(sort):
+            _require_unique_symbol(constructor, symbols)
+    if pseudo_boolean and (integer or real or sorts or functions or arrays):
         raise ProofExportError("pseudo-Boolean constraints are supported in propositional input only")
     if integer:
         # Linear integer arithmetic: the Lean encoding values the variables in
@@ -722,15 +1045,13 @@ def classify_fragment(assertions):
         # the Int valuation next to the carrier, into which Int arguments are
         # injected like Bool ones). Int and Real side by side (QF_LIRA) are
         # two valuations, one per sort, related by to_real, to_int, and
-        # is_int. Uninterpreted functions next to both sorts have no
-        # encoding yet.
+        # is_int. Next to uninterpreted sorts and functions both sorts are
+        # QF_UFLIRA: both valuations next to the carrier, into which Int and
+        # Real arguments are injected by one map per sort.
         if real:
-            if sorts or functions:
-                raise ProofExportError("mixing integer and real arithmetic with uninterpreted functions "
-                                       "is not supported")
-            return "qf_lira"
-        return "qf_uflia" if sorts or functions else "qf_lia"
-    if sorts or functions:
+            return "qf_uflira" if sorts or functions or arrays else "qf_lira"
+        return "qf_uflia" if sorts or functions or arrays else "qf_lia"
+    if sorts or functions or arrays:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
         # are QF_UFLRA: the Lean encoding carries the Rat valuation next to the
         # carrier, into which Real arguments are injected like Bool ones.
@@ -753,10 +1074,34 @@ def _require_legacy_fragment(assertions, integer=False):
     steps without coefficients, certified by Lean alone.
     """
     fragment = classify_fragment(assertions)
+    if mentions_arrays(assertions):
+        # The legacy core's array steps are th-lemma array axioms and
+        # rewrites the reconstructor has no encoding for; the sat.smt array
+        # solver logs each axiom instance as an array clause.
+        raise ProofExportError("arrays are certified through the clause log only")
+    if _mentions_enumeration(assertions):
+        # The legacy proof object's datatype steps (theory_datatype's case
+        # splits and conflicts) are not encoded; the clause log's datatype
+        # hints are.
+        raise ProofExportError("enumeration datatypes are certified through the clause log only")
     if fragment in _INTEGER_FRAGMENTS and not integer:
         raise ProofExportError("integer arithmetic (%s) is certified by Lean alone; "
                                "the consumer must accept the fragment explicitly" % fragment)
     return fragment
+
+
+def _mentions_enumeration(assertions):
+    """Whether any assertion has a subterm of an enumeration sort."""
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen or not z3.is_app(expr):
+            continue
+        seen.add(expr.get_id())
+        if is_enumeration_sort(expr.sort()):
+            return True
+        pending.extend(expr.children())
+    return False
 
 
 def parse_legacy_assertions(source, context, integer=False, query=None):
@@ -778,7 +1123,7 @@ def parse_assertions(source, context, integer=False, query=None):
 
     The snapshot is that of the script's only check-sat query, or of the
     query selected by its zero-based index (see query_snapshot). The integer
-    fragments (qf_lia, qf_uflia, qf_lira) are opt-in: the integer solver's
+    fragments (qf_lia, qf_uflia, qf_lira, qf_uflira) are opt-in: the integer solver's
     cut steps (and Farkas steps resting on cuts) carry no coefficient
     certificate that the replay can re-derive, so they are certified by Lean
     alone and a consumer accepts them explicitly. The exporter and the
@@ -1022,8 +1367,10 @@ class DagBuilder:
 
     def sort_name(self, sort):
         name = self._SORTS.get(sort.kind())
-        if name is None and is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
+        if name is None and is_carrier_sort(sort) and sort.name() not in _RESERVED_SORTS:
             name = sort.name()  # The certificate keeps the input's own sort name.
+        if name is None and sort.kind() == z3.Z3_ARRAY_SORT:
+            name = array_sort_name(sort)
         if name is None:
             raise ProofExportError("unsupported native proof sort: %s" % sort)
         return name
@@ -1067,13 +1414,25 @@ class DagBuilder:
                 continue
             self._alive.append(expr)
             decl = expr.decl()
-            name = str(decl.name())
+            name, parameters = str(decl.name()), ()
             if decl.kind() == z3.Z3_OP_ANUM:
                 name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
-            elif decl.params():
+            elif decl.kind() == z3.Z3_OP_ARRAY_EXT and decl.params() == [0]:
+                pass  # The parameter is the index position, always 0 for one-index arrays.
+            elif decl.kind() == z3.Z3_OP_CONST_ARRAY and len(decl.params()) == 1 and decl.params()[0].eq(expr.sort()):
+                pass  # The parameter is the array sort, which is the declaration's range.
+            elif decl.kind() == z3.Z3_OP_ARRAY_MAP:
+                parameters = map_parameters(expr)  # The mapped function's name.
+            elif decl.kind() in SET_OPERATORS:
+                map_parameters(expr)  # A parameter (union's) is the array sort, the declaration's range.
+            elif decl.kind() in RECOGNIZER_KINDS:
+                name = str(decl.params()[0].name())  # A recognizer is named by its constructor.
+            elif decl.params() and decl.kind() != z3.Z3_OP_DT_CONSTRUCTOR:
+                # (A constructor's parameter is the constructor itself, named by the declaration.)
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             domain = tuple(self.sort_name(decl.domain(i)) for i in range(decl.arity()))
-            declaration = self.declaration(decl.kind(), name, domain, self.sort_name(expr.sort()))
+            kind = z3.Z3_OP_DT_IS if decl.kind() in RECOGNIZER_KINDS else decl.kind()
+            declaration = self.declaration(kind, name, domain, self.sort_name(expr.sort()), parameters)
             arguments = [self._expression_nodes[child.get_id()] for child in expr.children()]
             self._expression_nodes[expr.get_id()] = self.node(declaration, arguments)
         return self._expression_nodes[root.get_id()]

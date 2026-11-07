@@ -1324,6 +1324,7 @@ void ast_manager::init() {
     ENSURE(user_sort_family_id   == mk_family_id("user-sort"));
     ENSURE(arith_family_id       == mk_family_id("arith"));
     ENSURE(poly_family_id        == mk_family_id("polymorphic"));
+    ENSURE(bv_family_id          == mk_family_id("bv"));
     basic_decl_plugin * plugin = alloc(basic_decl_plugin);
     register_plugin(basic_family_id, plugin);
     m_bool_sort = plugin->mk_bool_sort();

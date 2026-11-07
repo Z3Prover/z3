@@ -25,6 +25,11 @@
       "version": "v9.0.0",
       "sha": "3a2844b7e9c422d3c10d287c895573f7108da1b3"
     },
+    "actions/setup-python@v7.0.0": {
+      "repo": "actions/setup-python",
+      "version": "v7.0.0",
+      "sha": "5fda3b95a4ea91299a34e894583c3862153e4b97"
+    },
     "actions/upload-artifact@v7.0.1": {
       "repo": "actions/upload-artifact",
       "version": "v7.0.1",
@@ -39,6 +44,11 @@
       "repo": "github/gh-aw-actions/setup",
       "version": "v0.88.2",
       "sha": "9271a1804551c0dc4fb0085a97979950aa2f8489"
+    },
+    "github/gh-aw-actions/setup@v0.88.7": {
+      "repo": "github/gh-aw-actions/setup",
+      "version": "v0.88.7",
+      "sha": "5e508589e03a7757a7e05b26e834292f5445bfb6"
     }
   },
   "containers": {

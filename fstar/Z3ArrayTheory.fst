@@ -33,6 +33,31 @@ open FStar.List.Tot
 /// function, matching Z3's `(Array idx v)` sort.
 type arr (idx:eqtype) (v:Type) = idx ^-> v
 
+(* Semantic arrays admit arbitrary carriers, including arrays as indices.
+   Equality decisions here are ghost and never become checker computations. *)
+type semantic_arr (idx v:Type0) = restricted_g_t idx (fun _ -> v)
+
+let semantic_lambda (#idx #v:Type0) (f:idx -> GTot v) : semantic_arr idx v =
+  on_dom_g idx f
+
+let semantic_select (#idx #v:Type0) (a:semantic_arr idx v) (i:idx) : GTot v = a i
+
+let semantic_store (#idx #v:Type0) (a:semantic_arr idx v) (i:idx) (x:v)
+  : semantic_arr idx v =
+  semantic_lambda (fun j ->
+    if FStar.IndefiniteDescription.strong_excluded_middle (j == i) then x else a j)
+
+let lemma_semantic_store_same (#idx #v:Type0) (a:semantic_arr idx v) (i:idx) (x:v)
+  : Lemma (semantic_select (semantic_store a i x) i == x) = ()
+
+let lemma_semantic_store_other (#idx #v:Type0) (a:semantic_arr idx v) (i j:idx) (x:v)
+  : Lemma (requires ~(i == j))
+          (ensures semantic_select (semantic_store a i x) j == semantic_select a j) = ()
+
+let lemma_semantic_extensionality (#idx #v:Type0) (a b:semantic_arr idx v)
+  : Lemma ((a == b) <==> (forall (i:idx). semantic_select a i == semantic_select b i)) =
+  extensionality_g idx (fun _ -> v) a b
+
 /// `(select a i)` -- function application.
 let select (#idx:eqtype) (#v:Type) (a:arr idx v) (i:idx) : v = a i
 
@@ -178,23 +203,23 @@ let rec lemma_select_apply_updates (#idx:eqtype) (#v:Type) (a:arr idx v) (us:lis
 /// first-class lemma (rather than stated as a bare `forall`) so every
 /// call site instantiates it explicitly instead of relying on the SMT
 /// solver to guess a multi-variable quantifier instantiation.
-let key_distinct_hyp (idx:eqtype) (v:eqtype) (us:list (idx & v)) =
+let key_distinct_hyp (idx:eqtype) (v:Type) (us:list (idx & v)) =
   i:idx -> x1:v -> x2:v ->
-  Lemma (requires FStar.List.Tot.mem (i, x1) us /\ FStar.List.Tot.mem (i, x2) us) (ensures x1 == x2)
+  Lemma (requires FStar.List.Tot.memP (i, x1) us /\ FStar.List.Tot.memP (i, x2) us) (ensures x1 == x2)
 
 /// Restrict a `key_distinct_hyp` for `(i0,x0) :: us` down to `us`
 /// (dropping the head only shrinks the set of pairs the hypothesis is
 /// asked about, so the same witness function works unchanged).
-let restrict_key_distinct_hyp (#idx:eqtype) (#v:eqtype) (i0:idx) (x0:v) (us:list (idx & v))
+let restrict_key_distinct_hyp (#idx:eqtype) (#v:Type) (i0:idx) (x0:v) (us:list (idx & v))
                                (distinct: key_distinct_hyp idx v ((i0, x0) :: us))
   : key_distinct_hyp idx v us
   = fun i x1 x2 -> distinct i x1 x2
 
 /// If `last_match k us` is defined, its value really occurs as a pair
 /// in `us`. Unconditional.
-let rec lemma_last_match_mem (#idx:eqtype) (#v:eqtype) (k:idx) (us:list (idx & v))
+let rec lemma_last_match_mem (#idx:eqtype) (#v:Type) (k:idx) (us:list (idx & v))
   : Lemma (ensures (match last_match k us with
-                     | Some x -> FStar.List.Tot.mem (k, x) us
+                     | Some x -> FStar.List.Tot.memP (k, x) us
                      | None -> True))
           (decreases us)
   = match us with
@@ -203,14 +228,14 @@ let rec lemma_last_match_mem (#idx:eqtype) (#v:eqtype) (k:idx) (us:list (idx & v
 
 /// Converse direction, under key-uniqueness: if `(k,x)` occurs
 /// anywhere in `us`, `last_match k us` must be exactly `Some x`.
-let rec lemma_mem_last_match (#idx:eqtype) (#v:eqtype) (us:list (idx & v))
+let rec lemma_mem_last_match (#idx:eqtype) (#v:Type) (us:list (idx & v))
                               (distinct: key_distinct_hyp idx v us) (k:idx) (x:v)
-  : Lemma (requires FStar.List.Tot.mem (k, x) us) (ensures last_match k us == Some x)
+  : Lemma (requires FStar.List.Tot.memP (k, x) us) (ensures last_match k us == Some x)
           (decreases us)
   = match us with
     | [] -> ()
     | (i, y) :: rest ->
-      if FStar.List.Tot.mem (k, x) rest
+      if FStar.IndefiniteDescription.strong_excluded_middle (FStar.List.Tot.memP (k, x) rest)
       then lemma_mem_last_match rest (restrict_key_distinct_hyp i y rest distinct) k x
       else begin
         (* (k,x) must then be the head pair, i.e. i == k /\ y == x. *)
@@ -229,8 +254,8 @@ let rec lemma_mem_last_match (#idx:eqtype) (#v:eqtype) (us:list (idx & v))
 /// and each has pairwise-distinct keys, `last_match` agrees on every
 /// key -- hence (by `lemma_select_apply_updates`) so does `select
 /// (apply_updates a us1)`/`select (apply_updates a us2)`.
-let lemma_last_match_eq (#idx:eqtype) (#v:eqtype) (us1 us2:list (idx & v))
-                         (same_set: (p:(idx & v) -> Lemma (FStar.List.Tot.mem p us1 <==> FStar.List.Tot.mem p us2)))
+let lemma_last_match_eq (#idx:eqtype) (#v:Type) (us1 us2:list (idx & v))
+                         (same_set: (p:(idx & v) -> Lemma (FStar.List.Tot.memP p us1 <==> FStar.List.Tot.memP p us2)))
                          (distinct1: key_distinct_hyp idx v us1)
                          (distinct2: key_distinct_hyp idx v us2)
                          (k:idx)
@@ -255,8 +280,8 @@ let lemma_last_match_eq (#idx:eqtype) (#v:eqtype) (us1 us2:list (idx & v))
 /// updates, each internally key-distinct, folding either one onto any
 /// base array `a` gives the same result. `lemma_store_commute` above
 /// is the special case `us1 = [(i,x);(j,y)]`, `us2 = [(j,y);(i,x)]`.
-let lemma_apply_updates_set_eq (#idx:eqtype) (#v:eqtype) (a:arr idx v) (us1 us2:list (idx & v))
-                                (same_set: (p:(idx & v) -> Lemma (FStar.List.Tot.mem p us1 <==> FStar.List.Tot.mem p us2)))
+let lemma_apply_updates_set_eq (#idx:eqtype) (#v:Type) (a:arr idx v) (us1 us2:list (idx & v))
+                                (same_set: (p:(idx & v) -> Lemma (FStar.List.Tot.memP p us1 <==> FStar.List.Tot.memP p us2)))
                                 (distinct1: key_distinct_hyp idx v us1)
                                 (distinct2: key_distinct_hyp idx v us2)
   : Lemma (apply_updates a us1 == apply_updates a us2)

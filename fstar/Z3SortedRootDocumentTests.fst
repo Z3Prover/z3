@@ -31,6 +31,7 @@ module R = Z3ResolutionProofTheory
 module BR = Z3BooleanRewrite
 module PT = Z3SortedProofTests
 module RD = Z3SortedRootDocument
+module Tac = FStar.Tactics.V2
 
 (* ---------------------------------------------------------------------- *)
 (* Shared shapes                                                            *)
@@ -905,7 +906,8 @@ let l2_document : P.document =
     (R.mk_not_expr PT.atom_a) (R.mk_not_expr PT.atom_b)
 
 let l1_certified () : Lemma (RD.check_root_document PT.core_schema l1_document == RD.RootCertified) =
-  assert_norm (RD.check_root_document PT.core_schema l1_document == RD.RootCertified)
+  assert (RD.check_root_document PT.core_schema l1_document == RD.RootCertified) by
+    (Tac.norm [nbe; delta; iota; zeta; primops]; Tac.trivial ())
 
 let l2_certified () : Lemma (RD.check_root_document PT.core_schema l2_document == RD.RootCertified) =
   assert_norm (RD.check_root_document PT.core_schema l2_document == RD.RootCertified)
