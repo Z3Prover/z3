@@ -68,10 +68,7 @@ public:
     }
 
     bool supports_proofs() const override {
-        for (auto* s : m_simplifiers)
-            if (!s->supports_proofs())
-                return false;
-        return true;
+        return all_of(m_simplifiers, [](auto* s) { return s->supports_proofs(); });
     }
         
     void reduce() override {
