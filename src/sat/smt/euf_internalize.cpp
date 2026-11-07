@@ -239,6 +239,8 @@ namespace euf {
         // With proofs the pairwise clause is used at any width: the fresh
         // symbols of the encoding below have no counterpart in the input, so
         // a proof over them cannot be checked against the asserted distinct.
+        // The cost is quadratic: n arguments log n(n-1)/2 equality atoms
+        // (1000 arguments take seconds and tens of MB of clause log).
         static const unsigned distinct_max_args = 32;
         if (sz <= distinct_max_args || use_drat()) {
             sat::literal_vector lits;
@@ -301,6 +303,7 @@ namespace euf {
         // With proofs the pairwise disequalities are added at any width, as
         // in add_not_distinct_axiom: the fresh sort and function of the
         // encoding below are not in the input, so no proof can use them.
+        // This logs n(n-1)/2 unit clauses for n arguments.
         else if (sz <= distinct_max_args || use_drat()) {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {

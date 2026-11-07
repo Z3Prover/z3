@@ -1628,7 +1628,15 @@ and `test_wide_distincts_verify_through_their_logged_pairs`
 every pair the proof refutes exports, but its Lean text is quadratic (528
 pairs under a strict order give 25 MB; the 528-literal clause is projected
 by `Or.inr` chains, and over Int the rewrite of the negated distinct into
-the disjunction goes to grind).
+the disjunction goes to grind). Also open, and older than this change: a
+wide distinct with an ite argument whose clauses Z3 simplified under a unit
+(34 `f` applications, `(+ x 1)`, and `(ite (> x 0) (f 3) (f 4))` with
+`x = 2`) still sends the cnf lemmas over the ite's value to grind over the
+unfolded distinct, which runs out of heartbeats from about 30 arguments; the
+base reconstructor emits the same text at 30 arguments. Clausifying pairwise
+under proofs is quadratic in the width (1000 arguments: about 8 s and 34 MB
+of clause log, against 0.02 s without a log); the encoding is not capped,
+as the fresh-symbol encoding above the cap could not be certified anyway.
 
 ### Arrays of enumerations (2026-11-06)
 

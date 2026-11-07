@@ -345,7 +345,8 @@ step:
     atoms opaque (two atoms denoting one constraint, or complementary ones,
     are bridged by an equivalence the theory tactic proves; a distinct over
     terms is the conjunction of its pairs' negated equalities when Z3 logged
-    each pair as an equality node); a clause that needs a theory fact falls
+    some pair as an equality node, a pair without a node being a synthetic
+    leaf rendered as the distinct's conjunct); a clause that needs a theory fact falls
     back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
