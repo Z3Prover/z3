@@ -351,6 +351,31 @@ static void test_subterm_recursive_polarity() {
     }
 }
 
+static void test_subterm_merge() {
+    char const* declarations =
+        "(declare-datatype Nat ((Z) (S (pred Nat))) :subterm P)\n"
+        "(declare-const a Nat)\n"
+        "(declare-const b Nat)\n"
+        "(declare-const x Nat)\n";
+    std::string assertions =
+        "(assert (P Z a))\n"
+        "(assert (not (P x (S (S b)))))\n"
+        "(assert (= b (S (S a))))\n";
+    check_datatype_commands((declarations + assertions + "(check-sat)\n").c_str(), "sat\n");
+    for (unsigned relevancy : {0, 2}) {
+        std::string input =
+            "(set-option :smt.relevancy " + std::to_string(relevancy) + ")\n" +
+            declarations + assertions +
+            "(push)\n"
+            "(assert (= x Z))\n"
+            "(check-sat)\n"
+            "(pop)\n"
+            "(assert (= x (S (S (S b)))))\n"
+            "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n");
+    }
+}
+
 static void test_non_recursive_recognizer_phases() {
     cmd_context ctx;
     std::stringstream input(
@@ -382,6 +407,7 @@ void tst_parametric_datatype() {
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
     test_subterm_recursive_polarity();
+    test_subterm_merge();
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
     test_smt2_parametric_datatype_is_constructor();
