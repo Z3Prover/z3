@@ -724,8 +724,10 @@ def is_enumeration_array_sort(sort):
     it. So an enumeration is the element sort of an array only: not its index
     sort (whose finitely many values extensionality would have to range
     over), and such an array is not itself the index or element of another
-    array (whose rows and witnesses no field covers). Constant arrays, default
-    values, and maps over them are rejected too.
+    array (whose rows and witnesses no field covers). Maps over them are
+    rejected too, and so is the default value of one unless the array is
+    built from constant arrays by store and ite (_require_default); a read
+    or the default value of a constant array is its value.
     """
     return sort.kind() == z3.Z3_ARRAY_SORT and is_enumeration_sort(sort.range())
 
@@ -820,6 +822,26 @@ def _require_default(expr):
     """
     if expr.arg(0).sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
         raise ProofExportError("default values are supported over Int and Real indices only: %s" % expr.arg(0).sort())
+    if is_enumeration_array_sort(expr.arg(0).sort()):
+        # Lean proves the default value of an array of an enumeration a
+        # constructor only through constant arrays (the value of one, the
+        # default of a store is that of the array below, both branches of an
+        # ite); the default value of an array constant or a function's value
+        # is an arbitrary value of _m.U (proof_to_lean._read_cases). Shared
+        # subterms are visited once, so a DAG of ites over stores is linear.
+        pending, seen = [expr.arg(0)], set()
+        while pending:
+            array = pending.pop()
+            if array.get_id() in seen:
+                continue
+            seen.add(array.get_id())
+            if z3.is_store(array):
+                pending.append(array.arg(0))
+            elif z3.is_app(array) and array.decl().kind() == z3.Z3_OP_ITE:
+                pending.extend(array.children()[1:])
+            elif not z3.is_const_array(array):
+                raise ProofExportError("default values of arrays of an enumeration are supported over constant "
+                                       "arrays only: %s" % expr.sexpr())
 
 
 def array_sort_name(sort, sorts=None):
@@ -1004,8 +1026,11 @@ def classify_fragment(assertions):
         elif is_enumeration_sort(expr.sort()):
             # Constants, function applications, and ite of the sort, its
             # constructors, and reads of arrays of the enumeration (checked
-            # as the array is visited).
-            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_DT_CONSTRUCTOR, z3.Z3_OP_SELECT):
+            # as the array is visited) and default values of them.
+            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_DT_CONSTRUCTOR, z3.Z3_OP_SELECT,
+                               z3.Z3_OP_ARRAY_DEFAULT):
+                if decl.kind() == z3.Z3_OP_ARRAY_DEFAULT:
+                    _require_default(expr)
                 _require_uninterpreted_sort(expr.sort(), sorts)
                 enumerations[expr.sort().name()] = expr.sort()
             else:
@@ -1028,9 +1053,6 @@ def classify_fragment(assertions):
                 integer = integer or component.kind() == z3.Z3_INT_SORT
                 if is_enumeration_sort(component):
                     enumerations[component.name()] = component
-            if decl.kind() == z3.Z3_OP_CONST_ARRAY and is_enumeration_array_sort(expr.sort()):
-                # Its default value would need the enumeration's cases too.
-                raise ProofExportError("constant arrays of an enumeration are not supported: %s" % expr.sort())
             if decl.kind() == z3.Z3_OP_CONST_ARRAY:
                 # ((as const (Array I E)) v): the array solver relates it to
                 # the other arrays through default values (the value an

@@ -333,6 +333,30 @@ private theorem _cases_ite {E : Type} (P : E -> Prop) (c : Prop) (h : Decidable 
     (hx : P x) (hy : P y) : P (@ite E c h x y) := by
   split <;> assumption
 """.strip("\n").split("\n")
+# Constant arrays of an enumeration, ((as const (Array Int Color)) v): a read
+# of one is v, and so is its default value; the default value of a store is
+# the stored-into array's (_default_const, _default_store). So both are
+# constructors if v is, and the default value of a store or an ite of arrays
+# is one if those of the arrays below it are. The default value of an array
+# constant or a function's array value has no such proof (_default of an
+# array that is not constant almost everywhere is an arbitrary value), so
+# _read_cases gives none for it. Stated after _CONSTANT_ARRAY_DEFINITIONS.
+_ENUMERATION_CONSTANT_DEFINITIONS = """
+private theorem _cases_const {I E : Type} (P : E -> Prop) (v : E) (j : I) (hv : P v) :
+    P (_select (_const_array I v) j) := hv
+
+private theorem _cases_default_const {I E : Type} (P : E -> Prop)
+    (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l))) (v : E) (hv : P v) :
+    P (_default h (_const_array I v)) := by
+  rw [_default_const]
+  exact hv
+
+private theorem _cases_default_store {I E : Type} (P : E -> Prop)
+    (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l))) (a : I -> E) (i : I) (v : E)
+    (ha : P (_default h a)) : P (_default h (_store a i v)) := by
+  rw [_default_store]
+  exact ha
+""".strip("\n").split("\n")
 # A constant array over Int or Real indices, ((as const (Array I E)) v), is
 # the constant function _const_array. The array solver relates constant arrays
 # to others through their default value (default a), the value an array takes
@@ -346,11 +370,36 @@ private theorem _cases_ite {E : Type} (P : E -> Prop) (c : Prop) (h : Decidable 
 # function exists (a store at every index turns one constant array into
 # another), so the exporter and the reconstructor reject uninterpreted index
 # sorts and admit constant arrays and defaults over Int and Real indices only
-# (_UNBOUNDED).
+# (_UNBOUNDED). A constant array is a store of its value at any index
+# (_const_store_self: for maps of stores next to constant arrays, and for
+# Z3's rewriter, which folds (store (const c) i c) into (const c)), and
+# equal to a store into it exactly when the stored value is its own
+# (_const_eq_store, _store_eq_const: the rewriter decides such equalities).
 _CONSTANT_ARRAY_DEFINITIONS = """
 def _const_array (I : Type) {E : Type} (v : E) : I -> E := fun _ => v
 
 private theorem _select_const {I E : Type} (v : E) (i : I) : _select (_const_array I v) i = v := rfl
+
+private theorem _const_store_self {I E : Type} (c : E) (i : I) : _const_array I c = _store (_const_array I c) i c := by
+  funext _j
+  by_cases _h : _j = i <;> simp [_const_array, _store, _h]
+
+private theorem _const_eq_store {I E : Type} (c v : E) (i : I) :
+    (_const_array I c = _store (_const_array I c) i v) = (c = v) := by
+  apply propext
+  constructor
+  . intro _h
+    have _hi := congrArg (fun _a => _a i) _h
+    simp only [_const_array, _store, ite_true] at _hi
+    exact _hi
+  . intro _h
+    rw [← _h]
+    exact _const_store_self c i
+
+private theorem _store_eq_const {I E : Type} (c v : E) (i : I) :
+    (_store (_const_array I c) i v = _const_array I c) = (c = v) :=
+  propext (Iff.intro (fun _h => (Iff.of_eq (_const_eq_store c v i)).mp _h.symm)
+    (fun _h => ((Iff.of_eq (_const_eq_store c v i)).mpr _h).symm))
 """.strip("\n").split("\n")
 # The proofs that no finite list exhausts the index type, one per index sort
 # of _UNBOUNDED; a file proves those of its array sorts' indices
@@ -476,13 +525,6 @@ _SET_OPERATOR_FUNCTIONS = {z3.Z3_OP_SET_UNION: "Or", z3.Z3_OP_SET_INTERSECT: "An
 # commutative, and its rewriter simplifies maps (_map_identities): the
 # commutativity and idempotence theorems of each, by Lean function.
 _SET_IDENTITIES = {"And": ("_map2_and_comm", "_map2_and_self"), "Or": ("_map2_or_comm", "_map2_or_self")}
-# A constant array is a store of its value at any index (for maps of stores
-# next to constant arrays); stated only next to constant arrays.
-_CONSTANT_STORE_DEFINITIONS = """
-private theorem _const_store_self {I E : Type} (c : E) (i : I) : _const_array I c = _store (_const_array I c) i c := by
-  funext _j
-  by_cases _h : _j = i <;> simp [_const_array, _store, _h]
-""".strip("\n").split("\n")
 # Each function applied to the reads, beta-reduced (the facts grind is given).
 _SET_FUNCTION_BODIES = {"Not": "(Not %s)", "And": "(And %s %s)", "Or": "(Or %s %s)",
                         "(fun _p _q : Prop => _p -> _q)": "(%s -> %s)",
@@ -534,19 +576,32 @@ _ARRAY_NESTING = 64
 # Z3's array rewriter simplifies (store (store a i v) i w) to (store a i w)
 # and (store a i (select a i)) to a, which the clause-log replay then ties to
 # the assertion by a rewrite; a lemma reaching a store may need these
-# identities, which grind does not derive (they need funext). simp may use
+# identities, which grind does not derive (they need funext). Next to
+# constant arrays it also evaluates (select (const c) j) to c and folds
+# (store (const c) i c) into (const c), so the simp set gets _select_const
+# and _const_store_self reversed as well (_grind_lemma). simp may use
 # either identity or neither, so its unused-argument lint (an error under
 # warningAsError) is off for this one tactic; that is a lint, not a check.
 _ARRAY_REWRITE_TACTIC = "try (set_option linter.unusedSimpArgs false in simp only [%s_store_store, _store_select] at *)"
 
 
 def _store_identity_instance(graph, nodes):
-    """Whether a store among nodes is the left side of _store_store or _store_select.
+    """Whether nodes hold the left side of _store_store, _store_select, _const_store_self, or _const_eq_store.
 
     That is (store (store a i v) i w) or (store a i (select a i)), with the
-    same index and array nodes (the certificate's terms are shared).
+    same index and array nodes (the certificate's terms are shared), a
+    store into a constant array of its own value, (store (const c) i c),
+    the value possibly a read of a constant array of c (Z3's rewriter
+    evaluates the read to c first), or an equality between a constant array
+    and a store into it, (= (const c) (store (const c) i v)), either way
+    round.
     """
     for node in nodes:
+        if graph.kind(node) == z3.Z3_OP_EQ and graph.is_array(graph.arguments(node)[0]):
+            for constant, store in (graph.arguments(node), reversed(graph.arguments(node))):
+                if (graph.kind(constant) == z3.Z3_OP_CONST_ARRAY and graph.kind(store) == z3.Z3_OP_STORE
+                        and graph.arguments(store)[0] == constant):
+                    return True
         if graph.kind(node) != z3.Z3_OP_STORE:
             continue
         array, index, value = graph.arguments(node)
@@ -554,7 +609,16 @@ def _store_identity_instance(graph, nodes):
             return True
         if graph.kind(value) == z3.Z3_OP_SELECT and tuple(graph.arguments(value)) == (array, index):
             return True
+        if graph.kind(array) == z3.Z3_OP_CONST_ARRAY and _constant_value(graph, value) == graph.arguments(array)[0]:
+            return True
     return False
+
+
+def _constant_value(graph, node):
+    """The node a term evaluates to through reads of constant arrays, (select (const c) j) to c."""
+    while graph.kind(node) == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_CONST_ARRAY:
+        node = graph.arguments(graph.arguments(node)[0])[0]
+    return node
 
 
 def _set_function(graph, node):
@@ -1693,7 +1757,7 @@ def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
 
     for node in nodes:
-        if graph.kind(node) == z3.Z3_OP_SELECT:
+        if graph.kind(node) in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT):
             proof = _read_cases(graph, node, child, variable_indices)
             if proof is not None:
                 helpers.append("  have _ec%d : %s := %s" % (
@@ -1717,12 +1781,17 @@ def _read_cases(graph, node, child, variable_indices):
     an ite is one if both branches are (_cases_ite), and a read (select a j)
     is one by the cases of the reads at j of what a may evaluate to: an
     array constant or application (enum_acases_i, enum_afcases_j), the
-    array and the stored value of a store (_cases_store), and both branches
-    of an ite. Any other array (none that the exporter admits) gives None,
-    and the lemma is left to grind without the fact.
+    array and the stored value of a store (_cases_store), both branches of
+    an ite, and the value of a constant array (_cases_const). A default
+    value (default a) is one by the value of a constant array
+    (_cases_default_const), the default of the array a store writes into
+    (_cases_default_store), or those of both branches of an ite. Any other
+    array gives None (the default value of an array constant or
+    application, which no field covers), and the lemma is left to grind
+    without the fact.
 
-    The walk is on an explicit stack (a goal is ("value", node) or ("read",
-    array, index)), so a store chain deeper than Python's recursion limit
+    The walk is on an explicit stack (a goal is ("value", node), ("read",
+    array, index), or ("default", array)), so a store chain deeper than Python's recursion limit
     gets its proof like any other (see test_proof_to_lean_deep.py), and a
     goal two paths share is proved once.
     """
@@ -1755,11 +1824,15 @@ def _read_cases_subgoals(graph, goal):
             return [("value", branch) for branch in arguments[1:]]
         if kind == z3.Z3_OP_SELECT:
             return [("read", arguments[0], arguments[1])]
+        if kind == z3.Z3_OP_ARRAY_DEFAULT:
+            return [("default", arguments[0])]
         return []
+    if kind == z3.Z3_OP_CONST_ARRAY:
+        return [("value", arguments[0])]
     if kind == z3.Z3_OP_STORE:
-        return [("read", arguments[0], goal[2]), ("value", arguments[2])]
+        return [(goal[0], arguments[0]) + goal[2:]] + ([("value", arguments[2])] if goal[0] == "read" else [])
     if kind == z3.Z3_OP_ITE:
-        return [("read", branch, goal[2]) for branch in arguments[1:]]
+        return [(goal[0], branch) + goal[2:] for branch in arguments[1:]]
     return []
 
 
@@ -1767,6 +1840,7 @@ def _read_cases_proof(graph, goal, parts, sort, child, variable_indices):
     """The proof of goal from the proofs parts of its subgoals, or None (_read_cases)."""
     node = goal[1]
     kind, arguments = graph.kind(node), graph.arguments(node)
+    cases = "(fun _x : _m.U => %s)" % _enumeration_cases(graph, sort, "_x")
     if goal[0] == "value":
         if kind == z3.Z3_OP_DT_CONSTRUCTOR:
             position = graph.enumerations[sort].index(graph.decl(node).name)
@@ -1778,13 +1852,31 @@ def _read_cases_proof(graph, goal, parts, sort, child, variable_indices):
                 return "(_m.enum_fcases_%d %s)" % (index, _application_arguments(graph, arguments, child, child))
             return "_m.enum_cases_%d" % index
         if kind == z3.Z3_OP_ITE:
-            return "(_cases_ite (fun _x : _m.U => %s) %s _ %s %s %s %s)" % (
-                _enumeration_cases(graph, sort, "_x"), child(arguments[0]), child(arguments[1]),
-                child(arguments[2]), parts[0], parts[1])
-        if kind == z3.Z3_OP_SELECT:
+            return "(_cases_ite %s %s _ %s %s %s %s)" % (cases, child(arguments[0]), child(arguments[1]),
+                                                         child(arguments[2]), parts[0], parts[1])
+        if kind in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT):
             return parts[0]
         return None
+    index_type = _array_types(graph.decl(node).range)[0]
+    if goal[0] == "default":
+        if _array_components(graph.decl(node).range)[0] not in _UNBOUNDED:
+            return None  # No _default over this index sort (the exporter rejects it).
+        if kind == z3.Z3_OP_CONST_ARRAY:
+            return "(_cases_default_const %s %s %s %s)" % (cases, _unbounded(graph, node, explicit=True),
+                                                           child(arguments[0]), parts[0])
+        if kind == z3.Z3_OP_STORE:
+            return "(_cases_default_store %s %s %s %s %s %s)" % (
+                cases, _unbounded(graph, node), child(arguments[0]), child(arguments[1]), child(arguments[2]),
+                parts[0])
+        if kind == z3.Z3_OP_ITE:
+            default = "(fun _a : %s -> _m.U => %s)" % (index_type, _enumeration_cases(
+                graph, sort, "_default %s _a" % _unbounded(graph, node)))
+            return "(_cases_ite %s %s _ %s %s %s %s)" % (default, child(arguments[0]), child(arguments[1]),
+                                                         child(arguments[2]), parts[0], parts[1])
+        return None
     read = goal[2]
+    if kind == z3.Z3_OP_CONST_ARRAY:
+        return "(_cases_const %s %s %s %s)" % (cases, child(arguments[0]), child(read), parts[0])
     if kind == z3.Z3_OP_UNINTERPRETED:
         index = variable_indices[graph.nodes[node].declaration]
         if arguments:
@@ -1792,13 +1884,12 @@ def _read_cases_proof(graph, goal, parts, sort, child, variable_indices):
                 index, _application_arguments(graph, arguments, child, child), child(read))
         return "(_m.enum_acases_%d %s)" % (index, child(read))
     if kind == z3.Z3_OP_STORE:
-        return "(_cases_store (fun _x : _m.U => %s) %s %s %s %s %s %s)" % (
-            _enumeration_cases(graph, sort, "_x"), child(arguments[0]), child(arguments[1]), child(arguments[2]),
-            child(read), parts[0], parts[1])
+        return "(_cases_store %s %s %s %s %s %s %s)" % (
+            cases, child(arguments[0]), child(arguments[1]), child(arguments[2]), child(read), parts[0], parts[1])
     if kind == z3.Z3_OP_ITE:
-        cases = "(fun _a : %s -> _m.U => %s)" % (_array_types(graph.decl(node).range)[0], _enumeration_cases(
+        selected = "(fun _a : %s -> _m.U => %s)" % (index_type, _enumeration_cases(
             graph, sort, "_select _a %s" % child(read)))
-        return "(_cases_ite %s %s _ %s %s %s %s)" % (cases, child(arguments[0]), child(arguments[1]),
+        return "(_cases_ite %s %s _ %s %s %s %s)" % (selected, child(arguments[0]), child(arguments[1]),
                                                      child(arguments[2]), parts[0], parts[1])
     return None
 
@@ -2700,7 +2791,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = reachable
     fallback = ["unfold " + " ".join(_definition_names(graph, remaining, atoms))] if remaining else []
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
-    if prefix == "rewrite" and graph.arrays:
+    if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
     fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
@@ -2717,6 +2808,12 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # fallback's facts, so other steps get it only when one of their
         # stores is an instance of an identity.
         names = [line.split()[1] for line in fallback if line.startswith("have _t")]
+        if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
+            # Reads of constant arrays evaluated, stores of a constant
+            # array's own value into it folded (_const_store_self), and a
+            # constant array compared with one store into it decided by
+            # the stored value.
+            names += ["_select_const", "← _const_store_self", "_const_eq_store", "_store_eq_const"]
         alternatives.append(fallback[:-1] + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in names),
                                              "all_goals " + fallback[-1]])
     if len(alternatives) == 1:
@@ -3225,6 +3322,21 @@ def _stored_rows(graph, row):
             and not (value in seen or seen.add(value))]
 
 
+def _ite_branches(graph, array):
+    """The stores and constant arrays among the branches of an ite over arrays, through nested ites, in order."""
+    pending, seen, branches = [array], set(), []
+    while pending:
+        node = pending.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        if graph.kind(node) == z3.Z3_OP_ITE:
+            pending.extend(reversed(graph.arguments(node)[1:]))
+        elif graph.kind(node) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY):
+            branches.append(node)
+    return branches
+
+
 def _level_fact(graph, name, store, read, inline):
     """The fact of a read at read of one store or constant-array level (_read_levels)."""
     if graph.kind(store) == z3.Z3_OP_STORE:
@@ -3323,6 +3435,19 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             below = _skipped_to_map(graph, levels, read)
             if below is not None:
                 helpers.extend(_map_read_facts(graph, "_sm%d" % node, below, read, inline))
+        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_ITE:
+            # A read of an ite over arrays: Z3's rewriter pushes the read
+            # into the branches ((select (ite c a b) i) is (ite c (select a
+            # i) (select b i))) and evaluates the reads of stores and
+            # constant arrays there, with no read term of the branches in
+            # the certificate. Each such branch, through nested ites, gets
+            # the facts of a read of it (its levels as for a read of a store).
+            array, read = graph.arguments(node)
+            count = 0
+            for branch in _ite_branches(graph, array):
+                for store in _read_levels(graph, branch, read):
+                    helpers.append(_level_fact(graph, "_si%d_%d" % (node, count), store, read, inline))
+                    count += 1
         elif (kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_SELECT
               and graph.is_array(graph.arguments(node)[0])):
             # A read of a row of nested arrays: Z3's rewriter evaluates the
@@ -6678,10 +6803,10 @@ def reconstruct(source, certificate):
             lines.extend(_ENUMERATION_ARRAY_DEFINITIONS + [""])
     if any(decl.kind in (z3.Z3_OP_CONST_ARRAY, z3.Z3_OP_ARRAY_DEFAULT) for decl in graph.declarations):
         lines.extend(_constant_array_definitions(graph) + [""])
+        if any(_enumeration_array(graph, sort) for sort in graph.arrays):
+            lines.extend(_ENUMERATION_CONSTANT_DEFINITIONS + [""])
     if any(decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES for decl in graph.declarations):
         lines.extend(_SET_DEFINITIONS + [""])
-        if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
-            lines.extend(_CONSTANT_STORE_DEFINITIONS + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):

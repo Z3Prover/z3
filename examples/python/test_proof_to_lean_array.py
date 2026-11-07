@@ -375,6 +375,67 @@ CONSTANT_ARRAY_INPUTS = {
 (assert (not (= x y)))
 (check-sat)
 """,
+    # The rewriter decides the asserted equality by the default values (c =
+    # d) and the exporter ties the result to the assertion by a cnf
+    # th-lemma, which gets the default facts of the arrays it compares like
+    # a rewrite (Lean rejected it before 2026-11-06).
+    "constant_comparison_under_cnf": """(set-logic QF_ALIA)
+(declare-const c Int)
+(declare-const d Int)
+(assert (= (store ((as const (Array Int Int)) c) 0 5) (store ((as const (Array Int Int)) d) 0 5)))
+(assert (not (= c d)))
+(check-sat)
+""",
+    # The rewriter evaluates (select (const c) k1) to c and folds (store
+    # (const c) k0 c) into (const c) (_select_const and _const_store_self in
+    # the rewrite's simp set; Lean rejected it before 2026-11-06).
+    "store_of_a_constant_read": """(set-logic QF_ALIA)
+(declare-const x Int)
+(declare-const c Int)
+(declare-const k0 Int)
+(declare-const k1 Int)
+(assert (not (= ((as const (Array Int Int)) x)
+                (store ((as const (Array Int Int)) c) k0 (select ((as const (Array Int Int)) c) k1)))))
+(assert (= x c))
+(check-sat)
+""",
+    # The rewriter pushes a read into an ite of arrays and evaluates the
+    # read of the constant-array branch; the read gets the facts of a read
+    # of each store or constant-array branch (Lean rejected it before
+    # 2026-11-06).
+    "read_of_an_ite_over_a_constant": """(set-logic QF_ALIA)
+(declare-const a (Array Int Int))
+(declare-const q Bool)
+(declare-const k Int)
+(declare-const c Int)
+(declare-const x Int)
+(assert (distinct x (select (ite q ((as const (Array Int Int)) c) a) k) 5))
+(assert (or (= x c) (= x (select a k))))
+(assert (or (= c 5) (= (select a k) 5)))
+(assert (= x 7))
+(check-sat)
+""",
+    # The rewriter decides a constant array's equality with a store into it
+    # by the stored value, either way round (_const_eq_store and
+    # _store_eq_const; Lean rejected both before 2026-11-06).
+    "constant_equal_to_a_store": """(set-logic QF_ALIA)
+(declare-const x Int)
+(declare-const k Int)
+(declare-const p Bool)
+(assert (or p (= ((as const (Array Int Int)) x) (store ((as const (Array Int Int)) x) k 5))))
+(assert (not p))
+(assert (not (= x 5)))
+(check-sat)
+""",
+    "store_equal_to_a_constant": """(set-logic QF_ALIA)
+(declare-const x Int)
+(declare-const k Int)
+(declare-const p Bool)
+(assert (or p (not (= (store ((as const (Array Int Int)) x) k 5) ((as const (Array Int Int)) x)))))
+(assert (not p))
+(assert (= x 5))
+(check-sat)
+""",
 }
 # Constant arrays over Real indices: the same encoding over Rat, whose
 # default values rest on _rat_unbounded (no finite list exhausts Rat).
@@ -1834,6 +1895,32 @@ class TestArrayValidation(unittest.TestCase):
             self.assertNotIn("sorry", each)
             self.assertNotIn("axiom ", each)
 
+    def test_constant_array_evaluations_of_the_rewriter(self):
+        """The rewriter's evaluations over constant arrays get their facts and simp lemmas outside rewrites too."""
+        # A cnf th-lemma comparing stores over constant arrays gets the
+        # default facts, as a rewrite does.
+        source = ARRAY_INPUTS["constant_comparison_under_cnf"]
+        certificate = self.certificates["constant_comparison_under_cnf"]
+        self.assertIn(["cnf"], [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"])
+        text = proof_to_lean.reconstruct(source, certificate)
+        cnf = text.split("private theorem th_lemma_", 1)[1].split("\n\n", 1)[0]
+        self.assertIn(":= congrArg (_default _int_unbounded)", cnf)
+        self.assertIn(":= _default_const (I := Int) _int_unbounded", cnf)
+        # A store of a constant array's value into it, and a constant
+        # array compared with a store into it: the simp set of the array
+        # rewrite alternative.
+        for name in ("store_of_a_constant_read", "constant_equal_to_a_store", "store_equal_to_a_constant"):
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                self.assertIn("private theorem _const_eq_store", text)
+                self.assertIn("simp only [", text)
+                self.assertIn("_select_const, ← _const_store_self, _const_eq_store, _store_eq_const, "
+                              "_store_store, _store_select] at *)", text)
+        # A read of an ite over arrays: each constant-array branch's read.
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_of_an_ite_over_a_constant"],
+                                         self.certificates["read_of_an_ite_over_a_constant"])
+        self.assertRegex(text, r"have _si\d+_0 := _select_const \(I := Int\) \(_vars \d+\) ")
+
     def test_tampered_constant_arrays_are_rejected(self):
         def declaration(certificate, kind):
             return next(d for d in certificate["declarations"] if d["kind"] == kind)
@@ -2707,7 +2794,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
     def test_array_facts_are_needed(self):
         """Without the _store_apply, _array_ext, and default-value facts grind cannot prove the array lemmas."""
         for name in ("store_commutes", "int_store_commutes", "z3test_2549", "store_over_constants",
-                     "real_index_2549"):
+                     "real_index_2549", "constant_comparison_under_cnf"):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
@@ -2751,23 +2838,29 @@ class TestArrayLeanIntegration(unittest.TestCase):
     def test_reads_down_to_constant_arrays_are_needed(self):
         """Without the lower-level facts of a read the rewriter evaluates grind cannot prove its rewrite.
 
-        The read is of stores over a constant array, or of stores at
-        numerals other than the read's over a plain array.
+        The read is of stores over a constant array, of stores at numerals
+        other than the read's over a plain array, or of an ite over a
+        constant array.
         """
         for name, fact in (("read_of_store_over_constant", "_select_const"), ("singleton_set", "_select_const"),
                            ("read_through_numeral_stores", "_store_apply"),
                            ("set_read_through_numeral_stores", "_store_apply"),
                            ("read_through_numeral_stores_to_own_index", "_store_apply"),
                            ("read_through_negative_numeral_stores", "_store_apply"),
-                           ("bool_index_read_through_value_stores", "_store_apply")):
+                           ("bool_index_read_through_value_stores", "_store_apply"),
+                           ("read_of_an_ite_over_a_constant", "_select_const")):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
-                # _s<n> is the read's store level, _s<n>_<k> the levels below.
-                level = re.compile(r"^\s*have _s\d+_\d+ := %s " % fact)
+                # _s<n> is the read's store level, _s<n>_<k> the levels below,
+                # _si<n>_<k> those of the branches of an ite read.
+                level = re.compile(r"^\s*have _si?\d+_\d+ := %s " % fact)
                 lines = text.split("\n")
                 self.assertTrue(any(map(level.match, lines)), text)
-                stripped = "\n".join(line for line in lines if not level.match(line))
+                # The array rewrite alternative's simp set evaluates reads of
+                # constant arrays too (_select_const), so it goes as well.
+                stripped = "\n".join(line.replace("_select_const, ", "") if "simp only [" in line else line
+                                     for line in lines if not level.match(line))
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)

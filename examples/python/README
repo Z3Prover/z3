@@ -180,10 +180,12 @@ and ite over the enumeration, its constructors, and its recognizers
 through the clause log only (the legacy core rejects them explicitly), and
 so are arrays whose element sort is an enumeration, (Array I Color) over the
 index sorts above: their constants, functions into and over them, store,
-ite, select, equality, and extensionality. Any other datatype, an array
-indexed by an enumeration, an array of an enumeration nested in another
-array (as its rows or indices), constant arrays, default values, and maps of
-arrays of an enumeration, and a distinct with more arguments than its
+ite, select, equality, and extensionality, and over Int or Real indices
+constant arrays of an enumeration and the default values of arrays built
+from them by store and ite. Any other datatype, an array indexed by an
+enumeration, an array of an enumeration nested in another array (as its
+rows or indices), maps of arrays of an enumeration and the default value of
+an array constant or application of one, and a distinct with more arguments than its
 enumeration has constructors (with proofs Z3 refutes it by an exponential
 pigeonhole search) over more than five constructors or with more than
 sixteen arguments, past which Lean runs out of memory, are rejected.
@@ -1021,7 +1023,12 @@ arrays extended by a constructor outside the index sort (as in the array
 embedding below). A read of a store or of an ite over arrays is a
 constructor by the cases of what it may evaluate to (the theorems
 _cases_store and _cases_ite); each lemma that reaches a read gets that proof,
-built along the read's array down to array constants and applications.
+built along the read's array down to array constants and applications. A
+read of a constant array is its value (_cases_const), and so is the default
+value of one (_cases_default_const); the default value of a store is that
+of the array below it (_cases_default_store), and the default value of an
+ite is that of one of its branches, so it is a constructor if both
+branches' default values are (_cases_ite).
 
 An array sort (Array I E) of the clause log is the Lean function type
 _m.U -> _m.U, and the array constants are one more field of the
@@ -1042,14 +1049,19 @@ evaluates through several stores gets a fact per level it skips: the
 stores at numerals other than the read's ((select (store (store a 1 5) 2
 7) 3) is (select a 3)) and the store where that skip stops ((select (store
 (store a 3 5) 2 7) 3) is 5), and every store above a constant array (with
-_select_const at the bottom). Array terms stay
+_select_const at the bottom); a read of an ite over arrays, which the
+rewriter pushes into the branches, gets the facts of a read of each store
+or constant-array branch. Array terms stay
 folded in those lemmas (term_N, related to its store or ite by an rfl
 fact): written out, the shared store chains of the swap and storecomm
 benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
 (store (store a i v) i w) into (store a i w) and (store a i (select a i))
 into a, and a cnf step over a predicate of such a store relies on it) may
-also use _store_store and _store_select. All four are theorems
-proved in the file, so no array fact is assumed.
+also use _store_store and _store_select, and next to constant arrays
+_select_const, _const_store_self ((store (const c) i c) is (const c)), and
+_const_eq_store and _store_eq_const ((= (const c) (store (const c) i v)) is
+(= c v)). All of them are theorems proved in the file, so no array fact is
+assumed.
 
 An Int or Real index or element sort is Int or Rat itself: (Array Int Int)
 is Int -> Int, (Array Int Element) is Int -> _m.U, and each Lean array type
