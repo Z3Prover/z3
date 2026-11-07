@@ -1060,8 +1060,13 @@ into a, and a cnf step over a predicate of such a store relies on it) may
 also use _store_store and _store_select, and next to constant arrays
 _select_const, _const_store_self ((store (const c) i c) is (const c)), and
 _const_eq_store and _store_eq_const ((= (const c) (store (const c) i v)) is
-(= c v)). All of them are theorems proved in the file, so no array fact is
-assumed.
+(= c v)), and ite_self (the rewriter drops (ite p c c) first). The
+rewriter decides an equality between store chains over two constant arrays
+by their values at the stored indices and the constants' values; next to
+the facts of that direction, a rewrite or cnf step gets the converse
+(extensionality) as a proved fact with one premise per stored index (funext,
+a case split on the stored indices, and _store_off down to the constants).
+All of them are theorems proved in the file, so no array fact is assumed.
 
 An Int or Real index or element sort is Int or Rat itself: (Array Int Int)
 is Int -> Int, (Array Int Element) is Int -> _m.U, and each Lean array type

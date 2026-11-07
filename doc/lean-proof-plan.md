@@ -1644,6 +1644,30 @@ documented inputs `ENUM_ARRAY_INPUTS`, four pinned seeds, the fields, the
 rejections, the replay's constructors of element sorts, and the read cases
 failing Lean when dropped).
 
+### Store chains over two constant arrays compared (2026-11-06)
+
+A random QF_ALIA sweep with constant arrays, default values, stores, and ite
+of arrays over Int elements (`random_constant_array_instance` in
+`test_proof_to_lean_array.py`) found two more of the rewriter's evaluations
+Lean could not follow. `array_rewriter::mk_eq_core` decides `(= S T)`, for
+store chains S and T over constant arrays `(const v)` and `(const w)` with an
+infinite index sort, as the conjunction of `(= (select S i) (select T i))`
+over the stored indices i and `(= v w)`, after dropping an ite of an array
+with itself. The direction from S = T was already stated (`_e` facts of
+`_constant_array_comparisons`); the converse is extensionality, which grind
+does not do, and `_const_eq_store` covered only one store over one constant
+array. `_constant_chain_extensionality` now states and proves the converse
+per such equality (`_x` facts: funext, a case split on the stored indices,
+and the new prelude theorem `_store_off` down to the constants). Second,
+`(store (const c) i (ite p c c))` folds into `(const c)`: the array rewrite
+alternative's simp set has `ite_self`, so simp drops the ite before
+`_const_store_self` folds the store (rewrite steps with a store always get
+that alternative; on the 528 seeds no other step needed it). Seeds 131, 139, and 246 failed Lean
+before and are pinned (`CONSTANT_ARRAY_SEEDS`); 528 unsatisfiable seeds of
+four sweep configurations verify, none rejected. Five documented inputs (one
+over Real indices) fail Lean with grind errors only without the new facts
+(`test_constant_chain_facts_are_needed`).
+
 ### Constant arrays of enumerations, and the rewriter's constant-array evaluations (2026-11-06)
 
 Constant arrays of an enumeration, `((as const (Array Int Color)) c)` over

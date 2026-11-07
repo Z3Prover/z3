@@ -375,6 +375,8 @@ private theorem _cases_default_store {I E : Type} (P : E -> Prop)
 # Z3's rewriter, which folds (store (const c) i c) into (const c)), and
 # equal to a store into it exactly when the stored value is its own
 # (_const_eq_store, _store_eq_const: the rewriter decides such equalities).
+# A store chain over a constant array takes the constant's value off the
+# stored indices (_store_off, see _constant_chain_extensionality).
 _CONSTANT_ARRAY_DEFINITIONS = """
 def _const_array (I : Type) {E : Type} (v : E) : I -> E := fun _ => v
 
@@ -400,6 +402,10 @@ private theorem _store_eq_const {I E : Type} (c v : E) (i : I) :
     (_store (_const_array I c) i v = _const_array I c) = (c = v) :=
   propext (Iff.intro (fun _h => (Iff.of_eq (_const_eq_store c v i)).mp _h.symm)
     (fun _h => ((Iff.of_eq (_const_eq_store c v i)).mpr _h).symm))
+
+private theorem _store_off {I E : Type} (a : I -> E) (i : I) (v : E) (j : I) (h : Not (j = i)) :
+    _store a i v j = a j := by
+  simp [_store, h]
 """.strip("\n").split("\n")
 # The proofs that no finite list exhausts the index type, one per index sort
 # of _UNBOUNDED; a file proves those of its array sorts' indices
@@ -2809,11 +2815,11 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # stores is an instance of an identity.
         names = [line.split()[1] for line in fallback if line.startswith("have _t")]
         if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
-            # Reads of constant arrays evaluated, stores of a constant
-            # array's own value into it folded (_const_store_self), and a
-            # constant array compared with one store into it decided by
-            # the stored value.
-            names += ["_select_const", "← _const_store_self", "_const_eq_store", "_store_eq_const"]
+            # Reads of constant arrays evaluated, ites of a term with itself
+            # dropped, stores of a constant array's own value into it
+            # folded (_const_store_self), and a constant array compared
+            # with one store into it decided by the stored value.
+            names += ["_select_const", "ite_self", "← _const_store_self", "_const_eq_store", "_store_eq_const"]
         alternatives.append(fallback[:-1] + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in names),
                                              "all_goals " + fallback[-1]])
     if len(alternatives) == 1:
@@ -3507,8 +3513,10 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     of its sort; each store and constant array the rewrite reaches has its
     default value and its value at those indices as facts (_default_store,
     _default_const, _store_apply, _select_const). grind chains them. The
-    read facts are quadratic (indices times arrays), so above
-    _COMPARISON_READS of them only the default facts are stated.
+    converse of an equality between store chains over constant arrays is
+    stated too (_constant_chain_extensionality). The read facts are
+    quadratic (indices times arrays), so above _COMPARISON_READS of them
+    only the default facts are stated.
     """
     if not any(graph.kind(node) == z3.Z3_OP_CONST_ARRAY for node in reachable):
         return []
@@ -3541,6 +3549,9 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
             helpers.append("  have _e%d_%d : %s = %s -> _select %s %s = _select %s %s :="
                            " congrArg (fun _x => _select _x %s)" % (
                                node, index, left, right, left, inline(index), right, inline(index), inline(index)))
+        extensionality = _constant_chain_extensionality(graph, node, inline)
+        if extensionality is not None:
+            helpers.append("  have _x%d : %s" % (node, extensionality))
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
             arguments = " ".join(inline(argument) for argument in graph.arguments(node))
@@ -3556,6 +3567,72 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
                 node, index, index_type, value, inline(index))
                            for index in sorted(indices.get(graph.decl(node).range, ())))
     return helpers
+
+
+def _constant_chain(graph, node):
+    """The constant array below a chain of stores, and the chain's store nodes outermost first, or None.
+
+    An ite of an array with itself is the array (Z3's rewriter drops it
+    before it compares the chains).
+    """
+    stores = []
+    while True:
+        kind = graph.kind(node)
+        arguments = graph.arguments(node)
+        if kind == z3.Z3_OP_STORE:
+            stores.append(node)
+            node = arguments[0]
+        elif kind == z3.Z3_OP_ITE and arguments[1] == arguments[2]:
+            node = arguments[1]
+        elif kind == z3.Z3_OP_CONST_ARRAY:
+            return node, stores
+        else:
+            return None
+
+
+def _constant_chain_extensionality(graph, equality, inline):
+    """The statement and proof of the converse of an equality between store chains over constant arrays, or None.
+
+    Z3's rewriter decides (= S T), for S and T stores over constant arrays
+    (const v) and (const w) with an infinite index sort, by the values of S
+    and T at every stored index and by v = w (array_rewriter::mk_eq_core).
+    The direction from S = T is congruence (the _e facts of
+    _constant_array_comparisons); the converse is extensionality, which
+    grind does not do. The fact states it with one premise per stored index
+    i, _select S i = _select T i, and proves it by funext, a case split on
+    whether the index read is a stored one, and off them _store_off down to
+    the constant arrays. Only equalities with at least one store get one.
+    """
+    sides = [_constant_chain(graph, argument) for argument in graph.arguments(equality)]
+    if None in sides or not (sides[0][1] or sides[1][1]):
+        return None
+    indices = sorted({graph.arguments(store)[1] for _, stores in sides for store in stores})
+    hypotheses = {index: "_c%d" % position for position, index in enumerate(indices)}
+
+    def off(node):
+        """A proof of (node _j) = v off the stored indices, for v the value of the constant array below node."""
+        kind = graph.kind(node)
+        arguments = graph.arguments(node)
+        if kind == z3.Z3_OP_STORE:
+            return "(_store_off %s %s %s _j %s).trans %s" % (
+                inline(arguments[0]), inline(arguments[1]), inline(arguments[2]), hypotheses[arguments[1]],
+                "(%s)" % off(arguments[0]))
+        if kind == z3.Z3_OP_ITE:
+            return "(congrFun (ite_self %s) _j).trans (%s)" % (inline(arguments[1]), off(arguments[1]))
+        return "rfl"
+
+    left, right = (inline(argument) for argument in graph.arguments(equality))
+    values = [inline(graph.arguments(constant)[0]) for constant, _ in sides]
+    premises = ["_select %s %s = _select %s %s" % (left, inline(index), right, inline(index)) for index in indices]
+    names = ["_h%d" % position for position in range(len(indices))]
+    tactics = ["intro %s _hv" % " ".join(names), "funext _j"]
+    for index, name in zip(indices, names):
+        tactics.append("by_cases %s : _j = %s" % (hypotheses[index], inline(index)))
+        tactics.append("(subst %s; exact %s)" % (hypotheses[index], name))
+    first, second = (off(argument) for argument in graph.arguments(equality))
+    tactics.append("exact (%s).trans (_hv.trans (%s).symm)" % (first, second))
+    return "%s -> %s = %s -> %s = %s := by %s" % (
+        " -> ".join(premises), values[0], values[1], left, right, "; ".join(tactics))
 
 
 def _combination_certified(graph, node):

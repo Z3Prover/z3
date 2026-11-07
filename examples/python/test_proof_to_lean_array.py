@@ -16,6 +16,7 @@
 ############################################
 import copy
 from pathlib import Path
+import random
 import re
 import subprocess
 import sys
@@ -436,6 +437,61 @@ CONSTANT_ARRAY_INPUTS = {
 (assert (= x 5))
 (check-sat)
 """,
+    # Store chains over two constant arrays: the rewriter decides their
+    # equality by the values at the stored indices and the constants' values
+    # (array_rewriter::mk_eq_core); its converse needs extensionality (the
+    # _x facts of _constant_chain_extensionality). One store against a
+    # constant array of another value, two chains of different lengths, and
+    # a store against an ite of one constant array (the rewriter drops the
+    # ite first; random sweep seeds 131 and 139).
+    "store_over_another_constant": """(set-logic QF_ALIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const k Int)
+(declare-const p Bool)
+(assert (or p (not (= (store ((as const (Array Int Int)) x) k y) ((as const (Array Int Int)) y)))))
+(assert (not p))
+(assert (= x y))
+(check-sat)
+""",
+    "store_chains_over_two_constants": """(set-logic QF_ALIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const u Int)
+(declare-const i Int)
+(declare-const j Int)
+(declare-const p Bool)
+(assert (or p (not (= (store (store ((as const (Array Int Int)) x) i u) j y) (store ((as const (Array Int Int)) y) i u)))))
+(assert (not p))
+(assert (not (= i j)))
+(assert (= x y))
+(check-sat)
+""",
+    "store_against_an_ite_of_one_constant": """(set-logic ALL)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const k Int)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p (not (= (store ((as const (Array Int Int)) x) k y)
+                      (ite q ((as const (Array Int Int)) y) ((as const (Array Int Int)) y))))))
+(assert (not p))
+(assert (= x y))
+(check-sat)
+""",
+    # A store of (ite p x x) into a constant array of x: the rewriter drops
+    # the ite, then folds the store (ite_self in the simp set; random sweep
+    # seed 246).
+    "store_of_an_ite_of_the_constant": """(set-logic ALL)
+(declare-const x Int)
+(declare-const k Int)
+(declare-const j Int)
+(declare-const p Bool)
+(declare-const a (Array Int Int))
+(assert (= (store ((as const (Array Int Int)) x) k (ite p x x)) a))
+(assert (not (= (select a j) x)))
+(check-sat)
+""",
 }
 # Constant arrays over Real indices: the same encoding over Rat, whose
 # default values rest on _rat_unbounded (no finite list exhausts Rat).
@@ -481,6 +537,18 @@ REAL_INDEX_CONSTANT_ARRAY_INPUTS = {
 (assert (= c (store (store ((as const (Array Real Element)) e) x f) y f)))
 (assert (= c ((as const (Array Real Element)) f)))
 (assert (not (= e f)))
+(check-sat)
+""",
+    # A store over a constant array compared with a constant array of
+    # another value, over Real indices (_constant_chain_extensionality).
+    "real_index_store_over_another_constant": """(set-logic ALL)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const k Real)
+(declare-const p Bool)
+(assert (or p (not (= (store ((as const (Array Real Int)) x) k y) ((as const (Array Real Int)) y)))))
+(assert (not p))
+(assert (= x y))
 (check-sat)
 """,
 }
@@ -1687,7 +1755,7 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "real_function_into_arrays": "qf_uflra", "function_into_constant_arrays": "qf_uflira",
               "predicate_over_application": "qf_uflia", "nested_applications": "qf_uflia",
               "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia",
-              "real_set": "qf_uflra"}
+              "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
 # Set combinators are over Int indices (qf_uflia) except these, named
@@ -1914,8 +1982,26 @@ class TestArrayValidation(unittest.TestCase):
                 text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
                 self.assertIn("private theorem _const_eq_store", text)
                 self.assertIn("simp only [", text)
-                self.assertIn("_select_const, ← _const_store_self, _const_eq_store, _store_eq_const, "
+                self.assertIn("_select_const, ite_self, ← _const_store_self, _const_eq_store, _store_eq_const, "
                               "_store_store, _store_select] at *)", text)
+        # Store chains over two constant arrays compared: the converse of
+        # the equality, one premise per stored index, proved by funext and
+        # _store_off.
+        for name, premises in (("store_over_another_constant", 1), ("store_chains_over_two_constants", 2),
+                               ("store_against_an_ite_of_one_constant", 1),
+                               ("real_index_store_over_another_constant", 1)):
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                self.assertIn("private theorem _store_off", text)
+                facts = [line for line in text.split("\n") if re.match(r"\s*have _x\d+ : _select ", line)]
+                self.assertTrue(facts, text)
+                for fact in facts:
+                    self.assertEqual(fact.count("_select "), 2 * premises, fact)
+                    self.assertIn("funext _j; by_cases _c0 : _j = ", fact)
+                    self.assertIn("(_store_off ", fact)
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["store_against_an_ite_of_one_constant"],
+                                         self.certificates["store_against_an_ite_of_one_constant"])
+        self.assertIn("(congrFun (ite_self ", text)
         # A read of an ite over arrays: each constant-array branch's read.
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_of_an_ite_over_a_constant"],
                                          self.certificates["read_of_an_ite_over_a_constant"])
@@ -2766,6 +2852,103 @@ class TestArrayValidation(unittest.TestCase):
             terms.build([["_", "array-ext", "0"], "i", "j"])
 
 
+def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, constant=0.3, default=0.2):
+    """A random input over (Array Int Int) with constant arrays, or None if sat.
+
+    Array constants a0, a1, ..., constant arrays of Int terms (with
+    probability constant), stores, and ite over arrays; Int terms are
+    constants, numerals, reads at index constants and numerals, increments,
+    ite, and default values of arrays built from constant arrays by store
+    and ite (the default values the exporter admits next to array
+    constants, with probability default also compared as atoms). Atoms are
+    equalities, comparisons, distinct, and array equalities.
+    """
+    rng = random.Random(seed)
+    lines = ["(set-logic ALL)", "(declare-const p Bool)", "(declare-const q Bool)"]
+    lines += ["(declare-const a%d (Array Int Int))" % i for i in range(variables)]
+    lines += ["(declare-const k%d Int)" % i for i in range(variables + 1)]
+    lines += ["(declare-const x%d Int)" % i for i in range(variables)]
+
+    def position():
+        if rng.random() < 0.3:
+            return str(rng.randrange(3))
+        return "k%d" % rng.randrange(variables + 1)
+
+    def array(d=depth):
+        if rng.random() < constant:
+            return "((as const (Array Int Int)) %s)" % value(max(d - 1, 0))
+        roll = rng.random()
+        if d == 0 or roll < 0.4:
+            return "a%d" % rng.randrange(variables)
+        if roll < 0.8:
+            return "(store %s %s %s)" % (array(d - 1), position(), value(d - 1))
+        return "(ite %s %s %s)" % (rng.choice(["p", "q"]), array(d - 1), array(d - 1))
+
+    def constant_built(d=depth):
+        roll = rng.random()
+        if d == 0 or roll < 0.4:
+            return "((as const (Array Int Int)) %s)" % value(max(d - 1, 0))
+        if roll < 0.8:
+            return "(store %s %s %s)" % (constant_built(d - 1), position(), value(d - 1))
+        return "(ite %s %s %s)" % (rng.choice(["p", "q"]), constant_built(d - 1), constant_built(d - 1))
+
+    def value(d=depth):
+        roll = rng.random()
+        if d == 0 or roll < 0.25:
+            return "x%d" % rng.randrange(variables)
+        if roll < 0.4:
+            return str(rng.randrange(3))
+        if roll < 0.8:
+            return "(select %s %s)" % (array(d - 1), position())
+        if roll < 0.85:
+            return "(default %s)" % constant_built(d - 1)
+        if roll < 0.92:
+            return "(+ %s 1)" % value(d - 1)
+        return "(ite %s %s %s)" % (rng.choice(["p", "q"]), value(d - 1), value(d - 1))
+
+    def atom():
+        if rng.random() < default:
+            return "(= (default %s) %s)" % (constant_built(), value())
+        roll = rng.random()
+        if roll < 0.4:
+            return "(= %s %s)" % (value(), value())
+        if roll < 0.55:
+            return "(<= %s %s)" % (value(), value())
+        if roll < 0.65:
+            return "(distinct %s %s %s)" % (value(), value(), value())
+        if roll < 0.9:
+            return "(= %s %s)" % (array(), array())
+        return rng.choice(["p", "q"])
+
+    def formula():
+        roll = rng.random()
+        if roll < 0.5:
+            return atom()
+        if roll < 0.8:
+            return "(or %s %s)" % (atom(), atom())
+        return "(not %s)" % atom()
+
+    lines += ["(assert %s)" % formula() for _ in range(constraints)]
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("timeout", 10000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Pinned unsatisfiable seeds of random_constant_array_instance. On
+# iteration 84's macOS build each failed Lean before the rewriter's
+# comparison of store chains over two constant arrays had its converse
+# (131 and 139, _constant_chain_extensionality) or the fold of a store of
+# (ite p c c) into a constant array of c had ite_self (246). (Seeds 1-200
+# with the default options, 1-120 with variables=3, constraints=12,
+# depth=3, 201-500 with constant=0.5, default=0.1, and 501-620 with
+# constraints=12, depth=3, constant=0.4 then verify: 528 of 528.)
+CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246))
+
+
 def _check_in_lean(test, source, fragment):
     """Export through the clause log, reconstruct, and kernel-check; return the certificate."""
     certificate = _export(source)
@@ -2790,6 +2973,48 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(name=name):
                 hints |= _hints(_check_in_lean(self, source, _FRAGMENTS.get(name, "qf_uf")))
         self.assertLessEqual({"array", "euf"}, hints)
+
+    def test_pinned_random_constant_array_instances_verify(self):
+        sources = []
+        for arguments, seed in CONSTANT_ARRAY_SEEDS:
+            source = random_constant_array_instance(seed, **arguments)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            self.assertIn("(as const (Array Int Int))", source)
+            sources.append((seed, source, _export(source)))
+        lean_test_support.prefetch((source, certificate) for _, source, certificate in sources)
+        for seed, source, certificate in sources:
+            with self.subTest(seed=seed):
+                self.assertEqual(certificate["fragment"], "qf_uflia")
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_constant_chain_facts_are_needed(self):
+        """Without the converse of store-chain comparisons, or without ite_self, grind cannot prove the rewrites."""
+        fact = re.compile(r"^\s*have _x\d+ : _select ")
+        for name in ("store_over_another_constant", "store_chains_over_two_constants",
+                     "store_against_an_ite_of_one_constant", "real_index_store_over_another_constant",
+                     "store_of_an_ite_of_the_constant"):
+            with self.subTest(name=name):
+                source = ARRAY_INPUTS[name]
+                text = proof_to_lean.reconstruct(source, _export(source))
+                lines = text.split("\n")
+                if name == "store_of_an_ite_of_the_constant":
+                    self.assertIn("_select_const, ite_self, ", text)
+                else:
+                    self.assertTrue(any(map(fact.match, lines)), text)
+                stripped = "\n".join(line.replace("ite_self, ", "") if "simp only [" in line else line
+                                     for line in lines if not fact.match(line))
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "stripped.lean"
+                    output.write_text(stripped)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                            capture_output=True)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
 
     def test_array_facts_are_needed(self):
         """Without the _store_apply, _array_ext, and default-value facts grind cannot prove the array lemmas."""
