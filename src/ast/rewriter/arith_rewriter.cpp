@@ -977,8 +977,10 @@ br_status arith_rewriter::mk_and_core(unsigned n, expr* const* args, expr_ref& r
         ptr_buffer<expr> rest;
         for (unsigned i = 1; i < n; ++i) {
             if (m_util.is_le(args[i], z, u) && u == y && m_util.is_numeral(z, b)) {
-                if (b > a)
+                if (b > a) {
                     arg0 = args[i];
+                    a = b;
+                }
             }
             else
                 rest.push_back(args[i]);
