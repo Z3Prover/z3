@@ -18,6 +18,8 @@ Copyright (c) 2016 Microsoft Corporation
 #include "tactic/tactical.h"
 #include "tactic/core/split_clause_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/fd_solver/smtfd_solver.h"
+#include "solver/solver2tactic.h"
 #include "smt/smt_solver.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
@@ -126,6 +128,152 @@ void test2() {
     ENSURE(mr.get());
     model_smt2_pp(std::cout, dst, *mr.get(), 0);
 
+}
+
+static void test_fd_tactic_proof_boundary() {
+    for (bool proofs : { false, true }) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        params_ref p;
+        expr_ref a = mk_bool(m, "proof_boundary_a");
+        expr_ref not_a(m.mk_not(a), m);
+        for (bool smtfd : { false, true }) {
+            goal_ref g = alloc(goal, m, proofs, false, false);
+            g->assert_expr(a);
+            g->assert_expr(not_a);
+            goal_ref_buffer result;
+            bool failed = false;
+            try {
+                tactic_ref t = smtfd ? mk_smtfd_tactic(m, p) : mk_fd_tactic(m, p);
+                (*t)(g, result);
+            }
+            catch (z3_exception const& ex) {
+                failed = true;
+                std::string message(ex.what());
+                ENSURE(message.find("proof of false") != std::string::npos ||
+                       message.find("does not support proof") != std::string::npos);
+            }
+            ENSURE(failed == proofs);
+            if (proofs) {
+                ENSURE(result.empty());
+                ENSURE(!g->inconsistent());
+                ENSURE(g->size() == 2);
+            }
+            else {
+                ENSURE(result.size() == 1);
+                ENSURE(result[0]->inconsistent());
+            }
+        }
+    }
+}
+
+class proof_boundary_solver : public solver {
+    lbool m_result;
+    bool m_wrong_proof;
+    expr_ref_vector m_assertions;
+public:
+    proof_boundary_solver(ast_manager& m, lbool result, bool wrong_proof):
+        solver(m), m_result(result), m_wrong_proof(wrong_proof), m_assertions(m) {}
+    solver* translate(ast_manager& m, params_ref const&) override {
+        return alloc(proof_boundary_solver, m, m_result, m_wrong_proof);
+    }
+    void assert_expr_core(expr* e) override {
+        m_assertions.push_back(m_result == l_undef ? m.mk_not(e) : e);
+    }
+    void assert_expr_core2(expr* e, expr*) override { assert_expr_core(e); }
+    lbool check_sat_core(unsigned, expr* const*) override { return m_result; }
+    proof* get_proof_core() override { return m_wrong_proof ? m.mk_asserted(m.mk_true()) : nullptr; }
+    void get_model_core(model_ref& mdl) override { mdl = nullptr; }
+    void collect_statistics_core(statistics&) const override {}
+    void get_unsat_core(expr_ref_vector&) override {}
+    std::string reason_unknown() const override { return "proof boundary test"; }
+    void set_reason_unknown(char const*) override {}
+    void get_labels(svector<symbol>&) override {}
+    ast_manager& get_manager() const override { return m; }
+    unsigned get_num_assertions() const override { return m_assertions.size(); }
+    expr* get_assertion(unsigned i) const override { return m_assertions[i]; }
+    unsigned get_num_assumptions() const override { return 0; }
+    expr* get_assumption(unsigned) const override { return nullptr; }
+    void push() override {}
+    void pop(unsigned) override {}
+    unsigned get_scope_level() const override { return 0; }
+    void set_progress_callback(progress_callback*) override {}
+    void set_phase(expr*) override {}
+    void move_to_front(expr*) override {}
+    phase* get_phase() override { return nullptr; }
+    void set_phase(phase*) override {}
+    expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
+    expr* congruence_root(expr* e) override { return e; }
+    expr* congruence_next(expr* e) override { return e; }
+    expr_ref congruence_explain(expr*, expr*) override { return expr_ref(m); }
+    expr_ref_vector get_trail(unsigned) override { return expr_ref_vector(m); }
+    void get_levels(ptr_vector<expr> const&, unsigned_vector&) override {}
+};
+
+static void test_solver2tactic_certificate_boundary() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    expr_ref a = mk_bool(m, "backend_certificate_a");
+    for (bool wrong_proof : { false, true }) {
+        tactic_ref t = mk_solver2tactic(alloc(proof_boundary_solver, m, l_false, wrong_proof));
+        goal_ref g = alloc(goal, m, true, false, false);
+        g->assert_expr(a);
+        goal_ref_buffer result;
+        bool failed = false;
+        try {
+            (*t)(g, result);
+        }
+        catch (tactic_exception const& ex) {
+            failed = true;
+            ENSURE(std::string(ex.what()).find("proof of false") != std::string::npos);
+        }
+        ENSURE(failed && result.empty());
+        ENSURE(g->size() == 1 && g->form(0) == a && !g->inconsistent());
+    }
+
+    tactic_ref t = mk_solver2tactic(alloc(proof_boundary_solver, m, l_undef, true));
+    goal_ref g = alloc(goal, m, true, false, false);
+    g->assert_expr(a);
+    proof_ref original_pr(m.mk_asserted(a), m);
+    g->set(proof2proof_converter(m, original_pr));
+    goal_ref_buffer result;
+    (*t)(g, result);
+    ENSURE(result.size() == 1 && result[0] == g.get());
+    ENSURE(g->size() == 1 && g->form(0) == a);
+    ENSURE(g->pr(0) == original_pr);
+    ENSURE(g->get_reason_unknown() == "proof boundary test");
+    ENSURE(g->pc());
+    proof_ref converted = (*g->pc())(m, 0, nullptr);
+    ENSURE(converted == original_pr);
+}
+
+static void test_solver2tactic_input_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    params_ref p;
+    expr_ref a = mk_bool(m, "transport_a"), b = mk_bool(m, "transport_b");
+    expr_ref original(m.mk_and(a, b), m), not_a(m.mk_not(a), m);
+    proof_ref original_pr(m.mk_asserted(original), m);
+    proof_ref a_pr(m.mk_and_elim(original_pr, 0), m);
+    goal_ref g = alloc(goal, m, true, false, false);
+    g->assert_expr(a, a_pr, nullptr);
+    g->assert_expr(not_a);
+    tactic_ref t = mk_solver2tactic(mk_smt_solver(m, p, symbol::null));
+    goal_ref_buffer result;
+    (*t)(g, result);
+    ENSURE(result.size() == 1 && result[0]->inconsistent());
+    proof_ref pr(result[0]->pr(0), m);
+    ENSURE(pr && m.is_false(m.get_fact(pr)));
+    bool found_original = false;
+    auto check_leaf = [&](expr* e) {
+        if (!m.is_asserted(e))
+            return;
+        expr* fact = m.get_fact(to_app(e));
+        ENSURE(fact == original || fact == not_a);
+        found_original |= fact == original;
+    };
+    for_each_expr(check_leaf, pr.get());
+    ENSURE(found_original);
 }
 
 static void test_bounded_int_translation() {
@@ -476,6 +624,9 @@ static void test_split_proof_converters() {
 }
 
 void tst_get_consequences() {
+    test_fd_tactic_proof_boundary();
+    test_solver2tactic_certificate_boundary();
+    test_solver2tactic_input_proofs();
     test1();
     test2();
     test_bounded_int();

@@ -1,0 +1,22 @@
+{
+  "pull_request": 11534,
+  "head_sha": "4d9f42c3f16449bf851a57f3b8caddc9b6530123",
+  "base_sha": "605d1d83a4614804d400ce5b23eca1f4a20184dd",
+  "path_prefix": "fstar/audits/pr-11534/4d9f42c3f16449bf851a57f3b8caddc9b6530123/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/41625804886",
+  "files": [
+    {
+      "name": "PrGuards.fst",
+      "sha256": "5de3fdf6f2d67a52c0bf0ccf83387155a99480963026234512001d3580f4f61d"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "538e796108a081a407daea23d428b649c6fcd7c0ac1cef43b6567c3e2f9d376a"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "5a71c4e53e10fdad89669d466f8da7b169e6a5499cad0d3e4a1e720d9ca7eaa7"
+    }
+  ]
+}
