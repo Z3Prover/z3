@@ -885,10 +885,6 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
-        if (g->proofs_enabled()) {
-            result.push_back(g.get());
-            return;
-        }
         try {
             tactic_report report("purify-arith", *g);
             TRACE(goal, g->display(tout););
