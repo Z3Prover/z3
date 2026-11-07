@@ -17,9 +17,11 @@ Revision History:
 
 --*/
 
+#include "api/z3.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/rlimit.h"
 #include <iostream>
+#include <string>
 
 namespace polynomial {
 
@@ -146,6 +148,60 @@ void test_algebraic_comparison_edge_case() {
     VERIFY(!am.eq(a, b));
 }
 
+static void test_algebraic_comparison_translated_roots(bool factor) {
+    reslimit rl;
+    unsynch_mpq_manager qm;
+    params_ref params;
+    params.set_bool("factor", factor);
+    anum_manager am(rl, qm, params);
+    manager m(rl, qm);
+    polynomial_ref x(m);
+    x = m.mk_polynomial(m.mk_var());
+    polynomial_ref p(m), q(m);
+    p = x*x*x*x - 10*x*x + 1;
+    q = 4096*x*x*x*x + 6144*x*x*x - 37504*x*x - 29856*x - 1583;
+
+    scoped_mpq offset_q(qm);
+    qm.set(offset_q, 3, 8);
+    scoped_anum offset(am);
+    am.set(offset, offset_q);
+    for (unsigned i = 1; i <= 4; ++i) {
+        for (unsigned j = 1; j <= 4; ++j) {
+            scoped_anum a(am), shifted(am), b(am);
+            am.mk_root(p, i, a);
+            am.mk_root(q, j, shifted);
+            am.add(shifted, offset, b);
+            VERIFY(am.eq(a, b) == (i == j));
+            VERIFY(am.lt(a, b) == (i < j));
+            VERIFY(am.gt(a, b) == (i > j));
+            VERIFY(am.eq(b, a) == (i == j));
+            VERIFY(am.lt(b, a) == (j < i));
+            VERIFY(am.gt(b, a) == (j > i));
+        }
+    }
+}
+
+static void test_algebraic_comparison_root_objects() {
+    char const* a = "(root-obj (+ (^ x 4) (* (- 10) (^ x 2)) 1) 2)";
+    char const* b = "(+ (root-obj (+ (* 4096 (^ x 4)) (* 6144 (^ x 3)) "
+                    "(* (- 37504) (^ x 2)) (* (- 29856) x) (- 1583)) 1) (/ 3 8))";
+    for (char const* op : {"=", "<="}) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = "(set-logic QF_NRA)\n(assert (";
+        spec += op;
+        spec += " ";
+        spec += a;
+        spec += " ";
+        spec += b;
+        spec += "))\n(check-sat)\n";
+        std::string result = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        VERIFY(result == "unsat\n");
+        Z3_del_context(ctx);
+    }
+}
+
 void test_algebraic_degree() {
     std::cout << "test_algebraic_degree\n";
     
@@ -229,6 +285,9 @@ void test_algebraic_numbers() {
     test_algebraic_arithmetic();
     test_algebraic_comparison();
     test_algebraic_comparison_edge_case();
+    test_algebraic_comparison_translated_roots(false);
+    test_algebraic_comparison_translated_roots(true);
+    test_algebraic_comparison_root_objects();
     test_algebraic_degree();
     test_algebraic_to_rational();
     test_algebraic_signs();
