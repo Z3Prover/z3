@@ -1239,8 +1239,9 @@ namespace smt {
             if (e)
                 add_recognizer(v1, e);
 
-        for (enode* e : d2->m_subterms) {
-            add_subterm_predicate(v1, e);
+        // Propagation can append predicates to d2 before the union-find link is updated.
+        for (unsigned i = 0; i < d2->m_subterms.size(); ++i) {
+            add_subterm_predicate(v1, d2->m_subterms[i]);
         }
     }
 
