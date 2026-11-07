@@ -129,6 +129,9 @@ _MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia", _MIXED: "qf_uflira"}
 # budget between 1,000 and 2,000 steps.
 _OUTLINE_PROOF_STEPS = 500
 _OUTLINE_CHUNK_STEPS = 500
+# A step with more premises or clause literals than this counts as that many
+# steps of its chunk (_outline_weight).
+_OUTLINE_WIDE_STEP = 64
 # and-elim projects an operand by field notation, one `.2` per operand before
 # it, so eliminating every operand of a wide conjunction is quadratic: 250
 # projections out of a 600-operand conjunction (94,000 `.2`s in one outlined
@@ -5720,6 +5723,9 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     if pseudo_boolean:
         lines, term = _pseudo_boolean_lemma(graph, node, "rewrite", atom_indices)
         return lines, set(), term
+    distinct = _negated_distinct_rewrite(graph, node, left, right)
+    if distinct is not None:
+        return distinct, set(), "(rewrite_%d _atoms%s)" % (node, graph.valuation)
     if graph.is_term(left):
         # A rewrite between terms (the legacy core simplifies ite terms, for
         # example (ite true a b) to a): a theory tautology for grind.
@@ -5766,6 +5772,50 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     lines.append("  all_goals exact of_decide_eq_true rfl")
     term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
     return lines, atoms, term
+
+
+def _negated_distinct_rewrite(graph, node, left, right):
+    """The lemma lines of the rewrite of a negated distinct into the disjunction of its pairs, or None.
+
+    Z3's rewriter turns (not (distinct a1 ... an)) into (or (= a1 a2) (= a1
+    a3) ... (= an-1 an)), the pairs in the order _formula_body renders the
+    distinct's conjuncts (Not (ai = aj)). The proof peels one conjunct and
+    one disjunct per step, De Morgan and a double negation (an equality
+    written (= aj ai) also takes eq_comm), so it is linear in the number of
+    pairs: grind over the unfolded sides ran out of heartbeats on the 780
+    pairs of a 40-term distinct over Int. None for any other shape, which
+    goes to grind as before.
+    """
+    if graph.kind(left) != z3.Z3_OP_NOT:
+        return None
+    distinct = graph.arguments(left)[0]
+    arguments = graph.arguments(distinct)
+    if (graph.kind(distinct) != z3.Z3_OP_DISTINCT or len(arguments) < 3
+            or not graph.is_term(arguments[0]) or graph.kind(right) != z3.Z3_OP_OR):
+        return None
+    pairs = [(first, second) for index, first in enumerate(arguments) for second in arguments[index + 1:]]
+    disjuncts = graph.arguments(right)
+    if len(disjuncts) != len(pairs):
+        return None
+    congruences = []
+    for (first, second), disjunct in zip(pairs, disjuncts):
+        if graph.kind(disjunct) != z3.Z3_OP_EQ:
+            return None
+        sides = tuple(graph.arguments(disjunct))
+        if sides == (first, second):
+            congruences.append("Classical.not_not")
+        elif sides == (second, first):
+            congruences.append("(Classical.not_not.trans eq_comm)")
+        else:
+            return None
+    conclusion = graph.conclusion(node)
+    lines = ["", "private theorem rewrite_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
+             "    : %s := by" % _formula(graph, conclusion),
+             "  unfold %s" % " ".join("formula_%d" % formula for formula in (conclusion, left, distinct, right))]
+    lines.extend("  refine Iff.trans Classical.not_and_iff_not_or_not (or_congr %s ?_)" % congruence
+                 for congruence in congruences[:-1])
+    lines.append("  exact %s" % congruences[-1])
+    return lines
 
 
 def _normalizable_rewrite(graph, node, reachable, atoms):
@@ -6972,25 +7022,62 @@ def _lemma(graph, terms, node, hypotheses):
 
     literals = graph.clause(conclusion)
     arguments, decidable = [], {conclusion}
+    # A literal's refutation projects it out of the negated clause, one
+    # Or.inr per literal before it, so discharging every literal of a wide
+    # clause was quadratic: the 780 hypotheses of a negated 40-term distinct
+    # took a 2.7 MB line. Over a wide clause the refutations start from the
+    # negated clause's tails, bound every _AND_ELIM_STRIDE literals.
+    tails, bindings = {0: "_not_clause"}, []
+
+    def negated_literal(position):
+        base = position // _AND_ELIM_STRIDE * _AND_ELIM_STRIDE if len(literals) > _AND_ELIM_STRIDE else 0
+        for start in range(_AND_ELIM_STRIDE, base + 1, _AND_ELIM_STRIDE):
+            if start not in tails:
+                tails[start] = "_not_tail%d" % start
+                bindings.append("let %s := %s; " % (tails[start], _reject_disjunct(
+                    _AND_ELIM_STRIDE, _AND_ELIM_STRIDE + 1, tails[start - _AND_ELIM_STRIDE])))
+        return "(fun _literal => %s %s)" % (tails[base], _inject(position - base, len(literals) - base, "_literal"))
+
+    # The first literal discharging each hypothesis: the literal itself
+    # negated, or the negation of a negated literal.
+    positives, negatives = {}, {}
+    for position, literal in enumerate(literals):
+        positives.setdefault(terms[literal], position)
+        if graph.kind(literal) == z3.Z3_OP_NOT:
+            negatives.setdefault(terms[graph.arguments(literal)[0]], position)
     for hypothesis in hypotheses:
-        for position, literal in enumerate(literals):
-            negated_literal = "(fun _literal => _not_clause %s)" % (
-                _inject(position, len(literals), "_literal"))
-            if (graph.kind(hypothesis) == z3.Z3_OP_NOT
-                    and terms[graph.arguments(hypothesis)[0]] == terms[literal]):
-                arguments.append(negated_literal)
-                break
-            if (graph.kind(literal) == z3.Z3_OP_NOT
-                    and terms[graph.arguments(literal)[0]] == terms[hypothesis]):
-                arguments.append("(@Decidable.byContradiction %s _df%d %s)" % (
-                    _formula(graph, hypothesis), hypothesis, negated_literal))
-                decidable.add(hypothesis)
-                break
-        else:
+        positive = (positives.get(terms[graph.arguments(hypothesis)[0]])
+                    if graph.kind(hypothesis) == z3.Z3_OP_NOT else None)
+        negative = negatives.get(terms[hypothesis])
+        if positive is None and negative is None:
             raise ReconstructionError("lemma does not discharge every hypothesis at node %d" % node)
-    contradiction = "(_step_%d %s)" % (premise, " ".join(arguments))
+        if negative is None or (positive is not None and positive <= negative):
+            arguments.append(negated_literal(positive))
+        else:
+            arguments.append("(@Decidable.byContradiction %s _df%d %s)" % (
+                _formula(graph, hypothesis), hypothesis, negated_literal(negative)))
+            decidable.add(hypothesis)
+    contradiction = "%s(_step_%d %s)" % ("".join(bindings), premise, " ".join(arguments))
     return ("(@Decidable.byContradiction %s _df%d (fun _not_clause => %s))" % (
         _formula(graph, conclusion), conclusion, contradiction)), decidable
+
+
+def _outline_weight(graph, node):
+    """The steps a proof step counts as in an outlined lemma: its width when wide, else one.
+
+    The width is a lemma's number of clause literals (one refutation per
+    discharged hypothesis) or another step's number of premises. A step of
+    hundreds of them elaborated about ten times slower among the let-bound
+    steps of a full chunk than alone: the lemma discharging the 780
+    hypotheses of a negated 40-term distinct took 14 s inside a 500-step
+    chunk, 1.6 s as a lemma of its own. Counted by width, it is cut from the
+    chunk around it.
+    """
+    if graph.kind(node) == z3.Z3_OP_PR_LEMMA:
+        width = len(graph.clause(graph.conclusion(node)))
+    else:
+        width = len(graph.arguments(node)) - 1
+    return width if width > _OUTLINE_WIDE_STEP else 1
 
 
 def _outline_boundaries(graph):
@@ -6999,7 +7086,10 @@ def _outline_boundaries(graph):
     A subproof used by several steps is checked once. A long chain without
     sharing is cut whenever a step would otherwise nest more than
     _OUTLINE_CHUNK_STEPS steps, so each lemma stays within the elaborator's
-    default heartbeat budget. Only steps the root uses are outlined; the log
+    default heartbeat budget. A step counts as _outline_weight steps: a step
+    wider than _OUTLINE_WIDE_STEP counts its width, so it is cut from the
+    chain around it, and its hypothesis premises stay inline as its binders
+    rather than being cut. Only steps the root uses are outlined; the log
     may record derivations the refutation never needs. Arguments precede
     their node, so one increasing pass sees every premise's final size before
     its consumer.
@@ -7014,11 +7104,15 @@ def _outline_boundaries(graph):
     boundaries = {node for node in reachable if uses[node] > 1} | {graph.proof}
     size = {}
     for node in sorted(reachable):
-        total = 1
+        total = weight = _outline_weight(graph, node)
         for premise in graph.arguments(node)[:-1]:
             if premise in boundaries:
                 continue
-            if total + size[premise] > _OUTLINE_CHUNK_STEPS:
+            if weight > 1 and graph.kind(premise) == z3.Z3_OP_PR_HYPOTHESIS:
+                # The hundreds of hypotheses of a wide step stay its binders:
+                # outlined, each would be a lemma with nothing to check.
+                total += 1
+            elif total + size[premise] > _OUTLINE_CHUNK_STEPS:
                 boundaries.add(premise)  # used once: nothing else counted it
             else:
                 total += size[premise]

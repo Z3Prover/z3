@@ -1603,6 +1603,31 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Negated distincts whose every pair is refuted (2026-11-07)
+
+A negated distinct of 30 or 40 Int terms pinned to distinct values (435 or
+780 pairs, each refuted by the proof) exported but failed Lean on three
+counts. The rewrite of `(not (distinct ...))` into the disjunction of its
+pairs went to grind over the unfolded sides and ran out of heartbeats; it
+is now proved by one De Morgan step per pair
+(`_negated_distinct_rewrite`: `Classical.not_and_iff_not_or_not`,
+`Classical.not_not`, `eq_comm` for a pair written the other way round),
+any other shape still goes to grind. The `lemma` steps discharging the
+pairs' hypotheses projected each literal from the negated clause with its
+own `Or.inr` chain, quadratic in the clause width (a 2.7 MB line); over a
+clause wider than 32 literals they now start from tails of the negated
+clause let-bound every 32 literals. And a step with hundreds of premises or
+clause literals elaborated about ten times slower inside a 500-step outlined
+chunk than alone, so outlining counts a step wider than 64 by its width
+(`_outline_weight`). The 40-term input now checks in about 8 s
+(`test_negated_wide_distincts_verify`, `test_proof_to_lean_lia.py`). Z3's
+rewriter writes every pair `(= ai aj)`, so the `eq_comm` congruence is
+checked on a certificate with reversed pairs
+(`test_negated_distinct_rewrites_of_reversed_pairs_verify`); a
+33-term strict order chain checks in 90 s, and 34 terms over U with distinct
+f-images in 150 s (12.8 MB of Lean, mostly many small lemmas), neither in
+CI.
+
 ### Distincts of more than 32 terms (2026-11-07)
 
 Every input with a root `distinct` of more than 32 arguments, in any
@@ -1624,7 +1649,8 @@ second. Tests: `test_wide_distincts_are_clausified_pairwise_under_proofs`
 (`test_proof_certificate.py`), `test_cnf_lemmas_project_the_logged_pairs_of_a_wide_distinct`
 and `test_wide_distincts_verify_through_their_logged_pairs`
 (`test_proof_to_lean_lia.py`), `test_distincts_of_more_than_32_terms_verify`
-(`test_proof_to_lean_uf.py`). Still open: a negated wide distinct whose
+(`test_proof_to_lean_uf.py`). Still open then (done since, see "Negated
+distincts whose every pair is refuted"): a negated wide distinct whose
 every pair the proof refutes exports, but its Lean text is quadratic (528
 pairs under a strict order give 25 MB; the 528-literal clause is projected
 by `Or.inr` chains, and over Int the rewrite of the negated distinct into

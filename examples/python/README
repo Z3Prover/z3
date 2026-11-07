@@ -898,7 +898,10 @@ Refutations with more than 500 proof steps, in every fragment, are split into
 separately checked lemmas: one at each shared subproof, and one whenever a
 chain would otherwise nest more than 500 steps, because a single nested term
 elaborates superlinearly and exhausts Lean's default heartbeat budget between
-1,000 and 2,000 steps. Each lemma receives the original assertions as one
+1,000 and 2,000 steps. A step with more than 64 premises or clause literals
+counts as that many steps, so a lemma step discharging hundreds of
+hypotheses is not elaborated among hundreds of unrelated steps, which made
+it about ten times slower. Each lemma receives the original assertions as one
 conjunction and abstracts its open hypotheses explicitly; steps the root never
 uses are not outlined. The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical

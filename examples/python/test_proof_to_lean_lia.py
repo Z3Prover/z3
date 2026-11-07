@@ -484,6 +484,35 @@ def _hints(certificate):
     return {d["parameters"][0] for d in certificate["declarations"] if d["name"] == "th-lemma"}
 
 
+def pinned_negated_distinct_source(count):
+    """(not (distinct x0 ... xn-1)) with every xi pinned to i: the proof refutes each of the n(n-1)/2 pairs."""
+    names = ["x%d" % index for index in range(count)]
+    lines = ["(set-logic QF_LIA)\n"] + ["(declare-const %s Int)\n" % name for name in names]
+    lines.append("(assert (not (distinct %s)))\n" % " ".join(names))
+    lines.extend("(assert (= %s %d))\n" % (name, index) for index, name in enumerate(names))
+    return "".join(lines) + "(check-sat)\n"
+
+
+def reversed_pairs_certificate(source):
+    """The clause-log certificate of source with its first and last pair equalities written (= aj ai).
+
+    Z3's rewriter writes every pair of a negated distinct (= ai aj), so this
+    is the only way to reach the eq_comm congruence of the De Morgan
+    rewrite proof. The node is shared, so every step mentions the same
+    reversed equality, and the certificate stays a valid refutation.
+    """
+    certificate = proof_certificate.export_clause_log_certificate(source)
+    declarations, nodes = certificate["declarations"], certificate["nodes"]
+    constants = {index for index, node in enumerate(nodes)
+                 if not node["arguments"] and declarations[node["declaration"]]["range"] == "Int"
+                 and declarations[node["declaration"]]["kind"] == z3.Z3_OP_UNINTERPRETED}
+    pairs = [node for node in nodes if declarations[node["declaration"]]["kind"] == z3.Z3_OP_EQ
+             and len(node["arguments"]) == 2 and set(node["arguments"]) <= constants]
+    for node in (pairs[0], pairs[-1]):
+        node["arguments"].reverse()
+    return certificate
+
+
 def _parameters(certificate, node):
     return certificate["declarations"][certificate["nodes"][node]["declaration"]]["parameters"]
 
@@ -1286,6 +1315,68 @@ class TestIntegerValidation(unittest.TestCase):
         self.assertIn("(Int.sub_nonneg_of_le (Int.lt_iff_add_one_le.mp _s))", lemma)
         self.assertIn("(Int.sub_nonneg_of_le _s)", lemma)
 
+    def test_negated_wide_distincts_are_reconstructed_linearly(self):
+        # Every one of the 780 pairs of a negated 40-term distinct is
+        # refuted. The rewrite into their disjunction went to grind, which
+        # ran out of heartbeats; it is now one De Morgan step per pair. The
+        # lemmas discharging the pairs' hypotheses projected each literal
+        # with its own Or.inr chain (a 2.7 MB line); they now start from
+        # tails of the negated clause. Wide lemmas are outlined apart.
+        source = pinned_negated_distinct_source(40)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        (rewrite,) = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE
+                      and graph.kind(graph.arguments(graph.conclusion(node))[0]) == z3.Z3_OP_NOT]
+        lemma = text.split("private theorem rewrite_%d " % rewrite, 1)[1].split("\n\n", 1)[0]
+        self.assertNotIn("grind", lemma)
+        self.assertEqual(lemma.count("refine Iff.trans Classical.not_and_iff_not_or_not"), 779)
+        self.assertIn("  exact Classical.not_not", lemma)
+        self.assertIn("let _not_tail768 := ", text)
+        self.assertLess(max(len(line) for line in text.split("\n")), 400000)
+        self.assertLess(len(text), 3000000)
+        boundaries = proof_to_lean._outline_boundaries(graph)
+        # A lemma wider than a chunk is a chunk of its own.
+        wide = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_LEMMA
+                and len(graph.clause(graph.conclusion(node))) > proof_to_lean._OUTLINE_CHUNK_STEPS]
+        self.assertEqual(len(wide), 2)
+        self.assertLessEqual(set(wide), boundaries)
+
+    def test_negated_distinct_rewrites_of_other_shapes_go_to_grind(self):
+        # Only the rewriter's exact disjunction of the pairs, in order, gets
+        # the De Morgan proof; a reordered or partial one is left to grind.
+        source = pinned_negated_distinct_source(4)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        (rewrite,) = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE
+                      and graph.kind(graph.arguments(graph.conclusion(node))[0]) == z3.Z3_OP_NOT]
+        left, right = graph.arguments(graph.conclusion(rewrite))
+        self.assertIsNotNone(proof_to_lean._negated_distinct_rewrite(graph, rewrite, left, right))
+        disjuncts = list(graph.arguments(right))
+
+        class Changed:
+            """The graph with the disjunction's arguments replaced."""
+
+            def __init__(self, arguments):
+                self.changed = tuple(arguments)
+
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def arguments(self, node):
+                return self.changed if node == right else graph.arguments(node)
+
+        for name, changed in (("rotated", disjuncts[1:] + disjuncts[:1]), ("partial", disjuncts[:-1])):
+            with self.subTest(name=name):
+                self.assertIsNone(proof_to_lean._negated_distinct_rewrite(Changed(changed), rewrite, left, right))
+        # A pair written (= aj ai), first or last, takes eq_comm.
+        text = proof_to_lean.reconstruct(source, reversed_pairs_certificate(source))
+        lemma = text.split("private theorem rewrite_%d " % rewrite, 1)[1].split("\n\n", 1)[0]
+        self.assertNotIn("grind", lemma)
+        self.assertIn("(or_congr (Classical.not_not.trans eq_comm) ?_)", lemma)
+        self.assertIn("  exact (Classical.not_not.trans eq_comm)", lemma)
+        self.assertEqual(lemma.count("eq_comm"), 2)
+
     def test_cnf_lemmas_project_the_logged_pairs_of_a_wide_distinct(self):
         # The certificate keeps only the pair equalities the proof uses (a
         # few of 435 or 780). With any pair missing the distinct was one
@@ -1464,6 +1555,21 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                     blocks.append(block)
                 self.assertEqual(dropped, len(cnf))
                 lean_test_support.check(self, source, text="\n\n".join(blocks))
+
+    def test_negated_wide_distincts_verify(self):
+        # 40 pinned terms, 780 refuted pairs, ran out of heartbeats (the
+        # rewrite into the pairs' disjunction in grind, the quadratic lemma
+        # projections, the wide lemmas inside full chunks); so did 30.
+        certificate = self.check(pinned_negated_distinct_source(40))
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 780)
+
+    def test_negated_distinct_rewrites_of_reversed_pairs_verify(self):
+        # The eq_comm congruence of a pair written (= aj ai), which Z3's
+        # rewriter does not produce, on a certificate whose first and last
+        # pairs are reversed.
+        source = pinned_negated_distinct_source(4)
+        text = self.checked_text(source, reversed_pairs_certificate(source))
+        self.assertEqual(text.count("(Classical.not_not.trans eq_comm)"), 2)
 
     def test_pinned_division_instances_verify(self):
         hints = set()

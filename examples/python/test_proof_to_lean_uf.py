@@ -1958,6 +1958,17 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
         self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "U", "Proof"})
 
+    def test_negated_distinct_rewrites_verify_by_de_morgan(self):
+        # The rewrite of (not (distinct c0 ... c11)) into the disjunction of
+        # its 66 pairs is proved by one De Morgan step per pair (over the
+        # sort here, over Int in test_proof_to_lean_lia.py), not by grind.
+        from test_proof_certificate import wide_distinct_source
+        source = wide_distinct_source(12, "U", negated=True)
+        certificate, report = self.check(source)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("refine Iff.trans Classical.not_and_iff_not_or_not"), 65)
+
     def test_cnf_lemmas_over_a_distinct_verify_by_propagation_alone(self):
         # The cnf lemmas whose literal is a pair of the asserted distinct,
         # with the unfolded grind fallback dropped, so that Lean checks the
