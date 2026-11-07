@@ -606,7 +606,10 @@ def _store_identity_instance(graph, nodes):
     the value possibly a read of a constant array of c (Z3's rewriter
     evaluates the read to c first), or an equality between a constant array
     and a store into it, (= (const c) (store (const c) i v)), either way
-    round.
+    round. Indices and values match also as numeral expressions of one
+    value ((/ 2 2) and 1.0, (+ 1 1) and 2), which the rewriter evaluates
+    before applying the identity; the simp alternative then gets their
+    values first (_numeral_facts).
     """
     for node in nodes:
         if graph.kind(node) == z3.Z3_OP_EQ and graph.is_array(graph.arguments(node)[0]):
@@ -617,13 +620,121 @@ def _store_identity_instance(graph, nodes):
         if graph.kind(node) != z3.Z3_OP_STORE:
             continue
         array, index, value = graph.arguments(node)
-        if graph.kind(array) == z3.Z3_OP_STORE and graph.arguments(array)[1] == index:
+        if graph.kind(array) == z3.Z3_OP_STORE and _same_value(graph, graph.arguments(array)[1], index):
             return True
-        if graph.kind(value) == z3.Z3_OP_SELECT and tuple(graph.arguments(value)) == (array, index):
+        if (graph.kind(value) == z3.Z3_OP_SELECT and graph.arguments(value)[0] == array
+                and _same_value(graph, graph.arguments(value)[1], index)):
             return True
-        if graph.kind(array) == z3.Z3_OP_CONST_ARRAY and _constant_value(graph, value) == graph.arguments(array)[0]:
+        if (graph.kind(array) == z3.Z3_OP_CONST_ARRAY
+                and _same_value(graph, _constant_value(graph, value), graph.arguments(array)[0])):
             return True
     return False
+
+
+def _same_value(graph, left, right):
+    """Whether two nodes are one node or numeral expressions of one value (_numeral_expression_value)."""
+    if left == right:
+        return True
+    value = _numeral_expression_value(graph, left)
+    return value is not None and value == _numeral_expression_value(graph, right)
+
+
+# The operators of a numeral expression whose value Lean's grind computes.
+_NUMERAL_OPERATORS = {z3.Z3_OP_ADD: sum, z3.Z3_OP_SUB: lambda values: values[0] - sum(values[1:]),
+                      z3.Z3_OP_UMINUS: lambda values: -values[0],
+                      z3.Z3_OP_MUL: lambda values: math.prod(values, start=Fraction(1))}
+
+
+def _numeral_expression_value(graph, node):
+    """The value of an arithmetic node built from numerals by + - * / and to_real, or None.
+
+    Division by an expression of value 0 is not evaluated: Z3 leaves it
+    uninterpreted, while Lean's x / 0 is 0. Unlike _numeral_value, this
+    reads no linear form, so the divisor is a numeral expression too.
+    Values are cached in graph.numeral_values, and evaluation stops at the
+    first argument that is not a numeral expression.
+    """
+    if node not in graph.numeral_values:
+        graph.numeral_values[node] = _evaluate_numeral_expression(graph, node)
+    return graph.numeral_values[node]
+
+
+def _evaluate_numeral_expression(graph, node):
+    """_numeral_expression_value of a node, given those of its arguments."""
+    if not graph.is_arith(node):
+        return None
+    kind, arguments = graph.kind(node), graph.arguments(node)
+    if kind == z3.Z3_OP_ANUM:
+        return Fraction(graph.decl(node).name)
+    if not arguments:
+        return None
+    values = []
+    for argument in arguments:
+        value = _numeral_expression_value(graph, argument)
+        if value is None:
+            return None
+        values.append(value)
+    if kind == z3.Z3_OP_DIV:
+        return None if len(values) != 2 or values[1] == 0 else values[0] / values[1]
+    if kind == z3.Z3_OP_TO_REAL:
+        return values[0]
+    operation = _NUMERAL_OPERATORS.get(kind)
+    return None if operation is None else operation(values)
+
+
+def _numeral_facts(graph, reachable, atom_indices, variable_indices):
+    """The value of each numeral expression a step reaches that is not a numeral, as have lines and simp names.
+
+    That is, each one that is an argument of a term that is not a numeral
+    expression ((- (+ 2 1) 1), not the (+ 2 1) under it): the simp
+    alternative of _grind_lemma rewrites them to their values before the
+    store identities, whose sides then match syntactically as they did for
+    Z3's rewriter, which compares the values. The names are marked for
+    simp's pre-order (↓), so an outer expression is rewritten before an
+    inner one that also occurs on its own would change it. Numerals in the
+    certificate's own forms, (- 1) and (/ 1 2), render as _numeral renders
+    their values and get no fact (_rendered_as_numeral). Each fact is
+    proved by grind.
+    """
+    lines, names = [], []
+    outermost = set()
+    for parent in sorted(reachable):
+        if _numeral_expression_value(graph, parent) is not None:
+            continue
+        for node in graph.arguments(parent):
+            if (node not in outermost and not _rendered_as_numeral(graph, node)
+                    and _numeral_expression_value(graph, node) is not None):
+                outermost.add(node)
+    for node in sorted(outermost):
+        name = "_nv%d" % node
+        lines.append("have %s : (%s) = %s := by grind" % (
+            name, _inline(graph, node, atom_indices, variable_indices),
+            _numeral(graph.decl(node).range, _numeral_expression_value(graph, node))))
+        names.append("↓ " + name)
+    return lines, names
+
+
+def _rendered_as_numeral(graph, node):
+    """Whether a node renders as _numeral renders its value: a numeral, (- n), (/ n d), or (/ (- n) d), reduced."""
+    kind, arguments = graph.kind(node), graph.arguments(node)
+
+    def natural(argument):
+        return (graph.kind(argument) == z3.Z3_OP_ANUM and Fraction(graph.decl(argument).name).denominator == 1
+                and Fraction(graph.decl(argument).name) > 0)
+
+    if kind == z3.Z3_OP_ANUM:
+        return True
+    if kind == z3.Z3_OP_UMINUS:
+        return natural(arguments[0])
+    if kind != z3.Z3_OP_DIV or len(arguments) != 2:
+        return False
+    numerator = arguments[0]
+    if graph.kind(numerator) == z3.Z3_OP_UMINUS:
+        numerator = graph.arguments(numerator)[0]
+    if not (natural(numerator) and natural(arguments[1])):
+        return False
+    denominator = Fraction(graph.decl(arguments[1]).name)
+    return denominator > 1 and (Fraction(graph.decl(numerator).name) / denominator).denominator == denominator
 
 
 def _constant_value(graph, node):
@@ -996,6 +1107,9 @@ class _Graph:
     # names in declaration order (read from the input by _bind_input, never
     # from the certificate).
     enumerations: dict = field(default_factory=dict, compare=False, repr=False)
+    # The value of each node evaluated by _numeral_expression_value, None if
+    # it is not a numeral expression (a cache: the nodes form a shared DAG).
+    numeral_values: dict = field(default_factory=dict, compare=False, repr=False)
 
     def constructor_index(self, name, sort):
         """The index of a constructor in _m.ctors: the enumerations by sort name, each in declaration order."""
@@ -2833,8 +2947,12 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
             # folded (_const_store_self), and a constant array compared
             # with one store into it decided by the stored value.
             names += ["_select_const", "ite_self", "← _const_store_self", "_const_eq_store", "_store_eq_const"]
-        alternatives.append(fallback[:-1] + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in names),
-                                             "all_goals " + fallback[-1]])
+        # Numeral expressions evaluated first, as the rewriter compares
+        # indices and values by value ((/ 2 2) is 1.0).
+        values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
+        alternatives.append(fallback[:-1] + values
+                            + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
+                               "all_goals " + fallback[-1]])
     if len(alternatives) == 1:
         lines.extend("  " + tactic for tactic in fallback)
     else:

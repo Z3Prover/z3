@@ -1714,6 +1714,16 @@ and `commuted_extensionality_witnesses` fail Lean without the new facts.
 Still open: an index written as an unnormalized numeral expression, `(/ 2 2)`
 next to `1.0`, which the rewriter evaluates before applying a store identity
 while grind keeps `2 * 2⁻¹` and `1` apart as array indices.
+Update (2026-11-07): closed. `_store_identity_instance` compares indices and
+values as numeral expressions (`+ - * /` and `to_real` over numerals, no
+division by zero), and the store-identity simp alternative first rewrites
+each outermost numeral expression to its value with a grind-proved fact
+(`_numeral_facts`, pre-order `↓`, so an expression shared with an enclosing
+one cannot block it). With `random_constant_array_instance(unnormalized=0.8)`,
+671 of 673 unsat seeds verified before and 672 after; six documented inputs
+(`NUMERAL_EXPRESSION_INPUTS`) failed before. The remaining seed
+compares an ite of store chains with a store chain over constant arrays,
+which still fails Lean with plain numerals too.
 
 ### Constant arrays of enumerations, and the rewriter's constant-array evaluations (2026-11-06)
 

@@ -621,6 +621,78 @@ REAL_INDEX_CONSTANT_ARRAY_INPUTS = {
 (check-sat)
 """,
 }
+# Store identities whose indices or values are numeral expressions of one
+# value: Z3's rewriter evaluates (/ 2 2) to 1 before it folds (store a (/ 2
+# 2) (select a 1.0)) into a, so the rewrite steps need the values stated
+# before simp applies the identities (_numeral_facts). Each failed Lean
+# before.
+NUMERAL_EXPRESSION_INPUTS = {
+    # _store_select at (/ 2 2) and 1.0 (iteration 86's sweep, seed 35).
+    "read_stored_back_at_a_fraction_of_one": """(set-logic ALL)
+(declare-const a0 (Array Real Int))
+(declare-const a1 (Array Real Int))
+(declare-const p Bool)
+(assert (or p (= a1 (store a0 (/ 2 2) (select a0 1.0)))))
+(assert (not p))
+(assert (not (= a1 a0)))
+(check-sat)
+""",
+    # _store_store at (* 1 2) and (- 3 1).
+    "store_over_a_store_at_products": """(set-logic ALL)
+(declare-const a (Array Int Int))
+(declare-const b (Array Int Int))
+(declare-const v Int)
+(declare-const w Int)
+(declare-const p Bool)
+(assert (or p (= b (store (store a (* 1 2) v) (- 3 1) w))))
+(assert (not p))
+(assert (not (= b (store a 2 w))))
+(check-sat)
+""",
+    # _const_store_self with the value (+ 1 0) stored into (const 1).
+    "constant_stored_into_its_constant_array": """(set-logic ALL)
+(declare-const b (Array Int Int))
+(declare-const p Bool)
+(assert (or p (= b (store ((as const (Array Int Int)) 1) (+ 0 1) (+ 1 0)))))
+(assert (not p))
+(assert (not (= b ((as const (Array Int Int)) 1))))
+(check-sat)
+""",
+    # Real sums and products of fractions, the stored value too.
+    "fraction_sums_as_indices": """(set-logic ALL)
+(declare-const a (Array Real Real))
+(declare-const b (Array Real Real))
+(declare-const x Real)
+(declare-const p Bool)
+(assert (or p (= b (store (store a (+ (/ 1 4) (/ 1 4)) x) 0.5 (- (* 3.0 (/ 1 3)) 1.0)))))
+(assert (not p))
+(assert (not (= b (store a (/ 1 2) 0.0))))
+(check-sat)
+""",
+    # (- 0 1) against the certificate's own -1, (- 1).
+    "negative_index_as_a_difference": """(set-logic ALL)
+(declare-const a (Array Int Int))
+(declare-const b (Array Int Int))
+(declare-const p Bool)
+(assert (or p (= b (store a (- 0 1) (select a (- 1))))))
+(assert (not p))
+(assert (not (= b a)))
+(check-sat)
+""",
+    # (+ 1 1) on its own and inside (- (+ 1 1) 0): simp must rewrite the
+    # outer expression first (pre-order), or the inner one's fact changes it.
+    "shared_numeral_expression": """(set-logic ALL)
+(declare-const a (Array Int Int))
+(declare-const b (Array Int Int))
+(declare-const v Int)
+(declare-const w Int)
+(declare-const p Bool)
+(assert (or p (= b (store (store a (+ 1 1) v) (- (+ 1 1) 0) w))))
+(assert (not p))
+(assert (not (= b (store a 2 w))))
+(check-sat)
+""",
+}
 # Functions into arrays: one family per Lean array type (_m.arrs_funs,
 # _m.arrs_ii_funs, ...) taking the argument list like _m.funs. Their
 # applications stay folded in the array lemmas like stores, each stated equal
@@ -1809,6 +1881,7 @@ NESTED_ARRAY_INPUTS = {
 ARRAY_INPUTS.update(ARITHMETIC_ARRAY_INPUTS)
 ARRAY_INPUTS.update(CONSTANT_ARRAY_INPUTS)
 ARRAY_INPUTS.update(REAL_INDEX_CONSTANT_ARRAY_INPUTS)
+ARRAY_INPUTS.update(NUMERAL_EXPRESSION_INPUTS)
 ARRAY_INPUTS.update(ARRAY_FUNCTION_INPUTS)
 ARRAY_INPUTS.update(BOOL_ELEMENT_INPUTS)
 ARRAY_INPUTS.update(SET_COMBINATOR_INPUTS)
@@ -1826,7 +1899,8 @@ _FRAGMENTS = {"arrays_with_integer_weights": "qf_uflia", "real_read_own_write": 
               "array_function_twice": "qf_uflia", "two_functions_into_arrays": "qf_uflia",
               "real_set": "qf_uflra", "real_index_store_over_another_constant": "qf_uflira",
               "real_read_of_an_array_equated_to_a_constant": "qf_uflra",
-              "int_read_of_a_store_at_real_indices": "qf_uflira"}
+              "int_read_of_a_store_at_real_indices": "qf_uflira",
+              "read_stored_back_at_a_fraction_of_one": "qf_uflira", "fraction_sums_as_indices": "qf_uflra"}
 _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.items()
                   if "Array Int Bool" in source)
 # Set combinators are over Int indices (qf_uflia) except these, named
@@ -1841,7 +1915,7 @@ _MAP_FUNCTION_FRAGMENTS = {"map_over_sort": "qf_uf", "map_xor": "qf_uf", "map_di
                            "map_real_subtraction": "qf_uflira", "map_strict_comparisons": "qf_uflra"}
 _FRAGMENTS.update((name, _MAP_FUNCTION_FRAGMENTS.get(name, "qf_uflia")) for name in MAP_FUNCTION_INPUTS)
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
-                  if name not in _FRAGMENTS)
+                  + list(NUMERAL_EXPRESSION_INPUTS) if name not in _FRAGMENTS)
 # Bool-indexed arrays over Int elements, or next to Int terms, are qf_uflia.
 _FRAGMENTS.update((name, "qf_uf") for name in ("bool_index_store_self", "function_into_bool_indexed_arrays",
                                                 "bool_index_map"))
@@ -2800,6 +2874,22 @@ class TestArrayValidation(unittest.TestCase):
                 mapped = terms.build([["_", "map", head]] + arguments)
                 self.assertEqual(normalizer.key(assertions[assertion].arg(0) == mapped), keys[assertion])
 
+    def test_numeral_expressions_get_their_values(self):
+        # The outermost numeral expressions under a store get their values;
+        # the certificate's own numerals, (- 1) and (/ 1 2), and the
+        # summands of a sum that gets one do not.
+        fact = re.compile(r"^\s*have _nv\d+ : \((.*)\) = (.*) := by grind$")
+        expected = {"negative_index_as_a_difference": [("((((0 : Int))) - (((1 : Int))))", "((-1 : Int))")],
+                    "fraction_sums_as_indices": [
+                        ("((((((1 : Rat))) / (((4 : Rat))))) + (((((1 : Rat))) / (((4 : Rat))))))",
+                         "((1 : Rat) / (2 : Rat))"),
+                        ("((((((3 : Rat))) * (((((1 : Rat))) / (((3 : Rat))))))) - (((1 : Rat))))", "((0 : Rat))")]}
+        for name, facts in expected.items():
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                found = {match.groups() for match in map(fact.match, text.split("\n")) if match}
+                self.assertEqual(found, set(facts), text)
+
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()
         assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS["read_constant"], context, integer=True)
@@ -3003,7 +3093,7 @@ class TestArrayValidation(unittest.TestCase):
 
 
 def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, constant=0.3, default=0.2,
-                                   index="Int", element="Int"):
+                                   index="Int", element="Int", unnormalized=0.0):
     """A random input over (Array index element) with constant arrays, or None if sat.
 
     index and element are Int or Real. Array constants a0, a1, ..., constant
@@ -3014,8 +3104,11 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
     exporter admits next to array constants, with probability default also
     compared as atoms). Atoms are equalities, comparisons, distinct, and
     array equalities. Real numerals are integers or halves in lowest terms,
-    1.0 or (/ 3 2). Over Int sorts the inputs are those of the generator
-    before it took sorts, seed for seed.
+    1.0 or (/ 3 2). With probability unnormalized a numeral is written as an
+    expression of its value instead, (+ 2 0), (* 1 2), (- (+ 2 1) 1), or
+    over Real (/ 4 2), which Z3's rewriter evaluates. Over Int sorts and
+    with unnormalized 0 the inputs are those of the generator before it
+    took sorts, seed for seed.
     """
     rng = random.Random(seed)
     sort = "(Array %s %s)" % (index, element)
@@ -3026,9 +3119,15 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
 
     def numeral(numeral_sort):
         number = rng.randrange(3)
-        if numeral_sort == "Int":
-            return str(number)
-        return rng.choice(["%d.0" % number, "(/ %d 2)" % (2 * number + 1)])
+        text = str(number) if numeral_sort == "Int" else rng.choice(["%d.0" % number, "(/ %d 2)" % (2 * number + 1)])
+        if unnormalized and rng.random() < unnormalized:
+            # The same value as an expression Z3's rewriter evaluates.
+            one, zero = ("1", "0") if numeral_sort == "Int" else ("1.0", "0.0")
+            forms = ["(+ %s %s)" % (text, zero), "(* %s %s)" % (one, text), "(- (+ %s %s) %s)" % (text, one, one)]
+            if numeral_sort == "Real":
+                forms.append("(/ (* 2.0 %s) 2.0)" % text if text.startswith("(") else "(/ %d 2)" % (2 * number))
+            return rng.choice(forms)
+        return text
 
     def position():
         if rng.random() < 0.3:
@@ -3116,9 +3215,14 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
 # step over both Int and Real atoms before the condition of an Int ite
 # (a read of a store, rewritten) no longer counted among the step's atoms;
 # seeds 1-300 then verify (192 of 192 on iteration 87's macOS build).
+# With numerals written as expressions (unnormalized=0.8), 221 failed Lean
+# on iteration 88's macOS build before the store identities' indices were
+# evaluated first (_numeral_facts); 672 of the 673 unsat seeds of seeds
+# 1-300 over Int/Int and Real/Real and 1-200 over Real/Int and Int/Real
+# (constant=0.5) then verify.
 _REAL_SORTS = {"index": "Real", "element": "Real"}
 CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246), (_REAL_SORTS, 48),
-                        (_REAL_SORTS, 87), ({"index": "Real", "element": "Int"}, 103))
+                        (_REAL_SORTS, 87), ({"index": "Real", "element": "Int"}, 103), ({"unnormalized": 0.8}, 221))
 
 
 def random_chain_comparison_instance(seed):
@@ -3233,6 +3337,34 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(seed=seed):
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_numeral_facts_are_needed(self):
+        """Without the values of numeral expressions, or rewritten after their subterms, simp misses the identities."""
+        fact = re.compile(r"^\s*have _nv\d+ : .* = \(\(-?\d+ : (Int|Rat)\)( / \(\d+ : Rat\))?\) := by grind$")
+        name = re.compile(r"↓ _nv\d+, ")
+        for input_name, variant in (("read_stored_back_at_a_fraction_of_one", "dropped"),
+                                    ("store_over_a_store_at_products", "dropped"),
+                                    ("constant_stored_into_its_constant_array", "dropped"),
+                                    ("shared_numeral_expression", "post-order")):
+            with self.subTest(name=input_name, variant=variant):
+                source = NUMERAL_EXPRESSION_INPUTS[input_name]
+                lines = proof_to_lean.reconstruct(source, _export(source)).split("\n")
+                self.assertTrue(any(map(fact.match, lines)), "\n".join(lines))
+                if variant == "dropped":
+                    stripped = "\n".join(name.sub("", line) for line in lines if not fact.match(line))
+                else:
+                    stripped = "\n".join(line.replace("↓ _nv", "_nv") for line in lines)
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "stripped.lean"
+                    output.write_text(stripped)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                            capture_output=True)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
 
     def test_constant_chain_facts_are_needed(self):
         """Without the converse of store-chain comparisons, or without ite_self, grind cannot prove the rewrites."""
