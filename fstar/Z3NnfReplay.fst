@@ -235,7 +235,9 @@
    Under the gate, a `rewrite` leaf the checks above refuse is replayed when
    `Z3SortedRealLinear.real_equivalent` decides it (at most 256 nodes per
    side): linear Real and Int-with-to_real renormalization, comparison
-   orientation and strictness, binary Real product commutation. Its lemma
+   orientation and strictness, binary Real product commutation, and Real
+   equations (the same, opposite or proportional difference polynomial; an
+   equation of constants decided as true or false). Its lemma
    requires `real ==> Z3SortedReal.real_model` of the same Sorted
    interpretation (which contains the gate), so the flag alone proves
    nothing. The ITE laws do not read the gate.
@@ -844,8 +846,8 @@ let rewrite_ok (lhs rhs:expr) : bool =
    Z3SortedReal.real_primitive of its checked schema). Under it, a leaf the
    Real normal forms decide (Z3SortedRealLinear.real_equivalent: Real and
    Int-with-to_real linear renormalization, comparison orientation and
-   strictness, binary Real product commutation) is replayed too, after every
-   check above. *)
+   strictness, binary Real product commutation, Real equations by their
+   difference polynomials) is replayed too, after every check above. *)
 let real_rewrite_ok (real:bool) (lhs rhs:expr) : bool =
   if rewrite_ok lhs rhs then true else real && LIN.real_equivalent lhs rhs
 

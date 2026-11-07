@@ -265,7 +265,9 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    judged identically; in particular the coefficient-free linear Int
    consequence (SP.linear_consequence) reads only the entry formula and the
    premise propositions (the formulas
-   of earlier entries) and recomputes its weights, never a payload. The read
+   of earlier entries) and recomputes its weights, never a payload, and the
+   closed Real order clauses (SP.real_order) read only the entry formula (any
+   rule but the leaves and the lemma rule), whose terms are covered below. The read
    view KEEPS the Farkas coefficients, the RewriteRule, ElimUnused and DestructiveEquality labels,
    the binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision

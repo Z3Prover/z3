@@ -446,7 +446,8 @@ is supported only through explicit `to_real` (each literal compares two terms of
 exactly where a Real law is read: `SP.lemma_check_node_cached` (`real_node s node ==> real_model`; for a
 quant-intro node also `real_primitive s ==> real_model`), `SP.lemma_entries` / `SP.lemma_check_document`
 (`needs_real_semantics s entries ==> real_model`, where `needs_real_semantics` is `real_primitive s` and an
-`ArithmeticFarkas` or `RewriteRule` entry; for binder certificates `real_primitive s ==> real_model`) and
+`ArithmeticFarkas` or `RewriteRule` entry or an entry whose formula is a closed Real order clause
+(`real_order_entry`); for binder certificates `real_primitive s ==> real_model`) and
 `SP.lemma_check_document_epsilon` (`real_primitive s ==> real_model`, transferred to the epsilon/dependent-Skolem
 extension by `SP.lemma_full_extension_real_model`: a Skolem witness is never a classified Real operator,
 [`Z3SortedRealExtension.fst`](Z3SortedRealExtension.fst)). Generic documents without Farkas, rewrite or binder
@@ -481,6 +482,43 @@ They are the replayed fragment of the captured Term-ITE leaves; the residual ITE
 cohort stay pending (no law for them yet): 5 leaves `ite c1 (ite c2 t1 t2) t1 = ite (and c1 (not c2)) t2 t1`
 (`bool_rewriter::mk_ite_core`, merge with a negated inner guard), 6 or-with-negation merges, and 1 leaf that
 lifts an `ite` into a function application. The laws do not read the Real gate.
+
+**Real equality/order laws.** Two more checks read the same Real laws (no new hypothesis, no new Root law).
+
+- `SP.real_order` is the Real mirror of the Int `order_clause`: the producer's arith_eq_adapter (`th-lemma ... triangle-eq`)
+  clauses over two Real terms x and y, `not (x = y) \/ c` with c one of `x <= y`, `x >= y`, `x = y` or the same on
+  `x + (-1)*y` / `(-1)*y + x` against the numeral 0, and the three-literal `(x = y) \/ not c1 \/ not c2` with c1, c2 opposite
+  bounds on x - y (any literal order). Formula-based like the Int check: the rule label, premises and payload are never
+  read (any rule but the leaves and the lemma rule), the Root read view is unchanged and no term beyond the covered entry
+  formula is consumed. x and y are arbitrary Real terms read only as their typed Real values and matched by
+  expression identity (nothing is linearized or searched). The equation, comparisons, `+`, `*` and the numerals 0 and
+  -1 are classified by their full canonical declaration (`RL.classify`: interpretation tag, domain, range, numeral
+  parameters), never by name, so a counterfeit or twin declaration, a numeral written -2/2 and the Real `-` are
+  outside the fragment; a strict comparison is not implied by an equation and is no bound. At most three literals, and
+  the clause must pass `NR.shallow` (4,096 levels, 2^20 pops, iterative) before any comparison. The gate is the
+  executed schema check `RL.real_primitive s`. Laws: `LIN.lemma_real_offset`, `lemma_real_implied_by_equation`,
+  `lemma_real_bound` (Z3SortedRealLinear) and `SP.lemma_real_equation_order`, `lemma_real_antisymmetric`,
+  `lemma_real_order_clause`, `lemma_real_order` (every Sorted model satisfying the Real laws, hence every root
+  model). It is a disjunct of `check_node_cached` next to `real_rewrite`, is part of `real_node`, and its entries
+  are counted by `needs_real_semantics`.
+- `LIN.real_equivalent` (the Real rewrite check, used by `SP.real_rewrite` and, through `real_rewrite_ok`, by the
+  rewrite leaves of quant-intro certificates) also decides Real equations: the difference polynomials of the two
+  equations are the same, opposite or proportional by a nonzero factor (`LIN.real_equation_equivalent`, the existing
+  `RW.equation_equivalent` read on Real equations only), and an equation whose monomials all cancel is the canonical
+  `true` or `false` (`LIN.real_constant_equation`). `LIN.lemma_real_equation`, `lemma_real_equation_equivalent` and
+  `lemma_real_constant_equation` hold at every scope and typed environment, so the quant-intro replay is covered by
+  the unchanged `NR.lemma_real_rewrite_at`. Budgets are unchanged (256 nodes per side, linearize fuel 64); the
+  proportionality test compares the integer numerators, so equations whose rational coefficients differ only by
+  denominators are pending. Int equations, negated equations, `to_int`/`is_int` and nonlinear normalization are
+  outside.
+
+Tests: [`Z3SortedRealOrderTests.fst`](Z3SortedRealOrderTests.fst) (the hosted shapes, every refusal, the two-route
+documents RootCertified and false in every root model, counter-models of the false mutants at concrete Real
+environments in the standard root, the quant-intro leaf, the laws in every root model), OCaml groups
+`sorted-real-order-clauses` and `sorted-real-equation-rewrites` (z3's own proofs, marshalled mutants, the depth bound
+n = 4,093 / 4,094 / 200,000), Cherry `real_order_controls` and `real_equation_controls`. A valid clause written in an
+unsupported shape (Real `-`, a bound not against the numeral 0, a strict literal, four literals) is a shape-refusal
+control in these tests, not a false mutant.
 
 **Unsupported (pending, with the rule's own diagnostic).** `to_int`, `is_int` (no interpretation tag in the
 operator vocabulary), `div0`/Real division by zero, floor, Int `div`/`mod` at Real, nonlinear Real products

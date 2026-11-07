@@ -825,6 +825,153 @@ let pull_controls () : bool =
   qpq_leaf e (qe_forall [qp_int] (qe_or (qe_pi i0) (qe_pi i1))) = Z3NnfReplay.Unreplayed &&
   qpq_leaf q e = Z3NnfReplay.Unreplayed
 
+(* Real equality/order clauses (Z3SortedProof.real_order) natively in the Cherry checker, on the forced
+   Sorted route (the OCaml counterpart is test_native_bridge.ml `sorted_real_order_clauses`): the
+   producer's triangle clauses over Real terms are accepted (a bound against the numeral 0 on the
+   difference x + (-1)*y in either operand order, a reversed bound, the three-literal antisymmetric
+   clause), and a strict bound, a wrong coefficient, a wrong target, a counterfeit `=`, a twin
+   operand, a fourth literal and the closed Real gate of a schema registering a datatype named Real
+   stay pending. The clause must be shallow (4,096 levels, iterative) before any comparison: with
+   unshared equal deep operands f^n(a) n = 4,093 is accepted and n = 4,094 refused, a mismatch at the
+   bottom of f^4093 is refused after the comparison, and 200,000 levels are refused by the walk. *)
+let rec ro_bools (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreases xs) =
+  match xs with [] -> acc | _ :: rest -> ro_bools rest (A.bool_sort :: acc)
+
+let ro_or (args:list A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = ro_bools args []; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } args
+
+let ro_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = real_s; A.interp = Some op; A.int_params = [] } [a; b]
+
+let ro_plus (a b:A.expr) : A.expr = ro_binary "+" Z3ValueTheory.op_arith_add a b
+let ro_times (a b:A.expr) : A.expr = ro_binary "*" Z3ValueTheory.op_arith_mul a b
+let ro_num (n:int) : A.expr = real_numeral n 1
+let ro_diff (a b:A.expr) : A.expr = ro_plus a (ro_times (ro_num (-1)) b)
+let ro_eq (a b:A.expr) : A.expr = R.mk_eq_expr a b
+let ro_not (a:A.expr) : A.expr = R.mk_not_expr a
+let ro_le (a b:A.expr) : A.expr = real_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
+let ro_ge (a b:A.expr) : A.expr = real_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
+let ro_lt (a b:A.expr) : A.expr = real_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+
+let ro_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [real_s]; A.range = real_s; A.interp = None; A.int_params = [] }
+
+let rec ro_chain (n:nat) (acc:A.expr) : Tot A.expr (decreases n) =
+  if n = 0 then acc else ro_chain (n - 1) (A.App ro_f [acc])
+
+(* not (f^n(bottom) = f^n(bottom)) \/ f^n(bottom) <= f^n(other), all four chains unshared. *)
+let ro_deep (n:nat) (bottom other:A.expr) : A.expr =
+  ro_or [ro_not (ro_eq (ro_chain n bottom) (ro_chain n bottom)); ro_le (ro_chain n bottom) (ro_chain n other)]
+
+let ro_clause_document (schema:Z3DatatypeSignature.schema) (clause:A.expr) : C.marshaled =
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr clause];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr clause; P.premise_ids = [] };
+                   { P.rule = U.Unverified "th-lemma"; P.formula = clause; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = schema }
+
+let ro_real_datatype : Z3DatatypeSignature.schema =
+  let real_box = { A.decl_name = "real-box"; A.domain = []; A.range = real_s;
+                   A.interp = Some Z3DatatypeLemma.op_constructor; A.int_params = [0; 0; 0] } in
+  let is_real_box = { A.decl_name = "is-real-box"; A.domain = [real_s]; A.range = A.bool_sort;
+                      A.interp = Some Z3DatatypeLemma.op_recognizer; A.int_params = [0; 0] } in
+  { Z3DatatypeSignature.sorts = [real_s];
+    Z3DatatypeSignature.cases = [{ Z3DatatypeSignature.constructor = real_box;
+                                   Z3DatatypeSignature.recognizer = is_real_box;
+                                   Z3DatatypeSignature.accessors = [] }] }
+
+let real_order_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let twin = real_constant "x" [7] in
+  let zero = ro_num 0 in
+  let fake_eq (a b:A.expr) : A.expr =
+    A.App { A.decl_name = "="; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [a; b] in
+  let check clause = C.check true (ro_clause_document core clause) in
+  let a = real_constant "a" [] in
+  let b = real_constant "b" [] in
+  let wide = ro_or [ro_not (ro_eq x y); ro_le x y; ro_le y x; ro_le x y] in
+  check (ro_or [ro_not (ro_eq x y); ro_le x y]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge x y]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq zero x); ro_ge x zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge (ro_diff x y) zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_plus (ro_times (ro_num (-1)) y) x) zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_diff y x) zero]) = Some 0 &&
+  check (ro_or [ro_eq x y; ro_not (ro_le (ro_diff x y) zero); ro_not (ro_ge (ro_diff x y) zero)]) = Some 0 &&
+  check (ro_or [ro_not (ro_le x y); ro_eq x y; ro_not (ro_le y x)]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_lt (ro_diff x y) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_lt x y]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_plus x (ro_times (ro_num 1) y)) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge (ro_plus x (ro_times (ro_num (-2)) y)) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_diff x z) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le twin y]) = Some 1 &&
+  check (ro_or [ro_not (fake_eq x y); ro_le x y]) = Some 1 &&
+  check (ro_or [ro_eq x y; ro_not (ro_le (ro_diff x y) zero); ro_not (ro_ge (ro_diff y x) zero)]) = Some 1 &&
+  check (ro_or [ro_eq x y; ro_le x y]) = Some 1 &&
+  check wide = Some 1 &&
+  C.check true (ro_clause_document ro_real_datatype (ro_or [ro_not (ro_eq x y); ro_le x y])) = Some 1 &&
+  C.check true (ro_clause_document core (ro_deep 4093 a a)) = Some 0 &&
+  C.check true (ro_clause_document core (ro_deep 4094 a a)) = Some 1 &&
+  C.check true (ro_clause_document core (ro_deep 4093 a b)) = Some 1 &&
+  Z3SortedProof.real_order_clause (ro_deep 4093 a a) &&
+  not (Z3SortedProof.real_order_clause (ro_deep 4094 a a)) &&
+  not (Z3SortedProof.real_order_clause (ro_deep 200000 a a))
+
+(* Real equation rewrites (Z3SortedRealLinear.real_equivalent) natively on the forced Sorted route:
+   the renormalized, commuted and proportional difference forms and the equations of constants are
+   accepted as closed premise-free rewrite steps; a wrong sign, offset, target and constant, a
+   counterfeit `=` and the closed Real gate stay pending. A quant-intro leaf with a Real equation
+   under two Real binders replays with the Real gate and not without it, its mutants not at all. *)
+let re_all (body:A.expr) : A.expr = A.Quantifier A.Forall_k [real_s; real_s] A.bool_sort body
+
+let re_leaf (gate:bool) (l r:A.expr) : Z3NnfReplay.verdict =
+  Z3NnfReplay.replay_with gate [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (re_all l) (re_all r);
+        U.binder_premises = [0]; U.binder_sorts = Some [real_s; real_s] } :: [];
+    U.binder_root = 1 }) (U.Equal (re_all l) (re_all r))
+
+let real_equation_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let zero = ro_num 0 in
+  let check l r = C.check true (ite_rewrite_document core l r) in
+  let fake_eq (a b:A.expr) : A.expr =
+    A.App { A.decl_name = "="; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [a; b] in
+  let v0 = A.Var 0 real_s in
+  let v1 = A.Var 1 real_s in
+  check (ro_eq x y) (ro_eq (ro_diff x y) zero) = Some 0 &&
+  check (ro_eq x (ro_times (ro_num 2) y)) (ro_eq (ro_plus x (ro_times (ro_num (-2)) y)) zero) = Some 0 &&
+  check (ro_eq x y) (ro_eq y x) = Some 0 &&
+  check (ro_eq x y) (ro_eq (ro_plus (ro_times (ro_num 3) x) (ro_times (ro_num (-3)) y)) zero) = Some 0 &&
+  check (ro_eq (ro_num 2) zero) R.false_expr = Some 0 &&
+  check (ro_eq (ro_num 2) (ro_num 2)) R.true_expr = Some 0 &&
+  check (ro_eq (real_numeral 1 2) (real_numeral 2 4)) R.true_expr = Some 0 &&
+  check (ro_eq x y) (ro_eq (ro_plus x y) zero) = Some 1 &&
+  check (ro_eq x y) (ro_eq (ro_diff x y) (ro_num 1)) = Some 1 &&
+  check (ro_eq x y) (ro_eq (ro_diff x z) zero) = Some 1 &&
+  check (ro_eq (ro_num 2) zero) R.true_expr = Some 1 &&
+  check (ro_eq (ro_num 2) (ro_num 2)) R.false_expr = Some 1 &&
+  check (fake_eq x y) (ro_eq (ro_diff x y) zero) = Some 1 &&
+  C.check true (ite_rewrite_document ro_real_datatype (ro_eq x y) (ro_eq (ro_diff x y) zero)) = Some 1 &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) zero) =
+    Z3NnfReplay.Replayed &&
+  re_leaf false (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) zero) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num 2) v1)) zero) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) (ro_num 1)) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v1 (ro_times (ro_num (-2)) v0)) zero) =
+    Z3NnfReplay.Unreplayed
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -852,6 +999,8 @@ let run () : bool =
   qi_regroup_scale () &&
   qi_ite_scale () &&
   real_farkas_controls () &&
+  real_order_controls () &&
+  real_equation_controls () &&
   direct_ite_controls () &&
   qi_product_scale () &&
   direct_product_controls () &&
