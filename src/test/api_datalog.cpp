@@ -46,6 +46,30 @@ void tst_api_datalog() {
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
 
+    // Regression for resetting Spacer's obligation queue between API queries (#11601).
+    {
+        Z3_fixedpoint fp = Z3_mk_fixedpoint(ctx);
+        Z3_fixedpoint_inc_ref(ctx, fp);
+        Z3_params params = Z3_mk_params(ctx);
+        Z3_params_inc_ref(ctx, params);
+        Z3_params_set_symbol(ctx, params, Z3_mk_string_symbol(ctx, "engine"),
+                             Z3_mk_string_symbol(ctx, "spacer"));
+        Z3_fixedpoint_set_params(ctx, fp, params);
+        Z3_ast_vector queries = Z3_fixedpoint_from_string(
+            ctx, fp, "(declare-rel Q ()) (rule Q) (query Q) (query Q) (query Q)");
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        Z3_ast_vector_inc_ref(ctx, queries);
+        ENSURE(Z3_ast_vector_size(ctx, queries) == 3);
+        for (unsigned i = 0; i < Z3_ast_vector_size(ctx, queries); ++i) {
+            Z3_lbool result = Z3_fixedpoint_query(ctx, fp, Z3_ast_vector_get(ctx, queries, i));
+            ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+            ENSURE(result == Z3_L_TRUE);
+        }
+        Z3_ast_vector_dec_ref(ctx, queries);
+        Z3_params_dec_ref(ctx, params);
+        Z3_fixedpoint_dec_ref(ctx, fp);
+    }
+
     // Test 1: Z3_mk_finite_domain_sort and size functions
     {
         Z3_symbol name = Z3_mk_string_symbol(ctx, "Domain");
