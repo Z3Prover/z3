@@ -1724,6 +1724,21 @@ one cannot block it). With `random_constant_array_instance(unnormalized=0.8)`,
 (`NUMERAL_EXPRESSION_INPUTS`) failed before. The remaining seed
 compares an ite of store chains with a store chain over constant arrays,
 which still fails Lean with plain numerals too.
+Update (2026-11-07, iteration 89): closed. The sat.smt core logs an asserted
+`(= (ite p S S') T)`, for store chains over constant arrays, as the outcome of
+comparing each branch with T (`x0 = x1` for `(= (ite p (store (const x0) k
+x1) (const x0)) (store (const x1) 1 x0))`), and the replay ties the two by a
+rewrite step. grind splits the ite but `_x` facts existed only for sides that
+are chains, so the branch comparisons had no converse. Each pair of a leaf of
+one side's ite tree with a different leaf of the other now gets one
+(`_ite_chain_extensionality`, over the leaves' terms, at most 16 pairs), and
+the reads above the cap walk every leaf (`_chain_comparison_reads`). Seed 102
+(Real/Int) now verifies and is pinned; three documented Int inputs (an ite on
+one side, on both, nested) failed Lean before and fail with grind errors
+without the new facts. The leaf walk visits each ite once (a shared ite DAG
+took exponential time otherwise), and an equality above the 16-pair cap gets
+no chain-comparison reads, so it cannot push the others over
+`_CHAIN_COMPARISON_READS`.
 
 ### Constant arrays of enumerations, and the rewriter's constant-array evaluations (2026-11-06)
 

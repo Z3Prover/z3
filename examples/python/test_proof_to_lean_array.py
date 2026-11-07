@@ -493,6 +493,52 @@ CONSTANT_ARRAY_INPUTS = {
 (assert (not (= (select a j) x)))
 (check-sat)
 """,
+    # An ite of different store chains over constant arrays compared with
+    # a chain: the solver logs the asserted equality as x0 = x1, the
+    # outcome of comparing each branch with the other side, and the replay
+    # ties the two by a rewrite step; its converse needs extensionality per
+    # pair of branches (_ite_chain_extensionality). On one side, on both
+    # sides, and nested. Lean rejected all three before 2026-11-07 (random
+    # sweep seed 102 over Real indices and Int elements).
+    "ite_of_chains_against_a_chain": """(set-logic QF_ALIA)
+(declare-const p Bool)
+(declare-const k0 Int)
+(declare-const x0 Int)
+(declare-const x1 Int)
+(declare-const y Int)
+(assert (= (ite p (store ((as const (Array Int Int)) x0) k0 x1) ((as const (Array Int Int)) x0))
+           (store ((as const (Array Int Int)) x1) 1 x0)))
+(assert (= ((as const (Array Int Int)) x0) (store ((as const (Array Int Int)) x1) 2 y)))
+(assert (not (= y x1)))
+(check-sat)
+""",
+    "ites_of_chains_on_both_sides": """(set-logic QF_ALIA)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const k0 Int)
+(declare-const x0 Int)
+(declare-const x1 Int)
+(declare-const y Int)
+(assert (= (ite p (store ((as const (Array Int Int)) x0) k0 x1) ((as const (Array Int Int)) x0))
+           (ite q ((as const (Array Int Int)) x1) (store ((as const (Array Int Int)) x1) 1 x0))))
+(assert (= ((as const (Array Int Int)) x0) (store ((as const (Array Int Int)) x1) 2 y)))
+(assert (not (= y x1)))
+(check-sat)
+""",
+    "nested_ites_of_chains": """(set-logic QF_ALIA)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const k0 Int)
+(declare-const x0 Int)
+(declare-const x1 Int)
+(declare-const y Int)
+(assert (= (ite p (store ((as const (Array Int Int)) x0) k0 x1)
+                  (ite q ((as const (Array Int Int)) x0) (store ((as const (Array Int Int)) x0) 3 x1)))
+           (store ((as const (Array Int Int)) x1) 1 x0)))
+(assert (= ((as const (Array Int Int)) x0) (store ((as const (Array Int Int)) x1) 2 y)))
+(assert (not (= y x1)))
+(check-sat)
+""",
     # Long store chains over two constant arrays compared: more read facts
     # than _COMPARISON_READS at every index stored into the sort, so only
     # the reads of the compared chains are stated (_chain_comparison_reads),
@@ -2147,6 +2193,24 @@ class TestArrayValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["store_against_an_ite_of_one_constant"],
                                          self.certificates["store_against_an_ite_of_one_constant"])
         self.assertIn("(congrFun (ite_self ", text)
+        # Ites of different chains: one converse per pair of a leaf of one
+        # side with a leaf of the other, stated over the leaves' terms; none
+        # above _ITE_CHAIN_PAIRS pairs.
+        # The premises are the reads at the indices stored into either leaf
+        # of the pair (none for two constant arrays).
+        for name, premises in (("ite_of_chains_against_a_chain", [1, 2]),
+                               ("ites_of_chains_on_both_sides", [0, 1, 1, 2]), ("nested_ites_of_chains", [1, 2, 2])):
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                facts = dict(((fact[0], int(fact[1])), fact[2])
+                             for fact in re.findall(r"\n\s*have (_x\d+)_(\d+) : (.*) := by intro ", text))
+                self.assertEqual(len({equality for equality, _ in facts}), 1, text)
+                pairs = len(premises)
+                self.assertEqual({position for _, position in facts}, set(range(pairs)), text)
+                self.assertEqual(sorted(statement.count("_select ") // 2 for statement in facts.values()), premises)
+                with mock.patch.object(proof_to_lean, "_ITE_CHAIN_PAIRS", pairs - 1):
+                    text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                self.assertIsNone(re.search(r"have _x\d+_\d+ : ", text))
         # Above _COMPARISON_READS (13 arrays and the equality at 6 stored
         # indices: 84 reads) only the compared chains' reads are stated:
         # each chain read at the 6 indices down to the outermost store at
@@ -2169,6 +2233,51 @@ class TestArrayValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_of_an_ite_over_a_constant"],
                                          self.certificates["read_of_an_ite_over_a_constant"])
         self.assertRegex(text, r"have _si\d+_0 := _select_const \(I := Int\) \(_vars \d+\) ")
+
+    def test_ites_of_store_chains_are_walked_once(self):
+        """The leaves of a shared ite DAG are found in linear time, and an equality with more than _ITE_CHAIN_PAIRS
+        pairs of leaves has no chain-comparison reads (it gets no converse to use them)."""
+
+        class Graph:
+            def __init__(self):
+                self.nodes = []
+
+            def add(self, kind, *arguments):
+                self.nodes.append((kind, arguments))
+                return len(self.nodes) - 1
+
+            def kind(self, node):
+                return self.nodes[node][0]
+
+            def arguments(self, node):
+                return self.nodes[node][1]
+
+        graph = Graph()
+        condition = graph.add(z3.Z3_OP_UNINTERPRETED)
+        value = graph.add(z3.Z3_OP_UNINTERPRETED)
+        constant = graph.add(z3.Z3_OP_CONST_ARRAY, value)
+        store = graph.add(z3.Z3_OP_STORE, constant, value, value)
+        # a_{i+1} = ite(p, a_i, b_i), b_{i+1} = ite(p, b_i, a_i): 2^60 paths
+        # to the two leaves when shared ites are walked as a tree.
+        first, second = store, constant
+        for _ in range(60):
+            first, second = (graph.add(z3.Z3_OP_ITE, condition, first, second),
+                             graph.add(z3.Z3_OP_ITE, condition, second, first))
+        self.assertEqual(proof_to_lean._constant_chain_leaves(graph, first), [constant, store])
+        equality = graph.add(z3.Z3_OP_EQ, first, store)
+        compared, _ = proof_to_lean._chain_comparison_reads(graph, [equality])
+        self.assertEqual(compared, {equality: {value}})
+        # One side with n different chains against a chain: n pairs.
+        for chains, expected in ((proof_to_lean._ITE_CHAIN_PAIRS, True), (proof_to_lean._ITE_CHAIN_PAIRS + 1, False)):
+            with self.subTest(chains=chains):
+                side = graph.add(z3.Z3_OP_STORE, constant, graph.add(z3.Z3_OP_UNINTERPRETED), value)
+                for _ in range(chains - 1):
+                    leaf = graph.add(z3.Z3_OP_STORE, constant, graph.add(z3.Z3_OP_UNINTERPRETED), value)
+                    side = graph.add(z3.Z3_OP_ITE, condition, leaf, side)
+                self.assertEqual(len(proof_to_lean._constant_chain_leaves(graph, side)), chains)
+                equality = graph.add(z3.Z3_OP_EQ, side, store)
+                compared, _ = proof_to_lean._chain_comparison_reads(graph, [equality])
+                self.assertEqual(equality in compared, expected)
 
     def test_reads_of_arrays_compared_with_constant_arrays(self):
         """A cnf lemma reading an array equated to a constant array gets the constant array's reads.
@@ -3219,10 +3328,13 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
 # on iteration 88's macOS build before the store identities' indices were
 # evaluated first (_numeral_facts); 672 of the 673 unsat seeds of seeds
 # 1-300 over Int/Int and Real/Real and 1-200 over Real/Int and Int/Real
-# (constant=0.5) then verify.
+# (constant=0.5) then verify. The remaining one, 102 over Real/Int, failed
+# Lean before an ite of different store chains compared with a chain had
+# a converse per branch (_ite_chain_extensionality).
 _REAL_SORTS = {"index": "Real", "element": "Real"}
 CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246), (_REAL_SORTS, 48),
-                        (_REAL_SORTS, 87), ({"index": "Real", "element": "Int"}, 103), ({"unnormalized": 0.8}, 221))
+                        (_REAL_SORTS, 87), ({"index": "Real", "element": "Int"}, 103), ({"unnormalized": 0.8}, 221),
+                        ({"index": "Real", "element": "Int", "unnormalized": 0.8, "constant": 0.5}, 102))
 
 
 def random_chain_comparison_instance(seed):
@@ -3367,11 +3479,17 @@ class TestArrayLeanIntegration(unittest.TestCase):
                     self.assertIn("`grind` failed", error)
 
     def test_constant_chain_facts_are_needed(self):
-        """Without the converse of store-chain comparisons, or without ite_self, grind cannot prove the rewrites."""
-        fact = re.compile(r"^\s*have _x\d+ : _select ")
-        for name in ("store_over_another_constant", "store_chains_over_two_constants",
-                     "store_against_an_ite_of_one_constant", "real_index_store_over_another_constant",
-                     "store_of_an_ite_of_the_constant"):
+        """Without the converse of store-chain comparisons, of their ites' branches, or without ite_self, grind
+        cannot prove the rewrites."""
+        chain_fact = re.compile(r"^\s*have _x\d+ : _select ")
+        ite_fact = re.compile(r"^\s*have _x\d+_\d+ : ")
+        cases = [(name, chain_fact) for name in ("store_over_another_constant", "store_chains_over_two_constants",
+                                                 "store_against_an_ite_of_one_constant",
+                                                 "real_index_store_over_another_constant",
+                                                 "store_of_an_ite_of_the_constant")]
+        cases += [(name, ite_fact) for name in ("ite_of_chains_against_a_chain", "ites_of_chains_on_both_sides",
+                                                "nested_ites_of_chains")]
+        for name, fact in cases:
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
@@ -3380,8 +3498,8 @@ class TestArrayLeanIntegration(unittest.TestCase):
                     self.assertIn("_select_const, ite_self, ", text)
                 else:
                     self.assertTrue(any(map(fact.match, lines)), text)
-                stripped = "\n".join(line.replace("ite_self, ", "") if "simp only [" in line else line
-                                     for line in lines if not fact.match(line))
+                stripped = "\n".join(line.replace("ite_self, ", "") if fact is chain_fact and "simp only [" in line
+                                     else line for line in lines if not fact.match(line))
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)

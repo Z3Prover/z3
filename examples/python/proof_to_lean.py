@@ -3715,6 +3715,8 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
         extensionality = _constant_chain_extensionality(graph, node, inline)
         if extensionality is not None:
             helpers.append("  have _x%d : %s" % (node, extensionality))
+        helpers.extend("  have _x%d_%d : %s" % (node, position, statement)
+                       for position, statement in enumerate(_ite_chain_extensionality(graph, node, inline)))
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
             arguments = " ".join(inline(argument) for argument in graph.arguments(node))
@@ -3774,7 +3776,12 @@ def _chain_comparison_reads(graph, equalities):
     """The reads of the store-chain comparisons among equalities: the indices per equality and per array level.
 
     For (= S T) with S and T store chains over constant arrays (through ites
-    of an array with itself, _constant_chain), Z3's rewriter compares S and T
+    of an array with itself, _constant_chain, or ites of such chains, whose
+    leaves are all compared at the indices stored into any of them,
+    _constant_chain_leaves, when there are at most _ITE_CHAIN_PAIRS pairs
+    of leaves, as for _ite_chain_extensionality; above that the equality
+    gets no converse, so its reads would only use up the budget of
+    _CHAIN_COMPARISON_READS), Z3's rewriter compares S and T
     at every index stored into either chain (array_rewriter::mk_eq_core) and
     evaluates each read down the chain, past the stores at other indices to
     the constant array. So each equality gets those indices, and each store
@@ -3786,14 +3793,15 @@ def _chain_comparison_reads(graph, equalities):
     """
     compared, levels = {}, {}
     for node in equalities:
-        sides = [_constant_chain(graph, argument) for argument in graph.arguments(node)]
-        if None in sides:
+        sides = [_constant_chain_leaves(graph, argument) for argument in graph.arguments(node)]
+        if None in sides or len(sides[0]) * len(sides[1]) > _ITE_CHAIN_PAIRS:
             continue
-        indices = {graph.arguments(store)[1] for _, stores in sides for store in stores}
+        leaves = sides[0] + sides[1]
+        indices = {graph.arguments(store)[1] for leaf in leaves for store in _constant_chain(graph, leaf)[1]}
         compared[node] = indices
-        for argument in graph.arguments(node):
+        for leaf in leaves:
             for index in indices:
-                current = argument
+                current = leaf
                 while True:
                     kind = graph.kind(current)
                     arguments = graph.arguments(current)
@@ -3844,6 +3852,69 @@ def _constant_chain_extensionality(graph, equality, inline):
     sides = [_constant_chain(graph, argument) for argument in graph.arguments(equality)]
     if None in sides or not (sides[0][1] or sides[1][1]):
         return None
+    return _chain_pair_extensionality(graph, *graph.arguments(equality), inline)
+
+
+def _constant_chain_leaves(graph, node):
+    """The store chains over constant arrays at the leaves of a tree of array ites, or None if one is not such a chain.
+
+    The leaves are in node order, each once; a chain is a leaf even below
+    an ite of it with itself (_constant_chain). Each node is visited once,
+    so a tree that shares its ites is walked in linear time.
+    """
+    leaves, pending, seen = set(), [node], set()
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        if _constant_chain(graph, current) is not None:
+            leaves.add(current)
+        elif graph.kind(current) == z3.Z3_OP_ITE:
+            pending.extend(graph.arguments(current)[1:])
+        else:
+            return None
+    return sorted(leaves)
+
+
+# The most pairs of leaves (_ite_chain_extensionality) one equality between
+# ites of store chains gets a converse for; each fact is a proof by funext
+# with one case split per stored index, so they grow with the product of the
+# two sides' leaves.
+_ITE_CHAIN_PAIRS = 16
+
+
+def _ite_chain_extensionality(graph, equality, inline):
+    """The converses of the comparisons of the leaves of an equality between ites of store chains over constant arrays.
+
+    The sat.smt core may log an asserted (= (ite p S S') T), for S, S', and
+    T store chains over constant arrays, as the outcome of comparing each
+    branch with T: (= (ite p (store (const x) k y) (const x)) (store (const
+    y) 1 x)) as x = y, which the replay ties to the assertion by a rewrite
+    step. grind splits the ite but cannot prove a branch equal to T without
+    extensionality, and no equality node of the certificate names that
+    comparison. So every pair of a leaf of one side with a different leaf of
+    the other (_constant_chain_leaves) gets the converse of its comparison
+    as _constant_chain_extensionality states it, over the leaves' terms;
+    the reads of its premises at the indices stored into either leaf are
+    among the read facts (_chain_comparison_reads above the cap). Only
+    equalities with an ite of two different arrays on a side get them, and
+    at most _ITE_CHAIN_PAIRS pairs; otherwise none.
+    """
+    arguments = graph.arguments(equality)
+    if all(_constant_chain(graph, argument) is not None for argument in arguments):
+        return []
+    sides = [_constant_chain_leaves(graph, argument) for argument in arguments]
+    if None in sides or len(sides[0]) * len(sides[1]) > _ITE_CHAIN_PAIRS:
+        return []
+    return [_chain_pair_extensionality(graph, left, right, inline)
+            for left in sides[0] for right in sides[1] if left != right]
+
+
+def _chain_pair_extensionality(graph, left_node, right_node, inline):
+    """The converse of the comparison of two store chains over constant arrays: their reads at the stored indices
+    and the constants' values agree, so the chains are equal (see _constant_chain_extensionality)."""
+    sides = [_constant_chain(graph, node) for node in (left_node, right_node)]
     indices = sorted({graph.arguments(store)[1] for _, stores in sides for store in stores})
     hypotheses = {index: "_c%d" % position for position, index in enumerate(indices)}
 
@@ -3859,18 +3930,18 @@ def _constant_chain_extensionality(graph, equality, inline):
             return "(congrFun (ite_self %s) _j).trans (%s)" % (inline(arguments[1]), off(arguments[1]))
         return "rfl"
 
-    left, right = (inline(argument) for argument in graph.arguments(equality))
+    left, right = inline(left_node), inline(right_node)
     values = [inline(graph.arguments(constant)[0]) for constant, _ in sides]
     premises = ["_select %s %s = _select %s %s" % (left, inline(index), right, inline(index)) for index in indices]
     names = ["_h%d" % position for position in range(len(indices))]
-    tactics = ["intro %s _hv" % " ".join(names), "funext _j"]
+    tactics = ["intro %s" % " ".join(names + ["_hv"]), "funext _j"]
     for index, name in zip(indices, names):
         tactics.append("by_cases %s : _j = %s" % (hypotheses[index], inline(index)))
         tactics.append("(subst %s; exact %s)" % (hypotheses[index], name))
-    first, second = (off(argument) for argument in graph.arguments(equality))
+    first, second = off(left_node), off(right_node)
     tactics.append("exact (%s).trans (_hv.trans (%s).symm)" % (first, second))
-    return "%s -> %s = %s -> %s = %s := by %s" % (
-        " -> ".join(premises), values[0], values[1], left, right, "; ".join(tactics))
+    return "%s -> %s = %s := by %s" % (
+        " -> ".join(premises + ["%s = %s" % tuple(values)]), left, right, "; ".join(tactics))
 
 
 def _combination_certified(graph, node):

@@ -1074,6 +1074,10 @@ by their values at the stored indices and the constants' values; next to
 the facts of that direction, a rewrite or cnf step gets the converse
 (extensionality) as a proved fact with one premise per stored index (funext,
 a case split on the stored indices, and _store_off down to the constants).
+When a side is an ite of different such chains (Z3 logs an asserted
+(= (ite p S S') T) as the outcome of comparing each branch with T), each
+pair of a leaf of one side with a different leaf of the other gets that
+converse over the leaves' terms, for at most 16 pairs per equality.
 Each store and constant array a side of such an equality reaches is also
 read at every index read from its sort (_store_apply, _select_const): a
 cnf lemma may read an array equated to a constant array, (or (not (= a
