@@ -931,6 +931,15 @@ def check_arith_hint(pairs):
             _constraint(atom)
 
 
+def _parameter_names(decl):
+    """The parameters of a built-in declaration as text: a function by its
+    signature, (declare-fun f (Int) Int), and a sort by its name, so that
+    ((_ map and) a b) and ((_ map or) a b), or the constant arrays of two
+    array sorts, get different replay keys."""
+    return " ".join(parameter.sexpr() if isinstance(parameter, z3.AstRef) else str(parameter)
+                    for parameter in decl.params())
+
+
 class _Normalizer:
     """Canonical keys for Boolean formulas over linear atoms, used to match assumptions.
 
@@ -1052,13 +1061,16 @@ class _Normalizer:
             return self._atom(expr.arg(0) == expr.arg(1), not polarity)
         # Structural form: a numeral (as a function argument) is identified by
         # its value, an uninterpreted symbol or an enumeration constructor by
-        # its name, and a recognizer by its constructor's.
+        # its name, a recognizer by its constructor's, a map by its function's
+        # signature, and a constant array by its sort.
         if kind in RECOGNIZER_KINDS:
             kind = z3.Z3_OP_DT_IS  # is-c and (_ is c) are one predicate
         positive = (kind, tuple(self._key(child, True) for child in expr.children()),
                     str(expr.decl().name()) if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_DT_CONSTRUCTOR)
                     else str(expr.decl().params()[0].name()) if kind == z3.Z3_OP_DT_IS
-                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM else "")
+                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM
+                    else _parameter_names(expr.decl()) if kind in (z3.Z3_OP_ARRAY_MAP, z3.Z3_OP_CONST_ARRAY)
+                    else "")
         return positive if polarity else ("not", positive)
 
     def _atom(self, expr, polarity):

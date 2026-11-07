@@ -1192,6 +1192,48 @@ MAP_FUNCTION_INPUTS = {
 (assert (= (f 3) 1))
 (check-sat)
 """,
+    # Maps of two functions over the same arrays, as conjuncts: the replay
+    # ties the split conjuncts to the input by key, and the two maps shared
+    # one key (the mapped function was not in it), so the map of or was
+    # derived from the map of and and Lean rejected the step (found by a
+    # random sweep of such conjunctions).
+    "conjuncts_map_and_or": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun d () (Array Int Bool))
+(declare-fun q () Bool)
+(declare-fun r () Bool)
+(assert (and q (= c ((_ map and) a b))))
+(assert (and r (= c ((_ map or) a b)) (= c d)))
+(assert (select a 0))
+(assert (not (select b 0)))
+(check-sat)
+""",
+    # The same collision with maps of two declared functions.
+    "conjuncts_map_f_g": """(declare-fun a () (Array Int Int))
+(declare-fun c () (Array Int Int))
+(declare-fun d () (Array Int Int))
+(declare-fun f (Int) Int)
+(declare-fun g (Int) Int)
+(declare-fun q () Bool)
+(declare-fun r () Bool)
+(assert (and q (= c ((_ map f) a))))
+(assert (and r (= c ((_ map g) a)) (= c d)))
+(assert (not (= (f (select a 0)) (g (select a 0)))))
+(check-sat)
+""",
+    # The same collision with maps of addition and subtraction.
+    "conjuncts_map_plus_minus": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(declare-fun c () (Array Int Int))
+(declare-fun d () (Array Int Int))
+(declare-fun q () Bool)
+(declare-fun r () Bool)
+(assert (and q (= c ((_ map (+ (Int Int) Int)) a b))))
+(assert (and r (= c ((_ map (- (Int Int) Int)) a b)) (= c d)))
+(assert (not (= (select b 0) 0)))
+(check-sat)
+""",
 }
 # Arrays over Bool indices, (Array Bool E): Prop -> E in Lean, an index is a
 # formula and two indices are equal as propositions (propext). A model's
@@ -2394,6 +2436,46 @@ class TestArrayValidation(unittest.TestCase):
             with self.subTest(head=head, arguments=arguments):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, "ill-sorted map in the clause log"):
                     terms.build([["_", "map", head]] + arguments)
+
+    def test_replay_keys_tell_maps_and_constant_arrays_apart(self):
+        # The structural key of a map names its function, and that of a
+        # constant array its sort; maps of and and or over the same arrays
+        # shared one key, so the replay tied one to the other
+        # (conjuncts_map_and_or, which Lean then rejected).
+        context = z3.Context()
+        assertions, _ = proof_certificate.parse_assertions("""(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun x () (Array Int Int))
+(declare-fun y () (Array Int Int))
+(declare-fun z () (Array Int Int))
+(declare-fun f (Int) Int)
+(declare-fun g (Int) Int)
+(declare-fun p () Bool)
+(assert (= c ((_ map and) a b)))
+(assert (= c ((_ map or) a b)))
+(assert (= c ((_ map =>) a b)))
+(assert (= z ((_ map f) x)))
+(assert (= z ((_ map g) x)))
+(assert (= z ((_ map (+ (Int Int) Int)) x y)))
+(assert (= z ((_ map (- (Int Int) Int)) x y)))
+(assert (= z ((_ map (- (Int) Int)) x)))
+(assert (select ((as const (Array Int Bool)) p) 0))
+(assert (select ((as const (Array Real Bool)) p) 0.0))
+(check-sat)
+""", context, integer=True)
+        normalizer = proof_clause_log._Normalizer()
+        keys = [normalizer.key(assertion) for assertion in assertions]
+        self.assertEqual(len(set(keys)), len(assertions))
+        # The clause log's maps, built in with their signature, key as the input's.
+        terms = proof_clause_log._Terms(context, assertions)
+        for head, arguments, assertion in ((["and", ["Bool", "Bool"], "Bool"], ["a", "b"], 0),
+                                           ("or", ["a", "b"], 1), ("f", ["x"], 3),
+                                           (["+", ["Int", "Int"], "Int"], ["x", "y"], 5),
+                                           (["-", ["Int"], "Int"], ["x"], 7)):
+            with self.subTest(head=head):
+                mapped = terms.build([["_", "map", head]] + arguments)
+                self.assertEqual(normalizer.key(assertions[assertion].arg(0) == mapped), keys[assertion])
 
     def test_the_replay_reads_constant_arrays(self):
         context = z3.Context()

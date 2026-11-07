@@ -1699,6 +1699,27 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Replay keys of maps and constant arrays (2026-11-06)
+
+The replay ties a clause the log assumes to an input conjunct by its
+structural key, which named uninterpreted symbols, numerals, and
+constructors but not the parameters of built-in heads: `((_ map and) a b)`
+and `((_ map or) a b)`, maps of two declared functions, or of `+` and `-`
+over the same arrays shared one key. When preprocessing split a conjunction,
+a conjunct with one map was derived from the input's conjunct with the
+other, and Lean rejected the step (`grind` failed). The key of a map now
+names its function by signature (`(declare-fun f (Int) Int)`, built-ins
+alike), and that of a constant array its sort. A random sweep of maps of
+several functions over the same arrays inside guarded conjunctions (200
+seeds, not kept in the repository) had 5 of 41 unsat seeds fail in Lean
+before and 41 of 41 verify after. Other parameterized heads (datatype
+accessors, bit-vector `extract`, `as-array`) still key without their
+parameters; the export rejects them today, so they must be keyed when
+they become supported. Tests:
+`test_replay_keys_tell_maps_and_constant_arrays_apart` and the documented
+inputs `conjuncts_map_and_or`, `conjuncts_map_f_g`,
+`conjuncts_map_plus_minus` (`test_proof_to_lean_array.py`).
+
 ### Trimmed map logs (2026-11-06)
 
 The trimmer could not read back any clause log with a map: Z3 printed
