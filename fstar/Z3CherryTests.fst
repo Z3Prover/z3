@@ -9,6 +9,7 @@ module CR = Z3ConditionalRewrite
 module N = Z3Native
 module NP = Z3NativeProof
 module LP = Z3LpCertificate
+module L = FStar.List.Tot
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -1067,6 +1068,60 @@ let native_parameters ([@@@FStar.Attributes.cherry_borrowed] asts:list N.ast) : 
     expressions_match a0 a1 400000 0 (NP.parameter_expressions dense)
   | _ -> false
 
+(* The certificate decoder (Z3LpCertificate.decode) reads every count-prefixed list in a loop. A
+   certificate with 14,347 variables overflowed the normal stack near 26,000 elements of one list
+   (four C frames per element); the list below has 100,000 coefficient terms. The two variables are
+   Int constants; the second one's definition is the terms (k + 1)/1 * variable 0 for k < 100,000,
+   so the decoded polynomial must keep every term and its position. The one step is a plain input. *)
+let lp_rat (n:int) : LP.raw_parameter = LP.Rational n 1
+
+let lp_int_constant (name:string) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = Z3LinearArithmeticAst.int_s;
+          A.interp = None; A.int_params = [] } []
+
+let lp_absent : int = 4294967295
+
+let lp_input_step : list LP.raw_parameter =
+  [lp_rat 0;
+   lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0;
+   lp_rat 0; lp_rat lp_absent; lp_rat 0;
+   lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0;
+   lp_rat lp_absent; lp_rat lp_absent; lp_rat lp_absent;
+   lp_rat 1; lp_rat 0; lp_rat 0]
+
+let rec lp_terms (count:nat) (acc:list LP.raw_parameter)
+  : Tot (list LP.raw_parameter) (decreases count) =
+  if count = 0 then acc
+  else lp_terms (count - 1) (lp_rat count :: lp_rat 0 :: acc)
+
+let lp_certificate (declared terms:nat) : list LP.raw_parameter =
+  let x0 = lp_int_constant "x0" in
+  let x1 = lp_int_constant "x1" in
+  Z3List.append
+    [lp_rat 1; lp_rat 2; LP.Expression x0; lp_rat 1; lp_rat 0; LP.Expression x1; lp_rat 1; lp_rat declared]
+    (Z3List.append (lp_terms terms [])
+       (Z3List.append [lp_rat 0; lp_rat 1] (Z3List.append lp_input_step [lp_rat 0])))
+
+let rec lp_terms_match (k n:nat) (p:LP.polynomial) : Tot bool (decreases p) =
+  match p with
+  | [] -> k = n
+  | ((c, d), j) :: rest ->
+    if c = k + 1 && d = 1 && j = 0 then lp_terms_match (k + 1) n rest else false
+
+let lp_decode_scale () : bool =
+  let terms = 100000 in
+  let kept (declared count:nat) : bool =
+    match LP.decode (lp_certificate declared count) with
+    | Some c ->
+      (match c.LP.variables with
+       | [_; v] -> L.length c.LP.steps = 1 && lp_terms_match 0 count v.LP.definition
+       | _ -> false)
+    | None -> false in
+  kept 2 2 && kept terms terms &&
+  (* a declared length beyond the parameters, or too few terms for it, is refused *)
+  None? (LP.decode (lp_certificate (terms + 1) terms)) &&
+  None? (LP.decode (lp_certificate (terms - 1) terms))
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -1104,4 +1159,5 @@ let run () : bool =
   direct_elim_controls () &&
   der_controls () &&
   pull_controls () &&
-  name_pair_units_scale ()
+  name_pair_units_scale () &&
+  lp_decode_scale ()
