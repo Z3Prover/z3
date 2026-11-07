@@ -4700,10 +4700,11 @@ def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None):
     distinct over terms, or a predicate application) is the opaque leaf
     ("leaf", node, rendering), rendered by its definition name so that it is
     never unfolded, and is recorded in leaves by node; without, a theory
-    atom is unsupported. A distinct over terms whose every pair has an
+    atom is unsupported. A distinct over terms of which some pair has an
     equality node of its own (the alldiff literals Z3 logs) is instead the
-    conjunction of those equalities negated, the leaves in the order
-    _formula_body renders the pairs, so the literal (not (= a b)) of a
+    conjunction of its pair equalities negated, the leaves in the order
+    _formula_body renders the pairs (_distinct_pair_leaves: a pair
+    without a node is a synthetic leaf), so the literal (not (= a b)) of a
     clause names a conjunct of the distinct: a cnf lemma tying such a
     literal to an assertion holding the distinct (QF_UF NEQ004) was out of
     the prover's reach and unfolded the whole assertion into grind.
@@ -4726,31 +4727,46 @@ def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None):
         elif _trivial_distinct(graph, current):
             memo[current] = ("true",)  # over a term as well as over an atom
         elif leaves is not None and arguments and (kind == z3.Z3_OP_UNINTERPRETED or graph.is_term(arguments[0])):
-            pairs = _distinct_pair_equalities(graph, current)
+            pairs = _distinct_pair_leaves(graph, current, leaves)
             if pairs is None:
                 memo[current] = leaves.setdefault(current, ("leaf", current, _formula(graph, current)))
             else:
-                memo[current] = _structure_fold("and", [
-                    ("not", leaves.setdefault(pair, ("leaf", pair, _formula(graph, pair)))) for pair in pairs])
+                memo[current] = _structure_fold("and", [("not", pair) for pair in pairs])
         else:
             pending.append((current, True))
             pending.extend((argument, False) for argument in reversed(arguments))
     return memo[node]
 
 
-def _distinct_pair_equalities(graph, node):
-    """The equality nodes of a distinct's argument pairs, in rendering order, or None.
+def _distinct_pair_leaves(graph, node, leaves):
+    """The leaves of a distinct's argument pairs (a = b), a before b, in rendering order, or None.
 
-    None unless node is a distinct over terms and every pair (a, b), a
-    before b, has the node (= a b): a pair logged as (= b a) renders as
-    another proposition than the conjunct (Not (a = b)) of the distinct.
+    None unless node is a distinct over terms and some pair has the node
+    (= a b). Such a pair is the leaf of that node, recorded in leaves; a
+    pair logged as (= b a) renders as another proposition than the
+    conjunct (Not (a = b)) of the distinct, so it does not count. A pair
+    without a node is a synthetic leaf, ("leaf", -(1 + a * n + b),
+    rendering) for the n nodes of the graph (an id no node has, unique to
+    the pair and an int, as the prover orders its splits by leaf id),
+    rendered as _formula_body renders the conjunct and not recorded in
+    leaves (it has no node to bridge): the certificate keeps
+    only the pairs the proof uses, so a wide distinct of which a few pairs
+    are logged (thirty Int arguments, 435 pairs, six in the proof) stayed
+    one opaque leaf, the prover could not project those pairs, and the
+    fallback unfolded every pair into omega and grind, which ran out of
+    heartbeats from thirty arguments.
     """
     if graph.kind(node) != z3.Z3_OP_DISTINCT:
         return None
     arguments = graph.arguments(node)
-    pairs = [graph.equalities.get((left, right))
+    pairs = [(left, right, graph.equalities.get((left, right)))
              for index, left in enumerate(arguments) for right in arguments[index + 1:]]
-    return None if None in pairs else pairs
+    if all(equality is None for _, _, equality in pairs):
+        return None
+    return [("leaf", -(1 + left * len(graph.nodes) + right),
+             "(%s = %s)" % (_term(graph, left), _term(graph, right)))
+            if equality is None else leaves.setdefault(equality, ("leaf", equality, _formula(graph, equality)))
+            for left, right, equality in pairs]
 
 
 def _boolean_connective(kind, children):

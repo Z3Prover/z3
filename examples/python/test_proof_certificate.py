@@ -1213,6 +1213,36 @@ _UFLIA = """\
 (check-sat)
 """
 
+
+def wide_distinct_source(count, sort, negated=False):
+    """An unsatisfiable input around a distinct of count constants of sort U or Int.
+
+    Positive: the distinct, plus constraints that contradict a few of its
+    pairs (two U constants related through f, or four Int constants in
+    [0, 2]), so the proof uses a few pairs of many. Negated: (not (distinct
+    ...)) under a strict order (Int) or distinct images under f (U), so
+    every pair is refuted.
+    """
+    names = ["c%d" % index for index in range(count)]
+    head = ("(set-logic QF_UF)\n(declare-sort U 0)\n(declare-fun f (U) U)\n" if sort == "U"
+            else "(set-logic QF_LIA)\n")
+    lines = [head] + ["(declare-const %s %s)\n" % (name, sort) for name in names]
+    if negated:
+        lines.append("(assert (not (distinct %s)))\n" % " ".join(names))
+        if sort == "U":
+            lines.append("(assert (distinct %s))\n" % " ".join("(f %s)" % name for name in names))
+        else:
+            lines.extend("(assert (< %s %s))\n" % pair for pair in zip(names, names[1:]))
+    else:
+        lines.append("(assert (distinct %s))\n" % " ".join(names))
+        if sort == "U":
+            lines.append("(assert (= (f c3) c7))\n(assert (= (f c5) c7))\n(assert (= c3 (f c5)))\n"
+                         "(assert (= c5 (f c3)))\n")
+        else:
+            lines.extend("(assert (and (<= 0 %s) (<= %s 2)))\n" % (name, name) for name in names[:4])
+    return "".join(lines) + "(check-sat)\n"
+
+
 # A Gomory cut: rationally feasible, integer infeasible, refuted by one cut
 # hint over the four bounds. The log is the sat.smt core's output verbatim.
 _LIA = """\
@@ -3260,6 +3290,34 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertEqual(certificate["fragment"], "qf_uflia")
         self.assertIn("monotonicity", certificate["rule_counts"])  # the legacy core's congruences
         self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "Int", "U", "Proof"})
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_wide_distincts_are_clausified_pairwise_under_proofs(self):
+        # Above 32 arguments the sat.smt core encoded a root distinct over a
+        # fresh sort and function (distinct-elems, dist-f, and an at-least-2
+        # constraint for a negated one), which the replay rejects ("declares
+        # a sort absent from the input"): every such input failed to export.
+        # With proofs it now logs the pairwise clauses at any width.
+        z3_executable = proof_certificate.default_z3_executable()
+        for count, sort, negated, fragment in ((33, "U", False, "qf_uf"), (40, "Int", False, "qf_lia"),
+                                               (33, "Int", True, "qf_lia"), (33, "U", True, "qf_uf")):
+            with self.subTest(count=count, sort=sort, negated=negated):
+                source = wide_distinct_source(count, sort, negated)
+                log = proof_clause_log.run_clause_log(z3_executable, proof_certificate._assertion_commands(source))
+                self.assertNotIn("distinct-elems", log)
+                self.assertNotIn("dist-f", log)
+                assumed = [line for line in log.splitlines() if line.startswith("(assume")]
+                pairs = count * (count - 1) // 2
+                if negated:
+                    # One clause of every pair's equality.
+                    self.assertEqual(max(line.count("$") for line in assumed), pairs)
+                else:
+                    # One disequality per pair.
+                    self.assertGreaterEqual(len(assumed), pairs)
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], fragment)
+                self.assertLessEqual({d["range"] for d in certificate["declarations"]},
+                                     {"Bool", "Int", "U", "Proof"})
 
 
 _DEPENDENCY_LOG = """\
