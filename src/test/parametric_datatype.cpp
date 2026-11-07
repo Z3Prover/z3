@@ -320,6 +320,49 @@ static void test_sequence_field_occurs_check() {
     check_datatype_commands(input.c_str(), "unsat\nsat\n");
 }
 
+static void test_nested_sequence_field_occurs_check() {
+    for (unsigned depth : {2, 3}) {
+        std::string field = "Tree", unit = "t", leaf = "leaf";
+        for (unsigned i = 0; i < depth; ++i) {
+            field = "(Seq " + field + ")";
+            unit = "(seq.unit " + unit + ")";
+            leaf = "(seq.unit " + leaf + ")";
+        }
+        std::string prelude =
+            "(declare-datatype Tree ((leaf) (node (children " + field + "))))\n"
+            "(declare-const t Tree)\n";
+        std::string input = prelude +
+            "(assert (= t (node " + unit + ")))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+        input = prelude +
+            "(declare-const s " + field + ")\n"
+            "(assert (= t (node s)))\n"
+            "(push)\n(assert (= s " + unit + "))\n(check-sat)\n(pop)\n"
+            "(assert (= s " + leaf + "))\n(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\nsat\n");
+    }
+    char const* prelude =
+        "(declare-datatype Tree ((leaf) (node (children (Seq (Seq Tree))))))\n"
+        "(declare-const t Tree)\n"
+        "(declare-const s (Seq (Seq Tree)))\n"
+        "(declare-const u (Seq Tree))\n";
+    for (char const* cycle : {
+            "(assert (= t (node (seq.++ s (seq.unit (seq.unit leaf))))))\n"
+            "(assert (= s (seq.unit u)))\n"
+            "(assert (= u (seq.++ (seq.unit leaf) (seq.unit t))))\n",
+            "(assert (= t (node s)))\n"
+            "(assert (> (seq.len s) 0))\n"
+            "(assert (= u (seq.nth s 0)))\n"
+            "(assert (> (seq.len u) 0))\n"
+            "(assert (= t (seq.nth u 0)))\n",
+            "(declare-const v Tree)\n"
+            "(assert (= t (node (seq.unit (seq.unit v)))))\n"
+            "(assert (= v (node (seq.unit (seq.unit t)))))\n"}) {
+        std::string input = std::string(prelude) + cycle + "(check-sat)\n";
+        check_datatype_commands(input.c_str(), "unsat\n");
+    }
+}
+
 static void test_subterm_recursive_polarity() {
     char const* declarations =
         "(declare-datatype L ((nil) (cons (hd Int) (tl L))) :subterm sub)\n"
@@ -381,6 +424,7 @@ void tst_parametric_datatype() {
     test_non_recursive_recognizer_phases();
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
+    test_nested_sequence_field_occurs_check();
     test_subterm_recursive_polarity();
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();

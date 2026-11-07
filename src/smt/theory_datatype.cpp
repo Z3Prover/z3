@@ -870,7 +870,7 @@ namespace smt {
             if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
                 add_args(get_finite_set_args(arg));
             }
-            if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
+            if (m_sutil.is_seq(s)) {
                 add_args(get_seq_args(arg, &m_used_eqs));
             }
         }
@@ -950,7 +950,7 @@ namespace smt {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
             }
-            else if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
+            else if (m_sutil.is_seq(s)) {
                 for (enode* sarg : get_seq_args(arg)) {
                     if (process_arg(sarg)) 
                         return true;
@@ -1012,8 +1012,13 @@ namespace smt {
             enode* n = m_todo[i];
             for (enode* sibling : *n) {
                 expr* e = sibling->get_expr();
-                if (m_sutil.str.is_unit(e))
-                    m_args.push_back(sibling->get_arg(0));
+                if (m_sutil.str.is_unit(e)) {
+                    enode* arg = sibling->get_arg(0);
+                    if (m_sutil.is_seq(arg->get_sort()))
+                        add_todo(arg);
+                    else
+                        m_args.push_back(arg);
+                }
                 else if (m_sutil.str.is_concat(e)) {
                     for (enode* arg : enode::args(sibling))
                         add_todo(arg);
