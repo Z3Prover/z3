@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_ll_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "sat/smt/euf_proof_checker.h"
+#include "sat/smt/q_theory_checker.h"
 #include <iostream>
 
 void tst_checker1() {
@@ -95,6 +96,33 @@ static void tst_euf_negation() {
     VERIFY(!check({x, eq, m.mk_not(y)}));
     VERIFY(check({nx, eq, m.mk_not(y)}));
     VERIFY(!check({nx, eq, y}));
+}
+
+static void tst_quantifier_instance_polarity() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    q::theory_checker checker(m);
+    sort* domain = m.mk_bool_sort();
+    symbol name("x");
+    func_decl_ref pred(m.mk_func_decl(symbol("p"), domain, domain), m);
+    expr_ref x(m.mk_var(0, domain), m);
+    expr_ref body(m.mk_app(pred, x.get()), m);
+    expr* value = m.mk_true();
+    expr_ref binding(m.mk_app(symbol("bind"), 1, &value, m.mk_proof_sort()), m);
+    for (bool universal : {false, true}) {
+        expr_ref q(m.mk_quantifier(universal ? forall_k : exists_k, 1, &domain, &name, body), m);
+        expr_ref qlit(universal ? q.get() : m.mk_not(q), m);
+        for (bool correct : {false, true}) {
+            expr_ref instance(m.mk_app(pred, correct ? m.mk_true() : m.mk_false()), m);
+            expr_ref ilit(universal ? m.mk_not(instance) : instance.get(), m);
+            expr* args[3] = { qlit, ilit, binding };
+            app_ref hint(m.mk_app(symbol("inst"), 3, args, m.mk_proof_sort()), m);
+            auto clause = checker.clause(hint);
+            expr_ref_vector vc(m);
+            ENSURE(checker.vc(hint, clause, vc) == correct);
+            ENSURE(vc.size() == 2);
+        }
+    }
 }
 
 static void tst_euf_negation_large_classes() {
@@ -265,6 +293,7 @@ void tst_proof_checker() {
     tst_checker1();
     tst_initializer_list_overloads();
     tst_euf_negation();
+    tst_quantifier_instance_polarity();
     tst_euf_negation_large_classes();
     tst_quant_intro();
     tst_push_quant();
