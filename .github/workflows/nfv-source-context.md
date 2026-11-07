@@ -9,6 +9,8 @@ on:
         required: false
       NFV_RELEASE_TOKEN:
         required: false
+  roles: all
+if: vars.NFV_RELEASE_SHA != ''
 permissions:
   contents: read
   pull-requests: read
@@ -128,7 +130,7 @@ post-steps:
       name: nfv-source-context-validated
       path: nfv-context-validated/context.json
       if-no-files-found: error
-source: microsoft/neuro-formal-verification/workflow@31f0c6809a7e93eec460d12c29bd6293b82bc954
+source: microsoft/neuro-formal-verification/workflow@94dbb80e8b55d64a5bf433ec57e6d04260abdd49
 ---
 
 # Source-context session

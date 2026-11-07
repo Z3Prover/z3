@@ -3,7 +3,8 @@
 # Licensed under the MIT License.
 description: Prototype NFV PR reviewer — sandboxed foreground Dafny analysis, posted as a PR comment
 on:
-  pull_request:
+  # Run trusted base-branch workflow code; fork PR contents remain untrusted data.
+  pull_request_target:
     # Pushes cancel obsolete runs through workflow concurrency; they never start inference.
     types: [opened, synchronize, ready_for_review]
     paths:
@@ -23,7 +24,8 @@ on:
       - "**.[tT][sS][xX]"
       - "**.[pP][yY]"
       - "**.[rR][sS]"
-if: github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+  roles: all
+if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.base.ref == github.event.repository.default_branch && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
 permissions:
   contents: read
   pull-requests: read
@@ -46,7 +48,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   repository_context:
-    if: github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+    if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.base.ref == github.event.repository.default_branch && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
     permissions:
       # gh-aw uses this only to mark an incomplete workflow run failed.
       actions: write
@@ -113,7 +115,7 @@ steps:
   - uses: actions/download-artifact@v8.0.1
     with:
       name: nfv-source-context
-      path: nfv-context
+      path: ${{ runner.temp }}/nfv-context
   - name: Initialize empty workspace repository (no PR code is checked out)
     run: |
       git init -q "$GITHUB_WORKSPACE"
@@ -121,6 +123,7 @@ steps:
   - name: Capture immutable source as untrusted text
     env:
       GH_TOKEN: ${{ github.token }}
+      NFV_CONTEXT_MANIFEST: ${{ runner.temp }}/nfv-context/context.json
       NFV_MODEL: ${{ vars.NFV_MODEL }}
       NFV_SYNTAX_ROUNDS: ${{ vars.NFV_SYNTAX_ROUNDS }}
       NFV_PROOF_ROUNDS: ${{ vars.NFV_PROOF_ROUNDS }}
@@ -134,15 +137,16 @@ steps:
       collection="$RUNNER_TEMP/gh-aw/nfv/collection-status.json"
       nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src --status-out "$collection"
       ready=$(python - "$collection" <<'PY'
+      import os
       import sys
       from nfv_workflow.cli import collection_status, load, save
       from nfv_workflow.github import Abstain
       status = collection_status(sys.argv[1])
-      context = load("nfv-context/context.json")
+      context = load(os.environ["NFV_CONTEXT_MANIFEST"])
       if status["status"] == "superseded":
           print("false")
       elif context.get("status") == "superseded":
-          context = collection_status("nfv-context/context.json")
+          context = collection_status(os.environ["NFV_CONTEXT_MANIFEST"])
           if context["identity"] != status["identity"]:
               raise Abstain("Invalid superseded source-context handoff")
           save(sys.argv[1], context)
@@ -152,7 +156,7 @@ steps:
       PY
       )
       if [[ "$ready" == true ]]; then
-      nfv-workflow enrich --bundle "$bundle" --manifest nfv-context/context.json --out "$bundle" --sources-dir nfv-src
+      nfv-workflow enrich --bundle "$bundle" --manifest "$NFV_CONTEXT_MANIFEST" --out "$bundle" --sources-dir nfv-src
       python - "$bundle" <<'PY'
       import json
       import sys
@@ -185,7 +189,7 @@ post-steps:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
       if-no-files-found: warn
-source: microsoft/neuro-formal-verification/workflow@31f0c6809a7e93eec460d12c29bd6293b82bc954
+source: microsoft/neuro-formal-verification/workflow@94dbb80e8b55d64a5bf433ec57e6d04260abdd49
 ---
 
 # NFV PR reviewer
