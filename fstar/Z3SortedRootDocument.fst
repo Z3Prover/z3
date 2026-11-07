@@ -33,11 +33,15 @@ module Z3SortedRootDocument
    (Z3SortedRoot). The typed Int/Real Farkas replay (SP.real_farkas) reads
    the Sorted Real laws (Z3SortedReal.real_model), which are DERIVED from R2
    of the same i whenever the executed schema gate RL.real_primitive holds
-   (Z3SortedRealRoot.lemma_root_real_model), never assumed. Every other
-   operator (select/store/lambda, distinct, div/mod, BV/FF/Seq/FP, ...) is
-   passed to i untouched, so the checker reasons about it only by
-   congruence (it is a free symbol of the Sorted proof); no theory law is
-   used for it.
+   (Z3SortedRealRoot.lemma_root_real_model), never assumed. The guarded Int
+   div/mod clauses (SP.division_order) read the Sorted Int division laws
+   (Z3SortedIntDivision.division_laws), which are DERIVED from R2 of the same
+   i for every checked schema (Z3SortedDivisionRoot.lemma_root_division_laws:
+   the Euclidean quotient and remainder at a nonzero divisor only). Every
+   other operator (select/store/lambda, distinct, div/mod at a zero divisor,
+   BV/FF/Seq/FP, ...) is passed to i untouched, so the checker reasons about
+   it only by congruence (it is a free symbol of the Sorted proof); no theory
+   law is used for it.
 
    Binder certificates (Z3NnfReplay, read by SP.check_node_cached): the
    replay's quantifier laws (Q.forall_model and E.exists_model) are derived
@@ -72,6 +76,7 @@ module R = Z3ResolutionProofTheory
 module DS = Z3SortedDependentSkolem
 module RL = Z3SortedReal
 module RR = Z3SortedRealRoot
+module DR = Z3SortedDivisionRoot
 
 (* ---------------------------------------------------------------------- *)
 (* 1. Quantifier hypotheses of Z3SortedQuantifier, from R1                  *)
@@ -212,6 +217,7 @@ let lemma_root_check_node (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.inte
   lemma_forall_elimination_model u sch i;
   lemma_exists_model u sch i;
   if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
+  DR.lemma_root_division_laws u sch i;
   SP.lemma_check_node_cached sch (TR.booleans u) (SR.root_scalars u) i assertions node fact
 
 (* ---------------------------------------------------------------------- *)
@@ -235,6 +241,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
   lemma_exists_model u sch i;
   if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
   if SP.needs_real_semantics sch doc.P.entries then SP.lemma_needs_real_primitive sch doc.P.entries;
+  DR.lemma_root_division_laws u sch i;
   SP.lemma_check_document sch (TR.booleans u) (SR.root_scalars u) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 
@@ -603,6 +610,7 @@ let lemma_root_check_document_epsilon (u:TR.uninterpreted) (sch:S.checked_schema
   lemma_forall_model u sch i;
   lemma_exists_model u sch i;
   if RL.real_primitive sch then RR.lemma_root_real_model u sch i;
+  DR.lemma_root_division_laws u sch i;
   SP.lemma_check_document_epsilon sch (TR.booleans u) (SR.root_scalars u) (root_choice u sch) i doc;
   lemma_truths_agreement u sch i doc.P.assertions
 

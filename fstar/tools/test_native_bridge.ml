@@ -3245,6 +3245,127 @@ let sorted_real_order_clauses () =
   require (not (K.real_order_clause huge) && not (K.real_order schema (node huge)))
     "a 200,000-deep Real clause was admitted"
 
+(* Guarded Int div/mod clauses (Z3SortedProof.division_clause, the Sorted Int division laws of
+   Z3SortedIntDivision): the producer's premise-free th-lemma clauses of z3's div/mod axioms
+   (d = 0 \/ mod x d >= 0, d <= 0 \/ (mod x d) + (-1)*d <= -1, d >= 0 \/ (mod x d) + d <= -1 and
+   d = 0 \/ x = d*(div x d) + mod x d) are certified on the Sorted route (check_document_epsilon) and each
+   clause node is checked by Z3SortedProof.division_order alone. On the producer's own clause a
+   lookalike mod (no kind tag, the div tag, a twin parameter, another name), a counterfeit `=`, a
+   missing guard, a wrong guard constant and bound constant and a third literal are refused; the clause
+   must be shallow before any comparison (n = 4,093 accepted, 4,094 and 200,000 refused). *)
+let sorted_int_division_clauses () =
+  let module K = Z3SortedProof in
+  let int_sort = A.SortApp (A.IntSymbol, []) in
+  let clause_step e = match U.classify_fact e.P.formula with
+    | Some (U.Holds clause) when e.P.rule = U.Unverified "th-lemma" && K.division_clause clause -> Some clause
+    | _ -> None in
+  let node clause = { U.kind = U.Unverified "th-lemma"; conclusion = U.Holds clause; premises = [] } in
+  let pending schema clause = match K.check_node schema [] (node clause) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted Int clause node was rejected" in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    let steps = List.filter_map clause_step doc.P.entries in
+    require (steps <> []) (name ^ ": no guarded division clause step was produced");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the division refutation was not certified");
+    steps, schema in
+  let header = "(declare-const x Int)(declare-const d Int)" in
+  let lower, schema = certified "lower" (header ^ "(assert (not (= d 0)))(assert (< (mod x d) 0))") in
+  let upper_positive, _ = certified "upper-positive" (header ^ "(assert (> d 0))(assert (>= (mod x d) d))") in
+  let upper_negative, _ = certified "upper-negative" (header ^ "(assert (< d 0))(assert (> (+ (mod x d) d) (- 1)))") in
+  let decomposition, _ = certified "decomposition"
+      (header ^ "(assert (not (= d 0)))(assert (not (= x (+ (* d (div x d)) (mod x d)))))") in
+  List.iter (fun clause ->
+      require (K.division_order (node clause) && Z.equal (pending schema clause) Z.zero &&
+               not (K.consequence schema [] clause))
+        "a producer division clause was not checked by division_order alone")
+    (lower @ upper_positive @ upper_negative @ decomposition);
+  let rec find_literal pred = function
+    | [] -> failwith "the expected producer clause shape was not found"
+    | clause :: rest -> (match pred clause with Some shape -> shape | None -> find_literal pred rest) in
+  (* d = 0 \/ mod x d >= 0 *)
+  let disj, eq_decl, d, zero_numeral, ge_decl, mod_decl, x', d', zero' =
+    find_literal (function
+        | A.App (disj, [A.App (eq_decl, [d; zero]); A.App (ge_decl, [A.App (mod_decl, [x'; d']); zero'])])
+          when mod_decl.A.decl_name = "mod" ->
+            Some (disj, eq_decl, d, zero, ge_decl, mod_decl, x', d', zero')
+        | _ -> None)
+      lower in
+  let or_of args = A.App (disj, args) in
+  let guard = A.App (eq_decl, [d; zero_numeral]) in
+  let body = A.App (ge_decl, [A.App (mod_decl, [x'; d']); zero']) in
+  let with_mod decl = A.App (ge_decl, [A.App (decl, [x'; d']); zero']) in
+  let numeral n = match zero_numeral with
+    | A.App (k, args) -> A.App ({ k with A.int_params = [Z.of_int n; Z.one] }, args)
+    | _ -> failwith "expected a numeral" in
+  (* the numeral instance x = 7, d = -2 (7 div -2 = -3, 7 mod -2 = 1) of the lower bound and of the
+     decomposition is checked (the decomposition's declarations come from the producer's own clause), and the
+     zero-divisor controls at numerals are refused: a unit clause (no guard) and a guard on the dividend *)
+  let seven = numeral 7 and minus_two = numeral (-2) and zero_n = numeral 0 in
+  let remainder a b = A.App (mod_decl, [a; b]) in
+  let instance_lower = or_of [A.App (eq_decl, [minus_two; zero_n]); A.App (ge_decl, [remainder seven minus_two; zero_n])] in
+  require (K.division_order (node instance_lower) && Z.equal (pending schema instance_lower) Z.zero &&
+           not (K.consequence schema [] instance_lower))
+    "the numeral instance 7 mod -2 >= 0 was not checked by division_order alone";
+  (* a numeral divisor: the guard 3 = 0 is false and mod x 3 >= 0 is valid, a POSITIVE control accepted by the new
+     validator itself (division_order called directly, so no older fallback masks it) *)
+  let numeral_divisor = or_of [A.App (eq_decl, [numeral 3; zero_n]); A.App (ge_decl, [remainder x' (numeral 3); zero_n])] in
+  require (K.division_order (node numeral_divisor) && Z.equal (pending schema numeral_divisor) Z.zero &&
+           not (K.consequence schema [] numeral_divisor))
+    "the numeral divisor clause d = 3 was not checked by division_order alone";
+  let instance_decomposition = match find_literal (function
+      | A.App (_, [_; A.App (eq3, [_; A.App (plus_decl, [A.App (times_decl, [_; A.App (div_decl, [_; _])]); _])])])
+        -> Some (eq3, plus_decl, times_decl, div_decl)
+      | _ -> None) decomposition with
+    | eq3, plus_decl, times_decl, div_decl ->
+        let quotient = A.App (div_decl, [seven; minus_two]) in
+        or_of [A.App (eq_decl, [minus_two; zero_n]);
+               A.App (eq3, [seven; A.App (plus_decl, [A.App (times_decl, [minus_two; quotient]); remainder seven minus_two])])] in
+  require (K.division_order (node instance_decomposition) && Z.equal (pending schema instance_decomposition) Z.zero)
+    "the numeral instance 7 = -2 * (7 div -2) + 7 mod -2 was not checked";
+  let zero_divisor_controls = [
+    A.App (ge_decl, [remainder seven zero_n; zero_n]), "mod 7 0 >= 0 without a guard";
+    or_of [A.App (eq_decl, [seven; zero_n]); A.App (ge_decl, [remainder seven zero_n; zero_n])], "a guard on the dividend"] in
+  List.iter (fun (clause, name) ->
+      require (not (K.division_order (node clause)) && Z.gt (pending schema clause) Z.zero)
+        ("a zero-divisor control was checked: " ^ name))
+    zero_divisor_controls;
+  let mutants = [
+    or_of [guard; with_mod { mod_decl with A.interp = None }], "counterfeit mod";
+    or_of [guard; with_mod { mod_decl with A.interp = Some Z3IntegerDivision.op_idiv }], "mod with the div tag";
+    or_of [guard; with_mod { mod_decl with A.int_params = [Z.of_int 1] }], "twin mod";
+    or_of [guard; with_mod { mod_decl with A.decl_name = "remainder" }], "renamed mod";
+    or_of [A.App ({ eq_decl with A.interp = None }, [d; zero_numeral]); body], "counterfeit =";
+    or_of [A.App (eq_decl, [d; numeral 1]); body], "wrong guard constant";
+    or_of [guard; A.App (ge_decl, [A.App (mod_decl, [x'; d']); numeral 1])], "wrong bound constant";
+    or_of [A.App (eq_decl, [x'; zero_numeral]); body], "guard on x";
+    body, "missing guard";
+    A.App ({ disj with A.domain = [A.bool_sort; A.bool_sort; A.bool_sort] }, [guard; body; guard]), "three literals"] in
+  List.iter (fun (clause, name) ->
+      require (not (K.division_order (node clause)) && Z.gt (pending schema clause) Z.zero)
+        ("a division clause mutant was checked: " ^ name))
+    mutants;
+  let f_decl = { A.decl_name = "f"; domain = [int_sort]; range = int_sort; interp = None; int_params = [] } in
+  let rec chain n acc = if n = 0 then acc else chain (n - 1) (A.App (f_decl, [acc])) in
+  let deep n bottom other =
+    or_of [A.App (eq_decl, [chain n bottom; zero_numeral]);
+           A.App (ge_decl, [A.App (mod_decl, [chain n bottom; chain n other]); zero_numeral])] in
+  let constant name = A.App ({ A.decl_name = name; domain = []; range = int_sort; interp = None; int_params = [] }, []) in
+  let a_const = constant "a" and b_const = constant "b" in
+  let exact = deep 4093 a_const a_const in
+  require (K.division_clause exact && K.division_order (node exact) && Z.equal (pending schema exact) Z.zero)
+    "a 4,093-deep division clause was not checked";
+  let one_over = deep 4094 a_const a_const in
+  require (not (K.division_clause one_over) && not (K.division_order (node one_over)))
+    "a 4,094-deep division clause was admitted";
+  let differing = deep 4093 a_const b_const in
+  require (not (K.division_order (node differing)) && Z.gt (pending schema differing) Z.zero)
+    "a 4,093-deep division clause with different operands was checked";
+  let huge = deep 200_000 a_const a_const in
+  require (not (K.division_clause huge) && not (K.division_order (node huge)))
+    "a 200,000-deep division clause was admitted"
+
 (* Real equation rewrites (Z3SortedRealLinear.real_equivalent): the producer's premise-free closed
    `rewrite` steps that renormalize a Real equation (x = y becomes x + (-1)*y = 0, coefficients on the
    other side) or decide an equation of constants ((= 2 0) is false) are certified on the Sorted route
@@ -8068,6 +8189,7 @@ let () =
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-order-clauses", sorted_real_order_clauses;
+     "sorted-int-division-clauses", sorted_int_division_clauses;
      "sorted-real-equation-rewrites", sorted_real_equation_rewrites;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;

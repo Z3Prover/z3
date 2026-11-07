@@ -943,6 +943,127 @@ let real_order_controls () : bool =
   not (Z3SortedProof.real_order_clause (ro_deep 4094 a a)) &&
   not (Z3SortedProof.real_order_clause (ro_deep 200000 a a))
 
+(* Guarded Int div/mod clauses (Z3SortedProof.division_order) natively in the Cherry checker, on the
+   forced Sorted route (the OCaml counterpart is test_native_bridge.ml `sorted_int_division_clauses`):
+   the five producer templates over Int terms are accepted in both literal orders
+     d = 0 \/ mod x d >= 0,  d <= 0 \/ (mod x d) + (-1)*d <= -1,  d >= 0 \/ (mod x d) + d <= -1,
+     d = 0 \/ x = d*(div x d) + mod x d  (and the equation's sides swapped),
+   and a missing guard (a unit clause), a guard of the wrong sign for its bound, a wrong bound, mod
+   and div exchanged, a guard on x, a wrong operand of the decomposition, a lookalike mod (no kind
+   tag, the div tag, a twin parameter, another name), a counterfeit `=` and an unguarded alias of a
+   division with its div0 stay pending, as do valid clauses in an unsupported shape (a weaker guard,
+   a commuted product, a third literal). The clause must be shallow (4,096 levels, iterative) before
+   any comparison: with unshared equal deep operands f^n(x), f^n(d) n = 4,093 is accepted and
+   n = 4,094 refused, a mismatch at the bottom of f^4093 is refused after the comparison, and
+   200,000 levels are refused by the walk. *)
+let dv_int : A.sort = qp_int
+
+let dv_const (name:string) (params:list int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = dv_int; A.interp = None; A.int_params = params } []
+
+let dv_num (n:int) : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = dv_int; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [n; 1] } []
+
+let dv_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = dv_int; A.interp = Some op; A.int_params = [] } [a; b]
+
+let dv_plus (a b:A.expr) : A.expr = dv_binary "+" Z3ValueTheory.op_arith_add a b
+let dv_times (a b:A.expr) : A.expr = dv_binary "*" Z3ValueTheory.op_arith_mul a b
+let dv_diff (a b:A.expr) : A.expr = dv_plus a (dv_times (dv_num (-1)) b)
+
+let dv_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = op; A.int_params = [] } [a; b]
+
+let dv_le (a b:A.expr) : A.expr = dv_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
+let dv_ge (a b:A.expr) : A.expr = dv_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
+let dv_lt (a b:A.expr) : A.expr = dv_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+
+let dv_rem (a b:A.expr) : A.expr = dv_binary "mod" Z3IntegerDivision.op_mod a b
+let dv_quot (a b:A.expr) : A.expr = dv_binary "div" Z3IntegerDivision.op_idiv a b
+
+let dv_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [dv_int]; A.range = dv_int; A.interp = None; A.int_params = [] }
+
+let rec dv_chain (n:nat) (acc:A.expr) : Tot A.expr (decreases n) =
+  if n = 0 then acc else dv_chain (n - 1) (A.App dv_f [acc])
+
+(* d' = 0 \/ mod x' d'' >= 0, with f^n applied to unshared copies of x and of both d's. *)
+let dv_deep (n:nat) (x d d':A.expr) : A.expr =
+  ro_or [ro_eq (dv_chain n d) (dv_num 0); dv_ge (dv_rem (dv_chain n x) (dv_chain n d')) (dv_num 0)]
+
+(* The NEW validator (Z3SortedProof.division_order, called directly) against the whole checker. A clause the new
+   validator accepts must be accepted by the checker (Some 0); a clause it refuses must stay pending in the whole
+   checker (Some 1), i.e. no pre-existing kernel accepts it as a fallback; anything else is None. So an expected Some 0
+   is support of the new division kernel, never of an old fallback, and an expected Some 1 is refused by both. *)
+let dv_node (clause:A.expr) : U.proof_node =
+  { U.kind = U.Unverified "th-lemma"; U.conclusion = U.Holds clause; U.premises = [] }
+
+let dv_check (clause:A.expr) : option nat =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let verdict = C.check true (ro_clause_document core clause) in
+  if Z3SortedProof.division_order (dv_node clause)
+  then (if verdict = Some 0 then Some 0 else None)
+  else (if verdict = Some 1 then Some 1 else None)
+
+let int_division_controls () : bool =
+  let x = dv_const "x" [] in
+  let d = dv_const "d" [] in
+  let e = dv_const "e" [] in
+  let zero = dv_num 0 in
+  let m1 = dv_num (-1) in
+  let rem_decl_with (f:A.func_decl -> A.func_decl) (a b:A.expr) : A.expr =
+    match dv_rem a b with A.App k args -> A.App (f k) args | other -> other in
+  let check = dv_check in
+  let sum = dv_plus (dv_times d (dv_quot x d)) (dv_rem x d) in
+  let lower = ro_or [ro_eq d zero; dv_ge (dv_rem x d) zero] in
+  check lower = Some 0 &&
+  check (ro_or [dv_ge (dv_rem x d) zero; ro_eq d zero]) = Some 0 &&
+  check (ro_or [dv_le d zero; dv_le (dv_diff (dv_rem x d) d) m1]) = Some 0 &&
+  check (ro_or [dv_le (dv_plus (dv_times m1 d) (dv_rem x d)) m1; dv_le d zero]) = Some 0 &&
+  check (ro_or [dv_ge d zero; dv_le (dv_plus (dv_rem x d) d) m1]) = Some 0 &&
+  check (ro_or [ro_eq d zero; ro_eq x sum]) = Some 0 &&
+  check (ro_or [ro_eq sum x; ro_eq d zero]) = Some 0 &&
+  (* a numeral divisor: the guard 3 = 0 is false and mod x 3 >= 0 is valid, a POSITIVE control accepted by the new validator *)
+  check (ro_or [ro_eq (dv_num 3) zero; dv_ge (dv_rem x (dv_num 3)) zero]) = Some 0 &&
+  (* the numeral instance x = 7, d = -2 (7 div -2 = -3, 7 mod -2 = 1) of every template is accepted *)
+  check (ro_or [ro_eq (dv_num (-2)) zero; dv_ge (dv_rem (dv_num 7) (dv_num (-2))) zero]) = Some 0 &&
+  check (ro_or [dv_ge (dv_num (-2)) zero; dv_le (dv_plus (dv_rem (dv_num 7) (dv_num (-2))) (dv_num (-2))) m1]) = Some 0 &&
+  check (ro_or [dv_le (dv_num 2) zero; dv_le (dv_diff (dv_rem (dv_num 7) (dv_num 2)) (dv_num 2)) m1]) = Some 0 &&
+  check (ro_or [ro_eq (dv_num (-2)) zero;
+                ro_eq (dv_num 7) (dv_plus (dv_times (dv_num (-2)) (dv_quot (dv_num 7) (dv_num (-2))))
+                                    (dv_rem (dv_num 7) (dv_num (-2))))]) = Some 0 &&
+  (* the zero-divisor controls at numerals: no guard, or a guard on the dividend instead of the divisor *)
+  check (dv_ge (dv_rem (dv_num 7) zero) zero) = Some 1 &&
+  check (ro_or [ro_eq (dv_num 7) zero; dv_ge (dv_rem (dv_num 7) zero) zero]) = Some 1 &&
+  check (dv_ge (dv_rem x d) zero) = Some 1 &&
+  check (ro_or [ro_eq x zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [dv_ge d zero; dv_le (dv_diff (dv_rem x d) d) m1]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_le (dv_plus (dv_rem x d) d) m1]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_le (dv_diff (dv_rem x d) d) (dv_num (-2))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_quot x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times d (dv_quot d x)) (dv_rem x d))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times d (dv_quot x d)) (dv_times (dv_num 2) (dv_rem x d)))]) = Some 1 &&
+  check (ro_eq x sum) = Some 1 &&
+  check (ro_eq (dv_quot x d) (dv_binary "div0" Z3IntegerDivision.op_idiv x d)) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.interp = None }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.interp = Some Z3IntegerDivision.op_idiv }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.int_params = [1] }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.decl_name = "remainder" }) x d) zero]) = Some 1 &&
+  check (ro_or [A.App { A.decl_name = "="; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = None;
+                        A.int_params = [] } [d; zero]; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times (dv_quot x d) d) (dv_rem x d))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_rem x d) zero; dv_le x zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_rem x d) (dv_num 1)]) = Some 1 &&
+  check (ro_or [ro_eq e zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (dv_deep 4093 x d d) = Some 0 &&
+  check (dv_deep 4094 x d d) = Some 1 &&
+  check (dv_deep 4093 x d e) = Some 1 &&
+  Z3SortedProof.division_clause (dv_deep 4093 x d d) &&
+  not (Z3SortedProof.division_clause (dv_deep 4094 x d d)) &&
+  not (Z3SortedProof.division_clause (dv_deep 200000 x d d))
+
 (* Real equation rewrites (Z3SortedRealLinear.real_equivalent) natively on the forced Sorted route:
    the renormalized, commuted and proportional difference forms and the equations of constants are
    accepted as closed premise-free rewrite steps; a wrong sign, offset, target and constant, a
@@ -1151,6 +1272,7 @@ let run () : bool =
   real_farkas_controls () &&
   real_order_controls () &&
   real_equation_controls () &&
+  int_division_controls () &&
   direct_ite_controls () &&
   qi_product_scale () &&
   direct_product_controls () &&

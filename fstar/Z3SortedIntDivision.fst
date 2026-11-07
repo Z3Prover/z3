@@ -39,6 +39,7 @@ module I = Z3SortedInteger
 module AR = Z3SortedArithmetic
 module D = Z3Definitions
 module IDV = Z3IntegerDivision
+module R = Z3ResolutionProofTheory
 module L = FStar.List.Tot
 
 (* The canonical Int division declarations: exact name, kind tag, domain,
@@ -241,3 +242,93 @@ let lemma_remainder_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_
   assert_norm (T.evaluate_arguments_at s bc model other scope rho [a; b] [A.int_s; A.int_s] == [va; vb]);
   assert (xs == [va; vb]);
   assert (division_meaning s model.T.integers f xs (T.application s bc model other f xs))
+
+(* ---------------------------------------------------------------------- *)
+(* Atoms of the guarded clauses                                              *)
+(* ---------------------------------------------------------------------- *)
+
+(* x and d of a canonical div x d / mod x d (by declaration identity only). *)
+let quotient_arguments (e:expr) : option (expr & expr) =
+  match e with
+  | App f [x; d] -> if classify f = Quotient then Some (x, d) else None
+  | _ -> None
+
+let remainder_arguments (e:expr) : option (expr & expr) =
+  match e with
+  | App f [x; d] -> if classify f = Remainder then Some (x, d) else None
+  | _ -> None
+
+(* The guard literal d = 0: the canonical Int equality of d and the canonical
+   Int numeral 0, in this orientation. *)
+let zero_guard (d lit:expr) : bool =
+  match lit with
+  | App f [a; z] -> f = R.eq_decl A.int_s && a = d && AR.int_numeral 0 z
+  | _ -> false
+
+(* The guard literals d <= 0 (rel = Le) and d >= 0 (rel = Ge): a canonical
+   Int comparison of d against the canonical Int numeral 0. *)
+let sign_guard (rel:A.relation) (d lit:expr) : bool =
+  match A.comparison lit with
+  | Some (r, a, z) ->
+    (rel = A.Le || rel = A.Ge) && r = rel && get_sort a = A.int_s && a = d && AR.int_numeral 0 z
+  | None -> false
+
+let lemma_zero_guard (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                     (d lit:expr)
+  : Lemma (requires D.scoped scope lit /\ zero_guard d lit)
+          (ensures D.scoped scope d /\ get_sort d == A.int_s /\
+                   (T.truth_at s bc model other scope rho lit <==>
+                    AR.integer s bc model other scope rho d == 0)) =
+  match lit with
+  | App f [a; z] ->
+    V.lemma_sort_eq (get_sort a) A.int_s;
+    V.lemma_sort_eq (get_sort z) A.int_s;
+    AR.lemma_int_numeral s bc model other scope rho 0 z;
+    T.lemma_equality_at s bc model other scope rho a z;
+    AR.lemma_integer_equality s bc model other scope rho a z
+  | _ -> ()
+
+let lemma_sign_guard (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                     (rel:A.relation) (d lit:expr)
+  : Lemma (requires D.scoped scope lit /\ sign_guard rel d lit)
+          (ensures D.scoped scope d /\ get_sort d == A.int_s /\
+                   (T.truth_at s bc model other scope rho lit <==>
+                    I.compare rel (AR.integer s bc model other scope rho d) 0)) =
+  match A.comparison lit with
+  | Some (r, a, z) ->
+    AR.lemma_int_comparison s bc model other scope rho lit r a z;
+    AR.lemma_int_numeral s bc model other scope rho 0 z
+  | None -> ()
+
+(* The values of div x d and mod x d under the laws, whatever the scope. *)
+let lemma_quotient_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                             (e x d:expr)
+  : Lemma (requires division_laws s bc model other /\ D.scoped scope e /\ quotient_arguments e == Some (x, d))
+          (ensures D.scoped scope x /\ D.scoped scope d /\ get_sort x == A.int_s /\ get_sort d == A.int_s /\
+                   get_sort e == A.int_s /\
+                   (~(AR.integer s bc model other scope rho d == 0) ==>
+                    AR.integer s bc model other scope rho e ==
+                    quotient_of (AR.integer s bc model other scope rho x) (AR.integer s bc model other scope rho d))) =
+  match e with
+  | App f [a; b] -> lemma_quotient_at s bc model other scope rho f a b
+  | _ -> ()
+
+let lemma_remainder_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                              (e x d:expr)
+  : Lemma (requires division_laws s bc model other /\ D.scoped scope e /\ remainder_arguments e == Some (x, d))
+          (ensures D.scoped scope x /\ D.scoped scope d /\ get_sort x == A.int_s /\ get_sort d == A.int_s /\
+                   get_sort e == A.int_s /\
+                   (~(AR.integer s bc model other scope rho d == 0) ==>
+                    AR.integer s bc model other scope rho e ==
+                    remainder_of (AR.integer s bc model other scope rho x) (AR.integer s bc model other scope rho d))) =
+  match e with
+  | App f [a; b] -> lemma_remainder_at s bc model other scope rho f a b
+  | _ -> ()

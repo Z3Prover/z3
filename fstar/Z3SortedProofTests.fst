@@ -320,6 +320,7 @@ let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier 
   : Lemma (ensures not (T.truths schema bc eq other exhaustive_document.assertions)) =
   original_inputs_and_exhaustiveness ();
   assert_norm (not (K.needs_real_semantics schema exhaustive_document.entries));
+  assert_norm (not (K.needs_division_semantics exhaustive_document.entries));
   K.lemma_check_document schema bc eq other exhaustive_document
 
 let equality_exclusion_document : P.document = {
@@ -395,6 +396,7 @@ let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean
                    not (T.truths core_schema bc eq other core_document.assertions)) =
   assert_norm (K.check_document core_schema core_document == Some 0);
   assert_norm (not (K.needs_real_semantics core_schema core_document.entries));
+  assert_norm (not (K.needs_division_semantics core_document.entries));
   K.lemma_check_document core_schema bc eq other core_document
 
 (* Independently constructed bodies: declaration-order blocks flatten as
