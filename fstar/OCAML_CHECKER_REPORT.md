@@ -814,6 +814,25 @@ guard's own stack only. With the pinned F* (v2026.10.25, nightly
 compiles to a loop under Cherry; the expression and sort recursion
 elsewhere in the checker is unchanged.
 
+The native parameters of an `lp-context` node (one per coefficient, index
+and variable: 83,270 of them, 14,347 expressions, for the Pulse query
+`FStar.UInt128-3`) are walked by `Z3NativeProof.parameter_expressions` and
+`Z3NativeProof.marshal_parameters` before the node is checked. Both were
+non-tail recursions that used one C stack frame per parameter, so the
+Cherry checker overflowed the default 8 MiB stack on hosted Pulse queries
+(SIGSEGV at about 65,000 parameters with the hosted build's 128-byte
+frames, 87,000 with a 96-byte frame). Both accumulate and reverse once, so
+they are loops under Cherry. `lemma_parameter_expressions` proves the new
+`parameter_expressions` equal to its structural specification;
+`marshal_parameters` has the `ML` effect (`cached_expression` fails on an
+expression that was not marshaled), so it is the pure translation of one
+parameter followed by the same walk as `cached_expressions`, and the first
+unmarshaled expression still fails with the same message. The Cherry
+regression `Z3CherryTests.native_parameters` (200,000 mixed and 400,000
+expression parameters built from two real native ASTs, every kind, content
+and position checked) and the OCaml bridge test `native-LP-parameter-walks`
+decide them. No limit, admission check or stack size changed.
+
 `Z3BinderKernel` proves, from `Z3TypedQuantifier.quantifier_model`, that
 an introduction node checked with pending 0 has a true conclusion under
 every environment at which the node's assertions hold, provided every

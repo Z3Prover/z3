@@ -6,6 +6,9 @@ module R = Z3ResolutionProofTheory
 module U = Z3UnifiedProof
 module C = Z3Cherry
 module CR = Z3ConditionalRewrite
+module N = Z3Native
+module NP = Z3NativeProof
+module LP = Z3LpCertificate
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -988,6 +991,81 @@ let real_equation_controls () : bool =
     Z3NnfReplay.Unreplayed &&
   re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v1 (ro_times (ro_num (-2)) v0)) zero) =
     Z3NnfReplay.Unreplayed
+
+(* Native LP contexts, through Z3NativeProof.marshal_parameters and parameter_expressions.
+   An LP context has one native parameter per coefficient, index and variable: 83,270 for
+   the Pulse query FStar.UInt128-3 (14,347 of them expressions). A walk that used one C
+   stack frame per parameter overflowed the normal 8 MiB stack on it (the frame is 96 to
+   128 bytes, depending on the C compiler, so 65,000 to 87,000 parameters are enough).
+   Both walks are tail recursive now. The two ASTs come from the native test (real Z3 ASTs,
+   `false` and `true`); every list is built here. Their elements interleave every kind of
+   parameter with repeated expressions, negative, huge and zero denominators (marshaling
+   carries them verbatim; only the certificate decoder judges them), so the result must
+   keep each parameter's kind, content and position. *)
+let big_numerator : int = 123456789012345678901234567890
+
+(* Parameter i of the mixed list: an expression at every sixth position. *)
+let parameter_at (a0 a1:N.ast) (i:nat) : N.parameter_view =
+  if i % 6 = 0 then N.ParameterExpression (if i % 12 = 0 then a0 else a1)
+  else if i % 6 = 3 then N.ParameterUnsupported
+  else if i % 6 = 5 then N.ParameterRational big_numerator (0 - (i % 7))
+  else N.ParameterRational (i - 40) (1 + i % 4)
+
+let expected_parameter (e0 e1:A.expr) (i:nat) : LP.raw_parameter =
+  if i % 6 = 0 then LP.Expression (if i % 12 = 0 then e0 else e1)
+  else if i % 6 = 3 then LP.Unsupported
+  else if i % 6 = 5 then LP.Rational big_numerator (0 - (i % 7))
+  else LP.Rational (i - 40) (1 + i % 4)
+
+let rec mixed_parameters (a0 a1:N.ast) (count:nat) (acc:list N.parameter_view)
+  : Tot (list N.parameter_view) (decreases count) =
+  if count = 0 then acc
+  else mixed_parameters a0 a1 (count - 1) (parameter_at a0 a1 (count - 1) :: acc)
+
+(* Only expressions, alternating a0 and a1: the walk that collects them has most to do. *)
+let rec dense_parameters (a0 a1:N.ast) (count:nat) (acc:list N.parameter_view)
+  : Tot (list N.parameter_view) (decreases count) =
+  if count = 0 then acc
+  else dense_parameters a0 a1 (count - 1)
+         (N.ParameterExpression (if (count - 1) % 2 = 0 then a0 else a1) :: acc)
+
+let rec parameters_match (e0 e1:A.expr) (n i:nat) (raw:list LP.raw_parameter)
+  : Tot bool (decreases raw) =
+  match raw with
+  | [] -> i = n
+  | r :: rest ->
+    if r = expected_parameter e0 e1 i then parameters_match e0 e1 n (i + 1) rest else false
+
+(* The j-th expression parameter is a0 for even j and a1 for odd j, in both lists. *)
+let rec expressions_match (a0 a1:N.ast) (n j:nat) (xs:list N.ast) : FStar.All.ML bool =
+  match xs with
+  | [] -> j = n
+  | x :: rest ->
+    if N.ast_id x = N.ast_id (if j % 2 = 0 then a0 else a1)
+    then expressions_match a0 a1 n (j + 1) rest else false
+
+let native_parameters ([@@@FStar.Attributes.cherry_borrowed] asts:list N.ast) : FStar.All.ML bool =
+  match asts with
+  | [a0; a1] ->
+    let st = NP.marshal_expressions (NP.empty_state ()) asts in
+    let e0 = NP.cached_expression st a0 in
+    let e1 = NP.cached_expression st a1 in
+    let small = [N.ParameterRational (-3) 4; N.ParameterExpression a0; N.ParameterUnsupported;
+                 N.ParameterExpression a1; N.ParameterRational big_numerator (-2);
+                 N.ParameterRational 0 0; N.ParameterExpression a0] in
+    let small_raw = [LP.Rational (-3) 4; LP.Expression e0; LP.Unsupported; LP.Expression e1;
+                     LP.Rational big_numerator (-2); LP.Rational 0 0; LP.Expression e0] in
+    let count = 200000 in
+    let mixed = mixed_parameters a0 a1 count [] in
+    let dense = dense_parameters a0 a1 400000 [] in
+    NP.marshal_parameters st [] = [] &&
+    NP.marshal_parameters st small = small_raw &&
+    expressions_match a0 a1 3 0 (NP.parameter_expressions small) &&
+    expressions_match a0 a1 0 0 (NP.parameter_expressions []) &&
+    parameters_match e0 e1 count 0 (NP.marshal_parameters st mixed) &&
+    expressions_match a0 a1 ((count + 5) / 6) 0 (NP.parameter_expressions mixed) &&
+    expressions_match a0 a1 400000 0 (NP.parameter_expressions dense)
+  | _ -> false
 
 let run () : bool =
   let good = fixture U.Asserted in

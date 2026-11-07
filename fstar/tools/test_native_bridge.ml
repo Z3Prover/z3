@@ -530,6 +530,63 @@ let native_lp_certificates () =
   require (C.read_uint [C.Rational (Z.of_string "4294967296", Z.one)] = None)
     "overflowing LP index was accepted"
 
+(* The walks over the native parameters of an LP context (B.marshal_parameters and
+   B.parameter_expressions) keep every parameter's kind, content and position at the size
+   of a real Pulse context (83,270 parameters, 14,347 of them expressions; the Cherry
+   counterpart is Z3CherryTests.native_parameters), carry unusual numerators and
+   denominators verbatim, and fail on an expression that was not marshaled, wherever it is. *)
+let lp_parameter_walks () =
+  let c = context () in
+  let a0, a1 = match parse c "(declare-const p Bool)(declare-const q Bool)(assert p)(assert (not q))" with
+    | [a0; a1] -> a0, a1 | _ -> failwith "unexpected LP parameter fixture" in
+  let st = B.marshal_expressions (B.empty_state ()) [a0; a1] in
+  let e0 = B.cached_expression st a0 and e1 = B.cached_expression st a1 in
+  let z = Z.of_int and big = Z.of_string "123456789012345678901234567890" in
+  let parameter i =
+    if i mod 6 = 0 then N.ParameterExpression (if i mod 12 = 0 then a0 else a1)
+    else if i mod 6 = 3 then N.ParameterUnsupported
+    else if i mod 6 = 5 then N.ParameterRational (big, z (-(i mod 7)))
+    else N.ParameterRational (z (i - 40), z (1 + i mod 4)) in
+  let raw i =
+    if i mod 6 = 0 then C.Expression (if i mod 12 = 0 then e0 else e1)
+    else if i mod 6 = 3 then C.Unsupported
+    else if i mod 6 = 5 then C.Rational (big, z (-(i mod 7)))
+    else C.Rational (z (i - 40), z (1 + i mod 4)) in
+  require (B.marshal_parameters st [] = []) "empty LP parameter list changed";
+  require (B.parameter_expressions [] = []) "empty LP parameter list has expressions";
+  let small = [N.ParameterRational (z (-3), z 4); N.ParameterExpression a0; N.ParameterUnsupported;
+               N.ParameterExpression a1; N.ParameterRational (big, z (-2));
+               N.ParameterRational (z 0, z 0); N.ParameterExpression a0] in
+  require (B.marshal_parameters st small =
+           [C.Rational (z (-3), z 4); C.Expression e0; C.Unsupported; C.Expression e1;
+            C.Rational (big, z (-2)); C.Rational (z 0, z 0); C.Expression e0])
+    "small LP parameter list lost its kinds, contents or order";
+  let ids xs = List.map N.ast_id xs in
+  require (ids (B.parameter_expressions small) = ids [a0; a1; a0])
+    "small LP parameter list lost its expressions or their order";
+  let count = 200000 in
+  let mixed = List.init count parameter in
+  let marshaled = B.marshal_parameters st mixed in
+  require (List.length marshaled = count) "mixed LP parameter list changed its length";
+  List.iteri (fun i r -> require (r = raw i) "mixed LP parameter list changed a parameter") marshaled;
+  let expression_ids n = List.init n (fun j -> N.ast_id (if j mod 2 = 0 then a0 else a1)) in
+  require (ids (B.parameter_expressions mixed) = expression_ids ((count + 5) / 6))
+    "mixed LP parameter list lost its expressions or their order";
+  let dense = List.init 400000 (fun j -> N.ParameterExpression (if j mod 2 = 0 then a0 else a1)) in
+  require (ids (B.parameter_expressions dense) = expression_ids 400000)
+    "expression-only LP parameter list lost its expressions or their order";
+  let only_first = B.marshal_expressions (B.empty_state ()) [a0] in
+  let unmarshaled st ps = match B.marshal_parameters st ps with
+    | _ -> false
+    | exception N.Error message -> message = "Native expression dependency was not marshaled" in
+  require (unmarshaled (B.empty_state ()) [N.ParameterRational (z 1, z 1); N.ParameterExpression a0])
+    "an unmarshaled LP expression parameter was accepted";
+  require (unmarshaled only_first [N.ParameterExpression a0; N.ParameterExpression a1])
+    "a later unmarshaled LP expression parameter was accepted";
+  require (unmarshaled only_first (List.init 100000 (fun _ -> N.ParameterExpression a0) @
+                                   [N.ParameterExpression a1]))
+    "an unmarshaled LP expression parameter after a long prefix was accepted"
+
 let native_bound () =
   let doc = document
       "(declare-const x Real)(declare-const y Real)(declare-const p Bool)\
@@ -7983,6 +8040,7 @@ let () =
      "certified-duplicate-distinct-rewrites", distinct_reflexivity;
      "integer-tightening-candidate-mutations", integer_tightening_candidates;
      "typed-native-LP-certificate-decoding", native_lp_certificates;
+     "native-LP-parameter-walks", lp_parameter_walks;
      "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "indexed-assertion-membership", indexed_assertion_membership;

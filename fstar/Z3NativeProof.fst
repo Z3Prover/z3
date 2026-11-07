@@ -236,24 +236,71 @@ let rec marshal_expression_jobs (st:state) (jobs:list expression_job) : ML state
 let marshal_expressions (st:state) (es:list N.ast) : ML state =
   marshal_expression_jobs st (map_prepend (fun e -> VisitExpression e) es [])
 
-let rec parameter_expressions (ps:list N.parameter_view) : Tot (list N.ast) (decreases ps) =
-  match ps with
-  | [] -> []
-  | N.ParameterExpression e :: rest -> e :: parameter_expressions rest
-  | _ :: rest -> parameter_expressions rest
+(* An LP context carries one native parameter per coefficient, index and variable,
+   so its parameter list is as long as the certificate (more than 80,000 for a
+   Pulse arithmetic query). Both walks below are therefore tail recursive:
+   accumulate, then reverse once at the end, as [cached_expressions] does. Under
+   Cherry a non-tail walk uses one C stack frame per parameter, and the normal
+   8 MiB stack overflowed at about 65,000 of them.
 
-let rec marshal_parameters (st:state) (ps:list N.parameter_view) : ML (list C.raw_parameter) =
+   [parameter_expressions_spec] is the structurally recursive specification of
+   [parameter_expressions]. *)
+let rec parameter_expressions_spec (ps:list N.parameter_view)
+  : Tot (list N.ast) (decreases ps) =
   match ps with
   | [] -> []
+  | N.ParameterExpression e :: rest -> e :: parameter_expressions_spec rest
+  | _ :: rest -> parameter_expressions_spec rest
+
+let rec parameter_expressions_acc (ps:list N.parameter_view) (acc:list N.ast)
+  : Tot (list N.ast) (decreases ps) =
+  match ps with
+  | [] -> L.rev acc
+  | N.ParameterExpression e :: rest -> parameter_expressions_acc rest (e :: acc)
+  | _ :: rest -> parameter_expressions_acc rest acc
+
+let rec lemma_parameter_expressions_acc (ps:list N.parameter_view) (acc:list N.ast)
+  : Lemma (ensures parameter_expressions_acc ps acc ==
+                   L.append (L.rev acc) (parameter_expressions_spec ps))
+          (decreases ps) =
+  match ps with
+  | [] -> L.append_l_nil (L.rev acc)
+  | N.ParameterExpression e :: rest ->
+    lemma_parameter_expressions_acc rest (e :: acc);
+    Z3List.lemma_rev_cons e acc;
+    L.append_assoc (L.rev acc) [e] (parameter_expressions_spec rest)
+  | _ :: rest -> lemma_parameter_expressions_acc rest acc
+
+let parameter_expressions (ps:list N.parameter_view) : Tot (list N.ast) =
+  parameter_expressions_acc ps []
+
+let lemma_parameter_expressions (ps:list N.parameter_view)
+  : Lemma (parameter_expressions ps == parameter_expressions_spec ps)
+          [SMTPat (parameter_expressions ps)] =
+  lemma_parameter_expressions_acc ps []
+
+(* The raw parameter of one native parameter. An expression parameter must have
+   been marshaled: [cached_expression] fails otherwise. *)
+let marshal_parameter (st:state) (p:N.parameter_view) : ML C.raw_parameter =
+  match p with
+  | N.ParameterRational n d -> C.Rational n d
+  | N.ParameterExpression e -> C.Expression (cached_expression st e)
+  | N.ParameterUnsupported -> C.Unsupported
+
+(* The parameters are translated in order, so the first unmarshaled expression
+   parameter is the one that fails, as in the structural recursion
+   [marshal_parameter p :: marshal_parameters rest] this replaces. *)
+let rec marshal_parameters_rev (st:state) (ps:list N.parameter_view)
+                               (acc:list C.raw_parameter)
+  : ML (list C.raw_parameter) =
+  match ps with
+  | [] -> acc
   | p :: rest ->
-    let value =
-      match p with
-      | N.ParameterRational n d -> C.Rational n d
-      | N.ParameterExpression e -> C.Expression (cached_expression st e)
-      | N.ParameterUnsupported -> C.Unsupported
-    in
-    let values = marshal_parameters st rest in
-    value :: values
+    let value = marshal_parameter st p in
+    marshal_parameters_rev st rest (value :: acc)
+
+let marshal_parameters (st:state) (ps:list N.parameter_view) : ML (list C.raw_parameter) =
+  L.rev (marshal_parameters_rev st ps [])
 
 let coefficient ((n, den):(int & int)) : option Z3LinearArithmeticAst.coefficient =
   if den > 0 then Some (n, den) else None
