@@ -40,13 +40,20 @@ module Z3TypedRoot
    sum 0 and empty product 1: at Int exactly as Z3SortedInteger.classify
    computes them, at Real by R2 through i itself, because the Sorted layers
    classify no Real operator), Real / with a nonzero
-   divisor, to_real, <= < >= > over Int or Real, select and store at every
+   divisor, Int div and mod (the canonical SMT-LIB declarations, with a
+   nonzero divisor: Euclidean division, the quotient x / y and the
+   remainder x % y of F*, x = y * (x / y) + x % y and 0 <= x % y < |y|),
+   to_real, <= < >= > over Int or Real, select and store at every
    datatype-free array sort (any arity, nested), lambda at every
    datatype-free array sort, forall/exists over every sort. Everything else
-   is a free choice in `symbols` (uninterpreted symbols, Int div/mod/abs,
-   distinct, const-array, array-ext, BV/FF/Seq/FP operators, real division
-   by zero, ill-matched datatype selectors, and select/store/lambda at array
-   sorts mentioning a datatype).
+   is a free choice in `symbols` (uninterpreted symbols, Int abs, Int div
+   and mod by ZERO, distinct, const-array, array-ext, BV/FF/Seq/FP
+   operators, real division by zero, ill-matched datatype selectors, and
+   select/store/lambda at array sorts mentioning a datatype). Int div/mod
+   were free at every divisor until the run e78cd96c model-contract change:
+   the root class now fixes them at a nonzero divisor (and only there), so
+   every model that interprets a canonical div or mod differently at a
+   nonzero divisor, e.g. mod as the constant -1, left the class.
 
    Contract (corrected): `root_model` = R1 quantifiers, R2 operators (single
    definitional source `interpreted`), R3 lambdas, R4 constructors, R5
@@ -76,6 +83,7 @@ module L = FStar.List.Tot
 module LP = FStar.List.Tot.Properties
 module FE = FStar.FunctionalExtensionality
 module ID = FStar.IndefiniteDescription
+module IDV = Z3IntegerDivision
 
 (* ---------------------------------------------------------------------- *)
 (* Carriers                                                                 *)
@@ -304,6 +312,8 @@ type theory_op =
   | Numeral : sort -> int -> pos -> theory_op
   | Arith : sort -> A.operation -> theory_op
   | Divide
+  | IntDiv
+  | IntMod
   | ToReal
   | Compare : sort -> A.relation -> theory_op
   | Select : list sort -> sort -> theory_op
@@ -325,6 +335,9 @@ let op_typed (sigma:V.signature) (f:func_decl) (op:theory_op) : bool =
     f.range = s && same_sorts s f.domain && (s = int_s || s = real_s) &&
     not (V.datatype_sort sigma s) && (o = A.Add || o = A.Mul || o = A.Sub)
   | Divide -> f.domain = [real_s; real_s] && f.range = real_s && not (V.datatype_sort sigma real_s)
+  | IntDiv | IntMod ->
+    f.domain = [int_s; int_s] && f.range = int_s && f.int_params = [] &&
+    not (V.datatype_sort sigma int_s)
   | ToReal -> f.domain = [int_s] && f.range = real_s && not (V.datatype_sort sigma real_s) &&
               not (V.datatype_sort sigma int_s)
   | Compare s r ->
@@ -360,6 +373,17 @@ let connective (f:func_decl) : theory_op =
   | [_; s; _] -> if f = ite_decl s then Choice s else Other
   | _ -> Other
 
+(* The canonical Int div and mod (SMT-LIB div/mod, Z3IntegerDivision): the exact
+   name, the kind tag op_idiv (33) / op_mod (34), the domain [Int; Int], the
+   range Int and no parameters, as Z3NativeProof.marshal_declaration builds
+   them. A declaration that differs in any of these (a twin with another name,
+   tag, sort or parameter, a div over Real or over a sort merely named Int)
+   classifies Other, so stays a free symbol. *)
+let canonical_int_division (f:func_decl) (remainder:bool) : bool =
+  f.decl_name = (if remainder then "mod" else "div") &&
+  f.interp = Some (if remainder then IDV.op_mod else IDV.op_idiv) &&
+  f.domain = [int_s; int_s] && f.range = int_s && f.int_params = []
+
 (* Numerals, arithmetic, to_real and comparisons. Nullary policy (G2
    preparation, a deliberate change of the root class): a nullary canonical
    `+`/`*` (op_arith_add/op_arith_mul, no parameters) is NOT a numeral, so it
@@ -385,7 +409,9 @@ let numeric (sigma:V.signature) (f:func_decl) : theory_op =
      | Some A.Mul -> Arith s A.Mul
      | Some A.Sub -> Arith s A.Sub
      | Some A.Div -> if s = real_s && f.domain = [real_s; real_s] then Divide else Other
-     | _ -> Other)
+     | _ ->
+       if canonical_int_division f false then IntDiv
+       else if canonical_int_division f true then IntMod else Other)
   else if s = real_s && f.domain = [int_s] && not (V.datatype_sort sigma real_s) &&
           not (V.datatype_sort sigma int_s) then
     (match A.operation_of f (S.dummy_fields f.domain) with Some A.ToReal -> ToReal | _ -> Other)
@@ -530,6 +556,22 @@ let interpreted (u:uninterpreted) (sch:S.checked_schema)
        let b = scalar #u #sigma real_s y in
        if decide (b == 0.0R) then None   (* division by zero: a free model choice *)
        else Some (make #u #sigma real_s (a /. b))
+     | _ -> FStar.Pervasives.false_elim ())
+  | IntDiv ->
+    (match xs with
+     | [x; y] ->
+       let a = scalar #u #sigma int_s x in
+       let b = scalar #u #sigma int_s y in
+       if b = 0 then None   (* division by zero: a free model choice *)
+       else Some (make #u #sigma int_s (a / b))
+     | _ -> FStar.Pervasives.false_elim ())
+  | IntMod ->
+    (match xs with
+     | [x; y] ->
+       let a = scalar #u #sigma int_s x in
+       let b = scalar #u #sigma int_s y in
+       if b = 0 then None   (* modulus zero: a free model choice *)
+       else Some (make #u #sigma int_s (a % b))
      | _ -> FStar.Pervasives.false_elim ())
   | ToReal ->
     (match xs with
@@ -1010,9 +1052,10 @@ let lemma_difference (#a #b:Type0) (fn gn:func_space a b) (fallback:a)
 (* and the expected mathematical value (F* bool/int/FStar.Real operators,  *)
 (* typed argument lists, constructor trees) as its conclusion. Kernels     *)
 (* cite these laws; they never need to unfold `interpreted`/`standard`.    *)
-(* Operators outside this list (distinct, op_num_int numerals, Int         *)
-(* div/mod/abs, to_int/is_int, const-array, array-ext, op_oeq, n-ary =,    *)
-(* n-ary =>, BV/FF/Seq/FP/String/Regex, real x/0, unmatched selectors,     *)
+(* Operators outside this list (distinct, op_num_int numerals, Int abs,    *)
+(* Int div/mod by ZERO, to_int/is_int, const-array, array-ext, op_oeq,     *)
+(* n-ary =, n-ary =>, BV/FF/Seq/FP/String/Regex, real x/0, unmatched       *)
+(* selectors,                                                              *)
 (* select/store/lambda at array sorts mentioning a datatype) are FREE: no  *)
 (* law is claimed. Some laws (law_equality, law_ite, R1) also hold at such *)
 (* placeholder sorts, but with no SMT meaning there: the support checks   *)
@@ -1232,6 +1275,21 @@ let law_real_divide (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) 
           (ensures real_of sch (i.application f [x; y]) == real_of sch x /. real_of sch y) =
   lemma_operator i f [x; y]
 
+(* Int div and mod by a NONZERO divisor only (SMT-LIB Euclidean division, F*'s
+   own / and % on int). div and mod by zero have no law: they stay free,
+   argument-dependent model choices. *)
+let law_int_div (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == IntDiv /\ int_of sch y <> 0)
+          (ensures int_of sch (i.application f [x; y]) == int_of sch x / int_of sch y) =
+  lemma_operator i f [x; y]
+
+let law_int_mod (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch) (f:func_decl)
+                (x y:tvalue u sch int_s)
+  : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == IntMod /\ int_of sch y <> 0)
+          (ensures int_of sch (i.application f [x; y]) == int_of sch x % int_of sch y) =
+  lemma_operator i f [x; y]
+
 let law_to_real (#u:uninterpreted) (#sch:supported_schema) (i:interp u sch) (f:func_decl)
                 (x:tvalue u sch int_s)
   : Lemma (requires root_model u sch i /\ classify (S.signature sch) f == ToReal)
@@ -1401,6 +1459,15 @@ let law_select_lambda (#u:uninterpreted) (#sch:S.checked_schema) (i:interp u sch
 let lemma_standard_divide_by_zero (u:uninterpreted) (sch:supported_schema) (uf:symbols u sch) (f:func_decl)
                                   (x y:tvalue u sch real_s)
   : Lemma (requires classify (S.signature sch) f == Divide /\ real_of sch y == 0.0R)
+          (ensures (standard u sch uf).application f [x; y] == uf.apply f [x; y]) =
+  lemma_classified_theory sch f;
+  lemma_standard_application u sch uf f [x; y]
+
+(* Int div and mod by zero are uf.apply at the division symbol too. *)
+let lemma_standard_int_divide_by_zero (u:uninterpreted) (sch:S.checked_schema) (uf:symbols u sch) (f:func_decl)
+                                      (x y:tvalue u sch int_s)
+  : Lemma (requires (classify (S.signature sch) f == IntDiv \/ classify (S.signature sch) f == IntMod) /\
+                    int_of sch y == 0)
           (ensures (standard u sch uf).application f [x; y] == uf.apply f [x; y]) =
   lemma_classified_theory sch f;
   lemma_standard_application u sch uf f [x; y]
@@ -1713,6 +1780,14 @@ let lemma_classify_divide (sch:supported_schema)
   : Lemma (classify (S.signature sch) divide_decl == Divide) = ()
 let lemma_classify_to_real (sch:supported_schema)
   : Lemma (classify (S.signature sch) to_real_decl == ToReal) = ()
+
+(* The canonical Int division declarations (kind tags op_idiv 33 / op_mod 34). *)
+let idiv_decl : func_decl = binary_decl int_s "div" IDV.op_idiv int_s
+let imod_decl : func_decl = binary_decl int_s "mod" IDV.op_mod int_s
+let lemma_classify_idiv (sch:S.checked_schema)
+  : Lemma (classify (S.signature sch) idiv_decl == IntDiv) = ()
+let lemma_classify_imod (sch:S.checked_schema)
+  : Lemma (classify (S.signature sch) imod_decl == IntMod) = ()
 
 (* Native records. Z3NativeProof.operator_tag gives binary Int + and * the
    tags op_plus/op_mul (every other arity, and every Real +/*, gets
