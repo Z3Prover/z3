@@ -602,6 +602,7 @@ let lemma_negated_operand (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boole
 
 (* The value of the difference, in either operand order, is the difference
    of the values. *)
+#push-options "--z3rlimit 40"
 let lemma_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                      (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                      (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -615,9 +616,14 @@ let lemma_difference (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
   | App f [a; b] ->
     lemma_int_binary s bc model other scope rho f a b A.Add;
     (match negated_operand b with
-     | Some _ -> lemma_negated_operand s bc model other scope rho b y
-     | None -> lemma_negated_operand s bc model other scope rho a y)
+     | Some z ->
+       assert (x == a /\ y == z);
+       lemma_negated_operand s bc model other scope rho b y
+     | None ->
+       assert (x == b);
+       lemma_negated_operand s bc model other scope rho a y)
   | _ -> ()
+#pop-options
 
 (* A canonical Int comparison l REL r, read on the integer values. *)
 let lemma_int_comparison (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)

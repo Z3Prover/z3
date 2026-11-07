@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/shared_occs.h"
 #include "ast/pp.h"
@@ -792,6 +793,17 @@ class smt2_printer {
         }
         else if (m().is_pattern(t)) {
             f = mk_seq5<format**, f2f>(m(), it, end, f2f());
+        }
+        else if (is_app_of(t, bv_family_id, OP_CONCAT) && t->get_num_args() > 2) {
+            format * children[] = { mk_string(m(), "(concat "), *it++, mk_string(m(), " "),
+                                    *it++, mk_string(m(), ")") };
+            format_ref concat(mk_compose(m(), 5, children), fm());
+            for (; it != end; ++it) {
+                format * children[] = { mk_string(m(), "(concat "), concat.get(),
+                                        mk_string(m(), " "), *it, mk_string(m(), ")") };
+                concat = mk_compose(m(), 5, children);
+            }
+            f = mk_group(m(), concat.get());
         }
         else {
             unsigned len;

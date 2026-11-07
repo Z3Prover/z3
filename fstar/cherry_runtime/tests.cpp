@@ -31,6 +31,19 @@ cherry_int z(int64_t n) { return cherry_int_of_i64(n); }
 cherry_string str(std::string const& value) { return cherry_str_of_bytes(value.data(), value.size()); }
 
 Z3AstTheory_sort base(std::string const& name) {
+    bool bv = name.size() > 2 && name.starts_with("BV") &&
+        name.find_first_not_of("0123456789", 2) == std::string::npos;
+    if (name == "Bool" || name == "Int" || name == "Real" || bv) {
+        auto* cell = reinterpret_cast<Z3AstTheory_sort_SortApp_s*>(
+            cherry_alloc(sizeof(Z3AstTheory_sort_SortApp_s), Z3ASTTHEORY_SORTAPP));
+        cell->symbol = {};
+        cell->symbol.tag = bv ? Z3ASTTHEORY_BVSYMBOL : name == "Bool" ? Z3ASTTHEORY_BOOLSYMBOL :
+            name == "Int" ? Z3ASTTHEORY_INTSYMBOL : Z3ASTTHEORY_REALSYMBOL;
+        if (bv)
+            cell->symbol.val.BvSymbol = cherry_int_of_decimal(name.c_str() + 2);
+        cell->arguments = list<Prims_list__sort_Cons_s>({});
+        return &cell->hdr;
+    }
     auto* cell = reinterpret_cast<Z3AstTheory_sort_BaseSort_s*>(
         cherry_alloc(sizeof(Z3AstTheory_sort_BaseSort_s), Z3ASTTHEORY_BASESORT));
     cell->name = str(name);
@@ -469,6 +482,14 @@ bool readable_edge_cases() {
     expect("width beyond the digit limit",
            shown(constant("bv", base("BV0"), bv_tag, {decimal("1" + std::string(150, '0')), z(5)})),
            "holds((_ bv5 " + huge("+") + "))");
+    auto wide_a = base("BV1" + std::string(150, '0'));
+    auto wide_b = base("BV2" + std::string(150, '0'));
+    require("truncated sort parameters compared equal", !readable::same_sort(wide_a, wide_b));
+    checker_drop_sort(wide_a);
+    checker_drop_sort(wide_b);
+    expect("sort parameter beyond the digit limit",
+           shown(variable(0, base("BV1" + std::string(150, '0')))),
+           "holds(#0:BV" + huge("+") + ")");
     // wide extractions: widths and bounds are shown as reflected, even beyond a machine word, with the range they give
     auto bv256 = base("BV256"), bv128 = base("BV128"), bv101 = base("BV101");
     auto extract = [&](std::vector<cherry_int> const& parameters, Z3AstTheory_sort domain, Z3AstTheory_sort range,
@@ -909,6 +930,44 @@ bool readable_same_proof() {
     checker_drop_marshaled(marshaled);
     return ok;
 }
+
+bool structured_native_sorts(z3::context& context, z3::expr const& proof) {
+    bool ok = true;
+    auto expect = [&](z3::sort const& sort, std::string const& expected) {
+        auto value = context.constant("sort-probe", sort);
+        auto inputs = list<Prims_list__ast_Cons_s>({value});
+        auto marshaled = Z3Cherry_marshal(inputs, proof);
+        checker_drop_asts(inputs);
+        auto const& doc = *reinterpret_cast<Z3ProofDocument_document_Mk_document_s const*>(marshaled.document);
+        auto expression = reinterpret_cast<Prims_list__expr_Cons_s*>(doc.assertions)->hd;
+        auto actual = sort_shape(expression_sort(expression), 8);
+        checker_drop_marshaled(marshaled);
+        if (actual != expected) {
+            std::cerr << "native sort: expected " << expected << ", got " << actual << '\n';
+            ok = false;
+        }
+    };
+    auto integers = context.int_sort(), booleans = context.bool_sort(), reals = context.real_sort();
+    expect(booleans, "Bool");
+    expect(integers, "Int");
+    expect(reals, "Real");
+    expect(context.bv_sort(8), "BV8");
+    expect(z3::sort(context, Z3_mk_seq_sort(context, integers)), "Seq[Int]");
+    expect(z3::sort(context, Z3_mk_seq_sort(context, booleans)), "Seq[Bool]");
+    expect(context.string_sort(), "Seq[Char]");
+    expect(z3::sort(context, Z3_mk_re_sort(context, context.string_sort())), "RegEx[Seq[Char]]");
+    expect(z3::sort(context, Z3_mk_fpa_sort(context, 8, 24)), "Float[8,24]");
+    expect(z3::sort(context, Z3_mk_fpa_rounding_mode_sort(context)), "RoundingMode");
+    expect(context.finite_field_sort("7"), "FF7");
+    expect(z3::sort(context, Z3_mk_finite_set_sort(context, integers)), "FiniteSet[Int]");
+    expect(context.array_sort(integers, context.array_sort(booleans, reals)), "Array[Int;Array[Bool;Real]]");
+    expect(context.array_sort(context.array_sort(integers, reals), booleans), "Array[Array[Int;Real];Bool]");
+    Z3_sort domains[] = {integers, booleans};
+    expect(z3::sort(context, Z3_mk_array_sort_n(context, 2, domains, reals)), "Array[Int,Bool;Real]");
+    for (auto name : {"Int", "BV8", "SeqInt"})
+        expect(context.uninterpreted_sort(name), "U");
+    return ok;
+}
 }
 
 int main() {
@@ -928,6 +987,8 @@ int main() {
         return 1;
     auto proof = solver.proof();
     checker::NativeSession session(context);
+    if (!structured_native_sorts(context, proof))
+        return 1;
     {
         std::vector<Z3_ast> assertions(100000, falsehood);
         auto inputs = checker::list<Prims_list__ast_Cons_s>(assertions);

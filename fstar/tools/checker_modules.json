@@ -31,6 +31,6 @@
     "Z3SortedRootDocument.fst", "Z3SortedRootDocumentTests.fst", "Z3SortedRealDocumentTests.fst", "Z3NnfReplayTests.fst", "Z3NnfSkolemTests.fst", "Z3QuantIntroReplayTests.fst", "Z3QuantIntroCounterModelTests.fst", "Z3SortedProductTests.fst", "Z3SortedQuantifierRuleTests.fst", "Z3SortedRealReplayTests.fst",
     "Z3ArithRewriterPower.fst", "Z3SwinePower.fst", "Z3RealPower.fst",
     "Z3RealPowerGraphs.fst", "Z3RealPowerCertificates.fst", "Z3RealPowerTests.fst",
-    "Z3RealPowerInteger.fst"
+    "Z3RealPowerInteger.fst", "Z3ArrayGroundIndexEq.fst", "Z3SortTests.fst"
   ]
 }

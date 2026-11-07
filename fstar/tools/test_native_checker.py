@@ -739,12 +739,12 @@ class DirectCheckerTests(unittest.TestCase):
         # is a full ACCEPT: the other rewrites and the bit-vector theory lemmas stay pending, so the checks are the
         # exact number of pending steps and the absence of the re-association fingerprints.
         repair = Path(__file__).resolve().parent.parent / "benchmarks" / "repair"
-        reassociation = "eq(bvadd:U(bvadd:U("
+        reassociation = "eq(bvadd:BV32(bvadd:BV32("
         for name, pending, families in (
                 ("egt-1513.smt2", 4, 4),
                 ("egt-4119.smt2", 3, 3),
                 ("egt-1341.smt2", 4, 4),
-                ("try4_difret_functions_disjunctions_mv.hash_pjw.il.disjunctions_0.smt2", 39, 20)):
+                ("try4_difret_functions_disjunctions_mv.hash_pjw.il.disjunctions_0.smt2", 39, 25)):
             with self.subTest(name=name):
                 source = (repair / name).read_text()
                 result = self.run_checker(source, "--diagnostics")
@@ -1820,7 +1820,7 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                   "(assert (= (* (|and| t) (|and| t)) 2))(assert (= (* (|and| t) (|and| t) (|and| t)) 3))")
         result = self.run_checker(source, "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(result.stderr, r"\(and@accessor\[\d+,\d+,0\]:Real t#\d+:T#\d+\)")
+        self.assertRegex(result.stderr, r"\(and@accessor\[\d+,\d+,0\]:Real t#\d+:Datatype#\d+\)")
 
     def test_premises_come_from_the_document_node_of_the_obligation(self):
         source = ("(declare-const x Real)(assert (exists ((a Real)) (and (= (* a a) x) (> a 1))))"
@@ -1917,10 +1917,10 @@ class ReadableDiagnosticsTests(unittest.TestCase):
                     % (sort, term, term, term, term, term))
         result = self.run_checker(source("(Seq Int)"), "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:SeqInt\)")
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:\(Seq Int\)\)")
         result = self.run_checker(source("(Seq Real)"), "--readable")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:Seq#\d+\)")
+        self.assertRegex(self.conclusion(result.stderr), r"\(f#\d+:Real seq\.empty#\d+:\(Seq Real\)\)")
 
     @staticmethod
     def pigeonhole(n=20):

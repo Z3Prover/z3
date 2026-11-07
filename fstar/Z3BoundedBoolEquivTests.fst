@@ -64,8 +64,8 @@ let test_boolean_ite () : Lemma True =
   assert_norm (bounded_bool_equiv 2 1 (cond p (literal false) (literal true)) (neg p));
   assert_norm (not (bounded_bool_equiv 2 3 (cond p q r) (cond p r q)));
   assert_norm (cut 4 (app Basic.Op_ite [p; q]) = Atom (app Basic.Op_ite [p; q]));
-  assert_norm (cut 4 (cond p q (Ast.Var 0 (Ast.BaseSort "Int"))) =
-    Atom (cond p q (Ast.Var 0 (Ast.BaseSort "Int"))))
+  assert_norm (cut 4 (cond p q (Ast.Var 0 ((Ast.SortApp Ast.IntSymbol [])))) =
+    Atom (cond p q (Ast.Var 0 ((Ast.SortApp Ast.IntSymbol [])))))
 
 let deep : expr = implies (xor [p; q; r]) (conj [p; neg q])
 
@@ -105,8 +105,8 @@ let spoofed_and : expr =
 let int_eq : expr =
   Ast.App
     { (decl Basic.Op_eq 2) with
-      domain = [Ast.BaseSort "Int"; Ast.BaseSort "Int"] }
-    [Ast.Var 0 (Ast.BaseSort "Int"); Ast.Var 1 (Ast.BaseSort "Int")]
+      domain = [(Ast.SortApp Ast.IntSymbol []); (Ast.SortApp Ast.IntSymbol [])] }
+    [Ast.Var 0 ((Ast.SortApp Ast.IntSymbol [])); Ast.Var 1 ((Ast.SortApp Ast.IntSymbol []))]
 
 let quantified : expr =
   Ast.Quantifier Ast.Forall_k [Ast.bool_sort] Ast.bool_sort (iff p p)
@@ -121,11 +121,11 @@ let test_native_ast () : Lemma True =
   assert_norm (cut 6 (Ast.App (decl Basic.Op_not 1) [p; q]) =
     Atom (Ast.App (decl Basic.Op_not 1) [p; q]));
   assert_norm (cut 6 (Ast.App (decl Basic.Op_and 2)
-    [p; Ast.Var 0 (Ast.BaseSort "Int")]) =
+    [p; Ast.Var 0 ((Ast.SortApp Ast.IntSymbol []))]) =
     Atom (Ast.App (decl Basic.Op_and 2)
-      [p; Ast.Var 0 (Ast.BaseSort "Int")]));
+      [p; Ast.Var 0 ((Ast.SortApp Ast.IntSymbol []))]));
   assert_norm (not (bounded_bool_equiv 2 2
-    (Ast.Var 0 (Ast.BaseSort "Int")) (Ast.Var 1 (Ast.BaseSort "Int"))))
+    (Ast.Var 0 ((Ast.SortApp Ast.IntSymbol []))) (Ast.Var 1 ((Ast.SortApp Ast.IntSymbol [])))))
 
 let test_native_evaluation (fallback:Ast.interpretation bool) (rho:Ast.env bool)
   : Lemma
