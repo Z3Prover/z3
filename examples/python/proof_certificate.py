@@ -699,16 +699,35 @@ def is_array_sort(sort):
     sort (Prop -> E; an index is a formula, and two indices are equal as
     propositions). Either may itself be such an array sort, at any depth
     (nested arrays: a read of (Array I (Array J E)) is an array, a function
-    I -> (J -> E) in Lean). Arrays of several indices are not supported (see
-    array_sort_name); constant arrays and default values need an infinite
-    index sort (Int or Real).
+    I -> (J -> E) in Lean). The element sort may be an enumeration (_m.U
+    in Lean, whose interpretation states that every read is one of its
+    constructors, see is_enumeration_array_sort). Arrays of several indices
+    are not supported (see array_sort_name); constant arrays and default
+    values need an infinite index sort (Int or Real).
     """
     def component(candidate):
         return (_is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
-                or (candidate.kind() == z3.Z3_ARRAY_SORT and is_array_sort(candidate)))
+                or (candidate.kind() == z3.Z3_ARRAY_SORT and is_array_sort(candidate)
+                    and not is_enumeration_array_sort(candidate)))
 
     return (sort.kind() == z3.Z3_ARRAY_SORT and z3.Z3_get_array_arity(sort.ctx.ref(), sort.ast) == 1
-            and component(sort.domain()) and component(sort.range()))
+            and component(sort.domain()) and (component(sort.range()) or is_enumeration_sort(sort.range())))
+
+
+def is_enumeration_array_sort(sort):
+    """Whether sort is an array sort whose element sort is an enumeration, (Array I Color).
+
+    Lean's interpretation states, for every array constant and function into
+    such a sort, that each of its reads is one of the enumeration's
+    constructors (proof_to_lean's enumeration fields); a read of a store or
+    an ite of such arrays is one by the cases of the arrays and values below
+    it. So an enumeration is the element sort of an array only: not its index
+    sort (whose finitely many values extensionality would have to range
+    over), and such an array is not itself the index or element of another
+    array (whose rows and witnesses no field covers). Constant arrays, default
+    values, and maps over them are rejected too.
+    """
+    return sort.kind() == z3.Z3_ARRAY_SORT and is_enumeration_sort(sort.range())
 
 
 def array_leaf_sorts(sort):
@@ -782,6 +801,8 @@ def map_parameters(expr):
             arity, decl.name()))
     if any(element.kind() == z3.Z3_ARRAY_SORT for element in elements):
         raise ProofExportError("maps over arrays of arrays are not supported: %s" % expr.sexpr())
+    if any(is_enumeration_sort(element) for element in elements):
+        raise ProofExportError("maps over arrays of an enumeration are not supported: %s" % expr.sexpr())
     if expr.sort().domain().kind() == z3.Z3_ARRAY_SORT:
         # A model's arrays over array indices embed in Lean as functions
         # fixed off the embedded indices, which a pointwise function does not
@@ -804,21 +825,21 @@ def _require_default(expr):
 def array_sort_name(sort, sorts=None):
     """The certificate's name of a supported array sort, (Array I E); reject any other array sort.
 
-    With sorts (a set), the uninterpreted index and element sorts are
-    checked and recorded as uninterpreted sorts of the input. An index or
-    element sort that is an array is named the same way, (Array Int (Array
-    Int Int)).
+    With sorts (a set), the uninterpreted index and element sorts (and an
+    enumeration element sort) are checked and recorded as sorts of the
+    input. An index or element sort that is an array is named the same way,
+    (Array Int (Array Int Int)).
     """
     if not is_array_sort(sort):
         raise ProofExportError("unsupported sort: %s (only arrays over uninterpreted sorts, Int, Real, "
-                               "Bool, and such arrays)" % sort)
+                               "Bool, and such arrays, and arrays of an enumeration)" % sort)
     names = []
     for component in (sort.domain(), sort.range()):
         name = component.name()
         if component.kind() == z3.Z3_ARRAY_SORT:
             names.append(array_sort_name(component, sorts))
             continue
-        if not is_uninterpreted_sort(component):
+        if not is_carrier_sort(component):
             names.append(name)  # Int, Real, or Bool.
             continue
         if name in _RESERVED_SORTS or re.search(r"[\s()|]", name):
@@ -981,9 +1002,10 @@ def classify_fragment(assertions):
             else:
                 raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
         elif is_enumeration_sort(expr.sort()):
-            # Constants, function applications, and ite of the sort, and its
-            # constructors; arrays over enumerations are not supported.
-            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_DT_CONSTRUCTOR):
+            # Constants, function applications, and ite of the sort, its
+            # constructors, and reads of arrays of the enumeration (checked
+            # as the array is visited).
+            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_DT_CONSTRUCTOR, z3.Z3_OP_SELECT):
                 _require_uninterpreted_sort(expr.sort(), sorts)
                 enumerations[expr.sort().name()] = expr.sort()
             else:
@@ -1004,6 +1026,11 @@ def classify_fragment(assertions):
             for component in array_leaf_sorts(expr.sort()):
                 real = real or component.kind() == z3.Z3_REAL_SORT
                 integer = integer or component.kind() == z3.Z3_INT_SORT
+                if is_enumeration_sort(component):
+                    enumerations[component.name()] = component
+            if decl.kind() == z3.Z3_OP_CONST_ARRAY and is_enumeration_array_sort(expr.sort()):
+                # Its default value would need the enumeration's cases too.
+                raise ProofExportError("constant arrays of an enumeration are not supported: %s" % expr.sort())
             if decl.kind() == z3.Z3_OP_CONST_ARRAY:
                 # ((as const (Array I E)) v): the array solver relates it to
                 # the other arrays through default values (the value an

@@ -31,7 +31,8 @@ import tempfile
 import z3
 
 from proof_certificate import (
-    RECOGNIZER_KINDS, SET_OPERATORS, ProofExportError, _rounded, array_sort_name, bound_combination_refutes,
+    RECOGNIZER_KINDS, SET_OPERATORS, ProofExportError, _rounded, array_leaf_sorts, array_sort_name,
+    bound_combination_refutes,
     enumeration_constructors, integer_tightened, is_carrier_sort, is_enumeration_sort, linear_combination_refutes,
     numeral_value, parse_assertions, pseudo_boolean_parameters, query_snapshot, MAP_ARITY, map_parameters,
 )
@@ -314,6 +315,23 @@ private theorem _store_store {I E : Type} (a : I -> E) (i : I) (v w : E) :
 private theorem _store_select {I E : Type} (a : I -> E) (i : I) : _store a i (_select a i) = a := by
   funext _j
   by_cases _h : _j = i <;> simp [_store, _select, _h]
+""".strip("\n").split("\n")
+# Arrays of an enumeration, (Array I Color): every read of an array constant
+# or of a function into such arrays is one of the constructors (the fields
+# enum_acases_i and enum_afcases_j, _enumeration_fields), and a read of a
+# store or of an ite over arrays, or an ite of values, is one if what it
+# may evaluate to is (a property P of the value: _cases_store, _cases_ite).
+# _enumeration_helpers proves the cases of each read a lemma reaches with
+# them, walking the read's array down to array constants and applications.
+_ENUMERATION_ARRAY_DEFINITIONS = """
+private theorem _cases_store {I E : Type} (P : E -> Prop) (a : I -> E) (i : I) (v : E) (j : I)
+    (ha : P (_select a j)) (hv : P v) : P (_select (_store a i v) j) := by
+  rw [_store_apply]
+  split <;> assumption
+
+private theorem _cases_ite {E : Type} (P : E -> Prop) (c : Prop) (h : Decidable c) (x y : E)
+    (hx : P x) (hy : P y) : P (@ite E c h x y) := by
+  split <;> assumption
 """.strip("\n").split("\n")
 # A constant array over Int or Real indices, ((as const (Array I E)) v), is
 # the constant function _const_array. The array solver relates constant arrays
@@ -1494,13 +1512,15 @@ def _bind_input(source, graph, fragment=None, query=0):
             pending.extend((child, False) for child in reversed(expr.children()))
             continue
         decl, name, range_name = expr.decl(), "", _sort_name(expr.sort())
-        if is_carrier_sort(expr.sort()):
-            original_sorts.add(range_name)
-            if is_enumeration_sort(expr.sort()):
-                enumerations[range_name] = [str(constructor.name())
-                                            for constructor in enumeration_constructors(expr.sort())]
-        elif expr.sort().kind() == z3.Z3_ARRAY_SORT:
+        leaves = [expr.sort()]
+        if expr.sort().kind() == z3.Z3_ARRAY_SORT:
             original_sorts.update(sort for sort in _array_sort_names(range_name) if sort not in _RESERVED_SORTS)
+            leaves = array_leaf_sorts(expr.sort())  # an enumeration of the elements
+        for leaf in leaves:
+            if is_carrier_sort(leaf):
+                original_sorts.add(leaf.name())
+            if is_enumeration_sort(leaf):
+                enumerations[leaf.name()] = [str(constructor.name()) for constructor in enumeration_constructors(leaf)]
         parameters = map_parameters(expr) if decl.kind() == z3.Z3_OP_ARRAY_MAP else ()
         function = decl if decl.kind() == z3.Z3_OP_UNINTERPRETED else (
             decl.params()[0] if parameters[:1] == (_DECLARED_MAP,) else None)
@@ -1601,10 +1621,13 @@ def _enumeration_fields(graph, tables, variable_indices):
     constructors of one enumeration differ, and for every constant of an
     enumeration sort (enum_cases_i, i its index in elems) and every
     function with an enumeration result (enum_fcases_j, over every argument
-    list) that its value is one of the constructors of that sort. A model of
+    list) that its value is one of the constructors of that sort, and for
+    every array constant and function into arrays of an enumeration
+    (enum_acases_i, enum_afcases_j) that each of its reads is. A model of
     the input is still an instance (see _UF_FIELDS): the enumeration's values
-    join the disjoint union _m.U as the constructors' own values, and a
-    function is valued outside its domain by a constructor of its range. The
+    join the disjoint union _m.U as the constructors' own values, a
+    function is valued outside its domain by a constructor of its range, and
+    an array outside its index sort by a constructor of its elements. The
     statement is about the input's symbols only, so it is as strong as the
     input's datatype declarations and no stronger.
     """
@@ -1616,16 +1639,39 @@ def _enumeration_fields(graph, tables, variable_indices):
         offset += count
     if pairs:
         fields.append(("enum_distinct", _fold("And", pairs, "True")))
-    for table, field, binder, applied in (("elements", "enum_cases", "", "elems %d"),
-                                         ("functions", "enum_fcases", "forall _args : List U, ", "funs %d _args")):
+    for table, field in (("elements", "enum_cases"), ("functions", "enum_fcases"), ("arrays", "enum_acases"),
+                         ("array_functions", "enum_afcases")):
         for _, declaration in sorted(tables[table].items(), key=lambda item: variable_indices[item[1]]):
-            sort = graph.declarations[declaration].range
-            if sort in graph.enumerations:
-                index = variable_indices[declaration]
-                fields.append(("%s_%d" % (field, index), binder + _fold("Or", [
-                    "(%s = ctors %d)" % (applied % index, graph.constructor_index(constructor, sort))
-                    for constructor in graph.enumerations[sort]], "False")))
+            sort, index = graph.declarations[declaration].range, variable_indices[declaration]
+            binder, applied = "forall _args : List U, " if table.endswith("functions") else "", ""
+            if table.startswith("array"):
+                # Every read of an array constant or a function's array value
+                # (at every index, the model's arrays extended by a
+                # constructor outside their index sort, see _array_injection).
+                if not _enumeration_array(graph, sort):
+                    continue
+                family = _array_functions(sort) if binder else _array_family(sort)
+                binder += "forall _i : %s, " % _array_types(sort)[0].replace("_m.", "")
+                applied, sort = "%s %d%s _i" % (family, index, " _args" if "_args" in binder else ""), \
+                    _array_components(sort)[1]
+            elif sort in graph.enumerations:
+                applied = "funs %d _args" % index if binder else "elems %d" % index
+            else:
+                continue
+            fields.append(("%s_%d" % (field, index), binder + _enumeration_cases(graph, sort, applied, "ctors")))
     return tuple(fields)
+
+
+def _enumeration_array(graph, sort):
+    """Whether a certificate sort name is an array sort whose elements are one of the input's enumerations."""
+    components = _array_components(sort)
+    return bool(components) and components[1] in graph.enumerations
+
+
+def _enumeration_cases(graph, sort, value, constructors="_m.ctors"):
+    """The Lean proposition that value is one of the constructors of the enumeration sort."""
+    return _fold("Or", ["(%s = %s %d)" % (value, constructors, graph.constructor_index(constructor, sort))
+                        for constructor in graph.enumerations[sort]], "False")
 
 
 def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
@@ -1647,6 +1693,12 @@ def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
 
     for node in nodes:
+        if graph.kind(node) == z3.Z3_OP_SELECT:
+            proof = _read_cases(graph, node, child, variable_indices)
+            if proof is not None:
+                helpers.append("  have _ec%d : %s := %s" % (
+                    node, _enumeration_cases(graph, graph.decl(node).range, child(node)), proof))
+            continue
         if graph.kind(node) != z3.Z3_OP_UNINTERPRETED:
             continue
         index = variable_indices[graph.nodes[node].declaration]
@@ -1656,6 +1708,99 @@ def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
         else:
             helpers.append("  have _ec%d := _m.enum_cases_%d" % (node, index))
     return helpers
+
+
+def _read_cases(graph, node, child, variable_indices):
+    """A Lean proof that an enumeration-valued node is one of its sort's constructors, or None.
+
+    Constants and applications have their fields, a constructor is one,
+    an ite is one if both branches are (_cases_ite), and a read (select a j)
+    is one by the cases of the reads at j of what a may evaluate to: an
+    array constant or application (enum_acases_i, enum_afcases_j), the
+    array and the stored value of a store (_cases_store), and both branches
+    of an ite. Any other array (none that the exporter admits) gives None,
+    and the lemma is left to grind without the fact.
+
+    The walk is on an explicit stack (a goal is ("value", node) or ("read",
+    array, index)), so a store chain deeper than Python's recursion limit
+    gets its proof like any other (see test_proof_to_lean_deep.py), and a
+    goal two paths share is proved once.
+    """
+    sort = graph.decl(node).range
+    proofs = {}
+    root = ("value", node)
+    pending = [root]
+    while pending:
+        goal = pending[-1]
+        if goal in proofs:
+            pending.pop()
+            continue
+        subgoals = _read_cases_subgoals(graph, goal)
+        missing = [subgoal for subgoal in subgoals if subgoal not in proofs]
+        if missing:
+            pending.extend(reversed(missing))
+            continue
+        pending.pop()
+        parts = [proofs[subgoal] for subgoal in subgoals]
+        proofs[goal] = None if None in parts else _read_cases_proof(graph, goal, parts, sort, child,
+                                                                     variable_indices)
+    return proofs[root]
+
+
+def _read_cases_subgoals(graph, goal):
+    """The goals whose proofs the proof of goal is built from (_read_cases)."""
+    kind, arguments = graph.kind(goal[1]), graph.arguments(goal[1])
+    if goal[0] == "value":
+        if kind == z3.Z3_OP_ITE:
+            return [("value", branch) for branch in arguments[1:]]
+        if kind == z3.Z3_OP_SELECT:
+            return [("read", arguments[0], arguments[1])]
+        return []
+    if kind == z3.Z3_OP_STORE:
+        return [("read", arguments[0], goal[2]), ("value", arguments[2])]
+    if kind == z3.Z3_OP_ITE:
+        return [("read", branch, goal[2]) for branch in arguments[1:]]
+    return []
+
+
+def _read_cases_proof(graph, goal, parts, sort, child, variable_indices):
+    """The proof of goal from the proofs parts of its subgoals, or None (_read_cases)."""
+    node = goal[1]
+    kind, arguments = graph.kind(node), graph.arguments(node)
+    if goal[0] == "value":
+        if kind == z3.Z3_OP_DT_CONSTRUCTOR:
+            position = graph.enumerations[sort].index(graph.decl(node).name)
+            last = position == len(graph.enumerations[sort]) - 1
+            return "(%s%s%s)" % ("Or.inr (" * position, "rfl" if last else "Or.inl rfl", ")" * position)
+        if kind == z3.Z3_OP_UNINTERPRETED:
+            index = variable_indices[graph.nodes[node].declaration]
+            if arguments:
+                return "(_m.enum_fcases_%d %s)" % (index, _application_arguments(graph, arguments, child, child))
+            return "_m.enum_cases_%d" % index
+        if kind == z3.Z3_OP_ITE:
+            return "(_cases_ite (fun _x : _m.U => %s) %s _ %s %s %s %s)" % (
+                _enumeration_cases(graph, sort, "_x"), child(arguments[0]), child(arguments[1]),
+                child(arguments[2]), parts[0], parts[1])
+        if kind == z3.Z3_OP_SELECT:
+            return parts[0]
+        return None
+    read = goal[2]
+    if kind == z3.Z3_OP_UNINTERPRETED:
+        index = variable_indices[graph.nodes[node].declaration]
+        if arguments:
+            return "(_m.enum_afcases_%d %s %s)" % (
+                index, _application_arguments(graph, arguments, child, child), child(read))
+        return "(_m.enum_acases_%d %s)" % (index, child(read))
+    if kind == z3.Z3_OP_STORE:
+        return "(_cases_store (fun _x : _m.U => %s) %s %s %s %s %s %s)" % (
+            _enumeration_cases(graph, sort, "_x"), child(arguments[0]), child(arguments[1]), child(arguments[2]),
+            child(read), parts[0], parts[1])
+    if kind == z3.Z3_OP_ITE:
+        cases = "(fun _a : %s -> _m.U => %s)" % (_array_types(graph.decl(node).range)[0], _enumeration_cases(
+            graph, sort, "_select _a %s" % child(read)))
+        return "(_cases_ite %s %s _ %s %s %s %s)" % (cases, child(arguments[0]), child(arguments[1]),
+                                                     child(arguments[2]), parts[0], parts[1])
+    return None
 
 
 def _infix(operator, arguments):
@@ -6497,11 +6642,13 @@ def reconstruct(source, certificate):
         lines.append("-- No uninterpreted sort: the type _m.U carries only the arguments of the functions, if any.")
     for sort in sorted(graph.enumerations):
         first = graph.constructor_index(graph.enumerations[sort][0], sort)
+        arrays = any(_array_components(array)[1] == sort for array in graph.arrays)
         lines.append("-- Enumeration %s is part of _m.U with constructors %s, _m.ctors %d to %d (enum_distinct, "
-                     "enum_cases_*, enum_fcases_*)." % (
+                     "enum_cases_*, enum_fcases_*%s)." % (
                          json.dumps(sort, ensure_ascii=True),
                          ", ".join(json.dumps(name, ensure_ascii=True) for name in graph.enumerations[sort]),
-                         first, first + len(graph.enumerations[sort]) - 1))
+                         first, first + len(graph.enumerations[sort]) - 1,
+                         ", enum_acases_*, enum_afcases_* of its arrays" if arrays else ""))
     if graph.arrays:
         # An array sort's uninterpreted index and element sorts are
         # carriers, so the sentence above names them; Int and Real ones are
@@ -6527,6 +6674,8 @@ def reconstruct(source, certificate):
     lines.extend(_interpretation_structure(graph, tables, variable_indices))
     if graph.arrays:
         lines.extend(_ARRAY_DEFINITIONS + [""])
+        if any(_enumeration_array(graph, sort) for sort in graph.arrays):
+            lines.extend(_ENUMERATION_ARRAY_DEFINITIONS + [""])
     if any(decl.kind in (z3.Z3_OP_CONST_ARRAY, z3.Z3_OP_ARRAY_DEFAULT) for decl in graph.declarations):
         lines.extend(_constant_array_definitions(graph) + [""])
     if any(decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES for decl in graph.declarations):

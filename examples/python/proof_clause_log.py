@@ -30,7 +30,7 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
-    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort, is_uninterpreted_sort,
+    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
     linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
     map_parameters,
 )
@@ -345,21 +345,15 @@ class _Terms:
                 continue
             seen.add(expr.get_id())
             if is_carrier_sort(expr.sort()):
-                self.sorts.add(expr.sort().name())
-                if is_enumeration_sort(expr.sort()) and expr.sort().name() not in self.enumerations:
-                    # The log names every constructor of an enumeration, used
-                    # by the input or not (the datatype solver's case splits).
-                    self.enumerations.add(expr.sort().name())
-                    for index, constructor in enumerate(enumeration_constructors(expr.sort())):
-                        self.constants[str(constructor.name())] = constructor()
-                        self.recognizers[str(constructor.name())] = expr.sort().recognizer(index)
+                self._add_carrier(expr.sort())
             elif is_array_sort(expr.sort()):
                 self.array_sorts[str(expr.sort())] = expr.sort()
                 # The log declares an array's uninterpreted index and element
-                # sorts even when no term of them occurs (QF_AX), through
-                # nested arrays.
-                self.sorts.update(component.name() for component in array_leaf_sorts(expr.sort())
-                                  if is_uninterpreted_sort(component))
+                # sorts (and an enumeration of its elements) even when no
+                # term of them occurs (QF_AX), through nested arrays.
+                for component in array_leaf_sorts(expr.sort()):
+                    if is_carrier_sort(component):
+                        self._add_carrier(component)
             if z3.is_int(expr):
                 self.integer = True
             elif z3.is_real(expr):
@@ -373,6 +367,17 @@ class _Terms:
                 # A function the input maps, possibly never applied to elements.
                 self.functions[str(expr.decl().params()[0].name())] = expr.decl().params()[0]
             pending.extend(expr.children())
+
+    def _add_carrier(self, sort):
+        """Record an uninterpreted sort or enumeration of the input, with an enumeration's constructors."""
+        self.sorts.add(sort.name())
+        if is_enumeration_sort(sort) and sort.name() not in self.enumerations:
+            # The log names every constructor of an enumeration, used by the
+            # input or not (the datatype solver's case splits).
+            self.enumerations.add(sort.name())
+            for index, constructor in enumerate(enumeration_constructors(sort)):
+                self.constants[str(constructor.name())] = constructor()
+                self.recognizers[str(constructor.name())] = sort.recognizer(index)
 
     def _subtract(self, arguments):
         if len(arguments) == 2:

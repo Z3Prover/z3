@@ -1603,6 +1603,46 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Arrays of enumerations (2026-11-06)
+
+Every array sort with an enumeration component was rejected ("unsupported
+sort"). Arrays whose element sort is an enumeration, `(Array I Color)` over
+Int, Real, Bool, uninterpreted, or array index sorts, are now certified
+through the clause log: array constants, functions into and over them,
+store, ite, select, equality, and extensionality. The datatype solver splits
+on reads of such arrays, so Lean must know that every read is a constructor:
+the interpretation gains a field per array constant (`enum_acases_i`, over
+every index of the Lean index type) and per function into such arrays
+(`enum_afcases_j`, over every argument list and index), sound because a
+model's arrays embed with a constructor as their value outside the index
+sort. A read of a store or of an ite over arrays is a constructor by the
+cases of what it may evaluate to; each lemma reaching a read gets that fact
+as a proof term built along the read's array (`_cases_store`,
+`_cases_ite`, theorems of the prelude, down to the fields), so grind gets
+the read's disjunction ready-made. Still rejected, explicitly: arrays
+indexed by an enumeration (extensionality would have to range over its
+finitely many values, which the Lean function type over `_m.U` does not
+have), arrays of an enumeration nested in other arrays, constant arrays,
+default values, and maps over them. Random sweeps
+(`random_enum_array_instance`, seeds 1-150 over Int and over uninterpreted
+indices, 1-100 of `variables=3, constraints=16, depth=3`): 200
+unsatisfiable seeds, all verify. They are not complete: in the review's
+sweep of `index="U", constraints=14, depth=3`, 4 of 37 unsatisfiable seeds
+(200-259: 219, 223, 224, 251) fail Lean with grind errors. The cause
+predates this section and affects `(Array Int Int)` alike: `_array_helpers`
+states `_store_apply` only for a read whose array is itself a store, so a
+read through an ite over a store, `(select (ite p (store a1 k c) a0) k)`,
+which Z3's rewriter evaluates to `(ite p c (select a0 k))`, gets no value
+(BACKLOG: walk the ite branches there as `_read_cases` does; seed 219 is
+the regression input). The read cases are built on an explicit stack, so a
+read through 1,100 nested stores is reconstructed without RecursionError
+(`test_proof_to_lean_deep.py`, reconstruction only: its 1,100 enumeration
+constants are 1,100 fields, a structure that alone runs out of heartbeats;
+the same chain 200 levels deep passes Lean). Tests: `test_proof_to_lean_enum.py` (eight
+documented inputs `ENUM_ARRAY_INPUTS`, four pinned seeds, the fields, the
+rejections, the replay's constructors of element sorts, and the read cases
+failing Lean when dropped).
+
 ### Nested arrays (2026-11-05)
 
 Arrays of arrays, and arrays indexed by arrays, were rejected ("unsupported

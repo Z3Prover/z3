@@ -158,6 +158,88 @@ ENUM_INPUTS = {
 }
 
 
+# Documented inputs over arrays of an enumeration, (Array I Color): each
+# refutation needs the cases of a read (one of the constructors), of an array
+# constant, a store, an ite of arrays, or a function's array value.
+ENUM_ARRAY_INPUTS = {
+    # A read that is none of the constructors (enum_acases).
+    "read_of_a_constant": _COLOR + """(declare-const a (Array Int Color))
+(declare-const i Int)
+(assert (not (= (select a i) red)))
+(assert (not (= (select a i) green)))
+(assert (not (= (select a i) blue)))
+(check-sat)
+""",
+    # A read of a store at another index may be the stored value or the
+    # array's: both are constructors (_cases_store).
+    "read_of_a_store": _COLOR + """(declare-const a (Array Int Color))
+(declare-const i Int)
+(declare-const j Int)
+(declare-const c Color)
+(assert (not (= (select (store a i c) j) red)))
+(assert (not (= (select (store a i c) j) green)))
+(assert (not (= (select (store a i c) j) blue)))
+(check-sat)
+""",
+    # Four distinct reads of one array (a pigeonhole over reads).
+    "four_distinct_reads": _COLOR + """(declare-const a (Array Int Color))
+(assert (distinct (select a 0) (select a 1) (select a 2) (select a 3)))
+(check-sat)
+""",
+    # A read of an ite over arrays (_cases_ite), and recognizers.
+    "read_of_an_ite": _COLOR + """(declare-const a (Array Int Color))
+(declare-const b (Array Int Color))
+(declare-const p Bool)
+(declare-const i Int)
+(assert (not ((_ is red) (select (ite p a b) i))))
+(assert (not ((_ is green) (select (ite p a b) i))))
+(assert (not ((_ is blue) (select (ite p a b) i))))
+(check-sat)
+""",
+    # A function into arrays of an enumeration over uninterpreted indices
+    # (enum_afcases), its value an argument of a predicate too: x and y
+    # differ, so blue is left for the read of f y.
+    "function_into_arrays": _COLOR + """(declare-sort U 0)
+(declare-fun f (U) (Array U Color))
+(declare-fun Q ((Array U Color)) Bool)
+(declare-const x U)
+(declare-const y U)
+(declare-const k U)
+(assert (Q (f x)))
+(assert (not (Q (f y))))
+(assert (not ((_ is red) (select (f y) k))))
+(assert (not ((_ is green) (select (f y) k))))
+(assert (or (= x y) (not ((_ is blue) (select (f y) k)))))
+(check-sat)
+""",
+    # Bool indices: three distinct reads at true, false, and p.
+    "bool_indices": _COLOR + """(declare-const a (Array Bool Color))
+(declare-const p Bool)
+(assert (distinct (select a true) (select a false) (select a p)))
+(check-sat)
+""",
+    # Array indices: four distinct reads at Int arrays.
+    "array_indices": _COLOR + """(declare-const a (Array (Array Int Int) Color))
+(declare-const b (Array Int Int))
+(declare-const c (Array Int Int))
+(declare-const d (Array Int Int))
+(declare-const e (Array Int Int))
+(assert (distinct (select a b) (select a c) (select a d) (select a e)))
+(check-sat)
+""",
+    # Extensionality: two arrays equal after one store at the same index,
+    # with equal reads there, are equal.
+    "extensionality": _COLOR + """(declare-const a (Array Int Color))
+(declare-const b (Array Int Color))
+(declare-const i Int)
+(assert (= (store a i red) (store b i red)))
+(assert (not (= a b)))
+(assert (= (select a i) (select b i)))
+(check-sat)
+""",
+}
+
+
 # z3test regressions/smt2/z3.14.smt2: the second query, four distinct values
 # of a three-constructor enumeration, had no certifiable proof (see pigeonhole).
 Z3_14 = """(set-option :auto-config true)
@@ -254,6 +336,81 @@ def random_enum_instance(seed, variables=3, constraints=12, depth=2, integer=Fal
     return source if solver.check() == z3.unsat else None
 
 
+def random_enum_array_instance(seed, variables=2, constraints=10, depth=2, index="Int"):
+    """A random input over arrays of an enumeration, (Array index Color), or None if sat.
+
+    Array constants a0, a1, ..., a function f into the arrays, stores of
+    Color terms, ite over arrays and over Color terms; reads at index
+    constants (and numerals over Int), compared with each other and with the
+    constructors, recognizers, a predicate P over Color, and array
+    equalities. index is Int or U (an uninterpreted index sort).
+    """
+    rng = random.Random(seed)
+    lines = ["(set-logic ALL)", "(declare-datatypes ((Color 0)) (((red) (green) (blue))))",
+             "(declare-sort U 0)", "(declare-const p Bool)", "(declare-const q Bool)",
+             "(declare-fun P (Color) Bool)", "(declare-fun f (U) (Array %s Color))" % index,
+             "(declare-const u U)", "(declare-const v U)"]
+    lines += ["(declare-const a%d (Array %s Color))" % (i, index) for i in range(variables)]
+    lines += ["(declare-const k%d %s)" % (i, index) for i in range(variables + 1)]
+    lines += ["(declare-const c%d Color)" % i for i in range(variables)]
+
+    def position():
+        if index == "Int" and rng.random() < 0.3:
+            return str(rng.randrange(3))
+        return "k%d" % rng.randrange(variables + 1)
+
+    def array(d=depth):
+        roll = rng.random()
+        if d == 0 or roll < 0.4:
+            return "a%d" % rng.randrange(variables)
+        if roll < 0.75:
+            return "(store %s %s %s)" % (array(d - 1), position(), color(d - 1))
+        if roll < 0.85:
+            return "(f %s)" % rng.choice(["u", "v"])
+        return "(ite %s %s %s)" % (rng.choice(["p", "q"]), array(d - 1), array(d - 1))
+
+    def color(d=depth):
+        roll = rng.random()
+        if d == 0 or roll < 0.25:
+            return "c%d" % rng.randrange(variables)
+        if roll < 0.4:
+            return rng.choice(["red", "green", "blue"])
+        if roll < 0.9:
+            return "(select %s %s)" % (array(d - 1), position())
+        return "(ite %s %s %s)" % (rng.choice(["p", "q"]), color(d - 1), color(d - 1))
+
+    def atom():
+        roll = rng.random()
+        if roll < 0.4:
+            return "(= %s %s)" % (color(), color())
+        if roll < 0.55:
+            return "(distinct %s %s %s)" % (color(), color(), color())
+        if roll < 0.65:
+            return "((_ is %s) %s)" % (rng.choice(["red", "green", "blue"]), color())
+        if roll < 0.75:
+            return "(P %s)" % color()
+        if roll < 0.9:
+            return "(= %s %s)" % (array(), array())
+        return rng.choice(["p", "q"])
+
+    def formula():
+        roll = rng.random()
+        if roll < 0.5:
+            return atom()
+        if roll < 0.8:
+            return "(or %s %s)" % (atom(), atom())
+        return "(not %s)" % atom()
+
+    lines += ["(assert %s)" % formula() for _ in range(constraints)]
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("timeout", 10000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
 # Pinned unsatisfiable seeds over recognizers, ite terms, and applications:
 # (keyword arguments, seed). On iteration 67's macOS build, 24, 125, and 181
 # (and 133 with integer) failed before the datatype lemma took the logged
@@ -265,6 +422,13 @@ def random_enum_instance(seed, variables=3, constraints=12, depth=2, integer=Fal
 _SMALL = {"variables": 2, "constraints": 6}
 ENUM_SEEDS = (({}, 24), ({}, 125), ({}, 181), ({"integer": True}, 133), ({"integer": True}, 150),
               (_SMALL, 89), (_SMALL, 110))
+
+
+# Pinned unsatisfiable seeds of random_enum_array_instance whose logs carry
+# datatype hints over reads, over Int and uninterpreted indices; U seed 43
+# fails Lean without the read cases.
+ENUM_ARRAY_SEEDS = (({"index": "U"}, 3), ({"index": "U"}, 43), ({"index": "U"}, 46),
+                    ({"variables": 3, "constraints": 16, "depth": 3}, 40))
 
 
 def _pigeonhole(constructors, terms):
@@ -307,10 +471,26 @@ class TestEnumerationExport(unittest.TestCase):
             # An accessor into an enumeration: the record is not one.
             _COLOR + "(declare-datatypes ((P 0)) (((mk (fst Color)))))\n(declare-const p P)\n"
             "(assert (= (fst p) red))": "only enumeration datatypes",
-            # Arrays over an enumeration (the constant-array and default-value
-            # axioms assume an infinite index sort; none of it is encoded).
+            # Arrays indexed by an enumeration (extensionality would have to
+            # range over its finitely many values; the constant-array and
+            # default-value axioms assume an infinite index sort).
             _COLOR + "(declare-const a (Array Color Int))\n"
             "(assert (not (= (select (store a red 1) red) 1)))": "unsupported sort",
+            # Arrays of an enumeration as rows or indices of other arrays
+            # (no field covers the reads of rows and witnesses), constant
+            # arrays, maps, and default values of them.
+            _COLOR + "(declare-const a (Array Int (Array Int Color)))\n"
+            "(assert (= (select (select a 0) 1) red))": "unsupported sort",
+            _COLOR + "(declare-const a (Array (Array Int Color) Int))\n(declare-const b (Array Int Color))\n"
+            "(assert (= (select a b) 1))": "unsupported sort",
+            _COLOR + "(declare-const a (Array Int Color))\n"
+            "(assert (= a ((as const (Array Int Color)) red)))": "constant arrays of an enumeration",
+            _COLOR + "(declare-fun g (Color) Color)\n(declare-const a (Array Int Color))\n"
+            "(assert (= (select ((_ map g) a) 0) red))": "maps over arrays of an enumeration",
+            _COLOR + "(declare-const a (Array Int Color))\n(declare-const b (Array Int Color))\n"
+            "(assert (select ((_ map (= (Color Color) Bool)) a b) 0))": "maps over arrays of an enumeration",
+            _COLOR + "(declare-const a (Array Int Color))\n"
+            "(assert (= (default a) red))": "unsupported operator over an enumeration: default",
             # Pigeonholes past the bounds Lean checks: six constructors (the
             # search grows exponentially), and 17 terms over three (each
             # clause over the distinct unfolds its pairwise disequalities; see
@@ -331,6 +511,28 @@ class TestEnumerationExport(unittest.TestCase):
                 _, found = proof_certificate.parse_assertions(_pigeonhole(constructors, terms) + "\n(check-sat)\n",
                                                               z3.Context(), integer=True)
                 self.assertEqual(found, "qf_uf")
+
+    def test_arrays_of_an_enumeration_are_admitted(self):
+        for name, fragment in (("read_of_a_constant", "qf_uflia"), ("function_into_arrays", "qf_uf"),
+                               ("bool_indices", "qf_uf"), ("array_indices", "qf_uflia")):
+            with self.subTest(name=name):
+                _, found = proof_certificate.parse_assertions(ENUM_ARRAY_INPUTS[name], z3.Context(), integer=True)
+                self.assertEqual(found, fragment)
+        # The legacy core rejects arrays, of an enumeration too.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "through the clause log only"):
+            proof_certificate.export_certificate(ENUM_ARRAY_INPUTS["function_into_arrays"])
+
+    def test_clause_log_knows_the_constructors_of_array_elements(self):
+        # No term of Color occurs, only arrays of it: the replay still knows
+        # its constructors (the datatype solver's case splits name them).
+        context = z3.Context()
+        assertions = z3.parse_smt2_string(
+            _COLOR + "(declare-const a (Array Int Color))(declare-const b (Array Int Color))(assert (= a b))",
+            ctx=context)
+        terms = proof_clause_log._Terms(context, list(assertions))
+        self.assertEqual(terms.enumerations, {"Color"})
+        self.assertEqual(terms.build("blue").decl().kind(), z3.Z3_OP_DT_CONSTRUCTOR)
+        self.assertEqual(str(terms.build([["_", "is", "red"], "blue"])), "is(red, blue)")
 
     def test_the_legacy_core_rejects_enumerations_explicitly(self):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "through the clause log only"):
@@ -397,6 +599,34 @@ class TestEnumerationValidation(unittest.TestCase):
         self.assertIn('-- Enumeration "Color" is part of _m.U with constructors "red", "green", "blue", '
                       '_m.ctors 0 to 2', text)
         self.assertIn('-- Uninterpreted sort "U" is the type _m.U', text)
+
+    def test_interpretation_states_the_cases_of_array_reads(self):
+        # Every read of an array constant, at every index of the Lean index
+        # type, and of a function's array value is one of the constructors.
+        expected = {
+            "read_of_a_constant": "  enum_acases_0 : forall _i : Int, (Or (arrs_iu 0 _i = ctors 0) "
+                                  "(Or (arrs_iu 0 _i = ctors 1) (arrs_iu 0 _i = ctors 2)))\n",
+            "function_into_arrays": "  enum_afcases_0 : forall _args : List U, forall _i : U, "
+                                    "(Or (arrs_funs 0 _args _i = ctors 0) (Or (arrs_funs 0 _args _i = ctors 1) "
+                                    "(arrs_funs 0 _args _i = ctors 2)))\n",
+            "bool_indices": "  enum_acases_0 : forall _i : Prop, (Or (arrs_bu 0 _i = ctors 0) "
+                            "(Or (arrs_bu 0 _i = ctors 1) (arrs_bu 0 _i = ctors 2)))\n",
+        }
+        for name, field in expected.items():
+            with self.subTest(name=name):
+                source = ENUM_ARRAY_INPUTS[name]
+                text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+                self.assertIn(field, _structure(text) + "\n")
+                self.assertIn("private theorem _cases_store", text)
+        # A read of a store is proved from the cases below it.
+        source = ENUM_ARRAY_INPUTS["read_of_a_store"]
+        text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertRegex(text, r"have _ec\d+ : \(Or \(\(\(_select .*:= \(_cases_store .*\(_m\.enum_acases_0 ")
+        # Arrays of other element sorts get no such field or theorem.
+        source = ENUM_INPUTS["predicate_and_ite"]
+        text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
+        self.assertNotIn("enum_acases", text)
+        self.assertNotIn("_cases_store", text)
 
     def test_unused_constructors_are_part_of_the_cases(self):
         # The assertions of constructor_clash never name blue, but a value
@@ -520,6 +750,53 @@ class TestEnumerationLeanIntegration(unittest.TestCase):
         for arguments, seed, source, certificate in sources:
             with self.subTest(seed=seed, options=sorted(arguments)):
                 _check_in_lean(self, source, certificate=certificate)
+
+    def test_documented_array_inputs_verify(self):
+        certificates = {name: proof_certificate.export_clause_log_certificate(source)
+                        for name, source in ENUM_ARRAY_INPUTS.items()}
+        lean_test_support.prefetch((ENUM_ARRAY_INPUTS[name], certificate)
+                                   for name, certificate in certificates.items())
+        hints = set()
+        for name, source in ENUM_ARRAY_INPUTS.items():
+            with self.subTest(name=name):
+                hints |= _hints(_check_in_lean(self, source, certificate=certificates[name]))
+        self.assertIn("datatype", hints)
+
+    def test_pinned_random_array_instances_verify(self):
+        sources = []
+        for arguments, seed in ENUM_ARRAY_SEEDS:
+            source = random_enum_array_instance(seed, **arguments)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            sources.append((arguments, seed, source, proof_certificate.export_clause_log_certificate(source)))
+        lean_test_support.prefetch((source, certificate) for _, _, source, certificate in sources)
+        for arguments, seed, source, certificate in sources:
+            with self.subTest(seed=seed, options=sorted(arguments.items())):
+                _check_in_lean(self, source, certificate=certificate)
+
+    def test_dropped_read_cases_fail_lean(self):
+        # The datatype lemmas over reads rest on the read cases: without
+        # them Lean rejects each file (the constants keep their fields).
+        names = ("read_of_a_constant", "read_of_a_store", "read_of_an_ite", "function_into_arrays")
+        tampered = []
+        for name in names:
+            source = ENUM_ARRAY_INPUTS[name]
+            lines = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source)).split("\n")
+            kept = [line for line in lines
+                    if not (line.startswith("  have _ec") and "_select" in line.split(":=", 1)[0])]
+            self.assertLess(len(kept), len(lines), name)
+            tampered.append("\n".join(kept))
+        for name, text in zip(names, tampered):
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "tampered.lean"
+                    output.write_text(text)
+                    result = lean_test_support.run_check_lean(output)
+                report = result.stdout + result.stderr
+                self.assertNotEqual(result.returncode, 0, report)
+                errors = [line for line in report.split("\n") if "error:" in line]
+                self.assertTrue(errors, report)
+                for error in errors:
+                    self.assertIn("`grind` failed", error)
 
     def test_a_dropped_enumeration_fact_fails_lean(self):
         # The datatype lemma of none_of_the_constructors rests on the cases

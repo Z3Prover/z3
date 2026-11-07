@@ -177,12 +177,16 @@ constructors are all nullary, not parametric) count as uninterpreted sorts,
 so an input with one is in a UF fragment: constants, functions, predicates,
 and ite over the enumeration, its constructors, and its recognizers
 ((_ is c) t or SMT-LIB 2.5's (is-c t), which is (= t c)) are accepted,
-through the clause log only (the legacy core rejects them explicitly); any
-other datatype, an array over an enumeration, and a distinct with more
-arguments than its enumeration has constructors (with proofs Z3 refutes it
-by an exponential pigeonhole search) over more than five constructors or
-with more than sixteen arguments, past which Lean runs out of memory, are
-rejected.
+through the clause log only (the legacy core rejects them explicitly), and
+so are arrays whose element sort is an enumeration, (Array I Color) over the
+index sorts above: their constants, functions into and over them, store,
+ite, select, equality, and extensionality. Any other datatype, an array
+indexed by an enumeration, an array of an enumeration nested in another
+array (as its rows or indices), constant arrays, default values, and maps of
+arrays of an enumeration, and a distinct with more arguments than its
+enumeration has constructors (with proofs Z3 refutes it by an exponential
+pigeonhole search) over more than five constructors or with more than
+sixteen arguments, past which Lean runs out of memory, are rejected.
 Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
 nonlinear), and Int
@@ -1009,7 +1013,15 @@ lemmas, and the cnf fallbacks over such terms are proved by grind after the
 fields are instantiated for the constants and applications they reach. The
 reconstructor checks every constructor and recognizer of the certificate
 against the input's enumeration of that sort and tells constructors apart by
-name.
+name. An array of an enumeration, (Array I Color), has a field per array
+constant (enum_acases_i, over every index of the Lean index type) and per
+function into such arrays (enum_afcases_j, over every argument list and
+index): each of its reads is a constructor. A model is still an instance, its
+arrays extended by a constructor outside the index sort (as in the array
+embedding below). A read of a store or of an ite over arrays is a
+constructor by the cases of what it may evaluate to (the theorems
+_cases_store and _cases_ite); each lemma that reaches a read gets that proof,
+built along the read's array down to array constants and applications.
 
 An array sort (Array I E) of the clause log is the Lean function type
 _m.U -> _m.U, and the array constants are one more field of the
@@ -1317,7 +1329,8 @@ test_proof_to_lean_uflia.py the qf_uflia slice,
 test_proof_to_lean_lira.py the qf_lira slice, and
 test_proof_to_lean_uflira.py the qf_uflira slice, and
 test_proof_to_lean_array.py arrays (QF_AX, QF_ALIA, QF_AUFLIA, constant
-arrays), and test_proof_to_lean_enum.py enumeration datatypes end to end;
+arrays), and test_proof_to_lean_enum.py enumeration datatypes and arrays
+of them end to end;
 all need the z3
 executable as well and are skipped when none is found.
 test_proof_to_lean_deep.py exports and checks inputs nested deeper than
