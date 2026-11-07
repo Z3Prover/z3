@@ -22,6 +22,10 @@ Copyright (c) 2016 Microsoft Corporation
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
 #include "tactic/fd_solver/fd_solver.h"
+#include "solver/simplifier_solver.h"
+#include "ast/simplifiers/randomizer.h"
+#include "ast/simplifiers/rewriter_simplifier.h"
+#include "ast/simplifiers/then_simplifier.h"
 #include <iostream>
 #include <string>
 
@@ -238,6 +242,91 @@ static void test_cardinality_consequences_after_check() {
     VERIFY(l_false == fd_solver->check_sat(check_asms));
 }
 
+class malformed_proof_simplifier : public dependent_expr_simplifier {
+    bool m_drop;
+public:
+    malformed_proof_simplifier(ast_manager& m, dependent_expr_state& s, bool drop):
+        dependent_expr_simplifier(m, s), m_drop(drop) {}
+    char const* name() const override { return "malformed-proof-test"; }
+    bool supports_proofs() const override { return true; }
+    void reduce() override {
+        for (unsigned i : indices()) {
+            auto d = m_fmls[i];
+            m_fmls.update(i, dependent_expr(m, m.mk_not(d.fml()), m_drop ? nullptr : d.pr(), d.dep()));
+        }
+    }
+};
+
+static void test_custom_simplifier_proof_contract() {
+    for (bool proofs : { false, true }) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        params_ref p;
+        expr_ref a = mk_bool(m, "custom_simplifier_a");
+        for (bool composed : { false, true }) {
+            simplifier_factory factory = [composed](ast_manager& m, params_ref const& p, dependent_expr_state& s) {
+                dependent_expr_simplifier* randomizer = alloc(randomizer_simplifier, m, p, s);
+                if (!composed)
+                    return randomizer;
+                auto* inner = alloc(then_simplifier, m, p, s);
+                inner->add_simplifier(alloc(rewriter_simplifier, m, p, s));
+                inner->add_simplifier(randomizer);
+                auto* outer = alloc(then_simplifier, m, p, s);
+                outer->add_simplifier(inner);
+                return static_cast<dependent_expr_simplifier*>(outer);
+            };
+            bool failed = false;
+            try {
+                solver_ref base = mk_smt_solver(m, p, symbol::null);
+                solver_ref s = mk_simplifier_solver(base.get(), &factory);
+                s->assert_expr(a);
+                s->assert_expr(m.mk_not(a));
+                ENSURE(s->check_sat(0, nullptr) == l_false);
+            }
+            catch (default_exception const& ex) {
+                failed = true;
+                ENSURE(std::string(ex.what()).find("does not support proof") != std::string::npos);
+            }
+            ENSURE(failed == proofs);
+        }
+    }
+
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    params_ref p;
+    expr_ref a = mk_bool(m, "custom_supported_a");
+    simplifier_factory supported = [](ast_manager& m, params_ref const& p, dependent_expr_state& s) {
+        auto* pipeline = alloc(then_simplifier, m, p, s);
+        pipeline->add_simplifier(alloc(rewriter_simplifier, m, p, s));
+        return pipeline;
+    };
+    solver_ref base = mk_smt_solver(m, p, symbol::null);
+    solver_ref s = mk_simplifier_solver(base.get(), &supported);
+    s->assert_expr(a);
+    s->assert_expr(m.mk_not(a));
+    ENSURE(s->check_sat(0, nullptr) == l_false);
+    ENSURE(s->get_proof() && m.is_false(m.get_fact(s->get_proof())));
+
+    for (bool drop : { false, true }) {
+        simplifier_factory malformed = [drop](ast_manager& m, params_ref const&, dependent_expr_state& s) {
+            return alloc(malformed_proof_simplifier, m, s, drop);
+        };
+        solver_ref backend = mk_smt_solver(m, p, symbol::null);
+        solver_ref bad = mk_simplifier_solver(backend.get(), &malformed);
+        bad->assert_expr(a);
+        bool failed = false;
+        try {
+            bad->check_sat(0, nullptr);
+        }
+        catch (default_exception const& ex) {
+            failed = true;
+            ENSURE(std::string(ex.what()).find("proof of its assertion") != std::string::npos);
+        }
+        ENSURE(failed);
+        ENSURE(backend->get_num_assertions() == 0);
+    }
+}
+
 static void test_datatype_accessor_consequences() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -392,6 +481,7 @@ void tst_get_consequences() {
     test_bounded_int();
     test_bounded_int_translation();
     test_cardinality_consequences_after_check();
+    test_custom_simplifier_proof_contract();
     test_datatype_accessor_consequences();
     test_split_proof_converters();
 }
