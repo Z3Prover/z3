@@ -36,6 +36,19 @@ module Z3SortedRealOrderTests
       Z3SortedProof.lemma_real_order_clause and
       Z3SortedRealLinear.lemma_real_equivalent.
 
+   O6 rational scales (the audit of the proportional-equation check of the
+      Real equation rewrites): the check compares the NUMERATORS of the two
+      difference polynomials and ignores their denominators, which is complete
+      and sound because a denominator is a positive scalar (the proved
+      invariant `o6_equation_zero_rational`, from the existing
+      Z3ArithmeticRewrite.lemma_proportional_polynomial and lemma_denotes_zero,
+      for every pair of positive denominators). The tests run the exact
+      production helper on Real fractions: non-unit and mismatched
+      denominators, positive and negative rational scales, both orientations
+      of the sides, and the refusals of a changed constant, a changed sign, a
+      wrong ratio on one atom, a zero factor and strictness (a strict
+      inequality, an inequality scaled by a negative factor).
+
    Every expected refusal is the checker's own verdict on a well-sorted input,
    computed by normalization; none is a parse, effect or refinement error.
    Deep and large inputs run natively (test_native_bridge.ml, Z3CherryTests.fst). *)
@@ -874,3 +887,99 @@ let o5_instances (u:TR.uninterpreted) (i:TR.interp u PT.core_schema)
   T.lemma_same_value PT.core_schema (TR.booleans u) (SR.root_scalars u) i
     (eq c (times two d)) (eq (plus c (times (num (-2)) d)) zero);
   T.lemma_same_value PT.core_schema (TR.booleans u) (SR.root_scalars u) i (eq two zero) R.false_expr
+
+(* ---------------------------------------------------------------------- *)
+(* O6. Rational scales of the equation rewrites                             *)
+(* ---------------------------------------------------------------------- *)
+
+(* The proved invariant. For EVERY pair of polynomials with ANY positive
+   denominators (E.denotes p x: the numerator p stands for the rational value
+   x = p / denominator), two equations whose numerators are proportional by a
+   nonzero factor (Z3ArithmeticRewrite.proportional_polynomial false, which
+   reads only the numerators) have the same truth: x = 0 iff y = 0. The
+   existing rational polynomial theorem (lemma_proportional_polynomial) gives
+   p = 0 iff q = 0 on the numerators, and lemma_denotes_zero reads the value
+   through the positive denominator. Nothing here is an assumption about
+   integer numerators or equal denominators. *)
+let o6_equation_zero_rational (p q:LA.poly) (x y:real) (rho:expr -> real)
+  : Lemma (requires E.denotes p x rho /\ E.denotes q y rho /\
+                    Z3ArithmeticRewrite.proportional_polynomial false p q)
+          (ensures x == 0.0R <==> y == 0.0R) =
+  Z3ArithmeticRewrite.lemma_proportional_polynomial false p q rho;
+  Z3ArithmeticRewrite.lemma_denotes_zero p x rho;
+  Z3ArithmeticRewrite.lemma_denotes_zero q y rho
+
+(* The helper does not read the denominators at all. *)
+let o6_denominators_irrelevant (p q:LA.poly) (dp dq:pos)
+  : Lemma (Z3ArithmeticRewrite.proportional_polynomial false p q ==
+           Z3ArithmeticRewrite.proportional_polynomial false ({ p with Z3LinearArithmeticTheory.denom = dp })
+                                                              ({ q with Z3LinearArithmeticTheory.denom = dq })) = ()
+
+(* Rational equations: c/2 = 1/4 <=> 2c = 1 (the numerators 2c - 1 and 2c - 1,
+   the denominators 8 and 1 of the difference polynomials differ), -c/3 = 1/6
+   <=> 2c = -1 (a negative scale), c/2 + d/3 = 5/6 <=> 3c + 2d = 5 (two atoms,
+   mismatched denominators), 3c/4 = d/2 <=> 3c = 2d, 2c/3 = 4d/5 <=> 5c/6 = d
+   (non-unit denominators on both sides), each in both orientations. *)
+let half_c : expr = times (rat 1 2) c
+let rational_pairs : list (expr & expr) = [
+  (eq half_c (rat 1 4), eq (times two c) (num 1));
+  (eq (times (rat (-1) 3) c) (rat 1 6), eq (times two c) (num (-1)));
+  (eq (plus half_c (times (rat 1 3) d)) (rat 5 6), eq (plus (times (num 3) c) (times two d)) (num 5));
+  (eq (times (rat 3 4) c) (times (rat 1 2) d), eq (times (num 3) c) (times two d));
+  (eq (times (rat 2 3) c) (times (rat 4 5) d), eq (times (rat 5 6) c) d);
+  (eq (rat 1 4) half_c, eq (num 1) (times two c));
+  (eq (rat 5 6) (plus half_c (times (rat 1 3) d)), eq (num 5) (plus (times (num 3) c) (times two d)))
+]
+
+let o6_rational_positives ()
+  : Lemma (L.for_all (fun (lr:expr & expr) -> rewrite_checked (fst lr) (snd lr)) rational_pairs /\
+           L.for_all (fun (lr:expr & expr) -> rewrite_checked (snd lr) (fst lr)) rational_pairs) =
+  assert_norm (L.for_all (fun (lr:expr & expr) -> rewrite_checked (fst lr) (snd lr)) rational_pairs);
+  assert_norm (L.for_all (fun (lr:expr & expr) -> rewrite_checked (snd lr) (fst lr)) rational_pairs)
+
+(* The denominators of the two difference polynomials do differ, and the
+   check accepts anyway. *)
+let o6_denominators_differ ()
+  : Lemma (Some? (Z3ArithmeticRewrite.equation_of (eq half_c (rat 1 4))) /\
+           Some? (Z3ArithmeticRewrite.equation_of (eq (times two c) (num 1))) /\
+           (Some?.v (Z3ArithmeticRewrite.equation_of (eq half_c (rat 1 4)))).Z3LinearArithmeticTheory.denom <>
+           (Some?.v (Z3ArithmeticRewrite.equation_of (eq (times two c) (num 1)))).Z3LinearArithmeticTheory.denom /\
+           Z3ArithmeticRewrite.equation_equivalent (eq half_c (rat 1 4)) (eq (times two c) (num 1))) =
+  assert_norm (Some? (Z3ArithmeticRewrite.equation_of (eq half_c (rat 1 4))) /\
+               Some? (Z3ArithmeticRewrite.equation_of (eq (times two c) (num 1))));
+  assert_norm ((Some?.v (Z3ArithmeticRewrite.equation_of (eq half_c (rat 1 4)))).Z3LinearArithmeticTheory.denom <>
+               (Some?.v (Z3ArithmeticRewrite.equation_of (eq (times two c) (num 1)))).Z3LinearArithmeticTheory.denom);
+  assert_norm (Z3ArithmeticRewrite.equation_equivalent (eq half_c (rat 1 4)) (eq (times two c) (num 1)))
+
+(* FALSE rewrites (each claims an equivalence that fails at a rational
+   point), refused: a changed constant (c = 1/4 against c = 1), the pair
+   c/2 = 1/4 against 2c = 1/2 (c = 1/2 against c = 1/4: the same numerators
+   2c - 1 and 4c - 1 are NOT proportional), a changed sign, a wrong ratio on
+   one atom, a zero factor against a nonzero one, strictness, and an
+   inequality scaled by a negative factor (an orientation flip). *)
+let rational_mutants : list (expr & expr) = [
+  (eq half_c (rat 1 4), eq (times two c) (num 2));
+  (eq half_c (rat 1 4), eq (times two c) (rat 1 2));
+  (eq (times (rat (-1) 3) c) (rat 1 6), eq (times two c) (num 1));
+  (eq (plus half_c (times (rat 1 3) d)) (rat 5 6), eq (plus (times (num 3) c) (times (num 3) d)) (num 5));
+  (eq (plus half_c (times (rat 1 3) d)) (rat 5 6), eq (plus (times (num 3) c) (times two d)) (num 6));
+  (eq c d, eq (times (num 0) c) (times (num 0) d));
+  (eq half_c (rat 1 4), eq (times (num 0) c) (num 1));
+  (lt half_c (rat 1 4), le (times two c) (num 1));
+  (le half_c (rat 1 4), lt (times two c) (num 1));
+  (le (times (rat (-1) 2) c) (rat 1 4), le (times two c) (num 1))
+]
+
+let o6_rational_mutants () : Lemma (L.for_all (fun (lr:expr & expr) -> rewrite_refused (fst lr) (snd lr)) rational_mutants) =
+  assert_norm (L.for_all (fun (lr:expr & expr) -> rewrite_refused (fst lr) (snd lr)) rational_mutants)
+
+(* The VALID inequality rewrites with a rational scale keep their strictness
+   on the old comparison path (a strict stays strict) and are decided by
+   real_equivalent too. *)
+let o6_inequality_controls ()
+  : Lemma (LIN.real_equivalent (lt half_c (rat 1 4)) (lt (times two c) (num 1)) /\
+           LIN.real_equivalent (le half_c (rat 1 4)) (le (times two c) (num 1)) /\
+           LIN.real_equivalent (le (times (rat (-1) 2) c) (rat 1 4)) (ge (times two c) (num (-1)))) =
+  assert_norm (LIN.real_equivalent (lt half_c (rat 1 4)) (lt (times two c) (num 1)));
+  assert_norm (LIN.real_equivalent (le half_c (rat 1 4)) (le (times two c) (num 1)));
+  assert_norm (LIN.real_equivalent (le (times (rat (-1) 2) c) (rat 1 4)) (ge (times two c) (num (-1))))

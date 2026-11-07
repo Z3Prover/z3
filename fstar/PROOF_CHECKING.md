@@ -507,10 +507,18 @@ lifts an `ite` into a function application. The laws do not read the Real gate.
   `RW.equation_equivalent` read on Real equations only), and an equation whose monomials all cancel is the canonical
   `true` or `false` (`LIN.real_constant_equation`). `LIN.lemma_real_equation`, `lemma_real_equation_equivalent` and
   `lemma_real_constant_equation` hold at every scope and typed environment, so the quant-intro replay is covered by
-  the unchanged `NR.lemma_real_rewrite_at`. Budgets are unchanged (256 nodes per side, linearize fuel 64); the
-  proportionality test compares the integer numerators, so equations whose rational coefficients differ only by
-  denominators are pending. Int equations, negated equations, `to_int`/`is_int` and nonlinear normalization are
-  outside.
+  the unchanged `NR.lemma_real_rewrite_at`. Budgets are unchanged (256 nodes per side, linearize fuel 64). The
+  proportionality test (`RW.proportional_polynomial false`) reads only the integer NUMERATORS of the two difference
+  polynomials and not their denominators. That is complete and sound for equations, not a limitation: a difference
+  polynomial stands for its numerator divided by a positive denominator, so two equations are equivalent exactly when
+  the numerators are proportional by a nonzero rational factor, whatever the denominators are (`c/2 = 1/4` and
+  `2c = 1` have difference polynomials with denominators 8 and 1 and equal numerators and are accepted, while
+  `c/2 = 1/4` and `2c = 1/2` are different equations, c = 1/2 against c = 1/4, and stay pending). The invariant is a
+  theorem for every pair of positive denominators (`Z3SortedRealOrderTests.o6_equation_zero_rational`, from
+  `RW.lemma_proportional_polynomial` and `lemma_denotes_zero`), and the tests (section O6) run the production helper
+  on Real fractions: non-unit and mismatched denominators, positive and negative rational scales, both
+  orientations, and the refusals of a changed constant, sign, ratio, a zero factor and strictness. Int equations,
+  negated equations, `to_int`/`is_int` and nonlinear normalization are outside.
 
 Tests: [`Z3SortedRealOrderTests.fst`](Z3SortedRealOrderTests.fst) (the hosted shapes, every refusal, the two-route
 documents RootCertified and false in every root model, counter-models of the false mutants at concrete Real
