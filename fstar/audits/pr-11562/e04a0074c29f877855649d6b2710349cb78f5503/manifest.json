@@ -1,0 +1,22 @@
+{
+  "pull_request": 11562,
+  "head_sha": "e04a0074c29f877855649d6b2710349cb78f5503",
+  "base_sha": "5bab89972dc48c2d5560b1e6e0df8297bd85e2ea",
+  "path_prefix": "fstar/audits/pr-11562/e04a0074c29f877855649d6b2710349cb78f5503/",
+  "verdict": "counterexample",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42331158351",
+  "files": [
+    {
+      "name": "ForallRegistration.fst",
+      "sha256": "0b3f26f08db0d06b7ea67ab67df7939cbca61775e9f197c42aac858dfcd39279"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "890a34416cdaa5a5269dba580e8ccf44accb466009c3fb3df95fb6ebda9332be"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "4111d0e257c4b7e8758f6a93defb88abfbc576ca7e3684beb87d1faf272afd88"
+    }
+  ]
+}
