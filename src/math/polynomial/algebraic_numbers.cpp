@@ -2095,12 +2095,14 @@ namespace algebraic_numbers {
 
             COMPARE_INTERVAL();
 
-            // if cell_a and cell_b, contain the same polynomial,
-            // and the intervals are overlapping, then they are
-            // the same root.
+            // Overlapping isolating intervals for the same polynomial can
+            // contain different roots. Equal lower signs identify the same
+            // root; otherwise the roots are ordered by the lower endpoints.
             if (compare_p(cell_a, cell_b)) {
                 m_compare_poly_eq++;
-                return sign_zero;
+                if (sign_lower(cell_a) == sign_lower(cell_b))
+                    return sign_zero;
+                return bqm().lt(a_lower, b_lower) ? sign_neg : sign_pos;
             }
 
             TRACE(algebraic, tout << "comparing\n";
