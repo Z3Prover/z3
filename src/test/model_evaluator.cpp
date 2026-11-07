@@ -51,6 +51,27 @@ void tst_model_evaluator() {
 
     expr_ref e(m), v(m);
 
+    for (bool is_int : {true, false}) {
+        expr_ref x(m.mk_const("x", is_int ? a.mk_int() : a.mk_real()), m);
+        expr_ref_vector bounds(m);
+        for (unsigned i = 1; i <= 3; ++i) {
+            expr_ref numeral(a.mk_numeral(rational(i), is_int), m);
+            bounds.push_back(a.mk_le(numeral, x));
+        }
+        unsigned orders[][3] = {
+            {0, 2, 1}, {0, 1, 2}, {1, 0, 2},
+            {1, 2, 0}, {2, 0, 1}, {2, 1, 0}
+        };
+        for (auto const& order : orders) {
+            e = m.mk_and(bounds.get(order[0]), bounds.get(order[1]), bounds.get(order[2]));
+            ENSURE(eval.eval(e, v, false));
+            ENSURE(v == bounds[2]);
+        }
+        e = m.mk_and(bounds.get(2), bounds.get(0));
+        ENSURE(eval.eval(e, v, false));
+        ENSURE(v == bounds[2]);
+    }
+
     {
         symbol nI("N");
         {
