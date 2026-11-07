@@ -103,6 +103,7 @@ namespace smt {
         ptr_vector<enode>     m_to_unmark;
         ptr_vector<enode>     m_to_unmark2;
         enode_pair_vector     m_used_eqs; // conflict, if any
+        literal_vector        m_used_lits;
         parent_tbl            m_parent; // parent explanation for occurs_check
         svector<stack_entry>  m_stack; // stack for DFS for occurs_check
         literal_vector        m_lits;
@@ -116,10 +117,10 @@ namespace smt {
         bool oc_cycle_free(enode * n) const { return n->get_root()->is_marked2(); }
 
         void oc_push_stack(enode * n);
-        ptr_vector<enode> m_args, m_todo;
-        ptr_vector<enode> const& get_array_args(enode* n);
-        ptr_vector<enode> const& get_seq_args(enode* n, enode_pair_vector* used_eqs = nullptr);
-        ptr_vector<enode> const& get_finite_set_args(enode *n);
+        ptr_vector<enode> m_args;
+        bool has_nested_datatype(sort* s) const;
+        ptr_vector<enode> const& get_nested_args(enode* n, enode_pair_vector* used_eqs = nullptr,
+                                               literal_vector* used_lits = nullptr);
 
         // class for managing state of final_check
         class final_check_st {

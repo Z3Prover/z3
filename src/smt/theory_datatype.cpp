@@ -43,6 +43,7 @@ namespace smt {
         SASSERT(th->m_to_unmark.empty());
         SASSERT(th->m_to_unmark2.empty());
         th->m_used_eqs.reset();
+        th->m_used_lits.reset();
         th->m_stack.reset();
         th->m_parent.reset();
     }
@@ -362,14 +363,14 @@ namespace smt {
                 enode * arg = e->get_arg(i);
                 sort * s    = arg->get_sort();
                 sort *e_sort = nullptr;
-                if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                if (m_autil.is_array(s) && has_nested_datatype(get_array_range(s))) {
                     app_ref def(m_autil.mk_default(arg->get_expr()), m);
                     if (!ctx.e_internalized(def)) {
                         ctx.internalize(def, false);
                     }
                     arg = ctx.get_enode(def);       
                 }
-                if (m_fsutil.is_finite_set(s, e_sort) && m_util.is_datatype(e_sort)) {
+                if (m_fsutil.is_finite_set(s, e_sort) && has_nested_datatype(e_sort)) {
                     app_ref def(m_fsutil.mk_empty(s), m);
                     if (!ctx.e_internalized(def)) {
                         ctx.internalize(def, false);
@@ -845,33 +846,13 @@ namespace smt {
         // collect equalities on all children that may have been used.
         bool found = false;
         for (enode * arg : enode::args(parentc)) {
-            // found an argument which is equal to root
-            if (arg->get_root() == child->get_root()) {
-                if (arg != child) {
-                    m_used_eqs.push_back(enode_pair(arg, child));
-                }
-                found = true;
-            }
-            sort * s = arg->get_sort();
-            sort *se = nullptr;
-            auto add_args = [&](ptr_vector<enode> const &args) {
-                for (enode *aarg : args) {
-                    if (aarg->get_root() == child->get_root()) {
-                        if (aarg != child) {
-                            m_used_eqs.push_back(enode_pair(aarg, child));
-                        }
-                        found = true;
+            for (enode* aarg : get_nested_args(arg, &m_used_eqs, &m_used_lits)) {
+                if (aarg->get_root() == child->get_root()) {
+                    if (aarg != child) {
+                        m_used_eqs.push_back(enode_pair(aarg, child));
                     }
+                    found = true;
                 }
-            };
-            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                add_args(get_array_args(arg));
-            }
-            if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
-                add_args(get_finite_set_args(arg));
-            }
-            if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                add_args(get_seq_args(arg, &m_used_eqs));
             }
         }
         VERIFY(found);
@@ -936,85 +917,77 @@ namespace smt {
         };
         
         for (enode * arg : enode::args(parent)) {
-            if (oc_cycle_free(arg)) 
-                continue;
-            if (oc_on_stack(arg)) {
-                // arg was explored before app, and is still on the stack: cycle
-                occurs_check_explain(parent, arg);
-                return true;
-            }
-            // explore `arg` (with parent)
-            expr* earg = arg->get_expr();
-            sort* s = earg->get_sort(), *se = nullptr;
-            if (m_util.is_datatype(s)) {
-                m_parent.insert(arg->get_root(), parent);
-                oc_push_stack(arg);
-            }
-            else if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                for (enode* sarg : get_seq_args(arg)) {
-                    if (process_arg(sarg)) 
-                        return true;
-                }
-            }
-            else if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
-                for (enode *aarg : get_finite_set_args(arg))
-                    if (process_arg(aarg))
-                        return true;
-            }
-            else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) 
-                    if (process_arg(aarg))
-                        return true;
-            }
+            for (enode* aarg : get_nested_args(arg))
+                if (process_arg(aarg))
+                    return true;
         }
         return false;
     }
 
-    ptr_vector<enode> const &theory_datatype::get_finite_set_args(enode *n) {
-        m_args.reset();
-        m_todo.reset();
-        auto add_todo = [&](enode *n) {
-            if (!n->is_marked()) {
-                n->set_mark();
-                m_todo.push_back(n);
-            }
-        };
-        add_todo(n);
-
-        for (unsigned i = 0; i < m_todo.size(); ++i) {
-            enode *n = m_todo[i];
-            expr *e = n->get_expr();
-            if (m_fsutil.is_singleton(e))
-                m_args.push_back(n->get_arg(0));
-            else if (m_fsutil.is_union(e))
-                for (auto k : enode::args(n))
-                    add_todo(k);
+    bool theory_datatype::has_nested_datatype(sort* s) const {
+        while (!m_util.is_datatype(s)) {
+            sort* base = nullptr;
+            if (m_autil.is_array(s))
+                s = get_array_range(s);
+            else if (m_sutil.is_seq(s, base) || m_fsutil.is_finite_set(s, base))
+                s = base;
+            else
+                return false;
         }
-        for (enode *n : m_todo)
-            n->unset_mark();
-
-        return m_args;
+        return true;
     }
 
-
-    ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n, enode_pair_vector* used_eqs) {
+    ptr_vector<enode> const& theory_datatype::get_nested_args(
+        enode* n, enode_pair_vector* used_eqs, literal_vector* used_lits) {
         m_args.reset();
-        m_todo.reset();
+        ptr_vector<enode> todo;
+        obj_hashtable<enode> visited;
         auto add_todo = [&](enode* n) {
-            if (!n->get_root()->is_marked()) {
-                n->get_root()->set_mark();
-                m_todo.push_back(n);
+            if (!has_nested_datatype(n->get_sort()))
+                return;
+            if (m_util.is_datatype(n->get_sort()))
+                m_args.push_back(n);
+            else if (visited.insert_if_not_there(n->get_root())) {
+                todo.push_back(n);
             }
         };
         add_todo(n);
 
-        for (unsigned i = 0; i < m_todo.size(); ++i) {
-            enode* n = m_todo[i];
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            enode* n = todo[i];
+            if (!used_eqs && !m.inc())
+                break;
+            if (m_autil.is_array(n->get_sort())) {
+                app_ref def(m_autil.mk_default(n->get_expr()), m);
+                if (!ctx.e_internalized(def))
+                    ctx.internalize(def, false);
+                add_todo(ctx.get_enode(def));
+                for (enode* p : n->get_root()->get_parents()) {
+                    if (!m_autil.is_select(p->get_expr()) || p->get_arg(0)->get_root() != n->get_root())
+                        continue;
+                    add_todo(p);
+                    if (used_eqs && n != p->get_arg(0))
+                        used_eqs->push_back(enode_pair(n, p->get_arg(0)));
+                }
+                continue;
+            }
+            if (m_fsutil.is_finite_set(n->get_sort())) {
+                for (enode* p : n->get_root()->get_parents()) {
+                    if (!m_fsutil.is_in(p->get_expr()) || p->get_arg(1)->get_root() != n->get_root() ||
+                        ctx.get_assignment(p) != l_true)
+                        continue;
+                    add_todo(p->get_arg(0));
+                    if (used_eqs && n != p->get_arg(1))
+                        used_eqs->push_back(enode_pair(n, p->get_arg(1)));
+                    if (used_lits)
+                        used_lits->push_back(literal(ctx.get_bool_var(p)));
+                }
+            }
             for (enode* sibling : *n) {
                 expr* e = sibling->get_expr();
-                if (m_sutil.str.is_unit(e))
-                    m_args.push_back(sibling->get_arg(0));
-                else if (m_sutil.str.is_concat(e)) {
+                if (m_sutil.str.is_unit(e) || m_fsutil.is_singleton(e))
+                    add_todo(sibling->get_arg(0));
+                else if (m_sutil.str.is_concat(e) || m_fsutil.is_union(e)) {
                     for (enode* arg : enode::args(sibling))
                         add_todo(arg);
                 }
@@ -1024,19 +997,6 @@ namespace smt {
                     used_eqs->push_back(enode_pair(n, sibling));
             }
         }
-        for (enode* n : m_todo)
-            n->get_root()->unset_mark();
-
-        return m_args;
-    }
-    
-    ptr_vector<enode> const& theory_datatype::get_array_args(enode* n) {
-        m_args.reset();
-        theory_array* th = dynamic_cast<theory_array*>(ctx.get_theory(m_autil.get_family_id()));
-        for (enode* p : th->parent_selects(n)) 
-            m_args.push_back(p);            
-        app_ref def(m_autil.mk_default(n->get_expr()), m);
-        m_args.push_back(ctx.get_enode(def));
         return m_args;
     }
 
@@ -1078,7 +1038,8 @@ namespace smt {
         if (res) {
             // m_used_eqs should contain conflict
             clear_mark();
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 0, nullptr, m_used_eqs.size(), m_used_eqs.data())));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(
+                get_id(), ctx, m_used_lits.size(), m_used_lits.data(), m_used_eqs.size(), m_used_eqs.data())));
         }
         return res;
     }
