@@ -63,6 +63,7 @@ module PT = Z3SortedProofTests
 module RL = Z3SortedReal
 module RR = Z3SortedRealRoot
 module LIN = Z3SortedRealLinear
+module RO = Z3SortedRealOrder
 module LA = Z3LinearArithmeticAst
 module E = Z3LinearArithmeticEmbed
 module RPT = Z3SortedRealReplayTests
@@ -608,15 +609,15 @@ let lemma_vars (u:TR.uninterpreted) (a b c':real)
   assert_norm (D.scoped rscope vx /\ D.scoped rscope vy /\ D.scoped rscope vz)
 
 let lemma_num (u:TR.uninterpreted) (rho:V.environment (TR.carrier u) (S.signature esch) rscope) (n:int) (x:expr)
-  : Lemma (requires D.scoped rscope x /\ LIN.real_numeral n x) (ensures rv u rho x == of_int n) =
+  : Lemma (requires D.scoped rscope x /\ RO.real_numeral n x) (ensures rv u rho x == of_int n) =
   lemma_cm u;
-  LIN.lemma_real_numeral_value esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho n x
+  RO.lemma_real_numeral_value esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho n x
 
 let lemma_diff (u:TR.uninterpreted) (rho:V.environment (TR.carrier u) (S.signature esch) rscope) (x a b:expr)
-  : Lemma (requires D.scoped rscope x /\ LIN.real_difference x == Some (a, b))
+  : Lemma (requires D.scoped rscope x /\ RO.real_difference x == Some (a, b))
           (ensures rv u rho x == rv u rho a -. rv u rho b) =
   lemma_cm u;
-  LIN.lemma_real_difference esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho x a b
+  RO.lemma_real_difference esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho x a b
 
 let lemma_binary (u:TR.uninterpreted) (rho:V.environment (TR.carrier u) (S.signature esch) rscope)
                  (f:func_decl) (a b:expr) (o:LA.operation)
@@ -632,8 +633,8 @@ let lemma_atom (u:TR.uninterpreted) (rho:V.environment (TR.carrier u) (S.signatu
           (ensures tv u rho x <==> E.numeric_relation rel (rv u rho l) (rv u rho r)) =
   lemma_cm u;
   LIN.lemma_comparison esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho x l r rel;
-  LIN.lemma_numeric_at_real esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho l;
-  LIN.lemma_numeric_at_real esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho r
+  RO.lemma_numeric_at_real esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho l;
+  RO.lemma_numeric_at_real esch (TR.booleans u) (SR.root_scalars u) (cm u) (RR.root_reals u) rscope rho r
 
 (* not (x = y) \/ cc is false when x and y have the same value and cc is false. *)
 let lemma_triangle_false (u:TR.uninterpreted) (rho:V.environment (TR.carrier u) (S.signature esch) rscope)
@@ -691,7 +692,7 @@ let o4_strict (u:TR.uninterpreted)
   lemma_vars u 0.0R 0.0R 0.0R;
   assert_norm (D.scoped rscope strict_clause /\ D.scoped rscope (neg (eq vx vy)) /\ D.scoped rscope (eq vx vy) /\
                D.scoped rscope (lt (diff vx vy) zero) /\ D.scoped rscope (diff vx vy));
-  assert_norm (LIN.real_difference (diff vx vy) == Some (vx, vy) /\ LIN.real_numeral 0 zero);
+  assert_norm (RO.real_difference (diff vx vy) == Some (vx, vy) /\ RO.real_numeral 0 zero);
   assert_norm (LA.comparison (lt (diff vx vy) zero) == Some (LA.Lt, diff vx vy, zero));
   lemma_diff u rho (diff vx vy) vx vy;
   lemma_num u rho 0 zero;
@@ -713,7 +714,7 @@ let o4_coefficient (u:TR.uninterpreted)
   assert_norm (D.scoped rscope coefficient_one_clause /\ D.scoped rscope (neg (eq vx vy)) /\ D.scoped rscope (eq vx vy) /\
                D.scoped rscope (le (plus vx (times r_one vy)) zero) /\ D.scoped rscope (plus vx (times r_one vy)) /\
                D.scoped rscope (times r_one vy));
-  assert_norm (LIN.real_numeral 1 r_one /\ LIN.real_numeral 0 zero);
+  assert_norm (RO.real_numeral 1 r_one /\ RO.real_numeral 0 zero);
   assert_norm (LA.comparison (le (plus vx (times r_one vy)) zero) == Some (LA.Le, plus vx (times r_one vy), zero));
   lemma_num u rho 1 r_one;
   lemma_num u rho 0 zero;
@@ -723,7 +724,7 @@ let o4_coefficient (u:TR.uninterpreted)
   lemma_triangle_false u rho vx vy (le (plus vx (times r_one vy)) zero);
   assert_norm (D.scoped rscope coefficient_two_clause /\ D.scoped rscope (ge (plus vx (times (num (-2)) vy)) zero) /\
                D.scoped rscope (plus vx (times (num (-2)) vy)) /\ D.scoped rscope (times (num (-2)) vy));
-  assert_norm (LIN.real_numeral (-2) (num (-2)));
+  assert_norm (RO.real_numeral (-2) (num (-2)));
   assert_norm (LA.comparison (ge (plus vx (times (num (-2)) vy)) zero) ==
                Some (LA.Ge, plus vx (times (num (-2)) vy), zero));
   lemma_num u rho (-2) (num (-2));
@@ -743,7 +744,7 @@ let o4_target (u:TR.uninterpreted)
   lemma_vars u 0.0R 0.0R minus_one;
   assert_norm (D.scoped rscope target_clause /\ D.scoped rscope (neg (eq vx vy)) /\ D.scoped rscope (eq vx vy) /\
                D.scoped rscope (le (diff vx vz) zero) /\ D.scoped rscope (diff vx vz));
-  assert_norm (LIN.real_difference (diff vx vz) == Some (vx, vz) /\ LIN.real_numeral 0 zero);
+  assert_norm (RO.real_difference (diff vx vz) == Some (vx, vz) /\ RO.real_numeral 0 zero);
   assert_norm (LA.comparison (le (diff vx vz) zero) == Some (LA.Le, diff vx vz, zero));
   lemma_diff u rho (diff vx vz) vx vz;
   lemma_num u rho 0 zero;
@@ -763,8 +764,8 @@ let o4_same_orientation (u:TR.uninterpreted)
                D.scoped rscope (neg (le (diff vx vy) zero)) /\ D.scoped rscope (neg (ge (diff vy vx) zero)) /\
                D.scoped rscope (le (diff vx vy) zero) /\ D.scoped rscope (ge (diff vy vx) zero) /\
                D.scoped rscope (diff vx vy) /\ D.scoped rscope (diff vy vx));
-  assert_norm (LIN.real_difference (diff vx vy) == Some (vx, vy) /\ LIN.real_difference (diff vy vx) == Some (vy, vx) /\
-               LIN.real_numeral 0 zero);
+  assert_norm (RO.real_difference (diff vx vy) == Some (vx, vy) /\ RO.real_difference (diff vy vx) == Some (vy, vx) /\
+               RO.real_numeral 0 zero);
   assert_norm (LA.comparison (le (diff vx vy) zero) == Some (LA.Le, diff vx vy, zero) /\
                LA.comparison (ge (diff vy vx) zero) == Some (LA.Ge, diff vy vx, zero));
   lemma_diff u rho (diff vx vy) vx vy;
@@ -785,7 +786,7 @@ let o4_rewrite_sign (u:TR.uninterpreted)
   assert_norm (RL.classify (TR.plus_decl real) == RL.Calculate LA.Add);
   assert_norm (D.scoped rscope (eq (eq vx vy) (eq (plus vx vy) zero)) /\ D.scoped rscope (eq vx vy) /\
                D.scoped rscope (eq (plus vx vy) zero) /\ D.scoped rscope (plus vx vy));
-  assert_norm (LIN.real_numeral 0 zero);
+  assert_norm (RO.real_numeral 0 zero);
   assert_norm (LA.comparison (eq vx vy) == Some (LA.Eq, vx, vy) /\
                LA.comparison (eq (plus vx vy) zero) == Some (LA.Eq, plus vx vy, zero));
   lemma_num u rho 0 zero;
@@ -800,7 +801,7 @@ let o4_rewrite_offset (u:TR.uninterpreted)
   lemma_vars u 0.0R 0.0R 0.0R;
   assert_norm (D.scoped rscope (eq (eq vx vy) (eq (diff vx vy) r_one)) /\ D.scoped rscope (eq vx vy) /\
                D.scoped rscope (eq (diff vx vy) r_one) /\ D.scoped rscope (diff vx vy));
-  assert_norm (LIN.real_difference (diff vx vy) == Some (vx, vy) /\ LIN.real_numeral 1 r_one);
+  assert_norm (RO.real_difference (diff vx vy) == Some (vx, vy) /\ RO.real_numeral 1 r_one);
   assert_norm (LA.comparison (eq vx vy) == Some (LA.Eq, vx, vy) /\
                LA.comparison (eq (diff vx vy) r_one) == Some (LA.Eq, diff vx vy, r_one));
   lemma_diff u rho (diff vx vy) vx vy;
@@ -814,7 +815,7 @@ let o4_rewrite_constant (u:TR.uninterpreted)
   let rho = env3 u 0.0R 0.0R 0.0R in
   assert_norm (D.scoped rscope (eq (eq two zero) R.true_expr) /\ D.scoped rscope (eq two zero) /\
                D.scoped rscope R.true_expr);
-  assert_norm (LIN.real_numeral 2 two /\ LIN.real_numeral 0 zero);
+  assert_norm (RO.real_numeral 2 two /\ RO.real_numeral 0 zero);
   assert_norm (LA.comparison (eq two zero) == Some (LA.Eq, two, zero));
   assert_norm (NR.constant_of R.true_expr true);
   lemma_num u rho 2 two;

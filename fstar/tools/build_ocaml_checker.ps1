@@ -170,7 +170,7 @@ try {
     "Z3LambdaRewrite.ml", "Z3ArrayEquality.ml", "Z3BvLemma.ml", "Z3StandardModel.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvExtract.ml", "Z3BvExhaustive.ml", "Z3BvAddNormalize.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
-    "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml",
+    "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml", "Z3SortedRealOrder.ml",
     "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3SortedProof.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )

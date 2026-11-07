@@ -25,6 +25,7 @@ module DS = Z3SortedDependentSkolem
 module LA = Z3LinearArithmeticAst
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
+module RO = Z3SortedRealOrder
 module RX = Z3SortedRealExtension
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
@@ -1065,7 +1066,7 @@ let real_equation_order (ne c:expr) : bool =
   match negated ne with
   | Some e ->
     (match LIN.real_equation e with
-     | Some (x, y) -> LIN.real_implied_by_equation x y c
+     | Some (x, y) -> RO.real_implied_by_equation x y c
      | None -> false)
   | None -> false
 
@@ -1073,7 +1074,7 @@ let real_equation_order (ne c:expr) : bool =
 let real_antisymmetric (e n1 n2:expr) : bool =
   match LIN.real_equation e, negated n1, negated n2 with
   | Some (x, y), Some c1, Some c2 ->
-    (match LIN.real_bound x y c1, LIN.real_bound x y c2 with
+    (match RO.real_bound x y c1, RO.real_bound x y c2 with
      | Some u1, Some u2 -> u1 <> u2
      | _, _ -> false)
   | _, _, _ -> false
@@ -1098,8 +1099,8 @@ let lemma_real_equation_sides (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
                     RL.real_at s bc eq other reals [] (T.empty_environment (S.signature s)) y)) =
   let rho = T.empty_environment (S.signature s) in
   LIN.lemma_comparison s bc eq other reals [] rho e x y LA.Eq;
-  LIN.lemma_numeric_at_real s bc eq other reals [] rho x;
-  LIN.lemma_numeric_at_real s bc eq other reals [] rho y
+  RO.lemma_numeric_at_real s bc eq other reals [] rho x;
+  RO.lemma_numeric_at_real s bc eq other reals [] rho y
 
 let lemma_real_equation_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -1118,7 +1119,7 @@ let lemma_real_equation_order (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
   lemma_real_equation_sides s bc eq other reals e x y;
   if T.truth s bc eq other ne then lemma_clause_member s bc eq other conclusion ne
   else (
-    LIN.lemma_real_implied_by_equation s bc eq other reals [] (T.empty_environment (S.signature s)) x y c;
+    RO.lemma_real_implied_by_equation s bc eq other reals [] (T.empty_environment (S.signature s)) x y c;
     lemma_clause_member s bc eq other conclusion c)
 
 let lemma_real_antisymmetric (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -1143,8 +1144,8 @@ let lemma_real_antisymmetric (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   else if T.truth s bc eq other n2 then lemma_clause_member s bc eq other conclusion n2
   else (
     let rho = T.empty_environment (S.signature s) in
-    LIN.lemma_real_bound s bc eq other reals [] rho x y c1 (Some?.v (LIN.real_bound x y c1));
-    LIN.lemma_real_bound s bc eq other reals [] rho x y c2 (Some?.v (LIN.real_bound x y c2));
+    RO.lemma_real_bound s bc eq other reals [] rho x y c1 (Some?.v (RO.real_bound x y c1));
+    RO.lemma_real_bound s bc eq other reals [] rho x y c2 (Some?.v (RO.real_bound x y c2));
     lemma_clause_member s bc eq other conclusion e)
 
 let lemma_real_order_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)

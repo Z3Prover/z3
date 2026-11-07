@@ -2763,7 +2763,10 @@ let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
       lemma_avoid sigma i j 0 s0 rho_v rho' t;
       lemma_or_of s bc eq other s0 rho' rem;
       let at2 (p:nat{p < L.length s0}) : Lemma (subst_rel_at sigma j 0 s0 s0 rho_v tv rho' rho_v p) =
-        at p in
+        at p;
+        assert (p <> 0 + j ==> (rho' p <: V.tree base) == (rho_v p <: V.tree base));
+        assert (p == 0 + j ==> (rho' p <: V.tree base) == (tv <: V.tree base));
+        assert (p - 0 < L.length s0 /\ (rho_v p <: V.tree base) == (rho_v (p - 0) <: V.tree base)) in
       FStar.Classical.forall_intro at2;
       lemma_subst_eval sigma i j t 0 s0 s0 rho_v rho' rho_v (or_of rem) body';
       T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho' (or_of rem));
