@@ -788,7 +788,7 @@ namespace smt {
             return nullptr;
         SASSERT(m.has_fact(pr));
         expr* f1 = nullptr, *f2 = nullptr;
-        app * fact     = to_app(m.get_fact(pr));
+        expr * fact    = m.get_fact(pr);
         expr * n1_owner = n1->get_expr();
         expr * n2_owner = n2->get_expr();
         bool is_eq = m.is_eq(fact, f1, f2);
@@ -806,7 +806,7 @@ namespace smt {
         if (!is_eq || (f1 != n2_owner && f2 != n2_owner)) {
             CTRACE(norm_eq_proof_bug, !m_ctx.is_true(n2) && !m_ctx.is_false(n2),
                    tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() << "\n";
-                   if (fact->get_num_args() == 2) {
+                   if (is_eq) {
                        tout << "fact(0): #" << f1->get_id() << ", fact(1): #" << f2->get_id() << "\n";
                    }
                    tout << mk_bounded_pp(n1_owner, m, 10) << "\n";
@@ -814,7 +814,7 @@ namespace smt {
                    tout << mk_bounded_pp(fact, m, 10) << "\n";
                    tout << mk_ll_pp(pr, m, true, false););
             SASSERT(m_ctx.is_true(n2) || m_ctx.is_false(n2));
-            SASSERT(fact == n1_owner || (m.is_not(fact) && fact->get_arg(0) == n1_owner));
+            SASSERT(fact == n1_owner || (m.is_not(fact) && to_app(fact)->get_arg(0) == n1_owner));
             if (m_ctx.is_true(n2))
                 pr = m.mk_iff_true(pr);
             else
