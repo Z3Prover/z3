@@ -1668,6 +1668,28 @@ four sweep configurations verify, none rejected. Five documented inputs (one
 over Real indices) fail Lean with grind errors only without the new facts
 (`test_constant_chain_facts_are_needed`).
 
+Long chains (2026-11-06, later). The read facts of
+`_constant_array_comparisons` are every store and constant array of the sort
+read at every index stored into it, quadratic; above `_COMPARISON_READS` (64)
+they were all dropped, so the `_x` facts lost the evaluations of their
+premises and two chains of five numeral stores already failed Lean. Above the
+cap the facts are now the reads the rewriter evaluates in each comparison of
+store chains over constant arrays (`_chain_comparison_reads`): each side read
+at the indices stored into either side, down to the outermost store at that
+index or to the constant. A random sweep of such comparisons
+(`random_chain_comparison_instance`, three chains of 3 to 10 stores over Int
+or Real indices) went from 20 of 45 unsat seeds verified to 145 of 145 (seeds
+1-300, 91 above the cap, at most 122 targeted reads). Seeds 13 and 14 are
+pinned, and the documented input `long_store_chains_over_two_constants` fails
+Lean without its read facts. The targeted reads are still quadratic, about
+n(n+2) for two n-store chains, and each is repeated in every case of the
+rewrite's proof, so they have a cap of their own, `_CHAIN_COMPARISON_READS`
+(640), above which no read facts are stated, as before. Two 24-store chains
+(624 reads) check in 2.8 s and 1.5 GB; uncapped, 32 stores took 3.5 GB, 40
+stores 7.6 GB, and two 64-store chains over `(const 0)` and `(const 1)`, which
+checked in 1.2 s without read facts, exceeded the 12 GB watchdog
+(`test_chain_comparison_reads_are_bounded`).
+
 ### Constant arrays of enumerations, and the rewriter's constant-array evaluations (2026-11-06)
 
 Constant arrays of an enumeration, `((as const (Array Int Color)) c)` over

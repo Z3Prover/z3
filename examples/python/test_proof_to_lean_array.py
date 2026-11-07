@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import z3
 
@@ -490,6 +491,28 @@ CONSTANT_ARRAY_INPUTS = {
 (declare-const a (Array Int Int))
 (assert (= (store ((as const (Array Int Int)) x) k (ite p x x)) a))
 (assert (not (= (select a j) x)))
+(check-sat)
+""",
+    # Long store chains over two constant arrays compared: more read facts
+    # than _COMPARISON_READS at every index stored into the sort, so only
+    # the reads of the compared chains are stated (_chain_comparison_reads),
+    # down to the right chain's constant at index 0. Lean rejected it
+    # before 2026-11-06 (no read facts above the cap).
+    "long_store_chains_over_two_constants": """(set-logic QF_ALIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const u0 Int)
+(declare-const u1 Int)
+(declare-const u2 Int)
+(declare-const u3 Int)
+(declare-const u4 Int)
+(declare-const u5 Int)
+(declare-const p Bool)
+(assert (or p (not (= (store (store (store (store (store (store ((as const (Array Int Int)) x) 0 u0) 1 u1) 2 u2) 3 u3) 4 u4) 5 u5)
+                      (store (store (store (store (store ((as const (Array Int Int)) y) 5 u5) 4 u4) 3 u3) 2 u2) 1 u1)))))
+(assert (not p))
+(assert (= x y))
+(assert (= u0 y))
 (check-sat)
 """,
 }
@@ -2002,10 +2025,58 @@ class TestArrayValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["store_against_an_ite_of_one_constant"],
                                          self.certificates["store_against_an_ite_of_one_constant"])
         self.assertIn("(congrFun (ite_self ", text)
+        # Above _COMPARISON_READS (13 arrays and the equality at 6 stored
+        # indices: 84 reads) only the compared chains' reads are stated:
+        # each chain read at the 6 indices down to the outermost store at
+        # that index (21 levels on the left, 15 on the right) or, at index
+        # 0 on the right, past all 5 stores to the constant.
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["long_store_chains_over_two_constants"],
+                                         self.certificates["long_store_chains_over_two_constants"])
+        rewrite = text.split("private theorem rewrite_", 1)[1].split("\n    | ", 2)[1]
+        with mock.patch.object(proof_to_lean, "_COMPARISON_READS", 10 ** 9):
+            full = proof_to_lean.reconstruct(ARRAY_INPUTS["long_store_chains_over_two_constants"],
+                                             self.certificates["long_store_chains_over_two_constants"])
+        full = full.split("private theorem rewrite_", 1)[1].split("\n    | ", 2)[1]
+        self.assertEqual(len(re.findall(r"have _(?:e|ds|dc)\d+_\d+ ", full)), 13 * 6 + 6, full)
+        self.assertGreater(13 * 6 + 6, proof_to_lean._COMPARISON_READS)
+        self.assertEqual(len(re.findall(r"have _e\d+_\d+ ", rewrite)), 6, rewrite)
+        self.assertEqual(len(re.findall(r"have _ds\d+_\d+ := _store_apply ", rewrite)), 21 + 15 + 5, rewrite)
+        self.assertEqual(len(re.findall(r"have _dc\d+_\d+ := _select_const ", rewrite)), 1, rewrite)
+        self.assertEqual(len(re.findall(r"have _x\d+ : ", rewrite)), 1, rewrite)
         # A read of an ite over arrays: each constant-array branch's read.
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_of_an_ite_over_a_constant"],
                                          self.certificates["read_of_an_ite_over_a_constant"])
         self.assertRegex(text, r"have _si\d+_0 := _select_const \(I := Int\) \(_vars \d+\) ")
+
+    def test_chain_comparison_reads_are_bounded(self):
+        """Above _CHAIN_COMPARISON_READS the compared chains' reads are dropped too.
+
+        Two 32-store chains over (const 0) and (const 1), equal under a
+        guard, have 32 * 34 reads. With them Lean took 7.7 s and 3.5 GB, and
+        at 64 stores more than the 12 GB watchdog; without them it checks
+        in about 1 s, since the rewriter decides the comparison by the
+        defaults alone.
+        """
+        def chain(default):
+            array = "((as const (Array Int Int)) %d)" % default
+            for k in range(32):
+                array = "(store %s %d u%d)" % (array, k, k)
+            return array
+
+        source = "\n".join(["(set-logic QF_ALIA)", "(declare-const p Bool)"] +
+                           ["(declare-const u%d Int)" % k for k in range(32)] +
+                           ["(assert (or p (= %s %s)))" % (chain(0), chain(1)), "(assert (not p))",
+                            "(check-sat)"]) + "\n"
+        certificate = _export(source)
+        read = re.compile(r"have _(?:e|ds|dc)\d+_\d+ ")
+        with mock.patch.object(proof_to_lean, "_CHAIN_COMPARISON_READS", 10 ** 9):
+            unbounded = proof_to_lean.reconstruct(source, certificate)
+        rewrite = unbounded.split("private theorem rewrite_", 1)[1].split("\n    | ", 2)[1]
+        self.assertEqual(len(read.findall(rewrite)), 32 * 34)
+        self.assertGreater(32 * 34, proof_to_lean._CHAIN_COMPARISON_READS)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertNotRegex(text, read)
+        self.assertRegex(text, r"have _e\d+ : ")
 
     def test_tampered_constant_arrays_are_rejected(self):
         def declaration(certificate, kind):
@@ -2949,6 +3020,64 @@ def random_constant_array_instance(seed, variables=2, constraints=10, depth=2, c
 CONSTANT_ARRAY_SEEDS = (({}, 131), ({}, 139), ({"constant": 0.5, "default": 0.1}, 246))
 
 
+def random_chain_comparison_instance(seed):
+    """Random comparisons of store chains of 3 to 10 stores over constant arrays, or None if sat.
+
+    Three chains over (Array Int Int) or (Array Real Int), at numeral and
+    symbolic indices, compared pairwise under guards, with a few equalities,
+    disequalities, and bounds over the values and indices. Most unsat seeds
+    compare chains with more read facts than _COMPARISON_READS.
+    """
+    rng = random.Random(seed)
+    sort = rng.choice(["Int", "Real"])
+    lines = ["(set-logic ALL)", "(declare-const p Bool)", "(declare-const q Bool)"]
+    lines += ["(declare-const k%d %s)" % (i, sort) for i in range(3)]
+    lines += ["(declare-const x%d Int)" % i for i in range(3)]
+
+    def index():
+        if rng.random() < 0.6:
+            return str(rng.randrange(6)) + (".0" if sort == "Real" else "")
+        return "k%d" % rng.randrange(3)
+
+    def value():
+        return "x%d" % rng.randrange(3) if rng.random() < 0.7 else str(rng.randrange(3))
+
+    def chain():
+        array = "((as const (Array %s Int)) %s)" % (sort, value())
+        for _ in range(rng.randrange(3, 11)):
+            array = "(store %s %s %s)" % (array, index(), value())
+        return array
+
+    chains = [chain() for _ in range(3)]
+    for _ in range(rng.randrange(2, 5)):
+        left, right = rng.sample(chains, 2)
+        atom = "(= %s %s)" % (left, right)
+        lines.append("(assert (or %s %s))" % (rng.choice(["p", "q"]),
+                                               atom if rng.random() < 0.5 else "(not %s)" % atom))
+    lines.append("(assert (not p))")
+    for _ in range(rng.randrange(1, 4)):
+        if rng.random() < 0.5:
+            lines.append("(assert (%s x%d x%d))" % (rng.choice(["=", "distinct", "<="]), rng.randrange(3),
+                                                     rng.randrange(3)))
+        else:
+            lines.append("(assert (%s k%d %s))" % (rng.choice(["=", "distinct"]), rng.randrange(3), index()))
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("timeout", 10000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Pinned unsatisfiable seeds of random_chain_comparison_instance (13 over
+# Real indices, 14 over Int). On iteration 85's macOS build each failed Lean
+# while _constant_array_comparisons dropped every read fact above
+# _COMPARISON_READS; seeds 1-300 then verify, 145 of 145 unsat (91 above the
+# cap), against 20 of the 45 unsat seeds 1-100 before.
+CHAIN_COMPARISON_SEEDS = (13, 14)
+
+
 def _check_in_lean(test, source, fragment):
     """Export through the clause log, reconstruct, and kernel-check; return the certificate."""
     certificate = _export(source)
@@ -2985,6 +3114,18 @@ class TestArrayLeanIntegration(unittest.TestCase):
         for seed, source, certificate in sources:
             with self.subTest(seed=seed):
                 self.assertEqual(certificate["fragment"], "qf_uflia")
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_pinned_random_chain_comparisons_verify(self):
+        sources = []
+        for seed in CHAIN_COMPARISON_SEEDS:
+            source = random_chain_comparison_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            sources.append((seed, source, _export(source)))
+        lean_test_support.prefetch((source, certificate) for _, source, certificate in sources)
+        for seed, source, certificate in sources:
+            with self.subTest(seed=seed):
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
 
@@ -3121,8 +3262,12 @@ class TestArrayLeanIntegration(unittest.TestCase):
                     self.assertIn("`grind` failed", error)
 
     def test_comparison_reads_are_needed(self):
-        """Without the read facts of _constant_array_comparisons grind cannot prove the rewrite of array.smt2's q2."""
-        for name in ("z3test_array_q2", "real_index_comparison"):
+        """Without the read facts of _constant_array_comparisons grind cannot prove the rewrite of array.smt2's q2.
+
+        Nor of long chains, whose reads above _COMPARISON_READS are those of
+        the compared chains only (_chain_comparison_reads).
+        """
+        for name in ("z3test_array_q2", "real_index_comparison", "long_store_chains_over_two_constants"):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))

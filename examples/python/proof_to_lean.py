@@ -3499,6 +3499,19 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
 
 # At most this many read facts per rewrite in _constant_array_comparisons.
 _COMPARISON_READS = 64
+# Above _COMPARISON_READS, at most this many reads of compared store chains
+# (_chain_comparison_reads) per rewrite; past it no read facts are stated.
+# They are about n * (n + 2) for two n-store chains at distinct numerals, and
+# each is repeated in every case of the rewrite's proof: on iteration 85's
+# macOS build two 24-store chains (624 reads) checked in 2.8 s and 1.5 GB,
+# 32 stores (1088) in 7.7 s and 3.5 GB, 40 (1680) in 20 s and 7.6 GB, and
+# 64 (4224) exceeded the 12 GB watchdog.
+_CHAIN_COMPARISON_READS = 640
+
+
+def _read_count(reads):
+    """The number of reads in a map from nodes to their sets of indices."""
+    return sum(len(indices) for indices in reads.values())
 
 
 def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices):
@@ -3516,7 +3529,11 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     converse of an equality between store chains over constant arrays is
     stated too (_constant_chain_extensionality). The read facts are
     quadratic (indices times arrays), so above _COMPARISON_READS of them
-    only the default facts are stated.
+    only the reads the rewriter evaluates in such a comparison are stated
+    (_chain_comparison_reads): each side's chain read at the indices stored
+    into either side, which the converse's premises need. Those are still
+    quadratic in the chains' length, so above _CHAIN_COMPARISON_READS of
+    them no read facts are stated at all.
     """
     if not any(graph.kind(node) == z3.Z3_OP_CONST_ARRAY for node in reachable):
         return []
@@ -3538,14 +3555,20 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     reads = sum(len(indices.get(graph.decl(node).range, ())) for node in arrays) + sum(
         len(indices.get(graph.decl(graph.arguments(node)[0]).range, ())) for node in equalities)
     if reads > _COMPARISON_READS:
-        indices = {}
+        compared, levels = _chain_comparison_reads(graph, equalities)
+        if _read_count(compared) + _read_count(levels) > _CHAIN_COMPARISON_READS:
+            compared, levels = {}, {}
+    else:
+        # Every equality and array at every index stored into its sort.
+        compared = {node: indices.get(graph.decl(graph.arguments(node)[0]).range, ()) for node in equalities}
+        levels = {node: indices.get(graph.decl(node).range, ()) for node in arrays}
     helpers = []
     for node in equalities:
         left, right = (inline(argument) for argument in graph.arguments(node))
         default = "_default %s" % _unbounded(graph, graph.arguments(node)[0])
         helpers.append("  have _e%d : %s = %s -> %s %s = %s %s := congrArg (%s)" % (
             node, left, right, default, left, default, right, default))
-        for index in sorted(indices.get(graph.decl(graph.arguments(node)[0]).range, ())):
+        for index in sorted(compared.get(node, ())):
             helpers.append("  have _e%d_%d : %s = %s -> _select %s %s = _select %s %s :="
                            " congrArg (fun _x => _select _x %s)" % (
                                node, index, left, right, left, inline(index), right, inline(index), inline(index)))
@@ -3557,7 +3580,7 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
             arguments = " ".join(inline(argument) for argument in graph.arguments(node))
             helpers.append("  have _ds%d := _default_store %s %s" % (node, _unbounded(graph, node), arguments))
             helpers.extend("  have _ds%d_%d := _store_apply %s %s" % (node, index, arguments, inline(index))
-                           for index in sorted(indices.get(graph.decl(node).range, ())))
+                           for index in sorted(levels.get(node, ())))
         else:
             value = inline(graph.arguments(node)[0])
             index_type = _array_types(graph.decl(node).range)[0]
@@ -3565,8 +3588,45 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
                 node, _unbounded(graph, node, explicit=True), value))
             helpers.extend("  have _dc%d_%d := _select_const (I := %s) %s %s" % (
                 node, index, index_type, value, inline(index))
-                           for index in sorted(indices.get(graph.decl(node).range, ())))
+                           for index in sorted(levels.get(node, ())))
     return helpers
+
+
+def _chain_comparison_reads(graph, equalities):
+    """The reads of the store-chain comparisons among equalities: the indices per equality and per array level.
+
+    For (= S T) with S and T store chains over constant arrays (through ites
+    of an array with itself, _constant_chain), Z3's rewriter compares S and T
+    at every index stored into either chain (array_rewriter::mk_eq_core) and
+    evaluates each read down the chain, past the stores at other indices to
+    the constant array. So each equality gets those indices, and each store
+    and constant array of its chains the indices read through it: all of
+    them, except that a read stops at the outermost store at that same index
+    term, which the rewriter evaluates to the stored value. The facts grow
+    with the compared chains only, not with every array of the sort times
+    every stored index.
+    """
+    compared, levels = {}, {}
+    for node in equalities:
+        sides = [_constant_chain(graph, argument) for argument in graph.arguments(node)]
+        if None in sides:
+            continue
+        indices = {graph.arguments(store)[1] for _, stores in sides for store in stores}
+        compared[node] = indices
+        for argument in graph.arguments(node):
+            for index in indices:
+                current = argument
+                while True:
+                    kind = graph.kind(current)
+                    arguments = graph.arguments(current)
+                    if kind == z3.Z3_OP_ITE:
+                        current = arguments[1]
+                        continue
+                    levels.setdefault(current, set()).add(index)
+                    if kind != z3.Z3_OP_STORE or arguments[1] == index:
+                        break
+                    current = arguments[0]
+    return compared, levels
 
 
 def _constant_chain(graph, node):
