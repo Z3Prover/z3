@@ -101,10 +101,6 @@ public:
 
     void operator()(/* in */  goal_ref const & in, 
                     /* out */ goal_ref_buffer & result) override {
-        if (in->proofs_enabled()) {
-            result.push_back(in.get());
-            return;
-        }
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
