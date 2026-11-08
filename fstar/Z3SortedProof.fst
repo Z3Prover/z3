@@ -288,6 +288,18 @@ let lemma_scoped_ternary (scope:list sort) (f:func_decl) (c x y:expr)
   assert (D.scoped_args scope [x; y]);
   assert (D.scoped_args scope [y])
 
+let lemma_congruent_boolean_shape (arithmetic:bool) (search_atoms:bool) (scope:list sort)
+                                  (fuel:nat) (a b:expr)
+  : Lemma (requires congruent_boolean arithmetic search_atoms scope fuel a b)
+          (ensures N.shape_equal_by (congruent_atom arithmetic scope fuel)
+                     32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b))) =
+  assert_norm (congruent_boolean arithmetic search_atoms scope fuel a b ==
+    (if not search_atoms || scope = [] then false else
+     if not (Some? (expression_budget 256 a) && Some? (expression_budget 256 b)) then false else
+     if T.cut 64 a = B.Atom a && T.cut 64 b = B.Atom b then false
+     else N.shape_equal_by (congruent_atom arithmetic scope fuel)
+       32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b))))
+
 let rec lemma_congruent (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                         (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -402,12 +414,7 @@ and lemma_congruent_boolean (#base:sort -> Type0) (s:S.checked_schema)
           (ensures T.evaluate_at s bc eq other scope rho a ==
                    T.evaluate_at s bc eq other scope rho b)
           (decreases %[fuel; 2]) =
-  assert_norm (congruent_boolean arithmetic search_atoms scope fuel a b ==
-    (search_atoms && scope <> [] && Some? (expression_budget 256 a) && Some? (expression_budget 256 b) &&
-     (T.cut 64 a <> B.Atom a || T.cut 64 b <> B.Atom b) &&
-     N.shape_equal_by
-       (congruent_atom arithmetic scope fuel)
-       32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b))));
+  lemma_congruent_boolean_shape arithmetic search_atoms scope fuel a b;
   assert (N.shape_equal_by
     (congruent_atom arithmetic scope fuel)
     32 (N.normalize false (T.cut 64 a)) (N.normalize false (T.cut 64 b)));
