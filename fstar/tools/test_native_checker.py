@@ -760,28 +760,59 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
 
     def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
-        source = (
+        # The solver may refute this input by instantiating only the third assertion at c = d = e = 1:
+        # a closed refutation that divides by the literal 1 and needs no division-by-zero alias, so
+        # either a full ACCEPT or a PARTIAL verdict is sound. The third assertion alone forces the
+        # alias-dependent rewrite 0 * (1 / 0) * (0 / 0) = 0 (c = 0), which must stay pending.
+        aliases = (
             "(declare-fun a () Real)"
             "(assert (< (/ 1 0 a) 1))"
-            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))"
+            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))")
+        third = (
             "(assert (forall ((c Real)) (forall ((d Real)) (forall ((e Real))"
             "  (>= (* e c) 2 (* d (/ 1 c) (/ 0 c)))))))")
+        partial_batch = r"^PARTIAL [1-9][0-9]*$"
+        partial_interactive = r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n"
+
+        def run(solver, source, interactive):
+            text = f"(set-option :smt.arith.solver {solver})" + source
+            args = ["--diagnostics", "--timeout-ms", "10000"]
+            if interactive:
+                text += "(check-sat)"
+                args.append("--interactive")
+            return self.run_checker(text, *args)
+
         for solver in (2, 6):
             for interactive in (False, True):
                 with self.subTest(solver=solver, interactive=interactive):
-                    text = f"(set-option :smt.arith.solver {solver})" + source
-                    args = ["--diagnostics", "--timeout-ms", "10000"]
-                    if interactive:
-                        text += "(check-sat)"
-                        args.append("--interactive")
-                    result = self.run_checker(text, *args)
-                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-                    if interactive:
-                        self.assertRegex(result.stdout,
-                                         r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
+                    result = run(solver, aliases + third, interactive)
+                    if solver == 6 and result.returncode == 0:
+                        if interactive:
+                            self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+                        else:
+                            self.assertEqual(result.stdout.strip(), "ACCEPT")
+                        self.assertIn("diagnostic\tchecked\tpending=0\t", result.stderr)
                     else:
-                        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+                        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                        if interactive:
+                            self.assertRegex(result.stdout, partial_interactive)
+                        else:
+                            self.assertRegex(result.stdout.strip(), partial_batch)
                     self.assertNotIn("stage=open-root", result.stderr)
+        rewrite = re.escape("eq(*:Real(0/1:Real,/:Real(1/1:Real,0/1:Real),/:Real(0/1:Real,0/1:Real)) -> 0/1:Real)")
+        for interactive in (False, True):
+            with self.subTest(control="third-assertion-only", interactive=interactive):
+                result = run(6, third, interactive)
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                if interactive:
+                    self.assertIn("unsat\n; proof-check PARTIAL 1\n", result.stdout)
+                else:
+                    self.assertEqual(result.stdout.strip(), "PARTIAL 1")
+                self.assertRegex(result.stderr, r"obligation\trewrite\t1\t[0-9]+\t" + rewrite + "\n")
+                self.assertNotIn("stage=open-root", result.stderr)
+        # Without the third assertion nothing is refutable: there is no proof to certify.
+        result = run(6, aliases, False)
+        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
 
     def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
         for source in (
