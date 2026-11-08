@@ -1243,6 +1243,22 @@ def wide_distinct_source(count, sort, negated=False):
     return "".join(lines) + "(check-sat)\n"
 
 
+def reordered_distinct_source(count, sort):
+    """(distinct c0 ... cn-1) and (not (distinct cn-1 ... c0)) over constants of sort U, Int, or Real.
+
+    Z3's rewriter sorts a distinct's arguments, so the two assertions
+    simplify to false before the log, and the exporter ties them by one cnf
+    lemma (not (distinct c0 ...)) or (not (not (distinct cn-1 ...))).
+    """
+    names = ["c%d" % index for index in range(count)]
+    head = {"U": "(set-logic QF_UF)\n(declare-sort U 0)\n", "Int": "(set-logic QF_LIA)\n",
+            "Real": "(set-logic QF_LRA)\n"}[sort]
+    lines = [head] + ["(declare-const %s %s)\n" % (name, sort) for name in names]
+    lines.append("(assert (distinct %s))\n" % " ".join(names))
+    lines.append("(assert (not (distinct %s)))\n" % " ".join(reversed(names)))
+    return "".join(lines) + "(check-sat)\n"
+
+
 # A Gomory cut: rationally feasible, integer infeasible, refuted by one cut
 # hint over the four bounds. The log is the sat.smt core's output verbatim.
 _LIA = """\

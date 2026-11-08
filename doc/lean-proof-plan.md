@@ -1603,6 +1603,32 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Distincts over the same terms in other orders (2026-11-07)
+
+`(distinct c0 ... c11)` with `(not (distinct c11 ... c0))` over Int exported
+but failed Lean: Z3's rewriter sorts a distinct's arguments, so the two
+assertions simplify to false before the log, and the exporter's cnf lemma
+tying them had the two distincts as unrelated opaque leaves (the second has
+no pair node of its order), so it went to omega over the unfolded pairs and
+ran out of heartbeats from twelve arguments (33 arguments, iter-090's
+repro, likewise). A distinct now becomes its pairs also when a pair is
+logged the other way round or another distinct ranges over the same terms
+(`_distinct_pair_leaves`, `distinct_term_sets`), and a synthetic pair leaf
+`(a = b)` is bridged by `eq_comm` to the node `(= b a)` or the synthetic
+leaf `(b, a)` of the other distinct (`_leaf_bridges`), so the propagation
+proof covers it. Twelve and 33 Int terms, and 33 over U, check in 2 to 4 s
+with the fallback dropped (`test_reordered_distincts_verify_by_propagation`
+in `test_proof_to_lean_lia.py`,
+`test_reordered_distincts_verify_by_propagation_alone` in
+`test_proof_to_lean_uf.py`).
+The cost grows faster than the bridges: 60 reversed Int terms (1770
+bridges) took about 32 s with or without the fallback, so a reordered
+distinct of about a hundred terms may reach the heartbeat limit; no size
+cap guards it. The criterion is global to the certificate (a distinct
+expands in every cnf lemma once another distinct over its terms exists
+anywhere), as the pair-node criterion is; a per-clause criterion would
+spare the prover the unbridged pairs.
+
 ### Negated distincts whose every pair is refuted (2026-11-07)
 
 A negated distinct of 30 or 40 Int terms pinned to distinct values (435 or

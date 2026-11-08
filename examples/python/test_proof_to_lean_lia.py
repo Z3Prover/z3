@@ -26,7 +26,7 @@ import proof_certificate
 import proof_clause_log
 import lean_test_support
 import proof_to_lean
-from test_proof_certificate import _proof_nodes, wide_distinct_source
+from test_proof_certificate import _proof_nodes, reordered_distinct_source, wide_distinct_source
 
 # Documented QF_LIA inputs. Each exercises one integer-specific step of the
 # sat.smt core's arithmetic solver, as named in the comments: the clause log
@@ -1418,6 +1418,58 @@ class TestIntegerValidation(unittest.TestCase):
                 with patch.object(proof_to_lean, "_distinct_pair_leaves", lambda graph, node, leaves: None):
                     self.assertNotIn("Classical.byContradiction", proof_to_lean.reconstruct(source, certificate))
 
+    def test_cnf_lemmas_tie_reordered_distincts_pair_by_pair(self):
+        # (distinct c0 ... cn-1) with (not (distinct cn-1 ... c0)): the
+        # rewriter refutes the two by sorting the arguments, and the
+        # exporter's cnf lemma ties them. As two unrelated leaves the prover
+        # found nothing, and omega over the unfolded pairs ran out of
+        # heartbeats from twelve arguments. Now each distinct is its pairs:
+        # those of the first are the logged (= ci cj) nodes up to twelve and
+        # synthetic at 33 (the trimmed log keeps no pair), those of the
+        # second synthetic, (cj, ci), each bridged to (ci, cj) by eq_comm.
+        original = proof_to_lean._leaf_bridges
+        for count in (5, 12, 33):
+            with self.subTest(count=count):
+                source = reordered_distinct_source(count, "Int")
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                graph = proof_to_lean._validate_graph(source, certificate)
+                distincts = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_DISTINCT]
+                self.assertEqual(len(distincts), 2)
+                self.assertEqual(list(graph.distinct_term_sets.values()), [2])
+                (cnf,) = [node for node in _th_lemma_nodes(certificate)
+                          if set(distincts) <= proof_to_lean._reachable(graph, graph.conclusion(node))[0]]
+                self.assertEqual(graph.decl(cnf).parameters, ("cnf",))
+                leaves, synthetic = {}, {}
+                proof_to_lean._boolean_structure(graph, graph.conclusion(cnf), {}, {}, leaves, synthetic)
+                pairs = count * (count - 1) // 2
+                # How many pairs are logged nodes (leaves) rather than
+                # synthetic depends on what the trimmed log keeps, so only
+                # the total is asserted.
+                self.assertEqual(len(leaves) + len(synthetic), 2 * pairs)
+                bridges = proof_to_lean._leaf_bridges(graph, leaves, synthetic)
+                self.assertEqual(len(bridges), pairs)
+                for (_, left, right), definitions in bridges:
+                    self.assertIsNone(definitions)
+                    self.assertLess(left[1], 0)
+                    a, b = divmod(-left[1] - 1, len(graph.nodes))
+                    self.assertEqual(left[2], "(%s = %s)" % (proof_to_lean._term(graph, a),
+                                                             proof_to_lean._term(graph, b)))
+                    self.assertEqual(right[2], "(%s = %s)" % (proof_to_lean._term(graph, b),
+                                                              proof_to_lean._term(graph, a))
+                                     if right[1] < 0 else proof_to_lean._formula(graph, graph.equalities[(b, a)]))
+                lemma = proof_to_lean.reconstruct(source, certificate).split(
+                    "private theorem th_lemma_%d " % cnf, 1)[1].split("\n\n", 1)[0]
+                self.assertIn("\n  first\n    | (have _f1 : (Iff ", lemma)
+                self.assertEqual(lemma.count(") := eq_comm\n"), pairs)
+                self.assertIn("refine Classical.byContradiction ?_\n", lemma)
+                # Without the bridges the pairs of the two are unrelated:
+                # no propagation proof, the unfolded fallback alone.
+                with patch.object(proof_to_lean, "_leaf_bridges",
+                                  lambda graph, leaves, synthetic=None: original(graph, leaves)):
+                    lemma = proof_to_lean.reconstruct(source, certificate).split(
+                        "private theorem th_lemma_%d " % cnf, 1)[1].split("\n\n", 1)[0]
+                self.assertNotIn("Classical.byContradiction", lemma)
+
 
 @contextlib.contextmanager
 def _combination_only(test):
@@ -1554,6 +1606,28 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                         dropped += found
                     blocks.append(block)
                 self.assertEqual(dropped, len(cnf))
+                lean_test_support.check(self, source, text="\n\n".join(blocks))
+
+    def test_reordered_distincts_verify_by_propagation(self):
+        # Twelve and 33 arguments in reverse order: the cnf lemma tying the
+        # two distincts ran out of heartbeats in omega. Checked with its
+        # unfolded fallback dropped, so that Lean checks the eq_comm bridges
+        # and the propagation proof.
+        for count in (12, 33):
+            with self.subTest(count=count):
+                source = reordered_distinct_source(count, "Int")
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                graph = proof_to_lean._validate_graph(source, certificate)
+                distincts = {node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_DISTINCT}
+                (name,) = ["private theorem th_lemma_%d " % node for node in _th_lemma_nodes(certificate)
+                           if distincts <= proof_to_lean._reachable(graph, graph.conclusion(node))[0]]
+                blocks, dropped = [], 0
+                for block in proof_to_lean.reconstruct(source, certificate).split("\n\n"):
+                    if name in block:
+                        block, dropped = re.subn(r"\n    \| \(unfold [^\n]*\n       first \| omega \| grind "
+                                                 r"\(splits := 64\)\)", "", block)
+                    blocks.append(block)
+                self.assertEqual(dropped, 1)
                 lean_test_support.check(self, source, text="\n\n".join(blocks))
 
     def test_negated_wide_distincts_verify(self):

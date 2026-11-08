@@ -1223,6 +1223,13 @@ class _Graph:
                 if self.kind(node) == z3.Z3_OP_EQ and len(self.arguments(node)) == 2
                 and self.is_term(self.arguments(node)[0])}
 
+    @functools.cached_property
+    def distinct_term_sets(self):
+        """How many distinct nodes range over each multiset of terms (its sorted argument tuple)."""
+        return Counter(tuple(sorted(self.arguments(node))) for node in range(len(self.nodes))
+                       if self.kind(node) == z3.Z3_OP_DISTINCT and self.arguments(node)
+                       and self.is_term(self.arguments(node)[0]))
+
     def conclusion(self, node):
         return self.arguments(node)[-1]
 
@@ -4686,7 +4693,7 @@ def _condition_key(graph, relation, terms, constant):
     return (relation, tuple(sorted(keyed.items(), key=repr)), constant), swapped
 
 
-def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None):
+def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None, synthetic=None):
     """Return the propositional structure of a Boolean node over the atoms, as Lean reads it.
 
     The structure is a nested tuple: ("atom", index), ("true",), ("false",),
@@ -4710,7 +4717,9 @@ def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None):
     without a node is a synthetic leaf), so the literal (not (= a b)) of a
     clause names a conjunct of the distinct: a cnf lemma tying such a
     literal to an assertion holding the distinct (QF_UF NEQ004) was out of
-    the prover's reach and unfolded the whole assertion into grind.
+    the prover's reach and unfolded the whole assertion into grind. With
+    synthetic (a dict), the synthetic pair leaves are recorded there by id,
+    for _leaf_bridges to tie them to the pairs written the other way.
 
     The nodes are read bottom up on an explicit stack, arguments left to
     right, rather than recursively: a QF_UF input asserting a conjunction
@@ -4734,6 +4743,8 @@ def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None):
             if pairs is None:
                 memo[current] = leaves.setdefault(current, ("leaf", current, _formula(graph, current)))
             else:
+                if synthetic is not None:
+                    synthetic.update((pair[1], pair) for pair in pairs if pair[1] < 0)
                 memo[current] = _structure_fold("and", [("not", pair) for pair in pairs])
         else:
             pending.append((current, True))
@@ -4745,26 +4756,32 @@ def _distinct_pair_leaves(graph, node, leaves):
     """The leaves of a distinct's argument pairs (a = b), a before b, in rendering order, or None.
 
     None unless node is a distinct over terms and some pair has the node
-    (= a b). Such a pair is the leaf of that node, recorded in leaves; a
-    pair logged as (= b a) renders as another proposition than the
-    conjunct (Not (a = b)) of the distinct, so it does not count. A pair
-    without a node is a synthetic leaf, ("leaf", -(1 + a * n + b),
-    rendering) for the n nodes of the graph (an id no node has, unique to
-    the pair and an int, as the prover orders its splits by leaf id),
-    rendered as _formula_body renders the conjunct and not recorded in
-    leaves (it has no node to bridge): the certificate keeps
-    only the pairs the proof uses, so a wide distinct of which a few pairs
-    are logged (thirty Int arguments, 435 pairs, six in the proof) stayed
-    one opaque leaf, the prover could not project those pairs, and the
-    fallback unfolded every pair into omega and grind, which ran out of
-    heartbeats from thirty arguments.
+    (= a b) or (= b a), or another distinct ranges over the same terms
+    (graph.distinct_term_sets). A pair with the node (= a b) is the leaf of that
+    node, recorded in leaves. A pair without one is a synthetic leaf,
+    ("leaf", -(1 + a * n + b), rendering) for the n nodes of the graph (an
+    id no node has, unique to the pair and an int, as the prover orders its
+    splits by leaf id), rendered as _formula_body renders the conjunct
+    (Not (a = b)) and not recorded in leaves; _leaf_bridges ties it by
+    eq_comm to the node (= b a) or the synthetic leaf (b, a) of another
+    distinct. The certificate keeps only the pairs the proof uses, so a
+    wide distinct of which a few pairs are logged (thirty Int arguments,
+    435 pairs, six in the proof) stayed one opaque leaf, the prover could
+    not project those pairs, and the fallback unfolded every pair into
+    omega and grind, which ran out of heartbeats from thirty arguments.
+    Two distincts over the same terms in other orders (the rewriter
+    refutes (distinct c0 ... c11) with (not (distinct c11 ... c0)) by
+    sorting the arguments, and the exporter's cnf lemma ties the two) were
+    two unrelated leaves, and omega over the unfolded pairs ran out of
+    heartbeats from twelve Int arguments.
     """
     if graph.kind(node) != z3.Z3_OP_DISTINCT:
         return None
     arguments = graph.arguments(node)
     pairs = [(left, right, graph.equalities.get((left, right)))
              for index, left in enumerate(arguments) for right in arguments[index + 1:]]
-    if all(equality is None for _, _, equality in pairs):
+    if all(equality is None and (right, left) not in graph.equalities for left, right, equality in pairs) \
+            and graph.distinct_term_sets.get(tuple(sorted(arguments)), 0) < 2:
         return None
     return [("leaf", -(1 + left * len(graph.nodes) + right),
              "(%s = %s)" % (_term(graph, left), _term(graph, right)))
@@ -5608,9 +5625,9 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     simplified under a unit rest on the value of an ite under the distinct).
     """
     conclusion = graph.conclusion(node)
-    leaves, memo = {}, {}
-    structure = _boolean_structure(graph, conclusion, atom_indices, memo, leaves)
-    bridges = _leaf_bridges(graph, leaves)
+    leaves, memo, synthetic = {}, {}, {}
+    structure = _boolean_structure(graph, conclusion, atom_indices, memo, leaves, synthetic)
+    bridges = _leaf_bridges(graph, leaves, synthetic)
     prover = _PropositionalProver(("not", structure), *[bridge for bridge, _ in bridges], classical=True,
                                   names=_structure_names(graph, memo))
     names = [prover.name() for _ in bridges]
@@ -5620,9 +5637,11 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
                             opaque_tactic=_opaque_tactic(graph, node))
     # The goal is the clause's definition, which the refutation's hypothesis
     # unifies with (its structure is named by that definition); nothing is
-    # unfolded before the attempt, and the fallback unfolds everything.
-    attempt = ["have %s : %s := by unfold %s; %s" % (name, _render_structure(bridge), " ".join(definitions),
-                                                     _theory_tactic(graph))
+    # unfolded before the attempt, and the fallback unfolds everything. A
+    # pair written the other way is the same equality reoriented (eq_comm,
+    # the definition of a node side unfolded by unification).
+    attempt = ["have %s : %s := %s" % (name, _render_structure(bridge), "eq_comm" if definitions is None else
+                                       "by unfold %s; %s" % (" ".join(definitions), _theory_tactic(graph)))
                for (bridge, definitions), name in zip(bridges, names)]
     attempt.append("refine Classical.byContradiction ?_")
     attempt.extend(refutation)
@@ -5630,7 +5649,7 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
                         opaque_tactic=_opaque_tactic(graph, node), structural=attempt)
 
 
-def _leaf_bridges(graph, leaves):
+def _leaf_bridges(graph, leaves, synthetic=None):
     """Equivalences between leaves of one constraint key, or of complementary keys, with the definitions to unfold.
 
     Z3's rewriter orders the sides of an equality and writes a strict
@@ -5642,6 +5661,12 @@ def _leaf_bridges(graph, leaves):
     stated as a `have` the theory tactic proves (the sides' definitions
     unfolded) and given to the prover as a fact. Returns (structure,
     definition names) pairs.
+
+    A synthetic pair leaf (a, b) of a distinct (_distinct_pair_leaves, by
+    id in synthetic) is bridged to the leaf of the node (= b a), or to the
+    synthetic leaf (b, a) of another distinct, once per unordered pair:
+    ("iff", (a = b), (b = a)), with None for the definitions, as eq_comm
+    proves it.
     """
     by_key, bridges, joined = {}, [], set()
     keyed = [(leaf, _leaf_key(graph, leaf)) for leaf in sorted(leaves)]
@@ -5662,6 +5687,17 @@ def _leaf_bridges(graph, leaves):
                                         (leaf, other))
         right = ("not", leaves[other]) if negated else leaves[other]
         result.append((("iff", leaves[leaf], right), definitions))
+    for identifier, leaf in sorted((synthetic or {}).items(), reverse=True):
+        left, right = divmod(-identifier - 1, len(graph.nodes))
+        swapped = graph.equalities.get((right, left))
+        if swapped is not None:
+            other = leaves.get(swapped)  # in the clause, the node is a leaf
+        elif (right, left) < (left, right):
+            other = synthetic.get(-(1 + right * len(graph.nodes) + left))
+        else:
+            other = None
+        if other is not None:
+            result.append((("iff", leaf, other), None))
     return result
 
 
