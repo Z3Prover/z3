@@ -2838,6 +2838,48 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Farkas identities by linear normalization over balanced sums (2026-11-08)
+
+A rescan of z3test's `smtlib-sample` QF_LIA files of at most 160 KB found
+two regressions. `bofill-scheduling/SMT_random_LIA/ex11200_2600_100` and
+`SMT_real_LIA/ex2360_2400_100` had verified in an earlier recheck but now
+failed in Lean. Each has one Farkas lemma of about 200 bounds over more than
+400 atoms, each bound spanning up to 20 atoms. Such a lemma now gets the
+direct combination (see "Int Farkas lemmas proved by their combination"
+below). Its identity, a right-nested sum proved by `omega`, took about five
+million heartbeats, five times the lemma's budget. An exhausted budget is
+not an error `first` catches, so the unfolded fallback never ran.
+
+Two changes:
+
+- `_combination_sum` nests the sum as a balanced tree.
+- `_sum_identity` proves it by `first | (simp +arith only []; done) |
+  omega`.
+
+On the bofill lemma, `simp +arith` takes about 2 s. The cost of both
+tactics is in the kernel check of their reflective proofs: on a synthetic
+202-bound combination with a 300-atom row, 14 s for simp and 17 s for
+omega. Results:
+
+| Input | Before | Now |
+| --- | --- | --- |
+| ex11200 | heartbeat failure | 37 s, 3.5 GB |
+| ex2360 | heartbeat failure | 42 s, 4.1 GB |
+| `cut_lemma_02_002` (188 split identities) | 150 s | 69 s, 3.8 GB |
+
+The rest of the scan is unchanged: every other file verifies or is out of
+reach for z3 or the replay, except QF_LRA `tta_startup` 11 nodes (a known
+failure).
+
+Tests in `test_proof_to_lean_lia.py`:
+
+- `test_farkas_combinations_of_many_wide_bounds_verify`: a 140-bound
+  conflict over two partitions of 700 variables (`two_partitions_instance`)
+  checks in about 9 s with the identity left to simp alone. Before, it ran
+  out of heartbeats.
+- `test_combinations_are_balanced_sums_proved_by_linear_normalization`: the
+  sum's shape and the identity's tactic.
+
 ### Int and Real side by side: qf_lira (2026-11-02)
 
 Input with both Int and Real variables was rejected ("mixing integer and

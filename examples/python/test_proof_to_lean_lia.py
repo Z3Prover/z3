@@ -387,6 +387,34 @@ def random_remainder_instance(seed, variables=3, constraints=8):
     return source if solver.check() == z3.unsat else None
 
 
+def two_partitions_instance(seed, variables=700, width=10):
+    """Sums over one partition of the variables bounded above, over another bounded below, unsat by one.
+
+    The bounds of all 2 * variables / width rows sum to 0 <= -1 and no
+    fewer refute: one Farkas lemma over every row, each a bound over width
+    atoms, like the scheduling conflict of QF_LIA bofill-scheduling
+    ex11200_2600_100 (202 bounds over 428 atoms). Partial sums of its
+    combination stay wide, since a variable cancels only once both of its
+    rows are summed.
+    """
+    generator = random.Random(seed)
+    rows = []
+    for sign in (1, -1):
+        order = list(range(variables))
+        generator.shuffle(order)
+        rows.extend((sign, order[start:start + width], generator.randint(-20, 20))
+                    for start in range(0, variables, width))
+    sign, chosen, _ = rows[-1]
+    rows[-1] = (sign, chosen, -1 - sum(row[2] for row in rows[:-1]))
+    generator.shuffle(rows)
+    lines = ["(set-logic QF_LIA)"] + ["(declare-const x%d Int)" % i for i in range(variables)]
+    for sign, chosen, bound in rows:
+        # sign * sum <= bound, the lower rows as sum >= -bound.
+        lines.append("(assert (%s (+ %s) %d))" % ("<=" if sign > 0 else ">=", " ".join("x%d" % i for i in chosen),
+                                                 bound * sign))
+    return "\n".join(lines) + "\n"
+
+
 def wide_rewrite_instance(variables=9, term="{0}", logic="QF_LIA", declarations=()):
     """Every variable in [5, 7] and one clause asking for one of them outside.
 
@@ -1258,6 +1286,33 @@ class TestIntegerValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, proof_certificate.export_clause_log_certificate(source))
         self.assertEqual(text.count("have _sum : "), 2)
 
+    def test_combinations_are_balanced_sums_proved_by_linear_normalization(self):
+        # Five facts 0 <= y - x_i: the sum and its nonnegativity proof nest as
+        # one balanced tree, so no partial sum holds more than half the
+        # summands below the root, and the identity goes to simp's linear
+        # normalization before omega.
+        bounds = [("x%d" % i, "y", False, "_p%d" % i, False, ({i: -1, 9: 1}, 0), set()) for i in range(5)]
+        bounds.append(("((4 : Int))", "((0 : Int))", False, "_q", False, ({}, -4), set()))
+        combination, nonnegative, total, _ = proof_to_lean._combination_sum(bounds, [Fraction(1)] * 6)
+        summand = "((1 : Int)) * (%s - %s)"
+        self.assertEqual(combination, "(((%s + %s) + %s) + ((%s + %s) + %s))" % (
+            summand % ("y", "x0"), summand % ("y", "x1"), summand % ("y", "x2"),
+            summand % ("y", "x3"), summand % ("y", "x4"), summand % ("((0 : Int))", "((4 : Int))")))
+        self.assertTrue(nonnegative.startswith("(Int.add_nonneg (Int.add_nonneg (Int.add_nonneg "))
+        self.assertEqual(total, -4)
+        summands = ["s%d" % i for i in range(202)]
+        tree, _ = proof_to_lean._balanced_sum(summands, summands)
+        self.assertEqual(re.findall(r"s\d+", tree), summands)
+        # The leaves s0 ... s201 hold no parentheses, so the deepest
+        # parenthesis nesting is the depth of the tree.
+        depth, nesting = 0, 0
+        for character in tree:
+            nesting += {"(": 1, ")": -1}.get(character, 0)
+            depth = max(depth, nesting)
+        self.assertEqual(depth, 8)  # ceil(log2 202); right-nested it was 201.
+        self.assertEqual(proof_to_lean._sum_identity(None, "_sum", "(a + b)", -1, set()),
+                         "have _sum : (a + b) = ((-1 : Int)) := by first | (simp +arith only []; done) | omega")
+
     def test_split_certificates_refute_bounds_without_an_integer_point(self):
         # Facts 0 <= form, form = (terms, constant); an equality holds both ways.
         certificate = proof_to_lean._split_certificate
@@ -1919,6 +1974,33 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertTrue(set(wide) <= set(proved), (wide, proved))
         self.assertEqual(text.count("have _sum : "), len(proved))
 
+    def test_farkas_combinations_of_many_wide_bounds_verify(self):
+        # One Farkas lemma over 140 bounds of ten atoms each (700 atoms).
+        # Its identity, a right-nested sum proved by omega, ran out of the
+        # lemma's heartbeats in 13 s, and an exhausted budget is not an error
+        # `first` catches, so the unfolded fallback never ran and the file
+        # failed (as QF_LIA bofill-scheduling ex11200_2600_100 and
+        # ex2360_2400_100 did). As a balanced sum proved by `simp +arith` the
+        # file checks in about 9 s; omega is dropped here so simp must do it.
+        source = two_partitions_instance(1)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        (lemma,) = _th_lemma_nodes(certificate)
+        self.assertEqual(_parameters(certificate, lemma)[0], "farkas")
+        self.assertEqual(len(graph.clause(graph.conclusion(lemma))), 140)
+        identity = proof_to_lean._sum_identity
+
+        def simp_only(*arguments):
+            line = identity(*arguments)
+            self.assertIn("; first | (simp +arith only []; done) | omega", line)
+            return line.replace("first | (simp +arith only []; done) | omega", "simp +arith only []")
+
+        with _combination_only(self) as proved, patch.object(proof_to_lean, "_sum_identity", simp_only):
+            text = self.checked_text(source, certificate)
+        self.assertEqual(proved, [lemma])
+        self.assertEqual(text.count("have _sum : "), 1)
+        self.assertNotIn("omega", text.split("private theorem th_lemma_%d " % lemma, 1)[1].split("\n\n", 1)[0])
+
     def test_farkas_lemmas_are_proved_by_their_combination_alone(self):
         # Every Int farkas and bound th-lemma with coefficients of the
         # documented inputs, through both cores (the legacy core states its
@@ -1951,14 +2033,15 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                 self.assertTrue(lattice)
                 self.assertEqual(proved, lattice)
 
-    @lean_test_support.slow("QF_LIA cut_lemma_02_002, 6.5 MB of Lean, about 3 minutes at 6.7 GB")
+    @lean_test_support.slow("QF_LIA cut_lemma_02_002, 6.8 MB of Lean, about 80 s at 3.8 GB")
     def test_cut_lemmas_over_twenty_variables_verify(self):
         # QF_LIA cut_lemma_02_002 (see
         # test_lattice_lemmas_over_twenty_variables_get_a_split) failed with
         # Lean at 13 GB in under a minute; with its 188 lattice lemmas proved
         # by their splits alone, its wide Farkas lemmas by their
-        # combinations, and serial elaboration, it peaks at 6.7 GB in under
-        # three minutes. Lean runs once here (self.check would run it twice).
+        # combinations, and serial elaboration, it peaked at 6.7 GB in under
+        # three minutes; with identities by simp +arith over balanced sums,
+        # 3.8 GB in about 80 s. Lean runs once here (self.check would run it twice).
         source = (_EXAMPLES / "data" / "QF_LIA_cut_lemma_02_002.smt2").read_text()
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertEqual(certificate["fragment"], "qf_lia")

@@ -854,8 +854,10 @@ combination itself: each premise and negated literal becomes
 0 <= upper - lower (Int.sub_nonneg_of_le, strict bounds tightened by
 Int.lt_iff_add_one_le, equalities turned by the sign of their multiplier),
 the facts are scaled by the integer multipliers and summed (Int.mul_nonneg,
-Int.add_nonneg), and omega only checks, with no hypothesis in scope, that
-the sum is a negative constant. With all bounds in scope omega searched for
+Int.add_nonneg) as a balanced tree, and with no hypothesis in scope
+simp +arith only [] (omega as the fallback) checks that the sum is a
+negative constant; omega alone was quadratic in the summands and ran out of
+heartbeats on 140 bounds or more. With all bounds in scope omega searched for
 the combination itself and did not finish on 21-literal lemmas with
 eight-digit coefficients (QF_LIA cut_lemmas). A wide lemma whose
 coefficients are small but some bound spans 8 atoms or more (dense rows,
