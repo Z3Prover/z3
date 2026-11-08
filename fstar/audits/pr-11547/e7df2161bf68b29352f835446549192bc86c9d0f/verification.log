@@ -1,0 +1,4 @@
+F* 2026.09.27, Z3 4.13.3, timeout 120s, z3rlimit 10, fresh cache
+exit code 0
+Verified module: Z3PR11547Head3
+All verification conditions discharged successfully
