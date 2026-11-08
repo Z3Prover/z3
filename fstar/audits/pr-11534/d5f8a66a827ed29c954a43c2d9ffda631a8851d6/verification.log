@@ -1,0 +1,7 @@
+F* 2026.09.27; Z3 4.13.3
+cmd: timeout 120 fstar.exe --smt .../z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out S2tSubst.fst
+stdout:
+Verified module: S2tSubst
+All verification conditions discharged successfully
+stderr:
+exit=0
