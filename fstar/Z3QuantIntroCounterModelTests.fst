@@ -201,12 +201,15 @@ let lemma_b1_rhs (u:TR.uninterpreted)
   NR.lemma_truth_or2 PT.core_schema (TR.booleans u) (SR.root_scalars u) i
     (L.rev [QT.term] @ (L.rev [QT.term] @ [])) r2 (BR.connective_decl BR.Disjunction [QT.t0; QT.t0])
     (QT.q_ QT.t1 QT.t0) (QT.r_ QT.t0) B.Or;
+  assert (st u named (L.rev [QT.term] @ (L.rev [QT.term] @ [])) r2 QT.w_in_r == false);
   Q.lemma_forall_truth PT.core_schema (TR.booleans u) (SR.root_scalars u) i (L.rev [QT.term] @ []) r1 [QT.term] QT.w_in_r;
+  assert (st u named (L.rev [QT.term] @ []) r1 QT.w_all_r == false);
   lemma_atom u named (L.rev [QT.term] @ []) r1 QT.pd [QT.t0];
   NR.lemma_truth_not PT.core_schema (TR.booleans u) (SR.root_scalars u) i (L.rev [QT.term] @ []) r1 R.not_decl (QT.p_ QT.t0);
   NR.lemma_truth_or2 PT.core_schema (TR.booleans u) (SR.root_scalars u) i
     (L.rev [QT.term] @ []) r1 (BR.connective_decl BR.Disjunction [QT.t0; QT.t0])
     (QT.neg (QT.p_ QT.t0)) QT.w_all_r B.Or;
+  assert (st u named (L.rev [QT.term] @ []) r1 QT.w_out_r == false);
   Q.lemma_forall_truth PT.core_schema (TR.booleans u) (SR.root_scalars u) i [] empty [QT.term] QT.w_out_r
 
 let d1_wrong_leaf_sign (u:TR.uninterpreted)
@@ -699,13 +702,19 @@ let d9_swapped_counterfeit (u:TR.uninterpreted)
   assert_norm (L.mem "g1" n == true /\ L.mem "g2" n == false /\ L.mem "g3" n == false /\ L.mem "g4" n == false);
   assert_norm (among n QT.fake_or == false);
   lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3; g4]) [g1; g2; g3; g4] B.Or;
+  assert (st9 u n (QT.mk_or [g1; g2; g3; g4]) == true);
   lemma_node u p (BR.connective_decl BR.Conjunction [g1; g2]) [g1; g2] B.And;
+  assert (st9 u n (QT.mk_and [g1; g2]) == false);
   lemma_node u p (BR.connective_decl BR.Disjunction [g3; g4]) [g3; g4] B.Or;
+  assert (st9 u n (QT.mk_or [g3; g4]) == false);
   lemma_node u p (BR.connective_decl BR.Disjunction [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]])
     [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]] B.Or;
+  assert (st9 u n (QT.mk_or [QT.mk_and [g1; g2]; QT.mk_or [g3; g4]]) == false);
   lemma_node u p (BR.connective_decl BR.Disjunction [g1; g2; g3]) [g1; g2; g3] B.Or;
+  assert (st9 u n (QT.mk_or [g1; g2; g3]) == true);
   lemma_atom u p leaf_scope (leaf_env u) QT.fake_or [g1; g2];
-  lemma_node u p (BR.connective_decl BR.Disjunction [App QT.fake_or [g1; g2]; g3]) [App QT.fake_or [g1; g2]; g3] B.Or
+  lemma_node u p (BR.connective_decl BR.Disjunction [App QT.fake_or [g1; g2]; g3]) [App QT.fake_or [g1; g2]; g3] B.Or;
+  assert (st9 u n (QT.mk_or [App QT.fake_or [g1; g2]; g3]) == false)
 
 let d9_xor (u:TR.uninterpreted)
   : Lemma (st9 u ["g1"; "g2"] (fst QT.b14_xor) == true /\ st9 u ["g1"; "g2"] (snd QT.b14_xor) == false) =
