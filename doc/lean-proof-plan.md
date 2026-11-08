@@ -1149,6 +1149,22 @@ and abs atoms (the facts then name them); the minimized QF_LIA input took
 80 s and failed, its variant over mod atoms 66 s, both now 1 s
 (`test_distincts_of_three_or_more_booleans_are_false`).
 
+**One-argument `+`, `*`, and `distinct` in the clause log (2026-11-07).**
+Z3's parser keeps `(+ t)`, `(* t)`, and `(distinct t)` as applications of
+one argument. Once an assertion folds to false, sat.smt logs an empty
+`(assume)` and then the later assertions unsimplified, so these terms reach
+the clause-log replay, which rejected them ("unsupported operator in the
+clause log": 8 of 89 unsat inputs of a random QF_LIA generator with Boolean
+structure, and LRA, LIRA, UFLIA, array, and UF variants). The replay now
+rebuilds them through the API with one argument (`_ONE_ARGUMENT_HEADS`),
+which yields the input's own terms; the certificate and Lean already
+handled them, since the assertions come from the input. A zero-argument sum
+or a sum of a Boolean is still rejected. Division by a zero numeral in such
+a tail stays rejected by the fragment check. Tests:
+`test_one_argument_sums_products_and_distincts_after_a_false_assertion` in
+`test_proof_certificate.py` and its Lean counterpart in
+`test_proof_to_lean_arith.py` (`ONE_ARGUMENT_INPUTS`).
+
 **Integer input through the legacy proof object (2026-10-16).** `--core
 legacy` rejected `qf_lia` and `qf_uflia` ("certified through the clause log
 only") because theory_lra's integer steps were not inventoried. A probe over

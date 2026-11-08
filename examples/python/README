@@ -120,7 +120,8 @@ those steps and Z3's pseudo-Boolean rewrites by omega. A constraint over
 any other argument, or next to arithmetic or uninterpreted functions, is
 rejected. The qf_lra fragment adds Real
 variables and numerals, sums, differences, negation, multiplication by a
-constant, division by a nonzero constant, Real-valued ite whose condition is
+constant (one-argument + and *, which Z3 keeps as written, included),
+division by a nonzero constant, Real-valued ite whose condition is
 any supported formula, abs (SMT-LIB defines it on Int only; Z3 accepts it
 over Real with the same definition, (ite (>= t 0) t (- t))), and the atoms
 <=, <, >=, >, =, and distinct over Real terms. The qf_uf fragment adds any

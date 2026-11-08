@@ -1154,6 +1154,63 @@ UNARY_XOR_GATES_LOG = """\
 (infer rup)
 """
 
+# Inputs whose first assertion folds to false, followed by one-argument
+# applications of +, *, and distinct, which Z3's parser keeps. Once an
+# assertion is false the clause log prints the later ones unsimplified (an
+# empty (assume) and then the raw assertions), so the replay meets (+ t),
+# (* t), and (distinct t); until 2026-11-07 it rejected them ("unsupported
+# operator in the clause log"), about one in ten unsat inputs of a random
+# QF_LIA generator with Boolean structure. Public for the Lean tests.
+ONE_ARGUMENT_INPUTS = {
+    "lia": """\
+(declare-const x Int)
+(declare-const y Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (> (+ (* -2 x)) 2))
+(assert (< (+ x y) (* (+ y))))
+""",
+    "lra": """\
+(declare-const x Real)
+(declare-const y Real)
+(declare-const p Bool)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (=> p (<= (- x y) (+ (* x) 1.0))))
+""",
+    "lira": """\
+(declare-const x Real)
+(declare-const n Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (< (* 2 n) (+ x)))
+""",
+    "uflia": """\
+(declare-const x Int)
+(declare-fun g (Int) Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (> (g (+ x)) (* (g x))))
+""",
+    "arrays": """\
+(declare-const a (Array Int Int))
+(declare-const x Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (> (select a (* x)) (+ (select a 0))))
+""",
+    "uf": """\
+(declare-sort U 0)
+(declare-const u U)
+(declare-const v U)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (= b (distinct u)))
+(assert (or (not b) (= u v)))
+""",
+}
+
 # A distinct below the root: Z3 relates it to the disjunction of its pairwise
 # equalities by two alldiff gate clauses, (or d some_eq) and (or (not d) (not
 # some_eq)), next to the tseitin clauses of the disjunction. d is unused.
@@ -3173,6 +3230,49 @@ class TestClauseLogReplay(unittest.TestCase):
                 self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported operator"):
             self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG.replace("(xor p)", "(xor)"))
+
+    def test_one_argument_builders_make_the_parsers_terms(self):
+        # Needs only the bindings: the API over one argument builds the
+        # hash-consed term the parser makes for (+ x), (* x), and (distinct x).
+        context = z3.Context()
+        x = z3.Int("x", ctx=context)
+        for head, kind in [("+", z3.Z3_OP_ADD), ("*", z3.Z3_OP_MUL), ("distinct", z3.Z3_OP_DISTINCT)]:
+            with self.subTest(head=head):
+                term = proof_clause_log._ONE_ARGUMENT_HEADS[head](context, x)
+                self.assertEqual((term.decl().kind(), term.num_args()), (kind, 1))
+                parsed = z3.parse_smt2_string("(declare-const x Int)(assert (= (%s x) (%s x)))" % (head, head),
+                                              ctx=context)[0].arg(0)
+                self.assertTrue(term.eq(parsed))
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_one_argument_sums_products_and_distincts_after_a_false_assertion(self):
+        z3_executable = proof_certificate.default_z3_executable()
+        fragments = {"lia": "qf_lia", "lra": "qf_lra", "lira": "qf_lira", "uflia": "qf_uflia",
+                     "arrays": "qf_uflia", "uf": "qf_uf"}
+        one_argument = re.compile(r"\(define-const \$\d+ \w+ \((\+|\*|distinct) [^ ()]+\)\)")
+        for name, source in ONE_ARGUMENT_INPUTS.items():
+            with self.subTest(name=name):
+                log = proof_clause_log.run_clause_log(z3_executable, source)
+                self.assertIn("(assume)", log)  # the folded assertion
+                logged = {match.group(1) for match in one_argument.finditer(log)}
+                self.assertTrue(logged, log)
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], fragments[name])
+                declarations, nodes = certificate["declarations"], certificate["nodes"]
+                # The one-argument applications stay nodes of their own.
+                built = {declarations[node["declaration"]]["name"] for node in nodes
+                         if len(node["arguments"]) == 1}
+                self.assertLessEqual(logged, built)
+        # A zero-argument sum and a sum of a Boolean are still rejected.
+        source = ONE_ARGUMENT_INPUTS["lia"]
+        log = proof_clause_log.run_clause_log(z3_executable, source)
+        sum_of_one = re.search(r"Int \(\+ (\$\d+)\)\)", log)
+        self.assertIsNotNone(sum_of_one, log)
+        self.replay(source, log)
+        for tampered in ("Int (+))", "Int (+ c))"):
+            with self.subTest(tampered=tampered), self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                                                           "unsupported operator"):
+                self.replay(source, log.replace(sum_of_one.group(0), tampered, 1))
 
     def test_distinct_gate_clauses_become_def_axioms(self):
         def distinct_gates(certificate):
