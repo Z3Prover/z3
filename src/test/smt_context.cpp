@@ -980,7 +980,7 @@ static void check_proof_mode_guards() {
         "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
         "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
         "pqffd", "psat", "psmt", "qe2", "qe_rec",
-        "qffd", "qfnra-nlsat", "qsat", "quasi-macros",
+        "qffd", "qfnra-nlsat", "qsat",
         "recover-01", "reduce-args", "reduce-bv-size", "sat", "sat-preprocess",
         "smtfd", "solver-subsumption", "symmetry-reduce", "tseitin-cnf",
         "tseitin-cnf-core", "unit-subsume-simplify", "ctx-solver-simplify", "propagate-values",
@@ -1105,25 +1105,37 @@ static void check_proof_mode_guards() {
 }
 
 static void check_proof_mode_compositions() {
-    for (char const* name : {"purify-arith", "nra", "qfnra", "qfufbv_ackr", "ff-sat"}) {
+    struct {
+        char const* name;
+        bool cores;
+    } cases[] = {
+        {"purify-arith", false}, {"nra", false}, {"qfnra", false},
+        {"qfufbv_ackr", false}, {"ff-sat", false},
+        {"quasi-macros", false}, {"quasi-macros", true}
+    };
+    for (auto const& test : cases) {
         ast_manager m(PGM_ENABLED);
         reg_decl_plugins(m);
         tactic_manager tactics;
         install_tactics(tactics);
         cmd_context cmd(false, &m);
         std::istringstream input(
-            !strcmp(name, "ff-sat") ?
+            !strcmp(test.name, "quasi-macros") ?
+            "(declare-fun h (Int Int) Int)"
+            "(assert (forall ((k Int)) (= (h k 0) k)))"
+            "(assert (not (= (h 1 0) 1)))" :
+            !strcmp(test.name, "ff-sat") ?
             "(define-sort F () (_ FiniteField 5))"
             "(declare-const b Bool) (declare-const x F)"
             "(assert (= (ite b (as ff1 F) (as ff2 F)) x))" :
             "(declare-const x Real)"
             "(assert (> (+ x 0.0) 0.0)) (assert (< x 0.0))");
         ENSURE(parse_smt2_commands(cmd, input));
-        goal_ref g = alloc(goal, m, true, false, false);
+        goal_ref g = alloc(goal, m, true, false, test.cores);
         for (expr* a : cmd.assertions())
-            g->assert_expr(a);
+            g->assert_expr(a, test.cores ? a : nullptr);
         goal_ref before = alloc(goal, *g);
-        tactic_ref t = tactics.find_tactic_cmd(symbol(name))->mk(m);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(test.name))->mk(m);
         goal_ref_buffer result;
         (*t)(g, result);
         ENSURE(result.size() == 1);
@@ -1134,6 +1146,8 @@ static void check_proof_mode_compositions() {
         for (unsigned i = 0; i < result[0]->size(); ++i) {
             proof* pr = result[0]->pr(i);
             ENSURE(pr && m.get_fact(pr) == result[0]->form(i));
+            if (test.cores)
+                ENSURE(result[0]->dep(i));
             for (expr* e : subterms::all(expr_ref(pr, m))) {
                 if (!m.is_asserted(e))
                     continue;
