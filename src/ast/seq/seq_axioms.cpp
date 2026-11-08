@@ -974,6 +974,16 @@ namespace seq {
                 add_clause(negative, short_enough, is_digit_(i));
             }
         }
+        // Keep interpreted conversions on their existing axiom path.
+        if (is_uninterp_const(_s)) {
+            for (unsigned i = 0; i < k; ++i) {
+                expr_ref negative = ~ge0;
+                expr_ref short_enough = mk_le(len, i);
+                expr_ref d = digit(i);
+                add_clause(negative, short_enough, mk_ge(d, 0));
+                add_clause(negative, short_enough, mk_le(d, 9));
+            }
+        }
     }
 
     void axioms::ubv2s_axiom(expr* b, unsigned k) {

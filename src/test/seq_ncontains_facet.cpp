@@ -23,6 +23,7 @@ Author:
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_skolem.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "smt/seq_solver_facet.h"
@@ -47,6 +48,7 @@ namespace {
         stx::facet_id    nc_id;
         stx::facet_id    mem_id;
         stx::facet_id    assumption_id;
+        stx::facet_id    stoi_id;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
@@ -61,7 +63,8 @@ namespace {
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             nc_id(tree.register_facet<seq::ncontains_facet>(*root, m, u, tree.dep_mgr())),
             mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw, ac)),
-            assumption_id(tree.register_facet<seq::assumption_facet>(*root, m))
+            assumption_id(tree.register_facet<seq::assumption_facet>(*root, m)),
+            stoi_id(tree.register_facet<seq::stoi_facet>(*root, m, u, a))
         {
             ac.set_eq_id(eq_id);
             ac.set_deq_id(deq_id);
@@ -69,6 +72,7 @@ namespace {
             ac.set_ncontains_id(nc_id);
             ac.set_mem_id(mem_id);
             ac.set_assumption_id(assumption_id);
+            ac.set_stoi_id(stoi_id);
             tree.set_ambient_context(&ac);
             tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
             tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));

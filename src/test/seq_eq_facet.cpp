@@ -22,6 +22,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
@@ -485,6 +486,7 @@ namespace {
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id nc_id = tree.register_facet<seq::ncontains_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        stx::facet_id stoi_id = tree.register_facet<seq::stoi_facet>(*root, m, u, a);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         seq_rewriter rw(m);
@@ -495,6 +497,7 @@ namespace {
         ac.set_ncontains_id(nc_id);
         ac.set_mem_id(mem_id);
         ac.set_assumption_id(assumption_id);
+        ac.set_stoi_id(stoi_id);
         tree.set_ambient_context(&ac);
 
         auto& ef = root->facet_as<seq::eq_facet>(eq_id);
@@ -1254,6 +1257,24 @@ namespace {
         }
     }
 
+    static void tst_nseq_stoi_model_completion() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const m String)
+            (declare-const n String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (= (str.++ x y) (str.++ m n)))
+            (assert (str.in_re n (re.* (str.to_re "q"))))
+            (assert (= (str.len m) 2))
+            (assert (= (str.to_int m) 1))
+            (assert (= x ""))
+            (assert (= n ""))
+            (assert (< (str.len x) (str.to_int m)))
+        )", true, "v");
+    }
+
     static void tst_nseq_disjoint_stars() {
         check_nseq_candidate_model(R"(
             (declare-const x String)
@@ -1594,6 +1615,7 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_stoi_model_completion();
     tst_nseq_disjoint_stars();
     tst_nseq_regex_diseq_completion();
     tst_nseq_contains_index();

@@ -1348,6 +1348,23 @@ namespace seq {
             for (expr* t : nc.m_haystack) add_var(t);
             for (expr* t : nc.m_needle) add_var(t);
         }
+        auto& sf = ac.solver_facet_ref();
+        if (!m_regex_diseq_only)
+            for (auto const& [term, depth] : ac.stoi_facet_ref().terms()) {
+                expr* arg = nullptr;
+                rational value;
+                if (u.str.is_stoi(term, arg) && is_uninterp_const(arg) &&
+                    ac.current_value(term, value) && value.is_unsigned()) {
+                    add_var(arg);
+                    for (auto const& sm : ac.mem_facet_ref().memberships()) {
+                        if (!sm.active())
+                            continue;
+                        for (expr* t : sm.m_str)
+                            if (occurs(arg, t))
+                                add_var(t);
+                    }
+                }
+            }
 
         struct candidate {
             expr_ref var;
@@ -1357,7 +1374,6 @@ namespace seq {
                 var(v, m), value(val, m), tokens(ts) {}
         };
         vector<candidate> candidates;
-        auto& sf = ac.solver_facet_ref();
         constexpr unsigned max_completion_length = 256;
         auto add_model_candidate = [&](expr* var, expr* preferred) {
             expr_ref value(m);
@@ -1396,16 +1412,48 @@ namespace seq {
                         fixed[idx] = true;
                     }
                 }
+                bool concrete = true;
                 for (unsigned i = 0; i < n; ++i) {
                     if (fixed[i])
                         continue;
                     expr_ref nth(u.str.mk_nth_i(var, sf.get_arith_util().mk_int(i)), m);
                     expr_ref ch_value(m);
                     unsigned ch = 0;
-                    if (!sf.value(nth, ch_value) || !u.is_const_char(ch_value, ch))
-                        return false;
+                    if (!sf.value(nth, ch_value) || !u.is_const_char(ch_value, ch)) {
+                        concrete = false;
+                        break;
+                    }
                     chars[i] = ch;
                 }
+                if (!concrete && !m_regex_diseq_only && is_uninterp_const(var)) {
+                    // A decimal witness supplies missing characters without
+                    // changing the conversion value or its model length.
+                    for (auto const& [term, depth] : ac.stoi_facet_ref().terms()) {
+                        expr* arg = nullptr;
+                        rational number;
+                        if (!u.str.is_stoi(term, arg) || arg != var ||
+                            !ac.current_value(term, number) || !number.is_unsigned())
+                            continue;
+                        std::string digits = number.to_string();
+                        if (digits.size() > n)
+                            continue;
+                        unsigned num_digits = static_cast<unsigned>(digits.size());
+                        svector<unsigned> word;
+                        word.resize(n, '0');
+                        for (unsigned j = 0; j < num_digits; ++j)
+                            word[n - num_digits + j] = digits[j];
+                        bool compatible = true;
+                        for (unsigned j = 0; j < n; ++j)
+                            compatible &= !fixed[j] || chars[j] == word[j];
+                        if (!compatible)
+                            continue;
+                        chars = word;
+                        concrete = true;
+                        break;
+                    }
+                }
+                if (!concrete)
+                    return false;
                 value = u.str.mk_string(zstring(chars.size(), chars.data()));
             }
             expr_ref_vector tokens(m);
