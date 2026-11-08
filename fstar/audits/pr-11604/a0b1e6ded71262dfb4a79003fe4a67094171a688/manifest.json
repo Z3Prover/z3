@@ -1,0 +1,22 @@
+{
+  "pull_request": 11604,
+  "head_sha": "a0b1e6ded71262dfb4a79003fe4a67094171a688",
+  "base_sha": "a0d488da9d887aa6a26acd5657bfcf5bce547fae",
+  "path_prefix": "fstar/audits/pr-11604/a0b1e6ded71262dfb4a79003fe4a67094171a688/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42435706735",
+  "files": [
+    {
+      "name": "AndCoreLowerBound.fst",
+      "sha256": "56b65138639fe4feefd0d553470143377206f32b03318cfbee2f588a3a7c5ccb"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "f56f73d3fc7ef6582880494a4cf8fc17abdf5feb5e3a29f750d19c1903be6387"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "33f6b48cf759cfad9507de27f95c4b6bb1a9f20d878ef70d99fb15cd8d489638"
+    }
+  ]
+}
