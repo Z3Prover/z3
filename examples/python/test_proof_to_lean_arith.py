@@ -964,6 +964,23 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertIn(_STANDARD_AXIOMS, report)
 
+    def test_inputs_with_optimization_commands_through_the_clause_log(self):
+        # z3test regressions the frontend rejected for assert-soft, and a
+        # script with every optimization command: soft assertions,
+        # objectives, get-objectives, and the opt.* options are dropped, so
+        # the certified query is the hard assertions in scope. 3524 also
+        # needs its distincts of Booleans stated false (see
+        # test_distincts_of_three_or_more_booleans_are_false).
+        from test_proof_to_lean import OPTIMIZATION_INPUTS
+        for name, (source, query) in OPTIMIZATION_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source, query=query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), ("qf_lia", query))
+                self.assertEqual(certificate["source_smt2"], source)
+                text, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(_STANDARD_AXIOMS, report)
+                self.assertEqual("_bool_distinct3 _h" in text, name == "3524")
+
     def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
         # z3test 3632.smt2 kept verbatim: the only check-sat sits inside
         # (push 1), so no index is needed; the unused BitVec constant does

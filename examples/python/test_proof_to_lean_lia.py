@@ -1554,6 +1554,43 @@ class TestIntegerLeanIntegration(unittest.TestCase):
             self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
         return text
 
+    def test_distincts_of_three_or_more_booleans_are_false(self):
+        # Z3's rewriter folds each distinct of Booleans below to false (two
+        # of any three Booleans agree), and the rewrite of the first
+        # assertion rests on that. omega, tried before grind over Int, ran
+        # out of heartbeats on the unfolded pairs (a minimized z3test 3524,
+        # see OPTIMIZATION_INPUTS); each distinct is now stated false by its
+        # first three arguments and rewritten away before the tactic. In the
+        # second input the arguments hold mod atoms, which the rewrite's
+        # first attempt generalizes, so the facts there name them _o<k>.
+        template = """\
+(declare-const x Int)
+(declare-const y Int)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(assert (or (and p (distinct (distinct {a} p (not p) q (not p) (>= x 4) {a} r)
+                             (<= y 5) q r (not (not p)) (=> q {b}) (<= 6 y)))
+            (distinct {a} p (not p) q (not p) (>= x 4) {a} r)
+            (> 6 {y})))
+(assert (<= 6 {y}))
+"""
+        cases = [
+            (dict(a="(> x 9)", b="(> x 2)", y="y"), "have _bd"),
+            (dict(a="(> (mod x 7) 5)", b="(> (div x 3) 2)", y="(mod y 9)"), "(Not (Iff (((_o"),
+        ]
+        for arguments, fact in cases:
+            with self.subTest(**arguments):
+                source = template.format(**arguments)
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                text = self.checked_text(source, certificate)
+                self.assertIn("private theorem _bool_distinct3 ", text)
+                # The inner distinct of 8 and the outer one of 8 whose first
+                # argument is the inner one.
+                self.assertIn("_h.2.2.2.2.2.2.2.1", text)
+                self.assertIn("simp only [↓ _bd", text)
+                self.assertIn(fact, text)
+
     def test_documented_lia_inputs_verify_under_the_standard_axioms(self):
         lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
                                     for source in LIA_INPUTS.values())

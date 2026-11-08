@@ -284,11 +284,11 @@ class TestProofCertificate(unittest.TestCase):
         self.assert_well_formed(certificate)
 
     def test_unsupported_commands_are_rejected(self):
-        # include reads another file, the optimization commands change what
-        # check-sat answers, and get-consequences runs a query of its own.
+        # include reads another file, get-consequences runs a query of its
+        # own, and declare-rel and define-fun-rec are not replayed.
         commands = [
-            '(include "other.smt2")', "(minimize 0)", "(maximize 0)", "(assert-soft false)",
-            "(declare-const p Bool)(get-consequences (p) (p))",
+            '(include "other.smt2")', "(declare-const p Bool)(get-consequences (p) (p))",
+            "(declare-rel R (Int))", "(define-fun-rec f ((x Int)) Int x)",
             '(set-option :regular-output-channel "output.txt")',
         ]
         for command in commands:
@@ -397,6 +397,35 @@ class TestProofCertificate(unittest.TestCase):
             with self.subTest(source=source):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, ":named label inside"):
                     proof_certificate.query_snapshot(source)
+
+    def test_optimization_commands_are_dropped(self):
+        # With a soft assertion or an objective, Z3's check-sat optimizes over
+        # the assertions as hard constraints; the snapshot is those, so a
+        # certificate states that the hard assertions are contradictory.
+        source = ("(set-option :opt.priority lex)(set-option :opt.maxsat_engine wmax)(declare-const x Int)"
+                  "(minimize x)(assert-soft (> x 5) :weight 3 :id goal)(assert (> x 2))(maximize (- x))"
+                  "(check-sat)(get-objectives)(assert-soft (< x 0))(assert (< x 1))(check-sat)(get-objectives)")
+        self.assertEqual(proof_certificate.query_snapshot(source, 1),
+                         ("(declare-const x Int)\n(assert (> x 2))\n(assert (< x 1))", 1, 2))
+        certificate = proof_certificate.export_certificate(source, query=1)
+        self.assertEqual(certificate["source_smt2"], source)
+        self.assertEqual((certificate["fragment"], certificate["query"]), ("qf_lia", 1))
+        # An unsat answer may also report an exhausted Pareto front (Z3
+        # answers sat, sat, unsat here) while the hard assertions are
+        # satisfiable; the exporter's own solver finds them so.
+        pareto = ("(set-option :opt.priority pareto)(declare-const x Int)(declare-const y Int)"
+                  "(assert (and (<= 0 x) (<= 0 y) (<= (+ x y) 1)))(maximize x)(maximize y)"
+                  "(check-sat)(check-sat)(check-sat)")
+        for export in (proof_certificate.export_certificate, proof_certificate.export_clause_log_certificate):
+            with self.subTest(export=export.__name__):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "^sat: no unsat proof exists"):
+                    export(pareto, query=2)
+        # A :named label inside one defines a name, as for the output commands.
+        for command in ["(assert-soft (! p :named n))", "(minimize (! x :named n))"]:
+            with self.subTest(command=command):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, ":named label inside"):
+                    proof_certificate.query_snapshot(
+                        "(declare-const p Bool)(declare-const x Int)%s(assert p)(assert (not p))" % command)
 
     def test_scripts_end_at_exit(self):
         # Z3's parser stops at exit, so nothing after it is read: neither
@@ -720,7 +749,7 @@ class TestProofCertificate(unittest.TestCase):
     def test_cli_failures_have_no_certificate(self):
         cases = [
             ("(assert true)", "sat:"),
-            ("(minimize 0)", "unsupported SMT-LIB command"),
+            ('(include "other.smt2")', "unsupported SMT-LIB command"),
             ("(assert undeclared)", "undeclared"),
             ("(assert false)(check-sat)(check-sat)", "select one by its zero-based index (--query)"),
         ]

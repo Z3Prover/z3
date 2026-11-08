@@ -84,21 +84,24 @@ commands on an allowlist (_IGNORED_OPTIONS in proof_certificate.py:
 produce-models, produce-unsat-cores, produce-proofs, proof, model,
 model_validate, print-success, auto-config, timeout, rlimit, random-seed,
 smt.arith.solver, smt.random_seed, smt.phase_selection, smt.mbqi,
-sat.local_search, and the like, plus the pp.* and model.* families, by Z3's
-parameter names with - and _ identified). Options that change how the input
-is read (numeral-as-real, int-real-coercions, smtlib2_compliant, which
-changes the scanner and the Int/Real coercions, and rewriter.*) and the
-proof-production and
-preprocessing options the exporter sets itself (sat.smt, solver.proof.*,
-smt.clause_proof, smt.solve_eqs, combined_solver.*) are rejected, as is any
-option not on the allowlist; :global-decls is accepted with false only,
-Z3's default scoping. Commands that only print (get-value, eval, simplify,
-apply, display, get-assertions) are dropped unless they contain a :named
-label, which would define a name in Z3, define-const is a definition,
-and the script ends at exit, where Z3's parser stops. A pop beyond the open
-scopes, a query index the script does not have, several queries without an
-index, a malformed define-sort, the optimization commands (minimize,
-maximize, assert-soft), get-consequences, include, and other commands are
+sat.local_search, and the like, plus the pp.*, model.*, and opt.* families,
+by Z3's parameter names with - and _ identified). Options that change how
+the input is read (numeral-as-real, int-real-coercions, smtlib2_compliant,
+which changes the scanner and the Int/Real coercions, and rewriter.*) and
+the proof-production and preprocessing options the exporter sets itself
+(sat.smt, solver.proof.*, smt.clause_proof, smt.solve_eqs, combined_solver.*)
+are rejected, as is any option not on the allowlist; :global-decls is
+accepted with false only, Z3's default scoping. Commands that only print
+(get-value, eval, simplify, apply, display, get-assertions) are dropped
+unless they contain a :named label, which would define a name in Z3,
+define-const is a definition, and the script ends at exit, where Z3's parser
+stops. The optimization commands (assert-soft, minimize, maximize,
+get-objectives) are dropped the same way: Z3 then optimizes over the
+assertions as hard constraints, and the certificate states that those are
+contradictory (an unsat that only reports an exhausted Pareto front has none,
+as the hard constraints are satisfiable). A pop beyond the open scopes, a
+query index the script does not have, several queries without an index, a
+malformed define-sort, get-consequences, include, and other commands are
 rejected rather than ignored.
 Standard semicolon comments, doubled quotes in strings, and quoted symbols are
 supported. Quoted symbols have no escape mechanism: backslashes are rejected

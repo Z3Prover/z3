@@ -2749,13 +2749,18 @@ def _trivial_distinct(graph, node):
     return graph.kind(node) == z3.Z3_OP_DISTINCT and len(graph.arguments(node)) == 1
 
 
-def _inline(graph, node, atom_indices, variable_indices):
+def _inline(graph, node, atom_indices, variable_indices, generalized=None):
     """Render a formula or term with every definition expanded, as unfold would.
 
     Array terms stay folded, as unfold leaves them (see _definition_names).
+    generalized maps nodes to names they were generalized to, rendered in
+    their place.
     """
+    if generalized and node in generalized:
+        return generalized[node]
+
     def child(sub):
-        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
+        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices, generalized)
     if _folded_array(graph, node):
         return _term(graph, node)
     if graph.is_term(node):
@@ -2925,20 +2930,26 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         facts, names = facts + bridges, names + bridge_names
         if names:
             facts.append("revert " + " ".join(names))
+        # A distinct of Booleans over the atoms is stated over their names.
+        opaque_facts, opaque_names = _boolean_distinct_facts(
+            graph, outside, atom_indices, variable_indices,
+            {atom: "_o%d" % position for position, atom in enumerate(atoms)})
         alternatives.append(
             facts
             + ["generalize %s = _o%d" % (_term(graph, atom), position) for position, atom in enumerate(atoms)]
-            + [opaque_tactic])
+            + opaque_facts + [_without_boolean_distincts(opaque_names, opaque_tactic)])
         remaining = inside
     else:
         remaining = reachable
     fallback = ["unfold " + " ".join(_definition_names(graph, remaining, atoms))] if remaining else []
+    distinct_facts, distinct_names = _boolean_distinct_facts(graph, reachable, atom_indices, variable_indices)
+    fallback.extend(distinct_facts)
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
     if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
     fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
-    fallback.append(_theory_tactic(graph))
+    fallback.append(_without_boolean_distincts(distinct_names, _theory_tactic(graph)))
     alternatives.append(fallback)
     if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
             else _store_identity_instance(graph, reachable)):
@@ -2970,6 +2981,65 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         lines.extend("    | (" + "\n       ".join(alternative) + ")" for alternative in alternatives)
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
+
+
+def _boolean_distinct(graph, node):
+    """Whether node is a distinct of three or more Boolean arguments, which is false."""
+    arguments = graph.arguments(node)
+    return graph.kind(node) == z3.Z3_OP_DISTINCT and len(arguments) >= 3 and not graph.is_term(arguments[0])
+
+
+# Two of any three Booleans agree, so a distinct of three or more is false;
+# stated once per certificate that has one (_boolean_distinct_facts).
+_BOOLEAN_DISTINCT_LEMMA = """
+private theorem _bool_distinct3 {a b c : Prop} (_ab : Not (Iff a b)) (_ac : Not (Iff a c))
+    (_bc : Not (Iff b c)) : False := by
+  by_cases _a : a <;> by_cases _b : b <;> simp_all
+""".strip("\n").split("\n")
+
+
+def _without_boolean_distincts(names, tactic):
+    """Run tactic after rewriting the distincts _boolean_distinct_facts named to False."""
+    if not names:
+        return tactic
+    # Pre-order, so a distinct among another's arguments goes with the outer
+    # one; simp may close the goal, so the tactic follows by <;>.
+    return "(try (set_option linter.unusedSimpArgs false in simp only [%s])) <;> (%s)" % (
+        ", ".join("↓ " + name for name in names), tactic)
+
+
+def _boolean_distinct_facts(graph, reachable, atom_indices, variable_indices, generalized=None):
+    """State every reachable distinct of three or more Booleans false, over its unfolded pairs.
+
+    Z3's rewriter folds such a distinct to false (bool_rewriter), and a
+    rewrite, theory lemma, or cnf clause over one rests on that; the
+    distinct is the conjunction of its pairs' negated equivalences, quadratic
+    in its arguments. Over Int, omega, tried before grind, ran out of
+    heartbeats on a rewrite through distincts of 8 and 13 Booleans over Int
+    atoms (z3test 3524), even with these facts as hypotheses, and first
+    does not catch a heartbeat timeout. Each fact refutes the conjunction by
+    its first three arguments' pairs, the first, second, and n-th conjuncts
+    of _formula_body's order, through _bool_distinct3, and _grind_lemma
+    rewrites the distincts to False with them before its tactic
+    (_without_boolean_distincts). generalized maps the opaque atoms of
+    _grind_lemma's first attempt to the names they were generalized to,
+    which the facts then state in their place. Returns the tactic lines and
+    the facts' names.
+    """
+    facts, names = [], []
+    for formula in sorted(reachable):
+        if not _boolean_distinct(graph, formula):
+            continue
+        count = len(graph.arguments(formula)) * (len(graph.arguments(formula)) - 1) // 2
+
+        def conjunct(index):
+            # The index-th of the count conjuncts of a right-nested And chain.
+            return "_h" + ".2" * index + (".1" if index < count - 1 else "")
+        facts.append("have _bd%d : Not %s := fun _h => _bool_distinct3 %s %s %s" % (
+            formula, _inline(graph, formula, atom_indices, variable_indices, generalized),
+            conjunct(0), conjunct(1), conjunct(len(graph.arguments(formula)) - 1)))
+        names.append("_bd%d" % formula)
+    return facts, names
 
 
 # The cast lemmas a qf_lira certificate with to_real states once (_CAST_LEMMAS)
@@ -7345,6 +7415,8 @@ def reconstruct(source, certificate):
         lines.extend(_CAST_LEMMAS + [""])
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
         lines.extend(_PSEUDO_BOOLEAN_LEMMAS + [""])
+    if any(_boolean_distinct(graph, node) for node in range(len(graph.nodes))):
+        lines.extend(_BOOLEAN_DISTINCT_LEMMA + [""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):

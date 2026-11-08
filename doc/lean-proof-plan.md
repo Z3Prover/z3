@@ -1121,7 +1121,33 @@ unary `+` and a chained `<`), and `z3.29.smt2` query 1
 `assert-soft` and `:opt.*` options (they change what check-sat answers),
 `get-consequences` (a query of its own), `include`, `:error-behavior`, and
 `:global-decls true`; the other newly parsed files are satisfiable or
-leave the fragments (quantifiers, nonlinear arithmetic, strings).
+leave the fragments (quantifiers, nonlinear arithmetic, strings). (Since
+2026-11-07 the optimization commands are accepted; see the next note.)
+
+**Optimization commands; distincts of Booleans (2026-11-07).** With a soft
+assertion or an objective in scope, Z3's `check-sat` runs the optimization
+context with the assertions and assumptions as hard constraints
+(`cmd_context::check_sat`), and its first check of them is the unsat
+answer (`opt::context::optimize`). The exporter now drops `assert-soft`,
+`minimize`, `maximize`, and `get-objectives` like the output commands
+(`:named` inside one is rejected) and ignores the `opt.*` options, so the
+certificate states that the hard assertions are contradictory. A later
+unsat that only reports an exhausted Pareto front or box (hard constraints
+satisfiable) gets no certificate: the exporter's own solver answers sat
+(tested). Of the 90 z3test files with optimization commands, the frontend
+rejects 9 now (input-reading or unknown options), and the two unsat
+queries in the fragments, `3402.smt2` and `3524.smt2` (QF_LIA with
+`assert-soft`), verify (`OPTIMIZATION_INPUTS`). `3524` also needed a Lean
+change: its rewrite folds distincts of 8 and 13 Booleans, false by
+pigeonhole, and `omega`, tried before `grind` over Int, ran out of
+heartbeats on their unfolded pairs (a heartbeat timeout escapes `first`).
+Each distinct of three or more Booleans a grind lemma reaches is now
+stated false from its first three arguments' pairs (`_bool_distinct3`,
+`_boolean_distinct_facts`) and rewritten away by a pre-order `simp only`
+before the tactic, also in the attempt that first generalizes div, mod,
+and abs atoms (the facts then name them); the minimized QF_LIA input took
+80 s and failed, its variant over mod atoms 66 s, both now 1 s
+(`test_distincts_of_three_or_more_booleans_are_false`).
 
 **Integer input through the legacy proof object (2026-10-16).** `--core
 legacy` rejected `qf_lia` and `qf_uflia` ("certified through the clause log

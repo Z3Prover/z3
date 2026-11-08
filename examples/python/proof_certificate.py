@@ -62,6 +62,19 @@ _RESULT_QUERIES = {"get-proof", "get-model", "get-unsat-core", "get-assignment"}
 # a later definition of the same name is then an error in Z3 but would be the
 # definition in the snapshot, so a dropped command with :named is rejected.
 _OUTPUT_COMMANDS = {"get-value", "eval", "simplify", "apply", "display", "get-assertions"}
+# Optimization commands: soft assertions (assert-soft), objectives (minimize,
+# maximize), and get-objectives, which prints the objectives' values. With a
+# soft assertion or an objective in scope, Z3's check-sat runs the
+# optimization context over the assertions and assumptions as its hard
+# constraints (cmd_context::check_sat), and neither a soft assertion nor an
+# objective is one of them, so they are dropped like the output commands
+# (:named inside one is rejected the same way). The certified theorem stays
+# that the assertions in scope and the assumptions are contradictory. That is
+# what the optimization context's unsat means when its first check of the
+# hard constraints fails (opt::context::optimize); an unsat that reports an
+# exhausted Pareto front or box (the hard constraints satisfiable) has no
+# certificate, as the exporter's own solver finds the snapshot satisfiable.
+_OPTIMIZATION_COMMANDS = {"assert-soft", "minimize", "maximize", "get-objectives"}
 # set-option commands accepted and ignored, by Z3's parameter name with "-"
 # and "_" identified. The certificate is a statement about the parsed
 # assertions that Lean checks, so an option that only configures Z3's output,
@@ -90,8 +103,10 @@ _IGNORED_OPTIONS = frozenset({
     "smt.core.minimize", "sat.local_search", "sat.prob_search", "sat.random_seed",
     "nlsat.inline_vars", "nlsat.randomize", "parallel.enable", "tactic.default_tactic",
 })
-# Printing and model-presentation families, every member output-only.
-_IGNORED_OPTION_PREFIXES = ("pp.", "model.")
+# Printing and model-presentation families, every member output-only, and the
+# optimization context's parameters, which select how it searches for optima
+# once the hard constraints are satisfiable (see _OPTIMIZATION_COMMANDS).
+_IGNORED_OPTION_PREFIXES = ("pp.", "model.", "opt.")
 _INPUT_READING_OPTIONS = ("numeral_as_real", "int_real_coercions", "smtlib2_compliant", "rewriter.")
 # Z3's two names of the switch between scoped (false, the default) and global
 # declarations; only false is accepted (see _check_option).
@@ -340,7 +355,8 @@ def query_snapshot(source, query=None):
     original input, so the statement Lean checks is a statement about the
     selected query, never about the certificate's own copy of it. Commands
     that only print (_INFORMATION_QUERIES, _RESULT_QUERIES, _OUTPUT_COMMANDS)
-    are dropped, and the script ends at exit, as Z3's parser stops there.
+    and the optimization commands (_OPTIMIZATION_COMMANDS) are dropped, and
+    the script ends at exit, as Z3's parser stops there.
     """
     if query is not None and (type(query) is not int or query < 0):
         raise ProofExportError("the query index must be a nonnegative integer")
@@ -378,7 +394,7 @@ def query_snapshot(source, query=None):
         elif name in _INFORMATION_QUERIES:
             if len(tokens) != 4:
                 raise ProofExportError("%s takes one argument" % name)
-        elif name in _OUTPUT_COMMANDS:
+        elif name in _OUTPUT_COMMANDS or name in _OPTIMIZATION_COMMANDS:
             if ":named" in tokens:
                 raise ProofExportError("a :named label inside %s defines a name and is not supported" % name)
         elif name == "push":
