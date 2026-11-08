@@ -267,8 +267,8 @@ type targuments (u:uninterpreted) (sch:S.checked_schema) (ts:list sort) =
 
 (* Every remaining choice of a model, with NO constraint: uninterpreted
    symbols, every operator outside the interpreted set below (including
-   integer div/mod, distinct, BV/FF/Seq/FP operators), real division by
-   zero, ill-matched datatype selectors, and select/store/lambda (and every
+   integer div/mod by zero, distinct, BV/FF/Seq/FP operators), real division
+   by zero, ill-matched datatype selectors, and select/store/lambda (and every
    other non-connective operator) at an array sort mentioning a datatype.
    `=` and `ite` at such a placeholder sort are NOT free: they are
    interpreted by `connective` like at every other sort. *)
@@ -524,6 +524,19 @@ let read (#a #b:Type0) (fn:func_space a b) (i:a) : GTot b = Z3ArrayTheory.semant
 let write (#a #b:Type0) (fn:func_space a b) (i:a) (v:b) : func_space a b =
   Z3ArrayTheory.semantic_store fn i v
 
+(* Div/mod share this typed path; a zero divisor remains a free model choice. *)
+let interpreted_int_division (u:uninterpreted) (sch:S.checked_schema) (remainder:bool)
+                             (xs:targuments u sch [int_s; int_s])
+  : GTot (option (tvalue u sch int_s)) =
+  match xs with
+  | [x; y] ->
+    let sigma = S.signature sch in
+    let a = scalar #u #sigma int_s x in
+    let b = scalar #u #sigma int_s y in
+    if b = 0 then None
+    else Some (make #u #sigma int_s (if remainder then a % b else a / b))
+  | _ -> FStar.Pervasives.false_elim ()
+
 (* The standard meaning of every interpreted operator, independent of the
    free choices. None exactly when SMT-LIB leaves the value unconstrained
    (an operator outside the interpreted set, or a real division by zero). *)
@@ -557,22 +570,8 @@ let interpreted (u:uninterpreted) (sch:S.checked_schema)
        if decide (b == 0.0R) then None   (* division by zero: a free model choice *)
        else Some (make #u #sigma real_s (a /. b))
      | _ -> FStar.Pervasives.false_elim ())
-  | IntDiv ->
-    (match xs with
-     | [x; y] ->
-       let a = scalar #u #sigma int_s x in
-       let b = scalar #u #sigma int_s y in
-       if b = 0 then None   (* division by zero: a free model choice *)
-       else Some (make #u #sigma int_s (a / b))
-     | _ -> FStar.Pervasives.false_elim ())
-  | IntMod ->
-    (match xs with
-     | [x; y] ->
-       let a = scalar #u #sigma int_s x in
-       let b = scalar #u #sigma int_s y in
-       if b = 0 then None   (* modulus zero: a free model choice *)
-       else Some (make #u #sigma int_s (a % b))
-     | _ -> FStar.Pervasives.false_elim ())
+  | IntDiv -> interpreted_int_division u sch false xs
+  | IntMod -> interpreted_int_division u sch true xs
   | ToReal ->
     (match xs with
      | [x] -> Some (make #u #sigma real_s (of_int (scalar #u #sigma int_s x)))
