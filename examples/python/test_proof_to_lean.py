@@ -9,6 +9,7 @@ import io
 import itertools
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -1211,6 +1212,42 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(prover.needed, set())
         self.assertIsNone(proof_to_lean._PropositionalProver(("true",), ("or", a, ("not", a))).implication(
             ("true",), ("or", a, ("not", a))))  # a leaf is not split without classical mode
+
+    def test_prover_drops_splits_and_steps_the_proof_does_not_use(self):
+        # The search splits a true disjunction whenever propagation stops,
+        # the one with the fewest open disjuncts and earliest indexed first,
+        # whether or not the conflict involves it. Here (x or y) is split
+        # first, and its first branch refutes the four clauses over a and b
+        # without x: that branch proves the goal before the split, so the
+        # split and its branch for y are dropped (backjumping), and the
+        # steps that propagation wrote but the proof does not use are gone.
+        x, y, a, b = (("leaf", node, "(formula_%d _atoms _vars)" % node) for node in (2, 4, 6, 8))
+        clauses = ("and", ("or", x, y), ("or", a, b), ("or", ("not", a), b), ("or", a, ("not", b)),
+                   ("or", ("not", a), ("not", b)))
+        prover = proof_to_lean._PropositionalProver(clauses, classical=True)
+        lines = prover.refutation(clauses)
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertEqual(term.count("refine (Or.elim"), 1, term)  # one split, over the clauses on a and b
+        proof = term.split("refine (fun (_f1", 1)[1]
+        self.assertNotIn("_f1.1", proof)  # (x or y) is neither projected nor split
+        self.assertNotIn("Or.elim _f2 ", proof)
+        defined = re.findall(r"have (_f\d+)", term)
+        for name in defined:
+            self.assertRegex(term.split("have %s " % name, 1)[1], r"\b%s\b" % name, term)
+        # Every have is used, the ones before a case analysis by a branch.
+        self.assertEqual(proof_to_lean._needed_lines(
+            ["have _f2 := _f1.1", "have _f3 := _f1.2", "exact (False.elim (_f3 _f9))"]),
+            (["have _f3 := _f1.2", "exact (False.elim (_f3 _f9))"], {"_f1", "_f9"}))
+        kept, used = proof_to_lean._needed_lines(
+            ["have _f2 := _f1.1", "have _f3 := _f1.2", "have _f4 := _f1.3",
+             "refine (Or.elim _f2 (fun _f5 => ?_) (fun _f6 => ?_))"],
+            (["· exact (_f5 _f3)", "· exact _f6"], {"_f3", "_f5", "_f6"}))
+        self.assertEqual(kept, ["have _f2 := _f1.1", "have _f3 := _f1.2",
+                                "refine (Or.elim _f2 (fun _f5 => ?_) (fun _f6 => ?_))", "· exact (_f5 _f3)",
+                                "· exact _f6"])
+        self.assertIn("_f1", used)
+        self.assertNotIn("_f2", used)
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"

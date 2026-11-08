@@ -1754,7 +1754,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertEqual(text.count("revert _e"), 12)
         self.assertRegex(text, r"private theorem rewrite_\d+ .*\n.*\n.*\n  first\n    \| \(have _e")
 
-    @lean_test_support.slow("a 13,000-node circuit, about a minute at 4.5 GB")
+    @lean_test_support.slow("a 13,000-node circuit, about 10 s at 1.8 GB")
     def test_bounded_model_checking_circuit_verifies_through_one_cnf_lemma(self):
         # SMT-LIB QF_IDL Averest/buble_sort/BubbleSort_safe_bgmc007: one
         # assertion, a 13,000-node Boolean circuit (and, or, not, iff over
@@ -1767,8 +1767,8 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # nesting), and the export spent two minutes sorting nested keys.
         # Now the proof is a tactic script naming the gates by their
         # definitions, with nothing unfolded, and the whole file verifies
-        # (about a minute of Lean at a peak of about 4.5 GB resident: mind
-        # the runner's memory before adding a larger input).
+        # (about a minute of Lean at a peak of about 4.5 GB resident; about
+        # 10 s at 1.8 GB since the proof keeps only the steps it uses).
         source = (_EXAMPLES / "data" / "BubbleSort_safe_bgmc007.smt2").read_text()
         certificate = proof_certificate.export_clause_log_certificate(source)
         text = self.checked_text(source, certificate)
@@ -1782,10 +1782,45 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertNotIn("unfold", head)
         structural, fallback = attempts.split("\n    | (")
         self.assertIn("refine Classical.byContradiction ?_\n       refine (fun (_f", structural)
-        self.assertGreater(structural.count("\n       have _f"), 5000)
+        # The search writes about ten thousand steps; the 853 the proof needs are kept (_needed_lines).
+        self.assertGreater(structural.count("\n       have _f"), 500)
+        self.assertLess(structural.count("\n       have _f"), 2000)
         self.assertNotIn("let _s", structural)
         self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
         self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+
+    def test_circuit_cnf_lemma_skips_the_splits_its_branches_do_not_use(self):
+        # SMT-LIB QF_IDL RTCL/b13_tf_10/ckt_PROP1_tf_10: one assertion, a
+        # ten-frame circuit of Boolean ite chains over difference bounds. A
+        # cnf lemma ties a nine-case clause Z3 derived from the chain to the
+        # assertion; the propagation search split 31 atoms deep, most of the
+        # splits closing in both branches by facts found before them, ran
+        # out of its character budget, and the unfolded fallback (omega,
+        # then grind over 97 leaves) exhausted the heartbeats. A branch that
+        # does not need its hypothesis now proves the goal before the split,
+        # whose other branches are dropped, and the proof keeps only the
+        # steps it uses (_PropositionalProver._prove, _needed_lines).
+        source = (_EXAMPLES / "data" / "QF_IDL_ckt_PROP1_tf_10.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)
+               and len(graph.clause(graph.conclusion(node))) > 10]
+        self.assertEqual(len(cnf), 1)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemma = text.split("private theorem th_lemma_%d " % cnf[0], 1)[1].split("\n\n", 1)[0]
+        head, _, attempts = lemma.partition("\n  first\n")
+        self.assertNotIn("unfold", head)
+        structural, fallback = attempts.split("\n    | (")
+        self.assertIn("refine Classical.byContradiction ?_", structural)
+        self.assertIn("Classical.em", structural)  # splits remain, the ones the proof uses
+        self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+        self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+        # Lean checks the file with the fallback removed, so the structural
+        # proof itself is what verifies the lemma.
+        alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
+        self.assertNotEqual(alone, text)
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_nested_conjunction_model_checking_input_exports_with_few_solver_checks(self):
         # SMT-LIB QF_IDL mathsat/fischer/FISCHER6-4-ninc: one assertion

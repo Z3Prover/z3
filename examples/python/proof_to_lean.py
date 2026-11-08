@@ -4999,6 +4999,36 @@ def _reject_disjunct(position, count, proof):
     return term
 
 
+_PROVER_NAME = re.compile(r"\b_f\d+\b")
+_PROVER_HAVE = re.compile(r"have (_f\d+)\b")
+
+
+def _needed_lines(lines, rest=((), ())):
+    """Drop the `have` steps of lines that neither a later line nor the rest needs.
+
+    lines are a _PropositionalProver proof's own lines, the `have` steps
+    unindented (a case analysis's branches go in rest, already bulleted);
+    rest is (lines after them, the prover names those use but do not
+    define). Returns the kept lines followed by rest's lines, and the
+    prover names the result uses but does not define. The prover's names
+    (_f followed by digits) are fresh per prover, so a name is defined once.
+    """
+    needed = set(rest[1])
+    kept = []
+    for line in reversed(lines):
+        match = _PROVER_HAVE.match(line)
+        if match is None:
+            needed.update(_PROVER_NAME.findall(line))
+        elif match.group(1) in needed:
+            needed.discard(match.group(1))
+            needed.update(_PROVER_NAME.findall(line, match.end()))
+        else:
+            continue
+        kept.append(line)
+    kept.reverse()
+    return kept + list(rest[0]), needed
+
+
 def _reject_disjunction(proofs):
     """A refutation of a right-nested disjunction from refutations of all its disjuncts (not_or.mpr)."""
     result = proofs[-1]
@@ -5349,6 +5379,16 @@ class _PropositionalProver:
         thousand nested splits (the cnf lemma of a QF_LRA time-triggered
         startup input, tta_startup simple_startup_11nodes) exceeded Python's
         recursion limit. Lean checks a thousand nested bullets in a second.
+
+        A proved branch keeps only the `have` steps its proof needs
+        (_needed_lines), and a branch whose proof does not need its
+        hypothesis proves the goal before the split, which is dropped with
+        its other branches (backjumping). Propagation writes a step for every
+        consequence, most of them unused, and the atom splits are taken
+        most-shared first, irrespective of the conflict: the cnf lemma of a
+        QF_IDL circuit (RTCL ckt_PROP1_tf_10, 97 leaves) split 31 atoms deep
+        and exhausted the character budget enumerating splits whose both
+        branches closed by facts found before them.
         """
         splits = []  # open splits: (lines, branch facts, state, header, names, branches)
         result = self._settle(state, target, facts)
@@ -5357,15 +5397,25 @@ class _PropositionalProver:
                 splits.append(result)
             elif result is None:
                 return None  # a branch not proved fails the whole proof
-            elif not splits:
-                return result
             else:
-                splits[-1][5].append(result)
+                proof = _needed_lines(result)  # (lines, the names they use but do not define)
+                while splits:
+                    lines, branch_facts, state, header, names, branches = splits[-1]
+                    if names[len(branches)] not in proof[1]:
+                        splits.pop()  # backjump: the branch holds without its hypothesis
+                        proof = _needed_lines(lines, proof)
+                        continue
+                    branches.append(proof)
+                    if len(branches) < len(branch_facts):
+                        break
+                    splits.pop()
+                    used = set().union(*(branch[1] for branch in branches))
+                    proof = _needed_lines(lines + [header(names)],
+                                          (_bullets([branch[0] for branch in branches]), used))
+                    proof = proof[0], proof[1] - set(names)  # the header binds the branches' hypotheses
+                if not splits:
+                    return proof[0]
             lines, branch_facts, state, header, names, branches = splits[-1]
-            if len(branches) == len(branch_facts):
-                splits.pop()
-                result = lines + [header(names)] + _bullets(branches)
-                continue
             structure, truth = branch_facts[len(branches)]
             names.append(self.name())
             result = self._settle(dict(state), target, [(structure, truth, names[-1])])

@@ -1672,6 +1672,37 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Propositional proofs keep the steps they use and drop unused splits (2026-11-07)
+
+A first Lean status of z3test's `smtlib-sample` QF_IDL files (the files of
+at most 160 KB) found 6 of 17 verified and 5 failing in Lean on
+heartbeats or memory (`DTP_k2_n35`, `plan-21`, and three RTCL circuits).
+The other 6 exceed Z3's 20 s limit (4) or the replay's 120 s limit (2,
+`qlock`). The three RTCL
+`ckt_PROP*_tf_*` circuits failed the same way. A cnf lemma ties a clause
+Z3 derived from an ite chain (9, 19, or 30 cases) to the one assertion. The
+search of `_PropositionalProver` gave up on it, and the unfolded fallback
+ran out of heartbeats. The search split atoms in order of how many gates
+read them, and on `tf_10` it went 31 atoms deep. It exhausted its
+character budget on splits whose two branches both closed by facts found
+before the split. `_prove` now tracks which `have` names each proof uses
+(`_needed_lines`). A branch whose proof does not use its hypothesis proves
+the goal before the split, so the split and its other branches are dropped
+(backjumping). Every proof also keeps only the steps it uses.
+
+Results:
+
+- `tf_10` (now `examples/python/data/QF_IDL_ckt_PROP1_tf_10.smt2`) verifies
+  in 3 s at 1 GB.
+- BubbleSort's cnf proof shrinks from about ten thousand steps to 853, and
+  the file checks in 9 s at 1.8 GB (about a minute at 4.5 GB before).
+
+Still open: `tf_20` and `tf_30` keep the fallback. Their search explodes
+even with 100 times the budget. Restricting the search to the gates of a
+z3 unsat core (about 2,600 of 13,000) did not help, nor did other split
+orders. The search seems to need clause learning or proof guidance from
+a SAT solver's refutation.
+
 ### Distincts over the same terms in other orders (2026-11-07)
 
 `(distinct c0 ... c11)` with `(not (distinct c11 ... c0))` over Int exported

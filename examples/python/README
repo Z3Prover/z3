@@ -356,8 +356,11 @@ step:
     are bridged by an equivalence the theory tactic proves; a distinct over
     terms is the conjunction of its pairs' negated equalities when Z3 logged
     some pair as an equality node, a pair without a node being a synthetic
-    leaf rendered as the distinct's conjunct); a clause that needs a theory fact falls
-    back to the unfolded grind proof.
+    leaf rendered as the distinct's conjunct). The proof keeps only the
+    steps it uses, and a case split whose branch does not need its
+    hypothesis is dropped. A clause that needs a theory fact, or that the
+    search does not refute within its budget, falls back to the unfolded
+    grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact
