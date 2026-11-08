@@ -343,7 +343,7 @@ class TestMixedValidation(unittest.TestCase):
         source = UFLRA_INPUTS["uflra_normalized_arguments"]
         certificate = proof_certificate.export_clause_log_certificate(source)
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertRegex(text, r"have _r\d+_\d+ : .* = .* := by grind")
+        self.assertRegex(text, r"have _r\d+_\d+ : .* = .* := by unfold [^;]*; grind")
         graph = proof_to_lean._validate_graph(source, certificate)
         terms, tables = proof_to_lean._bind_input(source, graph, "qf_uflra")
         indices = {table: {decl: index for index, decl in enumerate(sorted(symbols.values()))}
@@ -351,10 +351,20 @@ class TestMixedValidation(unittest.TestCase):
         atom_indices = {**indices["atoms"], **indices["predicates"]}
         variable_indices = {**indices["variables"], **indices["numeric_functions"]}
         reachable = set(range(len(graph.nodes)))
+        pairs = proof_to_lean._real_argument_pairs(graph, reachable)
+        self.assertEqual(len(pairs), 3, pairs)  # x - y, 2 + 2 = 4, x - x = 0
+        sides = [" = ".join(proof_to_lean._inline(graph, node, atom_indices, variable_indices) for node in pair)
+                 for pair in pairs]
+        self.assertTrue(any("(_vars 0) - (_vars 1)" in h and "* (_vars 1)" in h for h in sides), sides)
+        self.assertTrue(any("((4 : Rat))" in h for h in sides), sides)
+        # Each stated over the two definitions, then unfolded in place.
         helpers = proof_to_lean._real_argument_helpers(graph, reachable, atom_indices, variable_indices)
-        self.assertEqual(len(helpers), 3, helpers)  # x - y, 2 + 2 = 4, x - x = 0
-        self.assertTrue(any("(_vars 0) - (_vars 1)" in h and "* (_vars 1)" in h for h in helpers), helpers)
-        self.assertTrue(any("((4 : Rat))" in h for h in helpers), helpers)
+        self.assertEqual([helper.split(" : ")[0].split()[-1] for helper in helpers[::2]],
+                         ["_r%d_%d" % pair for pair in pairs])
+        for (first, second), fact, unfold in zip(pairs, helpers[::2], helpers[1::2]):
+            self.assertIn(": %s = %s := by unfold " % (proof_to_lean._term(graph, first),
+                                                        proof_to_lean._term(graph, second)), fact)
+            self.assertTrue(unfold.endswith(" at _r%d_%d" % (first, second)), unfold)
         # Function applications are opaque atoms of the linear forms, keyed by
         # node in the atom-normalizing rewrite shape: a rewrite whose sides
         # apply f to different renderings of one argument ((f (+ 2.0 2.0))
@@ -395,7 +405,7 @@ class TestMixedValidation(unittest.TestCase):
         self.assertEqual((kind, condition[0], constant), ("ite", "<=", 0))
         self.assertNotEqual(then_key, else_key)
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertRegex(text, r"have _r\d+_\d+ : .*@ite Rat .* = .*@ite Rat .* := by grind")
+        self.assertRegex(text, r"have _r%d_%d : \(term_%d .* = \(term_%d .* := by unfold [^;]*; grind" % (tuple(ites) * 2))
         # A variable and an application are opaque atoms.
         opaque = [node for node in range(len(graph.nodes)) if graph.is_arith(node)
                   and graph.kind(node) == z3.Z3_OP_UNINTERPRETED]

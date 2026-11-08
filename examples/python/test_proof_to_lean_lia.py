@@ -421,23 +421,29 @@ def two_partitions_instance(seed, variables=700, width=10):
 _FALLBACK_AFTER = r"\n       %s\)\n    \| \((?:unfold |have _g)"
 
 
-def modular_chains_instance(depth=6):
+def modular_chains_instance(depth=6, function=False):
     """x + 5 * depth and x + 10 * (depth / 2) modulo 17, each step an ite, said to differ.
 
     Every step (ite (< s 17) s (- s 17)) over s = previous + k holds the
     previous step three times, so written out the depth-th one is about 3^depth
     times the size of its definition: the shape of QF_UFLIA EufLaArithmetic
     hard16 (17-cycles reduced by nested ites), whose theory lemmas stated
-    their ite gates written out (see proof_to_lean._folded_ite_gates).
+    their ite gates written out (see proof_to_lean._folded_ite_gates). With
+    function, the two results are compared through an uninterpreted f,
+    whose arguments the rewriter normalizes (see
+    proof_to_lean._real_argument_helpers).
     """
-    lines = ["(set-logic QF_LIA)", "(declare-const x Int)"]
+    lines = ["(set-logic %s)" % ("QF_UFLIA" if function else "QF_LIA"), "(declare-const x Int)"]
+    if function:
+        lines.append("(declare-fun f (Int) Int)")
     for name, step, count in (("a", 5, depth), ("b", 10, depth // 2)):
         previous = "x"
         for index in range(1, count + 1):
             lines.append("(define-fun %s%d () Int (let ((s (+ %s %d))) (ite (< s 17) s (- s 17))))" % (
                 name, index, previous, step))
             previous = "%s%d" % (name, index)
-    lines += ["(assert (and (<= 0 x) (< x 17)))", "(assert (not (= a%d b%d)))" % (depth, depth // 2), "(check-sat)"]
+    sides = ("(f a%d) (f b%d)" if function else "a%d b%d") % (depth, depth // 2)
+    lines += ["(assert (and (<= 0 x) (< x 17)))", "(assert (not (= %s)))" % sides, "(check-sat)"]
     return "\n".join(lines) + "\n"
 
 

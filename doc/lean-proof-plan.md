@@ -2838,6 +2838,32 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Argument equalities stated over folded definitions (2026-11-08)
+
+The ite gates were not the only written-out helper. Comparing the two
+modular chains through a function, `(not (= (f a6) (f b3)))`, Z3's
+rewriter replaces both arguments with their normal forms, and the rewrite
+step's lemma states each argument equal to its normal form
+(`_real_argument_helpers`, `have _rA_B : sA = sB`). Written out, the `a6`
+equality was 106 KB of text, and its theory tactic ran out of heartbeats in
+`isDefEq`, so the file failed.
+
+Without arrays the equality is now stated over the two terms' definitions,
+`(term_A ...) = (term_B ...)`. It is proved by unfolding the definitions
+both terms reach and then running the theory tactic, with the same
+hypotheses in context as before. The same `unfold ... at _rA_B` then
+rewrites the fact into the goal's terms. Certificates with arrays keep the
+written-out form, since their array terms stay folded.
+
+`modular_chains_instance(6, function=True)` (QF_UFLIA) is 0.37 MB of Lean
+instead of 0.48 MB, and it verifies in 5 s at 1.2 GB; before, it failed.
+Tests in `test_proof_to_lean_uflia.py`:
+
+- `test_argument_equalities_are_stated_over_folded_definitions`: the
+  shape of the facts, without Lean.
+- `test_nested_ite_arguments_verify_through_folded_equalities`: the Lean
+  check.
+
 ### Ite gates stated over folded definitions (2026-11-08)
 
 A rescan of z3test's `smtlib-sample` QF_UFLIA files of at most 160 KB

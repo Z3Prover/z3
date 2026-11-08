@@ -26,6 +26,7 @@ import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_uf import _unsat_core_size, _z3_available, outlined_lemma_sizes, _proof_steps
 from test_proof_to_lean_uflra import _th_lemma_nodes
+from test_proof_to_lean_lia import modular_chains_instance
 
 _STANDARD_AXIOMS = "[propext, Classical.choice, Quot.sound]"
 
@@ -421,7 +422,7 @@ class TestIntegerMixedValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("have _r", text)
         helper = next(line for line in text.splitlines() if line.startswith("  have _r"))
-        self.assertTrue(helper.endswith(":= by first | omega | grind (splits := 64)"), helper)
+        self.assertRegex(helper, r" := by unfold [\w ]+; first \| omega \| grind \(splits := 64\)$")
         graph = proof_to_lean._validate_graph(source, certificate)
         ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE]
         self.assertEqual(ites, [])
@@ -436,7 +437,34 @@ class TestIntegerMixedValidation(unittest.TestCase):
         self.assertEqual(len({proof_to_lean._real_argument_key(graph, node) for node in ites}), 1)
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("(@ite Int ", text)
-        self.assertRegex(text, r"have _r%d_%d : \(@ite Int .* = \(@ite Int .* := by first \| omega \| grind" % tuple(ites))
+        self.assertRegex(text, r"have _r%d_%d : \(term_%d .* = \(term_%d .* := by unfold [^;]*; first \| omega \| grind"
+                         % (tuple(ites) * 2))
+
+    def test_argument_equalities_are_stated_over_folded_definitions(self):
+        # f's arguments a6 and b3 are rewritten into the rewriter's normal
+        # form, and the rewrite step states each argument equal to its
+        # normal form: over the two terms' definitions, proved after
+        # unfolding them and unfolded in place. Written out, the a6 equality
+        # was 106 KB of text, and its theory tactic ran out of heartbeats.
+        source = modular_chains_instance(6, function=True)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lines = text.splitlines()
+        facts = [index for index, line in enumerate(lines) if line.lstrip().startswith("have _r")]
+        # How many arguments the rewriter normalizes is Z3's choice (two
+        # today); the shape below is what every one of them must have.
+        self.assertGreaterEqual(len(facts), 1)
+        for index in facts:
+            fact = re.fullmatch(r" *have _r(\d+)_(\d+) : \(term_(\d+) _atoms _vars _m\) = \(term_(\d+) _atoms _vars _m\)"
+                                r" := by unfold ([\w ]+); first \| omega \| grind \(splits := 64\)", lines[index])
+            self.assertIsNotNone(fact, lines[index][:300])
+            first, second = int(fact.group(1)), int(fact.group(2))
+            self.assertEqual((first, second), (int(fact.group(3)), int(fact.group(4))))
+            self.assertEqual(graph.kind(first), z3.Z3_OP_ITE)
+            self.assertEqual(fact.group(5).split()[:1], ["term_%d" % max(first, second)])
+            self.assertEqual(lines[index + 1].strip(), "unfold %s at _r%d_%d" % (fact.group(5), first, second))
+        self.assertLess(max(len(line) for line in lines), 20000)
 
     def test_same_branch_ite_gates_are_proved_by_cases(self):
         source = UFLIA_INPUTS["uflia_same_branch_ite"]
@@ -714,6 +742,13 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     self.assertEqual(text.count("refine Classical.byContradiction ?_\n"), len(cnf))
         # Every hint kind of the slice, plus the exporter's own cnf bridge.
         self.assertEqual(hints, {"cut", "euf", "farkas", "implied-eq", "bound", "cnf", "arith"})
+
+    def test_nested_ite_arguments_verify_through_folded_equalities(self):
+        # About 5 s at 1.2 GB; with f's arguments' equalities to their
+        # normal forms written out (106 KB for a6), their theory tactic ran
+        # out of heartbeats (see _real_argument_helpers).
+        _, text = self.check(modular_chains_instance(6, function=True))
+        self.assertIn(" at _r", text)
 
     def test_cnf_bridges_fall_through_to_the_unfolded_proof(self):
         # With the structural term replaced by one Lean rejects (a proof of

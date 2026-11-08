@@ -4721,7 +4721,31 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
     The groups are per sort: in a qf_uflira certificate an Int and a Real
     argument may share a linear form ((ite c 1 0) and (ite c 1.0 0.0)), and
     they are injected by different maps, so no helper relates them.
+
+    Without arrays each equality is stated over the two terms' definitions,
+    folded, proved after unfolding them, and then unfolded in place into
+    the goal's terms; written out, an argument over nested ites repeats
+    every inner ite in full (each modular step of the hard16 shape thrice,
+    106 KB for six steps), and the theory tactic ran out of heartbeats on
+    the elaborated statement. With arrays (whose terms the unfold keeps
+    folded, see _definition_names) the statement stays written out.
     """
+    helpers = []
+    for first, second in _real_argument_pairs(graph, reachable):
+        if graph.arrays:
+            helpers.append("  have _r%d_%d : %s = %s := by %s" % (
+                first, second, _inline(graph, first, atom_indices, variable_indices),
+                _inline(graph, second, atom_indices, variable_indices), _theory_tactic(graph)))
+            continue
+        names = " ".join(_definition_names(graph, _reachable(graph, first, second)[0]))
+        helpers.append("  have _r%d_%d : %s = %s := by unfold %s; %s" % (
+            first, second, _term(graph, first), _term(graph, second), names, _theory_tactic(graph)))
+        helpers.append("  unfold %s at _r%d_%d" % (names, first, second))
+    return helpers
+
+
+def _real_argument_pairs(graph, reachable):
+    """The pairs of reachable numeric application arguments _real_argument_helpers relates."""
     groups = {}
     for node in sorted(reachable):
         if graph.kind(node) != z3.Z3_OP_UNINTERPRETED:
@@ -4732,13 +4756,7 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
                 members = groups.setdefault(key, [])
                 if argument not in members:
                     members.append(argument)
-    helpers = []
-    for members in groups.values():
-        for first, second in zip(members, members[1:]):
-            helpers.append("  have _r%d_%d : %s = %s := by %s" % (
-                first, second, _inline(graph, first, atom_indices, variable_indices),
-                _inline(graph, second, atom_indices, variable_indices), _theory_tactic(graph)))
-    return helpers
+    return [pair for members in groups.values() for pair in zip(members, members[1:])]
 
 
 def _real_argument_key(graph, node):
