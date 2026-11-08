@@ -214,15 +214,15 @@ let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
     lemma_negative_quotient 1.0R (of_int q.denom) (of_int q.cst) x z;
     lemma_denotes_scale (-q.denom) (-q.cst) p x z r)
 
-let lemma_div_application (f:func_decl) (args:list expr) (x y:real)
-                          (i:interpretation value) (nu:value -> real) (rho:env value)
+private let lemma_div_application (f:func_decl) (args:list expr) (x y:real)
+                                  (i:interpretation value) (nu:value -> real) (rho:env value)
   : Lemma (requires numeric_operators i nu /\ A.operation_of f args == Some A.Div /\
                     map nu (eval_args i args rho) == [x; y])
           (ensures ~(y == 0.0R) ==> nu (eval i (App f args) rho) *. y == x) = ()
 
-let lemma_linearize_divide (f:func_decl) (args:list expr) (e:expr) (a b q p:A.poly)
-                           (x y:real) (i:interpretation value) (nu:value -> real)
-                           (rho:env value)
+private let lemma_linearize_divide (f:func_decl) (args:list expr) (e:expr)
+                                   (a b q p:A.poly) (x y:real)
+                                   (i:interpretation value) (nu:value -> real) (rho:env value)
   : Lemma (requires numeric_operators i nu /\ e == App f args /\
                     A.operation_of f args == Some A.Div /\
                     map nu (eval_args i args rho) == [x; y] /\
