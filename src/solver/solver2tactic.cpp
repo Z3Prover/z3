@@ -141,10 +141,12 @@ public:
                 if (!pr || !m.is_false(m.get_fact(pr)))
                     throw tactic_exception("solver2tactic did not produce a proof of false");
                 expr_safe_replace sub(m);
+                // formulas in goal are 1-1 with clauses
+                SASSERT(clauses.size() == in->size());
                 for (unsigned i = 0; i < in->size(); ++i) {
                     if (!in->pr(i) || m.get_fact(in->pr(i)) != in->form(i))
                         throw tactic_exception("solver2tactic input proof does not match its assertion");
-                    sub.insert(m.mk_asserted(in->form(i)), in->pr(i));
+                    sub.insert(m.mk_asserted(clauses.get(i)), in->pr(i));
                 }
                 expr_ref tmp(pr.get(), m);
                 sub(tmp);
