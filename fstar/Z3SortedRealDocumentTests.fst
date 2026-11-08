@@ -479,5 +479,6 @@ let r6_real_gate_closed_false (#base:sort -> Type0) (bc:S.boolean_carrier base)
   assert_norm (not (SP.needs_forall_semantics gate_closed_document.P.entries) /\
                not (SP.needs_forall_truth gate_closed_document.P.entries) /\
                not (SP.needs_binder_semantics gate_closed_document.P.entries) /\
-               not (SP.needs_real_semantics RR.real_datatype_schema gate_closed_document.P.entries));
+               not (SP.needs_real_semantics RR.real_datatype_schema gate_closed_document.P.entries) /\
+               not (SP.needs_division_semantics gate_closed_document.P.entries));
   SP.lemma_check_document RR.real_datatype_schema bc eq other gate_closed_document

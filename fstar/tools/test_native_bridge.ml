@@ -530,6 +530,63 @@ let native_lp_certificates () =
   require (C.read_uint [C.Rational (Z.of_string "4294967296", Z.one)] = None)
     "overflowing LP index was accepted"
 
+(* The walks over the native parameters of an LP context (B.marshal_parameters and
+   B.parameter_expressions) keep every parameter's kind, content and position at the size
+   of a real Pulse context (83,270 parameters, 14,347 of them expressions; the Cherry
+   counterpart is Z3CherryTests.native_parameters), carry unusual numerators and
+   denominators verbatim, and fail on an expression that was not marshaled, wherever it is. *)
+let lp_parameter_walks () =
+  let c = context () in
+  let a0, a1 = match parse c "(declare-const p Bool)(declare-const q Bool)(assert p)(assert (not q))" with
+    | [a0; a1] -> a0, a1 | _ -> failwith "unexpected LP parameter fixture" in
+  let st = B.marshal_expressions (B.empty_state ()) [a0; a1] in
+  let e0 = B.cached_expression st a0 and e1 = B.cached_expression st a1 in
+  let z = Z.of_int and big = Z.of_string "123456789012345678901234567890" in
+  let parameter i =
+    if i mod 6 = 0 then N.ParameterExpression (if i mod 12 = 0 then a0 else a1)
+    else if i mod 6 = 3 then N.ParameterUnsupported
+    else if i mod 6 = 5 then N.ParameterRational (big, z (-(i mod 7)))
+    else N.ParameterRational (z (i - 40), z (1 + i mod 4)) in
+  let raw i =
+    if i mod 6 = 0 then C.Expression (if i mod 12 = 0 then e0 else e1)
+    else if i mod 6 = 3 then C.Unsupported
+    else if i mod 6 = 5 then C.Rational (big, z (-(i mod 7)))
+    else C.Rational (z (i - 40), z (1 + i mod 4)) in
+  require (B.marshal_parameters st [] = []) "empty LP parameter list changed";
+  require (B.parameter_expressions [] = []) "empty LP parameter list has expressions";
+  let small = [N.ParameterRational (z (-3), z 4); N.ParameterExpression a0; N.ParameterUnsupported;
+               N.ParameterExpression a1; N.ParameterRational (big, z (-2));
+               N.ParameterRational (z 0, z 0); N.ParameterExpression a0] in
+  require (B.marshal_parameters st small =
+           [C.Rational (z (-3), z 4); C.Expression e0; C.Unsupported; C.Expression e1;
+            C.Rational (big, z (-2)); C.Rational (z 0, z 0); C.Expression e0])
+    "small LP parameter list lost its kinds, contents or order";
+  let ids xs = List.map N.ast_id xs in
+  require (ids (B.parameter_expressions small) = ids [a0; a1; a0])
+    "small LP parameter list lost its expressions or their order";
+  let count = 200000 in
+  let mixed = List.init count parameter in
+  let marshaled = B.marshal_parameters st mixed in
+  require (List.length marshaled = count) "mixed LP parameter list changed its length";
+  List.iteri (fun i r -> require (r = raw i) "mixed LP parameter list changed a parameter") marshaled;
+  let expression_ids n = List.init n (fun j -> N.ast_id (if j mod 2 = 0 then a0 else a1)) in
+  require (ids (B.parameter_expressions mixed) = expression_ids ((count + 5) / 6))
+    "mixed LP parameter list lost its expressions or their order";
+  let dense = List.init 400000 (fun j -> N.ParameterExpression (if j mod 2 = 0 then a0 else a1)) in
+  require (ids (B.parameter_expressions dense) = expression_ids 400000)
+    "expression-only LP parameter list lost its expressions or their order";
+  let only_first = B.marshal_expressions (B.empty_state ()) [a0] in
+  let unmarshaled st ps = match B.marshal_parameters st ps with
+    | _ -> false
+    | exception N.Error message -> message = "Native expression dependency was not marshaled" in
+  require (unmarshaled (B.empty_state ()) [N.ParameterRational (z 1, z 1); N.ParameterExpression a0])
+    "an unmarshaled LP expression parameter was accepted";
+  require (unmarshaled only_first [N.ParameterExpression a0; N.ParameterExpression a1])
+    "a later unmarshaled LP expression parameter was accepted";
+  require (unmarshaled only_first (List.init 100000 (fun _ -> N.ParameterExpression a0) @
+                                   [N.ParameterExpression a1]))
+    "an unmarshaled LP expression parameter after a long prefix was accepted"
+
 let native_bound () =
   let doc = document
       "(declare-const x Real)(declare-const y Real)(declare-const p Bool)\
@@ -3089,6 +3146,336 @@ let sorted_real_farkas () =
   let doc, schema = B.marshal_with_datatypes assertions proof in
   require (K.check_document_epsilon schema doc = Some Z.zero)
     "the producer's Real Farkas refutation was not certified on the Sorted route"
+
+(* Real equality/order clauses (Z3SortedProof.real_order, the Real mirror of the Int order_clause)
+   on the Sorted route. z3's arith_eq_adapter lemmas over Real terms (`not (x = y) \/ x <= y`, the
+   three-literal `(x = y) \/ not (x <= y) \/ not (y <= x)` and their difference forms) are certified
+   on the Sorted route (check_document_epsilon), each clause node is checked by real_order and by
+   no other kernel (the old consequence refuses it). On the marshalled producer node itself, a strict
+   comparison, a wrong target, a twin operand, a counterfeit `=` or `<=`, a positive equation and a
+   fourth literal stay pending, and a schema registering a datatype named Real closes the gate.
+   The clause is admitted by the depth walk of Z3NnfReplay.shallow (4,096 levels) before any
+   comparison, on the normal stack: with unshared equal deep operands f^n(a) the deepest node of
+   the clause is at depth n + 3, so n = 4,093 is checked and n = 4,094 refused, a mismatch at the
+   bottom of f^4093 is refused after the comparison, and 200,000 levels are refused by the walk. *)
+let sorted_real_order_clauses () =
+  let module K = Z3SortedProof in
+  let real_sort = A.SortApp (A.RealSymbol, []) in
+  let header = "(declare-fun f (Real) Real)(declare-fun g (Real) Real)(declare-const a Real)(declare-const b Real)" in
+  let clause_step e = match U.classify_fact e.P.formula with
+    | Some (U.Holds clause) when e.P.rule = U.Unverified "th-lemma" && K.real_order_clause clause -> Some clause
+    | _ -> None in
+  let node clause = { U.kind = U.Unverified "th-lemma"; conclusion = U.Holds clause; premises = [] } in
+  let pending schema clause = match K.check_node schema [] (node clause) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted Real clause node was rejected" in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    let steps = List.filter_map clause_step doc.P.entries in
+    require (steps <> []) (name ^ ": no Real order clause step was produced");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the Real order refutation was not certified");
+    steps, schema in
+  let triangle, schema = certified "triangle" (header ^ "(assert (= (f a) 2.0))(assert (> (f a) 3.0))") in
+  let pair, _ = certified "pair"
+      (header ^ "(assert (= (f a) (g b)))(assert (< (f a) (+ (g b) 1.0)))(assert (> (f a) (+ (g b) 2.0)))") in
+  let bounds, _ = certified "bounds"
+      (header ^ "(assert (<= (f a) (g b)))(assert (>= (f a) (g b)))(assert (not (= (f a) (g b))))") in
+  List.iter (fun clause ->
+      require (K.real_order schema (node clause) && Z.equal (pending schema clause) Z.zero &&
+               not (K.consequence schema [] clause))
+        "a producer Real clause was not checked by real_order alone")
+    (triangle @ pair @ bounds);
+  let disj, negation, eq_decl, x, y, le_decl, x', y' = match List.hd triangle with
+    | A.App (disj, [A.App (negation, [A.App (eq_decl, [x; y])]); A.App (le_decl, [x'; y'])]) ->
+        disj, negation, eq_decl, x, y, le_decl, x', y'
+    | _ -> failwith "expected (or (not (= x y)) (<= x y))" in
+  let equation = A.App (eq_decl, [x; y]) in
+  let negated = A.App (negation, [equation]) in
+  let le_of a b = A.App (le_decl, [a; b]) in
+  let real_constant name params = A.App ({ A.decl_name = name; domain = []; range = real_sort; interp = None;
+                                           int_params = params }, []) in
+  let twin = match x with
+    | A.App (k, args) -> A.App ({ k with A.int_params = [Z.of_int 7] }, args)
+    | _ -> failwith "expected an application x" in
+  let or_of args = A.App (disj, args) in
+  let mutants = [
+    or_of [negated; A.App ({ le_decl with A.decl_name = "<"; interp = Some Z3ValueTheory.op_arith_lt }, [x'; y'])], "strict";
+    or_of [negated; A.App ({ le_decl with A.decl_name = ">"; interp = Some Z3ValueTheory.op_arith_gt }, [x'; y'])], "greater";
+    or_of [negated; le_of x' (real_constant "z" [])], "wrong target";
+    or_of [negated; le_of twin y'], "twin operand";
+    or_of [A.App (negation, [A.App ({ eq_decl with A.interp = None }, [x; y])]); le_of x' y'], "counterfeit =";
+    or_of [negated; A.App ({ le_decl with A.interp = None }, [x'; y'])], "counterfeit <=";
+    or_of [equation; le_of x' y'], "positive equation";
+    or_of [A.App (negation, [negated]); le_of x' y'], "doubled negation";
+    A.App ({ disj with A.domain = [A.bool_sort; A.bool_sort; A.bool_sort; A.bool_sort] },
+           [negated; le_of x' y'; le_of y' x'; le_of x' y']), "four literals"] in
+  List.iter (fun (clause, name) ->
+      require (not (K.real_order schema (node clause)) && Z.gt (pending schema clause) Z.zero)
+        ("a Real clause mutant was checked: " ^ name))
+    mutants;
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype && not (Z3SortedReal.real_primitive real_datatype))
+    "the Real datatype schema does not close the Real gate";
+  require (not (K.real_order real_datatype (node (List.hd triangle))) &&
+           Z.gt (pending real_datatype (List.hd triangle)) Z.zero)
+    "a Real clause was checked on a schema registering a datatype named Real";
+  let f_decl = { A.decl_name = "f"; domain = [real_sort]; range = real_sort; interp = None; int_params = [] } in
+  let rec chain n acc = if n = 0 then acc else chain (n - 1) (A.App (f_decl, [acc])) in
+  let deep n bottom other =
+    or_of [A.App (negation, [A.App (eq_decl, [chain n bottom; chain n bottom])]);
+           A.App (le_decl, [chain n bottom; chain n other])] in
+  let a_const = real_constant "a" [] and b_const = real_constant "b" [] in
+  let exact = deep 4093 a_const a_const in
+  require (K.real_order_clause exact && K.real_order schema (node exact) && Z.equal (pending schema exact) Z.zero)
+    "a 4,093-deep Real clause was not checked";
+  let one_over = deep 4094 a_const a_const in
+  require (not (K.real_order_clause one_over) && not (K.real_order schema (node one_over)))
+    "a 4,094-deep Real clause was admitted";
+  let differing = deep 4093 a_const b_const in
+  require (not (K.real_order schema (node differing)) && Z.gt (pending schema differing) Z.zero)
+    "a 4,093-deep Real clause with different operands was checked";
+  let huge = deep 200_000 a_const a_const in
+  require (not (K.real_order_clause huge) && not (K.real_order schema (node huge)))
+    "a 200,000-deep Real clause was admitted"
+
+(* Guarded Int div/mod clauses (Z3SortedProof.division_clause, the Sorted Int division laws of
+   Z3SortedIntDivision): the producer's premise-free th-lemma clauses of z3's div/mod axioms
+   (d = 0 \/ mod x d >= 0, d <= 0 \/ (mod x d) + (-1)*d <= -1, d >= 0 \/ (mod x d) + d <= -1 and
+   d = 0 \/ x = d*(div x d) + mod x d) are certified on the Sorted route (check_document_epsilon) and each
+   clause node is checked by Z3SortedProof.division_order alone. On the producer's own clause a
+   lookalike mod (no kind tag, the div tag, a twin parameter, another name), a counterfeit `=`, a
+   missing guard, a wrong guard constant and bound constant and a third literal are refused; the clause
+   must be shallow before any comparison (n = 4,093 accepted, 4,094 and 200,000 refused). *)
+let sorted_int_division_clauses () =
+  let module K = Z3SortedProof in
+  let int_sort = A.SortApp (A.IntSymbol, []) in
+  let clause_step e = match U.classify_fact e.P.formula with
+    | Some (U.Holds clause) when e.P.rule = U.Unverified "th-lemma" && K.division_clause clause -> Some clause
+    | _ -> None in
+  let node clause = { U.kind = U.Unverified "th-lemma"; conclusion = U.Holds clause; premises = [] } in
+  let pending schema clause = match K.check_node schema [] (node clause) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted Int clause node was rejected" in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    let steps = List.filter_map clause_step doc.P.entries in
+    require (steps <> []) (name ^ ": no guarded division clause step was produced");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the division refutation was not certified");
+    steps, schema in
+  let header = "(declare-const x Int)(declare-const d Int)" in
+  let lower, schema = certified "lower" (header ^ "(assert (not (= d 0)))(assert (< (mod x d) 0))") in
+  let upper_positive, _ = certified "upper-positive" (header ^ "(assert (> d 0))(assert (>= (mod x d) d))") in
+  let upper_negative, _ = certified "upper-negative" (header ^ "(assert (< d 0))(assert (> (+ (mod x d) d) (- 1)))") in
+  let decomposition, _ = certified "decomposition"
+      (header ^ "(assert (not (= d 0)))(assert (not (= x (+ (* d (div x d)) (mod x d)))))") in
+  List.iter (fun clause ->
+      require (K.division_order (node clause) && Z.equal (pending schema clause) Z.zero &&
+               not (K.consequence schema [] clause))
+        "a producer division clause was not checked by division_order alone")
+    (lower @ upper_positive @ upper_negative @ decomposition);
+  let rec find_literal pred = function
+    | [] -> failwith "the expected producer clause shape was not found"
+    | clause :: rest -> (match pred clause with Some shape -> shape | None -> find_literal pred rest) in
+  (* d = 0 \/ mod x d >= 0 *)
+  let disj, eq_decl, d, zero_numeral, ge_decl, mod_decl, x', d', zero' =
+    find_literal (function
+        | A.App (disj, [A.App (eq_decl, [d; zero]); A.App (ge_decl, [A.App (mod_decl, [x'; d']); zero'])])
+          when mod_decl.A.decl_name = "mod" ->
+            Some (disj, eq_decl, d, zero, ge_decl, mod_decl, x', d', zero')
+        | _ -> None)
+      lower in
+  let or_of args = A.App (disj, args) in
+  let guard = A.App (eq_decl, [d; zero_numeral]) in
+  let body = A.App (ge_decl, [A.App (mod_decl, [x'; d']); zero']) in
+  let with_mod decl = A.App (ge_decl, [A.App (decl, [x'; d']); zero']) in
+  let numeral n = match zero_numeral with
+    | A.App (k, args) -> A.App ({ k with A.int_params = [Z.of_int n; Z.one] }, args)
+    | _ -> failwith "expected a numeral" in
+  (* the numeral instance x = 7, d = -2 (7 div -2 = -3, 7 mod -2 = 1) of the lower bound and of the
+     decomposition is checked (the decomposition's declarations come from the producer's own clause), and the
+     zero-divisor controls at numerals are refused: a unit clause (no guard) and a guard on the dividend *)
+  let seven = numeral 7 and minus_two = numeral (-2) and zero_n = numeral 0 in
+  let remainder a b = A.App (mod_decl, [a; b]) in
+  let instance_lower = or_of [A.App (eq_decl, [minus_two; zero_n]); A.App (ge_decl, [remainder seven minus_two; zero_n])] in
+  require (K.division_order (node instance_lower) && Z.equal (pending schema instance_lower) Z.zero &&
+           not (K.consequence schema [] instance_lower))
+    "the numeral instance 7 mod -2 >= 0 was not checked by division_order alone";
+  (* a numeral divisor: the guard 3 = 0 is false and mod x 3 >= 0 is valid, a POSITIVE control accepted by the new
+     validator itself (division_order called directly, so no older fallback masks it) *)
+  let numeral_divisor = or_of [A.App (eq_decl, [numeral 3; zero_n]); A.App (ge_decl, [remainder x' (numeral 3); zero_n])] in
+  require (K.division_order (node numeral_divisor) && Z.equal (pending schema numeral_divisor) Z.zero &&
+           not (K.consequence schema [] numeral_divisor))
+    "the numeral divisor clause d = 3 was not checked by division_order alone";
+  let instance_decomposition = match find_literal (function
+      | A.App (_, [_; A.App (eq3, [_; A.App (plus_decl, [A.App (times_decl, [_; A.App (div_decl, [_; _])]); _])])])
+        -> Some (eq3, plus_decl, times_decl, div_decl)
+      | _ -> None) decomposition with
+    | eq3, plus_decl, times_decl, div_decl ->
+        let quotient = A.App (div_decl, [seven; minus_two]) in
+        or_of [A.App (eq_decl, [minus_two; zero_n]);
+               A.App (eq3, [seven; A.App (plus_decl, [A.App (times_decl, [minus_two; quotient]); remainder seven minus_two])])] in
+  require (K.division_order (node instance_decomposition) && Z.equal (pending schema instance_decomposition) Z.zero)
+    "the numeral instance 7 = -2 * (7 div -2) + 7 mod -2 was not checked";
+  let zero_divisor_controls = [
+    A.App (ge_decl, [remainder seven zero_n; zero_n]), "mod 7 0 >= 0 without a guard";
+    or_of [A.App (eq_decl, [seven; zero_n]); A.App (ge_decl, [remainder seven zero_n; zero_n])], "a guard on the dividend"] in
+  List.iter (fun (clause, name) ->
+      require (not (K.division_order (node clause)) && Z.gt (pending schema clause) Z.zero)
+        ("a zero-divisor control was checked: " ^ name))
+    zero_divisor_controls;
+  let mutants = [
+    or_of [guard; with_mod { mod_decl with A.interp = None }], "counterfeit mod";
+    or_of [guard; with_mod { mod_decl with A.interp = Some Z3IntegerDivision.op_idiv }], "mod with the div tag";
+    or_of [guard; with_mod { mod_decl with A.int_params = [Z.of_int 1] }], "twin mod";
+    or_of [guard; with_mod { mod_decl with A.decl_name = "remainder" }], "renamed mod";
+    or_of [A.App ({ eq_decl with A.interp = None }, [d; zero_numeral]); body], "counterfeit =";
+    or_of [A.App (eq_decl, [d; numeral 1]); body], "wrong guard constant";
+    or_of [guard; A.App (ge_decl, [A.App (mod_decl, [x'; d']); numeral 1])], "wrong bound constant";
+    or_of [A.App (eq_decl, [x'; zero_numeral]); body], "guard on x";
+    body, "missing guard";
+    A.App ({ disj with A.domain = [A.bool_sort; A.bool_sort; A.bool_sort] }, [guard; body; guard]), "three literals"] in
+  List.iter (fun (clause, name) ->
+      require (not (K.division_order (node clause)) && Z.gt (pending schema clause) Z.zero)
+        ("a division clause mutant was checked: " ^ name))
+    mutants;
+  let f_decl = { A.decl_name = "f"; domain = [int_sort]; range = int_sort; interp = None; int_params = [] } in
+  let rec chain n acc = if n = 0 then acc else chain (n - 1) (A.App (f_decl, [acc])) in
+  let deep n bottom other =
+    or_of [A.App (eq_decl, [chain n bottom; zero_numeral]);
+           A.App (ge_decl, [A.App (mod_decl, [chain n bottom; chain n other]); zero_numeral])] in
+  let constant name = A.App ({ A.decl_name = name; domain = []; range = int_sort; interp = None; int_params = [] }, []) in
+  let a_const = constant "a" and b_const = constant "b" in
+  let exact = deep 4093 a_const a_const in
+  require (K.division_clause exact && K.division_order (node exact) && Z.equal (pending schema exact) Z.zero)
+    "a 4,093-deep division clause was not checked";
+  let one_over = deep 4094 a_const a_const in
+  require (not (K.division_clause one_over) && not (K.division_order (node one_over)))
+    "a 4,094-deep division clause was admitted";
+  let differing = deep 4093 a_const b_const in
+  require (not (K.division_order (node differing)) && Z.gt (pending schema differing) Z.zero)
+    "a 4,093-deep division clause with different operands was checked";
+  let huge = deep 200_000 a_const a_const in
+  require (not (K.division_clause huge) && not (K.division_order (node huge)))
+    "a 200,000-deep division clause was admitted"
+
+(* Real equation rewrites (Z3SortedRealLinear.real_equivalent): the producer's premise-free closed
+   `rewrite` steps that renormalize a Real equation (x = y becomes x + (-1)*y = 0, coefficients on the
+   other side) or decide an equation of constants ((= 2 0) is false) are certified on the Sorted route
+   (check_document_epsilon) and each equation node is checked by Z3SortedProof.real_rewrite. On parsed
+   native expressions the same, opposite and proportional difference forms and the constant equations
+   are accepted; a wrong sign, offset or target, a wrong constant and an Int equation are refused. A
+   quant-intro leaf with a Real equation under two binders replays with the Real gate and stays
+   pending without it. *)
+let sorted_real_equation_rewrites () =
+  let module K = Z3SortedProof in
+  let module LIN = Z3SortedRealLinear in
+  let module NR = Z3NnfReplay in
+  let equation_step e = match U.classify_fact e.P.formula with
+    | Some (U.Equal (l, r)) when e.P.rule = U.RewriteRule &&
+        (LIN.real_equation_equivalent l r || LIN.real_constant_equation l r || LIN.real_constant_equation r l) ->
+        Some (l, r)
+    | _ -> None in
+  let node l r = { U.kind = U.RewriteRule; conclusion = U.Equal (l, r); premises = [] } in
+  let pending schema l r = match K.check_node schema [] (node l r) with
+    | Some (_, pending) -> pending
+    | None -> failwith "a well-sorted Real equation rewrite was rejected" in
+  let certified name source =
+    let assertions, proof = unsat source in
+    let doc, schema = B.marshal_with_datatypes assertions proof in
+    let steps = List.filter_map equation_step doc.P.entries in
+    require (steps <> []) (name ^ ": no Real equation rewrite step was produced");
+    require (K.check_document_epsilon schema doc = Some Z.zero) (name ^ ": the refutation was not certified");
+    List.iter (fun (l, r) ->
+        require (K.real_rewrite schema (node l r) && Z.equal (pending schema l r) Z.zero)
+          (name ^ ": a producer equation rewrite node was not checked"))
+      steps;
+    steps, doc in
+  ignore (certified "renormalized"
+            "(declare-fun f (Real) Real)(declare-const x Real)\
+             (assert (= (f (* 2.0 x)) (* 2.0 x)))(assert (not (= (+ (f (* 2.0 x)) (* (- 2.0) x)) 0.0)))");
+  ignore (certified "constant" "(declare-const p Bool)(assert (or p (= 2.0 0.0)))(assert (not p))");
+  let c = context () in
+  let native = parse c
+    "(declare-const x Real)(declare-const y Real)(declare-const z Real)(declare-const n Int)(declare-const m Int)\
+     (assert (= x y))(assert (= y x))(assert (= (+ x (* (- 1.0) y)) 0.0))(assert (= (* 3.0 x) (* 3.0 y)))\
+     (assert (= (+ x y) 0.0))(assert (= (+ x (* (- 1.0) y)) 1.0))(assert (= (+ x (* (- 1.0) z)) 0.0))\
+     (assert (= 2.0 0.0))(assert (= 2.0 2.0))(assert (= (/ 1.0 2.0) (/ 2.0 4.0)))(assert false)(assert true)\
+     (assert (= n m))(assert (= (+ n (* (- 1) m)) 0))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let eq_xy, eq_yx, diff_zero, scaled, sum_zero, diff_one, target_zero, two_zero, two_two, halves, falsity, truth,
+      int_eq, int_diff = match List.map (B.cached_expression st) native with
+    | [a; b; c; d; e; f; g; h; i; j; k; l; m; n] -> a, b, c, d, e, f, g, h, i, j, k, l, m, n
+    | _ -> failwith "expected the Real equation regression formulas" in
+  List.iter (fun (l, r, name) ->
+      require (K.real_rewrite schema (node l r) && Z.equal (pending schema l r) Z.zero)
+        ("a Real equation rewrite was not checked: " ^ name))
+    [eq_xy, diff_zero, "renormalized";
+     diff_zero, eq_xy, "renormalized, reversed sides";
+     eq_xy, eq_yx, "commuted";
+     eq_xy, scaled, "proportional";
+     two_zero, falsity, "constant false";
+     two_two, truth, "constant true";
+     halves, truth, "rational constants"];
+  List.iter (fun (l, r, name) ->
+      require (not (K.real_rewrite schema (node l r)) && Z.gt (pending schema l r) Z.zero)
+        ("a Real equation rewrite mutant was checked: " ^ name))
+    [eq_xy, sum_zero, "wrong sign";
+     eq_xy, diff_one, "wrong offset";
+     eq_xy, target_zero, "wrong target";
+     two_zero, truth, "wrong constant (2 = 0 is not true)";
+     two_two, falsity, "wrong constant (2 = 2 is not false)";
+     eq_xy, truth, "an open equation is not true"];
+  require (not (LIN.real_equivalent int_eq int_diff) && not (K.real_rewrite schema (node int_eq int_diff)))
+    "the Real equation check read an Int equation";
+  let real_sort = A.SortApp (A.RealSymbol, []) in
+  let real_box = { A.decl_name = "real-box"; domain = []; range = real_sort;
+                   interp = Some Z3DatatypeLemma.op_constructor; int_params = [Z.zero; Z.zero; Z.zero] } in
+  let is_real_box = { A.decl_name = "is-real-box"; domain = [real_sort]; range = A.bool_sort;
+                      interp = Some Z3DatatypeLemma.op_recognizer; int_params = [Z.zero; Z.zero] } in
+  let real_datatype = { Z3DatatypeSignature.sorts = [real_sort];
+                        cases = [{ Z3DatatypeSignature.constructor = real_box; recognizer = is_real_box;
+                                   accessors = [] }] } in
+  require (Z3DatatypeSignature.valid real_datatype && not (K.real_rewrite real_datatype (node eq_xy diff_zero)))
+    "a Real equation rewrite was checked on a schema registering a datatype named Real";
+  (* the quant-intro leaf: forall p0 p1, the equation p0 = 2 times p1 renormalized *)
+  let v0 = A.Var (Z.zero, real_sort) and v1 = A.Var (Z.one, real_sort) in
+  let num n = A.App ({ A.decl_name = "num"; domain = []; range = real_sort;
+                       interp = Some Z3ValueTheory.op_num_rational; int_params = [Z.of_int n; Z.one] }, []) in
+  let times a b = A.App ({ A.decl_name = "*"; domain = [real_sort; real_sort]; range = real_sort;
+                           interp = Some Z3ValueTheory.op_arith_mul; int_params = [] }, [a; b]) in
+  let plus a b = A.App ({ A.decl_name = "+"; domain = [real_sort; real_sort]; range = real_sort;
+                          interp = Some Z3ValueTheory.op_arith_add; int_params = [] }, [a; b]) in
+  let equation a b = Z3ResolutionProofTheory.mk_eq_expr a b in
+  let all body = A.Quantifier (A.Forall_k, [real_sort; real_sort], A.bool_sort, body) in
+  let entry name formula premises sorts =
+    { U.binder_name = name; binder_formula = formula; binder_premises = List.map Z.of_int premises;
+      binder_sorts = sorts } in
+  let leaf l r =
+    let certificate =
+      { U.binder_entries = [entry "rewrite" (equation l r) [] None;
+                            entry "quant-intro" (equation (all l) (all r)) [0] (Some [real_sort; real_sort])];
+        binder_root = Z.one } in
+    NR.replay_with true [] certificate (U.Equal (all l, all r)),
+    NR.replay [] certificate (U.Equal (all l, all r)) in
+  let renormalized = equation (plus v0 (times (num (-2)) v1)) (num 0) in
+  let gated, ungated = leaf (equation v0 (times (num 2) v1)) renormalized in
+  require (gated = NR.Replayed) "a quant-intro Real equation leaf was not replayed with the Real gate";
+  require (ungated = NR.Unreplayed) "a quant-intro Real equation leaf was replayed without the Real gate";
+  List.iter (fun (r, name) ->
+      require (fst (leaf (equation v0 (times (num 2) v1)) r) = NR.Unreplayed)
+        ("a quant-intro Real equation leaf mutant was replayed: " ^ name))
+    [equation (plus v0 (times (num 2) v1)) (num 0), "wrong sign";
+     equation (plus v0 (times (num (-2)) v1)) (num 1), "wrong offset";
+     equation (plus v1 (times (num (-2)) v0)) (num 0), "wrong target"]
 
 (* The Sorted route replays the NNF certificates the producer emits (Z3NnfReplay): no
    certificate rooted at nnf-neg/nnf-pos is left pending in these proofs (negated exists,
@@ -7774,6 +8161,7 @@ let () =
      "certified-duplicate-distinct-rewrites", distinct_reflexivity;
      "integer-tightening-candidate-mutations", integer_tightening_candidates;
      "typed-native-LP-certificate-decoding", native_lp_certificates;
+     "native-LP-parameter-walks", lp_parameter_walks;
      "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "indexed-assertion-membership", indexed_assertion_membership;
@@ -7800,6 +8188,9 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-real-Farkas", sorted_real_farkas;
+     "sorted-real-order-clauses", sorted_real_order_clauses;
+     "sorted-int-division-clauses", sorted_int_division_clauses;
+     "sorted-real-equation-rewrites", sorted_real_equation_rewrites;
      "sorted-typed-epsilon-Skolemization", sorted_epsilon_skolemization;
      "sorted-NNF-certificate-replay", sorted_nnf_replay;
      "sorted-quant-intro-regrouping", sorted_quant_intro_regrouping;

@@ -30,7 +30,7 @@ import z3
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
     _NO_PREPROCESSING, _TOKEN, _real_counterpart, array_leaf_sorts, bound_combination_refutes, constant_value,
-    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort, is_uninterpreted_sort,
+    integer_divisor, integer_tightened, is_array_sort, is_carrier_sort, is_enumeration_sort,
     linear_combination_refutes, numeral_value, RECOGNIZER_KINDS, SET_OPERATORS, enumeration_constructors,
     map_parameters,
 )
@@ -345,21 +345,15 @@ class _Terms:
                 continue
             seen.add(expr.get_id())
             if is_carrier_sort(expr.sort()):
-                self.sorts.add(expr.sort().name())
-                if is_enumeration_sort(expr.sort()) and expr.sort().name() not in self.enumerations:
-                    # The log names every constructor of an enumeration, used
-                    # by the input or not (the datatype solver's case splits).
-                    self.enumerations.add(expr.sort().name())
-                    for index, constructor in enumerate(enumeration_constructors(expr.sort())):
-                        self.constants[str(constructor.name())] = constructor()
-                        self.recognizers[str(constructor.name())] = expr.sort().recognizer(index)
+                self._add_carrier(expr.sort())
             elif is_array_sort(expr.sort()):
                 self.array_sorts[str(expr.sort())] = expr.sort()
                 # The log declares an array's uninterpreted index and element
-                # sorts even when no term of them occurs (QF_AX), through
-                # nested arrays.
-                self.sorts.update(component.name() for component in array_leaf_sorts(expr.sort())
-                                  if is_uninterpreted_sort(component))
+                # sorts (and an enumeration of its elements) even when no
+                # term of them occurs (QF_AX), through nested arrays.
+                for component in array_leaf_sorts(expr.sort()):
+                    if is_carrier_sort(component):
+                        self._add_carrier(component)
             if z3.is_int(expr):
                 self.integer = True
             elif z3.is_real(expr):
@@ -373,6 +367,17 @@ class _Terms:
                 # A function the input maps, possibly never applied to elements.
                 self.functions[str(expr.decl().params()[0].name())] = expr.decl().params()[0]
             pending.extend(expr.children())
+
+    def _add_carrier(self, sort):
+        """Record an uninterpreted sort or enumeration of the input, with an enumeration's constructors."""
+        self.sorts.add(sort.name())
+        if is_enumeration_sort(sort) and sort.name() not in self.enumerations:
+            # The log names every constructor of an enumeration, used by the
+            # input or not (the datatype solver's case splits).
+            self.enumerations.add(sort.name())
+            for index, constructor in enumerate(enumeration_constructors(sort)):
+                self.constants[str(constructor.name())] = constructor()
+                self.recognizers[str(constructor.name())] = sort.recognizer(index)
 
     def _subtract(self, arguments):
         if len(arguments) == 2:
@@ -931,6 +936,15 @@ def check_arith_hint(pairs):
             _constraint(atom)
 
 
+def _parameter_names(decl):
+    """The parameters of a built-in declaration as text: a function by its
+    signature, (declare-fun f (Int) Int), and a sort by its name, so that
+    ((_ map and) a b) and ((_ map or) a b), or the constant arrays of two
+    array sorts, get different replay keys."""
+    return " ".join(parameter.sexpr() if isinstance(parameter, z3.AstRef) else str(parameter)
+                    for parameter in decl.params())
+
+
 class _Normalizer:
     """Canonical keys for Boolean formulas over linear atoms, used to match assumptions.
 
@@ -1052,13 +1066,16 @@ class _Normalizer:
             return self._atom(expr.arg(0) == expr.arg(1), not polarity)
         # Structural form: a numeral (as a function argument) is identified by
         # its value, an uninterpreted symbol or an enumeration constructor by
-        # its name, and a recognizer by its constructor's.
+        # its name, a recognizer by its constructor's, a map by its function's
+        # signature, and a constant array by its sort.
         if kind in RECOGNIZER_KINDS:
             kind = z3.Z3_OP_DT_IS  # is-c and (_ is c) are one predicate
         positive = (kind, tuple(self._key(child, True) for child in expr.children()),
                     str(expr.decl().name()) if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_DT_CONSTRUCTOR)
                     else str(expr.decl().params()[0].name()) if kind == z3.Z3_OP_DT_IS
-                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM else "")
+                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM
+                    else _parameter_names(expr.decl()) if kind in (z3.Z3_OP_ARRAY_MAP, z3.Z3_OP_CONST_ARRAY)
+                    else "")
         return positive if polarity else ("not", positive)
 
     def _atom(self, expr, polarity):

@@ -106,9 +106,47 @@ let rec read_many (#a:Type) (n:nat) (p:parser a)
   let* xs = read_many (n - 1) p in
   pure (x :: xs)
 
-let counted (#a:Type) (p:parser a) : parser (list a) =
+(* [read_many] is the specification of the counted reader. The executable one below
+   keeps an accumulator and loops: [read_many] uses several C stack frames per
+   element under Cherry (its recursive call is inside a closure that is applied and
+   then extended), and the LP context of a Pulse query has 14,347 variables, so it
+   needs 4.6 MiB of the normal 8 MiB stack for the variables alone. *)
+let rec read_many_acc (#a:Type) (n:nat) (p:parser a) (acc:list a) (ps:list raw_parameter)
+  : Tot (option (list a & list raw_parameter)) (decreases n) =
+  if n = 0 then Some (L.rev acc, ps)
+  else match p ps with
+       | Some (x, rest) -> read_many_acc (n - 1) p (x :: acc) rest
+       | None -> None
+
+let rec lemma_read_many_acc (#a:Type) (n:nat) (p:parser a) (acc:list a) (ps:list raw_parameter)
+  : Lemma (ensures read_many_acc n p acc ps ==
+                   (match read_many n p ps with
+                    | Some (xs, rest) -> Some (L.append (L.rev acc) xs, rest)
+                    | None -> None))
+          (decreases n) =
+  if n = 0 then L.append_l_nil (L.rev acc)
+  else match p ps with
+       | Some (x, rest) ->
+         lemma_read_many_acc (n - 1) p (x :: acc) rest;
+         Z3List.lemma_rev_cons x acc;
+         (match read_many (n - 1) p rest with
+          | Some (xs, _) -> L.append_assoc (L.rev acc) [x] xs
+          | None -> ())
+       | None -> ()
+
+let counted_spec (#a:Type) (p:parser a) : parser (list a) =
   let* n = read_uint in
   fun rest -> if n <= L.length rest then read_many n p rest else None
+
+let counted (#a:Type) (p:parser a) : parser (list a) =
+  let* n = read_uint in
+  fun rest -> if n <= L.length rest then read_many_acc n p [] rest else None
+
+let lemma_counted (#a:Type) (p:parser a) (ps:list raw_parameter)
+  : Lemma (counted p ps == counted_spec p ps) =
+  match read_uint ps with
+  | Some (n, rest) -> if n <= L.length rest then lemma_read_many_acc n p [] rest else ()
+  | None -> ()
 
 let read_term : parser (rational & nat) =
   let* c = read_rational in

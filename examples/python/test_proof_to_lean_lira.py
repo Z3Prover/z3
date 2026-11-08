@@ -77,7 +77,30 @@ LIRA_INPUTS = {
 (assert (distinct n (- 1) 1))
 (check-sat)
 """,
+    # An Int ite over a Real condition: the farkas lemmas over the ite are
+    # Int steps, the condition's Real atoms not theirs.
+    "lira_int_ite_over_real_condition": """(set-logic QF_LIRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const a Int)
+(declare-const b Int)
+(assert (< (+ (ite (> x y) a b) 1) a))
+(assert (< a (+ b 1)))
+(check-sat)
+""",
+    # A Real ite over an Int condition, the other way round.
+    "lira_real_ite_over_int_condition": """(set-logic QF_LIRA)
+(declare-const n Int)
+(declare-const m Int)
+(declare-const u Real)
+(declare-const v Real)
+(assert (< (+ (ite (> n m) u v) 1.0) u))
+(assert (< u (+ v 1.0)))
+(check-sat)
+""",
 }
+# The ite inputs whose conditions are over the other sort, with the ite's sort.
+_OTHER_SORT_CONDITIONS = {"lira_int_ite_over_real_condition": "Int", "lira_real_ite_over_int_condition": "Real"}
 
 
 # Documented inputs relating the sorts through to_real: theory lemmas over
@@ -352,8 +375,13 @@ def random_cast_instance(seed, variables=3, constraints=10):
 CAST_SEEDS = (11, 12, 25, 36)
 
 
-def random_mixed_instance(seed, variables=3, constraints=12):
-    """A random QF_LIRA problem over Int and Real variables tied by Booleans, or None when it is satisfiable."""
+def random_mixed_instance(seed, variables=3, constraints=12, ites=0.0):
+    """A random QF_LIRA problem over Int and Real variables tied by Booleans, or None when it is satisfiable.
+
+    With ites, each variable of an atom is, with that probability, an ite
+    of it and another variable of its sort over an atom of the other sort.
+    Without, the generator draws as it did before the option existed.
+    """
     generator = random.Random(seed)
     lines = ["(set-logic QF_LIRA)"]
     lines += ["(declare-const n%d Int)" % i for i in range(variables)]
@@ -364,10 +392,17 @@ def random_mixed_instance(seed, variables=3, constraints=12):
         text = ("%d.%d" % (abs(value) // 2, 5 * (abs(value) % 2)) if real else "%d" % (abs(value) // 2))
         return text if value >= 0 else "(- %s)" % text
 
-    def atom(real):
+    def variable(real, index, nested):
+        name = "%s%d" % ("x" if real else "n", index)
+        if nested or not ites or generator.random() >= ites:
+            return name
+        other = "%s%d" % ("x" if real else "n", generator.randrange(variables))
+        return "(ite %s %s %s)" % (atom(not real, True), name, other)
+
+    def atom(real, nested=False):
         chosen = generator.sample(range(variables), generator.randint(1, 2))
-        terms = " ".join("(* %s %s%d)" % (numeral(2 * generator.choice([-3, -2, -1, 1, 2, 3]), False),
-                                          "x" if real else "n", v) for v in chosen)
+        terms = " ".join("(* %s %s)" % (numeral(2 * generator.choice([-3, -2, -1, 1, 2, 3]), False),
+                                        variable(real, v, nested)) for v in chosen)
         # Real bounds in halves, Int bounds whole, both within [-6, 6].
         bound = generator.randint(-12, 12) if real else 2 * generator.randint(-6, 6)
         return "(%s (+ %s) %s)" % (generator.choice(["<=", ">=", "<", ">", "="]), terms, numeral(bound, real))
@@ -432,6 +467,12 @@ def wide_mixed_rewrite_instance(variables=5, ites=False):
 # numerals included (see proof_clause_log._Terms.build), 17 has bound and
 # euf hints, 18 an Int cut, 21 a cnf lemma.
 MIXED_SEEDS = (12, 17, 18, 21)
+# Unsatisfiable seeds of random_mixed_instance with ites=0.3: on iteration
+# 87's macOS build each was rejected on both cores for an arithmetic step
+# over both Int and Real atoms (the atoms of an ite's condition) before
+# _lemma_numeric left conditions out. (The 35 unsatisfiable seeds in 1-150
+# then verify on both cores, 70 of 70 runs; 13 were rejected before.)
+CROSS_ITE_SEEDS = (6, 47, 129)
 
 
 def _export(source, core):
@@ -506,6 +547,26 @@ class TestMixedValidation(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
                                             "arithmetic step over both Int and Real atoms at node %d" % lemma):
                     check(graph, lemma)
+
+    def test_conditions_of_ites_are_not_atoms_of_the_step(self):
+        # An ite is an atom of the linear forms: a farkas lemma over it takes
+        # the ite's sort whatever its condition's atoms are.
+        for name, numeric in _OTHER_SORT_CONDITIONS.items():
+            source = LIRA_INPUTS[name]
+            for core in ("clause-log", "legacy"):
+                with self.subTest(name=name, core=core):
+                    certificate = _export(source, core)
+                    graph = proof_to_lean._validate_graph(source, certificate)
+                    ites = {node for node in range(len(graph.nodes))
+                            if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node)}
+                    self.assertTrue(ites)
+                    steps = [node for node in _th_lemma_nodes(certificate)
+                             if graph.decl(node).parameters[0] == "farkas"
+                             and ites & proof_to_lean._reachable(graph, graph.conclusion(node))[0]]
+                    self.assertTrue(steps)
+                    for step in steps:
+                        self.assertEqual(proof_to_lean._lemma_numeric(graph, step), numeric)
+                    proof_to_lean.reconstruct(source, certificate)
 
     def test_ites_of_one_table_keep_their_sort_in_normalized_rewrites(self):
         # (ite p 1 2) over Int and (ite p 1.0 2.0) over Real tabulate alike;
@@ -591,6 +652,18 @@ class TestMixedLeanIntegration(unittest.TestCase):
             for core in ("clause-log", "legacy"):
                 with self.subTest(seed=seed, core=core):
                     self.check(source, core)
+
+    def test_pinned_random_instances_with_ites_over_the_other_sort_verify_on_both_cores(self):
+        runs = []
+        for seed in CROSS_ITE_SEEDS:
+            source = random_mixed_instance(seed, ites=0.3)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            self.assertRegex(source, r"\(ite \([<>=]+ \(\+ \(\* \S+ x")
+            runs += [(seed, core, source, _export(source, core)) for core in ("clause-log", "legacy")]
+        lean_test_support.prefetch((source, certificate) for _, _, source, certificate in runs)
+        for seed, core, source, _ in runs:
+            with self.subTest(seed=seed, core=core):
+                self.check(source, core)
 
 
 class TestCastValidation(unittest.TestCase):
