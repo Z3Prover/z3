@@ -1672,6 +1672,36 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### cnf lemmas searched again over an unsat core (2026-11-07)
+
+QF_IDL `planning/plan-21` is one assertion with a disjunction of cases per
+time step. One of its 33 cnf lemmas ties a clause Z3 derived from one step
+to the assertion. `_PropositionalProver` split the true disjunction with
+the fewest open disjuncts, earliest first, so it went through the cases of
+about fifty earlier steps (about 150 propagation steps each) and ran out of
+its budget (also at 20 times the budget). The unfolded fallback then failed
+in Lean (`grind`: `simp` step limit).
+
+When the search of a cnf lemma gives up, `_cnf_lemma` now asks z3 for an
+unsat core of the propositional abstraction: every gate's definition under
+a guard of its own (`_relevant_structures`). z3 is an untrusted oracle
+here, and Lean checks the proof as before. The search is then repeated over
+the gates in the core. Only those propagate and are split, and the gates
+outside the core that feed them are split like atoms. On plan-21 the core
+has 360 of 5,649 gates (0.24 s of z3, 0.4 million rlimit; minimizing the
+core gave the same 360 at a hundred times the cost), and the lemma is proved
+with two case splits and 18 KB of proof.
+
+plan-21 as a whole still fails: its 33 MB Lean file peaks at 8.6 GB and
+hits kernel memory errors in outlined proof steps. RTCL `tf_20`/`tf_30`
+are unchanged: their cores have about 3,000 gates, and the search over
+them still runs out of budget. That retry is not free: on `tf_20` the core
+(3,123 of 12,943 gates, 0.6 s) and the second search raise reconstruction
+from 0.7 s to 5.4 s for identical output. The cores that help are smaller
+(plan-21 6%, the FISCHER6-4 lemmas under a 25,000-character budget 7%,
+against 24% for `tf_20`), but three inputs are too few to pick a core-size
+cutoff, so bounding the second search is left open.
+
 ### Propositional proofs keep the steps they use and drop unused splits (2026-11-07)
 
 A first Lean status of z3test's `smtlib-sample` QF_IDL files (the files of

@@ -199,6 +199,11 @@ _NORMALIZED_CONNECTIVES = (z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT, z3.Z3_OP_IMP
 # heartbeat limit.
 _STRUCTURAL_REWRITE_STEPS = 20000
 _STRUCTURAL_REWRITE_CHARS = 1000000
+# Resource limit of z3's unsat core over a cnf lemma's propositional
+# abstraction (_relevant_structures), which steers the prover when its own
+# search gives up: the 5,649 gates of the QF_IDL plan-21 cnf lemma take
+# 0.4 million (a quarter of a second).
+_RELEVANCE_RLIMIT = 10000000
 # Characters of Lean text above which the file is elaborated one declaration
 # at a time (Elab.async false, an elaboration schedule, not a trust setting).
 # Elaborating declarations in parallel tasks keeps far more memory alive:
@@ -5029,6 +5034,54 @@ def _needed_lines(lines, rest=((), ())):
     return kept + list(rest[0]), needed
 
 
+def _relevant_structures(order, facts):
+    """The gates an unsat core of the facts needs, by z3 over their guarded definitions, or None.
+
+    order is a _PropositionalProver's structures, children before parents,
+    and facts are among them (held true). Every not, and, or, implies, and
+    iff gate's definition is assumed under a guard of its own, the atoms and
+    leaves are free, and z3 refutes the facts over the propositional
+    abstraction; the gates whose guards are in the unsat core are those a
+    refutation needs. The core is not minimized: on the plan-21 cnf lemma
+    z3's first core (360 of 5,649 gates) was already minimal, and
+    minimizing it took a hundred times the resources. z3 is an untrusted
+    oracle here, as for the splits of _split_certificate: the result only
+    steers the prover's search (see _PropositionalProver), whose proof Lean
+    checks as any other. Returns None when z3 finds the abstraction
+    satisfiable or does not decide it within _RELEVANCE_RLIMIT.
+    """
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("rlimit", _RELEVANCE_RLIMIT)
+    variables, guards = {}, {}
+    for index, structure in enumerate(order):
+        kind = structure[0]
+        if kind in ("true", "false"):
+            variables[structure] = z3.BoolVal(kind == "true", context)
+            continue
+        variables[structure] = z3.Bool("s%d" % index, context)
+        if kind not in ("not", "and", "or", "implies", "iff"):
+            continue  # an atom or a leaf
+        children = [variables[child] for child in _structure_children(structure)]
+        if kind == "not":
+            body = z3.Not(children[0])
+        elif kind == "and":
+            body = z3.And(children)
+        elif kind == "or":
+            body = z3.Or(children)
+        elif kind == "implies":
+            body = z3.Implies(children[0], children[1])
+        else:
+            body = children[0] == children[1]
+        guard = z3.Bool("g%d" % index, context)
+        guards["g%d" % index] = (guard, structure)
+        solver.add(z3.Implies(guard, variables[structure] == body))
+    solver.add(*[variables[fact] for fact in facts])
+    if solver.check(*[guard for guard, _ in guards.values()]) != z3.unsat:
+        return None
+    return {guards[str(guard)][1] for guard in solver.unsat_core()}
+
+
 def _reject_disjunction(proofs):
     """A refutation of a right-nested disjunction from refutations of all its disjuncts (not_or.mpr)."""
     result = proofs[-1]
@@ -5082,9 +5135,23 @@ class _PropositionalProver:
     Classical.byContradiction and splits use Classical.em, so no instance
     is needed and `needed` stays empty. Such certificates depend on the
     standard axioms through their theory lemmas anyway.
+
+    With relevant (a set of gates, see _relevant_structures; classical mode
+    only), only those gates propagate or are split as disjunctions, and the
+    atom splits range over their inputs (_frontier): the search is
+    restricted to the gates an unsat core of the facts needs.
+    Without, every true disjunction is a candidate, the fewest open
+    disjuncts first, whether or not the conflict involves it; over an
+    assertion holding a disjunction per time step (QF_IDL planning
+    plan-21) the search went through the cases of every earlier step before
+    reaching the one the clause is about, and exhausted its budget.
     """
 
-    def __init__(self, *roots, classical=False, names=None, links=False):
+    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None):
+        if relevant is not None and not classical:
+            raise ValueError("a relevant set splits gates by Classical.em, so it needs classical mode")
+        self.relevant = relevant
+        self.positions = None
         self.parents = {}
         self.order = []  # every structure, children before parents
         self.named = {}  # the and, or, implies and iff structures by their names
@@ -5155,6 +5222,27 @@ class _PropositionalProver:
         self.fresh += 1
         self.names.add("_f%d" % self.fresh)
         return "_f%d" % self.fresh
+
+    def _relevant(self, structure):
+        """Whether the search may use the gate structure (always without a relevant set)."""
+        return self.relevant is None or structure in self.relevant
+
+    def _frontier(self, state):
+        """The undetermined inputs of the relevant gates as sort keys and structures, most read first.
+
+        An input is an atom, a leaf, or a gate outside the relevant set: the
+        unsat core does not need its definition, so it does not propagate
+        and is split like an atom (Classical.em on its name), or a
+        refutation that holds whatever its value would end with it
+        undetermined.
+        """
+        if self.positions is None:
+            self.positions = {structure: position for position, structure in enumerate(self.order)}
+        return sorted((-len(self.parents[structure]), self.positions[structure], structure)
+                      for structure in self.parents
+                      if structure not in state and structure[0] not in ("true", "false")
+                      and (structure[0] in self.decidable or structure not in self.relevant)
+                      and any(parent in self.relevant for parent in self.parents[structure]))
 
     def _exhausted(self):
         return self.steps > _STRUCTURAL_REWRITE_STEPS or self.chars > _STRUCTURAL_REWRITE_CHARS
@@ -5447,13 +5535,16 @@ class _PropositionalProver:
             def header(names):
                 return "refine " + _eliminate_or(proof, ["(fun %s => ?_)" % name for name in names])
             return lines, [(child, True) for child in _structure_children(structure)], state, header, [], []
-        atoms = sorted((-len(self.parents[atom]), atom[1], atom) for atom in self.parents
-                       if atom[0] in self.decidable and atom not in state)
+        if self.relevant is None:
+            atoms = sorted((-len(self.parents[atom]), atom[1], atom) for atom in self.parents
+                           if atom[0] in self.decidable and atom not in state)
+        else:
+            atoms = self._frontier(state)
         if not atoms:
             return None  # every atom assigned without the target holding: the equivalence does not hold
         atom = atoms[0][2]
         if self.classical:
-            split = "(Classical.em %s)" % _render_structure(atom)
+            split = "(Classical.em %s)" % self._render(atom)
         else:
             self.needed.add(atom[1])
             split = "(Decidable.em (_atoms %d))" % atom[1]
@@ -5475,7 +5566,7 @@ class _PropositionalProver:
         best = None
         for position, structure in enumerate(self.order):
             value = state.get(structure)
-            if structure[0] != "or" or value is None or not value[0]:
+            if structure[0] != "or" or value is None or not value[0] or not self._relevant(structure):
                 continue
             truths = [state.get(child, (None,))[0] for child in _structure_children(structure)]
             unknown = truths.count(None)
@@ -5573,6 +5664,8 @@ class _PropositionalProver:
         to lines, ahead of the consequences that project from them.
         """
         kind = structure[0]
+        if kind in ("not", "and", "or", "implies", "iff") and not self._relevant(structure):
+            return []
         children = _structure_children(structure)
         value = state.get(structure)
         values = [state.get(child) for child in children]
@@ -5738,7 +5831,13 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     tactic script of `have` steps over the gates named by their
     definitions (a 13,000-node circuit, QF_IDL BubbleSort, takes ten
     thousand of them, and neither unfolds the definitions nor nests the
-    steps in one term: both exhausted the heartbeats). The unfolded theory
+    steps in one term: both exhausted the heartbeats). When the search
+    gives up, it is repeated over the gates z3's unsat core of the
+    propositional abstraction needs (_relevant_structures): over an
+    assertion with a disjunction per time step (QF_IDL planning plan-21)
+    the search took the earlier steps' disjunctions first and exhausted its
+    budget, and over the core it splits the one step the clause is about.
+    The unfolded theory
     proof (_grind_lemma) stays the fallback, taken by `first` when the
     structural attempt is not found or does not check, and alone when the
     prover gives up (the clause needs a theory fact: the alldiff clauses Z3
@@ -5748,10 +5847,20 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     leaves, memo, synthetic = {}, {}, {}
     structure = _boolean_structure(graph, conclusion, atom_indices, memo, leaves, synthetic)
     bridges = _leaf_bridges(graph, leaves, synthetic)
-    prover = _PropositionalProver(("not", structure), *[bridge for bridge, _ in bridges], classical=True,
-                                  names=_structure_names(graph, memo))
-    names = [prover.name() for _ in bridges]
-    refutation = prover.refutation(("not", structure), [(bridge, name) for (bridge, _), name in zip(bridges, names)])
+    facts = [("not", structure)] + [bridge for bridge, _ in bridges]
+    relevant = None
+    while True:
+        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant)
+        names = [prover.name() for _ in bridges]
+        refutation = prover.refutation(("not", structure),
+                                       [(bridge, name) for (bridge, _), name in zip(bridges, names)])
+        if refutation is not None or relevant is not None:
+            break
+        # The search gave up: once more over the gates z3's unsat core of the
+        # propositional abstraction needs (_relevant_structures).
+        relevant = _relevant_structures(prover.order, facts)
+        if relevant is None:
+            break
     if refutation is None:
         return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                             opaque_tactic=_opaque_tactic(graph, node))

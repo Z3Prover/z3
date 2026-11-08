@@ -1852,6 +1852,55 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertEqual(len(cnf), 7)
         self.checked_text(source, certificate)
 
+    def test_cnf_lemmas_are_searched_again_over_an_unsat_core(self):
+        # SMT-LIB QF_IDL planning plan-21: one assertion with a disjunction
+        # of cases per time step. A cnf lemma ties a clause Z3 derived from
+        # one step to the assertion; the propagation search took the
+        # disjunctions of the earlier steps first, ran out of its budget,
+        # and the unfolded fallback failed in Lean (grind: simp step limit).
+        # When the search gives up, z3's unsat core of the propositional
+        # abstraction now names the gates a refutation needs, and the search
+        # is repeated over them (plan-21: 360 of 5,649 gates, 18 KB of
+        # proof). The seven cnf lemmas of FISCHER6-4, another one-assertion
+        # model-checking input, take the search about 36,000 characters, and
+        # 15,000 over their cores: under a budget of 25,000 each is proved
+        # by the second search, which Lean checks with the fallback removed.
+        source = (_EXAMPLES / "data" / "QF_IDL_FISCHER6-4-ninc.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertEqual(len(cnf), 7)
+        cores = []
+        original = proof_to_lean._relevant_structures
+
+        def relevant_structures(order, facts):
+            relevant = original(order, facts)
+            cores.append((sum(structure[0] in ("not", "and", "or", "implies", "iff") for structure in order),
+                          len(relevant)))
+            return relevant
+
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 25000):
+            with patch.object(proof_to_lean, "_relevant_structures", lambda order, facts: None):
+                unguided = proof_to_lean.reconstruct(source, certificate)
+            with patch.object(proof_to_lean, "_relevant_structures", relevant_structures):
+                text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(len(cores), len(cnf))
+        for gates, core in cores:
+            self.assertLess(core, gates / 5)
+        alone = text
+        for node in cnf:
+            lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            head, _, attempts = lemma.partition("\n  first\n")
+            structural, fallback = attempts.split("\n    | (")
+            self.assertIn("refine Classical.byContradiction ?_", structural)
+            self.assertTrue(fallback.startswith("unfold formula_"), fallback[:80])
+            alone = alone.replace(lemma, head + "\n  first\n" + structural, 1)
+            # Without the core, the search gives up and the fallback is all.
+            lemma = unguided.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            self.assertNotIn("Classical.byContradiction", lemma)
+        _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
     def test_wide_farkas_conflicts_with_large_coefficients_verify(self):
         # SMT-LIB QF_LIA cut_lemmas/20-vars/cut_lemma_03_012 (2.8 KB): two
         # farkas lemmas of 21 literals over twenty variables with coefficients

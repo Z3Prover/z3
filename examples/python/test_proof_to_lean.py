@@ -671,6 +671,34 @@ def make_certificate(source, steps):
     return certificate
 
 
+def time_step_clause():
+    """A cnf lemma's structure over an assertion with a disjunction per time step, its steps, and the assertion.
+
+    The shape of SMT-LIB QF_IDL planning plan-21: thirty steps of two
+    8-atom cases each, then the step the clause is about, whose cases Z3's
+    rewriter flattened and reordered in the clause. The structure to refute
+    is the negated clause.
+    """
+    steps = [("or", ("and",) + tuple(("atom", 100 * step + k) for k in range(8)),
+              ("and",) + tuple(("atom", 100 * step + 50 + k) for k in range(8))) for step in range(1, 31)]
+    a, b, c, d, e = (("atom", k) for k in range(5))
+    source = ("and",) + tuple(steps) + (("or", ("and", a, ("and", b, e)), ("and", c, d)),)
+    clause = ("or", ("not", source), ("and", a, b, e), ("and", d, c))
+    return ("not", clause), steps, source
+
+
+def gate_inputs():
+    """A structure refuted whatever its two gates g and h denote, the relevant gates, and g.
+
+    g <-> h and g <-> not h: with g and h outside the relevant set, the
+    refutation splits g by Classical.em on its name.
+    """
+    g = ("and", ("atom", 0), ("atom", 1))
+    h = ("or", ("atom", 2), ("atom", 3))
+    structure = ("and", ("iff", g, h), ("iff", g, ("not", h)))
+    return structure, {structure, ("iff", g, h), ("iff", g, ("not", h)), ("not", h)}, g
+
+
 class TestProofToLean(unittest.TestCase):
     def setUp(self):
         self.certificate = proof_certificate.export_certificate(LITERAL)
@@ -1248,6 +1276,60 @@ class TestProofToLean(unittest.TestCase):
                                 "· exact _f6"])
         self.assertIn("_f1", used)
         self.assertNotIn("_f2", used)
+
+    def test_prover_searches_again_over_the_gates_an_unsat_core_needs(self):
+        # A cnf lemma refutes an assertion with a disjunction per time step
+        # (SMT-LIB QF_IDL planning plan-21) and a clause Z3 derived from one
+        # step's disjunction. The search splits the true disjunction with
+        # the fewest open disjuncts, earliest first, so it went through the
+        # cases of every earlier step, each propagating that case's
+        # conjunction, and ran out of its budget before reaching the step
+        # the clause is about. z3's unsat core of the propositional
+        # abstraction (_relevant_structures) names the gates a refutation
+        # needs, and the search restricted to them splits that step alone.
+        # Lean checks the refutation in test_proof_to_lean_integration.
+        structure, steps, source = time_step_clause()
+
+        def refute(relevant=None):
+            prover = proof_to_lean._PropositionalProver(structure, classical=True, relevant=relevant)
+            return prover, prover.refutation(structure)
+
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 3000):
+            prover, lines = refute()
+            self.assertIsNone(lines)
+            self.assertTrue(prover._exhausted())
+            relevant = proof_to_lean._relevant_structures(prover.order, [structure])
+            self.assertIsNotNone(relevant)
+            self.assertFalse(relevant & set(steps))
+            self.assertIn(source[-1], relevant)
+            prover, lines = refute(relevant)
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertNotIn("Classical.em", term)  # no atom split
+        self.assertEqual(term.count("refine (Or.elim _f"), 1, term)  # one case split, over the clause's step
+        # A satisfiable abstraction has no core; one z3 does not decide
+        # within the resource limit neither.
+        self.assertIsNone(proof_to_lean._relevant_structures(prover.order, [source]))
+        with patch.object(proof_to_lean, "_RELEVANCE_RLIMIT", 1):
+            self.assertIsNone(proof_to_lean._relevant_structures(prover.order, [structure]))
+        with self.assertRaisesRegex(ValueError, "classical"):
+            proof_to_lean._PropositionalProver(structure, relevant=relevant)
+
+    def test_restricted_search_splits_the_inputs_of_the_relevant_gates(self):
+        # A gate outside the relevant set does not propagate: the core does
+        # not need its definition, so for the refutation it is an input
+        # like an atom, and the search splits it (Classical.em on its name)
+        # when propagation and the case splits stop. Here g <-> h and
+        # g <-> not h refute each other whatever g and h denote; their
+        # atoms are read by no relevant gate and are never split. Lean
+        # checks the refutation in test_proof_to_lean_integration.
+        structure, relevant, g = gate_inputs()
+        prover = proof_to_lean._PropositionalProver(structure, classical=True, relevant=relevant)
+        lines = prover.refutation(structure)
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertIn("refine (Or.elim (Classical.em %s)" % prover.named[g], term)
+        self.assertNotIn("Classical.em (_atoms", term)
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"

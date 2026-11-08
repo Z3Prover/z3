@@ -358,8 +358,10 @@ step:
     some pair as an equality node, a pair without a node being a synthetic
     leaf rendered as the distinct's conjunct). The proof keeps only the
     steps it uses, and a case split whose branch does not need its
-    hypothesis is dropped. A clause that needs a theory fact, or that the
-    search does not refute within its budget, falls back to the unfolded
+    hypothesis is dropped. When the search gives up, it is repeated over the
+    gates of z3's unsat core of the propositional abstraction (an untrusted
+    hint; Lean checks the proof). A clause that needs a theory fact, or that
+    neither search refutes within its budget, falls back to the unfolded
     grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
