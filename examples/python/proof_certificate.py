@@ -41,7 +41,7 @@ _TOKEN = re.compile(
 )
 _ASSERTION_COMMANDS = {
     "set-logic", "set-info", "declare-sort", "define-sort", "declare-const", "declare-fun", "define-fun",
-    "assert", "declare-datatype", "declare-datatypes",
+    "define-const", "assert", "declare-datatype", "declare-datatypes",
 }
 # The queries a certificate can be about; a script may have several (see
 # query_snapshot), and Z3 reads the arguments of check-sat as assumptions.
@@ -51,6 +51,17 @@ _QUERIES = {"check-sat", "check-sat-using", "check-sat-assuming"}
 # exporter runs its own solver, so they are never answered here.
 _INFORMATION_QUERIES = {"get-info", "get-option", "echo"}
 _RESULT_QUERIES = {"get-proof", "get-model", "get-unsat-core", "get-assignment"}
+# Commands that only print terms: values in the last model (get-value,
+# eval), a term's simplification (simplify), the goals a tactic produces
+# from the assertions (apply), a term (display), or the assertions
+# (get-assertions). Z3 runs none of them on the assertion stack, so they are
+# accepted anywhere with any arguments and dropped; after unsat or before any
+# check-sat Z3 answers get-value and eval with an error and goes on.
+# Dropping a command is sound only if it defines no names. The one way these
+# can is a :named label, which Z3 keeps even when the command itself fails;
+# a later definition of the same name is then an error in Z3 but would be the
+# definition in the snapshot, so a dropped command with :named is rejected.
+_OUTPUT_COMMANDS = {"get-value", "eval", "simplify", "apply", "display", "get-assertions"}
 # set-option commands accepted and ignored, by Z3's parameter name with "-"
 # and "_" identified. The certificate is a statement about the parsed
 # assertions that Lean checks, so an option that only configures Z3's output,
@@ -68,7 +79,7 @@ _IGNORED_OPTIONS = frozenset({
     # Output, models, and cores.
     "print_success", "print_warning", "produce_models", "produce_assignments", "produce_unsat_cores",
     "unsat_core", "produce_proofs", "proof", "model", "model_validate", "interactive_mode",
-    "verbose", "stats", "type_check",
+    "verbose", "stats", "type_check", "trace", "trace_file_name",
     # Resource limits and search configuration.
     "auto_config", "random_seed", "timeout", "rlimit", "reproducible_resource_limit",
     "smt.auto_config", "smt.arith.solver", "smt.random_seed", "smt.phase_selection",
@@ -82,6 +93,9 @@ _IGNORED_OPTIONS = frozenset({
 # Printing and model-presentation families, every member output-only.
 _IGNORED_OPTION_PREFIXES = ("pp.", "model.")
 _INPUT_READING_OPTIONS = ("numeral_as_real", "int_real_coercions", "smtlib2_compliant", "rewriter.")
+# Z3's two names of the switch between scoped (false, the default) and global
+# declarations; only false is accepted (see _check_option).
+_SCOPED_DECLARATION_OPTIONS = ("global_decls", "global_declarations")
 # Certificate sort names with a fixed meaning; an uninterpreted sort keeps its
 # own name, which Z3's parser already keeps distinct from the built-in sorts.
 _RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
@@ -215,6 +229,13 @@ def _check_option(tokens):
     option = tokens[2][1:].replace("-", "_")
     if option.startswith(_INPUT_READING_OPTIONS):
         raise ProofExportError("option %s changes how the input is read and is not supported" % tokens[2])
+    if option in _SCOPED_DECLARATION_OPTIONS:
+        # false is Z3's default, the scoping query_snapshot replays; true
+        # would keep declarations made inside a popped scope.
+        if tokens[3] != "false":
+            raise ProofExportError("option %s %s makes declarations global and is not supported"
+                                   % (tokens[2], tokens[3]))
+        return
     if option not in _IGNORED_OPTIONS and not option.startswith(_IGNORED_OPTION_PREFIXES):
         raise ProofExportError("option %s is not supported; only output, model, resource, and search "
                                "options are ignored" % tokens[2])
@@ -317,17 +338,17 @@ def query_snapshot(source, query=None):
     without any is one query over its final state. The certificate records
     the index, and the reconstructor rebuilds the same snapshot from the
     original input, so the statement Lean checks is a statement about the
-    selected query, never about the certificate's own copy of it.
+    selected query, never about the certificate's own copy of it. Commands
+    that only print (_INFORMATION_QUERIES, _RESULT_QUERIES, _OUTPUT_COMMANDS)
+    are dropped, and the script ends at exit, as Z3's parser stops there.
     """
     if query is not None and (type(query) is not int or query < 0):
         raise ProofExportError("the query index must be a nonnegative integer")
     scopes = [[]]
     snapshot, count = None, 0
-    checked, requested_proof, exited = False, False, False
+    checked, requested_proof = False, False
     for tokens, text in _commands(source):
         name = tokens[1]
-        if exited:
-            raise ProofExportError("commands after exit are not supported")
         if name in _QUERIES:
             # The tactic only configures Z3's search; the exporter runs its own
             # solver and Lean checks the result, so it is validated no further.
@@ -344,8 +365,11 @@ def query_snapshot(source, query=None):
             if tokens != ["(", name, ")"]:
                 raise ProofExportError("%s must have no arguments" % name)
             if name == "exit":
-                exited = True
-            elif name == "get-proof":
+                # Z3's parser stops at exit (stop_parser_exception) without
+                # reading further, so neither does the snapshot: a later
+                # command, even a malformed one, is no part of the script.
+                break
+            if name == "get-proof":
                 if not checked or requested_proof:
                     raise ProofExportError("get-proof must occur once, after check-sat")
                 requested_proof = True
@@ -354,6 +378,9 @@ def query_snapshot(source, query=None):
         elif name in _INFORMATION_QUERIES:
             if len(tokens) != 4:
                 raise ProofExportError("%s takes one argument" % name)
+        elif name in _OUTPUT_COMMANDS:
+            if ":named" in tokens:
+                raise ProofExportError("a :named label inside %s defines a name and is not supported" % name)
         elif name == "push":
             scopes.extend([] for _ in range(_scope_count(tokens)))
         elif name == "pop":

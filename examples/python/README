@@ -91,9 +91,15 @@ changes the scanner and the Int/Real coercions, and rewriter.*) and the
 proof-production and
 preprocessing options the exporter sets itself (sat.smt, solver.proof.*,
 smt.clause_proof, smt.solve_eqs, combined_solver.*) are rejected, as is any
-option not on the allowlist. A pop beyond the open scopes, a query index the
-script does not have, several queries without an index, a malformed
-define-sort, get-value, and other commands are rejected rather than ignored.
+option not on the allowlist; :global-decls is accepted with false only,
+Z3's default scoping. Commands that only print (get-value, eval, simplify,
+apply, display, get-assertions) are dropped unless they contain a :named
+label, which would define a name in Z3, define-const is a definition,
+and the script ends at exit, where Z3's parser stops. A pop beyond the open
+scopes, a query index the script does not have, several queries without an
+index, a malformed define-sort, the optimization commands (minimize,
+maximize, assert-soft), get-consequences, include, and other commands are
+rejected rather than ignored.
 Standard semicolon comments, doubled quotes in strings, and quoted symbols are
 supported. Quoted symbols have no escape mechanism: backslashes are rejected
 and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's

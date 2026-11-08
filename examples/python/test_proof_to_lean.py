@@ -340,6 +340,106 @@ INCREMENTAL_INPUTS = {
 (check-sat)
 """, 0),
 }
+# z3test regressions/smt2 inputs (blank lines and trailing blanks trimmed)
+# that the frontend rejected for commands that only print (simplify, apply),
+# the :trace or :global-decls false options, or commands after exit, with
+# the index of the unsat query the tests certify. abs is a single query
+# inside a scope; t119 has no check-sat, so its query is the final state
+# after two resets, with apply commands in between; 3570 states a unary +
+# and a chained < over an Int numeral in a Real term; z3.29's second query
+# is the unsat one, and its last assertion uses a declaration popped with
+# its scope (Z3 reports an error and goes on). "output_commands" is not
+# from z3test: every other command that only prints, define-const, and
+# commands after exit that do not even parse.
+OUTPUT_COMMAND_INPUTS = {
+    "abs": ("""\
+; Copyright (c) 2015 Microsoft Corporation
+(declare-const a Int)
+(declare-const b Int)
+(simplify (abs a))
+(push)
+(assert (< (abs a) 0))
+(check-sat)
+""", 0),
+    "t119": ("""\
+; Copyright (c) 2015 Microsoft Corporation
+(declare-const a Real)
+(declare-const b Real)
+(declare-const c Real)
+(set-option :produce-models true)
+(assert (= (+ (* 2.0 a) (* 3.0 b) (* 2.0 c)) 10.0))
+(assert (>= c a))
+(assert (>= c b))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(assert (= (+ c b) 0.0))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(apply (and-then simplify (! solve-eqs :theory-solver false)) :print-model-converter false)
+(reset)
+(declare-const a Int)
+(declare-const b Int)
+(declare-const c Int)
+(set-option :produce-models true)
+(assert (= (+ (* 2 a) (* 3 b) (* 2 c)) 10))
+(assert (>= c a))
+(assert (>= c b))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(assert (= (+ c b a) 1))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(reset)
+(declare-const a Int)
+(declare-const b Int)
+(declare-fun f (Int) Int)
+(set-option :produce-models true)
+(assert (= (+ a (f a)) 20))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(assert (= (+ a (f a) b) 20))
+(assert (>= b 10))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+""", 0),
+    "3570": ("""\
+(set-option :trace true)
+(declare-fun a () Real)
+(assert (< (+ a) 8 a))
+(check-sat-using qfnia)
+""", 0),
+    "z3.29": ("""\
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :auto-config true)
+(set-option :produce-models true)
+(set-option :global-decls false) ;; tests are executed using SMTLIB2_COMPLIANT=false
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(push)
+(assert (= (+ x y) 10))
+(assert (= (+ x (* 2 y)) 20))
+(check-sat)
+(pop) ; remove the two assertions
+(push)
+(assert (= (+ (* 3 x) y) 10))
+(assert (= (+ (* 2 x) (* 2 y)) 21))
+(check-sat)
+(declare-const p Bool)
+(pop)
+(assert p) ; error, since declaration of p was removed from the stack
+""", 1),
+    "output_commands": ("""\
+(set-option :global-declarations false)
+(set-option :trace_file_name "z3.log")
+(declare-const x Int)
+(define-const y Int (+ x 1))
+(display y)
+(get-assertions)
+(push)
+(assert (< y x))
+(check-sat)
+(get-value (x y))
+(eval y)
+(pop)
+(exit)
+(assert (= x y)) (unbalanced "string
+""", 0),
+}
 DEF_AXIOM_CLAUSES = [
     "(or (not p) p)",
     "(or (not (not p)) (not p))",

@@ -284,9 +284,11 @@ class TestProofCertificate(unittest.TestCase):
         self.assert_well_formed(certificate)
 
     def test_unsupported_commands_are_rejected(self):
+        # include reads another file, the optimization commands change what
+        # check-sat answers, and get-consequences runs a query of its own.
         commands = [
-            "(get-value (false))", "(eval false)",
-            '(include "other.smt2")', "(minimize 0)",
+            '(include "other.smt2")', "(minimize 0)", "(maximize 0)", "(assert-soft false)",
+            "(declare-const p Bool)(get-consequences (p) (p))",
             '(set-option :regular-output-channel "output.txt")',
         ]
         for command in commands:
@@ -350,7 +352,8 @@ class TestProofCertificate(unittest.TestCase):
         self.assertIn("(assert (! (and (xor a b) a) :named left))", commands)
         for option in ["produce-assignments true", "unsat_core true", "pp.decimal true", "model.v2 true",
                        "smt.mbqi false", "smt.auto-config false", "nlsat.inline_vars false",
-                       "tactic.default_tactic smt", "rlimit 1000", "random-seed 3", "verbose 1"]:
+                       "tactic.default_tactic smt", "rlimit 1000", "random-seed 3", "verbose 1", "trace true",
+                       'trace_file_name "z3.log"']:
             with self.subTest(option=option):
                 proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
         for query in ["(check-sat-using smt)(get-model)(get-model)", "(check-sat-using aig)(get-assignment)",
@@ -358,6 +361,77 @@ class TestProofCertificate(unittest.TestCase):
                       '(get-info :status)(echo "x")(check-sat)']:
             with self.subTest(query=query):
                 proof_certificate.export_certificate("(assert false)" + query)
+
+    def test_commands_that_only_print_are_dropped(self):
+        # get-value, eval, simplify, apply, display, and get-assertions print
+        # without touching the assertion stack, anywhere and with any
+        # arguments (Z3 answers get-value and eval after unsat with an error).
+        source = ("(declare-const p Bool)(simplify (and p p) :elim-and true)(display p)(get-assertions)"
+                  "(get-value (p))(eval p)(apply (then simplify solve-eqs) :print false)"
+                  "(assert p)(assert (not p))(check-sat)(get-value (p (not p)))(eval (not p) :completion true)")
+        certificate = proof_certificate.export_certificate(source)
+        self.assertEqual(certificate["source_smt2"], source)
+        self.assert_well_formed(certificate)
+        self.assertEqual(proof_certificate._assertion_commands(source),
+                         "(declare-const p Bool)\n(assert p)\n(assert (not p))")
+        # define-const is a definition like a nullary define-fun.
+        snapshot, _, _ = proof_certificate.query_snapshot(
+            "(declare-const x Int)(define-const y Int (+ x 1))(assert (< y x))(check-sat)")
+        self.assertEqual(snapshot, "(declare-const x Int)\n(define-const y Int (+ x 1))\n(assert (< y x))")
+        self.assert_well_formed(proof_certificate.export_certificate(
+            "(declare-const p Bool)(define-const q Bool (not p))(assert p)(assert q)"))
+        # A :named label inside a dropped command defines a name in Z3, even
+        # when the command fails (get-value before check-sat). A later
+        # definition of that name is then an error in Z3, which keeps the
+        # label: on the first script Z3 answers sat, while the snapshot without
+        # the label would read p as true and be unsat. Such commands are
+        # rejected.
+        named = [
+            "(declare-const x Bool)(simplify (! x :named p))(define-fun p () Bool true)(assert (not p))(check-sat)",
+            "(declare-const x Bool)(get-value ((! x :named p)))(define-const p Bool false)(assert p)(check-sat)",
+            "(declare-const p Bool)(simplify (! (not p) :named n))(assert p)(assert n)",
+            "(declare-const p Bool)(eval (! p :named n))(assert p)(assert (not p))",
+            "(declare-const p Bool)(display (! p :named n))(assert p)(assert (not p))",
+        ]
+        for source in named:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, ":named label inside"):
+                    proof_certificate.query_snapshot(source)
+
+    def test_scripts_end_at_exit(self):
+        # Z3's parser stops at exit, so nothing after it is read: neither
+        # commands that would change the snapshot or the query count nor
+        # text that does not parse.
+        cases = [
+            "(assert false)(check-sat)(exit)(get-model)",
+            "(assert false)(exit)(assert true)(check-sat)(check-sat)",
+            "(assert false)(check-sat)(exit)(pop 5)",
+            '(assert false)(exit) ) (unbalanced "string',
+            "(assert false)(exit)(set-option :sat.smt true)(include \"x\")",
+        ]
+        for source in cases:
+            with self.subTest(source=source):
+                self.assertEqual(proof_certificate.query_snapshot(source)[0], "(assert false)")
+                certificate = proof_certificate.export_certificate(source)
+                self.assertEqual(certificate["source_smt2"], source)
+        # A query after exit does not exist.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "query 1 does not exist"):
+            proof_certificate.query_snapshot("(assert false)(check-sat)(exit)(check-sat)", 1)
+
+    def test_scoped_declarations_option(self):
+        # :global-decls false (also :global-declarations) is Z3's default
+        # scoping, the one the snapshot replays; true would keep a
+        # declaration made in a popped scope.
+        for option in ["global-decls false", "global-declarations false", "global_decls false"]:
+            with self.subTest(option=option):
+                proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
+        with self.assertRaises(z3.Z3Exception):
+            proof_certificate.export_certificate(
+                "(set-option :global-decls false)(push)(declare-const p Bool)(pop)(assert p)(assert (not p))")
+        for option in ["global-decls true", "global-declarations true", "global-decls 1"]:
+            with self.subTest(option=option):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "makes declarations global"):
+                    proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
 
     def test_options_changing_the_input_or_the_proof_evidence_are_rejected(self):
         # numeral-as-real, int-real-coercions, smtlib2_compliant, and
@@ -425,7 +499,6 @@ class TestProofCertificate(unittest.TestCase):
             ("(assert false)(check-sat-using smt)(get-model a)", "get-model must have no arguments"),
             ("(assert false)(get-info)", "get-info takes one argument"),
             ('(assert false)(echo "a" "b")', "echo takes one argument"),
-            ("(assert false)(check-sat)(exit)(get-model)", "commands after exit"),
         ]
         for source, message in cases:
             with self.subTest(source=source):
@@ -453,7 +526,6 @@ class TestProofCertificate(unittest.TestCase):
         suffixes = [
             "(check-sat)(check-sat)", "(get-proof)",
             "(check-sat)(get-proof)(get-proof)",
-            "(exit)(assert false)",
             "(check-sat)(get-proof p)", "(exit now)",
         ]
         for suffix in suffixes:
@@ -648,7 +720,7 @@ class TestProofCertificate(unittest.TestCase):
     def test_cli_failures_have_no_certificate(self):
         cases = [
             ("(assert true)", "sat:"),
-            ("(get-value (false))", "unsupported SMT-LIB command"),
+            ("(minimize 0)", "unsupported SMT-LIB command"),
             ("(assert undeclared)", "undeclared"),
             ("(assert false)(check-sat)(check-sat)", "select one by its zero-based index (--query)"),
         ]

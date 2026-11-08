@@ -948,6 +948,22 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         self.assertIn("th-lemma", proof_certificate.export_clause_log_certificate(
             CONFIGURED_INPUTS["strategy-par-or-2"])["rule_counts"])
 
+    def test_inputs_with_output_commands_through_the_clause_log(self):
+        # z3test regressions the frontend rejected for simplify, apply, the
+        # :trace or :global-decls false options, or commands after exit:
+        # the commands are dropped, the script ends at exit, and the
+        # executable sees the snapshot of the selected query only.
+        from test_proof_to_lean import OUTPUT_COMMAND_INPUTS
+        fragments = {"abs": "qf_lia", "t119": "qf_uflia", "3570": "qf_lra", "z3.29": "qf_lia",
+                     "output_commands": "qf_lia"}
+        for name, (source, query) in OUTPUT_COMMAND_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source, query=query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), (fragments[name], query))
+                self.assertEqual(certificate["source_smt2"], source)
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(_STANDARD_AXIOMS, report)
+
     def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
         # z3test 3632.smt2 kept verbatim: the only check-sat sits inside
         # (push 1), so no index is needed; the unused BitVec constant does
