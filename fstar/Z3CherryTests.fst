@@ -6,6 +6,10 @@ module R = Z3ResolutionProofTheory
 module U = Z3UnifiedProof
 module C = Z3Cherry
 module CR = Z3ConditionalRewrite
+module N = Z3Native
+module NP = Z3NativeProof
+module LP = Z3LpCertificate
+module L = FStar.List.Tot
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -558,7 +562,7 @@ let direct_ite_controls () : bool =
    forced Sorted route): x * y = y * x and a regrouped three-factor product
    are certified; x * y = x * x, a same-spelled twin factor and a look-alike
    `*` stay pending. *)
-let qp_int : A.sort = A.BaseSort "Int"
+let qp_int : A.sort = A.SortApp A.IntSymbol []
 
 let qp_mul (a b:A.expr) : A.expr =
   A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = Some Z3ValueTheory.op_mul;
@@ -667,6 +671,23 @@ let direct_product_controls () : bool =
   check (qp_mul x y) (qp_mul x x) = Some 1 &&
   check (qp_mul x y) (qp_mul y twin) = Some 1 &&
   check (qp_mul x y) look_alike = Some 1
+
+(* A sort merely NAMED Int is an opaque declaration identity (A.BaseSort), not the canonical Int sort:
+   a product over it is no Int product, so no factor permutation. *)
+let qp_named_int : A.sort = A.BaseSort "Int"
+
+let qp_named_mul (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = [qp_named_int; qp_named_int]; A.range = qp_named_int;
+          A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b]
+
+let qp_named_atom (name:string) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = qp_named_int; A.interp = None; A.int_params = [] } []
+
+let direct_named_int_control () : bool =
+  let x = qp_named_atom "x" in
+  let y = qp_named_atom "y" in
+  not (Z3NnfReplay.product_permuted (qp_named_mul x y) (qp_named_mul y x)) &&
+  not (Z3NnfReplay.product_permuted (qp_mul (qp_atom "x" 0) (qp_atom "y" 0)) (qp_named_mul x y))
 
 (* elim-unused natively in the Cherry checker (the OCaml counterpart is
    test_native_bridge.ml `sorted_elim_unused`): quant-intro leaves under an
@@ -825,6 +846,403 @@ let pull_controls () : bool =
   qpq_leaf e (qe_forall [qp_int] (qe_or (qe_pi i0) (qe_pi i1))) = Z3NnfReplay.Unreplayed &&
   qpq_leaf q e = Z3NnfReplay.Unreplayed
 
+(* Real equality/order clauses (Z3SortedProof.real_order) natively in the Cherry checker, on the forced
+   Sorted route (the OCaml counterpart is test_native_bridge.ml `sorted_real_order_clauses`): the
+   producer's triangle clauses over Real terms are accepted (a bound against the numeral 0 on the
+   difference x + (-1)*y in either operand order, a reversed bound, the three-literal antisymmetric
+   clause), and a strict bound, a wrong coefficient, a wrong target, a counterfeit `=`, a twin
+   operand, a fourth literal and the closed Real gate of a schema registering a datatype named Real
+   stay pending. The clause must be shallow (4,096 levels, iterative) before any comparison: with
+   unshared equal deep operands f^n(a) n = 4,093 is accepted and n = 4,094 refused, a mismatch at the
+   bottom of f^4093 is refused after the comparison, and 200,000 levels are refused by the walk. *)
+let rec ro_bools (xs:list A.expr) (acc:list A.sort) : Tot (list A.sort) (decreases xs) =
+  match xs with [] -> acc | _ :: rest -> ro_bools rest (A.bool_sort :: acc)
+
+let ro_or (args:list A.expr) : A.expr =
+  A.App { A.decl_name = "or"; A.domain = ro_bools args []; A.range = A.bool_sort;
+          A.interp = Some Z3ValueTheory.op_or; A.int_params = [] } args
+
+let ro_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [real_s; real_s]; A.range = real_s; A.interp = Some op; A.int_params = [] } [a; b]
+
+let ro_plus (a b:A.expr) : A.expr = ro_binary "+" Z3ValueTheory.op_arith_add a b
+let ro_times (a b:A.expr) : A.expr = ro_binary "*" Z3ValueTheory.op_arith_mul a b
+let ro_num (n:int) : A.expr = real_numeral n 1
+let ro_diff (a b:A.expr) : A.expr = ro_plus a (ro_times (ro_num (-1)) b)
+let ro_eq (a b:A.expr) : A.expr = R.mk_eq_expr a b
+let ro_not (a:A.expr) : A.expr = R.mk_not_expr a
+let ro_le (a b:A.expr) : A.expr = real_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
+let ro_ge (a b:A.expr) : A.expr = real_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
+let ro_lt (a b:A.expr) : A.expr = real_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+
+let ro_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [real_s]; A.range = real_s; A.interp = None; A.int_params = [] }
+
+let rec ro_chain (n:nat) (acc:A.expr) : Tot A.expr (decreases n) =
+  if n = 0 then acc else ro_chain (n - 1) (A.App ro_f [acc])
+
+(* not (f^n(bottom) = f^n(bottom)) \/ f^n(bottom) <= f^n(other), all four chains unshared. *)
+let ro_deep (n:nat) (bottom other:A.expr) : A.expr =
+  ro_or [ro_not (ro_eq (ro_chain n bottom) (ro_chain n bottom)); ro_le (ro_chain n bottom) (ro_chain n other)]
+
+let ro_clause_document (schema:Z3DatatypeSignature.schema) (clause:A.expr) : C.marshaled =
+  { C.document = {
+      P.declarations = []; P.expressions = []; P.assertions = [R.mk_not_expr clause];
+      P.entries = [{ P.rule = U.Asserted; P.formula = R.mk_not_expr clause; P.premise_ids = [] };
+                   { P.rule = U.Unverified "th-lemma"; P.formula = clause; P.premise_ids = [] };
+                   { P.rule = U.UnitResolution; P.formula = R.false_expr; P.premise_ids = [0; 1] }];
+      P.root = 2 };
+    C.schema = schema }
+
+let ro_real_datatype : Z3DatatypeSignature.schema =
+  let real_box = { A.decl_name = "real-box"; A.domain = []; A.range = real_s;
+                   A.interp = Some Z3DatatypeLemma.op_constructor; A.int_params = [0; 0; 0] } in
+  let is_real_box = { A.decl_name = "is-real-box"; A.domain = [real_s]; A.range = A.bool_sort;
+                      A.interp = Some Z3DatatypeLemma.op_recognizer; A.int_params = [0; 0] } in
+  { Z3DatatypeSignature.sorts = [real_s];
+    Z3DatatypeSignature.cases = [{ Z3DatatypeSignature.constructor = real_box;
+                                   Z3DatatypeSignature.recognizer = is_real_box;
+                                   Z3DatatypeSignature.accessors = [] }] }
+
+let real_order_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let twin = real_constant "x" [7] in
+  let zero = ro_num 0 in
+  let fake_eq (a b:A.expr) : A.expr =
+    A.App { A.decl_name = "="; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [a; b] in
+  let check clause = C.check true (ro_clause_document core clause) in
+  let a = real_constant "a" [] in
+  let b = real_constant "b" [] in
+  let wide = ro_or [ro_not (ro_eq x y); ro_le x y; ro_le y x; ro_le x y] in
+  check (ro_or [ro_not (ro_eq x y); ro_le x y]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge x y]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq zero x); ro_ge x zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge (ro_diff x y) zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_plus (ro_times (ro_num (-1)) y) x) zero]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_diff y x) zero]) = Some 0 &&
+  check (ro_or [ro_eq x y; ro_not (ro_le (ro_diff x y) zero); ro_not (ro_ge (ro_diff x y) zero)]) = Some 0 &&
+  check (ro_or [ro_not (ro_le x y); ro_eq x y; ro_not (ro_le y x)]) = Some 0 &&
+  check (ro_or [ro_not (ro_eq x y); ro_lt (ro_diff x y) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_lt x y]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_plus x (ro_times (ro_num 1) y)) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_ge (ro_plus x (ro_times (ro_num (-2)) y)) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le (ro_diff x z) zero]) = Some 1 &&
+  check (ro_or [ro_not (ro_eq x y); ro_le twin y]) = Some 1 &&
+  check (ro_or [ro_not (fake_eq x y); ro_le x y]) = Some 1 &&
+  check (ro_or [ro_eq x y; ro_not (ro_le (ro_diff x y) zero); ro_not (ro_ge (ro_diff y x) zero)]) = Some 1 &&
+  check (ro_or [ro_eq x y; ro_le x y]) = Some 1 &&
+  check wide = Some 1 &&
+  C.check true (ro_clause_document ro_real_datatype (ro_or [ro_not (ro_eq x y); ro_le x y])) = Some 1 &&
+  C.check true (ro_clause_document core (ro_deep 4093 a a)) = Some 0 &&
+  C.check true (ro_clause_document core (ro_deep 4094 a a)) = Some 1 &&
+  C.check true (ro_clause_document core (ro_deep 4093 a b)) = Some 1 &&
+  Z3SortedProof.real_order_clause (ro_deep 4093 a a) &&
+  not (Z3SortedProof.real_order_clause (ro_deep 4094 a a)) &&
+  not (Z3SortedProof.real_order_clause (ro_deep 200000 a a))
+
+(* Guarded Int div/mod clauses (Z3SortedProof.division_order) natively in the Cherry checker, on the
+   forced Sorted route (the OCaml counterpart is test_native_bridge.ml `sorted_int_division_clauses`):
+   the five producer templates over Int terms are accepted in both literal orders
+     d = 0 \/ mod x d >= 0,  d <= 0 \/ (mod x d) + (-1)*d <= -1,  d >= 0 \/ (mod x d) + d <= -1,
+     d = 0 \/ x = d*(div x d) + mod x d  (and the equation's sides swapped),
+   and a missing guard (a unit clause), a guard of the wrong sign for its bound, a wrong bound, mod
+   and div exchanged, a guard on x, a wrong operand of the decomposition, a lookalike mod (no kind
+   tag, the div tag, a twin parameter, another name), a counterfeit `=` and an unguarded alias of a
+   division with its div0 stay pending, as do valid clauses in an unsupported shape (a weaker guard,
+   a commuted product, a third literal). The clause must be shallow (4,096 levels, iterative) before
+   any comparison: with unshared equal deep operands f^n(x), f^n(d) n = 4,093 is accepted and
+   n = 4,094 refused, a mismatch at the bottom of f^4093 is refused after the comparison, and
+   200,000 levels are refused by the walk. *)
+let dv_int : A.sort = qp_int
+
+let dv_const (name:string) (params:list int) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = dv_int; A.interp = None; A.int_params = params } []
+
+let dv_num (n:int) : A.expr =
+  A.App { A.decl_name = "num"; A.domain = []; A.range = dv_int; A.interp = Some Z3ValueTheory.op_num_rational;
+          A.int_params = [n; 1] } []
+
+let dv_binary (name:string) (op:A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = dv_int; A.interp = Some op; A.int_params = [] } [a; b]
+
+let dv_plus (a b:A.expr) : A.expr = dv_binary "+" Z3ValueTheory.op_arith_add a b
+let dv_times (a b:A.expr) : A.expr = dv_binary "*" Z3ValueTheory.op_arith_mul a b
+let dv_diff (a b:A.expr) : A.expr = dv_plus a (dv_times (dv_num (-1)) b)
+
+let dv_compare (name:string) (op:option A.decl_kind) (a b:A.expr) : A.expr =
+  A.App { A.decl_name = name; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = op; A.int_params = [] } [a; b]
+
+let dv_le (a b:A.expr) : A.expr = dv_compare "<=" (Some Z3ValueTheory.op_arith_le) a b
+let dv_ge (a b:A.expr) : A.expr = dv_compare ">=" (Some Z3ValueTheory.op_arith_ge) a b
+let dv_lt (a b:A.expr) : A.expr = dv_compare "<" (Some Z3ValueTheory.op_arith_lt) a b
+
+let dv_rem (a b:A.expr) : A.expr = dv_binary "mod" Z3IntegerDivision.op_mod a b
+let dv_quot (a b:A.expr) : A.expr = dv_binary "div" Z3IntegerDivision.op_idiv a b
+
+let dv_f : A.func_decl =
+  { A.decl_name = "f"; A.domain = [dv_int]; A.range = dv_int; A.interp = None; A.int_params = [] }
+
+let rec dv_chain (n:nat) (acc:A.expr) : Tot A.expr (decreases n) =
+  if n = 0 then acc else dv_chain (n - 1) (A.App dv_f [acc])
+
+(* d' = 0 \/ mod x' d'' >= 0, with f^n applied to unshared copies of x and of both d's. *)
+let dv_deep (n:nat) (x d d':A.expr) : A.expr =
+  ro_or [ro_eq (dv_chain n d) (dv_num 0); dv_ge (dv_rem (dv_chain n x) (dv_chain n d')) (dv_num 0)]
+
+(* The NEW validator (Z3SortedProof.division_order, called directly) against the whole checker. A clause the new
+   validator accepts must be accepted by the checker (Some 0); a clause it refuses must stay pending in the whole
+   checker (Some 1), i.e. no pre-existing kernel accepts it as a fallback; anything else is None. So an expected Some 0
+   is support of the new division kernel, never of an old fallback, and an expected Some 1 is refused by both. *)
+let dv_node (clause:A.expr) : U.proof_node =
+  { U.kind = U.Unverified "th-lemma"; U.conclusion = U.Holds clause; U.premises = [] }
+
+let dv_check (clause:A.expr) : option nat =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let verdict = C.check true (ro_clause_document core clause) in
+  if Z3SortedProof.division_order (dv_node clause)
+  then (if verdict = Some 0 then Some 0 else None)
+  else (if verdict = Some 1 then Some 1 else None)
+
+let int_division_controls () : bool =
+  let x = dv_const "x" [] in
+  let d = dv_const "d" [] in
+  let e = dv_const "e" [] in
+  let zero = dv_num 0 in
+  let m1 = dv_num (-1) in
+  let rem_decl_with (f:A.func_decl -> A.func_decl) (a b:A.expr) : A.expr =
+    match dv_rem a b with A.App k args -> A.App (f k) args | other -> other in
+  let check = dv_check in
+  let sum = dv_plus (dv_times d (dv_quot x d)) (dv_rem x d) in
+  let lower = ro_or [ro_eq d zero; dv_ge (dv_rem x d) zero] in
+  check lower = Some 0 &&
+  check (ro_or [dv_ge (dv_rem x d) zero; ro_eq d zero]) = Some 0 &&
+  check (ro_or [dv_le d zero; dv_le (dv_diff (dv_rem x d) d) m1]) = Some 0 &&
+  check (ro_or [dv_le (dv_plus (dv_times m1 d) (dv_rem x d)) m1; dv_le d zero]) = Some 0 &&
+  check (ro_or [dv_ge d zero; dv_le (dv_plus (dv_rem x d) d) m1]) = Some 0 &&
+  check (ro_or [ro_eq d zero; ro_eq x sum]) = Some 0 &&
+  check (ro_or [ro_eq sum x; ro_eq d zero]) = Some 0 &&
+  (* a numeral divisor: the guard 3 = 0 is false and mod x 3 >= 0 is valid, a POSITIVE control accepted by the new validator *)
+  check (ro_or [ro_eq (dv_num 3) zero; dv_ge (dv_rem x (dv_num 3)) zero]) = Some 0 &&
+  (* the numeral instance x = 7, d = -2 (7 div -2 = -3, 7 mod -2 = 1) of every template is accepted *)
+  check (ro_or [ro_eq (dv_num (-2)) zero; dv_ge (dv_rem (dv_num 7) (dv_num (-2))) zero]) = Some 0 &&
+  check (ro_or [dv_ge (dv_num (-2)) zero; dv_le (dv_plus (dv_rem (dv_num 7) (dv_num (-2))) (dv_num (-2))) m1]) = Some 0 &&
+  check (ro_or [dv_le (dv_num 2) zero; dv_le (dv_diff (dv_rem (dv_num 7) (dv_num 2)) (dv_num 2)) m1]) = Some 0 &&
+  check (ro_or [ro_eq (dv_num (-2)) zero;
+                ro_eq (dv_num 7) (dv_plus (dv_times (dv_num (-2)) (dv_quot (dv_num 7) (dv_num (-2))))
+                                    (dv_rem (dv_num 7) (dv_num (-2))))]) = Some 0 &&
+  (* the zero-divisor controls at numerals: no guard, or a guard on the dividend instead of the divisor *)
+  check (dv_ge (dv_rem (dv_num 7) zero) zero) = Some 1 &&
+  check (ro_or [ro_eq (dv_num 7) zero; dv_ge (dv_rem (dv_num 7) zero) zero]) = Some 1 &&
+  check (dv_ge (dv_rem x d) zero) = Some 1 &&
+  check (ro_or [ro_eq x zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [dv_ge d zero; dv_le (dv_diff (dv_rem x d) d) m1]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_le (dv_plus (dv_rem x d) d) m1]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_le (dv_diff (dv_rem x d) d) (dv_num (-2))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_quot x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times d (dv_quot d x)) (dv_rem x d))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times d (dv_quot x d)) (dv_times (dv_num 2) (dv_rem x d)))]) = Some 1 &&
+  check (ro_eq x sum) = Some 1 &&
+  check (ro_eq (dv_quot x d) (dv_binary "div0" Z3IntegerDivision.op_idiv x d)) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.interp = None }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.interp = Some Z3IntegerDivision.op_idiv }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.int_params = [1] }) x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (rem_decl_with (fun k -> { k with A.decl_name = "remainder" }) x d) zero]) = Some 1 &&
+  check (ro_or [A.App { A.decl_name = "="; A.domain = [dv_int; dv_int]; A.range = A.bool_sort; A.interp = None;
+                        A.int_params = [] } [d; zero]; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [dv_le d zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; ro_eq x (dv_plus (dv_times (dv_quot x d) d) (dv_rem x d))]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_rem x d) zero; dv_le x zero]) = Some 1 &&
+  check (ro_or [ro_eq d zero; dv_ge (dv_rem x d) (dv_num 1)]) = Some 1 &&
+  check (ro_or [ro_eq e zero; dv_ge (dv_rem x d) zero]) = Some 1 &&
+  check (dv_deep 4093 x d d) = Some 0 &&
+  check (dv_deep 4094 x d d) = Some 1 &&
+  check (dv_deep 4093 x d e) = Some 1 &&
+  Z3SortedProof.division_clause (dv_deep 4093 x d d) &&
+  not (Z3SortedProof.division_clause (dv_deep 4094 x d d)) &&
+  not (Z3SortedProof.division_clause (dv_deep 200000 x d d))
+
+(* Real equation rewrites (Z3SortedRealLinear.real_equivalent) natively on the forced Sorted route:
+   the renormalized, commuted and proportional difference forms and the equations of constants are
+   accepted as closed premise-free rewrite steps; a wrong sign, offset, target and constant, a
+   counterfeit `=` and the closed Real gate stay pending. A quant-intro leaf with a Real equation
+   under two Real binders replays with the Real gate and not without it, its mutants not at all. *)
+let re_all (body:A.expr) : A.expr = A.Quantifier A.Forall_k [real_s; real_s] A.bool_sort body
+
+let re_leaf (gate:bool) (l r:A.expr) : Z3NnfReplay.verdict =
+  Z3NnfReplay.replay_with gate [] ({ U.binder_entries =
+      binder_entry "rewrite" (R.mk_eq_expr l r) [] ::
+      { U.binder_name = "quant-intro"; U.binder_formula = R.mk_eq_expr (re_all l) (re_all r);
+        U.binder_premises = [0]; U.binder_sorts = Some [real_s; real_s] } :: [];
+    U.binder_root = 1 }) (U.Equal (re_all l) (re_all r))
+
+let real_equation_controls () : bool =
+  let core = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let zero = ro_num 0 in
+  let check l r = C.check true (ite_rewrite_document core l r) in
+  let fake_eq (a b:A.expr) : A.expr =
+    A.App { A.decl_name = "="; A.domain = [real_s; real_s]; A.range = A.bool_sort; A.interp = None; A.int_params = [] } [a; b] in
+  let v0 = A.Var 0 real_s in
+  let v1 = A.Var 1 real_s in
+  check (ro_eq x y) (ro_eq (ro_diff x y) zero) = Some 0 &&
+  check (ro_eq x (ro_times (ro_num 2) y)) (ro_eq (ro_plus x (ro_times (ro_num (-2)) y)) zero) = Some 0 &&
+  check (ro_eq x y) (ro_eq y x) = Some 0 &&
+  check (ro_eq x y) (ro_eq (ro_plus (ro_times (ro_num 3) x) (ro_times (ro_num (-3)) y)) zero) = Some 0 &&
+  check (ro_eq (ro_num 2) zero) R.false_expr = Some 0 &&
+  check (ro_eq (ro_num 2) (ro_num 2)) R.true_expr = Some 0 &&
+  check (ro_eq (real_numeral 1 2) (real_numeral 2 4)) R.true_expr = Some 0 &&
+  check (ro_eq x y) (ro_eq (ro_plus x y) zero) = Some 1 &&
+  check (ro_eq x y) (ro_eq (ro_diff x y) (ro_num 1)) = Some 1 &&
+  check (ro_eq x y) (ro_eq (ro_diff x z) zero) = Some 1 &&
+  check (ro_eq (ro_num 2) zero) R.true_expr = Some 1 &&
+  check (ro_eq (ro_num 2) (ro_num 2)) R.false_expr = Some 1 &&
+  check (fake_eq x y) (ro_eq (ro_diff x y) zero) = Some 1 &&
+  C.check true (ite_rewrite_document ro_real_datatype (ro_eq x y) (ro_eq (ro_diff x y) zero)) = Some 1 &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) zero) =
+    Z3NnfReplay.Replayed &&
+  re_leaf false (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) zero) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num 2) v1)) zero) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v0 (ro_times (ro_num (-2)) v1)) (ro_num 1)) =
+    Z3NnfReplay.Unreplayed &&
+  re_leaf true (ro_eq v0 (ro_times (ro_num 2) v1)) (ro_eq (ro_plus v1 (ro_times (ro_num (-2)) v0)) zero) =
+    Z3NnfReplay.Unreplayed
+
+(* Native LP contexts, through Z3NativeProof.marshal_parameters and parameter_expressions.
+   An LP context has one native parameter per coefficient, index and variable: 83,270 for
+   the Pulse query FStar.UInt128-3 (14,347 of them expressions). A walk that used one C
+   stack frame per parameter overflowed the normal 8 MiB stack on it (the frame is 96 to
+   128 bytes, depending on the C compiler, so 65,000 to 87,000 parameters are enough).
+   Both walks are tail recursive now. The two ASTs come from the native test (real Z3 ASTs,
+   `false` and `true`); every list is built here. Their elements interleave every kind of
+   parameter with repeated expressions, negative, huge and zero denominators (marshaling
+   carries them verbatim; only the certificate decoder judges them), so the result must
+   keep each parameter's kind, content and position. *)
+let big_numerator : int = 123456789012345678901234567890
+
+(* Parameter i of the mixed list: an expression at every sixth position. *)
+let parameter_at (a0 a1:N.ast) (i:nat) : N.parameter_view =
+  if i % 6 = 0 then N.ParameterExpression (if i % 12 = 0 then a0 else a1)
+  else if i % 6 = 3 then N.ParameterUnsupported
+  else if i % 6 = 5 then N.ParameterRational big_numerator (0 - (i % 7))
+  else N.ParameterRational (i - 40) (1 + i % 4)
+
+let expected_parameter (e0 e1:A.expr) (i:nat) : LP.raw_parameter =
+  if i % 6 = 0 then LP.Expression (if i % 12 = 0 then e0 else e1)
+  else if i % 6 = 3 then LP.Unsupported
+  else if i % 6 = 5 then LP.Rational big_numerator (0 - (i % 7))
+  else LP.Rational (i - 40) (1 + i % 4)
+
+let rec mixed_parameters (a0 a1:N.ast) (count:nat) (acc:list N.parameter_view)
+  : Tot (list N.parameter_view) (decreases count) =
+  if count = 0 then acc
+  else mixed_parameters a0 a1 (count - 1) (parameter_at a0 a1 (count - 1) :: acc)
+
+(* Only expressions, alternating a0 and a1: the walk that collects them has most to do. *)
+let rec dense_parameters (a0 a1:N.ast) (count:nat) (acc:list N.parameter_view)
+  : Tot (list N.parameter_view) (decreases count) =
+  if count = 0 then acc
+  else dense_parameters a0 a1 (count - 1)
+         (N.ParameterExpression (if (count - 1) % 2 = 0 then a0 else a1) :: acc)
+
+let rec parameters_match (e0 e1:A.expr) (n i:nat) (raw:list LP.raw_parameter)
+  : Tot bool (decreases raw) =
+  match raw with
+  | [] -> i = n
+  | r :: rest ->
+    if r = expected_parameter e0 e1 i then parameters_match e0 e1 n (i + 1) rest else false
+
+(* The j-th expression parameter is a0 for even j and a1 for odd j, in both lists. *)
+let rec expressions_match (a0 a1:N.ast) (n j:nat) (xs:list N.ast) : FStar.All.ML bool =
+  match xs with
+  | [] -> j = n
+  | x :: rest ->
+    if N.ast_id x = N.ast_id (if j % 2 = 0 then a0 else a1)
+    then expressions_match a0 a1 n (j + 1) rest else false
+
+let native_parameters ([@@@FStar.Attributes.cherry_borrowed] asts:list N.ast) : FStar.All.ML bool =
+  match asts with
+  | [a0; a1] ->
+    let st = NP.marshal_expressions (NP.empty_state ()) asts in
+    let e0 = NP.cached_expression st a0 in
+    let e1 = NP.cached_expression st a1 in
+    let small = [N.ParameterRational (-3) 4; N.ParameterExpression a0; N.ParameterUnsupported;
+                 N.ParameterExpression a1; N.ParameterRational big_numerator (-2);
+                 N.ParameterRational 0 0; N.ParameterExpression a0] in
+    let small_raw = [LP.Rational (-3) 4; LP.Expression e0; LP.Unsupported; LP.Expression e1;
+                     LP.Rational big_numerator (-2); LP.Rational 0 0; LP.Expression e0] in
+    let count = 200000 in
+    let mixed = mixed_parameters a0 a1 count [] in
+    let dense = dense_parameters a0 a1 400000 [] in
+    NP.marshal_parameters st [] = [] &&
+    NP.marshal_parameters st small = small_raw &&
+    expressions_match a0 a1 3 0 (NP.parameter_expressions small) &&
+    expressions_match a0 a1 0 0 (NP.parameter_expressions []) &&
+    parameters_match e0 e1 count 0 (NP.marshal_parameters st mixed) &&
+    expressions_match a0 a1 ((count + 5) / 6) 0 (NP.parameter_expressions mixed) &&
+    expressions_match a0 a1 400000 0 (NP.parameter_expressions dense)
+  | _ -> false
+
+(* The certificate decoder (Z3LpCertificate.decode) reads every count-prefixed list in a loop. A
+   certificate with 14,347 variables overflowed the normal stack near 26,000 elements of one list
+   (four C frames per element); the list below has 100,000 coefficient terms. The two variables are
+   Int constants; the second one's definition is the terms (k + 1)/1 * variable 0 for k < 100,000,
+   so the decoded polynomial must keep every term and its position. The one step is a plain input. *)
+let lp_rat (n:int) : LP.raw_parameter = LP.Rational n 1
+
+let lp_int_constant (name:string) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = Z3LinearArithmeticAst.int_s;
+          A.interp = None; A.int_params = [] } []
+
+let lp_absent : int = 4294967295
+
+let lp_input_step : list LP.raw_parameter =
+  [lp_rat 0;
+   lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0;
+   lp_rat 0; lp_rat lp_absent; lp_rat 0;
+   lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0; lp_rat 0;
+   lp_rat lp_absent; lp_rat lp_absent; lp_rat lp_absent;
+   lp_rat 1; lp_rat 0; lp_rat 0]
+
+let rec lp_terms (count:nat) (acc:list LP.raw_parameter)
+  : Tot (list LP.raw_parameter) (decreases count) =
+  if count = 0 then acc
+  else lp_terms (count - 1) (lp_rat count :: lp_rat 0 :: acc)
+
+let lp_certificate (declared terms:nat) : list LP.raw_parameter =
+  let x0 = lp_int_constant "x0" in
+  let x1 = lp_int_constant "x1" in
+  Z3List.append
+    [lp_rat 1; lp_rat 2; LP.Expression x0; lp_rat 1; lp_rat 0; LP.Expression x1; lp_rat 1; lp_rat declared]
+    (Z3List.append (lp_terms terms [])
+       (Z3List.append [lp_rat 0; lp_rat 1] (Z3List.append lp_input_step [lp_rat 0])))
+
+let rec lp_terms_match (k n:nat) (p:LP.polynomial) : Tot bool (decreases p) =
+  match p with
+  | [] -> k = n
+  | ((c, d), j) :: rest ->
+    if c = k + 1 && d = 1 && j = 0 then lp_terms_match (k + 1) n rest else false
+
+let lp_decode_scale () : bool =
+  let terms = 100000 in
+  let kept (declared count:nat) : bool =
+    match LP.decode (lp_certificate declared count) with
+    | Some c ->
+      (match c.LP.variables with
+       | [_; v] -> L.length c.LP.steps = 1 && lp_terms_match 0 count v.LP.definition
+       | _ -> false)
+    | None -> false in
+  kept 2 2 && kept terms terms &&
+  (* a declared length beyond the parameters, or too few terms for it, is refused *)
+  None? (LP.decode (lp_certificate (terms + 1) terms)) &&
+  None? (LP.decode (lp_certificate (terms - 1) terms))
+
 let run () : bool =
   let good = fixture U.Asserted in
   let bad_root = { good with C.document = { good.document with P.root = 1 } } in
@@ -852,11 +1270,16 @@ let run () : bool =
   qi_regroup_scale () &&
   qi_ite_scale () &&
   real_farkas_controls () &&
+  real_order_controls () &&
+  real_equation_controls () &&
+  int_division_controls () &&
   direct_ite_controls () &&
   qi_product_scale () &&
   direct_product_controls () &&
+  direct_named_int_control () &&
   qi_elim_scale () &&
   direct_elim_controls () &&
   der_controls () &&
   pull_controls () &&
-  name_pair_units_scale ()
+  name_pair_units_scale () &&
+  lp_decode_scale ()

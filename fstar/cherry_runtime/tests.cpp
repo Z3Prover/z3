@@ -990,6 +990,18 @@ int main() {
     if (!structured_native_sorts(context, proof))
         return 1;
     {
+        // The native parameter walks of an LP context (Z3NativeProof.marshal_parameters and parameter_expressions) at the
+        // size of a real Pulse context: they overflowed the normal stack with a C frame per parameter. The F* test builds
+        // its lists from these two real ASTs and checks the kind, content and position of every parameter.
+        auto inputs = checker::list<Prims_list__ast_Cons_s>({falsehood, truth});
+        bool preserved = Z3CherryTests_native_parameters(inputs);
+        checker_drop_asts(inputs);
+        if (!preserved) {
+            std::cerr << "Cherry native LP parameter marshalling regression failed\n";
+            return 1;
+        }
+    }
+    {
         std::vector<Z3_ast> assertions(100000, falsehood);
         auto inputs = checker::list<Prims_list__ast_Cons_s>(assertions);
         auto document = Z3Cherry_marshal(inputs, proof);

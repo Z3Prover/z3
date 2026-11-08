@@ -235,7 +235,9 @@
    Under the gate, a `rewrite` leaf the checks above refuse is replayed when
    `Z3SortedRealLinear.real_equivalent` decides it (at most 256 nodes per
    side): linear Real and Int-with-to_real renormalization, comparison
-   orientation and strictness, binary Real product commutation. Its lemma
+   orientation and strictness, binary Real product commutation, and Real
+   equations (the same, opposite or proportional difference polynomial; an
+   equation of constants decided as true or false). Its lemma
    requires `real ==> Z3SortedReal.real_model` of the same Sorted
    interpretation (which contains the gate), so the flag alone proves
    nothing. The ITE laws do not read the gate.
@@ -844,8 +846,8 @@ let rewrite_ok (lhs rhs:expr) : bool =
    Z3SortedReal.real_primitive of its checked schema). Under it, a leaf the
    Real normal forms decide (Z3SortedRealLinear.real_equivalent: Real and
    Int-with-to_real linear renormalization, comparison orientation and
-   strictness, binary Real product commutation) is replayed too, after every
-   check above. *)
+   strictness, binary Real product commutation, Real equations by their
+   difference polynomials) is replayed too, after every check above. *)
 let real_rewrite_ok (real:bool) (lhs rhs:expr) : bool =
   if rewrite_ok lhs rhs then true else real && LIN.real_equivalent lhs rhs
 
@@ -2761,7 +2763,10 @@ let lemma_der_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
       lemma_avoid sigma i j 0 s0 rho_v rho' t;
       lemma_or_of s bc eq other s0 rho' rem;
       let at2 (p:nat{p < L.length s0}) : Lemma (subst_rel_at sigma j 0 s0 s0 rho_v tv rho' rho_v p) =
-        at p in
+        at p;
+        assert (p <> 0 + j ==> (rho' p <: V.tree base) == (rho_v p <: V.tree base));
+        assert (p == 0 + j ==> (rho' p <: V.tree base) == (tv <: V.tree base));
+        assert (p - 0 < L.length s0 /\ (rho_v p <: V.tree base) == (rho_v (p - 0) <: V.tree base)) in
       FStar.Classical.forall_intro at2;
       lemma_subst_eval sigma i j t 0 s0 s0 rho_v rho' rho_v (or_of rem) body';
       T.lemma_boolean s bc (T.evaluate_at s bc eq other s0 rho' (or_of rem));
