@@ -1503,6 +1503,105 @@ namespace {
         )");
     }
 
+    static void tst_nseq_single_char_stoi_digit() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 1000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref s(m.mk_fresh_const("s", u.str.mk_string_sort()), m);
+        expr_ref i(m.mk_fresh_const("i", a.mk_int()), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref_vector arguments(m);
+        arguments.push_back(u.str.mk_at(s, i));
+        arguments.push_back(u.str.mk_substr(s, i, one));
+        for (expr* arg : arguments) {
+            for (unsigned digit : {0u, 3u}) {
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_bool("model", true);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+                expr_ref conversion(u.str.mk_stoi(arg), m);
+                expr_ref value(m.mk_eq(conversion, a.mk_int(digit)), m);
+                char text[] = {static_cast<char>('0' + digit), 0};
+                expr_ref word(u.str.mk_string(text), m);
+                expr_ref concrete(m.mk_eq(arg, word), m);
+                slv->assert_expr(value);
+                slv->push();
+                slv->assert_expr(m.mk_not(concrete));
+                ENSURE(slv->check_sat(0, nullptr) == l_false);
+                slv->pop(1);
+                slv->assert_expr(concrete);
+                ENSURE(slv->check_sat(0, nullptr) == l_true);
+                model_ref md;
+                slv->get_model(md);
+                ENSURE(md && md->is_true(value) && md->is_true(concrete));
+            }
+        }
+        for (expr* arg : arguments) {
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            expr_ref condition(m.mk_fresh_const("condition", m.mk_bool_sort()), m);
+            expr_ref conversion(u.str.mk_stoi(arg), m);
+            expr_ref seven(a.mk_int(7), m);
+            expr_ref selected(m.mk_ite(condition, seven, conversion), m);
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref word(u.str.mk_string("0"), m);
+            slv->assert_expr(m.mk_eq(selected, zero));
+            slv->assert_expr(m.mk_not(m.mk_eq(arg, word)));
+            ENSURE(slv->check_sat(0, nullptr) == l_false);
+        }
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (declare-const c Bool)
+            (assert (= (str.to_int (str.at s 0)) 1))
+            (assert (= (ite c (str.to_int (str.at s 0)) 0) 0))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.len s) 1))
+            (assert (= (str.to_int (str.at s 0)) (- 1)))
+            (assert (not (= (str.to_int (str.at s 0)) 0)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.len s) 1))
+            (assert (= (str.to_int (str.++ "0" (str.at s 0))) 0))
+        )");
+    }
+
+    static void tst_nseq_stoi_sat_reconciliation() {
+        auto signed_value = [](std::string const& s) {
+            return "(ite (str.prefixof \"-\" " + s + ") (- (str.to_int (str.substr " + s +
+                " 1 (- (str.len " + s + ") 1)))) (str.to_int " + s + "))";
+        };
+        auto valid = [](std::string const& s) {
+            return "(ite (str.prefixof \"-\" " + s +
+                ") (and (ite (= (- 1) (str.to_int (str.substr " + s + " 1 (- (str.len " + s +
+                ") 1)))) false true) (> (str.len " + s +
+                ") 1)) (ite (= (- 1) (str.to_int " + s + ")) false true))";
+        };
+        std::string digit = "(str.at abbr 2)";
+        std::string decimal = "(str.++ (str.from_int 0) (str.from_int " + signed_value(digit) + "))";
+        std::ostringstream input;
+        input << "(declare-const word String)\n(declare-const abbr String)\n"
+              << "(assert (not (>= (+ 2 " << signed_value(decimal) << ") (str.len word))))\n"
+              << "(assert (not (str.in_re (str.at abbr 3) (re.+ (re.range \"0\" \"9\")))))\n"
+              << "(assert " << valid(decimal) << ")\n"
+              << "(assert (not (= " << signed_value(digit) << " 0)))\n"
+              << "(assert " << valid(digit) << ")\n"
+              << "(assert (str.in_re " << digit << " (re.+ (re.range \"0\" \"9\"))))\n"
+              << "(assert (= (str.at word 1) (str.at abbr 1)))\n"
+              << "(assert (not (>= 1 (str.len word))))\n"
+              << "(assert (not (str.in_re (str.at abbr 1) (re.+ (re.range \"0\" \"9\")))))\n"
+              << "(assert (= (str.at word 0) (str.at abbr 0)))\n"
+              << "(assert (not (>= 0 (str.len word))))\n"
+              << "(assert (not (str.in_re (str.at abbr 0) (re.+ (re.range \"0\" \"9\")))))\n"
+              << "(assert (= (str.at word 4) (str.at abbr 3)))\n";
+        check_nseq_candidate_model(input.str().c_str(), true, nullptr, 6000000);
+    }
+
     static void tst_nseq_candidate_model() {
         check_nseq_candidate_model(R"(
             (declare-const s String)
@@ -1621,5 +1720,7 @@ void tst_seq_eq_facet() {
     tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
     tst_nseq_short_stoi_bounds();
+    tst_nseq_single_char_stoi_digit();
+    tst_nseq_stoi_sat_reconciliation();
     std::cout << "seq_eq_facet: all tests passed\n";
 }

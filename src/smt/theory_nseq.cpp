@@ -977,8 +977,11 @@ namespace smt {
         if (!m_pending_assumptions.empty()) {
 
             if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) {
-                if (check_stoi_coherence())
+                if (check_stoi_coherence()) {
+                    if (branch_stoi_digit())
+                        return FC_CONTINUE;
                     return m_num_unhandled ? FC_GIVEUP : FC_DONE;
+                }
                 m_pending_assumptions.reset();
                 return FC_CONTINUE;
             }
@@ -1061,6 +1064,10 @@ namespace smt {
         }
         switch (res) {
         case stx::search_result::sat: {
+            if (m_tree.get_stats().m_num_sat >= m_stoi_sat_head_start + 64) {
+                if (!check_stoi_coherence() || branch_stoi_digit())
+                    return FC_CONTINUE;
+            }
             seq::eq_tree::node const* snap = m_tree.sat_snapshot();
             if (snap) {
                 auto& node = const_cast<seq::eq_tree::node&>(*snap);
@@ -1142,6 +1149,10 @@ namespace smt {
         }
     }
 
+    void theory_nseq::init_search_eh() {
+        m_stoi_sat_head_start = m_tree.get_stats().m_num_sat;
+    }
+
     void theory_nseq::push_scope_eh() {
         theory::push_scope_eh();
         m_tree.push_facets();
@@ -1167,6 +1178,8 @@ namespace smt {
         st.update("nseq final checks", m_num_final_checks);
         st.update("nseq index suffix axioms", m_num_index_suffix_axioms);
         st.update("nseq fixed length axioms", m_num_fixed_length_axioms);
+        st.update("nseq stoi digit axioms", m_num_stoi_digit_axioms);
+        st.update("nseq stoi digit guesses", m_num_stoi_digit_guesses);
         st.update("nseq conflicts", m_num_conflicts);
         st.update("nseq root letter-count refutations", m_num_letter_refuted);
         seq::ho_facet const& hf = m_ambient->ho_facet(*m_root);
@@ -1297,6 +1310,51 @@ namespace smt {
     // Forward to stoi_facet, which owns the coherence-checking logic.
     bool theory_nseq::check_stoi_coherence() {
         return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
+    }
+
+    bool theory_nseq::branch_stoi_digit() {
+        // Give ordinary snapshot/coherence reconciliation a query-local head start.
+        if (m_tree.get_stats().m_num_sat < m_stoi_sat_head_start + 64)
+            return false;
+        for (auto const& term : m_ambient->stoi_facet(*m_root).terms()) {
+            expr* e = term.first;
+            expr* arg = to_app(e)->get_arg(0);
+            if (m_seq.str.max_length(arg) != 1 ||
+                (!m_seq.str.is_at(arg) && !m_seq.str.is_extract(arg)))
+                continue;
+            rational value;
+            if (!get_num_value(e, value))
+                continue;
+            if (!value.is_unsigned() || value.get_unsigned() > 9)
+                continue;
+            char digit[] = {static_cast<char>('0' + value.get_unsigned()), 0};
+            expr_ref word(m_seq.str.mk_string(digit), m);
+            expr_ref word_eq(m.mk_eq(arg, word), m);
+            literal b = mk_literal(word_eq);
+            if (ctx.get_assignment(b) == l_true)
+                continue;
+            if (ctx.get_assignment(b) == l_undef) {
+                ctx.force_phase(b);
+                ctx.mark_as_relevant(b);
+                m_pending_assumptions.reset();
+                ++m_num_stoi_digit_guesses;
+                return true;
+            }
+            expr_ref numeral(m_autil.mk_numeral(value, true), m);
+            expr_ref value_eq(m.mk_eq(e, numeral), m);
+            literal a = mk_literal(value_eq);
+            if (ctx.get_assignment(a) == l_false)
+                continue;
+            ctx.mark_as_relevant(a);
+            ctx.mark_as_relevant(b);
+            literal clause[] = {~a, b};
+            ctx.mk_th_axiom(get_id(), 2, clause);
+            m_pending_assumptions.reset();
+            ++m_num_stoi_digit_axioms;
+            // A cutoff guess is not a validated SAT snapshot assumption.
+            return true;
+        }
+        return false;
     }
 
 }
