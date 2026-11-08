@@ -1133,9 +1133,75 @@ namespace seq {
 
     // -- model_completion_split --
 
+    bool model_completion_split::split_regex_difference(eq_tree::node& n, eq_tree::edge& out) {
+        auto ac = get_ambient(n);
+        auto& mf = ac.mem_facet_ref();
+        for (auto const& dq : ac.deq_facet_ref().disequations()) {
+            if (!dq.active())
+                continue;
+            for (unsigned side = 0; side < 2; ++side) {
+                expr* var = side ? dq.m_rhs.get(0) : dq.m_lhs.get(0);
+                expr* other = side ? dq.m_lhs.get(0) : dq.m_rhs.get(0);
+                view_vector views;
+                for (auto const& sm : mf.memberships())
+                    if (sm.active() && sm.m_str.get(0) == var)
+                        views.push_back(sm.m_view);
+                if (views.empty())
+                    continue;
+                for (auto const& sm : mf.memberships()) {
+                    expr* body = nullptr, *literal = nullptr;
+                    zstring text;
+                    if (!sm.active() || sm.m_str.get(0) != other ||
+                        !u.re.is_star(sm.m_view.m_state, body) ||
+                        !u.re.is_to_re(body, literal) || !u.str.is_string(literal, text) ||
+                        text.empty() || text.length() > 256 ||
+                        any_of(views, [&](view const& v) { return v == sm.m_view; }))
+                        continue;
+                    // A word outside one required peer language cannot equal
+                    // the peer. This is still only a reversible branch choice.
+                    expr_ref complement(u.re.mk_complement(sm.m_view.m_state), m);
+                    view_vector trial(views);
+                    trial.push_back(view::membership(complement, m));
+                    expr_ref full_char(u.re.mk_full_char(u.re.mk_re(var->get_sort())), m);
+                    mf.reset_vw_budget();
+                    for (unsigned bound = 1; bound <= 256; bound *= 2) {
+                        expr_ref bounded(u.re.mk_loop_proper(full_char, 0, bound), m);
+                        trial.push_back(view::membership(bounded, m));
+                        expr_ref word(m), reduced(m);
+                        lbool result = mf.vw().product_nonempty(var, trial, &word);
+                        trial.pop_back();
+                        if (result == l_undef)
+                            break;
+                        if (result != l_true)
+                            continue;
+                        th_rewriter rw(m);
+                        rw(word, reduced);
+                        zstring value;
+                        if (!u.str.is_string(reduced, value))
+                            break;
+                        expr_ref assumption(m.mk_eq(var, reduced), m);
+                        auto dep = ac.assumption_facet_ref().add_assumption(assumption, ac.context());
+                        expr_ref_vector tokens(m);
+                        u.str.get_concat_units(reduced, tokens);
+                        broadcast_subst(n, var, tokens, dep);
+                        out = eq_tree::edge("regex-difference-completion", dep, true, 0);
+                        m_stats.m_num_difference_splits++;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     bool model_completion_split::iterator::next(eq_tree::edge& out) {
         if (!m_pending)
             return false;
+        if (m_try_difference) {
+            m_try_difference = false;
+            if (m_owner.split_regex_difference(m_n, out))
+                return true;
+        }
         m_pending = false;
         get_ambient(m_n).assumption_facet_ref().block_model_completion();
         out = eq_tree::edge("model-completion-fallback", nullptr, true, 0);
@@ -1379,7 +1445,7 @@ namespace seq {
         has_more = true;
         committed = true;
         m_stats.m_num_splits++;
-        return alloc(iterator, n);
+        return alloc(iterator, n, *this);
     }
 
 } // namespace seq

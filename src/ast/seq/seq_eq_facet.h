@@ -485,15 +485,21 @@ namespace seq {
         bool         m_regex_diseq_only;
         struct stats {
             unsigned m_num_splits = 0;
+            unsigned m_num_difference_splits = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
 
+        bool split_regex_difference(eq_tree::node& n, eq_tree::edge& out);
+
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
+            model_completion_split& m_owner;
+            bool m_try_difference;
             bool m_pending = true;
         public:
-            explicit iterator(eq_tree::node& n) : m_n(n) {}
+            iterator(eq_tree::node& n, model_completion_split& owner) :
+                m_n(n), m_owner(owner), m_try_difference(owner.m_regex_diseq_only) {}
             bool next(eq_tree::edge& out) override;
         };
 
@@ -505,6 +511,8 @@ namespace seq {
         void collect_statistics(::statistics& st) const override {
             st.update(m_regex_diseq_only ? "seq-regex-diseq-completion num splits" : "seq-model-completion num splits",
                       m_stats.m_num_splits);
+            if (m_regex_diseq_only)
+                st.update("seq-regex-difference-completion num splits", m_stats.m_num_difference_splits);
         }
         void reset_statistics() override { m_stats.reset(); }
     };

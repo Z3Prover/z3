@@ -1272,6 +1272,24 @@ namespace {
             (declare-const y String)
             (declare-const v Int)
             (assert (= v 2))
+            (assert (str.in_re x (re.* (re.++ (str.to_re "I") (re.* (str.to_re "&"))))))
+            (assert (str.in_re y (re.* (str.to_re "I"))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (re.++ (re.* (str.to_re "aaaa")) (str.to_re "bbbb")))))
+            (assert (str.in_re y (re.* (str.to_re "bbbb"))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const v Int)
+            (assert (= v 2))
             (assert (str.in_re x (re.* (re.++ (str.to_re "b") (re.* (str.to_re "a"))))))
             (assert (str.in_re y (re.* (re.++ (str.to_re "b") (re.* (str.to_re "a"))))))
             (assert (= (str.len x) 7))
