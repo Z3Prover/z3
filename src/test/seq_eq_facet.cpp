@@ -699,6 +699,48 @@ namespace {
                 check_deq_empty_length(reverse, form);
     }
 
+    static void tst_deq_disjoint_stars() {
+        for (bool disjoint : { false, true }) {
+            eq_approx_fixture f;
+            expr_ref x = f.var("x"), y = f.var("y");
+            expr_ref left = f.word("a"), right = f.word(disjoint ? "b" : "a");
+            left = f.u.re.mk_star(left);
+            right = f.u.re.mk_star(right);
+            f.add(x, left, 11);
+            f.add(y, right, 13);
+            auto deq_id = f.tree.register_facet<seq::deq_facet>(*f.root, f.m, f.u, f.tree.dep_mgr());
+            seq::sub_solver solver(f.m, f.a, f.tree.dep_mgr());
+            auto arith_id = f.tree.register_facet<seq::solver_facet>(*f.root, f.m, f.u, solver);
+            f.ac.set_deq_id(deq_id);
+            f.ac.set_arith_id(arith_id);
+            auto& df = f.root->facet_as<seq::deq_facet>(deq_id);
+            auto& sf = f.root->facet_as<seq::solver_facet>(arith_id);
+            df.add_disequation(mk_toks(f.u, f.m, x), mk_toks(f.u, f.m, y),
+                              f.tree.dep_mgr().mk_leaf(7));
+            f.trail.push_scope();
+            expr_ref len_x(f.u.str.mk_length(x), f.m), len_y(f.u.str.mk_length(y), f.m);
+            expr_ref zero(f.a.mk_int(0), f.m);
+            sf.add_constraint(f.m.mk_eq(len_x, zero), f.tree.dep_mgr().mk_leaf(17));
+            sf.add_constraint(f.m.mk_eq(len_y, zero), f.tree.dep_mgr().mk_leaf(19));
+            seq::mem_propagation prop(f.m, f.u, f.rw);
+            auto result = prop.propagate(*f.root);
+            if (disjoint) {
+                ENSURE(result == stx::simplify_result::conflict);
+                ENSURE(df.is_satisfied());
+                vector<unsigned, false> deps;
+                f.tree.dep_mgr().linearize(sf.conflict_dep(), deps);
+                for (unsigned dep : { 7u, 11u, 13u, 17u, 19u })
+                    ENSURE(std::find(deps.begin(), deps.end(), dep) != deps.end());
+            }
+            else
+                ENSURE(df.disequations()[0].active());
+            f.trail.pop_scope(1);
+            f.root->clear_status();
+            ENSURE(df.disequations()[0].active());
+            ENSURE(sf.is_satisfied());
+        }
+    }
+
     // A disequation between a constant and itself is an immediate
     // conflict (both sides prefix-strip to empty: forced equal).
     static void tst_deq_trivial_unsat() {
@@ -1212,6 +1254,18 @@ namespace {
         }
     }
 
+    static void tst_nseq_disjoint_stars() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (str.to_re "d"))))
+            (assert (str.in_re y (re.* (str.to_re "["))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+            (assert (= 7 (str.len x)))
+        )");
+    }
+
     static void tst_nseq_contains_index() {
         std::ostringstream input;
         input << R"(
@@ -1450,6 +1504,7 @@ void tst_seq_eq_facet() {
     tst_deq_trivial_sat();
     tst_deq_unit_nonempty_sat();
     tst_deq_empty_length();
+    tst_deq_disjoint_stars();
     tst_deq_trivial_unsat();
     tst_deq_reacts_to_eq_branch_sat();
     tst_eq_split_find_point();
@@ -1470,6 +1525,7 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_disjoint_stars();
     tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
     tst_nseq_short_stoi_bounds();

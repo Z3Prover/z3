@@ -560,10 +560,41 @@ namespace seq {
         // of splitting it into unsupported symbolic-character heads.
         if (ac.eq_facet_ref().is_satisfied() && f.is_satisfied()) {
             auto& df = ac.deq_facet_ref();
+            auto star_letter = [&](expr* var, unsigned& letter, eq_tree::dep_tracker& dep) {
+                for (auto const& sm : f.memberships()) {
+                    expr* body = nullptr, *word = nullptr;
+                    zstring text;
+                    if (sm.active() && sm.is_plain() && sm.m_str.size() == 1 &&
+                        sm.m_str.get(0) == var && u.re.is_star(sm.m_view.m_state, body) &&
+                        u.re.is_to_re(body, word) && u.str.is_string(word, text) && text.length() == 1) {
+                        letter = text[0];
+                        dep = sm.m_dep;
+                        return true;
+                    }
+                }
+                return false;
+            };
             for (unsigned i = 0; i < df.disequations().size(); ++i) {
                 auto const& d = df.disequations()[i];
                 if (!d.active())
                     continue;
+                unsigned left = 0, right = 0;
+                eq_tree::dep_tracker left_dep = nullptr, right_dep = nullptr;
+                if (d.m_lhs.size() == 1 && d.m_rhs.size() == 1 &&
+                    star_letter(d.m_lhs.get(0), left, left_dep) &&
+                    star_letter(d.m_rhs.get(0), right, right_dep) && left != right) {
+                    // Disjoint single-letter languages intersect only at epsilon.
+                    auto& a = sf.get_arith_util();
+                    expr_ref len_left(u.str.mk_length(d.m_lhs.get(0)), m);
+                    expr_ref len_right(u.str.mk_length(d.m_rhs.get(0)), m);
+                    expr_ref sum(a.mk_add(len_left, len_right), m);
+                    expr_ref positive(a.mk_gt(sum, a.mk_int(0)), m);
+                    auto dep = f.dm().mk_join(d.m_dep, f.dm().mk_join(left_dep, right_dep));
+                    sf.add_constraint(positive, dep);
+                    df.remove_disequation_trailed(i);
+                    changed = true;
+                    continue;
+                }
                 auto const* variable = &d.m_lhs;
                 auto const* value = &d.m_rhs;
                 if (value->size() == 1 && !u.str.is_unit(value->get(0)))
