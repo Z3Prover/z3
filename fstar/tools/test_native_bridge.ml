@@ -3474,7 +3474,7 @@ let sorted_int_factor_permutation () =
   let module NR = Z3NnfReplay in
   let module R = Z3ResolutionProofTheory in
   let module K = Z3SortedProof in
-  let int_s = A.BaseSort "Int" and real_s = A.BaseSort "Real" in
+  let int_s = (A.SortApp (A.IntSymbol, [])) and real_s = (A.SortApp (A.RealSymbol, [])) in
   let constant ?(params = []) ?(sort = int_s) name =
     A.App ({ A.decl_name = name; domain = []; range = sort; interp = None; int_params = List.map Z.of_int params }, []) in
   let native_mul = { A.decl_name = "*"; domain = [int_s; int_s]; range = int_s; interp = Some Z3ValueTheory.op_mul;
@@ -3522,6 +3522,13 @@ let sorted_int_factor_permutation () =
   List.iter (fun (l, r) ->
       require (K.product_rewrite (node l r) && pending l r = 0) "a closed factor permutation node was not checked")
     closed_laws;
+  (* a sort merely NAMED Int (an opaque declaration identity) has no Int semantics: no factor permutation *)
+  let named_int = A.BaseSort "Int" in
+  let named_mul p q = A.App ({ native_mul with A.domain = [named_int; named_int]; range = named_int }, [p; q]) in
+  let nx = constant ~sort:named_int "x" and ny = constant ~sort:named_int "y" in
+  require (not (NR.product_permuted (named_mul nx ny) (named_mul ny nx)) &&
+           not (K.product_rewrite (node (named_mul nx ny) (named_mul ny nx))))
+    "a product over a sort merely named Int was permuted";
   let mul_param a b = A.App ({ native_mul with A.int_params = [Z.zero] }, [a; b]) in
   let mul_free a b = A.App ({ native_mul with A.interp = None }, [a; b]) in
   let rmul a b = A.App ({ A.decl_name = "*"; domain = [real_s; real_s]; range = real_s;

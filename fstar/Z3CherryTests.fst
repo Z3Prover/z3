@@ -558,7 +558,7 @@ let direct_ite_controls () : bool =
    forced Sorted route): x * y = y * x and a regrouped three-factor product
    are certified; x * y = x * x, a same-spelled twin factor and a look-alike
    `*` stay pending. *)
-let qp_int : A.sort = A.BaseSort "Int"
+let qp_int : A.sort = A.SortApp A.IntSymbol []
 
 let qp_mul (a b:A.expr) : A.expr =
   A.App { A.decl_name = "*"; A.domain = [qp_int; qp_int]; A.range = qp_int; A.interp = Some Z3ValueTheory.op_mul;
@@ -667,6 +667,23 @@ let direct_product_controls () : bool =
   check (qp_mul x y) (qp_mul x x) = Some 1 &&
   check (qp_mul x y) (qp_mul y twin) = Some 1 &&
   check (qp_mul x y) look_alike = Some 1
+
+(* A sort merely NAMED Int is an opaque declaration identity (A.BaseSort), not the canonical Int sort:
+   a product over it is no Int product, so no factor permutation. *)
+let qp_named_int : A.sort = A.BaseSort "Int"
+
+let qp_named_mul (a b:A.expr) : A.expr =
+  A.App { A.decl_name = "*"; A.domain = [qp_named_int; qp_named_int]; A.range = qp_named_int;
+          A.interp = Some Z3ValueTheory.op_mul; A.int_params = [] } [a; b]
+
+let qp_named_atom (name:string) : A.expr =
+  A.App { A.decl_name = name; A.domain = []; A.range = qp_named_int; A.interp = None; A.int_params = [] } []
+
+let direct_named_int_control () : bool =
+  let x = qp_named_atom "x" in
+  let y = qp_named_atom "y" in
+  not (Z3NnfReplay.product_permuted (qp_named_mul x y) (qp_named_mul y x)) &&
+  not (Z3NnfReplay.product_permuted (qp_mul (qp_atom "x" 0) (qp_atom "y" 0)) (qp_named_mul x y))
 
 (* elim-unused natively in the Cherry checker (the OCaml counterpart is
    test_native_bridge.ml `sorted_elim_unused`): quant-intro leaves under an
@@ -855,6 +872,7 @@ let run () : bool =
   direct_ite_controls () &&
   qi_product_scale () &&
   direct_product_controls () &&
+  direct_named_int_control () &&
   qi_elim_scale () &&
   direct_elim_controls () &&
   der_controls () &&
