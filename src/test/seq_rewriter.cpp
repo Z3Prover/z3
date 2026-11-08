@@ -412,7 +412,64 @@ static void tst_seq_last_index() {
     check(su.str.mk_concat(prefix, needle, thirty), needle, position);
 }
 
+static void tst_seq_replace_prefix_suffix() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    app_ref element(m.mk_const("element", a.mk_int()), m);
+    expr_ref_vector needles(m);
+    needles.push_back(su.str.mk_string("A"));
+    needles.push_back(su.str.mk_string(zstring(0x100u)));
+    needles.push_back(su.str.mk_unit(element));
+    for (expr* needle : needles) {
+        app_ref x(m.mk_fresh_const("x", needle->get_sort()), m);
+        app_ref y(m.mk_fresh_const("y", needle->get_sort()), m);
+        expr_ref empty(su.str.mk_empty(needle->get_sort()), m);
+        expr_ref contains(su.str.mk_contains(x, needle), m);
+        expr_ref absent(m.mk_not(contains), m);
+        expr_ref prefix(su.str.mk_prefix(needle, x), m);
+        expr_ref expected(m.mk_or(absent, prefix), m);
+        rw(expected);
+        expr_ref replacement(su.str.mk_replace(x, needle, x), m);
+        expr_ref deleted(su.str.mk_replace(x, needle, empty), m);
+        expr_ref actual_prefix(su.str.mk_prefix(x, replacement), m);
+        expr_ref actual_suffix(su.str.mk_suffix(deleted, x), m);
+        rw(actual_prefix);
+        rw(actual_suffix);
+        ENSURE(actual_prefix == expected && actual_suffix == expected);
+
+        expr_ref other_source(su.str.mk_replace(y, needle, x), m);
+        expr_ref other_destination(su.str.mk_replace(x, needle, y), m);
+        expr_ref wrong_source(su.str.mk_prefix(x, other_source), m);
+        expr_ref wrong_destination(su.str.mk_prefix(x, other_destination), m);
+        rw(wrong_source);
+        rw(wrong_destination);
+        ENSURE(wrong_source != expected && wrong_destination != expected);
+    }
+
+    app_ref x(m.mk_const("multi", su.str.mk_string_sort()), m);
+    expr_ref needle(su.str.mk_string("CD"), m);
+    expr_ref empty(su.str.mk_string(""), m);
+    expr_ref deleted(su.str.mk_replace(x, needle, empty), m);
+    expr_ref suffix(su.str.mk_suffix(deleted, x), m);
+    expr_ref contains(su.str.mk_contains(x, needle), m);
+    expr_ref absent(m.mk_not(contains), m);
+    expr_ref prefix(su.str.mk_prefix(needle, x), m);
+    expr_ref invalid_generalization(m.mk_or(absent, prefix), m);
+    expr_ref concrete(su.str.mk_string("DCD"), m);
+    smt_params sp;
+    sp.m_string_solver = symbol("seq");
+    smt::context ctx(m, sp);
+    ctx.assert_expr(m.mk_eq(x, concrete));
+    ctx.assert_expr(suffix);
+    ctx.assert_expr(m.mk_not(invalid_generalization));
+    ENSURE(ctx.check() == l_true);
+}
+
 void tst_seq_rewriter() {
+    tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();
     tst_seq_last_index();
     tst_extract_length_products();

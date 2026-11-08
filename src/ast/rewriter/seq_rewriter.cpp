@@ -2421,7 +2421,15 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         result = str().mk_prefix(a1, b);
         return BR_DONE;
     }
-
+    if (str().is_replace(b, a1, a2, a3) && a1 == a && a3 == a &&
+        (str().is_unit(a2) ||
+         (str().is_string(a2) && to_app(a2)->get_decl()->get_parameter(0).get_zstring().length() == 1))) {
+        expr_ref contains(str().mk_contains(a, a2), m());
+        expr_ref absent(m().mk_not(contains), m());
+        expr_ref prefix(str().mk_prefix(a2, a), m());
+        result = m().mk_or(absent, prefix);
+        return BR_REWRITE3;
+    }
 
     auto [bounded_b, len_b] = max_length(b);
     if (bounded_b) {
@@ -2499,6 +2507,15 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         // TBD: generalize to when a1 is a prefix of a3?
         result = str().mk_suffix(a1, b);
         return BR_DONE;
+    }
+    if (str().is_replace(a, a1, a2, a3) && a1 == b && str().is_empty(a3) &&
+        (str().is_unit(a2) ||
+         (str().is_string(a2) && to_app(a2)->get_decl()->get_parameter(0).get_zstring().length() == 1))) {
+        expr_ref contains(str().mk_contains(b, a2), m());
+        expr_ref absent(m().mk_not(contains), m());
+        expr_ref prefix(str().mk_prefix(a2, b), m());
+        result = m().mk_or(absent, prefix);
+        return BR_REWRITE3;
     }
     auto [bounded_b, len_b] = max_length(b);
     if (bounded_b) {
