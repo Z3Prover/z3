@@ -482,6 +482,7 @@ namespace seq {
     class model_completion_split : public eq_tree::split_plugin_i {
         ast_manager& m;
         seq_util&    u;
+        bool         m_regex_diseq_only;
         struct stats {
             unsigned m_num_splits = 0;
             void reset() { *this = stats(); }
@@ -497,10 +498,14 @@ namespace seq {
         };
 
     public:
-        model_completion_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
-        char const* name() const override { return "model-completion"; }
+        model_completion_split(ast_manager& m, seq_util& u, bool regex_diseq_only = false) :
+            m(m), u(u), m_regex_diseq_only(regex_diseq_only) {}
+        char const* name() const override { return m_regex_diseq_only ? "regex-diseq-completion" : "model-completion"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-model-completion num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override {
+            st.update(m_regex_diseq_only ? "seq-regex-diseq-completion num splits" : "seq-model-completion num splits",
+                      m_stats.m_num_splits);
+        }
         void reset_statistics() override { m_stats.reset(); }
     };
 

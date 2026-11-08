@@ -1266,6 +1266,39 @@ namespace {
         )");
     }
 
+    static void tst_nseq_regex_diseq_completion() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (str.in_re x (re.* (re.++ (str.to_re "b") (re.* (str.to_re "a"))))))
+            (assert (str.in_re y (re.* (re.++ (str.to_re "b") (re.* (str.to_re "a"))))))
+            (assert (= (str.len x) 7))
+            (assert (= (str.len y) 7))
+            (assert (not (= x y)))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.union (str.to_re "a") (str.to_re "b"))))
+            (assert (str.in_re y (re.union (str.to_re "a") (str.to_re "b"))))
+            (assert (= (str.len x) 1))
+            (assert (= (str.len y) 1))
+            (assert (not (= x y)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (re.range "0" "9"))))
+            (assert (str.in_re y (re.* (re.range "0" "9"))))
+            (assert (= (str.len x) 7))
+            (assert (= (str.len y) 7))
+            (assert (not (= x y)))
+            (assert (= (str.to_int x) 1234567))
+        )", false);
+    }
+
     static void tst_nseq_contains_index() {
         std::ostringstream input;
         input << R"(
@@ -1526,6 +1559,7 @@ void tst_seq_eq_facet() {
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
     tst_nseq_disjoint_stars();
+    tst_nseq_regex_diseq_completion();
     tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
     tst_nseq_short_stoi_bounds();

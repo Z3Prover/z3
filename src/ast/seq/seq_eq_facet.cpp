@@ -21,6 +21,7 @@ Author:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
+#include "ast/seq/seq_stoi_facet.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -1150,6 +1151,27 @@ namespace seq {
         if (asf.model_completion_blocked())
             return nullptr;
 
+        if (m_regex_diseq_only) {
+            auto& mf = ac.mem_facet_ref();
+            // Keep delayed conversion coherence on its original schedule.
+            if (!ac.eq_facet_ref().is_satisfied() || !ac.ncontains_facet_ref().is_satisfied() ||
+                !mf.is_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
+                return nullptr;
+            unsigned num_deqs = 0;
+            for (auto const& dq : ac.deq_facet_ref().disequations()) {
+                if (!dq.active())
+                    continue;
+                if (++num_deqs > 1 || dq.m_lhs.size() != 1 || dq.m_rhs.size() != 1 ||
+                    !is_uninterp_const(dq.m_lhs.get(0)) || !is_uninterp_const(dq.m_rhs.get(0)))
+                    return nullptr;
+            }
+            if (num_deqs != 1)
+                return nullptr;
+            for (auto const& sm : mf.memberships())
+                if (sm.active() && (!sm.is_plain() || !mf.is_single_var_plain(sm)))
+                    return nullptr;
+        }
+
         ptr_vector<expr> vars;
         auto add_var = [&](expr* e) {
             expr* ch = nullptr;
@@ -1294,7 +1316,42 @@ namespace seq {
             rw(replaced, reduced);
             add_model_candidate(var, reduced);
         }
+        if (m_regex_diseq_only) {
+            if (!candidates.empty())
+                return nullptr;
+            auto& mf = ac.mem_facet_ref();
+            for (expr* var : vars) {
+                if (!is_uninterp_const(var))
+                    continue;
+                view_vector views;
+                for (auto const& sm : mf.memberships())
+                    if (sm.active() && sm.m_str.get(0) == var)
+                        views.push_back(sm.m_view);
+                if (views.empty())
+                    continue;
+                expr_ref length(u.str.mk_length(var), m);
+                rational len;
+                if (!sf.value(length, len) || !len.is_unsigned() ||
+                    len > rational(max_completion_length))
+                    continue;
+                expr_ref full_char(u.re.mk_full_char(u.re.mk_re(var->get_sort())), m);
+                unsigned k = len.get_unsigned();
+                expr_ref exact_length(u.re.mk_loop_proper(full_char, k, k), m);
+                views.push_back(view::membership(exact_length, m));
+                expr_ref word(m), reduced(m);
+                mf.reset_vw_budget();
+                if (mf.vw().product_nonempty(var, views, &word) == l_true) {
+                    rw(word, reduced);
+                    add_model_candidate(var, reduced);
+                }
+                // Independent words may coincide. Fix just one endpoint,
+                // retaining the existing completion iterator's fallback.
+                break;
+            }
+        }
         if (candidates.empty()) {
+            if (m_regex_diseq_only)
+                return nullptr;
             if (!ac.eq_facet_ref().is_satisfied() || ac.ncontains_facet_ref().is_satisfied())
                 return nullptr;
             // Deferred exclusions must also resume when the local model
@@ -1318,7 +1375,7 @@ namespace seq {
             broadcast_subst(n, c.var, c.tokens, dep);
         }
 
-        out = eq_tree::edge("model-completion", joined, true, 0);
+        out = eq_tree::edge(name(), joined, true, 0);
         has_more = true;
         committed = true;
         m_stats.m_num_splits++;
