@@ -220,6 +220,10 @@ let lemma_retract_concat_shape (symbols:list func_decl) (n:nat) (e:expr) (c:BV.c
     lemma_retract_shape symbols n [] c.BV.right;
     match e with App f args -> lemma_retract_app symbols n f args | _ -> ()
 
+let lemma_concat_number (v l r v' l' r' p:int)
+  : Lemma (requires v == l * p + r /\ v' == v /\ l' == l /\ r' == r)
+          (ensures v' == l' * p + r') = ()
+
 let lemma_concat (r:F.reconstruction) (i:interpretation value)
                   (project:pos -> value -> int) (rho:env value) (e:expr) (c:BV.concatenation)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
@@ -236,7 +240,16 @@ let lemma_concat (r:F.reconstruction) (i:interpretation value)
     lemma_eval_retract r i project rho c.BV.left;
     lemma_eval_retract r i project rho c.BV.right;
     let rc = { c with BV.left = retract symbols n c.BV.left; BV.right = retract symbols n c.BV.right } in
-    BV.lemma_concat_parts i rho project (retract symbols n e) rc
+    assert (rc.BV.left_width == c.BV.left_width /\ rc.BV.right_width == c.BV.right_width);
+    BV.lemma_concat_parts i rho project (retract symbols n e) rc;
+    lemma_concat_number
+      (project (c.BV.left_width + c.BV.right_width) (eval i (retract symbols n e) rho))
+      (project c.BV.left_width (eval i rc.BV.left rho))
+      (project c.BV.right_width (eval i rc.BV.right rho))
+      (project (c.BV.left_width + c.BV.right_width) (eval (F.extend r i project) e rho))
+      (project c.BV.left_width (eval (F.extend r i project) c.BV.left rho))
+      (project c.BV.right_width (eval (F.extend r i project) c.BV.right rho))
+      (pow2 c.BV.right_width)
 
 let lemma_unsigned (r:F.reconstruction) (i:interpretation value)
                     (project:pos -> value -> int) (rho:env value) (e:expr) (c:BV.unsigned_comparison)
@@ -357,6 +370,51 @@ let lemma_zero_extend (r:F.reconstruction) (i:interpretation value)
     assert (BV.zero_extend_parts (retract symbols n e) == Some rs);
     BV.lemma_zero_extend_parts i rho project (retract symbols n e) rs
 
+let lemma_bv_model_intro (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires
+      (forall (width:pos) (a b:expr) (rho:env value).
+        D.scoped [] a /\ D.scoped [] b /\ get_sort a == BV.bv_sort width /\ get_sort b == BV.bv_sort width ==>
+        ((eval i a rho == eval i b rho <==> project width (eval i a rho) == project width (eval i b rho)) /\
+         0 <= project width (eval i a rho) /\ project width (eval i a rho) < pow2 width)) /\
+      (forall (e:expr) (rho:env value) (width:pos) (n:int).
+        BV.numeral e == Some (width, n) ==> project width (eval i e rho) == n) /\
+      (forall (f:func_decl) (args:list expr) (rho:env value) (width:pos) (op:decl_kind).
+        D.scoped [] (App f args) /\ BV.operation f args == Some (width, op) ==>
+        project width (eval i (App f args) rho) ==
+        BV.calculate width op (BV.words width project (eval_args i args rho))) /\
+      (forall (f:func_decl) (args:list expr) (rho:env value) (width:pos) (op:decl_kind).
+        D.scoped [] (App f args) /\ BV.nary_operation f args == Some (width, op) ==>
+        project width (eval i (App f args) rho) ==
+        BV.calculate_nary width op (BV.words width project (eval_args i args rho))) /\
+      (forall (e:expr) (rho:env value) (s:BV.extraction).
+        D.scoped [] e /\ BV.extract_parts e == Some s ==>
+        project (s.BV.high - s.BV.low + 1) (eval i e rho) ==
+          (project s.BV.source_width (eval i s.BV.operand rho) / pow2 s.BV.low) %
+          pow2 (s.BV.high - s.BV.low + 1)) /\
+      (forall (e:expr) (rho:env value) (c:BV.concatenation).
+        D.scoped [] e /\ BV.concat_parts e == Some c ==>
+        project (c.BV.left_width + c.BV.right_width) (eval i e rho) ==
+          project c.BV.left_width (eval i c.BV.left rho) * pow2 c.BV.right_width +
+          project c.BV.right_width (eval i c.BV.right rho)) /\
+      (forall (e:expr) (rho:env value) (s:BV.zero_extension).
+        D.scoped [] e /\ BV.zero_extend_parts e == Some s ==>
+        project (s.BV.input_width + s.BV.extra_width) (eval i e rho) ==
+          project s.BV.input_width (eval i s.BV.argument rho)) /\
+      (forall (e:expr) (rho:env value) (width:pos) (args:list expr).
+        D.scoped [] e /\ BV.word_parts e == Some (width, args) ==>
+        project width (eval i e rho) == BV.bits_number (BV.bit_values i rho args)) /\
+      (forall (e:expr) (rho:env value) (c:BV.unsigned_comparison).
+        D.scoped [] e /\ BV.unsigned_parts e == Some c ==>
+        eval i e rho == VBool (BV.unsigned_value c.BV.relation
+          (project c.BV.width (eval i c.BV.lhs rho)) (project c.BV.width (eval i c.BV.rhs rho)))) /\
+      (forall (e:expr) (rho:env value) (c:BV.concatenation3).
+        D.scoped [] e /\ BV.concat3_parts e == Some c ==>
+        project (c.BV.width1 + c.BV.width2 + c.BV.width3) (eval i e rho) ==
+          project c.BV.width1 (eval i c.BV.first rho) * pow2 (c.BV.width2 + c.BV.width3) +
+          project c.BV.width2 (eval i c.BV.second rho) * pow2 c.BV.width3 +
+          project c.BV.width3 (eval i c.BV.third rho)))
+    (ensures BV.bv_model i project) = ()
+
 let lemma_bv_model (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
                     SM.literal_model i /\ quant_extensional i)
@@ -402,6 +460,14 @@ let lemma_bv_model (r:F.reconstruction) (i:interpretation value) (project:pos ->
             then lemma_operations r i project rho f args width op in
         FStar.Classical.forall_intro_4 aux in
     FStar.Classical.forall_intro operations;
+    assert (forall (f:func_decl) (args:list expr) (rho:env value) (width:pos) (op:decl_kind).
+      D.scoped [] (App f args) /\ BV.operation f args == Some (width, op) ==>
+      project width (eval j (App f args) rho) ==
+      BV.calculate width op (BV.words width project (eval_args j args rho)));
+    assert (forall (f:func_decl) (args:list expr) (rho:env value) (width:pos) (op:decl_kind).
+      D.scoped [] (App f args) /\ BV.nary_operation f args == Some (width, op) ==>
+      project width (eval j (App f args) rho) ==
+      BV.calculate_nary width op (BV.words width project (eval_args j args rho)));
     let extract (e:expr) (rho:env value) (s:BV.extraction)
       : Lemma (D.scoped [] e /\ BV.extract_parts e == Some s ==>
           project (s.BV.high - s.BV.low + 1) (eval j e rho) ==
@@ -443,6 +509,7 @@ let lemma_bv_model (r:F.reconstruction) (i:interpretation value) (project:pos ->
             project c.BV.width3 (eval j c.BV.third rho))
       = if D.scoped [] e && BV.concat3_parts e = Some c then lemma_concat3 r i project rho e c in
     FStar.Classical.forall_intro_3 concat3;
+    lemma_bv_model_intro j project;
     assert (BV.bv_model j project)
 
 let rec lemma_lookup_reserved (symbols:list func_decl) (n:nat) (f:func_decl)

@@ -990,14 +990,17 @@ let lemma_subtraction_rewrite (i:interpretation value) (rho:env value)
       lemma_literal i rho project width (U.ones width);
       lemma_literal_shape width (U.ones width);
       lemma_binary_shape width op_mul n y;
-      (match product with App g args -> lemma_operation i rho project g args width op_mul | _ -> ());
+      lemma_binary_value i rho project width op_mul n y;
       lemma_word i rho project width product;
+      assert (project width (eval i product rho) ==
+        U.mul_mod (U.ones width) (project width (eval i y rho)));
       lemma_binary_shape width op_add x product;
-      (match result with App g args -> lemma_operation i rho project g args width op_add | _ -> ());
+      lemma_binary_value i rho project width op_add x product;
       lemma_operation i rho project f [x; y] width op_sub;
       let a = project width (eval i x rho) in
       let b = project width (eval i y rho) in
       lemma_subtraction_words width a b;
+      assert (project width (eval i e rho) == project width (eval i result rho));
       lemma_reflect i rho project width e result
     | _ -> ()
 

@@ -798,7 +798,12 @@ let forall_halving_int_false (u:TR.uninterpreted) (i:model u) (scope:list sort) 
                (V.extend sigma (int_s :: scope) (L.rev [int_s]) ws rho') halves_i) == false) =
     assert_norm (L.rev [int_s] == [int_s]);
     match ws with
-    | [vy] -> halves_i_body u i scope rho vx vy
+    | [vy] ->
+      halves_i_body u i scope rho vx vy;
+      assert (int_v vx == 1);
+      assert (int_v vy + int_v vy <> int_v vx);
+      assert (bool_v (ev u i (int_s :: int_s :: scope)
+                (V.extend sigma (int_s :: scope) [int_s] [vy] rho') halves_i) == false)
     | _ -> () in
   FStar.Classical.forall_intro none;
   assert (TR.truth sch (V.evaluate sigma i (L.rev [int_s] @ scope)

@@ -328,6 +328,10 @@ let concat_rewrite (e:expr) : option expr =
      | _, _ -> None)
   | None -> None
 
+let lemma_concat_number (v l r bl br p:int)
+  : Lemma (requires v == l * p + r /\ l == bl /\ r == br)
+          (ensures v == bl * p + br) = ()
+
 let lemma_concat_rewrite (i:interpretation value) (rho:env value)
                          (project:pos -> value -> int) (e result:expr)
   : Lemma (requires BV.bv_model i project /\ SM.literal_model i /\
@@ -345,6 +349,10 @@ let lemma_concat_rewrite (i:interpretation value) (rho:env value)
     assert (BV.bits_number (BV.bit_values i rho (ys @ xs)) ==
       BV.bits_number (BV.bit_values i rho xs) * pow2 c.right_width +
       BV.bits_number (BV.bit_values i rho ys));
+    lemma_concat_number (project (c.left_width + c.right_width) (eval i e rho))
+      (project c.left_width (eval i c.left rho)) (project c.right_width (eval i c.right rho))
+      (BV.bits_number (BV.bit_values i rho xs)) (BV.bits_number (BV.bit_values i rho ys))
+      (pow2 c.right_width);
     assert (project (c.left_width + c.right_width) (eval i e rho) ==
       BV.bits_number (BV.bit_values i rho (ys @ xs)));
     lemma_word_shape (ys @ xs);
@@ -657,6 +665,15 @@ let lemma_pair_conjunction (i:interpretation value) (rho:env value) (r l result:
           (ensures lit_true i rho result <==> (lit_true i rho r /\ lit_true i rho l))
   = B.lemma_connective_holds B.Conjunction i rho [r; l]
 
+let lemma_split_numeral (x y n p:int)
+  : Lemma (requires p > 0 /\ 0 <= y /\ y < p)
+          (ensures (x * p + y == n) <==> (x == n / p /\ y == n % p))
+  = M.lemma_div_mod n p;
+    M.lemma_div_plus y x p;
+    M.small_div y p;
+    M.lemma_mod_plus y x p;
+    M.small_mod y p
+
 #push-options "--fuel 4 --ifuel 2"
 let lemma_concat_numeral_equality (i:interpretation value) (rho:env value)
                                  (project:pos -> value -> int) (a b result:expr)
@@ -686,6 +703,7 @@ let lemma_concat_numeral_equality (i:interpretation value) (rho:env value)
     M.small_div y p;
     M.lemma_mod_plus y x p;
     M.small_mod y p;
+    lemma_split_numeral x y n p;
     assert ((x * p + y == n) <==> (x == n / p /\ y == n % p));
     assert ((eval i a rho == eval i b rho) <==>
       project width (eval i a rho) == project width (eval i b rho));

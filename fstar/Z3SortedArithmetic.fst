@@ -35,6 +35,16 @@ let valuation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier b
               (scope:list sort) (rho:V.environment base (S.signature s) scope) : expr -> real =
   fun e -> of_int (integer s bc model other scope rho e)
 
+let lemma_evaluate_application (#base:sort -> Type0) (s:S.checked_schema)
+                                (bc:S.boolean_carrier base) (model:T.scalar_model base)
+                                (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                                (f:func_decl) (args:list expr)
+  : Lemma (requires D.scoped scope (App f args) /\ not (L.mem f (S.signature s)))
+          (ensures T.evaluate_at s bc model other scope rho (App f args) ==
+            T.application s bc model other f
+              (T.evaluate_arguments_at s bc model other scope rho args f.domain)) = ()
+
 let lemma_application (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (scope:list sort) (rho:V.environment base (S.signature s) scope)
@@ -44,7 +54,8 @@ let lemma_application (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
             I.application s bc model.integers other f
               (T.evaluate_arguments_at s bc model other scope rho args f.domain)) =
   if L.mem f (S.signature s) then T.lemma_registered_constructor s f;
-  assert (T.classify f == T.Other)
+  assert (T.classify f == T.Other);
+  lemma_evaluate_application s bc model other scope rho f args
 
 let rec lemma_sum (xs:list int)
   : Lemma (of_int (I.sum xs) == E.numeric_sum (L.map of_int xs))

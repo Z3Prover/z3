@@ -214,6 +214,24 @@ let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
     lemma_negative_quotient 1.0R (of_int q.denom) (of_int q.cst) x z;
     lemma_denotes_scale (-q.denom) (-q.cst) p x z r)
 
+private let lemma_div_application (f:func_decl) (args:list expr) (x y:real)
+                                  (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires numeric_operators i nu /\ A.operation_of f args == Some A.Div /\
+                    map nu (eval_args i args rho) == [x; y])
+          (ensures ~(y == 0.0R) ==> nu (eval i (App f args) rho) *. y == x) = ()
+
+private let lemma_linearize_divide (f:func_decl) (args:list expr) (e:expr)
+                                   (a b q p:A.poly) (x y:real)
+                                   (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires numeric_operators i nu /\ e == App f args /\
+                    A.operation_of f args == Some A.Div /\
+                    map nu (eval_args i args rho) == [x; y] /\
+                    denotations [a; b] [x; y] (valuation i nu rho) /\
+                    A.divide a b == Some q /\ A.combine A.Div [a; b] e == Some p)
+          (ensures denotes p (nu (eval i e rho)) (valuation i nu rho)) =
+  lemma_div_application f args x y i nu rho;
+  lemma_divide a b q x y (nu (eval i e rho)) (valuation i nu rho)
+
 #push-options "--fuel 4"
 
 let rec lemma_linearize (fuel:nat) (e:expr) (p:A.poly)
@@ -247,7 +265,7 @@ let rec lemma_linearize (fuel:nat) (e:expr) (p:A.poly)
              (match A.divide a b with
               | Some q ->
                 (match xs with
-                 | [x; y] -> lemma_divide a b q x y (nu (eval i e rho)) r
+                 | [x; y] -> lemma_linearize_divide f args e a b q p x y i nu rho
                  | _ -> ())
               | None -> ())
            | A.ToReal, [_] -> ()
