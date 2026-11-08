@@ -26,7 +26,9 @@ Revision History:
 #include "ast/pattern/pattern_inference.h"
 #include "ast/macros/quasi_macros.h"
 #include "ast/occurs.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "solver/assertions/asserted_formulas.h"
 
 
@@ -267,6 +269,97 @@ bool asserted_formulas::check_well_sorted() const {
     return true;
 }
 
+bool asserted_formulas::simplify_replace_contains() {
+    if (m_smt_params.m_string_solver != symbol("nseq") || m.proofs_enabled() || m_has_quantifiers)
+        return true;
+
+    seq_util seq(m);
+    arith_util arith(m);
+    obj_hashtable<expr> blocked;
+    obj_hashtable<expr> replacements;
+    obj_map<expr, ptr_vector<expr>> parents;
+    ptr_vector<expr> predicates, todo;
+    expr_fast_mark1 visited;
+    for (auto const& f : m_formulas)
+        todo.push_back(f.fml());
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (visited.is_marked(e))
+            continue;
+        visited.mark(e);
+        if (!m.inc())
+            return false;
+        if (!is_app(e))
+            continue;
+        if (seq.str.is_extract(e) && !arith.is_zero(to_app(e)->get_arg(1)))
+            blocked.insert(e);
+        for (expr* arg : *to_app(e)) {
+            todo.push_back(arg);
+            parents.insert_if_not_there(arg, ptr_vector<expr>()).push_back(e);
+            expr* source = nullptr, *needle = nullptr, *replacement = nullptr;
+            if (!seq.str.is_replace(arg, source, needle, replacement))
+                continue;
+            replacements.insert(arg);
+            expr* haystack = nullptr, *query = nullptr;
+            zstring character, text;
+            if (seq.str.is_contains(e, haystack, query) && haystack == arg &&
+                seq.str.is_string(query, character) && character.length() == 1 &&
+                seq.str.is_string(needle, text) && !text.contains(character) &&
+                seq.str.is_string(replacement, text) && !text.contains(character)) {
+                predicates.push_back(e);
+            }
+            else
+                blocked.insert(arg);
+        }
+    }
+
+    // Preserve mixed replacements and non-prefix extraction scaffolding downstream.
+    for (expr* e : blocked)
+        todo.push_back(e);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (!m.inc())
+            return false;
+        if (!parents.contains(e))
+            continue;
+        for (expr* parent : parents[e]) {
+            if (blocked.contains(parent))
+                continue;
+            blocked.insert(parent);
+            todo.push_back(parent);
+        }
+    }
+    // Partial elimination can disturb shared witnesses even across distinct source terms.
+    for (expr* replaced : replacements)
+        if (blocked.contains(replaced))
+            return true;
+    // Rewriting may reuse shared marks or release nodes recorded by this traversal.
+    visited.reset();
+    expr_safe_replace sub(m);
+    for (expr* predicate : predicates) {
+        app* p = to_app(predicate);
+        expr* replaced = p->get_arg(0);
+        // A single-character observation is unchanged when neither replacement operand contains it.
+        expr_ref preserved(seq.str.mk_contains(to_app(replaced)->get_arg(0), p->get_arg(1)), m);
+        sub.insert(predicate, preserved);
+    }
+    if (sub.empty())
+        return true;
+    for (unsigned i = m_qhead; i < m_formulas.size(); ++i) {
+        if (!m.inc())
+            return false;
+        expr_ref result(m);
+        sub(m_formulas[i].fml(), result);
+        if (result == m_formulas[i].fml())
+            continue;
+        m_formulas[i] = justified_expr(m, result, nullptr);
+        m_reduce_pending = true;
+    }
+    return invoke(m_reduce_asserted_formulas);
+}
+
 void asserted_formulas::reduce() {
     if (inconsistent())
         return;
@@ -290,6 +383,7 @@ void asserted_formulas::reduce() {
     if (!invoke(m_nnf_cnf)) return;
     set_eliminate_and(true);
     if (!invoke(m_reduce_asserted_formulas)) return;
+    if (!simplify_replace_contains()) return;
     if (!invoke(m_pull_nested_quantifiers)) return;
     if (!invoke(m_lift_ite)) return;
     m_lift_ite.m_functor.set_conservative(m_smt_params.m_lift_ite == lift_ite_kind::LI_CONSERVATIVE);

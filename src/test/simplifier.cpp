@@ -25,8 +25,11 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/simplifiers/pull_nested_quantifiers.h"
 #include "ast/simplifiers/lambda_simplifier.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "smt/smt_solver.h"
+#include "smt/smt_context.h"
 #include "solver/solver.h"
+#include "solver/assertions/asserted_formulas.h"
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
@@ -1084,8 +1087,134 @@ static void test_nested_symbolic_rotations() {
     Z3_del_context(ctx);
 }
 
+static void test_use_aware_replace_contains() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util seq(m);
+    arith_util arith(m);
+    app_ref s(m.mk_fresh_const("s", seq.str.mk_string_sort()), m);
+    expr_ref needle(seq.str.mk_string("T"), m);
+    expr_ref replacement(seq.str.mk_string("t"), m);
+    expr_ref replaced(seq.str.mk_replace(s, needle, replacement), m);
+    expr_ref y(seq.str.mk_string("Y"), m), z(seq.str.mk_string("Z"), m);
+    expr_ref observation(seq.str.mk_contains(replaced, y), m);
+    expr_ref expected(seq.str.mk_contains(s, y), m);
+    expr_ref index(seq.str.mk_index(replaced, needle, arith.mk_int(0)), m);
+    expr_ref index_constraint(arith.mk_ge(index, arith.mk_int(0)), m);
+
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_propagate_values = false;
+    for (unsigned kind = 0; kind < 4; ++kind) {
+        asserted_formulas formulas(m, params, params_ref());
+        formulas.assert_expr(observation);
+        if (kind == 0)
+            formulas.assert_expr(seq.str.mk_contains(replaced, z));
+        else if (kind == 1)
+            formulas.assert_expr(index_constraint);
+        else if (kind == 2)
+            formulas.assert_expr(seq.str.mk_contains(replaced, replacement));
+        else {
+            expr_ref multiple(seq.str.mk_string("YY"), m);
+            formulas.assert_expr(seq.str.mk_contains(replaced, multiple));
+        }
+        formulas.reduce();
+        ENSURE(formulas.get_formula(0) == (kind == 0 ? expected.get() : observation.get()));
+        if (kind == 0) {
+            expr_ref expected_z(seq.str.mk_contains(s, z), m);
+            ENSURE(formulas.get_formula(1) == expected_z);
+        }
+    }
+
+    asserted_formulas incremental(m, params, params_ref());
+    incremental.assert_expr(index_constraint);
+    incremental.reduce();
+    incremental.commit();
+    incremental.assert_expr(observation);
+    incremental.reduce();
+    ENSURE(incremental.get_formula(1) == observation);
+
+    expr_ref previous_needle(seq.str.mk_string("A"), m);
+    expr_ref previous_replacement(seq.str.mk_string("a"), m);
+    expr_ref previous(seq.str.mk_replace(s, previous_needle, previous_replacement), m);
+    expr_ref joined(seq.str.mk_concat(previous, s), m);
+    expr_ref downstream(seq.str.mk_replace(joined, needle, replacement), m);
+    expr_ref downstream_observation(seq.str.mk_contains(downstream, y), m);
+    asserted_formulas mixed_chain(m, params, params_ref());
+    mixed_chain.assert_expr(downstream_observation);
+    mixed_chain.assert_expr(observation);
+    mixed_chain.reduce();
+    ENSURE(mixed_chain.get_formula(0) == downstream_observation);
+    ENSURE(mixed_chain.get_formula(1) == observation);
+
+    asserted_formulas scoped(m, params, params_ref());
+    scoped.assert_expr(observation);
+    scoped.reduce();
+    scoped.commit();
+    scoped.push_scope();
+    scoped.assert_expr(index_constraint);
+    scoped.assert_expr(seq.str.mk_contains(replaced, z));
+    scoped.reduce();
+    ENSURE(scoped.get_formula(2) == seq.str.mk_contains(replaced, z));
+    scoped.pop_scope(1);
+    scoped.assert_expr(seq.str.mk_contains(replaced, z));
+    scoped.reduce();
+    ENSURE(scoped.get_formula(1) == seq.str.mk_contains(s, z));
+
+    expr_ref prefix_zero(arith.mk_int(0), m), prefix_one(arith.mk_int(1), m);
+    expr_ref three(arith.mk_int(3), m), two(arith.mk_int(2), m);
+    for (unsigned kind = 0; kind < 4; ++kind) {
+        expr_ref offset(kind == 0 ? prefix_zero.get() : prefix_one.get(), m);
+        if (kind == 3) {
+            expr_ref position(seq.str.mk_index(s, needle, prefix_zero), m);
+            offset = arith.mk_add(prefix_one, position);
+        }
+        expr_ref source(seq.str.mk_substr(s, offset, three), m);
+        if (kind == 2)
+            source = seq.str.mk_substr(source, prefix_zero, two);
+        expr_ref changed(seq.str.mk_replace(source, needle, replacement), m);
+        expr_ref observation(seq.str.mk_contains(changed, y), m);
+        expr_ref expected_prefix(observation, m);
+        if (kind == 0)
+            expected_prefix = seq.str.mk_contains(source, y);
+        th_rewriter normalizer(m);
+        normalizer(expected_prefix);
+        asserted_formulas formulas(m, params, params_ref());
+        formulas.assert_expr(observation);
+        formulas.reduce();
+        ENSURE(formulas.get_formula(0) == expected_prefix);
+    }
+
+    smt_params standard_params;
+    standard_params.m_string_solver = symbol("nseq");
+    smt::context context(m, standard_params);
+    {
+        app_ref value(m.mk_fresh_const("value", seq.str.mk_string_sort()), m);
+        expr_ref zero(arith.mk_int(0), m), one(arith.mk_int(1), m);
+        expr_ref space(seq.str.mk_string(" "), m);
+        expr_ref delimiter(seq.str.mk_index(value, space, zero), m);
+        expr_ref prefix(seq.str.mk_substr(value, zero, delimiter), m);
+        expr_ref position(seq.str.mk_index(prefix, needle, zero), m);
+        expr_ref end(arith.mk_add(position, one), m);
+        expr_ref head(seq.str.mk_substr(prefix, zero, end), m);
+        expr_ref changed(seq.str.mk_replace(head, needle, replacement), m);
+        expr_ref length(seq.str.mk_length(prefix), m);
+        expr_ref remaining(arith.mk_sub(length, end), m);
+        expr_ref tail(seq.str.mk_substr(prefix, end, remaining), m);
+        expr_ref character(seq.str.mk_string("U"), m);
+        expr_ref left(seq.str.mk_contains(changed, character), m);
+        expr_ref right(seq.str.mk_contains(tail, character), m);
+        context.assert_expr(m.mk_not(m.mk_or(left, right)));
+        expr_ref value_length(seq.str.mk_length(value), m);
+        expr_ref bound(arith.mk_sub(value_length, delimiter), m);
+        context.assert_expr(arith.mk_ge(bound, one));
+    }
+    ENSURE(context.check() == l_true);
+}
+
 void tst_simplifier() {
 
+    test_use_aware_replace_contains();
     test_bit2int_proofs();
     test_bit2int_zero_divisor_qe();
     test_nested_symbolic_rotations();
