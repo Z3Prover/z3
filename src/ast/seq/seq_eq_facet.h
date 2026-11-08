@@ -486,20 +486,24 @@ namespace seq {
         struct stats {
             unsigned m_num_splits = 0;
             unsigned m_num_difference_splits = 0;
+            unsigned m_num_pair_splits = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
 
         bool split_regex_difference(eq_tree::node& n, eq_tree::edge& out);
+        bool split_regex_pair(eq_tree::node& n, eq_tree::edge& out);
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
             model_completion_split& m_owner;
             bool m_try_difference;
+            bool m_try_pair;
             bool m_pending = true;
         public:
             iterator(eq_tree::node& n, model_completion_split& owner) :
-                m_n(n), m_owner(owner), m_try_difference(owner.m_regex_diseq_only) {}
+                m_n(n), m_owner(owner), m_try_difference(owner.m_regex_diseq_only),
+                m_try_pair(owner.m_regex_diseq_only) {}
             bool next(eq_tree::edge& out) override;
         };
 
@@ -513,6 +517,8 @@ namespace seq {
                       m_stats.m_num_splits);
             if (m_regex_diseq_only)
                 st.update("seq-regex-difference-completion num splits", m_stats.m_num_difference_splits);
+            if (m_regex_diseq_only)
+                st.update("seq-regex-pair-completion num splits", m_stats.m_num_pair_splits);
         }
         void reset_statistics() override { m_stats.reset(); }
     };

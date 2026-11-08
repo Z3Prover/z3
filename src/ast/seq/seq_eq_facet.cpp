@@ -1194,12 +1194,93 @@ namespace seq {
         return false;
     }
 
+    bool model_completion_split::split_regex_pair(eq_tree::node& n, eq_tree::edge& out) {
+        auto ac = get_ambient(n);
+        auto& mf = ac.mem_facet_ref();
+        constexpr unsigned max_pair_length = 256;
+        for (auto const& dq : ac.deq_facet_ref().disequations()) {
+            if (!dq.active())
+                continue;
+            expr* left = dq.m_lhs.get(0);
+            expr* right = dq.m_rhs.get(0);
+            view_vector lhs, rhs;
+            for (auto const& sm : mf.memberships()) {
+                if (!sm.active())
+                    continue;
+                if (sm.m_str.get(0) == left)
+                    lhs.push_back(sm.m_view);
+                if (sm.m_str.get(0) == right)
+                    rhs.push_back(sm.m_view);
+            }
+            auto included = [](view_vector const& a, view_vector const& b) {
+                for (view const& v : a)
+                    if (!any_of(b, [&](view const& w) { return v == w; }))
+                        return false;
+                return true;
+            };
+            if (lhs.empty() || !included(lhs, rhs) || !included(rhs, lhs))
+                continue;
+            expr_ref length(u.str.mk_length(left), m);
+            rational len;
+            if (!ac.solver_facet_ref().value(length, len) || !len.is_unsigned() ||
+                len.is_zero() || len > rational(max_pair_length / 2))
+                continue;
+            expr_ref full_char(u.re.mk_full_char(u.re.mk_re(left->get_sort())), m);
+            th_rewriter rw(m);
+            mf.reset_vw_budget();
+            // The old length's guess has already failed. Find a longer
+            // length admitting two words, then commit only one endpoint.
+            for (unsigned k = 2 * len.get_unsigned(); k <= max_pair_length; k *= 2) {
+                expr_ref exact(u.re.mk_loop_proper(full_char, k, k), m);
+                view_vector first_views(lhs);
+                first_views.push_back(view::membership(exact, m));
+                expr_ref first(m), first_literal(m), second(m), second_literal(m);
+                lbool result = mf.vw().product_nonempty(left, first_views, &first);
+                if (result == l_undef)
+                    break;
+                if (result != l_true)
+                    continue;
+                rw(first, first_literal);
+                zstring first_text, second_text;
+                if (!u.str.is_string(first_literal, first_text))
+                    break;
+                expr_ref singleton(u.re.mk_to_re(first_literal), m);
+                expr_ref exclusion(u.re.mk_complement(singleton), m);
+                view_vector second_views(rhs);
+                second_views.push_back(view::membership(exact, m));
+                second_views.push_back(view::membership(exclusion, m));
+                result = mf.vw().product_nonempty(right, second_views, &second);
+                if (result == l_undef)
+                    break;
+                if (result != l_true)
+                    continue;
+                rw(second, second_literal);
+                if (!u.str.is_string(second_literal, second_text) || first_text == second_text)
+                    break;
+                expr_ref assumption(m.mk_eq(left, first_literal), m);
+                auto dep = ac.assumption_facet_ref().add_assumption(assumption, ac.context());
+                expr_ref_vector tokens(m);
+                u.str.get_concat_units(first_literal, tokens);
+                broadcast_subst(n, left, tokens, dep);
+                out = eq_tree::edge("regex-pair-completion", dep, true, 0);
+                m_stats.m_num_pair_splits++;
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool model_completion_split::iterator::next(eq_tree::edge& out) {
         if (!m_pending)
             return false;
         if (m_try_difference) {
             m_try_difference = false;
             if (m_owner.split_regex_difference(m_n, out))
+                return true;
+        }
+        if (m_try_pair) {
+            m_try_pair = false;
+            if (m_owner.split_regex_pair(m_n, out))
                 return true;
         }
         m_pending = false;
