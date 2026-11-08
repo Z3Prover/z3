@@ -292,8 +292,17 @@ bool asserted_formulas::simplify_replace_contains() {
             return false;
         if (!is_app(e))
             continue;
-        if (seq.str.is_extract(e) && !arith.is_zero(to_app(e)->get_arg(1)))
-            blocked.insert(e);
+        expr* input = nullptr, *offset = nullptr, *length = nullptr;
+        if (seq.str.is_extract(e, input, offset, length) && !arith.is_zero(offset)) {
+            expr* length_term = nullptr, *length_input = nullptr;
+            rational start, removed;
+            bool input_tail =
+                is_uninterp_const(input) && arith.is_numeral(offset, start) && start.is_pos() &&
+                seq.str.is_len_sub(length, length_term, length_input, removed) &&
+                length_input == input && removed == start;
+            if (!input_tail)
+                blocked.insert(e);
+        }
         for (expr* arg : *to_app(e)) {
             todo.push_back(arg);
             parents.insert_if_not_there(arg, ptr_vector<expr>()).push_back(e);
@@ -314,7 +323,7 @@ bool asserted_formulas::simplify_replace_contains() {
         }
     }
 
-    // Preserve mixed replacements and non-prefix extraction scaffolding downstream.
+    // Preserve mixed replacements and bounded/nested extraction scaffolding downstream.
     for (expr* e : blocked)
         todo.push_back(e);
     while (!todo.empty()) {

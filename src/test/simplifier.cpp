@@ -1185,6 +1185,30 @@ static void test_use_aware_replace_contains() {
         ENSURE(formulas.get_formula(0) == expected_prefix);
     }
 
+    for (unsigned kind = 0; kind < 5; ++kind) {
+        expr_ref input(s, m);
+        if (kind == 3)
+            input = seq.str.mk_substr(s, prefix_zero, three);
+        expr_ref offset(kind == 1 ? arith.mk_int(10) : prefix_one.get(), m);
+        expr_ref removed(kind == 2 ? two.get() : offset.get(), m);
+        expr_ref length(seq.str.mk_length(input), m);
+        expr_ref remaining(arith.mk_sub(length, removed), m);
+        expr_ref source(seq.str.mk_substr(input, offset, remaining), m);
+        expr_ref changed(seq.str.mk_replace(source, needle, replacement), m);
+        expr_ref observation(seq.str.mk_contains(changed, y), m);
+        expr_ref expected_tail(observation, m);
+        if (kind < 2)
+            expected_tail = seq.str.mk_contains(source, y);
+        th_rewriter normalizer(m);
+        normalizer(expected_tail);
+        asserted_formulas formulas(m, params, params_ref());
+        formulas.assert_expr(observation);
+        if (kind == 4)
+            formulas.assert_expr(index_constraint);
+        formulas.reduce();
+        ENSURE(formulas.get_formula(0) == expected_tail);
+    }
+
     smt_params standard_params;
     standard_params.m_string_solver = symbol("nseq");
     smt::context context(m, standard_params);
