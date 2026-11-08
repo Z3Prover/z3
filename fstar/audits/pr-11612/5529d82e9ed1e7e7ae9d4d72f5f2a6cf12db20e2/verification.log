@@ -1,0 +1,10 @@
+F* 2026.09.27; Z3 4.13.3
+command: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --cache_dir cache --odir out --z3rlimit 10 Z3AuditPr11612.fst
+
+stdout:
+Verified module: Z3AuditPr11612
+All verification conditions discharged successfully
+
+exit code: exit 0
+
+Note: first attempt with --ifuel 0 failed on ob3 (pattern completeness of match, tool artifact, not a counterexample); fixed with --ifuel 2 and re-run from fresh cache.
