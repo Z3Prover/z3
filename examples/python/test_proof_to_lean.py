@@ -699,6 +699,20 @@ def gate_inputs():
     return structure, {structure, ("iff", g, h), ("iff", g, ("not", h)), ("not", h)}, g
 
 
+# x + 10 and x + 5 + 5 modulo 17, each step an ite, said to differ (depth 2
+# of test_proof_to_lean_lia.modular_chains_instance).
+MODULAR_CHAINS = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(define-fun a1 () Int (let ((s (+ x 5))) (ite (< s 17) s (- s 17))))
+(define-fun a2 () Int (let ((s (+ a1 5))) (ite (< s 17) s (- s 17))))
+(define-fun b1 () Int (let ((s (+ x 10))) (ite (< s 17) s (- s 17))))
+(assert (and (<= 0 x) (< x 17)))
+(assert (not (= a2 b1)))
+(check-sat)
+"""
+
+
 class TestProofToLean(unittest.TestCase):
     def setUp(self):
         self.certificate = proof_certificate.export_certificate(LITERAL)
@@ -1930,6 +1944,28 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(list(Path(directory).iterdir()), [])
             with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "must end in .lean"):
                 proof_to_lean.check_and_write(LITERAL, self.certificate, output.with_suffix(".json"))
+
+    def test_folded_ite_gates_are_reverted_unfolded_and_introduced(self):
+        # Integral ite gates are stated over the folded definitions, reverted,
+        # rewritten by the fallback's one unfold, and introduced again
+        # (proof_to_lean._folded_ite_gates): every definition a gate names
+        # must be in that unfold, or the gate no longer matches the goal's
+        # terms. test_proof_to_lean_lia checks the same shape in Lean.
+        text = proof_to_lean.reconstruct(
+            MODULAR_CHAINS, proof_certificate.export_clause_log_certificate(MODULAR_CHAINS))
+        lemmas = [block for block in text.split("\n\n") if "have _g" in block]
+        self.assertGreater(len(lemmas), 5)
+        for block in lemmas:
+            gates = re.findall(r"have (_g\d+_[01]) : (.*) := fun _h => ite_eq_(?:left|right) _h\n", block)
+            self.assertEqual(len(gates), block.count("have _g"), block)
+            names = " ".join(name for name, _ in gates)
+            match = re.search(r"\n *revert %s\n *unfold (.*)\n *intro %s\n" % (names, names), block)
+            self.assertIsNotNone(match, block)
+            unfolded = set(match.group(1).split())
+            for _, statement in gates:
+                self.assertNotIn("@ite", statement)
+                self.assertLessEqual(set(re.findall(r"(?:term|formula)_\d+", statement)), unfolded, statement)
+        self.assertNotIn("sorry", text)
 
 
 if __name__ == "__main__":

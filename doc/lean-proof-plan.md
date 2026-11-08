@@ -2838,6 +2838,60 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Ite gates stated over folded definitions (2026-11-08)
+
+A rescan of z3test's `smtlib-sample` QF_UFLIA files of at most 160 KB
+found three that no longer verify:
+`mathsat/EufLaArithmetic/hard/hard16`, `hard17`, and `hard20`. The 2026-10-28
+reconstruction fails the same way, so this is not a regression of the
+generator. Earlier checks of these files ran without Lean's `--memory=8192`
+limit; with the limit, all three stop with "(kernel) excessive memory
+consumption".
+
+The memory goes to info trees. The command-line frontend keeps every
+command's info tree until the end of the file (`Language/Lean.lean` in Lean
+4.34). Without the proof steps, hard16's definitions take 0.9 GB and its
+leaf lemmas 6.8 GB. The leaf lemmas' proof terms account for only about 2.5
+million expression objects; turning info trees off (a measurement only)
+removed most of the lemmas' cost.
+
+In 644 theory lemmas the largest elaborated text is the ite gates of
+`_ite_gate_helpers`: `have`s stating `c -> ite c a b = a` with every term
+written out. These files reduce modulo 17 through nested ites, and each
+step holds the previous one three times, so the gates took 11 KB per lemma
+and 7 MB in all.
+
+`_folded_ite_gates` now states the integral gates over the definitions
+(`formula_c -> term_ite = term_branch`, proved by `ite_eq_left`). It
+reverts them before the fallback's `unfold`, so that one unfold rewrites
+them into the goal's terms, and introduces them again. Scaled Real gates and
+certificates with arrays keep the written-out form.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| hard16 | 20.1 MB, fails at 8 GB | 11.9 MB, 76 s, 4.5 GB |
+| hard17 | 21.7 MB, fails at 8 GB | 12.9 MB, 86 s, 4.8 GB |
+| hard20 | 27.4 MB, fails at 8 GB | 15.7 MB, 118 s, 6.0 GB |
+
+The other 21 QF_UFLIA files verify, and `wisas/xs_17_37` is beyond the
+120 s clause-log solver limit.
+
+Tests in `test_proof_to_lean_lia.py`, on `modular_chains_instance(6)`
+(two chains of modular additions compared): 0.3 MB of Lean and 4 s at
+1.2 GB, against 4.9 MB, 13 s, and 2.8 GB before.
+
+- `test_ite_gates_are_stated_over_folded_definitions`: the shape of the
+  gates.
+- `test_nested_ite_chains_verify_through_folded_gates`: the Lean check.
+
+- `test_folded_ite_gates_are_reverted_unfolded_and_introduced` in
+  `test_proof_to_lean.py`: on the depth-2 chains, without Lean, each lemma
+  reverts its gates, unfolds every definition they name, and introduces
+  them again. It also runs in the Python wheel job.
+
+`scripts/ci_lean_proofs.sh` runs all `test_proof_to_lean*.py` modules with
+Lean installed, so the Lean check above runs in CI.
+
 ### Farkas identities by linear normalization over balanced sums (2026-11-08)
 
 A rescan of z3test's `smtlib-sample` QF_LIA files of at most 160 KB found

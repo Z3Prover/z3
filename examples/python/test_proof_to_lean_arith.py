@@ -599,9 +599,15 @@ class TestArithmeticValidation(unittest.TestCase):
         self.assertIn("(Classical.propDecidable _)", text)
         self.assertIn("(ite_eq_left _hc)", text)
         self.assertIn("(ite_eq_right _hnc)", text)
-        # Every grind lemma over the ite states its branch equalities first.
-        self.assertIn("  have _g%d_0 : (_atoms 0) -> (" % ite, text)
-        self.assertIn("  have _g%d_1 : (Not (_atoms 0)) -> (" % ite, text)
+        # Every grind lemma over the ite states its branch equalities first,
+        # over the folded definitions, and unfolds them with the goal.
+        condition = graph.arguments(ite)[0]
+        self.assertIn("  have _g%d_0 : (formula_%d _atoms _vars) -> (term_%d _atoms _vars) = (" % (ite, condition, ite),
+                      text)
+        self.assertIn("  have _g%d_1 : (Not (formula_%d _atoms _vars)) -> (term_%d _atoms _vars) = (" % (
+            ite, condition, ite), text)
+        self.assertIn("  revert _g%d_0 _g%d_1\n" % (ite, ite), text)
+        self.assertIn("  intro _g%d_0 _g%d_1\n" % (ite, ite), text)
         self.assertNotIn("sorry", text)
         self.assertNotIn("axiom ", text)
 
