@@ -592,6 +592,16 @@ let lemma_select (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrie
       lemma_safe_application s bc eq (doverride s bc eq choice d other) f args) in
   FStar.Classical.forall_intro_2 at
 
+let lemma_signature_application_fresh (#base:sort -> Type0) (s:S.checked_schema)
+                                      (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                      (choice:E.hilbert_choice base s) (d:definition s)
+                                      (other:V.interpretation base (S.signature s))
+                                      (f:func_decl) (args:V.arguments base (S.signature s) f.domain)
+  : Lemma (requires SK.component f d.SK.witnesses == None)
+          (ensures S.application s bc other f args ==
+                   S.application s bc (doverride s bc eq choice d other) f args) =
+  ()
+
 (* Symbols other than the witnesses keep their meaning, so every term in
    which no witness occurs keeps its value. *)
 let lemma_application_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -601,7 +611,7 @@ let lemma_application_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
   : Lemma (requires SK.component f d.SK.witnesses == None)
           (ensures T.application s bc eq other f args ==
                    T.application s bc eq (doverride s bc eq choice d other) f args) =
-  ()
+  lemma_signature_application_fresh s bc eq choice d other f args
 
 let rec lemma_fresh (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (choice:E.hilbert_choice base s) (d:definition s)
@@ -818,8 +828,15 @@ let lemma_instance (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
   let q = Quantifier (if d.SK.negative then Forall_k else Exists_k) d.SK.bound_sorts bool_sort d.SK.body in
   if d.SK.negative then (
     Q.lemma_forall_truth s bc eq j c rho d.SK.bound_sorts d.SK.body;
+    assert (D.scoped c q);
+    assert (D.scoped_args c [q]);
     T.lemma_evaluate_core_at s bc eq j c rho R.not_decl [q];
-    lemma_negate_at s bc eq j c rho (target_of d))
+    assert (T.truth_at s bc eq j c rho q == T.truth_at s bc eq j c rho (target_of d));
+    lemma_negate_at s bc eq j c rho (target_of d);
+    assert (SK.source d == App R.not_decl [q]);
+    assert (instance_of d == SK.negate (target_of d));
+    lemma_negate_at s bc eq j c rho q;
+    assert (SK.negate q == App R.not_decl [q]))
   else
     lemma_exists_truth s bc eq j c rho d.SK.bound_sorts d.SK.body
 
