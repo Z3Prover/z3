@@ -1,0 +1,6 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend)
+cmd: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache --odir out Z3AlgRootCmp11599.fst
+exit 0 (fresh cache)
+stdout: Verified module: Z3AlgRootCmp11599 / All verification conditions discharged successfully
+stderr: (empty)
+Earlier attempts failed (missing root-sign constraint in model; witness sign function lacked zeros at roots) and were corrected in the model before the final run.
