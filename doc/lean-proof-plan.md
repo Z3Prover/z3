@@ -2838,6 +2838,47 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Scaling facts and scaled gates stated over folded definitions (2026-11-09)
+
+The Real counterpart of the modular chains,
+`real_modular_chains_instance` (each step `(ite (< s 17/2) s (- s 17/2))`
+over `s = previous + 5/2`), has fractional constants in its atoms and ite
+branches. So its theory lemmas state the `_s` scaling facts
+(`_scaling_helpers`) and the scaled `_g` gates (`_ite_gate_helpers`), which
+the 2026-11-08 change below had left written out. They were 5.6 MB of the
+5.9 MB of Lean text at depth 6 and almost all of the 44 MB at depth 8.
+
+Without arrays, `_folded_ite_gates` now states them over the definitions as
+well, and they are reverted, unfolded, and introduced with the integral
+gates:
+
+- a scaled gate is `formula_c -> (k * term_ite) = <scaled form over term_N
+  atoms>`, proved by rewriting `term_ite` to its branch (`ite_eq_left` or
+  `ite_eq_right`), unfolding the definitions from the branch down to the
+  atoms of its linear form (`_linear_unfold`), and `grind`;
+- a scaling fact is `formula_a -> <scaled form> R 0`, proved the same way
+  from the atom.
+
+The atoms, nested ites included, stay folded in these proofs, so grind
+does not split them. An atom whose ite cancels (`5 + t = -7/2 + t`) keeps
+`t` folded too.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `real_modular_chains_instance(6)` | 5.9 MB, 69 s, 4.0 GB | 0.44 MB, 8 s, 1.3 GB |
+| same, `function=True` (QF_UFLRA) | 4.6 MB, 43 s, 6.6 GB | 0.48 MB, 31 s, 2.8 GB |
+| `real_modular_chains_instance(8)` | 44 MB, killed above 12 GB after 240 s | 0.93 MB, 17 s, 2.6 GB |
+
+Tests in `test_proof_to_lean_arith.py`:
+`test_scaled_gates_and_scaling_facts_are_stated_over_folded_definitions`
+(the shapes, without Lean) and
+`test_real_modular_chains_verify_through_folded_scaled_facts` (the Lean
+check); for QF_LIRA, where a folded Int atom is cast to Rat,
+`test_folded_scaled_facts_cast_int_atoms_to_rat` and
+`test_folded_scaled_facts_over_int_casts_verify`. Still open: at depth 8 with `function=True` the `_r` argument
+equality of the 2026-11-08 change below runs out of heartbeats in grind,
+which is given the nested ites unfolded.
+
 ### Argument equalities stated over folded definitions (2026-11-08)
 
 The ite gates were not the only written-out helper. Comparing the two

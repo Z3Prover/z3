@@ -758,6 +758,10 @@ equalities, under the condition and under its negation, stated the same way
 (scaled to integer coefficients when a branch has fractions) and proved with
 ite_eq_left and ite_eq_right; Z3's rewriter can push a comparison through an
 ite, in which case these are the only facts tying the ite to its branches.
+Without arrays both kinds of facts are stated over the term and formula
+definitions, proved with only the definitions down to the atoms of their
+linear forms unfolded, and unfolded together with the goal, so nested ites
+are never written out in them.
 
 A qf_lira certificate takes both valuations, (_vars : Nat -> Rat)
 (_ivars : Nat -> Int): a Real variable is _vars i and an Int one _ivars i
