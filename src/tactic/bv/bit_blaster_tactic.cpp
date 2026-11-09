@@ -137,6 +137,10 @@ public:
      
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
+        if (g->proofs_enabled()) {
+            result.push_back(g.get());
+            return;
+        }
         try {
             (*m_imp)(g, result);
         }
@@ -166,4 +170,3 @@ tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {
     return clean(alloc(bit_blaster_tactic, m, rw, p));
 }
-

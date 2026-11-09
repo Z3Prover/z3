@@ -26,6 +26,7 @@ class TestRealPower(unittest.TestCase):
                     with self.subTest(proofs=proofs, power=power, contradict=contradict):
                         solver = z3.Then(
                             z3.Tactic("purify-arith", ctx=ctx),
+                            z3.Tactic("solve-eqs", ctx=ctx),
                             z3.With(z3.Tactic("simplify", ctx=ctx), expand_power=True),
                             z3.Tactic("smt", ctx=ctx),
                         ).solver()

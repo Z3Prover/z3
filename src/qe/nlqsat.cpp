@@ -36,6 +36,7 @@ Revision History:
 #include "nlsat/nlsat_assignment.h"
 #include "nlsat/tactic/goal2nlsat.h"
 #include "tactic/core/tseitin_cnf_tactic.h"
+#include "tactic/tactical.h"
 
 
 namespace qe {
@@ -854,6 +855,10 @@ namespace qe {
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
+            if (in->proofs_enabled()) {
+                result.push_back(in.get());
+                return;
+            }
 
             tactic_report report("nlqsat-tactic", *in);
 
@@ -967,5 +972,3 @@ tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p) {
 tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p) {
     return alloc(qe::nlqsat, m, qe::elim_t, p);
 }
-
-
