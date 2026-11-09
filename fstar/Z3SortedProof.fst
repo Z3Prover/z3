@@ -2410,6 +2410,38 @@ let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S
   else if nonpositive_int_product facts p then lemma_nonpositive_int_product s bc eq other facts p
   else lemma_negative_int_product s bc eq other facts p
 
+let integer_product_clause (facts:list expr) (conclusion:expr) : bool =
+  if conclusion = R.false_expr then false
+  else if None? (expression_budget 4096 conclusion) then false
+  else
+    let complements = L.map R.mk_not_expr (DT.literals conclusion) in
+    D.scoped_args [] complements && integer_product_check (facts @ complements)
+
+let rec lemma_clause_complements (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                (lits:list expr)
+  : Lemma (requires D.scoped_args [] (L.map R.mk_not_expr lits) /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
+          (ensures T.truths s bc eq other (L.map R.mk_not_expr lits))
+          (decreases lits) =
+  match lits with
+  | [] -> ()
+  | lit :: rest ->
+    T.lemma_negation s bc eq other R.not_decl lit;
+    lemma_clause_complements s bc eq other rest
+
+let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                 (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\ integer_product_clause facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  if not (T.truth s bc eq other conclusion) then (
+    DT.lemma_literals s bc eq other conclusion;
+    lemma_clause_complements s bc eq other (DT.literals conclusion);
+    DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (DT.literals conclusion));
+    lemma_integer_product_check s bc eq other (facts @ L.map R.mk_not_expr (DT.literals conclusion)))
+
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
@@ -2454,6 +2486,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
+      (node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion) ||
       ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
@@ -2713,6 +2746,10 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_linear_consequence s bc eq other (propositions node.premises) conclusion))
+    else if node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_integer_product_clause s bc eq other (propositions node.premises) conclusion))
     else if ite_rewrite node then lemma_ite_rewrite s bc eq other node
     else if product_rewrite node then lemma_product_rewrite s bc eq other node
     else if unused_elimination node then lemma_unused_elimination s bc eq other node

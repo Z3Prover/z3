@@ -516,6 +516,36 @@ let integer_unit_controls () : bool =
   (match check true (-1) with | Some (_, n) -> n = 1 | None -> false) &&
   (match check false (-2) with | Some (_, n) -> n = 1 | None -> false)
 
+let integer_product_clause_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "clause_x" in
+  let y = constant "clause_y" in
+  let zero = Z3SortedProof.int_zero in
+  let a = Z3SortedProof.int_ge x zero in
+  let b = Z3SortedProof.int_ge y zero in
+  let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+  let clause bound = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction
+      [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound])
+      [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound] in
+  let check kind facts goal =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds goal;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [a] }) facts } in
+  (match check (U.Unverified "assumed:nlsat") [] (clause zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = []
+   | None -> false) &&
+  (match check (U.Unverified "assumed:nlsat") [] (clause Z3SortedProof.int_one) with
+   | Some (_, n) -> n = 1 | None -> false) &&
+  (match check U.LemmaRule [] (clause zero) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.Unverified "unrecognized-product") [a; b] (Z3SortedProof.int_ge product zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [a]
+   | None -> false) &&
+  (match check (U.Unverified "unrecognized-product") [a] (Z3SortedProof.int_ge product zero) with
+   | Some (_, n) -> n = 1 | None -> false)
+
 let integer_product_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
@@ -1416,6 +1446,7 @@ let run () : bool =
   real_farkas_controls () &&
   real_equality_controls () &&
   integer_unit_controls () &&
+  integer_product_clause_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
   real_order_controls () &&

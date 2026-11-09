@@ -3189,6 +3189,61 @@ let sorted_integer_unit_consequences () =
   check false "(declare-const x Int)" "(assert (>= x 0))" "(>= x 1)";
   check false "(declare-const x Real)" "(assert (< x 0.0))" "(<= x (- 1.0))"
 
+let sorted_integer_product_clauses () =
+  let module K = Z3SortedProof in
+  let module R = Z3ResolutionProofTheory in
+  let check expected rule header facts goal =
+    let c = context () in
+    let native = parse c (header ^ facts ^ "(assert " ^ goal ^ ")(assert (not " ^ goal ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let expressions = List.map (B.cached_expression st) native in
+    let count = List.length expressions - 2 in
+    let premises = List.filteri (fun i _ -> i < count) expressions in
+    let conclusion = List.nth expressions count in
+    let negative = List.nth expressions (count + 1) in
+    let assertions = premises @ [negative] in
+    let entries = List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) assertions in
+    let step = { P.rule = rule; formula = conclusion;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) premises } in
+    let root = { P.rule = U.UnitResolution; formula = R.false_expr;
+                 premise_ids = [Z.of_int count; Z.of_int (count + 1)] } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions; entries = entries @ [step; root]; root = Z.of_int (count + 2) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected integer product-clause verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "product clause accepted missing original assertions";
+      let node = { U.kind = rule; conclusion = U.Holds conclusion;
+                   premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [negative] }) premises } in
+      match K.check_node schema [] node with
+      | Some (fact, n) ->
+        require (Z.equal n Z.zero && fact.U.hypotheses = (if premises = [] then [] else [negative]))
+          "product clause dropped an inherited hypothesis"
+      | None -> failwith "product-clause node rejected")
+  in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let clause = "(or (not (>= x 0)) (not (>= y 0)) (>= (* x y) 0))" in
+  check true (U.Unverified "th-lemma") header "" clause;
+  check true (U.Unverified "assumed:nlsat") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "assumed:nlsat") header ""
+    "(or (not (>= x 0)) (not (>= y 0)) (>= (* x y) 1))";
+  check false (U.Unverified "th-lemma") header ""
+    "(or (not (>= x 0)) (>= (* x y) 0))";
+  check false (U.ArithmeticFarkas []) header ""
+    "(or (not (>= x 0)) (not (>= y 0)) (>= (* x z) 0))";
+  check true (U.Unverified "arith/lp-monomial-interval") header "(assert (>= x 0))"
+    "(or (not (>= y 0)) (>= (* x y) 0))";
+  check true (U.Unverified "unrecognized-product") header "(assert (>= x 0))(assert (>= y 0))"
+    "(>= (* x y) 0)";
+  check false (U.Unverified "unrecognized-product") header "(assert (>= x 0))"
+    "(>= (* x y) 0)";
+  check false (U.Unverified "th-lemma") "(declare-const x Real)(declare-const y Real)" ""
+    "(or (not (>= x 0.0)) (not (>= y 0.0)) (>= (* x y) 0.0))"
+
 let sorted_integer_nonnegative_products () =
   let module K = Z3SortedProof in
   let module R = Z3ResolutionProofTheory in
@@ -8426,6 +8481,7 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-integer-unit-consequences", sorted_integer_unit_consequences;
+     "sorted-integer-product-clauses", sorted_integer_product_clauses;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-linear-equalities", sorted_real_linear_equalities;
