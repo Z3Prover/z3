@@ -2210,6 +2210,15 @@ let negative_int_product (facts:list expr) (p:expr) : bool =
     refutes (int_le p int_minus_one :: facts) R.false_expr
   | _ -> false
 
+let zero_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_bound true x) && refutes facts (int_bound false x)) ||
+     (refutes facts (int_bound true y) && refutes facts (int_bound false y))) &&
+    refutes (int_ge p int_zero :: int_le p int_zero :: facts) R.false_expr
+  | _ -> false
+
 let rec integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) =
   if fuel = 0 then []
   else match e with
@@ -2222,14 +2231,15 @@ let rec integer_product_candidate (facts:list expr) (fuel:nat) (rest:list expr)
   : Tot (p:option expr{Some? p ==> (nonnegative_int_product facts (Some?.v p) ||
                                    positive_int_product facts (Some?.v p) ||
                                    nonpositive_int_product facts (Some?.v p) ||
-                                   negative_int_product facts (Some?.v p))}) (decreases fuel) =
+                                   negative_int_product facts (Some?.v p) ||
+                                   zero_int_product facts (Some?.v p))}) (decreases fuel) =
   if fuel = 0 then None
   else match rest with
   | [] -> None
   | p :: tail ->
     let next : nat = fuel - 1 in
     if nonnegative_int_product facts p || positive_int_product facts p ||
-       nonpositive_int_product facts p || negative_int_product facts p then Some p
+       nonpositive_int_product facts p || negative_int_product facts p || zero_int_product facts p then Some p
     else integer_product_candidate facts next tail
 
 let integer_product_witness (facts:list expr) : option expr =
@@ -2317,6 +2327,9 @@ let lemma_int_multiply_positive (x y:int)
 
 let lemma_int_multiply_negative (x y:int)
   : Lemma (requires (x >= 1 /\ y <= -1) \/ (x <= -1 /\ y >= 1)) (ensures x * y <= -1) = ()
+
+let lemma_int_multiply_zero (x y:int)
+  : Lemma (requires x == 0 \/ y == 0) (ensures x * y == 0) = ()
 #pop-options
 
 let lemma_nonnegative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -2415,6 +2428,32 @@ let lemma_negative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
     lemma_refutes s bc eq other (int_le p int_minus_one :: facts) R.false_expr
   | _ -> ()
 
+let lemma_zero_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ zero_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_bound true x) && refutes facts (int_bound false x) then (
+      lemma_int_bound s bc eq other facts true x;
+      lemma_int_bound s bc eq other facts false x)
+    else (
+      lemma_int_bound s bc eq other facts true y;
+      lemma_int_bound s bc eq other facts false y);
+    lemma_int_multiply_zero (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_bound_shape true p;
+    lemma_int_bound_shape false p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_zero) LA.Ge p int_zero;
+    AR.lemma_int_comparison s bc eq other [] rho (int_le p int_zero) LA.Le p int_zero;
+    AR.lemma_int_numeral s bc eq other [] rho 0 int_zero;
+    assert (T.truth s bc eq other (int_ge p int_zero) /\ T.truth s bc eq other (int_le p int_zero));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_ge p int_zero :: int_le p int_zero :: facts) R.false_expr
+  | _ -> ()
+
 let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                 (facts:list expr)
@@ -2424,7 +2463,8 @@ let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S
   if nonnegative_int_product facts p then lemma_nonnegative_int_product s bc eq other facts p
   else if positive_int_product facts p then lemma_positive_int_product s bc eq other facts p
   else if nonpositive_int_product facts p then lemma_nonpositive_int_product s bc eq other facts p
-  else lemma_negative_int_product s bc eq other facts p
+  else if negative_int_product facts p then lemma_negative_int_product s bc eq other facts p
+  else lemma_zero_int_product s bc eq other facts p
 
 let integer_product_clause (facts:list expr) (conclusion:expr) : bool =
   if conclusion = R.false_expr then false

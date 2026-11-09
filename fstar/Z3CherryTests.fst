@@ -546,6 +546,28 @@ let integer_product_clause_controls () : bool =
   (match check (U.Unverified "unrecognized-product") [a] (Z3SortedProof.int_ge product zero) with
    | Some (_, n) -> n = 1 | None -> false)
 
+let integer_zero_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "zero_x" in
+  let y = constant "zero_y" in
+  let zero = Z3SortedProof.int_zero in
+  let lower = Z3SortedProof.int_ge x zero in
+  let upper = Z3SortedProof.int_le x zero in
+  let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+  let check facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-interval";
+        U.conclusion = U.Holds (Z3SortedProof.int_le product zero);
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [lower] }) facts } in
+  (match check [lower; upper] with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [lower]
+   | None -> false) &&
+  (match check [lower] with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check [upper] with | Some (_, n) -> n = 1 | None -> false)
+
 let integer_product_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
@@ -1475,6 +1497,7 @@ let run () : bool =
   real_equality_controls () &&
   integer_unit_controls () &&
   integer_product_clause_controls () &&
+  integer_zero_product_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
   real_product_clause_controls () &&

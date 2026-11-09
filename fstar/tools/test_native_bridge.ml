@@ -3248,6 +3248,26 @@ let sorted_integer_product_clauses () =
   check false (U.Unverified "th-lemma") "(declare-const x Real)(declare-const y Real)" ""
     "(or (not (>= x 0.0)) (not (>= y 0.0)) (>= (* x y) 0.0))"
 
+let sorted_integer_zero_products () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let zero = "(assert (<= x 0))(assert (>= x 0))" in
+  let conflict = zero ^ "(assert (> (* x y) 0))" in
+  check true (U.Unverified "th-lemma") header conflict "false";
+  check false (U.ArithmeticFarkas []) header conflict "false";
+  check true (U.Unverified "arith/lp-monomial-interval") header zero "(<= (* x y) 0)";
+  check true (U.Unverified "arith/lp-monomial-interval") header zero "(>= (* y x) 0)";
+  check true (U.Unverified "assumed:nlsat") header "" "(or (not (= x 0)) (<= (* x y) 0))";
+  check false U.LemmaRule header "" "(or (not (= x 0)) (<= (* x y) 0))";
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (<= x 0))" "(<= (* x y) 0)";
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (>= x 0))" "(<= (* x y) 0)";
+  check false (U.Unverified "arith/lp-monomial-interval") header zero "(<= (* z y) 0)";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Int Int) Int)") zero "(<= (fake_mul x y) 0)";
+  check false (U.Unverified "arith/lp-monomial-interval")
+    "(declare-const x Real)(declare-const y Real)"
+    "(assert (<= x 0.0))(assert (>= x 0.0))" "(<= (* x y) 0.0)"
+
 let sorted_real_product_clauses () =
   let check = check_sorted_product_clause in
   let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
@@ -8510,6 +8530,7 @@ let () =
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-integer-unit-consequences", sorted_integer_unit_consequences;
      "sorted-integer-product-clauses", sorted_integer_product_clauses;
+     "sorted-integer-zero-products", sorted_integer_zero_products;
      "sorted-real-product-clauses", sorted_real_product_clauses;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
