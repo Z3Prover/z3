@@ -4,6 +4,187 @@ Investigation date: 2026-11-04. Implementation has started with the P0
 model-coherence increment below. Baseline sections describe the original
 branch before these changes.
 
+## Expanded evaluation and priorities (2026-11-08)
+
+The primary gap population now comes from
+[PR run 1294 versus matching master run 1277](https://z3prover.github.io/coz3/compare_stats.html?a=run-1294-qf-slia-gap-20261107-stats.md&b=run-1277-qf-slia-master-stats.md):
+include every run-1294 TIMEOUT for which run-1277 returns SAT or UNSAT
+with exit code zero under its configured `-T:5` limit. Do not restrict
+master to 0.25 seconds, require a speed ratio, or cap the population.
+
+This selects **6,012 inputs: 5,783 SAT and 229 UNSAT on master**.
+Of these, 5,971 have reported master wall time at most five seconds;
+41 have definite answers under `-T:5` with wall-time overshoot. Retain
+those 41, report them separately, and adjudicate cutoff-sensitive results
+serially rather than treating them as reliable timing wins.
+If an apparent gain remains near the deadline after serial repetition,
+compare completed work in a separate extended-limit diagnostic. Identical
+completed resource/search counters without a material repeatable speedup
+are a cutoff-only flip, not recovery credit. This diagnostic never changes
+the primary five-second limit or clears a loss in the five-second gate.
+
+| Population | Inputs | Evaluation role |
+|---|---:|---|
+| All timeout/master-definite gaps | 6,012 | Primary objective, no sampling cap |
+| Prior acceptance panel | 5,035 | Historical, slow-but-solved, and c3mv-only controls |
+| Accepted/repaired controls | 379 | Explicit expected answers: 377 SAT, 2 UNSAT; includes all 17 repairs |
+| Union of these populations | 10,446 | Paired candidate acceptance sweep |
+| Family/result/time/operator-stratified representatives | 76 | Diagnostic inference profiling only, not a substitute for the full population |
+
+Only 601 of the new primary gaps were in the prior 5,035-input panel.
+The expanded acceptance set therefore adds 5,411 previously uncovered
+identities. Preserve identities and input hashes; record full-set and
+per-family outcomes, introduced losses, all-input timing regressions,
+and unmeasured residuals. Do not extrapolate parity from the diagnostic
+panel or sum overlapping feature groups as independent gains.
+
+Run 1295 subsequently completed for accepted head `e9728eebe`, with
+5,994 timeout/master-definite gaps: 5,964 overlap the requested 1294
+population, and 26 are outside the active 10,446-input sweep. Preserve
+the current manifest and evaluate those 26 as a disjoint follow-up
+before publication; report-to-report cutoff drift is not attributed
+incremental solver improvement.
+
+The report branch is `5c87a4a99`, but new local candidates are paired
+against the immediately preceding accepted PR head `e9728eebe`.
+The matching report-master executable is `9af2dac2e`; current upstream
+master is a separate reference, not an interchangeable baseline.
+Both report runs use `-T:5 model_validate=true`; local paired runs
+also fix the SMT and SAT random seeds to zero.
+
+### Recurring characteristics and implementation order
+
+PyEx accounts for 4,386 gaps, including 4,369 SAT cases. Across the
+whole population, 5,928 inputs contain positional operations, 3,777
+contain replacements, 1,571 contain decimal conversions, and 644
+contain regex membership. These are nonexclusive syntactic features,
+not established causal classifications. Prioritize recurring SAT
+construction and scheduling gaps over isolated UNSAT rewrites.
+
+The first 76-case diagnostic reproduces the architectural gap: matching
+master solves all 11 PyEx representatives (8 SAT, 3 UNSAT), while both
+local nseq versions solve only one. On HTTP entry-disposition
+`b18c860c...`, master returns SAT in 1.68 seconds with 272 fixed-length
+and 37 length-coherence steps. The accepted nseq baseline times out
+after 1,673 DFS nodes, below its 2,176-node fixed-length trigger, despite
+16 nseq final checks. Master performs more Boolean decisions but uses
+4.70 million resource units versus nseq's 20.75 million at timeout.
+These counters identify delayed construction and expensive word search
+as a concrete next hypothesis; they are not a chronological inference
+trace or evidence that globally lowering the threshold is safe.
+Substitution and rewriting also validate all 311 original conjuncts
+with `value1 = "IJ=x"` and `value2 = "LV"` (both keys are
+`"cache-control"`), without invoking a solver. This confirms a small
+witness exists; it is not a model claimed to have been returned by master.
+The next trace must distinguish scheduling from eligibility: the current
+fallback requires relevant selected String terms, an unsigned lower bound
+at most 20, and an available untried guarded length. It probes eligibility
+before search but does not instantiate on every refuted arrangement.
+Record those guard outcomes and repeated arrangement conflicts before
+changing scheduling. Earlier global resource-to-fallback policies lost
+protected repairs and must not be retried merely because this case is slow.
+
+An independent, solver-free evaluator now verifies the same 311 original
+conjuncts, including SMT-LIB substring/index bounds, first replacement,
+quoted strings and Unicode code-point semantics. The witness has 18
+distinct derived String terms: one empty, eleven length-one and six
+length-two terms. Its top-level conjuncts separate the four declared
+variables into independent syntactic components; `value1` and `value2`
+both have direct positional parents and no conversion operators occur.
+This does not establish post-rewriting relevance, dynamic bounds or
+runtime eligibility. Across the cached diagnostic, all eight HTTP cases
+time out below the trigger without reported nseq fixed-length axioms;
+two MongoDB cases time out despite emitting them. Scheduling alone
+therefore cannot explain the whole PyEx gap.
+
+Distinguish two inferences before changing that schedule. In report
+master `9af2dac2e`, `src\smt\theory_seq.cpp:381-399,535-585` propagates
+decompositions for lengths whose arithmetic lower and upper bounds are
+already equal, guarded by that equality. Its separate length-coherence
+phase (`src\smt\seq_eq_solver.cpp:1051-1080,1122-1151`) makes guarded
+empty/tail choices. nseq's current helper instead also enumerates
+not-yet-fixed lengths and forces their bound phases, behind the DFS
+head start. Trace the availability of exact zero/positive bounds
+separately from guessed lengths. A focused next prototype may propagate
+already-fixed short lengths without guessing new ones or moving the
+existing speculative fallback earlier. Require evidence that such
+eligible bounds are present and useful; do not infer this from the
+concrete witness. Master's fixed-length statistic counts successful
+passes, while nseq's counts emitted axioms, so their numeric magnitudes
+are not directly comparable.
+
+1. **Context-preserving positional/replacement simplification.**
+   PyEx HTTP examples repeatedly split at `indexof`, replace a character
+   in the prefix, and rejoin the suffix, then inspect the derived result.
+   Investigate canonicalizing these relations before separate derived
+   strings enter word/regex search. Any rule must preserve first-occurrence,
+   absent-needle, and out-of-range substring behavior. Measure repeated
+   chain depth, derived-term count, arithmetic propagation, and DFS work;
+   do not infer a benefit from the presence of `str.replace` alone.
+2. **Earlier guarded SAT construction, with component-aware eligibility.**
+   nseq's fixed-length fallback is currently gated on whole-goal absence
+   of conversions and a cumulative 2,176-node head start. Corresponding
+   seq reasoning couples length assignments and character constraints.
+   Determine where nseq has enough information but schedules construction
+   late, and where the candidate model is genuinely unavailable.
+   Test component-local opportunities rather than globally weakening
+   purity or shortening the head start: coupled arithmetic, character
+   constraints, snapshot invalidation, and scope rollback must remain
+   guarded and model-validated. Preserve the previous 17 repairs.
+3. **Complete cheap numeric-to-length inference before conversion search.**
+   The shared `itos_axiom(s, k)` already relates decimal magnitude to
+   output length; seq schedules it through length-limit propagation.
+   nseq previously enqueued only the basic itos overload. This increment
+   additionally calls `add_itos_axiom(n, 0)`,
+   supplying `n < 10 => len(str.from_int(n)) <= 1` and the nonnegative
+   nonempty bound without enumerating digits or arbitrary powers of ten.
+   Negative integers produce the empty string, so the upper bound does
+   not require proving digit validity or nonnegativity.
+
+### Validated decimal-length increment
+
+The expanded one-repeat 10,446-input matrix initially records 193 gains,
+14 losses and 62 timing flags. The subsequent 754-input, three-repeat
+serial gate includes every discrepancy, all 379 protected inputs,
+122 prior quiet controls and 26 disjoint run-1295 holdouts. It retains
+all protected answers and all 17 repairs, with no repeated losses,
+material slowdowns, contradictory answers or errors. All 26 new
+holdouts solve on both versions.
+
+There are **172 repeatable timeout-to-UNSAT recoveries**: 70 CVC4 and
+102 Trauc Conbyte cases. Baseline times out in all 516 repetitions;
+candidate and matching report-master each return UNSAT in all 516.
+Median per-input quiet timings are 5.035 seconds baseline, 0.034 seconds
+candidate and 0.103 seconds matching master. Median resource counts
+fall from 22,400,673.5 at baseline timeout to 9,824 at candidate
+completion, versus master's 109,880.5. Candidate has no reported word
+DFS on 139 of the recovered inputs. These are cohort measurements,
+not a claim about all PyEx or the complete corpus.
+
+The 21 raw SAT gains disappear under serial repetition. One formerly
+lost PyEx input becomes an apparent serial SAT gain, but an extended
+diagnostic confirms identical completed work and no material speedup;
+it earns no recovery credit. The adjudicated hybrid panel contains
+10,472 inputs, with 754 repeated overrides/holdouts and single-repeat
+data elsewhere: 4,629 baseline and 4,802 candidate definite answers,
+zero losses and zero material slowdowns. Its observed delta of 173
+includes that uncredited cutoff flip; conservative credit is 172 UNSAT.
+
+Within the 6,012 primary gaps, candidate solves 423, leaving 5,589
+measured unresolved cases: 5,535 published-master SAT and 54 UNSAT.
+The 41 master wall-time-overshoot cases remain separate; both versions
+solve two and leave 39 unresolved. The 4,386 PyEx subset still has
+4,168 candidate-unresolved cases, and its sole observed improvement is
+the uncredited cutoff flip. The SAT objective therefore remains open.
+There are 73,939 report identities outside the 10,472-input panel;
+no extrapolation is made to them or to current tip master.
+
+Focused modules, all 136 native modules, four conversion proof-generation
+smokes, nine boundary/negative model checks, scoped guard rollback,
+and basic CLI/Python checks pass. Proof generation is not external
+proof certification. Preserve all 172 new UNSAT controls alongside
+the previous 379 mixed-answer controls before the next prototype.
+
 ## Implementation progress
 
 The first P0 increment is implemented; P0 is not yet closed.

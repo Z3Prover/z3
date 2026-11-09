@@ -1503,6 +1503,45 @@ namespace {
         )");
     }
 
+    static void tst_nseq_small_itos_bounds() {
+        char const* inputs[] = {
+            R"(
+                (declare-const n Int)
+                (assert (<= n 9))
+                (assert (> (str.len (str.from_int n)) 1))
+            )",
+            R"(
+                (declare-const a Int)
+                (declare-const b Int)
+                (declare-const c Int)
+                (declare-const d Int)
+                (assert (and (<= a 9) (<= b 9) (<= c 9) (<= d 9)))
+                (assert (> (str.len (str.++ (str.from_int a) (str.from_int b)
+                                          (str.from_int c) (str.from_int d))) 4))
+            )"
+        };
+        for (char const* input : inputs) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            scoped_rlimit limit(m.limit(), 100000);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            ENSURE(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            p.set_uint("max_conflicts", 0);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            ENSURE(slv->check_sat(0, nullptr) == l_false);
+        }
+        check_nseq_candidate_model(R"(
+            (declare-const n Int)
+            (assert (>= n 10))
+            (assert (= (str.from_int n) "10"))
+        )");
+    }
+
     static void tst_nseq_single_char_stoi_digit() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1720,6 +1759,7 @@ void tst_seq_eq_facet() {
     tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
     tst_nseq_short_stoi_bounds();
+    tst_nseq_small_itos_bounds();
     tst_nseq_single_char_stoi_digit();
     tst_nseq_stoi_sat_reconciliation();
     std::cout << "seq_eq_facet: all tests passed\n";

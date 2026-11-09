@@ -562,8 +562,10 @@ namespace smt {
             m_ax.add_at_axiom(n);
         else if (m_seq.str.is_nth_i(n))
             m_ax.add_nth_axiom(n);
-        else if (m_seq.str.is_itos(n))
+        else if (m_seq.str.is_itos(n)) {
             m_ax.add_itos_axiom(n);
+            m_ax.add_itos_axiom(n, 0);
+        }
         else if (m_seq.str.is_stoi(n)) {
             ensure_length_var(to_app(n)->get_arg(0));
             m_ax.add_stoi_axiom_re(n);
