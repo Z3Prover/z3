@@ -3189,7 +3189,7 @@ let sorted_integer_unit_consequences () =
   check false "(declare-const x Int)" "(assert (>= x 0))" "(>= x 1)";
   check false "(declare-const x Real)" "(assert (< x 0.0))" "(<= x (- 1.0))"
 
-let check_sorted_product_clause expected rule header facts goal =
+let check_sorted_product_clause ?(int_kernel_refuses=false) expected rule header facts goal =
   let module K = Z3SortedProof in
   let module R = Z3ResolutionProofTheory in
   let c = context () in
@@ -3216,6 +3216,9 @@ let check_sorted_product_clause expected rule header facts goal =
       "product clause accepted missing original assertions";
     let node = { U.kind = rule; conclusion = U.Holds conclusion;
                  premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [negative] }) premises } in
+    if int_kernel_refuses then
+      require (not (K.integer_product_clause premises conclusion))
+        "Real product control unexpectedly passed the Int kernel";
     if K.real_product_clause schema node then
       require (K.real_node schema node && K.needs_real_semantics schema doc.P.entries)
         "Real product clause omitted its model-law requirement";
@@ -3264,7 +3267,7 @@ let sorted_integer_zero_products () =
   check false (U.Unverified "arith/lp-monomial-interval") header zero "(<= (* z y) 0)";
   check false (U.Unverified "assumed:nlsat")
     (header ^ "(declare-fun fake_mul (Int Int) Int)") zero "(<= (fake_mul x y) 0)";
-  check false (U.Unverified "arith/lp-monomial-interval")
+  check ~int_kernel_refuses:true true (U.Unverified "arith/lp-monomial-interval")
     "(declare-const x Real)(declare-const y Real)"
     "(assert (<= x 0.0))(assert (>= x 0.0))" "(<= (* x y) 0.0)"
 
@@ -3292,9 +3295,35 @@ let sorted_integer_constant_products () =
   check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2") "(<= (* z y) (* 2 y))";
   check false (U.Unverified "assumed:nlsat")
     (header ^ "(declare-fun fake_mul (Int Int) Int)") (fixed "2") "(<= (fake_mul x y) (* 2 y))";
-  check false (U.Unverified "arith/lp-monomial-interval")
+  check ~int_kernel_refuses:true true (U.Unverified "arith/lp-monomial-interval")
     "(declare-const x Real)(declare-const y Real)"
     "(assert (<= x 2.0))(assert (>= x 2.0))" "(<= (* x y) (* 2.0 y))"
+
+let sorted_real_constant_products () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  List.iter (fun k ->
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(<= (* x y) (* " ^ k ^ " y))");
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(>= (* y x) (* " ^ k ^ " y))"))
+    ["0.0"; "1.0"; "2.0"; "(- 1.0)"];
+  let conflict = fixed "2.0" ^ "(assert (> (* x y) (* 2.0 y)))" in
+  check true (U.Unverified "th-lemma") header conflict "false";
+  check false (U.ArithmeticFarkas []) header conflict "false";
+  let clause = "(or (not (= x 2.0)) (<= (* x y) (* 2.0 y)))" in
+  check true (U.Unverified "assumed:nlsat") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "arith/lp-monomial-interval") header
+    "(assert (<= x 2.0))" "(<= (* x y) (* 2.0 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header
+    "(assert (>= x 2.0))" "(<= (* x y) (* 2.0 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2.0") "(<= (* x y) (* 3.0 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2.0") "(<= (* z y) (* 2.0 y))";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Real Real) Real)") (fixed "2.0") "(<= (fake_mul x y) (* 2.0 y))"
 
 let sorted_real_product_clauses () =
   let check = check_sorted_product_clause in
@@ -8561,6 +8590,7 @@ let () =
      "sorted-integer-zero-products", sorted_integer_zero_products;
      "sorted-integer-constant-products", sorted_integer_constant_products;
      "sorted-real-product-clauses", sorted_real_product_clauses;
+     "sorted-real-constant-products", sorted_real_constant_products;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-linear-equalities", sorted_real_linear_equalities;

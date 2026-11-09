@@ -780,8 +780,12 @@ let lemma_doverride_accessor_at (u:TR.uninterpreted) (sch:S.checked_schema)
   | Some r ->
     introduce forall (ys:TR.targuments u sch r.S.matched_case.S.constructor.domain).
       TR.accessor_case u sch (DS.doverride sch bc eq choice d i) f r ys
-    with lemma_doverride_application u sch bc eq choice d i f
-           [S.constructor_value sch r.S.matched_case ys]
+    with (
+      assert (f.domain == [r.S.matched_case.S.constructor.range]);
+      let v = S.constructor_value sch r.S.matched_case ys in
+      assert_norm (V.fields_have_sorts (S.signature sch) [r.S.matched_case.S.constructor.range] [v] ==
+                   V.has_sort (S.signature sch) r.S.matched_case.S.constructor.range v);
+      lemma_doverride_application u sch bc eq choice d i f [v])
 
 let lemma_doverride_operator_law (u:TR.uninterpreted) (sch:S.checked_schema)
                                  (bc:S.boolean_carrier (TR.carrier u)) (eq:T.scalar_model (TR.carrier u))

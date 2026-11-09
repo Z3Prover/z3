@@ -691,6 +691,25 @@ let real_product_controls () : bool =
   C.check true (document (ge x RP.zero) (le y RP.zero) (le z RP.zero) (nested x y)) = Some 1 &&
   C.check true { good with C.document = { good.document with P.assertions = [] } } = None
 
+let real_constant_product_controls () : bool =
+  let x = real_constant "fixed_x" [] in
+  let y = real_constant "fixed_y" [] in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let check n coefficient missing =
+    let k = real_numeral n 1 in
+    let lower = A.App RL.real_ge_decl [x; k] in
+    let facts = if missing then [lower] else [lower; A.App RL.real_le_decl [x; k]] in
+    let node = {
+      U.kind = U.Unverified "arith/lp-monomial-interval";
+      U.conclusion = U.Holds (A.App RL.real_le_decl
+        [A.App RL.real_times_decl [x; y]; A.App RL.real_times_decl [real_numeral coefficient 1; y]]);
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+    Z3SortedProof.real_node schema node && (match Z3SortedProof.check_node schema [] node with
+      | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+      | None -> false) in
+  L.for_all (fun n -> check n n false) [0; 1; 2; -1] &&
+  not (check 2 3 false) && not (check 2 2 true)
+
 let real_product_clause_controls () : bool =
   let x = real_constant "clause_x" [] in
   let y = real_constant "clause_y" [] in
@@ -1524,6 +1543,7 @@ let run () : bool =
   integer_constant_product_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
+  real_constant_product_controls () &&
   real_product_clause_controls () &&
   real_order_controls () &&
   real_equation_controls () &&

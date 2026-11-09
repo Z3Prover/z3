@@ -64,6 +64,27 @@ let feasible_nonpositive_mutants ()
   : Lemma (L.for_all (fun facts -> not (P.check schema facts)) nonpositive_mutants) =
   assert_norm (L.for_all (fun facts -> not (P.check schema facts)) nonpositive_mutants)
 
+let fixed_product_facts (n:int) (reversed:bool) (wrong:bool) : list expr =
+  let k = App (RL.real_numeral_decl n 1) [] in
+  let p = if reversed then mul y (if wrong then z else x) else mul (if wrong then z else x) y in
+  [le x k; ge x k; neg (le p (mul k y))]
+
+let constant_products ()
+  : Lemma (L.for_all (fun n -> P.check schema (fixed_product_facts n false false) &&
+                              P.check schema (fixed_product_facts n true false)) [0; 1; 2; -1]) =
+  assert_norm (L.for_all (fun n -> P.check schema (fixed_product_facts n false false) &&
+                                  P.check schema (fixed_product_facts n true false)) [0; 1; 2; -1])
+
+let missing_constant_bound : list expr =
+  let two = App (RL.real_numeral_decl 2 1) [] in
+  [ge x two; neg (le (mul x y) (mul two y))]
+
+let constant_product_mutants ()
+  : Lemma (not (P.check schema (fixed_product_facts 2 false true)) /\
+           not (P.check schema missing_constant_bound)) =
+  assert_norm (not (P.check schema (fixed_product_facts 2 false true)));
+  assert_norm (not (P.check schema missing_constant_bound))
+
 let rec repeat (n:nat) (e:expr) : Tot (list expr) (decreases n) =
   if n = 0 then [] else e :: repeat (n - 1) e
 
