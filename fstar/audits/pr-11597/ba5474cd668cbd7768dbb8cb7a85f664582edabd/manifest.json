@@ -1,0 +1,22 @@
+{
+  "pull_request": 11597,
+  "head_sha": "ba5474cd668cbd7768dbb8cb7a85f664582edabd",
+  "base_sha": "d86b80e709032db581dfabac7b9e24c1753ebac7",
+  "path_prefix": "fstar/audits/pr-11597/ba5474cd668cbd7768dbb8cb7a85f664582edabd/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42402218925",
+  "files": [
+    {
+      "name": "Z3NestedArgs.fst",
+      "sha256": "d69d29d85e07fdc2095fb9573eab07f609c7aab42ba9a0e4a24bfa8c8620633c"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "af26c564a4c7207a69c204c26a6e819dba0446cf5b5158d5e341ea9dff3cddc8"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "a9c97bc58d96c4af1f9f07aeb381dfbbd853f06cef4f27bf2d39f566d813e08d"
+    }
+  ]
+}

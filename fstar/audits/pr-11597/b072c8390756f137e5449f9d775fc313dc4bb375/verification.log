@@ -1,0 +1,5 @@
+fstar.exe (F* 2026.09.27) --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir fresh --odir fresh Z3CovariantNested.fst
+exit=0: Verified module: Z3CovariantNested. All verification conditions discharged successfully
+same for Z3NestedDatatypeSort.fst
+exit=0: Verified module: Z3NestedDatatypeSort. All verification conditions discharged successfully
+(Earlier attempts failed on syntax errors only; fixed before final fresh run.)
