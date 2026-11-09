@@ -1,0 +1,22 @@
+{
+  "pull_request": 11534,
+  "head_sha": "3f8a99b97b15afe9141f174ebb0023607a473ace",
+  "base_sha": "605d1d83a4614804d400ce5b23eca1f4a20184dd",
+  "path_prefix": "fstar/audits/pr-11534/3f8a99b97b15afe9141f174ebb0023607a473ace/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42681983276",
+  "files": [
+    {
+      "name": "S2tGuards.fst",
+      "sha256": "859607132e69616ad4ac7a4a78871c36e95ed7712d8fb0fe18c05dbb4ab30f2f"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "88b64044ea74376493da0d05e422b13d6afbbebccb5379e6d07ad80f7a75132a"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "2b43402ec78e48649a52d175473955a78bfcae8e2c1446f4e4b5c272652788de"
+    }
+  ]
+}
