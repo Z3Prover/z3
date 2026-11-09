@@ -976,7 +976,7 @@ static void check_proof_mode_guards() {
     ENSURE(parse_smt2_commands(cmd, input));
     for (char const* name : {
         "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
-        "dt2bv", "elim-small-bv", "eq2bv", "ff-solve", "ff2bv", "fix-dl-var",
+        "dt2bv", "elim-small-bv", "eq2bv", "ff-sat", "ff-solve", "ff2bv", "fix-dl-var",
         "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
         "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
         "pqffd", "psat", "psmt", "qe2", "qe_rec",
@@ -992,7 +992,8 @@ static void check_proof_mode_guards() {
     }) {
         bool rejects = false;
         for (char const* rejecting : {
-            "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv", "fm",
+            "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv",
+            "ff-sat", "ff-solve", "ff2bv", "fm",
             "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
             "qe2", "qe_rec", "qffd", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
             "sat", "sat-preprocess", "smtfd", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
@@ -1025,6 +1026,7 @@ static void check_proof_mode_guards() {
                 ENSURE(rejects);
                 ENSURE(strstr(ex.what(), "does not support proof production") ||
                        strstr(ex.what(), "generation of proof objects is not supported") ||
+                       !strcmp(ex.what(), "QF_FF certificates are not supported in v1") ||
                        (cores && strstr(ex.what(), "does not support unsat core production")));
                 rejected = true;
             }
@@ -1110,7 +1112,7 @@ static void check_proof_mode_compositions() {
         bool cores;
     } cases[] = {
         {"purify-arith", false}, {"nra", false}, {"qfnra", false},
-        {"qfufbv_ackr", false}, {"ff-sat", false},
+        {"qfufbv_ackr", false},
         {"quasi-macros", false}, {"quasi-macros", true}
     };
     for (auto const& test : cases) {
@@ -1124,10 +1126,6 @@ static void check_proof_mode_compositions() {
             "(declare-fun h (Int Int) Int)"
             "(assert (forall ((k Int)) (= (h k 0) k)))"
             "(assert (not (= (h 1 0) 1)))" :
-            !strcmp(test.name, "ff-sat") ?
-            "(define-sort F () (_ FiniteField 5))"
-            "(declare-const b Bool) (declare-const x F)"
-            "(assert (= (ite b (as ff1 F) (as ff2 F)) x))" :
             "(declare-const x Real)"
             "(assert (> (+ x 0.0) 0.0)) (assert (< x 0.0))");
         ENSURE(parse_smt2_commands(cmd, input));
@@ -1183,43 +1181,52 @@ static void check_proof_mode_compositions() {
 
 static void check_proof_mode_sls() {
     for (char const* name : {"qfbv-sls", "sls-smt"}) {
-        for (bool satisfiable : {false, true}) {
-            ast_manager m(PGM_ENABLED);
-            reg_decl_plugins(m);
-            tactic_manager tactics;
-            install_tactics(tactics);
-            cmd_context cmd(false, &m);
-            std::istringstream input(
-                satisfiable ?
-                "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x1))" :
-                "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x2))");
-            ENSURE(parse_smt2_commands(cmd, input));
-            goal_ref g = alloc(goal, m, true, true, false);
-            for (expr* a : cmd.assertions())
-                g->assert_expr(a);
-            tactic_ref t = tactics.find_tactic_cmd(symbol(name))->mk(m);
-            model_ref md;
-            labels_vec labels;
-            proof_ref pr(m);
-            expr_dependency_ref core(m);
-            std::string reason;
-            lbool status;
-            {
-                scoped_rlimit limit(m.limit(), 50000);
-                status = check_sat(*t, g, md, labels, pr, core, reason);
-            }
-            ENSURE(status == (satisfiable ? l_true : l_undef));
-            if (satisfiable) {
-                ENSURE(md);
-                for (expr* assertion : cmd.assertions()) {
-                    expr_ref value(m);
-                    ENSURE(md->eval_expr(assertion, value, true));
-                    ENSURE(m.is_true(value));
+        for (bool proofs : {false, true}) {
+            for (bool satisfiable : {false, true}) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                tactic_manager tactics;
+                install_tactics(tactics);
+                cmd_context cmd(false, &m);
+                std::istringstream input(
+                    satisfiable ?
+                    "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x1))" :
+                    "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x2))");
+                ENSURE(parse_smt2_commands(cmd, input));
+                goal_ref g = alloc(goal, m, proofs, true, false);
+                for (expr* a : cmd.assertions())
+                    g->assert_expr(a);
+                tactic_ref t = tactics.find_tactic_cmd(symbol(name))->mk(m);
+                model_ref md;
+                labels_vec labels;
+                proof_ref pr(m);
+                expr_dependency_ref core(m);
+                std::string reason;
+                lbool status;
+                {
+                    scoped_rlimit limit(m.limit(), 50000);
+                    status = check_sat(*t, g, md, labels, pr, core, reason);
                 }
+                if (proofs) {
+                    ENSURE(status == l_undef);
+                    ENSURE(reason == "bv-size-reduction does not support proof production");
+                    ENSURE(!g->is_decided_unsat());
+                }
+                else {
+                    ENSURE(status == (satisfiable ? l_true : l_undef));
+                    if (satisfiable) {
+                        ENSURE(md);
+                        for (expr* assertion : cmd.assertions()) {
+                            expr_ref value(m);
+                            ENSURE(md->eval_expr(assertion, value, true));
+                            ENSURE(m.is_true(value));
+                        }
+                    }
+                    else
+                        ENSURE(!g->is_decided_unsat());
+                }
+                t->cleanup();
             }
-            else
-                ENSURE(!g->is_decided_unsat());
-            t->cleanup();
         }
     }
 }
