@@ -3147,6 +3147,48 @@ let sorted_real_farkas () =
   require (K.check_document_epsilon schema doc = Some Z.zero)
     "the producer's Real Farkas refutation was not certified on the Sorted route"
 
+let sorted_integer_unit_consequences () =
+  let module K = Z3SortedProof in
+  let module R = Z3ResolutionProofTheory in
+  let check expected header facts goal =
+    let c = context () in
+    let native = parse c (header ^ facts ^ "(assert " ^ goal ^ ")(assert (not " ^ goal ^ "))(assert false)") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let expressions = List.map (B.cached_expression st) native in
+    let count = List.length expressions - 3 in
+    let premises = List.filteri (fun i _ -> i < count) expressions in
+    let conclusion = List.nth expressions count in
+    let negative = List.nth expressions (count + 1) in
+    let assertions = premises @ [negative] in
+    let entries = List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) assertions in
+    let step = { P.rule = U.Unverified "arith/lp-integer-tighten"; formula = conclusion;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) premises } in
+    let root = { P.rule = U.UnitResolution; formula = R.false_expr;
+                 premise_ids = [Z.of_int count; Z.of_int (count + 1)] } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions; entries = entries @ [step; root]; root = Z.of_int (count + 2) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected integer unit-consequence verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "unit consequence accepted missing original assertions";
+      let node = { U.kind = step.P.rule; conclusion = U.Holds conclusion;
+                   premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [List.hd premises] }) premises } in
+      match K.check_node schema [] node with
+      | Some (fact, n) ->
+        require (Z.equal n Z.zero && fact.U.hypotheses = [List.hd premises])
+          "unit consequence dropped an inherited hypothesis"
+      | None -> failwith "unit consequence node rejected")
+  in
+  let header = "(declare-sort T 0)(declare-const a T)(declare-fun f (T) Int)" in
+  check true header "(assert true)(assert (< (* 1 (f a)) 0))" "(<= (* 1 (f a)) (- 1))";
+  check false header "(assert true)" "(<= (* 1 (f a)) (- 1))";
+  check false header "(assert true)(assert (< (* 1 (f a)) 0))" "(<= (* 1 (f a)) (- 2))";
+  check true "(declare-const x Int)" "(assert (> x 0))" "(>= x 1)";
+  check false "(declare-const x Int)" "(assert (>= x 0))" "(>= x 1)";
+  check false "(declare-const x Real)" "(assert (< x 0.0))" "(<= x (- 1.0))"
+
 let sorted_integer_nonnegative_products () =
   let module K = Z3SortedProof in
   let module R = Z3ResolutionProofTheory in
@@ -8383,6 +8425,7 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-integer-unit-consequences", sorted_integer_unit_consequences;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-linear-equalities", sorted_real_linear_equalities;

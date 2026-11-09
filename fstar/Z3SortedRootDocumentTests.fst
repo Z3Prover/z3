@@ -829,6 +829,30 @@ let i7_missing_bound_pending ()
   : Lemma (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1) =
   assert_norm (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1)
 
+let integer_unit_document (bound:int) (premises:list int) : P.document =
+  let term = App (TR.times_decl integer) [one; x_int] in
+  let strict = App (TR.lt_decl integer) [term; zero] in
+  let tightened = SP.int_le term (App (TR.int_numeral bound) []) in
+  let negative = R.mk_not_expr tightened in
+  doc [R.true_expr; strict; negative]
+    [entry U.Asserted R.true_expr []; entry U.Asserted strict [];
+     entry (U.Unverified "arith/lp-integer-tighten") tightened premises;
+     entry U.Asserted negative []; entry U.UnitResolution R.false_expr [2; 3]] 4
+
+let integer_unit_certified ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_unit_document (-1) [0; 1]) == Some 0 /\
+           RD.check_root_document PT.core_schema (integer_unit_document (-1) [0; 1]) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_unit_document (-1) [0; 1])) == RD.RootCertified) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_unit_document (-1) [0; 1]) == Some 0);
+  assert_norm (RD.check_root_document PT.core_schema (integer_unit_document (-1) [0; 1]) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_unit_document (-1) [0; 1])) == RD.RootCertified)
+
+let integer_unit_mutants ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_unit_document (-1) [0]) == RD.RootPending 1 /\
+           RD.check_root_document PT.core_schema (integer_unit_document (-2) [0; 1]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_unit_document (-1) [0]) == RD.RootPending 1);
+  assert_norm (RD.check_root_document PT.core_schema (integer_unit_document (-2) [0; 1]) == RD.RootPending 1)
+
 (* ---------------------------------------------------------------------- *)
 (* J. Term if-then-else branch clauses (same-model theorem, no new symbol)  *)
 (* ---------------------------------------------------------------------- *)

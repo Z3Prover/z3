@@ -496,6 +496,26 @@ let real_equality_controls () : bool =
   pending (run (U.Unverified "th-lemma") [le x one; ge y zero; le y zero]) &&
   pending (run (U.ArithmeticFarkas []) facts)
 
+let integer_unit_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let x = A.App { A.decl_name = "x"; domain = []; range = sort; interp = None; int_params = [] } [] in
+  let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
+                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+  let comparison name tag a b = A.App
+    { A.decl_name = name; domain = [sort; sort]; range = A.bool_sort; interp = Some tag; int_params = [] } [a; b] in
+  let check missing bound =
+    let facts = if missing then [R.true_expr]
+      else [R.true_expr; comparison "<" Z3ValueTheory.op_arith_lt x (numeral 0)] in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-integer-tighten";
+        U.conclusion = U.Holds (comparison "<=" Z3ValueTheory.op_arith_le x (numeral bound));
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  (match check false (-1) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [R.true_expr]
+   | None -> false) &&
+  (match check true (-1) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check false (-2) with | Some (_, n) -> n = 1 | None -> false)
+
 let integer_product_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
@@ -1395,6 +1415,7 @@ let run () : bool =
   qi_ite_scale () &&
   real_farkas_controls () &&
   real_equality_controls () &&
+  integer_unit_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
   real_order_controls () &&

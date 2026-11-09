@@ -2082,13 +2082,16 @@ let int_ge (x y:expr) : expr =
   App { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
         interp = Some Z3ValueTheory.op_arith_ge; int_params = [] } [x; y]
 
-(* An Int equation x = y: x <= y and x >= y each refuted on its own (its own
-   search and check), then antisymmetry (order_equation over the two
-   bounds). The conclusion false: one refutation of the facts. *)
+(* Int equations use two checked bounds and antisymmetry. Unit conclusions
+   and false use one checked refutation. Bound the conclusion before
+   extracting its clause. *)
 let linear_consequence (facts:list expr) (conclusion:expr) : bool =
   match int_equation conclusion with
   | Some (x, y) -> refutes facts (int_le x y) && refutes facts (int_ge x y)
-  | None -> conclusion = R.false_expr && refutes facts R.false_expr
+  | None ->
+    if conclusion = R.false_expr then refutes facts R.false_expr
+    else if None? (expression_budget 4096 conclusion) then false
+    else R.formula_clause conclusion = [conclusion] && refutes facts conclusion
 
 (* A refuted c is not false where the facts hold: the facts and the negated
    literals of c would satisfy every literal of the validated certificate
@@ -2132,8 +2135,10 @@ let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
     assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
     lemma_order_equation s bc eq other [le; ge] conclusion
   | None ->
-    assert_norm (R.formula_clause R.false_expr == []);
-    lemma_refutes s bc eq other facts R.false_expr
+    if conclusion = R.false_expr then (
+      assert_norm (R.formula_clause R.false_expr == []);
+      lemma_refutes s bc eq other facts R.false_expr)
+    else lemma_unit_refuted s bc eq other facts conclusion
 
 let int_zero : expr =
   App { decl_name = "0"; domain = []; range = LA.int_s;
