@@ -597,6 +597,85 @@ class TestArithmeticValidation(unittest.TestCase):
             self.assertIn("intro " + " ".join(names) + "\n", block)
         self.assertLess(len(text), 1500000)
 
+    def test_argument_equalities_are_proved_level_by_level(self):
+        # f's arguments, eight nested steps, are rewritten into the
+        # rewriter's normal form. Proved with both arguments unfolded
+        # entirely, their equality ran grind out of heartbeats (2^16 branch
+        # combinations); now each pair of corresponding steps gets its own
+        # equality, innermost first, over its own level only: the steps
+        # below stay folded.
+        source = real_modular_chains_instance(8, function=True)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        blocks = [block for block in text.split("\n\n") if "have _r" in block]
+        self.assertTrue(blocks)
+        for block in blocks:
+            facts = re.findall(r"^ *have _r(\d+)_(\d+) : \(term_(\d+) _atoms _vars _m\) = \(term_(\d+) _atoms _vars _m\)"
+                               r" := by unfold ([\w ]+); grind \(splits := 64\)$", block, re.M)
+            self.assertEqual(len(facts), block.count("have _r"))
+            proved = set()
+            for first, second, left, right, names in facts:
+                first, second = int(first), int(second)
+                self.assertEqual((first, second), (int(left), int(right)))
+                unfolded = [int(name.split("_")[1]) for name in names.split()]
+                self.assertEqual({node for node in unfolded if graph.kind(node) == z3.Z3_OP_ITE}, {first, second})
+                # The nested ites the level stops at are related by facts
+                # already proved, in the same lemma.
+                stops = {atom for node in (first, second) for atom in proof_to_lean._level_atoms(graph, node)
+                         if graph.kind(atom) == z3.Z3_OP_ITE and atom not in unfolded}
+                self.assertTrue(all(any(atom in pair for pair in proved) for atom in stops), (first, second, stops))
+                proved.add((first, second))
+            outer = re.findall(r"^ *unfold [\w ]+ at _r(\d+)_(\d+)$", block, re.M)
+            cleared = re.findall(r"^ *clear ((?:_r\d+_\d+ ?)+)$", block, re.M)
+            self.assertTrue(outer)
+            self.assertEqual(len(cleared), 1)
+            self.assertEqual({"_r%s_%s" % pair for pair in outer} | set(cleared[0].split()),
+                             {"_r%d_%d" % pair for pair in proved})
+            # Seven levels below each of the two arguments.
+            self.assertGreaterEqual(len(proved), 8)
+
+    def test_argument_equalities_unfold_their_own_terms(self):
+        # (f (abs x)) against the rewriter's (f (ite (<= 0 x) x (* -1 x))):
+        # an abs is an atom of its own linear form, and the level of the
+        # pair still unfolds it (the first version kept it folded, and grind
+        # failed); only x stays folded.
+        source = REAL_ABS_INPUTS["function"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        facts = set(re.findall(r"^ *have _r(\d+)_(\d+) : .* := by unfold ([\w ]+); grind", text, re.M))
+        self.assertEqual({graph.kind(int(first)) for first, _, _ in facts}, {z3.Z3_OP_ABS})
+        for first, second, names in facts:
+            self.assertTrue({"term_" + first, "term_" + second} <= set(names.split()), names)
+            unfolded = [int(name.split("_")[1]) for name in names.split()]
+            self.assertFalse([node for node in unfolded if graph.kind(node) == z3.Z3_OP_UNINTERPRETED], names)
+
+    def test_argument_equalities_unfold_ites_of_mixed_sorts(self):
+        # An Int ite under to_real and a Real ite share a key, but no
+        # equality of their own relates them: the level unfolds both, as it
+        # does an abs, instead of stating a fact over the two folded.
+        source = """
+(set-logic QF_UFLIRA)
+(declare-fun f (Real) Real)
+(declare-fun n () Int)
+(declare-fun y () Real)
+(assert (not (= (f (+ y (to_real (ite (<= n 0) n 0)))) (f (+ y (ite (<= n 0) (to_real n) 0.0))))))
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        facts = set(re.findall(r"^ *have _r(\d+)_(\d+) : .* := by unfold ([\w ]+); ", text, re.M))
+        mixed = 0
+        for first, second, names in facts:
+            unfolded = {int(name.split("_")[1]) for name in names.split() if name.startswith("term_")}
+            below = {atom for node in (first, second) for atom in proof_to_lean._level_atoms(graph, int(node))
+                     if graph.kind(atom) == z3.Z3_OP_ITE}
+            self.assertLessEqual(below, unfolded, (first, second, names))
+            mixed += len({graph.decl(node).range for node in below}) == 2
+        self.assertGreaterEqual(mixed, 1)
+
     def test_folded_scaled_facts_cast_int_atoms_to_rat(self):
         # In qf_lira a Real atom reaches Int terms through to_real; folded,
         # the scaled form casts their definitions, ((term_N ... : Int) : Rat).
@@ -987,6 +1066,14 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         # past 12 GB and was killed after 240 s. Depth 6 took 69 s at 4 GB.
         certificate, report = self.check(real_modular_chains_instance(8))
         self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_nested_ite_arguments_verify_level_by_level(self):
+        # With f's two arguments (eight nested steps each) unfolded entirely,
+        # the theory tactic of their equality ran out of heartbeats; depth 6
+        # took 31 s at 2.8 GB (see _argument_equality_levels).
+        certificate, report = self.check(real_modular_chains_instance(8, function=True))
+        self.assertEqual(certificate["fragment"], "qf_uflra")
         self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_folded_scaled_facts_over_int_casts_verify(self):

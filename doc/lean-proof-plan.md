@@ -2838,6 +2838,43 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Argument equalities proved level by level (2026-11-09)
+
+The 2026-11-08 argument equalities (`_r` facts) were proved with both
+arguments unfolded entirely. For two modular chains compared through `f`,
+the theory tactic then splits every nested ite on both sides at once, and
+at depth 8 (`real_modular_chains_instance(8, function=True)`, QF_UFLRA)
+grind ran out of heartbeats in `isDefEq`, so the file failed.
+
+The rewriter's normal form keeps the ites one by one, so two arguments
+with one key (`_real_argument_key`) have corresponding nested ites with one
+key each. `_argument_equality_levels` relates them bottom up: each pair of
+corresponding ites gets its own `have _rA_B : term_A = term_B`, proved
+with only its own level unfolded (its condition's sides and its branches
+down to their linear atoms). The ites below stay folded, related by the
+facts already proved. Every other atom of a level is the same node on both
+sides and stays folded too; an `abs` keyed with an ite, and ites of one
+key but different sorts (an Int ite under `to_real` against a Real ite),
+are unfolded with the level, as before. The outer facts are then unfolded
+in place as before, and the inner ones are cleared. (The mixed-sort case
+still fails in Lean, before and after: grind does not push the cast
+through the ite.)
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `real_modular_chains_instance(6, function=True)` | 30 s, 2.7 GB | 5 s, 0.85 GB |
+| `real_modular_chains_instance(8, function=True)` | fails (heartbeats) | 11 s, 1.3 GB |
+| `real_modular_chains_instance(10, function=True)` | fails (heartbeats) | 29 s, 2.0 GB |
+| `modular_chains_instance(8, function=True)` (QF_UFLIA) | 19 s, 3.2 GB | 4 s, 1.3 GB |
+| `modular_chains_instance(10, function=True)` | fails (heartbeats) | 13 s, 4.1 GB |
+
+Tests: `test_argument_equalities_are_proved_level_by_level` (the shapes,
+without Lean) and `test_nested_ite_arguments_verify_level_by_level` (the
+Lean check) in `test_proof_to_lean_arith.py`, with
+`test_argument_equalities_unfold_their_own_terms` and
+`test_argument_equalities_unfold_ites_of_mixed_sorts`. Certificates with arrays
+still state the equalities written out.
+
 ### Scaling facts and scaled gates stated over folded definitions (2026-11-09)
 
 The Real counterpart of the modular chains,
@@ -2875,9 +2912,10 @@ Tests in `test_proof_to_lean_arith.py`:
 `test_real_modular_chains_verify_through_folded_scaled_facts` (the Lean
 check); for QF_LIRA, where a folded Int atom is cast to Rat,
 `test_folded_scaled_facts_cast_int_atoms_to_rat` and
-`test_folded_scaled_facts_over_int_casts_verify`. Still open: at depth 8 with `function=True` the `_r` argument
-equality of the 2026-11-08 change below runs out of heartbeats in grind,
-which is given the nested ites unfolded.
+`test_folded_scaled_facts_over_int_casts_verify`. At depth 8 with
+`function=True` the `_r` argument equality of the 2026-11-08 change below
+ran out of heartbeats in grind, which was given the nested ites unfolded;
+closed by the level-by-level proof above.
 
 ### Argument equalities stated over folded definitions (2026-11-08)
 

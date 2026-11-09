@@ -446,6 +446,8 @@ class TestIntegerMixedValidation(unittest.TestCase):
         # normal form: over the two terms' definitions, proved after
         # unfolding them and unfolded in place. Written out, the a6 equality
         # was 106 KB of text, and its theory tactic ran out of heartbeats.
+        # The equalities of the nested steps come first, one level each
+        # (test_proof_to_lean_arith checks the levels in detail).
         source = modular_chains_instance(6, function=True)
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
@@ -455,6 +457,7 @@ class TestIntegerMixedValidation(unittest.TestCase):
         # How many arguments the rewriter normalizes is Z3's choice (two
         # today); the shape below is what every one of them must have.
         self.assertGreaterEqual(len(facts), 1)
+        top = 0
         for index in facts:
             fact = re.fullmatch(r" *have _r(\d+)_(\d+) : \(term_(\d+) _atoms _vars _m\) = \(term_(\d+) _atoms _vars _m\)"
                                 r" := by unfold ([\w ]+); first \| omega \| grind \(splits := 64\)", lines[index])
@@ -463,7 +466,12 @@ class TestIntegerMixedValidation(unittest.TestCase):
             self.assertEqual((first, second), (int(fact.group(3)), int(fact.group(4))))
             self.assertEqual(graph.kind(first), z3.Z3_OP_ITE)
             self.assertEqual(fact.group(5).split()[:1], ["term_%d" % max(first, second)])
-            self.assertEqual(lines[index + 1].strip(), "unfold %s at _r%d_%d" % (fact.group(5), first, second))
+            unfolded = [int(name.split("_")[1]) for name in fact.group(5).split()]
+            self.assertEqual({node for node in unfolded if graph.kind(node) == z3.Z3_OP_ITE}, {first, second})
+            outer = re.search(r"^ *unfold term_%d [\w ]+ at _r%d_%d$" % (max(first, second), first, second), text, re.M)
+            top += bool(outer)
+            self.assertTrue(outer or re.search(r"^ *clear .*\b_r%d_%d\b" % (first, second), text, re.M))
+        self.assertGreaterEqual(top, 1)
         self.assertLess(max(len(line) for line in lines), 20000)
 
     def test_same_branch_ite_gates_are_proved_by_cases(self):

@@ -4770,19 +4770,117 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
     106 KB for six steps), and the theory tactic ran out of heartbeats on
     the elaborated statement. With arrays (whose terms the unfold keeps
     folded, see _definition_names) the statement stays written out.
+
+    Folded, the equality is proved level by level (_argument_equality_levels):
+    first the equalities of the ites of one key nested in the two terms,
+    innermost first, each with only its own level unfolded and the ites
+    below it folded, then the terms' own. Unfolded entirely, two arguments
+    over eight nested Real ites ran the theory tactic out of heartbeats
+    (2^16 branch combinations); one level is at most four. The inner
+    equalities are cleared once the outer ones are proved.
     """
     helpers = []
-    for first, second in _real_argument_pairs(graph, reachable):
-        if graph.arrays:
+    pairs = _real_argument_pairs(graph, reachable)
+    if graph.arrays:
+        for first, second in pairs:
             helpers.append("  have _r%d_%d : %s = %s := by %s" % (
                 first, second, _inline(graph, first, atom_indices, variable_indices),
                 _inline(graph, second, atom_indices, variable_indices), _theory_tactic(graph)))
-            continue
+        return helpers
+    stated, seen = [], set()
+    for first, second in pairs:
+        for left, right, stops in _argument_equality_levels(graph, first, second):
+            if (left, right) in seen:
+                continue
+            seen.add((left, right))
+            stated.append((left, right))
+            names = _definition_names(graph, _reachable_outside(graph, left, stops)
+                                      | _reachable_outside(graph, right, stops))
+            helpers.append("  have _r%d_%d : %s = %s := by unfold %s; %s" % (
+                left, right, _term(graph, left), _term(graph, right), " ".join(names), _theory_tactic(graph)))
+    for first, second in pairs:
         names = " ".join(_definition_names(graph, _reachable(graph, first, second)[0]))
-        helpers.append("  have _r%d_%d : %s = %s := by unfold %s; %s" % (
-            first, second, _term(graph, first), _term(graph, second), names, _theory_tactic(graph)))
         helpers.append("  unfold %s at _r%d_%d" % (names, first, second))
+    top = set(pairs)
+    inner = ["_r%d_%d" % pair for pair in stated if pair not in top]
+    if inner:
+        helpers.append("  clear %s" % " ".join(inner))
     return helpers
+
+
+def _argument_equality_levels(graph, first, second):
+    """The equalities proving first = second level by level, innermost first: (left, right, stops) triples.
+
+    The atoms of one level are those of the linear forms of a term, or,
+    for an ite, of its condition's sides and its branches. Two terms with
+    one key (_real_argument_key) have, per atom key, the same coefficients,
+    and an atom keyed as an ite has one key with each ite of the other term
+    it stands for: those ites are related by equalities of their own,
+    proved the same way, before the level above, which then holds over its
+    atoms folded (stops: the atoms not unfolded). Every other atom has its
+    own node as key, the same node on both sides, and stays folded too. An
+    abs keyed with an ite, or ites of one key but different sorts (an Int
+    ite under to_real against a Real ite), are unfolded with the level, as
+    the whole terms were.
+    """
+    order, done, stops = [], set(), {}
+    pending = [(first, second, False)]
+    while pending:
+        left, right, expanded = pending.pop()
+        if (left, right) in done:
+            continue
+        if expanded:
+            done.add((left, right))
+            order.append((left, right, stops[(left, right)]))
+            continue
+        pending.append((left, right, True))
+        if (left, right) in stops:
+            continue
+        try:
+            level = _level_atoms(graph, left) | _level_atoms(graph, right)
+        except ReconstructionError:
+            stops[(left, right)] = set()
+            continue
+        groups = {}
+        for atom in sorted(level):
+            if graph.kind(atom) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS):
+                groups.setdefault(_real_atom_key(graph, atom), []).append(atom)
+        # The two terms themselves are unfolded, even when one is an atom of
+        # its own linear form (an application or a variable).
+        stop = set(level) - {left, right}
+        for members in groups.values():
+            if len(members) < 2:
+                continue
+            if all(graph.kind(member) == z3.Z3_OP_ITE for member in members) \
+                    and len({graph.decl(member).range for member in members}) == 1:
+                pending.extend((one, other, False) for one, other in zip(members, members[1:]))
+            else:
+                # An abs, or an Int ite under to_real keyed with a Real ite:
+                # no equality of their own relates them, so they are unfolded.
+                stop -= set(members)
+        stops[(left, right)] = stop
+    return order
+
+
+def _level_atoms(graph, node):
+    """The atoms of a term's linear form, for an abs of its argument's, for an ite of its condition and branches."""
+    atoms = {}
+    if graph.kind(node) == z3.Z3_OP_ABS:
+        _linear_term(graph, graph.arguments(node)[0], Fraction(1), atoms)
+        return set(atoms)
+    if graph.kind(node) != z3.Z3_OP_ITE:
+        _linear_term(graph, node, Fraction(1), atoms)
+        return set(atoms)
+    condition, then_branch, else_branch = graph.arguments(node)
+    while graph.kind(condition) == z3.Z3_OP_NOT:
+        condition = graph.arguments(condition)[0]
+    sides = graph.arguments(condition)
+    if (graph.kind(condition) not in _ARITH_PREDICATE_NAMES and graph.kind(condition) != z3.Z3_OP_EQ) \
+            or not all(graph.is_arith(side) for side in sides):
+        raise ReconstructionError("ite condition is not a linear arithmetic atom")
+    for term in (*sides, then_branch, else_branch):
+        _linear_term(graph, term, Fraction(1), atoms)
+    return set(atoms)
 
 
 def _real_argument_pairs(graph, reachable):

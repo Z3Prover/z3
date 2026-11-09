@@ -1007,7 +1007,9 @@ example (- x y) and (+ x (* (- 1.0) y)), which Z3 identifies, or an ite
 and the rewriter's form of it with the condition's complement and the
 branches swapped) as a helper it proves first; without arrays the helper is
 stated over the two terms' definitions and unfolded in place once proved, so
-nested ite arguments are not written out. A certificate whose only uninterpreted symbols are predicates
+nested ite arguments are not written out; it is proved level by level, each
+pair of corresponding nested ites related first with the ites below them
+folded. A certificate whose only uninterpreted symbols are predicates
 over Bool uses the same binders with no sort at all: _m.U carries the two
 Boolean values, _m.elems and _m.funs are never applied. Every ground term
 then denotes its value in the model, and since well-sorted inputs only

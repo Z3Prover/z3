@@ -357,11 +357,14 @@ class TestMixedValidation(unittest.TestCase):
                  for pair in pairs]
         self.assertTrue(any("(_vars 0) - (_vars 1)" in h and "* (_vars 1)" in h for h in sides), sides)
         self.assertTrue(any("((4 : Rat))" in h for h in sides), sides)
-        # Each stated over the two definitions, then unfolded in place.
+        # Each stated over the two definitions, then unfolded in place (no
+        # nested ites here, so no inner equalities to clear).
         helpers = proof_to_lean._real_argument_helpers(graph, reachable, atom_indices, variable_indices)
-        self.assertEqual([helper.split(" : ")[0].split()[-1] for helper in helpers[::2]],
+        self.assertEqual(len(helpers), 2 * len(pairs))
+        facts, unfolds = helpers[:len(pairs)], helpers[len(pairs):]
+        self.assertEqual([helper.split(" : ")[0].split()[-1] for helper in facts],
                          ["_r%d_%d" % pair for pair in pairs])
-        for (first, second), fact, unfold in zip(pairs, helpers[::2], helpers[1::2]):
+        for (first, second), fact, unfold in zip(pairs, facts, unfolds):
             self.assertIn(": %s = %s := by unfold " % (proof_to_lean._term(graph, first),
                                                         proof_to_lean._term(graph, second)), fact)
             self.assertTrue(unfold.endswith(" at _r%d_%d" % (first, second)), unfold)
