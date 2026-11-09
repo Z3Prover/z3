@@ -26,6 +26,7 @@ module LA = Z3LinearArithmeticAst
 module RL = Z3SortedReal
 module LIN = Z3SortedRealLinear
 module RO = Z3SortedRealOrder
+module RP = Z3SortedRealProduct
 module SI = Z3SortedInteger
 module DV = Z3SortedIntDivision
 module RX = Z3SortedRealExtension
@@ -1991,8 +1992,12 @@ let real_order (s:S.checked_schema) (node:U.proof_node) : bool =
   RL.real_primitive s
 
 (* The node kernels that read the Sorted Real laws. *)
+let real_product (s:S.checked_schema) (node:U.proof_node) : bool =
+  node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
+  RP.check s (propositions node.premises)
+
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
-  real_farkas s node || real_rewrite s node || real_order s node
+  real_farkas s node || real_rewrite s node || real_order s node || real_product s node
 
 (* A closed guarded Int div/mod clause (division_clause above), judged from the
    entry formula alone: no premise, rule label or payload is read. It is a
@@ -2162,7 +2167,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
       arithmetic_farkas node || real_farkas s node || quantifier_instantiation node || quantifier_flattening node ||
-      lemma_step node || real_rewrite s node || real_order s node || division_order node ||
+      lemma_step node || real_rewrite s node || real_order s node || real_product s node || division_order node ||
       nnf = NR.Replayed ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
@@ -2377,6 +2382,12 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | _ -> ()))
     else if real_rewrite s node then lemma_real_rewrite s bc eq other node
     else if real_order s node then lemma_real_order s bc eq other node
+    else if real_product s node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        FStar.Classical.exists_elim False
+          #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+          (fun reals -> RP.lemma_check s bc eq other reals (propositions node.premises))))
     else if division_order node then lemma_division_order s bc eq other node
     else if quantifier_instantiation node then (
       match node.kind, node.conclusion with
@@ -2527,11 +2538,15 @@ let real_rule (r:U.rule) : bool = U.ArithmeticFarkas? r || r = U.RewriteRule
    Real laws for exactly those). *)
 let real_order_entry (e:P.entry) : bool = order_rule e.P.rule && real_order_clause e.P.formula
 
+let real_product_entry (e:P.entry) : bool =
+  e.P.rule = U.Unverified "th-lemma" && e.P.formula = R.false_expr
+
 let rec needs_real_semantics (s:S.checked_schema) (entries:list P.entry) : Tot bool (decreases entries) =
   match entries with
   | [] -> false
   | e :: rest ->
-    (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e)) || needs_real_semantics s rest
+    (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e)) ||
+    needs_real_semantics s rest
 
 (* An entry whose formula is a guarded Int div/mod clause (division_order reads
    the division laws for exactly those). *)
@@ -2552,13 +2567,13 @@ let rec lemma_needs_real_primitive (s:S.checked_schema) (entries:list P.entry)
   match entries with
   | [] -> ()
   | e :: rest ->
-    if not (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e))
+    if not (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e))
     then lemma_needs_real_primitive s rest
 
 let lemma_real_node_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
                           (node:U.proof_node)
   : Lemma (requires prepare_entry s cache e == Some node /\ real_node s node)
-          (ensures RL.real_primitive s /\ (real_rule e.P.rule \/ real_order_entry e)) = ()
+          (ensures RL.real_primitive s /\ (real_rule e.P.rule \/ real_order_entry e \/ real_product_entry e)) = ()
 
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))

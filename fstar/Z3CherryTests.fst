@@ -10,6 +10,8 @@ module N = Z3Native
 module NP = Z3NativeProof
 module LP = Z3LpCertificate
 module L = FStar.List.Tot
+module RP = Z3SortedRealProduct
+module RL = Z3SortedReal
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -471,6 +473,36 @@ let real_farkas_document (a b:A.expr) (ids:list int) (cs:list Z3LinearArithmetic
                    { P.rule = U.ArithmeticFarkas cs; P.formula = R.false_expr; P.premise_ids = ids }];
       P.root = 2 };
     C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let real_product_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let document a b c d : C.marshaled =
+    { C.document = {
+        P.declarations = []; P.expressions = []; P.assertions = [a; b; c; d];
+        P.entries = [{ P.rule = U.Asserted; P.formula = a; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = b; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = c; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = d; P.premise_ids = [] };
+                     { P.rule = U.Unverified "th-lemma"; P.formula = R.false_expr;
+                       P.premise_ids = [0; 1; 2; 3] }];
+        P.root = 4 };
+      C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } } in
+  let check a b d = C.check true (document (ge z RP.zero) a b d) in
+  let bound = le (mul x y) RP.zero in
+  let indirect = R.mk_not_expr
+    (ge (A.App RL.real_plus_decl [z; mul (A.App (RL.real_numeral_decl (-1) 1) []) x]) RP.zero) in
+  let good = document (ge z RP.zero) indirect (RP.positive y) bound in
+  check (RP.positive x) (RP.positive y) bound = Some 0 &&
+  check indirect (R.mk_not_expr (le y RP.zero)) bound = Some 0 &&
+  check (ge x RP.zero) (RP.positive y) bound = Some 1 &&
+  check (RP.positive x) (ge y RP.zero) bound = Some 1 &&
+  check (RP.positive x) (RP.positive y) (le (mul x z) RP.zero) = Some 1 &&
+  C.check true { good with C.document = { good.document with P.assertions = [] } } = None
 
 let real_farkas_controls () : bool =
   let x = real_constant "x" [] in
@@ -1270,6 +1302,7 @@ let run () : bool =
   qi_regroup_scale () &&
   qi_ite_scale () &&
   real_farkas_controls () &&
+  real_product_controls () &&
   real_order_controls () &&
   real_equation_controls () &&
   int_division_controls () &&

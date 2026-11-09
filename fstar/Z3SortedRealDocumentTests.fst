@@ -62,6 +62,22 @@ let farkas_pair (a b:expr) (cs:list Z3LinearArithmeticAst.coefficient) : P.docum
 
 let one : Z3LinearArithmeticAst.coefficient = (1, 1)
 
+let product_document : P.document =
+  let a = gt c rzero in
+  let b = gt d rzero in
+  let bound = le (App RL.real_times_decl [c; d]) rzero in
+  doc [a; b; bound]
+    [entry U.Asserted a []; entry U.Asserted b []; entry U.Asserted bound [];
+     entry (U.Unverified "th-lemma") R.false_expr [0; 1; 2]] 3
+
+let positive_product_read_view ()
+  : Lemma (SP.check_document_epsilon PT.core_schema product_document == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema product_document == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view product_document) == Some 0) =
+  assert_norm (SP.check_document_epsilon PT.core_schema product_document == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema product_document == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view product_document) == Some 0)
+
 let falsified (u:TR.uninterpreted) (sch:S.checked_schema) (dc:P.document) (i:TR.interp u sch) : prop =
   RD.typed_assertions dc.P.assertions /\ not (RD.root_truths u sch i dc.P.assertions)
 

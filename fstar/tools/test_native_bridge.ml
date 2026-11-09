@@ -3147,6 +3147,51 @@ let sorted_real_farkas () =
   require (K.check_document_epsilon schema doc = Some Z.zero)
     "the producer's Real Farkas refutation was not certified on the Sorted route"
 
+let sorted_real_positive_products () =
+  let module K = Z3SortedProof in
+  let module RP = Z3SortedRealProduct in
+  let module R = Z3ResolutionProofTheory in
+  let check expected source =
+    let c = context () in
+    let native = parse c (source ^ "(assert false)") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let formulas = List.map (B.cached_expression st) native in
+    let facts = List.filter (fun e -> e <> R.false_expr) formulas in
+    let entries = List.map (fun formula ->
+        { P.rule = U.Asserted; formula; premise_ids = [] }) facts in
+    let final = { P.rule = U.Unverified "th-lemma"; formula = R.false_expr;
+                  premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions = facts; entries = entries @ [final]; root = Z.of_int (List.length facts) } in
+    require (RP.check schema facts = expected) "unexpected Real positive-product verdict";
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "Real positive-product document did not preserve its pending count";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "Real positive-product document accepted missing assertions";
+      let premise formula = { U.conclusion = U.Holds formula; hypotheses = [List.hd facts] } in
+      let node = { U.kind = final.P.rule; conclusion = U.Holds R.false_expr;
+                   premises = List.map premise facts } in
+      match K.check_node schema [] node with
+      | Some (fact, pending) ->
+        require (Z.equal pending Z.zero && fact.U.hypotheses = [List.hd facts])
+          "Real positive-product checking dropped a premise hypothesis"
+      | None -> failwith "Real positive-product node was rejected")
+  in
+  let declarations = "(declare-const x Real)(declare-const y Real)(declare-const c Real)" in
+  check true (declarations ^
+    "(assert (> x 0))(assert (> y 0))(assert (<= (* x y) 0))");
+  check true (declarations ^
+    "(assert (>= c 0))(assert (not (>= (+ c (* (- 1) x)) 0)))\
+     (assert (not (<= y 0)))(assert (<= (* x y) 0))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (> y 0))(assert (<= (* x y) 0))");
+  check false (declarations ^
+    "(assert (> x 0))(assert (>= y 0))(assert (<= (* x y) 0))");
+  check false (declarations ^
+    "(assert (> x 0))(assert (> y 0))(assert (<= (* x c) 0))")
+
 (* Real equality/order clauses (Z3SortedProof.real_order, the Real mirror of the Int order_clause)
    on the Sorted route. z3's arith_eq_adapter lemmas over Real terms (`not (x = y) \/ x <= y`, the
    three-literal `(x = y) \/ not (x <= y) \/ not (y <= x)` and their difference forms) are certified
@@ -8188,6 +8233,7 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-real-Farkas", sorted_real_farkas;
+     "sorted-real-positive-products", sorted_real_positive_products;
      "sorted-real-order-clauses", sorted_real_order_clauses;
      "sorted-int-division-clauses", sorted_int_division_clauses;
      "sorted-real-equation-rewrites", sorted_real_equation_rewrites;

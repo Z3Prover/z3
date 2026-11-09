@@ -276,6 +276,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    closed Real order clauses (SP.real_order) read only the entry formula (any
    rule but the leaves and the lemma rule), whose terms are covered below. The read
    view KEEPS the Farkas coefficients, the RewriteRule, ElimUnused and DestructiveEquality labels,
+   the th-lemma label used by the Real product kernel,
    the binder certificates and the Skolemization label (erasing them would
    change the decision); lemma_document_read_view proves that the decision
    equals the decision on the read view, which drops the
@@ -294,7 +295,7 @@ let lemma_root_check_document (u:TR.uninterpreted) (sch:S.checked_schema) (i:TR.
    restricts which certified documents are read as SMT queries; it is not
    used by the abstract root-class falsity proof. *)
 let rule_shape (r:U.rule) : U.rule =
-  match r with
+  if r = U.Unverified "th-lemma" then r else match r with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
   | U.ArithmeticFarkas _ | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> r
@@ -310,7 +311,7 @@ let read_view (doc:P.document) : P.document = {
 let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : Lemma (SP.check_node_cached s assertions node ==
            SP.check_node_cached s assertions ({ node with U.kind = rule_shape node.U.kind })) =
-  match node.U.kind with
+  if node.U.kind = U.Unverified "th-lemma" then () else match node.U.kind with
   | U.Asserted | U.Hypothesis | U.LemmaRule | U.PullQuantifier | U.QuantifierInstantiation _
   | U.ArithmeticFarkas _ | U.RewriteRule | U.ElimUnused | U.DestructiveEquality | U.Skolemization
   | U.QuantifierIntroduction _ -> ()
@@ -319,6 +320,10 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
     assert (not (SP.arithmetic_farkas node) /\ not (SP.arithmetic_farkas node'));
     assert (not (SP.real_farkas s node) /\ not (SP.real_farkas s node'));
     assert (not (SP.real_rewrite s node) /\ not (SP.real_rewrite s node'));
+    assert (not (SP.real_product s node) /\ not (SP.real_product s node'));
+    assert (SP.real_order s node == SP.real_order s node');
+    assert (SP.division_order node == SP.division_order node');
+    assert (SP.nnf_verdict s assertions node == SP.nnf_verdict s assertions node');
     assert (not (SP.ite_rewrite node) /\ not (SP.ite_rewrite node'));
     assert (not (SP.product_rewrite node) /\ not (SP.product_rewrite node'));
     assert (not (SP.unused_elimination node) /\ not (SP.unused_elimination node'));
