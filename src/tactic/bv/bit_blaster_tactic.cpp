@@ -52,11 +52,6 @@ class bit_blaster_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result) {
-            bool proofs_enabled = g->proofs_enabled();
-
-            if (proofs_enabled && m_blast_quant)
-                throw tactic_exception("quantified variable blasting does not support proof generation");
-            
             tactic_report report("bit-blast", *g);
             
             TRACE(before_bit_blaster, g->display(tout););
@@ -73,10 +68,6 @@ class bit_blaster_tactic : public tactic {
                 expr * curr = g->form(idx);
                 (*m_rewriter)(curr, new_curr, new_pr);
                 m_num_steps += m_rewriter->get_num_steps();
-                if (proofs_enabled) {
-                    proof * pr = g->pr(idx);
-                    new_pr     = m().mk_modus_ponens(pr, new_pr);
-                }
                 if (curr != new_curr) {
                     change = true;                    
                     TRACE(bit_blaster, tout << mk_pp(curr, m()) << " -> " << new_curr << "\n";);

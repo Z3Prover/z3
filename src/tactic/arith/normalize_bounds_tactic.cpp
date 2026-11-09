@@ -79,7 +79,6 @@ class normalize_bounds_tactic : public tactic {
         
         void operator()(goal_ref const & in, goal_ref_buffer & result) {
             bool produce_models = in->models_enabled();
-            bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
          
             for (unsigned i = 0; i < in->size(); ++i)
@@ -123,10 +122,6 @@ class normalize_bounds_tactic : public tactic {
                 expr * curr = in->form(idx);
                 proof_ref  new_pr(m);
                 m_rw(curr, new_curr, new_pr);
-                if (produce_proofs) {
-                    proof * pr = in->pr(idx);
-                    new_pr     = m.mk_modus_ponens(pr, new_pr);
-                }
                 in->update(idx, new_curr, new_pr, in->dep(idx));
             }
             TRACE(normalize_bounds_tactic, in->display(tout););

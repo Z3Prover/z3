@@ -41,7 +41,6 @@ class fpa2bv_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result) {
-            bool proofs_enabled      = g->proofs_enabled();
             result.reset();
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
@@ -63,10 +62,6 @@ class fpa2bv_tactic : public tactic {
                 expr * curr = g->form(idx);
                 m_rw(curr, new_curr, new_pr);
                 m_num_steps += m_rw.get_num_steps();
-                if (proofs_enabled) {
-                    proof * pr = g->pr(idx);
-                    new_pr     = m.mk_modus_ponens(pr, new_pr);
-                }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
 
                 if (is_app(new_curr)) {
@@ -92,10 +87,7 @@ class fpa2bv_tactic : public tactic {
             result.push_back(g.get());
 
             for (expr* e : m_conv.m_extra_assertions) {
-                proof* pr = nullptr;
-                if (proofs_enabled)
-                    pr = m.mk_asserted(e);
-                result.back()->assert_expr(e, pr);
+                result.back()->assert_expr(e);
             }                
 
             TRACE(fpa2bv, g->display(tout << "AFTER:\n");

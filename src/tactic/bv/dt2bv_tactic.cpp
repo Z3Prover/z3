@@ -121,7 +121,6 @@ public:
             result.push_back(g.get());
             return;
         }
-        bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();
         expr_fast_mark1 visited;
@@ -139,10 +138,6 @@ public:
             proof_ref  new_pr(m);
             for (unsigned idx = 0; idx < size; ++idx) {
                 rw(g->form(idx), new_curr, new_pr);
-                if (produce_proofs) {
-                    proof * pr = g->pr(idx);
-                    new_pr = m.mk_modus_ponens(pr, new_pr);
-                }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
             expr_ref_vector bounds(m);
