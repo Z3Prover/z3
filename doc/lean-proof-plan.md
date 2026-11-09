@@ -1096,6 +1096,75 @@ too (kept verbatim as `CONFIGURED_INPUTS` in the test modules); `3282.smt2`
 stays rejected for `rewriter.flat`, `3626.smt2` for
 `combined_solver.ignore_solver1`, and `3732.smt2` for its second query.
 
+**Commands that only print, define-const, and exit (2026-11-07).** A rescan
+of the 959 `regressions/smt2` inputs (the export classification of every
+query, with the reason for each rejection) found 35 unsat queries in the
+certified fragments, all of which export and verify in Lean, and frontend
+rejections for commands that do not touch the assertion stack: `simplify`
+(43 files), `apply` (25), `get-value` (16), `eval` (11), `display` (6),
+`get-assertions`, commands after `exit` (14), `define-const`, the debug
+option `:trace` (12), and `:global-decls false` (Z3's default). The
+exporter now drops the printing commands (`_OUTPUT_COMMANDS`) unless one
+contains a `:named` label: Z3 keeps the label even when the command fails,
+and a later `define-fun` of the same name is then an error in Z3 but the
+definition in the snapshot, so dropping it could certify a script that Z3
+answers sat. It reads `define-const` as a definition, ends the
+script at `exit` without reading further (Z3's parser throws
+`stop_parser_exception` there, so text after it need not even parse),
+ignores `trace`/`trace_file_name`, and accepts `:global-decls` and
+`:global-declarations` with `false` only. Four more unsat queries verify
+through the clause log: `abs.smt2`, `t119.smt2` (no check-sat, so the
+certified statement is that its final state, after two resets and with
+`apply` between assertions, is unsat), `3570.smt2` (a
+unary `+` and a chained `<`), and `z3.29.smt2` query 1
+(`OUTPUT_COMMAND_INPUTS`). Still rejected: `minimize`, `maximize`,
+`assert-soft` and `:opt.*` options (they change what check-sat answers),
+`get-consequences` (a query of its own), `include`, `:error-behavior`, and
+`:global-decls true`; the other newly parsed files are satisfiable or
+leave the fragments (quantifiers, nonlinear arithmetic, strings). (Since
+2026-11-07 the optimization commands are accepted; see the next note.)
+
+**Optimization commands; distincts of Booleans (2026-11-07).** With a soft
+assertion or an objective in scope, Z3's `check-sat` runs the optimization
+context with the assertions and assumptions as hard constraints
+(`cmd_context::check_sat`), and its first check of them is the unsat
+answer (`opt::context::optimize`). The exporter now drops `assert-soft`,
+`minimize`, `maximize`, and `get-objectives` like the output commands
+(`:named` inside one is rejected) and ignores the `opt.*` options, so the
+certificate states that the hard assertions are contradictory. A later
+unsat that only reports an exhausted Pareto front or box (hard constraints
+satisfiable) gets no certificate: the exporter's own solver answers sat
+(tested). Of the 90 z3test files with optimization commands, the frontend
+rejects 9 now (input-reading or unknown options), and the two unsat
+queries in the fragments, `3402.smt2` and `3524.smt2` (QF_LIA with
+`assert-soft`), verify (`OPTIMIZATION_INPUTS`). `3524` also needed a Lean
+change: its rewrite folds distincts of 8 and 13 Booleans, false by
+pigeonhole, and `omega`, tried before `grind` over Int, ran out of
+heartbeats on their unfolded pairs (a heartbeat timeout escapes `first`).
+Each distinct of three or more Booleans a grind lemma reaches is now
+stated false from its first three arguments' pairs (`_bool_distinct3`,
+`_boolean_distinct_facts`) and rewritten away by a pre-order `simp only`
+before the tactic, also in the attempt that first generalizes div, mod,
+and abs atoms (the facts then name them); the minimized QF_LIA input took
+80 s and failed, its variant over mod atoms 66 s, both now 1 s
+(`test_distincts_of_three_or_more_booleans_are_false`).
+
+**One-argument `+`, `*`, and `distinct` in the clause log (2026-11-07).**
+Z3's parser keeps `(+ t)`, `(* t)`, and `(distinct t)` as applications of
+one argument. Once an assertion folds to false, sat.smt logs an empty
+`(assume)` and then the later assertions unsimplified, so these terms reach
+the clause-log replay, which rejected them ("unsupported operator in the
+clause log": 8 of 89 unsat inputs of a random QF_LIA generator with Boolean
+structure, and LRA, LIRA, UFLIA, array, and UF variants). The replay now
+rebuilds them through the API with one argument (`_ONE_ARGUMENT_HEADS`),
+which yields the input's own terms; the certificate and Lean already
+handled them, since the assertions come from the input. A zero-argument sum
+or a sum of a Boolean is still rejected. Division by a zero numeral in such
+a tail stays rejected by the fragment check. Tests:
+`test_one_argument_sums_products_and_distincts_after_a_false_assertion` in
+`test_proof_certificate.py` and its Lean counterpart in
+`test_proof_to_lean_arith.py` (`ONE_ARGUMENT_INPUTS`).
+
 **Integer input through the legacy proof object (2026-10-16).** `--core
 legacy` rejected `qf_lia` and `qf_uflia` ("certified through the clause log
 only") because theory_lra's integer steps were not inventoried. A probe over
@@ -1603,6 +1672,118 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### cnf lemmas searched again over an unsat core (2026-11-07)
+
+QF_IDL `planning/plan-21` is one assertion with a disjunction of cases per
+time step. One of its 33 cnf lemmas ties a clause Z3 derived from one step
+to the assertion. `_PropositionalProver` split the true disjunction with
+the fewest open disjuncts, earliest first, so it went through the cases of
+about fifty earlier steps (about 150 propagation steps each) and ran out of
+its budget (also at 20 times the budget). The unfolded fallback then failed
+in Lean (`grind`: `simp` step limit).
+
+When the search of a cnf lemma gives up, `_cnf_lemma` now asks z3 for an
+unsat core of the propositional abstraction: every gate's definition under
+a guard of its own (`_relevant_structures`). z3 is an untrusted oracle
+here, and Lean checks the proof as before. The search is then repeated over
+the gates in the core. Only those propagate and are split, and the gates
+outside the core that feed them are split like atoms. On plan-21 the core
+has 360 of 5,649 gates (0.24 s of z3, 0.4 million rlimit; minimizing the
+core gave the same 360 at a hundred times the cost), and the lemma is proved
+with two case splits and 18 KB of proof.
+
+plan-21 as a whole still fails: its 33 MB Lean file peaks at 8.6 GB and
+hits kernel memory errors in outlined proof steps. RTCL `tf_20`/`tf_30`
+are unchanged: their cores have about 3,000 gates, and the search over
+them still runs out of budget. That retry is not free: on `tf_20` the core
+(3,123 of 12,943 gates, 0.6 s) and the second search raise reconstruction
+from 0.7 s to 5.4 s for identical output. The cores that help are smaller
+(plan-21 6%, the FISCHER6-4 lemmas under a 25,000-character budget 7%,
+against 24% for `tf_20`), but three inputs are too few to pick a core-size
+cutoff, so bounding the second search is left open.
+
+### Propositional proofs keep the steps they use and drop unused splits (2026-11-07)
+
+A first Lean status of z3test's `smtlib-sample` QF_IDL files (the files of
+at most 160 KB) found 6 of 17 verified and 5 failing in Lean on
+heartbeats or memory (`DTP_k2_n35`, `plan-21`, and three RTCL circuits).
+The other 6 exceed Z3's 20 s limit (4) or the replay's 120 s limit (2,
+`qlock`). The three RTCL
+`ckt_PROP*_tf_*` circuits failed the same way. A cnf lemma ties a clause
+Z3 derived from an ite chain (9, 19, or 30 cases) to the one assertion. The
+search of `_PropositionalProver` gave up on it, and the unfolded fallback
+ran out of heartbeats. The search split atoms in order of how many gates
+read them, and on `tf_10` it went 31 atoms deep. It exhausted its
+character budget on splits whose two branches both closed by facts found
+before the split. `_prove` now tracks which `have` names each proof uses
+(`_needed_lines`). A branch whose proof does not use its hypothesis proves
+the goal before the split, so the split and its other branches are dropped
+(backjumping). Every proof also keeps only the steps it uses.
+
+Results:
+
+- `tf_10` (now `examples/python/data/QF_IDL_ckt_PROP1_tf_10.smt2`) verifies
+  in 3 s at 1 GB.
+- BubbleSort's cnf proof shrinks from about ten thousand steps to 853, and
+  the file checks in 9 s at 1.8 GB (about a minute at 4.5 GB before).
+
+Still open: `tf_20` and `tf_30` keep the fallback. Their search explodes
+even with 100 times the budget. Restricting the search to the gates of a
+z3 unsat core (about 2,600 of 13,000) did not help, nor did other split
+orders. The search seems to need clause learning or proof guidance from
+a SAT solver's refutation.
+
+### Distincts over the same terms in other orders (2026-11-07)
+
+`(distinct c0 ... c11)` with `(not (distinct c11 ... c0))` over Int exported
+but failed Lean: Z3's rewriter sorts a distinct's arguments, so the two
+assertions simplify to false before the log, and the exporter's cnf lemma
+tying them had the two distincts as unrelated opaque leaves (the second has
+no pair node of its order), so it went to omega over the unfolded pairs and
+ran out of heartbeats from twelve arguments (33 arguments, iter-090's
+repro, likewise). A distinct now becomes its pairs also when a pair is
+logged the other way round or another distinct ranges over the same terms
+(`_distinct_pair_leaves`, `distinct_term_sets`), and a synthetic pair leaf
+`(a = b)` is bridged by `eq_comm` to the node `(= b a)` or the synthetic
+leaf `(b, a)` of the other distinct (`_leaf_bridges`), so the propagation
+proof covers it. Twelve and 33 Int terms, and 33 over U, check in 2 to 4 s
+with the fallback dropped (`test_reordered_distincts_verify_by_propagation`
+in `test_proof_to_lean_lia.py`,
+`test_reordered_distincts_verify_by_propagation_alone` in
+`test_proof_to_lean_uf.py`).
+The cost grows faster than the bridges: 60 reversed Int terms (1770
+bridges) took about 32 s with or without the fallback, so a reordered
+distinct of about a hundred terms may reach the heartbeat limit; no size
+cap guards it. The criterion is global to the certificate (a distinct
+expands in every cnf lemma once another distinct over its terms exists
+anywhere), as the pair-node criterion is; a per-clause criterion would
+spare the prover the unbridged pairs.
+
+### Negated distincts whose every pair is refuted (2026-11-07)
+
+A negated distinct of 30 or 40 Int terms pinned to distinct values (435 or
+780 pairs, each refuted by the proof) exported but failed Lean on three
+counts. The rewrite of `(not (distinct ...))` into the disjunction of its
+pairs went to grind over the unfolded sides and ran out of heartbeats; it
+is now proved by one De Morgan step per pair
+(`_negated_distinct_rewrite`: `Classical.not_and_iff_not_or_not`,
+`Classical.not_not`, `eq_comm` for a pair written the other way round),
+any other shape still goes to grind. The `lemma` steps discharging the
+pairs' hypotheses projected each literal from the negated clause with its
+own `Or.inr` chain, quadratic in the clause width (a 2.7 MB line); over a
+clause wider than 32 literals they now start from tails of the negated
+clause let-bound every 32 literals. And a step with hundreds of premises or
+clause literals elaborated about ten times slower inside a 500-step outlined
+chunk than alone, so outlining counts a step wider than 64 by its width
+(`_outline_weight`). The 40-term input now checks in about 8 s
+(`test_negated_wide_distincts_verify`, `test_proof_to_lean_lia.py`). Z3's
+rewriter writes every pair `(= ai aj)`, so the `eq_comm` congruence is
+checked on a certificate with reversed pairs
+(`test_negated_distinct_rewrites_of_reversed_pairs_verify`); a
+33-term strict order chain checks in 90 s, and 34 terms over U with distinct
+f-images in 150 s (12.8 MB of Lean, mostly many small lemmas), neither in
+CI.
+
 ### Distincts of more than 32 terms (2026-11-07)
 
 Every input with a root `distinct` of more than 32 arguments, in any
@@ -1624,7 +1805,8 @@ second. Tests: `test_wide_distincts_are_clausified_pairwise_under_proofs`
 (`test_proof_certificate.py`), `test_cnf_lemmas_project_the_logged_pairs_of_a_wide_distinct`
 and `test_wide_distincts_verify_through_their_logged_pairs`
 (`test_proof_to_lean_lia.py`), `test_distincts_of_more_than_32_terms_verify`
-(`test_proof_to_lean_uf.py`). Still open: a negated wide distinct whose
+(`test_proof_to_lean_uf.py`). Still open then (done since, see "Negated
+distincts whose every pair is refuted"): a negated wide distinct whose
 every pair the proof refutes exports, but its Lean text is quadratic (528
 pairs under a strict order give 25 MB; the 528-literal clause is projected
 by `Or.inr` chains, and over Int the rewrite of the negated distinct into
@@ -2655,6 +2837,292 @@ now when the replay frontend exits inside a log instead of ending the
 binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
+
+### is_int of nested Real chains related to its normal form (2026-11-09)
+
+The rewriter's normal form of `(is_int t)` is `(= (to_real (to_int t'))
+t')`, with `t'` the normal form of `t`: another node when `t` is a nested
+Real ite chain. Only numeric arguments of uninterpreted applications got
+`_r` equalities, so nothing related `t` and `t'`, and the grind lemma
+relating the two formulas split both chains. `is_int` of two chains of
+six nested Real ites failed on the clause log, compared directly (QF_LIRA,
+grind failed after 47 s) or under a predicate `p` (QF_UFLIRA, 55 s). Now
+`_real_argument_pairs` also groups the terms each reachable formula floors
+(`_floored_terms`: an `is_int`'s argument, the arguments of the `to_int`
+atoms of a comparison's sides), and `_real_argument_helpers` runs for any
+arithmetic certificate with a `to_int` or `is_int`, not only for those
+with uninterpreted symbols. The chains' equality is proved level by
+level, and grind relates the formulas by congruence: 10 s and 7 s at
+depth 6, 15 s at depth 8. The legacy core already passed and is mostly
+unchanged. Tests: `test_is_int_of_nested_real_chains_is_related_to_its_normal_form`
+(without Lean) and `test_is_int_of_nested_real_chains_verifies` (both
+cores, Lean). `div`/`mod` by a numeral of nested Int chains (under `f` or
+compared directly) already pass at depth 6 on both cores.
+
+### Floors keyed by their argument's normal form (2026-11-09)
+
+`to_int` atoms were keyed by node in `_real_atom_key`, so the floor of a
+nested Real ite chain and the floor of the rewriter's normal form of that
+chain (a different node) had different keys. No `_r` argument equality
+related `(f (to_int a8))` and its rewritten form. The rewrite's grind
+fallback ran out of heartbeats in `isDefEq` over the unfolded chains
+(QF_UFLIRA, depth 8; depth 6 took 47 s and 3.7 GB). A `to_int` is now
+keyed by its argument's key. Its level in `_argument_equality_levels` is
+its argument's linear form, and two floors of one key get their own
+equality, proved with only the two floors unfolded, by congruence from
+the equality of the floored chains (which is stated first, level by
+level). `_atom_bridge_facts` now also bridges such floors.
+`cast_chains_instance(depth, "floor")`, clause log: depth 6 now takes 6 s
+and 0.9 GB, depth 8 14 s and 1.3 GB, depth 10 40 s and 1.7 GB. The legacy
+core relates the floors by `congrArg` and is unchanged (depth 8: 15 s).
+Tests: `test_floors_of_nested_real_chains_are_related_level_by_level`
+(without Lean) and the `floor` case of
+`test_nested_ite_chains_verify_through_folded_facts` (both cores, Lean).
+
+Keying a floor recurses into its argument, so keying a floor of a nested
+chain took about 3^depth calls (as keying an ite argument already did),
+and the keys themselves, nested tuples, grew as fast, with every
+comparison, hash, and `repr` order paying for it. `_real_argument_key` and
+`_real_atom_key` are now cached per graph, and the key of an ite, `abs`, or
+`to_int` is interned (`_InternedKey`, compared by identity, ordered by a
+short index), so keying is linear in the depth. `reconstruct` of
+`cast_chains_instance(16, "floor")` went from over 120 s to 0.3 s, and of
+`(= n (to_int a16))` against `(> n (+ (to_int a16) 1))` from over 300 s
+to under 0.1 s. Outputs are byte-identical on 282 test inputs with an
+ite, `abs`, or `to_int` (both cores). Test:
+`test_keys_of_nested_chains_are_linear_in_depth` (without Lean).
+
+### Cast, integrality, and Boolean-argument facts stated over folded definitions (2026-11-09)
+
+The cast facts of a lemma reaching `to_real` or `to_int` (`_c`: an Int atom
+transported into Rat; `_f`/`_u`: the floor bounds; `_r`/`_q`: a Real atom
+over Int terms tied to an Int atom) and the excluded middles of Boolean
+arguments of uninterpreted functions (`_b`) were still written out after the
+lemma's unfold. Over nested ites every such fact repeats each inner ite in
+full, as the ite gates did before 2026-11-08. They are now stated over the
+term and formula definitions, folded, and reverted with the ite gates
+before the lemma's one unfold, which rewrites them into the goal's terms
+(the integrality fact is proved with its atom unfolded down to the Int terms
+of its form). Certificates with arrays keep the written-out form, whose
+terms the unfold leaves folded.
+
+`cast_chains_instance(8, ...)` in `test_proof_to_lean_lira.py` compares two
+chains of eight nested Int ites with one value (clause log):
+
+| Compare | Fragment | Before | Now |
+| --- | --- | --- | --- |
+| casts against a Real `y` | QF_LIRA | 15.6 MB, fails (kernel memory, 218 s, 11.2 GB) | 0.92 MB, 20 s, 3.1 GB |
+| Real `f` of the casts | QF_UFLIRA | 16.0 MB (not checked) | 0.89 MB, 9 s, 1.8 GB |
+| Bool `p` of a bound on each | QF_UFLIA | 8.2 MB, fails (heartbeats, 168 s) | 0.94 MB, 10 s, 1.5 GB |
+
+On the legacy core the QF_LIRA text goes from 23.9 MB to 1.6 MB (9 s).
+Tests: `test_facts_over_nested_ites_are_stated_folded` (shapes, without
+Lean) and `test_nested_ite_chains_verify_through_folded_facts` (both cores,
+Lean). Still open: `to_int` of a Real chain under `f` (QF_UFLIRA, depth 8)
+fails in a rewrite's grind fallback (heartbeats in `isDefEq`); the
+rewriter's normal form of the floored chain needs an equality grind does not
+find.
+
+### Argument equalities proved level by level (2026-11-09)
+
+The 2026-11-08 argument equalities (`_r` facts) were proved with both
+arguments unfolded entirely. For two modular chains compared through `f`,
+the theory tactic then splits every nested ite on both sides at once, and
+at depth 8 (`real_modular_chains_instance(8, function=True)`, QF_UFLRA)
+grind ran out of heartbeats in `isDefEq`, so the file failed.
+
+The rewriter's normal form keeps the ites one by one, so two arguments
+with one key (`_real_argument_key`) have corresponding nested ites with one
+key each. `_argument_equality_levels` relates them bottom up: each pair of
+corresponding ites gets its own `have _rA_B : term_A = term_B`, proved
+with only its own level unfolded (its condition's sides and its branches
+down to their linear atoms). The ites below stay folded, related by the
+facts already proved. Every other atom of a level is the same node on both
+sides and stays folded too; an `abs` keyed with an ite, and ites of one
+key but different sorts (an Int ite under `to_real` against a Real ite),
+are unfolded with the level, as before. The outer facts are then unfolded
+in place as before, and the inner ones are cleared. (The mixed-sort case
+still fails in Lean, before and after: grind does not push the cast
+through the ite.)
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `real_modular_chains_instance(6, function=True)` | 30 s, 2.7 GB | 5 s, 0.85 GB |
+| `real_modular_chains_instance(8, function=True)` | fails (heartbeats) | 11 s, 1.3 GB |
+| `real_modular_chains_instance(10, function=True)` | fails (heartbeats) | 29 s, 2.0 GB |
+| `modular_chains_instance(8, function=True)` (QF_UFLIA) | 19 s, 3.2 GB | 4 s, 1.3 GB |
+| `modular_chains_instance(10, function=True)` | fails (heartbeats) | 13 s, 4.1 GB |
+
+Tests: `test_argument_equalities_are_proved_level_by_level` (the shapes,
+without Lean) and `test_nested_ite_arguments_verify_level_by_level` (the
+Lean check) in `test_proof_to_lean_arith.py`, with
+`test_argument_equalities_unfold_their_own_terms` and
+`test_argument_equalities_unfold_ites_of_mixed_sorts`. Certificates with arrays
+still state the equalities written out.
+
+### Scaling facts and scaled gates stated over folded definitions (2026-11-09)
+
+The Real counterpart of the modular chains,
+`real_modular_chains_instance` (each step `(ite (< s 17/2) s (- s 17/2))`
+over `s = previous + 5/2`), has fractional constants in its atoms and ite
+branches. So its theory lemmas state the `_s` scaling facts
+(`_scaling_helpers`) and the scaled `_g` gates (`_ite_gate_helpers`), which
+the 2026-11-08 change below had left written out. They were 5.6 MB of the
+5.9 MB of Lean text at depth 6 and almost all of the 44 MB at depth 8.
+
+Without arrays, `_folded_ite_gates` now states them over the definitions as
+well, and they are reverted, unfolded, and introduced with the integral
+gates:
+
+- a scaled gate is `formula_c -> (k * term_ite) = <scaled form over term_N
+  atoms>`, proved by rewriting `term_ite` to its branch (`ite_eq_left` or
+  `ite_eq_right`), unfolding the definitions from the branch down to the
+  atoms of its linear form (`_linear_unfold`), and `grind`;
+- a scaling fact is `formula_a -> <scaled form> R 0`, proved the same way
+  from the atom.
+
+The atoms, nested ites included, stay folded in these proofs, so grind
+does not split them. An atom whose ite cancels (`5 + t = -7/2 + t`) keeps
+`t` folded too.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `real_modular_chains_instance(6)` | 5.9 MB, 69 s, 4.0 GB | 0.44 MB, 8 s, 1.3 GB |
+| same, `function=True` (QF_UFLRA) | 4.6 MB, 43 s, 6.6 GB | 0.48 MB, 31 s, 2.8 GB |
+| `real_modular_chains_instance(8)` | 44 MB, killed above 12 GB after 240 s | 0.93 MB, 17 s, 2.6 GB |
+
+Tests in `test_proof_to_lean_arith.py`:
+`test_scaled_gates_and_scaling_facts_are_stated_over_folded_definitions`
+(the shapes, without Lean) and
+`test_real_modular_chains_verify_through_folded_scaled_facts` (the Lean
+check); for QF_LIRA, where a folded Int atom is cast to Rat,
+`test_folded_scaled_facts_cast_int_atoms_to_rat` and
+`test_folded_scaled_facts_over_int_casts_verify`. At depth 8 with
+`function=True` the `_r` argument equality of the 2026-11-08 change below
+ran out of heartbeats in grind, which was given the nested ites unfolded;
+closed by the level-by-level proof above.
+
+### Argument equalities stated over folded definitions (2026-11-08)
+
+The ite gates were not the only written-out helper. Comparing the two
+modular chains through a function, `(not (= (f a6) (f b3)))`, Z3's
+rewriter replaces both arguments with their normal forms, and the rewrite
+step's lemma states each argument equal to its normal form
+(`_real_argument_helpers`, `have _rA_B : sA = sB`). Written out, the `a6`
+equality was 106 KB of text, and its theory tactic ran out of heartbeats in
+`isDefEq`, so the file failed.
+
+Without arrays the equality is now stated over the two terms' definitions,
+`(term_A ...) = (term_B ...)`. It is proved by unfolding the definitions
+both terms reach and then running the theory tactic, with the same
+hypotheses in context as before. The same `unfold ... at _rA_B` then
+rewrites the fact into the goal's terms. Certificates with arrays keep the
+written-out form, since their array terms stay folded.
+
+`modular_chains_instance(6, function=True)` (QF_UFLIA) is 0.37 MB of Lean
+instead of 0.48 MB, and it verifies in 5 s at 1.2 GB; before, it failed.
+Tests in `test_proof_to_lean_uflia.py`:
+
+- `test_argument_equalities_are_stated_over_folded_definitions`: the
+  shape of the facts, without Lean.
+- `test_nested_ite_arguments_verify_through_folded_equalities`: the Lean
+  check.
+
+### Ite gates stated over folded definitions (2026-11-08)
+
+A rescan of z3test's `smtlib-sample` QF_UFLIA files of at most 160 KB
+found three that no longer verify:
+`mathsat/EufLaArithmetic/hard/hard16`, `hard17`, and `hard20`. The 2026-10-28
+reconstruction fails the same way, so this is not a regression of the
+generator. Earlier checks of these files ran without Lean's `--memory=8192`
+limit; with the limit, all three stop with "(kernel) excessive memory
+consumption".
+
+The memory goes to info trees. The command-line frontend keeps every
+command's info tree until the end of the file (`Language/Lean.lean` in Lean
+4.34). Without the proof steps, hard16's definitions take 0.9 GB and its
+leaf lemmas 6.8 GB. The leaf lemmas' proof terms account for only about 2.5
+million expression objects; turning info trees off (a measurement only)
+removed most of the lemmas' cost.
+
+In 644 theory lemmas the largest elaborated text is the ite gates of
+`_ite_gate_helpers`: `have`s stating `c -> ite c a b = a` with every term
+written out. These files reduce modulo 17 through nested ites, and each
+step holds the previous one three times, so the gates took 11 KB per lemma
+and 7 MB in all.
+
+`_folded_ite_gates` now states the integral gates over the definitions
+(`formula_c -> term_ite = term_branch`, proved by `ite_eq_left`). It
+reverts them before the fallback's `unfold`, so that one unfold rewrites
+them into the goal's terms, and introduces them again. Scaled Real gates and
+certificates with arrays keep the written-out form.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| hard16 | 20.1 MB, fails at 8 GB | 11.9 MB, 76 s, 4.5 GB |
+| hard17 | 21.7 MB, fails at 8 GB | 12.9 MB, 86 s, 4.8 GB |
+| hard20 | 27.4 MB, fails at 8 GB | 15.7 MB, 118 s, 6.0 GB |
+
+The other 21 QF_UFLIA files verify, and `wisas/xs_17_37` is beyond the
+120 s clause-log solver limit.
+
+Tests in `test_proof_to_lean_lia.py`, on `modular_chains_instance(6)`
+(two chains of modular additions compared): 0.3 MB of Lean and 4 s at
+1.2 GB, against 4.9 MB, 13 s, and 2.8 GB before.
+
+- `test_ite_gates_are_stated_over_folded_definitions`: the shape of the
+  gates.
+- `test_nested_ite_chains_verify_through_folded_gates`: the Lean check.
+
+- `test_folded_ite_gates_are_reverted_unfolded_and_introduced` in
+  `test_proof_to_lean.py`: on the depth-2 chains, without Lean, each lemma
+  reverts its gates, unfolds every definition they name, and introduces
+  them again. It also runs in the Python wheel job.
+
+`scripts/ci_lean_proofs.sh` runs all `test_proof_to_lean*.py` modules with
+Lean installed, so the Lean check above runs in CI.
+
+### Farkas identities by linear normalization over balanced sums (2026-11-08)
+
+A rescan of z3test's `smtlib-sample` QF_LIA files of at most 160 KB found
+two regressions. `bofill-scheduling/SMT_random_LIA/ex11200_2600_100` and
+`SMT_real_LIA/ex2360_2400_100` had verified in an earlier recheck but now
+failed in Lean. Each has one Farkas lemma of about 200 bounds over more than
+400 atoms, each bound spanning up to 20 atoms. Such a lemma now gets the
+direct combination (see "Int Farkas lemmas proved by their combination"
+below). Its identity, a right-nested sum proved by `omega`, took about five
+million heartbeats, five times the lemma's budget. An exhausted budget is
+not an error `first` catches, so the unfolded fallback never ran.
+
+Two changes:
+
+- `_combination_sum` nests the sum as a balanced tree.
+- `_sum_identity` proves it by `first | (simp +arith only []; done) |
+  omega`.
+
+On the bofill lemma, `simp +arith` takes about 2 s. The cost of both
+tactics is in the kernel check of their reflective proofs: on a synthetic
+202-bound combination with a 300-atom row, 14 s for simp and 17 s for
+omega. Results:
+
+| Input | Before | Now |
+| --- | --- | --- |
+| ex11200 | heartbeat failure | 37 s, 3.5 GB |
+| ex2360 | heartbeat failure | 42 s, 4.1 GB |
+| `cut_lemma_02_002` (188 split identities) | 150 s | 69 s, 3.8 GB |
+
+The rest of the scan is unchanged: every other file verifies or is out of
+reach for z3 or the replay, except QF_LRA `tta_startup` 11 nodes (a known
+failure).
+
+Tests in `test_proof_to_lean_lia.py`:
+
+- `test_farkas_combinations_of_many_wide_bounds_verify`: a 140-bound
+  conflict over two partitions of 700 variables (`two_partitions_instance`)
+  checks in about 9 s with the identity left to simp alone. Before, it ran
+  out of heartbeats.
+- `test_combinations_are_balanced_sums_proved_by_linear_normalization`: the
+  sum's shape and the identity's tactic.
 
 ### Int and Real side by side: qf_lira (2026-11-02)
 

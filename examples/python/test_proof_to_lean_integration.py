@@ -26,7 +26,7 @@ import proof_to_lean
 from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
-    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
+    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, gate_inputs, make_certificate, time_step_clause,
 )
 
 
@@ -144,6 +144,33 @@ class TestProofToLeanIntegration(unittest.TestCase):
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             text = self.check(UNARY_XOR_GATES, certificate)
         self.assertEqual(text.count("private theorem def_axiom_"), 2)
+
+    def test_refutations_over_relevant_gates_check(self):
+        # The propositional prover restricted to the gates of z3's unsat
+        # core (test_proof_to_lean checks the search itself): one case split
+        # over the clause's time step, and a gate outside the relevant set
+        # split by Classical.em on its let-bound name.
+        structure, _, _ = time_step_clause()
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 3000):
+            prover = proof_to_lean._PropositionalProver(structure, classical=True)
+            self.assertIsNone(prover.refutation(structure))
+            relevant = proof_to_lean._relevant_structures(prover.order, [structure])
+            lines = proof_to_lean._PropositionalProver(structure, classical=True, relevant=relevant).refutation(
+                structure)
+        cases = [(structure, lines)]
+        structure, relevant, _ = gate_inputs()
+        cases.append((structure, proof_to_lean._PropositionalProver(
+            structure, classical=True, relevant=relevant).refutation(structure)))
+        for index, (structure, lines) in enumerate(cases):
+            self.assertIsNotNone(lines)
+            source = ["theorem refutation_%d (_atoms : Nat -> Prop)" % index,
+                      "    : Not %s := by" % proof_to_lean._render_structure(structure)]
+            source += ["  " + line for line in lines]
+            with self.subTest(index=index), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "refutation.lean"
+                path.write_text("\n".join(source) + "\n")
+                result = lean_test_support.run_check_lean(path)
+                self.assertEqual(result.returncode, 0, (result.stdout + result.stderr)[-3000:])
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
         source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]

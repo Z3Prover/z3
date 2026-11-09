@@ -544,6 +544,13 @@ class _Terms:
             return z3.Sum(*arguments)
         if head == "*" and count >= 2:
             return z3.Product(*arguments)
+        if head in _ONE_ARGUMENT_HEADS and count == 1 and (head == "distinct" or z3.is_arith(arguments[0])):
+            # Z3's parser keeps (+ t), (* t), and (distinct t) as applications
+            # of one argument, and the log prints them so in the raw tail of
+            # the assertions after one that folds to false (the solver no
+            # longer simplifies them); the API over one argument rebuilds the
+            # input's term (not t, and not true for the distinct).
+            return _ONE_ARGUMENT_HEADS[head](self.context, arguments[0])
         if head == "-" and count == 1:
             return -arguments[0]
         if head == "-" and count >= 2:
@@ -668,6 +675,20 @@ def _unary_xor(argument):
     decl = z3.Xor(argument, argument).decl()
     return z3.BoolRef(z3.Z3_mk_app(argument.ctx.ref(), decl.ast, 1, (z3.Ast * 1)(argument.as_ast())),
                       argument.ctx)
+
+
+def _one_argument(make, wrap):
+    """A builder of the one-argument application of an n-ary operator through the API's make."""
+    return lambda context, argument: wrap(make(context.ref(), 1, (z3.Ast * 1)(argument.as_ast())), context)
+
+
+# The n-ary operators whose one-argument applications Z3's parser keeps
+# (see _Terms._apply); z3py's Sum, Product, and Distinct need two arguments.
+_ONE_ARGUMENT_HEADS = {
+    "+": _one_argument(z3.Z3_mk_add, z3.ArithRef),
+    "*": _one_argument(z3.Z3_mk_mul, z3.ArithRef),
+    "distinct": _one_argument(z3.Z3_mk_distinct, z3.BoolRef),
+}
 
 
 def _strip(literal):

@@ -10,6 +10,7 @@ from fractions import Fraction
 import json
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -563,6 +564,133 @@ class TestArithmeticValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("have _s", text)  # fractional atoms get scaling helpers
 
+    def test_scaled_gates_and_scaling_facts_are_stated_over_folded_definitions(self):
+        # Like the integral gates, the scaled gates and the scaling facts are
+        # stated over the term and formula definitions, proved with only the
+        # definitions down to their linear atoms unfolded, then reverted,
+        # unfolded with the goal, and introduced again. Written out, they
+        # made 44 MB of Lean text for depth 8 (Lean ran out of memory).
+        source = real_modular_chains_instance(8)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertNotIn("@ite", text.split("theorem unsat", 1)[0].split("private theorem", 1)[1])
+        term = r"\(term_\d+ _atoms _vars\)"
+        scaled = r"(?:\(\(-?\d+ : Rat\)\) \* %s \+ )*\(\(-?\d+ : Rat\)\)" % term
+        gates = re.findall(r"^ *have _g\d+_[01] : .* \* .*$", text, re.M)
+        facts = re.findall(r"^ *have _s\d+ : .*$", text, re.M)
+        # How many there are depends on z3's theory lemmas; the size bound
+        # below is what folding buys.
+        self.assertTrue(gates)
+        self.assertTrue(facts)
+        for gate in gates:
+            self.assertRegex(gate.strip(), r"^have _g\d+_[01] : \(?(Not )?\(formula_\d+ _atoms _vars\)\)? -> "
+                                           r"\(\(\d+ : Rat\)\) \* %s = \(%s\) := fun _h => by "
+                                           r"rw \[show %s = %s from ite_eq_(left|right) _h\]; "
+                                           r"unfold (term_\d+ )+?term_\d+; grind$" % (term, scaled, term, term))
+        for fact in facts:
+            self.assertRegex(fact.strip(), r"^have _s\d+ : \(formula_\d+ _atoms _vars\) -> \(%s (<|<=|=) "
+                                           r"\(\(0 : Rat\)\)\) := by unfold formula_\d+( term_\d+)*; grind$"
+                             % scaled)
+        for block in [block for block in text.split("\n\n") if "have _s" in block or "have _g" in block]:
+            names = re.findall(r"have (_[gs]\d+(?:_[01])?) :", block)
+            self.assertIn("revert " + " ".join(names) + "\n", block)
+            self.assertIn("intro " + " ".join(names) + "\n", block)
+        self.assertLess(len(text), 1500000)
+
+    def test_argument_equalities_are_proved_level_by_level(self):
+        # f's arguments, eight nested steps, are rewritten into the
+        # rewriter's normal form. Proved with both arguments unfolded
+        # entirely, their equality ran grind out of heartbeats (2^16 branch
+        # combinations); now each pair of corresponding steps gets its own
+        # equality, innermost first, over its own level only: the steps
+        # below stay folded.
+        source = real_modular_chains_instance(8, function=True)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        blocks = [block for block in text.split("\n\n") if "have _r" in block]
+        self.assertTrue(blocks)
+        for block in blocks:
+            facts = re.findall(r"^ *have _r(\d+)_(\d+) : \(term_(\d+) _atoms _vars _m\) = \(term_(\d+) _atoms _vars _m\)"
+                               r" := by unfold ([\w ]+); grind \(splits := 64\)$", block, re.M)
+            self.assertEqual(len(facts), block.count("have _r"))
+            proved = set()
+            for first, second, left, right, names in facts:
+                first, second = int(first), int(second)
+                self.assertEqual((first, second), (int(left), int(right)))
+                unfolded = [int(name.split("_")[1]) for name in names.split()]
+                self.assertEqual({node for node in unfolded if graph.kind(node) == z3.Z3_OP_ITE}, {first, second})
+                # The nested ites the level stops at are related by facts
+                # already proved, in the same lemma.
+                stops = {atom for node in (first, second) for atom in proof_to_lean._level_atoms(graph, node)
+                         if graph.kind(atom) == z3.Z3_OP_ITE and atom not in unfolded}
+                self.assertTrue(all(any(atom in pair for pair in proved) for atom in stops), (first, second, stops))
+                proved.add((first, second))
+            outer = re.findall(r"^ *unfold [\w ]+ at _r(\d+)_(\d+)$", block, re.M)
+            cleared = re.findall(r"^ *clear ((?:_r\d+_\d+ ?)+)$", block, re.M)
+            self.assertTrue(outer)
+            self.assertEqual(len(cleared), 1)
+            self.assertEqual({"_r%s_%s" % pair for pair in outer} | set(cleared[0].split()),
+                             {"_r%d_%d" % pair for pair in proved})
+            # Seven levels below each of the two arguments.
+            self.assertGreaterEqual(len(proved), 8)
+
+    def test_argument_equalities_unfold_their_own_terms(self):
+        # (f (abs x)) against the rewriter's (f (ite (<= 0 x) x (* -1 x))):
+        # an abs is an atom of its own linear form, and the level of the
+        # pair still unfolds it (the first version kept it folded, and grind
+        # failed); only x stays folded.
+        source = REAL_ABS_INPUTS["function"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        facts = set(re.findall(r"^ *have _r(\d+)_(\d+) : .* := by unfold ([\w ]+); grind", text, re.M))
+        self.assertEqual({graph.kind(int(first)) for first, _, _ in facts}, {z3.Z3_OP_ABS})
+        for first, second, names in facts:
+            self.assertTrue({"term_" + first, "term_" + second} <= set(names.split()), names)
+            unfolded = [int(name.split("_")[1]) for name in names.split()]
+            self.assertFalse([node for node in unfolded if graph.kind(node) == z3.Z3_OP_UNINTERPRETED], names)
+
+    def test_argument_equalities_unfold_ites_of_mixed_sorts(self):
+        # An Int ite under to_real and a Real ite share a key, but no
+        # equality of their own relates them: the level unfolds both, as it
+        # does an abs, instead of stating a fact over the two folded.
+        source = """
+(set-logic QF_UFLIRA)
+(declare-fun f (Real) Real)
+(declare-fun n () Int)
+(declare-fun y () Real)
+(assert (not (= (f (+ y (to_real (ite (<= n 0) n 0)))) (f (+ y (ite (<= n 0) (to_real n) 0.0))))))
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        facts = set(re.findall(r"^ *have _r(\d+)_(\d+) : .* := by unfold ([\w ]+); ", text, re.M))
+        mixed = 0
+        for first, second, names in facts:
+            unfolded = {int(name.split("_")[1]) for name in names.split() if name.startswith("term_")}
+            below = {atom for node in (first, second) for atom in proof_to_lean._level_atoms(graph, int(node))
+                     if graph.kind(atom) == z3.Z3_OP_ITE}
+            self.assertLessEqual(below, unfolded, (first, second, names))
+            mixed += len({graph.decl(node).range for node in below}) == 2
+        self.assertGreaterEqual(mixed, 1)
+
+    def test_folded_scaled_facts_cast_int_atoms_to_rat(self):
+        # In qf_lira a Real atom reaches Int terms through to_real; folded,
+        # the scaled form casts their definitions, ((term_N ... : Int) : Rat).
+        text = proof_to_lean.reconstruct(LIRA_SCALED_INPUT,
+                                         proof_certificate.export_clause_log_certificate(LIRA_SCALED_INPUT))
+        cast = r"\(\(\(term_\d+ _atoms _vars _ivars\) : Int\) : Rat\)"
+        gates = re.findall(r"^ *have _g\d+_[01] : .* \* .*$", text, re.M)
+        facts = re.findall(r"^ *have _s\d+ : .*$", text, re.M)
+        self.assertTrue(any(re.search(r"= \(.*%s.*\) := fun _h => by rw \[show " % cast, gate) for gate in gates))
+        self.assertTrue(any(re.search(r"^ *have _s\d+ : \(formula_\d+ _atoms _vars _ivars\) -> \(.*%s" % cast, fact)
+                            for fact in facts))
+        for line in gates + facts:
+            self.assertNotIn("@ite", line)
+            self.assertNotIn("_ivars 0", line)  # the Int variable stays inside term_N
+
     def test_unary_minus_negates_variable_coefficients(self):
         source = "(declare-const x Real)(assert (> (- x) (/ 1.0 2.0)))(assert (>= x 0.0))"
         certificate = proof_certificate.export_clause_log_certificate(source)
@@ -598,9 +726,15 @@ class TestArithmeticValidation(unittest.TestCase):
         self.assertIn("(Classical.propDecidable _)", text)
         self.assertIn("(ite_eq_left _hc)", text)
         self.assertIn("(ite_eq_right _hnc)", text)
-        # Every grind lemma over the ite states its branch equalities first.
-        self.assertIn("  have _g%d_0 : (_atoms 0) -> (" % ite, text)
-        self.assertIn("  have _g%d_1 : (Not (_atoms 0)) -> (" % ite, text)
+        # Every grind lemma over the ite states its branch equalities first,
+        # over the folded definitions, and unfolds them with the goal.
+        condition = graph.arguments(ite)[0]
+        self.assertIn("  have _g%d_0 : (formula_%d _atoms _vars) -> (term_%d _atoms _vars) = (" % (ite, condition, ite),
+                      text)
+        self.assertIn("  have _g%d_1 : (Not (formula_%d _atoms _vars)) -> (term_%d _atoms _vars) = (" % (
+            ite, condition, ite), text)
+        self.assertIn("  revert _g%d_0 _g%d_1\n" % (ite, ite), text)
+        self.assertIn("  intro _g%d_0 _g%d_1\n" % (ite, ite), text)
         self.assertNotIn("sorry", text)
         self.assertNotIn("axiom ", text)
 
@@ -611,11 +745,20 @@ class TestArithmeticValidation(unittest.TestCase):
         graph = proof_to_lean._validate_graph(source, certificate)
         ite = next(i for i in range(len(graph.nodes)) if graph.kind(i) == z3.Z3_OP_ITE)
         text = proof_to_lean.reconstruct(source, certificate)
-        # x / 3 scales by 3 and 1 / 7 by 7; both helpers rewrite the ite and let grind close the scaled form.
-        self.assertIn("  have _g%d_0 : (_atoms 0) -> ((3 : Rat)) * (" % ite, text)
-        self.assertIn("= (((1 : Rat)) * _vars 0 + ((0 : Rat))) := fun _h => by rw [ite_eq_left _h]; grind", text)
-        self.assertIn("  have _g%d_1 : (Not (_atoms 0)) -> ((7 : Rat)) * (" % ite, text)
-        self.assertIn("= (((1 : Rat))) := fun _h => by rw [ite_eq_right _h]; grind", text)
+        # x / 3 scales by 3 and 1 / 7 by 7; both helpers rewrite the ite to
+        # its branch and let grind close the scaled form, stated over the
+        # folded definitions with only the branch's own ones unfolded.
+        condition, then_branch, else_branch = graph.arguments(ite)
+        variable = graph.arguments(then_branch)[0]
+        term = "(term_%d _atoms _vars)"
+        self.assertIn("  have _g%d_0 : (formula_%d _atoms _vars) -> ((3 : Rat)) * %s = (((1 : Rat)) * %s + "
+                      "((0 : Rat))) := fun _h => by rw [show %s = %s from ite_eq_left _h]; unfold term_%d " % (
+                          ite, condition, term % ite, term % variable, term % ite, term % then_branch, then_branch),
+                      text)
+        self.assertIn("  have _g%d_1 : (Not (formula_%d _atoms _vars)) -> ((7 : Rat)) * %s = (((1 : Rat))) := "
+                      "fun _h => by rw [show %s = %s from ite_eq_right _h]; unfold term_%d " % (
+                          ite, condition, term % ite, term % ite, term % else_branch, else_branch), text)
+        self.assertIn("  revert _g%d_0 _g%d_1\n" % (ite, ite), text)
 
     def test_tampered_ite_declarations_and_gate_clauses_are_rejected_before_lean(self):
         source = ITE_INPUTS["ite_basic"]
@@ -801,6 +944,47 @@ def selector_ite_instance(groups=3):
     return "\n".join(lines) + "\n"
 
 
+def real_modular_chains_instance(depth=6, function=False):
+    """x + 5/2 * depth and x + 5 * (depth / 2) modulo 17/2, each step an ite, said to differ.
+
+    The Real counterpart of test_proof_to_lean_lia.modular_chains_instance:
+    every step (ite (< s 17/2) s (- s 17/2)) over s = previous + 5/2 holds the
+    previous step three times, and its atoms and branches have fractional
+    constants, so the theory lemmas state scaling facts and scaled gates
+    (proof_to_lean._scaling_helpers, _ite_gate_helpers) over nested ites.
+    Written out, depth 6 made 5.9 MB of Lean text and depth 8 44 MB. With
+    function, the two results are compared through an uninterpreted f.
+    depth must be even: for odd depth the two chains end at different
+    values, and the instance is satisfiable.
+    """
+    lines = ["(set-logic %s)" % ("QF_UFLRA" if function else "QF_LRA"), "(declare-const x Real)"]
+    if function:
+        lines.append("(declare-fun f (Real) Real)")
+    for name, step, count in (("a", "(/ 5 2)", depth), ("b", "5.0", depth // 2)):
+        previous = "x"
+        for index in range(1, count + 1):
+            lines.append("(define-fun %s%d () Real (let ((s (+ %s %s))) (ite (< s (/ 17 2)) s (- s (/ 17 2)))))"
+                         % (name, index, previous, step))
+            previous = "%s%d" % (name, index)
+    sides = ("(f a%d) (f b%d)" if function else "a%d b%d") % (depth, depth // 2)
+    lines += ["(assert (and (<= 0.0 x) (< x (/ 17 2))))", "(assert (not (= %s)))" % sides, "(check-sat)"]
+    return "\n".join(lines) + "\n"
+
+
+# Int atoms reached through to_real inside fractional Real atoms and ite
+# branches: the scaled gates and scaling facts cast an Int term to Rat.
+LIRA_SCALED_INPUT = """\
+(set-logic QF_LIRA)
+(declare-const i Int)
+(declare-const x Real)
+(define-fun t () Real (ite (< (+ (to_real i) (/ x 2)) (/ 1 3)) (+ (to_real i) (/ 1 2)) (- x (/ 1 3))))
+(assert (> i 2))
+(assert (> x 7.0))
+(assert (< (* 6.0 t) 2.0))
+(check-sat)
+"""
+
+
 class TestNormalizedRewriteLinks(unittest.TestCase):
     """The prover of a normalized rewrite links the sides' structures equal up to flattening."""
 
@@ -877,6 +1061,26 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 self.assertIn(_STANDARD_AXIOMS, report)
                 self.assertIn("th-lemma", certificate["rule_counts"])
 
+    def test_real_modular_chains_verify_through_folded_scaled_facts(self):
+        # About 17 s at 2.6 GB; written out (44 MB of Lean text), Lean grew
+        # past 12 GB and was killed after 240 s. Depth 6 took 69 s at 4 GB.
+        certificate, report = self.check(real_modular_chains_instance(8))
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_nested_ite_arguments_verify_level_by_level(self):
+        # With f's two arguments (eight nested steps each) unfolded entirely,
+        # the theory tactic of their equality ran out of heartbeats; depth 6
+        # took 31 s at 2.8 GB (see _argument_equality_levels).
+        certificate, report = self.check(real_modular_chains_instance(8, function=True))
+        self.assertEqual(certificate["fragment"], "qf_uflra")
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_folded_scaled_facts_over_int_casts_verify(self):
+        certificate, report = self.check(LIRA_SCALED_INPUT)
+        self.assertEqual(certificate["fragment"], "qf_lira")
+        self.assertIn(_STANDARD_AXIOMS, report)
+
     def test_the_real_division_axiom_verifies(self):
         certificate, report = self.check(REAL_DIVISION_AXIOM)
         self.assertEqual(certificate["fragment"], "qf_lra")
@@ -947,6 +1151,58 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         # needs the arithmetic solver.
         self.assertIn("th-lemma", proof_certificate.export_clause_log_certificate(
             CONFIGURED_INPUTS["strategy-par-or-2"])["rule_counts"])
+
+    def test_inputs_with_output_commands_through_the_clause_log(self):
+        # z3test regressions the frontend rejected for simplify, apply, the
+        # :trace or :global-decls false options, or commands after exit:
+        # the commands are dropped, the script ends at exit, and the
+        # executable sees the snapshot of the selected query only.
+        from test_proof_to_lean import OUTPUT_COMMAND_INPUTS
+        fragments = {"abs": "qf_lia", "t119": "qf_uflia", "3570": "qf_lra", "z3.29": "qf_lia",
+                     "output_commands": "qf_lia"}
+        for name, (source, query) in OUTPUT_COMMAND_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source, query=query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), (fragments[name], query))
+                self.assertEqual(certificate["source_smt2"], source)
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_inputs_with_optimization_commands_through_the_clause_log(self):
+        # z3test regressions the frontend rejected for assert-soft, and a
+        # script with every optimization command: soft assertions,
+        # objectives, get-objectives, and the opt.* options are dropped, so
+        # the certified query is the hard assertions in scope. 3524 also
+        # needs its distincts of Booleans stated false (see
+        # test_distincts_of_three_or_more_booleans_are_false).
+        from test_proof_to_lean import OPTIMIZATION_INPUTS
+        for name, (source, query) in OPTIMIZATION_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source, query=query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), ("qf_lia", query))
+                self.assertEqual(certificate["source_smt2"], source)
+                text, report = lean_test_support.check(self, source, certificate)
+                self.assertIn(_STANDARD_AXIOMS, report)
+                self.assertEqual("_bool_distinct3 _h" in text, name == "3524")
+
+    def test_one_argument_applications_after_a_false_assertion_through_the_clause_log(self):
+        # (+ t), (* t), and (distinct t) in the assertions after one that
+        # folds to false, which the clause log prints unsimplified: the
+        # replay rebuilds the input's terms, and Lean renders them as t and
+        # True. See, in test_proof_certificate.py,
+        # test_one_argument_sums_products_and_distincts_after_a_false_assertion.
+        from test_proof_certificate import ONE_ARGUMENT_INPUTS
+        for name, source in ONE_ARGUMENT_INPUTS.items():
+            with self.subTest(name=name):
+                # self.check also requires one hypothesis per assertion.
+                _, report = self.check(source)
+                # Each refutation is the folded assertion; the axioms it uses
+                # differ by encoding, but stay among the standard ones.
+                axioms = re.search(r"depends on axioms: \[([^\]]*)\]", report)
+                if axioms is None:
+                    self.assertIn("does not depend on any axioms", report)
+                else:
+                    self.assertLessEqual(set(axioms.group(1).split(", ")), {"propext", "Classical.choice", "Quot.sound"})
 
     def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
         # z3test 3632.smt2 kept verbatim: the only check-sat sits inside

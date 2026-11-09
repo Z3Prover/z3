@@ -9,6 +9,7 @@ import io
 import itertools
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -340,6 +341,232 @@ INCREMENTAL_INPUTS = {
 (check-sat)
 """, 0),
 }
+# z3test regressions/smt2 inputs (blank lines and trailing blanks trimmed)
+# that the frontend rejected for commands that only print (simplify, apply),
+# the :trace or :global-decls false options, or commands after exit, with
+# the index of the unsat query the tests certify. abs is a single query
+# inside a scope; t119 has no check-sat, so its query is the final state
+# after two resets, with apply commands in between; 3570 states a unary +
+# and a chained < over an Int numeral in a Real term; z3.29's second query
+# is the unsat one, and its last assertion uses a declaration popped with
+# its scope (Z3 reports an error and goes on). "output_commands" is not
+# from z3test: every other command that only prints, define-const, and
+# commands after exit that do not even parse.
+OUTPUT_COMMAND_INPUTS = {
+    "abs": ("""\
+; Copyright (c) 2015 Microsoft Corporation
+(declare-const a Int)
+(declare-const b Int)
+(simplify (abs a))
+(push)
+(assert (< (abs a) 0))
+(check-sat)
+""", 0),
+    "t119": ("""\
+; Copyright (c) 2015 Microsoft Corporation
+(declare-const a Real)
+(declare-const b Real)
+(declare-const c Real)
+(set-option :produce-models true)
+(assert (= (+ (* 2.0 a) (* 3.0 b) (* 2.0 c)) 10.0))
+(assert (>= c a))
+(assert (>= c b))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(assert (= (+ c b) 0.0))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(apply (and-then simplify (! solve-eqs :theory-solver false)) :print-model-converter false)
+(reset)
+(declare-const a Int)
+(declare-const b Int)
+(declare-const c Int)
+(set-option :produce-models true)
+(assert (= (+ (* 2 a) (* 3 b) (* 2 c)) 10))
+(assert (>= c a))
+(assert (>= c b))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(assert (= (+ c b a) 1))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(reset)
+(declare-const a Int)
+(declare-const b Int)
+(declare-fun f (Int) Int)
+(set-option :produce-models true)
+(assert (= (+ a (f a)) 20))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+(assert (= (+ a (f a) b) 20))
+(assert (>= b 10))
+(apply (and-then simplify solve-eqs) :print-model-converter false)
+""", 0),
+    "3570": ("""\
+(set-option :trace true)
+(declare-fun a () Real)
+(assert (< (+ a) 8 a))
+(check-sat-using qfnia)
+""", 0),
+    "z3.29": ("""\
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :auto-config true)
+(set-option :produce-models true)
+(set-option :global-decls false) ;; tests are executed using SMTLIB2_COMPLIANT=false
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(push)
+(assert (= (+ x y) 10))
+(assert (= (+ x (* 2 y)) 20))
+(check-sat)
+(pop) ; remove the two assertions
+(push)
+(assert (= (+ (* 3 x) y) 10))
+(assert (= (+ (* 2 x) (* 2 y)) 21))
+(check-sat)
+(declare-const p Bool)
+(pop)
+(assert p) ; error, since declaration of p was removed from the stack
+""", 1),
+    "output_commands": ("""\
+(set-option :global-declarations false)
+(set-option :trace_file_name "z3.log")
+(declare-const x Int)
+(define-const y Int (+ x 1))
+(display y)
+(get-assertions)
+(push)
+(assert (< y x))
+(check-sat)
+(get-value (x y))
+(eval y)
+(pop)
+(exit)
+(assert (= x y)) (unbalanced "string
+""", 0),
+}
+# Scripts with optimization commands, with the index of the unsat query the
+# tests certify: z3test regressions/smt2 3402 and 3524 (blank lines and
+# trailing blanks trimmed), QF_LIA fuzzer inputs with assert-soft that the
+# frontend rejected; 3524 also folds distincts of 8 and 13 Booleans, false
+# by pigeonhole, inside a rewrite, which Lean's grind could not prove
+# (_boolean_distinct_facts). "objectives" is not from z3test: minimize,
+# maximize, weighted soft assertions with an id, get-objectives, and the
+# opt.* options, with the unsat query inside a scope.
+OPTIMIZATION_INPUTS = {
+    "3402": ("""\
+(set-option :model_validate true)
+(set-option :model true)
+(declare-const v0 Bool)
+(declare-const v1 Bool)
+(declare-const v2 Bool)
+(declare-const i1 Int)
+(declare-const i2 Int)
+(declare-const i5 Int)
+(declare-const i6 Int)
+(declare-const i7 Int)
+(declare-const i12 Int)
+(declare-const v3 Bool)
+(declare-const v4 Bool)
+(declare-const i16 Int)
+(declare-const v5 Bool)
+(declare-const v6 Bool)
+(declare-const v7 Bool)
+(declare-const v8 Bool)
+(declare-const i17 Int)
+(declare-const v9 Bool)
+(declare-const i18 Int)
+(assert (or v9 (= 48 i1) (distinct i5 i2)))
+(assert-soft (or v9 v1 (and (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v3 v4 v5 (>= i1 87) (=> (< 93 646) v6) v5 (=> (< 93 646) v6) (distinct i5 i2))))
+(assert (or (distinct i5 i2) (distinct i5 i2) v9))
+(assert (or (= 48 i1) (>= i1 87) (distinct i5 i2)))
+(assert-soft (or (distinct i5 i2) v9 (>= i1 87)))
+(assert (or v6 (distinct i5 i2) (distinct i5 i2)))
+(assert (or (distinct i5 i2) v5 (distinct i5 i2)))
+(assert (or (>= i1 87) v5 v5))
+(assert (or (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) (= 48 i1) (and (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v3 v4 v5 (>= i1 87) (=> (< 93 646) v6) v5 (=> (< 93 646) v6) (distinct i5 i2))))
+(assert-soft (or v6 (distinct i5 i2) (= 48 i1)))
+(assert (or v1 v9 (distinct i5 i2)))
+(assert-soft (or v1 v5 v9))
+(assert (or (distinct i5 i2) (distinct i5 i2) (= 48 i1)))
+(assert-soft (or (>= i1 87) (>= i1 87) v1))
+(assert (or v9 (and (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v3 v4 v5 (>= i1 87) (=> (< 93 646) v6) v5 (=> (< 93 646) v6) (distinct i5 i2)) (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646))))
+(assert (or (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) (distinct i5 i2) (distinct i5 i2)))
+(assert-soft (or v1 v9 v9))
+(assert (or (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) (= 48 i1) v1))
+(assert (or (>= i1 87) (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v9))
+(assert (or (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v5 (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646))))
+(assert (or (>= i1 87) (>= i1 87) (>= i1 87)))
+(assert (or (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) (= 48 i1) (and (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v3 v4 v5 (>= i1 87) (=> (< 93 646) v6) v5 (=> (< 93 646) v6) (distinct i5 i2))))
+(assert (or (distinct i5 i2) v1 v9))
+(assert (or v1 v9 v1))
+(assert (or v5 (distinct i5 i2) v6))
+(assert-soft (or v5 v6 v1))
+(assert-soft (or v5 (and (= (>= i1 87) v0 v6 v5 (= 48 i1) v5 v1 (>= i1 87) (< 93 646)) v3 v4 v5 (>= i1 87) (=> (< 93 646) v6) v5 (=> (< 93 646) v6) (distinct i5 i2)) v9))
+(check-sat)
+(exit)
+;(set-option :smt.threads 2)
+(assert (forall ((a Int) (b Int))
+(exists ((x Int)) (and (< a (* 20 x)) (< (* 20 x) b)))))
+(apply qe)
+""", 0),
+    "3524": ("""\
+(set-option :model_validate true)
+(set-option :model true)
+(declare-const v0 Bool)
+(declare-const v1 Bool)
+(declare-const v2 Bool)
+(declare-const i0 Int)
+(declare-const i1 Int)
+(declare-const i5 Int)
+(declare-const i7 Int)
+(declare-const i8 Int)
+(declare-const i10 Int)
+(declare-const v4 Bool)
+(declare-const v5 Bool)
+(declare-const v6 Bool)
+(declare-const v7 Bool)
+(declare-const v8 Bool)
+(declare-const v9 Bool)
+(declare-const i11 Int)
+(declare-const v10 Bool)
+(declare-const i12 Int)
+(declare-const v12 Bool)
+(declare-const v14 Bool)
+(assert (or (and (=> (> i1 48) (> i1 48)) v0 (< 12 545) (distinct (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (<= i8 554) (distinct i5 831) v12 v2 (not (not v1)) v0 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (=> v7 (> i1 48)) v6 (<= 60 i7)) v10) (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (> 60 i7)))
+(assert-soft (or v14 (<= i0 20) (=> v7 (> i1 48))))
+(assert-soft (or (< 12 545) v10 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5)))
+(assert (or (<= 60 i7) (and (=> (> i1 48) (> i1 48)) v0 (< 12 545) (distinct (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (<= i8 554) (distinct i5 831) v12 v2 (not (not v1)) v0 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (=> v7 (> i1 48)) v6 (<= 60 i7)) v10) (<= i0 20)))
+(assert (or (=> v7 (> i1 48)) v9 (and (=> (> i1 48) (> i1 48)) v0 (< 12 545) (distinct (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (<= i8 554) (distinct i5 831) v12 v2 (not (not v1)) v0 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (=> v7 (> i1 48)) v6 (<= 60 i7)) v10)))
+(assert (or (> 60 i7) (<= 60 i7) (>= i0 48)))
+(assert-soft (or (distinct i5 831) (<= 60 i7) (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5)))
+(assert-soft (or v10 (<= i0 20) v9))
+(assert (or v10 (<= 60 i7) v10))
+(assert (or (< 12 545) (and (=> (> i1 48) (> i1 48)) v0 (< 12 545) (distinct (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (<= i8 554) (distinct i5 831) v12 v2 (not (not v1)) v0 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (=> v7 (> i1 48)) v6 (<= 60 i7)) v10) (> 60 i7)))
+(assert (or v9 v9 v9))
+(assert (or (>= i0 48) (and (=> (> i1 48) (> i1 48)) v0 (< 12 545) (distinct (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (<= i8 554) (distinct i5 831) v12 v2 (not (not v1)) v0 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (=> v7 (> i1 48)) v6 (<= 60 i7)) v10) (>= i0 48)))
+(assert (or (=> v7 (> i1 48)) v9 v9))
+(assert (or (<= 60 i7) (distinct i5 831) (<= i0 20)))
+(assert-soft (or (<= 60 i7) v10 (and (=> (> i1 48) (> i1 48)) v0 (< 12 545) (distinct (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (<= i8 554) (distinct i5 831) v12 v2 (not (not v1)) v0 (distinct (> i0 649) v1 (not v1) v0 (not v1) (>= i0 48) (> i0 649) v5) (=> v7 (> i1 48)) v6 (<= 60 i7)) v10)))
+(assert-soft (or (>= i0 48) (distinct i5 831) v14))
+(check-sat)
+""", 0),
+    "objectives": ("""\
+(set-option :opt.priority box)
+(set-option :opt.maxsat_engine maxres)
+(declare-const x Int)
+(declare-const y Int)
+(assert (<= 0 x 10))
+(minimize x)
+(maximize (+ x y))
+(assert-soft (< y 0) :weight 2 :id g)
+(assert-soft (> x 3) :id g)
+(check-sat)
+(get-objectives)
+(push)
+(assert (> (+ x y) 20))
+(assert (< y 5))
+(check-sat)
+(get-objectives)
+(pop)
+""", 1),
+}
 DEF_AXIOM_CLAUSES = [
     "(or (not p) p)",
     "(or (not (not p)) (not p))",
@@ -442,6 +669,48 @@ def make_certificate(source, steps):
         "result": "unsat", "verification": "unverified", "source_smt2": source, "query": 0,
     })
     return certificate
+
+
+def time_step_clause():
+    """A cnf lemma's structure over an assertion with a disjunction per time step, its steps, and the assertion.
+
+    The shape of SMT-LIB QF_IDL planning plan-21: thirty steps of two
+    8-atom cases each, then the step the clause is about, whose cases Z3's
+    rewriter flattened and reordered in the clause. The structure to refute
+    is the negated clause.
+    """
+    steps = [("or", ("and",) + tuple(("atom", 100 * step + k) for k in range(8)),
+              ("and",) + tuple(("atom", 100 * step + 50 + k) for k in range(8))) for step in range(1, 31)]
+    a, b, c, d, e = (("atom", k) for k in range(5))
+    source = ("and",) + tuple(steps) + (("or", ("and", a, ("and", b, e)), ("and", c, d)),)
+    clause = ("or", ("not", source), ("and", a, b, e), ("and", d, c))
+    return ("not", clause), steps, source
+
+
+def gate_inputs():
+    """A structure refuted whatever its two gates g and h denote, the relevant gates, and g.
+
+    g <-> h and g <-> not h: with g and h outside the relevant set, the
+    refutation splits g by Classical.em on its name.
+    """
+    g = ("and", ("atom", 0), ("atom", 1))
+    h = ("or", ("atom", 2), ("atom", 3))
+    structure = ("and", ("iff", g, h), ("iff", g, ("not", h)))
+    return structure, {structure, ("iff", g, h), ("iff", g, ("not", h)), ("not", h)}, g
+
+
+# x + 10 and x + 5 + 5 modulo 17, each step an ite, said to differ (depth 2
+# of test_proof_to_lean_lia.modular_chains_instance).
+MODULAR_CHAINS = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(define-fun a1 () Int (let ((s (+ x 5))) (ite (< s 17) s (- s 17))))
+(define-fun a2 () Int (let ((s (+ a1 5))) (ite (< s 17) s (- s 17))))
+(define-fun b1 () Int (let ((s (+ x 10))) (ite (< s 17) s (- s 17))))
+(assert (and (<= 0 x) (< x 17)))
+(assert (not (= a2 b1)))
+(check-sat)
+"""
 
 
 class TestProofToLean(unittest.TestCase):
@@ -985,6 +1254,96 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(prover.needed, set())
         self.assertIsNone(proof_to_lean._PropositionalProver(("true",), ("or", a, ("not", a))).implication(
             ("true",), ("or", a, ("not", a))))  # a leaf is not split without classical mode
+
+    def test_prover_drops_splits_and_steps_the_proof_does_not_use(self):
+        # The search splits a true disjunction whenever propagation stops,
+        # the one with the fewest open disjuncts and earliest indexed first,
+        # whether or not the conflict involves it. Here (x or y) is split
+        # first, and its first branch refutes the four clauses over a and b
+        # without x: that branch proves the goal before the split, so the
+        # split and its branch for y are dropped (backjumping), and the
+        # steps that propagation wrote but the proof does not use are gone.
+        x, y, a, b = (("leaf", node, "(formula_%d _atoms _vars)" % node) for node in (2, 4, 6, 8))
+        clauses = ("and", ("or", x, y), ("or", a, b), ("or", ("not", a), b), ("or", a, ("not", b)),
+                   ("or", ("not", a), ("not", b)))
+        prover = proof_to_lean._PropositionalProver(clauses, classical=True)
+        lines = prover.refutation(clauses)
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertEqual(term.count("refine (Or.elim"), 1, term)  # one split, over the clauses on a and b
+        proof = term.split("refine (fun (_f1", 1)[1]
+        self.assertNotIn("_f1.1", proof)  # (x or y) is neither projected nor split
+        self.assertNotIn("Or.elim _f2 ", proof)
+        defined = re.findall(r"have (_f\d+)", term)
+        for name in defined:
+            self.assertRegex(term.split("have %s " % name, 1)[1], r"\b%s\b" % name, term)
+        # Every have is used, the ones before a case analysis by a branch.
+        self.assertEqual(proof_to_lean._needed_lines(
+            ["have _f2 := _f1.1", "have _f3 := _f1.2", "exact (False.elim (_f3 _f9))"]),
+            (["have _f3 := _f1.2", "exact (False.elim (_f3 _f9))"], {"_f1", "_f9"}))
+        kept, used = proof_to_lean._needed_lines(
+            ["have _f2 := _f1.1", "have _f3 := _f1.2", "have _f4 := _f1.3",
+             "refine (Or.elim _f2 (fun _f5 => ?_) (fun _f6 => ?_))"],
+            (["· exact (_f5 _f3)", "· exact _f6"], {"_f3", "_f5", "_f6"}))
+        self.assertEqual(kept, ["have _f2 := _f1.1", "have _f3 := _f1.2",
+                                "refine (Or.elim _f2 (fun _f5 => ?_) (fun _f6 => ?_))", "· exact (_f5 _f3)",
+                                "· exact _f6"])
+        self.assertIn("_f1", used)
+        self.assertNotIn("_f2", used)
+
+    def test_prover_searches_again_over_the_gates_an_unsat_core_needs(self):
+        # A cnf lemma refutes an assertion with a disjunction per time step
+        # (SMT-LIB QF_IDL planning plan-21) and a clause Z3 derived from one
+        # step's disjunction. The search splits the true disjunction with
+        # the fewest open disjuncts, earliest first, so it went through the
+        # cases of every earlier step, each propagating that case's
+        # conjunction, and ran out of its budget before reaching the step
+        # the clause is about. z3's unsat core of the propositional
+        # abstraction (_relevant_structures) names the gates a refutation
+        # needs, and the search restricted to them splits that step alone.
+        # Lean checks the refutation in test_proof_to_lean_integration.
+        structure, steps, source = time_step_clause()
+
+        def refute(relevant=None):
+            prover = proof_to_lean._PropositionalProver(structure, classical=True, relevant=relevant)
+            return prover, prover.refutation(structure)
+
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 3000):
+            prover, lines = refute()
+            self.assertIsNone(lines)
+            self.assertTrue(prover._exhausted())
+            relevant = proof_to_lean._relevant_structures(prover.order, [structure])
+            self.assertIsNotNone(relevant)
+            self.assertFalse(relevant & set(steps))
+            self.assertIn(source[-1], relevant)
+            prover, lines = refute(relevant)
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertNotIn("Classical.em", term)  # no atom split
+        self.assertEqual(term.count("refine (Or.elim _f"), 1, term)  # one case split, over the clause's step
+        # A satisfiable abstraction has no core; one z3 does not decide
+        # within the resource limit neither.
+        self.assertIsNone(proof_to_lean._relevant_structures(prover.order, [source]))
+        with patch.object(proof_to_lean, "_RELEVANCE_RLIMIT", 1):
+            self.assertIsNone(proof_to_lean._relevant_structures(prover.order, [structure]))
+        with self.assertRaisesRegex(ValueError, "classical"):
+            proof_to_lean._PropositionalProver(structure, relevant=relevant)
+
+    def test_restricted_search_splits_the_inputs_of_the_relevant_gates(self):
+        # A gate outside the relevant set does not propagate: the core does
+        # not need its definition, so for the refutation it is an input
+        # like an atom, and the search splits it (Classical.em on its name)
+        # when propagation and the case splits stop. Here g <-> h and
+        # g <-> not h refute each other whatever g and h denote; their
+        # atoms are read by no relevant gate and are never split. Lean
+        # checks the refutation in test_proof_to_lean_integration.
+        structure, relevant, g = gate_inputs()
+        prover = proof_to_lean._PropositionalProver(structure, classical=True, relevant=relevant)
+        lines = prover.refutation(structure)
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
+        self.assertIn("refine (Or.elim (Classical.em %s)" % prover.named[g], term)
+        self.assertNotIn("Classical.em (_atoms", term)
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"
@@ -1585,6 +1944,28 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(list(Path(directory).iterdir()), [])
             with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "must end in .lean"):
                 proof_to_lean.check_and_write(LITERAL, self.certificate, output.with_suffix(".json"))
+
+    def test_folded_ite_gates_are_reverted_unfolded_and_introduced(self):
+        # Integral ite gates are stated over the folded definitions, reverted,
+        # rewritten by the fallback's one unfold, and introduced again
+        # (proof_to_lean._folded_ite_gates): every definition a gate names
+        # must be in that unfold, or the gate no longer matches the goal's
+        # terms. test_proof_to_lean_lia checks the same shape in Lean.
+        text = proof_to_lean.reconstruct(
+            MODULAR_CHAINS, proof_certificate.export_clause_log_certificate(MODULAR_CHAINS))
+        lemmas = [block for block in text.split("\n\n") if "have _g" in block]
+        self.assertGreater(len(lemmas), 5)
+        for block in lemmas:
+            gates = re.findall(r"have (_g\d+_[01]) : (.*) := fun _h => ite_eq_(?:left|right) _h\n", block)
+            self.assertEqual(len(gates), block.count("have _g"), block)
+            names = " ".join(name for name, _ in gates)
+            match = re.search(r"\n *revert %s\n *unfold (.*)\n *intro %s\n" % (names, names), block)
+            self.assertIsNotNone(match, block)
+            unfolded = set(match.group(1).split())
+            for _, statement in gates:
+                self.assertNotIn("@ite", statement)
+                self.assertLessEqual(set(re.findall(r"(?:term|formula)_\d+", statement)), unfolded, statement)
+        self.assertNotIn("sorry", text)
 
 
 if __name__ == "__main__":

@@ -999,7 +999,13 @@ class TestUninterpretedValidation(unittest.TestCase):
             self.assertNotIn("unfold formula", structural.split("refine Classical.byContradiction ?_", 1)[1])
             self.assertNotIn("let _s", structural)  # the gates are named by their definitions
             self.assertRegex(structural, r"have _f\d+ : \((Not )?\(formula_\d+ _atoms")
-            rest = fallback.split("\n", 1)[0].split()
+            # The excluded middle of the shared argument comes first, over its
+            # definition, folded, and is reverted across the unfold.
+            lines = [line.strip() for line in fallback.split("\n")]
+            self.assertEqual(lines[:2], ["have _b{0} : Or (formula_{0} _atoms _m) (Not (formula_{0} _atoms _m)) := "
+                                         "Classical.em _".format(shared), "revert _b%d" % shared])
+            self.assertEqual(lines[3], "intro _b%d" % shared)
+            rest = lines[2].split()
             self.assertEqual(rest[0], "unfold")
             reachable = proof_to_lean._reachable(graph, graph.conclusion(node))[0]
             self.assertEqual(rest[1:], proof_to_lean._definition_names(graph, reachable))
@@ -1053,10 +1059,28 @@ class TestUninterpretedValidation(unittest.TestCase):
                      "(%s = %s)" % (proof_to_lean._term(graph, a), proof_to_lean._term(graph, c)))
         self.assertEqual(structure, ("and", ("not", leaves[pairs[0]]), ("not", synthetic), ("not", leaves[pairs[2]])))
         self.assertEqual(sorted(leaves), [pairs[0], pairs[2]])
-        # With no pair in its order, the distinct stays a leaf.
+        # With every pair logged the other way, the pairs are synthetic
+        # leaves, each bridged by eq_comm to the logged node (b, a) when that
+        # is a leaf of the clause too.
         for pair in (pairs[0], pairs[2]):
             tampered["nodes"][pair]["arguments"].reverse()
         graph = proof_to_lean._validate_graph(source, tampered)
+        leaves, synthetic = {}, {}
+        structure = proof_to_lean._boolean_structure(graph, distinct, {}, {}, leaves, synthetic)
+        expected = [("leaf", -(1 + left * len(graph.nodes) + right),
+                     "(%s = %s)" % (proof_to_lean._term(graph, left), proof_to_lean._term(graph, right)))
+                    for left, right in ((a, b), (a, c), (b, c))]
+        self.assertEqual(structure, ("and",) + tuple(("not", leaf) for leaf in expected))
+        self.assertEqual((leaves, sorted(synthetic.values())), ({}, sorted(expected)))
+        self.assertEqual(proof_to_lean._leaf_bridges(graph, leaves, synthetic), [])
+        for pair in pairs:
+            proof_to_lean._boolean_structure(graph, pair, {}, {}, leaves, synthetic)
+        self.assertEqual(sorted(leaves), sorted(pairs))
+        self.assertCountEqual(proof_to_lean._leaf_bridges(graph, leaves, synthetic),
+                              [(("iff", leaf, leaves[pair]), None) for leaf, pair in zip(expected, pairs)])
+        # With no pair in either order and no other distinct over its terms,
+        # the distinct stays a leaf.
+        graph.__dict__["equalities"] = {}
         self.assertIsNone(proof_to_lean._distinct_pair_leaves(graph, distinct, {}))
         leaves = {}
         self.assertEqual(proof_to_lean._boolean_structure(graph, distinct, {}, {}, leaves)[:2], ("leaf", distinct))
@@ -1957,6 +1981,37 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         certificate, report = self.check(wide_distinct_source(40, "U"))
         self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
         self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "U", "Proof"})
+
+    def test_negated_distinct_rewrites_verify_by_de_morgan(self):
+        # The rewrite of (not (distinct c0 ... c11)) into the disjunction of
+        # its 66 pairs is proved by one De Morgan step per pair (over the
+        # sort here, over Int in test_proof_to_lean_lia.py), not by grind.
+        from test_proof_certificate import wide_distinct_source
+        source = wide_distinct_source(12, "U", negated=True)
+        certificate, report = self.check(source)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("refine Iff.trans Classical.not_and_iff_not_or_not"), 65)
+
+    def test_reordered_distincts_verify_by_propagation_alone(self):
+        # (distinct c0 ... c32) with (not (distinct c32 ... c0)) over U: the
+        # two distincts were unrelated leaves of the cnf lemma tying them
+        # (over Int in test_proof_to_lean_lia.py, omega ran out of
+        # heartbeats). Checked with the grind fallback dropped, so that Lean
+        # checks the 528 eq_comm bridges between synthetic pairs.
+        from test_proof_certificate import reordered_distinct_source
+        source = reordered_distinct_source(33, "U")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        blocks, dropped = [], 0
+        for block in proof_to_lean.reconstruct(source, certificate).split("\n\n"):
+            if "private theorem th_lemma_" in block:
+                self.assertEqual(block.count(") := eq_comm\n"), 528)
+                block, count = re.subn(r"\n    \| \(unfold [^\n]*\n       grind \(splits := 64\)\)", "", block)
+                dropped += count
+            blocks.append(block)
+        self.assertEqual(dropped, 1)
+        lean_test_support.check(self, source, text="\n\n".join(blocks))
 
     def test_cnf_lemmas_over_a_distinct_verify_by_propagation_alone(self):
         # The cnf lemmas whose literal is a pair of the asserted distinct,

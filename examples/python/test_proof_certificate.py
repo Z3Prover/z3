@@ -284,9 +284,11 @@ class TestProofCertificate(unittest.TestCase):
         self.assert_well_formed(certificate)
 
     def test_unsupported_commands_are_rejected(self):
+        # include reads another file, get-consequences runs a query of its
+        # own, and declare-rel and define-fun-rec are not replayed.
         commands = [
-            "(get-value (false))", "(eval false)",
-            '(include "other.smt2")', "(minimize 0)",
+            '(include "other.smt2")', "(declare-const p Bool)(get-consequences (p) (p))",
+            "(declare-rel R (Int))", "(define-fun-rec f ((x Int)) Int x)",
             '(set-option :regular-output-channel "output.txt")',
         ]
         for command in commands:
@@ -350,7 +352,8 @@ class TestProofCertificate(unittest.TestCase):
         self.assertIn("(assert (! (and (xor a b) a) :named left))", commands)
         for option in ["produce-assignments true", "unsat_core true", "pp.decimal true", "model.v2 true",
                        "smt.mbqi false", "smt.auto-config false", "nlsat.inline_vars false",
-                       "tactic.default_tactic smt", "rlimit 1000", "random-seed 3", "verbose 1"]:
+                       "tactic.default_tactic smt", "rlimit 1000", "random-seed 3", "verbose 1", "trace true",
+                       'trace_file_name "z3.log"']:
             with self.subTest(option=option):
                 proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
         for query in ["(check-sat-using smt)(get-model)(get-model)", "(check-sat-using aig)(get-assignment)",
@@ -358,6 +361,106 @@ class TestProofCertificate(unittest.TestCase):
                       '(get-info :status)(echo "x")(check-sat)']:
             with self.subTest(query=query):
                 proof_certificate.export_certificate("(assert false)" + query)
+
+    def test_commands_that_only_print_are_dropped(self):
+        # get-value, eval, simplify, apply, display, and get-assertions print
+        # without touching the assertion stack, anywhere and with any
+        # arguments (Z3 answers get-value and eval after unsat with an error).
+        source = ("(declare-const p Bool)(simplify (and p p) :elim-and true)(display p)(get-assertions)"
+                  "(get-value (p))(eval p)(apply (then simplify solve-eqs) :print false)"
+                  "(assert p)(assert (not p))(check-sat)(get-value (p (not p)))(eval (not p) :completion true)")
+        certificate = proof_certificate.export_certificate(source)
+        self.assertEqual(certificate["source_smt2"], source)
+        self.assert_well_formed(certificate)
+        self.assertEqual(proof_certificate._assertion_commands(source),
+                         "(declare-const p Bool)\n(assert p)\n(assert (not p))")
+        # define-const is a definition like a nullary define-fun.
+        snapshot, _, _ = proof_certificate.query_snapshot(
+            "(declare-const x Int)(define-const y Int (+ x 1))(assert (< y x))(check-sat)")
+        self.assertEqual(snapshot, "(declare-const x Int)\n(define-const y Int (+ x 1))\n(assert (< y x))")
+        self.assert_well_formed(proof_certificate.export_certificate(
+            "(declare-const p Bool)(define-const q Bool (not p))(assert p)(assert q)"))
+        # A :named label inside a dropped command defines a name in Z3, even
+        # when the command fails (get-value before check-sat). A later
+        # definition of that name is then an error in Z3, which keeps the
+        # label: on the first script Z3 answers sat, while the snapshot without
+        # the label would read p as true and be unsat. Such commands are
+        # rejected.
+        named = [
+            "(declare-const x Bool)(simplify (! x :named p))(define-fun p () Bool true)(assert (not p))(check-sat)",
+            "(declare-const x Bool)(get-value ((! x :named p)))(define-const p Bool false)(assert p)(check-sat)",
+            "(declare-const p Bool)(simplify (! (not p) :named n))(assert p)(assert n)",
+            "(declare-const p Bool)(eval (! p :named n))(assert p)(assert (not p))",
+            "(declare-const p Bool)(display (! p :named n))(assert p)(assert (not p))",
+        ]
+        for source in named:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, ":named label inside"):
+                    proof_certificate.query_snapshot(source)
+
+    def test_optimization_commands_are_dropped(self):
+        # With a soft assertion or an objective, Z3's check-sat optimizes over
+        # the assertions as hard constraints; the snapshot is those, so a
+        # certificate states that the hard assertions are contradictory.
+        source = ("(set-option :opt.priority lex)(set-option :opt.maxsat_engine wmax)(declare-const x Int)"
+                  "(minimize x)(assert-soft (> x 5) :weight 3 :id goal)(assert (> x 2))(maximize (- x))"
+                  "(check-sat)(get-objectives)(assert-soft (< x 0))(assert (< x 1))(check-sat)(get-objectives)")
+        self.assertEqual(proof_certificate.query_snapshot(source, 1),
+                         ("(declare-const x Int)\n(assert (> x 2))\n(assert (< x 1))", 1, 2))
+        certificate = proof_certificate.export_certificate(source, query=1)
+        self.assertEqual(certificate["source_smt2"], source)
+        self.assertEqual((certificate["fragment"], certificate["query"]), ("qf_lia", 1))
+        # An unsat answer may also report an exhausted Pareto front (Z3
+        # answers sat, sat, unsat here) while the hard assertions are
+        # satisfiable; the exporter's own solver finds them so.
+        pareto = ("(set-option :opt.priority pareto)(declare-const x Int)(declare-const y Int)"
+                  "(assert (and (<= 0 x) (<= 0 y) (<= (+ x y) 1)))(maximize x)(maximize y)"
+                  "(check-sat)(check-sat)(check-sat)")
+        for export in (proof_certificate.export_certificate, proof_certificate.export_clause_log_certificate):
+            with self.subTest(export=export.__name__):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "^sat: no unsat proof exists"):
+                    export(pareto, query=2)
+        # A :named label inside one defines a name, as for the output commands.
+        for command in ["(assert-soft (! p :named n))", "(minimize (! x :named n))"]:
+            with self.subTest(command=command):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, ":named label inside"):
+                    proof_certificate.query_snapshot(
+                        "(declare-const p Bool)(declare-const x Int)%s(assert p)(assert (not p))" % command)
+
+    def test_scripts_end_at_exit(self):
+        # Z3's parser stops at exit, so nothing after it is read: neither
+        # commands that would change the snapshot or the query count nor
+        # text that does not parse.
+        cases = [
+            "(assert false)(check-sat)(exit)(get-model)",
+            "(assert false)(exit)(assert true)(check-sat)(check-sat)",
+            "(assert false)(check-sat)(exit)(pop 5)",
+            '(assert false)(exit) ) (unbalanced "string',
+            "(assert false)(exit)(set-option :sat.smt true)(include \"x\")",
+        ]
+        for source in cases:
+            with self.subTest(source=source):
+                self.assertEqual(proof_certificate.query_snapshot(source)[0], "(assert false)")
+                certificate = proof_certificate.export_certificate(source)
+                self.assertEqual(certificate["source_smt2"], source)
+        # A query after exit does not exist.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "query 1 does not exist"):
+            proof_certificate.query_snapshot("(assert false)(check-sat)(exit)(check-sat)", 1)
+
+    def test_scoped_declarations_option(self):
+        # :global-decls false (also :global-declarations) is Z3's default
+        # scoping, the one the snapshot replays; true would keep a
+        # declaration made in a popped scope.
+        for option in ["global-decls false", "global-declarations false", "global_decls false"]:
+            with self.subTest(option=option):
+                proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
+        with self.assertRaises(z3.Z3Exception):
+            proof_certificate.export_certificate(
+                "(set-option :global-decls false)(push)(declare-const p Bool)(pop)(assert p)(assert (not p))")
+        for option in ["global-decls true", "global-declarations true", "global-decls 1"]:
+            with self.subTest(option=option):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "makes declarations global"):
+                    proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
 
     def test_options_changing_the_input_or_the_proof_evidence_are_rejected(self):
         # numeral-as-real, int-real-coercions, smtlib2_compliant, and
@@ -425,7 +528,6 @@ class TestProofCertificate(unittest.TestCase):
             ("(assert false)(check-sat-using smt)(get-model a)", "get-model must have no arguments"),
             ("(assert false)(get-info)", "get-info takes one argument"),
             ('(assert false)(echo "a" "b")', "echo takes one argument"),
-            ("(assert false)(check-sat)(exit)(get-model)", "commands after exit"),
         ]
         for source, message in cases:
             with self.subTest(source=source):
@@ -453,7 +555,6 @@ class TestProofCertificate(unittest.TestCase):
         suffixes = [
             "(check-sat)(check-sat)", "(get-proof)",
             "(check-sat)(get-proof)(get-proof)",
-            "(exit)(assert false)",
             "(check-sat)(get-proof p)", "(exit now)",
         ]
         for suffix in suffixes:
@@ -648,7 +749,7 @@ class TestProofCertificate(unittest.TestCase):
     def test_cli_failures_have_no_certificate(self):
         cases = [
             ("(assert true)", "sat:"),
-            ("(get-value (false))", "unsupported SMT-LIB command"),
+            ('(include "other.smt2")', "unsupported SMT-LIB command"),
             ("(assert undeclared)", "undeclared"),
             ("(assert false)(check-sat)(check-sat)", "select one by its zero-based index (--query)"),
         ]
@@ -1053,6 +1154,63 @@ UNARY_XOR_GATES_LOG = """\
 (infer rup)
 """
 
+# Inputs whose first assertion folds to false, followed by one-argument
+# applications of +, *, and distinct, which Z3's parser keeps. Once an
+# assertion is false the clause log prints the later ones unsimplified (an
+# empty (assume) and then the raw assertions), so the replay meets (+ t),
+# (* t), and (distinct t); until 2026-11-07 it rejected them ("unsupported
+# operator in the clause log"), about one in ten unsat inputs of a random
+# QF_LIA generator with Boolean structure. Public for the Lean tests.
+ONE_ARGUMENT_INPUTS = {
+    "lia": """\
+(declare-const x Int)
+(declare-const y Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (> (+ (* -2 x)) 2))
+(assert (< (+ x y) (* (+ y))))
+""",
+    "lra": """\
+(declare-const x Real)
+(declare-const y Real)
+(declare-const p Bool)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (=> p (<= (- x y) (+ (* x) 1.0))))
+""",
+    "lira": """\
+(declare-const x Real)
+(declare-const n Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (< (* 2 n) (+ x)))
+""",
+    "uflia": """\
+(declare-const x Int)
+(declare-fun g (Int) Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (> (g (+ x)) (* (g x))))
+""",
+    "arrays": """\
+(declare-const a (Array Int Int))
+(declare-const x Int)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (> (select a (* x)) (+ (select a 0))))
+""",
+    "uf": """\
+(declare-sort U 0)
+(declare-const u U)
+(declare-const v U)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (= c (not c)))
+(assert (= b (distinct u)))
+(assert (or (not b) (= u v)))
+""",
+}
+
 # A distinct below the root: Z3 relates it to the disjunction of its pairwise
 # equalities by two alldiff gate clauses, (or d some_eq) and (or (not d) (not
 # some_eq)), next to the tseitin clauses of the disjunction. d is unused.
@@ -1240,6 +1398,22 @@ def wide_distinct_source(count, sort, negated=False):
                          "(assert (= c5 (f c3)))\n")
         else:
             lines.extend("(assert (and (<= 0 %s) (<= %s 2)))\n" % (name, name) for name in names[:4])
+    return "".join(lines) + "(check-sat)\n"
+
+
+def reordered_distinct_source(count, sort):
+    """(distinct c0 ... cn-1) and (not (distinct cn-1 ... c0)) over constants of sort U, Int, or Real.
+
+    Z3's rewriter sorts a distinct's arguments, so the two assertions
+    simplify to false before the log, and the exporter ties them by one cnf
+    lemma (not (distinct c0 ...)) or (not (not (distinct cn-1 ...))).
+    """
+    names = ["c%d" % index for index in range(count)]
+    head = {"U": "(set-logic QF_UF)\n(declare-sort U 0)\n", "Int": "(set-logic QF_LIA)\n",
+            "Real": "(set-logic QF_LRA)\n"}[sort]
+    lines = [head] + ["(declare-const %s %s)\n" % (name, sort) for name in names]
+    lines.append("(assert (distinct %s))\n" % " ".join(names))
+    lines.append("(assert (not (distinct %s)))\n" % " ".join(reversed(names)))
     return "".join(lines) + "(check-sat)\n"
 
 
@@ -3056,6 +3230,49 @@ class TestClauseLogReplay(unittest.TestCase):
                 self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported operator"):
             self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG.replace("(xor p)", "(xor)"))
+
+    def test_one_argument_builders_make_the_parsers_terms(self):
+        # Needs only the bindings: the API over one argument builds the
+        # hash-consed term the parser makes for (+ x), (* x), and (distinct x).
+        context = z3.Context()
+        x = z3.Int("x", ctx=context)
+        for head, kind in [("+", z3.Z3_OP_ADD), ("*", z3.Z3_OP_MUL), ("distinct", z3.Z3_OP_DISTINCT)]:
+            with self.subTest(head=head):
+                term = proof_clause_log._ONE_ARGUMENT_HEADS[head](context, x)
+                self.assertEqual((term.decl().kind(), term.num_args()), (kind, 1))
+                parsed = z3.parse_smt2_string("(declare-const x Int)(assert (= (%s x) (%s x)))" % (head, head),
+                                              ctx=context)[0].arg(0)
+                self.assertTrue(term.eq(parsed))
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_one_argument_sums_products_and_distincts_after_a_false_assertion(self):
+        z3_executable = proof_certificate.default_z3_executable()
+        fragments = {"lia": "qf_lia", "lra": "qf_lra", "lira": "qf_lira", "uflia": "qf_uflia",
+                     "arrays": "qf_uflia", "uf": "qf_uf"}
+        one_argument = re.compile(r"\(define-const \$\d+ \w+ \((\+|\*|distinct) [^ ()]+\)\)")
+        for name, source in ONE_ARGUMENT_INPUTS.items():
+            with self.subTest(name=name):
+                log = proof_clause_log.run_clause_log(z3_executable, source)
+                self.assertIn("(assume)", log)  # the folded assertion
+                logged = {match.group(1) for match in one_argument.finditer(log)}
+                self.assertTrue(logged, log)
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], fragments[name])
+                declarations, nodes = certificate["declarations"], certificate["nodes"]
+                # The one-argument applications stay nodes of their own.
+                built = {declarations[node["declaration"]]["name"] for node in nodes
+                         if len(node["arguments"]) == 1}
+                self.assertLessEqual(logged, built)
+        # A zero-argument sum and a sum of a Boolean are still rejected.
+        source = ONE_ARGUMENT_INPUTS["lia"]
+        log = proof_clause_log.run_clause_log(z3_executable, source)
+        sum_of_one = re.search(r"Int \(\+ (\$\d+)\)\)", log)
+        self.assertIsNotNone(sum_of_one, log)
+        self.replay(source, log)
+        for tampered in ("Int (+))", "Int (+ c))"):
+            with self.subTest(tampered=tampered), self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                                                           "unsupported operator"):
+                self.replay(source, log.replace(sum_of_one.group(0), tampered, 1))
 
     def test_distinct_gate_clauses_become_def_axioms(self):
         def distinct_gates(certificate):
