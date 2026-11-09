@@ -411,3 +411,4 @@ public:
 tactic * mk_eq2bv_tactic(ast_manager & m) {
     return clean(alloc(eq2bv_tactic, m));
 }
+
