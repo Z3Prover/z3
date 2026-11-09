@@ -78,6 +78,26 @@ let positive_product_read_view ()
   assert_norm (RD.check_root_document_epsilon PT.core_schema product_document == RD.RootCertified);
   assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view product_document) == Some 0)
 
+let nonpositive_product_document : P.document =
+  let a = App RL.real_ge_decl [c; rzero] in
+  let b = le d rzero in
+  let z = constant "z" real [] in
+  let positive = gt z rzero in
+  let bound = le (App RL.real_plus_decl
+    [z; App RL.real_times_decl [App (RL.real_numeral_decl (-1) 1) [];
+                                App RL.real_times_decl [c; d]]]) rzero in
+  doc [a; b; positive; bound]
+    [entry U.Asserted a []; entry U.Asserted b []; entry U.Asserted positive [];
+     entry U.Asserted bound []; entry (U.Unverified "th-lemma") R.false_expr [0; 1; 2; 3]] 4
+
+let nonpositive_product_read_view ()
+  : Lemma (SP.check_document_epsilon PT.core_schema nonpositive_product_document == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema nonpositive_product_document == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view nonpositive_product_document) == Some 0) =
+  assert_norm (SP.check_document_epsilon PT.core_schema nonpositive_product_document == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema nonpositive_product_document == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view nonpositive_product_document) == Some 0)
+
 let linear_equality_document (tight:bool) : P.document =
   let a = App RL.real_ge_decl [c; rone] in
   let b = le c (if tight then rone else App (RL.real_numeral_decl 2 1) []) in

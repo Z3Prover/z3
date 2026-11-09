@@ -3194,7 +3194,7 @@ let sorted_real_linear_equalities () =
                   (List.init 31 (fun i -> List.nth facts (i mod 4))) left right))
     "Real equality reconstruction ignored its literal budget"
 
-let sorted_real_positive_products () =
+let sorted_real_product_signs () =
   let module K = Z3SortedProof in
   let module RP = Z3SortedRealProduct in
   let module R = Z3ResolutionProofTheory in
@@ -3211,7 +3211,7 @@ let sorted_real_positive_products () =
                   premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
     let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
                 assertions = facts; entries = entries @ [final]; root = Z.of_int (List.length facts) } in
-    require (RP.check schema facts = expected) "unexpected Real positive-product verdict";
+    require (RP.check schema facts = expected) "unexpected Real product-sign verdict";
     require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
       "Real positive-product document did not preserve its pending count";
     if expected then (
@@ -3237,7 +3237,23 @@ let sorted_real_positive_products () =
   check false (declarations ^
     "(assert (> x 0))(assert (>= y 0))(assert (<= (* x y) 0))");
   check false (declarations ^
-    "(assert (> x 0))(assert (> y 0))(assert (<= (* x c) 0))")
+    "(assert (> x 0))(assert (> y 0))(assert (<= (* x c) 0))");
+  check true (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))\
+     (assert (<= (+ c (* (- 1) (* x y))) 0))");
+  check true (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))\
+     (assert (<= (+ c (* (- 1) (* y x))) 0))");
+  check true (declarations ^
+    "(assert (= x 0))(assert (<= y 0))(assert (> c 0))(assert (<= c (* x y)))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (> c 0))(assert (<= c (* x y)))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (<= c 0))(assert (<= c (* x y)))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))(assert (<= c (* x c)))");
+  check false (declarations ^ "(declare-fun fake_mul (Real Real) Real)" ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))(assert (<= c (fake_mul x y)))")
 
 (* Real equality/order clauses (Z3SortedProof.real_order, the Real mirror of the Int order_clause)
    on the Sorted route. z3's arith_eq_adapter lemmas over Real terms (`not (x = y) \/ x <= y`, the
@@ -8281,7 +8297,7 @@ let () =
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-linear-equalities", sorted_real_linear_equalities;
-     "sorted-real-positive-products", sorted_real_positive_products;
+     "sorted-real-product-signs", sorted_real_product_signs;
      "sorted-real-order-clauses", sorted_real_order_clauses;
      "sorted-int-division-clauses", sorted_int_division_clauses;
      "sorted-real-equation-rewrites", sorted_real_equation_rewrites;

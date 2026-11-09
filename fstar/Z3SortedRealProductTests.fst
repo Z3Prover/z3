@@ -44,6 +44,26 @@ let mutations : list (list expr) = [
 let feasible_mutants () : Lemma (L.for_all (fun facts -> not (P.check schema facts)) mutations) =
   assert_norm (L.for_all (fun facts -> not (P.check schema facts)) mutations)
 
+let nested_bound (a b:expr) : expr =
+  le (App RL.real_plus_decl [z; mul (App (RL.real_numeral_decl (-1) 1) []) (mul a b)]) P.zero
+
+let opposite_signs : list expr = [ge x P.zero; le y P.zero; P.positive z; nested_bound x y]
+let reversed_signs : list expr = [ge x P.zero; le y P.zero; P.positive z; nested_bound y x]
+
+let nonpositive_products () : Lemma (P.check schema opposite_signs /\ P.check schema reversed_signs) =
+  assert_norm (P.check schema opposite_signs);
+  assert_norm (P.check schema reversed_signs)
+
+let nonpositive_mutants : list (list expr) = [
+  [ge x P.zero; ge y P.zero; P.positive z; nested_bound x y];
+  [ge x P.zero; le y P.zero; le z P.zero; nested_bound x y];
+  [ge x P.zero; le y P.zero; P.positive z; nested_bound x z]
+]
+
+let feasible_nonpositive_mutants ()
+  : Lemma (L.for_all (fun facts -> not (P.check schema facts)) nonpositive_mutants) =
+  assert_norm (L.for_all (fun facts -> not (P.check schema facts)) nonpositive_mutants)
+
 let rec repeat (n:nat) (e:expr) : Tot (list expr) (decreases n) =
   if n = 0 then [] else e :: repeat (n - 1) e
 

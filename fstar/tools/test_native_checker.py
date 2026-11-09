@@ -423,6 +423,10 @@ SORTED_REAL_CASES = (
      "(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Bool)"
      "(assert (>= x 1))(assert (<= x 1))(assert (>= y 0))(assert (<= y 0))"
      "(assert (f 1))(assert (not (f (+ x y))))"),
+    ("nested-opposite-signs", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-const z Real)(declare-const d Real)"
+     "(assert (>= x 0))(assert (<= y 0))(assert (>= d 0))(assert (> z d))"
+     "(assert (<= (+ z (* (- 1) (* x y))) 0))"),
 )
 # Satisfiable Real inputs: no Int lattice reasoning at Real (0 < x < 1 holds at x = 1/2, the model the
 # producer returns), and equal non-strict bounds (x = y).
@@ -433,6 +437,10 @@ SORTED_REAL_SATISFIABLE_CASES = (
      "(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Bool)"
      "(assert (>= x 1))(assert (<= x 2))(assert (>= y 0))(assert (<= y 0))"
      "(assert (f 1))(assert (not (f (+ x y))))"),
+    ("same-sign-product", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-const z Real)(declare-const d Real)"
+     "(assert (>= x 0))(assert (>= y 0))(assert (>= d 0))(assert (> z d))"
+     "(assert (<= (+ z (* (- 1) (* x y))) 0))"),
 )
 
 # Sort-generic ITE laws on the Sorted route: the producer's premise-free closed `rewrite` steps

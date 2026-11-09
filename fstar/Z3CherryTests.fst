@@ -519,11 +519,17 @@ let real_product_controls () : bool =
   let indirect = R.mk_not_expr
     (ge (A.App RL.real_plus_decl [z; mul (A.App (RL.real_numeral_decl (-1) 1) []) x]) RP.zero) in
   let good = document (ge z RP.zero) indirect (RP.positive y) bound in
+  let nested a b = le (A.App RL.real_plus_decl
+    [z; mul (real_numeral (-1) 1) (mul a b)]) RP.zero in
   check (RP.positive x) (RP.positive y) bound = Some 0 &&
   check indirect (R.mk_not_expr (le y RP.zero)) bound = Some 0 &&
   check (ge x RP.zero) (RP.positive y) bound = Some 1 &&
   check (RP.positive x) (ge y RP.zero) bound = Some 1 &&
   check (RP.positive x) (RP.positive y) (le (mul x z) RP.zero) = Some 1 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (RP.positive z) (nested x y)) = Some 0 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (RP.positive z) (nested y x)) = Some 0 &&
+  C.check true (document (ge x RP.zero) (ge y RP.zero) (RP.positive z) (nested x y)) = Some 1 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (le z RP.zero) (nested x y)) = Some 1 &&
   C.check true { good with C.document = { good.document with P.assertions = [] } } = None
 
 let real_farkas_controls () : bool =
