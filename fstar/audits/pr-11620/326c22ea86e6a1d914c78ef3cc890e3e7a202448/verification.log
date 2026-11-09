@@ -1,0 +1,8 @@
+Base 532cbc4aee06a3745a318fc9e8b86124123c7bca; head 326c22ea86e6a1d914c78ef3cc890e3e7a202448
+F* 2026.09.27; Z3 4.13.3
+cmd: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out --include /home/runner/work/z3/z3/fstar Pr11620Ite.fst
+stdout:
+Verified module: Pr11620Ite
+All verification conditions discharged successfully
+stderr:
+exit: 0
