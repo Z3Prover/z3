@@ -999,7 +999,13 @@ class TestUninterpretedValidation(unittest.TestCase):
             self.assertNotIn("unfold formula", structural.split("refine Classical.byContradiction ?_", 1)[1])
             self.assertNotIn("let _s", structural)  # the gates are named by their definitions
             self.assertRegex(structural, r"have _f\d+ : \((Not )?\(formula_\d+ _atoms")
-            rest = fallback.split("\n", 1)[0].split()
+            # The excluded middle of the shared argument comes first, over its
+            # definition, folded, and is reverted across the unfold.
+            lines = [line.strip() for line in fallback.split("\n")]
+            self.assertEqual(lines[:2], ["have _b{0} : Or (formula_{0} _atoms _m) (Not (formula_{0} _atoms _m)) := "
+                                         "Classical.em _".format(shared), "revert _b%d" % shared])
+            self.assertEqual(lines[3], "intro _b%d" % shared)
+            rest = lines[2].split()
             self.assertEqual(rest[0], "unfold")
             reachable = proof_to_lean._reachable(graph, graph.conclusion(node))[0]
             self.assertEqual(rest[1:], proof_to_lean._definition_names(graph, reachable))

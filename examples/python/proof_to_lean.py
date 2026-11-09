@@ -3029,6 +3029,17 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     else:
         remaining = reachable
     gates, gate_names, gate_nodes = _folded_ite_gates(graph, reachable) if graph.arithmetic else ([], [], set())
+    folded_gates = bool(gates)
+    # Without arrays the excluded-middle facts of Boolean arguments and the
+    # cast facts are stated folded too (_folded_boolean_arguments,
+    # _cast_facts), and reverted with the gates.
+    fold = not graph.arrays
+    if fold and graph.uninterpreted:
+        lines_b, names_b, nodes_b = _folded_boolean_arguments(graph, reachable)
+        gates, gate_names, gate_nodes = gates + lines_b, gate_names + names_b, gate_nodes | nodes_b
+    lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, reachable, atom_indices, variable_indices, node,
+                                                        folded=fold)
+    gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
     if gates:
         # Stated folded and reverted, so the unfold below rewrites them as it
         # rewrites the goal; the definitions they mention outside the atoms
@@ -3041,11 +3052,11 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     distinct_facts, distinct_names = _boolean_distinct_facts(graph, reachable, atom_indices, variable_indices)
     fallback.extend(distinct_facts)
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices,
-                                                                  folded=bool(gates)))
+                                                                  folded=folded_gates, folded_arguments=fold))
     if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
-    fallback.extend(_cast_facts(graph, reachable, atom_indices, variable_indices, node))
+    fallback.extend(cast_facts)
     fallback.append(_without_boolean_distincts(distinct_names, _theory_tactic(graph)))
     alternatives.append(fallback)
     if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
@@ -3168,7 +3179,7 @@ private theorem _int_cast_eq (s t : Int) :
 """.strip("\n").split("\n")
 
 
-def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None):
+def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None, folded=False):
     """Transport the Int atoms of a theory step reaching to_real into Rat, then push the casts.
 
     Through (to_real t), Int terms occur in Real atoms, and a lemma such as
@@ -3193,34 +3204,61 @@ def _cast_facts(graph, reachable, atom_indices, variable_indices, node=None):
     a cut or a coefficient-free farkas or bound) also gets its projection
     onto its Int atoms (_projection_facts). Steps reaching no conversion
     get nothing.
+
+    Returns the have lines stated folded, their names, the nodes they are
+    about, and the remaining tactic lines. With folded, the floor bounds
+    and the cast equivalences are stated over the definitions of their
+    sides, folded, for _grind_lemma to revert before its unfold, as the
+    ite gates (_folded_ite_gates); written out, the sides of an Int atom
+    over nested ites repeat every inner ite in full (eight modular steps
+    of Int under to_real: 14.7 MB of cast facts in a 15.6 MB file, which
+    exceeded the 8 GB memory limit). Otherwise every fact is written out
+    in the remaining lines.
     """
     if not any(graph.kind(node) in _CONVERSION_KINDS for node in reachable):
-        return []
-    facts, floors = [], []
+        return [], [], set(), []
+
+    def side(argument):
+        if folded:
+            return _term(graph, argument)
+        return "(%s)" % _inline(graph, argument, atom_indices, variable_indices)
+
+    stated, names, nodes, facts, floors = [], [], set(), [], []
+    instances = stated if folded else facts
     for formula in sorted(reachable):
         kind, arguments = graph.kind(formula), graph.arguments(formula)
         if kind in (z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT):
             if arguments[0] not in floors:
                 floors.append(arguments[0])
-                argument = "(%s)" % _inline(graph, arguments[0], atom_indices, variable_indices)
-                facts.append("have _f%d := Rat.floor_le %s" % (arguments[0], argument))
-                facts.append("have _u%d := Rat.lt_floor_add_one %s" % (arguments[0], argument))
+                argument = side(arguments[0])
+                instances.append("have _f%d := Rat.floor_le %s" % (arguments[0], argument))
+                instances.append("have _u%d := Rat.lt_floor_add_one %s" % (arguments[0], argument))
+                names.extend(["_f%d" % arguments[0], "_u%d" % arguments[0]])
+                nodes.add(arguments[0])
             continue
         if kind not in _CAST_ATOMS or graph.is_term(formula) or not graph.is_arith(arguments[0]):
             continue
         if not graph.is_int(arguments[0]):
-            facts.extend(_integrality_fact(graph, formula, atom_indices, variable_indices) or [])
+            integrality = _integrality_fact(graph, formula, atom_indices, variable_indices, folded)
+            if folded and integrality:
+                instances.extend(integrality[0])
+                names.extend(["_r%d" % formula, "_q%d" % formula])
+                nodes.update(integrality[1])
+            else:
+                facts.extend(integrality or [])
             continue
         lemma, swapped = _CAST_ATOMS[kind]
-        sides = ["(%s)" % _inline(graph, argument, atom_indices, variable_indices) for argument in arguments]
+        sides = [side(argument) for argument in arguments]
         if swapped:
             sides.reverse()
-        facts.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
+        instances.append("have _c%d := %s %s %s" % (formula, lemma, sides[0], sides[1]))
+        names.append("_c%d" % formula)
+        nodes.update(arguments)
     facts.extend(_floor_shift_facts(graph, floors, atom_indices, variable_indices))
     if node is not None:
         facts.extend(_projection_facts(graph, node, atom_indices, variable_indices))
     facts.append("push_cast at *")
-    return facts
+    return (stated, names, nodes, facts) if folded else ([], [], set(), facts)
 
 
 # The most constraints _projection_facts keeps while eliminating a Real
@@ -3411,7 +3449,7 @@ _CAST_RELATIONS = {"<=": "Rat.intCast_le_intCast", "<": "Rat.intCast_lt_intCast"
 _CAST_LEMMA_OF = {"<=": "_int_cast_le", "<": "_int_cast_lt", "=": "_int_cast_eq"}
 
 
-def _integrality_fact(graph, atom, atom_indices, variable_indices):
+def _integrality_fact(graph, atom, atom_indices, variable_indices, folded=False):
     """State a Real atom over Int terms alone equivalent to an Int atom, or return None for any other.
 
     Returns the tactic lines of the facts.
@@ -3427,6 +3465,11 @@ def _integrality_fact(graph, atom, atom_indices, variable_indices):
     (to_int x)), (not (<= 3.0 (to_real (to_int x)))) bounds x by 2, not 3.
     An atom without a linear form (a rewrite's dead branch dividing by
     zero) gets no facts.
+
+    With folded, the atom and the Int terms of its form are rendered by
+    their definitions (see _cast_facts), and the first fact is proved
+    after unfolding the atom down to those terms (_linear_unfold); the
+    nodes the facts mention are returned too.
     """
     try:
         relation, terms, constant = _atom_constraint(graph, atom)
@@ -3435,11 +3478,13 @@ def _integrality_fact(graph, atom, atom_indices, variable_indices):
     if not graph.integer_form(terms):
         return None
     scale = _common_denominator(terms, constant)
-    form = _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, True)
-    return ["have _r%d : (%s) <-> ((%s) %s ((0 : Int))) := Iff.trans (by push_cast; grind) %s" % (
-                atom, _inline(graph, atom, atom_indices, variable_indices), form, relation,
-                _CAST_RELATIONS[relation]),
-            "have _q%d := %s (%s) ((0 : Int))" % (atom, _CAST_LEMMA_OF[relation], form)]
+    form = _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, True, folded=folded)
+    statement = _formula(graph, atom) if folded else "(%s)" % _inline(graph, atom, atom_indices, variable_indices)
+    facts = ["have _r%d : %s <-> ((%s) %s ((0 : Int))) := Iff.trans (by %spush_cast; grind) %s" % (
+                 atom, statement, form, relation, _linear_unfold(graph, atom) if folded else "",
+                 _CAST_RELATIONS[relation]),
+             "have _q%d := %s (%s) ((0 : Int))" % (atom, _CAST_LEMMA_OF[relation], form)]
+    return (facts, {atom} | set(terms)) if folded else facts
 
 
 def _folded_array(graph, node):
@@ -3484,13 +3529,17 @@ def _definition_names(graph, nodes, roots=None):
             for formula in sorted(nodes, reverse=True)]
 
 
-def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded=False):
-    """Facts _grind_lemma states after unfolding; folded: the ite gates and scaling facts are stated already."""
+def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded=False, folded_arguments=False):
+    """Facts _grind_lemma states after unfolding.
+
+    folded: the ite gates and scaling facts are stated already;
+    folded_arguments: so are the excluded-middle facts of Boolean arguments.
+    """
     helpers = []
     if graph.arithmetic and not folded:
         helpers.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
         helpers.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.uninterpreted:
+    if graph.uninterpreted and not folded_arguments:
         helpers.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.arithmetic and graph.uninterpreted:
         helpers.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
@@ -4733,19 +4782,43 @@ def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
     combined several assertions. grind splits on disjunctions in context but
     not on arbitrary propositions, so each case split is offered explicitly;
     from either case it derives _m.bool p = _m.bool True or _m.bool p = _m.bool False
-    by congruence.
+    by congruence. Without arrays _folded_boolean_arguments states them
+    instead, folded.
     """
+    helpers = []
+    for argument in _boolean_arguments(graph, reachable):
+        formula = _inline(graph, argument, atom_indices, variable_indices)
+        helpers.append("  have _b%d : Or (%s) (Not (%s)) := Classical.em _" % (argument, formula, formula))
+    return helpers
+
+
+def _boolean_arguments(graph, reachable):
+    """The reachable formulas other than true and false that are arguments of an application, in id order."""
     arguments = set()
     for node in sorted(reachable):
         if graph.kind(node) == z3.Z3_OP_UNINTERPRETED:
             arguments.update(argument for argument in graph.arguments(node)
                              if not graph.is_term(argument)
                              and graph.kind(argument) not in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE))
-    helpers = []
-    for argument in sorted(arguments):
-        formula = _inline(graph, argument, atom_indices, variable_indices)
-        helpers.append("  have _b%d : Or (%s) (Not (%s)) := Classical.em _" % (argument, formula, formula))
-    return helpers
+    return sorted(arguments)
+
+
+def _folded_boolean_arguments(graph, reachable):
+    """The excluded-middle facts of _boolean_argument_helpers over the arguments' definitions, folded.
+
+    Returns the have lines, their names, and the arguments, for
+    _grind_lemma to revert before its unfold as it does the ite gates
+    (_folded_ite_gates). Written out, an argument comparing a term over
+    nested ites repeats every inner ite in full, twice (eight modular Int
+    steps under a predicate: 7.3 MB of these facts in an 8.2 MB file).
+    """
+    lines, names, nodes = [], [], set()
+    for argument in _boolean_arguments(graph, reachable):
+        formula = _formula(graph, argument)
+        lines.append("have _b%d : Or %s (Not %s) := Classical.em _" % (argument, formula, formula))
+        names.append("_b%d" % argument)
+        nodes.add(argument)
+    return lines, names, nodes
 
 
 def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):

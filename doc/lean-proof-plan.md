@@ -2838,6 +2838,37 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Cast, integrality, and Boolean-argument facts stated over folded definitions (2026-11-09)
+
+The cast facts of a lemma reaching `to_real` or `to_int` (`_c`: an Int atom
+transported into Rat; `_f`/`_u`: the floor bounds; `_r`/`_q`: a Real atom
+over Int terms tied to an Int atom) and the excluded middles of Boolean
+arguments of uninterpreted functions (`_b`) were still written out after the
+lemma's unfold. Over nested ites every such fact repeats each inner ite in
+full, as the ite gates did before 2026-11-08. They are now stated over the
+term and formula definitions, folded, and reverted with the ite gates
+before the lemma's one unfold, which rewrites them into the goal's terms
+(the integrality fact is proved with its atom unfolded down to the Int terms
+of its form). Certificates with arrays keep the written-out form, whose
+terms the unfold leaves folded.
+
+`cast_chains_instance(8, ...)` in `test_proof_to_lean_lira.py` compares two
+chains of eight nested Int ites with one value (clause log):
+
+| Compare | Fragment | Before | Now |
+| --- | --- | --- | --- |
+| casts against a Real `y` | QF_LIRA | 15.6 MB, fails (kernel memory, 218 s, 11.2 GB) | 0.92 MB, 20 s, 3.1 GB |
+| Real `f` of the casts | QF_UFLIRA | 16.0 MB (not checked) | 0.89 MB, 9 s, 1.8 GB |
+| Bool `p` of a bound on each | QF_UFLIA | 8.2 MB, fails (heartbeats, 168 s) | 0.94 MB, 10 s, 1.5 GB |
+
+On the legacy core the QF_LIRA text goes from 23.9 MB to 1.6 MB (9 s).
+Tests: `test_facts_over_nested_ites_are_stated_folded` (shapes, without
+Lean) and `test_nested_ite_chains_verify_through_folded_facts` (both cores,
+Lean). Still open: `to_int` of a Real chain under `f` (QF_UFLIRA, depth 8)
+fails in a rewrite's grind fallback (heartbeats in `isDefEq`); the
+rewriter's normal form of the floored chain needs an equality grind does not
+find.
+
 ### Argument equalities proved level by level (2026-11-09)
 
 The 2026-11-08 argument equalities (`_r` facts) were proved with both

@@ -804,6 +804,11 @@ atoms are eliminated exactly (substitution, then Fourier-Motzkin, up to 200
 constraints), and each projected constraint F R 0 (x = 5 leaves
 2 floor(x/2) - 5 = 0) is stated over Int through its cast lemma, so grind's
 Int module refutes it. A cut whose literals reach no Int atom is rejected.
+Without arrays the cast facts, the Real-to-Int atom equivalences, and the
+floor bounds are stated over the term and formula definitions, folded, and
+unfolded together with the goal, like the ite gates; so, in every fragment
+without arrays, are the excluded middles of Boolean arguments of
+uninterpreted functions.
 Rewrites, which may span both sorts, are proved by first | omega |
 grind (splits := 64). The Rat encoding of the Real variables stays sound
 next to Int ones: fix the Int values and the truth value of every atom and
