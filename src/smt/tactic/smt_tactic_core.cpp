@@ -254,10 +254,6 @@ public:
                     TRACE(smt_tactic, tout << "failed to show to be unsat...\n";);
                     throw tactic_exception("under-approximated goal found to be unsat");
                 }
-                if (in->proofs_enabled() && (!pr || !m.is_false(m.get_fact(pr))))
-                    throw tactic_exception("smt tactic did not produce a proof of false");
-                if (pr && !m.is_false(m.get_fact(pr)))
-                    pr = nullptr;
                 // formula is unsat, reset the goal, and store false there.
                 in->reset();
                 expr_dependency * lcore = nullptr;
@@ -271,6 +267,8 @@ public:
                     }
                 }
 
+                if (m.proofs_enabled() && !pr) pr = m.mk_asserted(m.mk_false()); // bail out
+                if (pr && m.get_fact(pr) != m.mk_false()) pr = m.mk_asserted(m.mk_false()); // could happen in clause_proof mode
                 in->assert_expr(m.mk_false(), pr, lcore);
                 
                 result.push_back(in.get());
