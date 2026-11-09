@@ -2838,6 +2838,39 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### Floors keyed by their argument's normal form (2026-11-09)
+
+`to_int` atoms were keyed by node in `_real_atom_key`, so the floor of a
+nested Real ite chain and the floor of the rewriter's normal form of that
+chain (a different node) had different keys. No `_r` argument equality
+related `(f (to_int a8))` and its rewritten form. The rewrite's grind
+fallback ran out of heartbeats in `isDefEq` over the unfolded chains
+(QF_UFLIRA, depth 8; depth 6 took 47 s and 3.7 GB). A `to_int` is now
+keyed by its argument's key. Its level in `_argument_equality_levels` is
+its argument's linear form, and two floors of one key get their own
+equality, proved with only the two floors unfolded, by congruence from
+the equality of the floored chains (which is stated first, level by
+level). `_atom_bridge_facts` now also bridges such floors.
+`cast_chains_instance(depth, "floor")`, clause log: depth 6 now takes 6 s
+and 0.9 GB, depth 8 14 s and 1.3 GB, depth 10 40 s and 1.7 GB. The legacy
+core relates the floors by `congrArg` and is unchanged (depth 8: 15 s).
+Tests: `test_floors_of_nested_real_chains_are_related_level_by_level`
+(without Lean) and the `floor` case of
+`test_nested_ite_chains_verify_through_folded_facts` (both cores, Lean).
+
+Keying a floor recurses into its argument, so keying a floor of a nested
+chain took about 3^depth calls (as keying an ite argument already did),
+and the keys themselves, nested tuples, grew as fast, with every
+comparison, hash, and `repr` order paying for it. `_real_argument_key` and
+`_real_atom_key` are now cached per graph, and the key of an ite, `abs`, or
+`to_int` is interned (`_InternedKey`, compared by identity, ordered by a
+short index), so keying is linear in the depth. `reconstruct` of
+`cast_chains_instance(16, "floor")` went from over 120 s to 0.3 s, and of
+`(= n (to_int a16))` against `(> n (+ (to_int a16) 1))` from over 300 s
+to under 0.1 s. Outputs are byte-identical on 282 test inputs with an
+ite, `abs`, or `to_int` (both cores). Test:
+`test_keys_of_nested_chains_are_linear_in_depth` (without Lean).
+
 ### Cast, integrality, and Boolean-argument facts stated over folded definitions (2026-11-09)
 
 The cast facts of a lemma reaching `to_real` or `to_int` (`_c`: an Int atom

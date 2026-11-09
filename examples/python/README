@@ -1014,8 +1014,12 @@ branches swapped) as a helper it proves first; without arrays the helper is
 stated over the two terms' definitions and unfolded in place once proved, so
 nested ite arguments are not written out; it is proved level by level, each
 pair of corresponding nested ites related first with the ites below them
-folded. A certificate whose only uninterpreted symbols are predicates
-over Bool uses the same binders with no sort at all: _m.U carries the two
+folded. A to_int is keyed by its argument's normal form, so the floors of
+two Real terms with one normal form (to_int of a nested Real ite chain and
+the rewriter's form of it) are related too, by congruence from the equality
+of the floored terms. The keys are cached and interned per certificate, so
+keying a nested chain takes time linear in its depth. A certificate whose
+only uninterpreted symbols are predicates over Bool uses the same binders with no sort at all: _m.U carries the two
 Boolean values, _m.elems and _m.funs are never applied. Every ground term
 then denotes its value in the model, and since well-sorted inputs only
 compare terms of one sort, every assertion keeps its truth value. Nothing

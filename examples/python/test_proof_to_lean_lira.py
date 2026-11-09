@@ -387,19 +387,30 @@ def cast_chains_instance(depth=8, compare="real"):
     "function" compares a Real function f of the two casts (QF_UFLIRA: Real
     atoms over the casts alone too, _integrality_fact); "predicate" compares
     a predicate p of a bound on each chain (QF_UFLIA: the excluded-middle
-    facts of Boolean arguments, _folded_boolean_arguments).
+    facts of Boolean arguments, _folded_boolean_arguments). "floor" makes
+    the chains Real, x + 5/2 * depth and x + 5 * (depth / 2) modulo 17/2,
+    and compares an Int function f of their floors (QF_UFLIRA: the
+    rewriter's normal form of each to_int floors a different Real chain,
+    related level by level by _argument_equality_levels).
     """
-    logic = {"real": "QF_LIRA", "function": "QF_UFLIRA", "predicate": "QF_UFLIA"}[compare]
-    lines = ["(set-logic %s)" % logic, "(declare-const x Int)"]
-    for name, step, count in (("a", 5, depth), ("b", 10, depth // 2)):
+    logic = {"real": "QF_LIRA", "function": "QF_UFLIRA", "predicate": "QF_UFLIA", "floor": "QF_UFLIRA"}[compare]
+    if compare == "floor":
+        sort, modulus, steps = "Real", "(/ 17 2)", ("(/ 5 2)", "5.0")
+    else:
+        sort, modulus, steps = "Int", "17", ("5", "10")
+    lines = ["(set-logic %s)" % logic, "(declare-const x %s)" % sort]
+    for name, step, count in (("a", steps[0], depth), ("b", steps[1], depth // 2)):
         previous = "x"
         for index in range(1, count + 1):
-            lines.append("(define-fun %s%d () Int (let ((s (+ %s %d))) (ite (< s 17) s (- s 17))))" % (
-                name, index, previous, step))
+            lines.append("(define-fun %s%d () %s (let ((s (+ %s %s))) (ite (< s %s) s (- s %s))))" % (
+                name, index, sort, previous, step, modulus, modulus))
             previous = "%s%d" % (name, index)
     first, second = "a%d" % depth, "b%d" % (depth // 2)
-    lines.append("(assert (and (<= 0 x) (< x 17)))")
-    if compare == "real":
+    lines.append("(assert (and (<= 0 x) (< x %s)))" % modulus)
+    if compare == "floor":
+        lines += ["(declare-fun f (Int) Int)",
+                  "(assert (not (= (f (to_int %s)) (f (to_int %s)))))" % (first, second)]
+    elif compare == "real":
         lines += ["(declare-const y Real)", "(assert (= y (to_real %s)))" % second,
                   "(assert (not (= (to_real %s) y)))" % first]
     elif compare == "function":
@@ -769,6 +780,47 @@ class TestCastValidation(unittest.TestCase):
                         self.assertEqual(reverted.group(1), reverted.group(2))
                         self.assertLessEqual(set(names), set(reverted.group(1).split()))
 
+    def test_floors_of_nested_real_chains_are_related_level_by_level(self):
+        # The rewriter's normal form of (f (to_int a8)) floors another Real
+        # chain than the input's. to_int atoms are keyed by their argument
+        # (_real_atom_key), so the two floors get an equality of their own,
+        # proved from the equality of the floored chains (stated before it,
+        # level by level) with only the two floors unfolded. Keyed by node,
+        # nothing related them and the rewrite's fallback ran out of
+        # heartbeats over the unfolded chains. (The legacy proof relates the
+        # floors by congrArg through its monotonicity steps.)
+        source = cast_chains_instance(8, "floor")
+        text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
+        self.assertLess(len(text), 2000000)
+        floors = dict(re.findall(r"^noncomputable def term_(\d+) [^\n]*: Int := \(Rat\.floor \(term_(\d+) _atoms",
+                                 text, re.M))
+        related = 0
+        for block in text.split("\n\n"):
+            facts = re.findall(r"have _r(\d+)_(\d+) : [^\n]* := by unfold ([\w ]+);", block)
+            stated = {(left, right) for left, right, _ in facts}
+            for left, right, names in facts:
+                if left in floors and right in floors:
+                    self.assertEqual(set(names.split()), {"term_" + left, "term_" + right})
+                    self.assertIn((floors[left], floors[right]), stated)
+                    related += 1
+        self.assertGreater(related, 0)
+
+    def test_keys_of_nested_chains_are_linear_in_depth(self):
+        # Keying a floor keys its argument, and each level of a nested chain
+        # is reached from its condition and both branches: about 3^depth
+        # calls uncached, with keys nested as deep. Cached and interned
+        # (_InternedKey), each atom is keyed once and every key is short.
+        source = cast_chains_instance(16, "floor")
+        graph = proof_to_lean._validate_graph(source, _export(source, "clause-log"))
+        floors = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_TO_INT]
+        with mock.patch.object(proof_to_lean, "_ite_atom_key", wraps=proof_to_lean._ite_atom_key) as keyed:
+            keys = [proof_to_lean._real_atom_key(graph, node) for node in floors]
+        self.assertGreater(keyed.call_count, 16)
+        self.assertLessEqual(keyed.call_count, len(graph.nodes))
+        self.assertLess(max(len(repr(key)) for key in keys), 20)
+        # The input's floors and the rewriter's still share keys.
+        self.assertLess(len(set(keys)), len(floors))
+
     def test_real_atoms_over_int_terms_are_tied_to_int_atoms(self):
         # 2n = 2m + 1 over the casts is an integer constraint: the cut gets
         # it as an Int atom, scaled to integer coefficients.
@@ -1137,8 +1189,11 @@ class TestCastLeanIntegration(unittest.TestCase):
         # Boolean-argument facts written out, the clause-log certificates
         # failed: real ran out of kernel memory (218 s, 11.2 GB), predicate
         # out of heartbeats elaborating the facts (168 s). Folded, each
-        # checks in 3 to 20 s under 3.1 GB (see _cast_facts).
-        fragments = {"real": "qf_lira", "function": "qf_uflira", "predicate": "qf_uflia"}
+        # checks in 3 to 20 s under 3.1 GB (see _cast_facts). floor (Real
+        # chains under to_int) ran out of heartbeats in a rewrite's fallback
+        # while its two floors were unrelated atoms; with their equality
+        # stated level by level it checks in about 15 s on each core.
+        fragments = {"real": "qf_lira", "function": "qf_uflira", "predicate": "qf_uflia", "floor": "qf_uflira"}
         for compare, fragment in fragments.items():
             source = cast_chains_instance(8, compare)
             for core in ("clause-log", "legacy"):
