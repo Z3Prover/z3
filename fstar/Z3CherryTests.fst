@@ -522,12 +522,15 @@ let integer_product_controls () : bool =
                  (if strict then le z zero else binary "<" Z3ValueTheory.op_arith_lt A.bool_sort z zero);
                  le (binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z)) zero] in
     replay kind facts in
-  let signed kind opposite wrong_sign =
-    let b = if opposite <> wrong_sign then ge y zero else le y zero in
-    let c = binary (if opposite then ">" else "<")
+  let signed kind strict opposite wrong_sign =
+    let positive = if strict then numeral 1 else zero in
+    let negative = if strict then numeral (-1) else zero in
+    let b = if opposite <> wrong_sign then ge y positive else le y negative in
+    let c = if strict then (if opposite then ge z zero else le z zero)
+      else binary (if opposite then ">" else "<")
       (if opposite then Z3ValueTheory.op_arith_gt else Z3ValueTheory.op_arith_lt) A.bool_sort z zero in
     let difference = binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z) in
-    replay kind [le x zero; b; c; if opposite then ge difference zero else le difference zero] in
+    replay kind [le x negative; b; c; if opposite then ge difference zero else le difference zero] in
   (match check (U.Unverified "th-lemma") false false with
    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
    | None -> false) &&
@@ -538,15 +541,24 @@ let integer_product_controls () : bool =
    | None -> false) &&
   (match check (U.Unverified "th-lemma") true true with | Some (_, n) -> n = 1 | None -> false) &&
   (match check (U.ArithmeticFarkas []) true false with | Some (_, n) -> n = 1 | None -> false) &&
-  (match signed (U.Unverified "th-lemma") false false with
+  (match signed (U.Unverified "th-lemma") false false false with
    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
    | None -> false) &&
-  (match signed (U.Unverified "th-lemma") true false with
+  (match signed (U.Unverified "th-lemma") false true false with
    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
    | None -> false) &&
-  (match signed (U.Unverified "th-lemma") false true with | Some (_, n) -> n = 1 | None -> false) &&
-  (match signed (U.Unverified "th-lemma") true true with | Some (_, n) -> n = 1 | None -> false) &&
-  (match signed (U.ArithmeticFarkas []) true false with | Some (_, n) -> n = 1 | None -> false)
+  (match signed (U.Unverified "th-lemma") false false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.ArithmeticFarkas []) false true false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.ArithmeticFarkas []) true true false with | Some (_, n) -> n = 1 | None -> false)
 
 let real_product_controls () : bool =
   let x = real_constant "x" [] in

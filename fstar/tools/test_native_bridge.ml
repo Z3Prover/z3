@@ -3218,7 +3218,22 @@ let sorted_integer_nonnegative_products () =
     "(assert (<= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x y) c))");
   check false (U.Unverified "th-lemma") (header ^
     "(assert (= x 0))(assert (<= y 0))(assert (>= c 0))(assert (>= (* x y) c))");
-  check false (U.ArithmeticFarkas []) opposite
+  check false (U.ArithmeticFarkas []) opposite;
+  let strict_opposite = header ^
+    "(assert (> x 0))(assert (< y 0))(assert (>= c 0))\
+     (assert (>= (+ (* x y) (* (- 1) c)) 0))" in
+  check true (U.Unverified "th-lemma") strict_opposite;
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (<= x (- 1)))(assert (>= y 1))(assert (>= c 0))(assert (>= (* x y) c))");
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (< x 0))(assert (< y 0))(assert (<= c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 1))(assert (<= y 0))(assert (>= c 0))(assert (>= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (<= y (- 1)))(assert (>= c 0))(assert (>= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (<= x (- 1)))(assert (<= y 0))(assert (<= c 0))(assert (<= (* x y) c))");
+  check false (U.ArithmeticFarkas []) strict_opposite
 
 let sorted_real_linear_equalities () =
   let module K = Z3SortedProof in

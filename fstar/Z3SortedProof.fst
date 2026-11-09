@@ -2143,8 +2143,15 @@ let int_one : expr =
   App { decl_name = "1"; domain = []; range = LA.int_s;
         interp = Some Z3ValueTheory.op_num_rational; int_params = [1; 1] } []
 
+let int_minus_one : expr =
+  App { decl_name = "-1"; domain = []; range = LA.int_s;
+        interp = Some Z3ValueTheory.op_num_rational; int_params = [-1; 1] } []
+
 let int_bound (lower:bool) (e:expr) : expr =
   if lower then int_ge e int_zero else int_le e int_zero
+
+let int_strict_bound (lower:bool) (e:expr) : expr =
+  if lower then int_ge e int_one else int_le e int_minus_one
 
 let nonnegative_int_product (facts:list expr) (p:expr) : bool =
   match p with
@@ -2168,8 +2175,18 @@ let positive_int_product (facts:list expr) (p:expr) : bool =
   match p with
   | App f [x; y] ->
     SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
-    refutes facts (int_ge x int_one) && refutes facts (int_ge y int_one) &&
+    ((refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound true y)) ||
+     (refutes facts (int_strict_bound false x) && refutes facts (int_strict_bound false y))) &&
     refutes (int_ge p int_one :: facts) R.false_expr
+  | _ -> false
+
+let negative_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    ((refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound false y)) ||
+     (refutes facts (int_strict_bound false x) && refutes facts (int_strict_bound true y))) &&
+    refutes (int_le p int_minus_one :: facts) R.false_expr
   | _ -> false
 
 let rec integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) =
@@ -2183,13 +2200,15 @@ let rec integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) 
 let rec integer_product_candidate (facts:list expr) (fuel:nat) (rest:list expr)
   : Tot (p:option expr{Some? p ==> (nonnegative_int_product facts (Some?.v p) ||
                                    positive_int_product facts (Some?.v p) ||
-                                   nonpositive_int_product facts (Some?.v p))}) (decreases fuel) =
+                                   nonpositive_int_product facts (Some?.v p) ||
+                                   negative_int_product facts (Some?.v p))}) (decreases fuel) =
   if fuel = 0 then None
   else match rest with
   | [] -> None
   | p :: tail ->
     let next : nat = fuel - 1 in
-    if nonnegative_int_product facts p || positive_int_product facts p || nonpositive_int_product facts p then Some p
+    if nonnegative_int_product facts p || positive_int_product facts p ||
+       nonpositive_int_product facts p || negative_int_product facts p then Some p
     else integer_product_candidate facts next tail
 
 let integer_product_witness (facts:list expr) : option expr =
@@ -2232,29 +2251,38 @@ let lemma_int_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_car
   AR.lemma_int_comparison s bc eq other [] rho (int_bound lower e) (if lower then LA.Ge else LA.Le) e int_zero;
   AR.lemma_int_numeral s bc eq other [] rho 0 int_zero
 
-let lemma_int_positive_shape (e:expr)
+let lemma_int_strict_bound_shape (lower:bool) (e:expr)
   : Lemma (requires D.scoped [] e /\ get_sort e == LA.int_s)
-          (ensures AR.int_numeral 1 int_one /\ D.scoped [] (int_ge e int_one) /\
-                   LA.comparison (int_ge e int_one) == Some (LA.Ge, e, int_one) /\
-                   R.formula_clause (int_ge e int_one) == [int_ge e int_one]) =
+          (ensures AR.int_numeral 1 int_one /\ AR.int_numeral (-1) int_minus_one /\
+                   D.scoped [] (int_strict_bound lower e) /\
+                   LA.comparison (int_strict_bound lower e) ==
+                     Some ((if lower then LA.Ge else LA.Le), e, (if lower then int_one else int_minus_one)) /\
+                   R.formula_clause (int_strict_bound lower e) == [int_strict_bound lower e]) =
   assert_norm (get_sort int_one == LA.int_s);
+  assert_norm (get_sort int_minus_one == LA.int_s);
   assert_norm (AR.int_numeral 1 int_one);
-  assert (LA.application
+  assert_norm (AR.int_numeral (-1) int_minus_one);
+  if lower then assert (LA.application
     { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
       interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
     [e; int_one] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+  else assert (LA.application
+    { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
+    [e; int_minus_one] bool_sort "<=" Z3ValueTheory.op_arith_le)
 
-let lemma_int_positive (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                       (facts:list expr) (e:expr)
+let lemma_int_strict_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                          (facts:list expr) (lower:bool) (e:expr)
   : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] e /\ get_sort e == LA.int_s /\
-                    refutes facts (int_ge e int_one))
-          (ensures integer_value s bc eq other e >= 1) =
+                    refutes facts (int_strict_bound lower e))
+          (ensures (if lower then integer_value s bc eq other e >= 1 else integer_value s bc eq other e <= -1)) =
   let rho = T.empty_environment (S.signature s) in
-  lemma_int_positive_shape e;
-  lemma_unit_refuted s bc eq other facts (int_ge e int_one);
-  AR.lemma_int_comparison s bc eq other [] rho (int_ge e int_one) LA.Ge e int_one;
-  AR.lemma_int_numeral s bc eq other [] rho 1 int_one
+  lemma_int_strict_bound_shape lower e;
+  lemma_unit_refuted s bc eq other facts (int_strict_bound lower e);
+  AR.lemma_int_comparison s bc eq other [] rho (int_strict_bound lower e)
+    (if lower then LA.Ge else LA.Le) e (if lower then int_one else int_minus_one);
+  AR.lemma_int_numeral s bc eq other [] rho (if lower then 1 else (-1)) (if lower then int_one else int_minus_one)
 
 #push-options "--smtencoding.nl_arith_repr native --using_facts_from 'Prims' --fuel 0 --ifuel 0"
 let lemma_int_multiply_nonnegative (x y:int)
@@ -2264,7 +2292,10 @@ let lemma_int_multiply_nonpositive (x y:int)
   : Lemma (requires (x >= 0 /\ y <= 0) \/ (x <= 0 /\ y >= 0)) (ensures x * y <= 0) = ()
 
 let lemma_int_multiply_positive (x y:int)
-  : Lemma (requires x >= 1 /\ y >= 1) (ensures x * y >= 1) = ()
+  : Lemma (requires (x >= 1 /\ y >= 1) \/ (x <= -1 /\ y <= -1)) (ensures x * y >= 1) = ()
+
+let lemma_int_multiply_negative (x y:int)
+  : Lemma (requires (x >= 1 /\ y <= -1) \/ (x <= -1 /\ y >= 1)) (ensures x * y <= -1) = ()
 #pop-options
 
 let lemma_nonnegative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -2324,15 +2355,43 @@ let lemma_positive_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
   | App f [x; y] ->
     let rho = T.empty_environment (S.signature s) in
     AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
-    lemma_int_positive s bc eq other facts x;
-    lemma_int_positive s bc eq other facts y;
+    if refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound true y) then (
+      lemma_int_strict_bound s bc eq other facts true x;
+      lemma_int_strict_bound s bc eq other facts true y)
+    else (
+      lemma_int_strict_bound s bc eq other facts false x;
+      lemma_int_strict_bound s bc eq other facts false y);
     lemma_int_multiply_positive (integer_value s bc eq other x) (integer_value s bc eq other y);
-    lemma_int_positive_shape p;
+    lemma_int_strict_bound_shape true p;
     AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_one) LA.Ge p int_one;
     AR.lemma_int_numeral s bc eq other [] rho 1 int_one;
     assert (T.truth s bc eq other (int_ge p int_one));
     assert_norm (R.formula_clause R.false_expr == []);
     lemma_refutes s bc eq other (int_ge p int_one :: facts) R.false_expr
+  | _ -> ()
+
+let lemma_negative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ negative_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    if refutes facts (int_strict_bound true x) && refutes facts (int_strict_bound false y) then (
+      lemma_int_strict_bound s bc eq other facts true x;
+      lemma_int_strict_bound s bc eq other facts false y)
+    else (
+      lemma_int_strict_bound s bc eq other facts false x;
+      lemma_int_strict_bound s bc eq other facts true y);
+    lemma_int_multiply_negative (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_strict_bound_shape false p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_le p int_minus_one) LA.Le p int_minus_one;
+    AR.lemma_int_numeral s bc eq other [] rho (-1) int_minus_one;
+    assert (T.truth s bc eq other (int_le p int_minus_one));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_le p int_minus_one :: facts) R.false_expr
   | _ -> ()
 
 let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -2343,7 +2402,8 @@ let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S
   let p = Some?.v (integer_product_witness facts) in
   if nonnegative_int_product facts p then lemma_nonnegative_int_product s bc eq other facts p
   else if positive_int_product facts p then lemma_positive_int_product s bc eq other facts p
-  else lemma_nonpositive_int_product s bc eq other facts p
+  else if nonpositive_int_product facts p then lemma_nonpositive_int_product s bc eq other facts p
+  else lemma_negative_int_product s bc eq other facts p
 
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
