@@ -874,6 +874,29 @@ let integer_zero_product_certified ()
   assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_zero_product_document false)) == RD.RootCertified);
   assert_norm (RD.check_root_document PT.core_schema (integer_zero_product_document true) == RD.RootPending 1)
 
+let integer_constant_product_document (wrong_factor:bool) : P.document =
+  let x = const "constant_x" integer in
+  let y = const "constant_y" integer in
+  let z = const "constant_z" integer in
+  let two = App (TR.int_numeral 2) [] in
+  let product = App (TR.times_decl integer) [if wrong_factor then z else x; y] in
+  let scaled = App (TR.times_decl integer) [two; y] in
+  let clause = disjunction [R.mk_not_expr (R.mk_eq_expr x two); SP.int_le product scaled] in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry (U.Unverified "assumed:nlsat") clause []; entry U.Asserted negative [];
+     entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let integer_constant_product_certified ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_constant_product_document false) == Some 0 /\
+           RD.check_root_document PT.core_schema (integer_constant_product_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_constant_product_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_constant_product_document true) == RD.RootPending 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_constant_product_document false) == Some 0);
+  assert_norm (RD.check_root_document PT.core_schema (integer_constant_product_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_constant_product_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_constant_product_document true) == RD.RootPending 1)
+
 let integer_unit_document (bound:int) (premises:list int) : P.document =
   let term = App (TR.times_decl integer) [one; x_int] in
   let strict = App (TR.lt_decl integer) [term; zero] in

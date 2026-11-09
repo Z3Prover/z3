@@ -3268,6 +3268,34 @@ let sorted_integer_zero_products () =
     "(declare-const x Real)(declare-const y Real)"
     "(assert (<= x 0.0))(assert (>= x 0.0))" "(<= (* x y) 0.0)"
 
+let sorted_integer_constant_products () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  let scaled k = if k = "1" then "y" else "(* " ^ k ^ " y)" in
+  List.iter (fun k ->
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(<= (* x y) " ^ scaled k ^ ")");
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(>= (* y x) " ^ scaled k ^ ")"))
+    ["1"; "(- 1)"; "2"; "340282366920938463463374607431768211456"];
+  let conflict = fixed "2" ^ "(assert (> (* x y) (* 2 y)))" in
+  check true (U.Unverified "th-lemma") header conflict "false";
+  check false (U.ArithmeticFarkas []) header conflict "false";
+  let clause = "(or (not (= x 2)) (<= (* x y) (* 2 y)))" in
+  check true (U.Unverified "assumed:nlsat") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (<= x 2))" "(<= (* x y) (* 2 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (>= x 2))" "(<= (* x y) (* 2 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2") "(<= (* x y) (* 3 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2") "(<= (* z y) (* 2 y))";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Int Int) Int)") (fixed "2") "(<= (fake_mul x y) (* 2 y))";
+  check false (U.Unverified "arith/lp-monomial-interval")
+    "(declare-const x Real)(declare-const y Real)"
+    "(assert (<= x 2.0))(assert (>= x 2.0))" "(<= (* x y) (* 2.0 y))"
+
 let sorted_real_product_clauses () =
   let check = check_sorted_product_clause in
   let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
@@ -8531,6 +8559,7 @@ let () =
      "sorted-integer-unit-consequences", sorted_integer_unit_consequences;
      "sorted-integer-product-clauses", sorted_integer_product_clauses;
      "sorted-integer-zero-products", sorted_integer_zero_products;
+     "sorted-integer-constant-products", sorted_integer_constant_products;
      "sorted-real-product-clauses", sorted_real_product_clauses;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;

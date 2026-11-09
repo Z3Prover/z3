@@ -568,6 +568,29 @@ let integer_zero_product_controls () : bool =
   (match check [lower] with | Some (_, n) -> n = 1 | None -> false) &&
   (match check [upper] with | Some (_, n) -> n = 1 | None -> false)
 
+let integer_constant_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "constant_x" in
+  let y = constant "constant_y" in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let check n coefficient missing =
+    let k = Z3SortedProof.int_constant n in
+    let lower = Z3SortedProof.int_ge x k in
+    let facts = if missing then [lower] else [lower; Z3SortedProof.int_le x k] in
+    let value = if coefficient = 1 then y else mul (Z3SortedProof.int_constant coefficient) y in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-interval";
+        U.conclusion = U.Holds (Z3SortedProof.int_le (mul x y) value);
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  L.for_all (fun n -> match check n n false with
+    | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+    | None -> false) [1; -1; 2; 340282366920938463463374607431768211456] &&
+  (match check 2 3 false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check 2 2 true with | Some (_, n) -> n = 1 | None -> false)
+
 let integer_product_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
@@ -1498,6 +1521,7 @@ let run () : bool =
   integer_unit_controls () &&
   integer_product_clause_controls () &&
   integer_zero_product_controls () &&
+  integer_constant_product_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
   real_product_clause_controls () &&
