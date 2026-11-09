@@ -172,6 +172,8 @@ void pob_queue::pop() {
 
 
 void pob_queue::set_root(pob& root) {
+    // Keep the previous root alive until reset clears the queue's raw pointers.
+    pob_ref old_root = m_root;
     m_root = &root;
     m_max_level = root.level ();
     m_min_depth = root.depth ();
