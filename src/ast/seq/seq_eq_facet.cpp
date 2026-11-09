@@ -1561,6 +1561,19 @@ namespace seq {
         // A model candidate is attempted at most once per path. If it does
         // not close the leaf, the explicit fallback preserves unknown
         // instead of repeatedly proposing equivalent assumptions.
+        expr_ref_vector assumptions(m);
+        // Conversion candidates must retain their outer SAT reconciliation.
+        if (ac.stoi_facet_ref().terms().empty()) {
+            for (auto const& c : candidates)
+                assumptions.push_back(m.mk_eq(c.var, c.value));
+            if (any_of(assumptions, [&](expr* a) { return ac.literal_if_false(a) != nullptr; })) {
+                asf.block_model_completion();
+                out = eq_tree::edge("model-completion-fallback", nullptr, true, 0);
+                has_more = true;
+                committed = true;
+                return nullptr;
+            }
+        }
         asf.block_model_completion();
         eq_tree::dep_tracker joined = nullptr;
         for (auto const& c : candidates) {

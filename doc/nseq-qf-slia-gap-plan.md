@@ -23,6 +23,8 @@ completed resource/search counters without a material repeatable speedup
 are a cutoff-only flip, not recovery credit. This diagnostic never changes
 the primary five-second limit or clears a loss in the five-second gate.
 
+The initial expanded panel, before subsequent protected-control increments:
+
 | Population | Inputs | Evaluation role |
 |---|---:|---|
 | All timeout/master-definite gaps | 6,012 | Primary objective, no sampling cap |
@@ -44,6 +46,22 @@ population, and 26 are outside the active 10,446-input sweep. Preserve
 the current manifest and evaluate those 26 as a disjoint follow-up
 before publication; report-to-report cutoff drift is not attributed
 incremental solver improvement.
+
+Published [run 1296 versus master 1277](https://z3prover.github.io/coz3/compare_stats.html?a=run-1296-qf-slia-gap-20261107-stats.md&b=run-1277-qf-slia-master-stats.md)
+now measures accepted head `ccf65c91a`. Its complete 84,411-input table
+has 6,152 nondefinite results where master returns a definite answer
+within five reported seconds: 5,785 timeouts and 367 other unresolved
+results. Another 1,846 solved inputs take at least one second and five
+times master's time. There are no definite-answer disagreements; all
+551 protected inputs solve. These are published cross-run observations,
+not attributed local improvements.
+
+The frozen 10,472-input acceptance panel covers 5,820 of those 6,152
+unresolved inputs. Save all 332 uncovered unresolved inputs and 1,002
+uncovered slow-but-solved inputs for follow-up, without changing an
+in-flight manifest. The next acceptance union therefore has 11,806
+identities. The completion increment below has not evaluated those
+1,334 additional inputs and does not claim full-corpus parity.
 
 The report branch is `5c87a4a99`, but new local candidates are paired
 against the immediately preceding accepted PR head `e9728eebe`.
@@ -140,6 +158,134 @@ are not directly comparable.
    nonempty bound without enumerating digits or arbitrary powers of ten.
    Negative integers produce the empty string, so the upper bound does
    not require proving digit validity or nonnegativity.
+
+### Rejected exact-length prototypes and completion follow-up
+
+Early exact-length propagation can also disrupt productive SAT reconciliation.
+A three-snapshot prototype passed its small pilot but lost 35 protected SAT
+answers in triplicate and introduced 15 additional material slowdowns across
+the complete 551-input protected gate. Those results reject that prototype;
+the accepted head and recovery counts below are unchanged.
+
+Two scheduling effects need separate treatment. The word-search node limit
+is cumulative: early exact-length guards must not activate 128-node windows
+before the existing 2,176-node head start for guessed lengths. Correcting that
+coupling alone did not restore a representative protected loss. Also, the
+prototype saturated exact decompositions before retrying word search, with
+187 exact axioms in that loss trace. Allowing one early axiom per new word
+SAT snapshot restored all 35 losses and removed the 15 prior slowdowns in
+an uncapped 71-input paired triplicate panel, but one restored input still
+slowed by 23%. This version is not accepted either.
+
+The narrower hypothesis distinguishes rejected hypotheses from ordinary
+pending-assumption progress. In the full HTTP gain and reduced regression,
+successive word snapshots repeat the same already-false character assumption;
+the protected representative instead progresses through pending assumptions.
+Global assignment-stability and branch push/pop-stability gates both block
+the bounded reduced regression, so neither is a sufficient stall detector.
+That targeted prototype records consecutive identical rejected literals and
+permits one early exact refinement per new rejected snapshot after the
+existing initial three-snapshot allowance. Clear the literal history on
+backtracking and at query initialization: Boolean variable ids can be reused.
+Keep the conversion veto, conversion scheduling epoch, scoped axiom guards,
+and speculative length fallback unchanged.
+
+The targeted version passes the original two-million-resource regression,
+model/proof and repeated push/pop checks, and all 136 native test modules.
+It preserves the pilot gain and restores identical baseline work on the
+protected representative. However, the complete 71-input triplicate panel
+exposes ten other protected material slowdowns of approximately 82--85%.
+Reject it as well; do not promote the early-decomposition heuristics.
+
+The next hypothesis addresses completion directly. `model_completion_split`
+commits candidate equalities without first asking whether the outer context
+already knows them false. Preflight the complete candidate set before any
+substitution; if a candidate is already false, use the existing completion
+fallback without partially committing the other candidates. This prototype
+restores the original nseq scheduling and length helper rather than adding
+another stall heuristic. Validate the bounded regression before timing,
+then repeat the full gain/protected pilot, all 71 observed discrepancies,
+all 551 controls, and the 10,472-input union. At this stage no completion
+improvement was accepted. The completion preflight passes the original
+bounded regression,
+the model/proof/scope checks, and all 136 native modules. Its first timing
+panel includes all ten protected slowdowns from the rejected prototype, plus
+the original gain and protected representative. Do not count `85fce836...`
+as a timeout recovery when baseline
+also returns SAT. Zero-word-snapshot cases such as `b18c860c...` remain
+uncovered by these SAT-completion hypotheses.
+
+The unconditional preflight passes all 71 observed-discrepancy triplicates
+with no material slowdowns. It also halves the time of ten protected HTTP
+cases and solves the original timeout in about 0.49 seconds versus master's
+0.16 seconds. However, the full 551-control triplicates reject it: conversion
+case `leetcode_int-addStrings/624.smt2` loses SAT in all three repetitions,
+and cases `169.smt2` and `68.smt2` slow by 11% and 33%. The remaining 550
+expected answers and all 17 repairs are preserved. Rejected completion is
+therefore not uniformly unproductive: conversion candidates can supply
+feedback needed by outer SAT reconciliation. A compact signed-addition
+regression reproduces the lost SAT answer on the unconditional version.
+
+The next version limits preflight to branches without active `str.to_int`
+terms, using the existing conversion-facet boundary. Conversion branches
+keep their original per-candidate equality construction and substitution
+order. Require baseline-identical inference counters on all three observed
+conversion regressions, preserve the original two-million-resource HTTP
+regression, and repeat the complete protected and acceptance gates before
+publishing. This narrower version passes the validation below.
+
+### Validated non-conversion completion preflight
+
+Before committing any model-completion substitution, check all candidate
+equalities against the outer context. If any is already false, take the
+existing explicit fallback instead of partially committing the proposal.
+Apply this only when the conversion facet has no active `str.to_int`
+terms. Conversion branches retain the original per-candidate AST
+construction and substitution order. Backend routing, the 64-node
+conversion epoch, the 2,176-node length head start and quotas are unchanged.
+
+Against immediately preceding accepted head `ccf65c91a`, this yields
+**710 repeatable timeout-to-SAT recoveries**, all PyEx: 706 HTTP
+entry-disposition and four MongoDB cases. Baseline times out in all
+2,130 quiet repetitions; candidate and matching master `9af2dac2e`
+return SAT in all 2,130. Forty-four further apparent gains have mixed
+or historically successful baseline results and earn no recovery credit.
+No proposed recovery needs an extended-limit cutoff diagnostic.
+
+For these 710 inputs, median per-input timings are 5.034 seconds at
+baseline timeout, 0.476 seconds candidate and 0.189 seconds matching
+master. Median observed resource counts fall from 20.35 million to
+2.10 million, DFS nodes from 1,862 to 165, and completion splits from
+39 to one. Baseline work is censored at timeout, not completed-work
+measurement. The median per-input candidate/master time ratio remains
+2.55; 708 recovered inputs are still over 10% slower than master.
+
+The full 10,472-input hybrid panel solves 4,879 baseline versus 5,633
+candidate inputs, with zero adjudicated losses or material slowdowns.
+It combines the eight-worker single-repeat screen with quiet triplicate
+overrides for all 1,587 discrepancies and controls; it is not a full
+quiet triplicate corpus run. All 551 expected answers and all 17 repairs
+are preserved. All 136 native modules, the original two-million-resource
+HTTP regression, the ten-million-resource conversion regression,
+model/proof/scope/resource checks, and basic CLI/Python checks pass.
+The three protected conversion discrepancies retain identical baseline
+resource and search counters.
+
+Cumulative conservative recovery credit is **1,244: 1,070 SAT and
+174 UNSAT**. Preserve these plus all 17 repairs as 1,261 expected-answer
+controls. Within the original 6,012 primary gaps, candidate solves
+1,254 versus baseline's 500; **4,758 remain unresolved**, comprising
+4,704 published-master SAT and 54 UNSAT inputs. Zero-word-SAT cases,
+conversion gaps and most recurrent character/length construction gaps
+remain outside this completion-only fix.
+
+The next localized hypothesis is a guarded prefix-head equality shortcut:
+for singleton `c`, `at(substr(s,0,n),0) = c` is equivalent to
+`n >= 1 AND at(s,0) = c`. The guard is essential for empty prefixes.
+Source-level certificates identify 16 still-unresolved run-1296 inputs
+and 106 already-solved controls in the frozen panel. Native implementation
+and performance validation remain pending; a solver-free prototype or
+an applicable patch is not evidence of a native speedup.
 
 ### Validated decimal-length increment
 

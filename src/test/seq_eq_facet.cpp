@@ -1458,6 +1458,60 @@ namespace {
         )", true, nullptr, 10000000);
     }
 
+    static void tst_nseq_rejected_completion() {
+        // Reduced PyEx HTTP-disposition case (Reynolds et al., CC BY 4.0).
+        check_nseq_candidate_model(R"(
+            (declare-const value1 String)
+            (define-fun suffix () String
+                (str.substr value1 (+ (str.indexof value1 "=" 0) 1)
+                    (- (str.len value1) (+ (str.indexof value1 "=" 0) 1))))
+            (define-fun trimmed () String
+                (str.substr suffix 0 (- (str.len suffix) 1)))
+            (assert (= (str.at trimmed (- (str.len trimmed) 1)) "\u{c}"))
+            (assert (not (= (str.at trimmed 0) "\u{c}")))
+            (assert (not (= (str.at (str.substr value1 0 (str.indexof value1 "=" 0)) 0) "\u{c}")))
+            (assert (not (str.contains value1 ",")))
+        )", true, nullptr, 2000000);
+    }
+
+    static void tst_nseq_conversion_completion_feedback() {
+        // Reduced Py-Conbyte addStrings case (Wu, CC BY 4.0).
+        check_nseq_candidate_model(R"(
+            (declare-const num1 String)
+            (declare-const num2 String)
+            (define-fun signed ((s String)) Int
+                (ite (str.prefixof "-" s)
+                    (- (str.to_int (str.substr s 1 (- (str.len s) 1))))
+                    (str.to_int s)))
+            (define-fun valid ((s String)) Bool
+                (ite (str.prefixof "-" s)
+                    (and (not (= (- 1) (str.to_int (str.substr s 1 (- (str.len s) 1)))))
+                         (> (str.len s) 1))
+                    (not (= (- 1) (str.to_int s)))))
+            (assert (>= (+ (signed (str.at num1 (+ (str.len num1) (- 3)))) 1) 10))
+            (assert (valid (str.at num1 (+ (str.len num1) (- 3)))))
+            (assert (>= (+ (- (- (- 1) 1) 1) (str.len num1)) 0))
+            (assert (>= (+ (signed (str.at num1 (+ (str.len num1) (- 2)))) 1) 10))
+            (assert (valid (str.at num1 (+ (str.len num1) (- 2)))))
+            (assert (>= (+ (- (- 1) 1) (str.len num1)) 0))
+            (assert (not (>= (+ (- (- 1) 1)
+                (ite (< (str.len num1) (str.len num2)) (str.len num1) (str.len num2))) 0)))
+            (assert (>= (+ (+ (signed (str.at num1 (+ (str.len num1) (- 1))))
+                             (signed (str.at num2 (+ (str.len num2) (- 1))))) 0) 10))
+            (assert (valid (str.at num2 (+ (str.len num2) (- 1)))))
+            (assert (valid (str.at num1 (+ (str.len num1) (- 1)))))
+            (assert (>= (+ (- 1)
+                (ite (< (str.len num1) (str.len num2)) (str.len num1) (str.len num2))) 0))
+            (assert (not (<= (signed num2) 0)))
+            (assert (valid num2))
+            (assert (not (= (str.len num2) 0)))
+            (assert (not (<= (signed num1) 0)))
+            (assert (valid num1))
+            (assert (not (= (str.len num1) 0)))
+            (assert (not (>= (+ (- (- (- (- 1) 1) 1) 1) (str.len num1)) 0)))
+        )", true, nullptr, 10000000);
+    }
+
     static void tst_nseq_short_stoi_bounds() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1758,6 +1812,8 @@ void tst_seq_eq_facet() {
     tst_nseq_regex_diseq_completion();
     tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
+    tst_nseq_rejected_completion();
+    tst_nseq_conversion_completion_feedback();
     tst_nseq_short_stoi_bounds();
     tst_nseq_small_itos_bounds();
     tst_nseq_single_char_stoi_digit();
