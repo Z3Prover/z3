@@ -91,6 +91,41 @@ let positive_integer_products ()
   assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document true false)) == Some 0);
   assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document true true) == Some 1)
 
+let integer_signed_product_document (opposite:bool) (wrong_sign:bool) : P.document =
+  let x = const "sign_x" integer in
+  let y = const "sign_y" integer in
+  let z = const "sign_z" integer in
+  let a = SP.int_le x SP.int_zero in
+  let b = if opposite <> wrong_sign then SP.int_ge y SP.int_zero else SP.int_le y SP.int_zero in
+  let c = App (if opposite then TR.gt_decl integer else TR.lt_decl integer) [z; SP.int_zero] in
+  let product = App (TR.times_decl integer) [x; y] in
+  let negative = App (TR.times_decl integer) [App (TR.int_numeral (-1)) []; z] in
+  let difference = App (TR.plus_decl integer) [product; negative] in
+  let bound = if opposite then SP.int_ge difference SP.int_zero else SP.int_le difference SP.int_zero in
+  doc [a; b; c; bound]
+    [entry U.Asserted a []; entry U.Asserted b []; entry U.Asserted c [];
+     entry U.Asserted bound []; entry (U.Unverified "th-lemma") R.false_expr [0; 1; 2; 3]] 4
+
+let nonpositive_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document true false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document true false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_signed_product_document true true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document true false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document true false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true true) == Some 1)
+
+let both_nonpositive_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document false false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document false false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_signed_product_document false true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document false false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document false false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false true) == Some 1)
+
 (* A two-assertion refutation shape: facts a and (not a) resolve to false. *)
 let refute_pair (a:expr) : P.document =
   doc [a; R.mk_not_expr a]
