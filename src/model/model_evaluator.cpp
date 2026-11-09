@@ -480,21 +480,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_DONE;
             }
         }
-        else if (!fi && m_au.is_considered_partially_interpreted(f, num, args, f_ui)) {
-            fi = m_model.get_func_interp(f_ui);
-                            
-            if (fi) {
-                auto interp = fi->get_interp();
-                if (interp) {
-                    var_subst vs(m, false);
-                    result = vs(fi->get_interp(), num, args);
-                    expr_ref is_zero(m.mk_eq(m_au.mk_numeral(rational(0), args[1]->get_sort()), args[1]), m);
-                    expr_ref application(m.mk_app(f, num, args), m);
-                    result = m.mk_ite(is_zero, result, application);
-                    return BR_DONE;
-                }
-            }
-        }
         else if (!fi && m_fpau.is_considered_uninterpreted(f, num, args)) {
             result = m.get_some_value(f->get_range());
             return BR_DONE;

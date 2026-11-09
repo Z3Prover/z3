@@ -39,6 +39,7 @@ static void tst_partial_arithmetic() {
             expr_ref is_zero(m.mk_eq(divisor, zero), m);
             expr_ref nonzero(m.mk_not(is_zero), m);
             expr_ref_vector terms(m);
+            terms.push_back(division);
             terms.push_back(m.mk_ite(condition, division, v0));
             terms.push_back(m.mk_ite(condition, v0, division));
             terms.push_back(m.mk_ite(condition, division, zero));
