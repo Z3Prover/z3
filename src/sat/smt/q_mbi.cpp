@@ -18,6 +18,9 @@ Author:
 #include "ast/ast_trail.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/has_free_vars.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/recfun_rewriter.h"
@@ -28,16 +31,59 @@ Author:
 #include "sat/smt/q_mbi.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
+#include "model/model_instance_generator.h"
 
 
 namespace q {
+
+    class mbqi::instance_context : public model_instance_generator::context {
+        mbqi& owner;
+        obj_hashtable<func_decl> auxiliary;
+    public:
+        explicit instance_context(mbqi& owner): owner(owner) {
+            for (auto const& entry : owner.m_q2body)
+                for (app* v : entry.m_value->vars)
+                    auxiliary.insert(v->get_decl());
+        }
+        model_core& get_model() override { return *owner.m_model; }
+        bool is_auxiliary(func_decl* f) const override {
+            return f->is_skolem() || auxiliary.contains(f);
+        }
+        void get_terms(expr_ref_vector& terms) override {
+            for (auto* n : owner.ctx.get_egraph().nodes())
+                terms.push_back(n->get_expr());
+        }
+        expr_ref rewrite_value(expr* e) override {
+            ast_manager& m = owner.m;
+            expr_safe_replace rep(m);
+            for (expr* v : subterms::all(expr_ref(e, m))) {
+                if (!m.is_model_value(v))
+                    continue;
+                expr_ref term = owner.replace_model_value(v);
+                for (expr* t : subterms::all(term))
+                    if (m.is_model_value(t)) {
+                        term = owner.fresh_witness_term(v->get_sort());
+                        break;
+                    }
+                rep.insert(v, term);
+            }
+            expr_ref result(m);
+            rep(e, result);
+            return result;
+        }
+        void add_instance(quantifier* q, expr_ref_vector const& bindings) override {
+            owner.add_witness_instance(q, bindings);
+        }
+    };
 
     mbqi::mbqi(euf::solver& ctx, solver& s) :
         ctx(ctx),
         m_qs(s),
         m(s.get_manager()),
         m_model_fixer(ctx, m_qs),
-        m_recfun_rw(m) {
+        m_recfun_rw(m),
+        m_witness_keys(m),
+        m_fresh_witness_terms(m) {
         auto* ap = alloc(mbp::arith_project_plugin, m);
         ap->set_check_purified(false);
         ap->set_apply_projection(true);
@@ -180,12 +226,14 @@ namespace q {
             if (r == l_true) {
                 model_ref mdl;
                 m_solver->get_model(mdl);
+                if (add_witness_instances(q, *qb, *mdl))
+                    return l_false;
                 if (check_forall_subst(q, *qb, *mdl))
                     return l_false;
                 if (check_forall_default(q, *qb, *mdl))
                     return l_false;
                 else 
-                    return l_undef;                
+                    return l_undef;
             }
             if (m_generation_bound >= m_generation_max)
                 return l_true;
@@ -232,6 +280,11 @@ namespace q {
     }
 
     void mbqi::add_instantiation(quantifier* q, expr_ref& proj) {
+        auto bindings = extract_binding(q);
+        add_instantiation(q, proj, bindings);
+    }
+
+    void mbqi::add_instantiation(quantifier* q, expr_ref& proj, expr_ref_vector const& bindings) {
         sat::literal qlit = ctx.expr2literal(q);
         if (is_exists(q))
             qlit.neg();
@@ -240,8 +293,92 @@ namespace q {
         IF_VERBOSE(11, verbose_stream() << "mbi:\n" << mk_pp(q, m) << "\n" << proj << "\n");
         ++m_stats.m_num_instantiations;        
         unsigned generation = ctx.get_max_generation(proj);
-        expr_ref_vector inst = extract_binding(q);
-        m_instantiations.push_back(instantiation_t(qlit, proj, inst, generation));
+        generation = std::max(generation, ctx.get_max_generation(q));
+        for (expr* t : subterms::all(bindings))
+            if (auto* n = ctx.get_enode(t))
+                generation = std::max(generation, n->generation());
+        m_instantiations.push_back(instantiation_t(qlit, proj, bindings, generation));
+    }
+
+    expr* mbqi::fresh_witness_term(sort* s) {
+        for (expr* t : m_fresh_witness_terms)
+            if (t->get_sort() == s)
+                return t;
+        expr_ref term(m.mk_fresh_const("mbqi", s), m);
+        m_fresh_witness_terms.push_back(term);
+        ctx.push(push_back_vector<expr_ref_vector>(m_fresh_witness_terms));
+        return term;
+    }
+
+    void mbqi::add_witness_instance(quantifier* q, expr_ref_vector const& bindings) {
+        SASSERT(q->get_num_decls() == bindings.size());
+        for (unsigned i = 0; i < bindings.size(); ++i) {
+            SASSERT(bindings.get(i)->get_sort() == q->get_decl_sort(i));
+            SASSERT(!has_free_vars(bindings.get(i)));
+            SASSERT(is_well_sorted(m, bindings.get(i)));
+        }
+        expr_ref body = ::instantiate(m, q, bindings.data());
+        if (is_forall(q))
+            body = mk_not(m, body);
+        ctx.rewrite(body);
+        if (m.is_false(body))
+            return;
+        expr_ref key(m.mk_implies(q, body), m);
+        if (!m_witness_set.insert_if_not_there(key))
+            return;
+        m_witness_keys.push_back(key);
+        ctx.push(push_back_vector<expr_ref_vector>(m_witness_keys));
+        ctx.push(insert_obj_trail<expr>(m_witness_set, key));
+        ++m_stats.m_num_witness_instantiations;
+        add_instantiation(q, body, bindings);
+    }
+
+    bool mbqi::add_witness_instances(quantifier* q, q_body& qb, model& mdl) {
+        unsigned sz = q->get_num_decls();
+        if (qb.vars.size() < sz)
+            return false;
+        array_util array(m);
+        datatype::util dt(m);
+        bool has_arrays = false;
+        for (unsigned i = 0; i < sz; ++i) {
+            sort* s = q->get_decl_sort(i);
+            if (s != qb.vars.get(i)->get_sort())
+                return false;
+            has_arrays |= array.is_array(s) || dt.is_datatype(s);
+        }
+        if (!has_arrays)
+            return false;
+        model::scoped_model_completion completion(mdl, true);
+        instance_context ic(*this);
+        model_instance_generator generator(ic);
+        expr_ref_vector bindings(m), alternatives(m);
+        alternatives.resize(sz);
+        ptr_vector<func_decl> bases;
+        bases.resize(sz, nullptr);
+        bool converted = false;
+        for (unsigned i = 0; i < sz; ++i) {
+            expr_ref value = mdl(qb.vars.get(i));
+            func_decl* f = nullptr;
+            if (array.is_as_array(value, f))
+                alternatives[i] = generator.mk_store_instance(f, mdl, bases[i]);
+            expr_ref term = generator.as_array_to_stores(value, mdl);
+            if (array.is_as_array(term, f))
+                if (auto* fi = mdl.get_func_interp(f); fi && fi->get_else())
+                    term = fi->get_array_interp(f);
+            converted |= term != value;
+            bindings.push_back(ic.rewrite_value(term));
+        }
+        unsigned before = m_instantiations.size();
+        if (converted)
+            add_witness_instance(q, bindings);
+        for (unsigned i = 0; i < sz; ++i)
+            if (alternatives.get(i)) {
+                expr_ref_vector alt(bindings);
+                alt[i] = alternatives.get(i);
+                add_witness_instance(q, alt);
+            }
+        generator(q, bindings, bases);
+        return m_instantiations.size() > before;
     }
 
     expr_ref_vector mbqi::extract_binding(quantifier* q) {
@@ -680,6 +817,7 @@ namespace q {
         if (m_solver)
             m_solver->collect_statistics(st);
         st.update("q mbi instantiations", m_stats.m_num_instantiations);
+        st.update("q mbi witness instantiations", m_stats.m_num_witness_instantiations);
         st.update("q mbi num checks", m_stats.m_num_checks);
     }
 
