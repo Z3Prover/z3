@@ -496,6 +496,34 @@ let real_equality_controls () : bool =
   pending (run (U.Unverified "th-lemma") [le x one; ge y zero; le y zero]) &&
   pending (run (U.ArithmeticFarkas []) facts)
 
+let integer_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
+                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+  let x = constant "x" in
+  let y = constant "y" in
+  let z = constant "z" in
+  let binary name tag result a b = A.App
+    { A.decl_name = name; domain = [sort; sort]; range = result; interp = Some tag; int_params = [] } [a; b] in
+  let ge a b = binary ">=" Z3ValueTheory.op_arith_ge A.bool_sort a b in
+  let le a b = binary "<=" Z3ValueTheory.op_arith_le A.bool_sort a b in
+  let mul a b = binary "*" Z3ValueTheory.op_arith_mul sort a b in
+  let zero = numeral 0 in
+  let check kind wrong_sign =
+    let b = if wrong_sign then le y zero else ge y zero in
+    let facts = [ge x zero; b; binary "<" Z3ValueTheory.op_arith_lt A.bool_sort z zero;
+                 le (binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z)) zero] in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds R.false_expr;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [ge x zero] }) facts } in
+  (match check (U.Unverified "th-lemma") false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match check (U.Unverified "th-lemma") true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.ArithmeticFarkas []) false with | Some (_, n) -> n = 1 | None -> false)
+
 let real_product_controls () : bool =
   let x = real_constant "x" [] in
   let y = real_constant "y" [] in
@@ -1331,6 +1359,7 @@ let run () : bool =
   qi_ite_scale () &&
   real_farkas_controls () &&
   real_equality_controls () &&
+  integer_product_controls () &&
   real_product_controls () &&
   real_order_controls () &&
   real_equation_controls () &&

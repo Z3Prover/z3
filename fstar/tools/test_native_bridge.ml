@@ -3147,6 +3147,51 @@ let sorted_real_farkas () =
   require (K.check_document_epsilon schema doc = Some Z.zero)
     "the producer's Real Farkas refutation was not certified on the Sorted route"
 
+let sorted_integer_nonnegative_products () =
+  let module K = Z3SortedProof in
+  let module R = Z3ResolutionProofTheory in
+  let check expected rule source =
+    let c = context () in
+    let native = parse c (source ^ "(assert false)") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let facts = List.filter (fun e -> e <> R.false_expr) (List.map (B.cached_expression st) native) in
+    let entries = List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) facts in
+    let root = { P.rule = rule; formula = R.false_expr;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions = facts; entries = entries @ [root]; root = Z.of_int (List.length facts) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected integer nonnegative-product document verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "integer product checking accepted missing assertions";
+      let premise formula = { U.conclusion = U.Holds formula; hypotheses = [List.hd facts] } in
+      let node = { U.kind = rule; conclusion = U.Holds R.false_expr; premises = List.map premise facts } in
+      match K.check_node schema [] node with
+      | Some (fact, n) ->
+        require (Z.equal n Z.zero && fact.U.hypotheses = [List.hd facts])
+          "integer product checking dropped an inherited hypothesis"
+      | None -> failwith "integer product node rejected")
+  in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const c Int)" in
+  let good = header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))\
+     (assert (<= (+ (* x y) (* (- 1) c)) 0))" in
+  check true (U.Unverified "th-lemma") good;
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))\
+     (assert (<= (+ (* y x) (* (- 1) c)) 0))");
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x c) c))");
+  check false (U.ArithmeticFarkas []) good
+
 let sorted_real_linear_equalities () =
   let module K = Z3SortedProof in
   let c = context () in
@@ -8295,6 +8340,7 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-linear-equalities", sorted_real_linear_equalities;
      "sorted-real-product-signs", sorted_real_product_signs;
