@@ -453,6 +453,11 @@ SORTED_INTEGER_PRODUCT_CASES = (
      "(assert (<= (+ (* x y) (* (- 1) c)) 0))"),
     ("opaque-bridge", "(declare-fun f (Int) Int)(assert (>= x 0))(assert (>= y 0))"
      "(assert (< c 0))(assert (>= (f (* x y)) (* x y)))(assert (<= (f (* x y)) c))"),
+    ("strict-direct", "(assert (> x 0))(assert (> y 0))(assert (<= c 0))(assert (<= (* x y) c))"),
+    ("strict-nested", "(assert (> x 0))(assert (> y 0))(assert (<= d 0))(assert (<= c d))"
+     "(assert (<= (+ (* x y) (* (- 1) c)) 0))"),
+    ("strict-opaque-bridge", "(declare-fun f (Int) Int)(assert (> x 0))(assert (> y 0))"
+     "(assert (<= c 0))(assert (>= (f (* x y)) (* x y)))(assert (<= (f (* x y)) c))"),
 )
 
 # Sort-generic ITE laws on the Sorted route: the producer's premise-free closed `rewrite` steps
@@ -981,13 +986,16 @@ class DirectCheckerTests(unittest.TestCase):
                     else:
                         self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
                     self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
-        source = INTEGER_PRODUCT_HEADER + (
-            "(assert (>= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))")
-        result = self.run_checker(source, "--sorted-core", "--diagnostics")
-        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
-        interactive = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core")
-        self.assertIn("sat\n", interactive.stdout)
-        self.assertNotIn("proof-check", interactive.stdout)
+        for body in (
+                "(assert (>= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))",
+                "(assert (= x 0))(assert (>= y 1))(assert (<= c 0))(assert (<= (* x y) c))"):
+            with self.subTest(satisfiable=body):
+                source = INTEGER_PRODUCT_HEADER + body
+                result = self.run_checker(source, "--sorted-core", "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core")
+                self.assertIn("sat\n", interactive.stdout)
+                self.assertNotIn("proof-check", interactive.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
         # Constructors with fields keep the producer on the datatype theory (the exhaustiveness

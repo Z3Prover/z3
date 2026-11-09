@@ -2139,12 +2139,24 @@ let int_zero : expr =
   App { decl_name = "0"; domain = []; range = LA.int_s;
         interp = Some Z3ValueTheory.op_num_rational; int_params = [0; 1] } []
 
+let int_one : expr =
+  App { decl_name = "1"; domain = []; range = LA.int_s;
+        interp = Some Z3ValueTheory.op_num_rational; int_params = [1; 1] } []
+
 let nonnegative_int_product (facts:list expr) (p:expr) : bool =
   match p with
   | App f [x; y] ->
     SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
     refutes facts (int_ge x int_zero) && refutes facts (int_ge y int_zero) &&
     refutes (int_ge p int_zero :: facts) R.false_expr
+  | _ -> false
+
+let positive_int_product (facts:list expr) (p:expr) : bool =
+  match p with
+  | App f [x; y] ->
+    SI.classify f = SI.Calculate LA.Mul && D.scoped [] p &&
+    refutes facts (int_ge x int_one) && refutes facts (int_ge y int_one) &&
+    refutes (int_ge p int_one :: facts) R.false_expr
   | _ -> false
 
 let rec integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) =
@@ -2156,13 +2168,15 @@ let rec integer_products (fuel:nat) (e:expr) : Tot (list expr) (decreases fuel) 
   | _ -> []
 
 let rec integer_product_candidate (facts:list expr) (fuel:nat) (rest:list expr)
-  : Tot (p:option expr{Some? p ==> nonnegative_int_product facts (Some?.v p)}) (decreases fuel) =
+  : Tot (p:option expr{Some? p ==> (nonnegative_int_product facts (Some?.v p) ||
+                                   positive_int_product facts (Some?.v p))}) (decreases fuel) =
   if fuel = 0 then None
   else match rest with
   | [] -> None
   | p :: tail ->
-    if nonnegative_int_product facts p then Some p
-    else integer_product_candidate facts (fuel - 1) tail
+    let next : nat = fuel - 1 in
+    if nonnegative_int_product facts p || positive_int_product facts p then Some p
+    else integer_product_candidate facts next tail
 
 let integer_product_witness (facts:list expr) : option expr =
   integer_product_candidate facts 32 (L.concatMap (integer_products 16) facts)
@@ -2200,9 +2214,36 @@ let lemma_int_nonnegative (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boole
   AR.lemma_int_comparison s bc eq other [] rho (int_ge e int_zero) LA.Ge e int_zero;
   AR.lemma_int_numeral s bc eq other [] rho 0 int_zero
 
+let lemma_int_positive_shape (e:expr)
+  : Lemma (requires D.scoped [] e /\ get_sort e == LA.int_s)
+          (ensures AR.int_numeral 1 int_one /\ D.scoped [] (int_ge e int_one) /\
+                   LA.comparison (int_ge e int_one) == Some (LA.Ge, e, int_one) /\
+                   R.formula_clause (int_ge e int_one) == [int_ge e int_one]) =
+  assert_norm (get_sort int_one == LA.int_s);
+  assert_norm (AR.int_numeral 1 int_one);
+  assert (LA.application
+    { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
+    [e; int_one] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+
+let lemma_int_positive (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                       (facts:list expr) (e:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] e /\ get_sort e == LA.int_s /\
+                    refutes facts (int_ge e int_one))
+          (ensures integer_value s bc eq other e >= 1) =
+  let rho = T.empty_environment (S.signature s) in
+  lemma_int_positive_shape e;
+  lemma_unit_refuted s bc eq other facts (int_ge e int_one);
+  AR.lemma_int_comparison s bc eq other [] rho (int_ge e int_one) LA.Ge e int_one;
+  AR.lemma_int_numeral s bc eq other [] rho 1 int_one
+
 #push-options "--smtencoding.nl_arith_repr native --using_facts_from 'Prims' --fuel 0 --ifuel 0"
 let lemma_int_multiply_nonnegative (x y:int)
   : Lemma (requires x >= 0 /\ y >= 0) (ensures x * y >= 0) = ()
+
+let lemma_int_multiply_positive (x y:int)
+  : Lemma (requires x >= 1 /\ y >= 1) (ensures x * y >= 1) = ()
 #pop-options
 
 let lemma_nonnegative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -2225,12 +2266,34 @@ let lemma_nonnegative_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc
     lemma_refutes s bc eq other (int_ge p int_zero :: facts) R.false_expr
   | _ -> ()
 
+let lemma_positive_int_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (p:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ positive_int_product facts p)
+          (ensures False) =
+  match p with
+  | App f [x; y] ->
+    let rho = T.empty_environment (S.signature s) in
+    AR.lemma_int_binary s bc eq other [] rho f x y LA.Mul;
+    lemma_int_positive s bc eq other facts x;
+    lemma_int_positive s bc eq other facts y;
+    lemma_int_multiply_positive (integer_value s bc eq other x) (integer_value s bc eq other y);
+    lemma_int_positive_shape p;
+    AR.lemma_int_comparison s bc eq other [] rho (int_ge p int_one) LA.Ge p int_one;
+    AR.lemma_int_numeral s bc eq other [] rho 1 int_one;
+    assert (T.truth s bc eq other (int_ge p int_one));
+    assert_norm (R.formula_clause R.false_expr == []);
+    lemma_refutes s bc eq other (int_ge p int_one :: facts) R.false_expr
+  | _ -> ()
+
 let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                 (facts:list expr)
   : Lemma (requires T.truths s bc eq other facts /\ integer_product_check facts)
           (ensures False) =
-  lemma_nonnegative_int_product s bc eq other facts (Some?.v (integer_product_witness facts))
+  let p = Some?.v (integer_product_witness facts) in
+  if nonnegative_int_product facts p then lemma_nonnegative_int_product s bc eq other facts p
+  else lemma_positive_int_product s bc eq other facts p
 
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.

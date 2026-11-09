@@ -56,13 +56,14 @@ let doc (assertions:list expr) (entries:list P.entry) (root:int) : P.document = 
   P.declarations = []; P.expressions = []; P.assertions = assertions; P.entries = entries; P.root = root;
 }
 
-let integer_product_document (wrong_sign:bool) : P.document =
+let integer_product_document (strict:bool) (wrong_sign:bool) : P.document =
   let x = const "product_x" integer in
   let y = const "product_y" integer in
   let z = const "product_z" integer in
-  let a = SP.int_ge x SP.int_zero in
-  let b = if wrong_sign then SP.int_le y SP.int_zero else SP.int_ge y SP.int_zero in
-  let c = App (TR.lt_decl integer) [z; SP.int_zero] in
+  let minimum = if strict then SP.int_one else SP.int_zero in
+  let a = SP.int_ge x minimum in
+  let b = if wrong_sign then SP.int_le y SP.int_zero else SP.int_ge y minimum in
+  let c = if strict then SP.int_le z SP.int_zero else App (TR.lt_decl integer) [z; SP.int_zero] in
   let product = App (TR.times_decl integer) [x; y] in
   let negative = App (TR.times_decl integer) [App (TR.int_numeral (-1)) []; z] in
   let bound = SP.int_le (App (TR.plus_decl integer) [product; negative]) SP.int_zero in
@@ -71,14 +72,24 @@ let integer_product_document (wrong_sign:bool) : P.document =
      entry U.Asserted bound []; entry (U.Unverified "th-lemma") R.false_expr [0; 1; 2; 3]] 4
 
 let nonnegative_integer_products ()
-  : Lemma (SP.check_document_epsilon PT.core_schema (integer_product_document false) == Some 0 /\
-           RD.check_root_document_epsilon PT.core_schema (integer_product_document false) == RD.RootCertified /\
-           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document false)) == Some 0 /\
-           SP.check_document_epsilon PT.core_schema (integer_product_document true) == Some 1) =
-  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document false) == Some 0);
-  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_product_document false) == RD.RootCertified);
-  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document false)) == Some 0);
-  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document true) == Some 1)
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_product_document false false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_product_document false false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document false false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_product_document false true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document false false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_product_document false false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document false false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document false true) == Some 1)
+
+let positive_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_product_document true false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_product_document true false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document true false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_product_document true true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document true false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_product_document true false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document true false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document true true) == Some 1)
 
 (* A two-assertion refutation shape: facts a and (not a) resolve to false. *)
 let refute_pair (a:expr) : P.document =
