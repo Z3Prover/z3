@@ -411,6 +411,7 @@ FSTAR_INTEGER_INTERVALS_Q4 = "fstar-integer-intervals-q4.smt2"
 # sorted-datatype semantics): the producer's Real Farkas weights replayed by the typed Int/Real check
 # (Real strict bounds stay strict, Int literals under to_real rounded as Int) and its premise-free Real
 # rewrite equations ((x > 0) = not (x <= 0), (to_real 0) = 0) proved by the Real normal forms.
+# Fixed-value equality propagation additionally reconstructs both bound certificates.
 SORTED_REAL_CASES = (
     ("strict-conflict", "(declare-const x Real)(assert (> x 0.0))(assert (<= x 0.0))"),
     ("strict-pair", "(declare-const x Real)(declare-const y Real)(assert (< x y))(assert (<= y x))"),
@@ -418,12 +419,20 @@ SORTED_REAL_CASES = (
      "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))"),
     ("datatype-field", "(declare-datatype T ((C (field Real))))(declare-const t T)"
      "(assert (> (field t) 0.0))(assert (<= (field t) 0.0))"),
+    ("reconstructed-equality", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Bool)"
+     "(assert (>= x 1))(assert (<= x 1))(assert (>= y 0))(assert (<= y 0))"
+     "(assert (f 1))(assert (not (f (+ x y))))"),
 )
 # Satisfiable Real inputs: no Int lattice reasoning at Real (0 < x < 1 holds at x = 1/2, the model the
 # producer returns), and equal non-strict bounds (x = y).
 SORTED_REAL_SATISFIABLE_CASES = (
     ("between-zero-and-one", "(declare-const x Real)(assert (< 0.0 x))(assert (< x 1.0))"),
     ("equal-bounds", "(declare-const x Real)(declare-const y Real)(assert (<= x y))(assert (<= y x))"),
+    ("loose-equality-bounds", "(set-option :auto_config false)(set-option :smt.arith.solver 6)"
+     "(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Bool)"
+     "(assert (>= x 1))(assert (<= x 2))(assert (>= y 0))(assert (<= y 0))"
+     "(assert (f 1))(assert (not (f (+ x y))))"),
 )
 
 # Sort-generic ITE laws on the Sorted route: the producer's premise-free closed `rewrite` steps

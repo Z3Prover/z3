@@ -7,7 +7,6 @@ open Z3ValueTheory
 open FStar.Real
 open FStar.List.Tot
 module A = Z3LinearArithmeticAst
-module AR = Z3SortedArithmetic
 module B = Z3BoundedBoolEquiv
 module D = Z3Definitions
 module L = FStar.List.Tot
@@ -29,21 +28,13 @@ let lemma_positive_shape (e:expr)
   assert_norm (get_sort zero == A.real_s);
   assert (A.application RL.real_gt_decl [e; zero] bool_sort ">" op_arith_gt)
 
-let refutes (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
-  let inputs = A.assumptions conclusion facts in
-  if L.length inputs > 32 then false
-  else if None? (arguments_budget 4096 (L.map snd inputs)) then false
-  else match A.synthesize conclusion facts with
-  | Some cs -> LIN.check_numeric_contradiction s inputs cs
-  | None -> false
-
 let positive_product (s:S.checked_schema) (facts:list expr) (p:expr) : bool =
   match p with
   | App f [x; y] ->
     RL.classify f = RL.Calculate A.Mul &&
     D.scoped [] p &&
-    refutes s facts (positive x) && refutes s facts (positive y) &&
-    refutes s (positive p :: facts) R.false_expr
+    LIN.refutes s facts (positive x) && LIN.refutes s facts (positive y) &&
+    LIN.refutes s (positive p :: facts) R.false_expr
   | _ -> false
 
 let product (e:expr) : bool =
@@ -68,30 +59,6 @@ let check (s:S.checked_schema) (facts:list expr) : bool =
   else if None? (arguments_budget 4096 facts) then false
   else Some? (candidate s facts facts)
 
-let rec lemma_assumptions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                          (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                          (facts lits:list expr)
-  : Lemma (requires T.truths s bc model other facts /\
-                    not (B.geval_args (T.truth s bc model other) B.Or (L.map B.Atom lits)))
-          (ensures AR.assumptions_hold s bc model other
-            (L.map A.positive_literal facts @ L.map A.negative_literal lits))
-          (decreases %[facts; lits]) =
-  match facts with
-  | _ :: rest -> lemma_assumptions s bc model other rest lits
-  | [] -> (match lits with [] -> () | _ :: rest -> lemma_assumptions s bc model other [] rest)
-
-let lemma_refutes (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
-                  (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
-                  (reals:RL.carrier base) (facts:list expr) (conclusion:expr)
-  : Lemma (requires RL.real_laws s bc model other reals /\ T.truths s bc model other facts /\
-                    refutes s facts conclusion /\
-                    not (B.geval_args (T.truth s bc model other) B.Or
-                           (L.map B.Atom (R.formula_clause conclusion))))
-          (ensures False) =
-  lemma_assumptions s bc model other facts (R.formula_clause conclusion);
-  LIN.lemma_check_numeric_contradiction s bc model other reals
-    (A.assumptions conclusion facts) (Some?.v (A.synthesize conclusion facts))
-
 let lemma_positive_meaning (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                           (reals:RL.carrier base) (e:expr)
@@ -107,13 +74,13 @@ let lemma_positive (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
                    (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                    (reals:RL.carrier base) (facts:list expr) (e:expr)
   : Lemma (requires RL.real_laws s bc model other reals /\ T.truths s bc model other facts /\
-                    D.scoped [] e /\ get_sort e == A.real_s /\ refutes s facts (positive e))
+                    D.scoped [] e /\ get_sort e == A.real_s /\ LIN.refutes s facts (positive e))
           (ensures RL.real_at s bc model other reals [] (T.empty_environment (S.signature s)) e >. 0.0R) =
   let c = positive e in
   lemma_positive_shape e;
   if not (T.truth s bc model other c) then (
     assert (R.formula_clause c == [c]);
-    lemma_refutes s bc model other reals facts c);
+    LIN.lemma_refutes s bc model other reals facts c);
   lemma_positive_meaning s bc model other reals e
 
 #push-options "--using_facts_from 'Prims FStar.Real' --fuel 0 --ifuel 0"
@@ -140,7 +107,7 @@ let lemma_positive_product (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
     assert (T.truth s bc model other c);
     assert_norm (R.formula_clause R.false_expr == []);
     assert_norm (not (B.geval_args (T.truth s bc model other) B.Or []));
-    lemma_refutes s bc model other reals (c :: facts) R.false_expr
+    LIN.lemma_refutes s bc model other reals (c :: facts) R.false_expr
   | _ -> ()
 
 let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)

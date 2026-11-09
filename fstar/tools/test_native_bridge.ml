@@ -3147,6 +3147,53 @@ let sorted_real_farkas () =
   require (K.check_document_epsilon schema doc = Some Z.zero)
     "the producer's Real Farkas refutation was not certified on the Sorted route"
 
+let sorted_real_linear_equalities () =
+  let module K = Z3SortedProof in
+  let c = context () in
+  let native = parse c
+    "(declare-const x Real)(declare-const y Real)\
+     (assert (>= x 1))(assert (<= x 1))(assert (>= y 0))(assert (<= y 0))\
+     (assert (= 1 (+ x y)))(assert (not (= 1 (+ x y))))(assert false)" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let facts, equation, negative, falsity = match List.map (B.cached_expression st) native with
+    | [a; b; c; d; equation; negative; falsity] -> [a; b; c; d], equation, negative, falsity
+    | _ -> failwith "expected Real equality reconstruction formulas" in
+  let check expected rule facts =
+    let assertions = facts @ [negative] in
+    let goal_id = List.length assertions in
+    let entries = List.map (fun formula ->
+        { P.rule = U.Asserted; formula; premise_ids = [] }) assertions in
+    let goal = { P.rule = rule; formula = equation;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
+    let root = { P.rule = U.UnitResolution; formula = falsity;
+                 premise_ids = [Z.of_int goal_id; Z.of_int (goal_id - 1)] } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions; entries = entries @ [goal; root]; root = Z.of_int (goal_id + 1) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected Real equality reconstruction document verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "Real equality reconstruction accepted missing assertions";
+      let premise formula = { U.conclusion = U.Holds formula; hypotheses = [List.hd facts] } in
+      let node = { U.kind = rule; conclusion = Option.get (U.classify_fact equation);
+                   premises = List.map premise facts } in
+      match K.check_node schema [] node with
+      | Some (fact, pending) ->
+        require (Z.equal pending Z.zero && fact.U.hypotheses = [List.hd facts])
+          "Real equality reconstruction dropped an inherited hypothesis"
+      | None -> failwith "Real equality reconstruction rejected a valid node")
+  in
+  check true (U.Unverified "th-lemma") facts;
+  check true U.RewriteRule facts;
+  check false (U.Unverified "th-lemma") (List.tl facts);
+  check false (U.ArithmeticFarkas []) facts;
+  let left, right = match Option.get (U.classify_fact equation) with
+    | U.Equal (a, b) -> a, b | _ -> failwith "expected a numeric equality" in
+  require (not (Z3SortedRealLinear.implied_equality schema
+                  (List.init 31 (fun i -> List.nth facts (i mod 4))) left right))
+    "Real equality reconstruction ignored its literal budget"
+
 let sorted_real_positive_products () =
   let module K = Z3SortedProof in
   let module RP = Z3SortedRealProduct in
@@ -8233,6 +8280,7 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
      "sorted-real-Farkas", sorted_real_farkas;
+     "sorted-real-linear-equalities", sorted_real_linear_equalities;
      "sorted-real-positive-products", sorted_real_positive_products;
      "sorted-real-order-clauses", sorted_real_order_clauses;
      "sorted-int-division-clauses", sorted_int_division_clauses;

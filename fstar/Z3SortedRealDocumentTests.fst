@@ -78,6 +78,29 @@ let positive_product_read_view ()
   assert_norm (RD.check_root_document_epsilon PT.core_schema product_document == RD.RootCertified);
   assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view product_document) == Some 0)
 
+let linear_equality_document (tight:bool) : P.document =
+  let a = App RL.real_ge_decl [c; rone] in
+  let b = le c (if tight then rone else App (RL.real_numeral_decl 2 1) []) in
+  let low = App RL.real_ge_decl [d; rzero] in
+  let high = le d rzero in
+  let equation = R.mk_eq_expr rone (App RL.real_plus_decl [c; d]) in
+  let negative = R.mk_not_expr equation in
+  doc [a; b; low; high; negative]
+    [entry U.Asserted a []; entry U.Asserted b []; entry U.Asserted low [];
+     entry U.Asserted high []; entry U.Asserted negative [];
+     entry (U.Unverified "th-lemma") equation [0; 1; 2; 3];
+     entry U.UnitResolution R.false_expr [5; 4]] 6
+
+let bounded_linear_equality ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (linear_equality_document true) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (linear_equality_document true) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (linear_equality_document true)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (linear_equality_document false) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (linear_equality_document true) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (linear_equality_document true) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (linear_equality_document true)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (linear_equality_document false) == Some 1)
+
 let falsified (u:TR.uninterpreted) (sch:S.checked_schema) (dc:P.document) (i:TR.interp u sch) : prop =
   RD.typed_assertions dc.P.assertions /\ not (RD.root_truths u sch i dc.P.assertions)
 

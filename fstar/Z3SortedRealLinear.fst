@@ -18,6 +18,7 @@ module D = Z3Definitions
 module L = FStar.List.Tot
 module RL = Z3SortedReal
 module RW = Z3ArithmeticRewrite
+module B = Z3BoundedBoolEquiv
 
 (* ---------------------------------------------------------------------- *)
 (* Executable classification facts                                          *)
@@ -682,3 +683,69 @@ let lemma_zero_contradiction_needs_weighted_strict (xs:list (bool & expr)) (cs:l
           (ensures strict_sources xs cs) =
   lemma_zero_polynomial_needs_strict ps;
   lemma_strict_sources xs cs ps
+
+let refutes (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  let inputs = A.assumptions conclusion facts in
+  if L.length inputs > 32 then false
+  else if None? (arguments_budget 4096 (L.map snd inputs)) then false
+  else match A.synthesize conclusion facts with
+  | Some cs -> check_numeric_contradiction s inputs cs
+  | None -> false
+
+let rec lemma_synthesis_assumptions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                   (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                   (facts lits:list expr)
+  : Lemma (requires T.truths s bc model other facts /\
+                    not (B.geval_args (T.truth s bc model other) B.Or (L.map B.Atom lits)))
+          (ensures AR.assumptions_hold s bc model other
+            (L.append (L.map A.positive_literal facts) (L.map A.negative_literal lits)))
+          (decreases %[facts; lits]) =
+  match facts with
+  | _ :: rest -> lemma_synthesis_assumptions s bc model other rest lits
+  | [] -> (match lits with [] -> () | _ :: rest -> lemma_synthesis_assumptions s bc model other [] rest)
+
+let lemma_refutes (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                  (reals:RL.carrier base) (facts:list expr) (conclusion:expr)
+  : Lemma (requires RL.real_laws s bc model other reals /\ T.truths s bc model other facts /\
+                    refutes s facts conclusion /\
+                    not (B.geval_args (T.truth s bc model other) B.Or
+                           (L.map B.Atom (R.formula_clause conclusion))))
+          (ensures False) =
+  lemma_synthesis_assumptions s bc model other facts (R.formula_clause conclusion);
+  lemma_check_numeric_contradiction s bc model other reals
+    (A.assumptions conclusion facts) (Some?.v (A.synthesize conclusion facts))
+
+let equality_bound (lower:bool) (a b:expr) : expr =
+  App (if lower then RL.real_le_decl else RL.real_ge_decl) [a; b]
+
+let implied_equality (s:S.checked_schema) (facts:list expr) (a b:expr) : bool =
+  if not (RL.real_primitive s) || L.length facts > 30 then false
+  else if None? (arguments_budget 4096 (a :: b :: facts)) then false
+  else get_sort a = A.real_s && get_sort b = A.real_s && D.scoped [] a && D.scoped [] b &&
+       refutes s facts (equality_bound true a b) && refutes s facts (equality_bound false a b)
+
+let lemma_equality_bound (lower:bool) (a b:expr)
+  : Lemma (requires D.scoped [] a /\ D.scoped [] b /\ get_sort a == A.real_s /\ get_sort b == A.real_s)
+          (ensures D.scoped [] (equality_bound lower a b) /\
+                   A.comparison (equality_bound lower a b) == Some ((if lower then A.Le else A.Ge), a, b) /\
+                   R.formula_clause (equality_bound lower a b) == [equality_bound lower a b]) =
+  if lower then assert (A.application RL.real_le_decl [a; b] bool_sort "<=" op_arith_le)
+  else assert (A.application RL.real_ge_decl [a; b] bool_sort ">=" op_arith_ge)
+
+let lemma_implied_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                           (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                           (reals:RL.carrier base) (facts:list expr) (a b:expr)
+  : Lemma (requires RL.real_laws s bc model other reals /\ T.truths s bc model other facts /\
+                    implied_equality s facts a b)
+          (ensures T.truth s bc model other (R.mk_eq_expr a b)) =
+  let rho = T.empty_environment (S.signature s) in
+  let bound (lower:bool) : Lemma (T.truth s bc model other (equality_bound lower a b)) =
+    lemma_equality_bound lower a b;
+    if not (T.truth s bc model other (equality_bound lower a b)) then
+      lemma_refutes s bc model other reals facts (equality_bound lower a b) in
+  bound true;
+  bound false;
+  lemma_comparison s bc model other reals [] rho (equality_bound true a b) a b A.Le;
+  lemma_comparison s bc model other reals [] rho (equality_bound false a b) a b A.Ge;
+  RL.lemma_real_equality_at s bc model other reals [] rho a b

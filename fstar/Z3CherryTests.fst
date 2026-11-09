@@ -474,6 +474,28 @@ let real_farkas_document (a b:A.expr) (ids:list int) (cs:list Z3LinearArithmetic
       P.root = 2 };
     C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
 
+let real_equality_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let zero = real_numeral 0 1 in
+  let one = real_numeral 1 1 in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let facts = [ge x one; le x one; ge y zero; le y zero] in
+  let premise e : U.checked_fact = { U.conclusion = U.Holds e; U.hypotheses = [ge x one] } in
+  let run kind facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Equal one (A.App RL.real_plus_decl [x; y]);
+        U.premises = L.map premise facts } in
+  let preserves (result:option (U.checked_fact & nat)) = match result with
+    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x one]
+    | None -> false in
+  let pending (result:option (U.checked_fact & nat)) = match result with | Some (_, n) -> n = 1 | None -> false in
+  preserves (run (U.Unverified "th-lemma") facts) &&
+  preserves (run U.RewriteRule facts) &&
+  pending (run (U.Unverified "th-lemma") [le x one; ge y zero; le y zero]) &&
+  pending (run (U.ArithmeticFarkas []) facts)
+
 let real_product_controls () : bool =
   let x = real_constant "x" [] in
   let y = real_constant "y" [] in
@@ -1302,6 +1324,7 @@ let run () : bool =
   qi_regroup_scale () &&
   qi_ite_scale () &&
   real_farkas_controls () &&
+  real_equality_controls () &&
   real_product_controls () &&
   real_order_controls () &&
   real_equation_controls () &&
