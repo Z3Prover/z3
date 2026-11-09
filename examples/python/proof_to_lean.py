@@ -1106,6 +1106,7 @@ class _Graph:
     # arguments are injected into the otherwise unused carrier).
     uninterpreted: bool = False
     numeric: str = "Real"  # the arithmetic sort of the certificate: Real, Int, or _MIXED (qf_lira, qf_uflira)
+    floors: bool = False  # whether the certificate has a to_int or an is_int
     # The arithmetic sort of each qf_lira theory step, by node (_lemma_numeric).
     lemma_sorts: dict = field(default_factory=dict, compare=False, repr=False)
     # The family and index of each uninterpreted function a map applies, by
@@ -1123,6 +1124,9 @@ class _Graph:
     # from its condition and both branches), and the interned atom key of
     # each atom key structure, by ("structure", structure).
     real_keys: dict = field(default_factory=dict, compare=False, repr=False)
+    # The terms each formula floors (_floored_terms), by node (a cache: every
+    # lemma's _real_argument_pairs visits the reachable formulas again).
+    floored_terms: dict = field(default_factory=dict, compare=False, repr=False)
 
     def constructor_index(self, name, sort):
         """The index of a constructor in _m.ctors: the enumerations by sort name, each in declaration order."""
@@ -1563,7 +1567,8 @@ def _validate_graph(source, certificate):
     if uninterpreted != (certificate["fragment"] in ("qf_uf", "qf_uflra", "qf_uflia", "qf_uflira")):
         raise ReconstructionError("only qf_uf, qf_uflra, qf_uflia, and qf_uflira certificates declare an "
                                   "uninterpreted sort or function, and they must use one")
-    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts, uninterpreted, numeric)
+    floors = any(decl.kind in (z3.Z3_OP_TO_INT, z3.Z3_OP_IS_INT) for decl in declarations)
+    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts, uninterpreted, numeric, floors)
     if graph.fragment != certificate["fragment"]:
         if not arithmetic:
             raise ReconstructionError("%s certificates must contain arithmetic" % certificate["fragment"])
@@ -3546,7 +3551,7 @@ def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded=Fal
         helpers.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.uninterpreted and not folded_arguments:
         helpers.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.arithmetic and graph.uninterpreted:
+    if graph.arithmetic and (graph.uninterpreted or graph.floors):
         helpers.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.arrays:
         helpers.extend(_array_helpers(graph, reachable, atom_indices, variable_indices))
@@ -4839,7 +4844,9 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
     (splitting the ite conditions) and grind then uses for congruence.
     The groups are per sort: in a qf_uflira certificate an Int and a Real
     argument may share a linear form ((ite c 1 0) and (ite c 1.0 0.0)), and
-    they are injected by different maps, so no helper relates them.
+    they are injected by different maps, so no helper relates them. The
+    terms that formulas floor are related the same way (_real_argument_pairs),
+    also in certificates without uninterpreted symbols.
 
     Without arrays each equality is stated over the two terms' definitions,
     folded, proved after unfolding them, and then unfolded in place into
@@ -4967,18 +4974,69 @@ def _level_atoms(graph, node):
 
 
 def _real_argument_pairs(graph, reachable):
-    """The pairs of reachable numeric application arguments _real_argument_helpers relates."""
+    """The pairs of reachable numeric application arguments _real_argument_helpers relates.
+
+    Besides the numeric arguments, the terms that reachable formulas floor
+    (_floored_terms) are grouped too: the rewriter's normal form of (is_int
+    t) is (= (to_real (to_int t')) t'), with t' the normal form of t,
+    another node when t is a nested ite chain. Their equality, proved level
+    by level, lets grind relate the two formulas (or two applications over
+    them) by congruence instead of splitting both chains: six nested Real
+    ites under is_int, compared directly or under a predicate, ran grind out
+    of its splits.
+    """
     groups = {}
     for node in sorted(reachable):
-        if graph.kind(node) != z3.Z3_OP_UNINTERPRETED:
+        if graph.kind(node) == z3.Z3_OP_UNINTERPRETED:
+            candidates = [argument for argument in graph.arguments(node) if graph.is_arith(argument)]
+        elif graph.floors and not graph.is_term(node):
+            candidates = _floored_terms(graph, node)
+        else:
             continue
-        for argument in graph.arguments(node):
-            if graph.is_arith(argument):
-                key = (graph.decl(argument).range, _real_argument_key(graph, argument))
-                members = groups.setdefault(key, [])
-                if argument not in members:
-                    members.append(argument)
+        for candidate in candidates:
+            key = (graph.decl(candidate).range, _real_argument_key(graph, candidate))
+            members = groups.setdefault(key, [])
+            if candidate not in members:
+                members.append(candidate)
     return [pair for members in groups.values() for pair in zip(members, members[1:])]
+
+
+def _floored_terms(graph, formula):
+    """The terms a formula floors: an is_int's argument, the arguments of the to_int atoms of a comparison's sides.
+
+    Only terms with a linear form (_real_argument_key) are returned; the
+    others are left to the theory tactic as before. The result is cached
+    per node (graph.floored_terms).
+    """
+    cached = graph.floored_terms.get(formula)
+    if cached is None:
+        cached = graph.floored_terms[formula] = tuple(_uncached_floored_terms(graph, formula))
+    return cached
+
+
+def _uncached_floored_terms(graph, formula):
+    """_floored_terms without the cache."""
+    if graph.kind(formula) == z3.Z3_OP_IS_INT:
+        terms = [graph.arguments(formula)[0]]
+    elif (graph.kind(formula) not in _ARITH_PREDICATE_NAMES and graph.kind(formula) != z3.Z3_OP_EQ) \
+            or not all(graph.is_arith(side) for side in graph.arguments(formula)):
+        return []
+    else:
+        atoms = {}
+        try:
+            for side in graph.arguments(formula):
+                _linear_term(graph, side, Fraction(1), atoms)
+        except ReconstructionError:
+            return []
+        terms = [graph.arguments(atom)[0] for atom in sorted(atoms) if graph.kind(atom) == z3.Z3_OP_TO_INT]
+    keyed = []
+    for term in terms:
+        try:
+            _real_argument_key(graph, term)
+        except ReconstructionError:
+            continue
+        keyed.append(term)
+    return keyed
 
 
 def _real_argument_key(graph, node):

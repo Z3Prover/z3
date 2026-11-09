@@ -2838,6 +2838,27 @@ binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 
+### is_int of nested Real chains related to its normal form (2026-11-09)
+
+The rewriter's normal form of `(is_int t)` is `(= (to_real (to_int t'))
+t')`, with `t'` the normal form of `t`: another node when `t` is a nested
+Real ite chain. Only numeric arguments of uninterpreted applications got
+`_r` equalities, so nothing related `t` and `t'`, and the grind lemma
+relating the two formulas split both chains. `is_int` of two chains of
+six nested Real ites failed on the clause log, compared directly (QF_LIRA,
+grind failed after 47 s) or under a predicate `p` (QF_UFLIRA, 55 s). Now
+`_real_argument_pairs` also groups the terms each reachable formula floors
+(`_floored_terms`: an `is_int`'s argument, the arguments of the `to_int`
+atoms of a comparison's sides), and `_real_argument_helpers` runs for any
+arithmetic certificate with a `to_int` or `is_int`, not only for those
+with uninterpreted symbols. The chains' equality is proved level by
+level, and grind relates the formulas by congruence: 10 s and 7 s at
+depth 6, 15 s at depth 8. The legacy core already passed and is mostly
+unchanged. Tests: `test_is_int_of_nested_real_chains_is_related_to_its_normal_form`
+(without Lean) and `test_is_int_of_nested_real_chains_verifies` (both
+cores, Lean). `div`/`mod` by a numeral of nested Int chains (under `f` or
+compared directly) already pass at depth 6 on both cores.
+
 ### Floors keyed by their argument's normal form (2026-11-09)
 
 `to_int` atoms were keyed by node in `_real_atom_key`, so the floor of a

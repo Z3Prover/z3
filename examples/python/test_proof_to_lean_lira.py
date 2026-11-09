@@ -391,10 +391,15 @@ def cast_chains_instance(depth=8, compare="real"):
     the chains Real, x + 5/2 * depth and x + 5 * (depth / 2) modulo 17/2,
     and compares an Int function f of their floors (QF_UFLIRA: the
     rewriter's normal form of each to_int floors a different Real chain,
-    related level by level by _argument_equality_levels).
+    related level by level by _argument_equality_levels). "is_int" compares
+    is_int of the two Real chains (QF_LIRA) and "is_int_predicate" a
+    predicate p of each (QF_UFLIRA): the rewriter's normal form of (is_int
+    t) is (= (to_real (to_int t')) t') over another chain t', related to t
+    by the equalities of the floored terms (_floored_terms).
     """
-    logic = {"real": "QF_LIRA", "function": "QF_UFLIRA", "predicate": "QF_UFLIA", "floor": "QF_UFLIRA"}[compare]
-    if compare == "floor":
+    logic = {"real": "QF_LIRA", "function": "QF_UFLIRA", "predicate": "QF_UFLIA", "floor": "QF_UFLIRA",
+             "is_int": "QF_LIRA", "is_int_predicate": "QF_UFLIRA"}[compare]
+    if compare in ("floor", "is_int", "is_int_predicate"):
         sort, modulus, steps = "Real", "(/ 17 2)", ("(/ 5 2)", "5.0")
     else:
         sort, modulus, steps = "Int", "17", ("5", "10")
@@ -410,6 +415,11 @@ def cast_chains_instance(depth=8, compare="real"):
     if compare == "floor":
         lines += ["(declare-fun f (Int) Int)",
                   "(assert (not (= (f (to_int %s)) (f (to_int %s)))))" % (first, second)]
+    elif compare == "is_int":
+        lines += ["(assert (not (= (is_int %s) (is_int %s))))" % (first, second)]
+    elif compare == "is_int_predicate":
+        lines += ["(declare-fun p (Bool) Bool)",
+                  "(assert (not (= (p (is_int %s)) (p (is_int %s)))))" % (first, second)]
     elif compare == "real":
         lines += ["(declare-const y Real)", "(assert (= y (to_real %s)))" % second,
                   "(assert (not (= (to_real %s) y)))" % first]
@@ -805,6 +815,27 @@ class TestCastValidation(unittest.TestCase):
                     related += 1
         self.assertGreater(related, 0)
 
+    def test_is_int_of_nested_real_chains_is_related_to_its_normal_form(self):
+        # The rewriter's normal form of (is_int a6) floors another Real chain
+        # than the input's is_int, which Lean states as the cast of the floor
+        # equal to the chain. The two chains get an equality of their own,
+        # proved level by level, from which grind relates the two formulas by
+        # congruence. Without it grind split both chains entirely and failed
+        # (55 s under the predicate, 47 s compared directly).
+        for compare in ("is_int", "is_int_predicate"):
+            with self.subTest(compare=compare):
+                source = cast_chains_instance(6, compare)
+                text = proof_to_lean.reconstruct(source, _export(source, "clause-log"))
+                self.assertLess(len(text), 2500000)
+                tested = set(re.findall(r"^def formula_\d+ [^\n]*: Prop := \(\(\(Rat\.floor \(term_(\d+) _atoms[^\n]*"
+                                        r"= \(term_\1 _atoms", text, re.M))
+                floored = set(re.findall(r"^noncomputable def term_\d+ [^\n]*: Int := \(Rat\.floor \(term_(\d+) _atoms",
+                                         text, re.M))
+                self.assertTrue(tested and floored)
+                related = {frozenset(pair) for pair in re.findall(r"have _r(\d+)_(\d+) : ", text)}
+                self.assertTrue(any(frozenset((one, other)) in related for one in tested for other in floored),
+                                (tested, floored))
+
     def test_keys_of_nested_chains_are_linear_in_depth(self):
         # Keying a floor keys its argument, and each level of a nested chain
         # is reached from its condition and both branches: about 3^depth
@@ -1196,6 +1227,21 @@ class TestCastLeanIntegration(unittest.TestCase):
         fragments = {"real": "qf_lira", "function": "qf_uflira", "predicate": "qf_uflia", "floor": "qf_uflira"}
         for compare, fragment in fragments.items():
             source = cast_chains_instance(8, compare)
+            for core in ("clause-log", "legacy"):
+                with self.subTest(compare=compare, core=core):
+                    certificate = _export(source, core)
+                    self.assertEqual(certificate["fragment"], fragment)
+                    _, report = lean_test_support.check(self, source, certificate)
+                    self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_is_int_of_nested_real_chains_verifies(self):
+        # Six nested Real ites per chain under is_int. The clause-log
+        # certificates failed (grind gave up after 47 to 55 s) while the
+        # input's chain and the rewriter's normal form were unrelated; with
+        # their equality stated level by level each checks in about 10 s.
+        fragments = {"is_int": "qf_lira", "is_int_predicate": "qf_uflira"}
+        for compare, fragment in fragments.items():
+            source = cast_chains_instance(6, compare)
             for core in ("clause-log", "legacy"):
                 with self.subTest(compare=compare, core=core):
                     certificate = _export(source, core)
