@@ -9947,7 +9947,7 @@ def _reorder_pb_arg(arg):
 def _pb_args_coeffs(args, default_ctx=None):
     args = _get_args_ast_list(args)
     if len(args) == 0:
-        return _get_ctx(default_ctx), 0, (Ast * 0)(), (ctypes.c_int * 0)()
+        return _get_ctx(default_ctx), 0, (Ast * 0)(), (ctypes.c_int * 0)(), []
     args = [_reorder_pb_arg(arg) for arg in args]
     args, coeffs = zip(*args)
     if z3_debug():
@@ -9969,6 +9969,10 @@ def PbLe(args, k):
 
     >>> a, b, c = Bools('a b c')
     >>> f = PbLe(((a,1),(b,3),(c,2)), 3)
+    >>> simplify(PbLe([], 0))
+    True
+    >>> simplify(PbLe([], -1))
+    False
     """
     _z3_check_cint_overflow(k, "k")
     ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
@@ -9980,6 +9984,10 @@ def PbGe(args, k):
 
     >>> a, b, c = Bools('a b c')
     >>> f = PbGe(((a,1),(b,3),(c,2)), 3)
+    >>> simplify(PbGe([], 0))
+    True
+    >>> simplify(PbGe([], 1))
+    False
     """
     _z3_check_cint_overflow(k, "k")
     ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
@@ -9991,6 +9999,10 @@ def PbEq(args, k, ctx=None):
 
     >>> a, b, c = Bools('a b c')
     >>> f = PbEq(((a,1),(b,3),(c,2)), 3)
+    >>> simplify(PbEq([], 0))
+    True
+    >>> simplify(PbEq([], 1))
+    False
     """
     _z3_check_cint_overflow(k, "k")
     ctx, sz, _args, _coeffs, args = _pb_args_coeffs(args)
