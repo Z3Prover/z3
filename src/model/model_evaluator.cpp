@@ -284,12 +284,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            st = m_b_rw.mk_app_core(f, num, args, result);
-            // Revisiting evaluated ITE branches can re-expand partial arithmetic
-            // applications that were left inside zero-divisor guards.
-            if (k == OP_ITE && st < BR_DONE)
-                return BR_REWRITE1;
-            return st;
+            return m_b_rw.mk_app_core(f, num, args, result);
         }
         if (fid == m_a_rw.get_fid())
             st = m_a_rw.mk_app_core(f, num, args, result);
