@@ -2002,8 +2002,24 @@ let real_product (s:S.checked_schema) (node:U.proof_node) : bool =
   node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
   RP.check s (propositions node.premises)
 
+let real_product_clause_shape (c:expr) : bool =
+  if c = R.false_expr then false
+  else if None? (expression_budget 4096 c) then false
+  else not (Nil? (RP.products 16 c))
+
+let real_product_clause (s:S.checked_schema) (node:U.proof_node) : bool =
+  RL.real_primitive s && order_rule node.kind &&
+  (match node.conclusion with
+   | U.Holds c ->
+     if not (real_product_clause_shape c) then false
+     else
+       let complements = L.map R.mk_not_expr (DT.literals c) in
+       D.scoped_args [] complements && RP.check s (propositions node.premises @ complements)
+   | _ -> false)
+
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
-  real_farkas s node || real_rewrite s node || real_order s node || real_equality s node || real_product s node
+  real_farkas s node || real_rewrite s node || real_order s node || real_equality s node ||
+  real_product s node || real_product_clause s node
 
 (* A closed guarded Int div/mod clause (division_clause above), judged from the
    entry formula alone: no premise, rule label or payload is read. It is a
@@ -2442,6 +2458,25 @@ let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:
     DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (DT.literals conclusion));
     lemma_integer_product_check s bc eq other (facts @ L.map R.mk_not_expr (DT.literals conclusion)))
 
+let lemma_real_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                              (node:U.proof_node)
+  : Lemma (requires boolean_expression s (proposition node.conclusion) /\
+                    T.truths s bc eq other (propositions node.premises) /\
+                    RL.real_model s bc eq other /\ real_product_clause s node)
+          (ensures T.truth s bc eq other (proposition node.conclusion)) =
+  match node.conclusion with
+  | U.Holds c ->
+    if not (T.truth s bc eq other c) then (
+      DT.lemma_literals s bc eq other c;
+      lemma_clause_complements s bc eq other (DT.literals c);
+      let facts = propositions node.premises @ L.map R.mk_not_expr (DT.literals c) in
+      DT.lemma_truths_append s bc eq other (propositions node.premises) (L.map R.mk_not_expr (DT.literals c));
+      FStar.Classical.exists_elim False
+        #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+        (fun reals -> RP.lemma_check s bc eq other reals facts))
+  | _ -> ()
+
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free
    QuantifierIntroduction node whose certificate root is nnf-neg or nnf-pos.
    Every other node, and every other certificate, is Unreplayed here and
@@ -2487,6 +2522,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) ||
       (node.kind <> U.LemmaRule && linear_consequence (propositions node.premises) conclusion) ||
       (node.kind <> U.LemmaRule && integer_product_clause (propositions node.premises) conclusion) ||
+      real_product_clause s node ||
       ite_rewrite node || product_rewrite node || unused_elimination node || der_rewrite node in
     Some (fact, (if checked then 0 else 1))
 
@@ -2750,6 +2786,10 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       if T.truths s bc eq other fact.hypotheses then (
         lemma_premise_hypotheses s bc eq other node.premises;
         lemma_integer_product_clause s bc eq other (propositions node.premises) conclusion))
+    else if real_product_clause s node then (
+      if T.truths s bc eq other fact.hypotheses then (
+        lemma_premise_hypotheses s bc eq other node.premises;
+        lemma_real_product_clause s bc eq other node))
     else if ite_rewrite node then lemma_ite_rewrite s bc eq other node
     else if product_rewrite node then lemma_product_rewrite s bc eq other node
     else if unused_elimination node then lemma_unused_elimination s bc eq other node
@@ -2873,6 +2913,12 @@ let real_order_entry (e:P.entry) : bool = order_rule e.P.rule && real_order_clau
 let real_product_entry (e:P.entry) : bool =
   e.P.rule = U.Unverified "th-lemma" && e.P.formula = R.false_expr
 
+let real_product_clause_entry (e:P.entry) : bool =
+  order_rule e.P.rule &&
+  (match U.classify_fact e.P.formula with
+   | Some (U.Holds c) -> real_product_clause_shape c
+   | _ -> false)
+
 let real_equality_entry (e:P.entry) : bool =
   e.P.rule = U.Unverified "th-lemma" &&
   (match U.classify_fact e.P.formula with
@@ -2883,7 +2929,8 @@ let rec needs_real_semantics (s:S.checked_schema) (entries:list P.entry) : Tot b
   match entries with
   | [] -> false
   | e :: rest ->
-    (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e || real_equality_entry e)) ||
+    (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e ||
+                            real_product_clause_entry e || real_equality_entry e)) ||
     needs_real_semantics s rest
 
 (* An entry whose formula is a guarded Int div/mod clause (division_order reads
@@ -2905,14 +2952,16 @@ let rec lemma_needs_real_primitive (s:S.checked_schema) (entries:list P.entry)
   match entries with
   | [] -> ()
   | e :: rest ->
-    if not (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e || real_equality_entry e))
+    if not (RL.real_primitive s && (real_rule e.P.rule || real_order_entry e || real_product_entry e ||
+                                  real_product_clause_entry e || real_equality_entry e))
     then lemma_needs_real_primitive s rest
 
 let lemma_real_node_entry (s:S.checked_schema) (cache:I.index_tree U.checked_fact) (e:P.entry)
                           (node:U.proof_node)
   : Lemma (requires prepare_entry s cache e == Some node /\ real_node s node)
           (ensures RL.real_primitive s /\
-                   (real_rule e.P.rule \/ real_order_entry e \/ real_product_entry e \/ real_equality_entry e)) = ()
+                   (real_rule e.P.rule \/ real_order_entry e \/ real_product_entry e \/
+                    real_product_clause_entry e \/ real_equality_entry e)) = ()
 
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))

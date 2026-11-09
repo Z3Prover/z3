@@ -646,6 +646,34 @@ let real_product_controls () : bool =
   C.check true (document (ge x RP.zero) (le y RP.zero) (le z RP.zero) (nested x y)) = Some 1 &&
   C.check true { good with C.document = { good.document with P.assertions = [] } } = None
 
+let real_product_clause_controls () : bool =
+  let x = real_constant "clause_x" [] in
+  let y = real_constant "clause_y" [] in
+  let z = real_constant "clause_z" [] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let clause p =
+    let lits = [le x RP.zero; le y RP.zero; RP.positive p] in
+    A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction lits) lits in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let node kind facts goal =
+    { U.kind = kind; U.conclusion = U.Holds goal;
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [ge x RP.zero] }) facts } in
+  let run kind facts goal = Z3SortedProof.check_node schema [] (node kind facts goal) in
+  (match run (U.Unverified "assumed:nlsat") [] (clause (mul x y)) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = []
+   | None -> false) &&
+  Z3SortedProof.real_node schema (node (U.Unverified "assumed:nlsat") [] (clause (mul x y))) &&
+  (match run (U.Unverified "assumed:nlsat") [] (clause (mul x z)) with
+   | Some (_, n) -> n = 1 | None -> false) &&
+  (match run U.LemmaRule [] (clause (mul x y)) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match run (U.Unverified "arith/lp-monomial-interval") [ge x RP.zero; le y RP.zero] (le (mul x y) RP.zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x RP.zero]
+   | None -> false) &&
+  (match run (U.Unverified "arith/lp-monomial-interval") [ge x RP.zero] (le (mul x y) RP.zero) with
+   | Some (_, n) -> n = 1 | None -> false)
+
 let real_farkas_controls () : bool =
   let x = real_constant "x" [] in
   let y = real_constant "y" [] in
@@ -1449,6 +1477,7 @@ let run () : bool =
   integer_product_clause_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
+  real_product_clause_controls () &&
   real_order_controls () &&
   real_equation_controls () &&
   int_division_controls () &&

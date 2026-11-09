@@ -248,18 +248,13 @@ let mutants : list expr = [
 let o1_mutants () : Lemma (L.for_all refused_clause mutants) =
   assert_norm (L.for_all refused_clause mutants)
 
-(* VALID clauses in an unsupported shape: SHAPE-refusal controls, not false
-   mutants. The Real `-` and `c <= d + 0` are not the producer's
-   x + (-1)*y; a numeral -2/2 is not the canonical -1; the bound must be
-   against the numeral 0 on the right; a strict literal is no bound; four
+(* SHAPE-refusal controls. The Real `-` and `c <= d + 0` are not the
+   producer's x + (-1)*y; a strict literal is no bound; four
    literals, three literals without an equation, and the totality clause are
    other laws. *)
 let unsupported : list expr = [
   or2 (neg (eq c d)) (le (minus c d) zero);
   or2 (neg (eq c d)) (le c (plus d zero));
-  or2 (neg (eq c d)) (le (plus c (times twin_m1 d)) zero);
-  or2 (neg (eq c d)) (le (diff c d) (num 1));
-  or2 (neg (eq c d)) (le zero (diff c d));
   or3 (eq c d) (neg (le c d)) (neg (lt d c));
   or4 (neg (eq c d)) (le c d) (le d c) (le c e);
   or3 (neg (eq c d)) (le c d) (le d c);
@@ -268,6 +263,22 @@ let unsupported : list expr = [
 
 let o1_unsupported () : Lemma (L.for_all refused_clause unsupported) =
   assert_norm (L.for_all refused_clause unsupported)
+
+(* The Real order kernel refuses these shapes, but the product fallback
+   independently reconstructs their linear contradictions. *)
+let product_reconstructed : list expr = [
+  or2 (neg (eq c d)) (le (plus c (times twin_m1 d)) zero);
+  or2 (neg (eq c d)) (le (diff c d) (num 1));
+  or2 (neg (eq c d)) (le zero (diff c d))
+]
+
+let product_checked (clause:expr) : bool =
+  not (SP.real_order PT.core_schema (th_node clause)) && not (old_paths clause) &&
+  SP.real_product_clause PT.core_schema (th_node clause) &&
+  pending_of PT.core_schema (th_node clause) = Some 0
+
+let o1_product_reconstructed () : Lemma (L.for_all product_checked product_reconstructed) =
+  assert_norm (L.for_all product_checked product_reconstructed)
 
 (* Three literals are accepted and four are refused; a conclusion that is
    not an or-clause is no clause. *)

@@ -78,6 +78,40 @@ let positive_product_read_view ()
   assert_norm (RD.check_root_document_epsilon PT.core_schema product_document == RD.RootCertified);
   assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view product_document) == Some 0)
 
+let product_clause (wrong_factor:bool) : expr =
+  let product = App RL.real_times_decl [c; if wrong_factor then c_twin else d] in
+  let lits = [le c rzero; le d rzero; gt product rzero] in
+  App (BR.connective_decl BR.Disjunction lits) lits
+
+let product_clause_document (wrong_factor:bool) : P.document =
+  let clause = product_clause wrong_factor in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry (U.Unverified "assumed:nlsat") clause []; entry U.Asserted negative [];
+     entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let product_clause_read_view ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (product_clause_document false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (product_clause_document false) == RD.RootCertified /\
+           RD.check_root_document_epsilon PT.core_schema (RD.read_view (product_clause_document false)) == RD.RootCertified /\
+           SP.needs_real_semantics PT.core_schema (product_clause_document false).P.entries /\
+           SP.needs_real_semantics PT.core_schema (RD.read_view (product_clause_document false)).P.entries) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (product_clause_document false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (product_clause_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (RD.read_view (product_clause_document false)) == RD.RootCertified);
+  assert_norm (SP.needs_real_semantics PT.core_schema (product_clause_document false).P.entries);
+  assert_norm (SP.needs_real_semantics PT.core_schema (RD.read_view (product_clause_document false)).P.entries)
+
+let product_clause_mutants ()
+  : Lemma (RD.check_root_document_epsilon PT.core_schema (product_clause_document true) == RD.RootPending 1 /\
+           not (SP.needs_real_semantics RR.real_datatype_schema (product_clause_document false).P.entries) /\
+           not (SP.real_product_clause RR.real_datatype_schema
+             { U.kind = U.Unverified "assumed:nlsat"; U.conclusion = U.Holds (product_clause false); U.premises = [] })) =
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (product_clause_document true) == RD.RootPending 1);
+  assert_norm (not (SP.needs_real_semantics RR.real_datatype_schema (product_clause_document false).P.entries));
+  assert_norm (not (SP.real_product_clause RR.real_datatype_schema
+    { U.kind = U.Unverified "assumed:nlsat"; U.conclusion = U.Holds (product_clause false); U.premises = [] }))
+
 let nonpositive_product_document : P.document =
   let a = App RL.real_ge_decl [c; rzero] in
   let b = le d rzero in
