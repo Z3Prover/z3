@@ -12,6 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/util.h"
 #include "util/trace.h"
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "util/trace.h"
@@ -748,7 +749,44 @@ static void test_zero_frequency_params() {
     }
 }
 
+static void test_eq2bv_recursive_definitions() {
+    for (char const* value : {"0", "1", "2147483647", "2147483648", "4294967295"}) {
+        for (bool equality : {false, true}) {
+            for (bool optimize : {false, true}) {
+                for (bool contradictory : {false, true}) {
+                    std::ostringstream input;
+                    input <<
+                        "(declare-const x Int)\n"
+                        "(declare-const chip Int)\n"
+                        "(define-fun-rec read_x ((n Int)) Int\n"
+                        "  (ite (= n 0) x (read_x (- n 1))))\n";
+                    if (equality)
+                        input << "(assert (= x " << value << "))\n";
+                    else
+                        input << "(assert (<= " << value << " x))\n"
+                              << "(assert (<= x " << value << "))\n";
+                    input << "(assert (or (= chip 0) (= chip 1)))\n"
+                          << "(assert (= (read_x 0) (+ " << value << " "
+                          << (contradictory ? 1 : 0) << ")))\n";
+                    if (optimize)
+                        input << "(minimize (ite (= chip 0) 0 1))\n(check-sat)\n";
+                    else
+                        input << "(check-sat-using (then eq2bv smt))\n";
+                    Z3_config cfg = Z3_mk_config();
+                    Z3_context ctx = Z3_mk_context(cfg);
+                    Z3_del_config(cfg);
+                    std::string response = Z3_eval_smtlib2_string(ctx, input.str().c_str());
+                    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+                    ENSURE(response == (contradictory ? "unsat\n" : "sat\n"));
+                    Z3_del_context(ctx);
+                }
+            }
+        }
+    }
+}
+
 void tst_api() {
+    test_eq2bv_recursive_definitions();
     test_solver_model_completion();
     test_apps();
     test_mk_app_polymorphic_arity();
