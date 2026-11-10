@@ -832,7 +832,7 @@ class DirectCheckerTests(unittest.TestCase):
             for interactive in (False, True):
                 with self.subTest(solver=solver, interactive=interactive):
                     result = run(solver, aliases + third, interactive)
-                    if solver == 6 and result.returncode == 0:
+                    if result.returncode == 0:
                         if interactive:
                             self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
                         else:
@@ -1941,7 +1941,11 @@ class ReadableDiagnosticsTests(unittest.TestCase):
         self.assertEqual(node.group(1), family.group(1))
         for premise in node.group(2, 3):
             self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(" % premise)
-        self.assertRegex(result.stderr, r"(?m)^  premise #%s: holds\(\(not \(<= a!2#\d+:Real 1:Real\)\)\)$" % node.group(2))
+        skolem = re.search(
+            r"(?m)^  premise #%s: holds\(\(not \(<= (a!\d+#\d+:Real) 1:Real\)\)\)$" % node.group(2),
+            result.stderr)
+        self.assertIsNotNone(skolem, result.stderr)
+        self.assertIn(f"(* {skolem.group(1)} {skolem.group(1)})", self.conclusion(result.stderr))
 
     def test_interactive_queries_are_numbered_like_proof_callbacks(self):
         script = ("(declare-const x Real)"
