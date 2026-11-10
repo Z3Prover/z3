@@ -88,5 +88,26 @@ let constant_product_mutants ()
 let rec repeat (n:nat) (e:expr) : Tot (list expr) (decreases n) =
   if n = 0 then [] else e :: repeat (n - 1) e
 
+let product_equalities ()
+  : Lemma (L.for_all (fun n ->
+      let k = App (RL.real_numeral_decl n 1) [] in
+      let facts = [le x k; ge x k] in
+      P.equality_check schema facts (mul x y) (mul k y) &&
+      P.equality_check schema facts (mul k y) (mul y x)) [0; 1; 2; -1]) =
+  assert_norm (L.for_all (fun n ->
+    let k = App (RL.real_numeral_decl n 1) [] in
+    let facts = [le x k; ge x k] in
+    P.equality_check schema facts (mul x y) (mul k y) &&
+    P.equality_check schema facts (mul k y) (mul y x)) [0; 1; 2; -1])
+
+let product_equality_mutants ()
+  : Lemma (
+      not (P.equality_check schema [ge x P.zero; ge y P.zero] (mul x y) P.zero) /\
+      not (P.equality_check schema [le x P.zero; ge y P.zero] (mul x y) P.zero) /\
+      not (P.equality_check schema (repeat 30 (ge x P.zero)) (mul x y) P.zero)) =
+  assert_norm (not (P.equality_check schema [ge x P.zero; ge y P.zero] (mul x y) P.zero));
+  assert_norm (not (P.equality_check schema [le x P.zero; ge y P.zero] (mul x y) P.zero));
+  assert_norm (not (P.equality_check schema (repeat 30 (ge x P.zero)) (mul x y) P.zero))
+
 let literal_budget () : Lemma (not (P.check schema (repeat 31 (P.positive x)))) =
   assert_norm (not (P.check schema (repeat 31 (P.positive x))))

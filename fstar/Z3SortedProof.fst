@@ -1993,10 +1993,12 @@ let real_order (s:S.checked_schema) (node:U.proof_node) : bool =
 
 (* The node kernels that read the Sorted Real laws. *)
 let real_equality (s:S.checked_schema) (node:U.proof_node) : bool =
-  (node.kind = U.RewriteRule || node.kind = U.Unverified "th-lemma") &&
-  (match node.conclusion with
-   | U.Equal a b | U.Observational a b -> LIN.implied_equality s (propositions node.premises) a b
-   | _ -> false)
+  match node.conclusion with
+  | U.Equal a b | U.Observational a b ->
+    ((node.kind = U.RewriteRule || node.kind = U.Unverified "th-lemma") &&
+     LIN.implied_equality s (propositions node.premises) a b) ||
+    (order_rule node.kind && RP.equality_check s (propositions node.premises) a b)
+  | _ -> false
 
 let real_product (s:S.checked_schema) (node:U.proof_node) : bool =
   node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
@@ -2994,7 +2996,11 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
         | U.Equal a b | U.Observational a b ->
           FStar.Classical.exists_elim (T.truth s bc eq other (proposition node.conclusion))
             #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
-            (fun reals -> LIN.lemma_implied_equality s bc eq other reals (propositions node.premises) a b)
+            (fun reals ->
+              if (node.kind = U.RewriteRule || node.kind = U.Unverified "th-lemma") &&
+                 LIN.implied_equality s (propositions node.premises) a b
+              then LIN.lemma_implied_equality s bc eq other reals (propositions node.premises) a b
+              else RP.lemma_equality_check s bc eq other reals (propositions node.premises) a b)
         | _ -> ()))
     else if real_product s node then (
       if T.truths s bc eq other fact.hypotheses then (
@@ -3174,7 +3180,7 @@ let real_product_clause_entry (e:P.entry) : bool =
    | _ -> false)
 
 let real_equality_entry (e:P.entry) : bool =
-  e.P.rule = U.Unverified "th-lemma" &&
+  order_rule e.P.rule &&
   (match U.classify_fact e.P.formula with
    | Some (U.Equal a b) | Some (U.Observational a b) -> get_sort a = LA.real_s && get_sort b = LA.real_s
    | _ -> false)

@@ -324,7 +324,7 @@ let lemma_node_shape (s:S.checked_schema) (assertions:list expr) (node:U.proof_n
     assert (not (SP.real_product s node) /\ not (SP.real_product s node'));
     assert (SP.real_product_clause s node == SP.real_product_clause s node');
     assert (not (SP.integer_product node) /\ not (SP.integer_product node'));
-    assert (not (SP.real_equality s node) /\ not (SP.real_equality s node'));
+    assert (SP.real_equality s node == SP.real_equality s node');
     assert (SP.real_order s node == SP.real_order s node');
     assert (SP.division_order node == SP.division_order node');
     assert (SP.nnf_verdict s assertions node == SP.nnf_verdict s assertions node');

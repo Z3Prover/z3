@@ -3189,7 +3189,7 @@ let sorted_integer_unit_consequences () =
   check false "(declare-const x Int)" "(assert (>= x 0))" "(>= x 1)";
   check false "(declare-const x Real)" "(assert (< x 0.0))" "(<= x (- 1.0))"
 
-let check_sorted_product_clause ?(int_kernel_refuses=false) expected rule header facts goal =
+let check_sorted_product_clause ?(int_kernel_refuses=false) ?(equality_judgment=false) expected rule header facts goal =
   let module K = Z3SortedProof in
   let module R = Z3ResolutionProofTheory in
   let c = context () in
@@ -3214,14 +3214,19 @@ let check_sorted_product_clause ?(int_kernel_refuses=false) expected rule header
   if expected then (
     require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
       "product clause accepted missing original assertions";
-    let node = { U.kind = rule; conclusion = U.Holds conclusion;
+    let judgment = if equality_judgment then
+        match U.classify_fact conclusion with
+        | Some (U.Equal _ as j) | Some (U.Observational _ as j) -> j
+        | _ -> failwith "expected a native equality judgment"
+      else U.Holds conclusion in
+    let node = { U.kind = rule; conclusion = judgment;
                  premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [negative] }) premises } in
     if int_kernel_refuses then
       require (not (K.integer_product_clause premises conclusion))
         "Real product control unexpectedly passed the Int kernel";
-    if K.real_product_clause schema node then
-      require (K.real_node schema node && K.needs_real_semantics schema doc.P.entries)
-        "Real product clause omitted its model-law requirement";
+    if K.real_node schema node then
+      require (K.needs_real_semantics schema doc.P.entries)
+        "Real product consequence omitted its model-law requirement";
     match K.check_node schema [] node with
     | Some (fact, n) ->
       require (Z.equal n Z.zero && fact.U.hypotheses = (if premises = [] then [] else [negative]))
@@ -3351,6 +3356,32 @@ let sorted_real_constant_products () =
   check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2.0") "(<= (* z y) (* 2.0 y))";
   check false (U.Unverified "assumed:nlsat")
     (header ^ "(declare-fun fake_mul (Real Real) Real)") (fixed "2.0") "(<= (fake_mul x y) (* 2.0 y))"
+
+let sorted_real_product_equalities () =
+  let check = check_sorted_product_clause ~int_kernel_refuses:true ~equality_judgment:true in
+  let rule = U.Unverified "arith/lp-monomial-substitute" in
+  let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  List.iter (fun k ->
+    check true rule header (fixed k) ("(= (* x y) (* " ^ k ^ " y))");
+    check true rule header (fixed k) ("(= (* " ^ k ^ " y) (* y x))"))
+    ["0.0"; "1.0"; "2.0"; "(- 1.0)"];
+  check true (U.Unverified "th-lemma") header (fixed "2.0") "(= (* x y) (* 2.0 y))";
+  check true (U.ArithmeticFarkas []) header (fixed "2.0") "(= (* x y) (* 2.0 y))";
+  check false U.LemmaRule header (fixed "2.0") "(= (* x y) (* 2.0 y))";
+  check false rule header "(assert (>= x 2.0))" "(= (* x y) (* 2.0 y))";
+  check false rule header "(assert (<= x 2.0))" "(= (* x y) (* 2.0 y))";
+  check false rule header (fixed "2.0") "(= (* x y) (* 3.0 y))";
+  check false rule header (fixed "2.0") "(= (* z y) (* 2.0 y))";
+  check false rule header "(assert (>= x 0.0))(assert (>= y 0.0))" "(= (* x y) 0.0)";
+  check false rule header "(assert (<= x 0.0))(assert (>= y 0.0))" "(= (* x y) 0.0)";
+  check false rule (header ^ "(declare-fun fake_mul (Real Real) Real)") (fixed "2.0")
+    "(= (fake_mul x y) (* 2.0 y))";
+  check true rule header
+    (fixed "2.0" ^ "(assert (<= (* x y) 1.0))(assert (>= (* x y) 1.0))") "(= 0.5 y)";
+  check true rule header
+    (fixed "2.0" ^ "(assert (<= (* x (/ z x)) 1.0))(assert (>= (* x (/ z x)) 1.0))")
+    "(= (/ z x) 0.5)"
 
 let sorted_real_product_clauses () =
   let check = check_sorted_product_clause in
@@ -8619,6 +8650,7 @@ let () =
      "sorted-integer-product-equalities", sorted_integer_product_equalities;
      "sorted-real-product-clauses", sorted_real_product_clauses;
      "sorted-real-constant-products", sorted_real_constant_products;
+     "sorted-real-product-equalities", sorted_real_product_equalities;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
      "sorted-real-linear-equalities", sorted_real_linear_equalities;

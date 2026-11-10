@@ -128,6 +128,13 @@ let check (s:S.checked_schema) (facts:list expr) : bool =
   else Some? (candidate s facts facts) || Some? (nested_candidate s facts) ||
        Some? (constant_product_witness s facts)
 
+let equality_check (s:S.checked_schema) (facts:list expr) (a b:expr) : bool =
+  if not (RL.real_primitive s) || L.length facts > 29 then false
+  else if None? (arguments_budget 4096 (a :: b :: facts)) then false
+  else get_sort a = A.real_s && get_sort b = A.real_s && D.scoped [] a && D.scoped [] b &&
+       check s (R.mk_not_expr (LIN.equality_bound true a b) :: facts) &&
+       check s (R.mk_not_expr (LIN.equality_bound false a b) :: facts)
+
 let lemma_positive_meaning (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                           (reals:RL.carrier base) (e:expr)
@@ -353,3 +360,41 @@ let lemma_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier
   else
     let p, k, left = Some?.v (constant_product_witness s facts) in
     lemma_constant_product s bc model other reals facts p k left
+
+let lemma_equality_bound_shape (lower:bool) (a b:expr)
+  : Lemma (requires D.scoped [] a /\ D.scoped [] b /\ get_sort a == A.real_s /\ get_sort b == A.real_s)
+          (ensures D.scoped [] (LIN.equality_bound lower a b) /\
+                   D.scoped [] (R.mk_not_expr (LIN.equality_bound lower a b)) /\
+                   A.comparison (LIN.equality_bound lower a b) ==
+                     Some ((if lower then A.Le else A.Ge), a, b)) =
+  LIN.lemma_equality_bound lower a b;
+  assert (get_sort (LIN.equality_bound lower a b) == bool_sort);
+  assert_norm (R.not_decl.domain == [bool_sort]);
+  assert (sorts_match [LIN.equality_bound lower a b] R.not_decl.domain);
+  assert (D.scoped_args [] [LIN.equality_bound lower a b])
+
+let lemma_check_unit (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                     (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                     (reals:RL.carrier base) (facts:list expr) (c:expr)
+  : Lemma (requires RL.real_laws s bc model other reals /\ T.truths s bc model other facts /\
+                    D.scoped [] (R.mk_not_expr c) /\ check s (R.mk_not_expr c :: facts))
+          (ensures T.truth s bc model other c) =
+  if not (T.truth s bc model other c) then (
+    T.lemma_negation s bc model other R.not_decl c;
+    lemma_check s bc model other reals (R.mk_not_expr c :: facts))
+
+let lemma_equality_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                         (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                         (reals:RL.carrier base) (facts:list expr) (a b:expr)
+  : Lemma (requires RL.real_laws s bc model other reals /\ T.truths s bc model other facts /\
+                    equality_check s facts a b)
+          (ensures T.truth s bc model other (R.mk_eq_expr a b)) =
+  let rho = T.empty_environment (S.signature s) in
+  let prove_bound (lower:bool) : Lemma (T.truth s bc model other (LIN.equality_bound lower a b)) =
+    lemma_equality_bound_shape lower a b;
+    lemma_check_unit s bc model other reals facts (LIN.equality_bound lower a b) in
+  prove_bound true;
+  prove_bound false;
+  LIN.lemma_comparison s bc model other reals [] rho (LIN.equality_bound true a b) a b A.Le;
+  LIN.lemma_comparison s bc model other reals [] rho (LIN.equality_bound false a b) a b A.Ge;
+  RL.lemma_real_equality_at s bc model other reals [] rho a b

@@ -735,6 +735,29 @@ let real_constant_product_controls () : bool =
   L.for_all (fun n -> check n n false) [0; 1; 2; -1] &&
   not (check 2 3 false) && not (check 2 2 true)
 
+let real_product_equality_controls () : bool =
+  let x = real_constant "equality_x" [] in
+  let y = real_constant "equality_y" [] in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let check n coefficient reversed missing observational =
+    let k = real_numeral n 1 in
+    let lower = A.App RL.real_ge_decl [x; k] in
+    let facts = if missing then [lower] else [lower; A.App RL.real_le_decl [x; k]] in
+    let product = if reversed then mul y x else mul x y in
+    let value = mul (real_numeral coefficient 1) y in
+    let conclusion = if observational then U.Observational product value else U.Equal product value in
+    let node = {
+      U.kind = U.Unverified "arith/lp-monomial-substitute"; U.conclusion = conclusion;
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+    Z3SortedProof.real_node schema node &&
+    (match Z3SortedProof.check_node schema [] node with
+     | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+     | None -> false) in
+  L.for_all (fun n -> L.for_all (fun reversed -> L.for_all (fun observational ->
+    check n n reversed false observational) [false; true]) [false; true]) [0; 1; 2; -1] &&
+  not (check 2 3 false false false) && not (check 2 2 false true false)
+
 let real_product_clause_controls () : bool =
   let x = real_constant "clause_x" [] in
   let y = real_constant "clause_y" [] in
@@ -1570,6 +1593,7 @@ let run () : bool =
   integer_product_controls () &&
   real_product_controls () &&
   real_constant_product_controls () &&
+  real_product_equality_controls () &&
   real_product_clause_controls () &&
   real_order_controls () &&
   real_equation_controls () &&
