@@ -1,8 +1,62 @@
 #include "ast/datatype_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
+#include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_global_generalizer.h"
 
+static void tst_subsume_canceled() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    fp_params params;
+    spacer::context ctx(params, m);
+    func_decl_ref pred(m.mk_func_decl(symbol("p"), 0u, nullptr, m.mk_bool_sort()), m);
+    spacer::pred_transformer pt(ctx, ctx.get_manager(), pred);
+    spacer::lemma_global_generalizer generalizer(ctx);
+
+    expr_ref x(m.mk_const("x", a.mk_int()), m);
+    expr_ref y(m.mk_const("y", a.mk_int()), m);
+    expr_ref v(m.mk_var(0, a.mk_int()), m);
+    expr_ref lo(a.mk_le(x, v), m);
+    expr_ref hi(a.mk_ge(y, v), m);
+    expr_ref pattern(m.mk_and(lo, hi), m);
+    spacer::normalize_order(pattern, pattern);
+    spacer::lemma_cluster *cluster = pt.mk_cluster(pattern);
+    spacer::pob_ref root = pt.mk_pob(nullptr, 2, 0, m.mk_true());
+    spacer::lemma_ref last;
+    for (unsigned i = 1; i <= 2; ++i) {
+        expr_ref value(a.mk_int(i), m);
+        expr_ref_vector cube(m);
+        cube.push_back(a.mk_le(x, value));
+        cube.push_back(a.mk_ge(y, value));
+        expr_ref post(mk_and(cube), m);
+        spacer::pob_ref n = pt.mk_pob(root.get(), 1, 1, post);
+        last = alloc(spacer::lemma, n, cube, 1);
+        ENSURE(cluster->add_lemma(last));
+    }
+
+    // Let preprocessing finish so the model search handles cancellation.
+    bool canceled = false;
+    for (unsigned budget = 1; budget <= 1000 && !canceled; ++budget) {
+        scoped_rlimit limit(m.limit(), budget);
+        try {
+            generalizer(last);
+            canceled = m.limit().is_canceled();
+        }
+        catch (z3_exception &) {
+            ENSURE(m.limit().is_canceled());
+        }
+        ENSURE(!last->get_pob()->has_data());
+        ENSURE(last->get_pob()->is_local_gen_enabled());
+    }
+    ENSURE(canceled);
+
+    generalizer(last);
+    ENSURE(last->get_pob()->has_data());
+    ENSURE(last->get_pob()->get_data()->is_subsume());
+}
+
 void tst_spacer() {
+    tst_subsume_canceled();
     ast_manager m(PGM_ENABLED);
     reg_decl_plugins(m);
     arith_util a(m);

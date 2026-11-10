@@ -334,8 +334,6 @@ bool lemma_global_generalizer::subsumer::find_model(
         return true;
     }
 
-    UNREACHABLE();
-
     // something went wrong and there is no model, even though one was expected
     return false;
 }
@@ -393,7 +391,7 @@ bool lemma_global_generalizer::subsumer::subsume(const lemma_cluster &lc,
     // get a model for mbp
     model_ref mdl;
     auto &alphas = cvx_closure.get_alphas();
-    find_model(vec, alphas, grounded, mdl);
+    if (!find_model(vec, alphas, grounded, mdl)) return false;
 
     app_ref_vector vars(m);
     expr_ref conj(m);
