@@ -1760,6 +1760,21 @@ dlx-regfile still fails on its `cnf` lemma `th_lemma_1612`. Tests:
 `test_array_lemmas_keep_their_ites_folded` and
 `test_array_lemmas_over_ite_chains_verify` (`test_proof_to_lean_array.py`).
 
+Update (2026-11-10, iteration 110): `euf` lemmas that reach ites state
+only the facts of the nodes outside them, as `array` lemmas do: the `_t`
+body of a store, the excluded middle of a Boolean argument, a cast or
+distinct fact about a term that only a folded ite reaches cannot meet the
+goal. Their tactic and unfold are unchanged.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| dlx-regfile, `euf` lemmas (`_t` facts) / file | 1.75 MB (8,139) / 17.7 MB | 0.72 MB (1,122) / 16.7 MB |
+| dlx-regfile, theory lemmas without the `cnf` one | 27 s, 2.23 GB | 19 s, 1.58 GB |
+| `register_file_instance(8)`, `euf` lemmas (`_t` facts) | 0.69 MB (3,592) | 0.45 MB (1,817) |
+
+Test: `test_congruence_lemmas_state_no_ite_gates_or_array_axioms` (fails
+before: `_t` facts of stores only ites reach).
+
 ### Array facts stated over folded definitions (2026-11-10)
 
 A rescan of z3test's `smtlib-sample` QF_AUFLIA files found that

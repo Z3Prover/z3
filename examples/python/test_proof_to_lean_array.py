@@ -3187,6 +3187,9 @@ class TestArrayValidation(unittest.TestCase):
         euf lemmas, which check in a second each with the ites folded. The
         folded proof is the only one: the unfolded fallback under first
         doubled the euf lemmas' text (0.71 MB without it, 1.55 MB with it).
+        Their facts are those of the nodes outside the folded ites, as an
+        array lemma's are (0.69 MB of euf lemmas with the facts of every
+        reachable node, 0.45 MB now; dlx-regfile's 1.75 MB, 0.72 MB now).
         """
         source = register_file_instance(8)
         certificate = _export(source)
@@ -3201,11 +3204,22 @@ class TestArrayValidation(unittest.TestCase):
                         graph, proof_to_lean._reachable(graph, graph.conclusion(node))[0]))]
         self.assertGreater(len(reaching), 100)
         self.assertGreater(len(congruences), len(lemmas) / 2)
-        ites = {"term_%d" % term for term in range(len(graph.nodes))
-                if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+        ite_nodes = {term for term in range(len(graph.nodes))
+                     if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+        ites = {"term_%d" % term for term in ite_nodes}
+        hidden = 0
         for node in congruences:
             lemma = lemmas[str(node)]
             self.assertNotRegex(lemma, r"have _(g|s|si|n|m|sm|x|d)\d", node)
+            # Facts only of the nodes outside the folded ites: a store only
+            # an ite reaches cannot meet the goal, and its _t body is not
+            # stated (_grind_lemma's scope).
+            conclusion = graph.conclusion(node)
+            outside = proof_to_lean._reachable_outside(graph, conclusion, ite_nodes)
+            facts = {int(fact) for fact in re.findall(r"have _[tb](\d+) ", lemma)}
+            self.assertLessEqual(facts, outside, node)
+            hidden += any(graph.kind(term) == z3.Z3_OP_STORE
+                          for term in proof_to_lean._reachable(graph, conclusion)[0] - outside)
             self.assertNotIn("omega", lemma)
             # One proof, no unfolded fallback under first: the ites stay folded.
             self.assertNotIn("first", lemma)
@@ -3215,6 +3229,11 @@ class TestArrayValidation(unittest.TestCase):
                 self.assertFalse(ites.intersection(unfold), lemma)
             if node in reaching:
                 self.assertEqual(len(unfolds), 1, lemma)
+        # Many lemmas reach stores only through ites; with their _t bodies
+        # the euf lemmas were 686,685 characters (3,592 _t facts), without
+        # them 451,324 (1,817).
+        self.assertGreater(hidden, 100)
+        self.assertLess(sum(len(lemmas[str(node)]) for node in congruences), 550000)
         # The array lemmas state their read facts, but no gates
         # (test_array_lemmas_keep_their_ites_folded).
         others = "".join(lemma for node, lemma in lemmas.items() if hints[int(node)] != "euf")

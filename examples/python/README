@@ -893,7 +893,8 @@ constant-array, map, and application terms, the map identities, and the
 commutativity of extensionality witnesses), and it is proved by
 grind (splits := 64) alone, without omega. A lemma that reaches term-level
 ites is proved with them folded (only the definitions outside them are
-unfolded), without the fully unfolded proof as a fallback under first.
+unfolded), without the fully unfolded proof as a fallback under first,
+and states the facts of the nodes outside those ites only.
 A th-lemma with hint array (since 2026-11-10) is one array axiom instance
 over the terms of its literals (Z3's array solver internalizes no ite), so
 it gets no ite gates either and keeps its ites folded; it states the array
