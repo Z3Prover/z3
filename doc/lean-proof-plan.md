@@ -1672,6 +1672,44 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### euf lemmas without ite gates and array axiom instances (2026-11-10)
+
+Every theory lemma proved by `_grind_lemma` got the gates of every
+arithmetic ite it reaches and, with arrays, the instances of the array
+axioms for every read it reaches. `euf` lemmas need neither. Z3's egraph
+internalizes an ite term as a leaf without arguments
+(`euf::solver::internalize`), and the ite's gates are tseitin clauses of
+their own. The egraph applies no array axiom either: those are `array`
+lemmas, and a theory's equality enters an `euf` hint as a literal. The C++
+checker (`eq_theory_checker`) accepts an `euf` hint by union-find and
+congruence alone. So an `euf` lemma now states only the bodies of the
+folded array terms (`_t`), the map identities (`_map_identities`, with
+`_mc` among them), and the commutativity of extensionality witnesses
+(`_xc`), which its `comm` claims may use. Its tactic is
+grind alone: omega, tried first over Int, ran out of heartbeats on several
+dlx-regfile `euf` lemmas, and `first` does not catch that. A lemma that
+reaches ites is first tried with them folded, unfolding only the
+definitions outside them. The unfolded proof stays as the fallback, for
+facts written out after the unfold that inline an ite. The other theory
+lemmas are unchanged. Dropping hypotheses cannot make Lean accept more,
+and a lemma that needed one fails.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `register_file_instance(8)` (QF_AUFLIA shape, `qf_uflia`) | 6.0 MB, 136 s, 3.9 GB | 5.1 MB, 20 s, 1.8 GB |
+| dlx-regfile, file without the proof steps | about 30 MB, not checked; without gates and read facts but unfolded with omega: 7.7 MB, 1,372 s, 10 GB, 101 error lines (heartbeats) | 8.0 MB, 255 s, 5.2 GB, one `cnf` lemma out of heartbeats |
+| QF_UFLIA `EufLaArithmetic/hard16` | 12 MB, 76 s, 4.5 GB (2026-11-08) | 11.4 MB, 55 s, 3.9 GB |
+
+Still open: dlx-regfile still does not verify. Its one `cnf` lemma
+reaches 227 ites; the propositional prover gives up and the unfolded
+grind fallback runs out of heartbeats. Its outlined proof steps are 14 MB
+of the 22 MB file.
+
+Tests: `test_congruence_lemmas_state_no_ite_gates_or_array_axioms` (fails
+before: 346 of the 348 `euf` lemmas of `register_file_instance(8)` carried
+facts) and `test_congruence_lemmas_over_ite_chains_verify`
+(`test_proof_to_lean_array.py`).
+
 ### Array facts stated over folded definitions (2026-11-10)
 
 A rescan of z3test's `smtlib-sample` QF_AUFLIA files found that

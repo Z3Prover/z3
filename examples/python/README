@@ -837,9 +837,9 @@ the sign of its divisor, so a rem by zero or by a term is rejected wherever
 it occurs); omega reads / and % by a positive numeral directly,
 and leaves them as atoms for a negative divisor, whose arith axioms grind
 proves instead. Each th-lemma and arithmetic rewrite is proved by
-first | omega | grind (splits := 64): omega decides linear integer
-arithmetic (ite over Int included) and produces a kernel-checked proof,
-where grind's integer module ran out of steps on Farkas lemmas with several
+first | omega | grind (splits := 64), except euf th-lemmas (below): omega
+decides linear integer arithmetic (ite over Int included) and produces a
+kernel-checked proof, where grind's integer module ran out of steps on Farkas lemmas with several
 equalities and on ite splits; grind still handles goals omega does not read.
 An Int th-lemma with hint farkas, bound, or cut whose literals contain div,
 mod, abs, ite, or application atoms gets a first attempt over the atoms
@@ -885,6 +885,15 @@ rlimit); Python checks both combinations, and Lean checks the case split
 cut; a lemma without one within the budget (a cut resting on the
 base-level bounds of a mod atom, or on the rounding of a bound inside a
 side, as the cut of lia_gomory) keeps only those alternatives.
+A th-lemma with hint euf (since 2026-11-10) is a congruence-closure
+conflict: Z3's egraph takes an ite term as a leaf (its gates are tseitin
+clauses of their own) and applies no array axiom, so the lemma gets no ite
+gates and no array axiom instances (only the rfl bodies of folded store,
+constant-array, map, and application terms, the map identities, and the
+commutativity of extensionality witnesses), and it is proved by
+grind (splits := 64) alone, without omega. A lemma that reaches term-level
+ites is first tried with them folded (only the definitions outside them are
+unfolded); the fully unfolded proof stays as the fallback under first.
 A cut, an arith axiom, or a farkas or bound without coefficients (see the
 clause-log section), reaches Lean with its literal shapes checked only; a
 false one fails there and no proof is published. Coefficients that are present are
@@ -993,7 +1002,8 @@ qf_uflia certificate takes the same shape over Int: (_vars : Nat -> Int)
 and the fields int : Int -> U and ifuns : Nat -> List U -> Int, with every theory
 lemma, rewrite, and argument-equality helper proved by first | omega | grind
 as for qf_lia (omega reads applications as atoms; grind proves the
-congruences). A qf_uflira certificate takes both valuations as qf_lira,
+congruences), except the euf th-lemmas, proved by grind alone. A
+qf_uflira certificate takes both valuations as qf_lira,
 (_vars : Nat -> Rat) (_ivars : Nat -> Int), and all four fields: an Int
 argument is injected by _m.int and a Real one by _m.real, an application
 with an Int result is _m.ifuns i [...] and one with a Real result
@@ -1110,7 +1120,8 @@ named by their definitions too, term_N or formula_N, unless they are
 variables, constants, or numerals: written out, a shared ite DAG below an
 index or a stored value grows exponentially as well (z3test's QF_AUFLIA
 dlx-regfile). A node's facts that mention such a definition are reverted
-with the ite gates before the lemma's unfold and introduced after it, so
+with the ite gates before the lemma's unfold and introduced after it (an
+euf th-lemma gets only the rfl facts, no read facts or gates; see above), so
 the unfold rewrites them as it rewrites the goal; since the unfold does not
 enter array terms, the nodes they mention are also roots of the unfold (an
 index or a stored value may occur in the goal only inside a store). Facts

@@ -726,6 +726,13 @@ class TestIntegerValidation(unittest.TestCase):
                         combination = split
                     if not (tactic and atoms):
                         self.assertNotIn("generalize", block)
+                        if parameters[0] == "euf":
+                            # Congruence closure: grind alone, tried first with
+                            # the ites folded when the lemma reaches any.
+                            self.assertNotIn("omega", block)
+                            self.assertTrue(block.endswith("\n  grind (splits := 64)")
+                                            or block.endswith("\n       grind (splits := 64))"), block[-200:])
+                            continue
                         self.assertEqual("first\n" in block, combination is not None)
                         self.assertTrue(block.endswith("first | omega | grind (splits := 64)"
                                                        + (")" if combination else "")), block[-200:])
