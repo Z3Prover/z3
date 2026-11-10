@@ -1,0 +1,8 @@
+cmd: bash cmd.sh (fresh cache)
+F* 2026.09.27; Z3 4.13.3
+exit: 0
+--stdout--
+Verified module: AmcGuard
+All verification conditions discharged successfully
+--stderr--
+

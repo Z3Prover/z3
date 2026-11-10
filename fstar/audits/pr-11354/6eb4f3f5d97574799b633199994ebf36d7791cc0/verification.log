@@ -1,0 +1,6 @@
+F* 2026.09.27; Z3 4.13.3 (pinned release backend)
+cmd: timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out AmcCoverage.fst
+exit 0
+stdout: Verified module: AmcCoverage / All verification conditions discharged successfully
+stderr: (empty)
+Source hashes: src/ast/array_map_coherence.h ``@6eb4f3f5`` (decoded) sha256 f575315fbc967ac8d0f3598d2b299a84b1b3a933fb20eeaa94d74aa3cfee5cce; base 9dbe8c83fcadaba50a607236894f72a63959a5da (file is new).

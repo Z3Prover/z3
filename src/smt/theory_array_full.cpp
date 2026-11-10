@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/array_map_coherence.h"
 #include "smt/smt_context.h"
 #include "smt/theory_array_full.h"
 #include "util/scoped_ptr_vector.h"
@@ -340,6 +341,41 @@ namespace smt {
             }
         }
         return has_uninterpreted ? l_undef : l_true;
+    }
+
+    lbool theory_array_full::check_map_arrays() {
+        ptr_vector<enode> nodes;
+        for (unsigned v = 0; v < get_num_vars(); ++v) {
+            enode* n = get_enode(v);
+            if (ctx.is_relevant(n))
+                nodes.push_back(n);
+        }
+        auto internalize = [&](expr* e, bool& is_new) {
+            is_new |= !ctx.e_internalized(e);
+            ctx.internalize(e, false);
+            is_new |= !ctx.is_relevant(ctx.get_enode(e));
+            ctx.mark_as_relevant(e);
+            return ctx.get_enode(e);
+        };
+        auto select = [&](enode* n, unsigned arity, expr* const* indices) {
+            ptr_buffer<expr> args;
+            args.push_back(n->get_expr());
+            args.append(arity, indices);
+            expr_ref sel(mk_select(args.size(), args.data()), m);
+            bool is_new = !ctx.e_internalized(sel);
+            ctx.internalize(sel, false);
+            enode* sn = ctx.get_enode(sel);
+            is_new |= !ctx.is_relevant(sn);
+            ctx.mark_as_relevant(sn);
+            return is_new;
+        };
+        auto propagate = [&](enode_pair_vector const& eqs, enode* v1, enode* v2) {
+            justification* js = ctx.mk_justification(
+                ext_theory_eq_propagation_justification(
+                    get_id(), ctx, 0, nullptr, eqs.size(), eqs.data(), v1, v2));
+            ctx.assign_eq(v1, v2, eq_justification(js));
+        };
+        return check_array_map_coherence(m, nodes, internalize, select, propagate);
     }
 
     //
@@ -1026,6 +1062,13 @@ namespace smt {
         }
         if (r == FC_DONE && assert_lambda_congruence())
             r = FC_CONTINUE;
+        if (r == FC_DONE) {
+            switch (check_map_arrays()) {
+            case l_false: r = FC_CONTINUE; break;
+            case l_true: break;
+            case l_undef: r = FC_GIVEUP; break;
+            }
+        }
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;

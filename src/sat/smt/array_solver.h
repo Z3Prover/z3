@@ -223,6 +223,7 @@ namespace array {
         bool can_beta_reduce(expr* e) const;
         bool check_lambdas();
         lbool check_const_arrays();
+        lbool check_map_arrays();
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }

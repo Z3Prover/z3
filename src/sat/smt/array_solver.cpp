@@ -114,6 +114,15 @@ namespace array {
             break;
         }
 
+        switch (check_map_arrays()) {
+        case l_false:
+            return sat::check_result::CR_CONTINUE;
+        case l_undef:
+            return sat::check_result::CR_GIVEUP;
+        default:
+            break;
+        }
+
         // validate_check();
         return sat::check_result::CR_DONE;
     }

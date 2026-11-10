@@ -1,0 +1,12 @@
+vercors --version: VerCors 2.4.0
+Java: from runner (JAVA_TOOL_OPTIONS proxy only)
+Earlier attempts: unsigned long / long long / uint64_t rejected by parser; calling domain_fits from a witness failed ('not possible to call this object'); intermediate permission/div-by-zero/postcondition failures fixed by adding invariants (no assumptions used).
+Final run in fresh dir, cmd: /tmp/gh-aw/vercors/vercors --lang cpp --backend silicon --dev-total-timeout 60 DomainSize.cpp
+exit=0
+[INFO] Start: VerCors (at 07:51:43) 
+[WARN] The quantifier DomainSize.cpp:12-:12: '// requires ((forall/redacted) int i; 0 <= i && i < arity; sz[i] >= 1 && sz[i] <= 4294967295);' contains no triggers 
+[WARN] The quantifier DomainSize.cpp:21-:21: '    // loop_invariant ((forall/redacted) int j; 0 <= j && j < arity; sz[j] >= 1);' contains no triggers 
+[WARN] The quantifier DomainSize.cpp:25-:25: '    // loop_invariant ((forall/redacted) int j; 0 <= j && j < i; uninterp[j] != 0 || (finite[j] != 0 && sz[j] <= n));' contains no triggers 
+[INFO] Verification completed successfully. 
+[INFO] Done: VerCors (at 07:52:11, duration: 00:00:28) 
+exit=0 
