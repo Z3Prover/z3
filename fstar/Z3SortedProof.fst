@@ -2004,6 +2004,34 @@ let real_product (s:S.checked_schema) (node:U.proof_node) : bool =
   node.kind = U.Unverified "th-lemma" && node.conclusion = U.Holds R.false_expr &&
   RP.check s (propositions node.premises)
 
+let product_equality_clause_facts (facts lits:list expr) (e:expr) : list expr =
+  facts @ L.map R.mk_not_expr (Z3List.filter (fun (t:expr) -> t <> e) lits)
+
+let real_product_literal_equality (s:S.checked_schema) (facts:list expr) (e:expr) : bool =
+  match e with
+  | App f [a; b] -> f = R.eq_decl LA.real_s && RP.equality_check s facts a b
+  | _ -> false
+
+let rec real_clause_equality_witness (s:S.checked_schema) (facts lits candidates:list expr)
+  : Tot (option (e:expr{L.mem e lits /\
+      real_product_literal_equality s (product_equality_clause_facts facts lits e) e}))
+        (decreases candidates) =
+  match candidates with
+  | [] -> None
+  | e :: rest ->
+    if L.mem e lits && real_product_literal_equality s (product_equality_clause_facts facts lits e) e
+    then Some e
+    else real_clause_equality_witness s facts lits rest
+
+let real_product_clause_equality (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  if L.length facts > 29 then false
+  else if None? (arguments_budget 4096 (conclusion :: facts)) then false
+  else
+    let lits = DT.literals conclusion in
+    if L.length facts + L.length lits > 30 then false
+    else D.scoped_args [] (L.map R.mk_not_expr lits) &&
+         Some? (real_clause_equality_witness s facts lits lits)
+
 let real_product_clause_shape (c:expr) : bool =
   if c = R.false_expr then false
   else if None? (expression_budget 4096 c) then false
@@ -2016,7 +2044,9 @@ let real_product_clause (s:S.checked_schema) (node:U.proof_node) : bool =
      if not (real_product_clause_shape c) then false
      else
        let complements = L.map R.mk_not_expr (DT.literals c) in
-       D.scoped_args [] complements && RP.check s (propositions node.premises @ complements)
+       D.scoped_args [] complements &&
+       (RP.check s (propositions node.premises @ complements) ||
+        real_product_clause_equality s (propositions node.premises) c)
    | _ -> false)
 
 let real_node (s:S.checked_schema) (node:U.proof_node) : bool =
@@ -2679,9 +2709,6 @@ let lemma_integer_product_equality (#base:sort -> Type0) (s:S.checked_schema) (b
   assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
   lemma_order_equation s bc eq other [le; ge] conclusion
 
-let product_equality_clause_facts (facts lits:list expr) (e:expr) : list expr =
-  facts @ L.map R.mk_not_expr (Z3List.filter (fun (t:expr) -> t <> e) lits)
-
 let rec integer_clause_equality_witness (facts lits candidates:list expr)
   : Tot (option (e:expr{L.mem e lits /\
       integer_product_equality (product_equality_clause_facts facts lits e) e}))
@@ -2772,6 +2799,33 @@ let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:
       lemma_integer_product_check s bc eq other (facts @ L.map R.mk_not_expr (DT.literals conclusion))))
   else lemma_integer_product_clause_equality s bc eq other facts conclusion
 
+let lemma_real_product_literal_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                       (reals:RL.carrier base) (facts:list expr) (e:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ T.truths s bc eq other facts /\
+                    real_product_literal_equality s facts e)
+          (ensures T.truth s bc eq other e) =
+  match e with
+  | App f [a; b] -> RP.lemma_equality_check s bc eq other reals facts a b
+  | _ -> ()
+
+let lemma_real_product_clause_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                      (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                      (reals:RL.carrier base) (facts:list expr) (conclusion:expr)
+  : Lemma (requires RL.real_laws s bc eq other reals /\ T.truths s bc eq other facts /\
+                    D.scoped [] conclusion /\ get_sort conclusion == bool_sort /\
+                    real_product_clause_equality s facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  if not (T.truth s bc eq other conclusion) then (
+    let lits = DT.literals conclusion in
+    let e = Some?.v (real_clause_equality_witness s facts lits lits) in
+    DT.lemma_literals s bc eq other conclusion;
+    lemma_clause_complements_except s bc eq other lits e;
+    Z3List.lemma_filter (fun (t:expr) -> t <> e) lits;
+    DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (L.filter (fun (t:expr) -> t <> e) lits));
+    lemma_real_product_literal_equality s bc eq other reals (product_equality_clause_facts facts lits e) e;
+    lemma_clause_member s bc eq other conclusion e)
+
 let lemma_real_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                               (node:U.proof_node)
@@ -2781,14 +2835,20 @@ let lemma_real_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.b
           (ensures T.truth s bc eq other (proposition node.conclusion)) =
   match node.conclusion with
   | U.Holds c ->
-    if not (T.truth s bc eq other c) then (
-      DT.lemma_literals s bc eq other c;
-      lemma_clause_complements s bc eq other (DT.literals c);
-      let facts = propositions node.premises @ L.map R.mk_not_expr (DT.literals c) in
-      DT.lemma_truths_append s bc eq other (propositions node.premises) (L.map R.mk_not_expr (DT.literals c));
-      FStar.Classical.exists_elim False
+    let facts = propositions node.premises in
+    let complements = L.map R.mk_not_expr (DT.literals c) in
+    if RP.check s (facts @ complements) then (
+      if not (T.truth s bc eq other c) then (
+        DT.lemma_literals s bc eq other c;
+        lemma_clause_complements s bc eq other (DT.literals c);
+        DT.lemma_truths_append s bc eq other facts complements;
+        FStar.Classical.exists_elim False
+          #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
+          (fun reals -> RP.lemma_check s bc eq other reals (facts @ complements))))
+    else
+      FStar.Classical.exists_elim (T.truth s bc eq other c)
         #(RL.carrier base) #(fun reals -> RL.real_laws s bc eq other reals) ()
-        (fun reals -> RP.lemma_check s bc eq other reals facts))
+        (fun reals -> lemma_real_product_clause_equality s bc eq other reals facts c)
   | _ -> ()
 
 (* The NNF certificate replay (Z3NnfReplay) of a premise-free

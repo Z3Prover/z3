@@ -648,6 +648,36 @@ let integer_product_equality_clause_controls () : bool =
   (match check U.LemmaRule [equality; upper; lower] [] with
    | Some (_, count) -> count = 1 | None -> false)
 
+let real_product_equality_clause_controls () : bool =
+  let x = A.App { A.decl_name = "real_clause_x"; domain = []; range = Z3LinearArithmeticAst.real_s;
+                 interp = None; int_params = [] } [] in
+  let y = A.App { A.decl_name = "real_clause_y"; domain = []; range = Z3LinearArithmeticAst.real_s;
+                 interp = None; int_params = [] } [] in
+  let two = A.App (RL.real_numeral_decl 2 1) [] in
+  let three = A.App (RL.real_numeral_decl 3 1) [] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let equality = R.mk_eq_expr (mul x y) (mul two y) in
+  let lower = R.mk_not_expr (A.App RL.real_ge_decl [x; two]) in
+  let upper = R.mk_not_expr (A.App RL.real_le_decl [x; two]) in
+  let check kind lits facts =
+    let c = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction lits) lits in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds c;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  (match check (U.Unverified "th-lemma") [equality; upper; lower] [] with
+   | Some (_, count) -> count = 0 | None -> false) &&
+  (match check (U.Unverified "th-lemma") [upper; equality; equality; lower] [R.true_expr] with
+   | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr] | None -> false) &&
+  (match check (U.ArithmeticFarkas []) [upper; equality; lower] [] with
+   | Some (_, count) -> count = 0 | None -> false) &&
+  (match check (U.Unverified "th-lemma")
+     [equality; R.mk_not_expr (A.App RL.real_le_decl [x; three]); lower] [] with
+   | Some (_, count) -> count = 1 | None -> false) &&
+  (match check (U.Unverified "th-lemma") [equality; A.App RL.real_le_decl [x; two]; lower] [] with
+   | Some (_, count) -> count = 1 | None -> false) &&
+  (match check U.LemmaRule [equality; upper; lower] [] with
+   | Some (_, count) -> count = 1 | None -> false)
+
 let integer_product_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
@@ -1623,6 +1653,7 @@ let run () : bool =
   integer_constant_product_controls () &&
   integer_product_equality_controls () &&
   integer_product_equality_clause_controls () &&
+  real_product_equality_clause_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
   real_constant_product_controls () &&

@@ -166,6 +166,38 @@ let product_equality_read_view ()
     { (product_equality_document false) with P.assertions = [] } == None);
   assert_norm (not (SP.needs_real_semantics RR.real_datatype_schema (product_equality_document false).P.entries))
 
+let product_equality_clause_document (wrong_factor wrong_bound:bool) : P.document =
+  let two = App (RL.real_numeral_decl 2 1) [] in
+  let upper = App (RL.real_numeral_decl (if wrong_bound then 3 else 2) 1) [] in
+  let product = App RL.real_times_decl [if wrong_factor then c_twin else c; d] in
+  let equation = R.mk_eq_expr product (App RL.real_times_decl [two; d]) in
+  let lits = [equation; R.mk_not_expr (App RL.real_ge_decl [c; two]); R.mk_not_expr (le c upper)] in
+  let clause = App (BR.connective_decl BR.Disjunction lits) lits in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry (U.Unverified "th-lemma") clause []; entry U.Asserted negative [];
+     entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let product_equality_clause_read_view ()
+  : Lemma (RD.check_root_document_epsilon PT.core_schema (product_equality_clause_document false false) == RD.RootCertified /\
+           RD.check_root_document_epsilon PT.core_schema (RD.read_view (product_equality_clause_document false false)) == RD.RootCertified /\
+           SP.needs_real_semantics PT.core_schema (product_equality_clause_document false false).P.entries /\
+           SP.needs_real_semantics PT.core_schema (RD.read_view (product_equality_clause_document false false)).P.entries /\
+           RD.check_root_document_epsilon PT.core_schema (product_equality_clause_document true false) == RD.RootPending 1 /\
+           RD.check_root_document_epsilon PT.core_schema (product_equality_clause_document false true) == RD.RootPending 1 /\
+           SP.check_document_epsilon PT.core_schema
+             { (product_equality_clause_document false false) with P.assertions = [] } == None /\
+           not (SP.needs_real_semantics RR.real_datatype_schema (product_equality_clause_document false false).P.entries)) =
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (product_equality_clause_document false false) == RD.RootCertified);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (RD.read_view (product_equality_clause_document false false)) == RD.RootCertified);
+  assert_norm (SP.needs_real_semantics PT.core_schema (product_equality_clause_document false false).P.entries);
+  assert_norm (SP.needs_real_semantics PT.core_schema (RD.read_view (product_equality_clause_document false false)).P.entries);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (product_equality_clause_document true false) == RD.RootPending 1);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (product_equality_clause_document false true) == RD.RootPending 1);
+  assert_norm (SP.check_document_epsilon PT.core_schema
+    { (product_equality_clause_document false false) with P.assertions = [] } == None);
+  assert_norm (not (SP.needs_real_semantics RR.real_datatype_schema (product_equality_clause_document false false).P.entries))
+
 let nonpositive_product_document : P.document =
   let a = App RL.real_ge_decl [c; rzero] in
   let b = le d rzero in
