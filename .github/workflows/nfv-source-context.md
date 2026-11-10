@@ -94,7 +94,7 @@ steps:
       set -euo pipefail
       bundle="$RUNNER_TEMP/gh-aw/nfv-context/bundle.json"
       collection="$RUNNER_TEMP/gh-aw/nfv-context/collection-status.json"
-      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src --status-out "$collection"
+      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --event-snapshot --out "$bundle" --sources-dir nfv-src --status-out "$collection"
       python - "$bundle" "$collection" <<'PY'
       import json
       import sys
@@ -130,7 +130,7 @@ post-steps:
       name: nfv-source-context-validated
       path: nfv-context-validated/context.json
       if-no-files-found: error
-source: microsoft/neuro-formal-verification/workflow@94dbb80e8b55d64a5bf433ec57e6d04260abdd49
+source: microsoft/neuro-formal-verification/workflow@9eaeaad0ff9532c5b84f1a32192a43f22bf74f11
 ---
 
 # Source-context session
