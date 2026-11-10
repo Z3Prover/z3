@@ -892,8 +892,8 @@ gates and no array axiom instances (only the rfl bodies of folded store,
 constant-array, map, and application terms, the map identities, and the
 commutativity of extensionality witnesses), and it is proved by
 grind (splits := 64) alone, without omega. A lemma that reaches term-level
-ites is first tried with them folded (only the definitions outside them are
-unfolded); the fully unfolded proof stays as the fallback under first.
+ites is proved with them folded (only the definitions outside them are
+unfolded), without the fully unfolded proof as a fallback under first.
 A cut, an arith axiom, or a farkas or bound without coefficients (see the
 clause-log section), reaches Lean with its literal shapes checked only; a
 false one fails there and no proof is published. Coefficients that are present are

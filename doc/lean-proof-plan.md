@@ -1710,6 +1710,30 @@ before: 346 of the 348 `euf` lemmas of `register_file_instance(8)` carried
 facts) and `test_congruence_lemmas_over_ite_chains_verify`
 (`test_proof_to_lean_array.py`).
 
+Update (2026-11-10, later): the unfolded fallback under `first` is dropped
+for `euf` lemmas, so the folded proof is their only one. (The attempt
+normalized by the rewriter's store identities stays as before, over the
+full unfold, since its simp cannot rewrite inside a folded ite; no `euf`
+lemma of the documented inputs gets it.) With the
+fallback removed, the whole Lean test suite still passed, so no `euf`
+lemma in it needed the fallback. The fallback doubled the lemmas' text.
+`maxHeartbeats` is per declaration, so a folded attempt that used up the
+budget before failing would also have left the fallback none.
+
+| Input | With the fallback | Folded proof only |
+| --- | --- | --- |
+| `register_file_instance(8)`, file | 5.12 MB, 20 s, 1.83 GB | 4.28 MB, 7 s, 2.52 GB |
+| `register_file_instance(8)`, `euf` lemmas | 1.55 MB | 0.71 MB |
+| dlx-regfile, file / `euf` lemmas | 22.3 MB / 5.56 MB | 18.6 MB / 1.80 MB |
+| dlx-regfile, theory lemmas without the `cnf` one | 206 s, 5.0 GB | 206 s, 4.9 GB |
+
+The dlx-regfile time does not change: Lean parses a fallback that is
+never taken but does not elaborate it. The `cnf` lemma `th_lemma_1612`
+still fails. Its clause relates the input's disequality (115 ites) to the
+form sat.smt's preprocessing rewriter gave it (114 ites). The rewriter
+merges nested ite conditions into disjunctions and pushes the `select`
+into the ites, so no level-by-level correspondence pairs the two terms.
+
 ### Array facts stated over folded definitions (2026-11-10)
 
 A rescan of z3test's `smtlib-sample` QF_AUFLIA files found that

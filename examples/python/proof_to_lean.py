@@ -2972,8 +2972,8 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     # term as a leaf without arguments (euf::solver::internalize; the ite's
     # gates are tseitin clauses of their own) and applies no array axiom (the
     # array solver's are array lemmas), so such a lemma gets no ite gates and
-    # no array axiom instances, and it is first tried with its ite terms
-    # folded. Over z3test's QF_AUFLIA dlx-regfile, 803 euf lemmas carried
+    # no array axiom instances, and it is proved with its ite terms folded,
+    # by grind alone. Over z3test's QF_AUFLIA dlx-regfile, 803 euf lemmas carried
     # about 130 folded gates each, 15 of the file's 44 MB, and their read
     # facts another 7 MB; unfolded, grind split their ites, and omega, tried
     # first over Int, exhausted the heartbeats on several of them (first does
@@ -3045,7 +3045,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         gates.append("revert " + " ".join(gate_names))
         remaining = remaining | _reachable(graph, *sorted(gate_nodes))[0]
     roots = list(atoms) + sorted(gate_nodes)
-    unfold = ["unfold " + " ".join(_definition_names(graph, remaining, roots))] if remaining else []
+    unfold = full_unfold = ["unfold " + " ".join(_definition_names(graph, remaining, roots))] if remaining else []
     fallback = []
     if gates:
         fallback.append("intro " + " ".join(gate_names))
@@ -3062,17 +3062,27 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         fallback.append(_without_boolean_distincts(distinct_names, _CONGRUENCE_TACTIC))
         ites = {term for term in reachable if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
         if ites:
-            # The same facts and tactic with the ites left folded: only the
+            # The ites stay folded, as leaves of the congruence: only the
             # definitions outside them are unfolded, in the goal and in the
             # reverted facts (those that mention an ite keep it folded, as
-            # the goal does).
+            # the goal does). There is no unfolded fallback: with the
+            # unfolded proof as a fallback under first, the lemma's text
+            # doubled (register_file_instance(8): 0.71 MB of euf lemmas
+            # against 1.55 MB), the fallback was never taken in the test
+            # suite, and a folded attempt that spent the heartbeats before
+            # failing would have left the fallback none (maxHeartbeats is
+            # per declaration).
             outside, folded_roots = set(), sorted(gate_nodes - ites)
             for formula in conclusions + folded_roots:
                 outside |= _reachable_outside(graph, formula, ites)
             names = _definition_names(graph, outside, folded_roots)
-            alternatives.append(gates + (["unfold " + " ".join(names)] if names else []) + fallback)
+            unfold = ["unfold " + " ".join(names)] if names else []
     else:
         fallback.append(_without_boolean_distincts(distinct_names, _theory_tactic(graph)))
+    # The store-identity alternative below keeps the full unfold: its simp
+    # (_ARRAY_REWRITE_TACTIC, ite_self, _const_store_self) cannot rewrite
+    # inside a folded ite definition.
+    store_body = gates + full_unfold + fallback
     fallback = gates + unfold + fallback
     alternatives.append(fallback)
     if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
@@ -3085,7 +3095,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # alternative is tried only after the others fail; it repeats the
         # fallback's facts, so other steps get it only when one of their
         # stores is an instance of an identity.
-        names = [line.split()[1] for line in fallback if line.startswith("have _t")]
+        names = [line.split()[1] for line in store_body if line.startswith("have _t")]
         if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
             # Reads of constant arrays evaluated, ites of a term with itself
             # dropped, stores of a constant array's own value into it
@@ -3095,9 +3105,9 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # Numeral expressions evaluated first, as the rewriter compares
         # indices and values by value ((/ 2 2) is 1.0).
         values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
-        alternatives.append(fallback[:-1] + values
+        alternatives.append(store_body[:-1] + values
                             + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
-                               "all_goals " + fallback[-1]])
+                               "all_goals " + store_body[-1]])
     if len(alternatives) == 1:
         lines.extend("  " + tactic for tactic in fallback)
     else:
