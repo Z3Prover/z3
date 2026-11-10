@@ -430,7 +430,7 @@ namespace smt {
             q = q2;
         }
         if (!ctx.b_internalized(q)) {
-            ctx.internalize(q, true, l_true);
+            ctx.internalize(q, true);
         }
         literal fa_eq = ctx.get_literal(q);
         ctx.mark_as_relevant(fa_eq);
