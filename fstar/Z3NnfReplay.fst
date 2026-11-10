@@ -2282,7 +2282,12 @@ let lemma_bodies (#base:sort -> Type0) (sigma:V.signature) (i:V.interpretation b
          assert (q < kept /\ (E.tuple_at sigma ss vs p <: V.tree base) == (E.tuple_at sigma ss' ws q <: V.tree base));
          DS.lemma_extend_index sigma scope ss' ws rho q
        | None -> ())
-    else DS.lemma_extend_index sigma scope ss' ws rho (p - n + kept) in
+    else (
+      assert (p - n + kept >= kept /\ p - n + kept - kept == p - n);
+      DS.lemma_extend_index sigma scope ss' ws rho (p - n + kept);
+      assert ((V.extend sigma scope ss vs rho p <: V.tree base) == (rho (p - n) <: V.tree base));
+      assert ((V.extend sigma scope ss' ws rho (p - n + kept) <: V.tree base) ==
+              (rho (p - n) <: V.tree base))) in
   FStar.Classical.forall_intro at;
   lemma_thin_eval sigma i marks n kept 0 (ss @ scope) (ss' @ scope)
     (V.extend sigma scope ss vs rho) (V.extend sigma scope ss' ws rho) body body'

@@ -5,8 +5,7 @@ description: Prototype NFV PR reviewer — sandboxed foreground Dafny analysis, 
 on:
   # Run trusted base-branch workflow code; fork PR contents remain untrusted data.
   pull_request_target:
-    # Pushes cancel obsolete runs through workflow concurrency; they never start inference.
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, ready_for_review]
     paths:
       - "**.[cC]"
       - "**.[hH]"
@@ -45,10 +44,37 @@ timeout-minutes: 360
 checkout: false
 concurrency:
   group: nfv-pr-review-${{ github.repository }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
-  repository_context:
+  admission:
+    needs: [activation]
     if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.base.ref == github.event.repository.default_branch && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      admitted: ${{ steps.admit.outputs.admitted }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: microsoft/neuro-formal-verification
+          ref: ${{ vars.NFV_RELEASE_SHA }}
+          path: nfv-plugin
+          token: ${{ secrets.NFV_RELEASE_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Reserve the PR's automatic attempt
+        id: admit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: nfv-plugin/workflow/src
+        run: python -m nfv_workflow.admission
+  repository_context:
+    needs: [admission]
+    if: vars.NFV_RELEASE_SHA != '' && github.event.pull_request.base.ref == github.event.repository.default_branch && github.event.pull_request.draft == false && (github.event.action == 'opened' || github.event.action == 'ready_for_review') && needs.admission.outputs.admitted == 'true'
     permissions:
       # gh-aw uses this only to mark an incomplete workflow run failed.
       actions: write
@@ -59,7 +85,7 @@ jobs:
     uses: ./.github/workflows/nfv-source-context.lock.yml
     secrets: inherit
   agent:
-    needs: [repository_context]
+    needs: [admission, repository_context]
 network:
   allowed: [defaults, arxiv.org]
 tools: {}
@@ -135,7 +161,7 @@ steps:
       set -euo pipefail
       bundle="$RUNNER_TEMP/gh-aw/nfv/bundle.json"
       collection="$RUNNER_TEMP/gh-aw/nfv/collection-status.json"
-      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --out "$bundle" --sources-dir nfv-src --status-out "$collection"
+      nfv-workflow collect --event "$GITHUB_EVENT_PATH" --event-snapshot --out "$bundle" --sources-dir nfv-src --status-out "$collection"
       ready=$(python - "$collection" <<'PY'
       import os
       import sys
@@ -189,7 +215,7 @@ post-steps:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
       if-no-files-found: warn
-source: microsoft/neuro-formal-verification/workflow@94dbb80e8b55d64a5bf433ec57e6d04260abdd49
+source: microsoft/neuro-formal-verification/workflow@9eaeaad0ff9532c5b84f1a32192a43f22bf74f11
 ---
 
 # NFV PR reviewer
@@ -213,6 +239,12 @@ exhaustion and property type-check/audit failures. These are report data, not
 infrastructure failures. The driver records attempt completion or infrastructure
 failure separately in `review-status.json`; it never fabricates a completed
 review after a failed pipeline stage.
+The trusted admission job reserves one automatic attempt per PR before either
+inference session starts. Failed attempts also consume that reservation; only
+an explicit workflow rerun can retry them. Pushes and repeated readiness events
+never cancel a running audit. Analyze the admitted event's immutable head/base
+snapshot and submit the report even if the PR has since changed or merged.
+The admission comment is an operational record, not generated report text.
 An explicitly superseded collection is a skipped attempt, not a completed audit
 or property outcome. The driver submits only `noop`, retains the diagnostic in
 `review-status.json`, and never creates an empty proposal array or report.

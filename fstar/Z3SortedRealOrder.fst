@@ -72,6 +72,7 @@ let lemma_real_negated_operand (#base:sort -> Type0) (s:S.checked_schema) (bc:S.
                    0.0R -. RL.real_at s bc model other reals scope rho y) =
   match e with
   | App g [k; _] ->
+    assert (e == App g [k; y]);
     RL.lemma_real_binary_at s bc model other reals scope rho g k y A.Mul;
     lemma_real_numeral_value s bc model other reals scope rho (-1) k
   | _ -> ()
@@ -119,6 +120,8 @@ let real_offset (x y l r:expr) : option bool =
     else None
   | None -> None
 
+let lemma_subtract_zero (x:real) : Lemma (x -. 0.0R == x) = ()
+
 let lemma_real_offset (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (model:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (reals:RL.carrier base) (scope:list sort)
@@ -132,8 +135,12 @@ let lemma_real_offset (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
   else if l = y && r = x then ()
   else (
     lemma_real_numeral_value s bc model other reals scope rho 0 r;
+    lemma_subtract_zero (RL.real_at s bc model other reals scope rho l);
     match real_difference l with
-    | Some (a, b) -> lemma_real_difference s bc model other reals scope rho l a b
+    | Some (a, b) ->
+      lemma_real_difference s bc model other reals scope rho l a b;
+      if a = x && b = y then assert (sign == true)
+      else assert (a == y /\ b == x /\ sign == false)
     | None -> ())
 
 (* A Real comparison l <= r, l >= r or l = r with l - r = +-(x - y): every

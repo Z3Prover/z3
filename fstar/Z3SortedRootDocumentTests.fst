@@ -56,6 +56,99 @@ let doc (assertions:list expr) (entries:list P.entry) (root:int) : P.document = 
   P.declarations = []; P.expressions = []; P.assertions = assertions; P.entries = entries; P.root = root;
 }
 
+let integer_product_document (strict:bool) (wrong_sign:bool) : P.document =
+  let x = const "product_x" integer in
+  let y = const "product_y" integer in
+  let z = const "product_z" integer in
+  let minimum = if strict then SP.int_one else SP.int_zero in
+  let a = SP.int_ge x minimum in
+  let b = if wrong_sign then SP.int_le y SP.int_zero else SP.int_ge y minimum in
+  let c = if strict then SP.int_le z SP.int_zero else App (TR.lt_decl integer) [z; SP.int_zero] in
+  let product = App (TR.times_decl integer) [x; y] in
+  let negative = App (TR.times_decl integer) [App (TR.int_numeral (-1)) []; z] in
+  let bound = SP.int_le (App (TR.plus_decl integer) [product; negative]) SP.int_zero in
+  doc [a; b; c; bound]
+    [entry U.Asserted a []; entry U.Asserted b []; entry U.Asserted c [];
+     entry U.Asserted bound []; entry (U.Unverified "th-lemma") R.false_expr [0; 1; 2; 3]] 4
+
+let nonnegative_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_product_document false false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_product_document false false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document false false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_product_document false true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document false false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_product_document false false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document false false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document false true) == Some 1)
+
+let positive_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_product_document true false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_product_document true false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document true false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_product_document true true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document true false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_product_document true false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_product_document true false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_document true true) == Some 1)
+
+let integer_signed_product_document (strict:bool) (opposite:bool) (wrong_sign:bool) : P.document =
+  let x = const "sign_x" integer in
+  let y = const "sign_y" integer in
+  let z = const "sign_z" integer in
+  let positive = if strict then SP.int_one else SP.int_zero in
+  let negative = if strict then SP.int_minus_one else SP.int_zero in
+  let a = SP.int_le x negative in
+  let b = if opposite <> wrong_sign then SP.int_ge y positive else SP.int_le y negative in
+  let c = if strict then (if opposite then SP.int_ge z SP.int_zero else SP.int_le z SP.int_zero)
+    else App (if opposite then TR.gt_decl integer else TR.lt_decl integer) [z; SP.int_zero] in
+  let product = App (TR.times_decl integer) [x; y] in
+  let negative = App (TR.times_decl integer) [App (TR.int_numeral (-1)) []; z] in
+  let difference = App (TR.plus_decl integer) [product; negative] in
+  let bound = if opposite then SP.int_ge difference SP.int_zero else SP.int_le difference SP.int_zero in
+  doc [a; b; c; bound]
+    [entry U.Asserted a []; entry U.Asserted b []; entry U.Asserted c [];
+     entry U.Asserted bound []; entry (U.Unverified "th-lemma") R.false_expr [0; 1; 2; 3]] 4
+
+let nonpositive_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false true false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document false true false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document false true false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_signed_product_document false true true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false true false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document false true false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document false true false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false true true) == Some 1)
+
+let both_nonpositive_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false false false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document false false false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document false false false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_signed_product_document false false true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false false false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document false false false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document false false false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document false false true) == Some 1)
+
+let negative_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true true false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document true true false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document true true false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_signed_product_document true true true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true true false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document true true false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document true true false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true true true) == Some 1)
+
+let both_negative_integer_products ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true false false) == Some 0 /\
+           RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document true false false) == RD.RootCertified /\
+           SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document true false false)) == Some 0 /\
+           SP.check_document_epsilon PT.core_schema (integer_signed_product_document true false true) == Some 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true false false) == Some 0);
+  assert_norm (RD.check_root_document_epsilon PT.core_schema (integer_signed_product_document true false false) == RD.RootCertified);
+  assert_norm (SP.check_document_epsilon PT.core_schema (RD.read_view (integer_signed_product_document true false false)) == Some 0);
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_signed_product_document true false true) == Some 1)
+
 (* A two-assertion refutation shape: facts a and (not a) resolve to false. *)
 let refute_pair (a:expr) : P.document =
   doc [a; R.mk_not_expr a]
@@ -735,6 +828,150 @@ let i6_counterfeit_pending ()
 let i7_missing_bound_pending ()
   : Lemma (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1) =
   assert_norm (RD.check_root_document PT.core_schema (implied_document [0]) == RD.RootPending 1)
+
+let integer_product_clause_document (wrong_bound:bool) : P.document =
+  let x = const "clause_x" integer in
+  let y = const "clause_y" integer in
+  let product = App (TR.times_decl integer) [x; y] in
+  let clause = disjunction
+    [R.mk_not_expr (SP.int_ge x SP.int_zero); R.mk_not_expr (SP.int_ge y SP.int_zero);
+     SP.int_ge product (if wrong_bound then SP.int_one else SP.int_zero)] in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry (U.Unverified "assumed:nlsat") clause []; entry U.Asserted negative [];
+     entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let integer_product_clause_certified ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_product_clause_document false) == Some 0 /\
+           RD.check_root_document PT.core_schema (integer_product_clause_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_product_clause_document false)) == RD.RootCertified) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_product_clause_document false) == Some 0);
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_clause_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_product_clause_document false)) == RD.RootCertified)
+
+let integer_product_clause_mutant ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_product_clause_document true) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_clause_document true) == RD.RootPending 1)
+
+let integer_zero_product_document (wrong_factor:bool) : P.document =
+  let x = const "zero_x" integer in
+  let y = const "zero_y" integer in
+  let z = const "zero_z" integer in
+  let product = App (TR.times_decl integer) [if wrong_factor then z else x; y] in
+  let clause = disjunction [R.mk_not_expr (R.mk_eq_expr x SP.int_zero); SP.int_le product SP.int_zero] in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry (U.Unverified "assumed:nlsat") clause []; entry U.Asserted negative [];
+     entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let integer_zero_product_certified ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_zero_product_document false) == Some 0 /\
+           RD.check_root_document PT.core_schema (integer_zero_product_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_zero_product_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_zero_product_document true) == RD.RootPending 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_zero_product_document false) == Some 0);
+  assert_norm (RD.check_root_document PT.core_schema (integer_zero_product_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_zero_product_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_zero_product_document true) == RD.RootPending 1)
+
+let integer_constant_product_document (wrong_factor:bool) : P.document =
+  let x = const "constant_x" integer in
+  let y = const "constant_y" integer in
+  let z = const "constant_z" integer in
+  let two = App (TR.int_numeral 2) [] in
+  let product = App (TR.times_decl integer) [if wrong_factor then z else x; y] in
+  let scaled = App (TR.times_decl integer) [two; y] in
+  let clause = disjunction [R.mk_not_expr (R.mk_eq_expr x two); SP.int_le product scaled] in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry (U.Unverified "assumed:nlsat") clause []; entry U.Asserted negative [];
+     entry U.UnitResolution R.false_expr [0; 1]] 2
+
+let integer_constant_product_certified ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_constant_product_document false) == Some 0 /\
+           RD.check_root_document PT.core_schema (integer_constant_product_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_constant_product_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_constant_product_document true) == RD.RootPending 1) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_constant_product_document false) == Some 0);
+  assert_norm (RD.check_root_document PT.core_schema (integer_constant_product_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_constant_product_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_constant_product_document true) == RD.RootPending 1)
+
+let integer_product_equality_document (wrong_factor:bool) : P.document =
+  let x = const "equality_x" integer in
+  let y = const "equality_y" integer in
+  let z = const "equality_z" integer in
+  let two = App (TR.int_numeral 2) [] in
+  let lower = SP.int_ge x two in
+  let upper = SP.int_le x two in
+  let product = App (TR.times_decl integer) [if wrong_factor then z else x; y] in
+  let equation = R.mk_eq_expr product (App (TR.times_decl integer) [two; y]) in
+  let negative = R.mk_not_expr equation in
+  doc [lower; upper; negative]
+    [entry U.Asserted lower []; entry U.Asserted upper []; entry U.Asserted negative [];
+     entry (U.Unverified "arith/lp-monomial-substitute") equation [0; 1];
+     entry U.UnitResolution R.false_expr [3; 2]] 4
+
+let integer_product_equality_certified ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_product_equality_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_product_equality_document true) == RD.RootPending 1 /\
+           SP.check_document_epsilon PT.core_schema
+             { (integer_product_equality_document false) with P.assertions = [] } == None) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_document true) == RD.RootPending 1);
+  assert_norm (SP.check_document_epsilon PT.core_schema
+    { (integer_product_equality_document false) with P.assertions = [] } == None)
+
+let integer_product_equality_clause_document (wrong_bound:bool) : P.document =
+  let x = const "clause_equality_x" integer in
+  let y = const "clause_equality_y" integer in
+  let two = App (TR.int_numeral 2) [] in
+  let equality = R.mk_eq_expr (App (TR.times_decl integer) [x; y])
+                             (App (TR.times_decl integer) [two; y]) in
+  let clause = disjunction [equality; R.mk_not_expr (SP.int_ge x two);
+                            R.mk_not_expr (SP.int_le x (if wrong_bound then three else two))] in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry U.Asserted negative []; entry (U.Unverified "th-lemma") clause [];
+     entry U.UnitResolution R.false_expr [1; 0]] 2
+
+let integer_product_equality_clause_certified ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_product_equality_clause_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_clause_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_product_equality_clause_document true) == RD.RootPending 1 /\
+           SP.check_document_epsilon PT.core_schema
+             { (integer_product_equality_clause_document false) with P.assertions = [] } == None) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_clause_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_clause_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_clause_document true) == RD.RootPending 1);
+  assert_norm (SP.check_document_epsilon PT.core_schema
+    { (integer_product_equality_clause_document false) with P.assertions = [] } == None)
+
+let integer_unit_document (bound:int) (premises:list int) : P.document =
+  let term = App (TR.times_decl integer) [one; x_int] in
+  let strict = App (TR.lt_decl integer) [term; zero] in
+  let tightened = SP.int_le term (App (TR.int_numeral bound) []) in
+  let negative = R.mk_not_expr tightened in
+  doc [R.true_expr; strict; negative]
+    [entry U.Asserted R.true_expr []; entry U.Asserted strict [];
+     entry (U.Unverified "arith/lp-integer-tighten") tightened premises;
+     entry U.Asserted negative []; entry U.UnitResolution R.false_expr [2; 3]] 4
+
+let integer_unit_certified ()
+  : Lemma (SP.check_document_epsilon PT.core_schema (integer_unit_document (-1) [0; 1]) == Some 0 /\
+           RD.check_root_document PT.core_schema (integer_unit_document (-1) [0; 1]) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_unit_document (-1) [0; 1])) == RD.RootCertified) =
+  assert_norm (SP.check_document_epsilon PT.core_schema (integer_unit_document (-1) [0; 1]) == Some 0);
+  assert_norm (RD.check_root_document PT.core_schema (integer_unit_document (-1) [0; 1]) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_unit_document (-1) [0; 1])) == RD.RootCertified)
+
+let integer_unit_mutants ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_unit_document (-1) [0]) == RD.RootPending 1 /\
+           RD.check_root_document PT.core_schema (integer_unit_document (-2) [0; 1]) == RD.RootPending 1) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_unit_document (-1) [0]) == RD.RootPending 1);
+  assert_norm (RD.check_root_document PT.core_schema (integer_unit_document (-2) [0; 1]) == RD.RootPending 1)
 
 (* ---------------------------------------------------------------------- *)
 (* J. Term if-then-else branch clauses (same-model theorem, no new symbol)  *)

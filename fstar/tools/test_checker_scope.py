@@ -119,7 +119,7 @@ class SelectionTests(unittest.TestCase):
     def test_full_extraction_entries_are_every_registered_implementation(self):
         entries = checker_scope.extraction_entries(MANIFEST, closure(), True)
         self.assertEqual(entries, [m for m in MANIFEST["modules"] if not m.endswith(".fsti")])
-        self.assertEqual(len(entries), 89)
+        self.assertEqual(len(entries), 90)
         self.assertTrue(set(KERNEL) <= set(entries))
 
 
