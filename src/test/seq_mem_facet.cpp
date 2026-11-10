@@ -14,6 +14,9 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/seq_regex_witness.h"
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
 #include "smt/seq_solver_facet.h"
@@ -23,6 +26,199 @@ Abstract:
 #include <string>
 
 namespace {
+
+    static void tst_predicate_algebra() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        bv_util bv(m);
+        datatype_util dt(m);
+
+        auto check_domain = [&](sort* s, expr_ref_vector const& values) {
+            expr_ref v0(m.mk_var(0, s), m);
+            seq::predicate_algebra algebra(m, u, s, v0);
+            expr_ref raw_exhausted(m.mk_true(), m);
+            for (expr* value : values) {
+                expr_ref atom(m.mk_eq(v0, value), m);
+                expr_ref neg(m.mk_not(atom), m);
+                raw_exhausted = m.mk_and(raw_exhausted, neg);
+            }
+            ENSURE(algebra.eval(raw_exhausted) == l_false);
+            ENSURE(algebra.normalize(raw_exhausted) == algebra.mk_bottom());
+            unsigned end = 1u << values.size();
+            for (unsigned mask = 0; mask < end; ++mask) {
+                expr_ref p = algebra.mk_bottom();
+                for (unsigned i = 0; i < values.size(); ++i)
+                    if (mask & (1u << i)) {
+                        expr_ref atom(m.mk_eq(v0, values[i]), m);
+                        p = algebra.mk_or(p, atom);
+                    }
+                expr_ref neg = algebra.mk_not(p);
+                expr_ref other = algebra.mk_top();
+                for (unsigned i = values.size(); i-- > 0;)
+                    if (!(mask & (1u << i))) {
+                        expr_ref atom(m.mk_eq(values[i], v0), m);
+                        expr_ref excluded(m.mk_not(atom), m);
+                        other = m.mk_and(other, excluded);
+                    }
+                ENSURE(p == algebra.normalize(other));
+                ENSURE(algebra.normalize(p) == p);
+                ENSURE(algebra.mk_not(neg) == p);
+                for (bool complement : {false, true}) {
+                    expr_ref witness(m);
+                    unsigned expected = complement ? (end - 1) ^ mask : mask;
+                    expr* predicate = complement ? neg.get() : p.get();
+                    ENSURE(algebra.eval(predicate, &witness) == (expected ? l_true : l_false));
+                    if (expected) {
+                        bool valid = false;
+                        for (unsigned i = 0; i < values.size(); ++i)
+                            valid |= (expected & (1u << i)) && m.are_equal(witness, values[i]);
+                        ENSURE(valid);
+                    }
+                }
+                expr_ref empty = algebra.mk_and(p, neg);
+                expr_ref full = algebra.mk_or(p, neg);
+                ENSURE(algebra.eval(empty) == l_false);
+                ENSURE(algebra.eval(full) == l_true);
+                ENSURE(!algebra.less(p, p));
+                ENSURE(algebra.less(p, neg) == (p->get_id() < neg->get_id()));
+                ENSURE(algebra.less(p, neg) != algebra.less(neg, p));
+
+                guard_set accumulated(m, u, s, v0);
+                accumulated.conjoin(p);
+                guard_set branch = accumulated;
+                branch.conjoin(neg);
+                ENSURE(branch.eval(nullptr) == l_false);
+                ENSURE(accumulated.eval(nullptr) == (mask ? l_true : l_false));
+            }
+            sort_ref seq_sort(u.str.mk_seq(s), m);
+            sort_ref re_sort(u.re.mk_re(seq_sort), m);
+            expr_ref all(u.re.mk_empty(re_sort), m), partial(all, m);
+            expr_ref last_word(m);
+            for (expr* value : values) {
+                last_word = u.str.mk_unit(value);
+                expr_ref singleton(u.re.mk_to_re(last_word), m);
+                partial = all;
+                all = u.re.mk_union(all, singleton);
+            }
+            expr_ref full_char(u.re.mk_full_char(re_sort), m);
+            expr_ref not_partial(u.re.mk_complement(partial), m);
+            expr_ref remaining(u.re.mk_inter(full_char, not_partial), m);
+            expr_ref star(u.re.mk_star(all), m);
+            expr_ref exhausted(u.re.mk_complement(star), m);
+            seq_rewriter rw(m);
+            for (auto mode : {seq::transition_mode::brzozowski_tm,
+                              seq::transition_mode::light_antimirov_tm}) {
+                seq::regex_witness finder(rw, mode);
+                expr_ref word(m);
+                ENSURE(finder.get_witness(remaining, word) == l_true);
+                ENSURE(word == last_word);
+                ENSURE(finder.nonempty(exhausted) == l_false);
+            }
+        };
+
+        expr_ref_vector booleans(m);
+        booleans.push_back(m.mk_false());
+        booleans.push_back(m.mk_true());
+        check_domain(m.mk_bool_sort(), booleans);
+        expr_ref b0(m.mk_var(0, m.mk_bool_sort()), m), witness(m);
+        seq::predicate_algebra bools(m, u, m.mk_bool_sort(), b0);
+        ENSURE(bools.eval(b0, &witness) == l_true && m.is_true(witness));
+        expr_ref not_b0 = bools.mk_not(b0);
+        ENSURE(bools.eval(not_b0, &witness) == l_true && m.is_false(witness));
+        expr_ref parameter(m.mk_const("guard-bool-parameter", m.mk_bool_sort()), m);
+        expr_ref symbolic(m.mk_eq(b0, parameter), m);
+        ENSURE(bools.eval(symbolic) == l_undef);
+
+        for (unsigned width : {1u, 2u, 3u}) {
+            sort_ref s(bv.mk_sort(width), m);
+            expr_ref_vector values(m);
+            for (unsigned i = 0; i < (1u << width); ++i)
+                values.push_back(bv.mk_numeral(rational(i), width));
+            check_domain(s, values);
+        }
+        for (unsigned width : {31u, 32u, 33u, 64u, 257u}) {
+            sort_ref s(bv.mk_sort(width), m);
+            expr_ref v0(m.mk_var(0, s), m);
+            seq::predicate_algebra algebra(m, u, s, v0);
+            expr_ref p = algebra.mk_top();
+            for (unsigned i : {0u, 1u}) {
+                expr_ref value(bv.mk_numeral(rational(i), width), m);
+                expr_ref eq(m.mk_eq(v0, value), m);
+                expr_ref neg = algebra.mk_not(eq);
+                p = algebra.mk_and(p, neg);
+            }
+            ENSURE(algebra.eval(p, &witness) == l_true);
+            rational value;
+            ENSURE(bv.is_numeral(witness, value) && value == rational(2));
+            expr_ref a(m.mk_const("guard-a", s), m), b(m.mk_const("guard-b", s), m);
+            expr_ref eq_a(m.mk_eq(v0, a), m), eq_b(m.mk_eq(v0, b), m);
+            expr_ref not_b = algebra.mk_not(eq_b);
+            p = algebra.mk_and(eq_a, not_b);
+            ENSURE(algebra.eval(p) == l_undef);
+            expr_ref one(bv.mk_numeral(rational(1), width), m);
+            expr_ref successor(bv.mk_bv_add(v0, one), m);
+            p = m.mk_eq(v0, successor);
+            ENSURE(algebra.eval(p) == l_undef);
+            expr_ref zero(bv.mk_numeral(rational(0), width), m);
+            expr_ref eq_zero(m.mk_eq(v0, zero), m), eq_one(m.mk_eq(v0, one), m);
+            p = m.mk_eq(eq_zero, eq_one);
+            ENSURE(algebra.eval(p, &witness) == l_true);
+            ENSURE(bv.is_numeral(witness, value) && value == rational(2));
+        }
+
+        for (unsigned size : {1u, 2u, 3u}) {
+            ptr_vector<constructor_decl> constructors;
+            for (unsigned i = 0; i < size; ++i)
+                constructors.push_back(mk_constructor_decl(symbol(i), symbol(i + size), 0, nullptr));
+            datatype_decl* decl = mk_datatype_decl(dt, symbol(size), 0, nullptr,
+                                                  size, constructors.data());
+            sort_ref_vector sorts(m);
+            ENSURE(dt.plugin().mk_datatypes(1, &decl, 0, nullptr, sorts));
+            sort* s = sorts.get(0);
+            expr_ref_vector values(m);
+            for (func_decl* c : *dt.get_datatype_constructors(s))
+                values.push_back(m.mk_const(c));
+            check_domain(s, values);
+            expr_ref v0(m.mk_var(0, s), m);
+            seq::predicate_algebra algebra(m, u, s, v0);
+            expr_ref parameter(m.mk_const("guard-enum-parameter", s), m);
+            expr_ref eq(m.mk_eq(v0, parameter), m);
+            ENSURE(algebra.eval(eq) == l_undef);
+        }
+
+        sort_ref chars(u.mk_char_sort(), m);
+        expr_ref c0(m.mk_var(0, chars), m);
+        seq::predicate_algebra::cache cache(m);
+        seq::predicate_algebra characters(m, u, chars, c0, &cache);
+        expr_ref ch(u.mk_char('a'), m);
+        expr_ref eq(m.mk_eq(c0, ch), m);
+        ENSURE(characters.eval(eq, &witness) == l_true && witness == ch);
+        expr_ref neg = characters.mk_not(eq);
+        expr_ref lo(u.mk_le(ch, c0), m), hi(u.mk_le(c0, ch), m);
+        expr_ref bounded(m.mk_and(lo, hi), m);
+        ENSURE(characters.normalize(bounded) == characters.normalize(eq));
+        expr_ref next(u.mk_char('b'), m);
+        expr_ref eq_next(m.mk_eq(c0, next), m);
+        expr_ref adjacent(m.mk_or(eq_next, eq), m);
+        expr_ref upper(u.mk_le(c0, next), m);
+        expr_ref interval(m.mk_and(upper, lo), m);
+        ENSURE(characters.normalize(adjacent) == characters.normalize(interval));
+        expr_ref double_neg(m.mk_not(neg), m);
+        ENSURE(characters.normalize(double_neg) == characters.normalize(eq));
+        seq_rewriter rw(m);
+        expr_ref unit(u.str.mk_unit(ch), m);
+        expr_ref singleton(u.re.mk_to_re(unit), m);
+        expr_ref range(u.re.mk_range(unit, unit), m);
+        auto& derive = rw.get_derive();
+        expr_ref d1 = derive(seq::derivative_kind::brzozowski_t, singleton);
+        expr_ref d2 = derive(seq::derivative_kind::brzozowski_t, range);
+        ENSURE(d1 == d2);
+        guard_set accumulated(m, u, chars, c0, &cache);
+        accumulated.conjoin(eq);
+        accumulated.conjoin(neg);
+        ENSURE(accumulated.eval(nullptr) == l_false);
+    }
 
     struct fixture {
         struct ambient_context : seq::null_ambient_context<seq::eq_tree::dep_tracker> {
@@ -1179,6 +1375,7 @@ namespace {
 }
 
 void tst_seq_mem_facet() {
+    tst_predicate_algebra();
     tst_letter_count_benchmark(false);
     tst_letter_count_benchmark(true);
     tst_letter_count_equations_scopes();

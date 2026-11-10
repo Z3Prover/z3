@@ -103,10 +103,9 @@ namespace seq {
             for (auto const& [g, t] : cofactors(state)) {
                 if (re().is_empty(t) || visited.is_marked(t))
                     continue;
-                guard_set gs(m, u(), elem_sort, v0, &m_rp_cache);
-                gs.conjoin(g);
+                predicate_algebra algebra(m, u(), elem_sort, v0, &m_rp_cache);
                 expr_ref elem(m);
-                lbool sat = gs.eval(witness ? &elem : nullptr);
+                lbool sat = algebra.eval(g, witness ? &elem : nullptr);
                 if (sat == l_undef) {
                     bail = true;                       // guard outside the supported grammar
                     continue;

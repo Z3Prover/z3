@@ -7,15 +7,11 @@ Module Name:
 
 Abstract:
 
-    A conjunction of derivative cofactor guards over the element variable
-    v0 = (:var 0), interpreted as the set of element values satisfying it.
-    Two representations by element sort:
-      * character sort:  the exact, compact seq::range_predicate.
-      * any other sort:  the guard predicate kept symbolically and decided by a
-        candidate basis -- the element values mentioned in the guards, plus one
-        fresh value.  This is sound and complete for the
-        {true,false,=,<=,and,or,not} grammar the derivatives emit (over a general
-        element sort only equalities appear).
+    Sort-relative predicate algebra and an incremental conjunction accumulator.
+    Character predicates use exact ranges. Bool and enumeration predicates use
+    their exact domains; arithmetic and bit-vector equality predicates use
+    mentioned values and a remaining-region representative. Unsupported theory
+    reasoning returns unknown, never an assumed emptiness or witness.
 
     Extracted from seq_monadic.cpp.
 
@@ -31,7 +27,11 @@ Author:
 #include "ast/rewriter/seq_range_collapse.h"
 
 
-class guard_set {
+class guard_set;
+
+namespace seq {
+
+class predicate_algebra {
 public:
     // Cache mapping guard expressions to their range predicates.
     // A null value in the map records that the guard is unsupported (avoiding retranslation).
@@ -42,8 +42,8 @@ public:
     // managed by the caller -- e.g. by the cofactor_cache that owns the guard expressions).
     class cache {
         expr_ref_vector m_trail;
-        obj_map<expr, seq::range_predicate *> m_cache;
-        seq::range_predicate *m_fresh = nullptr;
+        obj_map<expr, range_predicate *> m_cache;
+        range_predicate *m_fresh = nullptr;
 
     public:
         cache(ast_manager &m) : m_trail(m) {}
@@ -57,16 +57,16 @@ public:
         }
         // Returns true if g is in the cache; val is set to the cached entry
         // (val may be null = unsupported guard).
-        bool find(expr *g, seq::range_predicate *&val) const {
+        bool find(expr *g, range_predicate *&val) const {
             return m_cache.find(g, val);
         }
         // Returns a range_predicate* ready for guard_to_range_predicate to write into.
         // Reuses the previously recycled object when available; otherwise allocates one.
-        seq::range_predicate *fresh(unsigned max_char);
+        range_predicate *fresh(unsigned max_char);
         // Records g -> p.  If p is non-null (translation succeeded), ownership is transferred
         // to the cache and m_fresh is cleared.  If p is null (unsupported), the object
         // previously returned by fresh() is retained in m_fresh for the next translation.
-        void insert(expr *g, seq::range_predicate *p);
+        void insert(expr *g, range_predicate *p);
     };
 
 private:
@@ -75,25 +75,54 @@ private:
     sort*                m_sort;
     expr*                m_v0;
     bool                 m_is_char;
-    bool                 m_ok = true;      // false: an unsupported guard was conjoined
     cache*               m_rp_cache = nullptr;
-    seq::range_predicate m_rp;             // char representation
-    expr_ref             m_guard;          // generic representation (conjunction over v0)
 
-    // ---- generic path: candidate basis ----
-
-    // element values compared to v0 by the equalities in `g`.
     void collect_consts(expr* g, ptr_vector<expr>& out) const;
-
-    // evaluate `g` at v0 := cand ; l_undef on a construct outside the grammar.
     lbool eval_at(expr* g, expr* cand) const;
-
-    // a value of m_sort distinct from every element of `consts`, if one can be built.
-    bool mk_fresh(ptr_vector<expr> const& consts, expr_ref& out) const;
-
-    lbool generic_eval(expr_ref* witness) const;
+    // l_false proves domain exhaustion; l_undef means freshness is unsupported.
+    lbool mk_fresh(ptr_vector<expr> const& consts, expr_ref& out) const;
+    lbool generic_eval(expr* g, expr_ref* witness) const;
+    bool conjoin_ranges(expr* g, range_predicate& accumulated) const;
+    expr_ref from_ranges(range_predicate const& ranges) const;
+    expr_ref from_values(expr_ref_vector const& values, bool complement) const;
+    friend class ::guard_set;
 
 public:
+    predicate_algebra(ast_manager& m, seq_util& u, sort* elem_sort, expr* v0,
+                      cache* cache = nullptr);
+
+    expr_ref mk_top() const { return expr_ref(m.mk_true(), m); }
+    expr_ref mk_bottom() const { return expr_ref(m.mk_false(), m); }
+    expr_ref mk_and(expr* a, expr* b) const;
+    expr_ref mk_or(expr* a, expr* b) const;
+    expr_ref mk_not(expr* a) const;
+
+    // Equal canonical backend values materialize as the same AST. Unsupported
+    // predicates retain their syntax; normalization never assumes parameters
+    // are distinct or fixes their interpretation.
+    expr_ref normalize(expr* predicate) const;
+
+    // Strict total representation order within one AST manager, not implication.
+    // Normalize first to identify equal backend values; then preserve AST-ID order.
+    static bool less(expr* a, expr* b) { return a->get_id() < b->get_id(); }
+
+    // l_false proves emptiness; l_true supplies a witness valid without new
+    // assumptions about shared parameters. Otherwise return l_undef.
+    lbool eval(expr* predicate, expr_ref* witness = nullptr) const;
+};
+
+}
+
+class guard_set {
+    seq::predicate_algebra m_algebra;
+    bool m_is_char;
+    bool m_ok = true;
+    seq::range_predicate m_rp;
+    expr_ref m_guard;
+
+public:
+    using cache = seq::predicate_algebra::cache;
+
     guard_set(ast_manager& _m, seq_util& _u, sort* elem_sort, expr* v0,
               cache* cache = nullptr);
 
@@ -102,7 +131,7 @@ public:
     // AND in a cofactor guard g (a Boolean over v0).
     void conjoin(expr* g);
 
-    // l_false = empty, l_true = non-empty (sets *witness if non-null to a concrete
+    // l_false = empty, l_true = non-empty (sets *witness if non-null to a justified
     // element of the set), l_undef = unknown / unsupported guard.
     lbool eval(expr_ref* witness) const;
 };

@@ -99,6 +99,7 @@ namespace seq {
         obj_pair_map<expr, expr, expr*> m_acache, m_bcache;
         obj_pair_map<expr, expr, expr*> m_atop_cache, m_btop_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
+        obj_map<expr, expr*>  m_predicate_cache;
        
         cofactor_cache       m_brz_cofactor_cache;
         cofactor_cache       m_ant_cofactor_cache;

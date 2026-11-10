@@ -18,8 +18,8 @@ Abstract:
     nullable state is reached.  Cofactor guard satisfiability, and the
     concrete element used to build the witness, are decided by the general
     purpose guard_set cofactor algebra: the exact range_predicate over the
-    character sort, and a sound and complete candidate-basis evaluation over
-    any other element sort.  This mirrors, in a single-state specialization,
+    character sort, exact finite-basic-domain reasoning, and partial
+    candidate-basis evaluation for other element sorts. This mirrors, in a single-state specialization,
     the general purpose cofactor / guard_set machinery seq_monadic.cpp uses to
     find non-emptiness witnesses for monadic decomposition components
     (seq::monadic::product_nonempty), but is otherwise independent of it.

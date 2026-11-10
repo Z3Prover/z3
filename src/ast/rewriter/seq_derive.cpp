@@ -23,6 +23,7 @@ Authors:
 
 #include "ast/rewriter/seq_derive.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/guard_set.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
@@ -69,6 +70,7 @@ namespace seq {
     // while preserving derivative caches (m_cache, m_top_cache)
     // The op cache does index on m_ele so it has to be reset if m_ele changes.
     void derive::reset_op_caches() {
+        m_predicate_cache.reset();
         m_aunion_cache.reset();
         m_ainter_cache.reset();
         m_aconcat_cache.reset();
@@ -998,6 +1000,20 @@ namespace seq {
     }
 
     expr_ref derive::mk_ite(expr* c, expr* t, expr* e) {
+        expr_ref condition(c, m);
+        if (is_var(m_ele)) {
+            expr* normalized = nullptr;
+            if (!m_predicate_cache.find(c, normalized)) {
+                predicate_algebra algebra(m, u(), m_ele->get_sort(), m_ele);
+                condition = algebra.normalize(c);
+                m_predicate_cache.insert(c, condition);
+                m_trail.push_back(c);
+                m_trail.push_back(condition);
+            }
+            else
+                condition = normalized;
+            c = condition;
+        }
         if (m.is_true(c) || t == e)
             return expr_ref(t, m);
         if (m.is_false(c))
@@ -1180,7 +1196,7 @@ namespace seq {
     // Returns nullptr if neither a nor b is ITE.
     expr_ref derive::hoist_ite(expr* a, expr* b, std::function<expr_ref(expr*, expr*)> apply_op) {
         expr *c1, *t1, *e1, *c2, *t2, *e2;
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1->get_id() > c2->get_id()) 
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && predicate_algebra::less(c2, c1))
             std::swap(a, b);
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
             expr_ref r(m);
