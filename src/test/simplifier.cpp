@@ -321,7 +321,7 @@ static void test_const_array_lambda() {
 
         "(declare-const a Int)"
         "(assert (= ((as const (Array Int Int)) a) (lambda ((x Int)) x)))"
-        "(assert (forall ((x Int)) (= x a)))"
+        "(assert (forall ((x Int)) (! (= x a) :skolemid generated)))"
     };
 
     for (char const* test : cases) {

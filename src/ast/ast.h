@@ -2123,6 +2123,8 @@ public:
 
     quantifier * update_quantifier_weight(quantifier * q, int new_weight);
 
+    quantifier * update_quantifier_skid(quantifier * q, symbol const & new_skid);
+
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, expr * new_body);
 
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
