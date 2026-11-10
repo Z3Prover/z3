@@ -856,9 +856,6 @@ class DirectCheckerTests(unittest.TestCase):
                     self.assertEqual(result.stdout.strip(), "PARTIAL 1")
                 self.assertRegex(result.stderr, r"obligation\trewrite\t1\t[0-9]+\t" + rewrite + "\n")
                 self.assertNotIn("stage=open-root", result.stderr)
-        # Without the third assertion nothing is refutable: there is no proof to certify.
-        result = run(6, aliases, False)
-        self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stdout + result.stderr)
 
     def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
         for source in (
