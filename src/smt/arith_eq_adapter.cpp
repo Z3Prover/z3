@@ -91,7 +91,7 @@ namespace smt {
         expr * t2        = n2->get_expr();
         if (m.are_distinct(t1, t2)) {
             expr_ref eq(m.mk_eq(t1, t2), m);
-            ctx.internalize(eq, true, l_false);
+            ctx.internalize(eq, true);
             literal lit(ctx.get_bool_var(eq));
             ctx.assign(~lit, nullptr, false);
             return;
@@ -182,7 +182,7 @@ namespace smt {
         ctx.push_trail(already_processed_trail(m_already_processed, n1, n2));
         m_already_processed.insert(n1, n2, data(t1_eq_t2, le, ge));
         TRACE(arith_eq_adapter_profile, tout << "insert #" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
-        ctx.internalize(t1_eq_t2, true);
+        ctx.internalize(t1_eq_t2, true); 
         literal t1_eq_t2_lit(ctx.get_bool_var(t1_eq_t2)); 
         TRACE(interface_eq, 
               tout << "core should try true phase first for the equality: " << t1_eq_t2_lit << "\n";
@@ -279,3 +279,4 @@ namespace smt {
         }
     }
 }
+
