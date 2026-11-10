@@ -12,6 +12,7 @@ Abstract:
 --*/
 
 #include "ast/seq/seq_view_witness.h"
+#include "ast/rewriter/seq_regex_witness.h"
 #include <algorithm>
 #include <functional>
 #include <set>
@@ -190,6 +191,53 @@ namespace seq {
             if (witness_word)
                 *witness_word = expr_ref(u().str.mk_empty(seq_sort), m);
             return l_true;
+        }
+        if (all_of(views, [](view const& v) { return v.is_membership(); })) {
+            constexpr unsigned compact_threshold = 4096;
+            regex_witness compact(m_rw, m_mode, 256);
+            rational requested_length(-1);
+            for (auto const& v : views) {
+                expr* body = nullptr;
+                unsigned lo = 0, hi = 0;
+                if (re().is_loop(v.m_state, body, lo, hi) && lo == hi && re().is_full_char(body))
+                    requested_length = rational(lo);
+            }
+            for (auto const& v : views) {
+                expr* literal = nullptr;
+                if (requested_length <= rational(compact_threshold) &&
+                    re().min_length(v.m_state) <= compact_threshold &&
+                    !(re().is_to_re(v.m_state, literal) && !m.is_value(literal)))
+                    continue;
+                // Ordinary product costs also rank monadic refinements.
+                if (checkpoint())
+                    return l_undef;
+                expr_ref candidate(m);
+                if (compact.get_compact_witness(v.m_state, candidate) != l_true)
+                    continue;
+                rational length;
+                if (requested_length > rational(compact_threshold)) {
+                    expr* body = nullptr;
+                    if (m_rw.get_ground_seq_length(candidate, length) && length.is_zero() &&
+                        re().is_star(v.m_state, body) &&
+                        compact.get_compact_witness(body, candidate) != l_true)
+                        continue;
+                    if (m_rw.get_ground_seq_length(candidate, length) && length.is_pos() &&
+                        requested_length > length && (requested_length / length).is_int()) {
+                        arith_util arith(m);
+                        expr_ref exponent(arith.mk_int(requested_length / length), m);
+                        candidate = u().str.mk_power(candidate, exponent);
+                    }
+                }
+                if (!m_rw.get_ground_seq_length(candidate, length) || length <= rational(compact_threshold))
+                    continue;
+                if (all_of(views, [&](view const& constraint) {
+                        return compact.accepts(candidate, constraint.m_state) == l_true;
+                    })) {
+                    if (witness_word)
+                        *witness_word = candidate;
+                    return l_true;
+                }
+            }
         }
 
         expr_ref var0(m.mk_var(0, elem_sort), m);

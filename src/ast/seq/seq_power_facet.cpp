@@ -118,8 +118,8 @@ namespace seq {
             str_power const& p = f.powers()[i];
             rational v;
 
-            // Known exponent: unfold exactly and discharge the obligation.
-            if (a.is_numeral(p.m_n, v)) {
+            // Large fixed powers remain tokens, including in extracted witnesses.
+            if (a.is_numeral(p.m_n, v) && v <= rational(1024)) {
                 expr_ref rhs(m);
                 if (!v.is_pos())
                     rhs = u.str.mk_empty(p.m_e.get()->get_sort());
@@ -132,7 +132,7 @@ namespace seq {
                 continue;
             }
 
-            // Symbolic exponent: assert the length-only consequences once.
+            // Assert the length-only consequences once.
             if (!p.m_axiomatized) {
                 expr_ref len_e(u.str.mk_length(p.m_e.get()), m);
                 // token-wise base length: the sub-solver has no sequence theory for len("ab")

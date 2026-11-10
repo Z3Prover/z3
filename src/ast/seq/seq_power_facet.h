@@ -10,8 +10,8 @@ Abstract:
     Sequence power operator (`s^n`, `seq.power`) facet.
 
     `power_facet` stores pending obligations `e = s^n`. Deterministic
-    propagation handles known exponents exactly and adds length-only
-    consequences for symbolic exponents. `power_split` performs the bounded
+    propagation unfolds small known exponents and adds length-only
+    consequences for the remaining powers. `power_split` performs the bounded
     case split for symbolic exponents by branching over `n <= 0`,
     `n = 1..bound`, and a residual `n > bound` case.
 
@@ -40,7 +40,7 @@ namespace seq {
         expr_ref             m_s;
         expr_ref             m_n;
         eq_tree::dep_tracker  m_dep;
-        // Set once this obligation's symbolic-exponent length axioms have
+        // Set once this obligation's length axioms have
         // been asserted into `solver_facet`.
         bool                 m_axiomatized = false;
 
@@ -140,10 +140,9 @@ namespace seq {
         std::ostream& display(std::ostream& out) const override;
     };
 
-    // Deterministic propagation: known-exponent obligations are fully
-    // unfolded into an eq_facet equation and discharged; symbolic-exponent
-    // obligations get their length-only axiom clauses asserted into
-    // solver_facet (once). See module comment.
+    // Deterministic propagation: small known-exponent obligations are
+    // unfolded and discharged; remaining obligations get length-only
+    // axioms asserted into solver_facet (once). See module comment.
     class power_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;

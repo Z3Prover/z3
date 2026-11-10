@@ -33,6 +33,7 @@ constraints actually used.
 
 --*/
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/rewriter/seq_regex_witness.h"
 #include "ast/for_each_expr.h"
 #include "ast/seq/seq_profile_abs.h"
 #include "ast/ast_pp.h"
@@ -357,13 +358,18 @@ namespace seq {
         return f;
     }
 
-    bool mem_facet::is_satisfied() const {
+    bool mem_facet::is_structurally_satisfied() const {
         if (short_witness_pending())
             return false;
         for (auto const& sm : m_mems)
             if (sm.active() && !is_single_var_plain(sm))
                 return false;
         return true;
+    }
+
+    bool mem_facet::is_satisfied() const {
+        return is_structurally_satisfied() &&
+            (m_witness_extracted || all_of(m_mems, [](str_mem const& sm) { return !sm.active(); }));
     }
 
     uint64_t str_mem::hash() const {
@@ -558,7 +564,7 @@ namespace seq {
         m_stats.m_num_propagate++;
         // Keep literal exclusions in a settled variable's joint language instead
         // of splitting it into unsupported symbolic-character heads.
-        if (ac.eq_facet_ref().is_satisfied() && f.is_satisfied()) {
+        if (ac.eq_facet_ref().is_satisfied() && f.is_structurally_satisfied()) {
             auto& df = ac.deq_facet_ref();
             for (unsigned i = 0; i < df.disequations().size(); ++i) {
                 auto const& d = df.disequations()[i];
@@ -645,6 +651,7 @@ namespace seq {
         // `f.vw()` as it is added. Check their joint feasibility here,
         // before the structural checks below. Disabling
         // `smt.seq.regex_precheck` only skips this early check.
+        bool feasible_views = false;
         if (ac.fparams().m_seq_regex_precheck) {
             view_witness& vw = f.vw();
             f.reset_vw_budget();
@@ -656,6 +663,7 @@ namespace seq {
                 n.set_conflict(stx::br_plugin_base, dep);
                 return stx::simplify_result::conflict;
             }
+            feasible_views = r == l_true;
         }
         // Incremental scan over `[qhead, memberships().size())`. Pending
         // entries are only revisited if they are later replaced by a fresh
@@ -669,6 +677,24 @@ namespace seq {
                 continue;
             if (sm.is_view())
                 continue;
+            expr_ref word(m);
+            rational ground_length;
+            if (!sm.m_str.empty() &&
+                any_of(sm.m_str, [&](expr* token) { return !u.str.is_unit(token); }))
+                word = u.str.mk_concat(sm.m_str, sm.m_str.get(0)->get_sort());
+            if (word && m_rw.get_ground_seq_length(word, ground_length)) {
+                regex_witness checker(m_rw);
+                lbool accepted = checker.accepts(word, sm.m_view.m_state);
+                if (accepted == l_false) {
+                    n.set_conflict(stx::br_plugin_base, sm.m_dep);
+                    return stx::simplify_result::conflict;
+                }
+                if (accepted == l_true) {
+                    f.remove(i);
+                    changed = true;
+                    continue;
+                }
+            }
             expr_ref cur(sm.m_view.m_state, m_rw.m());
             bool bad = false;
             expr* elem = nullptr;
@@ -725,6 +751,8 @@ namespace seq {
                 changed = true;
                 continue;
             }
+            if (feasible_views && f.is_single_var_plain(sm))
+                continue;
             auto live = f.live().reachable_live(sm.m_view);
             if (live.is_dead() || seq::is_dead(sm.m_view, m_rw)) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -737,7 +765,7 @@ namespace seq {
         }
         // Witnesses commit model-selected lengths. Keep feasibility checks
         // above active, but postpone these choices until word constraints settle.
-        if (f.is_satisfied() &&
+        if (f.is_structurally_satisfied() &&
             ac.eq_facet_ref().is_satisfied() &&
             ac.deq_facet_ref().is_satisfied()) {
             if (!f.witness_extracted() && !f.memberships().empty()) {
@@ -1565,7 +1593,7 @@ namespace seq {
         if (!ac.fparams().m_seq_mem_parikh)
             return nullptr;
         auto& mf = ac.mem_facet_ref();
-        if (mf.is_satisfied())
+        if (mf.is_structurally_satisfied())
             return nullptr;
 
         // Group plain single-variable memberships by variable. Reach views

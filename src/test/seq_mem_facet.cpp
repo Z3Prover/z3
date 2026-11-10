@@ -770,6 +770,49 @@ namespace {
         ENSURE(f.tree.get_stats().m_split_counts.at("mem-monadic") == 1);
     }
 
+    static void tst_witness_checkpoint_accounting() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref regex(f.u.re.mk_to_re(a), f.m);
+        regex = f.u.re.mk_star(regex);
+        auto& vw = f.root->facet_as<seq::mem_facet>(f.mem_id).vw();
+        unsigned checkpoints = 0;
+        vw.set_checkpoint([&]() {
+            ++checkpoints;
+            return seq::view_failure_reason::none;
+        });
+        seq::view_vector views;
+        views.push_back(seq::view::membership(regex, f.m));
+        expr_ref word(f.m);
+        ENSURE(vw.product_nonempty(x, views, &word) == l_true);
+        ENSURE(checkpoints == 1 && f.u.str.is_empty(word));
+
+        regex = f.u.re.mk_to_re(a);
+        regex = f.u.re.mk_loop_proper(regex, 5000, 5000);
+        views.reset();
+        views.push_back(seq::view::membership(regex, f.m));
+        vw.set_checkpoint([]() { return seq::view_failure_reason::budget; });
+        ENSURE(vw.product_nonempty(x, views, &word) == l_undef);
+        ENSURE(vw.get_failure_reason() == seq::view_failure_reason::budget);
+    }
+
+    static void tst_witness_budget_not_sat() {
+        fixture f;
+        expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
+        expr_ref a(f.u.str.mk_string("a"), f.m);
+        expr_ref re(f.u.re.mk_to_re(a), f.m);
+        re = f.u.re.mk_star(re);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        mf.add(seq::str_mem(f.m, x, seq::view::membership(re, f.m)));
+        mf.vw().set_checkpoint([]() { return seq::view_failure_reason::budget; });
+        seq::mem_propagation propagation(f.m, f.u, f.rw);
+        ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
+        ENSURE(mf.is_structurally_satisfied());
+        ENSURE(!mf.is_satisfied() && !mf.witness_extracted());
+        ENSURE(mf.vw().get_failure_reason() == seq::view_failure_reason::budget);
+    }
+
     static void tst_witness_waits_for_word_constraints(bool disequation) {
         fixture f;
         expr_ref x(f.m.mk_fresh_const("x", f.u.str.mk_string_sort()), f.m);
@@ -797,7 +840,7 @@ namespace {
             }
             else
                 ef.add_equation(x, y);
-            ENSURE(mf.is_satisfied());
+            ENSURE(mf.is_structurally_satisfied() && !mf.is_satisfied());
             ENSURE(propagation.propagate(*f.root) != stx::simplify_result::conflict);
             ENSURE(!mf.witness_extracted() && af.assumptions().empty());
             unsigned num_views = mf.vw().size();
@@ -1161,6 +1204,8 @@ void tst_seq_mem_facet() {
     tst_leaf_prefix_symbolic_and_cancelled();
     tst_symbolic_unit_derivative_not_rejected();
     tst_symbolic_unit_no_cost_retry();
+    tst_witness_checkpoint_accounting();
+    tst_witness_budget_not_sat();
     tst_witness_waits_for_word_constraints(false);
     tst_witness_waits_for_word_constraints(true);
     tst_pending_equation_membership_refutation();

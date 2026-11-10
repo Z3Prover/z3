@@ -174,6 +174,7 @@ namespace seq {
 
         stx::facet_i* clone(trail_stack& trail) const override;
 
+        bool is_structurally_satisfied() const;
         bool is_satisfied() const override;
         std::ostream& display(std::ostream& out) const override;
 

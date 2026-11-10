@@ -60,6 +60,8 @@ namespace seq {
         // Derivative reachability search from `r`.  When `witness` is non-null it is
         // set to a member of the language on l_true; otherwise no word is built.
         lbool search(expr* r, expr_ref* witness);
+        lbool accepts(expr* word, expr* r, unsigned depth, unsigned& work);
+        lbool compact_witness(expr* r, expr_ref& word, unsigned depth, unsigned& work);
 
         // Decode a witness term built by get_witness (a concatenation of seq.unit
         // elements, seq.empty, or a string literal) into a zstring. False if some part
@@ -87,6 +89,8 @@ namespace seq {
         //             cofactor guard outside the supported grammar), or `r` is
         //             not a regular expression term.
         lbool get_witness(expr* r, expr_ref& witness);
+        lbool get_compact_witness(expr* r, expr_ref& witness);
+        lbool accepts(expr* word, expr* r);
 
         // Specialization for regular expressions over the string sort: same search,
         // decoded into a zstring.

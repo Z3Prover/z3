@@ -40,6 +40,8 @@ namespace smt {
         struct slot {
             expr* m_literal = nullptr; // non-null: use this token as-is
             bool  m_is_unit = false;   // true: dependency's value must be wrapped via str.mk_unit
+            expr* m_exponent = nullptr;
+            bool  m_end_power = false;
         };
         vector<slot>                      m_slots;
         ptr_vector<enode>                 m_dep_enodes;
@@ -64,6 +66,19 @@ namespace smt {
             m_slots.push_back(sl);
             m_dep_enodes.push_back(n);
             m_dep_is_unit.push_back(is_unit);
+        }
+
+        void begin_power(expr* exponent) {
+            slot sl;
+            sl.m_exponent = exponent;
+            m_slots.push_back(sl);
+            m_pin.push_back(exponent);
+        }
+
+        void end_power() {
+            slot sl;
+            sl.m_end_power = true;
+            m_slots.push_back(sl);
         }
 
         void get_dependencies(buffer<model_value_dependency>& result) override {
@@ -97,7 +112,28 @@ namespace smt {
                 }
             };
             unsigned j = 0;
+            unsigned_vector starts;
+            expr_ref_vector exponents(m);
             for (slot const& sl : m_slots) {
+                if (sl.m_exponent) {
+                    flush();
+                    starts.push_back(final_toks.size());
+                    exponents.push_back(sl.m_exponent);
+                    continue;
+                }
+                if (sl.m_end_power) {
+                    flush();
+                    unsigned start = starts.back();
+                    expr_ref base(th.m_seq.str.mk_concat(final_toks.size() - start,
+                                                        final_toks.data() + start, m_sort), m);
+                    expr_ref power(th.m_seq.str.mk_power(base, exponents.back()), m);
+                    th.m_th_rewriter(power);
+                    final_toks.shrink(start);
+                    starts.pop_back();
+                    exponents.pop_back();
+                    add(power);
+                    continue;
+                }
                 if (sl.m_literal) {
                     add(sl.m_literal);
                     continue;
@@ -802,27 +838,32 @@ namespace smt {
             rational len;
             expr_ref len_t(m_seq.str.mk_length(t), m);
             m_th_rewriter(len_t);
-            if (!sf->value(len_t, len) || !len.is_unsigned())
+            if (!sf->value(len_t, len) || !len.is_int() || len.is_neg())
                 return fallback;
-            unsigned n_len = len.get_unsigned();
+            if (len.is_zero())
+                return m_seq.str.mk_empty(t->get_sort());
             if (!m_seq.is_string(t->get_sort())) {
                 expr_ref_vector units(m);
                 m_seq.str.get_concat_units(fallback, units);
                 SASSERT(!units.empty());
-                units.resize(n_len, units.back());
-                expr* result = m_seq.str.mk_concat(units.size(), units.data(), t->get_sort());
+                if (len <= rational(units.size()))
+                    units.shrink(len.get_unsigned());
+                else {
+                    expr_ref exponent(m_autil.mk_int(len - rational(units.size())), m);
+                    units.push_back(m_seq.str.mk_power(units.back(), exponent));
+                }
+                expr* result = m_seq.str.mk_concat(units, t->get_sort());
                 m_factory->add_trail(result);
                 return result;
             }
             zstring s;
-            if (m_seq.str.is_string(fallback, s) && s.length() == n_len)
+            if (m_seq.str.is_string(fallback, s) && rational(s.length()) == len)
                 return fallback;
-            svector<unsigned> chars;
-            if (n_len > 0)
-                chars.push_back(m_seq.max_char() - (m_next_fresh_len_marker++));
-            for (unsigned i = 1; i < n_len; ++i)
-                chars.push_back('a');
-            expr* result = m_seq.str.mk_string(zstring(chars.size(), chars.data()));
+            expr_ref marker(m_seq.str.mk_string(zstring(m_seq.max_char() - m_next_fresh_len_marker++)), m);
+            expr_ref filler(m_seq.str.mk_string(zstring("a")), m);
+            expr_ref exponent(m_autil.mk_int(len - rational(1)), m);
+            expr_ref repeated(m_seq.str.mk_power(filler, exponent), m);
+            expr* result = m_seq.str.mk_concat(marker, repeated);
             m_factory->add_trail(result);
             return result;
         };
@@ -852,10 +893,16 @@ namespace smt {
                         proc->add_literal(m_seq.str.mk_unit(m_seq.str.mk_char(0)));
                 }
             }
-            else if (sf && m_seq.str.is_power(t, s, k) && sf->value(k, count) && count.is_unsigned()) {
-                // Repeat the base as many times as the arithmetic model says.
-                for (unsigned c = 0; c < count.get_unsigned(); ++c)
+            else if (m_seq.str.is_power(t, s, k) &&
+                     (m_autil.is_numeral(k, count) || (sf && sf->value(k, count))) && count.is_int()) {
+                if (!count.is_pos())
+                    proc->add_literal(m_seq.str.mk_empty(t->get_sort()));
+                else {
+                    expr_ref exponent(m_autil.mk_int(count), m);
+                    proc->begin_power(exponent);
                     add_token(s);
+                    proc->end_power();
+                }
             }
             else if (!ctx.e_internalized(t) && is_uninterp_const(t) && m_seq.is_seq(t)) {
                 expr* v = mk_length_correct_fresh_value(t);

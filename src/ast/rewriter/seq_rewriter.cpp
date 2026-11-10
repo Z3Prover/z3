@@ -32,6 +32,7 @@ Authors:
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "params/seq_rewriter_params.hpp"
+#include <functional>
 
 
 void seq_rewriter::updt_params(params_ref const & p) {
@@ -510,37 +511,305 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     return BR_DONE;
 }
 
-bool seq_rewriter::mk_seq_reverse(expr* s, expr_ref& result) {
-    ptr_vector<expr> elems, todo;
+bool seq_rewriter::get_ground_seq_length(expr* s, rational& length) {
+    obj_map<expr, rational> lengths;
+    ptr_vector<expr> todo;
     todo.push_back(s);
+    unsigned work = 0;
     while (!todo.empty()) {
+        if (++work > 16384 || !m().inc())
+            return false;
         expr* e = todo.back();
+        rational len, count;
+        expr* base = nullptr, *n = nullptr, *ch = nullptr;
+        zstring text;
+        if (lengths.find(e, len)) {
+            todo.pop_back();
+            continue;
+        }
+        if (str().is_string(e, text))
+            len = rational(text.length());
+        else if (str().is_empty(e))
+            len = rational(0);
+        else if (str().is_unit(e, ch) && m().is_value(ch))
+            len = rational(1);
+        else if (str().is_power(e, base, n) && m_autil.is_numeral(n, count) && count.is_int()) {
+            if (!count.is_pos())
+                len = rational(0);
+            else if (!lengths.find(base, len)) {
+                todo.push_back(base);
+                continue;
+            }
+            else
+                len *= count;
+        }
+        else if (str().is_concat(e)) {
+            bool ready = true;
+            len = rational(0);
+            for (expr* arg : *to_app(e)) {
+                rational part;
+                if (lengths.find(arg, part))
+                    len += part;
+                else {
+                    todo.push_back(arg);
+                    ready = false;
+                }
+            }
+            if (!ready)
+                continue;
+        }
+        else
+            return false;
+        lengths.insert(e, len);
         todo.pop_back();
-        if (str().is_concat(e)) {             // str.++ is n-ary; pushing the arguments left
-            app* a = to_app(e);               // to right pops them right to left, which is
-            for (expr* arg : *a)              // the order the reversed sequence needs
-                todo.push_back(arg);
+    }
+    return lengths.find(s, length);
+}
+
+bool seq_rewriter::slice_ground_seq(expr* s, rational const& offset, rational const& length, expr_ref& result) {
+    unsigned work = 0;
+    std::function<bool(expr*, rational, rational, expr_ref&, unsigned)> slice =
+        [&](expr* e, rational off, rational size, expr_ref& out, unsigned depth) {
+        if (depth > 128 || ++work > 4096 || !m().inc())
+            return false;
+        rational total;
+        if (!off.is_int() || !size.is_int() || !get_ground_seq_length(e, total))
+            return false;
+        if (off.is_neg() || !size.is_pos() || off >= total) {
+            out = str().mk_empty(e->get_sort());
+            return true;
+        }
+        size = std::min(size, total - off);
+        if (off.is_zero() && size == total) {
+            out = e;
+            return true;
+        }
+        zstring text;
+        if (str().is_string(e, text)) {
+            out = str().mk_string(text.extract(off.get_unsigned(), size.get_unsigned()));
+            return true;
+        }
+        expr_ref_vector parts(m());
+        if (str().is_concat(e)) {
+            for (expr* arg : *to_app(e)) {
+                rational len;
+                if (!get_ground_seq_length(arg, len))
+                    return false;
+                if (off >= len) {
+                    off -= len;
+                    continue;
+                }
+                rational take = std::min(size, len - off);
+                expr_ref part(m());
+                if (!slice(arg, off, take, part, depth + 1))
+                    return false;
+                parts.push_back(part);
+                size -= take;
+                off = rational(0);
+                if (size.is_zero())
+                    break;
+            }
+        }
+        else {
+            expr* base = nullptr, *n = nullptr;
+            rational len;
+            if (!str().is_power(e, base, n) || !get_ground_seq_length(base, len) || !len.is_pos())
+                return false;
+            off = mod(off, len);
+            if (!off.is_zero()) {
+                rational take = std::min(size, len - off);
+                expr_ref part(m());
+                if (!slice(base, off, take, part, depth + 1))
+                    return false;
+                parts.push_back(part);
+                size -= take;
+            }
+            rational count = floor(size / len);
+            if (count.is_pos()) {
+                expr_ref exponent(m_autil.mk_int(count), m());
+                parts.push_back(count.is_one() ? base : str().mk_power(base, exponent));
+                size -= count * len;
+            }
+            if (size.is_pos()) {
+                expr_ref part(m());
+                if (!slice(base, rational(0), size, part, depth + 1))
+                    return false;
+                parts.push_back(part);
+            }
+        }
+        out = str().mk_concat(parts, e->get_sort());
+        return true;
+    };
+    return slice(s, offset, length, result, 0);
+}
+
+lbool seq_rewriter::compare_ground_seqs(expr* a, expr* b) {
+    rational len_a, len_b;
+    if (!get_ground_seq_length(a, len_a) || !get_ground_seq_length(b, len_b))
+        return l_undef;
+    if (len_a != len_b)
+        return l_false;
+    vector<std::pair<expr_ref, expr_ref>> todo;
+    todo.push_back({expr_ref(a, m()), expr_ref(b, m())});
+    for (unsigned work = 0; !todo.empty(); ++work) {
+        if (work == 4096 || !m().inc())
+            return l_undef;
+        auto [left, right] = todo.back();
+        todo.pop_back();
+        if (left == right)
+            continue;
+        zstring x, y;
+        if (str().is_string(left, x) && str().is_string(right, y)) {
+            if (x != y)
+                return l_false;
+            continue;
+        }
+        rational size;
+        if (!get_ground_seq_length(left, size))
+            return l_undef;
+        if (size.is_zero())
+            continue;
+        expr* base = nullptr, *exponent = nullptr;
+        auto literal_power = [&](expr* literal, expr* power, zstring& text, zstring& pattern) {
+            return str().is_string(literal, text) && str().is_power(power, base, exponent) &&
+                str().is_string(base, pattern) && !pattern.empty();
+        };
+        if (literal_power(left, right, x, y) || literal_power(right, left, x, y)) {
+            for (unsigned i = 0; i < x.length(); ++i) {
+                if (!m().inc())
+                    return l_undef;
+                if (x[i] != y[i % y.length()])
+                    return l_false;
+            }
+            continue;
+        }
+        expr_ref c(m()), d(m());
+        auto element = [&](expr* word, expr_ref& elem) {
+            expr* value = nullptr;
+            zstring text;
+            if (str().is_unit(word, value)) {
+                elem = value;
+                return true;
+            }
+            if (str().is_string(word, text) && text.length() == 1) {
+                elem = str().mk_char(text[0]);
+                return true;
+            }
+            return false;
+        };
+        if (size.is_one() && element(left, c) && element(right, d)) {
+            if (m().are_distinct(c, d))
+                return l_false;
+            if (c != d)
+                return l_undef;
+            continue;
+        }
+        expr* lb = nullptr, *ln = nullptr, *rb = nullptr, *rn = nullptr;
+        if (str().is_power(left, lb, ln) && str().is_power(right, rb, rn)) {
+            if (lb == rb)
+                continue;
+            rational ll, rl;
+            if (!get_ground_seq_length(lb, ll) || !get_ground_seq_length(rb, rl))
+                return l_undef;
+            if (ll == rl) {
+                todo.push_back({expr_ref(lb, m()), expr_ref(rb, m())});
+                continue;
+            }
+            // Equal prefixes of this length certify equality of both periodic words.
+            if (ll + rl < size) {
+                expr_ref l(m()), r(m());
+                if (!slice_ground_seq(left, rational(0), ll + rl, l) ||
+                    !slice_ground_seq(right, rational(0), ll + rl, r))
+                    return l_undef;
+                todo.push_back({l, r});
+                continue;
+            }
+        }
+        rational cut = size;
+        auto first = [&](expr* word) {
+            expr* base = nullptr, *n = nullptr;
+            if (str().is_power(word, base, n))
+                word = base;
+            else if (str().is_concat(word))
+                word = to_app(word)->get_arg(0);
+            rational len;
+            if (get_ground_seq_length(word, len) && len.is_pos())
+                cut = std::min(cut, len);
+        };
+        first(left);
+        first(right);
+        if (cut == size)
+            cut = rational(1);
+        expr_ref l(m()), r(m());
+        if (!slice_ground_seq(left, rational(0), cut, l) ||
+            !slice_ground_seq(right, rational(0), cut, r))
+            return l_undef;
+        if (cut == size && (l == left || r == right))
+            return l_undef;
+        if (cut < size) {
+            expr_ref ls(m()), rs(m());
+            if (!slice_ground_seq(left, cut, size - cut, ls) ||
+                !slice_ground_seq(right, cut, size - cut, rs))
+                return l_undef;
+            todo.push_back({ls, rs});
+        }
+        todo.push_back({l, r});
+    }
+    return l_true;
+}
+
+bool seq_rewriter::mk_seq_reverse(expr* s, expr_ref& result) {
+    vector<std::pair<expr*, bool>> todo;
+    expr_ref_vector parts(m());
+    unsigned_vector starts;
+    todo.push_back({s, false});
+    unsigned work = 0;
+    while (!todo.empty()) {
+        if (++work > (1u << 20) || parts.size() > (1u << 16) || !m().inc())
+            return false;
+        auto [e, end_power] = todo.back();
+        todo.pop_back();
+        expr* base = nullptr, *n = nullptr;
+        zstring text;
+        if (end_power) {
+            VERIFY(str().is_power(e, base, n));
+            unsigned start = starts.back();
+            expr_ref reversed_base(str().mk_concat(parts.size() - start, parts.data() + start,
+                                                   e->get_sort()), m());
+            expr_ref power(str().mk_power(reversed_base, n), m());
+            parts.shrink(start);
+            starts.pop_back();
+            parts.push_back(power);
             continue;
         }
         if (str().is_empty(e))
             continue;
-        elems.push_back(e);
-    }
-    zstring zs;
-    expr_ref_vector es(m());
-    for (expr* e : elems) {
         if (str().is_unit(e))
-            es.push_back(e);                  // a one-element sequence is its own reverse
-        else if (str().is_string(e, zs))
-            es.push_back(str().mk_string(zs.reverse()));
+            parts.push_back(e);
+        else if (str().is_string(e, text))
+            parts.push_back(str().mk_string(text.reverse()));
+        else if (str().is_power(e, base, n)) {
+            starts.push_back(parts.size());
+            todo.push_back({e, true});
+            todo.push_back({base, false});
+        }
+        else if (str().is_concat(e)) {
+            for (expr* arg : *to_app(e))
+                todo.push_back({arg, false});
+        }
         else
-            return false;                     // there is no sequence-level reverse operator,
-    }                                         // so a non-concrete element has no reverse here
-    result = str().mk_concat(es, s->get_sort());
+            return false;
+    }
+    result = str().mk_concat(parts, s->get_sort());
     return true;
 }
 
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
+    rational ground_length;
+    if (!m().is_value(a) && get_ground_seq_length(a, ground_length)) {
+        result = m_autil.mk_int(ground_length);
+        return BR_DONE;
+    }
     zstring b;
     rational r;
     m_es.reset();
@@ -946,6 +1215,8 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool constantBase = str().is_string(a, s);
     bool constantPos = m_autil.is_numeral(b, pos);
     bool constantLen = m_autil.is_numeral(c, len);
+    if (!m().is_value(a) && constantPos && constantLen && slice_ground_seq(a, pos, len, result))
+        return BR_REWRITE1;
     sort* a_sort = a->get_sort();
 
     sign sg;
@@ -1383,6 +1654,10 @@ bool seq_rewriter::reduce_by_char(expr_ref& r, expr* ch, unsigned depth) {
  * (str.at s i), constants s/i, i < 0 or i >= |s| ==> (str.at s i) = ""
  */
 br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
+    rational position;
+    if (!m().is_value(a) && m_autil.is_numeral(b, position) && position.is_int() &&
+        slice_ground_seq(a, position, rational(1), result))
+        return BR_REWRITE1;
     zstring c;
     rational r, offset_r, len_r;
     expr* offset, *a1, *len;
@@ -1516,6 +1791,22 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
     zstring c;
     rational r;
+    rational length;
+    if (!m().is_value(a) && m_autil.is_numeral(b, r) && r.is_int() &&
+        !r.is_neg() && get_ground_seq_length(a, length) && r < length) {
+        expr_ref unit(m());
+        expr* ch = nullptr;
+        if (slice_ground_seq(a, r, rational(1), unit)) {
+            if (str().is_unit(unit, ch)) {
+                result = ch;
+                return BR_DONE;
+            }
+            if (str().is_string(unit, c) && c.length() == 1) {
+                result = str().mk_char(c[0]);
+                return BR_DONE;
+            }
+        }
+    }
     if (!m_autil.is_numeral(b, r) || !r.is_unsigned()) {
         return BR_FAILED;
     }
@@ -3447,6 +3738,14 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     STRACE(seq_verbose, tout << "mk_str_in_regexp: " << mk_pp(a, m())
                                << ", " << mk_pp(b, m()) << std::endl;);
 
+    if (!m().is_value(a) && re().is_ground(b)) {
+        seq::regex_witness witness(*this);
+        lbool accepted = witness.accepts(a, b);
+        if (accepted != l_undef) {
+            result = m().mk_bool_val(accepted == l_true);
+            return BR_DONE;
+        }
+    }
     if (re().is_empty(b)) {
         result = m().mk_false();
         return BR_DONE;
@@ -4676,6 +4975,13 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     expr_ref_pair_vector new_eqs(m());
     if (m_util.is_re(l)) {
         return reduce_re_eq(l, r, result);
+    }
+    if (m_util.is_seq(l) && (!m().is_value(l) || !m().is_value(r))) {
+        lbool equal = compare_ground_seqs(l, r);
+        if (equal != l_undef) {
+            result = m().mk_bool_val(equal == l_true);
+            return BR_DONE;
+        }
     }
     bool changed = false;
     if (reduce_eq_empty(l, r, result)) 

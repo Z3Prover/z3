@@ -129,6 +129,205 @@ namespace seq {
         return search(r, &witness);
     }
 
+    lbool regex_witness::accepts(expr* word, expr* r) {
+        unsigned work = 0;
+        return accepts(word, r, 0, work);
+    }
+
+    lbool regex_witness::accepts(expr* word, expr* r, unsigned depth, unsigned& work) {
+        if (depth > 128 || ++work > 4096 || !m.inc())
+            return l_undef;
+        rational length;
+        if (!m_rw.get_ground_seq_length(word, length))
+            return l_undef;
+        if (re().is_empty(r))
+            return l_false;
+        if (re().is_full_seq(r))
+            return l_true;
+        if (length.is_zero())
+            return nullable(r);
+        expr* a = nullptr, *b = nullptr;
+        if (re().is_to_re(r, a))
+            return m_rw.compare_ground_seqs(word, a);
+        if (re().is_complement(r, a))
+            return ~accepts(word, a, depth + 1, work);
+        if (re().is_union(r) || re().is_intersection(r)) {
+            bool conjunction = re().is_intersection(r);
+            lbool result = conjunction ? l_true : l_false;
+            for (expr* arg : *to_app(r)) {
+                lbool value = accepts(word, arg, depth + 1, work);
+                if (value == (conjunction ? l_false : l_true))
+                    return value;
+                if (value == l_undef)
+                    result = l_undef;
+            }
+            return result;
+        }
+        if (re().is_full_char(r))
+            return length.is_one() ? l_true : l_false;
+
+        unsigned lo = 0, hi = UINT_MAX;
+        bool bounded = re().is_loop(r, a, lo, hi);
+        bool repetition = bounded;
+        if (!repetition && re().is_loop(r, a, lo))
+            repetition = true;
+        if (re().is_star(r, a) || re().is_plus(r, a)) {
+            lo = re().is_plus(r) ? 1 : 0;
+            hi = UINT_MAX;
+            bounded = false;
+            repetition = true;
+        }
+        if (repetition) {
+            if (re().is_full_char(a))
+                return length >= rational(lo) && (!bounded || length <= rational(hi)) ? l_true : l_false;
+            expr* base = nullptr, *exponent = nullptr;
+            rational count;
+            arith_util arith(m);
+            if (u().str.is_power(word, base, exponent) && arith.is_numeral(exponent, count) &&
+                count >= rational(lo) && (!bounded || count <= rational(hi)) &&
+                accepts(base, a, depth + 1, work) == l_true)
+                return l_true;
+        }
+        if (re().is_concat(r)) {
+            app* cat = to_app(r);
+            a = cat->get_arg(0);
+            expr_ref rest(cat->get_arg(cat->get_num_args() - 1), m);
+            for (unsigned i = cat->get_num_args() - 1; i-- > 1;)
+                rest = re().mk_concat(cat->get_arg(i), rest);
+            rational cuts[3] = { rational(re().min_length(a)),
+                                 length - rational(re().min_length(rest)), length };
+            expr* first = word;
+            if (u().str.is_concat(word))
+                first = to_app(word)->get_arg(0);
+            m_rw.get_ground_seq_length(first, cuts[2]);
+            for (auto const& cut : cuts) {
+                if (cut.is_neg() || cut > length)
+                    continue;
+                expr_ref left(m), right(m);
+                if (!m_rw.slice_ground_seq(word, rational(0), cut, left) ||
+                    !m_rw.slice_ground_seq(word, cut, length - cut, right))
+                    continue;
+                if (accepts(left, a, depth + 1, work) == l_true &&
+                    accepts(right, rest, depth + 1, work) == l_true)
+                    return l_true;
+            }
+        }
+
+        // Bounded concrete fallback; large powers must not be unrolled here.
+        if (length > rational(4096 - std::min(work, 4096u)))
+            return l_undef;
+        expr_ref state(r, m);
+        for (unsigned i = 0; i < length.get_unsigned(); ++i) {
+            if (++work > 4096 || !m.inc())
+                return l_undef;
+            expr_ref piece(m);
+            expr* element = nullptr;
+            zstring text;
+            if (!m_rw.slice_ground_seq(word, rational(i), rational(1), piece))
+                return l_undef;
+            if (u().str.is_string(piece, text) && text.length() == 1)
+                element = u().str.mk_char(text[0]);
+            else if (!u().str.is_unit(piece, element))
+                return l_undef;
+            state = m_rw.mk_derivative(element, state);
+            if (re().is_empty(state))
+                return l_false;
+        }
+        return nullable(state);
+    }
+
+    lbool regex_witness::get_compact_witness(expr* r, expr_ref& word) {
+        unsigned work = 0;
+        return compact_witness(r, word, 0, work);
+    }
+
+    lbool regex_witness::compact_witness(expr* r, expr_ref& word, unsigned depth, unsigned& work) {
+        if (depth > 128 || ++work > 4096 || !m.inc())
+            return l_undef;
+        sort* seq_sort = nullptr;
+        if (!u().is_re(r, seq_sort))
+            return l_undef;
+        if (nullable(r) == l_true) {
+            word = u().str.mk_empty(seq_sort);
+            return l_true;
+        }
+        expr* a = nullptr;
+        if (re().is_empty(r))
+            return l_false;
+        if (re().is_to_re(r, a)) {
+            rational length;
+            if (!m_rw.get_ground_seq_length(a, length))
+                return l_undef;
+            word = a;
+            return l_true;
+        }
+        if (re().is_concat(r)) {
+            word = u().str.mk_empty(seq_sort);
+            for (expr* arg : *to_app(r)) {
+                expr_ref part(m);
+                lbool result = compact_witness(arg, part, depth + 1, work);
+                if (result != l_true)
+                    return result;
+                if (u().str.is_empty(word))
+                    word = part;
+                else if (!u().str.is_empty(part))
+                    word = u().str.mk_concat(word, part);
+            }
+            return l_true;
+        }
+        if (re().is_union(r) || re().is_intersection(r)) {
+            bool intersection = re().is_intersection(r);
+            bool unknown = false;
+            expr_ref shortest(m);
+            rational shortest_length;
+            for (expr* arg : *to_app(r)) {
+                expr_ref candidate(m);
+                lbool result = compact_witness(arg, candidate, depth + 1, work);
+                if (result == l_false && intersection)
+                    return l_false;
+                if (result == l_true) {
+                    if (intersection && accepts(candidate, r, depth + 1, work) == l_true) {
+                        word = candidate;
+                        return l_true;
+                    }
+                    rational length;
+                    if (!intersection && m_rw.get_ground_seq_length(candidate, length) &&
+                        (!shortest || length < shortest_length)) {
+                        shortest = candidate;
+                        shortest_length = length;
+                    }
+                }
+                unknown |= result != l_false;
+            }
+            if (shortest) {
+                word = shortest;
+                return l_true;
+            }
+            if (!unknown)
+                return l_false;
+        }
+        unsigned lo = 0, hi = 0;
+        bool bounded = re().is_loop(r, a, lo, hi);
+        bool loop = bounded || re().is_loop(r, a, lo);
+        if (bounded && lo > hi)
+            return l_false;
+        if (re().is_plus(r, a)) {
+            lo = 1;
+            loop = true;
+        }
+        if (loop) {
+            expr_ref base(m);
+            lbool result = compact_witness(a, base, depth + 1, work);
+            if (result != l_true)
+                return result;
+            arith_util arith(m);
+            expr_ref exponent(arith.mk_int(lo), m);
+            word = lo == 1 ? base.get() : u().str.mk_power(base, exponent);
+            return l_true;
+        }
+        return search(r, &word);
+    }
+
     lbool regex_witness::nonempty(expr* r) {
         return search(r, nullptr);
     }

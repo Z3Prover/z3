@@ -418,6 +418,10 @@ public:
      */
     bool mk_seq_reverse(expr* s, expr_ref& result);
 
+    bool get_ground_seq_length(expr* s, rational& length);
+    bool slice_ground_seq(expr* s, rational const& offset, rational const& length, expr_ref& result);
+    lbool compare_ground_seqs(expr* a, expr* b);
+
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
      */

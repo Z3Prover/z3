@@ -102,9 +102,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         params_ref rp;
         rp.set_bool("unfold_recursive_functions", true);
         m_rec_rw.updt_params(rp);
-        params_ref sp;
-        sp.set_uint("max_power_expansion", UINT_MAX);
-        m_seq_rw.updt_params(sp);
         updt_params(p);
         //add_unspecified_function_models(md);
     }
