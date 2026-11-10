@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
+      pull-requests: write
     outputs:
       admitted: ${{ steps.admit.outputs.admitted }}
     steps:
@@ -215,7 +215,7 @@ post-steps:
       name: nfv-evidence
       path: /tmp/gh-aw/sandbox/agent/logs/nfv
       if-no-files-found: warn
-source: microsoft/neuro-formal-verification/workflow@9eaeaad0ff9532c5b84f1a32192a43f22bf74f11
+source: microsoft/neuro-formal-verification/workflow@6c75d91346c50f9b23b119717ed81d6edfcdf174
 ---
 
 # NFV PR reviewer
