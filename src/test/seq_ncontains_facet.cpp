@@ -31,6 +31,16 @@ Author:
 
 namespace {
 
+    class counted_sub_solver : public seq::sub_solver {
+    public:
+        using seq::sub_solver::sub_solver;
+        unsigned m_num_pushes = 0;
+        void push() override {
+            ++m_num_pushes;
+            seq::sub_solver::push();
+        }
+    };
+
     struct fixture {
         ast_manager      m;
         seq_util         u;
@@ -39,7 +49,7 @@ namespace {
         trail_stack      trail;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
-        seq::sub_solver solver;
+        counted_sub_solver solver;
         seq_rewriter     rw;
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
         stx::facet_id    eq_id;
@@ -82,6 +92,53 @@ namespace {
             tree.set_max_search_depth(12);
         }
     };
+
+    static void tst_ncontains_unit_length_bound() {
+        fixture fx;
+        auto& sf = fx.root->facet_as<seq::solver_facet>(fx.arith_id);
+        auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+        expr_ref c(fx.m.mk_fresh_const("c", fx.u.mk_char_sort()), fx.m);
+        expr_ref d(fx.m.mk_fresh_const("d", fx.u.mk_char_sort()), fx.m);
+        expr_ref tail(fx.m.mk_fresh_const("tail", fx.s), fx.m);
+        expr_ref uc(fx.u.str.mk_unit(c), fx.m);
+        expr_ref ud(fx.u.str.mk_unit(d), fx.m);
+        expr_ref prefix(fx.u.str.mk_concat(ud, tail), fx.m);
+        expr_ref h(fx.u.str.mk_concat(prefix, ud), fx.m);
+        expr_ref fixed_needle(fx.u.str.mk_concat(uc, uc), fx.m);
+        expr_ref needle(fx.m.mk_fresh_const("needle", fx.s), fx.m);
+        expr_ref lh(fx.u.str.mk_length(h), fx.m);
+        expr_ref ln(fx.u.str.mk_length(needle), fx.m);
+        seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+
+        fx.trail.push_scope();
+        nf.add_ncontains(h, fixed_needle);
+        unsigned pushes = fx.solver.m_num_pushes;
+        ENSURE(propagation.propagate(*fx.root) != stx::simplify_result::conflict);
+        ENSURE(fx.solver.m_num_pushes == pushes);
+        ENSURE(!nf.is_satisfied());
+        fx.trail.pop_scope(1);
+        ENSURE(nf.is_satisfied());
+
+        fx.trail.push_scope();
+        nf.add_ncontains(h, needle);
+        sf.add_constraint(fx.m.mk_eq(lh, fx.a.mk_int(2)));
+        sf.add_constraint(fx.m.mk_eq(ln, fx.a.mk_int(3)));
+        pushes = fx.solver.m_num_pushes;
+        ENSURE(propagation.propagate(*fx.root) != stx::simplify_result::conflict);
+        ENSURE(fx.solver.m_num_pushes == pushes + 1);
+        ENSURE(nf.is_satisfied());
+        fx.trail.pop_scope(1);
+
+        fx.trail.push_scope();
+        nf.add_ncontains(prefix, fixed_needle);
+        sf.add_constraint(fx.m.mk_eq(fx.u.str.mk_length(tail), fx.a.mk_int(0)));
+        pushes = fx.solver.m_num_pushes;
+        ENSURE(propagation.propagate(*fx.root) != stx::simplify_result::conflict);
+        ENSURE(fx.solver.m_num_pushes == pushes + 1);
+        ENSURE(nf.is_satisfied());
+        fx.trail.pop_scope(1);
+        ENSURE(fx.solver.get_scope_level() == 0);
+    }
 
     // `len(h) < len(n)` is asserted directly: `not contains("a","ab")`
     // must be vacuously satisfied by the length-gate propagation alone
@@ -343,6 +400,7 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_unit_length_bound();
     tst_ncontains_length_gate_discharges();
     tst_ncontains_empty_needle_conflict();
     tst_ncontains_ground_no_occurrence_sat();

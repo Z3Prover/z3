@@ -305,6 +305,23 @@ namespace seq {
                 continue;
             }
 
+            // Units give a lower haystack bound and an exact all-unit needle length.
+            if (all_of(nc.m_needle, [&](expr* token) {
+                    expr* character = nullptr;
+                    return u.str.is_unit(token, character);
+                })) {
+                unsigned lower = 0;
+                for (expr* token : nc.m_haystack) {
+                    expr* character = nullptr;
+                    if (u.str.is_unit(token, character))
+                        ++lower;
+                }
+                if (lower >= n_size) {
+                    ++head;
+                    continue;
+                }
+            }
+
             // Length gate: after the cheap token scan above, ask whether
             // `len(h) < len(n)` is already implied. Token counts are not a
             // sound proxy here because variable tokens may denote strings of
