@@ -842,6 +842,10 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
         with untrimmed_log():  # the lemmas of the full refutation
             certificate, text = self.check(source)
         graph = proof_to_lean._validate_graph(source, certificate)
+        # The generalized branch ends in its closing tactic. The unfolded
+        # fallback after it opens with the folded ite gates when the lemma has
+        # integral ones (stated, then reverted before the unfold), else with the unfold.
+        fallback = r"\n       %s\)\n    \| \((unfold |have _g\d+_\d+ : )"
         widest, shapes = 0, set()
         for node, raw in enumerate(certificate["nodes"]):
             declaration = certificate["declarations"][raw["declaration"]]
@@ -860,14 +864,14 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     # farkas and bound with coefficients: the combination was
                     # re-derived over the atoms, so no bounds and omega.
                     self.assertNotIn("have _m", block)
-                    self.assertIn("\n       omega)\n    | (unfold ", block)
+                    self.assertRegex(block, fallback % "omega")
                     widest = max(widest, len(mods))
                     shapes.add(declaration["parameters"][0])
                 else:
                     # cut (and a coefficient-free Int farkas or bound): shape-checked
                     # only, so the bounds Z3 omitted stay, and grind with two million heartbeats.
                     self.assertEqual(block.count("have _m"), 2 * len(mods))
-                    self.assertIn("\n       grind (splits := 64))\n    | (unfold ", block)
+                    self.assertRegex(block, fallback % re.escape("grind (splits := 64)"))
                     self.assertIn("set_option maxHeartbeats 2000000 in\nprivate theorem th_lemma_%d " % node, text)
                     shapes.add(declaration["parameters"][0])
         self.assertGreaterEqual(widest, 14)
