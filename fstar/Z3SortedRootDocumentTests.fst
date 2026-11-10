@@ -897,6 +897,33 @@ let integer_constant_product_certified ()
   assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_constant_product_document false)) == RD.RootCertified);
   assert_norm (RD.check_root_document PT.core_schema (integer_constant_product_document true) == RD.RootPending 1)
 
+let integer_product_equality_document (wrong_factor:bool) : P.document =
+  let x = const "equality_x" integer in
+  let y = const "equality_y" integer in
+  let z = const "equality_z" integer in
+  let two = App (TR.int_numeral 2) [] in
+  let lower = SP.int_ge x two in
+  let upper = SP.int_le x two in
+  let product = App (TR.times_decl integer) [if wrong_factor then z else x; y] in
+  let equation = R.mk_eq_expr product (App (TR.times_decl integer) [two; y]) in
+  let negative = R.mk_not_expr equation in
+  doc [lower; upper; negative]
+    [entry U.Asserted lower []; entry U.Asserted upper []; entry U.Asserted negative [];
+     entry (U.Unverified "arith/lp-monomial-substitute") equation [0; 1];
+     entry U.UnitResolution R.false_expr [3; 2]] 4
+
+let integer_product_equality_certified ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_product_equality_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_product_equality_document true) == RD.RootPending 1 /\
+           SP.check_document_epsilon PT.core_schema
+             { (integer_product_equality_document false) with P.assertions = [] } == None) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_document true) == RD.RootPending 1);
+  assert_norm (SP.check_document_epsilon PT.core_schema
+    { (integer_product_equality_document false) with P.assertions = [] } == None)
+
 let integer_unit_document (bound:int) (premises:list int) : P.document =
   let term = App (TR.times_decl integer) [one; x_int] in
   let strict = App (TR.lt_decl integer) [term; zero] in

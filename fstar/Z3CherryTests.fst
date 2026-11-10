@@ -591,6 +591,31 @@ let integer_constant_product_controls () : bool =
   (match check 2 3 false with | Some (_, n) -> n = 1 | None -> false) &&
   (match check 2 2 true with | Some (_, n) -> n = 1 | None -> false)
 
+let integer_product_equality_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "equality_x" in
+  let y = constant "equality_y" in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let check n coefficient reversed missing observational =
+    let k = Z3SortedProof.int_constant n in
+    let lower = Z3SortedProof.int_ge x k in
+    let facts = if missing then [lower] else [lower; Z3SortedProof.int_le x k] in
+    let product = if reversed then mul y x else mul x y in
+    let value = if coefficient = 1 then y else mul (Z3SortedProof.int_constant coefficient) y in
+    let conclusion = if observational then U.Observational product value else U.Equal product value in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-substitute"; U.conclusion = conclusion;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  L.for_all (fun n -> L.for_all (fun reversed -> L.for_all (fun observational ->
+    match check n n reversed false observational with
+    | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+    | None -> false) [false; true]) [false; true]) [0; 1; -1; 2] &&
+  (match check 2 3 false false false with | Some (_, count) -> count = 1 | None -> false) &&
+  (match check 2 2 false true false with | Some (_, count) -> count = 1 | None -> false)
+
 let integer_product_controls () : bool =
   let sort = Z3LinearArithmeticAst.int_s in
   let constant name = A.App { A.decl_name = name; domain = []; range = sort;
@@ -1541,6 +1566,7 @@ let run () : bool =
   integer_product_clause_controls () &&
   integer_zero_product_controls () &&
   integer_constant_product_controls () &&
+  integer_product_equality_controls () &&
   integer_product_controls () &&
   real_product_controls () &&
   real_constant_product_controls () &&

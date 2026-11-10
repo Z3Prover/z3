@@ -2618,8 +2618,68 @@ let lemma_integer_product_check (#base:sort -> Type0) (s:S.checked_schema) (bc:S
     let p, n, left = Some?.v (constant_int_product_witness facts) in
     lemma_constant_int_product s bc eq other facts p n left
 
+let integer_product_equality (facts:list expr) (conclusion:expr) : bool =
+  if L.length facts > 29 then false
+  else match int_equation conclusion with
+  | Some (x, y) ->
+    if None? (arguments_budget 4096 (x :: y :: facts)) then false
+    else get_sort x = LA.int_s && get_sort y = LA.int_s && D.scoped [] x && D.scoped [] y &&
+         integer_product_check (R.mk_not_expr (int_le x y) :: facts) &&
+         integer_product_check (R.mk_not_expr (int_ge x y) :: facts)
+  | None -> false
+
+let lemma_product_complement_scope (c:expr)
+  : Lemma (requires D.scoped [] c /\ get_sort c == bool_sort)
+          (ensures D.scoped [] (R.mk_not_expr c)) =
+  assert_norm (R.not_decl.domain == [bool_sort]);
+  assert (sorts_match [c] R.not_decl.domain);
+  assert (D.scoped_args [] [c])
+
+let lemma_integer_product_unit (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (c:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] c /\ get_sort c == bool_sort /\
+                    integer_product_check (R.mk_not_expr c :: facts))
+          (ensures T.truth s bc eq other c) =
+  lemma_product_complement_scope c;
+  if not (T.truth s bc eq other c) then (
+    T.lemma_negation s bc eq other R.not_decl c;
+    lemma_integer_product_check s bc eq other (R.mk_not_expr c :: facts))
+
+let lemma_product_equality_bounds (x y:expr)
+  : Lemma (requires D.scoped [] x /\ D.scoped [] y /\ get_sort x == LA.int_s /\ get_sort y == LA.int_s)
+          (ensures D.scoped [] (int_le x y) /\ get_sort (int_le x y) == bool_sort /\
+                   D.scoped [] (int_ge x y) /\ get_sort (int_ge x y) == bool_sort /\
+                   LA.comparison (int_le x y) == Some (LA.Le, x, y) /\
+                   LA.comparison (int_ge x y) == Some (LA.Ge, x, y)) =
+  assert (LA.application
+    { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
+    [x; y] bool_sort "<=" Z3ValueTheory.op_arith_le);
+  assert (LA.application
+    { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
+      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
+    [x; y] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+
+let lemma_integer_product_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                   (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                   (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    integer_product_equality facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let x, y = Some?.v (int_equation conclusion) in
+  let le = int_le x y in
+  let ge = int_ge x y in
+  lemma_equation s bc eq other conclusion x y;
+  lemma_product_equality_bounds x y;
+  lemma_integer_product_unit s bc eq other facts le;
+  lemma_integer_product_unit s bc eq other facts ge;
+  assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
+  lemma_order_equation s bc eq other [le; ge] conclusion
+
 let integer_product_clause (facts:list expr) (conclusion:expr) : bool =
-  if conclusion = R.false_expr then false
+  if integer_product_equality facts conclusion then true
+  else if conclusion = R.false_expr then false
   else if None? (expression_budget 4096 conclusion) then false
   else
     let complements = L.map R.mk_not_expr (DT.literals conclusion) in
@@ -2644,7 +2704,9 @@ let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:
   : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ integer_product_clause facts conclusion)
           (ensures T.truth s bc eq other conclusion) =
-  if not (T.truth s bc eq other conclusion) then (
+  if integer_product_equality facts conclusion then
+    lemma_integer_product_equality s bc eq other facts conclusion
+  else if not (T.truth s bc eq other conclusion) then (
     DT.lemma_literals s bc eq other conclusion;
     lemma_clause_complements s bc eq other (DT.literals conclusion);
     DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (DT.literals conclusion));

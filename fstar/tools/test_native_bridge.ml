@@ -3299,6 +3299,33 @@ let sorted_integer_constant_products () =
     "(declare-const x Real)(declare-const y Real)"
     "(assert (<= x 2.0))(assert (>= x 2.0))" "(<= (* x y) (* 2.0 y))"
 
+let sorted_integer_product_equalities () =
+  let check = check_sorted_product_clause in
+  let rule = U.Unverified "arith/lp-monomial-substitute" in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  List.iter (fun k ->
+    let scaled = if k = "1" then "y" else "(* " ^ k ^ " y)" in
+    check true rule header (fixed k) ("(= (* x y) " ^ scaled ^ ")");
+    check true rule header (fixed k) ("(= " ^ scaled ^ " (* y x))"))
+    ["0"; "1"; "(- 1)"; "2"];
+  check true (U.Unverified "th-lemma") header (fixed "2") "(= (* x y) (* 2 y))";
+  check true (U.ArithmeticFarkas []) header (fixed "2") "(= (* x y) (* 2 y))";
+  check false U.LemmaRule header (fixed "2") "(= (* x y) (* 2 y))";
+  check false rule header "(assert (>= x 2))" "(= (* x y) (* 2 y))";
+  check false rule header "(assert (<= x 2))" "(= (* x y) (* 2 y))";
+  check false rule header (fixed "2") "(= (* x y) (* 3 y))";
+  check false rule header (fixed "2") "(= (* z y) (* 2 y))";
+  check false rule header "(assert (>= x 0))(assert (>= y 0))" "(= (* x y) 0)";
+  check false rule header "(assert (<= x 0))(assert (>= y 0))" "(= (* x y) 0)";
+  check false rule (header ^ "(declare-fun fake_mul (Int Int) Int)") (fixed "2")
+    "(= (fake_mul x y) (* 2 y))";
+  let c = context () in
+  let native = parse c "(declare-const x Real)(assert (= x x))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  require (not (Z3SortedProof.integer_product_equality [] (B.cached_expression st (List.hd native))))
+    "Real equality unexpectedly passed the Int product-equality kernel"
+
 let sorted_real_constant_products () =
   let check = check_sorted_product_clause in
   let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
@@ -8589,6 +8616,7 @@ let () =
      "sorted-integer-product-clauses", sorted_integer_product_clauses;
      "sorted-integer-zero-products", sorted_integer_zero_products;
      "sorted-integer-constant-products", sorted_integer_constant_products;
+     "sorted-integer-product-equalities", sorted_integer_product_equalities;
      "sorted-real-product-clauses", sorted_real_product_clauses;
      "sorted-real-constant-products", sorted_real_constant_products;
      "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
