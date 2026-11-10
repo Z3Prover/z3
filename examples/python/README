@@ -894,6 +894,12 @@ commutativity of extensionality witnesses), and it is proved by
 grind (splits := 64) alone, without omega. A lemma that reaches term-level
 ites is proved with them folded (only the definitions outside them are
 unfolded), without the fully unfolded proof as a fallback under first.
+A th-lemma with hint array (since 2026-11-10) is one array axiom instance
+over the terms of its literals (Z3's array solver internalizes no ite), so
+it gets no ite gates either and keeps its ites folded; it states the array
+facts of the nodes outside the ites only, and keeps its tactic. The
+exception is the ite a select-map axiom over a map of ite equates the read
+with, which is unfolded to meet the map's Lean ite.
 A cut, an arith axiom, or a farkas or bound without coefficients (see the
 clause-log section), reaches Lean with its literal shapes checked only; a
 false one fails there and no proof is published. Coefficients that are present are

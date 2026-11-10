@@ -2980,6 +2980,30 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     # not catch that). (_opaque_tactic gives an euf lemma no opaque-atom
     # attempt either: generalizing applications would hide the congruences.)
     congruence = prefix == "th_lemma" and graph.decl(node).parameters[:1] == ("euf",)
+    # An array lemma is one instance of an array axiom, built over the terms
+    # of its literals (array::solver::assert_select_store_axiom reads the
+    # store it is given, never an ite whose branch the egraph equated with
+    # it), and the array solver internalizes no ite. So it gets no ite gates
+    # either and keeps its ite terms folded; its facts are those of the
+    # nodes outside the ites (facts about a term only an ite reaches cannot
+    # meet the folded goal), without the rewriter's reads through ites of
+    # arrays (_array_helpers ite_leaves). Its tactic is unchanged. Over
+    # z3test's dlx-regfile, 50 array lemmas carried about 128 gates and 37
+    # read facts each and unfolded about 60 ites; the file's theory lemmas
+    # without its cnf lemma took 208 s and 4.9 GB of Lean, 25 s and 2.2 GB now.
+    # The one ite such a lemma looks into is its own: the select-map axiom
+    # over a map of ite equates the read with the ite of the reads
+    # (_map_read_values), which is unfolded to meet the map's Lean ite.
+    instance = prefix == "th_lemma" and graph.decl(node).parameters[:1] == ("array",)
+    ites = ({term for term in reachable if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+            if congruence or instance else set())
+    if instance:
+        ites -= _map_read_values(graph, conclusion)
+    scope = reachable
+    if instance and ites:
+        scope = set()
+        for formula in conclusions:
+            scope |= _reachable_outside(graph, formula, ites)
     atoms = _opaque_int_atoms(graph, conclusions) if opaque_tactic else []
     budget = _LATTICE_LEMMA_HEARTBEATS if atoms and _lattice_step(graph, node) else 1000000
     lines = [
@@ -3015,8 +3039,8 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = inside
     else:
         remaining = reachable
-    gates, gate_names, gate_nodes = (_folded_ite_gates(graph, reachable) if graph.arithmetic and not congruence
-                                     else ([], [], set()))
+    gates, gate_names, gate_nodes = (_folded_ite_gates(graph, reachable)
+                                     if graph.arithmetic and not (congruence or instance) else ([], [], set()))
     # Without arrays the excluded-middle facts of Boolean arguments and the
     # cast facts are stated folded too (_folded_boolean_arguments,
     # _cast_facts), and reverted with the gates. With arrays the array facts
@@ -3025,12 +3049,12 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     if fold and graph.uninterpreted:
         lines_b, names_b, nodes_b = _folded_boolean_arguments(graph, reachable)
         gates, gate_names, gate_nodes = gates + lines_b, gate_names + names_b, gate_nodes | nodes_b
-    lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, reachable, atom_indices, variable_indices, node,
+    lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, scope, atom_indices, variable_indices, node,
                                                         folded=fold)
     gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
     if graph.arrays:
-        lines_a, names_a, nodes_a, array_facts = _array_helpers(graph, reachable, atom_indices, variable_indices,
-                                                                congruence)
+        lines_a, names_a, nodes_a, array_facts = _array_helpers(graph, scope, atom_indices, variable_indices,
+                                                                congruence, ite_leaves=instance)
         gates, gate_names, gate_nodes = gates + lines_a, gate_names + names_a, gate_nodes | nodes_a
     else:
         array_facts = []
@@ -3049,36 +3073,33 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     fallback = []
     if gates:
         fallback.append("intro " + " ".join(gate_names))
-    distinct_facts, distinct_names = _boolean_distinct_facts(graph, reachable, atom_indices, variable_indices)
+    distinct_facts, distinct_names = _boolean_distinct_facts(graph, scope, atom_indices, variable_indices)
     fallback.extend(distinct_facts)
-    fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices,
+    fallback.extend(helper.strip() for helper in _theory_helpers(graph, scope, atom_indices, variable_indices,
                                                                   folded_arguments=fold, array_facts=array_facts))
     if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
     fallback.extend(cast_facts)
-    if congruence:
-        # grind alone: congruence closure is its business, not omega's.
-        fallback.append(_without_boolean_distincts(distinct_names, _CONGRUENCE_TACTIC))
-        ites = {term for term in reachable if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
-        if ites:
-            # The ites stay folded, as leaves of the congruence: only the
-            # definitions outside them are unfolded, in the goal and in the
-            # reverted facts (those that mention an ite keep it folded, as
-            # the goal does). There is no unfolded fallback: with the
-            # unfolded proof as a fallback under first, the lemma's text
-            # doubled (register_file_instance(8): 0.71 MB of euf lemmas
-            # against 1.55 MB), the fallback was never taken in the test
-            # suite, and a folded attempt that spent the heartbeats before
-            # failing would have left the fallback none (maxHeartbeats is
-            # per declaration).
-            outside, folded_roots = set(), sorted(gate_nodes - ites)
-            for formula in conclusions + folded_roots:
-                outside |= _reachable_outside(graph, formula, ites)
-            names = _definition_names(graph, outside, folded_roots)
-            unfold = ["unfold " + " ".join(names)] if names else []
-    else:
-        fallback.append(_without_boolean_distincts(distinct_names, _theory_tactic(graph)))
+    # grind alone for an euf lemma: congruence closure is its business, not
+    # omega's.
+    fallback.append(_without_boolean_distincts(distinct_names,
+                                               _CONGRUENCE_TACTIC if congruence else _theory_tactic(graph)))
+    if ites:
+        # The ites stay folded, as leaves of the congruence or of the axiom
+        # instance: only the definitions outside them are unfolded, in the
+        # goal and in the reverted facts (those that mention an ite keep it
+        # folded, as the goal does). There is no unfolded fallback: with
+        # the unfolded proof as a fallback under first, an euf lemma's text
+        # doubled (register_file_instance(8): 0.71 MB of euf lemmas against
+        # 1.55 MB), the fallback was never taken in the test suite, and a
+        # folded attempt that spent the heartbeats before failing would
+        # have left the fallback none (maxHeartbeats is per declaration).
+        outside, folded_roots = set(), sorted(gate_nodes - ites)
+        for formula in conclusions + folded_roots:
+            outside |= _reachable_outside(graph, formula, ites)
+        names = _definition_names(graph, outside, folded_roots)
+        unfold = ["unfold " + " ".join(names)] if names else []
     # The store-identity alternative below keeps the full unfold: its simp
     # (_ARRAY_REWRITE_TACTIC, ite_self, _const_store_self) cannot rewrite
     # inside a folded ite definition.
@@ -3115,6 +3136,25 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         lines.extend("    | (" + "\n       ".join(alternative) + ")" for alternative in alternatives)
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
+
+
+def _map_read_values(graph, conclusion):
+    """The terms a clause's literals equate with a read of a map or set operator.
+
+    In an array lemma these are the select-map axiom's application of the
+    mapped function to the reads of the arguments ((select ((_ map ite) a
+    b c) i) and (ite (select a i) (select b i) (select c i))).
+    """
+    values = set()
+    for literal in graph.clause(conclusion):
+        atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
+        if graph.kind(atom) != z3.Z3_OP_EQ:
+            continue
+        sides = graph.arguments(atom)
+        for read, value in ((sides[0], sides[1]), (sides[1], sides[0])):
+            if graph.kind(read) == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(read)[0]) is not None:
+                values.add(value)
+    return values
 
 
 def _boolean_distinct(graph, node):
@@ -3786,7 +3826,7 @@ def _map_read_facts(graph, prefix, array, read, inline):
     return helpers
 
 
-def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=False):
+def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=False, ite_leaves=False):
     """Instantiate the array facts for the reads of stores and the extensionality witnesses a lemma reaches.
 
     Array terms, _select, and _store stay folded, so grind compares reads by
@@ -3814,7 +3854,10 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
     congruence closure may use are stated: the bodies of the folded array
     terms but ites (leaves to the egraph) and the commutativity of maps and
     of extensionality witnesses (its comm claims), not the array axioms'
-    instances.
+    instances. With ite_leaves (an array lemma whose ites stay folded), an
+    ite over arrays gets no body and a read of one no facts of its
+    branches' reads (_si, the rewriter's evaluation): the array solver
+    instantiates its axioms over the terms of the lemma's literals.
     """
     mentioned, current, reverted, plain = set(), set(), [], []
 
@@ -3832,7 +3875,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
         current.clear()
         kind = graph.kind(node)
         if graph.is_array(node) and (kind in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY)
-                                     or (kind == z3.Z3_OP_ITE and not congruence)
+                                     or (kind == z3.Z3_OP_ITE and not (congruence or ite_leaves))
                                      or _set_function(graph, node) is not None
                                      or (kind == z3.Z3_OP_UNINTERPRETED and graph.arguments(node))):
             # Array terms stay folded (_definition_names); each store, ite
@@ -3855,7 +3898,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             below = _skipped_to_map(graph, levels, read)
             if below is not None:
                 helpers.extend(_map_read_facts(graph, "_sm%d" % node, below, read, inline))
-        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_ITE:
+        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_ITE and not ite_leaves:
             # A read of an ite over arrays: Z3's rewriter pushes the read
             # into the branches ((select (ite c a b) i) is (ite c (select a
             # i) (select b i))) and evaluates the reads of stores and

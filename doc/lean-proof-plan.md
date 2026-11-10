@@ -1734,6 +1734,32 @@ form sat.smt's preprocessing rewriter gave it (114 ites). The rewriter
 merges nested ite conditions into disjunctions and pushes the `select`
 into the ites, so no level-by-level correspondence pairs the two terms.
 
+Update (2026-11-10, iteration 109): `array` th-lemmas keep their ites
+folded too. Lean's profiler on dlx-regfile's theory lemmas (without the
+`cnf` one) put about 150 of the 208 s in its 50 `array` lemmas: each
+carried about 128 ite gates and 37 read facts, unfolded about 60 ites, and
+went to `first | omega | grind`. An array lemma is one axiom instance over
+the terms of its literals: `array::solver::assert_select_store_axiom`
+builds it over the store it is given, and the array solver internalizes
+no ite (an ite of arrays meets a store only through the egraph, by the
+ite's tseitin gates). So an `array` lemma now gets no ite gates (nor the
+Real scaling facts of `_folded_ite_gates`), unfolds only the definitions
+outside its ites, and states the array facts of the nodes outside them,
+without the rewriter's reads through ites of arrays (`_si`). The one ite
+it unfolds is the select-map axiom's own over a map of ite, which equates
+the read with the ite of the reads (`_map_read_values`); folded, grind
+failed on `map_ite_symbolic`. The tactic is unchanged.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| dlx-regfile, theory lemmas without the `cnf` one | 208 s, 4.9 GB | 25 s, 2.2 GB |
+| dlx-regfile, `array` lemmas / file | 0.90 MB / 18.6 MB | 0.03 MB / 17.7 MB |
+| `register_file_instance(8)`, its 8 `array` lemmas | 64 gates, 40 read facts, 23,551 characters | 8 read facts, 3,951 characters |
+
+dlx-regfile still fails on its `cnf` lemma `th_lemma_1612`. Tests:
+`test_array_lemmas_keep_their_ites_folded` and
+`test_array_lemmas_over_ite_chains_verify` (`test_proof_to_lean_array.py`).
+
 ### Array facts stated over folded definitions (2026-11-10)
 
 A rescan of z3test's `smtlib-sample` QF_AUFLIA files found that

@@ -3138,7 +3138,8 @@ class TestArrayValidation(unittest.TestCase):
                 for lemma in text.split("\nset_option maxHeartbeats ")[1:]:
                     lines = [line.strip() for line in lemma.split("\n")]
                     node = re.search(r"private theorem th_lemma_(\d+) ", lemma)
-                    congruence = node is not None and graph.decl(int(node.group(1))).parameters[:1] == ("euf",)
+                    leaves = node is not None and graph.decl(int(node.group(1))).parameters[:1] in (("euf",),
+                                                                                                  ("array",))
                     facts = [line for line in lines if re.match(r"have _[tsg]\d+", line)]
                     for fact in facts:
                         self.assertLess(len(fact), 400, fact)
@@ -3157,17 +3158,18 @@ class TestArrayValidation(unittest.TestCase):
                     unfold = lines[lines.index(revert) + 1]
                     self.assertIn(name, revert.split())
                     self.assertTrue(unfold.startswith("unfold "), unfold)
-                    if congruence:
-                        # An euf lemma keeps the chain's ites folded (leaves
-                        # of the congruence, see _grind_lemma).
+                    if leaves:
+                        # An euf or array lemma keeps the chain's ites folded
+                        # (leaves of the congruence or of the axiom instance,
+                        # see _grind_lemma).
                         self.assertNotIn(chain[0], unfold.split())
                         folded += 1
                     else:
                         self.assertIn(chain[0], unfold.split())
                     self.assertEqual(lines[lines.index(revert) + 2].split()[1:], revert.split()[1:])
-                # Some euf lemmas state the store, and their facts are at the
-                # top of the proof: an unfolded fallback under first would
-                # put them in "| (" alternatives, unmatched here.
+                # Some euf and array lemmas state the store, and their facts
+                # are at the top of the proof: an unfolded fallback under
+                # first would put them in "| (" alternatives, unmatched here.
                 self.assertGreater(folded, 0)
                 self.assertGreater(stores, folded)
                 self.assertNotIn("sorry", text)
@@ -3213,10 +3215,66 @@ class TestArrayValidation(unittest.TestCase):
                 self.assertFalse(ites.intersection(unfold), lemma)
             if node in reaching:
                 self.assertEqual(len(unfolds), 1, lemma)
-        # The array lemmas still state their gates and read facts.
+        # The array lemmas state their read facts, but no gates
+        # (test_array_lemmas_keep_their_ites_folded).
         others = "".join(lemma for node, lemma in lemmas.items() if hints[int(node)] != "euf")
-        self.assertRegex(others, r"have _g\d+_0 ")
+        self.assertNotRegex(others, r"have _g\d+_0 ")
         self.assertRegex(others, r"have _s\d+ := _store_apply ")
+
+    def test_array_lemmas_keep_their_ites_folded(self):
+        """array lemmas get no ite gates and no reads through ites, and unfold no ite.
+
+        An array lemma is one array axiom instance over the terms of its
+        literals (Z3's array solver builds it over the store it is given and
+        internalizes no ite), so its ites stay folded as an euf lemma's do,
+        and it states only the facts of the nodes outside them. The 8 array
+        lemmas of register_file_instance(8), all reaching ites, carried 64
+        gates and 40 read facts (23,551 characters), now 8 read facts (3,951).
+        In z3test's QF_AUFLIA dlx-regfile, 50 array lemmas carried about 128
+        gates and 37 read facts each and unfolded about 60 ites; the file's
+        theory lemmas without its cnf lemma took 208 s and 4.9 GB of Lean,
+        25 s and 2.2 GB folded.
+        """
+        source = register_file_instance(8)
+        certificate = _export(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemmas = dict(re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S))
+        instances = [int(node) for node in lemmas if graph.decl(int(node)).parameters[:1] == ("array",)]
+        ites = {term for term in range(len(graph.nodes)) if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+        reaching = [node for node in instances
+                    if ites.intersection(proof_to_lean._reachable(graph, graph.conclusion(node))[0])]
+        self.assertGreaterEqual(len(reaching), 8)
+        names = {"term_%d" % term for term in ites}
+        for node in instances:
+            lemma = lemmas[str(node)]
+            self.assertNotRegex(lemma, r"have _(g|si)\d", lemma)
+            self.assertRegex(lemma, r"have _s\d+ := _store_apply ", lemma)
+            lines = [line.strip() for line in lemma.split("\n")]
+            self.assertNotIn("first", lines, lemma)
+            unfolds = [line.split()[1:] for line in lines if line.startswith("unfold ")]
+            self.assertEqual(len(unfolds), 1, lemma)
+            self.assertFalse(names.intersection(unfolds[0]), lemma)
+        self.assertLess(sum(len(lemmas[str(node)]) for node in instances), 8000)
+        # The exception: the select-map axiom over a map of ite equates the
+        # read with the ite of the reads, which is unfolded to meet the map's
+        # Lean ite (folded, grind failed on map_ite_symbolic).
+        source = ARRAY_INPUTS["map_ite_symbolic"]
+        certificate = _export(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        unfolded = 0
+        for node, lemma in re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S):
+            if graph.decl(int(node)).parameters[:1] != ("array",):
+                continue
+            values = proof_to_lean._map_read_values(graph, graph.conclusion(int(node)))
+            for value in values:
+                if graph.kind(value) == z3.Z3_OP_ITE:
+                    unfold = next(line.split() for line in lemma.split("\n") if line.strip().startswith("unfold "))
+                    self.assertIn("term_%d" % value, unfold, lemma)
+                    self.assertNotRegex(lemma, r"have _g\d", lemma)
+                    unfolded += 1
+        self.assertGreater(unfolded, 0)
 
     def test_sort_header_comments(self):
         """The header names the carriers once and claims no missing sort, with or without arrays."""
@@ -3691,6 +3749,24 @@ class TestArrayLeanIntegration(unittest.TestCase):
                     and any(graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE for term in reach)):
                 folded += 1
         self.assertGreater(folded, 50)
+
+    def test_array_lemmas_over_ite_chains_verify(self):
+        """The array lemmas of register_file_instance(8) verify with their ites folded and no gates.
+
+        See test_array_lemmas_keep_their_ites_folded: all 8 reach the ite
+        chains, and their folded proof is their only one.
+        """
+        source = register_file_instance(8)
+        certificate = _check_in_lean(self, source, "qf_uflia")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        folded = 0
+        for node, lemma in re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S):
+            reach = proof_to_lean._reachable(graph, graph.conclusion(int(node)))[0]
+            if (graph.decl(int(node)).parameters[:1] == ("array",) and "have _g" not in lemma
+                    and any(graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE for term in reach)):
+                folded += 1
+        self.assertGreaterEqual(folded, 8)
 
     def test_folded_chains_in_other_array_facts_verify(self):
         """Six-step chains as a constant array's value, a Bool element, and an ite's condition and index verify.
