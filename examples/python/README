@@ -758,10 +758,10 @@ equalities, under the condition and under its negation, stated the same way
 (scaled to integer coefficients when a branch has fractions) and proved with
 ite_eq_left and ite_eq_right; Z3's rewriter can push a comparison through an
 ite, in which case these are the only facts tying the ite to its branches.
-Without arrays both kinds of facts are stated over the term and formula
-definitions, proved with only the definitions down to the atoms of their
-linear forms unfolded, and unfolded together with the goal, so nested ites
-are never written out in them.
+Both kinds of facts are stated over the term and formula definitions,
+proved with only the definitions down to the atoms of their linear forms
+unfolded, and unfolded together with the goal, so nested ites are never
+written out in them; with arrays too (see the array facts below).
 
 A qf_lira certificate takes both valuations, (_vars : Nat -> Rat)
 (_ivars : Nat -> Int): a Real variable is _vars i and an Int one _ivars i
@@ -1104,7 +1104,18 @@ rewriter pushes into the branches, gets the facts of a read of each store
 or constant-array branch. Array terms stay
 folded in those lemmas (term_N, related to its store or ite by an rfl
 fact): written out, the shared store chains of the swap and storecomm
-benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
+benchmarks grow exponentially. The other nodes these facts mention (an
+index, a stored value, a constant array's value, an ite's condition) are
+named by their definitions too, term_N or formula_N, unless they are
+variables, constants, or numerals: written out, a shared ite DAG below an
+index or a stored value grows exponentially as well (z3test's QF_AUFLIA
+dlx-regfile). A node's facts that mention such a definition are reverted
+with the ite gates before the lemma's unfold and introduced after it, so
+the unfold rewrites them as it rewrites the goal; since the unfold does not
+enter array terms, the nodes they mention are also roots of the unfold (an
+index or a stored value may occur in the goal only inside a store). Facts
+over variables, constants, and numerals alone are stated after the unfold.
+A lemma over stores (Z3's rewriter turns
 (store (store a i v) i w) into (store a i w) and (store a i (select a i))
 into a, and a cnf step over a predicate of such a store relies on it) may
 also use _store_store and _store_select, and next to constant arrays

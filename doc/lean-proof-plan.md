@@ -1672,6 +1672,58 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Array facts stated over folded definitions (2026-11-10)
+
+A rescan of z3test's `smtlib-sample` QF_AUFLIA files found that
+`cvc/dlx-regfile` (z3 answers unsat in 0.04 s, export 7 s) never finished
+reconstructing: after five minutes the reconstructor was still rendering
+the facts of nine theory lemmas. The register file is read through shared
+nested ites, and the array facts of `_array_helpers` (`_t` store bodies,
+`_s` reads of stores, `_x`, `_d`, map facts) and, with arrays, the ite
+gates were written out, with every definition expanded down to the
+leaves. Text for a shared ite DAG grows exponentially with its depth.
+
+Now the array facts name the definitions of the nodes they mention
+(`_store_apply ((term_a ..)) (term_i ..) (term_v ..) (_vars 3)`), and the
+ite gates and scaling facts of `_folded_ite_gates` are stated folded with
+arrays too. `_grind_lemma` reverts them before its fallback's `unfold` and
+introduces them after it, as it already did without arrays. Array terms,
+constants, variables, and numerals are written as before. A node's facts
+that mention nothing else are stated after the unfold as before, not
+reverted. Reverting them anyway (the many facts of storecomm's stores
+over variables) took Lean from 118 s and 5.6 GB to 155 s and 7.9 GB on
+`storecomm_t3_pp_sf_ai_00060_005`. The unfold does not enter array terms
+(`_definition_names`), and an index or a stored value may occur in the
+goal only inside a folded store, so the nodes the facts mention are also
+roots of that unfold. Without those roots, grind fails on the lemmas.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `array_chain_instance(6)` (QF_ALIA) | 6.7 MB, 78 s, 3.9 GB | 0.36 MB, 3 s, 0.8 GB |
+| `array_chain_instance(8)` | 57 MB, not checked | 0.74 MB, 17 s, 1.4 GB |
+| `array_chain_instance(8, "index")` | 55 MB, not checked | 0.84 MB, 6 s, 1.7 GB |
+| `array_chain_instance(8, "real")` (QF_AUFLIRA) | 57 MB, not checked | 0.81 MB, 4 s, 0.9 GB |
+| dlx-regfile | no output after 5 min | 6.5 s, 44 MB of Lean (Lean: see below) |
+
+The storecomm, storeinv, and swap files have shallow terms. Their text is
+byte-identical or up to 3% smaller. Every array-free certificate of the
+documented test inputs is byte-identical, and so are 124 of the 198 with
+arrays. `_scaling_helpers` and `_ite_gate_helpers`, the
+written-out forms, are no longer reachable and are removed.
+
+Still open: dlx-regfile does not verify yet. Its 44 MB file reached 12 GB
+in Lean and was stopped after 20 minutes. Of its 854 theory lemmas, 803
+are `euf` lemmas, each reaching about 66 ites, and every reachable ite
+gets two gates. Gates alone are about 80% of a lemma's text, and the
+outlined proof steps add another 14 MB. The swap files of 66 to 250 MB
+belong to the many-lemma memory class.
+
+Tests: `test_array_facts_are_stated_over_folded_definitions` (fails before
+on size and without the unfold roots on the unfold line) and
+`test_nested_ite_chains_through_arrays_verify` (`test_proof_to_lean_array.py`).
+The tests that drop facts to show they are needed now also drop the
+dropped facts' names from the revert and intro lines (`_without_facts`).
+
 ### cnf lemmas searched again over an unsat core (2026-11-07)
 
 QF_IDL `planning/plan-21` is one assertion with a disjunction of cases per

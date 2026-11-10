@@ -3118,6 +3118,47 @@ class TestArrayValidation(unittest.TestCase):
         two = proof_to_lean.reconstruct(ARRAY_INPUTS["two_array_sorts"], self.certificates["two_array_sorts"])
         self.assertIn('-- Array sorts "(Array Index Element)", "(Array Index Key)" are functions', two)
 
+    def test_array_facts_are_stated_over_folded_definitions(self):
+        """Array facts and ite gates name the definitions they mention and are reverted around the unfold.
+
+        Written out, the facts of array_chain_instance(8) repeated the stored
+        chain of eight modular steps in full: 57 MB of Lean (55 MB with the
+        chain as the index), now under 1 MB. The stored chain occurs in the
+        goal only inside the folded store, so the unfold names it because the
+        facts mention it (without that, grind fails on the lemmas).
+        """
+        for use in ("value", "index"):
+            with self.subTest(use=use):
+                source = array_chain_instance(8, use)
+                text = proof_to_lean.reconstruct(source, _export(source))
+                self.assertLess(len(text), 1500000)
+                stores = 0
+                for lemma in text.split("\nset_option maxHeartbeats ")[1:]:
+                    lines = [line.strip() for line in lemma.split("\n")]
+                    facts = [line for line in lines if re.match(r"have _[tsg]\d+", line)]
+                    for fact in facts:
+                        self.assertLess(len(fact), 400, fact)
+                    store = next((re.match(r"have (_t\d+) : \(term_\d+ [^)]*\) = \(_store \(\(term_\d+ [^)]*\)\) "
+                                           r"(.*)\) := rfl$", line)
+                                  for line in facts if line.startswith("have _t")), None)
+                    if store is None:
+                        continue
+                    name, stored = store.groups()
+                    # The chain is the index or the value; the other is a
+                    # variable or a numeral, written out.
+                    chain = re.findall(r"term_\d+", stored)
+                    self.assertEqual(len(chain), 1, stored)
+                    stores += 1
+                    revert = next(line for line in lines if line.startswith("revert "))
+                    unfold = lines[lines.index(revert) + 1]
+                    self.assertIn(name, revert.split())
+                    self.assertTrue(unfold.startswith("unfold "), unfold)
+                    self.assertIn(chain[0], unfold.split())
+                    self.assertEqual(lines[lines.index(revert) + 2].split()[1:], revert.split()[1:])
+                self.assertGreater(stores, 0)
+                self.assertNotIn("sorry", text)
+                self.assertNotIn("axiom ", text)
+
     def test_sort_header_comments(self):
         """The header names the carriers once and claims no missing sort, with or without arrays."""
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_own_write"], self.certificates["read_own_write"])
@@ -3395,6 +3436,91 @@ def random_chain_comparison_instance(seed):
 CHAIN_COMPARISON_SEEDS = (13, 14)
 
 
+def array_chain_instance(depth=6, use="value"):
+    """The modular chains of test_proof_to_lean_lia.modular_chains_instance, compared through an array.
+
+    a<depth> (x + 5 * depth modulo 17, an ite per step) is stored into A at
+    i (use "value"; "real" over Real chains and elements) or is the index
+    of a store of 1 (use "index"), and the read of M, said to be that store,
+    at i or at b<depth / 2> (x + 10 * (depth / 2)) differs from it. Each
+    step holds the previous one three times, so written out the stored term
+    is about 3^depth times its definition: the shape of z3test's QF_AUFLIA
+    dlx-regfile (register reads through shared nested ites), whose array
+    facts were written out until they were stated folded (see
+    proof_to_lean._array_helpers).
+
+    The other uses reach the remaining kinds of array facts over a folded
+    node: "const", a constant array of a<depth> (_select_const, the folded
+    value); "bool", (< a<depth> 3) stored into an array of Bool (formula_N
+    arguments); "ite", an ite over two stores at a<depth> whose condition
+    is (< a<depth> 5), read at b<depth / 2> (the folded condition in the
+    ite's _t fact).
+    """
+    real = use == "real"
+    sort, suffix = ("Real", ".0") if real else ("Int", "")
+    element = {"index": "Int", "ite": "Int", "bool": "Bool"}.get(use, sort)
+    lines = ["(set-logic %s)" % ("QF_AUFLIRA" if real else "QF_ALIA"), "(declare-const x %s)" % sort,
+             "(declare-const i Int)", "(declare-const A (Array Int %s))" % element,
+             "(declare-const M (Array Int %s))" % element]
+    if use == "ite":
+        lines.append("(declare-const B (Array Int Int))")
+    for name, step, count in (("a", 5, depth), ("b", 10, depth // 2)):
+        previous = "x"
+        for index in range(1, count + 1):
+            lines.append("(define-fun %s%d () %s (let ((s (+ %s %d%s))) (ite (< s 17%s) s (- s 17%s))))" % (
+                name, index, sort, previous, step, suffix, suffix, suffix))
+            previous = "%s%d" % (name, index)
+    lines.append("(assert (and (<= 0%s x) (< x 17%s)))" % (suffix, suffix))
+    half = depth // 2
+    if use == "index":
+        lines += ["(assert (= M (store A a%d 1)))" % depth, "(assert (not (= (select M b%d) 1)))" % half]
+    elif use == "const":
+        lines += ["(assert (= M ((as const (Array Int Int)) a%d)))" % depth,
+                  "(assert (not (= (select M i) b%d)))" % half]
+    elif use == "bool":
+        lines += ["(assert (= M (store A i (< a%d 3))))" % depth, "(assert (not (= (select M i) (< b%d 3))))" % half]
+    elif use == "ite":
+        lines += ["(assert (= M (ite (< a%d 5) (store A a%d 1) (store B a%d 1))))" % (depth, depth, depth),
+                  "(assert (not (= (select M b%d) 1)))" % half]
+    else:
+        lines += ["(assert (= M (store A i a%d)))" % depth, "(assert (not (= (select M i) b%d)))" % half]
+    return "\n".join(lines + ["(check-sat)"]) + "\n"
+
+
+def _without_facts(text, matches):
+    """The text without the have lines whose tactic matches selects, nor their names in revert and intro lines.
+
+    Array facts that mention definitions are stated folded and reverted
+    around the lemma's unfold (proof_to_lean._array_helpers), so a dropped
+    fact leaves its name in those lines; a line the drop empties, or a dropped line that opens an
+    alternative of first, becomes skip. The unfold also names the
+    definitions the facts mention, so a dropped definitional equation lhs =
+    rhs is kept as the tautology lhs = lhs /\\ rhs = rhs instead: its terms
+    stay for the unfold to rewrite, its information goes.
+    """
+    names, kept = set(), []
+    for line in text.split("\n"):
+        tactic = line.lstrip(" |(")
+        if tactic.startswith("have ") and matches(tactic):
+            equation = re.match(r"have \S+ : (\(term_\d+ [^)]*\)) = (.*) := rfl$", tactic)
+            if equation:
+                line = line[:len(line) - len(tactic)] + "have %s : %s = %s /\\ %s = %s := ⟨rfl, rfl⟩" % (
+                    tactic.split()[1], equation.group(1), equation.group(1), equation.group(2), equation.group(2))
+                kept.append(line)
+                continue
+            names.add(tactic.split()[1])
+            line = line[:len(line) - len(tactic)] + "skip"
+        kept.append(line)
+    for position, line in enumerate(kept):
+        tactic = line.lstrip(" |(")
+        words = tactic.split()
+        if words[:1] in (["revert"], ["intro"]) and names.intersection(words[1:]):
+            remaining = [word for word in words[1:] if word not in names]
+            kept[position] = line[:len(line) - len(tactic)] + (" ".join(words[:1] + remaining) if remaining
+                                                               else "skip")
+    return "\n".join(kept)
+
+
 def _check_in_lean(test, source, fragment):
     """Export through the clause log, reconstruct, and kernel-check; return the certificate."""
     certificate = _export(source)
@@ -3449,6 +3575,35 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(seed=seed):
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_nested_ite_chains_through_arrays_verify(self):
+        """Chains of eight modular steps stored into an array, as its index, and over Real verify folded.
+
+        Written out (see test_array_facts_are_stated_over_folded_definitions)
+        the six-step chain stored as a value checked in 78 s at 3.9 GB, and
+        eight steps (57 MB of Lean) were out of reach; folded, eight steps
+        check in about 17 s (value), 6 s (index), and 4 s (Real) together
+        at most 1.7 GB.
+        """
+        sources = [(use, array_chain_instance(8, use)) for use in ("value", "index", "real")]
+        lean_test_support.prefetch((source, _export(source)) for _, source in sources)
+        for use, source in sources:
+            with self.subTest(use=use):
+                _check_in_lean(self, source, "qf_uflira" if use == "real" else "qf_uflia")
+
+    def test_folded_chains_in_other_array_facts_verify(self):
+        """Six-step chains as a constant array's value, a Bool element, and an ite's condition and index verify.
+
+        These reach the folded nodes of _select_const facts, formula_N
+        arguments of a store, and the condition of an ite over arrays
+        (array_chain_instance); written out they were 5 to 11 MB of Lean,
+        folded they are under 0.7 MB.
+        """
+        sources = [(use, array_chain_instance(6, use)) for use in ("const", "bool", "ite")]
+        lean_test_support.prefetch((source, _export(source)) for _, source in sources)
+        for use, source in sources:
+            with self.subTest(use=use):
+                _check_in_lean(self, source, "qf_uflia")
 
     def test_numeral_facts_are_needed(self):
         """Without the values of numeral expressions, or rewritten after their subterms, simp misses the identities."""
@@ -3519,9 +3674,8 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
-                stripped = "\n".join(line for line in text.split("\n")
-                                     if ":= _store_apply " not in line and ":= _array_ext " not in line
-                                     and ":= _default_" not in line)
+                stripped = _without_facts(text, lambda tactic: any(
+                    fact in tactic for fact in (":= _store_apply ", ":= _array_ext ", ":= _default_")))
                 self.assertNotEqual(stripped, text)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
@@ -3544,7 +3698,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
         application = re.compile(r"^\s*have _t\d+ : \(term_\d+ [^)]*\) = _m\.arrs_funs ")
         lines = text.split("\n")
         self.assertTrue(any(map(application.match, lines)), text)
-        stripped = "\n".join(line for line in lines if not application.match(line))
+        stripped = _without_facts(text, application.match)
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "stripped.lean"
             output.write_text(stripped)
@@ -3581,7 +3735,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 # The array rewrite alternative's simp set evaluates reads of
                 # constant arrays too (_select_const), so it goes as well.
                 stripped = "\n".join(line.replace("_select_const, ", "") if "simp only [" in line else line
-                                     for line in lines if not level.match(line))
+                                     for line in _without_facts(text, level.match).split("\n"))
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)
@@ -3603,7 +3757,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 fact = re.compile(r"^\s*have _n\d+_\d+ := _(store_apply|select_const) ")
                 lines = text.split("\n")
                 self.assertTrue(any(map(fact.match, lines)), text)
-                stripped = "\n".join(line for line in lines if not fact.match(line))
+                stripped = _without_facts(text, fact.match)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)
@@ -3666,7 +3820,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 pattern = re.compile(r"^\s*" + fact)
                 lines = text.split("\n")
                 self.assertTrue(any(map(pattern.match, lines)), text)
-                stripped = "\n".join(line for line in lines if not pattern.match(line))
+                stripped = _without_facts(text, pattern.match)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)

@@ -951,7 +951,7 @@ def real_modular_chains_instance(depth=6, function=False):
     every step (ite (< s 17/2) s (- s 17/2)) over s = previous + 5/2 holds the
     previous step three times, and its atoms and branches have fractional
     constants, so the theory lemmas state scaling facts and scaled gates
-    (proof_to_lean._scaling_helpers, _ite_gate_helpers) over nested ites.
+    (proof_to_lean._folded_ite_gates) over nested ites.
     Written out, depth 6 made 5.9 MB of Lean text and depth 8 44 MB. With
     function, the two results are compared through an uninterpreted f.
     depth must be even: for odd depth the two chains end at different

@@ -2784,21 +2784,6 @@ def _inline(graph, node, atom_indices, variable_indices, generalized=None):
     return _formula_body(graph, node, atom_indices, child, child)
 
 
-def _scaling_helpers(graph, reachable, atom_indices, variable_indices):
-    """State denominator-free forms of fractional atoms, which grind proves and then uses.
-
-    grind's linear arithmetic over Rat does not always combine equalities whose
-    constants are fractions, while it handles the same facts once scaled to
-    integers. Each helper is an implication from the atom to its scaled form.
-    Written out as here only with arrays; otherwise _folded_ite_gates
-    states them over the definitions.
-    """
-    return ["  have _s%d : %s -> (%s %s ((0 : %s))) := by grind" % (
-        formula, _inline(graph, formula, atom_indices, variable_indices),
-        _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, integer), relation, number_type)
-        for formula, relation, terms, constant, scale, integer, number_type in _scaled_atoms(graph, reachable)]
-
-
 def _scaled_atoms(graph, reachable):
     """Every reachable arithmetic atom with fractions: (atom, relation, terms, constant, scale, integer, type).
 
@@ -2870,11 +2855,19 @@ def _ite_gate_branches(graph, reachable):
 def _folded_ite_gates(graph, reachable):
     """State the branch equalities of the reachable ites and the scaled atoms over their definitions, folded.
 
+    grind splits on an ite term by itself, but when the selected branch is a
+    fractional numeral or a term with fractional coefficients it does not
+    combine the resulting equality with its linear facts, and neither does
+    it combine equalities whose constants are fractions, while it handles
+    the same facts once scaled to integers. So each gate gives one branch
+    equality under the condition or its negation, scaled to integer
+    coefficients, and each fractional atom implies its scaled form.
+
     Returns the have lines, their names, and the nodes they are about (the
     ites and the atoms). _grind_lemma states and reverts them before it
     unfolds the definitions, so the one unfold rewrites them into the very
-    terms of the goal, as _ite_gate_helpers and _scaling_helpers write them
-    out. Written out, the statements repeat every nested ite in full
+    terms of the goal. Written out, as they were before, the statements
+    repeat every nested ite in full
     (QF_UFLIA hard16: 644 theory lemmas with 11 KB of gate text each, 7 MB
     together; a Real modular chain of six fractional steps: 5.6 MB of
     scaled gates and scaling facts in 5.9 MB), and Lean keeps every
@@ -2882,11 +2875,12 @@ def _folded_ite_gates(graph, reachable):
     exceeded the 8 GB memory limit. A scaled gate or a scaling fact is
     proved with only the definitions between it and the atoms of its linear
     form unfolded (_linear_unfold), so grind sees the atoms folded, the
-    nested ites among them unsplit. Arrays are left to the inline form:
-    their terms stay folded (_definition_names).
+    nested ites among them unsplit. With arrays, whose terms the unfold
+    leaves folded (_definition_names), _grind_lemma makes the nodes the
+    facts are about roots of its unfold, so an ite that occurs in the goal
+    only inside an array term (a stored value) is unfolded in its gates as
+    in the array facts (_array_helpers) that mention it.
     """
-    if graph.arrays:
-        return [], [], set()
     lines, names, nodes = [], [], set()
     for node, side, branch, terms, constant, scale in _ite_gate_branches(graph, reachable):
         condition = _formula(graph, graph.arguments(node)[0])
@@ -2925,35 +2919,6 @@ def _linear_unfold(graph, node):
         _linear_term(graph, side, Fraction(1), atoms)
     names = _definition_names(graph, _reachable_outside(graph, node, set(atoms)))
     return "unfold %s; " % " ".join(names) if names else ""
-
-
-def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
-    """State the branch equalities of every reachable Real ite, denominator-free.
-
-    grind splits on an ite term by itself, but when the selected branch is a
-    fractional numeral or a term with fractional coefficients it does not
-    combine the resulting equality with its linear facts, just as with
-    fractional atoms. Each helper gives one branch equality under the condition
-    or its negation, scaled to integer coefficients, so grind can use it.
-    Without arrays _folded_ite_gates states them instead, folded.
-    """
-    helpers = []
-
-    def inline(sub):
-        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
-
-    for node, side, branch, terms, constant, scale in _ite_gate_branches(graph, reachable):
-        condition = inline(graph.arguments(node)[0])
-        hypothesis, lemma = (condition, "ite_eq_left") if side == 0 else ("(Not %s)" % condition, "ite_eq_right")
-        if scale == 1:
-            helpers.append("  have _g%d_%d : %s -> %s = %s := fun _h => %s _h" % (
-                node, side, hypothesis, inline(node), inline(branch), lemma))
-        else:
-            helpers.append("  have _g%d_%d : %s -> ((%d : %s)) * %s = (%s) := fun _h => by rw [%s _h]; grind" % (
-                node, side, hypothesis, scale, graph.number_type_of(node), inline(node),
-                _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, graph.is_int(node)),
-                lemma))
-    return helpers
 
 
 def _gcd(left, right):
@@ -3039,10 +3004,10 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     else:
         remaining = reachable
     gates, gate_names, gate_nodes = _folded_ite_gates(graph, reachable) if graph.arithmetic else ([], [], set())
-    folded_gates = bool(gates)
     # Without arrays the excluded-middle facts of Boolean arguments and the
     # cast facts are stated folded too (_folded_boolean_arguments,
-    # _cast_facts), and reverted with the gates.
+    # _cast_facts), and reverted with the gates. With arrays the array facts
+    # that mention a definition the unfold rewrites are (_array_helpers).
     fold = not graph.arrays
     if fold and graph.uninterpreted:
         lines_b, names_b, nodes_b = _folded_boolean_arguments(graph, reachable)
@@ -3050,19 +3015,29 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, reachable, atom_indices, variable_indices, node,
                                                         folded=fold)
     gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
+    if graph.arrays:
+        lines_a, names_a, nodes_a, array_facts = _array_helpers(graph, reachable, atom_indices, variable_indices)
+        gates, gate_names, gate_nodes = gates + lines_a, gate_names + names_a, gate_nodes | nodes_a
+    else:
+        array_facts = []
     if gates:
         # Stated folded and reverted, so the unfold below rewrites them as it
         # rewrites the goal; the definitions they mention outside the atoms
         # were unfolded in the goal already and are unfolded again here.
+        # With arrays the unfold does not enter array terms
+        # (_definition_names), and a node the facts mention may occur in the
+        # goal only inside one (an index or a stored value): the mentioned
+        # nodes are roots of the unfold too.
         gates.append("revert " + " ".join(gate_names))
         remaining = remaining | _reachable(graph, *sorted(gate_nodes))[0]
-    fallback = gates + (["unfold " + " ".join(_definition_names(graph, remaining, atoms))] if remaining else [])
+    roots = list(atoms) + sorted(gate_nodes)
+    fallback = gates + (["unfold " + " ".join(_definition_names(graph, remaining, roots))] if remaining else [])
     if gates:
         fallback.append("intro " + " ".join(gate_names))
     distinct_facts, distinct_names = _boolean_distinct_facts(graph, reachable, atom_indices, variable_indices)
     fallback.extend(distinct_facts)
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices,
-                                                                  folded=folded_gates, folded_arguments=fold))
+                                                                  folded_arguments=fold, array_facts=array_facts))
     if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
@@ -3539,22 +3514,20 @@ def _definition_names(graph, nodes, roots=None):
             for formula in sorted(nodes, reverse=True)]
 
 
-def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded=False, folded_arguments=False):
+def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded_arguments=False, array_facts=()):
     """Facts _grind_lemma states after unfolding.
 
-    folded: the ite gates and scaling facts are stated already;
-    folded_arguments: so are the excluded-middle facts of Boolean arguments.
+    The ite gates, scaling facts, and array facts that mention definitions
+    it states before (_folded_ite_gates, _array_helpers); with
+    folded_arguments, the excluded-middle facts of Boolean arguments too.
+    array_facts are the other array facts (_array_helpers), stated here.
     """
     helpers = []
-    if graph.arithmetic and not folded:
-        helpers.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
-        helpers.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.uninterpreted and not folded_arguments:
         helpers.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.arithmetic and (graph.uninterpreted or graph.floors):
         helpers.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.arrays:
-        helpers.extend(_array_helpers(graph, reachable, atom_indices, variable_indices))
+    helpers.extend(array_facts)
     if graph.enumerations:
         helpers.extend(_enumeration_helpers(graph, reachable, atom_indices, variable_indices))
     return helpers
@@ -3781,12 +3754,35 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
     (_store_apply), each witness (_ array-ext 0) of two arrays the clause
     that they are equal or differ there (_array_ext). These are the array
     solver's axiom instances; grind combines them with the lemma's literals.
+
+    The facts are stated over the definitions of the nodes they mention
+    (term_N, formula_N), for _grind_lemma to revert before its unfold, as
+    the ite gates (_folded_ite_gates). Written out, an index or a stored
+    value repeated every nested ite and application below it in full: over
+    the shared ite DAG of z3test's QF_AUFLIA dlx-regfile the facts of one
+    cnf lemma did not finish rendering in five minutes. Array terms (which
+    the unfold leaves folded), constants, variables, and numerals are
+    written as before, and the facts of a node that mention nothing else
+    are not reverted: around the many facts of z3test's storecomm files,
+    whose stores are over variables, revert, unfold, and intro took Lean
+    from 118 s and 5.6 GB to 155 s and 7.9 GB. Returns the facts to revert,
+    their names, the nodes they mention, and the facts to state after the
+    unfold.
     """
+    mentioned, current, reverted, plain = set(), set(), [], []
+
     def inline(sub):
+        if graph.arguments(sub) and not _folded_array(graph, sub):
+            current.add(sub)
+            return _term(graph, sub) if graph.is_term(sub) else _formula(graph, sub)
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
 
     helpers = []
     for node in sorted(reachable):
+        # The facts of one node are reverted together if any mentions a
+        # definition the unfold rewrites.
+        first = len(helpers)
+        current.clear()
         kind = graph.kind(node)
         if graph.is_array(node) and (kind in (z3.Z3_OP_STORE, z3.Z3_OP_ITE, z3.Z3_OP_CONST_ARRAY)
                                      or _set_function(graph, node) is not None
@@ -3866,7 +3862,10 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             array = graph.arguments(node)[0]
             helpers.append("  have _d%d := _default_store %s %s" % (
                 node, _unbounded(graph, array), " ".join(inline(argument) for argument in graph.arguments(array))))
-    return helpers
+        (reverted if current else plain).extend(helpers[first:])
+        mentioned |= current
+    return ([helper.strip() for helper in reverted], [helper.split()[1] for helper in reverted], mentioned,
+            [helper.strip() for helper in plain])
 
 
 # At most this many read facts per rewrite in _constant_array_comparisons.
