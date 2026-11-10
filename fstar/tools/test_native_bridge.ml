@@ -3331,6 +3331,30 @@ let sorted_integer_product_equalities () =
   require (not (Z3SortedProof.integer_product_equality [] (B.cached_expression st (List.hd native))))
     "Real equality unexpectedly passed the Int product-equality kernel"
 
+let sorted_integer_product_equality_clauses () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let clause = "(or (= (* x y) (* 2 y)) (not (<= x 2)) (not (>= x 2)))" in
+  check true (U.Unverified "th-lemma") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check true (U.Unverified "assumed:nlsat") header "(assert true)"
+    "(or (not (>= x 2)) (= (* 2 y) (* y x)) (not (<= x 2)))";
+  check true (U.Unverified "th-lemma") header ""
+    "(or (= (* x y) (* 2 y)) (not (<= x 2)) (= (* x y) (* 2 y)) (not (>= x 2)))";
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "th-lemma") header ""
+    "(or (= (* x y) (* 2 y)) (not (<= x 3)) (not (>= x 2)))";
+  check false (U.Unverified "th-lemma") header ""
+    "(or (= (* x y) (* 2 y)) (<= x 2) (not (>= x 2)))";
+  check false (U.Unverified "th-lemma") header ""
+    "(or (= (* z y) (* 2 y)) (not (<= x 2)) (not (>= x 2)))";
+  check false (U.Unverified "th-lemma") (header ^ "(declare-fun fake_mul (Int Int) Int)") ""
+    "(or (= (fake_mul x y) (* 2 y)) (not (<= x 2)) (not (>= x 2)))";
+  check false (U.Unverified "th-lemma") header
+    (String.concat "" (List.init 28 (fun _ -> "(assert true)"))) clause;
+  check false (U.Unverified "th-lemma") "(declare-const x Real)(declare-const y Real)" ""
+    "(or (= (* x y) (* 2.0 y)) (not (<= x 2.0)) (not (>= x 2.0)))"
+
 let sorted_real_constant_products () =
   let check = check_sorted_product_clause in
   let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
@@ -8648,6 +8672,7 @@ let () =
      "sorted-integer-zero-products", sorted_integer_zero_products;
      "sorted-integer-constant-products", sorted_integer_constant_products;
      "sorted-integer-product-equalities", sorted_integer_product_equalities;
+     "sorted-integer-product-equality-clauses", sorted_integer_product_equality_clauses;
      "sorted-real-product-clauses", sorted_real_product_clauses;
      "sorted-real-constant-products", sorted_real_constant_products;
      "sorted-real-product-equalities", sorted_real_product_equalities;

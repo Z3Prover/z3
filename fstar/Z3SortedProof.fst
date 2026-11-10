@@ -2679,13 +2679,38 @@ let lemma_integer_product_equality (#base:sort -> Type0) (s:S.checked_schema) (b
   assert (has_bound x y true [le; ge] /\ has_bound x y false [le; ge]);
   lemma_order_equation s bc eq other [le; ge] conclusion
 
+let product_equality_clause_facts (facts lits:list expr) (e:expr) : list expr =
+  facts @ L.map R.mk_not_expr (Z3List.filter (fun (t:expr) -> t <> e) lits)
+
+let rec integer_clause_equality_witness (facts lits candidates:list expr)
+  : Tot (option (e:expr{L.mem e lits /\
+      integer_product_equality (product_equality_clause_facts facts lits e) e}))
+        (decreases candidates) =
+  match candidates with
+  | [] -> None
+  | e :: rest ->
+    if L.mem e lits && Some? (int_equation e) &&
+       integer_product_equality (product_equality_clause_facts facts lits e) e
+    then Some e
+    else integer_clause_equality_witness facts lits rest
+
+let integer_product_clause_equality (facts:list expr) (conclusion:expr) : bool =
+  if L.length facts > 29 then false
+  else if None? (arguments_budget 4096 (conclusion :: facts)) then false
+  else
+    let lits = DT.literals conclusion in
+    if L.length facts + L.length lits > 30 then false
+    else D.scoped_args [] (L.map R.mk_not_expr lits) &&
+         Some? (integer_clause_equality_witness facts lits lits)
+
 let integer_product_clause (facts:list expr) (conclusion:expr) : bool =
   if integer_product_equality facts conclusion then true
   else if conclusion = R.false_expr then false
   else if None? (expression_budget 4096 conclusion) then false
   else
     let complements = L.map R.mk_not_expr (DT.literals conclusion) in
-    D.scoped_args [] complements && integer_product_check (facts @ complements)
+    D.scoped_args [] complements &&
+    (integer_product_check (facts @ complements) || integer_product_clause_equality facts conclusion)
 
 let rec lemma_clause_complements (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                 (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -2700,6 +2725,37 @@ let rec lemma_clause_complements (#base:sort -> Type0) (s:S.checked_schema) (bc:
     T.lemma_negation s bc eq other R.not_decl lit;
     lemma_clause_complements s bc eq other rest
 
+let rec lemma_clause_complements_except (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                       (lits:list expr) (e:expr)
+  : Lemma (requires D.scoped_args [] (L.map R.mk_not_expr lits) /\
+                    not (B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom lits)))
+          (ensures T.truths s bc eq other (L.map R.mk_not_expr (L.filter (fun (t:expr) -> t <> e) lits)))
+          (decreases lits) =
+  match lits with
+  | [] -> ()
+  | lit :: rest ->
+    if lit <> e then T.lemma_negation s bc eq other R.not_decl lit;
+    lemma_clause_complements_except s bc eq other rest e
+
+let lemma_integer_product_clause_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                         (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
+                                         (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    get_sort conclusion == bool_sort /\ integer_product_clause_equality facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  if not (T.truth s bc eq other conclusion) then (
+    let lits = DT.literals conclusion in
+    let e = Some?.v (integer_clause_equality_witness facts lits lits) in
+    DT.lemma_literals s bc eq other conclusion;
+    lemma_literals_of conclusion;
+    lemma_literals_scoped lits e;
+    lemma_clause_complements_except s bc eq other lits e;
+    Z3List.lemma_filter (fun (t:expr) -> t <> e) lits;
+    DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (L.filter (fun (t:expr) -> t <> e) lits));
+    lemma_integer_product_equality s bc eq other (product_equality_clause_facts facts lits e) e;
+    lemma_clause_member s bc eq other conclusion e)
+
 let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                  (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                                  (facts:list expr) (conclusion:expr)
@@ -2708,11 +2764,13 @@ let lemma_integer_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:
           (ensures T.truth s bc eq other conclusion) =
   if integer_product_equality facts conclusion then
     lemma_integer_product_equality s bc eq other facts conclusion
-  else if not (T.truth s bc eq other conclusion) then (
-    DT.lemma_literals s bc eq other conclusion;
-    lemma_clause_complements s bc eq other (DT.literals conclusion);
-    DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (DT.literals conclusion));
-    lemma_integer_product_check s bc eq other (facts @ L.map R.mk_not_expr (DT.literals conclusion)))
+  else if integer_product_check (facts @ L.map R.mk_not_expr (DT.literals conclusion)) then (
+    if not (T.truth s bc eq other conclusion) then (
+      DT.lemma_literals s bc eq other conclusion;
+      lemma_clause_complements s bc eq other (DT.literals conclusion);
+      DT.lemma_truths_append s bc eq other facts (L.map R.mk_not_expr (DT.literals conclusion));
+      lemma_integer_product_check s bc eq other (facts @ L.map R.mk_not_expr (DT.literals conclusion))))
+  else lemma_integer_product_clause_equality s bc eq other facts conclusion
 
 let lemma_real_product_clause (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                               (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
