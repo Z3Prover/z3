@@ -1866,7 +1866,7 @@ static void tst_lex_after_unbounded() {
             opt_fixture f;
             Z3_sort sort = is_real ? Z3_mk_real_sort(f.ctx) : Z3_mk_int_sort(f.ctx);
             Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), sort);
-            Z3_ast b = is_real ?
+            Z3_ast b = is_real && maximize ?
                 Z3_mk_not(f.ctx, Z3_mk_eq(f.ctx, x, f.num(5))) :
                 Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
             Z3_ast hi = Z3_mk_int(f.ctx, is_real ? 3 : 2, sort);
@@ -1880,7 +1880,7 @@ static void tst_lex_after_unbounded() {
             ENSURE(Z3_algebraic_le(f.ctx, lower, upper));
             // The interval must contain the limiting optimum, even when this
             // converted MaxSMT objective is not optimized after the unbounded one.
-            Z3_ast expected = is_real || maximize ? hi : lo;
+            Z3_ast expected = maximize ? hi : lo;
             ENSURE(Z3_algebraic_le(f.ctx, lower, expected));
             ENSURE(Z3_algebraic_le(f.ctx, expected, upper));
             ensure_vector(f, h, true, 0, lower, 0, Z3_INT_SORT);
