@@ -1,0 +1,22 @@
+{
+  "pull_request": 11639,
+  "head_sha": "38adf146801ae576a7884686be6981442b98250d",
+  "base_sha": "8927ff98ea8eae56021f8e8ea874a9465ea6a257",
+  "path_prefix": "fstar/audits/pr-11639/38adf146801ae576a7884686be6981442b98250d/",
+  "verdict": "inconclusive",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42906244230",
+  "files": [
+    {
+      "name": "ArrayEqRemoval.fst",
+      "sha256": "14663387b725a8bd8b4a9af7efd94b79de49fb4549603ce6243758109c6a01a6"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "074b2c96c497ee10b8cbe3746f004de6009be15e4f57403c93d7799e8f77b2c8"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "08b40b539733c9204f998c1358c4770fd90e24828fed0f4620a523cdc073e1d6"
+    }
+  ]
+}
