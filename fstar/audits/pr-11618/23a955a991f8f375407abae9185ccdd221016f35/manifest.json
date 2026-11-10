@@ -1,0 +1,22 @@
+{
+  "pull_request": 11618,
+  "head_sha": "23a955a991f8f375407abae9185ccdd221016f35",
+  "base_sha": "8573212ffea377844c322487224accff54809594",
+  "path_prefix": "fstar/audits/pr-11618/23a955a991f8f375407abae9185ccdd221016f35/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/42728842676",
+  "files": [
+    {
+      "name": "AuditConcatMapShim.fst",
+      "sha256": "858e36d334f718c27f77012332bb9b83947706c0dc86332c905aeb3182e9e0db"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "69d04d1178305864bf97b38b6230e39b2d2af4699ed4489e0352eebad0afe91a"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "8afd328d63ebea4a1b387cc82079731f4a7b1fea75d915d0793e0ff6bd95adc9"
+    }
+  ]
+}

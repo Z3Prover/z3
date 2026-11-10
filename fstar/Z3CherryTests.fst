@@ -10,6 +10,8 @@ module N = Z3Native
 module NP = Z3NativeProof
 module LP = Z3LpCertificate
 module L = FStar.List.Tot
+module RP = Z3SortedRealProduct
+module RL = Z3SortedReal
 
 let fixture (rule:U.rule) : C.marshaled =
   let declarations = match R.false_expr with A.App f _ -> [f] | _ -> [] in
@@ -471,6 +473,318 @@ let real_farkas_document (a b:A.expr) (ids:list int) (cs:list Z3LinearArithmetic
                    { P.rule = U.ArithmeticFarkas cs; P.formula = R.false_expr; P.premise_ids = ids }];
       P.root = 2 };
     C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } }
+
+let real_equality_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let zero = real_numeral 0 1 in
+  let one = real_numeral 1 1 in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let facts = [ge x one; le x one; ge y zero; le y zero] in
+  let premise e : U.checked_fact = { U.conclusion = U.Holds e; U.hypotheses = [ge x one] } in
+  let run kind facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Equal one (A.App RL.real_plus_decl [x; y]);
+        U.premises = L.map premise facts } in
+  let preserves (result:option (U.checked_fact & nat)) = match result with
+    | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x one]
+    | None -> false in
+  let pending (result:option (U.checked_fact & nat)) = match result with | Some (_, n) -> n = 1 | None -> false in
+  preserves (run (U.Unverified "th-lemma") facts) &&
+  preserves (run U.RewriteRule facts) &&
+  pending (run (U.Unverified "th-lemma") [le x one; ge y zero; le y zero]) &&
+  pending (run (U.ArithmeticFarkas []) facts)
+
+let integer_unit_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let x = A.App { A.decl_name = "x"; domain = []; range = sort; interp = None; int_params = [] } [] in
+  let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
+                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+  let comparison name tag a b = A.App
+    { A.decl_name = name; domain = [sort; sort]; range = A.bool_sort; interp = Some tag; int_params = [] } [a; b] in
+  let check missing bound =
+    let facts = if missing then [R.true_expr]
+      else [R.true_expr; comparison "<" Z3ValueTheory.op_arith_lt x (numeral 0)] in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-integer-tighten";
+        U.conclusion = U.Holds (comparison "<=" Z3ValueTheory.op_arith_le x (numeral bound));
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  (match check false (-1) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [R.true_expr]
+   | None -> false) &&
+  (match check true (-1) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check false (-2) with | Some (_, n) -> n = 1 | None -> false)
+
+let integer_product_clause_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "clause_x" in
+  let y = constant "clause_y" in
+  let zero = Z3SortedProof.int_zero in
+  let a = Z3SortedProof.int_ge x zero in
+  let b = Z3SortedProof.int_ge y zero in
+  let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+  let clause bound = A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction
+      [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound])
+      [R.mk_not_expr a; R.mk_not_expr b; Z3SortedProof.int_ge product bound] in
+  let check kind facts goal =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds goal;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [a] }) facts } in
+  (match check (U.Unverified "assumed:nlsat") [] (clause zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = []
+   | None -> false) &&
+  (match check (U.Unverified "assumed:nlsat") [] (clause Z3SortedProof.int_one) with
+   | Some (_, n) -> n = 1 | None -> false) &&
+  (match check U.LemmaRule [] (clause zero) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.Unverified "unrecognized-product") [a; b] (Z3SortedProof.int_ge product zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [a]
+   | None -> false) &&
+  (match check (U.Unverified "unrecognized-product") [a] (Z3SortedProof.int_ge product zero) with
+   | Some (_, n) -> n = 1 | None -> false)
+
+let integer_zero_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "zero_x" in
+  let y = constant "zero_y" in
+  let zero = Z3SortedProof.int_zero in
+  let lower = Z3SortedProof.int_ge x zero in
+  let upper = Z3SortedProof.int_le x zero in
+  let product = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [x; y] in
+  let check facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-interval";
+        U.conclusion = U.Holds (Z3SortedProof.int_le product zero);
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [lower] }) facts } in
+  (match check [lower; upper] with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [lower]
+   | None -> false) &&
+  (match check [lower] with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check [upper] with | Some (_, n) -> n = 1 | None -> false)
+
+let integer_constant_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "constant_x" in
+  let y = constant "constant_y" in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let check n coefficient missing =
+    let k = Z3SortedProof.int_constant n in
+    let lower = Z3SortedProof.int_ge x k in
+    let facts = if missing then [lower] else [lower; Z3SortedProof.int_le x k] in
+    let value = if coefficient = 1 then y else mul (Z3SortedProof.int_constant coefficient) y in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-interval";
+        U.conclusion = U.Holds (Z3SortedProof.int_le (mul x y) value);
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  L.for_all (fun n -> match check n n false with
+    | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+    | None -> false) [1; -1; 2; 340282366920938463463374607431768211456] &&
+  (match check 2 3 false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check 2 2 true with | Some (_, n) -> n = 1 | None -> false)
+
+let integer_product_equality_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let x = constant "equality_x" in
+  let y = constant "equality_y" in
+  let mul a b = A.App { A.decl_name = "*"; domain = [sort; sort]; range = sort;
+                       interp = Some Z3ValueTheory.op_arith_mul; int_params = [] } [a; b] in
+  let check n coefficient reversed missing observational =
+    let k = Z3SortedProof.int_constant n in
+    let lower = Z3SortedProof.int_ge x k in
+    let facts = if missing then [lower] else [lower; Z3SortedProof.int_le x k] in
+    let product = if reversed then mul y x else mul x y in
+    let value = if coefficient = 1 then y else mul (Z3SortedProof.int_constant coefficient) y in
+    let conclusion = if observational then U.Observational product value else U.Equal product value in
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = U.Unverified "arith/lp-monomial-substitute"; U.conclusion = conclusion;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+  L.for_all (fun n -> L.for_all (fun reversed -> L.for_all (fun observational ->
+    match check n n reversed false observational with
+    | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+    | None -> false) [false; true]) [false; true]) [0; 1; -1; 2] &&
+  (match check 2 3 false false false with | Some (_, count) -> count = 1 | None -> false) &&
+  (match check 2 2 false true false with | Some (_, count) -> count = 1 | None -> false)
+
+let integer_product_controls () : bool =
+  let sort = Z3LinearArithmeticAst.int_s in
+  let constant name = A.App { A.decl_name = name; domain = []; range = sort;
+                            interp = None; int_params = [] } [] in
+  let numeral n = A.App { A.decl_name = "n"; domain = []; range = sort;
+                         interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } [] in
+  let x = constant "x" in
+  let y = constant "y" in
+  let z = constant "z" in
+  let binary name tag result a b = A.App
+    { A.decl_name = name; domain = [sort; sort]; range = result; interp = Some tag; int_params = [] } [a; b] in
+  let ge a b = binary ">=" Z3ValueTheory.op_arith_ge A.bool_sort a b in
+  let le a b = binary "<=" Z3ValueTheory.op_arith_le A.bool_sort a b in
+  let mul a b = binary "*" Z3ValueTheory.op_arith_mul sort a b in
+  let zero = numeral 0 in
+  let replay kind facts =
+    Z3SortedProof.check_node { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } []
+      { U.kind = kind; U.conclusion = U.Holds R.false_expr;
+        U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [ge x zero] }) facts } in
+  let check kind strict wrong_sign =
+    let minimum = if strict then numeral 1 else zero in
+    let b = if wrong_sign then le y zero else ge y minimum in
+    let facts = [ge x minimum; b;
+                 (if strict then le z zero else binary "<" Z3ValueTheory.op_arith_lt A.bool_sort z zero);
+                 le (binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z)) zero] in
+    replay kind facts in
+  let signed kind strict opposite wrong_sign =
+    let positive = if strict then numeral 1 else zero in
+    let negative = if strict then numeral (-1) else zero in
+    let b = if opposite <> wrong_sign then ge y positive else le y negative in
+    let c = if strict then (if opposite then ge z zero else le z zero)
+      else binary (if opposite then ">" else "<")
+      (if opposite then Z3ValueTheory.op_arith_gt else Z3ValueTheory.op_arith_lt) A.bool_sort z zero in
+    let difference = binary "+" Z3ValueTheory.op_arith_add sort (mul x y) (mul (numeral (-1)) z) in
+    replay kind [le x negative; b; c; if opposite then ge difference zero else le difference zero] in
+  (match check (U.Unverified "th-lemma") false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match check (U.Unverified "th-lemma") false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.ArithmeticFarkas []) false false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.Unverified "th-lemma") true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match check (U.Unverified "th-lemma") true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match check (U.ArithmeticFarkas []) true false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") false true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.ArithmeticFarkas []) false true false with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true false false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true true false with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x zero]
+   | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true false true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.Unverified "th-lemma") true true true with | Some (_, n) -> n = 1 | None -> false) &&
+  (match signed (U.ArithmeticFarkas []) true true false with | Some (_, n) -> n = 1 | None -> false)
+
+let real_product_controls () : bool =
+  let x = real_constant "x" [] in
+  let y = real_constant "y" [] in
+  let z = real_constant "z" [] in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let document a b c d : C.marshaled =
+    { C.document = {
+        P.declarations = []; P.expressions = []; P.assertions = [a; b; c; d];
+        P.entries = [{ P.rule = U.Asserted; P.formula = a; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = b; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = c; P.premise_ids = [] };
+                     { P.rule = U.Asserted; P.formula = d; P.premise_ids = [] };
+                     { P.rule = U.Unverified "th-lemma"; P.formula = R.false_expr;
+                       P.premise_ids = [0; 1; 2; 3] }];
+        P.root = 4 };
+      C.schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } } in
+  let check a b d = C.check true (document (ge z RP.zero) a b d) in
+  let bound = le (mul x y) RP.zero in
+  let indirect = R.mk_not_expr
+    (ge (A.App RL.real_plus_decl [z; mul (A.App (RL.real_numeral_decl (-1) 1) []) x]) RP.zero) in
+  let good = document (ge z RP.zero) indirect (RP.positive y) bound in
+  let nested a b = le (A.App RL.real_plus_decl
+    [z; mul (real_numeral (-1) 1) (mul a b)]) RP.zero in
+  check (RP.positive x) (RP.positive y) bound = Some 0 &&
+  check indirect (R.mk_not_expr (le y RP.zero)) bound = Some 0 &&
+  check (ge x RP.zero) (RP.positive y) bound = Some 1 &&
+  check (RP.positive x) (ge y RP.zero) bound = Some 1 &&
+  check (RP.positive x) (RP.positive y) (le (mul x z) RP.zero) = Some 1 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (RP.positive z) (nested x y)) = Some 0 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (RP.positive z) (nested y x)) = Some 0 &&
+  C.check true (document (ge x RP.zero) (ge y RP.zero) (RP.positive z) (nested x y)) = Some 1 &&
+  C.check true (document (ge x RP.zero) (le y RP.zero) (le z RP.zero) (nested x y)) = Some 1 &&
+  C.check true { good with C.document = { good.document with P.assertions = [] } } = None
+
+let real_constant_product_controls () : bool =
+  let x = real_constant "fixed_x" [] in
+  let y = real_constant "fixed_y" [] in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let check n coefficient missing =
+    let k = real_numeral n 1 in
+    let lower = A.App RL.real_ge_decl [x; k] in
+    let facts = if missing then [lower] else [lower; A.App RL.real_le_decl [x; k]] in
+    let node = {
+      U.kind = U.Unverified "arith/lp-monomial-interval";
+      U.conclusion = U.Holds (A.App RL.real_le_decl
+        [A.App RL.real_times_decl [x; y]; A.App RL.real_times_decl [real_numeral coefficient 1; y]]);
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+    Z3SortedProof.real_node schema node && (match Z3SortedProof.check_node schema [] node with
+      | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+      | None -> false) in
+  L.for_all (fun n -> check n n false) [0; 1; 2; -1] &&
+  not (check 2 3 false) && not (check 2 2 true)
+
+let real_product_equality_controls () : bool =
+  let x = real_constant "equality_x" [] in
+  let y = real_constant "equality_y" [] in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let check n coefficient reversed missing observational =
+    let k = real_numeral n 1 in
+    let lower = A.App RL.real_ge_decl [x; k] in
+    let facts = if missing then [lower] else [lower; A.App RL.real_le_decl [x; k]] in
+    let product = if reversed then mul y x else mul x y in
+    let value = mul (real_numeral coefficient 1) y in
+    let conclusion = if observational then U.Observational product value else U.Equal product value in
+    let node = {
+      U.kind = U.Unverified "arith/lp-monomial-substitute"; U.conclusion = conclusion;
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [R.true_expr] }) facts } in
+    Z3SortedProof.real_node schema node &&
+    (match Z3SortedProof.check_node schema [] node with
+     | Some (fact, count) -> count = 0 && fact.U.hypotheses = [R.true_expr]
+     | None -> false) in
+  L.for_all (fun n -> L.for_all (fun reversed -> L.for_all (fun observational ->
+    check n n reversed false observational) [false; true]) [false; true]) [0; 1; 2; -1] &&
+  not (check 2 3 false false false) && not (check 2 2 false true false)
+
+let real_product_clause_controls () : bool =
+  let x = real_constant "clause_x" [] in
+  let y = real_constant "clause_y" [] in
+  let z = real_constant "clause_z" [] in
+  let le a b = A.App RL.real_le_decl [a; b] in
+  let ge a b = A.App RL.real_ge_decl [a; b] in
+  let mul a b = A.App RL.real_times_decl [a; b] in
+  let clause p =
+    let lits = [le x RP.zero; le y RP.zero; RP.positive p] in
+    A.App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction lits) lits in
+  let schema = { Z3DatatypeSignature.sorts = []; Z3DatatypeSignature.cases = [] } in
+  let node kind facts goal =
+    { U.kind = kind; U.conclusion = U.Holds goal;
+      U.premises = L.map (fun e -> { U.conclusion = U.Holds e; U.hypotheses = [ge x RP.zero] }) facts } in
+  let run kind facts goal = Z3SortedProof.check_node schema [] (node kind facts goal) in
+  (match run (U.Unverified "assumed:nlsat") [] (clause (mul x y)) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = []
+   | None -> false) &&
+  Z3SortedProof.real_node schema (node (U.Unverified "assumed:nlsat") [] (clause (mul x y))) &&
+  (match run (U.Unverified "assumed:nlsat") [] (clause (mul x z)) with
+   | Some (_, n) -> n = 1 | None -> false) &&
+  (match run U.LemmaRule [] (clause (mul x y)) with | Some (_, n) -> n = 1 | None -> false) &&
+  (match run (U.Unverified "arith/lp-monomial-interval") [ge x RP.zero; le y RP.zero] (le (mul x y) RP.zero) with
+   | Some (fact, n) -> n = 0 && fact.U.hypotheses = [ge x RP.zero]
+   | None -> false) &&
+  (match run (U.Unverified "arith/lp-monomial-interval") [ge x RP.zero] (le (mul x y) RP.zero) with
+   | Some (_, n) -> n = 1 | None -> false)
 
 let real_farkas_controls () : bool =
   let x = real_constant "x" [] in
@@ -1270,6 +1584,17 @@ let run () : bool =
   qi_regroup_scale () &&
   qi_ite_scale () &&
   real_farkas_controls () &&
+  real_equality_controls () &&
+  integer_unit_controls () &&
+  integer_product_clause_controls () &&
+  integer_zero_product_controls () &&
+  integer_constant_product_controls () &&
+  integer_product_equality_controls () &&
+  integer_product_controls () &&
+  real_product_controls () &&
+  real_constant_product_controls () &&
+  real_product_equality_controls () &&
+  real_product_clause_controls () &&
   real_order_controls () &&
   real_equation_controls () &&
   int_division_controls () &&

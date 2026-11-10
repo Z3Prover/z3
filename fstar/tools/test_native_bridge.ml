@@ -3147,6 +3147,462 @@ let sorted_real_farkas () =
   require (K.check_document_epsilon schema doc = Some Z.zero)
     "the producer's Real Farkas refutation was not certified on the Sorted route"
 
+let sorted_integer_unit_consequences () =
+  let module K = Z3SortedProof in
+  let module R = Z3ResolutionProofTheory in
+  let check expected header facts goal =
+    let c = context () in
+    let native = parse c (header ^ facts ^ "(assert " ^ goal ^ ")(assert (not " ^ goal ^ "))(assert false)") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let expressions = List.map (B.cached_expression st) native in
+    let count = List.length expressions - 3 in
+    let premises = List.filteri (fun i _ -> i < count) expressions in
+    let conclusion = List.nth expressions count in
+    let negative = List.nth expressions (count + 1) in
+    let assertions = premises @ [negative] in
+    let entries = List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) assertions in
+    let step = { P.rule = U.Unverified "arith/lp-integer-tighten"; formula = conclusion;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) premises } in
+    let root = { P.rule = U.UnitResolution; formula = R.false_expr;
+                 premise_ids = [Z.of_int count; Z.of_int (count + 1)] } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions; entries = entries @ [step; root]; root = Z.of_int (count + 2) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected integer unit-consequence verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "unit consequence accepted missing original assertions";
+      let node = { U.kind = step.P.rule; conclusion = U.Holds conclusion;
+                   premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [List.hd premises] }) premises } in
+      match K.check_node schema [] node with
+      | Some (fact, n) ->
+        require (Z.equal n Z.zero && fact.U.hypotheses = [List.hd premises])
+          "unit consequence dropped an inherited hypothesis"
+      | None -> failwith "unit consequence node rejected")
+  in
+  let header = "(declare-sort T 0)(declare-const a T)(declare-fun f (T) Int)" in
+  check true header "(assert true)(assert (< (* 1 (f a)) 0))" "(<= (* 1 (f a)) (- 1))";
+  check false header "(assert true)" "(<= (* 1 (f a)) (- 1))";
+  check false header "(assert true)(assert (< (* 1 (f a)) 0))" "(<= (* 1 (f a)) (- 2))";
+  check true "(declare-const x Int)" "(assert (> x 0))" "(>= x 1)";
+  check false "(declare-const x Int)" "(assert (>= x 0))" "(>= x 1)";
+  check false "(declare-const x Real)" "(assert (< x 0.0))" "(<= x (- 1.0))"
+
+let check_sorted_product_clause ?(int_kernel_refuses=false) ?(equality_judgment=false) expected rule header facts goal =
+  let module K = Z3SortedProof in
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c (header ^ facts ^ "(assert " ^ goal ^ ")(assert (not " ^ goal ^ "))") in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let expressions = List.map (B.cached_expression st) native in
+  let count = List.length expressions - 2 in
+  let premises = List.filteri (fun i _ -> i < count) expressions in
+  let conclusion = List.nth expressions count in
+  let negative = List.nth expressions (count + 1) in
+  let assertions = premises @ [negative] in
+  let entries = List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) assertions in
+  let step = { P.rule = rule; formula = conclusion;
+               premise_ids = List.mapi (fun i _ -> Z.of_int i) premises } in
+  let root = { P.rule = U.UnitResolution; formula = R.false_expr;
+               premise_ids = [Z.of_int count; Z.of_int (count + 1)] } in
+  let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+              assertions; entries = entries @ [step; root]; root = Z.of_int (count + 2) } in
+  require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected product-clause verdict";
+  if expected then (
+    require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+      "product clause accepted missing original assertions";
+    let judgment = if equality_judgment then
+        match U.classify_fact conclusion with
+        | Some (U.Equal _ as j) | Some (U.Observational _ as j) -> j
+        | _ -> failwith "expected a native equality judgment"
+      else U.Holds conclusion in
+    let node = { U.kind = rule; conclusion = judgment;
+                 premises = List.map (fun e -> { U.conclusion = U.Holds e; hypotheses = [negative] }) premises } in
+    if int_kernel_refuses then
+      require (not (K.integer_product_clause premises conclusion))
+        "Real product control unexpectedly passed the Int kernel";
+    if K.real_node schema node then
+      require (K.needs_real_semantics schema doc.P.entries)
+        "Real product consequence omitted its model-law requirement";
+    match K.check_node schema [] node with
+    | Some (fact, n) ->
+      require (Z.equal n Z.zero && fact.U.hypotheses = (if premises = [] then [] else [negative]))
+        "product clause dropped an inherited hypothesis"
+    | None -> failwith "product-clause node rejected")
+
+let sorted_integer_product_clauses () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let clause = "(or (not (>= x 0)) (not (>= y 0)) (>= (* x y) 0))" in
+  check true (U.Unverified "th-lemma") header "" clause;
+  check true (U.Unverified "assumed:nlsat") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "assumed:nlsat") header ""
+    "(or (not (>= x 0)) (not (>= y 0)) (>= (* x y) 1))";
+  check false (U.Unverified "th-lemma") header ""
+    "(or (not (>= x 0)) (>= (* x y) 0))";
+  check false (U.ArithmeticFarkas []) header ""
+    "(or (not (>= x 0)) (not (>= y 0)) (>= (* x z) 0))";
+  check true (U.Unverified "arith/lp-monomial-interval") header "(assert (>= x 0))"
+    "(or (not (>= y 0)) (>= (* x y) 0))";
+  check true (U.Unverified "unrecognized-product") header "(assert (>= x 0))(assert (>= y 0))"
+    "(>= (* x y) 0)";
+  check false (U.Unverified "unrecognized-product") header "(assert (>= x 0))"
+    "(>= (* x y) 0)";
+  check false (U.Unverified "th-lemma") "(declare-const x Real)(declare-const y Real)" ""
+    "(or (not (>= x 0.0)) (not (>= y 0.0)) (>= (* x y) 0.0))"
+
+let sorted_integer_zero_products () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let zero = "(assert (<= x 0))(assert (>= x 0))" in
+  let conflict = zero ^ "(assert (> (* x y) 0))" in
+  check true (U.Unverified "th-lemma") header conflict "false";
+  check false (U.ArithmeticFarkas []) header conflict "false";
+  check true (U.Unverified "arith/lp-monomial-interval") header zero "(<= (* x y) 0)";
+  check true (U.Unverified "arith/lp-monomial-interval") header zero "(>= (* y x) 0)";
+  check true (U.Unverified "assumed:nlsat") header "" "(or (not (= x 0)) (<= (* x y) 0))";
+  check false U.LemmaRule header "" "(or (not (= x 0)) (<= (* x y) 0))";
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (<= x 0))" "(<= (* x y) 0)";
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (>= x 0))" "(<= (* x y) 0)";
+  check false (U.Unverified "arith/lp-monomial-interval") header zero "(<= (* z y) 0)";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Int Int) Int)") zero "(<= (fake_mul x y) 0)";
+  check ~int_kernel_refuses:true true (U.Unverified "arith/lp-monomial-interval")
+    "(declare-const x Real)(declare-const y Real)"
+    "(assert (<= x 0.0))(assert (>= x 0.0))" "(<= (* x y) 0.0)"
+
+let sorted_integer_constant_products () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  let scaled k = if k = "1" then "y" else "(* " ^ k ^ " y)" in
+  List.iter (fun k ->
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(<= (* x y) " ^ scaled k ^ ")");
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(>= (* y x) " ^ scaled k ^ ")"))
+    ["1"; "(- 1)"; "2"; "340282366920938463463374607431768211456"];
+  let conflict = fixed "2" ^ "(assert (> (* x y) (* 2 y)))" in
+  check true (U.Unverified "th-lemma") header conflict "false";
+  check false (U.ArithmeticFarkas []) header conflict "false";
+  let clause = "(or (not (= x 2)) (<= (* x y) (* 2 y)))" in
+  check true (U.Unverified "assumed:nlsat") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (<= x 2))" "(<= (* x y) (* 2 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header "(assert (>= x 2))" "(<= (* x y) (* 2 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2") "(<= (* x y) (* 3 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2") "(<= (* z y) (* 2 y))";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Int Int) Int)") (fixed "2") "(<= (fake_mul x y) (* 2 y))";
+  check ~int_kernel_refuses:true true (U.Unverified "arith/lp-monomial-interval")
+    "(declare-const x Real)(declare-const y Real)"
+    "(assert (<= x 2.0))(assert (>= x 2.0))" "(<= (* x y) (* 2.0 y))"
+
+let sorted_integer_product_equalities () =
+  let check = check_sorted_product_clause in
+  let rule = U.Unverified "arith/lp-monomial-substitute" in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const z Int)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  List.iter (fun k ->
+    let scaled = if k = "1" then "y" else "(* " ^ k ^ " y)" in
+    check true rule header (fixed k) ("(= (* x y) " ^ scaled ^ ")");
+    check true rule header (fixed k) ("(= " ^ scaled ^ " (* y x))"))
+    ["0"; "1"; "(- 1)"; "2"];
+  check true (U.Unverified "th-lemma") header (fixed "2") "(= (* x y) (* 2 y))";
+  check true (U.ArithmeticFarkas []) header (fixed "2") "(= (* x y) (* 2 y))";
+  check false U.LemmaRule header (fixed "2") "(= (* x y) (* 2 y))";
+  check false rule header "(assert (>= x 2))" "(= (* x y) (* 2 y))";
+  check false rule header "(assert (<= x 2))" "(= (* x y) (* 2 y))";
+  check false rule header (fixed "2") "(= (* x y) (* 3 y))";
+  check false rule header (fixed "2") "(= (* z y) (* 2 y))";
+  check false rule header "(assert (>= x 0))(assert (>= y 0))" "(= (* x y) 0)";
+  check false rule header "(assert (<= x 0))(assert (>= y 0))" "(= (* x y) 0)";
+  check false rule (header ^ "(declare-fun fake_mul (Int Int) Int)") (fixed "2")
+    "(= (fake_mul x y) (* 2 y))";
+  let c = context () in
+  let native = parse c "(declare-const x Real)(assert (= x x))" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  require (not (Z3SortedProof.integer_product_equality [] (B.cached_expression st (List.hd native))))
+    "Real equality unexpectedly passed the Int product-equality kernel"
+
+let sorted_real_constant_products () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  List.iter (fun k ->
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(<= (* x y) (* " ^ k ^ " y))");
+    check true (U.Unverified "arith/lp-monomial-interval") header (fixed k)
+      ("(>= (* y x) (* " ^ k ^ " y))"))
+    ["0.0"; "1.0"; "2.0"; "(- 1.0)"];
+  let conflict = fixed "2.0" ^ "(assert (> (* x y) (* 2.0 y)))" in
+  check true (U.Unverified "th-lemma") header conflict "false";
+  check false (U.ArithmeticFarkas []) header conflict "false";
+  let clause = "(or (not (= x 2.0)) (<= (* x y) (* 2.0 y)))" in
+  check true (U.Unverified "assumed:nlsat") header "" clause;
+  check true (U.ArithmeticFarkas []) header "" clause;
+  check false U.LemmaRule header "" clause;
+  check false (U.Unverified "arith/lp-monomial-interval") header
+    "(assert (<= x 2.0))" "(<= (* x y) (* 2.0 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header
+    "(assert (>= x 2.0))" "(<= (* x y) (* 2.0 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2.0") "(<= (* x y) (* 3.0 y))";
+  check false (U.Unverified "arith/lp-monomial-interval") header (fixed "2.0") "(<= (* z y) (* 2.0 y))";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Real Real) Real)") (fixed "2.0") "(<= (fake_mul x y) (* 2.0 y))"
+
+let sorted_real_product_equalities () =
+  let check = check_sorted_product_clause ~int_kernel_refuses:true ~equality_judgment:true in
+  let rule = U.Unverified "arith/lp-monomial-substitute" in
+  let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
+  let fixed k = "(assert (<= x " ^ k ^ "))(assert (>= x " ^ k ^ "))" in
+  List.iter (fun k ->
+    check true rule header (fixed k) ("(= (* x y) (* " ^ k ^ " y))");
+    check true rule header (fixed k) ("(= (* " ^ k ^ " y) (* y x))"))
+    ["0.0"; "1.0"; "2.0"; "(- 1.0)"];
+  check true (U.Unverified "th-lemma") header (fixed "2.0") "(= (* x y) (* 2.0 y))";
+  check true (U.ArithmeticFarkas []) header (fixed "2.0") "(= (* x y) (* 2.0 y))";
+  check false U.LemmaRule header (fixed "2.0") "(= (* x y) (* 2.0 y))";
+  check false rule header "(assert (>= x 2.0))" "(= (* x y) (* 2.0 y))";
+  check false rule header "(assert (<= x 2.0))" "(= (* x y) (* 2.0 y))";
+  check false rule header (fixed "2.0") "(= (* x y) (* 3.0 y))";
+  check false rule header (fixed "2.0") "(= (* z y) (* 2.0 y))";
+  check false rule header "(assert (>= x 0.0))(assert (>= y 0.0))" "(= (* x y) 0.0)";
+  check false rule header "(assert (<= x 0.0))(assert (>= y 0.0))" "(= (* x y) 0.0)";
+  check false rule (header ^ "(declare-fun fake_mul (Real Real) Real)") (fixed "2.0")
+    "(= (fake_mul x y) (* 2.0 y))";
+  check true rule header
+    (fixed "2.0" ^ "(assert (<= (* x y) 1.0))(assert (>= (* x y) 1.0))") "(= 0.5 y)";
+  check true rule header
+    (fixed "2.0" ^ "(assert (<= (* x (/ z x)) 1.0))(assert (>= (* x (/ z x)) 1.0))")
+    "(= (/ z x) 0.5)"
+
+let sorted_real_product_clauses () =
+  let check = check_sorted_product_clause in
+  let header = "(declare-const x Real)(declare-const y Real)(declare-const z Real)" in
+  let positive = "(or (<= x 0.0) (<= y 0.0) (> (* x y) 0.0))" in
+  check true (U.Unverified "th-lemma") header "" positive;
+  check true (U.Unverified "assumed:nlsat") header "" positive;
+  check false U.LemmaRule header "" positive;
+  check false (U.Unverified "assumed:nlsat") header ""
+    "(or (< x 0.0) (<= y 0.0) (> (* x y) 0.0))";
+  check false (U.ArithmeticFarkas []) header ""
+    "(or (<= x 0.0) (<= y 0.0) (> (* x z) 0.0))";
+  check true (U.Unverified "unrecognized-product") header ""
+    "(or (< x 0.0) (> y 0.0) (<= (* x y) 0.0))";
+  check true (U.Unverified "unrecognized-product") header ""
+    "(or (> x 0.0) (< y 0.0) (<= (* y x) 0.0))";
+  check true (U.Unverified "arith/lp-monomial-interval") header
+    "(assert (<= y 0.0))(assert (>= x 2.0))(assert (<= x 2.0))"
+    "(<= (* 1.0 (* x y)) 0.0)";
+  check false (U.Unverified "arith/lp-monomial-interval") header
+    "(assert (>= x 2.0))(assert (<= x 2.0))" "(<= (* 1.0 (* x y)) 0.0)";
+  check false (U.Unverified "assumed:nlsat")
+    (header ^ "(declare-fun fake_mul (Real Real) Real)") ""
+    "(or (<= x 0.0) (<= y 0.0) (> (fake_mul x y) 0.0))"
+
+let sorted_integer_nonnegative_products () =
+  let module K = Z3SortedProof in
+  let module R = Z3ResolutionProofTheory in
+  let check expected rule source =
+    let c = context () in
+    let native = parse c (source ^ "(assert false)") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let facts = List.filter (fun e -> e <> R.false_expr) (List.map (B.cached_expression st) native) in
+    let entries = List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) facts in
+    let root = { P.rule = rule; formula = R.false_expr;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions = facts; entries = entries @ [root]; root = Z.of_int (List.length facts) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected integer nonnegative-product document verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "integer product checking accepted missing assertions";
+      let premise formula = { U.conclusion = U.Holds formula; hypotheses = [List.hd facts] } in
+      let node = { U.kind = rule; conclusion = U.Holds R.false_expr; premises = List.map premise facts } in
+      match K.check_node schema [] node with
+      | Some (fact, n) ->
+        require (Z.equal n Z.zero && fact.U.hypotheses = [List.hd facts])
+          "integer product checking dropped an inherited hypothesis"
+      | None -> failwith "integer product node rejected")
+  in
+  let header = "(declare-const x Int)(declare-const y Int)(declare-const c Int)" in
+  let good = header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))\
+     (assert (<= (+ (* x y) (* (- 1) c)) 0))" in
+  check true (U.Unverified "th-lemma") good;
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))\
+     (assert (<= (+ (* y x) (* (- 1) c)) 0))");
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x c) c))");
+  check false (U.ArithmeticFarkas []) good;
+  let strict = header ^
+    "(assert (> x 0))(assert (> y 0))(assert (<= c 0))\
+     (assert (<= (+ (* x y) (* (- 1) c)) 0))" in
+  check true (U.Unverified "th-lemma") strict;
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 1))(assert (>= y 1))(assert (<= c 0))(assert (<= (* y x) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 1))(assert (>= y 0))(assert (<= c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (>= y 1))(assert (<= c 0))(assert (<= (* x y) c))");
+  check false (U.ArithmeticFarkas []) strict;
+  let opposite = header ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))\
+     (assert (>= (+ (* x y) (* (- 1) c)) 0))" in
+  check true (U.Unverified "th-lemma") opposite;
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (<= x 0))(assert (>= y 0))(assert (> c 0))(assert (>= (* x y) c))");
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (<= x 0))(assert (<= y 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (>= y 0))(assert (> c 0))(assert (>= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (> c 0))(assert (>= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (<= x 0))(assert (>= y 0))(assert (< c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (<= y 0))(assert (>= c 0))(assert (>= (* x y) c))");
+  check false (U.ArithmeticFarkas []) opposite;
+  let strict_opposite = header ^
+    "(assert (> x 0))(assert (< y 0))(assert (>= c 0))\
+     (assert (>= (+ (* x y) (* (- 1) c)) 0))" in
+  check true (U.Unverified "th-lemma") strict_opposite;
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (<= x (- 1)))(assert (>= y 1))(assert (>= c 0))(assert (>= (* x y) c))");
+  check true (U.Unverified "th-lemma") (header ^
+    "(assert (< x 0))(assert (< y 0))(assert (<= c 0))(assert (<= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (>= x 1))(assert (<= y 0))(assert (>= c 0))(assert (>= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (= x 0))(assert (<= y (- 1)))(assert (>= c 0))(assert (>= (* x y) c))");
+  check false (U.Unverified "th-lemma") (header ^
+    "(assert (<= x (- 1)))(assert (<= y 0))(assert (<= c 0))(assert (<= (* x y) c))");
+  check false (U.ArithmeticFarkas []) strict_opposite
+
+let sorted_real_linear_equalities () =
+  let module K = Z3SortedProof in
+  let c = context () in
+  let native = parse c
+    "(declare-const x Real)(declare-const y Real)\
+     (assert (>= x 1))(assert (<= x 1))(assert (>= y 0))(assert (<= y 0))\
+     (assert (= 1 (+ x y)))(assert (not (= 1 (+ x y))))(assert false)" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let schema = N.view_datatypes st.B.retained_sorts in
+  let facts, equation, negative, falsity = match List.map (B.cached_expression st) native with
+    | [a; b; c; d; equation; negative; falsity] -> [a; b; c; d], equation, negative, falsity
+    | _ -> failwith "expected Real equality reconstruction formulas" in
+  let check expected rule facts =
+    let assertions = facts @ [negative] in
+    let goal_id = List.length assertions in
+    let entries = List.map (fun formula ->
+        { P.rule = U.Asserted; formula; premise_ids = [] }) assertions in
+    let goal = { P.rule = rule; formula = equation;
+                 premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
+    let root = { P.rule = U.UnitResolution; formula = falsity;
+                 premise_ids = [Z.of_int goal_id; Z.of_int (goal_id - 1)] } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions; entries = entries @ [goal; root]; root = Z.of_int (goal_id + 1) } in
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "unexpected Real equality reconstruction document verdict";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "Real equality reconstruction accepted missing assertions";
+      let premise formula = { U.conclusion = U.Holds formula; hypotheses = [List.hd facts] } in
+      let node = { U.kind = rule; conclusion = Option.get (U.classify_fact equation);
+                   premises = List.map premise facts } in
+      match K.check_node schema [] node with
+      | Some (fact, pending) ->
+        require (Z.equal pending Z.zero && fact.U.hypotheses = [List.hd facts])
+          "Real equality reconstruction dropped an inherited hypothesis"
+      | None -> failwith "Real equality reconstruction rejected a valid node")
+  in
+  check true (U.Unverified "th-lemma") facts;
+  check true U.RewriteRule facts;
+  check false (U.Unverified "th-lemma") (List.tl facts);
+  check false (U.ArithmeticFarkas []) facts;
+  let left, right = match Option.get (U.classify_fact equation) with
+    | U.Equal (a, b) -> a, b | _ -> failwith "expected a numeric equality" in
+  require (not (Z3SortedRealLinear.implied_equality schema
+                  (List.init 31 (fun i -> List.nth facts (i mod 4))) left right))
+    "Real equality reconstruction ignored its literal budget"
+
+let sorted_real_product_signs () =
+  let module K = Z3SortedProof in
+  let module RP = Z3SortedRealProduct in
+  let module R = Z3ResolutionProofTheory in
+  let check expected source =
+    let c = context () in
+    let native = parse c (source ^ "(assert false)") in
+    let st = B.marshal_expressions (B.empty_state ()) native in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    let formulas = List.map (B.cached_expression st) native in
+    let facts = List.filter (fun e -> e <> R.false_expr) formulas in
+    let entries = List.map (fun formula ->
+        { P.rule = U.Asserted; formula; premise_ids = [] }) facts in
+    let final = { P.rule = U.Unverified "th-lemma"; formula = R.false_expr;
+                  premise_ids = List.mapi (fun i _ -> Z.of_int i) facts } in
+    let doc = { P.declarations = st.B.all_declarations; expressions = st.B.all_expressions;
+                assertions = facts; entries = entries @ [final]; root = Z.of_int (List.length facts) } in
+    require (RP.check schema facts = expected) "unexpected Real product-sign verdict";
+    require (K.check_document_epsilon schema doc = Some (if expected then Z.zero else Z.one))
+      "Real positive-product document did not preserve its pending count";
+    if expected then (
+      require (K.check_document_epsilon schema { doc with P.assertions = [] } = None)
+        "Real positive-product document accepted missing assertions";
+      let premise formula = { U.conclusion = U.Holds formula; hypotheses = [List.hd facts] } in
+      let node = { U.kind = final.P.rule; conclusion = U.Holds R.false_expr;
+                   premises = List.map premise facts } in
+      match K.check_node schema [] node with
+      | Some (fact, pending) ->
+        require (Z.equal pending Z.zero && fact.U.hypotheses = [List.hd facts])
+          "Real positive-product checking dropped a premise hypothesis"
+      | None -> failwith "Real positive-product node was rejected")
+  in
+  let declarations = "(declare-const x Real)(declare-const y Real)(declare-const c Real)" in
+  check true (declarations ^
+    "(assert (> x 0))(assert (> y 0))(assert (<= (* x y) 0))");
+  check true (declarations ^
+    "(assert (>= c 0))(assert (not (>= (+ c (* (- 1) x)) 0)))\
+     (assert (not (<= y 0)))(assert (<= (* x y) 0))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (> y 0))(assert (<= (* x y) 0))");
+  check false (declarations ^
+    "(assert (> x 0))(assert (>= y 0))(assert (<= (* x y) 0))");
+  check false (declarations ^
+    "(assert (> x 0))(assert (> y 0))(assert (<= (* x c) 0))");
+  check true (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))\
+     (assert (<= (+ c (* (- 1) (* x y))) 0))");
+  check true (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))\
+     (assert (<= (+ c (* (- 1) (* y x))) 0))");
+  check true (declarations ^
+    "(assert (= x 0))(assert (<= y 0))(assert (> c 0))(assert (<= c (* x y)))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (>= y 0))(assert (> c 0))(assert (<= c (* x y)))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (<= c 0))(assert (<= c (* x y)))");
+  check false (declarations ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))(assert (<= c (* x c)))");
+  check false (declarations ^ "(declare-fun fake_mul (Real Real) Real)" ^
+    "(assert (>= x 0))(assert (<= y 0))(assert (> c 0))(assert (<= c (fake_mul x y)))")
+
 (* Real equality/order clauses (Z3SortedProof.real_order, the Real mirror of the Int order_clause)
    on the Sorted route. z3's arith_eq_adapter lemmas over Real terms (`not (x = y) \/ x <= y`, the
    three-literal `(x = y) \/ not (x <= y) \/ not (y <= x)` and their difference forms) are certified
@@ -8187,7 +8643,18 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-integer-Farkas", sorted_integer_farkas;
+     "sorted-integer-unit-consequences", sorted_integer_unit_consequences;
+     "sorted-integer-product-clauses", sorted_integer_product_clauses;
+     "sorted-integer-zero-products", sorted_integer_zero_products;
+     "sorted-integer-constant-products", sorted_integer_constant_products;
+     "sorted-integer-product-equalities", sorted_integer_product_equalities;
+     "sorted-real-product-clauses", sorted_real_product_clauses;
+     "sorted-real-constant-products", sorted_real_constant_products;
+     "sorted-real-product-equalities", sorted_real_product_equalities;
+     "sorted-integer-nonnegative-products", sorted_integer_nonnegative_products;
      "sorted-real-Farkas", sorted_real_farkas;
+     "sorted-real-linear-equalities", sorted_real_linear_equalities;
+     "sorted-real-product-signs", sorted_real_product_signs;
      "sorted-real-order-clauses", sorted_real_order_clauses;
      "sorted-int-division-clauses", sorted_int_division_clauses;
      "sorted-real-equation-rewrites", sorted_real_equation_rewrites;
