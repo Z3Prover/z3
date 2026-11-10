@@ -15,6 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
+#include "ast/rewriter/array_rewriter.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
 #include "model/model.h"
@@ -251,6 +252,62 @@ static void check_array_domain(char const* input, lbool expected) {
     for (expr* a : cmd.assertions())
         slv->assert_expr(a);
     VERIFY(expected == slv->check_sat(0, nullptr));
+}
+
+static void check_generated_quantifiers() {
+    struct {
+        char const* input;
+        bool positive_sat;
+        bool negative_sat;
+    } cases[] = {
+        {"(assert (forall ((x Int) (b Bool))"
+         " (! (or b (not b) (= x 0)) :skolemid generated)))", true, false},
+        {"(assert (forall ((x Int) (b Bool))"
+         " (! (and b (> x 0)) :skolemid generated)))", false, true},
+        {"(declare-const p Bool)"
+         "(assert (forall ((x Int) (b Bool))"
+         " (! (or p (and b (> x 0))) :skolemid generated)))", true, true}
+    };
+    for (auto const& test : cases) {
+        for (bool positive : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(test.input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            smt_params params;
+            smt::context ctx(m, params);
+            expr* q = cmd.assertions().get(0);
+            for (unsigned i = 0; i < 2; ++i) {
+                ctx.push();
+                ctx.internalize(q, true);
+                ctx.mark_as_relevant(q);
+                smt::literal lit = ctx.get_literal(q);
+                ctx.assign(positive ? lit : ~lit, smt::b_justification::mk_axiom());
+                bool sat = positive ? test.positive_sat : test.negative_sat;
+                VERIFY(ctx.check() == (sat ? l_true : l_false));
+                ctx.pop(1);
+            }
+        }
+    }
+
+    for (char const* input : {
+        "(assert (= ((as const (Array Int Int)) 0)"
+        "           (lambda ((x Int)) (+ x 0))))",
+        "(assert (= (lambda ((x Int) (b Bool)) (ite b x 0))"
+        "           (lambda ((x Int) (b Bool)) (ite b (+ x 0) 0))))"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        app* eq = to_app(cmd.assertions().get(0));
+        array_rewriter rw(m);
+        expr_ref result(m);
+        VERIFY(rw.mk_eq_core(eq->get_arg(0), eq->get_arg(1), result) == BR_REWRITE2);
+        VERIFY(is_forall(result));
+        VERIFY(to_quantifier(result)->get_skid() == symbol("generated"));
+    }
 }
 
 static void check_stored_lambdas() {
@@ -1345,6 +1402,7 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_sequence_last_index();
     check_array_index_dependencies();
+    check_generated_quantifiers();
     check_stored_lambdas();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
