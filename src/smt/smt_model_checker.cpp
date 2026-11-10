@@ -27,6 +27,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
@@ -208,6 +209,26 @@ namespace smt {
 
         var_subst s(m);
         expr_ref sk_body = s(tmp, subst_args.size(), subst_args.data());
+        arith_util arith(m);
+        // Residual partial arithmetic must use this model's zero-divisor interpretation.
+        for (expr* e : subterms::ground(sk_body)) {
+            if (!is_app(e))
+                continue;
+            app* t = to_app(e);
+            func_decl_ref f(m);
+            if (!arith.is_considered_partially_interpreted(t->get_decl(), t->get_num_args(), t->get_args(), f))
+                continue;
+            func_interp* fi = m_curr_model->get_func_interp(f);
+            if (!fi || !fi->get_interp())
+                continue;
+            var_subst subst(m, false);
+            expr_ref value = subst(fi->get_interp(), t->get_num_args(), t->get_args());
+            expr_ref zero(arith.mk_numeral(rational(0), t->get_arg(1)->get_sort()), m);
+            expr_ref is_zero(m.mk_eq(t->get_arg(1), zero), m);
+            expr_ref eq(m.mk_eq(t, value), m);
+            expr_ref axiom(m.mk_implies(is_zero, eq), m);
+            m_aux_context->assert_expr(axiom);
+        }
         expr_ref r(m);
         r = m.mk_not(sk_body);
         TRACE(model_checker, tout << "mk_neg_q_m:\n" << mk_ismt2_pp(r, m) << "\n";);
