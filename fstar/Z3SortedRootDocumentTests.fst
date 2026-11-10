@@ -924,6 +924,31 @@ let integer_product_equality_certified ()
   assert_norm (SP.check_document_epsilon PT.core_schema
     { (integer_product_equality_document false) with P.assertions = [] } == None)
 
+let integer_product_equality_clause_document (wrong_bound:bool) : P.document =
+  let x = const "clause_equality_x" integer in
+  let y = const "clause_equality_y" integer in
+  let two = App (TR.int_numeral 2) [] in
+  let equality = R.mk_eq_expr (App (TR.times_decl integer) [x; y])
+                             (App (TR.times_decl integer) [two; y]) in
+  let clause = disjunction [equality; R.mk_not_expr (SP.int_ge x two);
+                            R.mk_not_expr (SP.int_le x (if wrong_bound then three else two))] in
+  let negative = R.mk_not_expr clause in
+  doc [negative]
+    [entry U.Asserted negative []; entry (U.Unverified "th-lemma") clause [];
+     entry U.UnitResolution R.false_expr [1; 0]] 2
+
+let integer_product_equality_clause_certified ()
+  : Lemma (RD.check_root_document PT.core_schema (integer_product_equality_clause_document false) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_clause_document false)) == RD.RootCertified /\
+           RD.check_root_document PT.core_schema (integer_product_equality_clause_document true) == RD.RootPending 1 /\
+           SP.check_document_epsilon PT.core_schema
+             { (integer_product_equality_clause_document false) with P.assertions = [] } == None) =
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_clause_document false) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (RD.read_view (integer_product_equality_clause_document false)) == RD.RootCertified);
+  assert_norm (RD.check_root_document PT.core_schema (integer_product_equality_clause_document true) == RD.RootPending 1);
+  assert_norm (SP.check_document_epsilon PT.core_schema
+    { (integer_product_equality_clause_document false) with P.assertions = [] } == None)
+
 let integer_unit_document (bound:int) (premises:list int) : P.document =
   let term = App (TR.times_decl integer) [one; x_int] in
   let strict = App (TR.lt_decl integer) [term; zero] in
