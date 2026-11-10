@@ -426,6 +426,69 @@ namespace {
         tr.pop_scope(1);
     }
 
+    static void tst_word_eq_finite_priority(bool reverse = false) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        auto assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_assumption_id(assumption_id);
+        tree.set_ambient_context(&ac);
+        auto& ef = root->facet_as<seq::eq_facet>(eq_id);
+        auto& dm = tree.dep_mgr();
+        sort* s = u.str.mk_string_sort();
+        auto var = [&](char const* name) { return expr_ref(m.mk_fresh_const(name, s), m); };
+        expr_ref p = var("p"), q = var("q"), r = var("r"), t = var("t");
+        expr_ref x = var("x"), y = var("y"), z = var("z"), w = var("w");
+        expr_ref v = var("v"), tail = var("tail");
+        expr_ref pq(u.str.mk_concat(p, q), m), rt(u.str.mk_concat(r, t), m);
+        expr_ref xy(u.str.mk_concat(x, y), m), zw(u.str.mk_concat(z, w), m);
+        expr_ref vt(u.str.mk_concat(v, tail), m);
+        expr_ref longer(u.str.mk_string("abc"), m), shorter(u.str.mk_string("ab"), m);
+        ef.add_equation(pq, rt, dm.mk_leaf(3));
+        ef.add_equation(reverse ? longer.get() : xy.get(), reverse ? xy.get() : longer.get(), dm.mk_leaf(7));
+        tr.push_scope();
+        ef.add_equation(reverse ? shorter.get() : zw.get(), reverse ? zw.get() : shorter.get(), dm.mk_leaf(9));
+        ef.add_equation(vt, shorter, dm.mk_leaf(11));
+        seq::word_eq_split split(m, u);
+        seq::eq_tree::edge edge;
+        bool more = false, committed = false;
+        tr.push_scope();
+        auto it = split.split(*root, 0, edge, more, committed);
+        ENSURE(it && committed);
+        unsigned sizes[] = { 0, 1, 3 };
+        for (unsigned size : sizes) {
+            expr_ref_vector repl(m);
+            seq::eq_tree::dep_tracker dep = nullptr;
+            ENSURE(ef.get_subst(z, repl, &dep) && repl.size() == size);
+            ENSURE(dm.contains(dep, 9) && !dm.contains(dep, 3) && !dm.contains(dep, 7) && !dm.contains(dep, 11));
+            ENSURE(!ef.get_subst(p, repl) && !ef.get_subst(x, repl) && !ef.get_subst(v, repl));
+            tr.pop_scope(1);
+            tr.push_scope();
+            if (size != 3)
+                ENSURE(it->next(edge));
+        }
+        ENSURE(!it->next(edge));
+        tr.pop_scope(2);
+        tr.push_scope();
+        it = split.split(*root, 0, edge, more, committed);
+        expr_ref_vector repl(m);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(it && committed && ef.get_subst(x, repl, &dep) && repl.empty());
+        ENSURE(dm.contains(dep, 7) && !dm.contains(dep, 9));
+        ENSURE(!ef.get_subst(p, repl));
+        tr.pop_scope(1);
+    }
+
     static void tst_trivial_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1761,6 +1824,8 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_word_eq_finite_priority();
+    tst_word_eq_finite_priority(true);
     tst_eq_approx_memberships();
     tst_eq_approx_conjunctive_views();
     tst_eq_approx_scopes();

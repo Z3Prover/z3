@@ -900,8 +900,11 @@ namespace smt {
                 for (enode* p : get_enode(v)->get_root()->get_parents()) {
                     app* t = to_app(p->get_expr());
                     if (ctx.is_relevant(p) &&
-                        (m_seq.str.is_at(t) || m_seq.str.is_extract(t) || m_seq.str.is_index(t)) &&
-                        ctx.get_enode(t->get_arg(0))->get_root() == get_enode(v)->get_root()) {
+                        (((m_seq.str.is_at(t) || m_seq.str.is_extract(t) || m_seq.str.is_index(t)) &&
+                          ctx.get_enode(t->get_arg(0))->get_root() == get_enode(v)->get_root()) ||
+                         (m_seq.str.is_replace(t) &&
+                          (ctx.get_enode(t->get_arg(0))->get_root() == get_enode(v)->get_root() ||
+                           ctx.get_enode(t->get_arg(1))->get_root() == get_enode(v)->get_root())))) {
                         selected = true;
                         break;
                     }

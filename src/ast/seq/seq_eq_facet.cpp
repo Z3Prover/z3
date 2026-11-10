@@ -305,7 +305,7 @@ namespace seq {
         bool changed = f.simplify(n, ac.context(), conflict, conflict_dep);
         if (!conflict && ac.context().has_solver_facet(n)) {
             auto& sf = ac.solver_facet_ref();
-            // Do not bypass the leading equation selected by word_eq_split.
+            // Keep positional bounds on the leading equation.
             for (auto const& eq : f.equations()) {
                 if (!eq.active())
                     continue;
@@ -421,7 +421,30 @@ namespace seq {
             }
             break;
         }
-        for (auto const& eq : f.equations()) {
+        unsigned preferred = f.equations().size(), width = UINT_MAX;
+        for (unsigned i = 0; i < f.equations().size(); ++i) {
+            auto const& eq = f.equations()[i];
+            if (!eq.active() || eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            auto finite_width = [&](expr_ref_vector const& side) {
+                return side.size() < width &&
+                    all_of(side, [&](expr* token) { return u.str.is_unit(token); });
+            };
+            if (finite_width(eq.m_lhs)) {
+                preferred = i;
+                width = eq.m_lhs.size();
+            }
+            if (finite_width(eq.m_rhs)) {
+                preferred = i;
+                width = eq.m_rhs.size();
+            }
+            if (width == 1)
+                break;
+        }
+        for (unsigned k = 0; k < f.equations().size(); ++k) {
+            unsigned i = preferred == f.equations().size() ? k :
+                k == 0 ? preferred : k <= preferred ? k - 1 : k;
+            auto const& eq = f.equations()[i];
             if (!eq.active())
                 continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
