@@ -41,6 +41,16 @@ namespace {
         }
     };
 
+    class controlled_ambient_context : public seq::null_ambient_context<seq::eq_tree::dep_tracker> {
+    public:
+        using seq::null_ambient_context<seq::eq_tree::dep_tracker>::null_ambient_context;
+        expr* m_false = nullptr;
+        seq::eq_tree::dep_tracker m_false_dep = nullptr;
+        seq::eq_tree::dep_tracker literal_if_false(expr* e) override {
+            return e == m_false ? m_false_dep : nullptr;
+        }
+    };
+
     struct fixture {
         ast_manager      m;
         seq_util         u;
@@ -51,7 +61,7 @@ namespace {
         seq::eq_tree::node* root;
         counted_sub_solver solver;
         seq_rewriter     rw;
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
+        controlled_ambient_context ac;
         stx::facet_id    eq_id;
         stx::facet_id    deq_id;
         stx::facet_id    arith_id;
@@ -92,6 +102,92 @@ namespace {
             tree.set_max_search_depth(12);
         }
     };
+
+    static void tst_ncontains_symbolic_unit_clauses() {
+        for (unsigned pos : { 0u, 1u }) {
+            fixture fx;
+            expr_ref_vector chars(fx.m), units(fx.m);
+            for (unsigned i = 0; i < 5; ++i) {
+                chars.push_back(fx.m.mk_fresh_const("c", fx.u.mk_char_sort()));
+                units.push_back(fx.u.str.mk_unit(chars.back()));
+            }
+            expr_ref h(fx.u.str.mk_concat(3, units.data(), fx.s), fx.m);
+            expr_ref needle(fx.u.str.mk_concat(2, units.data() + 3, fx.s), fx.m);
+            auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+            auto& sf = fx.root->facet_as<seq::solver_facet>(fx.arith_id);
+            auto& af = fx.root->facet_as<seq::assumption_facet>(fx.assumption_id);
+            auto& dm = fx.tree.dep_mgr();
+            if (pos == 1) {
+                expr_ref x(fx.m.mk_fresh_const("x", fx.s), fx.m);
+                expr_ref y(fx.m.mk_fresh_const("y", fx.s), fx.m);
+                fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(x, y);
+            }
+            nf.add_ncontains(h, needle, dm.mk_leaf(8));
+            fx.trail.push_scope();
+            seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+            ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::satisfied);
+            ENSURE(nf.is_satisfied() && af.assumptions().size() == 2);
+            fx.trail.push_scope();
+            for (unsigned i = 0; i < 2; ++i) {
+                expr_ref equal(fx.m.mk_eq(chars.get(3 + i), chars.get(pos + i)), fx.m);
+                sf.add_constraint(equal, dm.mk_leaf(9));
+            }
+            ENSURE(sf.has_conflict());
+            ENSURE(dm.contains(sf.conflict_dep(), 8) && dm.contains(sf.conflict_dep(), 9));
+            fx.trail.pop_scope(1);
+            ENSURE(!sf.has_conflict());
+            unsigned values[] = { 97, 98, 99, 97, 99 };
+            for (unsigned i = 0; i < 5; ++i) {
+                expr_ref value(fx.u.str.mk_char(values[i]), fx.m);
+                expr_ref equal(fx.m.mk_eq(chars.get(i), value), fx.m);
+                sf.add_constraint(equal);
+            }
+            ENSURE(!sf.has_conflict());
+            fx.trail.pop_scope(1);
+            ENSURE(!nf.is_satisfied() && af.assumptions().empty() && !sf.has_conflict());
+            ENSURE(fx.solver.get_scope_level() == 0);
+        }
+    }
+
+    static void tst_ncontains_symbolic_unit_false_clause() {
+        fixture fx;
+        expr_ref_vector chars(fx.m), units(fx.m), different(fx.m);
+        for (unsigned i = 0; i < 4; ++i) {
+            chars.push_back(fx.m.mk_fresh_const("c", fx.u.mk_char_sort()));
+            units.push_back(fx.u.str.mk_unit(chars.back()));
+        }
+        expr_ref h(fx.u.str.mk_concat(2, units.data(), fx.s), fx.m);
+        expr_ref needle(fx.u.str.mk_concat(2, units.data() + 2, fx.s), fx.m);
+        for (unsigned i = 0; i < 2; ++i)
+            different.push_back(fx.m.mk_not(fx.m.mk_eq(chars.get(i), chars.get(i + 2))));
+        expr_ref clause(fx.m.mk_or(different.size(), different.data()), fx.m);
+        auto& dm = fx.tree.dep_mgr();
+        fx.ac.m_false = clause;
+        fx.ac.m_false_dep = dm.mk_leaf(9);
+        fx.root->facet_as<seq::ncontains_facet>(fx.nc_id).add_ncontains(h, needle, dm.mk_leaf(8));
+        seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+        ENSURE(propagation.propagate(*fx.root) == stx::simplify_result::conflict);
+        ENSURE(dm.contains(fx.root->conflict_dep(), 8) && dm.contains(fx.root->conflict_dep(), 9));
+        ENSURE(fx.root->facet_as<seq::assumption_facet>(fx.assumption_id).assumptions().empty());
+    }
+
+    static void tst_ncontains_large_symbolic_units_deferred() {
+        fixture fx;
+        expr_ref c(fx.m.mk_fresh_const("c", fx.u.mk_char_sort()), fx.m);
+        expr_ref d(fx.m.mk_fresh_const("d", fx.u.mk_char_sort()), fx.m);
+        expr_ref uc(fx.u.str.mk_unit(c), fx.m), ud(fx.u.str.mk_unit(d), fx.m);
+        expr_ref_vector h(fx.m), needle(fx.m);
+        for (unsigned i = 0; i < 80; ++i)
+            h.push_back(uc);
+        for (unsigned i = 0; i < 40; ++i)
+            needle.push_back(ud);
+        auto& nf = fx.root->facet_as<seq::ncontains_facet>(fx.nc_id);
+        auto& af = fx.root->facet_as<seq::assumption_facet>(fx.assumption_id);
+        nf.add_ncontains(h, needle);
+        seq::ncontains_propagation propagation(fx.m, fx.u, fx.a);
+        propagation.propagate(*fx.root);
+        ENSURE(!nf.is_satisfied() && af.assumptions().empty());
+    }
 
     static void tst_ncontains_unit_length_bound() {
         fixture fx;
@@ -400,6 +496,9 @@ namespace {
 } // namespace
 
 void tst_seq_ncontains_facet() {
+    tst_ncontains_symbolic_unit_clauses();
+    tst_ncontains_symbolic_unit_false_clause();
+    tst_ncontains_large_symbolic_units_deferred();
     tst_ncontains_unit_length_bound();
     tst_ncontains_length_gate_discharges();
     tst_ncontains_empty_needle_conflict();

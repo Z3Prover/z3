@@ -305,6 +305,36 @@ namespace seq {
                 continue;
             }
 
+            // Finite unit words require a mismatch in every possible alignment.
+            // Bound the expansion before constructing its character formulas.
+            if (characters.size() != n_size && has_window &&
+                n_size <= 256u / (max_pos + 1) &&
+                all_of(nc.m_haystack, [&](expr* token) { return u.str.is_unit(token); }) &&
+                all_of(nc.m_needle, [&](expr* token) { return u.str.is_unit(token); })) {
+                expr_ref_vector different(m);
+                for (unsigned pos = 0; pos <= max_pos; ++pos) {
+                    different.reset();
+                    for (unsigned i = 0; i < n_size; ++i) {
+                        expr* hch = nullptr;
+                        expr* nch = nullptr;
+                        VERIFY(u.str.is_unit(nc.m_haystack.get(pos + i), hch));
+                        VERIFY(u.str.is_unit(nc.m_needle.get(i), nch));
+                        if (hch != nch)
+                            different.push_back(m.mk_not(m.mk_eq(hch, nch)));
+                    }
+                    expr_ref clause(m.mk_or(different.size(), different.data()), m);
+                    if (auto false_dep = ac.literal_if_false(clause)) {
+                        n.set_conflict(stx::br_plugin_base, f.dm().mk_join(nc.m_dep, false_dep));
+                        return stx::simplify_result::conflict;
+                    }
+                    ac.add_assumption(clause, nc.m_dep);
+                }
+                f.remove(head);
+                changed = true;
+                ++head;
+                continue;
+            }
+
             // Units give a lower haystack bound and an exact all-unit needle length.
             if (all_of(nc.m_needle, [&](expr* token) {
                     expr* character = nullptr;
