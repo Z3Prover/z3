@@ -961,13 +961,11 @@ bool arith_util::is_considered_partially_interpreted(func_decl* f, unsigned n, e
         return true;
     }
     if (is_decl_of(f, arith_family_id, OP_IDIV) && n == 2 && !is_numeral(args[1])) {
-        sort* rs[2] = { mk_int(), mk_int() };
-        f_out = m_manager.mk_func_decl(arith_family_id, OP_IDIV0, 0, nullptr, 2, rs, mk_int());
+        f_out = mk_idiv0();
         return true;
     }
     if (is_decl_of(f, arith_family_id, OP_MOD) && n == 2 && !is_numeral(args[1])) {
-        sort* rs[2] = { mk_int(), mk_int() };
-        f_out = m_manager.mk_func_decl(arith_family_id, OP_MOD0, 0, nullptr, 2, rs, mk_int());
+        f_out = mk_mod0();
         return true;
     }
     if (is_decl_of(f, arith_family_id, OP_REM) && n == 2 && !is_numeral(args[1])) {
