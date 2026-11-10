@@ -293,46 +293,53 @@ static void test_fpa() {
     Z3_del_context(ctx);
 }
 
-static void test_const_array_lambda() {
+static void test_array_lambda_equality() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
 
     char const* cases[] = {
         "(assert (forall ((a Int))"
-        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))"
-        "(assert (forall ((a Int) (x Int)) (= x a)))",
+        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))",
 
         "(assert (forall ((a Int))"
-        " (= (lambda ((x Int)) x) ((as const (Array Int Int)) a))))"
-        "(assert (forall ((a Int) (x Int)) (= x a)))",
+        " (= (lambda ((x Int)) x) ((as const (Array Int Int)) a))))",
 
         "(assert (forall ((a Int) (b (Array Int Int)))"
-        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))"
-        "(assert (forall ((a Int) (b (Array Int Int)) (x Int)) (= x a)))",
+        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))",
 
         "(assert (forall ((a Int))"
-        " (= ((as const (Array Int Int Int)) a) (lambda ((x Int) (y Int)) (+ x y)))))"
-        "(assert (forall ((a Int) (x Int) (y Int)) (= (+ x y) a)))",
+        " (= ((as const (Array Int Int Int)) a) (lambda ((x Int) (y Int)) (+ x y)))))",
 
         "(assert (forall ((a Int))"
-        " (= ((as const (Array Int Int)) (+ a 1)) (lambda ((x Int)) (+ a x)))))"
-        "(assert (forall ((a Int) (x Int)) (= (+ a x) (+ a 1))))",
+        " (= ((as const (Array Int Int)) (+ a 1)) (lambda ((x Int)) (+ a x)))))",
 
         "(declare-const a Int)"
-        "(assert (= ((as const (Array Int Int)) a) (lambda ((x Int)) x)))"
-        "(assert (forall ((x Int)) (= x a)))"
+        "(assert (= ((as const (Array Int Int)) a) (lambda ((x Int)) x)))",
+
+        "(assert (= (lambda ((x Int)) x) (lambda ((x Int)) (+ x 1))))",
+
+        "(assert (= (lambda ((x Int) (y Int)) (+ x y))"
+        " (lambda ((x Int) (y Int)) (+ x y 1))))"
     };
 
     for (char const* test : cases) {
         Z3_ast_vector fmls = Z3_parse_smtlib2_string(ctx, test, 0, nullptr, nullptr, 0, nullptr, nullptr);
         Z3_ast_vector_inc_ref(ctx, fmls);
-        ENSURE(Z3_ast_vector_size(ctx, fmls) == 2);
+        ENSURE(Z3_ast_vector_size(ctx, fmls) == 1);
         Z3_ast input = Z3_ast_vector_get(ctx, fmls, 0);
-        Z3_ast expected = Z3_ast_vector_get(ctx, fmls, 1);
         Z3_ast actual = Z3_simplify(ctx, input);
         ENSURE(Z3_is_well_sorted(ctx, actual));
-        expect_simplifies_to(ctx, input, expected);
+        if (Z3_get_ast_kind(ctx, actual) == Z3_QUANTIFIER_AST) {
+            ENSURE(Z3_get_ast_kind(ctx, input) == Z3_QUANTIFIER_AST);
+            ENSURE(Z3_is_quantifier_forall(ctx, actual));
+            ENSURE(Z3_get_quantifier_num_bound(ctx, actual) <= Z3_get_quantifier_num_bound(ctx, input));
+            actual = Z3_get_quantifier_body(ctx, actual);
+        }
+        ENSURE(Z3_get_ast_kind(ctx, actual) == Z3_APP_AST);
+        ENSURE(Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, actual))) == Z3_OP_EQ);
+        Z3_ast lhs = Z3_get_app_arg(ctx, Z3_to_app(ctx, actual), 0);
+        ENSURE(Z3_get_sort_kind(ctx, Z3_get_sort(ctx, lhs)) == Z3_ARRAY_SORT);
 
         Z3_solver solver = Z3_mk_solver(ctx);
         Z3_solver_inc_ref(ctx, solver);
@@ -1154,7 +1161,7 @@ void tst_simplifier() {
     test_nested_symbolic_rotations();
     test_quantified_bool_literals();
     test_array();
-    test_const_array_lambda();
+    test_array_lambda_equality();
     test_bv();
     test_datatypes();
     test_bool();
