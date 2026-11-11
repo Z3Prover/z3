@@ -1256,7 +1256,9 @@ atoms whose decidability the term uses, the proof stays axiom-free, and the
 refutation keeps eliminating the witnesses constructively. The truth table is
 the fallback for an equivalence the prover cannot settle (a false one, more
 than `_STRUCTURAL_REWRITE_STEPS` steps, or more than
-`_STRUCTURAL_REWRITE_CHARS` rendered characters: each `have` states its full
+`_STRUCTURAL_REWRITE_CHARS` rendered characters, or up to twice those when a
+normalized rewrite's links use their allowance, see "Link allowance of
+normalized rewrites": each `have` states its full
 proposition, and a parity rewrite over seven atoms renders 2.8 MB that Lean
 rejects on heartbeats only after 25 s, whereas its truth table fails in 4 s),
 and Lean rejects it as before.
@@ -1672,6 +1674,393 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Assumption search skips conjuncts a model refutes (2026-11-11)
+
+`assume` ties an assumed clause no key matches to the first candidate
+conjunct (sharing a symbol with it) that implies it, one bounded solver
+check per candidate, and falls back to an unsat core of the assertions
+when none does. On QF_IDL `qlock-4-10-8` (one assertion of a thousand
+nested ands, 196 assumed clauses) a clause took up to 680 checks, ten
+clauses needed the fallback after all of them, and the replay took 259 s
+(the iter-096 scan stopped it at 120 s). A model of a conjunct and
+the clause's negation now refutes that conjunct and every conjunct below
+it (`_refute_conjuncts`), so those are skipped; the model comes from a
+failed implication check, or from a failed equivalence check whose model
+makes the clause false. The order of the checks, so the source chosen, is
+unchanged: the certificates of the large data inputs and of qlock-4-10-8
+are identical, and qlock-4-10-8 exports in 141 s with 8,251 checks. Lean
+still fails on it (38 MB; a theory lemma's `first | omega | grind` times
+out at `whnf`, then the 8 GB cap). Trying the equivalence candidates first
+for the implication too took the export to 28 s, but it picks deeper
+conjuncts as sources, and on tta_startup 11 nodes the propositional search
+then fails over the smaller cnf lemma (Lean would fall back to grind,
+which fails); not done. Test:
+`test_implication_search_skips_conjuncts_a_model_refutes`
+(`test_proof_certificate.py`), which also pins that a model of a failed
+equivalence check refutes and an undecided check refutes nothing.
+
+### Theory clauses over uninterpreted functions and sorts (2026-11-11)
+
+The oracle of `_theory_clauses` (see "Theory clauses for cnf lemmas over
+rewritten ites") read only arithmetic and Boolean nodes, so a leaf that is
+an application or a term of an uninterpreted sort was free in it. A cnf
+lemma whose clause Z3 logged over the rewriter's form of applications
+(`(ite c (f 0) (f 0))` as `(f 0)`, `(+ 0 (f z))` as `(f z)`) or that rests
+on congruence (`(= (f a) e)` makes `(ite (= (f a) e) (f e) ...)` equal
+`(f e)`) ended in a model of the leaves and kept the unfolded fallback
+alone. `_theory_expression` now declares each uninterpreted function,
+predicate, and constant of an uninterpreted sort in the oracle's context
+(`_theory_function`; terms over an array sort and datatype constructors
+stay free), and the clauses it finds are proved like the others by the
+theory tactic over the unfolded definitions, under `first` with the
+fallback. Nothing new is trusted. The alldiff clauses Z3 simplifies under
+a unit (`uf_ite_alldiff`, the value of an ite of the sort under the
+distinct) and the cnf lemmas of the predicate cast chains
+(`cast_chains_instance(8, "predicate")`) now have structural proofs that
+check with the fallback removed. In the z3test smtlib-sample QF_UFLIA
+`wisas` files `xs_5_5`, `xs_6_11`, and `xs_8_18`, one cnf lemma each
+took the fallback alone before and now has a structural proof through one
+such clause (`xs_8_18` checks with that lemma's fallback removed); the
+fallback proved them too, so no file changes status. Tests:
+`test_cnf_lemmas_over_applications_are_refuted_with_theory_clauses`
+(QF_UF, QF_UFLRA, QF_UFLIA inputs, checked with the fallback removed; with
+`_theory_function` disabled the lemmas are the fallback alone) and
+`test_theory_expressions_declare_uninterpreted_symbols`
+(`test_proof_to_lean_uflra.py`).
+
+### Link allowance of normalized rewrites (2026-11-11)
+
+QF_LRA `tta_startup/simple_startup_15nodes` (z3test smtlib-sample) failed
+in `normalized_rewrite_15304`, the propositional lemma relating the
+assertion's left-nested binary conjunctions and disjunctions over 480
+normalized atoms to the rewriter's flattened form; `grind (splits := 64)`
+fails on it. The prover links the two sides' structures equal up to
+flattening before searching (`_equivalent_structures`), and its 481 links
+took 22,000 steps and 960,000 characters (46 and 2,000 each, mostly
+projections and re-associations), more than the whole budget
+(`_STRUCTURAL_REWRITE_STEPS`, `_STRUCTURAL_REWRITE_CHARS`): the search over
+the sides gave up at once. Each link now has an allowance of its own
+(`_LINK_STEPS`, `_LINK_CHARS`, 100 and 5,000) on top of the budget, which
+the search does not inherit, so the budget grows linearly with the
+structures the rewrite relates and the search keeps all of it. The
+allowance is capped at the budget itself, so a rewrite's proof is at most
+twice the old limits: uncapped, the same shape at 30 nodes (931 links)
+became a 1.8 MB structural lemma Lean checked in 116 s instead of grind's
+25 s, and at 40 nodes Lean ran out of memory where grind alone verifies;
+capped, both are grind alone again, byte for byte the earlier certificates.
+tta15's links take 22,000 steps and 960,000 characters, within the capped
+allowance of 20,000 and 1,000,000 but for 2,000 steps the search can
+spare. The rewrite
+is proved in 1,000 search steps after the links, and the whole 5.2 MB file
+verifies in 42 s at a 2.9 GB peak. Nothing new is trusted: links and
+search are `have` steps Lean checks, with grind still the `first`
+fallback. Test: `test_links_do_not_use_up_the_search_budget`
+(`test_proof_to_lean_arith.py`, `startup_shaped_rewrite_instance`: 6 nodes,
+43 links, the step limit scaled down to 1,000, checked with the fallback
+removed; without the allowance the lemma is grind alone) and
+`test_link_allowance_is_capped_at_the_budget` (30 nodes, grind alone).
+
+### Theory clauses for cnf lemmas over rewritten ites (2026-11-11)
+
+QF_LRA `tta_startup/simple_startup_11nodes` (z3test smtlib-sample) failed
+in every scan since 2026-10-29 in its one cnf lemma: Z3 logs a clause over
+the rewriter's form of the assertion's Real ites (an 11-way conjunction
+condition flattened, `(+ 0 x)` as `x`, `(ite c 0 0)` as `0`) and of modular
+counters (`(= 10 x)` makes `(ite (= x 11) 1 (+ x 1))` equal 11), so the
+clause does not follow from the Boolean structure with every theory atom a
+leaf and the one-constraint bridges (`_leaf_bridges`); the propositional
+search ended in a model, and the unfolded grind fallback (227 ites) ran out
+of heartbeats. When both searches of `_cnf_lemma` fail now,
+`_theory_clauses` finds the missing theory facts as a lazy SMT solver
+does: z3 (an untrusted oracle, as for `_relevant_structures`) takes a model
+of the abstraction, checks the leaves' and atoms' values in it against
+what the leaves denote (`_theory_expression`, arithmetic and Boolean nodes
+only; uninterpreted ones since the same day, see "Theory clauses over
+uninterpreted functions and sorts"), and a shrunk unsat core of those
+literals is a clause excluding the model, until the abstraction is
+unsatisfiable (at most 256 clauses). A clause over every leaf of the lemma would restate it as one theory fact,
+without the fallback's helpers (scaled ite gates), so then the search
+stops and the fallback stays alone, as before. Each
+clause is a `have` the theory tactic proves over the leaves' unfolded
+definitions and a fact for one more search, with ten times the prover's
+limits (`_THEORY_CLAUSE_BUDGET`; the fallback stays under `first`), while
+the proof kept stays within `_STRUCTURAL_REWRITE_CHARS` as before. Lean
+checks every clause and step, so a wrong clause is a rejection. A clause
+that does not hold is an elaboration error, which `first` catches; a
+theory tactic that runs out of heartbeats is not caught and fails the
+whole lemma, so the size bound and the every-leaf rule are heuristics
+against that, not a guarantee (no input of the z3test smtlib-sample sweep
+hit it). The 11-node
+input takes 45 clauses (1.4 s), the search 36,000 steps and keeps a
+0.45 MB proof, and the whole file verifies in 24 s at a 2.6 GB peak. The
+15-node input's cnf lemma now checks too; the file then failed in a
+propositional normalized rewrite that grind cannot prove (verified since
+the same day, see "Link allowance of normalized rewrites"). Tests:
+`test_cnf_lemmas_over_rewritten_ites_are_refuted_with_theory_clauses`
+(two small inputs, checked with the fallback removed),
+`test_theory_clause_search_stops_at_a_model_the_leaves_allow`, and the slow
+`test_time_triggered_startup_verifies_through_theory_clauses`
+(`test_proof_to_lean_arith.py`, data
+`QF_LRA_tta_startup_simple_startup_11nodes.smt2`).
+
+### Resolution types inferred; re-applications applied in place (2026-11-10)
+
+Two parts of the outlined lemmas' text restated what Lean already knows. In
+the 26.1 MB of Lean of QF_IDL `DTP_k2_n35_c245_s9` (which verified at
+7.86 GB of the 8 GB cap), 46,002 of the 49,550 steps bound inside other steps
+were unit resolutions keeping one literal, the clause's proof cut down by
+`Or.resolve_*` and `Or.neg_resolve_*`, whose type those lemmas infer from the
+clause's; their lets stated it again (`let _step_N : (formula_M _atoms
+_vars) :=`). Such a let now states no type (`_INFERRED_TYPE`); every other
+term (an injection into a wider conclusion, a case split, a proof by
+contradiction) keeps it. 49,236 lets bound a step's or an imported lemma's
+application to its hypotheses (`let _step_N := proof_step_N _inputs
+_hyp...`) for one use in the term on the next line; that use is now the
+application (`_reapplications_in_place`). Lean checks every term as before,
+so a wrongly inferred type is a rejection, not a gap. DTP goes from 26.1 to
+23.2 MB and verifies in 114 s at a 7.45 GB peak; plan-21 from 21.4 to
+20.4 MB (78 s, 6.47 GB; 6.60 GB before), NEQ004 from 11.1 to 10.1 MB,
+`swap_t2_np_sf_ai_00009_002` from 16.0 to 15.2 MB (104 s, 7.27 GB; 7.39 GB
+before). Tests:
+`test_resolution_types_are_inferred_and_reapplications_applied_in_place`,
+`test_reapplications_used_once_are_applied_in_place`
+(`test_proof_to_lean_lia.py`). A rescan of the earlier QF_AX/QF_AUFLIA
+memory failures: `storecomm_t2_np_nf_ai_00050_007` (14.3 MB) verifies in
+129 s at 7.64 GB, as it already did before this change;
+`swap_t1_pp_sf_ai_00010_008` (35.7 MB) still fails at the cap, after 1,928
+of its 12,176 declarations, in its theory lemmas rather than its proof
+steps.
+
+### Single imports, negated eliminations, and classical contradictions in place (2026-11-10)
+
+Three parts of the outlined lemmas' text bound or wrapped what one
+application states. In DTP's 32.2 MB of Lean, 70,817 eliminations of a
+literal `(not p)` by a proof of p were `.resolve_left (fun _literal =>
+_literal _step_N)` (2.6 MB); they are now `Or.neg_resolve_left` and
+`Or.neg_resolve_right` on the proof itself (Lean core, no axioms). 92,491 of
+its 100,549 imported lemmas were used once in the lemma importing them;
+such a lemma is now applied at that use, by name or in the line that
+re-applies it to its hypotheses (`_merge_single_imports`). 15,068 proofs by
+contradiction named their formula and a witness `let _dfN :=
+Classical.propDecidable ...` (1.9 MB); classical lemmas now use one helper,
+`classical_by_contradiction`, which is `Decidable.byContradiction` at
+`Classical.propDecidable` (the same axiom as before;
+`Classical.byContradiction` would add `propext` and `Quot.sound`) and takes the
+formula from the expected type. QF_IDL `DTP_k2_n35_c245_s9` goes from 32.2
+to 26.1 MB and verifies for the first time, in 117 s at a 7.86 GB peak;
+`swap_t2_np_sf_ai_00009_002` (QF_AX) from 20.6 to 16.0 MB and verifies
+(105 s, 7.39 GB); plan-21 from 23.4 to 21.4 MB (79 s, 6.60 GB; 87 s and
+7.0 GB before); NEQ004 from 13.9 to 11.1 MB. Tests:
+`test_single_imports_and_negated_eliminations_are_applied_in_place`, slow
+`test_disjunctive_temporal_refutation_verifies_under_the_memory_cap`
+(`test_proof_to_lean_lia.py`). Still open: DTP is close to the cap; its
+largest remaining parts are the nested step headers (`let _step_N :
+(formula_M _atoms _vars) :=`, 2.6 MB) and the lemma statements'
+hypothesis chains.
+
+### Hypotheses named by their binders; resolutions closed on the right (2026-11-10)
+
+A `hypothesis` step was bound like any other step: a function of its own
+binder `_hypN`, re-applied by each user, and, used by several steps, an
+outlined lemma `fun _hypN => _hypN` imported by every lemma using it. In
+DTP's 36.9 MB of Lean that was 3.3 MB. Its users now name the binder
+itself, which is in scope wherever the step's hypotheses are
+(`_direct_hypotheses`); only the premise of a `lemma`, which discharges the
+binder, keeps its step. A unit resolution whose literals after the last
+kept one are all eliminated is closed by `Or.resolve_right` on that tail
+instead of an `Or.elim` case split; in DTP most resolutions keep one literal
+of a two-literal clause. DTP goes from 36.9 to 32.2 MB and still fails at
+the 8 GB cap, after 13,579 of its 16,557 outlined lemmas (11,991 of 17,084
+before); plan-21 from 25.5 to 23.4 MB, NEQ004 from 16.5 to 13.9 MB,
+`swap_t2_np_sf_ai_00009_002` from 22.7 to 20.6 MB. plan-21 verifies in 87 s
+at a 7.0 GB peak (7.5 GB before); the swap file still fails at the cap.
+Still open: imports of shared steps under hypotheses, each followed by its
+re-application (about 1 MB of DTP), and the lemma statements' hypothesis
+chains.
+
+### Steps under hypotheses bound inside the step using them (2026-11-10)
+
+A proof step under hypotheses (the clause log's lemmas and the legacy
+core's `hypothesis` steps) was a let-bound function of them: its binders
+restated every hypothesis formula, and each step using it re-applied it to
+them. Outlined lemmas restated their own statement the same way and passed
+the interpretation to every lemma they imported. In the 58 MB of Lean of
+QF_IDL `DTP_k2_n35_c245_s9` this was 28 MB of the 54 MB of proof steps.
+Lean's memory grows with the elaborated text, about 160 bytes per
+character there (4,000 trivial theorems of the same signature cost only
+0.2 GB), so plan-21 and DTP ran out of the 8 GB cap. Now (`_step_blocks`,
+`_outline_steps`):
+
+- a step under hypotheses that one other step uses is bound inside it,
+  where its hypotheses are in scope, at most 32 such steps deep;
+- an outlined lemma's own step is its statement: its hypotheses are the
+  binders of a `fun`;
+- the interpretation is implicit in outlined lemmas, determined by the type
+  of `_inputs`, and the classical witnesses' types are inferred.
+
+plan-21 goes from 33.2 to 25.5 MB and verifies in 92 s at a 7.5 GB peak
+(it failed at 95 s before). DTP goes from 58.4 to 36.9 MB and still fails,
+after 11,991 of its 17,084 outlined lemmas (7,921 before); NEQ004 goes from
+21.6 to 16.5 MB, the QF_AX swap file `swap_t2_np_sf_ai_00009_002` from 27.1
+to 22.7 MB (still failing). Still open: the shared steps (each its own
+lemma, imported and re-applied by every user) and the `Or.elim` resolution
+terms are most of what remains in DTP.
+
+### euf lemmas without ite gates and array axiom instances (2026-11-10)
+
+Every theory lemma proved by `_grind_lemma` got the gates of every
+arithmetic ite it reaches and, with arrays, the instances of the array
+axioms for every read it reaches. `euf` lemmas need neither. Z3's egraph
+internalizes an ite term as a leaf without arguments
+(`euf::solver::internalize`), and the ite's gates are tseitin clauses of
+their own. The egraph applies no array axiom either: those are `array`
+lemmas, and a theory's equality enters an `euf` hint as a literal. The C++
+checker (`eq_theory_checker`) accepts an `euf` hint by union-find and
+congruence alone. So an `euf` lemma now states only the bodies of the
+folded array terms (`_t`), the map identities (`_map_identities`, with
+`_mc` among them), and the commutativity of extensionality witnesses
+(`_xc`), which its `comm` claims may use. Its tactic is
+grind alone: omega, tried first over Int, ran out of heartbeats on several
+dlx-regfile `euf` lemmas, and `first` does not catch that. A lemma that
+reaches ites is first tried with them folded, unfolding only the
+definitions outside them. The unfolded proof stays as the fallback, for
+facts written out after the unfold that inline an ite. The other theory
+lemmas are unchanged. Dropping hypotheses cannot make Lean accept more,
+and a lemma that needed one fails.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `register_file_instance(8)` (QF_AUFLIA shape, `qf_uflia`) | 6.0 MB, 136 s, 3.9 GB | 5.1 MB, 20 s, 1.8 GB |
+| dlx-regfile, file without the proof steps | about 30 MB, not checked; without gates and read facts but unfolded with omega: 7.7 MB, 1,372 s, 10 GB, 101 error lines (heartbeats) | 8.0 MB, 255 s, 5.2 GB, one `cnf` lemma out of heartbeats |
+| QF_UFLIA `EufLaArithmetic/hard16` | 12 MB, 76 s, 4.5 GB (2026-11-08) | 11.4 MB, 55 s, 3.9 GB |
+
+Still open: dlx-regfile still does not verify. Its one `cnf` lemma
+reaches 227 ites; the propositional prover gives up and the unfolded
+grind fallback runs out of heartbeats. Its outlined proof steps are 14 MB
+of the 22 MB file.
+
+Tests: `test_congruence_lemmas_state_no_ite_gates_or_array_axioms` (fails
+before: 346 of the 348 `euf` lemmas of `register_file_instance(8)` carried
+facts) and `test_congruence_lemmas_over_ite_chains_verify`
+(`test_proof_to_lean_array.py`).
+
+Update (2026-11-10, later): the unfolded fallback under `first` is dropped
+for `euf` lemmas, so the folded proof is their only one. (The attempt
+normalized by the rewriter's store identities stays as before, over the
+full unfold, since its simp cannot rewrite inside a folded ite; no `euf`
+lemma of the documented inputs gets it.) With the
+fallback removed, the whole Lean test suite still passed, so no `euf`
+lemma in it needed the fallback. The fallback doubled the lemmas' text.
+`maxHeartbeats` is per declaration, so a folded attempt that used up the
+budget before failing would also have left the fallback none.
+
+| Input | With the fallback | Folded proof only |
+| --- | --- | --- |
+| `register_file_instance(8)`, file | 5.12 MB, 20 s, 1.83 GB | 4.28 MB, 7 s, 2.52 GB |
+| `register_file_instance(8)`, `euf` lemmas | 1.55 MB | 0.71 MB |
+| dlx-regfile, file / `euf` lemmas | 22.3 MB / 5.56 MB | 18.6 MB / 1.80 MB |
+| dlx-regfile, theory lemmas without the `cnf` one | 206 s, 5.0 GB | 206 s, 4.9 GB |
+
+The dlx-regfile time does not change: Lean parses a fallback that is
+never taken but does not elaborate it. The `cnf` lemma `th_lemma_1612`
+still fails. Its clause relates the input's disequality (115 ites) to the
+form sat.smt's preprocessing rewriter gave it (114 ites). The rewriter
+merges nested ite conditions into disjunctions and pushes the `select`
+into the ites, so no level-by-level correspondence pairs the two terms.
+
+Update (2026-11-10, iteration 109): `array` th-lemmas keep their ites
+folded too. Lean's profiler on dlx-regfile's theory lemmas (without the
+`cnf` one) put about 150 of the 208 s in its 50 `array` lemmas: each
+carried about 128 ite gates and 37 read facts, unfolded about 60 ites, and
+went to `first | omega | grind`. An array lemma is one axiom instance over
+the terms of its literals: `array::solver::assert_select_store_axiom`
+builds it over the store it is given, and the array solver internalizes
+no ite (an ite of arrays meets a store only through the egraph, by the
+ite's tseitin gates). So an `array` lemma now gets no ite gates (nor the
+Real scaling facts of `_folded_ite_gates`), unfolds only the definitions
+outside its ites, and states the array facts of the nodes outside them,
+without the rewriter's reads through ites of arrays (`_si`). The one ite
+it unfolds is the select-map axiom's own over a map of ite, which equates
+the read with the ite of the reads (`_map_read_values`); folded, grind
+failed on `map_ite_symbolic`. The tactic is unchanged.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| dlx-regfile, theory lemmas without the `cnf` one | 208 s, 4.9 GB | 25 s, 2.2 GB |
+| dlx-regfile, `array` lemmas / file | 0.90 MB / 18.6 MB | 0.03 MB / 17.7 MB |
+| `register_file_instance(8)`, its 8 `array` lemmas | 64 gates, 40 read facts, 23,551 characters | 8 read facts, 3,951 characters |
+
+dlx-regfile still fails on its `cnf` lemma `th_lemma_1612`. Tests:
+`test_array_lemmas_keep_their_ites_folded` and
+`test_array_lemmas_over_ite_chains_verify` (`test_proof_to_lean_array.py`).
+
+Update (2026-11-10, iteration 110): `euf` lemmas that reach ites state
+only the facts of the nodes outside them, as `array` lemmas do: the `_t`
+body of a store, the excluded middle of a Boolean argument, a cast or
+distinct fact about a term that only a folded ite reaches cannot meet the
+goal. Their tactic and unfold are unchanged.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| dlx-regfile, `euf` lemmas (`_t` facts) / file | 1.75 MB (8,139) / 17.7 MB | 0.72 MB (1,122) / 16.7 MB |
+| dlx-regfile, theory lemmas without the `cnf` one | 27 s, 2.23 GB | 19 s, 1.58 GB |
+| `register_file_instance(8)`, `euf` lemmas (`_t` facts) | 0.69 MB (3,592) | 0.45 MB (1,817) |
+
+Test: `test_congruence_lemmas_state_no_ite_gates_or_array_axioms` (fails
+before: `_t` facts of stores only ites reach).
+
+### Array facts stated over folded definitions (2026-11-10)
+
+A rescan of z3test's `smtlib-sample` QF_AUFLIA files found that
+`cvc/dlx-regfile` (z3 answers unsat in 0.04 s, export 7 s) never finished
+reconstructing: after five minutes the reconstructor was still rendering
+the facts of nine theory lemmas. The register file is read through shared
+nested ites, and the array facts of `_array_helpers` (`_t` store bodies,
+`_s` reads of stores, `_x`, `_d`, map facts) and, with arrays, the ite
+gates were written out, with every definition expanded down to the
+leaves. Text for a shared ite DAG grows exponentially with its depth.
+
+Now the array facts name the definitions of the nodes they mention
+(`_store_apply ((term_a ..)) (term_i ..) (term_v ..) (_vars 3)`), and the
+ite gates and scaling facts of `_folded_ite_gates` are stated folded with
+arrays too. `_grind_lemma` reverts them before its fallback's `unfold` and
+introduces them after it, as it already did without arrays. Array terms,
+constants, variables, and numerals are written as before. A node's facts
+that mention nothing else are stated after the unfold as before, not
+reverted. Reverting them anyway (the many facts of storecomm's stores
+over variables) took Lean from 118 s and 5.6 GB to 155 s and 7.9 GB on
+`storecomm_t3_pp_sf_ai_00060_005`. The unfold does not enter array terms
+(`_definition_names`), and an index or a stored value may occur in the
+goal only inside a folded store, so the nodes the facts mention are also
+roots of that unfold. Without those roots, grind fails on the lemmas.
+
+| Input | Before | Now |
+| --- | --- | --- |
+| `array_chain_instance(6)` (QF_ALIA) | 6.7 MB, 78 s, 3.9 GB | 0.36 MB, 3 s, 0.8 GB |
+| `array_chain_instance(8)` | 57 MB, not checked | 0.74 MB, 17 s, 1.4 GB |
+| `array_chain_instance(8, "index")` | 55 MB, not checked | 0.84 MB, 6 s, 1.7 GB |
+| `array_chain_instance(8, "real")` (QF_AUFLIRA) | 57 MB, not checked | 0.81 MB, 4 s, 0.9 GB |
+| dlx-regfile | no output after 5 min | 6.5 s, 44 MB of Lean (Lean: see below) |
+
+The storecomm, storeinv, and swap files have shallow terms. Their text is
+byte-identical or up to 3% smaller. Every array-free certificate of the
+documented test inputs is byte-identical, and so are 124 of the 198 with
+arrays. `_scaling_helpers` and `_ite_gate_helpers`, the
+written-out forms, are no longer reachable and are removed.
+
+Still open: dlx-regfile does not verify yet. Its 44 MB file reached 12 GB
+in Lean and was stopped after 20 minutes. Of its 854 theory lemmas, 803
+are `euf` lemmas, each reaching about 66 ites, and every reachable ite
+gets two gates. Gates alone are about 80% of a lemma's text, and the
+outlined proof steps add another 14 MB. The swap files of 66 to 250 MB
+belong to the many-lemma memory class.
+
+Tests: `test_array_facts_are_stated_over_folded_definitions` (fails before
+on size and without the unfold roots on the unfold line) and
+`test_nested_ite_chains_through_arrays_verify` (`test_proof_to_lean_array.py`).
+The tests that drop facts to show they are needed now also drop the
+dropped facts' names from the revert and intro lines (`_without_facts`).
+
 ### cnf lemmas searched again over an unsat core (2026-11-07)
 
 QF_IDL `planning/plan-21` is one assertion with a disjunction of cases per
@@ -1693,7 +2082,9 @@ core gave the same 360 at a hundred times the cost), and the lemma is proved
 with two case splits and 18 KB of proof.
 
 plan-21 as a whole still fails: its 33 MB Lean file peaks at 8.6 GB and
-hits kernel memory errors in outlined proof steps. RTCL `tf_20`/`tf_30`
+hits kernel memory errors in outlined proof steps (verifies since
+2026-11-10, see "Steps under hypotheses bound inside the step using
+them"). RTCL `tf_20`/`tf_30`
 are unchanged: their cores have about 3,000 gates, and the search over
 them still runs out of budget. That retry is not free: on `tf_20` the core
 (3,123 of 12,943 gates, 0.6 s) and the second search raise reconstruction
@@ -3113,7 +3504,8 @@ omega. Results:
 
 The rest of the scan is unchanged: every other file verifies or is out of
 reach for z3 or the replay, except QF_LRA `tta_startup` 11 nodes (a known
-failure).
+failure, verified since 2026-11-11, see "Theory clauses for cnf lemmas over
+rewritten ites").
 
 Tests in `test_proof_to_lean_lia.py`:
 
@@ -3293,6 +3685,25 @@ unsatisfiable seeds verify in Lean), and `random_mixed_instance` with
 `ites=0.3` (ites over conditions of the other sort; seeds 1-150: 13 of 35
 unsatisfiable seeds were rejected, now 70 of 70 runs on both cores verify;
 three are pinned).
+
+### Enumeration cases of applications stated over folded definitions (2026-11-10)
+
+The `enum_fcases_j` instance a theory step states for each application of
+an enumeration sort it reaches wrote the argument list out in full, so an
+application over a nested ite chain repeated the chain. In an `euf` lemma,
+whose ites stay folded in the goal, the written-out fact did not even meet
+the goal's term. Without arrays the fact is now the field applied to the
+argument list as the application's definition writes it, over the
+arguments' definitions; it is stated before the lemma's unfold and
+reverted with the ite gates, so the unfold rewrites it as it rewrites the
+goal (`_folded_enumeration_cases`). Two eight-level chains of Color ites
+through `f` and `g` (`enumeration_chain_instance(8)`): 27.2 MB of Lean
+(26.7 MB of `euf` lemmas), which the 12 GB watchdog stopped after 288 s,
+now 0.57 MB, checked in about a second; twelve levels 4.4 MB, 5 s, 2 GB.
+Smaller inputs grow by up to 5% (the revert and intro lines). With arrays
+the facts stay written out, like the other facts (`fold` in
+`_grind_lemma`). Tests: `test_enumeration_cases_of_applications_are_stated_folded`,
+`test_enumeration_ite_chains_verify` (`test_proof_to_lean_enum.py`).
 
 ### Enumeration datatypes through the clause log (2026-11-06)
 

@@ -151,7 +151,8 @@ class TestDeepCaseSplits(unittest.TestCase):
     def test_satisfiable_facts_are_not_refuted_after_deep_search(self):
         # The search goes through more nested splits than Python's recursion
         # limit allows and ends in a satisfying assignment: no proof, as for
-        # the tta_startup cnf lemma, whose grind fallback then takes over.
+        # the tta_startup cnf lemma before its theory clauses (see
+        # _theory_clauses), whose grind fallback then took over.
         self.assertIsNone(self.prove(closed=False)[2])
 
     def test_deeply_nested_case_splits_are_checked(self):

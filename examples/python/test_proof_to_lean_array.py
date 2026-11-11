@@ -3118,6 +3118,183 @@ class TestArrayValidation(unittest.TestCase):
         two = proof_to_lean.reconstruct(ARRAY_INPUTS["two_array_sorts"], self.certificates["two_array_sorts"])
         self.assertIn('-- Array sorts "(Array Index Element)", "(Array Index Key)" are functions', two)
 
+    def test_array_facts_are_stated_over_folded_definitions(self):
+        """Array facts and ite gates name the definitions they mention and are reverted around the unfold.
+
+        Written out, the facts of array_chain_instance(8) repeated the stored
+        chain of eight modular steps in full: 57 MB of Lean (55 MB with the
+        chain as the index), now under 1 MB. The stored chain occurs in the
+        goal only inside the folded store, so the unfold names it because the
+        facts mention it (without that, grind fails on the lemmas).
+        """
+        for use in ("value", "index"):
+            with self.subTest(use=use):
+                source = array_chain_instance(8, use)
+                certificate = _export(source)
+                graph = proof_to_lean._validate_graph(source, certificate)
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertLess(len(text), 1500000)
+                stores = folded = 0
+                for lemma in text.split("\nset_option maxHeartbeats ")[1:]:
+                    lines = [line.strip() for line in lemma.split("\n")]
+                    node = re.search(r"private theorem th_lemma_(\d+) ", lemma)
+                    leaves = node is not None and graph.decl(int(node.group(1))).parameters[:1] in (("euf",),
+                                                                                                  ("array",))
+                    facts = [line for line in lines if re.match(r"have _[tsg]\d+", line)]
+                    for fact in facts:
+                        self.assertLess(len(fact), 400, fact)
+                    store = next((re.match(r"have (_t\d+) : \(term_\d+ [^)]*\) = \(_store \(\(term_\d+ [^)]*\)\) "
+                                           r"(.*)\) := rfl$", line)
+                                  for line in facts if line.startswith("have _t")), None)
+                    if store is None:
+                        continue
+                    name, stored = store.groups()
+                    # The chain is the index or the value; the other is a
+                    # variable or a numeral, written out.
+                    chain = re.findall(r"term_\d+", stored)
+                    self.assertEqual(len(chain), 1, stored)
+                    stores += 1
+                    revert = next(line for line in lines if line.startswith("revert "))
+                    unfold = lines[lines.index(revert) + 1]
+                    self.assertIn(name, revert.split())
+                    self.assertTrue(unfold.startswith("unfold "), unfold)
+                    if leaves:
+                        # An euf or array lemma keeps the chain's ites folded
+                        # (leaves of the congruence or of the axiom instance,
+                        # see _grind_lemma).
+                        self.assertNotIn(chain[0], unfold.split())
+                        folded += 1
+                    else:
+                        self.assertIn(chain[0], unfold.split())
+                    self.assertEqual(lines[lines.index(revert) + 2].split()[1:], revert.split()[1:])
+                # Some euf and array lemmas state the store, and their facts
+                # are at the top of the proof: an unfolded fallback under
+                # first would put them in "| (" alternatives, unmatched here.
+                self.assertGreater(folded, 0)
+                self.assertGreater(stores, folded)
+                self.assertNotIn("sorry", text)
+                self.assertNotIn("axiom ", text)
+
+    def test_congruence_lemmas_state_no_ite_gates_or_array_axioms(self):
+        """euf lemmas get no ite gates, array axiom instances, omega, or unfolded ites.
+
+        Z3's egraph takes an ite term as a leaf (its gates are tseitin
+        clauses) and applies no array axiom, so an euf lemma is a congruence
+        conflict over its literals. register_file_instance(8)'s theory
+        lemmas carried 7,240 gates and 3,642 read facts (2.4 MB), now 64 gates
+        and 40 read facts, all in array lemmas. In z3test's dlx-regfile, omega
+        and grind over the unfolded ites exhausted their heartbeats on several
+        euf lemmas, which check in a second each with the ites folded. The
+        folded proof is the only one: the unfolded fallback under first
+        doubled the euf lemmas' text (0.71 MB without it, 1.55 MB with it).
+        Their facts are those of the nodes outside the folded ites, as an
+        array lemma's are (0.69 MB of euf lemmas with the facts of every
+        reachable node, 0.45 MB now; dlx-regfile's 1.75 MB, 0.72 MB now).
+        """
+        source = register_file_instance(8)
+        certificate = _export(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemmas = dict(re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S))
+        hints = {int(node): graph.decl(int(node)).parameters[0] for node in lemmas}
+        congruences = [node for node, hint in hints.items() if hint == "euf"]
+        # Most lemmas are congruences reaching ites, which used to get gates.
+        reaching = [node for node in congruences
+                    if any(True for _ in proof_to_lean._ite_gate_branches(
+                        graph, proof_to_lean._reachable(graph, graph.conclusion(node))[0]))]
+        self.assertGreater(len(reaching), 100)
+        self.assertGreater(len(congruences), len(lemmas) / 2)
+        ite_nodes = {term for term in range(len(graph.nodes))
+                     if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+        ites = {"term_%d" % term for term in ite_nodes}
+        hidden = 0
+        for node in congruences:
+            lemma = lemmas[str(node)]
+            self.assertNotRegex(lemma, r"have _(g|s|si|n|m|sm|x|d)\d", node)
+            # Facts only of the nodes outside the folded ites: a store only
+            # an ite reaches cannot meet the goal, and its _t body is not
+            # stated (_grind_lemma's scope).
+            conclusion = graph.conclusion(node)
+            outside = proof_to_lean._reachable_outside(graph, conclusion, ite_nodes)
+            facts = {int(fact) for fact in re.findall(r"have _[tb](\d+) ", lemma)}
+            self.assertLessEqual(facts, outside, node)
+            hidden += any(graph.kind(term) == z3.Z3_OP_STORE
+                          for term in proof_to_lean._reachable(graph, conclusion)[0] - outside)
+            self.assertNotIn("omega", lemma)
+            # One proof, no unfolded fallback under first: the ites stay folded.
+            self.assertNotIn("first", lemma)
+            unfolds = [line.split()[1:] for line in lemma.split("\n") if line.lstrip().startswith("unfold ")]
+            self.assertLessEqual(len(unfolds), 1, lemma)
+            for unfold in unfolds:
+                self.assertFalse(ites.intersection(unfold), lemma)
+            if node in reaching:
+                self.assertEqual(len(unfolds), 1, lemma)
+        # Many lemmas reach stores only through ites; with their _t bodies
+        # the euf lemmas were 686,685 characters (3,592 _t facts), without
+        # them 451,324 (1,817).
+        self.assertGreater(hidden, 100)
+        self.assertLess(sum(len(lemmas[str(node)]) for node in congruences), 550000)
+        # The array lemmas state their read facts, but no gates
+        # (test_array_lemmas_keep_their_ites_folded).
+        others = "".join(lemma for node, lemma in lemmas.items() if hints[int(node)] != "euf")
+        self.assertNotRegex(others, r"have _g\d+_0 ")
+        self.assertRegex(others, r"have _s\d+ := _store_apply ")
+
+    def test_array_lemmas_keep_their_ites_folded(self):
+        """array lemmas get no ite gates and no reads through ites, and unfold no ite.
+
+        An array lemma is one array axiom instance over the terms of its
+        literals (Z3's array solver builds it over the store it is given and
+        internalizes no ite), so its ites stay folded as an euf lemma's do,
+        and it states only the facts of the nodes outside them. The 8 array
+        lemmas of register_file_instance(8), all reaching ites, carried 64
+        gates and 40 read facts (23,551 characters), now 8 read facts (3,951).
+        In z3test's QF_AUFLIA dlx-regfile, 50 array lemmas carried about 128
+        gates and 37 read facts each and unfolded about 60 ites; the file's
+        theory lemmas without its cnf lemma took 208 s and 4.9 GB of Lean,
+        25 s and 2.2 GB folded.
+        """
+        source = register_file_instance(8)
+        certificate = _export(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemmas = dict(re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S))
+        instances = [int(node) for node in lemmas if graph.decl(int(node)).parameters[:1] == ("array",)]
+        ites = {term for term in range(len(graph.nodes)) if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+        reaching = [node for node in instances
+                    if ites.intersection(proof_to_lean._reachable(graph, graph.conclusion(node))[0])]
+        self.assertGreaterEqual(len(reaching), 8)
+        names = {"term_%d" % term for term in ites}
+        for node in instances:
+            lemma = lemmas[str(node)]
+            self.assertNotRegex(lemma, r"have _(g|si)\d", lemma)
+            self.assertRegex(lemma, r"have _s\d+ := _store_apply ", lemma)
+            lines = [line.strip() for line in lemma.split("\n")]
+            self.assertNotIn("first", lines, lemma)
+            unfolds = [line.split()[1:] for line in lines if line.startswith("unfold ")]
+            self.assertEqual(len(unfolds), 1, lemma)
+            self.assertFalse(names.intersection(unfolds[0]), lemma)
+        self.assertLess(sum(len(lemmas[str(node)]) for node in instances), 8000)
+        # The exception: the select-map axiom over a map of ite equates the
+        # read with the ite of the reads, which is unfolded to meet the map's
+        # Lean ite (folded, grind failed on map_ite_symbolic).
+        source = ARRAY_INPUTS["map_ite_symbolic"]
+        certificate = _export(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        unfolded = 0
+        for node, lemma in re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S):
+            if graph.decl(int(node)).parameters[:1] != ("array",):
+                continue
+            values = proof_to_lean._map_read_values(graph, graph.conclusion(int(node)))
+            for value in values:
+                if graph.kind(value) == z3.Z3_OP_ITE:
+                    unfold = next(line.split() for line in lemma.split("\n") if line.strip().startswith("unfold "))
+                    self.assertIn("term_%d" % value, unfold, lemma)
+                    self.assertNotRegex(lemma, r"have _g\d", lemma)
+                    unfolded += 1
+        self.assertGreater(unfolded, 0)
+
     def test_sort_header_comments(self):
         """The header names the carriers once and claims no missing sort, with or without arrays."""
         text = proof_to_lean.reconstruct(ARRAY_INPUTS["read_own_write"], self.certificates["read_own_write"])
@@ -3395,6 +3572,112 @@ def random_chain_comparison_instance(seed):
 CHAIN_COMPARISON_SEEDS = (13, 14)
 
 
+def array_chain_instance(depth=6, use="value"):
+    """The modular chains of test_proof_to_lean_lia.modular_chains_instance, compared through an array.
+
+    a<depth> (x + 5 * depth modulo 17, an ite per step) is stored into A at
+    i (use "value"; "real" over Real chains and elements) or is the index
+    of a store of 1 (use "index"), and the read of M, said to be that store,
+    at i or at b<depth / 2> (x + 10 * (depth / 2)) differs from it. Each
+    step holds the previous one three times, so written out the stored term
+    is about 3^depth times its definition: the shape of z3test's QF_AUFLIA
+    dlx-regfile (register reads through shared nested ites), whose array
+    facts were written out until they were stated folded (see
+    proof_to_lean._array_helpers).
+
+    The other uses reach the remaining kinds of array facts over a folded
+    node: "const", a constant array of a<depth> (_select_const, the folded
+    value); "bool", (< a<depth> 3) stored into an array of Bool (formula_N
+    arguments); "ite", an ite over two stores at a<depth> whose condition
+    is (< a<depth> 5), read at b<depth / 2> (the folded condition in the
+    ite's _t fact).
+    """
+    real = use == "real"
+    sort, suffix = ("Real", ".0") if real else ("Int", "")
+    element = {"index": "Int", "ite": "Int", "bool": "Bool"}.get(use, sort)
+    lines = ["(set-logic %s)" % ("QF_AUFLIRA" if real else "QF_ALIA"), "(declare-const x %s)" % sort,
+             "(declare-const i Int)", "(declare-const A (Array Int %s))" % element,
+             "(declare-const M (Array Int %s))" % element]
+    if use == "ite":
+        lines.append("(declare-const B (Array Int Int))")
+    for name, step, count in (("a", 5, depth), ("b", 10, depth // 2)):
+        previous = "x"
+        for index in range(1, count + 1):
+            lines.append("(define-fun %s%d () %s (let ((s (+ %s %d%s))) (ite (< s 17%s) s (- s 17%s))))" % (
+                name, index, sort, previous, step, suffix, suffix, suffix))
+            previous = "%s%d" % (name, index)
+    lines.append("(assert (and (<= 0%s x) (< x 17%s)))" % (suffix, suffix))
+    half = depth // 2
+    if use == "index":
+        lines += ["(assert (= M (store A a%d 1)))" % depth, "(assert (not (= (select M b%d) 1)))" % half]
+    elif use == "const":
+        lines += ["(assert (= M ((as const (Array Int Int)) a%d)))" % depth,
+                  "(assert (not (= (select M i) b%d)))" % half]
+    elif use == "bool":
+        lines += ["(assert (= M (store A i (< a%d 3))))" % depth, "(assert (not (= (select M i) (< b%d 3))))" % half]
+    elif use == "ite":
+        lines += ["(assert (= M (ite (< a%d 5) (store A a%d 1) (store B a%d 1))))" % (depth, depth, depth),
+                  "(assert (not (= (select M b%d) 1)))" % half]
+    else:
+        lines += ["(assert (= M (store A i a%d)))" % depth, "(assert (not (= (select M i) b%d)))" % half]
+    return "\n".join(lines + ["(check-sat)"]) + "\n"
+
+
+def register_file_instance(depth=8):
+    """Two copies of a pipeline of depth stages over equal inputs whose outputs are said to differ.
+
+    Stage k of copy u (and likewise of copy w) is (ite (p u<k-1>) (f
+    u<k-1> (select A u<k-1>)) (select (store A u<k-1> k) (f u<k-1> k))),
+    the shape of z3test's QF_AUFLIA dlx-regfile (register reads through
+    nested ites, uninterpreted functions, stores). The refutation is mostly
+    euf lemmas, each over the literals of one congruence and reaching both
+    copies' ite chains below it.
+    """
+    lines = ["(set-logic QF_AUFLIA)", "(declare-fun f (Int Int) Int)", "(declare-fun p (Int) Bool)",
+             "(declare-const A (Array Int Int))"]
+    for copy in "uw":
+        lines.append("(declare-const %s0 Int)" % copy)
+        for stage in range(1, depth + 1):
+            lines.append("(define-fun {0}{1} () Int (ite (p {0}{2}) (f {0}{2} (select A {0}{2})) "
+                         "(select (store A {0}{2} {1}) (f {0}{2} {1}))))".format(copy, stage, stage - 1))
+    lines += ["(assert (= u0 w0))", "(assert (not (= u%d w%d)))" % (depth, depth)]
+    return "\n".join(lines + ["(check-sat)"]) + "\n"
+
+
+def _without_facts(text, matches):
+    """The text without the have lines whose tactic matches selects, nor their names in revert and intro lines.
+
+    Array facts that mention definitions are stated folded and reverted
+    around the lemma's unfold (proof_to_lean._array_helpers), so a dropped
+    fact leaves its name in those lines; a line the drop empties, or a dropped line that opens an
+    alternative of first, becomes skip. The unfold also names the
+    definitions the facts mention, so a dropped definitional equation lhs =
+    rhs is kept as the tautology lhs = lhs /\\ rhs = rhs instead: its terms
+    stay for the unfold to rewrite, its information goes.
+    """
+    names, kept = set(), []
+    for line in text.split("\n"):
+        tactic = line.lstrip(" |(")
+        if tactic.startswith("have ") and matches(tactic):
+            equation = re.match(r"have \S+ : (\(term_\d+ [^)]*\)) = (.*) := rfl$", tactic)
+            if equation:
+                line = line[:len(line) - len(tactic)] + "have %s : %s = %s /\\ %s = %s := ⟨rfl, rfl⟩" % (
+                    tactic.split()[1], equation.group(1), equation.group(1), equation.group(2), equation.group(2))
+                kept.append(line)
+                continue
+            names.add(tactic.split()[1])
+            line = line[:len(line) - len(tactic)] + "skip"
+        kept.append(line)
+    for position, line in enumerate(kept):
+        tactic = line.lstrip(" |(")
+        words = tactic.split()
+        if words[:1] in (["revert"], ["intro"]) and names.intersection(words[1:]):
+            remaining = [word for word in words[1:] if word not in names]
+            kept[position] = line[:len(line) - len(tactic)] + (" ".join(words[:1] + remaining) if remaining
+                                                               else "skip")
+    return "\n".join(kept)
+
+
 def _check_in_lean(test, source, fragment):
     """Export through the clause log, reconstruct, and kernel-check; return the certificate."""
     certificate = _export(source)
@@ -3449,6 +3732,74 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(seed=seed):
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_nested_ite_chains_through_arrays_verify(self):
+        """Chains of eight modular steps stored into an array, as its index, and over Real verify folded.
+
+        Written out (see test_array_facts_are_stated_over_folded_definitions)
+        the six-step chain stored as a value checked in 78 s at 3.9 GB, and
+        eight steps (57 MB of Lean) were out of reach; folded, eight steps
+        check in about 17 s (value), 6 s (index), and 4 s (Real) together
+        at most 1.7 GB.
+        """
+        sources = [(use, array_chain_instance(8, use)) for use in ("value", "index", "real")]
+        lean_test_support.prefetch((source, _export(source)) for _, source in sources)
+        for use, source in sources:
+            with self.subTest(use=use):
+                _check_in_lean(self, source, "qf_uflira" if use == "real" else "qf_uflia")
+
+    def test_congruence_lemmas_over_ite_chains_verify(self):
+        """The euf lemmas of register_file_instance verify without ite gates and array axiom instances.
+
+        See test_congruence_lemmas_state_no_ite_gates_or_array_axioms: grind
+        proves each congruence with its ites folded, and that is the lemma's
+        only proof (no unfolded fallback under first, the regime that
+        exhausted the heartbeats on z3test's dlx-regfile), so the check
+        covers the folded proofs of more than 50 lemmas that reach ites.
+        """
+        source = register_file_instance(5)
+        certificate = _check_in_lean(self, source, "qf_uflia")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        folded = 0
+        for node, lemma in re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S):
+            reach = proof_to_lean._reachable(graph, graph.conclusion(int(node)))[0]
+            if (graph.decl(int(node)).parameters[:1] == ("euf",) and "first" not in lemma
+                    and any(graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE for term in reach)):
+                folded += 1
+        self.assertGreater(folded, 50)
+
+    def test_array_lemmas_over_ite_chains_verify(self):
+        """The array lemmas of register_file_instance(8) verify with their ites folded and no gates.
+
+        See test_array_lemmas_keep_their_ites_folded: all 8 reach the ite
+        chains, and their folded proof is their only one.
+        """
+        source = register_file_instance(8)
+        certificate = _check_in_lean(self, source, "qf_uflia")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        folded = 0
+        for node, lemma in re.findall(r"\nprivate theorem th_lemma_(\d+) (.*?)\n\n", text, re.S):
+            reach = proof_to_lean._reachable(graph, graph.conclusion(int(node)))[0]
+            if (graph.decl(int(node)).parameters[:1] == ("array",) and "have _g" not in lemma
+                    and any(graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE for term in reach)):
+                folded += 1
+        self.assertGreaterEqual(folded, 8)
+
+    def test_folded_chains_in_other_array_facts_verify(self):
+        """Six-step chains as a constant array's value, a Bool element, and an ite's condition and index verify.
+
+        These reach the folded nodes of _select_const facts, formula_N
+        arguments of a store, and the condition of an ite over arrays
+        (array_chain_instance); written out they were 5 to 11 MB of Lean,
+        folded they are under 0.7 MB.
+        """
+        sources = [(use, array_chain_instance(6, use)) for use in ("const", "bool", "ite")]
+        lean_test_support.prefetch((source, _export(source)) for _, source in sources)
+        for use, source in sources:
+            with self.subTest(use=use):
+                _check_in_lean(self, source, "qf_uflia")
 
     def test_numeral_facts_are_needed(self):
         """Without the values of numeral expressions, or rewritten after their subterms, simp misses the identities."""
@@ -3519,9 +3870,8 @@ class TestArrayLeanIntegration(unittest.TestCase):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
                 text = proof_to_lean.reconstruct(source, _export(source))
-                stripped = "\n".join(line for line in text.split("\n")
-                                     if ":= _store_apply " not in line and ":= _array_ext " not in line
-                                     and ":= _default_" not in line)
+                stripped = _without_facts(text, lambda tactic: any(
+                    fact in tactic for fact in (":= _store_apply ", ":= _array_ext ", ":= _default_")))
                 self.assertNotEqual(stripped, text)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
@@ -3544,7 +3894,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
         application = re.compile(r"^\s*have _t\d+ : \(term_\d+ [^)]*\) = _m\.arrs_funs ")
         lines = text.split("\n")
         self.assertTrue(any(map(application.match, lines)), text)
-        stripped = "\n".join(line for line in lines if not application.match(line))
+        stripped = _without_facts(text, application.match)
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "stripped.lean"
             output.write_text(stripped)
@@ -3581,7 +3931,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 # The array rewrite alternative's simp set evaluates reads of
                 # constant arrays too (_select_const), so it goes as well.
                 stripped = "\n".join(line.replace("_select_const, ", "") if "simp only [" in line else line
-                                     for line in lines if not level.match(line))
+                                     for line in _without_facts(text, level.match).split("\n"))
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)
@@ -3603,7 +3953,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 fact = re.compile(r"^\s*have _n\d+_\d+ := _(store_apply|select_const) ")
                 lines = text.split("\n")
                 self.assertTrue(any(map(fact.match, lines)), text)
-                stripped = "\n".join(line for line in lines if not fact.match(line))
+                stripped = _without_facts(text, fact.match)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)
@@ -3666,7 +4016,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 pattern = re.compile(r"^\s*" + fact)
                 lines = text.split("\n")
                 self.assertTrue(any(map(pattern.match, lines)), text)
-                stripped = "\n".join(line for line in lines if not pattern.match(line))
+                stripped = _without_facts(text, pattern.match)
                 with tempfile.TemporaryDirectory() as directory:
                     output = Path(directory) / "stripped.lean"
                     output.write_text(stripped)

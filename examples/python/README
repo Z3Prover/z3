@@ -345,10 +345,12 @@ step:
     by and-elim, rewrite, and mp; a formula that merely implies the clause,
     which happens when preprocessing splits an xor or an equivalence into
     several clauses, is bridged by a th-lemma with hint "cnf" and one
-    unit-resolution. When no single assertion implies the clause (Z3 found a
-    contradiction while asserting, or simplified an ite inside one assertion
-    under a unit asserted by another, which shows in alldiff clauses), the
-    cnf lemma is over an unsat core of the assertions. Clauses with true, not
+    unit-resolution (no conjunct below one a model already refutes is
+    checked; z3 only chooses the source, Lean proves the lemma). When no
+    single assertion implies the clause (Z3 found a contradiction while
+    asserting, or simplified an ite inside one assertion under a unit
+    asserted by another, which shows in alldiff clauses), the cnf lemma is
+    over an unsat core of the assertions. Clauses with true, not
     false, or complementary literals are def-axiom nodes. Nothing else is
     accepted as an assumption. In Lean a cnf lemma is first proved by gate
     propagation over the Boolean structure of the clause with the theory
@@ -360,9 +362,13 @@ step:
     steps it uses, and a case split whose branch does not need its
     hypothesis is dropped. When the search gives up, it is repeated over the
     gates of z3's unsat core of the propositional abstraction (an untrusted
-    hint; Lean checks the proof). A clause that needs a theory fact, or that
-    neither search refutes within its budget, falls back to the unfolded
-    grind proof.
+    hint; Lean checks the proof). When neither search refutes the clause,
+    z3 finds theory clauses over its arithmetic and uninterpreted leaves
+    (applications, constants of a sort; congruence included) that make the
+    abstraction unsatisfiable (model by model, an unsat core each), each
+    stated with a `have` the theory tactic proves, and the search is
+    repeated with them. A clause that neither search refutes within its
+    budget falls back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact
@@ -758,10 +764,10 @@ equalities, under the condition and under its negation, stated the same way
 (scaled to integer coefficients when a branch has fractions) and proved with
 ite_eq_left and ite_eq_right; Z3's rewriter can push a comparison through an
 ite, in which case these are the only facts tying the ite to its branches.
-Without arrays both kinds of facts are stated over the term and formula
-definitions, proved with only the definitions down to the atoms of their
-linear forms unfolded, and unfolded together with the goal, so nested ites
-are never written out in them.
+Both kinds of facts are stated over the term and formula definitions,
+proved with only the definitions down to the atoms of their linear forms
+unfolded, and unfolded together with the goal, so nested ites are never
+written out in them; with arrays too (see the array facts below).
 
 A qf_lira certificate takes both valuations, (_vars : Nat -> Rat)
 (_ivars : Nat -> Int): a Real variable is _vars i and an Int one _ivars i
@@ -837,9 +843,9 @@ the sign of its divisor, so a rem by zero or by a term is rejected wherever
 it occurs); omega reads / and % by a positive numeral directly,
 and leaves them as atoms for a negative divisor, whose arith axioms grind
 proves instead. Each th-lemma and arithmetic rewrite is proved by
-first | omega | grind (splits := 64): omega decides linear integer
-arithmetic (ite over Int included) and produces a kernel-checked proof,
-where grind's integer module ran out of steps on Farkas lemmas with several
+first | omega | grind (splits := 64), except euf th-lemmas (below): omega
+decides linear integer arithmetic (ite over Int included) and produces a
+kernel-checked proof, where grind's integer module ran out of steps on Farkas lemmas with several
 equalities and on ite splits; grind still handles goals omega does not read.
 An Int th-lemma with hint farkas, bound, or cut whose literals contain div,
 mod, abs, ite, or application atoms gets a first attempt over the atoms
@@ -885,6 +891,22 @@ rlimit); Python checks both combinations, and Lean checks the case split
 cut; a lemma without one within the budget (a cut resting on the
 base-level bounds of a mod atom, or on the rounding of a bound inside a
 side, as the cut of lia_gomory) keeps only those alternatives.
+A th-lemma with hint euf (since 2026-11-10) is a congruence-closure
+conflict: Z3's egraph takes an ite term as a leaf (its gates are tseitin
+clauses of their own) and applies no array axiom, so the lemma gets no ite
+gates and no array axiom instances (only the rfl bodies of folded store,
+constant-array, map, and application terms, the map identities, and the
+commutativity of extensionality witnesses), and it is proved by
+grind (splits := 64) alone, without omega. A lemma that reaches term-level
+ites is proved with them folded (only the definitions outside them are
+unfolded), without the fully unfolded proof as a fallback under first,
+and states the facts of the nodes outside those ites only.
+A th-lemma with hint array (since 2026-11-10) is one array axiom instance
+over the terms of its literals (Z3's array solver internalizes no ite), so
+it gets no ite gates either and keeps its ites folded; it states the array
+facts of the nodes outside the ites only, and keeps its tactic. The
+exception is the ite a select-map axiom over a map of ite equates the read
+with, which is unfolded to meet the map's Lean ite.
 A cut, an arith axiom, or a farkas or bound without coefficients (see the
 clause-log section), reaches Lean with its literal shapes checked only; a
 false one fails there and no proof is published. Coefficients that are present are
@@ -928,8 +950,23 @@ elaborates superlinearly and exhausts Lean's default heartbeat budget between
 counts as that many steps, so a lemma step discharging hundreds of
 hypotheses is not elaborated among hundreds of unrelated steps, which made
 it about ten times slower. Each lemma receives the original assertions as one
-conjunction and abstracts its open hypotheses explicitly; steps the root never
-uses are not outlined. The final unsat theorem still takes exactly the original
+conjunction (the interpretation is implicit, determined by it) and abstracts
+its open hypotheses explicitly, as the premises of its statement; steps the
+root never uses are not outlined. A step under hypotheses that only one other
+step uses is bound inside that step, where its hypotheses are in scope, rather
+than as a function of them that the other step re-applies, and a hypothesis
+step is not bound as a step: its users name the hypothesis's binder (except a
+lemma's premise, which the lemma discharges). A lemma used once in the lemma
+importing it is applied at that use rather than let-bound, a literal (not p)
+is eliminated by Or.neg_resolve_left/right on the proof of p, and classical
+lemmas prove by contradiction through one helper over Classical.propDecidable
+instead of a witness let per formula. A unit resolution keeping one literal is
+bound without a stated type (Or.resolve_* infer it from the clause), and a
+step's or lemma's application to its hypotheses that the next term uses once
+is written at that use rather than let-bound. This keeps Lean's memory, which
+grows with the elaborated text, under the 8 GB cap on QF_IDL plan-21 and
+DTP_k2_n35_c245_s9.
+The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.
 Propositional lemmas instead take the decidability witnesses they need as
@@ -993,7 +1030,8 @@ qf_uflia certificate takes the same shape over Int: (_vars : Nat -> Int)
 and the fields int : Int -> U and ifuns : Nat -> List U -> Int, with every theory
 lemma, rewrite, and argument-equality helper proved by first | omega | grind
 as for qf_lia (omega reads applications as atoms; grind proves the
-congruences). A qf_uflira certificate takes both valuations as qf_lira,
+congruences), except the euf th-lemmas, proved by grind alone. A
+qf_uflira certificate takes both valuations as qf_lira,
 (_vars : Nat -> Rat) (_ivars : Nat -> Int), and all four fields: an Int
 argument is injected by _m.int and a Real one by _m.real, an application
 with an Int result is _m.ifuns i [...] and one with a Real result
@@ -1060,7 +1098,9 @@ outside its domain by some constructor of its range. The clause log's
 datatype hints (the datatype solver's case splits and constructor clashes)
 become th-lemmas over enumeration equalities and recognizers; they, the euf
 lemmas, and the cnf fallbacks over such terms are proved by grind after the
-fields are instantiated for the constants and applications they reach. The
+fields are instantiated for the constants and applications they reach.
+Without arrays, the facts of applications are stated over their arguments'
+definitions and reverted around the lemma's unfold, like the ite gates. The
 reconstructor checks every constructor and recognizer of the certificate
 against the input's enumeration of that sort and tells constructors apart by
 name. An array of an enumeration, (Array I Color), has a field per array
@@ -1104,7 +1144,19 @@ rewriter pushes into the branches, gets the facts of a read of each store
 or constant-array branch. Array terms stay
 folded in those lemmas (term_N, related to its store or ite by an rfl
 fact): written out, the shared store chains of the swap and storecomm
-benchmarks grow exponentially. A lemma over stores (Z3's rewriter turns
+benchmarks grow exponentially. The other nodes these facts mention (an
+index, a stored value, a constant array's value, an ite's condition) are
+named by their definitions too, term_N or formula_N, unless they are
+variables, constants, or numerals: written out, a shared ite DAG below an
+index or a stored value grows exponentially as well (z3test's QF_AUFLIA
+dlx-regfile). A node's facts that mention such a definition are reverted
+with the ite gates before the lemma's unfold and introduced after it (an
+euf th-lemma gets only the rfl facts, no read facts or gates; see above), so
+the unfold rewrites them as it rewrites the goal; since the unfold does not
+enter array terms, the nodes they mention are also roots of the unfold (an
+index or a stored value may occur in the goal only inside a store). Facts
+over variables, constants, and numerals alone are stated after the unfold.
+A lemma over stores (Z3's rewriter turns
 (store (store a i v) i w) into (store a i w) and (store a i (select a i))
 into a, and a cnf step over a predicate of such a store relies on it) may
 also use _store_store and _store_select, and next to constant arrays

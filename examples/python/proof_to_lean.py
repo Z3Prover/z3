@@ -132,6 +132,9 @@ _OUTLINE_CHUNK_STEPS = 500
 # A step with more premises or clause literals than this counts as that many
 # steps of its chunk (_outline_weight).
 _OUTLINE_WIDE_STEP = 64
+# A step under hypotheses used by one other step is bound inside it
+# (_step_blocks), at most this many such steps deep.
+_NESTED_STEP_DEPTH = 32
 # and-elim projects an operand by field notation, one `.2` per operand before
 # it, so eliminating every operand of a wide conjunction is quadratic: 250
 # projections out of a 600-operand conjunction (94,000 `.2`s in one outlined
@@ -199,11 +202,34 @@ _NORMALIZED_CONNECTIVES = (z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT, z3.Z3_OP_IMP
 # heartbeat limit.
 _STRUCTURAL_REWRITE_STEPS = 20000
 _STRUCTURAL_REWRITE_CHARS = 1000000
+# Steps and characters each link between equivalent structures may use on
+# top of those limits (see _PropositionalProver._prove_links), so a rewrite's
+# budget grows with the structures it relates. Linking the 481 regrouped
+# gates of a QF_LRA time-triggered startup rewrite (tta_startup
+# simple_startup_15nodes) took 22,000 steps and 960,000 characters, 46 and
+# 2,000 per link, and left nothing for the search over the two sides. The
+# allowance is at most the limits themselves, so a rewrite's proof stays
+# within twice them: uncapped, 1,641 links of a 40-node rewrite of the same
+# shape rendered over 3 MB, which ran Lean out of memory where grind alone
+# verifies.
+_LINK_STEPS = 100
+_LINK_CHARS = 5000
 # Resource limit of z3's unsat core over a cnf lemma's propositional
 # abstraction (_relevant_structures), which steers the prover when its own
 # search gives up: the 5,649 gates of the QF_IDL plan-21 cnf lemma take
 # 0.4 million (a quarter of a second).
 _RELEVANCE_RLIMIT = 10000000
+# Theory clauses _theory_clauses may add to a cnf lemma whose propositional
+# abstraction does not refute it, the resource limit of each of its z3 checks,
+# and the factor of the prover's limits for the search over the clauses. The
+# cnf lemma of QF_LRA tta_startup simple_startup_11nodes takes 45 clauses
+# over its leaves, found in under two seconds, and the search over them 36,000
+# steps and 3.3 million characters (0.2 s), of which the 0.45 MB proof is kept:
+# that is the last attempt before the fallback, a grind over the unfolded
+# clause (227 ites) that runs out of heartbeats.
+_THEORY_CLAUSES = 256
+_THEORY_CLAUSE_RLIMIT = 5000000
+_THEORY_CLAUSE_BUDGET = 10
 # Characters of Lean text above which the file is elaborated one declaration
 # at a time (Elab.async false, an elaboration schedule, not a trust setting).
 # Elaborating declarations in parallel tasks keeps far more memory alive:
@@ -1889,12 +1915,14 @@ def _enumeration_cases(graph, sort, value, constructors="_m.ctors"):
                         for constructor in graph.enumerations[sort]], "False")
 
 
-def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
+def _enumeration_helpers(graph, reachable, atom_indices, variable_indices, folded=False):
     """State the enumeration facts a theory step over enumeration terms needs: the fields, instantiated.
 
     grind knows nothing about the constructors: it gets their distinctness
     and, for every constant and application of an enumeration sort the step
     reaches, the disjunction of its possible values, on which it splits.
+    With folded, the facts of applications with arguments are left to
+    _folded_enumeration_cases.
     """
     nodes = [node for node in sorted(reachable)
              if graph.is_term(node) and graph.decl(node).range in graph.enumerations]
@@ -1918,11 +1946,44 @@ def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
             continue
         index = variable_indices[graph.nodes[node].declaration]
         if graph.arguments(node):
+            if folded:
+                continue
             helpers.append("  have _ec%d := _m.enum_fcases_%d %s" % (
                 node, index, _application_arguments(graph, graph.arguments(node), child, child)))
         else:
             helpers.append("  have _ec%d := _m.enum_cases_%d" % (node, index))
     return helpers
+
+
+def _folded_enumeration_cases(graph, reachable, variable_indices):
+    """The enumeration cases of _enumeration_helpers for applications, over their definitions, folded.
+
+    Returns the have lines, their names, and the applications' arguments, for
+    _grind_lemma to revert before its unfold as it does the ite gates
+    (_folded_ite_gates). Written out, the argument list of an application
+    over nested ites repeats every inner ite in full: two eight-level
+    chains of Color ites through f and g (enumeration_chain_instance(8))
+    took 26.7 MB of such facts, and in an euf lemma, whose ites stay folded
+    in the goal, the written-out fact did not even meet the goal's term.
+    The field is applied to the application's argument list as its
+    definition writes it (_term_body), over the arguments' definitions,
+    which the unfold rewrites as it rewrites the goal's.
+    """
+    lines, names, nodes = [], [], set()
+    for node in sorted(reachable):
+        if (not graph.is_term(node) or graph.kind(node) != z3.Z3_OP_UNINTERPRETED or not graph.arguments(node)
+                or graph.decl(node).range not in graph.enumerations):
+            continue
+        lines.append("have _ec%d := _m.enum_fcases_%d %s" % (
+            node, variable_indices[graph.nodes[node].declaration], _application_arguments(
+                graph, graph.arguments(node), lambda term: _term(graph, term),
+                lambda formula: _formula(graph, formula))))
+        names.append("_ec%d" % node)
+        # The definitions the fact mentions: the application's own may be
+        # unfolded in the goal already (outside the atoms of an Int lemma,
+        # see _grind_lemma), and unfold rejects a name that does not occur.
+        nodes.update(graph.arguments(node))
+    return lines, names, nodes
 
 
 def _read_cases(graph, node, child, variable_indices):
@@ -2784,21 +2845,6 @@ def _inline(graph, node, atom_indices, variable_indices, generalized=None):
     return _formula_body(graph, node, atom_indices, child, child)
 
 
-def _scaling_helpers(graph, reachable, atom_indices, variable_indices):
-    """State denominator-free forms of fractional atoms, which grind proves and then uses.
-
-    grind's linear arithmetic over Rat does not always combine equalities whose
-    constants are fractions, while it handles the same facts once scaled to
-    integers. Each helper is an implication from the atom to its scaled form.
-    Written out as here only with arrays; otherwise _folded_ite_gates
-    states them over the definitions.
-    """
-    return ["  have _s%d : %s -> (%s %s ((0 : %s))) := by grind" % (
-        formula, _inline(graph, formula, atom_indices, variable_indices),
-        _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, integer), relation, number_type)
-        for formula, relation, terms, constant, scale, integer, number_type in _scaled_atoms(graph, reachable)]
-
-
 def _scaled_atoms(graph, reachable):
     """Every reachable arithmetic atom with fractions: (atom, relation, terms, constant, scale, integer, type).
 
@@ -2870,11 +2916,19 @@ def _ite_gate_branches(graph, reachable):
 def _folded_ite_gates(graph, reachable):
     """State the branch equalities of the reachable ites and the scaled atoms over their definitions, folded.
 
+    grind splits on an ite term by itself, but when the selected branch is a
+    fractional numeral or a term with fractional coefficients it does not
+    combine the resulting equality with its linear facts, and neither does
+    it combine equalities whose constants are fractions, while it handles
+    the same facts once scaled to integers. So each gate gives one branch
+    equality under the condition or its negation, scaled to integer
+    coefficients, and each fractional atom implies its scaled form.
+
     Returns the have lines, their names, and the nodes they are about (the
     ites and the atoms). _grind_lemma states and reverts them before it
     unfolds the definitions, so the one unfold rewrites them into the very
-    terms of the goal, as _ite_gate_helpers and _scaling_helpers write them
-    out. Written out, the statements repeat every nested ite in full
+    terms of the goal. Written out, as they were before, the statements
+    repeat every nested ite in full
     (QF_UFLIA hard16: 644 theory lemmas with 11 KB of gate text each, 7 MB
     together; a Real modular chain of six fractional steps: 5.6 MB of
     scaled gates and scaling facts in 5.9 MB), and Lean keeps every
@@ -2882,11 +2936,12 @@ def _folded_ite_gates(graph, reachable):
     exceeded the 8 GB memory limit. A scaled gate or a scaling fact is
     proved with only the definitions between it and the atoms of its linear
     form unfolded (_linear_unfold), so grind sees the atoms folded, the
-    nested ites among them unsplit. Arrays are left to the inline form:
-    their terms stay folded (_definition_names).
+    nested ites among them unsplit. With arrays, whose terms the unfold
+    leaves folded (_definition_names), _grind_lemma makes the nodes the
+    facts are about roots of its unfold, so an ite that occurs in the goal
+    only inside an array term (a stored value) is unfolded in its gates as
+    in the array facts (_array_helpers) that mention it.
     """
-    if graph.arrays:
-        return [], [], set()
     lines, names, nodes = [], [], set()
     for node, side, branch, terms, constant, scale in _ite_gate_branches(graph, reachable):
         condition = _formula(graph, graph.arguments(node)[0])
@@ -2925,35 +2980,6 @@ def _linear_unfold(graph, node):
         _linear_term(graph, side, Fraction(1), atoms)
     names = _definition_names(graph, _reachable_outside(graph, node, set(atoms)))
     return "unfold %s; " % " ".join(names) if names else ""
-
-
-def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
-    """State the branch equalities of every reachable Real ite, denominator-free.
-
-    grind splits on an ite term by itself, but when the selected branch is a
-    fractional numeral or a term with fractional coefficients it does not
-    combine the resulting equality with its linear facts, just as with
-    fractional atoms. Each helper gives one branch equality under the condition
-    or its negation, scaled to integer coefficients, so grind can use it.
-    Without arrays _folded_ite_gates states them instead, folded.
-    """
-    helpers = []
-
-    def inline(sub):
-        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
-
-    for node, side, branch, terms, constant, scale in _ite_gate_branches(graph, reachable):
-        condition = inline(graph.arguments(node)[0])
-        hypothesis, lemma = (condition, "ite_eq_left") if side == 0 else ("(Not %s)" % condition, "ite_eq_right")
-        if scale == 1:
-            helpers.append("  have _g%d_%d : %s -> %s = %s := fun _h => %s _h" % (
-                node, side, hypothesis, inline(node), inline(branch), lemma))
-        else:
-            helpers.append("  have _g%d_%d : %s -> ((%d : %s)) * %s = (%s) := fun _h => by rw [%s _h]; grind" % (
-                node, side, hypothesis, scale, graph.number_type_of(node), inline(node),
-                _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices, graph.is_int(node)),
-                lemma))
-    return helpers
 
 
 def _gcd(left, right):
@@ -3003,6 +3029,47 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     for formula in conclusions:
         reachable |= _reachable(graph, formula)[0]
     statement = " -> ".join(_formula(graph, formula) for formula in conclusions)
+    # An euf lemma is a congruence-closure conflict. Z3's egraph takes an ite
+    # term as a leaf without arguments (euf::solver::internalize; the ite's
+    # gates are tseitin clauses of their own) and applies no array axiom (the
+    # array solver's are array lemmas), so such a lemma gets no ite gates and
+    # no array axiom instances, and it is proved with its ite terms folded,
+    # by grind alone. Over z3test's QF_AUFLIA dlx-regfile, 803 euf lemmas carried
+    # about 130 folded gates each, 15 of the file's 44 MB, and their read
+    # facts another 7 MB; unfolded, grind split their ites, and omega, tried
+    # first over Int, exhausted the heartbeats on several of them (first does
+    # not catch that). (_opaque_tactic gives an euf lemma no opaque-atom
+    # attempt either: generalizing applications would hide the congruences.)
+    # Its facts are those of the nodes outside the ites, as an array lemma's
+    # are (below): the _t body of a store only a folded ite reaches cannot
+    # meet the goal. dlx-regfile's euf lemmas stated 8,139 _t facts (1.75 MB),
+    # 1,122 now (0.72 MB); its theory lemmas without the cnf one took 27 s
+    # and 2.2 GB of Lean, 19 s and 1.6 GB now.
+    congruence = prefix == "th_lemma" and graph.decl(node).parameters[:1] == ("euf",)
+    # An array lemma is one instance of an array axiom, built over the terms
+    # of its literals (array::solver::assert_select_store_axiom reads the
+    # store it is given, never an ite whose branch the egraph equated with
+    # it), and the array solver internalizes no ite. So it gets no ite gates
+    # either and keeps its ite terms folded; its facts are those of the
+    # nodes outside the ites (facts about a term only an ite reaches cannot
+    # meet the folded goal), without the rewriter's reads through ites of
+    # arrays (_array_helpers ite_leaves). Its tactic is unchanged. Over
+    # z3test's dlx-regfile, 50 array lemmas carried about 128 gates and 37
+    # read facts each and unfolded about 60 ites; the file's theory lemmas
+    # without its cnf lemma took 208 s and 4.9 GB of Lean, 25 s and 2.2 GB folded.
+    # The one ite such a lemma looks into is its own: the select-map axiom
+    # over a map of ite equates the read with the ite of the reads
+    # (_map_read_values), which is unfolded to meet the map's Lean ite.
+    instance = prefix == "th_lemma" and graph.decl(node).parameters[:1] == ("array",)
+    ites = ({term for term in reachable if graph.is_term(term) and graph.kind(term) == z3.Z3_OP_ITE}
+            if congruence or instance else set())
+    if instance:
+        ites -= _map_read_values(graph, conclusion)
+    scope = reachable
+    if ites:
+        scope = set()
+        for formula in conclusions:
+            scope |= _reachable_outside(graph, formula, ites)
     atoms = _opaque_int_atoms(graph, conclusions) if opaque_tactic else []
     budget = _LATTICE_LEMMA_HEARTBEATS if atoms and _lattice_step(graph, node) else 1000000
     lines = [
@@ -3038,36 +3105,82 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = inside
     else:
         remaining = reachable
-    gates, gate_names, gate_nodes = _folded_ite_gates(graph, reachable) if graph.arithmetic else ([], [], set())
-    folded_gates = bool(gates)
-    # Without arrays the excluded-middle facts of Boolean arguments and the
-    # cast facts are stated folded too (_folded_boolean_arguments,
-    # _cast_facts), and reverted with the gates.
+    gates, gate_names, gate_nodes = (_folded_ite_gates(graph, reachable)
+                                     if graph.arithmetic and not (congruence or instance) else ([], [], set()))
+    # Without arrays the excluded-middle facts of Boolean arguments, the
+    # enumeration cases of applications, and the cast facts are stated
+    # folded too (_folded_boolean_arguments, _folded_enumeration_cases,
+    # _cast_facts), and reverted with the gates. With arrays the array facts
+    # that mention a definition the unfold rewrites are (_array_helpers).
     fold = not graph.arrays
     if fold and graph.uninterpreted:
-        lines_b, names_b, nodes_b = _folded_boolean_arguments(graph, reachable)
+        lines_b, names_b, nodes_b = _folded_boolean_arguments(graph, scope)
         gates, gate_names, gate_nodes = gates + lines_b, gate_names + names_b, gate_nodes | nodes_b
-    lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, reachable, atom_indices, variable_indices, node,
+    if fold and graph.enumerations:
+        lines_e, names_e, nodes_e = _folded_enumeration_cases(graph, scope, variable_indices)
+        gates, gate_names, gate_nodes = gates + lines_e, gate_names + names_e, gate_nodes | nodes_e
+    lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, scope, atom_indices, variable_indices, node,
                                                         folded=fold)
     gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
+    if graph.arrays:
+        lines_a, names_a, nodes_a, array_facts = _array_helpers(graph, scope, atom_indices, variable_indices,
+                                                                congruence, ite_leaves=instance)
+        gates, gate_names, gate_nodes = gates + lines_a, gate_names + names_a, gate_nodes | nodes_a
+    else:
+        array_facts = []
     if gates:
         # Stated folded and reverted, so the unfold below rewrites them as it
         # rewrites the goal; the definitions they mention outside the atoms
         # were unfolded in the goal already and are unfolded again here.
+        # With arrays the unfold does not enter array terms
+        # (_definition_names), and a node the facts mention may occur in the
+        # goal only inside one (an index or a stored value): the mentioned
+        # nodes are roots of the unfold too.
         gates.append("revert " + " ".join(gate_names))
         remaining = remaining | _reachable(graph, *sorted(gate_nodes))[0]
-    fallback = gates + (["unfold " + " ".join(_definition_names(graph, remaining, atoms))] if remaining else [])
+    roots = list(atoms) + sorted(gate_nodes)
+    unfold = full_unfold = ["unfold " + " ".join(_definition_names(graph, remaining, roots))] if remaining else []
+    fallback = []
     if gates:
         fallback.append("intro " + " ".join(gate_names))
-    distinct_facts, distinct_names = _boolean_distinct_facts(graph, reachable, atom_indices, variable_indices)
+    distinct_facts, distinct_names = _boolean_distinct_facts(graph, scope, atom_indices, variable_indices)
     fallback.extend(distinct_facts)
-    fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices,
-                                                                  folded=folded_gates, folded_arguments=fold))
+    fallback.extend(helper.strip() for helper in _theory_helpers(graph, scope, atom_indices, variable_indices,
+                                                                  folded_arguments=fold, array_facts=array_facts))
     if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
     fallback.extend(cast_facts)
-    fallback.append(_without_boolean_distincts(distinct_names, _theory_tactic(graph)))
+    # grind alone for an euf lemma: congruence closure is its business, not
+    # omega's.
+    fallback.append(_without_boolean_distincts(distinct_names,
+                                               _CONGRUENCE_TACTIC if congruence else _theory_tactic(graph)))
+    if ites:
+        # The ites stay folded, as leaves of the congruence or of the axiom
+        # instance: only the definitions outside them are unfolded, in the
+        # goal and in the reverted facts (those that mention an ite keep it
+        # folded, as the goal does). There is no unfolded fallback: with
+        # the unfolded proof as a fallback under first, an euf lemma's text
+        # doubled (register_file_instance(8): 0.71 MB of euf lemmas against
+        # 1.55 MB), the fallback was never taken in the test suite, and a
+        # folded attempt that spent the heartbeats before failing would
+        # have left the fallback none (maxHeartbeats is per declaration).
+        outside, folded_roots = set(), sorted(gate_nodes - ites)
+        for formula in conclusions + folded_roots:
+            outside |= _reachable_outside(graph, formula, ites)
+        names = _definition_names(graph, outside, folded_roots)
+        unfold = ["unfold " + " ".join(names)] if names else []
+    # The store-identity alternative below keeps the full unfold: its simp
+    # (_ARRAY_REWRITE_TACTIC, ite_self, _const_store_self) cannot rewrite
+    # inside a folded ite definition. Its facts are still those of the scope:
+    # in an euf or array lemma over ites, a store only an ite reaches gets no
+    # _t fact here either, though the full unfold exposes it. No such lemma
+    # takes this alternative in the test tables or generators (1,018 euf
+    # lemmas over ites, none with an alternative); should one need it, Lean
+    # rejects the step (completeness, not soundness), and the _t facts of
+    # this alternative should then be computed over reachable.
+    store_body = gates + full_unfold + fallback
+    fallback = gates + unfold + fallback
     alternatives.append(fallback)
     if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
             else _store_identity_instance(graph, reachable)):
@@ -3079,7 +3192,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # alternative is tried only after the others fail; it repeats the
         # fallback's facts, so other steps get it only when one of their
         # stores is an instance of an identity.
-        names = [line.split()[1] for line in fallback if line.startswith("have _t")]
+        names = [line.split()[1] for line in store_body if line.startswith("have _t")]
         if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
             # Reads of constant arrays evaluated, ites of a term with itself
             # dropped, stores of a constant array's own value into it
@@ -3089,9 +3202,9 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # Numeral expressions evaluated first, as the rewriter compares
         # indices and values by value ((/ 2 2) is 1.0).
         values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
-        alternatives.append(fallback[:-1] + values
+        alternatives.append(store_body[:-1] + values
                             + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
-                               "all_goals " + fallback[-1]])
+                               "all_goals " + store_body[-1]])
     if len(alternatives) == 1:
         lines.extend("  " + tactic for tactic in fallback)
     else:
@@ -3099,6 +3212,25 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         lines.extend("    | (" + "\n       ".join(alternative) + ")" for alternative in alternatives)
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
+
+
+def _map_read_values(graph, conclusion):
+    """The terms a clause's literals equate with a read of a map or set operator.
+
+    In an array lemma these are the select-map axiom's application of the
+    mapped function to the reads of the arguments ((select ((_ map ite) a
+    b c) i) and (ite (select a i) (select b i) (select c i))).
+    """
+    values = set()
+    for literal in graph.clause(conclusion):
+        atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
+        if graph.kind(atom) != z3.Z3_OP_EQ:
+            continue
+        sides = graph.arguments(atom)
+        for read, value in ((sides[0], sides[1]), (sides[1], sides[0])):
+            if graph.kind(read) == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(read)[0]) is not None:
+                values.add(value)
+    return values
 
 
 def _boolean_distinct(graph, node):
@@ -3539,24 +3671,24 @@ def _definition_names(graph, nodes, roots=None):
             for formula in sorted(nodes, reverse=True)]
 
 
-def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded=False, folded_arguments=False):
+def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded_arguments=False, array_facts=()):
     """Facts _grind_lemma states after unfolding.
 
-    folded: the ite gates and scaling facts are stated already;
-    folded_arguments: so are the excluded-middle facts of Boolean arguments.
+    The ite gates, scaling facts, and array facts that mention definitions
+    it states before (_folded_ite_gates, _array_helpers); with
+    folded_arguments, the excluded-middle facts of Boolean arguments and
+    the enumeration cases of applications too (_folded_boolean_arguments,
+    _folded_enumeration_cases). array_facts are the other array facts
+    (_array_helpers), stated here.
     """
     helpers = []
-    if graph.arithmetic and not folded:
-        helpers.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
-        helpers.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.uninterpreted and not folded_arguments:
         helpers.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.arithmetic and (graph.uninterpreted or graph.floors):
         helpers.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.arrays:
-        helpers.extend(_array_helpers(graph, reachable, atom_indices, variable_indices))
+    helpers.extend(array_facts)
     if graph.enumerations:
-        helpers.extend(_enumeration_helpers(graph, reachable, atom_indices, variable_indices))
+        helpers.extend(_enumeration_helpers(graph, reachable, atom_indices, variable_indices, folded_arguments))
     return helpers
 
 
@@ -3772,7 +3904,7 @@ def _map_read_facts(graph, prefix, array, read, inline):
     return helpers
 
 
-def _array_helpers(graph, reachable, atom_indices, variable_indices):
+def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=False, ite_leaves=False):
     """Instantiate the array facts for the reads of stores and the extensionality witnesses a lemma reaches.
 
     Array terms, _select, and _store stay folded, so grind compares reads by
@@ -3781,14 +3913,47 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
     (_store_apply), each witness (_ array-ext 0) of two arrays the clause
     that they are equal or differ there (_array_ext). These are the array
     solver's axiom instances; grind combines them with the lemma's literals.
+
+    The facts are stated over the definitions of the nodes they mention
+    (term_N, formula_N), for _grind_lemma to revert before its unfold, as
+    the ite gates (_folded_ite_gates). Written out, an index or a stored
+    value repeated every nested ite and application below it in full: over
+    the shared ite DAG of z3test's QF_AUFLIA dlx-regfile the facts of one
+    cnf lemma did not finish rendering in five minutes. Array terms (which
+    the unfold leaves folded), constants, variables, and numerals are
+    written as before, and the facts of a node that mention nothing else
+    are not reverted: around the many facts of z3test's storecomm files,
+    whose stores are over variables, revert, unfold, and intro took Lean
+    from 118 s and 5.6 GB to 155 s and 7.9 GB. Returns the facts to revert,
+    their names, the nodes they mention, and the facts to state after the
+    unfold.
+
+    With congruence (an euf lemma, see _grind_lemma), only the facts Z3's
+    congruence closure may use are stated: the bodies of the folded array
+    terms but ites (leaves to the egraph) and the commutativity of maps and
+    of extensionality witnesses (its comm claims), not the array axioms'
+    instances. With ite_leaves (an array lemma whose ites stay folded), an
+    ite over arrays gets no body and a read of one no facts of its
+    branches' reads (_si, the rewriter's evaluation): the array solver
+    instantiates its axioms over the terms of the lemma's literals.
     """
+    mentioned, current, reverted, plain = set(), set(), [], []
+
     def inline(sub):
+        if graph.arguments(sub) and not _folded_array(graph, sub):
+            current.add(sub)
+            return _term(graph, sub) if graph.is_term(sub) else _formula(graph, sub)
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
 
     helpers = []
     for node in sorted(reachable):
+        # The facts of one node are reverted together if any mentions a
+        # definition the unfold rewrites.
+        first = len(helpers)
+        current.clear()
         kind = graph.kind(node)
-        if graph.is_array(node) and (kind in (z3.Z3_OP_STORE, z3.Z3_OP_ITE, z3.Z3_OP_CONST_ARRAY)
+        if graph.is_array(node) and (kind in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY)
+                                     or (kind == z3.Z3_OP_ITE and not (congruence or ite_leaves))
                                      or _set_function(graph, node) is not None
                                      or (kind == z3.Z3_OP_UNINTERPRETED and graph.arguments(node))):
             # Array terms stay folded (_definition_names); each store, ite
@@ -3797,6 +3962,8 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             # congruence closure then compares applications by arguments).
             helpers.append("  have _t%d : %s = %s := rfl" % (
                 node, _term(graph, node), _term_body(graph, node, variable_indices, inline, inline)))
+        elif congruence:
+            pass  # Congruence closure applies no array axiom (nor ite gate).
         elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) in (z3.Z3_OP_STORE,
                                                                                   z3.Z3_OP_CONST_ARRAY):
             # A read of a store: its value one level down, and the levels
@@ -3809,7 +3976,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             below = _skipped_to_map(graph, levels, read)
             if below is not None:
                 helpers.extend(_map_read_facts(graph, "_sm%d" % node, below, read, inline))
-        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_ITE:
+        elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_ITE and not ite_leaves:
             # A read of an ite over arrays: Z3's rewriter pushes the read
             # into the branches ((select (ite c a b) i) is (ite c (select a
             # i) (select b i))) and evaluates the reads of stores and
@@ -3841,7 +4008,12 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
                     count += 1
         if graph.is_array(node) and _set_function(graph, node) is not None:
             helpers.extend(_map_identities(graph, node, inline))
-        if kind == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(node)[0]) is not None:
+        if congruence:
+            if kind == z3.Z3_OP_ARRAY_EXT:
+                helpers.append("  have _xc%d := _array_diff_comm %s %s %s" % (
+                    node, _nonempty(graph.decl(node).range), inline(graph.arguments(node)[0]),
+                    inline(graph.arguments(node)[1])))
+        elif kind == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(node)[0]) is not None:
             # A read of a map or set operator: the connective over the reads
             # of its arrays (the select-map axiom), at every map below it
             # too, since Z3's rewriter evaluates a read through nested maps
@@ -3866,7 +4038,10 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices):
             array = graph.arguments(node)[0]
             helpers.append("  have _d%d := _default_store %s %s" % (
                 node, _unbounded(graph, array), " ".join(inline(argument) for argument in graph.arguments(array))))
-    return helpers
+        (reverted if current else plain).extend(helpers[first:])
+        mentioned |= current
+    return ([helper.strip() for helper in reverted], [helper.split()[1] for helper in reverted], mentioned,
+            [helper.strip() for helper in plain])
 
 
 # At most this many read facts per rewrite in _constant_array_comparisons.
@@ -4767,6 +4942,10 @@ def _opaque_int_atoms(graph, formulas):
     return sorted(atoms, reverse=True)
 
 
+# The tactic of an euf lemma (_grind_lemma): congruence closure.
+_CONGRUENCE_TACTIC = "grind (splits := 64)"
+
+
 def _theory_tactic(graph):
     """The tactic proving a theory lemma, a rewrite, or an argument helper.
 
@@ -5565,12 +5744,15 @@ class _PropositionalProver:
     assertion holding a disjunction per time step (QF_IDL planning
     plan-21) the search went through the cases of every earlier step before
     reaching the one the clause is about, and exhausted its budget.
+
+    budget scales the step and character limits (see _cnf_lemma).
     """
 
-    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None):
+    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None, budget=1):
         if relevant is not None and not classical:
             raise ValueError("a relevant set splits gates by Classical.em, so it needs classical mode")
         self.relevant = relevant
+        self.budget = budget
         self.positions = None
         self.parents = {}
         self.order = []  # every structure, children before parents
@@ -5665,7 +5847,8 @@ class _PropositionalProver:
                       and any(parent in self.relevant for parent in self.parents[structure]))
 
     def _exhausted(self):
-        return self.steps > _STRUCTURAL_REWRITE_STEPS or self.chars > _STRUCTURAL_REWRITE_CHARS
+        return (self.steps > _STRUCTURAL_REWRITE_STEPS * self.budget
+                or self.chars > _STRUCTURAL_REWRITE_CHARS * self.budget)
 
     def equivalence(self, left, right):
         """Tactic lines proving the goal Iff left right (as Lean reads the two structures), or None."""
@@ -5752,7 +5935,16 @@ class _PropositionalProver:
         links; any other link by the search in both directions, from the
         links below it. A link not proved within the budget is dropped and
         its steps and characters given back.
+
+        The links have an allowance of _LINK_STEPS and _LINK_CHARS each on
+        top of the budget, in total at most the budget's own steps and
+        characters, and the allowance they leave is not carried over
+        to the search over the sides: it starts where it would have without
+        it, or after the steps and characters the links took beyond it.
         """
+        start = self.steps, self.chars
+        self.steps -= min(len(self.links) * _LINK_STEPS, _STRUCTURAL_REWRITE_STEPS * self.budget)
+        self.chars -= min(len(self.links) * _LINK_CHARS, _STRUCTURAL_REWRITE_CHARS * self.budget)
         lines, facts, proofs = [], [], {}
 
         def equivalent(structure, other):
@@ -5805,6 +5997,7 @@ class _PropositionalProver:
                 lines.extend("  " + line for line in proof_lines)
             proofs[link] = name
             facts.append((link, True, name))
+        self.steps, self.chars = max(self.steps, start[0]), max(self.chars, start[1])
         return lines, facts
 
     def _descendants(self, root):
@@ -6257,30 +6450,33 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     assertion with a disjunction per time step (QF_IDL planning plan-21)
     the search took the earlier steps' disjunctions first and exhausted its
     budget, and over the core it splits the one step the clause is about.
-    The unfolded theory
+    When neither search refutes the clause, it rests on what the leaves
+    denote beyond the bridges, and the search is repeated with theory
+    clauses over the leaves (_theory_clauses), each a `have` the theory
+    tactic proves, within _THEORY_CLAUSE_BUDGET times the limits; the proof
+    kept is still at most _STRUCTURAL_REWRITE_CHARS long. The
+    unfolded theory
     proof (_grind_lemma) stays the fallback, taken by `first` when the
     structural attempt is not found or does not check, and alone when the
-    prover gives up (the clause needs a theory fact: the alldiff clauses Z3
-    simplified under a unit rest on the value of an ite under the distinct).
+    prover gives up (the clause needs a theory fact no theory clause
+    supplies; the alldiff clauses Z3 simplified under a unit, which rest on
+    the value of an ite of the sort under the distinct, took it until the
+    oracle read uninterpreted terms).
     """
     conclusion = graph.conclusion(node)
     leaves, memo, synthetic = {}, {}, {}
     structure = _boolean_structure(graph, conclusion, atom_indices, memo, leaves, synthetic)
     bridges = _leaf_bridges(graph, leaves, synthetic)
-    facts = [("not", structure)] + [bridge for bridge, _ in bridges]
-    relevant = None
-    while True:
-        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant)
-        names = [prover.name() for _ in bridges]
-        refutation = prover.refutation(("not", structure),
-                                       [(bridge, name) for (bridge, _), name in zip(bridges, names)])
-        if refutation is not None or relevant is not None:
-            break
-        # The search gave up: once more over the gates z3's unsat core of the
-        # propositional abstraction needs (_relevant_structures).
-        relevant = _relevant_structures(prover.order, facts)
-        if relevant is None:
-            break
+    refutation, names, order = _cnf_refutation(graph, memo, structure, bridges)
+    clauses = None
+    if refutation is None:
+        # The propositional abstraction may not refute the clause: once more
+        # with the theory clauses over its leaves that do (_theory_clauses).
+        clauses = _theory_clauses(graph, order, [("not", structure)] + [bridge for bridge, _ in bridges],
+                                  atom_indices)
+        if clauses:
+            bridges = bridges + clauses
+            refutation, names, _ = _cnf_refutation(graph, memo, structure, bridges, _THEORY_CLAUSE_BUDGET)
     if refutation is None:
         return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                             opaque_tactic=_opaque_tactic(graph, node))
@@ -6294,8 +6490,243 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
                for (bridge, definitions), name in zip(bridges, names)]
     attempt.append("refine Classical.byContradiction ?_")
     attempt.extend(refutation)
+    if clauses and sum(len(line) + 1 for line in attempt) > _STRUCTURAL_REWRITE_CHARS:
+        # The search over the theory clauses may look further, but the proof
+        # kept stays within what the first searches could keep: a longer one
+        # risks the lemma's heartbeats, which `first` does not catch (a
+        # runtime exception fails the whole lemma, fallback included).
+        attempt = None
     return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                         opaque_tactic=_opaque_tactic(graph, node), structural=attempt)
+
+
+def _cnf_refutation(graph, memo, structure, bridges, budget=1):
+    """The prover's refutation of a cnf lemma's negated clause under the bridges, their names, and its structures.
+
+    The search runs over every gate first and, when it gives up, once more
+    over the gates z3's unsat core of the propositional abstraction needs
+    (_relevant_structures), each within budget times the prover's limits.
+    The refutation is None when neither finds one; the structures (children
+    before parents) are the first prover's.
+    """
+    facts = [("not", structure)] + [bridge for bridge, _ in bridges]
+    relevant, order = None, None
+    while True:
+        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant,
+                                      budget=budget)
+        order = order or prover.order
+        names = [prover.name() for _ in bridges]
+        refutation = prover.refutation(("not", structure),
+                                       [(bridge, name) for (bridge, _), name in zip(bridges, names)])
+        if refutation is not None or relevant is not None:
+            return refutation, names, order
+        relevant = _relevant_structures(prover.order, facts)
+        if relevant is None:
+            return None, names, order
+
+
+def _theory_clauses(graph, order, facts, atom_indices):
+    """Theory clauses over the leaves that make the facts' propositional abstraction unsatisfiable, or None.
+
+    A cnf lemma's clause may follow from its sources only by what the leaves
+    denote, beyond the one-constraint bridges of _leaf_bridges. In QF_LRA
+    tta_startup simple_startup_11nodes the assertion compares variables with
+    Real ites whose conditions are 11-way conjunctions of Boolean atoms, and
+    Z3 logs the clause over the rewriter's form of them: the conjunction
+    flattened, (+ 0 x) as x, (= x 11) as (= 11 x), (ite c 0 0) as 0; and an
+    ite's value follows from its condition, (= 10 x) gives (= (ite (= x 11)
+    1 (+ x 1)) 11). The abstraction (every leaf and atom free) is
+    satisfiable, the prover's search ends in a model, and the fallback grind
+    over the unfolded clause (227 ites) ran out of heartbeats.
+
+    The clauses are found as a lazy SMT solver finds theory lemmas: z3
+    takes a model of the abstraction (order is the prover's structures,
+    children before parents; facts are held true), the leaves' and atoms'
+    values in it are checked against what the leaves denote, and an unsat
+    core of those literals, shrunk one literal at a time, is a clause (its
+    literals negated) that excludes the model; it is added and the search
+    repeats until the abstraction is unsatisfiable. Each clause is returned
+    as (structure, definitions), like a bridge: stated with a `have` that
+    the theory tactic proves over the leaves' unfolded definitions, and
+    given to the prover as a fact. z3 is an untrusted oracle here, as in
+    _relevant_structures: a clause that does not hold is an error in Lean,
+    which `first` catches, and the lemma keeps its fallback. A theory
+    tactic that runs out of heartbeats is not caught (a runtime exception
+    fails the whole lemma); the clauses are minimal cores, a clause over
+    every leaf is not stated, and the kept proof is bounded (_cnf_lemma),
+    but that is a heuristic, not a bound on the tactic. Uninterpreted
+    functions, predicates, and sorts are declared in the oracle's context
+    (_theory_function), so a clause may rest on congruence: an assertion
+    over (ite c (f 0) (f 0)) and (+ 0 (g z)) is logged over (f 0) and
+    (g z). A leaf whose meaning _theory_expression does not read (an array
+    term, a datatype constructor) is free in the theory as in the
+    abstraction.
+    Returns [] when the abstraction is already unsatisfiable (the prover
+    gave up within its limits), and None when a check is not decided within
+    _THEORY_CLAUSE_RLIMIT, a model is consistent with the leaves (the clause
+    does not hold, or rests on a leaf left free), a clause would range over
+    every leaf (the lemma is one theory fact, the fallback's case), or
+    _THEORY_CLAUSES clauses do not suffice.
+    """
+    context = z3.Context()
+    abstraction, theory = z3.Solver(ctx=context), z3.Solver(ctx=context)
+    for solver in (abstraction, theory):
+        solver.set("rlimit", _THEORY_CLAUSE_RLIMIT)
+    variables, literals, expressions = {}, {}, {}
+    for index, structure in enumerate(order):
+        kind = structure[0]
+        if kind in ("true", "false"):
+            variables[structure] = z3.BoolVal(kind == "true", context)
+            continue
+        if kind == "atom":
+            variables[structure] = z3.Bool("a%d" % structure[1], context)
+        else:
+            variables[structure] = z3.Bool("s%d" % index, context)
+        if kind in ("atom", "leaf"):
+            literals[str(variables[structure])] = structure
+            if kind == "leaf":
+                if structure[1] >= 0:
+                    meaning = _theory_expression(graph, structure[1], context, atom_indices, expressions)
+                else:  # a synthetic pair leaf (a = b) of a distinct, see _distinct_pair_leaves
+                    sides = [_theory_expression(graph, side, context, atom_indices, expressions)
+                             for side in divmod(-structure[1] - 1, len(graph.nodes))]
+                    meaning = None if any(side is None for side in sides) else sides[0] == sides[1]
+                if meaning is not None:  # else a free leaf, as in the abstraction
+                    theory.add(variables[structure] == meaning)
+            continue
+        children = [variables[child] for child in _structure_children(structure)]
+        body = {"not": lambda: z3.Not(children[0]), "and": lambda: z3.And(children),
+                "or": lambda: z3.Or(children), "implies": lambda: z3.Implies(children[0], children[1]),
+                "iff": lambda: children[0] == children[1]}[kind]()
+        abstraction.add(variables[structure] == body)
+    abstraction.add(*[variables[fact] for fact in facts])
+    leaves = sum(1 for structure in literals.values() if structure[0] == "leaf")
+    clauses = []
+    while True:
+        result = abstraction.check()
+        if result == z3.unsat:
+            return clauses
+        if result != z3.sat or len(clauses) == _THEORY_CLAUSES:
+            return None
+        model = abstraction.model()
+        assignment = [variable if z3.is_true(model.eval(variable, model_completion=True)) else z3.Not(variable)
+                      for variable in (variables[structure] for structure in literals.values())]
+        if theory.check(*assignment) != z3.unsat:
+            return None
+        core, position = list(theory.unsat_core()), 0
+        while position < len(core):
+            if theory.check(*(core[:position] + core[position + 1:])) == z3.unsat:
+                del core[position]
+            else:
+                position += 1
+        abstraction.add(z3.Or([z3.Not(literal) for literal in core]))
+        parts, nodes, used = [], set(), 0
+        for literal in core:
+            negated = z3.is_not(literal)
+            structure = literals[str(literal.arg(0) if negated else literal)]
+            parts.append(structure if negated else ("not", structure))
+            if structure[0] == "leaf":
+                used += 1
+                nodes.update(divmod(-structure[1] - 1, len(graph.nodes)) if structure[1] < 0 else (structure[1],))
+        if not used or used == leaves:
+            # A clause over every leaf restates the lemma as one theory fact,
+            # which the fallback proves with its helpers (scaled ite gates)
+            # and the `have` would prove without them; over a wide distinct
+            # as one leaf it ran omega out of heartbeats the same way.
+            return None
+        clauses.append((_structure_fold("or", parts), _definition_names(graph, _reachable(graph, *nodes)[0], nodes)))
+
+
+_THEORY_EXPRESSIONS = {
+    z3.Z3_OP_ADD: lambda args: z3.Sum(args), z3.Z3_OP_SUB: lambda args: args[0] - z3.Sum(args[1:]),
+    z3.Z3_OP_UMINUS: lambda args: -args[0], z3.Z3_OP_MUL: lambda args: z3.Product(args),
+    z3.Z3_OP_DIV: lambda args: args[0] / args[1], z3.Z3_OP_IDIV: lambda args: args[0] / args[1],
+    z3.Z3_OP_MOD: lambda args: args[0] % args[1], z3.Z3_OP_TO_REAL: lambda args: z3.ToReal(args[0]),
+    z3.Z3_OP_TO_INT: lambda args: z3.ToInt(args[0]), z3.Z3_OP_IS_INT: lambda args: z3.IsInt(args[0]),
+    z3.Z3_OP_ABS: lambda args: z3.If(args[0] >= 0, args[0], -args[0]),
+    z3.Z3_OP_LE: lambda args: args[0] <= args[1], z3.Z3_OP_GE: lambda args: args[0] >= args[1],
+    z3.Z3_OP_LT: lambda args: args[0] < args[1], z3.Z3_OP_GT: lambda args: args[0] > args[1],
+    z3.Z3_OP_EQ: lambda args: args[0] == args[1], z3.Z3_OP_DISTINCT: lambda args: z3.Distinct(args),
+    z3.Z3_OP_ITE: lambda args: z3.If(args[0], args[1], args[2]), z3.Z3_OP_AND: lambda args: z3.And(args),
+    z3.Z3_OP_OR: lambda args: z3.Or(args), z3.Z3_OP_NOT: lambda args: z3.Not(args[0]),
+    z3.Z3_OP_IMPLIES: lambda args: z3.Implies(args[0], args[1]), z3.Z3_OP_XOR: lambda args: z3.Xor(args[0], args[1]),
+}
+
+
+def _theory_expression(graph, node, context, atom_indices, memo):
+    """The z3 expression of a node in context, or None over a theory z3 is not given here.
+
+    Boolean constants are the variables a<index> of their atom indices (the
+    names _theory_clauses gives the atoms of its abstraction), Real and Int
+    constants are v<declaration>, constants of an uninterpreted sort
+    u<declaration>, and applications of an uninterpreted function or
+    predicate apply f<declaration> (_theory_function); arrays, datatype
+    constructors, and the other theories are not read. Nodes are
+    converted bottom up on an explicit stack (deep chains), shared ones once
+    (memo); an application's declaration is built once, when it is pushed
+    (functions).
+    """
+    pending, functions = [(node, False)], {}
+    while pending:
+        current, expanded = pending.pop()
+        if current in memo:
+            continue
+        decl, arguments = graph.decl(current), graph.arguments(current)
+        if expanded:
+            children = [memo[argument] for argument in arguments]
+            if any(child is None for child in children):
+                memo[current] = None
+            elif decl.kind == z3.Z3_OP_XOR and len(children) != 2:
+                memo[current] = None
+            elif decl.kind == z3.Z3_OP_UNINTERPRETED:
+                memo[current] = functions[current](*children)
+            else:
+                memo[current] = _THEORY_EXPRESSIONS[decl.kind](children)
+        elif decl.kind == z3.Z3_OP_ANUM and decl.range in ("Int", "Real"):
+            value = Fraction(decl.name)
+            memo[current] = (z3.IntVal(int(value), context) if decl.range == "Int"
+                             else z3.RealVal(value, context))
+        elif decl.kind in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE):
+            memo[current] = z3.BoolVal(decl.kind == z3.Z3_OP_TRUE, context)
+        elif decl.kind == z3.Z3_OP_UNINTERPRETED and not arguments and decl.range == "Bool":
+            memo[current] = z3.Bool("a%d" % atom_indices[graph.nodes[current].declaration], context)
+        elif decl.kind == z3.Z3_OP_UNINTERPRETED and not arguments and decl.range in ("Int", "Real"):
+            sort = z3.IntSort(context) if decl.range == "Int" else z3.RealSort(context)
+            memo[current] = z3.Const("v%d" % graph.nodes[current].declaration, sort)
+        elif decl.kind == z3.Z3_OP_UNINTERPRETED:
+            function = _theory_function(graph, current, context)
+            if function is None:
+                memo[current] = None
+            elif not arguments:
+                memo[current] = function()
+            else:
+                functions[current] = function
+                pending.append((current, True))
+                pending.extend((argument, False) for argument in arguments)
+        elif decl.kind in _THEORY_EXPRESSIONS and arguments:
+            pending.append((current, True))
+            pending.extend((argument, False) for argument in arguments)
+        else:
+            memo[current] = None
+    return memo[node]
+
+
+def _theory_function(graph, node, context):
+    """The z3 declaration of node's uninterpreted constant, function, or predicate in context, or None.
+
+    A constant of an uninterpreted sort is u<declaration>, a function or
+    predicate f<declaration>, over Bool, Int, Real, and the uninterpreted
+    sorts, each declared by its name (an enumeration sort too: its
+    constructors are not read, so the oracle knows less about it than Lean
+    does, never more). None over an array sort.
+    """
+    decl = graph.decl(node)
+    names = decl.domain + (decl.range,)
+    if any(name not in ("Bool", "Int", "Real") and name not in graph.carriers for name in names):
+        return None
+    sorts = [{"Bool": z3.BoolSort, "Int": z3.IntSort, "Real": z3.RealSort}[name](context)
+             if name in ("Bool", "Int", "Real") else z3.DeclareSort(name, context) for name in names]
+    return z3.Function(("f%d" if decl.domain else "u%d") % graph.nodes[node].declaration, *sorts)
 
 
 def _leaf_bridges(graph, leaves, synthetic=None):
@@ -7647,24 +8078,33 @@ def _resolution(graph, terms, node):
     if remaining != set(positions):
         raise ReconstructionError("incorrect unit-resolution conclusion at node %d" % node)
 
-    def refutation(position):
-        """A proof of the negation of an eliminated or false literal, else None."""
+    def cut(position):
+        """Whether the literal at position is eliminated or false, not kept."""
+        return position in eliminations or graph.kind(literals[position]) == z3.Z3_OP_FALSE
+
+    def eliminate(subject, position, side):
+        """Cut an eliminated or false literal off the left or right of subject.
+
+        A literal (not p) eliminated by a proof of p uses Or.neg_resolve_left
+        or Or.neg_resolve_right, which take that proof itself: no
+        double-negation lambda per elimination (70,817 of them were 2.6 MB of
+        the 32 MB of Lean of QF_IDL DTP_k2_n35_c245_s9)."""
+        if position not in eliminations:
+            return "(%s.resolve_%s (fun _literal => _literal))" % (subject, side)
+        unit, negated_unit = eliminations[position]
+        return "(%s.%sresolve_%s _step_%d)" % (subject, "" if negated_unit else "neg_", side, unit)
+
+    def contradiction(position, value):
+        """A proof of False from a proof value of an eliminated or false literal."""
         if position in eliminations:
             unit, negated_unit = eliminations[position]
-            return "_step_%d" % unit if negated_unit else "(fun _literal => _literal _step_%d)" % unit
-        if graph.kind(literals[position]) == z3.Z3_OP_FALSE:
-            return "(fun _literal => _literal)"
-        return None
+            return "(_step_%d %s)" % (unit, value) if negated_unit else "(%s _step_%d)" % (value, unit)
+        return value
 
     def branch(position, value):
         literal = literals[position]
-        if position in eliminations:
-            unit, negated_unit = eliminations[position]
-            contradiction = ("(_step_%d %s)" % (unit, value) if negated_unit
-                             else "(%s _step_%d)" % (value, unit))
-            return "(False.elim %s)" % contradiction
-        if graph.kind(literal) == z3.Z3_OP_FALSE:
-            return "(False.elim %s)" % value
+        if cut(position):
+            return "(False.elim %s)" % contradiction(position, value)
         if position in doubles:
             literal = doubles[position]
             value = "(@Decidable.byContradiction %s _df%d %s)" % (_formula(graph, literal), literal, value)
@@ -7678,15 +8118,31 @@ def _resolution(graph, terms, node):
     # the known type of the clause; only kept literals open an Or.elim case
     # split. One nested Or.elim per literal created metavariables at every
     # level and made a unit resolution over a 260-literal clause take seconds.
+    # The last kept literal needs no split when every literal after it is
+    # eliminated: `(h.resolve_right n)` (Or.resolve_right) with n refuting
+    # that tail. In the QF_IDL DTP refutations most resolutions keep one
+    # literal of a two-literal clause.
+    last = len(literals) - 1
+    kept_before_last = [pos for pos in range(last) if not cut(pos)]
+    final = kept_before_last[-1] if kept_before_last and cut(last) else None
     subject, cases = "_step_%d" % first, []
-    for position in range(len(literals) - 1):
-        negation = refutation(position)
-        if negation is not None:
-            subject = "(%s.resolve_left %s)" % (subject, negation)
-            continue
-        cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
-        subject = "_tail"
-    return "".join(cases) + branch(len(literals) - 1, subject) + "))" * len(cases), support
+    for position in range(last):
+        if cut(position):
+            subject = eliminate(subject, position, "left")
+        elif position == final:
+            if position + 1 == last:
+                value = eliminate(subject, last, "right")
+            else:
+                tail = "_tail"
+                for eliminated in range(position + 1, last):
+                    tail = eliminate(tail, eliminated, "left")
+                value = "(%s.resolve_right (fun _tail => %s))" % (subject, contradiction(last, tail))
+            value = branch(position, value)
+            return "".join(cases) + value + "))" * len(cases), support
+        else:
+            cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
+            subject = "_tail"
+    return "".join(cases) + branch(last, subject) + "))" * len(cases), support
 
 
 def _lemma(graph, terms, node, hypotheses):
@@ -7765,7 +8221,34 @@ def _outline_weight(graph, node):
     return width if width > _OUTLINE_WIDE_STEP else 1
 
 
-def _outline_boundaries(graph):
+def _direct_hypotheses(graph, terms):
+    """Return the hypothesis steps that their consumers name by the hypothesis itself.
+
+    A hypothesis step proves its formula from the binder `_hypN`, which every
+    step depending on it already has in scope. Bound as a step of its own it
+    was a function of that binder: each consumer re-applied it, and, used by
+    several steps, it became an outlined lemma `fun _hypN => _hypN` imported
+    by every lemma using it. In the QF_IDL DTP_k2_n35 refutation this was
+    3.3 MB of 36.9 MB of Lean. Only the premise of a `lemma` keeps its step:
+    the lemma discharges the hypotheses its premise depends on, so the
+    binder is not in scope there. (No conjunction tails start from a
+    hypothesis: _and_elim projects a premise under hypotheses from its start.)
+    """
+    kept = {graph.arguments(node)[0] for node in terms if graph.kind(node) == z3.Z3_OP_PR_LEMMA}
+    return {node for node in terms if graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS and node not in kept}
+
+
+def _reference_hypotheses(terms, direct):
+    """Return the step terms without the direct hypothesis steps, which the others name by their binder."""
+    reference = {"_step_%d" % node: terms[node] for node in direct}
+
+    def name(match):
+        return reference.get(match.group(0), match.group(0))
+
+    return {node: re.sub(r"\b_step_\d+\b", name, term) for node, term in terms.items() if node not in direct}
+
+
+def _outline_boundaries(graph, direct=frozenset()):
     """Return the steps checked as separate lemmas: shared subproofs and chunk ends.
 
     A subproof used by several steps is checked once. A long chain without
@@ -7777,7 +8260,8 @@ def _outline_boundaries(graph):
     rather than being cut. Only steps the root uses are outlined; the log
     may record derivations the refutation never needs. Arguments precede
     their node, so one increasing pass sees every premise's final size before
-    its consumer.
+    its consumer. The direct hypothesis steps (_direct_hypotheses) are not
+    bound as steps and are never outlined.
     """
     reachable, pending = set(), [graph.proof]
     while pending:
@@ -7786,12 +8270,12 @@ def _outline_boundaries(graph):
             reachable.add(node)
             pending.extend(graph.arguments(node)[:-1])
     uses = Counter(premise for node in reachable for premise in graph.arguments(node)[:-1])
-    boundaries = {node for node in reachable if uses[node] > 1} | {graph.proof}
+    boundaries = {node for node in reachable if uses[node] > 1 and node not in direct} | {graph.proof}
     size = {}
     for node in sorted(reachable):
         total = weight = _outline_weight(graph, node)
         for premise in graph.arguments(node)[:-1]:
-            if premise in boundaries:
+            if premise in boundaries or premise in direct:
                 continue
             if weight > 1 and graph.kind(premise) == z3.Z3_OP_PR_HYPOTHESIS:
                 # The hundreds of hypotheses of a wide step stay its binders:
@@ -7815,7 +8299,188 @@ def _witness_formula(graph, name):
     return _formula(graph, int(name[3:])) if name.startswith("_df") else "(_atoms %d)" % int(name[2:])
 
 
-def _outline_steps(graph, steps, dependencies, signature, tails):
+# A unit resolution that keeps one literal is the clause's proof with every
+# other literal cut off by field notation, `(_step_N.resolve_left u)` and so on
+# (_resolution): Or.resolve_* infer its type from the clause's, the kept
+# literal's formula, so the let binding it states no type. Any other term
+# (an Or.inl/Or.inr injection into a wider conclusion, a case split, a proof by
+# contradiction, False.elim) starts otherwise and keeps the stated type. In
+# the QF_IDL DTP_k2_n35_c245_s9 refutation 46,002 of the 49,550 steps bound
+# inside others were such resolutions.
+_INFERRED_TYPE = re.compile(r"\(+_(?:step_|hyp)\d+\.(?:neg_)?resolve_(?:left|right) ")
+
+
+def _step_blocks(graph, terms, dependencies, excluded):
+    """Return the let-binding lines of each proof step bound at the top level of its proof.
+
+    A step under hypotheses is a function of them, so each step consuming
+    it re-applies it, and its binders restate every hypothesis formula: in
+    the QF_IDL DTP_k2_n35 refutation (61,000 unit resolutions under 639
+    hypotheses) this was 28 of the 54 MB of proof-step text. A step under
+    hypotheses that one other step uses, whose hypotheses that step also
+    has, is bound inside that step instead, where its hypotheses are already
+    in scope: no binders and no re-application. Steps in excluded (outlined
+    lemmas, premises of conjunction tails) stay at the top level, and
+    nesting stops at _NESTED_STEP_DEPTH levels, so no let value nests more
+    than that many others. A premise without a term (a direct hypothesis,
+    see _direct_hypotheses) is not bound as a step: its consumers name its
+    binder.
+    """
+    uses = Counter(premise for node in terms for premise in graph.arguments(node)[:-1])
+    inner, depth = {}, {}
+    for node in sorted(terms):
+        inner[node], depth[node] = [], 0
+        if graph.kind(node) == z3.Z3_OP_PR_LEMMA:
+            continue  # its premise depends on the hypotheses it discharges
+        for premise in dict.fromkeys(graph.arguments(node)[:-1]):
+            if (premise in terms and uses[premise] == 1 and dependencies[premise] and premise not in excluded
+                    and set(dependencies[premise]) <= set(dependencies[node])
+                    and depth[premise] < _NESTED_STEP_DEPTH):
+                inner[node].append(premise)
+                depth[node] = max(depth[node], depth[premise] + 1)
+    nested = {premise for premises in inner.values() for premise in premises}
+
+    def block(node, indent):
+        parameters = "" if node in nested else "".join(
+            " (_hyp%d : %s)" % (hypothesis, _formula(graph, hypothesis)) for hypothesis in dependencies[node])
+        result = "" if _INFERRED_TYPE.match(terms[node]) else " : %s" % _formula(graph, graph.conclusion(node))
+        lines = ["%slet _step_%d%s%s :=" % (indent, node, parameters, result)]
+        for premise in inner[node]:
+            lines.extend(block(premise, "    "))
+        if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
+            for premise in dict.fromkeys(graph.arguments(node)[:-1]):
+                if premise in terms and dependencies[premise] and premise not in inner[node]:
+                    arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
+                    lines.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
+        lines.append("    " + terms[node])
+        return lines
+
+    return {node: block(node, "  ") for node in sorted(terms) if node not in nested}
+
+
+_CLASSICAL_CONTRADICTION = "classical_by_contradiction"
+# Decidable.byContradiction at the witness Classical.propDecidable, which the
+# classical lemmas bound by a let before: the same axiom (Classical.choice),
+# where Classical.byContradiction would add propext and Quot.sound.
+_CLASSICAL_CONTRADICTION_LEMMA = [
+    "",
+    "private theorem %s {p : Prop} (h : Not p -> False) : p :=" % _CLASSICAL_CONTRADICTION,
+    "  @Decidable.byContradiction p (Classical.propDecidable p) h",
+]
+
+
+def _classical_contradictions(graph, lines):
+    """Return the lines with each proof by contradiction over a classical witness by the lemma above.
+
+    `(@Decidable.byContradiction F _dfN h)` names F and a witness `_dfN`
+    that the lemma binds by `let _dfN := Classical.propDecidable F`; the
+    helper takes F from the expected type or from h. In the QF_IDL
+    DTP_k2_n35 refutation these heads and lets were 1.9 MB of 27.7 MB.
+    A witness used otherwise (as an instance argument) keeps its let.
+    """
+    text = "\n".join(lines)
+    for formula in sorted({int(name) for name in re.findall(r"\b_df(\d+)\b", text)}):
+        head = "@Decidable.byContradiction %s _df%d" % (_formula(graph, formula), formula)
+        text = re.sub(re.escape(head) + r"\b", _CLASSICAL_CONTRADICTION, text)
+    return text.split("\n") if lines else lines
+
+
+def _import_value(node, classical, witnesses):
+    """The application of an outlined lemma that imports it into another."""
+    return "proof_step_%d _inputs%s" % (node, "" if classical else "".join(" " + name for name in witnesses[node]))
+
+
+def _merge_single_imports(graph, dependencies, local, external, needed, body, conclusion, classical, witnesses):
+    """Return the lemmas an outlined lemma imports by a let, and its body and conclusion lines.
+
+    A lemma used once in the lemma importing it is applied at that use,
+    without a let of its own: one under hypotheses in the line that
+    re-applies it to them (`let _step_N := proof_step_N _inputs _hyp...`),
+    one without them in place of its name. In the QF_IDL DTP_k2_n35
+    refutation 92,491 of the 100,549 imports were used once; applying them
+    in place cut its Lean from 30.5 to 27.7 MB. A lemma whose conjunction tails are
+    bound, or which a `lemma` step uses (applying it to the proofs of the
+    hypotheses that step discharges, without a re-application), keeps its
+    let, as does any lemma whose single use is not found where expected.
+    """
+    consumers = {node: set() for node in external}
+    for node in local:
+        for premise in graph.arguments(node)[:-1]:
+            if premise in consumers:
+                consumers[premise].add(node)
+    single = {node for node in external
+              if len(consumers[node]) == 1 and not needed.get(node, 0)
+              and all(graph.kind(consumer) != z3.Z3_OP_PR_LEMMA for consumer in consumers[node])}
+    text = "\n".join(body + conclusion)
+    occurrences = Counter(int(name[6:]) for name in re.findall(r"\b_step_\d+\b", text))
+    reapplied = Counter(int(match) for match in re.findall(r"^ *let _step_(\d+) := _step_\1(?: _hyp\d+)+$", text, re.M))
+    merged = {node for node in single if (reapplied[node] == 1 if dependencies[node]
+                                          else occurrences[node] == 1 and not reapplied[node])}
+
+    def application(match):
+        node = int(match.group(3))
+        if node not in merged:
+            return match.group(0)
+        return "%slet _step_%d := %s%s" % (match.group(1), node, _import_value(node, classical, witnesses),
+                                           match.group(4))
+
+    def use(match):
+        node = int(match.group(0)[6:])
+        if node not in merged or dependencies[node]:
+            return match.group(0)
+        return "(%s)" % _import_value(node, classical, witnesses)
+
+    def merge(lines):
+        text = re.sub(r"^( *)let (_step_(\d+)) := \2((?: _hyp\d+)+)$", application, "\n".join(lines), flags=re.M)
+        return re.sub(r"\b_step_\d+\b", use, text).split("\n") if lines else lines
+
+    if merged:
+        body, conclusion = merge(body), merge(conclusion)
+    return [node for node in sorted(external) if node not in merged], body, conclusion
+
+
+# A step's application to its hypotheses inside the step using it: the
+# re-application of a step bound at the top level (`let _step_N := _step_N
+# _hyp...`) or of an imported lemma (`let _step_N := proof_step_N _inputs
+# _hyp...`, decidability witnesses before the hypotheses in the propositional
+# slice). Its arguments are hypotheses and witnesses only, never another
+# step, so no application substituted here names a step pending beside it.
+_REAPPLICATION = re.compile(r"^ *let (_step_\d+) := ((?:proof_step_\d+ _inputs|_step_\d+)(?: _(?:hyp|df?)\d+)+)$")
+
+
+def _reapplications_in_place(lines):
+    """Return the lines with each re-application used once by the term after it applied there instead.
+
+    _step_blocks writes a step's re-applications of its premises after the
+    steps nested in it, directly before its term: the next line that is not
+    a re-application is the term using them, and the let's whole scope. A
+    name that term uses once is replaced by the application itself, the
+    others keep their let. In the QF_IDL DTP_k2_n35_c245_s9 refutation these
+    were 49,236 lets.
+    """
+    result, pending = [], []
+    for line in lines:
+        match = _REAPPLICATION.match(line)
+        if match:
+            pending.append(match)
+            continue
+        kept = pending
+        if pending and not line.lstrip().startswith("let "):
+            kept = []
+            for match in pending:
+                pattern = r"\b%s\b" % match.group(1)
+                if len(re.findall(pattern, line)) == 1:
+                    line = re.sub(pattern, lambda _use, value=match.group(2): "(%s)" % value, line)
+                else:
+                    kept.append(match)
+        result.extend(match.group(0) for match in kept)
+        result.append(line)
+        pending = []
+    result.extend(match.group(0) for match in pending)
+    return result
+
+
+def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
     """Check proof subgraphs separately instead of one enormous nested term.
 
     Returns the Lean lines and the decidability witnesses the root lemma takes
@@ -7824,12 +8489,19 @@ def _outline_steps(graph, steps, dependencies, signature, tails):
     propositional slice stays axiom-free by receiving every witness as a
     parameter that the main theorem introduces constructively. Each lemma
     binds the conjunction tails its and-elims start from (tails, see
-    _and_elim) after the premise they project.
+    _and_elim) after the premise they project. A step bound inside another
+    (_step_blocks) is part of that step's lines.
     """
     classical = bool(graph.arithmetic or graph.uninterpreted)
-    boundaries = _outline_boundaries(graph)
     inputs = _balanced("And", [_formula(graph, node) for node in graph.assertions], "True")
     lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
+    # The interpretation is implicit in each lemma, determined by the type of
+    # _inputs: a lemma is imported as `proof_step_N _inputs`.
+    implicit = re.sub(r"\((_\w+ : [^()]*)\)", r"{\1}", signature)
+    if "(" in implicit:
+        # A binder whose type has parentheses would stay explicit, and every
+        # `proof_step_N _inputs` import would be ill-typed.
+        raise ReconstructionError("cannot make the interpretation implicit: %s" % signature)
     witnesses = {}
     for root in sorted(boundaries):
         local, external, pending = set(), set(), [root]
@@ -7841,8 +8513,25 @@ def _outline_steps(graph, steps, dependencies, signature, tails):
                 local.add(node)
                 pending.extend(graph.arguments(node)[:-1])
         needed = _needed_tails(tails, local)
-        body = [line for node in sorted(local) for line in steps[node] + _tail_lets(node, needed.get(node, 0))]
-        decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body)))
+        # Every other local step precedes the root (arguments precede their
+        # node), and no and-elim of this lemma starts from the root's tails.
+        body = [line for node in sorted(local) if node in steps and node != root
+                for line in steps[node] + _tail_lets(node, needed.get(node, 0))]
+        # The root is the lemma's statement: its hypotheses are the binders
+        # of a fun, the statement's premises, not restated. Without
+        # hypotheses its lines move to the lemma's column, so that none
+        # continues the application bound on the line before it.
+        if dependencies[root]:
+            conclusion = ["  fun%s =>" % "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[root])]
+            conclusion.extend(steps[root][1:])
+        else:
+            conclusion = [line[2:] for line in steps[root][1:]]
+        imports, body, conclusion = _merge_single_imports(graph, dependencies, local, external, needed,
+                                                          body, conclusion, classical, witnesses)
+        body, conclusion = _reapplications_in_place(body), _reapplications_in_place(conclusion)
+        if classical:
+            body, conclusion = _classical_contradictions(graph, body), _classical_contradictions(graph, conclusion)
+        decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body + conclusion)))
         if not classical:
             for node in external:
                 decidable.update(witnesses[node])
@@ -7852,25 +8541,24 @@ def _outline_steps(graph, steps, dependencies, signature, tails):
             result = "(%s -> %s)" % (_formula(graph, hypothesis), result)
         lines.extend([
             "",
-            "private theorem proof_step_%d %s" % (root, signature),
+            "private theorem proof_step_%d %s" % (root, implicit),
             "    (_inputs : Inputs _atoms%s)" % graph.valuation,
         ])
         if classical:
             lines.append("    : %s :=" % result)
             for name in witnesses[root]:
-                formula = _witness_formula(graph, name)
-                lines.append("  let %s : Decidable %s := Classical.propDecidable %s" % (name, formula, formula))
+                lines.append("  let %s := Classical.propDecidable %s" % (name, _witness_formula(graph, name)))
         else:
             lines.extend("    (%s : Decidable %s)" % (name, _witness_formula(graph, name))
                          for name in witnesses[root])
             lines.append("    : %s :=" % result)
-        for node in sorted(external):
-            arguments = "" if classical else "".join(" " + name for name in witnesses[node])
-            lines.append("  let _step_%d := proof_step_%d _atoms%s _inputs%s" % (
-                node, node, graph.valuation, arguments))
+        for node in imports:
+            lines.append("  let _step_%d := %s" % (node, _import_value(node, classical, witnesses)))
             lines.extend(_tail_lets(node, needed.get(node, 0)))
         lines.extend(body)
-        lines.append("  _step_%d" % root)
+        lines.extend(conclusion)
+    if classical and any(_CLASSICAL_CONTRADICTION in line for line in lines):
+        lines[2:2] = _CLASSICAL_CONTRADICTION_LEMMA
     return lines, ([] if classical else witnesses[graph.proof])
 
 
@@ -8040,8 +8728,7 @@ def reconstruct(source, certificate):
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
     outline = sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes))) > _OUTLINE_PROOF_STEPS
-    steps = []
-    step_blocks = {}
+    step_terms = {}
     tails = {}  # and-elim node -> the (premise, operand) tail it projects from
     hypothesis_formulas, dependencies = {}, {}
     ite_congruence = False
@@ -8104,25 +8791,18 @@ def reconstruct(source, certificate):
             decidable_formulas.update(support)
         else:
             raise ReconstructionError("unsupported native proof rule: %s" % graph.decl(node).name)
-        # Abstract open DAG nodes so shared subproofs can be discharged independently.
-        parameters = "".join(" (_hyp%d : %s)" % (hypothesis, _formula(graph, hypothesis))
-                             for hypothesis in dependencies[node])
-        begin = len(steps)
-        steps.append("  let _step_%d%s : %s :=" % (node, parameters, _formula(graph, conclusion)))
-        if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
-            for premise in dict.fromkeys(premises):
-                if dependencies[premise]:
-                    arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
-                    steps.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
-        steps.append("    " + term)
-        step_blocks[node] = steps[begin:]
+        step_terms[node] = term
     if dependencies[graph.proof]:
         raise ReconstructionError("the root proof has undischarged hypotheses")
     if ite_congruence:
         lines.extend(_ITE_CONGRUENCE)
+    direct = _direct_hypotheses(graph, step_terms)
+    step_terms = _reference_hypotheses(step_terms, direct)
+    boundaries = _outline_boundaries(graph, direct) if outline else set()
+    step_blocks = _step_blocks(graph, step_terms, dependencies, boundaries | {premise for premise, _ in tails.values()})
     witnesses = []
     if outline:
-        outlined, witnesses = _outline_steps(graph, step_blocks, dependencies, signature, tails)
+        outlined, witnesses = _outline_steps(graph, step_blocks, dependencies, signature, tails, boundaries)
         lines.extend(outlined)
     if witnesses or (not outline and (decidable_atoms or decidable_formulas)):
         # A continuation ending in False can eliminate the temporary decidability
@@ -8141,16 +8821,16 @@ def reconstruct(source, certificate):
         for name in witnesses:
             lines.append("  refute_with_decidable %s fun %s =>" % (_witness_formula(graph, name), name))
         inputs = _balanced("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
-        lines.append("  proof_step_%d _atoms%s %s%s" % (
+        lines.append("  @proof_step_%d _atoms%s %s%s" % (
             graph.proof, graph.valuation, inputs, "".join(" " + name for name in witnesses)))
     else:
         for atom in sorted(decidable_atoms):
             lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))
         for formula in sorted(decidable_formulas):
             lines.append("  refute_with_decidable %s fun _df%d =>" % (_formula(graph, formula), formula))
-        needed = _needed_tails(tails, step_blocks)
+        needed = _needed_tails(tails, dependencies)
         for node, block in step_blocks.items():
-            lines.extend(block + _tail_lets(node, needed.get(node, 0)))
+            lines.extend(_reapplications_in_place(block) + _tail_lets(node, needed.get(node, 0)))
         lines.append("  _step_%d" % graph.proof)
     lines.extend(["", "end " + namespace, ""])
     text = "\n".join(lines)

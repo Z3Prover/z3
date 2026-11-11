@@ -641,20 +641,36 @@ def equality_diamond(levels):
 
 
 def outlined_lemma_sizes(text):
-    """Proof steps defined inside each outlined lemma (bindings of other lemmas carry no type)."""
-    return [len(re.findall(r"^  let _step_\d+ (?!:=)", block, re.MULTILINE))
+    """Proof steps defined inside each outlined lemma, its statement's step included.
+
+    Bindings of other lemmas and re-applications of steps to their
+    hypotheses state their value on the line (`:= value`), a step's own
+    binding ends its line with `:=`; steps bound inside another step count
+    too.
+    """
+    return [len(re.findall(r"^ +let _step_\d+ (?!:= )", block, re.MULTILINE)) + 1
             for block in text.split("private theorem proof_step_")[1:]]
 
 
 def _proof_steps(certificate):
-    """Proof steps reachable from the root; unused gate clauses are still checked as lemmas."""
+    """Proof steps reachable from the root that are bound as steps; unused gate clauses are still checked as lemmas.
+
+    A hypothesis is no step of its own unless it is a lemma's premise: its
+    users name its binder (proof_to_lean._direct_hypotheses).
+    """
+    nodes, declarations = certificate["nodes"], certificate["declarations"]
+
+    def rule(node):
+        return declarations[nodes[node]["declaration"]]["name"]
+
     reachable, pending = set(), [certificate["proof"]]
     while pending:
         node = pending.pop()
         if node not in reachable:
             reachable.add(node)
-            pending.extend(certificate["nodes"][node]["arguments"][:-1])
-    return len(reachable)
+            pending.extend(nodes[node]["arguments"][:-1])
+    kept = {nodes[node]["arguments"][0] for node in reachable if rule(node) == "lemma"}
+    return len({node for node in reachable if rule(node) != "hypothesis" or node in kept})
 
 
 def _unsat_core_size(source):
@@ -949,30 +965,38 @@ class TestUninterpretedValidation(unittest.TestCase):
             # The lemma is over the implying assertions only, never all of them.
             literals = graph.clause(graph.conclusion(node))
             self.assertLess(len(literals), len(graph.assertions) + 1)
-        text = proof_to_lean.reconstruct(source, certificate)
         # The clauses over a pair with the ite rest on the value of the ite
         # under the distinct, not on the Boolean structure over opaque
-        # atoms: no propagation proof is found and the lemmas go to grind
-        # alone (see _cnf_lemma). The clause over the pair ((g c a), c),
-        # whose equality is logged, is a projection of the distinct (its
-        # other pairs synthetic leaves) and gets a propagation proof.
+        # atoms: the propagation proof needs a theory clause over the ite
+        # and the constants of the sort (_theory_clauses), and without one
+        # the lemmas go to grind alone (see _cnf_lemma). The clause over the
+        # pair ((g c a), c), whose equality is logged, is a projection of the
+        # distinct (its other pairs synthetic leaves) and gets a propagation
+        # proof from the Boolean structure alone.
         (distinct,) = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_DISTINCT]
         arguments = graph.arguments(distinct)
         logged = {graph.equalities.get((left, right))
                   for index, left in enumerate(arguments) for right in arguments[index + 1:]} - {None}
         self.assertEqual(len(logged), 1)
-        projections = 0
-        for node in cnf:
-            lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
-            negated = {graph.arguments(literal)[0] for literal in graph.clause(graph.conclusion(node))
-                       if graph.kind(literal) == z3.Z3_OP_NOT}
-            if negated & logged:
-                projections += 1
-                self.assertIn("\n  first\n    | (refine Classical.byContradiction ?_\n", lemma)
-            else:
-                self.assertNotIn("Classical.byContradiction", lemma)
-                self.assertTrue(lemma.endswith("\n  grind (splits := 64)"))
-        self.assertEqual(projections, 1)
+        for oracle in (True, False):
+            with patch.object(proof_to_lean, "_theory_function",
+                              proof_to_lean._theory_function if oracle else lambda *arguments: None):
+                text = proof_to_lean.reconstruct(source, certificate)
+            projections = 0
+            for node in cnf:
+                lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+                negated = {graph.arguments(literal)[0] for literal in graph.clause(graph.conclusion(node))
+                           if graph.kind(literal) == z3.Z3_OP_NOT}
+                if negated & logged:
+                    projections += 1
+                    self.assertIn("\n  first\n    | (refine Classical.byContradiction ?_\n", lemma)
+                elif oracle:
+                    self.assertRegex(lemma, r"\n  first\n    \| \(have _f1 : \(Or [^\n]* := by unfold [^\n]*\bterm_")
+                    self.assertIn("refine Classical.byContradiction ?_\n", lemma)
+                else:
+                    self.assertNotIn("Classical.byContradiction", lemma)
+                    self.assertTrue(lemma.endswith("\n  grind (splits := 64)"))
+            self.assertEqual(projections, 1)
 
     def test_cnf_fallback_unfolds_a_formula_shared_with_a_leaf(self):
         # The predicate application (P (and a b)) is an opaque leaf of the
@@ -1044,8 +1068,10 @@ class TestUninterpretedValidation(unittest.TestCase):
         (tail,) = re.findall(r"\n       have (_f\d+) := _f\d+%s\n" % (r"\.2" * 32), text)
         self.assertRegex(text, r"\n       have _f\d+ := %s%s\.1\n" % (tail, r"\.2" * 9))  # conjunct 41 of 43
         self.assertNotIn(".2" * 33, text)
-        # Kept as one leaf, the distinct leaves the prover nothing to propagate.
-        with patch.object(proof_to_lean, "_distinct_pair_leaves", lambda graph, node, leaves: None):
+        # Kept as one leaf, the distinct leaves the prover nothing to propagate
+        # (theory clauses over the constants would re-derive its pairs).
+        with patch.object(proof_to_lean, "_distinct_pair_leaves", lambda graph, node, leaves: None), \
+                patch.object(proof_to_lean, "_theory_function", lambda *arguments: None):
             self.assertNotIn("Classical.byContradiction", proof_to_lean.reconstruct(source, certificate))
         # A pair whose equality Z3 logged with the sides swapped reads otherwise
         # than the distinct's conjunct (Not (a = b)): it is a synthetic leaf
@@ -2170,7 +2196,7 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertGreater(len(sizes), 1)
         self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
         self.assertEqual(sum(sizes), _proof_steps(certificate))
-        self.assertIn("  proof_step_%d _atoms%s " % (certificate["proof"], proof_to_lean._UF_ARGUMENTS), text)
+        self.assertIn("  @proof_step_%d _atoms%s " % (certificate["proof"], proof_to_lean._UF_ARGUMENTS), text)
 
     def test_small_chunks_cut_every_lemma_shape(self):
         # Force boundaries inside lemma subproofs, between shared steps, and at

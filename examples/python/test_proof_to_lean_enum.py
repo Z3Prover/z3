@@ -14,6 +14,7 @@
 import copy
 from pathlib import Path
 import random
+import re
 import sys
 import tempfile
 import time
@@ -492,10 +493,13 @@ def random_enum_array_instance(seed, variables=2, constraints=10, depth=2, index
 # and 110 of the small configuration failed Lean before the replay's keys
 # told constructors apart ((= x red) and (= x blue) shared a key). Which
 # hints a seed's log carries depends on Z3's search, so only verification is
-# asserted.
+# asserted. 53 with integer has Int lemmas with opaque atoms over
+# enumeration applications, whose outside definitions are unfolded before
+# the lemma's unfold; that unfold must therefore not name the applications
+# themselves (_folded_enumeration_cases), and the seed fails Lean if it does.
 _SMALL = {"variables": 2, "constraints": 6}
-ENUM_SEEDS = (({}, 24), ({}, 125), ({}, 181), ({"integer": True}, 133), ({"integer": True}, 150),
-              (_SMALL, 89), (_SMALL, 110))
+ENUM_SEEDS = (({}, 24), ({}, 125), ({}, 181), ({"integer": True}, 53), ({"integer": True}, 133),
+              ({"integer": True}, 150), (_SMALL, 89), (_SMALL, 110))
 
 
 # Pinned unsatisfiable seeds of random_enum_array_instance whose logs carry
@@ -521,6 +525,26 @@ ENUM_ARRAY_SEEDS = (({"index": "U"}, 3), ({"index": "U"}, 43), ({"index": "U"}, 
 # documented inputs do, see test_dropped_read_cases_fail_lean.)
 ENUM_CONSTANT_SEEDS = (({"constant": True}, 13), ({"constant": True}, 137), ({"constant": True}, 178),
                        ({"constant": True}, 222))
+
+
+def enumeration_chain_instance(depth=8):
+    """Two copies of a chain of depth Color ites over equal inputs whose outputs are said to differ.
+
+    Stage k of copy u (and likewise of copy w) is (ite (p u<k-1>) (f
+    u<k-1>) (ite (= u<k-1> green) blue (g u<k-1> red))), so every
+    application of f and g has the whole chain below it as its argument.
+    The refutation is euf lemmas, one per congruence, each with the
+    enumeration cases of the applications it reaches.
+    """
+    lines = ["(set-logic ALL)", _COLOR.strip(), "(declare-fun f (Color) Color)", "(declare-fun p (Color) Bool)",
+             "(declare-fun g (Color Color) Color)"]
+    for copy in "uw":
+        lines.append("(declare-const %s0 Color)" % copy)
+        for stage in range(1, depth + 1):
+            lines.append("(define-fun {0}{1} () Color (ite (p {0}{2}) (f {0}{2}) "
+                         "(ite (= {0}{2} green) blue (g {0}{2} red))))".format(copy, stage, stage - 1))
+    lines += ["(assert (= u0 w0))", "(assert (not (= u%d w%d)))" % (depth, depth)]
+    return "\n".join(lines + ["(check-sat)"]) + "\n"
 
 
 def _pigeonhole(constructors, terms):
@@ -827,6 +851,33 @@ class TestEnumerationValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unused declaration|two sorts"):
             proof_to_lean.reconstruct(self.source, tampered)
 
+    def test_enumeration_cases_of_applications_are_stated_folded(self):
+        # The cases of an application of an enumeration sort are stated over
+        # its arguments' definitions, before the lemma's unfold, and
+        # reverted with the gates (_folded_enumeration_cases). Written out,
+        # every application's argument list repeated the chain below it in
+        # full: the euf lemmas of enumeration_chain_instance(8) were 26.7 MB
+        # (27.2 MB of Lean, which the 12 GB watchdog stopped after 288 s).
+        source = enumeration_chain_instance(8)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemmas = re.findall(r"\nprivate theorem th_lemma_\d+ (.*?)\n\n", text, re.S)
+        cases = re.findall(r"have _ec(\d+) (.*)", "\n".join(lemmas))
+        applications = [(int(node), fact) for node, fact in cases if "enum_fcases" in fact]
+        self.assertGreater(len(applications), 100)
+        for node, fact in applications:
+            self.assertEqual(graph.kind(node), z3.Z3_OP_UNINTERPRETED)
+            arguments = ", ".join("(term_%d _atoms _m)" % argument for argument in graph.arguments(node))
+            self.assertRegex(fact, r"^:= _m\.enum_fcases_\d+ \[%s\]$" % re.escape(arguments))
+        for lemma in lemmas:
+            names = re.findall(r"have (_ec\d+) := _m\.enum_fcases_", lemma)
+            if names:
+                reverts = [line.split()[1:] for line in lemma.split("\n") if line.lstrip().startswith("revert ")]
+                self.assertEqual(len(reverts), 1, lemma)
+                self.assertLessEqual(set(names), set(reverts[0]), lemma)
+        self.assertLess(sum(len(lemma) for lemma in lemmas), 200000)
+
     def test_datatype_lemmas_are_enumeration_clauses(self):
         # none_of_the_constructors is refuted by exhaustiveness alone, which
         # only the datatype solver knows.
@@ -894,6 +945,12 @@ class TestEnumerationLeanIntegration(unittest.TestCase):
         for arguments, seed, source, certificate in sources:
             with self.subTest(seed=seed, options=sorted(arguments)):
                 _check_in_lean(self, source, certificate=certificate)
+
+    def test_enumeration_ite_chains_verify(self):
+        # Two eight-level chains of Color ites through f and g: 27.2 MB of
+        # Lean with the enumeration cases written out (the watchdog stopped
+        # it at 12.6 GB), 0.6 MB and about a second with them folded.
+        _check_in_lean(self, enumeration_chain_instance(8))
 
     def test_documented_array_inputs_verify(self):
         certificates = {name: proof_certificate.export_clause_log_certificate(source)

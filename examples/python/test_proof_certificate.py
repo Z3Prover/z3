@@ -2302,7 +2302,7 @@ class TestClauseLogReplay(unittest.TestCase):
         # The solver calls of the assumption search check it too.
         replay = proof_clause_log._Replay(_LRA, fragment, assertions, context, 5)
         replay.deadline -= 6
-        for call in (replay._valid, replay._implying_assertions):
+        for call in (replay._check, replay._implying_assertions):
             with self.subTest(call=call.__name__), \
                     self.assertRaisesRegex(proof_certificate.ProofExportError, "replay exceeded the time limit of 5 s"):
                 call(z3.BoolVal(True, context))
@@ -2520,7 +2520,7 @@ class TestClauseLogReplay(unittest.TestCase):
         assertions, fragment = proof_certificate.parse_assertions(source, context)
         replay = proof_clause_log._Replay(source, fragment, assertions, context)
         x = z3.Real("x", context)
-        with patch.object(replay, "_valid", side_effect=AssertionError("unnecessary solver search")):
+        with patch.object(replay, "_check", side_effect=AssertionError("unnecessary solver search")):
             replay.assume([x <= 1])
             index = replay.assumptions_by_key
             cache_size = len(replay.normalizer.cache)
@@ -2560,13 +2560,13 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertEqual(conjuncts(f(a) == a), ["Not(False)", "Or(p, f(a) == b)"])
         self.assertEqual(len(replay._candidate_sources(z3.BoolVal(False, context))), len(replay.assumption_sources))
         checked = []
-        original = proof_clause_log._Replay._valid
+        original = proof_clause_log._Replay._check
 
-        def valid(replay, claim):
+        def check(replay, claim):
             checked.append(str(claim))
             return original(replay, claim)
 
-        with patch.object(proof_clause_log._Replay, "_valid", valid):
+        with patch.object(proof_clause_log._Replay, "_check", check):
             node = replay.assume([p, q, r])
         self.assertTrue(checked and not any("x" in claim for claim in checked), checked)
         # One equivalence (the only candidate over exactly p, q, r), then the
@@ -2596,9 +2596,9 @@ class TestClauseLogReplay(unittest.TestCase):
         q = z3.Bool("q", context)
         p = [z3.Bool("p%d" % i, context) for i in range(width)]
         checked = []
-        original = proof_clause_log._Replay._valid
+        original = proof_clause_log._Replay._check
 
-        def valid(replay, claim):
+        def check(replay, claim):
             checked.append(claim.decl().kind())
             return original(replay, claim)
 
@@ -2607,7 +2607,7 @@ class TestClauseLogReplay(unittest.TestCase):
             replay = proof_clause_log._Replay(source, fragment, assertions, context)
             self.assertGreater(len(replay.assumption_sources), 2 * width - 2)
             checked.clear()
-            with patch.object(proof_clause_log._Replay, "_valid", valid):
+            with patch.object(proof_clause_log._Replay, "_check", check):
                 self.assertIsNotNone(replay.assume(literals))
             return replay.dag.rule_counts
 
@@ -2626,6 +2626,88 @@ class TestClauseLogReplay(unittest.TestCase):
         counts = assume([p[7], q])
         self.assertEqual(checked, [z3.Z3_OP_EQ])
         self.assertEqual((counts["th-lemma"], counts["rewrite"], counts["and-elim"]), (0, 1, 8))
+
+    def test_implication_search_skips_conjuncts_a_model_refutes(self):
+        # The implication pass checked every candidate sharing a symbol with
+        # the clause, one solver call each: on QF_IDL qlock-4-10-8 (one
+        # assertion of a thousand nested ands) a clause no single conjunct
+        # implies took 680 checks, and the replay 259 s (141 s now). A model of a
+        # conjunct and the clause's negation, from a failed implication
+        # check or a failed equivalence check that makes the clause false,
+        # refutes that conjunct and every conjunct below it, and those are
+        # skipped; the order of the checks, so the source chosen, is kept.
+        width = 300
+        body = "(or p%d q)" % (width - 1)
+        for i in reversed(range(width - 1)):
+            body = "(and %s %s)" % ("(or p7 q r)" if i == 7 else "(or p%d q)" % i, body)
+        source = ("(declare-const q Bool)(declare-const r Bool)(declare-const s Bool)"
+                  + "".join("(declare-const p%d Bool)" % i for i in range(width))
+                  + "(assert %s)(assert (or (not p3) s))(assert (not r))" % body)
+        context = z3.Context()
+        q, s = z3.Bools("q s", context)
+        p = [z3.Bool("p%d" % i, context) for i in range(width)]
+        checked = []
+        implications = []
+        original = proof_clause_log._Replay._check
+        # When set, every implication check from an and comes back unknown,
+        # as on qlock, where those checks hit the resource limit.
+        cut_off_ands = []
+
+        def check(replay, claim):
+            checked.append((claim.decl().kind(), claim.arg(0).decl().kind()))
+            if claim.decl().kind() == z3.Z3_OP_IMPLIES:
+                if claim.arg(0).decl().kind() == z3.Z3_OP_AND:
+                    implications.append("and")
+                    if cut_off_ands:
+                        return z3.unknown, None
+                else:
+                    implications.append(str(claim.arg(0)))
+            return original(replay, claim)
+
+        def assume(literals):
+            assertions, fragment = proof_certificate.parse_assertions(source, context)
+            replay = proof_clause_log._Replay(source, fragment, assertions, context)
+            self.assertGreater(len(replay._candidate_sources(z3.Or(literals))), 2 * width - 4)
+            checked.clear()
+            implications.clear()
+            with patch.object(proof_clause_log._Replay, "_check", check):
+                self.assertIsNotNone(replay.assume(literals))
+            return replay.dag.rule_counts
+
+        # Implied by no single conjunct: the leaf over p7, q, r is checked
+        # for equivalence, and every model of that check makes the clause
+        # false; the whole assertion's failed implication refutes all 597
+        # conjuncts below it. Two checks, then the unsat-core fallback (a
+        # cnf lemma from the chain and (not r)).
+        counts = assume([p[7], q])
+        self.assertEqual(checked, [(z3.Z3_OP_EQ, z3.Z3_OP_OR), (z3.Z3_OP_IMPLIES, z3.Z3_OP_AND)])
+        self.assertEqual((counts["th-lemma"], counts["asserted"], counts["and-elim"]), (1, 2, 0))
+        # Implied by the conjunct over p3 and q with the second assertion
+        # only: the whole assertion, then the second one, then the fallback.
+        counts = assume([q, s])
+        self.assertEqual(checked, [(z3.Z3_OP_IMPLIES, z3.Z3_OP_AND), (z3.Z3_OP_IMPLIES, z3.Z3_OP_OR)])
+        self.assertEqual((counts["th-lemma"], counts["asserted"], counts["and-elim"]), (1, 2, 0))
+        # A clause a conjunct implies is still tied to the first candidate
+        # that does: the whole assertion, before the leaf over p7, q, r.
+        counts = assume([p[7], q, z3.Bool("r", context), s])
+        self.assertEqual(checked, [(z3.Z3_OP_IMPLIES, z3.Z3_OP_AND)])
+        self.assertEqual((counts["th-lemma"], counts["asserted"], counts["and-elim"]), (1, 1, 0))
+        cut_off_ands.append(True)
+        # With the ands undecided, only the equivalence model refutes the
+        # leaf over p7, q, r: its implication is not checked, the other
+        # leaves are (each sharing q), then the fallback.
+        counts = assume([p[7], q])
+        self.assertEqual(checked[0], (z3.Z3_OP_EQ, z3.Z3_OP_OR))
+        self.assertNotIn("Or(p7, q, r)", implications)
+        self.assertIn("Or(p8, q)", implications)
+        self.assertEqual((counts["th-lemma"], counts["asserted"]), (1, 2))
+        # An undecided check refutes nothing: the leaf over p5 and q below
+        # the undecided ands is still checked, and is the source chosen.
+        counts = assume([p[5], q, s])
+        self.assertEqual(implications[-1], "Or(p5, q)")
+        self.assertEqual(implications.count("Or(p5, q)"), 1)
+        self.assertEqual((counts["th-lemma"], counts["asserted"]), (1, 1))
+        self.assertGreater(counts["and-elim"], 0)
 
     def test_assumption_search_index_is_linear_on_deep_terms(self):
         # The index first kept the symbol set of every subterm, quadratic on

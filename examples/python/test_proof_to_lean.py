@@ -729,8 +729,16 @@ class TestProofToLean(unittest.TestCase):
                 self.assertNotIn("axiom ", text)
                 self.assertNotIn("native_decide", text)
                 self.assertNotIn("classical", text)
-                self.assertEqual(sum(line.startswith("  let _step_") for line in text.splitlines()),
-                                 sum(certificate["rule_counts"].values()))
+                # One binding per step, at the top level or inside the one
+                # step using it (re-applications to hypotheses bind none),
+                # except hypotheses other than a lemma's premise: their
+                # users name the binder.
+                nodes, declarations = certificate["nodes"], certificate["declarations"]
+                rules = [declarations[node["declaration"]]["name"] for node in nodes]
+                premises = {node["arguments"][0] for node, rule in zip(nodes, rules) if rule == "lemma"}
+                direct = sum(1 for index, rule in enumerate(rules) if rule == "hypothesis" and index not in premises)
+                self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:= )", text, re.MULTILINE)),
+                                 sum(certificate["rule_counts"].values()) - direct)
 
     def test_reconstruction_does_not_run_solver_search(self):
         for source in [LITERAL, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR]:

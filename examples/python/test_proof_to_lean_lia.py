@@ -5,6 +5,7 @@
 # arithmetic through the clause log): validation without Lean, and
 # end-to-end checks that need the z3 executable and the pinned Lean toolchain.
 ############################################
+import collections
 import contextlib
 import copy
 from fractions import Fraction
@@ -415,6 +416,25 @@ def two_partitions_instance(seed, variables=700, width=10):
     return "\n".join(lines) + "\n"
 
 
+def disjunctive_temporal_instance(seed, variables=20, clauses=140):
+    """Random clauses of two difference bounds, like SMT-LIB QF_IDL DTP_k2_n35_c245_s9.
+
+    The refutation is a search: unit resolutions under the hypotheses of
+    many lemmas (seed 1: 1,095 steps, 66 hypotheses; seed 2: 2,832
+    steps, 118 hypotheses).
+    """
+    generator = random.Random(seed)
+    lines = ["(set-logic QF_IDL)"] + ["(declare-const x%d Int)" % i for i in range(variables)]
+    for _ in range(clauses):
+        literals = []
+        for _ in range(2):
+            first, second = generator.sample(range(variables), 2)
+            atom = "(>= (- x%d x%d) %d)" % (first, second, generator.randint(0, 100))
+            literals.append(atom if generator.random() < 0.5 else "(not %s)" % atom)
+        lines.append("(assert (or %s))" % " ".join(literals))
+    return "\n".join(lines) + "\n"
+
+
 # The generalized attempt of _grind_lemma ending in a tactic (format with
 # its regex), then the unfolded fallback, which states the folded ite gates
 # first when the lemma has any (proof_to_lean._folded_ite_gates).
@@ -726,6 +746,13 @@ class TestIntegerValidation(unittest.TestCase):
                         combination = split
                     if not (tactic and atoms):
                         self.assertNotIn("generalize", block)
+                        if parameters[0] == "euf":
+                            # Congruence closure: grind alone, tried first with
+                            # the ites folded when the lemma reaches any.
+                            self.assertNotIn("omega", block)
+                            self.assertTrue(block.endswith("\n  grind (splits := 64)")
+                                            or block.endswith("\n       grind (splits := 64))"), block[-200:])
+                            continue
                         self.assertEqual("first\n" in block, combination is not None)
                         self.assertTrue(block.endswith("first | omega | grind (splits := 64)"
                                                        + (")" if combination else "")), block[-200:])
@@ -1583,9 +1610,12 @@ class TestIntegerValidation(unittest.TestCase):
                 self.assertEqual(lemma.count(") := eq_comm\n"), pairs)
                 self.assertIn("refine Classical.byContradiction ?_\n", lemma)
                 # Without the bridges the pairs of the two are unrelated:
-                # no propagation proof, the unfolded fallback alone.
+                # no propagation proof, the unfolded fallback alone (the
+                # theory clauses of _theory_clauses would restate each
+                # bridge as a clause, proved by omega instead of eq_comm).
                 with patch.object(proof_to_lean, "_leaf_bridges",
-                                  lambda graph, leaves, synthetic=None: original(graph, leaves)):
+                                  lambda graph, leaves, synthetic=None: original(graph, leaves)), \
+                        patch.object(proof_to_lean, "_theory_clauses", lambda *arguments: None):
                     lemma = proof_to_lean.reconstruct(source, certificate).split(
                         "private theorem th_lemma_%d " % cnf, 1)[1].split("\n\n", 1)[0]
                 self.assertNotIn("Classical.byContradiction", lemma)
@@ -1956,13 +1986,13 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # verifies in Lean.
         source = (_EXAMPLES / "data" / "QF_IDL_FISCHER6-4-ninc.smt2").read_text()
         calls = []
-        original = proof_clause_log._Replay._valid
+        original = proof_clause_log._Replay._check
 
-        def valid(replay, claim):
+        def check(replay, claim):
             calls.append(claim.decl().kind())
             return original(replay, claim)
 
-        with patch.object(proof_clause_log._Replay, "_valid", valid):
+        with patch.object(proof_clause_log._Replay, "_check", check):
             certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertEqual(calls.count(z3.Z3_OP_IMPLIES), 7)
         self.assertLess(calls.count(z3.Z3_OP_EQ), 100)
@@ -2019,6 +2049,219 @@ class TestIntegerLeanIntegration(unittest.TestCase):
             lemma = unguided.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
             self.assertNotIn("Classical.byContradiction", lemma)
         _, report = lean_test_support.check(self, source, certificate, text=alone)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    def test_steps_under_hypotheses_are_bound_inside_the_step_using_them(self):
+        # A step under hypotheses was a function of them: its let restated
+        # every hypothesis formula as a binder, and each step using it
+        # re-applied it to them. An outlined lemma restated its own
+        # statement the same way, and passed the interpretation to every
+        # lemma it imported. In the 58 MB of Lean of SMT-LIB QF_IDL
+        # DTP_k2_n35_c245_s9 (61,000 unit resolutions under 639 hypotheses)
+        # that was 28 MB of the proof steps, and Lean's memory grows with
+        # the text it elaborates: plan-21 (see the slow test below) ran out
+        # of the 8 GB cap. A step one other step uses is now bound inside
+        # it, where its hypotheses are in scope; a lemma's hypotheses are
+        # the binders of a fun under its statement; an imported lemma
+        # takes only _inputs. A hypothesis step is no step: its users name
+        # the binder _hypN, where a shared one was an outlined lemma `fun
+        # _hypN => _hypN`, imported and re-applied by every lemma using it.
+        # A resolution keeping the literal before an eliminated tail is
+        # Or.resolve_right, not an Or.elim. Seed 2: 1.97 MB of Lean at first,
+        # 1.43 MB with nesting, 1.29 MB with hypotheses by their binders,
+        # 1.12 MB now (see the test below).
+        source = disjunctive_temporal_instance(2)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertGreater(certificate["rule_counts"]["hypothesis"], 100)
+        text = self.checked_text(source, certificate)
+        self.assertLess(len(text), 1200000)
+        lemmas = text.split("\nprivate theorem proof_step_")[1:]
+        self.assertGreater(len(lemmas), 500)
+        hypotheses = {index for index, node in enumerate(certificate["nodes"])
+                      if certificate["declarations"][node["declaration"]]["name"] == "hypothesis"}
+        bound = {int(step) for step in re.findall(r"let _step_(\d+)", text)}
+        bound.update(int(lemma.split(" ", 1)[0]) for lemma in lemmas)
+        self.assertFalse(hypotheses & bound)
+        self.assertNotRegex(text, r"\n  fun (_hyp\d+) =>\n    \1\n")
+        self.assertGreater(text.count(".resolve_right "), 500)
+        uses = collections.Counter(premise for node in certificate["nodes"] for premise in node["arguments"][:-1])
+        under_hypotheses = 0
+        for lemma in lemmas:
+            root = lemma.split(" ", 1)[0]
+            self.assertTrue(lemma.startswith(root + " {_atoms : Nat -> Prop} {_vars : Nat -> Int}\n"), lemma[:200])
+            self.assertNotIn("let _step_%s " % root, lemma)
+            under_hypotheses += "\n  fun _hyp" in lemma
+            for step, imported, arguments in re.findall(r"^  let _step_(\d+) := proof_step_(\d+)(.*)$", lemma,
+                                                        re.MULTILINE):
+                self.assertEqual((imported, arguments), (step, " _inputs"))
+            # Only a step two others use is still a function of its hypotheses.
+            for step in re.findall(r"^    let _step_(\d+) := _step_\1 _hyp", lemma, re.MULTILINE):
+                self.assertGreater(uses[int(step)], 1)
+        self.assertGreater(under_hypotheses, 100)
+        self.assertGreater(len(re.findall(r"^    let _step_\d+ (?!:= )", text, re.MULTILINE)), 1000)
+
+    def test_single_imports_and_negated_eliminations_are_applied_in_place(self):
+        # Three parts of the outlined lemmas' text bound or wrapped what one
+        # application states. In the 32.2 MB of Lean of SMT-LIB QF_IDL
+        # DTP_k2_n35_c245_s9, which ran out of the 8 GB cap:
+        # - 70,817 eliminations of a literal (not p) by a proof of p were
+        #   `.resolve_left (fun _literal => _literal _step_N)` (2.6 MB);
+        #   Or.neg_resolve_left and Or.neg_resolve_right take the proof;
+        # - 92,491 of its 100,549 imported lemmas were used once in the
+        #   lemma importing them, by name or by one re-application to the
+        #   hypotheses; they are applied there instead of let-bound;
+        # - 15,068 proofs by contradiction named their formula and a witness
+        #   `let _dfN := Classical.propDecidable ...` (1.9 MB); one helper
+        #   lemma, Decidable.byContradiction at that witness, takes the
+        #   formula from the expected type.
+        # DTP is 26.1 MB now and verifies (see the slow test below).
+        source = disjunctive_temporal_instance(1)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = self.checked_text(source, certificate)
+        self.assertLess(len(text), 535000)  # 565,430 before
+        self.assertNotIn("(fun _literal => _literal _", text)
+        self.assertGreater(text.count(".neg_resolve_left "), 100)
+        self.assertGreater(text.count(".neg_resolve_right "), 10)
+        self.assertNotIn("let _df", text)
+        self.assertNotIn("@Decidable.byContradiction (", text)
+        self.assertEqual(text.count("private theorem classical_by_contradiction "), 1)
+        self.assertGreater(text.count("(classical_by_contradiction "), 100)
+        merged = direct = 0
+        for lemma in text.split("\nprivate theorem proof_step_")[1:]:
+            # An import that stays bound is used more than once, so its name
+            # occurs at least three times (twice per re-application). The
+            # pattern matches classical imports (no witness arguments), which
+            # are all of this arithmetic input's lemmas.
+            for step in re.findall(r"^  let _step_(\d+) := proof_step_\1 _inputs$", lemma, re.MULTILINE):
+                self.assertGreater(len(re.findall(r"\b_step_%s\b" % step, lemma)), 2, (step, lemma[:300]))
+            merged += len(re.findall(r"\(proof_step_\d+ _inputs _hyp", lemma))
+            direct += len(re.findall(r"\(proof_step_\d+ _inputs\)", lemma))
+        self.assertGreater(merged, 50)
+        self.assertGreater(direct, 100)
+
+    def test_resolution_types_are_inferred_and_reapplications_applied_in_place(self):
+        # Two more parts of the outlined lemmas' text restated what Lean
+        # already knows. In the 26.1 MB of Lean of SMT-LIB QF_IDL
+        # DTP_k2_n35_c245_s9, which verified at 7.86 GB of the 8 GB cap:
+        # - 46,002 of the 49,550 steps bound inside other steps were unit
+        #   resolutions keeping one literal, `(_step_N.resolve_left u)` and
+        #   so on, whose type Or.resolve_* infer from the clause's; their
+        #   lets stated it again, `let _step_N : (formula_M _atoms _vars) :=`;
+        # - 49,236 lets bound a step's or an imported lemma's application to
+        #   its hypotheses, `let _step_N := proof_step_N _inputs _hyp...`,
+        #   for the one use in the term on the next line.
+        # DTP is 23.2 MB now and verifies at 7.45 GB (see the slow test).
+        source = disjunctive_temporal_instance(1)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = self.checked_text(source, certificate)
+        self.assertLess(len(text), 505000)  # 518,423 before
+        lines = text.split("\n")
+        inferred = 0
+        for position, line in enumerate(lines):
+            header = re.match(r"^ +let _step_\d+(?: \(_hyp\d+ : \(formula_\d+ _atoms _vars\)\))* :=$", line)
+            if header and not lines[position + 1].lstrip().startswith("let "):
+                # A block of its term alone: a resolution keeping one literal.
+                inferred += 1
+                self.assertRegex(lines[position + 1], r"^ +\(+(?:proof_step_\d+ _inputs(?: _\w+)*\)|_step_\d+"
+                                                      r"(?: _hyp\d+)*\)|_step_\d+|_hyp\d+)\.(?:neg_)?resolve_")
+            reapplication = proof_to_lean._REAPPLICATION.match(line)
+            if reapplication:
+                # A re-application still bound is used more than once by
+                # the term after it.
+                term = next(after for after in lines[position + 1:]
+                            if not proof_to_lean._REAPPLICATION.match(after))
+                self.assertGreater(len(re.findall(r"\b%s\b" % reapplication.group(1), term)), 1, term[:300])
+        self.assertGreater(inferred, 10)
+        self.assertGreater(len(re.findall(r"^ +let _step_\d+ :=$", text, re.MULTILINE)), 300)
+        self.assertGreater(len(re.findall(r"\(proof_step_\d+ _inputs _hyp", text)), 50)
+        self.assertGreater(len(re.findall(r"\(_step_\d+ _hyp", text)), 10)
+        # Steps of other kinds keep their stated type.
+        self.assertGreater(len(re.findall(r"^ +let _step_\d+ : \(formula_\d+ _atoms _vars\) :=$", text, re.MULTILINE)),
+                           10)
+
+    def test_reapplications_used_once_are_applied_in_place(self):
+        lines = ["  let _step_9 (_hyp1 : (formula_1 _atoms _vars)) :=",
+                 "    let _step_4 := proof_step_4 _inputs _hyp1",
+                 "    let _step_5 := _step_5 _hyp1",
+                 "    let _step_6 := _step_6 _hyp1",
+                 "    ((_step_4.resolve_left _step_5).neg_resolve_left (_step_6.trans _step_6))",
+                 "  let _step_7 := _step_7 _hyp1",
+                 "  let _tail_7_1 := _step_7.2",
+                 "  _step_7"]
+        self.assertEqual(proof_to_lean._reapplications_in_place(lines), [
+            "  let _step_9 (_hyp1 : (formula_1 _atoms _vars)) :=",
+            "    let _step_6 := _step_6 _hyp1",
+            "    (((proof_step_4 _inputs _hyp1).resolve_left (_step_5 _hyp1)).neg_resolve_left (_step_6.trans _step_6))",
+            "  let _step_7 := _step_7 _hyp1",
+            "  let _tail_7_1 := _step_7.2",
+            "  _step_7"])
+        # Decidability witnesses are arguments too; an argument naming
+        # another step is not a re-application, and its let stays.
+        self.assertEqual(proof_to_lean._reapplications_in_place([
+            "    let _step_5 := _step_5 _step_2",
+            "    let _step_4 := proof_step_4 _inputs _d3 _df8 _hyp1",
+            "    (_step_4.resolve_left _step_5)"]), [
+            "    let _step_5 := _step_5 _step_2",
+            "    ((proof_step_4 _inputs _d3 _df8 _hyp1).resolve_left _step_5)"])
+
+    def test_steps_beyond_the_nesting_depth_are_bound_at_the_top_level(self):
+        # Past _NESTED_STEP_DEPTH a step under hypotheses is bound at the
+        # top level as a function of them and re-applied by its one user,
+        # like a shared step. The default depth is never reached on these
+        # instances, so a depth of one makes every chain of single uses
+        # take that path.
+        source = disjunctive_temporal_instance(1)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        uses = collections.Counter(premise for node in certificate["nodes"] for premise in node["arguments"][:-1])
+        with patch.object(proof_to_lean, "_NESTED_STEP_DEPTH", 1):
+            text = self.checked_text(source, certificate)
+        # The one user applies it to its hypotheses in place
+        # (_reapplications_in_place).
+        reapplied = [int(step) for step in re.findall(r"\(_step_(\d+) _hyp", text)]
+        self.assertTrue(any(uses[step] == 1 for step in reapplied))
+        # Nesting is one level deep: no nested step has a step nested in it.
+        self.assertNotRegex(text, r"\n    let _step_\d+(?: : .*)? :=\n    let _step_\d+(?: : .*)? :=\n")
+        # Every step but the hypotheses (named by their binders) is bound once.
+        self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:= )", text, re.MULTILINE))
+                         + len(text.split("\nprivate theorem proof_step_")[1:]),
+                         sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
+
+    @lean_test_support.slow("QF_IDL plan-21, 20.4 MB of Lean, about 80 s at 6.5 GB")
+    def test_planning_refutation_verifies_under_the_memory_cap(self):
+        # SMT-LIB QF_IDL planning/plan-21.cvc (110 KB): 25,842 proof steps.
+        # Its 33 MB of Lean ran out of the 8 GB cap of check_lean.sh after
+        # 95 s ("(kernel) excessive memory consumption"); with the steps
+        # under hypotheses bound inside their consumers it was 25 MB and
+        # verified; with hypotheses named by their binders and resolutions
+        # closed by Or.resolve_right it was 23.4 MB (87 s, 7.0 GB peak);
+        # with single imports applied in place 21.4 MB (79 s, 6.6 GB); with
+        # resolution types inferred and re-applications applied in place it
+        # is 20.4 MB, verified in 78 s at a 6.5 GB peak (see the tests above).
+        source = (_EXAMPLES / "data" / "QF_IDL_plan-21.cvc.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertGreater(sum(certificate["rule_counts"].values()), 25000)
+        text, report = lean_test_support.check(self, source, certificate)
+        self.assertLess(len(text), 21000000)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("QF_IDL DTP_k2_n35_c245_s9, 23.2 MB of Lean, about 115 s at 7.5 GB")
+    def test_disjunctive_temporal_refutation_verifies_under_the_memory_cap(self):
+        # SMT-LIB QF_IDL DTP/DTP_k2_n35_c245_s9 (14 KB): 69,000 proof steps,
+        # 16,557 outlined lemmas. Its Lean ran out of the 8 GB cap in every
+        # version until the single imports, the negated eliminations, and
+        # the classical contradictions were applied in place (32.2 to 26.1
+        # MB; see test_single_imports_and_negated_eliminations_are_applied_
+        # in_place): verified in 117 s at a 7.86 GB peak. With resolution
+        # types inferred and re-applications applied in place (see
+        # test_resolution_types_are_inferred_and_reapplications_applied_in_place)
+        # it is 23.2 MB, verified in 114 s at a 7.45 GB peak.
+        source = (_EXAMPLES / "data" / "QF_IDL_DTP_k2_n35_c245_s9.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertGreater(sum(certificate["rule_counts"].values()), 60000)
+        text, report = lean_test_support.check(self, source, certificate)
+        # 23,155,182 characters; the peak leaves little margin, so the bound
+        # fails before a text regression runs Lean out of memory.
+        self.assertLess(len(text), 23500000)
         self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_wide_farkas_conflicts_with_large_coefficients_verify(self):

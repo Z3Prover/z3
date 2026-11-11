@@ -1140,6 +1140,32 @@ def _conjuncts(expr, path=()):
             pending.extend((child, path + (child,)) for child in reversed(expr.children()))
 
 
+def _refute_conjuncts(expr, refuted):
+    """Add the AST ids of expr and every conjunct below it through nested ands to refuted.
+
+    A model of a conjunct and a clause's negation satisfies every conjunct
+    below it, so none of those implies the clause either, and the
+    implication pass of assume skips them. The model comes from a failed
+    implication check, or from a failed equivalence check whose model makes
+    the clause false (so the conjunct true). The pass checked every
+    candidate sharing a symbol with the clause, one solver call each: on
+    QF_IDL qlock-4-10-8 (one assertion of a thousand nested ands, 196
+    assumed clauses, ten of them implied by no single conjunct) a clause
+    took up to 680 checks, and the replay 259 s; with the skips it makes
+    8,251 checks in 141 s, the same certificate. A conjunct already
+    in refuted is not walked again, so each clause walks every conjunct at
+    most once.
+    """
+    pending = [expr]
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in refuted:
+            continue
+        refuted.add(expr.get_id())
+        if expr.decl().kind() == z3.Z3_OP_AND:
+            pending.extend(expr.children())
+
+
 def _symbols(expr):
     """Return the identifiers of the uninterpreted declarations occurring in expr.
 
@@ -1331,13 +1357,28 @@ class _Replay:
             assertion, conjunct, path = source
             return self._derive_assumption(assertion, path, conjunct, formula)
         candidates = self._candidate_sources(formula)
+        # A conjunct a model shows consistent with the clause's negation does
+        # not imply the clause, nor does any conjunct below it: such
+        # candidates are skipped (_refute_conjuncts), which keeps the source
+        # chosen and the order of the checks, and only drops checks that
+        # could not succeed.
+        refuted = set()
         for assertion, conjunct, path in self._equivalence_candidates(formula, candidates):
-            if self._valid(conjunct == formula):
+            result, solver = self._check(conjunct == formula)
+            if result == z3.unsat:
                 return self._derive_assumption(assertion, path, conjunct, formula)
+            if result == z3.sat and z3.is_false(solver.model().eval(formula, model_completion=True)):
+                # The conjunct holds and the clause does not: no implication either.
+                _refute_conjuncts(conjunct, refuted)
         for assertion, conjunct, path in candidates:
-            if self._valid(z3.Implies(conjunct, formula)):
+            if conjunct.get_id() in refuted:
+                continue
+            result, _ = self._check(z3.Implies(conjunct, formula))
+            if result == z3.unsat:
                 source = self._derive_assumption(assertion, path, conjunct, conjunct)
                 return self._cnf_lemma([(source, conjunct)], literals)
+            if result == z3.sat:
+                _refute_conjuncts(conjunct, refuted)
         # Preprocessing may combine several assertions, for example into the
         # empty clause, or simplify an ite inside one assertion under a unit
         # asserted by another.
@@ -1470,12 +1511,13 @@ class _Replay:
         if time.monotonic() > self.deadline:
             raise ProofExportError("the clause-log replay exceeded the time limit of %d s" % self.time_limit)
 
-    def _valid(self, claim):
+    def _check(self, claim):
+        """A bounded check of the negated claim: its result (unsat when the claim is valid) and the solver."""
         self._check_deadline()
         solver = z3.Solver(ctx=self.context)
         solver.set("rlimit", _RLIMIT)
         solver.add(z3.Not(claim))
-        return solver.check() == z3.unsat
+        return solver.check(), solver
 
     def _derive_assumption(self, assertion, path, conjunct, formula):
         node = self.dag.node(self.asserted, [self.dag.expression(assertion)])
