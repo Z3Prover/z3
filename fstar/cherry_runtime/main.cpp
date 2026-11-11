@@ -194,7 +194,7 @@ public:
 // judgment, at most 32 arguments or binders, 64-character numerals and 256-byte names. A numeral is compared with 10^64
 // before it is converted, so no input yields an unbounded string. Nothing here feeds back into checking.
 class Pretty {
-    // F* Z3ValueTheory tags. The extracted checker exports only the rational tag (Z3Cherry_rational_op);
+    // F* Z3OperatorTags tags. The extracted checker exports only the rational tag (Z3Cherry_rational_op);
     // tools/test_native_checker.py compares these with the F* source.
     static constexpr int64_t op_not = 1;
     static constexpr int64_t op_plus = 2;

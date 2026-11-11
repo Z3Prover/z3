@@ -1,8 +1,4 @@
-"""Selection-contract tests for the checker-only and full build scopes.
-
-The dependency closures below are fixtures standing in for F*'s `--dep full`
-output; these tests prove selection and wiring, not an end-to-end build.
-"""
+"""Build-scope selection/wiring fixtures and real F* carrier-isolation checks."""
 
 import json
 import os
@@ -26,6 +22,7 @@ def closure(*extra, without=KERNEL):
 
 
 PWSH = os.environ.get("PWSH") or shutil.which("pwsh")
+FSTAR = os.environ.get("FSTAR_EXE") or shutil.which("fstar.exe")
 FAKE_FSTAR = """#!/bin/sh
 printf '%s\\n' "$*" >> "$FAKE_FSTAR_LOG"
 case " $* " in
@@ -69,6 +66,29 @@ class DependencyOutputTests(unittest.TestCase):
     def test_output_without_file_lists_is_an_error(self):
         with self.assertRaisesRegex(RuntimeError, "ALL_FST_FILES"):
             checker_scope.dependency_files("Z3List.fst.checked: \\\n\tZ3List.fst\n", ROOT)
+
+
+@unittest.skipUnless(FSTAR, "needs F* (set FSTAR_EXE)")
+class CarrierDependencyTests(unittest.TestCase):
+    def test_carrier_independent_foundations_do_not_import_legacy_values(self):
+        for module in ("Z3OperatorTags.fst", "Z3CanonicalOps.fst", "Z3ClausalSemantics.fst",
+                       "Z3ObservationalSemantics.fst", "Z3ClauseSyntax.fst",
+                       "Z3ExprScope.fst", "Z3DatatypeSyntax.fst", "Z3DatatypeValue.fst",
+                       "Z3DatatypeSignature.fst", "Z3SortedInteger.fst", "Z3SortedSemantics.fst"):
+            with self.subTest(module=module):
+                dependencies = checker_scope.dependency_closure(
+                    checker_scope.dependency_command(FSTAR, [module]))
+                self.assertIn("Z3AstTheory.fst", dependencies)
+                if module in {"Z3OperatorTags.fst", "Z3CanonicalOps.fst",
+                              "Z3ClausalSemantics.fst", "Z3ClauseSyntax.fst",
+                              "Z3SortedInteger.fst", "Z3SortedSemantics.fst"}:
+                    self.assertIn("Z3OperatorTags.fst", dependencies)
+                self.assertFalse(
+                    dependencies & {"Z3ValueTheory.fst", "Z3ArrayTheory.fst",
+                                    "Z3SeqTheory.fst", "Z3BvTheory.fst",
+                                    "Z3ResolutionProofTheory.fst", "Z3DatatypeLemma.fst",
+                                    "Z3Definitions.fst"},
+                    dependencies)
 
 
 class SelectionTests(unittest.TestCase):
@@ -119,7 +139,7 @@ class SelectionTests(unittest.TestCase):
     def test_full_extraction_entries_are_every_registered_implementation(self):
         entries = checker_scope.extraction_entries(MANIFEST, closure(), True)
         self.assertEqual(entries, [m for m in MANIFEST["modules"] if not m.endswith(".fsti")])
-        self.assertEqual(len(entries), 90)
+        self.assertEqual(len(entries), 96)
         self.assertTrue(set(KERNEL) <= set(entries))
 
 

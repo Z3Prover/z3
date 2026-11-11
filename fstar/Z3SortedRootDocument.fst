@@ -56,7 +56,7 @@ module Z3SortedRootDocument
    Z3SortedQuantifier, Z3TypedRoot, Z3NnfReplay, ...}; nothing depends on it. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
@@ -72,7 +72,7 @@ module U = Z3UnifiedProof
 module E = Z3SortedSkolem
 module SK = Z3Skolemization
 module NR = Z3NnfReplay
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module DS = Z3SortedDependentSkolem
 module RL = Z3SortedReal
 module RR = Z3SortedRealRoot

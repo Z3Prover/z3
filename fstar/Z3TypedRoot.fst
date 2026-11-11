@@ -70,13 +70,13 @@ module Z3TypedRoot
    BaseSort identities never acquire interpreted meaning from their names. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.List.Tot
 open FStar.Real
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module A = Z3LinearArithmeticAst
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
 module D = Z3Definitions
 module L = FStar.List.Tot

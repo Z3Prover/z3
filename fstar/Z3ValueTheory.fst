@@ -1,29 +1,13 @@
 (*
    Z3ValueTheory.fst
 
-   The shared semantic value domain, and the interpreted-operator
-   vocabulary (`decl_kind` codes), that every per-theory interpretation
-   module (`Z3ArrayInterp.fst`, `Z3SeqInterp.fst`, `Z3BvInterp.fst`)
-   and `Z3InterpretedProofChecker.fst`'s own "core" (bool/arith/`eq`)
-   ops are built against.
+   Legacy concrete values for existing unindexed interpretations and
+   soundness proofs. Deprecated as a foundation for new SMT semantics:
+   use Z3DatatypeValue with sort-indexed carriers such as Z3TypedRoot.
 
-   This type/these constants used to live directly inside
-   `Z3InterpretedProofChecker.fst`. They were pulled out into their own
-   module so that each theory's `arr`/`seq`/`bv` value representation
-   (`Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`) can be
-   wrapped by a small, *theory-owned* `interp_app : decl_kind -> list
-   value -> option value` dispatcher -- `Z3ArrayTheory.fst` itself
-   stays untouched (pure `arr`/`select`/`store` plus lemmas, with no
-   notion of `value` or `decl_kind` at all), while `Z3ArrayInterp.fst`
-   is the thin, `value`-aware companion module that *does* need both
-   `Z3ArrayTheory.fst` (for `arr`/`select`/`store`) and this module
-   (for `value`/`op_select`/`op_store`). Had `value` instead been
-   defined *inside* one of the theory files (or `value` left inside
-   `Z3InterpretedProofChecker.fst`, with each theory file in turn
-   trying to depend on it for its own `interp_app`), the two files
-   would need each other and F* has no notion of mutually-recursive
-   modules -- hence this separate, dependency-free-of-any-theory's-
-   `interp_app` home for `value` itself.
+   Operator tags live in Z3OperatorTags. The aliases below preserve
+   existing clients; tag-only consumers should import that module directly.
+   The legacy datatype remains unchanged until its proof clients migrate.
 *)
 module Z3ValueTheory
 open Z3AstTheory
@@ -59,16 +43,16 @@ type value =
    `op_not`/`op_plus`/`op_eq`/`op_true`/`op_false`/`op_num_int` --
    have no dedicated theory file of their own, so they stay directly
    in `Z3InterpretedProofChecker.fst`). *)
-let op_not : decl_kind = 1
-let op_plus : decl_kind = 2
-let op_select : decl_kind = 3
-let op_store : decl_kind = 4
-let op_bvand : decl_kind = 5
-let op_concat : decl_kind = 6
+let op_not : decl_kind = Z3OperatorTags.op_not
+let op_plus : decl_kind = Z3OperatorTags.op_plus
+let op_select : decl_kind = Z3OperatorTags.op_select
+let op_store : decl_kind = Z3OperatorTags.op_store
+let op_bvand : decl_kind = Z3OperatorTags.op_bvand
+let op_concat : decl_kind = Z3OperatorTags.op_concat
 (* Polymorphic equality (any sort `s`, `domain = [s;s]`, `range = Bool`).
    Added together with the injective-naming fix below so an `eq_symm`
    rewrite matcher can be proved sound without any new model axioms. *)
-let op_eq : decl_kind = 7
+let op_eq : decl_kind = Z3OperatorTags.op_eq
 
 (* Literal constants: `true`/`false` (`OP_TRUE`/`OP_FALSE`) and
    0-ary numeral applications (`OP_NUM`-family: `Z3_mk_int`/
@@ -83,10 +67,10 @@ let op_eq : decl_kind = 7
    *literals* always are). A numeral's literal value is carried in
    `func_decl.int_params` (already used by `re.loop`'s bounds), one
    element: `[v]`. *)
-let op_true : decl_kind = 8
-let op_false : decl_kind = 9
-let op_num_int : decl_kind = 10
-let op_num_bv : decl_kind = 11
+let op_true : decl_kind = Z3OperatorTags.op_true
+let op_false : decl_kind = Z3OperatorTags.op_false
+let op_num_int : decl_kind = Z3OperatorTags.op_num_int
+let op_num_bv : decl_kind = Z3OperatorTags.op_num_bv
 
 (* `seq.unit`: wraps a single `Int` element into the length-1
    sequence containing it (`Z3SeqTheory.unit`). Added so that
@@ -96,7 +80,7 @@ let op_num_bv : decl_kind = 11
    uninterpreted sub-term anywhere -- as themselves unique values,
    mirroring how `op_num_int`/`op_num_bv`/`op_true`/`op_false` already
    let literal Int/BV/Bool constants be recognized. *)
-let op_seq_unit : decl_kind = 12
+let op_seq_unit : decl_kind = Z3OperatorTags.op_seq_unit
 
 (* Binary Boolean connectives `and`/`or`/`=>`, added so the QF_UF
    benchmark corpus's dominant unmatched `Rewrite` shapes -- Z3's own
@@ -110,26 +94,26 @@ let op_seq_unit : decl_kind = 12
    for -- `decl_shape_ok` rejects any other arity, so a wider `and`/`or`
    application simply stays uninterpreted (`None`), same as any other
    not-yet-modeled op. *)
-let op_and : decl_kind = 13
-let op_or : decl_kind = 14
-let op_implies : decl_kind = 15
+let op_and : decl_kind = Z3OperatorTags.op_and
+let op_or : decl_kind = Z3OperatorTags.op_or
+let op_implies : decl_kind = Z3OperatorTags.op_implies
 
 (* Proof-only observational equivalence, not an executable Boolean op. *)
-let op_oeq : decl_kind = 16
+let op_oeq : decl_kind = Z3OperatorTags.op_oeq
 
-let op_mul : decl_kind = 17
-let op_array_ext : decl_kind = 18
-let op_ite : decl_kind = 19
-let op_xor : decl_kind = 20
-let op_distinct : decl_kind = 21
-let op_num_rational : decl_kind = 22
-let op_arith_add : decl_kind = 23
-let op_arith_mul : decl_kind = 24
-let op_arith_sub : decl_kind = 25
-let op_arith_div : decl_kind = 26
-let op_arith_le : decl_kind = 27
-let op_arith_lt : decl_kind = 28
-let op_arith_ge : decl_kind = 29
-let op_arith_gt : decl_kind = 30
-let op_to_real : decl_kind = 31
-let op_const_array : decl_kind = 32
+let op_mul : decl_kind = Z3OperatorTags.op_mul
+let op_array_ext : decl_kind = Z3OperatorTags.op_array_ext
+let op_ite : decl_kind = Z3OperatorTags.op_ite
+let op_xor : decl_kind = Z3OperatorTags.op_xor
+let op_distinct : decl_kind = Z3OperatorTags.op_distinct
+let op_num_rational : decl_kind = Z3OperatorTags.op_num_rational
+let op_arith_add : decl_kind = Z3OperatorTags.op_arith_add
+let op_arith_mul : decl_kind = Z3OperatorTags.op_arith_mul
+let op_arith_sub : decl_kind = Z3OperatorTags.op_arith_sub
+let op_arith_div : decl_kind = Z3OperatorTags.op_arith_div
+let op_arith_le : decl_kind = Z3OperatorTags.op_arith_le
+let op_arith_lt : decl_kind = Z3OperatorTags.op_arith_lt
+let op_arith_ge : decl_kind = Z3OperatorTags.op_arith_ge
+let op_arith_gt : decl_kind = Z3OperatorTags.op_arith_gt
+let op_to_real : decl_kind = Z3OperatorTags.op_to_real
+let op_const_array : decl_kind = Z3OperatorTags.op_const_array

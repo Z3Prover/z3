@@ -1,39 +1,40 @@
 module Z3SortedDatatype
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
 module T = Z3SortedSemantics
 module I = Z3SortedInteger
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module B = Z3BoundedBoolEquiv
 module BR = Z3BooleanRewrite
 module D = Z3Definitions
 module L = FStar.List.Tot
 module N = Z3BooleanNormalForm
+module CS = Z3ClausalSemantics
 
 let rec lemma_recognizer_tag (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_recognizer f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_recognizer)
+          (ensures f.interp == Some Z3DatatypeSyntax.op_recognizer)
           (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest ->
     (match S.constructor_id c.constructor with
      | Some (owner, tag) ->
-       if Z3DatatypeLemma.recognizer f (Var 0 c.constructor.range) <> Some (owner, tag)
+       if Z3DatatypeSyntax.recognizer f (Var 0 c.constructor.range) <> Some (owner, tag)
        then lemma_recognizer_tag f rest
      | None -> lemma_recognizer_tag f rest)
 
 let rec lemma_accessor_tag (f:func_decl) (cs:list S.constructor_case)
   : Lemma (requires Some? (S.find_accessor f cs))
-          (ensures f.interp == Some Z3DatatypeLemma.op_accessor)
+          (ensures f.interp == Some Z3DatatypeSyntax.op_accessor)
           (decreases cs) =
   match cs with
   | [] -> ()
   | c :: rest ->
-    (match S.constructor_id c.constructor, Z3DatatypeLemma.accessor f (Var 0 c.constructor.range) with
+    (match S.constructor_id c.constructor, Z3DatatypeSyntax.accessor f (Var 0 c.constructor.range) with
      | Some _, Some _ -> ()
      | _, _ -> lemma_accessor_tag f rest)
 
@@ -753,29 +754,48 @@ let lemma_eliminated (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_ca
     T.lemma_negation s bc eq other f a
   | _ -> ()
 
-let rec lemma_literal_member (rho:expr -> GTot bool) (es:list expr) (e:expr)
+let rec lemma_clausal_disjunction (rho:CS.valuation) (es:list expr)
+  : Lemma (CS.clause_holds rho es == B.geval_args rho B.Or (L.map B.Atom es))
+          (decreases es) =
+  match es with
+  | [] -> ()
+  | _ :: rest -> lemma_clausal_disjunction rho rest
+
+let lemma_literal_member (rho:expr -> GTot bool) (es:list expr) (e:expr)
   : Lemma (requires L.mem e es /\ rho e)
           (ensures B.geval_args rho B.Or (L.map B.Atom es))
-          (decreases es) =
-  match es with [] -> () | x :: rest -> if x <> e then lemma_literal_member rho rest e
+  = FStar.List.Tot.Properties.mem_memP e es;
+    CS.lemma_clause_member rho es e;
+    lemma_clausal_disjunction rho es
 
-let rec lemma_resolved (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+let lemma_resolved (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
                       (units:list expr) (conclusion:expr) (clause:list expr)
   : Lemma (requires T.truths s bc eq other units /\ D.scoped [] conclusion /\
                     get_sort conclusion == bool_sort /\ resolved units conclusion clause /\
                     B.geval_args (T.truth s bc eq other) B.Or (L.map B.Atom clause))
           (ensures T.truth s bc eq other conclusion)
-          (decreases clause) =
-  match clause with
-  | [] -> ()
-  | e :: rest ->
-    if T.truth s bc eq other e then (
+  =
+  let rho = T.truth s bc eq other in
+  let rec member (es:list expr) (e:expr)
+    : Lemma (requires resolved units conclusion es /\ L.memP e es)
+            (ensures eliminated units e \/ e == conclusion \/ L.mem e (literals conclusion))
+            (decreases es) =
+    match es with
+    | [] -> ()
+    | x :: rest -> if x <> e then member rest e in
+  let covered (e:expr)
+    : Lemma (L.memP e clause /\ rho e ==> rho conclusion) =
+    FStar.List.Tot.Properties.mem_memP e clause;
+    if L.mem e clause && rho e then (
+      member clause e;
       if eliminated units e then lemma_eliminated s bc eq other units e
       else if e <> conclusion then (
         lemma_literal_member (T.truth s bc eq other) (literals conclusion) e;
-        lemma_literals s bc eq other conclusion))
-    else lemma_resolved s bc eq other units conclusion rest
+        lemma_literals s bc eq other conclusion)) in
+  FStar.Classical.forall_intro covered;
+  lemma_clausal_disjunction rho clause;
+  CS.lemma_clause_consequence rho clause conclusion
 
 let lemma_simple_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                              (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))

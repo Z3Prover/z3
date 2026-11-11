@@ -11,6 +11,8 @@ module Z3ObservationalEquality
 open Z3AstTheory
 open Z3ValueTheory
 open Z3ResolutionProofTheory
+module OS = Z3ObservationalSemantics
+module C = Z3CanonicalOps
 
 let typed_oeq_decl (s:sort) : func_decl =
   { decl_name = "~"; domain = [s; s]; range = bool_sort;
@@ -88,6 +90,25 @@ let boolean_model (i:interpretation value) : prop =
   forall (a:expr) (rho:env value).
     get_sort a == bool_sort ==> VBool? (eval i a rho)
 
+let denotation (#value:Type) (i:interpretation value) (rho:env value)
+  : OS.denotation value (fun _ -> true) =
+  fun e -> eval i e rho
+
+let lemma_agreement (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (observations_agree i rho a b <==>
+           OS.observations_agree (VBool true) (denotation i rho) a b)
+  = ()
+
+let lemma_boolean_values (i:interpretation value) (rho:env value)
+  : Lemma (requires boolean_model i)
+          (ensures OS.boolean_model (VBool true) (VBool false) (denotation i rho))
+  = let aux (e:expr)
+      : Lemma (get_sort e == bool_sort ==>
+               OS.boolean_value (VBool true) (VBool false) (eval i e rho))
+      = if get_sort e = bool_sort then
+          match eval i e rho with VBool _ -> () | _ -> () in
+    FStar.Classical.forall_intro aux
+
 let rec o_obligations (i:interpretation value) (p:oproof)
   : Tot prop (decreases p) =
   match p with
@@ -116,32 +137,67 @@ and osizes (ps:list oproof) : Tot nat (decreases ps) =
   | [] -> 0
   | p :: rest -> 1 + osize p + osizes rest
 
+let lemma_observations_values_typed (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires observations_agree i rho a b /\
+                    (get_sort a == bool_sort ==>
+                     VBool? (eval i a rho) /\ VBool? (eval i b rho)))
+          (ensures eval i a rho == eval i b rho)
+  = lemma_agreement i rho a b;
+    (if get_sort a = bool_sort then
+       match eval i a rho, eval i b rho with VBool _, VBool _ -> () | _, _ -> ());
+    OS.lemma_values (VBool true) (VBool false) (denotation i rho) a b
+
 let lemma_observations_values (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires boolean_model i /\ observations_agree i rho a b)
           (ensures eval i a rho == eval i b rho)
-  = if get_sort a <> bool_sort then ()
-    else match eval i a rho, eval i b rho with
-    | VBool x, VBool y -> ()
-    | _, _ -> ()
+  = lemma_observations_values_typed i rho a b
 
-let rec lemma_oproof_sound (i:interpretation value) (p:oproof) (rho:env value)
-  : Lemma (requires Some? (ofact p) /\ o_obligations i p /\
-                    boolean_model i /\ eq_sound i)
-          (ensures observations_agree i rho (fst (Some?.v (ofact p)))
-                                            (snd (Some?.v (ofact p))))
+(* Per-environment obligations and contracts have no concrete value
+   constructors. The legacy universally quantified API is adapted below. *)
+let equality_model (#value:Type) (vtrue:value) (i:interpretation value) (rho:env value) : prop =
+  forall (f:func_decl) (a b:expr).
+    C.canonical_eq f ==>
+    (eval i (App f [a; b]) rho == vtrue <==> eval i a rho == eval i b rho)
+
+let rec o_obligations_at (#value:Type) (vtrue:value) (i:interpretation value)
+                         (rho:env value) (p:oproof)
+  : Tot prop (decreases p) =
+  match p with
+  | ORefl _ -> True
+  | OSym q -> o_obligations_at vtrue i rho q
+  | OTrans q r -> o_obligations_at vtrue i rho q /\ o_obligations_at vtrue i rho r
+  | OCongr _ _ _ ps -> o_obligations_list_at vtrue i rho ps
+  | OIff a b -> eval i (mk_iff_expr a b) rho == vtrue
+  | OPremise a b -> OS.observations_agree vtrue (denotation i rho) a b
+
+and o_obligations_list_at (#value:Type) (vtrue:value) (i:interpretation value)
+                          (rho:env value) (ps:list oproof)
+  : Tot prop (decreases ps) =
+  match ps with
+  | [] -> True
+  | p :: rest -> o_obligations_at vtrue i rho p /\ o_obligations_list_at vtrue i rho rest
+
+let rec lemma_oproof_sound_at (#value:Type) (vtrue vfalse:value)
+                              (i:interpretation value) (p:oproof) (rho:env value)
+  : Lemma (requires Some? (ofact p) /\ o_obligations_at vtrue i rho p /\
+                    OS.boolean_model vtrue vfalse (denotation i rho) /\ equality_model vtrue i rho)
+          (ensures OS.observations_agree vtrue (denotation i rho)
+                     (fst (Some?.v (ofact p))) (snd (Some?.v (ofact p))))
           (decreases %[osize p; 0])
   = match p with
     | ORefl _ | OIff _ _ | OPremise _ _ -> ()
-    | OSym q -> lemma_oproof_sound i q rho
+    | OSym q -> lemma_oproof_sound_at vtrue vfalse i q rho
     | OTrans q r ->
-      lemma_oproof_sound i q rho;
-      lemma_oproof_sound i r rho
-    | OCongr f xs ys ps -> lemma_observation_args_sound i xs ys ps rho
+      lemma_oproof_sound_at vtrue vfalse i q rho;
+      lemma_oproof_sound_at vtrue vfalse i r rho
+    | OCongr f xs ys ps -> lemma_observation_args_sound_at vtrue vfalse i xs ys ps rho
 
-and lemma_matching_observation_sound (i:interpretation value) (a b:expr)
-                                    (ps:list oproof) (rho:env value)
+and lemma_matching_observation_sound_at (#value:Type) (vtrue vfalse:value)
+                                       (i:interpretation value) (a b:expr)
+                                       (ps:list oproof) (rho:env value)
   : Lemma (requires observation_matches a b (ofacts ps) /\
-                    o_obligations_list i ps /\ boolean_model i /\ eq_sound i)
+                    o_obligations_list_at vtrue i rho ps /\
+                    OS.boolean_model vtrue vfalse (denotation i rho) /\ equality_model vtrue i rho)
           (ensures eval i a rho == eval i b rho)
           (decreases %[osizes ps; 0])
   = match ps with
@@ -150,27 +206,75 @@ and lemma_matching_observation_sound (i:interpretation value) (a b:expr)
       (match ofact p with
        | Some (s, t) ->
          if s = a && t = b then (
-           lemma_oproof_sound i p rho;
-           lemma_observations_values i rho a b)
-         else lemma_matching_observation_sound i a b rest rho
-       | None -> lemma_matching_observation_sound i a b rest rho)
+           lemma_oproof_sound_at vtrue vfalse i p rho;
+           OS.lemma_values vtrue vfalse (denotation i rho) a b)
+         else lemma_matching_observation_sound_at vtrue vfalse i a b rest rho
+       | None -> lemma_matching_observation_sound_at vtrue vfalse i a b rest rho)
 
-and lemma_observation_args_sound (i:interpretation value) (xs ys:list expr)
-                                (ps:list oproof) (rho:env value)
+and lemma_observation_args_sound_at (#value:Type) (vtrue vfalse:value)
+                                   (i:interpretation value) (xs ys:list expr)
+                                   (ps:list oproof) (rho:env value)
   : Lemma (requires observations_matched xs ys (ofacts ps) /\
-                    o_obligations_list i ps /\ boolean_model i /\ eq_sound i)
+                    o_obligations_list_at vtrue i rho ps /\
+                    OS.boolean_model vtrue vfalse (denotation i rho) /\ equality_model vtrue i rho)
           (ensures eval_args i xs rho == eval_args i ys rho)
           (decreases %[osizes ps; List.Tot.length xs])
   = match xs, ys with
     | [], [] -> ()
     | x :: xs', y :: ys' ->
-      (if x = y then () else lemma_matching_observation_sound i x y ps rho);
-      lemma_observation_args_sound i xs' ys' ps rho
+      (if x = y then () else lemma_matching_observation_sound_at vtrue vfalse i x y ps rho);
+      lemma_observation_args_sound_at vtrue vfalse i xs' ys' ps rho
+
+let rec lemma_obligations_at (i:interpretation value) (rho:env value) (p:oproof)
+  : Lemma (requires o_obligations i p)
+          (ensures o_obligations_at (VBool true) i rho p)
+          (decreases p)
+  = match p with
+    | ORefl _ | OIff _ _ -> ()
+    | OPremise a b -> lemma_agreement i rho a b
+    | OSym q -> lemma_obligations_at i rho q
+    | OTrans q r -> lemma_obligations_at i rho q; lemma_obligations_at i rho r
+    | OCongr _ _ _ ps -> lemma_obligations_list_at i rho ps
+
+and lemma_obligations_list_at (i:interpretation value) (rho:env value) (ps:list oproof)
+  : Lemma (requires o_obligations_list i ps)
+          (ensures o_obligations_list_at (VBool true) i rho ps)
+          (decreases ps)
+  = match ps with
+    | [] -> ()
+    | p :: rest -> lemma_obligations_at i rho p; lemma_obligations_list_at i rho rest
+
+let lemma_oproof_sound (i:interpretation value) (p:oproof) (rho:env value)
+  : Lemma (requires Some? (ofact p) /\ o_obligations i p /\ boolean_model i /\ eq_sound i)
+          (ensures observations_agree i rho (fst (Some?.v (ofact p))) (snd (Some?.v (ofact p))))
+  = lemma_obligations_at i rho p;
+    lemma_boolean_values i rho;
+    lemma_oproof_sound_at (VBool true) (VBool false) i p rho;
+    lemma_agreement i rho (fst (Some?.v (ofact p))) (snd (Some?.v (ofact p)))
+
+let lemma_matching_observation_sound (i:interpretation value) (a b:expr)
+                                    (ps:list oproof) (rho:env value)
+  : Lemma (requires observation_matches a b (ofacts ps) /\
+                    o_obligations_list i ps /\ boolean_model i /\ eq_sound i)
+          (ensures eval i a rho == eval i b rho)
+  = lemma_obligations_list_at i rho ps;
+    lemma_boolean_values i rho;
+    lemma_matching_observation_sound_at (VBool true) (VBool false) i a b ps rho
+
+let lemma_observation_args_sound (i:interpretation value) (xs ys:list expr)
+                                (ps:list oproof) (rho:env value)
+  : Lemma (requires observations_matched xs ys (ofacts ps) /\
+                    o_obligations_list i ps /\ boolean_model i /\ eq_sound i)
+          (ensures eval_args i xs rho == eval_args i ys rho)
+  = lemma_obligations_list_at i rho ps;
+    lemma_boolean_values i rho;
+    lemma_observation_args_sound_at (VBool true) (VBool false) i xs ys ps rho
 
 let lemma_mp_oeq_sound (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires observations_agree i rho a b /\ lit_true i rho a)
           (ensures lit_true i rho b)
-  = ()
+  = lemma_agreement i rho a b;
+    OS.lemma_mp (VBool true) (denotation i rho) a b
 
 let decide_mp_oeq (a relation:expr) : option expr =
   match is_oeq relation with
@@ -192,4 +296,8 @@ let lemma_observations_equisatisfiable (i:interpretation value) (a b:expr)
   : Lemma (requires forall (rho:env value). observations_agree i rho a b)
           (ensures (exists (rho:env value). lit_true i rho a) <==>
                    (exists (rho:env value). lit_true i rho b))
-  = ()
+  = let aux (rho:env value)
+      : Lemma (OS.observations_agree (VBool true) (denotation i rho) a b)
+      = lemma_agreement i rho a b in
+    FStar.Classical.forall_intro aux;
+    OS.lemma_equisatisfiable (VBool true) (denotation i) a b

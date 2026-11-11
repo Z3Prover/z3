@@ -2142,10 +2142,10 @@ class ReadableTagTests(unittest.TestCase):
 
     def test_cherry_expression_rows_use_the_operator_tags_of_the_f_star_source(self):
         # Pretty in the Cherry driver mirrors Z3NativeMain.pretty_judgment for the `expression` rows; the extracted checker does not
-        # export these Z3ValueTheory tags. The printer never references a checking or marshaling entry point.
+        # export these Z3OperatorTags tags. The printer never references a checking or marshaling entry point.
         root = Path(__file__).resolve().parent.parent
         values = dict(re.findall(r"let (op_\w+) : decl_kind = (\d+)",
-                                 (root / "Z3ValueTheory.fst").read_text(encoding="utf-8")))
+                                 (root / "Z3OperatorTags.fst").read_text(encoding="utf-8")))
         main = (root / "cherry_runtime" / "main.cpp").read_text(encoding="utf-8")
         pretty = main[main.index("class Pretty {"):main.index("static std::string rule_name(")]
         tags = re.findall(r"static constexpr int64_t (op_\w+) = (\d+);", pretty)

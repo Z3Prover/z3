@@ -725,11 +725,15 @@ let rec lemma_matched_context (rs:list F.reconstruction) (es:list expr)
           (ensures conj_holds j rho es)
           (decreases rs)
   = match rs, es with
-    | r :: rest, _ :: tail ->
+    | r :: rest, e :: tail ->
       lemma_matched_context rest tail j rho;
       assert (eval j (F.word r) rho == eval j (F.source r) rho);
       let v = eval j (F.source r) rho in
-      assert (j.interp_app (eq_decl (get_sort (F.source r))) [v; v] == VBool true)
+      assert (j.interp_app (eq_decl (get_sort (F.source r))) [v; v] == VBool true);
+      assert (j.interp_app (eq_decl (get_sort (F.word r))) [v; v] == VBool true);
+      assert (e == mk_eq_expr (F.source r) (F.word r) \/
+              e == mk_eq_expr (F.word r) (F.source r));
+      assert (eval j e rho == VBool true)
     | _, _ -> ()
 
 let lemma_scoped_context_extension (inputs es:list expr) (rs:list F.reconstruction)

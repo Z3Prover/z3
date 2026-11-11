@@ -100,7 +100,7 @@ let fingerprint judgment =
           name ^ "(" ^ expression (depth - 1) body ^ ")"
       | A.App (decl, args) ->
           let head =
-            if decl.A.interp = Some Z3ValueTheory.op_num_rational then
+            if decl.A.interp = Some Z3OperatorTags.op_num_rational then
               match decl.A.int_params with
               | [n; d] ->
                   let number = Z.to_string n ^ "/" ^ Z.to_string d in
@@ -137,7 +137,7 @@ let fingerprint judgment =
 
 let pretty_judgment judgment =
   let module A = Z3AstTheory in
-  let module V = Z3ValueTheory in
+  let module V = Z3OperatorTags in
   let budget = ref 512 and next_bound = ref 0 in
   let original_name prefix name =
     let prefix = prefix ^ "!" in
@@ -452,7 +452,7 @@ module Readable = struct
      not completed. *)
   let head state ~implied decl =
     match decl.A.interp, decl.A.int_params with
-    | Some k, [n; d] when Z.equal k Z3ValueTheory.op_num_rational ->
+    | Some k, [n; d] when Z.equal k Z3OperatorTags.op_num_rational ->
         add state (integer n);
         if not (Z.equal d Z.one) then add state ("/" ^ integer d);
         (match decl.A.range with

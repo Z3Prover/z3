@@ -1,7 +1,7 @@
 module Z3ClauseProof
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ResolutionProofTheory
 open Z3UnifiedProof
 open Z3ProofIndex

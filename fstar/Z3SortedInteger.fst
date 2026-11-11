@@ -1,7 +1,7 @@
 module Z3SortedInteger
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module A = Z3LinearArithmeticAst
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature

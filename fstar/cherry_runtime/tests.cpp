@@ -132,7 +132,7 @@ bool readable_regressions() {
     auto numeral = [&](cherry_int n, cherry_int d, Z3AstTheory_sort range) {
         return constant("numeral", range, Z3Cherry_rational_op, {n, d});
     };
-    // F* Z3BvLemma.op_numeral / op_extract, Z3ValueTheory.op_and / op_not
+    // F* Z3BvLemma.op_numeral / op_extract, Z3OperatorTags.op_and / op_not
     auto bv_numeral_tag = CHERRY_INT_SMALL(108), extract_tag = CHERRY_INT_SMALL(111),
          and_tag = CHERRY_INT_SMALL(13), not_tag = CHERRY_INT_SMALL(1);
     // values and sorts
@@ -324,7 +324,7 @@ bool pretty_regressions() {
     };
     auto bool_s = base("Bool"), int_s = base("Int"), real_s = base("Real");
     auto decimal = [](std::string const& digits) { return cherry_int_of_decimal(digits.c_str()); };
-    // F* Z3ValueTheory.op_not / op_eq / op_and / op_or / op_arith_add / op_arith_mul / op_arith_sub / op_arith_gt
+    // F* Z3OperatorTags.op_not / op_eq / op_and / op_or / op_arith_add / op_arith_mul / op_arith_sub / op_arith_gt
     auto not_tag = CHERRY_INT_SMALL(1), eq_tag = CHERRY_INT_SMALL(7), and_tag = CHERRY_INT_SMALL(13),
          or_tag = CHERRY_INT_SMALL(14), add_tag = CHERRY_INT_SMALL(23), mul_tag = CHERRY_INT_SMALL(24),
          sub_tag = CHERRY_INT_SMALL(25), gt_tag = CHERRY_INT_SMALL(30);
@@ -459,7 +459,7 @@ bool readable_edge_cases() {
     auto decimal = [](std::string const& digits) { return cherry_int_of_decimal(digits.c_str()); };
     auto huge = [](char const* sign) { return std::string("<") + sign + "huge integer: more than 100 digits omitted>"; };
     auto shown = [](Z3AstTheory_expr value) { return text(value).first; };
-    // F* Z3BvLemma.op_numeral / op_extract, Z3ValueTheory.op_eq (tools/test_native_checker.py guards op_numeral)
+    // F* Z3BvLemma.op_numeral / op_extract, Z3OperatorTags.op_eq (tools/test_native_checker.py guards op_numeral)
     auto bv_tag = CHERRY_INT_SMALL(108), extract_tag = CHERRY_INT_SMALL(111), eq_tag = CHERRY_INT_SMALL(7);
     auto bv_numeral = [&](int64_t width, cherry_int value) {
         return constant("bv", base("BV" + std::to_string(width)), bv_tag, {z(width), value});
@@ -536,7 +536,7 @@ bool readable_edge_cases() {
     // follows from what is printed. A constant array needs it most: its domain sorts occur nowhere in its arguments, so without the
     // range arrays over different domains read the same.
     auto real_sort = base("Real");
-    // F* Z3ValueTheory op_select / op_store / op_true / op_const_array / op_ite / op_to_real / op_arith_add / op_arith_le and
+    // F* Z3OperatorTags op_select / op_store / op_true / op_const_array / op_ite / op_to_real / op_arith_add / op_arith_le and
     // Z3BvLemma op_add / op_concat / op_zero_extend
     auto select_tag = CHERRY_INT_SMALL(3), store_tag = CHERRY_INT_SMALL(4), true_tag = CHERRY_INT_SMALL(8),
          ite_tag = CHERRY_INT_SMALL(19), add_tag = CHERRY_INT_SMALL(23), le_tag = CHERRY_INT_SMALL(27),

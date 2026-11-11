@@ -1,9 +1,9 @@
 module Z3DistinctAst
 
-(* Native declarations use Z3ValueTheory's tag namespace, not the older
+(* Native declarations use Z3OperatorTags' namespace, not the older
    basic-family decl_kind_of numbering in Z3BasicExprTheory. *)
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3ResolutionProofTheory
 open Z3BooleanRewrite
 open FStar.List.Tot

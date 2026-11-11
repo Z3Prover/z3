@@ -163,8 +163,8 @@ let lemma_edge_values (i:interpretation value) (dom:CO.domains) (scope:list sort
       assert (D.scoped scope a /\ D.scoped scope b);
       if get_sort a = bool_sort then (
         CO.lemma_typed_bool i dom scope a rho;
-        CO.lemma_typed_bool i dom scope b rho;
-        match eval i a rho, eval i b rho with VBool _, VBool _ -> () | _, _ -> ())
+        CO.lemma_typed_bool i dom scope b rho);
+      lemma_observations_values_typed i rho a b
 
 let rec lemma_matching (i:interpretation value) (dom:CO.domains) (scope:list sort) (rho:env value)
                        (r:relation) (a b:expr) (js:list judgment)

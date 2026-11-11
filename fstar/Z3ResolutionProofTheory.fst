@@ -39,13 +39,20 @@ open Z3AstTheory
 open Z3ValueTheory
 open Z3ProofTheory
 module C = Z3CanonicalOps
+module CS = Z3ClausalSemantics
+module S = Z3ClauseSyntax
 
 (* ----------------------------------------------------------------- *)
 (* Literals and clauses                                                *)
 (* ----------------------------------------------------------------- *)
 
-type literal = expr
-type clause = list literal
+type literal = CS.literal
+type clause = CS.clause
+
+let valuation (i:interpretation value) (rho:env value) (e:expr) : GTot bool =
+  match eval i e rho with
+  | VBool b -> b
+  | _ -> false
 
 let lit_true (i:interpretation value) (rho:env value) (l:literal) : prop =
   eval i l rho == VBool true
@@ -63,16 +70,25 @@ let rec conj_holds (i:interpretation value) (rho:env value) (c:list expr) : Tot 
   | [] -> True
   | l :: c' -> lit_true i rho l /\ conj_holds i rho c'
 
+let rec lemma_clause_valuation (i:interpretation value) (rho:env value) (c:clause)
+  : Lemma (clause_holds i rho c <==> CS.clause_holds (valuation i rho) c)
+          (decreases c)
+  = match c with
+    | [] -> ()
+    | _ :: rest -> lemma_clause_valuation i rho rest
+
+let rec lemma_conj_valuation (i:interpretation value) (rho:env value) (c:clause)
+  : Lemma (conj_holds i rho c <==> CS.conj_holds (valuation i rho) c)
+          (decreases c)
+  = match c with
+    | [] -> ()
+    | _ :: rest -> lemma_conj_valuation i rho rest
+
 (* `src/ast/proofs/proof_checker.cpp`'s `m.is_complement`. Only the
    canonical `true`, `false` and `not` (`Z3CanonicalOps`) count: a user
    declaration that merely carries one of those names is an ordinary atom. *)
 let complementary (l1 l2:literal) : bool =
-  is_not l1 = Some l2 || is_not l2 = Some l1 ||
-  (match l1, l2 with
-   | App f [], App g [] ->
-     (C.canonical_true f && C.canonical_false g) ||
-     (C.canonical_false f && C.canonical_true g)
-   | _, _ -> false)
+  CS.complementary l1 l2
 
 (* ----------------------------------------------------------------- *)
 (* Connective soundness hypotheses, explicit on `i` (same style as     *)
@@ -203,10 +219,7 @@ let lemma_complementary_sound (i:interpretation value) (rho:env value) (l1 l2:li
 (* PR_UNIT_RESOLUTION's core step and n-ary fold.                      *)
 (* ----------------------------------------------------------------- *)
 
-let rec remove_first (c:clause) (l:literal) : Tot clause (decreases c) =
-  match c with
-  | [] -> []
-  | l0 :: c' -> if l0 = l then c' else l0 :: remove_first c' l
+let remove_first (c:clause) (l:literal) : clause = CS.remove_first c l
 
 (* Well-sortedness: every literal of `c` is Boolean-valued under `i`,
    `rho` -- the semantic side condition every real clause disjunct
@@ -222,32 +235,28 @@ let rec lemma_remove_first_wf (i:interpretation value) (rho:env value) (c:clause
     | [] -> ()
     | l0 :: c' -> if l0 = l then () else lemma_remove_first_wf i rho c' l
 
-let rec lemma_clause_shrink (i:interpretation value) (rho:env value) (c:clause) (l:literal)
+let lemma_clause_shrink (i:interpretation value) (rho:env value) (c:clause) (l:literal)
   : Lemma (requires clause_holds i rho c /\ lit_is_false i rho l)
           (ensures clause_holds i rho (remove_first c l))
-          (decreases c)
-  = match c with
-    | [] -> ()
-    | l0 :: c' ->
-      if l0 = l then ()
-      else
-        (FStar.Classical.excluded_middle (lit_true i rho l0);
-         let goal () : prop = clause_holds i rho (remove_first c l) in
-         FStar.Classical.or_elim #(lit_true i rho l0) #(~ (lit_true i rho l0)) #goal
-           (fun _ -> ())
-           (fun _ -> lemma_clause_shrink i rho c' l))
+  = lemma_clause_valuation i rho c;
+    CS.lemma_clause_shrink (valuation i rho) c l;
+    lemma_clause_valuation i rho (remove_first c l)
 
-let rec remove_complements (c:clause) (f:literal) : Tot clause (decreases c) =
-  match c with
-  | [] -> []
-  | l0 :: c' ->
-    if complementary l0 f then remove_complements c' f
-    else l0 :: remove_complements c' f
+let remove_complements (c:clause) (f:literal) : clause = CS.remove_complements c f
 
 (* Both negation and constant-complement cases are symmetric. *)
 let lemma_complementary_sym (l1 l2:literal)
   : Lemma (complementary l1 l2 == complementary l2 l1)
-  = ()
+  = CS.lemma_complementary_sym l1 l2
+
+let lemma_valuation_complements (i:interpretation value) (rho:env value)
+  : Lemma (requires canonical_not_sound i /\ canonical_true_sound i /\ canonical_false_sound i)
+          (ensures CS.complement_model (valuation i rho))
+  = let aux (a b:literal)
+      : Lemma (complementary a b /\ valuation i rho a ==> not (valuation i rho b))
+      = if complementary a b && valuation i rho a && valuation i rho b then
+          lemma_complementary_sound i rho a b in
+    FStar.Classical.forall_intro_2 aux
 
 let rec lemma_remove_complements_wf (i:interpretation value) (rho:env value)
                                     (c:clause) (f:literal)
@@ -258,43 +267,28 @@ let rec lemma_remove_complements_wf (i:interpretation value) (rho:env value)
     | [] -> ()
     | _ :: c' -> lemma_remove_complements_wf i rho c' f
 
-let rec lemma_remove_complements_sound (i:interpretation value) (rho:env value)
+let lemma_remove_complements_sound (i:interpretation value) (rho:env value)
                                        (c:clause) (f:literal)
   : Lemma (requires clause_holds i rho c /\ canonical_not_sound i /\ canonical_true_sound i /\
                     canonical_false_sound i /\ wf_clause i rho c /\ lit_true i rho f)
           (ensures clause_holds i rho (remove_complements c f))
-          (decreases c)
-  = match c with
-    | [] -> ()
-    | l0 :: c' ->
-      if complementary l0 f then (
-        lemma_complementary_sym l0 f;
-        lemma_complementary_sound i rho f l0;
-        lemma_remove_complements_sound i rho c' f)
-      else (
-        FStar.Classical.excluded_middle (lit_true i rho l0);
-        FStar.Classical.or_elim #(lit_true i rho l0) #(~ (lit_true i rho l0))
-          #(fun () -> clause_holds i rho (remove_complements c f))
-          (fun _ -> ())
-          (fun _ -> lemma_remove_complements_sound i rho c' f))
+  = lemma_valuation_complements i rho;
+    lemma_clause_valuation i rho c;
+    CS.lemma_remove_complements (valuation i rho) c f;
+    lemma_clause_valuation i rho (remove_complements c f)
 
-let rec unit_resolve (c:clause) (fmls:list literal) : Tot clause (decreases fmls) =
-  match fmls with
-  | [] -> c
-  | f :: fmls' -> unit_resolve (remove_complements c f) fmls'
+let unit_resolve (c:clause) (fmls:list literal) : clause = CS.unit_resolve c fmls
 
-let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
+let lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
   : Lemma (requires clause_holds i rho c /\ canonical_not_sound i /\ canonical_true_sound i /\
                     canonical_false_sound i /\ wf_clause i rho c /\
                     (forall (f:literal). List.Tot.memP f fmls ==> lit_true i rho f))
           (ensures clause_holds i rho (unit_resolve c fmls))
-          (decreases fmls)
-  = match fmls with
-    | [] -> ()
-    | f :: fmls' ->
-      lemma_remove_complements_sound i rho c f;
-      lemma_remove_complements_wf i rho c f;
-      lemma_unit_resolve_sound i rho (remove_complements c f) fmls'
+  = lemma_valuation_complements i rho;
+    lemma_clause_valuation i rho c;
+    CS.lemma_conj_intro (valuation i rho) fmls;
+    CS.lemma_unit_resolution (valuation i rho) c fmls;
+    lemma_clause_valuation i rho (unit_resolve c fmls)
 
 (* The full `PR_UNIT_RESOLUTION` soundness statement: a true clause,
    resolved against a list of proven-true resolvent facts, remains a
@@ -314,21 +308,17 @@ let lemma_unit_resolution_sound (i:interpretation value) (rho:env value) (c:clau
 (* PR_AND_ELIM / PR_NOT_OR_ELIM                                        *)
 (* ----------------------------------------------------------------- *)
 
-let rec lemma_and_elim_sound (i:interpretation value) (rho:env value) (c:list expr) (t:expr)
+let lemma_and_elim_sound (i:interpretation value) (rho:env value) (c:list expr) (t:expr)
   : Lemma (requires conj_holds i rho c /\ List.Tot.memP t c)
           (ensures lit_true i rho t)
-          (decreases c)
-  = match c with
-    | [] -> ()
-    | l0 :: c' -> if l0 = t then () else lemma_and_elim_sound i rho c' t
+  = lemma_conj_valuation i rho c;
+    CS.lemma_conj_member (valuation i rho) c t
 
-let rec lemma_not_or_elim_sound (i:interpretation value) (rho:env value) (c:clause) (t:expr)
+let lemma_not_or_elim_sound (i:interpretation value) (rho:env value) (c:clause) (t:expr)
   : Lemma (requires ~(clause_holds i rho c) /\ List.Tot.memP t c /\ VBool? (eval i t rho))
           (ensures lit_is_false i rho t)
-          (decreases c)
-  = match c with
-    | [] -> ()
-    | l0 :: c' -> if l0 = t then () else lemma_not_or_elim_sound i rho c' t
+  = lemma_clause_valuation i rho c;
+    CS.lemma_clause_false_member (valuation i rho) c t
 
 (* ----------------------------------------------------------------- *)
 (* PR_MODUS_PONENS / PR_MODUS_PONENS_OEQ                                *)
@@ -353,14 +343,14 @@ let lemma_commutativity_sound (i:interpretation value) (rho:env value) (f:func_d
 (* ----------------------------------------------------------------- *)
 
 let eq_decl (s0:sort) : func_decl =
-  { decl_name = "="; domain = [s0; s0]; range = bool_sort; interp = Some op_eq; int_params = [] }
+  S.eq_decl s0
 
-let mk_eq_expr (s t:expr) : expr = App (eq_decl (get_sort s)) [s; t]
+let mk_eq_expr (s t:expr) : expr = S.mk_eq_expr s t
 
-let mk_iff_expr (a b:expr) : expr = App (eq_decl bool_sort) [a; b]
+let mk_iff_expr (a b:expr) : expr = S.mk_iff_expr a b
 
-let true_expr : expr = App ({ decl_name = "true"; domain = []; range = bool_sort; interp = Some op_true; int_params = [] }) []
-let false_expr : expr = App ({ decl_name = "false"; domain = []; range = bool_sort; interp = Some op_false; int_params = [] }) []
+let true_expr : expr = S.true_expr
+let false_expr : expr = S.false_expr
 
 (* The declarations the checkers build are the canonical ones. *)
 let lemma_eq_decl_canonical (s:sort)
@@ -374,38 +364,22 @@ let lemma_constants_canonical ()
 (* A clause is read off a canonical `or` (its disjuncts) or the canonical
    `false` (the empty clause); any other formula is a unit clause. *)
 let formula_clause (e:expr) : clause =
-  match e with
-  | App f args ->
-    if C.canonical_or f then args
-    else if C.canonical_false f && args = [] then []
-    else [e]
-  | _ -> [e]
+  S.formula_clause e
 
 let consequence_covers (concl lit:expr) : bool =
-  lit = concl ||
-  (match concl with
-   | App f args -> C.canonical_or f && List.Tot.mem lit args
-   | _ -> false)
+  S.consequence_covers concl lit
 
-let rec clause_consequence (residual:clause) (concl:expr) : Tot bool (decreases residual) =
-  match residual with
-  | [] -> true
-  | l :: rest -> consequence_covers concl l && clause_consequence rest concl
+let clause_consequence (residual:clause) (concl:expr) : bool =
+  S.clause_consequence residual concl
 
 let resolution_residual (c:expr) (units:list literal) : clause =
-  match units with
-  | [u] ->
-    if complementary c u then []
-    else unit_resolve (formula_clause c) units
-  | _ -> unit_resolve (formula_clause c) units
+  S.resolution_residual c units
 
-let rec lemma_clause_member (i:interpretation value) (rho:env value) (c:clause) (l:expr)
+let lemma_clause_member (i:interpretation value) (rho:env value) (c:clause) (l:expr)
   : Lemma (requires List.Tot.memP l c /\ lit_true i rho l)
           (ensures clause_holds i rho c)
-          (decreases c)
-  = match c with
-    | [] -> ()
-    | h :: rest -> if h = l then () else lemma_clause_member i rho rest l
+  = CS.lemma_clause_member (valuation i rho) c l;
+    lemma_clause_valuation i rho c
 
 let lemma_formula_clause (i:interpretation value) (rho:env value) (e:expr)
   : Lemma (requires lit_true i rho e /\ canonical_or_sound i /\ canonical_false_sound i)
@@ -551,8 +525,8 @@ type rproof =
 (* `not`, as the canonical `func_decl` (`Z3CanonicalOps.not_decl`): the
    only declaration `Z3ProofTheory.is_not` recognizes. *)
 let not_decl : func_decl =
-  { decl_name = "not"; domain = [bool_sort]; range = bool_sort; interp = Some op_not; int_params = [] }
-let mk_not_expr (a:expr) : expr = App not_decl [a]
+  S.not_decl
+let mk_not_expr (a:expr) : expr = S.mk_not_expr a
 
 let lemma_not_decl_canonical (a:expr)
   : Lemma (C.canonical_not not_decl) [SMTPat (mk_not_expr a)]

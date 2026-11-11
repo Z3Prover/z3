@@ -41,13 +41,54 @@ on the legacy `Z3UnifiedProof.model_sound`, which has no model.
 
 ## Modules and architecture
 
+`Z3OperatorTags.fst` owns the checker-internal operator vocabulary independently
+of semantic carriers. `Z3ValueTheory.value` is deprecated as a foundation for
+new SMT semantics: it remains available for existing unindexed interpretations
+and soundness proofs, and its `op_*` names remain compatibility aliases.
+New semantics should use `Z3DatatypeValue` with sort-indexed carriers, as in
+`Z3TypedRoot`. This separation does not yet remove legacy proof dependencies
+from the production verification closure or change checker coverage.
+
+`Z3ClausalSemantics.fst` states clause and unit-resolution soundness over
+`expr -> GTot bool`, without a concrete value type. The legacy resolution
+layer adapts `interpretation value` through a ghost Boolean valuation and
+proved equivalences, preserving its original predicates and API. The sorted
+datatype layer uses the same clausal membership and consequence proofs with
+its sort-indexed truth valuation. No executable equality on functions or
+Ghost-to-Tot conversion is introduced. Theory-specific and whole-document
+legacy soundness contracts have not yet migrated.
+
+`Z3ObservationalSemantics.fst` separates same-model observational agreement
+from the concrete value domain. It accepts a ghost denotation on an explicit
+expression domain; Boolean observations compare truth, while other sorts
+require value identity. Recovering value identity from Boolean observations
+requires Boolean completeness. `Z3ObservationalEquality` now proves its
+proof-term soundness for an abstract carrier with per-environment obligations
+(`lemma_oproof_sound_at`), and retains the original legacy predicates and
+theorems as adapters. Scoped sorted evaluation and the inhabited core kernel
+use the shared relation; sorted NNF observational conclusions are connected
+to their equality propositions through this bridge. This does not claim
+general model-extension equivalence or remove the remaining legacy imports.
+
+`Z3ClauseSyntax`, `Z3DatatypeSyntax`, and `Z3ExprScope` separate canonical
+clause constructors, datatype recognizers, and scoped-expression predicates
+from their legacy soundness contracts. The original APIs remain compatibility
+aliases. The transitive verification closure of `Z3DatatypeValue`,
+`Z3DatatypeSignature`, `Z3SortedInteger`, and `Z3SortedSemantics` no longer
+imports `Z3ValueTheory` or its array/sequence/bit-vector value companions.
+Dependency-isolation regressions check this with F* itself. Whole-document
+and theory-specific legacy proofs still retain the concrete value domain;
+this is not its removal from the complete checker closure.
+
 The following groups describe the main components, not a strict layering
 of all imports.
 
 | Component | Modules and role |
 |---|---|
-| Shared semantic foundation | [`Z3AstTheory.fst`](Z3AstTheory.fst) supplies expressions, well-formedness, and evaluation; [`Z3ValueTheory.fst`](Z3ValueTheory.fst) supplies concrete values and operator tags. |
+| Shared semantic foundation | [`Z3AstTheory.fst`](Z3AstTheory.fst) supplies expressions, well-formedness, and evaluation; [`Z3OperatorTags.fst`](Z3OperatorTags.fst) supplies operator tags. [`Z3ValueTheory.fst`](Z3ValueTheory.fst) retains the legacy concrete value domain. |
 | Equational calculus | [`Z3ProofTheory.fst`](Z3ProofTheory.fst) defines proof terms, `fact`/`facts_of`, leaf obligations, and soundness. [`Z3ProofJustifications.fst`](Z3ProofJustifications.fst) handles modus ponens, unit resolution, and elimination rules. |
+| Carrier-independent clauses | [`Z3ClausalSemantics.fst`](Z3ClausalSemantics.fst) proves clausal soundness over ghost truth valuations; [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) preserves the legacy interpretation API through proved adapters. |
+| Carrier-independent observations | [`Z3ObservationalSemantics.fst`](Z3ObservationalSemantics.fst) defines observational agreement on scoped ghost denotations; [`Z3ObservationalEquality.fst`](Z3ObservationalEquality.fst) provides abstract-carrier proof soundness and legacy adapters. |
 | Preprocessing rules | [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) and [`Z3PreprocessingProofTheory.fst`](Z3PreprocessingProofTheory.fst) formalize substitution, quantifier/connective laws, kernel rules, and pipeline composition. These rule families are not all implemented in Pulse. |
 | Concrete interpretations | [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) combines semantic interpretations, with [`Z3ArrayInterp.fst`](Z3ArrayInterp.fst), [`Z3SeqInterp.fst`](Z3SeqInterp.fst), and [`Z3BvInterp.fst`](Z3BvInterp.fst) as theory companions. |
 | Sort-indexed datatype model | [`Z3DatatypeValue.fst`](Z3DatatypeValue.fst) builds finite well-sorted constructor trees over arbitrary sort-indexed base carriers and derives datatype laws, typed environments, and sort-preserving evaluation. [`Z3DatatypeSignature.fst`](Z3DatatypeSignature.fst) validates native schemas and supplies canonical constructor/tester/selector dispatch with arbitrary argument-dependent wrong-selector interpretations and a total interpretation witness. |

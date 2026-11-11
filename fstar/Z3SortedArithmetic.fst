@@ -3,7 +3,7 @@ module Z3SortedArithmetic
 #set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
 module P = Z3LinearArithmeticTheory

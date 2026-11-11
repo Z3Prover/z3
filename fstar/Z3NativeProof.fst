@@ -3,7 +3,7 @@ open FStar.All
 open FStar.List.Tot
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open Z3UnifiedProof
 open Z3ProofIndex
 module N = Z3Native
@@ -15,7 +15,7 @@ module FF = Z3FiniteFieldLemma
 module FP = Z3FiniteFieldPac
 module DT = Z3DatatypeLemma
 module CP = Z3ClauseProof
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 
 [@@FStar.Attributes.cherry_boxed]
 noeq

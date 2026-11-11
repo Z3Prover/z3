@@ -3,8 +3,8 @@ module Z3LinearArithmeticAst
 #set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
 
 open Z3AstTheory
-open Z3ValueTheory
-open Z3ResolutionProofTheory
+open Z3OperatorTags
+open Z3ClauseSyntax
 open FStar.List.Tot
 module P = Z3LinearArithmeticTheory
 

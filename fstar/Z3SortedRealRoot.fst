@@ -1,7 +1,7 @@
 module Z3SortedRealRoot
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 open FStar.Real
 module A = Z3LinearArithmeticAst
 module E = Z3LinearArithmeticEmbed

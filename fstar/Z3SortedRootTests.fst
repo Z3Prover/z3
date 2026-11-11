@@ -74,6 +74,22 @@ let sorted_lambda_equality (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])
   RT.identity_not_successor u i [] rho;
   RT.beta u i [] rho
 
+let observation_read : e:expr{D.scoped RT.scope2 e} =
+  assert_norm (D.scoped RT.scope2 RT.outer_read); RT.outer_read
+
+let observation_store : e:expr{D.scoped RT.scope2 e} =
+  assert_norm (D.scoped RT.scope2 RT.inner_store); RT.inner_store
+
+let sorted_nested_observations (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u RT.scope2)
+  : Lemma (T.observations_agree_at RT.sch (TR.booleans u) (SR.root_scalars u) i
+             RT.scope2 rho observation_read observation_store) =
+  assert_norm (get_sort observation_read == get_sort observation_store);
+  RT.nested_outer u i rho;
+  SR.lemma_evaluate_agreement u RT.sch i RT.scope2 rho observation_read;
+  SR.lemma_evaluate_agreement u RT.sch i RT.scope2 rho observation_store;
+  T.lemma_values_observations_at RT.sch (TR.booleans u) (SR.root_scalars u) i
+    RT.scope2 rho observation_read observation_store
+
 (* --- Quantifiers and Int arithmetic --------------------------------------- *)
 
 let sorted_quantifiers (u:TR.uninterpreted) (i:RT.model u) (rho:RT.env u [])

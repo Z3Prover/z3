@@ -30,7 +30,7 @@ module Z3SortedIntDivision
    fixes div/mod at a nonzero divisor) is documented in Z3TypedRoot. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module A = Z3LinearArithmeticAst
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature
@@ -39,7 +39,7 @@ module I = Z3SortedInteger
 module AR = Z3SortedArithmetic
 module D = Z3Definitions
 module IDV = Z3IntegerDivision
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module L = FStar.List.Tot
 
 (* The canonical Int division declarations: exact name, kind tag, domain,

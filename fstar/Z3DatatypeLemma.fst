@@ -5,31 +5,20 @@ open Z3ValueTheory
 open Z3ResolutionProofTheory
 module B = Z3BooleanRewrite
 module L = FStar.List.Tot
+module S = Z3DatatypeSyntax
 
-let op_constructor : decl_kind = 200
-let op_recognizer : decl_kind = 201
-let op_accessor : decl_kind = 202
+let op_constructor : decl_kind = S.op_constructor
+let op_recognizer : decl_kind = S.op_recognizer
+let op_accessor : decl_kind = S.op_accessor
 
 let constructor (f:func_decl) (args:list expr) : option (int & int) =
-  if f.interp <> Some op_constructor || not (sorts_match args f.domain) then None
-  else match f.int_params with
-  | [owner; tag; arity] ->
-    if owner >= 0 && tag >= 0 && arity = L.length args then Some (owner, tag) else None
-  | _ -> None
+  S.constructor f args
 
 let recognizer (f:func_decl) (arg:expr) : option (int & int) =
-  if f.interp <> Some op_recognizer || f.range <> bool_sort || f.domain <> [get_sort arg]
-  then None
-  else match f.int_params with
-  | [owner; tag] -> if owner >= 0 && tag >= 0 then Some (owner, tag) else None
-  | _ -> None
+  S.recognizer f arg
 
 let accessor (f:func_decl) (arg:expr) : option (int & int & nat) =
-  if f.interp <> Some op_accessor || f.domain <> [get_sort arg] then None
-  else match f.int_params with
-  | [owner; tag; index] ->
-    if owner >= 0 && tag >= 0 && index >= 0 then Some (owner, tag, index) else None
-  | _ -> None
+  S.accessor f arg
 
 let datatype_model (i:interpretation value) (tag:value -> (int & int))
                    (fields:value -> list value) : prop =

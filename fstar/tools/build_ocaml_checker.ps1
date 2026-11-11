@@ -151,13 +151,14 @@ try {
   $z3Version = $versionMatch.Groups[1].Value
   Write-Host "Installed F*/Pulse SMT solver: $Z3Exe ($versionOutput)"
 
+  # Ghost-only Z3ObservationalSemantics is verified but emits no OCaml file.
   $order = @(
     "prims.ml", "Custard_Prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_String.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3List.ml",
-    "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
+    "Z3AstTheory.ml", "Z3OperatorTags.ml", "Z3ExprScope.ml", "Z3DatatypeSyntax.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml", "Z3CanonicalOps.ml",
     "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3IdTable.ml", "Z3ProofSet.ml",
-    "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
+    "Z3ClausalSemantics.ml", "Z3ClauseSyntax.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",

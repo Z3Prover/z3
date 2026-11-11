@@ -9,7 +9,7 @@ module AR = Z3SortedArithmetic
 module DT = Z3SortedDatatype
 module U = Z3UnifiedProof
 module P = Z3ProofDocument
-module R = Z3ResolutionProofTheory
+module R = Z3ClauseSyntax
 module D = Z3Definitions
 module L = FStar.List.Tot
 module I = Z3ProofIndex
@@ -1693,6 +1693,16 @@ let proposition (j:U.judgment) : expr =
   | U.Holds e -> e
   | U.Equal a b | U.Observational a b -> R.mk_eq_expr a b
 
+let lemma_observational_proposition (#base:sort -> Type0) (s:S.checked_schema)
+                                    (bc:S.boolean_carrier base) (eq:T.scalar_model base)
+                                    (other:V.interpretation base (S.signature s))
+                                    (a:expr{D.scoped [] a}) (b:expr{D.scoped [] b})
+  : Lemma (requires T.observations_agree_at s bc eq other []
+                      (T.empty_environment (S.signature s)) a b)
+          (ensures T.truth s bc eq other (proposition (U.Observational a b))) =
+  T.lemma_observations_values_at s bc eq other [] (T.empty_environment (S.signature s)) a b;
+  T.lemma_equality s bc eq other a b
+
 let declaration_in_context (s:S.checked_schema) (f:func_decl) : bool =
   if f.interp = Some Z3DatatypeLemma.op_constructor then Some? (S.case_of s.cases f)
   else if f.interp = Some Z3DatatypeLemma.op_recognizer then Some? (S.find_recognizer f s.cases)
@@ -1725,7 +1735,7 @@ let rec propositions (ps:list U.checked_fact) : Tot (list expr) (decreases ps) =
 
 let implies_decl : func_decl = {
   decl_name = "=>"; domain = [bool_sort; bool_sort]; range = bool_sort;
-  interp = Some Z3ValueTheory.op_implies; int_params = [];
+  interp = Some Z3OperatorTags.op_implies; int_params = [];
 }
 
 let scoped_proposition (p:U.checked_fact) : expr =
@@ -2124,11 +2134,11 @@ let refutes (facts:list expr) (c:expr) : bool =
 
 let int_le (x y:expr) : expr =
   App { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-        interp = Some Z3ValueTheory.op_arith_le; int_params = [] } [x; y]
+        interp = Some Z3OperatorTags.op_arith_le; int_params = [] } [x; y]
 
 let int_ge (x y:expr) : expr =
   App { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-        interp = Some Z3ValueTheory.op_arith_ge; int_params = [] } [x; y]
+        interp = Some Z3OperatorTags.op_arith_ge; int_params = [] } [x; y]
 
 (* Int equations use two checked bounds and antisymmetry. Unit conclusions
    and false use one checked refutation. Bound the conclusion before
@@ -2190,15 +2200,15 @@ let lemma_linear_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
 
 let int_zero : expr =
   App { decl_name = "0"; domain = []; range = LA.int_s;
-        interp = Some Z3ValueTheory.op_num_rational; int_params = [0; 1] } []
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [0; 1] } []
 
 let int_one : expr =
   App { decl_name = "1"; domain = []; range = LA.int_s;
-        interp = Some Z3ValueTheory.op_num_rational; int_params = [1; 1] } []
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [1; 1] } []
 
 let int_minus_one : expr =
   App { decl_name = "-1"; domain = []; range = LA.int_s;
-        interp = Some Z3ValueTheory.op_num_rational; int_params = [-1; 1] } []
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [-1; 1] } []
 
 let int_bound (lower:bool) (e:expr) : expr =
   if lower then int_ge e int_zero else int_le e int_zero
@@ -2279,7 +2289,7 @@ let integer_product_witness (facts:list expr) : option expr =
 
 let int_constant (n:int) : expr =
   App { decl_name = "n"; domain = []; range = LA.int_s;
-        interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+        interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
 
 let lemma_int_constant_shape (n:int)
   : Lemma (ensures D.scoped [] (int_constant n) /\ get_sort (int_constant n) == LA.int_s /\
@@ -2401,12 +2411,12 @@ let lemma_int_bound_shape (lower:bool) (e:expr)
   assert_norm (AR.int_numeral 0 int_zero);
   if lower then assert (LA.application
     { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
-    [e; int_zero] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+      interp = Some Z3OperatorTags.op_arith_ge; int_params = [] }
+    [e; int_zero] bool_sort ">=" Z3OperatorTags.op_arith_ge)
   else assert (LA.application
     { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
-    [e; int_zero] bool_sort "<=" Z3ValueTheory.op_arith_le)
+      interp = Some Z3OperatorTags.op_arith_le; int_params = [] }
+    [e; int_zero] bool_sort "<=" Z3OperatorTags.op_arith_le)
 
 let lemma_int_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                     (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -2433,12 +2443,12 @@ let lemma_int_strict_bound_shape (lower:bool) (e:expr)
   assert_norm (AR.int_numeral (-1) int_minus_one);
   if lower then assert (LA.application
     { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
-    [e; int_one] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+      interp = Some Z3OperatorTags.op_arith_ge; int_params = [] }
+    [e; int_one] bool_sort ">=" Z3OperatorTags.op_arith_ge)
   else assert (LA.application
     { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
-    [e; int_minus_one] bool_sort "<=" Z3ValueTheory.op_arith_le)
+      interp = Some Z3OperatorTags.op_arith_le; int_params = [] }
+    [e; int_minus_one] bool_sort "<=" Z3OperatorTags.op_arith_le)
 
 let lemma_int_strict_bound (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                           (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -2686,12 +2696,12 @@ let lemma_product_equality_bounds (x y:expr)
                    LA.comparison (int_ge x y) == Some (LA.Ge, x, y)) =
   assert (LA.application
     { decl_name = "<="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-      interp = Some Z3ValueTheory.op_arith_le; int_params = [] }
-    [x; y] bool_sort "<=" Z3ValueTheory.op_arith_le);
+      interp = Some Z3OperatorTags.op_arith_le; int_params = [] }
+    [x; y] bool_sort "<=" Z3OperatorTags.op_arith_le);
   assert (LA.application
     { decl_name = ">="; domain = [LA.int_s; LA.int_s]; range = bool_sort;
-      interp = Some Z3ValueTheory.op_arith_ge; int_params = [] }
-    [x; y] bool_sort ">=" Z3ValueTheory.op_arith_ge)
+      interp = Some Z3OperatorTags.op_arith_ge; int_params = [] }
+    [x; y] bool_sort ">=" Z3OperatorTags.op_arith_ge)
 
 let lemma_integer_product_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                    (eq:T.scalar_model base) (other:V.interpretation base (S.signature s))
@@ -2935,10 +2945,15 @@ let lemma_nnf_node (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
   | U.QuantifierIntroduction c ->
     NR.lemma_replay_with s bc eq other (RL.real_primitive s) assertions c node.conclusion;
     (match node.conclusion with
-     | U.Equal a b | U.Observational a b ->
+     | U.Equal a b ->
        V.lemma_sort_eq (get_sort b) (get_sort a);
        T.lemma_same_value s bc eq other a b;
        T.lemma_equality s bc eq other a b
+     | U.Observational a b ->
+       V.lemma_sort_eq (get_sort b) (get_sort a);
+       T.lemma_same_value s bc eq other a b;
+       T.lemma_values_observations_at s bc eq other [] (T.empty_environment (S.signature s)) a b;
+       lemma_observational_proposition s bc eq other a b
      | U.Holds _ -> ())
   | _ -> ()
 

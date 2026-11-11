@@ -28,7 +28,7 @@ module Z3SortedDivisionRoot
    canonical div or mod in name, tag, sorts or parameters. *)
 
 open Z3AstTheory
-open Z3ValueTheory
+open Z3OperatorTags
 module A = Z3LinearArithmeticAst
 module V = Z3DatatypeValue
 module S = Z3DatatypeSignature

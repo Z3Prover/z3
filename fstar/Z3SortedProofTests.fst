@@ -75,11 +75,11 @@ let shifted_integers : T.scalar_model primitive = {
 
 let integer_literal (n:int) = App {
   decl_name = "integer"; domain = []; range = integer;
-  interp = Some Z3ValueTheory.op_num_rational; int_params = [n; 1] } []
+  interp = Some Z3OperatorTags.op_num_rational; int_params = [n; 1] } []
 
 let integer_addition = App {
   decl_name = "+"; domain = [integer; integer]; range = integer;
-  interp = Some Z3ValueTheory.op_arith_add; int_params = [] }
+  interp = Some Z3OperatorTags.op_arith_add; int_params = [] }
   [integer_literal 2; integer_literal 3]
 
 let integer_semantics_is_not_the_carrier_representation ()
@@ -216,7 +216,7 @@ let no_pair = R.mk_not_expr (App is_pair [x])
 
 let choice = {
   decl_name = "if"; domain = [bool_sort; box; box]; range = box;
-  interp = Some Z3ValueTheory.op_ite; int_params = [];
+  interp = Some Z3OperatorTags.op_ite; int_params = [];
 }
 
 let rec wide_clause (n:nat) : Tot (list expr) (decreases n) =
@@ -498,11 +498,11 @@ let x_twin = App { x_decl with int_params = [1] } []
 
 let int_operator (name:string) (tag:decl_kind) (range:sort) : func_decl =
   { decl_name = name; domain = [integer; integer]; range = range; interp = Some tag; int_params = [] }
-let iadd = int_operator "+" Z3ValueTheory.op_plus integer
-let imul = int_operator "*" Z3ValueTheory.op_mul integer
-let ile = int_operator "<=" Z3ValueTheory.op_arith_le bool_sort
-let ige = int_operator ">=" Z3ValueTheory.op_arith_ge bool_sort
-let ilt = int_operator "<" Z3ValueTheory.op_arith_lt bool_sort
+let iadd = int_operator "+" Z3OperatorTags.op_plus integer
+let imul = int_operator "*" Z3OperatorTags.op_mul integer
+let ile = int_operator "<=" Z3OperatorTags.op_arith_le bool_sort
+let ige = int_operator ">=" Z3OperatorTags.op_arith_ge bool_sort
+let ilt = int_operator "<" Z3OperatorTags.op_arith_lt bool_sort
 
 let izero = integer_literal 0
 let ione = integer_literal 1
@@ -565,7 +565,7 @@ let wrong_operand_mutant = disjunction [not_eq xi yi; geq (minus xi zi) izero]
 let twin_mutant = disjunction [not_eq xi yi; leq (minus x_twin yi) izero]
 let counterfeit_le_mutant = disjunction [not_eq xi yi; App ({ ile with interp = None }) [xi; yi]]
 let counterfeit_add_mutant =
-  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
+  disjunction [not_eq xi yi; leq (App ({ iadd with interp = Some Z3OperatorTags.op_mul }) [xi; App imul [integer_literal (-1); yi]]) izero]
 let same_bounds_mutant = disjunction [R.mk_eq_expr xi yi; R.mk_not_expr (geq (minus xi yi) izero);
                                       R.mk_not_expr (leq (minus yi xi) izero)]
 
@@ -606,7 +606,7 @@ let twin_one (f:func_decl) : option int = if f = { x_decl with int_params = [1] 
 let z_one (f:func_decl) : option int = if f.decl_name = "z" then Some 1 else None
 let x_one (f:func_decl) : option int = if f = x_decl then Some 1 else None
 let counterfeit_one (f:func_decl) : option int =
-  if f = { iadd with interp = Some Z3ValueTheory.op_mul } then Some 1 else None
+  if f = { iadd with interp = Some Z3OperatorTags.op_mul } then Some 1 else None
 
 let int_order_counter_models ()
   : Lemma (T.truth core_schema booleans equality (valued nothing) strict_mutant == false /\
@@ -781,7 +781,7 @@ let commuted_counterfeit_mul_mutant =
   disjunction [not_eq xi yi; leq (App iadd [App ({ imul with interp = None }) [integer_literal (-1); yi]; xi]) izero]
 let commuted_counterfeit_add_mutant =
   disjunction [not_eq xi yi;
-               leq (App ({ iadd with interp = Some Z3ValueTheory.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
+               leq (App ({ iadd with interp = Some Z3OperatorTags.op_mul }) [App imul [integer_literal (-1); yi]; xi]) izero]
 let commuted_minus_two_mutant =
   disjunction [not_eq xi yi; geq (App iadd [App imul [integer_literal (-2); yi]; xi]) izero]
 let commuted_constant_mutant = disjunction [not_eq xi yi; geq (commuted xi yi) ione]
@@ -1029,7 +1029,7 @@ let lin_plus_one (a b:expr) : expr = App iadd [a; App imul [ione; b]]
 let lin_minus_two (a b:expr) : expr = App iadd [a; App imul [integer_literal (-2); b]]
 let real = (SortApp RealSymbol [])
 let to_real (e:expr) : expr =
-  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3ValueTheory.op_to_real;
+  App { decl_name = "to_real"; domain = [integer]; range = real; interp = Some Z3OperatorTags.op_to_real;
         int_params = [] } [e]
 let real_compare (name:string) (tag:decl_kind) (a b:expr) : expr =
   App { decl_name = name; domain = [real; real]; range = bool_sort; interp = Some tag; int_params = [] } [a; b]
@@ -1042,8 +1042,8 @@ let lin_dropped = [leq (minus xi yi) izero; geq (minus xi yi) izero; leq (minus 
 let lin_wrong_target = R.mk_eq_expr (integer_literal 62) (minus lin_c64 lin_c1)
 let lin_mixed =
   [leq (minus xi yi) izero; geq (minus xi yi) izero;
-   real_compare "<=" Z3ValueTheory.op_arith_le (to_real yi) (to_real zi);
-   real_compare ">=" Z3ValueTheory.op_arith_ge (to_real yi) (to_real zi)]
+   real_compare "<=" Z3OperatorTags.op_arith_le (to_real yi) (to_real zi);
+   real_compare ">=" Z3OperatorTags.op_arith_ge (to_real yi) (to_real zi)]
 let lin_weak_tight = [geq xi (integer_literal (-2)); R.mk_not_expr (geq xi izero)]
 let lin_weak_conflict = [geq xi izero; R.mk_not_expr (geq xi ione)]
 let lin_twin = [leq (minus x_twin yi) izero; geq (minus x_twin yi) izero; leq (minus yi zi) izero; geq (minus yi zi) izero]
