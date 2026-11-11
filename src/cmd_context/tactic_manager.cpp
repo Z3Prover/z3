@@ -18,9 +18,13 @@ Notes:
 --*/
 #include "cmd_context/tactic_manager.h"
 #include "tactic/tactic.h"
-#include "tactic/core/split_clause_tactic.h"
+
+// Defined in the generated z3_registrations.cpp. Referencing it keeps that
+// object file, and with it every registration, in static links of libz3.
+void z3_link_registrations();
 
 tactic_manager::~tactic_manager() {
+    z3_link_registrations();
     finalize_tactic_manager();
 }
 

@@ -2,6 +2,8 @@ z3_add_component(aig_tactic
   SOURCES
     aig.cpp
     aig_tactic.cpp
+  REGISTRATION_HEADERS
+    aig_tactic.h
   COMPONENT_DEPENDENCIES
     tactic
 )

@@ -6,6 +6,10 @@ z3_add_component(portfolio
     smt_strategic_solver.cpp
     solver2lookahead.cpp
     solver_subsumption_tactic.cpp
+  REGISTRATION_HEADERS
+    default_tactic.h
+    euf_completion_tactic.h
+    solver_subsumption_tactic.h
   COMPONENT_DEPENDENCIES
     aig_tactic
     ff_tactics

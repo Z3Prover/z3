@@ -127,10 +127,13 @@ jobs:
               -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
               -DZ3_INCLUDE_GIT_HASH=OFF -DZ3_INCLUDE_GIT_DESCRIBE=OFF \
               -DCMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY=ON
-            # These Python generators declare all their inputs. Avoid CMake's
+            # These generators declare all their inputs. Avoid CMake's
             # implicit component dependencies: clang-tidy needs no Z3 objects.
-            cmake --build "$2" --parallel 2 --target \
-              src/api/api_log_macros.h src/ast/pattern/database.h
+            targets=(src/api/api_log_macros.h src/ast/pattern/database.h)
+            if [[ -f "$1/cmake/z3_generate_registrations.cmake" ]]; then
+              targets+=(src/cmd_context/z3_registrations.cpp)
+            fi
+            cmake --build "$2" --parallel 2 --target "${targets[@]}"
           }
           generate source build
           if [[ -n "$PR_BASE_SHA" ]]; then generate other-source other-build; fi
