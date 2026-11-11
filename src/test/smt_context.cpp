@@ -1,7 +1,6 @@
 
 /*++
 Copyright (c) 2015 Microsoft Corporation
-
 --*/
 
 #include "smt/smt_context.h"
@@ -71,6 +70,40 @@ static void check_case_split_relevant_first() {
                 VERIFY(next == smt::null_bool_var);
             }
         }
+    }
+}
+
+static void check_late_equality_justification() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort U 0)\n"
+            "(declare-const i U)\n"
+            "(declare-const d U)\n"
+            "(declare-const c U)\n"
+            "(declare-const t Bool)\n"
+            "(declare-const p Bool)\n"
+            "(declare-const z Bool)\n"
+            "(declare-const e Bool)\n"
+            "(declare-const a (Array U Bool))\n"
+            "(declare-const b (Array U Bool))\n"
+            "(assert (= a (lambda ((x U)) (= x c))))\n"
+            "(assert (not (select b i)))\n"
+            "(assert (or t (= b a)))\n"
+            "(assert (or t (not p)))\n"
+            "(assert (or (not t) (not p)))\n"
+            "(assert (or (= b a) p))\n"
+            "(assert (or (= i d) z))\n"
+            "(assert (or (= d c) z))\n"
+            "(assert (or (not z) e))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
     }
 }
 
@@ -1383,6 +1416,7 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_late_equality_justification();
     check_proof_mode_guards();
     check_proof_mode_compositions();
     check_proof_mode_sls();
