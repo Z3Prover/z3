@@ -126,6 +126,9 @@ namespace smt {
         unsigned m_num_unhandled = 0;
         unsigned m_num_index_suffix_axioms = 0;
         unsigned m_num_fixed_length_axioms = 0;
+        unsigned m_num_stoi_digit_axioms = 0;
+        unsigned m_num_stoi_digit_guesses = 0;
+        unsigned m_stoi_sat_head_start = 0;
 
         // required virtual methods
         bool internalize_atom(app* atom, bool gate_ctx) override;
@@ -139,6 +142,7 @@ namespace smt {
 
         // optional overrides
         void init() override;
+        void init_search_eh() override;
         void assign_eh(bool_var v, bool is_true) override;
         void relevant_eh(expr* n) override;
         bool can_propagate() override;
@@ -180,6 +184,7 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
+        bool branch_stoi_digit();
         bool check_fixed_lengths(bool instantiate = true);
         bool add_index_suffix_axiom(expr* e);
         void add_ubv_string(expr* e);
