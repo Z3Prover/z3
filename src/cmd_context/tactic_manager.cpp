@@ -18,7 +18,14 @@ Notes:
 --*/
 #include "cmd_context/tactic_manager.h"
 #include "tactic/tactic.h"
-#include "tactic/core/split_clause_tactic.h"
+
+// Self-registration (Z3_ADD_TACTIC/Z3_ADD_PROBE/Z3_ADD_SIMPLIFIER) happens in an inline
+// global in each header. In static builds an object file is only linked in if something
+// references it, so every registering header must be included from this always-linked
+// translation unit (the registered factory then also retains the implementation).
+// This header is generated at build time from the REGISTRATION_HEADERS of every
+// z3_add_component() (see cmake/z3_generate_registrations.cmake).
+#include "z3_registrations.h"
 
 tactic_manager::~tactic_manager() {
     finalize_tactic_manager();
