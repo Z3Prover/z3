@@ -14,10 +14,6 @@ z3_add_component(qe
     qe_mbp.cpp
     qe_tactic.cpp
     qsat.cpp
-  REGISTRATION_HEADERS
-    nlqsat.h
-    qe_tactic.h
-    qsat.h
   COMPONENT_DEPENDENCIES
     core_tactics
     nlsat_tactic

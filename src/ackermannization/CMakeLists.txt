@@ -8,9 +8,6 @@ z3_add_component(ackermannization
     lackr.cpp
     lackr_model_constructor.cpp
     lackr_model_converter_lazy.cpp
-  REGISTRATION_HEADERS
-    ackermannize_bv_tactic.h
-    ackr_bound_probe.h
   COMPONENT_DEPENDENCIES
     ast
     model

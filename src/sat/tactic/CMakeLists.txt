@@ -3,8 +3,6 @@ z3_add_component(sat_tactic
     goal2sat.cpp
     sat2goal.cpp
     sat_tactic.cpp
-  REGISTRATION_HEADERS
-    sat_tactic.h
   COMPONENT_DEPENDENCIES
     sat
     tactic
