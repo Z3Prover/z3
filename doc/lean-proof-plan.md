@@ -1256,7 +1256,9 @@ atoms whose decidability the term uses, the proof stays axiom-free, and the
 refutation keeps eliminating the witnesses constructively. The truth table is
 the fallback for an equivalence the prover cannot settle (a false one, more
 than `_STRUCTURAL_REWRITE_STEPS` steps, or more than
-`_STRUCTURAL_REWRITE_CHARS` rendered characters: each `have` states its full
+`_STRUCTURAL_REWRITE_CHARS` rendered characters, or up to twice those when a
+normalized rewrite's links use their allowance, see "Link allowance of
+normalized rewrites": each `have` states its full
 proposition, and a parity rewrite over seven atoms renders 2.8 MB that Lean
 rejects on heartbeats only after 25 s, whereas its truth table fails in 4 s),
 and Lean rejects it as before.
@@ -1672,6 +1674,38 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Link allowance of normalized rewrites (2026-11-11)
+
+QF_LRA `tta_startup/simple_startup_15nodes` (z3test smtlib-sample) failed
+in `normalized_rewrite_15304`, the propositional lemma relating the
+assertion's left-nested binary conjunctions and disjunctions over 480
+normalized atoms to the rewriter's flattened form; `grind (splits := 64)`
+fails on it. The prover links the two sides' structures equal up to
+flattening before searching (`_equivalent_structures`), and its 481 links
+took 22,000 steps and 960,000 characters (46 and 2,000 each, mostly
+projections and re-associations), more than the whole budget
+(`_STRUCTURAL_REWRITE_STEPS`, `_STRUCTURAL_REWRITE_CHARS`): the search over
+the sides gave up at once. Each link now has an allowance of its own
+(`_LINK_STEPS`, `_LINK_CHARS`, 100 and 5,000) on top of the budget, which
+the search does not inherit, so the budget grows linearly with the
+structures the rewrite relates and the search keeps all of it. The
+allowance is capped at the budget itself, so a rewrite's proof is at most
+twice the old limits: uncapped, the same shape at 30 nodes (931 links)
+became a 1.8 MB structural lemma Lean checked in 116 s instead of grind's
+25 s, and at 40 nodes Lean ran out of memory where grind alone verifies;
+capped, both are grind alone again, byte for byte the earlier certificates.
+tta15's links take 22,000 steps and 960,000 characters, within the capped
+allowance of 20,000 and 1,000,000 but for 2,000 steps the search can
+spare. The rewrite
+is proved in 1,000 search steps after the links, and the whole 5.2 MB file
+verifies in 42 s at a 2.9 GB peak. Nothing new is trusted: links and
+search are `have` steps Lean checks, with grind still the `first`
+fallback. Test: `test_links_do_not_use_up_the_search_budget`
+(`test_proof_to_lean_arith.py`, `startup_shaped_rewrite_instance`: 6 nodes,
+43 links, the step limit scaled down to 1,000, checked with the fallback
+removed; without the allowance the lemma is grind alone) and
+`test_link_allowance_is_capped_at_the_budget` (30 nodes, grind alone).
+
 ### Theory clauses for cnf lemmas over rewritten ites (2026-11-11)
 
 QF_LRA `tta_startup/simple_startup_11nodes` (z3test smtlib-sample) failed
@@ -1704,8 +1738,9 @@ against that, not a guarantee (no input of the z3test smtlib-sample sweep
 hit it). The 11-node
 input takes 45 clauses (1.4 s), the search 36,000 steps and keeps a
 0.45 MB proof, and the whole file verifies in 24 s at a 2.6 GB peak. The
-15-node input's cnf lemma now checks too; the file still fails in a
-propositional normalized rewrite that grind cannot prove. Tests:
+15-node input's cnf lemma now checks too; the file then failed in a
+propositional normalized rewrite that grind cannot prove (verified since
+the same day, see "Link allowance of normalized rewrites"). Tests:
 `test_cnf_lemmas_over_rewritten_ites_are_refuted_with_theory_clauses`
 (two small inputs, checked with the fallback removed),
 `test_theory_clause_search_stops_at_a_model_the_leaves_allow`, and the slow

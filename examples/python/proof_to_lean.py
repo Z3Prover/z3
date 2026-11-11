@@ -202,6 +202,18 @@ _NORMALIZED_CONNECTIVES = (z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT, z3.Z3_OP_IMP
 # heartbeat limit.
 _STRUCTURAL_REWRITE_STEPS = 20000
 _STRUCTURAL_REWRITE_CHARS = 1000000
+# Steps and characters each link between equivalent structures may use on
+# top of those limits (see _PropositionalProver._prove_links), so a rewrite's
+# budget grows with the structures it relates. Linking the 481 regrouped
+# gates of a QF_LRA time-triggered startup rewrite (tta_startup
+# simple_startup_15nodes) took 22,000 steps and 960,000 characters, 46 and
+# 2,000 per link, and left nothing for the search over the two sides. The
+# allowance is at most the limits themselves, so a rewrite's proof stays
+# within twice them: uncapped, 1,641 links of a 40-node rewrite of the same
+# shape rendered over 3 MB, which ran Lean out of memory where grind alone
+# verifies.
+_LINK_STEPS = 100
+_LINK_CHARS = 5000
 # Resource limit of z3's unsat core over a cnf lemma's propositional
 # abstraction (_relevant_structures), which steers the prover when its own
 # search gives up: the 5,649 gates of the QF_IDL plan-21 cnf lemma take
@@ -5923,7 +5935,16 @@ class _PropositionalProver:
         links; any other link by the search in both directions, from the
         links below it. A link not proved within the budget is dropped and
         its steps and characters given back.
+
+        The links have an allowance of _LINK_STEPS and _LINK_CHARS each on
+        top of the budget, in total at most the budget's own steps and
+        characters, and the allowance they leave is not carried over
+        to the search over the sides: it starts where it would have without
+        it, or after the steps and characters the links took beyond it.
         """
+        start = self.steps, self.chars
+        self.steps -= min(len(self.links) * _LINK_STEPS, _STRUCTURAL_REWRITE_STEPS * self.budget)
+        self.chars -= min(len(self.links) * _LINK_CHARS, _STRUCTURAL_REWRITE_CHARS * self.budget)
         lines, facts, proofs = [], [], {}
 
         def equivalent(structure, other):
@@ -5976,6 +5997,7 @@ class _PropositionalProver:
                 lines.extend("  " + line for line in proof_lines)
             proofs[link] = name
             facts.append((link, True, name))
+        self.steps, self.chars = max(self.steps, start[0]), max(self.chars, start[1])
         return lines, facts
 
     def _descendants(self, root):
