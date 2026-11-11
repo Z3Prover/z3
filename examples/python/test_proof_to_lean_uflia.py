@@ -421,7 +421,8 @@ class TestIntegerMixedValidation(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("have _r", text)
-        helper = next(line for line in text.splitlines() if line.startswith("  have _r"))
+        # (In a cnf lemma's fallback too, after a structural attempt.)
+        helper = next(line for line in text.splitlines() if line.lstrip().startswith("have _r"))
         self.assertRegex(helper, r" := by unfold [\w ]+; first \| omega \| grind \(splits := 64\)$")
         graph = proof_to_lean._validate_graph(source, certificate)
         ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE]

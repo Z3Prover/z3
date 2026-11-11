@@ -1674,6 +1674,35 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Theory clauses over uninterpreted functions and sorts (2026-11-11)
+
+The oracle of `_theory_clauses` (see "Theory clauses for cnf lemmas over
+rewritten ites") read only arithmetic and Boolean nodes, so a leaf that is
+an application or a term of an uninterpreted sort was free in it. A cnf
+lemma whose clause Z3 logged over the rewriter's form of applications
+(`(ite c (f 0) (f 0))` as `(f 0)`, `(+ 0 (f z))` as `(f z)`) or that rests
+on congruence (`(= (f a) e)` makes `(ite (= (f a) e) (f e) ...)` equal
+`(f e)`) ended in a model of the leaves and kept the unfolded fallback
+alone. `_theory_expression` now declares each uninterpreted function,
+predicate, and constant of an uninterpreted sort in the oracle's context
+(`_theory_function`; terms over an array sort and datatype constructors
+stay free), and the clauses it finds are proved like the others by the
+theory tactic over the unfolded definitions, under `first` with the
+fallback. Nothing new is trusted. The alldiff clauses Z3 simplifies under
+a unit (`uf_ite_alldiff`, the value of an ite of the sort under the
+distinct) and the cnf lemmas of the predicate cast chains
+(`cast_chains_instance(8, "predicate")`) now have structural proofs that
+check with the fallback removed. In the z3test smtlib-sample QF_UFLIA
+`wisas` files `xs_5_5`, `xs_6_11`, and `xs_8_18`, one cnf lemma each
+took the fallback alone before and now has a structural proof through one
+such clause (`xs_8_18` checks with that lemma's fallback removed); the
+fallback proved them too, so no file changes status. Tests:
+`test_cnf_lemmas_over_applications_are_refuted_with_theory_clauses`
+(QF_UF, QF_UFLRA, QF_UFLIA inputs, checked with the fallback removed; with
+`_theory_function` disabled the lemmas are the fallback alone) and
+`test_theory_expressions_declare_uninterpreted_symbols`
+(`test_proof_to_lean_uflra.py`).
+
 ### Link allowance of normalized rewrites (2026-11-11)
 
 QF_LRA `tta_startup/simple_startup_15nodes` (z3test smtlib-sample) failed
@@ -1721,9 +1750,10 @@ of heartbeats. When both searches of `_cnf_lemma` fail now,
 does: z3 (an untrusted oracle, as for `_relevant_structures`) takes a model
 of the abstraction, checks the leaves' and atoms' values in it against
 what the leaves denote (`_theory_expression`, arithmetic and Boolean nodes
-only), and a shrunk unsat core of those literals is a clause excluding the
-model, until the abstraction is unsatisfiable (at most 256 clauses). A
-clause over every leaf of the lemma would restate it as one theory fact,
+only; uninterpreted ones since the same day, see "Theory clauses over
+uninterpreted functions and sorts"), and a shrunk unsat core of those
+literals is a clause excluding the model, until the abstraction is
+unsatisfiable (at most 256 clauses). A clause over every leaf of the lemma would restate it as one theory fact,
 without the fallback's helpers (scaled ite gates), so then the search
 stops and the fallback stays alone, as before. Each
 clause is a `have` the theory tactic proves over the leaves' unfolded

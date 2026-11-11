@@ -23,6 +23,7 @@ import proof_clause_log
 import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_uf import _unsat_core_size, _z3_available, outlined_lemma_sizes, _proof_steps
+from test_proof_to_lean_arith import _cnf_lemma_attempts
 
 _STANDARD_AXIOMS = "[propext, Classical.choice, Quot.sound]"
 
@@ -203,6 +204,70 @@ BOOL_PREDICATE_WITH_ARITHMETIC = """\
 (check-sat)
 """
 
+# Inputs whose single cnf lemma rests on congruence over the rewriter's form
+# of the assertion: (ite c (f 0) (f 0)) is logged as (f 0), (+ 0 (f z)) as
+# (f z), so the clause's leaves are applications the theory clauses of
+# _theory_clauses relate to the assertion's (one per uninterpreted fragment).
+THEORY_CLAUSE_INPUTS = {
+    "uflra_rewritten_applications": """\
+(set-logic QF_UFLRA)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun c () Real)
+(declare-fun f (Real) Real)
+(declare-fun n () Real)
+(declare-fun w () Real)
+(declare-fun y () Real)
+(declare-fun z () Real)
+(assert (and (= n (ite (= c 5) 1 (+ c 1)))
+             (= w (ite (and (not b0) (not b1)) (f 0) (f 0)))
+             (= y (ite (and (not b0) (not b1)) (+ 0 (f z)) 0))
+             (or (= c 3) (= c 4))
+             (or b0 (not (= w (f 0))) (= n 1) (and (not b1) (not (= y (f z)))))
+             (not b0)
+             (not b1)))
+(check-sat)
+""",
+    "uflia_rewritten_applications": """\
+(set-logic QF_UFLIA)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun c () Int)
+(declare-fun f (Int) Int)
+(declare-fun n () Int)
+(declare-fun w () Int)
+(declare-fun y () Int)
+(declare-fun z () Int)
+(assert (and (= n (ite (= c 5) 1 (+ c 1)))
+             (= w (ite (and (not b0) (not b1)) (f 0) (f 0)))
+             (= y (ite (and (not b0) (not b1)) (+ 0 (f z)) 0))
+             (or (= c 3) (= c 4))
+             (or b0 (not (= w (f 0))) (= n 1) (and (not b1) (not (= y (f z)))))
+             (not b0)
+             (not b1)))
+(check-sat)
+""",
+    "uf_ite_over_equal_applications": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun a () U)
+(declare-fun e () U)
+(declare-fun z () U)
+(declare-fun f (U) U)
+(declare-fun g (U) U)
+(declare-fun n () U)
+(declare-fun w () U)
+(assert (and (= n (ite (= (f a) e) (f e) (g (f a))))
+             (= w (ite (and (not b0) (not b1)) z z))
+             (= (f a) e)
+             (or b0 (not (= w z)) (not (= n (f e))))
+             (not b0)))
+(check-sat)
+""",
+}
+
 
 def random_instance(seed, variables=4, constraints=10, with_sort=False, depth=2):
     """A random QF_UFLRA instance, or None when it is satisfiable.
@@ -288,6 +353,54 @@ class TestMixedValidation(unittest.TestCase):
             raise unittest.SkipTest("the z3 executable is required for the clause log")
         cls.source = UFLRA_INPUTS["uflra_sort_to_real"]
         cls.certificate = proof_certificate.export_clause_log_certificate(cls.source)
+
+    def test_theory_expressions_declare_uninterpreted_symbols(self):
+        # The oracle of _theory_clauses reads applications and constants of
+        # an uninterpreted sort (Bool and Real arguments too), and leaves a
+        # term over an array sort free.
+        uninterpreted = z3.Z3_OP_UNINTERPRETED
+        declarations = (
+            proof_to_lean._Declaration(uninterpreted, "a", (), "U"),
+            proof_to_lean._Declaration(uninterpreted, "x", (), "Real"),
+            proof_to_lean._Declaration(uninterpreted, "p", (), "Bool"),
+            proof_to_lean._Declaration(uninterpreted, "f", ("U", "Real", "Bool"), "U"),
+            proof_to_lean._Declaration(uninterpreted, "r", ("U",), "Bool"),
+            proof_to_lean._Declaration(uninterpreted, "m", (), "(Array Int U)"),
+            proof_to_lean._Declaration(uninterpreted, "h", ("(Array Int U)",), "U"),
+        )
+        nodes = tuple(proof_to_lean._Node(index, arguments) for index, arguments in
+                      enumerate([(), (), (), (0, 1, 2), (3,), (), (5,)]))
+        graph = proof_to_lean._Graph(declarations, nodes, (), 0, sorts=("(Array Int U)", "U"))
+        context, memo = z3.Context(), {}
+        expression = proof_to_lean._theory_expression(graph, 4, context, {2: 0}, memo)
+        self.assertEqual(str(expression), "f4(f3(u0, v1, a0))")
+        self.assertTrue(z3.is_bool(expression))
+        self.assertEqual(memo[0].sort().name(), "U")
+        self.assertIsNone(proof_to_lean._theory_expression(graph, 6, context, {2: 0}, memo))
+        self.assertIsNone(proof_to_lean._theory_expression(graph, 5, context, {2: 0}, memo))
+
+    def test_theory_expressions_leave_enumeration_constructors_free(self):
+        # A constant of an enumeration sort is declared as one of an
+        # uninterpreted sort, and so is an application over it; a constructor
+        # is not read, so the oracle cannot use that two constructors differ
+        # (it knows less about the sort than Lean does, never more).
+        declarations = (
+            proof_to_lean._Declaration(z3.Z3_OP_UNINTERPRETED, "k", (), "Color"),
+            proof_to_lean._Declaration(z3.Z3_OP_DT_CONSTRUCTOR, "red", (), "Color"),
+            proof_to_lean._Declaration(z3.Z3_OP_UNINTERPRETED, "g", ("Color",), "U"),
+            proof_to_lean._Declaration(z3.Z3_OP_EQ, "=", ("Color", "Color"), "Bool"),
+        )
+        nodes = tuple(proof_to_lean._Node(index, arguments) for index, arguments in
+                      enumerate([(), (), (0,), (0, 1)]))
+        graph = proof_to_lean._Graph(declarations, nodes, (), 0, sorts=("Color", "U"),
+                                     enumerations={"Color": ("red", "green")})
+        context, memo = z3.Context(), {}
+        expression = proof_to_lean._theory_expression(graph, 2, context, {}, memo)
+        self.assertEqual(str(expression), "f2(u0)")
+        self.assertEqual(memo[0].sort().name(), "Color")
+        self.assertFalse(z3.is_app_of(memo[0], z3.Z3_OP_DT_CONSTRUCTOR))
+        self.assertIsNone(proof_to_lean._theory_expression(graph, 1, context, {}, memo))
+        self.assertIsNone(proof_to_lean._theory_expression(graph, 3, context, {}, memo))
 
     def test_generated_lean_carries_the_valuation_and_the_interpretation(self):
         self.assertEqual(self.certificate["fragment"], "qf_uflra")
@@ -589,6 +702,34 @@ class TestMixedLeanIntegration(_LeanIntegration):
             self.assertGreater(len(sizes), 1)
             self.assertLessEqual(max(sizes), 3)
             self.assertEqual(sum(sizes), _proof_steps(certificate))
+
+    def test_cnf_lemmas_over_applications_are_refuted_with_theory_clauses(self):
+        fragments = {"uflra": "qf_uflra", "uflia": "qf_uflia", "uf": "qf_uf"}
+        for name, source in THEORY_CLAUSE_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], fragments[name.split("_", 1)[0]])
+                text = proof_to_lean.reconstruct(source, certificate)
+                lemma, head, (structural, fallback) = _cnf_lemma_attempts(certificate, text)
+                self.assertNotIn("unfold", head)
+                # A theory clause over a function's term definitions.
+                self.assertRegex(structural, r"have _f\d+ : \(Or [^\n]*\) := by unfold [^;\n]*\bterm_\d+[^;\n]*; ")
+                self.assertIn("refine Classical.byContradiction ?_", structural)
+                self.assertIn("unfold formula_", fallback)
+                alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
+                self.assertNotEqual(alone, text)
+                _, report = lean_test_support.check(self, source, certificate, text=alone)
+                self.assertIn(_STANDARD_AXIOMS, report)
+                # With the applications and the sort's constants free in the
+                # oracle (as before it declared them), the search ends in a
+                # model of the abstraction, and the unfolded proof is the
+                # only one.
+                with patch.object(proof_to_lean, "_theory_function", lambda *arguments: None):
+                    text = proof_to_lean.reconstruct(source, certificate)
+                lemma, head, attempts = _cnf_lemma_attempts(certificate, text)
+                self.assertNotIn("refine Classical.byContradiction", lemma)
+                self.assertIn("unfold formula_", head)
+                self.assertEqual(attempts, [""])
 
 
 class TestLegacyMixedLeanIntegration(_LeanIntegration):

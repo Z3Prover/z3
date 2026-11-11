@@ -361,7 +361,8 @@ step:
     hypothesis is dropped. When the search gives up, it is repeated over the
     gates of z3's unsat core of the propositional abstraction (an untrusted
     hint; Lean checks the proof). When neither search refutes the clause,
-    z3 finds theory clauses over its arithmetic leaves that make the
+    z3 finds theory clauses over its arithmetic and uninterpreted leaves
+    (applications, constants of a sort; congruence included) that make the
     abstraction unsatisfiable (model by model, an unsat core each), each
     stated with a `have` the theory tactic proves, and the search is
     repeated with them. A clause that neither search refutes within its

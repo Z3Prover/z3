@@ -6458,8 +6458,10 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     unfolded theory
     proof (_grind_lemma) stays the fallback, taken by `first` when the
     structural attempt is not found or does not check, and alone when the
-    prover gives up (the clause needs a theory fact: the alldiff clauses Z3
-    simplified under a unit rest on the value of an ite under the distinct).
+    prover gives up (the clause needs a theory fact no theory clause
+    supplies; the alldiff clauses Z3 simplified under a unit, which rest on
+    the value of an ite of the sort under the distinct, took it until the
+    oracle read uninterpreted terms).
     """
     conclusion = graph.conclusion(node)
     leaves, memo, synthetic = {}, {}, {}
@@ -6552,9 +6554,13 @@ def _theory_clauses(graph, order, facts, atom_indices):
     tactic that runs out of heartbeats is not caught (a runtime exception
     fails the whole lemma); the clauses are minimal cores, a clause over
     every leaf is not stated, and the kept proof is bounded (_cnf_lemma),
-    but that is a heuristic, not a bound on the tactic. A leaf whose
-    meaning _theory_expression does not read (an application, a term of an
-    uninterpreted sort) is free in the theory as in the abstraction.
+    but that is a heuristic, not a bound on the tactic. Uninterpreted
+    functions, predicates, and sorts are declared in the oracle's context
+    (_theory_function), so a clause may rest on congruence: an assertion
+    over (ite c (f 0) (f 0)) and (+ 0 (g z)) is logged over (f 0) and
+    (g z). A leaf whose meaning _theory_expression does not read (an array
+    term, a datatype constructor) is free in the theory as in the
+    abstraction.
     Returns [] when the abstraction is already unsatisfiable (the prover
     gave up within its limits), and None when a check is not decided within
     _THEORY_CLAUSE_RLIMIT, a model is consistent with the leaves (the clause
@@ -6648,15 +6654,19 @@ _THEORY_EXPRESSIONS = {
 
 
 def _theory_expression(graph, node, context, atom_indices, memo):
-    """The z3 expression of an arithmetic or Boolean node in context, or None over anything else.
+    """The z3 expression of a node in context, or None over a theory z3 is not given here.
 
     Boolean constants are the variables a<index> of their atom indices (the
     names _theory_clauses gives the atoms of its abstraction), Real and Int
-    constants are v<declaration>; uninterpreted functions, arrays, and the
-    other theories are not read. Nodes are converted bottom up on an
-    explicit stack (deep chains), shared ones once (memo).
+    constants are v<declaration>, constants of an uninterpreted sort
+    u<declaration>, and applications of an uninterpreted function or
+    predicate apply f<declaration> (_theory_function); arrays, datatype
+    constructors, and the other theories are not read. Nodes are
+    converted bottom up on an explicit stack (deep chains), shared ones once
+    (memo); an application's declaration is built once, when it is pushed
+    (functions).
     """
-    pending = [(node, False)]
+    pending, functions = [(node, False)], {}
     while pending:
         current, expanded = pending.pop()
         if current in memo:
@@ -6668,6 +6678,8 @@ def _theory_expression(graph, node, context, atom_indices, memo):
                 memo[current] = None
             elif decl.kind == z3.Z3_OP_XOR and len(children) != 2:
                 memo[current] = None
+            elif decl.kind == z3.Z3_OP_UNINTERPRETED:
+                memo[current] = functions[current](*children)
             else:
                 memo[current] = _THEORY_EXPRESSIONS[decl.kind](children)
         elif decl.kind == z3.Z3_OP_ANUM and decl.range in ("Int", "Real"):
@@ -6681,12 +6693,40 @@ def _theory_expression(graph, node, context, atom_indices, memo):
         elif decl.kind == z3.Z3_OP_UNINTERPRETED and not arguments and decl.range in ("Int", "Real"):
             sort = z3.IntSort(context) if decl.range == "Int" else z3.RealSort(context)
             memo[current] = z3.Const("v%d" % graph.nodes[current].declaration, sort)
+        elif decl.kind == z3.Z3_OP_UNINTERPRETED:
+            function = _theory_function(graph, current, context)
+            if function is None:
+                memo[current] = None
+            elif not arguments:
+                memo[current] = function()
+            else:
+                functions[current] = function
+                pending.append((current, True))
+                pending.extend((argument, False) for argument in arguments)
         elif decl.kind in _THEORY_EXPRESSIONS and arguments:
             pending.append((current, True))
             pending.extend((argument, False) for argument in arguments)
         else:
             memo[current] = None
     return memo[node]
+
+
+def _theory_function(graph, node, context):
+    """The z3 declaration of node's uninterpreted constant, function, or predicate in context, or None.
+
+    A constant of an uninterpreted sort is u<declaration>, a function or
+    predicate f<declaration>, over Bool, Int, Real, and the uninterpreted
+    sorts, each declared by its name (an enumeration sort too: its
+    constructors are not read, so the oracle knows less about it than Lean
+    does, never more). None over an array sort.
+    """
+    decl = graph.decl(node)
+    names = decl.domain + (decl.range,)
+    if any(name not in ("Bool", "Int", "Real") and name not in graph.carriers for name in names):
+        return None
+    sorts = [{"Bool": z3.BoolSort, "Int": z3.IntSort, "Real": z3.RealSort}[name](context)
+             if name in ("Bool", "Int", "Real") else z3.DeclareSort(name, context) for name in names]
+    return z3.Function(("f%d" if decl.domain else "u%d") % graph.nodes[node].declaration, *sorts)
 
 
 def _leaf_bridges(graph, leaves, synthetic=None):

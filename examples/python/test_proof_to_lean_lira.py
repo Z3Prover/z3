@@ -775,7 +775,10 @@ class TestCastValidation(unittest.TestCase):
         for (compare, core), prefixes in expected.items():
             with self.subTest(compare=compare, core=core):
                 source = cast_chains_instance(8, compare)
-                text = proof_to_lean.reconstruct(source, _export(source, core))
+                certificate = _export(source, core)
+                text = proof_to_lean.reconstruct(source, certificate)
+                cnf = ["private theorem th_lemma_%d " % node for node in _th_lemma_nodes(certificate)
+                       if _parameters(certificate, node) == ["cnf"]]
                 self.assertLess(len(text), 2000000)
                 facts = re.findall(r"^ *(?:\| \()?%s (.*)$" % fact, text, re.M)
                 self.assertLessEqual(prefixes, {name[:2] for name, _ in facts})
@@ -783,6 +786,12 @@ class TestCastValidation(unittest.TestCase):
                     self.assertNotIn("@ite", statement, name)
                     self.assertNotRegex(statement, r"_[iv]?vars \d", name)
                 for block in [block for block in text.split("\n\n") if facts and "theorem" in block]:
+                    # A cnf lemma's structural attempt names its steps _f too
+                    # (theory clauses, propagations); the facts are the
+                    # fallback's. Other lemmas are checked whole.
+                    if any(header in block for header in cnf):
+                        block = "\n    | (".join(attempt for attempt in block.split("\n    | (")
+                                                 if "refine Classical.byContradiction ?_" not in attempt)
                     names = re.findall(fact, block)
                     if names:
                         reverted = re.search(r"\n *revert ([\w ]+)\n *unfold [\w ]+\n *intro ([\w ]+)\n", block)
