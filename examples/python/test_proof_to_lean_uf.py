@@ -651,14 +651,24 @@ def outlined_lemma_sizes(text):
 
 
 def _proof_steps(certificate):
-    """Proof steps reachable from the root; unused gate clauses are still checked as lemmas."""
+    """Proof steps reachable from the root that are bound as steps; unused gate clauses are still checked as lemmas.
+
+    A hypothesis is no step of its own unless it is a lemma's premise: its
+    users name its binder (proof_to_lean._direct_hypotheses).
+    """
+    nodes, declarations = certificate["nodes"], certificate["declarations"]
+
+    def rule(node):
+        return declarations[nodes[node]["declaration"]]["name"]
+
     reachable, pending = set(), [certificate["proof"]]
     while pending:
         node = pending.pop()
         if node not in reachable:
             reachable.add(node)
-            pending.extend(certificate["nodes"][node]["arguments"][:-1])
-    return len(reachable)
+            pending.extend(nodes[node]["arguments"][:-1])
+    kept = {nodes[node]["arguments"][0] for node in reachable if rule(node) == "lemma"}
+    return len({node for node in reachable if rule(node) != "hypothesis" or node in kept})
 
 
 def _unsat_core_size(source):

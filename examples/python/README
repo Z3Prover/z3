@@ -948,9 +948,11 @@ conjunction (the interpretation is implicit, determined by it) and abstracts
 its open hypotheses explicitly, as the premises of its statement; steps the
 root never uses are not outlined. A step under hypotheses that only one other
 step uses is bound inside that step, where its hypotheses are in scope, rather
-than as a function of them that the other step re-applies; this keeps Lean's
-memory, which grows with the elaborated text, under the 8 GB cap on QF_IDL
-plan-21. The final unsat theorem still takes exactly the original
+than as a function of them that the other step re-applies, and a hypothesis
+step is not bound as a step: its users name the hypothesis's binder (except a
+lemma's premise, which the lemma discharges). This keeps Lean's memory,
+which grows with the elaborated text, under the 8 GB cap on QF_IDL plan-21.
+The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.
 Propositional lemmas instead take the decidability witnesses they need as

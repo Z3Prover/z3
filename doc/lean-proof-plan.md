@@ -1672,6 +1672,26 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Hypotheses named by their binders; resolutions closed on the right (2026-11-10)
+
+A `hypothesis` step was bound like any other step: a function of its own
+binder `_hypN`, re-applied by each user, and, used by several steps, an
+outlined lemma `fun _hypN => _hypN` imported by every lemma using it. In
+DTP's 36.9 MB of Lean that was 3.3 MB. Its users now name the binder
+itself, which is in scope wherever the step's hypotheses are
+(`_direct_hypotheses`); only the premise of a `lemma`, which discharges the
+binder, keeps its step. A unit resolution whose literals after the last
+kept one are all eliminated is closed by `Or.resolve_right` on that tail
+instead of an `Or.elim` case split; in DTP most resolutions keep one literal
+of a two-literal clause. DTP goes from 36.9 to 32.2 MB and still fails at
+the 8 GB cap, after 13,579 of its 16,557 outlined lemmas (11,991 of 17,084
+before); plan-21 from 25.5 to 23.4 MB, NEQ004 from 16.5 to 13.9 MB,
+`swap_t2_np_sf_ai_00009_002` from 22.7 to 20.6 MB. plan-21 verifies in 87 s
+at a 7.0 GB peak (7.5 GB before); the swap file still fails at the cap.
+Still open: imports of shared steps under hypotheses, each followed by its
+re-application (about 1 MB of DTP), and the lemma statements' hypothesis
+chains.
+
 ### Steps under hypotheses bound inside the step using them (2026-11-10)
 
 A proof step under hypotheses (the clause log's lemmas and the legacy

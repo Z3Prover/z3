@@ -7812,15 +7812,17 @@ def _resolution(graph, terms, node):
             return "(fun _literal => _literal)"
         return None
 
-    def branch(position, value):
-        literal = literals[position]
+    def contradiction(position, value):
+        """A proof of False from a proof value of an eliminated or false literal."""
         if position in eliminations:
             unit, negated_unit = eliminations[position]
-            contradiction = ("(_step_%d %s)" % (unit, value) if negated_unit
-                             else "(%s _step_%d)" % (value, unit))
-            return "(False.elim %s)" % contradiction
-        if graph.kind(literal) == z3.Z3_OP_FALSE:
-            return "(False.elim %s)" % value
+            return "(_step_%d %s)" % (unit, value) if negated_unit else "(%s _step_%d)" % (value, unit)
+        return value
+
+    def branch(position, value):
+        literal = literals[position]
+        if refutation(position) is not None:
+            return "(False.elim %s)" % contradiction(position, value)
         if position in doubles:
             literal = doubles[position]
             value = "(@Decidable.byContradiction %s _df%d %s)" % (_formula(graph, literal), literal, value)
@@ -7834,15 +7836,32 @@ def _resolution(graph, terms, node):
     # the known type of the clause; only kept literals open an Or.elim case
     # split. One nested Or.elim per literal created metavariables at every
     # level and made a unit resolution over a 260-literal clause take seconds.
+    # The last kept literal needs no split when every literal after it is
+    # eliminated: `(h.resolve_right n)` (Or.resolve_right) with n refuting
+    # that tail. In the QF_IDL DTP refutations most resolutions keep one
+    # literal of a two-literal clause.
+    last = len(literals) - 1
+    kept_before_last = [pos for pos in range(last) if refutation(pos) is None]
+    final = kept_before_last[-1] if kept_before_last and refutation(last) is not None else None
     subject, cases = "_step_%d" % first, []
-    for position in range(len(literals) - 1):
+    for position in range(last):
         negation = refutation(position)
         if negation is not None:
             subject = "(%s.resolve_left %s)" % (subject, negation)
-            continue
-        cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
-        subject = "_tail"
-    return "".join(cases) + branch(len(literals) - 1, subject) + "))" * len(cases), support
+        elif position == final:
+            if position + 1 == last:
+                negation = refutation(last)
+            else:
+                tail = "_tail"
+                for eliminated in range(position + 1, last):
+                    tail = "(%s.resolve_left %s)" % (tail, refutation(eliminated))
+                negation = "(fun _tail => %s)" % contradiction(last, tail)
+            value = branch(position, "(%s.resolve_right %s)" % (subject, negation))
+            return "".join(cases) + value + "))" * len(cases), support
+        else:
+            cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
+            subject = "_tail"
+    return "".join(cases) + branch(last, subject) + "))" * len(cases), support
 
 
 def _lemma(graph, terms, node, hypotheses):
@@ -7921,7 +7940,34 @@ def _outline_weight(graph, node):
     return width if width > _OUTLINE_WIDE_STEP else 1
 
 
-def _outline_boundaries(graph):
+def _direct_hypotheses(graph, terms):
+    """Return the hypothesis steps that their consumers name by the hypothesis itself.
+
+    A hypothesis step proves its formula from the binder `_hypN`, which every
+    step depending on it already has in scope. Bound as a step of its own it
+    was a function of that binder: each consumer re-applied it, and, used by
+    several steps, it became an outlined lemma `fun _hypN => _hypN` imported
+    by every lemma using it. In the QF_IDL DTP_k2_n35 refutation this was
+    3.3 MB of 36.9 MB of Lean. Only the premise of a `lemma` keeps its step:
+    the lemma discharges the hypotheses its premise depends on, so the
+    binder is not in scope there. (No conjunction tails start from a
+    hypothesis: _and_elim projects a premise under hypotheses from its start.)
+    """
+    kept = {graph.arguments(node)[0] for node in terms if graph.kind(node) == z3.Z3_OP_PR_LEMMA}
+    return {node for node in terms if graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS and node not in kept}
+
+
+def _reference_hypotheses(terms, direct):
+    """Return the step terms without the direct hypothesis steps, which the others name by their binder."""
+    reference = {"_step_%d" % node: terms[node] for node in direct}
+
+    def name(match):
+        return reference.get(match.group(0), match.group(0))
+
+    return {node: re.sub(r"\b_step_\d+\b", name, term) for node, term in terms.items() if node not in direct}
+
+
+def _outline_boundaries(graph, direct=frozenset()):
     """Return the steps checked as separate lemmas: shared subproofs and chunk ends.
 
     A subproof used by several steps is checked once. A long chain without
@@ -7933,7 +7979,8 @@ def _outline_boundaries(graph):
     rather than being cut. Only steps the root uses are outlined; the log
     may record derivations the refutation never needs. Arguments precede
     their node, so one increasing pass sees every premise's final size before
-    its consumer.
+    its consumer. The direct hypothesis steps (_direct_hypotheses) are not
+    bound as steps and are never outlined.
     """
     reachable, pending = set(), [graph.proof]
     while pending:
@@ -7942,12 +7989,12 @@ def _outline_boundaries(graph):
             reachable.add(node)
             pending.extend(graph.arguments(node)[:-1])
     uses = Counter(premise for node in reachable for premise in graph.arguments(node)[:-1])
-    boundaries = {node for node in reachable if uses[node] > 1} | {graph.proof}
+    boundaries = {node for node in reachable if uses[node] > 1 and node not in direct} | {graph.proof}
     size = {}
     for node in sorted(reachable):
         total = weight = _outline_weight(graph, node)
         for premise in graph.arguments(node)[:-1]:
-            if premise in boundaries:
+            if premise in boundaries or premise in direct:
                 continue
             if weight > 1 and graph.kind(premise) == z3.Z3_OP_PR_HYPOTHESIS:
                 # The hundreds of hypotheses of a wide step stay its binders:
@@ -7983,7 +8030,9 @@ def _step_blocks(graph, terms, dependencies, excluded):
     in scope: no binders and no re-application. Steps in excluded (outlined
     lemmas, premises of conjunction tails) stay at the top level, and
     nesting stops at _NESTED_STEP_DEPTH levels, so no let value nests more
-    than that many others.
+    than that many others. A premise without a term (a direct hypothesis,
+    see _direct_hypotheses) is not bound as a step: its consumers name its
+    binder.
     """
     uses = Counter(premise for node in terms for premise in graph.arguments(node)[:-1])
     inner, depth = {}, {}
@@ -7992,7 +8041,7 @@ def _step_blocks(graph, terms, dependencies, excluded):
         if graph.kind(node) == z3.Z3_OP_PR_LEMMA:
             continue  # its premise depends on the hypotheses it discharges
         for premise in dict.fromkeys(graph.arguments(node)[:-1]):
-            if (uses[premise] == 1 and dependencies[premise] and premise not in excluded
+            if (premise in terms and uses[premise] == 1 and dependencies[premise] and premise not in excluded
                     and set(dependencies[premise]) <= set(dependencies[node])
                     and depth[premise] < _NESTED_STEP_DEPTH):
                 inner[node].append(premise)
@@ -8007,7 +8056,7 @@ def _step_blocks(graph, terms, dependencies, excluded):
             lines.extend(block(premise, "    "))
         if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
             for premise in dict.fromkeys(graph.arguments(node)[:-1]):
-                if dependencies[premise] and premise not in inner[node]:
+                if premise in terms and dependencies[premise] and premise not in inner[node]:
                     arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
                     lines.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
         lines.append("    " + terms[node])
@@ -8326,7 +8375,9 @@ def reconstruct(source, certificate):
         raise ReconstructionError("the root proof has undischarged hypotheses")
     if ite_congruence:
         lines.extend(_ITE_CONGRUENCE)
-    boundaries = _outline_boundaries(graph) if outline else set()
+    direct = _direct_hypotheses(graph, step_terms)
+    step_terms = _reference_hypotheses(step_terms, direct)
+    boundaries = _outline_boundaries(graph, direct) if outline else set()
     step_blocks = _step_blocks(graph, step_terms, dependencies, boundaries | {premise for premise, _ in tails.values()})
     witnesses = []
     if outline:

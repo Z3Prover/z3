@@ -2060,14 +2060,26 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # of the 8 GB cap. A step one other step uses is now bound inside
         # it, where its hypotheses are in scope; a lemma's hypotheses are
         # the binders of a fun under its statement; an imported lemma
-        # takes only _inputs. Seed 2: 1.97 MB of Lean before, 1.43 MB now.
+        # takes only _inputs. A hypothesis step is no step: its users name
+        # the binder _hypN, where a shared one was an outlined lemma `fun
+        # _hypN => _hypN`, imported and re-applied by every lemma using it.
+        # A resolution keeping the literal before an eliminated tail is
+        # Or.resolve_right, not an Or.elim. Seed 2: 1.97 MB of Lean at first,
+        # 1.43 MB with nesting, 1.29 MB now.
         source = disjunctive_temporal_instance(2)
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(certificate["rule_counts"]["hypothesis"], 100)
         text = self.checked_text(source, certificate)
-        self.assertLess(len(text), 1600000)
+        self.assertLess(len(text), 1350000)
         lemmas = text.split("\nprivate theorem proof_step_")[1:]
         self.assertGreater(len(lemmas), 500)
+        hypotheses = {index for index, node in enumerate(certificate["nodes"])
+                      if certificate["declarations"][node["declaration"]]["name"] == "hypothesis"}
+        bound = {int(step) for step in re.findall(r"let _step_(\d+)", text)}
+        bound.update(int(lemma.split(" ", 1)[0]) for lemma in lemmas)
+        self.assertFalse(hypotheses & bound)
+        self.assertNotRegex(text, r"\n  fun (_hyp\d+) =>\n    \1\n")
+        self.assertGreater(text.count(".resolve_right "), 500)
         uses = collections.Counter(premise for node in certificate["nodes"] for premise in node["arguments"][:-1])
         under_hypotheses = 0
         for lemma in lemmas:
@@ -2099,17 +2111,20 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertTrue(any(uses[step] == 1 for step in reapplied))
         # Nesting is one level deep: no nested step has a step nested in it.
         self.assertNotRegex(text, r"\n    let _step_\d+ : .*:=\n    let _step_\d+ : ")
+        # Every step but the hypotheses (named by their binders) is bound once.
         self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:=)", text, re.MULTILINE))
                          + len(text.split("\nprivate theorem proof_step_")[1:]),
-                         sum(certificate["rule_counts"].values()))
+                         sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
 
-    @lean_test_support.slow("QF_IDL plan-21, 25 MB of Lean, about 90 s at 7.5 GB")
+    @lean_test_support.slow("QF_IDL plan-21, 23.4 MB of Lean, about 90 s at 7.0 GB")
     def test_planning_refutation_verifies_under_the_memory_cap(self):
         # SMT-LIB QF_IDL planning/plan-21.cvc (110 KB): 25,842 proof steps.
         # Its 33 MB of Lean ran out of the 8 GB cap of check_lean.sh after
         # 95 s ("(kernel) excessive memory consumption"); with the steps
-        # under hypotheses bound inside their consumers it is 25 MB and
-        # verifies (see the test above).
+        # under hypotheses bound inside their consumers it was 25 MB and
+        # verified; with hypotheses named by their binders and resolutions
+        # closed by Or.resolve_right it is 23.4 MB, verified in 87 s at a
+        # 7.0 GB peak (see the test above).
         source = (_EXAMPLES / "data" / "QF_IDL_plan-21.cvc.smt2").read_text()
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(sum(certificate["rule_counts"].values()), 25000)
