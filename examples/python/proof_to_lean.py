@@ -1154,6 +1154,12 @@ class _Graph:
     # The terms each formula floors (_floored_terms), by node (a cache: every
     # lemma's _real_argument_pairs visits the reachable formulas again).
     floored_terms: dict = field(default_factory=dict, compare=False, repr=False)
+    # The auxiliary theorems _pointwise_map_facts has stated, by their text:
+    # their names. A step that compares two sets as an earlier one did uses
+    # that step's theorem, so the lines each call returns must be written
+    # out, in the order of the calls (reconstruct writes the steps' lemmas
+    # in node order).
+    pointwise_theorems: dict = field(default_factory=dict, compare=False, repr=False)
 
     def constructor_index(self, name, sort):
         """The index of a constructor in _m.ctors: the enumerations by sort name, each in declaration order."""
@@ -1846,12 +1852,20 @@ def _interpretation_structure(graph, tables, variable_indices):
         return []
     fields = _UF_FIELDS + (_NUMERIC_FIELDS[graph.numeric] if graph.arithmetic else ())
     fields += _array_family_fields(graph)
-    if any(decl.kind == z3.Z3_OP_ARRAY_EXT and _inhabitant_sort(decl.range) in graph.carriers
-           for decl in graph.declarations):
+    if _carrier_inhabited(graph):
         fields += _NONEMPTY_FIELDS
     if graph.enumerations:
         fields += _enumeration_fields(graph, tables, variable_indices)
     return ["structure Interpretation where"] + ["  %s : %s" % field for field in fields] + [""]
+
+
+def _carrier_inhabited(graph):
+    """Whether the interpretation states that its carrier is nonempty (_NONEMPTY_FIELDS).
+
+    It does when an extensionality witness is chosen from the carrier (_nonempty).
+    """
+    return any(decl.kind == z3.Z3_OP_ARRAY_EXT and _inhabitant_sort(decl.range) in graph.carriers
+               for decl in graph.declarations)
 
 
 def _enumeration_fields(graph, tables, variable_indices):
@@ -3073,7 +3087,13 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
             scope |= _reachable_outside(graph, formula, ites)
     atoms = _opaque_int_atoms(graph, conclusions) if opaque_tactic else []
     budget = _LATTICE_LEMMA_HEARTBEATS if atoms and _lattice_step(graph, node) else 1000000
-    lines = [
+    # A rewrite or cnf lemma over sets: the sets Z3's rewriter compares
+    # member by member, as auxiliary theorems before this one and facts.
+    compares_arrays = (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays
+    pointwise, pointwise_facts = (_pointwise_map_facts(
+        graph, reachable, "%s_%d" % (prefix, node), atom_indices, variable_indices,
+        members_read=prefix != "rewrite") if compares_arrays else ([], []))
+    lines = pointwise + [
         "",
         "set_option maxHeartbeats %d in" % budget,
         "private theorem %s_%d (_atoms : Nat -> Prop)%s" % (prefix, node, _valuation_binder(graph)),
@@ -3148,9 +3168,10 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     fallback.extend(distinct_facts)
     fallback.extend(helper.strip() for helper in _theory_helpers(graph, scope, atom_indices, variable_indices,
                                                                   folded_arguments=fold, array_facts=array_facts))
-    if (prefix == "rewrite" or graph.decl(node).parameters[:1] == ("cnf",)) and graph.arrays:
+    if compares_arrays:
         fallback.extend(helper.strip() for helper in _constant_array_comparisons(
             graph, reachable, atom_indices, variable_indices))
+        fallback.extend(pointwise_facts)
     fallback.extend(cast_facts)
     # grind alone for an euf lemma: congruence closure is its business, not
     # omega's.
@@ -3182,7 +3203,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     # this alternative should then be computed over reachable.
     store_body = gates + full_unfold + fallback
     fallback = gates + unfold + fallback
-    alternatives.append(fallback)
+    bodies = [fallback]
     if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
             else _store_identity_instance(graph, reachable)):
         # Z3's rewriter may have applied the store identities: the folded
@@ -3203,9 +3224,21 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         # Numeral expressions evaluated first, as the rewriter compares
         # indices and values by value ((/ 2 2) is 1.0).
         values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
-        alternatives.append(store_body[:-1] + values
-                            + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
-                               "all_goals " + store_body[-1]])
+        bodies.append(store_body[:-1] + values
+                      + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
+                         "all_goals " + store_body[-1]])
+    if pointwise_facts:
+        # Without the pointwise facts first: a step that needs none is
+        # proved as it was before them, whatever they cost. grind closes
+        # the classes of the sets they equate under every map and read in
+        # its context, and that is not cheap: a cnf lemma over sixteen
+        # nested maps of xor, proved in 0.6 s without its eleven such
+        # equalities, ran out of the heartbeats with them (which first does
+        # not catch). A step that needs them fails these attempts (`grind`
+        # failed) and repeats its facts with them.
+        stated = set(pointwise_facts)
+        alternatives.extend([tactic for tactic in body if tactic not in stated] for body in bodies)
+    alternatives.extend(bodies)
     if len(alternatives) == 1:
         lines.extend("  " + tactic for tactic in fallback)
     else:
@@ -4043,6 +4076,268 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
         mentioned |= current
     return ([helper.strip() for helper in reverted], [helper.split()[1] for helper in reverted], mentioned,
             [helper.strip() for helper in plain])
+
+
+# The Boolean functions a map or set operator applies to the members of sets,
+# on truth tables as bit masks (full is the table of true), by the function's
+# name in a map declaration; the set operators are named as the maps Z3's
+# rewriter makes of them, a difference "setminus".
+_POINTWISE_FUNCTIONS = {
+    "not": lambda full, a: full & ~a,
+    "and": lambda full, a, b: a & b,
+    "or": lambda full, a, b: a | b,
+    "=>": lambda full, a, b: (full & ~a) | b,
+    "xor": lambda full, a, b: a ^ b,
+    "=": lambda full, a, b: full & ~(a ^ b),
+    "distinct": lambda full, a, b: a ^ b,
+    "ite": lambda full, c, a, b: (c & a) | (full & ~c & b),
+    "setminus": lambda full, a, b: a & ~b,
+}
+_POINTWISE_SET_OPERATORS = {z3.Z3_OP_SET_UNION: "or", z3.Z3_OP_SET_INTERSECT: "and",
+                            z3.Z3_OP_SET_DIFFERENCE: "setminus", z3.Z3_OP_SET_COMPLEMENT: "not"}
+# A set term is compared pointwise (_pointwise_map_facts) over at most this
+# many leaves (sets, Boolean values, and stored-index tests; its truth table
+# has 2^n rows) and this many maps and stores, counted as its member formula
+# writes them (the comparison writes that formula out): as a tree, and an
+# argument once per occurrence in its map's formula (_pointwise_occurrences;
+# a map of xor writes each argument twice and a map of ite its condition, so
+# the formula of a nest of them doubles per level: sixteen nested maps of
+# xor wrote 10.8 MB and Lean ran out of heartbeats while the limit was on
+# the number of maps). A larger term is taken as a set of its own. A step
+# that reaches more than _POINTWISE_SETS Boolean set terms gets no
+# pointwise facts.
+_POINTWISE_LEAVES = 8
+_POINTWISE_SIZE = 48
+_POINTWISE_SETS = 256
+
+
+def _pointwise_function(graph, node):
+    """The Boolean function a map or set operator node applies to its sets' members (_POINTWISE_FUNCTIONS), or None.
+
+    None for any other node, and for a map of another function or over
+    elements that are not Booleans (a map of <= over Int arrays is a set,
+    but not a function of sets).
+    """
+    kind = graph.kind(node)
+    if kind in _POINTWISE_SET_OPERATORS:
+        return _POINTWISE_FUNCTIONS[_POINTWISE_SET_OPERATORS[kind]]
+    if kind != z3.Z3_OP_ARRAY_MAP:
+        return None
+    decl = graph.decl(node)
+    if any(_array_components(sort)[1] != "Bool" for sort in decl.domain):
+        return None
+    return _POINTWISE_FUNCTIONS.get(decl.parameters[0])
+
+
+def _pointwise_occurrences(graph, node):
+    """How many times the member formula of a map or set operator writes that of each argument (_map_application)."""
+    marks = ["\0%d\0" % position for position in range(len(graph.arguments(node)))]
+    written = _map_application(graph, node, marks)
+    return [written.count(mark) for mark in marks]
+
+
+def _expanded_table(table, leaves, onto):
+    """A truth table over leaves as the table over onto, a tuple that holds every one of leaves."""
+    if leaves == onto:
+        return table
+    positions = [onto.index(leaf) for leaf in leaves]
+    expanded = 0
+    for row in range(1 << len(onto)):
+        source = sum(((row >> position) & 1) << bit for bit, position in enumerate(positions))
+        expanded |= ((table >> source) & 1) << row
+    return expanded
+
+
+def _essential_table(leaves, table):
+    """A truth table over the leaves it depends on alone: those leaves and the table over them.
+
+    Two tables are of one function exactly if these agree.
+    """
+    rows = range(1 << len(leaves))
+    positions = [position for position in range(len(leaves))
+                 if any(((table >> row) ^ (table >> (row ^ (1 << position)))) & 1 for row in rows)]
+    reduced = 0
+    for row in range(1 << len(positions)):
+        # The row of the full table with the other leaves false.
+        source = sum(((row >> bit) & 1) << position for bit, position in enumerate(positions))
+        reduced |= ((table >> source) & 1) << row
+    return tuple(leaves[position] for position in positions), reduced
+
+
+def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices, members_read=False):
+    """Facts for a step whose sets Z3's rewriter compares member by member.
+
+    array_rewriter::mk_map_core simplifies a map of connectives over sets
+    as it simplifies the connective over their members, and an equality
+    between the results is decided when they are constant arrays: (setminus
+    s s) is the empty set, a double complement cancels, (intersection
+    (complement s) (setminus s t)) is empty, nested maps of and are
+    flattened and sorted, (= ((_ map and) s (complement s)) full) is false.
+    The certificate holds the sets before and after, and no fact about a
+    single map relates them. So each set term over Booleans the step
+    reaches is read as a Boolean function of its leaves: the sets its maps,
+    set operators, and stores are over, the Boolean values it stores or
+    holds in constant arrays (other than true and false), and, per stored
+    index, whether the member's index is that one (a store is the stored
+    value there and the set's member elsewhere, so a map of stores at one
+    index is the store of the map). Its truth table is computed here; two
+    terms of one function are stated equal, and the sides of an equality
+    whose functions differ in every row are stated different. Both are
+    proved by function extensionality from an auxiliary theorem over the
+    members as propositions, which grind proves with nothing else in its
+    context; the member formulas are what the sets' definitions unfold to
+    at an index. Two sets of one member formula (a union and the map of or
+    over the same sets) are equal by rfl at each index, without a theorem,
+    and an auxiliary theorem is stated once per certificate: a later
+    comparison of the same text uses it (_Graph.pointwise_theorems). The
+    tables only choose the facts: Lean checks each.
+
+    With members_read (a cnf lemma, whose clause the solver assumed about
+    members while the assertion it is tied to equates sets), each such
+    equality also implies that its sides' members agree at every index the
+    lemma reads from a set of its sort, by congruence, unless there are
+    more than _COMPARISON_READS such facts.
+
+    Returns the lines of the auxiliary theorems stated here, named
+    name_pwN, and the facts.
+    """
+    def inline(sub):
+        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
+
+    def boolean_set(node):
+        return graph.is_array(node) and _array_components(graph.decl(node).range)[1] == "Bool"
+
+    sets = [node for node in sorted(reachable) if boolean_set(node)]
+    if len(sets) > _POINTWISE_SETS or not any(_pointwise_function(graph, node) is not None for node in sets):
+        return [], []
+    # Per set: its leaves, its truth table over them, and the number of maps
+    # and stores its member formula writes (_POINTWISE_SIZE). Ids are
+    # topological, so arguments come first. A leaf is a set, a Boolean
+    # value, or the proposition that the member's index is a stored one,
+    # named by its kind and node.
+    tables, functions = {}, set()
+
+    def value_table(value):
+        if graph.kind(value) in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE):
+            return (), int(graph.kind(value) == z3.Z3_OP_TRUE), 0
+        return (("value", value),), 2, 0
+
+    for node in sets:
+        kind, arguments = graph.kind(node), graph.arguments(node)
+        function = _pointwise_function(graph, node)
+        if kind == z3.Z3_OP_CONST_ARRAY:
+            tables[node] = value_table(arguments[0])
+            continue
+        if kind == z3.Z3_OP_STORE and arguments[0] in tables:
+            # The stored value at the stored index, the array's member elsewhere.
+            function = _POINTWISE_FUNCTIONS["ite"]
+            operands = [((("index", arguments[1]),), 2, 0), value_table(arguments[2]), tables[arguments[0]]]
+            written = (1, 1, 1)
+        elif function is not None and all(argument in tables for argument in arguments):
+            operands = [tables[argument] for argument in arguments]
+            written = _pointwise_occurrences(graph, node)
+        else:
+            operands = None
+        if operands is not None:
+            leaves = tuple(sorted({leaf for operand in operands for leaf in operand[0]}))
+            size = 1 + sum(count * operand[2] for count, operand in zip(written, operands))
+            if len(leaves) <= _POINTWISE_LEAVES and size <= _POINTWISE_SIZE:
+                full = (1 << (1 << len(leaves))) - 1
+                tables[node] = (leaves, function(full, *(_expanded_table(operand[1], operand[0], leaves)
+                                                         for operand in operands)), size)
+                functions.add(node)
+                continue
+        tables[node] = ((("set", node),), 2, 0)
+    keys = {node: (graph.decl(node).range,) + _essential_table(*tables[node][:2]) for node in sets}
+
+    def value_member(value, names):
+        return names.get(("value", value), "True" if graph.kind(value) == z3.Z3_OP_TRUE else "False")
+
+    def member(node, names):
+        """The member formula of a set over the names of its leaves, as the set's definition unfolds at an index."""
+        kind, arguments = graph.kind(node), graph.arguments(node)
+        if kind == z3.Z3_OP_CONST_ARRAY:
+            return value_member(arguments[0], names)
+        if node not in functions:
+            return names[("set", node)]
+        if kind == z3.Z3_OP_STORE:
+            return "(@ite Prop %s (Classical.propDecidable _) %s %s)" % (
+                names[("index", arguments[1])], value_member(arguments[2], names), member(arguments[0], names))
+        return _map_application(graph, node, [member(argument, names) for argument in arguments])
+
+    theorems, facts = [], []
+
+    def leaf_member(leaf, at):
+        """What a leaf is at an index: the member of its set, its value, or whether the index is its stored one."""
+        kind, node = leaf
+        if kind == "set":
+            return "(_select %s %s)" % (inline(node), at)
+        return inline(node) if kind == "value" else "(%s = %s)" % (at, inline(node))
+
+    def auxiliary(left, right, statement):
+        """The auxiliary theorem of two sets applied to their leaves' members at _i, stated unless it was before.
+
+        None if the two have one member formula (sets of one function may).
+        """
+        leaves = sorted(set(tables[left][0]) | set(tables[right][0]))
+        names = {leaf: "_p%d" % position for position, leaf in enumerate(leaves)}
+        sides = (member(left, names), member(right, names))
+        if sides[0] == sides[1]:
+            return None
+        stated = ["%s :" % (" (%s : Prop)" % " ".join(names[leaf] for leaf in leaves) if leaves else ""),
+                  "    %s := by grind" % (statement % sides)]
+        theorem = graph.pointwise_theorems.get(tuple(stated))
+        if theorem is None:
+            theorem = graph.pointwise_theorems[tuple(stated)] = "%s_pw%d" % (name, len(theorems) // 3)
+            theorems.extend(["", "private theorem %s%s" % (theorem, stated[0]), stated[1]])
+        return "(%s)" % " ".join([theorem] + [leaf_member(leaf, "_i") for leaf in leaves])
+
+    classes = {}
+    for node in sets:
+        classes.setdefault(keys[node], []).append(node)
+    for members in classes.values():
+        # The first set that is not a map or store (there is at most one: a
+        # leaf or a constant array is its own function), else the first.
+        first = next((node for node in members if node not in functions), members[0])
+        for node in members:
+            if node != first:
+                proof = auxiliary(node, first, "(Iff %s %s)")
+                facts.append("have _pw%d : %s = %s := funext (fun _i => %s)" % (
+                    node, inline(node), inline(first), "rfl" if proof is None else "propext %s" % proof))
+    equalities = [node for node in sorted(reachable) if graph.kind(node) == z3.Z3_OP_EQ
+                  and all(argument in keys for argument in graph.arguments(node))
+                  and any(argument in functions for argument in graph.arguments(node))]
+    for node in equalities:
+        left, right = graph.arguments(node)
+        (sort, leaves, table), other = keys[left], keys[right]
+        # Functions that differ in every row depend on the same leaves. The
+        # sets then differ at any index, so the index sort must be inhabited:
+        # over a carrier the interpretation says so only next to an
+        # extensionality witness (_carrier_inhabited); without, no fact.
+        index = _array_components(sort)[0]
+        if (other == (sort, leaves, table ^ ((1 << (1 << len(leaves))) - 1))
+                and (_inhabitant_sort(index) not in graph.carriers or _carrier_inhabited(graph))):
+            facts.append("have _pwn%d : %s = %s -> False := fun _h => Nonempty.elim %s "
+                         "(fun _i => %s (Iff.of_eq (congrFun _h _i)))" % (
+                             node, inline(left), inline(right), _nonempty(index),
+                             auxiliary(left, right, "Not (Iff %s %s)")))
+    if not members_read:
+        return theorems, facts
+    # The sides of each equality at the indices the lemma reads from sets of its sort.
+    read = {}
+    for node in reachable:
+        if graph.kind(node) == z3.Z3_OP_SELECT and graph.arguments(node)[0] in tables:
+            read.setdefault(graph.decl(graph.arguments(node)[0]).range, set()).add(graph.arguments(node)[1])
+    if sum(len(read.get(keys[graph.arguments(node)[0]][0], ())) for node in equalities) > _COMPARISON_READS:
+        return theorems, facts
+    for node in equalities:
+        left, right = graph.arguments(node)
+        leaves = sorted(set(tables[left][0]) | set(tables[right][0]))
+        for index in sorted(read.get(keys[left][0], ())):
+            names = {leaf: leaf_member(leaf, inline(index)) for leaf in leaves}
+            facts.append("have _pwr%d_%d : %s = %s -> (Iff %s %s) := fun _h => Iff.of_eq (congrFun _h %s)" % (
+                node, index, inline(left), inline(right), member(left, names), member(right, names), inline(index)))
+    return theorems, facts
 
 
 # At most this many read facts per rewrite in _constant_array_comparisons.

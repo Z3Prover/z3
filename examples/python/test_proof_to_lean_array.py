@@ -1313,7 +1313,132 @@ SET_COMBINATOR_INPUTS = {
 (assert (= c (union a b)))
 (check-sat)
 """,
+    # Sets Z3's rewriter compares member by member (array_rewriter::
+    # mk_map_core simplifies a map of connectives as the connective over the
+    # members): the certificate holds the sets before and after, equal as
+    # functions of their members but by no identity of a single map. Each
+    # failed in Lean (grind, in the rewrite or cnf lemma) before
+    # proof_to_lean._pointwise_map_facts. A difference of a set with itself
+    # and an intersection with a complement are both empty.
+    "sets_equal_member_by_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (not (= (setminus a a) (intersection b (complement b)))))
+(check-sat)
+""",
+    # The same over an uninterpreted index sort and over Real indices.
+    "sets_equal_member_by_member_over_a_sort": """(declare-sort Index 0)
+(declare-fun a () (Array Index Bool))
+(declare-fun b () (Array Index Bool))
+(assert (not (= (setminus a a) (intersection b (complement b)))))
+(check-sat)
+""",
+    # An empty set equated with the full one: the members differ at every
+    # index, so at one (the equality is decided false).
+    "sets_differ_at_every_member": """(declare-fun a () (Array Int Bool))
+(assert (= ((_ map and) a (complement a)) ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    "sets_differ_at_every_member_over_real": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(assert (= (union a (complement a)) (setminus b b)))
+(check-sat)
+""",
+    # The right side simplifies to the empty set through two levels: not b
+    # and (b and not a).
+    "set_equated_with_an_empty_intersection": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (= a (intersection (complement b) (setminus b a))))
+(assert (select a 0))
+(check-sat)
+""",
+    # Nested maps of and are flattened, sorted, and stripped of the repeated set.
+    "set_nested_intersections_flattened": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(assert (= c ((_ map and) ((_ map and) a b) a)))
+(assert (select c 0))
+(assert (not (select b 0)))
+(check-sat)
+""",
+    # A difference of stores at one index is the store of the difference;
+    # the difference of the sets below is the rewriter's map of and and not,
+    # no term of the certificate. A store is read member by member too: the
+    # stored value at its index, the set's member elsewhere.
+    "set_difference_of_stores_at_one_index": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (setminus (store a i false) (store b i true)) ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    # A constant array of a Boolean value that is not true or false is a leaf.
+    "set_difference_of_a_constant_set_with_itself": """(declare-fun a () (Array Int Bool))
+(declare-fun p () Bool)
+(assert (not (= (setminus ((as const (Array Int Bool)) p) ((as const (Array Int Bool)) p)) (setminus a a))))
+(check-sat)
+""",
+    # The second assertion simplifies to false, so the first is logged as
+    # written and tied to a clause the solver assumes about a member of b at
+    # i, with no read of the equality's sides: a cnf lemma, which needs the
+    # sides' members at the indices it reads.
+    "members_of_equal_sets": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (union a b) (complement a)))
+(assert (select (setminus (setminus b c) (union a b)) i))
+(check-sat)
+""",
+    # The same read at a remainder, below stores at another: the indices
+    # are written with Lean's % into the facts.
+    "members_of_equal_sets_at_a_remainder": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (union a b) (complement a)))
+(assert (select (setminus (setminus (store b (mod i 3) false) c) (union a (store b (mod i 3) false))) (mod i 2)))
+(check-sat)
+""",
 }
+
+
+def _nested_maps(function, depth, *others):
+    """depth nested maps of function, each over the one below (the set a at the bottom) and others."""
+    term = "a"
+    for _ in range(depth):
+        term = "(%s %s)" % (function, " ".join((term,) + others))
+    return term
+
+
+# Sixteen nested maps of xor, and of ite: a map of xor writes the member
+# formula of each argument twice and a map of ite that of its condition, so
+# the formula of the nest doubles per level. The pointwise comparison counts
+# what it writes, and a step first tries without its facts; neither read
+# needs one (every second level of the first nest is a or (xor a b)). With
+# the maps counted as a tree the certificate of the first was 10.8 MB and
+# Lean ran out of heartbeats on an auxiliary theorem; with small auxiliary
+# theorems and the facts in the step's only attempt, grind ran out of them
+# in the cnf lemma over the eleven equalities of the nest's levels.
+SET_COMBINATOR_INPUTS.update({
+    "set_read_of_nested_xor_maps": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun i () Int)
+(assert (select %s i))
+(assert (not (select a i)))
+(assert (= c (setminus a a)))
+(check-sat)
+""" % _nested_maps("(_ map xor)", 16, "b"),
+    "set_read_of_nested_ite_maps": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun d () (Array Int Bool))
+(declare-fun i () Int)
+(assert (select %s i))
+(assert (not (select (union %s %s) i)))
+(assert (= d (setminus a a)))
+(check-sat)
+""" % ((_nested_maps("(_ map (ite (Bool Bool Bool) Bool))", 16, "b", "c"),) * 3),
+})
 # Maps of other functions ((_ map f) a ...): uninterpreted functions and
 # predicates of up to three arguments, the Boolean connective xor, = and
 # distinct, Int and Real +, -, and comparisons, and ite, over elements of
@@ -2018,7 +2143,9 @@ _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.ite
 _SET_COMBINATOR_FRAGMENTS = {"setminus_disjoint": "qf_uf", "setminus_as_intersection": "qf_uf",
                              "map_equal_sets": "qf_uf", "union_of_variable_sets": "qf_uf",
                              "union_commutes": "qf_uf", "real_intersection": "qf_uflra",
-                             "set_operators_after_false_over_a_sort": "qf_uf"}
+                             "set_operators_after_false_over_a_sort": "qf_uf",
+                             "sets_equal_member_by_member_over_a_sort": "qf_uf",
+                             "sets_differ_at_every_member_over_real": "qf_uflra"}
 _FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for name in SET_COMBINATOR_INPUTS)
 # Maps of other functions are over Int indices and elements (qf_uflia) except these.
 _MAP_FUNCTION_FRAGMENTS = {"map_over_sort": "qf_uf", "map_xor": "qf_uf", "map_distinct": "qf_uf",
@@ -2914,6 +3041,118 @@ class TestArrayValidation(unittest.TestCase):
                 (z3.Select(union, i), False)):
             with self.subTest(literal=literal):
                 self.assertEqual(proof_clause_log._default_map_axiom(literal), expected)
+
+    def test_sets_are_compared_member_by_member(self):
+        """A rewrite or cnf lemma over sets gets the equalities and differences their members decide."""
+        def text_of(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        # Two empty sets: one auxiliary theorem over the members as
+        # propositions, proved by grind alone, and the equality from it.
+        text = text_of("sets_equal_member_by_member")
+        self.assertRegex(text, r"private theorem rewrite_\d+_pw0 \(_p0 _p1 : Prop\) :\n"
+                               r"    \(Iff \(And _p1 \(Not _p1\)\) \(And _p0 \(Not _p0\)\)\) := by grind\n")
+        self.assertRegex(text, r"have _pw\d+ : \(\(term_\d+ [^)]*\)\) = \(\(term_\d+ [^)]*\)\) := "
+                               r"funext \(fun _i => propext \(rewrite_\d+_pw0 \(_select \(\(term_\d+ [^)]*\)\) _i\) "
+                               r"\(_select \(\(term_\d+ [^)]*\)\) _i\)\)\)")
+        self.assertNotIn("have _pwn", text)
+        self.assertRegex(text_of("sets_equal_member_by_member_over_a_sort"), r"have _pw\d+ : ")
+        # An empty set against the full one: they differ at an index, 0.
+        text = text_of("sets_differ_at_every_member")
+        self.assertRegex(text, r"private theorem rewrite_\d+_pw0 \(_p0 : Prop\) :\n"
+                               r"    Not \(Iff \(And _p0 \(Not _p0\)\) True\) := by grind\n")
+        self.assertRegex(text, r"have _pwn\d+ : .* = .* -> False := fun _h => Nonempty.elim "
+                               r"\(Nonempty.intro \(0 : Int\)\) \(fun _i => \(rewrite_\d+_pw0 [^\n]*\) "
+                               r"\(Iff.of_eq \(congrFun _h _i\)\)\)")
+        self.assertRegex(text_of("sets_differ_at_every_member_over_real"),
+                         r"have _pwn\d+ : .* -> False := fun _h => Nonempty.elim \(Nonempty.intro \(0 : Rat\)\)")
+        # A store: the stored value where the member's index is the stored
+        # one, as _store unfolds; the index equality is a leaf.
+        text = text_of("set_difference_of_stores_at_one_index")
+        self.assertRegex(text, r"\(@ite Prop _p\d \(Classical.propDecidable _\) False _p\d\)")
+        self.assertRegex(text, r"propext \(rewrite_\d+_pw\d+ \(_i = \(_vars 0\)\) ")
+        # A constant array of an atom: the atom itself, at every index.
+        self.assertRegex(text_of("set_difference_of_a_constant_set_with_itself"),
+                         r"propext \(rewrite_\d+_pw0 \(_select [^\n]* _i\) \(_atoms 0\)\)\)")
+        # A cnf lemma: the sides of its equality at the index it reads, by
+        # congruence; grind takes it from there.
+        text = text_of("members_of_equal_sets")
+        self.assertRegex(text, r"have _pwr\d+_\d+ : .* = .* -> "
+                               r"\(Iff \(Or \(_select \(\(term_\d+ [^)]*\)\) \(_vars 0\)\) "
+                               r"\(_select [^\n]* \(_vars 0\)\)\) \(Not \(_select [^\n]* \(_vars 0\)\)\)\) := "
+                               r"fun _h => Iff.of_eq \(congrFun _h \(_vars 0\)\)")
+        self.assertRegex(text_of("members_of_equal_sets_at_a_remainder"),
+                         r"have _pwr\d+_\d+ : [^\n]* := fun _h => Iff.of_eq "
+                         r"\(congrFun _h \(\(\(_vars 0\) % \(\(\(2 : Int\)\)\)\)\)\)")
+        for name in ("set_equated_with_an_empty_intersection", "set_nested_intersections_flattened"):
+            with self.subTest(name=name):
+                self.assertRegex(text_of(name), r"have _pw\d+ : ")
+        # The tables only choose the facts: a term over more sets than
+        # _POINTWISE_LEAVES, or of more maps than _POINTWISE_SIZE (the
+        # intersection with a complement, two), is a set of its own, and a
+        # step over more sets than _POINTWISE_SETS gets none.
+        for limit, value in (("_POINTWISE_LEAVES", 0), ("_POINTWISE_SIZE", 1), ("_POINTWISE_SETS", 2)):
+            with self.subTest(limit=limit), mock.patch.object(proof_to_lean, limit, value):
+                self.assertNotIn("_pw", text_of("sets_equal_member_by_member"))
+                if limit != "_POINTWISE_SIZE":  # a union and a complement: one map each
+                    self.assertNotIn("_pw", text_of("members_of_equal_sets"))
+        # The maps are counted as the member formula writes them: five
+        # nested maps of xor write 31 (1, 3, 7, 15, 31), a sixth would make
+        # 63, over _POINTWISE_SIZE, and is a set of its own, the leaf of the
+        # next five. So no comparison is of more than twice the limit, the
+        # largest here of 31 maps against one; counted as a tree, sixteen
+        # levels were under the limit and wrote megabytes.
+        self.assertEqual(proof_to_lean._POINTWISE_SIZE, 48)
+        for name, largest in (("set_read_of_nested_xor_maps", 32), ("set_read_of_nested_ite_maps", None)):
+            with self.subTest(name=name):
+                text = text_of(name)
+                self.assertLess(len(text), 200000)
+                statements = re.findall(r"private theorem \w+_pw\d+([^\n]*:\n[^\n]*) := by grind\n", text)
+                written = max(statement.count("(Or (And ") for statement in statements)
+                self.assertLessEqual(written, 2 * proof_to_lean._POINTWISE_SIZE)
+                if largest is not None:
+                    self.assertEqual(written, largest)
+                # An auxiliary theorem is stated once: the steps that compare
+                # the same two member formulas share it.
+                self.assertEqual(len(set(statements)), len(statements))
+                uses = re.findall(r"have _pw\d+ : [^\n]* propext \(\w+_pw\d+ ", text)
+                self.assertGreater(len(uses), len(statements))
+                # A step tries without its pointwise facts first, then
+                # repeats its attempts with them.
+                steps = [step for step in text.split("\n\n") if "have _pw" in step]
+                self.assertTrue(steps)
+                for step in steps:
+                    stated = ["have _pw" in attempt for attempt in step.split("\n    | (")[1:]]
+                    self.assertEqual(stated, sorted(stated), step)
+                    self.assertEqual(stated.count(True), stated.count(False), step)
+        # Two sets of one member formula (a difference and the intersection
+        # with the complement) are equal by rfl at each index: no theorem.
+        text = text_of("setminus_as_intersection")
+        self.assertRegex(text, r"have _pw\d+ : \(\(term_\d+ [^)]*\)\) = \(\(term_\d+ [^)]*\)\) := "
+                               r"funext \(fun _i => rfl\)\n")
+        self.assertNotRegex(text, r"theorem \w+_pw\d+")
+        # No map or set operator, no fact: stores alone are left to the store identities.
+        for name in ("set_read_through_numeral_stores_to_own_index", "set_insert_elsewhere"):
+            with self.subTest(name=name):
+                self.assertNotIn("_pw", text_of(name))
+        # Truth tables: bit r is the value in the row whose bit k is leaf k's.
+        expanded, essential = proof_to_lean._expanded_table, proof_to_lean._essential_table
+        self.assertEqual(expanded(0b10, ("a",), ("a", "b")), 0b1010)
+        self.assertEqual(expanded(0b10, ("b",), ("a", "b")), 0b1100)
+        self.assertEqual(expanded(0b1000, ("a", "c"), ("a", "b", "c")), 0b10100000)
+        self.assertEqual(expanded(1, (), ("a",)), 0b11)
+        self.assertEqual(essential(("a", "b"), 0b1010), (("a",), 0b10))
+        self.assertEqual(essential(("a", "b"), 0b1100), (("b",), 0b10))
+        self.assertEqual(essential(("a", "b"), 0b1000), (("a", "b"), 0b1000))
+        self.assertEqual(essential(("a", "b"), 0b1111), ((), 1))
+        self.assertEqual(essential(("a", "b"), 0), ((), 0))
+        functions = proof_to_lean._POINTWISE_FUNCTIONS
+        a, b, c, full = 0b10101010, 0b11001100, 0b11110000, 0b11111111
+        self.assertEqual(functions["setminus"](full, a, b), 0b00100010)
+        self.assertEqual(functions["=>"](full, a, b), 0b11011101)
+        self.assertEqual(functions["ite"](full, c, a, b), 0b10101100)
+        self.assertEqual(functions["="](full, a, b), functions["not"](full, functions["xor"](full, a, b)))
+        self.assertEqual(functions["distinct"](full, a, b), functions["xor"](full, a, b))
 
     def test_the_replay_reads_set_operators(self):
         """Z3 logs the assertions after one that simplifies to false as written; the replay builds their sets."""
@@ -3857,6 +4096,15 @@ def random_set_instance(seed):
 # the other 28 rest on the default-map axiom and stay rejected, and the 17
 # Lean failures are array equalities the rewriter decides by map identities.
 SET_SEEDS = (43, 80, 156, 266)
+# Pinned unsatisfiable seeds of random_set_instance that exported but failed
+# in Lean (grind) on iteration 121's macOS build before the pointwise facts
+# (proof_to_lean._pointwise_map_facts). 64: an equality between an empty and
+# the full set decided false in a rewrite. 83: maps over stores. 94: a set
+# equated with an intersection that simplifies to the empty set. 957: a cnf
+# lemma from an equality of sets to a member read at 0. Of the 304 unsat
+# seeds of 1-1000 that export (the other 64 rest on the default-map axiom
+# and stay rejected), 261 verified before and all verify after.
+POINTWISE_SET_SEEDS = (64, 83, 94, 957)
 
 
 def array_chain_instance(depth=6, use="value"):
@@ -4022,7 +4270,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
 
     def test_pinned_random_set_instances_verify(self):
         sources = []
-        for seed in SET_SEEDS:
+        for seed in SET_SEEDS + POINTWISE_SET_SEEDS:
             source = random_set_instance(seed)
             self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
             sources.append((seed, source, _export(source)))
@@ -4297,7 +4545,30 @@ class TestArrayLeanIntegration(unittest.TestCase):
                     self.assertIn("`grind` failed", error)
 
     def test_map_facts_are_needed(self):
-        """Without the read facts below a map, or the map identities, grind cannot prove the steps over maps."""
+        """Without the read facts below a map, or the map identities, grind cannot prove the steps over maps.
+
+        Each kind of fact is dropped alone, the pointwise facts
+        (proof_to_lean._pointwise_map_facts) left in place: an euf lemma
+        gets none of those, and union_commutes needs the commutativity of
+        its map in one. The rewriter's identities of a single map of
+        connectives (the six inputs of rewriter below) are what the
+        pointwise facts prove as well in a rewrite, and all a rewrite has
+        beyond the pointwise limits. Those inputs are reconstructed over the
+        limit on a step's sets (_POINTWISE_SETS), so without pointwise
+        facts: Lean accepts that text, by the identities alone, and rejects
+        it without them. The last four inputs need the pointwise facts
+        themselves.
+        """
+        def check(text):
+            with tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "facts.lean"
+                output.write_text(text)
+                result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
+                                        capture_output=True)
+            return result.returncode, result.stdout + result.stderr
+
+        rewriter = {"complement_twice", "intersection_idempotent", "map_of_stores", "setminus_named",
+                    "map_of_store_and_constant", "map_of_constants"}
         for name, fact in (("z3test_t8", r"have _m\d+_\d+ : "), ("read_of_map_over_constants", r"have _m\d+_\d+ := "),
                            ("union_commutes", r"have _mc\d+ := "), ("complement_twice", r"have _mn\d+ := "),
                            ("intersection_idempotent", r"have _mi\d+ := "), ("map_of_stores", r"have _ms\d+ := "),
@@ -4309,21 +4580,24 @@ class TestArrayLeanIntegration(unittest.TestCase):
                            ("function_map_of_stores", r"have _ms\d+ := "),
                            ("nested_function_maps", r"have _m\d+_\d+ : "),
                            ("read_through_store_to_map", r"have _sm\d+ : "),
-                           ("set_read_through_store_to_map", r"have _sm\d+ : ")):
+                           ("set_read_through_store_to_map", r"have _sm\d+ : "),
+                           ("sets_equal_member_by_member", r"have _pw\d+ : "),
+                           ("sets_differ_at_every_member", r"have _pwn\d+ : "),
+                           ("set_difference_of_stores_at_one_index", r"have _pw\d+ : "),
+                           ("members_of_equal_sets", r"have _pwr\d+_\d+ : ")):
             with self.subTest(name=name):
                 source = ARRAY_INPUTS[name]
-                text = proof_to_lean.reconstruct(source, _export(source))
+                sets = 0 if name in rewriter else proof_to_lean._POINTWISE_SETS
+                with mock.patch.object(proof_to_lean, "_POINTWISE_SETS", sets):
+                    text = proof_to_lean.reconstruct(source, _export(source))
                 pattern = re.compile(r"^\s*" + fact)
-                lines = text.split("\n")
-                self.assertTrue(any(map(pattern.match, lines)), text)
-                stripped = _without_facts(text, pattern.match)
-                with tempfile.TemporaryDirectory() as directory:
-                    output = Path(directory) / "stripped.lean"
-                    output.write_text(stripped)
-                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True,
-                                            capture_output=True)
-                report = result.stdout + result.stderr
-                self.assertNotEqual(result.returncode, 0, report)
+                self.assertTrue(any(map(pattern.match, text.split("\n"))), text)
+                if name in rewriter:
+                    self.assertNotIn("_pw", text)
+                    code, report = check(text)
+                    self.assertEqual(code, 0, report)
+                code, report = check(_without_facts(text, pattern.match))
+                self.assertNotEqual(code, 0, report)
                 errors = [line for line in report.split("\n") if "error:" in line]
                 self.assertTrue(errors, report)
                 for error in errors:

@@ -1290,7 +1290,25 @@ maps are theorems instantiated per map node: maps of and and or commute (euf
 compares them as commutative) and are idempotent, a double complement
 cancels, a map of stores at one index is the store of the map (a constant
 array counting as a store of its value), and a map of constant arrays is
-constant. The rewriter turns setminus a b into the map of and over a and the
+constant. Beyond single maps, the rewriter simplifies a map of connectives
+as the connective over the members ((setminus s s) is empty, nested maps of
+and are flattened and sorted) and decides an equality between constant
+results; a rewrite or cnf lemma over sets therefore gets, for the set terms
+over Booleans it reaches, read as Boolean functions of their leaves (truth
+tables over at most eight sets, values, and stored-index tests), the
+equality of two terms of one function and the difference of an equality's
+sides that differ in every row, each by function extensionality from an
+auxiliary theorem over the members as propositions that grind proves on its
+own, and in a cnf lemma the members of an equality's sides at the indices it
+reads (_pointwise_map_facts). A term is read this way while its member
+formula writes at most 48 maps and stores (a map of xor writes each argument
+twice and a map of ite its condition, so a nest of them doubles per level);
+a larger one is a leaf. Two terms of one member formula are equal by rfl, an
+auxiliary theorem is stated once per certificate, and the step is first
+tried without these facts, then with them: grind closes the classes of the
+equated sets under every map in its context, which exhausted the heartbeats
+of a lemma that needed none of them. The rewriter turns setminus a b into
+the map of and over a and the
 complement of b, a different Lean function, so each setminus node is stated
 equal to that map by rfl; union, intersection, and complement share their
 Lean function with the map they become. A map of any other function is
