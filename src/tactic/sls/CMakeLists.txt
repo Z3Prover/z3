@@ -1,6 +1,8 @@
 z3_add_component(sls_tactic
   SOURCES
     sls_tactic.cpp
+  REGISTRATION_HEADERS
+    sls_tactic.h
   COMPONENT_DEPENDENCIES
     bv_tactics
     core_tactics

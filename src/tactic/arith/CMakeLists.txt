@@ -18,6 +18,24 @@ z3_add_component(arith_tactics
     probe_arith.cpp
     purify_arith_tactic.cpp
     recover_01_tactic.cpp
+  REGISTRATION_HEADERS
+    add_bounds_tactic.h
+    card2bv_tactic.h
+    degree_shift_tactic.h
+    diff_neq_tactic.h
+    eq2bv_tactic.h
+    factor_tactic.h
+    fix_dl_var_tactic.h
+    fm_tactic.h
+    lia2card_tactic.h
+    lia2pb_tactic.h
+    nla2bv_tactic.h
+    normalize_bounds_tactic.h
+    pb2bv_tactic.h
+    probe_arith.h
+    propagate_ineqs_tactic.h
+    purify_arith_tactic.h
+    recover_01_tactic.h
   COMPONENT_DEPENDENCIES
     core_tactics
 )
