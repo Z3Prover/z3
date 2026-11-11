@@ -21,6 +21,7 @@ Author:
 #include "ast/rewriter/var_subst.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/for_each_expr.h"
+#include "ast/occurs.h"
 #include "params/rewriter_params.hpp"
 
 void recfun_rewriter::updt_params(params_ref const &p) {
@@ -88,6 +89,12 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         if (safe_to_subst) {
             var_subst sub(m);
             result = sub(d.get_rhs(), num_args, args);
+            // Unfolding a body that calls f on the same arguments can rewrite
+            // back to the original application, e.g. f(x) = (ite (> x 0) 0 (f x)).
+            // Leave such applications to the resource-limited theory solver.
+            app_ref self(m.mk_app(f, num_args, args), m);
+            if (occurs(self, result))
+                return BR_FAILED;
             return BR_REWRITE_FULL;
         }
         return BR_FAILED;

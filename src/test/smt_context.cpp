@@ -128,6 +128,8 @@ static void check_recfun_rlimits() {
             "(assert (= (f 0) 1))\n",
             "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
             "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f x)))\n"
+            "(assert (= (f 0) 1))\n",
             "(define-fun-rec f () Int (+ 1 f))\n"
             "(assert (= f 1))\n",
             "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
