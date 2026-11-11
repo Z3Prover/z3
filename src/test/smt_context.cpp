@@ -107,6 +107,45 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static void check_mbqi_partial_arithmetic() {
+    struct {
+        char const* input;
+        char const* expected;
+    } cases[] = {
+        {   "(set-option :smt.arith.solver 6)\n"
+            "(declare-const a Real) (declare-const b Real)\n"
+            "(declare-const c Real) (declare-const d Real) (declare-const g Real)\n"
+            "(assert (and (forall ((e Real))\n"
+            "  (or (= (* b d) 0.0) (and (< 0.0 (/ 2.0 e c)) (< (* e c) g))))\n"
+            "  (forall ((f Real)) (< 0.0 (* a c)))))\n", "sat\n"},
+        {   "(set-option :smt.ematching false)\n"
+            "(assert (= (/ 2.0 0.0) 7.0))\n"
+            "(assert (forall ((x Real))\n"
+            "  (or (> (* x x) 0.0) (= (/ 2.0 x) 7.0))))\n", "sat\n"},
+        {   "(set-option :smt.ematching false)\n"
+            "(assert (= (div 2 0) 7))\n"
+            "(assert (forall ((x Int))\n"
+            "  (or (> (* x x) 0) (= (div 2 x) 7))))\n", "sat\n"},
+        {   "(set-option :smt.ematching false)\n"
+            "(assert (= (/ 2.0 0.0) 7.0))\n"
+            "(assert (forall ((x Real))\n"
+            "  (or (> (* x x) 0.0) (= (/ 2.0 x) 6.0))))\n", "unsat\n"}
+    };
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.params().set_rlimit(20000);
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream is(test.input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == test.expected);
+    }
+}
+
 static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -1383,6 +1422,7 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_mbqi_partial_arithmetic();
     check_proof_mode_guards();
     check_proof_mode_compositions();
     check_proof_mode_sls();
