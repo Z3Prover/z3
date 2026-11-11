@@ -20,6 +20,9 @@ Revision History:
 #include "util/util.h"
 #include "util/region.h"
 #include "util/list.h"
+#include "util/id_var_list.h"
+
+#include <limits>
 
 static void tst1() {
     region r;
@@ -39,7 +42,44 @@ static void tst1() {
     TRACE(list, display(tout, l6->begin(), l6->end()); tout << "\n";);
 }
 
-void tst_list() {
-    tst1();
+static void tst_id_var_list() {
+    region r;
+    for (int v : { (1 << 23) - 1, 1 << 23, (1 << 23) + 1, std::numeric_limits<int>::max() }) {
+        id_var_list<> l(0, v);
+        ENSURE(l.get_var() == v);
+        ENSURE(l.find(0) == v);
+
+        l.set_var(0);
+        l.set_var(v);
+        ENSURE(l.get_var() == v);
+
+        l.del_var(0);
+        ENSURE(l.empty());
+        ENSURE(l.find(0) == -1);
+
+        l.add_var(v, 0, r);
+        l.add_var(v, 1, r);
+        ENSURE(l.size() == 2);
+        ENSURE(l.find(0) == v);
+        ENSURE(l.find(1) == v);
+
+        l.replace(0, 0);
+        l.replace(v, 0);
+        l.replace(0, 1);
+        l.replace(v, 1);
+        ENSURE(l.find(0) == v);
+        ENSURE(l.find(1) == v);
+
+        l.del_var(0);
+        ENSURE(l.size() == 1);
+        ENSURE(l.get_id() == 1);
+        ENSURE(l.get_var() == v);
+        l.del_var(1);
+        ENSURE(l.empty());
+    }
 }
 
+void tst_list() {
+    tst1();
+    tst_id_var_list();
+}
