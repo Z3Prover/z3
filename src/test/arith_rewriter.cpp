@@ -99,16 +99,16 @@ static void check_power_declarations() {
     sort* reals[2] = { a.mk_real(), a.mk_real() };
     sort* invalid[2] = { a.mk_int(), m.mk_bool_sort() };
     for (unsigned arity : {1u, 3u}) {
-        reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, arity, integers); });
-        reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 0, nullptr, arity, args); });
+        reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, arity, integers); });
+        reject([&] { (void)m.mk_app(a.get_family_id(), OP_POWER, 0, nullptr, arity, args); });
     }
     parameter index(2);
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 1, &index, 2, integers); });
-    reject([&] { m.mk_app(a.get_family_id(), OP_POWER, 1, &index, 2, args); });
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, invalid); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 1, &index, 2, integers); });
+    reject([&] { (void)m.mk_app(a.get_family_id(), OP_POWER, 1, &index, 2, args); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, invalid); });
     reject([&] { a.mk_power(i, m.mk_true()); });
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, integers, a.mk_real()); });
-    reject([&] { m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, reals, a.mk_int()); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, integers, a.mk_real()); });
+    reject([&] { (void)m.mk_func_decl(a.get_family_id(), OP_POWER, 0, nullptr, 2, reals, a.mk_int()); });
     for (bool coercions : {false, true}) {
         m.enable_int_real_coercions(coercions);
         for (expr* base : {i.get(), r.get()}) {

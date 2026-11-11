@@ -15,7 +15,7 @@ public:
               assertion(mk_and(s->assertions())),
               queens(queens), manhattanSum(s->ctx().bv_val(0, queens[0].get_sort().bv_size())) {
 
-        for (int i = 1; i < queens.size(); i++) {
+        for (unsigned i = 1; i < queens.size(); i++) {
             manhattanSum = manhattanSum + z3::ite(z3::uge(queens[i], queens[i - 1]), queens[i] - queens[i - 1], queens[i - 1] - queens[i]);
         }
     }
@@ -40,7 +40,7 @@ public:
 
         int prev, curr = -1;
 
-        for (int i = 0; i < queens.size(); i++) {
+        for (unsigned i = 0; i < queens.size(); i++) {
             prev = curr;
             curr = counterExample.eval(queens[i]).get_numeral_int();
             if (i == 0) continue;

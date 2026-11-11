@@ -170,12 +170,12 @@ namespace ff {
                         ENSURE(id < nodes.size());
                         polynomial factor; e.add_term(factor, m, c);
                         nodes.push_back(e.mul(nodes[id], factor));
-                        return nodes.size() - 1;
+                        return static_cast<unsigned>(nodes.size() - 1);
                     }
                     unsigned add(unsigned a, unsigned b) override {
                         ENSURE(a < nodes.size() && b < nodes.size());
                         nodes.push_back(e.add(nodes[a], nodes[b]));
-                        return nodes.size() - 1;
+                        return static_cast<unsigned>(nodes.size() - 1);
                     }
                 } trace(arithmetic);
                 auto x = arithmetic.variable(10), z = arithmetic.variable(20);
