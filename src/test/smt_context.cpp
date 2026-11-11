@@ -1,7 +1,6 @@
 
 /*++
 Copyright (c) 2015 Microsoft Corporation
-
 --*/
 
 #include "smt/smt_context.h"
