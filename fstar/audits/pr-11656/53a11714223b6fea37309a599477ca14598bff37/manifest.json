@@ -1,0 +1,22 @@
+{
+  "pull_request": 11656,
+  "head_sha": "53a11714223b6fea37309a599477ca14598bff37",
+  "base_sha": "145c0c51570a357cc558ce898ce77573ba9d4fbf",
+  "path_prefix": "fstar/audits/pr-11656/53a11714223b6fea37309a599477ca14598bff37/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/43033385964",
+  "files": [
+    {
+      "name": "RecfunSelfCall.fst",
+      "sha256": "66e8df581e4f878c7128555e10e43fe0158dbba7c1d19463b32a8e4d8d89aec1"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "81a9b467263c6506edf01ae8b85c7123421297e45b26e4de8c57c01756287d1d"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "8bc3d61291cf8cd853210574e0a126b8fa4a4c93eabe9152cfe1e4864464c4a2"
+    }
+  ]
+}
