@@ -1986,13 +1986,13 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # verifies in Lean.
         source = (_EXAMPLES / "data" / "QF_IDL_FISCHER6-4-ninc.smt2").read_text()
         calls = []
-        original = proof_clause_log._Replay._valid
+        original = proof_clause_log._Replay._check
 
-        def valid(replay, claim):
+        def check(replay, claim):
             calls.append(claim.decl().kind())
             return original(replay, claim)
 
-        with patch.object(proof_clause_log._Replay, "_valid", valid):
+        with patch.object(proof_clause_log._Replay, "_check", check):
             certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertEqual(calls.count(z3.Z3_OP_IMPLIES), 7)
         self.assertLess(calls.count(z3.Z3_OP_EQ), 100)
