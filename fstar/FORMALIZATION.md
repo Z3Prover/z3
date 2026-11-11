@@ -38,6 +38,59 @@ dependency on the corresponding application.
 Proof calculi and certificate semantics build on these foundations; their
 modules and reports are indexed on the [proof-checking page](PROOF_CHECKING.md).
 
+## Transition terms and regex equivalence certificates
+
+[`Z3PredicateAlgebra.fst`](Z3PredicateAlgebra.fst),
+[`Z3TransitionTerm.fst`](Z3TransitionTerm.fst), and
+[`Z3RegexCertificate.fst`](Z3RegexCertificate.fst) start a representation-level
+counterpart to the [Lean development](https://doi.org/10.5281/zenodo.23383207)
+(revision `45f8abb5aab735d18df4489ef3d1aec36b746830`).
+They complement `Z3SeqDerive.fst`, whose derivative laws are denotational.
+
+The predicate interface separates Boolean interpretation laws from a sound,
+potentially incomplete emptiness test. Only established emptiness permits
+pruning. A negative test result means "not established", including unknown;
+it does not assert satisfiability. `never_empty` is a sound conservative
+implementation. Predicate representations need not obey Boolean identities
+syntactically, and no finite alphabet or predicate ordering is assumed.
+
+Transition terms have generic leaves, evaluation, substitution (`bind`), and
+unary/binary lifting. Evaluation is proved to commute with these operations.
+Guard-relative restriction preserves evaluation on the guard. The leaf checker
+checks every branch not proved infeasible, preserving exhaustive alphabet
+coverage even with an incomplete emptiness test.
+
+The certificate is a finite list of states with proposed class labels. The
+checker compares each state with its class representative, checking nullability
+and symbolic successor classes. Conflicting duplicate labels and missing
+nonidentical successors fail. Identical successor states need no table entry.
+No union-find data structure, merge history, worklist invariant, or producer
+termination theorem is trusted. A `false` result rejects the supplied certificate;
+it is not evidence that the languages differ.
+
+`lemma_check_equivalence_sound` proves acceptance implies language equivalence,
+using the existing `Z3RegexTheory.lang` and `equiv`. Its explicit hypotheses are
+the predicate algebra laws, soundness of the emptiness test, and the supplied
+state implementation's nullability and one-symbol derivative laws. Its word
+induction handles cyclic certificates without a finiteness theorem for the
+producer's derivative closure.
+
+This is a generic, executable checker with a conditional semantic soundness
+theorem, **not yet a checker for native Z3 regex output**. A concrete regex-state
+implementation, its semantic proofs, guard backends, certificate serialization,
+and native proof integration remain to be supplied. Ordered ITE merging,
+canonicalization, and optimized bisimulation shortcuts are not modeled.
+This layer alone does not certify complete SMT SAT models or UNSAT proofs.
+
+[`Z3RegexCertificateTests.fst`](Z3RegexCertificateTests.fst) supplies an inhabited
+Boolean-alphabet derivative system, a second system interpreted directly using
+`re_empty`/`re_full`, and tests cyclic equivalence certificates,
+infeasible branches, conservative unknown handling, and malformed/incomplete
+certificates. These modules are verification-only entries in
+`tools/checker_modules.json`; they are not added to the existing native checker's
+extraction or acceptance route. Run the shared harness with `-RunTests` to
+include them.
+
 ## Bounded Boolean equivalence
 
 [`Z3BoundedBoolEquiv.fst`](Z3BoundedBoolEquiv.fst) is a verified semantic
