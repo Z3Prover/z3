@@ -2473,6 +2473,61 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Set logs: operators as written, unused default-map axioms (2026-11-11)
+
+A sweep of random constraints over four sets of integers
+(`random_set_instance`: equalities and disequalities between unions,
+intersections, differences, complements, maps of `=>`, `xor`, `and`,
+inserts and removals, the empty and the full set, and members read)
+showed the replay rejecting 61 of the 142 unsatisfiable seeds of 1-400, for
+two reasons that are not about the refutation:
+
+- Once an assertion simplifies to false, Z3 logs the remaining assertions
+  as they are written, set operators included: `(complement s2)`,
+  `(intersection s1 s1)`, `(setminus a b)`, and union with its sort,
+  `((as union (Array Int Bool)) a b)`. Elsewhere the log holds the maps the
+  rewriter makes of them, so the replay built `(_ map f)` heads only
+  ("unsupported operator in the clause log: complement", "unsupported
+  application head"; 28 seeds). `_Terms.build` now builds the four operators
+  (`_SET_HEADS`), under `map_parameters` like the input's own, and checks the
+  sort an `as` head names. Z3 qualifies only its own functions, so
+  `(as union S)` is the operator even when the input declares a function
+  named `union` (over other sorts; Z3 rejects one with the operator's own),
+  which takes the bare name as for every head. The other three operators
+  are printed bare, so beside a function of their name the log is ambiguous
+  and the input is rejected ("ill-sorted application of intersection in the
+  clause log", an `AttributeError` of z3py before).
+- The array solver states the default-map axiom, `(= (default (map f a b))
+  (f (default a) (default b)))`, for every map it meets, whether or not a
+  conflict comes to rest on it, and the replay rejected it on sight. A log
+  of 4 KB or more is trimmed, which drops an unused axiom; a shorter one is
+  not, so `(= (setminus a b) empty)` with a member of `a` outside `b` (what
+  the rewriter makes of `subset`), or the same as a full `=>` map, was
+  rejected although its refutation is two reads (5 seeds). The replay now
+  records the axiom's node (`_Replay.uncertified`), rejects with the same
+  message only when the refutation reaches it (`_require_certified`), and
+  otherwise leaves it out (a compact certificate). The default value of a
+  store over a map, `(= (default (store m i v)) (default m))`, was taken for
+  the axiom too; it is `_default_store`'s and is kept (`_default_map_axiom`).
+  The reconstructor rejects the axiom on its own (`_check_th_lemma`), where
+  Lean would have failed before.
+
+After: 114 of the 142 export and 97 verify in Lean (81 and 67 before; 30
+of the 33 new ones verify). Still open: the other 28 rest on the
+default-map axiom (no member is named, e.g. `(= ((_ map =>) a b) full)`
+with `a` full and `b` empty) and stay rejected; and 17 fail Lean in a
+rewrite where Z3's rewriter decides an equality of sets by map identities
+(`(setminus s1 s1)` is empty, `(not (not s))` is `s`, flattened and sorted
+`and`s), which have no theorem yet (14 of them exported before as well).
+`subset` itself is still rejected as an operator. Tests
+(`test_proof_to_lean_array.py`): six documented inputs in
+`SET_COMBINATOR_INPUTS` and the pinned seeds `SET_SEEDS` (Lean),
+`test_the_replay_reads_set_operators`,
+`test_unused_default_values_of_maps_are_left_out`, and
+`test_default_values_of_maps_are_rejected` (now an input whose refutation
+needs the axiom, short and behind enough clauses for the log to be trimmed,
+and the reconstructor's own rejection of both).
+
 ### Replay keys of maps and constant arrays (2026-11-06)
 
 The replay ties a clause the log assumes to an input conjunct by its
@@ -2574,7 +2629,9 @@ the map of `and` over the complement that the rewriter turns it into
 the map they become); each is shown necessary by
 `test_map_facts_are_needed`. The default-map axiom is not valid for
 `_default` (a map's arguments need not be constant almost everywhere) and is
-rejected explicitly ("the default value of a map is not certified"); input
+rejected explicitly ("the default value of a map is not certified"; since
+2026-11-11 only when the refutation uses it, see "Set logs: operators as
+written, unused default-map axioms"); input
 `default` terms are admitted over Int and Real indices. z3test `t8.smt2` and
 `issue-1665.smt2` queries 1 and 2 verify in Lean (query 0 takes default
 values over an uninterpreted index and stays rejected). Maps of other

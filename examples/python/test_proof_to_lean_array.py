@@ -1249,6 +1249,70 @@ SET_COMBINATOR_INPUTS = {
                 ((as const (Array Int Bool)) true))))
 (check-sat)
 """,
+    # A set inside another, stated as an empty difference (what Z3's rewriter
+    # makes of subset) or as a full implication map, with a member that
+    # refutes it by reads. The array solver states the default value of
+    # every map it meets, (= (default (map f a b)) (f (default a) (default
+    # b))), which nothing certifies; these refutations do not use it, and
+    # their logs are too short to be trimmed.
+    "setminus_empty_with_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(assert (= (setminus a b) ((as const (Array Int Bool)) false)))
+(assert (select a 1))
+(assert (not (select b 1)))
+(check-sat)
+""",
+    "implication_full_with_member": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun x () Int)
+(assert (= ((_ map =>) a b) ((as const (Array Int Bool)) true)))
+(assert (select a x))
+(assert (not (select b x)))
+(check-sat)
+""",
+    # Refuted by default values alone: that of a store over a map is the
+    # map's (the default-store axiom, true of every array), and the map's is
+    # the constant array's it equals; the default-map axiom is logged, unused.
+    "default_of_store_over_map": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= ((_ map and) a b) ((as const (Array Int Bool)) false)))
+(assert (= (store ((_ map and) a b) i true) ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    # Once an assertion simplifies to false Z3 logs the others as they are
+    # written, set operators included (elsewhere the log holds the maps its
+    # rewriter makes of them); union is printed with its sort.
+    "set_operators_after_false": """(declare-fun s0 () (Array Int Bool))
+(declare-fun s1 () (Array Int Bool))
+(declare-fun s2 () (Array Int Bool))
+(declare-fun s3 () (Array Int Bool))
+(assert (select ((as const (Array Int Bool)) false) 0))
+(assert (= s3 (union s0 (complement s1))))
+(assert (= (intersection s0 s1) (setminus s2 s0)))
+(check-sat)
+""",
+    "set_operators_after_false_over_a_sort": """(declare-sort Index 0)
+(declare-fun a () (Array Index Bool))
+(declare-fun b () (Array Index Bool))
+(declare-fun i () Index)
+(assert (not (= (select a i) (select a i))))
+(assert (select (setminus (union a b) (intersection a (complement b))) i))
+(check-sat)
+""",
+    # The input may declare a function named like a set operator (over other
+    # sorts): the log names the function (union x x) and Z3's own union with
+    # its sort, ((as union (Array Int Bool)) a b).
+    "set_union_beside_a_function_named_union": """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun x () Int)
+(declare-fun union (Int Int) Int)
+(assert (select ((as const (Array Int Bool)) false) 0))
+(assert (= (union x x) 0))
+(assert (= c (union a b)))
+(check-sat)
+""",
 }
 # Maps of other functions ((_ map f) a ...): uninterpreted functions and
 # predicates of up to three arguments, the Boolean connective xor, = and
@@ -1953,7 +2017,8 @@ _FRAGMENTS.update((name, "qf_uflia") for name, source in BOOL_ELEMENT_INPUTS.ite
 # explicitly rather than guessed from the source text.
 _SET_COMBINATOR_FRAGMENTS = {"setminus_disjoint": "qf_uf", "setminus_as_intersection": "qf_uf",
                              "map_equal_sets": "qf_uf", "union_of_variable_sets": "qf_uf",
-                             "union_commutes": "qf_uf", "real_intersection": "qf_uflra"}
+                             "union_commutes": "qf_uf", "real_intersection": "qf_uflra",
+                             "set_operators_after_false_over_a_sort": "qf_uf"}
 _FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for name in SET_COMBINATOR_INPUTS)
 # Maps of other functions are over Int indices and elements (qf_uflia) except these.
 _MAP_FUNCTION_FRAGMENTS = {"map_over_sort": "qf_uf", "map_xor": "qf_uf", "map_distinct": "qf_uf",
@@ -2772,16 +2837,162 @@ class TestArrayValidation(unittest.TestCase):
 
     def test_default_values_of_maps_are_rejected(self):
         """The default-map axiom holds only for arrays constant almost everywhere, which Lean cannot assume."""
+        # No member is named, so the refutation compares default values:
+        # that of the map is (=> (default a) (default b)), false, by the axiom.
         source = """(declare-fun a () (Array Int Bool))
 (declare-fun b () (Array Int Bool))
-(declare-fun x () Int)
 (assert (= ((_ map =>) a b) ((as const (Array Int Bool)) true)))
-(assert (select a x))
-(assert (not (select b x)))
+(assert (= a ((as const (Array Int Bool)) true)))
+(assert (= b ((as const (Array Int Bool)) false)))
 (check-sat)
 """
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "the default value of a map is not certified"):
-            _export(source)
+        # The same behind four clauses that take no part: a log of 4 KB or
+        # more is trimmed, and the trimmer's core lists the axiom.
+        padded = ("".join("(declare-fun y%d () Int)\n" % k for k in range(4))
+                  + "(declare-fun c () (Array Int Bool))\n" + source.replace("(check-sat)\n", "")
+                  + "".join("(assert (or (select c y%d) (> y%d %d) (select a y%d)))\n" % (k, k, k, k)
+                            for k in range(4)) + "(check-sat)\n")
+        check = proof_clause_log._Replay._require_certified
+        for name, text, trimmed in (("untrimmed", source, False), ("trimmed", padded, True)):
+            with self.subTest(name=name):
+                seen = []
+
+                def recorded(replay):
+                    seen.append(replay.trimmed)
+                    check(replay)
+
+                with mock.patch.object(proof_clause_log._Replay, "_require_certified", recorded):
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                                "^the default value of a map is not certified$"):
+                        _export(text)
+                self.assertEqual(seen, [trimmed])
+                # The reconstructor rejects the axiom on its own: Lean has no theorem for it.
+                with mock.patch.object(proof_clause_log._Replay, "_require_certified", lambda self: None):
+                    certificate = _export(text)
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                            "the default value of a map is not certified at node"):
+                    proof_to_lean.reconstruct(text, certificate)
+
+    def test_unused_default_values_of_maps_are_left_out(self):
+        """The array solver states the default-map axiom for every map; only a refutation using it is rejected."""
+        def axioms(source):
+            """The certificate, and how many logged hints state the default value of a map."""
+            found, original = [], proof_clause_log._default_map_axiom
+            with mock.patch.object(proof_clause_log, "_default_map_axiom",
+                                   lambda literal: found.append(original(literal)) or found[-1]):
+                certificate = _export(source)
+            return certificate, sum(found)
+
+        for name in ("setminus_empty_with_member", "implication_full_with_member"):
+            with self.subTest(name=name):
+                certificate, stated = axioms(ARRAY_INPUTS[name])
+                self.assertGreater(stated, 0)
+                # Refuted by reads: no default value reaches the certificate.
+                self.assertEqual(_declarations(certificate, z3.Z3_OP_ARRAY_DEFAULT), [])
+                proof_to_lean.reconstruct(ARRAY_INPUTS[name], certificate)
+        # The default value of a store over a map is the map's whatever the
+        # map: that axiom is certified (_default_store) and kept.
+        certificate, stated = axioms(ARRAY_INPUTS["default_of_store_over_map"])
+        self.assertGreater(stated, 0)
+        self.assertEqual(len(_declarations(certificate, z3.Z3_OP_ARRAY_DEFAULT)), 1)
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS["default_of_store_over_map"], certificate)
+        self.assertRegex(text, r"have _d\d+ := _default_store ")
+        context = z3.Context()
+        a, b = z3.Consts("a b", z3.ArraySort(z3.IntSort(context), z3.BoolSort(context)))
+        union, i = z3.SetUnion(a, b), z3.Int("i", context)
+        default = z3.Default(union)
+        for literal, expected in (
+                (default == z3.Or(z3.Default(a), z3.Default(b)), True),
+                (z3.Or(z3.Default(a), z3.Default(b)) == default, True),
+                (z3.Not(default == z3.Default(a)), True),
+                (default, True),
+                (z3.Default(z3.Store(union, i, True)) == default, False),
+                (default == z3.Default(z3.Store(union, i, True)), False),
+                (default == z3.Default(z3.Store(a, i, True)), True),
+                (z3.Default(z3.Store(a, i, True)) == z3.Default(a), False),
+                (z3.Select(union, i) == z3.Or(z3.Select(a, i), z3.Select(b, i)), False),
+                (z3.Select(union, i), False)):
+            with self.subTest(literal=literal):
+                self.assertEqual(proof_clause_log._default_map_axiom(literal), expected)
+
+    def test_the_replay_reads_set_operators(self):
+        """Z3 logs the assertions after one that simplifies to false as written; the replay builds their sets."""
+        executable = proof_certificate.default_z3_executable()
+        for name, heads in (("set_operators_after_false", ("((as union (Array Int Bool)) ", "(complement ",
+                                                           "(intersection ", "(setminus ")),
+                            ("set_operators_after_false_over_a_sort", ("((as union (Array Index Bool)) ",
+                                                                       "(complement ", "(intersection ",
+                                                                       "(setminus "))):
+            with self.subTest(name=name):
+                log = proof_clause_log.run_clause_log(executable, ARRAY_INPUTS[name].replace("(check-sat)", ""), 60)
+                for head in heads:
+                    self.assertIn(head, log)
+                self.assertNotIn("(_ map ", log)
+                self.assertEqual({d["kind"] for d in self.certificates[name]["declarations"]}
+                                 & set(proof_certificate.SET_OPERATORS), set(proof_certificate.SET_OPERATORS))
+        context = z3.Context()
+        assertions, _ = proof_certificate.parse_assertions("""(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+(declare-fun e () (Array Int Int))
+(declare-fun r () (Array Real Bool))
+(assert (select a 0))
+(assert (select b (select e 0)))
+(assert (select r 0.0))
+(check-sat)
+""", context, integer=True)
+        terms = proof_clause_log._Terms(context, assertions)
+        sets = ["Array", "Int", "Bool"]
+        for sexpr, kind in ((["complement", "a"], z3.Z3_OP_SET_COMPLEMENT),
+                            (["intersection", "a", "b"], z3.Z3_OP_SET_INTERSECT),
+                            (["setminus", "a", ["complement", "b"]], z3.Z3_OP_SET_DIFFERENCE),
+                            (["union", "a", "b"], z3.Z3_OP_SET_UNION),
+                            ([["as", "union", sets], "a", "b"], z3.Z3_OP_SET_UNION),
+                            ([["as", "complement", ["Array", "Real", "Bool"]], "r"], z3.Z3_OP_SET_COMPLEMENT)):
+            with self.subTest(sexpr=sexpr):
+                built = terms.build(sexpr)
+                self.assertEqual(built.decl().kind(), kind)
+                self.assertEqual(proof_certificate.map_parameters(built), ())
+        for sexpr, message in (
+                ([["as", "union", ["Array", "Real", "Bool"]], "a", "b"], "set operator of another sort"),
+                ([["as", "union", ["Array", "Int", "Int"]], "a", "b"], "set operator of another sort"),
+                ([["as", "union", ["Array", "Int", ["Seq", "Int"]]], "a", "b"], "unsupported sort"),
+                ([["as", "frobnicate", sets], "a", "b"], "unsupported application head"),
+                ([["as", "union", sets, sets], "a", "b"], "unsupported application head"),
+                (["union", "a"], "unsupported operator in the clause log: union"),
+                (["complement", "a", "b"], "unsupported operator in the clause log: complement"),
+                (["setminus", "a", "0"], "unsupported operator in the clause log: setminus"),
+                (["union", "a", "r"], "ill-sorted application of union|unsupported map or set operator"),
+                (["complement", "e"], "ill-sorted application of complement|unsupported set operator over")):
+            with self.subTest(sexpr=sexpr):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    terms.build(sexpr)
+        # A function of the input named like a set operator takes the bare
+        # name, as for every head; (as union SORT) is Z3's own union (it
+        # qualifies no function of the input), so the two are told apart.
+        name = "set_union_beside_a_function_named_union"
+        log = proof_clause_log.run_clause_log(executable, ARRAY_INPUTS[name].replace("(check-sat)", ""), 60)
+        self.assertIn("(union x x)", log)
+        self.assertIn("((as union (Array Int Bool)) a b)", log)
+        self.assertEqual(len(_declarations(self.certificates[name], z3.Z3_OP_SET_UNION)), 1)
+        self.assertEqual([(d["name"], d["domain"]) for d in _declarations(self.certificates[name],
+                                                                          z3.Z3_OP_UNINTERPRETED)
+                          if d["domain"]], [("union", ["Int", "Int"])])
+        assertions, _ = proof_certificate.parse_assertions(ARRAY_INPUTS[name], context, integer=True)
+        terms = proof_clause_log._Terms(context, assertions)
+        self.assertEqual(terms.build([["as", "union", sets], "a", "b"]).decl().kind(), z3.Z3_OP_SET_UNION)
+        self.assertEqual(terms.build(["union", "x", "x"]).decl().kind(), z3.Z3_OP_UNINTERPRETED)
+        for sexpr, message in ((["union", "a", "b"], "ill-sorted application of union"),
+                               ([["as", "union", sets], "x", "x"], "unsupported operator in the clause log: union"),
+                               ([["as", "union", sets], "a"], "unsupported operator in the clause log: union")):
+            with self.subTest(sexpr=sexpr):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    terms.build(sexpr)
+        # Z3 prints the other three operators bare, so beside a function of
+        # that name the log is ambiguous and the input is rejected (z3py
+        # raises AttributeError for the function applied to sets).
+        with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                    "^ill-sorted application of intersection in the clause log$"):
+            _export(ARRAY_INPUTS[name].replace("union", "intersection"))
 
     def test_tampered_set_combinators_are_rejected(self):
         def parameter(value):
@@ -3572,6 +3783,82 @@ def random_chain_comparison_instance(seed):
 CHAIN_COMPARISON_SEEDS = (13, 14)
 
 
+def random_set_instance(seed):
+    """Random constraints over four sets of integers, or None if sat.
+
+    Two to five assertions: equalities and disequalities between set terms
+    (unions, intersections, differences, complements, maps of =>, xor, and
+    and, inserts and removals, the empty and the full set), a set term
+    equated with a set or with the empty or full set, and members read at
+    0, 1, i, or j.
+    """
+    rng = random.Random(seed)
+    sets = ["s%d" % k for k in range(4)]
+    indices = ["i", "j", "0", "1"]
+    lines = ["(declare-fun i () Int)", "(declare-fun j () Int)"]
+    lines += ["(declare-fun %s () (Array Int Bool))" % name for name in sets]
+
+    def term(depth):
+        choice = rng.randrange(12 if depth else 3)
+        if choice < 3:
+            return rng.choice(sets)
+        if choice == 3:
+            return "(union %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 4:
+            return "(intersection %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 5:
+            return "(setminus %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 6:
+            return "(complement %s)" % term(depth - 1)
+        if choice == 7:
+            return "(store %s %s %s)" % (term(depth - 1), rng.choice(indices), rng.choice(("true", "false")))
+        if choice == 8:
+            return "((as const (Array Int Bool)) %s)" % rng.choice(("true", "false"))
+        if choice == 9:
+            return "((_ map =>) %s %s)" % (term(depth - 1), term(depth - 1))
+        if choice == 10:
+            return "((_ map xor) %s %s)" % (term(depth - 1), term(depth - 1))
+        return "((_ map and) %s %s)" % (term(depth - 1), term(depth - 1))
+
+    def constant():
+        return "((as const (Array Int Bool)) %s)" % rng.choice(("true", "false"))
+
+    for _ in range(rng.randrange(2, 6)):
+        kind = rng.randrange(6)
+        if kind == 0:
+            lines.append("(assert (= %s %s))" % (rng.choice(sets), term(2)))
+        elif kind == 1:
+            lines.append("(assert (= %s %s))" % (term(2), constant()))
+        elif kind == 2:
+            lines.append("(assert (select %s %s))" % (term(2), rng.choice(indices)))
+        elif kind == 3:
+            lines.append("(assert (not (select %s %s)))" % (term(2), rng.choice(indices)))
+        elif kind == 4:
+            lines.append("(assert (= %s %s))" % (term(1), term(1)))
+        else:
+            lines.append("(assert (not (= %s %s)))" % (term(1), term(1)))
+    lines.append("(check-sat)")
+    source = "\n".join(lines) + "\n"
+    context = z3.Context()
+    solver = z3.Solver(ctx=context)
+    solver.set("timeout", 10000)
+    solver.from_string(source)
+    return source if solver.check() == z3.unsat else None
+
+
+# Pinned unsatisfiable seeds of random_set_instance, all rejected by the
+# exporter on iteration 120's macOS build before these changes. 43 and 80:
+# an assertion simplifies to false, so the log holds the others' set
+# operators as written, (complement s2) and ((as union (Array Int Bool))
+# ...), which the replay did not build. 156 and 266: the log states the
+# default value of a map that the refutation does not use, which the replay
+# rejected on sight. Of the 142 unsat seeds of seeds 1-400, 81 exported
+# before (67 verified) and 114 after (97 verified, 30 of the 33 new ones);
+# the other 28 rest on the default-map axiom and stay rejected, and the 17
+# Lean failures are array equalities the rewriter decides by map identities.
+SET_SEEDS = (43, 80, 156, 266)
+
+
 def array_chain_instance(depth=6, use="value"):
     """The modular chains of test_proof_to_lean_lia.modular_chains_instance, compared through an array.
 
@@ -3730,6 +4017,19 @@ class TestArrayLeanIntegration(unittest.TestCase):
         lean_test_support.prefetch((source, certificate) for _, source, certificate in sources)
         for seed, source, certificate in sources:
             with self.subTest(seed=seed):
+                _, report = lean_test_support.check(self, source, certificate)
+                self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+
+    def test_pinned_random_set_instances_verify(self):
+        sources = []
+        for seed in SET_SEEDS:
+            source = random_set_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            sources.append((seed, source, _export(source)))
+        lean_test_support.prefetch((source, certificate) for _, source, certificate in sources)
+        for seed, source, certificate in sources:
+            with self.subTest(seed=seed):
+                self.assertEqual(certificate["fragment"], "qf_uflia")
                 _, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
 

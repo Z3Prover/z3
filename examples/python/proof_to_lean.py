@@ -530,9 +530,10 @@ private theorem _default_store {I E : Type} (h : forall l : List I, Exists (fun 
 # function. A read of one is that function over the reads, by rfl (the array
 # solver's select-map axiom, stated per read by _array_helpers). Its default
 # value is not determined by the arguments' (an argument need not be constant
-# at all but finitely many indices), so the default-map axiom is rejected (the
-# exporter's replay). The connective of a map or set operator by name (map
-# parameter) or by kind: the Lean function, then the number of arrays.
+# at all but finitely many indices), so the default-map axiom is rejected (by
+# the exporter's replay when a refutation uses it, and by _check_th_lemma).
+# The connective of a map or set operator by name (map parameter) or by
+# kind: the Lean function, then the number of arrays.
 _MAP_CONNECTIVES = {"not": ("Not", 1), "and": ("And", 2), "or": ("Or", 2),
                     "=>": ("(fun _p _q : Prop => _p -> _q)", 2)}
 # The other functions a map may apply (proof_certificate.MAP_FUNCTIONS), by
@@ -7895,6 +7896,22 @@ def _check_th_lemma(graph, node):
                     or graph.decl(graph.arguments(atom)[0]).range not in components | set(graph.sorts)):
                 raise ReconstructionError("array th-lemma literals must be equalities over arrays and their sorts "
                                           "at node %d" % node)
+            sides = graph.arguments(atom)
+            for side, other in (sides, sides[::-1]):
+                # The default-map axiom, (= (default (map f a b)) (f (default
+                # a) (default b))): _default of an array that is not constant
+                # at all but finitely many indices is an arbitrary value, so
+                # no theorem states it (the exporter leaves the axiom out or
+                # rejects the refutation). The default value of a store over
+                # the map, (= (default (store m i v)) (default m)), is
+                # _default_store's.
+                if (graph.kind(side) == z3.Z3_OP_ARRAY_DEFAULT
+                        and (graph.kind(graph.arguments(side)[0]) == z3.Z3_OP_ARRAY_MAP
+                             or graph.kind(graph.arguments(side)[0]) in _SET_OPERATOR_NAMES)
+                        and not (graph.kind(other) == z3.Z3_OP_ARRAY_DEFAULT
+                                 and graph.kind(graph.arguments(other)[0]) == z3.Z3_OP_STORE
+                                 and graph.arguments(graph.arguments(other)[0])[0] == graph.arguments(side)[0])):
+                    raise ReconstructionError("the default value of a map is not certified at node %d" % node)
         return
     if parameters[0] == "datatype":
         # The datatype solver's clauses over an enumeration: equalities

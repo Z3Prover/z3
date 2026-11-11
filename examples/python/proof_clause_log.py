@@ -42,6 +42,12 @@ _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _REAL_ARGUMENT_HEADS = ("to_int", "is_int")
+# Z3's set operators by the name the log prints: z3py's constructor and the
+# number of sets it takes (proof_certificate.SET_OPERATORS).
+_SET_HEADS = {name: (constructor, arity) for (name, arity), constructor in (
+    (SET_OPERATORS[z3.Z3_OP_SET_UNION], z3.SetUnion), (SET_OPERATORS[z3.Z3_OP_SET_INTERSECT], z3.SetIntersect),
+    (SET_OPERATORS[z3.Z3_OP_SET_DIFFERENCE], z3.SetDifference),
+    (SET_OPERATORS[z3.Z3_OP_SET_COMPLEMENT], z3.SetComplement))}
 _RESULTS = ("sat", "unsat", "unknown")
 # What z3 prints when it stops at its -memory limit.
 _OUT_OF_MEMORY = '(error "out of memory")'
@@ -476,6 +482,22 @@ class _Terms:
                 return self.recognizers[_symbol(head[2])](self.build(sexpr[1]))
             except z3.Z3Exception:
                 raise ProofExportError("ill-sorted recognizer application in the clause log") from None
+        if (isinstance(head, list) and len(head) == 3 and head[0] == "as" and isinstance(head[1], str)
+                and head[1] in _SET_HEADS):
+            # A set operator printed with its sort, ((as union (Array I Bool))
+            # a b), as Z3 prints union: the application below, of that sort.
+            # Z3 qualifies only its own functions, so the head names the
+            # operator even when the input declares a function of that name
+            # (over other sorts; Z3 rejects one with the operator's own).
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+            try:
+                result = self._apply(head[1], len(arguments), arguments)
+            except z3.Z3Exception:
+                raise ProofExportError("ill-sorted application of %s in the clause log" % head[1]) from None
+            sort = self.array_sorts.get(_sort_text(head[2]))
+            if sort is None or not sort.eq(result.sort()):
+                raise ProofExportError("set operator of another sort in the clause log: %s" % head[1])
+            return result
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         sorts = [None] * (len(sexpr) - 1)
@@ -494,7 +516,11 @@ class _Terms:
             raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
         try:
             return function(*arguments) if function is not None else self._apply(head, count, arguments)
-        except z3.Z3Exception:
+        except (z3.Z3Exception, AttributeError):
+            # z3py raises AttributeError when it casts an array to an
+            # arithmetic sort: a function of the input named like a set
+            # operator, (declare-fun intersection (Int Int) Int), takes the
+            # bare name, so Z3's (intersection a b) of two sets is not built.
             raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
 
     def _apply(self, head, count, arguments):
@@ -530,6 +556,16 @@ class _Terms:
             return z3.Select(arguments[0], arguments[1])
         if head == "store" and count == 3 and is_array_sort(arguments[0].sort()):
             return z3.Store(arguments[0], arguments[1], arguments[2])
+        if head in _SET_HEADS and count == _SET_HEADS[head][1] and all(
+                is_array_sort(argument.sort()) for argument in arguments):
+            # A set operator of the input, logged as it is written when Z3
+            # stops rewriting (the assertions after one that simplifies to
+            # false); otherwise the log holds the map its rewriter makes of
+            # it. The exporter's map_parameters admits the result or rejects
+            # it (sets of one index sort).
+            result = _SET_HEADS[head][0](*arguments)
+            map_parameters(result)
+            return result
         if head == "default" and count == 1 and is_array_sort(arguments[0].sort()):
             # The array solver's default value of an array, the value it
             # takes at all but finitely many indices (constant arrays).
@@ -659,6 +695,27 @@ def _store_axiom(literal):
 def _is_set_combinator(expr):
     """Whether expr applies a map or one of Z3's set operators (proof_certificate.map_parameters)."""
     return z3.is_app(expr) and (expr.decl().kind() == z3.Z3_OP_ARRAY_MAP or expr.decl().kind() in SET_OPERATORS)
+
+
+def _default_map_axiom(literal):
+    """Whether literal states the default value of a map, (= (default (map f a b)) (f (default a) (default b))).
+
+    Any equality or disequality with the default value of a map on one
+    side counts, and so does that value as a literal of its own (a set's
+    is a formula), except the default-value axiom of a store over that map,
+    (= (default (store m i v)) (default m)), which holds of every array.
+    """
+    atom = _strip(literal)[0]
+    if z3.is_default(atom):
+        return _is_set_combinator(atom.arg(0))
+    if not z3.is_eq(atom):
+        return False
+    sides = atom.children()
+    for side, other in (sides, reversed(sides)):
+        if z3.is_default(side) and _is_set_combinator(side.arg(0)):
+            if not (z3.is_default(other) and z3.is_store(other.arg(0)) and other.arg(0).arg(0).eq(side.arg(0))):
+                return True
+    return False
 
 
 def _same_equality(left, right):
@@ -1210,6 +1267,7 @@ class _Replay:
         self.root = None
         self.logged_clauses = {}
         self.trimmed = False
+        self.uncertified = {}    # proof node of an axiom nothing certifies -> why (_require_certified)
         self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
         self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
         self.lemma = self.dag.rule(z3.Z3_OP_PR_LEMMA, "lemma", 1)
@@ -1569,12 +1627,13 @@ class _Replay:
                 raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
-            if name == "array" and any(z3.is_default(side) and _is_set_combinator(side.arg(0))
-                                       for _, literal in pairs for side in _strip(literal)[0].children()):
-                # (= (default (map f a b)) (f (default a) (default b))) holds
-                # only for arrays constant at all but finitely many indices,
-                # which Lean's _default cannot assume of a map's arguments.
-                raise ProofExportError("the default value of a map is not certified")
+            # (= (default (map f a b)) (f (default a) (default b))) holds
+            # only for arrays constant at all but finitely many indices,
+            # which Lean's _default cannot assume of a map's arguments. The
+            # array solver states the axiom for every map it meets, whether
+            # or not a conflict comes to rest on it, so the axiom is rejected
+            # only once the refutation is known to use it (_require_certified).
+            default_map = name == "array" and any(_default_map_axiom(literal) for _, literal in pairs)
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
             if certified or name == "implied-eq":
@@ -1598,8 +1657,14 @@ class _Replay:
                 equality = pairs[0][1]
                 lemma_literals = (list(literals) if len(literals) == 1 and _same_equality(literals[0], equality)
                                   else [equality])
+            if default_map:
+                # The hint lists the equality the axiom propagates, like the
+                # axioms above; the node stands for the logged clause as it is.
+                lemma_literals = list(literals)
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
+            if default_map:
+                self.uncertified[lemma] = "the default value of a map is not certified"
         if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
             return lemma, lemma_literals
         entry = self.add_clause(lemma, lemma_literals)
@@ -1704,6 +1769,25 @@ class _Replay:
         conclusion = self.clause_formula(remaining)
         return self.dag.node(declaration, [clause_node] + units + [self.dag.expression(conclusion)])
 
+    def _require_certified(self):
+        """Reject a refutation that rests on an axiom nothing certifies (self.uncertified).
+
+        One logged on the way but left unused (an untrimmed log keeps every
+        clause the solver derived) is left out of the certificate instead
+        (see run).
+        """
+        if not self.uncertified:
+            return
+        used, pending = set(), [self.root]
+        while pending:
+            node = pending.pop()
+            if node not in used:
+                used.add(node)
+                pending.extend(self.dag.nodes[node]["arguments"])
+        rejected = used.intersection(self.uncertified)
+        if rejected:
+            raise ProofExportError(self.uncertified[min(rejected)])
+
     # -- driver ----------------------------------------------------------
 
     def run(self, text):
@@ -1807,13 +1891,15 @@ class _Replay:
                 self.root, _ = self.rup([])
             except ProofExportError:
                 self.root = self.assume([])
+        self._require_certified()
         # A trimmed log keeps only the nodes the refutation uses; so does an
-        # untrimmed one whose unused clauses mention default values over an
-        # index sort the certificate cannot carry (the gates of the default
-        # values the array solver introduces for maps over any index sort).
-        # If the refutation uses one, the reconstructor rejects it.
+        # untrimmed one with an unused axiom nothing certifies, or whose
+        # unused clauses mention default values over an index sort the
+        # certificate cannot carry (the gates of the default values the array
+        # solver introduces for maps over any index sort). If the refutation
+        # uses one of the latter, the reconstructor rejects it.
         return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
-                                    compact=self.trimmed or terms.uncertified_defaults)
+                                    compact=self.trimmed or terms.uncertified_defaults or bool(self.uncertified))
 
 
 def build_certificate(source, fragment, assertions, text, context, timeout=None):
