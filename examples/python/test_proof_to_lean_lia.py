@@ -1610,9 +1610,12 @@ class TestIntegerValidation(unittest.TestCase):
                 self.assertEqual(lemma.count(") := eq_comm\n"), pairs)
                 self.assertIn("refine Classical.byContradiction ?_\n", lemma)
                 # Without the bridges the pairs of the two are unrelated:
-                # no propagation proof, the unfolded fallback alone.
+                # no propagation proof, the unfolded fallback alone (the
+                # theory clauses of _theory_clauses would restate each
+                # bridge as a clause, proved by omega instead of eq_comm).
                 with patch.object(proof_to_lean, "_leaf_bridges",
-                                  lambda graph, leaves, synthetic=None: original(graph, leaves)):
+                                  lambda graph, leaves, synthetic=None: original(graph, leaves)), \
+                        patch.object(proof_to_lean, "_theory_clauses", lambda *arguments: None):
                     lemma = proof_to_lean.reconstruct(source, certificate).split(
                         "private theorem th_lemma_%d " % cnf, 1)[1].split("\n\n", 1)[0]
                 self.assertNotIn("Classical.byContradiction", lemma)

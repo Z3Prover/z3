@@ -1672,6 +1672,47 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Theory clauses for cnf lemmas over rewritten ites (2026-11-11)
+
+QF_LRA `tta_startup/simple_startup_11nodes` (z3test smtlib-sample) failed
+in every scan since 2026-10-29 in its one cnf lemma: Z3 logs a clause over
+the rewriter's form of the assertion's Real ites (an 11-way conjunction
+condition flattened, `(+ 0 x)` as `x`, `(ite c 0 0)` as `0`) and of modular
+counters (`(= 10 x)` makes `(ite (= x 11) 1 (+ x 1))` equal 11), so the
+clause does not follow from the Boolean structure with every theory atom a
+leaf and the one-constraint bridges (`_leaf_bridges`); the propositional
+search ended in a model, and the unfolded grind fallback (227 ites) ran out
+of heartbeats. When both searches of `_cnf_lemma` fail now,
+`_theory_clauses` finds the missing theory facts as a lazy SMT solver
+does: z3 (an untrusted oracle, as for `_relevant_structures`) takes a model
+of the abstraction, checks the leaves' and atoms' values in it against
+what the leaves denote (`_theory_expression`, arithmetic and Boolean nodes
+only), and a shrunk unsat core of those literals is a clause excluding the
+model, until the abstraction is unsatisfiable (at most 256 clauses). A
+clause over every leaf of the lemma would restate it as one theory fact,
+without the fallback's helpers (scaled ite gates), so then the search
+stops and the fallback stays alone, as before. Each
+clause is a `have` the theory tactic proves over the leaves' unfolded
+definitions and a fact for one more search, with ten times the prover's
+limits (`_THEORY_CLAUSE_BUDGET`; the fallback stays under `first`), while
+the proof kept stays within `_STRUCTURAL_REWRITE_CHARS` as before. Lean
+checks every clause and step, so a wrong clause is a rejection. A clause
+that does not hold is an elaboration error, which `first` catches; a
+theory tactic that runs out of heartbeats is not caught and fails the
+whole lemma, so the size bound and the every-leaf rule are heuristics
+against that, not a guarantee (no input of the z3test smtlib-sample sweep
+hit it). The 11-node
+input takes 45 clauses (1.4 s), the search 36,000 steps and keeps a
+0.45 MB proof, and the whole file verifies in 24 s at a 2.6 GB peak. The
+15-node input's cnf lemma now checks too; the file still fails in a
+propositional normalized rewrite that grind cannot prove. Tests:
+`test_cnf_lemmas_over_rewritten_ites_are_refuted_with_theory_clauses`
+(two small inputs, checked with the fallback removed),
+`test_theory_clause_search_stops_at_a_model_the_leaves_allow`, and the slow
+`test_time_triggered_startup_verifies_through_theory_clauses`
+(`test_proof_to_lean_arith.py`, data
+`QF_LRA_tta_startup_simple_startup_11nodes.smt2`).
+
 ### Resolution types inferred; re-applications applied in place (2026-11-10)
 
 Two parts of the outlined lemmas' text restated what Lean already knows. In
@@ -3373,7 +3414,8 @@ omega. Results:
 
 The rest of the scan is unchanged: every other file verifies or is out of
 reach for z3 or the replay, except QF_LRA `tta_startup` 11 nodes (a known
-failure).
+failure, verified since 2026-11-11, see "Theory clauses for cnf lemmas over
+rewritten ites").
 
 Tests in `test_proof_to_lean_lia.py`:
 

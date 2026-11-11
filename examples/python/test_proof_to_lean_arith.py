@@ -985,6 +985,56 @@ LIRA_SCALED_INPUT = """\
 """
 
 
+# Inputs shaped like QF_LRA tta_startup: Real ites under conjunctions of
+# Boolean atoms. Z3 logs a clause simplified from the assertion, over the
+# rewriter's form of the ites ((ite c 0 0) as 0, (+ 0 z) as z), so the cnf
+# lemma tying it to the assertion follows from what its leaves denote and
+# not from their Boolean structure alone (see proof_to_lean._theory_clauses).
+THEORY_CLAUSE_INPUTS = {
+    "ite_with_equal_branches": """\
+(set-logic QF_LRA)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun c () Real)
+(declare-fun n () Real)
+(declare-fun w () Real)
+(assert (and (= n (ite (= c 5) 1 (+ c 1)))
+             (= w (ite (and (not b0) (not b1)) 0 0))
+             (= c 3)
+             (or b0 (not (= w 0)) (= n 5))
+             (not b0)))
+(check-sat)
+""",
+    "ites_with_rewritten_branches": """\
+(set-logic QF_LRA)
+(declare-fun b0 () Bool)
+(declare-fun b1 () Bool)
+(declare-fun c () Real)
+(declare-fun n () Real)
+(declare-fun w () Real)
+(declare-fun y () Real)
+(declare-fun z () Real)
+(assert (and (= n (ite (= c 5) 1 (+ c 1)))
+             (= w (ite (and (not b0) (not b1)) 0 0))
+             (= y (ite (and (not b0) (not b1)) (+ 0 z) 0))
+             (or (= c 3) (= c 4))
+             (or b0 (not (= w 0)) (= n 1) (and (not b1) (not (= y z))))
+             (not b0)
+             (not b1)))
+(check-sat)
+""",
+}
+
+
+def _cnf_lemma_attempts(certificate, text):
+    """The single cnf lemma's text, the part before its `first`, and its attempts split at the alternatives."""
+    cnf = [node for node in _th_lemma_nodes(certificate) if _th_lemma_parameters(certificate, node) == ["cnf"]]
+    assert len(cnf) == 1, cnf
+    lemma = text.split("private theorem th_lemma_%d " % cnf[0], 1)[1].split("\n\n", 1)[0]
+    head, _, attempts = lemma.partition("\n  first\n")
+    return lemma, head, attempts.split("\n    | (")
+
+
 class TestNormalizedRewriteLinks(unittest.TestCase):
     """The prover of a normalized rewrite links the sides' structures equal up to flattening."""
 
@@ -1630,6 +1680,126 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 proof_to_lean.check_and_write(source, tampered, output)
             self.assertFalse(output.exists())
+
+    def test_cnf_lemmas_over_rewritten_ites_are_refuted_with_theory_clauses(self):
+        # The cnf lemma's propositional abstraction is satisfiable: the
+        # clause speaks of (= w 0) where the assertion has (= w (ite c 0
+        # 0)). z3 finds the theory clause relating the two leaves, a `have`
+        # grind proves over their definitions, and the propagation search
+        # then refutes the clause. Lean checks the lemma with the unfolded
+        # fallback removed, so the structural proof itself is what verifies.
+        for name, source in THEORY_CLAUSE_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                text = proof_to_lean.reconstruct(source, certificate)
+                lemma, head, (structural, fallback) = _cnf_lemma_attempts(certificate, text)
+                self.assertNotIn("unfold", head)
+                self.assertRegex(structural, r"have _f\d+ : \(Or \(Not \(formula_\d+ _atoms _vars\)\) "
+                                             r"\(formula_\d+ _atoms _vars\)\) := by unfold [^;\n]*; grind")
+                self.assertIn("refine Classical.byContradiction ?_", structural)
+                self.assertIn("unfold formula_", fallback)
+                alone = text.replace(lemma, head + "\n  first\n" + structural, 1)
+                self.assertNotEqual(alone, text)
+                _, report = lean_test_support.check(self, source, certificate, text=alone)
+                self.assertIn(_STANDARD_AXIOMS, report)
+                # Without the theory clauses the search ends in a model of
+                # the abstraction, and the unfolded proof is the only one.
+                with patch.object(proof_to_lean, "_theory_clauses", lambda *arguments: None):
+                    text = proof_to_lean.reconstruct(source, certificate)
+                lemma, head, attempts = _cnf_lemma_attempts(certificate, text)
+                self.assertNotIn("refine Classical.byContradiction", lemma)
+                self.assertIn("unfold formula_", head)
+                self.assertEqual(attempts, [""])
+
+    def test_theory_clause_search_stops_at_a_model_the_leaves_allow(self):
+        # The clause itself, rather than its negation, is consistent with
+        # what its leaves denote: the first model of the abstraction is a
+        # theory model too, and the search returns None (the lemma keeps its
+        # fallback) instead of a clause.
+        source = THEORY_CLAUSE_INPUTS["ite_with_equal_branches"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        terms, tables = proof_to_lean._bind_input(source, graph, certificate["fragment"], certificate["query"])
+        atom_indices = {decl: index for index, decl in enumerate(sorted(tables["atoms"].values()))}
+        node = next(node for node in _th_lemma_nodes(certificate)
+                    if _th_lemma_parameters(certificate, node) == ["cnf"])
+        leaves, memo = {}, {}
+        structure = proof_to_lean._boolean_structure(graph, graph.conclusion(node), atom_indices, memo, leaves)
+        negated = [("not", structure)]
+        order = proof_to_lean._PropositionalProver(*negated, classical=True).order
+        clauses = proof_to_lean._theory_clauses(graph, order, negated, atom_indices)
+        self.assertTrue(clauses)
+        for clause, definitions in clauses:
+            self.assertEqual(clause[0], "or")
+            self.assertTrue(all(name.startswith(("formula_", "term_")) for name in definitions))
+        order = proof_to_lean._PropositionalProver(structure, classical=True).order
+        self.assertIsNone(proof_to_lean._theory_clauses(graph, order, [structure], atom_indices))
+
+    def test_theory_clause_search_stop_rules(self):
+        # The other ways the search ends, over the cnf lemma of
+        # test_theory_clause_search_stops_at_a_model_the_leaves_allow.
+        source = THEORY_CLAUSE_INPUTS["ite_with_equal_branches"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        terms, tables = proof_to_lean._bind_input(source, graph, certificate["fragment"], certificate["query"])
+        atom_indices = {decl: index for index, decl in enumerate(sorted(tables["atoms"].values()))}
+        node = next(node for node in _th_lemma_nodes(certificate)
+                    if _th_lemma_parameters(certificate, node) == ["cnf"])
+        leaves, memo = {}, {}
+        structure = proof_to_lean._boolean_structure(graph, graph.conclusion(node), atom_indices, memo, leaves)
+        negated = [("not", structure)]
+        order = proof_to_lean._PropositionalProver(*negated, classical=True).order
+        # An abstraction that is already unsatisfiable needs no clause.
+        both = [structure, ("not", structure)]
+        self.assertEqual(proof_to_lean._theory_clauses(
+            graph, proof_to_lean._PropositionalProver(*both, classical=True).order, both, atom_indices), [])
+        # A check not decided within the resource limit, and a model left
+        # when the clauses allowed are used up.
+        with patch.object(proof_to_lean, "_THEORY_CLAUSE_RLIMIT", 1):
+            self.assertIsNone(proof_to_lean._theory_clauses(graph, order, negated, atom_indices))
+        with patch.object(proof_to_lean, "_THEORY_CLAUSES", 0):
+            self.assertIsNone(proof_to_lean._theory_clauses(graph, order, negated, atom_indices))
+        # A clause over every leaf of the facts restates them as one theory
+        # fact: the negation of a clause found above has only its leaves.
+        clause, _ = proof_to_lean._theory_clauses(graph, order, negated, atom_indices)[0]
+        refuted = [("not", clause)]
+        self.assertIsNone(proof_to_lean._theory_clauses(
+            graph, proof_to_lean._PropositionalProver(*refuted, classical=True).order, refuted, atom_indices))
+
+    def test_theory_clause_proof_is_kept_within_the_structural_limit(self):
+        # The search over the theory clauses may look further than the first
+        # searches, but a proof longer than they could keep is dropped and
+        # the unfolded fallback stays alone (a long attempt risks the
+        # lemma's heartbeats, which `first` does not catch).
+        source = THEORY_CLAUSE_INPUTS["ite_with_equal_branches"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_CHARS", 1), \
+                patch.object(proof_to_lean, "_THEORY_CLAUSE_BUDGET", 10 ** 7):
+            text = proof_to_lean.reconstruct(source, certificate)
+        lemma, head, attempts = _cnf_lemma_attempts(certificate, text)
+        self.assertNotIn("refine Classical.byContradiction", lemma)
+        self.assertIn("unfold formula_", head)
+        self.assertEqual(attempts, [""])
+
+    @lean_test_support.slow("a 106 KB QF_LRA benchmark, about 25 s of Lean at 2.6 GB")
+    def test_time_triggered_startup_verifies_through_theory_clauses(self):
+        # SMT-LIB QF_LRA tta_startup/simple_startup_11nodes.synchro.base
+        # (z3test smtlib-sample, B. Dutertre): one assertion of about 8,500
+        # nodes. Its single cnf lemma failed in every scan since iteration
+        # 45: the abstraction is satisfiable without what the leaves denote
+        # (the clause is over the rewriter's form of 11-way conjunction
+        # conditions and modular counters), and grind over the unfolded
+        # clause (227 ites) runs out of heartbeats. 45 theory clauses make
+        # the abstraction unsatisfiable and the search finds the refutation.
+        source = (_EXAMPLES / "data" / "QF_LRA_tta_startup_simple_startup_11nodes.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        _, head, (structural, fallback) = _cnf_lemma_attempts(certificate, text)
+        self.assertNotIn("unfold", head)
+        self.assertGreater(len(re.findall(r"have _f\d+ : \(Or \(Not \(formula_", structural)), 20)
+        self.assertLess(len(structural), proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+        _, report = lean_test_support.check(self, source, certificate, text=text)
+        self.assertIn(_STANDARD_AXIOMS, report)
 
 
 def _th_lemma_parameters(certificate, node):

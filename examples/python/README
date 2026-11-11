@@ -360,9 +360,12 @@ step:
     steps it uses, and a case split whose branch does not need its
     hypothesis is dropped. When the search gives up, it is repeated over the
     gates of z3's unsat core of the propositional abstraction (an untrusted
-    hint; Lean checks the proof). A clause that needs a theory fact, or that
-    neither search refutes within its budget, falls back to the unfolded
-    grind proof.
+    hint; Lean checks the proof). When neither search refutes the clause,
+    z3 finds theory clauses over its arithmetic leaves that make the
+    abstraction unsatisfiable (model by model, an unsat core each), each
+    stated with a `have` the theory tactic proves, and the search is
+    repeated with them. A clause that neither search refutes within its
+    budget falls back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact

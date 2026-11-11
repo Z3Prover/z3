@@ -207,6 +207,17 @@ _STRUCTURAL_REWRITE_CHARS = 1000000
 # search gives up: the 5,649 gates of the QF_IDL plan-21 cnf lemma take
 # 0.4 million (a quarter of a second).
 _RELEVANCE_RLIMIT = 10000000
+# Theory clauses _theory_clauses may add to a cnf lemma whose propositional
+# abstraction does not refute it, the resource limit of each of its z3 checks,
+# and the factor of the prover's limits for the search over the clauses. The
+# cnf lemma of QF_LRA tta_startup simple_startup_11nodes takes 45 clauses
+# over its leaves, found in under two seconds, and the search over them 36,000
+# steps and 3.3 million characters (0.2 s), of which the 0.45 MB proof is kept:
+# that is the last attempt before the fallback, a grind over the unfolded
+# clause (227 ites) that runs out of heartbeats.
+_THEORY_CLAUSES = 256
+_THEORY_CLAUSE_RLIMIT = 5000000
+_THEORY_CLAUSE_BUDGET = 10
 # Characters of Lean text above which the file is elaborated one declaration
 # at a time (Elab.async false, an elaboration schedule, not a trust setting).
 # Elaborating declarations in parallel tasks keeps far more memory alive:
@@ -5721,12 +5732,15 @@ class _PropositionalProver:
     assertion holding a disjunction per time step (QF_IDL planning
     plan-21) the search went through the cases of every earlier step before
     reaching the one the clause is about, and exhausted its budget.
+
+    budget scales the step and character limits (see _cnf_lemma).
     """
 
-    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None):
+    def __init__(self, *roots, classical=False, names=None, links=False, relevant=None, budget=1):
         if relevant is not None and not classical:
             raise ValueError("a relevant set splits gates by Classical.em, so it needs classical mode")
         self.relevant = relevant
+        self.budget = budget
         self.positions = None
         self.parents = {}
         self.order = []  # every structure, children before parents
@@ -5821,7 +5835,8 @@ class _PropositionalProver:
                       and any(parent in self.relevant for parent in self.parents[structure]))
 
     def _exhausted(self):
-        return self.steps > _STRUCTURAL_REWRITE_STEPS or self.chars > _STRUCTURAL_REWRITE_CHARS
+        return (self.steps > _STRUCTURAL_REWRITE_STEPS * self.budget
+                or self.chars > _STRUCTURAL_REWRITE_CHARS * self.budget)
 
     def equivalence(self, left, right):
         """Tactic lines proving the goal Iff left right (as Lean reads the two structures), or None."""
@@ -6413,7 +6428,12 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     assertion with a disjunction per time step (QF_IDL planning plan-21)
     the search took the earlier steps' disjunctions first and exhausted its
     budget, and over the core it splits the one step the clause is about.
-    The unfolded theory
+    When neither search refutes the clause, it rests on what the leaves
+    denote beyond the bridges, and the search is repeated with theory
+    clauses over the leaves (_theory_clauses), each a `have` the theory
+    tactic proves, within _THEORY_CLAUSE_BUDGET times the limits; the proof
+    kept is still at most _STRUCTURAL_REWRITE_CHARS long. The
+    unfolded theory
     proof (_grind_lemma) stays the fallback, taken by `first` when the
     structural attempt is not found or does not check, and alone when the
     prover gives up (the clause needs a theory fact: the alldiff clauses Z3
@@ -6423,20 +6443,16 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
     leaves, memo, synthetic = {}, {}, {}
     structure = _boolean_structure(graph, conclusion, atom_indices, memo, leaves, synthetic)
     bridges = _leaf_bridges(graph, leaves, synthetic)
-    facts = [("not", structure)] + [bridge for bridge, _ in bridges]
-    relevant = None
-    while True:
-        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant)
-        names = [prover.name() for _ in bridges]
-        refutation = prover.refutation(("not", structure),
-                                       [(bridge, name) for (bridge, _), name in zip(bridges, names)])
-        if refutation is not None or relevant is not None:
-            break
-        # The search gave up: once more over the gates z3's unsat core of the
-        # propositional abstraction needs (_relevant_structures).
-        relevant = _relevant_structures(prover.order, facts)
-        if relevant is None:
-            break
+    refutation, names, order = _cnf_refutation(graph, memo, structure, bridges)
+    clauses = None
+    if refutation is None:
+        # The propositional abstraction may not refute the clause: once more
+        # with the theory clauses over its leaves that do (_theory_clauses).
+        clauses = _theory_clauses(graph, order, [("not", structure)] + [bridge for bridge, _ in bridges],
+                                  atom_indices)
+        if clauses:
+            bridges = bridges + clauses
+            refutation, names, _ = _cnf_refutation(graph, memo, structure, bridges, _THEORY_CLAUSE_BUDGET)
     if refutation is None:
         return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                             opaque_tactic=_opaque_tactic(graph, node))
@@ -6450,8 +6466,205 @@ def _cnf_lemma(graph, node, atom_indices, variable_indices):
                for (bridge, definitions), name in zip(bridges, names)]
     attempt.append("refine Classical.byContradiction ?_")
     attempt.extend(refutation)
+    if clauses and sum(len(line) + 1 for line in attempt) > _STRUCTURAL_REWRITE_CHARS:
+        # The search over the theory clauses may look further, but the proof
+        # kept stays within what the first searches could keep: a longer one
+        # risks the lemma's heartbeats, which `first` does not catch (a
+        # runtime exception fails the whole lemma, fallback included).
+        attempt = None
     return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
                         opaque_tactic=_opaque_tactic(graph, node), structural=attempt)
+
+
+def _cnf_refutation(graph, memo, structure, bridges, budget=1):
+    """The prover's refutation of a cnf lemma's negated clause under the bridges, their names, and its structures.
+
+    The search runs over every gate first and, when it gives up, once more
+    over the gates z3's unsat core of the propositional abstraction needs
+    (_relevant_structures), each within budget times the prover's limits.
+    The refutation is None when neither finds one; the structures (children
+    before parents) are the first prover's.
+    """
+    facts = [("not", structure)] + [bridge for bridge, _ in bridges]
+    relevant, order = None, None
+    while True:
+        prover = _PropositionalProver(*facts, classical=True, names=_structure_names(graph, memo), relevant=relevant,
+                                      budget=budget)
+        order = order or prover.order
+        names = [prover.name() for _ in bridges]
+        refutation = prover.refutation(("not", structure),
+                                       [(bridge, name) for (bridge, _), name in zip(bridges, names)])
+        if refutation is not None or relevant is not None:
+            return refutation, names, order
+        relevant = _relevant_structures(prover.order, facts)
+        if relevant is None:
+            return None, names, order
+
+
+def _theory_clauses(graph, order, facts, atom_indices):
+    """Theory clauses over the leaves that make the facts' propositional abstraction unsatisfiable, or None.
+
+    A cnf lemma's clause may follow from its sources only by what the leaves
+    denote, beyond the one-constraint bridges of _leaf_bridges. In QF_LRA
+    tta_startup simple_startup_11nodes the assertion compares variables with
+    Real ites whose conditions are 11-way conjunctions of Boolean atoms, and
+    Z3 logs the clause over the rewriter's form of them: the conjunction
+    flattened, (+ 0 x) as x, (= x 11) as (= 11 x), (ite c 0 0) as 0; and an
+    ite's value follows from its condition, (= 10 x) gives (= (ite (= x 11)
+    1 (+ x 1)) 11). The abstraction (every leaf and atom free) is
+    satisfiable, the prover's search ends in a model, and the fallback grind
+    over the unfolded clause (227 ites) ran out of heartbeats.
+
+    The clauses are found as a lazy SMT solver finds theory lemmas: z3
+    takes a model of the abstraction (order is the prover's structures,
+    children before parents; facts are held true), the leaves' and atoms'
+    values in it are checked against what the leaves denote, and an unsat
+    core of those literals, shrunk one literal at a time, is a clause (its
+    literals negated) that excludes the model; it is added and the search
+    repeats until the abstraction is unsatisfiable. Each clause is returned
+    as (structure, definitions), like a bridge: stated with a `have` that
+    the theory tactic proves over the leaves' unfolded definitions, and
+    given to the prover as a fact. z3 is an untrusted oracle here, as in
+    _relevant_structures: a clause that does not hold is an error in Lean,
+    which `first` catches, and the lemma keeps its fallback. A theory
+    tactic that runs out of heartbeats is not caught (a runtime exception
+    fails the whole lemma); the clauses are minimal cores, a clause over
+    every leaf is not stated, and the kept proof is bounded (_cnf_lemma),
+    but that is a heuristic, not a bound on the tactic. A leaf whose
+    meaning _theory_expression does not read (an application, a term of an
+    uninterpreted sort) is free in the theory as in the abstraction.
+    Returns [] when the abstraction is already unsatisfiable (the prover
+    gave up within its limits), and None when a check is not decided within
+    _THEORY_CLAUSE_RLIMIT, a model is consistent with the leaves (the clause
+    does not hold, or rests on a leaf left free), a clause would range over
+    every leaf (the lemma is one theory fact, the fallback's case), or
+    _THEORY_CLAUSES clauses do not suffice.
+    """
+    context = z3.Context()
+    abstraction, theory = z3.Solver(ctx=context), z3.Solver(ctx=context)
+    for solver in (abstraction, theory):
+        solver.set("rlimit", _THEORY_CLAUSE_RLIMIT)
+    variables, literals, expressions = {}, {}, {}
+    for index, structure in enumerate(order):
+        kind = structure[0]
+        if kind in ("true", "false"):
+            variables[structure] = z3.BoolVal(kind == "true", context)
+            continue
+        if kind == "atom":
+            variables[structure] = z3.Bool("a%d" % structure[1], context)
+        else:
+            variables[structure] = z3.Bool("s%d" % index, context)
+        if kind in ("atom", "leaf"):
+            literals[str(variables[structure])] = structure
+            if kind == "leaf":
+                if structure[1] >= 0:
+                    meaning = _theory_expression(graph, structure[1], context, atom_indices, expressions)
+                else:  # a synthetic pair leaf (a = b) of a distinct, see _distinct_pair_leaves
+                    sides = [_theory_expression(graph, side, context, atom_indices, expressions)
+                             for side in divmod(-structure[1] - 1, len(graph.nodes))]
+                    meaning = None if any(side is None for side in sides) else sides[0] == sides[1]
+                if meaning is not None:  # else a free leaf, as in the abstraction
+                    theory.add(variables[structure] == meaning)
+            continue
+        children = [variables[child] for child in _structure_children(structure)]
+        body = {"not": lambda: z3.Not(children[0]), "and": lambda: z3.And(children),
+                "or": lambda: z3.Or(children), "implies": lambda: z3.Implies(children[0], children[1]),
+                "iff": lambda: children[0] == children[1]}[kind]()
+        abstraction.add(variables[structure] == body)
+    abstraction.add(*[variables[fact] for fact in facts])
+    leaves = sum(1 for structure in literals.values() if structure[0] == "leaf")
+    clauses = []
+    while True:
+        result = abstraction.check()
+        if result == z3.unsat:
+            return clauses
+        if result != z3.sat or len(clauses) == _THEORY_CLAUSES:
+            return None
+        model = abstraction.model()
+        assignment = [variable if z3.is_true(model.eval(variable, model_completion=True)) else z3.Not(variable)
+                      for variable in (variables[structure] for structure in literals.values())]
+        if theory.check(*assignment) != z3.unsat:
+            return None
+        core, position = list(theory.unsat_core()), 0
+        while position < len(core):
+            if theory.check(*(core[:position] + core[position + 1:])) == z3.unsat:
+                del core[position]
+            else:
+                position += 1
+        abstraction.add(z3.Or([z3.Not(literal) for literal in core]))
+        parts, nodes, used = [], set(), 0
+        for literal in core:
+            negated = z3.is_not(literal)
+            structure = literals[str(literal.arg(0) if negated else literal)]
+            parts.append(structure if negated else ("not", structure))
+            if structure[0] == "leaf":
+                used += 1
+                nodes.update(divmod(-structure[1] - 1, len(graph.nodes)) if structure[1] < 0 else (structure[1],))
+        if not used or used == leaves:
+            # A clause over every leaf restates the lemma as one theory fact,
+            # which the fallback proves with its helpers (scaled ite gates)
+            # and the `have` would prove without them; over a wide distinct
+            # as one leaf it ran omega out of heartbeats the same way.
+            return None
+        clauses.append((_structure_fold("or", parts), _definition_names(graph, _reachable(graph, *nodes)[0], nodes)))
+
+
+_THEORY_EXPRESSIONS = {
+    z3.Z3_OP_ADD: lambda args: z3.Sum(args), z3.Z3_OP_SUB: lambda args: args[0] - z3.Sum(args[1:]),
+    z3.Z3_OP_UMINUS: lambda args: -args[0], z3.Z3_OP_MUL: lambda args: z3.Product(args),
+    z3.Z3_OP_DIV: lambda args: args[0] / args[1], z3.Z3_OP_IDIV: lambda args: args[0] / args[1],
+    z3.Z3_OP_MOD: lambda args: args[0] % args[1], z3.Z3_OP_TO_REAL: lambda args: z3.ToReal(args[0]),
+    z3.Z3_OP_TO_INT: lambda args: z3.ToInt(args[0]), z3.Z3_OP_IS_INT: lambda args: z3.IsInt(args[0]),
+    z3.Z3_OP_ABS: lambda args: z3.If(args[0] >= 0, args[0], -args[0]),
+    z3.Z3_OP_LE: lambda args: args[0] <= args[1], z3.Z3_OP_GE: lambda args: args[0] >= args[1],
+    z3.Z3_OP_LT: lambda args: args[0] < args[1], z3.Z3_OP_GT: lambda args: args[0] > args[1],
+    z3.Z3_OP_EQ: lambda args: args[0] == args[1], z3.Z3_OP_DISTINCT: lambda args: z3.Distinct(args),
+    z3.Z3_OP_ITE: lambda args: z3.If(args[0], args[1], args[2]), z3.Z3_OP_AND: lambda args: z3.And(args),
+    z3.Z3_OP_OR: lambda args: z3.Or(args), z3.Z3_OP_NOT: lambda args: z3.Not(args[0]),
+    z3.Z3_OP_IMPLIES: lambda args: z3.Implies(args[0], args[1]), z3.Z3_OP_XOR: lambda args: z3.Xor(args[0], args[1]),
+}
+
+
+def _theory_expression(graph, node, context, atom_indices, memo):
+    """The z3 expression of an arithmetic or Boolean node in context, or None over anything else.
+
+    Boolean constants are the variables a<index> of their atom indices (the
+    names _theory_clauses gives the atoms of its abstraction), Real and Int
+    constants are v<declaration>; uninterpreted functions, arrays, and the
+    other theories are not read. Nodes are converted bottom up on an
+    explicit stack (deep chains), shared ones once (memo).
+    """
+    pending = [(node, False)]
+    while pending:
+        current, expanded = pending.pop()
+        if current in memo:
+            continue
+        decl, arguments = graph.decl(current), graph.arguments(current)
+        if expanded:
+            children = [memo[argument] for argument in arguments]
+            if any(child is None for child in children):
+                memo[current] = None
+            elif decl.kind == z3.Z3_OP_XOR and len(children) != 2:
+                memo[current] = None
+            else:
+                memo[current] = _THEORY_EXPRESSIONS[decl.kind](children)
+        elif decl.kind == z3.Z3_OP_ANUM and decl.range in ("Int", "Real"):
+            value = Fraction(decl.name)
+            memo[current] = (z3.IntVal(int(value), context) if decl.range == "Int"
+                             else z3.RealVal(value, context))
+        elif decl.kind in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE):
+            memo[current] = z3.BoolVal(decl.kind == z3.Z3_OP_TRUE, context)
+        elif decl.kind == z3.Z3_OP_UNINTERPRETED and not arguments and decl.range == "Bool":
+            memo[current] = z3.Bool("a%d" % atom_indices[graph.nodes[current].declaration], context)
+        elif decl.kind == z3.Z3_OP_UNINTERPRETED and not arguments and decl.range in ("Int", "Real"):
+            sort = z3.IntSort(context) if decl.range == "Int" else z3.RealSort(context)
+            memo[current] = z3.Const("v%d" % graph.nodes[current].declaration, sort)
+        elif decl.kind in _THEORY_EXPRESSIONS and arguments:
+            pending.append((current, True))
+            pending.extend((argument, False) for argument in arguments)
+        else:
+            memo[current] = None
+    return memo[node]
 
 
 def _leaf_bridges(graph, leaves, synthetic=None):
