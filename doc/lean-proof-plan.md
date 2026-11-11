@@ -3449,6 +3449,25 @@ unsatisfiable seeds verify in Lean), and `random_mixed_instance` with
 unsatisfiable seeds were rejected, now 70 of 70 runs on both cores verify;
 three are pinned).
 
+### Enumeration cases of applications stated over folded definitions (2026-11-10)
+
+The `enum_fcases_j` instance a theory step states for each application of
+an enumeration sort it reaches wrote the argument list out in full, so an
+application over a nested ite chain repeated the chain. In an `euf` lemma,
+whose ites stay folded in the goal, the written-out fact did not even meet
+the goal's term. Without arrays the fact is now the field applied to the
+argument list as the application's definition writes it, over the
+arguments' definitions; it is stated before the lemma's unfold and
+reverted with the ite gates, so the unfold rewrites it as it rewrites the
+goal (`_folded_enumeration_cases`). Two eight-level chains of Color ites
+through `f` and `g` (`enumeration_chain_instance(8)`): 27.2 MB of Lean
+(26.7 MB of `euf` lemmas), which the 12 GB watchdog stopped after 288 s,
+now 0.57 MB, checked in about a second; twelve levels 4.4 MB, 5 s, 2 GB.
+Smaller inputs grow by up to 5% (the revert and intro lines). With arrays
+the facts stay written out, like the other facts (`fold` in
+`_grind_lemma`). Tests: `test_enumeration_cases_of_applications_are_stated_folded`,
+`test_enumeration_ite_chains_verify` (`test_proof_to_lean_enum.py`).
+
 ### Enumeration datatypes through the clause log (2026-11-06)
 
 Every `declare-datatype(s)` was rejected by the frontend. Enumerations

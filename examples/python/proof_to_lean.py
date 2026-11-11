@@ -1889,12 +1889,14 @@ def _enumeration_cases(graph, sort, value, constructors="_m.ctors"):
                         for constructor in graph.enumerations[sort]], "False")
 
 
-def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
+def _enumeration_helpers(graph, reachable, atom_indices, variable_indices, folded=False):
     """State the enumeration facts a theory step over enumeration terms needs: the fields, instantiated.
 
     grind knows nothing about the constructors: it gets their distinctness
     and, for every constant and application of an enumeration sort the step
     reaches, the disjunction of its possible values, on which it splits.
+    With folded, the facts of applications with arguments are left to
+    _folded_enumeration_cases.
     """
     nodes = [node for node in sorted(reachable)
              if graph.is_term(node) and graph.decl(node).range in graph.enumerations]
@@ -1918,11 +1920,44 @@ def _enumeration_helpers(graph, reachable, atom_indices, variable_indices):
             continue
         index = variable_indices[graph.nodes[node].declaration]
         if graph.arguments(node):
+            if folded:
+                continue
             helpers.append("  have _ec%d := _m.enum_fcases_%d %s" % (
                 node, index, _application_arguments(graph, graph.arguments(node), child, child)))
         else:
             helpers.append("  have _ec%d := _m.enum_cases_%d" % (node, index))
     return helpers
+
+
+def _folded_enumeration_cases(graph, reachable, variable_indices):
+    """The enumeration cases of _enumeration_helpers for applications, over their definitions, folded.
+
+    Returns the have lines, their names, and the applications' arguments, for
+    _grind_lemma to revert before its unfold as it does the ite gates
+    (_folded_ite_gates). Written out, the argument list of an application
+    over nested ites repeats every inner ite in full: two eight-level
+    chains of Color ites through f and g (enumeration_chain_instance(8))
+    took 26.7 MB of such facts, and in an euf lemma, whose ites stay folded
+    in the goal, the written-out fact did not even meet the goal's term.
+    The field is applied to the application's argument list as its
+    definition writes it (_term_body), over the arguments' definitions,
+    which the unfold rewrites as it rewrites the goal's.
+    """
+    lines, names, nodes = [], [], set()
+    for node in sorted(reachable):
+        if (not graph.is_term(node) or graph.kind(node) != z3.Z3_OP_UNINTERPRETED or not graph.arguments(node)
+                or graph.decl(node).range not in graph.enumerations):
+            continue
+        lines.append("have _ec%d := _m.enum_fcases_%d %s" % (
+            node, variable_indices[graph.nodes[node].declaration], _application_arguments(
+                graph, graph.arguments(node), lambda term: _term(graph, term),
+                lambda formula: _formula(graph, formula))))
+        names.append("_ec%d" % node)
+        # The definitions the fact mentions: the application's own may be
+        # unfolded in the goal already (outside the atoms of an Int lemma,
+        # see _grind_lemma), and unfold rejects a name that does not occur.
+        nodes.update(graph.arguments(node))
+    return lines, names, nodes
 
 
 def _read_cases(graph, node, child, variable_indices):
@@ -3046,14 +3081,18 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         remaining = reachable
     gates, gate_names, gate_nodes = (_folded_ite_gates(graph, reachable)
                                      if graph.arithmetic and not (congruence or instance) else ([], [], set()))
-    # Without arrays the excluded-middle facts of Boolean arguments and the
-    # cast facts are stated folded too (_folded_boolean_arguments,
+    # Without arrays the excluded-middle facts of Boolean arguments, the
+    # enumeration cases of applications, and the cast facts are stated
+    # folded too (_folded_boolean_arguments, _folded_enumeration_cases,
     # _cast_facts), and reverted with the gates. With arrays the array facts
     # that mention a definition the unfold rewrites are (_array_helpers).
     fold = not graph.arrays
     if fold and graph.uninterpreted:
         lines_b, names_b, nodes_b = _folded_boolean_arguments(graph, scope)
         gates, gate_names, gate_nodes = gates + lines_b, gate_names + names_b, gate_nodes | nodes_b
+    if fold and graph.enumerations:
+        lines_e, names_e, nodes_e = _folded_enumeration_cases(graph, scope, variable_indices)
+        gates, gate_names, gate_nodes = gates + lines_e, gate_names + names_e, gate_nodes | nodes_e
     lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, scope, atom_indices, variable_indices, node,
                                                         folded=fold)
     gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
@@ -3611,8 +3650,10 @@ def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded_arg
 
     The ite gates, scaling facts, and array facts that mention definitions
     it states before (_folded_ite_gates, _array_helpers); with
-    folded_arguments, the excluded-middle facts of Boolean arguments too.
-    array_facts are the other array facts (_array_helpers), stated here.
+    folded_arguments, the excluded-middle facts of Boolean arguments and
+    the enumeration cases of applications too (_folded_boolean_arguments,
+    _folded_enumeration_cases). array_facts are the other array facts
+    (_array_helpers), stated here.
     """
     helpers = []
     if graph.uninterpreted and not folded_arguments:
@@ -3621,7 +3662,7 @@ def _theory_helpers(graph, reachable, atom_indices, variable_indices, folded_arg
         helpers.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
     helpers.extend(array_facts)
     if graph.enumerations:
-        helpers.extend(_enumeration_helpers(graph, reachable, atom_indices, variable_indices))
+        helpers.extend(_enumeration_helpers(graph, reachable, atom_indices, variable_indices, folded_arguments))
     return helpers
 
 

@@ -1077,7 +1077,9 @@ outside its domain by some constructor of its range. The clause log's
 datatype hints (the datatype solver's case splits and constructor clashes)
 become th-lemmas over enumeration equalities and recognizers; they, the euf
 lemmas, and the cnf fallbacks over such terms are proved by grind after the
-fields are instantiated for the constants and applications they reach. The
+fields are instantiated for the constants and applications they reach.
+Without arrays, the facts of applications are stated over their arguments'
+definitions and reverted around the lemma's unfold, like the ite gates. The
 reconstructor checks every constructor and recognizer of the certificate
 against the input's enumeration of that sort and tells constructors apart by
 name. An array of an enumeration, (Array I Color), has a field per array
