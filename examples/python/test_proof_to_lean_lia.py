@@ -2065,12 +2065,13 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         # _hypN => _hypN`, imported and re-applied by every lemma using it.
         # A resolution keeping the literal before an eliminated tail is
         # Or.resolve_right, not an Or.elim. Seed 2: 1.97 MB of Lean at first,
-        # 1.43 MB with nesting, 1.29 MB now.
+        # 1.43 MB with nesting, 1.29 MB with hypotheses by their binders,
+        # 1.12 MB now (see the test below).
         source = disjunctive_temporal_instance(2)
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(certificate["rule_counts"]["hypothesis"], 100)
         text = self.checked_text(source, certificate)
-        self.assertLess(len(text), 1350000)
+        self.assertLess(len(text), 1200000)
         lemmas = text.split("\nprivate theorem proof_step_")[1:]
         self.assertGreater(len(lemmas), 500)
         hypotheses = {index for index, node in enumerate(certificate["nodes"])
@@ -2096,6 +2097,45 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertGreater(under_hypotheses, 100)
         self.assertGreater(len(re.findall(r"^    let _step_\d+ : ", text, re.MULTILINE)), 1000)
 
+    def test_single_imports_and_negated_eliminations_are_applied_in_place(self):
+        # Three parts of the outlined lemmas' text bound or wrapped what one
+        # application states. In the 32.2 MB of Lean of SMT-LIB QF_IDL
+        # DTP_k2_n35_c245_s9, which ran out of the 8 GB cap:
+        # - 70,817 eliminations of a literal (not p) by a proof of p were
+        #   `.resolve_left (fun _literal => _literal _step_N)` (2.6 MB);
+        #   Or.neg_resolve_left and Or.neg_resolve_right take the proof;
+        # - 92,491 of its 100,549 imported lemmas were used once in the
+        #   lemma importing them, by name or by one re-application to the
+        #   hypotheses; they are applied there instead of let-bound;
+        # - 15,068 proofs by contradiction named their formula and a witness
+        #   `let _dfN := Classical.propDecidable ...` (1.9 MB); one helper
+        #   lemma, Decidable.byContradiction at that witness, takes the
+        #   formula from the expected type.
+        # DTP is 26.1 MB now and verifies (see the slow test below).
+        source = disjunctive_temporal_instance(1)
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = self.checked_text(source, certificate)
+        self.assertLess(len(text), 535000)  # 565,430 before
+        self.assertNotIn("(fun _literal => _literal _", text)
+        self.assertGreater(text.count(".neg_resolve_left "), 100)
+        self.assertGreater(text.count(".neg_resolve_right "), 10)
+        self.assertNotIn("let _df", text)
+        self.assertNotIn("@Decidable.byContradiction (", text)
+        self.assertEqual(text.count("private theorem classical_by_contradiction "), 1)
+        self.assertGreater(text.count("(classical_by_contradiction "), 100)
+        merged = direct = 0
+        for lemma in text.split("\nprivate theorem proof_step_")[1:]:
+            # An import that stays bound is used more than once, so its name
+            # occurs at least three times (twice per re-application). The
+            # pattern matches classical imports (no witness arguments), which
+            # are all of this arithmetic input's lemmas.
+            for step in re.findall(r"^  let _step_(\d+) := proof_step_\1 _inputs$", lemma, re.MULTILINE):
+                self.assertGreater(len(re.findall(r"\b_step_%s\b" % step, lemma)), 2, (step, lemma[:300]))
+            merged += len(re.findall(r"^ +let _step_(\d+) := proof_step_\1 _inputs _hyp", lemma, re.MULTILINE))
+            direct += len(re.findall(r"\(proof_step_\d+ _inputs\)", lemma))
+        self.assertGreater(merged, 50)
+        self.assertGreater(direct, 100)
+
     def test_steps_beyond_the_nesting_depth_are_bound_at_the_top_level(self):
         # Past _NESTED_STEP_DEPTH a step under hypotheses is bound at the
         # top level as a function of them and re-applied by its one user,
@@ -2116,20 +2156,38 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                          + len(text.split("\nprivate theorem proof_step_")[1:]),
                          sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
 
-    @lean_test_support.slow("QF_IDL plan-21, 23.4 MB of Lean, about 90 s at 7.0 GB")
+    @lean_test_support.slow("QF_IDL plan-21, 21.4 MB of Lean, about 80 s at 6.6 GB")
     def test_planning_refutation_verifies_under_the_memory_cap(self):
         # SMT-LIB QF_IDL planning/plan-21.cvc (110 KB): 25,842 proof steps.
         # Its 33 MB of Lean ran out of the 8 GB cap of check_lean.sh after
         # 95 s ("(kernel) excessive memory consumption"); with the steps
         # under hypotheses bound inside their consumers it was 25 MB and
         # verified; with hypotheses named by their binders and resolutions
-        # closed by Or.resolve_right it is 23.4 MB, verified in 87 s at a
-        # 7.0 GB peak (see the test above).
+        # closed by Or.resolve_right it was 23.4 MB (87 s, 7.0 GB peak);
+        # with single imports applied in place it is 21.4 MB, verified in
+        # 79 s at a 6.6 GB peak (see the tests above).
         source = (_EXAMPLES / "data" / "QF_IDL_plan-21.cvc.smt2").read_text()
         certificate = proof_certificate.export_clause_log_certificate(source)
         self.assertGreater(sum(certificate["rule_counts"].values()), 25000)
         text, report = lean_test_support.check(self, source, certificate)
-        self.assertLess(len(text), 27000000)
+        self.assertLess(len(text), 23000000)
+        self.assertIn(_STANDARD_AXIOMS, report)
+
+    @lean_test_support.slow("QF_IDL DTP_k2_n35_c245_s9, 26.1 MB of Lean, about 120 s at 7.9 GB")
+    def test_disjunctive_temporal_refutation_verifies_under_the_memory_cap(self):
+        # SMT-LIB QF_IDL DTP/DTP_k2_n35_c245_s9 (14 KB): 69,000 proof steps,
+        # 16,557 outlined lemmas. Its Lean ran out of the 8 GB cap in every
+        # version until the single imports, the negated eliminations, and
+        # the classical contradictions were applied in place (32.2 to 26.1
+        # MB; see test_single_imports_and_negated_eliminations_are_applied_
+        # in_place): verified in 117 s at a 7.86 GB peak.
+        source = (_EXAMPLES / "data" / "QF_IDL_DTP_k2_n35_c245_s9.smt2").read_text()
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertGreater(sum(certificate["rule_counts"].values()), 60000)
+        text, report = lean_test_support.check(self, source, certificate)
+        # 26,147,753 characters; the 7.86 GB peak leaves little margin, so
+        # the bound fails before a text regression runs Lean out of memory.
+        self.assertLess(len(text), 26500000)
         self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_wide_farkas_conflicts_with_large_coefficients_verify(self):

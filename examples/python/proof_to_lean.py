@@ -7803,14 +7803,21 @@ def _resolution(graph, terms, node):
     if remaining != set(positions):
         raise ReconstructionError("incorrect unit-resolution conclusion at node %d" % node)
 
-    def refutation(position):
-        """A proof of the negation of an eliminated or false literal, else None."""
-        if position in eliminations:
-            unit, negated_unit = eliminations[position]
-            return "_step_%d" % unit if negated_unit else "(fun _literal => _literal _step_%d)" % unit
-        if graph.kind(literals[position]) == z3.Z3_OP_FALSE:
-            return "(fun _literal => _literal)"
-        return None
+    def cut(position):
+        """Whether the literal at position is eliminated or false, not kept."""
+        return position in eliminations or graph.kind(literals[position]) == z3.Z3_OP_FALSE
+
+    def eliminate(subject, position, side):
+        """Cut an eliminated or false literal off the left or right of subject.
+
+        A literal (not p) eliminated by a proof of p uses Or.neg_resolve_left
+        or Or.neg_resolve_right, which take that proof itself: no
+        double-negation lambda per elimination (70,817 of them were 2.6 MB of
+        the 32 MB of Lean of QF_IDL DTP_k2_n35_c245_s9)."""
+        if position not in eliminations:
+            return "(%s.resolve_%s (fun _literal => _literal))" % (subject, side)
+        unit, negated_unit = eliminations[position]
+        return "(%s.%sresolve_%s _step_%d)" % (subject, "" if negated_unit else "neg_", side, unit)
 
     def contradiction(position, value):
         """A proof of False from a proof value of an eliminated or false literal."""
@@ -7821,7 +7828,7 @@ def _resolution(graph, terms, node):
 
     def branch(position, value):
         literal = literals[position]
-        if refutation(position) is not None:
+        if cut(position):
             return "(False.elim %s)" % contradiction(position, value)
         if position in doubles:
             literal = doubles[position]
@@ -7841,22 +7848,21 @@ def _resolution(graph, terms, node):
     # that tail. In the QF_IDL DTP refutations most resolutions keep one
     # literal of a two-literal clause.
     last = len(literals) - 1
-    kept_before_last = [pos for pos in range(last) if refutation(pos) is None]
-    final = kept_before_last[-1] if kept_before_last and refutation(last) is not None else None
+    kept_before_last = [pos for pos in range(last) if not cut(pos)]
+    final = kept_before_last[-1] if kept_before_last and cut(last) else None
     subject, cases = "_step_%d" % first, []
     for position in range(last):
-        negation = refutation(position)
-        if negation is not None:
-            subject = "(%s.resolve_left %s)" % (subject, negation)
+        if cut(position):
+            subject = eliminate(subject, position, "left")
         elif position == final:
             if position + 1 == last:
-                negation = refutation(last)
+                value = eliminate(subject, last, "right")
             else:
                 tail = "_tail"
                 for eliminated in range(position + 1, last):
-                    tail = "(%s.resolve_left %s)" % (tail, refutation(eliminated))
-                negation = "(fun _tail => %s)" % contradiction(last, tail)
-            value = branch(position, "(%s.resolve_right %s)" % (subject, negation))
+                    tail = eliminate(tail, eliminated, "left")
+                value = "(%s.resolve_right (fun _tail => %s))" % (subject, contradiction(last, tail))
+            value = branch(position, value)
             return "".join(cases) + value + "))" * len(cases), support
         else:
             cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
@@ -8065,6 +8071,87 @@ def _step_blocks(graph, terms, dependencies, excluded):
     return {node: block(node, "  ") for node in sorted(terms) if node not in nested}
 
 
+_CLASSICAL_CONTRADICTION = "classical_by_contradiction"
+# Decidable.byContradiction at the witness Classical.propDecidable, which the
+# classical lemmas bound by a let before: the same axiom (Classical.choice),
+# where Classical.byContradiction would add propext and Quot.sound.
+_CLASSICAL_CONTRADICTION_LEMMA = [
+    "",
+    "private theorem %s {p : Prop} (h : Not p -> False) : p :=" % _CLASSICAL_CONTRADICTION,
+    "  @Decidable.byContradiction p (Classical.propDecidable p) h",
+]
+
+
+def _classical_contradictions(graph, lines):
+    """Return the lines with each proof by contradiction over a classical witness by the lemma above.
+
+    `(@Decidable.byContradiction F _dfN h)` names F and a witness `_dfN`
+    that the lemma binds by `let _dfN := Classical.propDecidable F`; the
+    helper takes F from the expected type or from h. In the QF_IDL
+    DTP_k2_n35 refutation these heads and lets were 1.9 MB of 27.7 MB.
+    A witness used otherwise (as an instance argument) keeps its let.
+    """
+    text = "\n".join(lines)
+    for formula in sorted({int(name) for name in re.findall(r"\b_df(\d+)\b", text)}):
+        head = "@Decidable.byContradiction %s _df%d" % (_formula(graph, formula), formula)
+        text = re.sub(re.escape(head) + r"\b", _CLASSICAL_CONTRADICTION, text)
+    return text.split("\n") if lines else lines
+
+
+def _import_value(node, classical, witnesses):
+    """The application of an outlined lemma that imports it into another."""
+    return "proof_step_%d _inputs%s" % (node, "" if classical else "".join(" " + name for name in witnesses[node]))
+
+
+def _merge_single_imports(graph, dependencies, local, external, needed, body, conclusion, classical, witnesses):
+    """Return the lemmas an outlined lemma imports by a let, and its body and conclusion lines.
+
+    A lemma used once in the lemma importing it is applied at that use,
+    without a let of its own: one under hypotheses in the line that
+    re-applies it to them (`let _step_N := proof_step_N _inputs _hyp...`),
+    one without them in place of its name. In the QF_IDL DTP_k2_n35
+    refutation 92,491 of the 100,549 imports were used once; applying them
+    in place cut its Lean from 30.5 to 27.7 MB. A lemma whose conjunction tails are
+    bound, or which a `lemma` step uses (applying it to the proofs of the
+    hypotheses that step discharges, without a re-application), keeps its
+    let, as does any lemma whose single use is not found where expected.
+    """
+    consumers = {node: set() for node in external}
+    for node in local:
+        for premise in graph.arguments(node)[:-1]:
+            if premise in consumers:
+                consumers[premise].add(node)
+    single = {node for node in external
+              if len(consumers[node]) == 1 and not needed.get(node, 0)
+              and all(graph.kind(consumer) != z3.Z3_OP_PR_LEMMA for consumer in consumers[node])}
+    text = "\n".join(body + conclusion)
+    occurrences = Counter(int(name[6:]) for name in re.findall(r"\b_step_\d+\b", text))
+    reapplied = Counter(int(match) for match in re.findall(r"^ *let _step_(\d+) := _step_\1(?: _hyp\d+)+$", text, re.M))
+    merged = {node for node in single if (reapplied[node] == 1 if dependencies[node]
+                                          else occurrences[node] == 1 and not reapplied[node])}
+
+    def application(match):
+        node = int(match.group(3))
+        if node not in merged:
+            return match.group(0)
+        return "%slet _step_%d := %s%s" % (match.group(1), node, _import_value(node, classical, witnesses),
+                                           match.group(4))
+
+    def use(match):
+        node = int(match.group(0)[6:])
+        if node not in merged or dependencies[node]:
+            return match.group(0)
+        return "(%s)" % _import_value(node, classical, witnesses)
+
+    def merge(lines):
+        text = re.sub(r"^( *)let (_step_(\d+)) := \2((?: _hyp\d+)+)$", application, "\n".join(lines), flags=re.M)
+        return re.sub(r"\b_step_\d+\b", use, text).split("\n") if lines else lines
+
+    if merged:
+        body, conclusion = merge(body), merge(conclusion)
+    return [node for node in sorted(external) if node not in merged], body, conclusion
+
+
 def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
     """Check proof subgraphs separately instead of one enormous nested term.
 
@@ -8111,6 +8198,10 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
             conclusion.extend(steps[root][1:])
         else:
             conclusion = [line[2:] for line in steps[root][1:]]
+        imports, body, conclusion = _merge_single_imports(graph, dependencies, local, external, needed,
+                                                          body, conclusion, classical, witnesses)
+        if classical:
+            body, conclusion = _classical_contradictions(graph, body), _classical_contradictions(graph, conclusion)
         decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body + conclusion)))
         if not classical:
             for node in external:
@@ -8132,12 +8223,13 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
             lines.extend("    (%s : Decidable %s)" % (name, _witness_formula(graph, name))
                          for name in witnesses[root])
             lines.append("    : %s :=" % result)
-        for node in sorted(external):
-            arguments = "" if classical else "".join(" " + name for name in witnesses[node])
-            lines.append("  let _step_%d := proof_step_%d _inputs%s" % (node, node, arguments))
+        for node in imports:
+            lines.append("  let _step_%d := %s" % (node, _import_value(node, classical, witnesses)))
             lines.extend(_tail_lets(node, needed.get(node, 0)))
         lines.extend(body)
         lines.extend(conclusion)
+    if classical and any(_CLASSICAL_CONTRADICTION in line for line in lines):
+        lines[2:2] = _CLASSICAL_CONTRADICTION_LEMMA
     return lines, ([] if classical else witnesses[graph.proof])
 
 

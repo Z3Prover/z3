@@ -950,8 +950,13 @@ root never uses are not outlined. A step under hypotheses that only one other
 step uses is bound inside that step, where its hypotheses are in scope, rather
 than as a function of them that the other step re-applies, and a hypothesis
 step is not bound as a step: its users name the hypothesis's binder (except a
-lemma's premise, which the lemma discharges). This keeps Lean's memory,
-which grows with the elaborated text, under the 8 GB cap on QF_IDL plan-21.
+lemma's premise, which the lemma discharges). A lemma used once in the lemma
+importing it is applied at that use rather than let-bound, a literal (not p)
+is eliminated by Or.neg_resolve_left/right on the proof of p, and classical
+lemmas prove by contradiction through one helper over Classical.propDecidable
+instead of a witness let per formula. This keeps Lean's memory, which grows
+with the elaborated text, under the 8 GB cap on QF_IDL plan-21 and
+DTP_k2_n35_c245_s9.
 The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.

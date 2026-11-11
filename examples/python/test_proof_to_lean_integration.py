@@ -1091,11 +1091,15 @@ class TestProofToLeanIntegration(unittest.TestCase):
         # When every literal after the last kept one is eliminated, the
         # resolution is Or.resolve_right on that tail instead of an Or.elim
         # case split: one refutation of a last literal, or a fun refuting
-        # a longer tail, false literals included.
+        # a longer tail, false literals included. A literal (not q)
+        # eliminated by a proof of q is cut by Or.neg_resolve_right or
+        # Or.neg_resolve_left on that proof, also inside a longer tail.
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
         for assertions, units, conclusion, splits in [
             (["(or p q)", "(not q)"], [1], "p", 0),
             (["(or p (not q))", "q"], [1], "p", 0),
+            (["(or (not q) p (not r))", "q", "r"], [1, 2], "p", 0),
+            (["(or (not q) p (not r) s)", "q", "r", "(not s)"], [1, 2, 3], "p", 0),
             (["(or q p r)", "(not q)", "(not r)"], [1, 2], "p", 0),
             (["(or p q r s)", "(not q)", "(not r)", "(not s)"], [1, 2, 3], "p", 0),
             (["(or p q false)", "(not q)"], [1], "p", 0),
@@ -1113,8 +1117,11 @@ class TestProofToLeanIntegration(unittest.TestCase):
                     ("unit-resolution", [0] + units, conclusion),
                     ("unit-resolution", [resolvent] + list(range(len(assertions), resolvent)), "false"),
                 ]))
-                self.assertIn(".resolve_right ", text)
+                self.assertRegex(text, r"\.(neg_)?resolve_right ")
                 self.assertEqual(text.count("Or.elim"), splits)
+                negated = len(re.findall(r"\(not [qrs]\)", assertions[0]))
+                self.assertEqual(text.count(".neg_resolve_"), negated)
+                self.assertNotIn("fun _literal => _literal _", text)
 
     def test_empty_singleton_and_false_containing_clauses(self):
         for clause in ["false", "(or p)", "(or false p)", "(or p false)"]:

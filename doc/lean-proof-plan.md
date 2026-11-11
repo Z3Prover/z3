@@ -1672,6 +1672,33 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Single imports, negated eliminations, and classical contradictions in place (2026-11-10)
+
+Three parts of the outlined lemmas' text bound or wrapped what one
+application states. In DTP's 32.2 MB of Lean, 70,817 eliminations of a
+literal `(not p)` by a proof of p were `.resolve_left (fun _literal =>
+_literal _step_N)` (2.6 MB); they are now `Or.neg_resolve_left` and
+`Or.neg_resolve_right` on the proof itself (Lean core, no axioms). 92,491 of
+its 100,549 imported lemmas were used once in the lemma importing them;
+such a lemma is now applied at that use, by name or in the line that
+re-applies it to its hypotheses (`_merge_single_imports`). 15,068 proofs by
+contradiction named their formula and a witness `let _dfN :=
+Classical.propDecidable ...` (1.9 MB); classical lemmas now use one helper,
+`classical_by_contradiction`, which is `Decidable.byContradiction` at
+`Classical.propDecidable` (the same axiom as before;
+`Classical.byContradiction` would add `propext` and `Quot.sound`) and takes the
+formula from the expected type. QF_IDL `DTP_k2_n35_c245_s9` goes from 32.2
+to 26.1 MB and verifies for the first time, in 117 s at a 7.86 GB peak;
+`swap_t2_np_sf_ai_00009_002` (QF_AX) from 20.6 to 16.0 MB and verifies
+(105 s, 7.39 GB); plan-21 from 23.4 to 21.4 MB (79 s, 6.60 GB; 87 s and
+7.0 GB before); NEQ004 from 13.9 to 11.1 MB. Tests:
+`test_single_imports_and_negated_eliminations_are_applied_in_place`, slow
+`test_disjunctive_temporal_refutation_verifies_under_the_memory_cap`
+(`test_proof_to_lean_lia.py`). Still open: DTP is close to the cap; its
+largest remaining parts are the nested step headers (`let _step_N :
+(formula_M _atoms _vars) :=`, 2.6 MB) and the lemma statements'
+hypothesis chains.
+
 ### Hypotheses named by their binders; resolutions closed on the right (2026-11-10)
 
 A `hypothesis` step was bound like any other step: a function of its own
