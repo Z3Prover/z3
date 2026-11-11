@@ -132,6 +132,9 @@ _OUTLINE_CHUNK_STEPS = 500
 # A step with more premises or clause literals than this counts as that many
 # steps of its chunk (_outline_weight).
 _OUTLINE_WIDE_STEP = 64
+# A step under hypotheses used by one other step is bound inside it
+# (_step_blocks), at most this many such steps deep.
+_NESTED_STEP_DEPTH = 32
 # and-elim projects an operand by field notation, one `.2` per operand before
 # it, so eliminating every operand of a wide conjunction is quadratic: 250
 # projections out of a 600-operand conjunction (94,000 `.2`s in one outlined
@@ -7968,7 +7971,52 @@ def _witness_formula(graph, name):
     return _formula(graph, int(name[3:])) if name.startswith("_df") else "(_atoms %d)" % int(name[2:])
 
 
-def _outline_steps(graph, steps, dependencies, signature, tails):
+def _step_blocks(graph, terms, dependencies, excluded):
+    """Return the let-binding lines of each proof step bound at the top level of its proof.
+
+    A step under hypotheses is a function of them, so each step consuming
+    it re-applies it, and its binders restate every hypothesis formula: in
+    the QF_IDL DTP_k2_n35 refutation (61,000 unit resolutions under 639
+    hypotheses) this was 28 of the 54 MB of proof-step text. A step under
+    hypotheses that one other step uses, whose hypotheses that step also
+    has, is bound inside that step instead, where its hypotheses are already
+    in scope: no binders and no re-application. Steps in excluded (outlined
+    lemmas, premises of conjunction tails) stay at the top level, and
+    nesting stops at _NESTED_STEP_DEPTH levels, so no let value nests more
+    than that many others.
+    """
+    uses = Counter(premise for node in terms for premise in graph.arguments(node)[:-1])
+    inner, depth = {}, {}
+    for node in sorted(terms):
+        inner[node], depth[node] = [], 0
+        if graph.kind(node) == z3.Z3_OP_PR_LEMMA:
+            continue  # its premise depends on the hypotheses it discharges
+        for premise in dict.fromkeys(graph.arguments(node)[:-1]):
+            if (uses[premise] == 1 and dependencies[premise] and premise not in excluded
+                    and set(dependencies[premise]) <= set(dependencies[node])
+                    and depth[premise] < _NESTED_STEP_DEPTH):
+                inner[node].append(premise)
+                depth[node] = max(depth[node], depth[premise] + 1)
+    nested = {premise for premises in inner.values() for premise in premises}
+
+    def block(node, indent):
+        parameters = "" if node in nested else "".join(
+            " (_hyp%d : %s)" % (hypothesis, _formula(graph, hypothesis)) for hypothesis in dependencies[node])
+        lines = ["%slet _step_%d%s : %s :=" % (indent, node, parameters, _formula(graph, graph.conclusion(node)))]
+        for premise in inner[node]:
+            lines.extend(block(premise, "    "))
+        if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
+            for premise in dict.fromkeys(graph.arguments(node)[:-1]):
+                if dependencies[premise] and premise not in inner[node]:
+                    arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
+                    lines.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
+        lines.append("    " + terms[node])
+        return lines
+
+    return {node: block(node, "  ") for node in sorted(terms) if node not in nested}
+
+
+def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
     """Check proof subgraphs separately instead of one enormous nested term.
 
     Returns the Lean lines and the decidability witnesses the root lemma takes
@@ -7977,12 +8025,19 @@ def _outline_steps(graph, steps, dependencies, signature, tails):
     propositional slice stays axiom-free by receiving every witness as a
     parameter that the main theorem introduces constructively. Each lemma
     binds the conjunction tails its and-elims start from (tails, see
-    _and_elim) after the premise they project.
+    _and_elim) after the premise they project. A step bound inside another
+    (_step_blocks) is part of that step's lines.
     """
     classical = bool(graph.arithmetic or graph.uninterpreted)
-    boundaries = _outline_boundaries(graph)
     inputs = _balanced("And", [_formula(graph, node) for node in graph.assertions], "True")
     lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
+    # The interpretation is implicit in each lemma, determined by the type of
+    # _inputs: a lemma is imported as `proof_step_N _inputs`.
+    implicit = re.sub(r"\((_\w+ : [^()]*)\)", r"{\1}", signature)
+    if "(" in implicit:
+        # A binder whose type has parentheses would stay explicit, and every
+        # `proof_step_N _inputs` import would be ill-typed.
+        raise ReconstructionError("cannot make the interpretation implicit: %s" % signature)
     witnesses = {}
     for root in sorted(boundaries):
         local, external, pending = set(), set(), [root]
@@ -7994,8 +8049,20 @@ def _outline_steps(graph, steps, dependencies, signature, tails):
                 local.add(node)
                 pending.extend(graph.arguments(node)[:-1])
         needed = _needed_tails(tails, local)
-        body = [line for node in sorted(local) for line in steps[node] + _tail_lets(node, needed.get(node, 0))]
-        decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body)))
+        # Every other local step precedes the root (arguments precede their
+        # node), and no and-elim of this lemma starts from the root's tails.
+        body = [line for node in sorted(local) if node in steps and node != root
+                for line in steps[node] + _tail_lets(node, needed.get(node, 0))]
+        # The root is the lemma's statement: its hypotheses are the binders
+        # of a fun, the statement's premises, not restated. Without
+        # hypotheses its lines move to the lemma's column, so that none
+        # continues the application bound on the line before it.
+        if dependencies[root]:
+            conclusion = ["  fun%s =>" % "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[root])]
+            conclusion.extend(steps[root][1:])
+        else:
+            conclusion = [line[2:] for line in steps[root][1:]]
+        decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body + conclusion)))
         if not classical:
             for node in external:
                 decidable.update(witnesses[node])
@@ -8005,25 +8072,23 @@ def _outline_steps(graph, steps, dependencies, signature, tails):
             result = "(%s -> %s)" % (_formula(graph, hypothesis), result)
         lines.extend([
             "",
-            "private theorem proof_step_%d %s" % (root, signature),
+            "private theorem proof_step_%d %s" % (root, implicit),
             "    (_inputs : Inputs _atoms%s)" % graph.valuation,
         ])
         if classical:
             lines.append("    : %s :=" % result)
             for name in witnesses[root]:
-                formula = _witness_formula(graph, name)
-                lines.append("  let %s : Decidable %s := Classical.propDecidable %s" % (name, formula, formula))
+                lines.append("  let %s := Classical.propDecidable %s" % (name, _witness_formula(graph, name)))
         else:
             lines.extend("    (%s : Decidable %s)" % (name, _witness_formula(graph, name))
                          for name in witnesses[root])
             lines.append("    : %s :=" % result)
         for node in sorted(external):
             arguments = "" if classical else "".join(" " + name for name in witnesses[node])
-            lines.append("  let _step_%d := proof_step_%d _atoms%s _inputs%s" % (
-                node, node, graph.valuation, arguments))
+            lines.append("  let _step_%d := proof_step_%d _inputs%s" % (node, node, arguments))
             lines.extend(_tail_lets(node, needed.get(node, 0)))
         lines.extend(body)
-        lines.append("  _step_%d" % root)
+        lines.extend(conclusion)
     return lines, ([] if classical else witnesses[graph.proof])
 
 
@@ -8193,8 +8258,7 @@ def reconstruct(source, certificate):
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
     outline = sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes))) > _OUTLINE_PROOF_STEPS
-    steps = []
-    step_blocks = {}
+    step_terms = {}
     tails = {}  # and-elim node -> the (premise, operand) tail it projects from
     hypothesis_formulas, dependencies = {}, {}
     ite_congruence = False
@@ -8257,25 +8321,16 @@ def reconstruct(source, certificate):
             decidable_formulas.update(support)
         else:
             raise ReconstructionError("unsupported native proof rule: %s" % graph.decl(node).name)
-        # Abstract open DAG nodes so shared subproofs can be discharged independently.
-        parameters = "".join(" (_hyp%d : %s)" % (hypothesis, _formula(graph, hypothesis))
-                             for hypothesis in dependencies[node])
-        begin = len(steps)
-        steps.append("  let _step_%d%s : %s :=" % (node, parameters, _formula(graph, conclusion)))
-        if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
-            for premise in dict.fromkeys(premises):
-                if dependencies[premise]:
-                    arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
-                    steps.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
-        steps.append("    " + term)
-        step_blocks[node] = steps[begin:]
+        step_terms[node] = term
     if dependencies[graph.proof]:
         raise ReconstructionError("the root proof has undischarged hypotheses")
     if ite_congruence:
         lines.extend(_ITE_CONGRUENCE)
+    boundaries = _outline_boundaries(graph) if outline else set()
+    step_blocks = _step_blocks(graph, step_terms, dependencies, boundaries | {premise for premise, _ in tails.values()})
     witnesses = []
     if outline:
-        outlined, witnesses = _outline_steps(graph, step_blocks, dependencies, signature, tails)
+        outlined, witnesses = _outline_steps(graph, step_blocks, dependencies, signature, tails, boundaries)
         lines.extend(outlined)
     if witnesses or (not outline and (decidable_atoms or decidable_formulas)):
         # A continuation ending in False can eliminate the temporary decidability
@@ -8294,14 +8349,14 @@ def reconstruct(source, certificate):
         for name in witnesses:
             lines.append("  refute_with_decidable %s fun %s =>" % (_witness_formula(graph, name), name))
         inputs = _balanced("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
-        lines.append("  proof_step_%d _atoms%s %s%s" % (
+        lines.append("  @proof_step_%d _atoms%s %s%s" % (
             graph.proof, graph.valuation, inputs, "".join(" " + name for name in witnesses)))
     else:
         for atom in sorted(decidable_atoms):
             lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))
         for formula in sorted(decidable_formulas):
             lines.append("  refute_with_decidable %s fun _df%d =>" % (_formula(graph, formula), formula))
-        needed = _needed_tails(tails, step_blocks)
+        needed = _needed_tails(tails, dependencies)
         for node, block in step_blocks.items():
             lines.extend(block + _tail_lets(node, needed.get(node, 0)))
         lines.append("  _step_%d" % graph.proof)

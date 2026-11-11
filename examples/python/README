@@ -944,8 +944,13 @@ elaborates superlinearly and exhausts Lean's default heartbeat budget between
 counts as that many steps, so a lemma step discharging hundreds of
 hypotheses is not elaborated among hundreds of unrelated steps, which made
 it about ten times slower. Each lemma receives the original assertions as one
-conjunction and abstracts its open hypotheses explicitly; steps the root never
-uses are not outlined. The final unsat theorem still takes exactly the original
+conjunction (the interpretation is implicit, determined by it) and abstracts
+its open hypotheses explicitly, as the premises of its statement; steps the
+root never uses are not outlined. A step under hypotheses that only one other
+step uses is bound inside that step, where its hypotheses are in scope, rather
+than as a function of them that the other step re-applies; this keeps Lean's
+memory, which grows with the elaborated text, under the 8 GB cap on QF_IDL
+plan-21. The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical
 decidability, within the already documented standard axiom boundary.
 Propositional lemmas instead take the decidability witnesses they need as

@@ -641,8 +641,12 @@ def equality_diamond(levels):
 
 
 def outlined_lemma_sizes(text):
-    """Proof steps defined inside each outlined lemma (bindings of other lemmas carry no type)."""
-    return [len(re.findall(r"^  let _step_\d+ (?!:=)", block, re.MULTILINE))
+    """Proof steps defined inside each outlined lemma, its statement's step included.
+
+    Bindings of other lemmas and re-applications of steps to their
+    hypotheses carry no type; steps bound inside another step count too.
+    """
+    return [len(re.findall(r"^ +let _step_\d+ (?!:=)", block, re.MULTILINE)) + 1
             for block in text.split("private theorem proof_step_")[1:]]
 
 
@@ -2170,7 +2174,7 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         self.assertGreater(len(sizes), 1)
         self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
         self.assertEqual(sum(sizes), _proof_steps(certificate))
-        self.assertIn("  proof_step_%d _atoms%s " % (certificate["proof"], proof_to_lean._UF_ARGUMENTS), text)
+        self.assertIn("  @proof_step_%d _atoms%s " % (certificate["proof"], proof_to_lean._UF_ARGUMENTS), text)
 
     def test_small_chunks_cut_every_lemma_shape(self):
         # Force boundaries inside lemma subproofs, between shared steps, and at

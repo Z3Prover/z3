@@ -729,7 +729,9 @@ class TestProofToLean(unittest.TestCase):
                 self.assertNotIn("axiom ", text)
                 self.assertNotIn("native_decide", text)
                 self.assertNotIn("classical", text)
-                self.assertEqual(sum(line.startswith("  let _step_") for line in text.splitlines()),
+                # One binding per step, at the top level or inside the one
+                # step using it (re-applications to hypotheses bind none).
+                self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:=)", text, re.MULTILINE)),
                                  sum(certificate["rule_counts"].values()))
 
     def test_reconstruction_does_not_run_solver_search(self):

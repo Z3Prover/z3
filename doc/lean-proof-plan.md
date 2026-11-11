@@ -1672,6 +1672,34 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Steps under hypotheses bound inside the step using them (2026-11-10)
+
+A proof step under hypotheses (the clause log's lemmas and the legacy
+core's `hypothesis` steps) was a let-bound function of them: its binders
+restated every hypothesis formula, and each step using it re-applied it to
+them. Outlined lemmas restated their own statement the same way and passed
+the interpretation to every lemma they imported. In the 58 MB of Lean of
+QF_IDL `DTP_k2_n35_c245_s9` this was 28 MB of the 54 MB of proof steps.
+Lean's memory grows with the elaborated text, about 160 bytes per
+character there (4,000 trivial theorems of the same signature cost only
+0.2 GB), so plan-21 and DTP ran out of the 8 GB cap. Now (`_step_blocks`,
+`_outline_steps`):
+
+- a step under hypotheses that one other step uses is bound inside it,
+  where its hypotheses are in scope, at most 32 such steps deep;
+- an outlined lemma's own step is its statement: its hypotheses are the
+  binders of a `fun`;
+- the interpretation is implicit in outlined lemmas, determined by the type
+  of `_inputs`, and the classical witnesses' types are inferred.
+
+plan-21 goes from 33.2 to 25.5 MB and verifies in 92 s at a 7.5 GB peak
+(it failed at 95 s before). DTP goes from 58.4 to 36.9 MB and still fails,
+after 11,991 of its 17,084 outlined lemmas (7,921 before); NEQ004 goes from
+21.6 to 16.5 MB, the QF_AX swap file `swap_t2_np_sf_ai_00009_002` from 27.1
+to 22.7 MB (still failing). Still open: the shared steps (each its own
+lemma, imported and re-applied by every user) and the `Or.elim` resolution
+terms are most of what remains in DTP.
+
 ### euf lemmas without ite gates and array axiom instances (2026-11-10)
 
 Every theory lemma proved by `_grind_lemma` got the gates of every
@@ -1848,7 +1876,9 @@ core gave the same 360 at a hundred times the cost), and the lemma is proved
 with two case splits and 18 KB of proof.
 
 plan-21 as a whole still fails: its 33 MB Lean file peaks at 8.6 GB and
-hits kernel memory errors in outlined proof steps. RTCL `tf_20`/`tf_30`
+hits kernel memory errors in outlined proof steps (verifies since
+2026-11-10, see "Steps under hypotheses bound inside the step using
+them"). RTCL `tf_20`/`tf_30`
 are unchanged: their cores have about 3,000 gates, and the search over
 them still runs out of budget. That retry is not free: on `tf_20` the core
 (3,123 of 12,943 gates, 0.6 s) and the second search raise reconstruction

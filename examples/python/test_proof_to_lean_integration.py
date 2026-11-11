@@ -8,6 +8,7 @@ import itertools
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -613,7 +614,10 @@ class TestProofToLeanIntegration(unittest.TestCase):
             ("unit-resolution", [9, 1], "false"),
         ])
         text = self.check(source, certificate)
-        self.assertEqual(sum(line.startswith("  let _step_") for line in text.splitlines()),
+        # Each step is bound once: the hypothesis q inside the first unit
+        # resolution, its one user; the hypothesis p, used twice, at the
+        # top level, re-applied by each user.
+        self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:=)", text, re.MULTILINE)),
                          sum(certificate["rule_counts"].values()))
         self.assertNotIn("cases _d", text)
 
@@ -1281,7 +1285,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertNotIn("Classical", text)
         self.assertIn("  refute_with_decidable", text)
         closing = text.rstrip().splitlines()[-3]  # the main theorem's body, before "end"
-        self.assertRegex(closing, r"^  proof_step_%d _atoms \(And\.intro .*\)( _df?\d+)+$" % certificate["proof"])
+        self.assertRegex(closing, r"^  @proof_step_%d _atoms \(And\.intro .*\)( _df?\d+)+$" % certificate["proof"])
 
 
 if __name__ == "__main__":
