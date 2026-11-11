@@ -24,33 +24,6 @@ z3_add_component(core_tactics
     symmetry_reduce_tactic.cpp
     tseitin_cnf_tactic.cpp
     collect_occs.cpp
-  REGISTRATION_HEADERS
-    blast_term_ite_tactic.h
-    cofactor_term_ite_tactic.h
-    collect_statistics_tactic.h
-    ctx_simplify_tactic.h
-    demodulator_tactic.h
-    der_tactic.h
-    distribute_forall_tactic.h
-    dom_simplify_tactic.h
-    elim_term_ite_tactic.h
-    elim_uncnstr2_tactic.h
-    elim_uncnstr_tactic.h
-    eliminate_predicates_tactic.h
-    fold_unfold_tactic.h
-    injectivity_tactic.h
-    nnf_tactic.h
-    occf_tactic.h
-    pb_preprocess_tactic.h
-    propagate_values2_tactic.h
-    propagate_values_tactic.h
-    reduce_args_tactic.h
-    simplify_tactic.h
-    solve_eqs_tactic.h
-    special_relations_tactic.h
-    split_clause_tactic.h
-    symmetry_reduce_tactic.h
-    tseitin_cnf_tactic.h
   COMPONENT_DEPENDENCIES
     normal_forms
     rewriter

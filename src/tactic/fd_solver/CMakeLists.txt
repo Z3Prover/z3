@@ -3,9 +3,6 @@ z3_add_component(fd_solver
     fd_simplifier.cpp
     fd_solver.cpp
     smtfd_solver.cpp
-  REGISTRATION_HEADERS
-    fd_solver.h
-    smtfd_solver.h
   COMPONENT_DEPENDENCIES
     sat_solver
 )
