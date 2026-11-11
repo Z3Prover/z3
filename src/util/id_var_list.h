@@ -25,8 +25,8 @@ Revision History:
 
 template <int null_id = -1, int null_var = -1>
 class id_var_list {
-    int               m_id:8;
-    int               m_var:24;
+    int               m_id;
+    int               m_var;
     id_var_list *     m_next;
     
 public:
