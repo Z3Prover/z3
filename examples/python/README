@@ -954,8 +954,11 @@ lemma's premise, which the lemma discharges). A lemma used once in the lemma
 importing it is applied at that use rather than let-bound, a literal (not p)
 is eliminated by Or.neg_resolve_left/right on the proof of p, and classical
 lemmas prove by contradiction through one helper over Classical.propDecidable
-instead of a witness let per formula. This keeps Lean's memory, which grows
-with the elaborated text, under the 8 GB cap on QF_IDL plan-21 and
+instead of a witness let per formula. A unit resolution keeping one literal is
+bound without a stated type (Or.resolve_* infer it from the clause), and a
+step's or lemma's application to its hypotheses that the next term uses once
+is written at that use rather than let-bound. This keeps Lean's memory, which
+grows with the elaborated text, under the 8 GB cap on QF_IDL plan-21 and
 DTP_k2_n35_c245_s9.
 The final unsat theorem still takes exactly the original
 assertions. Arithmetic and uninterpreted-sort lemmas may use classical

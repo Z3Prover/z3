@@ -1672,6 +1672,34 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
+### Resolution types inferred; re-applications applied in place (2026-11-10)
+
+Two parts of the outlined lemmas' text restated what Lean already knows. In
+the 26.1 MB of Lean of QF_IDL `DTP_k2_n35_c245_s9` (which verified at
+7.86 GB of the 8 GB cap), 46,002 of the 49,550 steps bound inside other steps
+were unit resolutions keeping one literal, the clause's proof cut down by
+`Or.resolve_*` and `Or.neg_resolve_*`, whose type those lemmas infer from the
+clause's; their lets stated it again (`let _step_N : (formula_M _atoms
+_vars) :=`). Such a let now states no type (`_INFERRED_TYPE`); every other
+term (an injection into a wider conclusion, a case split, a proof by
+contradiction) keeps it. 49,236 lets bound a step's or an imported lemma's
+application to its hypotheses (`let _step_N := proof_step_N _inputs
+_hyp...`) for one use in the term on the next line; that use is now the
+application (`_reapplications_in_place`). Lean checks every term as before,
+so a wrongly inferred type is a rejection, not a gap. DTP goes from 26.1 to
+23.2 MB and verifies in 114 s at a 7.45 GB peak; plan-21 from 21.4 to
+20.4 MB (78 s, 6.47 GB; 6.60 GB before), NEQ004 from 11.1 to 10.1 MB,
+`swap_t2_np_sf_ai_00009_002` from 16.0 to 15.2 MB (104 s, 7.27 GB; 7.39 GB
+before). Tests:
+`test_resolution_types_are_inferred_and_reapplications_applied_in_place`,
+`test_reapplications_used_once_are_applied_in_place`
+(`test_proof_to_lean_lia.py`). A rescan of the earlier QF_AX/QF_AUFLIA
+memory failures: `storecomm_t2_np_nf_ai_00050_007` (14.3 MB) verifies in
+129 s at 7.64 GB, as it already did before this change;
+`swap_t1_pp_sf_ai_00010_008` (35.7 MB) still fails at the cap, after 1,928
+of its 12,176 declarations, in its theory lemmas rather than its proof
+steps.
+
 ### Single imports, negated eliminations, and classical contradictions in place (2026-11-10)
 
 Three parts of the outlined lemmas' text bound or wrapped what one

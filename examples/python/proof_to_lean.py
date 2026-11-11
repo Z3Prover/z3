@@ -8024,6 +8024,17 @@ def _witness_formula(graph, name):
     return _formula(graph, int(name[3:])) if name.startswith("_df") else "(_atoms %d)" % int(name[2:])
 
 
+# A unit resolution that keeps one literal is the clause's proof with every
+# other literal cut off by field notation, `(_step_N.resolve_left u)` and so on
+# (_resolution): Or.resolve_* infer its type from the clause's, the kept
+# literal's formula, so the let binding it states no type. Any other term
+# (an Or.inl/Or.inr injection into a wider conclusion, a case split, a proof by
+# contradiction, False.elim) starts otherwise and keeps the stated type. In
+# the QF_IDL DTP_k2_n35_c245_s9 refutation 46,002 of the 49,550 steps bound
+# inside others were such resolutions.
+_INFERRED_TYPE = re.compile(r"\(+_(?:step_|hyp)\d+\.(?:neg_)?resolve_(?:left|right) ")
+
+
 def _step_blocks(graph, terms, dependencies, excluded):
     """Return the let-binding lines of each proof step bound at the top level of its proof.
 
@@ -8057,7 +8068,8 @@ def _step_blocks(graph, terms, dependencies, excluded):
     def block(node, indent):
         parameters = "" if node in nested else "".join(
             " (_hyp%d : %s)" % (hypothesis, _formula(graph, hypothesis)) for hypothesis in dependencies[node])
-        lines = ["%slet _step_%d%s : %s :=" % (indent, node, parameters, _formula(graph, graph.conclusion(node)))]
+        result = "" if _INFERRED_TYPE.match(terms[node]) else " : %s" % _formula(graph, graph.conclusion(node))
+        lines = ["%slet _step_%d%s%s :=" % (indent, node, parameters, result)]
         for premise in inner[node]:
             lines.extend(block(premise, "    "))
         if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
@@ -8152,6 +8164,47 @@ def _merge_single_imports(graph, dependencies, local, external, needed, body, co
     return [node for node in sorted(external) if node not in merged], body, conclusion
 
 
+# A step's application to its hypotheses inside the step using it: the
+# re-application of a step bound at the top level (`let _step_N := _step_N
+# _hyp...`) or of an imported lemma (`let _step_N := proof_step_N _inputs
+# _hyp...`, decidability witnesses before the hypotheses in the propositional
+# slice). Its arguments are hypotheses and witnesses only, never another
+# step, so no application substituted here names a step pending beside it.
+_REAPPLICATION = re.compile(r"^ *let (_step_\d+) := ((?:proof_step_\d+ _inputs|_step_\d+)(?: _(?:hyp|df?)\d+)+)$")
+
+
+def _reapplications_in_place(lines):
+    """Return the lines with each re-application used once by the term after it applied there instead.
+
+    _step_blocks writes a step's re-applications of its premises after the
+    steps nested in it, directly before its term: the next line that is not
+    a re-application is the term using them, and the let's whole scope. A
+    name that term uses once is replaced by the application itself, the
+    others keep their let. In the QF_IDL DTP_k2_n35_c245_s9 refutation these
+    were 49,236 lets.
+    """
+    result, pending = [], []
+    for line in lines:
+        match = _REAPPLICATION.match(line)
+        if match:
+            pending.append(match)
+            continue
+        kept = pending
+        if pending and not line.lstrip().startswith("let "):
+            kept = []
+            for match in pending:
+                pattern = r"\b%s\b" % match.group(1)
+                if len(re.findall(pattern, line)) == 1:
+                    line = re.sub(pattern, lambda _use, value=match.group(2): "(%s)" % value, line)
+                else:
+                    kept.append(match)
+        result.extend(match.group(0) for match in kept)
+        result.append(line)
+        pending = []
+    result.extend(match.group(0) for match in pending)
+    return result
+
+
 def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
     """Check proof subgraphs separately instead of one enormous nested term.
 
@@ -8200,6 +8253,7 @@ def _outline_steps(graph, steps, dependencies, signature, tails, boundaries):
             conclusion = [line[2:] for line in steps[root][1:]]
         imports, body, conclusion = _merge_single_imports(graph, dependencies, local, external, needed,
                                                           body, conclusion, classical, witnesses)
+        body, conclusion = _reapplications_in_place(body), _reapplications_in_place(conclusion)
         if classical:
             body, conclusion = _classical_contradictions(graph, body), _classical_contradictions(graph, conclusion)
         decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body + conclusion)))
@@ -8501,7 +8555,7 @@ def reconstruct(source, certificate):
             lines.append("  refute_with_decidable %s fun _df%d =>" % (_formula(graph, formula), formula))
         needed = _needed_tails(tails, dependencies)
         for node, block in step_blocks.items():
-            lines.extend(block + _tail_lets(node, needed.get(node, 0)))
+            lines.extend(_reapplications_in_place(block) + _tail_lets(node, needed.get(node, 0)))
         lines.append("  _step_%d" % graph.proof)
     lines.extend(["", "end " + namespace, ""])
     text = "\n".join(lines)

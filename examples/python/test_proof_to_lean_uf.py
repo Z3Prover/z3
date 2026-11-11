@@ -644,9 +644,11 @@ def outlined_lemma_sizes(text):
     """Proof steps defined inside each outlined lemma, its statement's step included.
 
     Bindings of other lemmas and re-applications of steps to their
-    hypotheses carry no type; steps bound inside another step count too.
+    hypotheses state their value on the line (`:= value`), a step's own
+    binding ends its line with `:=`; steps bound inside another step count
+    too.
     """
-    return [len(re.findall(r"^ +let _step_\d+ (?!:=)", block, re.MULTILINE)) + 1
+    return [len(re.findall(r"^ +let _step_\d+ (?!:= )", block, re.MULTILINE)) + 1
             for block in text.split("private theorem proof_step_")[1:]]
 
 

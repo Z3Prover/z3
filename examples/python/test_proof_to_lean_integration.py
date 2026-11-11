@@ -616,7 +616,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
         text = self.check(source, certificate)
         # Each step is bound once, except the hypotheses: their users name
         # them by their binders (the hypothesis p is used twice).
-        self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:=)", text, re.MULTILINE)),
+        self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:= )", text, re.MULTILINE)),
                          sum(certificate["rule_counts"].values()) - certificate["rule_counts"]["hypothesis"])
         self.assertNotRegex(text, r"let _step_\d+ := _step_\d+ _hyp\d+\n")
         self.assertNotIn("cases _d", text)
@@ -624,7 +624,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
     def test_hypothesis_premise_of_a_lemma_used_by_another_step(self):
         # The hypothesis false is the premise of a lemma, which discharges
         # its binder, so it keeps a step of its own; the resolution that also
-        # uses it re-applies that step to the binder.
+        # uses it re-applies that step to the binder, in place
+        # (_reapplications_in_place).
         source = "(declare-const p Bool)(assert p)(assert (not p))"
         text = self.check(source, make_certificate(source, [
             ("hypothesis", [], "false"),
@@ -633,7 +634,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
             ("lemma", [3], "(not false)"),
             ("unit-resolution", [0, 1], "false"),
         ]))
-        self.assertRegex(text, r"let (_step_\d+) \((_hyp\d+) : [^\n]*\n +\2\n(.*\n)* +let \1 := \1 \2\n")
+        self.assertRegex(text, r"let (_step_\d+) \((_hyp\d+) : [^\n]*\n +\2\n(.*\n)* +\(False\.elim \(\1 \2\)\)\n")
+        self.assertNotRegex(text, r"let (_step_\d+) := \1 _hyp")
 
     def test_scoped_structural_proofs_and_double_negation(self):
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")

@@ -737,7 +737,7 @@ class TestProofToLean(unittest.TestCase):
                 rules = [declarations[node["declaration"]]["name"] for node in nodes]
                 premises = {node["arguments"][0] for node, rule in zip(nodes, rules) if rule == "lemma"}
                 direct = sum(1 for index, rule in enumerate(rules) if rule == "hypothesis" and index not in premises)
-                self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:=)", text, re.MULTILINE)),
+                self.assertEqual(len(re.findall(r"^ +let _step_\d+ (?!:= )", text, re.MULTILINE)),
                                  sum(certificate["rule_counts"].values()) - direct)
 
     def test_reconstruction_does_not_run_solver_search(self):
