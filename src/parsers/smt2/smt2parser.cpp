@@ -909,7 +909,12 @@ namespace smt2 {
             unsigned line = m_scanner.get_line();
             unsigned pos  = m_scanner.get_pos();
             m_dt_name2idx.reset();
-            bool is_smt2_6 = parse_sort_decl_or_params();
+            svector<symbol> new_sorts;
+            on_scope_exit rollback([&]() {
+                for (unsigned i = new_sorts.size(); i-- > 0; )
+                    m_ctx.rollback_psort_decl(new_sorts[i]);
+            });
+            bool is_smt2_6 = parse_sort_decl_or_params(new_sorts);
             unsigned i = 0;
             pdatatype_decl_ref_buffer new_dt_decls(pm());
             check_lparen_next("invalid datatype declaration, '(' expected");
@@ -921,7 +926,7 @@ namespace smt2 {
                         throw parser_exception("invalid datatype declaration, too many data-type bodies defined");
                     }
                     symbol dt_name = m_dt_names[i];
-                    parse_datatype_dec(nullptr, new_ct_decls);
+                    parse_datatype_dec(nullptr, new_ct_decls, new_sorts);
                     d = pm().mk_pdatatype_decl(m_dt_name2arity.find(dt_name), dt_name, new_ct_decls.size(), new_ct_decls.data());
                 }
                 else {
@@ -941,6 +946,8 @@ namespace smt2 {
             next();
             check_rparen("invalid datatype declaration");
             unsigned sz = new_dt_decls.size();
+            for (pdatatype_decl* d : new_dt_decls)
+                check_duplicate(d, line, pos);
             if (sz == 0) {
                 m_ctx.print_success();
                 next();
@@ -964,9 +971,9 @@ namespace smt2 {
                 dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
             }
+            new_sorts.reset();
             for (unsigned i = 0; i < sz; ++i) {
                 pdatatype_decl * d = new_dt_decls[i];
-                check_duplicate(d, line, pos);
                 if (!is_smt2_6) {
                     // datatypes are inserted up front in SMT2.6 mode, so no need to re-insert them.
                     m_ctx.insert(d);
@@ -996,7 +1003,12 @@ namespace smt2 {
 
             pdatatype_decl_ref d(pm());                
             pconstructor_decl_ref_buffer new_ct_decls(pm());
-            parse_datatype_dec(&dt_name, new_ct_decls);
+            svector<symbol> new_sorts;
+            on_scope_exit rollback([&]() {
+                for (unsigned i = new_sorts.size(); i-- > 0; )
+                    m_ctx.rollback_psort_decl(new_sorts[i]);
+            });
+            parse_datatype_dec(&dt_name, new_ct_decls, new_sorts);
             
             symbol subterm_name = parse_subterm_decl();
 
@@ -1009,8 +1021,9 @@ namespace smt2 {
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
-            d->commit(pm());
             check_rparen("invalid end of datatype declaration, ')' expected");
+            d->commit(pm());
+            new_sorts.reset();
             m_ctx.print_success();
             next();
         }
@@ -1030,7 +1043,7 @@ namespace smt2 {
 
         // datatype_dec ::= ( constructor_dec+ ) | ( par ( symbol+ ) ( constructor_dec+ ) )
 
-        void parse_datatype_dec(symbol* dt_name, pconstructor_decl_ref_buffer & ct_decls) {
+        void parse_datatype_dec(symbol* dt_name, pconstructor_decl_ref_buffer & ct_decls, svector<symbol>& new_sorts) {
             check_lparen_next("invalid datatype declaration, '(' expected");
             if (curr_id() == m_par) {
                 next();
@@ -1039,6 +1052,7 @@ namespace smt2 {
                 unsigned sz = m_sort_id2param_idx.size();
                 if (sz > 0 && dt_name) {
                     m_ctx.insert(pm().mk_psort_dt_decl(sz, *dt_name));
+                    new_sorts.push_back(*dt_name);
                 }
                 parse_constructor_decls(ct_decls);
                 check_rparen_next("invalid datatype declaration, ')' expected");
@@ -1046,6 +1060,7 @@ namespace smt2 {
             else {
                 if (dt_name) {
                     m_ctx.insert(pm().mk_psort_dt_decl(0, *dt_name));
+                    new_sorts.push_back(*dt_name);
                 }
                 parse_constructor_decls(ct_decls);
             }
@@ -2320,7 +2335,7 @@ namespace smt2 {
             next();            
         }
 
-        bool parse_sort_decl_or_params() {
+        bool parse_sort_decl_or_params(svector<symbol>& new_sorts) {
             m_sort_id2param_idx.reset();
             m_dt_name2arity.reset();
             m_dt_name2idx.reset();
@@ -2345,6 +2360,7 @@ namespace smt2 {
                     m_dt_names.push_back(dt_name);
                     psort_decl * decl = pm().mk_psort_dt_decl(u, dt_name);
                     m_ctx.insert(decl);
+                    new_sorts.push_back(dt_name);
                     check_rparen("invalid sort declaration, ')' expected");
                 }
                 else {
