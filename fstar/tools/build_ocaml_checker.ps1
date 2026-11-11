@@ -172,6 +172,7 @@ try {
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedInteger.ml", "Z3SortedSemantics.ml", "Z3SortedArithmetic.ml", "Z3SortedIntDivision.ml", "Z3SortedReal.ml", "Z3SortedRealLinear.ml", "Z3SortedRealOrder.ml",
     "Z3SortedRealProduct.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedSkolem.ml", "Z3SortedDependentSkolem.ml", "Z3NnfReplay.ml", "Z3SortedProof.ml",
+    "Z3TypedRoot.ml", "Z3SortedRootDocument.ml", "Z3RootArray.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }
@@ -215,12 +216,12 @@ try {
   }
 
   Write-Host "=== Phase 1b: extract to OCaml ==="
-  # Custard extracts the whole program in one run. Every module of the checker's dependency
-  # closure (every registered production module with -RunTests) is a root, so the hand-written
-  # OCaml driver can use any of its definitions;
-  # --custard_split keeps one OCaml module per F* module, which the driver and the link
-  # order below rely on.
-  $entryModules = $scope.entries | ForEach-Object { "--custard_entry_module"; $_ -replace '\.fst$', '' }
+  # Extract only reachable definitions of the denotational model: exporting its executable
+  # constructors causes unnecessary normalization. Its full proof closure is still verified.
+  $semanticModules = @("Z3TypedRoot.fst", "Z3SortedRoot.fst", "Z3SortedRealRoot.fst",
+                      "Z3SortedDivisionRoot.fst", "Z3SortedRootDocument.fst")
+  $entryModules = $scope.entries | Where-Object { $_ -notin $semanticModules } |
+    ForEach-Object { "--custard_entry_module"; $_ -replace '\.fst$', '' }
   & $FstarExe --warn_error '@1..999' --codegen OCaml --custard_split --cache_dir $CacheDir --include $CacheDir `
       --odir $extractDir --smt $Z3Exe --z3version $z3Version @entryModules Z3NativeProof.fst
   if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed" }

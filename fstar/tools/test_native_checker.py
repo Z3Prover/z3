@@ -877,6 +877,71 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
                 self.assertIn("semantics=sorted-core", interactive.stdout)
 
+    def test_typed_root_nested_array_read_over_write(self):
+        for depth in (1, 3, 8):
+            element = "Real"
+            for _ in range(depth):
+                element = f"(Array Int {element})"
+            source = (
+                f"(declare-const a (Array Int {element}))"
+                f"(declare-const v {element})(declare-const i Int)"
+                "(assert (not (= (select (store a i v) i) v)))")
+            for interactive in (False, True):
+                with self.subTest(depth=depth, interactive=interactive):
+                    result = self.run_checker(
+                        source + ("(check-sat)" if interactive else ""),
+                        "--typed-root", "--readable", "--stats",
+                        *(["--interactive"] if interactive else []))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("ACCEPT", result.stdout)
+                    self.assertIn("semantics=typed-root", result.stdout + result.stderr)
+                    self.assertNotIn("proof-coverage\tuncovered", result.stderr)
+                    self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+
+    def test_typed_root_array_indices_and_satisfiable_mutants(self):
+        header = (
+            "(declare-const a (Array (Array Int Real) (Array Int Bool)))"
+            "(declare-const i (Array Int Real))(declare-const j (Array Int Real))"
+            "(declare-const v (Array Int Bool))(declare-const w (Array Int Bool))")
+        for target, code in (("(select (store a i v) i)", 0),
+                             ("(select (store a i v) j)", 4),
+                             ("w", 4)):
+            with self.subTest(target=target):
+                result = self.run_checker(
+                    header + f"(assert (not (= {target} v)))",
+                    "--typed-root", "--diagnostics")
+                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+
+    def test_typed_root_reads_through_nested_stores(self):
+        source = (
+            "(declare-const a (Array Int (Array Bool Real)))"
+            "(declare-const b (Array Bool Real))"
+            "(declare-const i Int)(declare-const j Bool)(declare-const x Real)"
+            "(assert (not (= (select (select (store a i (store b j x)) i) j) x)))")
+        for mode in ((), ("--interactive",)):
+            with self.subTest(mode=mode):
+                result = self.run_checker(
+                    source + ("(check-sat)" if mode else ""),
+                    "--typed-root", "--readable", *mode)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("ACCEPT", result.stdout)
+                self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+
+    def test_typed_root_rejects_datatype_array_coverage_without_fallback(self):
+        source = (
+            "(declare-datatype D ((C)))"
+            "(declare-const a (Array Int D))"
+            "(assert (not (= (select (store a 0 C) 0) C)))")
+        for mode in ((), ("--interactive",)):
+            with self.subTest(mode=mode):
+                result = self.run_checker(
+                    source + ("(check-sat)" if mode else ""),
+                    "--typed-root", "--diagnostics", *mode)
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                self.assertIn("PARTIAL", result.stdout)
+                self.assertIn("proof-coverage\tuncovered\troute=typed-root", result.stderr)
+                self.assertNotIn("ACCEPT", result.stdout)
+
     def test_sorted_core_certifies_closed_epsilon_skolemization(self):
         sources = (
             "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))"
@@ -2172,8 +2237,9 @@ class ReadableTagTests(unittest.TestCase):
         ocaml = (root / "ocaml_runtime" / "Z3NativeMain.ml").read_text(encoding="utf-8")
         printer = ocaml[ocaml.index("module Readable = struct"):ocaml.index("let check_proof ")]
         self.assertNotRegex(printer, r"check_document|diagnose_document|check_proof|Z3SortedProof|Z3NativeProof")
-        # The sorted route's one call site is the epsilon entry point, the legacy route's the indexed one.
-        self.assertEqual(len(re.findall(r"check_document(?:_epsilon)?_diagnosed", ocaml)), 2)
+        # Each route uses one diagnosed check, including the opt-in root route.
+        self.assertEqual(len(re.findall(r"check_document(?:_epsilon)?_diagnosed", ocaml)), 3)
+        self.assertEqual(len(re.findall(r"Z3RootArray\.check_document_diagnosed\b", ocaml)), 1)
         self.assertEqual(len(re.findall(r"Z3SortedProof\.check_document_epsilon_diagnosed\b", ocaml)), 1)
         self.assertEqual(len(re.findall(r"Readable\.report\b", ocaml)), 1)
 

@@ -61,6 +61,18 @@ The Windows installation is local to the build directory. The native
 OCaml producer is separately built and installed in WSL, then linked
 from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
 
+The OCaml checker also accepts **`--typed-root`**, an opt-in production route
+with no legacy fallback. It uses sort-indexed Bool/Int/Real and nested-array
+carriers and enforces the root model's document coverage checks. Closed
+`select(store(a, i, v), i) = v` steps (also reversed) are checked at unary
+array sorts with arbitrarily nested array indices and elements. Their
+elaboration is proved to refute the original assertions, not merely the
+generated array identities. Arrays mentioning datatypes remain uncovered;
+uncovered documents report `PARTIAL` and `proof-coverage uncovered`, never
+`ACCEPT`. Other array laws, including read-over-write at different indices
+and array extensionality steps, are not discharged by this route yet.
+The default OCaml route and the Cherry CLI are unchanged.
+
 ### Standalone Cherry checker
 
 The native checker also has a **Cherry-generated C kernel and C++ frontend**,

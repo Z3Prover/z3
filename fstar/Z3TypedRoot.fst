@@ -1,7 +1,6 @@
 module Z3TypedRoot
 
-(* G1 typed-root PROTOTYPE (branch fstar-typed-root-prototype-20261030, not production,
-   not in the checker manifest, no executable checker or route change).
+(* Sort-indexed semantics for the opt-in production --typed-root route.
 
    A constructible typed carrier family and one standard ghost interpretation
    over the production sort-indexed value framework (Z3DatatypeValue trees,
@@ -65,8 +64,8 @@ module Z3TypedRoot
    L1 `lemma_standard_root`: `standard u sch uf` satisfies root_model for EVERY
    u and uf over every checked schema (constructibility). The STANDARD (SMT)
    meaning is claimed only for `supported` schemas and expressions passing
-   `supported_expression`; both are pure executable checks that no production
-   route enforces in G1. Built-in sort symbols are imported structurally;
+   `supported_expression`; the --typed-root document gate enforces both.
+   Built-in sort symbols are imported structurally;
    BaseSort identities never acquire interpreted meaning from their names. *)
 
 open Z3AstTheory

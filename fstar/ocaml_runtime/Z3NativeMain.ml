@@ -627,13 +627,26 @@ module Readable = struct
     flush stderr
 end
 
-let check_proof statistics diagnostics readable query sorted_core start solved assertions proof =
+let root_result = function
+  | Z3SortedRootDocument.RootCertified -> Some Z.zero
+  | Z3SortedRootDocument.RootPending n -> Some n
+  | Z3SortedRootDocument.RootRejected -> None
+  | Z3SortedRootDocument.RootUncovered ->
+      Printf.eprintf "proof-coverage\tuncovered\troute=typed-root\n%!";
+      Some Z.one
+
+let check_proof statistics diagnostics readable query sorted_core typed_root start solved assertions proof =
   let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
   let marshaled = Unix.gettimeofday () in
   let datatype = schema.Z3DatatypeSignature.cases <> [] in
-  let sorted = datatype || sorted_core in
+  let sorted = datatype || sorted_core || typed_root in
   let result, diagnostic =
-    if diagnostics then (
+    if typed_root then (
+      if diagnostics then (
+        let verdict, diagnostic = Z3RootArray.check_document_diagnosed schema doc in
+        root_result verdict, diagnostic)
+      else root_result (Z3RootArray.check_document schema doc), None)
+    else if diagnostics then (
       let result, diagnostic =
         if sorted then Z3SortedProof.check_document_epsilon_diagnosed schema doc
         else Z3ProofDocument.check_document_diagnosed_indexed assertion_hash doc in
@@ -649,13 +662,15 @@ let check_proof statistics diagnostics readable query sorted_core start solved a
       ((solved -. start) *. 1000.) ((marshaled -. solved) *. 1000.)
       ((checked -. marshaled) *. 1000.) (List.length doc.expressions)
       (List.length doc.declarations) (List.length doc.entries)
-      (if datatype then "sorted-datatype" else if sorted then "sorted-core" else "legacy") in
+      (if typed_root then "typed-root" else if datatype then "sorted-datatype" else if sorted then "sorted-core" else "legacy") in
   if statistics then Printf.eprintf "%s\n%!" summary;
   (match diagnostic with
    | None -> ()
    | Some diagnostic ->
        report_diagnostics diagnostic result;
-       if readable then Readable.report query (result_text result) doc diagnostic;
+       if readable then
+         Readable.report query (result_text result)
+           (if typed_root then Z3RootArray.prepare schema doc else doc) diagnostic;
        if statistics then
          Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->
@@ -734,7 +749,7 @@ let command_name text =
   in
   String.sub text first (finish first - first)
 
-let interactive statistics diagnostics readable sorted_core clause_proofs timeout =
+let interactive statistics diagnostics readable sorted_core typed_root clause_proofs timeout =
   let context = Z3Native.create_context timeout in
   let error = ref false and rejected = ref false and partial = ref false and queries = ref 0 in
   let start = ref (Unix.gettimeofday ()) in
@@ -743,7 +758,7 @@ let interactive statistics diagnostics readable sorted_core clause_proofs timeou
     let solved = Unix.gettimeofday () in
     let assertions = List.init (Z3native.ast_vector_size context vector)
         (Z3native.ast_vector_get context vector) in
-    let result, summary = check_proof statistics diagnostics readable !queries sorted_core !start solved assertions proof in
+    let result, summary = check_proof statistics diagnostics readable !queries sorted_core typed_root !start solved assertions proof in
     (match result with
      | None -> rejected := true
      | Some n -> if not (Z.equal n Z.zero) then partial := true);
@@ -794,7 +809,7 @@ let interactive statistics diagnostics readable sorted_core clause_proofs timeou
 let run args =
   let statistics = ref false and diagnostics = ref false and sorted_core = ref false
   and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
-  and clause_proofs = ref false and readable = ref false in
+  and clause_proofs = ref false and readable = ref false and typed_root = ref false in
   let options = [
     "--interactive", Arg.Set interactive_mode,
       " Evaluate stdin commands incrementally and certify each UNSAT proof";
@@ -806,6 +821,8 @@ let run args =
       " Also print bounded readable pending/rejected conditions on stderr (implies --diagnostics)";
     "--sorted-core", Arg.Set sorted_core,
       " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
+    "--typed-root", Arg.Set typed_root,
+      " Certify in the covered root model, including nested-array read-over-write (no legacy fallback)";
     "--timeout-ms", Arg.String (fun value ->
         try
           let n = Z.of_string value in
@@ -822,12 +839,12 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args))
-      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] [--sorted-core] [--timeout-ms N] [input.smt2]";
+      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--readable] [--sorted-core] [--typed-root] [--timeout-ms N] [input.smt2]";
     if !readable then diagnostics := true;
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
-      exit (interactive !statistics !diagnostics !readable !sorted_core !clause_proofs !timeout));
+      exit (interactive !statistics !diagnostics !readable !sorted_core !typed_root !clause_proofs !timeout));
     let input =
       match !path with
       | None | Some "-" -> read_all stdin
@@ -843,7 +860,7 @@ let run args =
         Printf.printf "UNKNOWN %s\n" reason; exit 5
     | Z3Native.Unsat (assertions, proof) ->
         let solved = Unix.gettimeofday () in
-        let result, _ = check_proof !statistics !diagnostics !readable 1 !sorted_core start solved assertions proof in
+        let result, _ = check_proof !statistics !diagnostics !readable 1 !sorted_core !typed_root start solved assertions proof in
         (match result with
          | None -> print_endline "REJECT"; exit 1
          | Some n when Z.equal n Z.zero -> print_endline "ACCEPT"; exit 0

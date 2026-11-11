@@ -1,8 +1,6 @@
 module Z3SortedRootDocument
 
-(* G2 document slice (PROTOTYPE, branch fstar-typed-root-prototype-20261030;
-   not in the default route, no executable checker change, no route calls
-   anything defined here).
+(* Document soundness and coverage gates for the opt-in --typed-root route.
 
    1. Derives the quantifier hypotheses of Z3SortedQuantifier (forall_model,
       forall_elimination_model) from R1 of ONE root model `i`
@@ -24,7 +22,7 @@ module Z3SortedRootDocument
       proof that every choice extension of i is again a root model that
       keeps the original assertions' root truth and makes the generated
       choice equations root-true, and the matching pure gate
-      `check_root_document_epsilon` (also off the default route).
+      `check_root_document_epsilon` (used by Z3RootArray).
 
    Model class: every i with TR.root_model u sch i over a checked schema
    (non-empty for every u and schema, TR.lemma_root_inhabited). The Sorted
@@ -52,8 +50,8 @@ module Z3SortedRootDocument
    Inner Skolem steps are true only in the epsilon extension (section 6),
    which is where the epsilon theorem evaluates the elaborated document.
 
-   Dependency DAG: Z3SortedRootDocument -> {Z3SortedRoot, Z3SortedProof,
-   Z3SortedQuantifier, Z3TypedRoot, Z3NnfReplay, ...}; nothing depends on it. *)
+   Dependency DAG: Z3RootArray -> Z3SortedRootDocument ->
+   {Z3SortedRoot, Z3SortedProof, Z3SortedQuantifier, Z3TypedRoot, Z3NnfReplay, ...}. *)
 
 open Z3AstTheory
 open Z3ValueTheory

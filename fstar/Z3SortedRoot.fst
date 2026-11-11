@@ -1,7 +1,6 @@
 module Z3SortedRoot
 
-(* G2 first slice (PROTOTYPE, branch fstar-typed-root-prototype-20261030; not
-   in the checker manifest, no route, no executable change).
+(* Sorted-layer correspondence for the opt-in production --typed-root route.
 
    The first two Sorted layers, Z3SortedInteger and Z3SortedSemantics (now
    ghost specifications; their executable classifiers stay Tot and
