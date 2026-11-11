@@ -21,6 +21,7 @@ Author:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
+#include "ast/seq/seq_stoi_facet.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -304,7 +305,7 @@ namespace seq {
         bool changed = f.simplify(n, ac.context(), conflict, conflict_dep);
         if (!conflict && ac.context().has_solver_facet(n)) {
             auto& sf = ac.solver_facet_ref();
-            // Do not bypass the leading equation selected by word_eq_split.
+            // Keep positional bounds on the leading equation.
             for (auto const& eq : f.equations()) {
                 if (!eq.active())
                     continue;
@@ -420,7 +421,30 @@ namespace seq {
             }
             break;
         }
-        for (auto const& eq : f.equations()) {
+        unsigned preferred = f.equations().size(), width = UINT_MAX;
+        for (unsigned i = 0; i < f.equations().size(); ++i) {
+            auto const& eq = f.equations()[i];
+            if (!eq.active() || eq.m_lhs.empty() || eq.m_rhs.empty())
+                continue;
+            auto finite_width = [&](expr_ref_vector const& side) {
+                return side.size() < width &&
+                    all_of(side, [&](expr* token) { return u.str.is_unit(token); });
+            };
+            if (finite_width(eq.m_lhs)) {
+                preferred = i;
+                width = eq.m_lhs.size();
+            }
+            if (finite_width(eq.m_rhs)) {
+                preferred = i;
+                width = eq.m_rhs.size();
+            }
+            if (width == 1)
+                break;
+        }
+        for (unsigned k = 0; k < f.equations().size(); ++k) {
+            unsigned i = preferred == f.equations().size() ? k :
+                k == 0 ? preferred : k <= preferred ? k - 1 : k;
+            auto const& eq = f.equations()[i];
             if (!eq.active())
                 continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
@@ -1132,9 +1156,156 @@ namespace seq {
 
     // -- model_completion_split --
 
+    bool model_completion_split::split_regex_difference(eq_tree::node& n, eq_tree::edge& out) {
+        auto ac = get_ambient(n);
+        auto& mf = ac.mem_facet_ref();
+        for (auto const& dq : ac.deq_facet_ref().disequations()) {
+            if (!dq.active())
+                continue;
+            for (unsigned side = 0; side < 2; ++side) {
+                expr* var = side ? dq.m_rhs.get(0) : dq.m_lhs.get(0);
+                expr* other = side ? dq.m_lhs.get(0) : dq.m_rhs.get(0);
+                view_vector views;
+                for (auto const& sm : mf.memberships())
+                    if (sm.active() && sm.m_str.get(0) == var)
+                        views.push_back(sm.m_view);
+                if (views.empty())
+                    continue;
+                for (auto const& sm : mf.memberships()) {
+                    expr* body = nullptr, *literal = nullptr;
+                    zstring text;
+                    if (!sm.active() || sm.m_str.get(0) != other ||
+                        !u.re.is_star(sm.m_view.m_state, body) ||
+                        !u.re.is_to_re(body, literal) || !u.str.is_string(literal, text) ||
+                        text.empty() || text.length() > 256 ||
+                        any_of(views, [&](view const& v) { return v == sm.m_view; }))
+                        continue;
+                    // A word outside one required peer language cannot equal
+                    // the peer. This is still only a reversible branch choice.
+                    expr_ref complement(u.re.mk_complement(sm.m_view.m_state), m);
+                    view_vector trial(views);
+                    trial.push_back(view::membership(complement, m));
+                    expr_ref full_char(u.re.mk_full_char(u.re.mk_re(var->get_sort())), m);
+                    mf.reset_vw_budget();
+                    for (unsigned bound = 1; bound <= 256; bound *= 2) {
+                        expr_ref bounded(u.re.mk_loop_proper(full_char, 0, bound), m);
+                        trial.push_back(view::membership(bounded, m));
+                        expr_ref word(m), reduced(m);
+                        lbool result = mf.vw().product_nonempty(var, trial, &word);
+                        trial.pop_back();
+                        if (result == l_undef)
+                            break;
+                        if (result != l_true)
+                            continue;
+                        th_rewriter rw(m);
+                        rw(word, reduced);
+                        zstring value;
+                        if (!u.str.is_string(reduced, value))
+                            break;
+                        expr_ref assumption(m.mk_eq(var, reduced), m);
+                        auto dep = ac.assumption_facet_ref().add_assumption(assumption, ac.context());
+                        expr_ref_vector tokens(m);
+                        u.str.get_concat_units(reduced, tokens);
+                        broadcast_subst(n, var, tokens, dep);
+                        out = eq_tree::edge("regex-difference-completion", dep, true, 0);
+                        m_stats.m_num_difference_splits++;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    bool model_completion_split::split_regex_pair(eq_tree::node& n, eq_tree::edge& out) {
+        auto ac = get_ambient(n);
+        auto& mf = ac.mem_facet_ref();
+        constexpr unsigned max_pair_length = 256;
+        for (auto const& dq : ac.deq_facet_ref().disequations()) {
+            if (!dq.active())
+                continue;
+            expr* left = dq.m_lhs.get(0);
+            expr* right = dq.m_rhs.get(0);
+            view_vector lhs, rhs;
+            for (auto const& sm : mf.memberships()) {
+                if (!sm.active())
+                    continue;
+                if (sm.m_str.get(0) == left)
+                    lhs.push_back(sm.m_view);
+                if (sm.m_str.get(0) == right)
+                    rhs.push_back(sm.m_view);
+            }
+            auto included = [](view_vector const& a, view_vector const& b) {
+                for (view const& v : a)
+                    if (!any_of(b, [&](view const& w) { return v == w; }))
+                        return false;
+                return true;
+            };
+            if (lhs.empty() || !included(lhs, rhs) || !included(rhs, lhs))
+                continue;
+            expr_ref length(u.str.mk_length(left), m);
+            rational len;
+            if (!ac.solver_facet_ref().value(length, len) || !len.is_unsigned() ||
+                len.is_zero() || len > rational(max_pair_length / 2))
+                continue;
+            expr_ref full_char(u.re.mk_full_char(u.re.mk_re(left->get_sort())), m);
+            th_rewriter rw(m);
+            mf.reset_vw_budget();
+            // The old length's guess has already failed. Find a longer
+            // length admitting two words, then commit only one endpoint.
+            for (unsigned k = 2 * len.get_unsigned(); k <= max_pair_length; k *= 2) {
+                expr_ref exact(u.re.mk_loop_proper(full_char, k, k), m);
+                view_vector first_views(lhs);
+                first_views.push_back(view::membership(exact, m));
+                expr_ref first(m), first_literal(m), second(m), second_literal(m);
+                lbool result = mf.vw().product_nonempty(left, first_views, &first);
+                if (result == l_undef)
+                    break;
+                if (result != l_true)
+                    continue;
+                rw(first, first_literal);
+                zstring first_text, second_text;
+                if (!u.str.is_string(first_literal, first_text))
+                    break;
+                expr_ref singleton(u.re.mk_to_re(first_literal), m);
+                expr_ref exclusion(u.re.mk_complement(singleton), m);
+                view_vector second_views(rhs);
+                second_views.push_back(view::membership(exact, m));
+                second_views.push_back(view::membership(exclusion, m));
+                result = mf.vw().product_nonempty(right, second_views, &second);
+                if (result == l_undef)
+                    break;
+                if (result != l_true)
+                    continue;
+                rw(second, second_literal);
+                if (!u.str.is_string(second_literal, second_text) || first_text == second_text)
+                    break;
+                expr_ref assumption(m.mk_eq(left, first_literal), m);
+                auto dep = ac.assumption_facet_ref().add_assumption(assumption, ac.context());
+                expr_ref_vector tokens(m);
+                u.str.get_concat_units(first_literal, tokens);
+                broadcast_subst(n, left, tokens, dep);
+                out = eq_tree::edge("regex-pair-completion", dep, true, 0);
+                m_stats.m_num_pair_splits++;
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool model_completion_split::iterator::next(eq_tree::edge& out) {
         if (!m_pending)
             return false;
+        if (m_try_difference) {
+            m_try_difference = false;
+            if (m_owner.split_regex_difference(m_n, out))
+                return true;
+        }
+        if (m_try_pair) {
+            m_try_pair = false;
+            if (m_owner.split_regex_pair(m_n, out))
+                return true;
+        }
         m_pending = false;
         get_ambient(m_n).assumption_facet_ref().block_model_completion();
         out = eq_tree::edge("model-completion-fallback", nullptr, true, 0);
@@ -1149,6 +1320,27 @@ namespace seq {
         auto& asf = ac.assumption_facet_ref();
         if (asf.model_completion_blocked())
             return nullptr;
+
+        if (m_regex_diseq_only) {
+            auto& mf = ac.mem_facet_ref();
+            // Keep delayed conversion coherence on its original schedule.
+            if (!ac.eq_facet_ref().is_satisfied() || !ac.ncontains_facet_ref().is_satisfied() ||
+                !mf.is_satisfied() || mf.memberships().empty() || !ac.stoi_facet_ref().terms().empty())
+                return nullptr;
+            unsigned num_deqs = 0;
+            for (auto const& dq : ac.deq_facet_ref().disequations()) {
+                if (!dq.active())
+                    continue;
+                if (++num_deqs > 1 || dq.m_lhs.size() != 1 || dq.m_rhs.size() != 1 ||
+                    !is_uninterp_const(dq.m_lhs.get(0)) || !is_uninterp_const(dq.m_rhs.get(0)))
+                    return nullptr;
+            }
+            if (num_deqs != 1)
+                return nullptr;
+            for (auto const& sm : mf.memberships())
+                if (sm.active() && (!sm.is_plain() || !mf.is_single_var_plain(sm)))
+                    return nullptr;
+        }
 
         ptr_vector<expr> vars;
         auto add_var = [&](expr* e) {
@@ -1179,6 +1371,23 @@ namespace seq {
             for (expr* t : nc.m_haystack) add_var(t);
             for (expr* t : nc.m_needle) add_var(t);
         }
+        auto& sf = ac.solver_facet_ref();
+        if (!m_regex_diseq_only)
+            for (auto const& [term, depth] : ac.stoi_facet_ref().terms()) {
+                expr* arg = nullptr;
+                rational value;
+                if (u.str.is_stoi(term, arg) && is_uninterp_const(arg) &&
+                    ac.current_value(term, value) && value.is_unsigned()) {
+                    add_var(arg);
+                    for (auto const& sm : ac.mem_facet_ref().memberships()) {
+                        if (!sm.active())
+                            continue;
+                        for (expr* t : sm.m_str)
+                            if (occurs(arg, t))
+                                add_var(t);
+                    }
+                }
+            }
 
         struct candidate {
             expr_ref var;
@@ -1188,7 +1397,6 @@ namespace seq {
                 var(v, m), value(val, m), tokens(ts) {}
         };
         vector<candidate> candidates;
-        auto& sf = ac.solver_facet_ref();
         constexpr unsigned max_completion_length = 256;
         auto add_model_candidate = [&](expr* var, expr* preferred) {
             expr_ref value(m);
@@ -1227,16 +1435,48 @@ namespace seq {
                         fixed[idx] = true;
                     }
                 }
+                bool concrete = true;
                 for (unsigned i = 0; i < n; ++i) {
                     if (fixed[i])
                         continue;
                     expr_ref nth(u.str.mk_nth_i(var, sf.get_arith_util().mk_int(i)), m);
                     expr_ref ch_value(m);
                     unsigned ch = 0;
-                    if (!sf.value(nth, ch_value) || !u.is_const_char(ch_value, ch))
-                        return false;
+                    if (!sf.value(nth, ch_value) || !u.is_const_char(ch_value, ch)) {
+                        concrete = false;
+                        break;
+                    }
                     chars[i] = ch;
                 }
+                if (!concrete && !m_regex_diseq_only && is_uninterp_const(var)) {
+                    // A decimal witness supplies missing characters without
+                    // changing the conversion value or its model length.
+                    for (auto const& [term, depth] : ac.stoi_facet_ref().terms()) {
+                        expr* arg = nullptr;
+                        rational number;
+                        if (!u.str.is_stoi(term, arg) || arg != var ||
+                            !ac.current_value(term, number) || !number.is_unsigned())
+                            continue;
+                        std::string digits = number.to_string();
+                        if (digits.size() > n)
+                            continue;
+                        unsigned num_digits = static_cast<unsigned>(digits.size());
+                        svector<unsigned> word;
+                        word.resize(n, '0');
+                        for (unsigned j = 0; j < num_digits; ++j)
+                            word[n - num_digits + j] = digits[j];
+                        bool compatible = true;
+                        for (unsigned j = 0; j < n; ++j)
+                            compatible &= !fixed[j] || chars[j] == word[j];
+                        if (!compatible)
+                            continue;
+                        chars = word;
+                        concrete = true;
+                        break;
+                    }
+                }
+                if (!concrete)
+                    return false;
                 value = u.str.mk_string(zstring(chars.size(), chars.data()));
             }
             expr_ref_vector tokens(m);
@@ -1294,7 +1534,42 @@ namespace seq {
             rw(replaced, reduced);
             add_model_candidate(var, reduced);
         }
+        if (m_regex_diseq_only) {
+            if (!candidates.empty())
+                return nullptr;
+            auto& mf = ac.mem_facet_ref();
+            for (expr* var : vars) {
+                if (!is_uninterp_const(var))
+                    continue;
+                view_vector views;
+                for (auto const& sm : mf.memberships())
+                    if (sm.active() && sm.m_str.get(0) == var)
+                        views.push_back(sm.m_view);
+                if (views.empty())
+                    continue;
+                expr_ref length(u.str.mk_length(var), m);
+                rational len;
+                if (!sf.value(length, len) || !len.is_unsigned() ||
+                    len > rational(max_completion_length))
+                    continue;
+                expr_ref full_char(u.re.mk_full_char(u.re.mk_re(var->get_sort())), m);
+                unsigned k = len.get_unsigned();
+                expr_ref exact_length(u.re.mk_loop_proper(full_char, k, k), m);
+                views.push_back(view::membership(exact_length, m));
+                expr_ref word(m), reduced(m);
+                mf.reset_vw_budget();
+                if (mf.vw().product_nonempty(var, views, &word) == l_true) {
+                    rw(word, reduced);
+                    add_model_candidate(var, reduced);
+                }
+                // Independent words may coincide. Fix just one endpoint,
+                // retaining the existing completion iterator's fallback.
+                break;
+            }
+        }
         if (candidates.empty()) {
+            if (m_regex_diseq_only)
+                return nullptr;
             if (!ac.eq_facet_ref().is_satisfied() || ac.ncontains_facet_ref().is_satisfied())
                 return nullptr;
             // Deferred exclusions must also resume when the local model
@@ -1309,6 +1584,19 @@ namespace seq {
         // A model candidate is attempted at most once per path. If it does
         // not close the leaf, the explicit fallback preserves unknown
         // instead of repeatedly proposing equivalent assumptions.
+        expr_ref_vector assumptions(m);
+        // Conversion candidates must retain their outer SAT reconciliation.
+        if (ac.stoi_facet_ref().terms().empty()) {
+            for (auto const& c : candidates)
+                assumptions.push_back(m.mk_eq(c.var, c.value));
+            if (any_of(assumptions, [&](expr* a) { return ac.literal_if_false(a) != nullptr; })) {
+                asf.block_model_completion();
+                out = eq_tree::edge("model-completion-fallback", nullptr, true, 0);
+                has_more = true;
+                committed = true;
+                return nullptr;
+            }
+        }
         asf.block_model_completion();
         eq_tree::dep_tracker joined = nullptr;
         for (auto const& c : candidates) {
@@ -1318,11 +1606,11 @@ namespace seq {
             broadcast_subst(n, c.var, c.tokens, dep);
         }
 
-        out = eq_tree::edge("model-completion", joined, true, 0);
+        out = eq_tree::edge(name(), joined, true, 0);
         has_more = true;
         committed = true;
         m_stats.m_num_splits++;
-        return alloc(iterator, n);
+        return alloc(iterator, n, *this);
     }
 
 } // namespace seq

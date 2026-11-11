@@ -9,6 +9,7 @@
 // variables.
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/rewriter.h"
 #include "ast/seq/seq_parikh.h"
 #include "smt/smt_kernel.h"
 #include "params/smt_params.h"
@@ -77,7 +78,15 @@ namespace {
         for (expr* e : eqs) {
             solver.assert_expr(e);
         }
-        lbool res = solver.check();
+        lbool res = l_undef;
+        try {
+            res = solver.check();
+        }
+        catch (rewriter_exception const&) {
+            // A canceled low-level kernel rewrite is also an unknown result.
+            if (!f.m.limit().is_canceled())
+                throw;
+        }
         if (res == l_undef)
             ++g_bounded;
         return res == l_false ? verdict::refuted : verdict::allowed;

@@ -22,6 +22,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_stoi_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
@@ -425,6 +426,69 @@ namespace {
         tr.pop_scope(1);
     }
 
+    static void tst_word_eq_finite_priority(bool reverse = false) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        auto assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_assumption_id(assumption_id);
+        tree.set_ambient_context(&ac);
+        auto& ef = root->facet_as<seq::eq_facet>(eq_id);
+        auto& dm = tree.dep_mgr();
+        sort* s = u.str.mk_string_sort();
+        auto var = [&](char const* name) { return expr_ref(m.mk_fresh_const(name, s), m); };
+        expr_ref p = var("p"), q = var("q"), r = var("r"), t = var("t");
+        expr_ref x = var("x"), y = var("y"), z = var("z"), w = var("w");
+        expr_ref v = var("v"), tail = var("tail");
+        expr_ref pq(u.str.mk_concat(p, q), m), rt(u.str.mk_concat(r, t), m);
+        expr_ref xy(u.str.mk_concat(x, y), m), zw(u.str.mk_concat(z, w), m);
+        expr_ref vt(u.str.mk_concat(v, tail), m);
+        expr_ref longer(u.str.mk_string("abc"), m), shorter(u.str.mk_string("ab"), m);
+        ef.add_equation(pq, rt, dm.mk_leaf(3));
+        ef.add_equation(reverse ? longer.get() : xy.get(), reverse ? xy.get() : longer.get(), dm.mk_leaf(7));
+        tr.push_scope();
+        ef.add_equation(reverse ? shorter.get() : zw.get(), reverse ? zw.get() : shorter.get(), dm.mk_leaf(9));
+        ef.add_equation(vt, shorter, dm.mk_leaf(11));
+        seq::word_eq_split split(m, u);
+        seq::eq_tree::edge edge;
+        bool more = false, committed = false;
+        tr.push_scope();
+        auto it = split.split(*root, 0, edge, more, committed);
+        ENSURE(it && committed);
+        unsigned sizes[] = { 0, 1, 3 };
+        for (unsigned size : sizes) {
+            expr_ref_vector repl(m);
+            seq::eq_tree::dep_tracker dep = nullptr;
+            ENSURE(ef.get_subst(z, repl, &dep) && repl.size() == size);
+            ENSURE(dm.contains(dep, 9) && !dm.contains(dep, 3) && !dm.contains(dep, 7) && !dm.contains(dep, 11));
+            ENSURE(!ef.get_subst(p, repl) && !ef.get_subst(x, repl) && !ef.get_subst(v, repl));
+            tr.pop_scope(1);
+            tr.push_scope();
+            if (size != 3)
+                ENSURE(it->next(edge));
+        }
+        ENSURE(!it->next(edge));
+        tr.pop_scope(2);
+        tr.push_scope();
+        it = split.split(*root, 0, edge, more, committed);
+        expr_ref_vector repl(m);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        ENSURE(it && committed && ef.get_subst(x, repl, &dep) && repl.empty());
+        ENSURE(dm.contains(dep, 7) && !dm.contains(dep, 9));
+        ENSURE(!ef.get_subst(p, repl));
+        tr.pop_scope(1);
+    }
+
     static void tst_trivial_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -485,6 +549,7 @@ namespace {
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id nc_id = tree.register_facet<seq::ncontains_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        stx::facet_id stoi_id = tree.register_facet<seq::stoi_facet>(*root, m, u, a);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         seq_rewriter rw(m);
@@ -495,6 +560,7 @@ namespace {
         ac.set_ncontains_id(nc_id);
         ac.set_mem_id(mem_id);
         ac.set_assumption_id(assumption_id);
+        ac.set_stoi_id(stoi_id);
         tree.set_ambient_context(&ac);
 
         auto& ef = root->facet_as<seq::eq_facet>(eq_id);
@@ -697,6 +763,48 @@ namespace {
         for (bool reverse : { false, true })
             for (unsigned form : { 0u, 1u, 2u })
                 check_deq_empty_length(reverse, form);
+    }
+
+    static void tst_deq_disjoint_stars() {
+        for (bool disjoint : { false, true }) {
+            eq_approx_fixture f;
+            expr_ref x = f.var("x"), y = f.var("y");
+            expr_ref left = f.word("a"), right = f.word(disjoint ? "b" : "a");
+            left = f.u.re.mk_star(left);
+            right = f.u.re.mk_star(right);
+            f.add(x, left, 11);
+            f.add(y, right, 13);
+            auto deq_id = f.tree.register_facet<seq::deq_facet>(*f.root, f.m, f.u, f.tree.dep_mgr());
+            seq::sub_solver solver(f.m, f.a, f.tree.dep_mgr());
+            auto arith_id = f.tree.register_facet<seq::solver_facet>(*f.root, f.m, f.u, solver);
+            f.ac.set_deq_id(deq_id);
+            f.ac.set_arith_id(arith_id);
+            auto& df = f.root->facet_as<seq::deq_facet>(deq_id);
+            auto& sf = f.root->facet_as<seq::solver_facet>(arith_id);
+            df.add_disequation(mk_toks(f.u, f.m, x), mk_toks(f.u, f.m, y),
+                              f.tree.dep_mgr().mk_leaf(7));
+            f.trail.push_scope();
+            expr_ref len_x(f.u.str.mk_length(x), f.m), len_y(f.u.str.mk_length(y), f.m);
+            expr_ref zero(f.a.mk_int(0), f.m);
+            sf.add_constraint(f.m.mk_eq(len_x, zero), f.tree.dep_mgr().mk_leaf(17));
+            sf.add_constraint(f.m.mk_eq(len_y, zero), f.tree.dep_mgr().mk_leaf(19));
+            seq::mem_propagation prop(f.m, f.u, f.rw);
+            auto result = prop.propagate(*f.root);
+            if (disjoint) {
+                ENSURE(result == stx::simplify_result::conflict);
+                ENSURE(df.is_satisfied());
+                vector<unsigned, false> deps;
+                f.tree.dep_mgr().linearize(sf.conflict_dep(), deps);
+                for (unsigned dep : { 7u, 11u, 13u, 17u, 19u })
+                    ENSURE(std::find(deps.begin(), deps.end(), dep) != deps.end());
+            }
+            else
+                ENSURE(df.disequations()[0].active());
+            f.trail.pop_scope(1);
+            f.root->clear_status();
+            ENSURE(df.disequations()[0].active());
+            ENSURE(sf.is_satisfied());
+        }
     }
 
     // A disequation between a constant and itself is an immediate
@@ -1212,6 +1320,105 @@ namespace {
         }
     }
 
+    static void tst_nseq_stoi_model_completion() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const m String)
+            (declare-const n String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (= (str.++ x y) (str.++ m n)))
+            (assert (str.in_re n (re.* (str.to_re "q"))))
+            (assert (= (str.len m) 2))
+            (assert (= (str.to_int m) 1))
+            (assert (= x ""))
+            (assert (= n ""))
+            (assert (< (str.len x) (str.to_int m)))
+        )", true, "v");
+    }
+
+    static void tst_nseq_disjoint_stars() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (str.to_re "d"))))
+            (assert (str.in_re y (re.* (str.to_re "["))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+            (assert (= 7 (str.len x)))
+        )");
+    }
+
+    static void tst_nseq_regex_diseq_completion() {
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (str.in_re x (re.* (re.++ (re.* (str.to_re "ww")) (str.to_re "++")))))
+            (assert (str.in_re y (re.* (re.++ (re.* (str.to_re "ww")) (str.to_re "++")))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (re.++ (str.to_re "ff") (re.* (str.to_re "||"))))))
+            (assert (str.in_re y (re.* (re.++ (str.to_re "ff") (re.* (str.to_re "||"))))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (str.in_re x (re.* (re.++ (str.to_re "I") (re.* (str.to_re "&"))))))
+            (assert (str.in_re y (re.* (str.to_re "I"))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (re.++ (re.* (str.to_re "aaaa")) (str.to_re "bbbb")))))
+            (assert (str.in_re y (re.* (str.to_re "bbbb"))))
+            (assert (= (str.len x) (str.len y)))
+            (assert (not (= x y)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (declare-const v Int)
+            (assert (= v 2))
+            (assert (str.in_re x (re.* (re.++ (str.to_re "b") (re.* (str.to_re "a"))))))
+            (assert (str.in_re y (re.* (re.++ (str.to_re "b") (re.* (str.to_re "a"))))))
+            (assert (= (str.len x) 7))
+            (assert (= (str.len y) 7))
+            (assert (not (= x y)))
+        )", true, "v");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.union (str.to_re "a") (str.to_re "b"))))
+            (assert (str.in_re y (re.union (str.to_re "a") (str.to_re "b"))))
+            (assert (= (str.len x) 1))
+            (assert (= (str.len y) 1))
+            (assert (not (= x y)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const x String)
+            (declare-const y String)
+            (assert (str.in_re x (re.* (re.range "0" "9"))))
+            (assert (str.in_re y (re.* (re.range "0" "9"))))
+            (assert (= (str.len x) 7))
+            (assert (= (str.len y) 7))
+            (assert (not (= x y)))
+            (assert (= (str.to_int x) 1234567))
+        )", false);
+    }
+
     static void tst_nseq_contains_index() {
         std::ostringstream input;
         input << R"(
@@ -1314,6 +1521,60 @@ namespace {
         )", true, nullptr, 10000000);
     }
 
+    static void tst_nseq_rejected_completion() {
+        // Reduced PyEx HTTP-disposition case (Reynolds et al., CC BY 4.0).
+        check_nseq_candidate_model(R"(
+            (declare-const value1 String)
+            (define-fun suffix () String
+                (str.substr value1 (+ (str.indexof value1 "=" 0) 1)
+                    (- (str.len value1) (+ (str.indexof value1 "=" 0) 1))))
+            (define-fun trimmed () String
+                (str.substr suffix 0 (- (str.len suffix) 1)))
+            (assert (= (str.at trimmed (- (str.len trimmed) 1)) "\u{c}"))
+            (assert (not (= (str.at trimmed 0) "\u{c}")))
+            (assert (not (= (str.at (str.substr value1 0 (str.indexof value1 "=" 0)) 0) "\u{c}")))
+            (assert (not (str.contains value1 ",")))
+        )", true, nullptr, 2000000);
+    }
+
+    static void tst_nseq_conversion_completion_feedback() {
+        // Reduced Py-Conbyte addStrings case (Wu, CC BY 4.0).
+        check_nseq_candidate_model(R"(
+            (declare-const num1 String)
+            (declare-const num2 String)
+            (define-fun signed ((s String)) Int
+                (ite (str.prefixof "-" s)
+                    (- (str.to_int (str.substr s 1 (- (str.len s) 1))))
+                    (str.to_int s)))
+            (define-fun valid ((s String)) Bool
+                (ite (str.prefixof "-" s)
+                    (and (not (= (- 1) (str.to_int (str.substr s 1 (- (str.len s) 1)))))
+                         (> (str.len s) 1))
+                    (not (= (- 1) (str.to_int s)))))
+            (assert (>= (+ (signed (str.at num1 (+ (str.len num1) (- 3)))) 1) 10))
+            (assert (valid (str.at num1 (+ (str.len num1) (- 3)))))
+            (assert (>= (+ (- (- (- 1) 1) 1) (str.len num1)) 0))
+            (assert (>= (+ (signed (str.at num1 (+ (str.len num1) (- 2)))) 1) 10))
+            (assert (valid (str.at num1 (+ (str.len num1) (- 2)))))
+            (assert (>= (+ (- (- 1) 1) (str.len num1)) 0))
+            (assert (not (>= (+ (- (- 1) 1)
+                (ite (< (str.len num1) (str.len num2)) (str.len num1) (str.len num2))) 0)))
+            (assert (>= (+ (+ (signed (str.at num1 (+ (str.len num1) (- 1))))
+                             (signed (str.at num2 (+ (str.len num2) (- 1))))) 0) 10))
+            (assert (valid (str.at num2 (+ (str.len num2) (- 1)))))
+            (assert (valid (str.at num1 (+ (str.len num1) (- 1)))))
+            (assert (>= (+ (- 1)
+                (ite (< (str.len num1) (str.len num2)) (str.len num1) (str.len num2))) 0))
+            (assert (not (<= (signed num2) 0)))
+            (assert (valid num2))
+            (assert (not (= (str.len num2) 0)))
+            (assert (not (<= (signed num1) 0)))
+            (assert (valid num1))
+            (assert (not (= (str.len num1) 0)))
+            (assert (not (>= (+ (- (- (- (- 1) 1) 1) 1) (str.len num1)) 0)))
+        )", true, nullptr, 10000000);
+    }
+
     static void tst_nseq_short_stoi_bounds() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -1357,6 +1618,144 @@ namespace {
             (declare-const s String)
             (assert (= (str.to_int (str.++ "0" (str.at s 0))) 7))
         )");
+    }
+
+    static void tst_nseq_small_itos_bounds() {
+        char const* inputs[] = {
+            R"(
+                (declare-const n Int)
+                (assert (<= n 9))
+                (assert (> (str.len (str.from_int n)) 1))
+            )",
+            R"(
+                (declare-const a Int)
+                (declare-const b Int)
+                (declare-const c Int)
+                (declare-const d Int)
+                (assert (and (<= a 9) (<= b 9) (<= c 9) (<= d 9)))
+                (assert (> (str.len (str.++ (str.from_int a) (str.from_int b)
+                                          (str.from_int c) (str.from_int d))) 4))
+            )"
+        };
+        for (char const* input : inputs) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            scoped_rlimit limit(m.limit(), 100000);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            ENSURE(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            p.set_uint("max_conflicts", 0);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            ENSURE(slv->check_sat(0, nullptr) == l_false);
+        }
+        check_nseq_candidate_model(R"(
+            (declare-const n Int)
+            (assert (>= n 10))
+            (assert (= (str.from_int n) "10"))
+        )");
+    }
+
+    static void tst_nseq_single_char_stoi_digit() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        scoped_rlimit limit(m.limit(), 1000000);
+        seq_util u(m);
+        arith_util a(m);
+        expr_ref s(m.mk_fresh_const("s", u.str.mk_string_sort()), m);
+        expr_ref i(m.mk_fresh_const("i", a.mk_int()), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref_vector arguments(m);
+        arguments.push_back(u.str.mk_at(s, i));
+        arguments.push_back(u.str.mk_substr(s, i, one));
+        for (expr* arg : arguments) {
+            for (unsigned digit : {0u, 3u}) {
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_bool("model", true);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+                expr_ref conversion(u.str.mk_stoi(arg), m);
+                expr_ref value(m.mk_eq(conversion, a.mk_int(digit)), m);
+                char text[] = {static_cast<char>('0' + digit), 0};
+                expr_ref word(u.str.mk_string(text), m);
+                expr_ref concrete(m.mk_eq(arg, word), m);
+                slv->assert_expr(value);
+                slv->push();
+                slv->assert_expr(m.mk_not(concrete));
+                ENSURE(slv->check_sat(0, nullptr) == l_false);
+                slv->pop(1);
+                slv->assert_expr(concrete);
+                ENSURE(slv->check_sat(0, nullptr) == l_true);
+                model_ref md;
+                slv->get_model(md);
+                ENSURE(md && md->is_true(value) && md->is_true(concrete));
+            }
+        }
+        for (expr* arg : arguments) {
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            ref<solver> slv = mk_smt2_solver(m, p, symbol("QF_SLIA"));
+            expr_ref condition(m.mk_fresh_const("condition", m.mk_bool_sort()), m);
+            expr_ref conversion(u.str.mk_stoi(arg), m);
+            expr_ref seven(a.mk_int(7), m);
+            expr_ref selected(m.mk_ite(condition, seven, conversion), m);
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref word(u.str.mk_string("0"), m);
+            slv->assert_expr(m.mk_eq(selected, zero));
+            slv->assert_expr(m.mk_not(m.mk_eq(arg, word)));
+            ENSURE(slv->check_sat(0, nullptr) == l_false);
+        }
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (declare-const c Bool)
+            (assert (= (str.to_int (str.at s 0)) 1))
+            (assert (= (ite c (str.to_int (str.at s 0)) 0) 0))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.len s) 1))
+            (assert (= (str.to_int (str.at s 0)) (- 1)))
+            (assert (not (= (str.to_int (str.at s 0)) 0)))
+        )");
+        check_nseq_candidate_model(R"(
+            (declare-const s String)
+            (assert (= (str.len s) 1))
+            (assert (= (str.to_int (str.++ "0" (str.at s 0))) 0))
+        )");
+    }
+
+    static void tst_nseq_stoi_sat_reconciliation() {
+        auto signed_value = [](std::string const& s) {
+            return "(ite (str.prefixof \"-\" " + s + ") (- (str.to_int (str.substr " + s +
+                " 1 (- (str.len " + s + ") 1)))) (str.to_int " + s + "))";
+        };
+        auto valid = [](std::string const& s) {
+            return "(ite (str.prefixof \"-\" " + s +
+                ") (and (ite (= (- 1) (str.to_int (str.substr " + s + " 1 (- (str.len " + s +
+                ") 1)))) false true) (> (str.len " + s +
+                ") 1)) (ite (= (- 1) (str.to_int " + s + ")) false true))";
+        };
+        std::string digit = "(str.at abbr 2)";
+        std::string decimal = "(str.++ (str.from_int 0) (str.from_int " + signed_value(digit) + "))";
+        std::ostringstream input;
+        input << "(declare-const word String)\n(declare-const abbr String)\n"
+              << "(assert (not (>= (+ 2 " << signed_value(decimal) << ") (str.len word))))\n"
+              << "(assert (not (str.in_re (str.at abbr 3) (re.+ (re.range \"0\" \"9\")))))\n"
+              << "(assert " << valid(decimal) << ")\n"
+              << "(assert (not (= " << signed_value(digit) << " 0)))\n"
+              << "(assert " << valid(digit) << ")\n"
+              << "(assert (str.in_re " << digit << " (re.+ (re.range \"0\" \"9\"))))\n"
+              << "(assert (= (str.at word 1) (str.at abbr 1)))\n"
+              << "(assert (not (>= 1 (str.len word))))\n"
+              << "(assert (not (str.in_re (str.at abbr 1) (re.+ (re.range \"0\" \"9\")))))\n"
+              << "(assert (= (str.at word 0) (str.at abbr 0)))\n"
+              << "(assert (not (>= 0 (str.len word))))\n"
+              << "(assert (not (str.in_re (str.at abbr 0) (re.+ (re.range \"0\" \"9\")))))\n"
+              << "(assert (= (str.at word 4) (str.at abbr 3)))\n";
+        check_nseq_candidate_model(input.str().c_str(), true, nullptr, 6000000);
     }
 
     static void tst_nseq_candidate_model() {
@@ -1425,6 +1824,8 @@ namespace {
     }
 
 void tst_seq_eq_facet() {
+    tst_word_eq_finite_priority();
+    tst_word_eq_finite_priority(true);
     tst_eq_approx_memberships();
     tst_eq_approx_conjunctive_views();
     tst_eq_approx_scopes();
@@ -1450,6 +1851,7 @@ void tst_seq_eq_facet() {
     tst_deq_trivial_sat();
     tst_deq_unit_nonempty_sat();
     tst_deq_empty_length();
+    tst_deq_disjoint_stars();
     tst_deq_trivial_unsat();
     tst_deq_reacts_to_eq_branch_sat();
     tst_eq_split_find_point();
@@ -1470,8 +1872,16 @@ void tst_seq_eq_facet() {
     tst_nseq_empty_diseq();
     tst_nseq_regex_bounds();
     tst_nseq_candidate_model();
+    tst_nseq_stoi_model_completion();
+    tst_nseq_disjoint_stars();
+    tst_nseq_regex_diseq_completion();
     tst_nseq_contains_index();
     tst_nseq_fixed_lengths();
+    tst_nseq_rejected_completion();
+    tst_nseq_conversion_completion_feedback();
     tst_nseq_short_stoi_bounds();
+    tst_nseq_small_itos_bounds();
+    tst_nseq_single_char_stoi_digit();
+    tst_nseq_stoi_sat_reconciliation();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
