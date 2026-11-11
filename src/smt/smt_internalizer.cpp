@@ -1113,7 +1113,7 @@ namespace smt {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
-                push_eq(e, m_true_enode, eq_justification());
+                push_eq(e, m_true_enode, eq_justification(literal(v)));
             }
             else {
                 if (cgc_enabled) {
