@@ -1,0 +1,11 @@
+$ cd /tmp/gh-aw/agent/fstar-audit && timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out Z3DtRollback.fst
+F* 2026.09.27, Z3 4.13.3
+stdout:
+Verified module: Z3DtRollback
+All verification conditions discharged successfully
+
+stderr:
+
+exit code: 0
+module sha256: 2c707bd796405d6217dd1795a09ee4e7f8f43bbdbcac7ef78454934c663fb877
+(Earlier attempts failed on syntax/typing and a missing append_mem lemma; fixed before this final fresh-cache run.)
