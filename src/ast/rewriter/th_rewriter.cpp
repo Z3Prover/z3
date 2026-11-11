@@ -1001,7 +1001,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_seq_rw(m, p),
         m_char_rw(m),
-        m_rec_rw(m),
+        m_rec_rw(m, p),
         m_ff_rw(m),
         m_fs_rw(m, p),
         m_a_util(m),
@@ -1125,6 +1125,7 @@ void th_rewriter::reset() {
 void th_rewriter::operator()(expr_ref & term) {
     expr_ref result(term.get_manager());    
     try {
+        m_imp->cfg().m_rec_rw.reset_unfolds();
         m_imp->operator()(term, result);
         term = std::move(result);
     }
@@ -1137,6 +1138,7 @@ void th_rewriter::operator()(expr_ref & term) {
 
 void th_rewriter::operator()(expr * t, expr_ref & result) {
     try {
+        m_imp->cfg().m_rec_rw.reset_unfolds();
         m_imp->operator()(t, result);
     }
     catch (...) {
@@ -1149,6 +1151,7 @@ void th_rewriter::operator()(expr * t, expr_ref & result) {
 
 void th_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
     try {
+        m_imp->cfg().m_rec_rw.reset_unfolds();
         m_imp->operator()(t, result, result_pr);
     }
     catch (...) {
@@ -1161,6 +1164,7 @@ void th_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr)
 }
 
 expr_ref th_rewriter::operator()(expr * n, unsigned num_bindings, expr * const * bindings) {
+    m_imp->cfg().m_rec_rw.reset_unfolds();
     return m_imp->operator()(n, num_bindings, bindings);
 }
 
@@ -1181,6 +1185,7 @@ void th_rewriter::reset_used_dependencies() {
 }
 
 expr_ref th_rewriter::mk_app(func_decl* f, unsigned num_args, expr* const* args) {
+    m_imp->cfg().m_rec_rw.reset_unfolds();
     return m_imp->mk_app(f, num_args, args);
 }
 
