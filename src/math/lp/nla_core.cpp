@@ -168,11 +168,9 @@ rational core::product_value(const monic& m) const {
 // return true iff the monic value is equal to the product of the values of the factors
 //                 or if the variable associated with the monomial is not relevant.
 bool core::check_monic(const monic& m) const {    
-#if 0
-    // TODO test this
     if (!is_relevant(m.var()))
         return true;
-#endif
+    
     if (lra.column_is_int(m.var()) && !lra.get_column_value(m.var()).is_int())
         return true;
     

@@ -26,6 +26,44 @@ Revision History:
 
 namespace nla {
 
+void test_irrelevant_monic_is_ignored() {
+    lp::lar_solver s;
+    reslimit rl;
+    params_ref p;
+    lpvar x = s.add_var(0, true);
+    lpvar y = s.add_var(1, true);
+    lpvar relevant_xy = s.add_var(2, true);
+    lpvar u = s.add_var(3, true);
+    lpvar v = s.add_var(4, true);
+    lpvar irrelevant_uv = s.add_var(5, true);
+
+    nla::core nla_solver(s, p, rl);
+    vector<lpvar> vars;
+    vars.push_back(x);
+    vars.push_back(y);
+    nla_solver.add_monic(relevant_xy, vars.size(), vars.begin());
+    vars.clear();
+    vars.push_back(u);
+    vars.push_back(v);
+    nla_solver.add_monic(irrelevant_uv, vars.size(), vars.begin());
+
+    std::function<bool(lpvar)> is_relevant = [relevant_xy](lpvar j) { return j == relevant_xy; };
+    nla_solver.set_relevant(is_relevant);
+
+    for (lpvar j : {x, u})
+        s.set_column_value_test(j, lp::impq(rational(2)));
+    for (lpvar j : {y, v})
+        s.set_column_value_test(j, lp::impq(rational(3)));
+    s.set_column_value_test(relevant_xy, lp::impq(rational(6)));
+    s.set_column_value_test(irrelevant_uv, lp::impq(rational(5)));
+
+    VERIFY(nla_solver.check_monic(nla_solver.emons()[relevant_xy]));
+    VERIFY(nla_solver.check_monic(nla_solver.emons()[irrelevant_uv]));
+
+    s.set_column_value_test(relevant_xy, lp::impq(rational(7)));
+    VERIFY(!nla_solver.check_monic(nla_solver.emons()[relevant_xy]));
+}
+
 void test_nla_intervals_basic() {
     std::cout << "test_nla_intervals_basic\n";
     
@@ -276,6 +314,7 @@ void test_fetch_normalized_term_column() {
 }
 
 void test_nla_intervals() {
+    test_irrelevant_monic_is_ignored();
     test_nla_intervals_basic();
     test_nla_intervals_negative();
     test_nla_intervals_zero_crossing();
