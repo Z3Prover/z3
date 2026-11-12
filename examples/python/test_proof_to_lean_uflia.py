@@ -219,6 +219,105 @@ UFLIA_INPUTS = {
 }
 
 
+# Negations of an Int term that is zero whatever the variables are, in an
+# argument of a function or predicate. Lean's grind takes the literal -0 for
+# a numeral other than 0, and the kernel rejects the proof it builds on that
+# ("application type mismatch" at decide (-0 = 0) = false), so such a
+# negation is rendered as the difference 0 - t (proof_to_lean._negation).
+# Next to each term: whether its clause-log certificate failed in Lean with
+# every negation rendered as -t.
+_ZERO_NEGATION_TERMS = {
+    "negated_zero_argument": ("(f (- 0))", True),
+    "twice_negated_zero": ("(f (- (- 0)))", False),
+    # Zero as a linear form: the variable cancels.
+    "negated_zero_product": ("(f (- (* 0 x)))", True),
+    "negated_cancelled_variable": ("(f (- (- x x)))", False),
+    # Zero as a numeral expression.
+    "negated_zero_difference": ("(f (- (- 2 2)))", True),
+    # Zero as a remainder and as a quotient of numerals (Euclidean).
+    "negated_zero_remainder": ("(f (- (mod 6 3)))", True),
+    "negated_zero_quotient": ("(f (- (div 1 3)))", True),
+    # Lean's simplifier turns t / -k into -(t / k), which this negation
+    # cancels; without it, (f (div 2 (- 3))), the literal -0 is still
+    # reached and the certificate is rejected (no negation to render).
+    "negated_zero_quotient_by_a_negative": ("(f (- (div 2 (- 3))))", False),
+    # rem by a negative numeral is the negated remainder.
+    "zero_rem_by_a_negative": ("(f (rem 6 (- 3)))", True),
+    # abs is (ite (>= t 0) t (- t)).
+    "negated_abs_of_zero": ("(f (- (abs 0)))", True),
+    "abs_of_negated_zero": ("(f (abs (- 0)))", True),
+}
+ZERO_NEGATION_INPUTS = {
+    name: ("""\
+(set-logic QF_UFLIA)
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(assert (= %s 1))
+(assert (= (f 0) 2))
+(check-sat)
+""" % term, failed) for name, (term, failed) in _ZERO_NEGATION_TERMS.items()}
+ZERO_NEGATION_INPUTS.update({
+    # The rewrite and the euf lemma both failed.
+    "negated_zero_predicate_argument": ("""\
+(set-logic QF_UFLIA)
+(declare-fun p (Int Int) Bool)
+(declare-const x Int)
+(assert (p (- 0) x))
+(assert (not (p 0 x)))
+(check-sat)
+""", True),
+    "negated_zero_into_a_sort": ("""\
+(set-logic QF_UFLIA)
+(declare-sort U 0)
+(declare-fun g (Int) U)
+(assert (not (= (g (- 0)) (g 0))))
+(check-sat)
+""", True),
+})
+# Negations of terms that are not zero keep the form -t.
+NONZERO_NEGATION_INPUTS = {
+    "negated_remainder": """\
+(set-logic QF_UFLIA)
+(declare-fun f (Int) Int)
+(assert (= (f (- (mod 7 3))) 1))
+(assert (= (f (- 1)) 2))
+(check-sat)
+""",
+    "negated_quotient_by_a_negative": """\
+(set-logic QF_UFLIA)
+(declare-fun f (Int) Int)
+(assert (= (f (- (div 7 (- 3)))) 1))
+(assert (= (f 2) 2))
+(check-sat)
+""",
+    "rem_by_a_negative": """\
+(set-logic QF_UFLIA)
+(declare-fun f (Int) Int)
+(assert (= (f (rem 7 (- 3))) 1))
+(assert (= (f (- 1)) 2))
+(check-sat)
+""",
+    "negated_variable": """\
+(set-logic QF_UFLIA)
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(assert (= (f (- x)) 1))
+(assert (= (f 0) 2))
+(assert (= x 0))
+(check-sat)
+""",
+}
+
+
+# The message of the tests that pin grind's defect (also used by
+# test_proof_to_lean_array), for whoever moves lean/lean-toolchain.
+_NEGATED_ZERO_ACCEPTED = (
+    "Lean accepted a certificate with an Int negation of zero rendered as -t: the toolchain's grind no longer "
+    "has the defect that proof_to_lean._negation and _INT_MAP_NEGATION work around. Remove the "
+    "test_negated_zero_literals_fail_in_the_kernel tests (see 'Int negations of zero rendered as differences' "
+    "in doc/lean-proof-plan.md).")
+
+
 def _cnf_nodes(graph):
     return [node for node in range(len(graph.nodes))
             if graph.decl(node).name == "th-lemma" and graph.decl(node).parameters == ("cnf",)]
@@ -228,13 +327,20 @@ def _lemma_text(text, node):
     return text.split("\nprivate theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
 
 
-def random_instance(seed, variables=4, constraints=10, with_sort=False, depth=2, ite=False):
+# Negations of Int terms that are zero whatever x0 is: Lean's simplifier
+# evaluates each argument to the literal 0 (see proof_to_lean._negation).
+ZERO_NEGATIONS = ("(- 0)", "(- (- 0))", "(- (* 0 x0))", "(- (- 2 2))", "(- (mod 4 2))", "(- (div 1 3))",
+                  "(abs (- 0))", "(rem 4 (- 2))")
+
+
+def random_instance(seed, variables=4, constraints=10, with_sort=False, depth=2, ite=False, zeros=False):
     """A random QF_UFLIA instance, or None when it is satisfiable.
 
     Int variables, a unary and a binary Int function, a predicate over Int,
     with_sort an uninterpreted sort with constants, functions in both
     directions, and a predicate over it, and with ite Int ite terms whose
-    conditions are linear atoms (branches may coincide).
+    conditions are linear atoms (branches may coincide). With zeros half of
+    the numerals are negations of zero (ZERO_NEGATIONS).
     """
     rng = random.Random(seed)
     names = ["x%d" % i for i in range(variables)]
@@ -246,6 +352,8 @@ def random_instance(seed, variables=4, constraints=10, with_sort=False, depth=2,
     lines += ["(declare-fun f (Int) Int)", "(declare-fun k (Int Int) Int)", "(declare-fun q (Int) Bool)"]
 
     def numeral():
+        if zeros and rng.random() < 0.5:
+            return rng.choice(ZERO_NEGATIONS)
         return str(rng.choice([0, 1, 2, 3, -1]))
 
     def term(d=depth):
@@ -651,6 +759,66 @@ class TestIntegerMixedValidation(unittest.TestCase):
         self.assertIn("monotonicity", certificate["rule_counts"])
         self.assertIn("th_lemma", proof_to_lean.reconstruct(self.source, certificate))
 
+    def test_negations_of_zero_are_rendered_as_differences(self):
+        """An Int negation of a term that is zero whatever the variables are is 0 - t; any other stays -t."""
+        difference = re.compile(r": Int := \(\(\(0 : Int\)\) - .*\)$", re.M)
+        negation = re.compile(r": Int := \(-.*\)$", re.M)
+
+        def facts(source, core):
+            if core == "legacy":
+                certificate = proof_certificate.export_certificate(source, None)
+            else:
+                certificate = proof_certificate.export_clause_log_certificate(source)
+            graph = proof_to_lean._validate_graph(source, certificate)
+            nodes = range(len(graph.nodes))
+            # The values of the negated terms: the arguments of the unary
+            # minus nodes, and the remainders rem by a negative numeral negates.
+            negated = [proof_to_lean._integer_value(graph, graph.arguments(node)[0])
+                       for node in nodes if graph.kind(node) == z3.Z3_OP_UMINUS]
+            remainders = [proof_to_lean._integer_value(graph, node) for node in nodes
+                          if graph.kind(node) == z3.Z3_OP_REM and proof_to_lean._integer_divisor(graph, node) < 0]
+            text = proof_to_lean.reconstruct(source, certificate)
+            return negated, remainders, len(difference.findall(text)), len(negation.findall(text)), text
+
+        for core in ("clause-log", "legacy"):
+            for name, (source, _) in ZERO_NEGATION_INPUTS.items():
+                with self.subTest(name=name, core=core):
+                    negated, remainders, differences, negations, text = facts(source, core)
+                    zeros = (negated + remainders).count(0)
+                    self.assertGreaterEqual(zeros, 1)
+                    self.assertEqual((differences, negations), (zeros, len(negated + remainders) - zeros))
+                    self.assertNotIn("(-((0 : Int)))", text)
+                    if "abs" in name:
+                        # The negative branch of abs negates its argument.
+                        self.assertRegex(text, r"\(@ite Int \(\(term_(\d+) _atoms _vars _m\) >= \(\(0 : Int\)\)\) "
+                                               r"\(Classical.propDecidable _\) \(term_\1 _atoms _vars _m\) "
+                                               r"\(\(\(0 : Int\)\) - \(term_\1 _atoms _vars _m\)\)\)")
+            for name, source in NONZERO_NEGATION_INPUTS.items():
+                with self.subTest(name=name, core=core):
+                    negated, remainders, differences, negations, text = facts(source, core)
+                    self.assertNotIn(0, negated + remainders)
+                    self.assertEqual((differences, negations), (0, len(negated + remainders)))
+                    self.assertNotIn("((0 : Int)) - ", text)
+        # The values the evaluation reads: Euclidean division (7 = -3 * -2 +
+        # 1), rem with the sign Z3 gives it, None under a variable.
+        self.assertEqual(sorted(facts(NONZERO_NEGATION_INPUTS["negated_remainder"], "clause-log")[0]), [1, 1])
+        self.assertEqual(sorted(facts(NONZERO_NEGATION_INPUTS["negated_quotient_by_a_negative"], "clause-log")[0]),
+                         [-2, 3])
+        self.assertEqual(facts(NONZERO_NEGATION_INPUTS["rem_by_a_negative"], "clause-log")[1], [-1])
+        self.assertIn(None, facts(NONZERO_NEGATION_INPUTS["negated_variable"], "clause-log")[0])
+        self.assertEqual(facts(ZERO_NEGATION_INPUTS["zero_rem_by_a_negative"][0], "clause-log")[:2], ([3], [0]))
+        # Rat has no such defect: a Real negation of zero keeps its form.
+        real = """\
+(set-logic QF_UFLRA)
+(declare-fun f (Real) Real)
+(assert (= (f (- 0.0)) 1.0))
+(assert (= (f 0.0) 2.0))
+(check-sat)
+"""
+        real_text = proof_to_lean.reconstruct(real, proof_certificate.export_clause_log_certificate(real))
+        self.assertRegex(real_text, r": Rat := \(-\(term_\d+ _atoms _vars _m\)\)")
+        self.assertNotIn("((0 : Rat)) - ", real_text)
+
 
 class TestIntegerMixedInProcess(unittest.TestCase):
     """Checks that need neither the z3 executable nor Lean (only the Python bindings)."""
@@ -979,6 +1147,63 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
             self.assertLessEqual(max(sizes), 3)
             self.assertEqual(sum(sizes), _proof_steps(certificate))
 
+    def test_negations_of_zero_verify(self):
+        """Arguments that are negations of zero verify, as the negations of other terms do (unchanged)."""
+        sources = {name: source for name, (source, _) in ZERO_NEGATION_INPUTS.items()}
+        sources.update(NONZERO_NEGATION_INPUTS)
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in sources.values())
+        for name, source in sources.items():
+            with self.subTest(name=name):
+                _, text = self.check(source)
+                self.assertEqual("((0 : Int)) - " in text, name in ZERO_NEGATION_INPUTS)
+
+    def test_negated_zero_literals_fail_in_the_kernel(self):
+        """With every negation rendered as -t, the kernel rejects the proofs grind builds over the literal -0.
+
+        This is the defect of the pinned toolchain's grind that
+        proof_to_lean._negation works around; the error is raised after the
+        tactic block, so no alternative of a step's proof could catch it.
+        Should a later toolchain accept these texts, the difference rendering
+        is no longer needed.
+        """
+        def negation(graph, node, rendered):
+            return "(-%s)" % rendered
+
+        for name, (source, failed) in ZERO_NEGATION_INPUTS.items():
+            if not failed:
+                continue
+            certificate = proof_certificate.export_clause_log_certificate(source)
+            with patch.object(proof_to_lean, "_negation", negation):
+                text = proof_to_lean.reconstruct(source, certificate)
+            self.assertNotIn("((0 : Int)) - ", text)
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "checked.lean"
+                output.write_text(text)
+                result = lean_test_support.run_check_lean(output)
+                self.assertNotEqual(result.returncode, 0, _NEGATED_ZERO_ACCEPTED)
+                self.assertIn("(kernel) application type mismatch", result.stdout + result.stderr)
+
+    # Seeds of random_instance with zeros whose certificates failed in the
+    # kernel before negations of zero were differences: in rewrites (plain
+    # seeds 8, 29, 142) and in an euf lemma (seed 446 with a sort and ite
+    # terms).
+    ZERO_SEEDS = ((8, {}), (29, {}), (142, {}), (446, {"with_sort": True, "ite": True}))
+
+    def test_random_instances_with_negations_of_zero(self):
+        sources = [(seed, random_instance(seed, zeros=True, **options)) for seed, options in self.ZERO_SEEDS]
+        for seed, source in sources:
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for _, source in sources)
+        forms = set()
+        for seed, source in sources:
+            with self.subTest(seed=seed):
+                forms |= {form for form in ZERO_NEGATIONS if form in source}
+                _, text = self.check(source)
+                self.assertIn("((0 : Int)) - ", text)
+        self.assertEqual(forms, set(ZERO_NEGATIONS))
+
     def test_false_coefficient_free_lemmas_are_rejected_by_lean(self):
         # A cut claiming the unit clause (<= (f x) y): f(x) and y are opaque
         # Int atoms, so the clause is satisfiable, the shape check passes
@@ -1042,6 +1267,29 @@ class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
         self.assertEqual(hints, {"farkas", "bound", "implied-eq", "triangle-eq", "arith", "smt"})
         # The legacy core's congruences are monotonicity steps, never euf hints.
         self.assertLessEqual({"monotonicity", "true-axiom", "th-lemma", "rewrite"}, rules)
+
+    def test_negations_of_zero_verify_through_the_legacy_core(self):
+        # These verified with the negations rendered as -t too (no step of
+        # theirs goes to grind with the literal -0); the differences must
+        # not break them.
+        sources = {name: source for name, (source, _) in ZERO_NEGATION_INPUTS.items()}
+        sources.update(NONZERO_NEGATION_INPUTS)
+        lean_test_support.prefetch((source, proof_certificate.export_certificate(source, None))
+                                    for source in sources.values())
+        for name, source in sources.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_certificate(source, None)
+                self.assertEqual(certificate["fragment"], "qf_uflia")
+                text, report = lean_test_support.check(self, source, certificate)
+                self.assertEqual("((0 : Int)) - " in text, name in ZERO_NEGATION_INPUTS)
+                # A refutation by congruence and rewriting alone needs fewer
+                # axioms than the standard three, or none.
+                axioms = re.search(r"\.unsat' depends on axioms: \[([^\]]*)\]", report)
+                if axioms is None:
+                    self.assertIn(".unsat' does not depend on any axioms", report)
+                else:
+                    self.assertLessEqual(set(axioms.group(1).split(", ")),
+                                         set(_STANDARD_AXIOMS[1:-1].split(", ")), report)
 
     # Seeds whose legacy proofs need the arithmetic solver (many random
     # instances are refuted by congruence and resolution alone there): plain

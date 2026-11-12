@@ -578,6 +578,11 @@ _MAP_CONNECTIVES = {"not": ("Not", 1), "and": ("And", 2), "or": ("Or", 2),
 # arguments of one sort; "numeric" Int or Real; "bool" Bool alone; the
 # result follows. Uninterpreted functions ("declared") are rendered as
 # their family applied to the injected arguments (_map_application).
+# The negation of an Int map is the difference from zero: the store and
+# constant-array identities apply the function to a stored value, and at the
+# value 0 grind would beta-reduce a negation to -0, which it mistakes for
+# another numeral than 0 (see _negation).
+_INT_MAP_NEGATION = "(((0 : Int)) - %s)"
 _MAP_BUILTINS = {
     "xor": ("bool", (2,), lambda args, types: "(Or (And %s (Not %s)) (And (Not %s) %s))" % (
         args[0], args[1], args[0], args[1])),
@@ -585,7 +590,9 @@ _MAP_BUILTINS = {
     "distinct": ("same", (2,), lambda args, types: (
         "(Not (Iff %s %s))" if types[0] == "Prop" else "(Not (%s = %s))") % tuple(args)),
     "+": ("numeric", (2,), lambda args, types: "(%s + %s)" % tuple(args)),
-    "-": ("numeric", (1, 2), lambda args, types: "(-%s)" % args[0] if len(args) == 1 else "(%s - %s)" % tuple(args)),
+    "-": ("numeric", (1, 2), lambda args, types: (
+        (_INT_MAP_NEGATION if types[0] == "Int" else "(-%s)") % args[0] if len(args) == 1
+        else "(%s - %s)" % tuple(args))),
     "<=": ("numeric", (2,), lambda args, types: "(%s <= %s)" % tuple(args)),
     "<": ("numeric", (2,), lambda args, types: "(%s < %s)" % tuple(args)),
     ">=": ("numeric", (2,), lambda args, types: "(%s >= %s)" % tuple(args)),
@@ -1306,6 +1313,9 @@ class _Graph:
     # The value of each node evaluated by _numeral_expression_value, None if
     # it is not a numeral expression (a cache: the nodes form a shared DAG).
     numeral_values: dict = field(default_factory=dict, compare=False, repr=False)
+    # The value of each Int node evaluated by _integer_value, None if it
+    # depends on a variable (a cache, like numeral_values).
+    integer_values: dict = field(default_factory=dict, compare=False, repr=False)
     # The keys of _real_argument_key and _real_atom_key, by ("argument" or
     # "atom", node) (a cache: keying a nested ite chain revisits each level
     # from its condition and both branches), and the interned atom key of
@@ -2321,6 +2331,68 @@ def _variable(graph, node, index):
     return ("_ivars %d" if graph.numeric == _MIXED and graph.is_int(node) else "_vars %d") % index
 
 
+def _integer_value(graph, node):
+    """The value an Int node has whatever its variables are, or None.
+
+    That is the constant of a linear form whose variables cancel ((* 0 x),
+    (- x x)), with div, mod, rem, and abs of such values evaluated as Lean
+    evaluates their rendering (Euclidean division by a nonzero numeral).
+    An ite is not evaluated, whatever its condition. Values are cached in
+    graph.integer_values.
+    """
+    if node not in graph.integer_values:
+        graph.integer_values[node] = _evaluate_integer(graph, node)
+    return graph.integer_values[node]
+
+
+def _evaluate_integer(graph, node):
+    """_integer_value of a node, given those of the arguments of its div, mod, rem, and abs atoms."""
+    terms = {}
+    try:
+        value = _linear_term(graph, node, Fraction(1), terms)
+    except ReconstructionError:
+        return None
+    for atom, coefficient in terms.items():
+        if not coefficient:
+            continue
+        kind = graph.kind(atom)
+        if kind not in _INT_NAMES:
+            return None
+        values = [_integer_value(graph, argument) for argument in graph.arguments(atom)]
+        if None in values:
+            return None
+        if kind == z3.Z3_OP_ABS:
+            value += coefficient * abs(values[0])
+            continue
+        # _linear_term has checked the divisor: a nonzero constant.
+        remainder = values[0] % abs(values[1])
+        if kind == z3.Z3_OP_IDIV:
+            value += coefficient * (values[0] - remainder) / values[1]
+        else:
+            value += coefficient * (-remainder if kind == z3.Z3_OP_REM and values[1] < 0 else remainder)
+    return value
+
+
+def _negation(graph, node, rendered):
+    """Render the negation of a rendered arithmetic node: 0 - t over an Int node of value zero, else -t.
+
+    Lean's grind takes the Int term -0 for a numeral other than 0 (a
+    negated literal is its normal form of a negative numeral), and the
+    kernel rejects the proof it builds on that (application type mismatch
+    at decide (-0 = 0) = false), an error that comes after the tactic
+    block, where no alternative of first catches it. grind meets -0
+    whenever its simplifier evaluates the negated term to the literal 0 in
+    an argument of an uninterpreted application, a read, or a store: (f (-
+    0)), (select a (- (* 0 x))), (p (- (mod 6 3))). The difference 0 - t
+    is the same number, and the simplifier evaluates it to 0. Every other
+    negation keeps the form the numerals have ((- 2) is -2). Rat has no
+    such defect.
+    """
+    if graph.is_int(node) and _integer_value(graph, node) == 0:
+        return "(%s - %s)" % (_numeral("Int", Fraction(0)), rendered)
+    return "(-%s)" % rendered
+
+
 def _term_body(graph, node, variable_indices, term=None, formula=None):
     """Render an arithmetic or uninterpreted-sort node; term and formula render its children.
 
@@ -2364,21 +2436,22 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     if function is not None:
         return "(_map%d %s %s)" % (len(args), function, " ".join(args))
     if kind == z3.Z3_OP_UMINUS:
-        return "(-%s)" % args[0]
+        return _negation(graph, arguments[0], args[0])
     if kind == z3.Z3_OP_TO_REAL:
         return "((%s : Int) : Rat)" % args[0]
     if kind == z3.Z3_OP_TO_INT:
         return "(Rat.floor %s)" % args[0]
     if kind == z3.Z3_OP_ABS:
         # SMT-LIB's definition; the instance's proposition is inferred from the condition.
-        return "(@ite %s (%s >= ((0 : %s))) (Classical.propDecidable _) %s (-%s))" % (
-            graph.number_type_of(node), args[0], graph.number_type_of(node), args[0], args[0])
+        return "(@ite %s (%s >= ((0 : %s))) (Classical.propDecidable _) %s %s)" % (
+            graph.number_type_of(node), args[0], graph.number_type_of(node), args[0],
+            _negation(graph, arguments[0], args[0]))
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
         return "(%s %s %s)" % (args[0], "/" if kind == z3.Z3_OP_IDIV else "%", args[1])
     if kind == z3.Z3_OP_REM:
         # Z3's (ite (>= k 0) (mod t k) (- (mod t k))) at the numeral divisor k.
         remainder = "(%s %% %s)" % (args[0], args[1])
-        return remainder if _integer_divisor(graph, node) > 0 else "(-%s)" % remainder
+        return remainder if _integer_divisor(graph, node) > 0 else _negation(graph, node, remainder)
     return _infix(_REAL_NAMES[kind], args)
 
 

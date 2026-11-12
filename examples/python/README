@@ -842,7 +842,17 @@ total division without that reaching the statement; a rem is rendered from
 the sign of its divisor, so a rem by zero or by a term is rejected wherever
 it occurs); omega reads / and % by a positive numeral directly,
 and leaves them as atoms for a negative divisor, whose arith axioms grind
-proves instead. Each th-lemma and arithmetic rewrite is proved by
+proves instead. An Int negation (- t) is -t, except over a term that is
+zero whatever its variables are ((- 0), (- (* 0 x)), (- (mod 6 3)); also
+the negative branch of abs and a rem by a negative numeral), which is the
+difference 0 - t, and the Int negation map ((_ map -) a), which is
+fun v => 0 - v: Lean's grind takes the Int literal -0, which its simplifier
+would reach there, for a numeral other than 0, and the kernel rejects the
+proof it builds on that (after the tactic block, where no alternative can
+catch the error). Not covered, and still rejected by the kernel: a zero the
+simplifier reaches without a negation of a constant zero in the input, as
+in (f (div 2 (- 5))), (f (- (mod x 1))), (f (rem x (- 1))), and
+(f (- (ite true 0 1))). Each th-lemma and arithmetic rewrite is proved by
 first | omega | grind (splits := 64), except euf th-lemmas (below): omega
 decides linear integer arithmetic (ite over Int included) and produces a
 kernel-checked proof, where grind's integer module ran out of steps on Farkas lemmas with several

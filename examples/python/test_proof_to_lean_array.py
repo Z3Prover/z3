@@ -34,6 +34,7 @@ import proof_clause_log
 import lean_test_support
 import proof_to_lean
 from test_proof_to_lean_lia import _STANDARD_AXIOMS, _hints, _z3_available
+from test_proof_to_lean_uflia import _NEGATED_ZERO_ACCEPTED
 
 _DECLARATIONS = """(declare-sort Index 0)
 (declare-sort Element 0)
@@ -737,6 +738,14 @@ NUMERAL_EXPRESSION_INPUTS = {
 (assert (or p (= b (store (store a (+ 1 1) v) (- (+ 1 1) 0) w))))
 (assert (not p))
 (assert (not (= b (store a 2 w))))
+(check-sat)
+""",
+    # A read at the negation of zero: Lean's grind takes the Int literal -0
+    # for a numeral other than 0 and the kernel rejects its proof, so the
+    # index is rendered as 0 - 0 (proof_to_lean._negation).
+    "read_at_a_negated_zero": """(declare-fun a () (Array Int Int))
+(assert (= (select a (- 0)) 1))
+(assert (= (select a 0) 2))
 (check-sat)
 """,
 }
@@ -2010,6 +2019,45 @@ MAP_FUNCTION_INPUTS = {
 (assert (not (= (select b 0) 0)))
 (check-sat)
 """,
+    # The Int negation map over a stored 0 and over the constant array of 0:
+    # the map identities apply the function to the value, where grind would
+    # beta-reduce a negation to the literal -0 (the kernel rejects what it
+    # builds on that), so the function is the difference from zero
+    # (proof_to_lean._INT_MAP_NEGATION).
+    "negation_map_of_a_stored_zero": """(declare-fun a () (Array Int Int))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (> (select ((_ map (- (Int) Int)) (store a i 0)) j) 0))
+(assert (= i j))
+(check-sat)
+""",
+    "negation_map_of_a_constant_zero": """(declare-fun a () (Array Int Int))
+(declare-fun j () Int)
+(assert (= a ((_ map (- (Int) Int)) ((as const (Array Int Int)) 0))))
+(assert (> (select a j) 0))
+(check-sat)
+""",
+    # Two levels of stores of 0 over negation maps, read at two variables
+    # (the iteration 123 review's shape, there with four levels).
+    "negation_maps_under_stores_of_zero": """(declare-fun s () (Array Int Int))
+(declare-fun j0 () Int)
+(declare-fun j1 () Int)
+(declare-fun i0 () Int)
+(declare-fun i1 () Int)
+(assert (or (> (select (store ((_ map (- (Int) Int)) (store ((_ map (- (Int) Int)) s) j0 0)) j1 0) i0) 0)
+            (> (select (store ((_ map (- (Int) Int)) (store ((_ map (- (Int) Int)) s) j0 0)) j1 0) i1) 0)))
+(assert (= i0 j1))
+(assert (= i1 j1))
+(check-sat)
+""",
+    # Rat has no such defect: the Real negation map keeps its form.
+    "real_negation_map_of_a_stored_zero": """(declare-fun a () (Array Int Real))
+(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (> (select ((_ map (- (Real) Real)) (store a i 0.0)) j) 0.0))
+(assert (= i j))
+(check-sat)
+""",
 }
 # Arrays over Bool indices, (Array Bool E): Prop -> E in Lean, an index is a
 # formula and two indices are equal as propositions (propext). A model's
@@ -2424,7 +2472,8 @@ _FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for na
 # Maps of other functions are over Int indices and elements (qf_uflia) except these.
 _MAP_FUNCTION_FRAGMENTS = {"map_over_sort": "qf_uf", "map_xor": "qf_uf", "map_distinct": "qf_uf",
                            "equality_map_commutes": "qf_uf", "map_mixed_sorts": "qf_uflira",
-                           "map_real_subtraction": "qf_uflira", "map_strict_comparisons": "qf_uflra"}
+                           "map_real_subtraction": "qf_uflira", "map_strict_comparisons": "qf_uflra",
+                           "real_negation_map_of_a_stored_zero": "qf_uflira"}
 _FRAGMENTS.update((name, _MAP_FUNCTION_FRAGMENTS.get(name, "qf_uflia")) for name in MAP_FUNCTION_INPUTS)
 _FRAGMENTS.update((name, "qf_uflia") for name in list(ARITHMETIC_ARRAY_INPUTS) + list(CONSTANT_ARRAY_INPUTS)
                   + list(NUMERAL_EXPRESSION_INPUTS) if name not in _FRAGMENTS)
@@ -3789,6 +3838,37 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("union_member", relabelled(z3.Z3_OP_SET_INTERSECT, z3.Z3_OP_SET_UNION, "union"),
                       "certificate assertions do not match the original input")
 
+    def test_negation_maps_are_differences_from_zero(self):
+        """The Int negation map applies 0 - v, in its lambda and in its read facts; the Real one keeps -v.
+
+        The identities of a map of a store or a constant array apply the
+        function to the stored value; at 0 a negation would beta-reduce to
+        the Int literal -0 in grind.
+        """
+        function = "(fun (_v0 : Int) => (((0 : Int)) - _v0))"
+        zero = r"\(\(0 : Int\)\)"
+        store = r"have _ms\d+ := _map1_store %s " % re.escape(function)
+        for name, identity in (("negation_map_of_a_stored_zero", store),
+                               ("negation_map_of_a_constant_zero",
+                                r"have _mk\d+ : .* = @_const_array Int Int \(%s - \(%s\)\) := rfl" % (zero, zero)),
+                               ("negation_maps_under_stores_of_zero", store),
+                               ("map_negation", r"have _m\d+ : _select .* = \(%s - \(_select .*\)\) := rfl" % zero)):
+            with self.subTest(name=name):
+                text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+                self.assertIn("(_map1 %s (term_" % function, text)
+                self.assertRegex(text, identity)
+                self.assertNotIn("(-_v0)", text)
+                self.assertNotIn("(-((0 : Int)))", text)
+        name = "real_negation_map_of_a_stored_zero"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertIn("(_map1 (fun (_v0 : Rat) => (-_v0)) (term_", text)
+        self.assertRegex(text, r"have _ms\d+ := _map1_store \(fun \(_v0 : Rat\) => \(-_v0\)\) ")
+        # The index (- 0) of a read is a term, rendered by _negation.
+        name = "read_at_a_negated_zero"
+        text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+        self.assertRegex(text, r": Int := \(\(\(0 : Int\)\) - \(term_\d+ _atoms _vars _m\)\)")
+        self.assertNotRegex(text, r": Int := \(-")
+
     def test_map_function_encoding(self):
         """Maps of other functions are _map1/_map2/_map3 of a lambda; a mapped function is a symbol of the input."""
         certificate = self.certificates["mapped_function_congruence"]
@@ -3811,7 +3891,9 @@ class TestArrayValidation(unittest.TestCase):
                                  r"\(_v2 : Int\) => \(@ite Int _v0 \(Classical.propDecidable _\) _v1 _v2\)\)")
         nested = proof_to_lean.reconstruct(ARRAY_INPUTS["nested_function_maps"],
                                            self.certificates["nested_function_maps"])
-        self.assertRegex(nested, r"have _m\d+_\d+ : _select .* = \(-\(_select ")
+        # The Int negation is the difference from zero (see
+        # test_negation_maps_are_differences_from_zero).
+        self.assertRegex(nested, r"have _m\d+_\d+ : _select .* = \(\(\(0 : Int\)\) - \(_select ")
         for each in (text, addition, sort, predicate, choice, nested):
             self.assertNotIn("sorry", each)
             self.assertNotIn("axiom ", each)
@@ -5111,6 +5193,32 @@ class TestArrayLeanIntegration(unittest.TestCase):
                 self.assertTrue(errors, report)
                 for error in errors:
                     self.assertIn("`grind` failed", error)
+
+    def test_negated_zero_literals_fail_in_the_kernel(self):
+        """With negations rendered as -t and -v, the kernel rejects the proofs grind builds over the literal -0.
+
+        The defect of the pinned toolchain's grind that
+        proof_to_lean._negation and _INT_MAP_NEGATION work around (see
+        test_proof_to_lean_uflia for terms under applications): here at a
+        read's index and where a map identity applies the negation to a
+        stored or constant 0.
+        """
+        def negation(graph, node, rendered):
+            return "(-%s)" % rendered
+
+        for name in ("read_at_a_negated_zero", "negation_map_of_a_stored_zero", "negation_map_of_a_constant_zero",
+                     "negation_maps_under_stores_of_zero"):
+            source = ARRAY_INPUTS[name]
+            with mock.patch.object(proof_to_lean, "_negation", negation), \
+                    mock.patch.object(proof_to_lean, "_INT_MAP_NEGATION", "(-%s)"):
+                text = proof_to_lean.reconstruct(source, _export(source))
+            self.assertNotIn("((0 : Int)) - ", text)
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "negated.lean"
+                output.write_text(text)
+                result = lean_test_support.run_check_lean(output)
+                self.assertNotEqual(result.returncode, 0, _NEGATED_ZERO_ACCEPTED)
+                self.assertIn("(kernel) application type mismatch", result.stdout + result.stderr)
 
     def test_map_facts_are_needed(self):
         """Without the read facts below a map, or the map identities, grind cannot prove the steps over maps.
