@@ -384,7 +384,10 @@ private theorem _cases_ite {E : Type} (P : E -> Prop) (c : Prop) (h : Decidable 
 _ENUMERATION_CONSTANT_DEFINITIONS = """
 private theorem _cases_const {I E : Type} (P : E -> Prop) (v : E) (j : I) (hv : P v) :
     P (_select (_const_array I v) j) := hv
-
+""".strip("\n").split("\n")
+# Not stated when the default values are read at a generic index
+# (_GENERIC_DEFAULT_DEFINITIONS); _read_cases gives no proof for them then.
+_ENUMERATION_DEFAULT_DEFINITIONS = """
 private theorem _cases_default_const {I E : Type} (P : E -> Prop)
     (h : forall l : List I, Exists (fun x : I => Not (List.Mem x l))) (v : E) (hv : P v) :
     P (_default h (_const_array I v)) := by
@@ -525,13 +528,44 @@ private theorem _default_store {I E : Type} (h : forall l : List I, Exists (fun 
     unfold _default
     rw [dite_eq_right _ex, dite_eq_right _ns]
 """.strip("\n").split("\n")
+# The default value of a map, (= (default (map f a b)) (f (default a)
+# (default b))), the array solver's default-map axiom, is not a theorem of
+# that _default: an argument of the map need not be constant at all but
+# finitely many indices. When a refutation uses the axiom and the input
+# names no default value (_generic_defaults), the default values are the
+# array solver's own terms, and one function has all three properties over
+# the terms of the certificate: the read at one index g that no store of the
+# certificate writes. There a constant array has its value, a store the
+# value of the array it writes into (g is not the stored index), and a map
+# its function of the arrays' values, whatever the element sort. Such an
+# index exists (no finite list exhausts the index type), so it is a
+# definition over the interpretation (_generic_index_definitions:
+# Classical.choose of the unboundedness theorem at the list of the stored
+# indices), not a hypothesis of the theorem, whose assertions do not
+# mention it. _default keeps its name, with that index in the place of the
+# unboundedness proof; _default_store takes the proof that the index is not
+# the stored one, which _fresh_ne gives for a member of the list.
+_GENERIC_DEFAULT_DEFINITIONS = """
+def _default {I E : Type} (g : I) (a : I -> E) : E := a g
+
+private theorem _default_const {I E : Type} (g : I) (v : E) : _default g (_const_array I v) = v := rfl
+
+private theorem _default_store {I E : Type} (g : I) (a : I -> E) (i : I) (v : E) (h : Not (g = i)) :
+    _default g (_store a i v) = _default g a := _store_off a i v g h
+
+private theorem _fresh_ne {I : Type} (l : List I) (g : I) (h : Not (List.Mem g l)) (x : I) (m : List.Mem x l) :
+    Not (g = x) := fun _e => h (_e ▸ m)
+""".strip("\n").split("\n")
 # Maps ((_ map f) a b) and Z3's set operators (maps of connectives over sets,
 # I -> Prop) are the pointwise function, _map1, _map2, or _map3 of a Lean
 # function. A read of one is that function over the reads, by rfl (the array
 # solver's select-map axiom, stated per read by _array_helpers). Its default
 # value is not determined by the arguments' (an argument need not be constant
-# at all but finitely many indices), so the default-map axiom is rejected (by
-# the exporter's replay when a refutation uses it, and by _check_th_lemma).
+# at all but finitely many indices), so the default-map axiom is certified
+# only with the default values read at a generic index
+# (_GENERIC_DEFAULT_DEFINITIONS), and rejected when the input names a default
+# value (by the exporter's replay when a refutation uses it, and by
+# _check_th_lemma).
 # The connective of a map or set operator by name (map parameter) or by
 # kind: the Lean function, then the number of arrays.
 _MAP_CONNECTIVES = {"not": ("Not", 1), "and": ("And", 2), "or": ("Or", 2),
@@ -924,12 +958,138 @@ def _unbounded(graph, node, explicit=False):
     """The unboundedness proof of an array node's index type for _default, with the type itself if explicit.
 
     explicit gives `(I := Int) _int_unbounded`, for _default_const, whose
-    array argument does not name the index type.
+    array argument does not name the index type. With the default values
+    read at a generic index (_Graph.generic), that index stands in the
+    proof's place.
     """
     index = _array_components(graph.decl(node).range)[0]
+    proof = "(%s _atoms%s)" % (_generic_index(index), graph.valuation) if graph.generic else _UNBOUNDED[index]
     if explicit:
-        return "(I := %s) %s" % (_component_type(index), _UNBOUNDED[index])
-    return _UNBOUNDED[index]
+        return "(I := %s) %s" % (_component_type(index), proof)
+    return proof
+
+
+def _generic_index(sort):
+    """The name of the generic index of an index sort of _UNBOUNDED: _generic_i (Int), _generic_r (Real)."""
+    return "_generic_" + _ARRAY_TYPE_CODES[_component_type(sort)]
+
+
+def _default_map_axiom(graph, node):
+    """Whether an array th-lemma states the default value of a map (the array solver's default-map axiom).
+
+    The axiom is (= (default (map f a b)) (f (default a) (default b))).
+    Any literal equating the default value of a map or set operator with
+    another term counts, except the default value of a store over that map,
+    (= (default (store m i v)) (default m)), which is _default_store's.
+    """
+    for literal in graph.clause(graph.conclusion(node)):
+        atom = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
+        if graph.kind(atom) != z3.Z3_OP_EQ:
+            continue
+        sides = graph.arguments(atom)
+        for side, other in (sides, sides[::-1]):
+            if (graph.kind(side) == z3.Z3_OP_ARRAY_DEFAULT
+                    and (graph.kind(graph.arguments(side)[0]) == z3.Z3_OP_ARRAY_MAP
+                         or graph.kind(graph.arguments(side)[0]) in _SET_OPERATOR_NAMES)
+                    and not (graph.kind(other) == z3.Z3_OP_ARRAY_DEFAULT
+                             and graph.kind(graph.arguments(other)[0]) == z3.Z3_OP_STORE
+                             and graph.arguments(graph.arguments(other)[0])[0] == graph.arguments(side)[0])):
+                return True
+    return False
+
+
+def _generic_defaults(graph):
+    """Decide whether the default values are read at a generic index; return the nodes that mention a default value.
+
+    They are when an array th-lemma states the default value of a map
+    (_default_map_axiom), no assertion mentions a default value (the
+    theorem's hypotheses then do not mention the index, and every default
+    value is a term of the array solver), and no index stored at mentions
+    one (the index is chosen off the stored indices, which must be defined
+    before it). _Graph.generic then maps each index sort of _UNBOUNDED that
+    indexes an array of the certificate to the index nodes of the stores
+    over it, in order (_generic_index_definitions); it stays empty
+    otherwise, and _check_th_lemma rejects the axiom.
+
+    Every such index sort has an index, not only those a default term of
+    the certificate is taken over: a rewrite or cnf lemma that compares
+    arrays states the default value of each store and constant array it
+    reaches (_constant_array_comparisons), whether or not the solver took
+    one.
+    """
+    mentions = set()
+    for node in range(len(graph.nodes)):
+        if graph.kind(node) == z3.Z3_OP_ARRAY_DEFAULT or any(
+                argument in mentions for argument in graph.arguments(node)):
+            mentions.add(node)
+    if not mentions or not any(
+            graph.kind(node) == z3.Z3_OP_PR_TH_LEMMA and graph.decl(node).parameters[:1] == ("array",)
+            and _default_map_axiom(graph, node) for node in range(len(graph.nodes))):
+        return mentions
+    if any(assertion in mentions for assertion in graph.assertions):
+        return mentions
+    indices = {sort: set() for sort in _UNBOUNDED if any(_array_components(array)[0] == sort for array in graph.arrays)}
+    for node in range(len(graph.nodes)):
+        if graph.kind(node) == z3.Z3_OP_STORE and _array_components(graph.decl(node).range)[0] in indices:
+            if graph.arguments(node)[1] in mentions:
+                return mentions
+            indices[_array_components(graph.decl(node).range)[0]].add(graph.arguments(node)[1])
+    graph.generic.update((sort, tuple(sorted(nodes))) for sort, nodes in indices.items())
+    return mentions
+
+
+def _generic_index_definitions(graph, signature):
+    """Define the generic index of each index sort and prove it is none of the indices stored at (_Graph.generic).
+
+    _generic_i is an Int outside the list of the stored Int indices
+    (Classical.choose of _int_unbounded there), _generic_i_fresh its
+    specification, and _generic_i_ne_K the fact that it is not the index
+    node K, which _default_store takes (_default_store_fact). The index
+    terms are definitions written before these (they mention no default
+    value), the default values after.
+    """
+    lines = []
+    for sort, nodes in graph.generic.items():
+        name, lean_type = _generic_index(sort), _component_type(sort)
+        applied = "(%s _atoms%s)" % (name, graph.valuation)
+        stored = "([%s] : List %s)" % (", ".join(_term(graph, node) for node in nodes), lean_type)
+        lines.extend([
+            "noncomputable def %s %s : %s :=" % (name, signature, lean_type),
+            "  Classical.choose (%s %s)" % (_UNBOUNDED[sort], stored),
+            "private theorem %s_fresh %s : Not (List.Mem %s %s) :=" % (name, signature, applied, stored),
+            "  Classical.choose_spec (%s %s)" % (_UNBOUNDED[sort], stored),
+        ])
+        for position, node in enumerate(nodes):
+            lines.extend([
+                "private theorem %s_ne_%d %s : Not (%s = %s) :=" % (name, node, signature, applied, _term(graph, node)),
+                "  _fresh_ne _ _ (%s_fresh _atoms%s) _ (%sList.Mem.head _%s)" % (
+                    name, graph.valuation, "List.Mem.tail _ (" * position, ")" * position),
+            ])
+    return lines
+
+
+def _default_store_fact(graph, store, arguments):
+    """_default_store applied to the rendered arguments of a store node: (default (store a i v)) = (default a).
+
+    At a generic index (_Graph.generic) it takes the proof that the index
+    is not the stored one too.
+    """
+    fresh = ""
+    if graph.generic:
+        index = _array_components(graph.decl(store).range)[0]
+        fresh = " (%s_ne_%d _atoms%s)" % (_generic_index(index), graph.arguments(store)[1], graph.valuation)
+    return "_default_store %s %s%s" % (_unbounded(graph, store), arguments, fresh)
+
+
+def _default_map_fact(graph, name, array, inline):
+    """The default-map axiom of a map or set operator node at the generic index (_Graph.generic), as a fact.
+
+    Its default value is the function over the default values of its
+    arrays, by rfl like a read of the map (_map_read_facts).
+    """
+    default = "_default %s" % _unbounded(graph, array)
+    return "  have %s : %s %s = %s := rfl" % (name, default, inline(array), _map_application(
+        graph, array, ["(%s %s)" % (default, inline(argument)) for argument in graph.arguments(array)]))
 
 
 def _constant_array_definitions(graph):
@@ -939,7 +1099,7 @@ def _constant_array_definitions(graph):
     for index in _UNBOUNDED:  # Int before Real, a fixed order
         if index in indices:
             lines.extend([""] + _UNBOUNDED_THEOREMS[index])
-    return lines + [""] + _DEFAULT_DEFINITIONS
+    return lines + [""] + (_GENERIC_DEFAULT_DEFINITIONS if graph.generic else _DEFAULT_DEFINITIONS)
 
 
 def _array_family(name):
@@ -1160,6 +1320,10 @@ class _Graph:
     # out, in the order of the calls (reconstruct writes the steps' lemmas
     # in node order).
     pointwise_theorems: dict = field(default_factory=dict, compare=False, repr=False)
+    # When the default values are read at a generic index (_generic_defaults):
+    # each unbounded index sort of the certificate's arrays -> the index
+    # nodes of the stores over it, in order. Empty otherwise.
+    generic: dict = field(default_factory=dict, compare=False, repr=False)
 
     def constructor_index(self, name, sort):
         """The index of a constructor in _m.ctors: the enumerations by sort name, each in declaration order."""
@@ -2014,7 +2178,8 @@ def _read_cases(graph, node, child, variable_indices):
     (_cases_default_const), the default of the array a store writes into
     (_cases_default_store), or those of both branches of an ite. Any other
     array gives None (the default value of an array constant or
-    application, which no field covers), and the lemma is left to grind
+    application, which no field covers), and so does every default value
+    read at a generic index (_Graph.generic); the lemma is left to grind
     without the fact.
 
     The walk is on an explicit stack (a goal is ("value", node), ("read",
@@ -2086,8 +2251,8 @@ def _read_cases_proof(graph, goal, parts, sort, child, variable_indices):
         return None
     index_type = _array_types(graph.decl(node).range)[0]
     if goal[0] == "default":
-        if _array_components(graph.decl(node).range)[0] not in _UNBOUNDED:
-            return None  # No _default over this index sort (the exporter rejects it).
+        if graph.generic or _array_components(graph.decl(node).range)[0] not in _UNBOUNDED:
+            return None  # No _default over this index sort (the exporter rejects it), or no such theorem.
         if kind == z3.Z3_OP_CONST_ARRAY:
             return "(_cases_default_const %s %s %s %s)" % (cases, _unbounded(graph, node, explicit=True),
                                                            child(arguments[0]), parts[0])
@@ -3249,11 +3414,12 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
 
 
 def _map_read_values(graph, conclusion):
-    """The terms a clause's literals equate with a read of a map or set operator.
+    """The terms a clause's literals equate with a read or the default value of a map or set operator.
 
     In an array lemma these are the select-map axiom's application of the
     mapped function to the reads of the arguments ((select ((_ map ite) a
-    b c) i) and (ite (select a i) (select b i) (select c i))).
+    b c) i) and (ite (select a i) (select b i) (select c i))), and the
+    default-map axiom's to their default values.
     """
     values = set()
     for literal in graph.clause(conclusion):
@@ -3262,7 +3428,8 @@ def _map_read_values(graph, conclusion):
             continue
         sides = graph.arguments(atom)
         for read, value in ((sides[0], sides[1]), (sides[1], sides[0])):
-            if graph.kind(read) == z3.Z3_OP_SELECT and _set_function(graph, graph.arguments(read)[0]) is not None:
+            if (graph.kind(read) in (z3.Z3_OP_SELECT, z3.Z3_OP_ARRAY_DEFAULT)
+                    and _set_function(graph, graph.arguments(read)[0]) is not None):
                 values.add(value)
     return values
 
@@ -4070,8 +4237,11 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
                 node, _unbounded(graph, array, explicit=True), inline(graph.arguments(array)[0])))
         elif kind == z3.Z3_OP_ARRAY_DEFAULT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_STORE:
             array = graph.arguments(node)[0]
-            helpers.append("  have _d%d := _default_store %s %s" % (
-                node, _unbounded(graph, array), " ".join(inline(argument) for argument in graph.arguments(array))))
+            helpers.append("  have _d%d := %s" % (node, _default_store_fact(
+                graph, array, " ".join(inline(argument) for argument in graph.arguments(array)))))
+        elif (kind == z3.Z3_OP_ARRAY_DEFAULT and graph.generic
+              and _set_function(graph, graph.arguments(node)[0]) is not None):
+            helpers.append(_default_map_fact(graph, "_d%d" % node, graph.arguments(node)[0], inline))
         (reverted if current else plain).extend(helpers[first:])
         mentioned |= current
     return ([helper.strip() for helper in reverted], [helper.split()[1] for helper in reverted], mentioned,
@@ -4368,9 +4538,12 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     default values agree, and the values at each index stored into an array
     of its sort; each store and constant array the rewrite reaches has its
     default value and its value at those indices as facts (_default_store,
-    _default_const, _store_apply, _select_const). grind chains them. The
-    converse of an equality between store chains over constant arrays is
-    stated too (_constant_chain_extensionality). The read facts are
+    _default_const, _store_apply, _select_const), and at a generic index
+    (_Graph.generic) each map its default value too (_default_map_fact: an
+    equality the replay ties to an assertion may be false of the default
+    values alone, a set equal to a store into its complement). grind chains
+    them. The converse of an equality between store chains over constant
+    arrays is stated too (_constant_chain_extensionality). The read facts are
     quadratic (indices times arrays), so above _COMPARISON_READS of them
     only the reads the rewriter evaluates in such a comparison are stated
     (_chain_comparison_reads): each side's chain read at the indices stored
@@ -4428,7 +4601,7 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
             arguments = " ".join(inline(argument) for argument in graph.arguments(node))
-            helpers.append("  have _ds%d := _default_store %s %s" % (node, _unbounded(graph, node), arguments))
+            helpers.append("  have _ds%d := %s" % (node, _default_store_fact(graph, node, arguments)))
             helpers.extend("  have _ds%d_%d := _store_apply %s %s" % (node, index, arguments, inline(index))
                            for index in sorted(levels.get(node, ())))
         else:
@@ -4439,6 +4612,9 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
             helpers.extend("  have _dc%d_%d := _select_const (I := %s) %s %s" % (
                 node, index, index_type, value, inline(index))
                            for index in sorted(levels.get(node, ())))
+    if graph.generic:
+        helpers.extend(_default_map_fact(graph, "_dm%d" % node, node, inline) for node in sorted(reachable)
+                       if unbounded(node) and _set_function(graph, node) is not None)
     return helpers
 
 
@@ -8191,22 +8367,14 @@ def _check_th_lemma(graph, node):
                     or graph.decl(graph.arguments(atom)[0]).range not in components | set(graph.sorts)):
                 raise ReconstructionError("array th-lemma literals must be equalities over arrays and their sorts "
                                           "at node %d" % node)
-            sides = graph.arguments(atom)
-            for side, other in (sides, sides[::-1]):
-                # The default-map axiom, (= (default (map f a b)) (f (default
-                # a) (default b))): _default of an array that is not constant
-                # at all but finitely many indices is an arbitrary value, so
-                # no theorem states it (the exporter leaves the axiom out or
-                # rejects the refutation). The default value of a store over
-                # the map, (= (default (store m i v)) (default m)), is
-                # _default_store's.
-                if (graph.kind(side) == z3.Z3_OP_ARRAY_DEFAULT
-                        and (graph.kind(graph.arguments(side)[0]) == z3.Z3_OP_ARRAY_MAP
-                             or graph.kind(graph.arguments(side)[0]) in _SET_OPERATOR_NAMES)
-                        and not (graph.kind(other) == z3.Z3_OP_ARRAY_DEFAULT
-                                 and graph.kind(graph.arguments(other)[0]) == z3.Z3_OP_STORE
-                                 and graph.arguments(graph.arguments(other)[0])[0] == graph.arguments(side)[0])):
-                    raise ReconstructionError("the default value of a map is not certified at node %d" % node)
+        # The default-map axiom, (= (default (map f a b)) (f (default a)
+        # (default b))): _default of an array that is not constant at all
+        # but finitely many indices is an arbitrary value, so no theorem
+        # states it of the default values an input names (the exporter
+        # leaves the axiom out or rejects the refutation). It is a theorem
+        # of the default values read at a generic index (_generic_defaults).
+        if not graph.generic and _default_map_axiom(graph, node):
+            raise ReconstructionError("the default value of a map is not certified at node %d" % node)
         return
     if parameters[0] == "datatype":
         # The datatype solver's clauses over an enumeration: equalities
@@ -8896,6 +9064,7 @@ def reconstruct(source, certificate):
             family = ("_m.preds" if table == "predicates" else _NUMERIC_FUNCTIONS[range_name]
                       if table == "numeric_functions" else "_m.funs")
             graph.map_heads[declaration] = "%s %d" % (family, indices[table][tables[table][name]])
+    defaults = _generic_defaults(graph)
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     namespace = "Z3Proofs.NativeCertificate.p" + digest
     lines = ["import Init", "", "-- Original input SHA-256: " + digest]
@@ -8966,6 +9135,10 @@ def reconstruct(source, certificate):
                          ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.arrays),
                          ", ".join("%s -> %s (_m.%s)" % (_array_types(sort) + (_array_family(sort),))
                                    for sort in graph.arrays)))
+    if graph.generic:
+        lines.append("-- The array solver's default values (the input names none) are the arrays' values at one "
+                     "index that no store writes: %s." % ", ".join(
+                         "%s over %s" % (_generic_index(sort), sort) for sort in graph.generic))
     if tables["array_functions"]:
         families = sorted({_array_functions(graph.declarations[decl].range)
                            for decl in tables["array_functions"].values()})
@@ -8988,6 +9161,8 @@ def reconstruct(source, certificate):
         lines.extend(_constant_array_definitions(graph) + [""])
         if any(_enumeration_array(graph, sort) for sort in graph.arrays):
             lines.extend(_ENUMERATION_CONSTANT_DEFINITIONS + [""])
+            if not graph.generic:
+                lines.extend(_ENUMERATION_DEFAULT_DEFINITIONS + [""])
     if any(decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES for decl in graph.declarations):
         lines.extend(_SET_DEFINITIONS + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
@@ -8998,19 +9173,26 @@ def reconstruct(source, certificate):
         lines.extend(_BOOLEAN_DISTINCT_LEMMA + [""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
+    # With the default values read at a generic index, the definitions that
+    # mention one are written after the index, which is defined over the
+    # others (the index terms of the stores among them).
+    late = []
     for node in range(len(graph.nodes)):
+        definitions = late if graph.generic and node in defaults else lines
         if graph.is_term(node):
             if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS, z3.Z3_OP_STORE, z3.Z3_OP_ARRAY_EXT,
                                     z3.Z3_OP_ARRAY_DEFAULT) or any(
                     arg in classical for arg in graph.arguments(node)) or (
                     graph.kind(node) == z3.Z3_OP_ARRAY_MAP and graph.decl(node).parameters[0] == "ite"):
                 classical.add(node)
-            lines.append("%sdef term_%d %s : %s := %s" % (
+            definitions.append("%sdef term_%d %s : %s := %s" % (
                 "noncomputable " if node in classical else "", node, signature,
                 graph.lean_type(node), _term_body(graph, node, variable_indices)))
         elif graph.decl(node).range == "Bool":
-            lines.append("def formula_%d %s : Prop := %s" % (
+            definitions.append("def formula_%d %s : Prop := %s" % (
                 node, signature, _formula_body(graph, node, atom_indices)))
+    if graph.generic:
+        lines.extend(_generic_index_definitions(graph, signature) + late)
     rewrites, def_axioms, th_lemmas, decidable_atoms, decidable_formulas = {}, {}, {}, set(), set()
     for node in range(len(graph.nodes)):
         if graph.kind(node) == z3.Z3_OP_PR_TH_LEMMA:

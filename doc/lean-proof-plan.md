@@ -2473,6 +2473,79 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Default values read at a generic index: the default-map axiom (2026-11-11)
+
+The array solver's default-map axiom, `(= (default (map f a b)) (f (default
+a) (default b)))`, was the last rejection of the random set sweep: 64 of
+the 368 unsatisfiable `random_set_instance` seeds of 1-1000 (and 40 of the
+262 of 1001-1600) name no member, so Z3 refutes them by default values,
+e.g. `(= ((_ map =>) a b) full)` with `a` full and `b` empty. Lean's
+`_default` is the value an array takes at all but finitely many indices
+(any store-invariant value when there is none), and the axiom is not a
+theorem of it: the arguments of a map need not be constant almost
+everywhere.
+
+None of these inputs names a default value. The default values are then
+terms of the array solver alone, and the refutation uses three properties
+of them: that of a constant array is its value, that of a store is the
+array's, that of a map is the function of the arrays'. One function has all
+three over the terms of a certificate, whatever the element sort: the read
+at one index that no store of the certificate writes. So when
+
+- an `array` th-lemma of the certificate states the default value of a map
+  (`_default_map_axiom`),
+- no assertion mentions a default value, and
+- no index stored at mentions one,
+
+the reconstructor reads every default value at such an index
+(`_generic_defaults`, `_Graph.generic`):
+
+- `_generic_i` (`_generic_r` over Real indices) is a definition over the
+  interpretation, `Classical.choose (_int_unbounded [i1, ..., ik])` at the
+  list of the index terms of the certificate's stores over that index
+  sort; `_generic_i_fresh` is its specification and `_generic_i_ne_K :
+  Not (_generic_i ... = term_K ...)` the fact for one stored index
+  (`_generic_index_definitions`). The index terms are definitions written
+  before it, the definitions that mention a default value after it.
+- `_default g a` is `a g` (`_GENERIC_DEFAULT_DEFINITIONS`), with the
+  generic index where the unboundedness proof stood; `_default_const` is
+  `rfl`, `_default_store` takes the proof that the index is not the stored
+  one (`_default_store_fact`), and the axiom itself is a fact by `rfl`, like
+  a read of the map (`_default_map_fact`; over a map of `ite` the lemma
+  unfolds the ite of the default values, `_map_read_values`). Rewrites and
+  cnf lemmas that compare arrays get the facts of the maps they reach too:
+  the replay may tie a logged equality to an assertion that is false of
+  the default values alone (seed 67, a set equal to a store into its
+  complement).
+
+The theorem is unchanged: its hypotheses are the assertions, which do not
+mention the index (they are defined before it), and nothing is assumed of
+it (it is chosen, and Lean checks that it is off the stored indices:
+`test_the_generic_index_is_proved_off_the_stored_indices` chooses it off the
+empty list instead and expects the rejection). An input that names a
+default value keeps Lean's `_default`, and a refutation of it through the
+axiom is rejected as before, by the exporter (`_Replay._require_certified`,
+which now asks whether an assertion names one) and by the reconstructor
+(`_check_th_lemma`). A certificate that does not use the axiom is rendered
+as before. Default values of arrays of an enumeration get no case facts at
+a generic index (`_read_cases`).
+
+After: all 368 unsatisfiable seeds of 1-1000 verify in Lean (304 before);
+of the 262 of 1001-1600, 258 verify (218 before) and none is rejected. The
+other four fail in Lean as they did before (`grind` in a rewrite or cnf
+lemma, not through default values: 1083, 1088, 1398, 1486). Still
+rejected: the axiom next to a default value the input names. Tests
+(`test_proof_to_lean_array.py`): fifteen documented inputs
+(`GENERIC_DEFAULT_INPUTS`: Int and Real indices, both at once, a
+Real-indexed array that takes no default value next to sets over Int,
+stores under and over the map, maps of `+`, `<=`, `ite`, and an
+uninterpreted function, a row of nested arrays, a trimmed log, enumeration
+arrays next to the sets; Lean), the pinned seeds `GENERIC_DEFAULT_SEEDS`
+(Lean),
+`test_default_values_are_read_at_a_generic_index`,
+`test_default_values_of_maps_are_rejected` (now inputs that name a default
+value), and `test_the_generic_index_is_proved_off_the_stored_indices`.
+
 ### Sets compared member by member (2026-11-11)
 
 Z3's rewriter simplifies a map of connectives over sets as it simplifies
@@ -2551,12 +2624,13 @@ exported seeds of 1-1000 that is 221 auxiliary theorems instead of 477
 against 6.80 MB (the repeated attempts), and the same Lean time (131 s).
 
 After: all 304 exported seeds of 1-1000 verify in Lean (261 before; the
-other 64 unsatisfiable ones rest on the default-map axiom and stay
-rejected). Still open: an equality of sets decided false over an
-uninterpreted index sort when the interpretation has no `nonempty` field
-(`(= (union a (complement a)) (setminus b b))` over `(Array Index Bool)`);
-and a step that needs some of its pointwise facts while `grind` cannot
-afford all of them (none is known).
+other 64 unsatisfiable ones rest on the default-map axiom and stayed
+rejected until "Default values read at a generic index" above). Still
+open: an equality of sets decided false over an uninterpreted index sort
+when the interpretation has no `nonempty` field (`(= (union a (complement
+a)) (setminus b b))` over `(Array Index Bool)`); and a step that needs
+some of its pointwise facts while `grind` cannot afford all of them (none
+is known).
 Tests (`test_proof_to_lean_array.py`): ten documented inputs in
 `SET_COMBINATOR_INPUTS` and the pinned seeds `POINTWISE_SET_SEEDS` (Lean;
 each failed before), the sixteen nested maps of `xor` and of `ite`
@@ -2611,7 +2685,8 @@ two reasons that are not about the refutation:
 After: 114 of the 142 export and 97 verify in Lean (81 and 67 before; 30
 of the 33 new ones verify). Still open: the other 28 rest on the
 default-map axiom (no member is named, e.g. `(= ((_ map =>) a b) full)`
-with `a` full and `b` empty) and stay rejected; and 17 fail Lean in a
+with `a` full and `b` empty) and stay rejected (certified since "Default
+values read at a generic index" above); and 17 fail Lean in a
 rewrite where Z3's rewriter decides an equality of sets by map identities
 (`(setminus s1 s1)` is empty, `(not (not s))` is `s`, flattened and sorted
 `and`s), which had no theorem (14 of them exported before as well; they
@@ -2728,7 +2803,8 @@ the map they become); each is shown necessary by
 `_default` (a map's arguments need not be constant almost everywhere) and is
 rejected explicitly ("the default value of a map is not certified"; since
 2026-11-11 only when the refutation uses it, see "Set logs: operators as
-written, unused default-map axioms"); input
+written, unused default-map axioms", and only when the input names a
+default value, see "Default values read at a generic index"); input
 `default` terms are admitted over Int and Real indices. z3test `t8.smt2` and
 `issue-1665.smt2` queries 1 and 2 verify in Lean (query 0 takes default
 values over an uninterpreted index and stays rejected). Maps of other

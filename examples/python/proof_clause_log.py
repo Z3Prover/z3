@@ -704,6 +704,9 @@ def _default_map_axiom(literal):
     side counts, and so does that value as a literal of its own (a set's
     is a formula), except the default-value axiom of a store over that map,
     (= (default (store m i v)) (default m)), which holds of every array.
+    The reconstructor's test (proof_to_lean._default_map_axiom) reads the
+    equalities only: it rejects an array th-lemma with any other literal
+    (_check_th_lemma), so a bare default value never reaches it.
     """
     atom = _strip(literal)[0]
     if z3.is_default(atom):
@@ -715,6 +718,20 @@ def _default_map_axiom(literal):
         if z3.is_default(side) and _is_set_combinator(side.arg(0)):
             if not (z3.is_default(other) and z3.is_store(other.arg(0)) and other.arg(0).arg(0).eq(side.arg(0))):
                 return True
+    return False
+
+
+def _names_default(expr):
+    """Whether a default value (default a) occurs in expr (one traversal of the DAG, as _symbols)."""
+    seen, pending = set(), [expr]
+    while pending:
+        node = pending.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if z3.is_default(node):
+            return True
+        pending.extend(node.children())
     return False
 
 
@@ -1268,6 +1285,7 @@ class _Replay:
         self.logged_clauses = {}
         self.trimmed = False
         self.uncertified = {}    # proof node of an axiom nothing certifies -> why (_require_certified)
+        self.default_maps = set()  # those of them that state the default value of a map
         self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
         self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
         self.lemma = self.dag.rule(z3.Z3_OP_PR_LEMMA, "lemma", 1)
@@ -1631,7 +1649,7 @@ class _Replay:
             # only for arrays constant at all but finitely many indices,
             # which Lean's _default cannot assume of a map's arguments. The
             # array solver states the axiom for every map it meets, whether
-            # or not a conflict comes to rest on it, so the axiom is rejected
+            # or not a conflict comes to rest on it, so the axiom is judged
             # only once the refutation is known to use it (_require_certified).
             default_map = name == "array" and any(_default_map_axiom(literal) for _, literal in pairs)
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
@@ -1665,6 +1683,7 @@ class _Replay:
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
             if default_map:
                 self.uncertified[lemma] = "the default value of a map is not certified"
+                self.default_maps.add(lemma)
         if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
             return lemma, lemma_literals
         entry = self.add_clause(lemma, lemma_literals)
@@ -1775,16 +1794,25 @@ class _Replay:
         One logged on the way but left unused (an untrimmed log keeps every
         clause the solver derived) is left out of the certificate instead
         (see run).
+
+        The default-map axiom is certified when no assertion names a default
+        value: the default values are then the array solver's own terms, and
+        the reconstructor reads them all at one index that no store of the
+        certificate writes (proof_to_lean's _generic_defaults), where the
+        axiom holds of every map. An input that names one keeps Lean's
+        _default, of which the axiom is not a theorem.
         """
         if not self.uncertified:
             return
+        named = any(_names_default(assertion) for assertion in self.assertions)
         used, pending = set(), [self.root]
         while pending:
             node = pending.pop()
             if node not in used:
                 used.add(node)
                 pending.extend(self.dag.nodes[node]["arguments"])
-        rejected = used.intersection(self.uncertified)
+        rejected = {node for node in used.intersection(self.uncertified)
+                    if named or node not in self.default_maps}
         if rejected:
             raise ProofExportError(self.uncertified[min(rejected)])
 

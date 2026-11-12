@@ -15,6 +15,7 @@
 # toolchain.
 ############################################
 import copy
+import dataclasses
 from pathlib import Path
 import random
 import re
@@ -1439,6 +1440,145 @@ SET_COMBINATOR_INPUTS.update({
 (check-sat)
 """ % ((_nested_maps("(_ map (ite (Bool Bool Bool) Bool))", 16, "b", "c"),) * 3),
 })
+# Refuted through the default value of a map: no member is named, so the
+# array solver compares default values, and that of a map is its function
+# of the arrays' (the default-map axiom, (= (default (map f a b)) (f
+# (default a) (default b)))). That is not a theorem of Lean's _default (an
+# array need not be constant at all but finitely many indices), and each of
+# these was rejected ("the default value of a map is not certified"). None
+# names a default value, so the default values are the array solver's own
+# terms, and Lean reads them all at one index that no store of the
+# certificate writes (proof_to_lean._generic_defaults), where the axiom
+# holds of every map.
+_SETS = """(declare-fun a () (Array Int Bool))
+(declare-fun b () (Array Int Bool))
+"""
+_FULL, _EMPTY = "((as const (Array Int Bool)) true)", "((as const (Array Int Bool)) false)"
+GENERIC_DEFAULT_INPUTS = {
+    # The full set inside the empty one, as a full implication map
+    # (test_default_values_of_maps_are_rejected's input until iteration 122).
+    "implication_full_of_constants": _SETS + """(assert (= ((_ map =>) a b) %s))
+(assert (= a %s))
+(assert (= b %s))
+(check-sat)
+""" % (_FULL, _FULL, _EMPTY),
+    # The same behind four clauses that take no part: a log of 4 KB or more
+    # is trimmed, and the trimmer's core lists the axiom.
+    "implication_full_of_constants_trimmed": (
+        "".join("(declare-fun y%d () Int)\n" % k for k in range(4)) + "(declare-fun c () (Array Int Bool))\n" + _SETS
+        + "(assert (= ((_ map =>) a b) %s))\n(assert (= a %s))\n(assert (= b %s))\n" % (_FULL, _FULL, _EMPTY)
+        + "".join("(assert (or (select c y%d) (> y%d %d) (select a y%d)))\n" % (k, k, k, k) for k in range(4))
+        + "(check-sat)\n"),
+    "union_with_full_is_empty": _SETS + """(assert (= (union a b) %s))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # A store under the map: its default value is the array's, since the
+    # index read is not the stored one (_generic_i_ne_K).
+    "store_under_union_default": _SETS + """(declare-fun i () Int)
+(assert (= (union (store a i false) b) %s))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # Three stores, at two variables and a numeral: the index is none of them.
+    "stores_under_union_default": _SETS + """(declare-fun i () Int)
+(declare-fun j () Int)
+(assert (= (union (store (store (store a i false) j false) 3 false) b) %s))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # A store over the map.
+    "store_over_intersection_default": _SETS + """(declare-fun i () Int)
+(assert (= (store (intersection a b) i true) %s))
+(assert (= b %s))
+(check-sat)
+""" % (_FULL, _EMPTY),
+    # Over Real indices (_generic_r, off the stored indices by _rat_unbounded).
+    "real_stores_under_union_default": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(declare-fun x () Real)
+(assert (= (union (store (store a x false) 0.5 false) b) ((as const (Array Real Bool)) false)))
+(assert (= a ((as const (Array Real Bool)) true)))
+(check-sat)
+""",
+    # Both index sorts in one refutation, an index of each.
+    "defaults_over_two_index_sorts": """(declare-fun a () (Array Real Bool))
+(declare-fun b () (Array Real Bool))
+(declare-fun c () (Array Int Bool))
+(declare-fun d () (Array Int Bool))
+(declare-fun x () Real)
+(declare-fun i () Int)
+(assert (or (= (union (store a x false) b) ((as const (Array Real Bool)) false))
+            (= (union (store c i false) d) ((as const (Array Int Bool)) false))))
+(assert (= a ((as const (Array Real Bool)) true)))
+(assert (= c ((as const (Array Int Bool)) true)))
+(check-sat)
+""",
+    # A Real-indexed array next to sets over Int. The solver takes no
+    # default value over Real, but the rewrites that reach the store into r
+    # next to a constant array state that store's default value
+    # (_constant_array_comparisons), so Real has its index as well.
+    "real_array_next_to_set_defaults": _SETS + """(declare-fun r () (Array Real Int))
+(declare-fun x () Real)
+(declare-fun i () Int)
+(assert (or (> (select (store r x 1) x) 1) (= (union (store a i false) b) %s)))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # Maps of other functions, over Int elements: +, <=, ite (the axiom's ite
+    # of the default values is unfolded to meet the map's), and an
+    # uninterpreted function over a store.
+    "sum_map_default": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(assert (= ((_ map (+ (Int Int) Int)) a b) ((as const (Array Int Int)) 3)))
+(assert (= a ((as const (Array Int Int)) 1)))
+(assert (= b ((as const (Array Int Int)) 1)))
+(check-sat)
+""",
+    "comparison_map_default": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(assert (= ((_ map (<= (Int Int) Bool)) a b) ((as const (Array Int Bool)) true)))
+(assert (= a ((as const (Array Int Int)) 2)))
+(assert (= b ((as const (Array Int Int)) 1)))
+(check-sat)
+""",
+    "ite_map_default": """(declare-fun a () (Array Int Int))
+(declare-fun b () (Array Int Int))
+(declare-fun c () (Array Int Bool))
+(assert (= ((_ map (ite (Bool Int Int) Int)) c a b) ((as const (Array Int Int)) 3)))
+(assert (= a ((as const (Array Int Int)) 1)))
+(assert (= b ((as const (Array Int Int)) 2)))
+(check-sat)
+""",
+    "function_map_default": """(declare-fun f (Int) Int)
+(declare-fun a () (Array Int Int))
+(declare-fun i () Int)
+(assert (= ((_ map f) (store a i 1)) ((as const (Array Int Int)) 5)))
+(assert (= a ((as const (Array Int Int)) 7)))
+(assert (not (= (f 7) 5)))
+(check-sat)
+""",
+    # A row of nested arrays under the map.
+    "row_under_union_default": """(declare-fun a () (Array Int (Array Int Bool)))
+(declare-fun s () (Array Int Bool))
+(declare-fun i () Int)
+(assert (= (union (select a i) s) %s))
+(assert (= (select a i) %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+    # Next to arrays of an enumeration, whose default values get no case
+    # facts at a generic index (proof_to_lean._read_cases).
+    "enumeration_arrays_next_to_set_defaults": """(declare-datatypes ((Color 0)) ((red green blue)))
+(declare-fun e () (Array Int Color))
+""" + _SETS + """(declare-fun i () Int)
+(assert (or (= (store e i green) ((as const (Array Int Color)) blue))
+            (= (union (store a i false) b) %s)))
+(assert (= e ((as const (Array Int Color)) red)))
+(assert (= a %s))
+(check-sat)
+""" % (_EMPTY, _FULL),
+}
+SET_COMBINATOR_INPUTS.update(GENERIC_DEFAULT_INPUTS)
 # Maps of other functions ((_ map f) a ...): uninterpreted functions and
 # predicates of up to three arguments, the Boolean connective xor, = and
 # distinct, Int and Real +, -, and comparisons, and ite, over elements of
@@ -2145,7 +2285,10 @@ _SET_COMBINATOR_FRAGMENTS = {"setminus_disjoint": "qf_uf", "setminus_as_intersec
                              "union_commutes": "qf_uf", "real_intersection": "qf_uflra",
                              "set_operators_after_false_over_a_sort": "qf_uf",
                              "sets_equal_member_by_member_over_a_sort": "qf_uf",
-                             "sets_differ_at_every_member_over_real": "qf_uflra"}
+                             "sets_differ_at_every_member_over_real": "qf_uflra",
+                             "real_stores_under_union_default": "qf_uflra",
+                             "defaults_over_two_index_sorts": "qf_uflira",
+                             "real_array_next_to_set_defaults": "qf_uflira"}
 _FRAGMENTS.update((name, _SET_COMBINATOR_FRAGMENTS.get(name, "qf_uflia")) for name in SET_COMBINATOR_INPUTS)
 # Maps of other functions are over Int indices and elements (qf_uflia) except these.
 _MAP_FUNCTION_FRAGMENTS = {"map_over_sort": "qf_uf", "map_xor": "qf_uf", "map_distinct": "qf_uf",
@@ -2963,22 +3106,18 @@ class TestArrayValidation(unittest.TestCase):
             self.assertEqual(_declarations(self.certificates[name], z3.Z3_OP_ARRAY_DEFAULT), [])
 
     def test_default_values_of_maps_are_rejected(self):
-        """The default-map axiom holds only for arrays constant almost everywhere, which Lean cannot assume."""
+        """The default-map axiom is not a theorem of the default values an input names."""
         # No member is named, so the refutation compares default values:
-        # that of the map is (=> (default a) (default b)), false, by the axiom.
-        source = """(declare-fun a () (Array Int Bool))
-(declare-fun b () (Array Int Bool))
-(assert (= ((_ map =>) a b) ((as const (Array Int Bool)) true)))
-(assert (= a ((as const (Array Int Bool)) true)))
-(assert (= b ((as const (Array Int Bool)) false)))
-(check-sat)
-"""
+        # that of the map is (=> (default a) (default b)), false, by the
+        # axiom. The last assertion names a default value (and says nothing
+        # of it): the default values are then the input's, Lean's _default,
+        # which is that of an array constant at all but finitely many
+        # indices only, and the axiom holds of no other.
+        named = "(declare-fun d () (Array Int Bool))\n(assert (or (default d) (not (default d))))\n(check-sat)\n"
+        source = ARRAY_INPUTS["implication_full_of_constants"].replace("(check-sat)\n", named)
         # The same behind four clauses that take no part: a log of 4 KB or
         # more is trimmed, and the trimmer's core lists the axiom.
-        padded = ("".join("(declare-fun y%d () Int)\n" % k for k in range(4))
-                  + "(declare-fun c () (Array Int Bool))\n" + source.replace("(check-sat)\n", "")
-                  + "".join("(assert (or (select c y%d) (> y%d %d) (select a y%d)))\n" % (k, k, k, k)
-                            for k in range(4)) + "(check-sat)\n")
+        padded = ARRAY_INPUTS["implication_full_of_constants_trimmed"].replace("(check-sat)\n", named)
         check = proof_clause_log._Replay._require_certified
         for name, text, trimmed in (("untrimmed", source, False), ("trimmed", padded, True)):
             with self.subTest(name=name):
@@ -2999,6 +3138,119 @@ class TestArrayValidation(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
                                             "the default value of a map is not certified at node"):
                     proof_to_lean.reconstruct(text, certificate)
+        # A default value named in a term of the input, not a formula.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                    "^the default value of a map is not certified$"):
+            _export(ARRAY_INPUTS["sum_map_default"].replace(
+                "(check-sat)\n", "(declare-fun n () Int)\n(assert (> (+ n (default a)) n))\n(check-sat)\n"))
+
+    def test_default_values_are_read_at_a_generic_index(self):
+        """A refutation through the default-map axiom reads the solver's default values at an index no store writes."""
+        def text_of(name):
+            return proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+
+        definition = re.compile(r"(?:noncomputable )?def ((?:term|formula)_\d+) ")
+        for name in GENERIC_DEFAULT_INPUTS:
+            with self.subTest(name=name):
+                text = text_of(name)
+                lines = text.split("\n")
+                self.assertIn("def _default {I E : Type} (g : I) (a : I -> E) : E := a g", lines)
+                # Lean's own _default (the value at all but finitely many
+                # indices) is not defined next to it.
+                self.assertNotIn("_default_spec", text)
+                self.assertNotIn("_cases_default_", text)
+                for word in ("sorry", "axiom "):
+                    self.assertNotIn(word, text)
+                # The index is a definition over the definitions before it,
+                # and those that mention it or a default value come after.
+                chosen = [position for position, line in enumerate(lines)
+                          if line.startswith("noncomputable def _generic_")]
+                self.assertTrue(chosen)
+                defined = {match.group(1): position for position, line in enumerate(lines)
+                           for match in [definition.match(line)] if match}
+                late = [position for position in defined.values()
+                        if "_generic_" in lines[position] or "_default " in lines[position]]
+                self.assertTrue(late)
+                self.assertGreater(min(late), max(chosen))
+                self.assertFalse([line for line in lines[:min(chosen)] if "_generic_" in line and line[:2] != "--"])
+                # The theorem's hypotheses are the assertions, each defined
+                # before the index: none depends on it.
+                theorem = lines.index(next(line for line in lines if line.startswith("theorem unsat ")))
+                hypotheses = re.findall(r"^    \(_h\d+ : \((formula_\d+) ", "\n".join(lines[theorem:]), re.M)
+                self.assertEqual(len(hypotheses), len(self.certificates[name]["assertions"]))
+                for hypothesis in hypotheses:
+                    self.assertLess(defined[hypothesis], min(chosen))
+                # The axiom is a fact by rfl, like a read of the map.
+                self.assertRegex(text, r"have _d\d+ : _default \(_generic_[ir] _atoms _vars(?: _ivars)? _m\) "
+                                       r"\(\(term_\d+ [^)]*\)\) = .* := rfl")
+        union = text_of("store_under_union_default")
+        self.assertIn("-- The array solver's default values (the input names none) are the arrays' values at one "
+                      "index that no store writes: _generic_i over Int.", union)
+        # The index is chosen off the one stored index, and the default
+        # value of the store takes the proof that it is not that one.
+        stored = re.search(r"noncomputable def _generic_i .* : Int :=\n"
+                           r"  Classical.choose \(_int_unbounded \(\[\(term_(\d+) _atoms _vars _m\)\] : List Int\)\)",
+                           union)
+        self.assertIsNotNone(stored, union)
+        index = stored.group(1)
+        self.assertIn("private theorem _generic_i_ne_%s " % index, union)
+        self.assertRegex(union, r"have _d\d+ := _default_store \(_generic_i _atoms _vars _m\) .* "
+                                r"\(_generic_i_ne_%s _atoms _vars _m\)\n" % index)
+        self.assertRegex(union, r"have _d\d+ : _default \(_generic_i _atoms _vars _m\) \(\(term_\d+ _atoms _vars _m\)\)"
+                                r" = \(Or \(_default \(_generic_i _atoms _vars _m\) ")
+        # Three stored indices: the third is a member of the list by two tails.
+        three = text_of("stores_under_union_default")
+        self.assertEqual(len(re.findall(r"private theorem _generic_i_ne_\d+ ", three)), 3)
+        self.assertIn("(List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)))", three)
+        # No store: the list is empty.
+        self.assertIn("Classical.choose (_int_unbounded ([] : List Int))", text_of("union_with_full_is_empty"))
+        real = text_of("real_stores_under_union_default")
+        self.assertIn("noncomputable def _generic_r ", real)
+        self.assertIn("Classical.choose (_rat_unbounded ([", real)
+        self.assertNotIn("_generic_i", real)
+        both = text_of("defaults_over_two_index_sorts")
+        self.assertIn("_generic_i over Int, _generic_r over Real.", both)
+        # An index sort that no default term is taken over has its index
+        # too: a rewrite that compares arrays states the default value of a
+        # store over it.
+        name = "real_array_next_to_set_defaults"
+        self.assertEqual({declaration["domain"][0] for declaration in _declarations(
+            self.certificates[name], z3.Z3_OP_ARRAY_DEFAULT)}, {"(Array Int Bool)"})
+        self.assertRegex(text_of(name), r"have _ds\d+ := _default_store \(_generic_r _atoms _vars _ivars _m\) .* "
+                                        r"\(_generic_r_ne_\d+ _atoms _vars _ivars _m\)\n")
+        self.assertRegex(text_of("sum_map_default"),
+                         r" = \(\(_default \(_generic_i _atoms _vars _m\) \(\(term_\d+ _atoms _vars _m\)\)\) \+ ")
+        # A refutation that does not use the axiom keeps Lean's _default,
+        # whether the log states the axiom (the first) or not.
+        for name in ("default_of_store_over_map", "full_is_not_empty", "z3test_2549"):
+            with self.subTest(name=name):
+                text = text_of(name)
+                self.assertNotIn("_generic_", text)
+                self.assertIn("private theorem _default_spec ", text)
+        # The conditions, on the graph: the axiom in the proof, no default
+        # value in an assertion, none in an index stored at.
+        name = "function_map_default"
+        graph = proof_to_lean._validate_graph(ARRAY_INPUTS[name], self.certificates[name])
+        mentions = proof_to_lean._generic_defaults(graph)
+        stores = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_STORE]
+        defaults = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ARRAY_DEFAULT]
+        self.assertTrue(stores and defaults)
+        self.assertEqual(graph.generic, {"Int": tuple(sorted({graph.arguments(node)[1] for node in stores}))})
+        self.assertLessEqual(set(defaults), mentions)
+        self.assertFalse(mentions.intersection(graph.assertions))
+        formula = next(node for node in sorted(mentions) if graph.decl(node).range == "Bool")
+        named = dataclasses.replace(graph, assertions=graph.assertions + (formula,), generic={})
+        proof_to_lean._generic_defaults(named)
+        self.assertEqual(named.generic, {})
+        nodes = list(graph.nodes)
+        nodes[stores[0]] = dataclasses.replace(nodes[stores[0]], arguments=(
+            graph.arguments(stores[0])[0], defaults[0], graph.arguments(stores[0])[2]))
+        stored = dataclasses.replace(graph, nodes=tuple(nodes), generic={})
+        proof_to_lean._generic_defaults(stored)
+        self.assertEqual(stored.generic, {})
+        plain = proof_to_lean._validate_graph(ARRAY_INPUTS["z3test_2549"], self.certificates["z3test_2549"])
+        self.assertTrue(proof_to_lean._generic_defaults(plain))
+        self.assertEqual(plain.generic, {})
 
     def test_unused_default_values_of_maps_are_left_out(self):
         """The array solver states the default-map axiom for every map; only a refutation using it is rejected."""
@@ -4105,6 +4357,16 @@ SET_SEEDS = (43, 80, 156, 266)
 # seeds of 1-1000 that export (the other 64 rest on the default-map axiom
 # and stay rejected), 261 verified before and all verify after.
 POINTWISE_SET_SEEDS = (64, 83, 94, 957)
+# Pinned unsatisfiable seeds of random_set_instance that the exporter
+# rejected on iteration 122's macOS build ("the default value of a map is
+# not certified") before the default values were read at a generic index
+# (proof_to_lean._generic_defaults). 67: a rewrite ties a logged equality to
+# an assertion that is false of the default values alone (a set equal to a
+# store into its complement), which takes the default-map facts of
+# _constant_array_comparisons. 289: three stored indices. 657: the largest
+# of seeds 1-1000. 1035: a fresh seed. The 64 such seeds of 1-1000 and the
+# 40 of 1001-1600 all verify.
+GENERIC_DEFAULT_SEEDS = (67, 289, 657, 1035)
 
 
 def array_chain_instance(depth=6, use="value"):
@@ -4270,7 +4532,7 @@ class TestArrayLeanIntegration(unittest.TestCase):
 
     def test_pinned_random_set_instances_verify(self):
         sources = []
-        for seed in SET_SEEDS + POINTWISE_SET_SEEDS:
+        for seed in SET_SEEDS + POINTWISE_SET_SEEDS + GENERIC_DEFAULT_SEEDS:
             source = random_set_instance(seed)
             self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
             sources.append((seed, source, _export(source)))
@@ -4278,8 +4540,38 @@ class TestArrayLeanIntegration(unittest.TestCase):
         for seed, source, certificate in sources:
             with self.subTest(seed=seed):
                 self.assertEqual(certificate["fragment"], "qf_uflia")
-                _, report = lean_test_support.check(self, source, certificate)
+                text, report = lean_test_support.check(self, source, certificate)
                 self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
+                # The route of the other seeds (member reads or default
+                # values) is Z3's choice and is not pinned: either verifies.
+                if seed in GENERIC_DEFAULT_SEEDS:
+                    self.assertIn("_generic_i", text)
+
+    def test_the_generic_index_is_proved_off_the_stored_indices(self):
+        """Lean checks that the index the default values are read at is none of the stored ones.
+
+        The index of store_under_union_default is chosen off the list of
+        the one stored index. Chosen off the empty list instead (any index),
+        the proof that it is not the stored one no longer checks, and Lean
+        rejects the file there: the default value of a store is not taken
+        on trust.
+        """
+        source = ARRAY_INPUTS["store_under_union_default"]
+        text = proof_to_lean.reconstruct(source, _export(source))
+        chosen = re.compile(r"\(\[\(term_\d+ _atoms _vars _m\)\] : List Int\)")
+        self.assertEqual(len(chosen.findall(text)), 3)  # the definition, its specification's statement and proof
+        lean_test_support.check(self, source, text=text)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "any.lean"
+            output.write_text(chosen.sub("([] : List Int)", text))
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)], text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        lines = text.split("\n")
+        proof = next(position for position, line in enumerate(lines)
+                     if line.startswith("private theorem _generic_i_ne_")) + 2  # one-based, the proof's line
+        errors = [line for line in (result.stdout + result.stderr).split("\n") if "error:" in line]
+        self.assertTrue(errors, result.stdout)
+        self.assertTrue(all(":%d:" % proof in error for error in errors), errors)
 
     def test_nested_ite_chains_through_arrays_verify(self):
         """Chains of eight modular steps stored into an array, as its index, and over Real verify folded.
