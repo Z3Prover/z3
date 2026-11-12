@@ -49,6 +49,7 @@ void generic_model_converter::apply(model_ref & md, bool completion) {
     
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(completion);
+    ev.set_symbolic(!completion);
     ev.set_expand_array_equalities(false);    
     expr_ref val(m);
     unsigned arity;
@@ -97,6 +98,7 @@ void generic_model_converter::apply(model_ref & md, bool completion) {
             if (reset_ev || !completion) {
                 ev.reset();
                 ev.set_model_completion(completion);
+                ev.set_symbolic(!completion);
                 ev.set_expand_array_equalities(false);
             }
             break;

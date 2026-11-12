@@ -34,6 +34,56 @@ static void test_goal_partial_model() {
     Z3_ast value = nullptr;
     ENSURE(Z3_model_eval(ctx, empty, c, false, &value));
     ENSURE(Z3_is_eq_ast(ctx, value, c));
+
+    Z3_sort reals = Z3_mk_real_sort(ctx);
+    Z3_ast div = Z3_mk_div(ctx, Z3_mk_int(ctx, 1, reals), Z3_mk_int(ctx, 0, reals));
+    Z3_ast div_eq = Z3_mk_eq(ctx, div, Z3_mk_int(ctx, 5, reals));
+    ENSURE(Z3_model_eval(ctx, empty, div_eq, false, &value));
+    Z3_solver symbolic = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, symbolic);
+    Z3_solver_assert(ctx, symbolic, Z3_mk_xor(ctx, div_eq, value));
+    ENSURE(Z3_solver_check(ctx, symbolic) == Z3_L_FALSE);
+    Z3_solver_dec_ref(ctx, symbolic);
+    Z3_model copied = Z3_goal_convert_model(ctx, g, empty);
+    Z3_model_inc_ref(ctx, copied);
+    ENSURE(Z3_model_eval(ctx, copied, div_eq, false, &value));
+    symbolic = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, symbolic);
+    Z3_solver_assert(ctx, symbolic, Z3_mk_xor(ctx, div_eq, value));
+    ENSURE(Z3_solver_check(ctx, symbolic) == Z3_L_FALSE);
+    Z3_solver_dec_ref(ctx, symbolic);
+    Z3_model_dec_ref(ctx, copied);
+
+    Z3_sort bools = Z3_mk_bool_sort(ctx);
+    Z3_ast x = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "x"), bools);
+    Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), bools);
+    Z3_ast zero = Z3_mk_int(ctx, 0, ints), one = Z3_mk_int(ctx, 1, ints);
+    Z3_ast arr = Z3_mk_const_array(ctx, bools, zero);
+    arr = Z3_mk_store(ctx, arr, x, one);
+    arr = Z3_mk_store(ctx, arr, y, one);
+    Z3_ast arr_eq = Z3_mk_eq(ctx, arr, Z3_mk_const_array(ctx, bools, one));
+    ENSURE(Z3_model_eval(ctx, empty, arr_eq, false, &value));
+    symbolic = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, symbolic);
+    Z3_solver_assert(ctx, symbolic, Z3_mk_xor(ctx, arr_eq, value));
+    ENSURE(Z3_solver_check(ctx, symbolic) == Z3_L_FALSE);
+    Z3_solver_dec_ref(ctx, symbolic);
+
+    Z3_config target_cfg = Z3_mk_config();
+    Z3_context target = Z3_mk_context(target_cfg);
+    Z3_del_config(target_cfg);
+    Z3_model translated_model = Z3_model_translate(ctx, empty, target);
+    Z3_model_inc_ref(target, translated_model);
+    Z3_ast target_div_eq = Z3_translate(ctx, div_eq, target);
+    Z3_ast target_value;
+    ENSURE(Z3_model_eval(target, translated_model, target_div_eq, false, &target_value));
+    symbolic = Z3_mk_solver(target);
+    Z3_solver_inc_ref(target, symbolic);
+    Z3_solver_assert(target, symbolic, Z3_mk_xor(target, target_div_eq, target_value));
+    ENSURE(Z3_solver_check(target, symbolic) == Z3_L_FALSE);
+    Z3_solver_dec_ref(target, symbolic);
+    Z3_model_dec_ref(target, translated_model);
+    Z3_del_context(target);
     Z3_model_dec_ref(ctx, empty);
 
     Z3_ast cases[4];
@@ -55,6 +105,7 @@ static void test_goal_partial_model() {
     bool seen[4][4] = {};
     for (unsigned i = 0; i < 4; ++i) {
         Z3_goal sub = Z3_apply_result_get_subgoal(ctx, r, i);
+        Z3_goal_inc_ref(ctx, sub);
         Z3_model partial = Z3_goal_get_model(ctx, sub);
         ENSURE(partial);
         Z3_model_inc_ref(ctx, partial);
@@ -91,6 +142,7 @@ static void test_goal_partial_model() {
         ENSURE(count == 4);
         Z3_solver_dec_ref(ctx, s);
         Z3_model_dec_ref(ctx, partial);
+        Z3_goal_dec_ref(ctx, sub);
     }
     for (auto const& row : seen)
         for (bool found : row)
@@ -103,14 +155,15 @@ static void test_goal_partial_model() {
 
     Z3_goal dependent = Z3_mk_goal(ctx, true, false, false);
     Z3_goal_inc_ref(ctx, dependent);
-    Z3_ast sum[] = { c, Z3_mk_int(ctx, 1, ints) };
-    Z3_goal_assert(ctx, dependent, Z3_mk_eq(ctx, a, Z3_mk_add(ctx, 2, sum)));
+    Z3_ast product[] = { c, Z3_mk_int(ctx, 2, ints) };
+    Z3_goal_assert(ctx, dependent, Z3_mk_eq(ctx, a, Z3_mk_mul(ctx, 2, product)));
     Z3_goal_assert(ctx, dependent, Z3_mk_ge(ctx, c, Z3_mk_int(ctx, 0, ints)));
     Z3_tactic eqs = Z3_mk_tactic(ctx, "solve-eqs");
     Z3_tactic_inc_ref(ctx, eqs);
     Z3_apply_result dep_result = Z3_tactic_apply(ctx, eqs, dependent);
     Z3_apply_result_inc_ref(ctx, dep_result);
     Z3_goal dep_sub = Z3_apply_result_get_subgoal(ctx, dep_result, 0);
+    Z3_goal_inc_ref(ctx, dep_sub);
     Z3_model dep_model = Z3_goal_get_model(ctx, dep_sub);
     ENSURE(dep_model);
     Z3_model_inc_ref(ctx, dep_model);
@@ -118,7 +171,7 @@ static void test_goal_partial_model() {
     ENSURE(Z3_model_eval(ctx, dep_model, a, false, &translated));
     Z3_solver check = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, check);
-    Z3_solver_assert(ctx, check, Z3_mk_not(ctx, Z3_mk_eq(ctx, translated, Z3_mk_add(ctx, 2, sum))));
+    Z3_solver_assert(ctx, check, Z3_mk_not(ctx, Z3_mk_eq(ctx, translated, Z3_mk_mul(ctx, 2, product))));
     ENSURE(Z3_solver_check(ctx, check) == Z3_L_FALSE);
     Z3_solver_dec_ref(ctx, check);
     check = Z3_mk_solver(ctx);
@@ -131,11 +184,12 @@ static void test_goal_partial_model() {
     Z3_model_inc_ref(ctx, converted);
     ENSURE(Z3_model_eval(ctx, converted, a, false, &translated));
     int result;
-    ENSURE(Z3_get_numeral_int(ctx, translated, &result) && result == 8);
+    ENSURE(Z3_get_numeral_int(ctx, translated, &result) && result == 14);
     Z3_model_dec_ref(ctx, converted);
     Z3_model_dec_ref(ctx, source);
     Z3_solver_dec_ref(ctx, check);
     Z3_model_dec_ref(ctx, dep_model);
+    Z3_goal_dec_ref(ctx, dep_sub);
     Z3_apply_result_dec_ref(ctx, dep_result);
     Z3_tactic_dec_ref(ctx, eqs);
     Z3_goal_dec_ref(ctx, dependent);
@@ -150,8 +204,10 @@ static void test_goal_partial_model() {
     Z3_apply_result bv_result = Z3_tactic_apply(ctx, blast, bv_goal);
     Z3_apply_result_inc_ref(ctx, bv_result);
     Z3_goal bv_sub = Z3_apply_result_get_subgoal(ctx, bv_result, 0);
+    Z3_goal_inc_ref(ctx, bv_sub);
     ENSURE(!Z3_goal_get_model(ctx, bv_sub));
     ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+    Z3_goal_dec_ref(ctx, bv_sub);
     Z3_apply_result_dec_ref(ctx, bv_result);
     Z3_tactic_dec_ref(ctx, blast);
     Z3_goal_dec_ref(ctx, bv_goal);

@@ -156,8 +156,10 @@ extern "C" {
         model_ref new_m;
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         mk_c(c)->save_object(m_ref);
-        if (m)
+        if (m) {
             m_ref->m_model = to_model_ref(m)->copy();
+            m_ref->m_symbolic = to_model(m)->m_symbolic;
+        }
         else
             m_ref->m_model = alloc(model, mk_c(c)->m());
         if (to_goal_ref(g)->mc()) 
@@ -181,6 +183,7 @@ extern "C" {
         }
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c));
         m_ref->m_model = m;
+        m_ref->m_symbolic = true;
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));
         Z3_CATCH_RETURN(nullptr);

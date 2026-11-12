@@ -40,6 +40,7 @@ public:
     void set_model_completion(bool f);
     bool get_model_completion() const; 
     void set_expand_array_equalities(bool f);
+    void set_symbolic(bool f);
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
@@ -68,4 +69,3 @@ public:
 
     unsigned get_num_steps() const;
 };
-
