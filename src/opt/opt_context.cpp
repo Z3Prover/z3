@@ -2338,7 +2338,8 @@ namespace opt {
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
         case O_MAXSMT: 
-            return objective_value(m, inf_eps(m_maxsmts.find(obj.m_id)->get_lower()));
+            return objective_value(m, inf_eps(obj.m_adjust_value.get_negate() ?
+                m_maxsmts.find(obj.m_id)->get_upper() : m_maxsmts.find(obj.m_id)->get_lower()));
         case O_MINIMIZE:
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         case O_MAXIMIZE: 
@@ -2355,7 +2356,8 @@ namespace opt {
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
         case O_MAXSMT: 
-            return objective_value(m, inf_eps(m_maxsmts.find(obj.m_id)->get_upper()));
+            return objective_value(m, inf_eps(obj.m_adjust_value.get_negate() ?
+                m_maxsmts.find(obj.m_id)->get_lower() : m_maxsmts.find(obj.m_id)->get_upper()));
         case O_MINIMIZE:
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         case O_MAXIMIZE: 

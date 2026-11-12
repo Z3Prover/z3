@@ -1861,6 +1861,32 @@ static void tst_infinity_and_epsilon() {
 // x >= y the limit of y is 10 and the next objective z <= y - 3 gives 7.
 // A limit that is itself infinite keeps a sound interval and the sat status.
 static void tst_lex_after_unbounded() {
+    for (bool is_real : {false, true}) {
+        for (bool maximize : {false, true}) {
+            opt_fixture f;
+            Z3_sort sort = is_real ? Z3_mk_real_sort(f.ctx) : Z3_mk_int_sort(f.ctx);
+            Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), sort);
+            Z3_ast b = is_real && maximize ?
+                Z3_mk_not(f.ctx, Z3_mk_eq(f.ctx, x, f.num(5))) :
+                Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+            Z3_ast hi = Z3_mk_int(f.ctx, is_real ? 3 : 2, sort);
+            Z3_ast lo = Z3_mk_int(f.ctx, is_real ? 1 : 0, sort);
+            unsigned first = is_real ? f.objective(Z3_mk_unary_minus(f.ctx, x)) : f.objective(x, false);
+            unsigned h = f.objective(Z3_mk_ite(f.ctx, b, hi, lo), maximize);
+            ENSURE(f.check() == Z3_L_TRUE);
+            ensure_symbolic_bounds(f, first, is_real ? 1 : -1, 0, 0);
+            Z3_ast lower = scalar_bound(f, h, true);
+            Z3_ast upper = scalar_bound(f, h, false);
+            ENSURE(Z3_algebraic_le(f.ctx, lower, upper));
+            // The interval must contain the limiting optimum, even when this
+            // converted MaxSMT objective is not optimized after the unbounded one.
+            Z3_ast expected = maximize ? hi : lo;
+            ENSURE(Z3_algebraic_le(f.ctx, lower, expected));
+            ENSURE(Z3_algebraic_le(f.ctx, expected, upper));
+            ensure_vector(f, h, true, 0, lower, 0, Z3_INT_SORT);
+            ensure_vector(f, h, false, 0, upper, 0, Z3_INT_SORT);
+        }
+    }
     for (bool minimize_first : {false, true}) {
         opt_fixture f;
         Z3_ast x = f.real("x"), y = f.real("y"), z = f.real("z");
