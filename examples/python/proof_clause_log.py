@@ -42,6 +42,12 @@ _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _SAME_SORT_HEADS = ("+", "-", "*", "/", "abs")
 _INT_ARGUMENT_HEADS = ("div", "mod", "rem", "to_real")
 _REAL_ARGUMENT_HEADS = ("to_int", "is_int")
+# Z3's own functions for a division by zero (of /, of div, and of mod and
+# rem), and the operators whose application to a zero numeral is one (see
+# _Terms.divides_by_zero).
+_DIVISION_BY_ZERO_HEADS = ("/0", "div0", "mod0")
+_DIVISION_HEADS = ("/", "div", "mod", "rem")
+_ZERO = re.compile(r"^0+(\.0+)?$")
 # Z3's set operators by the name the log prints: z3py's constructor and the
 # number of sets it takes (proof_certificate.SET_OPERATORS).
 _SET_HEADS = {name: (constructor, arity) for (name, arity), constructor in (
@@ -283,6 +289,11 @@ def _symbol(token):
     return token
 
 
+def _text(sexpr):
+    """A parsed log term as the log writes it, for error messages."""
+    return sexpr if isinstance(sexpr, str) else "(%s)" % " ".join(_text(part) for part in sexpr)
+
+
 def _number(sexpr):
     if isinstance(sexpr, str):
         if not _NUMERAL.match(sexpr):
@@ -344,6 +355,8 @@ class _Terms:
         # numeral read with the wrong sort is coerced by z3py into a to_real
         # term or fails to build, which no input atom matches.
         self.integer = self.real = False
+        # Names of the definitions that divide by zero (divides_by_zero).
+        self.zero_divisions = set()
         pending, seen = list(assertions), set()
         while pending:
             expr = pending.pop()
@@ -404,6 +417,10 @@ class _Terms:
         if isinstance(sexpr, str):
             if sexpr in self.defined:
                 return self.defined[sexpr]
+            if sexpr in self.zero_divisions:
+                # Not reached from _Replay.run, which leaves out or rejects a
+                # clause over such a definition before it builds a literal.
+                raise ProofExportError("the clause log uses a term over a division by zero: %s" % sexpr)
             if sexpr == "true":
                 return z3.BoolVal(True, self.context)
             if sexpr == "false":
@@ -608,9 +625,70 @@ class _Terms:
             return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
         raise ProofExportError("unsupported operator in the clause log: %s" % head)
 
+    def divides_by_zero(self, sexpr):
+        """Whether a log term, literal, or hint mentions a division by zero.
+
+        That is an application of one of Z3's functions for a division by
+        zero (/0, div0, mod0), a /, div, mod, or rem by a zero numeral, or a
+        definition or hint over one. No assertion has such a term (the
+        fragment check rejects a zero divisor and Z3's functions; a function
+        the input declares under one of their names, with another signature,
+        is not meant: _applies_input_function), so it is the arithmetic
+        solver's own: for a div, mod, or rem whose divisor is not a numeral
+        when the solver meets it, it states (= (div t d) (div0 t d)),
+        (= (mod t 0) (mod0 t 0)), and the rem axioms of (rem t 0). A divisor
+        the input writes as a constant expression, (- 3) or (+ 1 2), is not
+        a numeral in the assertions Z3 logs unsimplified, those after an
+        assertion that folds to false.
+        """
+        pending, hints = [sexpr], set()
+        while pending:
+            part = pending.pop()
+            if isinstance(part, str):
+                if part in self.zero_divisions:
+                    return True
+                if part in self.hints and part not in hints:
+                    hints.add(part)
+                    pending.append(self.hints[part])
+            elif part:
+                head = part[0]
+                if isinstance(head, str) and len(part) == 3:
+                    if head in _DIVISION_HEADS and isinstance(part[2], str) and _ZERO.match(part[2]):
+                        return True
+                    if head in _DIVISION_BY_ZERO_HEADS and not self._applies_input_function(part):
+                        return True
+                pending.extend(part)
+        return False
+
+    def _applies_input_function(self, sexpr):
+        """Whether (f s t), f named like one of Z3's functions for a division by zero, applies a function of the input.
+
+        The input can declare a binary function under such a name over other
+        argument sorts, (declare-fun div0 (U U) U) or (Int U) Int (Z3 rejects
+        the declaration over two arithmetic sorts, those of its own), and the
+        log prints both by the bare name: the sorts of the arguments tell
+        them apart. Arguments that do not build decide nothing: the walk of
+        divides_by_zero goes on into them, and building the term then
+        reports what is wrong with it.
+        """
+        function = self.functions.get(sexpr[0])
+        if function is None or function.arity() != 2:
+            return False
+        try:
+            arguments = [self.build(argument) for argument in sexpr[1:]]
+        except ProofExportError:
+            return True
+        return all(argument.sort().eq(function.domain(index)) for index, argument in enumerate(arguments))
+
     def define(self, name, sort, sexpr):
-        if name in self.defined or name in self.hints:
+        if name in self.defined or name in self.hints or name in self.zero_divisions:
             raise ProofExportError("duplicate definition in the clause log: %s" % name)
+        if sort != "Proof" and self.divides_by_zero(sexpr):
+            # Not built: the certificate has no term for a division by zero.
+            # The replay leaves out the solver's clauses over the name and
+            # rejects an assumed one (_Replay.run); build rejects the name.
+            self.zero_divisions.add(name)
+            return
         # Definitions stay referenced for the whole replay, so their identifiers are stable.
         if sort == "Proof":
             self.hints[name] = sexpr
@@ -1886,7 +1964,22 @@ class _Replay:
                     and isinstance(part[1], str) and _symbol(part[1]) in phantoms
                     for part in command[1:]):
                 continue  # a clause over a phantom literal is never tied to an assertion
+            elif head in ("infer", "del") and any(terms.divides_by_zero(part) for part in command[1:]):
+                # A clause the arithmetic solver states about a division by
+                # zero (_Terms.divides_by_zero): the certificate has no term
+                # for one, and the clause is left out. Like a clause over a
+                # phantom literal, that only removes support for later
+                # steps: an inference that needs it is not derivable by unit
+                # propagation and rejects the log (in a trimmed log, a
+                # clause that depends on it does, as a forward dependency).
+                continue
             elif head == "assume":
+                for part in command[1:]:
+                    if terms.divides_by_zero(part):
+                        # No assertion has such a term, so no assertion
+                        # gives the clause.
+                        raise ProofExportError("the clause log assumes a clause over a division by zero: %s"
+                                               % _text(part))
                 literals = [terms.build(part) for part in command[1:]]
                 node = self.assume(literals)
                 for literal in literals:

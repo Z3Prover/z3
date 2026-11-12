@@ -201,7 +201,9 @@ pigeonhole search) over more than five constructors or with more than
 sixteen arguments, past which Lean runs out of memory, are rejected.
 Integer div, mod, and rem by zero or by a term (SMT-LIB leaves division by zero
 uninterpreted, where Lean's Int division is total; a term divisor is
-nonlinear), and Int
+nonlinear; the clauses Z3's arithmetic solver states on its own about a
+division by zero, over its functions div0 and mod0, are left out of the
+certificate, and a refutation that needs one is rejected), and Int
 mixed with Real next to uninterpreted functions (also through a function
 signature such as (Int) Real) are rejected explicitly.
 The exception is an integer numeral where a Real is expected: without a

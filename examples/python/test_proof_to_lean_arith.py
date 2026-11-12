@@ -1292,6 +1292,105 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 else:
                     self.assertLessEqual(set(axioms.group(1).split(", ")), {"propext", "Classical.choice", "Quot.sound"})
 
+    def test_divisions_and_decided_ites_after_a_false_assertion_through_the_clause_log(self):
+        # In the assertions Z3 logs unsimplified, those after one that folds
+        # to false: an Int div, mod, or rem by a constant expression, where
+        # the solver's clauses over its division-by-zero functions and over
+        # (mod t 0) and (rem t 0) are left out of the certificate and Lean
+        # proves the axioms guarded by (= d 0) that stay; and an ite whose
+        # condition is the constant true, whose gate Z3 logs with the guard
+        # false. Both were rejected until 2026-11-12, the first by the
+        # replay ("unsupported operator in the clause log: div0"), the
+        # second by the reconstructor ("invalid def-axiom clause"). See
+        # test_proof_certificate.py (ZERO_DIVISION_INPUTS, DECIDED_ITE_INPUTS).
+        from test_proof_certificate import DECIDED_ITE_INPUTS, ZERO_DIVISION_INPUTS, ZERO_DIVISION_NAMESAKE_INPUTS
+        sources = dict(ZERO_DIVISION_INPUTS)
+        # A function or predicate of the input named div0 or mod0 stays, as
+        # a symbol of the interpretation named in the header alone.
+        namesakes = {"namesake_" + name: function for name, (_, function, _) in ZERO_DIVISION_NAMESAKE_INPUTS.items()}
+        sources.update({"namesake_" + name: source for name, (source, _, _) in ZERO_DIVISION_NAMESAKE_INPUTS.items()})
+        sources.update({"ite_" + name: source for name, (source, _) in DECIDED_ITE_INPUTS.items()})
+        lean_test_support.prefetch((source, proof_certificate.export_clause_log_certificate(source))
+                                    for source in sources.values())
+        decided = re.compile(r"private theorem def_axiom_\d+ [^\n]*\n    : [^\n]* :=\n"
+                             r"  \(fun \(_hc : [^\n]*\) => [^\n]*\) True\.intro\n")
+        standard = {"propext", "Classical.choice", "Quot.sound"}
+        for name, source in sources.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                axioms = re.search(r"depends on axioms: \[([^\]]*)\]", report)
+                if axioms is None:
+                    self.assertIn("does not depend on any axioms", report)
+                else:
+                    self.assertLessEqual(set(axioms.group(1).split(", ")), standard)
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual(re.findall(r"[^\n]*(?:div0|mod0)[^\n]*", text),
+                                 [line for line in text.splitlines() if name in namesakes
+                                  and re.fullmatch(r'-- (?:Function|Predicate|Int function) \d+: "%s"'
+                                                   % namesakes[name], line)])
+                if name in namesakes:
+                    self.assertTrue(re.search(r"(?:div0|mod0)", text), text)
+                if name in ZERO_DIVISION_INPUTS or name in namesakes:
+                    # The guarded axioms are theorems of the file, proved by
+                    # the Int tactic, though the refutation uses none.
+                    self.assertGreaterEqual(text.count("private theorem th_lemma_"), 3)
+                else:
+                    # The gate of a true condition needs no split and no
+                    # decidability witness.
+                    self.assertEqual(bool(decided.search(text)), DECIDED_ITE_INPUTS[name[4:]][1], text)
+
+    def test_decided_ite_gates_without_a_guard_literal(self):
+        # The gate of an ite whose condition is a constant, as a unit clause
+        # without the false guard (a log Z3 does not write today: its gates
+        # keep the guard, and those of a false condition have the condition
+        # as guard): the equation of the case that holds proves it, from
+        # True.intro for true and from the identity on False for false. The
+        # gate of the other branch is no theorem and stays rejected.
+        source = ("(declare-const x Int)(declare-const y Int)(declare-const c Bool)(assert (= c (not c)))"
+                  "(assert (< (ite %s x y) 0))")
+        log = """\
+(assume (not false))
+(assume)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(define-const $1 Int (ite %s x y))
+(define-const $2 Bool (= %s))
+(declare-fun tseitin (Bool) Proof)
+(define-const $3 Proof (tseitin $2))
+(infer $2 $3)
+(define-const $4 Bool (< $1 0))
+(assume $4)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        cases = [
+            ("true", "$1 x", "(fun (_hc : %s) => (ite_eq_left _hc)) True.intro"),
+            ("true", "x $1", "(fun (_hc : %s) => (Eq.symm (ite_eq_left _hc))) True.intro"),
+            ("false", "$1 y", "(fun (_hnc : Not %s) => (ite_eq_right _hnc)) (fun _false => _false)"),
+            ("(not false)", "$1 x", "(fun (_hnc : Not %s) => (ite_eq_left _hnc)) (fun _false => _false)"),
+            ("(not true)", "$1 y", "(fun (_hc : %s) => (ite_eq_right (fun _n0 => _n0 _hc))) True.intro"),
+            ("true", "$1 y", None), ("false", "$1 x", None), ("(not true)", "x $1", None),
+        ]
+        checked = []
+        for condition, equation, proof in cases:
+            with self.subTest(condition=condition, equation=equation):
+                context = z3.Context()
+                assertions, fragment = proof_certificate.parse_assertions(source % condition, context, integer=True)
+                certificate = proof_clause_log.build_certificate(source % condition, fragment, assertions,
+                                                                 log % (condition, equation), context)
+                if proof is None:
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+                        proof_to_lean.reconstruct(source % condition, certificate)
+                    continue
+                text = proof_to_lean.reconstruct(source % condition, certificate)
+                constant = re.search(r"def (formula_\d+) [^\n]* : Prop := (?:True|False)\n", text)
+                self.assertIsNotNone(constant, text)
+                self.assertIn("  " + proof % ("(%s _atoms _vars)" % constant.group(1)) + "\n", text)
+                checked.append((source % condition, certificate))
+        lean_test_support.prefetch(checked)
+        for checked_source, certificate in checked:
+            lean_test_support.check(self, checked_source, certificate)
+
     def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
         # z3test 3632.smt2 kept verbatim: the only check-sat sits inside
         # (push 1), so no index is needed; the unused BitVec constant does

@@ -1165,6 +1165,63 @@ a tail stays rejected by the fragment check. Tests:
 `test_proof_certificate.py` and its Lean counterpart in
 `test_proof_to_lean_arith.py` (`ONE_ARGUMENT_INPUTS`).
 
+**Division-by-zero clauses and decided ites in the clause log
+(2026-11-12).** Two more rejections of the same unsimplified assertions,
+on 27 of 244 unsat inputs of the random QF_UFLIA generator with zero forms
+(`random_instance` in `test_proof_to_lean_uflia.py`, the general and the
+simplifier forms with and without a sort); all 27 verify now.
+
+- An Int `div`, `mod`, or `rem` whose divisor the input writes as a
+  constant expression, `(- 3)` or `(+ 1 2)`. The rewriter makes it a
+  numeral; unsimplified it is none when the arithmetic solver meets the
+  term (`found_underspecified` in `sat/smt/arith_internalize.cpp`), which
+  then states `(= (div t d) (div0 t d))`, `(= (mod t 0) (mod0 t 0))`, and
+  the rem axioms of `(rem t 0)` next to the axioms of the division guarded
+  by `(= d 0)`. `div0` and `mod0` are Z3's functions for a division by
+  zero, and the replay rejected them ("unsupported operator in the clause
+  log: div0"; 25 inputs). The certificate has no term for a division by
+  zero (Lean's is total, SMT-LIB's uninterpreted), and no assertion has
+  one, so the replay now leaves out the inferred and deleted clauses over
+  such a term: an application of `/0`, `div0`, or `mod0`, a `/`, `div`,
+  `mod`, or `rem` by a zero numeral, or a definition over one
+  (`_Terms.divides_by_zero`). A function the input declares under one of
+  those names stays its own: Z3 accepts the declaration only over other
+  argument sorts than two arithmetic ones, the log prints both by the bare
+  name, and the sorts of an application's arguments tell them apart
+  (`ZERO_DIVISION_NAMESAKE_INPUTS`). As with the phantom literals, leaving a
+  clause out only removes support for later steps: an inference that needs
+  it is not derivable by unit propagation and the log is rejected. An
+  assumed clause over such a term is rejected ("the clause log assumes a
+  clause over a division by zero"). The guarded axioms stay, over the
+  input's own `div` and its `mod`, and Lean proves them. A Real division
+  is not affected (the solver simplifies its divisor itself).
+- An ite whose condition is the constant true under its negations, `(ite
+  true a b)` or `(ite (not (not true)) a b)`. Z3 logs the gate with the
+  guard, the negation of a constant, stated as false: `(tseitin false (=
+  (ite true a b) a))`. The reconstructor looked for the guard among the
+  literals and took the clause for an invalid def-axiom (2 inputs, and 3
+  of the 25 above once their logs replay). `_ite_gate_lemma` now proves
+  the gate of a condition whose negand is a constant from the equation of
+  the case that holds, without a split or a decidability witness
+  (`_ite_gate_decided`); the gate of the other branch stays rejected. An
+  `(ite false a b)` proved before: its guard is the condition itself.
+
+Only a log short enough to be replayed untrimmed (under 4,096 characters)
+shows either: a trimmed log keeps the folded assertion alone. Of the 435
+documented inputs of the earlier tests, each put behind a false assertion,
+16 that were rejected verify, and the texts of the others are unchanged
+(and verify in that form);
+still rejected there are `is-A` recognizers written the old way
+("unsupported operator in the clause log") and an Int `abs` nested in a
+Real term without a logic ("cannot mix Int and Real arithmetic"). Tests:
+`ZERO_DIVISION_INPUTS` and `DECIDED_ITE_INPUTS` in
+`test_proof_certificate.py` (the pinned log, what is left out and what
+stays rejected, symbols of the input named `mod0` and `div0`, the
+reconstruction of the decided gates without a Lean run), their Lean
+counterparts and `test_decided_ite_gates_without_a_guard_literal` in
+`test_proof_to_lean_arith.py`, and `UNSIMPLIFIED_SEEDS` in
+`test_proof_to_lean_uflia.py`.
+
 **Integer input through the legacy proof object (2026-10-16).** `--core
 legacy` rejected `qf_lia` and `qf_uflia` ("certified through the clause log
 only") because theory_lra's integer steps were not inventoried. A probe over

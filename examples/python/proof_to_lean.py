@@ -8172,7 +8172,11 @@ def _ite_gate_lemma(graph, terms, node):
     split is on p rather than on c because Z3 logs the gates of
     (ite (not p) a b) with the double negation collapsed, p or ... = a, and
     because a split on p proves c and (not c) by lifting without eliminating
-    any double negation, so the lemma stays axiom-free.
+    any double negation, so the lemma stays axiom-free. When p is the
+    constant true or false and the clause has no guard literal (Z3 states the
+    guard, the negation of a constant, as false), there is nothing to split
+    on: the equation of the case that holds proves the clause, without a
+    decidability witness (_ite_gate_decided).
     """
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
@@ -8206,6 +8210,19 @@ def _ite_gate_lemma(graph, terms, node):
                         equation = "(Eq.symm %s)" % equation
                     cases[parity % 2] = _inject(position, len(literals), equation)
                 return _ite_gate_by_cases(graph, node, core, cases)
+            # A condition whose negand is the constant true or false decides
+            # the ite, and Z3 logs its gate without a guard: the guard would
+            # be the negation of a constant, which the clause states as false,
+            # (or false (= (ite true a b) a)). Z3 meets such an ite only in
+            # assertions it logs unsimplified, those after one that folds to
+            # false. The equation of the case that holds proves the clause.
+            decided = {z3.Z3_OP_TRUE: 0, z3.Z3_OP_FALSE: 1}.get(graph.kind(core))
+            for equation, parity in sides:
+                if parity % 2 == decided:
+                    if flipped:
+                        equation = "(Eq.symm %s)" % equation
+                    return _ite_gate_decided(graph, node, core, decided,
+                                             _inject(position, len(literals), equation))
     return None
 
 
@@ -8246,6 +8263,23 @@ def _ite_gate_by_cases(graph, node, core, cases):
     ]
     term = "(@def_axiom_%d _atoms%s _df%d)" % (node, graph.valuation, core)
     return lines, {core}, term
+
+
+def _ite_gate_decided(graph, node, core, parity, case):
+    """The gate lemma of an ite whose condition's negand p is the constant true (parity 0) or false (1).
+
+    case proves the clause from _hc : p (parity 0) or from _hnc : Not p
+    (parity 1); the hypothesis holds outright, so the lemma needs neither a
+    split nor a decidability witness.
+    """
+    hypothesis, evidence = (("_hc : %s", "True.intro"), ("_hnc : Not %s", "(fun _false => _false)"))[parity]
+    lines = [
+        "",
+        "private theorem def_axiom_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
+        "    : %s :=" % _formula(graph, graph.conclusion(node)),
+        "  (fun (%s) => %s) %s" % (hypothesis % _formula(graph, core), case, evidence),
+    ]
+    return lines, set(), "(@def_axiom_%d _atoms%s)" % (node, graph.valuation)
 
 
 def _ite_gate_case(graph, terms, node, literals, position, core, equation, parity, flipped):

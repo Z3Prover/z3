@@ -1283,6 +1283,41 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                 self.assertEqual("_quotient " in text, "(div " in source)
         self.assertEqual(forms, set(SIMPLIFIER_ZEROS))
 
+    # Seeds of random_instance with SIMPLIFIER_ZEROS that were rejected until
+    # 2026-11-12. An assertion of each folds to false, and Z3 logs the later
+    # ones unsimplified: a quotient or remainder by (- k) with the solver's
+    # clauses over div0, mod0, and (rem t 0), which the replay rejected
+    # (55, 57), an (ite true 0 1) whose gate has the guard false, which the
+    # reconstructor took for an invalid def-axiom (168), or both (356, and
+    # 296 with a sort and ite terms).
+    UNSIMPLIFIED_SEEDS = ((55, {}), (57, {}), (168, {}), (356, {}), (296, {"with_sort": True, "ite": True}))
+
+    def test_random_instances_with_unsimplified_assertions_after_a_false_one(self):
+        sources = [(seed, random_instance(seed, zeros=SIMPLIFIER_ZEROS, **options))
+                   for seed, options in self.UNSIMPLIFIED_SEEDS]
+        for seed, source in sources:
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+        z3_executable = proof_certificate.default_z3_executable()
+        certificates = [proof_certificate.export_clause_log_certificate(source) for _, source in sources]
+        lean_test_support.prefetch((source, certificate) for (_, source), certificate in zip(sources, certificates))
+        left_out, decided = set(), set()
+        for (seed, source), certificate in zip(sources, certificates):
+            with self.subTest(seed=seed):
+                log = proof_clause_log.run_clause_log(z3_executable, source)
+                self.assertIn("(assume)", log)  # the folded assertion
+                if re.search(r"\((?:div0|mod0) ", log):
+                    left_out.add(seed)
+                self.assertEqual(certificate["fragment"], "qf_uflia")
+                text, report = lean_test_support.check(self, source, certificate)
+                self.assertNotIn("div0", text)
+                self.assertNotIn("mod0", text)
+                if ") True.intro\n" in text:
+                    decided.add(seed)
+                self.assertIn(".unsat' depends on axioms: ", report)
+                axioms = report.split(".unsat' depends on axioms: [", 1)[1].split("]", 1)[0]
+                self.assertLessEqual(set(axioms.split(", ")), {"propext", "Classical.choice", "Quot.sound"})
+        self.assertEqual((left_out, decided), ({55, 57, 356, 296}, {168, 356, 296}))
+
     def test_false_coefficient_free_lemmas_are_rejected_by_lean(self):
         # A cut claiming the unit clause (<= (f x) y): f(x) and y are opaque
         # Int atoms, so the clause is satisfiable, the shape check passes
