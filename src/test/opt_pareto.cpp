@@ -21,8 +21,13 @@ Author:
 
 --*/
 #include "opt/opt_context.h"
+#include "opt/opt_cmds.h"
 #include "opt/opt_pareto_solver.h"
 #include "ast/reg_decl_plugins.h"
+#include "cmd_context/cmd_context.h"
+#include "math/lp/lar_solver.h"
+#include "parsers/smt2/smt2parser.h"
+#include <sstream>
 
 static void set_pareto_priority(opt::context& ctx, bool reuse_nlsat_solver = true) {
     // Use Pareto enumeration rather than lexicographic optimization.
@@ -729,11 +734,86 @@ static void tst_cancel_in_cone() {
     m.limit().reset_cancel();
 }
 
+static void tst_cancelled_lp_maximization() {
+    struct resource_limit : lp::lp_resource_limit {
+        bool canceled = false;
+        bool get_cancel_flag() override { return canceled; }
+    } limit;
+    lp::lar_solver s;
+    s.settings().set_resource_limit(limit);
+    auto x = s.add_var(0, false);
+    auto y = s.add_var(1, false);
+    for (auto v : {x, y}) {
+        s.add_var_bound(v, lp::GE, lp::mpq(0));
+        s.add_var_bound(v, lp::LE, lp::mpq(3, 4));
+    }
+    vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+    coeffs.push_back({lp::mpq(1), x});
+    coeffs.push_back({lp::mpq(1), y});
+    auto sum = s.add_term(coeffs, 2);
+    s.add_var_bound(sum, lp::EQ, lp::mpq(1));
+    ENSURE(s.find_feasible_solution() == lp::lp_status::OPTIMAL);
+    s.set_value_for_nbasic_column(s.is_base(x) ? y : x, lp::impq(lp::mpq(1, 2)));
+    ENSURE(s.check_feasible());
+    // Snapping the non-basic variable to zero requires feasibility repair.
+    limit.canceled = true;
+    lp::impq maximum;
+    ENSURE(s.maximize_term(sum, maximum, false) == lp::lp_status::UNBOUNDED);
+    ENSURE(s.check_feasible());
+    limit.canceled = false;
+    // A resumed solve also checks that the infeasibility heap was restored.
+    ENSURE(s.find_feasible_solution() == lp::lp_status::OPTIMAL);
+    ENSURE(s.maximize_term(sum, maximum, false) == lp::lp_status::OPTIMAL);
+    ENSURE(maximum == lp::impq(lp::mpq(1)));
+}
+
+static void tst_interrupted_integer_cone() {
+    char const* input = R"(
+(set-option :opt.priority pareto)
+(declare-const i Int)
+(declare-const y Int)
+(declare-const l Int)
+(declare-const b Int)
+(declare-const c Int)
+(assert (and (<= (+ (* 3 i) (* l (- 5)) (* 2 b)) 333) (>= (+ (* 3 i) (* 2 b) (* l (- 5))) 323)))
+(assert (and (<= y (- 59)) (> (+ y l (- b) (* 2 c)) (- 60))))
+(assert (and (< (+ y (* 2 i)) 31) (>= (+ i (* 4 y) (* l (- 7))) 492)))
+(assert (and (< (+ (* 3 i) (* 3 b)) 91) (> (+ b y (* l (- 2))) 0)))
+(assert (and (< c i) (>= c 7)))
+(assert (< (+ (* 2 c) (- y i)) (- 60)))
+(maximize (+ l 1 (* 5 2 (- y (- (+ c l))))))
+(minimize i)
+(minimize (- i))
+(check-sat)
+(check-sat)
+(check-sat)
+(check-sat)
+(check-sat)
+(check-sat)
+(check-sat)
+(check-sat)
+)";
+    // The cone budget can expire while the LP restores feasibility after
+    // moving non-basic columns to their bounds. Enumeration must still resume.
+    for (unsigned budget : {500, 1000}) {
+        cmd_context cmd(false);
+        install_opt_cmds(cmd);
+        std::ostringstream output;
+        cmd.set_regular_stream(output);
+        std::istringstream is(
+            "(set-option :opt.pareto_cone_rlimit " + std::to_string(budget) + ")\n" + input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        ENSURE(output.str() == "sat\nsat\nsat\nsat\nsat\nsat\nsat\nsat\n");
+    }
+}
+
 void tst_opt_pareto() {
     // Cover solver state, fragment selection, and Pareto enumeration/fallback.
     tst_solver_scopes();
     tst_cancelled_solver();
     tst_cancel_in_cone();
+    tst_cancelled_lp_maximization();
+    tst_interrupted_integer_cone();
     tst_reuse_fragment();
     // Sampled fronts already exercise both nlsat modes; assumptions force SMT.
     tst_sampled_fronts(0, 8);
