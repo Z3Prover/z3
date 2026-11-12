@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.26....4.5)
-
 include(ExternalProject)
 
 option(Z3_C_EXAMPLES_FORCE_CXX_LINKER
