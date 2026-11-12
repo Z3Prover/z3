@@ -36,10 +36,19 @@ void generic_model_converter::add(func_decl * d, expr* e) {
 }
 
 void generic_model_converter::operator()(model_ref & md) {
+    apply(md, m_completion);
+}
+
+bool generic_model_converter::apply_partial(model_ref & md) {
+    apply(md, false);
+    return true;
+}
+
+void generic_model_converter::apply(model_ref & md, bool completion) {
     TRACE(model_converter, tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     
     model_evaluator ev(*(md.get()));
-    ev.set_model_completion(m_completion);
+    ev.set_model_completion(completion);
     ev.set_expand_array_equalities(false);    
     expr_ref val(m);
     unsigned arity;
@@ -67,7 +76,7 @@ void generic_model_converter::operator()(model_ref & md) {
                 }
                 // corner case when uninterpreted constants are eliminated
                 sort* s = e.m_f->get_range();
-                if (m.is_uninterp(s) && !md->has_uninterpreted_sort(s)) {
+                if (completion && m.is_uninterp(s) && !md->has_uninterpreted_sort(s)) {
                     uninterpreted.insert_if_not_there(s, {});
                     if (!uninterpreted[s].contains(val))
                         uninterpreted[s].push_back(val);
@@ -85,9 +94,9 @@ void generic_model_converter::operator()(model_ref & md) {
                     md->register_decl(e.m_f, new_fi);
                 }
             }
-            if (reset_ev) {
+            if (reset_ev || !completion) {
                 ev.reset();
-                ev.set_model_completion(m_completion);
+                ev.set_model_completion(completion);
                 ev.set_expand_array_equalities(false);
             }
             break;

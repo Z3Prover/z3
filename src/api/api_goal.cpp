@@ -166,6 +166,26 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }    
 
+    Z3_model Z3_API Z3_goal_get_model(Z3_context c, Z3_goal g) {
+        Z3_TRY;
+        LOG_Z3_goal_get_model(c, g);
+        RESET_ERROR_CODE();
+        if (!to_goal_ref(g)->models_enabled()) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "model generation is disabled for this goal");
+            RETURN_Z3(nullptr);
+        }
+        model_ref m = alloc(model, mk_c(c)->m());
+        if (to_goal_ref(g)->mc() && !to_goal_ref(g)->mc()->apply_partial(m)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "goal model converter does not support partial models");
+            RETURN_Z3(nullptr);
+        }
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c));
+        m_ref->m_model = m;
+        mk_c(c)->save_object(m_ref);
+        RETURN_Z3(of_model(m_ref));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_goal Z3_API Z3_goal_translate(Z3_context c, Z3_goal g, Z3_context target) {
         Z3_TRY;
         LOG_Z3_goal_translate(c, g, target);
