@@ -103,7 +103,10 @@ void ackr_model_converter::convert_constants(model * source, model * destination
     evaluator.set_model_completion(true);
     array_util autil(m);
 
-    for (unsigned i = 0, n = source->get_num_constants(); i < n; ++i) {
+    // Do not cache the number of constants: model completion in add_entry
+    // registers abstraction constants that have no value yet in source, and
+    // they must be converted as well.
+    for (unsigned i = 0; i < source->get_num_constants(); ++i) {
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
         expr * value = source->get_const_interp(c);
