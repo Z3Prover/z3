@@ -170,7 +170,7 @@ void test_monomial_bounds_linear_case() {
 static void test_bounded_roots() {
     for (unsigned p : {2u, 3u}) {
         for (unsigned mode = 0; mode < (p == 2 ? 3u : 2u); ++mode) {
-            for (unsigned size = 0; size < 3; ++size) {
+            for (unsigned size = 0; size < 5; ++size) {
                 lp::lar_solver s;
                 reslimit rl;
                 params_ref params;
@@ -183,9 +183,11 @@ static void test_bounded_roots() {
                     factors.push_back(x);
                 nonlinear.add_monic(product, p, factors.begin());
 
-                rational root = size == 0 ? rational(2) : power(rational(2), 130);
-                if (size == 2)
+                rational root = size == 0 || size == 4 ? rational(2) : power(rational(2), size == 3 ? 255 / p : 130);
+                if (size == 2 || size == 4)
                     root = rational(1) / root;
+                if (p == 3 && mode == 0)
+                    root = -root;
                 rational value = power(root, p);
                 auto bound = [&](lpvar v, lp::lconstraint_kind kind, rational const& q) {
                     s.activate(s.add_var_bound(v, kind, q));
@@ -202,7 +204,7 @@ static void test_bounded_roots() {
 
                 bool expect_lower = p == 2 ? mode != 2 : mode == 1;
                 bool expect_upper = p == 2 ? mode != 1 : mode == 0;
-                if (size == 0) {
+                if (size == 0 || size >= 3) {
                     if (expect_lower)
                         VERIFY(s.column_has_lower_bound(x) && s.get_lower_bound(x).x == (p == 2 && mode == 0 ? -root : root));
                     if (expect_upper)
@@ -247,6 +249,24 @@ static void test_bounded_roots() {
         else {
             VERIFY(!s.column_has_upper_bound(x));
         }
+    }
+
+    for (bool lower : {false, true}) {
+        lp::lar_solver s;
+        reslimit rl;
+        params_ref params;
+        auto x = s.add_var(0, false);
+        auto product = s.add_var(1, false);
+        nla::core nonlinear(s, params, rl);
+        nla::monomial_bounds bounds(&nonlinear);
+        lpvar factors[] = {x, x};
+        nonlinear.add_monic(product, 2, factors);
+        rational large = power(rational(2), 256);
+        s.activate(s.add_var_bound(x, lower ? lp::GE : lp::LE, lower ? large : -large));
+        s.find_feasible_solution();
+        VERIFY(s.is_feasible());
+        bounds.tighten_lp_bounds();
+        VERIFY(!s.column_has_lower_bound(product));
     }
 }
 
