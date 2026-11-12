@@ -12,6 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/proofs/proof_checker.h"
 #include "ast/converters/generic_model_converter.h"
 #include "cmd_context/cmd_context.h"
+#include "util/gparams.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/rewriter/array_rewriter.h"
@@ -155,7 +156,19 @@ static void check_recfun_rlimit(char const* input, unsigned rlimit) {
     VERIFY(out.str() == "unknown\n");
 }
 
+// Running into the unfolding budget is slow in debug builds. Use a small budget.
+struct scoped_recfun_unfold_limit {
+    std::string m_old;
+    scoped_recfun_unfold_limit(char const* limit): m_old(gparams::get_value("rewriter.max_recfun_unfoldings")) {
+        gparams::set("rewriter.max_recfun_unfoldings", limit);
+    }
+    ~scoped_recfun_unfold_limit() {
+        gparams::set("rewriter.max_recfun_unfoldings", m_old.c_str());
+    }
+};
+
 static void check_recfun_rlimits() {
+    scoped_recfun_unfold_limit _limit("1000");
     for (char const* input : {
             "(define-fun-rec f ((x Int)) Int (f x))\n"
             "(assert (= (f 0) 1))\n",
@@ -165,12 +178,75 @@ static void check_recfun_rlimits() {
             "(assert (= f 1))\n",
             "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
             " ((g x) (f x)))\n"
+            "(assert (= (f 0) 1))\n",
+            // unfolding on values that does not terminate
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f x)))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f (+ x 0))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f (- x 1))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int) (y Int)) Int (ite (> (+ x y) 5) 0 (f y x)))\n"
+            "(assert (= (f 0 1) 1))\n",
+            "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
+            " ((g x) (ite (> x 0) 0 (f x))))\n"
             "(assert (= (f 0) 1))\n"}) {
         check_recfun_rlimit(input, 1);
     }
     check_recfun_rlimit(
         "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
         "(assert (= (f 0) 1))\n", 1000);
+}
+
+static void check_recfun_output(char const* input, char const* expected) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    if (out.str() != expected)
+        std::cout << "expected:\n" << expected << "got:\n" << out.str();
+    VERIFY(out.str() == expected);
+}
+
+static void check_recfun_unfold_limit() {
+    // the simplifier unfolds recursive functions on values within a budget.
+    check_recfun_output(
+        "(define-fun-rec sum ((n Int)) Int (ite (<= n 0) 0 (+ n (sum (- n 1)))))\n"
+        "(simplify (sum 50))\n"
+        "(simplify (sum 50) :max_recfun_unfoldings 10)\n",
+        "1275\n"
+        "(+ 455 (sum 40))\n");
+    // a call in a branch that is not taken does not block unfolding.
+    check_recfun_output(
+        "(define-fun-rec g ((x Int)) Int (ite (> x 0) (g x) 7))\n"
+        "(define-fun-rec max2 ((x Int) (y Int)) Int (ite (>= x y) x (max2 y x)))\n"
+        "(simplify (g 0))\n"
+        "(simplify (max2 3 3))\n",
+        "7\n"
+        "3\n");
+    // model evaluation terminates on applications that cannot be evaluated.
+    scoped_recfun_unfold_limit _limit("1000");
+    check_recfun_output(
+        "(define-fun-rec f ((x Int)) Int (ite (> x 0) 0 (f x)))\n"
+        "(assert (= (f 0) 1))\n"
+        "(check-sat)\n"
+        "(get-value ((f 0) (f 5)))\n"
+        "(eval (f 0))\n",
+        "sat\n"
+        "(((f 0) (f 0))\n"
+        " ((f 5) 0))\n"
+        "(f 0)\n");
+    check_recfun_output(
+        "(define-fun-rec f ((x Int)) Int (f x))\n"
+        "(assert (= (f 0) 1))\n"
+        "(check-sat)\n"
+        "(eval (f 0))\n",
+        "sat\n"
+        "(f 0)\n");
 }
 
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
@@ -1430,6 +1506,7 @@ void tst_smt_context()
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
     check_recfun_rlimits();
+    check_recfun_unfold_limit();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
