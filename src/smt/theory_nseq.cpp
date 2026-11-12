@@ -734,8 +734,8 @@ namespace smt {
     bool theory_nseq::assume_shared_equalities() {
         ptr_vector<enode> shared;
         for (unsigned v = 0, sz = get_num_vars(); v < sz; ++v) {
-            enode* n = get_enode(v);
-            if (!n->is_root() || !is_relevant_and_shared(n))
+            enode* n = get_enode(v)->get_root();
+            if (!is_relevant_and_shared(n) || shared.contains(n))
                 continue;
             for (enode* other : shared)
                 if (n->get_expr()->get_sort() == other->get_expr()->get_sort() &&
@@ -818,7 +818,8 @@ namespace smt {
     }
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {
-        expr* e = n->get_expr();
+        // The e-graph root can be an ITE with no entry in the facet's substitutions.
+        expr* e = get_expr(n->get_th_var(get_id()));
         if (m_seq.is_re(e))
             return alloc(expr_wrapper_proc, to_app(e));
         SASSERT (m_seq.is_seq(e));

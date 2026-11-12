@@ -594,6 +594,52 @@ static void check_symbolic_regex_substring() {
     }
 }
 
+static void check_nseq_shared_ite_model() {
+    for (bool proofs : {false, true}) {
+        for (bool regular : {false, true}) {
+            for (unsigned relevancy : {0u, 2u}) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::istringstream is(
+                    "(declare-const x Int)\n"
+                    "(declare-fun n (String String) Int)\n"
+                    "(declare-const e String)\n"
+                    "(declare-const d String)\n"
+                    "(assert (= d (str.++ e \"@\")))\n"
+                    "(assert (= 0 (n e \"@\")))\n"
+                    "(assert (= 1 (n (ite (= 0 (str.len (str.substr d 0 1)))\n"
+                    "                       \"\" (str.substr e x 1)) \"@\")))\n"
+                    "(assert (= x (- 1)))\n");
+                ENSURE(parse_smt2_commands(cmd, is));
+                params_ref p;
+                p.set_sym("string_solver", symbol("nseq"));
+                p.set_bool("seq.regular", regular);
+                p.set_uint("relevancy", relevancy);
+                ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+                for (unsigned i = 0; i < 3; ++i)
+                    slv->assert_expr(cmd.assertions()[i]);
+                auto check_model = [&](unsigned count) {
+                    ENSURE(l_true == slv->check_sat(0, nullptr));
+                    model_ref mdl;
+                    slv->get_model(mdl);
+                    ENSURE(mdl);
+                    for (unsigned i = 0; i < count; ++i) {
+                        expr_ref value(m);
+                        ENSURE(mdl->eval_expr(cmd.assertions()[i], value, true) && m.is_true(value));
+                    }
+                };
+                check_model(3);
+                slv->push();
+                slv->assert_expr(cmd.assertions()[3]);
+                check_model(4);
+                slv->pop(1);
+                check_model(3);
+            }
+        }
+    }
+}
+
 static void check_nonlinear_to_int() {
     for (char const* input : {
             "(declare-fun N () Int)\n"
@@ -1054,6 +1100,7 @@ void tst_smt_context()
     check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_nseq_shared_ite_model();
     check_sequence_last_index();
     check_array_index_dependencies();
     check_stored_lambdas();
