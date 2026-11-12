@@ -1093,13 +1093,7 @@ lbool core::check(unsigned level) {
     }
 
     if (no_effect() && params().arith_nl_nra() && level >= 2) {
-        scoped_limits sl(m_reslim);
-        sl.push_child(&m_nra_lim);
-        params_ref p;
-        p.set_uint("max_conflicts", lp_settings().m_max_conflicts);
-        m_nra.updt_params(p);
-        ret = m_nra.check();
-        lp_settings().stats().m_nra_calls++;
+        ret = bounded_nlsat();
     }
 
     if (ret == l_undef && !no_effect() && m_reslim.inc()) 
