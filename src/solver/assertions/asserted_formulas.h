@@ -60,6 +60,10 @@ class asserted_formulas {
     bool                        m_inconsistent;
     bool                        m_has_quantifiers;
     bool                        m_reduce_pending = true; // some formula may not be in normal form w.r.t. the current rewriter configuration
+    bool                        m_regular_pending = false;
+    bool                        m_regular_complete = true;
+    expr_ref_vector             m_regular_inputs;
+    statistics                  m_regular_statistics;
     struct scope {
         unsigned                m_formulas_lim;
         bool                    m_inconsistent_old;
@@ -189,6 +193,8 @@ class asserted_formulas {
     };
     void flatten_clauses();
     bool simplify_replace_contains();
+    bool use_regular_preprocessing() const;
+    bool simplify_regular();
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \
     class NAME : public simplify_fmls {                                 \

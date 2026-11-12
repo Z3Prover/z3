@@ -20,6 +20,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/bit2int.h"
 #include "ast/simplifiers/recfun_finder.h"
+#include "ast/simplifiers/seq_regular_simplifier.h"
 #include "ast/occurs.h"
 #include "ast/simplifiers/solve_eqs.h"
 #include "ast/simplifiers/pull_nested_quantifiers.h"
@@ -29,10 +30,12 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/smt_solver.h"
 #include "smt/smt_context.h"
 #include "solver/solver.h"
+#include "solver/simplifier_solver.h"
 #include "solver/assertions/asserted_formulas.h"
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/dependent_expr_state_tactic.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -1103,6 +1106,7 @@ static void test_use_aware_replace_contains() {
     expr_ref index_constraint(arith.mk_ge(index, arith.mk_int(0)), m);
 
     smt_params params;
+    params.m_seq_regular = false;
     params.m_string_solver = symbol("nseq");
     params.m_propagate_values = false;
     for (unsigned kind = 0; kind < 4; ++kind) {
@@ -1236,8 +1240,331 @@ static void test_use_aware_replace_contains() {
     ENSURE(context.check() == l_true);
 }
 
+static void test_seq_regular() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    {
+        expr_ref shared(m.mk_const("regular-shared", m.mk_bool_sort()), m);
+        for (unsigned i = 0; i < 40; ++i) {
+            expr_ref negated(m.mk_not(shared), m);
+            shared = m.mk_or(shared, negated);
+        }
+        scoped_rlimit limit(m.limit(), 200);
+        ENSURE(!seq_regular_simplifier::has_string_terms(m, shared));
+        ENSURE(m.inc());
+    }
+    expr_ref_vector pin(m), cases(m);
+    auto hold = [&](expr* e) { pin.push_back(e); return e; };
+    auto text = [&](char const* s) { return hold(u.str.mk_string(zstring(s))); };
+    auto integer = [&](int n) { return hold(a.mk_int(n)); };
+    auto contains = [&](expr* s, char const* t) { return hold(u.str.mk_contains(s, text(t))); };
+    auto eq = [&](expr* s, char const* t) { return hold(m.mk_eq(s, text(t))); };
+    expr_ref s(m.mk_const("regular-s", u.str.mk_string_sort()), m);
+    expr* a_word = text("a");
+    expr* b_word = text("b");
+    expr* colon = text(":");
+    expr* empty = text("");
+    expr* zero = integer(0);
+    expr* one = integer(1);
+    expr* len = hold(u.str.mk_length(s));
+    expr* index = hold(u.str.mk_index(s, colon, zero));
+    expr* after = hold(a.mk_add(index, one));
+    expr* tail_len = hold(a.mk_sub(len, after));
+    expr* prefix = hold(u.str.mk_substr(s, zero, index));
+    expr* through_len = hold(a.mk_add(index, one));
+    expr* through = hold(u.str.mk_substr(s, zero, through_len));
+    expr* tail = hold(u.str.mk_substr(s, after, tail_len));
+    expr* from_len = hold(a.mk_sub(len, index));
+    expr* from = hold(u.str.mk_substr(s, index, from_len));
+    expr* last_pos = hold(a.mk_sub(len, one));
+    expr* last = hold(u.str.mk_at(s, last_pos));
+    expr* first = hold(u.str.mk_at(s, zero));
+    expr* trim = hold(u.str.mk_substr(s, zero, last_pos));
+    expr* fixed = hold(u.str.mk_substr(s, one, integer(2)));
+    expr* drop_len = hold(a.mk_sub(len, one));
+    expr* drop = hold(u.str.mk_substr(s, one, drop_len));
+    expr* replaced = hold(u.str.mk_replace(s, a_word, b_word));
+    expr* twice = hold(u.str.mk_replace(replaced, a_word, b_word));
+    for (expr* part : {prefix, through, tail, from, last, first, trim, fixed, drop}) {
+        cases.push_back(contains(part, "a"));
+        expr* no_a = hold(m.mk_not(contains(part, "a")));
+        expr* no_b = hold(m.mk_not(contains(part, "b")));
+        cases.push_back(m.mk_and(no_a, no_b));
+        cases.push_back(eq(part, ""));
+    }
+    cases.push_back(hold(m.mk_not(contains(twice, "a"))));
+    cases.push_back(contains(replaced, "a"));
+    cases.push_back(eq(replaced, "b"));
+    cases.push_back(eq(replaced, ""));
+    expr* erase = hold(u.str.mk_replace(s, text("aa"), empty));
+    cases.push_back(eq(erase, "b"));
+    expr* prepend = hold(u.str.mk_replace(s, empty, a_word));
+    cases.push_back(eq(prepend, "ab"));
+    expr* constant_prefix = hold(u.str.mk_concat(text("a"), s));
+    expr* constant_suffix = hold(u.str.mk_concat(s, text("a")));
+    cases.push_back(eq(constant_prefix, "ab"));
+    cases.push_back(eq(constant_suffix, "ba"));
+    cases.push_back(hold(a.mk_ge(index, integer(-1))));
+    expr* remaining = hold(a.mk_sub(len, index));
+    cases.push_back(hold(a.mk_ge(remaining, one)));
+    expr* prefix_a = contains(prefix, "a");
+    expr* last_empty = eq(last, "");
+    cases.push_back(hold(m.mk_or(prefix_a, last_empty)));
+    expr* tail_b = contains(tail, "b");
+    expr* both_parts = hold(m.mk_and(prefix_a, tail_b));
+    cases.push_back(hold(m.mk_not(both_parts)));
+    cases.push_back(hold(a.mk_lt(len, integer(2))));
+    cases.push_back(hold(a.mk_ge(len, integer(3))));
+    cases.push_back(contains(constant_prefix, "b"));
+    cases.push_back(hold(m.mk_not(contains(constant_suffix, "b"))));
+    expr* reinsert = hold(u.str.mk_replace(s, a_word, text("aa")));
+    expr* delete_a = hold(u.str.mk_replace(s, a_word, empty));
+    cases.push_back(hold(m.mk_not(contains(reinsert, "a"))));
+    cases.push_back(hold(m.mk_not(contains(delete_a, "a"))));
+    expr* split_rejoin = hold(u.str.mk_replace(through, colon, b_word));
+    split_rejoin = hold(u.str.mk_concat(split_rejoin, tail));
+    cases.push_back(eq(split_rejoin, "ab"));
+
+    std::vector<zstring> words{zstring()};
+    for (unsigned length = 1, begin = 0, end = 1; length <= 4; ++length) {
+        unsigned next = static_cast<unsigned>(words.size());
+        for (unsigned j = begin; j < end; ++j)
+            for (unsigned ch : {97u, 98u, 58u, 10u, 0x1f600u})
+                words.push_back(words[j] + zstring(ch));
+        begin = end; end = static_cast<unsigned>(words.size());
+        ENSURE(next == begin);
+    }
+    th_rewriter rw(m);
+    for (expr* formula : cases) {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, formula, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        if (state[0].fml() == formula)
+            std::cerr << "regularization did not apply: " << mk_pp(formula, m) << "\n";
+        ENSURE(state[0].fml() != formula);
+        expr_ref rewritten(state[0].fml(), m);
+        for (auto const& word : words) {
+            expr_ref value(u.str.mk_string(word), m);
+            expr_safe_replace sub(m);
+            sub.insert(s, value);
+            expr_ref original(m), result(m);
+            sub(formula, original);
+            sub(rewritten, result);
+            rw(original);
+            rw(result);
+            ENSURE(m.is_true(original) || m.is_false(original));
+            ENSURE(original == result);
+        }
+    }
+    {
+        base_dependent_expr_state state(m);
+        expr_ref no_a(m.mk_not(contains(prefix, "a")), m);
+        expr_ref no_b(m.mk_not(contains(prefix, "b")), m);
+        state.add(dependent_expr(m, no_a, nullptr, nullptr));
+        state.add(dependent_expr(m, no_b, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() != no_a && m.is_true(state[1].fml()));
+        expr* root;
+        expr* language;
+        ENSURE(u.str.is_in_re(state[0].fml(), root, language) && root == s);
+    }
+    {
+        expr_ref binding(eq(s, "ab:"), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, binding, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == binding);
+
+        state.add(dependent_expr(m, contains(prefix, "a"), nullptr, nullptr));
+        simp.reduce();
+        expr_ref_vector conjuncts(m);
+        flatten_and(state[0].fml(), conjuncts);
+        bool retained = false;
+        for (expr* conjunct : conjuncts)
+            retained |= conjunct == binding;
+        ENSURE(retained);
+    }
+    {
+        expr_ref symbolic_range(u.re.mk_range(s, s), m);
+        expr_ref membership(u.re.mk_in_re(s, symbolic_range), m);
+        expr_ref length(m.mk_eq(len, one), m);
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, membership, nullptr, nullptr));
+        state.add(dependent_expr(m, length, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == membership && state[1].fml() == length);
+    }
+    {
+        expr_ref t(m.mk_const("regular-goal-t", u.str.mk_string_sort()), m);
+        expr_ref t_first(u.str.mk_at(t, zero), m);
+        goal_ref goal = alloc(::goal, m, false, false, false);
+        goal->assert_expr(contains(prefix, "a"));
+        goal->assert_expr(contains(t_first, "b"));
+        tactic_ref tactic = alloc(dependent_expr_state_tactic, m, params_ref(),
+            [](ast_manager& m, params_ref const& p, dependent_expr_state& state) -> dependent_expr_simplifier* {
+                return alloc(seq_regular_simplifier, m, p, state);
+            });
+        goal_ref_buffer result;
+        (*tactic)(goal, result);
+        ENSURE(result.size() == 1 && result[0]->size() == 2);
+        for (unsigned i = 0; i < result[0]->size(); ++i) {
+            expr* root;
+            expr* language;
+            ENSURE(u.str.is_in_re(result[0]->form(i), root, language));
+            ENSURE(root == s || root == t);
+        }
+    }
+    for (bool enabled : {false, true}) {
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("seq.regular", enabled);
+        smt_params params(p);
+        asserted_formulas formulas(m, params, p);
+        expr_ref no_a(m.mk_not(contains(prefix, "a")), m);
+        expr_ref no_b(m.mk_not(contains(prefix, "b")), m);
+        formulas.assert_expr(no_a);
+        formulas.assert_expr(no_b);
+        formulas.reduce();
+        statistics st;
+        formulas.collect_statistics(st);
+        bool rewritten = false;
+        for (unsigned i = 0; i < st.size(); ++i)
+            rewritten |= std::strcmp(st.get_key(i), "seq-regular-rewritten") == 0;
+        ENSURE(rewritten == enabled);
+        if (enabled) {
+            expr* root;
+            expr* language;
+            ENSURE(formulas.get_num_formulas() == 1);
+            ENSURE(u.str.is_in_re(formulas.get_formula(0), root, language) && root == s);
+        }
+
+        solver_ref solver(mk_smt_solver(m, p, symbol()));
+        solver->assert_expr(eq(s, "ab:"));
+        ENSURE(solver->check_sat() == l_true);
+        solver->push();
+        solver->assert_expr(no_a);
+        ENSURE(solver->check_sat() == l_false);
+        solver->pop(1);
+        ENSURE(solver->check_sat() == l_true);
+    }
+    {
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        smt_params params(p);
+        asserted_formulas formulas(m, params, p);
+        formulas.assert_expr(cases.get(0));
+        params.m_seq_regular = false;
+        formulas.reduce();
+        statistics st;
+        formulas.collect_statistics(st);
+        ENSURE(st.size() == 0);
+    }
+    {
+        solver_ref solver(mk_smt_solver(m, params_ref(), symbol()));
+        solver->assert_expr(hold(a.mk_ge(len, integer(2))));
+        ENSURE(solver->check_sat() == l_true);
+        solver->assert_expr(hold(a.mk_gt(len, integer(2))));
+        ENSURE(solver->check_sat() == l_true);
+        statistics st;
+        solver->collect_statistics(st);
+        for (unsigned i = 0; i < st.size(); ++i)
+            ENSURE(std::strcmp(st.get_key(i), "seq-regular-rewritten") != 0);
+    }
+    {
+        base_dependent_expr_state state(m);
+        expr_ref label(m.mk_const("regular-label", m.mk_bool_sort()), m);
+        expr_dependency* dep = m.mk_leaf(label);
+        state.add(dependent_expr(m, cases.get(0), nullptr, dep));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() != cases.get(0) && state[0].dep() == dep);
+    }
+    {
+        base_dependent_expr_state state(m);
+        sort* sorts[] = {u.str.mk_string_sort()};
+        symbol names[] = {symbol("x")};
+        expr_ref quantified(m.mk_forall(1, sorts, names, m.mk_true()), m);
+        state.add(dependent_expr(m, cases.get(0), nullptr, nullptr));
+        state.add(dependent_expr(m, quantified, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == cases.get(0) && state[1].fml() == quantified);
+    }
+    {
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        simplifier_factory factory = [](ast_manager& m, params_ref const& p, dependent_expr_state& state) {
+            return alloc(seq_regular_simplifier, m, p, state);
+        };
+        solver_ref solver(mk_simplifier_solver(mk_smt_solver(m, p, symbol()), &factory));
+        solver->assert_expr(eq(s, "a:"));
+        ENSURE(solver->check_sat() == l_true);
+        model_ref model;
+        solver->get_model(model);
+        expr_ref value(m);
+        ENSURE(model.get() && model->eval(to_app(s)->get_decl(), value) && value == text("a:"));
+        solver->push();
+        solver->assert_expr(hold(m.mk_not(contains(s, "a"))));
+        ENSURE(solver->check_sat() == l_false);
+        solver->pop(1);
+        ENSURE(solver->check_sat() == l_true);
+        expr_ref assumption(eq(s, "b"), m);
+        expr* assumptions[] = {assumption};
+        ENSURE(solver->check_sat(1, assumptions) == l_false);
+        ENSURE(solver->check_sat() == l_true);
+        expr_ref label(m.mk_const("regular-conflict", m.mk_bool_sort()), m);
+        solver->assert_expr(eq(s, "b"), label);
+        ENSURE(solver->check_sat() == l_false);
+        expr_ref_vector core(m);
+        solver->get_unsat_core(core);
+        ENSURE(core.size() == 1 && core.get(0) == label);
+    }
+    {
+        base_dependent_expr_state state(m);
+        expr_ref t(m.mk_const("regular-t", u.str.mk_string_sort()), m);
+        expr_ref relational(m.mk_eq(s, t), m);
+        state.add(dependent_expr(m, cases.get(0), nullptr, nullptr));
+        state.add(dependent_expr(m, relational, nullptr, nullptr));
+        seq_regular_simplifier simp(m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == cases.get(0) && state[1].fml() == relational);
+    }
+    {
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, cases.get(0), nullptr, nullptr));
+        params_ref p;
+        p.set_uint("seq_regular.max_steps", 1);
+        seq_regular_simplifier simp(m, p, state);
+        params_ref unrelated;
+        unrelated.set_bool("model", true);
+        simp.updt_params(unrelated);
+        simp.reduce();
+        ENSURE(state[0].fml() == cases.get(0));
+    }
+    {
+        ast_manager proof_m(PGM_ENABLED);
+        reg_decl_plugins(proof_m);
+        seq_util proof_u(proof_m);
+        expr_ref x(proof_m.mk_const("regular-proof-x", proof_u.str.mk_string_sort()), proof_m);
+        expr_ref needle(proof_u.str.mk_string(zstring("a")), proof_m);
+        expr_ref formula(proof_u.str.mk_contains(x, needle), proof_m);
+        base_dependent_expr_state state(proof_m);
+        state.add(dependent_expr(proof_m, formula, nullptr, nullptr));
+        seq_regular_simplifier simp(proof_m, params_ref(), state);
+        simp.reduce();
+        ENSURE(state[0].fml() == formula);
+    }
+}
+
 void tst_simplifier() {
 
+    test_seq_regular();
     test_use_aware_replace_contains();
     test_bit2int_proofs();
     test_bit2int_zero_divisor_qe();

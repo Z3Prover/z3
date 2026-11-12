@@ -24,6 +24,7 @@ struct theory_seq_params {
      */
     bool m_split_w_len = false;
     bool m_seq_validate = false;
+    bool m_seq_regular = true;
     bool m_seq_regex_monadic = false;
     unsigned m_seq_regex_budget = 1000000;
     unsigned m_seq_regex_split = 0;

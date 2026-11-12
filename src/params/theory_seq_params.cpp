@@ -33,6 +33,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_split_w_len = p.seq_split_w_len();
     m_seq_validate = p.seq_validate();
+    m_seq_regular = p.seq_regular();
     m_seq_regex_monadic = p.seq_regex_monadic();
     m_seq_regex_budget = p.seq_regex_budget();
     m_seq_regex_split = p.seq_regex_split();

@@ -6,4 +6,5 @@ z3_add_component(solver_assertions
     params
     qe_lite
     solver
+    simplifiers
 )

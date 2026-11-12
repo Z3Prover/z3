@@ -30,6 +30,7 @@ z3_add_component(simplifiers
     randomizer.cpp
     recfun_finder.cpp
     reduce_args_simplifier.cpp
+    seq_regular_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
   COMPONENT_DEPENDENCIES
