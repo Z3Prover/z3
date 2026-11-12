@@ -501,6 +501,7 @@ public:
     void erase_func_decl(symbol const & s, func_decl * f);
     void erase_func_decl(func_decl * f) { erase_func_decl(f->get_name(), f); }
     void erase_psort_decl(symbol const & s);
+    void rollback_psort_decl(symbol const & s);
     void erase_object_ref(symbol const & s);
     void erase_user_tactic(symbol const & s);
     void reset_func_decls();

@@ -19,6 +19,7 @@ Author:
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "smt/smt_context.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "util/util.h"
 #include <iostream>
 #include <sstream>
@@ -188,6 +189,78 @@ static void test_smt2_parametric_datatype_is_constructor() {
     for (expr* a : ctx.assertions())
         smt_ctx.assert_expr(a);
     ENSURE(l_true == smt_ctx.check());
+}
+
+static void test_failed_datatype_declarations() {
+    char const* failures[] = {
+        "(declare-datatypes ((A 0)) (((mkA (a X)))))",
+        "(declare-datatypes ((A 0) (B 0)) (((mkA (a B))) ((mkB (b X)))))",
+        "(declare-datatypes ((A 0) (B 0)) (((mkA))))",
+        "(declare-datatypes ((A 0)) (((mkA)) ((mkB))))",
+        "(declare-datatypes ((A 0) (B bad)) ())",
+        "(declare-datatypes ((A 0 extra)) (((mkA))))",
+        "(declare-datatypes ((A 0) (A 0)) ())",
+        "(declare-datatypes ((A 0) (Existing 0)) ())",
+        "(declare-datatypes ((A 0)) (((mkA (a A)))))",
+        "(declare-datatypes ((A 0)) (((mkA (a Int) (a Bool)))))",
+        "(declare-datatype A ((mkA (a X))))",
+        "(declare-datatype A (par (T) ((mkA (a X)))))",
+        "(declare-datatype A ((mkA)) extra)",
+        "(declare-datatype Existing ((mkExisting (a X))))"
+    };
+    for (bool global : {false, true}) {
+        for (char const* failure : failures) {
+            std::ostringstream out;
+            cmd_context ctx;
+            ctx.set_global_decls(global);
+            ctx.set_regular_stream(out);
+            std::istringstream prelude("(declare-sort Existing 0) (push)");
+            ENSURE(parse_smt2_commands(ctx, prelude));
+            psort_decl* existing = ctx.find_psort_decl(symbol("Existing"));
+            std::istringstream input(failure);
+            ENSURE(!parse_smt2_commands(ctx, input));
+            ENSURE(!ctx.find_psort_decl(symbol("A")));
+            ENSURE(!ctx.find_psort_decl(symbol("B")));
+            ENSURE(ctx.find_psort_decl(symbol("Existing")) == existing);
+
+            std::istringstream retry(
+                "(declare-datatypes ((A 0)) (((mkA))))\n"
+                "(declare-datatypes ((B 0)) (((mkB (b A) (x Int) (y Int)))))\n"
+                "(declare-const w B)\n"
+                "(assert (<= (x w) (y w)))\n");
+            ENSURE(parse_smt2_commands(ctx, retry));
+            {
+                smt_params params;
+                smt::context smt_ctx(ctx.m(), params);
+                for (expr* a : ctx.assertions())
+                    smt_ctx.assert_expr(a);
+                ENSURE(l_true == smt_ctx.check());
+            }
+
+            std::istringstream pop("(pop)");
+            ENSURE(parse_smt2_commands(ctx, pop));
+            ENSURE(bool(ctx.find_psort_decl(symbol("A"))) == global);
+            ENSURE(bool(ctx.find_psort_decl(symbol("B"))) == global);
+            ENSURE(ctx.find_psort_decl(symbol("Existing")) == existing);
+        }
+    }
+
+    std::ostringstream out;
+    cmd_context ctx;
+    ctx.set_regular_stream(out);
+    ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+    std::istringstream repro(
+        "(declare-datatypes ((A 0)) (((mkA (a X)))))\n"
+        "(declare-datatypes ((B 0)) (((mkB (b A) (x Int) (y Int)))))\n"
+        "(declare-const w B)\n"
+        "(assert (<= (x w) (y w)))\n"
+        "(check-sat)\n");
+    ENSURE(!parse_smt2_commands(ctx, repro));
+    ENSURE(out.str().find("unknown sort 'X'") != std::string::npos);
+    ENSURE(out.str().find("unknown sort 'A'") != std::string::npos);
+    ENSURE(out.str().find("unknown sort 'B'") != std::string::npos);
+    ENSURE(out.str().find("unknown constant w") != std::string::npos);
+    ENSURE(out.str().ends_with("sat\n"));
 }
 
 static void test_subterm_declarations() {
@@ -543,6 +616,7 @@ static void test_non_recursive_recognizer_phases() {
 }
 
 void tst_parametric_datatype() {
+    test_failed_datatype_declarations();
     test_non_recursive_recognizer_phases();
     test_inferred_match_constructor();
     test_sequence_field_occurs_check();
