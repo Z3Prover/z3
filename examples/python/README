@@ -1285,7 +1285,15 @@ logged as an array hint stating the propagated equality; each read of a map
 gets that fact, and so do the maps, stores, and constant arrays below it,
 since Z3's rewriter evaluates a read through all of them with no read term of
 the levels in between; a read of a store at another numeral over a map gets
-the map's facts too, the rewriter skipping the store. The identities the euf solver and the rewriter apply to
+the map's facts too, the rewriter skipping the store, and so does a read
+through up to eight stores it does not skip, counted over all the stores and
+maps the facts of that read walk (the rewriter simplifies the map below
+member by member and pulls stores out of maps, so the read is compared with
+members of the sets), also below the branches of an ite and in a stored row.
+Each store that is not skipped is a case split on its index for grind, so
+the facts through such stores are stated in attempts of their own, after the
+step's other attempts: a step that needs none is proved as without them. The
+identities the euf solver and the rewriter apply to
 maps are theorems instantiated per map node: maps of and and or commute (euf
 compares them as commutative) and are idempotent, a double complement
 cancels, a map of stores at one index is the store of the map (a constant
@@ -1300,7 +1308,9 @@ equality of two terms of one function and the difference of an equality's
 sides that differ in every row, each by function extensionality from an
 auxiliary theorem over the members as propositions that grind proves on its
 own, and in a cnf lemma the members of an equality's sides at the indices it
-reads (_pointwise_map_facts). A term is read this way while its member
+reads (_pointwise_map_facts); a cnf lemma that reaches a store of a set and
+no map gets the last kind alone (a set equated with a store, whose member at
+the stored index Z3 evaluated in another assertion). A term is read this way while its member
 formula writes at most 48 maps and stores (a map of xor writes each argument
 twice and a map of ite its condition, so a nest of them doubles per level);
 a larger one is a leaf. Two terms of one member formula are equal by rfl, an

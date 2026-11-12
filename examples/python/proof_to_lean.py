@@ -3308,90 +3308,114 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     lines_c, names_c, nodes_c, cast_facts = _cast_facts(graph, scope, atom_indices, variable_indices, node,
                                                         folded=fold)
     gates, gate_names, gate_nodes = gates + lines_c, gate_names + names_c, gate_nodes | nodes_c
-    if graph.arrays:
-        lines_a, names_a, nodes_a, array_facts = _array_helpers(graph, scope, atom_indices, variable_indices,
-                                                                congruence, ite_leaves=instance)
-        gates, gate_names, gate_nodes = gates + lines_a, gate_names + names_a, gate_nodes | nodes_a
-    else:
-        array_facts = []
-    if gates:
-        # Stated folded and reverted, so the unfold below rewrites them as it
-        # rewrites the goal; the definitions they mention outside the atoms
-        # were unfolded in the goal already and are unfolded again here.
-        # With arrays the unfold does not enter array terms
-        # (_definition_names), and a node the facts mention may occur in the
-        # goal only inside one (an index or a stored value): the mentioned
-        # nodes are roots of the unfold too.
-        gates.append("revert " + " ".join(gate_names))
-        remaining = remaining | _reachable(graph, *sorted(gate_nodes))[0]
-    roots = list(atoms) + sorted(gate_nodes)
-    unfold = full_unfold = ["unfold " + " ".join(_definition_names(graph, remaining, roots))] if remaining else []
-    fallback = []
-    if gates:
-        fallback.append("intro " + " ".join(gate_names))
-    distinct_facts, distinct_names = _boolean_distinct_facts(graph, scope, atom_indices, variable_indices)
-    fallback.extend(distinct_facts)
-    fallback.extend(helper.strip() for helper in _theory_helpers(graph, scope, atom_indices, variable_indices,
-                                                                  folded_arguments=fold, array_facts=array_facts))
-    if compares_arrays:
-        fallback.extend(helper.strip() for helper in _constant_array_comparisons(
-            graph, reachable, atom_indices, variable_indices))
-        fallback.extend(pointwise_facts)
-    fallback.extend(cast_facts)
-    # grind alone for an euf lemma: congruence closure is its business, not
-    # omega's.
-    fallback.append(_without_boolean_distincts(distinct_names,
-                                               _CONGRUENCE_TACTIC if congruence else _theory_tactic(graph)))
-    if ites:
-        # The ites stay folded, as leaves of the congruence or of the axiom
-        # instance: only the definitions outside them are unfolded, in the
-        # goal and in the reverted facts (those that mention an ite keep it
-        # folded, as the goal does). There is no unfolded fallback: with
-        # the unfolded proof as a fallback under first, an euf lemma's text
-        # doubled (register_file_instance(8): 0.71 MB of euf lemmas against
-        # 1.55 MB), the fallback was never taken in the test suite, and a
-        # folded attempt that spent the heartbeats before failing would
-        # have left the fallback none (maxHeartbeats is per declaration).
-        outside, folded_roots = set(), sorted(gate_nodes - ites)
-        for formula in conclusions + folded_roots:
-            outside |= _reachable_outside(graph, formula, ites)
-        names = _definition_names(graph, outside, folded_roots)
-        unfold = ["unfold " + " ".join(names)] if names else []
-    # The store-identity alternative below keeps the full unfold: its simp
-    # (_ARRAY_REWRITE_TACTIC, ite_self, _const_store_self) cannot rewrite
-    # inside a folded ite definition. Its facts are still those of the scope:
-    # in an euf or array lemma over ites, a store only an ite reaches gets no
-    # _t fact here either, though the full unfold exposes it. No such lemma
-    # takes this alternative in the test tables or generators (1,018 euf
-    # lemmas over ites, none with an alternative); should one need it, Lean
-    # rejects the step (completeness, not soundness), and the _t facts of
-    # this alternative should then be computed over reachable.
-    store_body = gates + full_unfold + fallback
-    fallback = gates + unfold + fallback
-    bodies = [fallback]
-    if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
-            else _store_identity_instance(graph, reachable)):
-        # Z3's rewriter may have applied the store identities: the folded
-        # array terms rewritten into their stores (the _t facts of
-        # _array_helpers) and normalized by them first; simp may close the
-        # goal. Not only rewrite steps: a th-lemma cnf over a predicate of an
-        # array, p(c) \/ not p(store c n (select c n)), needs them too. The
-        # alternative is tried only after the others fail; it repeats the
-        # fallback's facts, so other steps get it only when one of their
-        # stores is an instance of an identity.
-        names = [line.split()[1] for line in store_body if line.startswith("have _t")]
-        if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
-            # Reads of constant arrays evaluated, ites of a term with itself
-            # dropped, stores of a constant array's own value into it
-            # folded (_const_store_self), and a constant array compared
-            # with one store into it decided by the stored value.
-            names += ["_select_const", "ite_self", "← _const_store_self", "_const_eq_store", "_store_eq_const"]
-        # Numeral expressions evaluated first, as the rewriter compares
-        # indices and values by value ((/ 2 2) is 1.0).
-        values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
-        bodies.append(store_body[:-1] + values
-                      + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
-                         "all_goals " + store_body[-1]])
+    shared = (gates, gate_names, gate_nodes, remaining)
+
+    def bodies_through(undecided):
+        """The proof bodies over the unfolded definitions, and the stores of undecided the array facts went through.
+
+        The facts of a read go through at most undecided stores that Z3's
+        rewriter does not skip into the maps below them (_array_helpers).
+        """
+        gates, gate_names, gate_nodes, remaining = shared
+        gates = list(gates)
+        if graph.arrays:
+            lines_a, names_a, nodes_a, array_facts, taken = _array_helpers(
+                graph, scope, atom_indices, variable_indices, congruence, ite_leaves=instance, undecided=undecided)
+            gates, gate_names, gate_nodes = gates + lines_a, gate_names + names_a, gate_nodes | nodes_a
+        else:
+            array_facts, taken = [], 0
+        if gates:
+            # Stated folded and reverted, so the unfold below rewrites them as it
+            # rewrites the goal; the definitions they mention outside the atoms
+            # were unfolded in the goal already and are unfolded again here.
+            # With arrays the unfold does not enter array terms
+            # (_definition_names), and a node the facts mention may occur in the
+            # goal only inside one (an index or a stored value): the mentioned
+            # nodes are roots of the unfold too.
+            gates.append("revert " + " ".join(gate_names))
+            remaining = remaining | _reachable(graph, *sorted(gate_nodes))[0]
+        roots = list(atoms) + sorted(gate_nodes)
+        unfold = full_unfold = ["unfold " + " ".join(_definition_names(graph, remaining, roots))] if remaining else []
+        fallback = []
+        if gates:
+            fallback.append("intro " + " ".join(gate_names))
+        distinct_facts, distinct_names = _boolean_distinct_facts(graph, scope, atom_indices, variable_indices)
+        fallback.extend(distinct_facts)
+        fallback.extend(helper.strip() for helper in _theory_helpers(graph, scope, atom_indices, variable_indices,
+                                                                      folded_arguments=fold, array_facts=array_facts))
+        if compares_arrays:
+            fallback.extend(helper.strip() for helper in _constant_array_comparisons(
+                graph, reachable, atom_indices, variable_indices))
+            fallback.extend(pointwise_facts)
+        fallback.extend(cast_facts)
+        # grind alone for an euf lemma: congruence closure is its business, not
+        # omega's.
+        fallback.append(_without_boolean_distincts(distinct_names,
+                                                   _CONGRUENCE_TACTIC if congruence else _theory_tactic(graph)))
+        if ites:
+            # The ites stay folded, as leaves of the congruence or of the axiom
+            # instance: only the definitions outside them are unfolded, in the
+            # goal and in the reverted facts (those that mention an ite keep it
+            # folded, as the goal does). There is no unfolded fallback: with
+            # the unfolded proof as a fallback under first, an euf lemma's text
+            # doubled (register_file_instance(8): 0.71 MB of euf lemmas against
+            # 1.55 MB), the fallback was never taken in the test suite, and a
+            # folded attempt that spent the heartbeats before failing would
+            # have left the fallback none (maxHeartbeats is per declaration).
+            outside, folded_roots = set(), sorted(gate_nodes - ites)
+            for formula in conclusions + folded_roots:
+                outside |= _reachable_outside(graph, formula, ites)
+            names = _definition_names(graph, outside, folded_roots)
+            unfold = ["unfold " + " ".join(names)] if names else []
+        # The store-identity alternative below keeps the full unfold: its simp
+        # (_ARRAY_REWRITE_TACTIC, ite_self, _const_store_self) cannot rewrite
+        # inside a folded ite definition. Its facts are still those of the scope:
+        # in an euf or array lemma over ites, a store only an ite reaches gets no
+        # _t fact here either, though the full unfold exposes it. No such lemma
+        # takes this alternative in the test tables or generators (1,018 euf
+        # lemmas over ites, none with an alternative); should one need it, Lean
+        # rejects the step (completeness, not soundness), and the _t facts of
+        # this alternative should then be computed over reachable.
+        store_body = gates + full_unfold + fallback
+        fallback = gates + unfold + fallback
+        bodies = [fallback]
+        if (any(graph.kind(term) == z3.Z3_OP_STORE for term in reachable) if prefix == "rewrite"
+                else _store_identity_instance(graph, reachable)):
+            # Z3's rewriter may have applied the store identities: the folded
+            # array terms rewritten into their stores (the _t facts of
+            # _array_helpers) and normalized by them first; simp may close the
+            # goal. Not only rewrite steps: a th-lemma cnf over a predicate of an
+            # array, p(c) \/ not p(store c n (select c n)), needs them too. The
+            # alternative is tried only after the others fail; it repeats the
+            # fallback's facts, so other steps get it only when one of their
+            # stores is an instance of an identity.
+            names = [line.split()[1] for line in store_body if line.startswith("have _t")]
+            if any(decl.kind == z3.Z3_OP_CONST_ARRAY for decl in graph.declarations):
+                # Reads of constant arrays evaluated, ites of a term with itself
+                # dropped, stores of a constant array's own value into it
+                # folded (_const_store_self), and a constant array compared
+                # with one store into it decided by the stored value.
+                names += ["_select_const", "ite_self", "← _const_store_self", "_const_eq_store", "_store_eq_const"]
+            # Numeral expressions evaluated first, as the rewriter compares
+            # indices and values by value ((/ 2 2) is 1.0).
+            values, value_names = _numeral_facts(graph, reachable, atom_indices, variable_indices)
+            bodies.append(store_body[:-1] + values
+                          + [_ARRAY_REWRITE_TACTIC % "".join(name + ", " for name in value_names + names),
+                             "all_goals " + store_body[-1]])
+        return bodies, taken
+
+    # The facts of reads through stores the rewriter does not skip, into
+    # the maps below them, are stated in attempts of their own, after the
+    # others: a step that needs none is proved as it was without them. Each
+    # such store is a case split on its index for grind, and an attempt
+    # that cannot close the goal with them may not fail but run out of the
+    # heartbeats (which first does not catch): a rewrite of seven reads of
+    # (store (complement (store (complement (store (complement s) j0
+    # false)) j1 false)) j2 false), proved in 0.5 s by the pointwise
+    # facts, ran out with these facts in the attempt made without the
+    # pointwise ones. The last attempts state every fact.
+    deep, taken = bodies_through(_MAP_STORE_LEVELS)
+    bodies = bodies_through(0)[0] if taken else deep
     if pointwise_facts:
         # Without the pointwise facts first: a step that needs none is
         # proved as it was before them, whatever they cost. grind closes
@@ -3404,8 +3428,10 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         stated = set(pointwise_facts)
         alternatives.extend([tactic for tactic in body if tactic not in stated] for body in bodies)
     alternatives.extend(bodies)
+    if taken:
+        alternatives.extend(deep)
     if len(alternatives) == 1:
-        lines.extend("  " + tactic for tactic in fallback)
+        lines.extend("  " + tactic for tactic in alternatives[0])
     else:
         lines.append("  first")
         lines.extend("    | (" + "\n       ".join(alternative) + ")" for alternative in alternatives)
@@ -3977,34 +4003,69 @@ def _map_identities(graph, node, inline):
     return helpers
 
 
-def _read_levels(graph, array, read):
-    """The store and constant-array levels of a read of a store or constant array that get facts (_array_helpers).
+# The facts of one read go through at most this many stores that Z3's
+# rewriter does not skip (the store's index or the read's is no value, or
+# they are one value) into the maps and set operators below them
+# (_read_levels), counted over all the stores and maps the facts of that read
+# walk (_map_read_facts). Each such store is a case split on its index for
+# grind and a fact per read, so these facts are stated only in the last
+# attempts of a step (_grind_lemma), and their number per read is bounded:
+# without the bound a read through stores alternating with maps got a fact
+# per level, 4,512 for 24 levels read at 24 indices.
+_MAP_STORE_LEVELS = 8
+
+
+def _read_levels(graph, array, read, undecided=0):
+    """The levels of a read of a store or constant array that get facts (_array_helpers), and where the read goes on.
+
+    Returns the store and constant-array levels, the map or set operator
+    below them whose read facts the caller states too (_map_read_facts), or
+    None, and the number of stores taken from undecided.
 
     A read of stores over a constant array gets every level and the
     constant at the bottom: Z3's rewriter evaluates such a read ((select
     (store (const v) y w) x) is (ite (= x y) w v)) with no read term of the
     levels below in the certificate.
+
+    Over another array the rewriter skips the stores at a value index (a
+    numeral, or true or false over Bool indices) other than the read's
+    ((select (store (store a 1 v) 2 w) 3) is (select a 3)) and goes on with
+    the read of the level where the skip stops, a store at the read's own
+    index evaluated in the same step ((select (store (store a 3 5) 2 7) 3)
+    is 5), so those levels get their facts too; other reads keep the single
+    fact of their own level (long store chains over plain arrays at
+    symbolic indices, as in z3test's swap files, would otherwise get one
+    fact per level and read). When it skips every store and reaches a map
+    or set operator, it evaluates the read of that ((select (store ((_ map
+    -) a) 1 2) 0) is (- (select a 0))) with no read term of the map in the
+    certificate.
+
+    With undecided (a number of stores), a read gets every store down to a
+    map or set operator, and the read of that, also when the rewriter does
+    not skip them, if the stores from the first it does not skip down are
+    at most that many. The rewriter simplifies the map member by member
+    ((setminus s s) is empty, so (select (store (setminus s s) 1 false) i)
+    is false) and pulls a store out of a map ((complement (store s j true))
+    is (store (complement s) j false)), also at an index that is no value,
+    and the read of the result is then compared with the members of the
+    sets, with no read term of the map below the stores in the certificate.
     """
-    levels = [array]
-    while graph.kind(levels[-1]) == z3.Z3_OP_STORE:
-        levels.append(graph.arguments(levels[-1])[0])
-    if graph.kind(levels[-1]) != z3.Z3_OP_CONST_ARRAY:
-        # Over a plain array the rewriter skips the stores at a value index
-        # (a numeral, or true or false over Bool indices) other than the
-        # read's ((select (store (store a 1 v) 2 w) 3) is (select a 3)) and
-        # goes on with the read of the level where the skip stops, a store
-        # at the read's own index evaluated in the same step ((select (store
-        # (store a 3 5) 2 7) 3) is 5), so those levels get their facts too;
-        # other reads keep the single fact of their own level (long store
-        # chains over plain arrays at symbolic indices, as in z3test's swap
-        # files, would otherwise get one fact per level and read).
-        skipped = 0
-        while skipped + 1 < len(levels) and _distinct_values(graph, graph.arguments(levels[skipped])[1], read):
-            skipped += 1
-        # The skipped levels and the store where the skip stops (not the
-        # plain array at the bottom).
-        levels = levels[:min(skipped + 1, len(levels) - 1)]
-    return levels
+    stores = []
+    while graph.kind(array) == z3.Z3_OP_STORE:
+        stores.append(array)
+        array = graph.arguments(array)[0]
+    if graph.kind(array) == z3.Z3_OP_CONST_ARRAY:
+        return stores + [array], None, 0
+    skipped = 0
+    while skipped < len(stores) and _distinct_values(graph, graph.arguments(stores[skipped])[1], read):
+        skipped += 1
+    below = array if _set_function(graph, array) is not None else None
+    if skipped == len(stores):
+        return stores, below, 0
+    if below is not None and len(stores) - skipped <= undecided:
+        return stores, below, len(stores) - skipped
+    # The skipped levels and the store where the skip stops.
+    return stores[:skipped + 1], None, 0
 
 
 def _stored_rows(graph, row):
@@ -4053,24 +4114,7 @@ def _level_fact(graph, name, store, read, inline):
         name, _array_types(graph.decl(store).range)[0], inline(graph.arguments(store)[0]), inline(read))
 
 
-def _skipped_to_map(graph, levels, read):
-    """The map below a store chain whose every store the rewriter skips at read, or None (_read_levels).
-
-    Z3's rewriter skips stores at a value index other than the read's and
-    evaluates the read of the map it reaches ((select (store ((_ map -) a)
-    1 2) 0) is (- (select a 0))) with no read term of the map in the
-    certificate.
-    """
-    bottom = levels[-1]
-    if graph.kind(bottom) != z3.Z3_OP_STORE or not all(
-            graph.kind(store) == z3.Z3_OP_STORE and _distinct_values(graph, graph.arguments(store)[1], read)
-            for store in levels):
-        return None
-    below = graph.arguments(bottom)[0]
-    return below if _set_function(graph, below) is not None else None
-
-
-def _map_read_facts(graph, prefix, array, read, inline):
+def _map_read_facts(graph, prefix, array, read, inline, undecided=0):
     """The facts of a read at read of a map or set operator array, named prefix, prefix_1, ...
 
     The function over the reads of its arrays (the select-map axiom), at
@@ -4078,20 +4122,22 @@ def _map_read_facts(graph, prefix, array, read, inline):
     nested maps ((select (map not (map or a b)) i) is (not (or (select a i)
     (select b i)))) with no read term of the levels in between, and on into
     the stores (their levels as for a read of a store, and a map those reach)
-    and constant arrays below them.
+    and constant arrays below them. All of them together go through at most
+    undecided stores the rewriter does not skip (_read_levels). Returns the
+    facts and the number of such stores they went through.
     """
-    helpers, pending, seen = [], [array], set()
+    helpers, pending, seen, taken = [], [array], set(), 0
     while pending:
         current = pending.pop(0)
         if current in seen:
             continue
         seen.add(current)
         if graph.kind(current) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY):
-            levels = _read_levels(graph, current, read)
+            levels, below, more = _read_levels(graph, current, read, undecided - taken)
+            taken += more
             for store in levels:
                 helpers.append(_level_fact(graph, prefix if not helpers else "%s_%d" % (prefix, len(helpers)),
                                            store, read, inline))
-            below = _skipped_to_map(graph, levels, read)
             if below is not None:
                 pending.append(below)
             continue
@@ -4102,10 +4148,11 @@ def _map_read_facts(graph, prefix, array, read, inline):
         pending.extend(argument for argument in graph.arguments(current)
                        if _set_function(graph, argument) is not None
                        or graph.kind(argument) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY))
-    return helpers
+    return helpers, taken
 
 
-def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=False, ite_leaves=False):
+def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=False, ite_leaves=False,
+                   undecided=0):
     """Instantiate the array facts for the reads of stores and the extensionality witnesses a lemma reaches.
 
     Array terms, _select, and _store stay folded, so grind compares reads by
@@ -4126,8 +4173,10 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
     are not reverted: around the many facts of z3test's storecomm files,
     whose stores are over variables, revert, unfold, and intro took Lean
     from 118 s and 5.6 GB to 155 s and 7.9 GB. Returns the facts to revert,
-    their names, the nodes they mention, and the facts to state after the
-    unfold.
+    their names, the nodes they mention, the facts to state after the
+    unfold, and the number of stores Z3's rewriter does not skip that the
+    facts of the reads went through: at most undecided per read
+    (_read_levels), and with none the facts are those of undecided 0.
 
     With congruence (an euf lemma, see _grind_lemma), only the facts Z3's
     congruence closure may use are stated: the bodies of the folded array
@@ -4146,7 +4195,28 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             return _term(graph, sub) if graph.is_term(sub) else _formula(graph, sub)
         return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
 
-    helpers = []
+    def read_facts(arrays, read, level, below_prefix):
+        """The facts of the read at read of each of arrays (stores and constant arrays).
+
+        The levels of each (_read_levels), named level % their position
+        among the levels of all, and the read facts of the map below them
+        (_map_read_facts), named from below_prefix % the array's position.
+        """
+        nonlocal taken
+        count, left = 0, undecided
+        for position, array in enumerate(arrays):
+            levels, below, more = _read_levels(graph, array, read, left)
+            left -= more
+            for store in levels:
+                helpers.append(_level_fact(graph, level % count, store, read, inline))
+                count += 1
+            if below is not None:
+                facts, more = _map_read_facts(graph, below_prefix % position, below, read, inline, left)
+                left -= more
+                helpers.extend(facts)
+        taken += undecided - left
+
+    helpers, taken = [], 0
     for node in sorted(reachable):
         # The facts of one node are reverted together if any mentions a
         # definition the unfold rewrites.
@@ -4170,13 +4240,15 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             # A read of a store: its value one level down, and the levels
             # below that the rewriter evaluates (_read_levels).
             array, read = graph.arguments(node)
-            levels = _read_levels(graph, array, read)
+            levels, below, more = _read_levels(graph, array, read, undecided)
             for level, store in enumerate(levels):
                 name = "_s%d" % node if level == 0 else "_s%d_%d" % (node, level)
                 helpers.append(_level_fact(graph, name, store, read, inline))
-            below = _skipped_to_map(graph, levels, read)
             if below is not None:
-                helpers.extend(_map_read_facts(graph, "_sm%d" % node, below, read, inline))
+                facts, deeper = _map_read_facts(graph, "_sm%d" % node, below, read, inline, undecided - more)
+                helpers.extend(facts)
+                more += deeper
+            taken += more
         elif kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_ITE and not ite_leaves:
             # A read of an ite over arrays: Z3's rewriter pushes the read
             # into the branches ((select (ite c a b) i) is (ite c (select a
@@ -4185,11 +4257,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             # the certificate. Each such branch, through nested ites, gets
             # the facts of a read of it (its levels as for a read of a store).
             array, read = graph.arguments(node)
-            count = 0
-            for branch in _ite_branches(graph, array):
-                for store in _read_levels(graph, branch, read):
-                    helpers.append(_level_fact(graph, "_si%d_%d" % (node, count), store, read, inline))
-                    count += 1
+            read_facts(_ite_branches(graph, array), read, "_si%d_%%d" % node, "_sim%d_%%d" % node)
         elif (kind == z3.Z3_OP_SELECT and graph.kind(graph.arguments(node)[0]) == z3.Z3_OP_SELECT
               and graph.is_array(graph.arguments(node)[0])):
             # A read of a row of nested arrays: Z3's rewriter evaluates the
@@ -4202,11 +4270,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             # for a read of a store); grind relates them to this read
             # through the row read's own fact.
             row, read = graph.arguments(node)
-            count = 0
-            for value in _stored_rows(graph, row):
-                for store in _read_levels(graph, value, read):
-                    helpers.append(_level_fact(graph, "_n%d_%d" % (node, count), store, read, inline))
-                    count += 1
+            read_facts(_stored_rows(graph, row), read, "_n%d_%%d" % node, "_nm%d_%%d" % node)
         if graph.is_array(node) and _set_function(graph, node) is not None:
             helpers.extend(_map_identities(graph, node, inline))
         if congruence:
@@ -4221,8 +4285,10 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
             # ((select (map not (map or a b)) i) is (not (or (select a i)
             # (select b i)))) with no read term of the levels in between,
             # and on into the stores and constant arrays below them.
-            helpers.extend(_map_read_facts(graph, "_m%d" % node, graph.arguments(node)[0],
-                                           graph.arguments(node)[1], inline))
+            facts, more = _map_read_facts(graph, "_m%d" % node, graph.arguments(node)[0],
+                                          graph.arguments(node)[1], inline, undecided)
+            helpers.extend(facts)
+            taken += more
         elif kind == z3.Z3_OP_ARRAY_EXT:
             # Z3's congruence closure takes the witness as commutative (an
             # euf hint's (comm (= (array-ext b a) (array-ext a b))) claim);
@@ -4245,7 +4311,7 @@ def _array_helpers(graph, reachable, atom_indices, variable_indices, congruence=
         (reverted if current else plain).extend(helpers[first:])
         mentioned |= current
     return ([helper.strip() for helper in reverted], [helper.split()[1] for helper in reverted], mentioned,
-            [helper.strip() for helper in plain])
+            [helper.strip() for helper in plain], taken)
 
 
 # The Boolean functions a map or set operator applies to the members of sets,
@@ -4366,7 +4432,12 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
     members while the assertion it is tied to equates sets), each such
     equality also implies that its sides' members agree at every index the
     lemma reads from a set of its sort, by congruence, unless there are
-    more than _COMPARISON_READS such facts.
+    more than _COMPARISON_READS such facts. These facts alone are stated
+    for a lemma that reaches a store of a set and no map or set operator:
+    Z3 evaluates the maps of an assertion at a member under another
+    assertion that equates a set with a store ((= (store s j false) t)
+    makes (select t j) false), and the clause it logs has the members
+    only.
 
     Returns the lines of the auxiliary theorems stated here, named
     name_pwN, and the facts.
@@ -4378,7 +4449,9 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
         return graph.is_array(node) and _array_components(graph.decl(node).range)[1] == "Bool"
 
     sets = [node for node in sorted(reachable) if boolean_set(node)]
-    if len(sets) > _POINTWISE_SETS or not any(_pointwise_function(graph, node) is not None for node in sets):
+    mapped = any(_pointwise_function(graph, node) is not None for node in sets)
+    if len(sets) > _POINTWISE_SETS or not (mapped or (members_read and any(
+            graph.kind(node) == z3.Z3_OP_STORE for node in sets))):
         return [], []
     # Per set: its leaves, its truth table over them, and the number of maps
     # and stores its member formula writes (_POINTWISE_SIZE). Ids are
@@ -4462,8 +4535,10 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
             theorems.extend(["", "private theorem %s%s" % (theorem, stated[0]), stated[1]])
         return "(%s)" % " ".join([theorem] + [leaf_member(leaf, "_i") for leaf in leaves])
 
+    # A step without a map or set operator (a cnf lemma that reaches a store)
+    # gets the members of its equalities' sides alone, below.
     classes = {}
-    for node in sets:
+    for node in sets if mapped else ():
         classes.setdefault(keys[node], []).append(node)
     for members in classes.values():
         # The first set that is not a map or store (there is at most one: a
@@ -4477,7 +4552,7 @@ def _pointwise_map_facts(graph, reachable, name, atom_indices, variable_indices,
     equalities = [node for node in sorted(reachable) if graph.kind(node) == z3.Z3_OP_EQ
                   and all(argument in keys for argument in graph.arguments(node))
                   and any(argument in functions for argument in graph.arguments(node))]
-    for node in equalities:
+    for node in equalities if mapped else ():
         left, right = graph.arguments(node)
         (sort, leaves, table), other = keys[left], keys[right]
         # Functions that differ in every row depend on the same leaves. The

@@ -2473,6 +2473,74 @@ nested arrays, quantifiers, or unsupported commands); sixteen synthetic
 inputs (`BOOL_ELEMENT_INPUTS` in `test_proof_to_lean_array.py`) and the
 Int-element `read_of_store_over_constant` verify in Lean.
 
+### Reads through stores into maps, members of sets equated with stores (2026-11-11)
+
+After "Default values read at a generic index" below, 4 of the 630
+unsatisfiable `random_set_instance` seeds of 1-1600 still failed in Lean
+(`grind`, in a rewrite or cnf lemma; seeds 1083, 1088, 1398, 1486). Two
+causes, both a missing fact rather than a missing rule:
+
+- **A read through a store into a map.** `(select (store (setminus s s) 1
+  false) i)` is rewritten to false, and `(complement (store s j true))`
+  under a difference to `(store (complement s) j false)`, whose read at 0 a
+  cnf lemma compares with members of `s` and `t`. The read of the store had its
+  `_store_apply` fact, which mentions the read of the map below, but that
+  read is no term of the certificate and had no fact: only a store at a
+  value index other than the read's (which the rewriter skips) led on to
+  the map. Now a read goes on through up to `_MAP_STORE_LEVELS` (8) stores
+  the rewriter does not skip to the map or set operator below them, and
+  gets the fact of every store and the read facts of the map
+  (`_read_levels`), also for the branches of an ite over arrays (`_sim`
+  facts) and for stored rows (`_nm` facts). The limit counts such stores
+  over all the stores and maps the facts of one read walk, so a read
+  through stores alternating with maps is bounded too; below more of them a
+  read keeps the levels the rewriter skips.
+- **Members of a set equated with a store.** With `(= (store s j false)
+  t)` asserted, Z3 evaluates `(select t j)` inside the maps of another
+  assertion and logs a clause over members alone, which the replay ties to
+  both assertions by a cnf lemma. That lemma reaches the store and no map,
+  and `_pointwise_map_facts` stated its facts only next to a map. Now a cnf
+  lemma that reaches a store of a Boolean set gets the `_pwr` facts (the
+  members of each such equality's sides at the indices the lemma reads, by
+  `congrFun`), and only those.
+
+The facts of reads through stores the rewriter does not skip are stated in
+attempts of their own, after the step's other attempts (`_grind_lemma`
+builds its proof bodies twice, without and with them, when a read has such
+a store). Each such store is a case split on its index for `grind`, and an
+attempt that cannot close the goal with them may not fail but run out of
+the heartbeats, which `first` does not catch. With the facts in every
+attempt, a rewrite of seven reads of three stores alternating with
+complements (`set_reads_through_stores_alternating_with_complements`),
+which the pointwise facts prove in 0.5 s, ran out after 55 s in the attempt
+made first, without the pointwise facts; with five reads it took 6.6 s. Now
+the attempts before the added ones are exactly those of a text without such
+facts, so a step that verified without them is proved by the same attempt
+after the same failed ones (`test_reads_through_unskipped_stores_are_stated_last`
+compares the attempts with those under `_MAP_STORE_LEVELS` 0). The added
+attempts state every fact, the pointwise ones too. The members of a set
+equated with a store are pointwise facts, and were after the attempt
+without them already.
+
+Nothing is trusted: the new facts are `rfl`, `_store_apply` instances, or
+`congrFun` of the hypothesis, and Lean checks each. Tests: nine documented
+inputs (`SET_COMBINATOR_INPUTS`, each failed at the previous commit),
+`STORE_OVER_MAP_SEEDS`, `test_reads_through_stores_reach_maps`,
+`test_reads_through_unskipped_stores_are_stated_last`, the cnf cases of
+`test_sets_are_compared_member_by_member`, and four entries of
+`test_map_facts_are_needed` (Lean rejects the text without the facts). All
+630 unsat seeds of 1-1600 verify (626 before), 399 of the 401 of 1601-2600
+(397 before), and 203 of the 205 of 2601-3100 (as before). Of these 1,236
+texts and those of the 228 documented array inputs, 1,360 are the previous
+reconstructor's byte for byte, and in the other 104 every step keeps its
+previous attempts first, in order. Still open, among the four that fail: a
+read through stores over a plain set at variable indices down to a store at
+the read's own index (`(select (store (store s j true) i true) j)` in a cnf
+lemma, seed 1701) gets one level only; and an equality the rewriter decides
+false at a stored index (`(= (store s 1 true) ((_ map xor) t t))`, seed
+2483) has no fact, the sides differing at 1 only and not at every index.
+Seeds 2801 and 3083 are not analysed.
+
 ### Default values read at a generic index: the default-map axiom (2026-11-11)
 
 The array solver's default-map axiom, `(= (default (map f a b)) (f (default
@@ -2768,7 +2836,7 @@ proved by `grind`. A random sweep found one more gap, which set operators
 already had: Z3's rewriter skips a store at another numeral index and
 evaluates the read of a map below it (`(select (store ((_ map not) s) 1
 false) 0)` is `(not (select s 0))`) with no read term of the map, so such
-a read now gets the map's read facts too (`_skipped_to_map`), and a read
+a read now gets the map's read facts too (`_read_levels`), and a read
 of a map goes on through the stores below it the same way.
 Multiplication, conversions, uninterpreted functions of four or more
 arguments, connectives of three or more arguments, and maps over arrays of
