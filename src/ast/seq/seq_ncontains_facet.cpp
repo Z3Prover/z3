@@ -272,7 +272,7 @@ namespace seq {
                     break;
                 characters.push_back(ch);
             }
-            if (characters.size() == nc.m_needle.size() && ef.is_satisfied()) {
+            if (characters.size() == nc.m_needle.size()) {
                 expr_ref literal(u.str.mk_string(zstring(characters.size(), characters.data())), m);
                 expr_ref all(u.re.mk_full_seq(u.re.mk_re(literal->get_sort())), m);
                 expr_ref needle(u.re.mk_to_re(literal), m);
