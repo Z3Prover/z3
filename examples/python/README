@@ -830,9 +830,10 @@ instance, and no encoding argument is needed: the variables range over
 exactly the integers. Integer div and mod by a numeral are Lean's Int / and
 %, which follow the same Euclidean convention as SMT-LIB (the remainder is
 nonnegative and below the divisor's absolute value, for negative divisors
-too), and abs is the ite SMT-LIB defines it as, (if t >= 0 then t else -t)
-with the classical instance. Z3's rem by a numeral k is its definition at k:
-t % k for a positive k, -(t % k) for a negative one. The agreement holds for
+too), and abs is the ite SMT-LIB defines it as, (if t >= 0 then t else 0 - t)
+with the classical instance. Z3's rem by a constant k is its definition at k:
+t % k for a positive k, 0 - t % k for a negative one (the negations are
+written as differences, see below). The agreement holds for
 nonzero divisors only (Lean's x / 0 is 0 where SMT-LIB's is any value), so
 the reconstructor rejects every div, mod, or rem node whose divisor is not a
 nonzero constant among the nodes the theorem states, the assertions and
@@ -842,17 +843,19 @@ total division without that reaching the statement; a rem is rendered from
 the sign of its divisor, so a rem by zero or by a term is rejected wherever
 it occurs); omega reads / and % by a positive numeral directly,
 and leaves them as atoms for a negative divisor, whose arith axioms grind
-proves instead. An Int negation (- t) is -t, except over a term that is
-zero whatever its variables are ((- 0), (- (* 0 x)), (- (mod 6 3)); also
-the negative branch of abs and a rem by a negative numeral), which is the
-difference 0 - t, and the Int negation map ((_ map -) a), which is
-fun v => 0 - v: Lean's grind takes the Int literal -0, which its simplifier
-would reach there, for a numeral other than 0, and the kernel rejects the
-proof it builds on that (after the tactic block, where no alternative can
-catch the error). Not covered, and still rejected by the kernel: a zero the
-simplifier reaches without a negation of a constant zero in the input, as
-in (f (div 2 (- 5))), (f (- (mod x 1))), (f (rem x (- 1))), and
-(f (- (ite true 0 1))). Each th-lemma and arithmetic rewrite is proved by
+proves instead. An Int negation (- t) is the difference 0 - t (also in
+the negative branch of abs and in a rem by a negative constant; only the
+negation of a positive numeral is the numeral -k), the Int negation map
+((_ map -) a) is fun v => 0 - v, and a div by a negative constant d ((- 5),
+or an expression such as (* 5 (- 1))) is
+0 - t / (0 - d), which a theorem after the definition (term_N_quotient)
+equates with Lean's t / d: Lean's grind takes the Int literal -0 for a
+numeral other than 0, and the kernel rejects the proof it builds on that
+(after the tactic block, where no alternative can catch the error); its
+simplifier reaches -0 wherever it evaluates a negated term to 0
+((- (* 0 x)), (- (mod x 1)), (- (ite true 0 1))) and where it rewrites
+t / -k to -(t / k) ((div 2 (- 5))), and evaluates the differences
+instead. Each th-lemma and arithmetic rewrite is proved by
 first | omega | grind (splits := 64), except euf th-lemmas (below): omega
 decides linear integer arithmetic (ite over Int included) and produces a
 kernel-checked proof, where grind's integer module ran out of steps on Farkas lemmas with several
@@ -861,8 +864,10 @@ An Int th-lemma with hint farkas, bound, or cut whose literals contain div,
 mod, abs, ite, or application atoms gets a first attempt over the atoms
 generalized to integers: the definitions outside the atoms are unfolded,
 for a cut or a coefficient-free lemma each mod atom's bounds 0 <= m < |k|
-are stated (Int.emod_nonneg, Int.emod_lt_of_pos, through Int.emod_neg for
-a negative divisor; Z3 fixes them at base level and omits them from the
+are stated (Int.emod_nonneg, Int.emod_lt_of_pos, and for a negative
+divisor Int.emod_lt, whose bound by the divisor's absolute value decide
+compares with |k| however the divisor is written; Z3 fixes them at base
+level and omits them from the
 lemmas it explains) and reverted into the goal, each atom is generalized to
 a fresh integer, and omega (a farkas or bound with coefficients, a
 combination over the atoms already re-derived by the reconstructor, so it

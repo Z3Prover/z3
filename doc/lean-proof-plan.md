@@ -1328,7 +1328,8 @@ the bounds and the div and mod rows it rests on as literals. So `_grind_lemma`
 now proves an Int th-lemma under those hints in two attempts: first the
 definitions outside the atoms are unfolded, every `mod` atom gets its
 bounds `0 <= m < |k|` (`Int.emod_nonneg`, `Int.emod_lt_of_pos`, through
-`Int.emod_neg` for a negative divisor; the solver fixes these at base level
+`Int.emod_neg` for a negative divisor, since 2026-11-12 `Int.emod_lt` with
+`decide`, see "Int negations rendered as differences"; the solver fixes these at base level
 and omits them from the lemmas it explains, which left one cut unprovable
 without them) stated and reverted, the atoms are `generalize`d to fresh
 integers, and `omega` (farkas, bound: it closes the linear goal at once)
@@ -1674,81 +1675,89 @@ mapping and rejections, the live label on `_LIA_LATTICE`),
 
 ## Boolean and EUF proof infrastructure
 
-### Int negations of zero rendered as differences (2026-11-11)
+### Int negations rendered as differences (2026-11-11, every negation and negative quotients 2026-11-12)
 
-An Int input with the negation of zero in an argument of a function,
-predicate, read, or store, `(f (- 0))`, `(p (- (* 0 x)) x)`, `(select a (-
-(mod 6 3)))`, reconstructed through the clause log and then failed in
-Lean, not in a tactic but in the kernel: `(kernel) application type
-mismatch ... decide (-0 = 0) = false`. The pinned toolchain's `grind` takes
-the Int term `-0` for a numeral other than `0` (a negated literal is its
-normal form of a negative numeral) and builds a disequality proof by
-evaluation that the kernel rejects. The error comes after the tactic block,
-so no alternative of a step's `first` catches it. `grind` meets the literal
-whenever its simplifier evaluates the negated term to `0`: a numeral
-expression, a linear form whose variables cancel by a zero factor, a `div`
-or `mod` of numerals. The same happened where a map identity applies an
+An Int input with a term Lean evaluates to the negation of zero in an
+argument of a function, predicate, read, or store, `(f (- 0))`, `(p (- (* 0
+x)) x)`, `(select a (- (mod 6 3)))`, reconstructed through the clause log
+and then failed in Lean, not in a tactic but in the kernel: `(kernel)
+application type mismatch ... decide (-0 = 0) = false`. The pinned
+toolchain's `grind` takes the Int term `-0` for a numeral other than `0` (a
+negated literal is its normal form of a negative numeral) and builds a
+disequality proof by evaluation that the kernel rejects. The error comes
+after the tactic block, so no alternative of a step's `first` catches it.
+`grind` meets the literal whenever its simplifier evaluates the negated
+term to `0`: a numeral expression, a linear form whose variables cancel by
+a zero factor, a `div` or `mod` of numerals, a remainder by 1, an ite whose
+condition it decides. The same happened where a map identity applies an
 Int negation map to a stored or constant `0` (`((_ map -) (store a i 0))`:
 `grind` beta-reduces `(fun v => -v) 0`), the kernel error the iteration
-123 review found on stores over negation maps.
+123 review found on stores over negation maps, and where the simplifier
+introduces the negation itself, from a quotient by a negative numeral (`t
+/ -k` becomes `-(t / k)`, the literal `-0` once `t / k` is evaluated to 0:
+`(f (div 2 (- 5)))`).
 
-The reconstructor now renders such a negation as the difference `0 - t`,
-which is the same number and which the simplifier evaluates to `0`:
+The reconstructor renders such terms as differences, which are the same
+numbers and which the simplifier evaluates with their operands:
 
-- `_negation` for a unary minus, the negative branch of `abs`, and `rem`
-  by a negative numeral, when `_integer_value` gives the negated Int term
-  the value zero whatever its variables are (the constant of a linear form
-  whose variables cancel, with `div`, `mod`, `rem`, and `abs` of such
-  values evaluated as Lean does). Every other negation keeps the form
-  `-t`, so `(- 2)` is still the numeral `-2`;
-- `_INT_MAP_NEGATION`: the Int negation map is `fun v => 0 - v` (its value
-  at a stored term is not known where the function is rendered), in the
-  lambda and in the read facts. The Real one keeps `-v`: `Rat` has no such
-  defect.
+- `_negation`: every Int negation is `0 - t`, for a unary minus, the
+  negative branch of `abs`, and `rem` by a negative constant. Which terms
+  the simplifier evaluates to 0 is not for the reconstructor to predict
+  (the first version, iteration 124, rendered the difference only where
+  its own evaluation of the term gave zero, and missed `(- (mod x 1))`,
+  `(rem x (- 1))`, and `(- (ite true 0 1))`). Only the negation of a
+  positive numeral keeps the form `-k`, so `(- 2)` is still the numeral
+  `-2`. Where `t` does not evaluate, the simplifier normalizes `0 - t` to
+  the form it gives `-t`;
+- `_negative_quotient`: a `div` by a negative constant `d` (a negated
+  numeral, or a constant expression such as `(* 5 (- 1))` or `(- (- (-
+  5)))`, read by `_linear_term`) is `0 - t / (0 -
+  d)`. The definition is followed by a theorem `term_N_quotient` that it
+  equals `t / d` over the operands' definitions, proved by the file's
+  `_div_neg` (`Int.ediv_neg`), so the kernel checks the identity the
+  rendering rests on and the definition is Lean's Euclidean quotient, as
+  the header states for every other `div`;
+- `_INT_MAP_NEGATION`: the Int negation map is `fun v => 0 - v`, in the
+  lambda and in the read facts.
 
-The theorem's statement changes only in those definitions, to a term equal
-to the old one. The legacy core's certificates of these inputs verified
-before (no step of theirs gives `grind` the literal) and verify with the
-differences. Of 259 unsatisfiable `random_instance(zeros=True)` seeds
-(numerals replaced by eight forms of negated zero; 1-1000 plain, 1-500
-with a sort and ite terms) 81 failed in the kernel before and none fails
-now. Tests: `ZERO_NEGATION_INPUTS`, `NONZERO_NEGATION_INPUTS`, and
-`ZERO_SEEDS` in `test_proof_to_lean_uflia.py` (both cores;
-`test_negated_zero_literals_fail_in_the_kernel` pins the defect, and tells
-when a later toolchain no longer has it), and `read_at_a_negated_zero` and
-the four `negation_map*` inputs in `test_proof_to_lean_array.py`.
+Real negations keep `-t`: `Rat` has no such defect. The theorem's
+statement changes only in those definitions, to terms equal to the old
+ones. The legacy core's certificates of these inputs verified before (no
+step of theirs gives `grind` the literal) and verify with the differences.
 
-The rendering covers a negation the input writes over a term whose value
-`_integer_value` computes. `grind` still reaches the literal `-0`, and the
-kernel still rejects the proof (all of these fail the same way before and
-after, in an argument of `f` against `(f 0)`), where:
+One proof read the old form: the upper bound `m < |k|` that
+`_mod_bound_facts` states for a mod atom under a negative divisor was
+`rw [Int.emod_neg]`, which needs the divisor to be a negation in the
+text. A divisor `(- (- (- 3)))` or `(- (+ 1 2))` is a difference now, so
+the bound is `Int.emod_lt` (by the divisor's absolute value) compared with
+`|k|` by `decide`, whatever the constant divisor looks like (`(* 3 (- 1))`
+never was a negation). The generalized attempts of the rewrites that
+normalize such a divisor fail all the same, before and after: they relate
+the mod by the written divisor with the mod by `-3`, two atoms once
+generalized, and the unfolded fallback proves them
+(`test_mod_bounds_prove_however_a_negative_divisor_is_written` in
+`test_proof_to_lean_lia.py` has Lean check each stated bound as a theorem
+of its own, since the fallback would hide a bound that fails).
 
-- the term is zero for every value of a variable without the variable
-  cancelling in the linear form, `(- (mod x 1))` and `(rem x (- 1))`
-  (`_integer_value` is None under a variable);
-- the simplifier introduces the negation itself, from a quotient by a
-  negative numeral (`t / -k` becomes `-(t / k)`): `(div 2 (- 5))`, `(div 0
-  (- 3))`, `(div (* 0 x) (- 3))`, `(abs (div 2 (- 5)))`. The input has no
-  negation to render; `(- (div 2 (- 3)))` verifies only because its own
-  negation cancels the introduced one;
-- the negated term is an ite whose condition is decided and whose chosen
-  branch is zero, `(f (- (ite true 0 1)))` (`_integer_value` does not
-  evaluate an ite).
+Tests: `ZERO_NEGATION_INPUTS` (24 inputs, 21 of which the kernel rejected
+with the old renderings, two of them quotients by `(* 5 (- 1))` and `(- (-
+(- 5)))`), `NONZERO_NEGATION_INPUTS`, `ZERO_SEEDS`, and
+`SIMPLIFIER_SEEDS` (random instances over the terms the simplifier takes to
+`-0` on its own) in `test_proof_to_lean_uflia.py` (both cores;
+`test_int_negations_are_rendered_as_differences` pins the forms and the
+quotient theorems, `test_negated_zero_literals_fail_in_the_kernel` pins
+the defect and tells when a later toolchain no longer has it), and the
+three `read_at_a_*` inputs and the four `negation_map*` inputs in
+`test_proof_to_lean_array.py`.
 
-Each fails closed: Lean rejects the certificate. Also still failing, now
-with `grind` failed instead of the kernel error: a map of a two-store
-chain (the rewriter's store chain of maps has an identity for the outer
-level only).
-
-`_integer_value` reads the linear form of each negated term with
-`_linear_term`, which is not memoized over shared subterms, so a negation
-of a term built by repeated sharing (`t(i+1) = (+ t(i) t(i))`) adds one
-more walk that is exponential in the depth to those the reconstructor
-already makes (20 levels: 7.3 s against 5.4 s before).
+Still failing, with `grind` failed instead of the kernel error: a map of a
+two-store chain (the rewriter's store chain of maps has an identity for
+the outer level only), and `to_int` of a numeral expression under an
+application (`grind` does not evaluate `Rat.floor` of a literal).
 
 The two `test_negated_zero_literals_fail_in_the_kernel` tests are expected
 to fail when `lean/lean-toolchain` moves to a toolchain whose `grind` no
-longer has the defect; they are then to be removed (the rendering stays
+longer has the defect; they are then to be removed (the renderings stay
 valid, and may be dropped with them).
 
 ### Assumption search skips conjuncts a model refutes (2026-11-11)

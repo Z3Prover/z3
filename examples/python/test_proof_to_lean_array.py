@@ -748,6 +748,21 @@ NUMERAL_EXPRESSION_INPUTS = {
 (assert (= (select a 0) 2))
 (check-sat)
 """,
+    # The same at indices Lean's simplifier evaluates to -0 on its own: the
+    # negation of a remainder by 1, and a quotient by a negative numeral,
+    # which it rewrites to the negation of the quotient by 5
+    # (proof_to_lean._negative_quotient).
+    "read_at_a_negated_remainder_by_one": """(declare-fun a () (Array Int Int))
+(declare-fun x () Int)
+(assert (= (select a (- (mod x 1))) 1))
+(assert (= (select a 0) 2))
+(check-sat)
+""",
+    "read_at_a_zero_quotient_by_a_negative": """(declare-fun a () (Array Int Int))
+(assert (= (select a (div 2 (- 5))) 1))
+(assert (= (select a 0) 2))
+(check-sat)
+""",
 }
 # Functions into arrays: one family per Lean array type (_m.arrs_funs,
 # _m.arrs_ii_funs, ...) taking the argument list like _m.funs. Their
@@ -3863,11 +3878,20 @@ class TestArrayValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
         self.assertIn("(_map1 (fun (_v0 : Rat) => (-_v0)) (term_", text)
         self.assertRegex(text, r"have _ms\d+ := _map1_store \(fun \(_v0 : Rat\) => \(-_v0\)\) ")
-        # The index (- 0) of a read is a term, rendered by _negation.
-        name = "read_at_a_negated_zero"
+        # The index (- 0) of a read is a term, rendered by _negation, as is
+        # the negation of a remainder.
+        for name in ("read_at_a_negated_zero", "read_at_a_negated_remainder_by_one"):
+            text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
+            self.assertRegex(text, r": Int := \(\(\(0 : Int\)\) - \(term_\d+ _atoms _vars _m\)\)")
+            self.assertNotRegex(text, r": Int := \(-")
+        # A quotient by a negative numeral is the difference the theorem
+        # after its definition equates with Lean's quotient.
+        name = "read_at_a_zero_quotient_by_a_negative"
         text = proof_to_lean.reconstruct(ARRAY_INPUTS[name], self.certificates[name])
-        self.assertRegex(text, r": Int := \(\(\(0 : Int\)\) - \(term_\d+ _atoms _vars _m\)\)")
-        self.assertNotRegex(text, r": Int := \(-")
+        self.assertRegex(text, r"def (term_\d+) .* : Int := \(%s - \((\(term_\d+ _atoms _vars _m\)) / "
+                               r"\(%s - (\(term_\d+ _atoms _vars _m\))\)\)\)\n"
+                               r"theorem \1_quotient .* : \(\1 _atoms _vars _m\) = \(\2 / \3\) := _div_neg _ _\n" % (
+                                   zero, zero))
 
     def test_map_function_encoding(self):
         """Maps of other functions are _map1/_map2/_map3 of a lambda; a mapped function is a symbol of the input."""
@@ -5198,18 +5222,20 @@ class TestArrayLeanIntegration(unittest.TestCase):
         """With negations rendered as -t and -v, the kernel rejects the proofs grind builds over the literal -0.
 
         The defect of the pinned toolchain's grind that
-        proof_to_lean._negation and _INT_MAP_NEGATION work around (see
-        test_proof_to_lean_uflia for terms under applications): here at a
-        read's index and where a map identity applies the negation to a
-        stored or constant 0.
+        proof_to_lean._negation, _negative_quotient, and _INT_MAP_NEGATION
+        work around (see test_proof_to_lean_uflia for terms under
+        applications): here at a read's index and where a map identity
+        applies the negation to a stored or constant 0.
         """
         def negation(graph, node, rendered):
             return "(-%s)" % rendered
 
-        for name in ("read_at_a_negated_zero", "negation_map_of_a_stored_zero", "negation_map_of_a_constant_zero",
-                     "negation_maps_under_stores_of_zero"):
+        for name in ("read_at_a_negated_zero", "read_at_a_negated_remainder_by_one",
+                     "read_at_a_zero_quotient_by_a_negative", "negation_map_of_a_stored_zero",
+                     "negation_map_of_a_constant_zero", "negation_maps_under_stores_of_zero"):
             source = ARRAY_INPUTS[name]
             with mock.patch.object(proof_to_lean, "_negation", negation), \
+                    mock.patch.object(proof_to_lean, "_negative_quotient", lambda graph, node: False), \
                     mock.patch.object(proof_to_lean, "_INT_MAP_NEGATION", "(-%s)"):
                 text = proof_to_lean.reconstruct(source, _export(source))
             self.assertNotIn("((0 : Int)) - ", text)

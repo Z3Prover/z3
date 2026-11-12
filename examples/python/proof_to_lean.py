@@ -71,8 +71,10 @@ _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, 
 # agree with SMT-LIB's away from zero; a zero divisor is rejected, see
 # _integer_divisor), abs is the ite SMT-LIB defines it as. rem, a Z3
 # extension, is Z3's definition (ite (>= k 0) (mod t k) (- (mod t k)))
-# evaluated at its numeral divisor k: t % k for a positive k, -(t % k) for a
-# negative one. All four are
+# evaluated at its constant divisor k: t % k for a positive k, 0 - t % k for
+# a negative one (the negation as a difference, like every Int negation and
+# the negative branch of abs, see _negation; a div by a negative constant d
+# is 0 - t / (0 - d), see _negative_quotient). All four are
 # opaque atoms of the linear forms; omega reads / and % by a positive
 # numeral and grind proves the axioms of a negative divisor. abs is also a
 # Real operator (_NUMERIC_KINDS): SMT-LIB defines it on Int only, but Z3
@@ -578,10 +580,10 @@ _MAP_CONNECTIVES = {"not": ("Not", 1), "and": ("And", 2), "or": ("Or", 2),
 # arguments of one sort; "numeric" Int or Real; "bool" Bool alone; the
 # result follows. Uninterpreted functions ("declared") are rendered as
 # their family applied to the injected arguments (_map_application).
-# The negation of an Int map is the difference from zero: the store and
-# constant-array identities apply the function to a stored value, and at the
-# value 0 grind would beta-reduce a negation to -0, which it mistakes for
-# another numeral than 0 (see _negation).
+# The negation of an Int map is the difference from zero, as every Int
+# negation is: the store and constant-array identities apply the function
+# to a stored value, and at the value 0 grind would beta-reduce a negation
+# to -0, which it mistakes for another numeral than 0 (see _negation).
 _INT_MAP_NEGATION = "(((0 : Int)) - %s)"
 _MAP_BUILTINS = {
     "xor": ("bool", (2,), lambda args, types: "(Or (And %s (Not %s)) (And (Not %s) %s))" % (
@@ -1313,9 +1315,6 @@ class _Graph:
     # The value of each node evaluated by _numeral_expression_value, None if
     # it is not a numeral expression (a cache: the nodes form a shared DAG).
     numeral_values: dict = field(default_factory=dict, compare=False, repr=False)
-    # The value of each Int node evaluated by _integer_value, None if it
-    # depends on a variable (a cache, like numeral_values).
-    integer_values: dict = field(default_factory=dict, compare=False, repr=False)
     # The keys of _real_argument_key and _real_atom_key, by ("argument" or
     # "atom", node) (a cache: keying a nested ite chain revisits each level
     # from its condition and both branches), and the interned atom key of
@@ -2331,50 +2330,8 @@ def _variable(graph, node, index):
     return ("_ivars %d" if graph.numeric == _MIXED and graph.is_int(node) else "_vars %d") % index
 
 
-def _integer_value(graph, node):
-    """The value an Int node has whatever its variables are, or None.
-
-    That is the constant of a linear form whose variables cancel ((* 0 x),
-    (- x x)), with div, mod, rem, and abs of such values evaluated as Lean
-    evaluates their rendering (Euclidean division by a nonzero numeral).
-    An ite is not evaluated, whatever its condition. Values are cached in
-    graph.integer_values.
-    """
-    if node not in graph.integer_values:
-        graph.integer_values[node] = _evaluate_integer(graph, node)
-    return graph.integer_values[node]
-
-
-def _evaluate_integer(graph, node):
-    """_integer_value of a node, given those of the arguments of its div, mod, rem, and abs atoms."""
-    terms = {}
-    try:
-        value = _linear_term(graph, node, Fraction(1), terms)
-    except ReconstructionError:
-        return None
-    for atom, coefficient in terms.items():
-        if not coefficient:
-            continue
-        kind = graph.kind(atom)
-        if kind not in _INT_NAMES:
-            return None
-        values = [_integer_value(graph, argument) for argument in graph.arguments(atom)]
-        if None in values:
-            return None
-        if kind == z3.Z3_OP_ABS:
-            value += coefficient * abs(values[0])
-            continue
-        # _linear_term has checked the divisor: a nonzero constant.
-        remainder = values[0] % abs(values[1])
-        if kind == z3.Z3_OP_IDIV:
-            value += coefficient * (values[0] - remainder) / values[1]
-        else:
-            value += coefficient * (-remainder if kind == z3.Z3_OP_REM and values[1] < 0 else remainder)
-    return value
-
-
 def _negation(graph, node, rendered):
-    """Render the negation of a rendered arithmetic node: 0 - t over an Int node of value zero, else -t.
+    """Render the negation of a rendered arithmetic node: 0 - t over Int, -t over Real and of a positive Int numeral.
 
     Lean's grind takes the Int term -0 for a numeral other than 0 (a
     negated literal is its normal form of a negative numeral), and the
@@ -2383,14 +2340,58 @@ def _negation(graph, node, rendered):
     block, where no alternative of first catches it. grind meets -0
     whenever its simplifier evaluates the negated term to the literal 0 in
     an argument of an uninterpreted application, a read, or a store: (f (-
-    0)), (select a (- (* 0 x))), (p (- (mod 6 3))). The difference 0 - t
-    is the same number, and the simplifier evaluates it to 0. Every other
-    negation keeps the form the numerals have ((- 2) is -2). Rat has no
-    such defect.
+    0)), (select a (- (* 0 x))), (p (- (mod x 1))), (f (- (ite true 0
+    1))). Which terms the simplifier evaluates to 0 is its business (a
+    remainder by 1, an ite with a decided condition), so every Int
+    negation is the difference 0 - t, the same number, which the
+    simplifier evaluates with t and otherwise normalizes to -t. Only the
+    negation of a positive numeral keeps the form of a negative numeral
+    ((- 2) is -2). Rat has no such defect.
     """
-    if graph.is_int(node) and _integer_value(graph, node) == 0:
+    if _negated_as_difference(graph, node):
         return "(%s - %s)" % (_numeral("Int", Fraction(0)), rendered)
     return "(-%s)" % rendered
+
+
+def _negated_as_difference(graph, node):
+    """Whether the negation of a node is rendered as a difference: an Int node other than a positive numeral."""
+    return graph.is_int(node) and not (graph.kind(node) == z3.Z3_OP_ANUM and Fraction(graph.decl(node).name) > 0)
+
+
+def _negative_quotient(graph, node):
+    """Whether an Int node is a div by a negative constant, rendered as 0 - t / (0 - d) for the divisor d.
+
+    Lean's simplifier rewrites the quotient t / -k to -(t / k), which is
+    the literal -0 of _negation when t / k evaluates to 0 ((div 2 (- 5)),
+    (div (mod x 1) (- 3))). The difference is the same number: the
+    definition is followed by a theorem that it equals the quotient by d
+    (_quotient_theorem), so the kernel checks the identity the rendering
+    rests on. A div by a zero or nonconstant divisor (in a dead branch of
+    a legacy proof, see _integer_divisor) keeps Lean's operator.
+    """
+    if graph.kind(node) != z3.Z3_OP_IDIV:
+        return False
+    terms = {}
+    try:
+        divisor = _linear_term(graph, graph.arguments(node)[1], Fraction(1), terms)
+    except ReconstructionError:
+        return False
+    return not terms and divisor < 0
+
+
+# The identity behind the rendering of a div by a negative constant
+# (_negative_quotient), stated once for the theorems of the definitions.
+_NEGATIVE_QUOTIENT_LEMMA = [
+    "private theorem _div_neg (t d : Int) : ((0 : Int)) - t / (((0 : Int)) - d) = t / d := by",
+    "  rw [Int.zero_sub d, Int.ediv_neg, Int.zero_sub, Int.neg_neg]",
+]
+
+
+def _quotient_theorem(graph, node, signature):
+    """The theorem that the definition of a div by a negative constant is Lean's Euclidean quotient of its operands."""
+    dividend, divisor = graph.arguments(node)
+    return "theorem term_%d_quotient %s : %s = (%s / %s) := _div_neg _ _" % (
+        node, signature, _term(graph, node), _term(graph, dividend), _term(graph, divisor))
 
 
 def _term_body(graph, node, variable_indices, term=None, formula=None):
@@ -2446,6 +2447,9 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         return "(@ite %s (%s >= ((0 : %s))) (Classical.propDecidable _) %s %s)" % (
             graph.number_type_of(node), args[0], graph.number_type_of(node), args[0],
             _negation(graph, arguments[0], args[0]))
+    if _negative_quotient(graph, node):
+        zero = _numeral("Int", Fraction(0))
+        return "(%s - (%s / (%s - %s)))" % (zero, args[0], zero, args[1])
     if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
         return "(%s %s %s)" % (args[0], "/" if kind == z3.Z3_OP_IDIV else "%", args[1])
     if kind == z3.Z3_OP_REM:
@@ -4998,11 +5002,14 @@ def _mod_bound_facts(graph, atoms):
     a cut over mod atoms may rest on them without listing them; generalized
     without them, the atoms are unbounded integers and the lemma unprovable.
     (A combination with coefficients never needs them, see _combination_certified.)
-    omega reads % by a positive numeral only, so the facts are the library's
-    (Int.emod_neg folds a negative divisor into its opposite). The facts are
-    best effort: Int.emod_neg expects the divisor rendered as the negation
-    of a numeral, which is how Z3 writes a negative constant; should a fact
-    fail to prove, the generalized attempt fails and the fallback runs.
+    omega reads % by a positive numeral only, so the facts are the library's.
+    Under a negative divisor the upper one is Int.emod_lt, the bound by the
+    divisor's absolute value, which decide compares with the numeral |k|:
+    that holds however the constant divisor is written ((- 3) is -3, but
+    (- (+ 1 2)) is the difference 0 - (1 + 2), see _negation, which a
+    rewrite with Int.emod_neg would not match). The facts are best effort:
+    should one fail to prove, the generalized attempt fails and the
+    fallback runs.
     Returns the have lines and the names of the facts, for the caller to revert.
     """
     lines, names = [], []
@@ -5013,7 +5020,7 @@ def _mod_bound_facts(graph, atoms):
         definitions = " ".join(_definition_names(graph, _reachable(graph, atom)[0]))
         upper = "exact Int.emod_lt_of_pos _ (by decide)"
         if divisor < 0:
-            upper = "rw [Int.emod_neg]; " + upper
+            upper = "exact Int.lt_of_lt_of_le (Int.emod_lt _ (by decide)) (by decide)"
         lines.append("have _m%d_0 : ((0 : Int)) <= %s := by unfold %s; exact Int.emod_nonneg _ (by decide)" % (
             position, _term(graph, atom), definitions))
         lines.append("have _m%d_1 : %s < ((%d : Int)) := by unfold %s; %s" % (
@@ -9239,8 +9246,16 @@ def reconstruct(source, certificate):
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
     if any(decl.kind in _INT_NAMES and decl.range == "Int" for decl in graph.declarations):
         lines.append("-- Int div and mod by a numeral are Lean's Euclidean / and %; abs is the ite SMT-LIB defines.")
+    quotients = {node for node in range(len(graph.nodes)) if graph.is_term(node) and _negative_quotient(graph, node)}
+    if quotients:
+        lines.append("-- Int div by a negative constant d is written 0 - t / (0 - d), which is t / d: "
+                     "see the theorem term_N_quotient after each such definition.")
     if any(decl.kind == z3.Z3_OP_REM for decl in graph.declarations):
-        lines.append("-- Int rem by a numeral k is Z3's (ite (>= k 0) (mod t k) (- (mod t k))): t % k, or -(t % k) for k < 0.")
+        lines.append("-- Int rem by a numeral k is Z3's (ite (>= k 0) (mod t k) (- (mod t k))): "
+                     "t % k, or 0 - t % k for k < 0.")
+    if any(graph.is_term(node) and graph.kind(node) in (z3.Z3_OP_UMINUS, z3.Z3_OP_ABS)
+           and _negated_as_difference(graph, graph.arguments(node)[0]) for node in range(len(graph.nodes))):
+        lines.append("-- The negation of an Int term t is written 0 - t, of a positive numeral -k.")
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
         lines.append("-- Pseudo-Boolean constraints compare the weighted sum of their literals' 0/1 values over Int "
                      "with their bound.")
@@ -9315,6 +9330,8 @@ def reconstruct(source, certificate):
         lines.extend(_SET_DEFINITIONS + [""])
     if any(decl.kind in _CONVERSION_KINDS for decl in graph.declarations):
         lines.extend(_CAST_LEMMAS + [""])
+    if quotients:
+        lines.extend(_NEGATIVE_QUOTIENT_LEMMA + [""])
     if any(decl.kind in _PSEUDO_BOOLEAN for decl in graph.declarations):
         lines.extend(_PSEUDO_BOOLEAN_LEMMAS + [""])
     if any(_boolean_distinct(graph, node) for node in range(len(graph.nodes))):
@@ -9336,6 +9353,8 @@ def reconstruct(source, certificate):
             definitions.append("%sdef term_%d %s : %s := %s" % (
                 "noncomputable " if node in classical else "", node, signature,
                 graph.lean_type(node), _term_body(graph, node, variable_indices)))
+            if node in quotients:
+                definitions.append(_quotient_theorem(graph, node, signature))
         elif graph.decl(node).range == "Bool":
             definitions.append("def formula_%d %s : Prop := %s" % (
                 node, signature, _formula_body(graph, node, atom_indices)))
