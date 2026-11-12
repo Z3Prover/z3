@@ -40,6 +40,7 @@ namespace seq {
     class power_facet;
     class mem_facet;
     class ncontains_facet;
+    class replace_all_facet;
     class solver_facet_i;
     class assumption_facet;
     class req_facet;
@@ -81,6 +82,7 @@ namespace seq {
         stx::facet_id m_pow_id = no_facet;
         stx::facet_id m_mem_id = no_facet;
         stx::facet_id m_ncontains_id = no_facet;
+        stx::facet_id m_replace_all_id = no_facet;
         stx::facet_id m_assumption_id = no_facet;
         stx::facet_id m_req_id = no_facet;
         stx::facet_id m_lex_id = no_facet;
@@ -95,6 +97,7 @@ namespace seq {
         stx::facet_id pow_id() const { return m_pow_id; }
         stx::facet_id mem_id() const { return m_mem_id; }
         stx::facet_id ncontains_id() const { return m_ncontains_id; }
+        stx::facet_id replace_all_id() const { return m_replace_all_id; }
         stx::facet_id assumption_id() const { return m_assumption_id; }
         stx::facet_id req_id() const { return m_req_id; }
         stx::facet_id lex_id() const { return m_lex_id; }
@@ -122,6 +125,7 @@ namespace seq {
         void set_pow_id(stx::facet_id id) { m_pow_id = id; }
         void set_mem_id(stx::facet_id id) { m_mem_id = id; }
         void set_ncontains_id(stx::facet_id id) { m_ncontains_id = id; }
+        void set_replace_all_id(stx::facet_id id) { m_replace_all_id = id; }
         void set_assumption_id(stx::facet_id id) { m_assumption_id = id; }
         void set_req_id(stx::facet_id id) { m_req_id = id; }
         void set_lex_id(stx::facet_id id) { m_lex_id = id; }
@@ -182,6 +186,7 @@ namespace seq {
         template <typename node_t> seq::power_facet& power_facet(node_t& n) const { return n.template facet_as<seq::power_facet>(pow_id()); }
         template <typename node_t> seq::mem_facet& mem_facet(node_t& n) const { return n.template facet_as<seq::mem_facet>(mem_id()); }
         template <typename node_t> seq::ncontains_facet& ncontains_facet(node_t& n) const { return n.template facet_as<seq::ncontains_facet>(ncontains_id()); }
+        template <typename node_t> seq::replace_all_facet& replace_all_facet(node_t& n) const { return n.template facet_as<seq::replace_all_facet>(replace_all_id()); }
         template <typename node_t> seq::solver_facet_i& solver_facet(node_t& n) const { return n.template facet_as<seq::solver_facet_i>(arith_id()); }
         template <typename node_t> bool has_solver_facet(node_t const& n) const { return n.has_facet(arith_id()); }
         template <typename node_t> seq::assumption_facet& assumption_facet(node_t& n) const { return n.template facet_as<seq::assumption_facet>(assumption_id()); }
@@ -228,6 +233,7 @@ namespace seq {
         power_facet& power_facet_ref() const { return m_ac.power_facet(m_node); }
         mem_facet& mem_facet_ref() const { return m_ac.mem_facet(m_node); }
         ncontains_facet& ncontains_facet_ref() const { return m_ac.ncontains_facet(m_node); }
+        replace_all_facet& replace_all_facet_ref() const { return m_ac.replace_all_facet(m_node); }
         solver_facet_i& solver_facet_ref() const { return m_ac.solver_facet(m_node); }
         assumption_facet& assumption_facet_ref() const { return m_ac.assumption_facet(m_node); }
 

@@ -29,6 +29,7 @@ Author:
 #include "ast/seq/seq_mem_facet.h"
 #include "ast/seq/seq_monadic.h"
 #include "ast/seq/seq_ncontains_facet.h"
+#include "ast/seq/seq_replace_all_facet.h"
 #include "ast/seq/seq_req_facet.h"
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/seq/seq_stoi_facet.h"
