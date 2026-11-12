@@ -23,6 +23,7 @@ Notes:
 #include "ast/ast_translation.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_pp_util.h"
 #include "ast/ast_ll_pp.h"
@@ -1703,6 +1704,9 @@ namespace opt {
     }
 
     bool context::simplify_min_max_of_sums(expr_ref_vector& fmls) {
+        // Recursive definitions may contain objective dependencies outside the asserted ASTs.
+        if (recfun::util(m).has_rec_defs())
+            return false;
         bool simplified = false;
         bool progress = true;
         while (progress) {
@@ -1726,7 +1730,8 @@ namespace opt {
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
         if (!is_max && !is_min)
             return false;
-        if (!is_uninterp(term)) // this can be generalized to summations
+        // Other applications may alias terms that do not syntactically contain the objective.
+        if (!is_uninterp_const(term))
             return false;
         ptr_vector<expr> _fmls(fmls.size(), fmls.data());
         expr_mark mark;
