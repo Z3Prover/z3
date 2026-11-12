@@ -37,7 +37,7 @@ void parikh::updt_config(config const& c) {
 }
 
 expr_ref parikh::mk_sk(char const* name, std::initializer_list<expr*> args, sort* range) {
-    return expr_ref(m_util.mk_skolem(symbol(name), args.size(), args.begin(), range), m);
+    return expr_ref(m_util.mk_skolem(symbol(name), static_cast<unsigned>(args.size()), args.begin(), range), m);
 }
 
 expr_ref parikh::num(int i) {

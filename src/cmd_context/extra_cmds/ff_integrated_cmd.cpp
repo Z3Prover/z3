@@ -190,7 +190,7 @@ namespace {
                 lemma << "(:literals (";
                 for (unsigned i : used) {
                     if (i >= equations.size()) throw default_exception("invalid native field proof input");
-                    renumber[i] = core.size(); core.push_back(selected[i]->value);
+                    renumber[i] = static_cast<unsigned>(core.size()); core.push_back(selected[i]->value);
                     auto l = premises[i]; conflict.push_back(~l);
                     lemma << (l.sign() ? -1 : 1) * static_cast<int>(l.var() + 1) << ' ';
                     required.insert(selected[i]->support.begin(), selected[i]->support.end());

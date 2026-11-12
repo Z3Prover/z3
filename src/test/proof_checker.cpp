@@ -85,7 +85,7 @@ static void tst_euf_negation() {
     expr_ref nx(m.mk_not(x), m);
     expr_ref eq(m.mk_eq(nx, y), m);
     auto check = [&](std::initializer_list<expr*> args) {
-        expr_ref hint(m.mk_app(symbol("euf"), args.size(), args.begin(), m.mk_proof_sort()), m);
+        expr_ref hint(m.mk_app(symbol("euf"), static_cast<unsigned>(args.size()), args.begin(), m.mk_proof_sort()), m);
         return checker.check(hint);
     };
 
