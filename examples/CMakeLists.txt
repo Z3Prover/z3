@@ -1,6 +1,4 @@
-if (POLICY CMP0225)
-  cmake_policy(SET CMP0225 NEW)
-endif()
+cmake_minimum_required(VERSION 3.26....4.5)
 
 include(ExternalProject)
 
