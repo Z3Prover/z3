@@ -212,6 +212,24 @@ static void check_recfun_output(char const* input, char const* expected) {
     VERIFY(out.str() == expected);
 }
 
+static void check_mbqi_division_by_zero() {
+    // The model checker interprets division, modulus and remainder by a zero
+    // divisor as the current model does. A free choice refutes satisfied quantifiers.
+    check_recfun_output(
+        "(assert (forall ((x Int)) (= 0 (mod 0 x))))\n"
+        "(check-sat)\n", "sat\n");
+    check_recfun_output(
+        "(declare-fun a () Real)\n"
+        "(declare-fun b () Real)\n"
+        "(declare-fun c () Real)\n"
+        "(declare-fun d () Real)\n"
+        "(assert (not (exists ((e Real)) (=> (and (= 0 (/ a (- b e)) c)) (< c d)))))\n"
+        "(check-sat)\n", "sat\n");
+    check_recfun_output(
+        "(assert (forall ((x Int) (y Int) (z Int)) (= x (/ 1 y z (- 128 z 1)))))\n"
+        "(check-sat)\n", "unsat\n");
+}
+
 static void check_recfun_unfold_limit() {
     // the simplifier unfolds recursive functions on values within a budget.
     check_recfun_output(
@@ -1507,6 +1525,7 @@ void tst_smt_context()
     check_lp_cancellation_recovery();
     check_recfun_rlimits();
     check_recfun_unfold_limit();
+    check_mbqi_division_by_zero();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
