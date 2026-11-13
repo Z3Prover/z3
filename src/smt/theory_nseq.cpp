@@ -404,21 +404,33 @@ namespace smt {
         expr* e = ctx.bool_var2expr(v);
         literal lit(v, !is_true);
         expr* e1 = nullptr, *e2 = nullptr;
+        expr_ref contains_word(m);
+        bool contains = false;
 
         // Any unrelated assignment invalidates the pending SAT snapshot.
         if (!any_of(m_pending_assumptions, [&](literal l) { return l.var() == v; }))
             m_pending_assumptions.reset();
         if (m_seq.str.is_in_re(e, e1, e2)) {
-            ensure_enode(e1);
-            ensure_enode(e2);
-            unsigned idx = mk_dep(assumption(lit));
-            seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
-            seq::view mv = seq::view::membership(re, m);
-            expr_ref_vector ts = tokenize(dep, e1);
-            // str_mem keeps the complemented regex alive.
-            m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
-            return;
+            vector<expr_ref_vector> patterns;
+            if (!is_uninterp_const(e1) && m_rewriter.is_re_contains_pattern(e2, patterns) &&
+                patterns.size() == 1) {
+                // Keep positional sources on the containment equation/obligation path.
+                contains_word = m_seq.str.mk_concat(patterns[0], e1->get_sort());
+                e2 = contains_word;
+                contains = true;
+            }
+            else {
+                ensure_enode(e1);
+                ensure_enode(e2);
+                unsigned idx = mk_dep(assumption(lit));
+                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+                expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
+                seq::view mv = seq::view::membership(re, m);
+                expr_ref_vector ts = tokenize(dep, e1);
+                // str_mem keeps the complemented regex alive.
+                m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
+                return;
+            }
         }
 
         if (m_seq.str.is_prefix(e, e1, e2)) {
@@ -456,7 +468,7 @@ namespace smt {
             return;
         }
 
-        if (m_seq.str.is_contains(e, e1, e2)) {
+        if (contains || m_seq.str.is_contains(e, e1, e2)) {
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             if (is_true) {

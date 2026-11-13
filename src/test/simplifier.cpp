@@ -35,6 +35,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "qe/qe_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include "tactic/smtlogics/qfslia_tactic.h"
+#include "tactic/portfolio/default_tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 
 
@@ -1104,6 +1106,9 @@ static void test_use_aware_replace_contains() {
     expr_ref expected(seq.str.mk_contains(s, y), m);
     expr_ref index(seq.str.mk_index(replaced, needle, arith.mk_int(0)), m);
     expr_ref index_constraint(arith.mk_ge(index, arith.mk_int(0)), m);
+    th_rewriter normalizer(m);
+    normalizer(observation);
+    normalizer(expected);
 
     smt_params params;
     params.m_seq_regular = false;
@@ -1126,6 +1131,7 @@ static void test_use_aware_replace_contains() {
         ENSURE(formulas.get_formula(0) == (kind == 0 ? expected.get() : observation.get()));
         if (kind == 0) {
             expr_ref expected_z(seq.str.mk_contains(s, z), m);
+            normalizer(expected_z);
             ENSURE(formulas.get_formula(1) == expected_z);
         }
     }
@@ -1144,6 +1150,7 @@ static void test_use_aware_replace_contains() {
     expr_ref joined(seq.str.mk_concat(previous, s), m);
     expr_ref downstream(seq.str.mk_replace(joined, needle, replacement), m);
     expr_ref downstream_observation(seq.str.mk_contains(downstream, y), m);
+    normalizer(downstream_observation);
     asserted_formulas mixed_chain(m, params, params_ref());
     mixed_chain.assert_expr(downstream_observation);
     mixed_chain.assert_expr(observation);
@@ -1159,11 +1166,15 @@ static void test_use_aware_replace_contains() {
     scoped.assert_expr(index_constraint);
     scoped.assert_expr(seq.str.mk_contains(replaced, z));
     scoped.reduce();
-    ENSURE(scoped.get_formula(2) == seq.str.mk_contains(replaced, z));
+    expr_ref scoped_observation(seq.str.mk_contains(replaced, z), m);
+    normalizer(scoped_observation);
+    ENSURE(scoped.get_formula(2) == scoped_observation);
     scoped.pop_scope(1);
     scoped.assert_expr(seq.str.mk_contains(replaced, z));
     scoped.reduce();
-    ENSURE(scoped.get_formula(1) == seq.str.mk_contains(s, z));
+    expr_ref scoped_expected(seq.str.mk_contains(s, z), m);
+    normalizer(scoped_expected);
+    ENSURE(scoped.get_formula(1) == scoped_expected);
 
     expr_ref prefix_zero(arith.mk_int(0), m), prefix_one(arith.mk_int(1), m);
     expr_ref three(arith.mk_int(3), m), two(arith.mk_int(2), m);
@@ -1562,7 +1573,73 @@ static void test_seq_regular() {
     }
 }
 
+static void test_qfslia_tactic() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    app_ref s(m.mk_const("qfslia-s", u.str.mk_string_sort()), m);
+    app_ref i(m.mk_const("qfslia-i", a.mk_int()), m);
+    expr_ref needle(u.str.mk_string(zstring("a")), m);
+    expr_ref contains(u.str.mk_contains(s, needle), m);
+    probe_ref probe = mk_is_qfslia_probe();
+    goal_ref g = alloc(goal, m, true, false, false);
+    g->assert_expr(contains);
+    ENSURE((*probe)(*g).is_true());
+    expr_ref two(a.mk_int(2), m);
+    expr_ref product(a.mk_mul(two, i), m);
+    g->assert_expr(a.mk_ge(product, a.mk_int(0)));
+    ENSURE((*probe)(*g).is_true());
+    product = a.mk_mul(i, i);
+    g->assert_expr(a.mk_ge(product, a.mk_int(0)));
+    ENSURE(!(*probe)(*g).is_true());
+    g = alloc(goal, m, true, false, false);
+    g->assert_expr(a.mk_ge(i, a.mk_int(0)));
+    ENSURE(!(*probe)(*g).is_true());
+    {
+        sort* sorts[] = {u.str.mk_string_sort()};
+        symbol names[] = {symbol("x")};
+        expr_ref quantified(m.mk_forall(1, sorts, names, contains), m);
+        g->assert_expr(quantified);
+        ENSURE(!(*probe)(*g).is_true());
+    }
+    for (bool use_default : {false, true}) {
+        for (bool regular : {false, true}) {
+            params_ref p;
+            p.set_sym("string_solver", symbol("nseq"));
+            p.set_bool("seq.regular", regular);
+            tactic_ref t = use_default ? mk_default_tactic(m, p) : mk_qfslia_tactic(m, p);
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref delimiter(u.str.mk_string(zstring(":")), m);
+            expr_ref index(u.str.mk_index(s, delimiter, zero), m);
+            expr_ref prefix(u.str.mk_substr(s, zero, index), m);
+            expr_ref prefix_contains(u.str.mk_contains(prefix, needle), m);
+            g = alloc(goal, m, true, false, false);
+            expr_ref value(u.str.mk_string(zstring("a:")), m);
+            g->assert_expr(m.mk_eq(s, value));
+            g->assert_expr(m.mk_not(prefix_contains));
+            goal_ref_buffer result;
+            (*t)(g, result);
+            ENSURE(result.size() == 1 && result[0]->inconsistent());
+            statistics st;
+            t->collect_statistics(st);
+            bool rewritten = false;
+            for (unsigned j = 0; j < st.size(); ++j)
+                rewritten |= std::strcmp(st.get_key(j), "seq-regular-rewritten") == 0;
+            ENSURE(rewritten == regular);
+            g = alloc(goal, m, true, false, false);
+            g->assert_expr(m.mk_eq(s, needle));
+            g->assert_expr(contains);
+            result.reset();
+            t->cleanup();
+            (*t)(g, result);
+            ENSURE(result.size() == 1 && result[0]->is_decided_sat());
+        }
+    }
+}
+
 void tst_simplifier() {
+    test_qfslia_tactic();
 
     test_seq_regular();
     test_use_aware_replace_contains();

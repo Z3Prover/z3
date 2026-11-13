@@ -468,7 +468,78 @@ static void tst_seq_replace_prefix_suffix() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void tst_contains_membership() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    arith_util a(m);
+    seq_rewriter rw(m);
+    th_rewriter trw(m);
+    app_ref s(m.mk_const("contains-s", u.str.mk_string_sort()), m);
+    expr_ref literal(u.str.mk_string(zstring("ab")), m);
+    expr_ref unit(u.str.mk_unit(u.mk_char('c')), m);
+    expr_ref word(u.str.mk_concat(literal, unit), m);
+    expr_ref suffix(u.str.mk_string(zstring("de")), m);
+    word = u.str.mk_concat(word, suffix);
+    expr_ref_vector needles(m);
+    needles.push_back(literal);
+    needles.push_back(word);
+    for (expr* needle : needles) {
+        expr* args[] = {s, needle};
+        expr_ref result(m);
+        ENSURE(rw.mk_app_core(u.str.mk_contains(s, needle)->get_decl(), 2, args, result) != BR_FAILED);
+        expr* source = nullptr, *language = nullptr;
+        ENSURE(u.str.is_in_re(result, source, language) && source == s);
+        for (char const* text : {"", "a", "ab", "xaby", "abcde", "xabcdey", "abced"}) {
+            expr_ref concrete(u.str.mk_string(zstring(text)), m);
+            expr_ref expected(u.str.mk_contains(concrete, needle), m);
+            expr_ref actual(u.re.mk_in_re(concrete, language), m);
+            trw(expected);
+            trw(actual);
+            ENSURE((m.is_true(expected) || m.is_false(expected)) && expected == actual);
+        }
+    }
+    {
+        app_ref ch(m.mk_const("contains-ch", u.mk_char_sort()), m);
+        expr_ref symbolic(u.str.mk_unit(ch), m);
+        expr_ref needle(u.str.mk_concat(literal, symbolic), m);
+        expr* args[] = {s, needle};
+        expr_ref result(m);
+        ENSURE(rw.mk_app_core(u.str.mk_contains(s, needle)->get_decl(), 2, args, result) == BR_FAILED);
+    }
+    {
+        sort_ref seq_int(u.str.mk_seq(a.mk_int()), m);
+        app_ref source(m.mk_const("contains-ints", seq_int), m);
+        expr_ref one(a.mk_int(1), m), two(a.mk_int(2), m);
+        expr_ref first(u.str.mk_unit(one), m), second(u.str.mk_unit(two), m);
+        expr_ref needle(u.str.mk_concat(first, second), m);
+        expr* args[] = {source, needle};
+        expr_ref result(m);
+        ENSURE(rw.mk_app_core(u.str.mk_contains(source, needle)->get_decl(), 2, args, result) != BR_FAILED);
+        expr* input = nullptr, *language = nullptr;
+        ENSURE(u.str.is_in_re(result, input, language) && input == source);
+    }
+    {
+        scoped_rlimit limit(m.limit(), 1000000);
+        app_ref position(m.mk_const("contains-position", a.mk_int()), m);
+        expr_ref part(u.str.mk_substr(s, position, position), m);
+        expr_ref character(u.str.mk_string("A"), m);
+        expr_ref contains(u.str.mk_contains(part, character), m);
+        expr_ref prefix(u.str.mk_prefix(character, part), m);
+        expr_ref formula(m.mk_not(m.mk_eq(contains, prefix)), m);
+        smt_params p;
+        p.m_string_solver = symbol("nseq");
+        smt::context ctx(m, p);
+        ctx.assert_expr(formula);
+        ENSURE(ctx.check() == l_true);
+        model_ref model;
+        ctx.get_model(model);
+        ENSURE(model && model->is_true(formula));
+    }
+}
+
 void tst_seq_rewriter() {
+    tst_contains_membership();
     tst_seq_replace_prefix_suffix();
     tst_seq_index_empty_pattern();
     tst_seq_last_index();

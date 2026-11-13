@@ -1612,6 +1612,18 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = str().mk_contains(ra, b);
         return BR_REWRITE1;
     }
+    std::function<bool(expr*)> is_ground_word = [&](expr* e) {
+        expr* value = nullptr;
+        return str().is_string(e) || (str().is_unit(e, value) && m().is_value(value));
+    };
+    if (bs.forall(is_ground_word)) {
+        expr_ref word(re().mk_to_re(b), m());
+        expr_ref full(re().mk_full_seq(word->get_sort()), m());
+        expr_ref language(re().mk_concat(full, word), m());
+        language = re().mk_concat(language, full);
+        result = re().mk_in_re(a, language);
+        return BR_REWRITE_FULL;
+    }
     return BR_FAILED;
 }
 

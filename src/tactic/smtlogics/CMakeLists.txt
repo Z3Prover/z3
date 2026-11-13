@@ -9,6 +9,7 @@ z3_add_component(smtlogic_tactics
     qflra_tactic.cpp
     qfnia_tactic.cpp
     qfnra_tactic.cpp
+    qfslia_tactic.cpp
     qfufbv_ackr_model_converter.cpp
     qfufbv_tactic.cpp
     qfuf_tactic.cpp
@@ -24,5 +25,6 @@ z3_add_component(smtlogic_tactics
     nlsat_tactic
     qe
     sat_solver
+    simplifiers
     smt_tactic
 )

@@ -27,6 +27,7 @@ Notes:
 #include "ast/ff_decl_plugin.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "tactic/smtlogics/qflia_tactic.h"
+#include "tactic/smtlogics/qfslia_tactic.h"
 #include "tactic/smtlogics/qfnia_tactic.h"
 #include "tactic/smtlogics/qfnra_tactic.h"
 #include "tactic/smtlogics/qfuf_tactic.h"
@@ -94,6 +95,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return annotate_tactic("qfidl-tactic", mk_qfidl_tactic(m, p));
     else if (logic=="QF_LIA")
         return annotate_tactic("qflia-tactic", mk_qflia_tactic(m, p));
+    else if (logic=="QF_SLIA")
+        return annotate_tactic("qfslia-tactic", mk_qfslia_tactic(m, p));
     else if (logic=="QF_LRA")
         return annotate_tactic("qflra-tactic", mk_qflra_tactic(m, p));
     else if (logic=="QF_NIA")
