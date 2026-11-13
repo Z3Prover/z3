@@ -306,25 +306,30 @@ _NUMERIC_FIELDS[_MIXED] = _NUMERIC_FIELDS["Real"] + _NUMERIC_FIELDS["Int"]
 # into which a model's array a embeds as fun p => a (decide p) (injective,
 # and commuting with select and store since equal propositions are equal,
 # propext); an index and the extensionality witness are formulas, the
-# witness chosen with True. Constant arrays and default values over Bool
-# indices are rejected like those over uninterpreted sorts (_UNBOUNDED).
+# witness chosen with True. A constant array over Bool indices is the
+# constant function on Prop, which is what a model's embeds as; default
+# values over Bool indices are rejected like those over uninterpreted sorts
+# (_UNBOUNDED).
 # Nested arrays: an index or element sort that is an array is that array's
 # Lean function type, (Array Int (Array Int Int)) is Int -> (Int -> Int).
 # A model embeds its inner arrays first (injectively, commuting with select
 # and store), then each outer array as the function agreeing with it on the
 # embedded indices and one fixed value elsewhere (so store, at an embedded
 # index, and ite commute outside the image too, and two outer arrays that
-# differ do so at an embedded index); constant arrays are admitted over Int
-# and Real indices only, whose embedding is onto. A pointwise connective
+# differ do so at an embedded index); a constant array is the constant
+# function, which a model's is only where the embedding of the indices is
+# onto, so constant arrays over array indices are rejected (_declaration).
+# A pointwise connective
 # does not commute with that embedding outside the image (not of the fixed
 # value is another value), so maps and set operators over sets indexed by
 # arrays are rejected (_declaration, proof_certificate's map_parameters);
 # maps over rows of nested arrays (a set Int -> Prop read from a row of an
 # Int -> (Int -> Prop)) are over Int indices. An uninterpreted index sort is
 # in the same position whenever _m.U holds more than that sort, so the index
-# sort of a map, a set operator, or a subset is then a Lean type of its own,
-# _m.S0, _m.S1, ..., over which the arrays are functions on exactly the
-# model's indices (_index_sorts). A read of a row and an extensionality
+# sort of a map, a set operator, a subset, or a constant array is then a
+# Lean type of its own, _m.S0, _m.S1, ..., over which the arrays are
+# functions on exactly the model's indices (_index_sorts). A read of a row
+# and an extensionality
 # witness over array indices are array terms that lemmas unfold
 # (_folded_array); the witness is chosen with a constant function (_nonempty).
 _ARRAY_TYPE_CODES = {"_m.U": "u", "Int": "i", "Rat": "r", "Prop": "b"}
@@ -406,8 +411,10 @@ private theorem _cases_default_store {I E : Type} (P : E -> Prop)
   rw [_default_store]
   exact ha
 """.strip("\n").split("\n")
-# A constant array over Int or Real indices, ((as const (Array I E)) v), is
-# the constant function _const_array. The array solver relates constant arrays
+# A constant array ((as const (Array I E)) v) is the constant function
+# _const_array, over Int, Real, and Bool indices and over an uninterpreted
+# index sort, which is then exactly the model's (_index_sorts). The array
+# solver relates constant arrays over Int and Real indices
 # to others through their default value (default a), the value an array takes
 # at all but finitely many indices: (default (const v)) = v and (default
 # (store a i v)) = (default a). _default is a function on all of I -> E with
@@ -417,9 +424,11 @@ private theorem _cases_default_store {I E : Type} (P : E -> Prop)
 # and otherwise one value that a store does not change (Classical.choice of a
 # Nonempty proof, and proofs are irrelevant). Over a finite index sort no such
 # function exists (a store at every index turns one constant array into
-# another), so the exporter and the reconstructor reject uninterpreted index
-# sorts and admit constant arrays and defaults over Int and Real indices only
-# (_UNBOUNDED). A constant array is a store of its value at any index
+# another), so the exporter and the reconstructor admit default values over
+# Int and Real indices only (_UNBOUNDED); over the other index sorts two
+# constant arrays are compared at one index instead (_index_witness), and a
+# refutation that needs the default value of a store there is rejected. A
+# constant array is a store of its value at any index
 # (_const_store_self: for maps of stores next to constant arrays, and for
 # Z3's rewriter, which folds (store (const c) i c) into (const c)), and
 # equal to a store into it exactly when the stored value is its own
@@ -985,6 +994,19 @@ def _unbounded(graph, node, explicit=False):
     return proof
 
 
+def _index_witness(graph, sort):
+    """An index of an index sort without a default value (_UNBOUNDED), at which compared arrays are read.
+
+    Over such a sort (uninterpreted or Bool) two constant arrays are equal
+    exactly when their values are, since the sort has an index:
+    _constant_array_comparisons reads them there. A formula is one over
+    Bool; an uninterpreted sort has the values of its constants, named by
+    the input or not (the families elems of the carrier and of a type of
+    its own, _sort_family).
+    """
+    return "True" if sort == "Bool" else "(%s 0)" % _sort_family(graph, sort, "elems")
+
+
 def _generic_index(sort):
     """The name of the generic index of an index sort of _UNBOUNDED: _generic_i (Int), _generic_r (Real)."""
     return "_generic_" + _ARRAY_TYPE_CODES[_NUMBER_TYPES[sort]]
@@ -1381,6 +1403,12 @@ class _Graph:
         return _index_sorts(self)
 
     @functools.cached_property
+    def constant_indices(self):
+        """The index sorts without a default value (_UNBOUNDED) that constant arrays of the certificate are over."""
+        return frozenset(_array_components(decl.range)[0] for decl in self.declarations
+                         if decl.kind == z3.Z3_OP_CONST_ARRAY) - set(_UNBOUNDED)
+
+    @functools.cached_property
     def subset_rewrite(self):
         """Whether _subset_eq is stated: a subset next to a constant array (_SUBSET_REWRITE)."""
         kinds = {decl.kind for decl in self.declarations}
@@ -1583,8 +1611,12 @@ def _declaration(raw, sorts):
                 or _array_components(domain[0]) not in [(index, raw["range"]) for index in _UNBOUNDED]):
             raise ReconstructionError("invalid default declaration")
     elif kind == z3.Z3_OP_CONST_ARRAY:
-        # A constant array over Int or Real indices.
-        if name != "const" or array is None or array[0] not in _UNBOUNDED or domain != (array[1],):
+        # A constant array, the constant function: not over array indices,
+        # where a model's is constant on the embedded indices only (see
+        # _ARRAY_TYPE_CODES); an uninterpreted index sort gets a type of
+        # its own for it (_index_sorts).
+        if (name != "const" or array is None or _array_components(array[0]) is not None
+                or domain != (array[1],)):
             raise ReconstructionError("invalid constant array declaration")
     elif kind == z3.Z3_OP_ARRAY_MAP or kind in _SET_OPERATOR_NAMES:
         # A pointwise function over arrays of one index sort (map_parameters),
@@ -1731,8 +1763,19 @@ def _declaration(raw, sorts):
     return _Declaration(kind, name, domain, raw["range"], parameters)
 
 
+def _pointwise_indices(graph):
+    """The index sorts of the arrays that the maps, set operators, and subsets of the certificate are over."""
+    indices = set()
+    for decl in graph.declarations:
+        if decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES:
+            indices.add(_array_components(decl.range)[0])
+        elif decl.kind == z3.Z3_OP_SET_SUBSET:
+            indices.add(_array_components(decl.domain[0])[0])
+    return indices
+
+
 def _index_sorts(graph):
-    """The uninterpreted index sorts of pointwise functions that get a Lean type of their own, sorted.
+    """The uninterpreted index sorts of pointwise functions and constant arrays that get a Lean type of their own.
 
     Every uninterpreted sort is otherwise the one type _m.U, and an equality
     of arrays over a sort I is then stated at every index of _m.U. A model
@@ -1746,12 +1789,18 @@ def _index_sorts(graph):
     next to (not (= e1 e2)) over another sort; over one carrier its two
     Lean hypotheses are contradictory (the carrier holds e1 and e2, and at
     one of them the sets differ), so a refutation resting on them would
-    prove nothing about the input.
+    prove nothing about the input. A constant array does not keep it
+    either: a model's is constant on I, and the fixed value outside. With
+    _const_array over all of _m.U, (= (store (const v) i w) (store (const
+    w) i w)) with (not (= v w)), which says that I has one element (and has
+    a model: v and w are of another sort), would be contradictory too.
 
     So the index sort I of the arrays such a function is over (a map's
-    result, a subset's sets) is a type _m.SK of its own, K its position
+    result, a subset's sets, a constant array), in the order of the names,
+    is a type _m.SK of its own, K its position
     here: the arrays over I are functions on exactly a model's I, their
-    equalities, maps, and subsets mean what the input's do, and I's terms
+    equalities, maps, subsets, and constant arrays mean what the input's
+    do, and I's terms
     are families of their own (_sort_family) injected into _m.U where a
     function or predicate takes them. Unless I is all of _m.U anyway: the
     only uninterpreted sort (enumerations included, whose constructors
@@ -1760,14 +1809,11 @@ def _index_sorts(graph):
     is injected into the carrier, which must then hold its values). Then
     the model's I itself is the carrier, and the encoding stays as it is
     without maps. Int, Real, and Bool indices are Lean's own types; maps
-    over arrays indexed by arrays are rejected (_declaration).
+    and constant arrays over arrays indexed by arrays are rejected
+    (_declaration).
     """
-    indices = set()
-    for decl in graph.declarations:
-        if decl.kind == z3.Z3_OP_ARRAY_MAP or decl.kind in _SET_OPERATOR_NAMES:
-            indices.add(_array_components(decl.range)[0])
-        elif decl.kind == z3.Z3_OP_SET_SUBSET:
-            indices.add(_array_components(decl.domain[0])[0])
+    indices = _pointwise_indices(graph) | {_array_components(decl.range)[0] for decl in graph.declarations
+                                           if decl.kind == z3.Z3_OP_CONST_ARRAY}
     indices = tuple(sorted(indices & set(graph.carriers)))
     if graph.carriers == indices and len(indices) == 1 and all(
             sort == indices[0] for position, decl in enumerate(graph.declarations)
@@ -2093,8 +2139,8 @@ def _bind_input(source, graph, fragment=None, query=0):
         if sort in enumerations:
             # Its constructors and case fields are stated over _m.U. (The
             # exporter rejects arrays indexed by an enumeration.)
-            raise ReconstructionError("maps and set operators over arrays indexed by an enumeration are not "
-                                      "supported: %s" % sort)
+            raise ReconstructionError("maps, set operators, and constant arrays over arrays indexed by an "
+                                      "enumeration are not supported: %s" % sort)
     if any(set(tables[table]) != set(original_symbols[table]) for table in tables):
         raise ReconstructionError("certificate assertions do not match the original input")
     for table, symbols in tables.items():
@@ -5100,7 +5146,7 @@ def _read_count(reads):
 
 
 def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices):
-    """Default-value and read facts for a rewrite comparing Int- or Real-indexed arrays next to a constant array.
+    """Default-value and read facts for a rewrite comparing arrays next to a constant array.
 
     Z3's rewriter decides an equality between stores over constant arrays
     by the arrays' default values ((= (store (const 0) 1 1) (const 1)) is
@@ -5124,6 +5170,16 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     them no read facts are stated at all. The sides of each equality are
     also read at the indices read from their sort (_compared_side_reads),
     unless those reads alone exceed _COMPARISON_READS.
+
+    The default values are those of arrays over Int and Real indices. Over
+    another index sort that constant arrays of the certificate are over
+    (_Graph.constant_indices: an uninterpreted sort, Bool) there is none,
+    and the rewriter does not use one: it compares two constant arrays by
+    their values, (= (const v) (const w)) to (= v w), which holds because
+    the sort has an index. There each equality implies that its sides
+    agree at one index of the sort (_index_witness), where a constant
+    array has its value; a store has no fact there, only at the stored
+    indices like the others.
     """
     if not any(graph.kind(node) == z3.Z3_OP_CONST_ARRAY for node in reachable):
         return []
@@ -5134,10 +5190,15 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     def unbounded(node):
         return graph.is_array(node) and _array_components(graph.decl(node).range)[0] in _UNBOUNDED
 
+    def compared_sort(node):
+        """Whether node is an array over Int or Real indices, or over another index sort of constant arrays."""
+        return unbounded(node) or (graph.is_array(node)
+                                   and _array_components(graph.decl(node).range)[0] in graph.constant_indices)
+
     equalities = [node for node in sorted(reachable)
-                  if graph.kind(node) == z3.Z3_OP_EQ and unbounded(graph.arguments(node)[0])]
+                  if graph.kind(node) == z3.Z3_OP_EQ and compared_sort(graph.arguments(node)[0])]
     arrays = [node for node in sorted(reachable)
-              if graph.kind(node) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) and unbounded(node)]
+              if graph.kind(node) in (z3.Z3_OP_STORE, z3.Z3_OP_CONST_ARRAY) and compared_sort(node)]
     indices = {}  # array sort -> the indices stored into arrays of that sort
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
@@ -5158,9 +5219,15 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     helpers = []
     for node in equalities:
         left, right = (inline(argument) for argument in graph.arguments(node))
-        default = "_default %s" % _unbounded(graph, graph.arguments(node)[0])
-        helpers.append("  have _e%d : %s = %s -> %s %s = %s %s := congrArg (%s)" % (
-            node, left, right, default, left, default, right, default))
+        if unbounded(graph.arguments(node)[0]):
+            default = "_default %s" % _unbounded(graph, graph.arguments(node)[0])
+            helpers.append("  have _e%d : %s = %s -> %s %s = %s %s := congrArg (%s)" % (
+                node, left, right, default, left, default, right, default))
+        else:
+            witness = _index_witness(graph, _array_components(graph.decl(graph.arguments(node)[0]).range)[0])
+            helpers.append("  have _e%d : %s = %s -> _select %s %s = _select %s %s :="
+                           " congrArg (fun _x => _select _x %s)" % (
+                               node, left, right, left, witness, right, witness, witness))
         for index in sorted(compared.get(node, ())):
             helpers.append("  have _e%d_%d : %s = %s -> _select %s %s = _select %s %s :="
                            " congrArg (fun _x => _select _x %s)" % (
@@ -5173,14 +5240,19 @@ def _constant_array_comparisons(graph, reachable, atom_indices, variable_indices
     for node in arrays:
         if graph.kind(node) == z3.Z3_OP_STORE:
             arguments = " ".join(inline(argument) for argument in graph.arguments(node))
-            helpers.append("  have _ds%d := %s" % (node, _default_store_fact(graph, node, arguments)))
+            if unbounded(node):
+                helpers.append("  have _ds%d := %s" % (node, _default_store_fact(graph, node, arguments)))
             helpers.extend("  have _ds%d_%d := _store_apply %s %s" % (node, index, arguments, inline(index))
                            for index in sorted(levels.get(node, ())))
         else:
             value = inline(graph.arguments(node)[0])
             index_type = _array_types(graph, graph.decl(node).range)[0]
-            helpers.append("  have _dc%d := _default_const %s %s" % (
-                node, _unbounded(graph, node, explicit=True), value))
+            if unbounded(node):
+                helpers.append("  have _dc%d := _default_const %s %s" % (
+                    node, _unbounded(graph, node, explicit=True), value))
+            else:
+                helpers.append("  have _dc%d := _select_const (I := %s) %s %s" % (
+                    node, index_type, value, _index_witness(graph, _array_components(graph.decl(node).range)[0])))
             helpers.extend("  have _dc%d_%d := _select_const (I := %s) %s %s" % (
                 node, index, index_type, value, inline(index))
                            for index in sorted(levels.get(node, ())))
@@ -5304,6 +5376,13 @@ def _constant_chain_extensionality(graph, equality, inline):
     i, _select S i = _select T i, and proves it by funext, a case split on
     whether the index read is a stored one, and off them _store_off down to
     the constant arrays. Only equalities with at least one store get one.
+
+    The fact is a theorem over any index type, and is stated for the
+    equalities over an uninterpreted or Bool index sort of constant arrays
+    too (_Graph.constant_indices). There it mirrors no rewrite: over a sort
+    that may be finite the rewriter does not decide such an equality this
+    way (it expands it into a quantified formula, which the exporter
+    rejects).
     """
     sides = [_constant_chain(graph, argument) for argument in graph.arguments(equality)]
     if None in sides or not (sides[0][1] or sides[1][1]):
@@ -9750,12 +9829,15 @@ def reconstruct(source, certificate):
                          " functions with %s result are the family %s." % (
                              sort, _INJECTIONS[sort], {"Real": "a Real", "Int": "an Int"}[sort],
                              _NUMERIC_FUNCTIONS[sort]))
+    pointwise = _pointwise_indices(graph)
     for sort in graph.index_sorts:
-        # Maps, set operators, or subsets are over arrays indexed by it, so
-        # their index type is exactly the sort (_index_sorts).
-        lines.append("-- Uninterpreted sort %s is the type %s of its own, the index type of the pointwise maps: "
+        # Maps, set operators, subsets, or constant arrays are over arrays
+        # indexed by it, so their index type is exactly the sort (_index_sorts).
+        reasons = [reason for reason, indices in (("pointwise maps", pointwise),
+                                                  ("constant arrays", graph.constant_indices)) if sort in indices]
+        lines.append("-- Uninterpreted sort %s is the type %s of its own, the index type of the %s: "
                      "constants %s, functions %s, arguments of functions and predicates injected into _m.U by %s." % (
-                         json.dumps(sort, ensure_ascii=True), _component_type(graph, sort),
+                         json.dumps(sort, ensure_ascii=True), _component_type(graph, sort), " and ".join(reasons),
                          _sort_family(graph, sort, "elems"), _sort_family(graph, sort, "funs"),
                          _sort_family(graph, sort, "inj")))
     plain = [sort for sort in graph.carriers if sort not in graph.enumerations and sort not in graph.index_sorts]

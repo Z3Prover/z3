@@ -243,13 +243,12 @@ _FRAGMENTS = {"real_indices": "qf_uflra", "full_below_a_singleton_of_reals": "qf
               "decided_over_a_sort": "qf_uf", "decided_false_over_a_sort": "qf_uf"}
 _SET_SORTS = {"qf_uflia": "(Array Int Bool)", "qf_uflra": "(Array Real Bool)", "qf_uf": "(Array U Bool)"}
 
-# Inputs with subset that stay rejected, with the error. The first four by
-# the exporter (a pseudo-Boolean constraint counts Boolean variables only;
-# sets indexed by bit-vectors or an enumeration are no supported sort);
-# the others by the reconstructor, whose certificate cannot
-# carry the constant array of the rewriter's (= (setminus a b) empty) over
-# an index sort that may be finite (constant arrays are Int- or
-# Real-indexed, see proof_to_lean._declaration).
+# Inputs with subset that stay rejected, with the error, by the exporter (a
+# pseudo-Boolean constraint counts Boolean variables only; sets indexed by
+# bit-vectors or an enumeration are no supported sort). Subsets over an
+# uninterpreted sort and over Bool indices, whose certificate carries the
+# constant array of the rewriter's (= (setminus a b) empty) over that sort,
+# are in test_proof_to_lean_const_sort.py.
 REJECTED_SUBSET_INPUTS = {
     "sets_of_sets": ("""(declare-fun a () (Array (Array Int Bool) Bool))
 (assert (not (subset a a)))
@@ -269,22 +268,6 @@ REJECTED_SUBSET_INPUTS = {
 (assert (not (subset a a)))
 (check-sat)
 """, proof_certificate.ProofExportError, r"^unsupported sort: Array\(C, Bool\) "),
-    "over_a_sort": ("""(declare-sort U 0)
-(declare-fun a () (Array U Bool))
-(declare-fun b () (Array U Bool))
-(declare-fun u () U)
-(assert (subset a b))
-(assert (select a u))
-(assert (not (select b u)))
-(check-sat)
-""", proof_to_lean.ReconstructionError, "invalid constant array declaration"),
-    "over_bool_indices": ("""(declare-fun a () (Array Bool Bool))
-(declare-fun b () (Array Bool Bool))
-(assert (subset a b))
-(assert (select a true))
-(assert (not (select b true)))
-(check-sat)
-""", proof_to_lean.ReconstructionError, "invalid constant array declaration"),
 }
 
 

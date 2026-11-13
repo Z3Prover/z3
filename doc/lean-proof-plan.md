@@ -675,7 +675,8 @@ well-sorted (functions and predicates take uninterpreted-sort arguments
 only, equality and `distinct` compare one sort, every application matches
 its declaration) and `_bind_input` checks the sort set against the input.
 Lean renders all sorts as the one type `_U` (since 2026-11-12 the index
-sort of a map, a set operator, or a subset can be a type of its own; see
+sort of a map, a set operator, or a subset can be a type of its own, since
+2026-11-13 that of a constant array too; see
 "Index sorts of maps and set operators as Lean types of their own"): a
 many-sorted model is an instance of the theorem over the disjoint union of
 its carriers, every
@@ -2761,6 +2762,85 @@ arrays next to the sets; Lean), the pinned seeds `GENERIC_DEFAULT_SEEDS`
 `test_default_values_are_read_at_a_generic_index`,
 `test_default_values_of_maps_are_rejected` (now inputs that name a default
 value), and `test_the_generic_index_is_proved_off_the_stored_indices`.
+
+### Constant arrays over uninterpreted and Bool index sorts (2026-11-13)
+
+Constant arrays were certified over Int and Real indices only: the exporter
+rejected `((as const (Array I E)) v)` over an uninterpreted sort or Bool
+("constant arrays are supported over Int and Real indices only"), and the
+reconstructor rejected the constant arrays Z3's rewriter makes over such
+sorts in inputs that write none ("invalid constant array declaration"):
+`(= s (setminus t t))`, and every `(subset a b)` the rewriter does not
+decide, which it turns into `(= (setminus a b) empty)`. The reason given
+was the default values, which need an infinite index type. A constant
+array itself does not: it is the constant function over any index type.
+What it needs is an index type that is exactly the model's.
+
+- Over Bool indices a model's constant array embeds as the constant
+  function on `Prop`. Over an uninterpreted sort `I` it does when `I` is a
+  Lean type of its own, so a constant array makes its index sort one
+  (`_index_sorts`, as maps do since 2026-11-12), unless the sort is all of
+  the carrier. Over one carrier `(= (store (const v) i w) (store (const w)
+  i w))`, which says that `I` has one element when `v` and `w` differ,
+  contradicts `(not (= v w))` over another sort, though the two have a
+  model (Z3 answers sat): `test_a_one_element_index_sort_is_an_instance`
+  has Lean check that model against the reconstructed definitions, and the
+  contradiction over one carrier.
+- Constant arrays indexed by arrays stay rejected, by the exporter
+  ("constant arrays indexed by arrays are not supported") and the
+  reconstructor: a model's outer array is constant on the embedded indices
+  only.
+- Default values stay over Int and Real indices: the exporter rejects
+  `(default a)` over another index sort, the reconstructor a `default`
+  declaration ("invalid default declaration"), which the array solver
+  states of some constant arrays over a sort on its own (`(= red (default
+  (const red)))`). No default-value fact is stated over such sorts
+  (`_default_const`, `_default_store` take a proof that no finite list
+  exhausts the index type).
+- Without default values Z3's rewriter compares two constant arrays over
+  such a sort by their values, `(= (const v) (const w))` to `(= v w)`,
+  which holds because the sort has an index. `_constant_array_comparisons`
+  states, for the index sorts constant arrays of the certificate are over
+  (`_Graph.constant_indices`), that each equality of arrays a rewrite
+  reaches holds at one index of the sort (`_index_witness`: the value of a
+  constant, `_m.s0_elems 0` or `_m.elems 0`; `True` over Bool) and that a
+  constant array has its value there, next to the reads at the stored
+  indices as over Int. Without these facts `grind` fails
+  (`test_the_reads_at_an_index_are_needed`).
+- An equality between stores over constant arrays over such a sort the
+  rewriter expands into a quantified formula (`(forall ((x I)) (= (ite (= x
+  i) w v) v))`); the exporter now names it ("quantifiers are not supported
+  in the clause log: forall", before "unsupported application head in the
+  clause log").
+
+Measured on this iteration's macOS build with
+`random_constant_sort_instance` (`test_proof_to_lean_const_sort.py`; every
+input was rejected before): with a second sort declared (`index='I'`), 511
+of the 565 unsatisfiable seeds of 1-1500 verify in Lean; over the only
+sort, 203 of 227 (1-600); over Bool indices, 200 of 218 (1-600). Of the 535
+of the first row that reconstruct, 501 state `I` as a type of its own (479
+verify); in the other 34 no assertion mentions the second sort, so `I` is
+the only sort of the certificate and stays the carrier (32 verify). Of the
+others, 35 are
+rejected for the solver's default values, 15 by the exporter (11 for a
+quantifier, 4 for a fresh symbol of the log), and 46 fail in Lean, 38 of
+them in the same way with Int for the index sort. The 30 seeds of
+`random_index_sort_instance` 1-1500 that were rejected for a constant
+array now reconstruct, and 26 verify (the other 4 fail over Int too). The
+existing set, constant-array, subset, enumeration-array, sorted, and
+Bool-argument generators reconstruct to the same text as before (613
+certificates), and so do the other 211 of `random_index_sort_instance`.
+
+Tests (`test_proof_to_lean_const_sort.py`): `CONSTANT_SORT_INPUTS` (22,
+three of them the only sort next to a function with a Bool, an Int, or an
+array argument, where it is a type of its own all the same),
+`CARRIER_INPUTS` (8: the only sort, Bool indices), the pinned seeds
+`CONSTANT_SORT_SEEDS` (Lean); the sorts chosen, the encoding, the facts at
+the index and the absence of default-value facts, `REJECTED_INPUTS`, and
+tampered certificates (a constant array over array indices, a default
+value over the sort, the sorts merged) without Lean. The two subsets of
+`REJECTED_SUBSET_INPUTS` over a sort and over Bool indices are among the
+inputs that verify.
 
 ### Index sorts of maps and set operators as Lean types of their own (2026-11-12)
 

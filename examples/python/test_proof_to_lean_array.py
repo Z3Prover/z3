@@ -2541,10 +2541,9 @@ class TestArrayValidation(unittest.TestCase):
         context = z3.Context()
         rejected = {
             # Bool elements and Bool indices are supported (BOOL_ELEMENT_INPUTS,
-            # BOOL_INDEX_INPUTS), but not constant arrays or default values
-            # over Bool indices (a finite index sort).
-            "(assert (not (select ((as const (Array Bool Bool)) true) false)))":
-                "constant arrays are supported over Int and Real indices only",
+            # BOOL_INDEX_INPUTS), and constant arrays over Bool indices
+            # (test_proof_to_lean_const_sort.py), but not default values
+            # over them (a finite index sort).
             "(declare-fun a () (Array Bool Int))(assert (> (default a) 0))":
                 "default values are supported over Int and Real indices only",
             # Arrays of several indices, also inside a nested array.
@@ -2553,10 +2552,10 @@ class TestArrayValidation(unittest.TestCase):
             "(declare-fun a () (Array Int (Array Int Int Int)))(assert (not (= a a)))":
                 "only arrays over uninterpreted sorts",
             # Nested arrays are supported (NESTED_ARRAY_INPUTS), but not
-            # constant arrays over array indices (no unboundedness proof)
-            # nor default values that are arrays.
+            # constant arrays over array indices (a model's is constant on
+            # the embedded indices only) nor default values that are arrays.
             "(assert (not (select ((as const (Array (Array Int Int) Bool)) true) ((as const (Array Int Int)) 0))))":
-                "constant arrays are supported over Int and Real indices only",
+                "constant arrays indexed by arrays are not supported",
             "(declare-fun a () (Array Int (Array Int Int)))(assert (= (select (default a) 0) 1))":
                 "unsupported array operator: default",
             # Nor connectives over sets indexed by arrays (the embedding of
@@ -2569,10 +2568,6 @@ class TestArrayValidation(unittest.TestCase):
             "(assert (not (select t x)))": "maps and set operators over arrays indexed by arrays",
             "(declare-fun g (Int) Int)(declare-fun a () (Array (Array Int Int) Int))(declare-fun x () (Array Int Int))"
             "(assert (= (select ((_ map g) a) x) 1))": "maps and set operators over arrays indexed by arrays",
-            # Constant arrays over a possibly finite index sort.
-            "(declare-sort I 0)(declare-fun e () I)(declare-fun i () I)"
-            "(assert (not (= (select ((as const (Array I I)) e) i) e)))":
-                "constant arrays are supported over Int and Real indices only",
             # Maps are supported over connectives, equality, distinct, linear
             # arithmetic, comparisons, ite, and uninterpreted functions of up
             # to three elements (SET_COMBINATOR_INPUTS, MAP_FUNCTION_INPUTS);
@@ -2897,8 +2892,9 @@ class TestArrayValidation(unittest.TestCase):
 
         def uninterpreted_indices(index):
             # Default values need an infinite index type: over Element
-            # indices (a sort that may be finite) the declarations are
-            # rejected, not proved.
+            # indices (a sort that may be finite) the default declaration
+            # is rejected, not proved, and so is a store into such an array
+            # at an index of the original sort.
             def tamper(certificate):
                 array = "(Array %s Element)" % index
                 for d in certificate["declarations"]:
@@ -2932,10 +2928,8 @@ class TestArrayValidation(unittest.TestCase):
         self._rejects("z3test_2549", const_of_real, "invalid constant array declaration")
         self._rejects("z3test_2549", renamed_const, "invalid constant array declaration")
         self._rejects("z3test_2549", default_into_real, "invalid default declaration")
-        self._rejects("element_constants", uninterpreted_indices("Int"),
-                      "invalid (constant array|default) declaration")
-        self._rejects("real_index_elements", uninterpreted_indices("Real"),
-                      "invalid (constant array|default) declaration")
+        self._rejects("element_constants", uninterpreted_indices("Int"), "invalid (store|default) declaration")
+        self._rejects("real_index_elements", uninterpreted_indices("Real"), "invalid (store|default) declaration")
         self._rejects("real_index_2549", default_into_real, "invalid default declaration")
         self._rejects("real_index_read", const_value_of_int, "invalid constant array declaration")
         # Real indices relabelled to Int (or the element sort changed) consistently.
@@ -3086,7 +3080,8 @@ class TestArrayValidation(unittest.TestCase):
             next(d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ARRAY_EXT)["range"] = "Int"
 
         def const_over_bool(certificate):
-            # The read at true (a Bool-indexed array constant) relabelled a constant array.
+            # The read at true (a Bool-indexed array constant) relabelled a
+            # constant array, which is one of a value, not a constant.
             array = next(d for d in certificate["declarations"]
                          if d["kind"] == z3.Z3_OP_UNINTERPRETED and d["range"] == "(Array Bool Int)")
             array.update(kind=z3.Z3_OP_CONST_ARRAY, name="const", domain=["Int"])
@@ -3108,7 +3103,7 @@ class TestArrayValidation(unittest.TestCase):
             self.fail("no unit resolution over a double negation")
 
         self._rejects("bool_index_extensionality", witness_into_int, "invalid array-ext declaration")
-        self._rejects("bool_index_read_other", const_over_bool, "invalid constant array declaration")
+        self._rejects("bool_index_read_other", const_over_bool, "wrong number of arguments at node")
         self._rejects("bool_index_negated_stores", double_negation_concluded_negated,
                       "incorrect unit-resolution conclusion")
 

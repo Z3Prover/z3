@@ -441,6 +441,11 @@ class _Terms:
         if not sexpr:
             raise ProofExportError("empty application in the clause log")
         head = sexpr[0]
+        if head in ("forall", "exists", "lambda"):
+            # Z3's rewriter expands an equality between stores over constant
+            # arrays whose index sort may be finite into a quantified
+            # formula, (forall ((x I)) (= (ite (= x i) w v) v)).
+            raise ProofExportError("quantifiers are not supported in the clause log: %s" % head)
         if head == ["_", "array-ext", "0"] and len(sexpr) == 3:
             # The array solver's Skolem function for extensionality: an index
             # where two distinct arrays differ (z3py's Ext).
@@ -451,8 +456,7 @@ class _Terms:
         if (isinstance(head, list) and len(head) == 3 and head[:2] == ["as", "const"] and len(sexpr) == 2
                 and isinstance(head[2], list) and len(head[2]) == 3 and head[2][0] == "Array"):
             # A constant array ((as const (Array I E)) v), z3py's K, of an
-            # array sort of the input (the exporter admits Int and Real indices
-            # only).
+            # array sort of the input (the exporter rejects array indices).
             sort = self.array_sorts.get(_sort_text(head[2]))
             element = head[2][2]  # a sort name, or an array sort of nested arrays
             value = self.build(sexpr[1], {"Int": True, "Real": False}.get(element) if isinstance(element, str)

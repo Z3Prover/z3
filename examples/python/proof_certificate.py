@@ -745,8 +745,9 @@ def is_array_sort(sort):
     I -> (J -> E) in Lean). The element sort may be an enumeration (_m.U
     in Lean, whose interpretation states that every read is one of its
     constructors, see is_enumeration_array_sort). Arrays of several indices
-    are not supported (see array_sort_name); constant arrays and default
-    values need an infinite index sort (Int or Real).
+    are not supported (see array_sort_name); default values need an
+    infinite index sort (Int or Real), and constant arrays an index sort
+    that is not an array.
     """
     def component(candidate):
         return (_is_array_component(candidate) or candidate.kind() == z3.Z3_BOOL_SORT
@@ -1116,15 +1117,20 @@ def classify_fragment(assertions):
                 if is_enumeration_sort(component):
                     enumerations[component.name()] = component
             if decl.kind() == z3.Z3_OP_CONST_ARRAY:
-                # ((as const (Array I E)) v): the array solver relates it to
+                # ((as const (Array I E)) v), the constant function in Lean.
+                # Over Int and Real indices the array solver relates it to
                 # the other arrays through default values (the value an
                 # array takes at all but finitely many indices), which Lean
-                # proves over an infinite index type, Int or Real (see
-                # proof_to_lean._default); a finite uninterpreted index sort
-                # would make those axioms unsound.
-                if expr.sort().domain().kind() not in (z3.Z3_INT_SORT, z3.Z3_REAL_SORT):
-                    raise ProofExportError("constant arrays are supported over Int and Real indices only: %s"
-                                           % expr.sort())
+                # proves over an infinite index type (see
+                # proof_to_lean._default). An uninterpreted index sort may
+                # be finite, so it has no default values (_require_default,
+                # and the reconstructor rejects those of the solver's own);
+                # Lean reads it as a type of its own, exactly the model's
+                # (proof_to_lean._index_sorts), and Bool indices as Prop.
+                # Over array indices a model's constant array is not Lean's
+                # constant function (proof_to_lean's nested arrays).
+                if expr.sort().domain().kind() == z3.Z3_ARRAY_SORT:
+                    raise ProofExportError("constant arrays indexed by arrays are not supported: %s" % expr.sort())
             elif decl.kind() == z3.Z3_OP_ARRAY_MAP or decl.kind() in SET_OPERATORS:
                 if map_parameters(expr)[:1] == ("declared",):
                     # A map of an uninterpreted function: a symbol of the

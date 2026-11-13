@@ -168,8 +168,9 @@ UF fragment the rest of the input is in, their uninterpreted index and
 element sorts counting as its uninterpreted sorts and an Int or Real one as
 its arithmetic (an input with Int arrays alone is qf_uflia); functions and
 predicates may take arrays as arguments, functions may return them,
-constant arrays ((as const (Array I E)) v) and default values (default a)
-are supported over Int and Real indices, and sets combine by maps of not,
+constant arrays ((as const (Array I E)) v) are supported over Int, Real,
+Bool, and uninterpreted indices and default values (default a)
+over Int and Real indices, and sets combine by maps of not,
 and, or, => ((_ map and) a b) and Z3's set operators (union, intersection,
 setminus, complement) and are compared by subset; maps of xor, = and
 distinct, Int and Real +, -, and
@@ -180,8 +181,9 @@ rejects them explicitly); arrays may also be indexed by Bool ((Array Bool
 Int), see below), and an index or element sort may itself be such an array
 ((Array Int (Array Int Int)), (Array (Array Int Int) Bool), nested to any
 depth); arrays
-with several indices, constant arrays and default values over other index
-sorts, default values that are arrays, maps of other functions (*, conversions,
+with several indices, constant arrays indexed by arrays, default values over
+other index sorts than Int and Real, default values that are arrays, maps of
+other functions (*, conversions,
 uninterpreted functions of four or more arguments) or over arrays of arrays, and as-array are rejected.
 Enumeration datatypes (declare-datatype or declare-datatypes whose
 constructors are all nullary, not parametric) count as uninterpreted sorts,
@@ -1259,9 +1261,10 @@ skips a store at false in a read at true as it skips stores at other
 numerals, so such reads get every skipped level's _store_apply fact; the SAT
 solver identifies (not (not p)) with p, so a unit resolution of the gate
 clause (or (not (= (not p) p)) (not (not p)) p) of an index equality
-concludes p, which the reconstruction proves by contradiction. Constant
-arrays and default values over Bool indices stay rejected (a finite index
-sort, like constant arrays over uninterpreted indices).
+concludes p, which the reconstruction proves by contradiction. A constant
+array over Bool indices is the constant function on Prop (a model's embeds
+as exactly that); default values over Bool indices stay rejected (a finite
+index sort).
 
 Nested arrays are functions into or over functions: (Array Int (Array Int
 Int)) is Int -> (Int -> Int) (the family arrs_iaii: a nested component is
@@ -1275,8 +1278,9 @@ image too, so the same generic facts prove the array lemmas. A pointwise
 connective does not commute off the image (the complement of the fixed
 value is another value), so maps and set operators over sets indexed by
 arrays are rejected by the exporter and by the reconstructor; constant
-arrays are admitted over Int and Real indices only, where the embedding
-is onto. A read of a row is an array term, and so is the
+arrays are not admitted over array indices, where the embedding is not
+onto (a model's is constant on the embedded indices only). A read of a
+row is an array term, and so is the
 extensionality witness of two arrays over array indices, chosen with a
 constant function from the element type's inhabitant ((Nonempty.elim
 (Nonempty.intro (0 : Int)) (fun _e => Nonempty.intro (fun (_ : Int) =>
@@ -1302,11 +1306,30 @@ not change (Classical.choice of a Nonempty proof, which is proof-
 irrelevant). _default_const and _default_store are theorems over any index
 type that no finite list exhausts. Over a finite index sort no such function
 exists (storing at every index turns one constant array into another), so
-constant arrays and default terms over uninterpreted indices are rejected
+default terms over uninterpreted and Bool indices are rejected
 by the exporter and by the reconstructor. Z3's rewriter decides an
 equality between stores over constant arrays by their default values or
 their values at the stored indices; a rewrite step reaching a constant
 array gets those facts for its array equalities.
+
+A constant array over an uninterpreted index sort or over Bool is the
+constant function too, _const_array _m.S0 v or _const_array Prop v. The
+sort is then a Lean type of its own like the index sort of a map (below),
+unless it is all of the carrier: over one carrier (= (store (const v) i w)
+(store (const w) i w)), which says that the index sort has one element when
+v and w differ, would contradict (not (= v w)) over another sort, though
+the two have a model. Z3's rewriter makes such arrays of sets ((setminus t
+t) is the empty set, a subset the equality of a difference with it), so
+they are in certificates of inputs that write none. Without default values
+the rewriter compares two constant arrays by their values, (= (const v)
+(const w)) to (= v w), which holds because the sort has an index: each
+equality of arrays a rewrite reaches is read at one index of the sort (a
+constant's value _m.s0_elems 0, or True over Bool), where a constant array
+has its value. An equality between stores over constant arrays over such a
+sort the rewriter expands into a quantified formula, which the exporter
+rejects ("quantifiers are not supported in the clause log"), and the array
+solver's default value of a constant array over such a sort is rejected by
+the reconstructor ("invalid default declaration").
 
 Maps of not, and, or, => over sets and Z3's set operators (union,
 intersection, setminus, complement; Z3 nests n-ary ones into binary ones)
@@ -1397,15 +1420,16 @@ Real); the implication between the values of two constant arrays; and the
 equality of the difference with the set the rewriter leaves. Written out
 after a false assertion, the subset comes with the array solver's axiom
 relating it to that equality, two array lemmas proved the same way. A
-subset over an uninterpreted or Bool index sort verifies only when the
-rewriter decides it, true or false: otherwise (and when Z3 logs it as
-written) its equality needs a constant array over that sort, which the
-reconstructor rejects. A subset over a
+subset over an uninterpreted or Bool index sort is certified like one over
+Int, its equality with the empty set a constant array over that sort; only
+the failure off the stored indices has no fact there (the sort may have no
+other index). A subset over a
 store of a Boolean value other than true and false that the rewriter folds
 to a formula over that value ((subset (store empty 0 p) empty)) is accepted
 and fails in Lean.
 
-The index sort of a map, a set operator, or a subset is a Lean type of its
+The index sort of a map, a set operator, a subset, or a constant array is a
+Lean type of its
 own, _m.S0 (_m.S1, ... for further such sorts, in the order of their names),
 whenever the carrier _m.U holds anything else: another uninterpreted sort or
 an enumeration, or the Bool, Int, Real, or array arguments of a function, a
